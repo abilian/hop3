@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "hop3"
+version = "0.1.0"
+description = ""
+authors = ["Stefane Fermigier <sf@abilian.com>"]
+readme = "README.md"
+
+packages = [
+    { include = "hop3", from = "src" }
+]
+
+[tool.poetry.scripts]
+hop3 = "hop3.main:main"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+click = "^8.1.7"
+pluggy = "^1.4.0"
+
+# Remove later
+devtools = "^0.12.2"
+
+[tool.poetry.group.dev.dependencies]
+abilian-devtools = "^0.5.18"
+pytest = "^8.0.0"
+pyinfra = "^2.9"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"

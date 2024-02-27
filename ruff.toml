@@ -1,0 +1,129 @@
+preview = true
+
+exclude = []
+lint.select = [
+    "F", # Pyflakes
+    "E", # pycodestyle
+    "W", # pycodestyle
+    "I", # isort
+    "N", # pep8-naming
+    "UP", # pyupgrade
+    "YTT", # flake8-2020
+    "A", # flake8-builtins
+    "DTZ", # flake8-datetimez
+    "FA", # flake8-future-annotations
+    "ISC", # flake8-implicit-str-concat
+    "ICN", # flake8-import-conventions
+    "TCH", # flake8-type-checking
+    "TID", # flake8-tidy-imports
+]
+#    "C90", # mccabe
+#    #    "D", # pydocstyle
+#    #    "ANN", # flake8-annotations
+#    "ASYNC", # flake8-async
+#    "S", # flake8-bandit
+#    "BLE", # flake8-blind-except
+#    #    "FBT", # flake8-boolean-trap
+#    "B", # flake8-bugbear
+#    #    "COM", # flake8-commas
+#    #    "CPY", # flake8-copyright
+#    "C4", # flake8-comprehensions
+#    "T10", # flake8-debugger
+#    "DJ", # flake8-django
+#    #    "EM", # flake8-errmsg
+#    "EXE", # flake8-executable
+#    "G", # flake8-logging-format
+#    #    "INP", # flake8-no-pep420
+#    "PIE", # flake8-pie
+#    "T20", # flake8-print
+#    "PYI", # flake8-pyi
+#    "PT", # flake8-pytest-style
+#    "Q", # flake8-quotes
+#    "RSE", # flake8-raise
+#    "RET", # flake8-return
+#    #    "SLF", # flake8-self
+#    "SLOT", # flake8-slots
+#    "SIM", # flake8-simplify
+#    "INT", # flake8-gettext
+#    #    "ARG", # flake8-unused-arguments
+#    #    "PTH", # flake8-use-pathlib
+#    #    "TD", # flake8-todos
+#    #    "FIX", # flake8-fixme
+#    "ERA", # eradicate
+#    "PD", # pandas-vet
+#    #    "PGH", # pygrep-hooks
+#    "PL", # Pylint
+#    #    "TRY", # tryceratops
+#    "FLY", # flynt
+#    #    "NPY", # NumPy-specific rules
+#    #    "AIR", # Airflow
+#    #    "PERF", # Perflint
+#    "FURB", # refurb
+#    "LOG", # flake8-logging
+#    "RUF", # Ruff-specific rules
+#]
+
+lint.ignore = [
+    "E501", # line too long
+    "I001", # Import block is un-sorted or un-formatted
+    "S602",
+    "S404",
+    "S101",
+    "PTH123",
+    "PTH116",
+    "PTH110",
+    "SIM115",
+    "PLW1514",
+    "ERA001",
+]
+
+#    "A001", # Variable `...` is shadowing a python builtin
+#    "A002", # Argument `...` is shadowing a python builtin
+#    "A003", # Class attribute `...` is shadowing a python builtin
+#    "B019", # Use of `functools.lru_cache` or `functools.cache` on methods can lead to memory leaks
+#    "E501", # line too long
+#    "E203", # Whitespace before ':'
+#    "E226", # Missing whitespace around arithmetic operator
+#    "E711", # comparison to None should be 'if cond is not None:'
+#    "E731", # Do not assign a `lambda` expression, use a `def`
+#    "E999", # Syntax error, probably because ruff doesn't support the match statement
+#    "F401", # 'module' imported but unused
+#    "FLY002", # Consider f-string instead of string join
+#    "I001", # Import block is un-sorted or un-formatted
+#    "N805", # First argument of a method should be named `self`
+#    "PLC0415", # `import` should be at the top-level of a file
+#    "PLE0604", # Invalid object in `__all__`, must contain only strings
+#    "PLE1205", # Too many arguments for `logging` format string( works for Loguru)
+#    "PLR0911", # Too many return statements
+#    "PLR6301",
+#    "PLW0603", # Using the global statement
+#    "PLW3201", # Bad or misspelled dunder method name
+#    "PLW3201", # Bad or misspelled dunder method name
+#    "RET504", # Unnecessary variable assignment before `return` statement
+#    "RET505", # Unnecessary `else` after `return` statement
+#    "S101", # Use of `assert` detected
+#    "S311", # Standard pseudo-random generators are not suitable for cryptographic purposes
+#    "SIM108", # Use ternary operator
+#    "TID252", # Relative imports from parent modules are banned
+#    # Fixable?
+#    "BLE001", # Do not catch blind exception
+#    "ERA001", # [*] Found commented-out code
+#    "N801",
+#    "PLR2004", # Magic value used in comparison
+#    "PLR5501", # use elif...
+#    "PLR2044", # Line w/ empty comment
+#    "RUF001", # String contains ambiguous unicode character
+#    "RUF002", # Docstring contains ambiguous unicode character
+#    "RUF003", # Comment contains ambiguous unicode character
+#    "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
+#    "RUF100", # Unused `noqa` directive
+#    "S105", # Possible hardcoded password
+#    "S603", # Using subprocess
+#    "T201", # `print` found
+#    "TCH001", # Move import into a type-checking block
+#    "TCH002", # Move import into a type-checking block
+#    "TCH003", # Move import into a type-checking block
+#    "S404", # `subprocess` module is possibly insecure
+#    "S410", # `lxml` is vulnerable to XML attacks
+#    "PLC2801", # Unnecessary dunder call to `__setattr__`.
+#]
