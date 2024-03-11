@@ -53,8 +53,11 @@ Hop3 is licensed under the Apache License, Version 2.0. See the `LICENSE` file f
 ## Support and Community
 
 Engage with the Hop3 community:
+
 - **GitHub Issues**: For bug reports and feature suggestions.
+
 - **Community Forums/Discussion Boards**: For discussions, questions, and community support.
+
 - **Mailing List**: Subscribe to receive updates, announcements, and participate in discussions.
 
 For additional information, visit the official Hop3 project page or reach out to the team via our support channels.
@@ -65,9 +68,7 @@ For additional information, visit the official Hop3 project page or reach out to
 
 Goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe-monorepo/).
 
-- [x] Split large module
 - [x] Add e2e tests
-- [x] Modernize code (drop support for python < 3.10)
 - [x] Basic plugin architecture (using, e.g. [pluggy](https://pluggy.readthedocs.io/en/stable/))
 - [ ] Add postgres, redis, etc. support using plugins
 - [ ] Working version
