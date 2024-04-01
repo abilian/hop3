@@ -1,5 +1,7 @@
 # Hop3 - Deploy and manage web applications on a single server
 
+<img src="./docs/img/hop3-logo.png" style="width: 500px; height: auto;" alt="logo hop3"/>
+
 ## About
 
 Hop3 is a tool to deploy and manage web applications on a single server (currently). It is designed to be simple, secure, and easy to use.
