@@ -65,16 +65,17 @@ lint.select = [
 
 lint.ignore = [
     "E501", # line too long
-    "I001", # Import block is un-sorted or un-formatted
-    "S602",
-    "S404",
-    "S101",
-    "PTH123",
-    "PTH116",
-    "PTH110",
-    "SIM115",
-    "PLW1514",
     "ERA001",
+    "I001", # Import block is un-sorted or un-formatted
+    "PLW1514",
+    "PTH110",
+    "PTH116",
+    "PTH123",
+    "S101",
+    "S404",
+    "S602",
+    "SIM115",
+    "TCH003", # Move import into a type-checking block
 ]
 
 #    "A001", # Variable `...` is shadowing a python builtin

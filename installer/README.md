@@ -1,8 +1,6 @@
 # Hop3 Installer Guide
 
-This guide provides instructions on how to use the Hop3 installer script to set up the Hop3 environment on a server. The
-installer is designed to automate the installation and configuration process, making it easy to deploy Hop3 on any
-compatible system.
+This guide provides instructions on how to use the Hop3 installer script to set up the Hop3 environment on a server. The installer is designed to automate the installation and configuration process, making it easy to deploy Hop3 on any compatible system.
 
 ## Prerequisites
 
@@ -37,11 +35,9 @@ poetry run pyinfra --user root {$TARGET_HOST} installer/install-hop.py
 
 ## Post-Installation Steps
 
-- **Configure Hop3**: You may need to perform additional configuration steps specific to your application or
-  environment. Refer to the Hop3 documentation for detailed configuration options.
+- **Configure Hop3**: You may need to perform additional configuration steps specific to your application or environment. Refer to the Hop3 documentation for detailed configuration options.
 
-- **Deploy Your Application**: With Hop3 installed, you can now deploy your web applications. Follow the Hop3 deployment
-  guide to learn how to prepare your application for deployment.
+- **Deploy Your Application**: With Hop3 installed, you can now deploy your web applications. Follow the Hop3 deployment guide to learn how to prepare your application for deployment.
 
 - **Secure Your Server**: Ensure your server is secured according to best practices. This includes setting up firewalls,
   securing SSH access, and regularly updating your system and applications.
@@ -56,5 +52,4 @@ If you encounter issues during the installation, check the following:
 
 ## Support
 
-For additional help or to report issues, please visit the Hop3 GitHub repository and open an issue, or consult the Hop3
-community forums.
+For additional help or to report issues, please visit the Hop3 GitHub repository and open an issue, or consult the Hop3 community forums.

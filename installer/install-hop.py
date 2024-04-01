@@ -40,6 +40,7 @@ PACKAGES = [
     # - Nodejs
     "npm",
     "nodeenv",
+    "yarnpkg",
 ]
 
 HOP3_USER = "hop3"
@@ -70,6 +71,16 @@ def setup_server():
         name="Install Debian Packages",
         packages=PACKAGES,
         update=True,
+    )
+    files.link(
+        name="Create /usr/local/bin/node symlink",
+        path="/usr/local/bin/node",
+        target="/usr/bin/nodejs",
+    )
+    files.link(
+        name="Create /usr/local/bin/yarn symlink",
+        path="/usr/local/bin/yarn",
+        target="/usr/bin/yarnpkg",
     )
 
 

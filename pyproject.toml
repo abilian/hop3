@@ -10,11 +10,13 @@ packages = [
 ]
 
 [tool.poetry.scripts]
-hop3 = "hop3.main:main"
+hop-agent = "hop3.main:main"
+hop-test = "hop3.testrunner.main:main"
 
 [tool.poetry.dependencies]
 python = "^3.10"
 click = "^8.1.7"
+cleez = "*"
 pluggy = "^1.4.0"
 
 # Remove later
@@ -24,6 +26,11 @@ devtools = "^0.12.2"
 abilian-devtools = "^0.5.18"
 pytest = "^8.0.0"
 pyinfra = "^2.9"
+httpx = "^0.27.0"
+python-dotenv = "^1.0.1"
+infer-types = "^1.0.0"
+types-paramiko = "^3.4.0.20240311"
+reuse = "^3.0.1"
 
 [build-system]
 requires = ["poetry-core"]

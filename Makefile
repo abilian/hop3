@@ -1,6 +1,8 @@
 .PHONY: all develop test lint clean doc format
 .PHONY: clean clean-build clean-pyc clean-test coverage dist docs install lint lint/flake8
 
+# For tests
+TARGET_HOST=ssh.hop.abilian.com
 
 all: lint test
 
@@ -8,8 +10,9 @@ all: lint test
 #
 #
 deploy:
+	@make clean
 	poetry build
-	pyinfra --user root hop3.abilian.com installer/setup-hop3.py
+	poetry run pyinfra --user root ${TARGET_HOST} installer/install-hop.py
 
 #
 # Setup
@@ -41,7 +44,11 @@ configure-git:
 test:
 	@echo "--> Running Python tests"
 	pytest -x -p no:randomly
-	# python tests/e2e/runtests_flask.py
+	@echo ""
+
+test-e2e:
+	@echo "--> Running e2e tests"
+	hop-test
 	@echo ""
 
 test-randomly:
@@ -69,7 +76,7 @@ clean-test: ## remove test and coverage artifacts
 ## Lint / check typing
 lint:
 	# adt check src tests
-	ruff src tests
+	ruff check src tests
 	# mypy --show-error-codes src
 	# pyright src
 
@@ -102,6 +109,9 @@ audit:
 format:
 	# docformatter -i -r src
 	adt format
+	@echo "You need the Fish shell to run the following commands:"
+	fish -c "gofmt -w apps/**/*.go"
+	fish -c "prettier -w apps/**/*.js"
 
 
 #
@@ -130,7 +140,8 @@ clean:
 	find . -type d -empty -delete
 	rm -rf *.egg-info *.egg .coverage .eggs .cache .mypy_cache .pyre \
 		.pytest_cache .pytest .DS_Store  docs/_build docs/cache docs/tmp \
-		dist build pip-wheel-metadata junit-*.xml htmlcov coverage.xml
+		dist build pip-wheel-metadata junit-*.xml htmlcov coverage.xml \
+		tmp
 	adt clean
 
 ## Cleanup harder
