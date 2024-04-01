@@ -1,0 +1,21 @@
+[metadata]
+id = "flask-two"
+version = "1.2"
+release = 2
+title = "Flask test two"
+author = "Nua testers"
+tagline = "Nua test with Flask - two"
+website = "https://nua.rocks/"
+tags = ["test", "html", "web", "static"]
+
+[build]
+license = "MIT"
+test = "python -c 'import app.main'"
+
+[docker]
+# parameters passed as a dict to docker run
+auto_remove = true
+mem_limit = "8G"
+
+[port.web]
+container = 80
