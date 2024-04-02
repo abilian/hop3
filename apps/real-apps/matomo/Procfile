@@ -1,0 +1,4 @@
+preflight: hop3/fetch.py
+web: hop3/run.py
+
+# web: cd matomo ; php -S 0.0.0.0:$PORT
