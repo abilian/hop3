@@ -8,7 +8,7 @@ Hop3 is a tool to deploy and manage web applications on a single server (current
 
 ## Overview
 
-Hop3 is an open-source platform aimed at enhancing cloud computing with a focus on sovereignty, security, sustainability, and inclusivity. 
+Hop3 is an open-source platform aimed at enhancing cloud computing with a focus on sovereignty, security, sustainability, and inclusivity.
 
 It is designed to facilitate access to cloud technologies for a wide range of users, including small and medium-sized enterprises (SMEs), non-profits, public services, and individual developers. By leveraging existing, robust web, cloud and open source technologies, Hop3 enables these groups to deploy and manage web applications efficiently and securely.
 
@@ -72,14 +72,16 @@ Goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe
 
 - [x] Add e2e tests
 - [x] Basic plugin architecture (using, e.g. [pluggy](https://pluggy.readthedocs.io/en/stable/))
+- [x] Fix REUSE config
+- [x] Basic tests and sample apps
 - [ ] Add postgres, redis, etc. support using plugins
 - [ ] Working version
-- [ ] Finish code cleanup (renaming, splitting large functions / modules, etc.)
-- [ ] Rewrite documentation / READMEs / etc.
+- [ ] Documentation / READMEs / etc.
+- [ ] SBE deployment + a few more useful apps
 
 ### P1:
 
-- [ ] Refactor code using classes (where it makes sense)
+- [ ] Introduce plugins (where it makes sense)
 - [ ] Review / improve CLI DX
 - [ ] Improve Python builder (support for poetry, pipenv, etc.)
 - [ ] Manage external services (databases, etc.)
@@ -89,13 +91,13 @@ Goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe
 
 ### P2:
 
-- [ ] Target other platforms (e.g. SlapOS, NixOS, docker, etc.)
+- [ ] Target other platforms (e.g. SlapOS, NixOS, etc.)
 - [ ] Security (Firewall, WAF, better isolation, etc.)
 - [ ] Monitoring
 - [ ] Backup / Restore
 - [ ] (Pluggable) Alternatives to uWSGI, NGINX, etc.
 
-### P3: 
+### P3:
 
 - [ ] Multi-server support
 - [ ] Unified logging
@@ -112,15 +114,14 @@ TODO.
 
 ## Credits
 
-Hop3 contains some code from Piku, which shares some of the Hop3 / Nua goals but also has some significant differences in goals and principles.
+Hop3 contains some code from Piku, which shares some of the goals of Hop3 / Nua but also has some significant differences in goals and principles.
 
 Hop3 also contains code from Nua, written by the Abilian development team, and contributors.
 
 Other inspirations include:
 
-- [Dokku]()
-- [Flynn]()
-- [fig aka docker-compose]()
+- [Dokku](https://dokku.com/)
+- [fig aka docker-compose](https://pypi.org/project/docker-compose/)
 
 The following people have contributed to Hop3:
 

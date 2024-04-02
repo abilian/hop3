@@ -1,5 +1,3 @@
-# Copyright 2021 Phil Eaton
-
 # ruff: noqa: W293
 
 from hop3.util.templating import eval_template
