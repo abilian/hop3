@@ -1,0 +1,126 @@
+# Copyright 2022-2024 Abilian SAS
+
+# ruff: noqa: E402
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+import time
+import traceback
+from pathlib import Path
+
+import httpx
+
+from hop3.util.backports import chdir
+
+from .common import DOMAIN, SERVER, run
+
+DEFAULT_WAIT = 5
+CLOJURE_WAIT = 15
+
+
+from typing import Iterator
+
+
+class TestSession:
+
+    def __init__(self, app_directory: Path, config: dict) -> None:
+        assert app_directory.exists()
+        assert app_directory.is_dir()
+
+        self.directory = app_directory
+        self.name = app_directory.name
+        self.app_name = f"{self.name}-{int(time.time())}"
+        self.app_host_name = f"{self.app_name}.{DOMAIN}"
+        self.config = config or {}
+
+    def run(self) -> str:
+        try:
+            self.deploy_app()
+            time.sleep(5)
+            self.test_all_commands()
+            if self.config.get("keep", False):
+                print(f"Keeping {self.app_name}")
+            else:
+                self.cleanup()
+            return "success"
+        except Exception as e:
+            traceback.print_exc()
+            print(f"Error testing {self.app_name}: {e}")
+            return "error"
+
+    def test_all_commands(self) -> None:
+        time.sleep(DEFAULT_WAIT)
+        result = self.hop("apps")
+        assert self.app_name in result, f"App {self.app_name} not found in {result}"
+
+        self.hop("config:set", f"NGINX_SERVER_NAME={self.app_host_name}")
+        if self.app_name.startswith("clojure"):
+            time.sleep(CLOJURE_WAIT)
+        else:
+            time.sleep(DEFAULT_WAIT)
+
+        self.check_app_is_up()
+
+    def cleanup(self) -> None:
+        self.hop("destroy")
+        time.sleep(5)
+        # check_app_is_down()
+
+    def hop(self, cmd, args=""):
+        if cmd == "apps":
+            shell_cmd = f"ssh hop3@{SERVER} {cmd}"
+        else:
+            shell_cmd = f"ssh hop3@{SERVER} {cmd} {self.app_name}"
+        if args:
+            shell_cmd += f" {args}"
+        return run(shell_cmd)
+
+    @property
+    def app_url(self) -> str:
+        return f"https://{self.app_host_name}/"
+
+    def check_app_is_up(self) -> None:
+        url = self.app_url
+        try:
+            response = httpx.get(url, verify=False)
+        except OSError as e:
+            raise AssertionError(
+                f"App {self.app_host_name} ({url}) is not up, got OSError:\n{e}"
+            )
+
+        if response.status_code != 200:
+            raise AssertionError(
+                f"App {self.app_host_name} ({url}) is not up, got status code {response.status_code}"
+            )
+
+        # Check content later
+        # assert "Python/Flask" in response.text
+
+    def check_app_is_down(self) -> None:
+        url = self.app_url
+        result = httpx.get(url, verify=False)
+        assert result.status_code == 502
+
+    def get_all_apps(self) -> Iterator:
+        cmd = f"ssh hop3@{SERVER} apps"
+        p = subprocess.run(cmd, shell=True, capture_output=True)
+        lines = p.stdout.decode().split("\n")
+        for line in lines:
+            if line.strip().startswith("*"):
+                yield line.strip().split()[1]
+
+    def deploy_app(self) -> None:
+        print(Path.cwd())
+
+        tmp_dir = Path("tmp", f"{self.name}-example")
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        shutil.copytree(f"{self.directory}", tmp_dir)
+
+        with chdir(tmp_dir):
+            run("git init")
+            run("git add .")
+            run("git commit -m 'init'")
+            run(f"git remote add hop3 hop3@{SERVER}:{self.app_name}")
+            run("git push hop3 main")

@@ -1,0 +1,97 @@
+# Copyright 2022-2024 Abilian SAS
+
+# ruff: noqa: E402
+
+from __future__ import annotations
+
+import argparse
+from multiprocessing.pool import Pool
+from pathlib import Path
+
+from cleez.colors import green, red
+from devtools import debug
+
+from hop3.util.console import Abort
+
+from .base import TestSession
+from .common import update_agent
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser("Run end-to-end tests")
+    parser.add_argument("-k", "--keep", action="store_true", help="Keep apps alive")
+    parser.add_argument(
+        "-p", "--parallel", action="store_true", help="Run in parallel (not working)"
+    )
+    parser.add_argument("-d", "--directory", help="Directory to look for apps")
+    parser.add_argument("-a", "--app", help="App to test")
+    args = parser.parse_args()
+
+    apps = get_apps(args)
+    apps = sorted(apps)
+
+    if not apps:
+        raise Abort("No apps found.")
+
+    update_agent()
+
+    config = {
+        "keep": args.keep,
+    }
+
+    # Not working
+    if args.parallel:
+
+        def run(app):
+            session = TestSession(app, config)
+            return session.run()
+
+        with Pool(4) as pool:
+            results = pool.map(run, apps)
+
+        debug(zip(apps, results))
+
+    else:
+        test_results = []
+        for app in sorted(apps):
+            print(green(f"Testing {app}"))
+            session = TestSession(app, config)
+            result = session.run()
+            test_results.append((app, result))
+        print_results(test_results)
+
+
+def get_apps(args) -> list | list[Path]:
+    print(args)
+    if args.directory:
+        directory = Path(args.directory)
+    else:
+        directory = Path("apps", "test-apps")
+
+    if args.app:
+        app = Path(args.app)
+        if app.is_dir():
+            return [app]
+        else:
+            return [directory / app]
+
+    apps = []
+    for app in directory.iterdir():
+        if app.is_dir():
+            apps.append(app)
+
+    return apps
+
+
+def print_results(test_results) -> None:
+    print("\n\n\nTest results:")
+    for app, status in test_results:
+        match status:
+            case "success":
+                print(green(f"{app}: {status}"))
+            case "error":
+                print(red(f"{app}: {status}"))
+
+
+if __name__ == "__main__":
+    main()
