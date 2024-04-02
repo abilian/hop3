@@ -35,7 +35,7 @@ Hop3's architecture is designed to be open and extensible, encouraging community
 
 ## Hop3 and the 12-Factor App Methodology
 
-The 12-factor app methodology is a set of practices for building modern web applications to ensure they are portable, scalable, and maintainable in a Platform-as-a-Service (PaaS) environment. Hop3 aligns with these principles to provide a robust and efficient platform for deploying web applications, promoting best practices in development and operations. 
+The 12-factor app methodology is a set of practices for building modern web applications to ensure they are portable, scalable, and maintainable in a Platform-as-a-Service (PaaS) environment. Hop3 aligns with these principles to provide a robust and efficient platform for deploying web applications, promoting best practices in development and operations.
 
 1. **Codebase** - One codebase tracked in version control with many deploys. Hop3 encourages a single codebase for each application, version-controlled with Git, allowing for multiple deployments across different environments.
 
