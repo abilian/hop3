@@ -33,6 +33,11 @@ poetry build
 poetry run pyinfra --user root {$TARGET_HOST} installer/install-hop.py
 ```
 
+## Demo
+
+[![asciicast](https://asciinema.org/a/EyYlupPqQvY2ET0vTVkVpN5t3.svg)](https://asciinema.org/a/EyYlupPqQvY2ET0vTVkVpN5t3)
+
+
 ## Post-Installation Steps
 
 - **Configure Hop3**: You may need to perform additional configuration steps specific to your application or environment. Refer to the Hop3 documentation for detailed configuration options.

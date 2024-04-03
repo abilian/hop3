@@ -1,5 +1,6 @@
 # Specific to this project
 /old-docs/
+ignore.py
 
 # Local environment variables
 /.env

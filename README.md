@@ -1,6 +1,9 @@
 # Hop3 - Deploy and manage web applications on a single server
 
 <img src="./docs/img/hop3-logo.png" style="width: 500px; height: auto;" alt="logo hop3"/>
+<img
+  referrerpolicy="no-referrer-when-downgrade"
+  src="https://stats.abilian.com/matomo.php?idsite=15&amp;rec=1" style="border:0" alt="" />
 
 ## About
 
@@ -114,9 +117,9 @@ TODO.
 
 ## Credits
 
-Hop3 contains some code from Piku, which shares some of the goals of Hop3 / Nua but also has some significant differences in goals and principles.
+Hop3 contains code from Piku, which shares some of the goals of Hop3 / Nua but also has some significant differences in goals and principles, as well as in architecture (Hop3 is modular and pugin-based, Piku is a single-file script).
 
-Hop3 also contains code from Nua, written by the Abilian development team, and contributors.
+Hop3 also contains code from Nua, written by the Abilian development team, and contributors. The two projects share most goals and principles, except Nua is based on containers and Hop3 is not. The two projects may ultimately merge in the future (or not).
 
 Other inspirations include:
 
@@ -125,8 +128,8 @@ Other inspirations include:
 
 The following people have contributed to Hop3:
 
-- [Stefane Fermigier](https://fermigier.com/) has created Nua and Hop3.
-- [Jérôme Dumonteil]() has contributed to Nua and Hop3.
+- [Stefane Fermigier](https://fermigier.com/) has created and maintains Nua and Hop3.
+- [Jérôme Dumonteil]() has contributed to Nua.
 - [Rui Carmo](https://github.com/rcarmo) (and other Piku contributors) for the original Piku.
 
 - [Abilian](https://www.abilian.com/) is the company behind Nua and Hop3.

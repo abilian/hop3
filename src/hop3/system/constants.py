@@ -1,0 +1,43 @@
+"""
+Globals constants for Hop3.
+"""
+
+from __future__ import annotations
+
+from os import environ
+from os.path import abspath, join
+from pathlib import Path
+
+HOME = environ["HOME"]
+
+HOP3_HOME = HOME
+HOP3_ROOT = HOP3_HOME
+HOP3_BIN = join(HOP3_HOME, "bin")
+HOP3_SCRIPT = str(Path(HOP3_HOME, "venv", "bin", "hop-agent"))
+
+# Main directories for Hop3
+APP_ROOT = abspath(join(HOP3_ROOT, "apps"))
+DATA_ROOT = abspath(join(HOP3_ROOT, "data"))
+ENV_ROOT = abspath(join(HOP3_ROOT, "envs"))
+GIT_ROOT = abspath(join(HOP3_ROOT, "repos"))
+LOG_ROOT = abspath(join(HOP3_ROOT, "logs"))
+NGINX_ROOT = abspath(join(HOP3_ROOT, "nginx"))
+CACHE_ROOT = abspath(join(HOP3_ROOT, "cache"))
+
+UWSGI_AVAILABLE = abspath(join(HOP3_ROOT, "uwsgi-available"))
+UWSGI_ENABLED = abspath(join(HOP3_ROOT, "uwsgi-enabled"))
+UWSGI_ROOT = abspath(join(HOP3_ROOT, "uwsgi"))
+UWSGI_LOG_MAXSIZE = "1048576"
+
+ACME_ROOT = environ.get("ACME_ROOT", join(environ["HOME"], ".acme.sh"))
+ACME_WWW = abspath(join(HOP3_ROOT, "acme"))
+ACME_ROOT_CA = environ.get("ACME_ROOT_CA", "letsencrypt.org")
+
+CRON_REGEXP = (
+    r"^((?:(?:\*\/)?\d+)|\*) "
+    r"((?:(?:\*\/)?\d+)|\*) "
+    r"((?:(?:\*\/)?\d+)|\*) "
+    r"((?:(?:\*\/)?\d+)|\*) "
+    r"((?:(?:\*\/)?\d+)|\*) "
+    r"(.*)$"
+)

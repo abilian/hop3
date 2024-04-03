@@ -1,0 +1,23 @@
+"""
+=== CLI commands ===
+"""
+
+from __future__ import annotations
+
+from click import group
+from devtools import debug
+
+CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+
+
+@group(context_settings=CONTEXT_SETTINGS)
+def hop3() -> None:
+    """The smallest PaaS you've ever seen"""
+    pass
+
+
+@hop3.result_callback()
+def cleanup(ctx) -> None:
+    """Callback from command execution -- add debugging to taste"""
+    debug(ctx)
+    pass

@@ -21,6 +21,8 @@ pluggy = "^1.4.0"
 
 # Remove later
 devtools = "^0.12.2"
+sqlalchemy = "^2.0.29"
+sqlalchemy-serializer = "^1.4.12"
 
 [tool.poetry.group.dev.dependencies]
 abilian-devtools = "^0.5.18"

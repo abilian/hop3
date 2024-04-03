@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from multiprocessing.pool import Pool
 from pathlib import Path
 
@@ -25,6 +26,7 @@ def main() -> None:
     )
     parser.add_argument("-d", "--directory", help="Directory to look for apps")
     parser.add_argument("-a", "--app", help="App to test")
+    parser.add_argument("--ff", action="store_true", help="Fail fast")
     args = parser.parse_args()
 
     apps = get_apps(args)
@@ -57,7 +59,11 @@ def main() -> None:
             print(green(f"Testing {app}"))
             session = TestSession(app, config)
             result = session.run()
+            if result == "error" and args.ff:
+                print(f"Fail fast: stopping tests after error on app {app}")
+                sys.exit(1)
             test_results.append((app, result))
+
         print_results(test_results)
 
 
