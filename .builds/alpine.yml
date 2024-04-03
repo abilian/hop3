@@ -18,18 +18,15 @@ packages:
 
 tasks:
   - setup: |
-      # Workaround to install poetry on Alpine
-      # (was: sudo poetry self update)
       pipx install poetry
       sudo ln -sf ~/.local/bin/poetry /usr/local/bin/
-      cd nua
+      cd hop3
       poetry install
-      poetry run invoke install
 
   - lint: |
-      cd nua
-      poetry run invoke lint
+      cd hop3
+      poetry run make lint
 
-#  - test: |
-#      cd nua
-#      poetry run invoke test
+  - test: |
+      cd hop3
+      poetry run make test
