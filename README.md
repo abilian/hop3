@@ -115,7 +115,9 @@ Goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe
 
 TODO.
 
-## Credits
+## Copyright, Credits and Acknowledgements
+
+### Authors
 
 Hop3 contains code from Piku, which shares some of the goals of Hop3 / Nua but also has some significant differences in goals and principles, as well as in architecture (Hop3 is modular and pugin-based, Piku is a single-file script).
 
@@ -133,6 +135,20 @@ The following people have contributed to Hop3:
 - [Rui Carmo](https://github.com/rcarmo) (and other Piku contributors) for the original Piku.
 
 - [Abilian](https://www.abilian.com/) is the company behind Nua and Hop3.
+
+### REUSE Compliance
+
+> * Bad licenses: 0
+> * Deprecated licenses: 0
+> * Licenses without file extension: 0
+> * Missing licenses: 0
+> * Unused licenses: 0
+> * Used licenses: AGPL-3.0-only, CC0-1.0, MIT, CC-BY-4.0
+> * Read errors: 0
+> * files with copyright information: 125 / 125
+> * files with license information: 125 / 125
+>
+> Congratulations! Your project is compliant with version 3.0 of the REUSE Specification :-)
 
 ## What's the story behind the name?
 
