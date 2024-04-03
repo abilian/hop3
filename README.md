@@ -1,6 +1,7 @@
 # Hop3 - Deploy and manage web applications on a single server
 
-<img src="./docs/img/hop3-logo.png" style="width: 500px; height: auto;" alt="logo hop3"/>
+<img src="https://abilian.com/static/images/ext/hop3-logo.png" 
+  style="width: 500px; height: auto;" alt="logo hop3"/>
 <img
   referrerpolicy="no-referrer-when-downgrade"
   src="https://stats.abilian.com/matomo.php?idsite=15&amp;rec=1" style="border:0" alt="" />
@@ -50,10 +51,6 @@ To begin using Hop3, follow these introductory steps:
 ## Contributing
 
 Contributions to Hop3 are highly encouraged, whether it involves fixing bugs, adding features, or enhancing documentation. Please refer to the `CONTRIBUTING.md` file for contribution guidelines.
-
-## License
-
-Hop3 is licensed under the Apache License, Version 2.0. See the `LICENSE` file for more details.
 
 ## Support and Community
 
@@ -136,7 +133,9 @@ The following people have contributed to Hop3:
 
 - [Abilian](https://www.abilian.com/) is the company behind Nua and Hop3.
 
-### REUSE Compliance
+### Licensing / REUSE Compliance
+
+The project is licensed under the AGPL-3.0-only license and other licenses:
 
 > * Bad licenses: 0
 > * Deprecated licenses: 0
