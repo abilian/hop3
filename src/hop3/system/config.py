@@ -1,3 +1,5 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 """
 Global configuration for the hop3 system.
 """

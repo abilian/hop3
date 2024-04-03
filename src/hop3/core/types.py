@@ -1,3 +1,5 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 # TODO: duplicated
 
 from __future__ import annotations

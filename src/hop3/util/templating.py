@@ -19,6 +19,8 @@ def expand_vars(template, env: dict[str, Any], default=None):
     return re.sub(PATTERN, replace_var, template)
 
 
+# Copyright (c) 2016 Rui Carmo
+# Copyright (c) 2023-2024, Abilian SAS
 # Copyright 2021 Phil Eaton
 # Copyright 2024 Stefane Fermigier
 
