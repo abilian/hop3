@@ -1,0 +1,35 @@
+image: alpine/edge
+
+packages:
+  # Dev tools
+  - gcc
+  - rust
+  - cargo
+  - npm
+  # Libraries
+  - libffi-dev
+  - musl-dev
+  - postgresql-dev
+  # Python dev
+  - python3-dev
+  - py3-pip
+  - pipx
+  # - poetry
+
+tasks:
+  - setup: |
+      # Workaround to install poetry on Alpine
+      # (was: sudo poetry self update)
+      pipx install poetry
+      sudo ln -sf ~/.local/bin/poetry /usr/local/bin/
+      cd nua
+      poetry install
+      poetry run invoke install
+
+  - lint: |
+      cd nua
+      poetry run invoke lint
+
+#  - test: |
+#      cd nua
+#      poetry run invoke test
