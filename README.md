@@ -43,7 +43,7 @@ To begin using Hop3, follow these introductory steps:
 1. **Prerequisites**: Familiarize yourself with basic cloud computing concepts and the specific technologies Hop3 employs for virtualization and security.
 
 2. **Installation**:
-   - Download the latest version of Hop3 from the official repository: `git clone https://github.com/hop3-project/hop3.git`
+   - Download the latest version of Hop3 from the official repository: `git clone https://github.com/abilian/hop3.git`
    - Follow the installation instructions in the `docs/installation.md` to set up Hop3 on your system.
 
 3. **Configuration**: Configuration options can be found in the `config` directory. Adjust these settings to suit your environment and deployment needs.
