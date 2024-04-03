@@ -6,6 +6,8 @@
   referrerpolicy="no-referrer-when-downgrade"
   src="https://stats.abilian.com/matomo.php?idsite=15&amp;rec=1" style="border:0" alt="" />
 
+[![builds.sr.ht status](https://builds.sr.ht/~sfermigier/hop3.svg)](https://builds.sr.ht/~sfermigier/hop3?)
+
 ## About
 
 Hop3 is a tool to deploy and manage web applications on a single server (currently). It is designed to be simple, secure, and easy to use.
