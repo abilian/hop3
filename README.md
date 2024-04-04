@@ -76,6 +76,7 @@ Goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe
 - [x] Basic plugin architecture (using, e.g. [pluggy](https://pluggy.readthedocs.io/en/stable/))
 - [x] Fix REUSE config
 - [x] Basic tests and sample apps
+- [x] Basic CI (via SourceHut)
 - [ ] Add postgres, redis, etc. support using plugins
 - [ ] Working version
 - [ ] Documentation / READMEs / etc.
@@ -87,8 +88,7 @@ Goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe
 - [ ] Review / improve CLI DX
 - [ ] Improve Python builder (support for poetry, pipenv, etc.)
 - [ ] Manage external services (databases, etc.)
-- [ ] More end-to-end tests, examples
-- [ ] CI/CD
+- [ ] More end-to-end tests, examples, CI
 - [ ] Web App
 
 ### P2:
