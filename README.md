@@ -12,6 +12,8 @@
 
 Hop3 is a tool to deploy and manage web applications on a single server (currently). It is designed to be simple, secure, and easy to use.
 
+The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [GitHub](https://github.com/abilian/hop3).
+
 ## Overview
 
 Hop3 is an open-source platform aimed at enhancing cloud computing with a focus on sovereignty, security, sustainability, and inclusivity.
