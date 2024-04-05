@@ -1,4 +1,5 @@
 # Copyright (c) 2023-2024, Abilian SAS
+
 from enum import Enum
 
 from advanced_alchemy.base import BigIntAuditBase

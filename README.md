@@ -1,6 +1,6 @@
 # Hop3 - Deploy and manage web applications on a single server
 
-<img src="https://abilian.com/static/images/ext/hop3-logo.png" 
+<img src="https://abilian.com/static/images/ext/hop3-logo.png"
   style="width: 500px; height: auto;" alt="logo hop3"/>
 <img
   referrerpolicy="no-referrer-when-downgrade"

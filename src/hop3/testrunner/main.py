@@ -1,6 +1,5 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
-
 # ruff: noqa: E402
 
 from __future__ import annotations
