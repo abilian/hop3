@@ -11,11 +11,13 @@ from sqlalchemy_serializer import SerializerMixin
 class AppStateEnum(Enum):
     RUNNING = 1
     STOPPED = 2
-    PAUSE = 3
+    PAUSED = 3
+    # ...
 
 
 class App(BigIntAuditBase, SerializerMixin):
     __tablename__ = "apps"
 
     name: Mapped[str] = mapped_column(String(128))
-    state: Mapped[AppStateEnum] = mapped_column(default=AppStateEnum.STOPPED)
+    run_state: Mapped[AppStateEnum] = mapped_column(default=AppStateEnum.STOPPED)
+    port: Mapped[int]
