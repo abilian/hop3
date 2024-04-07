@@ -10,12 +10,13 @@ from pathlib import Path
 from click import secho as echo
 from devtools import debug
 
+from hop3.core.env import Env
 from hop3.nginx import setup_nginx
 from hop3.project.config import Config
 from hop3.project.procfile import parse_procfile
 from hop3.run.uwsgi import spawn_uwsgi_worker
 from hop3.system.constants import APP_ROOT, ENV_ROOT, LOG_ROOT, UWSGI_ENABLED
-from hop3.util import get_boolean, get_free_port
+from hop3.util import get_free_port
 from hop3.util.console import log
 from hop3.util.settings import parse_settings, write_settings
 
@@ -73,7 +74,7 @@ class AppLauncher:
                         worker_count[env_key] + deltas[env_key],
                         -1,
                     )
-                worker_count[env_key] = worker_count[env_key] + deltas[env_key]
+                worker_count[env_key] += deltas[env_key]
 
         env = self.env.copy()
 
@@ -88,7 +89,7 @@ class AppLauncher:
 
         write_settings(scaling, worker_count, ":")
 
-        if get_boolean(env.get("HOP3_AUTO_RESTART", "true")):
+        if env.get_bool("HOP3_AUTO_RESTART", True):
             configs = list(Path(UWSGI_ENABLED).glob(f"{self.app_name}*.ini"))
             if len(configs):
                 echo("-----> Removing uwsgi configs to trigger auto-restart.")
@@ -109,15 +110,17 @@ class AppLauncher:
         settings = Path(ENV_ROOT, self.app_name, "ENV")
 
         # Bootstrap environment
-        env = {
-            "APP": self.app_name,
-            "LOG_ROOT": LOG_ROOT,
-            "HOME": os.environ["HOME"],
-            "USER": os.environ["USER"],
-            "PATH": f"{virtualenv_path / 'bin'}:{os.environ['PATH']}",
-            "PWD": str(self.app_path),
-            "VIRTUAL_ENV": str(virtualenv_path),
-        }
+        env = Env(
+            {
+                "APP": self.app_name,
+                "LOG_ROOT": LOG_ROOT,
+                "HOME": os.environ["HOME"],
+                "USER": os.environ["USER"],
+                "PATH": f"{virtualenv_path / 'bin'}:{os.environ['PATH']}",
+                "PWD": str(self.app_path),
+                "VIRTUAL_ENV": str(virtualenv_path),
+            }
+        )
 
         safe_defaults = {
             "NGINX_IPV4_ADDRESS": "0.0.0.0",
@@ -144,7 +147,7 @@ class AppLauncher:
             port = env["PORT"] = str(get_free_port())
             log(f"Picking free port {port}", level=5)
 
-        if get_boolean(env.get("DISABLE_IPV6", "false")):
+        if env.get_bool("DISABLE_IPV6"):
             safe_defaults.pop("NGINX_IPV6_ADDRESS", None)
             log("nginx will NOT use IPv6", level=5)
 
@@ -158,16 +161,16 @@ class AppLauncher:
 
     def create_new_workers(self, to_create, env):
         # Create new workers
-        for k, v in to_create.items():
+        for kind, v in to_create.items():
             for w in v:
-                enabled = Path(UWSGI_ENABLED, f"{self.app_name:s}_{k:s}.{w:d}.ini")
+                enabled = Path(UWSGI_ENABLED, f"{self.app_name:s}_{kind:s}.{w:d}.ini")
                 if not enabled.exists():
                     log(
-                        f"spawning '{self.app_name:s}:{k:s}.{w:d}'",
+                        f"spawning '{self.app_name:s}:{kind:s}.{w:d}'",
                         level=5,
                         fg="green",
                     )
-                    spawn_uwsgi_worker(self.app_name, k, self.workers[k], env, w)
+                    spawn_uwsgi_worker(self.app_name, kind, self.workers[kind], env, w)
 
     def remove_unnecessary_workers(self, to_destroy):
         # Remove unnecessary workers (leave logfiles)

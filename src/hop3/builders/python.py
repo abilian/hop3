@@ -5,9 +5,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
 from hop3.system.constants import ENV_ROOT
 from hop3.util.backports import chdir
-from hop3.util.console import log
 from hop3.util.settings import parse_settings
 
 from .base import Builder
@@ -46,15 +46,12 @@ class PythonBuilder(Builder):
         exec(open(activation_script).read(), {"__file__": activation_script})
 
     def create_virtualenv(self) -> None:
-        log(
-            f"Creating or recreating virtualenv for '{self.app_name:s}'",
-            level=5,
-            fg="green",
-        )
+        emit(CreatingVirtualEnv(self.app_name))
+
         self.shell(f"virtualenv --python=python3 {self.app_name:s}", cwd=ENV_ROOT)
 
     def install_virtualenv(self) -> None:
-        log(f"Installing requirements for '{self.app_name}'", level=5, fg="green")
+        emit(InstallingVirtualEnv(self.app_name))
 
         pip = self.virtual_env / "bin" / "pip"
         if Path("requirements.txt").exists():

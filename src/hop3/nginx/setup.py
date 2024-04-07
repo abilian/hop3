@@ -10,7 +10,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from traceback import format_exc
-from typing import Any
+from typing import TYPE_CHECKING
 from urllib.request import urlopen
 
 from click import secho as echo
@@ -27,9 +27,12 @@ from hop3.nginx.templates import (
     NGINX_TEMPLATE,
 )
 from hop3.system.constants import ACME_WWW, APP_ROOT, CACHE_ROOT, NGINX_ROOT
-from hop3.util import command_output, get_boolean
+from hop3.util import command_output
 from hop3.util.console import log
 from hop3.util.templating import expand_vars
+
+if TYPE_CHECKING:
+    from hop3.core.env import Env
 
 
 @dataclass(frozen=True)
@@ -37,7 +40,7 @@ class NginxConfig:
     env: dict[str, str]
 
 
-def setup_nginx(app_name: str, env: dict[str, Any], workers: dict[str, str]) -> None:
+def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
     app_path = Path(APP_ROOT, app_name)
 
     # Hack to get around ClickCommand
@@ -85,7 +88,7 @@ def setup_nginx(app_name: str, env: dict[str, Any], workers: dict[str, str]) -> 
 
     # restrict access to server from CloudFlare IP addresses
     acl = []
-    if get_boolean(env.get("NGINX_CLOUDFLARE_ACL", "false")):
+    if env.get_bool("NGINX_CLOUDFLARE_ACL"):
         try:
             cf = json.loads(
                 urlopen("https://api.cloudflare.com/client/v4/ips")
@@ -95,7 +98,7 @@ def setup_nginx(app_name: str, env: dict[str, Any], workers: dict[str, str]) -> 
             if cf["success"] is True:
                 for i in cf["result"]["ipv4_cidrs"]:
                     acl.append(f"allow {i};")
-                if get_boolean(env.get("DISABLE_IPV6", "false")):
+                if env.get_bool("DISABLE_IPV6"):
                     for i in cf["result"]["ipv6_cidrs"]:
                         acl.append(f"allow {i};")
                 # allow access from controlling machine
@@ -123,7 +126,7 @@ def setup_nginx(app_name: str, env: dict[str, Any], workers: dict[str, str]) -> 
     if not os.path.exists(default_cache_path):
         os.makedirs(default_cache_path)
     try:
-        _cache_size = int(env.get("NGINX_CACHE_SIZE", "1"))
+        _cache_size = env.get_int("NGINX_CACHE_SIZE", 1)
     except Exception:
         echo("=====> Invalid cache size, defaulting to 1GB")
         _cache_size = 1
@@ -131,35 +134,35 @@ def setup_nginx(app_name: str, env: dict[str, Any], workers: dict[str, str]) -> 
     cache_size = str(_cache_size) + "g"
 
     try:
-        cache_time_control = int(env.get("NGINX_CACHE_CONTROL", "3600"))
+        cache_time_control = env.get_int("NGINX_CACHE_CONTROL", 3600)
     except Exception:
         echo("=====> Invalid time for cache control, defaulting to 3600s")
         cache_time_control = 3600
     cache_time_control = str(cache_time_control)
 
     try:
-        cache_time_content = int(env.get("NGINX_CACHE_TIME", "3600"))
+        cache_time_content = env.get_int("NGINX_CACHE_TIME", 3600)
     except Exception:
         echo("=====> Invalid cache time for content, defaulting to 3600s")
         cache_time_content = 3600
     cache_time_content = str(cache_time_content) + "s"
 
     try:
-        cache_time_redirects = int(env.get("NGINX_CACHE_REDIRECTS", "3600"))
+        cache_time_redirects = env.get_int("NGINX_CACHE_REDIRECTS", 3600)
     except Exception:
         echo("=====> Invalid cache time for redirects, defaulting to 3600s")
         cache_time_redirects = 3600
     cache_time_redirects = str(cache_time_redirects) + "s"
 
     try:
-        cache_time_any = int(env.get("NGINX_CACHE_ANY", "3600"))
+        cache_time_any = env.get_int("NGINX_CACHE_ANY", 3600)
     except Exception:
         echo("=====> Invalid cache expiry fallback, defaulting to 3600s")
         cache_time_any = 3600
     cache_time_any = str(cache_time_any) + "s"
 
     try:
-        cache_time_expiry = int(env.get("NGINX_CACHE_EXPIRY", "86400"))
+        cache_time_expiry = env.get_int("NGINX_CACHE_EXPIRY", 86400)
     except Exception:
         echo("=====> Invalid cache expiry, defaulting to 86400s")
         cache_time_expiry = 86400
@@ -261,7 +264,7 @@ def setup_nginx(app_name: str, env: dict[str, Any], workers: dict[str, str]) -> 
     echo(
         f"-----> nginx will map app '{app_name}' to hostname(s) '{env['NGINX_SERVER_NAME']}'"
     )
-    if get_boolean(env.get("NGINX_HTTPS_ONLY", "false")):
+    if env.get_bool("NGINX_HTTPS_ONLY"):
         buffer = expand_vars(NGINX_HTTPS_ONLY_TEMPLATE, env)
         echo(
             f"-----> nginx will redirect all requests to hostname(s) '{env['NGINX_SERVER_NAME']}' to HTTPS"
@@ -270,7 +273,7 @@ def setup_nginx(app_name: str, env: dict[str, Any], workers: dict[str, str]) -> 
         buffer = expand_vars(NGINX_TEMPLATE, env)
 
     # remove all references to IPv6 listeners (for enviroments where it's disabled)
-    if get_boolean(env.get("DISABLE_IPV6", "false")):
+    if env.get_bool("DISABLE_IPV6"):
         buffer = "\n".join(
             [line for line in buffer.split("\n") if "NGINX_IPV6" not in line]
         )
@@ -280,7 +283,7 @@ def setup_nginx(app_name: str, env: dict[str, Any], workers: dict[str, str]) -> 
         buffer = buffer.replace("uwsgi_", "proxy_")
 
     # map Cloudflare connecting IP to REMOTE_ADDR
-    if get_boolean(env.get("NGINX_CLOUDFLARE_ACL", "false")):
+    if env.get_bool("NGINX_CLOUDFLARE_ACL"):
         buffer = buffer.replace(
             "REMOTE_ADDR $remote_addr", "REMOTE_ADDR $http_cf_connecting_ip"
         )

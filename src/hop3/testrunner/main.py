@@ -26,7 +26,9 @@ def main() -> None:
     )
     parser.add_argument("-d", "--directory", help="Directory to look for apps")
     parser.add_argument("-a", "--app", help="App to test")
+
     parser.add_argument("--ff", action="store_true", help="Fail fast")
+
     args = parser.parse_args()
 
     apps = get_apps(args)

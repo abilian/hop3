@@ -12,6 +12,7 @@ from pathlib import Path
 
 from click import argument
 
+from hop3.core.app import get_app
 from hop3.deploy import do_deploy
 from hop3.system.constants import ENV_ROOT
 from hop3.util import exit_if_invalid
@@ -98,12 +99,12 @@ def cmd_config_unset(app, settings) -> None:
 def cmd_config_live(app) -> None:
     """e.g.: hop config:live <app>"""
 
-    app = exit_if_invalid(app)
+    app_obj = get_app(app)
+    env = app_obj.get_runtime_env()
 
-    live_env = Path(ENV_ROOT, app, "LIVE_ENV")
-    if live_env.exists():
-        lines = live_env.read_text().strip().split("\n")
-        lines.sort()
-        log("\n".join(lines), fg="white")
-    else:
+    if not env:
         log(f"Warning: app '{app}' not deployed, no config found.", fg="yellow")
+        return
+
+    for k, v in sorted(env.items()):
+        log(f"{k}={v}", fg="white")

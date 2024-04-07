@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
 from hop3.util.backports import chdir
-from hop3.util.console import log
 from hop3.util.path import prepend_path
 from hop3.util.settings import parse_settings
 
@@ -24,6 +24,8 @@ class RubyBuilder(Builder):
         with chdir(self.app_path):
             env = self.get_env()
             self.make_virtual_env(env)
+
+            emit(InstallingVirtualEnv(self.app_name))
             self.shell("bundle install", env=env)
 
     def get_env(self) -> dict:
@@ -44,8 +46,6 @@ class RubyBuilder(Builder):
 
     def make_virtual_env(self, env) -> None:
         if not self.virtual_env.exists():
-            log("Building Ruby Application", level=5)
+            emit(CreatingVirtualEnv(self.app_name))
             self.virtual_env.mkdir(parents=True)
             self.shell("bundle config set --local path $VIRTUAL_ENV", env=env)
-        else:
-            log("Rebuilding Ruby Application", level=6)

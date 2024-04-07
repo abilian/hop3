@@ -22,6 +22,7 @@ from hop3.system.constants import (
     UWSGI_ENABLED,
 )
 from hop3.util.console import Abort, log
+from hop3.util.settings import parse_settings
 
 
 def get_app(name: str) -> App:
@@ -80,6 +81,15 @@ class App:
     @property
     def env_path(self) -> str:
         return os.path.join(ENV_ROOT, self.name)
+
+    @property
+    def _env_file_path(self) -> Path:
+        return Path(self.env_path, "LIVE_ENV")
+
+    def get_runtime_env(self) -> dict:
+        if not self._env_file_path.exists():
+            return {}
+        return parse_settings(self._env_file_path)
 
     # Actions
     def deploy(self) -> None:

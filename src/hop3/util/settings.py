@@ -20,7 +20,7 @@ def write_settings(settings_file: str | Path, bag: dict, separator="=") -> None:
     path = Path(settings_file)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as h:
-        for k, v in bag.items():
+        for k, v in sorted(bag.items()):
             h.write(f"{k:s}{separator:s}{v}\n")
 
 

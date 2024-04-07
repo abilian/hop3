@@ -75,12 +75,6 @@ def get_free_port(address="") -> int:
     return port
 
 
-def get_boolean(value: str) -> bool:
-    """Convert a boolean-ish string to a boolean."""
-
-    return value.lower() in ["1", "on", "true", "enabled", "yes", "y"]
-
-
 def command_output(cmd) -> str:
     """executes a command and grabs its output, if any"""
     try:

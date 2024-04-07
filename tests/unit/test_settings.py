@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from hop3.run.uwsgi import Settings
+from hop3.run.uwsgi import UwsgiSettings
 
 
 def test_settings():
-    settings = Settings()
+    settings = UwsgiSettings()
     settings.add("module", "command")
     settings.add("threads", "4")
     settings += [

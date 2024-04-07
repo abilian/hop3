@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from hop3.core.events import InstallingVirtualEnv, emit
 from hop3.system.constants import UWSGI_ENABLED
 from hop3.util import check_binaries, shell
 from hop3.util.backports import chdir
@@ -93,13 +94,14 @@ class NodeBuilder(Builder):
                 log(f"Node is installed at {version}.", level=5, fg="green")
 
     def install_modules(self, env) -> None:
+        emit(InstallingVirtualEnv(self.app_name))
+
         npm_prefix = self.app_path
         package_json = self.app_path / "package.json"
 
         assert package_json.exists()
         assert check_binaries(["npm"])
 
-        log(f"Running npm for '{self.app_name}'", level=5, fg="green")
         self.shell(
             f"npm install --prefix {npm_prefix} --package-lock=false",
             env=env,

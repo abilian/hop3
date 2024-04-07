@@ -20,14 +20,11 @@ from click import secho as echo
 from hop3.core.app import get_app, list_apps
 from hop3.deploy import do_deploy
 from hop3.project.procfile import parse_procfile
-from hop3.system.constants import APP_ROOT, LOG_ROOT
+from hop3.system.constants import LOG_ROOT
 from hop3.util import exit_if_invalid, multi_tail
 from hop3.util.console import Abort
-from hop3.util.settings import parse_settings
 
 from .cli import hop3
-
-# --- User commands ---
 
 
 @hop3.command("apps")
@@ -100,6 +97,7 @@ def cmd_ps_scale(app: str, settings: list[str]) -> None:
     """e.g.: hop-agent ps:scale <app> <proc>=<count>"""
 
     app_obj = get_app(app)
+
     scaling_file = Path(app_obj.env_path, "SCALING")
     worker_count = {k: int(v) for k, v in parse_procfile(scaling_file).items()}
     deltas = {}
@@ -127,20 +125,18 @@ def cmd_run(app: str, cmd: list[str]) -> None:
     """e.g.: hop-agent run <app> ls -- -al"""
 
     app_obj = get_app(app)
-    env_file = Path(app_obj.env_path, "LIVE_ENV")
-    os.environ.update(parse_settings(env_file))
 
     for f in [sys.stdout, sys.stderr]:
         fl = fcntl.fcntl(f, fcntl.F_GETFL)
         fcntl.fcntl(f, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
     p = subprocess.Popen(
-        " ".join(cmd),
+        cmd,
         stdin=sys.stdin,
         stdout=sys.stdout,
         stderr=sys.stderr,
-        env=os.environ,
-        cwd=os.path.join(APP_ROOT, app),
+        env=app_obj.get_runtime_env(),
+        cwd=str(app_obj.app_path),
         shell=True,
     )
     p.communicate()

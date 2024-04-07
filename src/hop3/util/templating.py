@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import io
 import re
+from collections.abc import Mapping
 from typing import Any
 
 PATTERN = r"\$(\w+|\{([^}]*)\})"
 
 
-def expand_vars(template, env: dict[str, Any], default=None):
+def expand_vars(template, env: Mapping[str, Any], default=None):
     """Simple shell-style string interpolation."""
 
     def replace_var(match):

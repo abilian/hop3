@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from hop3.core.events import BuildEvent, CreatingVirtualEnv, emit
 from hop3.util import shell
 from hop3.util.backports import chdir
 from hop3.util.console import log
@@ -31,8 +32,10 @@ class ClojureBuilder(Builder):
         return (self.app_path / "deps.edn").exists()
 
     def build(self) -> None:
+        emit(CreatingVirtualEnv(self.app_name))
         self.virtual_env.mkdir(parents=True, exist_ok=True)
 
+        emit(BuildEvent(self.app_name, "Building Clojure Application"))
         target_path = Path(self.app_path, "target")
         Path(target_path).mkdir(parents=True, exist_ok=True)
         self._build(self.get_env())

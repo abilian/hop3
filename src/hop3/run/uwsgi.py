@@ -9,6 +9,7 @@ import pwd
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from click import secho as echo
 
@@ -21,40 +22,47 @@ from hop3.system.constants import (
     UWSGI_ENABLED,
     UWSGI_LOG_MAXSIZE,
 )
+from hop3.util import log
 from hop3.util.settings import parse_settings
+
+if TYPE_CHECKING:
+    from hop3.core.env import Env
 
 __all__ = ["spawn_uwsgi_worker"]
 
 
-def spawn_uwsgi_worker(app, kind, command, env, ordinal=1) -> None:
+def spawn_uwsgi_worker(
+    app_name: str, kind: str, command: str, env: Env, ordinal=1
+) -> None:
     """Set up and deploy a single worker of a given kind"""
 
-    name = f"{app:s}_{kind:s}.{ordinal:d}.ini"
+    env = env.copy()
+
+    name = f"{app_name:s}_{kind:s}.{ordinal:d}.ini"
     env["PROC_TYPE"] = kind
-    env_path = Path(ENV_ROOT, app)
-    available = Path(UWSGI_AVAILABLE, name)
-    enabled = Path(UWSGI_ENABLED, name)
-    log_file = Path(LOG_ROOT, app, kind)
+    env_path = Path(ENV_ROOT, app_name)
+    uwsgi_available_path = Path(UWSGI_AVAILABLE, name)
+    uwsgi_enabled_path = Path(UWSGI_ENABLED, name)
+    log_file = Path(LOG_ROOT, app_name, kind)
 
-    settings = Settings()
+    pw_name = pwd.getpwuid(os.getuid()).pw_name
+    gr_name = grp.getgrgid(os.getgid()).gr_name
 
+    settings = UwsgiSettings()
     settings += [
-        ("chdir", Path(APP_ROOT, app)),
-        ("uid", pwd.getpwuid(os.getuid()).pw_name),
-        ("gid", grp.getgrgid(os.getgid()).gr_name),
+        ("chdir", Path(APP_ROOT, app_name)),
+        ("uid", pw_name),
+        ("gid", gr_name),
         ("master", "true"),
-        ("project", app),
+        ("project", app_name),
         ("max-requests", env.get("UWSGI_MAX_REQUESTS", "1024")),
         ("listen", env.get("UWSGI_LISTEN", "16")),
         ("processes", env.get("UWSGI_PROCESSES", "1")),
-        ("procname-prefix", f"{app:s}:{kind:s}:"),
+        ("procname-prefix", f"{app_name:s}:{kind:s}:"),
         ("enable-threads", env.get("UWSGI_ENABLE_THREADS", "true").lower()),
         ("log-x-forwarded-for", env.get("UWSGI_LOG_X_FORWARDED_FOR", "false").lower()),
         ("log-maxsize", env.get("UWSGI_LOG_MAXSIZE", UWSGI_LOG_MAXSIZE)),
-        (
-            "logfile-chown",
-            f"{pwd.getpwuid(os.getuid()).pw_name}:{grp.getgrgid(os.getgid()).gr_name}",
-        ),
+        ("logfile-chown", f"{pw_name}:{gr_name}"),
         ("logfile-chmod", "640"),
         ("logto2", f"{log_file}.{ordinal:d}.log"),
         ("log-backupname", f"{log_file}.{ordinal:d}.log.old"),
@@ -72,8 +80,9 @@ def spawn_uwsgi_worker(app, kind, command, env, ordinal=1) -> None:
                 ("cheap", "True"),
                 ("die-on-idle", "True"),
             ]
-            echo(
-                f"-----> uwsgi will start workers on demand and kill them after {idle_timeout}s of inactivity",
+            log(
+                f"uwsgi will start workers on demand and kill them after {idle_timeout}s of inactivity",
+                level=5,
                 fg="yellow",
             )
         except Exception:
@@ -127,17 +136,18 @@ def spawn_uwsgi_worker(app, kind, command, env, ordinal=1) -> None:
 
             # If running under nginx, don't expose a port at all
             if "NGINX_SERVER_NAME" in env:
-                sock = Path(NGINX_ROOT, f"{app}.sock")
-                echo(f"-----> nginx will talk to uWSGI via {sock}", fg="yellow")
+                sock = Path(NGINX_ROOT, f"{app_name}.sock")
+                log(f"nginx will talk to uWSGI via {sock}", level=5, fg="yellow")
                 settings += [
                     ("socket", sock),
                     ("chmod-socket", "664"),
                 ]
             else:
-                echo(
-                    "-----> nginx will talk to uWSGI via {BIND_ADDRESS:s}:{PORT:s}".format(
+                log(
+                    "nginx will talk to uWSGI via {BIND_ADDRESS:s}:{PORT:s}".format(
                         **env
                     ),
+                    level=5,
                     fg="yellow",
                 )
                 settings += [
@@ -173,18 +183,18 @@ def spawn_uwsgi_worker(app, kind, command, env, ordinal=1) -> None:
 
     # insert user defined uwsgi settings if set
     if include_file := env.get("UWSGI_INCLUDE_FILE"):
-        settings += parse_settings(Path(APP_ROOT, app, include_file)).items()
+        settings += parse_settings(Path(APP_ROOT, app_name, include_file)).items()
 
     for k, v in env.items():
         settings.add("env", f"{k:s}={v}")
 
     if kind != "static":
-        settings.write(Path(available))
-        shutil.copyfile(available, enabled)
+        settings.write(uwsgi_available_path)
+        shutil.copyfile(uwsgi_available_path, uwsgi_enabled_path)
 
 
 @dataclass(frozen=True)
-class Settings:
+class UwsgiSettings:
     values: list[tuple[str, str]] = field(default_factory=list)
 
     def add(self, key, value) -> None:
@@ -197,13 +207,13 @@ class Settings:
         for item in items:
             self.append(item)
 
-    def __iadd__(self, items) -> Settings:
+    def __iadd__(self, items) -> UwsgiSettings:
         self.extend(items)
         return self
 
     def write(self, path: Path):
         with open(path, "w") as h:
             h.write("[uwsgi]\n")
-            for k, v in self.values:
+            for k, v in sorted(self.values):
                 h.write(f"{k:s} = {v}\n")
         return path
