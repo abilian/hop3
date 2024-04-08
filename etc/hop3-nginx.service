@@ -1,0 +1,9 @@
+[Unit]
+Description=Restarts NGINX when ~hop3/nginx changes.
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/systemctl reload nginx
+
+[Install]
+WantedBy=multi-user.target

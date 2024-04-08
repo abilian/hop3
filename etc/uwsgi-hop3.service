@@ -1,0 +1,17 @@
+[Unit]
+Description=Hop3 uWSGI Emperor
+After=syslog.target
+
+[Service]
+ExecStart=/usr/local/bin/uwsgi-hop3 --ini /home/hop3/uwsgi/uwsgi.ini
+User=hop3
+Group=www-data
+RuntimeDirectory=uwsgi-hop3
+Restart=always
+KillSignal=SIGQUIT
+Type=notify
+StandardError=syslog
+NotifyAccess=all
+
+[Install]
+WantedBy=multi-user.target
