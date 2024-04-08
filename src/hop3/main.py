@@ -16,7 +16,7 @@ from click import CommandCollection
 from hop3.core.plugins import get_plugin_manager
 from hop3.system.constants import HOP3_BIN
 from hop3.util import Abort
-from hop3.util.path import prepend_path
+from hop3.util.path import prepend_to_path
 
 from .commands import hop3
 
@@ -24,7 +24,7 @@ from .commands import hop3
 def fix_path():
     """Ensure system binaries are in the PATH, as wel as hop3 binaries."""
     path = os.environ["PATH"]
-    path = prepend_path([HOP3_BIN, "/usr/local/sbin", "/usr/sbin", "/sbin"], path)
+    path = prepend_to_path([HOP3_BIN, "/usr/local/sbin", "/usr/sbin", "/sbin"], path)
     os.environ["PATH"] = path
 
 

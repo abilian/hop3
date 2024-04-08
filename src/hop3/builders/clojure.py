@@ -10,7 +10,7 @@ from hop3.core.events import BuildEvent, CreatingVirtualEnv, emit
 from hop3.util import shell
 from hop3.util.backports import chdir
 from hop3.util.console import log
-from hop3.util.path import prepend_path
+from hop3.util.path import prepend_to_path
 from hop3.util.settings import parse_settings
 
 from .base import Builder
@@ -41,7 +41,7 @@ class ClojureBuilder(Builder):
         self._build(self.get_env())
 
     def get_env(self) -> dict[str, str]:
-        path = prepend_path(
+        path = prepend_to_path(
             [
                 Path(self.virtual_env, "bin"),
                 Path(self.app_name, ".bin"),

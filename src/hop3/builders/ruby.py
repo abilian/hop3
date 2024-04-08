@@ -7,7 +7,7 @@ from pathlib import Path
 
 from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
 from hop3.util.backports import chdir
-from hop3.util.path import prepend_path
+from hop3.util.path import prepend_to_path
 from hop3.util.settings import parse_settings
 
 from .base import Builder
@@ -29,7 +29,7 @@ class RubyBuilder(Builder):
             self.shell("bundle install", env=env)
 
     def get_env(self) -> dict:
-        path = prepend_path(
+        path = prepend_to_path(
             [
                 self.virtual_env / "bin",
                 Path(self.app_name, ".bin"),

@@ -11,9 +11,9 @@ from click import secho as echo
 from devtools import debug
 
 from hop3.core.env import Env
-from hop3.nginx import setup_nginx
 from hop3.project.config import Config
 from hop3.project.procfile import parse_procfile
+from hop3.proxies.nginx import setup_nginx
 from hop3.run.uwsgi import spawn_uwsgi_worker
 from hop3.system.constants import APP_ROOT, ENV_ROOT, LOG_ROOT, UWSGI_ENABLED
 from hop3.util import get_free_port

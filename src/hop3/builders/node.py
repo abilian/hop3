@@ -11,7 +11,7 @@ from hop3.system.constants import UWSGI_ENABLED
 from hop3.util import check_binaries, shell
 from hop3.util.backports import chdir
 from hop3.util.console import Abort, log
-from hop3.util.path import prepend_path
+from hop3.util.path import prepend_to_path
 from hop3.util.settings import parse_settings
 
 from .base import Builder
@@ -41,7 +41,7 @@ class NodeBuilder(Builder):
     def get_env(self) -> dict:
         node_modules = self.app_path / "node_modules"
         npm_prefix = os.path.abspath(os.path.join(node_modules, ".."))
-        path = prepend_path(
+        path = prepend_to_path(
             [
                 Path(self.virtual_env, "bin"),
                 Path(node_modules, ".bin"),

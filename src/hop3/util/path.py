@@ -10,7 +10,7 @@ if typing.TYPE_CHECKING:  # pragma: no cover
     from pathlib import Path
 
 
-def prepend_path(directories: list[Path | str], path: str = "") -> str:
+def prepend_to_path(directories: list[Path | str], path: str = "") -> str:
     """Update the PATH environment variable"""
     if not path:
         path = os.environ["PATH"]
