@@ -9,12 +9,13 @@ from pathlib import Path
 
 from click import secho as echo
 
-from hop3.nginx.templates import NGINX_ACME_FIRSTRUN_TEMPLATE
 from hop3.system.constants import ACME_ROOT, ACME_ROOT_CA, ACME_WWW, NGINX_ROOT
 from hop3.util.templating import expand_vars
 
+from .templates import NGINX_ACME_FIRSTRUN_TEMPLATE
 
-def setup_certificates(app_name: str, env, nginx_conf) -> None:
+
+def setup_certificates(app_name: str, env) -> None:
     domains = env["NGINX_SERVER_NAME"].split()
     domain = domains[0]
     key, crt = (os.path.join(NGINX_ROOT, f"{app_name}.{x}") for x in ["key", "crt"])

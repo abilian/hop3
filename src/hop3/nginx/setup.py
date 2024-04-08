@@ -14,8 +14,13 @@ from urllib.request import urlopen
 
 from click import secho as echo
 
-from hop3.nginx.certificates import setup_certificates
-from hop3.nginx.templates import (
+from hop3.system.constants import ACME_WWW, APP_ROOT, CACHE_ROOT, NGINX_ROOT
+from hop3.util import command_output
+from hop3.util.console import Abort, log
+from hop3.util.templating import expand_vars
+
+from .certificates import setup_certificates
+from .templates import (
     HOP3_INTERNAL_NGINX_CACHE_MAPPING,
     HOP3_INTERNAL_NGINX_STATIC_MAPPING,
     HOP3_INTERNAL_NGINX_UWSGI_SETTINGS,
@@ -25,10 +30,6 @@ from hop3.nginx.templates import (
     NGINX_PORTMAP_FRAGMENT,
     NGINX_TEMPLATE,
 )
-from hop3.system.constants import ACME_WWW, APP_ROOT, CACHE_ROOT, NGINX_ROOT
-from hop3.util import command_output
-from hop3.util.console import Abort, log
-from hop3.util.templating import expand_vars
 
 if TYPE_CHECKING:
     from hop3.core.env import Env
@@ -36,12 +37,12 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class NginxConfig:
+    # XXX: not used yet
     env: dict[str, str]
 
 
 def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
     app_path = Path(APP_ROOT, app_name)
-    nginx_conf = Path(NGINX_ROOT, f"{app_name}.conf")
 
     # Hack to get around ClickCommand
     env["NGINX_SERVER_NAME"] = env["NGINX_SERVER_NAME"].split(",")
@@ -82,7 +83,7 @@ def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
         env["NGINX_SOCKET"] = "{BIND_ADDRESS:s}:{PORT:s}".format(**env)
         echo(f"-----> nginx will look for app '{app_name}' on {env['NGINX_SOCKET']}")
 
-    setup_certificates(app_name, env, nginx_conf)
+    setup_certificates(app_name, env)
 
     setup_cloudflare(env)
 
@@ -92,12 +93,11 @@ def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
 
     setup_cache(app_name, env)
     setup_static(app_path, env, workers)
-
     buffer = setup_proxy(app_name, env, workers)
 
-    nginx_conf.write_text(buffer)
-
-    check_config(app_name, nginx_conf)
+    nginx_conf_path = Path(NGINX_ROOT, f"{app_name}.conf")
+    nginx_conf_path.write_text(buffer)
+    check_config(app_name, nginx_conf_path)
 
 
 def check_config(app_name, nginx_conf):
@@ -208,39 +208,39 @@ def setup_cache(app_name: str, env: Env):
     cache_size = str(_cache_size) + "g"
 
     try:
-        cache_time_control = env.get_int("NGINX_CACHE_CONTROL", 3600)
+        _cache_time_control = env.get_int("NGINX_CACHE_CONTROL", 3600)
     except Exception:
         echo("=====> Invalid time for cache control, defaulting to 3600s")
-        cache_time_control = 3600
-    cache_time_control = str(cache_time_control)
+        _cache_time_control = 3600
+    cache_time_control = str(_cache_time_control)
 
     try:
-        cache_time_content = env.get_int("NGINX_CACHE_TIME", 3600)
+        _cache_time_content = env.get_int("NGINX_CACHE_TIME", 3600)
     except Exception:
         echo("=====> Invalid cache time for content, defaulting to 3600s")
-        cache_time_content = 3600
-    cache_time_content = str(cache_time_content) + "s"
+        _cache_time_content = 3600
+    cache_time_content = str(_cache_time_content) + "s"
 
     try:
-        cache_time_redirects = env.get_int("NGINX_CACHE_REDIRECTS", 3600)
+        _cache_time_redirects = env.get_int("NGINX_CACHE_REDIRECTS", 3600)
     except Exception:
         echo("=====> Invalid cache time for redirects, defaulting to 3600s")
-        cache_time_redirects = 3600
-    cache_time_redirects = str(cache_time_redirects) + "s"
+        _cache_time_redirects = 3600
+    cache_time_redirects = str(_cache_time_redirects) + "s"
 
     try:
-        cache_time_any = env.get_int("NGINX_CACHE_ANY", 3600)
+        _cache_time_any = env.get_int("NGINX_CACHE_ANY", 3600)
     except Exception:
         echo("=====> Invalid cache expiry fallback, defaulting to 3600s")
-        cache_time_any = 3600
-    cache_time_any = str(cache_time_any) + "s"
+        _cache_time_any = 3600
+    cache_time_any = str(_cache_time_any) + "s"
 
     try:
-        cache_time_expiry = env.get_int("NGINX_CACHE_EXPIRY", 86400)
+        _cache_time_expiry = env.get_int("NGINX_CACHE_EXPIRY", 86400)
     except Exception:
         echo("=====> Invalid cache expiry, defaulting to 86400s")
-        cache_time_expiry = 86400
-    cache_time_expiry = str(cache_time_expiry) + "s"
+        _cache_time_expiry = 86400
+    cache_time_expiry = str(_cache_time_expiry) + "s"
 
     # FIXME
     cache_path = env.get_path("NGINX_CACHE_PATH", default_cache_path)

@@ -12,8 +12,18 @@ from hop3.util import shell
 class Builder:
     app_name: str
 
+    # Class attitutes
+    requirements: list[str]
+    name: str
+
     def __init__(self, app_name: str) -> None:
         self.app_name = app_name
+
+    def accept(self) -> bool:
+        raise NotImplementedError
+
+    def build(self) -> None:
+        raise NotImplementedError
 
     @property
     def app_path(self) -> Path:

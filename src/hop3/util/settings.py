@@ -7,6 +7,7 @@ Parser and writer for settings files.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from click import secho as echo
@@ -24,7 +25,7 @@ def write_settings(settings_file: str | Path, bag: dict, separator="=") -> None:
             h.write(f"{k:s}{separator:s}{v}\n")
 
 
-def parse_settings(filename: str | Path, env: dict | None = None) -> dict:
+def parse_settings(filename: str | Path, env: Mapping[str, str] | None = None) -> dict:
     """Parse a settings file and returns a dict with environment variables"""
 
     if env is None:

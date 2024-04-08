@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hop3.util.settings import parse_settings
+
 
 @dataclass(frozen=True)
 class Env(Mapping[str, Any]):
@@ -46,6 +48,9 @@ class Env(Mapping[str, Any]):
     def get(self, key: str, default: Any = None) -> Any:
         return self.data.get(key, default)
 
+    #
+    # Additional API
+    #
     def get_int(self, key: str, default: int = 0) -> int:
         value = self.get(key, default)
         match value:
@@ -74,3 +79,14 @@ class Env(Mapping[str, Any]):
             case _:
                 # XXX: keep? Or raise an error?
                 return Path(str(value))
+
+    def parse_settings(self, env_file: Path | str = ""):
+        match env_file:
+            case Path():
+                pass
+            case "":
+                env_file = Path("ENV")
+            case str():
+                env_file = Path(env_file)
+        if env_file.exists():
+            self.update(parse_settings(env_file))

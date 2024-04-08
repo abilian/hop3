@@ -83,6 +83,7 @@ Goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe
 - [ ] Working version
 - [ ] Documentation / READMEs / etc.
 - [ ] SBE deployment + a few more useful apps
+- [ ] Fix all typing issues (mypy and pyright)
 
 ### P1:
 

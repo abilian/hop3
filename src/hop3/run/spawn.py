@@ -21,7 +21,7 @@ from hop3.util.console import log
 from hop3.util.settings import parse_settings, write_settings
 
 
-def spawn_app(app_name: str, deltas: dict | None = None) -> None:
+def spawn_app(app_name: str, deltas: dict[str, int] | None = None) -> None:
     """Create all workers for an app"""
 
     launcher = AppLauncher(app_name, deltas)
@@ -31,7 +31,7 @@ def spawn_app(app_name: str, deltas: dict | None = None) -> None:
 @dataclass
 class AppLauncher:
     app_name: str
-    deltas: dict = field(default_factory=dict)
+    deltas: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self):
         self.app_path = Path(APP_ROOT, self.app_name)

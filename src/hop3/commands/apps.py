@@ -100,7 +100,7 @@ def cmd_ps_scale(app: str, settings: list[str]) -> None:
 
     scaling_file = Path(app_obj.env_path, "SCALING")
     worker_count = {k: int(v) for k, v in parse_procfile(scaling_file).items()}
-    deltas = {}
+    deltas: dict[str, int] = {}
     for s in settings:
         try:
             k, v = map(lambda x: x.strip(), s.split("=", 1))

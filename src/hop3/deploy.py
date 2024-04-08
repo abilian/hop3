@@ -31,7 +31,7 @@ BUILDER_CLASSES = [
 ]
 
 
-def do_deploy(app_name: str, deltas: dict | None = None, newrev=None) -> None:
+def do_deploy(app_name: str, deltas: dict[str, int] | None = None, newrev=None) -> None:
     deployer = Deployer(app_name)
     deployer.deploy(deltas, newrev)
 
@@ -49,7 +49,7 @@ class Deployer:
     def app_path(self) -> Path:
         return Path(APP_ROOT, self.app_name)
 
-    def deploy(self, deltas: dict | None = None, newrev=None) -> None:
+    def deploy(self, deltas: dict[str, int] | None = None, newrev=None) -> None:
         """Deploy an app by resetting the work directory"""
 
         deltas = deltas or {}
@@ -170,7 +170,7 @@ class Deployer:
     def git_update(self, newrev) -> None:
         app_path = self.app_path
         # env = {"GIT_WORK_DIR": app_path}
-        env = {}
+        env: dict[str, str] = {}
         with chdir(app_path):
             shell("git fetch --quiet", env=env)
             if newrev:

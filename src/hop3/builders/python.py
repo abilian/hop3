@@ -5,10 +5,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hop3.core.env import Env
 from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
 from hop3.system.constants import ENV_ROOT
 from hop3.util.backports import chdir
-from hop3.util.settings import parse_settings
 
 from .base import Builder
 
@@ -29,13 +29,10 @@ class PythonBuilder(Builder):
             self.make_virtual_env(env)
             self.install_virtualenv()
 
-    def get_env(self) -> dict:
+    def get_env(self) -> Env:
         # Set unbuffered output and readable UTF-8 mapping
-        env = {"PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "UTF_8:replace"}
-
-        env_file = Path("ENV")
-        if env_file.exists():
-            env.update(parse_settings(env_file, env))
+        env = Env({"PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "UTF_8:replace"})
+        env.parse_settings("ENV")
         return env
 
     def make_virtual_env(self, env) -> None:
