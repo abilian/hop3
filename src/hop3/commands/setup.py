@@ -15,6 +15,7 @@ from tempfile import NamedTemporaryFile
 
 from click import argument
 
+from hop3.oses.ubuntu2204 import setup_system
 from hop3.system.constants import (
     APP_ROOT,
     CACHE_ROOT,
@@ -32,6 +33,14 @@ from hop3.system.constants import (
 from hop3.util.console import echo
 
 from .cli import hop3
+
+
+@hop3.command("setup:system")
+def cmd_setup_system() -> None:
+    """Set up the server (must be run as root)"""
+
+    # Set up the server
+    setup_system()
 
 
 @hop3.command("setup")

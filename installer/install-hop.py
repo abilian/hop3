@@ -1,8 +1,9 @@
 import glob
+from io import StringIO
 
 from pyinfra import host
 from pyinfra.facts.files import File
-from pyinfra.operations import server, files, apt, systemd, pip
+from pyinfra.operations import server, files, apt, systemd, pip, postgresql
 
 PACKAGES = [
     "bc",
@@ -41,6 +42,9 @@ PACKAGES = [
     "npm",
     "nodeenv",
     "yarnpkg",
+    # Addons
+    "libpq-dev",
+    "postgresql",
 ]
 
 HOP3_USER = "hop3"
@@ -49,6 +53,15 @@ HOME_DIR = f"/home/{HOP3_USER}"
 VENV = f"{HOME_DIR}/venv"
 HOP_SCRIPT = f"{VENV}/bin/hop-agent"
 
+APT_CONF = """
+Acquire::http {No-Cache=True;};
+APT::Install-Recommends "0";
+APT::Install-Suggests "0";
+Acquire::GzipIndexes "true";
+Acquire::CompressionTypes::Order:: "gz";
+Dir::Cache { srcpkgcache ""; pkgcache ""; }
+"""
+
 
 def main():
     setup_server()
@@ -56,9 +69,16 @@ def main():
     setup_uwsgi()
     setup_acme()
     setup_nginx()
+    setup_postgres()
 
 
 def setup_server():
+    files.put(
+        name="Put appropriate /etc/apt/apt.conf.d/00-nua",
+        src=StringIO(APT_CONF),
+        dest="/etc/apt/apt.conf.d/00-hop3",
+
+    )
     server.user(
         name="Add hop3 user",
         user=HOP3_USER,
@@ -233,6 +253,22 @@ def setup_nginx():
         name="Start hop3-nginx.path",
         service="hop3-nginx.path",
         enabled=True,
+    )
+
+
+def setup_postgres():
+    postgresql.role(
+        role="hop3",
+        password="hop3pw",
+        login=True,
+        superuser=True,
+        _su_user="postgres",
+    )
+    postgresql.database(
+        name="hop3",
+        database="hop3",
+        owner="hop3",
+        _su_user="postgres",
     )
 
 

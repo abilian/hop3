@@ -87,7 +87,7 @@ Goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe
 
 ### P1:
 
-- [ ] Introduce plugins (where it makes sense)
+- [ ] Introduce new plugins (where it makes sense)
 - [ ] Review / improve CLI DX
 - [ ] Improve Python builder (support for poetry, pipenv, etc.)
 - [ ] Manage external services (databases, etc.)
@@ -100,7 +100,7 @@ Goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe
 - [ ] Security (Firewall, WAF, better isolation, etc.)
 - [ ] Monitoring
 - [ ] Backup / Restore
-- [ ] (Pluggable) Alternatives to uWSGI, NGINX, etc.
+- [ ] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
 
 ### P3:
 

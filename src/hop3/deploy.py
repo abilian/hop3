@@ -7,12 +7,13 @@ import os
 from glob import glob
 from pathlib import Path
 
-from hop3.builders.clojure import ClojureBuilder
+from hop3.builders import BUILDER_CLASSES
+
+# Will be removed
 from hop3.builders.go import build_go
 from hop3.builders.java import build_java_gradle, build_java_maven
-from hop3.builders.node import NodeBuilder
-from hop3.builders.python import PythonBuilder
-from hop3.builders.ruby import RubyBuilder
+
+#
 from hop3.project.config import Config
 from hop3.run.spawn import spawn_app
 from hop3.system.constants import APP_ROOT, LOG_ROOT
@@ -21,14 +22,6 @@ from hop3.util.backports import chdir
 from hop3.util.console import Abort, log
 
 __all__ = ["do_deploy"]
-
-BUILDER_CLASSES = [
-    PythonBuilder,
-    RubyBuilder,
-    NodeBuilder,
-    ClojureBuilder,
-    # GoBuilder,
-]
 
 
 def do_deploy(app_name: str, deltas: dict[str, int] | None = None, newrev=None) -> None:

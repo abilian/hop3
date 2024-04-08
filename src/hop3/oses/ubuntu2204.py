@@ -1,13 +1,14 @@
 """Install Hop3 on Ubuntu 22.04 LTS.
 """
 
-import glob
+import os
 
-from pyinfra import host
-from pyinfra.facts.files import File
-from pyinfra.operations import apt, files, pip, server, systemd
+from hop3.oses.common import HOME_DIR, HOP3_USER
 
-from hop3.oses.common import HOME_DIR, HOP3_USER, HOP_SCRIPT, VENV
+# from pyinfra import host
+# from pyinfra.facts.files import File
+# from pyinfra.operations import apt, files, pip, server, systemd
+
 
 PACKAGES = [
     "bc",
@@ -49,16 +50,16 @@ PACKAGES = [
 ]
 
 
-def main():
-    setup_server()
-    setup_hop3()
-    setup_uwsgi()
-    setup_acme()
-    setup_nginx()
+def setup_system():
+    setup_base_system()
+    # setup_hop3()
+    # setup_uwsgi()
+    # setup_acme()
+    # setup_nginx()
 
 
-def setup_server():
-    server.user(
+def setup_base_system():
+    user(
         name="Add hop3 user",
         user=HOP3_USER,
         home=HOME_DIR,
@@ -66,174 +67,33 @@ def setup_server():
         group="www-data",
     )
 
-    apt.packages(
+    packages(
         name="Install Debian Packages",
         packages=PACKAGES,
         update=True,
     )
-    files.link(
+    link(
         name="Create /usr/local/bin/node symlink",
         path="/usr/local/bin/node",
         target="/usr/bin/nodejs",
     )
-    files.link(
+    link(
         name="Create /usr/local/bin/yarn symlink",
         path="/usr/local/bin/yarn",
         target="/usr/bin/yarnpkg",
     )
 
 
-def setup_hop3():
-    src_file = glob.glob("dist/hop3-*.tar.gz")[0]
-
-    files.put(
-        name="Put hop3 source package",
-        src=src_file,
-        dest=f"{HOME_DIR}/tmp/hop3.tar.gz",
-        mode="0700",
-        _su_user=HOP3_USER,
-    )
-
-    pip.virtualenv(
-        name="Create a virtualenv for hop3",
-        path=VENV,
-        _su_user=HOP3_USER,
-    )
-
-    pip.packages(
-        name="Install hop3",
-        packages=f"{HOME_DIR}/tmp/hop3.tar.gz",
-        virtualenv=VENV,
-        _su_user=HOP3_USER,
-    )
-
-    server.shell(
-        name="Run hop3 setup",
-        commands=[f"{HOP_SCRIPT} setup"],
-        _su_user=HOP3_USER,
-    )
-
-    server.shell(
-        name="Save root's authorized_keys",
-        commands=[
-            "cat /root/.ssh/authorized_keys > /tmp/root_authorized_keys",
-            f"chown {HOP3_USER} /tmp/root_authorized_keys",
-        ],
-    )
-
-    server.shell(
-        name="Use root's SSH keys",
-        commands=[
-            f"{HOP_SCRIPT} setup:ssh /tmp/root_authorized_keys",
-            "rm /tmp/root_authorized_keys",
-        ],
-        _su_user=HOP3_USER,
-    )
+#
+# Library
+#
+def user(name, user, home, shell, group):
+    pass
 
 
-def setup_uwsgi():
-    files.link(
-        name="Create uwsgi symlink",
-        path="/usr/local/bin/uwsgi-hop3",
-        target="/usr/bin/uwsgi",
-    )
-
-    files.put(
-        name="Install uwsgi-hop3 systemd script",
-        src="etc/uwsgi-hop3.service",
-        dest="/etc/systemd/system/uwsgi-hop3.service",
-        mode="0600",
-    )
-
-    systemd.service(
-        name="Enable and start uwsgi-hop3 service",
-        service="uwsgi-hop3",
-        enabled=True,
-    )
+def packages(name, packages, update):
+    pass
 
 
-def setup_acme():
-    acme_sh_exists = host.get_fact(File, f"{HOME_DIR}/.acme.sh/acme.sh")
-
-    if not acme_sh_exists:
-        files.download(
-            name="Download acme.sh",
-            src="https://raw.githubusercontent.com/Neilpang/acme.sh/master/acme.sh",
-            dest=f"{HOME_DIR}/acme.sh",
-            mode="0755",
-            _su_user=HOP3_USER,
-        )
-
-        server.shell(
-            name="Execute acme.sh installer",
-            commands=[f"bash {HOME_DIR}/acme.sh --install"],
-            _su_user=HOP3_USER,
-            _chdir=HOME_DIR,
-        )
-
-        files.file(
-            name="Remove acme.sh installer",
-            path=f"{HOME_DIR}/acme.sh",
-            present=False,
-            _su_user=HOP3_USER,
-        )
-
-    server.shell(
-        name="Run a manual upgrade",
-        commands=[f"bash {HOME_DIR}/.acme.sh/acme.sh --upgrade"],
-        _su_user=HOP3_USER,
-    )
-
-    server.shell(
-        name="Set default CA to letsencrypt",
-        commands=[
-            f"bash {HOME_DIR}/.acme.sh/acme.sh --set-default-ca --server letsencrypt"
-        ],
-        _su_user=HOP3_USER,
-    )
-
-    files.line(
-        name="Configure acme.sh to auto-upgrade",
-        path=f"{HOME_DIR}/.acme.sh/account.conf",
-        line="^#AUTO_UPGRADE=",
-        replace='AUTO_UPGRADE="1"',
-        _su_user=HOP3_USER,
-    )
-
-
-def setup_nginx():
-    files.put(
-        name="Get nginx default config",
-        src="etc/nginx.default.dist",
-        dest="/etc/nginx/sites-available/default",
-        force=True,
-    )
-
-    files.put(
-        name="Get systemd.path hop3-nginx.path",
-        src="etc/hop3-nginx.path",
-        dest="/etc/systemd/system/hop3-nginx.path",
-    )
-
-    files.put(
-        name="Get systemd.path hop3-nginx.service",
-        src="etc/hop3-nginx.service",
-        dest="/etc/systemd/system/hop3-nginx.service",
-    )
-
-    systemd.service(
-        name="Restart nginx service",
-        service="nginx",
-        enabled=True,
-        restarted=True,
-    )
-
-    systemd.service(
-        name="Start hop3-nginx.path",
-        service="hop3-nginx.path",
-        enabled=True,
-    )
-
-
-if __name__ == "__main__":
-    main()
+def link(name, path, target):
+    os.symlink(target, path)
