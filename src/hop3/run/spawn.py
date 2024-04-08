@@ -16,9 +16,10 @@ from hop3.project.procfile import parse_procfile
 from hop3.proxies.nginx import setup_nginx
 from hop3.run.uwsgi import spawn_uwsgi_worker
 from hop3.system.constants import APP_ROOT, ENV_ROOT, LOG_ROOT, UWSGI_ENABLED
+from hop3.system.state import state
 from hop3.util import get_free_port
 from hop3.util.console import log
-from hop3.util.settings import parse_settings, write_settings
+from hop3.util.settings import write_settings
 
 
 def spawn_app(app_name: str, deltas: dict[str, int] | None = None) -> None:
@@ -35,6 +36,7 @@ class AppLauncher:
 
     def __post_init__(self):
         self.app_path = Path(APP_ROOT, self.app_name)
+        self.virtualenv_path = Path(ENV_ROOT, self.app_name)
         self.config = Config.from_dir(self.app_path)
         self.workers = self.config.web_workers
         self.env = self.get_env()
@@ -49,7 +51,7 @@ class AppLauncher:
 
         # Configured worker count
         worker_count = {k: 1 for k in self.workers.keys()}
-        scaling = Path(ENV_ROOT, self.app_name, "SCALING")
+        scaling = self.virtualenv_path / "SCALING"
         if scaling.exists():
             worker_count.update(
                 {
@@ -100,15 +102,6 @@ class AppLauncher:
         self.remove_unnecessary_workers(to_destroy)
 
     def get_env(self):
-        # the Python virtualenv
-        virtualenv_path = Path(ENV_ROOT, self.app_name)
-
-        # Settings shipped with the app
-        env_file = Path(APP_ROOT, self.app_name, "ENV")
-
-        # Custom overrides
-        settings = Path(ENV_ROOT, self.app_name, "ENV")
-
         # Bootstrap environment
         env = Env(
             {
@@ -116,9 +109,9 @@ class AppLauncher:
                 "LOG_ROOT": LOG_ROOT,
                 "HOME": os.environ["HOME"],
                 "USER": os.environ["USER"],
-                "PATH": f"{virtualenv_path / 'bin'}:{os.environ['PATH']}",
+                "PATH": f"{self.virtualenv_path / 'bin'}:{os.environ['PATH']}",
                 "PWD": str(self.app_path),
-                "VIRTUAL_ENV": str(virtualenv_path),
+                "VIRTUAL_ENV": str(self.virtualenv_path),
             }
         )
 
@@ -129,18 +122,17 @@ class AppLauncher:
         }
 
         # add node path if present
-        node_path = Path(virtualenv_path, "node_modules")
+        node_path = self.virtualenv_path / "node_modules"
         if node_path.exists():
             env["NODE_PATH"] = str(node_path)
             env["PATH"] = f"{node_path / '.bin'}:{os.environ['PATH']}"
 
         # Load environment variables shipped with repo (if any)
-        if env_file.exists():
-            env.update(parse_settings(env_file, env))
+        # Settings shipped with the app
+        env_file = self.app_path / "ENV"
+        env.parse_settings(env_file)
 
-        # Override with custom settings (if any)
-        if settings.exists():
-            env.update(parse_settings(settings, env))
+        env.update(state.get_app_env(self.app_name))
 
         # Pick a port if none defined
         if "PORT" not in env:

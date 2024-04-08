@@ -79,12 +79,12 @@ class App:
         return os.path.join(DATA_ROOT, self.name)
 
     @property
-    def env_path(self) -> str:
+    def virtualenv_path(self) -> str:
         return os.path.join(ENV_ROOT, self.name)
 
     @property
     def _env_file_path(self) -> Path:
-        return Path(self.env_path, "LIVE_ENV")
+        return Path(self.virtualenv_path, "LIVE_ENV")
 
     def get_runtime_env(self) -> Env:
         env = Env()

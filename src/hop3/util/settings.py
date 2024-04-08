@@ -25,7 +25,9 @@ def write_settings(settings_file: str | Path, bag: dict, separator="=") -> None:
             h.write(f"{k:s}{separator:s}{v}\n")
 
 
-def parse_settings(filename: str | Path, env: Mapping[str, str] | None = None) -> dict:
+def parse_settings(
+    filename: str | Path, env: Mapping[str, str] | None = None
+) -> dict[str, str]:
     """Parse a settings file and returns a dict with environment variables"""
 
     if env is None:
