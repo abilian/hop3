@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -10,7 +10,7 @@ from hop3.util.settings import parse_settings
 
 @dataclass(frozen=True)
 class Env(Mapping[str, Any]):
-    data: dict[str, Any]
+    data: dict[str, Any] = field(default_factory=dict)
 
     def __setitem__(self, key: str, value: Any):
         self.data[key] = value

@@ -7,6 +7,7 @@ import shutil
 from glob import glob
 from pathlib import Path
 
+from hop3.core.env import Env
 from hop3.deploy import do_deploy
 from hop3.run.spawn import spawn_app
 from hop3.system.constants import (
@@ -22,7 +23,6 @@ from hop3.system.constants import (
     UWSGI_ENABLED,
 )
 from hop3.util.console import Abort, log
-from hop3.util.settings import parse_settings
 
 
 def get_app(name: str) -> App:
@@ -86,10 +86,13 @@ class App:
     def _env_file_path(self) -> Path:
         return Path(self.env_path, "LIVE_ENV")
 
-    def get_runtime_env(self) -> dict:
-        if not self._env_file_path.exists():
-            return {}
-        return parse_settings(self._env_file_path)
+    def get_runtime_env(self) -> Env:
+        env = Env()
+        env.parse_settings(self._env_file_path)
+        return env
+        # if not self._env_file_path.exists():
+        #     return {}
+        # return parse_settings(self._env_file_path)
 
     # Actions
     def deploy(self) -> None:
