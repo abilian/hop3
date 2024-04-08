@@ -11,6 +11,18 @@ from hop3.util import shell
 from hop3.util.console import log
 from hop3.util.settings import parse_settings
 
+#         if Path(app_path, "pom.xml").exists() and check_binaries(["java", "mvn"]):
+#             log("Java Maven app detected.", level=5, fg="green")
+#             build_java_maven(app_name)
+#             builder_detected = True
+#
+#         if Path(app_path, "build.gradle").exists() and check_binaries(
+#             ["java", "gradle"]
+#         ):
+#             log("Java Gradle app detected.", level=5, fg="green")
+#             build_java_gradle(app_name)
+#             builder_detected = True
+
 
 def build_java_gradle(app_name: str) -> None:
     """Deploy a Java application using Gradle"""

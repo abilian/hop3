@@ -2,6 +2,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
 from .clojure import ClojureBuilder
+from .go import GoBuilder
 from .node import NodeBuilder
 from .python import PythonBuilder
 from .ruby import RubyBuilder
@@ -11,5 +12,5 @@ BUILDER_CLASSES = [
     RubyBuilder,
     NodeBuilder,
     ClojureBuilder,
-    # GoBuilder,
+    GoBuilder,
 ]

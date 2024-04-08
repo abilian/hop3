@@ -5,19 +5,31 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hop3.builders.base import Builder
 from hop3.system.constants import ENV_ROOT
 from hop3.util import shell
 from hop3.util.console import log
 
 
-def build_go(app_name: str) -> None:
-    """Deploy a Go application"""
-    go_path = Path(ENV_ROOT, app_name)
+class GoBuilder(Builder):
+    name = "Go"
+    requirements = ["go"]
 
-    if not go_path.exists():
-        log(f"Creating GOPATH for '{app_name}'", level=5, fg="blue")
-        go_path.mkdir(parents=True)
-        # copy across a pre-built GOPATH to save provisioning time
-        shell(f"cp -a $HOME/gopath {app_name}", cwd=ENV_ROOT)
+    def accept(self) -> bool:
+        return (
+            Path(self.app_path, "Godeps").exists()
+            or len(list(self.app_path.glob("*.go"))) > 0
+        )
 
-    # return spawn_app(app_name, deltas)
+    def build(self) -> None:
+        self.build_go()
+
+    def build_go(self) -> None:
+        """Deploy a Go application"""
+        go_path = Path(ENV_ROOT, self.app_name)
+
+        if not go_path.exists():
+            log(f"Creating GOPATH for '{self.app_name}'", level=5, fg="blue")
+            go_path.mkdir(parents=True)
+            # copy across a pre-built GOPATH to save provisioning time
+            shell(f"cp -a $HOME/gopath {self.app_name}", cwd=ENV_ROOT)

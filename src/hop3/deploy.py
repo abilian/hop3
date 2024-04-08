@@ -4,22 +4,17 @@
 from __future__ import annotations
 
 import os
-from glob import glob
 from pathlib import Path
 
 from hop3.builders import BUILDER_CLASSES
-
-# Will be removed
-from hop3.builders.go import build_go
-from hop3.builders.java import build_java_gradle, build_java_maven
-
-#
 from hop3.project.config import Config
 from hop3.run.spawn import spawn_app
 from hop3.system.constants import APP_ROOT, LOG_ROOT
 from hop3.util import check_binaries, shell
 from hop3.util.backports import chdir
 from hop3.util.console import Abort, log
+
+# Will be removed
 
 __all__ = ["do_deploy"]
 
@@ -102,39 +97,16 @@ class Deployer:
                 )
             return
 
-        app_name = self.app_name
-        app_path = Path(APP_ROOT, app_name)
         workers = self.workers
-
         builder_detected = False
 
         for builder_class in BUILDER_CLASSES:
-            builder = builder_class(app_name)
+            builder = builder_class(self.app_name)
             if builder.accept():
                 assert check_binaries(builder.requirements)
                 log(f"{builder.name} app detected.", level=5, fg="green")
                 builder.build()
                 builder_detected = True
-
-        if Path(app_path, "pom.xml").exists() and check_binaries(["java", "mvn"]):
-            log("Java Maven app detected.", level=5, fg="green")
-            build_java_maven(app_name)
-            builder_detected = True
-
-        if Path(app_path, "build.gradle").exists() and check_binaries(
-            ["java", "gradle"]
-        ):
-            log("Java Gradle app detected.", level=5, fg="green")
-            build_java_gradle(app_name)
-            builder_detected = True
-
-        if (
-            Path(app_path, "Godeps").exists()
-            or len(glob(os.path.join(app_path, "*.go")))
-        ) and check_binaries(["go"]):
-            log("Golang app detected.", level=5, fg="green")
-            build_go(app_name)
-            builder_detected = True
 
         # FIXME
         if "release" in workers and "web" in workers:
