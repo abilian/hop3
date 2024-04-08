@@ -6,7 +6,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from traceback import format_exc
@@ -28,7 +27,7 @@ from hop3.nginx.templates import (
 )
 from hop3.system.constants import ACME_WWW, APP_ROOT, CACHE_ROOT, NGINX_ROOT
 from hop3.util import command_output
-from hop3.util.console import log
+from hop3.util.console import Abort, log
 from hop3.util.templating import expand_vars
 
 if TYPE_CHECKING:
@@ -92,45 +91,32 @@ def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
     )
 
     setup_cache(app_name, env)
+    setup_static(app_path, env, workers)
 
-    env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
-    # Get a mapping of /prefix1:path1,/prefix2:path2
-    static_paths = env.get("NGINX_STATIC_PATHS", "")
+    buffer = setup_proxy(app_name, env, workers)
 
-    # prepend static worker path if present
-    if "static" in workers:
-        stripped = workers["static"].strip("/").rstrip("/")
-        static_paths = (
-            ("/" if stripped[0:1] == ":" else "/:")
-            + (stripped if stripped else ".")
-            + "/"
-            + ("," if static_paths else "")
-            + static_paths
-        )
-    if len(static_paths):
-        try:
-            items = static_paths.split(",")
-            for item in items:
-                static_url, static_path = item.split(":")
-                if static_path[0] != "/":
-                    static_path = os.path.join(app_path, static_path).rstrip("/") + "/"
-                echo(f"-----> nginx will map {static_url} to {static_path}.")
-                env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = env[
-                    "HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"
-                ] + expand_vars(HOP3_INTERNAL_NGINX_STATIC_MAPPING, locals())
-        except Exception as e:
-            echo(
-                f"Error {e} in static path spec: should be /prefix1:path1[,/prefix2:path2], ignoring."
+    nginx_conf.write_text(buffer)
+
+    check_config(app_name, nginx_conf)
+
+
+def check_config(app_name, nginx_conf):
+    # prevent broken config from breaking other deploys
+    try:
+        nginx_config_test = str(
+            subprocess.check_output(
+                f"nginx -t 2>&1 | grep {app_name}", env=os.environ, shell=True
             )
-            env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
+        )
+    except Exception:
+        nginx_config_test = None
+    if nginx_config_test:
+        echo(f"Error: [nginx config] {nginx_config_test}", fg="red")
+        echo("Warning: removing broken nginx config.", fg="yellow")
+        os.unlink(nginx_conf)
 
-    env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = (
-        expand_vars(open(os.path.join(app_path, env["NGINX_INCLUDE_FILE"])).read(), env)
-        if env.get("NGINX_INCLUDE_FILE")
-        else ""
-    )
-    env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
 
+def setup_proxy(app_name, env, workers):
     if (
         "web" in workers
         or "wsgi" in workers
@@ -138,9 +124,7 @@ def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
         or "rwsgi" in workers
     ):
         env["HOP3_INTERNAL_NGINX_PORTMAP"] = expand_vars(NGINX_PORTMAP_FRAGMENT, env)
-
     env["HOP3_INTERNAL_NGINX_COMMON"] = expand_vars(NGINX_COMMON_FRAGMENT, env)
-
     echo(
         f"-----> nginx will map app '{app_name}' to hostname(s) '{env['NGINX_SERVER_NAME']}'"
     )
@@ -167,77 +151,108 @@ def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
         buffer = buffer.replace(
             "REMOTE_ADDR $remote_addr", "REMOTE_ADDR $http_cf_connecting_ip"
         )
+    return buffer
 
-    nginx_conf.write_text(buffer)
 
-    # prevent broken config from breaking other deploys
-    try:
-        nginx_config_test = str(
-            subprocess.check_output(
-                f"nginx -t 2>&1 | grep {app_name}", env=os.environ, shell=True
-            )
+def setup_static(app_path, env, workers):
+    env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
+    # Get a mapping of /prefix1:path1,/prefix2:path2
+    static_paths = env.get("NGINX_STATIC_PATHS", "")
+    # prepend static worker path if present
+    if "static" in workers:
+        stripped = workers["static"].strip("/").rstrip("/")
+        static_paths = (
+            ("/" if stripped[0:1] == ":" else "/:")
+            + (stripped if stripped else ".")
+            + "/"
+            + ("," if static_paths else "")
+            + static_paths
         )
-    except Exception:
-        nginx_config_test = None
+    if len(static_paths):
+        try:
+            items = static_paths.split(",")
+            for item in items:
+                static_url, static_path = item.split(":")
+                if static_path[0] != "/":
+                    static_path = os.path.join(app_path, static_path).rstrip("/") + "/"
+                echo(f"-----> nginx will map {static_url} to {static_path}.")
+                env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] += expand_vars(
+                    HOP3_INTERNAL_NGINX_STATIC_MAPPING, locals()
+                )
+        except Exception as e:
+            echo(
+                f"Error {e} in static path spec: should be /prefix1:path1[,/prefix2:path2], ignoring."
+            )
+            env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
+    env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = (
+        expand_vars(open(os.path.join(app_path, env["NGINX_INCLUDE_FILE"])).read(), env)
+        if env.get("NGINX_INCLUDE_FILE")
+        else ""
+    )
+    env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
 
-    if nginx_config_test:
-        echo(f"Error: [nginx config] {nginx_config_test}", fg="red")
-        echo("Warning: removing broken nginx config.", fg="yellow")
-        os.unlink(nginx_conf)
 
-
-def setup_cache(app_name, env):
+def setup_cache(app_name: str, env: Env):
     # Configure Nginx caching
     env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = ""
     env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
     default_cache_path = os.path.join(CACHE_ROOT, app_name)
     if not os.path.exists(default_cache_path):
         os.makedirs(default_cache_path)
+
     try:
         _cache_size = env.get_int("NGINX_CACHE_SIZE", 1)
     except Exception:
         echo("=====> Invalid cache size, defaulting to 1GB")
         _cache_size = 1
     cache_size = str(_cache_size) + "g"
+
     try:
         cache_time_control = env.get_int("NGINX_CACHE_CONTROL", 3600)
     except Exception:
         echo("=====> Invalid time for cache control, defaulting to 3600s")
         cache_time_control = 3600
     cache_time_control = str(cache_time_control)
+
     try:
         cache_time_content = env.get_int("NGINX_CACHE_TIME", 3600)
     except Exception:
         echo("=====> Invalid cache time for content, defaulting to 3600s")
         cache_time_content = 3600
     cache_time_content = str(cache_time_content) + "s"
+
     try:
         cache_time_redirects = env.get_int("NGINX_CACHE_REDIRECTS", 3600)
     except Exception:
         echo("=====> Invalid cache time for redirects, defaulting to 3600s")
         cache_time_redirects = 3600
     cache_time_redirects = str(cache_time_redirects) + "s"
+
     try:
         cache_time_any = env.get_int("NGINX_CACHE_ANY", 3600)
     except Exception:
         echo("=====> Invalid cache expiry fallback, defaulting to 3600s")
         cache_time_any = 3600
     cache_time_any = str(cache_time_any) + "s"
+
     try:
         cache_time_expiry = env.get_int("NGINX_CACHE_EXPIRY", 86400)
     except Exception:
         echo("=====> Invalid cache expiry, defaulting to 86400s")
         cache_time_expiry = 86400
     cache_time_expiry = str(cache_time_expiry) + "s"
-    cache_prefixes = env.get("NGINX_CACHE_PREFIXES", "")
-    cache_path = env.get("NGINX_CACHE_PATH", default_cache_path)
-    if not Path(cache_path).exists():
+
+    # FIXME
+    cache_path = env.get_path("NGINX_CACHE_PATH", default_cache_path)
+    if not cache_path.exists():
         log(
             f"Cache path {cache_path} does not exist, using default {default_cache_path}, be aware of disk usage.",
             level=4,
             fg="yellow",
         )
-        cache_path = env.get(default_cache_path)
+        cache_path = env.get_path(default_cache_path)
+
+    cache_prefixes = env.get("NGINX_CACHE_PREFIXES", "")
     if len(cache_prefixes):
         prefixes = []  # this will turn into part of /(path1|path2|path3)
         try:
@@ -276,6 +291,7 @@ def setup_cache(app_name, env):
 def setup_cloudflare(env):
     # restrict access to server from CloudFlare IP addresses
     acl = []
+
     if env.get_bool("NGINX_CLOUDFLARE_ACL"):
         try:
             cf = json.loads(
@@ -296,9 +312,8 @@ def setup_cloudflare(env):
                     acl.append(f"allow {remote_ip};")
                 acl.extend(["allow 127.0.0.1;", "deny all;"])
         except Exception:
-            cf = defaultdict()
-            echo(
-                f"-----> Could not retrieve CloudFlare IP ranges: {format_exc()}",
-                fg="red",
+            raise Abort(
+                f"Could not retrieve CloudFlare IP ranges: {format_exc()}",
             )
+
     env["NGINX_ACL"] = " ".join(acl)

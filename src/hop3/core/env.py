@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 
@@ -62,3 +63,14 @@ class Env(Mapping[str, Any]):
                 return value.lower() in ["1", "on", "true", "enabled", "yes", "y"]
             case _:
                 return bool(value)
+
+    def get_path(self, key: str, default: str | Path = "") -> Path:
+        value = self.get(key, default)
+        match value:
+            case str():
+                return Path(value)
+            case Path():
+                return value
+            case _:
+                # XXX: keep? Or raise an error?
+                return Path(str(value))
