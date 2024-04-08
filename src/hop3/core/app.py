@@ -6,8 +6,8 @@ import os
 import shutil
 from glob import glob
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from hop3.core.env import Env
 from hop3.deploy import do_deploy
 from hop3.run.spawn import spawn_app
 from hop3.system.constants import (
@@ -22,7 +22,11 @@ from hop3.system.constants import (
     UWSGI_AVAILABLE,
     UWSGI_ENABLED,
 )
+from hop3.system.state import state
 from hop3.util.console import Abort, log
+
+if TYPE_CHECKING:
+    from hop3.core.env import Env
 
 
 def get_app(name: str) -> App:
@@ -87,12 +91,10 @@ class App:
         return Path(self.virtualenv_path, "LIVE_ENV")
 
     def get_runtime_env(self) -> Env:
-        env = Env()
-        env.parse_settings(self._env_file_path)
-        return env
-        # if not self._env_file_path.exists():
-        #     return {}
-        # return parse_settings(self._env_file_path)
+        return state.get_app_env(self.name)
+        # env = Env()
+        # env.parse_settings(self._env_file_path)
+        # return env
 
     # Actions
     def deploy(self) -> None:

@@ -137,7 +137,7 @@ class AppLauncher:
         # Pick a port if none defined
         if "PORT" not in env:
             port = env["PORT"] = str(get_free_port())
-            log(f"Picking free port {port}", level=5)
+            log(f"Picked free port: {port}", level=5)
 
         if env.get_bool("DISABLE_IPV6"):
             safe_defaults.pop("NGINX_IPV6_ADDRESS", None)
@@ -156,13 +156,11 @@ class AppLauncher:
         for kind, v in to_create.items():
             for w in v:
                 enabled = Path(UWSGI_ENABLED, f"{self.app_name:s}_{kind:s}.{w:d}.ini")
-                if not enabled.exists():
-                    log(
-                        f"spawning '{self.app_name:s}:{kind:s}.{w:d}'",
-                        level=5,
-                        fg="green",
-                    )
-                    spawn_uwsgi_worker(self.app_name, kind, self.workers[kind], env, w)
+                if enabled.exists():
+                    continue
+
+                log(f"spawning '{self.app_name:s}:{kind:s}.{w:d}'", level=5)
+                spawn_uwsgi_worker(self.app_name, kind, self.workers[kind], env, w)
 
     def remove_unnecessary_workers(self, to_destroy):
         # Remove unnecessary workers (leave logfiles)
