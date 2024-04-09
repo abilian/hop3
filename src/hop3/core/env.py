@@ -1,16 +1,26 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import field
 from pathlib import Path
 from typing import Any
 
+from hop3.util.freeze import freeze
 from hop3.util.settings import parse_settings
 
 
-@dataclass(frozen=True)
 class Env(Mapping[str, Any]):
-    data: dict[str, Any] = field(default_factory=dict)
+    data: dict[str, str] = field(default_factory=dict)
+
+    def __init__(self, data: Mapping[str, Any] | None = None):
+        self.data = {}
+        if data is None:
+            data = {}
+
+        for k, v in data.items():
+            self.data[k] = str(v)
+
+        freeze(self)
 
     def __setitem__(self, key: str, value: Any):
         self.data[key] = value

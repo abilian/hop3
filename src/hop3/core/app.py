@@ -124,17 +124,16 @@ class App:
                     os.remove(f)
 
         nginx_files = [
-            os.path.join(NGINX_ROOT, f"{app}.{x}")
-            for x in ["conf", "sock", "key", "crt"]
+            Path(NGINX_ROOT, f"{app}.{x}") for x in ["conf", "sock", "key", "crt"]
         ]
         for f in nginx_files:
-            if os.path.exists(f):
+            if f.exists():
                 log(f"Removing file '{f}'", level=2, fg="blue")
-                os.remove(f)
+                f.unlink()
 
-        acme_link = os.path.join(ACME_WWW, app)
-        acme_certs = os.path.realpath(acme_link)
-        if os.path.exists(acme_certs):
+        acme_link = Path(ACME_WWW, app)
+        acme_certs = acme_link.resolve()
+        if acme_certs.exists():
             log(f"Removing folder '{acme_certs}'", level=2, fg="yellow")
             shutil.rmtree(acme_certs)
 

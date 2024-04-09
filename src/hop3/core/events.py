@@ -32,5 +32,37 @@ class InstallingVirtualEnv(Event):
         return f"Installing/updateing virtual environment for {self.app_name}"
 
 
+@dataclass(frozen=True)
+class CreatingBuildEnv(Event):
+    app_name: str
+
+    def __str__(self):
+        return f"Creating build environment for {self.app_name}"
+
+
+@dataclass(frozen=True)
+class CompilingProject(Event):
+    app_name: str
+
+    def __str__(self):
+        return f"Compiling project {self.app_name}"
+
+
+@dataclass(frozen=True)
+class PreparingBuildEnv(Event):
+    app_name: str
+
+    def __str__(self):
+        return f"Preparing build environment for {self.app_name}"
+
+
+@dataclass(frozen=True)
+class InstallingDependencies(Event):
+    app_name: str
+
+    def __str__(self):
+        return f"Installing dependencies for {self.app_name}"
+
+
 def emit(event: Event):
     log(str(event), level=5, fg="blue")
