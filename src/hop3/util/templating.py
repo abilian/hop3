@@ -1,3 +1,8 @@
+# Copyright (c) 2016 Rui Carmo
+# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2021 Phil Eaton
+# Copyright (c) 2024 Stefane Fermigier
+
 from __future__ import annotations
 
 import io
@@ -19,11 +24,6 @@ def expand_vars(template, env: Mapping[str, Any], default=None):
 
     return re.sub(PATTERN, replace_var, template)
 
-
-# Copyright (c) 2016 Rui Carmo
-# Copyright (c) 2023-2024, Abilian SAS
-# Copyright 2021 Phil Eaton
-# Copyright 2024 Stefane Fermigier
 
 BLOCK_OPEN = "{%"
 BLOCK_CLOSE = "%}"

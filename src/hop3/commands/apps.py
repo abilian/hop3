@@ -12,7 +12,6 @@ import os
 import subprocess
 import sys
 from glob import glob
-from pathlib import Path
 
 from click import argument
 from click import secho as echo
@@ -82,7 +81,7 @@ def cmd_ps(app: str) -> None:
     """Show process count, e.g: hop-agent ps <app>"""
 
     app_obj = get_app(app)
-    scaling_file = Path(app_obj.virtualenv_path, "SCALING")
+    scaling_file = app_obj.virtualenv_path / "SCALING"
 
     if scaling_file.exists():
         echo(scaling_file.read_text().strip(), fg="white")
@@ -98,7 +97,7 @@ def cmd_ps_scale(app: str, settings: list[str]) -> None:
 
     app_obj = get_app(app)
 
-    scaling_file = Path(app_obj.virtualenv_path, "SCALING")
+    scaling_file = app_obj.virtualenv_path / "SCALING"
     worker_count = {k: int(v) for k, v in parse_procfile(scaling_file).items()}
     deltas: dict[str, int] = {}
     for s in settings:

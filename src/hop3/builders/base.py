@@ -41,7 +41,7 @@ class Builder:
     def shell(self, command: str, cwd: str | Path = "", **kwargs) -> None:
         if not cwd:
             cwd = str(self.app_path)
-        shell(command, cwd=cwd, **kwargs)
+        shell(command, cwd=str(cwd), **kwargs)
 
     def get_env(self) -> Env:
         env = Env()

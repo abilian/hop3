@@ -79,6 +79,7 @@ lint:
 	ruff check src tests
 	# mypy --show-error-codes src
 	# pyright src
+	reuse lint -q
 
 # Alt
 #lint:
