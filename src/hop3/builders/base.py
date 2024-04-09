@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 from hop3.core.env import Env
 from hop3.system.constants import APP_ROOT, ENV_ROOT
@@ -14,8 +15,8 @@ class Builder:
     app_name: str
 
     # Class attitutes
-    requirements: list[str]
-    name: str
+    requirements: ClassVar[list[str]]
+    name: ClassVar[str]
 
     def __init__(self, app_name: str) -> None:
         self.app_name = app_name

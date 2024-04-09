@@ -3,6 +3,8 @@
 """Install Hop3 on Ubuntu 22.04 LTS.
 """
 
+from __future__ import annotations
+
 import os
 
 from hop3.oses.common import HOME_DIR, HOP3_USER
@@ -52,7 +54,7 @@ PACKAGES = [
 ]
 
 
-def setup_system():
+def setup_system() -> None:
     setup_base_system()
     # setup_hop3()
     # setup_uwsgi()
@@ -60,7 +62,7 @@ def setup_system():
     # setup_nginx()
 
 
-def setup_base_system():
+def setup_base_system() -> None:
     user(
         name="Add hop3 user",
         user=HOP3_USER,
@@ -89,13 +91,13 @@ def setup_base_system():
 #
 # Library
 #
-def user(name, user, home, shell, group):
+def user(name, user, home, shell, group) -> None:
     pass
 
 
-def packages(name, packages, update):
+def packages(name, packages, update) -> None:
     pass
 
 
-def link(name, path, target):
+def link(name, path, target) -> None:
     os.symlink(target, path)

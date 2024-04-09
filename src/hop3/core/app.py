@@ -47,14 +47,14 @@ class App:
         self.validate()
         self.frozen = True
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key, value) -> None:
         if self.frozen:
             raise AttributeError("Cannot set attribute on frozen instance")
         super().__setattr__(key, value)
 
     def validate(self) -> None:
         for c in self.name:
-            if not c.isalnum() and c not in (".", "_", "-"):
+            if not c.isalnum() and c not in {".", "_", "-"}:
                 raise ValueError("Invalid app name")
 
     def check_exists(self) -> None:
@@ -117,8 +117,11 @@ class App:
                     log(f"Removing file '{f}'", level=2, fg="blue")
                     os.remove(f)
 
-        nginx_files: list[Path] = [
-            Path(NGINX_ROOT, f"{app}.{x}") for x in ["conf", "sock", "key", "crt"]
+        nginx_files = [
+            Path(NGINX_ROOT, f"{app}.conf"),
+            Path(NGINX_ROOT, f"{app}.sock"),
+            Path(NGINX_ROOT, f"{app}.key"),
+            Path(NGINX_ROOT, f"{app}.crt"),
         ]
         for f in nginx_files:
             if f.exists():

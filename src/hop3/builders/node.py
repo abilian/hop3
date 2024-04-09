@@ -45,7 +45,7 @@ class NodeBuilder(Builder):
             [
                 Path(self.virtual_env, "bin"),
                 Path(node_modules, ".bin"),
-            ]
+            ],
         )
         env = Env(
             {
@@ -53,7 +53,7 @@ class NodeBuilder(Builder):
                 "NODE_PATH": node_modules,
                 "NPM_CONFIG_PREFIX": npm_prefix,
                 "PATH": path,
-            }
+            },
         )
         env.parse_settings(self.env_file)
         return env
@@ -78,14 +78,14 @@ class NodeBuilder(Builder):
 
                 log(
                     "Installing node version '{NODE_VERSION:s}' using nodeenv".format(
-                        **env
+                        **env,
                     ),
                     level=5,
                     fg="green",
                 )
                 shell(
                     "nodeenv --prebuilt --node={NODE_VERSION:s} --clean-src --force {VIRTUAL_ENV:s}".format(
-                        **env
+                        **env,
                     ),
                     cwd=self.virtual_env,
                     env=env,

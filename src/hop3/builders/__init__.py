@@ -1,6 +1,8 @@
 # Copyright (c) 2016 Rui Carmo
 # Copyright (c) 2023-2024, Abilian SAS
 
+from __future__ import annotations
+
 from .clojure import ClojureBuilder
 from .go import GoBuilder
 from .node import NodeBuilder

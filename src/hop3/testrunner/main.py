@@ -22,7 +22,10 @@ def main() -> None:
     parser = argparse.ArgumentParser("Run end-to-end tests")
     parser.add_argument("-k", "--keep", action="store_true", help="Keep apps alive")
     parser.add_argument(
-        "-p", "--parallel", action="store_true", help="Run in parallel (not working)"
+        "-p",
+        "--parallel",
+        action="store_true",
+        help="Run in parallel (not working)",
     )
     parser.add_argument("-d", "--directory", help="Directory to look for apps")
     parser.add_argument("-a", "--app", help="App to test")
@@ -80,13 +83,9 @@ def get_apps(args) -> list | list[Path]:
         app = Path(args.app)
         if app.is_dir():
             return [app]
-        else:
-            return [directory / app]
+        return [directory / app]
 
-    apps = []
-    for app in directory.iterdir():
-        if app.is_dir():
-            apps.append(app)
+    apps = [app for app in directory.iterdir() if app.is_dir()]
 
     return apps
 

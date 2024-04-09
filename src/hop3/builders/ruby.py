@@ -33,14 +33,14 @@ class RubyBuilder(Builder):
             [
                 self.virtual_env / "bin",
                 self.app_path / ".bin",
-            ]
+            ],
         )
 
         env = Env(
             {
                 "VIRTUAL_ENV": self.virtual_env,
                 "PATH": path,
-            }
+            },
         )
         env.parse_settings(self.env_file)
         return env

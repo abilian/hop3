@@ -101,7 +101,7 @@ def cmd_setup_ssh(public_key_file) -> None:
         if os.path.exists(key_file):
             try:
                 fingerprint = str(
-                    subprocess.check_output("ssh-keygen -lf " + key_file, shell=True)
+                    subprocess.check_output("ssh-keygen -lf " + key_file, shell=True),
                 ).split(" ", 4)[1]
                 key = open(key_file).read().strip()
                 echo(f"Adding key '{fingerprint}'.", fg="white")
@@ -134,7 +134,7 @@ def setup_authorized_keys(ssh_fingerprint, pubkey) -> None:
         f'command="FINGERPRINT={ssh_fingerprint:s} '
         f"NAME=default {HOP3_SCRIPT:s} "
         f'$SSH_ORIGINAL_COMMAND",no-agent-forwarding,no-user-rc,no-X11-forwarding,no-port-forwarding '
-        f"{pubkey:s}\n"
+        f"{pubkey:s}\n",
     )
 
     authorized_keys.parent.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)

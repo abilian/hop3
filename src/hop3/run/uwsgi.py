@@ -32,7 +32,11 @@ __all__ = ["spawn_uwsgi_worker"]
 
 
 def spawn_uwsgi_worker(
-    app_name: str, kind: str, command: str, env: Env, ordinal=1
+    app_name: str,
+    kind: str,
+    command: str,
+    env: Env,
+    ordinal=1,
 ) -> None:
     """Set up and deploy a single worker of a given kind"""
 
@@ -145,7 +149,7 @@ def spawn_uwsgi_worker(
             else:
                 log(
                     "nginx will talk to uWSGI via {BIND_ADDRESS:s}:{PORT:s}".format(
-                        **env
+                        **env,
                     ),
                     level=5,
                     fg="yellow",
@@ -158,7 +162,7 @@ def spawn_uwsgi_worker(
         case "web":
             echo(
                 "-----> nginx will talk to the 'web' process via {BIND_ADDRESS:s}:{PORT:s}".format(
-                    **env
+                    **env,
                 ),
                 fg="yellow",
             )
@@ -170,7 +174,7 @@ def spawn_uwsgi_worker(
         case _:
             settings.add("attach-daemon", command)
 
-    if kind in ["wsgi", "web"]:
+    if kind in {"wsgi", "web"}:
         settings.add(
             "log-format",
             '%%(addr) - %%(user) [%%(ltime)] "%%(method) %%(uri) %%(proto)" %%(status) %%(size) "%%(referer)" "%%(uagent)" %%(msecs)ms',

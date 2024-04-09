@@ -34,14 +34,14 @@ class AppLauncher:
     app_name: str
     deltas: dict[str, int] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.app_path = Path(APP_ROOT, self.app_name)
         self.virtualenv_path = Path(ENV_ROOT, self.app_name)
         self.config = Config.from_dir(self.app_path)
         self.workers = self.config.web_workers
         self.env = self.get_env()
 
-    def spawn_app(self):
+    def spawn_app(self) -> None:
         """Create the app's workers"""
 
         # Set up nginx if we have NGINX_SERVER_NAME set
@@ -50,7 +50,7 @@ class AppLauncher:
             setup_nginx(self.app_name, self.env, self.workers)
 
         # Configured worker count
-        worker_count = {k: 1 for k in self.workers.keys()}
+        worker_count = dict.fromkeys(self.workers.keys(), 1)
         scaling = self.virtualenv_path / "SCALING"
         if scaling.exists():
             worker_count.update(
@@ -58,7 +58,7 @@ class AppLauncher:
                     worker: int(v)
                     for worker, v in parse_procfile(scaling).items()
                     if worker in self.workers
-                }
+                },
             )
 
         deltas = self.deltas
@@ -66,9 +66,10 @@ class AppLauncher:
         to_destroy = {}
         for env_key in worker_count.keys():
             to_create[env_key] = range(1, worker_count[env_key] + 1)
-            if env_key in deltas and deltas[env_key]:
+            if deltas.get(env_key):
                 to_create[env_key] = range(
-                    1, worker_count[env_key] + deltas[env_key] + 1
+                    1,
+                    worker_count[env_key] + deltas[env_key] + 1,
                 )
                 if deltas[env_key] < 0:
                     to_destroy[env_key] = range(
@@ -101,7 +102,7 @@ class AppLauncher:
         self.create_new_workers(to_create, env)
         self.remove_unnecessary_workers(to_destroy)
 
-    def get_env(self):
+    def get_env(self) -> Env:
         # Bootstrap environment
         env = Env(
             {
@@ -112,7 +113,7 @@ class AppLauncher:
                 "PATH": f"{self.virtualenv_path / 'bin'}:{os.environ['PATH']}",
                 "PWD": str(self.app_path),
                 "VIRTUAL_ENV": str(self.virtualenv_path),
-            }
+            },
         )
 
         safe_defaults = {
@@ -151,7 +152,7 @@ class AppLauncher:
 
         return env
 
-    def create_new_workers(self, to_create, env):
+    def create_new_workers(self, to_create, env) -> None:
         # Create new workers
         for kind, v in to_create.items():
             for w in v:
@@ -162,7 +163,7 @@ class AppLauncher:
                 log(f"spawning '{self.app_name:s}:{kind:s}.{w:d}'", level=5)
                 spawn_uwsgi_worker(self.app_name, kind, self.workers[kind], env, w)
 
-    def remove_unnecessary_workers(self, to_destroy):
+    def remove_unnecessary_workers(self, to_destroy) -> None:
         # Remove unnecessary workers (leave logfiles)
         for k, v in to_destroy.items():
             for w in v:

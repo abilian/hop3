@@ -1,5 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
+from __future__ import annotations
+
 HOP3_USER = "hop3"
 SSH_USER = "root"
 HOME_DIR = f"/home/{HOP3_USER}"

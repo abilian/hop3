@@ -2,4 +2,6 @@
 
 """Install hop3 on NixOS"""
 
+from __future__ import annotations
+
 # TODO

@@ -1,5 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 import psycopg2
@@ -13,7 +15,7 @@ class PostgresqlAddon(Addon):
     app_name: str
     settings: dict
 
-    def create(self):
+    def create(self) -> None:
         # Create the database
         params = {
             # 'dbname': self.db_name,
@@ -35,24 +37,24 @@ class PostgresqlAddon(Addon):
         connection.close()
 
     @property
-    def db_name(self):
+    def db_name(self) -> str:
         return self.app_name + "_db"
 
     @property
-    def db_user(self):
+    def db_user(self) -> str:
         return self.app_name + "_user"
 
     @property
-    def db_pass(self):
+    def db_pass(self) -> str:
         return self.app_name + "_pw"
 
-    def get_env(self):
+    def get_env(self) -> dict[str, str]:
         return {
-            "DATABASE_URL": f"postgresql://{self.db_user}:{self.db_pass}@localhost/{self.db_name}"
+            "DATABASE_URL": f"postgresql://{self.db_user}:{self.db_pass}@localhost/{self.db_name}",
         }
 
 
-def _check_database_exists(cursor, dbname):
+def _check_database_exists(cursor, dbname) -> bool:
     cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (dbname,))
     exists = cursor.fetchone()
     return exists is not None

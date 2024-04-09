@@ -77,8 +77,8 @@ def cmd_git_receive_pack(app: str) -> None:
                     #!/usr/bin/env bash
                     set -e; set -o pipefail;
                     cat | HOP3_ROOT="{HOP3_ROOT:s}" {HOP3_SCRIPT:s} git-hook {app:s}
-                    """
-                )
+                    """,
+                ),
             )
         # Make the hook executable by our user
         os.chmod(hook_path, os.stat(hook_path).st_mode | stat.S_IXUSR)

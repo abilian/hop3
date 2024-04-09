@@ -21,7 +21,7 @@ from hop3.util.path import prepend_to_path
 from .commands import hop3
 
 
-def fix_path():
+def fix_path() -> None:
     """Ensure system binaries are in the PATH, as wel as hop3 binaries."""
     path = os.environ["PATH"]
     path = prepend_to_path([HOP3_BIN, "/usr/local/sbin", "/usr/sbin", "/sbin"], path)

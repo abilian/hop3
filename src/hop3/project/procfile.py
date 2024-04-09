@@ -60,7 +60,7 @@ class Procfile:
     def parse_line(self, line: str, line_number: int) -> None:
         line = line.strip()
         if line.startswith("#") or not line:
-            return None
+            return
 
         try:
             kind, command = (x.strip() for x in line.split(":", 1))

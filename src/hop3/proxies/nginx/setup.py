@@ -63,7 +63,7 @@ def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
             "NGINX_SSL": nginx_ssl,
             "NGINX_ROOT": NGINX_ROOT,
             "ACME_WWW": ACME_WWW,
-        }
+        },
     )
 
     # default to reverse proxying to the TCP port we picked
@@ -74,7 +74,8 @@ def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
     if "wsgi" in workers or "jwsgi" in workers:
         sock = os.path.join(NGINX_ROOT, f"{app_name}.sock")
         env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = expand_vars(
-            HOP3_INTERNAL_NGINX_UWSGI_SETTINGS, env
+            HOP3_INTERNAL_NGINX_UWSGI_SETTINGS,
+            env,
         )
         env["NGINX_SOCKET"] = env["BIND_ADDRESS"] = "unix://" + sock
         if "PORT" in env:
@@ -100,13 +101,15 @@ def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
     check_config(app_name, nginx_conf_path)
 
 
-def check_config(app_name, nginx_conf):
+def check_config(app_name, nginx_conf) -> None:
     # prevent broken config from breaking other deploys
     try:
         nginx_config_test = str(
             subprocess.check_output(
-                f"nginx -t 2>&1 | grep {app_name}", env=os.environ, shell=True
-            )
+                f"nginx -t 2>&1 | grep {app_name}",
+                env=os.environ,
+                shell=True,
+            ),
         )
     except Exception:
         nginx_config_test = None
@@ -116,7 +119,7 @@ def check_config(app_name, nginx_conf):
         os.unlink(nginx_conf)
 
 
-def setup_proxy(app_name, env, workers):
+def setup_proxy(app_name, env, workers) -> str:
     if (
         "web" in workers
         or "wsgi" in workers
@@ -126,12 +129,12 @@ def setup_proxy(app_name, env, workers):
         env["HOP3_INTERNAL_NGINX_PORTMAP"] = expand_vars(NGINX_PORTMAP_FRAGMENT, env)
     env["HOP3_INTERNAL_NGINX_COMMON"] = expand_vars(NGINX_COMMON_FRAGMENT, env)
     echo(
-        f"-----> nginx will map app '{app_name}' to hostname(s) '{env['NGINX_SERVER_NAME']}'"
+        f"-----> nginx will map app '{app_name}' to hostname(s) '{env['NGINX_SERVER_NAME']}'",
     )
     if env.get_bool("NGINX_HTTPS_ONLY"):
         buffer = expand_vars(NGINX_HTTPS_ONLY_TEMPLATE, env)
         echo(
-            f"-----> nginx will redirect all requests to hostname(s) '{env['NGINX_SERVER_NAME']}' to HTTPS"
+            f"-----> nginx will redirect all requests to hostname(s) '{env['NGINX_SERVER_NAME']}' to HTTPS",
         )
     else:
         buffer = expand_vars(NGINX_TEMPLATE, env)
@@ -139,7 +142,7 @@ def setup_proxy(app_name, env, workers):
     # remove all references to IPv6 listeners (for enviroments where it's disabled)
     if env.get_bool("DISABLE_IPV6"):
         buffer = "\n".join(
-            [line for line in buffer.split("\n") if "NGINX_IPV6" not in line]
+            [line for line in buffer.split("\n") if "NGINX_IPV6" not in line],
         )
 
     # change any unecessary uWSGI specific directives to standard proxy ones
@@ -149,12 +152,13 @@ def setup_proxy(app_name, env, workers):
     # map Cloudflare connecting IP to REMOTE_ADDR
     if env.get_bool("NGINX_CLOUDFLARE_ACL"):
         buffer = buffer.replace(
-            "REMOTE_ADDR $remote_addr", "REMOTE_ADDR $http_cf_connecting_ip"
+            "REMOTE_ADDR $remote_addr",
+            "REMOTE_ADDR $http_cf_connecting_ip",
         )
     return buffer
 
 
-def setup_static(app_path, env, workers):
+def setup_static(app_path, env, workers) -> None:
     env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
     # Get a mapping of /prefix1:path1,/prefix2:path2
     static_paths = env.get("NGINX_STATIC_PATHS", "")
@@ -177,11 +181,12 @@ def setup_static(app_path, env, workers):
                     static_path = os.path.join(app_path, static_path).rstrip("/") + "/"
                 echo(f"-----> nginx will map {static_url} to {static_path}.")
                 env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] += expand_vars(
-                    HOP3_INTERNAL_NGINX_STATIC_MAPPING, locals()
+                    HOP3_INTERNAL_NGINX_STATIC_MAPPING,
+                    locals(),
                 )
         except Exception as e:
             echo(
-                f"Error {e} in static path spec: should be /prefix1:path1[,/prefix2:path2], ignoring."
+                f"Error {e} in static path spec: should be /prefix1:path1[,/prefix2:path2], ignoring.",
             )
             env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
     env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = (
@@ -192,7 +197,7 @@ def setup_static(app_path, env, workers):
     env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
 
 
-def setup_cache(app_name: str, env: Env):
+def setup_cache(app_name: str, env: Env) -> None:
     # Configure Nginx caching
     env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = ""
     env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
@@ -264,31 +269,34 @@ def setup_cache(app_name: str, env: Env):
                     prefixes.append(item)
             cache_prefixes = "|".join(prefixes)
             echo(
-                f"-----> nginx will cache /({cache_prefixes}) prefixes up to {cache_time_expiry} or {cache_size} of disk space, with the following timings:"
+                f"-----> nginx will cache /({cache_prefixes}) prefixes up to {cache_time_expiry} or {cache_size} of disk space, with the following timings:",
             )
             echo(f"-----> nginx will cache content for {cache_time_content}.")
             echo(f"-----> nginx will cache redirects for {cache_time_redirects}.")
             echo(f"-----> nginx will cache everything else for {cache_time_any}.")
             echo(
-                f"-----> nginx will send caching headers asking for {cache_time_control} seconds of public caching."
+                f"-----> nginx will send caching headers asking for {cache_time_control} seconds of public caching.",
             )
             env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = expand_vars(
-                HOP3_INTERNAL_PROXY_CACHE_PATH, locals()
+                HOP3_INTERNAL_PROXY_CACHE_PATH,
+                locals(),
             )
             env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = expand_vars(
-                HOP3_INTERNAL_NGINX_CACHE_MAPPING, locals()
+                HOP3_INTERNAL_NGINX_CACHE_MAPPING,
+                locals(),
             )
             env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = expand_vars(
-                env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"], env
+                env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"],
+                env,
             )
         except Exception as e:
             echo(
-                f"Error {e} in cache path spec: should be /prefix1:[,/prefix2], ignoring."
+                f"Error {e} in cache path spec: should be /prefix1:[,/prefix2], ignoring.",
             )
             env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
 
 
-def setup_cloudflare(env):
+def setup_cloudflare(env) -> None:
     # restrict access to server from CloudFlare IP addresses
     acl = []
 
@@ -297,23 +305,26 @@ def setup_cloudflare(env):
             cf = json.loads(
                 urlopen("https://api.cloudflare.com/client/v4/ips")
                 .read()
-                .decode("utf-8")
+                .decode("utf-8"),
             )
-            if cf["success"] is True:
-                for i in cf["result"]["ipv4_cidrs"]:
-                    acl.append(f"allow {i};")
-                if env.get_bool("DISABLE_IPV6"):
-                    for i in cf["result"]["ipv6_cidrs"]:
-                        acl.append(f"allow {i};")
-                # allow access from controlling machine
-                if "SSH_CLIENT" in os.environ:
-                    remote_ip = os.environ["SSH_CLIENT"].split()[0]
-                    echo(f"-----> nginx ACL will include your IP ({remote_ip})")
-                    acl.append(f"allow {remote_ip};")
-                acl.extend(["allow 127.0.0.1;", "deny all;"])
         except Exception:
             raise Abort(
                 f"Could not retrieve CloudFlare IP ranges: {format_exc()}",
             )
+
+        if cf["success"] is True:
+            result = cf["result"]
+            acl = [f"allow {i};" for i in result["ipv4_cidrs"]]
+
+            if env.get_bool("DISABLE_IPV6"):
+                acl += [f"allow {i};" for i in result["ipv6_cidrs"]]
+
+            # allow access from controlling machine
+            if "SSH_CLIENT" in os.environ:
+                remote_ip = os.environ["SSH_CLIENT"].split()[0]
+                echo(f"-----> nginx ACL will include your IP ({remote_ip})")
+                acl += [f"allow {remote_ip};"]
+
+            acl += ["allow 127.0.0.1;", "deny all;"]
 
     env["NGINX_ACL"] = " ".join(acl)

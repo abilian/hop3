@@ -9,8 +9,10 @@ import subprocess
 import time
 import traceback
 from pathlib import Path
+from typing import Iterator
 
 import httpx
+from devtools import debug
 
 from hop3.util.backports import chdir
 
@@ -20,14 +22,12 @@ DEFAULT_WAIT = 5
 CLOJURE_WAIT = 15
 
 
-from typing import Iterator
-
-
 class TestSession:
 
     def __init__(self, app_directory: Path, config: dict) -> None:
-        assert app_directory.exists()
-        assert app_directory.is_dir()
+        debug(f"Testing {app_directory.absolute()}")
+        assert app_directory.exists(), f"{app_directory} does not exist"
+        assert app_directory.is_dir(), f"{app_directory} is not a directory"
 
         self.directory = app_directory
         self.name = app_directory.name
@@ -87,12 +87,12 @@ class TestSession:
             response = httpx.get(url, verify=False)
         except OSError as e:
             raise AssertionError(
-                f"App {self.app_host_name} ({url}) is not up, got OSError:\n{e}"
+                f"App {self.app_host_name} ({url}) is not up, got OSError:\n{e}",
             )
 
         if response.status_code != 200:
             raise AssertionError(
-                f"App {self.app_host_name} ({url}) is not up, got status code {response.status_code}"
+                f"App {self.app_host_name} ({url}) is not up, got status code {response.status_code}",
             )
 
         # Check content later

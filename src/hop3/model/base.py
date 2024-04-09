@@ -1,5 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
+from __future__ import annotations
+
 from datetime import datetime
 
 from advanced_alchemy.types import DateTimeUTC
@@ -15,5 +17,6 @@ class TimeStamped:
     """Created At Field Mixin."""
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTimeUTC(timezone=True), default=utc_now
+        DateTimeUTC(timezone=True),
+        default=utc_now,
     )

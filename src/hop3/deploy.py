@@ -93,7 +93,8 @@ class Deployer:
             retval = shell(build_worker, cwd=self.app_path)
             if retval:
                 raise Abort(
-                    f"Build failed due to command error value: {retval}", retval
+                    f"Build failed due to command error value: {retval}",
+                    retval,
                 )
             return
 

@@ -1,5 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
+from __future__ import annotations
+
 from pathlib import Path
 from subprocess import CalledProcessError
 
@@ -50,5 +52,5 @@ class PHPBuilder(Builder):
             shell("composer install", cwd=self.app_path)
         except CalledProcessError as e:
             raise RuntimeError(
-                f"Failed to install dependencies for PHP project '{self.app_name}': {e}"
+                f"Failed to install dependencies for PHP project '{self.app_name}': {e}",
             )

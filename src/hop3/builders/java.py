@@ -38,7 +38,7 @@ def build_java_gradle(app_name: str) -> None:
                 os.path.join(java_path, "bin"),
                 os.path.join(app_name, ".bin"),
                 os.environ["PATH"],
-            ]
+            ],
         ),
     }
 
@@ -71,7 +71,7 @@ def build_java_maven(app_name: str) -> None:
                 os.path.join(java_path, "bin"),
                 os.path.join(app_name, ".bin"),
                 os.environ["PATH"],
-            ]
+            ],
         ),
     }
 

@@ -45,24 +45,26 @@ class ClojureBuilder(Builder):
             [
                 Path(self.virtual_env, "bin"),
                 Path(self.app_name, ".bin"),
-            ]
+            ],
         )
 
         env = Env(
             {
                 "VIRTUAL_ENV": self.virtual_env,
                 "PATH": path,
-            }
+            },
         )
 
         if self.is_leiningen_app:
             lein_home = os.environ.get(
-                "LEIN_HOME", os.path.join(os.environ["HOME"], ".lein")
+                "LEIN_HOME",
+                os.path.join(os.environ["HOME"], ".lein"),
             )
             env.update({"LEIN_HOME": lein_home})
         else:
             clj_config = os.environ.get(
-                "CLJ_CONFIG", os.path.join(os.environ["HOME"], ".clojure")
+                "CLJ_CONFIG",
+                os.path.join(os.environ["HOME"], ".clojure"),
             )
             env.update({"CLJ_CONFIG": clj_config})
 

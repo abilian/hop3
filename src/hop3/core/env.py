@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import field
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from hop3.util.freeze import freeze
 from hop3.util.settings import parse_settings
@@ -14,7 +14,7 @@ from hop3.util.settings import parse_settings
 class Env(Mapping[str, str]):
     data: dict[str, str] = field(default_factory=dict)
 
-    def __init__(self, data: Mapping[str, Any] | None = None):
+    def __init__(self, data: Mapping[str, Any] | None = None) -> None:
         self.data = {}
         if data is None:
             data = {}
@@ -24,22 +24,22 @@ class Env(Mapping[str, str]):
 
         freeze(self)
 
-    def __setitem__(self, key: str, value: Any):
+    def __setitem__(self, key: str, value: Any) -> None:
         self.data[key] = str(value)
 
     def __getitem__(self, key: str) -> str:
         return self.data[key]
 
-    def __delitem__(self, key: str):
+    def __delitem__(self, key: str) -> None:
         del self.data[key]
 
-    def __contains__(self, item):
+    def __contains__(self, item) -> bool:
         return item in self.data
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.data)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         return iter(self.data)
 
     def keys(self):
@@ -51,10 +51,10 @@ class Env(Mapping[str, str]):
     def items(self):
         return self.data.items()
 
-    def copy(self):
+    def copy(self) -> Env:
         return Env(self.data.copy())
 
-    def update(self, other: Mapping[str, Any]):
+    def update(self, other: Mapping[str, Any]) -> None:
         for k, v in other.items():
             self.data[k] = str(v)
 
@@ -78,7 +78,7 @@ class Env(Mapping[str, str]):
             case bool():
                 return value
             case str():
-                return value.lower() in ["1", "on", "true", "enabled", "yes", "y"]
+                return value.lower() in {"1", "on", "true", "enabled", "yes", "y"}
             case _:
                 return bool(value)
 
@@ -93,7 +93,7 @@ class Env(Mapping[str, str]):
                 # XXX: keep? Or raise an error?
                 return Path(str(value))
 
-    def parse_settings(self, env_file: Path | str = ""):
+    def parse_settings(self, env_file: Path | str = "") -> None:
         match env_file:
             case Path():
                 pass
