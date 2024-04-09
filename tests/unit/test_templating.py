@@ -1,3 +1,7 @@
+# Copyright (c) 2023-2024, Abilian SAS
+#
+# SPDX-License-Identifier: MIT
+
 # ruff: noqa: W293
 
 from hop3.util.templating import eval_template

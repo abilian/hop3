@@ -1,3 +1,7 @@
+# Copyright (c) 2023-2024, Abilian SAS
+#
+# SPDX-License-Identifier: MIT
+
 from __future__ import annotations
 
 from hop3.main import main

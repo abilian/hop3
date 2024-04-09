@@ -1,3 +1,7 @@
+# Copyright (c) 2023-2024, Abilian SAS
+#
+# SPDX-License-Identifier: MIT
+
 import pytest
 
 from hop3.util.freeze import freeze
