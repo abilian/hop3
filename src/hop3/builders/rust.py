@@ -5,11 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from subprocess import CalledProcessError
 
-from hop3.builders.base import Builder
 from hop3.core.env import Env
 from hop3.core.events import CompilingProject, CreatingBuildEnv, emit
 from hop3.util import shell
 from hop3.util.backports import chdir
+
+from .base import Builder
 
 
 class RustBuilder(Builder):

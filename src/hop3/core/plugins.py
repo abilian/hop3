@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib
 import pkgutil
-from typing import Iterator
+from collections.abc import Iterator
 
 import pluggy
 from pluggy import PluginManager

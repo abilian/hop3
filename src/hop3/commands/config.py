@@ -7,7 +7,6 @@ CLI commands
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from click import argument
@@ -15,9 +14,8 @@ from click import argument
 from hop3.core.app import get_app
 from hop3.deploy import do_deploy
 from hop3.system.constants import ENV_ROOT
-from hop3.util import exit_if_invalid
 from hop3.util.console import Abort, log
-from hop3.util.settings import parse_settings, write_settings
+from hop3.util.settings import write_settings
 
 from .cli import hop3
 
@@ -27,13 +25,11 @@ from .cli import hop3
 def cmd_config(app) -> None:
     """Show config, e.g.: hop config <app>"""
 
-    app = exit_if_invalid(app)
+    app_obj = get_app(app)
+    env = app_obj.get_runtime_env()
 
-    config_file = os.path.join(ENV_ROOT, app, "ENV")
-    if os.path.exists(config_file):
-        log(open(config_file).read().strip(), fg="white")
-    else:
-        log(f"Warning: app '{app}' not deployed, no config found.", fg="yellow")
+    for k, v in sorted(env.items()):
+        log(f"{k}={v}", fg="white")
 
 
 @hop3.command("config:get")
@@ -42,15 +38,10 @@ def cmd_config(app) -> None:
 def cmd_config_get(app, setting) -> None:
     """e.g.: hop config:get <app> FOO"""
 
-    app = exit_if_invalid(app)
-
-    config_file = os.path.join(ENV_ROOT, app, "ENV")
-    if os.path.exists(config_file):
-        env = parse_settings(config_file)
-        if setting in env:
-            log(f"{env[setting]}", fg="white")
-    else:
-        log(f"Warning: no active configuration for '{app}'")
+    app_obj = get_app(app)
+    env = app_obj.get_runtime_env()
+    if setting in env:
+        log(f"{env[setting]}", fg="white")
 
 
 @hop3.command("config:set")
@@ -59,18 +50,18 @@ def cmd_config_get(app, setting) -> None:
 def cmd_config_set(app, settings) -> None:
     """e.g.: hop config:set <app> FOO=bar BAZ=quux"""
 
-    app = exit_if_invalid(app)
+    app_obj = get_app(app)
+    env = app_obj.get_runtime_env()
 
-    config_file = Path(ENV_ROOT, app, "ENV")
-    env = parse_settings(config_file)
     for s in settings:
         try:
             k, v = map(lambda x: x.strip(), s.split("=", 1))
-            env[k] = v
             log(f"Setting {k:s}={v} for '{app:s}'", fg="white")
+            env[k] = v
         except Exception:
             raise Abort(f"Error: malformed setting '{s}'")
 
+    config_file = Path(ENV_ROOT, app, "ENV")
     write_settings(config_file, env)
     do_deploy(app)
 
@@ -81,15 +72,15 @@ def cmd_config_set(app, settings) -> None:
 def cmd_config_unset(app, settings) -> None:
     """e.g.: hop config:unset <app> FOO"""
 
-    app = exit_if_invalid(app)
+    app_obj = get_app(app)
+    env = app_obj.get_runtime_env()
 
-    config_file = os.path.join(ENV_ROOT, app, "ENV")
-    env = parse_settings(config_file)
     for s in settings:
         if s in env:
             del env[s]
             log(f"Unsetting {s} for '{app}'")
 
+    config_file = Path(ENV_ROOT, app, "ENV")
     write_settings(config_file, env)
     do_deploy(app)
 

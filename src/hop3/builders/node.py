@@ -72,24 +72,17 @@ class NodeBuilder(Builder):
             if not installed.endswith(version):
                 started = list(Path(UWSGI_ENABLED).glob(f"{self.app_name}*.ini"))
                 if installed and len(started):
-                    raise Abort(
-                        "Warning: Can't update node with app running. Stop the app & retry.",
-                    )
+                    msg = "Warning: Can't update node with app running. Stop the app & retry."
+                    raise Abort(msg)
 
-                log(
-                    "Installing node version '{NODE_VERSION:s}' using nodeenv".format(
-                        **env,
-                    ),
-                    level=5,
-                    fg="green",
+                msg = "Installing node version '{NODE_VERSION:s}' using nodeenv".format(
+                    **env,
                 )
-                shell(
-                    "nodeenv --prebuilt --node={NODE_VERSION:s} --clean-src --force {VIRTUAL_ENV:s}".format(
-                        **env,
-                    ),
-                    cwd=self.virtual_env,
-                    env=env,
+                log(msg, level=5, fg="green")
+                cmd = "nodeenv --prebuilt --node={NODE_VERSION:s} --clean-src --force {VIRTUAL_ENV:s}".format(
+                    **env
                 )
+                shell(cmd, cwd=self.virtual_env, env=env)
             else:
                 log(f"Node is installed at {version}.", level=5, fg="green")
 
@@ -102,7 +95,5 @@ class NodeBuilder(Builder):
         assert package_json.exists()
         assert check_binaries(["npm"])
 
-        self.shell(
-            f"npm install --prefix {npm_prefix} --package-lock=false",
-            env=env,
-        )
+        cmd = f"npm install --prefix {npm_prefix} --package-lock=false"
+        self.shell(cmd, env=env)

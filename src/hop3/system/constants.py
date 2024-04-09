@@ -36,6 +36,19 @@ ACME_ROOT = environ.get("ACME_ROOT", join(environ["HOME"], ".acme.sh"))
 ACME_WWW = abspath(join(HOP3_ROOT, "acme"))
 ACME_ROOT_CA = environ.get("ACME_ROOT_CA", "letsencrypt.org")
 
+ROOT_DIRS = [
+    APP_ROOT,
+    CACHE_ROOT,
+    DATA_ROOT,
+    GIT_ROOT,
+    ENV_ROOT,
+    UWSGI_ROOT,
+    UWSGI_AVAILABLE,
+    UWSGI_ENABLED,
+    LOG_ROOT,
+    NGINX_ROOT,
+]
+
 CRON_REGEXP = (
     r"^((?:(?:\*\/)?\d+)|\*) "
     r"((?:(?:\*\/)?\d+)|\*) "

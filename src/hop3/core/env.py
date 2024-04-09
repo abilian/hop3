@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from hop3.util.freeze import freeze
 from hop3.util.settings import parse_settings

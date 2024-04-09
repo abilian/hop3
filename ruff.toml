@@ -71,6 +71,7 @@ lint.select = [
 lint.extend-ignore = [
     # False positive, don't remove
     "S101", # Use of `assert` detected
+    "COM812", # Missing trailing comma
     # Fix these
     "C408",
     "C417",

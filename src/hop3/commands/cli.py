@@ -15,10 +15,10 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 @group(context_settings=CONTEXT_SETTINGS)
 def hop3() -> None:
-    """The smallest PaaS you've ever seen"""
+    """Small, open source, extensible PaaS."""
 
 
 @hop3.result_callback()
 def cleanup(ctx) -> None:
-    """Callback from command execution -- add debugging to taste"""
+    """Callback from command execution -- add debugging to taste."""
     debug(ctx)

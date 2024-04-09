@@ -17,15 +17,8 @@ from click import argument
 
 from hop3.oses.ubuntu2204 import setup_system
 from hop3.system.constants import (
-    APP_ROOT,
-    CACHE_ROOT,
-    DATA_ROOT,
-    ENV_ROOT,
-    GIT_ROOT,
     HOP3_SCRIPT,
-    LOG_ROOT,
-    NGINX_ROOT,
-    UWSGI_AVAILABLE,
+    ROOT_DIRS,
     UWSGI_ENABLED,
     UWSGI_LOG_MAXSIZE,
     UWSGI_ROOT,
@@ -50,21 +43,11 @@ def cmd_setup() -> None:
     echo(f"Running in Python {'.'.join(map(str, sys.version_info))}")
 
     # Create required paths
-    for p in [
-        APP_ROOT,
-        CACHE_ROOT,
-        DATA_ROOT,
-        GIT_ROOT,
-        ENV_ROOT,
-        UWSGI_ROOT,
-        UWSGI_AVAILABLE,
-        UWSGI_ENABLED,
-        LOG_ROOT,
-        NGINX_ROOT,
-    ]:
-        if not os.path.exists(p):
+    for p in ROOT_DIRS:
+        path = Path(p)
+        if not path.exists():
             echo(f"Creating '{p}'.", fg="green")
-            os.makedirs(p)
+            p.mkdir(parents=True)
 
     # Set up the uWSGI emperor config
     cpu_count = os.cpu_count() or 1

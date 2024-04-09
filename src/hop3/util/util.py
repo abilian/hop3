@@ -9,10 +9,10 @@ import subprocess
 import sys
 import time
 from collections import deque
+from collections.abc import Iterator
 from pathlib import Path
 from socket import AF_INET, SOCK_STREAM, socket
 from subprocess import STDOUT, check_output
-from typing import Iterator
 
 from cleez.colors import dim
 

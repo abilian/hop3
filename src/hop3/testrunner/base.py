@@ -8,8 +8,8 @@ import shutil
 import subprocess
 import time
 import traceback
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 import httpx
 from devtools import debug
