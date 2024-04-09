@@ -1,3 +1,5 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 from pathlib import Path
 from subprocess import CalledProcessError
 

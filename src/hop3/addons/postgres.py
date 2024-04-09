@@ -1,3 +1,5 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 from dataclasses import dataclass
 
 import psycopg2

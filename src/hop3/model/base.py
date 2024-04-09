@@ -1,4 +1,5 @@
 # Copyright (c) 2023-2024, Abilian SAS
+
 from datetime import datetime
 
 from advanced_alchemy.types import DateTimeUTC

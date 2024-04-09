@@ -1,3 +1,5 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 from devtools import debug
 
 
