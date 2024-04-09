@@ -2,7 +2,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
 # Copy/pasted from contextlib.py in Python 3.11
-
 from __future__ import annotations
 
 import os
@@ -16,11 +15,11 @@ class chdir(AbstractContextManager):  # noqa: N801
 
     def __init__(self, path: Path | str) -> None:
         self.path = path
-        self._old_cwd: list[str] = []
+        self._old_cwd: list[Path] = []
 
     def __enter__(self) -> None:
         try:
-            self._old_cwd.append(os.getcwd())
+            self._old_cwd.append(Path().absolute())
         except OSError as e:
             print(f"Ignoring error in chdir() enter:\n{e}")
         os.chdir(self.path)
