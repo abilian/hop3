@@ -15,7 +15,7 @@ from click import secho as echo
 from hop3.util.templating import expand_vars
 
 
-def write_settings(settings_file: str | Path, bag: dict, separator="=") -> None:
+def write_settings(settings_file: str | Path, bag: Mapping, separator="=") -> None:
     """Helper for writing out config files"""
 
     path = Path(settings_file)
@@ -26,7 +26,8 @@ def write_settings(settings_file: str | Path, bag: dict, separator="=") -> None:
 
 
 def parse_settings(
-    filename: str | Path, env: Mapping[str, str] | None = None
+    filename: str | Path,
+    env: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     """Parse a settings file and returns a dict with environment variables"""
 

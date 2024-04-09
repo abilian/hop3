@@ -49,7 +49,7 @@ def sanitize_app_name(app) -> str:
     """Sanitize the app name and build matching path"""
 
     app = (
-        "".join(c for c in app if c.isalnum() or c in (".", "_", "-"))
+        "".join(c for c in app if c.isalnum() or c in {".", "_", "-"})
         .rstrip()
         .lstrip("/")
     )
@@ -101,35 +101,37 @@ def multi_tail(app, filenames, catch_up=20) -> Iterator:
     prefixes = {}
 
     # Set up current state for each log file
-    for f in filenames:
-        prefixes[f] = os.path.splitext(os.path.basename(f))[0]
-        files[f] = open(f, encoding="utf-8", errors="ignore")
-        inodes[f] = os.stat(f).st_ino
-        files[f].seek(0, 2)
+    for filename in filenames:
+        prefixes[filename] = os.path.splitext(os.path.basename(filename))[0]
+        files[filename] = open(filename, encoding="utf-8", errors="ignore")
+        inodes[filename] = os.stat(filename).st_ino
+        files[filename].seek(0, 2)
 
     longest = max(map(len, prefixes.values()))
 
     # Grab a little history (if any)
-    for f in filenames:
-        for line in deque(open(f, encoding="utf-8", errors="ignore"), catch_up):
-            yield f"{prefixes[f].ljust(longest)} | {line}"
+    for filename in filenames:
+        filepath = Path(filename)
+        for line in deque(filepath.open(errors="ignore"), catch_up):
+            yield f"{prefixes[filename].ljust(longest)} | {line}"
 
     while True:
         updated = False
         # Check for updates on every file
-        for f in filenames:
-            line = peek(files[f])
+        for filename in filenames:
+            line = peek(files[filename])
             if line:
                 updated = True
-                yield f"{prefixes[f].ljust(longest)} | {line}"
+                yield f"{prefixes[filename].ljust(longest)} | {line}"
 
         if not updated:
             time.sleep(1)
             # Check if logs rotated
-            for f in filenames:
-                if os.path.exists(f):
-                    if os.stat(f).st_ino != inodes[f]:
-                        files[f] = open(f)
-                        inodes[f] = os.stat(f).st_ino
+            for filename in filenames:
+                filepath = Path(filename)
+                if filepath.exists():
+                    if filepath.stat().st_ino != inodes[filename]:
+                        files[filename] = filepath.open()
+                        inodes[filename] = filepath.stat().st_ino
                 else:
-                    filenames.remove(f)
+                    filenames.remove(filename)

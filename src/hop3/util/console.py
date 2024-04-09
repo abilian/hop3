@@ -7,7 +7,7 @@ import sys
 
 from click import secho as echo
 
-__all__ = ["log", "panic", "Abort"]
+__all__ = ["Abort", "log", "panic"]
 
 
 def log(msg, level=0, fg="green") -> None:
@@ -16,7 +16,7 @@ def log(msg, level=0, fg="green") -> None:
     echo(f"{'-' * level}> {msg}", fg=fg)
 
 
-def panic(msg):
+def panic(msg) -> None:
     log(msg, fg="red")
     sys.exit(1)
 
@@ -27,8 +27,11 @@ class Abort(Exception):  # noqa: N818
     explanation: str
 
     def __init__(
-        self, msg: str = "unknown error", status: int = 1, explanation: str = ""
-    ):
+        self,
+        msg: str = "unknown error",
+        status: int = 1,
+        explanation: str = "",
+    ) -> None:
         if not msg:
             msg = "unknown error"
         self.status = status
