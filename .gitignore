@@ -1,9 +1,12 @@
 # Specific to this project
 /old-docs/
+/tmp/
+/sandbox/
 ignore.py
 
 # Local environment variables
-/.env
+.env
+.envrc
 
 # Misc OS
 .DS_Store
