@@ -6,12 +6,12 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from hop3.core.env import Env
 from hop3.core.events import BuildEvent, CreatingVirtualEnv, emit
 from hop3.util import shell
 from hop3.util.backports import chdir
 from hop3.util.console import log
 from hop3.util.path import prepend_to_path
-from hop3.util.settings import parse_settings
 
 from .base import Builder
 
@@ -40,7 +40,7 @@ class ClojureBuilder(Builder):
         Path(target_path).mkdir(parents=True, exist_ok=True)
         self._build(self.get_env())
 
-    def get_env(self) -> dict[str, str]:
+    def get_env(self) -> Env:
         path = prepend_to_path(
             [
                 Path(self.virtual_env, "bin"),
@@ -48,10 +48,12 @@ class ClojureBuilder(Builder):
             ]
         )
 
-        env = {
-            "VIRTUAL_ENV": self.virtual_env,
-            "PATH": path,
-        }
+        env = Env(
+            {
+                "VIRTUAL_ENV": self.virtual_env,
+                "PATH": path,
+            }
+        )
 
         if self.is_leiningen_app:
             lein_home = os.environ.get(
@@ -64,8 +66,7 @@ class ClojureBuilder(Builder):
             )
             env.update({"CLJ_CONFIG": clj_config})
 
-        if Path(self.env_file).exists():
-            env.update(parse_settings(self.env_file, env))
+        env.parse_settings(self.env_file)
 
         return env
 

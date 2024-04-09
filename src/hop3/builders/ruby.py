@@ -38,7 +38,7 @@ class RubyBuilder(Builder):
 
         env = Env(
             {
-                "VIRTUAL_ENV": str(self.virtual_env),
+                "VIRTUAL_ENV": self.virtual_env,
                 "PATH": path,
             }
         )

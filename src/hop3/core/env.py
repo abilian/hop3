@@ -9,7 +9,7 @@ from hop3.util.freeze import freeze
 from hop3.util.settings import parse_settings
 
 
-class Env(Mapping[str, Any]):
+class Env(Mapping[str, str]):
     data: dict[str, str] = field(default_factory=dict)
 
     def __init__(self, data: Mapping[str, Any] | None = None):
@@ -23,9 +23,9 @@ class Env(Mapping[str, Any]):
         freeze(self)
 
     def __setitem__(self, key: str, value: Any):
-        self.data[key] = value
+        self.data[key] = str(value)
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> str:
         return self.data[key]
 
     def __delitem__(self, key: str):
@@ -53,7 +53,8 @@ class Env(Mapping[str, Any]):
         return Env(self.data.copy())
 
     def update(self, other: Mapping[str, Any]):
-        self.data.update(other)
+        for k, v in other.items():
+            self.data[k] = str(v)
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.data.get(key, default)

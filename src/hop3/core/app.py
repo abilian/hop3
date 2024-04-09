@@ -6,8 +6,8 @@ import os
 import shutil
 from glob import glob
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+from hop3.core.env import Env
 from hop3.deploy import do_deploy
 from hop3.run.spawn import spawn_app
 from hop3.system.constants import (
@@ -24,9 +24,6 @@ from hop3.system.constants import (
 )
 from hop3.system.state import state
 from hop3.util.console import Abort, log
-
-if TYPE_CHECKING:
-    from hop3.core.env import Env
 
 
 def get_app(name: str) -> App:
@@ -91,10 +88,7 @@ class App:
         return Path(self.virtualenv_path, "LIVE_ENV")
 
     def get_runtime_env(self) -> Env:
-        return state.get_app_env(self.name)
-        # env = Env()
-        # env.parse_settings(self._env_file_path)
-        # return env
+        return Env(state.get_app_env(self.name))
 
     # Actions
     def deploy(self) -> None:
@@ -123,7 +117,7 @@ class App:
                     log(f"Removing file '{f}'", level=2, fg="blue")
                     os.remove(f)
 
-        nginx_files = [
+        nginx_files: list[Path] = [
             Path(NGINX_ROOT, f"{app}.{x}") for x in ["conf", "sock", "key", "crt"]
         ]
         for f in nginx_files:
