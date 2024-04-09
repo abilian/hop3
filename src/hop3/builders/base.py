@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hop3.core.env import Env
 from hop3.system.constants import APP_ROOT, ENV_ROOT
 from hop3.util import shell
 
@@ -41,3 +42,8 @@ class Builder:
         if not cwd:
             cwd = str(self.app_path)
         shell(command, cwd=cwd, **kwargs)
+
+    def get_env(self) -> Env:
+        env = Env()
+        env.parse_settings(self.env_file)
+        return env

@@ -6,13 +6,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from hop3.core.env import Env
 from hop3.core.events import InstallingVirtualEnv, emit
 from hop3.system.constants import UWSGI_ENABLED
 from hop3.util import check_binaries, shell
 from hop3.util.backports import chdir
 from hop3.util.console import Abort, log
 from hop3.util.path import prepend_to_path
-from hop3.util.settings import parse_settings
 
 from .base import Builder
 
@@ -38,7 +38,7 @@ class NodeBuilder(Builder):
             self.install_node(env)
             self.install_modules(env)
 
-    def get_env(self) -> dict:
+    def get_env(self) -> Env:
         node_modules = self.app_path / "node_modules"
         npm_prefix = os.path.abspath(os.path.join(node_modules, ".."))
         path = prepend_to_path(
@@ -47,15 +47,15 @@ class NodeBuilder(Builder):
                 Path(node_modules, ".bin"),
             ]
         )
-        env = {
-            "VIRTUAL_ENV": self.virtual_env,
-            "NODE_PATH": node_modules,
-            "NPM_CONFIG_PREFIX": npm_prefix,
-            "PATH": path,
-        }
-
-        if (env_file := Path("ENV")).exists():
-            env.update(parse_settings(env_file, env))
+        env = Env(
+            {
+                "VIRTUAL_ENV": self.virtual_env,
+                "NODE_PATH": node_modules,
+                "NPM_CONFIG_PREFIX": npm_prefix,
+                "PATH": path,
+            }
+        )
+        env.parse_settings(self.env_file)
         return env
 
     def install_node(self, env) -> None:
