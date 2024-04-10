@@ -54,15 +54,15 @@ To begin using Hop3, follow these introductory steps:
 
 ## Contributing
 
-Contributions to Hop3 are highly encouraged, whether it involves fixing bugs, adding features, or enhancing documentation. Please refer to the `CONTRIBUTING.md` file for contribution guidelines.
+Contributions to Hop3 are highly encouraged, whether it involves fixing bugs, adding features, or enhancing documentation. Please refer to the files below for contribution guidelines.
 
 Key documents:
 
-- [Governance](./docs/governance.md)
 - [Contributing](./docs/contributing.md)
 - [Core Values](./docs/core-values.md)
+- [Governance](./docs/governance.md)
 - [Code of Conduct](./docs/policies/code-of-conduct.md)
-- [Licences](./LICENCES/)
+- [Licences](/abilian/hop3/tree/main/LICENSES)
 
 ## Support and Community
 
