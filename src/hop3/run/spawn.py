@@ -94,7 +94,7 @@ class AppLauncher:
 
         if env.get_bool("HOP3_AUTO_RESTART", True):
             configs = list(Path(UWSGI_ENABLED).glob(f"{self.app_name}*.ini"))
-            if len(configs):
+            if configs:
                 echo("-----> Removing uwsgi configs to trigger auto-restart.")
                 for config in configs:
                     config.unlink()
@@ -168,10 +168,9 @@ class AppLauncher:
         for k, v in to_destroy.items():
             for w in v:
                 enabled = Path(UWSGI_ENABLED, f"{self.app_name:s}_{k:s}.{w:d}.ini")
-                if enabled.exists():
-                    log(
-                        f"terminating '{self.app_name:s}:{k:s}.{w:d}'",
-                        level=5,
-                        fg="yellow",
-                    )
-                    enabled.unlink()
+                if not enabled.exists():
+                    continue
+
+                msg = f"terminating '{self.app_name:s}:{k:s}.{w:d}'"
+                log(msg, level=5, fg="yellow")
+                enabled.unlink()
