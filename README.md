@@ -62,7 +62,7 @@ Key documents:
 - [Core Values](./docs/core-values.md)
 - [Governance](./docs/governance.md)
 - [Code of Conduct](./docs/policies/code-of-conduct.md)
-- [Licences](/abilian/hop3/tree/main/LICENSES)
+- [Licenses](https://github.com/abilian/hop3/tree/main/LICENSES)
 
 ## Support and Community
 
