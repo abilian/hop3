@@ -47,7 +47,7 @@ def cmd_setup() -> None:
         path = Path(p)
         if not path.exists():
             echo(f"Creating '{p}'.", fg="green")
-            p.mkdir(parents=True)
+            path.mkdir(parents=True)
 
     # Set up the uWSGI emperor config
     cpu_count = os.cpu_count() or 1
@@ -65,7 +65,6 @@ def cmd_setup() -> None:
     ]
     with Path(UWSGI_ROOT, "uwsgi.ini").open("w") as h:
         h.write("[uwsgi]\n")
-        # pylint: disable=unused-variable
         for k, v in settings:
             h.write(f"{k:s} = {v}\n")
 
