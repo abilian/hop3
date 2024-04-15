@@ -23,7 +23,9 @@ develop: install-deps activate-pre-commit configure-git
 
 install-deps:
 	@echo "--> Installing dependencies"
-	pip install -U pip setuptools wheel
+	uv venv
+	uv pip install -U pip setuptools wheel
+	uv pip install -e .
 	poetry install
 
 activate-pre-commit:
