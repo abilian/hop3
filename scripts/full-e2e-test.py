@@ -3,13 +3,13 @@ import subprocess
 
 
 def main():
-    cmd = "ssh root@ssh.hop3.abilian.com rm -rf /home/hop3"
+    cmd = "ssh root@ssh.hop.abilian.com rm -rf /home/hop3"
     subprocess.run(cmd, shell=True, check=True)
 
-    cmd = "make install"
+    cmd = "make deploy"
     subprocess.run(cmd, shell=True, check=True)
 
-    cmd = "make test-e2e"
+    cmd = "hop-test --ff"
     subprocess.run(cmd, shell=True, check=True)
 
 
