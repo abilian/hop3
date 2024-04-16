@@ -35,6 +35,9 @@ class AppLauncher:
     deltas: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        assert isinstance(self.app_name, str)
+        assert isinstance(self.deltas, dict)
+
         self.app_path = Path(APP_ROOT, self.app_name)
         self.virtualenv_path = Path(ENV_ROOT, self.app_name)
         self.config = Config.from_dir(self.app_path)
