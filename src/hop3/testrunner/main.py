@@ -15,7 +15,8 @@ from devtools import debug
 from hop3.util.console import Abort
 
 from .base import TestSession
-from .common import update_agent
+
+# from .common import update_agent
 
 
 def main() -> None:
@@ -40,7 +41,7 @@ def main() -> None:
     if not apps:
         raise Abort("No apps found.")
 
-    update_agent()
+    # update_agent()
 
     config = {
         "keep": args.keep,

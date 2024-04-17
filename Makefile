@@ -52,6 +52,7 @@ test:
 
 test-e2e:
 	@echo "--> Running e2e tests"
+	make deploy
 	hop-test
 	@echo ""
 

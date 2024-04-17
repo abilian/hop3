@@ -4,7 +4,7 @@ import os
 from io import StringIO
 from pathlib import Path
 
-from hop3.installer.helpers import Linux
+from hop3.oses.helpers import Linux
 
 
 def test_put_file():

@@ -104,6 +104,7 @@ def ssh(cmd) -> None:
     assert chan.exit_status_ready()
 
 
+# Don't use. Use the installer instead.
 def update_agent() -> None:
     """Build and deploy the agent from this repo."""
     print(green("Updating agent"))
