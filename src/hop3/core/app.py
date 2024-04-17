@@ -33,7 +33,7 @@ def get_app(name: str) -> App:
 
 
 def list_apps() -> list[App]:
-    return [App(name) for name in os.listdir(APP_ROOT)]
+    return [App(name) for name in sorted(os.listdir(APP_ROOT))]
 
 
 class App:
