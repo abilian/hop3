@@ -45,8 +45,8 @@ def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
     app_path = Path(APP_ROOT, app_name)
 
     # Hack to get around ClickCommand
-    env["NGINX_SERVER_NAME"] = env["NGINX_SERVER_NAME"].split(",")
-    env["NGINX_SERVER_NAME"] = " ".join(env["NGINX_SERVER_NAME"])
+    server_name_list = env["NGINX_SERVER_NAME"].split(",")
+    env["NGINX_SERVER_NAME"] = " ".join(server_name_list)
 
     nginx = command_output("nginx -V")
 
@@ -113,6 +113,7 @@ def check_config(app_name, nginx_conf) -> None:
         )
     except Exception:
         nginx_config_test = None
+
     if nginx_config_test:
         echo(f"Error: [nginx config] {nginx_config_test}", fg="red")
         echo("Warning: removing broken nginx config.", fg="yellow")

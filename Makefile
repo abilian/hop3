@@ -2,7 +2,7 @@
 .PHONY: clean clean-build clean-pyc clean-test coverage dist docs install lint lint/flake8
 
 # For tests
-TARGET_HOST=ssh.hop.abilian.com
+TARGET_HOST=ssh.hop-dev.abilian.com
 
 all: lint test
 
@@ -12,6 +12,8 @@ all: lint test
 deploy:
 	@make clean
 	poetry build
+	ssh root@${TARGET_HOST} apt purge -y nginx nginx-core nginx-common
+	ssh root@${TARGET_HOST} rm -rf /home/hop3 /etc/nginx
 	poetry run pyinfra --user root ${TARGET_HOST} installer/install-hop.py
 
 #

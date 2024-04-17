@@ -8,18 +8,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from click import secho as echo
-from devtools import debug
 
 from hop3.core.env import Env
 from hop3.project.config import Config
 from hop3.project.procfile import parse_procfile
 from hop3.proxies.nginx import setup_nginx
-from hop3.run.uwsgi import spawn_uwsgi_worker
 from hop3.system.constants import APP_ROOT, ENV_ROOT, LOG_ROOT, UWSGI_ENABLED
 from hop3.system.state import state
 from hop3.util import get_free_port
 from hop3.util.console import log
 from hop3.util.settings import write_settings
+
+from .uwsgi import spawn_uwsgi_worker
 
 
 def spawn_app(app_name: str, deltas: dict[str, int] | None = None) -> None:
@@ -49,7 +49,6 @@ class AppLauncher:
 
         # Set up nginx if we have NGINX_SERVER_NAME set
         if "NGINX_SERVER_NAME" in self.env:
-            debug(self.env)
             setup_nginx(self.app_name, self.env, self.workers)
 
         # Configured worker count
