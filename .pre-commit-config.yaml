@@ -2,7 +2,7 @@ repos:
 
 - repo: https://github.com/charliermarsh/ruff-pre-commit
   # Ruff version.
-  rev: 'v0.3.5'
+  rev: 'v0.3.7'
   hooks:
     - id: ruff
       # Respect `exclude` and `extend-exclude` settings.
@@ -12,7 +12,7 @@ repos:
       exclude: (apps|demo|nua)
 
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.5.0
+  rev: v4.6.0
   hooks:
     # Generic
     - id: check-added-large-files
