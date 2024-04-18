@@ -11,7 +11,7 @@ packages = [
 
 [tool.poetry.scripts]
 hop-agent = "hop3.main:main"
-hop-test = "hop3.testrunner.main:main"
+hop-test = "hop3.testing.main:main"
 
 [tool.poetry.dependencies]
 python = "^3.10"
