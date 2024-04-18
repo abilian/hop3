@@ -51,10 +51,10 @@ class TestSession:
             return "error"
 
     def test_all_commands(self) -> None:
-        time.sleep(DEFAULT_WAIT)
-        result = self.hop("apps")
-        assert self.app_name in result, f"App {self.app_name} not found in {result}"
+        self.test_apps_command()
+        self.test_web()
 
+    def test_web(self):
         self.hop("config:set", f"NGINX_SERVER_NAME={self.app_host_name}")
         if self.app_name.startswith("clojure"):
             time.sleep(CLOJURE_WAIT)
@@ -62,6 +62,11 @@ class TestSession:
             time.sleep(DEFAULT_WAIT)
 
         self.check_app_is_up()
+
+    def test_apps_command(self):
+        time.sleep(DEFAULT_WAIT)
+        result = self.hop("apps")
+        assert self.app_name in result, f"App {self.app_name} not found in {result}"
 
     def cleanup(self) -> None:
         self.hop("destroy")
@@ -94,6 +99,11 @@ class TestSession:
             raise AssertionError(
                 f"App {self.app_host_name} ({url}) is not up, got status code {response.status_code}",
             )
+
+        if (self.directory / "check.py").exists():
+            ctx = {}
+            exec((self.directory / "check.py").read_text(), ctx)
+            ctx["check"](self.app_host_name)
 
         # Check content later
         # assert "Python/Flask" in response.text

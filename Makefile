@@ -9,11 +9,19 @@ all: lint test
 #
 #
 #
+clean-and-deploy:
+	make clean-server
+	make deploy
+
+clean-server:
+	echo "--> Cleaning server (warning: this removes everything)"
+	-ssh root@${TARGET_HOST} apt purge -y nginx nginx-core nginx-common
+	ssh root@${TARGET_HOST} rm -rf /home/hop3 /etc/nginx
+
 deploy:
+	echo "--> Deploying"
 	@make clean
 	poetry build
-	ssh root@${TARGET_HOST} apt purge -y nginx nginx-core nginx-common
-	ssh root@${TARGET_HOST} rm -rf /home/hop3 /etc/nginx
 	poetry run pyinfra --user root ${TARGET_HOST} installer/install-hop.py
 
 #
@@ -52,8 +60,8 @@ test:
 
 test-e2e:
 	@echo "--> Running e2e tests"
-	make deploy
-	hop-test
+	make clean-and-deploy
+	python scripts/run-tests-alt.py
 	@echo ""
 
 test-randomly:

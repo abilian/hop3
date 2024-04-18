@@ -168,7 +168,7 @@ def setup_static(app_path, env, workers) -> None:
         stripped = workers["static"].strip("/").rstrip("/")
         static_paths = (
             ("/" if stripped[0:1] == ":" else "/:")
-            + (stripped if stripped else ".")
+            + (stripped or ".")
             + "/"
             + ("," if static_paths else "")
             + static_paths
