@@ -21,7 +21,6 @@ lint.extend-ignore = [
     "FIX", # flake8-fixme
     "PTH", # flake8-use-pathlib
     "S", # flake8-bandit
-    "SIM", # flake8-simplify
     "T20", # flake8-print
     "TD", # flake8-todos
     "TRY", # tryceratops
@@ -30,6 +29,10 @@ lint.extend-ignore = [
     "S101", # Use of `assert` detected
     "COM812", # Missing trailing comma
     "PLR6104", # suggests using += when inapplicable
+    "SIM108", # Use ternary operator
+    "I001", # Import block is un-sorted or un-formatted
+    "PD011", # Use `.to_numpy()` instead of `.values`
+
 
     # Fix these
     "C408",
@@ -54,6 +57,7 @@ lint.extend-ignore = [
     "PYI034",
     "RET504",
     "RUF012",
+    "SIM102", # Use a single `if` statement instead of nested `if` statements
     "TCH001", # Move import into a type-checking block
     "TCH002", # Move import into a type-checking block
     "TCH003", # Move import into a type-checking block

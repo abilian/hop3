@@ -190,10 +190,10 @@ def setup_static(app_path, env, workers) -> None:
                 f"Error {e} in static path spec: should be /prefix1:path1[,/prefix2:path2], ignoring.",
             )
             env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
+
+    tpl = Path(app_path, env["NGINX_INCLUDE_FILE"]).read_text()
     env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = (
-        expand_vars(open(os.path.join(app_path, env["NGINX_INCLUDE_FILE"])).read(), env)
-        if env.get("NGINX_INCLUDE_FILE")
-        else ""
+        expand_vars(tpl, env) if env.get("NGINX_INCLUDE_FILE") else ""
     )
     env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
 

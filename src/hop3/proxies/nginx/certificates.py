@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import subprocess
 from pathlib import Path
@@ -73,7 +74,6 @@ def setup_acme(app_name: str, env, nginx_conf) -> None:
     )
     if Path(ACME_ROOT, domain).exists() and not Path(ACME_WWW, app_name).exists():
         os.symlink(os.path.join(ACME_ROOT, domain), os.path.join(ACME_WWW, app_name))
-    try:
+
+    with contextlib.suppress(Exception):
         os.symlink("/dev/null", issue_file)
-    except Exception:
-        pass

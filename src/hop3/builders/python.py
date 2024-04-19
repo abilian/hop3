@@ -40,7 +40,7 @@ class PythonBuilder(Builder):
             self.create_virtualenv()
 
         activation_script = self.virtual_env / "bin" / "activate_this.py"
-        exec(open(activation_script).read(), {"__file__": activation_script})
+        exec(activation_script.read_text(), {"__file__": activation_script})
 
     def create_virtualenv(self) -> None:
         emit(CreatingVirtualEnv(self.app_name))

@@ -80,12 +80,12 @@ def cmd_setup_ssh(public_key_file) -> None:
     """Set up a new SSH key (use - for stdin)"""
 
     def add_helper(key_file):
-        if os.path.exists(key_file):
+        if Path(key_file).exists():
             try:
                 fingerprint = str(
                     subprocess.check_output("ssh-keygen -lf " + key_file, shell=True),
                 ).split(" ", 4)[1]
-                key = open(key_file).read().strip()
+                key = Path(key_file).read_text().strip()
                 echo(f"Adding key '{fingerprint}'.", fg="white")
                 setup_authorized_keys(fingerprint, key)
             except Exception:
