@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from click import secho as echo
+from typing_extensions import Self
 
 from hop3.system.constants import (
     APP_ROOT,
@@ -210,7 +211,7 @@ class UwsgiSettings:
         for item in items:
             self.append(item)
 
-    def __iadd__(self, items) -> UwsgiSettings:
+    def __iadd__(self, items) -> Self:
         self.extend(items)
         return self
 

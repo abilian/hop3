@@ -9,6 +9,7 @@ import subprocess
 import time
 import traceback
 from collections.abc import Iterator
+from http import HTTPStatus
 from pathlib import Path
 
 import httpx
@@ -96,7 +97,7 @@ class TestSession:
                 f"App {self.app_host_name} ({url}) is not up, got OSError:\n{e}",
             )
 
-        if response.status_code != 200:
+        if response.status_code != HTTPStatus.OK:
             raise AssertionError(
                 f"App {self.app_host_name} ({url}) is not up, got status code {response.status_code}",
             )
@@ -112,7 +113,7 @@ class TestSession:
     def check_app_is_down(self) -> None:
         url = self.app_url
         result = httpx.get(url, verify=False)
-        assert result.status_code == 502
+        assert result.status_code == HTTPStatus.BAD_GATEWAY
 
     def get_all_apps(self) -> Iterator:
         cmd = f"ssh hop3@{SERVER} apps"

@@ -43,13 +43,11 @@ lint.extend-ignore = [
     "PLR0914",
     "PLR0915",
     "PLR0917",
-    "PLR2004",
     "PLR6301",
     "PLW1510",
     "PLW1514",
     "PT011",
     "PT017",
-    "PYI034",
     "RET504",
     "RUF012",
     "TCH001", # Move import into a type-checking block
