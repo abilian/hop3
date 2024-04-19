@@ -93,7 +93,7 @@ def cmd_setup_ssh(public_key_file) -> None:
                 )
         elif public_key_file == "-":
             buffer = "".join(sys.stdin.readlines())
-            with NamedTemporaryFile(mode="w") as f:
+            with NamedTemporaryFile(mode="w", encoding="utf8") as f:
                 f.write(buffer)
                 f.flush()
                 add_helper(f.name)

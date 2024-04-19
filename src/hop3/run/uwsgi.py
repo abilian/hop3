@@ -216,7 +216,7 @@ class UwsgiSettings:
         return self
 
     def write(self, path: Path):
-        with open(path, "w") as h:
+        with path.open("w") as h:
             h.write("[uwsgi]\n")
             for k, v in sorted(self.values):
                 h.write(f"{k:s} = {v}\n")

@@ -14,7 +14,6 @@ lint.extend-ignore = [
     "ARG", # flake8-unused-arguments
     "B", # flake8-bugbear
     "BLE", # flake8-blind-except
-    "C90", # mccabe
     "D", # pydocstyle
     "EM", # flake8-errmsg
     "ERA", # eradicate
@@ -44,8 +43,6 @@ lint.extend-ignore = [
     "PLR0915",
     "PLR0917",
     "PLR6301",
-    "PLW1510",
-    "PLW1514",
     "PT011",
     "PT017",
     "RET504",
@@ -56,4 +53,4 @@ lint.extend-ignore = [
 ]
 
 [lint.mccabe]
-max-complexity = 10
+max-complexity = 14

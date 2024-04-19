@@ -117,7 +117,7 @@ class TestSession:
 
     def get_all_apps(self) -> Iterator:
         cmd = f"ssh hop3@{SERVER} apps"
-        p = subprocess.run(cmd, shell=True, capture_output=True)
+        p = subprocess.run(cmd, shell=True, capture_output=True, check=True)
         lines = p.stdout.decode().split("\n")
         for line in lines:
             if line.strip().startswith("*"):
