@@ -31,8 +31,7 @@ class Config:
         if not profile_path:
             raise ValueError(f"Procfile not found in {self.app_dir}")
 
-        self.procfile = Procfile(str(profile_path))
-        self.procfile.parse()
+        self.procfile = Procfile.from_file(profile_path)
 
     def get_file(self, filename: str) -> Path | None:
         path = self.app_dir / "hop3" / filename

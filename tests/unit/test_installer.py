@@ -1,6 +1,5 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
-import os
 from io import StringIO
 from pathlib import Path
 
@@ -14,7 +13,7 @@ def test_put_file():
 
     assert Path("/tmp/test_installer.py").exists()
 
-    os.unlink("/tmp/test_installer.py")
+    Path("/tmp/test_installer.py").unlink()
 
 
 def test_ensure_link():
@@ -24,5 +23,5 @@ def test_ensure_link():
 
     assert Path("/tmp/dummy2").exists()
 
-    os.unlink("/tmp/dummy")
-    os.unlink("/tmp/dummy2")
+    Path("/tmp/dummy").unlink()
+    Path("/tmp/dummy2").unlink()

@@ -100,22 +100,16 @@ class App:
 
         # leave DATA_ROOT, since apps may create hard to reproduce data,
         # and CACHE_ROOT, since `nginx` will set permissions to protect it
-        for p in [
-            os.path.join(x, app)
-            for x in [APP_ROOT, GIT_ROOT, ENV_ROOT, LOG_ROOT, CACHE_ROOT]
-        ]:
-            if os.path.exists(p):
+        for root in [APP_ROOT, GIT_ROOT, ENV_ROOT, LOG_ROOT, CACHE_ROOT]:
+            p = Path(root, app)
+            if p.exists():
                 log(f"Removing folder '{p}'", level=2, fg="blue")
                 shutil.rmtree(p)
 
-        for p in [
-            os.path.join(x, f"{app}*.ini") for x in [UWSGI_AVAILABLE, UWSGI_ENABLED]
-        ]:
-            g = glob(p)
-            if len(g) > 0:
-                for f in g:
-                    log(f"Removing file '{f}'", level=2, fg="blue")
-                    os.remove(f)
+        for p in [UWSGI_AVAILABLE, UWSGI_ENABLED]:
+            for f in Path(p).glob(f"{app}*.ini"):
+                log(f"Removing file '{f}'", level=2, fg="blue")
+                f.unlink()
 
         nginx_files = [
             Path(NGINX_ROOT, f"{app}.conf"),

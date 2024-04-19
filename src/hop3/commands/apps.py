@@ -19,7 +19,6 @@ from hop3.project.procfile import parse_procfile
 from hop3.system.constants import LOG_ROOT
 from hop3.util import exit_if_invalid, multi_tail
 from hop3.util.console import Abort
-
 from .cli import hop3
 
 
@@ -119,8 +118,7 @@ def cmd_run(app: str, cmd: list[str]) -> None:
     app_obj = get_app(app)
 
     for fd in [sys.stdout, sys.stderr]:
-        fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-        fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+        make_nonblocking(fd.fileno())
 
     p = subprocess.Popen(
         cmd,
@@ -132,6 +130,15 @@ def cmd_run(app: str, cmd: list[str]) -> None:
         shell=True,
     )
     p.communicate()
+
+
+def make_nonblocking(fd):
+    """Put the file descriptor *fd* into non-blocking mode if
+    possible.
+    """
+    flags = fcntl.fcntl(fd, fcntl.F_GETFL, 0)
+    if not bool(flags & os.O_NONBLOCK):
+        fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
 
 @hop3.command("restart")

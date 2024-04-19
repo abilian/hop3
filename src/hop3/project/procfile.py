@@ -13,35 +13,41 @@ from hop3.util.console import log
 
 
 def parse_procfile(filename: str | Path) -> dict:
-    procfile = Procfile(str(filename))
+    procfile = Procfile.from_file(filename)
     return procfile.workers
 
 
 @dataclass(frozen=True)
 class Procfile:
-    filename: str
     workers: dict = field(default_factory=dict)
 
-    def __post_init__(self) -> None:
-        self.parse()
+    @classmethod
+    def from_file(cls, filename: str | Path) -> Procfile:
+        path = Path(filename)
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {filename}")
+
+        procfile = Procfile()
+        procfile.parse(path.read_text())
+        return procfile
+
+    @classmethod
+    def from_str(cls, text: str) -> Procfile:
+        procfile = Procfile()
+        procfile.parse(text)
+        return procfile
 
     @property
     def web_workers(self) -> dict:
         web_worker_names = {"wsgi", "jwsgi", "rwsgi", "web"}
         return {k: v for k, v in self.workers.items() if k in web_worker_names}
 
-    def parse(self) -> None:
+    def parse(self, text: str) -> None:
         """Parses the Procfile.
 
         Only one worker of each type is allowed.
         """
-        path = Path(self.filename)
-        if not path.exists():
-            return
-
-        procfile = path.read_text()
-
-        for line_number, line in enumerate(procfile.split("\n")):
+        for line_number, line in enumerate(text.split("\n")):
             self.parse_line(line, line_number)
 
         if len(self.workers) == 0:

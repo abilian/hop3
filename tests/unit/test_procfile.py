@@ -7,6 +7,7 @@ from __future__ import annotations
 import tempfile
 
 import pytest
+from devtools import debug
 
 from hop3.project.procfile import Procfile, parse_procfile
 
@@ -50,24 +51,19 @@ def test_procfile_2():
 
 
 def test_procfile_3():
-    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as f:
-        f.write(PROCFILE1)
-        f.seek(0)
-        procfile = Procfile(f.name)
-        assert procfile.web_workers == {"web": "gunicorn -w 4 -b"}
-        assert procfile.workers == {"web": "gunicorn -w 4 -b"}
+    procfile = Procfile.from_str(PROCFILE1)
+    debug(procfile.workers)
+    assert procfile.web_workers == {"web": "gunicorn -w 4 -b"}
+    assert procfile.workers == {"web": "gunicorn -w 4 -b"}
 
 
 def test_procfile_4():
-    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as f:
-        f.write(PROCFILE2)
-        f.seek(0)
-        procfile = Procfile(f.name)
-        assert procfile.web_workers == {"web": "gunicorn -w 4 -b"}
-        assert procfile.workers == {
-            "web": "gunicorn -w 4 -b",
-            "cron": '* * * * * echo "hello"',
-        }
+    procfile = Procfile.from_str(PROCFILE2)
+    assert procfile.web_workers == {"web": "gunicorn -w 4 -b"}
+    assert procfile.workers == {
+        "web": "gunicorn -w 4 -b",
+        "cron": '* * * * * echo "hello"',
+    }
 
 
 def test_bad_procfiles():
@@ -75,8 +71,5 @@ def test_bad_procfiles():
         objs for (name, objs) in globals().items() if name.startswith("BAD_PROCFILE")
     ]
     for procfile in bad_procfiles:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as f:
-            f.write(procfile)
-            f.seek(0)
-            with pytest.raises(ValueError):
-                parse_procfile(f.name)
+        with pytest.raises(ValueError):
+            Procfile.from_str(procfile)

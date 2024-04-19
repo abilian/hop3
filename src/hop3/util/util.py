@@ -97,11 +97,10 @@ def multi_tail(app, filenames, catch_up=20) -> Iterator:
 
     # Set up current state for each log file
     for filename in filenames:
-        prefixes[filename] = os.path.splitext(os.path.basename(filename))[0]
-        files[filename] = open(  # noqa: SIM115
-            filename, encoding="utf-8", errors="ignore"
-        )
-        inodes[filename] = os.stat(filename).st_ino
+        path = Path(filename)
+        prefixes[filename] = path.stem
+        inodes[filename] = path.stat().st_ino
+        files[filename] = path.open()
         files[filename].seek(0, 2)
 
     longest = max(map(len, prefixes.values()))
