@@ -35,7 +35,6 @@ class Procfile:
 
         Only one worker of each type is allowed.
         """
-
         path = Path(self.filename)
         if not path.exists():
             return

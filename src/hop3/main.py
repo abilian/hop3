@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
 # Copyright (c) 2023-2024, Abilian SAS
-
-"""
-Hop3 Micro-PaaS Agent.
-"""
+"""Hop3 Micro-PaaS Agent."""
 from __future__ import annotations
 
 import os

@@ -38,8 +38,7 @@ class Deployer:
         return Path(APP_ROOT, self.app_name)
 
     def deploy(self, deltas: dict[str, int] | None = None, newrev=None) -> None:
-        """Deploy an app by resetting the work directory"""
-
+        """Deploy an app by resetting the work directory."""
         deltas = deltas or {}
         app_name = self.app_name
 

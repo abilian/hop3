@@ -1,9 +1,6 @@
 # Copyright (c) 2016 Rui Carmo
 # Copyright (c) 2023-2024, Abilian SAS
-
-"""
-CLI commands
-"""
+"""CLI commands."""
 
 from __future__ import annotations
 
@@ -24,7 +21,6 @@ from .cli import hop3
 @argument("app")
 def cmd_config(app) -> None:
     """Show config, e.g.: hop config <app>"""
-
     app_obj = get_app(app)
     env = app_obj.get_runtime_env()
 
@@ -36,8 +32,7 @@ def cmd_config(app) -> None:
 @argument("app")
 @argument("setting")
 def cmd_config_get(app, setting) -> None:
-    """e.g.: hop config:get <app> FOO"""
-
+    """e.g.: hop config:get <app> FOO."""
     app_obj = get_app(app)
     env = app_obj.get_runtime_env()
     if setting in env:
@@ -48,8 +43,7 @@ def cmd_config_get(app, setting) -> None:
 @argument("app")
 @argument("settings", nargs=-1)
 def cmd_config_set(app, settings) -> None:
-    """e.g.: hop config:set <app> FOO=bar BAZ=quux"""
-
+    """e.g.: hop config:set <app> FOO=bar BAZ=quux."""
     app_obj = get_app(app)
     env = app_obj.get_runtime_env()
 
@@ -70,8 +64,7 @@ def cmd_config_set(app, settings) -> None:
 @argument("app")
 @argument("settings", nargs=-1)
 def cmd_config_unset(app, settings) -> None:
-    """e.g.: hop config:unset <app> FOO"""
-
+    """e.g.: hop config:unset <app> FOO."""
     app_obj = get_app(app)
     env = app_obj.get_runtime_env()
 
@@ -89,7 +82,6 @@ def cmd_config_unset(app, settings) -> None:
 @argument("app")
 def cmd_config_live(app) -> None:
     """e.g.: hop config:live <app>"""
-
     app_obj = get_app(app)
     env = app_obj.get_runtime_env()
 

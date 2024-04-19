@@ -1,7 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
+"""State singleton object.
 
-"""
-State singleton object. Store the state of the system.
+Store the state of the system.
 """
 
 from __future__ import annotations

@@ -9,4 +9,4 @@ hookspec = pluggy.HookspecMarker("hop3")
 
 @hookspec
 def cli_commands() -> None:
-    """Get CLI commands"""
+    """Get CLI commands."""

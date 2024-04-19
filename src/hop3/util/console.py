@@ -11,8 +11,7 @@ __all__ = ["Abort", "log", "panic"]
 
 
 def log(msg, level=0, fg="green") -> None:
-    """Log a message to the console"""
-
+    """Log a message to the console."""
     echo(f"{'-' * level}> {msg}", fg=fg)
 
 

@@ -1,9 +1,6 @@
 # Copyright (c) 2016 Rui Carmo
 # Copyright (c) 2023-2024, Abilian SAS
-
-"""
-=== CLI commands ===
-"""
+"""=== CLI commands ==="""
 
 from __future__ import annotations
 
@@ -16,5 +13,5 @@ from .cli import hop3
 @hop3.command("help")
 @pass_context
 def cmd_help(ctx) -> None:
-    """Display help for hop3"""
+    """Display help for hop3."""
     echo(ctx.parent.get_help())

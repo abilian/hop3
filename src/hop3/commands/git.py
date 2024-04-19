@@ -24,7 +24,6 @@ from .cli import hop3
 @argument("app")
 def cmd_git_hook(app: str) -> None:
     """INTERNAL: Post-receive git hook"""
-
     app_obj = App(app)
     app_path = Path(app_obj.app_path)
     data_path = Path(app_obj.data_path)
@@ -52,7 +51,6 @@ def cmd_git_hook(app: str) -> None:
 @argument("app")
 def cmd_git_receive_pack(app: str) -> None:
     """INTERNAL: Handle git pushes for an app"""
-
     app = sanitize_app_name(app)
     hook_path = Path(GIT_ROOT, app, "hooks", "post-receive")
 

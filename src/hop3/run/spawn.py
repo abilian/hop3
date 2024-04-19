@@ -23,8 +23,7 @@ from .uwsgi import spawn_uwsgi_worker
 
 
 def spawn_app(app_name: str, deltas: dict[str, int] | None = None) -> None:
-    """Create all workers for an app"""
-
+    """Create all workers for an app."""
     launcher = AppLauncher(app_name, deltas)
     launcher.spawn_app()
 
@@ -45,8 +44,7 @@ class AppLauncher:
         self.env = self.get_env()
 
     def spawn_app(self) -> None:
-        """Create the app's workers"""
-
+        """Create the app's workers."""
         # Set up nginx if we have NGINX_SERVER_NAME set
         if "NGINX_SERVER_NAME" in self.env:
             setup_nginx(self.app_name, self.env, self.workers)

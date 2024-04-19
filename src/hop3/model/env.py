@@ -1,7 +1,5 @@
 # Copyright (c) 2023-2024, Abilian SAS
-
-"""
-Environment variables for an app.
+"""Environment variables for an app.
 
 Note: can be quite lengthy (ARG_MAX=2097152 bytes in recent Linux kernels).
 """

@@ -25,7 +25,7 @@ class GoBuilder(Builder):
         self.build_go()
 
     def build_go(self) -> None:
-        """Deploy a Go application"""
+        """Deploy a Go application."""
         go_path = Path(ENV_ROOT, self.app_name)
 
         if not go_path.exists():

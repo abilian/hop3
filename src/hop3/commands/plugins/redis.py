@@ -15,4 +15,4 @@ def cli_commands():
 
 @click.group()
 def redis() -> None:
-    """Redis command plugin"""
+    """Redis command plugin."""

@@ -1,9 +1,6 @@
 # Copyright (c) 2016 Rui Carmo
 # Copyright (c) 2023-2024, Abilian SAS
-
-"""
-CLI commands
-"""
+"""CLI commands."""
 
 from __future__ import annotations
 
@@ -28,7 +25,7 @@ from .cli import hop3
 
 @hop3.command("apps")
 def cmd_apps() -> None:
-    """List apps, e.g.: hop-agent apps"""
+    """List apps, e.g.: hop-agent apps."""
     apps = list_apps()
     if not apps:
         echo("There are no applications deployed.")
@@ -45,7 +42,6 @@ def cmd_apps() -> None:
 @argument("app")
 def cmd_deploy(app) -> None:
     """e.g.: hop-agent deploy <app>"""
-
     app_obj = get_app(app)
     app_obj.deploy()
 
@@ -54,7 +50,6 @@ def cmd_deploy(app) -> None:
 @argument("app")
 def cmd_destroy(app) -> None:
     """e.g.: hop-agent destroy <app>"""
-
     app_obj = get_app(app)
     app_obj.destroy()
 
@@ -64,7 +59,6 @@ def cmd_destroy(app) -> None:
 @argument("process", nargs=1, default="*")
 def cmd_logs(app, process) -> None:
     """Tail running logs, e.g: hop-agent logs <app> [<process>]"""
-
     app = exit_if_invalid(app)
 
     logfiles = glob(os.path.join(LOG_ROOT, app, process + ".*.log"))
@@ -79,7 +73,6 @@ def cmd_logs(app, process) -> None:
 @argument("app")
 def cmd_ps(app: str) -> None:
     """Show process count, e.g: hop-agent ps <app>"""
-
     app_obj = get_app(app)
     scaling_file = app_obj.virtualenv_path / "SCALING"
 
@@ -94,7 +87,6 @@ def cmd_ps(app: str) -> None:
 @argument("settings", nargs=-1)
 def cmd_ps_scale(app: str, settings: list[str]) -> None:
     """e.g.: hop-agent ps:scale <app> <proc>=<count>"""
-
     app_obj = get_app(app)
 
     scaling_file = app_obj.virtualenv_path / "SCALING"
@@ -122,8 +114,7 @@ def cmd_ps_scale(app: str, settings: list[str]) -> None:
 @argument("app")
 @argument("cmd", nargs=-1)
 def cmd_run(app: str, cmd: list[str]) -> None:
-    """e.g.: hop-agent run <app> ls -- -al"""
-
+    """e.g.: hop-agent run <app> ls -- -al."""
     app_obj = get_app(app)
 
     for f in [sys.stdout, sys.stderr]:
@@ -146,7 +137,6 @@ def cmd_run(app: str, cmd: list[str]) -> None:
 @argument("app")
 def cmd_restart(app) -> None:
     """Restart an app: hop-agent restart <app>"""
-
     app_obj = get_app(app)
     app_obj.restart()
 
@@ -155,6 +145,5 @@ def cmd_restart(app) -> None:
 @argument("app")
 def cmd_stop(app) -> None:
     """Stop an app, e.g: hop-agent stop <app>"""
-
     app_obj = get_app(app)
     app_obj.stop()

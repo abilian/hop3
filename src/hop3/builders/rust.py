@@ -18,24 +18,20 @@ class RustBuilder(Builder):
     requirements = ["cargo"]
 
     def accept(self) -> bool:
-        """
-        Check if the application directory contains a Cargo.toml file,
+        """Check if the application directory contains a Cargo.toml file,
         indicating it is a Rust project.
         """
         return Path(self.app_path, "Cargo.toml").exists()
 
     def build(self) -> None:
-        """
-        Build the Rust project using cargo.
-        """
+        """Build the Rust project using cargo."""
         with chdir(self.app_path):
             env = self.get_env()
             self.prepare_build_env(env)
             self.compile_project()
 
     def prepare_build_env(self, env: Env) -> None:
-        """
-        Prepare the environment for building the project, if necessary.
+        """Prepare the environment for building the project, if necessary.
 
         XXX: This could involve setting up Rust-specific environment variables or installing Rust toolchains.
         """
@@ -44,9 +40,7 @@ class RustBuilder(Builder):
         # TODO
 
     def compile_project(self) -> None:
-        """
-        Compile the Rust project using cargo.
-        """
+        """Compile the Rust project using cargo."""
         emit(CompilingProject(self.app_name))
 
         try:

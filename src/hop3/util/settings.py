@@ -1,9 +1,6 @@
 # Copyright (c) 2016 Rui Carmo
 # Copyright (c) 2023-2024, Abilian SAS
-
-"""
-Parser and writer for settings files.
-"""
+"""Parser and writer for settings files."""
 
 from __future__ import annotations
 
@@ -16,8 +13,7 @@ from hop3.util.templating import expand_vars
 
 
 def write_settings(settings_file: str | Path, bag: Mapping, separator="=") -> None:
-    """Helper for writing out config files"""
-
+    """Helper for writing out config files."""
     path = Path(settings_file)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as h:
@@ -29,8 +25,7 @@ def parse_settings(
     filename: str | Path,
     env: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
-    """Parse a settings file and returns a dict with environment variables"""
-
+    """Parse a settings file and returns a dict with environment variables."""
     if env is None:
         env = {}
 

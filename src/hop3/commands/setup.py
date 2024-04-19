@@ -31,15 +31,13 @@ from .cli import hop3
 @hop3.command("setup:system")
 def cmd_setup_system() -> None:
     """Set up the server (must be run as root)"""
-
     # Set up the server
     setup_system()
 
 
 @hop3.command("setup")
 def cmd_setup() -> None:
-    """Initialize environment"""
-
+    """Initialize environment."""
     echo(f"Running in Python {'.'.join(map(str, sys.version_info))}")
 
     # Create required paths
@@ -106,8 +104,7 @@ def cmd_setup_ssh(public_key_file) -> None:
 
 
 def setup_authorized_keys(ssh_fingerprint, pubkey) -> None:
-    """Sets up an authorized_keys file to redirect SSH commands"""
-
+    """Sets up an authorized_keys file to redirect SSH commands."""
     authorized_keys = Path(os.environ["HOME"], ".ssh", "authorized_keys")
     authorized_keys.parent.mkdir(parents=True, exist_ok=True)
 

@@ -10,7 +10,8 @@ from pathlib import Path
 
 class chdir(AbstractContextManager):  # noqa: N801
     """Non thread-safe context manager to change the current working
-    directory."""
+    directory.
+    """
 
     def __init__(self, path: Path | str) -> None:
         self.path = path

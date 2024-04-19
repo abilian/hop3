@@ -18,15 +18,14 @@ class PHPBuilder(Builder):
     requirements = ["composer"]
 
     def accept(self) -> bool:
-        """
-        Check if the application directory contains a composer.json file,
+        """Check if the application directory contains a composer.json file,
         indicating it is a PHP project.
         """
         return Path(self.app_path, "composer.json").exists()
 
     def build(self) -> None:
-        """
-        Build the PHP project by installing dependencies and potentially running custom scripts.
+        """Build the PHP project by installing dependencies and potentially
+        running custom scripts.
         """
         with chdir(self.app_path):
             env = self.get_env()
@@ -34,9 +33,10 @@ class PHPBuilder(Builder):
             self.install_dependencies()
 
     def prepare_build_env(self, env: Env) -> None:
-        """
-        Prepare the environment for building the project, if necessary.
-        This could involve setting up PHP-specific environment variables or toolchains.
+        """Prepare the environment for building the project, if necessary.
+
+        This could involve setting up PHP-specific environment variables
+        or toolchains.
         """
         emit(PreparingBuildEnv(self.app_name))
 
@@ -44,9 +44,7 @@ class PHPBuilder(Builder):
         # This step is optional and highly dependent on the project's requirements.
 
     def install_dependencies(self) -> None:
-        """
-        Install the PHP project's dependencies using composer.
-        """
+        """Install the PHP project's dependencies using composer."""
         emit(InstallingDependencies(self.app_name))
 
         try:

@@ -38,8 +38,7 @@ def spawn_uwsgi_worker(
     env: Env,
     ordinal=1,
 ) -> None:
-    """Set up and deploy a single worker of a given kind"""
-
+    """Set up and deploy a single worker of a given kind."""
     env = env.copy()
 
     name = f"{app_name:s}_{kind:s}.{ordinal:d}.ini"

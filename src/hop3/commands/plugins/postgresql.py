@@ -15,7 +15,7 @@ def cli_commands():
 
 @click.group()
 def pg() -> None:
-    """PostgreSQL command plugin"""
+    """PostgreSQL command plugin."""
 
 
 @pg.command("pg:create")
@@ -23,22 +23,22 @@ def pg() -> None:
 @click.argument("user")
 @click.argument("password")
 def pg_create(name, user, password) -> None:
-    """PostgreSQL create a database"""
+    """PostgreSQL create a database."""
 
 
 @pg.command("pg:drop")
 @click.argument("name")
 def pg_drop(name) -> None:
-    """PostgreSQL drops a database"""
+    """PostgreSQL drops a database."""
 
 
 @pg.command("pg:import")
 @click.argument("name")
 def pg_import(name) -> None:
-    """PostgreSQL import a database"""
+    """PostgreSQL import a database."""
 
 
 @pg.command("pg:dump")
 @click.argument("name")
 def pg_dump(name) -> None:
-    """PostgreSQL dumps a database SQL"""
+    """PostgreSQL dumps a database SQL."""

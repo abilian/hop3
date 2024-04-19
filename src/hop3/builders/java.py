@@ -25,8 +25,7 @@ from hop3.util.settings import parse_settings
 
 
 def build_java_gradle(app_name: str) -> None:
-    """Deploy a Java application using Gradle"""
-
+    """Deploy a Java application using Gradle."""
     java_path = os.path.join(ENV_ROOT, app_name)
     build_path = os.path.join(APP_ROOT, app_name, "build")
     env_file = os.path.join(APP_ROOT, app_name, "ENV")
@@ -57,7 +56,7 @@ def build_java_gradle(app_name: str) -> None:
 
 
 def build_java_maven(app_name: str) -> None:
-    """Deploy a Java application using Maven"""
+    """Deploy a Java application using Maven."""
     # TODO: Use jenv to isolate Java Application environments
 
     java_path = os.path.join(ENV_ROOT, app_name)

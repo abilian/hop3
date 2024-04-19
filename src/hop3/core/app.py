@@ -158,7 +158,7 @@ class App:
             log(f"Error: app '{app_name}' not deployed!", fg="red")
 
     def restart(self) -> None:
-        """Restart (or just start) a deployed app"""
+        """Restart (or just start) a deployed app."""
         log(f"restarting app '{self.name}'...", fg="blue")
         self.stop()
         self.start()

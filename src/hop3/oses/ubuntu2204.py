@@ -1,7 +1,5 @@
 # Copyright (c) 2023-2024, Abilian SAS
-
-"""Install Hop3 on Ubuntu 22.04 LTS.
-"""
+"""Install Hop3 on Ubuntu 22.04 LTS."""
 
 from __future__ import annotations
 
