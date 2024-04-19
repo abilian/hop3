@@ -1,4 +1,5 @@
 # Copyright (c) 2023-2024, Abilian SAS
+
 """State singleton object.
 
 Store the state of the system.

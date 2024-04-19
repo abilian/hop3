@@ -115,7 +115,9 @@ class Builder:
         """
         return Path(APP_ROOT, self.app_name, "ENV")
 
-    def shell(self, command: str, cwd: str | Path = "", **kwargs) -> subprocess.CompletedProcess:
+    def shell(
+        self, command: str, cwd: str | Path = "", **kwargs
+    ) -> subprocess.CompletedProcess:
         """Run a shell command with optional working directory and additional
         keyword arguments.
 

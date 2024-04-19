@@ -1,6 +1,6 @@
 # Copyright (c) 2016 Rui Carmo
-# Copyright (c) 2023-2024, Abilian SAS
 # Copyright (c) 2021 Phil Eaton
+# Copyright (c) 2023-2024, Abilian SAS
 # Copyright (c) 2024 Stefane Fermigier
 
 from __future__ import annotations

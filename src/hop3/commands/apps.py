@@ -1,5 +1,6 @@
 # Copyright (c) 2016 Rui Carmo
 # Copyright (c) 2023-2024, Abilian SAS
+
 """CLI commands."""
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from hop3.project.procfile import parse_procfile
 from hop3.system.constants import LOG_ROOT
 from hop3.util import exit_if_invalid, multi_tail
 from hop3.util.console import Abort
+
 from .cli import hop3
 
 

@@ -1,5 +1,6 @@
 # Copyright (c) 2016 Rui Carmo
 # Copyright (c) 2023-2024, Abilian SAS
+
 """Globals constants for Hop3."""
 
 from __future__ import annotations
@@ -11,11 +12,11 @@ from pathlib import Path
 HOME = environ["HOME"]
 
 HOP3_HOME = HOME
-HOP3_ROOT = HOP3_HOME
 HOP3_BIN = join(HOP3_HOME, "bin")
 HOP3_SCRIPT = str(Path(HOP3_HOME, "venv", "bin", "hop-agent"))
 
 # Main directories for Hop3
+HOP3_ROOT = HOP3_HOME
 APP_ROOT = abspath(join(HOP3_ROOT, "apps"))
 DATA_ROOT = abspath(join(HOP3_ROOT, "data"))
 ENV_ROOT = abspath(join(HOP3_ROOT, "envs"))

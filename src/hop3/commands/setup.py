@@ -25,6 +25,7 @@ from hop3.system.constants import (
 )
 from hop3.util.console import echo
 
+from . import make_executable
 from .cli import hop3
 
 
@@ -69,9 +70,7 @@ def cmd_setup() -> None:
             h.write(f"{k:s} = {v}\n")
 
     # mark this script as executable (in case we were invoked via interpreter)
-    if not (os.stat(HOP3_SCRIPT).st_mode & stat.S_IXUSR):
-        echo(f"Setting '{HOP3_SCRIPT}' as executable.", fg="yellow")
-        os.chmod(HOP3_SCRIPT, os.stat(HOP3_SCRIPT).st_mode | stat.S_IXUSR)
+    make_executable(HOP3_SCRIPT)
 
 
 @hop3.command("setup:ssh")

@@ -67,24 +67,20 @@ class App:
     # Paths
 
     @property
-    def repo_path(self) -> str:
-        return os.path.join(GIT_ROOT, self.name)
+    def repo_path(self) -> Path:
+        return Path(GIT_ROOT, self.name)
 
     @property
-    def app_path(self) -> str:
-        return os.path.join(APP_ROOT, self.name)
+    def app_path(self) -> Path:
+        return Path(APP_ROOT, self.name)
 
     @property
-    def data_path(self) -> str:
-        return os.path.join(DATA_ROOT, self.name)
+    def data_path(self) -> Path:
+        return Path(DATA_ROOT, self.name)
 
     @property
     def virtualenv_path(self) -> Path:
         return Path(ENV_ROOT, self.name)
-
-    @property
-    def _env_file_path(self) -> Path:
-        return self.virtualenv_path / "LIVE_ENV"
 
     def get_runtime_env(self) -> Env:
         return Env(state.get_app_env(self.name))
