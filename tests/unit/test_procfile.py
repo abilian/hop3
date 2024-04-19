@@ -31,7 +31,7 @@ cron: 60 * * * * echo "hello"
 
 
 def test_procfile_1():
-    with tempfile.NamedTemporaryFile(mode="w") as f:
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as f:
         f.write(PROCFILE1)
         f.seek(0)
         workers = parse_procfile(f.name)
@@ -39,7 +39,7 @@ def test_procfile_1():
 
 
 def test_procfile_2():
-    with tempfile.NamedTemporaryFile(mode="w") as f:
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as f:
         f.write(PROCFILE2)
         f.seek(0)
         workers = parse_procfile(f.name)
@@ -50,7 +50,7 @@ def test_procfile_2():
 
 
 def test_procfile_3():
-    with tempfile.NamedTemporaryFile(mode="w") as f:
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as f:
         f.write(PROCFILE1)
         f.seek(0)
         procfile = Procfile(f.name)
@@ -59,7 +59,7 @@ def test_procfile_3():
 
 
 def test_procfile_4():
-    with tempfile.NamedTemporaryFile(mode="w") as f:
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as f:
         f.write(PROCFILE2)
         f.seek(0)
         procfile = Procfile(f.name)
@@ -75,7 +75,7 @@ def test_bad_procfiles():
         objs for (name, objs) in globals().items() if name.startswith("BAD_PROCFILE")
     ]
     for procfile in bad_procfiles:
-        with tempfile.NamedTemporaryFile(mode="w") as f:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as f:
             f.write(procfile)
             f.seek(0)
             with pytest.raises(ValueError):
