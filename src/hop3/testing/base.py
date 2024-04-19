@@ -44,11 +44,12 @@ class TestSession:
                 print(f"Keeping {self.app_name}")
             else:
                 self.cleanup()
-            return "success"
         except Exception as e:
             traceback.print_exc()
             print(f"Error testing {self.app_name}: {e}")
             return "error"
+
+        return "success"
 
     def test_all_commands(self) -> None:
         self.test_apps_command()

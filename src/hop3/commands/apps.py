@@ -104,15 +104,16 @@ def cmd_ps_scale(app: str, settings: list[str]) -> None:
         try:
             k, v = map(lambda x: x.strip(), s.split("=", 1))
             c = int(v)  # check for integer value
-            if c < 0:
-                raise Abort(f"Error: cannot scale type '{k}' below 0")
-            if k not in worker_count:
-                raise Abort(
-                    f"Error: worker type '{k}' not present in '{app}'",
-                )
-            deltas[k] = c - worker_count[k]
         except Exception:
             raise Abort(f"Error: malformed setting '{s}'")
+
+        if c < 0:
+            raise Abort(f"Error: cannot scale type '{k}' below 0")
+        if k not in worker_count:
+            raise Abort(
+                f"Error: worker type '{k}' not present in '{app}'",
+            )
+        deltas[k] = c - worker_count[k]
 
     do_deploy(app, deltas)
 

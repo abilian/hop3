@@ -23,16 +23,16 @@ lint.extend-ignore = [
     "S", # flake8-bandit
     "T20", # flake8-print
     "TD", # flake8-todos
-    "TRY", # tryceratops
 
     # False positive, don't remove
     "S101", # Use of `assert` detected
     "COM812", # Missing trailing comma
     "PLR6104", # suggests using += when inapplicable
     "SIM108", # Use ternary operator
+    "SIM102", # Use a single `if` statement instead of nested `if` statements
     "I001", # Import block is un-sorted or un-formatted
     "PD011", # Use `.to_numpy()` instead of `.values`
-
+    "TRY003", # Avoid specifying long messages outside the exception class
 
     # Fix these
     "C408",
@@ -57,7 +57,6 @@ lint.extend-ignore = [
     "PYI034",
     "RET504",
     "RUF012",
-    "SIM102", # Use a single `if` statement instead of nested `if` statements
     "TCH001", # Move import into a type-checking block
     "TCH002", # Move import into a type-checking block
     "TCH003", # Move import into a type-checking block
