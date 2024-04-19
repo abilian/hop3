@@ -7,7 +7,6 @@ from subprocess import CalledProcessError
 
 from hop3.core.env import Env
 from hop3.core.events import CompilingProject, CreatingBuildEnv, emit
-from hop3.util import shell
 from hop3.util.backports import chdir
 
 from .base import Builder
@@ -66,6 +65,6 @@ class RustBuilder(Builder):
         emit(CompilingProject(self.app_name))
 
         try:
-            shell("cargo build")
+            self.shell("cargo build")
         except CalledProcessError as e:
             raise RuntimeError(f"Failed to compile Rust project '{self.app_name}': {e}")

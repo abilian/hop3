@@ -9,7 +9,7 @@ from pathlib import Path
 from hop3.core.env import Env
 from hop3.core.events import InstallingVirtualEnv, emit
 from hop3.system.constants import UWSGI_ENABLED
-from hop3.util import check_binaries, shell
+from hop3.util import check_binaries
 from hop3.util.backports import chdir
 from hop3.util.console import Abort, log
 from hop3.util.path import prepend_to_path
@@ -108,8 +108,9 @@ class NodeBuilder(Builder):
         version = env.get("NODE_VERSION")
         node_binary = Path(self.virtual_env, "bin", "node")
         if node_binary.exists():
+            completed_process = self.shell(f"{node_binary} -v", env=env)
             installed = (
-                self.shell(f"{node_binary} -v", env=env).decode("utf8").rstrip("\n")
+                completed_process.stdout.decode("utf8").rstrip("\n")
             )
         else:
             installed = ""
@@ -128,7 +129,7 @@ class NodeBuilder(Builder):
                 cmd = "nodeenv --prebuilt --node={NODE_VERSION:s} --clean-src --force {VIRTUAL_ENV:s}".format(
                     **env
                 )
-                shell(cmd, cwd=self.virtual_env, env=env)
+                self.shell(cmd, cwd=self.virtual_env, env=env)
             else:
                 log(f"Node is installed at {version}.", level=5, fg="green")
 

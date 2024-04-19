@@ -82,14 +82,14 @@ class Deployer:
             return
 
         log("Running preflight.", level=5, fg="blue")
-        retval = shell(command, cwd=self.app_path)
+        retval = shell(command, cwd=self.app_path).returncode
         if retval:
             raise Abort(f"prebuild failed due to command error value: {retval}", retval)
 
     def run_build(self) -> None:
         if build_worker := self.get_worker("build"):
             log("Running build.", level=5, fg="blue")
-            retval = shell(build_worker, cwd=self.app_path)
+            retval = shell(build_worker, cwd=self.app_path).returncode
             if retval:
                 raise Abort(
                     f"Build failed due to command error value: {retval}",

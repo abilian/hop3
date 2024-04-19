@@ -168,7 +168,7 @@ def spawn_uwsgi_worker(
             )
             settings.add("attach-daemon", command)
         case "static":
-            echo("-----> nginx serving static files only".format(**env), fg="yellow")
+            echo("-----> nginx serving static files only", fg="yellow")
         case "cron":
             echo(f"-----> uwsgi scheduled cron for {command}", fg="yellow")
         case _:

@@ -20,7 +20,7 @@ from hop3.system.constants import APP_ROOT
 from hop3.util.console import Abort, log
 
 
-def shell(command: str, cwd: Path | str = "", **kwargs) -> int:
+def shell(command: str, cwd: Path | str = "", **kwargs) -> subprocess.CompletedProcess:
     """Run a shell command."""
     if cwd:
         cwd = Path(cwd).resolve()
@@ -33,7 +33,7 @@ def shell(command: str, cwd: Path | str = "", **kwargs) -> int:
     kwargs["shell"] = True
     if cwd:
         kwargs["cwd"] = str(cwd)
-    return subprocess.call(command, **kwargs)
+    return subprocess.run(command, **kwargs)
 
 
 def check_binaries(binaries) -> bool:

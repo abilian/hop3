@@ -8,8 +8,6 @@ from pathlib import Path
 
 from hop3.core.env import Env
 from hop3.core.events import BuildEvent, CreatingVirtualEnv, emit
-from hop3.util import shell
-from hop3.util.backports import chdir
 from hop3.util.console import log
 from hop3.util.path import prepend_to_path
 
@@ -124,9 +122,8 @@ class ClojureBuilder(Builder):
 
     def _build(self, env: Env) -> None:
         log("Building Clojure Application", level=5)
-        with chdir(self.app_path):
-            if self.is_leiningen_app:
-                shell("lein clean", env=env)
-                shell("lein uberjar", env=env)
-            else:
-                shell("clojure -T:build release", env=env)
+        if self.is_leiningen_app:
+            self.shell("lein clean", env=env)
+            self.shell("lein uberjar", env=env)
+        else:
+            self.shell("clojure -T:build release", env=env)

@@ -43,6 +43,7 @@ lint.extend-ignore = [
     "PLR0915",
     "PLR0917",
     "PLR6301",
+    "PLW1510", # `subprocess.run` without explicit `check` argument
     "PT011",
     "PT017",
     "RET504",

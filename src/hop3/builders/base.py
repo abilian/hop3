@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from typing import ClassVar
 
@@ -114,20 +115,21 @@ class Builder:
         """
         return Path(APP_ROOT, self.app_name, "ENV")
 
-    def shell(self, command: str, cwd: str | Path = "", **kwargs) -> None:
+    def shell(self, command: str, cwd: str | Path = "", **kwargs) -> subprocess.CompletedProcess:
         """Run a shell command with optional working directory and additional
         keyword arguments.
 
         Args:
         ----
             command (str): The shell command to be executed.
-            cwd (str or Path, optional): The working directory where the command will be executed. Defaults to the application path if not provided.
+            cwd (str or Path, optional): The working directory where the command will be executed.
+                Defaults to the application path if not provided.
             **kwargs: Additional keyword arguments to be passed to the shell function.
 
         """
         if not cwd:
             cwd = str(self.app_path)
-        shell(command, cwd=str(cwd), **kwargs)
+        return shell(command, cwd=str(cwd), **kwargs)
 
     def get_env(self) -> Env:
         """Get the environment settings from a file and return an Env object.
