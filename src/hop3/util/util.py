@@ -37,7 +37,7 @@ def shell(command: str, cwd: Path | str = "", **kwargs) -> int:
 
 
 def check_binaries(binaries) -> bool:
-    """Checks if all the binaries exist and are executable."""
+    """Check if all the binaries exist and are executable."""
     log(f"Checking requirements: {binaries}", level=5, fg="green")
     requirements = [shutil.which(b) for b in binaries]
     return all(requirements)
@@ -54,7 +54,7 @@ def sanitize_app_name(app) -> str:
 
 
 def exit_if_invalid(app_name: str) -> str:
-    """Utility function for error checking upon command startup."""
+    """Check error upon command startup."""
     app_name = sanitize_app_name(app_name)
     if not Path(APP_ROOT, app_name).exists():
         raise Abort(f"Error: app '{app_name}' not found.")
@@ -62,7 +62,7 @@ def exit_if_invalid(app_name: str) -> str:
 
 
 def get_free_port(address="") -> int:
-    """Find a free TCP port (entirely at random)"""
+    """Find a free TCP port (entirely at random)."""
     s = socket(AF_INET, SOCK_STREAM)
     s.bind((address, 0))  # lgtm [py/bind-socket-all-network-interfaces]
     port = s.getsockname()[1]
@@ -71,7 +71,7 @@ def get_free_port(address="") -> int:
 
 
 def command_output(cmd) -> str:
-    """Executes a command and grabs its output, if any."""
+    """Execute a command and grabs its output, if any."""
     try:
         env = os.environ
         return str(check_output(cmd, stderr=STDOUT, env=env, shell=True))

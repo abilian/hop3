@@ -14,13 +14,32 @@ from .base import Builder
 
 
 class RubyBuilder(Builder):
+    """A class representing a Ruby builder, a type of Builder.
+
+    Attributes
+    ----------
+        name (str): The name of the builder.
+        requirements (list): The required tools for building with Ruby.
+
+    """
+
     name = "Ruby"
     requirements = ["ruby", "gem", "bundle"]
 
     def accept(self) -> bool:
+        """Check if a Gemfile exists in the specified app_path.
+
+        Returns
+        -------
+            bool: True if a Gemfile exists, False otherwise.
+
+        """
         return Path(self.app_path, "Gemfile").exists()
 
     def build(self) -> None:
+        """Build the project by setting up a virtual environment and installing
+        dependencies.
+        """
         with chdir(self.app_path):
             env = self.get_env()
             self.make_virtual_env(env)
@@ -29,6 +48,13 @@ class RubyBuilder(Builder):
             self.shell("bundle install", env=env)
 
     def get_env(self) -> Env:
+        """Get the environment settings for the current configuration.
+
+        Returns
+        -------
+            Env: An Env object containing the environment settings.
+
+        """
         path = prepend_to_path(
             [
                 self.virtual_env / "bin",
@@ -46,6 +72,13 @@ class RubyBuilder(Builder):
         return env
 
     def make_virtual_env(self, env: Env) -> None:
+        """Create a virtual environment for the specified environment.
+
+        Args:
+        ----
+            env (Env): The environment settings to use for creating the virtual environment.
+
+        """
         if not self.virtual_env.exists():
             emit(CreatingVirtualEnv(self.app_name))
             self.virtual_env.mkdir(parents=True)

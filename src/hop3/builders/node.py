@@ -18,6 +18,23 @@ from .base import Builder
 
 
 class NodeBuilder(Builder):
+    """A builder class for creating Node projects.
+
+    Attributes
+    ----------
+        name (str): The name of the builder.
+        requirements (list): The list of required tools for building Node projects.
+
+    Methods
+    -------
+        accept(): Check if the project meets the requirements for building Node projects.
+        build(): Build the Node project by setting up the environment, installing Node, and installing modules.
+        get_env(): Get the environment variables required for building the project.
+        install_node(env): Install the specified version of Node using nodeenv.
+        install_modules(env): Install the required npm modules for the project.
+
+    """
+
     name = "Node"
     requirements = ["node", "npm"]
 
@@ -27,9 +44,20 @@ class NodeBuilder(Builder):
     # or check_requirements(["nodeenv"])
 
     def accept(self):
+        """Check if the package.json file exists in the specified app path.
+
+        Returns
+        -------
+            bool: True if the package.json file exists, False otherwise.
+
+        """
         return (self.app_path / "package.json").exists()
 
     def build(self) -> None:
+        """Build the project environment.
+
+        This method creates the necessary directories and installs the required dependencies for the project.
+        """
         self.virtual_env.mkdir(parents=True, exist_ok=True)
 
         with chdir(self.app_path):
@@ -39,6 +67,13 @@ class NodeBuilder(Builder):
             self.install_modules(env)
 
     def get_env(self) -> Env:
+        """Get the environment variables for the application.
+
+        Returns
+        -------
+            Env: An environment object containing the necessary variables for the application.
+
+        """
         node_modules = self.app_path / "node_modules"
         npm_prefix = os.path.abspath(os.path.join(node_modules, ".."))
         path = prepend_to_path(
@@ -58,7 +93,18 @@ class NodeBuilder(Builder):
         env.parse_settings(self.env_file)
         return env
 
-    def install_node(self, env) -> None:
+    def install_node(self, env: Env) -> None:
+        """Install a specific version of Node.js using nodeenv.
+
+        Args:
+        ----
+            env (dict): Dictionary containing environment variables, including 'NODE_VERSION' specifying the Node.js version to install.
+
+        Raises:
+        ------
+            Abort: If trying to update Node.js while the application is running.
+
+        """
         version = env.get("NODE_VERSION")
         node_binary = Path(self.virtual_env, "bin", "node")
         if node_binary.exists():
@@ -86,7 +132,15 @@ class NodeBuilder(Builder):
             else:
                 log(f"Node is installed at {version}.", level=5, fg="green")
 
-    def install_modules(self, env) -> None:
+    def install_modules(self, env: Env) -> None:
+        """Install necessary modules for the application using npm.
+
+        Args:
+        ----
+            self: The instance of the class.
+            env (dict): Environment variables to be passed to the shell.
+
+        """
         emit(InstallingVirtualEnv(self.app_name))
 
         npm_prefix = self.app_path

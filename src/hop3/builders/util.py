@@ -9,4 +9,11 @@ __all__ = ["found_app"]
 
 
 def found_app(kind) -> None:
+    """Log the detection of a specific type of app.
+
+    Args:
+    ----
+        kind (str): The type of app detected.
+
+    """
     log(f"{kind} app detected.", level=5, fg="green")

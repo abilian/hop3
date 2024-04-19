@@ -14,6 +14,15 @@ from .base import Builder
 
 
 class PHPBuilder(Builder):
+    """A class representing a PHP builder that builds PHP projects.
+
+    Attributes
+    ----------
+        name (str): The name of the builder, in this case 'PHP'.
+        requirements (list): A list of requirements, in this case ['composer'].
+
+    """
+
     name = "PHP"
     requirements = ["composer"]
 
