@@ -40,7 +40,7 @@ class Linux(Platform):
 
 
 class Debian(Linux):
-    def ensure_packages(self, name, packages, update=True):
+    def ensure_packages(self, name, packages, *, update=True):
         packages_str = " ".join(packages)
         shell(f"apt-get install -y {packages_str}")
 

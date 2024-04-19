@@ -92,7 +92,7 @@ class AppLauncher:
 
         write_settings(scaling, worker_count, ":")
 
-        if env.get_bool("HOP3_AUTO_RESTART", True):
+        if env.get_bool("HOP3_AUTO_RESTART", default=True):
             configs = list(Path(UWSGI_ENABLED).glob(f"{self.app_name}*.ini"))
             if configs:
                 echo("-----> Removing uwsgi configs to trigger auto-restart.")

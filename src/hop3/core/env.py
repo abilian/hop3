@@ -72,7 +72,7 @@ class Env(Mapping[str, str]):
             case _:
                 return int(value)
 
-    def get_bool(self, key: str, default: bool = False) -> bool:
+    def get_bool(self, key: str, *, default: bool = False) -> bool:
         value = self.get(key, default)
         match value:
             case bool():
