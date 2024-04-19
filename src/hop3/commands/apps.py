@@ -94,18 +94,19 @@ def cmd_ps_scale(app: str, settings: list[str]) -> None:
     deltas: dict[str, int] = {}
     for s in settings:
         try:
-            k, v = map(lambda x: x.strip(), s.split("=", 1))
-            c = int(v)  # check for integer value
+            key, value = s.split("=", 1)
+            key = key.strip()
+            count = int(value.strip())  # check for integer value
         except Exception:
             raise Abort(f"Error: malformed setting '{s}'")
 
-        if c < 0:
-            raise Abort(f"Error: cannot scale type '{k}' below 0")
-        if k not in worker_count:
+        if count < 0:
+            raise Abort(f"Error: cannot scale type '{key}' below 0")
+        if key not in worker_count:
             raise Abort(
-                f"Error: worker type '{k}' not present in '{app}'",
+                f"Error: worker type '{key}' not present in '{app}'",
             )
-        deltas[k] = c - worker_count[k]
+        deltas[key] = count - worker_count[key]
 
     do_deploy(app, deltas)
 
@@ -117,9 +118,9 @@ def cmd_run(app: str, cmd: list[str]) -> None:
     """e.g.: hop-agent run <app> ls -- -al."""
     app_obj = get_app(app)
 
-    for f in [sys.stdout, sys.stderr]:
-        fl = fcntl.fcntl(f, fcntl.F_GETFL)
-        fcntl.fcntl(f, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+    for fd in [sys.stdout, sys.stderr]:
+        fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+        fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
     p = subprocess.Popen(
         cmd,

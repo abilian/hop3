@@ -49,9 +49,11 @@ def cmd_config_set(app, settings) -> None:
 
     for s in settings:
         try:
-            k, v = map(lambda x: x.strip(), s.split("=", 1))
-            log(f"Setting {k:s}={v} for '{app:s}'", fg="white")
-            env[k] = v
+            key, value = s.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            log(f"Setting {key:s}={value} for '{app:s}'", fg="white")
+            env[key] = value
         except Exception:
             raise Abort(f"Error: malformed setting '{s}'")
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 from click import group
 from devtools import debug
 
-CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
 
 @group(context_settings=CONTEXT_SETTINGS)
