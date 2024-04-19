@@ -30,7 +30,7 @@ from .cli import hop3
 
 @hop3.command("setup:system")
 def cmd_setup_system() -> None:
-    """Set up the server (must be run as root)"""
+    """Set up the server (must be run as root)."""
     # Set up the server
     setup_system()
 
@@ -75,7 +75,7 @@ def cmd_setup() -> None:
 @hop3.command("setup:ssh")
 @argument("public_key_file")
 def cmd_setup_ssh(public_key_file) -> None:
-    """Set up a new SSH key (use - for stdin)"""
+    """Set up a new SSH key (use - for stdin)."""
 
     def add_helper(key_file):
         if Path(key_file).exists():

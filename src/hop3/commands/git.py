@@ -23,7 +23,7 @@ from .cli import hop3
 @hop3.command("git-hook")
 @argument("app")
 def cmd_git_hook(app: str) -> None:
-    """INTERNAL: Post-receive git hook"""
+    """INTERNAL: Post-receive git hook."""
     app_obj = App(app)
     app_path = Path(app_obj.app_path)
     data_path = Path(app_obj.data_path)
@@ -50,7 +50,7 @@ def cmd_git_hook(app: str) -> None:
 @hop3.command("git-receive-pack")
 @argument("app")
 def cmd_git_receive_pack(app: str) -> None:
-    """INTERNAL: Handle git pushes for an app"""
+    """INTERNAL: Handle git pushes for an app."""
     app = sanitize_app_name(app)
     hook_path = Path(GIT_ROOT, app, "hooks", "post-receive")
 
@@ -81,7 +81,7 @@ def cmd_git_receive_pack(app: str) -> None:
 @hop3.command("git-upload-pack")
 @argument("app")
 def cmd_git_upload_pack(app: str) -> None:
-    """INTERNAL: Handle git upload pack for an app"""
+    """INTERNAL: Handle git upload pack for an app."""
     app_obj = get_app(app)
     # Handle the actual receive. We'll be called with 'git-hook' after it happens
     _cmd = sys.argv[1] + f" '{app_obj.name}'"

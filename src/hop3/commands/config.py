@@ -20,7 +20,7 @@ from .cli import hop3
 @hop3.command("config")
 @argument("app")
 def cmd_config(app) -> None:
-    """Show config, e.g.: hop config <app>"""
+    """Show config, e.g.: hop config <app>."""
     app_obj = get_app(app)
     env = app_obj.get_runtime_env()
 
@@ -81,7 +81,7 @@ def cmd_config_unset(app, settings) -> None:
 @hop3.command("config:live")
 @argument("app")
 def cmd_config_live(app) -> None:
-    """e.g.: hop config:live <app>"""
+    """e.g.: hop config:live <app>."""
     app_obj = get_app(app)
     env = app_obj.get_runtime_env()
 

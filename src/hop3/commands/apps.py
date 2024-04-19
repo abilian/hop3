@@ -41,7 +41,7 @@ def cmd_apps() -> None:
 @hop3.command("deploy")
 @argument("app")
 def cmd_deploy(app) -> None:
-    """e.g.: hop-agent deploy <app>"""
+    """e.g.: hop-agent deploy <app>."""
     app_obj = get_app(app)
     app_obj.deploy()
 
@@ -49,7 +49,7 @@ def cmd_deploy(app) -> None:
 @hop3.command("destroy")
 @argument("app")
 def cmd_destroy(app) -> None:
-    """e.g.: hop-agent destroy <app>"""
+    """e.g.: hop-agent destroy <app>."""
     app_obj = get_app(app)
     app_obj.destroy()
 
@@ -58,7 +58,7 @@ def cmd_destroy(app) -> None:
 @argument("app")
 @argument("process", nargs=1, default="*")
 def cmd_logs(app, process) -> None:
-    """Tail running logs, e.g: hop-agent logs <app> [<process>]"""
+    """Tail running logs, e.g: hop-agent logs <app> [<process>]."""
     app = exit_if_invalid(app)
 
     logfiles = glob(os.path.join(LOG_ROOT, app, process + ".*.log"))
@@ -72,7 +72,7 @@ def cmd_logs(app, process) -> None:
 @hop3.command("ps")
 @argument("app")
 def cmd_ps(app: str) -> None:
-    """Show process count, e.g: hop-agent ps <app>"""
+    """Show process count, e.g: hop-agent ps <app>."""
     app_obj = get_app(app)
     scaling_file = app_obj.virtualenv_path / "SCALING"
 
@@ -86,7 +86,7 @@ def cmd_ps(app: str) -> None:
 @argument("app")
 @argument("settings", nargs=-1)
 def cmd_ps_scale(app: str, settings: list[str]) -> None:
-    """e.g.: hop-agent ps:scale <app> <proc>=<count>"""
+    """e.g.: hop-agent ps:scale <app> <proc>=<count>."""
     app_obj = get_app(app)
 
     scaling_file = app_obj.virtualenv_path / "SCALING"
@@ -136,7 +136,7 @@ def cmd_run(app: str, cmd: list[str]) -> None:
 @hop3.command("restart")
 @argument("app")
 def cmd_restart(app) -> None:
-    """Restart an app: hop-agent restart <app>"""
+    """Restart an app: hop-agent restart <app>."""
     app_obj = get_app(app)
     app_obj.restart()
 
@@ -144,6 +144,6 @@ def cmd_restart(app) -> None:
 @hop3.command("stop")
 @argument("app")
 def cmd_stop(app) -> None:
-    """Stop an app, e.g: hop-agent stop <app>"""
+    """Stop an app, e.g: hop-agent stop <app>."""
     app_obj = get_app(app)
     app_obj.stop()
