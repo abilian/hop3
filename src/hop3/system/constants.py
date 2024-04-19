@@ -24,8 +24,8 @@ LOG_ROOT = abspath(join(HOP3_ROOT, "logs"))
 NGINX_ROOT = abspath(join(HOP3_ROOT, "nginx"))
 CACHE_ROOT = abspath(join(HOP3_ROOT, "cache"))
 
-UWSGI_AVAILABLE = abspath(join(HOP3_ROOT, "uwsgi-available"))
-UWSGI_ENABLED = abspath(join(HOP3_ROOT, "uwsgi-enabled"))
+UWSGI_AVAILABLE = Path(HOP3_ROOT, "uwsgi-available")
+UWSGI_ENABLED = Path(HOP3_ROOT, "uwsgi-enabled")
 UWSGI_ROOT = abspath(join(HOP3_ROOT, "uwsgi"))
 UWSGI_LOG_MAXSIZE = "1048576"
 
@@ -33,7 +33,7 @@ ACME_ROOT = environ.get("ACME_ROOT", join(environ["HOME"], ".acme.sh"))
 ACME_WWW = abspath(join(HOP3_ROOT, "acme"))
 ACME_ROOT_CA = environ.get("ACME_ROOT_CA", "letsencrypt.org")
 
-ROOT_DIRS = [
+ROOT_DIRS: list[str | Path] = [
     APP_ROOT,
     CACHE_ROOT,
     DATA_ROOT,

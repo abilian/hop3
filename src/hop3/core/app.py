@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import shutil
-from glob import glob
 from pathlib import Path
 
 from hop3.core.env import Env
@@ -141,12 +140,12 @@ class App:
 
     def stop(self) -> None:
         app_name = self.name
-        config = glob(os.path.join(UWSGI_ENABLED, f"{app_name}*.ini"))
+        config_files = list(UWSGI_ENABLED.glob(f"{app_name}*.ini"))
 
-        if len(config) > 0:
+        if len(config_files) > 0:
             log(f"Stopping app '{app_name}'...", fg="blue")
-            for c in config:
-                os.remove(c)
+            for c in config_files:
+                c.unlink()
         else:
             # TODO app could be already stopped. Need to able to tell the difference.
             log(f"Error: app '{app_name}' not deployed!", fg="red")

@@ -11,6 +11,7 @@ import traceback
 from collections.abc import Iterator
 from http import HTTPStatus
 from pathlib import Path
+from typing import Any
 
 import httpx
 from devtools import debug
@@ -103,7 +104,7 @@ class TestSession:
             )
 
         if (self.directory / "check.py").exists():
-            ctx = {}
+            ctx: dict[str, Any] = {}
             exec((self.directory / "check.py").read_text(), ctx)
             ctx["check"](self.app_host_name)
 

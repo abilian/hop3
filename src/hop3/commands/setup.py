@@ -49,6 +49,8 @@ def cmd_setup() -> None:
 
     # Set up the uWSGI emperor config
     cpu_count = os.cpu_count() or 1
+    pw_name = pwd.getpwuid(os.getuid()).pw_name
+    gr_name = grp.getgrgid(os.getgid()).gr_name
     settings = [
         ("chdir", UWSGI_ROOT),
         ("emperor", UWSGI_ENABLED),
@@ -56,8 +58,8 @@ def cmd_setup() -> None:
         ("logto", os.path.join(UWSGI_ROOT, "uwsgi.log")),
         ("log-backupname", os.path.join(UWSGI_ROOT, "uwsgi.old.log")),
         ("socket", os.path.join(UWSGI_ROOT, "uwsgi.sock")),
-        ("uid", pwd.getpwuid(os.getuid()).pw_name),
-        ("gid", grp.getgrgid(os.getgid()).gr_name),
+        ("uid", pw_name),
+        ("gid", gr_name),
         ("enable-threads", "true"),
         ("threads", f"{cpu_count * 2}"),
     ]
