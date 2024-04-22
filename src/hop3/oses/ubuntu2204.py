@@ -1,4 +1,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
+#
+# SPDX-License-Identifier: AGPL-3.0-only
 
 """Install Hop3 on Ubuntu 22.04 LTS."""
 

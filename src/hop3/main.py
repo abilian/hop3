@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 # Copyright (c) 2023-2024, Abilian SAS
+#
+# SPDX-License-Identifier: AGPL-3.0-only
 
 """Hop3 Micro-PaaS Agent."""
 from __future__ import annotations

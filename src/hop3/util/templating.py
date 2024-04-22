@@ -2,6 +2,8 @@
 # Copyright (c) 2021 Phil Eaton
 # Copyright (c) 2023-2024, Abilian SAS
 # Copyright (c) 2024 Stefane Fermigier
+#
+# SPDX-License-Identifier: AGPL-3.0-only
 
 from __future__ import annotations
 
