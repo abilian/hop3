@@ -46,7 +46,6 @@ repos:
     # - id: no-commit-to-branch
     # - id: requirements-txt-fixer
 
-
 -   repo: https://github.com/pycqa/flake8
     rev: '7.0.0'  # pick a git hash / tag to point to
     hooks:
