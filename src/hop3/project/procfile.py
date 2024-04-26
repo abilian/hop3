@@ -73,8 +73,7 @@ class Procfile:
             kind, command = (x.strip() for x in line.split(":", 1))
         except Exception:
             log(
-                f"Warning: misformatted Procfile entry '{line}' "
-                f"at line {line_number}",
+                f"Warning: misformatted Procfile entry '{line}' at line {line_number}",
                 fg="red",
             )
             raise

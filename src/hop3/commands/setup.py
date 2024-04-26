@@ -91,7 +91,8 @@ def cmd_setup_ssh(public_key_file) -> None:
                 setup_authorized_keys(fingerprint, key)
             except Exception:
                 echo(
-                    f"Error: invalid public key file '{key_file}': {traceback.format_exc()}",
+                    f"Error: invalid public key file '{key_file}':"
+                    f" {traceback.format_exc()}",
                     fg="red",
                 )
         elif public_key_file == "-":
@@ -113,10 +114,9 @@ def setup_authorized_keys(ssh_fingerprint, pubkey) -> None:
 
     # Restrict features and force all SSH commands to go through our script
     authorized_keys.write_text(
-        f'command="FINGERPRINT={ssh_fingerprint:s} '
-        f"NAME=default {HOP3_SCRIPT:s} "
-        f'$SSH_ORIGINAL_COMMAND",no-agent-forwarding,no-user-rc,no-X11-forwarding,no-port-forwarding '
-        f"{pubkey:s}\n",
+        f'command="FINGERPRINT={ssh_fingerprint:s} NAME=default'
+        f' {HOP3_SCRIPT:s} $SSH_ORIGINAL_COMMAND",no-agent-forwarding,no-user-rc,no-X11-forwarding,no-port-forwarding'
+        f" {pubkey:s}\n",
     )
 
     authorized_keys.parent.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)

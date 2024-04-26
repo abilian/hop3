@@ -119,15 +119,19 @@ class NodeBuilder(Builder):
             if not installed.endswith(version):
                 started = list(Path(UWSGI_ENABLED).glob(f"{self.app_name}*.ini"))
                 if installed and len(started):
-                    msg = "Warning: Can't update node with app running. Stop the app & retry."
+                    msg = (
+                        "Warning: Can't update node with app running. Stop the app &"
+                        " retry."
+                    )
                     raise Abort(msg)
 
                 msg = "Installing node version '{NODE_VERSION:s}' using nodeenv".format(
                     **env,
                 )
                 log(msg, level=5, fg="green")
-                cmd = "nodeenv --prebuilt --node={NODE_VERSION:s} --clean-src --force {VIRTUAL_ENV:s}".format(
-                    **env
+                cmd = (
+                    "nodeenv --prebuilt --node={NODE_VERSION:s} --clean-src --force"
+                    " {VIRTUAL_ENV:s}".format(**env)
                 )
                 self.shell(cmd, cwd=self.virtual_env, env=env)
             else:

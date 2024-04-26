@@ -102,7 +102,8 @@ class TestSession:
 
         if response.status_code != HTTPStatus.OK:
             raise AssertionError(
-                f"App {self.app_host_name} ({url}) is not up, got status code {response.status_code}",
+                f"App {self.app_host_name} ({url}) is not up, got status code"
+                f" {response.status_code}",
             )
 
         if (self.directory / "check.py").exists():

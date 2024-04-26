@@ -49,7 +49,9 @@ class PostgresqlAddon(Addon):
 
     def get_env(self) -> dict[str, str]:
         return {
-            "DATABASE_URL": f"postgresql://{self.db_user}:{self.db_pass}@localhost/{self.db_name}",
+            "DATABASE_URL": (
+                f"postgresql://{self.db_user}:{self.db_pass}@localhost/{self.db_name}"
+            ),
         }
 
     def _check_database_exists(self, cursor) -> bool:

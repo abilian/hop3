@@ -87,7 +87,8 @@ def spawn_uwsgi_worker(
                 ("die-on-idle", "True"),
             ]
             log(
-                f"uwsgi will start workers on demand and kill them after {idle_timeout}s of inactivity",
+                "uwsgi will start workers on demand and kill them after"
+                f" {idle_timeout}s of inactivity",
                 level=5,
                 fg="yellow",
             )
@@ -163,7 +164,8 @@ def spawn_uwsgi_worker(
                 ]
         case "web":
             echo(
-                "-----> nginx will talk to the 'web' process via {BIND_ADDRESS:s}:{PORT:s}".format(
+                "-----> nginx will talk to the 'web' process via"
+                " {BIND_ADDRESS:s}:{PORT:s}".format(
                     **env,
                 ),
                 fg="yellow",
@@ -179,7 +181,8 @@ def spawn_uwsgi_worker(
     if kind in {"wsgi", "web"}:
         settings.add(
             "log-format",
-            '%%(addr) - %%(user) [%%(ltime)] "%%(method) %%(uri) %%(proto)" %%(status) %%(size) "%%(referer)" "%%(uagent)" %%(msecs)ms',
+            '%%(addr) - %%(user) [%%(ltime)] "%%(method) %%(uri) %%(proto)" %%(status)'
+            ' %%(size) "%%(referer)" "%%(uagent)" %%(msecs)ms',
         )
 
     # remove unnecessary variables from the env in nginx.ini

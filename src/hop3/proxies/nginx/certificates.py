@@ -34,8 +34,9 @@ def setup_certificates(app_name: str, env) -> None:
 def setup_self_signed(domain, key, crt) -> None:
     echo("-----> generating self-signed certificate")
     subprocess.call(
-        f"openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "
-        f'"/C=FR/ST=NA/L=Paris/O=Hop3/OU=Self-Signed/CN={domain:s}" -keyout {key:s} -out {crt:s}',
+        "openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj"
+        f' "/C=FR/ST=NA/L=Paris/O=Hop3/OU=Self-Signed/CN={domain:s}" -keyout'
+        f" {key:s} -out {crt:s}",
         shell=True,
     )
 
@@ -71,7 +72,8 @@ def setup_acme(app_name: str, env, nginx_conf) -> None:
         shell=True,
     )
     subprocess.call(
-        f"{acme:s}/acme.sh --install-cert {certlist:s} --key-file {key_file:s} --fullchain-file {crt_file:s}",
+        f"{acme:s}/acme.sh --install-cert {certlist:s} --key-file"
+        f" {key_file:s} --fullchain-file {crt_file:s}",
         shell=True,
     )
     if Path(ACME_ROOT, domain).exists() and not Path(ACME_WWW, app_name).exists():

@@ -132,12 +132,14 @@ def setup_proxy(app_name, env, workers) -> str:
         env["HOP3_INTERNAL_NGINX_PORTMAP"] = expand_vars(NGINX_PORTMAP_FRAGMENT, env)
     env["HOP3_INTERNAL_NGINX_COMMON"] = expand_vars(NGINX_COMMON_FRAGMENT, env)
     echo(
-        f"-----> nginx will map app '{app_name}' to hostname(s) '{env['NGINX_SERVER_NAME']}'",
+        f"-----> nginx will map app '{app_name}' to hostname(s)"
+        f" '{env['NGINX_SERVER_NAME']}'",
     )
     if env.get_bool("NGINX_HTTPS_ONLY"):
         buffer = expand_vars(NGINX_HTTPS_ONLY_TEMPLATE, env)
         echo(
-            f"-----> nginx will redirect all requests to hostname(s) '{env['NGINX_SERVER_NAME']}' to HTTPS",
+            "-----> nginx will redirect all requests to hostname(s)"
+            f" '{env['NGINX_SERVER_NAME']}' to HTTPS",
         )
     else:
         buffer = expand_vars(NGINX_TEMPLATE, env)
@@ -189,7 +191,8 @@ def setup_static(app_path, env, workers) -> None:
                 )
         except Exception as e:
             echo(
-                f"Error {e} in static path spec: should be /prefix1:path1[,/prefix2:path2], ignoring.",
+                f"Error {e} in static path spec: should be"
+                " /prefix1:path1[,/prefix2:path2], ignoring.",
             )
             env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
 
@@ -254,7 +257,8 @@ def setup_cache(app_name: str, env: Env) -> None:
     cache_path = env.get_path("NGINX_CACHE_PATH", default_cache_path)
     if not cache_path.exists():
         log(
-            f"Cache path {cache_path} does not exist, using default {default_cache_path}, be aware of disk usage.",
+            f"Cache path {cache_path} does not exist, using default"
+            f" {default_cache_path}, be aware of disk usage.",
             level=4,
             fg="yellow",
         )
@@ -272,13 +276,16 @@ def setup_cache(app_name: str, env: Env) -> None:
                     prefixes.append(item)
             cache_prefixes = "|".join(prefixes)
             echo(
-                f"-----> nginx will cache /({cache_prefixes}) prefixes up to {cache_time_expiry} or {cache_size} of disk space, with the following timings:",
+                f"-----> nginx will cache /({cache_prefixes}) prefixes up to"
+                f" {cache_time_expiry} or {cache_size} of disk space, with the"
+                " following timings:",
             )
             echo(f"-----> nginx will cache content for {cache_time_content}.")
             echo(f"-----> nginx will cache redirects for {cache_time_redirects}.")
             echo(f"-----> nginx will cache everything else for {cache_time_any}.")
             echo(
-                f"-----> nginx will send caching headers asking for {cache_time_control} seconds of public caching.",
+                "-----> nginx will send caching headers asking for"
+                f" {cache_time_control} seconds of public caching.",
             )
             env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = expand_vars(
                 HOP3_INTERNAL_PROXY_CACHE_PATH,
@@ -294,7 +301,8 @@ def setup_cache(app_name: str, env: Env) -> None:
             )
         except Exception as e:
             echo(
-                f"Error {e} in cache path spec: should be /prefix1:[,/prefix2], ignoring.",
+                f"Error {e} in cache path spec: should be /prefix1:[,/prefix2],"
+                " ignoring.",
             )
             env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
 
