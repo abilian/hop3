@@ -32,6 +32,10 @@ lint.extend-ignore = [
     "I001", # Import block is un-sorted or un-formatted
     "PD011", # Use `.to_numpy()` instead of `.values`
     "TRY003", # Avoid specifying long messages outside the exception class
+    "PLW1514", # `pathlib.Path(...).write_text` without explicit `encoding` argument
+    "TCH001", # Move import into a type-checking block
+    "TCH002", # Move import into a type-checking block
+    "TCH003", # Move import into a type-checking block
 
     # Fix these
     "E501", # Line too long
@@ -48,9 +52,6 @@ lint.extend-ignore = [
     "PT017",
     "RET504",
     "RUF012",
-    "TCH001", # Move import into a type-checking block
-    "TCH002", # Move import into a type-checking block
-    "TCH003", # Move import into a type-checking block
 ]
 
 [lint.mccabe]
