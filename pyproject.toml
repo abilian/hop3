@@ -15,18 +15,19 @@ hop-test = "hop3.testing.main:main"
 
 [tool.poetry.dependencies]
 python = "^3.10"
+
 click = "^8.1.7"
 cleez = "*"
 pluggy = "^1.4.0"
+sqlalchemy = "^2.0.29"
+sqlalchemy-serializer = "^1.4.12"
+advanced-alchemy = "^0.13"
+psycopg2 = "^2.9.9"
+svcs = "^24.1.0"
 
 # Remove later
 devtools = "^0.12.2"
-sqlalchemy = "^2.0.29"
-sqlalchemy-serializer = "^1.4.12"
-advanced-alchemy = "^0.11"
-psycopg2 = "^2.9.9"
 snoop = "^0.4.3"
-svcs = "^24.1.0"
 
 [tool.poetry.group.dev.dependencies]
 abilian-devtools = "^0.5.18"

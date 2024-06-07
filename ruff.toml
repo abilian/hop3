@@ -38,6 +38,7 @@ lint.extend-ignore = [
     "TCH003", # Move import into a type-checking block
 
     # Fix these
+    "C901", # Function is too complex
     "E501", # Line too long
     "PERF203",
     "PLC2801",
@@ -45,7 +46,6 @@ lint.extend-ignore = [
     "PLR0913",
     "PLR0914",
     "PLR0915",
-    "PLR0917",
     "PLR6301",
     "PLW1510", # `subprocess.run` without explicit `check` argument
     "PT011",

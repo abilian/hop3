@@ -15,7 +15,7 @@ class Platform:
 
 
 class Linux(Platform):
-    def put_file(self, name, src, dest, mode=None, owner=None, group=None):
+    def put_file(self, name, src, dest, *, mode=None, owner=None, group=None):
         match src:
             case Path():
                 Path(dest).write_text(src.read_text())

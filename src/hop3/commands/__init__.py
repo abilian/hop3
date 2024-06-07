@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 
-# ruff: noqa
+# ruff: noqa: F403
 from __future__ import annotations
 
 from .apps import *

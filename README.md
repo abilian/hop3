@@ -141,7 +141,7 @@ Other inspirations include:
 The following people have contributed to Hop3:
 
 - [Stefane Fermigier](https://fermigier.com/) has created and maintains Nua and Hop3.
-- [Jérôme Dumonteil]() has contributed to Nua.
+- [Jérôme Dumonteil]() has contributed to and maintans Nua.
 - [Rui Carmo](https://github.com/rcarmo) (and other Piku contributors) for the original Piku.
 
 - [Abilian](https://www.abilian.com/) is the company behind Nua and Hop3.
