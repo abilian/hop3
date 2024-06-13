@@ -1,0 +1,4 @@
+prebuild: python3 hop3/fetch.py
+postbuild: python3 hop3/postbuild.py
+
+web: gunicorn -b 0.0.0.0:$PORT moin:app
