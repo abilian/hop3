@@ -27,7 +27,6 @@ CLOJURE_WAIT = 15
 
 
 class TestSession:
-
     def __init__(self, app_directory: Path, config: dict) -> None:
         debug(f"Testing {app_directory.absolute()}")
         assert app_directory.exists(), f"{app_directory} does not exist"

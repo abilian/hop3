@@ -23,17 +23,35 @@ from .base import TestSession
 
 def main() -> None:
     parser = argparse.ArgumentParser("Run end-to-end tests")
-    parser.add_argument("-k", "--keep", action="store_true", help="Keep apps alive")
+
+    parser.add_argument(
+        "-k",
+        "--keep",
+        action="store_true",
+        help="Keep apps alive",
+    )
     parser.add_argument(
         "-p",
         "--parallel",
         action="store_true",
         help="Run in parallel (not working)",
     )
-    parser.add_argument("-d", "--directory", help="Directory to look for apps")
-    parser.add_argument("-a", "--app", help="App to test")
+    parser.add_argument(
+        "-d",
+        "--directory",
+        help="Directory to look for apps",
+    )
+    parser.add_argument(
+        "-a",
+        "--app",
+        help="App to test",
+    )
 
-    parser.add_argument("--ff", action="store_true", help="Fail fast")
+    parser.add_argument(
+        "--ff",
+        action="store_true",
+        help="Fail fast",
+    )
 
     args = parser.parse_args()
 

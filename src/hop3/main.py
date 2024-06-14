@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 """Hop3 Micro-PaaS Agent."""
+
 from __future__ import annotations
 
 import os
