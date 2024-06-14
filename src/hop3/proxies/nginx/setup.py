@@ -177,6 +177,7 @@ def setup_static(app_path, env, workers) -> None:
             + ("," if static_paths else "")
             + static_paths
         )
+
     if len(static_paths):
         try:
             items = static_paths.split(",")
@@ -196,10 +197,12 @@ def setup_static(app_path, env, workers) -> None:
             )
             env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
 
-    tpl = Path(app_path, env["NGINX_INCLUDE_FILE"]).read_text()
-    env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = (
-        expand_vars(tpl, env) if env.get("NGINX_INCLUDE_FILE") else ""
-    )
+    if nginx_include_file := env.get("NGINX_INCLUDE_FILE"):
+        tpl = Path(app_path, nginx_include_file).read_text()
+    else:
+        tpl = ""
+    env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = expand_vars(tpl, env)
+
     env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
 
 
