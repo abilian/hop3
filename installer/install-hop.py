@@ -20,6 +20,8 @@ PACKAGES = [
     "python3-dev",
     "python3-virtualenv",
     "python3-setuptools",
+    # Prerequisite for nodeenv
+    "python2",
     # Nginx
     "nginx",
     "acl",

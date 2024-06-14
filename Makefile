@@ -123,6 +123,7 @@ audit:
 format:
 	# docformatter -i -r src
 	adt format
+	ruff format src
 	@echo "You need the Fish shell to run the following commands:"
 	fish -c "gofmt -w apps/**/*.go"
 	fish -c "prettier -w apps/**/*.js"
