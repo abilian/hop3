@@ -38,6 +38,26 @@ Hop3's technology stack is carefully chosen to support its goals without relying
 - **Energy-Efficient Computing**: Adopts strategies and technologies aimed at minimizing energy consumption across all operations.
 - **Open Standards and Protocols**: Committed to open standards to ensure interoperability and prevent vendor lock-in.
 
+## License
+
+Hop3 is licensed under the AGPL-3.0 License, except for vendored code.
+See the [LICENSE](LICENSE) file for more information.
+
+Here is the REUSE summary as of 2024/06/17:
+
+> * Bad licenses: 0
+> * Deprecated licenses: 0
+> * Licenses without file extension: 0
+> * Missing licenses: 0
+> * Unused licenses: 0
+> * Used licenses: MIT, AGPL-3.0-only, CC-BY-4.0, BSD-3-Clause, CC0-1.0
+> * Read errors: 0
+> * files with copyright information: 186 / 186
+> * files with license information: 186 / 186
+>
+> Congratulations! Your project is compliant with version 3.0 of the REUSE Specification :-)
+
+
 ## Getting Started
 
 To begin using Hop3, follow these introductory steps:

@@ -3,27 +3,37 @@ Upstream-Name: Hop3
 Upstream-Contact: Stefane Fermigier <sf@abilian.com>
 Source: https://github.com/abilian/hop3
 
-# Source
+# Default
+Files: *
+Copyright: 2021-2024 Abilian SAS <contact@abilian.com>
+License: AGPL-3.0-only
+Comment: Directory may also includes code with other licenses and other copyright holders but those are clearly identified in the source code with prefixed comments. Only the not-explicitly licensed portions are licensed with information described here.
 
+# Source code
 Files: src/*
 Copyright: 2021-2024 Abilian SAS <contact@abilian.com>
 License: AGPL-3.0-only
+Comment: Directory may also includes code with other licenses and other copyright holders but those are clearly identified in the source code with prefixed comments. Only the not-explicitly licensed portions are licensed with information described here.
 
 Files: etc/*
 Copyright: 2021-2024 Abilian SAS <contact@abilian.com>
 License: AGPL-3.0-only
+Comment: Directory may also includes code with other licenses and other copyright holders but those are clearly identified in the source code with prefixed comments. Only the not-explicitly licensed portions are licensed with information described here.
 
 Files: tests/*
 Copyright: 2021-2024 Abilian SAS <contact@abilian.com>
 License: AGPL-3.0-only
+Comment: Directory may also includes code with other licenses and other copyright holders but those are clearly identified in the source code with prefixed comments. Only the not-explicitly licensed portions are licensed with information described here.
 
-Files: helpers/hop.py
+Files: helpers/*
 Copyright: 2021-2024 Abilian SAS <contact@abilian.com>
 License: AGPL-3.0-only
+Comment: Directory may also includes code with other licenses and other copyright holders but those are clearly identified in the source code with prefixed comments. Only the not-explicitly licensed portions are licensed with information described here.
 
-Files: installer/install-hop.py
+Files: installer/*
 Copyright: 2021-2024 Abilian SAS <contact@abilian.com>
 License: AGPL-3.0-only
+Comment: Directory may also includes code with other licenses and other copyright holders but those are clearly identified in the source code with prefixed comments. Only the not-explicitly licensed portions are licensed with information described here.
 
 # Doc
 
