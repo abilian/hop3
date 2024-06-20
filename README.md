@@ -185,7 +185,7 @@ The following people have contributed to Hop3:
 
 ### Licensing / REUSE Compliance
 
-<div class="margin-top: 1em; margin-botton: 1em;">
+<div style="margin-top: 1em; margin-bottom: 1em;">
 <img src="https://reuse.software/img/reuse-horizontal.png" alt="REUSE logo"/>
 </div>
 
