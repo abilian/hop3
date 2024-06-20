@@ -98,52 +98,67 @@ For additional information, visit the official Hop3 project page or reach out to
 
 ## Roadmap
 
-### P0 (MVP):
+### P0 (MVP, Q2 2024):
 
 Goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe-monorepo/).
 
-- [x] Add e2e tests
-- [x] Basic plugin architecture (using, e.g. [pluggy](https://pluggy.readthedocs.io/en/stable/))
+Features, UX:
+
+- [x] Working version (static sites, python apps)
+- [ ] SBE deployment + a few more useful apps
+- [ ] Add postgres, redis, etc. support using plugins
+
+Doc and DX:
+
 - [x] Fix REUSE config
+- [x] Basic Documentation / READMEs / etc.
+- [x] Nix dev env
+
+Infra + refactorings:
+
+- [x] Add e2e tests
 - [x] Basic tests and sample apps
 - [x] Basic CI (via SourceHut)
-- [ ] Add postgres, redis, etc. support using plugins
-- [ ] Working version
-- [ ] Documentation / READMEs / etc.
-- [ ] SBE deployment + a few more useful apps
+- [x] Basic plugin architecture (using, e.g. [pluggy](https://pluggy.readthedocs.io/en/stable/))
 - [ ] Fix all typing issues (mypy and pyright)
+- [ ] Make src/hop3/run/uwsgi.py into a class
+- [ ] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
 
-### P1:
+### P1 (Q3 2024):
 
-- [ ] Introduce new plugins (where it makes sense)
+Features:
+
 - [ ] Review / improve CLI DX
 - [ ] Improve Python builder (support for poetry, pipenv, etc.)
 - [ ] Manage external services (databases, etc.)
-- [ ] More end-to-end tests, examples, CI
 - [ ] Web App
 
-### P2:
+Infra, refactorings:
 
-- [ ] Target other platforms (e.g. SlapOS, NixOS, etc.)
+- [ ] Introduce new plugins (where it makes sense)
+- [ ] More end-to-end tests, examples, CI
+
+
+### P2 (Q4 2024):
+
+- [ ] Target other platforms (e.g. SlapOS, NixOS, Guix, etc.)
 - [ ] Security (Firewall, WAF, better isolation, etc.)
 - [ ] Monitoring
 - [ ] Backup / Restore
 - [ ] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
 
-### P3:
+### P3 (2025:
 
 - [ ] Multi-server support
 - [ ] Unified logging
 - [ ] Unified login
 - [ ] Container / VM support
 
-## Status
-
-**Not working yet.**
-
 ## Documentation
 
-TODO.
+See the [docs](./docs) directory for detailed information on Hop3's architecture, installation, and usage.
+
+Will soon be deployed at [https://doc.hop3.cloud](https://doc.hop3.cloud).
 
 ## Copyright, Credits and Acknowledgements
 
