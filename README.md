@@ -161,6 +161,7 @@ Infra, refactorings:
 - [ ] Security (Firewall, WAF, better isolation, etc.)
 - [ ] Monitoring
 - [ ] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
+- [ ] Support for (or migration from) Heroku, Render, Docker Compose, Fly… config files,
 
 ### P3 (S1 2025):
 
