@@ -137,7 +137,9 @@ Features:
 Infra, refactorings:
 
 - [ ] Introduce new plugins (where it makes sense)
-- [ ] More end-to-end tests, examples, CI
+- [ ] More end-to-end tests, examples
+- [ ] CI on GitHub
+- [ ] e2e CI tests
 
 ### P2 (Q4 2024):
 
