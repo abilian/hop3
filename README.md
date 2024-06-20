@@ -1,41 +1,57 @@
 # Hop3 - Deploy and manage web applications on a single server
 
 <img src="https://abilian.com/static/images/ext/hop3-logo.png"
-  style="width: 500px; height: auto;" alt="logo hop3"/>
+style="width: 500px; height: auto;" alt="logo hop3"/>
 <img
-  referrerpolicy="no-referrer-when-downgrade"
-  src="https://stats.abilian.com/matomo.php?idsite=15&amp;rec=1" style="border:0" alt="" />
+referrerpolicy="no-referrer-when-downgrade"
+src="https://stats.abilian.com/matomo.php?idsite=15&amp;rec=1" style="border:0" alt="" />
 
-Build status: [![builds.sr.ht status](https://builds.sr.ht/~sfermigier/hop3.svg)](https://builds.sr.ht/~sfermigier/hop3?)
+Build
+status: [![builds.sr.ht status](https://builds.sr.ht/~sfermigier/hop3.svg)](https://builds.sr.ht/~sfermigier/hop3?)
 
 ## About
 
-Hop3 is a tool to deploy and manage web applications on a single server (currently). It is designed to be simple, secure, and easy to use.
+Hop3 is a tool to deploy and manage web applications on a single server (currently). It is designed to be simple,
+secure, and easy to use.
 
-The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [GitHub](https://github.com/abilian/hop3).
+The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3)
+and [GitHub](https://github.com/abilian/hop3).
 
 ## Overview
 
-Hop3 is an open-source platform aimed at enhancing cloud computing with a focus on sovereignty, security, sustainability, and inclusivity.
+Hop3 is an open-source platform aimed at enhancing cloud computing with a focus on sovereignty, security,
+sustainability, and inclusivity.
 
-It is designed to facilitate access to cloud technologies for a wide range of users, including small and medium-sized enterprises (SMEs), non-profits, public services, and individual developers. By leveraging existing, robust web, cloud and open source technologies, Hop3 enables these groups to deploy and manage web applications efficiently and securely.
+It is designed to facilitate access to cloud technologies for a wide range of users, including small and medium-sized
+enterprises (SMEs), non-profits, public services, and individual developers. By leveraging existing, robust web, cloud
+and open source technologies, Hop3 enables these groups to deploy and manage web applications efficiently and securely.
 
 ## Key Features
 
-- **Sovereignty**: Empowers users to maintain control over their data and infrastructure, aiming to reduce reliance on centralized cloud services.
-- **Security and Privacy**: Adopts a secure-by-design approach, integrating advanced security measures and ensuring compliance with privacy regulations like GDPR.
-- **Environmental Sustainability**: Incorporates eco-design principles to reduce the environmental footprint of cloud computing, advocating for sustainable digital practices.
-- **Openness and Collaboration**: Developed as an open-source project to encourage community-driven innovation and improvement.
-- **Inclusivity and Accessibility**: Ensures the platform is accessible to a diverse audience, including those with different abilities, through comprehensive documentation and support.
+- **Sovereignty**: Empowers users to maintain control over their data and infrastructure, aiming to reduce reliance on
+  centralized cloud services.
+- **Security and Privacy**: Adopts a secure-by-design approach, integrating advanced security measures and ensuring
+  compliance with privacy regulations like GDPR.
+- **Environmental Sustainability**: Incorporates eco-design principles to reduce the environmental footprint of cloud
+  computing, advocating for sustainable digital practices.
+- **Openness and Collaboration**: Developed as an open-source project to encourage community-driven innovation and
+  improvement.
+- **Inclusivity and Accessibility**: Ensures the platform is accessible to a diverse audience, including those with
+  different abilities, through comprehensive documentation and support.
 
 ## Technology Stack
 
-Hop3's technology stack is carefully chosen to support its goals without relying on conventional containerization tools like Docker or Kubernetes. Instead, it focuses on alternative, lightweight solutions that align with the project's principles of efficiency and sovereignty. The stack includes:
+Hop3's technology stack is carefully chosen to support its goals without relying on conventional containerization tools
+like Docker or Kubernetes. Instead, it focuses on alternative, lightweight solutions that align with the project's
+principles of efficiency and sovereignty. The stack includes:
 
 - **Lightweight Isolation**: Utilizes lean isolation technologies to ensure efficient resource use.
-- **Decentralized Architecture**: Employs a decentralized model for data storage and processing to enhance sovereignty and resilience.
-- **Security Tools**: Incorporates a suite of security tools designed for continuous monitoring and proactive threat mitigation.
-- **Energy-Efficient Computing**: Adopts strategies and technologies aimed at minimizing energy consumption across all operations.
+- **Decentralized Architecture**: Employs a decentralized model for data storage and processing to enhance sovereignty
+  and resilience.
+- **Security Tools**: Incorporates a suite of security tools designed for continuous monitoring and proactive threat
+  mitigation.
+- **Energy-Efficient Computing**: Adopts strategies and technologies aimed at minimizing energy consumption across all
+  operations.
 - **Open Standards and Protocols**: Committed to open standards to ensure interoperability and prevent vendor lock-in.
 
 ## License
@@ -57,24 +73,27 @@ Here is the REUSE summary as of 2024/06/17:
 >
 > Congratulations! Your project is compliant with version 3.0 of the REUSE Specification :-)
 
-
 ## Getting Started
 
 To begin using Hop3, follow these introductory steps:
 
-1. **Prerequisites**: Familiarize yourself with basic cloud computing concepts and the specific technologies Hop3 employs for virtualization and security.
+1. **Prerequisites**: Familiarize yourself with basic cloud computing concepts and the specific technologies Hop3
+   employs for virtualization and security.
 
 2. **Installation**:
-   - Download the latest version of Hop3 from the official repository: `git clone https://github.com/abilian/hop3.git`
-   - Follow the installation instructions in the `docs/installation.md` to set up Hop3 on your system.
+    - Download the latest version of Hop3 from the official repository: `git clone https://github.com/abilian/hop3.git`
+    - Follow the installation instructions in the `docs/installation.md` to set up Hop3 on your system.
 
-3. **Configuration**: Configuration options can be found in the `config` directory. Adjust these settings to suit your environment and deployment needs.
+3. **Configuration**: Configuration options can be found in the `config` directory. Adjust these settings to suit your
+   environment and deployment needs.
 
-4. **Documentation**: For detailed information on setup, architecture, and usage, refer to the `docs` folder. This resource includes comprehensive guides and best practices.
+4. **Documentation**: For detailed information on setup, architecture, and usage, refer to the `docs` folder. This
+   resource includes comprehensive guides and best practices.
 
 ## Contributing
 
-Contributions to Hop3 are highly encouraged, whether it involves fixing bugs, adding features, or enhancing documentation. Please refer to the files below for contribution guidelines.
+Contributions to Hop3 are highly encouraged, whether it involves fixing bugs, adding features, or enhancing
+documentation. Please refer to the files below for contribution guidelines.
 
 Key documents:
 
@@ -104,9 +123,9 @@ Goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe
 
 Features, UX:
 
-- [x] First working version (static sites, python apps)
+- [x] First working version (static sites, python apps, demo apps)
 - [ ] Deploy a few more useful apps: Abilian SBE, more...
-- [ ] Add postgres, redis, etc. support using plugins
+- [ ] Add postgres, redis, etc. lifecycle support using plugins
 
 Doc:
 
@@ -131,28 +150,27 @@ Features:
 
 - [ ] Review / improve CLI DX
 - [ ] Improve Python builder (support for poetry, pipenv, etc.)
-- [ ] Manage external services (databases, etc.)
-- [ ] Web App
+- [ ] Manage external services (databases, mail, etc.)
+- [ ] Backup / Restore
+- [ ] Web App / portal
 
 Infra, refactorings:
 
 - [ ] Introduce new plugins (where it makes sense)
 - [ ] More end-to-end tests, examples, CI
 
-
 ### P2 (Q4 2024):
 
 - [ ] Target other platforms (e.g. SlapOS, NixOS, Guix, etc.)
 - [ ] Security (Firewall, WAF, better isolation, etc.)
 - [ ] Monitoring
-- [ ] Backup / Restore
 - [ ] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
 
-### P3 (2025:
+### P3 (S1 2025):
 
 - [ ] Multi-server support
 - [ ] Unified logging
-- [ ] Unified login
+- [ ] Unified login (LDAP / IAM)
 - [ ] Container / VM support
 
 ## Documentation
@@ -165,9 +183,12 @@ Will soon be deployed at [https://doc.hop3.cloud](https://doc.hop3.cloud).
 
 ### Authors
 
-Hop3 contains code from Piku, which shares some of the goals of Hop3 / Nua but also has some significant differences in goals and principles, as well as in architecture (Hop3 is modular and pugin-based, Piku is a single-file script).
+Hop3 contains code from Piku, which shares some of the goals of Hop3 / Nua but also has some significant differences in
+goals and principles, as well as in architecture (Hop3 is modular and pugin-based, Piku is a single-file script).
 
-Hop3 also contains code from Nua, written by the Abilian development team, and contributors. The two projects share most goals and principles, except Nua is based on containers and Hop3 is not. The two projects may ultimately merge in the future (or not).
+Hop3 also contains code from Nua, written by the Abilian development team, and contributors. The two projects share most
+goals and principles, except Nua is based on containers and Hop3 is not. The two projects may ultimately merge in the
+future (or not).
 
 Other inspirations include:
 
@@ -183,6 +204,9 @@ The following people have contributed to Hop3:
 - [Abilian](https://www.abilian.com/) is the company behind Nua and Hop3.
 
 ### Licensing / REUSE Compliance
+
+<img src="https://reuse.software/img/reuse-horizontal.png"
+style="width: 200px; height: auto;" alt="REUSE logo"/>
 
 The project is licensed under the AGPL-3.0-only license and other licenses:
 
@@ -200,4 +224,7 @@ The project is licensed under the AGPL-3.0-only license and other licenses:
 
 ## What's the story behind the name?
 
-"Hop3" (or more precisely "Hop^3" or "Hop cubed") is a pun on "Hop, hop, hop!" which is a French expression used to encourage quick action or to hurry someone up. It's akin to saying "Let's go!" or "Hurry up!" in English. It can also convey a sense of enthusiasm or encouragement to get moving or to proceed with something. It generally carries a light, motivating tone.
+"Hop3" (or more precisely "Hop^3" or "Hop cubed") is a pun on "Hop, hop, hop!" which is a French expression used to
+encourage quick action or to hurry someone up. It's akin to saying "Let's go!" or "Hurry up!" in English. It can also
+convey a sense of enthusiasm or encouragement to get moving or to proceed with something. It generally carries a light,
+motivating tone.
