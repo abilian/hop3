@@ -83,17 +83,29 @@ Key documents:
 - [Code of Conduct](./docs/policies/code-of-conduct.md)
 - [Licenses](https://github.com/abilian/hop3/tree/main/LICENSES)
 
+### Note on Development Environment
+
+To develop Hop3, you will need to set up a Python development environment (tested under various variants of Linux, and MacOS). The project uses Python 3.10+ and Poetry for environment and dependency management. We assume you are already familiar with these prerequisites.
+
+Additional notes:
+
+- Under NixOS or if using Nix, you can use the provided `shell.nix` file to set up a development environment.
+- We use `nox` for test automation. You can run `nox` to run all tests, or `nox -l` to list available sessions.
+- We use `abilian-devtools` for various development tasks. This includes `make` targets for common tasks, such as running tests, formatting code, and checking for typing issues. You can run `make help` to see a list of the main available targets.
+
 ## Support and Community
 
 Engage with the Hop3 community:
 
 - **GitHub Issues**: For bug reports and feature suggestions.
 
+The following tools will soon be available:
+
 - **Community Forums/Discussion Boards**: For discussions, questions, and community support.
 
 - **Mailing List**: Subscribe to receive updates, announcements, and participate in discussions.
 
-For additional information, visit the official Hop3 project page or reach out to the team via our support channels.
+<!-- For additional information, visit the official Hop3 project page or reach out to the team via our support channels. -->
 
 ## Roadmap
 

@@ -135,7 +135,7 @@ format:
 .PHONY: help install doc doc-html doc-pdf clean tidy update-deps publish
 
 help:
-	@inv help-make
+	adt help-make
 
 install:
 	poetry install
