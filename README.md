@@ -111,7 +111,7 @@ The following tools will soon be available:
 
 ### P0 (MVP, Q2 2024):
 
-Goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe-monorepo/).
+Initial goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe-monorepo/).
 
 Features, UX:
 
@@ -140,6 +140,7 @@ Infra, QA, DX, refactorings:
 
 Features:
 
+- [ ] More apps
 - [ ] Review / improve CLI DX
 - [ ] Improve Python builder (support for poetry, pipenv, etc.)
 - [ ] Manage external services (databases, mail, etc.)
@@ -155,6 +156,7 @@ Infra, refactorings:
 
 ### P2 (Q4 2024):
 
+- [ ] More apps
 - [ ] Target other platforms (e.g. SlapOS, NixOS, Guix, etc.)
 - [ ] Security (Firewall, WAF, better isolation, etc.)
 - [ ] Monitoring
@@ -162,6 +164,7 @@ Infra, refactorings:
 
 ### P3 (S1 2025):
 
+- [ ] More apps
 - [ ] Multi-server support
 - [ ] Unified logging
 - [ ] Unified login (LDAP / IAM)
