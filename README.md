@@ -185,8 +185,9 @@ The following people have contributed to Hop3:
 
 ### Licensing / REUSE Compliance
 
-<img src="https://reuse.software/img/reuse-horizontal.png"
-style="margin-top: 1em;" alt="REUSE logo"/>
+<div class="margin-top: 1em; margin-botton: 1em;">
+<img src="https://reuse.software/img/reuse-horizontal.png" alt="REUSE logo"/>
+</div>
 
 Hop3 is licensed under the AGPL-3.0 License, except for vendored code.
 See the [LICENSE](LICENSE) file for more information.
