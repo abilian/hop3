@@ -104,22 +104,23 @@ Goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe
 
 Features, UX:
 
-- [x] Working version (static sites, python apps)
-- [ ] SBE deployment + a few more useful apps
+- [x] First working version (static sites, python apps)
+- [ ] Deploy a few more useful apps: Abilian SBE, more...
 - [ ] Add postgres, redis, etc. support using plugins
 
-Doc and DX:
+Doc:
 
 - [x] Fix REUSE config
 - [x] Basic Documentation / READMEs / etc.
-- [x] Nix dev env
 
-Infra + refactorings:
+Infra, QA, DX, refactorings:
 
-- [x] Add e2e tests
+- [x] Add e2e tests (`make test-e2e`)
 - [x] Basic tests and sample apps
-- [x] Basic CI (via SourceHut)
+- [x] Basic CI (on SourceHut)
 - [x] Basic plugin architecture (using, e.g. [pluggy](https://pluggy.readthedocs.io/en/stable/))
+- [x] Nix dev env (support for `nix-shell`)
+- [x] Test automation (using `nox`)
 - [ ] Fix all typing issues (mypy and pyright)
 - [ ] Make src/hop3/run/uwsgi.py into a class
 - [ ] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
