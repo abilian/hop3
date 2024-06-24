@@ -16,7 +16,7 @@ secure, and easy to use.
 The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3)
 and [GitHub](https://github.com/abilian/hop3).
 
-> **Warning**
+> [!WARNING]
 > This code is still evolving quickly, and not meant for production yet.
 
 ## Overview
