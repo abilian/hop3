@@ -13,7 +13,12 @@ This guide provides instructions on how to use the Hop3 installer script to set 
 
 1. Checkout the Hop3 sources on your workstation
 
-2. Run, under Bash or Sh:
+2. Provision a server with Ubuntu 22.04 LTS
+
+> **Warning**
+> The installation script doesn't support Ubuntu 24.04 LTS yet.
+
+3. Run, under Bash or Sh:
 
 ```fish
 TARGET_HOST=name.of.your.target.host # <- replace with your target host
@@ -26,7 +31,7 @@ poetry run pyinfra --user root ${TARGET_HOST} installer/install-hop.py
 Or, if yousing the Fish shell:
 
 ```fish
-TARGET_HOST=name.of.your.target.host # <- replace with your target host
+set TARGET_HOST name.of.your.target.host # <- replace with your target host
 poetry install
 make clean
 poetry build

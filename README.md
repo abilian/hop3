@@ -16,6 +16,9 @@ secure, and easy to use.
 The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3)
 and [GitHub](https://github.com/abilian/hop3).
 
+> **Warning**
+> This code is still evolving quickly, and not meant for production yet.
+
 ## Overview
 
 Hop3 is an open-source platform aimed at enhancing cloud computing with a focus on sovereignty, security,
@@ -61,7 +64,7 @@ To begin using Hop3, follow these introductory steps:
    employs for virtualization and security.
 
 2. **Installation**:
-    - Download the latest version of Hop3 from the official repository: `git clone https://github.com/abilian/hop3.git`
+    - Clone the latest version of Hop3 from the official repository: `git clone https://github.com/abilian/hop3.git`
     - Follow the installation instructions in the `docs/installation.md` to set up Hop3 on your system.
 
 3. **Configuration**: Configuration options can be found in the `config` directory. Adjust these settings to suit your
