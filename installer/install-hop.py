@@ -226,20 +226,42 @@ def setup_acme():
 
 def setup_nginx():
     files.put(
-        name="Get nginx default config",
+        name="Put html page",
+        src="etc/index.html",
+        dest="/var/www/html/index.html",
+        force=True,
+    )
+
+    # files.put(
+    #     name="Put nginx global config",
+    #     src="etc/nginx.conf",
+    #     dest="/etc/nginx/nginx.conf",
+    #     force=True,
+    # )
+
+    files.put(
+        name="Put nginx default config",
         src="etc/nginx.default.dist",
-        dest="/etc/nginx/sites-available/default",
+        dest="/etc/nginx/sites-available/00default",
+        force=True,
+    )
+
+    # TODO: used symlink instead of copying
+    files.put(
+        name="Put nginx default config",
+        src="etc/nginx.default.dist",
+        dest="/etc/nginx/sites-enabled/00default",
         force=True,
     )
 
     files.put(
-        name="Get systemd.path hop3-nginx.path",
+        name="Put systemd.path hop3-nginx.path",
         src="etc/hop3-nginx.path",
         dest="/etc/systemd/system/hop3-nginx.path",
     )
 
     files.put(
-        name="Get systemd.path hop3-nginx.service",
+        name="Put systemd.path hop3-nginx.service",
         src="etc/hop3-nginx.service",
         dest="/etc/systemd/system/hop3-nginx.service",
     )

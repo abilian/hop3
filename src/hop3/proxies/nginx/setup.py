@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from traceback import format_exc
@@ -15,6 +16,7 @@ from typing import TYPE_CHECKING
 from urllib.request import urlopen
 
 from click import secho as echo
+from devtools import debug
 
 from hop3.system.constants import ACME_WWW, APP_ROOT, CACHE_ROOT, NGINX_ROOT
 from hop3.util import command_output
@@ -37,14 +39,12 @@ if TYPE_CHECKING:
     from hop3.core.env import Env
 
 
-@dataclass(frozen=True)
-class NginxConfig:
-    # XXX: not used yet
-    env: dict[str, str]
-
-
 def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
-    app_path = Path(APP_ROOT, app_name)
+    """Configure Nginx for an app.
+    """
+    config = NginxConfig(app_name, env, workers)
+
+    # app_path = Path(APP_ROOT, app_name)
 
     # Hack to get around ClickCommand
     server_name_list = env["NGINX_SERVER_NAME"].split(",")
@@ -95,31 +95,14 @@ def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
     )
 
     setup_cache(app_name, env)
-    setup_static(app_path, env, workers)
+
+    config.setup_static()
+
     buffer = setup_proxy(app_name, env, workers)
 
     nginx_conf_path = Path(NGINX_ROOT, f"{app_name}.conf")
     nginx_conf_path.write_text(buffer)
-    check_config(app_name, nginx_conf_path)
-
-
-def check_config(app_name, nginx_conf) -> None:
-    # prevent broken config from breaking other deploys
-    try:
-        nginx_config_test = str(
-            subprocess.check_output(
-                f"nginx -t 2>&1 | grep {app_name}",
-                env=os.environ,
-                shell=True,
-            ),
-        )
-    except Exception:
-        nginx_config_test = None
-
-    if nginx_config_test:
-        echo(f"Error: [nginx config] {nginx_config_test}", fg="red")
-        echo("Warning: removing broken nginx config.", fg="yellow")
-        os.unlink(nginx_conf)
+    config.check_config(nginx_conf_path)
 
 
 def setup_proxy(app_name, env, workers) -> str:
@@ -163,51 +146,96 @@ def setup_proxy(app_name, env, workers) -> str:
     return buffer
 
 
-def setup_static(app_path, env, workers) -> None:
-    env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
-    # Get a mapping of /prefix1:path1,/prefix2:path2
-    static_paths = env.get("NGINX_STATIC_PATHS", "")
-    # prepend static worker path if present
-    if "static" in workers:
-        stripped = workers["static"].strip("/").rstrip("/")
-        static_paths = (
-            ("/" if stripped[0:1] == ":" else "/:")
-            + (stripped or ".")
-            + "/"
-            + ("," if static_paths else "")
-            + static_paths
-        )
+@dataclass(frozen=True)
+class NginxConfig:
+    app_name: str
+    env: Env[str, str]
+    workers: dict[str, str]
 
-    if len(static_paths):
-        try:
-            items = static_paths.split(",")
-            for item in items:
-                static_url, static_path = item.split(":")
-                if static_path[0] != "/":
-                    static_path = os.path.join(app_path, static_path).rstrip("/") + "/"
-                echo(f"-----> nginx will map {static_url} to {static_path}.")
-                env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] += expand_vars(
-                    HOP3_INTERNAL_NGINX_STATIC_MAPPING,
-                    locals(),
-                )
-        except Exception as e:
-            echo(
-                f"Error {e} in static path spec: should be"
-                " /prefix1:path1[,/prefix2:path2], ignoring.",
+    @property
+    def app_path(self) -> Path:
+        return Path(APP_ROOT, self.app_name)
+
+    def setup_static(self) -> None:
+        self.env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
+
+        static_paths = self.get_static_paths()
+
+        debug(static_paths)
+
+        for static_url, static_path in static_paths:
+            echo(f"-----> nginx will map {static_url} to {static_path}.")
+            self.env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] += expand_vars(
+                HOP3_INTERNAL_NGINX_STATIC_MAPPING,
+                locals(),
             )
-            env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
+            # except Exception as e:
+            #     echo(
+            #         f"Error {e} in static path spec: should be"
+            #         " /prefix1:path1[,/prefix2:path2], ignoring.",
+            #     )
+            #     env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
 
-    if nginx_include_file := env.get("NGINX_INCLUDE_FILE"):
-        tpl = Path(app_path, nginx_include_file).read_text()
-    else:
-        tpl = ""
-    env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = expand_vars(tpl, env)
+        if nginx_include_file := self.env.get("NGINX_INCLUDE_FILE"):
+            tpl = Path(self.app_path, nginx_include_file).read_text()
+        else:
+            tpl = ""
+        self.env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = self.expand_vars(tpl)
 
-    env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
+        self.env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
+
+    def check_config(self, nginx_conf_path: Path) -> None:
+        """Prevent broken config from breaking other deployments.
+        """
+        try:
+            subprocess.check_output(["/usr/sbin/nginx", "-t"])
+        except subprocess.CalledProcessError:
+            echo(f"Error: broken nginx config - removing", fg="red")
+            content = nginx_conf_path.read_text()
+            echo(f"here is the broken config\n{content}")
+            # nginx_conf_path.unlink()
+            sys.exit(1)
+
+    def get_static_paths(self) -> list[tuple[str, Path]]:
+        """Get a mapping of /prefix1:path1,/prefix2:path2
+        """
+        static_paths = self.env.get("NGINX_STATIC_PATHS", "")
+
+        # prepend static worker path if present
+        if "static" in self.workers:
+            stripped = self.workers["static"].strip("/").rstrip("/")
+            static_paths = (
+                ("/" if stripped[0:1] == ":" else "/:")
+                + (stripped or ".")
+                + "/"
+                + ("," if static_paths else "")
+                + static_paths
+            )
+
+        if static_paths:
+            items = static_paths.split(",")
+        else:
+            items = []
+        result = []
+        debug(items)
+        for item in items:
+            static_url, _static_path = item.split(":")
+            _static_path = _static_path.rstrip()
+            if _static_path[0] == "/":
+                static_path = Path(_static_path)
+            else:
+                static_path = self.app_path / _static_path
+            result.append((static_url, static_path))
+
+        return result
+
+    def expand_vars(self, tpl: str) -> str:
+        return expand_vars(tpl, self.env)
 
 
 def setup_cache(app_name: str, env: Env) -> None:
-    # Configure Nginx caching
+    """Configure Nginx caching
+    """
     env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = ""
     env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
     default_cache_path = os.path.join(CACHE_ROOT, app_name)
