@@ -24,18 +24,19 @@ lint.extend-ignore = [
     "TD", # flake8-todos
 
     # False positive, don't remove
-    "S101", # Use of `assert` detected
     "COM812", # Missing trailing comma
-    "PLR6104", # suggests using += when inapplicable
-    "SIM108", # Use ternary operator
-    "SIM102", # Use a single `if` statement instead of nested `if` statements
     "I001", # Import block is un-sorted or un-formatted
+    "INP001", # implicit namespace package
     "PD011", # Use `.to_numpy()` instead of `.values`
-    "TRY003", # Avoid specifying long messages outside the exception class
+    "PLR6104", # suggests using += when inapplicable
     "PLW1514", # `pathlib.Path(...).write_text` without explicit `encoding` argument
+    "S101", # Use of `assert` detected
+    "SIM102", # Use a single `if` statement instead of nested `if` statements
+    "SIM108", # Use ternary operator
     "TCH001", # Move import into a type-checking block
     "TCH002", # Move import into a type-checking block
     "TCH003", # Move import into a type-checking block
+    "TRY003", # Avoid specifying long messages outside the exception class
 
     # Fix these
     "C901", # Function is too complex

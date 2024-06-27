@@ -1,5 +1,5 @@
 # Copyright (c) 2023-2024, Abilian SAS
-from .setup import NginxConfig
+from hop3.proxies.nginx.setup import NginxConfig
 
 
 def test_get_static_paths_0():

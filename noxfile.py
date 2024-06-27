@@ -20,4 +20,4 @@ def lint(session: nox.Session) -> None:
 def pytest(session: nox.Session) -> None:
     session.install("--no-cache-dir", ".")
     session.install("pytest")
-    session.run("pytest", "--tb=short", external=True)
+    session.run("pytest", "--tb=short", "tests", external=True)
