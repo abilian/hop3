@@ -159,7 +159,7 @@ class NginxConfig:
 
         static_paths = self.get_static_paths()
 
-        debug(static_paths)
+        debug(self.app_name, self.workers, self.env, static_paths)
 
         for static_url, static_path in static_paths:
             echo(f"-----> nginx will map {static_url} to {static_path}.")

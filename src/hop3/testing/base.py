@@ -105,6 +105,7 @@ class TestSession:
                 f" {response.status_code}",
             )
 
+        print("Checking app content")
         if (self.directory / "check.py").exists():
             ctx: dict[str, Any] = {}
             exec((self.directory / "check.py").read_text(), ctx)
