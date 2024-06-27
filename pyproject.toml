@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hop3"
-version = "0.1.0"
+version = "0.1.4"
 description = "Simple PaaS - Deploy and manage web applications on a single server"
 authors = ["Stefane Fermigier <sf@abilian.com>"]
 readme = "README.md"
