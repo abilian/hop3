@@ -1,3 +1,5 @@
+# Goes to /etc/systemd/system/hop3.service
+
 [Unit]
 Description=Hop3 uWSGI Emperor
 After=syslog.target

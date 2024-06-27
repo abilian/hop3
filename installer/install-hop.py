@@ -232,28 +232,29 @@ def setup_nginx():
         force=True,
     )
 
-    # files.put(
-    #     name="Put nginx global config",
-    #     src="etc/nginx.conf",
-    #     dest="/etc/nginx/nginx.conf",
-    #     force=True,
-    # )
-
     files.put(
-        name="Put nginx default config",
-        src="etc/nginx.default.dist",
-        dest="/etc/nginx/sites-available/00default",
+        name="Put nginx global config",
+        src="etc/nginx.conf",
+        dest="/etc/nginx/nginx.conf",
         force=True,
     )
 
     # TODO: used symlink instead of copying
     files.put(
         name="Put nginx default config",
-        src="etc/nginx.default.dist",
-        dest="/etc/nginx/sites-enabled/00default",
+        src="etc/nginx.default.conf",
+        dest="/etc/nginx/sites-available/default",
         force=True,
     )
 
+    files.put(
+        name="Put nginx default config",
+        src="etc/nginx.default.conf",
+        dest="/etc/nginx/sites-enabled/default",
+        force=True,
+    )
+
+    # Systemd
     files.put(
         name="Put systemd.path hop3-nginx.path",
         src="etc/hop3-nginx.path",
