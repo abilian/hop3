@@ -42,6 +42,7 @@ lint.extend-ignore = [
     "E501", # Line too long
     "PERF203",
     "PLC2801",
+    "PLC1901",
     "PLR0912",
     "PLR0913",
     "PLR0914",
