@@ -56,7 +56,7 @@ configure-git:
 ## Run python tests
 test:
 	@echo "--> Running Python tests"
-	pytest -x -p no:randomly
+	pytest -x -p no:randomly src tests
 	@echo ""
 
 test-e2e:
@@ -67,17 +67,17 @@ test-e2e:
 
 test-randomly:
 	@echo "--> Running Python tests in random order"
-	pytest
+	pytest tests src
 	@echo ""
 
 test-with-coverage:
 	@echo "--> Running Python tests"
-	py.test --cov $(PKG)
+	py.test --cov $(PKG) tests src
 	@echo ""
 
 test-with-typeguard:
 	@echo "--> Running Python tests with typeguard"
-	pytest --typeguard-packages=${PKG}
+	pytest --typeguard-packages=${PKG} tests src
 	@echo ""
 
 ## Cleanup tests artifacts

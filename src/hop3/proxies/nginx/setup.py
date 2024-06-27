@@ -216,7 +216,6 @@ class NginxConfig:
         else:
             items = []
         result = []
-        debug(items)
         for item in items:
             static_url, _static_path = item.split(":")
             _static_path = _static_path.rstrip()
