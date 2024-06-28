@@ -40,24 +40,23 @@ def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
     """Configure Nginx for an app."""
     config = NginxConfig(app_name, env, workers)
 
-    # app_path = Path(APP_ROOT, app_name)
-
     # Hack to get around ClickCommand
     server_name_list = env["NGINX_SERVER_NAME"].split(",")
     env["NGINX_SERVER_NAME"] = " ".join(server_name_list)
 
-    nginx = command_output("nginx -V")
+    nginx_version = command_output("nginx -V")
 
     nginx_ssl = "443 ssl"
-    if "--with-http_v2_module" in nginx:
+    if "--with-http_v2_module" in nginx_version:
         nginx_ssl += " http2"
     elif (
-        "--with-http_spdy_module" in nginx and "nginx/1.6.2" not in nginx
+        "--with-http_spdy_module" in nginx_version
+        and "nginx/1.6.2" not in nginx_version
     ):  # avoid Raspbian bug
         nginx_ssl += " spdy"
 
     env.update(
-        {  # lgtm [py/modification-of-default-value]
+        {
             "NGINX_SSL": nginx_ssl,
             "NGINX_ROOT": NGINX_ROOT,
             "ACME_WWW": ACME_WWW,
@@ -84,63 +83,21 @@ def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
 
     setup_certificates(app_name, env)
 
-    setup_cloudflare(env)
+    config.setup_cloudflare()
 
     env["HOP3_INTERNAL_NGINX_BLOCK_GIT"] = (
         "" if env.get("NGINX_ALLOW_GIT_FOLDERS") else r"location ~ /\.git { deny all; }"
     )
 
-    setup_cache(app_name, env)
-
+    config.setup_cache()
     config.setup_static()
 
-    buffer = setup_proxy(app_name, env, workers)
+    buffer = config.setup_proxy()
 
     nginx_conf_path = Path(NGINX_ROOT, f"{app_name}.conf")
     nginx_conf_path.write_text(buffer)
 
     config.check_config(nginx_conf_path)
-
-
-def setup_proxy(app_name, env, workers) -> str:
-    if (
-        "web" in workers
-        or "wsgi" in workers
-        or "jwsgi" in workers
-        or "rwsgi" in workers
-    ):
-        env["HOP3_INTERNAL_NGINX_PORTMAP"] = expand_vars(NGINX_PORTMAP_FRAGMENT, env)
-    env["HOP3_INTERNAL_NGINX_COMMON"] = expand_vars(NGINX_COMMON_FRAGMENT, env)
-    echo(
-        f"-----> nginx will map app '{app_name}' to hostname(s)"
-        f" '{env['NGINX_SERVER_NAME']}'",
-    )
-    if env.get_bool("NGINX_HTTPS_ONLY"):
-        buffer = expand_vars(NGINX_HTTPS_ONLY_TEMPLATE, env)
-        echo(
-            "-----> nginx will redirect all requests to hostname(s)"
-            f" '{env['NGINX_SERVER_NAME']}' to HTTPS",
-        )
-    else:
-        buffer = expand_vars(NGINX_TEMPLATE, env)
-
-    # remove all references to IPv6 listeners (for enviroments where it's disabled)
-    if env.get_bool("DISABLE_IPV6"):
-        buffer = "\n".join(
-            [line for line in buffer.split("\n") if "NGINX_IPV6" not in line],
-        )
-
-    # change any unecessary uWSGI specific directives to standard proxy ones
-    if "wsgi" not in workers and "jwsgi" not in workers:
-        buffer = buffer.replace("uwsgi_", "proxy_")
-
-    # map Cloudflare connecting IP to REMOTE_ADDR
-    if env.get_bool("NGINX_CLOUDFLARE_ACL"):
-        buffer = buffer.replace(
-            "REMOTE_ADDR $remote_addr",
-            "REMOTE_ADDR $http_cf_connecting_ip",
-        )
-    return buffer
 
 
 @dataclass(frozen=True)
@@ -152,6 +109,50 @@ class NginxConfig:
     @property
     def app_path(self) -> Path:
         return Path(APP_ROOT, self.app_name)
+
+    def setup_proxy(self) -> str:
+        if (
+            "web" in self.workers
+            or "wsgi" in self.workers
+            or "jwsgi" in self.workers
+            or "rwsgi" in self.workers
+        ):
+            self.env["HOP3_INTERNAL_NGINX_PORTMAP"] = expand_vars(
+                NGINX_PORTMAP_FRAGMENT, self.env
+            )
+        self.env["HOP3_INTERNAL_NGINX_COMMON"] = expand_vars(
+            NGINX_COMMON_FRAGMENT, self.env
+        )
+        echo(
+            f"-----> nginx will map app '{self.app_name}' to hostname(s)"
+            f" '{self.env['NGINX_SERVER_NAME']}'",
+        )
+        if self.env.get_bool("NGINX_HTTPS_ONLY"):
+            buffer = expand_vars(NGINX_HTTPS_ONLY_TEMPLATE, self.env)
+            echo(
+                "-----> nginx will redirect all requests to hostname(s)"
+                f" '{self.env['NGINX_SERVER_NAME']}' to HTTPS",
+            )
+        else:
+            buffer = expand_vars(NGINX_TEMPLATE, self.env)
+
+        # remove all references to IPv6 listeners (for enviroments where it's disabled)
+        if self.env.get_bool("DISABLE_IPV6"):
+            buffer = "\n".join(
+                [line for line in buffer.split("\n") if "NGINX_IPV6" not in line],
+            )
+
+        # change any unecessary uWSGI specific directives to standard proxy ones
+        if "wsgi" not in self.workers and "jwsgi" not in self.workers:
+            buffer = buffer.replace("uwsgi_", "proxy_")
+
+        # map Cloudflare connecting IP to REMOTE_ADDR
+        if self.env.get_bool("NGINX_CLOUDFLARE_ACL"):
+            buffer = buffer.replace(
+                "REMOTE_ADDR $remote_addr",
+                "REMOTE_ADDR $http_cf_connecting_ip",
+            )
+        return buffer
 
     def setup_static(self) -> None:
         self.env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
@@ -172,6 +173,39 @@ class NginxConfig:
         self.env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = self.expand_vars(tpl)
 
         self.env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
+
+    def setup_cloudflare(self) -> None:
+        # restrict access to server from CloudFlare IP addresses
+        acl = []
+
+        if self.env.get_bool("NGINX_CLOUDFLARE_ACL"):
+            try:
+                cf = json.loads(
+                    urlopen("https://api.cloudflare.com/client/v4/ips")
+                    .read()
+                    .decode("utf-8"),
+                )
+            except Exception:
+                raise Abort(
+                    f"Could not retrieve CloudFlare IP ranges: {format_exc()}",
+                )
+
+            if cf["success"] is True:
+                result = cf["result"]
+                acl = [f"allow {i};" for i in result["ipv4_cidrs"]]
+
+                if self.env.get_bool("DISABLE_IPV6"):
+                    acl += [f"allow {i};" for i in result["ipv6_cidrs"]]
+
+                # allow access from controlling machine
+                if "SSH_CLIENT" in os.environ:
+                    remote_ip = os.environ["SSH_CLIENT"].split()[0]
+                    echo(f"-----> nginx ACL will include your IP ({remote_ip})")
+                    acl += [f"allow {remote_ip};"]
+
+                acl += ["allow 127.0.0.1;", "deny all;"]
+
+        self.env["NGINX_ACL"] = " ".join(acl)
 
     def check_config(self, nginx_conf_path: Path) -> None:
         """Prevent broken config from breaking other deployments."""
@@ -221,140 +255,105 @@ class NginxConfig:
     def expand_vars(self, tpl: str) -> str:
         return expand_vars(tpl, self.env)
 
+    def setup_cache(self) -> None:
+        """Configure Nginx caching"""
+        self.env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = ""
+        self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
+        default_cache_path = os.path.join(CACHE_ROOT, self.app_name)
+        if not os.path.exists(default_cache_path):
+            os.makedirs(default_cache_path)
 
-def setup_cache(app_name: str, env: Env) -> None:
-    """Configure Nginx caching"""
-    env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = ""
-    env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
-    default_cache_path = os.path.join(CACHE_ROOT, app_name)
-    if not os.path.exists(default_cache_path):
-        os.makedirs(default_cache_path)
-
-    try:
-        _cache_size = env.get_int("NGINX_CACHE_SIZE", 1)
-    except Exception:
-        echo("=====> Invalid cache size, defaulting to 1GB")
-        _cache_size = 1
-    cache_size = str(_cache_size) + "g"
-
-    try:
-        _cache_time_control = env.get_int("NGINX_CACHE_CONTROL", 3600)
-    except Exception:
-        echo("=====> Invalid time for cache control, defaulting to 3600s")
-        _cache_time_control = 3600
-    cache_time_control = str(_cache_time_control)
-
-    try:
-        _cache_time_content = env.get_int("NGINX_CACHE_TIME", 3600)
-    except Exception:
-        echo("=====> Invalid cache time for content, defaulting to 3600s")
-        _cache_time_content = 3600
-    cache_time_content = str(_cache_time_content) + "s"
-
-    try:
-        _cache_time_redirects = env.get_int("NGINX_CACHE_REDIRECTS", 3600)
-    except Exception:
-        echo("=====> Invalid cache time for redirects, defaulting to 3600s")
-        _cache_time_redirects = 3600
-    cache_time_redirects = str(_cache_time_redirects) + "s"
-
-    try:
-        _cache_time_any = env.get_int("NGINX_CACHE_ANY", 3600)
-    except Exception:
-        echo("=====> Invalid cache expiry fallback, defaulting to 3600s")
-        _cache_time_any = 3600
-    cache_time_any = str(_cache_time_any) + "s"
-
-    try:
-        _cache_time_expiry = env.get_int("NGINX_CACHE_EXPIRY", 86400)
-    except Exception:
-        echo("=====> Invalid cache expiry, defaulting to 86400s")
-        _cache_time_expiry = 86400
-    cache_time_expiry = str(_cache_time_expiry) + "s"
-
-    # FIXME
-    cache_path = env.get_path("NGINX_CACHE_PATH", default_cache_path)
-    if not cache_path.exists():
-        log(
-            f"Cache path {cache_path} does not exist, using default"
-            f" {default_cache_path}, be aware of disk usage.",
-            level=4,
-            fg="yellow",
-        )
-        cache_path = env.get_path(default_cache_path)
-
-    cache_prefixes = env.get("NGINX_CACHE_PREFIXES", "")
-    if len(cache_prefixes):
-        prefixes = []  # this will turn into part of /(path1|path2|path3)
         try:
-            items = cache_prefixes.split(",")
-            for item in items:
-                if item[0] == "/":
-                    prefixes.append(item[1:])
-                else:
-                    prefixes.append(item)
-            cache_prefixes = "|".join(prefixes)
-            echo(
-                f"-----> nginx will cache /({cache_prefixes}) prefixes up to"
-                f" {cache_time_expiry} or {cache_size} of disk space, with the"
-                " following timings:",
-            )
-            echo(f"-----> nginx will cache content for {cache_time_content}.")
-            echo(f"-----> nginx will cache redirects for {cache_time_redirects}.")
-            echo(f"-----> nginx will cache everything else for {cache_time_any}.")
-            echo(
-                "-----> nginx will send caching headers asking for"
-                f" {cache_time_control} seconds of public caching.",
-            )
-            env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = expand_vars(
-                HOP3_INTERNAL_PROXY_CACHE_PATH,
-                locals(),
-            )
-            env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = expand_vars(
-                HOP3_INTERNAL_NGINX_CACHE_MAPPING,
-                locals(),
-            )
-            env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = expand_vars(
-                env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"],
-                env,
-            )
-        except Exception as e:
-            echo(
-                f"Error {e} in cache path spec: should be /prefix1:[,/prefix2],"
-                " ignoring.",
-            )
-            env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
-
-
-def setup_cloudflare(env) -> None:
-    # restrict access to server from CloudFlare IP addresses
-    acl = []
-
-    if env.get_bool("NGINX_CLOUDFLARE_ACL"):
-        try:
-            cf = json.loads(
-                urlopen("https://api.cloudflare.com/client/v4/ips")
-                .read()
-                .decode("utf-8"),
-            )
+            _cache_size = self.env.get_int("NGINX_CACHE_SIZE", 1)
         except Exception:
-            raise Abort(
-                f"Could not retrieve CloudFlare IP ranges: {format_exc()}",
+            echo("=====> Invalid cache size, defaulting to 1GB")
+            _cache_size = 1
+        cache_size = str(_cache_size) + "g"
+
+        try:
+            _cache_time_control = self.env.get_int("NGINX_CACHE_CONTROL", 3600)
+        except Exception:
+            echo("=====> Invalid time for cache control, defaulting to 3600s")
+            _cache_time_control = 3600
+        cache_time_control = str(_cache_time_control)
+
+        try:
+            _cache_time_content = self.env.get_int("NGINX_CACHE_TIME", 3600)
+        except Exception:
+            echo("=====> Invalid cache time for content, defaulting to 3600s")
+            _cache_time_content = 3600
+        cache_time_content = str(_cache_time_content) + "s"
+
+        try:
+            _cache_time_redirects = self.env.get_int("NGINX_CACHE_REDIRECTS", 3600)
+        except Exception:
+            echo("=====> Invalid cache time for redirects, defaulting to 3600s")
+            _cache_time_redirects = 3600
+        cache_time_redirects = str(_cache_time_redirects) + "s"
+
+        try:
+            _cache_time_any = self.env.get_int("NGINX_CACHE_ANY", 3600)
+        except Exception:
+            echo("=====> Invalid cache expiry fallback, defaulting to 3600s")
+            _cache_time_any = 3600
+        cache_time_any = str(_cache_time_any) + "s"
+
+        try:
+            _cache_time_expiry = self.env.get_int("NGINX_CACHE_EXPIRY", 86400)
+        except Exception:
+            echo("=====> Invalid cache expiry, defaulting to 86400s")
+            _cache_time_expiry = 86400
+        cache_time_expiry = str(_cache_time_expiry) + "s"
+
+        # FIXME
+        cache_path = self.env.get_path("NGINX_CACHE_PATH", default_cache_path)
+        if not cache_path.exists():
+            log(
+                f"Cache path {cache_path} does not exist, using default"
+                f" {default_cache_path}, be aware of disk usage.",
+                level=4,
+                fg="yellow",
             )
+            cache_path = self.env.get_path(default_cache_path)
 
-        if cf["success"] is True:
-            result = cf["result"]
-            acl = [f"allow {i};" for i in result["ipv4_cidrs"]]
-
-            if env.get_bool("DISABLE_IPV6"):
-                acl += [f"allow {i};" for i in result["ipv6_cidrs"]]
-
-            # allow access from controlling machine
-            if "SSH_CLIENT" in os.environ:
-                remote_ip = os.environ["SSH_CLIENT"].split()[0]
-                echo(f"-----> nginx ACL will include your IP ({remote_ip})")
-                acl += [f"allow {remote_ip};"]
-
-            acl += ["allow 127.0.0.1;", "deny all;"]
-
-    env["NGINX_ACL"] = " ".join(acl)
+        cache_prefixes = self.env.get("NGINX_CACHE_PREFIXES", "")
+        if len(cache_prefixes):
+            prefixes = []  # this will turn into part of /(path1|path2|path3)
+            try:
+                items = cache_prefixes.split(",")
+                for item in items:
+                    if item[0] == "/":
+                        prefixes.append(item[1:])
+                    else:
+                        prefixes.append(item)
+                cache_prefixes = "|".join(prefixes)
+                echo(
+                    f"-----> nginx will cache /({cache_prefixes}) prefixes up to"
+                    f" {cache_time_expiry} or {cache_size} of disk space, with the"
+                    " following timings:",
+                )
+                echo(f"-----> nginx will cache content for {cache_time_content}.")
+                echo(f"-----> nginx will cache redirects for {cache_time_redirects}.")
+                echo(f"-----> nginx will cache everything else for {cache_time_any}.")
+                echo(
+                    "-----> nginx will send caching headers asking for"
+                    f" {cache_time_control} seconds of public caching.",
+                )
+                self.env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = expand_vars(
+                    HOP3_INTERNAL_PROXY_CACHE_PATH,
+                    locals(),
+                )
+                self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = expand_vars(
+                    HOP3_INTERNAL_NGINX_CACHE_MAPPING,
+                    locals(),
+                )
+                self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = expand_vars(
+                    self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"],
+                    self.env,
+                )
+            except Exception as e:
+                echo(
+                    f"Error {e} in cache path spec: should be /prefix1:[,/prefix2],"
+                    " ignoring.",
+                )
+                self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
