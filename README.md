@@ -229,3 +229,14 @@ See the [LICENSE](LICENSE) file for more information.
 encourage quick action or to hurry someone up. It's akin to saying "Let's go!" or "Hurry up!" in English. It can also
 convey a sense of enthusiasm or encouragement to get moving or to proceed with something. It generally carries a light,
 motivating tone.
+
+## Links / References
+
+- [Hop3 on PyPI](https://pypi.org/project/hop3/)
+- [Hop3 on GitHub](https://github.com/abilian/hop3)
+- [Hop3 on SourceHut](https://git.sr.ht/~sfermigier/hop3) (mirror)
+- [Nua](https://nua.rocks/) (Hop3's predecessor)
+- [Piku](https://piku.github.io/) (Hop3's inspiration)
+- [Sailor](https://github.com/mardix/sailor) (Another fork of Piku)
+- [Abilian](https://www.abilian.com/) (Hop3's sponsor / buy support from us)
+- [Abilian SBE](https://github.com/abilian/abilian-sbe-monorepo/) (One of the applications that can be deployed with Hop3 - Soon)
