@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 from urllib.request import urlopen
 
 from click import secho as echo
-from devtools import debug
 
 from hop3.system.constants import ACME_WWW, APP_ROOT, CACHE_ROOT, NGINX_ROOT
 from hop3.util import command_output
@@ -159,20 +158,12 @@ class NginxConfig:
 
         static_paths = self.get_static_paths()
 
-        debug(self.app_name, self.workers, self.env, static_paths)
-
         for static_url, static_path in static_paths:
             echo(f"-----> nginx will map {static_url} to {static_path}.")
             self.env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] += expand_vars(
                 HOP3_INTERNAL_NGINX_STATIC_MAPPING,
                 locals(),
             )
-            # except Exception as e:
-            #     echo(
-            #         f"Error {e} in static path spec: should be"
-            #         " /prefix1:path1[,/prefix2:path2], ignoring.",
-            #     )
-            #     env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = ""
 
         if nginx_include_file := self.env.get("NGINX_INCLUDE_FILE"):
             tpl = Path(self.app_path, nginx_include_file).read_text()

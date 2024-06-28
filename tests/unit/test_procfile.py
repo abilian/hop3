@@ -8,7 +8,6 @@ from __future__ import annotations
 import tempfile
 
 import pytest
-from devtools import debug
 
 from hop3.project.procfile import Procfile, parse_procfile
 
@@ -53,7 +52,6 @@ def test_procfile_2():
 
 def test_procfile_3():
     procfile = Procfile.from_str(PROCFILE1)
-    debug(procfile.workers)
     assert procfile.web_workers == {"web": "gunicorn -w 4 -b"}
     assert procfile.workers == {"web": "gunicorn -w 4 -b"}
 
