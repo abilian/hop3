@@ -20,7 +20,7 @@ from hop3.util import command_output
 from hop3.util.console import Abort, log
 from hop3.util.templating import expand_vars
 
-from .certificates import setup_certificates
+from .certificates import CertificatesManager
 from .templates import (
     HOP3_INTERNAL_NGINX_CACHE_MAPPING,
     HOP3_INTERNAL_NGINX_STATIC_MAPPING,
@@ -81,7 +81,7 @@ def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
         env["NGINX_SOCKET"] = "{BIND_ADDRESS:s}:{PORT:s}".format(**env)
         echo(f"-----> nginx will look for app '{app_name}' on {env['NGINX_SOCKET']}")
 
-    setup_certificates(app_name, env)
+    CertificatesManager(app_name, env).setup_certificates()
 
     config.setup_cloudflare()
 

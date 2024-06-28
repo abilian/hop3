@@ -10,74 +10,87 @@ import os
 import subprocess
 from pathlib import Path
 
+from attr import frozen
 from click import secho as echo
 
 from hop3.system.constants import ACME_ROOT, ACME_ROOT_CA, ACME_WWW, NGINX_ROOT
-from hop3.util.templating import expand_vars
+# from hop3.util.templating import expand_vars
 
-from .templates import NGINX_ACME_FIRSTRUN_TEMPLATE
-
-
-def setup_certificates(app_name: str, env) -> None:
-    domains = env["NGINX_SERVER_NAME"].split()
-    domain = domains[0]
-    key, crt = (os.path.join(NGINX_ROOT, f"{app_name}.{x}") for x in ["key", "crt"])
-
-    # if Path(ACME_ROOT, "acme.sh").exists():
-    #     setup_acme(app_name, env, nginx_conf)
-
-    # fall back to creating self-signed certificate if acme failed
-    if not Path(key).exists() or Path(crt).stat().st_size == 0:
-        setup_self_signed(domain, key, crt)
+# from .templates import NGINX_ACME_FIRSTRUN_TEMPLATE
 
 
-def setup_self_signed(domain, key, crt) -> None:
-    echo("-----> generating self-signed certificate")
-    subprocess.call(
-        "openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj"
-        f' "/C=FR/ST=NA/L=Paris/O=Hop3/OU=Self-Signed/CN={domain:s}" -keyout'
-        f" {key:s} -out {crt:s}",
-        shell=True,
-    )
+@frozen
+class CertificatesManager:
+    app_name: str
+    env: dict[str, str]
 
+    @property
+    def domains(self) -> list[str]:
+        return self.env["NGINX_SERVER_NAME"].split()
 
-def setup_acme(app_name: str, env, nginx_conf) -> None:
-    domains = env["NGINX_SERVER_NAME"].split()
-    domain = domains[0]
+    @property
+    def domain(self) -> str:
+        return self.domains[0]
 
-    key_file, crt_file = (
-        os.path.join(NGINX_ROOT, f"{app_name}.{x}") for x in ["key", "crt"]
-    )
-    issue_file = os.path.join(ACME_ROOT, domain, "issued-" + "-".join(domains))
+    @property
+    def key(self) -> Path:
+        return Path(NGINX_ROOT, f"{self.app_name}.key")
 
-    acme = ACME_ROOT
-    www = ACME_WWW
-    root_ca = ACME_ROOT_CA
+    @property
+    def crt(self) -> Path:
+        return Path(NGINX_ROOT, f"{self.app_name}.crt")
 
-    # if this is the first run there will be no nginx conf yet
-    # create a basic conf stub just to serve the acme auth
-    if not Path(nginx_conf).exists():
-        echo("-----> writing temporary nginx conf")
-        buffer = expand_vars(NGINX_ACME_FIRSTRUN_TEMPLATE, env)
-        Path(nginx_conf).write_text(buffer)
+    def setup_certificates(self) -> None:
+        if not self.key.exists() or self.crt.stat().st_size == 0:
+            self.setup_self_signed()
 
-    if Path(key_file).exists() and Path(issue_file).exists():
-        echo("-----> letsencrypt certificate already installed")
-        return
+    def setup_self_signed(self) -> None:
+        echo("-----> generating self-signed certificate")
+        cmd = (
+            "openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj"
+            f' "/C=FR/ST=NA/L=Paris/O=Hop3/OU=Self-Signed/CN={self.domain}" -keyout'
+            f" {self.key} -out {self.crt}"
+        )
+        subprocess.call(
+            cmd,
+            shell=True
+        )
 
-    echo("-----> getting letsencrypt certificate")
-    certlist = " ".join([f"-d {d}" for d in domains])
-    subprocess.call(
-        f"{acme:s}/acme.sh --issue {certlist:s} -w {www:s} --server {root_ca:s}",
-        shell=True,
-    )
-    subprocess.call(
-        f"{acme:s}/acme.sh --install-cert {certlist:s} --key-file"
-        f" {key_file:s} --fullchain-file {crt_file:s}",
-        shell=True,
-    )
-    if Path(ACME_ROOT, domain).exists() and not Path(ACME_WWW, app_name).exists():
-        os.symlink(os.path.join(ACME_ROOT, domain), os.path.join(ACME_WWW, app_name))
+    def setup_acme(self) -> None:
+        key_file, crt_file = (
+            os.path.join(NGINX_ROOT, f"{self.app_name}.{x}") for x in ["key", "crt"]
+        )
+        issue_file = os.path.join(ACME_ROOT, self.domain, "issued-" + "-".join(self.domains))
 
-    with contextlib.suppress(Exception):
-        os.symlink("/dev/null", issue_file)
+        acme = ACME_ROOT
+        www = ACME_WWW
+        root_ca = ACME_ROOT_CA
+
+        # if this is the first run there will be no nginx conf yet
+        # create a basic conf stub just to serve the acme auth
+        # FIXME
+        # if not Path(nginx_conf).exists():
+        #     echo("-----> writing temporary nginx conf")
+        #     buffer = expand_vars(NGINX_ACME_FIRSTRUN_TEMPLATE, self.env)
+        #     Path(nginx_conf).write_text(buffer)
+
+        if Path(key_file).exists() and Path(issue_file).exists():
+            echo("-----> letsencrypt certificate already installed")
+            return
+
+        echo("-----> getting letsencrypt certificate")
+        certlist = " ".join([f"-d {d}" for d in self.domains])
+        subprocess.call(
+            f"{acme:s}/acme.sh --issue {certlist:s} -w {www:s} --server {root_ca:s}",
+            shell=True,
+        )
+        subprocess.call(
+            f"{acme:s}/acme.sh --install-cert {certlist:s} --key-file"
+            f" {key_file:s} --fullchain-file {crt_file:s}",
+            shell=True,
+        )
+        if Path(ACME_ROOT, self.domain).exists() and not Path(ACME_WWW, self.app_name).exists():
+            os.symlink(os.path.join(ACME_ROOT, self.domain), os.path.join(ACME_WWW, self.app_name))
+
+        with contextlib.suppress(Exception):
+            os.symlink("/dev/null", issue_file)

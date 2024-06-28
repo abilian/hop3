@@ -16,6 +16,7 @@ hop-test = "hop3.testing.main:main"
 [tool.poetry.dependencies]
 python = "^3.10"
 
+attrs = "*"
 click = "^8.1.7"
 cleez = "*"
 pluggy = "^1.4.0"
@@ -31,13 +32,14 @@ snoop = "^0.4.3"
 
 [tool.poetry.group.dev.dependencies]
 abilian-devtools = "^0.5.18"
-pytest = "^8.0.0"
-pyinfra = "^2.9"
 httpx = "^0.27.0"
-python-dotenv = "^1.0.1"
 infer-types = "^1.0.0"
-types-paramiko = "^3.4.0.20240311"
+pyinfra = "^2.9"
+pytest = "^8.0.0"
+python-dotenv = "^1.0.1"
 reuse = "^3.0.1"
+
+types-paramiko = "^3.4.0.20240311"
 types-psycopg2 = "^2.9.21.20240311"
 
 [build-system]
