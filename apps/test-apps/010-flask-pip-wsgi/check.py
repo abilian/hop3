@@ -15,7 +15,7 @@ def check(hostname):
     url = f"https://{hostname}/"
     response = httpx.get(url, verify=False)
     assert response.is_success
-    assert "Hello world!" in response.text
+    assert "Hello World!" in response.text
 
 
 if __name__ == "__main__":
