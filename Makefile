@@ -62,7 +62,7 @@ test:
 test-e2e:
 	@echo "--> Running e2e tests"
 	make clean-and-deploy
-	python scripts/run-tests-alt.py
+	hop-test
 	@echo ""
 
 test-randomly:

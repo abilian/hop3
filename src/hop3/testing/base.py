@@ -105,14 +105,16 @@ class TestSession:
                 f" {response.status_code}",
             )
 
-        print("Checking app content")
-        if (self.directory / "check.py").exists():
-            ctx: dict[str, Any] = {}
-            exec((self.directory / "check.py").read_text(), ctx)
-            ctx["check"](self.app_host_name)
+        self.check_app_content()
 
-        # Check content later
-        # assert "Python/Flask" in response.text
+    def check_app_content(self):
+        check_script_path = self.directory / "check.py"
+        if check_script_path.exists():
+            print("Checking app content")
+            ctx: dict[str, Any] = {}
+            exec(check_script_path.read_text(), ctx)
+            result = ctx["check"](self.app_host_name)
+            debug(result)
 
     def check_app_is_down(self) -> None:
         url = self.app_url

@@ -4,6 +4,10 @@
 
 # ruff: noqa: E402
 
+"""
+Hop3 test runner.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -65,32 +69,43 @@ def main() -> None:
 
     config = {
         "keep": args.keep,
+        "ff": args.ff,
     }
 
-    # Not working
     if args.parallel:
-
-        def run(app):
-            session = TestSession(app, config)
-            return session.run()
-
-        with Pool(4) as pool:
-            results = pool.map(run, apps)
-
-        debug(zip(apps, results))
-
+        # Not working
+        run_tests_parallel(apps, config)
     else:
-        test_results = []
-        for app in sorted(apps):
-            print(green(f"Testing {app}"))
-            session = TestSession(app, config)
-            result = session.run()
-            if result == "error" and args.ff:
+        run_tests(apps, config)
+
+
+def run_tests_parallel(apps, config):
+    # Not working
+    def run(app):
+        session = TestSession(app, config)
+        return session.run()
+
+    with Pool(4) as pool:
+        results = pool.map(run, apps)
+    debug(zip(apps, results))
+
+
+def run_tests(apps, config):
+    test_results = []
+    status = 0
+    for app in sorted(apps):
+        print(green(f"Testing {app}"))
+        session = TestSession(app, config)
+        result = session.run()
+        if result == "error":
+            status = 1
+            if config["ff"]:
                 print(f"Fail fast: stopping tests after error on app {app}")
                 sys.exit(1)
-            test_results.append((app, result))
+        test_results.append((app, result))
 
-        print_results(test_results)
+    print_results(test_results)
+    sys.exit(status)
 
 
 def get_apps(args) -> list | list[Path]:
