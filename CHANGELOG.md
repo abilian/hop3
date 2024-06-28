@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2024-06-28
+
+### 🧪 Testing
+
+- Fix broken test
+- Fix and clean unit tests.
+- Cleanup test apps, remove static test for now.
+- Fix and refact e2e test harness.
+
+### ⚙️ Miscellaneous Tasks
+
+- Fix ruff warnings
+- Debugging
+- Cleanup
+
+### Refact
+
+- Use a class for the Nginx setup.
+
+## [0.1.5] - 2024-06-27
+
+### 🐛 Bug Fixes
+
+- Don't check nginx config for now.
+
+### 📚 Documentation
+
+- Add CHANGELOG.
+
+### ⚙️ Miscellaneous Tasks
+
+- Current version
+
+### Refact
+
+- Cleanup config files.
+
 ## [0.1.4] - 2024-06-27
 
 ### 🐛 Bug Fixes
