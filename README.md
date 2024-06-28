@@ -112,6 +112,8 @@ The following tools will soon be available:
 
 ## Roadmap
 
+Here's the current roadmap for Hop3. Priorities and timelines are subject to change based on community feedback, business priorities and funding.
+
 ### P0 (MVP, Q2 2024):
 
 Initial goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe-monorepo/).
