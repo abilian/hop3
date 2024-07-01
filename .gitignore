@@ -3,6 +3,7 @@
 /tmp/
 /sandbox/
 ignore.py
+/apps/sandbox/
 
 # Local environment variables
 .env
