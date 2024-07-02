@@ -80,11 +80,11 @@ documentation. Please refer to the files below for contribution guidelines.
 
 Key documents:
 
-- [Contributing](./docs/contributing.md)
-- [Core Values](./docs/core-values.md)
-- [Governance](./docs/governance.md)
+- [Contributing](./docs/dev/contributing.md)
+- [Core Values](./docs/dev/core-values.md)
+- [Governance](./docs/dev/governance.md)
 - [Code of Conduct](./docs/policies/code-of-conduct.md)
-- [Licenses](https://github.com/abilian/hop3/tree/main/LICENSES)
+- [Licenses](./LICENSES)
 
 ### Note on Development Environment
 
