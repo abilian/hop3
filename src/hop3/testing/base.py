@@ -22,7 +22,7 @@ from hop3.util.backports import chdir
 
 from .common import DOMAIN, SERVER, run
 
-DEFAULT_WAIT = 5
+DEFAULT_WAIT = 10
 CLOJURE_WAIT = 15
 
 

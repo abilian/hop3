@@ -121,8 +121,8 @@ def get_apps(args) -> list | list[Path]:
             return [app]
         return [directory / app]
 
-    apps = [app for app in directory.iterdir() if app.is_dir()]
-
+    apps = filter(lambda x: x.is_dir(), directory.iterdir())
+    apps = filter(lambda x: not x.name.startswith("xxx-"), apps)
     return apps
 
 

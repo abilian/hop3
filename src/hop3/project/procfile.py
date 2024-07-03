@@ -8,10 +8,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from click import secho as echo
-
 from hop3.system.constants import CRON_REGEXP
-from hop3.util.console import log
+from hop3.util.console import Abort, log
 
 
 def parse_procfile(filename: str | Path) -> dict:
@@ -30,7 +28,8 @@ class Procfile:
             raise FileNotFoundError(f"File not found: {filename}")
 
         procfile = Procfile()
-        procfile.parse(path.read_text())
+        text = path.read_text()
+        procfile.parse(text)
         return procfile
 
     @classmethod
@@ -55,14 +54,11 @@ class Procfile:
         if len(self.workers) == 0:
             return
 
-        # WSGI trumps regular web workers
-        if {"wsgi", "jwsgi", "rwsgi"} & set(self.workers.keys()):
-            if "web" in self.workers:
-                echo(
-                    "Warning: found both 'wsgi' and 'web' workers, disabling 'web'",
-                    fg="yellow",
-                )
-                del self.workers["web"]
+        # Can't have both 'web' and 'wsgi' workers
+        wsgi_worker_types = {"wsgi", "jwsgi", "rwsgi"}
+        if wsgi_worker_types.intersection(self.workers) and "web" in self.workers:
+            msg = "Error: found both 'wsgi' and 'web' workers"
+            raise Abort(msg)
 
     def parse_line(self, line: str, line_number: int) -> None:
         line = line.strip()
@@ -72,10 +68,8 @@ class Procfile:
         try:
             kind, command = (x.strip() for x in line.split(":", 1))
         except Exception:
-            log(
-                f"Warning: misformatted Procfile entry '{line}' at line {line_number}",
-                fg="red",
-            )
+            msg = f"Error: misformatted Procfile entry '{line}' at line {line_number}"
+            log(msg, fg="red")
             raise
 
         # Check for cron patterns

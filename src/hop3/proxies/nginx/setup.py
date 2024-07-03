@@ -39,65 +39,7 @@ if TYPE_CHECKING:
 def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
     """Configure Nginx for an app."""
     config = NginxConfig(app_name, env, workers)
-
-    # Hack to get around ClickCommand
-    server_name_list = env["NGINX_SERVER_NAME"].split(",")
-    env["NGINX_SERVER_NAME"] = " ".join(server_name_list)
-
-    nginx_version = command_output("nginx -V")
-
-    nginx_ssl = "443 ssl"
-    if "--with-http_v2_module" in nginx_version:
-        nginx_ssl += " http2"
-    elif (
-        "--with-http_spdy_module" in nginx_version
-        and "nginx/1.6.2" not in nginx_version
-    ):  # avoid Raspbian bug
-        nginx_ssl += " spdy"
-
-    env.update(
-        {
-            "NGINX_SSL": nginx_ssl,
-            "NGINX_ROOT": NGINX_ROOT,
-            "ACME_WWW": ACME_WWW,
-        },
-    )
-
-    # default to reverse proxying to the TCP port we picked
-    env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = (
-        "proxy_pass http://{BIND_ADDRESS:s}:{PORT:s};".format(**env)
-    )
-
-    if "wsgi" in workers or "jwsgi" in workers:
-        sock = os.path.join(NGINX_ROOT, f"{app_name}.sock")
-        env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = expand_vars(
-            HOP3_INTERNAL_NGINX_UWSGI_SETTINGS,
-            env,
-        )
-        env["NGINX_SOCKET"] = env["BIND_ADDRESS"] = "unix://" + sock
-        if "PORT" in env:
-            del env["PORT"]
-    else:
-        env["NGINX_SOCKET"] = "{BIND_ADDRESS:s}:{PORT:s}".format(**env)
-        echo(f"-----> nginx will look for app '{app_name}' on {env['NGINX_SOCKET']}")
-
-    CertificatesManager(app_name, env).setup_certificates()
-
-    config.setup_cloudflare()
-
-    env["HOP3_INTERNAL_NGINX_BLOCK_GIT"] = (
-        "" if env.get("NGINX_ALLOW_GIT_FOLDERS") else r"location ~ /\.git { deny all; }"
-    )
-
-    config.setup_cache()
-    config.setup_static()
-
-    buffer = config.setup_proxy()
-
-    nginx_conf_path = Path(NGINX_ROOT, f"{app_name}.conf")
-    nginx_conf_path.write_text(buffer)
-
-    config.check_config(nginx_conf_path)
+    config.setup()
 
 
 @dataclass(frozen=True)
@@ -106,9 +48,68 @@ class NginxConfig:
     env: Env[str, str]
     workers: dict[str, str]
 
+    def __post_init__(self):
+        # Hack to get around ClickCommand
+        server_name_list = self.env["NGINX_SERVER_NAME"].split(",")
+        self.env["NGINX_SERVER_NAME"] = " ".join(server_name_list)
+
+        nginx_version = command_output("nginx -V")
+        nginx_ssl = "443 ssl"
+        if "--with-http_v2_module" in nginx_version:
+            nginx_ssl += " http2"
+
+        self.env.update(
+            {
+                "NGINX_SSL": nginx_ssl,
+                "NGINX_ROOT": NGINX_ROOT,
+                "ACME_WWW": ACME_WWW,
+            },
+        )
+
     @property
     def app_path(self) -> Path:
         return Path(APP_ROOT, self.app_name)
+
+    def setup(self):
+        # default to reverse proxying to the TCP port we picked
+        self.env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = (
+            "proxy_pass http://{BIND_ADDRESS:s}:{PORT:s};".format(**self.env)
+        )
+
+        if "wsgi" in self.workers or "jwsgi" in self.workers:
+            sock = os.path.join(NGINX_ROOT, f"{self.app_name}.sock")
+            self.env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = expand_vars(
+                HOP3_INTERNAL_NGINX_UWSGI_SETTINGS,
+                self.env,
+            )
+            self.env["NGINX_SOCKET"] = self.env["BIND_ADDRESS"] = "unix://" + sock
+            if "PORT" in self.env:
+                del self.env["PORT"]
+        else:
+            self.env["NGINX_SOCKET"] = "{BIND_ADDRESS:s}:{PORT:s}".format(**self.env)
+            echo(
+                f"-----> nginx will look for app '{self.app_name}' on {self.env['NGINX_SOCKET']}"
+            )
+
+        CertificatesManager(self.app_name, self.env).setup_certificates()
+
+        self.setup_cloudflare()
+
+        self.env["HOP3_INTERNAL_NGINX_BLOCK_GIT"] = (
+            ""
+            if self.env.get("NGINX_ALLOW_GIT_FOLDERS")
+            else r"location ~ /\.git { deny all; }"
+        )
+
+        self.setup_cache()
+        self.setup_static()
+
+        buffer = self.setup_proxy()
+
+        nginx_conf_path = Path(NGINX_ROOT, f"{self.app_name}.conf")
+        nginx_conf_path.write_text(buffer)
+
+        self.check_config(nginx_conf_path)
 
     def setup_proxy(self) -> str:
         if (
@@ -159,7 +160,8 @@ class NginxConfig:
 
         static_paths = self.get_static_paths()
 
-        for static_url, static_path in static_paths:
+        for static_url, _static_path in static_paths:
+            static_path = str(_static_path)
             echo(f"-----> nginx will map {static_url} to {static_path}.")
             self.env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] += expand_vars(
                 HOP3_INTERNAL_NGINX_STATIC_MAPPING,
@@ -240,6 +242,7 @@ class NginxConfig:
             items = static_paths.split(",")
         else:
             items = []
+
         result = []
         for item in items:
             static_url, _static_path = item.split(":")

@@ -3,14 +3,17 @@ from hop3.proxies.nginx.setup import NginxConfig
 
 
 def test_get_static_paths_0():
-    env = {}
+    env = {"NGINX_SERVER_NAME": "testapp.com"}
     workers = {}
     nginx = NginxConfig("testapp", env, workers)
     assert nginx.get_static_paths() == []
 
 
 def test_get_static_paths_1():
-    env = {"NGINX_STATIC_PATHS": "/prefix1:path1"}
+    env = {
+        "NGINX_SERVER_NAME": "testapp.com",
+        "NGINX_STATIC_PATHS": "/prefix1:path1",
+    }
     workers = {}
     nginx = NginxConfig("testapp", env, workers)
     result = nginx.get_static_paths()
@@ -19,7 +22,7 @@ def test_get_static_paths_1():
 
 
 def test_get_static_paths_2():
-    env = {}
+    env = {"NGINX_SERVER_NAME": "testapp.com"}
     workers = {"static": "public"}
     nginx = NginxConfig("testapp", env, workers)
     result = nginx.get_static_paths()

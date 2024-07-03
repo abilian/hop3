@@ -8,8 +8,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from snoop import snoop
+
 from hop3.builders import BUILDER_CLASSES
-from hop3.project.config import Config
+from hop3.project.config import AppConfig
 from hop3.run.spawn import spawn_app
 from hop3.system.constants import APP_ROOT, LOG_ROOT
 from hop3.util import check_binaries, shell
@@ -29,7 +31,7 @@ def do_deploy(app_name: str, deltas: dict[str, int] | None = None, newrev=None) 
 class Deployer:
     app_name: str
     workers: dict
-    config: Config
+    config: AppConfig
 
     def __init__(self, app_name: str) -> None:
         self.app_name = app_name
@@ -39,6 +41,7 @@ class Deployer:
     def app_path(self) -> Path:
         return Path(APP_ROOT, self.app_name)
 
+    @snoop
     def deploy(self, deltas: dict[str, int] | None = None, newrev=None) -> None:
         """Deploy an app by resetting the work directory."""
         deltas = deltas or {}
@@ -66,9 +69,9 @@ class Deployer:
 
         log(f"Deploying app '{app_name}'", level=5, fg="green")
 
-        self.git_update(newrev)
+        self._git_update(newrev)
 
-        config = Config.from_dir(app_path)
+        config = AppConfig.from_dir(app_path)
         self.config = config
         self.workers = config.workers
 
@@ -83,7 +86,7 @@ class Deployer:
         if not command:
             return
 
-        log("Running preflight.", level=5, fg="blue")
+        log("Running prebuild.", level=5, fg="blue")
         retval = shell(command, cwd=self.app_path).returncode
         if retval:
             raise Abort(f"prebuild failed due to command error value: {retval}", retval)
@@ -93,10 +96,8 @@ class Deployer:
             log("Running build.", level=5, fg="blue")
             retval = shell(build_worker, cwd=self.app_path).returncode
             if retval:
-                raise Abort(
-                    f"Build failed due to command error value: {retval}",
-                    retval,
-                )
+                msg = f"Build failed due to command error value: {retval}"
+                raise Abort(msg, retval)
             return
 
         workers = self.workers
@@ -134,7 +135,7 @@ class Deployer:
         if retval:
             raise Abort(f"Exiting postbuild due to command error value: {retval}")
 
-    def git_update(self, newrev) -> None:
+    def _git_update(self, newrev) -> None:
         app_path = self.app_path
         # env = {"GIT_WORK_DIR": app_path}
         env: dict[str, str] = {}

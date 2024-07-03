@@ -12,7 +12,7 @@ from pathlib import Path
 from click import secho as echo
 
 from hop3.core.env import Env
-from hop3.project.config import Config
+from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
 from hop3.proxies.nginx import setup_nginx
 from hop3.system.constants import APP_ROOT, ENV_ROOT, LOG_ROOT, UWSGI_ENABLED
@@ -41,9 +41,16 @@ class AppLauncher:
 
         self.app_path = Path(APP_ROOT, self.app_name)
         self.virtualenv_path = Path(ENV_ROOT, self.app_name)
-        self.config = Config.from_dir(self.app_path)
-        self.workers = self.config.web_workers
-        self.env = self.get_env()
+        self.config = AppConfig.from_dir(self.app_path)
+        self.env = self.make_env()
+
+    @property
+    def workers(self) -> dict:
+        return self.config.workers
+
+    @property
+    def web_workers(self):
+        return self.config.web_workers
 
     def spawn_app(self) -> None:
         """Create the app's workers."""
@@ -52,34 +59,34 @@ class AppLauncher:
             setup_nginx(self.app_name, self.env, self.workers)
 
         # Configured worker count
-        worker_count = dict.fromkeys(self.workers.keys(), 1)
+        web_worker_count = dict.fromkeys(self.web_workers.keys(), 1)
         scaling = self.virtualenv_path / "SCALING"
         if scaling.exists():
-            worker_count.update(
+            web_worker_count.update(
                 {
                     worker: int(v)
                     for worker, v in parse_procfile(scaling).items()
-                    if worker in self.workers
+                    if worker in self.web_workers
                 },
             )
 
         deltas = self.deltas
         to_create = {}
         to_destroy = {}
-        for env_key in worker_count:
-            to_create[env_key] = range(1, worker_count[env_key] + 1)
+        for env_key in web_worker_count:
+            to_create[env_key] = range(1, web_worker_count[env_key] + 1)
             if deltas.get(env_key):
                 to_create[env_key] = range(
                     1,
-                    worker_count[env_key] + deltas[env_key] + 1,
+                    web_worker_count[env_key] + deltas[env_key] + 1,
                 )
                 if deltas[env_key] < 0:
                     to_destroy[env_key] = range(
-                        worker_count[env_key],
-                        worker_count[env_key] + deltas[env_key],
+                        web_worker_count[env_key],
+                        web_worker_count[env_key] + deltas[env_key],
                         -1,
                     )
-                worker_count[env_key] += deltas[env_key]
+                web_worker_count[env_key] += deltas[env_key]
 
         env = self.env.copy()
 
@@ -92,7 +99,7 @@ class AppLauncher:
         live = Path(ENV_ROOT, self.app_name, "LIVE_ENV")
         write_settings(live, env)
 
-        write_settings(scaling, worker_count, ":")
+        write_settings(scaling, web_worker_count, ":")
 
         if env.get_bool("HOP3_AUTO_RESTART", default=True):
             configs = list(Path(UWSGI_ENABLED).glob(f"{self.app_name}*.ini"))
@@ -104,7 +111,7 @@ class AppLauncher:
         self.create_new_workers(to_create, env)
         self.remove_unnecessary_workers(to_destroy)
 
-    def get_env(self) -> Env:
+    def make_env(self) -> Env:
         # Bootstrap environment
         env = Env(
             {

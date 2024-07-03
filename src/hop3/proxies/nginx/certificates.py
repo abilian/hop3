@@ -14,6 +14,7 @@ from attr import frozen
 from click import secho as echo
 
 from hop3.system.constants import ACME_ROOT, ACME_ROOT_CA, ACME_WWW, NGINX_ROOT
+
 # from hop3.util.templating import expand_vars
 
 # from .templates import NGINX_ACME_FIRSTRUN_TEMPLATE
@@ -51,16 +52,15 @@ class CertificatesManager:
             f' "/C=FR/ST=NA/L=Paris/O=Hop3/OU=Self-Signed/CN={self.domain}" -keyout'
             f" {self.key} -out {self.crt}"
         )
-        subprocess.call(
-            cmd,
-            shell=True
-        )
+        subprocess.call(cmd, shell=True)
 
     def setup_acme(self) -> None:
         key_file, crt_file = (
             os.path.join(NGINX_ROOT, f"{self.app_name}.{x}") for x in ["key", "crt"]
         )
-        issue_file = os.path.join(ACME_ROOT, self.domain, "issued-" + "-".join(self.domains))
+        issue_file = os.path.join(
+            ACME_ROOT, self.domain, "issued-" + "-".join(self.domains)
+        )
 
         acme = ACME_ROOT
         www = ACME_WWW
@@ -89,8 +89,14 @@ class CertificatesManager:
             f" {key_file:s} --fullchain-file {crt_file:s}",
             shell=True,
         )
-        if Path(ACME_ROOT, self.domain).exists() and not Path(ACME_WWW, self.app_name).exists():
-            os.symlink(os.path.join(ACME_ROOT, self.domain), os.path.join(ACME_WWW, self.app_name))
+        if (
+            Path(ACME_ROOT, self.domain).exists()
+            and not Path(ACME_WWW, self.app_name).exists()
+        ):
+            os.symlink(
+                os.path.join(ACME_ROOT, self.domain),
+                os.path.join(ACME_WWW, self.app_name),
+            )
 
         with contextlib.suppress(Exception):
             os.symlink("/dev/null", issue_file)
