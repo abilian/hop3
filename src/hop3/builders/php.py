@@ -16,7 +16,7 @@ from .base import Builder
 
 
 class PHPBuilder(Builder):
-    """A class representing a PHP builder that builds PHP projects.
+    """Build PHP projects.
 
     Attributes
     ----------

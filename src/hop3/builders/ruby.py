@@ -16,7 +16,7 @@ from .base import Builder
 
 
 class RubyBuilder(Builder):
-    """A class representing a Ruby builder, a type of Builder.
+    """Builds Ruby projects.
 
     Attributes
     ----------

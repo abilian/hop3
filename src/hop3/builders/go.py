@@ -14,7 +14,7 @@ from hop3.util.console import log
 
 
 class GoBuilder(Builder):
-    """A class representing a Go builder.
+    """Builds Go projects.
 
     Attributes
     ----------

@@ -16,7 +16,7 @@ from .base import Builder
 
 
 class PythonBuilder(Builder):
-    """A class representing a Python builder.
+    """Build Python projects.
 
     Attributes
     ----------

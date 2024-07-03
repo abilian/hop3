@@ -17,7 +17,7 @@ from .base import Builder
 
 
 class ClojureBuilder(Builder):
-    """A class representing a Clojure Builder.
+    """Builds Clojure projects (with either Leiningen or CLI).
 
     Attributes
     ----------
