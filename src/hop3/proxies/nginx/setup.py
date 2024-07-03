@@ -70,11 +70,20 @@ class NginxConfig:
     def app_path(self) -> Path:
         return Path(APP_ROOT, self.app_name)
 
+    def update_env(self, key: str, value: str = "", template: str = "") -> None:
+        if template:
+            value = template.format(**self.env)
+        self.env[key] = value
+
     def setup(self):
         # default to reverse proxying to the TCP port we picked
-        self.env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = (
-            "proxy_pass http://{BIND_ADDRESS:s}:{PORT:s};".format(**self.env)
+        self.update_env(
+            "HOP3_INTERNAL_NGINX_UWSGI_SETTINGS",
+            template="proxy_pass http://{BIND_ADDRESS:s}:{PORT:s};",
         )
+        # self.env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = (
+        #     "proxy_pass http://{BIND_ADDRESS:s}:{PORT:s};".format(**self.env)
+        # )
 
         if "wsgi" in self.workers or "jwsgi" in self.workers:
             sock = os.path.join(NGINX_ROOT, f"{self.app_name}.sock")
@@ -82,11 +91,12 @@ class NginxConfig:
                 HOP3_INTERNAL_NGINX_UWSGI_SETTINGS,
                 self.env,
             )
-            self.env["NGINX_SOCKET"] = self.env["BIND_ADDRESS"] = "unix://" + sock
+            self.update_env("NGINX_SOCKET", f"unix://{sock}")
+            self.update_env("BIND_ADDRESS", f"unix://{sock}")
             if "PORT" in self.env:
                 del self.env["PORT"]
         else:
-            self.env["NGINX_SOCKET"] = "{BIND_ADDRESS:s}:{PORT:s}".format(**self.env)
+            self.update_env("NGINX_SOCKET", template="{BIND_ADDRESS:s}:{PORT:s}")
             echo(
                 f"-----> nginx will look for app '{self.app_name}' on {self.env['NGINX_SOCKET']}"
             )
