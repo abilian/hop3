@@ -13,6 +13,11 @@ All notable changes to this project will be documented in this file.
 - Tweak core values.
 - Update readme
 - Tweak docstrings.
+- Git cliff config for changelog.
+
+### 🚀 Features
+
+- Start work on actor framework.
 
 ### 🚜 Refactor
 
