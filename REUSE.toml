@@ -1,0 +1,190 @@
+version = 1
+SPDX-PackageName = "Hop3"
+SPDX-PackageSupplier = "Stefane Fermigier <sf@abilian.com>"
+SPDX-PackageDownloadLocation = "https://github.com/abilian/hop3"
+
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "AGPL-3.0-only"
+SPDX-FileComment = "Directory may also includes code with other licenses and other copyright holders but those are clearly identified in the source code with prefixed comments. Only the not-explicitly licensed portions are licensed with information described here."
+
+[[annotations]]
+path = "src/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "AGPL-3.0-only"
+SPDX-FileComment = "Directory may also includes code with other licenses and other copyright holders but those are clearly identified in the source code with prefixed comments. Only the not-explicitly licensed portions are licensed with information described here."
+
+[[annotations]]
+path = "etc/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "AGPL-3.0-only"
+SPDX-FileComment = "Directory may also includes code with other licenses and other copyright holders but those are clearly identified in the source code with prefixed comments. Only the not-explicitly licensed portions are licensed with information described here."
+
+[[annotations]]
+path = "tests/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "AGPL-3.0-only"
+SPDX-FileComment = "Directory may also includes code with other licenses and other copyright holders but those are clearly identified in the source code with prefixed comments. Only the not-explicitly licensed portions are licensed with information described here."
+
+[[annotations]]
+path = "helpers/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "AGPL-3.0-only"
+SPDX-FileComment = "Directory may also includes code with other licenses and other copyright holders but those are clearly identified in the source code with prefixed comments. Only the not-explicitly licensed portions are licensed with information described here."
+
+[[annotations]]
+path = "installer/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "AGPL-3.0-only"
+SPDX-FileComment = "Directory may also includes code with other licenses and other copyright holders but those are clearly identified in the source code with prefixed comments. Only the not-explicitly licensed portions are licensed with information described here."
+
+[[annotations]]
+path = "docs/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "notes/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "apps/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "demo/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "TODO.md"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Abilian SAS"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = "installer/README.md"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Abilian SAS"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = "ruff.toml"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Abilian SAS"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = "DCO.txt"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Abilian SAS"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = ".cruft.json"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ".editorconfig"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ".github/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ".gitignore"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ".pre-commit-config.yaml"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "AUTHORS.rst"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "CONTRIBUTING.rst"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "HISTORY.rst"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "Makefile"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "README.md"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "poetry.lock"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "pyproject.toml"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "setup.cfg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "noxfile.py"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "tasks.py"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "tools/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2024 Abilian SAS <contact@abilian.com>"
+SPDX-License-Identifier = "MIT"
