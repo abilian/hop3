@@ -27,6 +27,12 @@ sqlalchemy-serializer = "^1.4.12"
 advanced-alchemy = "^0.17"
 psycopg2 = "^2.9.9"
 
+# For the actor system
+pyrsistent = "^0.20.0"
+cloudpickle = "^3.0.0"
+msgpack = "^1.0.8"
+eventlet = "^0.36"
+pyzmq = "^26"
 
 # Remove later
 devtools = "^0.12.2"
@@ -39,7 +45,7 @@ infer-types = "^1.0.0"
 pyinfra = "^2.9"
 pytest = "^8.0.0"
 python-dotenv = "^1.0.1"
-reuse = "^3.0.1"
+reuse = "^4"
 
 types-paramiko = "^3.4.0.20240311"
 types-psycopg2 = "^2.9.21.20240311"

@@ -2,6 +2,7 @@ preview = true
 
 exclude = [
     "src/hop3/util/templating.py",
+    "src/hop3/actors",
 ]
 
 lint.select = [
