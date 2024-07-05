@@ -272,7 +272,7 @@ def parse_node(tokens):
 
 
 def parse_node_args(tokens):
-    args = []
+    args: list[str] = []
     cursor = 0
     while cursor < len(tokens):
         t = getelement(tokens, cursor)

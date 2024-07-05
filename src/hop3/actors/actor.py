@@ -45,7 +45,6 @@ class Actor(ActorBase):
         self._greenlet = None
         self._observers = {}
 
-    @snoop
     def run(self, *args, **kwargs):
         greenlet_id = id(eventlet.getcurrent())
         _actor_map[greenlet_id] = self

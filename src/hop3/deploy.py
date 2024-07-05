@@ -8,8 +8,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from snoop import snoop
-
 from hop3.builders import BUILDER_CLASSES
 from hop3.project.config import AppConfig
 from hop3.run.spawn import spawn_app
@@ -41,7 +39,6 @@ class Deployer:
     def app_path(self) -> Path:
         return Path(APP_ROOT, self.app_name)
 
-    @snoop
     def deploy(self, deltas: dict[str, int] | None = None, newrev=None) -> None:
         """Deploy an app by resetting the work directory."""
         deltas = deltas or {}
