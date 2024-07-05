@@ -112,7 +112,7 @@ HOP3_INTERNAL_NGINX_STATIC_MAPPING = """
       directio 8m;
       aio threads;
       alias $static_path;
-      try_files $uri $uri.html $uri/ =404;
+      try_files $uri $uri.html /index.html =404;
   }
 """
 
