@@ -1,3 +1,5 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 import socket
 
 from eventlet.green import zmq

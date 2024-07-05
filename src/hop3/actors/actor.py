@@ -1,5 +1,7 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 import uuid
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 
 from .mailbox import AckableMailbox, LocalMailbox, Mailbox, Receiver
 from .message import (

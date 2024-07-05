@@ -1,6 +1,8 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 import sys
 import types
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from collections.abc import Mapping
 
 import cloudpickle

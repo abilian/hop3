@@ -1,3 +1,5 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 from eventlet.green import zmq
 from msgpack import packb, unpackb
 from zmq import PULL, PUSH

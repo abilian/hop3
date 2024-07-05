@@ -1,3 +1,5 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 from eventlet.queue import LightQueue
 
 from .base import Mailbox
