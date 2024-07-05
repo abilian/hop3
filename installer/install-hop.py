@@ -76,7 +76,7 @@ def main():
 
 def setup_server():
     files.put(
-        name="Put appropriate /etc/apt/apt.conf.d/00-nua",
+        name="Put appropriate /etc/apt/apt.conf.d/00-hop3",
         src=StringIO(APT_CONF),
         dest="/etc/apt/apt.conf.d/00-hop3",
 
@@ -125,7 +125,7 @@ def setup_hop3():
 
     pip.packages(
         name="Install hop3",
-        packages=f"{HOME_DIR}/tmp/hop3.tar.gz",
+        packages=[f"{HOME_DIR}/tmp/hop3.tar.gz"],
         virtualenv=VENV,
         _su_user=HOP3_USER,
     )
