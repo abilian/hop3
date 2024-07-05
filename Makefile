@@ -16,14 +16,14 @@ clean-and-deploy:
 
 clean-server:
 	echo "--> Cleaning server (warning: this removes everything)"
-	-ssh root@${HOP3_DEV_HOST} apt purge -y nginx nginx-core nginx-common
+	-ssh root@${HOP3_DEV_HOST} apt-get purge -y nginx nginx-core nginx-common
 	ssh root@${HOP3_DEV_HOST} rm -rf /home/hop3 /etc/nginx
 
 deploy:
 	echo "--> Deploying"
 	@make clean
 	poetry build
-	poetry run pyinfra --user root ${HOP3_DEV_HOST} installer/install-hop.py
+	poetry run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
 
 #
 # Setup
