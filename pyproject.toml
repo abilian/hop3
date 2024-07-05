@@ -41,11 +41,14 @@ snoop = "^0.4.3"
 [tool.poetry.group.dev.dependencies]
 abilian-devtools = "^0.5.18"
 httpx = "^0.27.0"
-infer-types = "^1.0.0"
-pyinfra = "^2.9"
 pytest = "^8.0.0"
 python-dotenv = "^1.0.1"
 reuse = "^4"
+infer-types = "^1.0.0"
+
+# Let's live dangerously
+pyinfra = { version = "v3.0.beta4", allow-prereleases = true }
+#pyinfra = "^2.9"
 
 types-paramiko = "^3.4.0.20240311"
 types-psycopg2 = "^2.9.21.20240311"
