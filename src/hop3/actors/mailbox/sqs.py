@@ -1,5 +1,3 @@
-# Copyright (c) 2023-2024, Abilian SAS
-
 # from msgpack import packb, unpackb
 #
 # from .base import AckableMailbox, decode, encode

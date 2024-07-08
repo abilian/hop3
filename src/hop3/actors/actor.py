@@ -1,7 +1,10 @@
-# Copyright (c) 2023-2024, Abilian SAS
-
 import uuid
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
+from collections.abc import Callable
+
+import eventlet
+from devtools import debug
+from snoop import snoop
 
 from .mailbox import AckableMailbox, LocalMailbox, Mailbox, Receiver
 from .message import (
@@ -20,7 +23,7 @@ _actor_map = {}
 _actor_pool = eventlet.GreenPool(size=1000000)
 
 
-class ActorBase(Receiver, ABC):
+class ActorBase(Receiver, metaclass=ABCMeta):
     @abstractmethod
     def encode(self):
         pass
@@ -32,7 +35,15 @@ class ActorBase(Receiver, ABC):
 
 
 class Actor(ActorBase):
-    __slots__ = ["_ack", "_callback", "_greenlet", "_inbox", "_observers", "_outbox"]
+    __slots__ = ["_ack", "_inbox", "_outbox", "_callback", "_greenlet", "_observers"]
+
+    mailbox: Mailbox
+    _ack: bool
+    _inbox: Mailbox
+    _outbox: Mailbox
+    _callback: Callable
+    _greenlet: eventlet.greenthread.GreenThread | None
+    _observers: dict
 
     def __init__(self, callback, mailbox=None):
         if mailbox is None:
@@ -45,13 +56,14 @@ class Actor(ActorBase):
         self._greenlet = None
         self._observers = {}
 
+    @snoop
     def run(self, *args, **kwargs):
         greenlet_id = id(eventlet.getcurrent())
         _actor_map[greenlet_id] = self
         try:
             self._callback(*args, **kwargs)
         finally:
-            if greenlet_id in _actor_map:
+            if greenlet_id in _actor_map.keys():
                 del _actor_map[greenlet_id]
 
     def spawn(self, *args, **kwargs):
@@ -59,27 +71,27 @@ class Actor(ActorBase):
 
     def _link(self, func, *args, **kwargs):
         if self._greenlet is None:
-            return None
+            return
         return self._greenlet.link(func, *args, **kwargs)
 
     def _unlink(self, func, *args, **kwargs):
         if self._greenlet is None:
-            return None
+            return
         return self._greenlet.unlink(func, *args, **kwargs)
 
     def _cancel(self, *throw_args):
         if self._greenlet is None:
-            return None
+            return
         return self._greenlet.cancel(*throw_args)
 
     def _kill(self, *throw_args):
         if self._greenlet is None:
-            return None
+            return
         return self._greenlet.kill(*throw_args)
 
     def wait(self):
         if self._greenlet is None:
-            return None
+            return
         return self._greenlet.wait()
 
     def send(self, message):
@@ -141,7 +153,7 @@ class Actor(ActorBase):
         # return message
 
     def ack_last_msg(self):
-        if self._ack:
+        if isinstance(self._inbox, AckableMailbox):
             self._inbox.ack()
 
     def encode(self):

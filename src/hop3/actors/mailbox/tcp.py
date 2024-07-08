@@ -1,5 +1,3 @@
-# Copyright (c) 2023-2024, Abilian SAS
-
 import socket
 
 from eventlet.green import zmq
@@ -13,7 +11,7 @@ def get_hostname():
 
 
 class TcpInbox(Mailbox):
-    __slots__ = ["_context", "_port", "_recv_sock", "_url"]
+    __slots__ = ["_port", "_url", "_context", "_recv_sock"]
 
     def __init__(self, port=9999, **kwargs):
         self._port = port
@@ -26,7 +24,7 @@ class TcpInbox(Mailbox):
         return decode(unpackb(self._recv_sock.recv(), use_list=False))
 
     def put(self, message):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def encode(self):
         cls = self.__class__
@@ -58,7 +56,7 @@ class TcpInbox(Mailbox):
 
 
 class TcpOutbox(Mailbox):
-    __slots__ = ["_context", "_send_sock", "_url"]
+    __slots__ = ["_url", "_context", "_send_sock"]
 
     def __init__(self, address, port, **kwargs):
         self._url = "tcp://" + address + ":" + str(port)
@@ -67,7 +65,7 @@ class TcpOutbox(Mailbox):
         self._send_sock.connect(self._url)
 
     def get(self):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def put(self, msg):
         self._send_sock.send(packb(encode(msg), use_bin_type=True))

@@ -1,5 +1,3 @@
-# Copyright (c) 2023-2024, Abilian SAS
-
 from eventlet.queue import LightQueue
 
 from .base import Mailbox
@@ -7,6 +5,8 @@ from .base import Mailbox
 
 class LocalMailbox(Mailbox):
     __slots__ = ["_queue"]
+
+    _queue: LightQueue
 
     def __init__(self):
         self._queue = LightQueue()

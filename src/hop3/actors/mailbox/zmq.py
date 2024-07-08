@@ -1,5 +1,3 @@
-# Copyright (c) 2023-2024, Abilian SAS
-
 from eventlet.green import zmq
 from msgpack import packb, unpackb
 from zmq import PULL, PUSH
@@ -8,7 +6,7 @@ from .base import Mailbox, decode, encode
 
 
 class ZmqInbox(Mailbox):
-    __slots__ = ["_context", "_recv_sock", "_url"]
+    __slots__ = ["_url", "_context", "_recv_sock"]
 
     def __init__(self, url="tcp://*:9999", **kwargs):
         self._url = url
@@ -49,7 +47,7 @@ class ZmqInbox(Mailbox):
 
 
 class ZmqOutbox(Mailbox):
-    __slots__ = ["_context", "_send_sock", "_url"]
+    __slots__ = ["_url", "_context", "_send_sock"]
 
     def __init__(self, url, **kwargs):
         self._url = url
@@ -58,10 +56,10 @@ class ZmqOutbox(Mailbox):
         self._send_sock.connect(self._url)
 
     def get(self):
-        raise NotImplementedError
+        raise NotImplementedError()
 
-    def put(self, msg):
-        self._send_sock.send(packb(encode(msg), use_bin_type=True))
+    def put(self, message):
+        self._send_sock.send(packb(encode(message), use_bin_type=True))
 
     def encode(self):
         raise NotImplementedError

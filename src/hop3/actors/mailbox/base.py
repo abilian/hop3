@@ -1,9 +1,8 @@
-# Copyright (c) 2023-2024, Abilian SAS
-
 import sys
 import types
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 from collections.abc import Mapping
+from typing import Any
 
 import cloudpickle
 from eventlet.queue import LightQueue
@@ -108,60 +107,34 @@ def encode_func(obj):
     return cloudpickle.dumps(obj)
 
 
-class Receiver(ABC):
+class Receiver(metaclass=ABCMeta):
     @abstractmethod
     def encode(self):
-        pass
+        raise NotImplementedError
 
     @staticmethod
     @abstractmethod
     def decode(params):
-        pass
+        raise NotImplementedError
 
 
-class Mailbox(Receiver, ABC):
+class Mailbox(Receiver, metaclass=ABCMeta):
     @abstractmethod
     def put(self, message):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
-    def get(self):
-        pass
-
-    @abstractmethod
-    def encode(self):
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def decode(params):
-        pass
+    def get(self) -> Any:
+        raise NotImplementedError
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
 
-class AckableMailbox(Mailbox, ABC):
-    @abstractmethod
-    def put(self, message):
-        pass
-
-    @abstractmethod
-    def get(self):
-        pass
-
+class AckableMailbox(Mailbox, metaclass=ABCMeta):
     @abstractmethod
     def ack(self):
-        pass
-
-    @abstractmethod
-    def encode(self):
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def decode(params):
-        pass
+        raise NotImplementedError
 
 
 Mailbox.register(LightQueue)

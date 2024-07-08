@@ -1,6 +1,11 @@
-# Copyright (c) 2023-2024, Abilian SAS
+from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from actors.actor import Actor
 
 
 @dataclass(frozen=True)
@@ -26,7 +31,7 @@ class Kill:
 @dataclass(frozen=True)
 class Fork:
     sender: str
-    func: str
+    func: Callable
     args: tuple
     kwargs: dict
 
@@ -34,17 +39,17 @@ class Fork:
 @dataclass(frozen=True)
 class ForkWithMonitor:
     sender: str
-    func: str
+    func: Callable
     args: tuple
     kwargs: dict
 
 
 @dataclass(frozen=True)
 class ForkResponse:
-    new_actor: str
+    new_actor: Actor
 
 
 @dataclass(frozen=True)
 class Down:
     sender: str
-    reason: str
+    reason: Any

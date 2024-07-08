@@ -1,12 +1,10 @@
-# Copyright (c) 2023-2024, Abilian SAS
-
 from msgpack import packb, unpackb
 
 from .base import AckableMailbox, decode, encode
 
 
 class KombuMailbox(AckableMailbox):
-    __slots__ = ["_address", "_conn", "_last_msg", "_no_ack", "_queue"]
+    __slots__ = ["_address", "_conn", "_queue", "_no_ack", "_last_msg"]
 
     def __init__(
         self,
