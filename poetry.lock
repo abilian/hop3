@@ -2,13 +2,13 @@
 
 [[package]]
 name = "abilian-devtools"
-version = "0.5.24"
+version = "0.5.25"
 description = "A curated set of dependencies for quality software development"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "abilian_devtools-0.5.24-py3-none-any.whl", hash = "sha256:9f56d66461e3cbb9a503ecd0176cc62e994fe2b73ac16bfbef53c13a80e439f8"},
-    {file = "abilian_devtools-0.5.24.tar.gz", hash = "sha256:e1e45c9dd4513f1130245c84c1bd32a8f9cefcc14b20bba2a8bdf54cdd42340d"},
+    {file = "abilian_devtools-0.5.25-py3-none-any.whl", hash = "sha256:32ed720905b64b2eaee99519f2eaf87ef9d081517c2100d423be84bc7aa53f80"},
+    {file = "abilian_devtools-0.5.25.tar.gz", hash = "sha256:9f639ff711829c0a53ec7495672b12e18389e3acf364928b6b0db05883e7d818"},
 ]
 
 [package.dependencies]
@@ -32,7 +32,7 @@ flake8-pep3101 = ">=2.1.0,<3.0.0"
 flake8-pep585 = ">=0.1.7,<0.2.0"
 flake8-pep604 = ">=1.1.0,<2.0.0"
 flake8-pytest = ">=1.4,<2.0"
-flake8-pytest-style = ">=1.7.2,<2.0.0"
+flake8-pytest-style = ">=2,<3"
 flake8-super = ">=0.1.3,<0.2.0"
 flake8-super-call = ">=1.0.0,<2.0.0"
 flake8-tidy-imports = ">=4.10.0,<5.0.0"
@@ -51,7 +51,7 @@ pytest-cov = ">=5,<6"
 pytest-random-order = ">=1.1.1,<2.0.0"
 pytest-xdist = ">=3.5.0,<4.0.0"
 reuse = ">=4,<5"
-ruff = ">=0.3"
+ruff = ">=0.5.1"
 tomlkit = ">=0.12.1,<0.13.0"
 vulture = ">=2.11,<3.0"
 
@@ -1237,13 +1237,13 @@ flake8 = "*"
 
 [[package]]
 name = "flake8-pytest-style"
-version = "1.7.2"
+version = "2.0.0"
 description = "A flake8 plugin checking common style issues or inconsistencies with pytest-based tests."
 optional = false
-python-versions = ">=3.7.2,<4.0.0"
+python-versions = "<4.0.0,>=3.8.1"
 files = [
-    {file = "flake8_pytest_style-1.7.2-py3-none-any.whl", hash = "sha256:f5d2aa3219163a052dd92226589d45fab8ea027a3269922f0c4029f548ea5cd1"},
-    {file = "flake8_pytest_style-1.7.2.tar.gz", hash = "sha256:b924197c99b951315949920b0e5547f34900b1844348432e67a44ab191582109"},
+    {file = "flake8_pytest_style-2.0.0-py3-none-any.whl", hash = "sha256:abcb9f56f277954014b749e5a0937fae215be01a21852e9d05e7600c3de6aae5"},
+    {file = "flake8_pytest_style-2.0.0.tar.gz", hash = "sha256:919c328cacd4bc4f873ea61ab4db0d8f2c32e0db09a3c73ab46b1de497556464"},
 ]
 
 [package.dependencies]
@@ -2819,17 +2819,17 @@ requests = ">=2.0.0"
 
 [[package]]
 name = "reuse"
-version = "4.0.2"
+version = "4.0.3"
 description = "reuse is a tool for compliance with the REUSE recommendations."
 optional = false
 python-versions = "<4.0,>=3.8"
 files = [
-    {file = "reuse-4.0.2-cp311-cp311-manylinux_2_36_x86_64.whl", hash = "sha256:7b0e7880b76f834d6ccffe088fea597141dcaaa0cd23ce3171481758cb263f0e"},
-    {file = "reuse-4.0.2.tar.gz", hash = "sha256:be040da309a5624a41dcee620b940b7ff7d9d66cee10650e122da2ccbe82637d"},
+    {file = "reuse-4.0.3-cp311-cp311-manylinux_2_36_x86_64.whl", hash = "sha256:b33e26ec1d105cfcfc2e904d103faec0d758994278feb95a4f4290a864562243"},
+    {file = "reuse-4.0.3.tar.gz", hash = "sha256:4f2c3e1213ec644e5febc50d8322d18982e4e1102af8a51d9493bfc2164a0eac"},
 ]
 
 [package.dependencies]
-attrs = ">=21.1"
+attrs = ">=21.3"
 binaryornot = ">=0.4.4"
 "boolean.py" = ">=3.8"
 Jinja2 = ">=3.0.0"
