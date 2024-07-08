@@ -57,13 +57,13 @@ vulture = ">=2.11,<3.0"
 
 [[package]]
 name = "advanced-alchemy"
-version = "0.17.1"
+version = "0.17.2"
 description = "Ready-to-go SQLAlchemy concoctions."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "advanced_alchemy-0.17.1-py3-none-any.whl", hash = "sha256:a48d2702e430febd277dc66c0959ce0fbd85eb475a625ec5999b88688bb36167"},
-    {file = "advanced_alchemy-0.17.1.tar.gz", hash = "sha256:3bee29096c1b9cea4102e7366c6d8685a51030d078778a6748f8e4c43013ab81"},
+    {file = "advanced_alchemy-0.17.2-py3-none-any.whl", hash = "sha256:c3ec72c43200a4f8c8138808addab5e00a136f758822291851de824ea843a8d9"},
+    {file = "advanced_alchemy-0.17.2.tar.gz", hash = "sha256:7026fd6fe3aadb665ab0b87dc2a581e68e0df12fe62dcb5ce395bfe101abf663"},
 ]
 
 [package.dependencies]
@@ -1522,13 +1522,13 @@ socks = ["socksio (==1.*)"]
 
 [[package]]
 name = "identify"
-version = "2.5.36"
+version = "2.6.0"
 description = "File identification library for Python"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "identify-2.5.36-py2.py3-none-any.whl", hash = "sha256:37d93f380f4de590500d9dba7db359d0d3da95ffe7f9de1753faa159e71e7dfa"},
-    {file = "identify-2.5.36.tar.gz", hash = "sha256:e5e00f54165f9047fbebeb4a560f9acfb8af4c88232be60a488e9b68d122745d"},
+    {file = "identify-2.6.0-py2.py3-none-any.whl", hash = "sha256:e79ae4406387a9d300332b5fd366d8994f1525e8414984e1a59e058b2eda2dd0"},
+    {file = "identify-2.6.0.tar.gz", hash = "sha256:cb171c685bdc31bcc4c1734698736a7d5b6c8bf2e0c15117f4d469c8640ae5cf"},
 ]
 
 [package.extras]
@@ -2030,13 +2030,13 @@ files = [
 
 [[package]]
 name = "pip"
-version = "24.1.1"
+version = "24.1.2"
 description = "The PyPA recommended tool for installing Python packages."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pip-24.1.1-py3-none-any.whl", hash = "sha256:efca15145a95e95c00608afeab66311d40bfb73bb2266a855befd705e6bb15a0"},
-    {file = "pip-24.1.1.tar.gz", hash = "sha256:5aa64f65e1952733ee0a9a9b1f52496ebdb3f3077cc46f80a16d983b58d1180a"},
+    {file = "pip-24.1.2-py3-none-any.whl", hash = "sha256:7cd207eed4c60b0f411b444cd1464198fe186671c323b6cd6d433ed80fc9d247"},
+    {file = "pip-24.1.2.tar.gz", hash = "sha256:e5458a0b89f2755e0ee8c0c77613fe5273e05f337907874d64f13171a898a7ff"},
 ]
 
 [[package]]
@@ -2265,13 +2265,13 @@ files = [
 
 [[package]]
 name = "py-serializable"
-version = "1.0.3"
+version = "1.1.0"
 description = "Library for serializing and deserializing Python Objects to and from JSON and XML."
 optional = false
 python-versions = "<4.0,>=3.8"
 files = [
-    {file = "py_serializable-1.0.3-py3-none-any.whl", hash = "sha256:afba815f465b9fe7ab1c1a56d1aa8880c8a9e67a6e28b7ed62d4696fa369caf8"},
-    {file = "py_serializable-1.0.3.tar.gz", hash = "sha256:da3cb4b1f3cc5cc5ebecdd3dadbabd5f65d764357366fa64ee9cbaf0d4b70dcf"},
+    {file = "py_serializable-1.1.0-py3-none-any.whl", hash = "sha256:ae7ae4326b0d037b7e710f6e8bb1a97ece4ac2895a1f443a17ffd17f85547d76"},
+    {file = "py_serializable-1.1.0.tar.gz", hash = "sha256:3311ab39063b131caca0fb75e2038153682e55576c67f24a2de72d402dccb6e0"},
 ]
 
 [package.dependencies]
