@@ -17,6 +17,7 @@ from typing import Any
 
 import httpx
 from devtools import debug
+from httpcore import ConnectError
 
 from hop3.util.backports import chdir
 
@@ -92,13 +93,22 @@ class TestSession:
 
     def check_app_is_up(self) -> None:
         url = self.app_url
-        try:
-            response = httpx.get(url, verify=False)
-        except OSError as e:
-            raise AssertionError(
-                f"App {self.app_host_name} ({url}) is not up, got OSError:\n{e}",
-            )
+        response = None
+        for i in range(1, 6):
+            try:
+                response = httpx.get(url, verify=False)
+            except ConnectError:
+                time.sleep(i)
+                continue
+            except OSError as e:
+                raise AssertionError(
+                    f"App {self.app_host_name} ({url}) is not up, got OSError:\n{e}",
+                )
 
+        if response is None:
+            raise AssertionError(
+                f"App {self.app_host_name} ({url}) is not up, can't connect to it",
+            )
         if response.status_code != HTTPStatus.OK:
             raise AssertionError(
                 f"App {self.app_host_name} ({url}) is not up, got status code"
