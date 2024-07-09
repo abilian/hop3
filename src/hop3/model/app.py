@@ -20,7 +20,7 @@ class AppStateEnum(Enum):
 
 
 class App(BigIntAuditBase, SerializerMixin):
-    __tablename__ = "apps"
+    __tablename__ = "app"
 
     name: Mapped[str] = mapped_column(String(128))
     run_state: Mapped[AppStateEnum] = mapped_column(default=AppStateEnum.STOPPED)

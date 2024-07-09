@@ -4,21 +4,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
-from advanced_alchemy.types import DateTimeUTC
-from sqlalchemy.orm import Mapped, declarative_base, mapped_column
-
-from hop3.util.datetime import utc_now
+from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
 metadata = Base.metadata
-
-
-class TimeStamped:
-    """Created At Field Mixin."""
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTimeUTC(timezone=True),
-        default=utc_now,
-    )
