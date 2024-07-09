@@ -7,7 +7,7 @@ from sqlalchemy_utils import database_exists, create_database
 
 from hop3.model import metadata
 
-engine = create_engine("sqlite:///:memory:")
+engine = create_engine("sqlite:///data/hop3.db")
 if not database_exists(engine.url):
     create_database(engine.url)
 

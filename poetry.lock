@@ -201,6 +201,20 @@ tests-mypy = ["mypy (>=1.6)", "pytest-mypy-plugins"]
 tests-no-zope = ["attrs[tests-mypy]", "cloudpickle", "hypothesis", "pympler", "pytest (>=4.3.0)", "pytest-xdist[psutil]"]
 
 [[package]]
+name = "babel"
+version = "2.15.0"
+description = "Internationalization utilities"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "Babel-2.15.0-py3-none-any.whl", hash = "sha256:08706bdad8d0a3413266ab61bd6c34d0c28d6e1e7badf40a2cebe67644e2e1fb"},
+    {file = "babel-2.15.0.tar.gz", hash = "sha256:8daf0e265d05768bc6c7a314cf1321e9a123afc328cc635c18622a2f30a04413"},
+]
+
+[package.extras]
+dev = ["freezegun (>=1.0,<2.0)", "pytest (>=6.0)", "pytest-cov"]
+
+[[package]]
 name = "bandit"
 version = "1.7.9"
 description = "Security oriented static analyser for python code."
@@ -928,6 +942,21 @@ untokenize = ">=0.1.1,<0.2.0"
 tomli = ["tomli (>=2.0.0,<3.0.0)"]
 
 [[package]]
+name = "email-validator"
+version = "2.2.0"
+description = "A robust email address syntax and deliverability validation library."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "email_validator-2.2.0-py3-none-any.whl", hash = "sha256:561977c2d73ce3611850a06fa56b414621e0c8faa9d66f2611407d87465da631"},
+    {file = "email_validator-2.2.0.tar.gz", hash = "sha256:cb690f344c617a714f22e66ae771445a1ceb46821152df8e165c5f9a364582b7"},
+]
+
+[package.dependencies]
+dnspython = ">=2.0.0"
+idna = ">=2.0.0"
+
+[[package]]
 name = "eventlet"
 version = "0.36.1"
 description = "Highly concurrent networking library"
@@ -1340,6 +1369,141 @@ async = ["asgiref (>=3.2)"]
 dotenv = ["python-dotenv"]
 
 [[package]]
+name = "flask-babel"
+version = "4.0.0"
+description = "Adds i18n/l10n support for Flask applications."
+optional = false
+python-versions = ">=3.8,<4.0"
+files = [
+    {file = "flask_babel-4.0.0-py3-none-any.whl", hash = "sha256:638194cf91f8b301380f36d70e2034c77ee25b98cb5d80a1626820df9a6d4625"},
+    {file = "flask_babel-4.0.0.tar.gz", hash = "sha256:dbeab4027a3f4a87678a11686496e98e1492eb793cbdd77ab50f4e9a2602a593"},
+]
+
+[package.dependencies]
+Babel = ">=2.12"
+Flask = ">=2.0"
+Jinja2 = ">=3.1"
+pytz = ">=2022.7"
+
+[[package]]
+name = "flask-htmx"
+version = "0.3.2"
+description = "A Flask extension to work with HTMX."
+optional = false
+python-versions = ">=3.8,<4.0"
+files = [
+    {file = "flask_htmx-0.3.2-py3-none-any.whl", hash = "sha256:a1e0071216349197d6669662c2c35a1ab849b6fca28c89dc90932761f7e73c05"},
+    {file = "flask_htmx-0.3.2.tar.gz", hash = "sha256:8def77bb292369ff77513ff7b76d27b06f83e1d8c21165b6714c06c1cc2b9275"},
+]
+
+[package.dependencies]
+Flask = ">=2.0.2,<4.0.0"
+
+[[package]]
+name = "flask-login"
+version = "0.6.3"
+description = "User authentication and session management for Flask."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "Flask-Login-0.6.3.tar.gz", hash = "sha256:5e23d14a607ef12806c699590b89d0f0e0d67baeec599d75947bf9c147330333"},
+    {file = "Flask_Login-0.6.3-py3-none-any.whl", hash = "sha256:849b25b82a436bf830a054e74214074af59097171562ab10bfa999e6b78aae5d"},
+]
+
+[package.dependencies]
+Flask = ">=1.0.4"
+Werkzeug = ">=1.0.1"
+
+[[package]]
+name = "flask-mail"
+version = "0.10.0"
+description = "Flask extension for sending email"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "flask_mail-0.10.0-py3-none-any.whl", hash = "sha256:a451e490931bb3441d9b11ebab6812a16bfa81855792ae1bf9c1e1e22c4e51e7"},
+    {file = "flask_mail-0.10.0.tar.gz", hash = "sha256:44083e7b02bbcce792209c06252f8569dd5a325a7aaa76afe7330422bd97881d"},
+]
+
+[package.dependencies]
+blinker = "*"
+flask = "*"
+
+[[package]]
+name = "flask-migrate"
+version = "4.0.7"
+description = "SQLAlchemy database migrations for Flask applications using Alembic."
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "Flask-Migrate-4.0.7.tar.gz", hash = "sha256:dff7dd25113c210b069af280ea713b883f3840c1e3455274745d7355778c8622"},
+    {file = "Flask_Migrate-4.0.7-py3-none-any.whl", hash = "sha256:5c532be17e7b43a223b7500d620edae33795df27c75811ddf32560f7d48ec617"},
+]
+
+[package.dependencies]
+alembic = ">=1.9.0"
+Flask = ">=0.9"
+Flask-SQLAlchemy = ">=1.0"
+
+[[package]]
+name = "flask-principal"
+version = "0.4.0"
+description = "Identity management for flask"
+optional = false
+python-versions = "*"
+files = [
+    {file = "Flask-Principal-0.4.0.tar.gz", hash = "sha256:f5d6134b5caebfdbb86f32d56d18ee44b080876a27269560a96ea35f75c99453"},
+]
+
+[package.dependencies]
+blinker = "*"
+Flask = "*"
+
+[[package]]
+name = "flask-security-too"
+version = "5.4.3"
+description = "Quickly add security features to your Flask application."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "Flask-Security-Too-5.4.3.tar.gz", hash = "sha256:62b19397e8d71a8d4cb8dc0d4409cc7a1497982549030396960aee518755e583"},
+    {file = "Flask_Security_Too-5.4.3-py3-none-any.whl", hash = "sha256:655bf7bd15bf78593d39b1db125d4e8255ae220ed008c6cb35f7466749e0d3af"},
+]
+
+[package.dependencies]
+email-validator = ">=2.0.0"
+Flask = ">=2.3.2"
+Flask-Login = ">=0.6.2"
+Flask-Principal = ">=0.4.0"
+Flask-WTF = ">=1.1.2"
+importlib-resources = ">=5.10.0"
+markupsafe = ">=2.1.0"
+passlib = ">=1.7.4"
+wtforms = ">=3.0.0"
+
+[package.extras]
+babel = ["babel (>=2.12.1)", "flask-babel (>=3.1.0)"]
+common = ["bcrypt (>=4.0.1)", "bleach (>=6.0.0)", "flask-mailman (>=0.3.0)"]
+fsqla = ["flask-sqlalchemy (>=3.0.3)", "sqlalchemy (>=2.0.12)", "sqlalchemy-utils (>=0.41.1)"]
+low = ["Flask (==2.3.2)", "Flask-Babel (==3.1.0)", "Flask-Login (==0.6.2)", "Flask-Mailman (==0.3.0)", "Flask-SQLAlchemy (==3.0.3)", "Flask-WTF (==1.1.2)", "argon2-cffi (==21.3.0)", "authlib (==1.2.0)", "babel (==2.12.1)", "bcrypt (==4.0.1)", "bleach (==6.0.0)", "freezegun", "itsdangerous (==2.1.2)", "jinja2 (==3.1.2)", "markupsafe (==2.1.2)", "mongoengine (==0.27.0)", "mongomock (==4.1.2)", "peewee (==3.16.2)", "phonenumberslite (==8.13.11)", "pony (==0.7.16)", "qrcode (==7.4.2)", "requests", "setuptools", "sqlalchemy (==2.0.12)", "sqlalchemy-utils (==0.41.1)", "webauthn (==2.0.0)", "werkzeug (==2.3.3)", "zxcvbn (==4.4.28)"]
+mfa = ["cryptography (>=40.0.2)", "phonenumberslite (>=8.13.11)", "qrcode (>=7.4.2)", "webauthn (>=2.0.0)"]
+
+[[package]]
+name = "flask-sqlalchemy"
+version = "3.1.1"
+description = "Add SQLAlchemy support to your Flask application."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "flask_sqlalchemy-3.1.1-py3-none-any.whl", hash = "sha256:4ba4be7f419dc72f4efd8802d69974803c37259dd42f3913b0dcf75c9447e0a0"},
+    {file = "flask_sqlalchemy-3.1.1.tar.gz", hash = "sha256:e4b68bb881802dda1a7d878b2fc84c06d1ee57fb40b874d3dc97dabfa36b8312"},
+]
+
+[package.dependencies]
+flask = ">=2.2.5"
+sqlalchemy = ">=2.0.16"
+
+[[package]]
 name = "flask-super"
 version = "0.2.8"
 description = "Patterns and idioms for Flask applications."
@@ -1355,6 +1519,50 @@ flask = ">=3.0.0,<4.0.0"
 loguru = ">=0.7.2,<0.8.0"
 sentry-sdk = ">=2,<3"
 svcs = ">=24.1.0,<25.0.0"
+
+[[package]]
+name = "flask-talisman"
+version = "1.1.0"
+description = "HTTP security headers for Flask."
+optional = false
+python-versions = "*"
+files = [
+    {file = "flask-talisman-1.1.0.tar.gz", hash = "sha256:c5f486f5f54420729f84b3c3850cd63f96e8b033a9629bee66c524ea363797ff"},
+    {file = "flask_talisman-1.1.0-py2.py3-none-any.whl", hash = "sha256:3c42b610ebe49b0e35ca150e179bf51aa1da01e4635b49a674868ea681046208"},
+]
+
+[[package]]
+name = "flask-vite"
+version = "0.5.0"
+description = "Flask+Vite integration."
+optional = false
+python-versions = "<4.0,>=3.9"
+files = [
+    {file = "flask_vite-0.5.0-py3-none-any.whl", hash = "sha256:d5b1c04093ff93b239e1c834435f1027d455bcfffbb9f572fcd2a34a30049f0f"},
+    {file = "flask_vite-0.5.0.tar.gz", hash = "sha256:4846b4c64f3fc2a308b822d2a0674a791d9915e6f4a9c05266932b77c46a80c9"},
+]
+
+[package.dependencies]
+flask = ">2"
+
+[[package]]
+name = "flask-wtf"
+version = "1.2.1"
+description = "Form rendering, validation, and CSRF protection for Flask with WTForms."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "flask_wtf-1.2.1-py3-none-any.whl", hash = "sha256:fa6793f2fb7e812e0fe9743b282118e581fb1b6c45d414b8af05e659bd653287"},
+    {file = "flask_wtf-1.2.1.tar.gz", hash = "sha256:8bb269eb9bb46b87e7c8233d7e7debdf1f8b74bf90cc1789988c29b37a97b695"},
+]
+
+[package.dependencies]
+flask = "*"
+itsdangerous = "*"
+wtforms = "*"
+
+[package.extras]
+email = ["email-validator"]
 
 [[package]]
 name = "gevent"
@@ -2084,6 +2292,23 @@ pynacl = ">=1.5"
 all = ["gssapi (>=1.4.1)", "invoke (>=2.0)", "pyasn1 (>=0.1.7)", "pywin32 (>=2.1.8)"]
 gssapi = ["gssapi (>=1.4.1)", "pyasn1 (>=0.1.7)", "pywin32 (>=2.1.8)"]
 invoke = ["invoke (>=2.0)"]
+
+[[package]]
+name = "passlib"
+version = "1.7.4"
+description = "comprehensive password hashing framework supporting over 30 schemes"
+optional = false
+python-versions = "*"
+files = [
+    {file = "passlib-1.7.4-py2.py3-none-any.whl", hash = "sha256:aa6bca462b8d8bda89c70b382f0c298a20b5560af6cbfa2dce410c0a2fb669f1"},
+    {file = "passlib-1.7.4.tar.gz", hash = "sha256:defd50f72b65c5402ab2c573830a6978e5f202ad0d984793c8dde2c4152ebe04"},
+]
+
+[package.extras]
+argon2 = ["argon2-cffi (>=18.2.0)"]
+bcrypt = ["bcrypt (>=3.1.0)"]
+build-docs = ["cloud-sptheme (>=1.10.1)", "sphinx (>=1.6)", "sphinxcontrib-fulltoc (>=1.2.0)"]
+totp = ["cryptography"]
 
 [[package]]
 name = "pathspec"
@@ -3523,6 +3748,23 @@ files = [
 dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 
 [[package]]
+name = "wtforms"
+version = "3.1.2"
+description = "Form validation and rendering for Python web development."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "wtforms-3.1.2-py3-none-any.whl", hash = "sha256:bf831c042829c8cdbad74c27575098d541d039b1faa74c771545ecac916f2c07"},
+    {file = "wtforms-3.1.2.tar.gz", hash = "sha256:f8d76180d7239c94c6322f7990ae1216dae3659b7aa1cee94b6318bdffb474b9"},
+]
+
+[package.dependencies]
+markupsafe = "*"
+
+[package.extras]
+email = ["email-validator"]
+
+[[package]]
 name = "xmltodict"
 version = "0.13.0"
 description = "Makes working with XML feel like you are working with JSON"
@@ -3607,4 +3849,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "8df9a5a8b2c8620e6945197a17375befa50e632f2722e0116e3db6f1dad9c49a"
+content-hash = "521834523d33b62086fe3ce508dcba27481decbaffdd0c8616eec6de095c4d1a"

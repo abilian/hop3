@@ -29,6 +29,7 @@ lint.extend-ignore = [
     "I001", # Import block is un-sorted or un-formatted
     "INP001", # implicit namespace package
     "PD011", # Use `.to_numpy()` instead of `.values`
+    "PLC0415", # Consider using `f-string`
     "PLR6104", # suggests using += when inapplicable
     "PLW1514", # `pathlib.Path(...).write_text` without explicit `encoding` argument
     "S101", # Use of `assert` detected
