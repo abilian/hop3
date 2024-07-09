@@ -2268,13 +2268,13 @@ uv = ["uv (>=0.1.6)"]
 
 [[package]]
 name = "packageurl-python"
-version = "0.15.2"
+version = "0.15.3"
 description = "A purl aka. Package URL parser and builder"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "packageurl_python-0.15.2-py3-none-any.whl", hash = "sha256:6b81641aeedf0a73377d88a8a640e45a2a0848ffdf5447d24eeef8526c41ac92"},
-    {file = "packageurl_python-0.15.2.tar.gz", hash = "sha256:9cd10eeedbc6680728c10a1585c6dd7bbad4ef4b389d80cd0ac223205e9c87df"},
+    {file = "packageurl_python-0.15.3-py3-none-any.whl", hash = "sha256:96624702032239e70e61b950e14460a5b5f87ac21fc68f119414047b94f0de27"},
+    {file = "packageurl_python-0.15.3.tar.gz", hash = "sha256:82e1150f1fc228e25e7b3be1c641ef96b6a0811526c0b4e4f7882a181e862607"},
 ]
 
 [package.extras]
@@ -3260,13 +3260,13 @@ tornado = ["tornado (>=6)"]
 
 [[package]]
 name = "setuptools"
-version = "70.2.0"
+version = "70.3.0"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "setuptools-70.2.0-py3-none-any.whl", hash = "sha256:b8b8060bb426838fbe942479c90296ce976249451118ef566a5a0b7d8b78fb05"},
-    {file = "setuptools-70.2.0.tar.gz", hash = "sha256:bd63e505105011b25c3c11f753f7e3b8465ea739efddaccef8f0efac2137bac1"},
+    {file = "setuptools-70.3.0-py3-none-any.whl", hash = "sha256:fe384da74336c398e0d956d1cae0669bc02eed936cdb1d49b57de1990dc11ffc"},
+    {file = "setuptools-70.3.0.tar.gz", hash = "sha256:f171bab1dfbc86b132997f26a119f6056a57950d058587841a0082e8830f9dc5"},
 ]
 
 [package.extras]
