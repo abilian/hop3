@@ -20,10 +20,7 @@ class Role(AuditBase, RoleMixin):
     description: Mapped[str] = mapped_column(String(255))
 
     # A comma separated list of strings
-    permissions = Column(
-        MutableList.as_mutable(AsaList()),
-        nullable=True
-    )
+    permissions = Column(MutableList.as_mutable(AsaList()), nullable=True)
 
 
 class User(AuditBase, UserMixin):
