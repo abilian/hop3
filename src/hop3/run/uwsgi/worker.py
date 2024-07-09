@@ -29,7 +29,6 @@ from hop3.util import Abort, log
 from hop3.util.settings import parse_settings
 
 from .settings import UwsgiSettings
-from .web import spawn_uwsgi_worker_web
 
 if TYPE_CHECKING:
     from hop3.core.env import Env
@@ -46,9 +45,9 @@ def spawn_uwsgi_worker(
 ) -> None:
     """Set up and deploy a single worker of a given kind."""
 
-    if kind == "web":
-        spawn_uwsgi_worker_web(app_name, kind, command, env, ordinal)
-        return
+    # if kind == "web":
+    #     spawn_uwsgi_worker_web(app_name, kind, command, env, ordinal)
+    #     return
 
     match kind:
         case "static":
@@ -265,7 +264,7 @@ class WebWorker(UwsgiWorker):
         ' %%(size) "%%(referer)" "%%(uagent)" %%(msecs)ms'
     )
 
-    def update_setings(self):
+    def update_settings(self):
         echo(
             "-----> nginx will talk to the 'web' process via"
             " {BIND_ADDRESS:s}:{PORT:s}".format(
