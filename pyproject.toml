@@ -37,6 +37,9 @@ pyzmq = "^26"
 # Remove later
 devtools = "^0.12.2"
 snoop = "^0.4.3"
+flask = "^3.0.3"
+flask-super = "^0.2.8"
+sqlalchemy-utils = "^0.41.2"
 
 [tool.poetry.group.dev.dependencies]
 abilian-devtools = "^0.5.18"
