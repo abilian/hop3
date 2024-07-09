@@ -41,17 +41,12 @@ def init_extensions(app: Flask) -> None:
     htmx.init_app(app)
     vite.init_app(app)
 
-    if app.debug:
-        setup_debug_toolbar(app)
+    if app.debug and DebugToolbarExtension:
+        DebugToolbarExtension(app)
 
     if not app.debug:
         csp = app.config.get("CONTENT_SECURITY_POLICY", DEFAULT_CSP_POLICY)
         Talisman(app, content_security_policy=csp)
-
-
-def setup_debug_toolbar(app: Flask) -> None:
-    if DebugToolbarExtension is not None:
-        DebugToolbarExtension(app)
 
 
 @email_dispatched.connect_via(ANY)

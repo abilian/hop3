@@ -1386,6 +1386,28 @@ Jinja2 = ">=3.1"
 pytz = ">=2022.7"
 
 [[package]]
+name = "flask-debugtoolbar"
+version = "0.15.1"
+description = "A toolbar overlay for debugging Flask applications."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "Flask_DebugToolbar-0.15.1-py3-none-any.whl", hash = "sha256:f3043d96e9fb9bc3b13ee8a02a5ecc531974f2fdceefa19ce3ba4a700ad40f36"},
+    {file = "flask_debugtoolbar-0.15.1.tar.gz", hash = "sha256:8c76666f1553641567da8d91c74fe92caa072cfc01429564aa5e109de10b1806"},
+]
+
+[package.dependencies]
+Blinker = "*"
+Flask = ">=2.2.0"
+itsdangerous = "*"
+MarkupSafe = "*"
+packaging = "*"
+werkzeug = "*"
+
+[package.extras]
+docs = ["Pallets-Sphinx-Themes", "Sphinx (>=1.2.2)"]
+
+[[package]]
 name = "flask-htmx"
 version = "0.3.2"
 description = "A Flask extension to work with HTMX."
@@ -3849,4 +3871,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "521834523d33b62086fe3ce508dcba27481decbaffdd0c8616eec6de095c4d1a"
+content-hash = "57f4a84ba912dddab4814d8cf49af161396bdb10f33349bbcbf3c8ef1243b6dc"

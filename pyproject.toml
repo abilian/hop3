@@ -63,6 +63,7 @@ pyinfra = { version = "v3.0.beta4", allow-prereleases = true }
 
 types-paramiko = "^3.4.0.20240311"
 types-psycopg2 = "^2.9.21.20240311"
+flask-debugtoolbar = "^0.15.1"
 
 [build-system]
 requires = ["poetry-core"]
