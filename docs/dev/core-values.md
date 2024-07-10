@@ -37,3 +37,51 @@ The 12-factor app methodology is a set of practices for building modern web appl
 10. **Dev/Prod Parity:** Keep development, staging, and production as similar as possible. Hop3's deployment methodology and support for environment variables make it easier to maintain parity across different environments, reducing "works on my machine" issues.
 11. **Logs:** Treat logs as event streams. Hop3 can be configured to treat logs as event streams, pushing them to a centralized logging service for analysis without requiring changes to the application code.
 12. **Admin Processes:** Run admin/management tasks as one-off processes. Hop3 can execute administrative or maintenance tasks as one-off processes, either through direct command execution or through the platform's task scheduling mechanisms.
+
+More details online: [The 12 Factor App @ Abilian Lab](https://lab.abilian.com/Tech/Cloud/The%2012%20Factor%20App/)
+
+## Hop3's Vision for Security
+
+Hop3 is committed to providing a secure platform for deploying and managing web applications. Drawing from best practices in cybersecurity, our security model emphasizes resilience, transparency, user empowerment, and proactive defense. By adopting a "trust nothing" approach, minimizing the attack surface, and leveraging the power of open source, Hop3 aims to provide a secure, reliable, and user-friendly platform for deploying and managing web applications. Our commitment to continuous monitoring, user education, and compliance ensures that Hop3 remains a trusted choice for developers, companies, small and large, governmental and educational institutions, and open source hobbyist alike.
+
+Below are the key principles guiding Hop3’s approach to security:
+
+1. **Trust Nothing Approach**:
+   - **Principle**: Assume that every component and interaction could be compromised.
+   - **Implementation**: Use end-to-end encryption, rigorous access controls, and frequent security audits to minimize trust dependencies. Employ multi-factor authentication (MFA) and role-based access controls (RBAC) to ensure only authorized users have access to sensitive data and operations.
+
+2. **Minimization of Attack Surface**:
+   - **Principle**: Reduce the potential points of entry for attackers.
+   - **Implementation**: Keep the architecture lean by minimizing dependencies and avoiding unnecessary components. Regularly update and patch all software components to mitigate known vulnerabilities. Use containerization to isolate applications and services, thereby limiting the impact of any single breach.
+
+3. **Data Security**:
+   - **Principle**: Protect data at rest and in transit.
+   - **Implementation**: Encrypt all data stored in databases, filesystems, and backups. Use TLS/SSL to encrypt data transmitted over networks. Implement stringent data retention policies to minimize the amount of sensitive data stored and ensure timely deletion of unnecessary data.
+
+4. **Continuous Monitoring and Incident Response**:
+   - **Principle**: Detect and respond to threats in real-time.
+   - **Implementation**: Integrate centralized logging and monitoring systems to collect and analyze security events. Use intrusion detection systems (IDS) and automated threat detection tools to identify potential security incidents. Establish clear incident response protocols to address and mitigate breaches swiftly.
+
+5. **Open Source Transparency**:
+   - **Principle**: Leverage the transparency of open source to enhance security.
+   - **Implementation**: Use open-source software where possible to allow for community scrutiny and auditing. Encourage contributions from the community to identify and fix security issues. Regularly conduct and participate in security audits and code reviews to ensure the integrity of the codebase.
+
+6. **Isolation and Containment**:
+   - **Principle**: Isolate critical components to prevent lateral movement of attackers.
+   - **Implementation**: Use network segmentation and firewalls to isolate critical components of the infrastructure. Deploy applications in isolated containers or virtual machines to prevent an attacker from moving laterally within the network. Implement strict ingress and egress rules to control data flow.
+
+7. **Proactive Vulnerability Management**:
+   - **Principle**: Stay ahead of potential threats by proactively identifying and addressing vulnerabilities.
+   - **Implementation**: Regularly scan for vulnerabilities using automated tools. Maintain an up-to-date inventory of all software components and dependencies. Subscribe to vulnerability databases and security advisories to stay informed about the latest threats and mitigation strategies.
+
+8. **User Education and Awareness**:
+   - **Principle**: Empower users with knowledge to prevent security breaches.
+   - **Implementation**: Provide regular security training and resources to users. Educate users on best practices for password management, phishing avoidance, and secure coding practices. Encourage a culture of security awareness and proactive reporting of suspicious activities.
+
+9. **Secure Development Practices**:
+   - **Principle**: Integrate security into the development lifecycle.
+   - **Implementation**: Adopt secure coding standards and practices. Use automated security testing tools as part of the continuous integration/continuous deployment (CI/CD) pipeline. Perform regular security code reviews and threat modeling exercises.
+
+10. **Compliance and Auditing**:
+    - **Principle**: Ensure adherence to relevant security standards and regulations.
+    - **Implementation**: Align with industry standards such as ISO 27001, GDPR, and other applicable regulations. Maintain detailed logs and records of security-related activities. Conduct regular audits to verify compliance with security policies and standards.
