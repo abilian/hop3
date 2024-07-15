@@ -1,3 +1,5 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 import glob
 from io import StringIO
 
@@ -47,6 +49,10 @@ PACKAGES = [
     # Addons
     "libpq-dev",
     "postgresql",
+    # Extra libs, for now
+    "libcairo2",
+    "libpango-1.0-0",
+    "libpangoft2-1.0-0",
 ]
 
 HOP3_USER = "hop3"
