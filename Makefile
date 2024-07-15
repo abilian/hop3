@@ -132,7 +132,7 @@ format:
 
 ## Add copyright mention
 add-copyright:
-	fish -c 'reuse annotate --copyright "Copyright (c) 2023-2024, Abilian SAS" src/**/*.py'
+	fish -c 'reuse annotate --copyright "Copyright (c) 2023-2024, Abilian SAS" src/**/*.py installer/*.py tests/**/*.py'
 
 #
 # Everything else

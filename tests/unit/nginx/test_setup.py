@@ -1,4 +1,5 @@
 # Copyright (c) 2023-2024, Abilian SAS
+
 from hop3.proxies.nginx.setup import NginxConfig
 
 

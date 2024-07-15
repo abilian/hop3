@@ -1,3 +1,5 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 import uuid
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
