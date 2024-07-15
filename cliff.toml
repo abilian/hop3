@@ -50,16 +50,17 @@ commit_preprocessors = [
 ]
 # regex for parsing and grouping commits
 commit_parsers = [
-  { message = "^feat", group = "🚀 Features" },
-  { message = "^fix", group = "🐛 Bug Fixes" },
-  { message = "^doc", group = "📚 Documentation" },
-  { message = "^perf", group = "⚡ Performance" },
-  { message = "^refact", group = "🚜 Refactor" },
-  { message = "^style", group = "🎨 Styling" },
-  { message = "^test", group = "🧪 Testing" },
+  { message = "^feat", group = "<!-- 0 -->🚀 Features" },
+  { message = "^fix", group = "<!-- 1 -->🐛 Bug Fixes" },
+  { message = "^doc", group = "<!-- 3 -->📚 Documentation" },
+  { message = "^perf", group = "<!-- 4 -->⚡ Performance" },
+  { message = "^refact", group = "<!-- 2 -->🚜 Refactor" },
+  { message = "^style", group = "<!-- 5 -->🎨 Styling" },
+  { message = "^test", group = "<!-- 6 -->🧪 Testing" },
   { message = "^chore", skip = true },
-  { body = ".*security", group = "🛡️ Security" },
-  { message = "^revert", group = "◀️ Revert" },
+  { message = "^chore", skip = true },
+  { body = ".*security", group = "<!-- 7 -->🛡️ Security" },
+  { message = "^revert", group = "<!-- 8 -->◀️ Revert" },
 ]
 # protect breaking changes from being skipped due to matching a skipping commit_parser
 protect_breaking_commits = false
