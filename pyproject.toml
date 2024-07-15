@@ -48,6 +48,9 @@ flask-mail = "^0.10.0"
 flask-migrate = "^4.0.7"
 flask-talisman = "^1.1.0"
 flask-vite = "^0.5.0"
+psutil = "^6.0.0"
+py-cpuinfo = "^9.0.0"
+sentry-sdk = "2.10.0"
 
 [tool.poetry.group.dev.dependencies]
 abilian-devtools = "^0.5.18"
