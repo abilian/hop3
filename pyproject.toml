@@ -6,7 +6,8 @@ authors = ["Stefane Fermigier <sf@abilian.com>"]
 readme = "README.md"
 
 packages = [
-    { include = "hop3", from = "src" }
+    { include = "hop3", from = "src" },
+    { include = "hop3_main", from = "src" },
 ]
 
 [tool.poetry.scripts]
@@ -22,7 +23,7 @@ cleez = "*"
 pluggy = "^1.4.0"
 svcs = "^24.1.0"
 
-sqlalchemy = "^2.0.29"
+sqlalchemy = "^2.0.31"
 sqlalchemy-serializer = "^1.4.12"
 advanced-alchemy = "^0.17"
 psycopg2 = "^2.9.9"
@@ -34,9 +35,15 @@ msgpack = "^1.0.8"
 eventlet = "^0.36"
 pyzmq = "^26"
 
+# System introspection
+psutil = "^6.0.0"
+py-cpuinfo = "^9.0.0"
+
 # Remove later
 devtools = "^0.12.2"
 snoop = "^0.4.3"
+
+# "main" / web app
 flask = "^3.0.3"
 flask-super = "^0.2.8"
 sqlalchemy-utils = "^0.41.2"
@@ -48,8 +55,6 @@ flask-mail = "^0.10.0"
 flask-migrate = "^4.0.7"
 flask-talisman = "^1.1.0"
 flask-vite = "^0.5.0"
-psutil = "^6.0.0"
-py-cpuinfo = "^9.0.0"
 sentry-sdk = "2.10.0"
 
 [tool.poetry.group.dev.dependencies]
