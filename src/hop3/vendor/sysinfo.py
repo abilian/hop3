@@ -5,6 +5,7 @@ import platform
 import shutil
 import subprocess
 import time
+from pathlib import Path
 
 from attr import dataclass
 
@@ -43,6 +44,20 @@ class SysInfo:
     def _set_cache(self, key, value):
         self._cache[key] = (value, time.time())
 
+    #
+    # Arch / OS
+    #
+    def platform_name(self):
+        return platform.system()
+
+    @cache(timeout=60)
+    def system_arch(self):
+        return self._run_command("dpkg --print-architecture")
+
+    @cache(timeout=60)
+    def system_virt(self):
+        return self._run_command("systemd-detect-virt || true")
+
     @cache(timeout=60)
     def distrib_codename(self):
         return self._lsb_release("c")
@@ -51,20 +66,9 @@ class SysInfo:
     def distrib_version(self):
         return self._lsb_release("r")
 
-    @cache(timeout=60)
-    def system_arch(self):
-        return self._run_command("dpkg --print-architecture")
-
-    @cache(timeout=60)
-    def system_virt(self):
-        return self._run_command("systemd-detect-virt 2>/dev/null || true")
-
     def free_space_in_directory(self, dirpath):
         stat = os.statvfs(dirpath)
         return stat.f_frsize * stat.f_bavail
-
-    def platform_name(self):
-        return platform.system()
 
     #
     # Disk
@@ -91,6 +95,10 @@ class SysInfo:
             return result.split("src ")[1].split(" ")[0] if result else None
         except Exception:
             return None
+
+    @cache(timeout=3600)
+    def has_ipv6(self):
+        return Path("/proc/net/if_inet6").exists()
 
     #
     # CPU

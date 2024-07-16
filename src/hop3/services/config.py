@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 
+
 class ConfigService:
     def __init__(self, config: dict):
         self.config = config
