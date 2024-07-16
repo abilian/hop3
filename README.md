@@ -102,6 +102,8 @@ Engage with the Hop3 community:
 
 - **GitHub Issues**: For bug reports and feature suggestions.
 
+- **Matrix Chat**: Join the live discussion on Matrix at [#hop3:matrix.org](https://matrix.to/#/#hop3:matrix.org).
+
 The following tools will soon be available:
 
 - **Community Forums/Discussion Boards**: For discussions, questions, and community support.
@@ -237,6 +239,7 @@ motivating tone.
 - [Hop3 on PyPI](https://pypi.org/project/hop3/)
 - [Hop3 on GitHub](https://github.com/abilian/hop3)
 - [Hop3 on SourceHut](https://git.sr.ht/~sfermigier/hop3) (mirror)
+- [Live Discussion](https://matrix.to/#/#hop3:matrix.org)
 - [Nua](https://nua.rocks/) (Hop3's predecessor)
 - [Piku](https://piku.github.io/) (Hop3's inspiration)
 - [Sailor](https://github.com/mardix/sailor) (Another fork of Piku)
