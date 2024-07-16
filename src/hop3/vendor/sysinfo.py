@@ -7,7 +7,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from attr import dataclass
+import attr
 
 
 def cache(timeout):
@@ -27,9 +27,9 @@ def cache(timeout):
     return decorator
 
 
-@dataclass(frozen=True)
+@attr.frozen
 class SysInfo:
-    _cache: dict = dataclass.field(default_factory=dict)
+    _cache: dict = attr.field(factory=dict)
 
     #
     # Cache
