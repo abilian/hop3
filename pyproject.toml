@@ -65,6 +65,7 @@ pyinfra = "^3"
 types-paramiko = "^3.4.0.20240311"
 types-psycopg2 = "^2.9.21.20240311"
 flask-debugtoolbar = "^0.15.1"
+msgspec = "^0.18.6"
 
 [build-system]
 requires = ["poetry-core"]
