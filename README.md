@@ -25,13 +25,14 @@ Hop3 is an open-source platform designed to enhance cloud computing with a focus
 
 It aims to facilitate access to cloud technologies for a diverse range of users, including small and medium-sized enterprises (SMEs), non-profits, public services, and individual developers. By leveraging robust web, cloud, and open source technologies, Hop3 enables these groups to deploy and manage web applications efficiently and securely.
 
-### Goals
+## Goals
 
 - **Sovereignty**: Empowers users to maintain control over their data and infrastructure, reducing reliance on centralized cloud services.
-- **Security and Privacy**: Adopts a secure-by-design approach, integrating advanced security measures and ensuring compliance with privacy regulations like GDPR.
+- **Security and Privacy**: Adopts a secure-by-design approach, integrating advanced security measures and ensuring compliance with privacy regulations like GDPR and the Cyber Resilience Act (CRA).
 - **Environmental Sustainability**: Incorporates eco-design principles to reduce the environmental footprint of cloud computing, advocating for sustainable digital practices.
 - **Openness and Collaboration**: Developed as an open-source project to encourage community-driven innovation and improvement.
 - **Inclusivity and Accessibility**: Ensures the platform is accessible to a diverse audience, including those with different abilities, through comprehensive documentation and support.
+
 
 ## Features
 
@@ -84,10 +85,9 @@ Hop3's technology stack is carefully chosen to support its goals without relying
 
 - **Lightweight Isolation**: Utilizes lean isolation technologies privided by POSIX operating systems, and improved by technologies such as Nix or Guix, to ensure efficient resource use and reproducible builds.
 - **Decentralized Architecture**: Employs a decentralized model for data storage and processing to enhance sovereignty and resilience.
-- **Security Tools**: Incorporates a suite of security tools designed for continuous monitoring and proactive threat mitigation.
+- **Security Tools**: Incorporates a suite of security tools designed for continuous monitoring, proactive threat mitigation, and compliance with the CRA.
 - **Energy-Efficient Computing**: Adopts strategies and technologies aimed at minimizing energy consumption across all operations.
 - **Open Standards and Protocols**: Committed to open standards to ensure interoperability and prevent vendor lock-in.
-
 
 ## Getting Started
 
@@ -145,6 +145,7 @@ Please refer to the following key documents for contribution guidelines:
 - [Governance](./docs/dev/governance.md)
 - [Code of Conduct](./docs/policies/code-of-conduct.md)
 - [Licenses](./LICENSES)
+
 
 ### Community Engagement
 
