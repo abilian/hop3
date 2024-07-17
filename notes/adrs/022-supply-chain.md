@@ -15,7 +15,7 @@ Hop3 will adopt a proactive stance towards software supply chain security by int
 ### Software Supply Chain Security
 
 1. **Dependency Management**:
-   - **Nix Package Management**: Utilize Nix for deterministic builds and dependency management, ensuring that all software dependencies are explicitly defined and reproducible.
+   - **Nix Package Management**: Utilize Nix for deterministic builds and dependency management, ensuring that all software dependencies are explicitly defined, reproducible, and isolated.
    - **Dependency Auditing**: Regularly audit dependencies for known vulnerabilities using automated tools and maintain up-to-date security patches.
 
 2. **Secure Development Practices**:
