@@ -64,4 +64,3 @@ Hop3 will implement comprehensive data encryption strategies to protect data at 
 3. **Documentation and Training**:
    - Provide documentation on encryption practices and key management.
    - Train personnel on data protection and encryption protocols.
-
