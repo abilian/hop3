@@ -4,7 +4,7 @@
 
 ## Context and Goals
 
-The Hop3 platform aims to deploy and manage web applications in a scalable, reliable, and efficient manner. A distributed, agent-based architecture offers significant advantages in terms of scalability, fault tolerance, and decentralization. By leveraging the theory of promises, invented by Mark Burgess, this architecture can ensure robust and predictable behavior in a distributed system. The goal is to design and implement a distributed, agent-based architecture for Hop3 that enhances its ability to manage large-scale deployments efficiently and reliably.
+The Hop3 platform aims to deploy and manage web applications in a scalable, reliable, and efficient manner. A distributed, agent-based architecture offers significant advantages in terms of scalability, fault tolerance, and decentralization. By leveraging the theory of promises, invented by Mark Burgess, this architecture can ensure robust and predictable behavior in a distributed system. The goal is to design and implement a distributed, agent-based architecture for Hop3 that enhances its ability to manage medium to large-scale deployments efficiently and reliably.
 
 ## Decision
 

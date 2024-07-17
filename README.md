@@ -21,40 +21,73 @@ and [GitHub](https://github.com/abilian/hop3).
 
 ## Overview
 
-Hop3 is an open-source platform aimed at enhancing cloud computing with a focus on sovereignty, security,
-sustainability, and inclusivity.
+Hop3 is an open-source platform designed to enhance cloud computing with a focus on sovereignty, security, sustainability, and inclusivity.
 
-It is designed to facilitate access to cloud technologies for a wide range of users, including small and medium-sized
-enterprises (SMEs), non-profits, public services, and individual developers. By leveraging existing, robust web, cloud
-and open source technologies, Hop3 enables these groups to deploy and manage web applications efficiently and securely.
+It aims to facilitate access to cloud technologies for a diverse range of users, including small and medium-sized enterprises (SMEs), non-profits, public services, and individual developers. By leveraging robust web, cloud, and open source technologies, Hop3 enables these groups to deploy and manage web applications efficiently and securely.
 
-## Key Features
+### Goals
 
-- **Sovereignty**: Empowers users to maintain control over their data and infrastructure, aiming to reduce reliance on
-  centralized cloud services.
-- **Security and Privacy**: Adopts a secure-by-design approach, integrating advanced security measures and ensuring
-  compliance with privacy regulations like GDPR.
-- **Environmental Sustainability**: Incorporates eco-design principles to reduce the environmental footprint of cloud
-  computing, advocating for sustainable digital practices.
-- **Openness and Collaboration**: Developed as an open-source project to encourage community-driven innovation and
-  improvement.
-- **Inclusivity and Accessibility**: Ensures the platform is accessible to a diverse audience, including those with
-  different abilities, through comprehensive documentation and support.
+- **Sovereignty**: Empowers users to maintain control over their data and infrastructure, reducing reliance on centralized cloud services.
+- **Security and Privacy**: Adopts a secure-by-design approach, integrating advanced security measures and ensuring compliance with privacy regulations like GDPR.
+- **Environmental Sustainability**: Incorporates eco-design principles to reduce the environmental footprint of cloud computing, advocating for sustainable digital practices.
+- **Openness and Collaboration**: Developed as an open-source project to encourage community-driven innovation and improvement.
+- **Inclusivity and Accessibility**: Ensures the platform is accessible to a diverse audience, including those with different abilities, through comprehensive documentation and support.
 
-## Technology Stack
+## Features
 
-Hop3's technology stack is carefully chosen to support its goals without relying on conventional containerization tools
-like Docker or Kubernetes. Instead, it focuses on alternative, lightweight solutions that align with the project's
-principles of efficiency and sovereignty. The stack includes:
+(Some of these features are still in development.)
 
-- **Lightweight Isolation**: Utilizes lean isolation technologies to ensure efficient resource use.
-- **Decentralized Architecture**: Employs a decentralized model for data storage and processing to enhance sovereignty
-  and resilience.
-- **Security Tools**: Incorporates a suite of security tools designed for continuous monitoring and proactive threat
-  mitigation.
-- **Energy-Efficient Computing**: Adopts strategies and technologies aimed at minimizing energy consumption across all
-  operations.
+### Web-Based Management Interface
+
+- **Centralized Management**: Hop3 offers a robust web-based interface for managing applications, users, and system settings. This intuitive dashboard provides comprehensive monitoring and control of the server.
+
+### User Management and Single Sign-On (SSO)
+
+- **Integrated LDAP**: Hop3 integrates with LDAP for centralized user management and authentication.
+- **SSO**: Provides Single Sign-On capabilities across all applications, enabling users to access multiple services with a single login.
+
+### Role-Based Access Control (RBAC)
+
+- **Granular Permissions**: Implements RBAC to manage permissions for different users and groups, allowing administrators to control access to various functionalities and applications.
+
+### Automated Backups and Restore
+
+- **Data Protection**: Offers automated backup and restore functionalities to protect against data loss. Includes scheduling regular backups and providing easy restoration processes.
+
+### Domain Management and SSL Certificates
+
+- **DNS Configuration**: Provides tools for managing domain names, including DNS configuration.
+- **SSL Management**: Integrates automated SSL certificate management using services like Let's Encrypt to ensure secure communication.
+
+### Modular Design
+
+- **Pluggable Modules**: Features a modular architecture where functionalities are provided by different modules. Administrators can install, configure, and manage these modules independently, allowing for flexible and scalable deployments.
+
+### Comprehensive Network Management
+
+- **Network Services**: Integrates robust network management features such as firewall, VPN, DHCP, DNS, and proxy services, ensuring that Hop3 can handle complex network configurations and provide secure access to applications.
+
+### Security and Resilience Enhancements
+
+- **Advanced Security Measures**: Incorporates advanced security tools for continuous monitoring and proactive threat mitigation.
+- **Redundancy and Failover**: Implements redundancy and failover mechanisms to ensure continuous availability.
+- **Monitoring and Alerts**: Sets up real-time monitoring and alerting systems to detect and respond to issues promptly.
+
+### Distributed, Agent-Based Architecture
+
+- **Decentralized Control**: Employs a decentralized model for data storage and processing to enhance sovereignty and resilience, using principles from the theory of promises for coordination between agents.
+- **Scalability and Fault Tolerance**: Adopts a distributed, agent-based architecture to enhance scalability and fault tolerance, allowing for the seamless addition of nodes and self-healing capabilities.
+
+### Technology Stack
+
+Hop3's technology stack is carefully chosen to support its goals without relying on conventional containerization tools like Docker or Kubernetes. Instead, it focuses on alternative, lightweight solutions that align with the project's principles of efficiency and sovereignty. The stack includes:
+
+- **Lightweight Isolation**: Utilizes lean isolation technologies privided by POSIX operating systems, and improved by technologies such as Nix or Guix, to ensure efficient resource use and reproducible builds.
+- **Decentralized Architecture**: Employs a decentralized model for data storage and processing to enhance sovereignty and resilience.
+- **Security Tools**: Incorporates a suite of security tools designed for continuous monitoring and proactive threat mitigation.
+- **Energy-Efficient Computing**: Adopts strategies and technologies aimed at minimizing energy consumption across all operations.
 - **Open Standards and Protocols**: Committed to open standards to ensure interoperability and prevent vendor lock-in.
+
 
 ## Getting Started
 
@@ -73,12 +106,39 @@ To begin using Hop3, follow these introductory steps:
 4. **Documentation**: For detailed information on setup, architecture, and usage, refer to the `docs` folder. This
    resource includes comprehensive guides and best practices.
 
-## Contributing
 
-Contributions to Hop3 are highly encouraged, whether it involves fixing bugs, adding features, or enhancing
-documentation. Please refer to the files below for contribution guidelines.
+## Development and Contribution
 
-Key documents:
+Contributions to Hop3 are highly encouraged, whether it involves fixing bugs, adding features, or enhancing documentation. The development and delivery pipeline is designed to be hermetic, reproducible, and highly responsive, integrating modern cross-platform functional package management with continuous integration/continuous delivery (CI/CD). This ensures that the development process is transparent, secure, and efficient.
+
+### Development Environment
+
+To develop Hop3, you will need to set up a Python development environment (tested under various variants of Linux, and MacOS). The project uses Python 3.10+ and Poetry for environment and dependency management. We assume you are already familiar with these prerequisites.
+
+- **NixOS/Nix**: If using NixOS or Nix, you can use the provided `shell.nix` file to set up a development environment.
+- **Test Automation**: We use `nox` for test automation. You can run `nox` to execute all tests, or `nox -l` to list available sessions.
+- **Development Tools**: We use `abilian-devtools` for various development tasks. This includes `make` targets for common tasks, such as running tests, formatting code, and checking for typing issues. Run `make help` to see a list of the main available targets.
+
+### Development and Delivery Pipeline
+
+To ensure a hermetic, reproducible, and highly responsive internal delivery process, Hop3 integrates modern cross-platform functional package management with CI/CD. This approach leverages Nix to make the entire dependency tree transparent and validatable, enhancing the reliability and security of the delivery pipeline.
+
+#### CI/CD Integration
+
+- **Continuous Integration**: Implement CI pipelines to automatically build and test code changes, ensuring that all code is continuously validated and ready for deployment.
+- **Continuous Delivery**: Automate the deployment process to ensure that new features and updates can be delivered quickly and reliably to production.
+
+#### Package Management
+
+- **Nix Package Management**: Use Nix for package management to achieve deterministic builds, minimize dependency conflicts, and ensure reproducibility. Nix provides a consistent environment for building and deploying applications, making it suitable for even the most critical environments.
+
+#### Compliance and Transparency
+
+- **Software Bill of Materials (SBOM)**: Automatically generate compliance-ready CycloneDX Software Bill of Materials using tools like Genealogos. This ensures that all dependencies are transparent and verifiable, aiding in compliance and security audits.
+
+### Contributing
+
+Please refer to the following key documents for contribution guidelines:
 
 - [Contributing](./docs/dev/contributing.md)
 - [Core Values](./docs/dev/core-values.md)
@@ -86,31 +146,25 @@ Key documents:
 - [Code of Conduct](./docs/policies/code-of-conduct.md)
 - [Licenses](./LICENSES)
 
-### Note on Development Environment
-
-To develop Hop3, you will need to set up a Python development environment (tested under various variants of Linux, and MacOS). The project uses Python 3.10+ and Poetry for environment and dependency management. We assume you are already familiar with these prerequisites.
-
-Additional notes:
-
-- Under NixOS or if using Nix, you can use the provided `shell.nix` file to set up a development environment.
-- We use `nox` for test automation. You can run `nox` to run all tests, or `nox -l` to list available sessions.
-- We use `abilian-devtools` for various development tasks. This includes `make` targets for common tasks, such as running tests, formatting code, and checking for typing issues. You can run `make help` to see a list of the main available targets.
-
-## Support and Community
+### Community Engagement
 
 Engage with the Hop3 community:
 
 - **GitHub Issues**: For bug reports and feature suggestions.
-
 - **Matrix Chat**: Join the live discussion on Matrix at [#hop3:matrix.org](https://matrix.to/#/#hop3:matrix.org).
 
 The following tools will soon be available:
 
 - **Community Forums/Discussion Boards**: For discussions, questions, and community support.
-
 - **Mailing List**: Subscribe to receive updates, announcements, and participate in discussions.
 
 <!-- For additional information, visit the official Hop3 project page or reach out to the team via our support channels. -->
+
+### Additional Notes
+
+- **Documentation**: For detailed information on setup, architecture, and usage, refer to the `docs` folder. This resource includes comprehensive guides and best practices.
+- **Continuous Improvement**: We welcome feedback and contributions from the community to continuously improve Hop3. Your participation is key to the success of this open-source project.
+
 
 ## Roadmap
 
@@ -141,9 +195,9 @@ Infra, QA, DX, refactorings:
 - [x] Basic plugin architecture (using, e.g. [pluggy](https://pluggy.readthedocs.io/en/stable/))
 - [x] Nix dev env (support for `nix-shell`)
 - [x] Test automation (using `nox`)
-- [ ] Fix all typing issues (mypy and pyright)
-- [ ] Make src/hop3/run/uwsgi.py into a class
+- [X] Make src/hop3/run/uwsgi.py into a class
 - [ ] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
+- [ ] Fix all typing issues (mypy and pyright)
 
 ### P1 (Q3 2024):
 
