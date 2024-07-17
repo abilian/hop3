@@ -116,6 +116,8 @@ The following tools will soon be available:
 
 Here's the current roadmap for Hop3. Priorities and timelines are subject to change based on community feedback, business priorities and funding.
 
+See also the informal [TODO](./notes/todo.md) list.
+
 ### P0 (MVP, Q2 2024):
 
 Initial goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe-monorepo/).
@@ -149,10 +151,13 @@ Features:
 
 - [ ] More apps
 - [ ] Review / improve CLI DX
+  - [ ] Use an API server
+  - [ ] Good looking logging (cf. https://bernsteinbear.com/blog/python-parallel-output/)
 - [ ] Improve Python builder (support for poetry, pipenv, etc.)
 - [ ] Manage external services (databases, mail, etc.)
 - [ ] Backup / Restore
 - [ ] Web App / portal
+- [ ] API server
 
 Infra, refactorings:
 
@@ -164,6 +169,7 @@ Infra, refactorings:
 ### P2 (Q4 2024):
 
 - [ ] More apps
+- [ ] Agents
 - [ ] Target other platforms (e.g. SlapOS, NixOS, Guix, etc.)
 - [ ] Security (Firewall, WAF, better isolation, etc.)
 - [ ] Monitoring
