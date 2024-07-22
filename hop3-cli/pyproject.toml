@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "hop3-cli"
+version = "0.1.0"
+description = ""
+authors = ["Stefane Fermigier <sf@abilian.com>"]
+license = "MIT"
+readme = "README.md"
+
+packages = [
+    { include = "hop3_cli", from = "src" },
+]
+
+[tool.poetry.scripts]
+hop-cli = "hop3_cli.main:main"
+
+
+[tool.poetry.dependencies]
+python = "^3.10"
+termcolor = "^2.4.0"
+platformdirs = "^4.2.2"
+
+
+[tool.poetry.group.dev.dependencies]
+abilian-devtools = "^0.5.27"
+pytest = "^8.3.1"
+devtools = "^0.12.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
