@@ -14,6 +14,9 @@ APP_AUTHOR = "Abilian SAS"
 
 _marker = object()
 
+# TODO: refactor (make is really immutable, add a ConfigLoader class)
+# TODO: add support for JSON and YAML
+
 
 @dataclasses.dataclass(frozen=True)
 class Config:

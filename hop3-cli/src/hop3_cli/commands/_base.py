@@ -3,12 +3,13 @@ from __future__ import annotations
 import argparse
 import dataclasses
 from abc import ABCMeta, abstractmethod
-from typing import Any, Sequence, ClassVar
+from typing import Any, ClassVar, Sequence
 
 import rpyc
 
+__all__ = ["Command"]
 
-__all__ = ['Command']
+from hop3_cli.context import Context
 
 
 @dataclasses.dataclass(frozen=True)
@@ -39,21 +40,8 @@ class Command(metaclass=ABCMeta):
 
         subparser.set_defaults(func=self.handle)
 
-    @property
-    def client(self):
-        """Get the client instance"""
-        if "client" in self._cache:
-            return self._cache["client"]
-        client = rpyc.connect("localhost", 18861)
-        self._cache["client"] = client
-        return client
-
-    def rpc(self, service, method, *args, **kwargs):
-        """Call a remote method"""
-        return self.client.root.call(service, method, *args, **kwargs)
-
     @abstractmethod
-    def handle(self, args):
+    def handle(self, args: argparse.Namespace, context: Context):
         """Run the command. Override this method in your subclass"""
 
     def setup_common_arguments(self, parser):

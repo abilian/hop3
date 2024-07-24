@@ -10,14 +10,16 @@ from devtools import debug
 
 from .commands import Command
 from .commands.debug import DebugCommand
-from .commands.help import VersionCommand
-from .config import get_config
+from .commands.help import HelpCommand, VersionCommand
+from .config import Config, get_config
+from .context import Context
 
 logger = logging.getLogger(__name__)
 
 COMMANDS: list[type[Command]] = [
     VersionCommand,
     DebugCommand,
+    HelpCommand,
 ]
 
 
@@ -26,18 +28,16 @@ def main():
     run_command_from_args(args)
 
 
-def run_command_from_args(args=None, **extra):
+def run_command_from_args(args=None):
     parsed_args = parse_args(args)
 
     if config_file := getattr(parsed_args, "config_file", None):
         config = get_config(config_file)
     else:
-        config = None
+        config = Config("", {})
 
-    if config is None:
-        parsed_args.func(parsed_args, **extra)
-    else:
-        parsed_args.func(parsed_args, config, **extra)
+    context = Context(config=config, state=None)
+    parsed_args.func(parsed_args, context)
 
 
 def parse_args(args) -> argparse.Namespace:

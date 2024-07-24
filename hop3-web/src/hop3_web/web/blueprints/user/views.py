@@ -1,7 +1,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
 from flask import render_template
-
 from hop3_web.web.menus import MAIN_MENU
 
 from . import get

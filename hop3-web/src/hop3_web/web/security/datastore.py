@@ -4,9 +4,8 @@
 from __future__ import annotations
 
 from flask_security import SQLAlchemyUserDatastore
-from sqlalchemy.orm import Query
-
 from hop3_web.models.auth import User
+from sqlalchemy.orm import Query
 
 # HACK: emulate flask-sqlalchemy's db.Model.query
 # User.query = sqlalchemy.orm.query.Query(User)

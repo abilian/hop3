@@ -123,11 +123,12 @@ audit:
 ## Format / beautify code
 format:
 	# docformatter -i -r src
-	adt format
-	ruff format src
+	fish -c "black src */src tests */tests"
+	fish -c "isort src */src tests */tests"
+	fish -c "ruff format src */src tests */tests"
 
 ## Format / beautify apps
-format-app:
+format-apps:
 	@echo "You need the Fish shell to run the following commands:"
 	fish -c "gofmt -w apps/**/*.go"
 	fish -c "prettier -w apps/**/*.js"

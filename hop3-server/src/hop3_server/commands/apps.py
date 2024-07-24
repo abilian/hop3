@@ -12,7 +12,7 @@ import subprocess
 import sys
 from glob import glob
 
-from hop3_server.service import list_apps, App, get_app
+from hop3_server.service import App, get_app, list_apps
 from hop3_server.utils.console import echo
 
 

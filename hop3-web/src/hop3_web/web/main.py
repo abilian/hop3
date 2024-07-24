@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 from flask import Flask
 from flask_super.initializers import init_logging
 from flask_super.scanner import scan_packages
-
 from hop3_web.web.extensions import init_extensions
 from hop3_web.web.setup import register_blueprints
 
