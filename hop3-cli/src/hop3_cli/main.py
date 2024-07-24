@@ -6,9 +6,8 @@ import argparse
 import logging
 import sys
 
-from devtools import debug
-
 from .commands import Command
+from .commands.apps import AppsCommand
 from .commands.debug import DebugCommand
 from .commands.help import HelpCommand, VersionCommand
 from .config import Config, get_config
@@ -20,6 +19,7 @@ COMMANDS: list[type[Command]] = [
     VersionCommand,
     DebugCommand,
     HelpCommand,
+    AppsCommand,
 ]
 
 

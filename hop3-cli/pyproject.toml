@@ -12,6 +12,7 @@ packages = [
 
 [tool.poetry.scripts]
 hop-cli = "hop3_cli.main:main"
+hop3-cli = "hop3_cli.main:main"
 
 
 [tool.poetry.dependencies]
