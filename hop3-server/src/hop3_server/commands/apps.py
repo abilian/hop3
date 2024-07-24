@@ -16,9 +16,10 @@ from hop3_server.service import list_apps
 from hop3_server.utils.console import echo
 
 
-def cmd_apps() -> None:
+def cmd_apps() -> list[App]:
     """List apps, e.g.: hop-agent apps."""
     apps = list_apps()
+    return apps
     if not apps:
         echo("There are no applications deployed.")
         return

@@ -1,3 +1,4 @@
-from .api import list_apps
+from .api import get_app, list_apps
+from .model import App
 
-__all__ = ["list_apps"]
+__all__ = ["list_apps", "get_app", "App"]

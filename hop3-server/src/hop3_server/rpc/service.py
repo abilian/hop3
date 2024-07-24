@@ -4,7 +4,6 @@ from pprint import pprint
 from types import ModuleType
 
 import rpyc
-
 from hop3_server.utils.scanner import scan_packages
 
 PACKAGES = [
