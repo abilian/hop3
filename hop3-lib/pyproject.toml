@@ -6,13 +6,8 @@ authors = ["Stefane Fermigier <sf@abilian.com>"]
 readme = "README.md"
 
 packages = [
-    { include = "hop3", from = "src" },
-    { include = "hop3_main", from = "src" },
+    { include = "hop3_lib", from = "src" },
 ]
-
-[tool.poetry.scripts]
-hop-agent = "hop3.main:main"
-hop-test = "hop3.testing.main:main"
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -22,11 +17,6 @@ click = "^8.1.7"
 cleez = "*"
 pluggy = "^1.4.0"
 svcs = "^24.1.0"
-
-sqlalchemy = "^2.0.31"
-sqlalchemy-serializer = "^1.4.12"
-advanced-alchemy = "^0.17"
-psycopg2 = "^2.9.9"
 
 # For the actor system
 pyrsistent = "^0.20.0"
@@ -43,34 +33,8 @@ py-cpuinfo = "^9.0.0"
 devtools = "^0.12.2"
 snoop = "^0.4.3"
 
-# "main" / web app
-flask = "^3.0.3"
-flask-super = "^0.2.8"
-sqlalchemy-utils = "^0.41.2"
-flask-security-too = "^5.4.3"
-flask-sqlalchemy = "^3.1.1"
-flask-babel = "^4.0.0"
-flask-htmx = "^0.3.2"
-flask-mail = "^0.10.0"
-flask-migrate = "^4.0.7"
-flask-talisman = "^1.1.0"
-flask-vite = "^0.5.0"
-sentry-sdk = "2.10.0"
-
 [tool.poetry.group.dev.dependencies]
 abilian-devtools = "^0.5.18"
-httpx = "^0.27.0"
-pytest = "^8.0.0"
-python-dotenv = "^1.0.1"
-reuse = "^4"
-infer-types = "^1.0.0"
-
-pyinfra = "^3"
-
-types-paramiko = "^3.4.0.20240311"
-types-psycopg2 = "^2.9.21.20240311"
-flask-debugtoolbar = "^0.15.1"
-msgspec = "^0.18.6"
 
 [build-system]
 requires = ["poetry-core"]
@@ -78,8 +42,3 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.isort]
 profile = "black"
-
-[tool.pyright]
-exclude = [
-    "src/hop3/util/templating.py",
-]
