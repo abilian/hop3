@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "hop3"
+name = "hop3-agent"
 version = "0.2.2"
 description = "Simple PaaS - Deploy and manage web applications on a single server"
 authors = ["Stefane Fermigier <sf@abilian.com>"]
@@ -7,7 +7,6 @@ readme = "README.md"
 
 packages = [
     { include = "hop3", from = "src" },
-    { include = "hop3_main", from = "src" },
 ]
 
 [tool.poetry.scripts]
