@@ -57,6 +57,7 @@ TODO
 
 ### Code / refactorings
 
+- [ ] Convert to monorepo with suprojects (each with its own dependencies)
 - [ ] Fix all typing issues (mypy and pyright)
 - [ ] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
 - [ ] Introduce new plugins (where it makes sense)
