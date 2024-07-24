@@ -104,18 +104,15 @@ Hop3's technology stack is carefully chosen to support its goals without relying
 
 To begin using Hop3, follow these introductory steps:
 
-1. **Prerequisites**: Familiarize yourself with basic cloud computing concepts and the specific technologies Hop3
-   employs for virtualization and security.
+1. **Prerequisites**: Familiarize yourself with basic cloud computing concepts and the specific technologies Hop3 employs for virtualization and security.
 
 2. **Installation**:
-    - Clone the latest version of Hop3 from the official repository: `git clone https://github.com/abilian/hop3.git`
-    - Follow the installation instructions in the `docs/installation.md` to set up Hop3 on your system.
+   - Clone the latest version of Hop3 from the official repository: `git clone https://github.com/abilian/hop3.git`
+   - Follow the installation instructions in the `docs/installation.md` to set up Hop3 on your system.
 
-3. **Configuration**: Configuration options can be found in the `config` directory. Adjust these settings to suit your
-   environment and deployment needs.
+3. **Configuration**: Configuration options can be found in the `config` directory. Adjust these settings to suit your environment and deployment needs.
 
-4. **Documentation**: For detailed information on setup, architecture, and usage, refer to the `docs` folder. This
-   resource includes comprehensive guides and best practices.
+4. **Documentation**: For detailed information on setup, architecture, and usage, refer to the `docs` folder. This resource includes comprehensive guides and best practices.
 
 
 ## Development and Contribution
@@ -215,6 +212,7 @@ Infra, QA, DX, refactorings:
 
 Features:
 
+- [ ] Reorganize code base into sub-projects
 - [ ] More apps
 - [ ] Review / improve CLI DX
   - [ ] Use an API server
@@ -260,12 +258,9 @@ Will soon be deployed at [https://doc.hop3.cloud](https://doc.hop3.cloud).
 
 ### Authors
 
-Hop3 contains code from Piku, which shares some of the goals of Hop3 / Nua but also has some significant differences in
-goals and principles, as well as in architecture (Hop3 is modular and pugin-based, Piku is a single-file script).
+Hop3 contains code from Piku, which shares some of the goals of Hop3 / Nua but also has some significant differences in goals and principles, as well as in architecture (Hop3 is modular and pugin-based, Piku is a single-file script).
 
-Hop3 also contains code from Nua, written by the Abilian development team, and contributors. The two projects share most
-goals and principles, except Nua is based on containers and Hop3 is not. The two projects may ultimately merge in the
-future (or not).
+Hop3 also contains code from Nua, written by the Abilian development team, and contributors. The two projects share most goals and principles, except Nua is based on containers and Hop3 is not. The two projects may ultimately merge in the future (or not).
 
 Other inspirations include:
 
@@ -287,6 +282,8 @@ The following people have contributed to Hop3:
 Hop3 is licensed under the AGPL-3.0 License, except for vendored code.
 See the [LICENSE](LICENSE) file for more information.
 
+Here are the REUSE compliance results for Hop3 (as of 2024/07/01):
+
 > * Bad licenses: 0
 > * Deprecated licenses: 0
 > * Licenses without file extension: 0
@@ -301,10 +298,7 @@ See the [LICENSE](LICENSE) file for more information.
 
 ## What's the story behind the name?
 
-"Hop3" (or more precisely "Hop^3" or "Hop cubed") is a pun on "Hop, hop, hop!" which is a French expression used to
-encourage quick action or to hurry someone up. It's akin to saying "Let's go!" or "Hurry up!" in English. It can also
-convey a sense of enthusiasm or encouragement to get moving or to proceed with something. It generally carries a light,
-motivating tone.
+"Hop3" (or more precisely "Hop^3" or "Hop cubed") is a pun on "Hop, hop, hop!" which is a French expression used to encourage quick action or to hurry someone up. It's akin to saying "Let's go!" or "Hurry up!" in English. It can also convey a sense of enthusiasm or encouragement to get moving or to proceed with something. It generally carries a light, motivating tone.
 
 ## Links / References
 
