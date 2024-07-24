@@ -19,6 +19,7 @@ SUB_REPOS = [
     "hop3-agent",
     "hop3-cli",
     "hop3-server",
+    "hop3-web",
 ]
 
 RSYNC_EXCLUDES = [
