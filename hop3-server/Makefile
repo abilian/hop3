@@ -8,24 +8,6 @@
 all: lint test
 
 #
-#
-#
-clean-and-deploy:
-	make clean-server
-	make deploy
-
-clean-server:
-	echo "--> Cleaning server (warning: this removes everything)"
-	-ssh root@${HOP3_DEV_HOST} apt-get purge -y nginx nginx-core nginx-common
-	ssh root@${HOP3_DEV_HOST} rm -rf /home/hop3 /etc/nginx
-
-deploy:
-	echo "--> Deploying"
-	@make clean
-	poetry build
-	poetry run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
-
-#
 # Setup
 #
 
@@ -82,7 +64,7 @@ test-with-typeguard:
 
 ## Cleanup tests artifacts
 clean-test: ## remove test and coverage artifacts
-	rm -fr .tox/ .nox/
+	rm -fr .tox/
 	rm -f .coverage
 	rm -fr htmlcov/
 	rm -fr .pytest_cache
@@ -94,7 +76,6 @@ lint:
 	# mypy --show-error-codes src
 	# pyright src
 	reuse lint -q
-
 
 ## Run a security audit
 audit:
@@ -111,7 +92,7 @@ audit:
 format:
 	# docformatter -i -r src
 	adt format
-	ruff format src
+	ruff format src tests
 
 
 ## Add copyright mention

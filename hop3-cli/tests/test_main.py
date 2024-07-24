@@ -1,4 +1,6 @@
-from hop3_cli.main import main, parse_args
+# Copyright (c) 2023-2024, Abilian SAS
+
+from hop3_cli.main import parse_args
 
 
 def test_args():

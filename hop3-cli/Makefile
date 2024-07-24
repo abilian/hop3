@@ -95,19 +95,6 @@ lint:
 	# pyright src
 	reuse lint -q
 
-# Alt
-#lint:
-#	ruff src tests/test*.py
-#	mypy --show-error-codes src
-#	flake8 src tests/test*.py
-#	# python -m pyanalyze --config-file pyproject.toml src
-#	lint-imports
-#	make hadolint
-#	vulture --min-confidence 80 src
-#	deptry . --extend-exclude .nox --extend-exclude .tox
-#	# TODO later
-#	# mypy --check-untyped-defs src
-
 
 ## Run a security audit
 audit:
@@ -125,14 +112,11 @@ format:
 	# docformatter -i -r src
 	adt format
 	ruff format src
-	@echo "You need the Fish shell to run the following commands:"
-	fish -c "gofmt -w apps/**/*.go"
-	fish -c "prettier -w apps/**/*.js"
 
 
 ## Add copyright mention
 add-copyright:
-	fish -c 'reuse annotate --copyright "Copyright (c) 2023-2024, Abilian SAS" src/**/*.py installer/*.py tests/**/*.py'
+	fish -c 'reuse annotate --copyright "Copyright (c) 2023-2024, Abilian SAS" src/**/*.py tests/**/*.py'
 
 #
 # Everything else

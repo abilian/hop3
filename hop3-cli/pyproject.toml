@@ -18,12 +18,16 @@ hop-cli = "hop3_cli.main:main"
 python = "^3.10"
 termcolor = "^2.4.0"
 platformdirs = "^4.2.2"
+paramiko = "^3.4.0"
+devtools = "^0.12.2"
+rpyc = "^6.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
 abilian-devtools = "^0.5.27"
 pytest = "^8.3.1"
 devtools = "^0.12.2"
+python-dotenv = "^1.0.1"
 
 [build-system]
 requires = ["poetry-core"]

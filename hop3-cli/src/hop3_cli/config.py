@@ -1,6 +1,7 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 import dataclasses
 import os
-
 from pathlib import Path
 from typing import ClassVar
 

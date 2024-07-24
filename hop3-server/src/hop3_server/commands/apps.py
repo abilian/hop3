@@ -12,7 +12,7 @@ import subprocess
 import sys
 from glob import glob
 
-from hop3_server.service import list_apps
+from hop3_server.service import list_apps, App, get_app
 from hop3_server.utils.console import echo
 
 
@@ -20,15 +20,16 @@ def cmd_apps() -> list[App]:
     """List apps, e.g.: hop-agent apps."""
     apps = list_apps()
     return apps
-    if not apps:
-        echo("There are no applications deployed.")
-        return
 
-    for app in apps:
-        if app.is_running:
-            echo(f"* {app.name}", fg="green")
-        else:
-            echo(f"  {app.name}", fg="white")
+    # if not apps:
+    #     echo("There are no applications deployed.")
+    #     return
+    #
+    # for app in apps:
+    #     if app.is_running:
+    #         echo(f"* {app.name}", fg="green")
+    #     else:
+    #         echo(f"  {app.name}", fg="white")
 
 
 def cmd_deploy(app) -> None:

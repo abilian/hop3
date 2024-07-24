@@ -1,12 +1,10 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 import dataclasses
 import json
-import os
-
 from pathlib import Path
-from typing import ClassVar
 
-import toml
-from platformdirs import user_config_dir, user_state_dir
+from platformdirs import user_state_dir
 
 PREFIX = "HOP3_"
 APP_NAME = "hop3-cli"
