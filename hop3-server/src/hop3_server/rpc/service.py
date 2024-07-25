@@ -1,15 +1,32 @@
 # Copyright (c) 2023-2024, Abilian SAS
+from __future__ import annotations
+
 from collections.abc import Callable
 from types import ModuleType
 
 import rpyc
+from devtools import debug
 from hop3_server.utils.scanner import scan_packages
 
 PACKAGES = [
     "hop3_server.commands",
 ]
 
-modules = list(scan_packages(PACKAGES))
+COMMANDS = {}
+
+
+def scan_commands():
+    modules = list(scan_packages(PACKAGES))
+    for mod in modules:
+        assert isinstance(mod, ModuleType)
+        for name in dir(mod):
+            if name.startswith("cmd_"):
+                cmd = getattr(mod, name)
+                if callable(cmd):
+                    COMMANDS[name[4:]] = cmd
+
+
+scan_commands()
 
 
 class Hop3Service(rpyc.Service):
@@ -17,14 +34,7 @@ class Hop3Service(rpyc.Service):
     commands: dict[str, Callable]
 
     def __init__(self):
-        self.modules = list(scan_packages(PACKAGES))
-        for mod in self.modules:
-            assert isinstance(mod, ModuleType)
-            for name in dir(mod):
-                if name.startswith("cmd_"):
-                    cmd = getattr(mod, name)
-                    if callable(cmd):
-                        self.commands[name[4:]] = cmd
+        self.commands = COMMANDS
 
     def on_connect(self, conn):
         pass
@@ -38,8 +48,3 @@ class Hop3Service(rpyc.Service):
             msg = f"Command {command} not found"
             raise ValueError(msg)
         return cmd(*args, **kwargs)
-
-    def get_module(self, name):
-        for mod in self.modules:
-            if mod.__name__ == name:
-                return mod
