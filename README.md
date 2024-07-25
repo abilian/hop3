@@ -284,19 +284,22 @@ The following people have contributed to Hop3:
 Hop3 is licensed under the AGPL-3.0 License, except for vendored code.
 See the [LICENSE](LICENSE) file for more information.
 
-Here are the REUSE compliance results for Hop3 (as of 2024/07/01):
+Here are the REUSE compliance results for Hop3 (as of 2024/07/25):
 
-> * Bad licenses: 0
-> * Deprecated licenses: 0
-> * Licenses without file extension: 0
-> * Missing licenses: 0
-> * Unused licenses: 0
-> * Used licenses: AGPL-3.0-only, CC0-1.0, MIT, CC-BY-4.0
-> * Read errors: 0
-> * files with copyright information: 125 / 125
-> * files with license information: 125 / 125
->
-> Congratulations! Your project is compliant with version 3.0 of the REUSE Specification :-)
+# SUMMARY
+
+* Bad licenses: 0
+* Deprecated licenses: 0
+* Licenses without file extension: 0
+* Missing licenses: 0
+* Unused licenses: 0
+* Used licenses: CC0-1.0, BSD-3-Clause, AGPL-3.0-only, CC-BY-4.0, MIT
+* Read errors: 0
+* Files with copyright information: 310 / 310
+* Files with license information: 310 / 310
+
+Congratulations! Your project is compliant with version 3.2 of the REUSE Specification :-)
+
 
 ## What's the story behind the name?
 
