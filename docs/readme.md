@@ -2,6 +2,7 @@
 
 - [Installation](installation.md)
 - [Contributing](dev/contributing.md)
+  - [Getting started](dev/getting-started.md)
   - [Core Values](dev/core-values.md)
   - [Architecture / Design](dev/architecture.md)
   - [Governance](dev/governance.md)
