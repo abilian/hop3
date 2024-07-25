@@ -10,7 +10,6 @@ import fcntl
 import os
 import subprocess
 import sys
-from glob import glob
 
 from hop3_server.service import App, get_app, list_apps
 from hop3_server.service.procfile import parse_procfile
@@ -18,47 +17,31 @@ from hop3_server.utils.console import echo
 
 
 def cmd_apps() -> list[App]:
-    """List apps, e.g.: hop-agent apps."""
-    apps = list_apps()
-    return apps
-
-    # if not apps:
-    #     echo("There are no applications deployed.")
-    #     return
-    #
-    # for app in apps:
-    #     if app.is_running:
-    #         echo(f"* {app.name}", fg="green")
-    #     else:
-    #         echo(f"  {app.name}", fg="white")
+    """List apps, e.g.: hop apps."""
+    return list_apps()
 
 
 def cmd_deploy(app) -> None:
-    """e.g.: hop-agent deploy <app>."""
+    """e.g.: hop deploy <app>."""
     app_obj = get_app(app)
     app_obj.deploy()
 
 
 def cmd_destroy(app) -> None:
-    """e.g.: hop-agent destroy <app>."""
+    """e.g.: hop destroy <app>."""
     app_obj = get_app(app)
     app_obj.destroy()
 
 
-def cmd_logs(app, process) -> None:
-    """Tail running logs, e.g: hop logs <app> [<process>]."""
-    app = exit_if_invalid(app)
-
-    logfiles = glob(os.path.join(LOG_ROOT, app, process + ".*.log"))
-    if len(logfiles) > 0:
-        for line in multi_tail(app, logfiles):
-            echo(line.strip(), fg="white")
-    else:
-        echo(f"No logs found for app '{app}'.", fg="yellow")
+def cmd_logs(app) -> list[str]:
+    # TODO: process
+    """Tail running logs, e.g: hop logs <app>."""
+    app_obj = get_app(app)
+    return app_obj.get_log_files()
 
 
 def cmd_ps(app: str) -> None:
-    """Show process count, e.g: hop-agent ps <app>."""
+    """Show process count, e.g: hop ps <app>."""
     app_obj = get_app(app)
     scaling_file = app_obj.virtualenv_path / "SCALING"
 
@@ -69,7 +52,7 @@ def cmd_ps(app: str) -> None:
 
 
 def cmd_ps_scale(app: str, settings: list[str]) -> None:
-    """e.g.: hop-agent ps:scale <app> <proc>=<count>."""
+    """e.g.: hop ps:scale <app> <proc>=<count>."""
     app_obj = get_app(app)
 
     scaling_file = app_obj.virtualenv_path / "SCALING"
@@ -91,11 +74,12 @@ def cmd_ps_scale(app: str, settings: list[str]) -> None:
             )
         deltas[key] = count - worker_count[key]
 
-    do_deploy(app, deltas)
+    # TODO
+    # do_deploy(app, deltas)
 
 
 def cmd_run(app: str, cmd: list[str]) -> None:
-    """e.g.: hop-agent run <app> ls -- -al."""
+    """e.g.: hop run <app> ls -- -al."""
     app_obj = get_app(app)
 
     for fd in [sys.stdout, sys.stderr]:

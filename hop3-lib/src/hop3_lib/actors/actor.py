@@ -118,7 +118,7 @@ class Actor(ActorBase):
 
             case Unmonitor(sender):
                 try:
-                    self._observers[sender]._kill()
+                    self._observers[sender]._kill()  # noqa: SLF001
                     del self._observers[sender]
                 finally:
                     self.ack_last_msg()

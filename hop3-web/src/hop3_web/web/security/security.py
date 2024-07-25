@@ -9,6 +9,7 @@ from flask import Flask, g, render_template_string
 from flask_login import current_user
 from flask_security import Security, SQLAlchemyUserDatastore, auth_required
 from hop3_web.web.extensions import db
+from hop3_web.web.utils import utcnow
 
 CONFIG = {
     "SECRET_KEY": os.environ.get("SECRET_KEY", "xxx"),

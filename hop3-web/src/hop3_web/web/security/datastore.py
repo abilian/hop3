@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from flask_security import SQLAlchemyUserDatastore
-from hop3_web.models.auth import User
+from hop3_web.models.auth import Role, User
 from sqlalchemy.orm import Query
 
 # HACK: emulate flask-sqlalchemy's db.Model.query
@@ -17,7 +17,8 @@ class QueryProperty:
     # Adapted from flask-sqlalchemy (flask_sqlalchemy/model.py)
 
     def __get__(self, obj, cls) -> Query:
-        from app.extensions import db
+        # Lazy import to prevent circular imports
+        from hop3_web.web.extensions import db
 
         return Query(cls, session=db.session())
 
@@ -28,6 +29,6 @@ User.query = QueryProperty()
 
 def get_user_datastore():
     # Lazy import to prevent circular imports
-    from app.extensions import db
+    from hop3_web.web.extensions import db
 
     return SQLAlchemyUserDatastore(db, User, Role)

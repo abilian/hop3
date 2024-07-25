@@ -26,17 +26,18 @@ class Command(ABC):
     _cache: dict = dataclasses.field(default_factory=dict, repr=False)
 
     def setup(self, parser, subparsers):
-        help = self.__doc__ or self.help
+        help_msg = self.__doc__ or self.help
 
         subparser = subparsers.add_parser(
             self.name,
-            help=help,
+            help=help_msg,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
         self.setup_common_arguments(subparser)
         for arg in self.args:
-            arg = arg.copy()
-            subparser.add_argument(arg.pop("name"), **arg)
+            _arg = arg.copy()
+            name = _arg.pop("name")
+            subparser.add_argument(name, **arg)
 
         subparser.set_defaults(func=self.handle)
 

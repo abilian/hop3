@@ -63,10 +63,7 @@ def encode(obj):
             return [encode(item) for item in obj]
 
         case Mapping():
-            encoded_obj = {}
-            for key in obj.keys():
-                encoded_obj[encode(key)] = encode(obj[key])
-            return encoded_obj
+            return {encode(key): encode(obj[key]) for key in obj}
 
         case set():
             return ExtType(
