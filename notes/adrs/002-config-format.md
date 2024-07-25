@@ -2,17 +2,78 @@
 
 ## Status
 
-Status: Draft (v0.1)
+Status: Draft
 
-## Context
+Revisions:
+- v0.2: Update according to new template (2024-07-25)
+- v0.1: Initial draft (2024-07-17)
 
-The `hop3.toml` file is central to the Hop3 platform, serving as the primary configuration file for deploying and managing web applications. This document describes the detailed format and structure of the `hop3.toml` file, which is designed to be simple, human-readable, and explicit.
+## Summary
 
-The syntax used by default in `hop3.toml` files is TOML, but the configuration can also be written in YAML and JSON formats. The `hop3.toml` file contains a limited set of metadata and configuration details necessary for the operation of the Hop3 platform.
+This ADR details the format and structure of the `hop3.toml` file, the primary configuration file for the Hop3 platform. Designed for simplicity, human readability, and explicitness, the `hop3.toml` format also supports YAML and JSON configurations. This document specifies the sections and fields within `hop3.toml` and their intended use.
 
-## Sections
+## Context and Goals
 
-The `hop3.toml` file contains several sections, mandatory or optional. Their order is not fixed (although a logical order is recommended).
+The `hop3.toml` file is central to the Hop3 platform, serving as the primary configuration file for deploying and managing web applications. Its design aims to be simple, human-readable, and explicit. The configuration can also be written in YAML and JSON formats. This document describes the detailed format and structure of the `hop3.toml` file, which contains a limited set of metadata and configuration details necessary for the operation of the Hop3 platform.
+
+## Decision
+
+The `hop3.toml` file will be used as the primary configuration format for the Hop3 platform. The file structure includes several sections, some mandatory and others optional, to cover various aspects of application deployment and management. Each section has specific fields that provide the necessary metadata and configuration details.
+
+## Consequences
+
+### Benefits
+
+- **Simplicity**: A structured and clear format that is easy to understand and use.
+- **Flexibility**: Supports multiple formats (TOML, YAML, JSON) to cater to user preferences.
+- **Comprehensiveness**: Covers all necessary aspects of configuration and metadata for application deployment.
+
+### Drawbacks
+
+- **Learning Curve**: New users might need some time to get accustomed to the detailed structure.
+- **Maintenance**: Keeping the format and parsing logic consistent across different formats might require additional effort.
+
+## Action Items
+
+1. **Develop Detailed Documentation**:
+    - Create comprehensive documentation outlining each section and field within the `hop3.toml` file.
+    - Provide examples and best practices to guide users.
+
+2. **Implement Parsing Logic**:
+    - Develop robust parsing logic to handle TOML, YAML, and JSON formats.
+    - Ensure the consistency and correctness of parsed data.
+
+3. **Validation Framework**:
+    - Use Pydantic or similar tools for schema validation to ensure data integrity.
+    - Implement format-specific validation where necessary.
+
+4. **Tooling and Support**:
+    - Develop CLI tools to assist users in generating and validating `hop3.toml` files.
+    - Integrate validation into the CI/CD pipeline to catch errors early.
+
+5. **Community Engagement**:
+    - Gather feedback from users to improve the configuration format.
+    - Update the format and documentation based on user input and evolving needs.
+
+## Alternatives
+
+- **Single Format**: Using only `hop3.toml` format to simplify implementation but at the cost of flexibility.
+- **Ad-hoc Methods**: Using unstructured or ad-hoc configuration methods, leading to potential inconsistencies and complexity.
+
+## Related
+
+- ADR #002: Detailed `hop3.toml` Format
+- ADR #003: Config Parsing and Validation
+
+## References
+
+- TOML documentation: https://toml.io/en/
+- YAML documentation: https://yaml.org/
+- JSON documentation: https://www.json.org/
+
+## The Specifications
+
+The `hop3.toml` file contains several sections, mandatory or optional. Their order is not fixed, although a logical order is recommended.
 
 ### `[metadata]`
 
@@ -54,7 +115,9 @@ The `hop3.toml` file contains several sections, mandatory or optional. Their ord
 - **Optional**
 - List of services required by the application.
 
-## Section `metadata`
+---
+
+### Section `[metadata]`
 
 Notes:
 
@@ -62,141 +125,143 @@ Notes:
 - Strings are Python `f-string`: use of `{}` to reference other Metadata (such as version) is possible.
 - Keys containing a '-' can also be written with a '_'.
 
-### `id`
+#### `id`
 
 - **Mandatory**
 - Identifier of the package. Should be unique in the managed area.
 - Example: `id = "hedgedoc"`
 
-### `version`
+#### `version`
 
 - **Mandatory**
 - Version of the packaged application.
 - Example: `version = "1.9.7"`
 
-### `title`
+#### `title`
 
 - **Mandatory**
 - Short title of the package.
 - Example: `title = "HedgeDoc"`
 
-### `author`
+#### `author`
 
 - **Mandatory**
 - Author of the packaged application.
 - Example: `author = "HedgeDoc authors"`
 
-### `description`
+#### `description`
 
 - **Optional**
 - Long description of the application.
 - Example: `description = "The best platform to write and share markdown"`
 
-### `tagline`
+#### `tagline`
 
 - **Optional**
 - Short description of the application.
 - Example: `tagline = "The best platform to write and share markdown"`
 
-### `website`
+#### `website`
 
 - **Optional**
 - String containing a valid URL.
 - Reference website of the application.
 - Example: `website = "https://hedgedoc.org/"`
 
-### `tags`
+#### `tags`
 
 - **Optional**
 - List of strings describing the application.
 - Example: `tags = ["Markdown", "Documentation", "Collaboration"]`
 
-### `profile`
+#### `profile`
 
 - **Optional**
 - Usage profile (WIP).
 
-### `release`
+#### `release`
 
 - **Optional**
 - Integer.
 - Release number of this `hop3.toml` file.
 - Example: `release = 1`
 
-## Section `build`
+---
+
+### Section `[build]`
 
 Notes:
 
 - If not specified, the type of the value is String with no length limitation.
 - All fields are optional except the `license` field.
 
-### `license`
+#### `license`
 
 - **Mandatory**
 - License of the packaged application.
 - Example: `license = "AGPL-3.0 license"`
 
-### `src-url`
+#### `src-url`
 
 - **Optional**
 - String containing a valid URL of the source code.
 - Example: `src-url = "https://github.com/hedgedoc/hedgedoc/releases/download/{version}/hedgedoc-{version}.tar.gz"`
 
-### `src-checksum`
+#### `src-checksum`
 
 - **Optional**
 - SHA256 checksum to enforce upon the downloaded source code.
 - Example: `src-checksum = 'c9bd99c65cf45fa1d7808855b46abbfa13b24400254d8da5e81dae2965494bb3'`
 
-### `git-url`
+#### `git-url`
 
 - **Optional**
 - String containing a valid URL of the git repository.
 - Example: `git-url = "https://github.com/jech/galene.git"`
 
-### `git-branch`
+#### `git-branch`
 
 - **Optional**
 - Branch to check out from the git repository.
 - Example: `git-branch = "galene-0.6-branch"`
 
-### `base-image`
+#### `base-image`
 
 - **Optional**
 - String containing a valid reference to a base image if applicable.
 - Example: `base-image = "ubuntu:20.04"`
 
-### `method`
+#### `method`
 
 - **Optional**
 - Force selection of the build method, possible values are `build` or `wrap`.
 - Example: `method = "wrap"`
 
-### `builder`
+#### `builder`
 
 - **Optional**
 - Reference of a specific build environment.
 - Example: `builder = "node-16"`
 - Example (alternate syntax): `builder = {name = "ruby", version = "3.2"}`
 
-### `builders`
+#### `builders`
 
 - **Optional**
 - List of builder environments (WIP, experimental).
 
-### `packages`
+#### `packages`
 
 - **Optional**
 - List of system packages to install for the build step.
 - Example: `packages = ["build-essential"]`
 
-### `meta-packages`
+#### `meta-packages`
 
 - **Optional**
 - Group of packages defined by Hop3 to facilitate some installation.
 - Example: `meta-packages = ["postgres-client"]`
 
-### `build`
+#### `build`
 
 - **Optional**
 - List of shell commands to be executed during the build process.
@@ -213,31 +278,33 @@ build = [
 ]
 ```
 
-### `test`
+#### `test`
 
 - **Optional**
 - List of shell commands for "smoke test" to check that the installation was successful.
 - Example: `test = "python -c 'import flask_show'"`
 
-### `before-build`
+#### `before-build`
 
 - **Optional**
 - List of shell commands to be executed before the actual build command.
 
-### `pip-install`
+#### `pip-install`
 
 - **Optional**
 - List of Python packages to install with the `pip` command.
 - Example: `pip-install = ["*.whl"]`
 - Example: `pip-install = ["flask", "gunicorn"]`
 
-### `project`
+#### `project`
 
 - **Optional**
 - Relative path of the project to build from the downloaded source code.
 - Example: `project = "./alternate/src"`
 
-## Section `run`
+---
+
+### Section `[run]`
 
 Notes:
 
@@ -245,18 +312,18 @@ Notes:
 - All fields are optional.
 - All command strings can use shell expansion to access ENV variables available in the run context.
 
-### `packages`
+#### `packages`
 
 - **Optional**
 - List of system packages required by the application.
 - Example: `packages = ["fontconfig", "fonts-noto"]`
 
-### `before-run`
+#### `before-run`
 
 - **Optional**
 - List of shell commands to be executed before the actual run command.
 
-### `start`
+#### `start`
 
 - **Optional**
 - List of shell commands to start the application.
@@ -271,7 +338,9 @@ start = [
 ]
 ```
 
-## Section `env`
+---
+
+### Section `[env]`
 
 Each field is a variable declaration. Format can be:
 
@@ -279,7 +348,7 @@ Each field is a variable declaration. Format can be:
 - A dict using a `from`/`key` syntax to access other values of the running environment.
 - A dict using specific parameters for special functions like generating a password.
 
-### Examples:
+#### Examples:
 
 - Simple values:
 
@@ -328,20 +397,24 @@ ACKEE_MONGODB = "mongodb://{DB_USER}:{DB_PWD}@{DB_HOST}:{DB_PORT}/"
 - Access to the detected external IP of the host (public IP):
 
 ```
-MY_IP = { external_ip
-
-='true' }
+MY_IP = { external_ip='true' }
 ```
 
-## Section `port`
+---
 
-TODO.
+### Section `[port]`
 
-## Section `healthcheck`
+- **Optional**
+- However, the current implementation issues a warning if no public port is declared.
+- Dictionary of named ports (e.g., `[port.web]`) used by the application.
+
+---
+
+### Section `[healthcheck]`
 
 Currently, the `healthcheck` section defines commands and parameters to check the health of the application.
 
-### Example:
+#### Example:
 
 ```
 [healthcheck]
@@ -349,18 +422,22 @@ command = "node /hop3/build/hedgedoc/healthcheck.mjs"
 interval = 10
 ```
 
-## Section `backup`
+---
 
-- Work in progress.
+### Section `[backup]`
+
+- **Work in progress**
 - Current keys: `method`, `frequency`, `options`.
 
-## Section `provider`
+---
+
+### Section `[[provider]]`
 
 A provider is another service required by the main application. Several providers can be declared.
 
-Providers are identified by a `name` that permits reference to the provider in the `env` section.
+Providers are identified by a `name` that permits reference to the provider in the `[env]` section.
 
-### Examples:
+#### Examples:
 
 - Postgres database:
 
