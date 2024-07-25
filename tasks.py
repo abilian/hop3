@@ -1,4 +1,5 @@
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -56,12 +57,18 @@ def install(c, quiet=False):
         "pip list --format freeze | egrep '^hop3-' |xargs pip uninstall -yq &>/dev/null",
         warn=True,
     )
+
+    opts = []
     if quiet:
-        c.run("uv pip install -qq --no-cache-dir -e .")
-        run_in_subrepos(c, "uv pip install -qq --no-cache-dir -e .")
+        opts.append("-qq")
+    options = " ".join(opts)
+
+    if shutil.which("uv"):
+        c.run(f"uv pip install {options} --no-cache-dir -e .")
+        run_in_subrepos(c, f"uv pip install {options} --no-cache-dir -e .")
     else:
-        c.run("uv pip install --no-cache-dir -e .")
-        run_in_subrepos(c, "uv pip install --no-cache-dir -e .")
+        c.run(f"pip install {options} --no-cache-dir -e .")
+        run_in_subrepos(c, f"pip install {options} --no-cache-dir -e .")
 
 
 @task
