@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod, ABC
 from collections.abc import Callable
 
 import eventlet
@@ -27,7 +27,7 @@ _actor_map = {}
 _actor_pool = eventlet.GreenPool(size=1000000)
 
 
-class ActorBase(Receiver, metaclass=ABCMeta):
+class ActorBase(Receiver, ABC):
     @abstractmethod
     def encode(self):
         pass
@@ -39,7 +39,7 @@ class ActorBase(Receiver, metaclass=ABCMeta):
 
 
 class Actor(ActorBase):
-    __slots__ = ["_ack", "_inbox", "_outbox", "_callback", "_greenlet", "_observers"]
+    __slots__ = ["_ack", "_callback", "_greenlet", "_inbox", "_observers", "_outbox"]
 
     mailbox: Mailbox
     _ack: bool
@@ -67,7 +67,7 @@ class Actor(ActorBase):
         try:
             self._callback(*args, **kwargs)
         finally:
-            if greenlet_id in _actor_map.keys():
+            if greenlet_id in _actor_map:
                 del _actor_map[greenlet_id]
 
     def spawn(self, *args, **kwargs):
@@ -75,27 +75,27 @@ class Actor(ActorBase):
 
     def _link(self, func, *args, **kwargs):
         if self._greenlet is None:
-            return
+            return None
         return self._greenlet.link(func, *args, **kwargs)
 
     def _unlink(self, func, *args, **kwargs):
         if self._greenlet is None:
-            return
+            return None
         return self._greenlet.unlink(func, *args, **kwargs)
 
     def _cancel(self, *throw_args):
         if self._greenlet is None:
-            return
+            return None
         return self._greenlet.cancel(*throw_args)
 
     def _kill(self, *throw_args):
         if self._greenlet is None:
-            return
+            return None
         return self._greenlet.kill(*throw_args)
 
     def wait(self):
         if self._greenlet is None:
-            return
+            return None
         return self._greenlet.wait()
 
     def send(self, message):

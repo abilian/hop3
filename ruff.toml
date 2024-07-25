@@ -57,6 +57,7 @@ lint.extend-ignore = [
     "PT017",
     "RET504",
     "RUF012",
+    "FBT002", # Boolean default positional argument in function definition
 ]
 
 [lint.mccabe]

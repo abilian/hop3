@@ -9,7 +9,7 @@ from .base import Mailbox, decode, encode
 
 
 class IpcInbox(Mailbox):
-    __slots__ = ["_port", "_url", "_context", "_recv_sock"]
+    __slots__ = ["_context", "_port", "_recv_sock", "_url"]
 
     def __init__(self, address, **kwargs):
         self._url = "ipc://" + address
@@ -52,7 +52,7 @@ class IpcInbox(Mailbox):
 
 
 class IpcInboxR(Mailbox):
-    __slots__ = ["_port", "_url", "_context", "_recv_sock"]
+    __slots__ = ["_context", "_port", "_recv_sock", "_url"]
 
     def __init__(self, address, zmq_context=zmq.Context.instance()):
         self._url = "ipc://" + address
@@ -64,14 +64,14 @@ class IpcInboxR(Mailbox):
         return decode(unpackb(self._recv_sock.recv(), use_list=False))
 
     def put(self, message):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def encode(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @staticmethod
     def decode(params):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def __enter__(self):
         return self
@@ -94,7 +94,7 @@ class IpcInboxR(Mailbox):
 
 
 class IpcOutbox(Mailbox):
-    __slots__ = ["_url", "_context", "_send_sock"]
+    __slots__ = ["_context", "_send_sock", "_url"]
 
     def __init__(self, address, **kwargs):
         self._url = "ipc://" + address
@@ -103,7 +103,7 @@ class IpcOutbox(Mailbox):
         self._send_sock.connect(self._url)
 
     def get(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def put(self, message):
         self._send_sock.send(packb(encode(message), use_bin_type=True))
@@ -136,7 +136,7 @@ class IpcOutbox(Mailbox):
 
 
 class IpcOutboxR(Mailbox):
-    __slots__ = ["_url", "_context", "_send_sock"]
+    __slots__ = ["_context", "_send_sock", "_url"]
 
     def __init__(self, address, zmq_context=zmq.Context.instance()):
         self._url = "ipc://" + address
@@ -145,7 +145,7 @@ class IpcOutboxR(Mailbox):
         self._send_sock.bind(self._url)
 
     def get(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def put(self, message):
         self._send_sock.send(packb(encode(message), use_bin_type=True))

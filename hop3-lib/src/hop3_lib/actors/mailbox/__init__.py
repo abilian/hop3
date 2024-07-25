@@ -8,11 +8,11 @@ from .zmq import ZmqInbox, ZmqOutbox
 
 __all__ = [
     "AckableMailbox",
+    "LocalMailbox",
     "Mailbox",
     "Receiver",
-    "decode",
-    "encode",
-    "LocalMailbox",
     "ZmqInbox",
     "ZmqOutbox",
+    "decode",
+    "encode",
 ]

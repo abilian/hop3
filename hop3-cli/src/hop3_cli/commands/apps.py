@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from argparse import Namespace
 
 from devtools import debug
 
@@ -17,7 +16,6 @@ class AppsCommand(Command):
     def handle(self, args, context):
         result = context.rpc("apps")
         debug(result)
-        return
 
         # result = client.call("list")
         # for instance in result:

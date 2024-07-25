@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod, ABC
 from typing import Any, ClassVar, Sequence
 
-import rpyc
 
 __all__ = ["Command"]
 
@@ -13,7 +12,7 @@ from hop3_cli.context import Context
 
 
 @dataclasses.dataclass(frozen=True)
-class Command(metaclass=ABCMeta):
+class Command(ABC):
     # The command name
     name: ClassVar[str]
 

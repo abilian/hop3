@@ -8,7 +8,7 @@ from .base import AckableMailbox, decode, encode
 
 
 class KombuMailbox(AckableMailbox):
-    __slots__ = ["_address", "_conn", "_queue", "_no_ack", "_last_msg"]
+    __slots__ = ["_address", "_conn", "_last_msg", "_no_ack", "_queue"]
 
     def __init__(
         self,

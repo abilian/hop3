@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 import types
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod, ABC
 from collections.abc import Mapping
 from typing import Any
 
@@ -111,7 +111,7 @@ def encode_func(obj):
     return cloudpickle.dumps(obj)
 
 
-class Receiver(metaclass=ABCMeta):
+class Receiver(ABC):
     @abstractmethod
     def encode(self):
         raise NotImplementedError
@@ -122,7 +122,7 @@ class Receiver(metaclass=ABCMeta):
         raise NotImplementedError
 
 
-class Mailbox(Receiver, metaclass=ABCMeta):
+class Mailbox(Receiver, ABC):
     @abstractmethod
     def put(self, message):
         raise NotImplementedError
@@ -135,7 +135,7 @@ class Mailbox(Receiver, metaclass=ABCMeta):
         return not self.__eq__(other)
 
 
-class AckableMailbox(Mailbox, metaclass=ABCMeta):
+class AckableMailbox(Mailbox, ABC):
     @abstractmethod
     def ack(self):
         raise NotImplementedError

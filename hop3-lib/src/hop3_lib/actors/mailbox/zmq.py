@@ -10,7 +10,7 @@ from .base import Mailbox, decode, encode
 
 
 class ZmqInbox(Mailbox):
-    __slots__ = ["_url", "_context", "_recv_sock"]
+    __slots__ = ["_context", "_recv_sock", "_url"]
 
     def __init__(self, url="tcp://*:9999", **kwargs):
         self._url = url
@@ -51,7 +51,7 @@ class ZmqInbox(Mailbox):
 
 
 class ZmqOutbox(Mailbox):
-    __slots__ = ["_url", "_context", "_send_sock"]
+    __slots__ = ["_context", "_send_sock", "_url"]
 
     def __init__(self, url, **kwargs):
         self._url = url
@@ -60,7 +60,7 @@ class ZmqOutbox(Mailbox):
         self._send_sock.connect(self._url)
 
     def get(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def put(self, message):
         self._send_sock.send(packb(encode(message), use_bin_type=True))
