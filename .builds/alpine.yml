@@ -29,8 +29,8 @@ tasks:
 
   - lint: |
       cd hop3
-      poetry run make lint
+      poetry run inv lint
 
   - test: |
       cd hop3
-      poetry run make test
+      poetry run inv test

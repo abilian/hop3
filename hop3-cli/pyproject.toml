@@ -22,6 +22,7 @@ platformdirs = "^4.2.2"
 paramiko = "^3.4.0"
 devtools = "^0.12.2"
 rpyc = "^6.0.0"
+toml = "^0.10.2"
 
 
 [tool.poetry.group.dev.dependencies]
