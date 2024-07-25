@@ -60,6 +60,7 @@ lint.extend-ignore = [
     "FBT002", # Boolean default positional argument in function definition
     "PLR0917", # Too many positional arguments
     "PLR0911", # Too many return statements
+    "DOC501", # Raised exception `ValueError` missing from docstring
 ]
 
 [lint.mccabe]
