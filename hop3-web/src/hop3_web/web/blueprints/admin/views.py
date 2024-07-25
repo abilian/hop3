@@ -39,7 +39,7 @@ def home() -> str:
 
 
 @get("/settings/")
-async def settings_view(self) -> str:
+def settings_view(self) -> str:
     result = []
 
     body = h = html()

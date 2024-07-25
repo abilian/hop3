@@ -58,6 +58,8 @@ lint.extend-ignore = [
     "RET504",
     "RUF012",
     "FBT002", # Boolean default positional argument in function definition
+    "PLR0917", # Too many positional arguments
+    "PLR0911", # Too many return statements
 ]
 
 [lint.mccabe]

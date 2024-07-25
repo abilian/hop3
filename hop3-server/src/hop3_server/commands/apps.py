@@ -80,12 +80,12 @@ def cmd_ps_scale(app: str, settings: list[str]) -> None:
             key = key.strip()
             count = int(value.strip())  # check for integer value
         except Exception:
-            raise Abort(f"Error: malformed setting '{s}'")
+            raise ValueError(f"Error: malformed setting '{s}'")
 
         if count < 0:
-            raise Abort(f"Error: cannot scale type '{key}' below 0")
+            raise ValueError(f"Error: cannot scale type '{key}' below 0")
         if key not in worker_count:
-            raise Abort(
+            raise ValueError(
                 f"Error: worker type '{key}' not present in '{app}'",
             )
         deltas[key] = count - worker_count[key]
