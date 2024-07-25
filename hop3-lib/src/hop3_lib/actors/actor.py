@@ -1,5 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
+from __future__ import annotations
+
 import uuid
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable

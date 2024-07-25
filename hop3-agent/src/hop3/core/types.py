@@ -2,8 +2,9 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 
-# TODO: duplicated
+from __future__ import annotations
 
+# TODO: duplicated
 from __future__ import annotations
 
 from typing import TypeAlias

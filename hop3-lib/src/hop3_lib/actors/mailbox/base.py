@@ -1,5 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
+from __future__ import annotations
+
 import sys
 import types
 from abc import ABCMeta, abstractmethod

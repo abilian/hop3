@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 import rpyc
@@ -33,4 +35,4 @@ class Context:
     def rpc(self, method, *args, **kwargs):
         """Call a remote method"""
         client = self.get_client()
-        return client.root.call(method, *args, **kwargs)
+        return client.root.rpc(method, *args, **kwargs)

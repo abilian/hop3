@@ -1,5 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
+from __future__ import annotations
+
 from hop3_server.rpc.service import Hop3Service
 from rpyc.utils.server import ThreadedServer
 

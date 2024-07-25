@@ -1,5 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
+from __future__ import annotations
+
 MAIN_MENU = [
     {"label": "Apps", "url": "/"},
     {"label": "Admin", "url": "/admin/"},

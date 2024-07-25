@@ -1,5 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
+from __future__ import annotations
+
 from flask import render_template
 from hop3_web.web.menus import ADMIN_MENU, MAIN_MENU
 from markupsafe import Markup

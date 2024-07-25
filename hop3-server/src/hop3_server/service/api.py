@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from hop3_server.service.model import App
 
 

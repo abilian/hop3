@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # SPDX-License-Identifier: MIT
 
+from __future__ import annotations
+
 from hop3.util.path import prepend_to_path
 
 

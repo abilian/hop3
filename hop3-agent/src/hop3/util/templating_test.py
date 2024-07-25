@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # SPDX-License-Identifier: MIT
 
-# ruff: noqa: W293
+from __future__ import annotations
 
+# ruff: noqa: W293
 from hop3.util.templating import eval_template
 
 TEMPLATE = """\
