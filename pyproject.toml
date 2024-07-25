@@ -17,10 +17,15 @@ hop-test = "hop3.testing.main:main"
 [tool.poetry.dependencies]
 python = "^3.10"
 
-# Remove later
+# Debug (remove later)
 devtools = "^0.12.2"
 snoop = "^0.4.3"
+
+# Manual install (remove later)
 invoke = "^2.2.0"
+tomlkit = "*"
+cleez = "*"
+python-dotenv = "*"
 
 [tool.poetry.group.dev.dependencies]
 abilian-devtools = "^0.5.18"
