@@ -89,11 +89,11 @@ clean-test: ## remove test and coverage artifacts
 
 ## Lint / check typing
 lint:
-	# adt check src tests
-	ruff check src tests
+	fish -c "ruff check src */src tests */tests"
 	# mypy --show-error-codes src
 	# pyright src
 	reuse lint -q
+
 
 # Alt
 #lint:

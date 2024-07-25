@@ -1,3 +1,5 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 from __future__ import annotations
 
 from hop3_server.service.model import App

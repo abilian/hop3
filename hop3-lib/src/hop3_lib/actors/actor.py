@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 
 import eventlet

@@ -1,10 +1,11 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 from __future__ import annotations
 
 import argparse
 import dataclasses
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from typing import Any, ClassVar, Sequence
-
 
 __all__ = ["Command"]
 

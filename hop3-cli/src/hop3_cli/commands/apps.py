@@ -1,5 +1,6 @@
-from __future__ import annotations
+# Copyright (c) 2023-2024, Abilian SAS
 
+from __future__ import annotations
 
 from devtools import debug
 

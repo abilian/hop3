@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 import types
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from typing import Any
 
