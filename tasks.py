@@ -173,7 +173,7 @@ def watch(c, host=None):
     # TODO: fix
     def sync():
         print(f"{BOLD}Syncing to remote server (hop3@{host})...{DIM}")
-        c.run(f"rsync -e ssh -avz {excludes_args} ./ hop3@{host}:/home/hop3/src/")
+        c.run(f"rsync -e ssh -avz {excludes_args} ./ root@{host}:/home/hop3/hop3-src/")
 
     sync()
     for _changes in watchfiles.watch("."):

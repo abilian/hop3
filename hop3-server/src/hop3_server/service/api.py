@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
-from hop3_server.service.model import App
+from pathlib import Path
+
+from .constants import APP_ROOT
+from .model import App
+
+
+def get_app(name: str) -> App:
+    app = App(name)
+    # app.check_exists()
+    return app
 
 
 def list_apps() -> list[App]:
-    return []
-
-
-def get_app(app_name: str) -> App:
-    return App(name=app_name)
+    app_root = Path(APP_ROOT)
+    return [App(path.name) for path in sorted(app_root.iterdir())]

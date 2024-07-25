@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from actors.actor import Actor
+    from .actor import Actor
 
 
 @dataclass(frozen=True)
