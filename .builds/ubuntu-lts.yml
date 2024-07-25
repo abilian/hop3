@@ -27,6 +27,7 @@ tasks:
       sudo pip install -U pip setuptools wheel poetry nox
       cd hop3
       poetry install
+      poetry run inv install
 
   - lint: |
       cd hop3
