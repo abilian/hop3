@@ -8,6 +8,7 @@ import os
 from flask import Flask, g, render_template_string
 from flask_login import current_user
 from flask_security import Security, SQLAlchemyUserDatastore, auth_required
+from hop3_web.web.extensions import db
 
 CONFIG = {
     "SECRET_KEY": os.environ.get("SECRET_KEY", "xxx"),
@@ -25,7 +26,7 @@ security = Security()
 
 
 def init_app(app: Flask) -> None:
-    from app.extensions import db
+    from hop3_web.models.auth import Role, User
 
     app.config.update(CONFIG)
     user_datastore = SQLAlchemyUserDatastore(db, User, Role)

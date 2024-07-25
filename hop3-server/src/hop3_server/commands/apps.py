@@ -13,6 +13,7 @@ import sys
 from glob import glob
 
 from hop3_server.service import App, get_app, list_apps
+from hop3_server.service.procfile import parse_procfile
 from hop3_server.utils.console import echo
 
 

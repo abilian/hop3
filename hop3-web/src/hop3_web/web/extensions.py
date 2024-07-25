@@ -17,7 +17,7 @@ from flask_vite import Vite
 from loguru import logger
 from pytz import timezone
 
-from hop3.model.security import User, Role
+from hop3.model.security import Role, User
 
 PARIS_TZ = timezone("Europe/Paris")
 

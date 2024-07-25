@@ -43,7 +43,7 @@ class Owned:
     def owner(_cls) -> Mapped[User]:
         from .auth import User
 
-        return relationship(User, foreign_keys=[_cls.owner_id])  # type: ignore
+        return relationship(User, foreign_keys=[_cls.owner_id])
 
 
 class Timestamped:

@@ -137,7 +137,7 @@ format-apps:
 ## Add copyright mention
 add-copyright:
 	fish -c 'reuse annotate --copyright "Copyright (c) 2023-2024, Abilian SAS" \
-		src/**/*.py */src/**/*.py */tests/**/*.py'
+		tests/**/*.py src/**/*.py */src/**/*.py */tests/**/*.py'
 
 #
 # Everything else

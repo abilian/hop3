@@ -47,9 +47,7 @@ def decode(obj):
             return pvector(decode(item) for item in obj)
 
         case dict():
-            new_dict = {
-                decode(key): decode(obj[key]) for key in obj
-            }
+            new_dict = {decode(key): decode(obj[key]) for key in obj}
             return pmap(new_dict)
 
         case _:
