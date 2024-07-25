@@ -148,8 +148,9 @@ To ensure a hermetic, reproducible, and highly responsive internal delivery proc
 
 Please refer to the following key documents for contribution guidelines:
 
-- [Contributing](./docs/dev/contributing.md)
+- [Getting Started](./docs/dev/getting-started.md)
 - [Core Values](./docs/dev/core-values.md)
+- [Contributing](./docs/dev/contributing.md)
 - [Governance](./docs/dev/governance.md)
 - [Code of Conduct](./docs/policies/code-of-conduct.md)
 - [Licenses](./LICENSES)
@@ -212,7 +213,7 @@ Infra, QA, DX, refactorings:
 
 Features:
 
-- [ ] Reorganize code base into sub-projects
+- [x] Reorganize code base into sub-projects (monorepo)
 - [ ] More apps
 - [ ] Review / improve CLI DX
   - [ ] Use an API server
@@ -232,8 +233,9 @@ Infra, refactorings:
 
 ### P2 (Q4 2024):
 
+- [ ] Reorganize monorepo further
 - [ ] More apps
-- [ ] Agents
+- [ ] Agents (for distributed deployments)
 - [ ] Target other platforms (e.g. SlapOS, NixOS, Guix, etc.)
 - [ ] Security (Firewall, WAF, better isolation, etc.)
 - [ ] Monitoring

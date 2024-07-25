@@ -7,7 +7,14 @@ Before you start, it's important to familiarize yourself with Hop3's core values
 The project uses `poetry` for dependency management. However, since it is structured as a monorepo, you will need to install the dependencies for each package separately. To install the dependencies for a specific package, navigate to the package directory and run the following command:
 
 ```bash
+poetry shell
 poetry install
+inv install
+# or (using uv)
+uv venv
+uv pip install -e .
+. venv/bin/activate # (or activate.fish for fish shell)
+inv install
 ```
 
 ## Tooling
