@@ -9,11 +9,11 @@ packages:
 #  - software-properties-common
 #  - build-essential
   - gmake
-  - gcc
-  - g++
+#  - gcc
+#  - g++
   - fish
   # Python
-  - python
+#  - python
 #  - python3-dev
 #  - python3-pip
 #  - python3-wheel

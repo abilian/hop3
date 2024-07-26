@@ -5,6 +5,8 @@
 image: openbsd/latest
 
 packages:
+  # Misc
+  - sudo
   # Build tools
 #  - software-properties-common
 #  - build-essential
