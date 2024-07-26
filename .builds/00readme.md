@@ -22,12 +22,12 @@ Here is a brief description of the packaging situation for each of the (potentia
 - **Searching for Packages:** Use `pacman -Ss <package_name>`
 - **Installing Packages:** Use `pacman -S <package_name>`
 
-### Debian
+### Debian & Ubuntu
 **Package Manager:** `apt`
 - **Searching for Packages:** Use `apt search <package_name>`
 - **Installing Packages:** Use `apt install <package_name>`
 
-### Fedora
+### Fedora & Rocky Linux
 **Package Manager:** `dnf`
 - **Searching for Packages:** Use `dnf search <package_name>`
 - **Installing Packages:** Use `dnf install <package_name>`
@@ -56,13 +56,3 @@ Here is a brief description of the packaging situation for each of the (potentia
 **Package Manager:** `pkg_add` and `pkg_info`
 - **Searching for Packages:** Use `pkg_info -Q <package_name>`
 - **Installing Packages:** Use `pkg_add <package_name>`
-
-### Rocky Linux
-**Package Manager:** `dnf`
-- **Searching for Packages:** Use `dnf search <package_name>`
-- **Installing Packages:** Use `dnf install <package_name>`
-
-### Ubuntu
-**Package Manager:** `apt`
-- **Searching for Packages:** Use `apt search <package_name>`
-- **Installing Packages:** Use `apt install <package_name>`

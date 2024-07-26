@@ -10,7 +10,6 @@ packages:
 #  - build-essential
   - gmake
   - gcc
-  - g++
   - fish
   # Python
   - python
