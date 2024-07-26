@@ -49,8 +49,12 @@ Here is a brief description of the packaging situation for each of the (potentia
 
 ### NixOS
 **Package Manager:** `nix`
-- **Searching for Packages:** Use `nix search nixpkgs <package_name>`
-- **Installing Packages:** Use `nix-env -iA nixpkgs.<package_name>`
+Thank you for pointing that out. Here is the correct way to search for and install packages on NixOS using the `nix` package manager:
+
+### NixOS
+**Package Manager:** `nix`
+- **Searching for Packages:** Use `nix search <package_name>`
+- **Installing Packages:** Use `nix-env -i <package_name>`
 
 ### OpenBSD
 **Package Manager:** `pkg_add` and `pkg_info`

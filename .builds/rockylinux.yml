@@ -6,9 +6,12 @@ image: rockylinux/latest
 
 packages:
   # Python
-  - python
-  - python-pip
-  - python3-devel
+  - python3.11
+  - python3.11-pip
+  - python3.11-devel
+  - python3.12
+  - python3.12-pip
+  - python3.12-devel
   # Build tools
   - fish
   - make

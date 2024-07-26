@@ -5,6 +5,12 @@
 image: nixos/latest
 
 packages:
+  - python310
+  - python311
+  - python312
+  - poetry
+  - fish
+
 #  # Build tools
 #  - software-properties-common
 #  - build-essential
