@@ -8,6 +8,7 @@ packages:
   # Build tools
   - gcc
   - fish
+  - rust
   # Python
   - python
   - py311-pip
@@ -16,17 +17,18 @@ packages:
 tasks:
   - setup: |
       pip install -U pip setuptools wheel poetry nox
+      export PATH=$HOME/.local/bin:$PATH
       cd hop3
-      /home/build/.local/bin/poetry install
-      /home/build/.local/bin/poetry run inv install
+      poetry install
+      poetry run inv install
 
   - lint: |
       cd hop3
-      /home/build/.local/bin/poetry run make lint
+      poetry run make lint
 
   - test: |
       cd hop3
-      /home/build/.local/bin/poetry run inv test
+      poetry run inv test
 
   - nox: |
       cd hop3
