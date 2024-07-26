@@ -6,25 +6,21 @@ image: guix
 
 packages:
   # Build tools
-#  - software-properties-common
-#  - build-essential
   - make
   - gcc-toolchain
-#  - g++
   - fish
   # Python
   - python
   - python-pip
-#  - python3-wheel
-#  # Libraries
-#  - libpq-dev
-#  - libffi-dev
-#  - libsqlite3-dev
-#  - libbz2-dev
+  # Libraries
+  - libpqxx
 
 tasks:
   - setup: |
-      sudo pip install -U pip setuptools wheel poetry nox
+      export GUIX_PROFILE="$HOME/.guix-profile"
+      . "$GUIX_PROFILE/etc/profile"
+      export PATH=$HOME/.local/bin:$PATH
+      pip install --break-system-packages -U pip setuptools wheel poetry nox
       cd hop3
       poetry install
       poetry run inv install
