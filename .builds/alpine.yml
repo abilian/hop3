@@ -27,7 +27,7 @@ tasks:
       sudo ln -sf ~/.local/bin/poetry /usr/local/bin/
       cd hop3
       poetry install
-      porery run inv install
+      poetry run inv install
 
   - lint: |
       cd hop3
