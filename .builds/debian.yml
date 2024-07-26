@@ -24,7 +24,7 @@ packages:
 
 tasks:
   - setup: |
-      sudo pip install -U pip setuptools wheel poetry nox
+      sudo pip install --break-system-packages -U pip setuptools wheel poetry nox
       cd hop3
       poetry install
       poetry run inv install

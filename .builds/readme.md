@@ -1,7 +1,9 @@
-<!--
-Copyright (c) 2023-2024, Abilian SAS
+# Build profiles for Sourcehut builds
 
-SPDX-License-Identifier: BSD-3-Clause
--->
+By default, all the builds are against the "latest" version of the dependencies ("stable" for Debian).
 
-Build profiles for build.sr.ht (Sourcehut builds).
+For Ubuntu (and maybe others in the future), additionally, we support the latest LTS version. (NB: this is currently irrelevant, as the LTS is also the latest release.)
+
+See https://builds.sr.ht/~sfermigier for the latest build statuses.
+
+TODO: fix all builds.
