@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-image: guix
+image: nixos/latest
 
 packages:
 #  # Build tools
