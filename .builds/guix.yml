@@ -17,6 +17,7 @@ packages:
 
 tasks:
   - setup: |
+      sudo ln -sf /run/current-system/profile/bin/bash /bin/
       export GUIX_PROFILE="$HOME/.guix-profile"
       . "$GUIX_PROFILE/etc/profile"
       export PATH=$HOME/.local/bin:$PATH
