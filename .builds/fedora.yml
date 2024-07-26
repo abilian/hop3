@@ -19,12 +19,14 @@ packages:
 #  - gcc
 #  - g++
 #  - fish
-#  # Python
+  # Python
+  - python3-devel
 #  - python3-dev
 #  - python3-pip
 #  - python3-wheel
   # Libraries
-  - postgresql-libs
+#  - postgresql-libs
+  - libpq-devel
 #  - libpq-dev
 #  - libffi-dev
 #  - libsqlite3-dev

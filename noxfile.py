@@ -4,8 +4,8 @@
 
 import nox
 
-# PYTHON_VERSIONS = ["3.10", "3.11", "3.12"]
-PYTHON_VERSIONS = ["3.10"]
+# Minimal version is 3.10
+PYTHON_VERSIONS = ["3.10", "3.11", "3.12"]
 
 nox.options.reuse_existing_virtualenvs = True
 

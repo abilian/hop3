@@ -54,7 +54,7 @@ def install(c, quiet=False):
     """Install all sub-packages (and dependencies)"""
     # first uninstall all
     c.run(
-        "pip list --format freeze | egrep '^hop3-' |xargs pip uninstall -yq &>/dev/null",
+        "pip list --format freeze | grep -E '^hop3-' | xargs pip uninstall -yq &>/dev/null",
         warn=True,
     )
 
