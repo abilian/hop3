@@ -100,10 +100,10 @@ Hop3's technology stack is carefully chosen to support its goals without relying
 
 ### Supported OS
 
-We aim to support a wide range of operating systems, including:
+We *aim* to support a wide range of operating systems, including:
 
-- **Linux**: Ubuntu, Debian, Archlinux, Fedora, NixOS, Guix, etc.
-- **FreeBSD**
+- **Linux**: Ubuntu, Debian, Archlinux, Rocky, Fedora, NixOS, Guix.
+- **BSD**: FreeBSD, OpenBSD, NetBSD.
 
 We run CI tests on the SourceHut platform, which supports a wide range of open source distributions and operating systems. This is a work in progress, and we welcome contributions to fix issues with the current tests or to expand the list of supported OS. See: [.build](.build) for the CI scripts, and https://builds.sr.ht/~sfermigier/ for current build status.
 
