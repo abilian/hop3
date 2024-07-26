@@ -36,3 +36,8 @@ tasks:
   - test: |
       cd hop3
       poetry run inv test
+
+#triggers:
+#  - action: email
+#    condition: failure
+#    to: builds@fermigier.com

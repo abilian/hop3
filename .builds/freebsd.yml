@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-image: freebsd
+image: freebsd/latest
 
 packages:
   # Build tools
@@ -42,7 +42,7 @@ tasks:
       cd hop3
       poetry run nox
 
-triggers:
-  - action: email
-    condition: failure
-    to: builds@fermigier.com
+#triggers:
+#  - action: email
+#    condition: failure
+#    to: builds@fermigier.com
