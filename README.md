@@ -10,11 +10,9 @@ Build status: [![builds.sr.ht status](https://builds.sr.ht/~sfermigier/hop3.svg)
 
 ## About
 
-Hop3 is a tool to deploy and manage web applications on a single server (currently). It is designed to be simple,
-secure, and easy to use.
+Hop3 is a tool to deploy and manage web applications on a single server (currently). It is designed to be simple, secure, and easy to use.
 
-The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3)
-and [GitHub](https://github.com/abilian/hop3).
+The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [GitHub](https://github.com/abilian/hop3).
 
 ## Status
 
@@ -99,6 +97,16 @@ Hop3's technology stack is carefully chosen to support its goals without relying
 - **Security Tools**: Incorporates a suite of security tools designed for continuous monitoring, proactive threat mitigation, and compliance with the CRA.
 - **Energy-Efficient Computing**: Adopts strategies and technologies aimed at minimizing energy consumption across all operations.
 - **Open Standards and Protocols**: Committed to open standards to ensure interoperability and prevent vendor lock-in.
+
+### Supported OS
+
+We aim to support a wide range of operating systems, including:
+
+- **Linux**: Ubuntu, Debian, Archlinux, Fedora, NixOS, Guix, etc.
+- **FreeBSD**
+
+We run CI tests on the SourceHut platform, which supports a wide range of open source distributions and operating systems. This is a work in progress, and we welcome contributions to fix issues with the current tests or to expand the list of supported OS. See: [.build](.build) for the CI scripts, and https://builds.sr.ht/~sfermigier/ for current build status.
+
 
 ## Getting Started
 
@@ -214,6 +222,7 @@ Infra, QA, DX, refactorings:
 Features:
 
 - [x] Reorganize code base into sub-projects (monorepo)
+- [x] Start multi-OS support (Ubuntu, Archlinux, Fedora, NixOS, Guix, FreeBSD...)
 - [ ] More apps
 - [ ] Review / improve CLI DX
   - [ ] Use an API server

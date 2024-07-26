@@ -1,0 +1,48 @@
+# Copyright (c) 2023-2024, Abilian SAS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+image: netbsd/latest
+
+packages:
+  # Build tools
+#  - software-properties-common
+#  - build-essential
+  - gmake
+  - gcc
+  - g++
+  - fish
+  # Python
+  - python
+#  - python3-dev
+#  - python3-pip
+#  - python3-wheel
+#  # Libraries
+#  - libpq-dev
+#  - libffi-dev
+#  - libsqlite3-dev
+#  - libbz2-dev
+
+tasks:
+  - setup: |
+      sudo pip install -U pip setuptools wheel poetry nox
+      cd hop3
+      poetry install
+      poetry run inv install
+
+  - lint: |
+      cd hop3
+      poetry run make lint
+
+  - test: |
+      cd hop3
+      poetry run inv test
+
+  - nox: |
+      cd hop3
+      poetry run nox
+
+#triggers:
+#  - action: email
+#    condition: failure
+#    to: builds@fermigier.com
