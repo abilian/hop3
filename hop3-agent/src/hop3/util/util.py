@@ -19,7 +19,8 @@ from subprocess import STDOUT, check_output
 from cleez.colors import dim
 
 from hop3.system.constants import APP_ROOT
-from hop3.util.console import Abort, log
+
+from .console import Abort, log
 
 
 def shell(command: str, cwd: Path | str = "", **kwargs) -> subprocess.CompletedProcess:

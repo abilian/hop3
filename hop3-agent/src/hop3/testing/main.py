@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from hop3.util.console import Abort
+
 # ruff: noqa: E402
 """
 Hop3 test runner.
@@ -16,8 +18,6 @@ from pathlib import Path
 
 from cleez.colors import green, red
 from devtools import debug
-
-from hop3.util.console import Abort
 
 from .base import TestSession
 

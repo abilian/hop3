@@ -5,11 +5,12 @@ description = "Simple PaaS - Deploy and manage web applications on a single serv
 authors = ["Stefane Fermigier <sf@abilian.com>"]
 readme = "README.md"
 
-packages = [
-    { include = "hop3", from = "src" },
-    #    { include = "hop3_main", from = "src" },
-]
+#packages = [
+#    { include = "hop3", from = "src" },
+#    #    { include = "hop3_main", from = "src" },
+#]
 
+package-mode = false
 
 [tool.poetry.scripts]
 hop-agent = "hop3.main:main"

@@ -89,7 +89,7 @@ clean-test: ## remove test and coverage artifacts
 
 ## Lint / check typing
 lint:
-	fish -c "ruff check src */src tests */tests"
+	fish -c "ruff check */src tests */tests"
 	# mypy --show-error-codes src
 	# pyright src
 	reuse lint -q
@@ -172,6 +172,8 @@ clean:
 ## Cleanup harder
 tidy: clean
 	rm -rf .nox .tox
+	-fish -c 'rm -rf */.tox'
+	-fish -c 'rm -rf */.nox'
 	rm -rf node_modules
 	rm -rf instance
 
