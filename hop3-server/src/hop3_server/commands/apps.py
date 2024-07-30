@@ -18,8 +18,7 @@ from hop3_server.utils.console import echo
 
 def cmd_apps() -> list[App]:
     """List apps, e.g.: hop apps."""
-    return ["xxx"]
-    # return list_apps()
+    return list_apps()
 
 
 def cmd_deploy(app) -> None:
