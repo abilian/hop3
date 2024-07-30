@@ -2,7 +2,8 @@ preview = true
 
 exclude = [
     "hop3-agent/src/hop3/util/templating.py",
-    "hop3-lib/src/hop3/actors",
+    "hop3-lib/src/hop3_lib/actors",
+    "hop3-lib/src/hop3_lib/bus",
     "src/hop3_main",
 ]
 
