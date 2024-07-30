@@ -64,11 +64,24 @@ def install(c, quiet=False):
     options = " ".join(opts)
 
     if shutil.which("uv"):
-        c.run(f"uv pip install {options} --no-cache-dir -e .")
+        # c.run(f"uv pip install {options} --no-cache-dir -e .")
         run_in_subrepos(c, f"uv pip install {options} --no-cache-dir -e .")
     else:
         c.run(f"pip install {options} --no-cache-dir -e .")
         run_in_subrepos(c, f"pip install {options} --no-cache-dir -e .")
+
+
+@task
+def install_dev(c, quiet=False):
+    """Install all sub-packages (and dependencies, including dev)"""
+    # first uninstall all
+    c.run(
+        "pip list --format freeze | grep -E '^hop3-' | xargs pip uninstall -yq &>/dev/null",
+        warn=True,
+    )
+
+    c.run(f"poetry install")
+    run_in_subrepos(c, f"poetry install")
 
 
 @task
