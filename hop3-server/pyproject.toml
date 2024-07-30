@@ -11,6 +11,10 @@ packages = [
 ]
 
 
+[tool.poetry.scripts]
+hop-server = "hop3_server.main:main"
+
+
 [tool.poetry.dependencies]
 python = "^3.10"
 rpyc = "^6.0.0"
