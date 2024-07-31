@@ -137,6 +137,7 @@ format:
 	fish -c "black src */src tests */tests"
 	fish -c "isort src */src tests */tests"
 	fish -c "ruff format src */src tests */tests"
+	markdown-toc -i README.md
 
 ## Format / beautify apps
 format-apps:

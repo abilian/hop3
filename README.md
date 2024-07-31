@@ -14,6 +14,49 @@ Hop3 is a tool to deploy and manage web applications on a single server (current
 
 The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [GitHub](https://github.com/abilian/hop3).
 
+## TOC
+
+<!-- toc -->
+
+- [Status](#status)
+- [Overview](#overview)
+- [Goals](#goals)
+- [Features](#features)
+  * [Web-Based Management Interface](#web-based-management-interface)
+  * [User Management and Single Sign-On (SSO)](#user-management-and-single-sign-on-sso)
+  * [Role-Based Access Control (RBAC)](#role-based-access-control-rbac)
+  * [Automated Backups and Restore](#automated-backups-and-restore)
+  * [Domain Management and SSL Certificates](#domain-management-and-ssl-certificates)
+  * [Modular Design](#modular-design)
+  * [Comprehensive Network Management](#comprehensive-network-management)
+  * [Security and Resilience Enhancements](#security-and-resilience-enhancements)
+  * [Distributed, Agent-Based Architecture](#distributed-agent-based-architecture)
+  * [Technology Stack](#technology-stack)
+  * [Supported OS](#supported-os)
+- [Getting Started](#getting-started)
+- [Development and Contribution](#development-and-contribution)
+  * [Development Environment](#development-environment)
+  * [Development and Delivery Pipeline](#development-and-delivery-pipeline)
+    + [CI/CD Integration](#cicd-integration)
+    + [Package Management](#package-management)
+    + [Compliance and Transparency](#compliance-and-transparency)
+  * [Contributing](#contributing)
+  * [Community Engagement](#community-engagement)
+  * [Additional Notes](#additional-notes)
+- [Roadmap](#roadmap)
+  * [P0 (MVP, Q2 2024):](#p0-mvp-q2-2024)
+  * [P1 (Q3 2024):](#p1-q3-2024)
+  * [P2 (Q4 2024):](#p2-q4-2024)
+  * [P3 (S1 2025):](#p3-s1-2025)
+- [Documentation](#documentation)
+- [Copyright, Credits and Acknowledgements](#copyright-credits-and-acknowledgements)
+  * [Authors](#authors)
+  * [Licensing / REUSE Compliance](#licensing--reuse-compliance)
+- [What's the story behind the name?](#whats-the-story-behind-the-name)
+- [Links / References](#links--references)
+
+<!-- tocstop -->
+
 ## Status
 
 > [!WARNING]
@@ -295,19 +338,17 @@ See the [LICENSE](LICENSE) file for more information.
 
 Here are the REUSE compliance results for Hop3 (as of 2024/07/25):
 
-# SUMMARY
-
-* Bad licenses: 0
-* Deprecated licenses: 0
-* Licenses without file extension: 0
-* Missing licenses: 0
-* Unused licenses: 0
-* Used licenses: CC0-1.0, BSD-3-Clause, AGPL-3.0-only, CC-BY-4.0, MIT
-* Read errors: 0
-* Files with copyright information: 310 / 310
-* Files with license information: 310 / 310
-
-Congratulations! Your project is compliant with version 3.2 of the REUSE Specification :-)
+> * Bad licenses: 0
+> * Deprecated licenses: 0
+> * Licenses without file extension: 0
+> * Missing licenses: 0
+> * Unused licenses: 0
+> * Used licenses: CC0-1.0, BSD-3-Clause, AGPL-3.0-only, CC-BY-4.0, MIT
+> * Read errors: 0
+> * Files with copyright information: 310 / 310
+> * Files with license information: 310 / 310
+>
+> Congratulations! Your project is compliant with version 3.2 of the REUSE Specification :-)
 
 
 ## What's the story behind the name?
@@ -323,5 +364,5 @@ Congratulations! Your project is compliant with version 3.2 of the REUSE Specifi
 - [Nua](https://nua.rocks/) (Hop3's predecessor)
 - [Piku](https://piku.github.io/) (Hop3's inspiration)
 - [Sailor](https://github.com/mardix/sailor) (Another fork of Piku)
-- [Abilian](https://www.abilian.com/) (Hop3's sponsor / buy support from us)
+- [Abilian](https://www.abilian.com/) (Hop3's sponsor -> buy support from us)
 - [Abilian SBE](https://github.com/abilian/abilian-sbe-monorepo/) (One of the applications that can be deployed with Hop3 - Soon)
