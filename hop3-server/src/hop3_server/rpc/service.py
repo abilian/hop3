@@ -8,7 +8,6 @@ from types import ModuleType
 import rpyc
 from cattrs import unstructure
 from devtools import debug
-
 from hop3_server.utils.scanner import scan_packages
 
 PACKAGES = [

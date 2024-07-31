@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from attr import frozen
-
 from hop3_server.service.constants import LOG_ROOT
 from hop3_server.service.logs import multi_tail
 
