@@ -10,6 +10,17 @@ all: lint test
 #
 #
 #
+## Cleanup repository
+clean:
+	rm -f **/*.pyc
+	find . -type d -empty -delete
+	rm -rf *.egg-info *.egg .coverage .eggs .cache .mypy_cache .pyre \
+		.pytest_cache .pytest .DS_Store  docs/_build docs/cache docs/tmp \
+		dist build pip-wheel-metadata junit-*.xml htmlcov coverage.xml \
+		tmp
+	-fish -c "rm -rf */dist"
+	adt clean
+
 clean-and-deploy:
 	make clean-server
 	make deploy
@@ -22,7 +33,7 @@ clean-server:
 deploy:
 	echo "--> Deploying"
 	@make clean
-	poetry build
+	cd hop3-agent && poetry build
 	poetry run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
 
 #
@@ -159,15 +170,6 @@ doc-pdf:
 	sphinx-build -W -b latex docs/ docs/_build/latex
 	make -C docs/_build/latex all-pdf
 
-## Cleanup repository
-clean:
-	rm -f **/*.pyc
-	find . -type d -empty -delete
-	rm -rf *.egg-info *.egg .coverage .eggs .cache .mypy_cache .pyre \
-		.pytest_cache .pytest .DS_Store  docs/_build docs/cache docs/tmp \
-		dist build pip-wheel-metadata junit-*.xml htmlcov coverage.xml \
-		tmp
-	adt clean
 
 ## Cleanup harder
 tidy: clean

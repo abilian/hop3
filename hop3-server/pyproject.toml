@@ -19,6 +19,9 @@ hop-server = "hop3_server.main:main"
 python = "^3.10"
 rpyc = "^6.0.0"
 watchfiles = "^0.22.0"
+attrs = "*"
+cattrs = "*"
+devtools = "*"
 
 
 [build-system]

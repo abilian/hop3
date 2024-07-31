@@ -15,8 +15,10 @@ class AppsCommand(Command):
     name = "apps"
 
     def handle(self, args, context):
-        result = context.rpc("apps")
-        debug(result)
+        apps = list(context.rpc("apps"))
+        for app in apps:
+            print(app["name"], app["is_running"])
+        debug(type(apps), type(apps[0]))
 
         # result = client.call("list")
         # for instance in result:

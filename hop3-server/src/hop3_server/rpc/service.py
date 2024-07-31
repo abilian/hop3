@@ -6,6 +6,9 @@ from collections.abc import Callable
 from types import ModuleType
 
 import rpyc
+from cattrs import unstructure
+from devtools import debug
+
 from hop3_server.utils.scanner import scan_packages
 
 PACKAGES = [
@@ -47,4 +50,7 @@ class Hop3Service(rpyc.Service):
         if cmd is None:
             msg = f"Command {command} not found"
             raise ValueError(msg)
-        return cmd(*args, **kwargs)
+        result = cmd(*args, **kwargs)
+        dto = unstructure(result)
+        debug(dto)
+        return dto
