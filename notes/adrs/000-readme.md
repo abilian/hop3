@@ -18,6 +18,10 @@ The outline below is intended to be a guide. It is not necessary to follow it ex
 
 Status: [Draft | Proposed | Accepted | Deprecated | Superseded | ...]
 
+## Introduction
+
+Describes the background and intention of the ADR.
+
 ## Summary
 
 A short summary of the decision and its context.
@@ -26,11 +30,19 @@ A short summary of the decision and its context.
 
 What is the (current) status, such as proposed, accepted, rejected, deprecated, superseded, etc.?
 
-
 ## Context and Goals
 
-What is the issue that we're seeing that is motivating this decision or change?
+### Context
 
+What is the issue that we're seeing that is motivating this decision or change? Describes the as-is or current situation.
+
+### Goals
+
+Sets out key success criteria and/or metrics up-front.
+
+## Tenets
+
+The principles and values that are relevant to this decision.
 
 ## Decision
 
@@ -38,15 +50,23 @@ What is the change that we're proposing and/or doing?
 
 ## Consequences
 
-What becomes easier or more difficult to do because of this change?
-
 ### Benefits
+
+What are the positive outcomes expected from this decision?
 
 ### Drawbacks
 
+What are the negative outcomes or challenges associated with this decision?
+
+## Lessons Learned
+
+What has happened in the past and what was learned? Relevant historical context that influenced this decision.
+
 ## Action Items
 
-What are the next steps?
+### Strategic Priorities
+
+The detailed plan for achieving the success criteria/metrics described earlier. Steps that need to be taken to implement the decision.
 
 ## Alternatives
 
@@ -63,3 +83,7 @@ What sources of information did you use to make this decision?
 ## Notes
 
 Any additional notes or information that might be helpful.
+
+## Appendix
+
+Additional data, tables, documents, and context that support the decision.
