@@ -11,18 +11,28 @@ packages = [
 ]
 
 
-[tool.poetry.scripts]
-hop-server = "hop3_server.main:main"
+#[tool.poetry.scripts]
+#hop-server = "hop3_server.main:main"
 
 
 [tool.poetry.dependencies]
 python = "^3.10"
+
 rpyc = "^6.0.0"
+
 watchfiles = "^0.22.0"
 attrs = "*"
 cattrs = "*"
-devtools = "*"
 
+devtools = "*"
+granian = {extras = ["reload"], version = "^1.5.2"}
+uvicorn = "^0.30.4"
+jsonrpcserver = "^5.0.9"
+starlette = "^0.38.2"
+
+
+[tool.poetry.group.dev.dependencies]
+abilian-devtools = "^0.6.1"
 
 [build-system]
 requires = ["poetry-core"]

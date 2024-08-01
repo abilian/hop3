@@ -1,4 +1,8 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 from dataclasses import dataclass
+
+from tabulate import tabulate
 
 Message = list[str]
 
@@ -10,12 +14,13 @@ class Printer:
     def print(self, msg):
         for item in msg:
             t = item["t"]
-            v = item["v"]
             meth = getattr(self, f"print_{t}")
-            meth(v)
+            meth(item)
 
-    def print_table(self, table):
-        for row in table:
-            for item in row:
-                print(item, end=" ")
-            print()
+    def print_table(self, table: dict):
+        headers = table["headers"]
+        rows = table["rows"]
+        print(tabulate(rows, headers=headers))
+
+    def print_text(self, obj: dict):
+        print(obj["text"])

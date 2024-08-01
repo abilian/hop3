@@ -13,7 +13,10 @@ from os import environ
 from os.path import abspath, join
 from pathlib import Path
 
-HOME = environ["HOME"]
+if "HOP3_HOME" in environ:
+    HOME = environ["HOP3_HOME"]
+else:
+    HOME = environ["HOME"]
 
 HOP3_HOME = HOME
 HOP3_BIN = join(HOP3_HOME, "bin")

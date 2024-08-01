@@ -6,26 +6,18 @@ import argparse
 import logging
 import os
 import sys
+import warnings
 
 from devtools import debug
 from jsonrpcclient import Error, Ok
+from urllib3.exceptions import InsecureRequestWarning
 
-from .commands import Command
-from .commands.apps import AppsCommand
-from .commands.debug import DebugCommand
-from .commands.help import HelpCommand, VersionCommand
 from .config import Config, get_config
 from .context import Context
 from .printer import Printer
 
+warnings.filterwarnings("ignore", category=InsecureRequestWarning)
 logger = logging.getLogger(__name__)
-
-COMMANDS: list[type[Command]] = [
-    VersionCommand,
-    DebugCommand,
-    HelpCommand,
-    AppsCommand,
-]
 
 
 def main():

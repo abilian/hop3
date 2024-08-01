@@ -8,6 +8,15 @@
 all: lint test
 
 #
+# Run
+#
+run:
+	# granian --reload --interface asgi hop3_server.asgi:app
+	uvicorn --reload --interface asgi3 \
+		--ssl-keyfile ssl/key.pem --ssl-certfile ssl/cert.pem \
+		hop3_server.asgi:app
+
+#
 # Setup
 #
 
