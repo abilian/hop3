@@ -1252,6 +1252,19 @@ MarkupSafe = ">=2.0"
 i18n = ["Babel (>=2.7)"]
 
 [[package]]
+name = "jsonrpcclient"
+version = "4.0.3"
+description = "Send JSON-RPC requests"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "jsonrpcclient-4.0.3-py3-none-any.whl", hash = "sha256:3cbb9e27e1be29821becf135ea183144a836215422727e1ffe5056a49a670f0d"},
+]
+
+[package.extras]
+qa = ["pytest", "pytest-cov", "tox"]
+
+[[package]]
 name = "license-expression"
 version = "30.3.0"
 description = "license-expression is a comprehensive utility library to parse, compare, simplify and normalize license expressions (such as SPDX license expressions) using boolean logic."
@@ -2385,4 +2398,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "76d605b3e582bda1eb1f9290d56330bba3c68965f4eb7c4c3f1de9ad2a8e25d5"
+content-hash = "0134dd76908a6ea43cefee8981fed618570c12312cf6d1af947f5a266f46f092"

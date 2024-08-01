@@ -22,6 +22,7 @@ paramiko = "^3.4.0"
 devtools = "^0.12.2"
 rpyc = "^6.0.0"
 toml = "^0.10.2"
+jsonrpcclient = "^4.0.3"
 
 
 [tool.poetry.group.dev.dependencies]

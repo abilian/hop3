@@ -16,6 +16,7 @@ APP_AUTHOR = "Abilian SAS"
 
 _marker = object()
 
+
 # TODO: refactor (make is really immutable, add a ConfigLoader class)
 # TODO: add support for JSON and YAML
 
@@ -39,6 +40,12 @@ class Config:
         with self.config_file.open() as f:
             data = toml.load(f)
             self.data.update(data)
+
+    def __getitem__(self, item):
+        value = self.get(item)
+        if value is _marker:
+            raise KeyError(item)
+        return value
 
     def get(self, key, default=_marker):
         env_var = PREFIX + key.upper()

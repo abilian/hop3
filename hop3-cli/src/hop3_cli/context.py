@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-import rpyc
+import requests
+from jsonrpcclient import parse, request
 
 from .config import Config
 from .state import State
@@ -17,24 +18,21 @@ class Context:
     config: Config
     state: State | None
 
-    _cache: dict = field(default_factory=dict, repr=False)
-
     def get_host(self):
-        return self.config.get("host", "localhost")
+        return self.config["host"]
 
     def get_port(self):
-        return self.config.get("port", "18080")
+        return self.config["port"]
 
-    def get_client(self):
-        """Get the client instance"""
-        if "client" in self._cache:
-            return self._cache["client"]
-        print(f"Connecting to {self.get_host()}:{self.get_port()}")
-        client = rpyc.connect(self.get_host(), self.get_port())
-        self._cache["client"] = client
-        return client
-
-    def rpc(self, method, *args, **kwargs):
+    def rpc(self, method, *args):
         """Call a remote method"""
-        client = self.get_client()
-        return client.root.rpc(method, *args, **kwargs)
+        url = f"https://{self.get_host()}:{self.get_port()}/rpc"
+        json_request = request(method, args)
+        response = requests.post(
+            url,
+            json=json_request,
+            verify=False,
+            # cert="../hop3-server/ssl/cert.pem",
+        )
+        json_response = response.json()
+        return parse(json_response)
