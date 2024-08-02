@@ -33,7 +33,7 @@ python-dotenv = "*"
 
 [tool.poetry.group.dev.dependencies]
 # Generic tools
-abilian-devtools = "^0.5.18"
+abilian-devtools = "^0.6"
 reuse = "^4"
 
 # Used by `inv watch`
