@@ -34,5 +34,6 @@ class Context:
             verify=False,
             # cert="../hop3-server/ssl/cert.pem",
         )
+        response.raise_for_status()
         json_response = response.json()
         return parse(json_response)

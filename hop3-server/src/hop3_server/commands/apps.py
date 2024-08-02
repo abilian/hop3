@@ -12,9 +12,9 @@ from .base import Command
 
 
 class Apps(Command):
-    """List apps, e.g.: hop apps."""
+    """List apps."""
 
-    def call(self, *args):
+    def call(self):
         apps = list_apps()
         rows = [[app.name, app.status, app.worker_count] for app in apps]
         return [

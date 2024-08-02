@@ -1,7 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
-from abc import ABC, abstractmethod
 from types import ModuleType
+from typing import cast
 
 from hop3_server.utils.scanner import scan_packages
 
@@ -10,10 +10,30 @@ PACKAGES = [
 ]
 
 
-class Command(ABC):
-    @abstractmethod
+class Command:
+    name: str = ""
+
+    def subcommands(self):
+        return []
+
     def call(self, *args):
-        raise NotImplementedError
+        if not args:
+            return self.get_help()
+
+        subcommands = self.subcommands()
+        for subcommand in subcommands:
+            if subcommand.name == args[0]:
+                return subcommand.call(args[1:])
+
+        return self.get_help()
+
+    def get_help(self):
+        subcommands = self.subcommands()
+        subcommand_names = sorted(subcommand.name for subcommand in subcommands)
+        return [
+            {"t": "text", "text": "Unknown subcommand"},
+            {"t": "text", "text": "Available subcommands: " + ", ".join(subcommand_names)},
+        ]
 
 
 def scan_commands():
@@ -28,6 +48,10 @@ def scan_commands():
                 continue
             if obj == Command:
                 continue
-            name = obj.__name__.lower()
-            commands[name] = obj
+            command = cast(type[Command], obj)
+            if command.name:
+                name = command.name
+            else:
+                name = command.__name__.lower()
+            commands[name] = command
     return commands

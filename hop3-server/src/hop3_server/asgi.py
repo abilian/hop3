@@ -2,6 +2,7 @@
 
 import contextlib
 import json
+import traceback
 
 from hop3_server.rpc.jsonrpc import Hop3Service
 from starlette.applications import Starlette
@@ -29,6 +30,7 @@ async def handle_rpc(request: Request):
         json_result = json.dumps(result_rpc)
         return Response(json_result, media_type="application/json")
     except ValueError as e:
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
 
 

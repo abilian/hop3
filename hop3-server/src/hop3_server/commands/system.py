@@ -6,35 +6,75 @@
 
 from __future__ import annotations
 
-# from operator import itemgetter
-# from pprint import pp
+import importlib.metadata
+import subprocess
 
 from .base import Command
 
 
-class System(Command):
+class SystemCommand(Command):
     """Manage the hop3 system."""
+
+    name = "system"
 
     hide_from_help = True
 
-    # def subcommands(self):
-    #     return [
-    #         LogsCommand(),
-    #         StatusCommand(),
-    #         SettingsCommand(),
-    #         PsCommand(),
-    #         UptimeCommand(),
-    #         CleanupCommand(),
-    #     ]
+    def subcommands(self) -> list[Command]:
+        return [
+            UptimeSubcommand(),
+            PsSubcommand(),
+            StatusSubcommand(),
+        ]
+
+
+class UptimeSubcommand(Command):
+    """Show host server uptime."""
+
+    name = "uptime"
 
     def call(self, *args):
-        return []
+        result = subprocess.run(["uptime"], capture_output=True, text=True).stdout
+        return [{"t": "text", "text": result}]
 
 
-# class LogsCommand(Command):
+class PsSubcommand(Command):
+    """List all server processes."""
+
+    name = "ps"
+
+    def call(self, *args):
+        result = subprocess.run(["ps", "aux"], capture_output=True, text=True).stdout
+        return [{"t": "text", "text": result}]
+
+
+class StatusSubcommand(Command):
+    """Show Hop3 system status."""
+
+    name = "status"
+
+    def call(self, *args):
+        version = importlib.metadata.version("hop3_server")
+
+        return [{
+            "t": "text",
+            "text": f"Hop3 version: {version}"},
+        ]
+
+        # registries = result["registries"]
+        # print("Configured registries:")
+        # for reg in sorted(registries, key=itemgetter("priority")):
+        #     msg = (
+        #         f'  priority: {reg["priority"]:>2}   '
+        #         f'format: {reg["format"]:<16}   '
+        #         f'url: {reg["url"]}'
+        #     )
+        #     print(msg)
+
+
+# class LogsSubcommand(Command):
 #     """Show system logs."""
 #
-#     name = "system logs"
+#     name = "logs"
 #
 #     arguments = [
 #         Argument("service", help="Service to show logs for"),
@@ -58,28 +98,7 @@ class System(Command):
 #                 )
 #
 #
-# class StatusCommand(Command):
-#     """Show Nua status."""
-#
-#     name = "server status"
-#
-#     def run(self):
-#         result = client.call("status")
-#
-#         print(f"Nua version: {result['version']}")
-#
-#         registries = result["registries"]
-#         print("Configured registries:")
-#         for reg in sorted(registries, key=itemgetter("priority")):
-#             msg = (
-#                 f'  priority: {reg["priority"]:>2}   '
-#                 f'format: {reg["format"]:<16}   '
-#                 f'url: {reg["url"]}'
-#             )
-#             print(msg)
-#
-#
-# class SettingsCommand(Command):
+# class SettingsSubcommand(Command):
 #     """Show server settings."""
 #
 #     name = "server settings"
@@ -89,27 +108,7 @@ class System(Command):
 #         pp(result)
 #
 #
-# class PsCommand(Command):
-#     """List all server processes."""
-#
-#     name = "server ps"
-#
-#     def run(self):
-#         result = client.ssh("ps -aux")
-#         print(result.stdout)
-#
-#
-# class UptimeCommand(Command):
-#     """Show server uptime."""
-#
-#     name = "server uptime"
-#
-#     def run(self):
-#         result = client.ssh("uptime")
-#         print(result.stdout)
-#
-#
-# class CleanupCommand(Command):
+# class CleanupSubcommand(Command):
 #     """Cleanup server (remove inactive docker images and containers)."""
 #
 #     name = "server cleanup"
