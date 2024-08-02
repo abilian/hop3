@@ -19,7 +19,7 @@ It currently uses the `RPyC` RPC framework, which is a robust and easy-to-use wa
 [ ] destroy           Destroy app
 [ ] help              Display help
 [ ] init              Create a new app
-[ ] logs              Tail running logs
+[x] logs              Tail running logs
 [ ] restart           Restart an app
 [ ] run               Run a command in the app's environment
 [ ] scale             Scale processes

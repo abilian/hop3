@@ -23,7 +23,7 @@ class Command:
         subcommands = self.subcommands()
         for subcommand in subcommands:
             if subcommand.name == args[0]:
-                return subcommand.call(args[1:])
+                return subcommand.call(*args[1:])
 
         return self.get_help()
 
@@ -32,7 +32,10 @@ class Command:
         subcommand_names = sorted(subcommand.name for subcommand in subcommands)
         return [
             {"t": "text", "text": "Unknown subcommand"},
-            {"t": "text", "text": "Available subcommands: " + ", ".join(subcommand_names)},
+            {
+                "t": "text",
+                "text": "Available subcommands: " + ", ".join(subcommand_names),
+            },
         ]
 
 

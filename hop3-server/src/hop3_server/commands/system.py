@@ -55,9 +55,8 @@ class StatusSubcommand(Command):
     def call(self, *args):
         version = importlib.metadata.version("hop3_server")
 
-        return [{
-            "t": "text",
-            "text": f"Hop3 version: {version}"},
+        return [
+            {"t": "text", "text": f"Hop3 version: {version}"},
         ]
 
         # registries = result["registries"]
