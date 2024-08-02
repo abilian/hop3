@@ -18,17 +18,20 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.10"
 
-rpyc = "^6.0.0"
+# Web server
+granian = {extras = ["reload"], version = "^1.5.2"}
+uvicorn = "^0.30.4"
+starlette = "^0.38.2"
 
-watchfiles = "^0.22.0"
+##
+#watchfiles = "^0.22.0"
+
+# Serialisation
 attrs = "*"
 cattrs = "*"
 
+# Debug (temp)
 devtools = "*"
-granian = {extras = ["reload"], version = "^1.5.2"}
-uvicorn = "^0.30.4"
-jsonrpcserver = "^5.0.9"
-starlette = "^0.38.2"
 
 
 [tool.poetry.group.dev.dependencies]
