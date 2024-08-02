@@ -256,7 +256,7 @@ Infra, QA, DX, refactorings:
 - [x] Basic plugin architecture (using, e.g. [pluggy](https://pluggy.readthedocs.io/en/stable/))
 - [x] Nix dev env (support for `nix-shell`)
 - [x] Test automation (using `nox`)
-- [X] Make src/hop3/run/uwsgi.py into a class
+- [x] Make src/hop3/run/uwsgi.py into a class
 - [ ] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
 - [ ] Fix all typing issues (mypy and pyright)
 
@@ -267,14 +267,14 @@ Features:
 - [x] Reorganize code base into sub-projects (monorepo)
 - [x] Start multi-OS support (Ubuntu, Archlinux, Fedora, NixOS, Guix, FreeBSD...)
 - [ ] More apps
-- [ ] Review / improve CLI DX
-  - [ ] Use an API server
+- [ ] CLI
+  - [ ] Use an API server (WIP)
+  - [ ] Review the UX/DX
   - [ ] Good looking logging (cf. https://bernsteinbear.com/blog/python-parallel-output/)
 - [ ] Improve Python builder (support for poetry, pipenv, etc.)
 - [ ] Manage external services (databases, mail, etc.)
 - [ ] Backup / Restore
 - [ ] Web App / portal
-- [ ] API server
 
 Infra, refactorings:
 

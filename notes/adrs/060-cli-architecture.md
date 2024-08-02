@@ -1,6 +1,6 @@
 # ADR: CLI<->Server Communication
 
-Status: Draft
+Status: Accepted
 
 ## Introduction
 

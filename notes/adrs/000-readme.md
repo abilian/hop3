@@ -14,6 +14,10 @@ The outline below is intended to be a guide. It is not necessary to follow it ex
 
 ---
 
+The additional template provides further insights on structuring detailed proposals, particularly in the areas of motivation, detailed design, examples, and prior art. Below, I've integrated ideas from this template to further enhance the Hop3 ADR template.
+
+---
+
 # Title
 
 Status: [Draft | Proposed | Accepted | Deprecated | Superseded | ...]
@@ -48,6 +52,14 @@ The principles and values that are relevant to this decision.
 
 What is the change that we're proposing and/or doing?
 
+## Detailed Design
+
+Explain the design in enough detail for someone familiar with the ecosystem to understand and implement. This should include specifics and address corner-cases.
+
+## Examples and Interactions
+
+Illustrate the detailed design with examples. This section should clarify any confusion from previous sections and provide practical scenarios demonstrating the decision's application.
+
 ## Consequences
 
 ### Benefits
@@ -70,7 +82,19 @@ The detailed plan for achieving the success criteria/metrics described earlier. 
 
 ## Alternatives
 
-What other options did we consider or could we have taken instead?
+What other options did we consider or could we have taken instead? For each design decision made, discuss possible alternatives and compare them to the chosen solution.
+
+## Prior Art
+
+Summarize earlier discussions or prior attempts at addressing this problem. Discuss what was good or bad about these attempts and compare them to the current proposal. If applicable, include insights from other projects and communities.
+
+## Unresolved Questions
+
+What parts of the design are still TBD or unknowns?
+
+## Future Work
+
+What future work, if any, would be implied or impacted by this decision without being directly part of the current effort?
 
 ## Related
 
