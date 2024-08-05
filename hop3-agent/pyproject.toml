@@ -24,7 +24,7 @@ svcs = "^24.1.0"
 
 sqlalchemy = "^2.0.31"
 sqlalchemy-serializer = "^1.4.12"
-advanced-alchemy = "^0.17"
+advanced-alchemy = "^0.18"
 psycopg2 = "^2.9.9"
 
 # For the actor system
@@ -54,10 +54,10 @@ flask-mail = "^0.10.0"
 flask-migrate = "^4.0.7"
 flask-talisman = "^1.1.0"
 flask-vite = "^0.5.0"
-sentry-sdk = "2.10.0"
+sentry-sdk = "2.12.0"
 
 [tool.poetry.group.dev.dependencies]
-abilian-devtools = "^0.5.18"
+abilian-devtools = "^0.6"
 httpx = "^0.27.0"
 pytest = "^8.0.0"
 python-dotenv = "^1.0.1"
