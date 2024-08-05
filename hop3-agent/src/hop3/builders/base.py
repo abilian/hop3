@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import subprocess
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import ClassVar
 
@@ -14,7 +15,7 @@ from hop3.system.constants import APP_ROOT, ENV_ROOT
 from hop3.util import shell
 
 
-class Builder:
+class Builder(ABC):
     """A class representing a builder for an application.
 
     Attributes
@@ -42,16 +43,12 @@ class Builder:
     requirements: ClassVar[list[str]]
     name: ClassVar[str]
 
-    def __init__(self, app_name: str) -> None:
+    def __init__(self, app_name: str):
         """Initialize the class with the specified app name.
 
         Args:
         ----
             app_name (str): The name of the application.
-
-        Returns:
-        -------
-            None
 
         Raises:
         ------
@@ -60,12 +57,13 @@ class Builder:
         """
         self.app_name = app_name
 
+    @abstractmethod
     def accept(self) -> bool:
         """Accepts the input specified by the subclass.
 
         Returns
         -------
-            bool: The result of the specific implementation in the subclass.
+            bool: True if this builder instance can accept the input, False otherwise.
 
         Raises
         ------
@@ -74,7 +72,8 @@ class Builder:
         """
         raise NotImplementedError
 
-    def build(self) -> None:
+    @abstractmethod
+    def build(self):
         """Build function not implemented.
 
         Raises

@@ -80,8 +80,8 @@ def install_dev(c, quiet=False):
         warn=True,
     )
 
-    c.run(f"poetry install")
-    run_in_subrepos(c, f"poetry install")
+    c.run("poetry install")
+    run_in_subrepos(c, "poetry install")
 
 
 @task
@@ -147,7 +147,9 @@ def run(c, cmd: str):
 def update(c):
     """Update dependencies the whole project."""
     c.run("poetry update")
+    c.run("pre-commit autoupdate")
     run_in_subrepos(c, "poetry update && poetry install")
+    run_in_subrepos(c, "pre-commit autoupdate")
 
 
 #
