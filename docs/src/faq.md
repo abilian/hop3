@@ -34,7 +34,7 @@ While Go, Rust, Erlang, and other languages offer their own set of advantages, i
 
 **Q:** Why not just use Piku or Sailor?
 
-**A:** Both Piku and Sailor offer compelling solutions; however, Hop3 differentiates itself by focusing on providing a broader set of functionalities and a more polished user experience. We aim to support an expansive array of deployment contexts with enhanced ease of use. Although we share roots with Piku and Sailor, including some shared code, Hop3's architecture is conceived to be more openly extensible. This encourages not just the use but also the contribution to its ecosystem, with a particular emphasis on plugins that can broaden its applicability. 
+**A:** Both Piku and Sailor offer compelling solutions; however, Hop3 differentiates itself by focusing on providing a broader set of functionalities and a more polished user experience. We aim to support an expansive array of deployment contexts with enhanced ease of use. Although we share roots with Piku and Sailor, including some shared code, Hop3's architecture is conceived to be more openly extensible. This encourages not just the use but also the contribution to its ecosystem, with a particular emphasis on plugins that can broaden its applicability.
 
 **Q:** Why not use Docker or a similar container-based technology?
 
@@ -58,7 +58,7 @@ While Go, Rust, Erlang, and other languages offer their own set of advantages, i
 
 **Q:** Why did Hop3 choose uWSGI for application deployment?
 
-**A:** The choice of [uWSGI](https://uwsgi-docs.readthedocs.io/) in [emperor mode](https://uwsgi-docs.readthedocs.io/en/latest/Emperor.html) for Hop3 was driven by its robust feature set that aligns with our core objectives of simplicity, performance, and security. 
+**A:** The choice of [uWSGI](https://uwsgi-docs.readthedocs.io/) in [emperor mode](https://uwsgi-docs.readthedocs.io/en/latest/Emperor.html) for Hop3 was driven by its robust feature set that aligns with our core objectives of simplicity, performance, and security.
 
 1. uWSGI offers seamless integration with Python WSGI applications and `virtualenvs`, making it an ideal tool for Python-based projects which constitute a significant portion of web applications today. This integration simplifies the deployment process, allowing developers to focus on their application logic rather than the intricacies of server configuration.
 
