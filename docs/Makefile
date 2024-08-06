@@ -1,32 +1,23 @@
 .PHONY: all run build clean deploy pdf
 
-TARGET:=root@bulma:/var/www/html/nua.rocks/
-
 SRC:=$(wildcard src/**/*.md)
 
+all: run
 
-all: build
-
-src/dev/orchestrator.md: ../nua_orchestrator_local/README.md
-	cp ../nua_orchestrator_local/README.md src/dev/orchestrator.md
-
-run: $(src)
+run:
 	python ./scripts/gen-api.py
 	mkdocs serve
 
 serve: run
 
-build: $(src)
+build: $(SRC) mkdocs.yml
 	python ./scripts/gen-api.py
 	mkdocs build
 	cp -a src/.well-known site/
 	cp -a assets/root/* site/
 
-deploy: build
-	rsync -e ssh -avz site/ $(TARGET)
-
 clean:
 	rm -rf site
 
-pdf: $(src)
+pdf: $(SRC) mkdocs.yml
 	ENABLE_PDF_EXPORT=1 mkdocs build

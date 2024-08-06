@@ -7,7 +7,6 @@ This guide provides instructions on how to use the Hop3 installer script to set 
 - A server running a Debian-based distribution (Debian, Ubuntu, etc.)
 - Root access to the server via SSH
 - Basic familiarity with terminal and command-line operations
--
 
 ## Installation Steps
 

@@ -2,7 +2,9 @@
 
 Before you start, it's important to familiarize yourself with Hop3's core values and objectives. Please take a moment to read the [core values of Hop3](../README.md#core-values) outlined in our README. Understanding these principles will help you make meaningful contributions that align with the project's goals.
 
-## Installation
+## Development Environment
+
+### Using `poetry`
 
 The project uses `poetry` for dependency management. However, since it is structured as a monorepo, you will need to install the dependencies for each package separately. To install the dependencies for a specific package, navigate to the package directory and run the following command:
 
@@ -16,6 +18,23 @@ uv pip install -e .
 . venv/bin/activate # (or activate.fish for fish shell)
 inv install
 ```
+
+### Using Guix
+
+If you are using Guix, you can use the provided `guix.scm` file to create a development environment. To do so, run the following command:
+
+```bash
+guix environment --ad-hoc --load guix.scm
+```
+
+### Using Nix
+
+If you are using Nix, you can use the provided `shell.nix` file to create a development environment. To do so, run the following command:
+
+```bash
+nix-shell
+```
+
 
 ## Tooling
 
