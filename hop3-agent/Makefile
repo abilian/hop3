@@ -97,7 +97,7 @@ format:
 
 ## Add copyright mention
 add-copyright:
-	fish -c 'reuse annotate --copyright "Copyright (c) 2023-2024, Abilian SAS" src/**/*.py tests/**/*.py'
+	bash -c 'shopt -s globstar && reuse annotate --copyright "Copyright (c) 2023-2024, Abilian SAS" src/**/*.py tests/**/*.py'
 
 #
 # Everything else

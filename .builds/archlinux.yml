@@ -9,7 +9,6 @@ packages:
   - python
   - python-pip
   # Build tools
-  - fish
   - make
   - gcc
   # Libraries

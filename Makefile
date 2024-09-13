@@ -12,13 +12,13 @@ all: lint test
 #
 ## Cleanup repository
 clean:
-	rm -f **/*.pyc
+	bash -c "shopt -s globstar && rm -f **/*.pyc"
 	find . -type d -empty -delete
 	rm -rf *.egg-info *.egg .coverage .eggs .cache .mypy_cache .pyre \
 		.pytest_cache .pytest .DS_Store  docs/_build docs/cache docs/tmp \
 		dist build pip-wheel-metadata junit-*.xml htmlcov coverage.xml \
 		tmp
-	-fish -c "rm -rf */dist"
+	rm -rf */dist
 	adt clean
 
 clean-and-deploy:
@@ -100,7 +100,7 @@ clean-test: ## remove test and coverage artifacts
 
 ## Lint / check typing
 lint:
-	fish -c "ruff check */src tests */tests"
+	ruff check */src tests */tests
 	# mypy --show-error-codes src
 	# pyright src
 	reuse lint -q
@@ -134,21 +134,20 @@ audit:
 ## Format / beautify code
 format:
 	# docformatter -i -r src
-	fish -c "black src */src tests */tests"
-	fish -c "isort src */src tests */tests"
-	fish -c "ruff format src */src tests */tests"
+	black src */src tests */tests
+	isort src */src tests */tests
+	ruff format src */src tests */tests
 	markdown-toc -i README.md
 
 ## Format / beautify apps
 format-apps:
-	@echo "You need the Fish shell to run the following commands:"
-	fish -c "gofmt -w apps/**/*.go"
-	fish -c "prettier -w apps/**/*.js"
+	bash -c "shopt -s globstar && gofmt -w apps/**/*.go"
+	bash -c "shopt -s globstar && prettier -w apps/**/*.js"
 
 
 ## Add copyright mention
 add-copyright:
-	fish -c 'reuse annotate --copyright "Copyright (c) 2023-2024, Abilian SAS" \
+	bash -c 'shopt -s globstar && reuse annotate --copyright "Copyright (c) 2023-2024, Abilian SAS" \
 		tests/**/*.py src/**/*.py */src/**/*.py */tests/**/*.py'
 
 #
@@ -174,11 +173,9 @@ doc-pdf:
 
 ## Cleanup harder
 tidy: clean
-	rm -rf .nox .tox
-	-fish -c 'rm -rf */.tox'
-	-fish -c 'rm -rf */.nox'
+	rm -rf .nox .tox .venv
+	rm -rf */.tox */.nox */.venv
 	rm -rf node_modules
-	rm -rf instance
 
 ## Update dependencies
 update-deps:
@@ -193,3 +190,6 @@ publish: clean
 	git push --tags
 	poetry build
 	twine upload dist/*
+
+xxx:
+	ls *

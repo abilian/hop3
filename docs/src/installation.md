@@ -19,7 +19,7 @@ This guide provides instructions on how to use the Hop3 installer script to set 
 
 3. Run, under Bash or Sh:
 
-```fish
+```bash
 TARGET_HOST=name.of.your.target.host # <- replace with your target host
 poetry install
 make clean

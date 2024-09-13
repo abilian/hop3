@@ -13,7 +13,6 @@ packages:
   - python3.12-pip
   - python3.12-devel
   # Build tools
-  - fish
   - make
   - gcc
   # Libraries

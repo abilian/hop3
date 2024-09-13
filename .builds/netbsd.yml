@@ -7,7 +7,6 @@ image: netbsd/latest
 packages:
   # Build tools
   - gcc13
-  - fish
   # Python
   - python3.12
   - py312-pip

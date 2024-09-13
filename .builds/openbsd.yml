@@ -13,7 +13,6 @@ packages:
   - gmake
   - gcc
   - g++
-  - fish
   # Python
   - python
 #  - python3-dev

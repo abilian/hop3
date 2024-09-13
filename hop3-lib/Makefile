@@ -125,14 +125,13 @@ format:
 	# docformatter -i -r src
 	adt format
 	ruff format src
-	@echo "You need the Fish shell to run the following commands:"
-	fish -c "gofmt -w apps/**/*.go"
-	fish -c "prettier -w apps/**/*.js"
+	bash -c "shopt -s globstar && gofmt -w apps/**/*.go"
+	bash -c "shopt -s globstar && prettier -w apps/**/*.js"
 
 
 ## Add copyright mention
 add-copyright:
-	fish -c 'reuse annotate --copyright "Copyright (c) 2023-2024, Abilian SAS" src/**/*.py installer/*.py tests/**/*.py'
+	bash -c 'shopt -s globstar && reuse annotate --copyright "Copyright (c) 2023-2024, Abilian SAS" src/**/*.py installer/*.py tests/**/*.py'
 
 #
 # Everything else

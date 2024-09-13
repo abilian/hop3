@@ -7,7 +7,6 @@ image: freebsd/latest
 packages:
   # Build tools
   - gcc
-  - fish
   - rust
   # Python
   - python

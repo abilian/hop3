@@ -10,7 +10,6 @@ packages:
   - python-pip
   - python3-devel
   # Build tools
-  - fish
   - make
   - gcc
   # Libraries
