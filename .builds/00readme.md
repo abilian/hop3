@@ -8,6 +8,11 @@ See https://builds.sr.ht/~sfermigier for the latest build statuses.
 
 TODO: fix all builds.
 
+NB: we'd like to run CI against all the possible Linux distributions available on Sourcehut, but we're limited to 4.
+
+So we're focusing on: Ubuntu, Debian, Fedora, and Rocky Linux for now.
+
+
 ## Memento
 
 Here is a brief description of the packaging situation for each of the (potentially) supported operating systems and distributions:
