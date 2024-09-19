@@ -20,7 +20,7 @@ packages:
 
 tasks:
   - setup: |
-      sudo pip install -U pip setuptools wheel poetry nox
+      sudo pip3.12 install -U pip setuptools wheel poetry nox
       cd hop3
       poetry install
       poetry run inv install
