@@ -1,4 +1,4 @@
-# Hop3 - Deploy and manage web applications on a single server
+# Hop3 - Open source platform as a service
 
 <img src="https://abilian.com/static/images/ext/hop3-logo.png"
 style="width: 500px; height: auto;" alt="logo hop3"/>
@@ -10,7 +10,8 @@ Build status: [![builds.sr.ht status](https://builds.sr.ht/~sfermigier/hop3.svg)
 
 ## About
 
-Hop3 is a tool to deploy and manage web applications on a single server (currently). It is designed to be simple, secure, and easy to use.
+Hop3 is an open source platform as a service: it enable you to deploy and manage your applications seamlessly.
+It is designed to be simple, secure, and easy to use.
 
 The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [GitHub](https://github.com/abilian/hop3).
 
