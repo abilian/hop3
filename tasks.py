@@ -67,7 +67,7 @@ def install(c, quiet=False):
         # c.run(f"uv pip install {options} --no-cache-dir -e .")
         run_in_subrepos(c, f"uv pip install {options} --no-cache-dir -e .")
     else:
-        c.run(f"pip install {options} --no-cache-dir -e .")
+        # c.run(f"pip install {options} --no-cache-dir -e .")
         run_in_subrepos(c, f"pip install {options} --no-cache-dir -e .")
 
 
