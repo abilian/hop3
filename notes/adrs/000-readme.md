@@ -6,18 +6,6 @@ More info: https://lab.abilian.com/Tech/Software%20Engineering/Architectural%20D
 
 ---
 
-Here is the template for an ADR. It is based on the template from Michael Nygard's book, but with some modifications. Each ADR should be in its own file, named with a number and short slug, like `001-record-architecture-decisions.md`.
-
-Related ADRs should be clustered together. ADR id numbers are not consecutive.
-
-The outline below is intended to be a guide. It is not necessary to follow it exactly, but it should be close. Additional section may be added as needed.
-
----
-
-The additional template provides further insights on structuring detailed proposals, particularly in the areas of motivation, detailed design, examples, and prior art. Below, I've integrated ideas from this template to further enhance the Hop3 ADR template.
-
----
-
 # Title
 
 Status: [Draft | Proposed | Accepted | Deprecated | Superseded | ...]
