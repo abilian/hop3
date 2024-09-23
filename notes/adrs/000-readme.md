@@ -4,11 +4,11 @@ Architectural Decision Records (or ADR) are documents that captures an important
 
 More info: https://lab.abilian.com/Tech/Software%20Engineering/Architectural%20Decision%20Records/
 
----
+______________________________________________________________________
 
 # Title
 
-Status: [Draft | Proposed | Accepted | Deprecated | Superseded | ...]
+Status: \[Draft | Proposed | Accepted | Deprecated | Superseded | ...\]
 
 ## Introduction
 
