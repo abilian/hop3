@@ -62,7 +62,7 @@ While Go, Rust, Erlang, and other languages offer their own set of advantages, i
 
 1. uWSGI offers seamless integration with Python WSGI applications and `virtualenvs`, making it an ideal tool for Python-based projects which constitute a significant portion of web applications today. This integration simplifies the deployment process, allowing developers to focus on their application logic rather than the intricacies of server configuration.
 
-2. uWSGI provides a suite of process management features, including monitoring, restarting, and basic resource limiting, which are essential for maintaining the reliability and efficiency of applications. These capabilities ensure that apps remain responsive and stable under varying loads without requiring manual intervention, thereby enhancing the overall user experience.
+1. uWSGI provides a suite of process management features, including monitoring, restarting, and basic resource limiting, which are essential for maintaining the reliability and efficiency of applications. These capabilities ensure that apps remain responsive and stable under varying loads without requiring manual intervention, thereby enhancing the overall user experience.
 
 While uWSGI has served Hop3 well, future versions of Hop3 will propose alternatives to uWSGI (as plugins), reflecting our commitment to flexibility and the desire to accommodate a broader range of use cases and technologies. [Potential alternatives are listed here](https://github.com/abilian/books/blob/main/uwsgi/chap-9-2.md).
 

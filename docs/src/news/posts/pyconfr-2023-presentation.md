@@ -1,11 +1,14 @@
----
+______________________________________________________________________
+
 date: 2023-03-22
 description: We gave a talk about Nua during PyConFR 2023 in Bordeaux.
 categories:
-  - talk
-  - slides
-  - conference
----
+
+- talk
+- slides
+- conference
+
+______________________________________________________________________
 
 # Nua talk at PyConFR 2023
 
@@ -13,13 +16,11 @@ categories:
 
 Organised by AFPy, the French Python User Association, [this conference](https://www.pycon.fr/) is free, entirely run by volunteers and dedicated to bringing together people interested in the Python programming language.
 
-
 ## Slides
 
 ### French version
 
 <iframe class="speakerdeck-iframe" style="border: 0px none; background: rgba(0, 0, 0, 0.1) padding-box; margin: 0px; padding: 0px; border-radius: 6px; box-shadow: rgba(0, 0, 0, 0.2) 0px 5px 40px; width: 100%; height: auto; aspect-ratio: 560 / 314;" src="https://speakerdeck.com/player/b69f33062ebb48a3b884b7b2bc5f0a4a" title="Nua, un PaaS open source en Python pour l'auto-hébergement de vos applications" allowfullscreen="true" data-ratio="1.78343949044586" frameborder="0"></iframe>
-
 
 ### English version
 
@@ -40,25 +41,24 @@ Documentation and source code:
 - https://nua.rocks
 - https://github.com/abilian/nua
 
-
 ## Presentation outline
 
 - Vision and main features of the project
 
-    - Simplification of packaging and multi-instance deployment,
-    - Self-hosting, digital sovereignty
-    - General architecture
+  - Simplification of packaging and multi-instance deployment,
+  - Self-hosting, digital sovereignty
+  - General architecture
 
 - Why python?
 
-    - A python runtime in the container
-    - An orchestrator driving the containers
-    - Reuse of components between packaging, script execution and orchestration
+  - A python runtime in the container
+  - An orchestrator driving the containers
+  - Reuse of components between packaging, script execution and orchestration
 
 - Examples and demo
 
-    - Configuration file (packager view)
-    - Deploying configurations (user CLI view)
+  - Configuration file (packager view)
+  - Deploying configurations (user CLI view)
 
 - Roadmap and how to contribute
 

@@ -12,9 +12,9 @@ This guide provides instructions on how to use the Hop3 installer script to set 
 
 1. Checkout the Hop3 sources on your workstation
 
-2. Provision a server with Ubuntu 22.04 LTS
+1. Provision a server with Ubuntu 22.04 LTS
 
-> [!WARNING]
+> \[!WARNING\]
 > The installation script doesn't support Ubuntu 24.04 LTS yet.
 
 3. Run, under Bash or Sh:
@@ -40,7 +40,6 @@ poetry run pyinfra --user root {$TARGET_HOST} installer/install-hop.py
 ## Demo
 
 [![asciicast](https://asciinema.org/a/EyYlupPqQvY2ET0vTVkVpN5t3.svg)](https://asciinema.org/a/EyYlupPqQvY2ET0vTVkVpN5t3)
-
 
 ## Post-Installation Steps
 

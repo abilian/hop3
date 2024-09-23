@@ -1,10 +1,13 @@
----
+______________________________________________________________________
+
 date: 2023-05-02
 description: New release with new features and fixes
 categories:
-  - release
-  - alpha
----
+
+- release
+- alpha
+
+______________________________________________________________________
 
 # Nua 0.5.17 released
 

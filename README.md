@@ -23,36 +23,36 @@ The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) an
 - [Overview](#overview)
 - [Goals](#goals)
 - [Features](#features)
-  * [Web-Based Management Interface](#web-based-management-interface)
-  * [User Management and Single Sign-On (SSO)](#user-management-and-single-sign-on-sso)
-  * [Role-Based Access Control (RBAC)](#role-based-access-control-rbac)
-  * [Automated Backups and Restore](#automated-backups-and-restore)
-  * [Domain Management and SSL Certificates](#domain-management-and-ssl-certificates)
-  * [Modular Design](#modular-design)
-  * [Comprehensive Network Management](#comprehensive-network-management)
-  * [Security and Resilience Enhancements](#security-and-resilience-enhancements)
-  * [Distributed, Agent-Based Architecture](#distributed-agent-based-architecture)
-  * [Technology Stack](#technology-stack)
-  * [Supported OS](#supported-os)
+  - [Web-Based Management Interface](#web-based-management-interface)
+  - [User Management and Single Sign-On (SSO)](#user-management-and-single-sign-on-sso)
+  - [Role-Based Access Control (RBAC)](#role-based-access-control-rbac)
+  - [Automated Backups and Restore](#automated-backups-and-restore)
+  - [Domain Management and SSL Certificates](#domain-management-and-ssl-certificates)
+  - [Modular Design](#modular-design)
+  - [Comprehensive Network Management](#comprehensive-network-management)
+  - [Security and Resilience Enhancements](#security-and-resilience-enhancements)
+  - [Distributed, Agent-Based Architecture](#distributed-agent-based-architecture)
+  - [Technology Stack](#technology-stack)
+  - [Supported OS](#supported-os)
 - [Getting Started](#getting-started)
 - [Development and Contribution](#development-and-contribution)
-  * [Development Environment](#development-environment)
-  * [Development and Delivery Pipeline](#development-and-delivery-pipeline)
-    + [CI/CD Integration](#cicd-integration)
-    + [Package Management](#package-management)
-    + [Compliance and Transparency](#compliance-and-transparency)
-  * [Contributing](#contributing)
-  * [Community Engagement](#community-engagement)
-  * [Additional Notes](#additional-notes)
+  - [Development Environment](#development-environment)
+  - [Development and Delivery Pipeline](#development-and-delivery-pipeline)
+    - [CI/CD Integration](#cicd-integration)
+    - [Package Management](#package-management)
+    - [Compliance and Transparency](#compliance-and-transparency)
+  - [Contributing](#contributing)
+  - [Community Engagement](#community-engagement)
+  - [Additional Notes](#additional-notes)
 - [Roadmap](#roadmap)
-  * [P0 (MVP, Q2 2024):](#p0-mvp-q2-2024)
-  * [P1 (Q3 2024):](#p1-q3-2024)
-  * [P2 (Q4 2024):](#p2-q4-2024)
-  * [P3 (S1 2025):](#p3-s1-2025)
+  - [P0 (MVP, Q2 2024):](#p0-mvp-q2-2024)
+  - [P1 (Q3 2024):](#p1-q3-2024)
+  - [P2 (Q4 2024):](#p2-q4-2024)
+  - [P3 (S1 2025):](#p3-s1-2025)
 - [Documentation](#documentation)
 - [Copyright, Credits and Acknowledgements](#copyright-credits-and-acknowledgements)
-  * [Authors](#authors)
-  * [Licensing / REUSE Compliance](#licensing--reuse-compliance)
+  - [Authors](#authors)
+  - [Licensing / REUSE Compliance](#licensing--reuse-compliance)
 - [What's the story behind the name?](#whats-the-story-behind-the-name)
 - [Links / References](#links--references)
 
@@ -60,7 +60,7 @@ The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) an
 
 ## Status
 
-> [!WARNING]
+> \[!WARNING\]
 > This code is still evolving quickly, and not meant for production yet.
 
 Version 0.2.0 (branch `stable`) is the first version that can be used to deploy a few simple web applications. It is not yet feature-complete. It is already used to host a couple of live applications.
@@ -70,7 +70,6 @@ Version 0.3 (branch `main`) is the current development version. It is currently 
 => If you want to use Hop3, please use the `stable` branch.
 
 => If you want to contribute to Hop3, please use the `main` branch.
-
 
 ## Overview
 
@@ -85,7 +84,6 @@ It aims to facilitate access to cloud technologies for a diverse range of users,
 - **Environmental Sustainability**: Incorporates eco-design principles to reduce the environmental footprint of cloud computing, advocating for sustainable digital practices.
 - **Openness and Collaboration**: Developed as an open-source project to encourage community-driven innovation and improvement.
 - **Inclusivity and Accessibility**: Ensures the platform is accessible to a diverse audience, including those with different abilities, through comprehensive documentation and support.
-
 
 ## Features
 
@@ -151,21 +149,20 @@ We *aim* to support a wide range of operating systems, including:
 
 We run CI tests on the SourceHut platform, which supports a wide range of open source distributions and operating systems. This is a work in progress, and we welcome contributions to fix issues with the current tests or to expand the list of supported OS. See: [.build](.build) for the CI scripts, and https://builds.sr.ht/~sfermigier/ for current build status.
 
-
 ## Getting Started
 
 To begin using Hop3, follow these introductory steps:
 
 1. **Prerequisites**: Familiarize yourself with basic cloud computing concepts and the specific technologies Hop3 employs for virtualization and security.
 
-2. **Installation**:
+1. **Installation**:
+
    - Clone the latest version of Hop3 from the official repository: `git clone https://github.com/abilian/hop3.git`
    - Follow the installation instructions in the `docs/installation.md` to set up Hop3 on your system.
 
-3. **Configuration**: Configuration options can be found in the `config` directory. Adjust these settings to suit your environment and deployment needs.
+1. **Configuration**: Configuration options can be found in the `config` directory. Adjust these settings to suit your environment and deployment needs.
 
-4. **Documentation**: For detailed information on setup, architecture, and usage, refer to the `docs` folder. This resource includes comprehensive guides and best practices.
-
+1. **Documentation**: For detailed information on setup, architecture, and usage, refer to the `docs` folder. This resource includes comprehensive guides and best practices.
 
 ## Development and Contribution
 
@@ -207,7 +204,6 @@ Please refer to the following key documents for contribution guidelines:
 - [Code of Conduct](./docs/policies/code-of-conduct.md)
 - [Licenses](./LICENSES)
 
-
 ### Community Engagement
 
 Engage with the Hop3 community:
@@ -227,7 +223,6 @@ The following tools will soon be available:
 - **Documentation**: For detailed information on setup, architecture, and usage, refer to the `docs` folder. This resource includes comprehensive guides and best practices.
 - **Continuous Improvement**: We welcome feedback and contributions from the community to continuously improve Hop3. Your participation is key to the success of this open-source project.
 
-
 ## Roadmap
 
 Here's the current roadmap for Hop3. Priorities and timelines are subject to change based on community feedback, business priorities and funding.
@@ -240,68 +235,68 @@ Initial goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abi
 
 Features, UX:
 
-- [x] First working version (static sites, python apps, demo apps)
-- [ ] Deploy a few more useful apps: Abilian SBE, more...
-- [ ] Add postgres, redis, etc. lifecycle support using plugins
+- \[x\] First working version (static sites, python apps, demo apps)
+- \[ \] Deploy a few more useful apps: Abilian SBE, more...
+- \[ \] Add postgres, redis, etc. lifecycle support using plugins
 
 Doc:
 
-- [x] Fix REUSE config
-- [x] Basic Documentation / READMEs / etc.
+- \[x\] Fix REUSE config
+- \[x\] Basic Documentation / READMEs / etc.
 
 Infra, QA, DX, refactorings:
 
-- [x] Add e2e tests (`make test-e2e`)
-- [x] Basic tests and sample apps
-- [x] Basic CI (on SourceHut)
-- [x] Basic plugin architecture (using, e.g. [pluggy](https://pluggy.readthedocs.io/en/stable/))
-- [x] Nix dev env (support for `nix-shell`)
-- [x] Test automation (using `nox`)
-- [x] Make src/hop3/run/uwsgi.py into a class
-- [ ] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
-- [ ] Fix all typing issues (mypy and pyright)
+- \[x\] Add e2e tests (`make test-e2e`)
+- \[x\] Basic tests and sample apps
+- \[x\] Basic CI (on SourceHut)
+- \[x\] Basic plugin architecture (using, e.g. [pluggy](https://pluggy.readthedocs.io/en/stable/))
+- \[x\] Nix dev env (support for `nix-shell`)
+- \[x\] Test automation (using `nox`)
+- \[x\] Make src/hop3/run/uwsgi.py into a class
+- \[ \] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
+- \[ \] Fix all typing issues (mypy and pyright)
 
 ### P1 (Q3 2024):
 
 Features:
 
-- [x] Reorganize code base into sub-projects (monorepo)
-- [x] Start multi-OS support (Ubuntu, Archlinux, Fedora, NixOS, Guix, FreeBSD...)
-- [ ] More apps
-- [ ] CLI
-  - [ ] Use an API server (WIP)
-  - [ ] Review the UX/DX
-  - [ ] Good looking logging (cf. https://bernsteinbear.com/blog/python-parallel-output/)
-- [ ] Improve Python builder (support for poetry, pipenv, etc.)
-- [ ] Manage external services (databases, mail, etc.)
-- [ ] Backup / Restore
-- [ ] Web App / portal
+- \[x\] Reorganize code base into sub-projects (monorepo)
+- \[x\] Start multi-OS support (Ubuntu, Archlinux, Fedora, NixOS, Guix, FreeBSD...)
+- \[ \] More apps
+- \[ \] CLI
+  - \[ \] Use an API server (WIP)
+  - \[ \] Review the UX/DX
+  - \[ \] Good looking logging (cf. https://bernsteinbear.com/blog/python-parallel-output/)
+- \[ \] Improve Python builder (support for poetry, pipenv, etc.)
+- \[ \] Manage external services (databases, mail, etc.)
+- \[ \] Backup / Restore
+- \[ \] Web App / portal
 
 Infra, refactorings:
 
-- [ ] Introduce new plugins (where it makes sense)
-- [ ] More end-to-end tests, examples
-- [ ] CI on GitHub
-- [ ] e2e CI tests
+- \[ \] Introduce new plugins (where it makes sense)
+- \[ \] More end-to-end tests, examples
+- \[ \] CI on GitHub
+- \[ \] e2e CI tests
 
 ### P2 (Q4 2024):
 
-- [ ] Reorganize monorepo further
-- [ ] More apps
-- [ ] Agents (for distributed deployments)
-- [ ] Target other platforms (e.g. SlapOS, NixOS, Guix, etc.)
-- [ ] Security (Firewall, WAF, better isolation, etc.)
-- [ ] Monitoring
-- [ ] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
-- [ ] Support for (or migration from) Heroku, Render, Docker Compose, Fly… config files,
+- \[ \] Reorganize monorepo further
+- \[ \] More apps
+- \[ \] Agents (for distributed deployments)
+- \[ \] Target other platforms (e.g. SlapOS, NixOS, Guix, etc.)
+- \[ \] Security (Firewall, WAF, better isolation, etc.)
+- \[ \] Monitoring
+- \[ \] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
+- \[ \] Support for (or migration from) Heroku, Render, Docker Compose, Fly… config files,
 
 ### P3 (S1 2025):
 
-- [ ] More apps
-- [ ] Multi-server support
-- [ ] Unified logging
-- [ ] Unified login (LDAP / IAM)
-- [ ] Container / VM support
+- \[ \] More apps
+- \[ \] Multi-server support
+- \[ \] Unified logging
+- \[ \] Unified login (LDAP / IAM)
+- \[ \] Container / VM support
 
 ## Documentation
 
@@ -325,7 +320,9 @@ Other inspirations include:
 The following people have contributed to Hop3:
 
 - [Stefane Fermigier](https://fermigier.com/) has created and maintains Nua and Hop3.
-- [Jérôme Dumonteil]() has contributed to and maintans Nua.
+
+- [Jérôme Dumonteil](<>) has contributed to and maintans Nua.
+
 - [Rui Carmo](https://github.com/rcarmo) (and other Piku contributors) for the original Piku.
 
 - [Abilian](https://www.abilian.com/) is the company behind Nua and Hop3.
@@ -339,18 +336,17 @@ See the [LICENSE](LICENSE) file for more information.
 
 Here are the REUSE compliance results for Hop3 (as of 2024/07/25):
 
-> * Bad licenses: 0
-> * Deprecated licenses: 0
-> * Licenses without file extension: 0
-> * Missing licenses: 0
-> * Unused licenses: 0
-> * Used licenses: CC0-1.0, BSD-3-Clause, AGPL-3.0-only, CC-BY-4.0, MIT
-> * Read errors: 0
-> * Files with copyright information: 310 / 310
-> * Files with license information: 310 / 310
+> - Bad licenses: 0
+> - Deprecated licenses: 0
+> - Licenses without file extension: 0
+> - Missing licenses: 0
+> - Unused licenses: 0
+> - Used licenses: CC0-1.0, BSD-3-Clause, AGPL-3.0-only, CC-BY-4.0, MIT
+> - Read errors: 0
+> - Files with copyright information: 310 / 310
+> - Files with license information: 310 / 310
 >
 > Congratulations! Your project is compliant with version 3.2 of the REUSE Specification :-)
-
 
 ## What's the story behind the name?
 

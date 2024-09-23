@@ -35,7 +35,6 @@ If you are using Nix, you can use the provided `shell.nix` file to create a deve
 nix-shell
 ```
 
-
 ## Tooling
 
 The projects uses several tools to ensure code quality and consistency. These tools are configured in the `pyproject.toml` file, the `setup.cfg` file, and tool-specific files like `ruff.toml` for Ruff.

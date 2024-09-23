@@ -9,39 +9,46 @@ The primary users of Hop3 are small and medium-sized businesses (SMBs) with limi
 ### Small and Medium-sized Businesses (SMBs)
 
 **IT Administrators:**
+
 - Seeking a centralized and simplified management portal to handle various IT infrastructure needs.
 - Needing to migrate existing services to new hardware or virtual environments without significant downtime or complexity.
 - Requiring reliable and straightforward backup and restore solutions to ensure business continuity.
 
 **Business Owners and Managers:**
+
 - Aiming to reduce dependency on large upstream vendors and increase the independence of their IT operations.
 - Looking for cost-effective solutions to manage their IT infrastructure, especially on limited budgets.
 
 ### Managed Service Providers (MSPs)
 
 **Service Providers:**
+
 - Providing IT services to SMBs and requiring a flexible, scalable platform to manage multiple client environments efficiently.
 - Needing a multi-tenant, SaaS-compatible solution that can be easily deployed on-premise for clients or hosted in a data center.
 
 ### Developers and DevOps Teams
 
 **Software Developers:**
+
 - Interested in creating and deploying applications within a consistent and reliable infrastructure.
 - Looking for an easy-to-use platform to test, develop, and deploy new software modules.
 
 **DevOps Engineers:**
+
 - Requiring a system that supports modern DevOps practices such as continuous integration and continuous deployment (CI/CD).
 - Seeking a platform with built-in tools for automated testing, monitoring, and scaling of applications.
 
 ### Educational Institutions
 
 **IT Departments in Schools and Universities:**
+
 - Needing a manageable and scalable IT infrastructure to support administrative and academic needs.
 - Looking for secure, reliable solutions to manage user accounts, data storage, and application deployment.
 
 ### Non-profit Organizations
 
 **IT Volunteers and Staff:**
+
 - Requiring cost-effective IT solutions to support their missions without the need for extensive technical expertise.
 - Seeking secure and manageable IT infrastructure to handle data, applications, and communication services.
 
