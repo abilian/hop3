@@ -5,6 +5,7 @@
 Status: Draft
 
 Versions:
+
 - v0.1: Initial draft (2024-07-17)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)
 
@@ -23,18 +24,22 @@ Hop3 will integrate Nix to take advantage of its strengths in reproducible build
 ## Key Components
 
 1. **Nix Package for Hop3**:
+
    - **Development**: Create a Nix package for Hop3 to ensure easy installation and management within the Nix ecosystem.
    - **Distribution**: Support distribution across Unix and Unix-like systems and ensure generated configurations can be contributed back to the Nixpkgs repository.
 
-2. **Nix Builders for Existing Packages**:
+1. **Nix Builders for Existing Packages**:
+
    - **Compatibility**: Develop builder plugins for applications available in the nixpkgs repository, integrating these with Hop3's build process.
    - **Automation**: Automatically generate Nix configurations for unsupported applications, leveraging existing configurations such as Heroku config files (Procfile, app.json) or Dockerfiles.
 
-3. **Nix Alternatives to Native Builders**:
+1. **Nix Alternatives to Native Builders**:
+
    - **Uniform Build Environment**: Develop Nix-based alternatives to native build systems (e.g., pip, npm, Maven), ensuring uniformity in Hop3’s build and runtime environments.
    - **Leverage Existing Tools**: Utilize and contribute to projects like dream2nix, Poetry2nix, or Nixpacks to streamline the process.
 
-4. **Optimization**:
+1. **Optimization**:
+
    - **Performance**: Optimize Nix expressions for performance and resource usage (CPU, storage, network). Explore caching mechanisms to reduce build times and resource consumption.
 
 ## Consequences
@@ -59,13 +64,16 @@ Hop3 will integrate Nix to take advantage of its strengths in reproducible build
 ## Action Items
 
 1. **Development**:
+
    - Create the initial Nix package for Hop3.
    - Build and integrate Nix builders for existing packages, starting with low-complexity applications.
 
-2. **Optimization**:
+1. **Optimization**:
+
    - Continuously refine Nix expressions for optimal performance.
    - Develop Nix-based alternatives to native build tools and ensure seamless integration with Hop3's workflow.
 
-3. **Community Engagement**:
+1. **Community Engagement**:
+
    - Collaborate with the Nix community for feedback and support.
    - Provide documentation and tutorials for both developers and users to adopt Nix effectively.

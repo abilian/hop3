@@ -1,4 +1,3 @@
-
 # ADR: Data Encryption and Protection in Hop3
 
 **Status**: Draft
@@ -16,20 +15,24 @@ Hop3 will implement comprehensive data encryption strategies to protect data at 
 ### Data Encryption
 
 1. **Encryption at Rest**:
+
    - **Database Encryption**: Encrypt all sensitive data stored in databases using strong encryption algorithms.
    - **File System Encryption**: Ensure that files and backups are encrypted on disk.
 
-2. **Encryption in Transit**:
+1. **Encryption in Transit**:
+
    - **Transport Layer Security (TLS)**: Use TLS to encrypt data transmitted over networks to protect against interception and eavesdropping.
    - **Secure Communication Protocols**: Implement secure communication protocols for API interactions and data exchanges.
 
 ### Key Management
 
 1. **Key Storage**:
+
    - **Secure Key Management**: Use secure key management solutions to store and manage encryption keys.
    - **Access Control**: Restrict access to encryption keys to authorized personnel only.
 
-2. **Key Rotation**:
+1. **Key Rotation**:
+
    - **Regular Key Rotation**: Implement a policy for regular rotation of encryption keys to limit the exposure of compromised keys.
    - **Automated Key Management**: Use automated tools to manage key rotation and ensure compliance with security policies.
 
@@ -54,13 +57,16 @@ Hop3 will implement comprehensive data encryption strategies to protect data at 
 ## Action Items
 
 1. **Implement Encryption**:
+
    - Apply encryption to all sensitive data at rest and in transit.
    - Ensure compliance with industry standards and best practices.
 
-2. **Enhance Key Management**:
+1. **Enhance Key Management**:
+
    - Use secure key management solutions and enforce strict access controls.
    - Implement regular key rotation policies.
 
-3. **Documentation and Training**:
+1. **Documentation and Training**:
+
    - Provide documentation on encryption practices and key management.
    - Train personnel on data protection and encryption protocols.

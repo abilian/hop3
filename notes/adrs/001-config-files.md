@@ -5,6 +5,7 @@
 Status: Draft
 
 Revisions:
+
 - v0.2: Update according to new template (2024-07-25)
 - v0.1: Initial draft (2024-07-17)
 
@@ -17,8 +18,8 @@ This ADR proposes the adoption of multiple configuration file formats for the Ho
 The Hop3 platform needs a robust and flexible configuration method for deploying and managing web applications. Initially, a single configuration file format was considered to streamline the process. However, the need for flexibility and compatibility with existing standards has led to the consideration of multiple configuration file formats. The core configurations and metadata for a given Hop3 package can be provided in various forms, including:
 
 1. **hop3.toml**: The primary configuration file designed for simplicity, readability, and explicitness.
-2. **Procfile**: A file that defines process types and commands for a web application, widely used in platforms like Heroku.
-3. **Other Files and Scripts**: Various other files and scripts that can provide necessary configuration and metadata, ensuring compatibility with different deployment environments and user preferences.
+1. **Procfile**: A file that defines process types and commands for a web application, widely used in platforms like Heroku.
+1. **Other Files and Scripts**: Various other files and scripts that can provide necessary configuration and metadata, ensuring compatibility with different deployment environments and user preferences.
 
 ## Decision
 
@@ -44,24 +45,29 @@ Hop3 will support configuration and metadata through multiple file formats to ac
 ## Action Items
 
 1. **Support for Multiple Formats**:
-    - Implement parsing logic for `hop3.toml`, Procfiles, and other relevant configuration formats.
-    - Ensure all formats can be transformed into a unified internal representation for processing.
 
-2. **Validation Framework**:
-    - Develop a validation framework that works across different configuration formats, ensuring consistency and correctness.
-    - Use Pydantic for schema validation and custom logic for format-specific validation requirements.
+   - Implement parsing logic for `hop3.toml`, Procfiles, and other relevant configuration formats.
+   - Ensure all formats can be transformed into a unified internal representation for processing.
 
-3. **Documentation and Examples**:
-    - Provide comprehensive documentation detailing the supported configuration formats and their usage.
-    - Include examples and best practices for each supported format to guide users in setting up their configurations.
+1. **Validation Framework**:
 
-4. **Tooling and Integration**:
-    - Develop CLI tools to assist users in generating and validating their configuration files.
-    - Integrate configuration validation into the CI/CD pipeline to catch errors early in the development cycle.
+   - Develop a validation framework that works across different configuration formats, ensuring consistency and correctness.
+   - Use Pydantic for schema validation and custom logic for format-specific validation requirements.
 
-5. **Community Feedback and Iteration**:
-    - Gather feedback from the community on the supported formats and their usability.
-    - Iterate on the implementation based on user feedback to improve the overall developer experience.
+1. **Documentation and Examples**:
+
+   - Provide comprehensive documentation detailing the supported configuration formats and their usage.
+   - Include examples and best practices for each supported format to guide users in setting up their configurations.
+
+1. **Tooling and Integration**:
+
+   - Develop CLI tools to assist users in generating and validating their configuration files.
+   - Integrate configuration validation into the CI/CD pipeline to catch errors early in the development cycle.
+
+1. **Community Feedback and Iteration**:
+
+   - Gather feedback from the community on the supported formats and their usability.
+   - Iterate on the implementation based on user feedback to improve the overall developer experience.
 
 ## Alternatives
 

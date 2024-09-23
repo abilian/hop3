@@ -5,6 +5,7 @@
 Status: Draft
 
 Versions:
+
 - v0.1: Initial draft (2024-07-17)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)
 
@@ -23,14 +24,17 @@ Hop3 will develop a builder plugin that supports applications available in the n
 ## Key Components
 
 1. **Builder Plugin Development**:
+
    - **Compatibility**: Ensure the builder plugin supports existing applications in the nixpkgs repository, allowing users to deploy widely used software like Nextcloud, Jitsi, and other open-source applications efficiently.
    - **Automation**: Generate Nix configurations for unsupported applications by converting from other formats, such as Dockerfiles, Heroku config files, or native Hop3 configurations.
 
-2. **Streamlined Updates and Maintenance**:
+1. **Streamlined Updates and Maintenance**:
+
    - **Automated Updates**: Implement mechanisms for automatic updates and rebuilds of Nix-built applications within Hop3, ensuring users always have access to the latest software versions and patches.
    - **Dependency Management**: Use Nix’s precise dependency management to handle updates reliably, ensuring consistent environments during application upgrades.
 
-3. **Integration with Hop3 Workflow**:
+1. **Integration with Hop3 Workflow**:
+
    - **App Store-Like Experience**: For non-technical users, provide a streamlined UI experience to deploy these Nix-packaged applications with minimal configuration.
    - **CLI Support for Developers**: Enable developers to deploy applications through a familiar CLI, while Nix handles the complexities of package management and reproducibility in the background.
 
@@ -56,13 +60,16 @@ Hop3 will develop a builder plugin that supports applications available in the n
 ## Action Items
 
 1. **Development**:
+
    - Develop the initial builder plugin for Hop3, ensuring broad compatibility with applications in the nixpkgs repository.
    - Implement tools to convert non-Nix configurations (e.g., Dockerfiles, Procfile) into Nix-compatible formats.
 
-2. **Testing and Optimization**:
+1. **Testing and Optimization**:
+
    - Conduct thorough testing with several initial packaged applications to validate the builder plugin’s robustness, focusing on applications with varying levels of complexity (e.g., Nextcloud, Jitsi, simpler tools like HedgeDoc).
    - Optimize Nix expressions and build processes to minimize performance overhead.
 
-3. **Documentation and Community Engagement**:
+1. **Documentation and Community Engagement**:
+
    - Provide clear, user-friendly documentation for both developers and non-technical users on how to use the Nix builder within Hop3.
    - Engage with the Nix and Hop3 communities for feedback and contributions, ensuring ongoing support and improvements to the builder plugin.

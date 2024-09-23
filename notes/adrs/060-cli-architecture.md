@@ -1,4 +1,4 @@
-# ADR: CLI<->Server Communication
+# ADR: CLI\<->Server Communication
 
 Status: Accepted
 
@@ -62,22 +62,27 @@ In a previous project (Nua), a "smart" CLI with embedded presentation logic prov
 ### Strategic Priorities
 
 1. **Develop Server-Side Logic and Formatting**:
+
    - Implement the necessary business logic on the server.
    - Develop a robust formatting engine to prepare responses for the CLI.
 
-2. **Implement JSON-RPC Protocol**:
+1. **Implement JSON-RPC Protocol**:
+
    - Set up the JSON-RPC protocol on the server.
    - Ensure the CLI can send and receive JSON-RPC requests and responses.
 
-3. **Configure HTTPS with Ad-Hoc Certificates**:
+1. **Configure HTTPS with Ad-Hoc Certificates**:
+
    - Set up HTTPS on the server.
    - Generate and configure ad-hoc certificates for secure communication.
 
-4. **Develop and Test CLI**:
+1. **Develop and Test CLI**:
+
    - Implement the CLI to handle user input and display formatted responses.
    - Conduct thorough testing to ensure reliability and performance.
 
-5. **Implement Streaming Support**:
+1. **Implement Streaming Support**:
+
    - Develop server-side support for streaming responses.
    - Ensure the CLI can handle and present streaming data effectively.
 

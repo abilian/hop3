@@ -11,9 +11,9 @@ We have decided, early on in the project, to use an existing syntax (instead of 
 We chose to favor [TOML](https://toml.io/en/) for several reasons, including:
 
 1. **Simplicity and Readability**: TOML was designed to be simple and easy to understand for humans, making it great for configuration files. It aims to be more readable and straightforward than YAML or JSON, which can become complex and verbose with large data structures.
-2. **Explicit and Obvious**: TOML is designed to map unambiguously to a hash table. It aims to be more explicit and less prone to errors or misinterpretation than YAML, which has more complex features like references and tags.
-3. **Consistent Style**: TOML has a more consistent style, whereas YAML can be written in different ways (flow style and block style) which might cause confusion.
-4. **Strong Typing**: TOML has a clear type system, including explicit types for dates and times, which JSON lacks. While YAML also supports data types, its type system can sometimes lead to surprising results due to its reliance on tags.
+1. **Explicit and Obvious**: TOML is designed to map unambiguously to a hash table. It aims to be more explicit and less prone to errors or misinterpretation than YAML, which has more complex features like references and tags.
+1. **Consistent Style**: TOML has a more consistent style, whereas YAML can be written in different ways (flow style and block style) which might cause confusion.
+1. **Strong Typing**: TOML has a clear type system, including explicit types for dates and times, which JSON lacks. While YAML also supports data types, its type system can sometimes lead to surprising results due to its reliance on tags.
 
 However, we also choose to support JSON and YAML as alternatives because the concrete syntax of the `hop3.toml` files is mostly irrelevant, as long as it produces a valid JSON object.
 
@@ -44,25 +44,31 @@ However, we also choose to support JSON and YAML as alternatives because the con
 ### Additional TODOs
 
 1. **Documentation and Examples**:
+
 - Provide comprehensive documentation for the configuration format, including examples for TOML, JSON, and YAML.
 - Create a migration guide for users transitioning from older configuration formats to the new standardized format.
 
 2. **Validation Enhancements**:
+
 - Extend validation to cover more complex configurations and interdependencies between sections.
 - Implement validation for additional configuration sections, ensuring completeness and correctness.
 
 3. **Tooling and Integration**:
+
 - Develop CLI tools to validate configuration files before deployment.
 - Integrate configuration validation into the CI/CD pipeline to catch errors early in the development cycle.
 
 4. **Error Handling and Reporting**:
+
 - Improve error messages to be more descriptive and helpful, guiding users to fix issues quickly.
 - Log validation errors and provide suggestions for common mistakes.
 
 5. **Schema Evolution and Versioning**:
+
 - Implement a versioning system for the configuration schema to manage changes over time.
 - Develop a process for deprecating old schema versions and supporting backward compatibility.
 
 6. **Community Involvement**:
+
 - Encourage community contributions to the configuration schema and validation logic.
 - Set up a feedback mechanism to gather input from users on configuration challenges and improvements.

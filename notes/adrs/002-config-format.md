@@ -5,6 +5,7 @@
 Status: Draft
 
 Revisions:
+
 - v0.2: Update according to new template (2024-07-25)
 - v0.1: Initial draft (2024-07-17)
 
@@ -36,24 +37,29 @@ The `hop3.toml` file will be used as the primary configuration format for the Ho
 ## Action Items
 
 1. **Develop Detailed Documentation**:
-    - Create comprehensive documentation outlining each section and field within the `hop3.toml` file.
-    - Provide examples and best practices to guide users.
 
-2. **Implement Parsing Logic**:
-    - Develop robust parsing logic to handle TOML, YAML, and JSON formats.
-    - Ensure the consistency and correctness of parsed data.
+   - Create comprehensive documentation outlining each section and field within the `hop3.toml` file.
+   - Provide examples and best practices to guide users.
 
-3. **Validation Framework**:
-    - Use Pydantic or similar tools for schema validation to ensure data integrity.
-    - Implement format-specific validation where necessary.
+1. **Implement Parsing Logic**:
 
-4. **Tooling and Support**:
-    - Develop CLI tools to assist users in generating and validating `hop3.toml` files.
-    - Integrate validation into the CI/CD pipeline to catch errors early.
+   - Develop robust parsing logic to handle TOML, YAML, and JSON formats.
+   - Ensure the consistency and correctness of parsed data.
 
-5. **Community Engagement**:
-    - Gather feedback from users to improve the configuration format.
-    - Update the format and documentation based on user input and evolving needs.
+1. **Validation Framework**:
+
+   - Use Pydantic or similar tools for schema validation to ensure data integrity.
+   - Implement format-specific validation where necessary.
+
+1. **Tooling and Support**:
+
+   - Develop CLI tools to assist users in generating and validating `hop3.toml` files.
+   - Integrate validation into the CI/CD pipeline to catch errors early.
+
+1. **Community Engagement**:
+
+   - Gather feedback from users to improve the configuration format.
+   - Update the format and documentation based on user input and evolving needs.
 
 ## Alternatives
 
@@ -115,7 +121,7 @@ The `hop3.toml` file contains several sections, mandatory or optional. Their ord
 - **Optional**
 - List of services required by the application.
 
----
+______________________________________________________________________
 
 ### Section `[metadata]`
 
@@ -123,7 +129,7 @@ Notes:
 
 - If not specified, the type of the value is String with no length limitation.
 - Strings are Python `f-string`: use of `{}` to reference other Metadata (such as version) is possible.
-- Keys containing a '-' can also be written with a '_'.
+- Keys containing a '-' can also be written with a '\_'.
 
 #### `id`
 
@@ -186,7 +192,7 @@ Notes:
 - Release number of this `hop3.toml` file.
 - Example: `release = 1`
 
----
+______________________________________________________________________
 
 ### Section `[build]`
 
@@ -302,7 +308,7 @@ build = [
 - Relative path of the project to build from the downloaded source code.
 - Example: `project = "./alternate/src"`
 
----
+______________________________________________________________________
 
 ### Section `[run]`
 
@@ -338,7 +344,7 @@ start = [
 ]
 ```
 
----
+______________________________________________________________________
 
 ### Section `[env]`
 
@@ -400,7 +406,7 @@ ACKEE_MONGODB = "mongodb://{DB_USER}:{DB_PWD}@{DB_HOST}:{DB_PORT}/"
 MY_IP = { external_ip='true' }
 ```
 
----
+______________________________________________________________________
 
 ### Section `[port]`
 
@@ -408,7 +414,7 @@ MY_IP = { external_ip='true' }
 - However, the current implementation issues a warning if no public port is declared.
 - Dictionary of named ports (e.g., `[port.web]`) used by the application.
 
----
+______________________________________________________________________
 
 ### Section `[healthcheck]`
 
@@ -422,14 +428,14 @@ command = "node /hop3/build/hedgedoc/healthcheck.mjs"
 interval = 10
 ```
 
----
+______________________________________________________________________
 
 ### Section `[backup]`
 
 - **Work in progress**
 - Current keys: `method`, `frequency`, `options`.
 
----
+______________________________________________________________________
 
 ### Section `[[provider]]`
 

@@ -5,6 +5,7 @@
 Status: Draft
 
 Versions:
+
 - v0.1: Initial draft (2024-07-17)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)
 
@@ -21,10 +22,12 @@ Hop3 will develop Nix-based alternatives to native build systems, facilitating a
 ## Key Components
 
 1. **Development of Nix-Based Alternatives**:
+
    - **Uniform Build Process**: Create Nix-based alternatives to native build systems (e.g., pip, npm, Maven, Make) to ensure a consistent and reliable build process across Hop3.
    - **Build Isolation and Reproducibility**: Leverage Nix’s strengths in isolating builds and ensuring reproducibility across environments. Applications built using Nix will be able to take full advantage of Nix’s dependency management, ensuring that the same build process yields identical results across different environments.
 
-2. **Leveraging Existing Projects**:
+1. **Leveraging Existing Projects**:
+
    - **Study and Integrate Existing Tools**: Leverage existing projects like dream2nix, Poetry2nix, or nixpacks to simplify the creation of Nix expressions from native build configurations. This will allow Hop3 to automate the generation of Nix configurations for a wide range of applications, speeding up the onboarding of new applications and reducing the manual effort required to create Nix configurations.
 
 ## Consequences
@@ -48,13 +51,16 @@ Hop3 will develop Nix-based alternatives to native build systems, facilitating a
 ## Action Items
 
 1. **Development**:
+
    - Develop Nix-based alternatives to common native build systems (pip, npm, Maven, Make) and integrate them into Hop3’s build process.
    - Generate Nix configurations automatically for applications that don’t already have Nix expressions, using tools like dream2nix or nixpacks to automate conversion from Dockerfiles, Procfiles, or native build configurations.
 
-2. **Testing and Optimization**:
+1. **Testing and Optimization**:
+
    - Conduct thorough testing on different applications to ensure that the Nix-based build process is reliable and performs well across a variety of technology stacks.
    - Continuously optimize the build processes to reduce performance overhead and ensure that Nix expressions are as efficient as possible.
 
-3. **Documentation and Community Engagement**:
+1. **Documentation and Community Engagement**:
+
    - Provide clear and detailed documentation for developers to understand how to use Nix-based build systems within Hop3, including step-by-step guides for converting native build configurations into Nix expressions.
    - Engage with both the Nix and Hop3 communities to gather feedback on the Nix-based build system, and incorporate contributions from the broader Nix ecosystem to improve and maintain the system.

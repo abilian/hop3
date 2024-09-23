@@ -75,9 +75,9 @@ Credentials are stored in `~/.hop3/credentials.toml` or similar, and may also be
 
 1. Refine the list of commands based on feedback and usability testing.
 
-2. Implement a minimal set of commands for the Hop3 CLI, focusing on essential operations and user needs.
+1. Implement a minimal set of commands for the Hop3 CLI, focusing on essential operations and user needs.
 
-3. Design the whole command-set.
+1. Design the whole command-set.
 
 ## Related
 
