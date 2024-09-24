@@ -51,7 +51,7 @@ Nix can help manage the lifecycle of backing services in several ways by leverag
 
 Here is the current thinking on how Nix can be used to manage services:
 
-#### 1. Declarative Service Configuration (on NixOS)
+#### Declarative Service Configuration (on NixOS)
 
 - **NixOS Modules**: In NixOS (the operating system built around Nix), services such as databases (e.g., PostgreSQL, MySQL) and email servers (e.g., Postfix, Dovecot) can be defined declaratively using NixOS modules. These modules specify how services should be configured, started, and managed. The configuration is entirely reproducible, meaning that rebuilding or restarting the service will always produce the same result.
 
@@ -74,7 +74,7 @@ Here is the current thinking on how Nix can be used to manage services:
 
   This example shows how NixOS can manage the lifecycle of PostgreSQL, ensuring that the database server is started with the correct configuration and that it remains consistent even after reboots or migrations.
 
-#### 2. \*Automatic Service Management (with `systemd`)
+#### \*Automatic Service Management (with `systemd`)
 
 - **Systemd Integration**: Nix (on NixOS) integrates seamlessly with `systemd`, the default service manager for Linux, to handle the automatic starting, stopping, and restarting of services. Each service is tied to a systemd unit file that is generated automatically by Nix. This ensures that services like PostgreSQL or an email server are automatically started when needed and are properly managed (restarted in case of failure, stopped on shutdown, etc.).
 
@@ -94,12 +94,12 @@ Here is the current thinking on how Nix can be used to manage services:
 
   This ensures that the application (`myApp`) only starts after PostgreSQL and Postfix services are up and running.
 
-#### 3. Managing Data Migrations and Backups
+#### Managing Data Migrations and Backups
 
 - **Database Migrations**: Nix can manage migrations by defining version-specific configurations for services like PostgreSQL. Since Nix tracks dependencies and versions precisely, it can ensure that database migrations are applied at the correct time during the upgrade or deployment process. This ensures seamless upgrades of both applications and the databases they depend on.
 - **Backups and Restores**: With Nix, the configuration for backup services can be defined declaratively, ensuring consistent and automated backup schedules for databases or other services. Nix can integrate with existing backup tools to provide version-controlled and reliable backup solutions for databases, ensuring that they can be restored in case of data loss.
 
-#### 4. Reproducible Runtime Environments
+#### Reproducible Runtime Environments
 
 - **Immutable Infrastructure**: Because Nix configurations are immutable, every deployment of a service like PostgreSQL or an email server will be identical across environments. This ensures that developers can run the same version of PostgreSQL with the same configurations in both development and production, preventing "works on my machine" problems.
 
@@ -115,7 +115,7 @@ Here is the current thinking on how Nix can be used to manage services:
 
   This guarantees that the specific version of PostgreSQL will always be used unless explicitly changed.
 
-#### 5. SSL Certificates and Other Resources
+#### SSL Certificates and Other Resources
 
 - **Certificate Management**: Nix can manage SSL certificates for services such as web servers or email servers. Using declarative tools like Let's Encrypt in combination with Nix, you can automatically issue, renew, and install SSL certificates for your services. This ensures that all certificates are managed centrally, making certificate rotation and renewal part of the system’s lifecycle management.
 
@@ -133,7 +133,7 @@ Here is the current thinking on how Nix can be used to manage services:
 
   This ensures that SSL certificates are automatically managed and applied to the services without manual intervention.
 
-#### 6. Orchestration of Backing Services
+#### Orchestration of Backing Services
 
 - **Orchestrating Multiple Services**: Nix can orchestrate multiple backing services (databases, caches, email servers, etc.) needed by an application. By specifying the relationship between these services in the Nix configuration, the platform can ensure that all services are deployed and managed correctly as part of the application stack. For example, if an application requires PostgreSQL, Redis, and an email service, Nix can ensure that all these services are deployed together, started in the correct order, and managed declaratively.
 
