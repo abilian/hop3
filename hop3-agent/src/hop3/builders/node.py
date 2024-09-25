@@ -16,7 +16,7 @@ from hop3.util.backports import chdir
 from hop3.util.console import Abort, log
 from hop3.util.path import prepend_to_path
 
-from .base import Builder
+from ._base import Builder
 
 
 class NodeBuilder(Builder):

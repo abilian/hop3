@@ -12,7 +12,7 @@ from hop3.core.events import InstallingDependencies, PreparingBuildEnv, emit
 from hop3.util import shell
 from hop3.util.backports import chdir
 
-from .base import Builder
+from ._base import Builder
 
 
 class PHPBuilder(Builder):

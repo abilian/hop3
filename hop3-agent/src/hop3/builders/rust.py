@@ -11,7 +11,7 @@ from hop3.core.env import Env
 from hop3.core.events import CompilingProject, CreatingBuildEnv, emit
 from hop3.util.backports import chdir
 
-from .base import Builder
+from ._base import Builder
 
 
 class RustBuilder(Builder):

@@ -13,7 +13,7 @@ from hop3.core.events import BuildEvent, CreatingVirtualEnv, emit
 from hop3.util.console import log
 from hop3.util.path import prepend_to_path
 
-from .base import Builder
+from ._base import Builder
 
 
 class ClojureBuilder(Builder):

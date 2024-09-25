@@ -12,7 +12,7 @@ from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
 from hop3.util.backports import chdir
 from hop3.util.path import prepend_to_path
 
-from .base import Builder
+from ._base import Builder
 
 
 class RubyBuilder(Builder):

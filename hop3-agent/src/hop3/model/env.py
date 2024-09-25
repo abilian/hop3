@@ -13,7 +13,7 @@ from advanced_alchemy.base import BigIntPrimaryKey
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base
+from ._base import Base
 from .instance import Instance
 
 

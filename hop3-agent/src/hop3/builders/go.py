@@ -7,10 +7,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hop3.builders.base import Builder
 from hop3.system.constants import ENV_ROOT
 from hop3.util import shell
 from hop3.util.console import log
+
+from ._base import Builder
 
 
 class GoBuilder(Builder):

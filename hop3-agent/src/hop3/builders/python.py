@@ -12,7 +12,7 @@ from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
 from hop3.system.constants import ENV_ROOT
 from hop3.util.backports import chdir
 
-from .base import Builder
+from ._base import Builder
 
 
 class PythonBuilder(Builder):
