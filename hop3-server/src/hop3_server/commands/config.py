@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from hop3_server.service import get_app
 
-from .base import Command
+from ._base import Command
 
 
 class ConfigCommand(Command):

@@ -9,7 +9,7 @@ from __future__ import annotations
 import importlib.metadata
 import subprocess
 
-from .base import Command
+from ._base import Command
 
 
 class SystemCommand(Command):

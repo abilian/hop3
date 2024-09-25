@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from hop3_server.service import get_app, list_apps
 
-from .base import Command
+from ._base import Command
 
 
 class Apps(Command):
