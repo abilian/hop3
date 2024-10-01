@@ -1,6 +1,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 #
-# SPDX-License-Identifier: Apache-3.0
+# SPDX-License-Identifier: Apache-2.0
 # SPDX-License-Identifier: MIT
 
 from hop3.util.templating import expand_vars

@@ -1,6 +1,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 #
-# SPDX-License-Identifier: Apache-3.0
+# SPDX-License-Identifier: Apache-2.0
 
 """Install Hop3 on Ubuntu 22.04 LTS."""
 
