@@ -60,7 +60,7 @@ The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) an
 
 ## Status
 
-> \[!WARNING\]
+> [!WARNING]
 > This code is still evolving quickly, and not meant for production yet.
 
 Version 0.2.0 (branch `stable`) is the first version that can be used to deploy a few simple web applications. It is not yet feature-complete. It is already used to host a couple of live applications.
@@ -235,68 +235,68 @@ Initial goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abi
 
 Features, UX:
 
-- \[x\] First working version (static sites, python apps, demo apps)
-- \[ \] Deploy a few more useful apps: Abilian SBE, more...
-- \[ \] Add postgres, redis, etc. lifecycle support using plugins
+- [x] First working version (static sites, python apps, demo apps)
+- [ ] Deploy a few more useful apps: Abilian SBE, more...
+- [ ] Add postgres, redis, etc. lifecycle support using plugins
 
 Doc:
 
-- \[x\] Fix REUSE config
-- \[x\] Basic Documentation / READMEs / etc.
+- [x] Fix REUSE config
+- [x] Basic Documentation / READMEs / etc.
 
 Infra, QA, DX, refactorings:
 
-- \[x\] Add e2e tests (`make test-e2e`)
-- \[x\] Basic tests and sample apps
-- \[x\] Basic CI (on SourceHut)
-- \[x\] Basic plugin architecture (using, e.g. [pluggy](https://pluggy.readthedocs.io/en/stable/))
-- \[x\] Nix dev env (support for `nix-shell`)
-- \[x\] Test automation (using `nox`)
-- \[x\] Make src/hop3/run/uwsgi.py into a class
-- \[ \] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
-- \[ \] Fix all typing issues (mypy and pyright)
+- [x] Add e2e tests (`make test-e2e`)
+- [x] Basic tests and sample apps
+- [x] Basic CI (on SourceHut)
+- [x] Basic plugin architecture (using, e.g. [pluggy](https://pluggy.readthedocs.io/en/stable/))
+- [x] Nix dev env (support for `nix-shell`)
+- [x] Test automation (using `nox`)
+- [x] Make src/hop3/run/uwsgi.py into a class
+- [ ] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
+- [ ] Fix all typing issues (mypy and pyright)
 
 ### P1 (Q3 2024):
 
 Features:
 
-- \[x\] Reorganize code base into sub-projects (monorepo)
-- \[x\] Start multi-OS support (Ubuntu, Archlinux, Fedora, NixOS, Guix, FreeBSD...)
-- \[ \] More apps
-- \[ \] CLI
-  - \[ \] Use an API server (WIP)
-  - \[ \] Review the UX/DX
-  - \[ \] Good looking logging (cf. https://bernsteinbear.com/blog/python-parallel-output/)
-- \[ \] Improve Python builder (support for poetry, pipenv, etc.)
-- \[ \] Manage external services (databases, mail, etc.)
-- \[ \] Backup / Restore
-- \[ \] Web App / portal
+- [x] Reorganize code base into sub-projects (monorepo)
+- [x] Start multi-OS support (Ubuntu, Archlinux, Fedora, NixOS, Guix, FreeBSD...)
+- [ ] More apps
+- [ ] CLI
+  - [ ] Use an API server (WIP)
+  - [ ] Review the UX/DX
+  - [ ] Good looking logging (cf. https://bernsteinbear.com/blog/python-parallel-output/)
+- [ ] Improve Python builder (support for poetry, pipenv, etc.)
+- [ ] Manage external services (databases, mail, etc.)
+- [ ] Backup / Restore
+- [ ] Web App / portal
 
 Infra, refactorings:
 
-- \[ \] Introduce new plugins (where it makes sense)
-- \[ \] More end-to-end tests, examples
-- \[ \] CI on GitHub
-- \[ \] e2e CI tests
+- [ ] Introduce new plugins (where it makes sense)
+- [ ] More end-to-end tests, examples
+- [ ] CI on GitHub
+- [ ] e2e CI tests
 
 ### P2 (Q4 2024):
 
-- \[ \] Reorganize monorepo further
-- \[ \] More apps
-- \[ \] Agents (for distributed deployments)
-- \[ \] Target other platforms (e.g. SlapOS, NixOS, Guix, etc.)
-- \[ \] Security (Firewall, WAF, better isolation, etc.)
-- \[ \] Monitoring
-- \[ \] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
-- \[ \] Support for (or migration from) Heroku, Render, Docker Compose, Fly… config files,
+- [ ] Reorganize monorepo further
+- [ ] More apps
+- [ ] Agents (for distributed deployments)
+- [ ] Target other platforms (e.g. SlapOS, NixOS, Guix, etc.)
+- [ ] Security (Firewall, WAF, better isolation, etc.)
+- [ ] Monitoring
+- [ ] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
+- [ ] Support for (or migration from) Heroku, Render, Docker Compose, Fly… config files,
 
 ### P3 (S1 2025):
 
-- \[ \] More apps
-- \[ \] Multi-server support
-- \[ \] Unified logging
-- \[ \] Unified login (LDAP / IAM)
-- \[ \] Container / VM support
+- [ ] More apps
+- [ ] Multi-server support
+- [ ] Unified logging
+- [ ] Unified login (LDAP / IAM)
+- [ ] Container / VM support
 
 ## Documentation
 
