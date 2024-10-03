@@ -1837,13 +1837,13 @@ lxml = ["lxml"]
 
 [[package]]
 name = "httpcore"
-version = "1.0.5"
+version = "1.0.6"
 description = "A minimal low-level HTTP client."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "httpcore-1.0.5-py3-none-any.whl", hash = "sha256:421f18bac248b25d310f3cacd198d55b8e6125c107797b609ff9b7a6ba7991b5"},
-    {file = "httpcore-1.0.5.tar.gz", hash = "sha256:34a38e2f9291467ee3b44e89dd52615370e152954ba21721378a87b2960f7a61"},
+    {file = "httpcore-1.0.6-py3-none-any.whl", hash = "sha256:27b59625743b85577a8c0e10e55b50b5368a4f2cfe8cc7bcfa9cf00829c2682f"},
+    {file = "httpcore-1.0.6.tar.gz", hash = "sha256:73f6dbd6eb8c21bbf7ef8efad555481853f5f6acdeaff1edb0694289269ee17f"},
 ]
 
 [package.dependencies]
@@ -1854,7 +1854,7 @@ h11 = ">=0.13,<0.15"
 asyncio = ["anyio (>=4.0,<5.0)"]
 http2 = ["h2 (>=3,<5)"]
 socks = ["socksio (==1.*)"]
-trio = ["trio (>=0.22.0,<0.26.0)"]
+trio = ["trio (>=0.22.0,<1.0)"]
 
 [[package]]
 name = "httpx"
@@ -2698,13 +2698,13 @@ files = [
 
 [[package]]
 name = "py-serializable"
-version = "1.1.1"
+version = "1.1.2"
 description = "Library for serializing and deserializing Python Objects to and from JSON and XML."
 optional = false
 python-versions = "<4.0,>=3.8"
 files = [
-    {file = "py_serializable-1.1.1-py3-none-any.whl", hash = "sha256:008cf879c8a227851e745e307c1a1c9b58bc22ab87f3794a3750513b6c9e8713"},
-    {file = "py_serializable-1.1.1.tar.gz", hash = "sha256:f268db3afc42c8786da6dc64a8a36e33a82cf65cdcff22d1188b0927f6d4cfa9"},
+    {file = "py_serializable-1.1.2-py3-none-any.whl", hash = "sha256:801be61b0a1ba64c3861f7c624f1de5cfbbabf8b458acc9cdda91e8f7e5effa1"},
+    {file = "py_serializable-1.1.2.tar.gz", hash = "sha256:89af30bc319047d4aa0d8708af412f6ce73835e18bacf1a080028bb9e2f42bdb"},
 ]
 
 [package.dependencies]
@@ -2829,13 +2829,13 @@ diagrams = ["jinja2", "railroad-diagrams"]
 
 [[package]]
 name = "pyright"
-version = "1.1.382.post1"
+version = "1.1.383"
 description = "Command line wrapper for pyright"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "pyright-1.1.382.post1-py3-none-any.whl", hash = "sha256:21a4749dd1740e209f88d3a601e9f40748670d39481ea32b9d77edf7f3f1fb2e"},
-    {file = "pyright-1.1.382.post1.tar.gz", hash = "sha256:66a5d4e83be9452853d73e9dd9e95ba0ac3061845270e4e331d0070a597d3445"},
+    {file = "pyright-1.1.383-py3-none-any.whl", hash = "sha256:d864d1182a313f45aaf99e9bfc7d2668eeabc99b29a556b5344894fd73cb1959"},
+    {file = "pyright-1.1.383.tar.gz", hash = "sha256:1df7f12407f3710c9c6df938d98ec53f70053e6c6bbf71ce7bcb038d42f10070"},
 ]
 
 [package.dependencies]
@@ -3296,18 +3296,19 @@ tomlkit = ">=0.8"
 
 [[package]]
 name = "rich"
-version = "13.9.0"
+version = "13.9.1"
 description = "Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal"
 optional = false
 python-versions = ">=3.8.0"
 files = [
-    {file = "rich-13.9.0-py3-none-any.whl", hash = "sha256:9338ab80106a9257e1a910510ff72f9c0d31a27aaa8f560751a54fe910a874b6"},
-    {file = "rich-13.9.0.tar.gz", hash = "sha256:06ff5147711c0f6cec2cdbb247a6cff251268a66d700c2557699bfe104fc0bf4"},
+    {file = "rich-13.9.1-py3-none-any.whl", hash = "sha256:b340e739f30aa58921dc477b8adaa9ecdb7cecc217be01d93730ee1bc8aa83be"},
+    {file = "rich-13.9.1.tar.gz", hash = "sha256:097cffdf85db1babe30cc7deba5ab3a29e1b9885047dab24c57e9a7f8a9c1466"},
 ]
 
 [package.dependencies]
 markdown-it-py = ">=2.2.0"
 pygments = ">=2.13.0,<3.0.0"
+typing-extensions = {version = ">=4.0.0,<5.0", markers = "python_version < \"3.11\""}
 
 [package.extras]
 jupyter = ["ipywidgets (>=7.5.1,<9)"]
@@ -3593,41 +3594,47 @@ url = ["furl (>=0.4.1)"]
 
 [[package]]
 name = "sspilib"
-version = "0.1.0"
+version = "0.2.0"
 description = "SSPI API bindings for Python"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "sspilib-0.1.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:5e43f3e684e9d29c80324bd54f52dac65ac4b18d81a2dcd529dce3994369a14d"},
-    {file = "sspilib-0.1.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:1eb34eda5d362b6603707a55751f1eff81775709b821e51cb64d1d2fa2bb8b6e"},
-    {file = "sspilib-0.1.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8ffe123f056f78cbe18aaed6b15f06e252020061c3387a72615abd46699a0b24"},
-    {file = "sspilib-0.1.0-cp310-cp310-win32.whl", hash = "sha256:a4151072e28ec3b7d785beac9548a3d6a4549c431eb5487a5b8a1de028e9fef0"},
-    {file = "sspilib-0.1.0-cp310-cp310-win_amd64.whl", hash = "sha256:2a19696c7b96b6bbef2b2ddf35df5a92f09b268476a348390a2f0da18cf29510"},
-    {file = "sspilib-0.1.0-cp310-cp310-win_arm64.whl", hash = "sha256:d2778e5e2881405b4d359a604e2802f5b7a7ed433ff62d6073d04c203af10eb1"},
-    {file = "sspilib-0.1.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:09d7f72ad5e4bbf9a8f1acf0d5f0c3f9fbe500f44c4a45ac24a99ece84f5654f"},
-    {file = "sspilib-0.1.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:1e5705e11aaa030a61d2b0a2ce09d2b8a1962dd950e55adc7a3c87dd463c6878"},
-    {file = "sspilib-0.1.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:dced8213d311c56f5f38044716ebff5412cc156f19678659e8ffa9bb6a642bd7"},
-    {file = "sspilib-0.1.0-cp311-cp311-win32.whl", hash = "sha256:d30d38d52dbd857732224e86ae3627d003cc510451083c69fa481fc7de88a7b6"},
-    {file = "sspilib-0.1.0-cp311-cp311-win_amd64.whl", hash = "sha256:61c9067168cce962f7fead42c28804c3a39a164b9a7b660200b8cfe31e3af071"},
-    {file = "sspilib-0.1.0-cp311-cp311-win_arm64.whl", hash = "sha256:b526b8e5a236553f5137b951b89a2f108f56138ad05f31fd0a51b10f80b6c3cc"},
-    {file = "sspilib-0.1.0-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:3ff356d40cd34c900f94f1591eaabd458284042af611ebc1dbf609002066dba5"},
-    {file = "sspilib-0.1.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:2b0fee3a52d0acef090f6c9b49953a8400fdc1c10aca7334319414a3038aa493"},
-    {file = "sspilib-0.1.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ab52d190dad1d578ec40d1fb417a8571954f4e32f35442a14cb709f57d3acbc9"},
-    {file = "sspilib-0.1.0-cp312-cp312-win32.whl", hash = "sha256:b3cf819094383ec883e9a63c11b81d622618c815c18a6c9d761d9a14d9f028d1"},
-    {file = "sspilib-0.1.0-cp312-cp312-win_amd64.whl", hash = "sha256:b83825a2c43ff84ddff72d09b098057efaabf3841d3c42888078e154cf8e9595"},
-    {file = "sspilib-0.1.0-cp312-cp312-win_arm64.whl", hash = "sha256:9aa6ab4c3fc1057251cf1f3f199daf90b99599cdfafc9eade8fdf0c01526dec8"},
-    {file = "sspilib-0.1.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:82bff5df178386027d0112458b6971bbd18c76eb9e7be53fd61dab33d7bf8417"},
-    {file = "sspilib-0.1.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:18393a9e6e0447cb7f319d361b65e9a0eaa5484705f16787133ffc49ad364c28"},
-    {file = "sspilib-0.1.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:88a423fbca206ba0ca811dc995d8c3af045402b7d330f033e938b24f3a1d93fc"},
-    {file = "sspilib-0.1.0-cp38-cp38-win32.whl", hash = "sha256:86bd936b1ef0aa63c6d9623ad08473e74ceb15f342f6e92cbade15ed9574cd33"},
-    {file = "sspilib-0.1.0-cp38-cp38-win_amd64.whl", hash = "sha256:d4f688b94f0a64128444063e1d3d59152614175999222f6e2920681faea833f4"},
-    {file = "sspilib-0.1.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:2acef24e13e40d9dd8697eaae84ead9f417528ff741d087ec4eb4260518f4dc7"},
-    {file = "sspilib-0.1.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:4b625802d80144d856d5eb6e8f4412f186565758da4493c7ad1b88e3d6d353de"},
-    {file = "sspilib-0.1.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c06ca1e34702bca1c750dcb5133b716f316b38dccb28d55a1a44d9842bc3f391"},
-    {file = "sspilib-0.1.0-cp39-cp39-win32.whl", hash = "sha256:68496c9bd52b57a1b6d2e5529b43c30060249b8db901127b8343c4ad8cd93670"},
-    {file = "sspilib-0.1.0-cp39-cp39-win_amd64.whl", hash = "sha256:369727097f07a440099882580e284e137d9c27b7de354d63b65e327a454e7bee"},
-    {file = "sspilib-0.1.0-cp39-cp39-win_arm64.whl", hash = "sha256:87d8268c0517149c51a53b3888961ebf66826bb3dbb82c4e5cf10108f5456104"},
-    {file = "sspilib-0.1.0.tar.gz", hash = "sha256:58b5291553cf6220549c0f855e0e6973f4977375d8236ce47bb581efb3e9b1cf"},
+    {file = "sspilib-0.2.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:34f566ba8b332c91594e21a71200de2d4ce55ca5a205541d4128ed23e3c98777"},
+    {file = "sspilib-0.2.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:5b11e4f030de5c5de0f29bcf41a6e87c9fd90cb3b0f64e446a6e1d1aef4d08f5"},
+    {file = "sspilib-0.2.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3e82f87d77a9da62ce1eac22f752511a99495840177714c772a9d27b75220f78"},
+    {file = "sspilib-0.2.0-cp310-cp310-win32.whl", hash = "sha256:e436fa09bcf353a364a74b3ef6910d936fa8cd1493f136e517a9a7e11b319c57"},
+    {file = "sspilib-0.2.0-cp310-cp310-win_amd64.whl", hash = "sha256:850a17c98d2b8579b183ce37a8df97d050bc5b31ab13f5a6d9e39c9692fe3754"},
+    {file = "sspilib-0.2.0-cp310-cp310-win_arm64.whl", hash = "sha256:a4d788a53b8db6d1caafba36887d5ac2087e6b6be6f01eb48f8afea6b646dbb5"},
+    {file = "sspilib-0.2.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:e0943204c8ba732966fdc5b69e33cf61d8dc6b24e6ed875f32055d9d7e2f76cd"},
+    {file = "sspilib-0.2.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:d1cdfc5ec2f151f26e21aa50ccc7f9848c969d6f78264ae4f38347609f6722df"},
+    {file = "sspilib-0.2.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1a6c33495a3de1552120c4a99219ebdd70e3849717867b8cae3a6a2f98fef405"},
+    {file = "sspilib-0.2.0-cp311-cp311-win32.whl", hash = "sha256:400d5922c2c2261009921157c4b43d868e84640ad86e4dc84c95b07e5cc38ac6"},
+    {file = "sspilib-0.2.0-cp311-cp311-win_amd64.whl", hash = "sha256:d3e7d19c16ba9189ef8687b591503db06cfb9c5eb32ab1ca3bb9ebc1a8a5f35c"},
+    {file = "sspilib-0.2.0-cp311-cp311-win_arm64.whl", hash = "sha256:f65c52ead8ce95eb78a79306fe4269ee572ef3e4dcc108d250d5933da2455ecc"},
+    {file = "sspilib-0.2.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:abac93a90335590b49ef1fc162b538576249c7f58aec0c7bcfb4b860513979b4"},
+    {file = "sspilib-0.2.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:1208720d8e431af674c5645cec365224d035f241444d5faa15dc74023ece1277"},
+    {file = "sspilib-0.2.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e48dceb871ecf9cf83abdd0e6db5326e885e574f1897f6ae87d736ff558f4bfa"},
+    {file = "sspilib-0.2.0-cp312-cp312-win32.whl", hash = "sha256:bdf9a4f424add02951e1f01f47441d2e69a9910471e99c2c88660bd8e184d7f8"},
+    {file = "sspilib-0.2.0-cp312-cp312-win_amd64.whl", hash = "sha256:40a97ca83e503a175d1dc9461836994e47e8b9bcf56cab81a2c22e27f1993079"},
+    {file = "sspilib-0.2.0-cp312-cp312-win_arm64.whl", hash = "sha256:8ffc09819a37005c66a580ff44f544775f9745d5ed1ceeb37df4e5ff128adf36"},
+    {file = "sspilib-0.2.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:40ff410b64198cf1d704718754fc5fe7b9609e0c49bf85c970f64c6fc2786db4"},
+    {file = "sspilib-0.2.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:02d8e0b6033de8ccf509ba44fdcda7e196cdedc0f8cf19eb22c5e4117187c82f"},
+    {file = "sspilib-0.2.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ad7943fe14f8f6d72623ab6401991aa39a2b597bdb25e531741b37932402480f"},
+    {file = "sspilib-0.2.0-cp313-cp313-win32.whl", hash = "sha256:b9044d6020aa88d512e7557694fe734a243801f9a6874e1c214451eebe493d92"},
+    {file = "sspilib-0.2.0-cp313-cp313-win_amd64.whl", hash = "sha256:c39a698491f43618efca8776a40fb7201d08c415c507f899f0df5ada15abefaa"},
+    {file = "sspilib-0.2.0-cp313-cp313-win_arm64.whl", hash = "sha256:863b7b214517b09367511c0ef931370f0386ed2c7c5613092bf9b106114c4a0e"},
+    {file = "sspilib-0.2.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:a0ede7afba32f2b681196c0b8520617d99dc5d0691d04884d59b476e31b41286"},
+    {file = "sspilib-0.2.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:bd95df50efb6586054963950c8fa91ef994fb73c5c022c6f85b16f702c5314da"},
+    {file = "sspilib-0.2.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9460258d3dc3f71cc4dcfd6ac078e2fe26f272faea907384b7dd52cb91d9ddcc"},
+    {file = "sspilib-0.2.0-cp38-cp38-win32.whl", hash = "sha256:6fa9d97671348b97567020d82fe36c4211a2cacf02abbccbd8995afbf3a40bfc"},
+    {file = "sspilib-0.2.0-cp38-cp38-win_amd64.whl", hash = "sha256:32422ad7406adece12d7c385019b34e3e35ff88a7c8f3d7c062da421772e7bfa"},
+    {file = "sspilib-0.2.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:6944a0d7fe64f88c9bde3498591acdb25b178902287919b962c398ed145f71b9"},
+    {file = "sspilib-0.2.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:0216344629b0f39c2193adb74d7e1bed67f1bbd619e426040674b7629407eba9"},
+    {file = "sspilib-0.2.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1c5f84b9f614447fc451620c5c44001ed48fead3084c7c9f2b9cefe1f4c5c3d0"},
+    {file = "sspilib-0.2.0-cp39-cp39-win32.whl", hash = "sha256:b290eb90bf8b8136b0a61b189629442052e1a664bd78db82928ec1e81b681fb5"},
+    {file = "sspilib-0.2.0-cp39-cp39-win_amd64.whl", hash = "sha256:404c16e698476e500a7fe67be5457fadd52d8bdc9aeb6c554782c8f366cc4fc9"},
+    {file = "sspilib-0.2.0-cp39-cp39-win_arm64.whl", hash = "sha256:8697e5dd9229cd3367bca49fba74e02f867759d1d416a717e26c3088041b9814"},
+    {file = "sspilib-0.2.0.tar.gz", hash = "sha256:4d6cd4290ca82f40705efeb5e9107f7abcd5e647cb201a3d04371305938615b8"},
 ]
 
 [[package]]
@@ -3709,13 +3716,13 @@ files = [
 
 [[package]]
 name = "tomli"
-version = "2.0.1"
+version = "2.0.2"
 description = "A lil' TOML parser"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "tomli-2.0.1-py3-none-any.whl", hash = "sha256:939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc"},
-    {file = "tomli-2.0.1.tar.gz", hash = "sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f"},
+    {file = "tomli-2.0.2-py3-none-any.whl", hash = "sha256:2ebe24485c53d303f690b0ec092806a085f07af5a5aa1464f3931eec36caaa38"},
+    {file = "tomli-2.0.2.tar.gz", hash = "sha256:d46d457a85337051c36524bc5349dd91b1877838e2979ac5ced3e710ed8a60ed"},
 ]
 
 [[package]]
@@ -3847,13 +3854,13 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 
 [[package]]
 name = "vulture"
-version = "2.12"
+version = "2.13"
 description = "Find dead code"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "vulture-2.12-py2.py3-none-any.whl", hash = "sha256:68ee4c4ce0128bb504dc7c2df4244c97ef5a2e29af42f27a976a6e30906e993a"},
-    {file = "vulture-2.12.tar.gz", hash = "sha256:c35e98e992eb84b01cdadbfeb0aca2d44363e7dfe6c19416f65001ae69360ccc"},
+    {file = "vulture-2.13-py2.py3-none-any.whl", hash = "sha256:34793ba60488e7cccbecdef3a7fe151656372ef94fdac9fe004c52a4000a6d44"},
+    {file = "vulture-2.13.tar.gz", hash = "sha256:78248bf58f5eaffcc2ade306141ead73f437339950f80045dce7f8b078e5a1aa"},
 ]
 
 [package.dependencies]
