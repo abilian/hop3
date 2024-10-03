@@ -1,6 +1,7 @@
 .PHONY: all develop test lint clean doc format
 .PHONY: clean clean-build clean-pyc clean-test coverage dist docs install lint lint/flake8
 
+PKG:=hop3,hop3_agent,hop3_server,hop3_web,hop3_lib
 # For tests
 # Either uncomment and set the following variables or set them in the environment
 # HOP3_DEV_HOST=XXX
@@ -67,7 +68,7 @@ configure-git:
 ## Run python tests
 test:
 	@echo "--> Running Python tests"
-	pytest -x -p no:randomly src tests
+	pytest -x -p no:randomly
 	@echo ""
 
 test-e2e:
@@ -78,17 +79,17 @@ test-e2e:
 
 test-randomly:
 	@echo "--> Running Python tests in random order"
-	pytest tests src
+	pytest
 	@echo ""
 
 test-with-coverage:
 	@echo "--> Running Python tests"
-	py.test --cov $(PKG) tests src
+	pytest --cov $(PKG)
 	@echo ""
 
 test-with-typeguard:
 	@echo "--> Running Python tests with typeguard"
-	pytest --typeguard-packages=${PKG} tests src
+	pytest --typeguard-packages=${PKG}
 	@echo ""
 
 ## Cleanup tests artifacts
@@ -190,6 +191,3 @@ publish: clean
 	git push --tags
 	poetry build
 	twine upload dist/*
-
-xxx:
-	ls *

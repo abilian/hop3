@@ -1,5 +1,8 @@
+[project]
+name = "hop3-lib"
+
 [tool.poetry]
-name = "hop3"
+name = "hop3-lib"
 version = "0.2.2"
 description = "Simple PaaS - Deploy and manage web applications on a single server"
 authors = ["Stefane Fermigier <sf@abilian.com>"]

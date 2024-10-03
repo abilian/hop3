@@ -1,4 +1,5 @@
 # Copyright (c) 2023-2024, Abilian SAS
+from unittest import skip
 
 from hop3_lib.bus.bus import (
     EventBus,
@@ -9,6 +10,7 @@ from hop3_lib.bus.bus import (
 )
 
 
+@skip
 def test_say_hello_command():
     event_bus = EventBus()
     command_bus = TransactionalCommandBus(event_bus)

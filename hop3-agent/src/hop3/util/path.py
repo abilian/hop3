@@ -5,10 +5,8 @@
 from __future__ import annotations
 
 import os
-import typing
 
-if typing.TYPE_CHECKING:  # pragma: no cover
-    from pathlib import Path
+from pathlib import Path
 
 
 def prepend_to_path(directories: list[Path | str], path: str = "") -> str:
