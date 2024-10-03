@@ -1,3 +1,52 @@
+#
+# Migration to uv. WIP.
+#
+[project]
+name = "hop3"
+version = "0.2.2"
+description = "Simple PaaS - Deploy and manage web applications on a single server"
+authors = [
+    { name = "Stefane Fermigier", email = "sf@abilian.com" },
+]
+readme = "README.md"
+#license = "Apache-2.0"
+requires-python = "~=3.10"
+
+dependencies = [
+    # Debug (remove later)
+    "devtools ~= 0.12.2",
+    "snoop ~= 0.4.3",
+
+    # Used by manual install (remove later)
+    "invoke ~= 2.2.0",
+    "tomlkit",
+    "cleez",
+    "python-dotenv",
+]
+
+[tool.uv]
+dev-dependencies = [
+    # Generic tools
+    "abilian-devtools ~= 0.6",
+    "reuse ~= 4.0",
+
+    # Used by `inv watch`
+    "watchfiles ~= 0.24.0",
+
+    # Used by testing infra
+    "httpx ~= 0.27.0",
+    "python-dotenv ~= 1.0.1",
+
+    # Experimental
+    "infer-types ~= 1.0.0",
+
+    # Installer
+    "pyinfra ~= 3.0",
+]
+
+
+# ------------------------------------
+
 [tool.poetry]
 name = "hop3"
 version = "0.2.2"
@@ -51,9 +100,9 @@ infer-types = "^1.0.0"
 pyinfra = "^3"
 
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+#[build-system]
+#requires = ["poetry-core"]
+#build-backend = "poetry.core.masonry.api"
 
 
 [tool.isort]
