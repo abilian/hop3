@@ -1,3 +1,7 @@
+[project]
+name = "hop3-agent"
+
+
 [tool.poetry]
 name = "hop3-agent"
 version = "0.2.2"

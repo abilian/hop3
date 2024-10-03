@@ -1,3 +1,6 @@
+[project]
+name = "hop3-web"
+
 [tool.poetry]
 name = "hop3-web"
 version = "0.2.2"

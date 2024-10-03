@@ -13,6 +13,12 @@ readme = "README.md"
 requires-python = "~=3.10"
 
 dependencies = [
+    # Workspace
+    "hop3-agent",
+    "hop3-cli",
+    "hop3-server",
+    "hop3-web",
+
     # Debug (remove later)
     "devtools ~= 0.12.2",
     "snoop ~= 0.4.3",
@@ -42,6 +48,20 @@ dev-dependencies = [
 
     # Installer
     "pyinfra ~= 3.0",
+]
+
+[tool.uv.sources]
+hop3-agent = { workspace = true }
+hop3-cli = { workspace = true }
+hop3-server = { workspace = true }
+hop3-web = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "hop3-agent",
+    "hop3-cli",
+    "hop3-server",
+    "hop3-web",
 ]
 
 
