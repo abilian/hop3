@@ -34,7 +34,7 @@ py-cpuinfo = "^9.0.0"
 
 # Remove later
 devtools = "^0.12.2"
-snoop = "^0.4.3"
+snoop = "^0.6"
 
 [tool.poetry.group.dev.dependencies]
 abilian-devtools = "^0.5.18"

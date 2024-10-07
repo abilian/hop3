@@ -182,6 +182,7 @@ tidy: clean
 update-deps:
 	pip install -U pip setuptools wheel
 	poetry update
+	uv sync -U
 	pre-commit autoupdate
 	poetry show -o
 
