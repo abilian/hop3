@@ -95,7 +95,7 @@ python = "^3.10"
 
 # Debug (remove later)
 devtools = "^0.12.2"
-snoop = "^0.4.3"
+snoop = "^0.6"
 
 # Used by manual install (remove later)
 invoke = "^2.2.0"
