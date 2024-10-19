@@ -130,6 +130,20 @@ It aims to facilitate access to cloud technologies for a diverse range of users,
 - **Decentralized Control**: Employs a decentralized model for data storage and processing to enhance sovereignty and resilience, using principles from the theory of promises for coordination between agents.
 - **Scalability and Fault Tolerance**: Adopts a distributed, agent-based architecture to enhance scalability and fault tolerance, allowing for the seamless addition of nodes and self-healing capabilities.
 
+
+### Orchestration and Automation
+
+- **Intelligent Orchestration**: Hop3 includes a built-in orchestration engine capable of managing distributed applications across cloud, edge, and IoT environments. It automates deployment, scaling, and resource allocation without the need for external platforms like Kubernetes.
+- **Dynamic Scaling**: Automates horizontal scaling based on real-time monitoring data, adjusting resource usage dynamically to meet application demand. This feature ensures efficient performance across diverse infrastructure layers.
+- **Task Scheduling and Compute Offloading**: Provides intelligent task scheduling to offload compute-heavy workloads from constrained environments (like edge devices) to more powerful cloud infrastructure, optimizing the use of resources.
+- **AI/ML Workflow Management**: Automates AI/ML workflows, allowing seamless orchestration of data pipelines, model training, and inferencing tasks across distributed systems. Hop3 can dynamically allocate resources to different stages of the pipeline based on computational requirements.
+- **Live Migration**: Supports live migration of running services and containers between nodes, ensuring zero-downtime transitions, even in multi-cluster setups, by leveraging snapshotting and stateful migration techniques.
+- **Automated Deployments**: Simplifies the deployment of applications with automated workflows that integrate with CI/CD pipelines, allowing for continuous integration and deployment of applications with minimal manual intervention.
+- **Workload Management**: Provides efficient workload management through policies that dictate how applications should be distributed and prioritized across various environments, optimizing performance and cost.
+
+-> [More details](./docs/src/dev/orchestration.md)
+
+
 ### Technology Stack
 
 Hop3's technology stack is carefully chosen to support its goals without relying on conventional containerization tools like Docker or Kubernetes. Instead, it focuses on alternative, lightweight solutions that align with the project's principles of efficiency and sovereignty. The stack includes:
