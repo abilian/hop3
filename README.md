@@ -91,55 +91,58 @@ It aims to facilitate access to cloud technologies for a diverse range of users,
 
 ### Web-Based Management Interface
 
-- **Centralized Management**: Hop3 offers a robust web-based interface for managing applications, users, and system settings. This intuitive dashboard provides comprehensive monitoring and control of the server.
+- **Centralized Management**: Hop3 offers a powerful and intuitive web-based interface, providing centralized control over applications, users, and system settings. Administrators can manage infrastructure, monitor performance, and configure settings from a single dashboard, enhancing efficiency and user experience. The dashboard includes detailed real-time analytics and event logs, ensuring full visibility over operations.
 
 ### User Management and Single Sign-On (SSO)
 
-- **Integrated LDAP**: Hop3 integrates with LDAP for centralized user management and authentication.
-- **SSO**: Provides Single Sign-On capabilities across all applications, enabling users to access multiple services with a single login.
+- **Integrated LDAP Support**: Hop3 integrates seamlessly with LDAP, enabling centralized authentication and user management. This allows organizations to maintain consistent user policies and permissions across multiple applications and systems.
+- **Single Sign-On (SSO)**: Hop3 simplifies user access with SSO capabilities, allowing users to authenticate once and gain access to multiple services and applications. This improves security by reducing the need for multiple credentials and streamlining access control management.
 
 ### Role-Based Access Control (RBAC)
 
-- **Granular Permissions**: Implements RBAC to manage permissions for different users and groups, allowing administrators to control access to various functionalities and applications.
+- **Granular Permissions**: Hop3’s RBAC system enables precise control over user access. Administrators can define user roles and assign granular permissions to limit access to specific applications, resources, or actions. This ensures compliance with organizational security policies while reducing the risk of unauthorized access.
+- **Audit Logging**: The RBAC system provides detailed audit logs of user actions and access history, ensuring traceability and accountability for security audits.
 
 ### Automated Backups and Restore
 
-- **Data Protection**: Offers automated backup and restore functionalities to protect against data loss. Includes scheduling regular backups and providing easy restoration processes.
+- **Automated Data Protection**: Hop3 offers robust data protection through automated backups and restore mechanisms. Administrators can schedule regular backups to prevent data loss and easily restore systems in case of failure. Backup processes can be customized based on retention policies, ensuring flexibility for different business requirements.
+- **Disaster Recovery**: The integrated restore functionality ensures minimal downtime in the event of failures, allowing for rapid recovery and continuity of operations.
 
 ### Domain Management and SSL Certificates
 
-- **DNS Configuration**: Provides tools for managing domain names, including DNS configuration.
-- **SSL Management**: Integrates automated SSL certificate management using services like Let's Encrypt to ensure secure communication.
+- **Simplified DNS Management**: Hop3 includes tools for easy domain name management, providing DNS configuration that enables users to map their domain names to services hosted on Hop3.
+- **Automated SSL Management**: Ensures secure communication by automating the management of SSL certificates through integrations with services like Let's Encrypt. This simplifies the process of obtaining, renewing, and managing certificates, ensuring encryption for data in transit without manual intervention.
 
 ### Modular Design
 
-- **Pluggable Modules**: Features a modular architecture where functionalities are provided by different modules. Administrators can install, configure, and manage these modules independently, allowing for flexible and scalable deployments.
+- **Pluggable Architecture**: Hop3’s modular architecture allows for flexibility in feature deployment. Administrators can add, configure, and manage modules independently, tailoring the platform to specific use cases. This modularity supports a wide range of environments and ensures the system can scale as needed.
+- **Customizable Functionality**: Users can extend the functionality of Hop3 through a variety of plug-ins, ensuring that the platform evolves with organizational needs.
 
 ### Comprehensive Network Management
 
-- **Network Services**: Integrates robust network management features such as firewall, VPN, DHCP, DNS, and proxy services, ensuring that Hop3 can handle complex network configurations and provide secure access to applications.
+- **Integrated Network Services**: Hop3 includes extensive network management capabilities, offering services such as firewall configurations, VPNs, DHCP, DNS, and proxy management. These features ensure that Hop3 can securely manage traffic and connections across distributed applications and infrastructures.
+- **Secure Network Policies**: The platform allows administrators to implement strict network policies, enhancing security across cloud and edge environments.
 
 ### Security and Resilience Enhancements
 
-- **Advanced Security Measures**: Incorporates advanced security tools for continuous monitoring and proactive threat mitigation.
-- **Redundancy and Failover**: Implements redundancy and failover mechanisms to ensure continuous availability.
-- **Monitoring and Alerts**: Sets up real-time monitoring and alerting systems to detect and respond to issues promptly.
+- **Advanced Security Features**: Hop3 incorporates robust security measures, including real-time monitoring, encryption for data in transit and at rest, and proactive threat detection. Built-in security modules provide continuous surveillance of application performance and system vulnerabilities.
+- **Redundancy and Failover**: Hop3 ensures high availability through redundancy and failover mechanisms. If one node or service fails, the system automatically shifts workloads to backup resources, ensuring uninterrupted service.
+- **Monitoring and Alerts**: Hop3 includes a real-time monitoring system with alert capabilities. Administrators receive notifications when performance thresholds are crossed, allowing for proactive issue resolution.
 
 ### Distributed, Agent-Based Architecture
 
-- **Decentralized Control**: Employs a decentralized model for data storage and processing to enhance sovereignty and resilience, using principles from the theory of promises for coordination between agents.
-- **Scalability and Fault Tolerance**: Adopts a distributed, agent-based architecture to enhance scalability and fault tolerance, allowing for the seamless addition of nodes and self-healing capabilities.
-
+- **Decentralized Control**: Hop3 utilizes a distributed agent-based architecture for decentralized data storage and processing. This enhances system resilience and ensures that operations are spread across multiple nodes, reducing the risk of failure and improving sovereignty over data and infrastructure.
+- **Fault Tolerance and Scalability**: The platform’s architecture supports fault tolerance and scalability, allowing seamless integration of new nodes. As additional resources are added, the system autonomously integrates them into the orchestration engine, ensuring smooth scaling and self-healing capabilities.
 
 ### Orchestration and Automation
 
-- **Intelligent Orchestration**: Hop3 includes a built-in orchestration engine capable of managing distributed applications across cloud, edge, and IoT environments. It automates deployment, scaling, and resource allocation without the need for external platforms like Kubernetes.
-- **Dynamic Scaling**: Automates horizontal scaling based on real-time monitoring data, adjusting resource usage dynamically to meet application demand. This feature ensures efficient performance across diverse infrastructure layers.
-- **Task Scheduling and Compute Offloading**: Provides intelligent task scheduling to offload compute-heavy workloads from constrained environments (like edge devices) to more powerful cloud infrastructure, optimizing the use of resources.
-- **AI/ML Workflow Management**: Automates AI/ML workflows, allowing seamless orchestration of data pipelines, model training, and inferencing tasks across distributed systems. Hop3 can dynamically allocate resources to different stages of the pipeline based on computational requirements.
-- **Live Migration**: Supports live migration of running services and containers between nodes, ensuring zero-downtime transitions, even in multi-cluster setups, by leveraging snapshotting and stateful migration techniques.
-- **Automated Deployments**: Simplifies the deployment of applications with automated workflows that integrate with CI/CD pipelines, allowing for continuous integration and deployment of applications with minimal manual intervention.
-- **Workload Management**: Provides efficient workload management through policies that dictate how applications should be distributed and prioritized across various environments, optimizing performance and cost.
+- **Intelligent Orchestration**: Hop3’s built-in orchestration engine manages distributed applications across cloud, edge, and IoT environments. By automatically deploying, scaling, and allocating resources, the engine optimizes performance without requiring external platforms like Kubernetes.
+- **Dynamic Scaling**: Hop3 enables real-time, automatic scaling based on performance metrics and demand. This feature dynamically adjusts resource allocation to maintain optimal application performance, preventing over- or under-utilization of resources.
+- **Task Scheduling and Compute Offloading**: The platform intelligently schedules tasks and offloads compute-heavy workloads from resource-constrained devices to more powerful cloud infrastructure. This maximizes efficiency and ensures that tasks are completed in the most suitable environment.
+- **AI/ML Workflow Automation**: Hop3 integrates AI/ML workflow management, automating the orchestration of data pipelines, model training, and inferencing tasks. The system dynamically allocates computational resources to optimize performance across the AI/ML lifecycle.
+- **Live Migration**: Supports seamless live migration of running services between nodes without downtime. This ensures continuous service availability even during maintenance or infrastructure changes by leveraging checkpointing and stateful migration.
+- **Automated Deployments**: Hop3 simplifies application deployment by integrating with CI/CD pipelines. Automated workflows allow for continuous deployment, reducing manual intervention and enabling rapid iteration of new features.
+- **Workload Management**: Hop3 provides advanced workload management capabilities, implementing policies to determine how applications should be distributed across environments. This ensures that workloads are prioritized and resources are allocated efficiently across cloud, edge, and IoT nodes.
 
 -> [More details](./docs/src/dev/orchestration.md)
 
