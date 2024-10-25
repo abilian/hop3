@@ -4,18 +4,26 @@ Before you start, it's important to familiarize yourself with Hop3's core values
 
 ## Development Environment
 
-### Using `poetry`
+### Using `uv` and `poetry`
 
-The project uses `poetry` for dependency management. However, since it is structured as a monorepo, you will need to install the dependencies for each package separately. To install the dependencies for a specific package, navigate to the package directory and run the following command:
+`uv` and `poetry` should be installed on your system. We'll get rif of poetry soon but we're not there yet.
+
+The easiest way to create a development environment is to use the following:
+
+```bash
+make develop
+. venv/bin/activate # (or activate.fish for fish shell)
+```
+
+This creates a virtual environment in `.env` using `uv` and installs the dependencies using `poetry`.
+
+### Using only `poetry`
+
+At the moment, it should still be possible to use only `poetry` to create a development environment. To do so, run the following command:
 
 ```bash
 poetry shell
 poetry install
-inv install
-# or (using uv)
-uv venv
-uv pip install -e .
-. venv/bin/activate # (or activate.fish for fish shell)
 inv install
 ```
 

@@ -50,6 +50,7 @@ install-deps:
 	uv sync
 	# TODO: convert poetry deps to uv.
 	poetry install
+	.venv/bin/inv install
 
 activate-pre-commit:
 	@echo "--> Activating pre-commit hook"

@@ -14,7 +14,7 @@ members = [
 
 [[package]]
 name = "abilian-devtools"
-version = "0.6.6"
+version = "0.6.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "black" },
@@ -62,9 +62,9 @@ dependencies = [
     { name = "tomlkit" },
     { name = "vulture" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c4/9e/4b3fcd9b3cf7360e83899a7fb8297b828aca900dbe46ec037cf7f5bae638/abilian_devtools-0.6.6.tar.gz", hash = "sha256:14b03aca8f727381e9f0366025edfa7e6f501829a0e97e2d7a4e9a2c79504b24", size = 15836 }
+sdist = { url = "https://files.pythonhosted.org/packages/38/ab/b84115d1fa5515d97bb1ce6b74cdce60ca981ed02273e0fd0dbf38a72b92/abilian_devtools-0.6.7.tar.gz", hash = "sha256:3e7f3e8a614826f2df81f0591718bece380824be2392555d50ef837a0b943802", size = 15851 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fc/19/642d97837b7f40e54d8b0e2716c643f618481ddb76ddfbcfd134e9a96dae/abilian_devtools-0.6.6-py3-none-any.whl", hash = "sha256:39e0a35f650feef54c621af9554dc9de6b2116b20fb1d98b73fa0246cf4b4b66", size = 19333 },
+    { url = "https://files.pythonhosted.org/packages/b7/77/04e3b3c891e3d55565f9ce05441eaa026f020c9411727f07be22bd5babf1/abilian_devtools-0.6.7-py3-none-any.whl", hash = "sha256:60365af395782d977115b46c16a8c1716b04cc82bfff0fa7340d4264f2ed90cd", size = 19310 },
 ]
 
 [[package]]

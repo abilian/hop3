@@ -19,6 +19,7 @@ RED = "\033[31m"
 
 
 SUB_REPOS = [
+    "hop3-lib",
     "hop3-agent",
     "hop3-cli",
     "hop3-server",
@@ -262,7 +263,7 @@ def check_version_subrepo(c, sub_repo, version):
             sys.exit(1)
 
 
-def release_subrepo(c, sub_repo, version):
+def release_subrepo(c: Context, sub_repo, version):
     h1(f"Releasing {sub_repo}...")
 
     pyproject_path = Path(sub_repo, "pyproject.toml")
@@ -288,7 +289,7 @@ def release_subrepo(c, sub_repo, version):
         c.run("poetry build")
         try:
             c.run("twine upload dist/*")
-        except:
+        except:  # noqa: E722
             print(red("ERROR: Release failed. Continuing anyway"))
 
 
