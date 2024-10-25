@@ -2,13 +2,13 @@
 
 [[package]]
 name = "abilian-devtools"
-version = "0.6.6"
+version = "0.6.7"
 description = "A curated set of dependencies for quality software development"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "abilian_devtools-0.6.6-py3-none-any.whl", hash = "sha256:39e0a35f650feef54c621af9554dc9de6b2116b20fb1d98b73fa0246cf4b4b66"},
-    {file = "abilian_devtools-0.6.6.tar.gz", hash = "sha256:14b03aca8f727381e9f0366025edfa7e6f501829a0e97e2d7a4e9a2c79504b24"},
+    {file = "abilian_devtools-0.6.7-py3-none-any.whl", hash = "sha256:60365af395782d977115b46c16a8c1716b04cc82bfff0fa7340d4264f2ed90cd"},
+    {file = "abilian_devtools-0.6.7.tar.gz", hash = "sha256:3e7f3e8a614826f2df81f0591718bece380824be2392555d50ef837a0b943802"},
 ]
 
 [package.dependencies]
@@ -59,13 +59,13 @@ vulture = ">=2.11,<3.0"
 
 [[package]]
 name = "advanced-alchemy"
-version = "0.18.0"
+version = "0.21.0"
 description = "Ready-to-go SQLAlchemy concoctions."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "advanced_alchemy-0.18.0-py3-none-any.whl", hash = "sha256:0aa0ea37acf4148d260941f84cd0110bc34865f6fbbef9059157d83c1be3c047"},
-    {file = "advanced_alchemy-0.18.0.tar.gz", hash = "sha256:45c722693c52d6d16ed6652d0c1f4bef1d05f361ec399333e39761f17458d903"},
+    {file = "advanced_alchemy-0.21.0-py3-none-any.whl", hash = "sha256:9be6d4d58b10850c5d02e6c7364b8e79b169001ee0a0640420928df6598b5fcc"},
+    {file = "advanced_alchemy-0.21.0.tar.gz", hash = "sha256:e662c6e6a14b8ee87e039f564fa6e5e5f8467a4f56dd2acf2d292f521436a339"},
 ]
 
 [package.dependencies]
@@ -75,6 +75,7 @@ sqlalchemy = ">=2.0.20"
 typing-extensions = ">=4.0.0"
 
 [package.extras]
+nanoid = ["fastnanoid (>=0.4.1)"]
 uuid = ["uuid-utils (>=0.6.1)"]
 
 [[package]]
@@ -4110,4 +4111,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "1a09a1d2dac6ade80bd5c96091b43e081b7145733ffd4c21d89fa16ceec13e53"
+content-hash = "e037edfbd080047d413f3c3602b223dd47d34ada90b2497f9a967044cad9a12e"

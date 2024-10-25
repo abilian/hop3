@@ -1,3 +1,5 @@
+# Copyright (c) 2023-2024, Abilian SAS
+
 import os
 import shutil
 import sys
@@ -150,6 +152,7 @@ def update(c):
     """Update dependencies the whole project."""
     c.run("poetry update")
     c.run("pre-commit autoupdate")
+
     run_in_subrepos(c, "poetry update && poetry install")
     run_in_subrepos(c, "pre-commit autoupdate")
 
@@ -162,8 +165,9 @@ def bump_version(c, bump: str = "patch"):
     """Update version - use 'patch' (default), 'minor' or 'major' as an argument."""
 
     c.run(f"poetry version {bump}")
-    project_info = tomlkit.load(Path("pyproject.toml").open())
-    version = project_info["tool"]["poetry"]["version"]
+
+    # Set same version in all subrepos
+    version = get_version()
     run_in_subrepos(c, f"poetry version {version}")
 
 
@@ -217,8 +221,7 @@ def release(c: Context):
     """Release a new version."""
     c.run("make clean")
 
-    pyproject_json = tomlkit.load(Path("pyproject.toml").open())
-    version = pyproject_json["tool"]["poetry"]["version"]
+    version = get_version()
 
     try:
         c.run("git diff --quiet")
@@ -249,8 +252,7 @@ def release(c: Context):
 
 def check_version_subrepo(c, sub_repo, version):
     with c.cd(sub_repo):
-        pyproject_json = tomlkit.load(Path("pyproject.toml").open())
-        sub_version = pyproject_json["tool"]["poetry"]["version"]
+        sub_version = get_version()
 
         if sub_version != version:
             print(
@@ -304,3 +306,9 @@ def run_in_subrepos(c, cmd):
         h1(f"Running '{cmd}' in subrepos: {sub_repo}")
         with c.cd(sub_repo):
             c.run(cmd)
+        print()
+
+
+def get_version():
+    pyproject_json = tomlkit.loads(Path("pyproject.toml").read_text())
+    return pyproject_json["tool"]["poetry"]["version"]
