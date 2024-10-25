@@ -2842,6 +2842,31 @@ doc = ["Sphinx (>=7)", "packaging", "sphinx-autodoc-typehints (>=1.2.0)", "sphin
 test = ["coverage[toml] (>=7)", "mypy (>=1.2.0)", "pytest (>=7)"]
 
 [[package]]
+name = "types-paramiko"
+version = "3.5.0.20240928"
+description = "Typing stubs for paramiko"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "types-paramiko-3.5.0.20240928.tar.gz", hash = "sha256:79dd9b2ee510b76a3b60d8ac1f3f348c45fcecf01347ca79e14db726bbfc442d"},
+    {file = "types_paramiko-3.5.0.20240928-py3-none-any.whl", hash = "sha256:cda0aff4905fe8efe4b5448331a80e943d42a796bd4beb77a3eed3485bc96a85"},
+]
+
+[package.dependencies]
+cryptography = ">=37.0.0"
+
+[[package]]
+name = "types-psycopg2"
+version = "2.9.21.20241019"
+description = "Typing stubs for psycopg2"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "types-psycopg2-2.9.21.20241019.tar.gz", hash = "sha256:bca89b988d2ebd19bcd08b177d22a877ea8b841decb10ed130afcf39404612fa"},
+    {file = "types_psycopg2-2.9.21.20241019-py3-none-any.whl", hash = "sha256:44d091e67732d16a941baae48cd7b53bf91911bc36888652447cf1ef0c1fb3f6"},
+]
+
+[[package]]
 name = "typeshed-client"
 version = "2.7.0"
 description = "A library for accessing stubs in typeshed."
@@ -3120,4 +3145,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "03f36f07bafd19a5bd83e2af6ceb2b64c1f54bb5f49fd700758e6c7ab894e335"
+content-hash = "10779588ced443bcc60391ca251b8ff31bd5f2f36274c4879f410b3cbbad0588"

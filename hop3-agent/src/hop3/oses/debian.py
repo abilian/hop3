@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from io import StringIO
 
-from hop3.installer.helpers import Debian
+from hop3.oses.helpers import Debian
 
 PACKAGES = [
     "bc",

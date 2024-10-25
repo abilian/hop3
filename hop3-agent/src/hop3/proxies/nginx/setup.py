@@ -45,7 +45,7 @@ def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
 @dataclass(frozen=True)
 class NginxConfig:
     app_name: str
-    env: Env[str, str]
+    env: Env
     workers: dict[str, str]
 
     def __post_init__(self):

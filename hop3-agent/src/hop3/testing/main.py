@@ -107,7 +107,7 @@ def run_tests(apps, config):
     sys.exit(status)
 
 
-def get_apps(args) -> list | list[Path]:
+def get_apps(args) -> list[Path]:
     print(args)
     if args.directory:
         directory = Path(args.directory)
@@ -122,7 +122,7 @@ def get_apps(args) -> list | list[Path]:
 
     apps = filter(lambda x: x.is_dir(), directory.iterdir())
     apps = filter(lambda x: not x.name.startswith("xxx-"), apps)
-    return apps
+    return list(apps)
 
 
 def print_results(test_results) -> None:

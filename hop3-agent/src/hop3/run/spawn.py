@@ -26,6 +26,8 @@ from .uwsgi import spawn_uwsgi_worker
 
 def spawn_app(app_name: str, deltas: dict[str, int] | None = None) -> None:
     """Create all workers for an app."""
+    if deltas is None:
+        deltas = {}
     launcher = AppLauncher(app_name, deltas)
     launcher.spawn_app()
 

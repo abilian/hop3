@@ -53,6 +53,7 @@ lint.extend-ignore = [
     "E501", # Line too long
     "FBT002", # Boolean default positional argument in function definition
     "PERF203",
+    "PGH003",
     "PLC2801",
     "PLR0912",
     "PLR0913",

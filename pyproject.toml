@@ -122,11 +122,14 @@ infer-types = "^1.0.0"
 # Installer
 pyinfra = "^3"
 
+# Not needed in theory (declared in hop3-agent)
+types-psycopg2 = "^2.9.21.20241019"
+types-paramiko = "^3.5.0.20240928"
+
 
 #[build-system]
 #requires = ["poetry-core"]
 #build-backend = "poetry.core.masonry.api"
-
 
 # ------------------------------------
 

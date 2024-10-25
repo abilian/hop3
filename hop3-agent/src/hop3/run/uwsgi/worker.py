@@ -277,7 +277,7 @@ class WebWorker(UwsgiWorker):
 
 @dataclass
 class GenericWorker(UwsgiWorker):
-    kind: str
+    kind: str = "generic"
 
     def update_setings(self):
         self.settings.add("attach-daemon", self.command)
