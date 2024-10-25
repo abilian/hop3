@@ -8,6 +8,7 @@ members = [
     "hop3-cli",
     "hop3-lib",
     "hop3-server",
+    "hop3-testing",
     "hop3-web",
 ]
 
@@ -68,7 +69,7 @@ wheels = [
 
 [[package]]
 name = "advanced-alchemy"
-version = "0.18.0"
+version = "0.21.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alembic" },
@@ -76,9 +77,9 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fd/0a/655511996e7fb5d31e0584bbeccaeb20578ccbd01b4be52b4fa15099d00f/advanced_alchemy-0.18.0.tar.gz", hash = "sha256:45c722693c52d6d16ed6652d0c1f4bef1d05f361ec399333e39761f17458d903", size = 285753 }
+sdist = { url = "https://files.pythonhosted.org/packages/90/48/5bab9bbd33836671fe021c3cbfbf635c3ed8c7838a8840af8950dbeb14af/advanced_alchemy-0.21.0.tar.gz", hash = "sha256:e662c6e6a14b8ee87e039f564fa6e5e5f8467a4f56dd2acf2d292f521436a339", size = 299378 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2f/28/25994f940897a6aa7c351c8911dab5bbc8e7a9ed919dff2ca6cbd6c0dba7/advanced_alchemy-0.18.0-py3-none-any.whl", hash = "sha256:0aa0ea37acf4148d260941f84cd0110bc34865f6fbbef9059157d83c1be3c047", size = 129790 },
+    { url = "https://files.pythonhosted.org/packages/ba/55/3547d2b5557b08494d3c943a1476a202a164df805ece32a0540aa4ecfe31/advanced_alchemy-0.21.0-py3-none-any.whl", hash = "sha256:9be6d4d58b10850c5d02e6c7364b8e79b169001ee0a0640420928df6598b5fcc", size = 134117 },
 ]
 
 [[package]]
@@ -1494,66 +1495,28 @@ dependencies = [
     { name = "attrs" },
     { name = "cleez" },
     { name = "click" },
-    { name = "cloudpickle" },
     { name = "devtools" },
-    { name = "eventlet" },
-    { name = "flask" },
-    { name = "flask-babel" },
-    { name = "flask-htmx" },
-    { name = "flask-mail" },
-    { name = "flask-migrate" },
-    { name = "flask-security-too" },
-    { name = "flask-sqlalchemy" },
-    { name = "flask-super" },
-    { name = "flask-talisman" },
-    { name = "flask-vite" },
-    { name = "msgpack" },
     { name = "pluggy" },
-    { name = "psutil" },
     { name = "psycopg2" },
-    { name = "py-cpuinfo" },
-    { name = "pyrsistent" },
-    { name = "pyzmq" },
-    { name = "sentry-sdk" },
-    { name = "snoop" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-serializer" },
-    { name = "sqlalchemy-utils" },
     { name = "svcs" },
+    { name = "typing-extensions" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "advanced-alchemy", specifier = ">=0.18,<0.19" },
+    { name = "advanced-alchemy", specifier = ">=0.21,<0.22" },
     { name = "attrs" },
     { name = "cleez" },
-    { name = "click", specifier = ">=8.1.7,<9.0.0" },
-    { name = "cloudpickle", specifier = ">=3.0,<4.0" },
+    { name = "click", specifier = ">=8.1,<9.0" },
     { name = "devtools", specifier = ">=0.12,<0.13" },
-    { name = "eventlet", specifier = ">=0.36,<0.37" },
-    { name = "flask", specifier = ">=3.0.3,<4.0.0" },
-    { name = "flask-babel", specifier = ">=4.0.0,<5.0.0" },
-    { name = "flask-htmx", specifier = ">=0.3.2,<0.4.0" },
-    { name = "flask-mail", specifier = ">=0.10.0,<0.11.0" },
-    { name = "flask-migrate", specifier = ">=4.0.7,<5.0.0" },
-    { name = "flask-security-too", specifier = ">=5.4.3,<6.0.0" },
-    { name = "flask-sqlalchemy", specifier = ">=3.1.1,<4.0.0" },
-    { name = "flask-super", specifier = ">=0.2.8,<0.3.0" },
-    { name = "flask-talisman", specifier = ">=1.1.0,<2.0.0" },
-    { name = "flask-vite", specifier = ">=0.5.0,<0.6.0" },
-    { name = "msgpack", specifier = ">=1.0.8,<2.0.0" },
-    { name = "pluggy", specifier = ">=1.4.0,<2.0.0" },
-    { name = "psutil", specifier = ">=6.0,<7.0" },
-    { name = "psycopg2", specifier = ">=2.9.9,<3.0.0" },
-    { name = "py-cpuinfo", specifier = ">=9.0,<10.0" },
-    { name = "pyrsistent", specifier = ">=0.20,<0.21" },
-    { name = "pyzmq", specifier = ">=26,<27" },
-    { name = "sentry-sdk", specifier = "==2.12.0" },
-    { name = "snoop", specifier = ">=0.6,<0.7" },
-    { name = "sqlalchemy", specifier = ">=2.0.31,<3.0.0" },
-    { name = "sqlalchemy-serializer", specifier = ">=1.4.12,<2.0.0" },
-    { name = "sqlalchemy-utils", specifier = ">=0.41.2,<0.42.0" },
-    { name = "svcs", specifier = ">=24.1.0,<25.0.0" },
+    { name = "pluggy", specifier = ">=1.4,<2.0" },
+    { name = "psycopg2", specifier = ">=2.9,<3.0" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+    { name = "sqlalchemy-serializer", specifier = ">=1.4,<2.0" },
+    { name = "svcs", specifier = ">=24.1,<25.0" },
+    { name = "typing-extensions", specifier = ">=4.12.2,<5.0.0" },
 ]
 
 [[package]]
@@ -1650,6 +1613,39 @@ requires-dist = [
 ]
 
 [[package]]
+name = "hop3-testing"
+version = "0.1.0"
+source = { editable = "hop3-testing" }
+dependencies = [
+    { name = "devtools" },
+    { name = "httpcore" },
+    { name = "httpx" },
+    { name = "paramiko" },
+    { name = "python-dotenv" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "abilian-devtools" },
+    { name = "docformatter" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "devtools", specifier = ">=0.12.2" },
+    { name = "httpcore", specifier = ">=1.0.6" },
+    { name = "httpx", specifier = ">=0.27.2" },
+    { name = "paramiko", specifier = ">=3.5.0" },
+    { name = "python-dotenv", specifier = ">=1.0.1" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "abilian-devtools", specifier = ">=0.6.6" },
+    { name = "docformatter", specifier = ">=1.7.5" },
+]
+
+[[package]]
 name = "hop3-web"
 version = "0.2.2"
 source = { editable = "hop3-web" }
@@ -1688,7 +1684,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "advanced-alchemy", specifier = ">=0.18,<0.19" },
+    { name = "advanced-alchemy", specifier = ">=0.21,<0.22" },
     { name = "attrs" },
     { name = "cleez" },
     { name = "click", specifier = ">=8.1.7,<9.0.0" },
@@ -1705,17 +1701,17 @@ requires-dist = [
     { name = "flask-super", specifier = ">=0.2.8,<0.3.0" },
     { name = "flask-talisman", specifier = ">=1.1.0,<2.0.0" },
     { name = "flask-vite", specifier = ">=0.5.0,<0.6.0" },
-    { name = "msgpack", specifier = ">=1.0.8,<2.0.0" },
+    { name = "msgpack", specifier = ">=1.0,<2.0" },
     { name = "pluggy", specifier = ">=1.4.0,<2.0.0" },
     { name = "psutil", specifier = ">=6.0,<7.0" },
-    { name = "psycopg2", specifier = ">=2.9.9,<3.0.0" },
+    { name = "psycopg2", specifier = ">=2.9,<3.0" },
     { name = "py-cpuinfo", specifier = ">=9.0,<10.0" },
     { name = "pyrsistent", specifier = ">=0.20,<0.21" },
     { name = "pyzmq", specifier = ">=26,<27" },
     { name = "sentry-sdk", specifier = ">=2.12,<3.0" },
     { name = "snoop", specifier = ">=0.6,<0.7" },
-    { name = "sqlalchemy", specifier = ">=2.0.31,<3.0.0" },
-    { name = "sqlalchemy-serializer", specifier = ">=1.4.12,<2.0.0" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+    { name = "sqlalchemy-serializer", specifier = ">=1.4,<2.0" },
     { name = "sqlalchemy-utils", specifier = ">=0.41.2,<0.42.0" },
     { name = "svcs", specifier = ">=24.1.0,<25.0.0" },
 ]
@@ -2824,15 +2820,15 @@ wheels = [
 
 [[package]]
 name = "sentry-sdk"
-version = "2.12.0"
+version = "2.17.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2e/39/eb97e463e372b38d0b9c7ae705822d1df717940c04cb6d998ae15bf3eb02/sentry_sdk-2.12.0.tar.gz", hash = "sha256:8763840497b817d44c49b3fe3f5f7388d083f2337ffedf008b2cdb63b5c86dc6", size = 274179 }
+sdist = { url = "https://files.pythonhosted.org/packages/b1/83/7d0956a71ac894717099be3669ca7b8f164bccbcfb570b2f02817d0a0068/sentry_sdk-2.17.0.tar.gz", hash = "sha256:dd0a05352b78ffeacced73a94e86f38b32e2eae15fff5f30ca5abb568a72eacf", size = 290959 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/71/29/744921222eb1bfef7a7e16e71fc122f518b315fc57624828b90028dfa02e/sentry_sdk-2.12.0-py2.py3-none-any.whl", hash = "sha256:7a8d5163d2ba5c5f4464628c6b68f85e86972f7c636acc78aed45c61b98b7a5e", size = 301807 },
+    { url = "https://files.pythonhosted.org/packages/10/63/8e80fff3aa15488bc332ede44165a397a29bb13ec4a4b2236299e3b66067/sentry_sdk-2.17.0-py2.py3-none-any.whl", hash = "sha256:625955884b862cc58748920f9e21efdfb8e0d4f98cca4ab0d3918576d5b606ad", size = 314520 },
 ]
 
 [[package]]

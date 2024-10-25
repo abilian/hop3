@@ -17,8 +17,7 @@ develop: install-deps activate-pre-commit configure-git
 install-deps:
 	@echo "--> Installing dependencies"
 	uv venv
-	uv pip install -U pip setuptools wheel
-	uv pip install -e .
+	uv sync
 	poetry install
 
 activate-pre-commit:
@@ -29,6 +28,12 @@ configure-git:
 	@echo "--> Configuring git"
 	git config branch.autosetuprebase always
 
+## Update dependencies
+update-deps:
+	uv sync -U
+	poetry update
+	pre-commit autoupdate
+	poetry show -o
 
 #
 # testing & checking
@@ -134,13 +139,6 @@ tidy: clean
 	rm -rf .nox .tox
 	rm -rf node_modules
 	rm -rf instance
-
-## Update dependencies
-update-deps:
-	pip install -U pip setuptools wheel
-	poetry update
-	pre-commit autoupdate
-	poetry show -o
 
 ## Publish to PyPI
 publish: clean

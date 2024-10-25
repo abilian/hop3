@@ -21,6 +21,7 @@ SUB_REPOS = [
     "hop3-cli",
     "hop3-server",
     "hop3-web",
+    "hop3-testing",
 ]
 
 RSYNC_EXCLUDES = [
@@ -65,6 +66,7 @@ def install(c, quiet=False):
 
     if shutil.which("uv"):
         # c.run(f"uv pip install {options} --no-cache-dir -e .")
+        run_in_subrepos(c, f"uv sync --inexact {options}")
         run_in_subrepos(c, f"uv pip install {options} --no-cache-dir -e .")
     else:
         # c.run(f"pip install {options} --no-cache-dir -e .")

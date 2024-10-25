@@ -60,6 +60,13 @@ configure-git:
 	git config branch.autosetuprebase always
 
 
+## Update dependencies
+update-deps:
+	uv sync -U
+	poetry update
+	pre-commit autoupdate
+	poetry show -o
+
 #
 # testing & checking
 #
@@ -178,13 +185,6 @@ tidy: clean
 	rm -rf */.tox */.nox */.venv
 	rm -rf node_modules
 
-## Update dependencies
-update-deps:
-	pip install -U pip setuptools wheel
-	poetry update
-	uv sync -U
-	pre-commit autoupdate
-	poetry show -o
 
 ## Publish to PyPI
 publish: clean

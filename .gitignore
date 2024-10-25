@@ -76,3 +76,6 @@ target/
 # IDE files
 .idea/
 .vscode/
+
+# uv
+.python-version
