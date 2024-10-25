@@ -253,8 +253,6 @@ Initial goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abi
 Features, UX:
 
 - [x] First working version (static sites, python apps, demo apps)
-- [ ] Deploy a few more useful apps: Abilian SBE, more...
-- [ ] Add postgres, redis, etc. lifecycle support using plugins
 
 Doc:
 
@@ -270,15 +268,15 @@ Infra, QA, DX, refactorings:
 - [x] Nix dev env (support for `nix-shell`)
 - [x] Test automation (using `nox`)
 - [x] Make src/hop3/run/uwsgi.py into a class
-- [ ] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
-- [ ] Fix all typing issues (mypy and pyright)
 
-### P1 (Q3 2024):
+### P1 (Q4 2024):
 
 Features:
 
 - [x] Reorganize code base into sub-projects (monorepo)
 - [x] Start multi-OS support (Ubuntu, Archlinux, Fedora, NixOS, Guix, FreeBSD...)
+- [ ] Deploy a few more useful apps: Abilian SBE, more...
+- [ ] Add postgres, redis, etc. lifecycle support using plugins
 - [ ] More apps
 - [ ] CLI
   - [ ] Use an API server (WIP)
@@ -286,17 +284,21 @@ Features:
   - [ ] Good looking logging (cf. https://bernsteinbear.com/blog/python-parallel-output/)
 - [ ] Improve Python builder (support for poetry, pipenv, etc.)
 - [ ] Manage external services (databases, mail, etc.)
+- [ ] Nix builds
+- [ ] Nix runtime
 - [ ] Backup / Restore
 - [ ] Web App / portal
 
 Infra, refactorings:
 
+- [ ] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
+- [ ] Fix all typing issues (mypy and pyright)
 - [ ] Introduce new plugins (where it makes sense)
 - [ ] More end-to-end tests, examples
 - [ ] CI on GitHub
 - [ ] e2e CI tests
 
-### P2 (Q4 2024):
+### P2 (Q1 2025):
 
 - [ ] Reorganize monorepo further
 - [ ] More apps
@@ -306,14 +308,11 @@ Infra, refactorings:
 - [ ] Monitoring
 - [ ] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
 - [ ] Support for (or migration from) Heroku, Render, Docker Compose, Fly… config files,
-
-### P3 (S1 2025):
-
-- [ ] More apps
 - [ ] Multi-server support
 - [ ] Unified logging
 - [ ] Unified login (LDAP / IAM)
 - [ ] Container / VM support
+- [ ] NixOS support
 
 ## Documentation
 
