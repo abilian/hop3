@@ -67,26 +67,22 @@ def lex(source):
                 continue
 
             next_char = getelement(source, cursor + 1)
-            if next_char in ["%", "{"]:
+            if next_char in {"%", "{"}:
                 if current:
-                    tokens.append(
-                        {
-                            "value": current,
-                            "cursor": cursor - len(current),
-                        }
-                    )
+                    tokens.append({
+                        "value": current,
+                        "cursor": cursor - len(current),
+                    })
                     current = ""
 
-                tokens.append(
-                    {
-                        "value": BLOCK_OPEN if next_char == "%" else TAG_OPEN,
-                        "cursor": cursor,
-                    }
-                )
+                tokens.append({
+                    "value": BLOCK_OPEN if next_char == "%" else TAG_OPEN,
+                    "cursor": cursor,
+                })
                 cursor += 2
                 continue
 
-        if char in ["%", "}"]:
+        if char in {"%", "}"}:
             # Handle escaping % and }
             if getelement(source, cursor - 1) == char:
                 cursor += 1
@@ -97,20 +93,16 @@ def lex(source):
                 continue
 
             if current:
-                tokens.append(
-                    {
-                        "value": current,
-                        "cursor": cursor - len(current),
-                    }
-                )
+                tokens.append({
+                    "value": current,
+                    "cursor": cursor - len(current),
+                })
                 current = ""
 
-            tokens.append(
-                {
-                    "value": BLOCK_CLOSE if char == "%" else TAG_CLOSE,
-                    "cursor": cursor,
-                }
-            )
+            tokens.append({
+                "value": BLOCK_CLOSE if char == "%" else TAG_CLOSE,
+                "cursor": cursor,
+            })
             cursor += 2
             continue
 
@@ -118,12 +110,10 @@ def lex(source):
         cursor += 1
 
     if current:
-        tokens.append(
-            {
-                "value": current,
-                "cursor": cursor - len(current),
-            }
-        )
+        tokens.append({
+            "value": current,
+            "cursor": cursor - len(current),
+        })
 
     return tokens
 
@@ -140,12 +130,10 @@ def parse(tokens, end_of_block_marker=None):
 
             node_tokens = lex_node(getelement(tokens, cursor + 1)["value"])
             node_ast = parse_node(node_tokens)
-            ast.append(
-                {
-                    "type": "tag",
-                    "value": node_ast,
-                }
-            )
+            ast.append({
+                "type": "tag",
+                "value": node_ast,
+            })
             cursor += 3
             continue
 
@@ -166,25 +154,21 @@ def parse(tokens, end_of_block_marker=None):
             if cursor_offset == 0:
                 raise TemplateError("Failed to find end of block")
 
-            ast.append(
-                {
-                    "type": "block",
-                    "value": node_ast,
-                    "child": child,
-                }
-            )
+            ast.append({
+                "type": "block",
+                "value": node_ast,
+                "child": child,
+            })
             cursor += cursor_offset + 3
             continue
 
         if value == BLOCK_CLOSE:
             raise TemplateError("Expected start of block open")
 
-        ast.append(
-            {
-                "type": "text",
-                "value": t,
-            }
-        )
+        ast.append({
+            "type": "text",
+            "value": t,
+        })
         cursor += 1
 
     return ast, cursor
@@ -196,35 +180,29 @@ def lex_node(source):
     current = ""
     while cursor < len(source):
         char = getelement(source, cursor)
-        if char in ["\r", "\t", "\n", " "]:
+        if char in {"\r", "\t", "\n", " "}:
             if current:
-                tokens.append(
-                    {
-                        "value": current,
-                        "type": "literal",
-                    }
-                )
+                tokens.append({
+                    "value": current,
+                    "type": "literal",
+                })
                 current = ""
 
             cursor += 1
             continue
 
-        if char in ["(", ")", ","]:
+        if char in {"(", ")", ","}:
             if current:
-                tokens.append(
-                    {
-                        "value": current,
-                        "type": "literal",
-                    }
-                )
+                tokens.append({
+                    "value": current,
+                    "type": "literal",
+                })
                 current = ""
 
-            tokens.append(
-                {
-                    "value": char,
-                    "type": "syntax",
-                }
-            )
+            tokens.append({
+                "value": char,
+                "type": "syntax",
+            })
             cursor += 1
             continue
 
@@ -324,10 +302,7 @@ def interpret_node(node, env):
     args = node["args"]
     if function == "==":
         arg_vals = [interpret_node(arg, env) for arg in args]
-        if arg_vals.count(arg_vals[0]) == len(arg_vals):
-            return True
-
-        return False
+        return arg_vals.count(arg_vals[0]) == len(arg_vals)
 
     if function == "get":
         arg_vals = [interpret_node(arg, env) for arg in args]

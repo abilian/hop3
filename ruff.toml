@@ -1,11 +1,9 @@
 preview = true
 
 exclude = [
-    "hop3-agent/src/hop3/util/templating.py",
     "hop3-lib/src/hop3_lib/actors",
     "hop3-lib/src/hop3_lib/bus",
     "hop3-cli/src/hop3_cli/commands",
-    "src/hop3_main",
 ]
 
 lint.select = [

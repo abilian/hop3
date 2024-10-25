@@ -67,7 +67,7 @@ def lex(source):
                 continue
 
             next_char = getelement(source, cursor + 1)
-            if next_char in ["%", "{"]:
+            if next_char in {"%", "{"}:
                 if current:
                     tokens.append(
                         {
@@ -86,7 +86,7 @@ def lex(source):
                 cursor += 2
                 continue
 
-        if char in ["%", "}"]:
+        if char in {"%", "}"}:
             # Handle escaping % and }
             if getelement(source, cursor - 1) == char:
                 cursor += 1
@@ -196,7 +196,7 @@ def lex_node(source):
     current = ""
     while cursor < len(source):
         char = getelement(source, cursor)
-        if char in ["\r", "\t", "\n", " "]:
+        if char in {"\r", "\t", "\n", " "}:
             if current:
                 tokens.append(
                     {
@@ -209,7 +209,7 @@ def lex_node(source):
             cursor += 1
             continue
 
-        if char in ["(", ")", ","]:
+        if char in {"(", ")", ","}:
             if current:
                 tokens.append(
                     {
@@ -324,10 +324,7 @@ def interpret_node(node, env):
     args = node["args"]
     if function == "==":
         arg_vals = [interpret_node(arg, env) for arg in args]
-        if arg_vals.count(arg_vals[0]) == len(arg_vals):
-            return True
-
-        return False
+        return arg_vals.count(arg_vals[0]) == len(arg_vals)
 
     if function == "get":
         arg_vals = [interpret_node(arg, env) for arg in args]
