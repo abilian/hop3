@@ -18,10 +18,10 @@ import httpx
 from devtools import debug
 from httpcore import ConnectError
 
+from .common import DOMAIN, SERVER, run
+
 # Temp: use a backport of chdir from hop3-lib
 from .util.backports import chdir
-
-from .common import DOMAIN, SERVER, run
 
 DEFAULT_WAIT = 10
 CLOJURE_WAIT = 15
