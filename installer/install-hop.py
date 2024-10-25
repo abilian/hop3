@@ -5,7 +5,7 @@ from io import StringIO
 
 from pyinfra import host
 from pyinfra.facts.files import File
-from pyinfra.operations import server, files, apt, systemd, pip, postgresql
+from pyinfra.operations import server, files, apt, systemd, pip, postgres
 
 PACKAGES = [
     "bc",
@@ -288,14 +288,14 @@ def setup_nginx():
 
 
 def setup_postgres():
-    postgresql.role(
+    postgres.role(
         role="hop3",
         password="hop3pw",
         login=True,
         superuser=True,
         _su_user="postgres",
     )
-    postgresql.database(
+    postgres.database(
         name="hop3",
         database="hop3",
         owner="hop3",

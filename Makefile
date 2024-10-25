@@ -47,8 +47,8 @@ develop: install-deps activate-pre-commit configure-git
 install-deps:
 	@echo "--> Installing dependencies"
 	uv venv
-	uv pip install -U pip setuptools wheel
-	uv pip install -e .
+	uv sync
+	# TODO: convert poetry deps to uv.
 	poetry install
 
 activate-pre-commit:
