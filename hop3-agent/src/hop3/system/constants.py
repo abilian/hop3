@@ -13,8 +13,8 @@ from pathlib import Path
 
 HOME = environ["HOME"]
 
-HOP3_HOME = HOME
-HOP3_BIN = join(HOP3_HOME, "bin")
+HOP3_HOME = Path(HOME)
+HOP3_BIN = HOP3_HOME / "bin"
 HOP3_SCRIPT = str(Path(HOP3_HOME, "venv", "bin", "hop-agent"))
 
 # Main directories for Hop3

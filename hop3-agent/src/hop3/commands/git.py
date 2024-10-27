@@ -42,7 +42,7 @@ def cmd_git_hook(app: str) -> None:
             app_obj.data_path.mkdir(parents=True, exist_ok=True)
 
             cmd = f"git clone --quiet {app_obj.repo_path} {app}"
-            subprocess.call(cmd, cwd=APP_ROOT, shell=True)
+            subprocess.run(cmd, cwd=APP_ROOT, shell=True)
 
         do_deploy(app, newrev=newrev)
 
@@ -66,7 +66,7 @@ def cmd_git_receive_pack(app: str) -> None:
                 f"""\
                 #!/usr/bin/env bash
                 set -e; set -o pipefail;
-                cat | HOP3_ROOT="{HOP3_ROOT:s}" {HOP3_SCRIPT:s} git-hook {app:s}
+                cat | HOP3_ROOT="{HOP3_ROOT}" {HOP3_SCRIPT} git-hook {app}
                 """,
             )
         )
@@ -75,7 +75,7 @@ def cmd_git_receive_pack(app: str) -> None:
     # Handle the actual receive. We'll be called with 'git-hook' after it happens
     _cmd = f"{sys.argv[1]} '{app}'"
     cmd = f'git-shell -c "{_cmd}"'
-    subprocess.call(cmd, cwd=GIT_ROOT, shell=True)
+    subprocess.run(cmd, cwd=GIT_ROOT, shell=True)
 
 
 @hop3.command("git-upload-pack")

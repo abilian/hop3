@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from attrs import mutable, field
+from attrs import field, mutable
 
 from hop3.builders import BUILDER_CLASSES
 from hop3.project.config import AppConfig
