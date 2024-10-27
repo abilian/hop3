@@ -8,6 +8,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from attrs import mutable, field
+
 from hop3.builders import BUILDER_CLASSES
 from hop3.project.config import AppConfig
 from hop3.run.spawn import spawn_app
@@ -26,14 +28,15 @@ def do_deploy(app_name: str, deltas: dict[str, int] | None = None, newrev=None) 
     deployer.deploy(deltas, newrev)
 
 
+@mutable
 class Deployer:
     app_name: str
-    workers: dict
-    config: AppConfig
+    workers: dict = field(factory=dict)
+    config: AppConfig | None = None
 
-    def __init__(self, app_name: str) -> None:
-        self.app_name = app_name
-        self.workers = {}
+    # def __init__(self, app_name: str) -> None:
+    #     self.app_name = app_name
+    #     self.workers = {}
 
     @property
     def app_path(self) -> Path:

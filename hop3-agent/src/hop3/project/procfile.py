@@ -19,6 +19,8 @@ def parse_procfile(filename: str | Path) -> dict:
 
 @dataclass(frozen=True)
 class Procfile:
+    """Represents a parsed Procfile."""
+
     workers: dict = field(default_factory=dict)
 
     @classmethod
