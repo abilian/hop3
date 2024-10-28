@@ -27,9 +27,9 @@ LOG_ROOT = abspath(join(HOP3_ROOT, "logs"))
 NGINX_ROOT = HOP3_ROOT / "nginx"
 CACHE_ROOT = HOP3_ROOT / "cache"
 
-UWSGI_AVAILABLE = Path(HOP3_ROOT, "uwsgi-available")
-UWSGI_ENABLED = Path(HOP3_ROOT, "uwsgi-enabled")
-UWSGI_ROOT = abspath(join(HOP3_ROOT, "uwsgi"))
+UWSGI_AVAILABLE = HOP3_ROOT / "uwsgi-available"
+UWSGI_ENABLED = HOP3_ROOT / "uwsgi-enabled"
+UWSGI_ROOT = (HOP3_ROOT / "uwsgi").resolve()
 UWSGI_LOG_MAXSIZE = "1048576"
 
 ACME_ROOT = environ.get("ACME_ROOT", join(environ["HOME"], ".acme.sh"))
