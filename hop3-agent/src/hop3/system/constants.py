@@ -21,9 +21,9 @@ HOP3_SCRIPT = str(Path(HOP3_HOME, "venv", "bin", "hop-agent"))
 HOP3_ROOT = HOP3_HOME
 APP_ROOT = abspath(join(HOP3_ROOT, "apps"))
 DATA_ROOT = abspath(join(HOP3_ROOT, "data"))
-ENV_ROOT = abspath(join(HOP3_ROOT, "envs"))
-GIT_ROOT = abspath(join(HOP3_ROOT, "repos"))
-LOG_ROOT = abspath(join(HOP3_ROOT, "logs"))
+ENV_ROOT = HOP3_ROOT / "envs"
+GIT_ROOT = HOP3_ROOT / "repos"
+LOG_ROOT = HOP3_ROOT / "logs"
 NGINX_ROOT = HOP3_ROOT / "nginx"
 CACHE_ROOT = HOP3_ROOT / "cache"
 
