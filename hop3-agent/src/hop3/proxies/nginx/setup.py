@@ -86,7 +86,7 @@ class NginxConfig:
         # )
 
         if "wsgi" in self.workers or "jwsgi" in self.workers:
-            sock = os.path.join(NGINX_ROOT, f"{self.app_name}.sock")
+            sock = NGINX_ROOT / f"{self.app_name}.sock"
             self.env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = expand_vars(
                 HOP3_INTERNAL_NGINX_UWSGI_SETTINGS,
                 self.env,
@@ -116,7 +116,7 @@ class NginxConfig:
 
         buffer = self.setup_proxy()
 
-        nginx_conf_path = Path(NGINX_ROOT, f"{self.app_name}.conf")
+        nginx_conf_path = NGINX_ROOT / f"{self.app_name}.conf"
         nginx_conf_path.write_text(buffer)
 
         self.check_config(nginx_conf_path)

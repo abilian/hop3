@@ -24,8 +24,8 @@ DATA_ROOT = abspath(join(HOP3_ROOT, "data"))
 ENV_ROOT = abspath(join(HOP3_ROOT, "envs"))
 GIT_ROOT = abspath(join(HOP3_ROOT, "repos"))
 LOG_ROOT = abspath(join(HOP3_ROOT, "logs"))
-NGINX_ROOT = abspath(join(HOP3_ROOT, "nginx"))
-CACHE_ROOT = abspath(join(HOP3_ROOT, "cache"))
+NGINX_ROOT = HOP3_ROOT / "nginx"
+CACHE_ROOT = HOP3_ROOT / "cache"
 
 UWSGI_AVAILABLE = Path(HOP3_ROOT, "uwsgi-available")
 UWSGI_ENABLED = Path(HOP3_ROOT, "uwsgi-enabled")

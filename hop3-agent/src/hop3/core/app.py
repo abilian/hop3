@@ -109,10 +109,10 @@ class App:
                 f.unlink()
 
         nginx_files = [
-            Path(NGINX_ROOT, f"{app}.conf"),
-            Path(NGINX_ROOT, f"{app}.sock"),
-            Path(NGINX_ROOT, f"{app}.key"),
-            Path(NGINX_ROOT, f"{app}.crt"),
+            NGINX_ROOT / f"{app}.conf",
+            NGINX_ROOT / f"{app}.sock",
+            NGINX_ROOT / f"{app}.key",
+            NGINX_ROOT / f"{app}.crt",
         ]
         for f in nginx_files:
             if f.exists():
