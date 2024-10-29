@@ -1,4 +1,3 @@
-# Copyright (c) 2019-2024, Abilian SAS - All rights reserved
 # Copyright (c) 2023-2024, Abilian SAS
 
 # ruff: noqa: N805
