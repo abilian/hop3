@@ -36,7 +36,7 @@ ACME_ROOT = environ.get("ACME_ROOT", join(environ["HOME"], ".acme.sh"))
 ACME_WWW = abspath(join(HOP3_ROOT, "acme"))
 ACME_ROOT_CA = environ.get("ACME_ROOT_CA", "letsencrypt.org")
 
-ROOT_DIRS: list[str | Path] = [
+ROOT_DIRS: list[Path] = [
     APP_ROOT,
     CACHE_ROOT,
     DATA_ROOT,
