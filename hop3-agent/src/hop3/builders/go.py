@@ -49,7 +49,7 @@ class GoBuilder(Builder):
 
     def build_go(self) -> None:
         """Deploy a Go application."""
-        go_path = Path(ENV_ROOT, self.app_name)
+        go_path = ENV_ROOT / self.app_name
 
         if not go_path.exists():
             log(f"Creating GOPATH for '{self.app_name}'", level=5, fg="blue")

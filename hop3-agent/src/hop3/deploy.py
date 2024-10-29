@@ -31,16 +31,14 @@ def do_deploy(app_name: str, deltas: dict[str, int] | None = None, newrev=None) 
 @mutable
 class Deployer:
     app_name: str
+
+    # Parsed and set during deployment
     workers: dict = field(factory=dict)
     config: AppConfig | None = None
 
-    # def __init__(self, app_name: str) -> None:
-    #     self.app_name = app_name
-    #     self.workers = {}
-
     @property
     def app_path(self) -> Path:
-        return Path(APP_ROOT, self.app_name)
+        return APP_ROOT / self.app_name
 
     def deploy(self, deltas: dict[str, int] | None = None, newrev=None) -> None:
         """Deploy an app by resetting the work directory."""
@@ -63,7 +61,7 @@ class Deployer:
         if not app_path.exists():
             raise Abort(f"Error: app '{app_name}' not found.")
 
-        log_path = Path(LOG_ROOT, self.app_name)
+        log_path = LOG_ROOT / self.app_name
         if not log_path.exists():
             os.makedirs(log_path)
 

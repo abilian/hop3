@@ -93,8 +93,8 @@ class ClojureBuilder(Builder):
         """
         path = prepend_to_path(
             [
-                Path(self.virtual_env, "bin"),
-                Path(self.app_name, ".bin"),
+                self.virtual_env / "bin",
+                self.app_name / ".bin",
             ],
         )
 

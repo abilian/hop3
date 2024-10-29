@@ -59,30 +59,30 @@ class App:
                 raise ValueError("Invalid app name")
 
     def check_exists(self) -> None:
-        if not Path(APP_ROOT, self.name).exists():
+        if not (APP_ROOT / self.name).exists():
             raise Abort(f"Error: app '{self.name}' not found.")
 
     @property
     def is_running(self) -> bool:
-        return list(Path(UWSGI_ENABLED).glob(f"{self.name}*.ini")) != []
+        return list(UWSGI_ENABLED.glob(f"{self.name}*.ini")) != []
 
     # Paths
 
     @property
     def repo_path(self) -> Path:
-        return Path(GIT_ROOT, self.name)
+        return GIT_ROOT / self.name
 
     @property
     def app_path(self) -> Path:
-        return Path(APP_ROOT, self.name)
+        return APP_ROOT / self.name
 
     @property
     def data_path(self) -> Path:
-        return Path(DATA_ROOT, self.name)
+        return DATA_ROOT / self.name
 
     @property
     def virtualenv_path(self) -> Path:
-        return Path(ENV_ROOT, self.name)
+        return ENV_ROOT / self.name
 
     def get_runtime_env(self) -> Env:
         return Env(state.get_app_env(self.name))

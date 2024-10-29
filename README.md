@@ -278,7 +278,6 @@ Features:
 - [x] Start multi-OS support (Ubuntu, Archlinux, Fedora, NixOS, Guix, FreeBSD...)
 - [ ] Deploy a few more useful apps: Abilian SBE, more...
 - [ ] Add postgres, redis, etc. lifecycle support using plugins
-- [ ] More apps
 - [ ] CLI
   - [ ] Use an API server (WIP)
   - [ ] Review the UX/DX

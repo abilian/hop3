@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from hop3.core.env import Env
 from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
 from hop3.util.backports import chdir
@@ -36,7 +34,7 @@ class RubyBuilder(Builder):
             bool: True if a Gemfile exists, False otherwise.
 
         """
-        return Path(self.app_path, "Gemfile").exists()
+        return (self.app_path / "Gemfile").exists()
 
     def build(self) -> None:
         """Build the project by setting up a virtual environment and installing

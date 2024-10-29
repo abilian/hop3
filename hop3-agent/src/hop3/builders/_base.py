@@ -92,7 +92,7 @@ class Builder(ABC):
             Path: The path to the application directory.
 
         """
-        return Path(APP_ROOT, self.app_name)
+        return APP_ROOT / self.app_name
 
     @property
     def virtual_env(self) -> Path:
@@ -103,7 +103,7 @@ class Builder(ABC):
             Path: The path to the virtual environment for the current application.
 
         """
-        return Path(ENV_ROOT, self.app_name)
+        return ENV_ROOT / self.app_name
 
     @property
     def env_file(self) -> Path:
@@ -114,7 +114,7 @@ class Builder(ABC):
             Path: The path to the environment file for the application.
 
         """
-        return Path(APP_ROOT, self.app_name, "ENV")
+        return APP_ROOT / self.app_name / "ENV"
 
     def shell(
         self, command: str, cwd: str | Path = "", **kwargs
