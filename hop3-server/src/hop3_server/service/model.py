@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from attr import frozen
 from devtools import debug
 from hop3_server.service.constants import APP_ROOT, ENV_ROOT, LOG_ROOT
@@ -16,8 +14,8 @@ class App:
     is_running: bool = False
 
     def get_logs(self) -> list[str]:
-        debug(Path(LOG_ROOT, self.name))
-        logfiles = list(Path(LOG_ROOT).glob(f"{self.name}.*.log"))
+        debug(LOG_ROOT / self.name)
+        logfiles = list(LOG_ROOT.glob(f"{self.name}.*.log"))
         debug(logfiles)
         lines = []
         for logfile in logfiles:
@@ -33,13 +31,10 @@ class App:
         return 1
 
     def check_exists(self) -> None:
-        debug(APP_ROOT, self.name)
-        debug(APP_ROOT / self.name)
-        debug(Path(APP_ROOT, self.name))
-        if not Path(APP_ROOT, self.name).exists():
+        if not (APP_ROOT / self.name).exists():
             raise ValueError(f"App {self.name} does not exist")
 
     def get_env(self) -> dict[str, str]:
-        virtualenv_path = Path(ENV_ROOT, self.name)
-        settings_path = Path(virtualenv_path, "ENV")
+        virtualenv_path = ENV_ROOT / self.name
+        settings_path = virtualenv_path / "ENV"
         return parse_settings(settings_path)

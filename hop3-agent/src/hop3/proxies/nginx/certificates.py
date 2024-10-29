@@ -35,11 +35,11 @@ class CertificatesManager:
 
     @property
     def key(self) -> Path:
-        return Path(NGINX_ROOT, f"{self.app_name}.key")
+        return NGINX_ROOT / f"{self.app_name}.key"
 
     @property
     def crt(self) -> Path:
-        return Path(NGINX_ROOT, f"{self.app_name}.crt")
+        return NGINX_ROOT / f"{self.app_name}.crt"
 
     def setup_certificates(self) -> None:
         if not self.key.exists() or self.crt.stat().st_size == 0:

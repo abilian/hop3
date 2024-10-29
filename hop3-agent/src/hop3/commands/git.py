@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from pathlib import Path
 from textwrap import dedent
 
 from click import argument
@@ -52,7 +51,7 @@ def cmd_git_hook(app: str) -> None:
 def cmd_git_receive_pack(app: str) -> None:
     """INTERNAL: Handle git pushes for an app."""
     app = sanitize_app_name(app)
-    hook_path = Path(GIT_ROOT, app, "hooks", "post-receive")
+    hook_path = GIT_ROOT / app / "hooks" / "post-receive"
 
     if not hook_path.exists():
         hook_path.parent.mkdir(parents=True)

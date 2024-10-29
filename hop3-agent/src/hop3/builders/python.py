@@ -37,10 +37,9 @@ class PythonBuilder(Builder):
             bool: True if either requirements.txt or pyproject.toml exists in the specified app_path, otherwise False.
 
         """
-        return (
-            Path(self.app_path, "requirements.txt").exists()
-            or Path(self.app_path, "pyproject.toml").exists()
-        )
+        return (self.app_path / "requirements.txt").exists() or (
+            self.app_path / "pyproject.toml"
+        ).exists()
 
     def build(self) -> None:
         """Build the virtual environment for the application.

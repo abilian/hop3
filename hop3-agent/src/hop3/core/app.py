@@ -98,7 +98,7 @@ class App:
         # leave DATA_ROOT, since apps may create hard to reproduce data,
         # and CACHE_ROOT, since `nginx` will set permissions to protect it
         for root in [APP_ROOT, GIT_ROOT, ENV_ROOT, LOG_ROOT, CACHE_ROOT]:
-            p = Path(root, app)
+            p = root / app
             if p.exists():
                 log(f"Removing folder '{p}'", level=2, fg="blue")
                 shutil.rmtree(p)
@@ -129,7 +129,7 @@ class App:
             os.unlink(acme_link)
 
         # We preserve data
-        data_dir = Path(DATA_ROOT, app)
+        data_dir = self.data_path
         if data_dir.exists():
             log(f"Preserving folder '{data_dir}'", level=2, fg="blue")
 

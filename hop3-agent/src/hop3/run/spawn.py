@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from click import secho as echo
 
@@ -41,8 +40,8 @@ class AppLauncher:
         assert isinstance(self.app_name, str)
         assert isinstance(self.deltas, dict)
 
-        self.app_path = Path(APP_ROOT, self.app_name)
-        self.virtualenv_path = Path(ENV_ROOT, self.app_name)
+        self.app_path = APP_ROOT / self.app_name
+        self.virtualenv_path = ENV_ROOT / self.app_name
         self.config = AppConfig.from_dir(self.app_path)
         self.env = self.make_env()
 
@@ -98,13 +97,13 @@ class AppLauncher:
                 del env[env_key]
 
         # Save current settings
-        live = Path(ENV_ROOT, self.app_name, "LIVE_ENV")
+        live = ENV_ROOT / self.app_name / "LIVE_ENV"
         write_settings(live, env)
 
         write_settings(scaling, web_worker_count, ":")
 
         if env.get_bool("HOP3_AUTO_RESTART", default=True):
-            configs = list(Path(UWSGI_ENABLED).glob(f"{self.app_name}*.ini"))
+            configs = list(UWSGI_ENABLED.glob(f"{self.app_name}*.ini"))
             if configs:
                 echo("-----> Removing uwsgi configs to trigger auto-restart.")
                 for config in configs:
@@ -167,7 +166,7 @@ class AppLauncher:
         # Create new workers
         for kind, v in to_create.items():
             for w in v:
-                enabled = Path(UWSGI_ENABLED, f"{self.app_name:s}_{kind:s}.{w:d}.ini")
+                enabled = UWSGI_ENABLED / f"{self.app_name:s}_{kind:s}.{w:d}.ini"
                 if enabled.exists():
                     continue
 
@@ -178,7 +177,7 @@ class AppLauncher:
         # Remove unnecessary workers (leave logfiles)
         for k, v in to_destroy.items():
             for w in v:
-                enabled = Path(UWSGI_ENABLED, f"{self.app_name:s}_{k:s}.{w:d}.ini")
+                enabled = UWSGI_ENABLED / f"{self.app_name:s}_{k:s}.{w:d}.ini"
                 if not enabled.exists():
                     continue
 

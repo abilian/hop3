@@ -165,8 +165,8 @@ class UwsgiWorker:
 
     def write_settings(self):
         name = f"{self.app_name:s}_{self.kind:s}.{self.ordinal:d}.ini"
-        uwsgi_available_path = Path(UWSGI_AVAILABLE, name)
-        uwsgi_enabled_path = Path(UWSGI_ENABLED, name)
+        uwsgi_available_path = UWSGI_AVAILABLE / name
+        uwsgi_enabled_path = UWSGI_ENABLED / name
         self.settings.write(uwsgi_available_path)
         shutil.copyfile(uwsgi_available_path, uwsgi_enabled_path)
 

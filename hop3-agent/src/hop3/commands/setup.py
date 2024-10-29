@@ -66,7 +66,7 @@ def cmd_setup() -> None:
         ("enable-threads", "true"),
         ("threads", f"{cpu_count * 2}"),
     ]
-    with Path(UWSGI_ROOT, "uwsgi.ini").open("w") as h:
+    with (UWSGI_ROOT / "uwsgi.ini").open("w") as h:
         h.write("[uwsgi]\n")
         for k, v in settings:
             h.write(f"{k:s} = {v}\n")
@@ -80,13 +80,13 @@ def cmd_setup() -> None:
 def cmd_setup_ssh(public_key_file) -> None:
     """Set up a new SSH key (use - for stdin)."""
 
-    def add_helper(key_file):
-        if Path(key_file).exists():
+    def add_helper(key_file: Path):
+        if key_file.exists():
             try:
                 fingerprint = str(
-                    subprocess.check_output("ssh-keygen -lf " + key_file, shell=True),
+                    subprocess.check_output(f"ssh-keygen -lf {key_file}", shell=True),
                 ).split(" ", 4)[1]
-                key = Path(key_file).read_text().strip()
+                key = key_file.read_text().strip()
                 echo(f"Adding key '{fingerprint}'.", fg="white")
                 setup_authorized_keys(fingerprint, key)
             except Exception:
@@ -100,11 +100,11 @@ def cmd_setup_ssh(public_key_file) -> None:
             with NamedTemporaryFile(mode="w", encoding="utf8") as f:
                 f.write(buffer)
                 f.flush()
-                add_helper(f.name)
+                add_helper(Path(f.name))
         else:
             echo(f"Error: public key file '{key_file}' not found.", fg="red")
 
-    add_helper(public_key_file)
+    add_helper(Path(public_key_file))
 
 
 def setup_authorized_keys(ssh_fingerprint, pubkey) -> None:

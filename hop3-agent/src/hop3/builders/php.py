@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from subprocess import CalledProcessError
 
 from hop3.core.env import Env
@@ -32,7 +31,7 @@ class PHPBuilder(Builder):
         """Check if the application directory contains a composer.json file,
         indicating it is a PHP project.
         """
-        return Path(self.app_path, "composer.json").exists()
+        return (self.app_path / "composer.json").exists()
 
     def build(self) -> None:
         """Build the PHP project by installing dependencies and potentially

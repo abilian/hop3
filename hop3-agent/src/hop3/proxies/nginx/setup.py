@@ -68,7 +68,7 @@ class NginxConfig:
 
     @property
     def app_path(self) -> Path:
-        return Path(APP_ROOT, self.app_name)
+        return APP_ROOT / self.app_name
 
     def update_env(self, key: str, value: str = "", template: str = "") -> None:
         if template:

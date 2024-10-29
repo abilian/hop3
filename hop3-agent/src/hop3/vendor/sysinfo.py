@@ -52,19 +52,19 @@ class SysInfo:
     def platform_name(self):
         return platform.system()
 
-    @cache(timeout=60)
+    @cache(60)
     def system_arch(self):
         return self._run_command("dpkg --print-architecture")
 
-    @cache(timeout=60)
+    @cache(60)
     def system_virt(self):
         return self._run_command("systemd-detect-virt || true")
 
-    @cache(timeout=60)
+    @cache(60)
     def distrib_codename(self):
         return self._lsb_release("c")
 
-    @cache(timeout=60)
+    @cache(60)
     def distrib_version(self):
         return self._lsb_release("r")
 
@@ -75,22 +75,22 @@ class SysInfo:
     #
     # Disk
     #
-    @cache(timeout=3600)
+    @cache(3600)
     def get_total_disk_space(self):
         return str(shutil.disk_usage("/")[0] // (2**30)) + "GB"
 
-    @cache(timeout=3600)
+    @cache(3600)
     def get_available_disk_space(self):
         return str(shutil.disk_usage("/")[2] // (2**30)) + "GB"
 
     #
     # Network
     #
-    @cache(timeout=3600)
+    @cache(3600)
     def get_host_name(self):
         return self._run_command("hostname")
 
-    @cache(timeout=3600)
+    @cache(3600)
     def get_ip_address(self):
         try:
             result = self._run_command("ip route get 1")
@@ -98,14 +98,14 @@ class SysInfo:
         except Exception:
             return None
 
-    @cache(timeout=3600)
+    @cache(3600)
     def has_ipv6(self):
         return Path("/proc/net/if_inet6").exists()
 
     #
     # CPU
     #
-    @cache(timeout=3600)
+    @cache(3600)
     def get_cpu_core(self):
         try:
             result = self._run_command("lscpu | grep socket:")
@@ -116,7 +116,7 @@ class SysInfo:
     #
     # HDD
     #
-    @cache(timeout=3600)
+    @cache(3600)
     def get_hd_size(self):
         try:
             result = self._run_command("sudo lshw -class disk | grep size")
@@ -124,7 +124,7 @@ class SysInfo:
         except Exception:
             return None
 
-    @cache(timeout=3600)
+    @cache(3600)
     def get_hd_type(self):
         try:
             result = self._run_command(
@@ -137,22 +137,22 @@ class SysInfo:
     #
     # Vendor
     #
-    @cache(timeout=3600)
+    @cache(3600)
     def get_manufacturer(self):
         return self._run_command("sudo dmidecode -s system-manufacturer")[2:-3]
 
-    @cache(timeout=3600)
+    @cache(3600)
     def get_model(self):
         return self._run_command("sudo dmidecode -s system-product-name")[2:-3]
 
-    @cache(timeout=3600)
+    @cache(3600)
     def get_serial_number(self):
         return self._run_command("sudo dmidecode -s system-serial-number")[2:-3]
 
     #
     # RAM
     #
-    @cache(timeout=3600)
+    @cache(3600)
     def get_ram_type(self):
         try:
             cmd = 'sudo dmidecode --type 17 | grep -B 2 "Type Detail: Synchronous" | grep -w "Type:"'
@@ -161,7 +161,7 @@ class SysInfo:
         except Exception:
             return None
 
-    @cache(timeout=3600)
+    @cache(3600)
     def get_ram_size(self):
         try:
             cmd = "grep MemTotal /proc/meminfo"

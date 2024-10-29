@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 from hop3.core.env import Env
 from hop3.core.events import InstallingVirtualEnv, emit
@@ -80,8 +79,8 @@ class NodeBuilder(Builder):
         npm_prefix = os.path.abspath(os.path.join(node_modules, ".."))
         path = prepend_to_path(
             [
-                Path(self.virtual_env, "bin"),
-                Path(node_modules, ".bin"),
+                self.virtual_env / "bin",
+                node_modules / ".bin",
             ],
         )
         env = Env(
@@ -108,7 +107,7 @@ class NodeBuilder(Builder):
 
         """
         version = env.get("NODE_VERSION")
-        node_binary = Path(self.virtual_env, "bin", "node")
+        node_binary = self.virtual_env / "bin" / "node"
         if node_binary.exists():
             completed_process = self.shell(f"{node_binary} -v", env=env)
             installed = completed_process.stdout.decode("utf8").rstrip("\n")
@@ -117,7 +116,7 @@ class NodeBuilder(Builder):
 
         if version and check_binaries(["nodeenv"]):
             if not installed.endswith(version):
-                started = list(Path(UWSGI_ENABLED).glob(f"{self.app_name}*.ini"))
+                started = list(UWSGI_ENABLED.glob(f"{self.app_name}*.ini"))
                 if installed and len(started):
                     msg = (
                         "Warning: Can't update node with app running. Stop the app &"

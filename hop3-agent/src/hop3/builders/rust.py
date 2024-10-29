@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from subprocess import CalledProcessError
 
 from hop3.core.env import Env
@@ -41,7 +40,7 @@ class RustBuilder(Builder):
         """Check if the application directory contains a Cargo.toml file,
         indicating it is a Rust project.
         """
-        return Path(self.app_path, "Cargo.toml").exists()
+        return (self.app_path / "Cargo.toml").exists()
 
     def build(self) -> None:
         """Build the Rust project using cargo."""

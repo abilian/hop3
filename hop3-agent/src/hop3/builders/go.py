@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from hop3.system.constants import ENV_ROOT
 from hop3.util import shell
 from hop3.util.console import log
@@ -35,10 +33,9 @@ class GoBuilder(Builder):
             bool: True if the application has dependencies or go files, False otherwise.
 
         """
-        return (
-            Path(self.app_path, "Godeps").exists()
-            or len(list(self.app_path.glob("*.go"))) > 0
-        )
+        return (self.app_path / "Godeps").exists() or len(
+            list(self.app_path.glob("*.go"))
+        ) > 0
 
     def build(self) -> None:
         """Build the object.

@@ -79,8 +79,8 @@ class ClojureBuilder(Builder):
         self.virtual_env.mkdir(parents=True, exist_ok=True)
 
         emit(BuildEvent(self.app_name, "Building Clojure Application"))
-        target_path = Path(self.app_path, "target")
-        Path(target_path).mkdir(parents=True, exist_ok=True)
+        target_path = self.app_path / "target"
+        target_path.mkdir(parents=True, exist_ok=True)
         self._build(self.get_env())
 
     def get_env(self) -> Env:

@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from click import argument
 
 from hop3.core.app import get_app
@@ -60,7 +58,7 @@ def cmd_config_set(app, settings) -> None:
         except Exception:
             raise Abort(f"Error: malformed setting '{s}'")
 
-    config_file = Path(ENV_ROOT, app, "ENV")
+    config_file = ENV_ROOT / app / "ENV"
     write_settings(config_file, env)
     do_deploy(app)
 
@@ -78,7 +76,7 @@ def cmd_config_unset(app, settings) -> None:
             del env[s]
             log(f"Unsetting {s} for '{app}'")
 
-    config_file = Path(ENV_ROOT, app, "ENV")
+    config_file = ENV_ROOT / app / "ENV"
     write_settings(config_file, env)
     do_deploy(app)
 
