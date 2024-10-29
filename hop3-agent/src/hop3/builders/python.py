@@ -53,7 +53,6 @@ class PythonBuilder(Builder):
             self.install_virtualenv()
 
     def get_env(self) -> Env:
-        # Set unbuffered output and readable UTF-8 mapping
         """Get the environment settings.
 
         Returns
@@ -62,7 +61,7 @@ class PythonBuilder(Builder):
 
         """
         env = Env({"PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "UTF_8:replace"})
-        env.parse_settings("ENV")
+        env.parse_settings(Path("ENV"))
         return env
 
     def make_virtual_env(self, env) -> None:

@@ -95,13 +95,6 @@ class Env(Mapping[str, str]):
                 # XXX: keep? Or raise an error?
                 return Path(str(value))
 
-    def parse_settings(self, env_file: Path | str = "") -> None:
-        match env_file:
-            case Path():
-                pass
-            case "":
-                env_file = Path("ENV")
-            case str():
-                env_file = Path(env_file)
+    def parse_settings(self, env_file: Path) -> None:
         if env_file.exists():
             self.update(parse_settings(env_file))
