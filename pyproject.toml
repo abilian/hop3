@@ -126,6 +126,9 @@ pyinfra = "^3"
 types-psycopg2 = "^2.9.21.20241019"
 types-paramiko = "^3.5.0.20240928"
 
+# Documentation
+pdoc3 = "^0.11.1"
+
 
 #[build-system]
 #requires = ["poetry-core"]

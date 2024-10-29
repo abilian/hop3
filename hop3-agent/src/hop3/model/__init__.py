@@ -4,9 +4,9 @@
 
 from __future__ import annotations
 
+from ._base import Base, metadata
 from .app import App, AppStateEnum
 from .backup import Backup, BackupStateEnum
-from ._base import Base, metadata
 from .env import EnvVar
 from .instance import Instance, InstanceStateEnum
 
