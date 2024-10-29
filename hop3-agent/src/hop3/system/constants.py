@@ -15,12 +15,12 @@ HOME = environ["HOME"]
 
 HOP3_HOME = Path(HOME)
 HOP3_BIN = HOP3_HOME / "bin"
-HOP3_SCRIPT = str(Path(HOP3_HOME, "venv", "bin", "hop-agent"))
+HOP3_SCRIPT = str(HOP3_HOME / "venv" / "bin" / "hop-agent")
 
 # Main directories for Hop3
-HOP3_ROOT = HOP3_HOME
-APP_ROOT = abspath(join(HOP3_ROOT, "apps"))
-DATA_ROOT = abspath(join(HOP3_ROOT, "data"))
+HOP3_ROOT = HOP3_HOME.resolve()
+APP_ROOT = HOP3_ROOT / "apps"
+DATA_ROOT = HOP3_ROOT / "data"
 ENV_ROOT = HOP3_ROOT / "envs"
 GIT_ROOT = HOP3_ROOT / "repos"
 LOG_ROOT = HOP3_ROOT / "logs"
@@ -29,7 +29,7 @@ CACHE_ROOT = HOP3_ROOT / "cache"
 
 UWSGI_AVAILABLE = HOP3_ROOT / "uwsgi-available"
 UWSGI_ENABLED = HOP3_ROOT / "uwsgi-enabled"
-UWSGI_ROOT = (HOP3_ROOT / "uwsgi").resolve()
+UWSGI_ROOT = HOP3_ROOT / "uwsgi"
 UWSGI_LOG_MAXSIZE = "1048576"
 
 ACME_ROOT = environ.get("ACME_ROOT", join(environ["HOME"], ".acme.sh"))
