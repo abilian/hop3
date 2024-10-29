@@ -39,11 +39,11 @@ class ClojureBuilder(Builder):
     requirements = []  # TODO
 
     def accept(self):
-        """Check if the object is a Leiningen app or a CLI app.
+        """Check if the object is a Leiningen app or a CLI Clojure app.
 
         Returns
         -------
-            bool: True if the object is a Leiningen app or a CLI app, False otherwise.
+            bool: True if the object is a Leiningen app or a CLI Clojure app, False otherwise.
 
         """
         return self.is_leiningen_app or self.is_cli_app
@@ -94,7 +94,8 @@ class ClojureBuilder(Builder):
         path = prepend_to_path(
             [
                 self.virtual_env / "bin",
-                self.app_name / ".bin",
+                # FIXME: probably bad
+                Path(self.app_name) / ".bin",
             ],
         )
 
@@ -110,13 +111,13 @@ class ClojureBuilder(Builder):
                 "LEIN_HOME",
                 os.path.join(os.environ["HOME"], ".lein"),
             )
-            env.update({"LEIN_HOME": lein_home})
+            env["LEIN_HOME"] = lein_home
         else:
             clj_config = os.environ.get(
                 "CLJ_CONFIG",
                 os.path.join(os.environ["HOME"], ".clojure"),
             )
-            env.update({"CLJ_CONFIG": clj_config})
+            env["CLJ_CONFIG"] = clj_config
 
         env.parse_settings(self.env_file)
 
