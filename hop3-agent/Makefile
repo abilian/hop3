@@ -96,7 +96,7 @@ audit:
 ## Format / beautify code
 format:
 	# docformatter -i -r src
-	adt format
+	# adt format
 	ruff format src tests
 
 
