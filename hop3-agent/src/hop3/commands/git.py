@@ -22,37 +22,38 @@ from .util import make_executable
 
 
 @hop3.command("git-hook")
-@argument("app")
-def cmd_git_hook(app: str) -> None:
+@argument("app_name")
+def cmd_git_hook(app_name: str) -> None:
     """INTERNAL: Post-receive git hook."""
-    app_obj = App(app)
+    app = App(app_name)
 
     for line in sys.stdin:
         _oldrev, newrev, _refname = line.strip().split(" ")
 
         # Handle pushes
-        if not app_obj.app_path.exists():
-            echo(f"-----> Creating app '{app}'", fg="green")
-            app_obj.create()
+        if not app.app_path.exists():
+            echo(f"-----> Creating app '{app_name}'", fg="green")
+            app.create()
 
-            cmd = ["git", "clone", "--quiet", app_obj.repo_path, app]
+            cmd = ["git", "clone", "--quiet", app.repo_path, app_name]
             subprocess.run(cmd, cwd=APP_ROOT)
 
-        do_deploy(app, newrev=newrev)
+        do_deploy(app_name, newrev=newrev)
 
 
 @hop3.command("git-receive-pack")
-@argument("app")
-def cmd_git_receive_pack(app: str) -> None:
+@argument("app_name")
+def cmd_git_receive_pack(app_name: str) -> None:
     """INTERNAL: Handle git pushes for an app."""
-    app = sanitize_app_name(app)
-    hook_path = GIT_ROOT / app / "hooks" / "post-receive"
+    app_name = sanitize_app_name(app_name)
+    app = get_app(app_name, check=False)
+    hook_path = app.repo_path / "hooks" / "post-receive"
 
     if not hook_path.exists():
         hook_path.parent.mkdir(parents=True)
 
         # Initialize the repository with a hook to this script
-        cmd = ["git", "init", "--quiet", "--bare", app]
+        cmd = ["git", "init", "--quiet", "--bare", app.name]
         subprocess.run(cmd, cwd=GIT_ROOT)
 
         hook_path.write_text(
@@ -60,23 +61,23 @@ def cmd_git_receive_pack(app: str) -> None:
                 f"""\
                 #!/usr/bin/env bash
                 set -e; set -o pipefail;
-                cat | HOP3_ROOT="{HOP3_ROOT}" {HOP3_SCRIPT} git-hook {app}
+                cat | HOP3_ROOT="{HOP3_ROOT}" {HOP3_SCRIPT} git-hook {app.name}
                 """,
             )
         )
         make_executable(hook_path)
 
     # Handle the actual receive. We'll be called with 'git-hook' after it happens
-    cmd = ["git-receive-pack", app]
+    cmd = ["git-receive-pack", app.name]
     subprocess.run(cmd, cwd=GIT_ROOT)
 
 
 @hop3.command("git-upload-pack")
-@argument("app")
-def cmd_git_upload_pack(app: str) -> None:
+@argument("app_name")
+def cmd_git_upload_pack(app: App) -> None:
     """INTERNAL: Handle git upload pack for an app."""
-    app_obj = get_app(app)
+    # app = get_app(app_name)
 
     # Handle the actual receive. We'll be called with 'git-hook' after it happens
-    cmd = ["git-upload-pack", app_obj.name]
+    cmd = ["git-upload-pack", app.name]
     subprocess.run(cmd, cwd=GIT_ROOT)

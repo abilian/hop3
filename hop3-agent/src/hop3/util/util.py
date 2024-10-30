@@ -82,7 +82,7 @@ def command_output(cmd) -> str:
         return ""
 
 
-def multi_tail(app, filenames, catch_up=20) -> Iterator:
+def multi_tail(filenames, catch_up=20) -> Iterator:
     """Tails multiple log files."""
 
     # Seek helper

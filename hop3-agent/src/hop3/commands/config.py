@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from click import argument
 
-from hop3.core.app import get_app
+from hop3.commands import AppParamType
+from hop3.core.app import App
 from hop3.deploy import do_deploy
 from hop3.system.constants import ENV_ROOT
 from hop3.util.console import Abort, log
@@ -19,77 +20,71 @@ from .cli import hop3
 
 
 @hop3.command("config")
-@argument("app")
-def cmd_config(app) -> None:
+@argument("app", type=AppParamType())
+def cmd_config(app: App) -> None:
     """Show config, e.g.: hop config <app>."""
-    app_obj = get_app(app)
-    env = app_obj.get_runtime_env()
-
+    env = app.get_runtime_env()
     for k, v in sorted(env.items()):
         log(f"{k}={v}", fg="white")
 
 
 @hop3.command("config:get")
-@argument("app")
+@argument("app", type=AppParamType())
 @argument("setting")
-def cmd_config_get(app, setting) -> None:
+def cmd_config_get(app: App, setting) -> None:
     """e.g.: hop config:get <app> FOO."""
-    app_obj = get_app(app)
-    env = app_obj.get_runtime_env()
+    env = app.get_runtime_env()
     if setting in env:
         log(f"{env[setting]}", fg="white")
 
 
 @hop3.command("config:set")
-@argument("app")
+@argument("app", type=AppParamType())
 @argument("settings", nargs=-1)
-def cmd_config_set(app, settings) -> None:
+def cmd_config_set(app: App, settings) -> None:
     """e.g.: hop config:set <app> FOO=bar BAZ=quux."""
-    app_obj = get_app(app)
-    env = app_obj.get_runtime_env()
+    env = app.get_runtime_env()
 
     for s in settings:
         try:
             key, value = s.split("=", 1)
             key = key.strip()
             value = value.strip()
-            log(f"Setting {key:s}={value} for '{app:s}'", fg="white")
+            log(f"Setting {key:s}={value} for '{app.name:s}'", fg="white")
             env[key] = value
         except Exception:
             raise Abort(f"Error: malformed setting '{s}'")
 
-    config_file = ENV_ROOT / app / "ENV"
+    config_file = ENV_ROOT / app.name / "ENV"
     write_settings(config_file, env)
-    do_deploy(app)
+    do_deploy(app.name)
 
 
 @hop3.command("config:unset")
-@argument("app")
+@argument("app", type=AppParamType())
 @argument("settings", nargs=-1)
-def cmd_config_unset(app, settings) -> None:
+def cmd_config_unset(app: App, settings) -> None:
     """e.g.: hop config:unset <app> FOO."""
-    app_obj = get_app(app)
-    env = app_obj.get_runtime_env()
+    env = app.get_runtime_env()
 
     for s in settings:
         if s in env:
             del env[s]
-            log(f"Unsetting {s} for '{app}'")
+            log(f"Unsetting {s} for '{app.name}'")
 
-    config_file = ENV_ROOT / app / "ENV"
+    config_file = ENV_ROOT / app.name / "ENV"
     write_settings(config_file, env)
-    do_deploy(app)
+    do_deploy(app.name)
 
 
 @hop3.command("config:live")
-@argument("app")
-def cmd_config_live(app) -> None:
+@argument("app", type=AppParamType())
+def cmd_config_live(app: App) -> None:
     """e.g.: hop config:live <app>."""
-    app_obj = get_app(app)
-    env = app_obj.get_runtime_env()
+    env = app.get_runtime_env()
 
     if not env:
-        log(f"Warning: app '{app}' not deployed, no config found.", fg="yellow")
+        log(f"Warning: app '{app.name}' not deployed, no config found.", fg="yellow")
         return
 
     for k, v in sorted(env.items()):

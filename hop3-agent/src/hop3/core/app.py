@@ -27,9 +27,10 @@ from hop3.system.state import state
 from hop3.util.console import Abort, log
 
 
-def get_app(name: str) -> App:
+def get_app(name: str, *, check: bool = True) -> App:
     app = App(name)
-    app.check_exists()
+    if check:
+        app.check_exists()
     return app
 
 
