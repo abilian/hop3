@@ -98,12 +98,14 @@ class TestSession:
             try:
                 response = httpx.get(url, verify=False)
             except ConnectError:
+                print(
+                    f"App {self.app_host_name} ({url}) is not up, retrying in {i} seconds"
+                )
                 time.sleep(i)
                 continue
             except OSError as e:
-                raise AssertionError(
-                    f"App {self.app_host_name} ({url}) is not up, got OSError:\n{e}",
-                )
+                msg = f"App {self.app_host_name} ({url}) is not up, got OSError:\n{e}"
+                raise AssertionError(msg)
 
         if response is None:
             raise AssertionError(

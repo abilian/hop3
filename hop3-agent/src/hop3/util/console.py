@@ -7,9 +7,26 @@ from __future__ import annotations
 
 import sys
 
-from click import secho as echo
+__all__ = ["Abort", "echo", "log", "panic"]
 
-__all__ = ["Abort", "log", "panic"]
+from cleez.colors import blue, green, red, yellow
+
+
+def echo(msg, fg: str = ""):
+    """Print message to stdout."""
+    match fg:
+        case "" | "white":
+            print(msg)
+        case "green":
+            print(green(msg))
+        case "red":
+            print(red(msg))
+        case "blue":
+            print(blue(msg))
+        case "yellow":
+            print(yellow(msg))
+        case _:
+            raise ValueError(f"Unknown color: {fg}")
 
 
 def log(msg, level=0, fg="green") -> None:

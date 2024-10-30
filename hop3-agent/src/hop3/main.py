@@ -21,6 +21,8 @@ from hop3.util.path import prepend_to_path
 
 from .commands import hop3
 
+TESTING = "PYTEST_VERSION" in os.environ
+
 
 def fix_path() -> None:
     """Ensure system binaries are in the PATH, as wel as hop3 binaries."""
@@ -47,13 +49,16 @@ def main(args=None) -> None:
     cli = CommandCollection(sources=get_cli_commands())
     try:
         cli(args=args)
+    except SystemExit as e:
+        if e.code == 0:
+            return
+        if TESTING:
+            raise Abort("SystemExit", status=e.code)
+        sys.exit(e.code)
     except Abort as e:
         print(e)
         traceback.print_exc()
         sys.exit(1)
-    except SystemExit as e:
-        assert e.code == 0
-        return
 
 
 if __name__ == "__main__":

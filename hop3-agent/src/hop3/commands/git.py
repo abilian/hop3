@@ -10,12 +10,12 @@ import sys
 from textwrap import dedent
 
 from click import argument
-from click import secho as echo
 
 from hop3.core.app import App, get_app
 from hop3.deploy import do_deploy
 from hop3.system.constants import APP_ROOT, GIT_ROOT, HOP3_ROOT, HOP3_SCRIPT
 from hop3.util import sanitize_app_name
+from hop3.util.console import echo
 
 from .cli import hop3
 from .util import make_executable

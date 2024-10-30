@@ -11,9 +11,9 @@ import subprocess
 from pathlib import Path
 
 from attr import frozen
-from click import secho as echo
 
 from hop3.system.constants import ACME_ROOT, ACME_ROOT_CA, ACME_WWW, NGINX_ROOT
+from hop3.util.console import echo
 
 # from hop3.util.templating import expand_vars
 
@@ -55,12 +55,12 @@ class CertificatesManager:
         subprocess.run(cmd, shell=True)
 
     def setup_acme(self) -> None:
-        key_file, crt_file = (
-            os.path.join(NGINX_ROOT, f"{self.app_name}.{x}") for x in ["key", "crt"]
-        )
-        issue_file = os.path.join(
-            ACME_ROOT, self.domain, "issued-" + "-".join(self.domains)
-        )
+        key_file = NGINX_ROOT / f"{self.app_name}.key"
+        crt_file = NGINX_ROOT / f"{self.app_name}.crt"
+        # key_file, crt_file = (
+        #     os.path.join(NGINX_ROOT, f"{self.app_name}.{x}") for x in ["key", "crt"]
+        # )
+        issue_file = Path(ACME_ROOT, self.domain, "issued-" + "-".join(self.domains))
 
         acme = ACME_ROOT
         www = ACME_WWW
@@ -74,7 +74,7 @@ class CertificatesManager:
         #     buffer = expand_vars(NGINX_ACME_FIRSTRUN_TEMPLATE, self.env)
         #     Path(nginx_conf).write_text(buffer)
 
-        if Path(key_file).exists() and Path(issue_file).exists():
+        if key_file.exists() and issue_file.exists():
             echo("-----> letsencrypt certificate already installed")
             return
 

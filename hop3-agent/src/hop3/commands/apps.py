@@ -14,14 +14,13 @@ import sys
 from glob import glob
 
 from click import argument
-from click import secho as echo
 
 from hop3.core.app import get_app, list_apps
 from hop3.deploy import do_deploy
 from hop3.project.procfile import parse_procfile
 from hop3.system.constants import LOG_ROOT
 from hop3.util import exit_if_invalid, multi_tail
-from hop3.util.console import Abort
+from hop3.util.console import Abort, echo
 
 from .cli import hop3
 

@@ -8,7 +8,8 @@
 from __future__ import annotations
 
 from click import pass_context
-from click import secho as echo
+
+from hop3.util.console import echo
 
 from .cli import hop3
 
