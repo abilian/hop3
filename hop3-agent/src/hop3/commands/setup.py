@@ -16,18 +16,19 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from click import argument
+from devtools import debug
 
 from hop3.oses.ubuntu2204 import setup_system
 from hop3.system.constants import (
+    HOP3_ROOT,
     HOP3_SCRIPT,
     ROOT_DIRS,
     UWSGI_ENABLED,
     UWSGI_LOG_MAXSIZE,
     UWSGI_ROOT,
 )
-from hop3.util.console import echo
+from hop3.util.console import Abort, echo
 
-from . import make_executable
 from .cli import hop3
 
 
@@ -72,7 +73,7 @@ def cmd_setup() -> None:
             h.write(f"{k:s} = {v}\n")
 
     # mark this script as executable (in case we were invoked via interpreter)
-    make_executable(HOP3_SCRIPT)
+    # make_executable(HOP3_SCRIPT)
 
 
 @hop3.command("setup:ssh")
@@ -102,14 +103,15 @@ def cmd_setup_ssh(public_key_file) -> None:
                 f.flush()
                 add_helper(Path(f.name))
         else:
-            echo(f"Error: public key file '{key_file}' not found.", fg="red")
+            raise Abort(f"Error: public key file '{key_file}' not found.")
 
     add_helper(Path(public_key_file))
 
 
 def setup_authorized_keys(ssh_fingerprint, pubkey) -> None:
     """Sets up an authorized_keys file to redirect SSH commands."""
-    authorized_keys = Path(os.environ["HOME"], ".ssh", "authorized_keys")
+    authorized_keys = HOP3_ROOT / ".ssh" / "authorized_keys"
+    debug(authorized_keys)
     authorized_keys.parent.mkdir(parents=True, exist_ok=True)
 
     # Restrict features and force all SSH commands to go through our script

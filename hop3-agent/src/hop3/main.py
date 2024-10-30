@@ -51,6 +51,9 @@ def main(args=None) -> None:
         print(e)
         traceback.print_exc()
         sys.exit(1)
+    except SystemExit as e:
+        assert e.code == 0
+        return
 
 
 if __name__ == "__main__":

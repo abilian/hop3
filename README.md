@@ -282,7 +282,7 @@ Features:
   - [ ] Use an API server (WIP)
   - [ ] Review the UX/DX
   - [ ] Good looking logging (cf. https://bernsteinbear.com/blog/python-parallel-output/)
-- [ ] Improve Python builder (support for poetry, pipenv, etc.)
+- [ ] Improve Python builder (support for poetry, pipenv, uv, etc.)
 - [ ] Manage external services (databases, mail, etc.)
 - [ ] Nix builds
 - [ ] Nix runtime
