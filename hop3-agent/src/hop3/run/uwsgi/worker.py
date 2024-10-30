@@ -14,8 +14,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from click import secho as echo
-
 from hop3.system.constants import (
     APP_ROOT,
     ENV_ROOT,
@@ -25,7 +23,7 @@ from hop3.system.constants import (
     UWSGI_ENABLED,
     UWSGI_LOG_MAXSIZE,
 )
-from hop3.util import Abort, log
+from hop3.util.console import Abort, echo, log
 from hop3.util.settings import parse_settings
 
 from .settings import UwsgiSettings

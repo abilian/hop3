@@ -8,23 +8,21 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
-from click import secho as echo
-
 from hop3.core.env import Env
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
 from hop3.proxies.nginx import setup_nginx
 from hop3.system.constants import (
-    _HOP3_HOME,
     APP_ROOT,
     ENV_ROOT,
+    HOP3_ROOT,
     HOP3_USER,
     LOG_ROOT,
     UWSGI_ENABLED,
 )
 from hop3.system.state import state
 from hop3.util import get_free_port
-from hop3.util.console import log
+from hop3.util.console import echo, log
 from hop3.util.settings import write_settings
 
 from .uwsgi import spawn_uwsgi_worker
@@ -125,7 +123,7 @@ class AppLauncher:
             {
                 "APP": self.app_name,
                 "LOG_ROOT": LOG_ROOT,
-                "HOME": _HOP3_HOME,
+                "HOME": HOP3_ROOT,
                 "USER": HOP3_USER,
                 "PATH": f"{self.virtualenv_path / 'bin'}:{os.environ['PATH']}",
                 "PWD": str(self.app_path),

@@ -13,11 +13,9 @@ from traceback import format_exc
 from typing import TYPE_CHECKING
 from urllib.request import urlopen
 
-from click import secho as echo
-
 from hop3.system.constants import ACME_WWW, APP_ROOT, CACHE_ROOT, NGINX_ROOT
 from hop3.util import command_output
-from hop3.util.console import Abort, log
+from hop3.util.console import Abort, echo, log
 from hop3.util.templating import expand_vars
 
 from .certificates import CertificatesManager

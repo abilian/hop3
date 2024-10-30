@@ -17,11 +17,6 @@ from devtools import debug
 
 from .base import TestSession
 
-# Temp: use a backport of Abort from hop3-lib
-from .util.console import Abort
-
-# from .common import update_agent
-
 
 def main() -> None:
     parser = argparse.ArgumentParser("Run end-to-end tests")
@@ -61,7 +56,8 @@ def main() -> None:
     apps = sorted(apps)
 
     if not apps:
-        raise Abort("No apps found.")
+        print(red("No apps found."))
+        sys.exit(1)
 
     # update_agent()
 
