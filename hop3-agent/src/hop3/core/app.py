@@ -62,6 +62,12 @@ class App:
         if not (APP_ROOT / self.name).exists():
             raise Abort(f"Error: app '{self.name}' not found.")
 
+    def create(self) -> None:
+        self.app_path.mkdir(exist_ok=True)
+        # The data directory may already exist, since this may be a full redeployment
+        # (we never delete data since it may be expensive to recreate)
+        self.data_path.mkdir(parents=True, exist_ok=True)
+
     @property
     def is_running(self) -> bool:
         return list(UWSGI_ENABLED.glob(f"{self.name}*.ini")) != []

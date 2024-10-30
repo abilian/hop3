@@ -28,20 +28,15 @@ def cmd_git_hook(app: str) -> None:
     app_obj = App(app)
 
     for line in sys.stdin:
-        # pylint: disable=unused-variable
         _oldrev, newrev, _refname = line.strip().split(" ")
 
         # Handle pushes
         if not app_obj.app_path.exists():
             echo(f"-----> Creating app '{app}'", fg="green")
-            app_obj.app_path.mkdir()
+            app_obj.create()
 
-            # The data directory may already exist, since this may be a full redeployment
-            # (we never delete data since it may be expensive to recreate)
-            app_obj.data_path.mkdir(parents=True, exist_ok=True)
-
-            cmd = f"git clone --quiet {app_obj.repo_path} {app}"
-            subprocess.run(cmd, cwd=APP_ROOT, shell=True)
+            cmd = ["git", "clone", "--quiet", app_obj.repo_path, app]
+            subprocess.run(cmd, cwd=APP_ROOT)
 
         do_deploy(app, newrev=newrev)
 
@@ -57,8 +52,8 @@ def cmd_git_receive_pack(app: str) -> None:
         hook_path.parent.mkdir(parents=True)
 
         # Initialize the repository with a hook to this script
-        cmd = "git init --quiet --bare " + app
-        subprocess.call(cmd, cwd=GIT_ROOT, shell=True)
+        cmd = ["git", "init", "--quiet", "--bare", app]
+        subprocess.run(cmd, cwd=GIT_ROOT)
 
         hook_path.write_text(
             dedent(
@@ -72,9 +67,8 @@ def cmd_git_receive_pack(app: str) -> None:
         make_executable(hook_path)
 
     # Handle the actual receive. We'll be called with 'git-hook' after it happens
-    _cmd = f"{sys.argv[1]} '{app}'"
-    cmd = f'git-shell -c "{_cmd}"'
-    subprocess.run(cmd, cwd=GIT_ROOT, shell=True)
+    cmd = ["git-receive-pack", app]
+    subprocess.run(cmd, cwd=GIT_ROOT)
 
 
 @hop3.command("git-upload-pack")
@@ -84,6 +78,5 @@ def cmd_git_upload_pack(app: str) -> None:
     app_obj = get_app(app)
 
     # Handle the actual receive. We'll be called with 'git-hook' after it happens
-    _cmd = f"{sys.argv[1]} '{app_obj.name}'"
-    cmd = f'git-shell -c "{_cmd}"'
-    subprocess.call(cmd, cwd=GIT_ROOT, shell=True)
+    cmd = ["git-upload-pack", app_obj.name]
+    subprocess.run(cmd, cwd=GIT_ROOT)
