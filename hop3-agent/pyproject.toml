@@ -37,6 +37,7 @@ devtools = "^0.12"
 
 typing-extensions = "^4.12.2"
 flask-security-too = "^5.5.2"
+snoop = "^0.6.0"
 
 [tool.poetry.group.dev.dependencies]
 abilian-devtools = "^0.6"
