@@ -11,7 +11,8 @@ import sys
 
 from click import argument
 
-from hop3.core import App, GitManager, get_app
+from hop3.core.app import App, get_app
+from hop3.core.git import GitManager
 from hop3.deploy import do_deploy
 from hop3.util import sanitize_app_name
 
