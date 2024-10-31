@@ -14,7 +14,7 @@ from attrs import field, mutable
 from hop3.builders import BUILDER_CLASSES
 from hop3.project.config import AppConfig
 from hop3.run.spawn import spawn_app
-from hop3.system.constants import APP_ROOT, LOG_ROOT
+from hop3.system.constants import LOG_ROOT
 from hop3.util import Abort, chdir, check_binaries, log, shell
 
 if TYPE_CHECKING:
@@ -28,13 +28,13 @@ __all__ = ["do_deploy"]
 def do_deploy(
     app: App, *, deltas: dict[str, int] | None = None, newrev: str = ""
 ) -> None:
-    deployer = Deployer(app.name)
-    deployer.deploy(deltas, newrev)
+    deployer = Deployer(app)
+    deployer.deploy(deltas=deltas, newrev=newrev)
 
 
 @mutable
 class Deployer:
-    app_name: str
+    app: App
 
     # Parsed and set during deployment
     workers: dict = field(factory=dict)
@@ -42,9 +42,13 @@ class Deployer:
 
     @property
     def app_path(self) -> Path:
-        return APP_ROOT / self.app_name
+        return self.app.app_path
 
-    def deploy(self, deltas: dict[str, int] | None = None, newrev: str = "") -> None:
+    @property
+    def app_name(self) -> str:
+        return self.app.name
+
+    def deploy(self, *, deltas: dict[str, int] | None = None, newrev: str = "") -> None:
         """Deploy an app by resetting the work directory."""
         deltas = deltas or {}
         app_name = self.app_name
