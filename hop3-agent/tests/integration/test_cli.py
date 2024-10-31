@@ -1,12 +1,15 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
 import subprocess
+import time
 from os import environ
 from pathlib import Path
 from shutil import rmtree
 
 import pytest
 
+from hop3.core.app import App
+from hop3.core.git import GitManager
 from hop3.main import main as cli_main
 from hop3.util import Abort
 
@@ -55,3 +58,14 @@ def test_list_apps(hop3_home):
 def test_inexistent_app(hop3_home):
     with pytest.raises(Abort):
         cli_main(["app", "inexistent"])
+
+
+def test_lifecycle(hop3_home):
+    app_name = f"test-app-{time.time()}"
+    app = App(app_name)
+    app.create()
+    git_manager = GitManager(app)
+    git_manager.setup_hook()
+    git_manager.receive_pack()
+
+    cli_main(["config", app_name])
