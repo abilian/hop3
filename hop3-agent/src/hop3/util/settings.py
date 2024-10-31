@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
-from hop3.util.console import echo
+from hop3.util import echo
 from hop3.util.templating import expand_vars
 
 

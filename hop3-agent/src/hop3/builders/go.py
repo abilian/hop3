@@ -6,8 +6,7 @@
 from __future__ import annotations
 
 from hop3.system.constants import ENV_ROOT
-from hop3.util import shell
-from hop3.util.console import log
+from hop3.util import log, shell
 
 from ._base import Builder
 

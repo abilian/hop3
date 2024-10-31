@@ -21,8 +21,7 @@ from hop3.system.constants import (
     UWSGI_ENABLED,
 )
 from hop3.system.state import state
-from hop3.util import get_free_port
-from hop3.util.console import echo, log
+from hop3.util import echo, get_free_port, log
 from hop3.util.settings import write_settings
 
 from .uwsgi import spawn_uwsgi_worker

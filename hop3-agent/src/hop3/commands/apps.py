@@ -18,8 +18,7 @@ from hop3.core.app import App, list_apps
 from hop3.deploy import do_deploy
 from hop3.project.procfile import parse_procfile
 from hop3.system.constants import LOG_ROOT
-from hop3.util import multi_tail
-from hop3.util.console import Abort, echo
+from hop3.util import Abort, echo, multi_tail
 
 from .cli import hop3
 from .types import AppParamType

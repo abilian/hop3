@@ -27,7 +27,7 @@ from hop3.system.constants import (
     UWSGI_LOG_MAXSIZE,
     UWSGI_ROOT,
 )
-from hop3.util.console import Abort, echo
+from hop3.util import Abort, echo
 
 from .cli import hop3
 

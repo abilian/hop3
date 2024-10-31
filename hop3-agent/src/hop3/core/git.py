@@ -16,7 +16,7 @@ from textwrap import dedent
 from attrs import frozen
 
 from hop3.system.constants import APP_ROOT, GIT_ROOT, HOP3_ROOT, HOP3_SCRIPT
-from hop3.util.console import echo
+from hop3.util import echo
 
 from .app import App
 

@@ -15,9 +15,7 @@ from hop3.builders import BUILDER_CLASSES
 from hop3.project.config import AppConfig
 from hop3.run.spawn import spawn_app
 from hop3.system.constants import APP_ROOT, LOG_ROOT
-from hop3.util import check_binaries, shell
-from hop3.util import chdir
-from hop3.util.console import Abort, log
+from hop3.util import Abort, chdir, check_binaries, log, shell
 
 if TYPE_CHECKING:
     from hop3.core.app import App

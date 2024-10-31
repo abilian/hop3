@@ -9,8 +9,7 @@ import os
 from pathlib import Path
 
 from hop3.system.constants import APP_ROOT, ENV_ROOT
-from hop3.util import shell
-from hop3.util.console import log
+from hop3.util import log, shell
 from hop3.util.settings import parse_settings
 
 #         if Path(app_path, "pom.xml").exists() and check_binaries(["java", "mvn"]):

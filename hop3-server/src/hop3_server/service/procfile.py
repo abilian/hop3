@@ -13,7 +13,7 @@ from pathlib import Path
 from hop3_server.service.constants import CRON_REGEXP
 
 # from hop3.system.constants import CRON_REGEXP
-# from hop3.util.console import Abort, log
+# from hop3.util import Abort, log
 
 
 def parse_procfile(filename: str | Path) -> dict:

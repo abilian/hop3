@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from hop3.util.console import log
+from hop3.util import log
 
 __all__ = ["found_app"]
 

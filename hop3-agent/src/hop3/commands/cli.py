@@ -10,7 +10,7 @@ from __future__ import annotations
 from click import group, pass_context
 from devtools import debug
 
-from hop3.util.console import echo
+from hop3.util import echo
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 

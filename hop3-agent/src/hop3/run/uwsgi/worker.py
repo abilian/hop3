@@ -23,7 +23,7 @@ from hop3.system.constants import (
     UWSGI_ENABLED,
     UWSGI_LOG_MAXSIZE,
 )
-from hop3.util.console import Abort, echo, log
+from hop3.util import Abort, echo, log
 from hop3.util.settings import parse_settings
 
 from .settings import UwsgiSettings

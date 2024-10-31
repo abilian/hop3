@@ -26,7 +26,7 @@ from hop3.system.constants import (
     UWSGI_ENABLED,
 )
 from hop3.system.state import state
-from hop3.util.console import Abort, log
+from hop3.util import Abort, log
 
 
 def get_app(name: str, *, check: bool = True) -> App:
