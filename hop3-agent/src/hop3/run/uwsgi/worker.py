@@ -91,14 +91,14 @@ class UwsgiWorker:
         app_name = self.app_name
 
         env["PROC_TYPE"] = self.kind
-        env_path = Path(ENV_ROOT, app_name)
-        log_file = Path(LOG_ROOT, app_name, self.kind)
+        env_path = ENV_ROOT / app_name
+        log_file = LOG_ROOT / app_name / self.kind
 
         pw_name = pwd.getpwuid(os.getuid()).pw_name
         gr_name = grp.getgrgid(os.getgid()).gr_name
 
         self.settings += [
-            ("chdir", Path(APP_ROOT, app_name)),
+            ("chdir", APP_ROOT / app_name),
             ("uid", pw_name),
             ("gid", gr_name),
             ("master", "true"),
