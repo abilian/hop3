@@ -91,7 +91,7 @@ class App:
 
     # Actions
     def deploy(self) -> None:
-        do_deploy(self.name)
+        do_deploy(self)
 
     def destroy(self) -> None:
         # TODO: finish refactoring this method

@@ -50,4 +50,4 @@ def cmd_git_hook(app_name: str) -> None:
 
     for line in sys.stdin:
         _oldrev, newrev, _refname = line.strip().split(" ")
-        do_deploy(app_name, newrev=newrev)
+        do_deploy(app, newrev=newrev)

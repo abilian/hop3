@@ -6,3 +6,5 @@
 from __future__ import annotations
 
 from .util import *  # noqa: F403
+from .backports import *  # noqa: F403
+from .console import *  # noqa: F403

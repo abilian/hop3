@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from attrs import field, mutable
 
@@ -15,16 +16,21 @@ from hop3.project.config import AppConfig
 from hop3.run.spawn import spawn_app
 from hop3.system.constants import APP_ROOT, LOG_ROOT
 from hop3.util import check_binaries, shell
-from hop3.util.backports import chdir
+from hop3.util import chdir
 from hop3.util.console import Abort, log
+
+if TYPE_CHECKING:
+    from hop3.core.app import App
 
 # Will be removed
 
 __all__ = ["do_deploy"]
 
 
-def do_deploy(app_name: str, deltas: dict[str, int] | None = None, newrev=None) -> None:
-    deployer = Deployer(app_name)
+def do_deploy(
+    app: App, *, deltas: dict[str, int] | None = None, newrev: str = ""
+) -> None:
+    deployer = Deployer(app.name)
     deployer.deploy(deltas, newrev)
 
 
@@ -40,7 +46,7 @@ class Deployer:
     def app_path(self) -> Path:
         return APP_ROOT / self.app_name
 
-    def deploy(self, deltas: dict[str, int] | None = None, newrev=None) -> None:
+    def deploy(self, deltas: dict[str, int] | None = None, newrev: str = "") -> None:
         """Deploy an app by resetting the work directory."""
         deltas = deltas or {}
         app_name = self.app_name
@@ -54,7 +60,7 @@ class Deployer:
 
         spawn_app(app_name, deltas)
 
-    def update(self, newrev) -> None:
+    def update(self, newrev: str) -> None:
         app_name = self.app_name
         app_path = self.app_path
 
@@ -133,7 +139,7 @@ class Deployer:
         if retval:
             raise Abort(f"Exiting postbuild due to command error value: {retval}")
 
-    def _git_update(self, newrev) -> None:
+    def _git_update(self, newrev: str) -> None:
         app_path = self.app_path
         # env = {"GIT_WORK_DIR": app_path}
         env: dict[str, str] = {}

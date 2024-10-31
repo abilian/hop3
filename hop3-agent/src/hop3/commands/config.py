@@ -57,7 +57,7 @@ def cmd_config_set(app: App, settings) -> None:
 
     config_file = ENV_ROOT / app.name / "ENV"
     write_settings(config_file, env)
-    do_deploy(app.name)
+    do_deploy(app)
 
 
 @hop3.command("config:unset")
@@ -74,7 +74,7 @@ def cmd_config_unset(app: App, settings) -> None:
 
     config_file = ENV_ROOT / app.name / "ENV"
     write_settings(config_file, env)
-    do_deploy(app.name)
+    do_deploy(app)
 
 
 @hop3.command("config:live")

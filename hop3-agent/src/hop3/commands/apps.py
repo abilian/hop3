@@ -105,7 +105,7 @@ def cmd_ps_scale(app: App, settings: list[str]) -> None:
             raise Abort(msg)
         deltas[key] = count - worker_count[key]
 
-    do_deploy(app.name, deltas)
+    do_deploy(app, deltas=deltas)
 
 
 @hop3.command("run")
@@ -143,6 +143,7 @@ def cmd_stop(app: App) -> None:
 
 
 # Utils
+
 
 def make_nonblocking(fd):
     """Put the file descriptor *fd* into non-blocking mode if
