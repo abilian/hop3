@@ -7,17 +7,13 @@
 
 from __future__ import annotations
 
-import subprocess
 import sys
 
 from click import argument
 
-from hop3.core.app import App, get_app
-from hop3.core.git import GitManager
+from hop3.core import App, GitManager, get_app
 from hop3.deploy import do_deploy
-from hop3.system.constants import APP_ROOT
 from hop3.util import sanitize_app_name
-from hop3.util.console import echo
 
 from .cli import hop3
 
@@ -48,16 +44,9 @@ def cmd_git_upload_pack(app_name: str) -> None:
 def cmd_git_hook(app_name: str) -> None:
     """INTERNAL: Post-receive git hook."""
     app = App(app_name)
-
-    # Handle pushes
-    if not app.app_path.exists():
-        echo(f"-----> Creating app '{app_name}'", fg="green")
-        app.create()
-
-        cmd = ["git", "clone", "--quiet", app.repo_path, app_name]
-        subprocess.run(cmd, cwd=APP_ROOT)
+    git_manager = GitManager(app)
+    git_manager.clone()
 
     for line in sys.stdin:
         _oldrev, newrev, _refname = line.strip().split(" ")
-
         do_deploy(app_name, newrev=newrev)
