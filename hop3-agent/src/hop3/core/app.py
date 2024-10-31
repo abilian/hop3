@@ -8,6 +8,7 @@ import os
 import shutil
 from pathlib import Path
 
+from attrs import frozen
 from hop3.core.env import Env
 from hop3.deploy import do_deploy
 from hop3.run.spawn import spawn_app
@@ -38,21 +39,14 @@ def list_apps() -> list[App]:
     return [App(name) for name in sorted(os.listdir(APP_ROOT))]
 
 
+@frozen
 class App:
     """Represents a deployed app in the system."""
 
     name: str
-    frozen: bool = False
 
-    def __init__(self, name) -> None:
-        self.name = name
+    def __attrs_post_init__(self) -> None:
         self.validate()
-        self.frozen = True
-
-    def __setattr__(self, key, value) -> None:
-        if self.frozen:
-            raise AttributeError("Cannot set attribute on frozen instance")
-        super().__setattr__(key, value)
 
     def validate(self) -> None:
         for c in self.name:
