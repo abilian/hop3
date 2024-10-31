@@ -23,6 +23,14 @@ class GitManager:
     def setup_hook(self):
         setup_hook(self.app)
 
+    def receive_pack(self):
+        cmd = ["git-receive-pack", self.app.name]
+        subprocess.run(cmd, cwd=GIT_ROOT)
+
+    def upload_pack(self):
+        cmd = ["git-upload-pack", self.app.name]
+        subprocess.run(cmd, cwd=GIT_ROOT)
+
 
 def setup_hook(app):
     hook_path = app.repo_path / "hooks" / "post-receive"
