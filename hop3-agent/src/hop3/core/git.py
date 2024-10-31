@@ -1,8 +1,12 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2024, Abilian SAS
 
 """
 Server-side git operations.
+
+This module provides a GitManager class to handle git operations on the server side.
 """
+
+from __future__ import annotations
 
 import stat
 import subprocess
@@ -11,7 +15,8 @@ from textwrap import dedent
 
 from attrs import frozen
 
-from hop3.system.constants import GIT_ROOT, HOP3_ROOT, HOP3_SCRIPT
+from hop3.system.constants import APP_ROOT, GIT_ROOT, HOP3_ROOT, HOP3_SCRIPT
+from hop3.util.console import echo
 
 from .app import App
 
@@ -20,37 +25,46 @@ from .app import App
 class GitManager:
     app: App
 
-    def setup_hook(self):
-        setup_hook(self.app)
-
     def receive_pack(self):
+        """Handle git pushes for an app."""
         cmd = ["git-receive-pack", self.app.name]
         subprocess.run(cmd, cwd=GIT_ROOT)
 
     def upload_pack(self):
+        """Handle git upload pack for an app."""
         cmd = ["git-upload-pack", self.app.name]
         subprocess.run(cmd, cwd=GIT_ROOT)
 
+    def setup_hook(self):
+        """Setup a post-receive hook for an app."""
+        app = self.app
+        hook_path = app.repo_path / "hooks" / "post-receive"
+        if not hook_path.exists():
+            hook_path.parent.mkdir(parents=True)
 
-def setup_hook(app):
-    hook_path = app.repo_path / "hooks" / "post-receive"
-    if not hook_path.exists():
-        hook_path.parent.mkdir(parents=True)
+            # Initialize the repository with a hook to this script
+            cmd = ["git", "init", "--quiet", "--bare", app.name]
+            subprocess.run(cmd, cwd=GIT_ROOT)
 
-        # Initialize the repository with a hook to this script
-        cmd = ["git", "init", "--quiet", "--bare", app.name]
-        subprocess.run(cmd, cwd=GIT_ROOT)
-
-        hook_path.write_text(
-            dedent(
-                f"""\
-                #!/usr/bin/env bash
-                set -e; set -o pipefail;
-                cat | HOP3_ROOT="{HOP3_ROOT}" {HOP3_SCRIPT} git-hook {app.name}
-                """,
+            hook_path.write_text(
+                dedent(
+                    f"""\
+                    #!/usr/bin/env bash
+                    set -e; set -o pipefail;
+                    cat | HOP3_ROOT="{HOP3_ROOT}" {HOP3_SCRIPT} git-hook {app.name}
+                    """,
+                )
             )
-        )
-        make_executable(hook_path)
+            make_executable(hook_path)
+
+    def clone(self):
+        """Clone a repository for an app."""
+        if not self.app.app_path.exists():
+            echo(f"-----> Creating app '{self.app.name}'", fg="green")
+            self.app.create()
+
+            cmd = ["git", "clone", "--quiet", self.app.repo_path, self.app.name]
+            subprocess.run(cmd, cwd=APP_ROOT)
 
 
 def make_executable(path: Path) -> None:
