@@ -140,7 +140,7 @@ class App:
             log(f"Preserving folder '{data_dir}'", level=2, fg="blue")
 
     def start(self) -> None:
-        spawn_app(self.name)
+        spawn_app(self)
 
     def stop(self) -> None:
         app_name = self.name

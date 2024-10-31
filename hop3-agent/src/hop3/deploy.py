@@ -49,7 +49,6 @@ class Deployer:
     def deploy(self, *, deltas: dict[str, int] | None = None, newrev: str = "") -> None:
         """Deploy an app by resetting the work directory."""
         deltas = deltas or {}
-        app_name = self.app_name
 
         self.update(newrev)
 
@@ -58,7 +57,7 @@ class Deployer:
         self.run_build()
         self.run_postbuild()
 
-        spawn_app(app_name, deltas)
+        spawn_app(self.app, deltas)
 
     def update(self, newrev: str) -> None:
         app_name = self.app_name

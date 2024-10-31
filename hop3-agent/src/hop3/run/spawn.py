@@ -7,13 +7,13 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from hop3.core.env import Env
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
 from hop3.proxies.nginx import setup_nginx
 from hop3.system.constants import (
-    APP_ROOT,
     ENV_ROOT,
     HOP3_ROOT,
     HOP3_USER,
@@ -26,26 +26,27 @@ from hop3.util.settings import write_settings
 
 from .uwsgi import spawn_uwsgi_worker
 
+if TYPE_CHECKING:
+    from hop3.core.app import App
 
-def spawn_app(app_name: str, deltas: dict[str, int] | None = None) -> None:
+
+def spawn_app(app: App, deltas: dict[str, int] | None = None) -> None:
     """Create all workers for an app."""
     if deltas is None:
         deltas = {}
-    launcher = AppLauncher(app_name, deltas)
+    launcher = AppLauncher(app, deltas)
     launcher.spawn_app()
 
 
 @dataclass
 class AppLauncher:
-    app_name: str
+    app: App
     deltas: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        assert isinstance(self.app_name, str)
-        assert isinstance(self.deltas, dict)
-
-        self.app_path = APP_ROOT / self.app_name
-        self.virtualenv_path = ENV_ROOT / self.app_name
+        self.app_name = self.app.name
+        self.app_path = self.app.app_path
+        self.virtualenv_path = self.app.virtualenv_path
         self.config = AppConfig.from_dir(self.app_path)
         self.env = self.make_env()
 
