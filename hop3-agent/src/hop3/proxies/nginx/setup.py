@@ -13,7 +13,7 @@ from traceback import format_exc
 from typing import TYPE_CHECKING
 from urllib.request import urlopen
 
-from hop3.system.constants import ACME_WWW, APP_ROOT, CACHE_ROOT, NGINX_ROOT
+from hop3.system.constants import ACME_WWW, CACHE_ROOT, NGINX_ROOT
 from hop3.util import Abort, command_output, echo, expand_vars, log
 
 from .certificates import CertificatesManager
@@ -35,13 +35,13 @@ if TYPE_CHECKING:
 
 def setup_nginx(app: App, env: Env, workers: dict[str, str]) -> None:
     """Configure Nginx for an app."""
-    config = NginxConfig(app.name, env, workers)
+    config = NginxConfig(app, env, workers)
     config.setup()
 
 
 @dataclass(frozen=True)
 class NginxConfig:
-    app_name: str
+    app: App
     env: Env
     workers: dict[str, str]
 
@@ -64,8 +64,12 @@ class NginxConfig:
         )
 
     @property
+    def app_name(self) -> str:
+        return self.app.name
+
+    @property
     def app_path(self) -> Path:
-        return APP_ROOT / self.app_name
+        return self.app.app_path
 
     def update_env(self, key: str, value: str = "", template: str = "") -> None:
         if template:
