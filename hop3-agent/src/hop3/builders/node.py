@@ -10,8 +10,7 @@ import os
 from hop3.core.env import Env
 from hop3.core.events import InstallingVirtualEnv, emit
 from hop3.system.constants import UWSGI_ENABLED
-from hop3.util import Abort, check_binaries, log
-from hop3.util.backports import chdir
+from hop3.util import Abort, chdir, check_binaries, log
 from hop3.util.path import prepend_to_path
 
 from ._base import Builder

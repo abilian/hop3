@@ -8,8 +8,7 @@ from subprocess import CalledProcessError
 
 from hop3.core.env import Env
 from hop3.core.events import InstallingDependencies, PreparingBuildEnv, emit
-from hop3.util import shell
-from hop3.util.backports import chdir
+from hop3.util import chdir, shell
 
 from ._base import Builder
 

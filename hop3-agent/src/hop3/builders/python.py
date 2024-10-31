@@ -10,7 +10,7 @@ from pathlib import Path
 from hop3.core.env import Env
 from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
 from hop3.system.constants import ENV_ROOT
-from hop3.util.backports import chdir
+from hop3.util import chdir
 
 from ._base import Builder
 
