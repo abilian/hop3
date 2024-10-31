@@ -36,7 +36,7 @@ def print_lines(s: str | list[str], prefix) -> None:
             raise TypeError(type(s))
 
     for line in lines:
-        print(prefix, " ", dim(line.rstrip("\n")))
+        print(prefix, " ", line.rstrip("\n"))
 
 
 class ClientError(Exception):
