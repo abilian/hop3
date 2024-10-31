@@ -12,7 +12,7 @@ from pathlib import Path
 
 from click import secho as echo
 
-from hop3.util.templating import expand_vars
+from hop3.util import expand_vars
 
 
 def write_settings(settings_file: str | Path, bag: Mapping, separator="=") -> None:

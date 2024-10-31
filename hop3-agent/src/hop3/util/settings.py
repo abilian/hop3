@@ -10,8 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
-from hop3.util import echo
-from hop3.util.templating import expand_vars
+from hop3.util import echo, expand_vars
 
 
 def write_settings(settings_file: str | Path, bag: Mapping, separator="=") -> None:

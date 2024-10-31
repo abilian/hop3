@@ -14,8 +14,7 @@ from typing import TYPE_CHECKING
 from urllib.request import urlopen
 
 from hop3.system.constants import ACME_WWW, APP_ROOT, CACHE_ROOT, NGINX_ROOT
-from hop3.util import Abort, command_output, echo, log
-from hop3.util.templating import expand_vars
+from hop3.util import Abort, command_output, echo, expand_vars, log
 
 from .certificates import CertificatesManager
 from .templates import (
@@ -30,12 +29,13 @@ from .templates import (
 )
 
 if TYPE_CHECKING:
+    from hop3.core.app import App
     from hop3.core.env import Env
 
 
-def setup_nginx(app_name: str, env: Env, workers: dict[str, str]) -> None:
+def setup_nginx(app: App, env: Env, workers: dict[str, str]) -> None:
     """Configure Nginx for an app."""
-    config = NginxConfig(app_name, env, workers)
+    config = NginxConfig(app.name, env, workers)
     config.setup()
 
 

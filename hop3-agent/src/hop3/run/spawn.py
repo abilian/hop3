@@ -56,7 +56,7 @@ class AppLauncher:
         """Create the app's workers."""
         # Set up nginx if we have NGINX_SERVER_NAME set
         if "NGINX_SERVER_NAME" in self.env:
-            setup_nginx(self.app_name, self.env, self.workers)
+            setup_nginx(self.app, self.env, self.workers)
 
         # Configured worker count
         web_worker_count = dict.fromkeys(self.web_workers.keys(), 1)
