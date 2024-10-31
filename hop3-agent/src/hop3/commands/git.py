@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Internal CLI commands to manage git hooks."""
+
 from __future__ import annotations
 
 import subprocess
@@ -74,10 +76,10 @@ def cmd_git_receive_pack(app_name: str) -> None:
 
 @hop3.command("git-upload-pack")
 @argument("app_name")
-def cmd_git_upload_pack(app: App) -> None:
+def cmd_git_upload_pack(app_name: str) -> None:
     """INTERNAL: Handle git upload pack for an app."""
-    # app = get_app(app_name)
+    app = get_app(app_name)
 
-    # Handle the actual receive. We'll be called with 'git-hook' after it happens
+    # Handle the actual receive. Will be called with 'git-hook' after it happens
     cmd = ["git-upload-pack", app.name]
     subprocess.run(cmd, cwd=GIT_ROOT)

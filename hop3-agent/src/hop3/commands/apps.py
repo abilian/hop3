@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CLI commands."""
+"""CLI commands to manage apps lifecycle."""
 
 from __future__ import annotations
 
@@ -94,10 +94,12 @@ def cmd_ps_scale(app: App, settings: list[str]) -> None:
             key = key.strip()
             count = int(value.strip())  # check for integer value
         except Exception:
-            raise Abort(f"Error: malformed setting '{s}'")
+            msg = f"Error: malformed setting '{s}'"
+            raise Abort(msg)
 
         if count < 0:
-            raise Abort(f"Error: cannot scale type '{key}' below 0")
+            msg = f"Error: cannot scale type '{key}' below 0"
+            raise Abort(msg)
         if key not in worker_count:
             msg = f"Error: worker type '{key}' not present in '{app}'"
             raise Abort(msg)

@@ -1,5 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
+"""Custom types for CLI parameters."""
+
 from __future__ import annotations
 
 from click import Context, Parameter, ParamType

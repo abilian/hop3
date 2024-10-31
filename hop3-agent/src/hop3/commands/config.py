@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CLI commands."""
+"""CLI commands to manage app configuration."""
 
 from __future__ import annotations
 
