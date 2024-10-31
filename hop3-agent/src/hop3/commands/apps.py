@@ -128,15 +128,6 @@ def cmd_run(app: App, cmd: list[str]) -> None:
     p.communicate()
 
 
-def make_nonblocking(fd):
-    """Put the file descriptor *fd* into non-blocking mode if
-    possible.
-    """
-    flags = fcntl.fcntl(fd, fcntl.F_GETFL, 0)
-    if not bool(flags & os.O_NONBLOCK):
-        fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
-
-
 @hop3.command("restart")
 @argument("app", type=AppParamType())
 def cmd_restart(app: App) -> None:
@@ -149,3 +140,14 @@ def cmd_restart(app: App) -> None:
 def cmd_stop(app: App) -> None:
     """Stop an app, e.g: hop-agent stop <app>."""
     app.stop()
+
+
+# Utils
+
+def make_nonblocking(fd):
+    """Put the file descriptor *fd* into non-blocking mode if
+    possible.
+    """
+    flags = fcntl.fcntl(fd, fcntl.F_GETFL, 0)
+    if not bool(flags & os.O_NONBLOCK):
+        fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
