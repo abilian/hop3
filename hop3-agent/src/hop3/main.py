@@ -16,8 +16,7 @@ from click import CommandCollection
 
 from hop3.core.plugins import get_plugin_manager
 from hop3.system.constants import HOP3_BIN
-from hop3.util import Abort
-from hop3.util.path import prepend_to_path
+from hop3.util import Abort, prepend_to_path
 
 from .commands import hop3
 

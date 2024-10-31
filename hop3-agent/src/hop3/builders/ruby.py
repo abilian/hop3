@@ -7,8 +7,7 @@ from __future__ import annotations
 
 from hop3.core.env import Env
 from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
-from hop3.util import chdir
-from hop3.util.path import prepend_to_path
+from hop3.util import chdir, prepend_to_path
 
 from ._base import Builder
 

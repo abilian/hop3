@@ -10,8 +10,7 @@ from pathlib import Path
 
 from hop3.core.env import Env
 from hop3.core.events import BuildEvent, CreatingVirtualEnv, emit
-from hop3.util import log
-from hop3.util.path import prepend_to_path
+from hop3.util import log, prepend_to_path
 
 from ._base import Builder
 

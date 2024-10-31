@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from hop3.util.path import prepend_to_path
+from hop3.util import prepend_to_path
 
 
 def test_path_no_change():
