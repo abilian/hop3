@@ -17,7 +17,6 @@ from click import argument
 from hop3.core.app import App, list_apps
 from hop3.deploy import do_deploy
 from hop3.project.procfile import parse_procfile
-from hop3.system.constants import LOG_ROOT
 from hop3.util import Abort, echo, multi_tail
 
 from .cli import hop3
@@ -59,7 +58,7 @@ def cmd_destroy(app: App) -> None:
 def cmd_logs(app: App, process) -> None:
     """Tail running logs, e.g: hop-agent logs <app> [<process>]."""
 
-    logfiles = (LOG_ROOT / app.name).glob(process + ".*.log")
+    logfiles = list(app.log_path.glob(process + ".*.log"))
     if len(logfiles) > 0:
         for line in multi_tail(logfiles):
             echo(line.strip(), fg="white")

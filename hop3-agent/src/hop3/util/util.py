@@ -18,9 +18,7 @@ from subprocess import STDOUT, check_output
 
 from cleez.colors import dim
 
-from hop3.system.constants import APP_ROOT
-
-from .console import Abort, log
+from .console import log
 
 
 def shell(command: str, cwd: Path | str = "", **kwargs) -> subprocess.CompletedProcess:
@@ -54,14 +52,6 @@ def sanitize_app_name(app) -> str:
         .lstrip("/")
     )
     return app
-
-
-def exit_if_invalid(app_name: str) -> str:
-    """Check error upon command startup."""
-    app_name = sanitize_app_name(app_name)
-    if not (APP_ROOT / app_name).exists():
-        raise Abort(f"Error: app '{app_name}' not found.")
-    return app_name
 
 
 def get_free_port(address="") -> int:

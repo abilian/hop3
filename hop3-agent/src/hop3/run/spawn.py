@@ -13,13 +13,7 @@ from hop3.core.env import Env
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
 from hop3.proxies.nginx import setup_nginx
-from hop3.system.constants import (
-    ENV_ROOT,
-    HOP3_ROOT,
-    HOP3_USER,
-    LOG_ROOT,
-    UWSGI_ENABLED,
-)
+from hop3.system.constants import ENV_ROOT, HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
 from hop3.system.state import state
 from hop3.util import echo, get_free_port, log
 from hop3.util.settings import write_settings
@@ -122,7 +116,7 @@ class AppLauncher:
         env = Env(
             {
                 "APP": self.app_name,
-                "LOG_ROOT": LOG_ROOT,
+                # "LOG_ROOT": LOG_ROOT,
                 "HOME": HOP3_ROOT,
                 "USER": HOP3_USER,
                 "PATH": f"{self.virtualenv_path / 'bin'}:{os.environ['PATH']}",
