@@ -18,4 +18,8 @@ from .cli import hop3
 @pass_context
 def cmd_help(ctx) -> None:
     """Display help for hop3."""
-    echo(ctx.parent.get_help())
+    help_msg = ctx.parent.get_help()
+    lines = help_msg.split("\n")
+    lines = [line for line in lines if "INTERNAL:" not in line]
+    help_msg = "\n".join(lines)
+    echo(help_msg)
