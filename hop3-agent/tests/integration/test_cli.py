@@ -64,8 +64,14 @@ def test_lifecycle(hop3_home):
     app_name = f"test-app-{time.time()}"
     app = App(app_name)
     app.create()
+    assert (hop3_home / "apps" / app_name).exists()
+
     git_manager = GitManager(app)
     git_manager.setup_hook()
     git_manager.receive_pack()
 
     cli_main(["config", app_name])
+
+    cli_main(["destroy", app_name])
+
+    assert not (hop3_home / "apps" / app_name).exists()

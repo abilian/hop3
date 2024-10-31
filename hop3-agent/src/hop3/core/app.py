@@ -16,7 +16,6 @@ from hop3.run.spawn import spawn_app
 from hop3.system.constants import (
     ACME_WWW,
     APP_ROOT,
-    CACHE_ROOT,
     DATA_ROOT,
     ENV_ROOT,
     GIT_ROOT,
@@ -63,6 +62,10 @@ class App:
         # The data directory may already exist, since this may be a full redeployment
         # (we never delete data since it may be expensive to recreate)
         self.data_path.mkdir(parents=True, exist_ok=True)
+        self.log_path.mkdir(parents=True, exist_ok=True)
+        # log_path = LOG_ROOT / self.app_name
+        # if not log_path.exists():
+        #     os.makedirs(log_path)
 
     @property
     def is_running(self) -> bool:
@@ -83,6 +86,10 @@ class App:
         return DATA_ROOT / self.name
 
     @property
+    def log_path(self) -> Path:
+        return LOG_ROOT / self.name
+
+    @property
     def virtualenv_path(self) -> Path:
         return ENV_ROOT / self.name
 
@@ -97,38 +104,35 @@ class App:
         # TODO: finish refactoring this method
         app = self.name
 
+        def remove_file(p: Path) -> None:
+            if p.exists():
+                if p.is_dir():
+                    log(f"Removing folder '{p}'", level=2, fg="blue")
+                    shutil.rmtree(p)
+                else:
+                    log(f"Removing file '{p}'", level=2, fg="blue")
+                    os.unlink(p)
+
         # leave DATA_ROOT, since apps may create hard to reproduce data,
         # and CACHE_ROOT, since `nginx` will set permissions to protect it
-        for root in [APP_ROOT, GIT_ROOT, ENV_ROOT, LOG_ROOT, CACHE_ROOT]:
-            p = root / app
-            if p.exists():
-                log(f"Removing folder '{p}'", level=2, fg="blue")
-                shutil.rmtree(p)
+        remove_file(self.app_path)
+        remove_file(self.repo_path)
+        remove_file(self.virtualenv_path)
+        remove_file(self.log_path)
 
         for p in [UWSGI_AVAILABLE, UWSGI_ENABLED]:
             for f in Path(p).glob(f"{app}*.ini"):
-                log(f"Removing file '{f}'", level=2, fg="blue")
-                f.unlink()
+                remove_file(f)
 
-        nginx_files = [
-            NGINX_ROOT / f"{app}.conf",
-            NGINX_ROOT / f"{app}.sock",
-            NGINX_ROOT / f"{app}.key",
-            NGINX_ROOT / f"{app}.crt",
-        ]
-        for f in nginx_files:
-            if f.exists():
-                log(f"Removing file '{f}'", level=2, fg="blue")
-                f.unlink()
+        remove_file(NGINX_ROOT / f"{app}.conf")
+        remove_file(NGINX_ROOT / f"{app}.sock")
+        remove_file(NGINX_ROOT / f"{app}.key")
+        remove_file(NGINX_ROOT / f"{app}.crt")
 
         acme_link = Path(ACME_WWW, app)
         acme_certs = acme_link.resolve()
-        if acme_certs.exists():
-            log(f"Removing folder '{acme_certs}'", level=2, fg="yellow")
-            shutil.rmtree(acme_certs)
-
-            log(f"Removing file '{acme_link}'", level=2, fg="yellow")
-            os.unlink(acme_link)
+        remove_file(acme_link)
+        remove_file(acme_certs)
 
         # We preserve data
         data_dir = self.data_path

@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -14,7 +13,6 @@ from attrs import field, mutable
 from hop3.builders import BUILDER_CLASSES
 from hop3.project.config import AppConfig
 from hop3.run.spawn import spawn_app
-from hop3.system.constants import LOG_ROOT
 from hop3.util import Abort, chdir, check_binaries, log, shell
 
 if TYPE_CHECKING:
@@ -66,14 +64,9 @@ class Deployer:
         app_name = self.app_name
         app_path = self.app_path
 
-        if not app_path.exists():
-            raise Abort(f"Error: app '{app_name}' not found.")
+        self.app.check_exists()
 
-        log_path = LOG_ROOT / self.app_name
-        if not log_path.exists():
-            os.makedirs(log_path)
-
-        log(f"Deploying app '{app_name}'", level=5, fg="green")
+        log(f"Deploying app '{app_name}'", level=0, fg="green")
 
         self._git_update(newrev)
 
