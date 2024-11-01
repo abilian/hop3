@@ -66,11 +66,18 @@ def test_lifecycle(hop3_home):
     app.create()
     assert (hop3_home / "apps" / app_name).exists()
 
+    # This created the app (bypassing the CLI)
     git_manager = GitManager(app)
     git_manager.setup_hook()
     git_manager.receive_pack()
 
     cli_main(["config", app_name])
+    cli_main(["logs", app_name])
+
+    cli_main(["apps"])
+
+    # cli_main(["start", app_name])
+    # cli_main(["stop", app_name])
 
     cli_main(["destroy", app_name])
 

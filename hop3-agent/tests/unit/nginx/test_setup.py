@@ -1,5 +1,8 @@
 # Copyright (c) 2023-2024, Abilian SAS
+import pytest
+
 from hop3.core.app import App
+from hop3.core.env import Env
 from hop3.proxies.nginx.setup import NginxConfig
 
 
@@ -31,15 +34,32 @@ def test_get_static_paths_2():
     assert result[0][1].name == "public"
 
 
-# def test_setup_no_workers():
-#     env = {"NGINX_SERVER_NAME": "testapp.com"}
-#     workers = {}
-#     nginx = NginxConfig(App("testapp"), env, workers)
-#     nginx.setup()
-#
-#
-# def test_setup_with_workers():
-#     env = {"NGINX_SERVER_NAME": "testapp.com"}
-#     workers = {"static": "public"}
-#     nginx = NginxConfig(App("testapp"), env, workers)
-#     nginx.setup()
+# Copied from hop3-agent/src/hop3/proxies/nginx/setup.py
+SAFE_DEFAULTS = {
+    "NGINX_IPV4_ADDRESS": "0.0.0.0",
+    "NGINX_IPV6_ADDRESS": "[::]",
+    "BIND_ADDRESS": "127.0.0.1",
+}
+
+
+@pytest.fixture
+def env() -> Env:
+    env = Env()
+    env.update({
+        "PORT": "8000",
+        "NGINX_SERVER_NAME": "testapp.com",
+    })
+    env.update(SAFE_DEFAULTS)
+    return env
+
+
+def test_setup_no_workers(env: Env):
+    workers = {}
+    nginx = NginxConfig(App("testapp"), env, workers)
+    nginx.setup()
+
+
+def test_setup_with_workers(env: Env):
+    workers = {"static": "public"}
+    nginx = NginxConfig(App("testapp"), env, workers)
+    nginx.setup()
