@@ -52,6 +52,7 @@ lint.extend-ignore = [
     "FBT002", # Boolean default positional argument in function definition
     "PERF203",
     "PGH003",
+    "PLC1901",
     "PLC2801",
     "PLR0912",
     "PLR0913",

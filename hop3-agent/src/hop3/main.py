@@ -15,8 +15,9 @@ import traceback
 from click import CommandCollection
 
 from hop3.core.plugins import get_plugin_manager
-from hop3.system.constants import HOP3_BIN
+from hop3.system.constants import HOP3_BIN, HOP3_TESTING
 from hop3.util import Abort, prepend_to_path
+from hop3.util.console import console
 
 from .commands import hop3
 
@@ -45,6 +46,10 @@ def main(args=None) -> None:
         args = sys.argv[1:]
 
     fix_path()
+
+    if HOP3_TESTING:
+        console.reset()
+
     cli = CommandCollection(sources=get_cli_commands())
     try:
         cli(args=args)

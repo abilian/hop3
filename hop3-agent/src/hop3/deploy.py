@@ -74,7 +74,7 @@ class Deployer:
         self.workers = config.workers
 
         if not self.workers:
-            raise Abort(f"Error: Invalid Procfile for app '{app_name}'.")
+            raise Abort(f"Error: Procfile for app '{app_name}' (no workers).")
 
     def get_worker(self, name: str) -> str:
         return self.workers.get(name, "")

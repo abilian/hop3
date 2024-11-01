@@ -12,6 +12,7 @@ from hop3.core.app import App
 from hop3.core.git import GitManager
 from hop3.main import main as cli_main
 from hop3.util import Abort
+from hop3.util.console import console
 
 PATH = "/tmp/hop3"
 environ["HOP3_HOME"] = PATH
@@ -71,14 +72,50 @@ def test_lifecycle(hop3_home):
     git_manager.setup_hook()
     git_manager.receive_pack()
 
+    # Create an dummy project
+    Path(app.app_path / "Procfile").write_text("web: echo 'Hello, world!'")
+    Path(app.app_path / "requirements.txt").write_text("")
+
     cli_main(["config", app_name])
+    assert console.output() == ""
+
+    cli_main(["config:set", app_name, "XXX=xyz"])
+    assert app_name in console.output()
+
+    cli_main(["config:get", app_name, "XXX"])
+    assert "xyz" in console.output()
+
+    cli_main(["config:unset", app_name, "XXX"])
+    assert "xyz" not in console.output()
+    assert app_name in console.output()
+
     cli_main(["logs", app_name])
 
     cli_main(["apps"])
+    assert app_name in console.output()
+
+    cli_main(["ps", app_name])
+    assert "web:1" in console.output()
+
+    cli_main(["ps:scale", app_name, "web=2"])
+    assert "web.2" in console.output()
+
+    cli_main(["ps", app_name])
+    assert "web:2" in console.output()
+
+    cli_main(["ps:scale", app_name, "web=2"])
+    assert "web" in console.output()
+
+    # cli_main(["run", app_name, "/bin/pwd"])
+    # assert app_name in console.output()
 
     # cli_main(["start", app_name])
-    # cli_main(["stop", app_name])
+
+    cli_main(["stop", app_name])
 
     cli_main(["destroy", app_name])
+
+    cli_main(["apps"])
+    assert app_name not in console.output()
 
     assert not (hop3_home / "apps" / app_name).exists()

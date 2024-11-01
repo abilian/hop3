@@ -16,7 +16,6 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from click import argument
-from devtools import debug
 
 from hop3.oses.ubuntu2204 import setup_system
 from hop3.system.constants import (
@@ -80,46 +79,44 @@ def cmd_setup() -> None:
 @argument("public_key_file")
 def cmd_setup_ssh(public_key_file) -> None:
     """Set up a new SSH key (use - for stdin)."""
-
-    def add_helper(key_file: Path):
-        if key_file.exists():
-            try:
-                fingerprint = str(
-                    subprocess.check_output(f"ssh-keygen -lf {key_file}", shell=True),
-                ).split(" ", 4)[1]
-                key = key_file.read_text().strip()
-                echo(f"Adding key '{fingerprint}'.", fg="white")
-                setup_authorized_keys(fingerprint, key)
-            except Exception:
-                echo(
-                    f"Error: invalid public key file '{key_file}':"
-                    f" {traceback.format_exc()}",
-                    fg="red",
-                )
-        elif public_key_file == "-":
-            buffer = "".join(sys.stdin.readlines())
-            with NamedTemporaryFile(mode="w", encoding="utf8") as f:
-                f.write(buffer)
-                f.flush()
-                add_helper(Path(f.name))
-        else:
-            raise Abort(f"Error: public key file '{key_file}' not found.")
-
-    add_helper(Path(public_key_file))
+    if public_key_file == "-":
+        add_helper(Path(public_key_file))
+        buffer = "".join(sys.stdin.readlines())
+        with NamedTemporaryFile(mode="w", encoding="utf8") as f:
+            f.write(buffer)
+            f.flush()
+            add_helper(Path(f.name))
+    else:
+        add_helper(Path(public_key_file))
 
 
-def setup_authorized_keys(ssh_fingerprint, pubkey) -> None:
+def add_helper(key_file: Path):
+    if not key_file.exists():
+        raise Abort(f"Error: public key file '{key_file}' not found.")
+
+    try:
+        cmd = ["ssh-keygen", "-lf", key_file]
+        fingerprint = str(subprocess.check_output(cmd)).split(" ", 4)[1]
+        key = key_file.read_text().strip()
+        echo(f"Adding key '{fingerprint}'.", fg="white")
+        setup_authorized_keys(key, fingerprint)
+    except Exception:
+        echo(
+            f"Error: invalid public key file '{key_file}': {traceback.format_exc()}",
+            fg="red",
+        )
+
+
+def setup_authorized_keys(pubkey, fingerprint) -> None:
     """Sets up an authorized_keys file to redirect SSH commands."""
     authorized_keys = HOP3_ROOT / ".ssh" / "authorized_keys"
-    debug(authorized_keys)
     authorized_keys.parent.mkdir(parents=True, exist_ok=True)
 
     # Restrict features and force all SSH commands to go through our script
     authorized_keys.write_text(
-        f'command="FINGERPRINT={ssh_fingerprint:s} NAME=default'
+        f'command="FINGERPRINT={fingerprint:s} NAME=default'
         f' {HOP3_SCRIPT:s} $SSH_ORIGINAL_COMMAND",no-agent-forwarding,no-user-rc,no-X11-forwarding,no-port-forwarding'
         f" {pubkey:s}\n",
     )
-
     authorized_keys.parent.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
     authorized_keys.chmod(stat.S_IRUSR | stat.S_IWUSR)

@@ -12,7 +12,9 @@ from os.path import abspath, join
 from pathlib import Path
 
 # Useful for developing
-if "PYTEST_VERSION" in environ:
+HOP3_TESTING = "PYTEST_VERSION" in environ
+
+if HOP3_TESTING:
     # Hack to set up early when testing
     _HOME = "/tmp/hop3"
 elif "HOP3_HOME" in environ:

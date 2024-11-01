@@ -9,24 +9,62 @@ import sys
 
 __all__ = ["Abort", "echo", "log", "panic"]
 
+from abc import ABC, abstractmethod
+
+from attrs import field, frozen
 from cleez.colors import blue, green, red, yellow
 
+from hop3.system.constants import HOP3_TESTING
 
-def echo(msg, fg: str = ""):
-    """Print message to stdout."""
-    match fg:
-        case "" | "white":
-            print(msg)
-        case "green":
-            print(green(msg))
-        case "red":
-            print(red(msg))
-        case "blue":
-            print(blue(msg))
-        case "yellow":
-            print(yellow(msg))
-        case _:
-            raise ValueError(f"Unknown color: {fg}")
+
+class Console(ABC):
+    @abstractmethod
+    def echo(self, msg, fg: str = ""):
+        """Print message to stdout."""
+
+    def reset(self):
+        pass
+
+
+class PrintingConsole(Console):
+    def echo(self, msg, fg: str = ""):
+        """Print message to stdout."""
+        match fg:
+            case "" | "white":
+                print(msg)
+            case "green":
+                print(green(msg))
+            case "red":
+                print(red(msg))
+            case "blue":
+                print(blue(msg))
+            case "yellow":
+                print(yellow(msg))
+            case _:
+                raise ValueError(f"Unknown color: {fg}")
+
+
+@frozen
+class TestingConsole:
+    buffer: list[str] = field(factory=list)
+
+    def echo(self, msg, fg: str = ""):
+        """Print message to buffer."""
+        self.buffer.append(msg)
+
+    def reset(self):
+        del self.buffer[:]
+
+    def output(self):
+        return "\n".join(self.buffer)
+
+
+if HOP3_TESTING:
+    console = TestingConsole()
+else:
+    console = PrintingConsole()
+
+echo = console.echo
 
 
 def log(msg, level=0, fg="green") -> None:
