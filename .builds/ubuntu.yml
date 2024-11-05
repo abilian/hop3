@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-image: debian/stable
+image: ubuntu/24.04
 
 packages:
   # Build tools
@@ -40,8 +40,7 @@ tasks:
       cd hop3
       poetry run nox
 
-triggers:
-  - action: email
-    condition: failure
-    to: sf@fermigier.com
-    # to: builds@fermigier.com
+#triggers:
+#  - action: email
+#    condition: failure
+#    to: builds@fermigier.com
