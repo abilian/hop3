@@ -43,12 +43,13 @@ deploy:
 
 ## Install development dependencies and pre-commit hook (env must be already activated)
 develop: install-deps activate-pre-commit configure-git
+install: install-deps
 
 install-deps:
 	@echo "--> Installing dependencies"
 	uv venv
-	uv sync
-	.venv/bin/inv install
+	uv sync --inexact
+	uv run invoke install
 
 activate-pre-commit:
 	@echo "--> Activating pre-commit hook"
@@ -161,9 +162,6 @@ add-copyright:
 
 help:
 	adt help-make
-
-install:
-	poetry install
 
 doc: doc-html doc-pdf
 
