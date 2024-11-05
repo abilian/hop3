@@ -1,11 +1,11 @@
 # Copyright (c) 2024, Abilian SAS
 
 # ruff: noqa: PLR2004
+from __future__ import annotations
 
 from pathlib import Path
 
 from devtools import debug
-
 from hop3.core.env import Env
 
 

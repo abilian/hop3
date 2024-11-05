@@ -1,6 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
-import pytest
+from __future__ import annotations
 
+import pytest
 from hop3.core.app import App
 from hop3.core.env import Env
 from hop3.proxies.nginx.setup import NginxConfig

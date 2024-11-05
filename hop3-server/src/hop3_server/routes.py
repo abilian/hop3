@@ -1,14 +1,16 @@
 # Copyright (c) 2023-2024, Abilian SAS
+from __future__ import annotations
 
 import json
 import traceback
 
 from devtools import debug
-from hop3_server.commands.base import scan_commands
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
+
+from hop3_server.commands.base import scan_commands
 
 COMMANDS = scan_commands()
 

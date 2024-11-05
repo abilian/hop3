@@ -1,6 +1,7 @@
 # Copyright (c) 2024, Abilian SAS
 
 # ruff: noqa: PLR2004
+from __future__ import annotations
 
 from hop3.util.delegate import delegate
 

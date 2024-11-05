@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from attr import frozen
 from devtools import debug
+
 from hop3_server.service.constants import APP_ROOT, ENV_ROOT, LOG_ROOT
 from hop3_server.service.settings import parse_settings
 

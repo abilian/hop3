@@ -11,7 +11,6 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from click import secho as echo
-
 from hop3.util import expand_vars
 
 

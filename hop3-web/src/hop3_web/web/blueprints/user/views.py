@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from flask import render_template
+
 from hop3_web.web.menus import MAIN_MENU
 
 from . import get

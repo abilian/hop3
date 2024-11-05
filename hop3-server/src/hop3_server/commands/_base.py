@@ -1,4 +1,5 @@
 # Copyright (c) 2023-2024, Abilian SAS
+from __future__ import annotations
 
 from types import ModuleType
 from typing import cast

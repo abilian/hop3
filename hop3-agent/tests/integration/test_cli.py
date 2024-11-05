@@ -1,4 +1,5 @@
 # Copyright (c) 2023-2024, Abilian SAS
+from __future__ import annotations
 
 import subprocess
 import time
@@ -7,7 +8,6 @@ from pathlib import Path
 from shutil import rmtree
 
 import pytest
-
 from hop3.core.app import App
 from hop3.core.git import GitManager
 from hop3.main import main as cli_main

@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-License-Identifier: MIT
+from __future__ import annotations
 
 from hop3.util import expand_vars
 

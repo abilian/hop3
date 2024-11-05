@@ -13,10 +13,9 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_sqlalchemy.query import Query
 from flask_talisman import DEFAULT_CSP_POLICY, Talisman
 from flask_vite import Vite
+from hop3.model.security import Role, User
 from loguru import logger
 from pytz import timezone
-
-from hop3.model.security import Role, User
 
 PARIS_TZ = timezone("Europe/Paris")
 
