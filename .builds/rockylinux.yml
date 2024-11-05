@@ -35,7 +35,8 @@ tasks:
 
   - nox: |
       cd hop3
-      uv run nox
+      uv run nox -e pytest-3.12
+      uv run nox -e pytest-3.11
 
 #triggers:
 #  - action: email
