@@ -5,12 +5,15 @@
 from __future__ import annotations
 
 from subprocess import CalledProcessError
+from typing import TYPE_CHECKING
 
-from hop3.core.env import Env
 from hop3.core.events import CompilingProject, CreatingBuildEnv, emit
 from hop3.util import chdir
 
 from ._base import Builder
+
+if TYPE_CHECKING:
+    from hop3.core.env import Env
 
 
 class RustBuilder(Builder):

@@ -3,14 +3,17 @@ from __future__ import annotations
 
 import json
 import traceback
+from typing import TYPE_CHECKING
 
 from devtools import debug
 from starlette.exceptions import HTTPException
-from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from hop3_server.commands.base import scan_commands
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
 
 COMMANDS = scan_commands()
 

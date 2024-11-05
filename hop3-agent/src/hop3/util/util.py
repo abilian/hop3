@@ -11,14 +11,17 @@ import subprocess
 import sys
 import time
 from collections import deque
-from collections.abc import Iterator
 from pathlib import Path
 from socket import AF_INET, SOCK_STREAM, socket
 from subprocess import STDOUT, check_output
+from typing import TYPE_CHECKING
 
 from cleez.colors import dim
 
 from .console import log
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 def shell(command: str, cwd: Path | str = "", **kwargs) -> subprocess.CompletedProcess:

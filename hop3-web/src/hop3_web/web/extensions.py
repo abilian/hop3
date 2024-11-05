@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from blinker import ANY
 from devtools import debug
-from flask import Flask
 from flask_babel import Babel
 from flask_htmx import HTMX
 from flask_mail import Mail, email_dispatched
@@ -16,6 +17,9 @@ from flask_vite import Vite
 from hop3.model.security import Role, User
 from loguru import logger
 from pytz import timezone
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 PARIS_TZ = timezone("Europe/Paris")
 

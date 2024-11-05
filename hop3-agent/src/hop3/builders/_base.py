@@ -5,14 +5,16 @@
 
 from __future__ import annotations
 
-import subprocess
 from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.core.env import Env
 from hop3.system.constants import APP_ROOT, ENV_ROOT
 from hop3.util import shell
+
+if TYPE_CHECKING:
+    import subprocess
+    from pathlib import Path
 
 
 class Builder(ABC):

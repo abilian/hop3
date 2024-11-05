@@ -7,11 +7,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from click import secho as echo
 from hop3.util import expand_vars
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 def write_settings(settings_file: str | Path, bag: Mapping, separator="=") -> None:

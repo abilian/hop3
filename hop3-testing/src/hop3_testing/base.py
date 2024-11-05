@@ -9,10 +9,9 @@ import shutil
 import subprocess
 import time
 import traceback
-from collections.abc import Iterator
 from http import HTTPStatus
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from devtools import debug
@@ -22,6 +21,9 @@ from .common import DOMAIN, SERVER, run
 
 # Temp: use a backport of chdir from hop3-lib
 from .util.backports import chdir
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 DEFAULT_WAIT = 10
 CLOJURE_WAIT = 15

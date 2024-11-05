@@ -12,6 +12,7 @@ import pathlib
 import re
 import shutil
 import subprocess
+import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Generator
@@ -349,7 +350,7 @@ def _get_gh_token() -> str:
             return out
 
     click.secho("Could not find any GitHub token", fg="red")
-    quit(1)
+    sys.exit(1)
 
 
 def _get_latest_tag() -> str:
@@ -371,7 +372,8 @@ def _write_changelog_entry(changelog_entry: str) -> None:
         None,
     )
     if line_no is None:
-        raise ValueError("Changelog start not found")
+        msg = "Changelog start not found"
+        raise ValueError(msg)
 
     changelog_lines[line_no:line_no] = changelog_entry.splitlines()
     changelog_path.write_text("\n".join(changelog_lines))
@@ -423,7 +425,7 @@ def cli(
 
     if not re.match(r"\d\.\d\.\d", version):
         click.secho(f"Invalid version: {version!r}")
-        quit(1)
+        sys.exit(1)
 
     new_tag = f"v{version}"
 

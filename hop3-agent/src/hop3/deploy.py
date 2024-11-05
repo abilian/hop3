@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from attrs import field, mutable
@@ -16,6 +15,8 @@ from hop3.run.spawn import spawn_app
 from hop3.util import Abort, chdir, check_binaries, log, shell
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from hop3.core.app import App
 
 # Will be removed

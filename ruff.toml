@@ -18,6 +18,7 @@ lint.extend-ignore = [
     "BLE", # flake8-blind-except
     "D", # pydocstyle
     "ERA", # eradicate
+    "FBT", # boolean traps
     "FIX", # flake8-fixme
     "PTH", # flake8-use-pathlib
     "S", # flake8-bandit
@@ -54,9 +55,6 @@ lint.extend-ignore = [
     "PLW1510", # `subprocess.run` without explicit `check` argument
     "PT011", # pytest.raises() should be used as a context manager
     "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
-    "TCH001", # Move import into a type-checking block
-    "TCH002", # Move import into a type-checking block
-    "TCH003", # Move import into a type-checking block
 ]
 
 [lint.mccabe]

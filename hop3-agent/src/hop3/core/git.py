@@ -10,15 +10,18 @@ from __future__ import annotations
 
 import stat
 import subprocess
-from pathlib import Path
 from textwrap import dedent
+from typing import TYPE_CHECKING
 
 from attrs import frozen
 
 from hop3.system.constants import APP_ROOT, GIT_ROOT, HOP3_ROOT, HOP3_SCRIPT
 from hop3.util import echo
 
-from .app import App
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from .app import App
 
 
 @frozen

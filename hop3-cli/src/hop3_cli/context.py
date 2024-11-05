@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import requests
 from jsonrpcclient import parse, request
 
-from .config import Config
-from .state import State
+if TYPE_CHECKING:
+    from .config import Config
+    from .state import State
 
 # TODO: use State
 

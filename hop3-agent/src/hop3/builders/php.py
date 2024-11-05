@@ -5,12 +5,15 @@
 from __future__ import annotations
 
 from subprocess import CalledProcessError
+from typing import TYPE_CHECKING
 
-from hop3.core.env import Env
 from hop3.core.events import InstallingDependencies, PreparingBuildEnv, emit
 from hop3.util import chdir, shell
 
 from ._base import Builder
+
+if TYPE_CHECKING:
+    from hop3.core.env import Env
 
 
 class PHPBuilder(Builder):

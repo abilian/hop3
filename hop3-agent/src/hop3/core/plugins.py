@@ -6,12 +6,15 @@ from __future__ import annotations
 
 import importlib
 import pkgutil
-from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 import pluggy
 from pluggy import PluginManager
 
 from hop3.core import hookspecs
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 def get_core_plugins() -> list:

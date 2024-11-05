@@ -8,11 +8,13 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from click import secho as echo
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 def write_settings(settings_file: str | Path, bag: Mapping, separator="=") -> None:

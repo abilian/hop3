@@ -1,4 +1,5 @@
 # ruff: noqa: A003
+from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
