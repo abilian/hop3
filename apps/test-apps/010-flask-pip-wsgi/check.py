@@ -5,6 +5,7 @@ Check if the app is up and running.
 
 This is specific to the testing harness.
 """
+from __future__ import annotations
 
 import sys
 
