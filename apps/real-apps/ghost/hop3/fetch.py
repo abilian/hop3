@@ -11,7 +11,7 @@ DOWNLOAD_URL = f"https://github.com/TryGhost/Ghost/archive/refs/tags/v{VERSION}.
 
 print("We are here:", Path.cwd())
 
-archive_path = Path('source.tar.gz')
+archive_path = Path("source.tar.gz")
 
 with urlopen(DOWNLOAD_URL) as response:
     data = response.read()

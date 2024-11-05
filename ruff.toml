@@ -24,17 +24,16 @@ lint.extend-ignore = [
     "S", # flake8-bandit
     "T20", # flake8-print
     "TD", # flake8-todos
+    "DOC", # pydocstyle
 
     # False positive, don't remove
     "A005", # Module ... is shadowing a Python builtin module
     "COM812", # Missing trailing comma
-    "DOC201", # `return` is not documented in docstring
-    "DOC202", # Docstring should not have a returns section
     "I001", # Import block is un-sorted or un-formatted
     "INP001", # implicit namespace package
     "ISC001", # (The following rules may cause conflicts when used with the formatter)
     "PD011", # Use `.to_numpy()` instead of `.values`
-    "PLC0415", # Consider using `f-string`
+    "PLC0415", # `import` should be at the top-level of a file
     "PLR6104", # suggests using += when inapplicable
     "PLW1514", # `pathlib.Path(...).write_text` without explicit `encoding` argument
     "RET504", # Unnecessary assignment before `return` statement
@@ -42,14 +41,10 @@ lint.extend-ignore = [
     "S101", # Use of `assert` detected
     "SIM102", # Use a single `if` statement instead of nested `if` statements
     "SIM108", # Use ternary operator
-    "TCH001", # Move import into a type-checking block
-    "TCH002", # Move import into a type-checking block
-    "TCH003", # Move import into a type-checking block
     "TRY003", # Avoid specifying long messages outside the exception class
 
     # Fix these
     "E501", # Line too long
-    "FBT002", # Boolean default positional argument in function definition
     "PERF203",
     "PGH003",
     "PLC1901",
@@ -63,10 +58,9 @@ lint.extend-ignore = [
     "PT011",
     "PT017",
     "RUF012",
-    # Docstrings
-    "DOC402", # `yield` is not documented in docstring
-    "DOC501", # Raised exception missing from docstring
-    "DOC502", # Raised exception is not explicitly raised
+    "TCH001", # Move import into a type-checking block
+    "TCH002", # Move import into a type-checking block
+    "TCH003", # Move import into a type-checking block
 ]
 
 [lint.mccabe]

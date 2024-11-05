@@ -5,7 +5,7 @@ from io import StringIO
 
 from pyinfra import host
 from pyinfra.facts.files import File
-from pyinfra.operations import server, files, apt, systemd, pip, postgres
+from pyinfra.operations import apt, files, pip, postgres, server, systemd
 
 PACKAGES = [
     "bc",
