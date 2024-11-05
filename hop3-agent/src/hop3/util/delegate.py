@@ -4,6 +4,7 @@
 - Licensed under terms of the MIT License (see LICENSE.txt)
 - Copyright (c) 2014 Henry S. Harrison, henry.schafer.harrison@gmail.com
 """
+
 from __future__ import annotations
 
 from functools import partial, partialmethod

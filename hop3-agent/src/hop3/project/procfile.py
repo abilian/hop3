@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from hop3.system.constants import CRON_REGEXP
-from hop3.util import Abort, log
+from hop3.util import log
 
 
 def parse_procfile(filename: str | Path) -> dict:
@@ -61,7 +61,7 @@ class Procfile:
         wsgi_worker_types = {"wsgi", "jwsgi", "rwsgi"}
         if wsgi_worker_types.intersection(self.workers) and "web" in self.workers:
             msg = "Error: found both 'wsgi' and 'web' workers"
-            raise Abort(msg)
+            raise ValueError(msg)
 
     def parse_line(self, line: str, line_number: int) -> None:
         line = line.strip()

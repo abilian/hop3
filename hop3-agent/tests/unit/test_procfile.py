@@ -64,10 +64,14 @@ def test_procfile_4():
     }
 
 
-def test_bad_procfiles():
+def get_bad_procfiles():
     bad_procfiles = [
         objs for (name, objs) in globals().items() if name.startswith("BAD_PROCFILE")
     ]
-    for procfile in bad_procfiles:
-        with pytest.raises(ValueError):
-            Procfile.from_str(procfile)
+    return bad_procfiles
+
+
+@pytest.mark.parametrize("bad_procfile", get_bad_procfiles())
+def test_bad_procfiles(bad_procfile):
+    with pytest.raises(ValueError):  # noqa: PT011
+        Procfile.from_str(bad_procfile)
