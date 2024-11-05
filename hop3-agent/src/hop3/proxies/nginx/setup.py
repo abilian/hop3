@@ -102,7 +102,7 @@ class NginxConfig:
                 f"-----> nginx will look for app '{self.app_name}' on {self.env['NGINX_SOCKET']}"
             )
 
-        CertificatesManager(self.app_name, self.env).setup_certificates()
+        CertificatesManager(self.app_name, dict(**self.env)).setup_certificates()
 
         self.setup_cloudflare()
 

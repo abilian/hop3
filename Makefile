@@ -110,6 +110,7 @@ lint:
 	ruff check */src tests */tests
 	# mypy --show-error-codes src
 	# pyright src
+	pyright hop3-agent/src
 	reuse lint -q
 
 
