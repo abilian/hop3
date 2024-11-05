@@ -3,7 +3,7 @@
 # ruff: noqa: PLR2004
 from __future__ import annotations
 
-from hop3.util.delegate import delegate
+from util.delegate import delegate
 
 
 @delegate("_n", int)

@@ -142,6 +142,7 @@ audit:
 format:
 	# docformatter -i -r src
 	ruff format src */src tests */tests
+	ruff check --fix src */src tests */tests
 	markdown-toc -i README.md
 
 ## Format / beautify apps

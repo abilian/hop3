@@ -9,20 +9,8 @@ import os
 from pathlib import Path
 
 from hop3.system.constants import APP_ROOT, ENV_ROOT
-from hop3.util import log, shell
+from hop3.util import log, prepend_to_path, shell
 from hop3.util.settings import parse_settings
-
-#         if Path(app_path, "pom.xml").exists() and check_binaries(["java", "mvn"]):
-#             log("Java Maven app detected.", level=5, fg="green")
-#             build_java_maven(app_name)
-#             builder_detected = True
-#
-#         if Path(app_path, "build.gradle").exists() and check_binaries(
-#             ["java", "gradle"]
-#         ):
-#             log("Java Gradle app detected.", level=5, fg="green")
-#             build_java_gradle(app_name)
-#             builder_detected = True
 
 
 def build_java_gradle(app_name: str) -> None:
@@ -33,14 +21,11 @@ def build_java_gradle(app_name: str) -> None:
 
     env = {
         "VIRTUAL_ENV": java_path,
-        "PATH": ":".join(
-            [
-                java_path / "bin",
-                # FIXME: probably bad
-                Path(app_name, ".bin"),
-                os.environ["PATH"],
-            ],
-        ),
+        "PATH": prepend_to_path([
+            java_path / "bin",
+            # FIXME: probably bad
+            Path(app_name) / ".bin",
+        ]),
     }
 
     if os.path.exists(env_file):
@@ -67,13 +52,11 @@ def build_java_maven(app_name: str) -> None:
 
     env = {
         "VIRTUAL_ENV": java_path,
-        "PATH": ":".join(
-            [
-                java_path / "bin",
-                Path(app_name) / ".bin",
-                os.environ["PATH"],
-            ],
-        ),
+        "PATH": prepend_to_path([
+            java_path / "bin",
+            # FIXME: probably bad
+            Path(app_name) / ".bin",
+        ]),
     }
 
     if env_file.exists():

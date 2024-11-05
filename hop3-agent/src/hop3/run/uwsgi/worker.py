@@ -12,7 +12,7 @@ import shutil
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING
 
 from hop3.system.constants import (
     APP_ROOT,
@@ -47,13 +47,14 @@ def spawn_uwsgi_worker(
     #     spawn_uwsgi_worker_web(app_name, kind, command, env, ordinal)
     #     return
 
+    worker: UwsgiWorker
     match kind:
         case "static":
-            log("-----> nginx serving static files only", fg="yellow")
+            log("nginx serving static files only", level=2, fg="yellow")
             return
         case "cron":
             worker = CronWorker(app_name, command, env, ordinal)
-            log(f"-----> uwsgi scheduled cron for {command}", fg="yellow")
+            log(f"uwsgi scheduled cron for {command}", level=2, fg="yellow")
         case "jwsgi":
             worker = JwsgiWorker(app_name, command, env, ordinal)
         case "rwsgi":
@@ -143,8 +144,9 @@ class UwsgiWorker:
                 raise Abort(msg)
 
     @abstractmethod
-    def update_settings(self) -> NoReturn:
-        raise NotImplementedError
+    def update_settings(self) -> None:
+        ...
+        # raise NotImplementedError
 
     def update_env(self) -> None:
         # remove unnecessary variables from the env in nginx.ini
