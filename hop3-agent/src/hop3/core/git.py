@@ -28,17 +28,17 @@ if TYPE_CHECKING:
 class GitManager:
     app: App
 
-    def receive_pack(self):
+    def receive_pack(self) -> None:
         """Handle git pushes for an app."""
         cmd = ["git-receive-pack", self.app.name]
         subprocess.run(cmd, cwd=GIT_ROOT)
 
-    def upload_pack(self):
+    def upload_pack(self) -> None:
         """Handle git upload pack for an app."""
         cmd = ["git-upload-pack", self.app.name]
         subprocess.run(cmd, cwd=GIT_ROOT)
 
-    def setup_hook(self):
+    def setup_hook(self) -> None:
         """Setup a post-receive hook for an app."""
         app = self.app
         hook_path = app.repo_path / "hooks" / "post-receive"
@@ -60,7 +60,7 @@ class GitManager:
             )
             make_executable(hook_path)
 
-    def clone(self):
+    def clone(self) -> None:
         """Clone a repository for an app."""
         if not self.app.app_path.exists():
             echo(f"-----> Creating app '{self.app.name}'", fg="green")

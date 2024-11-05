@@ -7,7 +7,7 @@ from hop3_cli.main import parse_args
 
 
 @skip
-def test_args():
+def test_args() -> None:
     args = ["debug"]
     result = parse_args(args)
     assert result.subcommand == "debug"

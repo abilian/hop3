@@ -15,7 +15,7 @@ class Platform:
 
 
 class Linux(Platform):
-    def put_file(self, name, src, dest, *, mode=None, owner=None, group=None):
+    def put_file(self, name, src, dest, *, mode=None, owner=None, group=None) -> None:
         match src:
             case Path():
                 Path(dest).write_text(src.read_text())
@@ -29,7 +29,7 @@ class Linux(Platform):
 
         # TODO: mode, owner, group
 
-    def ensure_user(self, name, user, home, shell, group):
+    def ensure_user(self, name, user, home, shell, group) -> None:
         pass
 
     # server.user(
@@ -40,12 +40,12 @@ class Linux(Platform):
     #     group="www-data",
     # )
 
-    def ensure_link(self, name, path, target):
+    def ensure_link(self, name, path, target) -> None:
         os.symlink(path, target)
 
 
 class Debian(Linux):
-    def ensure_packages(self, name, packages, *, update=True):
+    def ensure_packages(self, name, packages, *, update=True) -> None:
         packages_str = " ".join(packages)
         shell(f"apt-get install -y {packages_str}")
 

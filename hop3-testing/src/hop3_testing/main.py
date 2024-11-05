@@ -73,7 +73,7 @@ def main() -> None:
         run_tests(apps, config)
 
 
-def run_tests_parallel(apps, config):
+def run_tests_parallel(apps, config) -> None:
     # Not working
     def run(app):
         session = TestSession(app, config)
@@ -84,7 +84,7 @@ def run_tests_parallel(apps, config):
     debug(zip(apps, results))
 
 
-def run_tests(apps, config):
+def run_tests(apps, config) -> None:
     test_results = []
     status = 0
     for app in sorted(apps):

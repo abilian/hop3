@@ -20,7 +20,7 @@ class State:
     state_file: Path
     data: dict = dataclasses.field(default_factory=dict)
 
-    def load_state(self):
+    def load_state(self) -> None:
         if not self.state_file.exists():
             return
 
@@ -37,10 +37,10 @@ class State:
 
         raise KeyError(key)
 
-    def set(self, key, value):
+    def set(self, key, value) -> None:
         self.data[key] = value
 
-    def save_state(self):
+    def save_state(self) -> None:
         # TODO: lock or use atomic operation
         with self.state_file.open("w") as f:
             json.dump(self.data, f)

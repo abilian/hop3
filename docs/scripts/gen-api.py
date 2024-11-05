@@ -21,7 +21,7 @@ class Generator:
         self.output = []
         self.output_file = (Path("src") / "dev" / "api" / f"{self.source}.md").open("w")
 
-    def generate_spi(self):
+    def generate_spi(self) -> None:
         """Generate API documentation."""
 
         self.print(f"# API Documentation for `{self.source}`")
@@ -43,11 +43,11 @@ class Generator:
 
         self.output_file.write("\n".join(self.output).strip() + "\n")
 
-    def print(self, *args):
+    def print(self, *args) -> None:
         self.output.append(" ".join(args))
 
 
-def main():
+def main() -> None:
     for source in SOURCES:
         generator = Generator(source)
         generator.generate_spi()

@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, NoReturn
 
 from hop3.core.env import Env
 from hop3.system.constants import APP_ROOT, ENV_ROOT
@@ -45,7 +45,7 @@ class Builder(ABC):
     name: ClassVar[str]
     requirements: ClassVar[list[str]]
 
-    def __init__(self, app_name: str):
+    def __init__(self, app_name: str) -> None:
         """Initialize the class with the specified app name.
 
         Args:
@@ -75,7 +75,7 @@ class Builder(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def build(self):
+    def build(self) -> NoReturn:
         """Build function not implemented.
 
         Raises

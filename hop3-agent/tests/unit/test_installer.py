@@ -9,7 +9,7 @@ from pathlib import Path
 from hop3.oses.helpers import Linux
 
 
-def test_put_file():
+def test_put_file() -> None:
     platform = Linux()
     dummy = StringIO("dummy")
     platform.put_file("test", dummy, "/tmp/test_installer.py")
@@ -19,7 +19,7 @@ def test_put_file():
     Path("/tmp/test_installer.py").unlink()
 
 
-def test_ensure_link():
+def test_ensure_link() -> None:
     platform = Linux()
     Path("/tmp/dummy").touch()
     platform.ensure_link("test", "/tmp/dummy", "/tmp/dummy2")

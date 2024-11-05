@@ -41,5 +41,5 @@ def init_app(app: Flask) -> None:
         return render_template_string("Hello {{ current_user.email }}")
 
     @app.before_request
-    def before_request():
+    def before_request() -> None:
         g.current_user = current_user

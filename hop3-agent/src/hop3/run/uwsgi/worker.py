@@ -12,7 +12,7 @@ import shutil
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
 from hop3.system.constants import (
     APP_ROOT,
@@ -79,13 +79,13 @@ class UwsgiWorker:
 
     log_format = ""
 
-    def spawn(self):
+    def spawn(self) -> None:
         self.create_base_settings()
         self.update_settings()
         self.update_env()
         self.write_settings()
 
-    def create_base_settings(self):
+    def create_base_settings(self) -> None:
         env = self.env.copy()
 
         app_name = self.app_name
@@ -143,10 +143,10 @@ class UwsgiWorker:
                 raise Abort(msg)
 
     @abstractmethod
-    def update_settings(self):
+    def update_settings(self) -> NoReturn:
         raise NotImplementedError
 
-    def update_env(self):
+    def update_env(self) -> None:
         # remove unnecessary variables from the env in nginx.ini
         env = self.env.copy()
         for k in ["NGINX_ACL"]:
@@ -162,14 +162,14 @@ class UwsgiWorker:
         for k, v in env.items():
             self.settings.add("env", f"{k:s}={v}")
 
-    def write_settings(self):
+    def write_settings(self) -> None:
         name = f"{self.app_name:s}_{self.kind:s}.{self.ordinal:d}.ini"
         uwsgi_available_path = UWSGI_AVAILABLE / name
         uwsgi_enabled_path = UWSGI_ENABLED / name
         self.settings.write(uwsgi_available_path)
         shutil.copyfile(uwsgi_available_path, uwsgi_enabled_path)
 
-    def log(self, message):
+    def log(self, message) -> None:
         message = message.format(**self.env)
         log(f"-----> {message}", fg="yellow")
 
@@ -178,7 +178,7 @@ class UwsgiWorker:
 class CronWorker(UwsgiWorker):
     kind = "cron"
 
-    def update_settings(self):
+    def update_settings(self) -> None:
         cron_cmd = self.command.replace("*/", "-").replace("*", "-1")
         self.settings.add("cron", cron_cmd)
 
@@ -187,7 +187,7 @@ class CronWorker(UwsgiWorker):
 class JwsgiWorker(UwsgiWorker):
     kind = "jwsgi"
 
-    def update_settings(self):
+    def update_settings(self) -> None:
         self.settings += [
             ("module", self.command),
             ("threads", self.env.get("UWSGI_THREADS", "4")),
@@ -200,7 +200,7 @@ class JwsgiWorker(UwsgiWorker):
 class RwsgiWorker(UwsgiWorker):
     kind = "rwsgi"
 
-    def update_settings(self):
+    def update_settings(self) -> None:
         self.settings += [
             ("module", self.command),
             ("threads", self.env.get("UWSGI_THREADS", "4")),
@@ -219,7 +219,7 @@ class WsgiWorker(UwsgiWorker):
         ' %%(size) "%%(referer)" "%%(uagent)" %%(msecs)ms'
     )
 
-    def update_settings(self):
+    def update_settings(self) -> None:
         self.settings += [
             ("module", self.command),
             ("threads", self.env.get("UWSGI_THREADS", "4")),
@@ -264,7 +264,7 @@ class WebWorker(UwsgiWorker):
         ' %%(size) "%%(referer)" "%%(uagent)" %%(msecs)ms'
     )
 
-    def update_settings(self):
+    def update_settings(self) -> None:
         echo(
             "-----> nginx will talk to the 'web' process via"
             " {BIND_ADDRESS:s}:{PORT:s}".format(
@@ -279,5 +279,5 @@ class WebWorker(UwsgiWorker):
 class GenericWorker(UwsgiWorker):
     kind: str = "generic"
 
-    def update_setings(self):
+    def update_setings(self) -> None:
         self.settings.add("attach-daemon", self.command)

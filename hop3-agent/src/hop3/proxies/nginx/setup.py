@@ -76,7 +76,7 @@ class NginxConfig:
             value = template.format(**self.env)
         self.env[key] = value
 
-    def setup(self):
+    def setup(self) -> None:
         # default to reverse proxying to the TCP port we picked
         self.update_env(
             "HOP3_INTERNAL_NGINX_UWSGI_SETTINGS",

@@ -7,7 +7,7 @@ from __future__ import annotations
 from .settings import UwsgiSettings
 
 
-def test_settings():
+def test_settings() -> None:
     settings = UwsgiSettings()
     settings.add("module", "command")
     settings.add("threads", "4")

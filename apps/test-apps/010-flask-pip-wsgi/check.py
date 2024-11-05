@@ -12,7 +12,7 @@ import sys
 import httpx
 
 
-def check(hostname):
+def check(hostname) -> None:
     url = f"https://{hostname}/"
     response = httpx.get(url, verify=False)
     assert response.is_success

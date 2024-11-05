@@ -58,7 +58,7 @@ def create_app(config: Any = None) -> Flask:
     return app
 
 
-def init_app(app: Flask):
+def init_app(app: Flask) -> None:
     # Logging & Observability
     init_logging(app)
     # init_sentry(app)

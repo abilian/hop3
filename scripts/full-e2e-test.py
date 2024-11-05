@@ -9,7 +9,7 @@ from __future__ import annotations
 import subprocess
 
 
-def main():
+def main() -> None:
     cmd = "ssh root@ssh.hop.abilian.com rm -rf /home/hop3"
     subprocess.run(cmd, shell=True, check=True)
 

@@ -4,6 +4,6 @@
 from __future__ import annotations
 
 
-def echo(msg, fg=None):
+def echo(msg, fg=None) -> None:
     """Print message to stdout."""
     print(msg)

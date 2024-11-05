@@ -72,7 +72,7 @@ Dir::Cache { srcpkgcache ""; pkgcache ""; }
 """
 
 
-def main():
+def main() -> None:
     setup_server()
     setup_hop3()
     setup_uwsgi()
@@ -81,7 +81,7 @@ def main():
     setup_postgres()
 
 
-def setup_server():
+def setup_server() -> None:
     files.put(
         name="Put appropriate /etc/apt/apt.conf.d/00-hop3",
         src=StringIO(APT_CONF),
@@ -113,7 +113,7 @@ def setup_server():
     )
 
 
-def setup_hop3():
+def setup_hop3() -> None:
     src_file = glob.glob("hop3-agent/dist/hop3*.tar.gz")[0]
 
     files.put(
@@ -161,7 +161,7 @@ def setup_hop3():
     )
 
 
-def setup_uwsgi():
+def setup_uwsgi() -> None:
     files.link(
         name="Create uwsgi symlink",
         path="/usr/local/bin/uwsgi-hop3",
@@ -182,7 +182,7 @@ def setup_uwsgi():
     )
 
 
-def setup_acme():
+def setup_acme() -> None:
     acme_sh_exists = host.get_fact(File, f"{HOME_DIR}/.acme.sh/acme.sh")
 
     if not acme_sh_exists:
@@ -231,7 +231,7 @@ def setup_acme():
     )
 
 
-def setup_nginx():
+def setup_nginx() -> None:
     files.put(
         name="Put html page",
         src="etc/index.html",
@@ -288,7 +288,7 @@ def setup_nginx():
     )
 
 
-def setup_postgres():
+def setup_postgres() -> None:
     postgres.role(
         role="hop3",
         password="hop3pw",

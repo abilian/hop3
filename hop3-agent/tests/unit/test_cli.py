@@ -8,7 +8,7 @@ from __future__ import annotations
 from hop3.main import main
 
 
-def test_cli():
+def test_cli() -> None:
     try:
         main(["help"])
     except SystemExit as e:

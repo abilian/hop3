@@ -20,12 +20,12 @@ warnings.filterwarnings("ignore", category=InsecureRequestWarning)
 logger = logging.getLogger(__name__)
 
 
-def main():
+def main() -> None:
     args = sys.argv[1:]
     run_command_from_args(args)
 
 
-def run_command_from_args(args=None):
+def run_command_from_args(args=None) -> None:
     namespace = parse_args(args)
 
     if "config_file" in namespace:
@@ -71,7 +71,7 @@ def make_parser():
     return parser
 
 
-def debug_cmd(args, context):
+def debug_cmd(args, context) -> None:
     config = context.config
     env = dict(sorted([(k, v) for k, v in os.environ.items() if k.startswith("HOP3_")]))
     debug(

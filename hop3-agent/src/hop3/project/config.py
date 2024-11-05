@@ -68,16 +68,16 @@ class AppConfig:
             return None
         return path
 
-    def parse_app_json(self):
+    def parse_app_json(self) -> None:
         pass
         # See: https://devcenter.heroku.com/articles/app-json-schema
         # self.app_json = json.loads(Path("app.json").read_text())
 
-    def parse_hop3(self):
+    def parse_hop3(self) -> None:
         pass
 
     def get_worker(self, name: str):
         return self.procfile.workers.get(name, "")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<AppConfig {self.app_dir}>"

@@ -33,7 +33,7 @@ class Config:
         "api_secret": None,
     }
 
-    def load_config(self):
+    def load_config(self) -> None:
         if not self.config_file.exists():
             return
 

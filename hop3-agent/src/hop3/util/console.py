@@ -22,15 +22,15 @@ class Console(ABC):
     def echo(self, msg, fg: str = ""):
         """Print message to stdout."""
 
-    def reset(self):
+    def reset(self) -> None:
         pass
 
-    def output(self):
+    def output(self) -> str:
         return ""
 
 
 class PrintingConsole(Console):
-    def echo(self, msg, fg: str = ""):
+    def echo(self, msg, fg: str = "") -> None:
         """Print message to stdout."""
         match fg:
             case "" | "white":
@@ -52,11 +52,11 @@ class PrintingConsole(Console):
 class TestingConsole(Console):
     buffer: list[str] = field(factory=list)
 
-    def echo(self, msg, fg: str = ""):
+    def echo(self, msg, fg: str = "") -> None:
         """Print message to buffer."""
         self.buffer.append(msg)
 
-    def reset(self):
+    def reset(self) -> None:
         del self.buffer[:]
 
     def output(self):

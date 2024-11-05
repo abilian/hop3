@@ -24,7 +24,7 @@ cron: * * * * * echo "hello"
 """
 
 
-def test_config_1():
+def test_config_1() -> None:
     with tempfile.TemporaryDirectory() as d:
         dir_path = Path(d)
         Path(dir_path, "Procfile").write_text(PROCFILE1)
@@ -33,7 +33,7 @@ def test_config_1():
         assert config.workers == {"web": "gunicorn -w 4 -b"}
 
 
-def test_config_2():
+def test_config_2() -> None:
     with tempfile.TemporaryDirectory() as d:
         dir_path = Path(d)
         Path(dir_path, "Procfile").write_text(PROCFILE2)

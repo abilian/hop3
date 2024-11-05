@@ -43,7 +43,7 @@ class SysInfo:
                 return result
         return None
 
-    def _set_cache(self, key, value):
+    def _set_cache(self, key, value) -> None:
         self._cache[key] = (value, time.time())
 
     #

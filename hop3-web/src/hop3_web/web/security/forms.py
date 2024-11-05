@@ -18,7 +18,7 @@ from wtforms import PasswordField, StringField, ValidationError
 #
 # Forms
 #
-def validate_password(form, field):
+def validate_password(form, field) -> None:
     msg = (
         "Le mot de passe doit comporter au moins 1 majuscule, 1 minuscule et 1 chiffre"
     )

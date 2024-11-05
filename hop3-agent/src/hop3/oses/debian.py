@@ -68,7 +68,7 @@ Dir::Cache { srcpkgcache ""; pkgcache ""; }
 platform = Debian()
 
 
-def setup_server():
+def setup_server() -> None:
     platform.put_file(
         name="Put appropriate /etc/apt/apt.conf.d/00-nua",
         src=StringIO(APT_CONF),

@@ -14,7 +14,7 @@ d = ${APP_NAME}
 """.strip()
 
 
-def test_var_expansion():
+def test_var_expansion() -> None:
     env = {"APP_NAME": "test-app"}
     result = expand_vars(TEMPLATES, env)
     assert result == "a = 1\nb = {a}\nc = test-app\nd = test-app"

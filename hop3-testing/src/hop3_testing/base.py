@@ -61,7 +61,7 @@ class TestSession:
         self.test_apps_command()
         self.test_web()
 
-    def test_web(self):
+    def test_web(self) -> None:
         self.hop("config:set", f"NGINX_SERVER_NAME={self.app_host_name}")
         if self.app_name.startswith("clojure"):
             time.sleep(CLOJURE_WAIT)
@@ -70,7 +70,7 @@ class TestSession:
 
         self.check_app_is_up()
 
-    def test_apps_command(self):
+    def test_apps_command(self) -> None:
         time.sleep(DEFAULT_WAIT)
         result = self.hop("apps")
         assert self.app_name in result, f"App {self.app_name} not found in {result}"
@@ -125,7 +125,7 @@ class TestSession:
 
         self.check_app_content()
 
-    def check_app_content(self):
+    def check_app_content(self) -> None:
         check_script_path = self.directory / "check.py"
         if check_script_path.exists():
             print("Checking app content")

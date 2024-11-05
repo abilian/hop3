@@ -60,7 +60,7 @@ class PostgresqlAddon(Addon):
         exists = cursor.fetchone()
         return exists is not None
 
-    def _create_database(self, cursor):
+    def _create_database(self, cursor) -> None:
         stmt = f"""CREATE USER {self.db_user} WITH PASSWORD '{self.db_pass}';"""
         cursor.execute(stmt)
         stmt = f"""CREATE DATABASE {self.db_name} WITH OWNER {self.db_user};"""

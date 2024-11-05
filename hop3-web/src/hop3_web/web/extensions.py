@@ -58,7 +58,7 @@ def setup_debug_toolbar(app: Flask) -> None:
 
 
 @email_dispatched.connect_via(ANY)
-def debug_email(app, message):
+def debug_email(app, message) -> None:
     if not app.debug:
         return
 

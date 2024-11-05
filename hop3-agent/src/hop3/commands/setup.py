@@ -90,7 +90,7 @@ def cmd_setup_ssh(public_key_file) -> None:
         add_helper(Path(public_key_file))
 
 
-def add_helper(key_file: Path):
+def add_helper(key_file: Path) -> None:
     if not key_file.exists():
         msg = f"Error: public key file '{key_file}' not found."
         raise Abort(msg)

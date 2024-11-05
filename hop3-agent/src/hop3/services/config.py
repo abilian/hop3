@@ -6,13 +6,13 @@ from __future__ import annotations
 
 
 class ConfigService:
-    def __init__(self, config: dict):
+    def __init__(self, config: dict) -> None:
         self.config = config
 
     def get(self, key: str):
         return self.config.get(key)
 
-    def set(self, key: str, value):
+    def set(self, key: str, value) -> None:
         self.config[key] = value
 
     def get_all(self):

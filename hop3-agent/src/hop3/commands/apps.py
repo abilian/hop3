@@ -143,7 +143,7 @@ def cmd_stop(app: App) -> None:
 # Utils
 
 
-def make_nonblocking(fd):
+def make_nonblocking(fd) -> None:
     """Put the file descriptor *fd* into non-blocking mode if
     possible.
     """

@@ -52,7 +52,7 @@ class User(AuditBase, UserMixin):
     )
 
     @property
-    def is_admin(self):
+    def is_admin(self) -> bool:
         return False
         # return "admin" in [role.name for role in self.roles]
 

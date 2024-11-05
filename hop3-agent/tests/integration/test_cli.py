@@ -37,7 +37,7 @@ def hop3_home() -> Path:
     rmtree(path, ignore_errors=True)
 
 
-def test_setup_ssh(hop3_home):
+def test_setup_ssh(hop3_home) -> None:
     # Generate a key for this test
     ssh_file = hop3_home / "tmp" / "id_rsa"
     subprocess.run(["ssh-keygen", "-t", "rsa", "-N", "", "-f", ssh_file], check=True)
@@ -48,20 +48,20 @@ def test_setup_ssh(hop3_home):
     assert authorized_keys.exists()
 
 
-def test_help():
+def test_help() -> None:
     cli_main(["help"])
 
 
-def test_list_apps(hop3_home):
+def test_list_apps(hop3_home) -> None:
     cli_main(["apps"])
 
 
-def test_inexistent_app(hop3_home):
+def test_inexistent_app(hop3_home) -> None:
     with pytest.raises(Abort):
         cli_main(["app", "inexistent"])
 
 
-def test_lifecycle(hop3_home):
+def test_lifecycle(hop3_home) -> None:
     app_name = f"test-app-{time.time()}"
     app = App(app_name)
     app.create()
