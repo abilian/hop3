@@ -32,7 +32,8 @@ class App:
 
     def check_exists(self) -> None:
         if not (APP_ROOT / self.name).exists():
-            raise ValueError(f"App {self.name} does not exist")
+            msg = f"App {self.name} does not exist"
+            raise ValueError(msg)
 
     def get_env(self) -> dict[str, str]:
         virtualenv_path = ENV_ROOT / self.name

@@ -17,7 +17,6 @@ lint.extend-ignore = [
     "B", # flake8-bugbear
     "BLE", # flake8-blind-except
     "D", # pydocstyle
-    "EM", # flake8-errmsg
     "ERA", # eradicate
     "FIX", # flake8-fixme
     "PTH", # flake8-use-pathlib

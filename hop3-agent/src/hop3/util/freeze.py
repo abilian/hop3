@@ -7,7 +7,8 @@ from __future__ import annotations
 
 def setattr_frozen(self, key, value) -> None:
     if getattr(self, "__frozen__", False):
-        raise AttributeError("Cannot set attribute on frozen instance")
+        msg = "Cannot set attribute on frozen instance"
+        raise AttributeError(msg)
     object.__setattr__(self, key, value)
 
 

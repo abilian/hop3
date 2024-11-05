@@ -29,7 +29,8 @@ class Procfile:
     def from_file(cls, filename: str | Path) -> Procfile:
         path = Path(filename)
         if not path.exists():
-            raise FileNotFoundError(f"File not found: {filename}")
+            msg = f"File not found: {filename}"
+            raise FileNotFoundError(msg)
 
         procfile = Procfile()
         text = path.read_text()
@@ -88,4 +89,5 @@ class Procfile:
             matches = res.groups()
             for i in range(len(limits)):
                 if int(matches[i].replace("*/", "").replace("*", "1")) > limits[i]:
-                    raise ValueError(f"Invalid cron pattern: {command}")
+                    msg = f"Invalid cron pattern: {command}"
+                    raise ValueError(msg)

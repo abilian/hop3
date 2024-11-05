@@ -139,7 +139,8 @@ class UwsgiWorker:
                     f" {idle_timeout}s of inactivity"
                 )
             except Exception:
-                raise Abort("Error: malformed setting 'UWSGI_IDLE', ignoring it.")
+                msg = "Error: malformed setting 'UWSGI_IDLE', ignoring it."
+                raise Abort(msg)
 
     @abstractmethod
     def update_settings(self):
@@ -234,7 +235,8 @@ class WsgiWorker(UwsgiWorker):
                 ]
                 self.log(f"-----> uwsgi will support {tasks} async tasks")
             except ValueError:
-                raise Abort("Error: malformed setting 'UWSGI_ASYNCIO'.")
+                msg = "Error: malformed setting 'UWSGI_ASYNCIO'."
+                raise Abort(msg)
 
         # If running under nginx, don't expose a port at all
         if "NGINX_SERVER_NAME" in self.env:

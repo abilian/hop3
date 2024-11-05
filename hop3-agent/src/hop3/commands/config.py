@@ -53,7 +53,8 @@ def cmd_config_set(app: App, settings) -> None:
             log(f"Setting {key:s}={value} for '{app.name:s}'", fg="white")
             env[key] = value
         except Exception:
-            raise Abort(f"Error: malformed setting '{s}'")
+            msg = f"Error: malformed setting '{s}'"
+            raise Abort(msg)
 
     config_file = ENV_ROOT / app.name / "ENV"
     write_settings(config_file, env)

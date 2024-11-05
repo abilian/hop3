@@ -44,7 +44,8 @@ class PrintingConsole(Console):
             case "yellow":
                 print(yellow(msg))
             case _:
-                raise ValueError(f"Unknown color: {fg}")
+                msg = f"Unknown color: {fg}"
+                raise ValueError(msg)
 
 
 @frozen

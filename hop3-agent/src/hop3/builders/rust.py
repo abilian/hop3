@@ -68,4 +68,5 @@ class RustBuilder(Builder):
         try:
             self.shell("cargo build")
         except CalledProcessError as e:
-            raise RuntimeError(f"Failed to compile Rust project '{self.app_name}': {e}")
+            msg = f"Failed to compile Rust project '{self.app_name}': {e}"
+            raise RuntimeError(msg)

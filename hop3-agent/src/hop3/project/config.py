@@ -51,7 +51,8 @@ class AppConfig:
         # See: https://devcenter.heroku.com/articles/procfile
         procfile_path = self.get_file("Procfile")
         if not procfile_path:
-            raise ValueError(f"Procfile not found in {self.app_dir}")
+            msg = f"Procfile not found in {self.app_dir}"
+            raise ValueError(msg)
 
         self.procfile = Procfile.from_file(procfile_path)
 

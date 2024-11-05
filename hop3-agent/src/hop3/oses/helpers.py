@@ -24,7 +24,8 @@ class Linux(Platform):
             case StringIO():
                 Path(dest).write_text(src.getvalue())
             case _:
-                raise ValueError("Invalid src type")
+                msg = "Invalid src type"
+                raise ValueError(msg)
 
         # TODO: mode, owner, group
 

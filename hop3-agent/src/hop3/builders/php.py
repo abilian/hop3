@@ -59,7 +59,10 @@ class PHPBuilder(Builder):
         try:
             shell("composer install", cwd=self.app_path)
         except CalledProcessError as e:
-            raise RuntimeError(
+            msg = (
                 "Failed to install dependencies for PHP project"
-                f" '{self.app_name}': {e}",
+                f" '{self.app_name}': {e}"
+            )
+            raise RuntimeError(
+                msg,
             )

@@ -103,6 +103,7 @@ class PythonBuilder(Builder):
         elif Path("pyproject.toml").exists():
             self.shell(f"{pip} install .")
         else:
+            msg = f"requirements.txt or pyproject.toml not found for '{self.app_name}'"
             raise FileNotFoundError(
-                f"requirements.txt or pyproject.toml not found for '{self.app_name}'",
+                msg,
             )

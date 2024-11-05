@@ -60,7 +60,8 @@ def exit_if_invalid(app_name: str) -> str:
     """Check error upon command startup."""
     app_name = sanitize_app_name(app_name)
     if not (APP_ROOT / app_name).exists():
-        raise Abort(f"Error: app '{app_name}' not found.")
+        msg = f"Error: app '{app_name}' not found."
+        raise Abort(msg)
     return app_name
 
 

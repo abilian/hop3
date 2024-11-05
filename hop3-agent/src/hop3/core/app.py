@@ -51,11 +51,13 @@ class App:
     def validate(self) -> None:
         for c in self.name:
             if not c.isalnum() and c not in {".", "_", "-"}:
-                raise ValueError("Invalid app name")
+                msg = "Invalid app name"
+                raise ValueError(msg)
 
     def check_exists(self) -> None:
         if not (APP_ROOT / self.name).exists():
-            raise Abort(f"Error: app '{self.name}' not found.")
+            msg = f"Error: app '{self.name}' not found."
+            raise Abort(msg)
 
     def create(self) -> None:
         self.app_path.mkdir(exist_ok=True)

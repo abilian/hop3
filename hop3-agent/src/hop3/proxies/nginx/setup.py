@@ -199,8 +199,9 @@ class NginxConfig:
                     .decode("utf-8"),
                 )
             except Exception:
+                msg = f"Could not retrieve CloudFlare IP ranges: {format_exc()}"
                 raise Abort(
-                    f"Could not retrieve CloudFlare IP ranges: {format_exc()}",
+                    msg,
                 )
 
             if cf["success"] is True:

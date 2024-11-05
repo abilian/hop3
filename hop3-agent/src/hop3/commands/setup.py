@@ -92,7 +92,8 @@ def cmd_setup_ssh(public_key_file) -> None:
 
 def add_helper(key_file: Path):
     if not key_file.exists():
-        raise Abort(f"Error: public key file '{key_file}' not found.")
+        msg = f"Error: public key file '{key_file}' not found."
+        raise Abort(msg)
 
     try:
         cmd = ["ssh-keygen", "-lf", key_file]

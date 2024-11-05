@@ -57,7 +57,8 @@ def main(args=None) -> None:
         if e.code == 0:
             return
         if TESTING:
-            raise Abort("SystemExit", status=e.code)
+            msg = "SystemExit"
+            raise Abort(msg, status=e.code)
         sys.exit(e.code)
     except Abort as e:
         print(e)

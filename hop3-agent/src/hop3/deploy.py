@@ -74,7 +74,8 @@ class Deployer:
         self.workers = config.workers
 
         if not self.workers:
-            raise Abort(f"Error: Procfile for app '{app_name}' (no workers).")
+            msg = f"Error: Procfile for app '{app_name}' (no workers)."
+            raise Abort(msg)
 
     def get_worker(self, name: str) -> str:
         return self.workers.get(name, "")
@@ -87,7 +88,8 @@ class Deployer:
         log("Running prebuild.", level=5, fg="blue")
         retval = shell(command, cwd=self.app_path).returncode
         if retval:
-            raise Abort(f"prebuild failed due to command error value: {retval}", retval)
+            msg = f"prebuild failed due to command error value: {retval}"
+            raise Abort(msg, retval)
 
     def run_build(self) -> None:
         if build_worker := self.get_worker("build"):
@@ -119,7 +121,8 @@ class Deployer:
             builder_detected = True
 
         if not builder_detected:
-            raise Abort("No app detected.")
+            msg = "No app detected."
+            raise Abort(msg)
 
     def run_postbuild(self) -> None:
         app_path = self.app_path
@@ -131,7 +134,8 @@ class Deployer:
         log("Releasing", level=5, fg="blue")
         retval = shell(command, cwd=app_path)
         if retval:
-            raise Abort(f"Exiting postbuild due to command error value: {retval}")
+            msg = f"Exiting postbuild due to command error value: {retval}"
+            raise Abort(msg)
 
     def _git_update(self, newrev: str) -> None:
         app_path = self.app_path
