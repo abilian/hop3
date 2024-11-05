@@ -12,4 +12,4 @@ def test_cli():
     try:
         main(["help"])
     except SystemExit as e:
-        assert e.code == 0
+        assert e.code == 0  # noqa: PT017
