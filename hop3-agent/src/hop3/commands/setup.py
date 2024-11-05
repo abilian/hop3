@@ -113,9 +113,9 @@ def setup_authorized_keys(pubkey, fingerprint) -> None:
     authorized_keys.parent.mkdir(parents=True, exist_ok=True)
 
     # Restrict features and force all SSH commands to go through our script
+    cmd = f"FINGERPRINT={fingerprint:s} NAME=default {HOP3_SCRIPT:s} $SSH_ORIGINAL_COMMAND"
     authorized_keys.write_text(
-        f'command="FINGERPRINT={fingerprint:s} NAME=default'
-        f' {HOP3_SCRIPT:s} $SSH_ORIGINAL_COMMAND",no-agent-forwarding,no-user-rc,no-X11-forwarding,no-port-forwarding'
+        f'command="{cmd}",no-agent-forwarding,no-user-rc,no-X11-forwarding,no-port-forwarding'
         f" {pubkey:s}\n",
     )
     authorized_keys.parent.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)

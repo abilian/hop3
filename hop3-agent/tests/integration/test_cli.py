@@ -31,10 +31,10 @@ def hop3_home() -> Path:
     cli_main(["setup"])
 
     assert (path / "apps").exists()
-    return path
+    yield path
 
     # Clean up
-    # rmtree(path, ignore_errors=True)
+    rmtree(path, ignore_errors=True)
 
 
 def test_setup_ssh(hop3_home):

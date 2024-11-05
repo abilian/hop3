@@ -25,6 +25,9 @@ class Console(ABC):
     def reset(self):
         pass
 
+    def output(self):
+        return ""
+
 
 class PrintingConsole(Console):
     def echo(self, msg, fg: str = ""):
@@ -45,7 +48,7 @@ class PrintingConsole(Console):
 
 
 @frozen
-class TestingConsole:
+class TestingConsole(Console):
     buffer: list[str] = field(factory=list)
 
     def echo(self, msg, fg: str = ""):
@@ -58,6 +61,8 @@ class TestingConsole:
     def output(self):
         return "\n".join(self.buffer)
 
+
+console: Console
 
 if HOP3_TESTING:
     console = TestingConsole()
