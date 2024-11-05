@@ -63,3 +63,6 @@ max-complexity = 14
 [lint.isort]
 combine-as-imports = true
 required-imports = ["from __future__ import annotations"]
+
+[lint.per-file-ignores]
+"**/src/**/*.py" = ["PT"] # Pytest warnings in source code are probably false positives

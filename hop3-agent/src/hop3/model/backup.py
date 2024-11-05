@@ -9,7 +9,6 @@ from enum import Enum
 from advanced_alchemy.base import BigIntAuditBase
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy_serializer import SerializerMixin
 
 from .instance import Instance
 
@@ -21,7 +20,7 @@ class BackupStateEnum(Enum):
     FAILED = 4
 
 
-class Backup(BigIntAuditBase, SerializerMixin):
+class Backup(BigIntAuditBase):
     __tablename__ = "backup"
 
     instance_id: Mapped[int] = mapped_column(ForeignKey(Instance.id))

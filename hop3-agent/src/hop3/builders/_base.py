@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, ClassVar, NoReturn
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.core.env import Env
 from hop3.system.constants import APP_ROOT, ENV_ROOT
@@ -66,24 +66,11 @@ class Builder(ABC):
         Returns
         -------
             bool: True if this builder instance can accept the input, False otherwise.
-
-        Raises
-        ------
-            NotImplementedError: This method must be implemented in the subclass.
-
         """
-        raise NotImplementedError
 
     @abstractmethod
-    def build(self) -> NoReturn:
-        """Build function not implemented.
-
-        Raises
-        ------
-            NotImplementedError: This method is not implemented and should be overridden by subclasses.
-
-        """
-        raise NotImplementedError
+    def build(self) -> None:
+        """Build function (implemented by subclasses)."""
 
     @property
     def app_path(self) -> Path:

@@ -9,7 +9,6 @@ from enum import Enum
 from advanced_alchemy.base import BigIntAuditBase
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy_serializer import SerializerMixin
 
 from hop3.model.app import App
 
@@ -21,7 +20,7 @@ class InstanceStateEnum(Enum):
     # ...
 
 
-class Instance(BigIntAuditBase, SerializerMixin):
+class Instance(BigIntAuditBase):
     __tablename__ = "instance"
 
     app_id: Mapped[int] = mapped_column(ForeignKey(App.id))

@@ -27,7 +27,7 @@ def write_settings(settings_file: str | Path, bag: Mapping, separator="=") -> No
 
 def parse_settings(
     filename: str | Path,
-    env: Mapping[str, str] | None = None,
+    env: dict[str, str] | None = None,
 ) -> dict[str, str]:
     """Parse a settings file and returns a dict with environment variables."""
     if env is None:

@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 import attr
 
@@ -36,7 +37,7 @@ class SysInfo:
     #
     # Cache
     #
-    def _get_cached_result(self, key, timeout):
+    def _get_cached_result(self, key, timeout) -> Any:
         if key in self._cache:
             result, timestamp = self._cache[key]
             if time.time() - timestamp < timeout:
@@ -49,19 +50,19 @@ class SysInfo:
     #
     # Arch / OS
     #
-    def platform_name(self):
+    def platform_name(self) -> str:
         return platform.system()
 
     @cache(60)
-    def system_arch(self):
+    def system_arch(self) -> str:
         return self._run_command("dpkg --print-architecture")
 
     @cache(60)
-    def system_virt(self):
+    def system_virt(self) -> str:
         return self._run_command("systemd-detect-virt || true")
 
     @cache(60)
-    def distrib_codename(self):
+    def distrib_codename(self) -> str:
         return self._lsb_release("c")
 
     @cache(60)
@@ -87,19 +88,19 @@ class SysInfo:
     # Network
     #
     @cache(3600)
-    def get_host_name(self):
+    def get_host_name(self) -> str:
         return self._run_command("hostname")
 
     @cache(3600)
-    def get_ip_address(self):
+    def get_ip_address(self) -> str:
         try:
             result = self._run_command("ip route get 1")
-            return result.split("src ")[1].split(" ")[0] if result else None
+            return result.split("src ")[1].split(" ")[0] if result else ""
         except Exception:
-            return None
+            return ""
 
     @cache(3600)
-    def has_ipv6(self):
+    def has_ipv6(self) -> bool:
         return Path("/proc/net/if_inet6").exists()
 
     #
@@ -109,77 +110,77 @@ class SysInfo:
     def get_cpu_core(self):
         try:
             result = self._run_command("lscpu | grep socket:")
-            return result.split(":")[1].strip(" ").strip("\\n'") if result else None
+            return result.split(":")[1].strip(" ").strip("\\n'") if result else ""
         except Exception:
-            return None
+            return ""
 
     #
     # HDD
     #
     @cache(3600)
-    def get_hd_size(self):
+    def get_hd_size(self) -> str:
         try:
             result = self._run_command("sudo lshw -class disk | grep size")
-            return result.split("(", 1)[1].split(")")[0] if result else None
+            return result.split("(", 1)[1].split(")")[0] if result else ""
         except Exception:
-            return None
+            return ""
 
     @cache(3600)
-    def get_hd_type(self):
+    def get_hd_type(self) -> str:
         try:
             result = self._run_command(
                 "sudo lshw -class disk -class storage | grep description"
             )
-            return result.split("\\n")[0].split(":")[1].strip(" ") if result else None
+            return result.split("\\n")[0].split(":")[1].strip(" ") if result else ""
         except Exception:
-            return None
+            return ""
 
     #
     # Vendor
     #
     @cache(3600)
-    def get_manufacturer(self):
+    def get_manufacturer(self) -> str:
         return self._run_command("sudo dmidecode -s system-manufacturer")[2:-3]
 
     @cache(3600)
-    def get_model(self):
+    def get_model(self) -> str:
         return self._run_command("sudo dmidecode -s system-product-name")[2:-3]
 
     @cache(3600)
-    def get_serial_number(self):
+    def get_serial_number(self) -> str:
         return self._run_command("sudo dmidecode -s system-serial-number")[2:-3]
 
     #
     # RAM
     #
     @cache(3600)
-    def get_ram_type(self):
+    def get_ram_type(self) -> str:
         try:
             cmd = 'sudo dmidecode --type 17 | grep -B 2 "Type Detail: Synchronous" | grep -w "Type:"'
             result = self._run_command(cmd)
-            return result.split("\tType:")[1].strip(" ").strip("\n") if result else None
+            return result.split("\tType:")[1].strip(" ").strip("\n") if result else ""
         except Exception:
-            return None
+            return ""
 
     @cache(3600)
-    def get_ram_size(self):
+    def get_ram_size(self) -> str:
         try:
             cmd = "grep MemTotal /proc/meminfo"
             result = self._run_command(cmd)
             ram_size = round(int(result.split()[1]) / 1024000) if result else None
-            return str(ram_size) + " GB" if ram_size else None
+            return str(ram_size) + " GB" if ram_size else ""
         except Exception:
-            return None
+            return ""
 
     #
     # Internal
     #
-    def _lsb_release(self, key):
+    def _lsb_release(self, key) -> str:
         return self._run_command(f"lsb_release -s{key}")
 
-    def _run_command(self, cmd):
+    def _run_command(self, cmd) -> str:
         try:
             result = subprocess.run(cmd, check=True, capture_output=True, shell=True)
             return result.stdout.decode().strip()
         except subprocess.CalledProcessError:
-            return None
+            return ""

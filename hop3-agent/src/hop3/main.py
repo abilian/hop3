@@ -54,6 +54,7 @@ def main(args=None) -> None:
     try:
         cli(args=args)
     except SystemExit as e:
+        assert isinstance(e.code, int)
         if e.code == 0:
             return
         if TESTING:
