@@ -113,7 +113,7 @@ class App:
                     shutil.rmtree(p)
                 else:
                     log(f"Removing file '{p}'", level=2, fg="blue")
-                    os.unlink(p)
+                    p.unlink()
 
         # leave DATA_ROOT, since apps may create hard to reproduce data,
         # and CACHE_ROOT, since `nginx` will set permissions to protect it

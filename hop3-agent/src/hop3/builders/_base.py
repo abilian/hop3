@@ -42,8 +42,8 @@ class Builder(ABC):
     app_name: str
 
     # Class attitutes
-    requirements: ClassVar[list[str]]
     name: ClassVar[str]
+    requirements: ClassVar[list[str]]
 
     def __init__(self, app_name: str):
         """Initialize the class with the specified app name.

@@ -53,6 +53,7 @@ lint.extend-ignore = [
     "PLR0915", # Too many statements
     "PLR6301", # Method could be a function
     "PLW1510", # `subprocess.run` without explicit `check` argument
+    # Not sure why this one raises warnings
     "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
 ]
 

@@ -274,9 +274,9 @@ class NginxConfig:
         """Configure Nginx caching"""
         self.env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = ""
         self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
-        default_cache_path = os.path.join(CACHE_ROOT, self.app_name)
-        if not os.path.exists(default_cache_path):
-            os.makedirs(default_cache_path)
+        default_cache_path = CACHE_ROOT / self.app_name
+        if not default_cache_path.exists():
+            default_cache_path.mkdir(parents=True)
 
         try:
             _cache_size = self.env.get_int("NGINX_CACHE_SIZE", 1)
@@ -329,7 +329,7 @@ class NginxConfig:
                 level=4,
                 fg="yellow",
             )
-            cache_path = self.env.get_path(default_cache_path)
+            cache_path = default_cache_path
 
         cache_prefixes = self.env.get("NGINX_CACHE_PREFIXES", "")
         if len(cache_prefixes):
