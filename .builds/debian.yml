@@ -23,22 +23,22 @@ packages:
 
 tasks:
   - setup: |
-      sudo pip install --break-system-packages -U pip setuptools wheel poetry nox
+      sudo pip install --break-system-packages -U uv poetry nox
       cd hop3
-      poetry install
-      poetry run inv install
+      uv sync
+      uv run inv install
 
   - lint: |
       cd hop3
-      poetry run make lint
+      uv run make lint
 
   - test: |
       cd hop3
-      poetry run inv test
+      uv run inv test
 
   - nox: |
       cd hop3
-      poetry run nox
+      uv run nox
 
 triggers:
   - action: email
