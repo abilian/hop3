@@ -32,7 +32,7 @@ requests = "^2.32.3"
 
 
 [tool.poetry.group.dev.dependencies]
-abilian-devtools = "^0.6"
+abilian-devtools = "^0.7"
 pytest = "^8.3.1"
 devtools = "^0.12.2"
 python-dotenv = "^1.0.1"

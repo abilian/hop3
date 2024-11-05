@@ -38,7 +38,7 @@ devtools = "*"
 
 
 [tool.poetry.group.dev.dependencies]
-abilian-devtools = "^0.6.1"
+abilian-devtools = "^0.7"
 
 [build-system]
 requires = ["poetry-core"]

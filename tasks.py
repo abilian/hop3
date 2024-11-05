@@ -151,7 +151,7 @@ def run(c, cmd: str):
 @task
 def update(c):
     """Update dependencies the whole project."""
-    c.run("poetry update")
+    c.run("uv sync -U --inexact")
     c.run("pre-commit autoupdate")
 
     run_in_subrepos(c, "poetry update && poetry install")

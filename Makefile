@@ -35,7 +35,7 @@ deploy:
 	echo "--> Deploying"
 	@make clean
 	cd hop3-agent && poetry build
-	poetry run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
+	uv run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
 
 #
 # Setup
@@ -48,8 +48,6 @@ install-deps:
 	@echo "--> Installing dependencies"
 	uv venv
 	uv sync
-	# TODO: convert poetry deps to uv.
-	poetry install
 	.venv/bin/inv install
 
 activate-pre-commit:
@@ -64,9 +62,8 @@ configure-git:
 ## Update dependencies
 update-deps:
 	uv sync -U
-	poetry update
+	.venv/bin/inv update
 	pre-commit autoupdate
-	poetry show -o
 
 #
 # testing & checking
@@ -143,8 +140,6 @@ audit:
 ## Format / beautify code
 format:
 	# docformatter -i -r src
-	black src */src tests */tests
-	isort src */src tests */tests
 	ruff format src */src tests */tests
 	markdown-toc -i README.md
 

@@ -24,6 +24,6 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 dev-dependencies = [
-    "abilian-devtools>=0.6.6",
+    "abilian-devtools>=0.7",
     "docformatter>=1.7.5",
 ]

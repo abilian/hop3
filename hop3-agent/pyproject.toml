@@ -40,7 +40,7 @@ flask-security-too = "^5.5.2"
 snoop = "^0.6.0"
 
 [tool.poetry.group.dev.dependencies]
-abilian-devtools = "^0.6"
+abilian-devtools = "^0.7"
 httpx = "^0.27"
 pytest = "^8.0"
 python-dotenv = "^1.0"
