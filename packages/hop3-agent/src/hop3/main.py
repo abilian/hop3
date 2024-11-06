@@ -26,8 +26,7 @@ TESTING = "PYTEST_VERSION" in os.environ
 
 def fix_path() -> None:
     """Ensure system binaries are in the PATH, as wel as hop3 binaries."""
-    path = os.environ["PATH"]
-    path = prepend_to_path([HOP3_BIN, "/usr/local/sbin", "/usr/sbin", "/sbin"], path)
+    path = prepend_to_path([HOP3_BIN, "/usr/local/sbin", "/usr/sbin", "/sbin"])
     os.environ["PATH"] = path
 
 
@@ -45,7 +44,8 @@ def main(args=None) -> None:
     if not args:
         args = sys.argv[1:]
 
-    fix_path()
+    # Maybe not needed
+    # fix_path()
 
     if HOP3_TESTING:
         console.reset()
