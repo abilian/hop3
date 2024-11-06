@@ -108,9 +108,9 @@ clean-test: ## remove test and coverage artifacts
 
 ## Lint / check typing
 lint:
-	ruff check */src tests */tests
-	# mypy --show-error-codes ...
+	ruff check packages
 	pyright packages/hop3-agent/src
+	# mypy TODO
 	reuse lint -q
 
 
