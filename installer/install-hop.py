@@ -114,7 +114,7 @@ def setup_server() -> None:
 
 
 def setup_hop3() -> None:
-    src_file = glob.glob("hop3-agent/dist/hop3*.tar.gz")[0]
+    src_file = glob.glob("dist/hop3_agent*.tar.gz")[0]
 
     files.put(
         name="Put hop3 source package",

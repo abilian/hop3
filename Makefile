@@ -2,6 +2,7 @@
 .PHONY: clean clean-build clean-pyc clean-test coverage dist docs install lint lint/flake8
 
 PKG:=hop3,hop3_agent,hop3_server,hop3_web,hop3_lib
+
 # For tests
 # Either uncomment and set the following variables or set them in the environment
 # HOP3_DEV_HOST=XXX
@@ -34,7 +35,7 @@ clean-server:
 deploy:
 	echo "--> Deploying"
 	@make clean
-	cd hop3-agent && poetry build
+	cd hop3-agent && uv build
 	uv run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
 
 #
@@ -63,7 +64,7 @@ configure-git:
 ## Update dependencies
 update-deps:
 	uv sync -U
-	.venv/bin/inv update
+	uv run inv update
 	pre-commit autoupdate
 
 #
@@ -90,7 +91,7 @@ test-randomly:
 
 test-with-coverage:
 	@echo "--> Running Python tests"
-	pytest --cov $(PKG)
+	pytest --cov=. --cov-report term-missing
 	@echo ""
 
 test-with-typeguard:
@@ -180,11 +181,3 @@ tidy: clean
 	rm -rf .nox .tox .venv
 	rm -rf */.tox */.nox */.venv
 	rm -rf node_modules
-
-
-## Publish to PyPI
-publish: clean
-	git push
-	git push --tags
-	poetry build
-	twine upload dist/*

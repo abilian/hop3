@@ -151,3 +151,8 @@ testpaths = [
     "src",
     "hop3-*/src",
 ]
+
+# ------------------------------------
+
+[tool.coverage.report]
+exclude_also = ["if typing.TYPE_CHECKING:"]

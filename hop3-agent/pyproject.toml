@@ -68,3 +68,9 @@ profile = "black"
 exclude = [
     "src/hop3/util/templating.py",
 ]
+
+[tool.coverage.report]
+exclude_also = [
+    "if typing.TYPE_CHECKING:",
+    "if TYPE_CHECKING:",
+]
