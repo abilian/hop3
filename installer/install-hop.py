@@ -86,7 +86,6 @@ def setup_server() -> None:
         name="Put appropriate /etc/apt/apt.conf.d/00-hop3",
         src=StringIO(APT_CONF),
         dest="/etc/apt/apt.conf.d/00-hop3",
-
     )
     server.user(
         name="Add hop3 user",

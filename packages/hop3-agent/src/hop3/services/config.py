@@ -15,5 +15,5 @@ class ConfigService:
     def set(self, key: str, value) -> None:
         self.config[key] = value
 
-    def get_all(self):
+    def get_all(self) -> dict:
         return self.config

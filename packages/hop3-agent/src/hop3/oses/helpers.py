@@ -8,6 +8,7 @@ import os
 import subprocess
 from io import StringIO
 from pathlib import Path
+from subprocess import CompletedProcess
 
 
 class Platform:
@@ -50,5 +51,5 @@ class Debian(Linux):
         shell(f"apt-get install -y {packages_str}")
 
 
-def shell(cmd):
+def shell(cmd) -> CompletedProcess:
     return subprocess.run(cmd, shell=True, check=True, capture_output=True)

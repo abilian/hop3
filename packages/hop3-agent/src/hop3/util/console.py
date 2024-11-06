@@ -59,7 +59,7 @@ class TestingConsole(Console):
     def reset(self) -> None:
         del self.buffer[:]
 
-    def output(self):
+    def output(self) -> str:
         return "\n".join(self.buffer)
 
 

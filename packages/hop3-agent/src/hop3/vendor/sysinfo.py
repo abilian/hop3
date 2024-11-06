@@ -66,7 +66,7 @@ class SysInfo:
         return self._lsb_release("c")
 
     @cache(60)
-    def distrib_version(self):
+    def distrib_version(self) -> str:
         return self._lsb_release("r")
 
     def free_space_in_directory(self, dirpath):
@@ -77,11 +77,11 @@ class SysInfo:
     # Disk
     #
     @cache(3600)
-    def get_total_disk_space(self):
+    def get_total_disk_space(self) -> str:
         return str(shutil.disk_usage("/")[0] // (2**30)) + "GB"
 
     @cache(3600)
-    def get_available_disk_space(self):
+    def get_available_disk_space(self) -> str:
         return str(shutil.disk_usage("/")[2] // (2**30)) + "GB"
 
     #
@@ -107,7 +107,7 @@ class SysInfo:
     # CPU
     #
     @cache(3600)
-    def get_cpu_core(self):
+    def get_cpu_core(self) -> str:
         try:
             result = self._run_command("lscpu | grep socket:")
             return result.split(":")[1].strip(" ").strip("\\n'") if result else ""

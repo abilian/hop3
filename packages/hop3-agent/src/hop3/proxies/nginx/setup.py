@@ -45,7 +45,7 @@ class NginxConfig:
     env: Env
     workers: dict[str, str]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # Hack to get around ClickCommand
         server_name_list = self.env["NGINX_SERVER_NAME"].split(",")
         self.env["NGINX_SERVER_NAME"] = " ".join(server_name_list)
