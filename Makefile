@@ -141,8 +141,8 @@ audit:
 ## Format / beautify code
 format:
 	# docformatter -i -r src
-	ruff format src */src tests */tests
-	ruff check --fix src */src tests */tests
+	ruff format
+	ruff check --fix
 	markdown-toc -i README.md
 
 ## Format / beautify apps
