@@ -1483,11 +1483,11 @@ dev = [
 requires-dist = [
     { name = "cleez" },
     { name = "devtools", specifier = "~=0.12" },
-    { name = "hop3-agent", editable = "hop3-agent" },
-    { name = "hop3-cli", editable = "hop3-cli" },
-    { name = "hop3-lib", editable = "hop3-lib" },
-    { name = "hop3-server", editable = "hop3-server" },
-    { name = "hop3-web", editable = "hop3-web" },
+    { name = "hop3-agent", editable = "packages/hop3-agent" },
+    { name = "hop3-cli", editable = "packages/hop3-cli" },
+    { name = "hop3-lib", editable = "packages/hop3-lib" },
+    { name = "hop3-server", editable = "packages/hop3-server" },
+    { name = "hop3-web", editable = "packages/hop3-web" },
     { name = "invoke", specifier = "~=2.2.0" },
     { name = "python-dotenv" },
     { name = "snoop", specifier = "~=0.6" },
@@ -1513,7 +1513,7 @@ dev = [
 [[package]]
 name = "hop3-agent"
 version = "0.2.2"
-source = { editable = "hop3-agent" }
+source = { editable = "packages/hop3-agent" }
 dependencies = [
     { name = "advanced-alchemy" },
     { name = "attrs" },
@@ -1550,7 +1550,7 @@ requires-dist = [
 [[package]]
 name = "hop3-cli"
 version = "0.1.0"
-source = { editable = "hop3-cli" }
+source = { editable = "packages/hop3-cli" }
 dependencies = [
     { name = "devtools" },
     { name = "jsonrpcclient" },
@@ -1581,7 +1581,7 @@ requires-dist = [
 [[package]]
 name = "hop3-lib"
 version = "0.2.2"
-source = { editable = "hop3-lib" }
+source = { editable = "packages/hop3-lib" }
 dependencies = [
     { name = "attrs" },
     { name = "cleez" },
@@ -1620,7 +1620,7 @@ requires-dist = [
 [[package]]
 name = "hop3-server"
 version = "0.1.0"
-source = { editable = "hop3-server" }
+source = { editable = "packages/hop3-server" }
 dependencies = [
     { name = "attrs" },
     { name = "cattrs" },
@@ -1643,7 +1643,7 @@ requires-dist = [
 [[package]]
 name = "hop3-testing"
 version = "0.1.0"
-source = { editable = "hop3-testing" }
+source = { editable = "packages/hop3-testing" }
 dependencies = [
     { name = "devtools" },
     { name = "httpcore" },
@@ -1676,7 +1676,7 @@ dev = [
 [[package]]
 name = "hop3-web"
 version = "0.2.2"
-source = { editable = "hop3-web" }
+source = { editable = "packages/hop3-web" }
 dependencies = [
     { name = "advanced-alchemy" },
     { name = "attrs" },

@@ -31,7 +31,7 @@ clean-server:
 deploy:
     echo "--> Deploying"
     just clean
-    cd hop3-agent && uv build
+    uv build packages/hop3-agent
     uv run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
 
 # Setup
@@ -94,8 +94,9 @@ clean-test:
 
 # Lint / check typing
 lint:
-    ruff check */src tests */tests
-    pyright hop3-agent/src
+    ruff check packages
+    pyright packages/hop3-agent/src
+    # mypy TODO
     reuse lint -q
 
 audit:
@@ -104,8 +105,8 @@ audit:
 
 # Formatting
 format:
-    ruff format src */src tests */tests
-    ruff check --fix src */src tests */tests
+    ruff format packages/*/src packages/*/tests
+    ruff check --fix packages/*/src packages/*/tests
     markdown-toc -i README.md
 
 format-apps:

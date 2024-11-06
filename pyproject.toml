@@ -32,6 +32,7 @@ dependencies = [
 ]
 
 [tool.uv]
+package = false
 dev-dependencies = [
     # Generic tools
     "abilian-devtools ~= 0.7",
@@ -53,6 +54,9 @@ dev-dependencies = [
     "types-tabulate>=0.9.0.20240106",
 ]
 
+[tool.uv.workspace]
+members = ["packages/*"]
+
 [tool.uv.sources]
 hop3-lib = { workspace = true }
 hop3-agent = { workspace = true }
@@ -60,14 +64,14 @@ hop3-cli = { workspace = true }
 hop3-server = { workspace = true }
 hop3-web = { workspace = true }
 
-[tool.uv.workspace]
-members = [
-    "hop3-lib",
-    "hop3-agent",
-    "hop3-cli",
-    "hop3-server",
-    "hop3-web", "hop3-testing",
-]
+#[tool.uv.workspace]
+#members = [
+#    "hop3-lib",
+#    "hop3-agent",
+#    "hop3-cli",
+#    "hop3-server",
+#    "hop3-web", "hop3-testing",
+#]
 
 
 ## ------------------------------------
@@ -133,10 +137,10 @@ members = [
 
 # ------------------------------------
 
-[tool.pyright]
-exclude = [
-    "src/hop3/util/templating.py",
-]
+#[tool.pyright]
+#exclude = [
+#    "src/hop3/util/templating.py",
+#]
 
 # ------------------------------------
 
@@ -145,11 +149,9 @@ exclude = [
 # and: https://docs.pytest.org/en/7.1.x/explanation/goodpractices.html#choosing-an-import-mode
 addopts = "-ra --import-mode=importlib"
 testpaths = [
-    "tests",
-    "hop3-*/tests",
+    "packages/*/tests",
     # Tests may be in the same directory as the code
-    "src",
-    "hop3-*/src",
+    "packages/*/src",
 ]
 
 # ------------------------------------

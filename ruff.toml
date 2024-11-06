@@ -6,9 +6,9 @@ exclude = [
     "scripts",
     "tasks.py",
     "docs",
-    "hop3-lib/src/hop3_lib/actors",
-    "hop3-lib/src/hop3_lib/bus",
-    "hop3-cli/src/hop3_cli/commands",
+    "packages/hop3-lib/src/hop3_lib/actors",
+    "packages/hop3-lib/src/hop3_lib/bus",
+    "packages/hop3-cli/src/hop3_cli/commands",
 ]
 
 lint.select = [
@@ -23,7 +23,6 @@ lint.extend-ignore = [
     "BLE", # flake8-blind-except
     "D", # pydocstyle
     "ERA", # eradicate
-#    "FBT", # flake8-boolean-trap
     "FIX", # flake8-fixme
     "PTH", # flake8-use-pathlib
     "S", # flake8-bandit

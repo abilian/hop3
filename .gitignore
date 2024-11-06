@@ -1,10 +1,9 @@
 # Specific to this project
 /old-docs/
 /tmp/
-/sandbox/
-*/sandbox/
+sandbox/
 ignore.py
-/apps/sandbox/
+packages/hop3-server/ssl
 
 # Local environment variables
 .env
