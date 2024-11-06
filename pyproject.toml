@@ -1,6 +1,3 @@
-#
-# Migration to uv. WIP.
-#
 [project]
 name = "hop3"
 version = "0.2.2"
@@ -44,7 +41,7 @@ dev-dependencies = [
     "httpx ~= 0.27.0",
     "python-dotenv ~= 1.0.1",
     # Experimental
-    "infer-types ~= 1.0.0",
+    "infer-types~=1.0.0",
     # Installer
     "pyinfra ~= 3.0",
     # Type helpers
@@ -65,84 +62,6 @@ hop3-cli = { workspace = true }
 hop3-server = { workspace = true }
 hop3-web = { workspace = true }
 hop3-testing = { workspace = true }
-
-#[tool.uv.workspace]
-#members = [
-#    "hop3-lib",
-#    "hop3-agent",
-#    "hop3-cli",
-#    "hop3-server",
-#    "hop3-web", "hop3-testing",
-#]
-
-
-## ------------------------------------
-#
-#[tool.poetry]
-#name = "hop3"
-#version = "0.2.2"
-#description = "Simple PaaS - Deploy and manage web applications on a single server"
-#authors = ["Stefane Fermigier <sf@abilian.com>"]
-#readme = "README.md"
-#license = "Apache-2.0"
-#
-##packages = [
-##    { include = "hop3", from = "src" },
-##    #    { include = "hop3_main", from = "src" },
-##]
-#
-#package-mode = false
-#
-#[tool.poetry.scripts]
-#hop-agent = "hop3.main:main"
-#hop-test = "hop3.testing.main:main"
-#
-#
-#[tool.poetry.dependencies]
-#python = "^3.10"
-#
-## Debug (remove later)
-#devtools = "^0.12.2"
-#snoop = "^0.6"
-#
-## Used by manual install (remove later)
-#invoke = "^2.2.0"
-#tomlkit = "*"
-#cleez = "*"
-#python-dotenv = "*"
-#
-#
-#[tool.poetry.group.dev.dependencies]
-## Generic tools
-#abilian-devtools = "^0.6"
-#reuse = "^4"
-#
-## Used by `inv watch`
-#watchfiles = "^0.24.0"
-#
-## Used by testing infra
-#httpx = "^0.27.0"
-#python-dotenv = "^1.0.1"
-#
-## Experimental
-#infer-types = "^1.0.0"
-#
-## Installer
-#pyinfra = "^3"
-#
-## Not needed in theory (declared in hop3-agent)
-#types-psycopg2 = "^2.9.21.20241019"
-#types-paramiko = "^3.5.0.20240928"
-#
-## Documentation
-#pdoc3 = "^0.11.1"
-
-# ------------------------------------
-
-#[tool.pyright]
-#exclude = [
-#    "src/hop3/util/templating.py",
-#]
 
 # ------------------------------------
 
