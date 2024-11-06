@@ -94,6 +94,7 @@ def test_lifecycle(hop3_home) -> None:
     cli_main(["apps"])
     assert app_name in console.output()
 
+    # Scaling
     cli_main(["ps", app_name])
     assert "web:1" in console.output()
 
@@ -106,8 +107,8 @@ def test_lifecycle(hop3_home) -> None:
     cli_main(["ps:scale", app_name, "web=2"])
     assert "web" in console.output()
 
-    # cli_main(["run", app_name, "/bin/pwd"])
-    # assert app_name in console.output()
+    cli_main(["run", app_name, "/bin/pwd"])
+    assert app_name in console.output()
 
     # cli_main(["start", app_name])
 

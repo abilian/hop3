@@ -10,7 +10,6 @@ from __future__ import annotations
 import fcntl
 import os
 import subprocess
-import sys
 
 from click import argument
 
@@ -18,6 +17,7 @@ from hop3.core.app import App, list_apps
 from hop3.deploy import do_deploy
 from hop3.project.procfile import parse_procfile
 from hop3.util import Abort, echo, multi_tail
+from hop3.util.console import console
 
 from .cli import hop3
 from .types import AppParamType
@@ -111,19 +111,24 @@ def cmd_ps_scale(app: App, settings: list[str]) -> None:
 @argument("cmd", nargs=-1)
 def cmd_run(app: App, cmd: list[str]) -> None:
     """e.g.: hop-agent run <app> ls -- -al."""
-    for fd in [sys.stdout, sys.stderr]:
-        make_nonblocking(fd.fileno())
 
+    # TODO: Need to make the file descriptors non-blocking and deal
+    # with it.
     p = subprocess.Popen(
         cmd,
-        stdin=sys.stdin,
-        stdout=sys.stdout,
-        stderr=sys.stderr,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         env=app.get_runtime_env(),
         cwd=str(app.app_path),
-        shell=True,
     )
-    p.communicate()
+    # TODO: deal with stdin
+    out, err = p.communicate(b"")
+
+    console.echo(out.decode())
+    console.echo(err.decode())
+    # sys.stdout.write(out.decode())
+    # sys.stderr.write(err.decode())
 
 
 @hop3.command("restart")
