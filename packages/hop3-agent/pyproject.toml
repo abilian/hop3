@@ -39,23 +39,23 @@ typing-extensions = "^4.12.2"
 flask-security-too = "^5.5.2"
 snoop = "^0.6.0"
 
-[tool.poetry.group.dev.dependencies]
-abilian-devtools = "^0.7"
-httpx = "^0.27"
-pytest = "^8.0"
-python-dotenv = "^1.0"
-infer-types = "^1.0"
-
-pyinfra = "^3"
-
-types-paramiko = "^3.4"
-types-psycopg2 = "^2.9"
-
-flask-debugtoolbar = "^0.15"
-msgspec = "^0.18"
-
-reuse = "^4"
-pdoc3 = "^0.11.1"
+#[tool.poetry.group.dev.dependencies]
+#abilian-devtools = "^0.7"
+#httpx = "^0.27"
+#pytest = "^8.0"
+#python-dotenv = "^1.0"
+#infer-types = "^1.0"
+#
+#pyinfra = "^3"
+#
+#types-paramiko = "^3.4"
+#types-psycopg2 = "^2.9"
+#
+#flask-debugtoolbar = "^0.15"
+#msgspec = "^0.18"
+#
+#reuse = "^4"
+#pdoc3 = "^0.11.1"
 
 [build-system]
 requires = ["poetry-core"]

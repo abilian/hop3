@@ -37,8 +37,8 @@ cattrs = "*"
 devtools = "*"
 
 
-[tool.poetry.group.dev.dependencies]
-abilian-devtools = "^0.7"
+#[tool.poetry.group.dev.dependencies]
+#abilian-devtools = "^0.7"
 
 [build-system]
 requires = ["poetry-core"]

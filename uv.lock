@@ -1456,6 +1456,7 @@ dependencies = [
     { name = "hop3-cli" },
     { name = "hop3-lib" },
     { name = "hop3-server" },
+    { name = "hop3-testing" },
     { name = "hop3-web" },
     { name = "invoke" },
     { name = "python-dotenv" },
@@ -1487,6 +1488,7 @@ requires-dist = [
     { name = "hop3-cli", editable = "packages/hop3-cli" },
     { name = "hop3-lib", editable = "packages/hop3-lib" },
     { name = "hop3-server", editable = "packages/hop3-server" },
+    { name = "hop3-testing", editable = "packages/hop3-testing" },
     { name = "hop3-web", editable = "packages/hop3-web" },
     { name = "invoke", specifier = "~=2.2.0" },
     { name = "python-dotenv" },
@@ -1652,12 +1654,6 @@ dependencies = [
     { name = "python-dotenv" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "abilian-devtools" },
-    { name = "docformatter" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "devtools", specifier = ">=0.12.2" },
@@ -1665,12 +1661,6 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27.2" },
     { name = "paramiko", specifier = ">=3.5.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "abilian-devtools", specifier = ">=0.7" },
-    { name = "docformatter", specifier = ">=1.7.5" },
 ]
 
 [[package]]

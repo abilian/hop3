@@ -19,6 +19,7 @@ dependencies = [
     "hop3-cli",
     "hop3-server",
     "hop3-web",
+    "hop3-testing",
 
     # Debug (remove later)
     "devtools ~= 0.12",
@@ -63,6 +64,7 @@ hop3-agent = { workspace = true }
 hop3-cli = { workspace = true }
 hop3-server = { workspace = true }
 hop3-web = { workspace = true }
+hop3-testing = { workspace = true }
 
 #[tool.uv.workspace]
 #members = [
