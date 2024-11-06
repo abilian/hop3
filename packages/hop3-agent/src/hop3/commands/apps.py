@@ -131,11 +131,11 @@ def cmd_run(app: App, cmd: list[str]) -> None:
     # sys.stderr.write(err.decode())
 
 
-@hop3.command("restart")
+@hop3.command("start")
 @argument("app", type=AppParamType())
-def cmd_restart(app: App) -> None:
-    """Restart an app: hop-agent restart <app>."""
-    app.restart()
+def cmd_start(app: App) -> None:
+    """Stop an app, e.g: hop-agent stop <app>."""
+    app.start()
 
 
 @hop3.command("stop")
@@ -143,6 +143,13 @@ def cmd_restart(app: App) -> None:
 def cmd_stop(app: App) -> None:
     """Stop an app, e.g: hop-agent stop <app>."""
     app.stop()
+
+
+@hop3.command("restart")
+@argument("app", type=AppParamType())
+def cmd_restart(app: App) -> None:
+    """Restart an app: hop-agent restart <app>."""
+    app.restart()
 
 
 # Utils

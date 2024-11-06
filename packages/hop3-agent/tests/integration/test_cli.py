@@ -110,7 +110,7 @@ def test_lifecycle(hop3_home) -> None:
     cli_main(["run", app_name, "/bin/pwd"])
     assert app_name in console.output()
 
-    # cli_main(["start", app_name])
+    cli_main(["start", app_name])
 
     cli_main(["stop", app_name])
 
