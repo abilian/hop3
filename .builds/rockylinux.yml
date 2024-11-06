@@ -20,10 +20,9 @@ packages:
 
 tasks:
   - setup: |
-      sudo pip3.12 install -U uv poetry nox
+      sudo pip3.12 install -U uv nox
       cd hop3
       uv sync
-      uv run inv install
 
   - lint: |
       cd hop3
