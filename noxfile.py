@@ -21,9 +21,9 @@ nox.options.sessions = [
 ]
 
 SUB_REPOS = [
-    "hop3-agent",
-    "hop3-server",
-    "hop3-cli",
+    "packages/hop3-agent",
+    "packages/hop3-server",
+    "packages/hop3-cli",
 ]
 
 

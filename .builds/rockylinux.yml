@@ -30,7 +30,7 @@ tasks:
 
   - test: |
       cd hop3
-      uv run inv test
+      uv run make test
 
   - nox: |
       cd hop3

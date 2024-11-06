@@ -64,7 +64,6 @@ configure-git:
 ## Update dependencies
 update-deps:
 	uv sync -U
-	uv run inv update
 	pre-commit autoupdate
 
 #
