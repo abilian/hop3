@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
     from hop3.core.app import App
 
-# Will be removed
 
 __all__ = ["do_deploy"]
 
