@@ -111,6 +111,8 @@ lint:
 	pyright packages/hop3-agent/src
 	# mypy TODO
 	reuse lint -q
+	# vulture --min-confidence 80 packages/hop3-agent/src
+	cd packages/hop3-agent && deptry src
 
 
 # Alt

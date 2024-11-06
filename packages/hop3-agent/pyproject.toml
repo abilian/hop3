@@ -23,21 +23,16 @@ attrs = "*"
 click = "^8.1"
 cleez = "*"
 pluggy = "^1.4"
-svcs = "^24.1"
 
 sqlalchemy = "^2.0"
-sqlalchemy-serializer = "^1.4"
 advanced-alchemy = "^0.21"
 psycopg2 = "^2.9"
 
 # Remove later
 devtools = "^0.12"
 
-#snoop = "^0.6"
-
 typing-extensions = "^4.12.2"
 flask-security-too = "^5.5.2"
-snoop = "^0.6.0"
 
 #[tool.poetry.group.dev.dependencies]
 #abilian-devtools = "^0.7"
