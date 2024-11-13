@@ -8,17 +8,17 @@ from hop3.proxies.nginx.setup import NginxConfig
 
 
 def test_get_static_paths_0() -> None:
-    env = {"NGINX_SERVER_NAME": "testapp.com"}
+    env = Env({"NGINX_SERVER_NAME": "testapp.com"})
     workers = {}
     nginx = NginxConfig(App("testapp"), env, workers)
     assert nginx.get_static_paths() == []
 
 
 def test_get_static_paths_1() -> None:
-    env = {
+    env = Env({
         "NGINX_SERVER_NAME": "testapp.com",
         "NGINX_STATIC_PATHS": "/prefix1:path1",
-    }
+    })
     workers = {}
     nginx = NginxConfig(App("testapp"), env, workers)
     result = nginx.get_static_paths()
@@ -27,7 +27,7 @@ def test_get_static_paths_1() -> None:
 
 
 def test_get_static_paths_2() -> None:
-    env = {"NGINX_SERVER_NAME": "testapp.com"}
+    env = Env({"NGINX_SERVER_NAME": "testapp.com"})
     workers = {"static": "public"}
     nginx = NginxConfig(App("testapp"), env, workers)
     result = nginx.get_static_paths()
@@ -36,11 +36,11 @@ def test_get_static_paths_2() -> None:
 
 
 # Copied from hop3-agent/src/hop3/proxies/nginx/setup.py
-SAFE_DEFAULTS = {
+SAFE_DEFAULTS = Env({
     "NGINX_IPV4_ADDRESS": "0.0.0.0",
     "NGINX_IPV6_ADDRESS": "[::]",
     "BIND_ADDRESS": "127.0.0.1",
-}
+})
 
 
 @pytest.fixture

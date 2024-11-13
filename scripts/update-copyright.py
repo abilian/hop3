@@ -1,7 +1,10 @@
 import re
 from pathlib import Path
 
-CURRENT_YEAR = 2025
+PAT_1Y = r"# Copyright \(c\) ([0-9]+), Abilian SAS"
+PAT_2Y = r"# Copyright \(c\) ([0-9]+)-([0-9]+), Abilian SAS"
+
+CURRENT_YEAR = 2024
 
 
 def main():
@@ -12,6 +15,10 @@ def main():
 
 def update_copyright(python_file):
     content = python_file.read_text()
+    if not re.match(PAT_1Y, content) and not re.match(PAT_2Y, content):
+        content = f"# Copyright (c) {CURRENT_YEAR}, Abilian SAS\n\n" + content
+        python_file.write_text(content)
+        return
 
     new_content_lines = []
     for line in content.split("\n"):
@@ -19,7 +26,7 @@ def update_copyright(python_file):
             new_content_lines.append(line)
             continue
 
-        m = re.match(r"# Copyright \(c\) ([0-9]+), Abilian SAS", line)
+        m = re.match(PAT_1Y, line)
         if m:
             print(f"Updating copyright in {python_file}")
             year = int(m.group(1))
@@ -29,7 +36,7 @@ def update_copyright(python_file):
 
             line = f"# Copyright (c) {year}-{CURRENT_YEAR}, Abilian SAS"
 
-        m = re.match(r"# Copyright \(c\) ([0-9]+)-([0-9]+), Abilian SAS", line)
+        m = re.match(PAT_2Y, line)
         if m:
             print(f"Updating copyright in {python_file}")
             year_start = int(m.group(1))

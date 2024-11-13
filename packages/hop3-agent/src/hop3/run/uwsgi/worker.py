@@ -262,16 +262,16 @@ class WebWorker(UwsgiWorker):
     kind = "web"
 
     log_format = (
-        '%%(addr) - %%(user) [%%(ltime)] "%%(method) %%(uri) %%(proto)" %%(status)'
-        ' %%(size) "%%(referer)" "%%(uagent)" %%(msecs)ms'
+        '%%(addr) - %%(user) [%%(ltime)] "%%(method) %%(uri) %%(proto)"'
+        ' %%(status) %%(size) "%%(referer)" "%%(uagent)" %%(msecs)ms'
     )
 
     def update_settings(self) -> None:
+        tpl = (
+            "-----> nginx will talk to the 'web' process via {BIND_ADDRESS:s}:{PORT:s}"
+        )
         echo(
-            "-----> nginx will talk to the 'web' process via"
-            " {BIND_ADDRESS:s}:{PORT:s}".format(
-                **self.env,
-            ),
+            tpl.format(**self.env),
             fg="yellow",
         )
         self.settings.add("attach-daemon", self.command)
@@ -281,5 +281,5 @@ class WebWorker(UwsgiWorker):
 class GenericWorker(UwsgiWorker):
     kind: str = "generic"
 
-    def update_setings(self) -> None:
+    def update_settings(self) -> None:
         self.settings.add("attach-daemon", self.command)

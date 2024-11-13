@@ -85,3 +85,16 @@ exclude_also = [
     "if typing.TYPE_CHECKING:",
     "if TYPE_CHECKING:",
 ]
+
+# ------------------------------------
+
+[tool.mypy]
+ignore_missing_imports = true
+strict_optional = true
+warn_no_return = true
+warn_unused_ignores = true
+check_untyped_defs = true
+
+exclude = [
+  "^packages/hop3-agent/src/hop3/builders/java\\.py$",
+]

@@ -96,8 +96,9 @@ def add_helper(key_file: Path) -> None:
         raise Abort(msg)
 
     try:
-        cmd = ["ssh-keygen", "-lf", key_file]
-        fingerprint = str(subprocess.check_output(cmd)).split(" ", 4)[1]
+        cmd = ["ssh-keygen", "-lf", str(key_file)]
+        cmd_output = str(subprocess.check_output(cmd))
+        fingerprint = cmd_output.split(" ", 4)[1]
         key = key_file.read_text().strip()
         echo(f"Adding key '{fingerprint}'.", fg="white")
         setup_authorized_keys(key, fingerprint)
