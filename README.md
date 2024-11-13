@@ -188,9 +188,17 @@ Contributions to Hop3 are highly encouraged, whether it involves fixing bugs, ad
 
 ### Development Environment
 
-To develop Hop3, you will need to set up a Python development environment (tested under various variants of Linux, and MacOS). The project uses Python 3.10+ and Poetry for environment and dependency management. We assume you are already familiar with these prerequisites.
+To develop Hop3, you will need to set up a Python development environment (tested under various variants of Linux, and MacOS). The project uses Python 3.10+ and some common Python tools for environment and dependency management. We assume you are already familiar with these prerequisites.
+
+- **Poetry**: You must have Poetry installed. We are in the process of phasing out Poerty in favor of uv, but for now, you need to have Poetry installed.
+- **uv**: You need uv installed. Run `brew install uv` or run the installer.
+- **nox**: You need nox installed. Run `uv tool install nox`.
+- **Just**: You need Just installed. Run `brew install just` or `cargo install just`.
+
+You can check your environment by running `python3 scripts/check-dev-env.py` or `make check-dev-env`, assuming you have `make` installed.
 
 - **NixOS/Nix**: If using NixOS or Nix, you can use the provided `shell.nix` file to set up a development environment.
+
 - **Test Automation**: We use `nox` for test automation. You can run `nox` to execute all tests, or `nox -l` to list available sessions.
 - **Development Tools**: We use `abilian-devtools` for various development tasks. This includes `make` targets for common tasks, such as running tests, formatting code, and checking for typing issues. Run `make help` to see a list of the main available targets.
 

@@ -3,15 +3,19 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
-from pathlib import Path
-
 import nox
 
 # Minimal version is 3.10
 PYTHON_VERSIONS = ["3.10", "3.11", "3.12"]
 
-nox.options.reuse_existing_virtualenvs = True
+SUB_REPOS = [
+    "packages/hop3-agent",
+    "packages/hop3-server",
+    "packages/hop3-cli",
+    "packages/hop3-testing",
+]
 
+nox.options.reuse_existing_virtualenvs = True
 # nox.options.default_venv_backend = "venv"
 
 # Don't run 'update-deps' by default.
@@ -22,33 +26,11 @@ nox.options.sessions = [
 ]
 
 
-def list_subrepos() -> list[str]:
-    packages = Path("packages").iterdir()
-    return [str(d) for d in packages if d.is_dir()]
-
-
-# SUB_REPOS = list_subrepos()
-
-SUB_REPOS = [
-    "packages/hop3-agent",
-    "packages/hop3-server",
-    "packages/hop3-cli",
-    "packages/hop3-testing",
-]
-
-
-# @nox.session
-# def lint(session: nox.Session) -> None:
-#     session.install("--no-cache-dir", ".")
-#     session.install("abilian-devtools")
-#     session.run("make", "lint", external=True)
-#
-#
-# @nox.session(python=PYTHON_VERSIONS)
-# def pytest(session: nox.Session) -> None:
-#     session.install("--no-cache-dir", ".")
-#     session.install("pytest")
-#     session.run("pytest", "--tb=short", "tests", external=True)
+@nox.session
+def lint(session: nox.Session) -> None:
+    session.run("uv", "sync", "--no-dev")
+    session.run("uv", "pip", "install", "abilian-devtools")
+    session.run("make", "lint", external=True)
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -58,23 +40,16 @@ def pytest(session: nox.Session, sub_repo: str) -> None:
 
 
 @nox.session
-@nox.parametrize("sub_repo", SUB_REPOS)
-def lint(session: nox.Session, sub_repo: str) -> None:
-    run_subsession(session, sub_repo)
+def audit(session: nox.Session) -> None:
+    session.run("uv", "sync", "--no-dev")
+    session.run("uv", "pip", "install", "safety", "pip-audit")
+    session.run("pip-audit")
+    session.run("safety", "scan")
 
 
 @nox.session
 def doc(session: nox.Session) -> None:
     print("TODO: do something with the docs")
-
-
-# @nox.session(name="update-deps")
-# def update_deps(session: nox.Session) -> None:
-#     for sub_repo in SUB_REPOS:
-#         with session.chdir(sub_repo):
-#             session.run("poetry", "install", external=True)
-#             session.run("poetry", "update", external=True)
-#         print()
 
 
 def run_subsession(session, sub_repo) -> None:
