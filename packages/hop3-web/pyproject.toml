@@ -22,8 +22,8 @@ pluggy = "^1.4.0"
 svcs = "^24.1.0"
 
 sqlalchemy = "^2.0"
-sqlalchemy-serializer = "^1.4"
-advanced-alchemy = "^0.21"
+sqlalchemy-serializer = ">= 1.4"
+advanced-alchemy = ">= 0.21"
 psycopg2 = "^2.9"
 
 # For the actor system
@@ -34,12 +34,12 @@ eventlet = "^0.36"
 pyzmq = "^26"
 
 # System introspection
-psutil = "^6.0"
-py-cpuinfo = "^9.0"
+psutil = ">= 6.0"
+py-cpuinfo = ">= 9.0"
 
 # Remove later
-devtools = "^0.12"
-snoop = "^0.6"
+devtools = ">= 0.12"
+snoop = ">= 0.6"
 
 # "main" / web app
 flask = "^3.0"

@@ -1,63 +1,34 @@
 [project]
 name = "hop3-agent"
-
-
-[tool.poetry]
-name = "hop3-agent"
 version = "0.2.2"
 description = "Simple PaaS - Deploy and manage web applications on a single server"
-authors = ["Stefane Fermigier <sf@abilian.com>"]
+authors = [
+    { name = "Stefane Fermigier", email = "sf@abilian.com" },
+]
 readme = "README.md"
 
-packages = [
-    { include = "hop3", from = "src" },
+#packages = [
+#    { include = "hop3", from = "src" },
+#]
+dependencies = [
+    "attrs >= 24.2",
+    "cleez >= 0.1.13",
+    "click ~= 8.1",
+    "pluggy ~= 1.4",
+    # Database
+    "sqlalchemy ~= 2.0",
+    "advanced-alchemy >= 0.21",
+    "psycopg2 ~= 2.9",
+    "flask-security-too ~= 5.5.2",
 ]
 
-[tool.poetry.scripts]
+[dependency-groups]
+dev = [
+    "typing-extensions>=4.12.2",
+]
+
+[project.scripts]
 hop-agent = "hop3.main:main"
-
-[tool.poetry.dependencies]
-python = "^3.10"
-
-attrs = "*"
-click = "^8.1"
-cleez = "*"
-pluggy = "^1.4"
-
-sqlalchemy = "^2.0"
-advanced-alchemy = "^0.21"
-psycopg2 = "^2.9"
-
-# Remove later
-devtools = "^0.12"
-
-typing-extensions = "^4.12.2"
-flask-security-too = "^5.5.2"
-
-#[tool.poetry.group.dev.dependencies]
-#abilian-devtools = "^0.7"
-#httpx = "^0.27"
-#pytest = "^8.0"
-#python-dotenv = "^1.0"
-#infer-types = "^1.0"
-#
-#pyinfra = "^3"
-#
-#types-paramiko = "^3.4"
-#types-psycopg2 = "^2.9"
-#
-#flask-debugtoolbar = "^0.15"
-#msgspec = "^0.18"
-#
-#reuse = "^4"
-#pdoc3 = "^0.11.1"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.isort]
-profile = "black"
 
 [tool.pyright]
 exclude = [

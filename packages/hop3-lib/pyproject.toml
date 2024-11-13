@@ -29,7 +29,7 @@ eventlet = "^0.36"
 pyzmq = "^26"
 
 # System introspection
-psutil = "^6.0.0"
+psutil = ">= 6.0"
 py-cpuinfo = "^9.0.0"
 
 # Remove later

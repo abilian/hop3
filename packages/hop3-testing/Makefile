@@ -89,10 +89,7 @@ tidy: clean
 
 ## Update dependencies
 update-deps:
-	pip install -U pip setuptools wheel
-	poetry update
-	poetry show -o
-	pre-commit autoupdate
+	uv sync -U
 
 ## Publish to PyPI
 publish: clean

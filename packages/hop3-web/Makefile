@@ -51,9 +51,6 @@ configure-git:
 ## Update dependencies
 update-deps:
 	uv sync -U
-	poetry update
-	pre-commit autoupdate
-	poetry show -o
 
 
 #
