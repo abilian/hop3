@@ -115,7 +115,7 @@ format-apps:
 
 add-copyright:
     bash -c 'shopt -s globstar && reuse annotate --copyright "Copyright (c) 2023-2024, Abilian SAS" \
-        tests/**/*.py src/**/*.py */src/**/*.py */tests/**/*.py'
+        packages/*/src/**/*.py packages/*/tests/**/*.py'
 
 # Documentation
 doc: doc-html doc-pdf
@@ -130,7 +130,7 @@ doc-pdf:
 # Cleanup harder
 tidy: clean
     rm -rf .nox .tox .venv
-    rm -rf */.tox */.nox */.venv
+    bash -c "shopt -s globstar && rm -rf **/.tox **/.nox"
     rm -rf node_modules
 
 # Publish to PyPI

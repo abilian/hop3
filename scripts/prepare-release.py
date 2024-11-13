@@ -93,7 +93,9 @@ def _pr_number_from_commit(comp: Comp) -> int:
 
 
 class _Thing:
-    def __init__(self, *, gh_token: str, base: str, release_branch: str, tag: str, version: str) -> None:
+    def __init__(
+        self, *, gh_token: str, base: str, release_branch: str, tag: str, version: str
+    ) -> None:
         self._gh_token = gh_token
         self._base = base
         self._new_release_tag = tag
@@ -132,12 +134,16 @@ class _Thing:
         }
         """.replace("ORG_NAME", ORG_NAME).replace("REPO_NAME", REPO_NAME)
         query = graphql_query % (pr_number,)
-        res = await self._base_client.post("https://api.github.com/graphql", json={"query": query})
+        res = await self._base_client.post(
+            "https://api.github.com/graphql", json={"query": query}
+        )
         res.raise_for_status()
         data = res.json()
         return [
             edge["node"]["number"]
-            for edge in data["data"]["repository"]["pullRequest"]["closingIssuesReferences"]["edges"]
+            for edge in data["data"]["repository"]["pullRequest"][
+                "closingIssuesReferences"
+            ]["edges"]
         ]
 
     async def _get_pr_info_for_pr(self, number: int) -> PRInfo:
@@ -162,7 +168,9 @@ class _Thing:
         )
 
     async def get_prs(self) -> dict[str, list[PRInfo]]:
-        res = await self._api_client.get(f"/compare/{self._base}...{self._release_branch}")
+        res = await self._api_client.get(
+            f"/compare/{self._base}...{self._release_branch}"
+        )
         res.raise_for_status()
         compares = msgspec.convert(res.json()["commits"], list[Comp])
         pr_numbers = list(filter(None, (_pr_number_from_commit(c) for c in compares)))
@@ -174,7 +182,9 @@ class _Thing:
                 prs[pr.cc_type].append(pr)
         return prs
 
-    async def _get_first_time_contributions(self, prs: dict[str, list[PRInfo]]) -> list[PRInfo]:
+    async def _get_first_time_contributions(
+        self, prs: dict[str, list[PRInfo]]
+    ) -> list[PRInfo]:
         # there's probably a way to peel this information out of the GraphQL API but
         # this was easier to implement, and it works well enough ¯\_(ツ)_/¯
         # the logic is: if we don't find a commit to the main branch, dated before the
@@ -266,7 +276,9 @@ class ChangelogEntryWriter:
                 self.add_line(line)
 
     @contextlib.contextmanager
-    def directive(self, name: str, arg: str | None = None, **options: str) -> Generator[None, None, None]:
+    def directive(
+        self, name: str, arg: str | None = None, **options: str
+    ) -> Generator[None, None, None]:
         self.add_line(f".. {name}:: {arg or ''}")
         self._level += 1
         for key, value in options.items():
@@ -297,7 +309,9 @@ def build_gh_release_notes(release_info: ReleaseInfo) -> str:
     if release_info.first_time_prs:
         doc.add_line("\n## New contributors 🎉")
         for pr in release_info.first_time_prs:
-            doc.add_line(f"* @{pr.user.login} made their first contribution in {pr.url}")
+            doc.add_line(
+                f"* @{pr.user.login} made their first contribution in {pr.url}"
+            )
     if fixes := release_info.pull_requests.get("fix"):
         doc.add_line("\n### Bugfixes 🐛")
         doc.add_pr_descriptions(fixes)
@@ -307,8 +321,15 @@ def build_gh_release_notes(release_info: ReleaseInfo) -> str:
 
     ignore_sections = {"fix", "feat", "ci", "chore"}
 
-    if other := [pr for k, prs in release_info.pull_requests.items() if k not in ignore_sections for pr in prs]:
-        doc.add_line("\n<!-- Review these: Not all of them should go into the release notes -->")
+    if other := [
+        pr
+        for k, prs in release_info.pull_requests.items()
+        if k not in ignore_sections
+        for pr in prs
+    ]:
+        doc.add_line(
+            "\n<!-- Review these: Not all of them should go into the release notes -->"
+        )
         doc.add_line("### Other changes")
         doc.add_pr_descriptions(other)
 
@@ -321,13 +342,18 @@ def build_gh_release_notes(release_info: ReleaseInfo) -> str:
 def build_changelog_entry(release_info: ReleaseInfo, interactive: bool = False) -> str:
     doc = ChangelogEntryWriter()
     with doc.directive("changelog", release_info.version):
-        doc.add_line(f":date: {datetime.datetime.now(tz=datetime.timezone.utc).date().isoformat()}")
+        doc.add_line(
+            f":date: {datetime.datetime.now(tz=datetime.timezone.utc).date().isoformat()}"
+        )
         doc.add_line("")
         change_types = {"fix", "feat"}
         for prs in release_info.pull_requests.values():
             for pr in prs:
                 cc_type = pr.cc_type
-                if cc_type in change_types or (interactive and click.confirm(f"Ignore PR #{pr.number} {pr.title!r}?")):
+                if cc_type in change_types or (
+                    interactive
+                    and click.confirm(f"Ignore PR #{pr.number} {pr.title!r}?")
+                ):
                     doc.add_change(pr)
                 else:
                     click.secho(f"Ignoring change with type {cc_type}", fg="yellow")
@@ -345,7 +371,9 @@ def _get_gh_token() -> str:
         click.secho("GitHub CLI not installed", fg="yellow")
     else:
         click.secho("Using GitHub CLI to obtain GitHub token", fg="blue")
-        proc = subprocess.run([gh_executable, "auth", "token"], check=True, capture_output=True, text=True)
+        proc = subprocess.run(
+            [gh_executable, "auth", "token"], check=True, capture_output=True, text=True
+        )
         if out := (proc.stdout or "").strip():
             return out
 
@@ -368,7 +396,11 @@ def _write_changelog_entry(changelog_entry: str) -> None:
     changelog_path = pathlib.Path("docs/release-notes/changelog.rst")
     changelog_lines = changelog_path.read_text().splitlines()
     line_no = next(
-        (i for i, line in enumerate(changelog_lines) if line.startswith(".. changelog::")),
+        (
+            i
+            for i, line in enumerate(changelog_lines)
+            if line.startswith(".. changelog::")
+        ),
         None,
     )
     if line_no is None:
@@ -383,7 +415,9 @@ def update_pyproject_version(new_version: str) -> None:
     # can't use tomli-w / tomllib for this as is messes up the formatting
     pyproject = pathlib.Path("pyproject.toml")
     content = pyproject.read_text()
-    content = re.sub(r'(\nversion ?= ?")\d\.\d\.\d("\s*\n)', rf"\g<1>{new_version}\g<2>", content)
+    content = re.sub(
+        r'(\nversion ?= ?")\d\.\d\.\d("\s*\n)', rf"\g<1>{new_version}\g<2>", content
+    )
     pyproject.write_text(content)
 
 
@@ -402,7 +436,9 @@ def update_pyproject_version(new_version: str) -> None:
     is_flag=True,
     help="Interactively decide which commits should be included in the release notes",
 )
-@click.option("-c", "--create-draft-release", is_flag=True, help="Create draft release on GitHub")
+@click.option(
+    "-c", "--create-draft-release", is_flag=True, help="Create draft release on GitHub"
+)
 @click.option(
     "-u",
     "--update-version",
@@ -433,9 +469,17 @@ def cli(
         click.secho("Updating version in pyproject.toml", fg="green")
         update_pyproject_version(version)
 
-    click.secho(f"Creating release notes for tag {new_tag}, using {base} as a base", fg="cyan")
+    click.secho(
+        f"Creating release notes for tag {new_tag}, using {base} as a base", fg="cyan"
+    )
 
-    thing = _Thing(gh_token=gh_token, base=base, release_branch=branch, tag=new_tag, version=version)
+    thing = _Thing(
+        gh_token=gh_token,
+        base=base,
+        release_branch=branch,
+        tag=new_tag,
+        version=version,
+    )
     loop = asyncio.new_event_loop()
 
     release_info = loop.run_until_complete(thing.get_release_info())
@@ -447,7 +491,9 @@ def cli(
 
     if create_draft_release:
         click.secho("Creating draft release", fg="blue")
-        release_url = loop.run_until_complete(thing.create_draft_release(body=gh_release_notes, release_branch=branch))
+        release_url = loop.run_until_complete(
+            thing.create_draft_release(body=gh_release_notes, release_branch=branch)
+        )
         click.echo(f"Draft release available at: {release_url}")
     else:
         click.echo(gh_release_notes)
