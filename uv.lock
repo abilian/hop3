@@ -1579,7 +1579,7 @@ dev = [
 requires-dist = [
     { name = "cleez" },
     { name = "devtools", specifier = "~=0.12" },
-    { name = "hop3-agent", virtual = "packages/hop3-agent" },
+    { name = "hop3-agent", editable = "packages/hop3-agent" },
     { name = "hop3-cli", editable = "packages/hop3-cli" },
     { name = "hop3-lib", editable = "packages/hop3-lib" },
     { name = "hop3-server", editable = "packages/hop3-server" },
@@ -1613,12 +1613,13 @@ dev = [
 [[package]]
 name = "hop3-agent"
 version = "0.2.2"
-source = { virtual = "packages/hop3-agent" }
+source = { editable = "packages/hop3-agent" }
 dependencies = [
     { name = "advanced-alchemy" },
     { name = "attrs" },
     { name = "cleez" },
     { name = "click" },
+    { name = "devtools" },
     { name = "flask-security-too" },
     { name = "pluggy" },
     { name = "psycopg2" },
@@ -1636,6 +1637,7 @@ requires-dist = [
     { name = "attrs", specifier = ">=24.2" },
     { name = "cleez", specifier = ">=0.1.13" },
     { name = "click", specifier = "~=8.1" },
+    { name = "devtools", specifier = ">=0.12.2" },
     { name = "flask-security-too", specifier = "~=5.5.2" },
     { name = "pluggy", specifier = "~=1.4" },
     { name = "psycopg2", specifier = "~=2.9" },
