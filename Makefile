@@ -60,11 +60,13 @@ configure-git:
 	@echo "--> Configuring git"
 	git config branch.autosetuprebase always
 
+## Check development environment
+check-dev-env:
+	python3 scripts/check-dev-env.py
 
 ## Update dependencies
 update-deps:
-	uv sync -U
-	pre-commit autoupdate
+	just lint
 
 #
 # testing & checking
@@ -110,24 +112,9 @@ lint:
 	just lint
 
 
-# Alt
-#lint:
-#	ruff src tests/test*.py
-#	mypy --show-error-codes src
-#	flake8 src tests/test*.py
-#	# python -m pyanalyze --config-file pyproject.toml src
-#	lint-imports
-#	make hadolint
-#	vulture --min-confidence 80 src
-#	deptry . --extend-exclude .nox --extend-exclude .tox
-#	# TODO later
-#	# mypy --check-untyped-defs src
-
-
 ## Run a security audit
 audit:
-	pip-audit
-	safety check
+	just audit
 
 
 #

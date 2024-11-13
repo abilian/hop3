@@ -1,8 +1,8 @@
 # This Justfile is currently experimental.
 # We're keeping the make-based workflow for now, but we're also trying to
 # improve it with Just, eventually.
-
 # Variables
+
 PKG := "hop3,hop3_agent,hop3_server,hop3_web,hop3_lib"
 
 # Default recipe
@@ -56,8 +56,8 @@ configure-git:
 # Update dependencies
 update-deps:
     uv sync -U
-    .venv/bin/inv update
     pre-commit autoupdate
+    uv pip list --outdated
 
 # Testing & checking
 test:
@@ -83,7 +83,7 @@ test-with-coverage:
 
 test-with-typeguard:
     echo "--> Running Python tests with typeguard"
-    pytest --typeguard-packages={{PKG}}
+    pytest --typeguard-packages={{ PKG }}
     echo ""
 
 clean-test:
@@ -102,8 +102,10 @@ lint:
     # vulture --min-confidence 80 packages/hop3-agent/src
 
 audit:
-    pip-audit
-    safety check
+    # We're using `nox` to run the audit tools because we don't want
+    # the dependencies of the audit tools to be installed in the main
+    # environment.
+    nox -e audit
 
 # Formatting
 format:

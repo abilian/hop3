@@ -155,8 +155,8 @@ def update(c) -> None:
     c.run("uv sync -U --inexact")
     c.run("pre-commit autoupdate")
 
-    run_in_subrepos(c, "poetry update && poetry install")
-    run_in_subrepos(c, "pre-commit autoupdate")
+    # run_in_subrepos(c, "poetry update && poetry install")
+    # run_in_subrepos(c, "pre-commit autoupdate")
 
 
 #
