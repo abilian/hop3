@@ -107,12 +107,7 @@ clean-test: ## remove test and coverage artifacts
 
 ## Lint / check typing
 lint:
-	ruff check packages
-	pyright packages/hop3-agent/src
-	# mypy TODO
-	reuse lint -q
-	# vulture --min-confidence 80 packages/hop3-agent/src
-	cd packages/hop3-agent && deptry src
+	just lint
 
 
 # Alt

@@ -6,6 +6,7 @@ import time
 from os import environ
 from pathlib import Path
 from shutil import rmtree
+from typing import TYPE_CHECKING
 
 import pytest
 from hop3.core.app import App
@@ -14,12 +15,15 @@ from hop3.main import main as cli_main
 from hop3.util import Abort
 from hop3.util.console import console
 
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
 PATH = "/tmp/hop3"
 environ["HOP3_HOME"] = PATH
 
 
 @pytest.fixture(scope="session")
-def hop3_home() -> Path:
+def hop3_home() -> Generator[Path]:
     path = Path(PATH)
 
     # Clean up and prepare

@@ -66,7 +66,7 @@ class GitManager:
             echo(f"-----> Creating app '{self.app.name}'", fg="green")
             self.app.create()
 
-            cmd = ["git", "clone", "--quiet", self.app.repo_path, self.app.name]
+            cmd = ["git", "clone", "--quiet", str(self.app.repo_path), str(self.app.name)]
             subprocess.run(cmd, cwd=APP_ROOT)
 
 

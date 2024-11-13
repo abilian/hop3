@@ -95,9 +95,11 @@ clean-test:
 # Lint / check typing
 lint:
     ruff check packages
-    pyright packages/hop3-agent/src
-    # mypy TODO
+    pyright packages/hop3-agent
+    mypy packages/hop3-agent
     reuse lint -q
+    cd packages/hop3-agent && deptry src
+    # vulture --min-confidence 80 packages/hop3-agent/src
 
 audit:
     pip-audit
