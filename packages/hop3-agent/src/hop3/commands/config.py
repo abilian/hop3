@@ -50,19 +50,24 @@ def cmd_config_set(app: App, settings) -> None:
     env = app.get_runtime_env()
 
     for s in settings:
-        try:
-            key, value = s.split("=", 1)
-            key = key.strip()
-            value = value.strip()
-            log(f"Setting {key:s}={value} for '{app.name:s}'", fg="white")
-            env[key] = value
-        except Exception:
-            msg = f"Error: malformed setting '{s}'"
-            raise Abort(msg)
+        key, value = _parse_setting(s)
+        log(f"Setting {key:s}={value} for '{app.name:s}'", fg="white")
+        env[key] = value
 
     config_file = ENV_ROOT / app.name / "ENV"
     write_settings(config_file, env)
     do_deploy(app)
+
+
+def _parse_setting(setting: str) -> tuple[str, str]:
+    if "=" not in setting:
+        msg = f"Error: malformed setting '{setting}'"
+        raise Abort(msg)
+
+    key, value = setting.split("=", 1)
+    key = key.strip()
+    value = value.strip()
+    return key, value
 
 
 @hop3.command("config:unset")

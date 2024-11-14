@@ -96,10 +96,11 @@ class TestSession:
     def check_app_is_up(self) -> None:
         url = self.app_url
         response = None
+
         for i in range(1, 6):
             try:
                 response = httpx.get(url, verify=False)
-            except ConnectError:
+            except ConnectError:  # noqa: PERF203
                 print(
                     f"App {self.app_host_name} ({url}) is not up, retrying in {i} seconds"
                 )
