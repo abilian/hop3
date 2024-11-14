@@ -105,3 +105,40 @@ test-with-typeguard:
 ## Run a security audit
 audit:
 	just audit
+
+# Delegate to just
+
+add-copyright:
+	just add-copyright
+
+## Clean up
+clean:
+	just clean
+
+clean-test:
+	just clean-test
+
+## Default recipe
+default:
+	just default
+
+## Documentation
+doc:
+	just doc
+
+doc-html:
+	just doc-html
+
+doc-pdf:
+	just doc-pdf
+
+## Formatting
+format:
+	just format
+
+format-apps:
+	just format-apps
+
+## Cleanup harder
+tidy:
+	just tidy
