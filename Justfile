@@ -58,26 +58,16 @@ test-with-typeguard:
     uv run pytest --typeguard-packages={{ PKG }}
     echo ""
 
-clean-test:
-    rm -fr .tox/
-    rm -f .coverage
-    rm -fr htmlcov/
-    rm -fr .pytest_cache
-
 # Lint / check typing
 lint:
-    uv run ruff check packages
-    uv run pyright packages/hop3-agent
-    uv run mypy packages/hop3-agent
-    uv run reuse lint -q
-    cd packages/hop3-agent && uv run deptry src
-    # vulture --min-confidence 80 packages/hop3-agent/src
+    # We keep 'make lint' in the Makefile for now, because it's used in CI.
+    make lint
 
 audit:
     # We're using `nox` to run the audit tools because we don't want
     # the dependencies of the audit tools to be installed in the main
     # environment.
-    uv run nox -e audit
+    nox -e audit
 
 # Formatting
 format:
@@ -132,13 +122,3 @@ deploy:
     just clean
     uv build packages/hop3-agent
     uv run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
-
-# Documentation
-doc: doc-html doc-pdf
-
-doc-html:
-    sphinx-build -W -b html docs/ docs/_build/html
-
-doc-pdf:
-    sphinx-build -W -b latex docs/ docs/_build/latex
-    make -C docs/_build/latex all-pdf

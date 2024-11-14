@@ -60,18 +60,6 @@ format:
 help:
 	adt help-make
 
-install:
-	poetry install
-
-doc: doc-html doc-pdf
-
-doc-html:
-	sphinx-build -W -b html docs/ docs/_build/html
-
-doc-pdf:
-	sphinx-build -W -b latex docs/ docs/_build/latex
-	make -C docs/_build/latex all-pdf
-
 ## Cleanup repository
 clean:
 	adt clean

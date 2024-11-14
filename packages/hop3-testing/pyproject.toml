@@ -21,9 +21,3 @@ hop-test = "hop3_testing.main:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-#[tool.uv]
-#dev-dependencies = [
-#    "abilian-devtools>=0.7",
-#    "docformatter>=1.7.5",
-#]
