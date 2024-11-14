@@ -274,51 +274,27 @@ class NginxConfig:
         """Configure Nginx caching"""
         self.env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = ""
         self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
+
         default_cache_path = CACHE_ROOT / self.app_name
         if not default_cache_path.exists():
             default_cache_path.mkdir(parents=True)
 
-        try:
-            _cache_size = self.env.get_int("NGINX_CACHE_SIZE", 1)
-        except Exception:
-            echo("=====> Invalid cache size, defaulting to 1GB")
-            _cache_size = 1
-        cache_size = str(_cache_size) + "g"
-
-        try:
-            _cache_time_control = self.env.get_int("NGINX_CACHE_CONTROL", 3600)
-        except Exception:
-            echo("=====> Invalid time for cache control, defaulting to 3600s")
-            _cache_time_control = 3600
-        cache_time_control = str(_cache_time_control)
-
-        try:
-            _cache_time_content = self.env.get_int("NGINX_CACHE_TIME", 3600)
-        except Exception:
-            echo("=====> Invalid cache time for content, defaulting to 3600s")
-            _cache_time_content = 3600
-        cache_time_content = str(_cache_time_content) + "s"
-
-        try:
-            _cache_time_redirects = self.env.get_int("NGINX_CACHE_REDIRECTS", 3600)
-        except Exception:
-            echo("=====> Invalid cache time for redirects, defaulting to 3600s")
-            _cache_time_redirects = 3600
-        cache_time_redirects = str(_cache_time_redirects) + "s"
-
-        try:
-            _cache_time_any = self.env.get_int("NGINX_CACHE_ANY", 3600)
-        except Exception:
-            echo("=====> Invalid cache expiry fallback, defaulting to 3600s")
-            _cache_time_any = 3600
-        cache_time_any = str(_cache_time_any) + "s"
-
-        try:
-            _cache_time_expiry = self.env.get_int("NGINX_CACHE_EXPIRY", 86400)
-        except Exception:
-            echo("=====> Invalid cache expiry, defaulting to 86400s")
-            _cache_time_expiry = 86400
-        cache_time_expiry = str(_cache_time_expiry) + "s"
+        cache_size = self._get_cache_param("CACHE_SIZE", "cache size", 1, "g")
+        cache_time_control = self._get_cache_param(
+            "CACHE_CONTROL", "cache control", 3600, "s"
+        )
+        cache_time_content = self._get_cache_param(
+            "CACHE_TIME", "cache time", 3600, "s"
+        )
+        cache_time_redirects = self._get_cache_param(
+            "CACHE_REDIRECTS", "cache redirects", 3600, "s"
+        )
+        cache_time_any = self._get_cache_param(
+            "CACHE_ANY", "cache expiry fallback", 3600, "s"
+        )
+        cache_time_expiry = self._get_cache_param(
+            "CACHE_EXPIRY", "cache expiry", 86400, "s"
+        )
 
         # FIXME
         cache_path = self.env.get_path("NGINX_CACHE_PATH", default_cache_path)
@@ -372,3 +348,10 @@ class NginxConfig:
                     " ignoring.",
                 )
                 self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
+
+    def _get_cache_param(self, key: str, name: str, default: int, suffix: str) -> str:
+        try:
+            return str(self.env.get_int("NGINX_" + key, default)) + suffix
+        except Exception:
+            echo(f"=====> Invalid {name}, defaulting to {default}{suffix}")
+            return str(default) + suffix

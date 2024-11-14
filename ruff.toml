@@ -36,6 +36,7 @@ lint.extend-ignore = [
     "INP001", # implicit namespace package
     "ISC001", # (The following rules may cause conflicts when used with the formatter)
     "PD011", # Use `.to_numpy()` instead of `.values`
+    "PGH003", # Use specific rule codes when ignoring type issues
     "PLC0415", # `import` should be at the top-level of a file
     "PLW1514", # `pathlib.Path(...).write_text` without explicit `encoding` argument
     "RET504", # Unnecessary assignment before `return` statement
@@ -47,8 +48,7 @@ lint.extend-ignore = [
 
     # Fix these
     "E501", # Line too long
-    "PGH003",
-    "PLR0912", # Too many branches
+#    "PLR0912", # Too many branches
     "PLR0913", # Too many arguments
     "PLR0914", # Too many local variables
     "PLR0915", # Too many statements
