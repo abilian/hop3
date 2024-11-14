@@ -15,33 +15,38 @@ SUB_REPOS = [
     "packages/hop3-testing",
 ]
 
-nox.options.reuse_existing_virtualenvs = True
-# nox.options.default_venv_backend = "venv"
+nox.options.default_venv_backend = "uv|virtualenv"
 
-# Don't run 'update-deps' by default.
+
 nox.options.sessions = [
     "lint",
     "pytest",
-    "doc",
 ]
 
 
 @nox.session
 def lint(session: nox.Session) -> None:
-    session.run("uv", "sync", "--no-dev")
-    session.run("uv", "pip", "install", "abilian-devtools")
+    session.install(".")
+    session.install("abilian-devtools")
     session.run("make", "lint", external=True)
 
 
 @nox.session(python=PYTHON_VERSIONS)
+def pytest(session: nox.Session) -> None:
+    session.install(".")
+    session.install("pytest")
+    session.run("pytest")
+
+
+@nox.session(python=PYTHON_VERSIONS)
 @nox.parametrize("sub_repo", SUB_REPOS)
-def pytest(session: nox.Session, sub_repo: str) -> None:
+def pytest_packages(session: nox.Session, sub_repo: str) -> None:
     run_subsession(session, sub_repo)
 
 
 @nox.session
 def audit(session: nox.Session) -> None:
-    session.run("uv", "sync", "--no-dev")
+    session.run("uv", "pip", "install", ".")
     session.run("uv", "pip", "install", "safety", "pip-audit")
     session.run("pip-audit")
     session.run("safety", "scan")

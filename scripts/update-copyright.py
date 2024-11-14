@@ -1,4 +1,5 @@
 import re
+import sys
 from pathlib import Path
 
 from devtools import debug
@@ -9,9 +10,15 @@ PAT_2Y = r"# Copyright \(c\) ([0-9]+)-([0-9]+), Abilian SAS"
 CURRENT_YEAR = 2024
 
 
-def main():
-    python_files = list(Path("packages").rglob("*.py"))
+def main(args=None):
+    if not args:
+        python_files = list(Path("packages").rglob("*.py"))
+    else:
+        python_files = [Path(arg) for arg in args]
+
     for python_file in python_files:
+        if "/.nox/" in str(python_file):
+            continue
         update_copyright(python_file)
 
 
@@ -57,4 +64,4 @@ def update_copyright(python_file):
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

@@ -10,19 +10,20 @@ PKG:=hop3,hop3_agent,hop3_server,hop3_web,hop3_lib
 all: lint test
 
 #
+# Used by CI
 #
-#
-## Cleanup repository
-clean:
-	bash -c "shopt -s globstar && rm -f **/*.pyc"
-	find . -type d -empty -delete
-	rm -rf *.egg-info *.egg .coverage .eggs .cache .mypy_cache .pyre \
-		.pytest_cache .pytest .DS_Store  docs/_build docs/cache docs/tmp \
-		dist build pip-wheel-metadata junit-*.xml htmlcov coverage.xml \
-		tmp
-	rm -rf */dist
-	adt clean
 
+## Lint / check typing
+lint:
+	ruff check packages
+	pyright packages/hop3-agent
+	mypy packages/hop3-agent
+	reuse lint -q
+	cd packages/hop3-agent && deptry src
+	# vulture --min-confidence 80 packages/hop3-agent/src
+
+
+## Cleanup repository
 clean-and-deploy:
 	make clean-server
 	make deploy
@@ -66,7 +67,7 @@ check-dev-env:
 
 ## Update dependencies
 update-deps:
-	just lint
+	just update-deps
 
 #
 # testing & checking
@@ -76,7 +77,7 @@ update-deps:
 ## Run python tests
 test:
 	@echo "--> Running Python tests"
-	pytest -x -p no:randomly
+	uv run pytest -x -p no:randomly
 	@echo ""
 
 test-e2e:
@@ -100,66 +101,7 @@ test-with-typeguard:
 	pytest --typeguard-packages=${PKG}
 	@echo ""
 
-## Cleanup tests artifacts
-clean-test: ## remove test and coverage artifacts
-	rm -fr .tox/
-	rm -f .coverage
-	rm -fr htmlcov/
-	rm -fr .pytest_cache
-
-## Lint / check typing
-lint:
-	just lint
-
 
 ## Run a security audit
 audit:
 	just audit
-
-
-#
-# Formatting
-#
-.PHONY: format
-
-## Format / beautify code
-format:
-	# docformatter -i -r src
-	ruff format
-	ruff check --fix
-	markdown-toc -i README.md
-
-## Format / beautify apps
-format-apps:
-	bash -c "shopt -s globstar && gofmt -w apps/**/*.go"
-	bash -c "shopt -s globstar && prettier -w apps/**/*.js"
-
-
-## Add copyright mention
-add-copyright:
-	bash -c 'shopt -s globstar && reuse annotate --copyright "Copyright (c) 2023-2024, Abilian SAS" \
-		tests/**/*.py src/**/*.py */src/**/*.py */tests/**/*.py'
-
-#
-# Everything else
-#
-.PHONY: help install doc doc-html doc-pdf clean tidy update-deps publish
-
-help:
-	adt help-make
-
-doc: doc-html doc-pdf
-
-doc-html:
-	sphinx-build -W -b html docs/ docs/_build/html
-
-doc-pdf:
-	sphinx-build -W -b latex docs/ docs/_build/latex
-	make -C docs/_build/latex all-pdf
-
-
-## Cleanup harder
-tidy: clean
-	rm -rf .nox .tox .venv
-	rm -rf */.tox */.nox */.venv
-	rm -rf node_modules

@@ -28,6 +28,8 @@ dependencies = [
     "python-dotenv",
 ]
 
+# ------------------------------------
+
 [tool.uv]
 package = false
 dev-dependencies = [
