@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# ruff: noqa: PLC2801
+
 from __future__ import annotations
 
 

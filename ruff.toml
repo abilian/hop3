@@ -48,8 +48,6 @@ lint.extend-ignore = [
     # Fix these
     "E501", # Line too long
     "PGH003",
-    "PLC1901",
-    "PLC2801",
     "PLR0912", # Too many branches
     "PLR0913", # Too many arguments
     "PLR0914", # Too many local variables

@@ -81,7 +81,7 @@ def test_lifecycle(hop3_home) -> None:
     Path(app.app_path / "requirements.txt").write_text("")
 
     cli_main(["config", app_name])
-    assert console.output() == ""
+    assert not console.output()
 
     cli_main(["config:set", app_name, "XXX=xyz"])
     assert app_name in console.output()
