@@ -16,6 +16,9 @@ lint.select = [
 ]
 
 lint.extend-ignore = [
+    # Never
+    "PD", # We're not using Pandas
+
     # Later (or never)
     "ANN", # flake8-annotations
     "ARG", # flake8-unused-arguments
@@ -23,7 +26,6 @@ lint.extend-ignore = [
     "D", # pydocstyle
     "ERA", # eradicate
     "FIX", # flake8-fixme
-    "PD", # We're not using Pandas
     "PTH", # flake8-use-pathlib
     "S", # flake8-bandit
     "T20", # flake8-print

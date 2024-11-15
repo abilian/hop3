@@ -73,7 +73,8 @@ class NodeBuilder(Builder):
 
         """
         node_modules = self.app_path / "node_modules"
-        npm_prefix = os.path.abspath(os.path.join(node_modules, ".."))
+        # npm_prefix = os.path.abspath(os.path.join(node_modules, ".."))
+        npm_prefix = node_modules.parent.absolute()
         path = prepend_to_path(
             [
                 self.virtual_env / "bin",
