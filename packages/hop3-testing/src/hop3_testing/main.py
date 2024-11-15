@@ -81,7 +81,7 @@ def run_tests_parallel(apps, config) -> None:
 
     with Pool(4) as pool:
         results = pool.map(run, apps)
-    debug(zip(apps, results))
+    debug(zip(apps, results, strict=False))
 
 
 def run_tests(apps, config) -> None:

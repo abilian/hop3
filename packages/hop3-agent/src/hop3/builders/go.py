@@ -22,7 +22,7 @@ class GoBuilder(Builder):
     """
 
     name = "Go"
-    requirements = ["go"]
+    requirements = ["go"]  # noqa: RUF012
 
     def accept(self) -> bool:
         """Check if the application has go dependencies or go source files.

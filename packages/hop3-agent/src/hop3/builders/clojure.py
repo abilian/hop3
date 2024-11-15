@@ -35,7 +35,8 @@ class ClojureBuilder(Builder):
     """
 
     name = "Clojure"
-    requirements = []  # TODO
+    # TODO
+    requirements = []  # noqa: RUF012
 
     def accept(self):
         """Check if the object is a Leiningen app or a CLI Clojure app.

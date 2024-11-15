@@ -108,7 +108,7 @@ class TestSession:
                 continue
             except OSError as e:
                 msg = f"App {self.app_host_name} ({url}) is not up, got OSError:\n{e}"
-                raise AssertionError(msg)
+                raise AssertionError(msg) from e
 
         if response is None:
             msg = f"App {self.app_host_name} ({url}) is not up, can't connect to it"

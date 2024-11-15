@@ -16,14 +16,14 @@ lint.select = [
 ]
 
 lint.extend-ignore = [
-    # Later...
+    # Later (or never)
     "ANN", # flake8-annotations
     "ARG", # flake8-unused-arguments
-    "B", # flake8-bugbear
     "BLE", # flake8-blind-except
     "D", # pydocstyle
     "ERA", # eradicate
     "FIX", # flake8-fixme
+    "PD", # We're not using Pandas
     "PTH", # flake8-use-pathlib
     "S", # flake8-bandit
     "T20", # flake8-print
@@ -34,7 +34,6 @@ lint.extend-ignore = [
     "A005", # Module ... is shadowing a Python builtin module
     "COM812", # Missing trailing comma
     "ISC001", # (The following rules may cause conflicts when used with the formatter)
-    "PD011", # Use `.to_numpy()` instead of `.values`
     "PGH003", # Use specific rule codes when ignoring type issues
     "PLC0415", # `import` should be at the top-level of a file
     "PLR0913", # Too many arguments
@@ -45,13 +44,11 @@ lint.extend-ignore = [
     "S101", # Use of `assert` detected
     "SIM102", # Use a single `if` statement instead of nested `if` statements
     "SIM108", # Use ternary operator
-    "TRY003", # Avoid specifying long messages outside the exception class
 
     # Fix these
     "E501", # Line too long
-    "PLW1510", # `subprocess.run` without explicit `check` argument
-    # Not sure why this one raises warnings
-    "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
+    "B904", # Use raise ... from ...
+    "B909", # Mutation to loop iterable during iteration
 ]
 
 

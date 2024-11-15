@@ -34,7 +34,7 @@ class NodeBuilder(Builder):
     """
 
     name = "Node"
-    requirements = ["node", "npm"]
+    requirements = ["node", "npm"]  # noqa: RUF012
 
     # FIXME: should be more complex
     # check_requirements(["nodejs", "npm"])

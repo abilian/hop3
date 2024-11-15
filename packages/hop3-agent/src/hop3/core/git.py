@@ -31,12 +31,12 @@ class GitManager:
     def receive_pack(self) -> None:
         """Handle git pushes for an app."""
         cmd = ["git-receive-pack", self.app.name]
-        subprocess.run(cmd, cwd=GIT_ROOT)
+        subprocess.run(cmd, cwd=GIT_ROOT, check=False)
 
     def upload_pack(self) -> None:
         """Handle git upload pack for an app."""
         cmd = ["git-upload-pack", self.app.name]
-        subprocess.run(cmd, cwd=GIT_ROOT)
+        subprocess.run(cmd, cwd=GIT_ROOT, check=False)
 
     def setup_hook(self) -> None:
         """Setup a post-receive hook for an app."""
@@ -47,7 +47,7 @@ class GitManager:
 
             # Initialize the repository with a hook to this script
             cmd = ["git", "init", "--quiet", "--bare", app.name]
-            subprocess.run(cmd, cwd=GIT_ROOT)
+            subprocess.run(cmd, cwd=GIT_ROOT, check=False)
 
             hook_path.write_text(
                 dedent(
@@ -73,7 +73,7 @@ class GitManager:
                 str(self.app.repo_path),
                 str(self.app.name),
             ]
-            subprocess.run(cmd, cwd=APP_ROOT)
+            subprocess.run(cmd, cwd=APP_ROOT, check=False)
 
 
 def make_executable(path: Path) -> None:

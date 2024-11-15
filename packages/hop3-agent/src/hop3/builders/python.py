@@ -26,7 +26,7 @@ class PythonBuilder(Builder):
     """
 
     name = "Python"
-    requirements = ["python3", "pip", "virtualenv"]
+    requirements = ["python3", "pip", "virtualenv"]  # noqa: RUF012
 
     def accept(self) -> bool:
         """Check if either requirements.txt or pyproject.toml exists in the

@@ -1,4 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
+
+# ruff: noqa: INP001
+
 from __future__ import annotations
 
 import glob

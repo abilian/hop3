@@ -27,7 +27,7 @@ class PHPBuilder(Builder):
     """
 
     name = "PHP"
-    requirements = ["composer"]
+    requirements = ["composer"]  # noqa: RUF012
 
     def accept(self) -> bool:
         """Check if the application directory contains a composer.json file,

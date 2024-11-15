@@ -37,7 +37,7 @@ class RustBuilder(Builder):
     """
 
     name = "Rust"
-    requirements = ["cargo"]
+    requirements = ["cargo"]  # noqa: RUF012
 
     def accept(self) -> bool:
         """Check if the application directory contains a Cargo.toml file,

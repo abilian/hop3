@@ -38,7 +38,7 @@ def shell(command: str, cwd: Path | str = "", **kwargs) -> subprocess.CompletedP
     kwargs["shell"] = True
     if cwd:
         kwargs["cwd"] = str(cwd)
-    return subprocess.run(command, **kwargs)
+    return subprocess.run(command, **kwargs, check=False)
 
 
 def check_binaries(binaries) -> bool:

@@ -48,7 +48,7 @@ class CertificatesManager:
             f' "/C=FR/ST=NA/L=Paris/O=Hop3/OU=Self-Signed/CN={self.domain}" -keyout'
             f" {self.key} -out {self.crt}"
         )
-        subprocess.run(cmd, shell=True)
+        subprocess.run(cmd, shell=True, check=False)
 
     def setup_acme(self) -> None:
         key_file = NGINX_ROOT / f"{self.app_name}.key"

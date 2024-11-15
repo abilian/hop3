@@ -23,7 +23,7 @@ class RubyBuilder(Builder):
     """
 
     name = "Ruby"
-    requirements = ["ruby", "gem", "bundle"]
+    requirements = ["ruby", "gem", "bundle"]  # noqa: RUF012
 
     def accept(self) -> bool:
         """Check if a Gemfile exists in the specified app_path.

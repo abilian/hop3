@@ -22,7 +22,7 @@ class Console(ABC):
     def echo(self, msg, fg: str = ""):
         """Print message to stdout."""
 
-    def reset(self) -> None:
+    def reset(self) -> None:  # noqa: B027
         pass
 
     def output(self) -> str:
