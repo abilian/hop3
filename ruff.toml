@@ -33,11 +33,12 @@ lint.extend-ignore = [
     # False positive, don't remove
     "A005", # Module ... is shadowing a Python builtin module
     "COM812", # Missing trailing comma
-    "INP001", # implicit namespace package
     "ISC001", # (The following rules may cause conflicts when used with the formatter)
     "PD011", # Use `.to_numpy()` instead of `.values`
     "PGH003", # Use specific rule codes when ignoring type issues
     "PLC0415", # `import` should be at the top-level of a file
+    "PLR0913", # Too many arguments
+    "PLR6301", # Method could be a function
     "PLW1514", # `pathlib.Path(...).write_text` without explicit `encoding` argument
     "RET504", # Unnecessary assignment before `return` statement
     "RET505", # Unnecessary `else` after `return` statement"
@@ -48,11 +49,6 @@ lint.extend-ignore = [
 
     # Fix these
     "E501", # Line too long
-#    "PLR0912", # Too many branches
-    "PLR0913", # Too many arguments
-    "PLR0914", # Too many local variables
-    "PLR0915", # Too many statements
-    "PLR6301", # Method could be a function
     "PLW1510", # `subprocess.run` without explicit `check` argument
     # Not sure why this one raises warnings
     "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
@@ -68,4 +64,13 @@ combine-as-imports = true
 required-imports = ["from __future__ import annotations"]
 
 [lint.per-file-ignores]
-"**/src/**/*.py" = ["PT"] # Pytest warnings in source code are probably false positives
+"**/src/**/*.py" = [
+    "PT", # Pytest warnings in source code are probably false positives
+
+]
+"**/tests/**/*.py" = [
+    "INP001", # implicit namespace package
+]
+"**/noxfile.py" = [
+    "INP001", # implicit namespace package
+]
