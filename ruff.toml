@@ -51,6 +51,7 @@ lint.extend-ignore = [
     "E501", # Line too long
     "B904", # Use raise ... from ...
     "B909", # Mutation to loop iterable during iteration
+    "RUF035", # Unsafe use of Markup
 ]
 
 
