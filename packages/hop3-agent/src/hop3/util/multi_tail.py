@@ -30,9 +30,6 @@ class MultiTail:
     handles: dict[Path, TextIO] = field(default_factory=dict)
 
     def __post_init__(self):
-        self._open_files()
-
-    def _open_files(self):
         for filename in self.filenames:
             path = Path(filename)
             self.paths.append(path)
@@ -65,7 +62,8 @@ class MultiTail:
     def format_line(self, path: Path, line: str) -> str:
         return f"{path.stem.ljust(self.longest_stem())} | {line}"
 
-    def _peek(self, handle):
+    @staticmethod
+    def _peek(handle):
         where = handle.tell()
         line = handle.readline()
         if not line:
