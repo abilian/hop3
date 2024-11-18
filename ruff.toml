@@ -51,12 +51,13 @@ lint.extend-ignore = [
     "E501", # Line too long
     "B904", # Use raise ... from ...
     "B909", # Mutation to loop iterable during iteration
+    "RUF035", # Unsafe use of Markup
 ]
 
 
 [lint.mccabe]
 # TODO: Set max-complexity = 10
-max-complexity = 14
+max-complexity = 12
 
 [lint.isort]
 combine-as-imports = true

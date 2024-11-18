@@ -33,7 +33,9 @@ class UptimeSubcommand(Command):
     name = "uptime"
 
     def call(self, *args):
-        result = subprocess.run(["uptime"], capture_output=True, text=True, check=False).stdout
+        result = subprocess.run(
+            ["uptime"], capture_output=True, text=True, check=False
+        ).stdout
         return [{"t": "text", "text": result}]
 
 
@@ -43,7 +45,9 @@ class PsSubcommand(Command):
     name = "ps"
 
     def call(self, *args):
-        result = subprocess.run(["ps", "aux"], capture_output=True, text=True, check=False).stdout
+        result = subprocess.run(
+            ["ps", "aux"], capture_output=True, text=True, check=False
+        ).stdout
         return [{"t": "text", "text": result}]
 
 
