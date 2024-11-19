@@ -49,7 +49,7 @@ class NodeBuilder(Builder):
             bool: True if the package.json file exists, False otherwise.
 
         """
-        return (self.app_path / "package.json").exists()
+        return self.check_exists("package.json")
 
     def build(self) -> None:
         """Build the project environment.

@@ -40,12 +40,13 @@ class Builder(ABC):
     """
 
     app_name: str
+    app_path: Path
 
     # Class attitutes
     name: ClassVar[str]
     requirements: ClassVar[list[str]]
 
-    def __init__(self, app_name: str) -> None:
+    def __init__(self, app_name: str, app_path: Path | None = None) -> None:
         """Initialize the class with the specified app name.
 
         Args:
@@ -58,6 +59,10 @@ class Builder(ABC):
 
         """
         self.app_name = app_name
+        if app_path:
+            self.app_path = app_path
+        else:
+            self.app_path = APP_ROOT / app_name
 
     @abstractmethod
     def accept(self) -> bool:
@@ -68,20 +73,25 @@ class Builder(ABC):
             bool: True if this builder instance can accept the input, False otherwise.
         """
 
-    @abstractmethod
-    def build(self) -> None:
-        """Build function (implemented by subclasses)."""
+    def check_exists(self, file_or_files: str | list[str]) -> bool:
+        """Check if the specified file, or one of the specified files, exist in the application path.
 
-    @property
-    def app_path(self) -> Path:
-        """Property method for determining the application path.
+        Args:
+        ----
+            file_or_files (list[str]): The file or files to check for existence.
 
-        Returns
+        Returns:
         -------
-            Path: The path to the application directory.
+            bool: True if the file or files exist, False otherwise.
 
         """
-        return APP_ROOT / self.app_name
+        if isinstance(file_or_files, str):
+            file_or_files = [file_or_files]
+        return any((self.app_path / file).exists() for file in file_or_files)
+
+    @abstractmethod
+    def build(self) -> None:
+        """Build app from sources (implemented by subclasses)."""
 
     @property
     def virtual_env(self) -> Path:

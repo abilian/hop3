@@ -46,7 +46,7 @@ class ClojureBuilder(Builder):
             bool: True if the object is a Leiningen app or a CLI Clojure app, False otherwise.
 
         """
-        return self.is_leiningen_app or self.is_cli_app
+        return self.check_exists(["project.clj", "deps.edn"])
 
     @property
     def is_leiningen_app(self) -> bool:

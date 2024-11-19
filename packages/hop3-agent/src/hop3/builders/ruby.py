@@ -33,7 +33,7 @@ class RubyBuilder(Builder):
             bool: True if a Gemfile exists, False otherwise.
 
         """
-        return (self.app_path / "Gemfile").exists()
+        return self.check_exists("Gemfile")
 
     def build(self) -> None:
         """Build the project by setting up a virtual environment and installing

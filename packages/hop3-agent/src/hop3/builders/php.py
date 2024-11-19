@@ -33,7 +33,7 @@ class PHPBuilder(Builder):
         """Check if the application directory contains a composer.json file,
         indicating it is a PHP project.
         """
-        return (self.app_path / "composer.json").exists()
+        return self.check_exists("composer.json")
 
     def build(self) -> None:
         """Build the PHP project by installing dependencies and potentially

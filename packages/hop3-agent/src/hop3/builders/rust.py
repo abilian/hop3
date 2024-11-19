@@ -43,7 +43,7 @@ class RustBuilder(Builder):
         """Check if the application directory contains a Cargo.toml file,
         indicating it is a Rust project.
         """
-        return (self.app_path / "Cargo.toml").exists()
+        return self.check_exists("Cargo.toml")
 
     def build(self) -> None:
         """Build the Rust project using cargo."""

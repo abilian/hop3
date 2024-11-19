@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from advanced_alchemy.base import BigIntAuditBase
 from flask_security import AsaList, RoleMixin, UserMixin
-from sqlalchemy import Column, ForeignKey, String
+from sqlalchemy import Column, ForeignKey
 from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
 
@@ -42,9 +42,9 @@ class User(AuditBase, UserMixin):
     current_login_ip: Mapped[str] = mapped_column(default="")
 
     login_count: Mapped[int] = mapped_column(default=0)
-    active: Mapped[bool]
+    active: Mapped[bool] = mapped_column(default=False)
 
-    fs_uniquifier: Mapped[str] = mapped_column(String(64), unique=True)
+    fs_uniquifier: Mapped[str] = mapped_column(unique=True)
     confirmed_at: Mapped[datetime] = mapped_column(nullable=True)
 
     roles = relationship(
