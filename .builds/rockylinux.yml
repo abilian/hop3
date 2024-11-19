@@ -17,6 +17,8 @@ packages:
   - gcc
   # Libraries
   - libpq-devel
+  # For builders
+  - npm
 
 tasks:
   - setup: |

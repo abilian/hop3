@@ -20,6 +20,9 @@ packages:
   - libffi-dev
   - libsqlite3-dev
   - libbz2-dev
+  # For builders
+  - npm
+  - ruby-rubygems
 
 tasks:
   - setup: |
