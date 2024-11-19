@@ -1,11 +1,10 @@
 # Copyright (c) 2024, Abilian SAS
 from __future__ import annotations
 
-import os
 import shutil
 from pathlib import Path
 
-from devtools import debug
+import pytest
 from hop3.builders import GoBuilder, NodeBuilder, PythonBuilder, RubyBuilder
 
 APPS = [
@@ -20,11 +19,13 @@ APPS = [
 ]
 
 
-def test_python_builder(tmp_path):
-    debug(os.getcwd())
-    app_path = tmp_path / "myapp"
-    shutil.copytree("apps/test-apps/010-flask-pip-wsgi", app_path)
+@pytest.mark.parametrize(("app_name", "builder_cls"), APPS)
+def test_builders(tmp_path, app_name, builder_cls):
+    # Temp
     Path("/private/tmp/hop3/envs").mkdir(exist_ok=True, parents=True)
-    builder = PythonBuilder("myapp", app_path)
+
+    app_path = tmp_path / app_name
+    shutil.copytree(f"apps/test-apps/{app_name}", app_path)
+    builder = builder_cls(app_name, app_path)
     assert builder.accept()
     builder.build()

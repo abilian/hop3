@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from .settings import UwsgiSettings
+from hop3.run.uwsgi.settings import UwsgiSettings
 
 
 def test_settings() -> None:

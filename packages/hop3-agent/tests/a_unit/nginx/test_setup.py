@@ -1,10 +1,17 @@
 # Copyright (c) 2023-2024, Abilian SAS
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from hop3.core.app import App
 from hop3.core.env import Env
 from hop3.proxies.nginx.setup import NginxConfig
+
+
+@pytest.fixture(autouse=True)
+def created_directory():
+    Path("/private/tmp/hop3/nginx/").mkdir(exist_ok=True, parents=True)
 
 
 def test_get_static_paths_0() -> None:
