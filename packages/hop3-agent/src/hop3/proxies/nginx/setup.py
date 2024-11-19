@@ -200,9 +200,7 @@ class NginxConfig:
                 )
             except Exception:
                 msg = f"Could not retrieve CloudFlare IP ranges: {format_exc()}"
-                raise Abort(
-                    msg,
-                )
+                raise Abort(msg)
 
             if cf["success"] is True:
                 result = cf["result"]

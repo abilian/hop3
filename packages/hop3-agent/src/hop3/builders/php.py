@@ -65,6 +65,4 @@ class PHPBuilder(Builder):
             msg = (
                 f"Failed to install dependencies for PHP project '{self.app_name}': {e}"
             )
-            raise RuntimeError(
-                msg,
-            )
+            raise RuntimeError(msg)
