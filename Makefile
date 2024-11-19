@@ -91,7 +91,7 @@ test-randomly:
 
 test-with-coverage:
 	@echo "--> Running Python tests"
-	pytest --cov=. --cov-report term-missing
+	pytest --cov=hop3 --cov-report term-missing
 	@echo ""
 
 test-with-typeguard:

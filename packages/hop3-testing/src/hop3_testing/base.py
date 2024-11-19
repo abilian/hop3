@@ -112,17 +112,13 @@ class TestSession:
 
         if response is None:
             msg = f"App {self.app_host_name} ({url}) is not up, can't connect to it"
-            raise AssertionError(
-                msg,
-            )
+            raise AssertionError(msg)
         if response.status_code != HTTPStatus.OK:
             msg = (
                 f"App {self.app_host_name} ({url}) is not up, got status code"
                 f" {response.status_code}"
             )
-            raise AssertionError(
-                msg,
-            )
+            raise AssertionError(msg)
 
         self.check_app_content()
 
