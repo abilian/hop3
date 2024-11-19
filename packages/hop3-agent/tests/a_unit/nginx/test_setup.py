@@ -11,7 +11,7 @@ from hop3.proxies.nginx.setup import NginxConfig
 
 @pytest.fixture(autouse=True)
 def created_directory():
-    Path("/private/tmp/hop3/nginx/").mkdir(exist_ok=True, parents=True)
+    Path("/tmp/hop3/nginx/").mkdir(exist_ok=True, parents=True)
 
 
 def test_get_static_paths_0() -> None:

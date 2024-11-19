@@ -22,7 +22,7 @@ APPS = [
 @pytest.mark.parametrize(("app_name", "builder_cls"), APPS)
 def test_builders(tmp_path, app_name, builder_cls):
     # Temp
-    Path("/private/tmp/hop3/envs").mkdir(exist_ok=True, parents=True)
+    Path("/tmp/hop3/envs").mkdir(exist_ok=True, parents=True)
 
     app_path = tmp_path / app_name
     shutil.copytree(f"apps/test-apps/{app_name}", app_path)
