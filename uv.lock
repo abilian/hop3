@@ -14,7 +14,7 @@ members = [
 
 [[package]]
 name = "abilian-devtools"
-version = "0.7.3"
+version = "0.7.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "black" },
@@ -63,9 +63,9 @@ dependencies = [
     { name = "tomlkit" },
     { name = "vulture" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b0/57/901d8672051a36248c42345c45f6fd64123fa1200461b9c32a86b13c482e/abilian_devtools-0.7.3.tar.gz", hash = "sha256:51b682e72a66ec6b1fc7a154b8033108c83fc83e0858a0427f4c75c6eef87d96", size = 125071 }
+sdist = { url = "https://files.pythonhosted.org/packages/da/87/9be7156fce9fb671f5ee9d7ad1bb562f787be5f6efc8988f01373e4e5d3e/abilian_devtools-0.7.4.tar.gz", hash = "sha256:c65e6f3dca2eda22f8b137d16b3d25a5713f2f47d23f9105acf9d729b2364b71", size = 125193 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/06/3a/00b3433d3554af57f8ee8ebeeeae5a77128f1376dd70c41d3d07f60dcb0d/abilian_devtools-0.7.3-py3-none-any.whl", hash = "sha256:d88547ab9e9b24be872dd0984685a25f2075331033569f65a34132c530065299", size = 18632 },
+    { url = "https://files.pythonhosted.org/packages/a4/eb/2544c4c60788de0106532ff1b0c277b6e8add795f7951125fc9e1d289263/abilian_devtools-0.7.4-py3-none-any.whl", hash = "sha256:980a69836b735272e3d39531dddd2901a99e0c79e198dd9297813e7aea081f01", size = 18567 },
 ]
 
 [[package]]
@@ -1597,7 +1597,7 @@ dev = [
     { name = "pyinfra", specifier = "~=3.0" },
     { name = "pytest-beartype", specifier = ">=0.2.0" },
     { name = "python-dotenv", specifier = "~=1.0.1" },
-    { name = "reuse", specifier = "~=4.0" },
+    { name = "reuse", specifier = "~=5.0" },
     { name = "types-paramiko", specifier = ">=3.5.0.20240928" },
     { name = "types-pytz", specifier = ">=2024.2.0.20241003" },
     { name = "types-requests", specifier = ">=2.32.0.20241016" },
@@ -2904,20 +2904,21 @@ wheels = [
 
 [[package]]
 name = "reuse"
-version = "4.0.3"
+version = "5.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "binaryornot" },
     { name = "boolean-py" },
+    { name = "click" },
     { name = "jinja2" },
     { name = "license-expression" },
     { name = "python-debian" },
     { name = "tomlkit" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3b/49/9f2126560a5fb2613760b20fc15fefd7d35ae2e8f80367957228a1988d25/reuse-4.0.3.tar.gz", hash = "sha256:4f2c3e1213ec644e5febc50d8322d18982e4e1102af8a51d9493bfc2164a0eac", size = 320947 }
+sdist = { url = "https://files.pythonhosted.org/packages/08/43/35421efe0e69823787b331362e11cc16bb697cd6f19cbed284d421615f14/reuse-5.0.2.tar.gz", hash = "sha256:878016ae5dd29c10bad4606d6676c12a268c12aa9fcfea66403598e16eed085c", size = 358798 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5a/57/775c1e4a4abae10051ef073ed5f9210ba822cc4c73300b9504a6c960dc5d/reuse-4.0.3-cp311-cp311-manylinux_2_36_x86_64.whl", hash = "sha256:b33e26ec1d105cfcfc2e904d103faec0d758994278feb95a4f4290a864562243", size = 220470 },
+    { url = "https://files.pythonhosted.org/packages/0a/2f/73de654df9e7e5f67d742c1d949b5c0c7c1203e84b2272d9e34a91faaf5c/reuse-5.0.2-cp313-cp313-manylinux_2_40_x86_64.whl", hash = "sha256:7a680f00324e87a72061677a892d8cbabfddf7adcf7a5376aeeed2d78995bbbb", size = 184309 },
 ]
 
 [[package]]
@@ -3123,14 +3124,14 @@ wheels = [
 
 [[package]]
 name = "starlette"
-version = "0.41.2"
+version = "0.41.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3e/da/1fb4bdb72ae12b834becd7e1e7e47001d32f91ec0ce8d7bc1b618d9f0bd9/starlette-0.41.2.tar.gz", hash = "sha256:9834fd799d1a87fd346deb76158668cfa0b0d56f85caefe8268e2d97c3468b62", size = 2573867 }
+sdist = { url = "https://files.pythonhosted.org/packages/1a/4c/9b5764bd22eec91c4039ef4c55334e9187085da2d8a2df7bd570869aae18/starlette-0.41.3.tar.gz", hash = "sha256:0e4ab3d16522a255be6b28260b938eae2482f98ce5cc934cb08dce8dc3ba5835", size = 2574159 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/54/43/f185bfd0ca1d213beb4293bed51d92254df23d8ceaf6c0e17146d508a776/starlette-0.41.2-py3-none-any.whl", hash = "sha256:fbc189474b4731cf30fcef52f18a8d070e3f3b46c6a04c97579e85e6ffca942d", size = 73259 },
+    { url = "https://files.pythonhosted.org/packages/96/00/2b325970b3060c7cecebab6d295afe763365822b1306a12eeab198f74323/starlette-0.41.3-py3-none-any.whl", hash = "sha256:44cedb2b7c77a9de33a8b74b2b90e9f50d11fcf25d8270ea525ad71a25374ff7", size = 73225 },
 ]
 
 [[package]]
@@ -3258,11 +3259,11 @@ wheels = [
 
 [[package]]
 name = "types-setuptools"
-version = "75.5.0.20241116"
+version = "75.5.0.20241119"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b8/6f/8d39850aec06b89818c114edb52d61f54a3fb853aa5128273177906f6101/types-setuptools-75.5.0.20241116.tar.gz", hash = "sha256:b6939ffdbc50ffdc0bcfbf14f7a6de1ddc5510906c1ca2bd62c23646e5798b1a", size = 43675 }
+sdist = { url = "https://files.pythonhosted.org/packages/df/39/6f7575e79a684bbe4f6cb1b182755ced0b4f298afb8c623a1d8e09cc5cf4/types-setuptools-75.5.0.20241119.tar.gz", hash = "sha256:2b1ec21346656aeb4f43fa6b70b223b4fa726e324c509a05f35611209f134014", size = 43782 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2f/f3/bfaa1d19539c3af4bdae6c042dce07a2661019460aac8c4656243ed68284/types_setuptools-75.5.0.20241116-py3-none-any.whl", hash = "sha256:1144b2ab8fa986061f963391fdbde16df20582e3cc39c94340e71aa61cc7203f", size = 67442 },
+    { url = "https://files.pythonhosted.org/packages/20/99/22191d0ef0935640c5e4eb05e9b016ff4f45f8a12da0a50d93e2dd40b3e7/types_setuptools-75.5.0.20241119-py3-none-any.whl", hash = "sha256:6e7f1937a8b70cc5c724facc619da721b86d47ac673e3eb739e44d36afd260fc", size = 67408 },
 ]
 
 [[package]]

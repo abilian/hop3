@@ -35,7 +35,7 @@ package = false
 dev-dependencies = [
     # Generic tools
     "abilian-devtools ~= 0.7",
-    "reuse ~= 4.0",
+    "reuse ~= 5.0",
     # Used by `inv watch`
     "watchfiles ~= 0.24.0",
     # Used by testing infra
