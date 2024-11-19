@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from advanced_alchemy.base import BigIntAuditBase
 from flask_security import AsaList, RoleMixin, UserMixin
-from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy import Column, ForeignKey, String
 from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
 
@@ -21,8 +21,8 @@ AuditBase = BigIntAuditBase
 class Role(AuditBase, RoleMixin):
     __tablename__ = "sec_role"
 
-    name: Mapped[str] = mapped_column(String(80), unique=True)
-    description: Mapped[str] = mapped_column(String(255))
+    name: Mapped[str] = mapped_column(unique=True)
+    description: Mapped[str]
 
     # A comma separated list of strings
     permissions = Column(MutableList.as_mutable(AsaList()), nullable=True)
@@ -31,17 +31,17 @@ class Role(AuditBase, RoleMixin):
 class User(AuditBase, UserMixin):
     __tablename__ = "sec_user"
 
-    email: Mapped[str] = mapped_column(String(255), unique=True)
-    username: Mapped[str] = mapped_column(String(255), unique=True, nullable=True)
-    password: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str] = mapped_column(unique=True)
+    username: Mapped[str] = mapped_column(unique=True, nullable=True)
+    password: Mapped[str]
 
     last_login_at: Mapped[datetime] = mapped_column(nullable=True)
     current_login_at: Mapped[datetime] = mapped_column(nullable=True)
 
-    last_login_ip: Mapped[str] = mapped_column(String(100), default="")
-    current_login_ip: Mapped[str] = mapped_column(String(100), default="")
+    last_login_ip: Mapped[str] = mapped_column(default="")
+    current_login_ip: Mapped[str] = mapped_column(default="")
 
-    login_count: Mapped[int] = mapped_column(Integer, default=0)
+    login_count: Mapped[int] = mapped_column(default=0)
     active: Mapped[bool]
 
     fs_uniquifier: Mapped[str] = mapped_column(String(64), unique=True)
