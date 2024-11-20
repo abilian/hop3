@@ -1,4 +1,3 @@
-# Copyright (c) 2016 Rui Carmo
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -9,27 +8,17 @@ from ._base import Builder
 
 
 class GoBuilder(Builder):
-    """Builds Go projects.
-    """
+    """Builds Go projects."""
 
     name = "Go"
     requirements = ["go"]  # noqa: RUF012
 
     def accept(self) -> bool:
-        """Check if the application has go dependencies or go source files.
-
-        Returns
-        -------
-            bool: True if the application has dependencies or go files, False otherwise.
-
-        """
+        """Check if the application has go dependencies or go source files."""
         return (self.src_path / "Godeps").exists() or len(
             list(self.src_path.glob("*.go"))
         ) > 0
 
     def build(self) -> None:
-        """Build the object.
-
-        This method triggers the build process.
-        """
-        # TODO
+        """Build the Go application."""
+        # TODO: implement

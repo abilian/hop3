@@ -16,8 +16,6 @@ from typing import TYPE_CHECKING
 
 from hop3.system.constants import (
     APP_ROOT,
-    ENV_ROOT,
-    LOG_ROOT,
     NGINX_ROOT,
     UWSGI_AVAILABLE,
     UWSGI_ENABLED,
@@ -87,13 +85,17 @@ class UwsgiWorker:
         self.write_settings()
 
     def create_base_settings(self) -> None:
+        from hop3.core.app import App
+
         env = self.env.copy()
 
+        app = App(self.app_name)
         app_name = self.app_name
 
         env["PROC_TYPE"] = self.kind
-        env_path = ENV_ROOT / app_name
-        log_file = LOG_ROOT / app_name / self.kind
+        env_path = app.virtualenv_path
+        log_path = app.log_path
+        log_file = log_path / self.kind
 
         pw_name = pwd.getpwuid(os.getuid()).pw_name
         gr_name = grp.getgrgid(os.getgid()).gr_name

@@ -70,8 +70,9 @@ class App:
     def is_running(self) -> bool:
         return list(UWSGI_ENABLED.glob(f"{self.name}*.ini")) != []
 
+    #
     # Paths
-
+    #
     @property
     def app_path(self) -> Path:
         return APP_ROOT / self.name

@@ -13,7 +13,6 @@ from click import argument
 
 from hop3.commands import AppParamType
 from hop3.deploy import do_deploy
-from hop3.system.constants import ENV_ROOT
 from hop3.util import Abort, log
 from hop3.util.settings import write_settings
 
@@ -54,7 +53,7 @@ def cmd_config_set(app: App, settings) -> None:
         log(f"Setting {key:s}={value} for '{app.name:s}'", fg="white")
         env[key] = value
 
-    config_file = ENV_ROOT / app.name / "ENV"
+    config_file = app.virtualenv_path / "ENV"
     write_settings(config_file, env)
     do_deploy(app)
 
@@ -82,7 +81,7 @@ def cmd_config_unset(app: App, settings) -> None:
             del env[s]
             log(f"Unsetting {s} for '{app.name}'")
 
-    config_file = ENV_ROOT / app.name / "ENV"
+    config_file = app.virtualenv_path / "ENV"
     write_settings(config_file, env)
     do_deploy(app)
 

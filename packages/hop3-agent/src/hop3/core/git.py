@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from attrs import frozen
 
-from hop3.system.constants import APP_ROOT, GIT_ROOT, HOP3_ROOT, HOP3_SCRIPT
+from hop3.system.constants import HOP3_ROOT, HOP3_SCRIPT
 from hop3.util import echo
 
 if TYPE_CHECKING:
@@ -30,13 +30,15 @@ class GitManager:
 
     def receive_pack(self) -> None:
         """Handle git pushes for an app."""
-        cmd = ["git-receive-pack", self.app.name]
-        subprocess.run(cmd, cwd=GIT_ROOT, check=False)
+        cwd = self.app.repo_path
+        cmd = ["git-receive-pack", "."]
+        subprocess.run(cmd, cwd=cwd, check=False)
 
     def upload_pack(self) -> None:
         """Handle git upload pack for an app."""
-        cmd = ["git-upload-pack", self.app.name]
-        subprocess.run(cmd, cwd=GIT_ROOT, check=False)
+        cwd = self.app.repo_path
+        cmd = ["git-upload-pack", "."]
+        subprocess.run(cmd, cwd=cwd, check=False)
 
     def setup_hook(self) -> None:
         """Setup a post-receive hook for an app."""
@@ -47,7 +49,8 @@ class GitManager:
 
             # Initialize the repository with a hook to this script
             cmd = ["git", "init", "--quiet", "--bare", app.name]
-            subprocess.run(cmd, cwd=GIT_ROOT, check=False)
+            cwd = self.app.repo_path
+            subprocess.run(cmd, cwd=cwd, check=False)
 
             hook_path.write_text(
                 dedent(
@@ -71,9 +74,10 @@ class GitManager:
                 "clone",
                 "--quiet",
                 str(self.app.repo_path),
-                str(self.app.name),
+                ".",
             ]
-            subprocess.run(cmd, cwd=APP_ROOT, check=False)
+            cwd = self.app.repo_path
+            subprocess.run(cmd, cwd=cwd, check=False)
 
 
 def make_executable(path: Path) -> None:
