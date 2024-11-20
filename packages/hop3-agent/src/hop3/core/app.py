@@ -16,10 +16,6 @@ from hop3.run.spawn import spawn_app
 from hop3.system.constants import (
     ACME_WWW,
     APP_ROOT,
-    DATA_ROOT,
-    ENV_ROOT,
-    GIT_ROOT,
-    LOG_ROOT,
     NGINX_ROOT,
     UWSGI_AVAILABLE,
     UWSGI_ENABLED,
@@ -63,8 +59,9 @@ class App:
         self.app_path.mkdir(exist_ok=True)
         # The data directory may already exist, since this may be a full redeployment
         # (we never delete data since it may be expensive to recreate)
-        self.data_path.mkdir(parents=True, exist_ok=True)
-        self.log_path.mkdir(parents=True, exist_ok=True)
+        for path in [self.repo_path, self.src_path, self.data_path, self.log_path]:
+            path.mkdir(exist_ok=True)
+
         # log_path = LOG_ROOT / self.app_name
         # if not log_path.exists():
         #     os.makedirs(log_path)
@@ -76,24 +73,28 @@ class App:
     # Paths
 
     @property
-    def repo_path(self) -> Path:
-        return GIT_ROOT / self.name
-
-    @property
     def app_path(self) -> Path:
         return APP_ROOT / self.name
 
     @property
+    def repo_path(self) -> Path:
+        return self.app_path / "git"
+
+    @property
+    def src_path(self) -> Path:
+        return self.app_path / "src"
+
+    @property
     def data_path(self) -> Path:
-        return DATA_ROOT / self.name
+        return self.app_path / "data"
 
     @property
     def log_path(self) -> Path:
-        return LOG_ROOT / self.name
+        return self.app_path / "log"
 
     @property
     def virtualenv_path(self) -> Path:
-        return ENV_ROOT / self.name
+        return self.app_path / "venv"
 
     def get_runtime_env(self) -> Env:
         return Env(state.get_app_env(self.name))
@@ -109,7 +110,7 @@ class App:
         def remove_file(p: Path) -> None:
             if p.exists():
                 if p.is_dir():
-                    log(f"Removing folder '{p}'", level=2, fg="blue")
+                    log(f"Removing directory '{p}'", level=2, fg="blue")
                     shutil.rmtree(p)
                 else:
                     log(f"Removing file '{p}'", level=2, fg="blue")

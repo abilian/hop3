@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar
 
 from hop3.core.env import Env
-from hop3.system.constants import APP_ROOT, ENV_ROOT
+from hop3.system.constants import APP_ROOT
 from hop3.util import shell
 
 if TYPE_CHECKING:
@@ -18,26 +18,7 @@ if TYPE_CHECKING:
 
 
 class Builder(ABC):
-    """A class representing a builder for an application.
-
-    Attributes
-    ----------
-        app_name (str): The name of the application being built.
-        requirements (ClassVar[list[str]]): The list of requirements needed for building the application.
-        name (ClassVar[str]): Name of the class.
-
-    Methods
-    -------
-        __init__(self, app_name: str) -> None: Constructor method for the Builder class.
-        accept(self) -> bool: Method to accept a build request.
-        build(self) -> None: Method to build the application.
-        app_path(self) -> Path: Property method to get the path of the application.
-        virtual_env(self) -> Path: Property method to get the virtual environment path.
-        env_file(self) -> Path: Property method to get the environment file path.
-        shell(self, command: str, cwd: str | Path='', **kwargs) -> None: Method to run a shell command.
-        get_env(self) -> Env: Method to get the environment settings for the application.
-
-    """
+    """A class representing a builder for an application."""
 
     app_name: str
     app_path: Path
@@ -52,10 +33,7 @@ class Builder(ABC):
         Args:
         ----
             app_name (str): The name of the application.
-
-        Raises:
-        ------
-            N/A
+            app_path (Path, optional): The path to the application directory. Defaults to None.
 
         """
         self.app_name = app_name
@@ -78,7 +56,7 @@ class Builder(ABC):
 
         Args:
         ----
-            file_or_files (list[str]): The file or files to check for existence.
+            file_or_files (str|list[str]): The file or files to check for existence.
 
         Returns:
         -------
@@ -87,33 +65,29 @@ class Builder(ABC):
         """
         if isinstance(file_or_files, str):
             file_or_files = [file_or_files]
-        return any((self.app_path / file).exists() for file in file_or_files)
+        return any((self.src_path / file).exists() for file in file_or_files)
 
     @abstractmethod
     def build(self) -> None:
         """Build app from sources (implemented by subclasses)."""
 
+    #
+    # Properties
+    #
+    @property
+    def src_path(self) -> Path:
+        """Get the source path for the application."""
+        return self.app_path / "src"
+
     @property
     def virtual_env(self) -> Path:
-        """Get the virtual environment path for the application.
-
-        Returns
-        -------
-            Path: The path to the virtual environment for the current application.
-
-        """
-        return ENV_ROOT / self.app_name
+        """Get the virtual environment path for the application."""
+        return self.app_path / "venv"
 
     @property
     def env_file(self) -> Path:
-        """Return the path to the environment file for the application.
-
-        Returns
-        -------
-            Path: The path to the environment file for the application.
-
-        """
-        return APP_ROOT / self.app_name / "ENV"
+        """Return the path to the environment file for the application."""
+        return self.app_path / "ENV"
 
     def shell(
         self, command: str, cwd: str | Path = "", **kwargs
@@ -130,21 +104,12 @@ class Builder(ABC):
 
         """
         if not cwd:
-            cwd = str(self.app_path)
+            # Build in the source directory
+            cwd = str(self.src_path)
         return shell(command, cwd=str(cwd), **kwargs)
 
     def get_env(self) -> Env:
-        """Get the environment settings from a file and return an Env object.
-
-        Returns
-        -------
-            Env: An Env object containing the parsed settings.
-
-        Raises
-        ------
-            FileNotFoundError: If the specified environment file is not found.
-
-        """
+        """Get the environment for this app instance as an Env object."""
         env = Env()
         env.parse_settings(self.env_file)
         return env

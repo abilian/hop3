@@ -57,7 +57,7 @@ class ClojureBuilder(Builder):
             bool: True if the app is a Leiningen application, False otherwise.
 
         """
-        return (self.app_path / "project.clj").exists()
+        return (self.src_path / "project.clj").exists()
 
     @property
     def is_cli_app(self) -> bool:
@@ -68,7 +68,7 @@ class ClojureBuilder(Builder):
             bool: True if the 'deps.edn' file exists in the app_path, False otherwise.
 
         """
-        return (self.app_path / "deps.edn").exists()
+        return (self.src_path / "deps.edn").exists()
 
     def build(self) -> None:
         """Build the Clojure application.
@@ -79,7 +79,7 @@ class ClojureBuilder(Builder):
         self.virtual_env.mkdir(parents=True, exist_ok=True)
 
         emit(BuildEvent(self.app_name, "Building Clojure Application"))
-        target_path = self.app_path / "target"
+        target_path = self.src_path / "target"
         target_path.mkdir(parents=True, exist_ok=True)
         self._build(self.get_env())
 

@@ -32,8 +32,8 @@ class GoBuilder(Builder):
             bool: True if the application has dependencies or go files, False otherwise.
 
         """
-        return (self.app_path / "Godeps").exists() or len(
-            list(self.app_path.glob("*.go"))
+        return (self.src_path / "Godeps").exists() or len(
+            list(self.src_path.glob("*.go"))
         ) > 0
 
     def build(self) -> None:

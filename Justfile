@@ -34,18 +34,18 @@ update-deps:
 # Testing & checking
 test:
     echo "--> Running Python tests"
-    uv run pytest -x -p no:randomly
+    uv run pytest
     echo ""
+
+test-randomly:
+    @echo "--> Running Python tests in random order"
+    uv run pytest --random-order
+    @echo ""
 
 test-e2e:
     echo "--> Running e2e tests"
     just clean-and-deploy
     uv run hop-test
-    echo ""
-
-test-randomly:
-    echo "--> Running Python tests in random order"
-    uv run pytest
     echo ""
 
 test-with-coverage:

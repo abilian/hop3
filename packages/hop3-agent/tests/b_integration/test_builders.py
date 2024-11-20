@@ -24,8 +24,13 @@ def test_builders(tmp_path, app_name, builder_cls):
     # Temp
     Path("/tmp/hop3/envs").mkdir(exist_ok=True, parents=True)
 
+    # Copy app to src directory
     app_path = tmp_path / app_name
-    shutil.copytree(f"apps/test-apps/{app_name}", app_path)
+    app_path.mkdir()
+    shutil.copytree(f"apps/test-apps/{app_name}", app_path / "src")
+
     builder = builder_cls(app_name, app_path)
     assert builder.accept()
+
     builder.build()
+    # Nothing to assert, builder would raise an exception if something went wrong

@@ -39,7 +39,7 @@ class PHPBuilder(Builder):
         """Build the PHP project by installing dependencies and potentially
         running custom scripts.
         """
-        with chdir(self.app_path):
+        with chdir(self.src_path):
             env = self.get_env()
             self.prepare_build_env(env)
             self.install_dependencies()
@@ -60,7 +60,7 @@ class PHPBuilder(Builder):
         emit(InstallingDependencies(self.app_name))
 
         try:
-            shell("composer install", cwd=self.app_path)
+            shell("composer install", cwd=self.src_path)
         except CalledProcessError as e:
             msg = (
                 f"Failed to install dependencies for PHP project '{self.app_name}': {e}"

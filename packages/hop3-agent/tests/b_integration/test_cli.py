@@ -77,8 +77,8 @@ def test_lifecycle(hop3_home) -> None:
     git_manager.receive_pack()
 
     # Create an dummy project
-    Path(app.app_path / "Procfile").write_text("web: echo 'Hello, world!'")
-    Path(app.app_path / "requirements.txt").write_text("")
+    (app.src_path / "Procfile").write_text("web: echo 'Hello, world!'")
+    (app.src_path / "requirements.txt").write_text("")
 
     cli_main(["config", app_name])
     assert not console.output()

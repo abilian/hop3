@@ -38,6 +38,10 @@ class AppConfig:
     def pre_run(self):
         return self.procfile.workers.get("prerun", "")
 
+    @property
+    def src_dir(self):
+        return self.app_dir / "src"
+
     @classmethod
     def from_dir(cls, path: Path) -> AppConfig:
         self = cls()
@@ -61,12 +65,15 @@ class AppConfig:
 
     def get_file(self, filename: str) -> Path | None:
         """Search for a file, first in the hop3 subdirectory, then in the root."""
-        path = self.app_dir / "hop3" / filename
-        if not path.exists():
-            path = self.app_dir / filename
-        if not path.exists():
-            return None
-        return path
+        path = self.src_dir / "hop3" / filename
+        if path.exists():
+            return path
+
+        path = self.src_dir / filename
+        if path.exists():
+            return path
+
+        return None
 
     def parse_app_json(self) -> None:
         pass

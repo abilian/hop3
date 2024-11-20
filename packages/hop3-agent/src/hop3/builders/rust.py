@@ -47,7 +47,7 @@ class RustBuilder(Builder):
 
     def build(self) -> None:
         """Build the Rust project using cargo."""
-        with chdir(self.app_path):
+        with chdir(self.src_path):
             env = self.get_env()
             self.prepare_build_env(env)
             self.compile_project()

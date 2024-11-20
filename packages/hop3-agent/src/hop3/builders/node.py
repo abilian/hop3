@@ -58,7 +58,7 @@ class NodeBuilder(Builder):
         """
         self.virtual_env.mkdir(parents=True, exist_ok=True)
 
-        with chdir(self.app_path):
+        with chdir(self.src_path):
             env = self.get_env()
             os.environ["PATH"] = str(env["PATH"])
             self.install_node(env)
@@ -72,7 +72,7 @@ class NodeBuilder(Builder):
             Env: An environment object containing the necessary variables for the application.
 
         """
-        node_modules = self.app_path / "node_modules"
+        node_modules = self.src_path / "node_modules"
         # npm_prefix = os.path.abspath(os.path.join(node_modules, ".."))
         npm_prefix = node_modules.parent.absolute()
         path = prepend_to_path(
@@ -145,8 +145,8 @@ class NodeBuilder(Builder):
         """
         emit(InstallingVirtualEnv(self.app_name))
 
-        npm_prefix = self.app_path
-        package_json = self.app_path / "package.json"
+        npm_prefix = self.src_path
+        package_json = self.src_path / "package.json"
 
         assert package_json.exists()
         assert check_binaries(["npm"])

@@ -26,20 +26,10 @@ class RubyBuilder(Builder):
     requirements = ["ruby", "gem", "bundle"]  # noqa: RUF012
 
     def accept(self) -> bool:
-        """Check if a Gemfile exists in the specified app_path.
-
-        Returns
-        -------
-            bool: True if a Gemfile exists, False otherwise.
-
-        """
         return self.check_exists("Gemfile")
 
     def build(self) -> None:
-        """Build the project by setting up a virtual environment and installing
-        dependencies.
-        """
-        with chdir(self.app_path):
+        with chdir(self.src_path):
             env = self.get_env()
             self.make_virtual_env(env)
 
@@ -47,17 +37,10 @@ class RubyBuilder(Builder):
             self.shell("bundle install", env=env)
 
     def get_env(self) -> Env:
-        """Get the environment settings for the current configuration.
-
-        Returns
-        -------
-            Env: An Env object containing the environment settings.
-
-        """
         path = prepend_to_path(
             [
                 self.virtual_env / "bin",
-                self.app_path / ".bin",
+                self.src_path / ".bin",
             ],
         )
 

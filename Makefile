@@ -72,21 +72,23 @@ update-deps:
 #
 .PHONY: test test-randomly test-with-coverage test-with-typeguard clean-test lint audit
 
+# NB: keep tests in the Makefile for now, because if CI.
+
 ## Run python tests
 test:
 	@echo "--> Running Python tests"
-	uv run pytest -x -p no:randomly
+	uv run pytest
+	@echo ""
+
+test-randomly:
+	@echo "--> Running Python tests in random order"
+	uv run pytest --random-order
 	@echo ""
 
 test-e2e:
 	@echo "--> Running e2e tests"
 	make clean-and-deploy
 	hop-test
-	@echo ""
-
-test-randomly:
-	@echo "--> Running Python tests in random order"
-	pytest
 	@echo ""
 
 test-with-coverage:
