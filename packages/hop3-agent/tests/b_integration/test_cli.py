@@ -91,6 +91,8 @@ def test_lifecycle(hop3_home) -> None:
     cli_main(["apps"])
     assert app_name in console.output()
 
+    assert len(list((hop3_home / "uwsgi-available").iterdir())) == 1
+
     # Scaling
     cli_main(["ps", app_name])
     assert "web:1" in console.output()
@@ -117,6 +119,7 @@ def test_lifecycle(hop3_home) -> None:
     assert app_name not in console.output()
 
     assert not (hop3_home / "apps" / app_name).exists()
+    assert len(list((hop3_home / "uwsgi-available").iterdir())) == 0
 
 
 def create_dummy_app(app: App) -> None:

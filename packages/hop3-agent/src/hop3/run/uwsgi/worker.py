@@ -15,13 +15,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3.system.constants import (
-    APP_ROOT,
     NGINX_ROOT,
     UWSGI_AVAILABLE,
     UWSGI_ENABLED,
     UWSGI_LOG_MAXSIZE,
 )
-from hop3.util import Abort, echo, log
+from hop3.util import Abort, log
 from hop3.util.settings import parse_settings
 
 from .settings import UwsgiSettings
@@ -101,7 +100,7 @@ class UwsgiWorker:
         gr_name = grp.getgrgid(os.getgid()).gr_name
 
         self.settings += [
-            ("chdir", APP_ROOT / app_name),
+            ("chdir", app.src_path),
             ("uid", pw_name),
             ("gid", gr_name),
             ("master", "true"),
@@ -151,6 +150,10 @@ class UwsgiWorker:
         # raise NotImplementedError
 
     def update_env(self) -> None:
+        from hop3.core.app import App
+
+        app = App(self.app_name)
+
         # remove unnecessary variables from the env in nginx.ini
         env = self.env.copy()
         for k in ["NGINX_ACL"]:
@@ -159,9 +162,8 @@ class UwsgiWorker:
 
         # insert user defined uwsgi settings if set
         if include_file := env.get("UWSGI_INCLUDE_FILE"):
-            self.settings += parse_settings(
-                Path(APP_ROOT, self.app_name, include_file)
-            ).items()
+            include_file_path = app.src_path / include_file
+            self.settings += parse_settings(include_file_path).items()
 
         for k, v in env.items():
             self.settings.add("env", f"{k:s}={v}")
@@ -175,7 +177,7 @@ class UwsgiWorker:
 
     def log(self, message) -> None:
         message = message.format(**self.env)
-        log(f"-----> {message}", fg="yellow")
+        log(message, level=2, fg="yellow")
 
 
 @dataclass
@@ -237,7 +239,7 @@ class WsgiWorker(UwsgiWorker):
                     ("plugin", "asyncio_python3"),
                     ("async", tasks),
                 ]
-                self.log(f"-----> uwsgi will support {tasks} async tasks")
+                self.log(f"uwsgi will support {tasks} async tasks")
             except ValueError:
                 msg = "Error: malformed setting 'UWSGI_ASYNCIO'."
                 raise Abort(msg)
@@ -269,11 +271,10 @@ class WebWorker(UwsgiWorker):
     )
 
     def update_settings(self) -> None:
-        tpl = (
-            "-----> nginx will talk to the 'web' process via {BIND_ADDRESS:s}:{PORT:s}"
-        )
-        echo(
+        tpl = "nginx will talk to the 'web' process via {BIND_ADDRESS:s}:{PORT:s}"
+        log(
             tpl.format(**self.env),
+            level=2,
             fg="yellow",
         )
         self.settings.add("attach-daemon", self.command)
