@@ -57,7 +57,8 @@ class App:
 
     def create(self) -> None:
         self.app_path.mkdir(exist_ok=True)
-        # The data directory may already exist, since this may be a full redeployment
+        # The data directory may already exist, since this may be
+        # a full redeployment
         # (we never delete data since it may be expensive to recreate)
         for path in [self.repo_path, self.src_path, self.data_path, self.log_path]:
             path.mkdir(exist_ok=True)
@@ -75,26 +76,32 @@ class App:
     #
     @property
     def app_path(self) -> Path:
+        """Path to the root directory of the app."""
         return APP_ROOT / self.name
 
     @property
     def repo_path(self) -> Path:
+        """Path to the git repository of the app."""
         return self.app_path / "git"
 
     @property
     def src_path(self) -> Path:
+        """Path to the source directory of the app."""
         return self.app_path / "src"
 
     @property
     def data_path(self) -> Path:
+        """Path to the data directory of the app."""
         return self.app_path / "data"
 
     @property
     def log_path(self) -> Path:
+        """Path to the log directory of the app."""
         return self.app_path / "log"
 
     @property
     def virtualenv_path(self) -> Path:
+        """Pathe to the virtualenv of the app."""
         return self.app_path / "venv"
 
     def get_runtime_env(self) -> Env:

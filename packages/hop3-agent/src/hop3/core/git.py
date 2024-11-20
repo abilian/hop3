@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from attrs import frozen
 
 from hop3.system.constants import HOP3_ROOT, HOP3_SCRIPT
-from hop3.util import echo
+from hop3.util import log
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -28,36 +28,44 @@ if TYPE_CHECKING:
 class GitManager:
     app: App
 
+    @property
+    def repo_path(self) -> Path:
+        return self.app.repo_path
+
+    @property
+    def app_name(self) -> str:
+        return self.app.name
+
     def receive_pack(self) -> None:
         """Handle git pushes for an app."""
         cwd = self.app.repo_path
-        cmd = ["git-receive-pack", "."]
-        subprocess.run(cmd, cwd=cwd, check=False)
+        cmd = ["git-receive-pack", str(self.repo_path)]
+        subprocess.run(cmd, cwd=cwd, check=True)
 
     def upload_pack(self) -> None:
         """Handle git upload pack for an app."""
         cwd = self.app.repo_path
-        cmd = ["git-upload-pack", "."]
-        subprocess.run(cmd, cwd=cwd, check=False)
+        cmd = ["git-upload-pack", str(self.repo_path)]
+        subprocess.run(cmd, cwd=cwd, check=True)
 
     def setup_hook(self) -> None:
         """Setup a post-receive hook for an app."""
-        app = self.app
-        hook_path = app.repo_path / "hooks" / "post-receive"
+        hook_path = self.repo_path / "hooks" / "post-receive"
+
         if not hook_path.exists():
             hook_path.parent.mkdir(parents=True)
 
             # Initialize the repository with a hook to this script
-            cmd = ["git", "init", "--quiet", "--bare", app.name]
+            cmd = ["git", "init", "--quiet", "--bare", str(self.repo_path)]
             cwd = self.app.repo_path
-            subprocess.run(cmd, cwd=cwd, check=False)
+            subprocess.run(cmd, cwd=cwd, check=True)
 
             hook_path.write_text(
                 dedent(
                     f"""\
                     #!/usr/bin/env bash
                     set -e; set -o pipefail;
-                    cat | HOP3_ROOT="{HOP3_ROOT}" {HOP3_SCRIPT} git-hook {app.name}
+                    cat | HOP3_ROOT="{HOP3_ROOT}" {HOP3_SCRIPT} git-hook {self.app_name}
                     """,
                 )
             )
@@ -65,19 +73,19 @@ class GitManager:
 
     def clone(self) -> None:
         """Clone a repository for an app."""
-        if not self.app.app_path.exists():
-            echo(f"-----> Creating app '{self.app.name}'", fg="green")
+        if not self.app.src_path.exists():
+            log(f"Creating app '{self.app_name}'", level=2, fg="green")
             self.app.create()
 
             cmd = [
                 "git",
                 "clone",
                 "--quiet",
-                str(self.app.repo_path),
-                ".",
+                str(self.repo_path),
+                str(self.app.src_path),
             ]
             cwd = self.app.repo_path
-            subprocess.run(cmd, cwd=cwd, check=False)
+            subprocess.run(cmd, cwd=cwd, check=True)
 
 
 def make_executable(path: Path) -> None:
