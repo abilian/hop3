@@ -5,20 +5,11 @@
 
 from __future__ import annotations
 
-from hop3.system.constants import ENV_ROOT
-from hop3.util import log, shell
-
 from ._base import Builder
 
 
 class GoBuilder(Builder):
     """Builds Go projects.
-
-    Attributes
-    ----------
-        name (str): The name of the builder.
-        requirements (list): A list of requirements needed for the builder.
-
     """
 
     name = "Go"
@@ -41,14 +32,4 @@ class GoBuilder(Builder):
 
         This method triggers the build process.
         """
-        self.build_go()
-
-    def build_go(self) -> None:
-        """Deploy a Go application."""
-        go_path = ENV_ROOT / self.app_name
-
-        if not go_path.exists():
-            log(f"Creating GOPATH for '{self.app_name}'", level=5, fg="blue")
-            go_path.mkdir(parents=True)
-            # copy across a pre-built GOPATH to save provisioning time
-            shell(f"cp -a $HOME/gopath {self.app_name}", cwd=ENV_ROOT)
+        # TODO

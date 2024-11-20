@@ -31,7 +31,6 @@ HOP3_SCRIPT = str(_HOP3_HOME / "venv" / "bin" / "hop-agent")
 # Main directories for Hop3
 HOP3_ROOT = _HOP3_HOME.resolve()
 APP_ROOT = HOP3_ROOT / "apps"
-DATA_ROOT = HOP3_ROOT / "data"
 ENV_ROOT = HOP3_ROOT / "envs"
 GIT_ROOT = HOP3_ROOT / "repos"
 LOG_ROOT = HOP3_ROOT / "logs"
@@ -50,7 +49,6 @@ ACME_ROOT_CA = environ.get("ACME_ROOT_CA", "letsencrypt.org")
 ROOT_DIRS: list[Path] = [
     APP_ROOT,
     CACHE_ROOT,
-    DATA_ROOT,
     GIT_ROOT,
     ENV_ROOT,
     UWSGI_ROOT,
