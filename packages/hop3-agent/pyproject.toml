@@ -7,15 +7,6 @@ authors = [
 ]
 readme = "README.md"
 
-packages = [
-    { include = "app", from = "src" },
-    { include = "adminapp", from = "src" },
-    { include = "server", from = "src" },
-]
-
-#packages = [
-#    { include = "hop3", from = "src" },
-#]
 dependencies = [
     "attrs >= 24.2",
     "cleez >= 0.1.13",

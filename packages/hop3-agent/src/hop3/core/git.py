@@ -72,7 +72,7 @@ class GitManager:
             make_executable(hook_path)
 
     def clone(self) -> None:
-        """Clone a repository for an app."""
+        """Clone the git repository to the source directory."""
         if not self.app.src_path.exists():
             log(f"Creating app '{self.app_name}'", level=2, fg="green")
             self.app.create()

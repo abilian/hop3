@@ -1,6 +1,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
 from __future__ import annotations
 
+import shutil
 import subprocess
 import time
 from os import environ
@@ -35,10 +36,9 @@ def hop3_home() -> Generator[Path]:
     cli_main(["setup"])
 
     assert (path / "apps").exists()
-    yield path
+    yield path  # noqa: PT022
 
-    # Clean up
-    rmtree(path, ignore_errors=True)
+    # Don't clean up to be able to debug
 
 
 def test_setup_ssh(hop3_home) -> None:
@@ -71,14 +71,7 @@ def test_lifecycle(hop3_home) -> None:
     app.create()
     assert (hop3_home / "apps" / app_name).exists()
 
-    # This created the app (bypassing the CLI)
-    git_manager = GitManager(app)
-    git_manager.setup_hook()
-    git_manager.receive_pack()
-
-    # Create an dummy project
-    (app.src_path / "Procfile").write_text("web: echo 'Hello, world!'")
-    (app.src_path / "requirements.txt").write_text("")
+    create_dummy_app(app)
 
     cli_main(["config", app_name])
     assert not console.output()
@@ -124,3 +117,24 @@ def test_lifecycle(hop3_home) -> None:
     assert app_name not in console.output()
 
     assert not (hop3_home / "apps" / app_name).exists()
+
+
+def create_dummy_app(app: App) -> None:
+    # This creates the app (bypassing the CLI)
+    # Using a pre-existing git repository (./bare-git)
+    # There are two files in it: Procfile and requirements.txt
+
+    git_manager = GitManager(app)
+    git_manager.setup_hook()
+
+    cmd = [
+        "rsync",
+        "-a",
+        "--delete",
+        str(Path(__file__).parent / "bare-git") + "/",
+        str(app.repo_path) + "/",
+    ]
+    subprocess.run(cmd, check=True)
+
+    shutil.rmtree(app.src_path)
+    git_manager.clone()

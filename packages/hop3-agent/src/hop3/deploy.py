@@ -38,14 +38,24 @@ class Deployer:
     workers: dict = field(factory=dict)
     config: AppConfig | None = None
 
+    #
+    # Properties
+    #
     @property
     def app_path(self) -> Path:
         return self.app.app_path
 
     @property
+    def src_path(self) -> Path:
+        return self.app.src_path
+
+    @property
     def app_name(self) -> str:
         return self.app.name
 
+    #
+    # Lifecycle
+    #
     def deploy(self, *, deltas: dict[str, int] | None = None, newrev: str = "") -> None:
         """Deploy an app by resetting the work directory."""
         deltas = deltas or {}
@@ -85,16 +95,16 @@ class Deployer:
         if not command:
             return
 
-        log("Running prebuild.", level=5, fg="blue")
-        retval = shell(command, cwd=self.app_path).returncode
+        log("Running prebuild.", level=2, fg="blue")
+        retval = shell(command, cwd=self.src_path).returncode
         if retval:
             msg = f"prebuild failed due to command error value: {retval}"
             raise Abort(msg, retval)
 
     def run_build(self) -> None:
         if build_worker := self.get_worker("build"):
-            log("Running build.", level=5, fg="blue")
-            retval = shell(build_worker, cwd=self.app_path).returncode
+            log("Running build.", level=2, fg="blue")
+            retval = shell(build_worker, cwd=self.src_path).returncode
             if retval:
                 msg = f"Build failed due to command error value: {retval}"
                 raise Abort(msg, retval)
@@ -125,23 +135,19 @@ class Deployer:
             raise Abort(msg)
 
     def run_postbuild(self) -> None:
-        app_path = self.app_path
-
         command = self.get_worker("postbuild")
         if not command:
             return
 
-        log("Releasing", level=5, fg="blue")
-        retval = shell(command, cwd=app_path)
+        log("Running postbuild command", level=2, fg="blue")
+        retval = shell(command, cwd=self.src_path)
         if retval:
             msg = f"Exiting postbuild due to command error value: {retval}"
             raise Abort(msg)
 
     def _git_update(self, newrev: str) -> None:
-        app_path = self.app_path
-        # env = {"GIT_WORK_DIR": app_path}
         env: dict[str, str] = {}
-        with chdir(app_path):
+        with chdir(self.src_path):
             shell("git fetch --quiet", env=env)
             if newrev:
                 shell(f"git reset --hard {newrev}", env=env)
