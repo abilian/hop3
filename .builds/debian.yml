@@ -23,6 +23,7 @@ packages:
   # For builders
   - npm
   - ruby-rubygems
+  - bundler
 
 tasks:
   - setup: |

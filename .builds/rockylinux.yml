@@ -19,6 +19,7 @@ packages:
   - libpq-devel
   # For builders
   - npm
+  - bundler
 
 tasks:
   - setup: |
