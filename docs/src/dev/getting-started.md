@@ -27,14 +27,6 @@ poetry install
 inv install
 ```
 
-### Using Guix
-
-If you are using Guix, you can use the provided `guix.scm` file to create a development environment. To do so, run the following command:
-
-```bash
-guix environment --ad-hoc --load guix.scm
-```
-
 ### Using Nix
 
 If you are using Nix, you can use the provided `shell.nix` file to create a development environment. To do so, run the following command:
