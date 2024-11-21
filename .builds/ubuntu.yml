@@ -20,6 +20,8 @@ packages:
   - libffi-dev
   - libsqlite3-dev
   - libbz2-dev
+  # Extra tools (TODO: remove)
+  - rsync
   # For builders
   - npm
   - ruby-rubygems
