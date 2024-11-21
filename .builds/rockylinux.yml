@@ -17,6 +17,8 @@ packages:
   - gcc
   # Libraries
   - libpq-devel
+  # Extra tools (TODO: remove)
+  - rsync
   # For builders
   - npm
   - bundler
