@@ -272,11 +272,7 @@ class WebWorker(UwsgiWorker):
 
     def update_settings(self) -> None:
         tpl = "nginx will talk to the 'web' process via {BIND_ADDRESS:s}:{PORT:s}"
-        log(
-            tpl.format(**self.env),
-            level=2,
-            fg="yellow",
-        )
+        log(tpl.format(**self.env), level=2, fg="yellow")
         self.settings.add("attach-daemon", self.command)
 
 
