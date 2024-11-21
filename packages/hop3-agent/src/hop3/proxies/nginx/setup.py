@@ -71,6 +71,10 @@ class NginxConfig:
     def app_path(self) -> Path:
         return self.app.app_path
 
+    @property
+    def src_path(self) -> Path:
+        return self.app.src_path
+
     def update_env(self, key: str, value: str = "", template: str = "") -> None:
         if template:
             value = template.format(**self.env)
@@ -240,13 +244,20 @@ class NginxConfig:
         # prepend static worker path if present
         if "static" in self.workers:
             stripped = self.workers["static"].strip("/").rstrip("/")
-            static_paths = (
-                ("/" if stripped[0:1] == ":" else "/:")
-                + (stripped or ".")
-                + "/"
-                + ("," if static_paths else "")
-                + static_paths
-            )
+            if stripped.startswith(":"):
+                prefix = "/"
+            else:
+                prefix = "/:"
+
+            if not stripped:
+                stripped = "."
+
+            if static_paths:
+                separator = ","
+            else:
+                separator = ""
+
+            static_paths = prefix + stripped + "/" + separator + static_paths
 
         if static_paths:
             items = static_paths.split(",")
@@ -260,7 +271,7 @@ class NginxConfig:
             if _static_path[0] == "/":
                 static_path = Path(_static_path)
             else:
-                static_path = self.app_path / _static_path
+                static_path = self.src_path / _static_path
             result.append((static_url, static_path))
 
         return result
