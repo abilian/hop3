@@ -21,7 +21,8 @@ packages:
   - rsync
   # For builders
   - npm
-  - bundler
+  - rubygem-bundler
+  - ruby-devel
 
 tasks:
   - setup: |
