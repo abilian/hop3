@@ -26,13 +26,6 @@ sqlalchemy-serializer = ">= 1.4"
 advanced-alchemy = ">= 0.21"
 psycopg2 = "^2.9"
 
-# For the actor system
-pyrsistent = "^0.20"
-cloudpickle = "^3.0"
-msgpack = "^1.0"
-eventlet = "^0.36"
-pyzmq = "^26"
-
 # System introspection
 psutil = ">= 6.0"
 py-cpuinfo = ">= 9.0"
@@ -48,7 +41,7 @@ sqlalchemy-utils = "^0.41"
 flask-security-too = "^5.4"
 flask-sqlalchemy = "^3.1"
 flask-babel = "^4.0"
-flask-htmx = "^0.3"
+flask-htmx = "^0.4"
 flask-mail = "^0.10"
 flask-migrate = "^4.0"
 flask-talisman = "^1.1"
