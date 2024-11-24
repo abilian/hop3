@@ -43,7 +43,6 @@ tasks:
       uv run nox -e pytest-3.12
       uv run nox -e pytest-3.11
 
-#triggers:
-#  - action: email
-#    condition: failure
-#    to: builds@fermigier.com
+  - buildah: |
+      cd hop3
+      buildah build -t smo .

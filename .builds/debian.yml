@@ -45,9 +45,3 @@ tasks:
   - nox: |
       cd hop3
       uv run nox -e pytest-3.11
-
-triggers:
-  - action: email
-    condition: failure
-    to: sf@fermigier.com
-    # to: builds@fermigier.com

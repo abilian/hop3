@@ -27,6 +27,9 @@ packages:
   - ruby-rubygems
   - bundler
   - ruby-dev
+  # Docker and friends
+  - buildah
+  - docker-buildx
 
 tasks:
   - setup: |
@@ -46,7 +49,16 @@ tasks:
       cd hop3
       uv run nox -e pytest-3.12
 
-#triggers:
-#  - action: email
-#    condition: failure
-#    to: builds@fermigier.com
+  - buildah: |
+      cd smo
+      buildah build .
+
+  - docker-build: |
+      cd smo
+      sudo docker build .
+
+
+triggers:
+  - action: email
+    condition: failure
+    to: builds@fermigier.com
