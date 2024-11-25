@@ -4,6 +4,10 @@
 sandbox/
 ignore.py
 packages/hop3-server/ssl
+/data/
+/docs-old/
+/docs/Vocab/
+/docs/site/
 
 # Local environment variables
 .env
