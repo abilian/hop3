@@ -25,7 +25,6 @@ packages:
   - ruby-devel
   # Docker and friends (NB: docker is not available on Rocky Linux)
   - buildah
-  # Dependencies for buildah
   - passt-selinux
 
 
