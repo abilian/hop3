@@ -4,6 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # ruff: noqa: F403
+
+"""
+Commands for the Hop3 CLI.
+"""
 from __future__ import annotations
 
 from .apps import *

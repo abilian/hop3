@@ -2,6 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+
+"""Builder for PHP projects."""
+
 from __future__ import annotations
 
 from subprocess import CalledProcessError
@@ -18,12 +21,6 @@ if TYPE_CHECKING:
 
 class PHPBuilder(Builder):
     """Build PHP projects.
-
-    Attributes
-    ----------
-        name (str): The name of the builder, in this case 'PHP'.
-        requirements (list): A list of requirements, in this case ['composer'].
-
     """
 
     name = "PHP"

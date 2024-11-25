@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Builder for Rust projects."""
+
 from __future__ import annotations
 
 from subprocess import CalledProcessError
@@ -18,22 +20,6 @@ if TYPE_CHECKING:
 
 class RustBuilder(Builder):
     """A class representing a Rust builder, a type of Builder.
-
-    Attributes
-    ----------
-        name (str): The name of the Rust builder.
-        requirements (list): The list of requirements needed for building a Rust project.
-
-    Methods
-    -------
-        - accept: Check if the application directory contains a Cargo.toml file, indicating it is a Rust project.
-        - build:
-        Build the Rust project using cargo.
-
-        - prepare_build_env: Prepare the environment for building the project, if necessary. This could involve setting up Rust-specific environment variables or installing Rust toolchains.
-        - compile_project:
-        Compile the Rust project using cargo.
-
     """
 
     name = "Rust"

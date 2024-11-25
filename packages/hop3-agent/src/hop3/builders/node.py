@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Builder for Node projects."""
+
 from __future__ import annotations
 
 import os
@@ -17,20 +19,6 @@ from ._base import Builder
 
 class NodeBuilder(Builder):
     """A builder class for creating Node projects.
-
-    Attributes
-    ----------
-        name (str): The name of the builder.
-        requirements (list): The list of required tools for building Node projects.
-
-    Methods
-    -------
-        accept(): Check if the project meets the requirements for building Node projects.
-        build(): Build the Node project by setting up the environment, installing Node, and installing modules.
-        get_env(): Get the environment variables required for building the project.
-        install_node(env): Install the specified version of Node using nodeenv.
-        install_modules(env): Install the required npm modules for the project.
-
     """
 
     name = "Node"

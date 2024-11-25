@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Persistent model classes."""
+
 from __future__ import annotations
 
 from ._base import Base, metadata

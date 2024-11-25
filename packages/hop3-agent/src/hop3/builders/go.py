@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Builder for Go projects."""
+
 from __future__ import annotations
 
 from ._base import Builder

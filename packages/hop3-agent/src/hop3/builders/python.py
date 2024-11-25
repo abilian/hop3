@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Builder for Python projects."""
+
 from __future__ import annotations
 
 from pathlib import Path

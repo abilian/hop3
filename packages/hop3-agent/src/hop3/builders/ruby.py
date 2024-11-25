@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Builder for Ruby projects."""
+
 from __future__ import annotations
 
 from hop3.core.env import Env
@@ -14,12 +16,6 @@ from ._base import Builder
 
 class RubyBuilder(Builder):
     """Builds Ruby projects.
-
-    Attributes
-    ----------
-        name (str): The name of the builder.
-        requirements (list): The required tools for building with Ruby.
-
     """
 
     name = "Ruby"

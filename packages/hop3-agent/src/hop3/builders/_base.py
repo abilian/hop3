@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Base class for builders."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -18,7 +20,7 @@ if TYPE_CHECKING:
 
 
 class Builder(ABC):
-    """A class representing a builder for an application."""
+    """A builder for an application."""
 
     app_name: str
     app_path: Path

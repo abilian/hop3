@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Builder for Clojure projects."""
+
 from __future__ import annotations
 
 import os
@@ -17,21 +19,6 @@ from ._base import Builder
 
 class ClojureBuilder(Builder):
     """Builds Clojure projects (with either Leiningen or CLI).
-
-    Attributes
-    ----------
-        name (str): The name of the Clojure builder.
-        requirements (list): The list of requirements for the Clojure builder.
-
-    Methods
-    -------
-        accept(): Returns True if the builder accepts the project.
-        is_leiningen_app (property): Returns True if the project is a Leiningen app.
-        is_cli_app (property): Returns True if the project is a CLI app.
-        build(): Builds the Clojure application.
-        get_env(): Returns the environment settings for building the application.
-        _build(env): Builds the Clojure application with the specified environment.
-
     """
 
     name = "Clojure"
