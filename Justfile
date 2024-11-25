@@ -93,6 +93,7 @@ clean:
     	tmp
     rm -rf */dist
     rm -rf .nox
+    rm -rf site
     adt clean
 
 # Cleanup harder

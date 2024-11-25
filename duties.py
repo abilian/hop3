@@ -19,15 +19,42 @@ if TYPE_CHECKING:
 
     from duty.context import Context
 
-
-PY_SRC_PATHS = (Path(_) for _ in ("src", "tests", "duties.py", "scripts"))
-PY_SRC_LIST = tuple(str(_) for _ in PY_SRC_PATHS)
+# PY_SRC_PATHS = (Path(_) for _ in ("src", "tests", "duties.py", "scripts"))
+PY_SRC_PATHS = (Path(_) for _ in ("src",))
+PY_SRC_LIST = [str(_) for _ in PY_SRC_PATHS]
 PY_SRC = " ".join(PY_SRC_LIST)
 CI = os.environ.get("CI", "0") in {"1", "true", "yes", ""}
 WINDOWS = os.name == "nt"
 PTY = not WINDOWS and not CI
 MULTIRUN = os.environ.get("MULTIRUN", "0") == "1"
 
+
+@duty
+def docs(ctx: Context, *cli_args: str, host: str = "127.0.0.1", port: int = 8000) -> None:
+    """Serve the documentation (localhost:8000).
+
+    Parameters:
+        host: The host to serve the docs from.
+        port: The port to serve the docs on.
+    """
+    with material_insiders():
+        ctx.run(
+            tools.mkdocs.serve(dev_addr=f"{host}:{port}").add_args(*cli_args),
+            title="Serving documentation",
+            capture=False,
+        )
+
+
+@duty
+def docs_build(ctx: Context) -> None:
+    """Build the documentation."""
+    with material_insiders():
+        ctx.run(tools.mkdocs.build(), title="Building documentation")
+
+
+# -----------------------------------------------------------------------------
+# Not used in this project, but kept for reference.
+# -----------------------------------------------------------------------------
 
 def pyprefix(title: str) -> str:
     if MULTIRUN:
@@ -67,7 +94,7 @@ def check(ctx: Context) -> None:
 def check_quality(ctx: Context) -> None:
     """Check the code quality."""
     ctx.run(
-        tools.ruff.check(*PY_SRC_LIST, config="config/ruff.toml"),
+        tools.ruff.check(*PY_SRC_LIST, config="ruff.toml"),
         title=pyprefix("Checking code quality"),
     )
 
@@ -88,7 +115,7 @@ def check_docs(ctx: Context) -> None:
 def check_types(ctx: Context) -> None:
     """Check that the code is correctly typed."""
     ctx.run(
-        tools.mypy(*PY_SRC_LIST, config_file="config/mypy.ini"),
+        tools.mypy(*PY_SRC_LIST),
         title=pyprefix("Type-checking"),
     )
 
@@ -101,22 +128,6 @@ def check_api(ctx: Context, *cli_args: str) -> None:
         title="Checking for API breaking changes",
         nofail=True,
     )
-
-
-@duty
-def docs(ctx: Context, *cli_args: str, host: str = "127.0.0.1", port: int = 8000) -> None:
-    """Serve the documentation (localhost:8000).
-
-    Parameters:
-        host: The host to serve the docs from.
-        port: The port to serve the docs on.
-    """
-    with material_insiders():
-        ctx.run(
-            tools.mkdocs.serve(dev_addr=f"{host}:{port}").add_args(*cli_args),
-            title="Serving documentation",
-            capture=False,
-        )
 
 
 @duty

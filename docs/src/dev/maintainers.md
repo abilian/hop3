@@ -1,4 +1,4 @@
-# Project Maintainers
+# Project Developers (past and present)
 
 - Stefane Fermigier
 - Jérôme Dumonteil

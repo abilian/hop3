@@ -124,13 +124,10 @@ default:
 
 ## Documentation
 doc:
-	just doc
+	duty docs-build
 
-doc-html:
-	just doc-html
-
-doc-pdf:
-	just doc-pdf
+doc-serve:
+	duty docs
 
 ## Formatting
 format:

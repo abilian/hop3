@@ -4,33 +4,35 @@ site_description: The official website and documentation site for the Hop3 self-
 site_author: Abilian SAS
 site_url: https://hop3.cloud/
 
-docs_dir: packages/hop3-docs/src/
-
-nav:
-  - Home:
-      - Introduction: index.md
-      - Installation: installation.md
-      - Funding: funding.md
-      - FAQ: faq.md
-  - Developers:
-      - "Contributing": dev/contributing.md
-      - "Getting started": dev/getting-started.md
-      - "Core Values": dev/core-values.md
-      - "Architecture / Design": dev/architecture.md
-      - "Governance": dev/governance.md
-      - "Code of Conduct": policies/code-of-conduct.md
-      - "Maintainers": dev/maintainers.md
-  - News: news/index.md
-  - API reference:
-      - duty: reference/
-
 # Copyright
 copyright: Copyright &copy; 2021-2024 Abilian SAS
 
 # Repository
 repo_name: 'abilian/hop3'
 repo_url: 'https://github.com/abilian/hop3'
-edit_uri: 'https://github.com/abilian/hop3/blob/main/packages/hop3-docs'
+edit_uri: 'https://github.com/abilian/hop3/blob/main/docs'
+
+docs_dir: docs/src/
+
+nav:
+  - Home:
+      - Introduction: index.md
+      - Installation: installation.md
+      # - Funding: funding.md
+      - FAQ: faq.md
+  - Developers:
+      - "Dev. Intro": dev/index.md
+      - "Contributing": dev/contributing.md
+      - "Getting started": dev/getting-started.md
+      - "Core Values": dev/core-values.md
+      - "Architecture / Design": dev/architecture.md
+      - "Orchestration": dev/orchestration.md
+      - "Testing": dev/testing.md
+      - "Governance": dev/governance.md
+      - "Code of Conduct": policies/code-of-conduct.md
+      - "Maintainers": dev/maintainers.md
+  - API reference:
+      - hop3: reference/
 
 # Extensions
 markdown_extensions:
@@ -81,7 +83,6 @@ plugins:
         python:
           import:
             - https://docs.python.org/3/objects.inv
-            - https://pawamoy.github.io/failprint/objects.inv
           paths: [ src ]
           options:
             docstring_options:
@@ -120,9 +121,9 @@ plugins:
 
 theme:
   name: material
-  # custom_dir: docs/.overrides
+  custom_dir: docs/overrides
   icon:
-    logo: material/currency-sign
+    logo: material/book-open-page-variant
   features:
     - announce.dismiss
     - content.action.edit
@@ -139,22 +140,37 @@ theme:
     - search.highlight
     - search.suggest
     - toc.follow
+
+  language: en
   palette:
-    - media: "(prefers-color-scheme)"
-      toggle:
-        icon: material/brightness-auto
-        name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: teal
-      accent: purple
+      # primary: dark-blue
+      # accent: purple
       toggle:
-        icon: material/weather-sunny
+        icon: material/toggle-switch-off-outline
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: black
-      accent: lime
+      primary: cyan
+      accent: purple
       toggle:
-        icon: material/weather-night
-        name: Switch to system preference
+        icon: material/toggle-switch
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+
+extra:
+  homepage: https://hop3.cloud
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/abilian/hop3
+  analytics:
+    provider: custom
+
+extra_css:
+  - docs/stylesheets/theme.css
+  - docs/stylesheets/extra.css

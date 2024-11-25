@@ -14,6 +14,8 @@ from hop3.util.settings import parse_settings
 
 
 class State:
+    """State singleton object."""
+
     def get_app_env(self, app_name) -> dict[str, str]:
         from hop3.core.app import App
 
