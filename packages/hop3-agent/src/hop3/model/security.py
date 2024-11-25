@@ -4,16 +4,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import datetime
 
 from advanced_alchemy.base import BigIntAuditBase
 from flask_security import AsaList, RoleMixin, UserMixin
 from sqlalchemy import Column, ForeignKey
 from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 AuditBase = BigIntAuditBase
 
