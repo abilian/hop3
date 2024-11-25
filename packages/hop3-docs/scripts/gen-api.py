@@ -1,3 +1,4 @@
+# Copyright (c) 2024, Abilian SAS
 # ruff: noqa: A003
 from __future__ import annotations
 
@@ -6,7 +7,7 @@ from pathlib import Path
 
 SOURCES = [
     # "hop3-lib",
-    # "hop3-agent",
+    "hop3-agent",
     # "hop3-build",
     # "hop3-orchestrator",
 ]
@@ -19,7 +20,7 @@ class Generator:
     def __post_init__(self):
         self.root_dir = Path("..") / self.source / "src"
         self.output = []
-        self.output_file = (Path("src") / "dev" / "api" / f"{self.source}.md").open("w")
+        self.output_file = (Path("src") / "api" / f"{self.source}.md").open("w")
 
     def generate_spi(self) -> None:
         """Generate API documentation."""

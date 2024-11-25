@@ -1,0 +1,160 @@
+# Project info
+site_name: Hop3 doc
+site_description: The official website and documentation site for the Hop3 self-sovereign cloud platform project
+site_author: Abilian SAS
+site_url: https://hop3.cloud/
+
+docs_dir: packages/hop3-docs/src/
+
+nav:
+  - Home:
+      - Introduction: index.md
+      - Installation: installation.md
+      - Funding: funding.md
+      - FAQ: faq.md
+  - Developers:
+      - "Contributing": dev/contributing.md
+      - "Getting started": dev/getting-started.md
+      - "Core Values": dev/core-values.md
+      - "Architecture / Design": dev/architecture.md
+      - "Governance": dev/governance.md
+      - "Code of Conduct": policies/code-of-conduct.md
+      - "Maintainers": dev/maintainers.md
+  - News: news/index.md
+  - API reference:
+      - duty: reference/
+
+# Copyright
+copyright: Copyright &copy; 2021-2024 Abilian SAS
+
+# Repository
+repo_name: 'abilian/hop3'
+repo_url: 'https://github.com/abilian/hop3'
+edit_uri: 'https://github.com/abilian/hop3/blob/main/packages/hop3-docs'
+
+# Extensions
+markdown_extensions:
+  - admonition
+  - attr_list
+  - callouts
+  - fenced_code
+  - footnotes
+  - meta
+  - nl2br
+  - sane_lists
+  - smarty
+  - pymdownx.highlight
+  - pymdownx.magiclink
+  - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.snippets:
+      base_path: [ !relative $config_dir ]
+      check_paths: true
+  - pymdownx.tabbed:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - codehilite:
+      css_class: highlight
+  - toc:
+      permalink: "¤"
+
+plugins:
+  - search
+  - include-markdown
+  - roamlinks
+  - autorefs
+  - markdown-exec
+  - gen-files:
+      scripts:
+        - scripts/gen_ref_nav.py
+  - literate-nav:
+      nav_file: SUMMARY.md
+  - coverage
+  - mkdocstrings:
+      handlers:
+        python:
+          import:
+            - https://docs.python.org/3/objects.inv
+            - https://pawamoy.github.io/failprint/objects.inv
+          paths: [ src ]
+          options:
+            docstring_options:
+              ignore_init_summary: true
+            docstring_section_style: list
+            filters: [ "!^_" ]
+            heading_level: 1
+            inherited_members: true
+            merge_init_into_class: true
+            separate_signature: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            show_source: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            signature_crossrefs: true
+            summary: true
+
+  #  - blog:
+  #      blog_dir: news
+  #      archive_name: Archive
+  #      archive: true
+  #      archive_date_format: yyyy
+  #      archive_toc: true
+
+  #  - with-pdf:
+  #      author: Stefane Fermigier
+  #      copyright: © 2021-2024 Abilian
+  #      cover: true
+  #      back_cover: false
+  #      cover_title: Hop3
+  #      cover_subtitle: Self-sovereign cloud platform
+  #      enabled_if_env: ENABLE_PDF_EXPORT
+
+
+theme:
+  name: material
+  # custom_dir: docs/.overrides
+  icon:
+    logo: material/currency-sign
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.tooltips
+    - navigation.footer
+    - navigation.indexes
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: purple
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: lime
+      toggle:
+        icon: material/weather-night
+        name: Switch to system preference

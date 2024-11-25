@@ -1,0 +1,64 @@
+[project]
+name = "hop3-docs"
+version = "0.1.0"
+description = ""
+authors = [
+    { name = "Stefane Fermigier", email = "sf@abilian.com" },
+]
+license = "GNU FDL"
+
+[tool.uv]
+package = false
+dev-dependencies = [
+    "mkdocs",
+    "mkdocs-include-markdown-plugin",
+    "mkdocs-material",
+    "mkdocs-material-extensions",
+    "mkdocs-roamlinks-plugin",
+    "mkdocstrings[python]",
+    "pdoc>=15.0.0",
+    "pygments",
+    "urllib3",
+    # "mkdocs-with-pdf",
+    # mkdocs-newsletter = "^1.0.1"
+    # sqla2uml = "^0.1.4"
+    # modulegraph = "^0.19.5"
+    # pydeps = "^1.12.8"
+]
+
+#
+#[tool.poetry]
+#name = "hop3-docs"
+#version = "0.1.0"
+#description = ""
+#authors = [
+#    "Stefane Fermigier <sf@abilian.com>",
+#]
+#license = "GNU FDL"
+#
+## package-mode = false
+#
+#[tool.poetry.dependencies]
+#python = "^3.10,<3.13"
+#
+#mkdocs = "^1.4.3"
+#mkdocs-include-markdown-plugin = "^6.0.4"
+#mkdocs-material = "^9.1.18"
+#mkdocs-material-extensions = "^1.1.1"
+#mkdocs-roamlinks-plugin = "^0.3.2"
+#mkdocs-with-pdf = "^0.9.3"
+#mkdocstrings = { extras = ["python"], version = "^0.24.0" }
+#
+## mkdocs-newsletter = "^1.0.1"
+#
+#pygments = "^2.15.1"
+#urllib3 = "^2.0.3"
+#
+## sqla2uml = "^0.1.4"
+## modulegraph = "^0.19.5"
+## pydeps = "^1.12.8"
+#
+#
+#[build-system]
+#requires = ["poetry-core"]
+#build-backend = "poetry.core.masonry.api"

@@ -20,6 +20,8 @@ nav:
     - "Governance": dev/governance.md
     - "Code of Conduct": policies/code-of-conduct.md
     - "Maintainers": dev/maintainers.md
+  - "API":
+    - "hop3-agent": api/hop3-agent.md
   - News: news/index.md
 
 ## Navigation
@@ -127,50 +129,51 @@ plugins:
   - search
   - include-markdown
   - roamlinks
-  - blog:
-      blog_dir: news
-      archive_name: Archive
-      archive: true
-      archive_date_format: yyyy
-      archive_toc: true
 
-  - with-pdf:
-      author: Stefane Fermigier
-      copyright: © 2021-2024 Abilian
-      cover: true
-      back_cover: false
-      cover_title: Nua
-      cover_subtitle: Self-sovereign cloud platform
-      enabled_if_env: ENABLE_PDF_EXPORT
+#  - blog:
+#      blog_dir: news
+#      archive_name: Archive
+#      archive: true
+#      archive_date_format: yyyy
+#      archive_toc: true
 
-#  - mkdocstrings:
-#      handlers:
-#        python:
-#          paths: [
-#            "../nua-lib/src/",
+#  - with-pdf:
+#      author: Stefane Fermigier
+#      copyright: © 2021-2024 Abilian
+#      cover: true
+#      back_cover: false
+#      cover_title: Hop3
+#      cover_subtitle: Self-sovereign cloud platform
+#      enabled_if_env: ENABLE_PDF_EXPORT
+
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [
+            "../hop3-agent/src/",
 #            "../nua-agent/src/",
 #            "../nua-build/src/",
 #            "../nua-orchestrator/src/",
-#          ]
-#          options:
-#            heading_level: 3
-#            separate_signature: true
-#            filters: [ "!^_" ]
-#            show_object_full_path: false
-#            members_order: source
-#            line_length: 88
-#            show_bases: false
-#            show_source: false
-#            merge_init_into_class: true
-#            docstring_options:
-#              ignore_init_summary: false
-#              trim_doctest_flags: true
+          ]
+          options:
+            heading_level: 3
+            separate_signature: true
+            filters: [ "!^_" ]
+            show_object_full_path: false
+            members_order: source
+            line_length: 88
+            show_bases: false
+            show_source: false
+            merge_init_into_class: true
+            docstring_options:
+              ignore_init_summary: false
+              trim_doctest_flags: true
 #            docstring_options:
 #              ignore_init_summary: true
-#            group_by_category: true
-#            signature_crossrefs: true
-#            show_root_toc_entry: false
-#            show_inheritance_diagram: true
+            group_by_category: true
+            signature_crossrefs: true
+            show_root_toc_entry: false
+            show_inheritance_diagram: true
 
       #    custom_template_path: TEMPLATES PATH
       #

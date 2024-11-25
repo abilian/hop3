@@ -8,6 +8,7 @@ packages/hop3-server/ssl
 /docs-old/
 /docs/Vocab/
 /docs/site/
+/packages/hop3-docs/Vocab/
 
 # Local environment variables
 .env

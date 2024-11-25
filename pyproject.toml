@@ -16,6 +16,7 @@ dependencies = [
     "hop3-server",
     "hop3-web",
     "hop3-testing",
+    "hop3-docs",
 
     # Debug (remove later)
     "devtools ~= 0.12",
@@ -56,6 +57,23 @@ dev-dependencies = [
     "pytest-beartype>=0.2.0",
     # More tools
     "import-linter>=2.1",
+    # Doc (temp - this should go in hop3-docs)
+    "duty>=1.4.3",
+    "markdown-callouts>=0.4",
+    "markdown-exec>=1.8",
+    "mkdocs",
+    "mkdocs-coverage>=1.0",
+    "mkdocs-gen-files>=0.5",
+    "mkdocs-git-revision-date-localized-plugin>=1.2",
+    "mkdocs-include-markdown-plugin",
+    "mkdocs-literate-nav>=0.6",
+    "mkdocs-material",
+    "mkdocs-material-extensions",
+    "mkdocs-minify-plugin>=0.8",
+    "mkdocs-roamlinks-plugin",
+    "mkdocstrings[python]",
+    "pygments",
+    "urllib3",
 ]
 
 [tool.uv.workspace]
@@ -68,6 +86,7 @@ hop3-cli = { workspace = true }
 hop3-server = { workspace = true }
 hop3-web = { workspace = true }
 hop3-testing = { workspace = true }
+hop3-docs = { workspace = true }
 
 # ------------------------------------
 
