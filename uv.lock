@@ -6,7 +6,6 @@ members = [
     "hop3",
     "hop3-agent",
     "hop3-cli",
-    "hop3-docs",
     "hop3-lib",
     "hop3-server",
     "hop3-testing",
@@ -1645,7 +1644,6 @@ dependencies = [
     { name = "devtools" },
     { name = "hop3-agent" },
     { name = "hop3-cli" },
-    { name = "hop3-docs" },
     { name = "hop3-lib" },
     { name = "hop3-server" },
     { name = "hop3-testing" },
@@ -1697,7 +1695,6 @@ requires-dist = [
     { name = "devtools", specifier = "~=0.12" },
     { name = "hop3-agent", editable = "packages/hop3-agent" },
     { name = "hop3-cli", editable = "packages/hop3-cli" },
-    { name = "hop3-docs", virtual = "packages/hop3-docs" },
     { name = "hop3-lib", editable = "packages/hop3-lib" },
     { name = "hop3-server", editable = "packages/hop3-server" },
     { name = "hop3-testing", editable = "packages/hop3-testing" },
@@ -1809,39 +1806,6 @@ requires-dist = [
     { name = "termcolor", specifier = ">=2.4.0,<3.0.0" },
     { name = "toml", specifier = ">=0.10.2,<0.11.0" },
     { name = "urllib3", specifier = ">=2.2.3,<3.0.0" },
-]
-
-[[package]]
-name = "hop3-docs"
-version = "0.1.0"
-source = { virtual = "packages/hop3-docs" }
-
-[package.dev-dependencies]
-dev = [
-    { name = "mkdocs" },
-    { name = "mkdocs-include-markdown-plugin" },
-    { name = "mkdocs-material" },
-    { name = "mkdocs-material-extensions" },
-    { name = "mkdocs-roamlinks-plugin" },
-    { name = "mkdocstrings", extra = ["python"] },
-    { name = "pdoc" },
-    { name = "pygments" },
-    { name = "urllib3" },
-]
-
-[package.metadata]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mkdocs" },
-    { name = "mkdocs-include-markdown-plugin" },
-    { name = "mkdocs-material" },
-    { name = "mkdocs-material-extensions" },
-    { name = "mkdocs-roamlinks-plugin" },
-    { name = "mkdocstrings", extras = ["python"] },
-    { name = "pdoc", specifier = ">=15.0.0" },
-    { name = "pygments" },
-    { name = "urllib3" },
 ]
 
 [[package]]
@@ -2735,20 +2699,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b2/35/80cf8f6a4f34017a7fe28242dc45161a1baa55c41563c354d8147e8358b2/pbr-6.1.0.tar.gz", hash = "sha256:788183e382e3d1d7707db08978239965e8b9e4e5ed42669bf4758186734d5f24", size = 124032 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1d/44/6a65ecd630393d47ad3e7d5354768cb7f9a10b3a0eb2cd8c6f52b28211ee/pbr-6.1.0-py2.py3-none-any.whl", hash = "sha256:a776ae228892d8013649c0aeccbb3d5f99ee15e005a4cbb7e61d55a067b28a2a", size = 108529 },
-]
-
-[[package]]
-name = "pdoc"
-version = "15.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "jinja2" },
-    { name = "markupsafe" },
-    { name = "pygments" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d1/4a/b645514246e487a02f211023d2fc1f019a25cdd2bf2f4266ff5e92c54f41/pdoc-15.0.0.tar.gz", hash = "sha256:b761220d3ba129cd87e6da1bb7b62c8e799973ab9c595de7ba1a514850d86da5", size = 154109 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3d/4a/e4a5490bb6d39214cd7778dfd8cf6b353b94f17aafa703bd1d11673ea025/pdoc-15.0.0-py3-none-any.whl", hash = "sha256:151b0187a25eaf827099e981d6dbe3a4f68aeb18d0d637c24edcab788d5540f1", size = 144184 },
 ]
 
 [[package]]
