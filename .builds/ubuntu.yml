@@ -50,11 +50,11 @@ tasks:
       uv run nox -e pytest-3.12
 
   - buildah: |
-      cd smo
+      cd hop3
       buildah build .
 
   - docker-build: |
-      cd smo
+      cd hop3
       sudo docker build .
 
 

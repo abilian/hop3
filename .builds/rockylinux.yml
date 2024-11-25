@@ -45,4 +45,4 @@ tasks:
 
   - buildah: |
       cd hop3
-      buildah build -t smo .
+      buildah build -t hop3 .
