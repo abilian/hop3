@@ -50,4 +50,4 @@ tasks:
 
   - buildah: |
       cd hop3
-      buildah build -t hop3 .
+      buildah build .
