@@ -16,8 +16,8 @@ from urllib.request import urlopen
 from hop3.system.constants import ACME_WWW, CACHE_ROOT, NGINX_ROOT
 from hop3.util import Abort, command_output, echo, expand_vars, log
 
-from .certificates import CertificatesManager
-from .templates import (
+from ._certificates import CertificatesManager
+from ._templates import (
     HOP3_INTERNAL_NGINX_CACHE_MAPPING,
     HOP3_INTERNAL_NGINX_STATIC_MAPPING,
     HOP3_INTERNAL_NGINX_UWSGI_SETTINGS,

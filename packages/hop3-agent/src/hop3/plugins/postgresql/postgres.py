@@ -9,11 +9,9 @@ from dataclasses import dataclass
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-from hop3.addons.base import Addon
-
 
 @dataclass(frozen=True)
-class PostgresqlAddon(Addon):
+class PostgresqlAddon:
     app_name: str
     settings: dict
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from hop3.core.app import App
 from hop3.core.env import Env
-from hop3.proxies.nginx.setup import NginxConfig
+from hop3.proxies.nginx import NginxConfig
 
 
 @pytest.fixture(autouse=True)
