@@ -15,7 +15,7 @@ all: lint test
 
 ## Lint / check typing
 lint:
-	ruff check packages
+	ruff check packages/hop3-agent
 	pyright packages/hop3-agent
 	mypy packages/hop3-agent
 	reuse lint -q
