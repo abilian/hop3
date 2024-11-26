@@ -14,11 +14,9 @@ from socket import AF_INET, SOCK_STREAM, socket
 from subprocess import STDOUT, check_output
 from typing import TYPE_CHECKING
 
-from cleez.colors import dim
-
 from hop3.util.multi_tail import MultiTail
 
-from .console import log
+from .console import dim, log
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

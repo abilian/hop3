@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import sys
-from argparse import ArgumentParser, HelpFormatter
+from argparse import ArgumentParser
 from collections.abc import Callable
+from importlib.metadata import version
 
 from hop3.core.app import App
+from hop3.util.console import bold
 
 from . import apps, config, git, misc, setup
 from .base import COMMAND_REGISTRY
@@ -35,7 +37,7 @@ def main(argv: list[str] | None = None) -> None:
     func: Callable | None = kwargs.pop("func", None)
 
     if not func:
-        parser.print_help()
+        print_help()
         return
 
     app = kwargs.pop("app", None)
@@ -45,18 +47,35 @@ def main(argv: list[str] | None = None) -> None:
     func(**kwargs)
 
 
-class MyHelpFormatter(HelpFormatter):
-    pass
-    # def _format_usage(self, usage, actions, groups, prefix):
-    #     for action in actions:
-    #         if isinstance(action, _SubParsersAction):
-    #             choices = {k: v for k, v in action.choices.items() if v.description}
-    #             action.choices = choices
-    #     return super()._format_usage(usage, actions, groups, prefix)
+def print_help():
+    package_version = version("hop3-agent")
+
+    output = [
+        "CLI to interact with Hop3",
+        "",
+        bold("VERSION"),
+        f"  {package_version}",
+        "",
+        bold("USAGE"),
+        "  $ hop [COMMAND]",
+        "",
+        bold("COMMANDS"),
+    ]
+
+    for command in sorted(COMMAND_REGISTRY.values(), key=lambda cmd: cmd.__name__):
+        name = getattr(command, "name", None)
+        if not name:
+            name = command.__name__.replace("Cmd", "").lower()
+        help_text = command.__doc__ or ""
+        if "INTERNAL" in help_text:
+            continue
+        output.append(f"  {name:<15} {help_text}")
+
+    print("\n".join(output))
 
 
 def create_parser() -> ArgumentParser:
-    parser = ArgumentParser(description="Hop3 CLI", formatter_class=MyHelpFormatter)
+    parser = ArgumentParser(description="Hop3 CLI")
 
     parser.add_argument(
         "-v",

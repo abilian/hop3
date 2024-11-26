@@ -7,14 +7,90 @@ from __future__ import annotations
 
 import sys
 
-__all__ = ["Abort", "console", "echo", "log", "panic"]
+__all__ = [
+    "Abort",
+    "black",
+    "blue",
+    "bold",
+    "console",
+    "cyan",
+    "debug",
+    "dim",
+    "echo",
+    "error",
+    "green",
+    "info",
+    "log",
+    "magenta",
+    "panic",
+    "red",
+    "success",
+    "warning",
+    "yellow",
+]
 
 from abc import ABC, abstractmethod
 
 from attrs import field, frozen
-from cleez.colors import blue, green, red, yellow
+from termcolor import colored
 
 from hop3.system.constants import HOP3_TESTING
+
+# TODO ?
+# "light_grey": 37,
+# "dark_grey": 90,
+# "light_red": 91,
+# "light_green": 92,
+# "light_yellow": 93,
+# "light_blue": 94,
+# "light_magenta": 95,
+# "light_cyan": 96,
+# "white": 97,
+
+
+# Color helpers
+def black(text):
+    return colored(text, "black")
+
+
+def red(text):
+    return colored(text, "red")
+
+
+def green(text):
+    return colored(text, "green")
+
+
+def yellow(text):
+    return colored(text, "yellow")
+
+
+def blue(text):
+    return colored(text, "blue")
+
+
+def magenta(text):
+    return colored(text, "magenta")
+
+
+def cyan(text):
+    return colored(text, "cyan")
+
+
+# Variants
+def bold(text):
+    return colored(text, attrs=["bold"])
+
+
+def dim(text):
+    return colored(text, attrs=["dark"])
+
+
+success = green
+error = red
+warning = yellow
+info = blue
+debug = dim
 
 
 class Console(ABC):

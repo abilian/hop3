@@ -1640,7 +1640,6 @@ name = "hop3"
 version = "0.2.2"
 source = { virtual = "." }
 dependencies = [
-    { name = "cleez" },
     { name = "devtools" },
     { name = "hop3-agent" },
     { name = "hop3-cli" },
@@ -1691,7 +1690,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cleez" },
     { name = "devtools", specifier = "~=0.12" },
     { name = "hop3-agent", editable = "packages/hop3-agent" },
     { name = "hop3-cli", editable = "packages/hop3-cli" },
