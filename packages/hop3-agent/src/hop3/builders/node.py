@@ -18,8 +18,7 @@ from ._base import Builder
 
 
 class NodeBuilder(Builder):
-    """A builder class for creating Node projects.
-    """
+    """A builder class for creating Node projects."""
 
     name = "Node"
     requirements = ["node", "npm"]  # noqa: RUF012

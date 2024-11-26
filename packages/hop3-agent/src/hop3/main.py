@@ -12,8 +12,7 @@ import os
 import sys
 import traceback
 
-from click import CommandCollection
-
+from hop3.cli.main import CLI
 from hop3.core.plugins import get_plugin_manager
 from hop3.system.constants import HOP3_BIN, HOP3_TESTING
 from hop3.util import Abort, prepend_to_path
@@ -50,7 +49,9 @@ def main(args=None) -> None:
     if HOP3_TESTING:
         console.reset()
 
-    cli = CommandCollection(sources=get_cli_commands())
+    # cli = CommandCollection(sources=get_cli_commands())
+    cli = CLI()
+
     try:
         cli(args=args)
     except SystemExit as e:

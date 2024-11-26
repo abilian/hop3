@@ -19,8 +19,7 @@ if TYPE_CHECKING:
 
 
 class RustBuilder(Builder):
-    """A class representing a Rust builder, a type of Builder.
-    """
+    """A class representing a Rust builder, a type of Builder."""
 
     name = "Rust"
     requirements = ["cargo"]  # noqa: RUF012

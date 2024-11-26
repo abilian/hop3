@@ -18,8 +18,7 @@ from ._base import Builder
 
 
 class ClojureBuilder(Builder):
-    """Builds Clojure projects (with either Leiningen or CLI).
-    """
+    """Builds Clojure projects (with either Leiningen or CLI)."""
 
     name = "Clojure"
     # TODO

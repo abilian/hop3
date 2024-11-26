@@ -20,8 +20,7 @@ if TYPE_CHECKING:
 
 
 class PHPBuilder(Builder):
-    """Build PHP projects.
-    """
+    """Build PHP projects."""
 
     name = "PHP"
     requirements = ["composer"]  # noqa: RUF012

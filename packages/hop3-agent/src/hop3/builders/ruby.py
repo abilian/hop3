@@ -15,8 +15,7 @@ from ._base import Builder
 
 
 class RubyBuilder(Builder):
-    """Builds Ruby projects.
-    """
+    """Builds Ruby projects."""
 
     name = "Ruby"
     requirements = ["ruby", "gem", "bundle"]  # noqa: RUF012

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import sys
 
-__all__ = ["Abort", "echo", "log", "panic"]
+__all__ = ["Abort", "console", "echo", "log", "panic"]
 
 from abc import ABC, abstractmethod
 

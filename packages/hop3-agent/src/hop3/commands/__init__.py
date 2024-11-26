@@ -8,6 +8,7 @@
 """
 Commands for the Hop3 CLI.
 """
+
 from __future__ import annotations
 
 from .apps import *
