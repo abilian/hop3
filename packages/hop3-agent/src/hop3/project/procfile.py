@@ -87,6 +87,7 @@ class Procfile:
         if res:
             matches = res.groups()
             for i in range(len(limits)):
-                if int(matches[i].replace("*/", "").replace("*", "1")) > limits[i]:
+                value = int(matches[i].replace("*/", "").replace("*", "1"))
+                if value > limits[i]:
                     msg = f"Invalid cron pattern: {command}"
                     raise ValueError(msg)
