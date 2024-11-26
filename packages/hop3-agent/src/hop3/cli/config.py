@@ -13,14 +13,14 @@ from hop3.deploy import do_deploy
 from hop3.util import Abort, log
 from hop3.util.settings import write_settings
 
-from ._base import Cmd, command
+from .base import command
 
 if TYPE_CHECKING:
     from hop3.core.app import App
 
 
 @command
-class ConfigCmd(Cmd):
+class ConfigCmd:
     """Show config, e.g.: hop config <app>."""
 
     def add_arguments(self, parser) -> None:
@@ -43,7 +43,7 @@ class ConfigCmd(Cmd):
 
 
 @command
-class ConfigGetCmd(Cmd):
+class ConfigGetCmd:
     """e.g.: hop config:get <app> FOO."""
 
     name = "config:get"
@@ -76,7 +76,7 @@ class ConfigGetCmd(Cmd):
 
 
 @command
-class ConfigSetCmd(Cmd):
+class ConfigSetCmd:
     """e.g.: hop config:set <app> FOO=bar BAZ=quux."""
 
     name = "config:set"
@@ -108,25 +108,8 @@ class ConfigSetCmd(Cmd):
         return key, value
 
 
-# @hop3.command("config:unset")
-# @argument("app", type=AppParamType())
-# @argument("settings", nargs=-1)
-# def cmd_config_unset(app: App, settings) -> None:
-#     """e.g.: hop config:unset <app> FOO."""
-#     env = app.get_runtime_env()
-#
-#     for s in settings:
-#         if s in env:
-#             del env[s]
-#             log(f"Unsetting {s} for '{app.name}'")
-#
-#     config_file = app.virtualenv_path / "ENV"
-#     write_settings(config_file, env)
-#     do_deploy(app)
-
-
 @command
-class ConfigUnsetCmd(Cmd):
+class ConfigUnsetCmd:
     """e.g.: hop config:unset <app> FOO."""
 
     name = "config:unset"
@@ -148,22 +131,8 @@ class ConfigUnsetCmd(Cmd):
         do_deploy(app)
 
 
-# @hop3.command("config:live")
-# @argument("app", type=AppParamType())
-# def cmd_config_live(app: App) -> None:
-#     """e.g.: hop config:live <app>."""
-#     env = app.get_runtime_env()
-#
-#     if not env:
-#         log(f"Warning: app '{app.name}' not deployed, no config found.", fg="yellow")
-#         return
-#
-#     for k, v in sorted(env.items()):
-#         log(f"{k}={v}", fg="white")
-
-
 @command
-class ConfigLiveCmd(Cmd):
+class ConfigLiveCmd:
     """e.g.: hop config:live <app>."""
 
     name = "config:live"
@@ -176,7 +145,8 @@ class ConfigLiveCmd(Cmd):
 
         if not env:
             log(
-                f"Warning: app '{app.name}' not deployed, no config found.", fg="yellow"
+                f"Warning: app '{app.name}' not deployed, no config found.",
+                fg="yellow",
             )
             return
 

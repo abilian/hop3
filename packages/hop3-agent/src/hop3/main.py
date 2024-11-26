@@ -13,12 +13,9 @@ import sys
 import traceback
 
 from hop3.cli.main import CLI
-from hop3.core.plugins import get_plugin_manager
 from hop3.system.constants import HOP3_BIN, HOP3_TESTING
 from hop3.util import Abort, prepend_to_path
 from hop3.util.console import console
-
-from .commands import hop3
 
 TESTING = "PYTEST_VERSION" in os.environ
 
@@ -29,14 +26,14 @@ def fix_path() -> None:
     os.environ["PATH"] = path
 
 
-def get_cli_commands():
-    cli_commands = [hop3]
-
-    # Use pluggy to get all the plugins
-    pm = get_plugin_manager()
-    cli_commands += pm.hook.cli_commands()
-
-    return cli_commands
+# def get_cli_commands():
+#     cli_commands = [hop3]
+#
+#     # Use pluggy to get all the plugins
+#     pm = get_plugin_manager()
+#     cli_commands += pm.hook.cli_commands()
+#
+#     return cli_commands
 
 
 def main(args=None) -> None:

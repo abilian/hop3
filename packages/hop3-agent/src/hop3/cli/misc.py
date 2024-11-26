@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from hop3.util import echo
 
-from ._base import Cmd, command
+from .base import command
 
 
 @command
-class HelpCmd(Cmd):
+class HelpCmd:
     """List apps, e.g.: hop-agent apps."""
 
     def run(self):

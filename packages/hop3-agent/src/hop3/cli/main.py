@@ -5,10 +5,10 @@ import sys
 from argparse import ArgumentParser, HelpFormatter
 from collections.abc import Callable
 
-from hop3.cli._base import COMMAND_REGISTRY
 from hop3.core.app import App
 
 from . import apps, config, git, misc, setup
+from .base import COMMAND_REGISTRY
 
 assert apps
 assert config

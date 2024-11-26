@@ -9,15 +9,16 @@ from __future__ import annotations
 
 import sys
 
-from hop3.cli._base import Cmd, command
 from hop3.core.app import App, get_app
 from hop3.core.git import GitManager
 from hop3.deploy import do_deploy
 from hop3.util import sanitize_app_name
 
+from .base import command
+
 
 @command
-class GitReceivePackCmd(Cmd):
+class GitReceivePackCmd:
     """INTERNAL: Handle git pushes for an app."""
 
     name = "git-receive-pack"
@@ -36,7 +37,7 @@ class GitReceivePackCmd(Cmd):
 
 
 @command
-class GitUploadPackCmd(Cmd):
+class GitUploadPackCmd:
     """INTERNAL: Handle git upload pack for an app."""
 
     name = "git-upload-pack"
@@ -52,7 +53,7 @@ class GitUploadPackCmd(Cmd):
 
 
 @command
-class GitHookCmd(Cmd):
+class GitHookCmd:
     """INTERNAL: Post-receive git hook."""
 
     name = "git-hook"
