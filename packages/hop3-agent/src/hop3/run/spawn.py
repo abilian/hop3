@@ -10,9 +10,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from hop3.core.env import Env
+from hop3.plugins.nginx import Nginx
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
-from hop3.proxies.nginx import setup_nginx
 from hop3.system.constants import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
 from hop3.system.state import state
 from hop3.util import echo, get_free_port, log
@@ -54,9 +54,11 @@ class AppLauncher:
 
     def spawn_app(self) -> None:
         """Create the app's workers."""
+
         # Set up nginx if we have NGINX_SERVER_NAME set
         if "NGINX_SERVER_NAME" in self.env:
-            setup_nginx(self.app, self.env, self.workers)
+            nginx = Nginx(self.app, self.env, self.workers)
+            nginx.setup()
 
         # Configured worker count
         web_worker_count = dict.fromkeys(self.web_workers.keys(), 1)

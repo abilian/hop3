@@ -13,6 +13,7 @@ from traceback import format_exc
 from typing import TYPE_CHECKING
 from urllib.request import urlopen
 
+from hop3.core.protocols import Proxy
 from hop3.system.constants import ACME_WWW, CACHE_ROOT, NGINX_ROOT
 from hop3.util import Abort, command_output, echo, expand_vars, log
 
@@ -33,14 +34,8 @@ if TYPE_CHECKING:
     from hop3.core.env import Env
 
 
-def setup_nginx(app: App, env: Env, workers: dict[str, str]) -> None:
-    """Configure Nginx for an app."""
-    config = NginxConfig(app, env, workers)
-    config.setup()
-
-
 @dataclass(frozen=True)
-class NginxConfig:
+class Nginx(Proxy):
     app: App
     env: Env
     workers: dict[str, str]

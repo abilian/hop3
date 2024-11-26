@@ -5,6 +5,6 @@
 
 from __future__ import annotations
 
-from ._setup import NginxConfig, setup_nginx
+from ._setup import Nginx
 
-__all__ = ["NginxConfig", "setup_nginx"]
+__all__ = ["Nginx"]
