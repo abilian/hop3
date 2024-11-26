@@ -109,7 +109,8 @@ class PsScaleCmd:
             try:
                 key, value = s.split("=", 1)
                 key = key.strip()
-                count = int(value.strip())  # check for integer value
+                # check for integer value
+                count = int(value.strip())
             except Exception:
                 msg = f"Error: malformed setting '{s}'"
                 raise Abort(msg)

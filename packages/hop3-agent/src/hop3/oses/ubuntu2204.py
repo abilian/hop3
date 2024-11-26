@@ -120,7 +120,7 @@ def packages(name, packages, update) -> None:
     """
     Manage software packages on a system.
 
-    This function is intended to handle the installation, removal, or update
+    This is intended to handle the installation, removal, or update
     of software packages on a computer system.
 
     Input:

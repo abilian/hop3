@@ -14,7 +14,7 @@ class Platform:
     """
     A class representing a software or hardware platform.
 
-    This class is intended to serve as a base for creating specific platform
+    This is intended to serve as a base for creating specific platform
     implementations. Currently, it does not contain any attributes or methods.
     """
 

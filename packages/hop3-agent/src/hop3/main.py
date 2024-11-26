@@ -21,7 +21,15 @@ TESTING = "PYTEST_VERSION" in os.environ
 
 
 def fix_path() -> None:
-    """Ensure system binaries are in the PATH, as wel as hop3 binaries."""
+    """
+    Ensure system binaries and hop3 binaries are in the PATH.
+
+    This modifies the system PATH environment variable to include
+    directories containing system and hop3 binaries.
+
+    It is currently not used and may be removed in the future.
+    """
+
     path = prepend_to_path([HOP3_BIN, "/usr/local/sbin", "/usr/sbin", "/sbin"])
     os.environ["PATH"] = path
 

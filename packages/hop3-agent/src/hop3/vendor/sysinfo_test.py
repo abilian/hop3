@@ -7,4 +7,5 @@ from hop3.vendor.sysinfo import SysInfo
 
 def test_sysinfo() -> None:
     sys_info = SysInfo()
+    # We only support Linux and macOS
     assert sys_info.platform_name() in {"Linux", "Darwin"}

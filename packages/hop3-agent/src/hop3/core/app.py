@@ -25,6 +25,19 @@ from hop3.util import Abort, log
 
 
 def get_app(name: str, *, check: bool = True) -> App:
+    """
+    Retrieve an application instance by name, optionally checking its existence.
+
+    Input:
+        name (str): The name of the application to retrieve.
+        check (bool, optional): Flag to indicate whether to check if the application exists. Defaults to True.
+
+    Returns:
+        App: An instance of the App class corresponding to the given name.
+
+    Raises:
+        ValueError: If 'check' is True and the application does not exist.
+    """
     app = App(name)
     if check:
         app.check_exists()
@@ -32,6 +45,13 @@ def get_app(name: str, *, check: bool = True) -> App:
 
 
 def list_apps() -> list[App]:
+    """
+    Retrieve a list of applications from the APP_ROOT directory.
+
+    Returns:
+        list[App]: A list of App instances, each representing an application
+                   located in the APP_ROOT directory.
+    """
     return [App(name) for name in sorted(os.listdir(APP_ROOT))]
 
 
@@ -42,10 +62,30 @@ class App:
     name: str
 
     def __attrs_post_init__(self) -> None:
+        """
+        Perform post-initialization validation.
+
+        This is automatically called after the initialization of an instance, as part of the `attrs` library.
+        It checks that the instance is in a valid state by invoking the `validate` method.
+
+        Raises:
+        - ValueError: in case validation fails.
+        """
         self.validate()
 
     def validate(self) -> None:
+        """
+        Validates the name attribute of the class instance.
+
+        Ensures that each character in the `name` attribute is either alphanumeric
+        or one of the following allowed symbols: '.', '_', '-'.
+
+        Raises:
+            ValueError: If the `name` contains any characters other than alphanumeric characters,
+                        '.', '_', or '-'.
+        """
         for c in self.name:
+            # Check if character is not alphanumeric and not in allowed symbols
             if not c.isalnum() and c not in {".", "_", "-"}:
                 msg = "Invalid app name"
                 raise ValueError(msg)
@@ -105,27 +145,48 @@ class App:
         return self.app_path / "venv"
 
     def get_runtime_env(self) -> Env:
+        """
+        Retrieves the runtime environment for the current application.
+
+        This fetches the environment settings for the application identified
+        by the instance's name attribute.
+        """
         return Env(state.get_app_env(self.name))
 
     # Actions
     def deploy(self) -> None:
+        """
+        Deploys the application by invoking the deployment process.
+
+        This serves as a wrapper that calls the `do_deploy` function,
+        which handles the actual deployment steps necessary for the application.
+        """
         do_deploy(self)
 
     def destroy(self) -> None:
+        """
+        Remove various application-related files and directories, except for data.
+
+        This deletes the application directory, repository directory,
+        virtual environment, and log files associated with the application.
+        It also removes UWSGI and NGINX configuration files and sockets.
+        However, it preserves the application's data directory.
+        """
         # TODO: finish refactoring this method
         app = self.name
 
         def remove_file(p: Path) -> None:
+            # Remove the file or directory at the given path if it exists.
             if p.exists():
                 if p.is_dir():
                     log(f"Removing directory '{p}'", level=2, fg="blue")
-                    shutil.rmtree(p)
+                    shutil.rmtree(p)  # Recursively remove a directory tree
                 else:
                     log(f"Removing file '{p}'", level=2, fg="blue")
-                    p.unlink()
+                    p.unlink()  # Remove a file
 
-        # leave DATA_ROOT, since apps may create hard to reproduce data,
-        # and CACHE_ROOT, since `nginx` will set permissions to protect it
+        # Leave DATA_ROOT, as apps may create hard-to-reproduce data,
+        # and CACHE_ROOT, as `nginx` will set permissions to protect it
         remove_file(self.app_path)
         remove_file(self.repo_path)
         remove_file(self.virtualenv_path)
@@ -151,9 +212,15 @@ class App:
             log(f"Preserving folder '{data_dir}'", level=2, fg="blue")
 
     def start(self) -> None:
+        """
+        Initiates the process to start an application by calling the spawn_app function.
+        """
         spawn_app(self)
 
     def stop(self) -> None:
+        """
+        Stops the application by removing its configuration files if they exist.
+        """
         app_name = self.name
         config_files = list(UWSGI_ENABLED.glob(f"{app_name}*.ini"))
 
@@ -166,7 +233,11 @@ class App:
             log(f"Error: app '{app_name}' not deployed!", fg="red")
 
     def restart(self) -> None:
-        """Restart (or just start) a deployed app."""
+        """
+        Restart (or just start) a deployed app.
+
+        This stops and then starts the application, effectively restarting it.
+        """
         log(f"restarting app '{self.name}'...", fg="blue")
         self.stop()
         self.start()

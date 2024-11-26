@@ -86,9 +86,17 @@ class SetupSshCmd:
         parser.add_argument("public_key_file", type=str)
 
     def run(self, public_key_file: str) -> None:
+        """
+        Process a public key file or read from standard input to manage keys.
+
+        Input:
+        - public_key_file (str): The path to the public key file. If set to '-', the key is read from standard input.
+        """
         if public_key_file == "-":
             self.add_helper(Path(public_key_file))
+            # Read lines from standard input if '-' is used
             buffer = "".join(sys.stdin.readlines())
+            # Create a temporary file to store the public key read from stdin
             with NamedTemporaryFile(mode="w", encoding="utf8") as f:
                 f.write(buffer)
                 f.flush()
@@ -97,11 +105,18 @@ class SetupSshCmd:
             self.add_helper(Path(public_key_file))
 
     def add_helper(self, key_file: Path) -> None:
+        """
+        Add a public key to the authorized keys list.
+
+        Input:
+        - key_file (Path): The path to the public key file to be added.
+        """
         if not key_file.exists():
             msg = f"Error: public key file '{key_file}' not found."
             raise Abort(msg)
 
         try:
+            # Run the ssh-keygen command to get the fingerprint from the key file
             cmd = ["ssh-keygen", "-lf", str(key_file)]
             cmd_output = str(subprocess.check_output(cmd))
             fingerprint = cmd_output.split(" ", 4)[1]
@@ -115,7 +130,12 @@ class SetupSshCmd:
             )
 
     def setup_authorized_keys(self, pubkey, fingerprint) -> None:
-        """Sets up an authorized_keys file to redirect SSH commands."""
+        """Sets up an authorized_keys file to redirect SSH commands.
+
+        Input:
+        - pubkey: The public key to be added to the authorized_keys file, provided as a string.
+        - fingerprint: The fingerprint associated with the public key for identification, provided as a string.
+        """
         authorized_keys = HOP3_ROOT / ".ssh" / "authorized_keys"
         authorized_keys.parent.mkdir(parents=True, exist_ok=True)
 

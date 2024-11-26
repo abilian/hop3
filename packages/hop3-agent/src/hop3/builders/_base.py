@@ -20,7 +20,26 @@ if TYPE_CHECKING:
 
 
 class Builder(ABC):
-    """A builder for an application."""
+    """
+    A builder for an application.
+
+    This abstract base class provides a framework for building applications. It defines
+    properties and methods that are common to all builders, such as checking for file
+    existence in a given path and executing shell commands. Subclasses must implement
+    the abstract methods to provide specific behavior for accepting input and building
+    the application.
+
+    Attributes
+    ----------
+    app_name : str
+        The name of the application.
+    app_path : Path
+        The path to the application directory.
+    name : ClassVar[str]
+        Class-level attribute representing the name of the builder.
+    requirements : ClassVar[list[str]]
+        Class-level attribute representing the list of requirements for the builder.
+    """
 
     app_name: str
     app_path: Path
@@ -30,14 +49,7 @@ class Builder(ABC):
     requirements: ClassVar[list[str]]
 
     def __init__(self, app_name: str, app_path: Path | None = None) -> None:
-        """Initialize the class with the specified app name.
-
-        Args:
-        ----
-            app_name (str): The name of the application.
-            app_path (Path, optional): The path to the application directory. Defaults to None.
-
-        """
+        """Initialize the class with the specified app name."""
         self.app_name = app_name
         if app_path:
             self.app_path = app_path
@@ -67,6 +79,7 @@ class Builder(ABC):
         """
         if isinstance(file_or_files, str):
             file_or_files = [file_or_files]
+        # Check if any of the files exist in the source path
         return any((self.src_path / file).exists() for file in file_or_files)
 
     @abstractmethod
@@ -113,5 +126,6 @@ class Builder(ABC):
     def get_env(self) -> Env:
         """Get the environment for this app instance as an Env object."""
         env = Env()
+        # Parse settings from the environment file
         env.parse_settings(self.env_file)
         return env

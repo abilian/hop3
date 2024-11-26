@@ -37,13 +37,23 @@ class GitManager:
         return self.app.name
 
     def receive_pack(self) -> None:
-        """Handle git pushes for an app."""
+        """
+        Handle git pushes for an app.
+
+        This sets the current working directory to the app's repository path
+        and runs the 'git-receive-pack' command with the repository path as an argument.
+        It ensures that any incoming git pushes are processed appropriately.
+        """
         cwd = self.app.repo_path
         cmd = ["git-receive-pack", str(self.repo_path)]
         subprocess.run(cmd, cwd=cwd, check=True)
 
     def upload_pack(self) -> None:
-        """Handle git upload pack for an app."""
+        """
+        Handle git upload pack for an app.
+
+        This executes the 'git-upload-pack' command in the application's repository path.
+        """
         cwd = self.app.repo_path
         cmd = ["git-upload-pack", str(self.repo_path)]
         subprocess.run(cmd, cwd=cwd, check=True)
@@ -72,11 +82,18 @@ class GitManager:
             make_executable(hook_path)
 
     def clone(self) -> None:
-        """Clone the git repository to the source directory."""
+        """
+        Clone the git repository to the source directory.
+
+        This checks if the source path for the application exists.
+        If it does not exist, it creates the application directory and clones the specified
+        git repository into it.
+        """
         if not self.app.src_path.exists():
             log(f"Creating app '{self.app_name}'", level=2, fg="green")
             self.app.create()
 
+            # Prepare the git clone command with the repository path and source path
             cmd = [
                 "git",
                 "clone",
@@ -85,9 +102,14 @@ class GitManager:
                 str(self.app.src_path),
             ]
             cwd = self.app.repo_path
+
+            # Execute the git clone command in the specified working directory
             subprocess.run(cmd, cwd=cwd, check=True)
 
 
 def make_executable(path: Path) -> None:
-    """Make file executable by the user."""
+    """
+    Make a file executable by the user.
+    """
+    # Retrieve the current file permissions and add executable permission for the user
     path.chmod(path.stat().st_mode | stat.S_IXUSR)

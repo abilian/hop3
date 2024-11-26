@@ -72,7 +72,8 @@ def setup_server() -> None:
     """
     Configures the server by setting up necessary files, users, packages, and symlinks.
 
-    This function performs the following tasks:
+    This performs the following tasks:
+
     - Puts a configuration file at a specified location.
     - Ensures a specific user with defined attributes exists.
     - Installs a list of Debian packages and performs an update.
