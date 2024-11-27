@@ -9,11 +9,11 @@ import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from hop3.config.constants import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
 from hop3.core.env import Env
 from hop3.plugins.nginx import Nginx
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
-from hop3.system.constants import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
 from hop3.system.state import state
 from hop3.util import echo, get_free_port, log
 from hop3.util.settings import write_settings

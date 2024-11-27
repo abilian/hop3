@@ -12,7 +12,7 @@ from pathlib import Path
 
 from attr import frozen
 
-from hop3.system.constants import ACME_ROOT, ACME_ROOT_CA, ACME_WWW, NGINX_ROOT
+from hop3.config.constants import ACME_ROOT, ACME_ROOT_CA, ACME_WWW, NGINX_ROOT
 from hop3.util import echo
 
 

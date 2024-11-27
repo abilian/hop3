@@ -13,8 +13,8 @@ from traceback import format_exc
 from typing import TYPE_CHECKING
 from urllib.request import urlopen
 
+from hop3.config.constants import ACME_WWW, CACHE_ROOT, NGINX_ROOT
 from hop3.core.protocols import Proxy
-from hop3.system.constants import ACME_WWW, CACHE_ROOT, NGINX_ROOT
 from hop3.util import Abort, command_output, echo, expand_vars, log
 
 from ._certificates import CertificatesManager

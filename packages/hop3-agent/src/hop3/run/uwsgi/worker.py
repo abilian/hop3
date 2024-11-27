@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hop3.system.constants import (
+from hop3.config.constants import (
     NGINX_ROOT,
     UWSGI_AVAILABLE,
     UWSGI_ENABLED,

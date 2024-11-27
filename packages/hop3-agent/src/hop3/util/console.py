@@ -34,7 +34,7 @@ from abc import ABC, abstractmethod
 from attrs import field, frozen
 from termcolor import colored
 
-from hop3.system.constants import HOP3_TESTING
+from hop3.config.constants import HOP3_TESTING
 
 # TODO ?
 # "light_grey": 37,

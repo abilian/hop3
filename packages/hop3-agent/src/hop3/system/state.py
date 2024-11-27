@@ -9,7 +9,7 @@ Store the state of the system.
 
 from __future__ import annotations
 
-from hop3.system.constants import HOP3_ROOT
+from hop3.config.constants import HOP3_ROOT
 from hop3.util.settings import parse_settings
 
 

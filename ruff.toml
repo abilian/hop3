@@ -39,6 +39,7 @@ lint.extend-ignore = [
     "ISC001", # (The following rules may cause conflicts when used with the formatter)
     "PGH003", # Use specific rule codes when ignoring type issues
     "PLC0415", # `import` should be at the top-level of a file
+    "PLC0414", # Import alias does not rename original package
     "PLR0913", # Too many arguments
     "PLR6301", # Method could be a function
     "PLW1514", # `pathlib.Path(...).write_text` without explicit `encoding` argument

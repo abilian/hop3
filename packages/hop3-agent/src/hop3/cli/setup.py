@@ -15,8 +15,7 @@ import traceback
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from hop3.oses.ubuntu2204 import setup_system
-from hop3.system.constants import (
+from hop3.config.constants import (
     HOP3_ROOT,
     HOP3_SCRIPT,
     ROOT_DIRS,
@@ -24,6 +23,7 @@ from hop3.system.constants import (
     UWSGI_LOG_MAXSIZE,
     UWSGI_ROOT,
 )
+from hop3.oses.ubuntu2204 import setup_system
 from hop3.util import Abort, echo
 
 from .base import command

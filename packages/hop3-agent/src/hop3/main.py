@@ -13,7 +13,7 @@ import sys
 import traceback
 
 from hop3.cli.main import CLI
-from hop3.system.constants import HOP3_BIN, HOP3_TESTING
+from hop3.config.constants import HOP3_BIN, HOP3_TESTING
 from hop3.util import Abort, prepend_to_path
 from hop3.util.console import console
 

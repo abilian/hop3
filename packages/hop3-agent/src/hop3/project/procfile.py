@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from hop3.system.constants import CRON_REGEXP
+from hop3.config.constants import CRON_REGEXP
 from hop3.util import log
 
 
