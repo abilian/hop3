@@ -190,7 +190,7 @@ wheels = [
 
 [[package]]
 name = "bandit"
-version = "1.7.10"
+version = "1.8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "platform_system == 'Windows'" },
@@ -198,9 +198,9 @@ dependencies = [
     { name = "rich" },
     { name = "stevedore" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/38/26/bdd962d6ee781f6229c3fb83483cf9e09d87959150a9000789806d750f3c/bandit-1.7.10.tar.gz", hash = "sha256:59ed5caf5d92b6ada4bf65bc6437feea4a9da1093384445fed4d472acc6cff7b", size = 4228540 }
+sdist = { url = "https://files.pythonhosted.org/packages/57/c3/bea54f22cdc8224f0ace18b2cf86c6adf7010285d0ed51b703af9910c5b2/bandit-1.8.0.tar.gz", hash = "sha256:b5bfe55a095abd9fe20099178a7c6c060f844bfd4fe4c76d28e35e4c52b9d31e", size = 4228600 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9e/9c/491231d973d54f6465002812b4cadc663f208436407745be473254725f55/bandit-1.7.10-py3-none-any.whl", hash = "sha256:665721d7bebbb4485a339c55161ac0eedde27d51e638000d91c8c2d68343ad02", size = 130756 },
+    { url = "https://files.pythonhosted.org/packages/24/6b/a9f0574d05d63e7d8125cd02a52732adb6720a9b9f13c921386cb9cdb53e/bandit-1.8.0-py3-none-any.whl", hash = "sha256:b1a61d829c0968aed625381e426aa378904b996529d048f8d908fa28f6b13e38", size = 127035 },
 ]
 
 [[package]]
@@ -1642,11 +1642,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "devtools" },
     { name = "hop3-agent" },
-    { name = "hop3-cli" },
-    { name = "hop3-lib" },
-    { name = "hop3-server" },
     { name = "hop3-testing" },
-    { name = "hop3-web" },
     { name = "invoke" },
     { name = "python-dotenv" },
     { name = "snoop" },
@@ -1692,11 +1688,7 @@ dev = [
 requires-dist = [
     { name = "devtools", specifier = "~=0.12" },
     { name = "hop3-agent", editable = "packages/hop3-agent" },
-    { name = "hop3-cli", editable = "packages/hop3-cli" },
-    { name = "hop3-lib", editable = "packages/hop3-lib" },
-    { name = "hop3-server", editable = "packages/hop3-server" },
     { name = "hop3-testing", editable = "packages/hop3-testing" },
-    { name = "hop3-web", editable = "packages/hop3-web" },
     { name = "invoke", specifier = "~=2.2.0" },
     { name = "python-dotenv" },
     { name = "snoop", specifier = "~=0.6" },

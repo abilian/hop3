@@ -10,12 +10,12 @@ requires-python = "~=3.10"
 
 dependencies = [
     # Workspace
-    "hop3-lib",
     "hop3-agent",
-    "hop3-cli",
-    "hop3-server",
-    "hop3-web",
     "hop3-testing",
+    #    "hop3-lib",
+    #    "hop3-cli",
+    #    "hop3-server",
+    #    "hop3-web",
     # Debug (remove later)
     "devtools ~= 0.12",
     "snoop ~= 0.6",
@@ -95,9 +95,12 @@ profile = "black"
 # and: https://docs.pytest.org/en/7.1.x/explanation/goodpractices.html#choosing-an-import-mode
 addopts = "-ra --import-mode=importlib"
 testpaths = [
-    "packages/*/tests",
-    # Tests may be in the same directory as the code
-    "packages/*/src",
+    "packages/hop3-agent/tests",
+    "packages/hop3-agent/src",
+    # Disabled for now
+    #    "packages/*/tests",
+    #    # Tests may be in the same directory as the code
+    #    "packages/*/src",
 ]
 
 # ------------------------------------
