@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+from argparse import ArgumentParser
+
 from hop3.util import echo
 
 from .base import command
@@ -18,3 +20,11 @@ class HelpCmd:
 
     def run(self):
         echo("Help command")
+
+
+@command
+class PluginsCmd:
+    """List installed plugins, e.g.: hop-agent plugins."""
+
+    def run(self, _parser: ArgumentParser):
+        echo("Plugins command")

@@ -1,15 +1,15 @@
 # Copyright (c) 2024, Abilian SAS
 from __future__ import annotations
 
+import inspect
 import sys
 from argparse import ArgumentParser
 from collections.abc import Callable
-from importlib.metadata import version
 
+from hop3.cli.help import print_help
 from hop3.core.app import App
-from hop3.util.console import bold
 
-from . import apps, config, git, misc, setup
+from . import apps, config, git, help, misc, setup
 from .base import COMMAND_REGISTRY
 
 assert apps
@@ -17,6 +17,7 @@ assert config
 assert git
 assert setup
 assert misc
+assert help
 
 
 class CLI:
@@ -54,48 +55,17 @@ def main(argv: list[str] | None = None) -> None:
         print_help()
         return
 
+    sig = inspect.signature(func)
+    parameters = sig.parameters
+    if "_parser" in parameters:
+        kwargs["_parser"] = parser
+
     # Special handling of the "app" argument which is converted to an App instance
     app = kwargs.pop("app", None)
     if app:
         kwargs["app"] = App(app)
 
     func(**kwargs)
-
-
-def print_help():
-    """
-    Display the help information for the Hop3 command-line interface (CLI).
-
-    This gathers and prints the version, usage instructions,
-    and available commands for the Hop3 CLI.
-    """
-    package_version = version("hop3-agent")
-
-    output = [
-        "CLI to interact with Hop3",
-        "",
-        bold("VERSION"),
-        f"  {package_version}",
-        "",
-        bold("USAGE"),
-        "  $ hop [COMMAND]",
-        "",
-        bold("COMMANDS"),
-    ]
-
-    # Iterate over the commands in the COMMAND_REGISTRY, sorted by the command's name
-    for command in sorted(COMMAND_REGISTRY.values(), key=lambda cmd: cmd.__name__):
-        name = getattr(command, "name", None)
-        if not name:
-            # If no name attribute, use the command's class name without 'Cmd' and in lowercase
-            name = command.__name__.replace("Cmd", "").lower()
-        help_text = command.__doc__ or ""
-        if "INTERNAL" in help_text:
-            # Skip commands marked as internal
-            continue
-        output.append(f"  {name:<15} {help_text}")
-
-    print("\n".join(output))
 
 
 def create_parser() -> ArgumentParser:
