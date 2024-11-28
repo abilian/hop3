@@ -44,3 +44,11 @@ packages = ["src/hop3"]
 exclude = [
     "src/hop3/util/templating.py",
 ]
+
+# -----------------------------------------------------------------------------
+
+[tool.deptry.per_rule_ignores]
+# X defined as a dependency but not used in the codebase
+DEP002 = [
+    "cyclonedx-bom",
+]
