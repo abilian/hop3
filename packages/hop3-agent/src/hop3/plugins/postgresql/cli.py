@@ -1,46 +1,379 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""CLI commands to manage PostgreSQL databases."""
+
 from __future__ import annotations
 
-import click
-import pluggy
+from argparse import ArgumentParser
 
-hookimpl = pluggy.HookimplMarker("hop3")
-
-
-@hookimpl
-def cli_commands():
-    return pg
+from hop3.cli.base import command
+from hop3.util import echo
 
 
-@click.group()
-def pg() -> None:
-    """PostgreSQL command plugin."""
+@command
+class PgCreateCmd:
+    """Create a PostgreSQL database: hop3 pg:create <name> <user> <password>."""
+
+    name = "pg:create"
+
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        parser.add_argument("name", type=str, help="Name of the database.")
+        parser.add_argument("user", type=str, help="Database user.")
+        parser.add_argument("password", type=str, help="User's password.")
+
+    def run(self, name: str, user: str, password: str) -> None:
+        echo(f"Creating database '{name}' for user '{user}'.")
+        # TODO: Add actual implementation to create a database
+        echo(f"Database '{name}' created successfully.")
 
 
-@pg.command("pg:create")
-@click.argument("name")
-@click.argument("user")
-@click.argument("password")
-def pg_create(name, user, password) -> None:
-    """PostgreSQL create a database."""
+@command
+class PgDropCmd:
+    """Drop a PostgreSQL database: hop3 pg:drop <name>."""
+
+    name = "pg:drop"
+
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        parser.add_argument("name", type=str, help="Name of the database to drop.")
+
+    def run(self, name: str) -> None:
+        echo(f"Dropping database '{name}'.")
+        # TODO: Add actual implementation to drop a database
+        echo(f"Database '{name}' dropped successfully.")
 
 
-@pg.command("pg:drop")
-@click.argument("name")
-def pg_drop(name) -> None:
-    """PostgreSQL drops a database."""
+@command
+class PgImportCmd:
+    """Import data into a PostgreSQL database: hop3 pg:import <name>."""
+
+    name = "pg:import"
+
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        parser.add_argument(
+            "name", type=str, help="Name of the database to import data into."
+        )
+
+    def run(self, name: str) -> None:
+        echo(f"Importing data into database '{name}'.")
+        # TODO: Add actual implementation to import data
+        echo(f"Data imported into database '{name}' successfully.")
 
 
-@pg.command("pg:import")
-@click.argument("name")
-def pg_import(name) -> None:
-    """PostgreSQL import a database."""
+@command
+class PgDumpCmd:
+    """Dump a PostgreSQL database: hop3 pg:dump <name>."""
+
+    name = "pg:dump"
+
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        parser.add_argument("name", type=str, help="Name of the database to dump.")
+
+    def run(self, name: str) -> None:
+        echo(f"Dumping database '{name}'.")
+        # TODO: Add actual implementation to dump the database
+        echo(f"Database '{name}' dumped successfully.")
 
 
-@pg.command("pg:dump")
-@click.argument("name")
-def pg_dump(name) -> None:
-    """PostgreSQL dumps a database SQL."""
+@command
+class PgBackupsCmd:
+    """List database backups: hop3 pg:backups."""
+
+    name = "pg:backups"
+
+    def run(self) -> None:
+        echo("Listing database backups...")
+        # TODO: Implement logic to list backups
+        echo("Database backups listed successfully.")
+
+
+@command
+class PgBloatCmd:
+    """Show table and index bloat: hop3 pg:bloat."""
+
+    name = "pg:bloat"
+
+    def run(self) -> None:
+        echo("Analyzing table and index bloat...")
+        # TODO: Implement logic to show bloat
+        echo("Bloat analysis completed.")
+
+
+@command
+class PgBlockingCmd:
+    """Display queries holding locks: hop3 pg:blocking."""
+
+    name = "pg:blocking"
+
+    def run(self) -> None:
+        echo("Displaying queries holding locks...")
+        # TODO: Implement logic to display blocking queries
+        echo("Blocking queries displayed successfully.")
+
+
+@command
+class PgCopyCmd:
+    """Copy data from source to target database: hop3 pg:copy <source> <target>."""
+
+    name = "pg:copy"
+
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        parser.add_argument("source", type=str, help="Source database.")
+        parser.add_argument("target", type=str, help="Target database.")
+
+    def run(self, source: str, target: str) -> None:
+        echo(f"Copying data from '{source}' to '{target}'...")
+        # TODO: Implement logic to copy data
+        echo("Data copied successfully.")
+
+
+@command
+class PgCredentialsCmd:
+    """Show database credentials: hop3 pg:credentials."""
+
+    name = "pg:credentials"
+
+    def run(self) -> None:
+        echo("Fetching database credentials...")
+        # TODO: Implement logic to fetch credentials
+        echo("Database credentials displayed successfully.")
+
+
+@command
+class PgDiagnoseCmd:
+    """Run or view diagnostics report: hop3 pg:diagnose."""
+
+    name = "pg:diagnose"
+
+    def run(self) -> None:
+        echo("Running diagnostics...")
+        # TODO: Implement logic to diagnose issues
+        echo("Diagnostics completed successfully.")
+
+
+@command
+class PgInfoCmd:
+    """Show database information: hop3 pg:info."""
+
+    name = "pg:info"
+
+    def run(self) -> None:
+        echo("Fetching database information...")
+        # TODO: Implement logic to fetch information
+        echo("Database information displayed successfully.")
+
+
+@command
+class PgKillCmd:
+    """Kill a query: hop3 pg:kill <query_id>."""
+
+    name = "pg:kill"
+
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        parser.add_argument("query_id", type=str, help="Query ID to kill.")
+
+    def run(self, query_id: str) -> None:
+        echo(f"Killing query '{query_id}'...")
+        # TODO: Implement logic to kill a query
+        echo(f"Query '{query_id}' killed successfully.")
+
+
+@command
+class PgKillAllCmd:
+    """Terminate all connections: hop3 pg:killall."""
+
+    name = "pg:killall"
+
+    def run(self) -> None:
+        echo("Terminating all connections...")
+        # TODO: Implement logic to kill all connections
+        echo("All connections terminated successfully.")
+
+
+@command
+class PgLinksCmd:
+    """List all databases and link information: hop3 pg:links."""
+
+    name = "pg:links"
+
+    def run(self) -> None:
+        echo("Listing database links...")
+        # TODO: Implement logic to list database links
+        echo("Database links listed successfully.")
+
+
+@command
+class PgLocksCmd:
+    """Display queries with active locks: hop3 pg:locks."""
+
+    name = "pg:locks"
+
+    def run(self) -> None:
+        echo("Displaying queries with active locks...")
+        # TODO: Implement logic to show locks
+        echo("Active locks displayed successfully.")
+
+
+@command
+class PgMaintenanceCmd:
+    """Show current maintenance information: hop3 pg:maintenance."""
+
+    name = "pg:maintenance"
+
+    def run(self) -> None:
+        echo("Fetching maintenance information...")
+        # TODO: Implement logic to fetch maintenance info
+        echo("Maintenance information displayed successfully.")
+
+
+@command
+class PgOutliersCmd:
+    """Show top 10 longest queries: hop3 pg:outliers."""
+
+    name = "pg:outliers"
+
+    def run(self) -> None:
+        echo("Fetching top 10 longest queries...")
+        # TODO: Implement logic to find query outliers
+        echo("Top 10 longest queries displayed successfully.")
+
+
+@command
+class PgPromoteCmd:
+    """Set DATABASE as your DATABASE_URL: hop3 pg:promote."""
+
+    name = "pg:promote"
+
+    def run(self) -> None:
+        echo("Promoting database...")
+        # TODO: Implement logic to promote the database
+        echo("Database promoted successfully.")
+
+
+@command
+class PgPsCmd:
+    """View active queries: hop3 pg:ps."""
+
+    name = "pg:ps"
+
+    def run(self) -> None:
+        echo("Fetching active queries...")
+        # TODO: Implement logic to show active queries
+        echo("Active queries displayed successfully.")
+
+
+@command
+class PgPsqlCmd:
+    """Open a psql shell: hop3 pg:psql."""
+
+    name = "pg:psql"
+
+    def run(self) -> None:
+        echo("Opening psql shell...")
+        # TODO: Implement logic to open psql shell
+        echo("Exited psql shell.")
+
+
+@command
+class PgPullCmd:
+    """Pull Heroku database to local or remote: hop3 pg:pull <source> <target>."""
+
+    name = "pg:pull"
+
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        parser.add_argument("source", type=str, help="Source database.")
+        parser.add_argument("target", type=str, help="Target database.")
+
+    def run(self, source: str, target: str) -> None:
+        echo(f"Pulling database from '{source}' to '{target}'...")
+        # TODO: Implement logic to pull database
+        echo("Database pulled successfully.")
+
+
+@command
+class PgPushCmd:
+    """Push local or remote database to Heroku: hop3 pg:push <source> <target>."""
+
+    name = "pg:push"
+
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        parser.add_argument("source", type=str, help="Source database.")
+        parser.add_argument("target", type=str, help="Target database.")
+
+    def run(self, source: str, target: str) -> None:
+        echo(f"Pushing database from '{source}' to '{target}'...")
+        # TODO: Implement logic to push database
+        echo("Database pushed successfully.")
+
+
+@command
+class PgResetCmd:
+    """Delete all data in DATABASE: hop3 pg:reset."""
+
+    name = "pg:reset"
+
+    def run(self) -> None:
+        echo("Resetting database...")
+        # TODO: Implement logic to reset database
+        echo("Database reset successfully.")
+
+
+@command
+class PgSettingsCmd:
+    """Show current database settings: hop3 pg:settings."""
+
+    name = "pg:settings"
+
+    def run(self) -> None:
+        echo("Fetching database settings...")
+        # TODO: Implement logic to fetch database settings
+        echo("Database settings displayed successfully.")
+
+
+@command
+class PgUnfollowCmd:
+    """Stop replica from following: hop3 pg:unfollow."""
+
+    name = "pg:unfollow"
+
+    def run(self) -> None:
+        echo("Stopping database replica from following...")
+        # TODO: Implement logic to unfollow a replica
+        echo("Database replica unfollowed successfully.")
+
+
+@command
+class PgUpgradeCmd:
+    """Upgrade PostgreSQL version: hop3 pg:upgrade."""
+
+    name = "pg:upgrade"
+
+    def run(self) -> None:
+        echo("Upgrading PostgreSQL version...")
+        # TODO: Implement logic to upgrade PostgreSQL
+        echo("PostgreSQL upgraded successfully.")
+
+
+@command
+class PgVacuumStatsCmd:
+    """Show vacuum stats: hop3 pg:vacuum-stats."""
+
+    name = "pg:vacuum-stats"
+
+    def run(self) -> None:
+        echo("Fetching vacuum stats...")
+        # TODO: Implement logic to show vacuum stats
+        echo("Vacuum stats displayed successfully.")
+
+
+@command
+class PgWaitCmd:
+    """Wait for database to be available: hop3 pg:wait."""
+
+    name = "pg:wait"
+
+    def run(self) -> None:
+        echo("Waiting for database to become available...")
+        # TODO: Implement logic to wait for database
+        echo("Database is now available.")

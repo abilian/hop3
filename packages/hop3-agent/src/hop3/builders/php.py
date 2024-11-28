@@ -20,7 +20,11 @@ if TYPE_CHECKING:
 
 
 class PHPBuilder(Builder):
-    """Build PHP projects.
+    """Build PHP projects using composer.
+
+    This provides methods to check for PHP project configurations,
+    prepare the environment, and install necessary project dependencies
+    using composer. It requires 'composer' to be available in the system.
     """
 
     name = "PHP"

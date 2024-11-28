@@ -9,15 +9,14 @@ readme = "README.md"
 
 dependencies = [
     "attrs >= 24.2",
-    "cleez >= 0.1.13",
-    "click ~= 8.1",
-    "pluggy ~= 1.4",
+    "pluggy~=1.4",
     # Database
     "sqlalchemy ~= 2.0",
     "advanced-alchemy >= 0.21",
     "psycopg2 ~= 2.9",
     "flask-security-too ~= 5.5.2",
-    "devtools>=0.12.2",
+    # Misc
+    "termcolor >= 2.5.0",
 ]
 
 [dependency-groups]

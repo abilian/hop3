@@ -15,7 +15,12 @@ from ._base import Builder
 
 
 class RubyBuilder(Builder):
-    """Builds Ruby projects.
+    """
+    Builds Ruby projects.
+
+    This is responsible for setting up and building Ruby projects.
+    It checks for the existence of a Gemfile to confirm it is a Ruby project,
+    sets up a virtual environment, and installs dependencies using Bundler.
     """
 
     name = "Ruby"

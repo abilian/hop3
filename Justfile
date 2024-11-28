@@ -71,8 +71,10 @@ audit:
 
 # Formatting
 format:
-    uv run ruff format packages/*/src packages/*/tests
-    uv run ruff check --fix packages/*/src packages/*/tests
+    #uv run ruff format packages/*/src packages/*/tests
+    #uv run ruff check --fix packages/*/src packages/*/tests
+    uv run ruff format packages/hop3-agent/src packages/hop3-agent/tests
+    uv run ruff check --fix packages/hop3-agent/src packages/hop3-agent/tests
     uv run markdown-toc -i README.md
 
 format-apps:

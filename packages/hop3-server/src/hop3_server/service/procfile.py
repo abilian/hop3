@@ -12,7 +12,7 @@ from pathlib import Path
 
 from hop3_server.service.constants import CRON_REGEXP
 
-# from hop3.system.constants import CRON_REGEXP
+# from hop3.config.constants import CRON_REGEXP
 # from hop3.util import Abort, log
 
 

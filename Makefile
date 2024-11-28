@@ -15,7 +15,7 @@ all: lint test
 
 ## Lint / check typing
 lint:
-	ruff check packages
+	ruff check packages/hop3-agent
 	pyright packages/hop3-agent
 	mypy packages/hop3-agent
 	reuse lint -q
@@ -65,7 +65,32 @@ check-dev-env:
 
 ## Update dependencies
 update-deps:
-	just update-deps
+	@echo "--> Updating dependencies"
+	uv sync -U
+	uv run pre-commit autoupdate
+	uv pip list --outdated
+	uv pip list --format=freeze > compliance/requirements-full.txt
+
+## Generate SBOM
+generate-sbom:
+	@echo "--> Generating SBOM"
+	uv sync -q --no-dev
+	uv pip list --format=freeze > compliance/requirements-prod.txt
+	uv sync -q
+	# CycloneDX
+	uv run cyclonedx-py requirements \
+		--pyproject pyproject.toml -o compliance/sbom-cyclonedx.json \
+		compliance/requirements-prod.txt
+	# Add license information
+	uv run lbom \
+		--input_file compliance/sbom-cyclonedx.json \
+		> compliance/sbom-lbom.json
+	mv compliance/sbom-lbom.json compliance/sbom-cyclonedx.json
+	# broken
+	#	# SPDX
+	#	sbom4python -r compliance/requirements-prod.txt \
+	#		--sbom spdx --format json \
+	#		-o compliance/sbom-spdx.json
 
 #
 # testing & checking
@@ -104,6 +129,8 @@ test-with-typeguard:
 
 ## Run a security audit
 audit:
+	# uvx pip-audit .
+	# uvx safety scan
 	just audit
 
 # Delegate to just

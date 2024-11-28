@@ -19,6 +19,10 @@ from ._base import Builder
 
 class ClojureBuilder(Builder):
     """Builds Clojure projects (with either Leiningen or CLI).
+
+    This provides methods to build Clojure projects by determining if the project is
+    a Leiningen app or a CLI Clojure app, setting up the necessary environment, and executing
+    the build process. It extends the functionality of the Builder class.
     """
 
     name = "Clojure"
@@ -29,9 +33,7 @@ class ClojureBuilder(Builder):
         """Check if the object is a Leiningen app or a CLI Clojure app.
 
         Returns
-        -------
             bool: True if the object is a Leiningen app or a CLI Clojure app, False otherwise.
-
         """
         return self.check_exists(["project.clj", "deps.edn"])
 
@@ -40,9 +42,7 @@ class ClojureBuilder(Builder):
         """Check if the app is a Leiningen application.
 
         Returns
-        -------
             bool: True if the app is a Leiningen application, False otherwise.
-
         """
         return (self.src_path / "project.clj").exists()
 
@@ -53,14 +53,13 @@ class ClojureBuilder(Builder):
         Returns
         -------
             bool: True if the 'deps.edn' file exists in the app_path, False otherwise.
-
         """
         return (self.src_path / "deps.edn").exists()
 
     def build(self) -> None:
         """Build the Clojure application.
 
-        This method creates a virtual environment, builds the Clojure application, and sets up the necessary directories.
+        This creates a virtual environment, builds the Clojure application, and sets up the necessary directories.
         """
         emit(CreatingVirtualEnv(self.app_name))
         self.virtual_env.mkdir(parents=True, exist_ok=True)
