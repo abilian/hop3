@@ -62,7 +62,7 @@ types-paramiko = "^3.4"
 types-psycopg2 = "^2.9"
 flask-debugtoolbar = "^0.15"
 msgspec = "^0.18"
-watchfiles = "^0.24"
+watchfiles = ">= 0.24"
 
 [build-system]
 requires = ["poetry-core"]

@@ -31,13 +31,13 @@ dependencies = [
 package = false
 dev-dependencies = [
     # Generic tools
-    "abilian-devtools ~= 0.7",
-    "reuse ~= 5.0",
+    "abilian-devtools >= 0.7",
+    "reuse >= 5.0",
     # Used by `inv watch`
-    "watchfiles ~= 0.24.0",
+    "watchfiles >= 0.24.0",
     # Used by testing infra
-    "httpx ~= 0.27.0",
-    "python-dotenv ~= 1.0.1",
+    "httpx >= 0.27.0",
+    "python-dotenv >= 1.0.1",
     # Experimental
     "infer-types~=1.0.0",
     # Installer
@@ -70,6 +70,11 @@ dev-dependencies = [
     "mkdocstrings[python]",
     "pygments",
     "urllib3",
+    # SBOM
+    "cyclonedx-bom>=4.6.1",
+    "lbom>=0.6",
+    "sbom4python>=0.11.3",
+    "spdx-tools>=0.8.3",
 ]
 
 [tool.uv.workspace]

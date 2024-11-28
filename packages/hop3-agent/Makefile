@@ -81,7 +81,7 @@ lint:
 
 ## Run a security audit
 audit:
-	pip-audit
+	uvx run pip-audit
 	safety check
 
 

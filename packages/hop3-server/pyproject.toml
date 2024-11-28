@@ -25,9 +25,7 @@ python = "^3.10"
 granian = {extras = ["reload"], version = "^1.5.2"}
 uvicorn = "^0.32"
 starlette = ">= 0.40"
-
-##
-#watchfiles = "^0.22.0"
+watchfiles = ">= 0.22.0"
 
 # Serialisation
 attrs = "*"
