@@ -1,4 +1,3 @@
-# Copyright (c) 2016 Rui Carmo
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -30,7 +29,6 @@ class PythonBuilder(Builder):
     requirements = ["python3", "pip", "virtualenv"]  # noqa: RUF012
 
     def accept(self) -> bool:
-        # Check if 'requirements.txt' or 'pyproject.toml' exists to accept the project
         return self.check_exists(["requirements.txt", "pyproject.toml"])
 
     def build(self) -> None:
@@ -47,15 +45,14 @@ class PythonBuilder(Builder):
 
     def make_virtual_env(self) -> None:
         """Create and activate a virtual environment."""
-        # Check if the virtual environment activation script exists
-        if not (self.virtual_env / "bin" / "activate").exists():
-            emit(CreatingVirtualEnv(self.app_name))
-            # Create virtual environment using the virtualenv tool
-            self.shell(f"virtualenv --python=python3 {self.virtual_env}")
+        if self.virtual_env.exists():
+            return
 
-        # Execute the activation script to activate the virtual environment
-        activation_script = self.virtual_env / "bin" / "activate_this.py"
-        exec(activation_script.read_text(), {"__file__": activation_script})
+        emit(CreatingVirtualEnv(self.app_name))
+
+        # Create virtual environment using the `virtualenv` tool
+        # NOTE: alternative to using `virtualenv` is to use `python3 -m venv`.
+        self.shell(f"virtualenv --python=python3 {self.virtual_env}")
 
     def install_virtualenv(self) -> None:
         """Install virtual environment and necessary dependencies for the
@@ -71,6 +68,7 @@ class PythonBuilder(Builder):
         elif Path("pyproject.toml").exists():
             self.shell(f"{pip} install .")
         else:
-            # Raise error if neither requirements.txt nor pyproject.toml is found
+            # This should never happen as `accept` checks for the presence of
+            # requirements.txt or pyproject.toml
             msg = f"requirements.txt or pyproject.toml not found for '{self.app_name}'"
             raise FileNotFoundError(msg)
