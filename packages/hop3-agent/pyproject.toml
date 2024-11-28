@@ -17,6 +17,8 @@ dependencies = [
     "flask-security-too ~= 5.5.2",
     # Misc
     "termcolor >= 2.5.0",
+    # SBOM
+    "cyclonedx-bom>=5.1.1",
 ]
 
 [dependency-groups]
