@@ -11,6 +11,9 @@
 sandbox/
 ignore.py
 
+# Temp
+/packages/hop3-web/src/hop3_web/lib/
+
 # Local environment variables
 .env
 .envrc
