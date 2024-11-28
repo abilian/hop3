@@ -7,7 +7,11 @@
 from __future__ import annotations
 
 import subprocess
+import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING
+
+from hop3.config.constants import HOP3_ROOT
 
 from .base import command
 
@@ -20,34 +24,22 @@ class SbomCmd:
     """Generate a SBOM for an app."""
 
     def run(self, app: App) -> None:
-        cwd = app.virtualenv_path
+        venv = app.virtualenv_path
+        with tempfile.TemporaryDirectory() as tmpdir:
+            subprocess.run(
+                f"{venv}/bin/pip list --format=freeze > {tmpdir}/requirements.txt",
+                shell=True,
+                check=True,
+                env={},
+            )
 
-        subprocess.run(
-            "/usr/bin/env",
-            shell=True,
-            check=True,
-            env={},
-        )
-        subprocess.run(
-            f"{cwd}/bin/python -c 'import os; print(os.getcwd())'",
-            shell=True,
-            check=True,
-            cwd=cwd,
-            env={},
-        )
+            cmd = [
+                f"{HOP3_ROOT}/venv/bin/cyclonedx-py",
+                "requirements",
+                "-o",
+                f"{tmpdir}/sbom-cyclonedx.json",
+                f"{tmpdir}/requirements.txt",
+            ]
+            subprocess.run(cmd, check=True)
 
-        subprocess.run(
-            f"{cwd}/bin/python -m pip list --format=freeze",
-            shell=True,
-            check=True,
-            cwd=cwd,
-            env={},
-        )
-
-        subprocess.run(
-            f"{cwd}/bin/python -m pip list --format=freeze > /tmp/requirements-prod.txt",
-            shell=True,
-            check=True,
-            env={},
-        )
-        # print(Path("/tmp/requirements-prod.txt").read_text())
+            print(Path(f"{tmpdir}/sbom-cyclonedx.json").read_text())
