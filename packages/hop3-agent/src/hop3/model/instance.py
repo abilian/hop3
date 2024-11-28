@@ -14,6 +14,10 @@ from hop3.model.app import App
 
 
 class InstanceStateEnum(Enum):
+    """
+    Enumeration representing the state of an instance.
+    """
+
     RUNNING = 1
     STOPPED = 2
     PAUSED = 3
@@ -21,10 +25,15 @@ class InstanceStateEnum(Enum):
 
 
 class Instance(BigIntAuditBase):
-    __tablename__ = "instance"
+    """
+    Represents an instance in the database with details like application ID, domain, and state.
+    """
+
+    __tablename__ = "instance"  # Table name in the database
 
     app_id: Mapped[int] = mapped_column(ForeignKey(App.id))
 
+    # Unique domain for each instance
     domain: Mapped[str] = mapped_column(unique=True)
 
     state: Mapped[InstanceStateEnum] = mapped_column(default=InstanceStateEnum.STOPPED)

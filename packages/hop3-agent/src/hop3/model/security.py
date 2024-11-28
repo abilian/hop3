@@ -16,6 +16,10 @@ AuditBase = BigIntAuditBase
 
 
 class Role(AuditBase, RoleMixin):
+    """
+    Represents a security role for user access control in a system.
+    """
+
     __tablename__ = "sec_role"
 
     name: Mapped[str] = mapped_column(unique=True)
@@ -26,6 +30,10 @@ class Role(AuditBase, RoleMixin):
 
 
 class User(AuditBase, UserMixin):
+    """
+    Represents a user entity in the security system.
+    """
+
     __tablename__ = "sec_user"
 
     email: Mapped[str] = mapped_column(unique=True)
@@ -55,6 +63,13 @@ class User(AuditBase, UserMixin):
 
 
 class RolesUsers(AuditBase):
+    """
+    Represents a mapping between users and roles in the security model.
+
+    This is used to define a many-to-many relationship between users and roles.
+    Each instance of this class associates a user with a role.
+    """
+
     __tablename__ = "sec_users_roles"
 
     user_id: Mapped[int] = mapped_column(ForeignKey(User.id))

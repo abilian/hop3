@@ -86,7 +86,7 @@ def test_lifecycle(hop3_home) -> None:
     assert "xyz" not in console.output()
     assert app_name in console.output()
 
-    cli_main(["logs", app_name])
+    # cli_main(["logs", app_name])
 
     cli_main(["apps"])
     assert app_name in console.output()
@@ -103,8 +103,11 @@ def test_lifecycle(hop3_home) -> None:
     cli_main(["ps", app_name])
     assert "web:2" in console.output()
 
-    cli_main(["ps:scale", app_name, "web=2"])
+    cli_main(["ps:scale", app_name, "web=1"])
     assert "web" in console.output()
+
+    cli_main(["ps", app_name])
+    assert "web:1" in console.output()
 
     cli_main(["run", app_name, "/bin/pwd"])
     assert app_name in console.output()

@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hop3.system.constants import (
+from hop3.config.constants import (
     NGINX_ROOT,
     UWSGI_AVAILABLE,
     UWSGI_ENABLED,
@@ -38,7 +38,16 @@ def spawn_uwsgi_worker(
     env: Env,
     ordinal=1,
 ) -> None:
-    """Set up and deploy a single worker of a given kind."""
+    """
+    Set up and deploy a single worker of a given kind.
+
+    Input:
+        app_name (str): The name of the application for which the worker is being spawned.
+        kind (str): The type of worker to spawn (e.g., "static", "cron", "jwsgi", etc.).
+        command (str): The command to be executed by the worker.
+        env (Env): The environment in which the worker will be spawned.
+        ordinal (int): The ordinal number of the worker, default is 1.
+    """
 
     # if kind == "web":
     #     spawn_uwsgi_worker_web(app_name, kind, command, env, ordinal)
@@ -78,12 +87,30 @@ class UwsgiWorker:
     log_format = ""
 
     def spawn(self) -> None:
+        """
+        Execute a series of setup operations to initialize and configure settings
+        for the environment.
+
+        This orchestrates the process of creating base settings,
+        updating those settings, modifying the environment, and finally
+        writing the updated settings to the necessary locations.
+        """
+
         self.create_base_settings()
         self.update_settings()
         self.update_env()
         self.write_settings()
 
     def create_base_settings(self) -> None:
+        """
+        Configures and updates base settings for an application using uWSGI.
+
+        This sets up the environment and configuration settings required
+        for running an application with uWSGI. It adds various settings like user
+        and group IDs, process types, logging configurations, and other uWSGI
+        parameters. It also checks for virtual environment existence and handles
+        optional idle settings.
+        """
         from hop3.core.app import App
 
         env = self.env.copy()
@@ -96,6 +123,7 @@ class UwsgiWorker:
         log_path = app.log_path
         log_file = log_path / self.kind
 
+        # Retrieve username and group name from system user and group IDs
         pw_name = pwd.getpwuid(os.getuid()).pw_name
         gr_name = grp.getgrgid(os.getgid()).gr_name
 
@@ -150,6 +178,12 @@ class UwsgiWorker:
         # raise NotImplementedError
 
     def update_env(self) -> None:
+        """
+        Update the environment settings for the application.
+
+        This updates the environment settings by removing unnecessary variables
+        and inserting user-defined UWSGI settings if specified.
+        """
         from hop3.core.app import App
 
         app = App(self.app_name)
@@ -169,6 +203,13 @@ class UwsgiWorker:
             self.settings.add("env", f"{k:s}={v}")
 
     def write_settings(self) -> None:
+        """
+        Write configuration settings to a file and enable them by copying to another directory.
+
+        This generates a filename based on the application name, type, and an ordinal number,
+        writes the settings to a file in the 'UWSGI_AVAILABLE' directory, and then copies this file
+        to the 'UWSGI_ENABLED' directory to make the settings active.
+        """
         name = f"{self.app_name:s}_{self.kind:s}.{self.ordinal:d}.ini"
         uwsgi_available_path = UWSGI_AVAILABLE / name
         uwsgi_enabled_path = UWSGI_ENABLED / name
@@ -176,6 +217,12 @@ class UwsgiWorker:
         shutil.copyfile(uwsgi_available_path, uwsgi_enabled_path)
 
     def log(self, message) -> None:
+        """
+        Logs a formatted message with a specified log level and color.
+
+        Input:
+            message (str): The message template to be formatted and logged.
+        """
         message = message.format(**self.env)
         log(message, level=2, fg="yellow")
 
@@ -271,8 +318,12 @@ class WebWorker(UwsgiWorker):
     )
 
     def update_settings(self) -> None:
-        tpl = "nginx will talk to the 'web' process via {BIND_ADDRESS:s}:{PORT:s}"
-        log(tpl.format(**self.env), level=2, fg="yellow")
+        """
+        Update the settings by adding the command to the 'attach-daemon' section.
+
+        This modifies the current settings to include the specified
+        command associated with the key 'attach-daemon'.
+        """
         self.settings.add("attach-daemon", self.command)
 
 

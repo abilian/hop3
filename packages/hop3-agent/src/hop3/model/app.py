@@ -12,6 +12,12 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 
 class AppStateEnum(Enum):
+    """
+    Enumeration for representing the state of an application.
+
+    The state of an application can be RUNNING, STOPPED, or PAUSED.
+    """
+
     RUNNING = 1
     STOPPED = 2
     PAUSED = 3
@@ -19,6 +25,12 @@ class AppStateEnum(Enum):
 
 
 class App(BigIntAuditBase):
+    """
+    Represents an application entity with relevant properties such as
+    name, run state, and port. Inherits from BigIntAuditBase for audit
+    functionality.
+    """
+
     __tablename__ = "app"
 
     name: Mapped[str] = mapped_column(String(128))

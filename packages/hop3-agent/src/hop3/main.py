@@ -12,32 +12,36 @@ import os
 import sys
 import traceback
 
-from click import CommandCollection
-
-from hop3.core.plugins import get_plugin_manager
-from hop3.system.constants import HOP3_BIN, HOP3_TESTING
+from hop3.cli.main import CLI
+from hop3.config.constants import HOP3_BIN, HOP3_TESTING
 from hop3.util import Abort, prepend_to_path
 from hop3.util.console import console
-
-from .commands import hop3
 
 TESTING = "PYTEST_VERSION" in os.environ
 
 
 def fix_path() -> None:
-    """Ensure system binaries are in the PATH, as wel as hop3 binaries."""
+    """
+    Ensure system binaries and hop3 binaries are in the PATH.
+
+    This modifies the system PATH environment variable to include
+    directories containing system and hop3 binaries.
+
+    It is currently not used and may be removed in the future.
+    """
+
     path = prepend_to_path([HOP3_BIN, "/usr/local/sbin", "/usr/sbin", "/sbin"])
     os.environ["PATH"] = path
 
 
-def get_cli_commands():
-    cli_commands = [hop3]
-
-    # Use pluggy to get all the plugins
-    pm = get_plugin_manager()
-    cli_commands += pm.hook.cli_commands()
-
-    return cli_commands
+# def get_cli_commands():
+#     cli_commands = [hop3]
+#
+#     # Use pluggy to get all the plugins
+#     pm = get_plugin_manager()
+#     cli_commands += pm.hook.cli_commands()
+#
+#     return cli_commands
 
 
 def main(args=None) -> None:
@@ -50,7 +54,9 @@ def main(args=None) -> None:
     if HOP3_TESTING:
         console.reset()
 
-    cli = CommandCollection(sources=get_cli_commands())
+    # cli = CommandCollection(sources=get_cli_commands())
+    cli = CLI()
+
     try:
         cli(args=args)
     except SystemExit as e:
