@@ -9,17 +9,16 @@ from __future__ import annotations
 
 import os
 
+from hop3.config.constants import UWSGI_ENABLED
 from hop3.core.env import Env
 from hop3.core.events import InstallingVirtualEnv, emit
-from hop3.system.constants import UWSGI_ENABLED
 from hop3.util import Abort, chdir, check_binaries, log, prepend_to_path
 
 from ._base import Builder
 
 
 class NodeBuilder(Builder):
-    """A builder class for creating Node projects.
-    """
+    """A builder class for creating Node projects."""
 
     name = "Node"
     requirements = ["node", "npm"]  # noqa: RUF012
@@ -42,7 +41,7 @@ class NodeBuilder(Builder):
     def build(self) -> None:
         """Build the project environment.
 
-        This method creates the necessary directories and installs the required dependencies for the project.
+        This creates the necessary directories and installs the required dependencies for the project.
         """
         self.virtual_env.mkdir(parents=True, exist_ok=True)
 
@@ -83,14 +82,19 @@ class NodeBuilder(Builder):
     def install_node(self, env: Env) -> None:
         """Install a specific version of Node.js using nodeenv.
 
+        This checks if the specified Node.js version is installed in the
+        virtual environment. If not, and the `nodeenv` binary is available, it will
+        attempt to install the specified Node.js version. If the application is
+        running, it raises an exception to prevent an update during runtime.
+
         Args:
         ----
-            env (dict): Dictionary containing environment variables, including 'NODE_VERSION' specifying the Node.js version to install.
+            env (Env): Dictionary containing environment variables, including
+            'NODE_VERSION' specifying the Node.js version to install.
 
         Raises:
         ------
             Abort: If trying to update Node.js while the application is running.
-
         """
         version = env.get("NODE_VERSION")
         node_binary = self.virtual_env / "bin" / "node"
@@ -100,18 +104,22 @@ class NodeBuilder(Builder):
         else:
             installed = ""
 
+        # Check if the specified version is different from the installed one and if nodeenv is available
         if version and check_binaries(["nodeenv"]):
             if not installed.endswith(version):
                 started = list(UWSGI_ENABLED.glob(f"{self.app_name}*.ini"))
+
                 if installed and len(started):
+                    # Raise an error if the app is running
                     msg = (
                         "Warning: Can't update node with app running. Stop the app &"
                         " retry."
                     )
                     raise Abort(msg)
 
+                # Log installation of the specified node version using nodeenv
                 msg = "Installing node version '{NODE_VERSION:s}' using nodeenv".format(
-                    **env,
+                    **env
                 )
                 log(msg, level=5, fg="green")
                 cmd = (
@@ -125,11 +133,10 @@ class NodeBuilder(Builder):
     def install_modules(self, env: Env) -> None:
         """Install necessary modules for the application using npm.
 
-        Args:
-        ----
-            self: The instance of the class.
-            env (dict): Environment variables to be passed to the shell.
-
+        This uses npm to install the dependencies listed in the
+        'package.json' file located at the specified source path. It ensures
+        that npm is available and executes the installation command while
+        passing the provided environment variables.
         """
         emit(InstallingVirtualEnv(self.app_name))
 

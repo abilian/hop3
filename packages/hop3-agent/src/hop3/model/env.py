@@ -18,9 +18,17 @@ from .instance import Instance
 
 
 class EnvVar(BigIntPrimaryKey, Base):
+    """
+    Represent an environment variable associated with an instance in the database.
+    """
+
     __tablename__ = "env_var"
 
     instance_id: Mapped[int] = mapped_column(ForeignKey(Instance.id))
+    # Foreign key referencing an instance in another table
 
     name: Mapped[str]
+    # Name of the environment variable
+
     value: Mapped[str]
+    # Value of the environment variable

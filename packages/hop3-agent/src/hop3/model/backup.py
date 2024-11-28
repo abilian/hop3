@@ -14,6 +14,17 @@ from .instance import Instance
 
 
 class BackupStateEnum(Enum):
+    """
+    Enumeration representing the various states of a backup process.
+
+    The backup process can be in one of the following states:
+
+    - SCHEDULED: Indicates the backup is scheduled and yet to start.
+    - STARTED: Indicates the backup process has started.
+    - COMPLETED: Indicates the backup has completed successfully.
+    - FAILED: Indicates the backup process has failed.
+    """
+
     SCHEDULED = 1
     STARTED = 2
     COMPLETED = 3
@@ -21,6 +32,13 @@ class BackupStateEnum(Enum):
 
 
 class Backup(BigIntAuditBase):
+    """
+    Represents a backup entry in the database, extending from the BigIntAuditBase class.
+
+    This defines the database schema for storing information about backups,
+    including their state, format, remote path, size, and expiry time.
+    """
+
     __tablename__ = "backup"
 
     instance_id: Mapped[int] = mapped_column(ForeignKey(Instance.id))
