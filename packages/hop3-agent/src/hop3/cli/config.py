@@ -23,9 +23,6 @@ if TYPE_CHECKING:
 class ConfigCmd:
     """Show config, e.g.: hop config <app>."""
 
-    def add_arguments(self, parser) -> None:
-        parser.add_argument("app", type=str)
-
     def run(self, app: App) -> None:
         env = app.get_runtime_env()
         for k, v in sorted(env.items()):
@@ -39,7 +36,6 @@ class ConfigGetCmd:
     name = "config:get"
 
     def add_arguments(self, parser) -> None:
-        parser.add_argument("app", type=str)
         parser.add_argument("setting", type=str)
 
     def run(self, app: App, setting: str) -> None:
@@ -55,7 +51,6 @@ class ConfigSetCmd:
     name = "config:set"
 
     def add_arguments(self, parser) -> None:
-        parser.add_argument("app", type=str)
         parser.add_argument("settings", nargs="+")
 
     def run(self, app: App, settings: list[str]) -> None:
@@ -97,7 +92,6 @@ class ConfigUnsetCmd:
     name = "config:unset"
 
     def add_arguments(self, parser) -> None:
-        parser.add_argument("app", type=str)
         parser.add_argument("settings", nargs="+")
 
     def run(self, app: App, settings: list[str]) -> None:
@@ -118,9 +112,6 @@ class ConfigLiveCmd:
     """e.g.: hop config:live <app>."""
 
     name = "config:live"
-
-    def add_arguments(self, parser) -> None:
-        parser.add_argument("app", type=str)
 
     def run(self, app: App) -> None:
         env = app.get_runtime_env()

@@ -104,21 +104,31 @@ def create_parser() -> ArgumentParser:
     commands = sorted(COMMAND_REGISTRY.values(), key=lambda cmd: cmd.__name__)
     for cmd_class in commands:
         cmd = cmd_class()
-
-        # Determine the command's name
-        name = getattr(cmd, "name", None)
-        if not name:
-            name = cmd.__class__.__name__.replace("Cmd", "").lower()
-
-        # Create a subparser for the command
-        subparser = subparsers.add_parser(name, help=cmd.__doc__)
-        subparser.set_defaults(func=cmd.run)
-
-        # Add command-specific arguments if present
-        if hasattr(cmd, "add_arguments"):
-            cmd.add_arguments(subparser)
+        add_cmd_to_subparsers(subparsers, cmd)
 
     return parser
+
+
+def add_cmd_to_subparsers(subparsers, cmd):
+    # Determine the command's name
+    name = getattr(cmd, "name", None)
+    if not name:
+        name = cmd.__class__.__name__.replace("Cmd", "").lower()
+    # Create a subparser for the command
+    subparser = subparsers.add_parser(name, help=cmd.__doc__)
+    subparser.set_defaults(func=cmd.run)
+
+    # Add the app argument if the command has an App parameter
+    sig = inspect.signature(cmd.run)
+    parameters = sig.parameters
+    app_param = parameters.get("app")
+    # Note: this might be fragile
+    if app_param and app_param.annotation == "App":
+        subparser.add_argument("app", type=str)
+
+    # Add command-specific arguments if present
+    if hasattr(cmd, "add_arguments"):
+        cmd.add_arguments(subparser)
 
 
 if __name__ == "__main__":
