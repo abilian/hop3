@@ -8,16 +8,20 @@ from collections.abc import Callable
 
 from hop3.cli.help import print_help
 from hop3.core.app import App
+from hop3.lib.scanner import scan_package
 
-from . import apps, config, git, help, misc, setup
+# from hop3.core.plugins import scan_package
+# from . import apps, config, git, help, misc, setup
 from .base import COMMAND_REGISTRY
 
-assert apps
-assert config
-assert git
-assert setup
-assert misc
-assert help
+# assert apps
+# assert config
+# assert git
+# assert setup
+# assert misc
+# assert help
+
+scan_package("hop3.cli")
 
 
 class CLI:

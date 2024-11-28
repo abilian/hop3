@@ -1,15 +1,15 @@
 # Specific to this project
 /old-docs/
 /tmp/
-sandbox/
-ignore.py
-packages/hop3-server/ssl
+/packages/hop3-server/ssl
 /data/
 /docs-old/
 /docs/Vocab/
 /docs/site/
 /site/
 /packages/hop3-docs/Vocab/
+sandbox/
+ignore.py
 
 # Local environment variables
 .env
@@ -30,31 +30,11 @@ __pycache__/
 *.so
 
 # Distribution / packaging
-.Python
-env/
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-lib/
-lib64/
-parts/
-sdist/
 var/
 *.egg-info/
-.installed.cfg
 *.egg
-
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
 
 # Unit test / coverage reports
 htmlcov/
@@ -65,18 +45,8 @@ htmlcov/
 nosetests.xml
 coverage.xml
 
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
+# Logs
 *.log
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
 
 # IDE files
 .idea/
