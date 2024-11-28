@@ -12,8 +12,8 @@ dependencies = [
     # Workspace
     "hop3-agent",
     "hop3-testing",
+    "hop3-cli",
     #    "hop3-lib",
-    #    "hop3-cli",
     #    "hop3-server",
     #    "hop3-web",
     # Debug (remove later)
@@ -71,7 +71,7 @@ dev-dependencies = [
     "pygments",
     "urllib3",
     # SBOM
-    "cyclonedx-bom>=4.6.1",
+    "cyclonedx-bom>=5.1.1",
     "lbom>=0.6",
     "sbom4python>=0.11.3",
     "spdx-tools>=0.8.3",

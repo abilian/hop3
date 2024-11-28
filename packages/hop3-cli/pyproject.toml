@@ -14,7 +14,10 @@ packages = [
 ]
 
 [tool.poetry.scripts]
-hop-cli = "hop3_cli.main:main"
+hop = "hop3_cli.main:main"
+
+# Future implementation
+# hop = "hop3_cli.new:main"
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -29,6 +32,7 @@ termcolor = "^2.4.0"
 urllib3 = "^2.2.3"
 requests = "^2.32.3"
 
+# TODO: remove this dependency
 devtools = "^0.12.2"
 
 [build-system]
