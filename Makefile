@@ -15,13 +15,12 @@ all: lint test
 
 ## Lint / check typing
 lint:
-	ruff check packages/hop3-agent
+	ruff check packages/hop3-agent packages/hop3-cli
 	pyright packages/hop3-agent
 	mypy packages/hop3-agent
 	reuse lint -q
 	cd packages/hop3-agent && deptry src
 	# vulture --min-confidence 80 packages/hop3-agent/src
-
 
 ## Cleanup repository
 clean-and-deploy:
@@ -126,14 +125,23 @@ test-with-typeguard:
 	pytest --typeguard-packages=${PKG}
 	@echo ""
 
-
 ## Run a security audit
 audit:
 	# uvx pip-audit .
 	# uvx safety scan
 	just audit
 
-# Delegate to just
+## Formatting
+format:
+	just format
+
+## Format apps
+format-apps:
+	just format-apps
+
+## Fix using ruff
+fix:
+	ruff check packages/hop3-agent --fix --unsafe-fixes
 
 add-copyright:
 	just add-copyright
@@ -155,13 +163,6 @@ doc:
 
 doc-serve:
 	duty docs
-
-## Formatting
-format:
-	just format
-
-format-apps:
-	just format-apps
 
 ## Cleanup harder
 tidy:
