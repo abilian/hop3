@@ -40,9 +40,6 @@ class AppsCmd:
 class DeployCmd:
     """e.g.: hop-agent deploy <app>."""
 
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("app", type=str)
-
     def run(self, app: App) -> None:
         app.deploy()
 
@@ -50,9 +47,6 @@ class DeployCmd:
 @command
 class DestroyCmd:
     """e.g.: hop-agent destroy <app>."""
-
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("app", type=str)
 
     def run(self, app: App) -> None:
         app.destroy()
@@ -63,8 +57,7 @@ class LogsCmd:
     """Tail running logs, e.g: hop-agent logs <app> [<process>]."""
 
     def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("app", type=str)
-        parser.add_argument("process", nargs=1, default="*")
+        parser.add_argument("process", type=str, default="*")
 
     def run(self, app: App, process: str) -> None:
         logfiles = list(app.log_path.glob(process + ".*.log"))
@@ -78,9 +71,6 @@ class LogsCmd:
 @command
 class PsCmd:
     """Show process count, e.g: hop-agent ps <app>."""
-
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("app", type=str)
 
     def run(self, app: App) -> None:
         scaling_file = app.virtualenv_path / "SCALING"
@@ -98,7 +88,6 @@ class PsScaleCmd:
     name = "ps:scale"
 
     def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("app", type=str)
         parser.add_argument("settings", nargs="+")
 
     def run(self, app: App, settings: list[str]) -> None:
@@ -131,7 +120,6 @@ class RunCmd:
     """e.g.: hop-agent run <app> ls -- -al."""
 
     def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("app", type=str)
         parser.add_argument("cmd", nargs="+")
 
     def run(self, app: App, cmd: list[str]) -> None:
@@ -158,9 +146,6 @@ class RunCmd:
 class StartCmd:
     """Stop an app, e.g: hop-agent stop <app>."""
 
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("app", type=str)
-
     def run(self, app: App) -> None:
         app.start()
 
@@ -169,9 +154,6 @@ class StartCmd:
 class StopCmd:
     """Stop an app, e.g: hop-agent stop <app>."""
 
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("app", type=str)
-
     def run(self, app: App) -> None:
         app.stop()
 
@@ -179,9 +161,6 @@ class StopCmd:
 @command
 class RestartCmd:
     """Restart an app: hop-agent restart <app>."""
-
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("app", type=str)
 
     def run(self, app: App) -> None:
         app.restart()
