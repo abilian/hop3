@@ -324,6 +324,7 @@ Features:
 Infra, QA, DX, refactorings:
 
 - [ ] Reorganize monorepo further
+- [ ] Improve plugin architecture, add working events
 - [ ] Agents (for distributed deployments)
 - [ ] Dedicated infra for e2e tests
 
