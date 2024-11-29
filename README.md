@@ -49,6 +49,8 @@ The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) an
   * [P0 (MVP, Q2 2024):](#p0-mvp-q2-2024)
   * [P1 (Q4 2024):](#p1-q4-2024)
   * [P2 (Q1 2025):](#p2-q1-2025)
+  * [P3 (Q2 2025):](#p3-q2-2025)
+  * [P4 (Q3 2025):](#p4-q3-2025)
 - [Documentation](#documentation)
 - [Copyright, Credits and Acknowledgements](#copyright-credits-and-acknowledgements)
   * [Authors](#authors)
@@ -286,19 +288,14 @@ Features:
 - [x] Start multi-OS support (Ubuntu, Archlinux, Fedora, NixOS, Guix, FreeBSD...)
 - [ ] Deploy a few more useful apps: Abilian SBE, more...
 - [ ] Add postgres, redis, etc. lifecycle support using plugins
-- [ ] CLI
-  - [ ] Use an API server (WIP)
-  - [ ] Review the UX/DX
-  - [ ] Good looking logging (cf. https://bernsteinbear.com/blog/python-parallel-output/)
 - [ ] Improve Python builder (support for poetry, pipenv, uv, etc.)
 - [ ] Manage external services (databases, mail, etc.)
-- [ ] Nix builds
-- [ ] Nix runtime
-- [ ] Backup / Restore
-- [ ] Web App / portal
 
-Infra, refactorings:
+Infra, QA, DX, refactorings:
 
+- [x] Unit and integration tests
+- [x] Refactor CLI (using `argparse`)]
+- [x] Switch to `uv` (from `poetry`)
 - [ ] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
 - [ ] Fix all typing issues (mypy and pyright)
 - [ ] Introduce new plugins (where it makes sense)
@@ -308,19 +305,47 @@ Infra, refactorings:
 
 ### P2 (Q1 2025):
 
-- [ ] Reorganize monorepo further
+Features:
+
+- [ ] Nix builds
+- [ ] Nix runtime
+- [ ] Backup / Restore
+- [ ] Web App / portal
 - [ ] More apps
-- [ ] Agents (for distributed deployments)
-- [ ] Target other platforms (e.g. SlapOS, NixOS, Guix, etc.)
-- [ ] Security (Firewall, WAF, better isolation, etc.)
 - [ ] Monitoring
 - [ ] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
 - [ ] Support for (or migration from) Heroku, Render, Docker Compose, Fly… config files,
-- [ ] Multi-server support
 - [ ] Unified logging
+- [ ] CLI
+  - [ ] Use an API server (WIP)
+  - [ ] Review the UX/DX
+  - [ ] Good looking logging (cf. https://bernsteinbear.com/blog/python-parallel-output/)
+
+Infra, QA, DX, refactorings:
+
+- [ ] Reorganize monorepo further
+- [ ] Agents (for distributed deployments)
+- [ ] Dedicated infra for e2e tests
+
+### P3 (Q2 2025):
+
+Features:
+
 - [ ] Unified login (LDAP / IAM)
 - [ ] Container / VM support
-- [ ] NixOS support
+- [ ] Target other platforms (e.g. SlapOS, NixOS, Guix, etc.)
+- [ ] Security (Firewall, WAF, better isolation, etc.)
+- [ ] Multi-server support
+- [ ] Orchestrator
+- [ ] Kubernetes support
+
+### P4 (Q3 2025):
+
+Features:
+
+- [ ] Workload placement
+- [ ] Nomad support
+
 
 ## Documentation
 
