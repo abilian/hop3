@@ -30,11 +30,10 @@ __all__ = [
 ]
 
 from abc import ABC, abstractmethod
+from os import environ
 
 from attrs import field, frozen
 from termcolor import colored
-
-from hop3.config.constants import HOP3_TESTING
 
 # TODO ?
 # "light_grey": 37,
@@ -162,13 +161,19 @@ class TestingConsole(Console):
         return "\n".join(self.buffer)
 
 
-console: Console
+def get_console() -> Console:
+    """
+    Return the console object used for logging.
+    """
+    # Useful for developing
+    testing = "PYTEST_VERSION" in environ
+    if testing:
+        return TestingConsole()
+    else:
+        return PrintingConsole()
 
-if HOP3_TESTING:
-    console = TestingConsole()
-else:
-    console = PrintingConsole()
 
+console = get_console()
 echo = console.echo
 
 

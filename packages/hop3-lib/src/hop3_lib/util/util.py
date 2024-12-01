@@ -14,7 +14,7 @@ from socket import AF_INET, SOCK_STREAM, socket
 from subprocess import STDOUT, check_output
 
 from cleez.colors import dim
-from hop3.config.constants import APP_ROOT
+from hop3.config import c
 
 from .console import Abort, log
 
@@ -55,7 +55,7 @@ def sanitize_app_name(app) -> str:
 def exit_if_invalid(app_name: str) -> str:
     """Check error upon command startup."""
     app_name = sanitize_app_name(app_name)
-    if not (APP_ROOT / app_name).exists():
+    if not (c.APP_ROOT / app_name).exists():
         msg = f"Error: app '{app_name}' not found."
         raise Abort(msg)
     return app_name

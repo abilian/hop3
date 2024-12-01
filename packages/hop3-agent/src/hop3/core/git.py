@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from attrs import frozen
 
-from hop3.config.constants import HOP3_ROOT, HOP3_SCRIPT
+from hop3.config import c
 from hop3.util import log
 
 if TYPE_CHECKING:
@@ -75,7 +75,7 @@ class GitManager:
                     f"""\
                     #!/usr/bin/env bash
                     set -e; set -o pipefail;
-                    cat | HOP3_ROOT="{HOP3_ROOT}" {HOP3_SCRIPT} git-hook {self.app_name}
+                    cat | HOP3_ROOT="{c.HOP3_ROOT}" {c.HOP3_SCRIPT} git-hook {self.app_name}
                     """,
                 )
             )
