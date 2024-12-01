@@ -172,12 +172,12 @@ else:
 echo = console.echo
 
 
-def log(msg, level=0, fg="green") -> None:
+def log(msg: str, level=0, fg="green") -> None:
     """Log a message to the console."""
     echo(f"{'-' * level}> {msg}", fg=fg)
 
 
-def panic(msg) -> None:
+def panic(msg: str) -> None:
     """
     Logs an error message in red and exits the program, with a status code of 1, terminating the program.
     """
