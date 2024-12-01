@@ -15,14 +15,7 @@ import traceback
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from hop3.config.constants import (
-    HOP3_ROOT,
-    HOP3_SCRIPT,
-    ROOT_DIRS,
-    UWSGI_ENABLED,
-    UWSGI_LOG_MAXSIZE,
-    UWSGI_ROOT,
-)
+from hop3.config import c
 from hop3.oses.ubuntu2204 import setup_system
 from hop3.util import Abort, echo
 
@@ -48,7 +41,7 @@ class SetupCmd:
         echo(f"Running in Python {'.'.join(map(str, sys.version_info))}")
 
         # Create required paths
-        for p in ROOT_DIRS:
+        for p in c.ROOT_DIRS:
             path = Path(p)
             if not path.exists():
                 echo(f"Creating '{p}'.", fg="green")
@@ -59,18 +52,18 @@ class SetupCmd:
         pw_name = pwd.getpwuid(os.getuid()).pw_name
         gr_name = grp.getgrgid(os.getgid()).gr_name
         settings = [
-            ("chdir", UWSGI_ROOT),
-            ("emperor", UWSGI_ENABLED),
-            ("log-maxsize", UWSGI_LOG_MAXSIZE),
-            ("logto", UWSGI_ROOT / "uwsgi.log"),
-            ("log-backupname", UWSGI_ROOT / "uwsgi.old.log"),
-            ("socket", UWSGI_ROOT / "uwsgi.sock"),
+            ("chdir", c.UWSGI_ROOT),
+            ("emperor", c.UWSGI_ENABLED),
+            ("log-maxsize", c.UWSGI_LOG_MAXSIZE),
+            ("logto", c.UWSGI_ROOT / "uwsgi.log"),
+            ("log-backupname", c.UWSGI_ROOT / "uwsgi.old.log"),
+            ("socket", c.UWSGI_ROOT / "uwsgi.sock"),
             ("uid", pw_name),
             ("gid", gr_name),
             ("enable-threads", "true"),
             ("threads", f"{cpu_count * 2}"),
         ]
-        with (UWSGI_ROOT / "uwsgi.ini").open("w") as h:
+        with (c.UWSGI_ROOT / "uwsgi.ini").open("w") as h:
             h.write("[uwsgi]\n")
             for k, v in settings:
                 h.write(f"{k:s} = {v}\n")
@@ -136,11 +129,11 @@ class SetupSshCmd:
         - pubkey: The public key to be added to the authorized_keys file, provided as a string.
         - fingerprint: The fingerprint associated with the public key for identification, provided as a string.
         """
-        authorized_keys = HOP3_ROOT / ".ssh" / "authorized_keys"
+        authorized_keys = c.HOP3_ROOT / ".ssh" / "authorized_keys"
         authorized_keys.parent.mkdir(parents=True, exist_ok=True)
 
         # Restrict features and force all SSH commands to go through our script
-        cmd = f"FINGERPRINT={fingerprint:s} NAME=default {HOP3_SCRIPT:s} $SSH_ORIGINAL_COMMAND"
+        cmd = f"FINGERPRINT={fingerprint:s} NAME=default {c.HOP3_SCRIPT:s} $SSH_ORIGINAL_COMMAND"
         authorized_keys.write_text(
             f'command="{cmd}",no-agent-forwarding,no-user-rc,no-X11-forwarding,no-port-forwarding'
             f" {pubkey:s}\n",

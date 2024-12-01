@@ -25,7 +25,7 @@ else:
 _HOP3_HOME = Path(_HOME)
 HOP3_USER = environ.get("HOP3_USER", "hop3")
 
-HOP3_BIN = _HOP3_HOME / "bin"
+# HOP3_BIN = _HOP3_HOME / "bin"
 HOP3_SCRIPT = str(_HOP3_HOME / "venv" / "bin" / "hop-agent")
 
 # Main directories for Hop3
