@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from hop3.config.constants import CRON_REGEXP
+from hop3.config import c
 from hop3.util import log
 
 
@@ -124,7 +124,7 @@ class Procfile:
         - ValueError: If the cron pattern contains values exceeding the allowed limits.
         """
         limits = [59, 24, 31, 12, 7]  # Maximum allowable values for each cron field
-        res = re.match(CRON_REGEXP, command)
+        res = re.match(c.CRON_REGEXP, command)
         if res:
             matches = res.groups()
             for i in range(len(limits)):

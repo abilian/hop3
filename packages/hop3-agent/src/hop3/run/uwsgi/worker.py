@@ -14,12 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hop3.config.constants import (
-    NGINX_ROOT,
-    UWSGI_AVAILABLE,
-    UWSGI_ENABLED,
-    UWSGI_LOG_MAXSIZE,
-)
+from hop3.config import c
 from hop3.util import Abort, log
 from hop3.util.settings import parse_settings
 
@@ -142,7 +137,7 @@ class UwsgiWorker:
                 "log-x-forwarded-for",
                 env.get("UWSGI_LOG_X_FORWARDED_FOR", "false").lower(),
             ),
-            ("log-maxsize", env.get("UWSGI_LOG_MAXSIZE", UWSGI_LOG_MAXSIZE)),
+            ("log-maxsize", env.get("UWSGI_LOG_MAXSIZE", c.UWSGI_LOG_MAXSIZE)),
             ("logfile-chown", f"{pw_name}:{gr_name}"),
             ("logfile-chmod", "640"),
             ("logto2", f"{log_file}.{self.ordinal:d}.log"),
@@ -211,8 +206,8 @@ class UwsgiWorker:
         to the 'UWSGI_ENABLED' directory to make the settings active.
         """
         name = f"{self.app_name:s}_{self.kind:s}.{self.ordinal:d}.ini"
-        uwsgi_available_path = UWSGI_AVAILABLE / name
-        uwsgi_enabled_path = UWSGI_ENABLED / name
+        uwsgi_available_path = c.UWSGI_AVAILABLE / name
+        uwsgi_enabled_path = c.UWSGI_ENABLED / name
         self.settings.write(uwsgi_available_path)
         shutil.copyfile(uwsgi_available_path, uwsgi_enabled_path)
 
@@ -293,7 +288,7 @@ class WsgiWorker(UwsgiWorker):
 
         # If running under nginx, don't expose a port at all
         if "NGINX_SERVER_NAME" in self.env:
-            sock = NGINX_ROOT / f"{self.app_name}.sock"
+            sock = c.NGINX_ROOT / f"{self.app_name}.sock"
             self.log(f"nginx will talk to uWSGI via {sock}")
             self.settings += [
                 ("socket", sock),
