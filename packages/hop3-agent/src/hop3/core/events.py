@@ -37,7 +37,7 @@ class InstallingVirtualEnv(Event):
     app_name: str
 
     def __str__(self) -> str:
-        return f"Installing/updateing virtual environment for {self.app_name}"
+        return f"Installing/updating virtual environment for {self.app_name}"
 
 
 @dataclass(frozen=True)
@@ -78,4 +78,4 @@ def emit(event: Event) -> None:
 
     Currently, this only logs the event to the console.
     """
-    log(str(event), level=5, fg="blue")
+    log(str(event), level=3, fg="blue")
