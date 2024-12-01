@@ -6,6 +6,7 @@ Simple client-side script for Hop3.
 All the logic is implemented on the server side, this script is just
 a thin wrapper around SSH to communicate with the server.
 """
+
 from __future__ import annotations
 
 import os
@@ -78,9 +79,7 @@ def execute_command(args):
         run(f"ssh -t {server} run {app} bash")
     else:
         args.pop(0)  # Remove cmd arg
-        run(
-            f"ssh {sshflags} {server} {cmd} {app} {' '.join(args)}"
-        )
+        run(f"ssh {sshflags} {server} {cmd} {app} {' '.join(args)}")
 
 
 if __name__ == "__main__":
