@@ -10,7 +10,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar
 
-from hop3.config.constants import APP_ROOT
+from hop3.config import c
 from hop3.core.env import Env
 from hop3.util import shell
 
@@ -54,7 +54,7 @@ class Builder(ABC):
         if app_path:
             self.app_path = app_path
         else:
-            self.app_path = APP_ROOT / app_name
+            self.app_path = c.APP_ROOT / app_name
 
     @abstractmethod
     def accept(self) -> bool:
