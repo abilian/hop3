@@ -48,7 +48,7 @@ def check_binaries(binaries) -> bool:
     Returns:
         bool: True if all binaries are found and executable, False otherwise.
     """
-    log(f"Checking requirements: {binaries}", level=5, fg="green")
+    log(f"Checking requirements: {binaries}", level=3, fg="green")
 
     # Use shutil.which to determine if the binary exists and is executable
     requirements = [shutil.which(b) for b in binaries]

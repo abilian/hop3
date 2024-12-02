@@ -110,7 +110,7 @@ class ClojureBuilder(Builder):
         return env
 
     def _build(self, env: Env) -> None:
-        log("Building Clojure Application", level=5)
+        log("Building Clojure Application", level=3)
         if self.is_leiningen_app:
             self.shell("lein clean", env=env)
             self.shell("lein uberjar", env=env)

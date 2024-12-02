@@ -181,16 +181,16 @@ class AppLauncher:
         # Pick a port if none defined
         if "PORT" not in env:
             port = env["PORT"] = str(get_free_port())
-            log(f"Picked free port: {port}", level=5)
+            log(f"Picked free port: {port}", level=3)
 
         if env.get_bool("DISABLE_IPV6"):
             safe_defaults.pop("NGINX_IPV6_ADDRESS", None)
-            log("nginx will NOT use IPv6", level=5)
+            log("nginx will NOT use IPv6", level=3)
 
         # Safe defaults for addressing
         for k, v in safe_defaults.items():
             if k not in env:
-                log(f"nginx {k:s} will be set to {v}", level=5)
+                log(f"nginx {k:s} will be set to {v}", level=3)
                 env[k] = v
 
         return env
@@ -217,7 +217,7 @@ class AppLauncher:
                     # Skip if the worker configuration already exists
                     continue
 
-                log(f"spawning '{self.app_name:s}:{kind:s}.{w:d}'", level=5)
+                log(f"spawning '{self.app_name:s}:{kind:s}.{w:d}'", level=3)
                 spawn_uwsgi_worker(self.app_name, kind, self.workers[kind], env, w)
 
     def remove_unnecessary_workers(self, to_destroy) -> None:
@@ -237,5 +237,5 @@ class AppLauncher:
 
                 # Log the termination message with a specific log level and color
                 msg = f"terminating '{self.app_name:s}:{k:s}.{w:d}'"
-                log(msg, level=5, fg="yellow")
+                log(msg, level=3, fg="yellow")
                 enabled.unlink()  # Remove the worker's configuration file

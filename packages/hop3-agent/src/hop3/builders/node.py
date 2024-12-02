@@ -121,14 +121,14 @@ class NodeBuilder(Builder):
                 msg = "Installing node version '{NODE_VERSION:s}' using nodeenv".format(
                     **env
                 )
-                log(msg, level=5, fg="green")
+                log(msg, level=3, fg="green")
                 cmd = (
                     "nodeenv --prebuilt --node={NODE_VERSION:s} --clean-src --force"
                     " {VIRTUAL_ENV:s}".format(**env)
                 )
                 self.shell(cmd, cwd=self.virtual_env, env=env)
             else:
-                log(f"Node is installed at {version}.", level=5, fg="green")
+                log(f"Node is installed at {version}.", level=3, fg="green")
 
     def install_modules(self, env: Env) -> None:
         """Install necessary modules for the application using npm.

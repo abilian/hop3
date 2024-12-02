@@ -147,17 +147,17 @@ class Deployer:
             builder = builder_class(self.app_name)
             if builder.accept():
                 assert check_binaries(builder.requirements)
-                log(f"{builder.name} app detected.", level=5, fg="green")
+                log(f"{builder.name} app detected.", level=3, fg="green")
                 builder.build()
                 builder_detected = True
 
         # Check if specific worker combinations imply a generic or static app
         if "release" in workers and "web" in workers:
-            log("Generic app detected.", level=5, fg="green")
+            log("Generic app detected.", level=3, fg="green")
             builder_detected = True
 
         elif "static" in workers:
-            log("Static app detected.", level=5, fg="green")
+            log("Static app detected.", level=3, fg="green")
             builder_detected = True
 
         # Raise an exception if no suitable builder is found
