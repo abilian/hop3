@@ -10,7 +10,7 @@ from advanced_alchemy.base import BigIntAuditBase
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .instance import Instance
+from . import App
 
 
 class BackupStateEnum(Enum):
@@ -41,7 +41,7 @@ class Backup(BigIntAuditBase):
 
     __tablename__ = "backup"
 
-    instance_id: Mapped[int] = mapped_column(ForeignKey(Instance.id))
+    app_id: Mapped[int] = mapped_column(ForeignKey(App.id))
 
     state: Mapped[BackupStateEnum] = mapped_column(default=BackupStateEnum.SCHEDULED)
     format: Mapped[str] = mapped_column(default="tgz")
@@ -52,6 +52,3 @@ class Backup(BigIntAuditBase):
     expires_after: Mapped[int] = mapped_column(default=0)
 
     # TODO: encryption
-
-    # JSON data
-    # manifest_json: Mapped = mapped_column(JSON)

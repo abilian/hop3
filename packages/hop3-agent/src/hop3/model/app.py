@@ -26,9 +26,8 @@ class AppStateEnum(Enum):
 
 class App(BigIntAuditBase):
     """
-    Represents an application entity with relevant properties such as
-    name, run state, and port. Inherits from BigIntAuditBase for audit
-    functionality.
+    Represents an application with relevant properties such as
+    name, run state, and port.
     """
 
     __tablename__ = "app"
@@ -36,3 +35,4 @@ class App(BigIntAuditBase):
     name: Mapped[str] = mapped_column(String(128))
     run_state: Mapped[AppStateEnum] = mapped_column(default=AppStateEnum.STOPPED)
     port: Mapped[int]
+    hostanme: Mapped[str]
