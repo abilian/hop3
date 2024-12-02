@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hop3.config.constants import HOP3_ROOT
+from hop3.config import c
 
 from .base import command
 
@@ -34,7 +34,7 @@ class SbomCmd:
             )
 
             cmd = [
-                f"{HOP3_ROOT}/venv/bin/cyclonedx-py",
+                f"{c.HOP3_ROOT}/venv/bin/cyclonedx-py",
                 "requirements",
                 "-o",
                 f"{tmpdir}/sbom-cyclonedx.json",

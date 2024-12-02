@@ -11,27 +11,14 @@ from __future__ import annotations
 import os
 import sys
 import traceback
+from pathlib import Path
 
 from hop3.cli.main import CLI
-from hop3.config.constants import HOP3_BIN, HOP3_TESTING
-from hop3.util import Abort, prepend_to_path
+from hop3.config import config
+from hop3.util import Abort
 from hop3.util.console import console
 
 TESTING = "PYTEST_VERSION" in os.environ
-
-
-def fix_path() -> None:
-    """
-    Ensure system binaries and hop3 binaries are in the PATH.
-
-    This modifies the system PATH environment variable to include
-    directories containing system and hop3 binaries.
-
-    It is currently not used and may be removed in the future.
-    """
-
-    path = prepend_to_path([HOP3_BIN, "/usr/local/sbin", "/usr/sbin", "/sbin"])
-    os.environ["PATH"] = path
 
 
 # def get_cli_commands():
@@ -44,15 +31,27 @@ def fix_path() -> None:
 #     return cli_commands
 
 
+def set_config():
+    if "HOP3_HOME" in os.environ:
+        home = Path(os.environ["HOP3_HOME"])
+        config.set_home(home)
+
+    if "HOP3_USER" in os.environ:
+        user = os.environ["HOP3_USER"]
+        config.set_user(user)
+
+    if TESTING:
+        config.set_home("/tmp/hop3")
+        console.reset()
+
+
 def main(args=None) -> None:
+    set_config()
+
     if not args:
         args = sys.argv[1:]
 
-    # Maybe not needed
-    # fix_path()
-
-    if HOP3_TESTING:
-        console.reset()
+    # FIXME: this could got to conftest.py now.
 
     # cli = CommandCollection(sources=get_cli_commands())
     cli = CLI()
