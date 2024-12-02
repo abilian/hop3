@@ -13,6 +13,7 @@ dependencies = [
     "hop3-agent",
     "hop3-testing",
     "hop3-cli",
+    # Later
     #    "hop3-lib",
     #    "hop3-server",
     #    "hop3-web",
