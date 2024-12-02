@@ -12,7 +12,7 @@ from pathlib import Path
 
 from attr import frozen
 
-from hop3.config.constants import ACME_ROOT, ACME_ROOT_CA, ACME_WWW, NGINX_ROOT
+from hop3.config import c
 from hop3.util import echo
 
 
@@ -31,11 +31,11 @@ class CertificatesManager:
 
     @property
     def key(self) -> Path:
-        return NGINX_ROOT / f"{self.app_name}.key"
+        return c.NGINX_ROOT / f"{self.app_name}.key"
 
     @property
     def crt(self) -> Path:
-        return NGINX_ROOT / f"{self.app_name}.crt"
+        return c.NGINX_ROOT / f"{self.app_name}.crt"
 
     def setup_certificates(self) -> None:
         """
@@ -72,16 +72,16 @@ class CertificatesManager:
         Checks for existing certificate files and issues new ones using acme.sh if not found.
         It also creates symbolic links required for ACME challenges and certificate management.
         """
-        key_file = NGINX_ROOT / f"{self.app_name}.key"
-        crt_file = NGINX_ROOT / f"{self.app_name}.crt"
+        key_file = c.NGINX_ROOT / f"{self.app_name}.key"
+        crt_file = c.NGINX_ROOT / f"{self.app_name}.crt"
         # key_file, crt_file = (
         #     os.path.join(NGINX_ROOT, f"{self.app_name}.{x}") for x in ["key", "crt"]
         # )
-        issue_file = Path(ACME_ROOT, self.domain, "issued-" + "-".join(self.domains))
+        issue_file = Path(c.ACME_ROOT, self.domain, "issued-" + "-".join(self.domains))
 
-        acme = ACME_ROOT
-        www = ACME_WWW
-        root_ca = ACME_ROOT_CA
+        acme = c.ACME_ROOT
+        www = c.ACME_WWW
+        root_ca = c.ACME_ROOT_CA
 
         # if this is the first run there will be no nginx conf yet
         # create a basic conf stub just to serve the acme auth
@@ -111,12 +111,12 @@ class CertificatesManager:
         )
         # Create a symbolic link if the ACME_ROOT path exists but not the ACME_WWW path
         if (
-            Path(ACME_ROOT, self.domain).exists()
-            and not Path(ACME_WWW, self.app_name).exists()
+            Path(c.ACME_ROOT, self.domain).exists()
+            and not Path(c.ACME_WWW, self.app_name).exists()
         ):
             os.symlink(
-                os.path.join(ACME_ROOT, self.domain),
-                os.path.join(ACME_WWW, self.app_name),
+                os.path.join(c.ACME_ROOT, self.domain),
+                os.path.join(c.ACME_WWW, self.app_name),
             )
 
         # Suppress exceptions when creating a symbolic link to the issue file

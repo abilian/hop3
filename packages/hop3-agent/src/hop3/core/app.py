@@ -10,13 +10,7 @@ from pathlib import Path
 
 from attrs import frozen
 
-from hop3.config.constants import (
-    ACME_WWW,
-    APP_ROOT,
-    NGINX_ROOT,
-    UWSGI_AVAILABLE,
-    UWSGI_ENABLED,
-)
+from hop3.config import c
 from hop3.core.env import Env
 from hop3.deploy import do_deploy
 from hop3.run.spawn import spawn_app
@@ -52,7 +46,7 @@ def list_apps() -> list[App]:
         list[App]: A list of App instances, each representing an application
                    located in the APP_ROOT directory.
     """
-    return [App(name) for name in sorted(os.listdir(APP_ROOT))]
+    return [App(name) for name in sorted(os.listdir(c.APP_ROOT))]
 
 
 @frozen
@@ -84,14 +78,14 @@ class App:
             ValueError: If the `name` contains any characters other than alphanumeric characters,
                         '.', '_', or '-'.
         """
-        for c in self.name:
+        for char in self.name:
             # Check if character is not alphanumeric and not in allowed symbols
-            if not c.isalnum() and c not in {".", "_", "-"}:
+            if not char.isalnum() and char not in {".", "_", "-"}:
                 msg = "Invalid app name"
                 raise ValueError(msg)
 
     def check_exists(self) -> None:
-        if not (APP_ROOT / self.name).exists():
+        if not (c.APP_ROOT / self.name).exists():
             msg = f"Error: app '{self.name}' not found."
             raise Abort(msg)
 
@@ -109,7 +103,7 @@ class App:
 
     @property
     def is_running(self) -> bool:
-        return list(UWSGI_ENABLED.glob(f"{self.name}*.ini")) != []
+        return list(c.UWSGI_ENABLED.glob(f"{self.name}*.ini")) != []
 
     #
     # Paths
@@ -117,7 +111,7 @@ class App:
     @property
     def app_path(self) -> Path:
         """Path to the root directory of the app."""
-        return APP_ROOT / self.name
+        return c.APP_ROOT / self.name
 
     @property
     def repo_path(self) -> Path:
@@ -192,16 +186,16 @@ class App:
         remove_file(self.virtualenv_path)
         remove_file(self.log_path)
 
-        for p in [UWSGI_AVAILABLE, UWSGI_ENABLED]:
+        for p in [c.UWSGI_AVAILABLE, c.UWSGI_ENABLED]:
             for f in Path(p).glob(f"{app}*.ini"):
                 remove_file(f)
 
-        remove_file(NGINX_ROOT / f"{app}.conf")
-        remove_file(NGINX_ROOT / f"{app}.sock")
-        remove_file(NGINX_ROOT / f"{app}.key")
-        remove_file(NGINX_ROOT / f"{app}.crt")
+        remove_file(c.NGINX_ROOT / f"{app}.conf")
+        remove_file(c.NGINX_ROOT / f"{app}.sock")
+        remove_file(c.NGINX_ROOT / f"{app}.key")
+        remove_file(c.NGINX_ROOT / f"{app}.crt")
 
-        acme_link = Path(ACME_WWW, app)
+        acme_link = Path(c.ACME_WWW, app)
         acme_certs = acme_link.resolve()
         remove_file(acme_link)
         remove_file(acme_certs)
@@ -222,12 +216,12 @@ class App:
         Stops the application by removing its configuration files if they exist.
         """
         app_name = self.name
-        config_files = list(UWSGI_ENABLED.glob(f"{app_name}*.ini"))
+        config_files = list(c.UWSGI_ENABLED.glob(f"{app_name}*.ini"))
 
         if len(config_files) > 0:
             log(f"Stopping app '{app_name}'...", fg="blue")
-            for c in config_files:
-                c.unlink()
+            for config_file in config_files:
+                config_file.unlink()
         else:
             # TODO app could be already stopped. Need to able to tell the difference.
             log(f"Error: app '{app_name}' not deployed!", fg="red")

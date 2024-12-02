@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 
-from hop3.config.constants import UWSGI_ENABLED
+from hop3.config import c
 from hop3.core.env import Env
 from hop3.core.events import InstallingVirtualEnv, emit
 from hop3.util import Abort, chdir, check_binaries, log, prepend_to_path
@@ -107,7 +107,7 @@ class NodeBuilder(Builder):
         # Check if the specified version is different from the installed one and if nodeenv is available
         if version and check_binaries(["nodeenv"]):
             if not installed.endswith(version):
-                started = list(UWSGI_ENABLED.glob(f"{self.app_name}*.ini"))
+                started = list(c.UWSGI_ENABLED.glob(f"{self.app_name}*.ini"))
 
                 if installed and started:
                     # Raise an error if the app is running

@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from hop3.config import config
 from hop3.core.app import App
 from hop3.core.env import Env
 from hop3.plugins.nginx import Nginx
@@ -62,12 +63,14 @@ def env() -> Env:
 
 
 def test_setup_no_workers(env: Env) -> None:
+    config.set_home("/tmp/hop3")
     workers: dict[str, str] = {}
     nginx = Nginx(App("testapp"), env, workers)
     nginx.setup()
 
 
 def test_setup_with_workers(env: Env) -> None:
+    config.set_home("/tmp/hop3")
     workers = {"static": "public"}
     nginx = Nginx(App("testapp"), env, workers)
     nginx.setup()

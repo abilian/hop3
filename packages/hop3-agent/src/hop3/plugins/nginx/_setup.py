@@ -13,7 +13,7 @@ from traceback import format_exc
 from typing import TYPE_CHECKING
 from urllib.request import urlopen
 
-from hop3.config.constants import ACME_WWW, CACHE_ROOT, NGINX_ROOT
+from hop3.config import c
 from hop3.core.protocols import Proxy
 from hop3.util import Abort, command_output, echo, expand_vars, log
 
@@ -53,8 +53,8 @@ class Nginx(Proxy):
         self.env.update(
             {
                 "NGINX_SSL": nginx_ssl,
-                "NGINX_ROOT": NGINX_ROOT,
-                "ACME_WWW": ACME_WWW,
+                "NGINX_ROOT": c.NGINX_ROOT,
+                "ACME_WWW": c.ACME_WWW,
             },
         )
 
@@ -95,7 +95,7 @@ class Nginx(Proxy):
 
         if "wsgi" in self.workers or "jwsgi" in self.workers:
             # Configure for Unix socket if WSGI or JWSGI workers are involved
-            sock = NGINX_ROOT / f"{self.app_name}.sock"
+            sock = c.NGINX_ROOT / f"{self.app_name}.sock"
             self.env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = expand_vars(
                 HOP3_INTERNAL_NGINX_UWSGI_SETTINGS,
                 self.env,
@@ -132,7 +132,7 @@ class Nginx(Proxy):
         buffer = self.setup_proxy()
 
         # Write the generated Nginx configuration to a file
-        nginx_conf_path = NGINX_ROOT / f"{self.app_name}.conf"
+        nginx_conf_path = c.NGINX_ROOT / f"{self.app_name}.conf"
         nginx_conf_path.write_text(buffer)
 
         # Check the generated Nginx configuration for errors
@@ -351,7 +351,7 @@ class Nginx(Proxy):
         self.env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = ""
         self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
 
-        default_cache_path = CACHE_ROOT / self.app_name
+        default_cache_path = c.CACHE_ROOT / self.app_name
         if not default_cache_path.exists():
             default_cache_path.mkdir(parents=True)
 
