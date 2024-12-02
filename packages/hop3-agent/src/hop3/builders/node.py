@@ -109,7 +109,7 @@ class NodeBuilder(Builder):
             if not installed.endswith(version):
                 started = list(UWSGI_ENABLED.glob(f"{self.app_name}*.ini"))
 
-                if installed and len(started):
+                if installed and started:
                     # Raise an error if the app is running
                     msg = (
                         "Warning: Can't update node with app running. Stop the app &"
