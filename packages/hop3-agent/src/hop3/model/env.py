@@ -13,8 +13,8 @@ from advanced_alchemy.base import BigIntPrimaryKey
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
+from . import App
 from ._base import Base
-from .instance import Instance
 
 
 class EnvVar(BigIntPrimaryKey, Base):
@@ -24,8 +24,8 @@ class EnvVar(BigIntPrimaryKey, Base):
 
     __tablename__ = "env_var"
 
-    instance_id: Mapped[int] = mapped_column(ForeignKey(Instance.id))
-    # Foreign key referencing an instance in another table
+    app_id: Mapped[int] = mapped_column(ForeignKey(App.id))
+    # Foreign key referencing an app instance in another table
 
     name: Mapped[str]
     # Name of the environment variable
