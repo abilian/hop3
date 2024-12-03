@@ -60,7 +60,7 @@ tasks:
   - e2e: |
       cd hop3
       export HOP3_DEV_HOST=ssh.hop-dev.abilian.com
-      uv run make e2e
+      uv run make test-e2e
 
 
 #triggers:
