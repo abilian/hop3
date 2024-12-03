@@ -15,7 +15,7 @@ from urllib.request import urlopen
 
 from hop3.config import c
 from hop3.core.protocols import Proxy
-from hop3.util import Abort, command_output, echo, expand_vars, log
+from hop3.util import Abort, command_output, expand_vars, log
 
 from ._certificates import CertificatesManager
 from ._templates import (
@@ -107,8 +107,9 @@ class Nginx(Proxy):
         else:
             # Configure for TCP socket if no WSGI or JWSGI workers are involved
             self.update_env("NGINX_SOCKET", template="{BIND_ADDRESS:s}:{PORT:s}")
-            echo(
-                f"-----> nginx will look for app '{self.app_name}' on {self.env['NGINX_SOCKET']}"
+            log(
+                f"nginx will look for app '{self.app_name}' on {self.env['NGINX_SOCKET']}",
+                level=2,
             )
 
         # Initialize CertificatesManager and setup certificates
@@ -161,15 +162,17 @@ class Nginx(Proxy):
         self.env["HOP3_INTERNAL_NGINX_COMMON"] = expand_vars(
             NGINX_COMMON_FRAGMENT, self.env
         )
-        echo(
-            f"-----> nginx will map app '{self.app_name}' to hostname(s)"
+        log(
+            f"nginx will map app '{self.app_name}' to hostname(s)"
             f" '{self.env['NGINX_SERVER_NAME']}'",
+            level=2,
         )
         if self.env.get_bool("NGINX_HTTPS_ONLY"):
             buffer = expand_vars(NGINX_HTTPS_ONLY_TEMPLATE, self.env)
-            echo(
+            log(
                 "-----> nginx will redirect all requests to hostname(s)"
                 f" '{self.env['NGINX_SERVER_NAME']}' to HTTPS",
+                level=2,
             )
         else:
             buffer = expand_vars(NGINX_TEMPLATE, self.env)
@@ -204,7 +207,7 @@ class Nginx(Proxy):
 
         for static_url, _static_path in static_paths:
             static_path = str(_static_path)
-            echo(f"-----> nginx will map {static_url} to {static_path}.")
+            log(f"-----> nginx will map {static_url} to {static_path}.", level=2)
             self.env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] += expand_vars(
                 HOP3_INTERNAL_NGINX_STATIC_MAPPING,
                 locals(),
@@ -253,7 +256,7 @@ class Nginx(Proxy):
                 # allow access from controlling machine
                 if "SSH_CLIENT" in os.environ:
                     remote_ip = os.environ["SSH_CLIENT"].split()[0]
-                    echo(f"-----> nginx ACL will include your IP ({remote_ip})")
+                    log(f"nginx ACL will include your IP ({remote_ip})", level=2)
                     acl += [f"allow {remote_ip};"]
 
                 acl += ["allow 127.0.0.1;", "deny all;"]
@@ -396,17 +399,19 @@ class Nginx(Proxy):
                     else:
                         prefixes.append(item)
                 cache_prefixes = "|".join(prefixes)
-                echo(
-                    f"-----> nginx will cache /({cache_prefixes}) prefixes up to"
+                log(
+                    f"nginx will cache /({cache_prefixes}) prefixes up to"
                     f" {cache_time_expiry} or {cache_size} of disk space, with the"
                     " following timings:",
+                    level=2,
                 )
-                echo(f"-----> nginx will cache content for {cache_time_content}.")
-                echo(f"-----> nginx will cache redirects for {cache_time_redirects}.")
-                echo(f"-----> nginx will cache everything else for {cache_time_any}.")
-                echo(
-                    "-----> nginx will send caching headers asking for"
+                log(f"nginx will cache content for {cache_time_content}.", level=2)
+                log(f"nginx will cache redirects for {cache_time_redirects}.", level=2)
+                log(f"nginx will cache everything else for {cache_time_any}.", level=2)
+                log(
+                    "nginx will send caching headers asking for"
                     f" {cache_time_control} seconds of public caching.",
+                    level=2,
                 )
                 # Expand environment variables with current local variables
                 self.env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = expand_vars(
@@ -423,7 +428,7 @@ class Nginx(Proxy):
                     self.env,
                 )
             except Exception as e:
-                echo(
+                log(
                     f"Error {e} in cache path spec: should be /prefix1:[,/prefix2],"
                     " ignoring.",
                 )
@@ -450,5 +455,5 @@ class Nginx(Proxy):
         try:
             return str(self.env.get_int("NGINX_" + key, default)) + suffix
         except Exception:
-            echo(f"=====> Invalid {name}, defaulting to {default}{suffix}")
+            log(f"Invalid {name}, defaulting to {default}{suffix}", level=2)
             return str(default) + suffix
