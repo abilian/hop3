@@ -18,16 +18,17 @@ from argparse import ArgumentParser
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from hop3.cli.help import print_help
+from hop3.cli.commands.help import print_help
 from hop3.lib.scanner import scan_package
 from hop3.orm import AppRepository, get_session_factory
 
-from .base import COMMAND_REGISTRY
+from .registry import COMMAND_REGISTRY
 
 if TYPE_CHECKING:
     from hop3.orm import App
 
-scan_package("hop3.cli")
+scan_package("hop3.cli.commands")
+scan_package("hop3.plugins")
 
 
 class CLI:

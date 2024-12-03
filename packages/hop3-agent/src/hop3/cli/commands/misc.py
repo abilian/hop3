@@ -7,9 +7,8 @@ from __future__ import annotations
 
 from argparse import ArgumentParser
 
+from hop3.cli.registry import command
 from hop3.util import echo
-
-from .base import command
 
 
 @command

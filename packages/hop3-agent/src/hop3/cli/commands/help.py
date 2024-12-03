@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from importlib.metadata import version
 
+from hop3.cli.registry import COMMAND_REGISTRY, command
 from hop3.util.console import bold
-
-from .base import COMMAND_REGISTRY, command
 
 
 @command
