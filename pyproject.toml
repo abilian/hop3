@@ -76,6 +76,7 @@ dev-dependencies = [
     "lbom>=0.6",
     "sbom4python>=0.11.3",
     "spdx-tools>=0.8.3",
+    "snoop>=0.6.0",
 ]
 
 [tool.uv.workspace]

@@ -16,7 +16,7 @@ from hop3.config import c
 from .base import command
 
 if TYPE_CHECKING:
-    from hop3.core.app import App
+    from hop3.orm import App
 
 
 @command
@@ -24,6 +24,8 @@ class SbomCmd:
     """Generate a SBOM for an app."""
 
     def run(self, app: App) -> None:
+        # POC implementation, to be replaced later
+        # Only works for Python now
         venv = app.virtualenv_path
         with tempfile.TemporaryDirectory() as tmpdir:
             subprocess.run(

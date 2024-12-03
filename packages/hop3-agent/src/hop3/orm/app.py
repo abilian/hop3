@@ -4,85 +4,54 @@
 
 from __future__ import annotations
 
-import os
 import shutil
+from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from attrs import frozen
+from advanced_alchemy.base import BigIntAuditBase
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from hop3.config import c
 from hop3.core.env import Env
 from hop3.deploy import do_deploy
 from hop3.run.spawn import spawn_app
-from hop3.system.state import state
 from hop3.util import Abort, log
 
+if TYPE_CHECKING:
+    from .env import EnvVar
 
-def get_app(name: str, *, check: bool = True) -> App:
+
+class AppStateEnum(Enum):
     """
-    Retrieve an application instance by name, optionally checking its existence.
+    Enumeration for representing the state of an application.
 
-    Input:
-        name (str): The name of the application to retrieve.
-        check (bool, optional): Flag to indicate whether to check if the application exists. Defaults to True.
-
-    Returns:
-        App: An instance of the App class corresponding to the given name.
-
-    Raises:
-        ValueError: If 'check' is True and the application does not exist.
+    The state of an application can be RUNNING, STOPPED, or PAUSED.
     """
-    app = App(name)
-    if check:
-        app.check_exists()
-    return app
+
+    RUNNING = 1
+    STOPPED = 2
+    PAUSED = 3
+    # ...
 
 
-def list_apps() -> list[App]:
+class App(BigIntAuditBase):
     """
-    Retrieve a list of applications from the APP_ROOT directory.
-
-    Returns:
-        list[App]: A list of App instances, each representing an application
-                   located in the APP_ROOT directory.
+    Represents an application with relevant properties such as
+    name, run state, and port.
     """
-    return [App(name) for name in sorted(os.listdir(c.APP_ROOT))]
 
+    __tablename__ = "app"
 
-@frozen
-class App:
-    """Represents a deployed app in the system."""
+    name: Mapped[str] = mapped_column(String(128))
+    run_state: Mapped[AppStateEnum] = mapped_column(default=AppStateEnum.STOPPED)
+    port: Mapped[int] = mapped_column(default=0)
+    hostname: Mapped[str] = mapped_column(default="")
 
-    name: str
-
-    def __attrs_post_init__(self) -> None:
-        """
-        Perform post-initialization validation.
-
-        This is automatically called after the initialization of an instance, as part of the `attrs` library.
-        It checks that the instance is in a valid state by invoking the `validate` method.
-
-        Raises:
-        - ValueError: in case validation fails.
-        """
-        self.validate()
-
-    def validate(self) -> None:
-        """
-        Validates the name attribute of the class instance.
-
-        Ensures that each character in the `name` attribute is either alphanumeric
-        or one of the following allowed symbols: '.', '_', '-'.
-
-        Raises:
-            ValueError: If the `name` contains any characters other than alphanumeric characters,
-                        '.', '_', or '-'.
-        """
-        for char in self.name:
-            # Check if character is not alphanumeric and not in allowed symbols
-            if not char.isalnum() and char not in {".", "_", "-"}:
-                msg = "Invalid app name"
-                raise ValueError(msg)
+    env_vars: Mapped[list[EnvVar]] = relationship(
+        back_populates="app", cascade="all, delete-orphan"
+    )
 
     def check_exists(self) -> None:
         if not (c.APP_ROOT / self.name).exists():
@@ -103,7 +72,7 @@ class App:
 
     @property
     def is_running(self) -> bool:
-        return list(c.UWSGI_ENABLED.glob(f"{self.name}*.ini")) != []
+        return self.run_state == AppStateEnum.RUNNING
 
     #
     # Paths
@@ -145,9 +114,27 @@ class App:
         This fetches the environment settings for the application identified
         by the instance's name attribute.
         """
-        return Env(state.get_app_env(self.name))
+        data = {}
+        for env_var in self.env_vars:
+            data[env_var.name] = env_var.value
+        return Env(data)
 
+    def update_runtime_env(self, env: Env) -> None:
+        """
+        Updates the runtime environment for the current application.
+
+        This updates the environment settings for the application identified
+        by the instance's name attribute.
+        """
+        from .env import EnvVar
+
+        self.env_vars.clear()
+        for key, value in env.items():
+            self.env_vars.append(EnvVar(name=key, value=value, app=self))
+
+    #
     # Actions
+    #
     def deploy(self) -> None:
         """
         Deploys the application by invoking the deployment process.
@@ -167,7 +154,7 @@ class App:
         However, it preserves the application's data directory.
         """
         # TODO: finish refactoring this method
-        app = self.name
+        app_name = self.name
 
         def remove_file(p: Path) -> None:
             # Remove the file or directory at the given path if it exists.
@@ -187,15 +174,15 @@ class App:
         remove_file(self.log_path)
 
         for p in [c.UWSGI_AVAILABLE, c.UWSGI_ENABLED]:
-            for f in Path(p).glob(f"{app}*.ini"):
+            for f in Path(p).glob(f"{app_name}*.ini"):
                 remove_file(f)
 
-        remove_file(c.NGINX_ROOT / f"{app}.conf")
-        remove_file(c.NGINX_ROOT / f"{app}.sock")
-        remove_file(c.NGINX_ROOT / f"{app}.key")
-        remove_file(c.NGINX_ROOT / f"{app}.crt")
+        remove_file(c.NGINX_ROOT / f"{app_name}.conf")
+        remove_file(c.NGINX_ROOT / f"{app_name}.sock")
+        remove_file(c.NGINX_ROOT / f"{app_name}.key")
+        remove_file(c.NGINX_ROOT / f"{app_name}.crt")
 
-        acme_link = Path(c.ACME_WWW, app)
+        acme_link = Path(c.ACME_WWW, app_name)
         acme_certs = acme_link.resolve()
         remove_file(acme_link)
         remove_file(acme_certs)
@@ -209,12 +196,15 @@ class App:
         """
         Initiates the process to start an application by calling the spawn_app function.
         """
+        self.run_state = AppStateEnum.RUNNING
         spawn_app(self)
 
     def stop(self) -> None:
         """
         Stops the application by removing its configuration files if they exist.
         """
+        self.run_state = AppStateEnum.STOPPED
+
         app_name = self.name
         config_files = list(c.UWSGI_ENABLED.glob(f"{app_name}*.ini"))
 

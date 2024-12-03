@@ -33,8 +33,9 @@ PACKAGES = [
     # Nginx
     "nginx",
     "acl",
-    # uwsgi
+    # uwsgi (Runtime)
     "uwsgi-core",
+    "uwsgi-plugin-python3",
     # For builders
     # - Ruby
     "ruby",
@@ -47,7 +48,6 @@ PACKAGES = [
     # - Clojure
     "clojure",
     "leiningen",
-    "uwsgi-plugin-python3",
     # - Nodejs
     "npm",
     "nodeenv",

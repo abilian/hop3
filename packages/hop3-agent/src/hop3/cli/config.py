@@ -1,4 +1,3 @@
-# Copyright (c) 2016 Rui Carmo
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -11,12 +10,11 @@ from typing import TYPE_CHECKING
 
 from hop3.deploy import do_deploy
 from hop3.util import Abort, log
-from hop3.util.settings import write_settings
 
 from .base import command
 
 if TYPE_CHECKING:
-    from hop3.core.app import App
+    from hop3.orm import App
 
 
 @command
@@ -61,8 +59,8 @@ class ConfigSetCmd:
             log(f"Setting {key:s}={value} for '{app.name:s}'", fg="white")
             env[key] = value
 
-        config_file = app.virtualenv_path / "ENV"
-        write_settings(config_file, env)
+        app.update_runtime_env(env)
+
         do_deploy(app)
 
     def _parse_setting(self, setting: str) -> tuple[str, str]:
@@ -80,9 +78,7 @@ class ConfigSetCmd:
             raise Abort(msg)
 
         key, value = setting.split("=", 1)
-        key = key.strip()
-        value = value.strip()
-        return key, value
+        return key.strip(), value.strip()
 
 
 @command
@@ -102,8 +98,8 @@ class ConfigUnsetCmd:
                 del env[s]
                 log(f"Unsetting {s} for '{app.name}'")
 
-        config_file = app.virtualenv_path / "ENV"
-        write_settings(config_file, env)
+        app.update_runtime_env(env)
+
         do_deploy(app)
 
 

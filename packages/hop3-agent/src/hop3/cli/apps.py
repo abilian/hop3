@@ -9,22 +9,27 @@ from __future__ import annotations
 
 import subprocess
 from argparse import ArgumentParser
+from typing import TYPE_CHECKING
 
-from hop3.core.app import App, list_apps
 from hop3.deploy import do_deploy
+from hop3.orm.repositories import AppRepository
 from hop3.project.procfile import parse_procfile
 from hop3.util import Abort, echo, multi_tail
 from hop3.util.console import console
 
 from .base import command
 
+if TYPE_CHECKING:
+    from hop3.orm import App
+
 
 @command
 class AppsCmd:
-    """List apps, e.g.: hop-agent apps."""
+    """List apps (running or stopped)."""
 
-    def run(self):
-        apps = list_apps()
+    def run(self, db_session):
+        app_repo = AppRepository(session=db_session)
+        apps = app_repo.list()
         if not apps:
             echo("There are no applications deployed.")
             return
@@ -38,7 +43,7 @@ class AppsCmd:
 
 @command
 class DeployCmd:
-    """e.g.: hop-agent deploy <app>."""
+    """Deploy app."""
 
     def run(self, app: App) -> None:
         app.deploy()
@@ -46,10 +51,11 @@ class DeployCmd:
 
 @command
 class DestroyCmd:
-    """e.g.: hop-agent destroy <app>."""
+    """Destroy app, remove all files."""
 
-    def run(self, app: App) -> None:
+    def run(self, app: App, db_session) -> None:
         app.destroy()
+        db_session.delete(app)
 
 
 @command
@@ -70,7 +76,7 @@ class LogsCmd:
 
 @command
 class PsCmd:
-    """Show process count, e.g: hop-agent ps <app>."""
+    """Show process count for app."""
 
     def run(self, app: App) -> None:
         scaling_file = app.virtualenv_path / "SCALING"
@@ -83,7 +89,7 @@ class PsCmd:
 
 @command
 class PsScaleCmd:
-    """e.g.: hop-agent ps:scale <app> <proc>=<count>."""
+    """Set the process count: `hop ps:scale <proc>=<count>`."""
 
     name = "ps:scale"
 
@@ -117,7 +123,7 @@ class PsScaleCmd:
 
 @command
 class RunCmd:
-    """e.g.: hop-agent run <app> ls -- -al."""
+    """Run command in the context of app, e.g.: hop run ls -- -al."""
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument("cmd", nargs="+")
@@ -144,7 +150,7 @@ class RunCmd:
 
 @command
 class StartCmd:
-    """Stop an app, e.g: hop-agent stop <app>."""
+    """Stop an app."""
 
     def run(self, app: App) -> None:
         app.start()
@@ -152,7 +158,7 @@ class StartCmd:
 
 @command
 class StopCmd:
-    """Stop an app, e.g: hop-agent stop <app>."""
+    """Stop an app."""
 
     def run(self, app: App) -> None:
         app.stop()
@@ -160,7 +166,7 @@ class StopCmd:
 
 @command
 class RestartCmd:
-    """Restart an app: hop-agent restart <app>."""
+    """Restart an app."""
 
     def run(self, app: App) -> None:
         app.restart()

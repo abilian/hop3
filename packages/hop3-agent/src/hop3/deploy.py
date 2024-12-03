@@ -17,7 +17,7 @@ from hop3.util import Abort, chdir, check_binaries, log, shell
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from hop3.core.app import App
+    from hop3.orm.app import App
 
 
 __all__ = ["do_deploy"]
