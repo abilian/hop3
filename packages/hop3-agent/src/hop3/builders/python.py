@@ -1,7 +1,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Builder for Python projects."""
 
 from __future__ import annotations
@@ -16,13 +15,12 @@ from ._base import Builder
 
 
 class PythonBuilder(Builder):
-    """
-    Builder for Python projects.
+    """Builder for Python projects.
 
     This provides the necessary methods to build Python projects by
-    creating a virtual environment and installing dependencies. It checks
-    for specific files to ascertain the presence of a Python project and
-    handles environment setup.
+    creating a virtual environment and installing dependencies. It
+    checks for specific files to ascertain the presence of a Python
+    project and handles environment setup.
     """
 
     name = "Python"
@@ -57,8 +55,7 @@ class PythonBuilder(Builder):
 
     def install_virtualenv(self) -> None:
         """Install virtual environment and necessary dependencies for the
-        application.
-        """
+        application."""
         emit(InstallingVirtualEnv(self.app_name))
 
         python = self.virtual_env / "bin" / "python"

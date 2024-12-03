@@ -2,7 +2,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Builder for Node projects."""
 
 from __future__ import annotations
@@ -34,14 +33,14 @@ class NodeBuilder(Builder):
         Returns
         -------
             bool: True if the package.json file exists, False otherwise.
-
         """
         return self.check_exists("package.json")
 
     def build(self) -> None:
         """Build the project environment.
 
-        This creates the necessary directories and installs the required dependencies for the project.
+        This creates the necessary directories and installs the required
+        dependencies for the project.
         """
         self.virtual_env.mkdir(parents=True, exist_ok=True)
 
@@ -57,7 +56,6 @@ class NodeBuilder(Builder):
         Returns
         -------
             Env: An environment object containing the necessary variables for the application.
-
         """
         node_modules = self.src_path / "node_modules"
         # npm_prefix = os.path.abspath(os.path.join(node_modules, ".."))
@@ -134,9 +132,9 @@ class NodeBuilder(Builder):
         """Install necessary modules for the application using npm.
 
         This uses npm to install the dependencies listed in the
-        'package.json' file located at the specified source path. It ensures
-        that npm is available and executes the installation command while
-        passing the provided environment variables.
+        'package.json' file located at the specified source path. It
+        ensures that npm is available and executes the installation
+        command while passing the provided environment variables.
         """
         emit(InstallingVirtualEnv(self.app_name))
 
