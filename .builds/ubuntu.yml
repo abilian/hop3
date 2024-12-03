@@ -60,6 +60,7 @@ tasks:
   - e2e: |
       cd hop3
       export HOP3_DEV_HOST=ssh.hop-dev.abilian.com
+      ssh -o StrictHostKeyChecking=accept-new root@$HOP3_DEV_HOST 'echo hello'
       uv run make test-e2e
 
 
