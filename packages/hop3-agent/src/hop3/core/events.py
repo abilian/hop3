@@ -10,9 +10,7 @@ from hop3.util import log
 
 
 class Event:
-    """
-    Base class for events.
-    """
+    """Base class for events."""
 
 
 @dataclass(frozen=True)
@@ -73,8 +71,7 @@ class InstallingDependencies(Event):
 
 
 def emit(event: Event) -> None:
-    """
-    Emits the given event.
+    """Emits the given event.
 
     Currently, this only logs the event to the console.
     """

@@ -93,11 +93,11 @@ debug = dim
 
 
 class Console(ABC):
-    """
-    Abstract base class for console operations.
+    """Abstract base class for console operations.
 
-    This defines an interface for console operations such as echoing messages with optional foreground colors
-    and handling console output.
+    This defines an interface for console operations such as echoing
+    messages with optional foreground colors and handling console
+    output.
     """
 
     @abstractmethod
@@ -112,9 +112,7 @@ class Console(ABC):
 
 
 class PrintingConsole(Console):
-    """
-    A console capable of printing messages in different colors.
-    """
+    """A console capable of printing messages in different colors."""
 
     def echo(self, msg, fg: str = "") -> None:
         """Print message to stdout."""
@@ -136,35 +134,25 @@ class PrintingConsole(Console):
 
 @frozen
 class TestingConsole(Console):
-    """
-    A console that captures messages for testing purposes.
-    """
+    """A console that captures messages for testing purposes."""
 
     buffer: list[str] = field(factory=list)
 
     def echo(self, msg, fg: str = "") -> None:
-        """
-        Print a message to the buffer.
-        """
+        """Print a message to the buffer."""
         self.buffer.append(msg)
 
     def reset(self) -> None:
-        """
-        Clear all elements from the buffer.
-        """
+        """Clear all elements from the buffer."""
         del self.buffer[:]
 
     def output(self) -> str:
-        """
-        Return the contents of the buffer as a single string.
-        """
+        """Return the contents of the buffer as a single string."""
         return "\n".join(self.buffer)
 
 
 def get_console() -> Console:
-    """
-    Return the console object used for logging.
-    """
+    """Return the console object used for logging."""
     # Useful for developing
     testing = "PYTEST_VERSION" in environ
     if testing:
@@ -183,16 +171,15 @@ def log(msg: str, level=0, fg="green") -> None:
 
 
 def panic(msg: str) -> None:
-    """
-    Logs an error message in red and exits the program, with a status code of 1, terminating the program.
-    """
+    """Logs an error message in red and exits the program, with a status code
+    of 1, terminating the program."""
     log(msg, fg="red")
     sys.exit(1)
 
 
 class Abort(Exception):  # noqa: N818
-    """
-    Custom exception class to handle abort scenarios with detailed information.
+    """Custom exception class to handle abort scenarios with detailed
+    information.
 
     This exception is used to represent an abort event with a status code,
     message, and an optional explanation. It logs the error message when

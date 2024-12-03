@@ -1,7 +1,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """CLI commands to manage app configuration."""
 
 from __future__ import annotations
@@ -64,8 +63,7 @@ class ConfigSetCmd:
         do_deploy(app)
 
     def _parse_setting(self, setting: str) -> tuple[str, str]:
-        """
-        Parse a configuration setting provided as a string.
+        """Parse a configuration setting provided as a string.
 
         Input:
         - setting: A string representing a configuration setting in the format 'key=value'.

@@ -24,8 +24,7 @@ if TYPE_CHECKING:
 
 
 class AppStateEnum(Enum):
-    """
-    Enumeration for representing the state of an application.
+    """Enumeration for representing the state of an application.
 
     The state of an application can be RUNNING, STOPPED, or PAUSED.
     """
@@ -37,10 +36,8 @@ class AppStateEnum(Enum):
 
 
 class App(BigIntAuditBase):
-    """
-    Represents an application with relevant properties such as
-    name, run state, and port.
-    """
+    """Represents an application with relevant properties such as name, run
+    state, and port."""
 
     __tablename__ = "app"
 
@@ -108,11 +105,10 @@ class App(BigIntAuditBase):
         return self.app_path / "venv"
 
     def get_runtime_env(self) -> Env:
-        """
-        Retrieves the runtime environment for the current application.
+        """Retrieves the runtime environment for the current application.
 
-        This fetches the environment settings for the application identified
-        by the instance's name attribute.
+        This fetches the environment settings for the application
+        identified by the instance's name attribute.
         """
         data = {}
         for env_var in self.env_vars:
@@ -120,11 +116,10 @@ class App(BigIntAuditBase):
         return Env(data)
 
     def update_runtime_env(self, env: Env) -> None:
-        """
-        Updates the runtime environment for the current application.
+        """Updates the runtime environment for the current application.
 
-        This updates the environment settings for the application identified
-        by the instance's name attribute.
+        This updates the environment settings for the application
+        identified by the instance's name attribute.
         """
         from .env import EnvVar
 
@@ -136,8 +131,7 @@ class App(BigIntAuditBase):
     # Actions
     #
     def deploy(self) -> None:
-        """
-        Deploys the application by invoking the deployment process.
+        """Deploys the application by invoking the deployment process.
 
         This serves as a wrapper that calls the `do_deploy` function,
         which handles the actual deployment steps necessary for the application.
@@ -145,13 +139,14 @@ class App(BigIntAuditBase):
         do_deploy(self)
 
     def destroy(self) -> None:
-        """
-        Remove various application-related files and directories, except for data.
+        """Remove various application-related files and directories, except for
+        data.
 
         This deletes the application directory, repository directory,
-        virtual environment, and log files associated with the application.
-        It also removes UWSGI and NGINX configuration files and sockets.
-        However, it preserves the application's data directory.
+        virtual environment, and log files associated with the
+        application. It also removes UWSGI and NGINX configuration files
+        and sockets. However, it preserves the application's data
+        directory.
         """
         # TODO: finish refactoring this method
         app_name = self.name
@@ -193,16 +188,14 @@ class App(BigIntAuditBase):
             log(f"Preserving folder '{data_dir}'", level=2, fg="blue")
 
     def start(self) -> None:
-        """
-        Initiates the process to start an application by calling the spawn_app function.
-        """
+        """Initiates the process to start an application by calling the
+        spawn_app function."""
         self.run_state = AppStateEnum.RUNNING
         spawn_app(self)
 
     def stop(self) -> None:
-        """
-        Stops the application by removing its configuration files if they exist.
-        """
+        """Stops the application by removing its configuration files if they
+        exist."""
         self.run_state = AppStateEnum.STOPPED
 
         app_name = self.name
@@ -217,10 +210,10 @@ class App(BigIntAuditBase):
             log(f"Error: app '{app_name}' not deployed!", fg="red")
 
     def restart(self) -> None:
-        """
-        Restart (or just start) a deployed app.
+        """Restart (or just start) a deployed app.
 
-        This stops and then starts the application, effectively restarting it.
+        This stops and then starts the application, effectively
+        restarting it.
         """
         log(f"restarting app '{self.name}'...", fg="blue")
         self.stop()
