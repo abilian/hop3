@@ -12,8 +12,13 @@ from hop3.util import echo
 
 
 @command
+class PgCmd:
+    """Manage a PostgreSQL database."""
+
+
+@command
 class PgCreateCmd:
-    """Create a PostgreSQL database: hop3 pg:create <name> <user> <password>."""
+    """Create a PostgreSQL database: hop pg:create <name> <user> <password>."""
 
     name = "pg:create"
 
@@ -30,7 +35,7 @@ class PgCreateCmd:
 
 @command
 class PgDropCmd:
-    """Drop a PostgreSQL database: hop3 pg:drop <name>."""
+    """Drop a PostgreSQL database: hop pg:drop <name>."""
 
     name = "pg:drop"
 
@@ -45,7 +50,7 @@ class PgDropCmd:
 
 @command
 class PgImportCmd:
-    """Import data into a PostgreSQL database: hop3 pg:import <name>."""
+    """Import data into a PostgreSQL database: hop pg:import <name>."""
 
     name = "pg:import"
 
@@ -62,7 +67,7 @@ class PgImportCmd:
 
 @command
 class PgDumpCmd:
-    """Dump a PostgreSQL database: hop3 pg:dump <name>."""
+    """Dump a PostgreSQL database: hop pg:dump <name>."""
 
     name = "pg:dump"
 
@@ -77,7 +82,7 @@ class PgDumpCmd:
 
 @command
 class PgBackupsCmd:
-    """List database backups: hop3 pg:backups."""
+    """List database backups: hop pg:backups."""
 
     name = "pg:backups"
 
@@ -89,7 +94,7 @@ class PgBackupsCmd:
 
 @command
 class PgBloatCmd:
-    """Show table and index bloat: hop3 pg:bloat."""
+    """Show table and index bloat: hop pg:bloat."""
 
     name = "pg:bloat"
 
@@ -101,7 +106,7 @@ class PgBloatCmd:
 
 @command
 class PgBlockingCmd:
-    """Display queries holding locks: hop3 pg:blocking."""
+    """Display queries holding locks: hop pg:blocking."""
 
     name = "pg:blocking"
 
@@ -113,7 +118,7 @@ class PgBlockingCmd:
 
 @command
 class PgCopyCmd:
-    """Copy data from source to target database: hop3 pg:copy <source> <target>."""
+    """Copy data from source to target database: hop pg:copy <source> <target>."""
 
     name = "pg:copy"
 
@@ -129,7 +134,7 @@ class PgCopyCmd:
 
 @command
 class PgCredentialsCmd:
-    """Show database credentials: hop3 pg:credentials."""
+    """Show database credentials: hop pg:credentials."""
 
     name = "pg:credentials"
 
@@ -141,7 +146,7 @@ class PgCredentialsCmd:
 
 @command
 class PgDiagnoseCmd:
-    """Run or view diagnostics report: hop3 pg:diagnose."""
+    """Run or view diagnostics report: hop pg:diagnose."""
 
     name = "pg:diagnose"
 
@@ -153,7 +158,7 @@ class PgDiagnoseCmd:
 
 @command
 class PgInfoCmd:
-    """Show database information: hop3 pg:info."""
+    """Show database information: hop pg:info."""
 
     name = "pg:info"
 
@@ -165,7 +170,7 @@ class PgInfoCmd:
 
 @command
 class PgKillCmd:
-    """Kill a query: hop3 pg:kill <query_id>."""
+    """Kill a query: hop pg:kill <query_id>."""
 
     name = "pg:kill"
 
@@ -180,7 +185,7 @@ class PgKillCmd:
 
 @command
 class PgKillAllCmd:
-    """Terminate all connections: hop3 pg:killall."""
+    """Terminate all connections: hop pg:killall."""
 
     name = "pg:killall"
 
@@ -192,7 +197,7 @@ class PgKillAllCmd:
 
 @command
 class PgLinksCmd:
-    """List all databases and link information: hop3 pg:links."""
+    """List all databases and link information: hop pg:links."""
 
     name = "pg:links"
 
@@ -204,7 +209,7 @@ class PgLinksCmd:
 
 @command
 class PgLocksCmd:
-    """Display queries with active locks: hop3 pg:locks."""
+    """Display queries with active locks: hop pg:locks."""
 
     name = "pg:locks"
 
@@ -216,7 +221,7 @@ class PgLocksCmd:
 
 @command
 class PgMaintenanceCmd:
-    """Show current maintenance information: hop3 pg:maintenance."""
+    """Show current maintenance information: hop pg:maintenance."""
 
     name = "pg:maintenance"
 
@@ -228,7 +233,7 @@ class PgMaintenanceCmd:
 
 @command
 class PgOutliersCmd:
-    """Show top 10 longest queries: hop3 pg:outliers."""
+    """Show top 10 longest queries: hop pg:outliers."""
 
     name = "pg:outliers"
 
@@ -240,7 +245,7 @@ class PgOutliersCmd:
 
 @command
 class PgPromoteCmd:
-    """Set DATABASE as your DATABASE_URL: hop3 pg:promote."""
+    """Set DATABASE as your DATABASE_URL: hop pg:promote."""
 
     name = "pg:promote"
 
@@ -252,7 +257,7 @@ class PgPromoteCmd:
 
 @command
 class PgPsCmd:
-    """View active queries: hop3 pg:ps."""
+    """View active queries: hop pg:ps."""
 
     name = "pg:ps"
 
@@ -264,7 +269,7 @@ class PgPsCmd:
 
 @command
 class PgPsqlCmd:
-    """Open a psql shell: hop3 pg:psql."""
+    """Open a psql shell: hop pg:psql."""
 
     name = "pg:psql"
 
@@ -276,7 +281,7 @@ class PgPsqlCmd:
 
 @command
 class PgPullCmd:
-    """Pull Heroku database to local or remote: hop3 pg:pull <source> <target>."""
+    """Pull Heroku database to local or remote: hop pg:pull <source> <target>."""
 
     name = "pg:pull"
 
@@ -292,7 +297,7 @@ class PgPullCmd:
 
 @command
 class PgPushCmd:
-    """Push local or remote database to Heroku: hop3 pg:push <source> <target>."""
+    """Push local or remote database to Heroku: hop pg:push <source> <target>."""
 
     name = "pg:push"
 
@@ -308,7 +313,7 @@ class PgPushCmd:
 
 @command
 class PgResetCmd:
-    """Delete all data in DATABASE: hop3 pg:reset."""
+    """Delete all data in DATABASE: hop pg:reset."""
 
     name = "pg:reset"
 
@@ -320,7 +325,7 @@ class PgResetCmd:
 
 @command
 class PgSettingsCmd:
-    """Show current database settings: hop3 pg:settings."""
+    """Show current database settings: hop pg:settings."""
 
     name = "pg:settings"
 
@@ -332,7 +337,7 @@ class PgSettingsCmd:
 
 @command
 class PgUnfollowCmd:
-    """Stop replica from following: hop3 pg:unfollow."""
+    """Stop replica from following: hop pg:unfollow."""
 
     name = "pg:unfollow"
 
@@ -344,7 +349,7 @@ class PgUnfollowCmd:
 
 @command
 class PgUpgradeCmd:
-    """Upgrade PostgreSQL version: hop3 pg:upgrade."""
+    """Upgrade PostgreSQL version: hop pg:upgrade."""
 
     name = "pg:upgrade"
 
@@ -356,7 +361,7 @@ class PgUpgradeCmd:
 
 @command
 class PgVacuumStatsCmd:
-    """Show vacuum stats: hop3 pg:vacuum-stats."""
+    """Show vacuum stats: hop pg:vacuum-stats."""
 
     name = "pg:vacuum-stats"
 
@@ -368,7 +373,7 @@ class PgVacuumStatsCmd:
 
 @command
 class PgWaitCmd:
-    """Wait for database to be available: hop3 pg:wait."""
+    """Wait for database to be available: hop pg:wait."""
 
     name = "pg:wait"
 
