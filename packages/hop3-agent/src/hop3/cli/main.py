@@ -18,16 +18,17 @@ from argparse import ArgumentParser
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from hop3.cli.help import print_help
 from hop3.lib.scanner import scan_package
 from hop3.orm import AppRepository, get_session_factory
 
-from .base import COMMAND_REGISTRY
+from .help import Help, print_help
+from .registry import COMMAND_REGISTRY
 
 if TYPE_CHECKING:
     from hop3.orm import App
 
-scan_package("hop3.cli")
+scan_package("hop3.cli.commands")
+scan_package("hop3.plugins")
 
 
 class CLI:
@@ -39,6 +40,17 @@ class CLI:
           that will be passed to the main function.
         """
         main(args)
+
+
+# TODO: use pluggy to get all the plugins
+# def get_cli_commands():
+#     cli_commands = [hop3]
+#
+#     # Use pluggy to get all the plugins
+#     pm = get_plugin_manager()
+#     cli_commands += pm.hook.cli_commands()
+#
+#     return cli_commands
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -130,12 +142,18 @@ def add_cmd_to_subparsers(subparsers, cmd):
     name = getattr(cmd, "name", None)
     if not name:
         name = cmd.__class__.__name__.replace("Cmd", "").lower()
+
+    if hasattr(cmd, "run"):
+        func = cmd.run
+    else:
+        func = Help(name)
+
     # Create a subparser for the command
     subparser = subparsers.add_parser(name, help=cmd.__doc__)
-    subparser.set_defaults(func=cmd.run)
+    subparser.set_defaults(func=func)
 
     # Add the app argument if the command has an App parameter
-    sig = inspect.signature(cmd.run)
+    sig = inspect.signature(func)
     parameters = sig.parameters
     app_param = parameters.get("app")
     # Note: this might be fragile

@@ -74,9 +74,7 @@ class CertificatesManager:
         """
         key_file = c.NGINX_ROOT / f"{self.app_name}.key"
         crt_file = c.NGINX_ROOT / f"{self.app_name}.crt"
-        # key_file, crt_file = (
-        #     os.path.join(NGINX_ROOT, f"{self.app_name}.{x}") for x in ["key", "crt"]
-        # )
+
         issue_file = Path(c.ACME_ROOT, self.domain, "issued-" + "-".join(self.domains))
 
         acme = c.ACME_ROOT
@@ -110,15 +108,10 @@ class CertificatesManager:
             shell=True,
         )
         # Create a symbolic link if the ACME_ROOT path exists but not the ACME_WWW path
-        if (
-            Path(c.ACME_ROOT, self.domain).exists()
-            and not Path(c.ACME_WWW, self.app_name).exists()
-        ):
-            os.symlink(
-                os.path.join(c.ACME_ROOT, self.domain),
-                os.path.join(c.ACME_WWW, self.app_name),
-            )
+        if (c.ACME_ROOT / self.domain).exists() and not (
+            c.ACME_WWW / self.app_name
+        ).exists():
+            os.symlink(c.ACME_ROOT / self.domain, c.ACME_WWW / self.app_name)
 
-        # Suppress exceptions when creating a symbolic link to the issue file
         with contextlib.suppress(Exception):
             os.symlink("/dev/null", issue_file)
