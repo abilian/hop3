@@ -5,7 +5,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from hop3.config import c
-from hop3.orm.app import App
+
+from .app import App
 
 
 def get_session_factory(database_uri: str = "") -> sessionmaker:
