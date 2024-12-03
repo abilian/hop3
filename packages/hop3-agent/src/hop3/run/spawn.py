@@ -14,14 +14,13 @@ from hop3.core.env import Env
 from hop3.plugins.nginx import Nginx
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
-from hop3.system.state import state
 from hop3.util import echo, get_free_port, log
 from hop3.util.settings import write_settings
 
 from .uwsgi import spawn_uwsgi_worker
 
 if TYPE_CHECKING:
-    from hop3.core.app import App
+    from hop3.orm.app import App
 
 
 def spawn_app(app: App, deltas: dict[str, int] | None = None) -> None:
@@ -64,7 +63,6 @@ class AppLauncher:
         Create the app's workers by setting up web worker configurations and handling
         environment-specific setups, including nginx and uwsgi configurations.
         """
-        from hop3.core.app import App
 
         # Set up nginx if we have NGINX_SERVER_NAME set
         if "NGINX_SERVER_NAME" in self.env:
@@ -115,7 +113,8 @@ class AppLauncher:
 
         # Save current settings to file
 
-        app = App(self.app_name)
+        # app = App(self.app_name)
+        app = self.app
         live = app.virtualenv_path / "LIVE_ENV"
         write_settings(live, env)
 
@@ -176,7 +175,8 @@ class AppLauncher:
         env_file = self.app_path / "ENV"
         env.parse_settings(env_file)
 
-        env.update(state.get_app_env(self.app_name))
+        # Load environment variables from the ORM
+        env.update(self.app.get_runtime_env())
 
         # Pick a port if none defined
         if "PORT" not in env:

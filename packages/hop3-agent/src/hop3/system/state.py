@@ -25,9 +25,9 @@ class State:
         Returns:
         - A dictionary containing key-value pairs of environment settings for the specified application.
         """
-        from hop3.core.app import App
+        from hop3.orm import App
 
-        app = App(app_name)
+        app = App(name=app_name)
         settings = app.virtualenv_path / "ENV"
         return parse_settings(settings)
 

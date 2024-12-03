@@ -6,17 +6,18 @@
 
 from __future__ import annotations
 
-from ._base import Base, metadata
 from .app import App, AppStateEnum
 from .backup import Backup, BackupStateEnum
 from .env import EnvVar
+from .repositories import AppRepository
+from .session import get_session_factory
 
 __all__ = [
     "App",
+    "AppRepository",
     "AppStateEnum",
     "Backup",
     "BackupStateEnum",
-    "Base",
     "EnvVar",
-    "metadata",
+    "get_session_factory",
 ]

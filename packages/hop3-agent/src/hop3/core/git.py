@@ -21,7 +21,7 @@ from hop3.util import log
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from .app import App
+    from hop3.orm import App
 
 
 @frozen

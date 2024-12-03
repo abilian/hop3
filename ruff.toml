@@ -67,6 +67,7 @@ max-complexity = 12
 [lint.isort]
 combine-as-imports = true
 required-imports = ["from __future__ import annotations"]
+known-first-party = ["hop3"]
 
 [lint.per-file-ignores]
 "**/src/**/*.py" = [

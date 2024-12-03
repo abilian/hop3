@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import sys
 
-from hop3.core.app import App, get_app
 from hop3.core.git import GitManager
 from hop3.deploy import do_deploy
-from hop3.util import sanitize_app_name
+from hop3.orm import App, AppRepository
+from hop3.util import log, sanitize_app_name
 
 from .base import command
 
@@ -27,13 +27,20 @@ class GitReceivePackCmd:
     def add_arguments(self, parser) -> None:
         parser.add_argument("app_name", type=str)
 
-    def run(self, app_name: str) -> None:
+    def run(self, app_name: str, db_session) -> None:
         app_name = sanitize_app_name(app_name)
-        app = get_app(app_name, check=False)
+        app_repo = AppRepository(session=db_session)
+        app = app_repo.get_one_or_none(name=app_name)
+        if not app:
+            log(f"App {app_name} not found, creating it.")
+            app = App(name=app_name)
+            db_session.add(app)
+        db_session.commit()
 
         git_manager = GitManager(app)
         git_manager.setup_hook()
         git_manager.receive_pack()
+        db_session.commit()
 
 
 @command
@@ -46,8 +53,7 @@ class GitUploadPackCmd:
     def add_arguments(self, parser) -> None:
         parser.add_argument("app_name", type=str)
 
-    def run(self, app_name: str) -> None:
-        app = get_app(app_name)
+    def run(self, app: App) -> None:
         git_manager = GitManager(app)
         git_manager.upload_pack()
 
@@ -62,11 +68,19 @@ class GitHookCmd:
     def add_arguments(self, parser) -> None:
         parser.add_argument("app_name", type=str)
 
-    def run(self, app_name: str) -> None:
-        app = App(app_name)
+    def run(self, app_name: str, db_session) -> None:
+        app_repo = AppRepository(session=db_session)
+        app = app_repo.get_one_or_none(name=app_name)
+        if not app:
+            log(f"App {app_name} not found, creating it.")
+            app = App(name=app_name)
+            db_session.add(app)
+
         git_manager = GitManager(app)
         git_manager.clone()
 
         for line in sys.stdin:
             _oldrev, newrev, _refname = line.strip().split(" ")
             do_deploy(app, newrev=newrev)
+
+        db_session.commit()

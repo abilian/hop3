@@ -5,21 +5,16 @@ import inspect
 import sys
 from argparse import ArgumentParser
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from hop3.cli.help import print_help
-from hop3.core.app import App
 from hop3.lib.scanner import scan_package
+from hop3.orm import AppRepository, get_session_factory
 
-# from hop3.core.plugins import scan_package
-# from . import apps, config, git, help, misc, setup
 from .base import COMMAND_REGISTRY
 
-# assert apps
-# assert config
-# assert git
-# assert setup
-# assert misc
-# assert help
+if TYPE_CHECKING:
+    from hop3.orm import App
 
 scan_package("hop3.cli")
 
@@ -64,12 +59,25 @@ def main(argv: list[str] | None = None) -> None:
     if "_parser" in parameters:
         kwargs["_parser"] = parser
 
-    # Special handling of the "app" argument which is converted to an App instance
-    app = kwargs.pop("app", None)
-    if app:
-        kwargs["app"] = App(app)
+    session_factory = get_session_factory()
+    with session_factory() as db_session:
+        if "db_session" in parameters:
+            kwargs["db_session"] = db_session
 
-    func(**kwargs)
+        # Special handling of the "app" argument
+        # which will be converted to an App instance
+        app_name = kwargs.pop("app", None)
+        if app_name:
+            kwargs["app"] = get_app(app_name, db_session)
+
+        func(**kwargs)
+
+        db_session.commit()
+
+
+def get_app(app_name, db_session) -> App:
+    app_repo = AppRepository(session=db_session)
+    return app_repo.get_one(name=app_name)
 
 
 def create_parser() -> ArgumentParser:
