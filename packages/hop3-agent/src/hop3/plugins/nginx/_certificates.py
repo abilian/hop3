@@ -13,7 +13,7 @@ from pathlib import Path
 from attr import frozen
 
 from hop3.config import c
-from hop3.util import echo
+from hop3.util import log
 
 
 @frozen
@@ -56,7 +56,7 @@ class CertificatesManager:
         certificate with a 4096-bit RSA key, valid for 365 days, and saves the
         certificate and key to the specified file paths.
         """
-        echo("-----> generating self-signed certificate")
+        log("Generating self-signed certificate", level=2)
         # Construct the OpenSSL command for generating a self-signed certificate
         cmd = (
             "openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj"
@@ -93,10 +93,10 @@ class CertificatesManager:
 
         # Check if the key and issue files exist to determine if a certificate is already installed
         if key_file.exists() and issue_file.exists():
-            echo("-----> letsencrypt certificate already installed")
+            log("letsencrypt certificate already installed", level=3)
             return
 
-        echo("-----> getting letsencrypt certificate")
+        log("getting letsencrypt certificate", level=3)
         certlist = " ".join([f"-d {d}" for d in self.domains])
         # Run the acme.sh script to issue a certificate
         subprocess.call(
