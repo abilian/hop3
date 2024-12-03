@@ -4,6 +4,10 @@
 
 image: ubuntu/24.04
 
+screts:
+  # SSH key for e2e test machine
+  - 705a1519-b37e-4205-94a4-354c085dbdcc
+
 packages:
   # Build tools
   - software-properties-common

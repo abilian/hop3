@@ -825,6 +825,15 @@ wheels = [
 ]
 
 [[package]]
+name = "docstring-parser-fork"
+version = "0.0.9"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/17/0e/8468b881277ff077e63c57ab5747ca0770bea76e1ca636a9ed45caec2fa7/docstring_parser_fork-0.0.9.tar.gz", hash = "sha256:95b23cc5092af85080c716a6da68360f5ae4fcffa75f4a3aca5e539783cbcc3d", size = 29975 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/79/a9/afc6140d68e260cdcc1214abbe924556cbd1ceaaa5aa7cd3b62eb739e02d/docstring_parser_fork-0.0.9-py3-none-any.whl", hash = "sha256:0be85ad00cb25bf5beeb673e46e777facf0f47552fa3a7570d120ef7e3374401", size = 40302 },
+]
+
+[[package]]
 name = "duty"
 version = "1.4.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1705,6 +1714,7 @@ dev = [
     { name = "mkdocs-minify-plugin" },
     { name = "mkdocs-roamlinks-plugin" },
     { name = "mkdocstrings", extra = ["python"] },
+    { name = "pydoclint" },
     { name = "pygments" },
     { name = "pyinfra" },
     { name = "pytest-beartype" },
@@ -1757,6 +1767,7 @@ dev = [
     { name = "mkdocs-minify-plugin", specifier = ">=0.8" },
     { name = "mkdocs-roamlinks-plugin" },
     { name = "mkdocstrings", extras = ["python"] },
+    { name = "pydoclint", specifier = ">=0.5.9" },
     { name = "pygments" },
     { name = "pyinfra", specifier = "~=3.0" },
     { name = "pytest-beartype", specifier = ">=0.2.0" },
@@ -3072,6 +3083,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/1d/b2/31537cf4b1ca988837256c910a668b553fceb8f069bedc4b1c826024b52c/pycparser-2.22.tar.gz", hash = "sha256:491c8be9c040f5390f5bf44a5b07752bd07f56edf992381b05c701439eec10f6", size = 172736 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/13/a3/a812df4e2dd5696d1f351d58b8fe16a405b234ad2886a0dab9183fb78109/pycparser-2.22-py3-none-any.whl", hash = "sha256:c3702b6d3dd8c7abc1afa565d7e63d53a1d0bd86cdc24edd75470f4de499cfcc", size = 117552 },
+]
+
+[[package]]
+name = "pydoclint"
+version = "0.5.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "docstring-parser-fork" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f1/59/8969dde565efb8d6ef564907ab5562a49e633451087b5f47de48ffbfe1f4/pydoclint-0.5.9.tar.gz", hash = "sha256:e200f964a5d9fbbb2ff1078bd7cb5433a0564d2482b6a1ba1be848f66bc4924f", size = 48704 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/55/a5/f50c1543bf9213524363a12209a9f39b442ddbca6672f87dd29b1141ec09/pydoclint-0.5.9-py2.py3-none-any.whl", hash = "sha256:089327003cef6fe5605cbaa9887859ea5229ce0c9abb52775ffd57513094c1ae", size = 46037 },
 ]
 
 [[package]]
