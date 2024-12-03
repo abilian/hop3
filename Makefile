@@ -148,7 +148,16 @@ add-copyright:
 
 ## Clean up
 clean:
-	just clean
+	bash -c "shopt -s globstar && rm -f **/*.pyc"
+	find . -type d -empty -delete
+	rm -rf *.egg-info *.egg .coverage .eggs .cache .mypy_cache .pyre \
+		.pytest_cache .pytest .DS_Store  docs/_build docs/cache docs/tmp \
+		dist build pip-wheel-metadata junit-*.xml htmlcov coverage.xml \
+		tmp
+	rm -rf */dist
+	rm -rf .nox
+	rm -rf site
+	adt clean
 
 clean-test:
 	just clean-test
