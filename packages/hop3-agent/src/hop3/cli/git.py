@@ -2,7 +2,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Internal CLI commands to manage git hooks."""
 
 from __future__ import annotations

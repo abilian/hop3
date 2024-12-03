@@ -69,8 +69,8 @@ platform = Debian()
 
 
 def setup_server() -> None:
-    """
-    Configures the server by setting up necessary files, users, packages, and symlinks.
+    """Configures the server by setting up necessary files, users, packages,
+    and symlinks.
 
     This performs the following tasks:
 

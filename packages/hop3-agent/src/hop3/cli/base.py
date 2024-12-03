@@ -5,8 +5,8 @@ COMMAND_REGISTRY = {}
 
 
 def command(cls):
-    """
-    Decorator that registers a class as a command by adding it to the COMMAND_REGISTRY.
+    """Decorator that registers a class as a command by adding it to the
+    COMMAND_REGISTRY.
 
     Input:
     - cls: The class to be registered as a command.

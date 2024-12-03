@@ -16,9 +16,7 @@ class PostgresqlAddon:
     settings: dict
 
     def create(self) -> None:
-        """
-        Create a new PostgreSQL database if it does not already exist.
-        """
+        """Create a new PostgreSQL database if it does not already exist."""
 
         # Create the database connection parameters
         params = {
@@ -56,8 +54,7 @@ class PostgresqlAddon:
         return self.app_name + "_pw"
 
     def get_env(self) -> dict[str, str]:
-        """
-        Construct the environment variables for database connection.
+        """Construct the environment variables for database connection.
 
         Returns:
         - A dictionary with the environment variable 'DATABASE_URL' pointing to the database connection string.
@@ -69,8 +66,7 @@ class PostgresqlAddon:
         }
 
     def _check_database_exists(self, cursor) -> bool:
-        """
-        Check if the specified database exists.
+        """Check if the specified database exists.
 
         Input:
         - cursor: A database cursor object used to execute SQL queries.
@@ -84,8 +80,8 @@ class PostgresqlAddon:
         return exists is not None
 
     def _create_database(self, cursor) -> None:
-        """
-        Create a new database and a database user with the specified credentials.
+        """Create a new database and a database user with the specified
+        credentials.
 
         Input:
         - cursor: A database cursor object that allows execution of database commands.

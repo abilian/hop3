@@ -18,8 +18,7 @@ if TYPE_CHECKING:
 
 
 def get_core_plugins() -> list:
-    """
-    Retrieve a list of core plugins.
+    """Retrieve a list of core plugins.
 
     This scans the specified package for core plugins and returns a
     list of these plugins.
@@ -31,8 +30,7 @@ def get_core_plugins() -> list:
 
 
 def scan_package(package_name: str) -> Iterator:
-    """
-    Import all modules in a package recursively for side effects.
+    """Import all modules in a package recursively for side effects.
 
     Input:
     - package_name (str): The name of the package to scan and import modules from.
@@ -46,8 +44,7 @@ def scan_package(package_name: str) -> Iterator:
 
 
 def _iter_module_names(package_name: str) -> Iterator:
-    """
-    Generate an iterator over all module names within a given package.
+    """Generate an iterator over all module names within a given package.
 
     Input:
     - package_name (str): The name of the package from which to list all modules.
@@ -68,8 +65,7 @@ def _iter_module_names(package_name: str) -> Iterator:
 
 
 def get_plugin_manager() -> PluginManager:
-    """
-    Initialize and configure a PluginManager for the 'hop3' project.
+    """Initialize and configure a PluginManager for the 'hop3' project.
 
     This creates a PluginManager instance, registers core plugin hooks,
     and loads plugins that are defined in setuptools entry points under the

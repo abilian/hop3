@@ -2,7 +2,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Parser and writer for settings files."""
 
 from __future__ import annotations
@@ -29,8 +28,8 @@ def parse_settings(
     filename: str | Path,
     env: dict[str, str] | None = None,
 ) -> dict[str, str]:
-    """
-    Parse a settings file and return a dictionary with environment variables.
+    """Parse a settings file and return a dictionary with environment
+    variables.
 
     Input:
     - filename: A string or Path object representing the path to the settings file.

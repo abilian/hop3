@@ -11,18 +11,18 @@ from pathlib import Path
 
 
 class Platform:
-    """
-    A class representing a software or hardware platform.
+    """A class representing a software or hardware platform.
 
     This is intended to serve as a base for creating specific platform
-    implementations. Currently, it does not contain any attributes or methods.
+    implementations. Currently, it does not contain any attributes or
+    methods.
     """
 
 
 class Linux(Platform):
     def put_file(self, name, src, dest, *, mode=None, owner=None, group=None) -> None:
-        """
-        Copies the content of a file or file-like object to a destination path.
+        """Copies the content of a file or file-like object to a destination
+        path.
 
         Inputs:
         - name: The name of the file to be copied.
@@ -50,8 +50,8 @@ class Linux(Platform):
         # TODO: mode, owner, group
 
     def ensure_user(self, name, user, home, shell, group) -> None:
-        """
-        Ensure that a user account is set up on the system with the specified attributes.
+        """Ensure that a user account is set up on the system with the
+        specified attributes.
 
         Input:
         - name: The display name of the user.
@@ -70,8 +70,7 @@ class Linux(Platform):
     # )
 
     def ensure_link(self, name, path, target) -> None:
-        """
-        Ensure that a symbolic link is created.
+        """Ensure that a symbolic link is created.
 
         Input:
         - name: A descriptive name for the link operation (not used in actual logic).
@@ -83,8 +82,8 @@ class Linux(Platform):
 
 class Debian(Linux):
     def ensure_packages(self, name, packages, *, update=True) -> None:
-        """
-        Ensure that a list of packages is installed using the system's package manager.
+        """Ensure that a list of packages is installed using the system's
+        package manager.
 
         Input:
         - name: A string representing the name for logging or identification purposes.

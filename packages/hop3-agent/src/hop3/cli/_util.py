@@ -7,8 +7,7 @@ import os
 
 
 def make_nonblocking(fd) -> None:
-    """
-    Put the file descriptor *fd* into non-blocking mode if possible.
+    """Put the file descriptor *fd* into non-blocking mode if possible.
 
     Input:
     - fd: A file descriptor for which the non-blocking mode is to be set.

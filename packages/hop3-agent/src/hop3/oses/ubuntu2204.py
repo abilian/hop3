@@ -1,7 +1,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Install Hop3 on Ubuntu 22.04 LTS."""
 
 from __future__ import annotations
@@ -56,9 +55,7 @@ PACKAGES = [
 
 
 def setup_system() -> None:
-    """
-    Sets up the base system.
-    """
+    """Sets up the base system."""
     setup_base_system()
     # setup_hop3()
     # setup_uwsgi()
@@ -67,9 +64,8 @@ def setup_system() -> None:
 
 
 def setup_base_system() -> None:
-    """
-    Sets up the base system environment by adding a user, installing packages, and creating necessary symlinks.
-    """
+    """Sets up the base system environment by adding a user, installing
+    packages, and creating necessary symlinks."""
     user(
         name="Add hop3 user",
         user=HOP3_USER,
@@ -104,8 +100,7 @@ def setup_base_system() -> None:
 # Library
 #
 def user(name, user, home, shell, group) -> None:
-    """
-    Create or manage a system user account.
+    """Create or manage a system user account.
 
     Input:
     - name: The name of the user account to create or manage.
@@ -117,8 +112,7 @@ def user(name, user, home, shell, group) -> None:
 
 
 def packages(name, packages, update) -> None:
-    """
-    Manage software packages on a system.
+    """Manage software packages on a system.
 
     This is intended to handle the installation, removal, or update
     of software packages on a computer system.
@@ -131,8 +125,7 @@ def packages(name, packages, update) -> None:
 
 
 def link(name, path, target) -> None:
-    """
-    Creates a symbolic link.
+    """Creates a symbolic link.
 
     Input:
     - name: The name associated with the symbolic link (not used in the function, but could be for identification).
