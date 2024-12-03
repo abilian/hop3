@@ -14,11 +14,12 @@ from hop3.util.settings import parse_settings
 
 
 class Env(Mapping[str, str]):
-    """
-    Provides a dictionary-like environment variable handler with additional utility methods.
+    """Provides a dictionary-like environment variable handler with additional
+    utility methods.
 
-    This allows for storing, retrieving, and managing environment variables with support for additional
-    operations like type conversion and file-based parsing.
+    This allows for storing, retrieving, and managing environment
+    variables with support for additional operations like type
+    conversion and file-based parsing.
     """
 
     _data: dict[str, str] = field(default_factory=dict)

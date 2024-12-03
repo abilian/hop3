@@ -1,4 +1,15 @@
 # Copyright (c) 2024, Abilian SAS
+"""Main entry point for the Hop3 CLI.
+
+This module provides the main entry point for the Hop3 CLI. It defines
+the main function that is called when the CLI is invoked from the
+command line.
+
+The main function parses command-line arguments, creates a parser (using
+the argparse module), and invokes the appropriate command based on the
+parsed arguments.
+"""
+
 from __future__ import annotations
 
 import inspect
@@ -21,8 +32,7 @@ scan_package("hop3.cli")
 
 class CLI:
     def __call__(self, args: list[str]):
-        """
-        Invoke the main function with the given arguments.
+        """Invoke the main function with the given arguments.
 
         Input:
         - args (list[str]): A list of strings representing command-line arguments
@@ -32,8 +42,7 @@ class CLI:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """
-    Main entry point for the command-line interface.
+    """Main entry point for the command-line interface.
 
     Input:
     - argv: A list of command-line arguments or None. If None, defaults to sys.argv[1:].
@@ -81,8 +90,7 @@ def get_app(app_name, db_session) -> App:
 
 
 def create_parser() -> ArgumentParser:
-    """
-    Create and return an argument parser for the Hop3 CLI.
+    """Create and return an argument parser for the Hop3 CLI.
 
     This initializes an ArgumentParser with options for verbosity and dynamically
     adds sub-command parsers based on the COMMAND_REGISTRY.

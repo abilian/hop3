@@ -18,11 +18,10 @@ class HelpCmd:
 
 
 def print_help():
-    """
-    Display the help information for the Hop3 command-line interface (CLI).
+    """Display the help information for the Hop3 command-line interface (CLI).
 
-    This gathers and prints the version, usage instructions,
-    and available commands for the Hop3 CLI.
+    This gathers and prints the version, usage instructions, and
+    available commands for the Hop3 CLI.
     """
     package_version = version("hop3-agent")
 

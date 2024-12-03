@@ -1,7 +1,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Builder for Go projects."""
 
 from __future__ import annotations
@@ -10,11 +9,11 @@ from ._base import Builder
 
 
 class GoBuilder(Builder):
-    """
-    Builds Go projects.
+    """Builds Go projects.
 
-    This is responsible for building Go projects by checking for Go dependencies
-    or source files and then executing the necessary build commands.
+    This is responsible for building Go projects by checking for Go
+    dependencies or source files and then executing the necessary build
+    commands.
     """
 
     name = "Go"

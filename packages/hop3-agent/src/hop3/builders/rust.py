@@ -1,7 +1,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Builder for Rust projects."""
 
 from __future__ import annotations
@@ -25,8 +24,7 @@ class RustBuilder(Builder):
     requirements = ["cargo"]  # noqa: RUF012
 
     def accept(self) -> bool:
-        """
-        Determine if the application directory is a Rust project.
+        """Determine if the application directory is a Rust project.
 
         This checks if the application directory contains a "Cargo.toml" file,
         which is a configuration file indicating that the project is a Rust project.
@@ -38,17 +36,14 @@ class RustBuilder(Builder):
         return self.check_exists("Cargo.toml")
 
     def build(self) -> None:
-        """
-        Build the Rust project using cargo.
-        """
+        """Build the Rust project using cargo."""
         with chdir(self.src_path):
             env = self.get_env()
             self.prepare_build_env(env)
             self.compile_project()
 
     def prepare_build_env(self, env: Env) -> None:
-        """
-        Prepare the environment for building the project, if necessary.
+        """Prepare the environment for building the project, if necessary.
 
         This sets up the necessary environment for building a project,
         potentially involving setting up Rust-specific environment variables or
@@ -63,9 +58,7 @@ class RustBuilder(Builder):
         # TODO
 
     def compile_project(self) -> None:
-        """
-        Compile the Rust project using cargo.
-        """
+        """Compile the Rust project using cargo."""
         emit(CompilingProject(self.app_name))
 
         try:

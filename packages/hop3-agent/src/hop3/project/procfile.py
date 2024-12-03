@@ -13,8 +13,7 @@ from hop3.util import log
 
 
 def parse_procfile(filename: str | Path) -> dict:
-    """
-    Parse a Procfile to extract process information.
+    """Parse a Procfile to extract process information.
 
     Input:
     - filename (str | Path): The path to the Procfile to be parsed.
@@ -60,8 +59,7 @@ class Procfile:
         return {k: v for k, v in self.workers.items() if k in web_worker_names}
 
     def parse(self, text: str) -> None:
-        """
-        Parse the Procfile.
+        """Parse the Procfile.
 
         Only one worker of each type is allowed.
 
@@ -86,9 +84,8 @@ class Procfile:
             raise ValueError(msg)
 
     def parse_line(self, line: str, line_number: int) -> None:
-        """
-        Parse a single line from a Procfile, updating internal worker commands or
-        validating cron entries.
+        """Parse a single line from a Procfile, updating internal worker
+        commands or validating cron entries.
 
         Input:
         - line: A string representing a line from the Procfile.
@@ -114,8 +111,7 @@ class Procfile:
         self.workers[kind] = command
 
     def check_cron(self, command: str) -> None:
-        """
-        Validate a cron command string against predefined limits.
+        """Validate a cron command string against predefined limits.
 
         Input:
         - command: str - A cron command string to be validated.

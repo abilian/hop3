@@ -1,7 +1,6 @@
 # Copyright (c) 2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """CLI commands to manage PostgreSQL databases."""
 
 from __future__ import annotations
