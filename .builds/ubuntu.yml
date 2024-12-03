@@ -6,7 +6,7 @@ image: ubuntu/24.04
 
 # SSH key for e2e test machine
 secrets:
-- 46f739e5-4538-45dd-a79f-bf173b7a2ed9
+- 705a1519-b37e-4205-94a4-354c085dbdcc
 
 packages:
   # Build tools
