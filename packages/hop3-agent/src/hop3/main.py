@@ -20,16 +20,6 @@ from hop3.util.console import console
 TESTING = "PYTEST_VERSION" in os.environ
 
 
-# def get_cli_commands():
-#     cli_commands = [hop3]
-#
-#     # Use pluggy to get all the plugins
-#     pm = get_plugin_manager()
-#     cli_commands += pm.hook.cli_commands()
-#
-#     return cli_commands
-
-
 def set_config():
     if "HOP3_HOME" in os.environ:
         home = Path(os.environ["HOP3_HOME"])
@@ -50,9 +40,6 @@ def main(args=None) -> None:
     if not args:
         args = sys.argv[1:]
 
-    # FIXME: this could got to conftest.py now.
-
-    # cli = CommandCollection(sources=get_cli_commands())
     cli = CLI()
 
     try:

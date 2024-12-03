@@ -20,7 +20,7 @@ from hop3.util.settings import write_settings
 from .uwsgi import spawn_uwsgi_worker
 
 if TYPE_CHECKING:
-    from hop3.orm.app import App
+    from hop3.orm import App
 
 
 def spawn_app(app: App, deltas: dict[str, int] | None = None) -> None:
