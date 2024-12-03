@@ -9,10 +9,9 @@ import subprocess
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from hop3.cli.registry import command
 from hop3.config import c
 from hop3.util import log
-
-from .base import command
 
 if TYPE_CHECKING:
     from hop3.orm import App
