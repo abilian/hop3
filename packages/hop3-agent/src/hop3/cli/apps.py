@@ -11,7 +11,7 @@ from argparse import ArgumentParser
 from typing import TYPE_CHECKING
 
 from hop3.deploy import do_deploy
-from hop3.orm.repositories import AppRepository
+from hop3.orm import AppRepository
 from hop3.project.procfile import parse_procfile
 from hop3.util import Abort, echo, multi_tail
 from hop3.util.console import console

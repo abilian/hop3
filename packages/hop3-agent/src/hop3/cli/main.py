@@ -41,6 +41,17 @@ class CLI:
         main(args)
 
 
+# TODO: use pluggy to get all the plugins
+# def get_cli_commands():
+#     cli_commands = [hop3]
+#
+#     # Use pluggy to get all the plugins
+#     pm = get_plugin_manager()
+#     cli_commands += pm.hook.cli_commands()
+#
+#     return cli_commands
+
+
 def main(argv: list[str] | None = None) -> None:
     """Main entry point for the command-line interface.
 
