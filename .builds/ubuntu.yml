@@ -67,6 +67,7 @@ tasks:
       export HOP3_DEV_HOST=ssh.hop-dev.abilian.com
       export HOP3_TEST_DOMAIN=hop-dev.abilian.com
       ssh -o StrictHostKeyChecking=accept-new root@$HOP3_DEV_HOST 'echo hello'
+      git config --global init.defaultBranch main
       uv run make test-e2e
 
 
