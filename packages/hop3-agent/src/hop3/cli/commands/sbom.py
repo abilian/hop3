@@ -10,9 +10,8 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hop3.cli.registry import command
 from hop3.config import c
-
-from .base import command
 
 if TYPE_CHECKING:
     from hop3.orm import App
