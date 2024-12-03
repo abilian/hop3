@@ -7,10 +7,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from hop3.cli.registry import command
 from hop3.deploy import do_deploy
 from hop3.util import Abort, log
-
-from .base import command
 
 if TYPE_CHECKING:
     from hop3.orm import App
@@ -18,7 +17,14 @@ if TYPE_CHECKING:
 
 @command
 class ConfigCmd:
-    """Show config, e.g.: hop config <app>."""
+    """Manage app config. Type 'hop config' for help."""
+
+
+@command
+class ConfigListCmd:
+    """Show config."""
+
+    name = "config:list"
 
     def run(self, app: App) -> None:
         env = app.get_runtime_env()

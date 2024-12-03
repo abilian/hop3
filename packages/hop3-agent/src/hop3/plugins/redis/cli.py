@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from argparse import ArgumentParser
 
-from hop3.cli.base import command
+from hop3.cli.registry import command
 from hop3.util import echo
 
 
@@ -17,17 +17,10 @@ class RedisCmd:
 
     name = "redis"
 
-    def add_arguments(self, parser: ArgumentParser) -> None:
-        # Add subcommand structure or arguments specific to Redis, if necessary.
-        pass
-
-    def run(self) -> None:
-        echo("Redis command plugin is ready.")
-
 
 @command
 class RedisCliCmd:
-    """Opens a Redis prompt: hop3 redis:cli."""
+    """Opens a Redis prompt: hop redis:cli."""
 
     name = "redis:cli"
 
@@ -39,7 +32,7 @@ class RedisCliCmd:
 
 @command
 class RedisCredentialsCmd:
-    """Display credentials information: hop3 redis:credentials."""
+    """Display credentials information: hop redis:credentials."""
 
     name = "redis:credentials"
 
@@ -51,7 +44,7 @@ class RedisCredentialsCmd:
 
 @command
 class RedisInfoCmd:
-    """Gets information about Redis: hop3 redis:info."""
+    """Gets information about Redis: hop redis:info."""
 
     name = "redis:info"
 
@@ -63,7 +56,7 @@ class RedisInfoCmd:
 
 @command
 class RedisKeyspaceNotificationsCmd:
-    """Set the keyspace notifications configuration: hop3 redis:keyspace-notifications <config>."""
+    """Set the keyspace notifications configuration: hop redis:keyspace-notifications <config>."""
 
     name = "redis:keyspace-notifications"
 
@@ -80,7 +73,7 @@ class RedisKeyspaceNotificationsCmd:
 
 @command
 class RedisMaintenanceCmd:
-    """Manage maintenance windows: hop3 redis:maintenance."""
+    """Manage maintenance windows: hop redis:maintenance."""
 
     name = "redis:maintenance"
 
@@ -92,7 +85,7 @@ class RedisMaintenanceCmd:
 
 @command
 class RedisMaxMemoryCmd:
-    """Set the key eviction policy when instances reach their storage limit: hop3 redis:maxmemory <policy>."""
+    """Set the key eviction policy when instances reach their storage limit: hop redis:maxmemory <policy>."""
 
     name = "redis:maxmemory"
 
@@ -111,7 +104,7 @@ class RedisMaxMemoryCmd:
 
 @command
 class RedisPromoteCmd:
-    """Sets DATABASE as your REDIS_URL: hop3 redis:promote."""
+    """Sets DATABASE as your REDIS_URL: hop redis:promote."""
 
     name = "redis:promote"
 
@@ -123,7 +116,7 @@ class RedisPromoteCmd:
 
 @command
 class RedisStatsResetCmd:
-    """Reset all Redis stats: hop3 redis:stats-reset."""
+    """Reset all Redis stats: hop redis:stats-reset."""
 
     name = "redis:stats-reset"
 
@@ -135,7 +128,7 @@ class RedisStatsResetCmd:
 
 @command
 class RedisTimeoutCmd:
-    """Set the number of seconds to wait before killing idle connections: hop3 redis:timeout <seconds>."""
+    """Set the number of seconds to wait before killing idle connections: hop redis:timeout <seconds>."""
 
     name = "redis:timeout"
 
@@ -150,7 +143,7 @@ class RedisTimeoutCmd:
 
 @command
 class RedisUpgradeCmd:
-    """Perform in-place version upgrade: hop3 redis:upgrade."""
+    """Perform in-place version upgrade: hop redis:upgrade."""
 
     name = "redis:upgrade"
 
@@ -162,7 +155,7 @@ class RedisUpgradeCmd:
 
 @command
 class RedisWaitCmd:
-    """Wait for Redis instance to be available: hop3 redis:wait."""
+    """Wait for Redis instance to be available: hop redis:wait."""
 
     name = "redis:wait"
 
