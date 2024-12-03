@@ -79,7 +79,7 @@ def test_lifecycle(hop3_home) -> None:
         app_repo = AppRepository(session=db_session)
         app_repo.add(app, auto_commit=True)
 
-    cli_main(["config", app_name])
+    cli_main(["config:list", app_name])
     assert not console.output()
 
     cli_main(["config:set", app_name, "XXX=xyz"])
