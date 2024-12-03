@@ -33,8 +33,7 @@ def spawn_uwsgi_worker(
     env: Env,
     ordinal=1,
 ) -> None:
-    """
-    Set up and deploy a single worker of a given kind.
+    """Set up and deploy a single worker of a given kind.
 
     Input:
         app_name (str): The name of the application for which the worker is being spawned.
@@ -82,9 +81,8 @@ class UwsgiWorker:
     log_format = ""
 
     def spawn(self) -> None:
-        """
-        Execute a series of setup operations to initialize and configure settings
-        for the environment.
+        """Execute a series of setup operations to initialize and configure
+        settings for the environment.
 
         This orchestrates the process of creating base settings,
         updating those settings, modifying the environment, and finally
@@ -97,14 +95,13 @@ class UwsgiWorker:
         self.write_settings()
 
     def create_base_settings(self) -> None:
-        """
-        Configures and updates base settings for an application using uWSGI.
+        """Configures and updates base settings for an application using uWSGI.
 
         This sets up the environment and configuration settings required
-        for running an application with uWSGI. It adds various settings like user
-        and group IDs, process types, logging configurations, and other uWSGI
-        parameters. It also checks for virtual environment existence and handles
-        optional idle settings.
+        for running an application with uWSGI. It adds various settings
+        like user and group IDs, process types, logging configurations,
+        and other uWSGI parameters. It also checks for virtual
+        environment existence and handles optional idle settings.
         """
         from hop3.orm import App
 
@@ -173,11 +170,11 @@ class UwsgiWorker:
         # raise NotImplementedError
 
     def update_env(self) -> None:
-        """
-        Update the environment settings for the application.
+        """Update the environment settings for the application.
 
-        This updates the environment settings by removing unnecessary variables
-        and inserting user-defined UWSGI settings if specified.
+        This updates the environment settings by removing unnecessary
+        variables and inserting user-defined UWSGI settings if
+        specified.
         """
         from hop3.orm import App
 
@@ -198,12 +195,13 @@ class UwsgiWorker:
             self.settings.add("env", f"{k:s}={v}")
 
     def write_settings(self) -> None:
-        """
-        Write configuration settings to a file and enable them by copying to another directory.
+        """Write configuration settings to a file and enable them by copying to
+        another directory.
 
-        This generates a filename based on the application name, type, and an ordinal number,
-        writes the settings to a file in the 'UWSGI_AVAILABLE' directory, and then copies this file
-        to the 'UWSGI_ENABLED' directory to make the settings active.
+        This generates a filename based on the application name, type,
+        and an ordinal number, writes the settings to a file in the
+        'UWSGI_AVAILABLE' directory, and then copies this file to the
+        'UWSGI_ENABLED' directory to make the settings active.
         """
         name = f"{self.app_name:s}_{self.kind:s}.{self.ordinal:d}.ini"
         uwsgi_available_path = c.UWSGI_AVAILABLE / name
@@ -212,8 +210,7 @@ class UwsgiWorker:
         shutil.copyfile(uwsgi_available_path, uwsgi_enabled_path)
 
     def log(self, message) -> None:
-        """
-        Logs a formatted message with a specified log level and color.
+        """Logs a formatted message with a specified log level and color.
 
         Input:
             message (str): The message template to be formatted and logged.
@@ -313,8 +310,8 @@ class WebWorker(UwsgiWorker):
     )
 
     def update_settings(self) -> None:
-        """
-        Update the settings by adding the command to the 'attach-daemon' section.
+        """Update the settings by adding the command to the 'attach-daemon'
+        section.
 
         This modifies the current settings to include the specified
         command associated with the key 'attach-daemon'.

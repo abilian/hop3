@@ -10,8 +10,7 @@ if TYPE_CHECKING:
 
 
 class Proxy(Protocol):
-    """
-    A protocol for defining a proxy interface.
+    """A protocol for defining a proxy interface.
 
     This defines the required attributes and methods
     that any proxy (like Nginx, Apache Httpd, etc.) should implement.

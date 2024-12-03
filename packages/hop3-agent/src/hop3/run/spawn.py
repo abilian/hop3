@@ -37,8 +37,7 @@ class AppLauncher:
     deltas: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """
-        Initialize additional attributes for the application configuration.
+        """Initialize additional attributes for the application configuration.
 
         This sets up crucial paths and configuration for the application
         object by extracting necessary details from the `app` object, such as
@@ -59,10 +58,9 @@ class AppLauncher:
         return self.config.web_workers
 
     def spawn_app(self) -> None:
-        """
-        Create the app's workers by setting up web worker configurations and handling
-        environment-specific setups, including nginx and uwsgi configurations.
-        """
+        """Create the app's workers by setting up web worker configurations and
+        handling environment-specific setups, including nginx and uwsgi
+        configurations."""
 
         # Set up nginx if we have NGINX_SERVER_NAME set
         if "NGINX_SERVER_NAME" in self.env:
@@ -134,8 +132,7 @@ class AppLauncher:
         self.remove_unnecessary_workers(to_destroy)
 
     def make_env(self) -> Env:
-        """
-        Set up and configure the environment for the application.
+        """Set up and configure the environment for the application.
 
         This prepares the environment by bootstrapping settings such as
         application name, user, path, and virtual environment. It also loads any
@@ -196,8 +193,7 @@ class AppLauncher:
         return env
 
     def create_new_workers(self, to_create, env) -> None:
-        """
-        Creates new workers for the given application.
+        """Creates new workers for the given application.
 
         This iterates over the types of workers specified in the `to_create` dictionary
         and spawns new workers for each type if they are not already enabled.
@@ -221,8 +217,8 @@ class AppLauncher:
                 spawn_uwsgi_worker(self.app_name, kind, self.workers[kind], env, w)
 
     def remove_unnecessary_workers(self, to_destroy) -> None:
-        """
-        Removes unnecessary worker configuration files based on the provided dictionary.
+        """Removes unnecessary worker configuration files based on the provided
+        dictionary.
 
         Input:
         - to_destroy: A dictionary where keys are worker types (as strings) and values are

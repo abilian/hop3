@@ -9,4 +9,4 @@ hookimpl = HookimplMarker("hop3")
 
 @hookspec
 def builders():
-    """Return a list of hop3 builders"""
+    """Return a list of hop3 builders."""

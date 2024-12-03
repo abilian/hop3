@@ -12,8 +12,7 @@ if TYPE_CHECKING:
 
 
 def prepend_to_path(directories: list[Path | str], path: str = "") -> str:
-    """
-    Prepend directories to the PATH environment variable.
+    """Prepend directories to the PATH environment variable.
 
     Input:
     - directories: A list of directories (Path or str) to be added to the PATH.

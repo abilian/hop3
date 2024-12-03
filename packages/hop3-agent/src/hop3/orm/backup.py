@@ -14,8 +14,7 @@ from . import App
 
 
 class BackupStateEnum(Enum):
-    """
-    Enumeration representing the various states of a backup process.
+    """Enumeration representing the various states of a backup process.
 
     The backup process can be in one of the following states:
 
@@ -32,11 +31,12 @@ class BackupStateEnum(Enum):
 
 
 class Backup(BigIntAuditBase):
-    """
-    Represents a backup entry in the database, extending from the BigIntAuditBase class.
+    """Represents a backup entry in the database, extending from the
+    BigIntAuditBase class.
 
-    This defines the database schema for storing information about backups,
-    including their state, format, remote path, size, and expiry time.
+    This defines the database schema for storing information about
+    backups, including their state, format, remote path, size, and
+    expiry time.
     """
 
     __tablename__ = "backup"
