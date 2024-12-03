@@ -10,9 +10,10 @@ from shutil import rmtree
 from typing import TYPE_CHECKING
 
 import pytest
-from hop3.core.app import App
+
 from hop3.core.git import GitManager
 from hop3.main import main as cli_main
+from hop3.orm import App, AppRepository, get_session_factory
 from hop3.util import Abort
 from hop3.util.console import console
 
@@ -67,11 +68,16 @@ def test_inexistent_app(hop3_home) -> None:
 
 def test_lifecycle(hop3_home) -> None:
     app_name = f"test-app-{time.time()}"
-    app = App(app_name)
+    app = App(name=app_name)
     app.create()
-    assert (hop3_home / "apps" / app_name).exists()
+    assert app.app_path.exists()
 
     create_dummy_app(app)
+
+    session_factory = get_session_factory()
+    with session_factory() as db_session:
+        app_repo = AppRepository(session=db_session)
+        app_repo.add(app, auto_commit=True)
 
     cli_main(["config", app_name])
     assert not console.output()

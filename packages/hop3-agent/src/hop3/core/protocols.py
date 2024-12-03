@@ -4,7 +4,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from .app import App
+    from hop3.orm import App
+
     from .env import Env
 
 

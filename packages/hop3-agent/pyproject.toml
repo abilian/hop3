@@ -53,3 +53,6 @@ exclude = [
 DEP002 = [
     "cyclonedx-bom",
 ]
+#DEP003 = [
+#    "snoop",
+#]

@@ -16,7 +16,7 @@ from hop3.util import log
 from .base import command
 
 if TYPE_CHECKING:
-    from hop3.core.app import App
+    from hop3.orm import App
 
 
 @command

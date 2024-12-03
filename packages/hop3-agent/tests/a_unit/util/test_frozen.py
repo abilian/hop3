@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import pytest
+
 from hop3.util.freeze import freeze
 
 

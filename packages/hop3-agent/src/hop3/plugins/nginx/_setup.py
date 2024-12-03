@@ -30,8 +30,8 @@ from ._templates import (
 )
 
 if TYPE_CHECKING:
-    from hop3.core.app import App
     from hop3.core.env import Env
+    from hop3.orm import App
 
 
 @dataclass(frozen=True)

@@ -106,11 +106,11 @@ class UwsgiWorker:
         parameters. It also checks for virtual environment existence and handles
         optional idle settings.
         """
-        from hop3.core.app import App
+        from hop3.orm import App
 
         env = self.env.copy()
 
-        app = App(self.app_name)
+        app = App(name=self.app_name)
         app_name = self.app_name
 
         env["PROC_TYPE"] = self.kind
@@ -179,9 +179,9 @@ class UwsgiWorker:
         This updates the environment settings by removing unnecessary variables
         and inserting user-defined UWSGI settings if specified.
         """
-        from hop3.core.app import App
+        from hop3.orm import App
 
-        app = App(self.app_name)
+        app = App(name=self.app_name)
 
         # remove unnecessary variables from the env in nginx.ini
         env = self.env.copy()
