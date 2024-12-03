@@ -18,10 +18,10 @@ from argparse import ArgumentParser
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from hop3.cli.commands.help import print_help
 from hop3.lib.scanner import scan_package
 from hop3.orm import AppRepository, get_session_factory
 
+from .help import Help, print_help
 from .registry import COMMAND_REGISTRY
 
 if TYPE_CHECKING:
@@ -142,12 +142,18 @@ def add_cmd_to_subparsers(subparsers, cmd):
     name = getattr(cmd, "name", None)
     if not name:
         name = cmd.__class__.__name__.replace("Cmd", "").lower()
+
+    if hasattr(cmd, "run"):
+        func = cmd.run
+    else:
+        func = Help(name)
+
     # Create a subparser for the command
     subparser = subparsers.add_parser(name, help=cmd.__doc__)
-    subparser.set_defaults(func=cmd.run)
+    subparser.set_defaults(func=func)
 
     # Add the app argument if the command has an App parameter
-    sig = inspect.signature(cmd.run)
+    sig = inspect.signature(func)
     parameters = sig.parameters
     app_param = parameters.get("app")
     # Note: this might be fragile

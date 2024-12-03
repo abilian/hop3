@@ -6,8 +6,8 @@ from . import cli
 assert cli
 
 
-class RediPlugin:
-    """A placeholder class for a RediPlugin.
+class RedisPlugin:
+    """A placeholder class for a RedisPlugin.
 
     This currently does not have any implemented functionality or
     attributes. It serves as a base or placeholder class and can be
