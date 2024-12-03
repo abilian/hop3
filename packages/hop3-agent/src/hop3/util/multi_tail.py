@@ -38,8 +38,7 @@ class MultiTail:
             self.handles[path].seek(0, 2)
 
     def tail(self) -> Iterator:
-        """
-        Continuously yields lines from the end of a file or a data stream.
+        """Continuously yields lines from the end of a file or a data stream.
 
         This mimics the behavior of the Unix 'tail -f'
         command by continuously providing new lines as they are appended to the
@@ -52,8 +51,7 @@ class MultiTail:
         yield from self.follow()  # Continuously yield new lines appended to the data source
 
     def initial_tail(self) -> Iterator:
-        """
-        Generate an iterator of formatted lines from multiple file paths.
+        """Generate an iterator of formatted lines from multiple file paths.
 
         Iterates over each file path specified in the self.paths attribute,
         reads lines using a deque to handle a fixed number of recent lines (specified by self.catch_up),
@@ -68,8 +66,8 @@ class MultiTail:
                 yield self.format_line(path, line)
 
     def follow(self) -> Iterator:
-        """
-        Continuously monitor log files for new entries and yields formatted lines.
+        """Continuously monitor log files for new entries and yields formatted
+        lines.
 
         Returns:
         - An iterator that yields formatted lines from updated log files.
@@ -86,8 +84,7 @@ class MultiTail:
             self._check_log_rotation()
 
     def longest_stem(self) -> int:
-        """
-        Calculate the length of the longest stem in a list of paths.
+        """Calculate the length of the longest stem in a list of paths.
 
         Returns:
             int: The length of the longest stem found in the paths.
@@ -95,8 +92,7 @@ class MultiTail:
         return max(len(path.stem) for path in self.paths)
 
     def format_line(self, path: Path, line: str) -> str:
-        """
-        Format a line by prefixing it with the stem of a given file path.
+        """Format a line by prefixing it with the stem of a given file path.
 
         Input:
         - path: A Path object representing the file path whose stem is to be used.
@@ -119,12 +115,14 @@ class MultiTail:
         return line
 
     def _check_log_rotation(self):
-        """
-        Checks and handles log file rotation by reopening files if their inode has changed.
+        """Checks and handles log file rotation by reopening files if their
+        inode has changed.
 
-        This iterates over the paths being monitored for log rotation. If a path exists and
-        its inode number differs from the previously recorded value, it updates the file handle and inode.
-        If the path no longer exists, it removes the path from the list of monitored paths.
+        This iterates over the paths being monitored for log rotation.
+        If a path exists and its inode number differs from the
+        previously recorded value, it updates the file handle and inode.
+        If the path no longer exists, it removes the path from the list
+        of monitored paths.
         """
         for path in self.paths:
             if path.exists():

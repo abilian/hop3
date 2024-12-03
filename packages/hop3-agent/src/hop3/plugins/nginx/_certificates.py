@@ -38,23 +38,22 @@ class CertificatesManager:
         return c.NGINX_ROOT / f"{self.app_name}.crt"
 
     def setup_certificates(self) -> None:
-        """
-        Sets up certificates for the instance.
+        """Sets up certificates for the instance.
 
-        Checks if the key file exists or if the certificate file is empty.
-        If either condition is true, it proceeds to set up a self-signed certificate.
+        Checks if the key file exists or if the certificate file is
+        empty. If either condition is true, it proceeds to set up a
+        self-signed certificate.
         """
         # Check if the key file does not exist or if the certificate file size is zero
         if not self.key.exists() or self.crt.stat().st_size == 0:
             self.setup_self_signed()  # Set up a self-signed certificate if conditions are met
 
     def setup_self_signed(self) -> None:
-        """
-        Generate a self-signed SSL certificate for the specified domain.
+        """Generate a self-signed SSL certificate for the specified domain.
 
         Uses the OpenSSL command-line tool to generate a self-signed
-        certificate with a 4096-bit RSA key, valid for 365 days, and saves the
-        certificate and key to the specified file paths.
+        certificate with a 4096-bit RSA key, valid for 365 days, and
+        saves the certificate and key to the specified file paths.
         """
         log("Generating self-signed certificate", level=2)
         # Construct the OpenSSL command for generating a self-signed certificate
@@ -66,11 +65,12 @@ class CertificatesManager:
         subprocess.run(cmd, shell=True, check=True)
 
     def setup_acme(self) -> None:
-        """
-        Sets up the ACME environment for Let's Encrypt certificate issuance and installation.
+        """Sets up the ACME environment for Let's Encrypt certificate issuance
+        and installation.
 
-        Checks for existing certificate files and issues new ones using acme.sh if not found.
-        It also creates symbolic links required for ACME challenges and certificate management.
+        Checks for existing certificate files and issues new ones using
+        acme.sh if not found. It also creates symbolic links required
+        for ACME challenges and certificate management.
         """
         key_file = c.NGINX_ROOT / f"{self.app_name}.key"
         crt_file = c.NGINX_ROOT / f"{self.app_name}.crt"

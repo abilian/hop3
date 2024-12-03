@@ -1,9 +1,7 @@
 # Copyright (c) 2024, Abilian SAS
 
 # ruff: noqa: N802, PLR0904
-
-"""
-Global configuration for the Hop3 Micro-PaaS Agent.
+"""Global configuration for the Hop3 Micro-PaaS Agent.
 
 By default,
 """

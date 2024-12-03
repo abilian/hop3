@@ -79,8 +79,8 @@ class SetupSshCmd:
         parser.add_argument("public_key_file", type=str)
 
     def run(self, public_key_file: str) -> None:
-        """
-        Process a public key file or read from standard input to manage keys.
+        """Process a public key file or read from standard input to manage
+        keys.
 
         Input:
         - public_key_file (str): The path to the public key file. If set to '-', the key is read from standard input.
@@ -98,8 +98,7 @@ class SetupSshCmd:
             self.add_helper(Path(public_key_file))
 
     def add_helper(self, key_file: Path) -> None:
-        """
-        Add a public key to the authorized keys list.
+        """Add a public key to the authorized keys list.
 
         Input:
         - key_file (Path): The path to the public key file to be added.

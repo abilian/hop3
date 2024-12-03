@@ -22,8 +22,7 @@ class UwsgiSettings:
     values: list[tuple[str, str]] = field(default_factory=list)
 
     def add(self, key, value) -> None:
-        """
-        Add a key-value pair to the collection.
+        """Add a key-value pair to the collection.
 
         Input:
         - key: The key associated with the value to be added.
@@ -32,8 +31,7 @@ class UwsgiSettings:
         self.values.append((key, str(value)))
 
     def append(self, item) -> None:
-        """
-        Append an item to the collection by adding its elements.
+        """Append an item to the collection by adding its elements.
 
         Input:
         - item: A tuple or list where the first element is the key and the second element is the value to be added.
@@ -41,8 +39,7 @@ class UwsgiSettings:
         self.add(item[0], item[1])
 
     def extend(self, items) -> None:
-        """
-        Append multiple items to the end of the list.
+        """Append multiple items to the end of the list.
 
         Input:
         - items: An iterable containing elements to be added to the list.
@@ -51,8 +48,7 @@ class UwsgiSettings:
             self.append(item)
 
     def __iadd__(self, items) -> Self:
-        """
-        In-place addition operator (+=) for the object.
+        """In-place addition operator (+=) for the object.
 
         This is syntactic sugar for the 'extend' method.
 
@@ -63,8 +59,7 @@ class UwsgiSettings:
         return self
 
     def write(self, path: Path) -> None:
-        """
-        Write the configuration values to a specified file path.
+        """Write the configuration values to a specified file path.
 
         Input:
         - path (Path): The file path where the configuration should be written.

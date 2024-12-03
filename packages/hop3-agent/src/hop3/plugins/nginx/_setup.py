@@ -76,12 +76,11 @@ class Nginx(Proxy):
         self.env[key] = value
 
     def setup(self) -> None:
-        """
-        Configures the Nginx environment for the application.
+        """Configures the Nginx environment for the application.
 
-        This sets up the necessary environment variables and configurations
-        for Nginx to properly serve the application, based on the application's
-        configuration and deployment setup.
+        This sets up the necessary environment variables and
+        configurations for Nginx to properly serve the application,
+        based on the application's configuration and deployment setup.
         """
 
         # default to reverse proxying to the TCP port we picked
@@ -140,15 +139,13 @@ class Nginx(Proxy):
         self.check_config(nginx_conf_path)
 
     def setup_proxy(self) -> str:
-        """
-        Configures and returns the nginx configuration buffer based on
+        """Configures and returns the nginx configuration buffer based on
         specified workers and environment variables.
 
-        Sets up nginx proxy configurations by expanding
-        certain template variables using environment settings and
-        adjusts the buffer based on conditions like HTTPS-only
-        redirection, IPv6 disabling, uWSGI directives, and Cloudflare
-        IP mapping.
+        Sets up nginx proxy configurations by expanding certain template
+        variables using environment settings and adjusts the buffer
+        based on conditions like HTTPS-only redirection, IPv6 disabling,
+        uWSGI directives, and Cloudflare IP mapping.
         """
         if (
             "web" in self.workers
@@ -196,9 +193,8 @@ class Nginx(Proxy):
         return buffer
 
     def setup_static(self) -> None:
-        """
-        Configures static path mappings for an NGINX server in the environment configuration.
-        """
+        """Configures static path mappings for an NGINX server in the
+        environment configuration."""
         self.env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] = (
             ""  # Initialize the static mappings string in the environment
         )
@@ -222,12 +218,13 @@ class Nginx(Proxy):
         self.env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
 
     def setup_cloudflare(self) -> None:
-        """
-        Configure access control to the server based on CloudFlare IP addresses.
+        """Configure access control to the server based on CloudFlare IP
+        addresses.
 
         Sets up an access control list (ACL) for the server using
-        CloudFlare's IP ranges. It allows traffic from CloudFlare IPs and possibly
-        the controlling machine's IP, while denying all other traffic.
+        CloudFlare's IP ranges. It allows traffic from CloudFlare IPs
+        and possibly the controlling machine's IP, while denying all
+        other traffic.
         """
         # restrict access to server from CloudFlare IP addresses
         acl = []
@@ -264,8 +261,7 @@ class Nginx(Proxy):
         self.env["NGINX_ACL"] = " ".join(acl)
 
     def check_config(self, nginx_conf_path: Path) -> None:
-        """
-        Prevent broken config from breaking other deployments.
+        """Prevent broken config from breaking other deployments.
 
         Input:
         - nginx_conf_path (Path): The path to the nginx configuration file to be checked.
@@ -332,8 +328,8 @@ class Nginx(Proxy):
         return result
 
     def expand_vars(self, template: str) -> str:
-        """
-        Expand variables in a template string using the environment of the current object.
+        """Expand variables in a template string using the environment of the
+        current object.
 
         Input:
         - template (str): The template string containing variables to be expanded.
@@ -344,8 +340,7 @@ class Nginx(Proxy):
         return expand_vars(template, self.env)
 
     def setup_cache(self) -> None:
-        """
-        Configure Nginx caching for the application.
+        """Configure Nginx caching for the application.
 
         This sets up caching preferences and paths for Nginx by
         retrieving caching parameters, managing cache paths, and setting
@@ -435,8 +430,8 @@ class Nginx(Proxy):
                 self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
 
     def _get_cache_param(self, key: str, name: str, default: int, suffix: str) -> str:
-        """
-        Generate a cache parameter string by retrieving an integer value from the environment.
+        """Generate a cache parameter string by retrieving an integer value
+        from the environment.
 
         This attempts to fetch an integer value from the environment using a key prefixed
         with "NGINX_". If it fails to fetch or the fetched value is invalid, it logs a message and

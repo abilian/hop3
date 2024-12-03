@@ -8,8 +8,8 @@ from __future__ import annotations
 
 
 def setattr_frozen(self, key, value) -> None:
-    """
-    Set an attribute on an instance, raising an error if the instance is frozen.
+    """Set an attribute on an instance, raising an error if the instance is
+    frozen.
 
     Input:
     - key: The name of the attribute to set.
@@ -22,8 +22,8 @@ def setattr_frozen(self, key, value) -> None:
 
 
 def freeze(obj) -> None:
-    """
-    Freezes an object to prevent further modifications by overriding its __setattr__ method.
+    """Freezes an object to prevent further modifications by overriding its
+    __setattr__ method.
 
     Input:
     - obj: The object to be frozen. It should be an instance of a class, not a basic data type.

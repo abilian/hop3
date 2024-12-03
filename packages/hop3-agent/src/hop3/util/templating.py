@@ -2,7 +2,6 @@
 # Copyright (c) 2024 Stefane Fermigier
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Simple shell-style string interpolation."""
 
 from __future__ import annotations

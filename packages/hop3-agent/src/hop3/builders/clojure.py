@@ -2,7 +2,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Builder for Clojure projects."""
 
 from __future__ import annotations
@@ -20,9 +19,10 @@ from ._base import Builder
 class ClojureBuilder(Builder):
     """Builds Clojure projects (with either Leiningen or CLI).
 
-    This provides methods to build Clojure projects by determining if the project is
-    a Leiningen app or a CLI Clojure app, setting up the necessary environment, and executing
-    the build process. It extends the functionality of the Builder class.
+    This provides methods to build Clojure projects by determining if
+    the project is a Leiningen app or a CLI Clojure app, setting up the
+    necessary environment, and executing the build process. It extends
+    the functionality of the Builder class.
     """
 
     name = "Clojure"
@@ -59,7 +59,8 @@ class ClojureBuilder(Builder):
     def build(self) -> None:
         """Build the Clojure application.
 
-        This creates a virtual environment, builds the Clojure application, and sets up the necessary directories.
+        This creates a virtual environment, builds the Clojure
+        application, and sets up the necessary directories.
         """
         emit(CreatingVirtualEnv(self.app_name))
         self.virtual_env.mkdir(parents=True, exist_ok=True)
@@ -75,7 +76,6 @@ class ClojureBuilder(Builder):
         Returns
         -------
             Env: The environment variables based on the current setup.
-
         """
         path = prepend_to_path(
             [

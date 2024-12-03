@@ -14,8 +14,7 @@ import attr
 
 
 def cache(timeout):
-    """
-    Decorator to cache the result of a function with a specified timeout.
+    """Decorator to cache the result of a function with a specified timeout.
 
     Input:
     - timeout: The duration for which the result should be cached.
@@ -54,8 +53,7 @@ class SysInfo:
     # Cache
     #
     def _get_cached_result(self, key, timeout) -> Any:
-        """
-        Retrieve a cached result if it exists and is not expired.
+        """Retrieve a cached result if it exists and is not expired.
 
         Input:
             key: The key associated with the cached result.
@@ -71,8 +69,8 @@ class SysInfo:
         return None
 
     def _set_cache(self, key, value) -> None:
-        """
-        Store a value in the cache with the corresponding key and the current timestamp.
+        """Store a value in the cache with the corresponding key and the
+        current timestamp.
 
         Input:
         - key: The key under which the value will be stored in the cache.
@@ -84,8 +82,7 @@ class SysInfo:
     # Arch / OS
     #
     def platform_name(self) -> str:
-        """
-        Retrieve the name of the operating system platform.
+        """Retrieve the name of the operating system platform.
 
         Returns:
             str: The system/OS name, e.g. 'Linux', 'Windows', or 'Java'.
@@ -109,8 +106,7 @@ class SysInfo:
         return self._lsb_release("r")
 
     def free_space_in_directory(self, dirpath):
-        """
-        Calculate the free space available in a given directory.
+        """Calculate the free space available in a given directory.
 
         Input:
         - dirpath: A string representing the path to the directory for which the
@@ -232,8 +228,8 @@ class SysInfo:
     # Internal
     #
     def _lsb_release(self, key) -> str:
-        """
-        Retrieves the Linux Standard Base (LSB) release information for a given key.
+        """Retrieves the Linux Standard Base (LSB) release information for a
+        given key.
 
         Input:
         - key: A string representing the specific LSB release information to retrieve (e.g., description, codename, etc.).
@@ -245,8 +241,7 @@ class SysInfo:
         return self._run_command(f"lsb_release -s{key}")
 
     def _run_command(self, cmd) -> str:
-        """
-        Executes a shell command and returns its standard output.
+        """Executes a shell command and returns its standard output.
 
         Input:
         - cmd: A string representing the command to be executed in the shell.

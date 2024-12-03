@@ -2,10 +2,7 @@
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
-"""
-Utility functions and classes.
-"""
+"""Utility functions and classes."""
 
 from __future__ import annotations
 

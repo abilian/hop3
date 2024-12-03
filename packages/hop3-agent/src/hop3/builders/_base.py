@@ -2,7 +2,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Base class for builders."""
 
 from __future__ import annotations
@@ -20,8 +19,7 @@ if TYPE_CHECKING:
 
 
 class Builder(ABC):
-    """
-    A builder for an application.
+    """A builder for an application.
 
     This abstract base class provides a framework for building applications. It defines
     properties and methods that are common to all builders, such as checking for file
@@ -66,7 +64,8 @@ class Builder(ABC):
         """
 
     def check_exists(self, file_or_files: str | list[str]) -> bool:
-        """Check if the specified file, or one of the specified files, exist in the application path.
+        """Check if the specified file, or one of the specified files, exist in
+        the application path.
 
         Args:
         ----
@@ -75,7 +74,6 @@ class Builder(ABC):
         Returns:
         -------
             bool: True if the file or files exist, False otherwise.
-
         """
         if isinstance(file_or_files, str):
             file_or_files = [file_or_files]
@@ -116,7 +114,6 @@ class Builder(ABC):
             cwd (str or Path, optional): The working directory where the command will be executed.
                 Defaults to the application path if not provided.
             **kwargs: Additional keyword arguments to be passed to the shell function.
-
         """
         if not cwd:
             # Build in the source directory

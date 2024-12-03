@@ -11,8 +11,7 @@ from pathlib import Path
 
 
 class chdir(AbstractContextManager):  # noqa: N801
-    """
-    Non thread-safe context manager to change the current working directory.
+    """Non thread-safe context manager to change the current working directory.
 
     This context manager is used to temporarily change the current working
     directory to a specified path and then revert back to the original

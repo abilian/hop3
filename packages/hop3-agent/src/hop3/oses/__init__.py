@@ -1,7 +1,6 @@
 # Copyright (c) 2023-2024, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Setup scripts for various OSes (not working yet).
 
 NOTE: the functions in this module are currently implemented

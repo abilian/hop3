@@ -39,8 +39,7 @@ def shell(command: str, cwd: Path | str = "", **kwargs) -> subprocess.CompletedP
 
 
 def check_binaries(binaries) -> bool:
-    """
-    Check if all the binaries exist and are executable.
+    """Check if all the binaries exist and are executable.
 
     Args:
         binaries (list of str): A list of binary names to check for existence and executability.
@@ -58,8 +57,8 @@ def check_binaries(binaries) -> bool:
 
 
 def sanitize_app_name(app) -> str:
-    """
-    Sanitize the app name by removing invalid characters and trimming leading slashes.
+    """Sanitize the app name by removing invalid characters and trimming
+    leading slashes.
 
     Input:
     - app: A string representing the app name which may contain characters to be sanitized.
@@ -79,8 +78,7 @@ def sanitize_app_name(app) -> str:
 
 
 def get_free_port(address="") -> int:
-    """
-    Find a free TCP port on the host system, selected at random.
+    """Find a free TCP port on the host system, selected at random.
 
     Input:
     - address (str): The IP address to bind to. Defaults to an empty string,
@@ -97,8 +95,7 @@ def get_free_port(address="") -> int:
 
 
 def command_output(cmd) -> str:
-    """
-    Execute a shell command and retrieve its output as a string.
+    """Execute a shell command and retrieve its output as a string.
 
     Input:
         cmd: A string representing the shell command to execute.
@@ -116,8 +113,7 @@ def command_output(cmd) -> str:
 
 
 def multi_tail(filenames, catch_up=20) -> Iterator:
-    """
-    Tail multiple log files.
+    """Tail multiple log files.
 
     Input:
     - filenames: List of file names to be tailed.

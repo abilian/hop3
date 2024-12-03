@@ -64,8 +64,8 @@ class AppConfig:
         self.procfile = Procfile.from_file(procfile_path)
 
     def get_file(self, filename: str) -> Path | None:
-        """
-        Search for a file, first in the "hop3" subdirectory, then in the root.
+        """Search for a file, first in the "hop3" subdirectory, then in the
+        root.
 
         Input:
         - filename: str - The name of the file to search for.
@@ -84,24 +84,20 @@ class AppConfig:
         return None
 
     def parse_app_json(self) -> None:
-        """
-        Parse application-specific JSON data.
+        """Parse application-specific JSON data.
 
-        This is intended to process and interpret JSON data
-        relevant to the application. It doesn't take any parameters
-        nor does it return any values.
+        This is intended to process and interpret JSON data relevant to
+        the application. It doesn't take any parameters nor does it
+        return any values.
         """
         # See: https://devcenter.heroku.com/articles/app-json-schema
         # self.app_json = json.loads(Path("app.json").read_text())
 
     def parse_hop3(self) -> None:
-        """
-        Parse th hop3-specific configuration file (currently, none).
-        """
+        """Parse th hop3-specific configuration file (currently, none)."""
 
     def get_worker(self, name: str):
-        """
-        Retrieve a worker's details by name from the procfile.
+        """Retrieve a worker's details by name from the procfile.
 
         Input:
         - name (str): The name of the worker to retrieve.
