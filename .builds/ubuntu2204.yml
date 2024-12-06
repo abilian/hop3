@@ -1,0 +1,79 @@
+# Copyright (c) 2023-2024, Abilian SAS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+image: ubuntu/22.04
+
+# SSH key for e2e test machine
+secrets:
+- 705a1519-b37e-4205-94a4-354c085dbdcc
+
+packages:
+  # Build tools
+  - software-properties-common
+  - build-essential
+  - make
+  - gcc
+  - g++
+  - just
+  # Python (this is Python 3.12)
+  - python3-dev
+  - python3-pip
+  - python3-wheel
+  # Libraries
+  - libpq-dev
+  - libffi-dev
+  - libsqlite3-dev
+  - libbz2-dev
+  # Extra tools (TODO: remove)
+  - rsync
+  # For builders
+  - npm
+  - ruby-rubygems
+  - bundler
+  - ruby-dev
+  # Docker and friends
+  - buildah
+  - docker-buildx
+
+tasks:
+  - setup: |
+      sudo pip install --break-system-packages -U uv nox
+      cd hop3
+      uv sync
+
+  - lint: |
+      cd hop3
+      uv run make lint
+
+  - test: |
+      cd hop3
+      uv run make test
+
+  - nox: |
+      cd hop3
+      uv run nox -e pytest-3.12
+
+  - buildah: |
+      cd hop3
+      buildah build .
+
+  - docker-build: |
+      cd hop3
+      sudo docker build .
+
+  - e2e: |
+      cd hop3
+      export HOP3_DEV_HOST=ssh.hop-dev.abilian.com
+      export HOP3_TEST_DOMAIN=hop-dev.abilian.com
+      ssh -o StrictHostKeyChecking=accept-new root@$HOP3_DEV_HOST 'echo hello'
+      git config --global init.defaultBranch main
+      git config --global user.email "you@example.com"
+      git config --global user.name "Your Name"
+      uv run make test-e2e
+
+
+#triggers:
+#  - action: email
+#    condition: failure
+#    to: builds@fermigier.com
