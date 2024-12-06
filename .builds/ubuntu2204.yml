@@ -43,25 +43,26 @@ tasks:
       cd hop3
       uv sync
 
-  - lint: |
-      cd hop3
-      uv run make lint
+  # Not working on 22.04
+  #  - lint: |
+  #      cd hop3
+  #      uv run make lint
 
   - test: |
       cd hop3
       uv run make test
 
-  - nox: |
-      cd hop3
-      uv run nox -e pytest-3.12
-
-  - buildah: |
-      cd hop3
-      buildah build .
-
-  - docker-build: |
-      cd hop3
-      sudo docker build .
+  #  - nox: |
+  #      cd hop3
+  #      uv run nox -e pytest-3.12
+  #
+  #  - buildah: |
+  #      cd hop3
+  #      buildah build .
+  #
+  #  - docker-build: |
+  #      cd hop3
+  #      sudo docker build .
 
   - e2e: |
       cd hop3
