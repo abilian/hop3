@@ -38,7 +38,8 @@ packages:
 
 tasks:
   - setup: |
-      sudo pip install --break-system-packages -U uv nox
+      # No '--break-system-packages' on 22.04
+      sudo pip install -U uv nox
       cd hop3
       uv sync
 
