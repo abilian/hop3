@@ -312,14 +312,14 @@ class Nginx(Proxy):
 
         result = []
         for item in items:
-            static_url, _static_path = item.split(":")
-            _static_path = _static_path.rstrip()
-            if _static_path[0] == "/":
+            static_url, static_path_str = item.split(":")
+            static_path_str = static_path_str.rstrip()
+            if static_path_str[0] == "/":
                 # Use absolute path
-                static_path = Path(_static_path)
+                static_path = Path(static_path_str)
             else:
                 # Use relative path based on src_path
-                static_path = self.src_path / _static_path
+                static_path = self.src_path / static_path_str
             result.append((static_url, static_path))
 
         return result
