@@ -27,7 +27,7 @@ nox.options.sessions = [
 @nox.session
 def lint(session: nox.Session) -> None:
     session.install(".")
-    session.install("abilian-devtools")
+    session.install("abilian-devtools", "types-toml")
     session.run("make", "lint", external=True)
 
 
