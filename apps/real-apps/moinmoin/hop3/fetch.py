@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from urllib.request import urlopen
 
-VERSION = "2.0.0a1"
+VERSION = "2.0.0b1"
 NAME = f"moin-{VERSION}"
 
 DOWNLOAD_URL = f"https://github.com/moinwiki/moin/releases/download/{VERSION}/{NAME}.tar.gz"
