@@ -1,5 +1,6 @@
 [project]
 name = "hop3-server"
+version = "0.1.0"
 
 [tool.poetry]
 name = "hop3-server"
@@ -9,9 +10,7 @@ authors = ["Stefane Fermigier <sf@abilian.com>"]
 license = "MIT"
 readme = "README.md"
 
-packages = [
-    { include = "hop3_server", from = "src" },
-]
+packages = [{ include = "hop3_server", from = "src" }]
 
 
 #[tool.poetry.scripts]
@@ -22,7 +21,7 @@ packages = [
 python = "^3.10"
 
 # Web server
-granian = {extras = ["reload"], version = "^1.5.2"}
+granian = { extras = ["reload"], version = "^1.5.2" }
 uvicorn = "^0.32"
 starlette = ">= 0.40"
 watchfiles = ">= 0.22.0"
