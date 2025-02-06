@@ -18,24 +18,37 @@ packages:
   # Python dev
   - python3-dev
   - py3-pip
+  - py3-nox
   - pipx
-  # - poetry
+  - uv
+  # Docker
+  - buildah
+  - docker
 
 tasks:
   - setup: |
-      pipx install poetry
-      sudo ln -sf ~/.local/bin/poetry /usr/local/bin/
       cd hop3
-      poetry install
-      poetry run inv install
+      uv sync
 
   - lint: |
       cd hop3
-      poetry run inv lint
+      uv run make lint
 
   - test: |
       cd hop3
-      poetry run inv test
+      uv run make test
+
+  - nox: |
+      cd hop3
+      uv run nox -e pytest-3.12
+
+  - buildah: |
+      cd hop3
+      buildah build .
+
+  - docker-build: |
+      cd hop3
+      sudo docker build .
 
 #triggers:
 #  - action: email

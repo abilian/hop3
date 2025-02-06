@@ -5,8 +5,8 @@ import os
 from pathlib import Path
 from urllib.request import urlopen
 
-VERSION = "5.84.1"
-NAME = f"moin-{VERSION}"
+VERSION = "5.109.2"
+NAME = f"ghost-{VERSION}"
 
 DOWNLOAD_URL = f"https://github.com/TryGhost/Ghost/archive/refs/tags/v{VERSION}.tar.gz"
 
