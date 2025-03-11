@@ -10,7 +10,7 @@ Message = list[str]
 
 @dataclass(frozen=True)
 class Printer:
-    verbose = False
+    verbose: bool = False
 
     def print(self, msg) -> None:
         for item in msg:
