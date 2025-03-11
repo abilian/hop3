@@ -78,7 +78,7 @@ class UwsgiWorker:
     kind: str = ""
     settings: UwsgiSettings = field(default_factory=UwsgiSettings)
 
-    log_format = ""
+    log_format: str = ""
 
     def spawn(self) -> None:
         """Execute a series of setup operations to initialize and configure
@@ -221,7 +221,7 @@ class UwsgiWorker:
 
 @dataclass
 class CronWorker(UwsgiWorker):
-    kind = "cron"
+    kind: str = "cron"
 
     def update_settings(self) -> None:
         cron_cmd = self.command.replace("*/", "-").replace("*", "-1")
@@ -230,7 +230,7 @@ class CronWorker(UwsgiWorker):
 
 @dataclass
 class JwsgiWorker(UwsgiWorker):
-    kind = "jwsgi"
+    kind: str = "jwsgi"
 
     def update_settings(self) -> None:
         self.settings += [
@@ -243,7 +243,7 @@ class JwsgiWorker(UwsgiWorker):
 
 @dataclass
 class RwsgiWorker(UwsgiWorker):
-    kind = "rwsgi"
+    kind: str = "rwsgi"
 
     def update_settings(self) -> None:
         self.settings += [
@@ -257,9 +257,9 @@ class RwsgiWorker(UwsgiWorker):
 
 @dataclass
 class WsgiWorker(UwsgiWorker):
-    kind = "wsgi"
+    kind: str = "wsgi"
 
-    log_format = (
+    log_format: str = (
         '%%(addr) - %%(user) [%%(ltime)] "%%(method) %%(uri) %%(proto)" %%(status)'
         ' %%(size) "%%(referer)" "%%(uagent)" %%(msecs)ms'
     )
@@ -302,9 +302,9 @@ class WsgiWorker(UwsgiWorker):
 
 @dataclass
 class WebWorker(UwsgiWorker):
-    kind = "web"
+    kind: str = "web"
 
-    log_format = (
+    log_format: str = (
         '%%(addr) - %%(user) [%%(ltime)] "%%(method) %%(uri) %%(proto)"'
         ' %%(status) %%(size) "%%(referer)" "%%(uagent)" %%(msecs)ms'
     )
