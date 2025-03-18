@@ -64,14 +64,12 @@ def env() -> Env:
 
 
 def test_setup_no_workers(env: Env) -> None:
-    config.set_home("/tmp/hop3")
     workers: dict[str, str] = {}
     nginx = Nginx(App(name="testapp"), env, workers)
     nginx.setup()
 
 
 def test_setup_with_workers(env: Env) -> None:
-    config.set_home("/tmp/hop3")
     workers = {"static": "public"}
     nginx = Nginx(App(name="testapp"), env, workers)
     nginx.setup()

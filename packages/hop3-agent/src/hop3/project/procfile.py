@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from hop3.config import c
+from hop3 import config as c
 from hop3.util import log
 
 

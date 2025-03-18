@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3.cli.registry import command
-from hop3.config import c
+from hop3 import config as c
 
 if TYPE_CHECKING:
     from hop3.orm import App
