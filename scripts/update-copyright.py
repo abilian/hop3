@@ -5,7 +5,7 @@ from pathlib import Path
 PAT_1Y = r"# Copyright \(c\) ([0-9]+), Abilian SAS"
 PAT_2Y = r"# Copyright \(c\) ([0-9]+)-([0-9]+), Abilian SAS"
 
-CURRENT_YEAR = 2024
+CURRENT_YEAR = 2025
 
 
 def main(args=None):

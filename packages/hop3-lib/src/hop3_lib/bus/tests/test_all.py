@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 from unittest import skip
 
 from hop3_lib.bus.bus import (

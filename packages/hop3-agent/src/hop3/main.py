@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
 """Hop3 Micro-PaaS Agent."""
