@@ -9,7 +9,7 @@ import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from hop3.config import c
+from hop3 import config as c
 from hop3.core.env import Env
 from hop3.plugins.nginx import Nginx
 from hop3.project.config import AppConfig

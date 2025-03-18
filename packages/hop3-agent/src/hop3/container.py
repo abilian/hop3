@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from wireup import DependencyContainer, create_container
 
-from hop3 import newconfig, services
+from hop3 import services
+from hop3.config import get_parameters
 
-parameters = newconfig.get_parameters()
+parameters = get_parameters()
 
 container: DependencyContainer = create_container(
     # Parameters serve as application/service configuration.

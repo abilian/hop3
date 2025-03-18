@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hop3.config import c
+from hop3 import config as c
 from hop3.container import container
 from hop3.core.protocols import Proxy
 from hop3.services.certificates import CertificatesManager

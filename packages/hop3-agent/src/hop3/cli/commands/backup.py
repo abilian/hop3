@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from hop3.cli.registry import command
-from hop3.config import c
+from hop3 import config as c
 from hop3.util import log
 
 if TYPE_CHECKING:

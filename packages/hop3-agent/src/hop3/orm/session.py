@@ -4,7 +4,7 @@ from __future__ import annotations
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from hop3.config import c
+from hop3 import config as c
 
 from .app import App
 
