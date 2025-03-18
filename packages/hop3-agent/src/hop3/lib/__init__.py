@@ -1,4 +1,4 @@
-# Copyright (c) 2024, Abilian SAS
+# Copyright (c) 2024-2025, Abilian SAS
 """Misc library functions, that will be extracted to a separate package
 someday.
 
