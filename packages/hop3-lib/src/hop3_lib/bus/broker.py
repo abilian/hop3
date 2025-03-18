@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 
 """
 For asynchronous command dispatching, we'll need a simple message broker interface.
