@@ -10,32 +10,17 @@ from __future__ import annotations
 import os
 import sys
 import traceback
-from pathlib import Path
 
 from hop3.cli.main import CLI
-from hop3.config import config
 from hop3.util import Abort
 from hop3.util.console import console
 
 TESTING = "PYTEST_VERSION" in os.environ
 
 
-def set_config():
-    if "HOP3_HOME" in os.environ:
-        home = Path(os.environ["HOP3_HOME"])
-        config.set_home(home)
-
-    if "HOP3_USER" in os.environ:
-        user = os.environ["HOP3_USER"]
-        config.set_user(user)
-
-    if TESTING:
-        config.set_home("/tmp/hop3")
-        console.reset()
-
-
 def main(args=None) -> None:
-    set_config()
+    if TESTING:
+        console.reset()
 
     if not args:
         args = sys.argv[1:]

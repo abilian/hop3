@@ -13,7 +13,7 @@ from advanced_alchemy.base import BigIntAuditBase
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from hop3.config import c
+from hop3 import config as c
 from hop3.core.env import Env
 from hop3.deploy import do_deploy
 from hop3.run.spawn import spawn_app

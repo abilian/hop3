@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-from hop3.config import c
+from hop3 import config as c
 from hop3.core.env import Env
 from hop3.core.events import InstallingVirtualEnv, emit
 from hop3.util import Abort, chdir, check_binaries, log, prepend_to_path
