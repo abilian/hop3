@@ -20,6 +20,7 @@ dependencies = [
     # SBOM
     "cyclonedx-bom>=5.1.1",
     "toml>=0.10.2",
+    "wireup>=0.16.0",
 ]
 
 [dependency-groups]
