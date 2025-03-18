@@ -1,3 +1,4 @@
+# Copyright (c) 2024, Abilian SAS
 from __future__ import annotations
 
 import os
@@ -12,16 +13,10 @@ TESTING = "PYTEST_VERSION" in os.environ
 
 if TESTING:
     os.environ["HOP3_ROOT"] = "/tmp/hop3"
-    # console.reset()
 
 
 def get_parameters():
-    _vars = globals()
-    result = {}
-    for key in _vars:
-        if re.match("[A-Z0-9_]+$", key):
-            result[key] = _vars[key]
-    return result
+    return {k: v for k, v in globals().items() if re.match("[A-Z0-9_]+$", k)}
 
 
 HOP3_ROOT: Path = config.get("HOP3_ROOT", Path, "/home/hop3")

@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-from hop3.config import config
 from hop3.core.env import Env
 from hop3.orm import App
 from hop3.plugins.nginx import Nginx

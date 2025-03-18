@@ -1834,13 +1834,11 @@ dependencies = [
     { name = "psycopg2" },
     { name = "sqlalchemy" },
     { name = "termcolor" },
-    { name = "toml" },
     { name = "wireup" },
 ]
 
 [package.dev-dependencies]
 dev = [
-    { name = "types-toml" },
     { name = "typing-extensions" },
 ]
 
@@ -1854,15 +1852,11 @@ requires-dist = [
     { name = "psycopg2", specifier = "~=2.9" },
     { name = "sqlalchemy", specifier = "~=2.0" },
     { name = "termcolor", specifier = ">=2.5.0" },
-    { name = "toml", specifier = ">=0.10.2" },
     { name = "wireup", specifier = ">=0.16.0" },
 ]
 
 [package.metadata.requires-dev]
-dev = [
-    { name = "types-toml", specifier = ">=0.10.8.20240310" },
-    { name = "typing-extensions", specifier = ">=4.12.2" },
-]
+dev = [{ name = "typing-extensions", specifier = ">=4.12.2" }]
 
 [[package]]
 name = "hop3-cli"
