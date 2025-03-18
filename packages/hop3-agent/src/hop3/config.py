@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import os
 import re
-from pathlib import Path
 
 from hop3.lib.config import Config
 
@@ -13,31 +12,35 @@ TESTING = "PYTEST_VERSION" in os.environ
 
 if TESTING:
     os.environ["HOP3_ROOT"] = "/tmp/hop3"
+    os.environ["ACME_ENGINE"] = "self-signed"
+    os.environ["ACME_EMAIL"] = "test@example.com"
 
 
 def get_parameters():
     return {k: v for k, v in globals().items() if re.match("[A-Z0-9_]+$", k)}
 
 
-HOP3_ROOT: Path = config.get("HOP3_ROOT", Path, "/home/hop3")
-HOP3_USER: str = config.get("HOP3_USER", str, "hop3")
+HOP3_ROOT = config.get_path("HOP3_ROOT", "/home/hop3")
+HOP3_USER = config.get_str("HOP3_USER", "hop3")
 
-HOP3_BIN: Path = HOP3_ROOT / "bin"
-HOP3_SCRIPT: str = str(HOP3_ROOT / "venv" / "bin" / "hop-agent")
+HOP3_BIN = HOP3_ROOT / "bin"
+HOP3_SCRIPT = str(HOP3_ROOT / "venv" / "bin" / "hop-agent")
 
-APP_ROOT: Path = HOP3_ROOT / "apps"
+APP_ROOT = HOP3_ROOT / "apps"
 
-NGINX_ROOT: Path = HOP3_ROOT / "nginx"
-CACHE_ROOT: Path = HOP3_ROOT / "cache"
+NGINX_ROOT = HOP3_ROOT / "nginx"
+CACHE_ROOT = HOP3_ROOT / "cache"
 
-UWSGI_ROOT: Path = HOP3_ROOT / "uwsgi"
-UWSGI_AVAILABLE: Path = HOP3_ROOT / "uwsgi-available"
-UWSGI_ENABLED: Path = HOP3_ROOT / "uwsgi-enabled"
-UWSGI_LOG_MAXSIZE: str = "1048576"
+UWSGI_ROOT = HOP3_ROOT / "uwsgi"
+UWSGI_AVAILABLE = HOP3_ROOT / "uwsgi-available"
+UWSGI_ENABLED = HOP3_ROOT / "uwsgi-enabled"
+UWSGI_LOG_MAXSIZE = "1048576"
 
-ACME_ROOT: Path = HOP3_ROOT / ".acme.sh"
-ACME_WWW: Path = HOP3_ROOT / "acme"
-ACME_ROOT_CA: str = config.get("acme.root_ca", default="letsencrypt.org")
+ACME_ENGINE = config.get_str("ACME_ENGINE", "certbot")
+ACME_WWW = HOP3_ROOT / "acme"
+ACME_ROOT_CA = config.get_str("ACME_ROOT_CA", "letsencrypt.org")
+# FIXME
+ACME_EMAIL = config.get_str("ACME_EMAIL", "fixme@example.com")
 
 ROOT_DIRS = [
     APP_ROOT,

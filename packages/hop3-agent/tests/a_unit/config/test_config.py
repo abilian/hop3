@@ -22,6 +22,5 @@ def test_default():
     assert Path("/tmp/hop3/uwsgi-enabled") == config.UWSGI_ENABLED
     assert Path("/tmp/hop3/uwsgi") == config.UWSGI_ROOT
 
-    assert Path("/tmp/hop3/.acme.sh") == config.ACME_ROOT
-    assert Path("/tmp/hop3/acme") == config.ACME_WWW
+    assert config.ACME_ENGINE == "self-signed"
     assert config.ACME_ROOT_CA == "letsencrypt.org"

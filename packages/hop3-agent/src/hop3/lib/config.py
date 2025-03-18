@@ -7,10 +7,14 @@ from __future__ import annotations
 
 import os
 import typing
+from pathlib import Path
 
 
 class Undefined:
     pass
+
+
+_undefined = Undefined()
 
 
 class EnvironError(Exception):
@@ -107,6 +111,21 @@ class Config:
             return self._perform_cast(key, default, cast)
         msg = f"Config '{key}' is missing, and has no default."
         raise KeyError(msg)
+
+    def get_str(self, key: str, default: typing.Any = Undefined) -> str:
+        return self.get(key, str, default)
+
+    def get_int(self, key: str, default: typing.Any = Undefined) -> int:
+        return self.get(key, int, default)
+
+    def get_float(self, key: str, default: typing.Any = Undefined) -> float:
+        return self.get(key, float, default)
+
+    def get_bool(self, key: str, default: typing.Any = Undefined) -> bool:
+        return self.get(key, bool, default)
+
+    def get_path(self, key: str, default: typing.Any = Undefined) -> Path:
+        return self.get(key, Path, default)
 
     def _perform_cast(
         self,
