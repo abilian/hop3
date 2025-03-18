@@ -1,4 +1,4 @@
-# Copyright (c) 2024, Abilian SAS
+# Copyright (c) 2024-2025, Abilian SAS
 """Server-side git operations.
 
 This module provides a GitManager class to handle git operations on the

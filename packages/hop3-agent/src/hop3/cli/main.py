@@ -1,4 +1,4 @@
-# Copyright (c) 2024, Abilian SAS
+# Copyright (c) 2024-2025, Abilian SAS
 """Main entry point for the Hop3 CLI.
 
 This module provides the main entry point for the Hop3 CLI. It defines

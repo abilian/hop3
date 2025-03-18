@@ -44,7 +44,12 @@ def update_copyright(python_file):
                 return
 
             print(f"Updating copyright in {python_file}")
+            old_line = line
             line = f"# Copyright (c) {year}-{CURRENT_YEAR}, Abilian SAS"
+            print(f"  {old_line}\n  -> {line}")
+
+            new_content_lines.append(line)
+            continue
 
         m = re.match(PAT_2Y, line)
         if m:
@@ -53,12 +58,19 @@ def update_copyright(python_file):
             if year_end == CURRENT_YEAR:
                 return
 
+            print(f"Updating copyright in {python_file}")
+            old_line = line
             line = f"# Copyright (c) {year_start}-{CURRENT_YEAR}, Abilian SAS"
+            print(f"  {old_line}\n  -> {line}")
+
+            new_content_lines.append(line)
+            continue
 
         new_content_lines.append(line)
 
     new_content = "\n".join(new_content_lines)
-    python_file.write_text(new_content)
+    if new_content != content:
+        python_file.write_text(new_content)
 
 
 if __name__ == "__main__":

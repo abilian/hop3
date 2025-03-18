@@ -1,4 +1,4 @@
-# Copyright (c) 2024, Abilian SAS
+# Copyright (c) 2024-2025, Abilian SAS
 from __future__ import annotations
 
 from wireup import DependencyContainer, create_container
