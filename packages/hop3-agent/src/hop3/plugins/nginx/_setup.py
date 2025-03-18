@@ -5,19 +5,16 @@
 
 from __future__ import annotations
 
-import json
-import os
 from dataclasses import dataclass
 from pathlib import Path
-from traceback import format_exc
 from typing import TYPE_CHECKING
-from urllib.request import urlopen
 
 from hop3.config import c
+from hop3.container import container
 from hop3.core.protocols import Proxy
-from hop3.util import Abort, command_output, expand_vars, log
+from hop3.services.certificates import CertificatesManager
+from hop3.util import command_output, expand_vars, log
 
-from ._certificates import CertificatesManager
 from ._templates import (
     HOP3_INTERNAL_NGINX_CACHE_MAPPING,
     HOP3_INTERNAL_NGINX_STATIC_MAPPING,
@@ -83,15 +80,30 @@ class Nginx(Proxy):
         based on the application's configuration and deployment setup.
         """
 
+        self.setup_backend()
+
+        # Get certificates and add them to the nginx configuration
+        self.setup_certificates()
+
+        # Setup caching and static file handling
+        self.setup_cache()
+        self.setup_static()
+
+        # Additinal misc setup
+        self.extra_setup()
+
+        # Configure proxy settings and generate buffer with the configuration
+        self.generate_config()
+
+        # Check the generated Nginx configuration for errors
+        self.check_config(self.nginx_conf_path)
+
+    def setup_backend(self):
         # default to reverse proxying to the TCP port we picked
         self.update_env(
             "HOP3_INTERNAL_NGINX_UWSGI_SETTINGS",
             template="proxy_pass http://{BIND_ADDRESS:s}:{PORT:s};",
         )
-        # self.env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = (
-        #     "proxy_pass http://{BIND_ADDRESS:s}:{PORT:s};".format(**self.env)
-        # )
-
         if "wsgi" in self.workers or "jwsgi" in self.workers:
             # Configure for Unix socket if WSGI or JWSGI workers are involved
             sock = c.NGINX_ROOT / f"{self.app_name}.sock"
@@ -111,35 +123,32 @@ class Nginx(Proxy):
                 level=2,
             )
 
-        # Initialize CertificatesManager and setup certificates
-        CertificatesManager(self.app_name, dict(**self.env)).setup_certificates()
+    def setup_certificates(self) -> None:
+        domain_name = self.env["NGINX_SERVER_NAME"].split()[0]
+        certificate_manager = container.get(CertificatesManager)
+        certificate = certificate_manager.get_certificate(domain_name)
+        (c.NGINX_ROOT / f"{self.app_name}.key").write_text(certificate.get_key())
+        (c.NGINX_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
 
-        # Setup Cloudflare configurations if necessary
-        self.setup_cloudflare()
-
+    def extra_setup(self):
         # Conditionally block .git folders from being served
         self.env["HOP3_INTERNAL_NGINX_BLOCK_GIT"] = (
             ""
             if self.env.get("NGINX_ALLOW_GIT_FOLDERS")
             else r"location ~ /\.git { deny all; }"
         )
+        self.env["NGINX_ACL"] = ""
 
-        # Setup caching and static file handling
-        self.setup_cache()
-        self.setup_static()
+    def generate_config(self) -> None:
+        buffer = self.get_proxy_conf()
+        self.nginx_conf_path.write_text(buffer)
 
-        # Configure proxy settings and generate buffer with the configuration
-        buffer = self.setup_proxy()
+    @property
+    def nginx_conf_path(self) -> Path:
+        return c.NGINX_ROOT / f"{self.app_name}.conf"
 
-        # Write the generated Nginx configuration to a file
-        nginx_conf_path = c.NGINX_ROOT / f"{self.app_name}.conf"
-        nginx_conf_path.write_text(buffer)
-
-        # Check the generated Nginx configuration for errors
-        self.check_config(nginx_conf_path)
-
-    def setup_proxy(self) -> str:
-        """Configures and returns the nginx configuration buffer based on
+    def get_proxy_conf(self) -> str:
+        """Returns the nginx configuration buffer based on
         specified workers and environment variables.
 
         Sets up nginx proxy configurations by expanding certain template
@@ -167,7 +176,7 @@ class Nginx(Proxy):
         if self.env.get_bool("NGINX_HTTPS_ONLY"):
             buffer = expand_vars(NGINX_HTTPS_ONLY_TEMPLATE, self.env)
             log(
-                "-----> nginx will redirect all requests to hostname(s)"
+                "nginx will redirect all requests to hostname(s)"
                 f" '{self.env['NGINX_SERVER_NAME']}' to HTTPS",
                 level=2,
             )
@@ -213,52 +222,8 @@ class Nginx(Proxy):
             tpl = Path(self.app_path, nginx_include_file).read_text()
         else:
             tpl = ""
-        self.env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = self.expand_vars(tpl)
-
+        self.env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = expand_vars(tpl, self.env)
         self.env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
-
-    def setup_cloudflare(self) -> None:
-        """Configure access control to the server based on CloudFlare IP
-        addresses.
-
-        Sets up an access control list (ACL) for the server using
-        CloudFlare's IP ranges. It allows traffic from CloudFlare IPs
-        and possibly the controlling machine's IP, while denying all
-        other traffic.
-        """
-        # restrict access to server from CloudFlare IP addresses
-        acl = []
-
-        if self.env.get_bool("NGINX_CLOUDFLARE_ACL"):
-            try:
-                # Retrieve CloudFlare IP ranges
-                cf = json.loads(
-                    urlopen("https://api.cloudflare.com/client/v4/ips")
-                    .read()
-                    .decode("utf-8"),
-                )
-            except Exception:
-                # Handle exceptions by raising an Abort with a formatted error message
-                msg = f"Could not retrieve CloudFlare IP ranges: {format_exc()}"
-                raise Abort(msg)
-
-            if cf["success"] is True:
-                result = cf["result"]
-                acl = [f"allow {i};" for i in result["ipv4_cidrs"]]
-
-                if self.env.get_bool("DISABLE_IPV6"):
-                    # Include IPv6 addresses if not disabled
-                    acl += [f"allow {i};" for i in result["ipv6_cidrs"]]
-
-                # allow access from controlling machine
-                if "SSH_CLIENT" in os.environ:
-                    remote_ip = os.environ["SSH_CLIENT"].split()[0]
-                    log(f"nginx ACL will include your IP ({remote_ip})", level=2)
-                    acl += [f"allow {remote_ip};"]
-
-                acl += ["allow 127.0.0.1;", "deny all;"]
-
-        self.env["NGINX_ACL"] = " ".join(acl)
 
     def check_config(self, nginx_conf_path: Path) -> None:
         """Prevent broken config from breaking other deployments.
@@ -326,18 +291,6 @@ class Nginx(Proxy):
             result.append((static_url, static_path))
 
         return result
-
-    def expand_vars(self, template: str) -> str:
-        """Expand variables in a template string using the environment of the
-        current object.
-
-        Input:
-        - template (str): The template string containing variables to be expanded.
-
-        Returns:
-        - str: The resulting string with all variables expanded based on the object's environment.
-        """
-        return expand_vars(template, self.env)
 
     def setup_cache(self) -> None:
         """Configure Nginx caching for the application.
