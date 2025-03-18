@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 
 """
 A Python command and event bus.

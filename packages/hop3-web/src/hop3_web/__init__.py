@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 
 """
 Main server (aka manager / director / orchestrator) for the system.
