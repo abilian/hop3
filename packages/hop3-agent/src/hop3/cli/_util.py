@@ -1,4 +1,4 @@
-# Copyright (c) 2024, Abilian SAS
+# Copyright (c) 2024-2025, Abilian SAS
 # Utils
 from __future__ import annotations
 

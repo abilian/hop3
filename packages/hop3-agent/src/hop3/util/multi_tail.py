@@ -1,4 +1,4 @@
-# Copyright (c) 2024, Abilian SAS
+# Copyright (c) 2024-2025, Abilian SAS
 # Cf. https://stackoverflow.com/questions/5725051/tail-multiple-logfiles-in-python
 from __future__ import annotations
 
