@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hop3 import config as c
+from hop3.config import ACME_WWW, CACHE_ROOT, NGINX_ROOT
 from hop3.container import container
 from hop3.core.protocols import Proxy
 from hop3.services.certificates import CertificatesManager
@@ -50,8 +50,8 @@ class Nginx(Proxy):
         self.env.update(
             {
                 "NGINX_SSL": nginx_ssl,
-                "NGINX_ROOT": c.NGINX_ROOT,
-                "ACME_WWW": c.ACME_WWW,
+                "NGINX_ROOT": NGINX_ROOT,
+                "ACME_WWW": ACME_WWW,
             },
         )
 
@@ -106,7 +106,7 @@ class Nginx(Proxy):
         )
         if "wsgi" in self.workers or "jwsgi" in self.workers:
             # Configure for Unix socket if WSGI or JWSGI workers are involved
-            sock = c.NGINX_ROOT / f"{self.app_name}.sock"
+            sock = NGINX_ROOT / f"{self.app_name}.sock"
             self.env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = expand_vars(
                 HOP3_INTERNAL_NGINX_UWSGI_SETTINGS,
                 self.env,
@@ -127,8 +127,8 @@ class Nginx(Proxy):
         domain_name = self.env["NGINX_SERVER_NAME"].split()[0]
         certificate_manager = container.get(CertificatesManager)
         certificate = certificate_manager.get_certificate(domain_name)
-        (c.NGINX_ROOT / f"{self.app_name}.key").write_text(certificate.get_key())
-        (c.NGINX_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
+        (NGINX_ROOT / f"{self.app_name}.key").write_text(certificate.get_key())
+        (NGINX_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
 
     def extra_setup(self):
         # Conditionally block .git folders from being served
@@ -145,7 +145,7 @@ class Nginx(Proxy):
 
     @property
     def nginx_conf_path(self) -> Path:
-        return c.NGINX_ROOT / f"{self.app_name}.conf"
+        return NGINX_ROOT / f"{self.app_name}.conf"
 
     def get_proxy_conf(self) -> str:
         """Returns the nginx configuration buffer based on
@@ -212,7 +212,7 @@ class Nginx(Proxy):
 
         for static_url, _static_path in static_paths:
             static_path = str(_static_path)
-            log(f"-----> nginx will map {static_url} to {static_path}.", level=2)
+            log(f"nginx will map {static_url} to {static_path}.", level=2)
             self.env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] += expand_vars(
                 HOP3_INTERNAL_NGINX_STATIC_MAPPING,
                 locals(),
@@ -302,7 +302,7 @@ class Nginx(Proxy):
         self.env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = ""
         self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
 
-        default_cache_path = c.CACHE_ROOT / self.app_name
+        default_cache_path = CACHE_ROOT / self.app_name
         if not default_cache_path.exists():
             default_cache_path.mkdir(parents=True)
 

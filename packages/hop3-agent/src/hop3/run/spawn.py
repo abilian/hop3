@@ -9,7 +9,7 @@ import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from hop3 import config as c
+from hop3.config import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
 from hop3.core.env import Env
 from hop3.plugins.nginx import Nginx
 from hop3.project.config import AppConfig
@@ -121,7 +121,7 @@ class AppLauncher:
 
         # Handle auto-restart via uwsgi if enabled
         if env.get_bool("HOP3_AUTO_RESTART", default=True):
-            configs = list(c.UWSGI_ENABLED.glob(f"{self.app_name}*.ini"))
+            configs = list(UWSGI_ENABLED.glob(f"{self.app_name}*.ini"))
             if configs:
                 echo("-----> Removing uwsgi configs to trigger auto-restart.")
                 for config in configs:
@@ -147,8 +147,8 @@ class AppLauncher:
             {
                 "APP": self.app_name,
                 # "LOG_ROOT": LOG_ROOT,
-                "HOME": c.HOP3_ROOT,
-                "USER": c.HOP3_USER,
+                "HOME": HOP3_ROOT,
+                "USER": HOP3_USER,
                 "PATH": f"{self.virtualenv_path / 'bin'}:{os.environ['PATH']}",
                 "PWD": str(self.app_path),
                 "VIRTUAL_ENV": str(self.virtualenv_path),
@@ -208,7 +208,7 @@ class AppLauncher:
         # Create new workers
         for kind, v in to_create.items():
             for w in v:
-                enabled = c.UWSGI_ENABLED / f"{self.app_name:s}_{kind:s}.{w:d}.ini"
+                enabled = UWSGI_ENABLED / f"{self.app_name:s}_{kind:s}.{w:d}.ini"
                 if enabled.exists():
                     # Skip if the worker configuration already exists
                     continue
@@ -227,7 +227,7 @@ class AppLauncher:
         # Remove unnecessary workers (leave logfiles)
         for k, v in to_destroy.items():
             for w in v:
-                enabled = c.UWSGI_ENABLED / f"{self.app_name:s}_{k:s}.{w:d}.ini"
+                enabled = UWSGI_ENABLED / f"{self.app_name:s}_{k:s}.{w:d}.ini"
                 if not enabled.exists():
                     continue  # Skip if the file does not exist
 
