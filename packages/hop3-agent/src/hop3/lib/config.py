@@ -1,3 +1,4 @@
+# Copyright (c) 2024, Abilian SAS
 """
 Copy/pasted from Starlette, with some changes.
 """
@@ -6,8 +7,6 @@ from __future__ import annotations
 
 import os
 import typing
-import warnings
-from pathlib import Path
 
 
 class Undefined:
@@ -30,17 +29,13 @@ class Environ(typing.MutableMapping[str, str]):
     def __setitem__(self, key: str, value: str) -> None:
         if key in self._has_been_read:
             msg = f"Attempting to set environ['{key}'], but the value has already been read."
-            raise EnvironError(
-                msg
-            )
+            raise EnvironError(msg)
         self._environ.__setitem__(key, value)
 
     def __delitem__(self, key: str) -> None:
         if key in self._has_been_read:
             msg = f"Attempting to delete environ['{key}'], but the value has already been read."
-            raise EnvironError(
-                msg
-            )
+            raise EnvironError(msg)
         self._environ.__delitem__(key)
 
     def __iter__(self) -> typing.Iterator[str]:
@@ -58,18 +53,12 @@ T = typing.TypeVar("T")
 class Config:
     def __init__(
         self,
-        env_file: str | Path | None = None,
         environ: typing.Mapping[str, str] = environ,
         env_prefix: str = "",
     ) -> None:
         self.environ = environ
         self.env_prefix = env_prefix
         self.file_values: dict[str, str] = {}
-        if env_file is not None:
-            if not os.path.isfile(env_file):
-                warnings.warn(f"Config file '{env_file}' not found.", stacklevel=2)
-            else:
-                self.file_values = self._read_file(env_file)
 
     @typing.overload
     def __call__(self, key: str, *, default: None) -> str | None: ...
@@ -119,18 +108,6 @@ class Config:
         msg = f"Config '{key}' is missing, and has no default."
         raise KeyError(msg)
 
-    def _read_file(self, file_name: str | Path) -> dict[str, str]:
-        file_values: dict[str, str] = {}
-        with open(file_name) as input_file:
-            for line in input_file:
-                line = line.strip()
-                if "=" in line and not line.startswith("#"):
-                    key, value = line.split("=", 1)
-                    key = key.strip()
-                    value = value.strip().strip("\"'")
-                    file_values[key] = value
-        return file_values
-
     def _perform_cast(
         self,
         key: str,
@@ -144,14 +121,10 @@ class Config:
             value = value.lower()
             if value not in mapping:
                 msg = f"Config '{key}' has value '{value}'. Not a valid bool."
-                raise ValueError(
-                    msg
-                )
+                raise ValueError(msg)
             return mapping[value]
         try:
             return cast(value)
         except (TypeError, ValueError):
             msg = f"Config '{key}' has value '{value}'. Not a valid {cast.__name__}."
-            raise ValueError(
-                msg
-            )
+            raise ValueError(msg)

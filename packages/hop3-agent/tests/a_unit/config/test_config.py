@@ -6,9 +6,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-from devtools import debug
-
 from hop3 import config
 
 
@@ -28,16 +25,3 @@ def test_default():
     assert Path("/tmp/hop3/.acme.sh") == config.ACME_ROOT
     assert Path("/tmp/hop3/acme") == config.ACME_WWW
     assert config.ACME_ROOT_CA == "letsencrypt.org"
-
-
-@pytest.mark.skip
-def test_read_toml():
-    config_path = Path(__file__).parent / "hop3-config.toml"
-    config = Config()
-    config.read_toml(config_path)
-
-    # Default values
-    assert config.HOP3_USER == "hop3"
-
-    # Values from toml
-    assert config.get("database_uri", "sqlite...").startswith("postgresql://")

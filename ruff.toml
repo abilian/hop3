@@ -31,6 +31,7 @@ lint.extend-ignore = [
     "T20", # flake8-print
     "TD", # flake8-todos
     "DOC", # pydocstyle
+    "CPY", # Copyright
 
     # False positive, don't remove
     "A004", # ... is shadowing a Python standard library module
@@ -55,7 +56,7 @@ lint.extend-ignore = [
     "E501", # Line too long
     "B904", # Use raise ... from ...
     "B909", # Mutation to loop iterable during iteration
-    "RUF035", # Unsafe use of Markup
+    "S704", # Unsafe use of Markup
     "RUF039", # First argument to `re.search()` is not raw string
 ]
 

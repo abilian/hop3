@@ -1,3 +1,4 @@
+# Copyright (c) 2024, Abilian SAS
 from __future__ import annotations
 
 from wireup import DependencyContainer, create_container

@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
 
-
 @pytest.fixture(scope="session")
 def hop3_home() -> Generator[Path]:
     path = config.HOP3_ROOT
