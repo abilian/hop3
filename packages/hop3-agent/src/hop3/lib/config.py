@@ -6,8 +6,11 @@ Copy/pasted from Starlette, with some changes.
 from __future__ import annotations
 
 import os
-import typing
+from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from pathlib import Path
+from typing import Any, TypeVar, overload
+
+import toml
 
 
 class Undefined:
@@ -21,8 +24,12 @@ class EnvironError(Exception):
     pass
 
 
-class Environ(typing.MutableMapping[str, str]):
-    def __init__(self, environ: typing.MutableMapping[str, str] = os.environ):
+class Environ(MutableMapping[str, str]):
+    """
+    A wrapper around os.environ that prevents setting or deleting values that have already been read.
+    """
+
+    def __init__(self, environ: MutableMapping[str, str] = os.environ):
         self._environ = environ
         self._has_been_read: set[str] = set()
 
@@ -42,7 +49,7 @@ class Environ(typing.MutableMapping[str, str]):
             raise EnvironError(msg)
         self._environ.__delitem__(key)
 
-    def __iter__(self) -> typing.Iterator[str]:
+    def __iter__(self) -> Iterator[str]:
         return iter(self._environ)
 
     def __len__(self) -> int:
@@ -51,37 +58,40 @@ class Environ(typing.MutableMapping[str, str]):
 
 environ = Environ()
 
-T = typing.TypeVar("T")
+T = TypeVar("T")
 
 
 class Config:
     def __init__(
         self,
-        environ: typing.Mapping[str, str] = environ,
+        environ: Mapping[str, str] = environ,
+        file: Path | None = None,
         env_prefix: str = "",
     ) -> None:
         self.environ = environ
         self.env_prefix = env_prefix
         self.file_values: dict[str, str] = {}
+        if file is not None:
+            self._parse_file(file)
 
-    @typing.overload
+    @overload
     def __call__(self, key: str, *, default: None) -> str | None: ...
 
-    @typing.overload
+    @overload
     def __call__(self, key: str, cast: type[T], default: T = ...) -> T: ...
 
-    @typing.overload
+    @overload
     def __call__(self, key: str, cast: type[str] = ..., default: str = ...) -> str: ...
 
-    @typing.overload
+    @overload
     def __call__(
         self,
         key: str,
-        cast: typing.Callable[[typing.Any], T] = ...,
-        default: typing.Any = ...,
+        cast: Callable[[Any], T] = ...,
+        default: Any = ...,
     ) -> T: ...
 
-    @typing.overload
+    @overload
     def __call__(
         self, key: str, cast: type[str] = ..., default: T = ...
     ) -> T | str: ...
@@ -89,17 +99,17 @@ class Config:
     def __call__(
         self,
         key: str,
-        cast: typing.Callable[[typing.Any], typing.Any] | None = None,
-        default: typing.Any = Undefined,
-    ) -> typing.Any:
+        cast: Callable[[Any], Any] | None = None,
+        default: Any = Undefined,
+    ) -> Any:
         return self.get(key, cast, default)
 
     def get(
         self,
         key: str,
-        cast: typing.Callable[[typing.Any], typing.Any] | None = None,
-        default: typing.Any = Undefined,
-    ) -> typing.Any:
+        cast: Callable[[Any], Any] | None = None,
+        default: Any = Undefined,
+    ) -> Any:
         key = self.env_prefix + key
         if key in self.environ:
             value = self.environ[key]
@@ -112,27 +122,27 @@ class Config:
         msg = f"Config '{key}' is missing, and has no default."
         raise KeyError(msg)
 
-    def get_str(self, key: str, default: typing.Any = Undefined) -> str:
+    def get_str(self, key: str, default: Any = Undefined) -> str:
         return self.get(key, str, default)
 
-    def get_int(self, key: str, default: typing.Any = Undefined) -> int:
+    def get_int(self, key: str, default: Any = Undefined) -> int:
         return self.get(key, int, default)
 
-    def get_float(self, key: str, default: typing.Any = Undefined) -> float:
+    def get_float(self, key: str, default: Any = Undefined) -> float:
         return self.get(key, float, default)
 
-    def get_bool(self, key: str, default: typing.Any = Undefined) -> bool:
+    def get_bool(self, key: str, default: Any = Undefined) -> bool:
         return self.get(key, bool, default)
 
-    def get_path(self, key: str, default: typing.Any = Undefined) -> Path:
+    def get_path(self, key: str, default: Any = Undefined) -> Path:
         return self.get(key, Path, default)
 
     def _perform_cast(
         self,
         key: str,
-        value: typing.Any,
-        cast: typing.Callable[[typing.Any], typing.Any] | None = None,
-    ) -> typing.Any:
+        value: Any,
+        cast: Callable[[Any], Any] | None = None,
+    ) -> Any:
         if cast is None or value is None:
             return value
         elif cast is bool and isinstance(value, str):
@@ -147,3 +157,12 @@ class Config:
         except (TypeError, ValueError):
             msg = f"Config '{key}' has value '{value}'. Not a valid {cast.__name__}."
             raise ValueError(msg)
+
+    def _parse_file(self, file: Path) -> None:
+        assert file.suffix == ".toml"
+
+        with file.open() as fd:
+            content = toml.load(fd)
+
+        for key, value in content.items():
+            self.file_values[key.upper()] = value

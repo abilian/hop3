@@ -34,6 +34,8 @@ PACKAGES = [
     # uwsgi
     "uwsgi-core",
     "uwsgi-plugin-python3",
+    # Let's Encrypt
+    "certbot",
     # For builders
     # - Ruby
     "ruby",

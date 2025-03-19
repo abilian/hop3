@@ -38,6 +38,12 @@ deploy:
 	uv build packages/hop3-agent
 	uv run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
 
+deploy-prod:
+	echo "--> Deploying"
+	@make clean
+	uv build packages/hop3-agent
+	uv run pyinfra -y --user root ${HOP3_HOST} installer/install-hop.py
+
 #
 # Setup
 #

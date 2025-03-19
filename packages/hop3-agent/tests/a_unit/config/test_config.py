@@ -7,6 +7,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from hop3 import config
+from hop3.lib.config import Config
+
+
+def test_parse_config_file():
+    config_file = Path(__file__).parent / "config.toml"
+    config = Config(file=config_file)
+    assert config.get("TOTO") == "titi"
 
 
 def test_default():

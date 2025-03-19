@@ -1,9 +1,0 @@
-[hop3]
-database_uri = "postgresql://user:password@localhost:5432/hop3"
-
-[hop3.build.python]
-# Just an example, not a configuration
-default_builder = "poetry"
-
-[hop3.run]
-# ...
