@@ -28,21 +28,26 @@ clean-and-deploy:
 	make deploy
 
 clean-server:
-	echo "--> Cleaning server (warning: this removes everything)"
+	@echo "--> Cleaning server (warning: this removes everything)"
 	-ssh root@${HOP3_DEV_HOST} apt-get purge -y nginx nginx-core nginx-common
 	ssh root@${HOP3_DEV_HOST} rm -rf /home/hop3 /etc/nginx
 
 deploy:
-	echo "--> Deploying"
-	@make clean
-	uv build packages/hop3-agent
+	@echo "Use 'make deploy-dev' or 'make deploy-prod'"
+
+deploy-dev:
+	@echo "--> Deploying to" ${HOP3_DEV_HOST}
+	@make build
 	uv run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
 
 deploy-prod:
-	echo "--> Deploying"
+	@echo "--> Deploying to" ${HOP3_HOST}
+	@make build
+	uv run pyinfra -y --user root ${HOP3_HOST} installer/install-hop.py
+
+build:
 	@make clean
 	uv build packages/hop3-agent
-	uv run pyinfra -y --user root ${HOP3_HOST} installer/install-hop.py
 
 #
 # Setup
