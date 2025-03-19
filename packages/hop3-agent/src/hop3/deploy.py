@@ -174,9 +174,9 @@ class Deployer:
             return
 
         log("Running postbuild command", level=2, fg="blue")
-        retval = shell(command, cwd=self.src_path)
-        if retval:
-            msg = f"Exiting postbuild due to command error value: {retval}"
+        result = shell(command, cwd=self.src_path)
+        if result.returncode:
+            msg = f"Exiting postbuild due to command error value: {result.returncode}"
             raise Abort(msg)
 
     def _git_update(self, newrev: str) -> None:
@@ -184,7 +184,8 @@ class Deployer:
         the repository to a specified revision.
 
         Input:
-            newrev (str): The new revision hash to reset the git repository to. If empty, the reset step is skipped.
+            newrev (str): The new revision hash to reset the git repository to.
+            If empty, the reset step is skipped.
 
         Raises:
             RuntimeError: If any of the git commands fail, this will raise an exception
