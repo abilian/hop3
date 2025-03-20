@@ -25,7 +25,7 @@ lint:
 ## Cleanup repository
 clean-and-deploy:
 	make clean-server
-	make deploy
+	make deploy-dev
 
 clean-server:
 	@echo "--> Cleaning server (warning: this removes everything)"

@@ -13,7 +13,7 @@ def main() -> None:
     cmd = "ssh root@ssh.hop.abilian.com rm -rf /home/hop3"
     subprocess.run(cmd, shell=True, check=True)
 
-    cmd = "make deploy"
+    cmd = "make deploy-dev"
     subprocess.run(cmd, shell=True, check=True)
 
     cmd = "hop-test --ff"
