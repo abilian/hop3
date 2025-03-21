@@ -1,6 +1,6 @@
 [project]
 name = "hop3"
-version = "0.2.2"
+version = "0.2.3"
 description = "Simple PaaS - Deploy and manage web applications on a single server"
 authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" },
