@@ -11,7 +11,7 @@ dependencies = [
     "attrs >= 24.2",
     # Plugins and DI
     "pluggy~=1.4",
-    "wireup>=0.16.0",
+    "wireup>=0.16.0,<1",
     # Database
     "sqlalchemy ~= 2.0",
     "advanced-alchemy >= 0.21",
