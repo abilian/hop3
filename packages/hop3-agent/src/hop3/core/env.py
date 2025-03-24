@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -14,54 +14,62 @@ from hop3.util.settings import parse_settings
 
 
 class Env(Mapping[str, str]):
-    data: dict[str, str] = field(default_factory=dict)
+    """Provides a dictionary-like environment variable handler with additional
+    utility methods.
+
+    This allows for storing, retrieving, and managing environment
+    variables with support for additional operations like type
+    conversion and file-based parsing.
+    """
+
+    _data: dict[str, str] = field(default_factory=dict)
 
     def __init__(self, data: Mapping[str, Any] | None = None) -> None:
-        self.data = {}
+        self._data = {}
         if data is None:
             data = {}
 
         for k, v in data.items():
-            self.data[k] = str(v)
+            self._data[k] = str(v)
 
         freeze(self)
 
     def __setitem__(self, key: str, value: Any) -> None:
-        self.data[key] = str(value)
+        self._data[key] = str(value)
 
     def __getitem__(self, key: str) -> str:
-        return self.data[key]
+        return self._data[key]
 
     def __delitem__(self, key: str) -> None:
-        del self.data[key]
+        del self._data[key]
 
     def __contains__(self, item) -> bool:
-        return item in self.data
+        return item in self._data
 
     def __len__(self) -> int:
-        return len(self.data)
+        return len(self._data)
 
     def __iter__(self) -> Iterator:
-        return iter(self.data)
+        return iter(self._data)
 
     def keys(self):
-        return self.data.keys()
+        return self._data.keys()
 
     def values(self):
-        return self.data.values()
+        return self._data.values()
 
     def items(self):
-        return self.data.items()
+        return self._data.items()
 
     def copy(self) -> Env:
-        return Env(self.data.copy())
+        return Env(self._data.copy())
 
     def update(self, other: Mapping[str, Any]) -> None:
         for k, v in other.items():
-            self.data[k] = str(v)
+            self._data[k] = str(v)
 
     def get(self, key: str, default: Any = None) -> Any:
-        return self.data.get(key, default)
+        return self._data.get(key, default)
 
     #
     # Additional API

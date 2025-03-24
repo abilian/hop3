@@ -15,29 +15,39 @@ all: lint test
 
 ## Lint / check typing
 lint:
-	ruff check packages
+	ruff check packages/hop3-agent packages/hop3-cli
 	pyright packages/hop3-agent
 	mypy packages/hop3-agent
 	reuse lint -q
 	cd packages/hop3-agent && deptry src
 	# vulture --min-confidence 80 packages/hop3-agent/src
 
-
 ## Cleanup repository
 clean-and-deploy:
 	make clean-server
-	make deploy
+	make deploy-dev
 
 clean-server:
-	echo "--> Cleaning server (warning: this removes everything)"
+	@echo "--> Cleaning server (warning: this removes everything)"
 	-ssh root@${HOP3_DEV_HOST} apt-get purge -y nginx nginx-core nginx-common
 	ssh root@${HOP3_DEV_HOST} rm -rf /home/hop3 /etc/nginx
 
 deploy:
-	echo "--> Deploying"
+	@echo "Use 'make deploy-dev' or 'make deploy-prod'"
+
+deploy-dev:
+	@echo "--> Deploying to" ${HOP3_DEV_HOST}
+	@make build
+	uv run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
+
+deploy-prod:
+	@echo "--> Deploying to" ${HOP3_HOST}
+	@make build
+	uv run pyinfra -y --user root ${HOP3_HOST} installer/install-hop.py
+
+build:
 	@make clean
 	uv build packages/hop3-agent
-	uv run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
 
 #
 # Setup
@@ -65,7 +75,32 @@ check-dev-env:
 
 ## Update dependencies
 update-deps:
-	just update-deps
+	@echo "--> Updating dependencies"
+	uv sync -U
+	uv run pre-commit autoupdate
+	uv pip list --outdated
+	uv pip list --format=freeze > compliance/requirements-full.txt
+
+## Generate SBOM
+generate-sbom:
+	@echo "--> Generating SBOM"
+	uv sync -q --no-dev
+	uv pip list --format=freeze > compliance/requirements-prod.txt
+	uv sync -q
+	# CycloneDX
+	uv run cyclonedx-py requirements \
+		--pyproject pyproject.toml -o compliance/sbom-cyclonedx.json \
+		compliance/requirements-prod.txt
+	# Add license information
+	uv run lbom \
+		--input_file compliance/sbom-cyclonedx.json \
+		> compliance/sbom-lbom.json
+	mv compliance/sbom-lbom.json compliance/sbom-cyclonedx.json
+	# broken
+	#	# SPDX
+	#	sbom4python -r compliance/requirements-prod.txt \
+	#		--sbom spdx --format json \
+	#		-o compliance/sbom-spdx.json
 
 #
 # testing & checking
@@ -101,19 +136,39 @@ test-with-typeguard:
 	pytest --typeguard-packages=${PKG}
 	@echo ""
 
-
 ## Run a security audit
 audit:
+	# uvx pip-audit .
+	# uvx safety scan
 	just audit
 
-# Delegate to just
+## Formatting
+format:
+	just format
+
+## Format apps
+format-apps:
+	just format-apps
+
+## Fix using ruff
+fix:
+	ruff check packages/hop3-agent --fix --unsafe-fixes
 
 add-copyright:
 	just add-copyright
 
 ## Clean up
 clean:
-	just clean
+	bash -c "shopt -s globstar && rm -f **/*.pyc"
+	find . -type d -empty -delete
+	rm -rf *.egg-info *.egg .coverage .eggs .cache .mypy_cache .pyre \
+		.pytest_cache .pytest .DS_Store  docs/_build docs/cache docs/tmp \
+		dist build pip-wheel-metadata junit-*.xml htmlcov coverage.xml \
+		tmp
+	rm -rf */dist
+	rm -rf .nox
+	rm -rf site
+	adt clean
 
 clean-test:
 	just clean-test
@@ -128,13 +183,6 @@ doc:
 
 doc-serve:
 	duty docs
-
-## Formatting
-format:
-	just format
-
-format-apps:
-	just format-apps
 
 ## Cleanup harder
 tidy:

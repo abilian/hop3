@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -64,7 +64,15 @@ class AppConfig:
         self.procfile = Procfile.from_file(procfile_path)
 
     def get_file(self, filename: str) -> Path | None:
-        """Search for a file, first in the hop3 subdirectory, then in the root."""
+        """Search for a file, first in the "hop3" subdirectory, then in the
+        root.
+
+        Input:
+        - filename: str - The name of the file to search for.
+
+        Returns:
+        - Path | None: The Path object of the file if found, otherwise None.
+        """
         path = self.src_dir / "hop3" / filename
         if path.exists():
             return path
@@ -76,14 +84,28 @@ class AppConfig:
         return None
 
     def parse_app_json(self) -> None:
-        pass
+        """Parse application-specific JSON data.
+
+        This is intended to process and interpret JSON data relevant to
+        the application. It doesn't take any parameters nor does it
+        return any values.
+        """
         # See: https://devcenter.heroku.com/articles/app-json-schema
         # self.app_json = json.loads(Path("app.json").read_text())
 
     def parse_hop3(self) -> None:
-        pass
+        """Parse th hop3-specific configuration file (currently, none)."""
 
     def get_worker(self, name: str):
+        """Retrieve a worker's details by name from the procfile.
+
+        Input:
+        - name (str): The name of the worker to retrieve.
+
+        Returns:
+        - str: Details of the worker if found, otherwise an empty string.
+        """
+        # Attempt to retrieve the worker's details from the 'workers' dictionary.
         return self.procfile.workers.get(name, "")
 
     def __repr__(self) -> str:

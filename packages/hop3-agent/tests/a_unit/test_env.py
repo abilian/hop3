@@ -1,11 +1,10 @@
-# Copyright (c) 2024, Abilian SAS
+# Copyright (c) 2024-2025, Abilian SAS
 
 # ruff: noqa: PLR2004
 from __future__ import annotations
 
 from pathlib import Path
 
-from devtools import debug
 from hop3.core.env import Env
 
 
@@ -23,7 +22,6 @@ def test_set_item() -> None:
 
 def test_get_item() -> None:
     env = Env({"key": "value"})
-    debug(env.data)
     assert env["key"] == "value"
 
 

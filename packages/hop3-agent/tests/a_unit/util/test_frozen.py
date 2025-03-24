@@ -1,10 +1,11 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
 import pytest
+
 from hop3.util.freeze import freeze
 
 

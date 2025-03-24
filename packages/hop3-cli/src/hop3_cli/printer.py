@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,7 +10,7 @@ Message = list[str]
 
 @dataclass(frozen=True)
 class Printer:
-    verbose = False
+    verbose: bool = False
 
     def print(self, msg) -> None:
         for item in msg:

@@ -1,10 +1,11 @@
-# Copyright (c) 2024, Abilian SAS
+# Copyright (c) 2024-2025, Abilian SAS
 from __future__ import annotations
 
 import shutil
 from pathlib import Path
 
 import pytest
+
 from hop3.builders import GoBuilder, NodeBuilder, PythonBuilder, RubyBuilder
 
 APPS = [

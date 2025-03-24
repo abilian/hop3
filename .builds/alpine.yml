@@ -1,0 +1,56 @@
+# Copyright (c) 2023-2024, Abilian SAS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+# image: alpine/edge
+image: alpine/latest
+
+packages:
+  # Dev tools
+  - gcc
+  - rust
+  - cargo
+  - npm
+  # Libraries
+  - libffi-dev
+  - musl-dev
+  - postgresql-dev
+  # Python dev
+  - python3-dev
+  - py3-pip
+  - py3-nox
+  - pipx
+  - uv
+  # Docker
+  - buildah
+  - docker
+
+tasks:
+  - setup: |
+      cd hop3
+      uv sync
+
+  - lint: |
+      cd hop3
+      uv run make lint
+
+  - test: |
+      cd hop3
+      uv run make test
+
+  - nox: |
+      cd hop3
+      uv run nox -e pytest-3.12
+
+  - buildah: |
+      cd hop3
+      buildah build .
+
+  - docker-build: |
+      cd hop3
+      sudo docker build .
+
+#triggers:
+#  - action: email
+#    condition: failure
+#    to: builds@fermigier.com

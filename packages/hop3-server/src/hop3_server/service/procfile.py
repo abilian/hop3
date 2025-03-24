@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -12,7 +12,7 @@ from pathlib import Path
 
 from hop3_server.service.constants import CRON_REGEXP
 
-# from hop3.system.constants import CRON_REGEXP
+# from hop3.config.constants import CRON_REGEXP
 # from hop3.util import Abort, log
 
 

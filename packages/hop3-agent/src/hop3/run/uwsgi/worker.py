@@ -1,5 +1,5 @@
 # Copyright (c) 2016 Rui Carmo
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -14,12 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hop3.system.constants import (
-    NGINX_ROOT,
-    UWSGI_AVAILABLE,
-    UWSGI_ENABLED,
-    UWSGI_LOG_MAXSIZE,
-)
+from hop3 import config as c
 from hop3.util import Abort, log
 from hop3.util.settings import parse_settings
 
@@ -38,7 +33,15 @@ def spawn_uwsgi_worker(
     env: Env,
     ordinal=1,
 ) -> None:
-    """Set up and deploy a single worker of a given kind."""
+    """Set up and deploy a single worker of a given kind.
+
+    Input:
+        app_name (str): The name of the application for which the worker is being spawned.
+        kind (str): The type of worker to spawn (e.g., "static", "cron", "jwsgi", etc.).
+        command (str): The command to be executed by the worker.
+        env (Env): The environment in which the worker will be spawned.
+        ordinal (int): The ordinal number of the worker, default is 1.
+    """
 
     # if kind == "web":
     #     spawn_uwsgi_worker_web(app_name, kind, command, env, ordinal)
@@ -75,20 +78,36 @@ class UwsgiWorker:
     kind: str = ""
     settings: UwsgiSettings = field(default_factory=UwsgiSettings)
 
-    log_format = ""
+    log_format: str = ""
 
     def spawn(self) -> None:
+        """Execute a series of setup operations to initialize and configure
+        settings for the environment.
+
+        This orchestrates the process of creating base settings,
+        updating those settings, modifying the environment, and finally
+        writing the updated settings to the necessary locations.
+        """
+
         self.create_base_settings()
         self.update_settings()
         self.update_env()
         self.write_settings()
 
     def create_base_settings(self) -> None:
-        from hop3.core.app import App
+        """Configures and updates base settings for an application using uWSGI.
+
+        This sets up the environment and configuration settings required
+        for running an application with uWSGI. It adds various settings
+        like user and group IDs, process types, logging configurations,
+        and other uWSGI parameters. It also checks for virtual
+        environment existence and handles optional idle settings.
+        """
+        from hop3.orm import App
 
         env = self.env.copy()
 
-        app = App(self.app_name)
+        app = App(name=self.app_name)
         app_name = self.app_name
 
         env["PROC_TYPE"] = self.kind
@@ -96,6 +115,7 @@ class UwsgiWorker:
         log_path = app.log_path
         log_file = log_path / self.kind
 
+        # Retrieve username and group name from system user and group IDs
         pw_name = pwd.getpwuid(os.getuid()).pw_name
         gr_name = grp.getgrgid(os.getgid()).gr_name
 
@@ -114,7 +134,7 @@ class UwsgiWorker:
                 "log-x-forwarded-for",
                 env.get("UWSGI_LOG_X_FORWARDED_FOR", "false").lower(),
             ),
-            ("log-maxsize", env.get("UWSGI_LOG_MAXSIZE", UWSGI_LOG_MAXSIZE)),
+            ("log-maxsize", env.get("UWSGI_LOG_MAXSIZE", c.UWSGI_LOG_MAXSIZE)),
             ("logfile-chown", f"{pw_name}:{gr_name}"),
             ("logfile-chmod", "640"),
             ("logto2", f"{log_file}.{self.ordinal:d}.log"),
@@ -150,9 +170,15 @@ class UwsgiWorker:
         # raise NotImplementedError
 
     def update_env(self) -> None:
-        from hop3.core.app import App
+        """Update the environment settings for the application.
 
-        app = App(self.app_name)
+        This updates the environment settings by removing unnecessary
+        variables and inserting user-defined UWSGI settings if
+        specified.
+        """
+        from hop3.orm import App
+
+        app = App(name=self.app_name)
 
         # remove unnecessary variables from the env in nginx.ini
         env = self.env.copy()
@@ -169,20 +195,33 @@ class UwsgiWorker:
             self.settings.add("env", f"{k:s}={v}")
 
     def write_settings(self) -> None:
+        """Write configuration settings to a file and enable them by copying to
+        another directory.
+
+        This generates a filename based on the application name, type,
+        and an ordinal number, writes the settings to a file in the
+        'UWSGI_AVAILABLE' directory, and then copies this file to the
+        'UWSGI_ENABLED' directory to make the settings active.
+        """
         name = f"{self.app_name:s}_{self.kind:s}.{self.ordinal:d}.ini"
-        uwsgi_available_path = UWSGI_AVAILABLE / name
-        uwsgi_enabled_path = UWSGI_ENABLED / name
+        uwsgi_available_path = c.UWSGI_AVAILABLE / name
+        uwsgi_enabled_path = c.UWSGI_ENABLED / name
         self.settings.write(uwsgi_available_path)
         shutil.copyfile(uwsgi_available_path, uwsgi_enabled_path)
 
     def log(self, message) -> None:
+        """Logs a formatted message with a specified log level and color.
+
+        Input:
+            message (str): The message template to be formatted and logged.
+        """
         message = message.format(**self.env)
         log(message, level=2, fg="yellow")
 
 
 @dataclass
 class CronWorker(UwsgiWorker):
-    kind = "cron"
+    kind: str = "cron"
 
     def update_settings(self) -> None:
         cron_cmd = self.command.replace("*/", "-").replace("*", "-1")
@@ -191,7 +230,7 @@ class CronWorker(UwsgiWorker):
 
 @dataclass
 class JwsgiWorker(UwsgiWorker):
-    kind = "jwsgi"
+    kind: str = "jwsgi"
 
     def update_settings(self) -> None:
         self.settings += [
@@ -204,7 +243,7 @@ class JwsgiWorker(UwsgiWorker):
 
 @dataclass
 class RwsgiWorker(UwsgiWorker):
-    kind = "rwsgi"
+    kind: str = "rwsgi"
 
     def update_settings(self) -> None:
         self.settings += [
@@ -218,9 +257,9 @@ class RwsgiWorker(UwsgiWorker):
 
 @dataclass
 class WsgiWorker(UwsgiWorker):
-    kind = "wsgi"
+    kind: str = "wsgi"
 
-    log_format = (
+    log_format: str = (
         '%%(addr) - %%(user) [%%(ltime)] "%%(method) %%(uri) %%(proto)" %%(status)'
         ' %%(size) "%%(referer)" "%%(uagent)" %%(msecs)ms'
     )
@@ -246,7 +285,7 @@ class WsgiWorker(UwsgiWorker):
 
         # If running under nginx, don't expose a port at all
         if "NGINX_SERVER_NAME" in self.env:
-            sock = NGINX_ROOT / f"{self.app_name}.sock"
+            sock = c.NGINX_ROOT / f"{self.app_name}.sock"
             self.log(f"nginx will talk to uWSGI via {sock}")
             self.settings += [
                 ("socket", sock),
@@ -263,16 +302,20 @@ class WsgiWorker(UwsgiWorker):
 
 @dataclass
 class WebWorker(UwsgiWorker):
-    kind = "web"
+    kind: str = "web"
 
-    log_format = (
+    log_format: str = (
         '%%(addr) - %%(user) [%%(ltime)] "%%(method) %%(uri) %%(proto)"'
         ' %%(status) %%(size) "%%(referer)" "%%(uagent)" %%(msecs)ms'
     )
 
     def update_settings(self) -> None:
-        tpl = "nginx will talk to the 'web' process via {BIND_ADDRESS:s}:{PORT:s}"
-        log(tpl.format(**self.env), level=2, fg="yellow")
+        """Update the settings by adding the command to the 'attach-daemon'
+        section.
+
+        This modifies the current settings to include the specified
+        command associated with the key 'attach-daemon'.
+        """
         self.settings.add("attach-daemon", self.command)
 
 

@@ -1,5 +1,6 @@
 [project]
 name = "hop3-web"
+version = "0.2.3"
 
 [tool.poetry]
 name = "hop3-web"
@@ -8,9 +9,7 @@ description = "Simple PaaS - Deploy and manage web applications on a single serv
 authors = ["Stefane Fermigier <sf@abilian.com>"]
 readme = "README.md"
 
-packages = [
-    { include = "hop3_web", from = "src" },
-]
+packages = [{ include = "hop3_web", from = "src" }]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -62,7 +61,7 @@ types-paramiko = "^3.4"
 types-psycopg2 = "^2.9"
 flask-debugtoolbar = "^0.15"
 msgspec = "^0.18"
-watchfiles = "^0.24"
+watchfiles = ">= 0.24"
 
 [build-system]
 requires = ["poetry-core"]
@@ -72,6 +71,4 @@ build-backend = "poetry.core.masonry.api"
 profile = "black"
 
 [tool.pyright]
-exclude = [
-    "src/hop3/util/templating.py",
-]
+exclude = ["src/hop3/util/templating.py"]

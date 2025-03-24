@@ -1,8 +1,7 @@
 # Copyright (c) 2016 Rui Carmo
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Builder for Ruby projects."""
 
 from __future__ import annotations
@@ -16,6 +15,11 @@ from ._base import Builder
 
 class RubyBuilder(Builder):
     """Builds Ruby projects.
+
+    This is responsible for setting up and building Ruby projects. It
+    checks for the existence of a Gemfile to confirm it is a Ruby
+    project, sets up a virtual environment, and installs dependencies
+    using Bundler.
     """
 
     name = "Ruby"
@@ -55,7 +59,6 @@ class RubyBuilder(Builder):
         Args:
         ----
             env (Env): The environment settings to use for creating the virtual environment.
-
         """
         if not self.virtual_env.exists():
             emit(CreatingVirtualEnv(self.app_name))

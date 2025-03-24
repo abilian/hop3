@@ -1,6 +1,6 @@
 [project]
 name = "hop3"
-version = "0.2.2"
+version = "0.2.3"
 description = "Simple PaaS - Deploy and manage web applications on a single server"
 authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" },
@@ -10,21 +10,20 @@ requires-python = "~=3.10"
 
 dependencies = [
     # Workspace
-    "hop3-lib",
     "hop3-agent",
+    "hop3-testing",
     "hop3-cli",
     "hop3-server",
-    "hop3-web",
-    "hop3-testing",
-
+    # Later
+    #    "hop3-lib",
+    #    "hop3-server",
+    #    "hop3-web",
     # Debug (remove later)
     "devtools ~= 0.12",
     "snoop ~= 0.6",
-
     # Used by manual install (remove later)
     "invoke ~= 2.2.0",
     "tomlkit",
-    "cleez",
     "python-dotenv",
 ]
 
@@ -34,13 +33,13 @@ dependencies = [
 package = false
 dev-dependencies = [
     # Generic tools
-    "abilian-devtools ~= 0.7",
-    "reuse ~= 5.0",
+    "abilian-devtools >= 0.7",
+    "reuse >= 5.0",
     # Used by `inv watch`
-    "watchfiles ~= 0.24.0",
+    "watchfiles >= 0.24.0",
     # Used by testing infra
-    "httpx ~= 0.27.0",
-    "python-dotenv ~= 1.0.1",
+    "httpx >= 0.27.0",
+    "python-dotenv >= 1.0.1",
     # Experimental
     "infer-types~=1.0.0",
     # Installer
@@ -73,6 +72,13 @@ dev-dependencies = [
     "mkdocstrings[python]",
     "pygments",
     "urllib3",
+    # SBOM
+    "cyclonedx-bom>=5.1.1",
+    "lbom>=0.6",
+    "sbom4python>=0.11.3",
+    "spdx-tools>=0.8.3",
+    "snoop>=0.6.0",
+    "pydoclint[flake8]>=0.5.9",
 ]
 
 [tool.uv.workspace]
@@ -98,9 +104,12 @@ profile = "black"
 # and: https://docs.pytest.org/en/7.1.x/explanation/goodpractices.html#choosing-an-import-mode
 addopts = "-ra --import-mode=importlib"
 testpaths = [
-    "packages/*/tests",
-    # Tests may be in the same directory as the code
-    "packages/*/src",
+    "packages/hop3-agent/tests",
+    "packages/hop3-agent/src",
+    # Disabled for now
+    #    "packages/*/tests",
+    #    # Tests may be in the same directory as the code
+    #    "packages/*/src",
 ]
 
 # ------------------------------------

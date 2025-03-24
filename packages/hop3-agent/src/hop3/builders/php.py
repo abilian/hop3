@@ -1,8 +1,6 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
-
 """Builder for PHP projects."""
 
 from __future__ import annotations
@@ -20,7 +18,12 @@ if TYPE_CHECKING:
 
 
 class PHPBuilder(Builder):
-    """Build PHP projects.
+    """Build PHP projects using composer.
+
+    This provides methods to check for PHP project configurations,
+    prepare the environment, and install necessary project dependencies
+    using composer. It requires 'composer' to be available in the
+    system.
     """
 
     name = "PHP"
@@ -28,14 +31,12 @@ class PHPBuilder(Builder):
 
     def accept(self) -> bool:
         """Check if the application directory contains a composer.json file,
-        indicating it is a PHP project.
-        """
+        indicating it is a PHP project."""
         return self.check_exists("composer.json")
 
     def build(self) -> None:
         """Build the PHP project by installing dependencies and potentially
-        running custom scripts.
-        """
+        running custom scripts."""
         with chdir(self.src_path):
             env = self.get_env()
             self.prepare_build_env(env)

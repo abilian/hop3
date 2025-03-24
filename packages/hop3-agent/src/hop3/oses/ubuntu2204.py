@@ -1,7 +1,6 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Install Hop3 on Ubuntu 22.04 LTS."""
 
 from __future__ import annotations
@@ -33,8 +32,9 @@ PACKAGES = [
     # Nginx
     "nginx",
     "acl",
-    # uwsgi
+    # uwsgi (Runtime)
     "uwsgi-core",
+    "uwsgi-plugin-python3",
     # For builders
     # - Ruby
     "ruby",
@@ -47,7 +47,6 @@ PACKAGES = [
     # - Clojure
     "clojure",
     "leiningen",
-    "uwsgi-plugin-python3",
     # - Nodejs
     "npm",
     "nodeenv",
@@ -56,6 +55,7 @@ PACKAGES = [
 
 
 def setup_system() -> None:
+    """Sets up the base system."""
     setup_base_system()
     # setup_hop3()
     # setup_uwsgi()
@@ -64,6 +64,8 @@ def setup_system() -> None:
 
 
 def setup_base_system() -> None:
+    """Sets up the base system environment by adding a user, installing
+    packages, and creating necessary symlinks."""
     user(
         name="Add hop3 user",
         user=HOP3_USER,
@@ -72,16 +74,21 @@ def setup_base_system() -> None:
         group="www-data",
     )
 
+    # Install necessary Debian packages and update package lists if needed
     packages(
         name="Install Debian Packages",
         packages=PACKAGES,
         update=True,
     )
+
+    # Create symlink for the node binary to ensure it is accessible from /usr/local/bin
     link(
         name="Create /usr/local/bin/node symlink",
         path="/usr/local/bin/node",
         target="/usr/bin/nodejs",
     )
+
+    # Create symlink for the yarn binary to ensure it is accessible from /usr/local/bin
     link(
         name="Create /usr/local/bin/yarn symlink",
         path="/usr/local/bin/yarn",
@@ -93,12 +100,36 @@ def setup_base_system() -> None:
 # Library
 #
 def user(name, user, home, shell, group) -> None:
-    pass
+    """Create or manage a system user account.
+
+    Input:
+    - name: The name of the user account to create or manage.
+    - user: The username associated with the user account.
+    - home: The home directory for the user.
+    - shell: The default shell for the user account.
+    - group: The primary group for the user account.
+    """
 
 
 def packages(name, packages, update) -> None:
-    pass
+    """Manage software packages on a system.
+
+    This is intended to handle the installation, removal, or update
+    of software packages on a computer system.
+
+    Input:
+    - name: A string representing the name of the package manager to use.
+    - packages: A list of strings where each string is the name of a package to be managed.
+    - update: A boolean indicating whether to update the packages.
+    """
 
 
 def link(name, path, target) -> None:
+    """Creates a symbolic link.
+
+    Input:
+    - name: The name associated with the symbolic link (not used in the function, but could be for identification).
+    - path: The file path where the symbolic link should be created.
+    - target: The target file or directory that the symbolic link points to.
+    """
     os.symlink(target, path)

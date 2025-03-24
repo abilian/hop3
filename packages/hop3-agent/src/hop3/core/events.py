@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -10,7 +10,7 @@ from hop3.util import log
 
 
 class Event:
-    pass
+    """Base class for events."""
 
 
 @dataclass(frozen=True)
@@ -35,7 +35,7 @@ class InstallingVirtualEnv(Event):
     app_name: str
 
     def __str__(self) -> str:
-        return f"Installing/updateing virtual environment for {self.app_name}"
+        return f"Installing/updating virtual environment for {self.app_name}"
 
 
 @dataclass(frozen=True)
@@ -71,4 +71,8 @@ class InstallingDependencies(Event):
 
 
 def emit(event: Event) -> None:
-    log(str(event), level=5, fg="blue")
+    """Emits the given event.
+
+    Currently, this only logs the event to the console.
+    """
+    log(str(event), level=3, fg="blue")

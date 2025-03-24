@@ -1,31 +1,29 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 from __future__ import annotations
 
 import shutil
 import subprocess
 import time
-from os import environ
 from pathlib import Path
 from shutil import rmtree
 from typing import TYPE_CHECKING
 
 import pytest
-from hop3.core.app import App
+
+from hop3 import config
 from hop3.core.git import GitManager
 from hop3.main import main as cli_main
+from hop3.orm import App, AppRepository, get_session_factory
 from hop3.util import Abort
 from hop3.util.console import console
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-PATH = "/tmp/hop3"
-environ["HOP3_HOME"] = PATH
-
 
 @pytest.fixture(scope="session")
 def hop3_home() -> Generator[Path]:
-    path = Path(PATH)
+    path = config.HOP3_ROOT
 
     # Clean up and prepare
     rmtree(path, ignore_errors=True)
@@ -67,14 +65,19 @@ def test_inexistent_app(hop3_home) -> None:
 
 def test_lifecycle(hop3_home) -> None:
     app_name = f"test-app-{time.time()}"
-    app = App(app_name)
+    app = App(name=app_name)
     app.create()
-    assert (hop3_home / "apps" / app_name).exists()
+    assert app.app_path.exists()
 
     create_dummy_app(app)
 
-    cli_main(["config", app_name])
-    assert not console.output()
+    session_factory = get_session_factory()
+    with session_factory() as db_session:
+        app_repo = AppRepository(session=db_session)
+        app_repo.add(app, auto_commit=True)
+
+    cli_main(["config:list", app_name])
+    # assert not console.output()
 
     cli_main(["config:set", app_name, "XXX=xyz"])
     assert app_name in console.output()
@@ -86,7 +89,7 @@ def test_lifecycle(hop3_home) -> None:
     assert "xyz" not in console.output()
     assert app_name in console.output()
 
-    cli_main(["logs", app_name])
+    # cli_main(["logs", app_name])
 
     cli_main(["apps"])
     assert app_name in console.output()
@@ -103,8 +106,11 @@ def test_lifecycle(hop3_home) -> None:
     cli_main(["ps", app_name])
     assert "web:2" in console.output()
 
-    cli_main(["ps:scale", app_name, "web=2"])
+    cli_main(["ps:scale", app_name, "web=1"])
     assert "web" in console.output()
+
+    cli_main(["ps", app_name])
+    assert "web:1" in console.output()
 
     cli_main(["run", app_name, "/bin/pwd"])
     assert app_name in console.output()

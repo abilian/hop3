@@ -1,8 +1,7 @@
 # Copyright (c) 2016 Rui Carmo
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Parser and writer for settings files."""
 
 from __future__ import annotations
@@ -29,7 +28,16 @@ def parse_settings(
     filename: str | Path,
     env: dict[str, str] | None = None,
 ) -> dict[str, str]:
-    """Parse a settings file and returns a dict with environment variables."""
+    """Parse a settings file and return a dictionary with environment
+    variables.
+
+    Input:
+    - filename: A string or Path object representing the path to the settings file.
+    - env: An optional dictionary of existing environment variables to update. Defaults to None.
+
+    Returns:
+    - A dictionary containing the environment variables parsed from the file.
+    """
     if env is None:
         env = {}
 
@@ -40,11 +48,12 @@ def parse_settings(
     settings = path.read_text()
 
     for line in settings.split("\n"):
-        # ignore comments and newlines
+        # Ignore comments and newlines
         if line.startswith("#") or len(line.strip()) == 0:
             continue
 
         try:
+            # Parse the line into key and value, expanding any environment variables found
             k, v = (x.strip() for x in line.split("=", 1))
             env[k] = expand_vars(v, env)
         except Exception:
@@ -52,6 +61,7 @@ def parse_settings(
                 f"Error: malformed setting '{line}', ignoring file.",
                 fg="red",
             )
+            # TODO: we should probably raise an exception here instead of ignoring the error
             return {}
 
     return env

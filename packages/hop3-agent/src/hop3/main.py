@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-
 """Hop3 Micro-PaaS Agent."""
 
 from __future__ import annotations
@@ -12,45 +11,22 @@ import os
 import sys
 import traceback
 
-from click import CommandCollection
-
-from hop3.core.plugins import get_plugin_manager
-from hop3.system.constants import HOP3_BIN, HOP3_TESTING
-from hop3.util import Abort, prepend_to_path
+from hop3.cli.main import CLI
+from hop3.util import Abort
 from hop3.util.console import console
-
-from .commands import hop3
 
 TESTING = "PYTEST_VERSION" in os.environ
 
 
-def fix_path() -> None:
-    """Ensure system binaries are in the PATH, as wel as hop3 binaries."""
-    path = prepend_to_path([HOP3_BIN, "/usr/local/sbin", "/usr/sbin", "/sbin"])
-    os.environ["PATH"] = path
-
-
-def get_cli_commands():
-    cli_commands = [hop3]
-
-    # Use pluggy to get all the plugins
-    pm = get_plugin_manager()
-    cli_commands += pm.hook.cli_commands()
-
-    return cli_commands
-
-
 def main(args=None) -> None:
+    if TESTING:
+        console.reset()
+
     if not args:
         args = sys.argv[1:]
 
-    # Maybe not needed
-    # fix_path()
+    cli = CLI()
 
-    if HOP3_TESTING:
-        console.reset()
-
-    cli = CommandCollection(sources=get_cli_commands())
     try:
         cli(args=args)
     except SystemExit as e:

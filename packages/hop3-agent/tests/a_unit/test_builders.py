@@ -1,7 +1,8 @@
-# Copyright (c) 2024, Abilian SAS
+# Copyright (c) 2024-2025, Abilian SAS
 from __future__ import annotations
 
 import pytest
+
 from hop3.builders import ClojureBuilder, NodeBuilder, PythonBuilder, RubyBuilder
 from hop3.builders.rust import RustBuilder
 

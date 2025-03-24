@@ -1,9 +1,9 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 from __future__ import annotations
 
 from unittest import skip
 
-from hop3_cli.main import parse_args
+from hop3_cli.new import parse_args
 
 
 @skip

@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -12,8 +12,8 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 
 import paramiko
-from cleez.colors import blue, dim, green, red
 from dotenv import load_dotenv
+from hop3.util.console import blue, dim, green, red
 
 load_dotenv()
 

@@ -1,81 +1,86 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2024-2025, Abilian SAS
+
+"""
+Simple client-side script for Hop3.
+
+All the logic is implemented on the server side, this script is just
+a thin wrapper around SSH to communicate with the server.
+"""
 
 from __future__ import annotations
 
-import argparse
-import logging
 import os
+import subprocess
 import sys
-import warnings
-
-from devtools import debug
-from jsonrpcclient import Error, Ok
-from urllib3.exceptions import InsecureRequestWarning
-
-from .config import Config, get_config
-from .context import Context
-from .printer import Printer
-
-warnings.filterwarnings("ignore", category=InsecureRequestWarning)
-logger = logging.getLogger(__name__)
 
 
-def main() -> None:
-    args = sys.argv[1:]
-    run_command_from_args(args)
+def err(*args):
+    """Print to stderr."""
+    # TODO: rename as this is misleading.
+    print(*args, file=sys.stderr)
 
 
-def run_command_from_args(args=None) -> None:
-    namespace = parse_args(args)
+def dim(text: str) -> str:
+    return "\x1b[0;37m" + text + "\x1b[0m"
 
-    if "config_file" in namespace:
-        config = get_config(namespace.config_file)
-    else:
-        config = Config("", {})
 
-    context = Context(config=config, state=None)
-    args = namespace.args
+def run_command(command):
+    err(dim(f"Running: {command}"))
+    result = subprocess.run(
+        command, capture_output=True, shell=True, text=True, check=False
+    )
+    if result.stderr:
+        err(result.stderr)
+    return result.stdout.strip()
 
-    if not args:
-        args = ["help"]
 
-    if args[0] == "debug":
-        debug_cmd(args, context)
+# Define variables
+GIT_REMOTE = run_command("git config --get remote.hop3.url")
+HOP3_SERVER = os.environ.get("HOP3_SERVER")
+HOP3_APP = os.environ.get("HOP3_APP")
+REMOTE = GIT_REMOTE or f"{HOP3_SERVER}:{HOP3_APP}"
+
+
+def main():
+    err("Hop3 remote operator.")
+    execute_command(sys.argv[1:])
+
+
+def run(cmd):
+    err(dim(cmd))
+    subprocess.run(cmd, shell=True, check=False)
+
+
+def execute_command(args):
+    if not REMOTE:
+        err("\nError: no hop3 server configured.")
+        err(
+            "Use HOP3_SERVER=hop3@MYSERVER.NET or configure a git remote called 'hop3'.\n"
+        )
         return
 
-    parsed = context.rpc("cli", args)
-    match parsed:
-        case Ok(result=result):
-            Printer().print(result)
-        case Error(message=message):
-            print("Error:\n", message)
+    server, app = REMOTE.split(":")
+    sshflags = " ".join(arg for arg in args if arg.startswith("-"))
+    args = [arg for arg in args if not arg.startswith("-")]
+
+    cmd = args[0] if args else ""
+    err("Server:", server)
+    err("App:", app)
+    err()
+
+    if cmd in {"", "apps", "setup", "setup:ssh", "update"}:
+        cmd = f"ssh -o LogLevel=QUIET {sshflags} {server} {' '.join(args)}"
+        run(cmd)
+        if cmd == "":
+            print(
+                "  shell             Local command to start an SSH session in the remote."
+            )
+    elif cmd == "shell":
+        run(f"ssh -t {server} run {app} bash")
+    else:
+        args.pop(0)  # Remove cmd arg
+        run(f"ssh {sshflags} {server} {cmd} {app} {' '.join(args)}")
 
 
-def parse_args(args) -> argparse.Namespace:
-    parser = make_parser()
-    return parser.parse_args(args)
-
-
-def make_parser():
-    parser = argparse.ArgumentParser(description="Hop3 CLI")
-    parser.add_argument(
-        "--config-file",
-        help="Path to the configuration file",
-        default=None,
-    )
-    parser.add_argument(
-        "args",
-        default=[],
-        nargs=argparse.REMAINDER,
-    )
-    return parser
-
-
-def debug_cmd(args, context) -> None:
-    config = context.config
-    env = dict(sorted([(k, v) for k, v in os.environ.items() if k.startswith("HOP3_")]))
-    debug(
-        args,
-        env,
-        dict(sorted(config.data.items())),
-    )
+if __name__ == "__main__":
+    main()

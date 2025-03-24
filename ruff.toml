@@ -31,13 +31,17 @@ lint.extend-ignore = [
     "T20", # flake8-print
     "TD", # flake8-todos
     "DOC", # pydocstyle
+    "CPY", # Copyright
 
     # False positive, don't remove
-    "A005", # Module ... is shadowing a Python builtin module
+    "A004", # ... is shadowing a Python standard library module
+    "A005", # ... is shadowing a Python builtin module
     "COM812", # Missing trailing comma
     "ISC001", # (The following rules may cause conflicts when used with the formatter)
     "PGH003", # Use specific rule codes when ignoring type issues
+    "PLC0414", # Import alias does not rename original package
     "PLC0415", # `import` should be at the top-level of a file
+    "PLC1901", # An empty string is falsey; consider using `not s` if this is intended
     "PLR0913", # Too many arguments
     "PLR6301", # Method could be a function
     "PLW1514", # `pathlib.Path(...).write_text` without explicit `encoding` argument
@@ -52,7 +56,7 @@ lint.extend-ignore = [
     "E501", # Line too long
     "B904", # Use raise ... from ...
     "B909", # Mutation to loop iterable during iteration
-    "RUF035", # Unsafe use of Markup
+    "S704", # Unsafe use of Markup
     "RUF039", # First argument to `re.search()` is not raw string
 ]
 
@@ -64,6 +68,7 @@ max-complexity = 12
 [lint.isort]
 combine-as-imports = true
 required-imports = ["from __future__ import annotations"]
+known-first-party = ["hop3"]
 
 [lint.per-file-ignores]
 "**/src/**/*.py" = [

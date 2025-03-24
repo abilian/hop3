@@ -1,0 +1,1371 @@
+{
+  "components": [
+    {
+      "bom-ref": "requirements-L1",
+      "description": "requirements line 1: advanced-alchemy==0.25.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/advanced-alchemy/"
+        }
+      ],
+      "name": "advanced-alchemy",
+      "purl": "pkg:pypi/advanced-alchemy@0.25.0",
+      "type": "library",
+      "version": "0.25.0"
+    },
+    {
+      "bom-ref": "requirements-L2",
+      "description": "requirements line 2: alembic==1.14.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/alembic/"
+        }
+      ],
+      "name": "alembic",
+      "purl": "pkg:pypi/alembic@1.14.0",
+      "type": "library",
+      "version": "1.14.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L3",
+      "description": "requirements line 3: anyio==4.6.2.post1",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/anyio/"
+        }
+      ],
+      "name": "anyio",
+      "purl": "pkg:pypi/anyio@4.6.2.post1",
+      "type": "library",
+      "version": "4.6.2.post1",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L4",
+      "description": "requirements line 4: asttokens==2.4.1",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/asttokens/"
+        }
+      ],
+      "name": "asttokens",
+      "purl": "pkg:pypi/asttokens@2.4.1",
+      "type": "library",
+      "version": "2.4.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L5",
+      "description": "requirements line 5: attrs==24.2.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/attrs/"
+        }
+      ],
+      "name": "attrs",
+      "purl": "pkg:pypi/attrs@24.2.0",
+      "type": "library",
+      "version": "24.2.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L6",
+      "description": "requirements line 6: bcrypt==4.2.1",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/bcrypt/"
+        }
+      ],
+      "name": "bcrypt",
+      "purl": "pkg:pypi/bcrypt@4.2.1",
+      "type": "library",
+      "version": "4.2.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L7",
+      "description": "requirements line 7: blinker==1.9.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/blinker/"
+        }
+      ],
+      "name": "blinker",
+      "purl": "pkg:pypi/blinker@1.9.0",
+      "type": "library",
+      "version": "1.9.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L8",
+      "description": "requirements line 8: certifi==2024.8.30",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/certifi/"
+        }
+      ],
+      "name": "certifi",
+      "purl": "pkg:pypi/certifi@2024.8.30",
+      "type": "library",
+      "version": "2024.8.30",
+      "licenses": [
+        {
+          "license": {
+            "id": "MPL-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L9",
+      "description": "requirements line 9: cffi==1.17.1",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/cffi/"
+        }
+      ],
+      "name": "cffi",
+      "purl": "pkg:pypi/cffi@1.17.1",
+      "type": "library",
+      "version": "1.17.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L10",
+      "description": "requirements line 10: cheap-repr==0.5.2",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/cheap-repr/"
+        }
+      ],
+      "name": "cheap-repr",
+      "purl": "pkg:pypi/cheap-repr@0.5.2",
+      "type": "library",
+      "version": "0.5.2",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L11",
+      "description": "requirements line 11: click==8.1.7",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/click/"
+        }
+      ],
+      "name": "click",
+      "purl": "pkg:pypi/click@8.1.7",
+      "type": "library",
+      "version": "8.1.7",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause AND BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L12",
+      "description": "requirements line 12: cryptography==44.0.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/cryptography/"
+        }
+      ],
+      "name": "cryptography",
+      "purl": "pkg:pypi/cryptography@44.0.0",
+      "type": "library",
+      "version": "44.0.0"
+    },
+    {
+      "bom-ref": "requirements-L13",
+      "description": "requirements line 13: devtools==0.12.2",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/devtools/"
+        }
+      ],
+      "name": "devtools",
+      "purl": "pkg:pypi/devtools@0.12.2",
+      "type": "library",
+      "version": "0.12.2",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L14",
+      "description": "requirements line 14: dnspython==2.7.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/dnspython/"
+        }
+      ],
+      "name": "dnspython",
+      "purl": "pkg:pypi/dnspython@2.7.0",
+      "type": "library",
+      "version": "2.7.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L15",
+      "description": "requirements line 15: email-validator==2.2.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/email-validator/"
+        }
+      ],
+      "name": "email-validator",
+      "purl": "pkg:pypi/email-validator@2.2.0",
+      "type": "library",
+      "version": "2.2.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "Unlicense"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L16",
+      "description": "requirements line 16: executing==2.1.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/executing/"
+        }
+      ],
+      "name": "executing",
+      "purl": "pkg:pypi/executing@2.1.0",
+      "type": "library",
+      "version": "2.1.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L17",
+      "description": "requirements line 17: flask==3.1.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/flask/"
+        }
+      ],
+      "name": "flask",
+      "purl": "pkg:pypi/flask@3.1.0",
+      "type": "library",
+      "version": "3.1.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause AND BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L18",
+      "description": "requirements line 18: flask-login==0.6.3",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/flask-login/"
+        }
+      ],
+      "name": "flask-login",
+      "purl": "pkg:pypi/flask-login@0.6.3",
+      "type": "library",
+      "version": "0.6.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L19",
+      "description": "requirements line 19: flask-principal==0.4.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/flask-principal/"
+        }
+      ],
+      "name": "flask-principal",
+      "purl": "pkg:pypi/flask-principal@0.4.0",
+      "type": "library",
+      "version": "0.4.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L20",
+      "description": "requirements line 20: flask-security-too==5.5.2",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/flask-security-too/"
+        }
+      ],
+      "name": "flask-security-too",
+      "purl": "pkg:pypi/flask-security-too@5.5.2",
+      "type": "library",
+      "version": "5.5.2",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L21",
+      "description": "requirements line 21: flask-wtf==1.2.2",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/flask-wtf/"
+        }
+      ],
+      "name": "flask-wtf",
+      "purl": "pkg:pypi/flask-wtf@1.2.2",
+      "type": "library",
+      "version": "1.2.2",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause AND MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L22",
+      "description": "requirements line 22: greenlet==3.1.1",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/greenlet/"
+        }
+      ],
+      "name": "greenlet",
+      "purl": "pkg:pypi/greenlet@3.1.1",
+      "type": "library",
+      "version": "3.1.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT AND PSF-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L23",
+      "description": "requirements line 23: h11==0.14.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/h11/"
+        }
+      ],
+      "name": "h11",
+      "purl": "pkg:pypi/h11@0.14.0",
+      "type": "library",
+      "version": "0.14.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L24",
+      "description": "requirements line 24: hop3-agent==0.3",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/hop3-agent/"
+        }
+      ],
+      "name": "hop3-agent",
+      "purl": "pkg:pypi/hop3-agent@0.3",
+      "type": "library",
+      "version": "0.3"
+    },
+    {
+      "bom-ref": "requirements-L25",
+      "description": "requirements line 25: hop3-testing==0.3.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/hop3-testing/"
+        }
+      ],
+      "name": "hop3-testing",
+      "purl": "pkg:pypi/hop3-testing@0.3.0",
+      "type": "library",
+      "version": "0.3.0"
+    },
+    {
+      "bom-ref": "requirements-L26",
+      "description": "requirements line 26: httpcore==1.0.7",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/httpcore/"
+        }
+      ],
+      "name": "httpcore",
+      "purl": "pkg:pypi/httpcore@1.0.7",
+      "type": "library",
+      "version": "1.0.7",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L27",
+      "description": "requirements line 27: httpx==0.27.2",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/httpx/"
+        }
+      ],
+      "name": "httpx",
+      "purl": "pkg:pypi/httpx@0.27.2",
+      "type": "library",
+      "version": "0.27.2",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause AND BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L28",
+      "description": "requirements line 28: idna==3.10",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/idna/"
+        }
+      ],
+      "name": "idna",
+      "purl": "pkg:pypi/idna@3.10",
+      "type": "library",
+      "version": "3.10",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause AND BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L29",
+      "description": "requirements line 29: importlib-resources==6.4.5",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/importlib-resources/"
+        }
+      ],
+      "name": "importlib-resources",
+      "purl": "pkg:pypi/importlib-resources@6.4.5",
+      "type": "library",
+      "version": "6.4.5",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L30",
+      "description": "requirements line 30: invoke==2.2.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/invoke/"
+        }
+      ],
+      "name": "invoke",
+      "purl": "pkg:pypi/invoke@2.2.0",
+      "type": "library",
+      "version": "2.2.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L31",
+      "description": "requirements line 31: itsdangerous==2.2.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/itsdangerous/"
+        }
+      ],
+      "name": "itsdangerous",
+      "purl": "pkg:pypi/itsdangerous@2.2.0",
+      "type": "library",
+      "version": "2.2.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause AND BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L32",
+      "description": "requirements line 32: jinja2==3.1.4",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/jinja2/"
+        }
+      ],
+      "name": "jinja2",
+      "purl": "pkg:pypi/jinja2@3.1.4",
+      "type": "library",
+      "version": "3.1.4",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause AND BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L33",
+      "description": "requirements line 33: mako==1.3.6",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/mako/"
+        }
+      ],
+      "name": "mako",
+      "purl": "pkg:pypi/mako@1.3.6",
+      "type": "library",
+      "version": "1.3.6",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L34",
+      "description": "requirements line 34: markupsafe==3.0.2",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/markupsafe/"
+        }
+      ],
+      "name": "markupsafe",
+      "purl": "pkg:pypi/markupsafe@3.0.2",
+      "type": "library",
+      "version": "3.0.2",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause AND BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L35",
+      "description": "requirements line 35: paramiko==3.5.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/paramiko/"
+        }
+      ],
+      "name": "paramiko",
+      "purl": "pkg:pypi/paramiko@3.5.0",
+      "type": "library",
+      "version": "3.5.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "LGPL-2.1-or-later"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L36",
+      "description": "requirements line 36: passlib==1.7.4",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/passlib/"
+        }
+      ],
+      "name": "passlib",
+      "purl": "pkg:pypi/passlib@1.7.4",
+      "type": "library",
+      "version": "1.7.4",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L37",
+      "description": "requirements line 37: pluggy==1.5.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/pluggy/"
+        }
+      ],
+      "name": "pluggy",
+      "purl": "pkg:pypi/pluggy@1.5.0",
+      "type": "library",
+      "version": "1.5.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L38",
+      "description": "requirements line 38: psycopg2==2.9.10",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/psycopg2/"
+        }
+      ],
+      "name": "psycopg2",
+      "purl": "pkg:pypi/psycopg2@2.9.10",
+      "type": "library",
+      "version": "2.9.10",
+      "licenses": [
+        {
+          "license": {
+            "id": "LGPL-3.0-or-later AND NOASSERTION AND Zlib"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L39",
+      "description": "requirements line 39: pycparser==2.22",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/pycparser/"
+        }
+      ],
+      "name": "pycparser",
+      "purl": "pkg:pypi/pycparser@2.22",
+      "type": "library",
+      "version": "2.22",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause AND BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L40",
+      "description": "requirements line 40: pygments==2.18.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/pygments/"
+        }
+      ],
+      "name": "pygments",
+      "purl": "pkg:pypi/pygments@2.18.0",
+      "type": "library",
+      "version": "2.18.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L41",
+      "description": "requirements line 41: pynacl==1.5.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/pynacl/"
+        }
+      ],
+      "name": "pynacl",
+      "purl": "pkg:pypi/pynacl@1.5.0",
+      "type": "library",
+      "version": "1.5.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L42",
+      "description": "requirements line 42: python-dotenv==1.0.1",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/python-dotenv/"
+        }
+      ],
+      "name": "python-dotenv",
+      "purl": "pkg:pypi/python-dotenv@1.0.1",
+      "type": "library",
+      "version": "1.0.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause AND BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L43",
+      "description": "requirements line 43: six==1.16.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/six/"
+        }
+      ],
+      "name": "six",
+      "purl": "pkg:pypi/six@1.16.0",
+      "type": "library",
+      "version": "1.16.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L44",
+      "description": "requirements line 44: sniffio==1.3.1",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/sniffio/"
+        }
+      ],
+      "name": "sniffio",
+      "purl": "pkg:pypi/sniffio@1.3.1",
+      "type": "library",
+      "version": "1.3.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0 OR (Apache-2.0 AND MIT)"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L45",
+      "description": "requirements line 45: snoop==0.6.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/snoop/"
+        }
+      ],
+      "name": "snoop",
+      "purl": "pkg:pypi/snoop@0.6.0",
+      "type": "library",
+      "version": "0.6.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L46",
+      "description": "requirements line 46: sqlalchemy==2.0.36",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/sqlalchemy/"
+        }
+      ],
+      "name": "sqlalchemy",
+      "purl": "pkg:pypi/sqlalchemy@2.0.36",
+      "type": "library",
+      "version": "2.0.36",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L47",
+      "description": "requirements line 47: termcolor==2.5.0",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/termcolor/"
+        }
+      ],
+      "name": "termcolor",
+      "purl": "pkg:pypi/termcolor@2.5.0",
+      "type": "library",
+      "version": "2.5.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L48",
+      "description": "requirements line 48: tomlkit==0.13.2",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/tomlkit/"
+        }
+      ],
+      "name": "tomlkit",
+      "purl": "pkg:pypi/tomlkit@0.13.2",
+      "type": "library",
+      "version": "0.13.2",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L49",
+      "description": "requirements line 49: typing-extensions==4.12.2",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/typing-extensions/"
+        }
+      ],
+      "name": "typing-extensions",
+      "purl": "pkg:pypi/typing-extensions@4.12.2",
+      "type": "library",
+      "version": "4.12.2",
+      "licenses": [
+        {
+          "license": {
+            "id": "Python-2.0 AND Python-2.0 AND BSD-3-Clause AND Python-2.0 AND BSD-3-Clause AND 0BSD"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L50",
+      "description": "requirements line 50: werkzeug==3.1.3",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/werkzeug/"
+        }
+      ],
+      "name": "werkzeug",
+      "purl": "pkg:pypi/werkzeug@3.1.3",
+      "type": "library",
+      "version": "3.1.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause AND BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "requirements-L51",
+      "description": "requirements line 51: wtforms==3.2.1",
+      "externalReferences": [
+        {
+          "comment": "implicit dist url",
+          "type": "distribution",
+          "url": "https://pypi.org/simple/wtforms/"
+        }
+      ],
+      "name": "wtforms",
+      "purl": "pkg:pypi/wtforms@3.2.1",
+      "type": "library",
+      "version": "3.2.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause AND MIT"
+          }
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "requirements-L1"
+    },
+    {
+      "ref": "requirements-L10"
+    },
+    {
+      "ref": "requirements-L11"
+    },
+    {
+      "ref": "requirements-L12"
+    },
+    {
+      "ref": "requirements-L13"
+    },
+    {
+      "ref": "requirements-L14"
+    },
+    {
+      "ref": "requirements-L15"
+    },
+    {
+      "ref": "requirements-L16"
+    },
+    {
+      "ref": "requirements-L17"
+    },
+    {
+      "ref": "requirements-L18"
+    },
+    {
+      "ref": "requirements-L19"
+    },
+    {
+      "ref": "requirements-L2"
+    },
+    {
+      "ref": "requirements-L20"
+    },
+    {
+      "ref": "requirements-L21"
+    },
+    {
+      "ref": "requirements-L22"
+    },
+    {
+      "ref": "requirements-L23"
+    },
+    {
+      "ref": "requirements-L24"
+    },
+    {
+      "ref": "requirements-L25"
+    },
+    {
+      "ref": "requirements-L26"
+    },
+    {
+      "ref": "requirements-L27"
+    },
+    {
+      "ref": "requirements-L28"
+    },
+    {
+      "ref": "requirements-L29"
+    },
+    {
+      "ref": "requirements-L3"
+    },
+    {
+      "ref": "requirements-L30"
+    },
+    {
+      "ref": "requirements-L31"
+    },
+    {
+      "ref": "requirements-L32"
+    },
+    {
+      "ref": "requirements-L33"
+    },
+    {
+      "ref": "requirements-L34"
+    },
+    {
+      "ref": "requirements-L35"
+    },
+    {
+      "ref": "requirements-L36"
+    },
+    {
+      "ref": "requirements-L37"
+    },
+    {
+      "ref": "requirements-L38"
+    },
+    {
+      "ref": "requirements-L39"
+    },
+    {
+      "ref": "requirements-L4"
+    },
+    {
+      "ref": "requirements-L40"
+    },
+    {
+      "ref": "requirements-L41"
+    },
+    {
+      "ref": "requirements-L42"
+    },
+    {
+      "ref": "requirements-L43"
+    },
+    {
+      "ref": "requirements-L44"
+    },
+    {
+      "ref": "requirements-L45"
+    },
+    {
+      "ref": "requirements-L46"
+    },
+    {
+      "ref": "requirements-L47"
+    },
+    {
+      "ref": "requirements-L48"
+    },
+    {
+      "ref": "requirements-L49"
+    },
+    {
+      "ref": "requirements-L5"
+    },
+    {
+      "ref": "requirements-L50"
+    },
+    {
+      "ref": "requirements-L51"
+    },
+    {
+      "ref": "requirements-L6"
+    },
+    {
+      "ref": "requirements-L7"
+    },
+    {
+      "ref": "requirements-L8"
+    },
+    {
+      "ref": "requirements-L9"
+    },
+    {
+      "ref": "root-component"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "bom-ref": "root-component",
+      "description": "Simple PaaS - Deploy and manage web applications on a single server",
+      "name": "hop3",
+      "type": "application",
+      "version": "0.2.2"
+    },
+    "timestamp": "2024-11-28T09:55:49.733249+00:00",
+    "tools": {
+      "components": [
+        {
+          "description": "CycloneDX Software Bill of Materials (SBOM) generator for Python projects and environments",
+          "externalReferences": [
+            {
+              "type": "build-system",
+              "url": "https://github.com/CycloneDX/cyclonedx-python/actions"
+            },
+            {
+              "type": "distribution",
+              "url": "https://pypi.org/project/cyclonedx-bom/"
+            },
+            {
+              "type": "documentation",
+              "url": "https://cyclonedx-bom-tool.readthedocs.io/"
+            },
+            {
+              "type": "issue-tracker",
+              "url": "https://github.com/CycloneDX/cyclonedx-python/issues"
+            },
+            {
+              "type": "license",
+              "url": "https://github.com/CycloneDX/cyclonedx-python/blob/main/LICENSE"
+            },
+            {
+              "type": "release-notes",
+              "url": "https://github.com/CycloneDX/cyclonedx-python/blob/main/CHANGELOG.md"
+            },
+            {
+              "type": "vcs",
+              "url": "https://github.com/CycloneDX/cyclonedx-python/"
+            },
+            {
+              "type": "website",
+              "url": "https://github.com/CycloneDX/cyclonedx-python/#readme"
+            }
+          ],
+          "group": "CycloneDX",
+          "licenses": [
+            {
+              "license": {
+                "id": "Apache-2.0"
+              }
+            }
+          ],
+          "name": "cyclonedx-py",
+          "type": "application",
+          "version": "5.1.1"
+        },
+        {
+          "description": "Python library for CycloneDX",
+          "externalReferences": [
+            {
+              "type": "build-system",
+              "url": "https://github.com/CycloneDX/cyclonedx-python-lib/actions"
+            },
+            {
+              "type": "distribution",
+              "url": "https://pypi.org/project/cyclonedx-python-lib/"
+            },
+            {
+              "type": "documentation",
+              "url": "https://cyclonedx-python-library.readthedocs.io/"
+            },
+            {
+              "type": "issue-tracker",
+              "url": "https://github.com/CycloneDX/cyclonedx-python-lib/issues"
+            },
+            {
+              "type": "license",
+              "url": "https://github.com/CycloneDX/cyclonedx-python-lib/blob/main/LICENSE"
+            },
+            {
+              "type": "release-notes",
+              "url": "https://github.com/CycloneDX/cyclonedx-python-lib/blob/main/CHANGELOG.md"
+            },
+            {
+              "type": "vcs",
+              "url": "https://github.com/CycloneDX/cyclonedx-python-lib"
+            },
+            {
+              "type": "website",
+              "url": "https://github.com/CycloneDX/cyclonedx-python-lib/#readme"
+            }
+          ],
+          "group": "CycloneDX",
+          "licenses": [
+            {
+              "license": {
+                "id": "Apache-2.0"
+              }
+            }
+          ],
+          "name": "cyclonedx-python-lib",
+          "type": "library",
+          "version": "8.5.0"
+        }
+      ]
+    }
+  },
+  "serialNumber": "urn:uuid:0cf4b71d-df66-426c-b3ce-70e96e605085",
+  "version": 1,
+  "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5"
+}
