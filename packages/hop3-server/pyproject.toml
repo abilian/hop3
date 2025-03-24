@@ -8,7 +8,7 @@ license = {text = "MIT"}
 requires-python = "<4.0,>=3.10"
 dependencies = [
     # Web / app server
-    "granian<2.0.0,>=1.5.2",
+    "granian>=2,<3",
     "starlette>=0.40",
     # Utils
     "attrs",
