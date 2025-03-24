@@ -1,15 +1,16 @@
+from __future__ import annotations
+
 import itertools
 import os
+import sys
 from pathlib import Path
 from types import ModuleType
 
 from pluggy import PluginManager
-import sys
-from typing import List
 
-pm = PluginManager("djp")
-pm.add_hookspecs(hookspecs)
-pm.load_setuptools_entrypoints("djp")
+pm = PluginManager("hop3")
+# pm.add_hookspecs(hookspecs)
+pm.load_setuptools_entrypoints("hop3")
 
 
 def _module_from_path(path: Path, name: str):
@@ -22,7 +23,7 @@ def _module_from_path(path: Path, name: str):
     return module
 
 
-plugins_dir = os.environ.get("DJP_PLUGINS_DIR")
+plugins_dir = os.environ.get("HOP3_PLUGINS_DIR")
 if plugins_dir:
     for filepath in Path(plugins_dir).glob("*.py"):
         mod = _module_from_path(filepath, name=filepath.stem)
@@ -31,7 +32,6 @@ if plugins_dir:
         except ValueError as ex:
             print(ex, file=sys.stderr)
             # Plugin already registered
-            pass
 
 
 class Before:
@@ -52,11 +52,11 @@ class Position:
         self.after = after
 
 
-def installed_apps() -> List[str]:
+def installed_apps() -> list[str]:
     return ["djp"] + list(itertools.chain(*pm.hook.installed_apps()))
 
 
-def middleware(current_middleware: List[str]):
+def middleware(current_middleware: list[str]):
     before = []
     after = []
     default = []

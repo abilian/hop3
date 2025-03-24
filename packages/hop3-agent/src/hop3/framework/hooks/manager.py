@@ -1,6 +1,7 @@
 """This module provides an utility function to retrieve the global hook_manager singleton
 in a Hop3's execution process.
 """
+from __future__ import annotations
 
 import logging
 from collections.abc import Iterable
@@ -9,13 +10,8 @@ from typing import Any
 from pluggy import PluginManager
 
 from .markers import HOOK_NAMESPACE
-from .specs import (
-    DataCatalogSpecs,
-    DatasetSpecs,
-    KedroContextSpecs,
-    NodeSpecs,
-    PipelineSpecs,
-)
+
+# TODO: from .specs import ...
 
 _PLUGIN_HOOKS = "hop3.hooks"
 """Entry-point to load hooks from for installed plugins"""
@@ -28,11 +24,8 @@ def _create_hook_manager() -> PluginManager:
     pm = PluginManager(HOOK_NAMESPACE)
     pm.trace.root.setwriter(logger.debug)
     pm.enable_tracing()
-    pm.add_hookspecs(NodeSpecs)
-    pm.add_hookspecs(PipelineSpecs)
-    pm.add_hookspecs(DataCatalogSpecs)
-    pm.add_hookspecs(DatasetSpecs)
-    pm.add_hookspecs(KedroContextSpecs)
+    # TODO: add hook specs
+    # pm.add_hookspecs(...)
     return pm
 
 

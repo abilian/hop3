@@ -3,6 +3,7 @@
 For more information, please see
 [Pluggy's documentation](https://pluggy.readthedocs.io/en/stable/#marking-hooks).
 """
+from __future__ import annotations
 
 import pluggy
 
