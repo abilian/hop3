@@ -1868,7 +1868,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = "~=2.0" },
     { name = "termcolor", specifier = ">=2.5.0" },
     { name = "toml", specifier = ">=0.10.2" },
-    { name = "wireup", specifier = ">=0.16.0,<1" },
+    { name = "wireup", specifier = "~=1.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -4492,11 +4492,14 @@ wheels = [
 
 [[package]]
 name = "wireup"
-version = "0.16.0"
+version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d0/6f/c3e35097ec81fe4b939bcdf4e0b6a2f7ae52c1cc2648d382e445e142eb9f/wireup-0.16.0.tar.gz", hash = "sha256:9a266eabb7c0fb440fd9297be20c326ac7925e670d95914384d8e71ecb4ba6f0", size = 26149 }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6b/54/c68d45f75f078011a04b6abec6abd4e3743ac459bcd4672f72ebcf1bf06d/wireup-1.0.0.tar.gz", hash = "sha256:d878ae1135fb9d58e9adca055e0b81a354c4f7910ff2cdb0a4ada968252a15b4", size = 24368 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/11/32/a2b438f2fa00931d9dbf1ab1b8630dcb3111b47905fc5751402cc32ddfcf/wireup-0.16.0-py3-none-any.whl", hash = "sha256:674d1497b302df48736795ad13859752c97e6df7fb6a0368b26559b356418875", size = 32401 },
+    { url = "https://files.pythonhosted.org/packages/8f/b3/3bebed02555dffed5ab6e52cfba50464909abaf1dd3ea9473d34571b585f/wireup-1.0.0-py3-none-any.whl", hash = "sha256:7aa3a880693163dafd09c68693937241e82192466fcf3d603e153b4f9b88b648", size = 29903 },
 ]
 
 [[package]]
