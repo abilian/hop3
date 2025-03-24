@@ -1868,7 +1868,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = "~=2.0" },
     { name = "termcolor", specifier = ">=2.5.0" },
     { name = "toml", specifier = ">=0.10.2" },
-    { name = "wireup", specifier = ">=0.16.0" },
+    { name = "wireup", specifier = ">=0.16.0,<1" },
 ]
 
 [package.metadata.requires-dev]
@@ -3889,15 +3889,15 @@ wheels = [
 
 [[package]]
 name = "sentry-sdk"
-version = "2.24.0"
+version = "2.24.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fe/c6/61d3d5eecca9f0237251a89043d1bfa3fbeb4e35d48c1cbba2f6dde72664/sentry_sdk-2.24.0.tar.gz", hash = "sha256:4a4a8de31573c8ab14c9b866fd44cf783df062ca7b4a56ed0a108453abbc2a24", size = 317058 }
+sdist = { url = "https://files.pythonhosted.org/packages/f1/ef/4847dcd63e3f3c451cf701a825d21200f1322d46ac97586d5c90a13dfea1/sentry_sdk-2.24.1.tar.gz", hash = "sha256:8ba3c29990fa48865b908b3b9dc5ae7fa7e72407c7c9e91303e5206b32d7b8b1", size = 318124 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c4/5d/dbfbda95daa8fdb22276513f930269149b338b67efb9ebf24ebf6d62ca9a/sentry_sdk-2.24.0-py2.py3-none-any.whl", hash = "sha256:7150cfe61dfd37d30b33d8d6b153d25e14c69bbcf6f4a98ffc97e92de88be215", size = 336890 },
+    { url = "https://files.pythonhosted.org/packages/65/95/91137ffe7a5956496155af5ffbe45ee4ddfa795a569136147e766abd14b1/sentry_sdk-2.24.1-py2.py3-none-any.whl", hash = "sha256:36baa6a1128b9d98d2adc5e9b2f887eff0a6af558fc2b96ed51919042413556d", size = 336945 },
 ]
 
 [[package]]
@@ -4492,14 +4492,11 @@ wheels = [
 
 [[package]]
 name = "wireup"
-version = "1.0.0"
+version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6b/54/c68d45f75f078011a04b6abec6abd4e3743ac459bcd4672f72ebcf1bf06d/wireup-1.0.0.tar.gz", hash = "sha256:d878ae1135fb9d58e9adca055e0b81a354c4f7910ff2cdb0a4ada968252a15b4", size = 24368 }
+sdist = { url = "https://files.pythonhosted.org/packages/d0/6f/c3e35097ec81fe4b939bcdf4e0b6a2f7ae52c1cc2648d382e445e142eb9f/wireup-0.16.0.tar.gz", hash = "sha256:9a266eabb7c0fb440fd9297be20c326ac7925e670d95914384d8e71ecb4ba6f0", size = 26149 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8f/b3/3bebed02555dffed5ab6e52cfba50464909abaf1dd3ea9473d34571b585f/wireup-1.0.0-py3-none-any.whl", hash = "sha256:7aa3a880693163dafd09c68693937241e82192466fcf3d603e153b4f9b88b648", size = 29903 },
+    { url = "https://files.pythonhosted.org/packages/11/32/a2b438f2fa00931d9dbf1ab1b8630dcb3111b47905fc5751402cc32ddfcf/wireup-0.16.0-py3-none-any.whl", hash = "sha256:674d1497b302df48736795ad13859752c97e6df7fb6a0368b26559b356418875", size = 32401 },
 ]
 
 [[package]]
