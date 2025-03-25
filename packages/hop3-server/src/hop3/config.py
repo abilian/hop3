@@ -1,6 +1,7 @@
 # Copyright (c) 2024-2025, Abilian SAS
 from __future__ import annotations
 
+# ruff: noqa: FBT003
 import os
 import re
 

@@ -32,7 +32,7 @@ tasks:
 
   - lint: |
       cd hop3
-      uv run make lint
+      uv run just lint
 
   - test: |
       cd hop3

@@ -129,5 +129,6 @@ warn_unused_ignores = true
 check_untyped_defs = true
 
 exclude = [
-  "^packages/hop3-agent/src/hop3/builders/java\\.py$",
+  "^packages/hop3-server/src/hop3/builders/java\\.py$",
+  "^packages/hop3-server/src/hop3/server/old_cli/.*\\.py$",
 ]

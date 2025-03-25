@@ -1,9 +1,5 @@
-# Copyright (c) 2023-2025, Abilian SAS
+# Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
-
-PACKAGES = [
-    "hop3.server.commands",
-]
 
 
 class Command:

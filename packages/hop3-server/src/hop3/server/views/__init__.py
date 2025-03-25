@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
 from .rpc import setup as rpc_setup

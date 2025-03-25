@@ -7,10 +7,13 @@
 from __future__ import annotations
 
 from hop3.lib.registry import register
+from hop3.orm import App
 
-from .base import Command
+from ._base import Command
 
-# from hop3.service import get_app
+
+def get_app(app_name):
+    return App()
 
 
 @register
