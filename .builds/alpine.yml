@@ -24,6 +24,7 @@ packages:
   - uv
   # Docker
   - buildah
+  - netavark
   - docker
 
 tasks:
