@@ -16,9 +16,9 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from hop3 import config as c
-from hop3.server.commands.registry import command
-from hop3.oses.ubuntu2204 import setup_system
 from hop3.lib import Abort, echo
+from hop3.oses.ubuntu2204 import setup_system
+from hop3.server.commands.registry import command
 
 
 @command

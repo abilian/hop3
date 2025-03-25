@@ -36,7 +36,7 @@ dev = [
 ]
 
 [project.scripts]
-hop-server = "hop3.main:main"
+hop-server = "hop3.server.cli:main"
 
 # ----------------------------------------
 

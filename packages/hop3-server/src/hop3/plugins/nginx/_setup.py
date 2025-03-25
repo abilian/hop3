@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING
 from hop3.config import ACME_WWW, CACHE_ROOT, NGINX_ROOT
 from hop3.container import container
 from hop3.core.protocols import Proxy
-from hop3.services.certificates import CertificatesManager
 from hop3.lib import command_output, expand_vars, log
+from hop3.services.certificates import CertificatesManager
 
 from ._templates import (
     HOP3_INTERNAL_NGINX_CACHE_MAPPING,
