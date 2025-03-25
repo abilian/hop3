@@ -5,29 +5,25 @@ from __future__ import annotations
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from hop3.lib.decorators import command
+from hop3.lib.registry import register
 from hop3.server.asgi import create_app
 
-# import app.config as config_module
-# from app.lib.decorators import command
-# from app.server import serve
 
-
-@command
+@register
 def run():
     """Runs the server."""
     print("Running server")
     serve()
 
 
-@command
+@register
 def routes():
     """Lists all routes."""
     app = create_app()
     _list_routes(app)
 
 
-@command
+@register
 def config():
     """Prints the configuration."""
     for key in sorted(vars(config_module)):

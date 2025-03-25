@@ -23,10 +23,10 @@ description = ""
 readme = "README.md"
 
 [project.scripts]
-hop = "hop3.cli.main:main"
+hop = "hop3_cli.main:main"
 
 [tool.pdm.build]
-includes = ["src/hop3"]
+includes = ["src/hop3_cli"]
 
 [build-system]
 requires = ["pdm-backend"]
