@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
@@ -11,6 +11,7 @@ packages:
   - rust
   - cargo
   - npm
+  - just
   # Libraries
   - libffi-dev
   - musl-dev
@@ -32,15 +33,15 @@ tasks:
 
   - lint: |
       cd hop3
-      uv run just lint
+      just lint
 
   - test: |
       cd hop3
-      uv run make test
+      just test
 
   - nox: |
       cd hop3
-      uv run nox -e pytest-3.12
+      nox -e pytest-3.12
 
   - buildah: |
       cd hop3

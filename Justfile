@@ -60,8 +60,12 @@ test-with-typeguard:
 
 # Lint / check typing
 lint:
-    # We keep 'make lint' in the Makefile for now, because it's used in CI.
-    make lint
+    uv run ruff check packages/*/src packages/*/tests
+    # uv run pyright packages/hop3-server
+    # uv run mypy packages/hop3-server
+    uv run reuse lint -q
+    cd packages/hop3-server && uv run deptry src
+    # vulture --min-confidence 80 packages/hop3-agent/src
 
 audit:
     # We're using `nox` to run the audit tools because we don't want
