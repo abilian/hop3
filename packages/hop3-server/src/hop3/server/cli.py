@@ -5,9 +5,6 @@
 
 from __future__ import annotations
 
-from hop3.lib.registry import registry
-from hop3.server.commands.help import Help, print_help
-
 # import os
 # import sys
 # import traceback
@@ -46,30 +43,16 @@ from hop3.server.commands.help import Help, print_help
 #
 # if __name__ == "__main__":
 #     main()
-
-
-# Copyright (c) 2024-2025, Abilian SAS
-
-"""Main entry point for the Hop3 CLI.
-
-This module provides the main entry point for the Hop3 CLI. It defines
-the main function that is called when the CLI is invoked from the
-command line.
-
-The main function parses command-line arguments, creates a parser (using
-the argparse module), and invokes the appropriate command based on the
-parsed arguments.
-"""
-
-
 import inspect
 import sys
 from argparse import ArgumentParser
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from hop3.lib.registry import registry
 from hop3.lib.scanner import scan_package
 from hop3.orm import AppRepository, get_session_factory
+from hop3.server.commands.help import Help, print_help
 
 if TYPE_CHECKING:
     from hop3.orm import App

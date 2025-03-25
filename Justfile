@@ -72,10 +72,9 @@ audit:
 # Formatting
 format:
     uv run ruff format packages/*/src packages/*/tests
-    #uv run ruff check --fix packages/*/src packages/*/tests
-    uv run ruff check --fix packages/hop3-agent/src packages/hop3-agent/tests
-    uv run markdown-toc -i README.md
-    python scripts/update-copyright.py
+#    uv run ruff check --fix packages/*/src packages/*/tests
+#    uv run markdown-toc -i README.md
+#    python scripts/update-copyright.py
 
 format-apps:
     bash -c "shopt -s globstar && gofmt -w apps/**/*.go"

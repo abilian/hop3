@@ -54,7 +54,7 @@ def scan_commands():
                 continue
             if obj == Command:
                 continue
-            command = cast(type[Command], obj)
+            command = cast("type[Command]", obj)
             if command.name:
                 name = command.name
             else:
