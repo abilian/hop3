@@ -61,8 +61,9 @@ class Help:
             bold("COMMANDS"),
         ]
 
-        # Iterate over the commands in the COMMAND_REGISTRY, sorted by the command's name
-        for cmd in sorted(COMMAND_REGISTRY.values(), key=lambda cmd: cmd.__name__):
+        commands = lookup(Command)
+        commands.sort(key=lambda cmd: cmd.__name__)
+        for cmd in commands:
             name = get_command_name(cmd)
 
             if ":" not in name:

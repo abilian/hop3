@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 # ruff: noqa: PLC2801
-from __future__ import annotations
 
 
 def setattr_frozen(self, key, value) -> None:

@@ -63,9 +63,7 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 command_list = shlex.split(command)
                 process = await asyncio.create_subprocess_exec(
-                    *command_list,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
+                    *command_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE
                 )
 
                 async def send_output(stream, output_type):
@@ -73,11 +71,13 @@ async def websocket_endpoint(websocket: WebSocket):
                         line = await stream.readline()
                         if not line:
                             break
-                        await websocket.send_text(f"{output_type}: {html.escape(line.decode())}")
+                        await websocket.send_text(
+                            f"{output_type}: {html.escape(line.decode())}"
+                        )
 
                 await asyncio.gather(
                     send_output(process.stdout, "stdout"),
-                    send_output(process.stderr, "stderr")
+                    send_output(process.stderr, "stderr"),
                 )
                 await process.wait()
 

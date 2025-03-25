@@ -7,8 +7,7 @@ from typing import TYPE_CHECKING
 
 from devtools import debug
 from starlette.exceptions import HTTPException
-from starlette.responses import JSONResponse, Response
-from starlette.routing import Route
+from starlette.responses import Response
 
 from hop3.server.commands.base import scan_commands
 
