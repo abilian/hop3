@@ -8,15 +8,6 @@
 all: lint test
 
 #
-# Run
-#
-run:
-	# granian --reload --interface asgi hop3_server.asgi:app
-	uvicorn --reload --interface asgi3 \
-		--ssl-keyfile ssl/key.pem --ssl-certfile ssl/cert.pem \
-		hop3_server.asgi:app
-
-#
 # Setup
 #
 
@@ -26,8 +17,7 @@ develop: install-deps activate-pre-commit configure-git
 install-deps:
 	@echo "--> Installing dependencies"
 	uv venv
-	uv pip install -U pip setuptools wheel
-	uv pip install -e .
+	uv sync
 	poetry install
 
 activate-pre-commit:
@@ -38,6 +28,9 @@ configure-git:
 	@echo "--> Configuring git"
 	git config branch.autosetuprebase always
 
+## Update dependencies
+update-deps:
+	uv sync -U
 
 #
 # testing & checking
@@ -88,7 +81,7 @@ lint:
 
 ## Run a security audit
 audit:
-	pip-audit
+	uvx run pip-audit
 	safety check
 
 
@@ -100,7 +93,7 @@ audit:
 ## Format / beautify code
 format:
 	# docformatter -i -r src
-	adt format
+	# adt format
 	ruff format src tests
 
 
@@ -143,10 +136,6 @@ tidy: clean
 	rm -rf .nox .tox
 	rm -rf node_modules
 	rm -rf instance
-
-## Update dependencies
-update-deps:
-	uv sync -U
 
 ## Publish to PyPI
 publish: clean
