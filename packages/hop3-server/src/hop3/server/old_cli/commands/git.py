@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import sys
 
-from hop3.server.commands.registry import command
 from hop3.core.git import GitManager
 from hop3.deploy import do_deploy
-from hop3.orm import App, AppRepository
 from hop3.lib import log, sanitize_app_name
+from hop3.orm import App, AppRepository
+from hop3.server.commands.registry import command
 
 
 @command

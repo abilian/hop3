@@ -16,8 +16,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from hop3 import config as c
 from hop3.core.env import Env
 from hop3.deploy import do_deploy
-from hop3.run.spawn import spawn_app
 from hop3.lib import Abort, log
+from hop3.run.spawn import spawn_app
 
 if TYPE_CHECKING:
     from .env import EnvVar

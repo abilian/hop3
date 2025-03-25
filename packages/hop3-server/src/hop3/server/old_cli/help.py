@@ -6,8 +6,8 @@ from importlib.metadata import version
 
 from attrs import frozen
 
-from hop3.server.commands.registry import COMMAND_REGISTRY
 from hop3.lib.console import bold
+from hop3.server.commands.registry import COMMAND_REGISTRY
 
 
 def print_help():

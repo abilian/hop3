@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING
 
 from hop3.config import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
 from hop3.core.env import Env
+from hop3.lib import echo, get_free_port, log
+from hop3.lib.settings import write_settings
 from hop3.plugins.nginx import Nginx
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
-from hop3.lib import echo, get_free_port, log
-from hop3.lib.settings import write_settings
 
 from .uwsgi import spawn_uwsgi_worker
 

@@ -12,9 +12,9 @@ import pytest
 
 from hop3 import config
 from hop3.core.git import GitManager
-from hop3.server.cli import main as cli_main
-from hop3.orm import App, AppRepository, get_session_factory
 from hop3.lib import Abort, console
+from hop3.orm import App, AppRepository, get_session_factory
+from hop3.server.cli import main as cli_main
 
 if TYPE_CHECKING:
     from collections.abc import Generator

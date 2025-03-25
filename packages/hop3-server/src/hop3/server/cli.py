@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from hop3.server.commands.help import Help, print_help
+from hop3.server.commands.registry import COMMAND_REGISTRY
 
 # #!/usr/bin/env python3
 #
