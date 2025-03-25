@@ -4,11 +4,14 @@ import asyncio
 import html
 import shlex
 import subprocess
+from typing import TYPE_CHECKING
 
-from starlette.requests import Request
 from starlette.responses import HTMLResponse
 from starlette.routing import Route, WebSocketRoute
-from starlette.websockets import WebSocket
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
+    from starlette.websockets import WebSocket
 
 # language=html
 TEMPLATE = """

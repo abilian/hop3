@@ -9,12 +9,16 @@ from devtools import debug
 from starlette.exceptions import HTTPException
 from starlette.responses import Response
 
-from hop3.server.commands.base import scan_commands
+from hop3.lib.registry import lookup
+from hop3.lib.scanner import scan_package
+from hop3.server.commands.base import Command
 
 if TYPE_CHECKING:
     from starlette.requests import Request
 
-COMMANDS = scan_commands()
+
+scan_package("hop3.server.commands")
+commands = {command.name: command for command in lookup(Command)}
 
 
 async def handle_rpc(request: Request):
@@ -39,7 +43,7 @@ async def handle_rpc(request: Request):
 
 def call(command, args):
     debug(command, args)
-    cmd = COMMANDS.get(command)
+    cmd = commands.get(command)
     if cmd is None:
         msg = f"Command {command} not found"
         raise ValueError(msg)
