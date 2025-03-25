@@ -8,7 +8,8 @@ from attrs import frozen
 
 from hop3.lib.console import bold
 from hop3.lib.registry import lookup
-from hop3.server.commands.base import Command
+
+from ._base import Command
 
 
 def print_help():

@@ -11,7 +11,7 @@ import subprocess
 
 from hop3.lib.registry import register
 
-from .base import Command
+from ._base import Command
 
 
 @register

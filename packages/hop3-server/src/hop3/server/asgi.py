@@ -6,7 +6,6 @@ from starlette.applications import Starlette
 
 from . import views
 
-# DEBUG = bool(os.environ.get("HOP3_DEBUG", False))
 DEBUG = True
 
 
