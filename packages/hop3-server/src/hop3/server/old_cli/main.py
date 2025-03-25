@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING
 from hop3.lib.scanner import scan_package
 from hop3.orm import AppRepository, get_session_factory
 
-from ..registry import COMMAND_REGISTRY
 from .help import Help, print_help
 
 if TYPE_CHECKING:

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from hop3.server.commands.cli.help import print_help
-from hop3.server.commands.registry import command
+from hop3.lib.decorators import command
+from hop3.server.commands.help import print_help
 
 
 @command

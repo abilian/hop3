@@ -8,7 +8,7 @@ from __future__ import annotations
 from pprint import pprint
 
 from hop3.container import container
-from hop3.server.commands.registry import command
+from hop3.lib.decorators import command
 
 
 @command

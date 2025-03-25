@@ -5,18 +5,9 @@
 
 from __future__ import annotations
 
+from hop3.lib.registry import registry
 from hop3.server.commands.help import Help, print_help
-from hop3.server.commands.registry import COMMAND_REGISTRY
 
-# #!/usr/bin/env python3
-#
-# # Copyright (c) 2023-2025, Abilian SAS
-# #
-# # SPDX-License-Identifier: Apache-2.0
-# """Hop3 Micro-PaaS Agent."""
-#
-# from __future__ import annotations
-#
 # import os
 # import sys
 # import traceback
@@ -58,6 +49,7 @@ from hop3.server.commands.registry import COMMAND_REGISTRY
 
 
 # Copyright (c) 2024-2025, Abilian SAS
+
 """Main entry point for the Hop3 CLI.
 
 This module provides the main entry point for the Hop3 CLI. It defines
@@ -184,7 +176,8 @@ def create_parser() -> ArgumentParser:
     subparsers = parser.add_subparsers()
 
     # Sort commands alphabetically by their class' name
-    commands = sorted(COMMAND_REGISTRY.values(), key=lambda cmd: cmd.__name__)
+    commands = registry.lookup("commands")
+    commands.sort(key=lambda cmd: cmd.__name__)
     for cmd_class in commands:
         cmd = cmd_class()
         add_cmd_to_subparsers(subparsers, cmd)
