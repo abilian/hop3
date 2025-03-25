@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from hop3.deploy import do_deploy
 from hop3.lib import Abort, log
-from hop3.server.commands.registry import command
+from hop3.lib.decorators import command
 
 if TYPE_CHECKING:
     from hop3.orm import App

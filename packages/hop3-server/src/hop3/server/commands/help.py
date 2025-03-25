@@ -7,7 +7,8 @@ from importlib.metadata import version
 from attrs import frozen
 
 from hop3.lib.console import bold
-from hop3.server.commands.registry import COMMAND_REGISTRY
+from hop3.lib.registry import lookup
+from hop3.server.commands.base import Command
 
 
 def print_help():
@@ -19,7 +20,7 @@ def print_help():
     package_version = version("hop3-server")
 
     output = [
-        "CLI to interact with Hop3",
+        "CLI to interact with the Hop3 server",
         "",
         bold("VERSION"),
         f"  {package_version}",
@@ -30,8 +31,9 @@ def print_help():
         bold("COMMANDS"),
     ]
 
-    # Iterate over the commands in the COMMAND_REGISTRY, sorted by the command's name
-    for cmd in sorted(COMMAND_REGISTRY.values(), key=lambda cmd: cmd.__name__):
+    commands = lookup(Command)
+    commands.sort(key=lambda cmd: cmd.__name__)
+    for cmd in commands:
         name = get_command_name(cmd)
 
         if ":" in name:

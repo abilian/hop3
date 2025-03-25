@@ -9,9 +9,11 @@ from __future__ import annotations
 import importlib.metadata
 import subprocess
 
+from hop3.lib.decorators import command
 from .base import Command
 
 
+@command
 class SystemCommand(Command):
     """Manage the hop3 system."""
 
@@ -27,6 +29,7 @@ class SystemCommand(Command):
         ]
 
 
+@command
 class UptimeSubcommand(Command):
     """Show host server uptime."""
 
@@ -39,6 +42,7 @@ class UptimeSubcommand(Command):
         return [{"t": "text", "text": result}]
 
 
+@command
 class PsSubcommand(Command):
     """List all server processes."""
 
@@ -51,6 +55,7 @@ class PsSubcommand(Command):
         return [{"t": "text", "text": result}]
 
 
+@command
 class StatusSubcommand(Command):
     """Show Hop3 system status."""
 

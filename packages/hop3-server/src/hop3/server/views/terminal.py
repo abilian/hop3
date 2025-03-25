@@ -1,4 +1,14 @@
+from __future__ import annotations
+
+import asyncio
+import html
+import shlex
+import subprocess
+
 from starlette.requests import Request
+from starlette.responses import HTMLResponse
+from starlette.routing import Route, WebSocketRoute
+from starlette.websockets import WebSocket
 
 # language=html
 TEMPLATE = """
@@ -29,7 +39,9 @@ TEMPLATE = """
 </head>
 <body>
     <h1>WebSocket Shell</h1>
-    <input type="text" id="commandInput" onkeydown="if (event.keyCode == 13) sendCommand()">
+    <input
+        type="text" id="commandInput"
+        onkeydown="if (event.keyCode == 13) sendCommand()">
     <button onclick="sendCommand()">Send</button>
     <div id="output" style="border: 1px solid black; height: 200px; overflow: auto; white-space: pre-wrap;"></div>
 </body>
@@ -37,41 +49,8 @@ TEMPLATE = """
 """
 
 
-async def handle_terminal(request: Request):
-    json_request = await request.json()
-
-    method = json_request["method"]
-    assert method == "cli"
-
-    params = json_request["params"][0]
-    command = params[0]
-    args = params[1:]
-
-    try:
-        result = call(command, args)
-        result_rpc = {"jsonrpc": "2.0", "result": result, "id": 1}
-        json_result = json.dumps(result_rpc)
-        return Response(json_result, media_type="application/json")
-    except ValueError as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-import asyncio
-import subprocess
-import html
-import shlex
-from starlette.applications import Starlette
-from starlette.responses import HTMLResponse
-from starlette.routing import Route, WebSocketRoute
-from starlette.templating import Jinja2Templates
-from starlette.websockets import WebSocket
-
-templates = Jinja2Templates(directory="templates")
-
-
-async def homepage(request):
-    return templates.TemplateResponse("websocket_index.html", {"request": request})
+def terminal_endpoint(request: Request):
+    return HTMLResponse(TEMPLATE)
 
 
 async def websocket_endpoint(websocket: WebSocket):
@@ -112,6 +91,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
 def setup(ctx):
     ctx.routes += [
-        Route("/", endpoint=homepage),
-        WebSocketRoute("/ws", endpoint=websocket_endpoint),
+        Route("/terminal", endpoint=terminal_endpoint),
+        WebSocketRoute("/terminal/ws", endpoint=websocket_endpoint),
     ]

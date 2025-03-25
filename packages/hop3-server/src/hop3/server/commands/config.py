@@ -6,12 +6,14 @@
 
 from __future__ import annotations
 
+from hop3.lib.decorators import command
+
 from .base import Command
 
 # from hop3.service import get_app
 
 
-
+@command
 class ConfigCommand(Command):
     """Manage an application config / env."""
 
@@ -25,6 +27,7 @@ class ConfigCommand(Command):
         ]
 
 
+@command
 class ShowSubcommand(Command):
     """Show config, e.g.: hop config <app>."""
 
@@ -44,6 +47,7 @@ class ShowSubcommand(Command):
         ]
 
 
+@command
 class GetSubcommand(Command):
     """e.g.: hop config:get <app> FOO."""
 
@@ -58,6 +62,7 @@ class GetSubcommand(Command):
             return [{"t": "text", "text": f"Setting '{setting}' not found."}]
 
 
+@command
 class LiveSubcommand(Command):
     """e.g.: hop config:live <app>."""
 

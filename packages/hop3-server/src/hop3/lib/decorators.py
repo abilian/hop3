@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from .registry import register
 
-__all__ = ["service", "singleton"]
+__all__ = ["command", "register", "service"]
 
 
 def service(obj):
@@ -12,3 +12,7 @@ def service(obj):
 
 def singleton(obj):
     return register(obj, tag="singleton")
+
+
+def command(obj):
+    return register(obj, tag="command")

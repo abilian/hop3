@@ -13,9 +13,9 @@ from typing import TYPE_CHECKING
 from hop3.deploy import do_deploy
 from hop3.lib import Abort, echo, multi_tail
 from hop3.lib.console import console
+from hop3.lib.decorators import command
 from hop3.orm import AppRepository
 from hop3.project.procfile import parse_procfile
-from hop3.server.commands.registry import command
 
 if TYPE_CHECKING:
     from hop3.orm import App
