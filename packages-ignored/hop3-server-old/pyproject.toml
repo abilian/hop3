@@ -1,0 +1,31 @@
+[project]
+name = "hop3-server-old"
+version = "0.1.0"
+authors = [
+    {name = "Stefane Fermigier", email = "sf@abilian.com"},
+]
+license = {text = "MIT"}
+requires-python = "<4.0,>=3.10"
+dependencies = [
+    # Web / app server
+    "granian>=2,<3",
+    "starlette>=0.40",
+    # Utils
+    "attrs",
+    "cattrs",
+    "devtools",
+]
+description = ""
+readme = "README.md"
+
+[dependency-groups]
+dev = [
+    "granian[reload]>=1.7.6",
+]
+
+[tool.pdm.build]
+includes = ["src/hop3_server"]
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"

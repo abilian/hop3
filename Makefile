@@ -15,11 +15,11 @@ all: lint test
 
 ## Lint / check typing
 lint:
-	ruff check packages/hop3-agent packages/hop3-cli
-	pyright packages/hop3-agent
-	mypy packages/hop3-agent
+	ruff check packages/hop3-server packages/hop3-cli
+	pyright packages/hop3-server
+	mypy packages/hop3-server
 	reuse lint -q
-	cd packages/hop3-agent && deptry src
+	cd packages/hop3-server && deptry src
 	# vulture --min-confidence 80 packages/hop3-agent/src
 
 ## Cleanup repository

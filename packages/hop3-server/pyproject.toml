@@ -1,31 +1,66 @@
 [project]
 name = "hop3-server"
-version = "0.1.0"
+version = "0.2.3"
+description = "Simple PaaS - Deploy and manage web applications on a single server"
 authors = [
-    {name = "Stefane Fermigier", email = "sf@abilian.com"},
+    { name = "Stefane Fermigier", email = "sf@abilian.com" },
 ]
-license = {text = "MIT"}
-requires-python = "<4.0,>=3.10"
+readme = "README.md"
+
 dependencies = [
     # Web / app server
     "granian>=2,<3",
     "starlette>=0.40",
+    "attrs >= 24.2",
+    # Plugins and DI
+    "pluggy ~= 1.4",
+    "wireup ~= 1.0",
+    # Database
+    "sqlalchemy ~= 2.0",
+    "advanced-alchemy >= 0.21",
+    "psycopg2 ~= 2.9",
+    "flask-security-too ~= 5.5.2",
+    # Misc
+    "termcolor >= 2.5.0",
+    # SBOM
+    "cyclonedx-bom >= 5.1.1",
+    "toml >= 0.10.2",
     # Utils
-    "attrs",
     "cattrs",
     "devtools",
 ]
-description = ""
-readme = "README.md"
 
 [dependency-groups]
 dev = [
-    "granian[reload]>=1.7.6",
+    "typing-extensions>=4.12.2",
 ]
 
-[tool.pdm.build]
-includes = ["src/hop3_server"]
+[project.scripts]
+hop-server = "hop3.main:main"
+
+# ----------------------------------------
 
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hop3"]
+
+# ----------------------------------------
+
+[tool.pyright]
+exclude = [
+    "src/hop3/util/templating.py",
+]
+
+# -----------------------------------------------------------------------------
+
+[tool.deptry.per_rule_ignores]
+# X defined as a dependency but not used in the codebase
+DEP002 = [
+    "cyclonedx-bom",
+]
+#DEP003 = [
+#    "snoop",
+#]

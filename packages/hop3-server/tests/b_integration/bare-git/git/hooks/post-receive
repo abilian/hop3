@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -e; set -o pipefail;
+cat | HOP3_ROOT="/private/tmp/hop3" /tmp/hop3/venv/bin/hop-agent git-hook test-app-1732116608.968195
