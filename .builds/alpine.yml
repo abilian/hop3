@@ -44,15 +44,10 @@ tasks:
       cd hop3
       nox -e pytest-3.12
 
-  - buildah: |
-      cd hop3
-      sudo buildah build .
+#  - buildah: |
+#      cd hop3
+#      sudo buildah build .
 
   - docker-build: |
       cd hop3
       sudo docker build .
-
-#triggers:
-#  - action: email
-#    condition: failure
-#    to: builds@fermigier.com
