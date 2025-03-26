@@ -22,20 +22,20 @@ TEMPLATE = """
     <title>WebSocket Shell</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
-        var socket = io();
+        const socket = io();
 
         socket.on('connect', function() {
             console.log('Connected!');
         });
 
         socket.on('output', function(msg) {
-            var outputDiv = document.getElementById('output');
+            const outputDiv = document.getElementById('output');
             outputDiv.innerHTML += msg.data + '<br>';
             outputDiv.scrollTop = outputDiv.scrollHeight; // Scroll to bottom
         });
 
         function sendCommand() {
-            var command = document.getElementById('commandInput').value;
+            const command = document.getElementById('commandInput').value;
             socket.emit('command', {data: command});
             document.getElementById('commandInput').value = ''; // Clear input
         }
@@ -47,7 +47,9 @@ TEMPLATE = """
         type="text" id="commandInput"
         onkeydown="if (event.keyCode == 13) sendCommand()">
     <button onclick="sendCommand()">Send</button>
-    <div id="output" style="border: 1px solid black; height: 200px; overflow: auto; white-space: pre-wrap;"></div>
+    <div
+        id="output"
+        style="border: 1px solid black; height: 200px; overflow: auto; white-space: pre-wrap;"></div>
 </body>
 </html>
 """
@@ -94,7 +96,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 def setup(ctx):
-    ctx.routes += [
+    ctx.routes.extend([
         Route("/terminal", endpoint=terminal_endpoint),
         WebSocketRoute("/terminal/ws", endpoint=websocket_endpoint),
-    ]
+    ])
