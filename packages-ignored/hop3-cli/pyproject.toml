@@ -1,0 +1,33 @@
+[project]
+name = "hop3-cli"
+version = "0.2.3"
+authors = [
+    {name = "Stefane Fermigier", email = "sf@abilian.com"},
+]
+license = {text = "MIT"}
+requires-python = "<4.0,>=3.10"
+dependencies = [
+    "platformdirs<5.0.0,>=4.2.2",
+    "paramiko<4.0.0,>=3.4.0",
+    "rpyc<7.0.0,>=6.0.0",
+    "toml<1.0.0,>=0.10.2",
+    "jsonrpcclient<5.0.0,>=4.0.3",
+    "tabulate<1.0.0,>=0.9.0",
+    "termcolor<3.0.0,>=2.4.0",
+    "urllib3<3.0.0,>=2.2.3",
+    "requests<3.0.0,>=2.32.3",
+    # TODO: remove this dependency
+    "devtools<1.0.0,>=0.12.2",
+]
+description = ""
+readme = "README.md"
+
+[project.scripts]
+hop-cli = "hop3_cli.main:main"
+
+[tool.pdm.build]
+includes = ["src/hop3_cli"]
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
