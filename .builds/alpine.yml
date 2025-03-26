@@ -22,10 +22,10 @@ packages:
   - py3-nox
   - pipx
   - uv
-  # Docker
-  - buildah
-  - netavark
-  - docker
+  # Docker (not working)
+  # - buildah
+  # - netavark
+  # - docker
 
 tasks:
   - setup: |
@@ -43,11 +43,12 @@ tasks:
   - nox: |
       cd hop3
       nox -e pytest-3.12
+      nox -e lint
 
 #  - buildah: |
 #      cd hop3
 #      sudo buildah build .
 
-  - docker-build: |
-      cd hop3
-      sudo docker build .
+#  - docker-build: |
+#      cd hop3
+#      sudo docker build .
