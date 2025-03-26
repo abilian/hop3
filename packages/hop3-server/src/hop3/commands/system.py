@@ -15,7 +15,7 @@ from ._base import Command
 
 
 @register
-class SystemCommand(Command):
+class System(Command):
     """Manage the hop3 system."""
 
     name = "system"
@@ -24,14 +24,14 @@ class SystemCommand(Command):
 
     def subcommands(self) -> list[Command]:
         return [
-            UptimeSubcommand(),
-            PsSubcommand(),
-            StatusSubcommand(),
+            Uptime(),
+            PS(),
+            Status(),
         ]
 
 
 @register
-class UptimeSubcommand(Command):
+class Uptime(Command):
     """Show host server uptime."""
 
     name = "uptime"
@@ -44,7 +44,7 @@ class UptimeSubcommand(Command):
 
 
 @register
-class PsSubcommand(Command):
+class PS(Command):
     """List all server processes."""
 
     name = "ps"
@@ -57,7 +57,7 @@ class PsSubcommand(Command):
 
 
 @register
-class StatusSubcommand(Command):
+class Status(Command):
     """Show Hop3 system status."""
 
     name = "status"

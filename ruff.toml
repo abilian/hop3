@@ -59,6 +59,8 @@ lint.extend-ignore = [
     "B909", # Mutation to loop iterable during iteration
     "S704", # Unsafe use of Markup
     "RUF039", # First argument to `re.search()` is not raw string
+    "INP001",
+    "RUF045",
 ]
 
 

@@ -1691,30 +1691,20 @@ name = "hop3-cli"
 version = "0.2.3"
 source = { editable = "packages/hop3-cli" }
 dependencies = [
-    { name = "devtools" },
     { name = "jsonrpcclient" },
-    { name = "paramiko" },
-    { name = "platformdirs" },
     { name = "requests" },
-    { name = "rpyc" },
     { name = "tabulate" },
     { name = "termcolor" },
     { name = "toml" },
-    { name = "urllib3" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "devtools", specifier = ">=0.12.2,<1.0.0" },
     { name = "jsonrpcclient", specifier = ">=4.0.3,<5.0.0" },
-    { name = "paramiko", specifier = ">=3.4.0,<4.0.0" },
-    { name = "platformdirs", specifier = ">=4.2.2,<5.0.0" },
     { name = "requests", specifier = ">=2.32.3,<3.0.0" },
-    { name = "rpyc", specifier = ">=6.0.0,<7.0.0" },
     { name = "tabulate", specifier = ">=0.9.0,<1.0.0" },
     { name = "termcolor", specifier = ">=2.4.0,<3.0.0" },
     { name = "toml", specifier = ">=0.10.2,<1.0.0" },
-    { name = "urllib3", specifier = ">=2.2.3,<3.0.0" },
 ]
 
 [[package]]
@@ -2690,18 +2680,6 @@ wheels = [
 ]
 
 [[package]]
-name = "plumbum"
-version = "1.9.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pywin32", marker = "platform_python_implementation != 'PyPy' and sys_platform == 'win32'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f0/5d/49ba324ad4ae5b1a4caefafbce7a1648540129344481f2ed4ef6bb68d451/plumbum-1.9.0.tar.gz", hash = "sha256:e640062b72642c3873bd5bdc3effed75ba4d3c70ef6b6a7b907357a84d909219", size = 319083 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/9d/d03542c93bb3d448406731b80f39c3d5601282f778328c22c77d270f4ed4/plumbum-1.9.0-py3-none-any.whl", hash = "sha256:9fd0d3b0e8d86e4b581af36edf3f3bbe9d1ae15b45b8caab28de1bcb27aaa7f5", size = 127970 },
-]
-
-[[package]]
 name = "ply"
 version = "3.11"
 source = { registry = "https://pypi.org/simple" }
@@ -3045,25 +3023,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pywin32"
-version = "310"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/95/da/a5f38fffbba2fb99aa4aa905480ac4b8e83ca486659ac8c95bce47fb5276/pywin32-310-cp310-cp310-win32.whl", hash = "sha256:6dd97011efc8bf51d6793a82292419eba2c71cf8e7250cfac03bba284454abc1", size = 8848240 },
-    { url = "https://files.pythonhosted.org/packages/aa/fe/d873a773324fa565619ba555a82c9dabd677301720f3660a731a5d07e49a/pywin32-310-cp310-cp310-win_amd64.whl", hash = "sha256:c3e78706e4229b915a0821941a84e7ef420bf2b77e08c9dae3c76fd03fd2ae3d", size = 9601854 },
-    { url = "https://files.pythonhosted.org/packages/3c/84/1a8e3d7a15490d28a5d816efa229ecb4999cdc51a7c30dd8914f669093b8/pywin32-310-cp310-cp310-win_arm64.whl", hash = "sha256:33babed0cf0c92a6f94cc6cc13546ab24ee13e3e800e61ed87609ab91e4c8213", size = 8522963 },
-    { url = "https://files.pythonhosted.org/packages/f7/b1/68aa2986129fb1011dabbe95f0136f44509afaf072b12b8f815905a39f33/pywin32-310-cp311-cp311-win32.whl", hash = "sha256:1e765f9564e83011a63321bb9d27ec456a0ed90d3732c4b2e312b855365ed8bd", size = 8784284 },
-    { url = "https://files.pythonhosted.org/packages/b3/bd/d1592635992dd8db5bb8ace0551bc3a769de1ac8850200cfa517e72739fb/pywin32-310-cp311-cp311-win_amd64.whl", hash = "sha256:126298077a9d7c95c53823934f000599f66ec9296b09167810eb24875f32689c", size = 9520748 },
-    { url = "https://files.pythonhosted.org/packages/90/b1/ac8b1ffce6603849eb45a91cf126c0fa5431f186c2e768bf56889c46f51c/pywin32-310-cp311-cp311-win_arm64.whl", hash = "sha256:19ec5fc9b1d51c4350be7bb00760ffce46e6c95eaf2f0b2f1150657b1a43c582", size = 8455941 },
-    { url = "https://files.pythonhosted.org/packages/6b/ec/4fdbe47932f671d6e348474ea35ed94227fb5df56a7c30cbbb42cd396ed0/pywin32-310-cp312-cp312-win32.whl", hash = "sha256:8a75a5cc3893e83a108c05d82198880704c44bbaee4d06e442e471d3c9ea4f3d", size = 8796239 },
-    { url = "https://files.pythonhosted.org/packages/e3/e5/b0627f8bb84e06991bea89ad8153a9e50ace40b2e1195d68e9dff6b03d0f/pywin32-310-cp312-cp312-win_amd64.whl", hash = "sha256:bf5c397c9a9a19a6f62f3fb821fbf36cac08f03770056711f765ec1503972060", size = 9503839 },
-    { url = "https://files.pythonhosted.org/packages/1f/32/9ccf53748df72301a89713936645a664ec001abd35ecc8578beda593d37d/pywin32-310-cp312-cp312-win_arm64.whl", hash = "sha256:2349cc906eae872d0663d4d6290d13b90621eaf78964bb1578632ff20e152966", size = 8459470 },
-    { url = "https://files.pythonhosted.org/packages/1c/09/9c1b978ffc4ae53999e89c19c77ba882d9fce476729f23ef55211ea1c034/pywin32-310-cp313-cp313-win32.whl", hash = "sha256:5d241a659c496ada3253cd01cfaa779b048e90ce4b2b38cd44168ad555ce74ab", size = 8794384 },
-    { url = "https://files.pythonhosted.org/packages/45/3c/b4640f740ffebadd5d34df35fecba0e1cfef8fde9f3e594df91c28ad9b50/pywin32-310-cp313-cp313-win_amd64.whl", hash = "sha256:667827eb3a90208ddbdcc9e860c81bde63a135710e21e4cb3348968e4bd5249e", size = 9503039 },
-    { url = "https://files.pythonhosted.org/packages/b4/f4/f785020090fb050e7fb6d34b780f2231f302609dc964672f72bfaeb59a28/pywin32-310-cp313-cp313-win_arm64.whl", hash = "sha256:e308f831de771482b7cf692a1f308f8fca701b2d8f9dde6cc440c7da17e47b33", size = 8458152 },
-]
-
-[[package]]
 name = "pywinrm"
 version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3339,18 +3298,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/42/02/be91e1de139ec8b4f9fec4192fd779ba48af281cfc762c0ca4c15b945484/rpds_py-0.23.1-pp310-pypy310_pp73-musllinux_1_2_i686.whl", hash = "sha256:a98f510d86f689fcb486dc59e6e363af04151e5260ad1bdddb5625c10f1e95f8", size = 584773 },
     { url = "https://files.pythonhosted.org/packages/27/28/3af8a1956df3edc41d884267d766dc096496dafc83f02f764a475eca0b4a/rpds_py-0.23.1-pp310-pypy310_pp73-musllinux_1_2_x86_64.whl", hash = "sha256:e0397dd0b3955c61ef9b22838144aa4bef6f0796ba5cc8edfc64d468b93798b4", size = 555153 },
     { url = "https://files.pythonhosted.org/packages/5e/bb/e45f51c4e1327dea3c72b846c6de129eebacb7a6cb309af7af35d0578c80/rpds_py-0.23.1-pp310-pypy310_pp73-win_amd64.whl", hash = "sha256:75307599f0d25bf6937248e5ac4e3bde5ea72ae6618623b86146ccc7845ed00b", size = 233827 },
-]
-
-[[package]]
-name = "rpyc"
-version = "6.0.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "plumbum" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/3a/9d/a48fb1246a4b431951947f7cc2b4a24ffe59c0ec4eec1396d275bc6a45ed/rpyc-6.0.1.tar.gz", hash = "sha256:8a60f3c4401f309c0eb6e754fb6c4e0442231203907cebf61ae74615b52cd38a", size = 62144 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/16/2b/610e593b4b62fb1dbd7739afbf790848be1f661c7678eab6fd6c48a81bed/rpyc-6.0.1-py3-none-any.whl", hash = "sha256:e4124c81e65efc4e498842624394b86305eeee64d9647e0808a2862212bac803", size = 74584 },
 ]
 
 [[package]]
