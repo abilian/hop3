@@ -12,9 +12,12 @@ from starlette.responses import Response
 from hop3.commands import Command
 from hop3.lib.registry import lookup
 from hop3.lib.scanner import scan_package
+from hop3.orm import get_session_factory
 
 if TYPE_CHECKING:
     from starlette.requests import Request
+
+    from hop3.server.asgi import SetupContext
 
 scan_package("hop3.commands")
 commands = {command.name: command for command in lookup(Command)}
@@ -40,19 +43,27 @@ async def handle_rpc(request: Request):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-def call(command, args):
-    debug(command, args)
-    cmd = commands.get(command)
-    if cmd is None:
-        msg = f"Command {command} not found"
+def call(command_name: str, args: list[str]):
+    debug(command_name, args)
+    command_class = commands.get(command_name)
+    if command_class is None:
+        msg = f"Command {command_name} not found"
         raise ValueError(msg)
 
-    cmd_obj = cmd()
-    debug(cmd_obj)
-    result = cmd_obj.call(*args)
-    debug(result)
-    return result
+    session_factory = get_session_factory()
+    with session_factory() as db_session:
+        class_args = {}
+
+        if "db_session" in command_class.__annotations__:
+            class_args = {"db_session": db_session}
+
+        debug(command_class, class_args)
+        command = command_class(**class_args)
+        debug(command)
+        result = command.call(*args)
+        debug(result)
+        return result
 
 
-def setup(context):
-    context.add_route("/rpc", handle_rpc, methods=["POST"])
+def setup(ctx: SetupContext):
+    ctx.add_route("/rpc", handle_rpc, methods=["POST"])

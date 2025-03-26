@@ -1,46 +1,79 @@
-# # Copyright (c) 2023-2025, Abilian SAS
-# #
-# # SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2023-2025, Abilian SAS
 #
-# """CLI commands."""
-#
-# from __future__ import annotations
-#
-# from hop3.service import get_app, list_apps
-#
-# from .base import Command
-#
-#
-# class Apps(Command):
-#     """List apps."""
-#
-#     def call(self):
-#         apps = list_apps()
-#         rows = [[app.name, app.status, app.worker_count] for app in apps]
-#         return [
-#             {
-#                 "t": "table",
-#                 "headers": ["Name", "Status", "Workers"],
-#                 "rows": rows,
-#             }
-#         ]
-#
-#
-# class Logs(Command):
-#     """Show application logs."""
-#
-#     def call(self, app_name):
-#         app = get_app(app_name)
-#         # TODO: by process
-#         logs = app.get_logs()
-#         return [
-#             {
-#                 "t": "text",
-#                 "text": "\n".join(logs),
-#             }
-#         ]
-#
-#
+# SPDX-License-Identifier: Apache-2.0
+
+"""CLI commands."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+from hop3.lib import echo
+from hop3.lib.registry import register
+from hop3.orm import App, AppRepository
+
+from ._base import Command
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+
+@register
+@dataclass(frozen=True)
+class Apps(Command):
+    """List apps (running or stopped)."""
+
+    db_session: Session
+
+    name = "apps"
+
+    def call(self, *args):
+        app_repo = AppRepository(session=self.db_session)
+        apps = app_repo.list()
+        if not apps:
+            echo("There are no applications deployed.")
+            return []
+
+        for app in apps:
+            if app.is_running:
+                echo(f"* {app.name}", fg="green")
+            else:
+                echo(f"  {app.name}", fg="white")
+
+        rows = [[app.name, app.status, app.worker_count] for app in apps]
+        return [
+            {
+                "t": "table",
+                "headers": ["Name", "Status", "Workers"],
+                "rows": rows,
+            }
+        ]
+
+
+@register
+@dataclass(frozen=True)
+class Logs(Command):
+    """Show application logs."""
+
+    db_session: Session
+
+    name = "logs"
+
+    def call(self, *args):
+        app_name = args[0]
+        app_repo = AppRepository(session=self.db_session)
+        app = app_repo.get(App.name == app_name)
+        # TODO: by process
+        logs = app.get_logs()
+        return [
+            {
+                "t": "text",
+                "text": "\n".join(logs),
+            }
+        ]
+
+
 # # def cmd_deploy(app) -> None:
 # #     """e.g.: hop deploy <app>."""
 # #     app_obj = get_app(app)

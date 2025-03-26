@@ -1,12 +1,11 @@
 # Copyright (c) 2023-2025, Abilian SAS
 from __future__ import annotations
 
+from typing import ClassVar
+
 
 class Command:
-    name: str = ""
-
-    def subcommands(self):
-        return []
+    name: ClassVar[str] = ""
 
     def call(self, *args):
         if not args:
@@ -18,6 +17,9 @@ class Command:
                 return subcommand.call(*args[1:])
 
         return self.get_help()
+
+    def subcommands(self):
+        return []
 
     def get_help(self):
         subcommands = self.subcommands()

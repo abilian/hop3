@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from starlette.requests import Request
     from starlette.websockets import WebSocket
 
+    from hop3.server.asgi import SetupContext
+
 
 # language=html
 TEMPLATE = """
@@ -245,7 +247,7 @@ async def stream_output(
             break  # Stop streaming this output type on error
 
 
-def setup(ctx):
+def setup(ctx: SetupContext):
     ctx.routes.extend([
         Route("/terminal", endpoint=terminal_endpoint),
         # Mount("/terminal/static", app=StaticFiles(directory=STATIC_DIR, html=True)),

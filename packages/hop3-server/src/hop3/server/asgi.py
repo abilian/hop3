@@ -8,8 +8,6 @@ import attrs
 from starlette.applications import Starlette
 from starlette.routing import Route
 
-from . import views
-
 if TYPE_CHECKING:
     from starlette.requests import Request
     from starlette.responses import Response
@@ -42,6 +40,8 @@ class SetupContext:
 
 
 def create_app():
+    from . import views
+
     ctx = SetupContext()
     views.setup(ctx)
     routes = ctx.routes

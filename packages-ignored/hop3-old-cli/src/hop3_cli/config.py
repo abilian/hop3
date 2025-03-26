@@ -23,6 +23,7 @@ _marker = object()
 
 @dataclasses.dataclass(frozen=True)
 class Config:
+    config_file: Path
     data: dict = dataclasses.field(default_factory=dict)
 
     defaults: ClassVar[dict] = {
@@ -32,18 +33,13 @@ class Config:
         "api_secret": None,
     }
 
-    @staticmethod
-    def from_dict(data: dict) -> Config:
-        return Config(data)
+    def load_config(self) -> None:
+        if not self.config_file.exists():
+            return
 
-    @staticmethod
-    def from_toml_file(file: Path) -> Config:
-        if not file.exists():
-            raise FileNotFoundError(file)
-
-        with file.open() as f:
+        with self.config_file.open() as f:
             data = toml.load(f)
-            return Config(data)
+            self.data.update(data)
 
     def __getitem__(self, item):
         value = self.get(item)
