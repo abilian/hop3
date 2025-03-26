@@ -3,13 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
+import glob
+
 import nox
 
 # Minimal version is 3.10
-PYTHON_VERSIONS = ["3.10", "3.11", "3.12"]
+PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13"]
 
 SUB_REPOS = [
-    "packages/hop3-agent",
+    # "packages/hop3-agent",
     "packages/hop3-server",
     "packages/hop3-cli",
     "packages/hop3-testing",
@@ -25,10 +27,17 @@ nox.options.sessions = [
 
 
 @nox.session
-def lint(session: nox.Session) -> None:
-    session.install(".")
-    session.install("abilian-devtools", "types-toml")
-    session.run("make", "lint", external=True)
+def lint(session: nox.Session):
+    """Run linters."""
+    src_dirs = glob.glob("packages/*/src/") + glob.glob("packages/*/tests/")
+    session.run("uv", "run", "--active", "ruff", "check", *src_dirs)
+    # session.run("uv", "run", "pyright", "packages/hop3-server")
+    # session.run("uv", "run", "mypy", "packages/hop3-server")
+    session.run("uv", "run", "--active", "reuse", "lint", "-q")
+    with session.chdir("packages/hop3-server"):
+        session.run("uv", "run", "--active", "deptry", "src")
+
+    # session.run("vulture", "--min-confidence", "80", "packages/hop3-agent/src")
 
 
 @nox.session(python=PYTHON_VERSIONS)

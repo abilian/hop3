@@ -34,18 +34,11 @@ tasks:
       cd hop3
       uv sync
 
-  - lint: |
-      cd hop3
-      uv run make lint
-
-  - test: |
-      cd hop3
-      uv run make test
-
   - nox: |
       cd hop3
-      uv run nox -e pytest-3.12
-      uv run nox -e pytest-3.11
+      nox -e lint
+      nox -e pytest-3.12
+      nox -e pytest-3.11
 
   - buildah: |
       cd hop3
