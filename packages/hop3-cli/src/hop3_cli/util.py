@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
 import subprocess
