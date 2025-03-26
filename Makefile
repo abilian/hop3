@@ -42,7 +42,15 @@ deploy-prod:
 
 build:
 	@make clean
-	uv build packages/hop3-agent
+	uv build packages/hop3-server
+
+## Run server
+serve:
+	granian --interface asgi --factory hop3.server.asgi:create_app
+
+## Alias for serve
+run: serve
+
 
 #
 # Setup

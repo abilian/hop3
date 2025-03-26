@@ -28,6 +28,7 @@ dependencies = [
     "toml >= 0.10.2",
     # Utils
     "devtools",
+    "granian>=2.2.0",
 ]
 
 [dependency-groups]

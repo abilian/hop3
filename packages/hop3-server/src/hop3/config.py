@@ -22,6 +22,7 @@ def get_parameters():
 
 
 # Configured
+MODE = config.get_str("MODE", "production")
 
 HOP3_ROOT = config.get_path("HOP3_ROOT", "/home/hop3")
 HOP3_USER = config.get_str("HOP3_USER", "hop3")
