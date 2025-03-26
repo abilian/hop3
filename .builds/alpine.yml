@@ -46,7 +46,7 @@ tasks:
 
   - buildah: |
       cd hop3
-      buildah build .
+      sudo buildah build .
 
   - docker-build: |
       cd hop3
