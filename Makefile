@@ -46,7 +46,8 @@ build:
 
 ## Run server
 serve:
-	granian --interface asgi --factory hop3.server.asgi:create_app
+	hop-server serve
+	# granian --interface asgi --factory hop3.server.asgi:create_app
 
 ## Alias for serve
 run: serve

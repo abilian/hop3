@@ -1,13 +1,16 @@
+# Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
 import granian
 from granian.constants import Interfaces
 from granian.log import LogLevels
 
-from hop3.config import MODE
+# from hop3.config import MODE
 from hop3.lib.registry import register
 
 from ._base import Command
+
+MODE = "development"
 
 if MODE == "development":
     DEBUG = True
@@ -30,7 +33,7 @@ class Serve(Command):
             # port=port,
             interface=Interfaces.ASGI,
             log_dictconfig={"root": {"level": "DEBUG"}} if not DEBUG else {},
-            # log_level=log_level,
+            log_level=LOG_LEVEL,
             log_access=True,
             # loop=Loops.uvloop,
             reload=reload,
