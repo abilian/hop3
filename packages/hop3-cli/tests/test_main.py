@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from unittest import skip
 
-from hop3_cli.new import parse_args
+# from hop3_cli.new import parse_args
 
 
 @skip
