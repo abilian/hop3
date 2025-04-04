@@ -2,11 +2,20 @@ from __future__ import annotations
 
 import argparse
 
+from devtools import debug
+
 from hop3_cli.cli_metadata import ARG_GROUPS, CLI_CONFIG
 
 
 class ParserBuildError(Exception):
     """Raised when there's an error building the parser."""
+
+
+class ArgumentParser(argparse.ArgumentParser):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # self.register('action', 'help', _HelpAction)
+        # self.register('action', 'version', _VersionAction)
 
 
 def _resolve_arg_groups(arguments_config):
@@ -23,17 +32,15 @@ def _resolve_arg_groups(arguments_config):
                     resolved_args.extend(_resolve_arg_groups(ARG_GROUPS[group_name]))
                 else:
                     # Handle error: referenced group not found
-                    raise ParserBuildError(
-                        f"Argument group '{group_name}' not found in ARG_GROUPS."
-                    )
+                    msg = f"Argument group '{group_name}' not found in ARG_GROUPS."
+                    raise ParserBuildError(msg)
 
             case dict():
                 resolved_args.append(arg_def)
             case _:
                 # Handle error: invalid item in arguments list
-                raise ParserBuildError(
-                    f"Invalid item in arguments definition: {arg_def}"
-                )
+                msg = f"Invalid item in arguments definition: {arg_def}"
+                raise ParserBuildError(msg)
 
     return resolved_args
 
@@ -66,7 +73,7 @@ def build_parser_from_config(config, parser=None):
     # Add arguments defined at this level
     resolved_arguments = _resolve_arg_groups(config.get("arguments"))
     for arg_config in resolved_arguments:
-        arg_config = arg_config.copy()  # Avoid modifying the original config
+        # arg_config = arg_config.copy()  # Avoid modifying the original config
         flags = arg_config.pop("flags", [])
         name = arg_config.pop("name", None)
 
@@ -78,42 +85,43 @@ def build_parser_from_config(config, parser=None):
 
         # Handle type conversion (only basic types for now)
         arg_type = arg_config.get("type")
-        if arg_type == int:
+        if arg_type is int:
             arg_config["type"] = int
-        elif arg_type == float:
+        elif arg_type is float:
             arg_config["type"] = float
         # Add more types if needed
 
-        if flags:  # It's an optional argument/option
+        if flags:
+            # It's an optional argument/option:
             # argparse expects positional args first in add_argument call
             parser.add_argument(*flags, **arg_config)
-        elif name:  # It's a positional argument
+        elif name:
+            # It's a positional argument
             parser.add_argument(name, **arg_config)
         else:
-            raise ParserBuildError(
+            msg = (
                 f"Warning: Argument definition missing 'name' or 'flags': {arg_config}"
             )
+            raise ParserBuildError(msg)
 
     # Add subparsers if defined
     if "subcommands" in config:
         subparser_opts = config.get("subparser_options", {})
         # Make sure dest is set if subparsers are required
         if subparser_opts.get("required") and "dest" not in subparser_opts:
-            raise ParserBuildError(
-                f"Warning: Subparsers are required but 'dest' is missing in subparser_options for {config.get('name', 'root')}"
-            )
+            msg = f"Warning: Subparsers are required but 'dest' is missing in subparser_options for {config.get('name', 'root')}"
+            raise ParserBuildError(msg)
             # Default 'dest' if missing but required? Decide on behavior.
             # subparser_opts.setdefault("dest", "subcommand") # Example default
 
         subparsers = parser.add_subparsers(**subparser_opts)
 
         for sub_config in config["subcommands"]:
-            sub_config = sub_config.copy()
+            # sub_config = sub_config.copy()
             sub_name = sub_config.get("name")
             if not sub_name:
-                raise ParserBuildError(
-                    f"Warning: Subcommand definition missing 'name': {sub_config}"
-                )
+                msg = f"Warning: Subcommand definition missing 'name': {sub_config}"
+                raise ParserBuildError(msg)
 
             # Extract help and description for add_parser
             sub_help = sub_config.get("help")
@@ -137,3 +145,13 @@ def build_parser_from_config(config, parser=None):
 def create_parser():
     """Creates the main Hop3 CLI parser from the declarative definition."""
     return build_parser_from_config(CLI_CONFIG)
+
+
+def main():
+    parser = create_parser()
+    args = parser.parse_args()
+    debug(args)
+
+
+if __name__ == "__main__":
+    main()

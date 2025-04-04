@@ -22,9 +22,6 @@ def test_parser_creation(parser):
     assert isinstance(parser, argparse.ArgumentParser)
 
 
-# --- Global Options and Basic Behavior ---
-
-
 def test_version_option(parser):
     """Test the --version global option."""
     with pytest.raises(SystemExit) as e:
@@ -71,6 +68,7 @@ def test_global_verbose_option(parser):
     """Test the -v/--verbose global option."""
     args = parser.parse_args(["apps", "list", "-v"])
     assert args.verbose == 1
+
     args = parser.parse_args(["-vv", "apps", "list"])
     assert args.verbose == 2
 
@@ -79,6 +77,7 @@ def test_global_json_option(parser):
     """Test the --json global option."""
     args = parser.parse_args(["apps", "list", "--json"])
     assert args.json is True
+
     args = parser.parse_args(["apps", "list"])
     assert args.json is False
 
@@ -97,6 +96,7 @@ def test_global_api_url_option(parser):
     test_url = "http://localhost:8080"
     args = parser.parse_args(["--api-url", test_url, "auth", "status"])
     assert args.api_url == test_url
+
     args = parser.parse_args(["auth", "status"])
     assert args.api_url is None
 
@@ -106,7 +106,7 @@ def test_global_api_url_option(parser):
 
 # Using parametrize for similar structures
 @pytest.mark.parametrize(
-    "cmd_str, expected_attrs",
+    ("cmd_str", "expected_attrs"),
     [
         # Auth
         (
@@ -117,15 +117,27 @@ def test_global_api_url_option(parser):
             "auth login --token abc",
             {"command": "auth", "subcommand": "login", "token": "abc"},
         ),
-        ("auth logout", {"command": "auth", "subcommand": "logout"}),
-        ("auth status", {"command": "auth", "subcommand": "status"}),
-        ("auth whoami", {"command": "auth", "subcommand": "whoami"}),
+        (
+            "auth logout",
+            {"command": "auth", "subcommand": "logout"},
+        ),
+        (
+            "auth status",
+            {"command": "auth", "subcommand": "status"},
+        ),
+        (
+            "auth whoami",
+            {"command": "auth", "subcommand": "whoami"},
+        ),
         # Link/Unlink/Init
         (
             "link my-app --org testorg",
             {"command": "link", "app_name": "my-app", "org": "testorg"},
         ),
-        ("unlink", {"command": "unlink"}),
+        (
+            "unlink",
+            {"command": "unlink"},
+        ),
         (
             "init --name newapp --template node",
             {"command": "init", "name": "newapp", "template": "node", "from_git": None},
@@ -479,17 +491,33 @@ def test_command_parsing(parser, cmd_str, expected_attrs):
 
 
 @pytest.mark.parametrize(
-    "cmd_str, expected_target, expected_command_list",
+    ("cmd_str", "expected_target, expected_command_list"),
     [
-        ("instances exec my-inst -- ls -la /app", "my-inst", ["ls", "-la", "/app"]),
+        (
+            "instances exec my-inst -- ls -la /app",
+            "my-inst",
+            ["ls", "-la", "/app"],
+        ),
         (
             "instances exec --app x --env y --select -- bash -c 'echo hello'",
             None,
             ["bash", "-c", "echo hello"],
         ),
-        ("instances ssh my-inst", "my-inst", []),  # No remainder command
-        ("instances ssh my-inst uptime", "my-inst", ["uptime"]),
-        ("dev exec -- pytest -k mytest", None, ["pytest", "-k", "mytest"]),
+        (
+            "instances ssh my-inst",
+            "my-inst",
+            [],
+        ),  # No remainder command
+        (
+            "instances ssh my-inst uptime",
+            "my-inst",
+            ["uptime"],
+        ),
+        (
+            "dev exec -- pytest -k mytest",
+            None,
+            ["pytest", "-k", "mytest"],
+        ),
     ],
 )
 def test_remainder_parsing(parser, cmd_str, expected_target, expected_command_list):
@@ -513,8 +541,9 @@ def test_remainder_parsing(parser, cmd_str, expected_target, expected_command_li
 
 # --- Tests for Parsing Errors ---
 
+
 @pytest.mark.parametrize(
-    "cmd_list, error_fragment",  # Part of the expected error message
+    ("cmd_list", "error_fragment"),  # Part of the expected error message
     [
         (
             ["apps", "create"],
