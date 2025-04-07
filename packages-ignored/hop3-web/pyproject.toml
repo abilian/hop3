@@ -1,71 +1,69 @@
 [project]
 name = "hop3-web"
-version = "0.2.3"
-
-[tool.poetry]
-name = "hop3-web"
 version = "0.2.2"
+dependencies = [
+    # Web
+    "flask<4.0,>=3.0",
+    "flask-super<1.0,>=0.2",
+    "flask-security-too<6.0,>=5.4",
+    "flask-sqlalchemy<4.0,>=3.1",
+    "flask-babel<5.0,>=4.0",
+    "flask-htmx<1.0,>=0.4",
+    "flask-mail<1.0,>=0.10",
+    "flask-migrate<5.0,>=4.0",
+    "flask-talisman<2.0,>=1.1",
+    "flask-vite<1.0,>=0.5",
+    "sentry-sdk<3.0,>=2.12",
+    # Utils / common
+    "python-dotenv>=1.1.0",
+    "attrs",
+    # CLI
+    "click<9.0.0,>=8.1.7",
+    "cleez",
+    "pluggy<2.0.0,>=1.4.0",
+    "svcs<25.0.0,>=24.1.0",
+    # ORM / Database
+    "sqlalchemy<3.0,>=2.0",
+    "sqlalchemy-serializer>=1.4",
+    "sqlalchemy-utils<1.0,>=0.41",
+    "advanced-alchemy>=1",
+    "psycopg2<3.0,>=2.9",
+    # System introspection
+    "psutil>=6.0",
+    "py-cpuinfo>=9.0",
+    # Debug
+    "devtools>=0.12",
+    "snoop>=0.6",
+]
+authors = [
+    { name = "Stefane Fermigier", email = "sf@abilian.com" },
+]
+requires-python = "<4.0,>=3.10"
 description = "Simple PaaS - Deploy and manage web applications on a single server"
-authors = ["Stefane Fermigier <sf@abilian.com>"]
 readme = "README.md"
 
-packages = [{ include = "hop3_web", from = "src" }]
+[dependency-groups]
+dev = [
+    "abilian-devtools<1.0,>=0.7",
+    "httpx<1.0,>=0.27",
+    "pytest<9.0,>=8.0",
+    "python-dotenv<2.0,>=1.0",
+    "reuse<5,>=4",
+    "infer-types<2.0,>=1.0",
+    "pyinfra<4,>=3",
+    "types-paramiko<4.0,>=3.4",
+    "types-psycopg2<3.0,>=2.9",
+    "flask-debugtoolbar<1.0,>=0.15",
+    "msgspec<1.0,>=0.18",
+    "watchfiles>=0.24",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-
-attrs = "*"
-click = "^8.1.7"
-cleez = "*"
-pluggy = "^1.4.0"
-svcs = "^24.1.0"
-
-sqlalchemy = "^2.0"
-sqlalchemy-serializer = ">= 1.4"
-advanced-alchemy = ">= 0.21"
-psycopg2 = "^2.9"
-
-# System introspection
-psutil = ">= 6.0"
-py-cpuinfo = ">= 9.0"
-
-# Remove later
-devtools = ">= 0.12"
-snoop = ">= 0.6"
-
-# "main" / web app
-flask = "^3.0"
-flask-super = "^0.2"
-sqlalchemy-utils = "^0.41"
-flask-security-too = "^5.4"
-flask-sqlalchemy = "^3.1"
-flask-babel = "^4.0"
-flask-htmx = "^0.4"
-flask-mail = "^0.10"
-flask-migrate = "^4.0"
-flask-talisman = "^1.1"
-flask-vite = "^0.5"
-sentry-sdk = "^2.12"
-
-[tool.poetry.group.dev.dependencies]
-abilian-devtools = "^0.7"
-httpx = "^0.27"
-pytest = "^8.0"
-python-dotenv = "^1.0"
-reuse = "^4"
-infer-types = "^1.0"
-
-pyinfra = "^3"
-
-types-paramiko = "^3.4"
-types-psycopg2 = "^2.9"
-flask-debugtoolbar = "^0.15"
-msgspec = "^0.18"
-watchfiles = ">= 0.24"
+[tool.pdm.build]
+includes = ["src/hop3_web"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
 
 [tool.isort]
 profile = "black"
