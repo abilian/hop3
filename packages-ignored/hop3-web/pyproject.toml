@@ -44,16 +44,18 @@ readme = "README.md"
 
 [dependency-groups]
 dev = [
+    # Checkers / linters
     "abilian-devtools<1.0,>=0.7",
-    "httpx<1.0,>=0.27",
-    "pytest<9.0,>=8.0",
-    "python-dotenv<2.0,>=1.0",
     "reuse<5,>=4",
     "infer-types<2.0,>=1.0",
-    "pyinfra<4,>=3",
     "types-paramiko<4.0,>=3.4",
     "types-psycopg2<3.0,>=2.9",
     "flask-debugtoolbar<1.0,>=0.15",
+    # Tests
+    "httpx<1.0,>=0.27",
+    "pytest<9.0,>=8.0",
+    #
+    "pyinfra<4,>=3",
     "msgspec<1.0,>=0.18",
     "watchfiles>=0.24",
 ]
