@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 from shutil import copy as cp
 
-__all__ = ["shell", "cp"]
+__all__ = ["cp", "shell"]
 
 
 def shell(cmd):
@@ -15,4 +15,5 @@ def shell(cmd):
     print(cmd)
     status = os.system(cmd)
     if status != 0:
-        raise RuntimeError(f"Command failed: {cmd!r}")
+        msg = f"Command failed: {cmd!r}"
+        raise RuntimeError(msg)

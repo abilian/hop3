@@ -1,5 +1,7 @@
 # Copyright (c) 2023-2025, Abilian SAS
 
+# ruff: noqa: N818
+
 from __future__ import annotations
 
 from termcolor import colored
