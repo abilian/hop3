@@ -1,5 +1,4 @@
 # Copyright (c) 2023-2025, Abilian SAS
-
 """General utility functions."""
 
 from __future__ import annotations
@@ -40,7 +39,7 @@ def check_email(email: str) -> str:
 
 
 def slugify(
-    value: str, allow_unicode: bool = False, separator: str | None = None
+    value: str, separator: str | None = None, *, allow_unicode: bool = False
 ) -> str:
     """slugify.
 

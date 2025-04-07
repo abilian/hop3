@@ -51,6 +51,7 @@ format:
 	docformatter -i -r src
 	adt format
 	ruff format src
+	ruff check --fix src
 
 ## Add copyright mention
 add-copyright:
