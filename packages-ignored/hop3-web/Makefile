@@ -1,5 +1,11 @@
+## Default: run lint and test
 all: lint test
 .PHONY: all
+
+## Run flak app
+run:
+	flask --debug run
+.PHONY: run
 
 #
 # testing & checking
@@ -44,7 +50,7 @@ audit:
 #
 # Formatting
 #
-.PHONY: format
+.PHONY: format add-copyright
 
 ## Format / beautify code
 format:

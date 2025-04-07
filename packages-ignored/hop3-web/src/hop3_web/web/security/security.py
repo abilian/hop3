@@ -27,7 +27,7 @@ security = Security()
 
 
 def init_app(app: Flask) -> None:
-    from hop3_web.models.auth import Role, User
+    from hop3_web.orm.auth import Role, User
 
     app.config.update(CONFIG)
     user_datastore = SQLAlchemyUserDatastore(db, User, Role)

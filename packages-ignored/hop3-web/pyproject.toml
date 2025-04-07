@@ -34,6 +34,8 @@ dependencies = [
     # Debug
     "devtools>=0.12",
     "snoop>=0.6",
+    "prettyprinter>=0.18.0",
+    "webbits>=0.1.4",
 ]
 authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" },
@@ -55,9 +57,7 @@ dev = [
     "httpx<1.0,>=0.27",
     "pytest<9.0,>=8.0",
     #
-    "pyinfra<4,>=3",
-    "msgspec<1.0,>=0.18",
-    "watchfiles>=0.24",
+    "gunicorn>=23.0.0",
 ]
 
 [tool.pdm.build]
