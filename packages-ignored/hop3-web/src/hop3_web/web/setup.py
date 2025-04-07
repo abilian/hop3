@@ -8,8 +8,8 @@ from flask import Blueprint, Flask
 from loguru import logger
 
 MODULES = [
-    "hop3_main.web.blueprints.admin",
-    "hop3_main.web.blueprints.user",
+    "hop3_web.web.blueprints.admin",
+    "hop3_web.web.blueprints.user",
 ]
 
 

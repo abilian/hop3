@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import datetime
 
 from flask_security import AsaList, RoleMixin, UserMixin
 from sqlalchemy import ForeignKey, Integer, String
@@ -10,9 +10,6 @@ from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
 
 from ._base import AuditBase, Repository, RepositoryService
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class Role(AuditBase, RoleMixin):

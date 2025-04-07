@@ -17,7 +17,7 @@ from flask_vite import Vite
 from loguru import logger
 from pytz import timezone
 
-from hop3.model.security import Role, User
+from hop3_web.orm.auth import Role, User
 
 if TYPE_CHECKING:
     from flask import Flask

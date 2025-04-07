@@ -6,13 +6,12 @@ import re
 
 from flask_security.forms import (
     ConfirmRegisterForm,
-    Length,
-    Required,
     get_form_field_label,
     password_required,
 )
 from flask_wtf import RecaptchaField
 from wtforms import PasswordField, StringField, ValidationError
+from wtforms.validators import DataRequired, Length
 
 
 #
@@ -37,10 +36,10 @@ password_length = Length(min=8, max=128, message="PASSWORD_INVALID_LENGTH")
 # TODO: override similarly change password form
 #
 class ExtendedConfirmRegisterForm(ConfirmRegisterForm):
-    nom = StringField("Nom", [Required()])
-    prenom = StringField("Prénom", [Required()])
-    organisme = StringField("Organisme", validators=[Required()])
-    code_postal = StringField("Code postal", validators=[Required()])
+    nom = StringField("Nom", [DataRequired()])
+    prenom = StringField("Prénom", [DataRequired()])
+    organisme = StringField("Organisme", validators=[DataRequired()])
+    code_postal = StringField("Code postal", validators=[DataRequired()])
 
     # Override password field from flask-security
     password = PasswordField(

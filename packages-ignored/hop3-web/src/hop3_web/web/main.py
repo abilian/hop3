@@ -14,25 +14,9 @@ from flask_super.scanner import scan_packages
 from hop3_web.web.extensions import init_extensions
 from hop3_web.web.setup import register_blueprints
 
-# from app.cli import register_commands
-# from app.config import finish_config
-# from app.extensions import init_extensions
-# from app.lib.macros import register_macros
-# from app.lib.routes import register_blueprints
-# from app.security import init_app as init_security
-# from app.services import register_services
-# from app.setup.errors import init_error_handlers
-# from app.setup.hooks import register_hooks
-# from app.setup.sentry import init_sentry
-
-# from .security import ExtendedConfirmRegisterForm, user_datastore
-
 SCANNED_PACKAGES = [
-    "hop3_main.models",
-    "hop3_main.web.blueprints",
-    # "app.components",
-    # "app.cli",
-    # "app.services.blobs",
+    "hop3_web.orm",
+    "hop3_web.web.blueprints",
 ]
 
 
