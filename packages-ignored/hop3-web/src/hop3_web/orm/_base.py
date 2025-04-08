@@ -72,6 +72,7 @@ class AuditBase(CommonTableAttributes, BigIntPrimaryKey, AuditColumns, Declarati
         nullable=True,
     )
     """Date/time of instance creation."""
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTimeUTC(timezone=True),
         default=lambda: datetime.now(timezone.utc),

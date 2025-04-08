@@ -6,11 +6,14 @@ from pathlib import Path
 from typing import Any
 
 import flask_super
+import wireup
+import wireup.integration.flask
 from dotenv import load_dotenv
 from flask import Flask
 from flask_super.initializers import init_logging
 from flask_super.scanner import scan_packages
 
+from hop3_web import services
 from hop3_web.web.extensions import init_extensions
 from hop3_web.web.setup import register_blueprints
 
@@ -73,3 +76,13 @@ def init_app(app: Flask) -> None:
 
     # Macros (Jinja)
     # register_macros(app)
+
+    container = wireup.create_sync_container(
+        service_modules=[services],
+        parameters={
+            **app.config,
+            "db_connection_url": app.config["SQLALCHEMY_DATABASE_URI"],
+        },
+    )
+
+    wireup.integration.flask.setup(container, app)

@@ -36,6 +36,9 @@ dependencies = [
     "snoop>=0.6",
     "prettyprinter>=0.18.0",
     "webbits>=0.1.4",
+    "wireup>=1.0.2",
+    "eval-type-backport>=0.2.2",
+    "wrapt>=1.17.2",
 ]
 authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" },
@@ -58,6 +61,7 @@ dev = [
     "pytest<9.0,>=8.0",
     #
     "gunicorn>=23.0.0",
+    "honcho>=2.0.0",
 ]
 
 [tool.pdm.build]

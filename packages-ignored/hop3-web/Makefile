@@ -4,7 +4,7 @@ all: lint test
 
 ## Run flak app
 run:
-	flask --debug run
+	honcho -f Procfile-dev start
 .PHONY: run
 
 #
