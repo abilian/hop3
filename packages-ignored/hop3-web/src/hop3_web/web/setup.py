@@ -24,8 +24,7 @@ def register_blueprints(app: Flask) -> None:
         blueprints.add(blueprint)
 
     for blueprint in blueprints:
-        logger.info("Registering blueprint {name}", name=blueprint.name)
-        print(f"Registering blueprint {blueprint.name}")
+        logger.debug("Registering blueprint {name}", name=blueprint.name)
         app.register_blueprint(blueprint)
 
 
