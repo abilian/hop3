@@ -57,6 +57,7 @@ lint.extend-ignore = [
     "SIM102", # Use a single `if` statement instead of nested `if` statements
     "SIM108", # Use ternary operator
     "TC003", # Move import into a type-checking block (conflicts with SQLA ORM)
+    "TC", # Move import into a type-checking block (conflicts with wireup)
 
     # Fix these
     "E501", # Line too long
