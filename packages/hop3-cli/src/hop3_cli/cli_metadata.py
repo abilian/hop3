@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
 import argparse
@@ -121,12 +122,18 @@ CLI_CONFIG = {
                         },
                     ],
                 },
-                {"name": "logout", "help": "Log out and clear local credentials."},
+                {
+                    "name": "logout",
+                    "help": "Log out and clear local credentials.",
+                },
                 {
                     "name": "status",
                     "help": "Display current logged-in user and server info.",
                 },
-                {"name": "whoami", "help": "Alias for 'auth status'."},  # Common alias
+                {
+                    "name": "whoami",
+                    "help": "Alias for 'auth status'.",
+                },  # Common alias
             ],
         },
         # --- Link / Unlink / Init (Top Level Actions) ---
