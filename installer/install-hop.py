@@ -65,7 +65,7 @@ HOP3_USER = "hop3"
 SSH_USER = "root"
 HOME_DIR = f"/home/{HOP3_USER}"
 VENV = f"{HOME_DIR}/venv"
-HOP_SCRIPT = f"{VENV}/bin/hop-agent"
+HOP_SCRIPT = f"{VENV}/bin/hop-server"
 
 APT_CONF = """
 Acquire::http {No-Cache=True;};
@@ -118,7 +118,7 @@ def setup_server() -> None:
 
 
 def setup_hop3() -> None:
-    src_file = glob.glob("dist/hop3_agent*.tar.gz")[0]
+    src_file = glob.glob("dist/hop3_server*.tar.gz")[0]
 
     files.put(
         name="Put hop3 source package",
