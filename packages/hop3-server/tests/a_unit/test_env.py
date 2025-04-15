@@ -1,6 +1,5 @@
 # Copyright (c) 2024-2025, Abilian SAS
 
-# ruff: noqa: PLR2004
 from __future__ import annotations
 
 from pathlib import Path

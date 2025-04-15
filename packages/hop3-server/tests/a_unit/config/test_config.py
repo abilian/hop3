@@ -1,6 +1,5 @@
 # Copyright (c) 2024-2025, Abilian SAS
 
-# ruff: noqa: SIM300
 
 from __future__ import annotations
 
