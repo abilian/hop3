@@ -28,6 +28,7 @@ dependencies = [
     "devtools",
     "granian>=2.2.0",
     "psycopg2>=2.9.10",
+    "webargs>=8.6.0",
 ]
 
 [dependency-groups]

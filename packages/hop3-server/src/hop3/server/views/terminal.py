@@ -31,8 +31,8 @@ TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Removed Socket.IO script -->
     <style>
-        body {{ font-family: sans-serif; }}
-        #output {{
+        body { font-family: sans-serif; }
+        #output {
             border: 1px solid black;
             height: 300px;
             overflow-y: scroll; /* Changed to scroll */
@@ -41,11 +41,11 @@ TEMPLATE = """
             margin-top: 10px;
             padding: 5px;
             background-color: #f8f8f8;
-        }}
-        .stdout {{ color: black; }}
-        .stderr {{ color: red; }}
-        .error {{ color: orange; font-weight: bold; }}
-        .info {{ color: blue; }}
+        }
+        .stdout { color: black; }
+        .stderr { color: red; }
+        .error { color: orange; font-weight: bold; }
+        .info { color: blue; }
     </style>
 
     <script>

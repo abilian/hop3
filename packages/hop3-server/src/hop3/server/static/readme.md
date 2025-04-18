@@ -1,1 +1,1 @@
-Put statix files here if needed.
+Put static files here if needed.
