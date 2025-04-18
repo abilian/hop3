@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Shell</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Removed Socket.IO script -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+  <style>
+    body {
+      font-family: sans-serif;
+    }
+
+    #output {
+      border: 1px solid black;
+      height: 300px;
+      overflow-y: scroll; /* Changed to scroll */
+      white-space: pre-wrap;
+      word-wrap: break-word; /* Added for long lines */
+      margin-top: 10px;
+      padding: 5px;
+      background-color: #f8f8f8;
+      max-width: 80em;
+    }
+
+    .stdout {
+      color: black;
+    }
+
+    .stderr {
+      color: red;
+    }
+
+    .error {
+      color: orange;
+      font-weight: bold;
+    }
+
+    .info {
+      color: blue;
+    }
+  </style>
+
+  <script>
+    let socket;
+
+    function connectWebSocket() {
+      // Construct WebSocket URL dynamically
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProtocol}//${window.location.host}/terminal/ws`;
+      console.log(`Connecting to ${wsUrl}`);
+
+      socket = new WebSocket(wsUrl);
+
+      socket.onopen = function (event) {
+        console.log('WebSocket connection opened!');
+        addOutput('Connected to server.', 'info');
+      };
+
+      socket.onmessage = function (event) {
+        console.log('Message from server:', event.data);
+        try {
+          const msg = JSON.parse(event.data); // Expect JSON
+          if (msg.type && msg.data !== undefined) {
+            addOutput(msg.data, msg.type); // Use type as CSS class
+          } else {
+            addOutput(`Invalid message format: ${event.data}`, 'error');
+          }
+        } catch (e) {
+          console.error("Failed to parse JSON:", e);
+          // Display raw data if JSON parsing fails
+          addOutput(`Raw data: ${event.data}`, 'info');
+        }
+      };
+
+      socket.onerror = function (error) {
+        console.error('WebSocket Error:', error);
+        addOutput(`WebSocket Error: ${error.message || 'Connection failed'}`, 'error');
+      };
+
+      socket.onclose = function (event) {
+        console.log('WebSocket connection closed:', event);
+        addOutput(`Connection closed. Code: ${event.code}, Reason: ${event.reason || 'N/A'}`, 'info');
+        // Optional: attempt to reconnect
+        // setTimeout(connectWebSocket, 5000); // Reconnect after 5 seconds
+      };
+    }
+
+    function addOutput(message, type = 'stdout') {
+      // Sanitize message client-side as well for safety, though server escapes too
+      const sanitizedMessage = message.replace(/</g, "<").replace(/>/g, ">");
+
+      const outputDiv = document.getElementById('output');
+      outputDiv.innerHTML += `<span class="${type}">${sanitizedMessage}</span><br>`;
+      outputDiv.scrollTop = outputDiv.scrollHeight; // Scroll to bottom
+    }
+
+    function sendCommand() {
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        addOutput('Not connected to server.', 'error');
+        return;
+      }
+      const input = document.getElementById('commandInput');
+      const command = commandInput.value;
+      if (command.trim() === '') {
+        return;
+      } // Don't send empty commands
+
+      console.log(`Sending command: ${command}`);
+      socket.send(command); // Send raw command string
+      commandInput.value = ''; // Clear input
+    }
+
+    function contentLoaded(event) {
+      // This function is called when the DOM is fully loaded
+      console.log('DOM fully loaded and parsed');
+
+      // Re-fetch elements here to ensure they exist
+      const input = document.getElementById('commandInput');
+      const sendButton = document.getElementById('sendButton');
+
+      input.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') { // Use event.key for modern browsers
+          sendCommand();
+        }
+      });
+      sendButton.addEventListener('click', sendCommand);
+
+      connectWebSocket(); // Initialize WebSocket connection on load
+    }
+
+    // Add event listener after the DOM is loaded
+    document.addEventListener('DOMContentLoaded', contentLoaded);
+
+  </script>
+</head>
+
+<body>
+
+<div id="console" class="border max-w-4xl mx-auto p-4">
+  <h1 class="text-2xl text-bold">WebSocket Shell</h1>
+
+  <div id="output"></div>
+
+  <div id="cli" class="flex mt-4 p-1 border">
+    <input type="text" id="commandInput"
+           class="border" placeholder="Enter command...">
+    <button id="sendButton" class="border rounded">Send</button>
+  </div>
+</div>
+
+</body>
+</html>

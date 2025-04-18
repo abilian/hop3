@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Shell</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <script
+    type="module"
+    src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script
+    type="module"
+    src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-beta.11/bundles/datastar.js"></script>
+
+  <style>
+    body {
+      font-family: sans-serif;
+    }
+
+    #output {
+      border: 1px solid black;
+      height: 300px;
+      overflow-y: scroll; /* Changed to scroll */
+      white-space: pre-wrap;
+      word-wrap: break-word; /* Added for long lines */
+      margin-top: 10px;
+      padding: 5px;
+      background-color: #f8f8f8;
+      max-width: 80em;
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="console" class="border max-w-4xl mx-auto p-4">
+  <h1 class="text-2xl text-bold">Shell</h1>
+
+  <div id="output"></div>
+
+  <div id="cli" class="flex mt-4 p-1 border">
+    <input type="text" id="commandInput"
+           class="border" placeholder="Enter command...">
+    <button id="sendButton" class="border rounded">Send</button>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,13 +1,23 @@
-# Copyright (c) 2023-2025, Abilian SAS
+# Copyright (c) 2025, Abilian SAS
+"""
+Simple endpoint for debugging.
+
+Use with:
+
+```shell
+curl -X POST http://localhost:8000/cli -d '--help'
+```
+
+"""
+
 from __future__ import annotations
 
-import json
 import traceback
-from typing import TYPE_CHECKING
 
 from devtools import debug
 from starlette.exceptions import HTTPException
-from starlette.responses import Response
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
 
 from hop3.commands import Command
 from hop3.lib.registry import lookup
@@ -15,32 +25,26 @@ from hop3.lib.scanner import scan_package
 from hop3.orm import get_session_factory
 from hop3.server.singletons import router
 
-if TYPE_CHECKING:
-    from starlette.requests import Request
-
 scan_package("hop3.commands")
 commands = {command.name: command for command in lookup(Command)}
 
 
-@router.post("/rpc")
-async def handle_rpc(request: Request):
-    json_request = await request.json()
-
-    method = json_request["method"]
-    assert method == "cli"
-
-    params = json_request["params"][0]
-    command = params[0]
-    args = params[1:]
+@router.post("/cli")
+async def cli(request: Request):
+    """
+    CLI view (for debugging).
+    """
+    body = await request.body()
+    args = body.decode("utf-8").split()
+    command = args.pop(0)
 
     try:
         result = call(command, args)
-        result_rpc = {"jsonrpc": "2.0", "result": result, "id": 1}
-        json_result = json.dumps(result_rpc)
-        return Response(json_result, media_type="application/json")
     except ValueError as e:
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
+
+    return PlainTextResponse(str(result))
 
 
 def call(command_name: str, args: list[str]):
