@@ -12,7 +12,7 @@ members = [
 
 [[package]]
 name = "abilian-devtools"
-version = "0.7.6"
+version = "0.7.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "black" },
@@ -59,14 +59,14 @@ dependencies = [
     { name = "tomlkit" },
     { name = "vulture" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/26/c3/979c359b927b3e3affe5d5df23f596a254038e917d5ee62333d467c5e688/abilian_devtools-0.7.6.tar.gz", hash = "sha256:47cb9eb32367b5073ef6adc9553f37273c4aabaad8bfe2d98bd625bc4dd7ca46", size = 119787 }
+sdist = { url = "https://files.pythonhosted.org/packages/9b/40/dcc3409ddced030c40ef2c1471db91de6ba112ff8044ee42682ba079747d/abilian_devtools-0.7.7.tar.gz", hash = "sha256:d094b512fd84517b4d5186579e7e79838776a0193c1320ac677e4c92ac52f7d0", size = 131834 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/36/b9/16c6db9416a11b6788eddad4c5ba368926646a286b80c947a365c862c549/abilian_devtools-0.7.6-py3-none-any.whl", hash = "sha256:95ac5e87a3665305b43dd60d16ac8b54b1ead926e7a72b7aeaba41e802543d32", size = 18559 },
+    { url = "https://files.pythonhosted.org/packages/9f/0a/a3142f48958e7ba5b9b52526ce7275b401fea72542445f8624d33ba6f82a/abilian_devtools-0.7.7-py3-none-any.whl", hash = "sha256:0739da3faec1278de8aa39f5e3aecdb0bcc1f6a40758aa296567d24681d41809", size = 18506 },
 ]
 
 [[package]]
 name = "advanced-alchemy"
-version = "1.2.0"
+version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alembic" },
@@ -74,9 +74,9 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2a/17/20d28d37664f075f8c4bdef8d749d078807734874e91ea6b2898da6f1787/advanced_alchemy-1.2.0.tar.gz", hash = "sha256:057698f2a7d837a64c36e82de964a971f57e28feb0d53206c8db3231a3a43861", size = 640931 }
+sdist = { url = "https://files.pythonhosted.org/packages/42/f4/32357389d1dde1bd844c8000baf14c90f3adbb27cc91ef87c3a968d8a7ad/advanced_alchemy-1.3.1.tar.gz", hash = "sha256:3ea2906df6585a3e0bab674b1cd2fc8c9049d60831711a30ffc8310e85a7da0e", size = 655774 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8b/ac/32a556996e583f8c115e0b58f8e25b29f446b2e8f91cc6681e896e18ebca/advanced_alchemy-1.2.0-py3-none-any.whl", hash = "sha256:29ba70a7d2678a737530e00daabebd449a106f8481466cd7d63ed0a7f5e5fccc", size = 213327 },
+    { url = "https://files.pythonhosted.org/packages/48/11/a17c0558e7fdc70c4a4bd15918755a1c87080c3b466f5e1b97d54541a18c/advanced_alchemy-1.3.1-py3-none-any.whl", hash = "sha256:ade2453b39433cfe6cbeaabad4cd886a9112f03be4d4e79ec0acac24d31451c2", size = 219991 },
 ]
 
 [[package]]
@@ -1678,6 +1678,7 @@ dependencies = [
     { name = "cyclonedx-bom" },
     { name = "devtools" },
     { name = "granian" },
+    { name = "marshmallow" },
     { name = "pluggy" },
     { name = "psycopg2" },
     { name = "sqlalchemy" },
@@ -1700,6 +1701,7 @@ requires-dist = [
     { name = "cyclonedx-bom", specifier = ">=5.1.1" },
     { name = "devtools" },
     { name = "granian", specifier = ">=2.2.0" },
+    { name = "marshmallow", specifier = ">=4.0.0" },
     { name = "pluggy", specifier = "~=1.4" },
     { name = "psycopg2", specifier = ">=2.9.10" },
     { name = "sqlalchemy", specifier = "~=2.0" },
@@ -1772,11 +1774,11 @@ wheels = [
 
 [[package]]
 name = "identify"
-version = "2.6.9"
+version = "2.6.10"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/9b/98/a71ab060daec766acc30fb47dfca219d03de34a70d616a79a38c6066c5bf/identify-2.6.9.tar.gz", hash = "sha256:d40dfe3142a1421d8518e3d3985ef5ac42890683e32306ad614a29490abeb6bf", size = 99249 }
+sdist = { url = "https://files.pythonhosted.org/packages/0c/83/b6ea0334e2e7327084a46aaaf71f2146fc061a192d6518c0d020120cd0aa/identify-2.6.10.tar.gz", hash = "sha256:45e92fd704f3da71cc3880036633f48b4b7265fd4de2b57627cb157216eb7eb8", size = 99201 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/ce/0845144ed1f0e25db5e7a79c2354c1da4b5ce392b8966449d5db8dca18f1/identify-2.6.9-py2.py3-none-any.whl", hash = "sha256:c98b4322da415a8e5a70ff6e51fbc2d2932c015532d77e9f8537b4ba7813b150", size = 99101 },
+    { url = "https://files.pythonhosted.org/packages/2b/d3/85feeba1d097b81a44bcffa6a0beab7b4dfffe78e82fc54978d3ac380736/identify-2.6.10-py2.py3-none-any.whl", hash = "sha256:5f34248f54136beed1a7ba6a6b5c4b6cf21ff495aac7c359e1ef831ae3b8ab25", size = 99101 },
 ]
 
 [[package]]
@@ -1974,7 +1976,7 @@ wheels = [
 
 [[package]]
 name = "lib4sbom"
-version = "0.8.3"
+version = "0.8.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "defusedxml" },
@@ -1982,7 +1984,7 @@ dependencies = [
     { name = "semantic-version" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c7/ff/6e0aaa07fa70463bf0c0efcb786534abb148815d0f20e65b463ed6377daa/lib4sbom-0.8.3-py2.py3-none-any.whl", hash = "sha256:f166b110204cb50c867fb80023fd54bb7070b5cf4ff5a40362df9597dc72f378", size = 2298131 },
+    { url = "https://files.pythonhosted.org/packages/07/4d/4e98d47cbfca9a45e62ff86eab29eff770fd355df9452e48480d89ede7ef/lib4sbom-0.8.4-py2.py3-none-any.whl", hash = "sha256:380d123426348ece43cae8976b49e6ebc4e85bccd6db02dc394a2fa97cf6776c", size = 2298152 },
 ]
 
 [[package]]
@@ -3342,11 +3344,11 @@ wheels = [
 
 [[package]]
 name = "setuptools"
-version = "78.1.0"
+version = "79.0.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a9/5a/0db4da3bc908df06e5efae42b44e75c81dd52716e10192ff36d0c1c8e379/setuptools-78.1.0.tar.gz", hash = "sha256:18fd474d4a82a5f83dac888df697af65afa82dec7323d09c3e37d1f14288da54", size = 1367827 }
+sdist = { url = "https://files.pythonhosted.org/packages/7d/19/fecb7e2825616270f34512b3394cdcf6f45a79b5b6d94fdbd86a509e67b5/setuptools-79.0.0.tar.gz", hash = "sha256:9828422e7541213b0aacb6e10bbf9dd8febeaa45a48570e09b6d100e063fc9f9", size = 1367685 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/54/21/f43f0a1fa8b06b32812e0975981f4677d28e0f3271601dc88ac5a5b83220/setuptools-78.1.0-py3-none-any.whl", hash = "sha256:3e386e96793c8702ae83d17b853fb93d3e09ef82ec62722e61da5cd22376dcd8", size = 1256108 },
+    { url = "https://files.pythonhosted.org/packages/cc/ea/d53f2f8897c46a36df085964d07761ea4c2d1f2cf92019693b6742b7aabb/setuptools-79.0.0-py3-none-any.whl", hash = "sha256:b9ab3a104bedb292323f53797b00864e10e434a3ab3906813a7169e4745b912a", size = 1256065 },
 ]
 
 [[package]]
@@ -3649,14 +3651,14 @@ wheels = [
 
 [[package]]
 name = "types-setuptools"
-version = "78.1.0.20250329"
+version = "79.0.0.20250422"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "setuptools" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e9/6e/c54e6705e5fe67c3606e4c7c91123ecf10d7e1e6d7a9c11b52970cf2196c/types_setuptools-78.1.0.20250329.tar.gz", hash = "sha256:31e62950c38b8cc1c5114b077504e36426860a064287cac11b9666ab3a483234", size = 43942 }
+sdist = { url = "https://files.pythonhosted.org/packages/ce/61/5b764d556977ab27976f335d7493dc267b0dbcb5fae7fe117547c292c069/types_setuptools-79.0.0.20250422.tar.gz", hash = "sha256:9c9f699a5914d2ed97f02ee749fb2c7bc2898f8dad03b5dd74b74d4f80e29972", size = 43865 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7d/31/85d0264705d8ef47680d28f4dc9bb1e27d8cace785fbe3f8d009fad6cb88/types_setuptools-78.1.0.20250329-py3-none-any.whl", hash = "sha256:ea47eab891afb506f470eee581dcde44d64dc99796665da794da6f83f50f6776", size = 66985 },
+    { url = "https://files.pythonhosted.org/packages/08/43/410e2978d4e2f3d8355e80141a64d89616fada864403479477c1058f056d/types_setuptools-79.0.0.20250422-py3-none-any.whl", hash = "sha256:55238c0b18cdc08dd26c32d6d8385ca1ea59b93dde760dae96d15868b7911990", size = 66914 },
 ]
 
 [[package]]
@@ -3881,15 +3883,15 @@ wheels = [
 
 [[package]]
 name = "webargs"
-version = "8.6.0"
+version = "8.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "marshmallow" },
     { name = "packaging" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8c/51/e9ee5d8315864adf65e92f858f826514538e30db542d4782dd94c2418464/webargs-8.6.0.tar.gz", hash = "sha256:b8d098ab92bd74c659eca705afa31d681475f218cb15c1e57271fa2103c0547a", size = 96610 }
+sdist = { url = "https://files.pythonhosted.org/packages/a8/02/d27619cb81e0e136e27276e8bd48c5ebb38272b0920ce43da0f61c598879/webargs-8.7.0.tar.gz", hash = "sha256:0c617dec19ed4f1ff6b247cd73855e949d87052d71900938b71f0cafd92f191b", size = 96803 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/79/bb/b9b77adeecffd7b41615a7ebd607ac28bd9e09f357d31ce68073b77f0f30/webargs-8.6.0-py3-none-any.whl", hash = "sha256:83da4d7105643d0a50499b06d98a6ade1a330ce66d039eaa51f715172c704aba", size = 31831 },
+    { url = "https://files.pythonhosted.org/packages/26/3f/0f68665037bc10d87cf18bcd094a53ad6496ffe44faff721481060fd9149/webargs-8.7.0-py3-none-any.whl", hash = "sha256:4571de9ff5aac98ef528d9cecd7dbc0e05c0e9149e8293a01d1d1398abfcf780", size = 31795 },
 ]
 
 [[package]]
