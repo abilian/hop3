@@ -66,7 +66,7 @@ wheels = [
 
 [[package]]
 name = "advanced-alchemy"
-version = "1.3.1"
+version = "1.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alembic" },
@@ -74,9 +74,9 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/42/f4/32357389d1dde1bd844c8000baf14c90f3adbb27cc91ef87c3a968d8a7ad/advanced_alchemy-1.3.1.tar.gz", hash = "sha256:3ea2906df6585a3e0bab674b1cd2fc8c9049d60831711a30ffc8310e85a7da0e", size = 655774 }
+sdist = { url = "https://files.pythonhosted.org/packages/ae/f8/badc8578b89a6045f39e7d9f6262e704611c954c74e9ada4ab647d78c400/advanced_alchemy-1.4.1.tar.gz", hash = "sha256:156edcbf0afb6ededb1984b8919f8754cf080a3e7e1f2294f1c036bac308f8d9", size = 687484 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/48/11/a17c0558e7fdc70c4a4bd15918755a1c87080c3b466f5e1b97d54541a18c/advanced_alchemy-1.3.1-py3-none-any.whl", hash = "sha256:ade2453b39433cfe6cbeaabad4cd886a9112f03be4d4e79ec0acac24d31451c2", size = 219991 },
+    { url = "https://files.pythonhosted.org/packages/a0/dd/ead04950c672652d24384695c1fa767fb139c0bc94b82c5bac492b03e2f7/advanced_alchemy-1.4.1-py3-none-any.whl", hash = "sha256:e9ea3fe059df9270a7b25a1b486c99aa9421c89051bd3150036cfcf5389e9ebc", size = 227320 },
 ]
 
 [[package]]
@@ -392,11 +392,11 @@ wheels = [
 
 [[package]]
 name = "certifi"
-version = "2025.1.31"
+version = "2025.4.26"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/1c/ab/c9f1e32b7b1bf505bf26f0ef697775960db7932abeb7b516de930ba2705f/certifi-2025.1.31.tar.gz", hash = "sha256:3d5da6925056f6f18f119200434a4780a94263f10d1c21d032a6f6b2baa20651", size = 167577 }
+sdist = { url = "https://files.pythonhosted.org/packages/e8/9e/c05b3920a3b7d20d3d3310465f50348e5b3694f4f88c6daf736eef3024c4/certifi-2025.4.26.tar.gz", hash = "sha256:0a816057ea3cdefcef70270d2c515e4506bbc954f417fa5ade2021213bb8f0c6", size = 160705 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/38/fc/bce832fd4fd99766c04d1ee0eead6b0ec6486fb100ae5e74c1d91292b982/certifi-2025.1.31-py3-none-any.whl", hash = "sha256:ca78db4565a652026a4db2bcdf68f2fb589ea80d0be70e03929ed730746b84fe", size = 166393 },
+    { url = "https://files.pythonhosted.org/packages/4a/7e/3db2bd1b1f9e95f7cddca6d6e75e2f2bd9f51b1246e546d88addca0106bd/certifi-2025.4.26-py3-none-any.whl", hash = "sha256:30350364dfe371162649852c63336a15c70c6510c2ad5015b21c2345311805f3", size = 159618 },
 ]
 
 [[package]]
@@ -2609,11 +2609,11 @@ wheels = [
 
 [[package]]
 name = "pip"
-version = "25.0.1"
+version = "25.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/70/53/b309b4a497b09655cb7e07088966881a57d082f48ac3cb54ea729fd2c6cf/pip-25.0.1.tar.gz", hash = "sha256:88f96547ea48b940a3a385494e181e29fb8637898f88d88737c5049780f196ea", size = 1950850 }
+sdist = { url = "https://files.pythonhosted.org/packages/79/67/c06f625e2968c417052b3a4a0eef40656d5d4d44033e57b40ec474af1d28/pip-25.1.tar.gz", hash = "sha256:272bdd1289f80165e9070a4f881e8f9e1001bbb50378561d1af20e49bf5a2200", size = 1939624 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c9/bc/b7db44f5f39f9d0494071bddae6880eb645970366d0a200022a1a93d57f5/pip-25.0.1-py3-none-any.whl", hash = "sha256:c46efd13b6aa8279f33f2864459c8ce587ea6a1a59ee20de055868d8f7688f7f", size = 1841526 },
+    { url = "https://files.pythonhosted.org/packages/e0/f0/8a2806114cd36e282823fd4d8e88e3b94dc943c2569c350d0c826a49db38/pip-25.1-py3-none-any.whl", hash = "sha256:13b4aa0aaad055020a11bec8a1c2a70a2b2d080e12d89b962266029fff0a16ba", size = 1824948 },
 ]
 
 [[package]]
@@ -2774,7 +2774,7 @@ wheels = [
 
 [[package]]
 name = "pyinfra"
-version = "3.2"
+version = "3.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -2789,22 +2789,22 @@ dependencies = [
     { name = "typeguard" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e3/5e/5dbbda367708cd34ac5a3a0d18c352ae0eee01bfd0077e23350f4c07972f/pyinfra-3.2.tar.gz", hash = "sha256:ea65f2048860dae6a7d86470d4a7ca67c9e2e82d671e781b849f1e5e163ad6db", size = 209685 }
+sdist = { url = "https://files.pythonhosted.org/packages/bd/98/7ee241cf32598d227d47069b3b9366c476f951f8693d60e2a2477b8ebcf6/pyinfra-3.3.1.tar.gz", hash = "sha256:8dff68a46f82cc699e8f9f3b1ac5c86377cff4fd74a9ae168281232f7f935cb2", size = 216948 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/83/b0/a27ce89ec525e71180b0afa1069fb83886381c834c009d07802616af9b6e/pyinfra-3.2-py2.py3-none-any.whl", hash = "sha256:ca8e6f4b51031b3b56b4ab6e7ce4cb749530ec92d6ba22f1f2657e2d20231416", size = 269680 },
+    { url = "https://files.pythonhosted.org/packages/a8/bb/45ddfba358888355ccc2d103a5f05f2ca3a9c6ef4fe37a96ef8908d13294/pyinfra-3.3.1-py2.py3-none-any.whl", hash = "sha256:54297d6f52311d60693a838a1184be4995d7441f78ed5f9eb71dd6738c0e5e36", size = 278705 },
 ]
 
 [[package]]
 name = "pymdown-extensions"
-version = "10.14.3"
+version = "10.15"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "markdown" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7c/44/e6de2fdc880ad0ec7547ca2e087212be815efbc9a425a8d5ba9ede602cbb/pymdown_extensions-10.14.3.tar.gz", hash = "sha256:41e576ce3f5d650be59e900e4ceff231e0aed2a88cf30acaee41e02f063a061b", size = 846846 }
+sdist = { url = "https://files.pythonhosted.org/packages/08/92/a7296491dbf5585b3a987f3f3fc87af0e632121ff3e490c14b5f2d2b4eb5/pymdown_extensions-10.15.tar.gz", hash = "sha256:0e5994e32155f4b03504f939e501b981d306daf7ec2aa1cd2eb6bd300784f8f7", size = 852320 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/f5/b9e2a42aa8f9e34d52d66de87941ecd236570c7ed2e87775ed23bbe4e224/pymdown_extensions-10.14.3-py3-none-any.whl", hash = "sha256:05e0bee73d64b9c71a4ae17c72abc2f700e8bc8403755a00580b49a4e9f189e9", size = 264467 },
+    { url = "https://files.pythonhosted.org/packages/a7/d1/c54e608505776ce4e7966d03358ae635cfd51dff1da6ee421c090dbc797b/pymdown_extensions-10.15-py3-none-any.whl", hash = "sha256:46e99bb272612b0de3b7e7caf6da8dd5f4ca5212c0b273feb9304e236c484e5f", size = 265845 },
 ]
 
 [[package]]
@@ -3306,13 +3306,13 @@ wheels = [
 
 [[package]]
 name = "sbom2dot"
-version = "0.3.1"
+version = "0.3.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "lib4sbom" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/f6/fe8a597ae8e892afd92d74c6af2756869307bfa9cd4759ea0b0a6e886448/sbom2dot-0.3.1-py2.py3-none-any.whl", hash = "sha256:df34753f72db11b220bbcdee945dbf06252d23aab8925338b05ffcf5ed28026c", size = 6358 },
+    { url = "https://files.pythonhosted.org/packages/3a/fd/e5dae179943e631ae1d2b1903d73d7060ea9a82242e922abc685e33b6679/sbom2dot-0.3.2-py2.py3-none-any.whl", hash = "sha256:e8264b1a2cea4fb8d033380d3027284529cef587bf0123bd1973d7a7f03cdeb7", size = 6364 },
 ]
 
 [[package]]
@@ -3354,11 +3354,11 @@ wheels = [
 
 [[package]]
 name = "setuptools"
-version = "79.0.1"
+version = "80.0.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/bb/71/b6365e6325b3290e14957b2c3a804a529968c77a049b2ed40c095f749707/setuptools-79.0.1.tar.gz", hash = "sha256:128ce7b8f33c3079fd1b067ecbb4051a66e8526e7b65f6cec075dfc650ddfa88", size = 1367909 }
+sdist = { url = "https://files.pythonhosted.org/packages/26/da/7a7021c150030617f90aa4a90a5b23f7b49af877f70ca46967e991645117/setuptools-80.0.1.tar.gz", hash = "sha256:20fe373a22ef9f3925512650d1db90b1b8de01cdb6df91ab1788263139cbf9a2", size = 1354165 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0d/6d/b4752b044bf94cb802d88a888dc7d288baaf77d7910b7dedda74b5ceea0c/setuptools-79.0.1-py3-none-any.whl", hash = "sha256:e147c0549f27767ba362f9da434eab9c5dc0045d5304feb602a0af001089fc51", size = 1256281 },
+    { url = "https://files.pythonhosted.org/packages/2a/8e/2ee81652472f3c11503d1780c41844a9a9656989b69c29811a4631e4aeb9/setuptools-80.0.1-py3-none-any.whl", hash = "sha256:f4b49d457765b3aae7cbbeb1c71f6633a61b729408c2d1a837dae064cca82ef2", size = 1240915 },
 ]
 
 [[package]]
@@ -3661,14 +3661,14 @@ wheels = [
 
 [[package]]
 name = "types-setuptools"
-version = "79.0.0.20250422"
+version = "80.0.0.20250429"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "setuptools" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ce/61/5b764d556977ab27976f335d7493dc267b0dbcb5fae7fe117547c292c069/types_setuptools-79.0.0.20250422.tar.gz", hash = "sha256:9c9f699a5914d2ed97f02ee749fb2c7bc2898f8dad03b5dd74b74d4f80e29972", size = 43865 }
+sdist = { url = "https://files.pythonhosted.org/packages/c5/49/0b22c24d20759d8594c094ec1c459b245b1a75e7e6bf104ff45c14efdb9f/types_setuptools-80.0.0.20250429.tar.gz", hash = "sha256:a4de44f1110f531e7f9453d72999437a1caa6052609e2c7c859dd6613ab0d593", size = 43353 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/08/43/410e2978d4e2f3d8355e80141a64d89616fada864403479477c1058f056d/types_setuptools-79.0.0.20250422-py3-none-any.whl", hash = "sha256:55238c0b18cdc08dd26c32d6d8385ca1ea59b93dde760dae96d15868b7911990", size = 66914 },
+    { url = "https://files.pythonhosted.org/packages/06/c3/9e77e86da90bdf9544852188005a7413da7b693813bf493e61dc8714258c/types_setuptools-80.0.0.20250429-py3-none-any.whl", hash = "sha256:9bbcdcea88d1fda4b0f1371488333f606c78a8b10154a42530ed926ecf3242cb", size = 66003 },
 ]
 
 [[package]]
