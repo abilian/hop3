@@ -41,7 +41,7 @@ devtools==0.12.2
 distlib==0.3.9
 distro==1.9.0
 dlint==0.16.0
-docformatter==1.7.5
+docformatter==1.7.6
 docstring-parser-fork==0.0.12
 duty==1.6.0
 execnet==2.1.1
@@ -76,7 +76,7 @@ gevent==25.4.2
 ghp-import==2.1.0
 gitdb==4.0.12
 gitpython==3.1.44
-granian==2.2.5
+granian==2.2.6
 greenlet==3.2.1
 griffe==1.7.3
 grimp==3.9
@@ -145,7 +145,7 @@ pathspec==0.12.1
 pbr==6.1.1
 pip==25.1.1
 pip-requirements-parser==32.0.1
-platformdirs==4.3.7
+platformdirs==4.3.8
 pluggy==1.5.0
 ply==3.11
 pre-commit==4.2.0
@@ -207,6 +207,7 @@ tabulate==0.9.0
 termcolor==2.5.0
 toml==0.10.2
 tomlkit==0.13.2
+ty==0.0.0a7
 typeguard==4.4.2
 types-paramiko==3.5.0.20240928
 types-python-dateutil==2.9.0.20241206
