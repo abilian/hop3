@@ -80,6 +80,7 @@ dev-dependencies = [
     "spdx-tools>=0.8.3",
     "snoop>=0.6.0",
     "pydoclint[flake8]>=0.5.9",
+    "ty>=0.0.0a7",
 ]
 
 [tool.uv.workspace]
