@@ -10,8 +10,7 @@ Build status: [![builds.sr.ht status](https://builds.sr.ht/~sfermigier/hop3.svg)
 
 ## About
 
-Hop3 is an open source platform as a service: it enable you to deploy and manage your applications seamlessly.
-It is designed to be simple, secure, and easy to use.
+Hop3 is an open source platform as a service (PaaS): it enable you to deploy and manage your applications seamlessly. It is designed to be simple, secure, and easy to use.
 
 The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [GitHub](https://github.com/abilian/hop3).
 
@@ -46,11 +45,11 @@ The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) an
   * [Community Engagement](#community-engagement)
   * [Additional Notes](#additional-notes)
 - [Roadmap](#roadmap)
-  * [P0 (MVP, Q2 2024):](#p0-mvp-q2-2024)
-  * [P1 (Q4 2024):](#p1-q4-2024)
-  * [P2 (Q1 2025):](#p2-q1-2025)
-  * [P3 (Q2 2025):](#p3-q2-2025)
-  * [P4 (Q3 2025):](#p4-q3-2025)
+  * [P0 (Q2 2024):](#p0-q2-2024)
+  * [P1 MVP (Q4 2024->Q2 2025):](#p1-mvp-q4-2024-q2-2025)
+  * [P2 MVP2 (Q3 2025):](#p2-mvp2-q3-2025)
+  * [P3 (Q4 2025):](#p3-q4-2025)
+  * [P4 (Q1 2026):](#p4-q1-2026)
 - [Documentation](#documentation)
 - [Copyright, Credits and Acknowledgements](#copyright-credits-and-acknowledgements)
   * [Authors](#authors)
@@ -257,7 +256,7 @@ Here's the current roadmap for Hop3. Priorities and timelines are subject to cha
 
 See also the informal [TODO](./notes/todo.md) list.
 
-### P0 (MVP, Q2 2024):
+### P0 (Q2 2024):
 
 Initial goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe-monorepo/).
 
@@ -280,7 +279,7 @@ Infra, QA, DX, refactorings:
 - [x] Test automation (using `nox`)
 - [x] Make src/hop3/run/uwsgi.py into a class
 
-### P1 (Q4 2024):
+### P1 MVP (Q4 2024->Q2 2025):
 
 Features:
 
@@ -300,20 +299,20 @@ Infra, QA, DX, refactorings:
 - [ ] Fix all typing issues (mypy and pyright)
 - [ ] Introduce new plugins (where it makes sense)
 - [ ] More end-to-end tests, examples
-- [ ] CI on GitHub
 - [ ] e2e CI tests
+- [ ] Basic Kubernetes support (via Karmada)
 
-### P2 (Q1 2025):
+### P2 MVP2 (Q3 2025):
 
 Features:
 
-- [ ] Nix builds
-- [ ] Nix runtime
 - [ ] Backup / Restore
 - [ ] Web App / portal
 - [ ] More apps
 - [ ] Monitoring
 - [ ] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
+- [ ] Nix builds
+- [ ] Nix runtime
 - [ ] Support for (or migration from) Heroku, Render, Docker Compose, Fly… config files,
 - [ ] Unified logging
 - [ ] CLI
@@ -328,7 +327,7 @@ Infra, QA, DX, refactorings:
 - [ ] Agents (for distributed deployments)
 - [ ] Dedicated infra for e2e tests
 
-### P3 (Q2 2025):
+### P3 (Q4 2025):
 
 Features:
 
@@ -338,12 +337,12 @@ Features:
 - [ ] Security (Firewall, WAF, better isolation, etc.)
 - [ ] Multi-server support
 - [ ] Orchestrator
-- [ ] Kubernetes support
 
-### P4 (Q3 2025):
+### P4 (Q1 2026):
 
 Features:
 
+- [ ] Hosted version
 - [ ] Workload placement
 - [ ] Nomad support
 
