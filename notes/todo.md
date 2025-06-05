@@ -1,9 +1,11 @@
 # TODO
 
+This is an old TODO, kerp for reference only. The "official" TODO is currently in the [README.md](../README.md)
+
 ### Features
 
 - [ ] Add postgres, redis, etc. lifecycle support using plugins
-- [ ] Integrate automated SSL certificate generation and renewal using Let's Encrypt
+- [x] Integrate automated SSL certificate generation and renewal using Let's Encrypt
 - [ ] Implement role-based access control (RBAC) for deployed applications
 - [ ] Manage external services (databases, mail, etc.)
 - [ ] Backup / Restore
@@ -49,7 +51,6 @@
 
 - [ ] Improve logging and error reporting mechanisms
 - [ ] More end-to-end tests, examples
-- [ ] CI on GitHub
 - [ ] e2e CI tests
 - [ ] Optimize deployment scripts for faster performance
 - [ ] Develop a more robust plugin architecture
