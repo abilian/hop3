@@ -302,6 +302,17 @@ Infra, QA, DX, refactorings:
 - [ ] e2e CI tests
 - [ ] Basic Kubernetes support (via Karmada)
 
+H3NI project:
+
+- [ ] Stabilize and automate Testbed (Hetzner VMs, K8s, Karmada, SMO via PyInfra)
+- [ ] Conceptual design for "Application Graph" schema for SMO compatibility
+- [ ] Initial Hop3 Plugin development for NEPHELE SMO integration (request transformation, basic communication).
+- [ ] Implement functional Hop3 Plugin
+- [ ] Implement Basic Predictive Scaling component
+- [ ] Demonstrate basic horizontal scaling
+- [ ] Document Integration Architecture for Hop3-SMO
+
+
 ### P2 MVP2 (Q3 2025):
 
 Features:
@@ -327,6 +338,22 @@ Infra, QA, DX, refactorings:
 - [ ] Agents (for distributed deployments)
 - [ ] Dedicated infra for e2e tests
 
+H3NI Project:
+
+- [ ] Implement energy-aware placement.
+- [ ] Implement advanced adaptive/predictive scaling with actuation.
+- [ ] Implement resilience features (e.g., responding to simulated failures).
+- [ ] Live migration concepts/PoC.
+
+NGI0 Project:
+
+- [ ] Develop initial Nix package for Hop3 platform components (CLI, server-side agent if applicable)
+- [ ] Develop initial Nix builder plugin for applications already in `nixpkgs`
+- [ ] Initial design and PoC for Nix-based alternatives to native builders (e.g., Python-specific)
+- [ ] Initial build process optimization and benchmarking.
+- [ ] Implement/document Security-by-design principles in architecture.
+
+
 ### P3 (Q4 2025):
 
 Features:
@@ -337,6 +364,22 @@ Features:
 - [ ] Security (Firewall, WAF, better isolation, etc.)
 - [ ] Multi-server support
 - [ ] Orchestrator
+
+NGI0 Project:
+
+- [ ] Launch Foundational Website & Blog.
+- [ ] Publish Initial Core Documentation (Developer Guide, Admin Manual, End-User Tutorials).
+- [ ] Finalize selection and packaging of all 20 F/OSS applications.
+- [ ] Finalize Experience Reports for all 20 packaged applications.
+- [ ] Finalize and submit/publish Technical Report / Research Paper.
+- [ ] Present project findings at relevant conferences/workshops.
+- [ ] Start generating Experience Reports for packaged applications.
+- [ ] Draft Technical Report / Research Paper on Hop3 & Nix integration / Security.
+- [ ] Produce Screencasts & Webinars.
+- [ ] Finalize Experience Reports for all 20 packaged applications.
+- [ ] Finalize and submit/publish Technical Report / Research Paper.
+- [ ] Present project findings at relevant conferences/workshops.
+
 
 ### P4 (Q1 2026):
 
