@@ -295,6 +295,8 @@ Infra, QA, DX, refactorings:
 - [x] Unit and integration tests
 - [x] Refactor CLI (using `argparse`)]
 - [x] Switch to `uv` (from `poetry`)
+- [x] Build as a docker image
+- [ ] Run as docker image
 - [ ] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
 - [ ] Fix all typing issues (mypy and pyright)
 - [ ] Introduce new plugins (where it makes sense)
