@@ -30,6 +30,7 @@ class Config:
         "api_version": "v1",
         "api_key": None,
         "api_secret": None,
+        "port": 8000,
     }
 
     @staticmethod

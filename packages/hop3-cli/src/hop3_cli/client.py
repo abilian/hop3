@@ -1,14 +1,21 @@
 # Copyright (c) 2023-2025, Abilian SAS
 
+"""
+RPC client for Hop3 server. Uses JSON-RPC over HTTP with SSH tunneling.
+
+Alternatively, it could use HTTPS with proper key exchange and certificate
+validation, but this still needs to be implemented.
+"""
+
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import requests
 from jsonrpcclient import Error, parse, request
-
-from .util import run_command
+from sshtunnel import SSHTunnelForwarder
 
 if TYPE_CHECKING:
     from .config import Config
@@ -18,38 +25,56 @@ if TYPE_CHECKING:
 # TODO: use State
 
 
+@dataclass
 class Client:
     config: Config
     state: State | None
+    tunnel: SSHTunnelForwarder | None = None
 
-    def __init__(self, config: Config, state: State | None):
-        self.config = config
-        self.state = state
+    @property
+    def host(self):
+        hop3_server = os.environ("HOP3_SERVER")
+        # Alternatively, we could get the remote from git config:
+        # git_remote = run_command("git config --get remote.hop3.url")
+        if not hop3_server:
+            raise ValueError("HOP3_SERVER environment variable is not set")
+        return hop3_server
 
-        # Define variables
-        git_remote = run_command("git config --get remote.hop3.url")
-        hop3_server = os.environ.get("HOP3_SERVER")
-        hop3_app = os.environ.get("HOP3_APP")
-        self.remote = git_remote or f"{hop3_server}:{hop3_app}"
+    @property
+    def port(self):
+        return self.config.get("port", 8000)
 
-    def get_host(self):
-        # TEMP
-        return "localhost"
-        # return self.config["host"]
+    @property
+    def local_port(self):
+        """Return the local port for the SSH tunnel"""
+        assert self.tunnel
+        return self.tunnel.local_bind_port
 
-    def get_port(self):
-        # TEMP
-        return 8000
-        # return self.config["port"]
+    @property
+    def rpc_url(self):
+        """Return the RPC URL"""
+        return f"http://localhost:{self.local_port}/rpc"  # noqa
 
-    def rpc(self, method, *args):
+    def start_ssh_tunnel(self, ):
+        self.tunnel = SSHTunnelForwarder(
+            'localhost',
+            ssh_username="hop3",
+            remote_bind_address=(self.host, self.port),
+        )
+        self.tunnel.start()
+
+    def __del__(self):
+        if self.tunnel:
+            self.tunnel.stop()
+            self.tunnel = None
+
+    def rpc(self, method: str, *args: list[str]) -> Error | dict:
         """Call a remote method"""
-        url = f"http://{self.get_host()}:{self.get_port()}/rpc"
         json_request = request(method, args)
         response = requests.post(
-            url,
+            self.rpc_url,
             json=json_request,
-            verify=False,
+            # verify=False,
             # cert="../hop3-server/ssl/cert.pem",
         )
         try:
