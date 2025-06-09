@@ -1,10 +1,8 @@
 # Copyright (c) 2023-2025, Abilian SAS
+"""RPC client for Hop3 server. Uses JSON-RPC over HTTP with SSH tunneling.
 
-"""
-RPC client for Hop3 server. Uses JSON-RPC over HTTP with SSH tunneling.
-
-Alternatively, it could use HTTPS with proper key exchange and certificate
-validation, but this still needs to be implemented.
+Alternatively, it could use HTTPS with proper key exchange and
+certificate validation, but this still needs to be implemented.
 """
 
 from __future__ import annotations
@@ -37,7 +35,8 @@ class Client:
         # Alternatively, we could get the remote from git config:
         # git_remote = run_command("git config --get remote.hop3.url")
         if not hop3_server:
-            raise ValueError("HOP3_SERVER environment variable is not set")
+            msg = "HOP3_SERVER environment variable is not set"
+            raise ValueError(msg)
         return hop3_server
 
     @property
@@ -46,18 +45,20 @@ class Client:
 
     @property
     def local_port(self):
-        """Return the local port for the SSH tunnel"""
+        """Return the local port for the SSH tunnel."""
         assert self.tunnel
         return self.tunnel.local_bind_port
 
     @property
     def rpc_url(self):
-        """Return the RPC URL"""
-        return f"http://localhost:{self.local_port}/rpc"  # noqa
+        """Return the RPC URL."""
+        return f"http://localhost:{self.local_port}/rpc"
 
-    def start_ssh_tunnel(self, ):
+    def start_ssh_tunnel(
+        self,
+    ):
         self.tunnel = SSHTunnelForwarder(
-            'localhost',
+            "localhost",
             ssh_username="hop3",
             remote_bind_address=(self.host, self.port),
         )
@@ -69,7 +70,7 @@ class Client:
             self.tunnel = None
 
     def rpc(self, method: str, *args: list[str]) -> Error | dict:
-        """Call a remote method"""
+        """Call a remote method."""
         json_request = request(method, args)
         response = requests.post(
             self.rpc_url,

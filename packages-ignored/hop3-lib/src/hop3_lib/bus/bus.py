@@ -13,10 +13,12 @@ A Python command and event bus.
 
 """
 
-#### 1. Command Bus
+# 1. Command Bus
+from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Type
+from typing import Any
 
 
 class CommandBus:
@@ -26,9 +28,9 @@ class CommandBus:
     """
 
     def __init__(self):
-        self.handlers: Dict[Type, Callable] = {}
+        self.handlers: dict[type, Callable] = {}
 
-    def register_handler(self, command_type: Type, handler: Callable):
+    def register_handler(self, command_type: type, handler: Callable):
         self.handlers[command_type] = handler
 
     def dispatch(self, command: Any):
@@ -48,16 +50,16 @@ class SayHelloCommand(Command):
     name: str
 
 
-#### 2. Event Bus
+# 2. Event Bus
 
 
 class EventBus:
     """The Event Bus dispatches events to their listeners synchronously."""
 
     def __init__(self):
-        self.listeners: Dict[Type, Callable] = {}
+        self.listeners: dict[type, Callable] = {}
 
-    def register_listener(self, event_type: Type, listener: Callable):
+    def register_listener(self, event_type: type, listener: Callable):
         self.listeners.setdefault(event_type, []).append(listener)
 
     def dispatch(self, event: Any):
@@ -75,7 +77,7 @@ class HelloWasSaidEvent(Event):
     name: str
 
 
-#### 3. Command Handlers
+# 3. Command Handlers
 
 # Command Handlers execute commands and can emit events.
 
@@ -91,7 +93,7 @@ class SayHelloHandler:
         self.event_bus.dispatch(HelloWasSaidEvent(command.name))
 
 
-#### 4. Event Listeners
+# 4. Event Listeners
 
 # Event Listeners react to events emitted by command handlers.
 
@@ -103,7 +105,7 @@ class SayHelloListener:
         print(f"Event received: Hello was said to {event.name}")
 
 
-#### 5. Transactions and Event Buffer
+# 5. Transactions and Event Buffer
 
 
 class TransactionalCommandBus(CommandBus):

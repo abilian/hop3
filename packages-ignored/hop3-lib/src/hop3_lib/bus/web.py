@@ -1,6 +1,8 @@
 # Copyright (c) 2023-2025, Abilian SAS
+from __future__ import annotations
 
 from flask import Flask, jsonify, request
+
 from hop3_lib.bus.bus import (
     HelloWasSaidEvent,
     SayHelloCommand,

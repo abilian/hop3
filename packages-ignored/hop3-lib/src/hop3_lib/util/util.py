@@ -14,6 +14,7 @@ from socket import AF_INET, SOCK_STREAM, socket
 from subprocess import STDOUT, check_output
 
 from cleez.colors import dim
+
 from hop3 import config as c
 
 from .console import Abort, log

@@ -1,4 +1,5 @@
 # Copyright (c) 2023-2025, Abilian SAS
+from __future__ import annotations
 
 from typing import Any
 
@@ -65,7 +66,7 @@ class RetryChain:
         for strategy in self.strategies:
             try:
                 return strategy.execute(func, *args, **kwargs)
-            except Exception as e:
+            except Exception:
                 continue
         raise Exception("All retry strategies failed")
 
@@ -95,5 +96,5 @@ class AsynchronousCommandBusWithRetry(AsynchronousCommandBus):
     def dispatch(self, command: Any):
         try:
             self.retry_strategy.execute(super().dispatch, command)
-        except Exception as e:
+        except Exception:
             self.dead_letter_queue.add(command)

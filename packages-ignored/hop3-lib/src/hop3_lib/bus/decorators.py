@@ -1,11 +1,10 @@
 # Copyright (c) 2023-2025, Abilian SAS
-
-from typing import Type
+from __future__ import annotations
 
 from hop3_lib.bus.bus import CommandBus, EventBus, HelloWasSaidEvent, SayHelloCommand
 
 
-def command_handler(command_type: Type):
+def command_handler(command_type: type):
     def decorator(func):
         func._is_command_handler = True
         func._command_type = command_type
@@ -14,7 +13,7 @@ def command_handler(command_type: Type):
     return decorator
 
 
-def event_listener(event_type: Type):
+def event_listener(event_type: type):
     def decorator(func):
         func._is_event_listener = True
         func._event_type = event_type

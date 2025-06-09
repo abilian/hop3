@@ -1,10 +1,13 @@
-"""
-SSH Tunnel implementation for secure remote connections.
+# Copyright (c) 2025, Abilian SAS
+"""SSH Tunnel implementation for secure remote connections.
 
 This is currently not used, since we are using the `sshtunnel` package instead.
 
 Since `sshtunnel` needs paramyko, this implementation is kept for reference and in case we need to switch back to a custom implementation in the future.
 """
+
+from __future__ import annotations
+
 import socket
 import subprocess
 import time
@@ -14,14 +17,13 @@ from contextlib import closing
 def find_free_port() -> int:
     """Finds an available local port."""
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        s.bind(('127.0.0.1', 0))
+        s.bind(("127.0.0.1", 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return s.getsockname()[1]
 
 
 class SSHTunnel:
-    """
-    A class to manage an SSH tunnel subprocess.
+    """A class to manage an SSH tunnel subprocess.
 
     Example Usage:
         remote_db_host = "db.internal.mycompany.com"
@@ -35,6 +37,7 @@ class SSHTunnel:
 
         print("Tunnel has been automatically closed.")
     """
+
     remote_host: str
     remote_port: int
     ssh_host: str
@@ -43,9 +46,15 @@ class SSHTunnel:
     local_port: int = -1
     proc: subprocess.Popen | None = None
 
-    def __init__(self, remote_host: str, remote_port: int, ssh_host: str, ssh_user: str, ssh_key_path: str = None):
-        """
-        Initializes the SSH tunnel configuration.
+    def __init__(
+        self,
+        remote_host: str,
+        remote_port: int,
+        ssh_host: str,
+        ssh_user: str,
+        ssh_key_path: str | None = None,
+    ):
+        """Initializes the SSH tunnel configuration.
 
         Args:
             remote_host (str): The final destination host (from the jump host's perspective).
@@ -73,16 +82,14 @@ class SSHTunnel:
         print(f"Starting SSH tunnel with command: {' '.join(command)}")
 
         self.proc = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         try:
             self._wait_for_ready()
-        except (RuntimeError, TimeoutError) as e:
+        except (RuntimeError, TimeoutError):
             # Ensure process is cleaned up on failure
             self.stop()
-            raise e
+            raise
 
     def stop(self):
         """Stops the SSH tunnel subprocess."""
@@ -115,11 +122,14 @@ class SSHTunnel:
             # -q: Quiet mode
             "-q",
             # Exit if the tunnel can't be established
-            "-o", "ExitOnForwardFailure=yes",
+            "-o",
+            "ExitOnForwardFailure=yes",
             # Keep the connection alive
-            "-o", "ServerAliveInterval=60",
+            "-o",
+            "ServerAliveInterval=60",
             # Define the local forward
-            "-L", f"{self.local_port}:{self.remote_host}:{self.remote_port}",
+            "-L",
+            f"{self.local_port}:{self.remote_host}:{self.remote_port}",
             f"{self.ssh_user}@{self.ssh_host}",
         ]
         if self.ssh_key_path:
@@ -132,20 +142,25 @@ class SSHTunnel:
         while time.monotonic() - start_time < timeout:
             # Check if the process exited prematurely
             if self.proc.poll() is not None:
-                stderr_output = self.proc.stderr.read().decode('utf-8', errors='ignore')
-                raise RuntimeError(
+                stderr_output = self.proc.stderr.read().decode("utf-8", errors="ignore")
+                msg = (
                     f"SSH tunnel process failed to start. "
                     f"Exit code: {self.proc.returncode}. Stderr: {stderr_output.strip()}"
                 )
+                raise RuntimeError(msg)
             # Try to connect to the local port
             try:
-                with socket.create_connection(("127.0.0.1", self.local_port), timeout=1):
+                with socket.create_connection(
+                    ("127.0.0.1", self.local_port), timeout=1
+                ):
                     print(
-                        f"SSH tunnel to {self.remote_host}:{self.remote_port} is ready on local port {self.local_port}")
+                        f"SSH tunnel to {self.remote_host}:{self.remote_port} is ready on local port {self.local_port}"
+                    )
                     return
-            except (socket.timeout, ConnectionRefusedError):
+            except (TimeoutError, ConnectionRefusedError):
                 time.sleep(0.1)  # Wait a bit before retrying
 
         # If the loop finishes, it timed out
         self.stop()
-        raise TimeoutError(f"SSH tunnel failed to become ready after {timeout} seconds.")
+        msg = f"SSH tunnel failed to become ready after {timeout} seconds."
+        raise TimeoutError(msg)
