@@ -1,10 +1,12 @@
+# Copyright (c) 2025, Abilian SAS
+from __future__ import annotations
+
 import os
 import pwd
 import socket
 
-from sshtunnel import SSHTunnelForwarder
-
 from hop3_cli.tunnel import SSHTunnel
+from sshtunnel import SSHTunnelForwarder
 
 # Asuming there is a local SSH server running for testing purposes
 TUNNEL_TEST_HOST = "localhost"
@@ -31,7 +33,7 @@ def test_custom_tunnel():
 
 def test_sshtunnel():
     server = SSHTunnelForwarder(
-        'localhost',
+        "localhost",
         ssh_username=get_current_user(),
         remote_bind_address=(TUNNEL_TEST_HOST, TUNNEL_TEST_PORT),
     )

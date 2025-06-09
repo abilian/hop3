@@ -3,9 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
-from hop3.model import metadata
 from sqlalchemy import create_engine
 from sqlalchemy_utils import create_database, database_exists
+
+from hop3.model import metadata
 
 engine = create_engine("sqlite:///data/hop3.db")
 if not database_exists(engine.url):

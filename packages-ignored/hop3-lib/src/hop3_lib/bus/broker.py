@@ -7,6 +7,7 @@ We're using Python's queue for simplicity.
 
 
 """
+from __future__ import annotations
 
 import queue
 import threading

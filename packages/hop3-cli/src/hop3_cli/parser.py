@@ -47,8 +47,8 @@ def _resolve_arg_groups(arguments_config):
 
 
 def build_parser_from_config(config, parser=None):
-    """
-    Recursively builds an argparse parser from a declarative configuration dict.
+    """Recursively builds an argparse parser from a declarative configuration
+    dict.
 
     Args:
         config: The dictionary defining the parser or subparser.

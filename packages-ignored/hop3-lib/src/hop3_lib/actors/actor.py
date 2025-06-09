@@ -67,8 +67,7 @@ class Actor(ActorBase):
         try:
             self._callback(*args, **kwargs)
         finally:
-            if greenlet_id in _actor_map:
-                del _actor_map[greenlet_id]
+            _actor_map.pop(greenlet_id, None)
 
     def spawn(self, *args, **kwargs):
         self._greenlet = _actor_pool.spawn(self.run, *args, **kwargs)

@@ -1,4 +1,5 @@
 # Copyright (c) 2023-2025, Abilian SAS
+from __future__ import annotations
 
 from hop3_lib.bus.bus import (
     EventBus,

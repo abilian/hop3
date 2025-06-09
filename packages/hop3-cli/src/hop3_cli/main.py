@@ -1,10 +1,8 @@
 # Copyright (c) 2024-2025, Abilian SAS
+"""Simple client-side script for Hop3.
 
-"""
-Simple client-side script for Hop3.
-
-All the logic is implemented on the server side, this script is just
-a thin wrapper around SSH to communicate with the server.
+All the logic is implemented on the server side, this script is just a
+thin wrapper around SSH to communicate with the server.
 """
 
 from __future__ import annotations
