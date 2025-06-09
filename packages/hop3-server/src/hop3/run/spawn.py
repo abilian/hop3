@@ -13,7 +13,7 @@ from hop3.config import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
 from hop3.core.env import Env
 from hop3.lib import echo, get_free_port, log
 from hop3.lib.settings import write_settings
-from hop3.plugins.nginx import Nginx
+from hop3.plugins.nginx import NginxVirtualHost
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
 
@@ -64,7 +64,7 @@ class AppLauncher:
 
         # Set up nginx if we have NGINX_SERVER_NAME set
         if "NGINX_SERVER_NAME" in self.env:
-            nginx = Nginx(self.app, self.env, self.workers)
+            nginx = NginxVirtualHost(self.app, self.env, self.workers)
             nginx.setup()
 
         # Configured worker count using dict.fromkeys to initialize each key with value 1

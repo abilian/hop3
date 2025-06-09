@@ -1,7 +1,6 @@
 # Copyright (c) 2024-2025, Abilian SAS
 from __future__ import annotations
 
-# ruff: noqa: FBT003
 import os
 import re
 
@@ -42,6 +41,8 @@ APP_ROOT = HOP3_ROOT / "apps"
 
 NGINX_ROOT = HOP3_ROOT / "nginx"
 CACHE_ROOT = HOP3_ROOT / "cache"
+CADDY_ROOT = HOP3_ROOT / "caddy"
+TRAEFIK_ROOT = HOP3_ROOT / "traefik"
 
 UWSGI_ROOT = HOP3_ROOT / "uwsgi"
 UWSGI_AVAILABLE = HOP3_ROOT / "uwsgi-available"

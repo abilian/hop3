@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class Nginx(Proxy):
+class NginxVirtualHost(Proxy):
     app: App
     env: Env
     workers: dict[str, str]

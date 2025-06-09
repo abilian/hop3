@@ -68,6 +68,7 @@ lint.extend-ignore = [
     "RUF039", # First argument to `re.search()` is not raw string
     "INP001",
     "RUF045",
+    "FBT003", # Boolean positional value in function call
 ]
 
 

@@ -12,6 +12,7 @@ dependencies = [
     # "granian>=2,<3",
     "starlette>=0.40",
     "attrs >= 24.2",
+    "jinja2",
     # "cattrs",
     # Plugins and DI
     "pluggy ~= 1.4",
@@ -30,6 +31,9 @@ dependencies = [
     "psycopg2>=2.9.10",
     "webargs>=8.6.0",
     "marshmallow>=4.0.0",
+    # Add later
+    # "requests>=2.32.3",
+    # "pyyaml>=6.0.2",
 ]
 
 [dependency-groups]
@@ -63,6 +67,7 @@ exclude = [
 # X defined as a dependency but not used in the codebase
 DEP002 = [
     "cyclonedx-bom",
+    "jinja2",
 ]
 #DEP003 = [
 #    "snoop",
