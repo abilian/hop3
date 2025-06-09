@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.10, <4"
 dependencies = [
+    # Dev tools
     "devtools>=0.12.2",
     "python-dotenv>=1.0.1",
     # Communication
