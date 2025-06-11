@@ -13,6 +13,8 @@ import subprocess
 import time
 from contextlib import closing
 
+from loguru import logger
+
 
 def find_free_port() -> int:
     """Finds an available local port."""
@@ -75,11 +77,11 @@ class SSHTunnel:
     def start(self):
         """Starts the SSH tunnel subprocess."""
         if self.proc is not None:
-            print("Tunnel is already running.")
+            logger.debug("Tunnel is already running.")
             return
 
         command = self._build_command()
-        print(f"Starting SSH tunnel with command: {' '.join(command)}")
+        logger.debug(f"Starting SSH tunnel with command: {' '.join(command)}")
 
         self.proc = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
@@ -94,15 +96,15 @@ class SSHTunnel:
     def stop(self):
         """Stops the SSH tunnel subprocess."""
         if self.proc:
-            print(f"Stopping SSH tunnel (PID: {self.proc.pid})...")
+            logger.debug(f"Stopping SSH tunnel (PID: {self.proc.pid})...")
             self.proc.terminate()  # Send SIGTERM
             try:
                 self.proc.wait(timeout=5)  # Wait for graceful shutdown
             except subprocess.TimeoutExpired:
-                print("Tunnel did not terminate gracefully, killing.")
+                logger.debug("Tunnel did not terminate gracefully, killing.")
                 self.proc.kill()  # Send SIGKILL
             self.proc = None
-            print("Tunnel stopped.")
+            logger.debug("Tunnel stopped.")
 
     def __enter__(self):
         """Context manager entry point."""
@@ -153,7 +155,7 @@ class SSHTunnel:
                 with socket.create_connection(
                     ("127.0.0.1", self.local_port), timeout=1
                 ):
-                    print(
+                    logger.debug(
                         f"SSH tunnel to {self.remote_host}:{self.remote_port} is ready on local port {self.local_port}"
                     )
                     return
