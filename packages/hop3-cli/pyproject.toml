@@ -23,9 +23,7 @@ description = ""
 readme = "README.md"
 
 [project.scripts]
-hop-cli = "hop3_cli.main:main"
-hop-cli-static = "hop3_cli.static:main"
-hop-cli-static2 = "hop3_cli.static2:main"
+hop = "hop3_cli.main:main"
 
 [tool.pdm.build]
 includes = ["src/hop3_cli"]
