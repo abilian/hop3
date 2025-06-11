@@ -169,7 +169,7 @@ clean:
 		.pytest_cache .pytest .DS_Store  docs/_build docs/cache docs/tmp \
 		dist build pip-wheel-metadata junit-*.xml htmlcov coverage.xml \
 		tmp
-	rm -rf */dist
+	rm -rf packages/*/dist packages/*/.pdm-build
 	rm -rf .nox
 	rm -rf site
 	adt clean
