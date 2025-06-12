@@ -17,21 +17,21 @@ def get_app(app_name):
 
 
 @register
-class ConfigCommand(Command):
+class ConfigCmd(Command):
     """Manage an application config / env."""
 
     name = "config"
 
     def subcommands(self) -> list[Command]:
         return [
-            ShowSubcommand(),
-            GetSubcommand(),
-            LiveSubcommand(),
+            ShowCmd(),
+            GetCmd(),
+            LiveCmd(),
         ]
 
 
 @register
-class ShowSubcommand(Command):
+class ShowCmd(Command):
     """Show config, e.g.: hop config <app>."""
 
     name = "show"
@@ -51,7 +51,7 @@ class ShowSubcommand(Command):
 
 
 @register
-class GetSubcommand(Command):
+class GetCmd(Command):
     """e.g.: hop config:get <app> FOO."""
 
     name = "get"
@@ -66,7 +66,7 @@ class GetSubcommand(Command):
 
 
 @register
-class LiveSubcommand(Command):
+class LiveCmd(Command):
     """e.g.: hop config:live <app>."""
 
     name = "live"

@@ -11,7 +11,7 @@ from ._base import Command
 
 
 @register
-class HelpCommand(Command):
+class HelpCmd(Command):
     """Display useful help messages."""
 
     name = "help"
@@ -25,7 +25,7 @@ class HelpCommand(Command):
         ]
 
         commands = lookup(Command)
-        debug(commands)
+        debug([c.__name__ for c in commands])
         commands.sort(key=lambda cmd: cmd.name)
         for cmd in commands:
             name = cmd.name
