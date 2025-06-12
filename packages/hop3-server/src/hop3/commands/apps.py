@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 @register
 @dataclass(frozen=True)
-class Apps(Command):
+class AppsCmd(Command):
     """List apps (running or stopped)."""
 
     db_session: Session
@@ -53,7 +53,7 @@ class Apps(Command):
 
 @register
 @dataclass(frozen=True)
-class Logs(Command):
+class LogsCmd(Command):
     """Show application logs."""
 
     db_session: Session
