@@ -10,11 +10,15 @@ from __future__ import annotations
 import sys
 
 from jsonrpcclient import Error, Ok
+from loguru import logger
 
 from .client import Client
 from .config import Config
 from .console import err
 from .printer import Printer
+
+logger.remove()
+logger.add(sys.stderr)
 
 
 def main():

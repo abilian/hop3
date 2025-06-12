@@ -9,11 +9,15 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 import requests
 from jsonrpcclient import Error, parse, request
+from loguru import logger
 from sshtunnel import SSHTunnelForwarder
+
+from .exceptions import CliError
 
 if TYPE_CHECKING:
     from .config import Config
@@ -29,19 +33,21 @@ class Client:
     state: State | None
     tunnel: SSHTunnelForwarder | None = None
 
-    @property
+    def __post_init__(self):
+        """Initialize the SSH tunnel if not already started."""
+        if self.host != "localhost" and not self.tunnel:
+            self.start_ssh_tunnel()
+
+    @cached_property
     def host(self):
-        hop3_server = os.environ("HOP3_SERVER")
+        hop3_server = os.environ.get("HOP3_SERVER", "localhost")
         # Alternatively, we could get the remote from git config:
         # git_remote = run_command("git config --get remote.hop3.url")
-        if not hop3_server:
-            msg = "HOP3_SERVER environment variable is not set"
-            raise ValueError(msg)
         return hop3_server
 
-    @property
-    def port(self):
-        return self.config.get("port", 8000)
+    @cached_property
+    def server_port(self):
+        return self.config["server_port"]
 
     @property
     def local_port(self):
@@ -52,17 +58,23 @@ class Client:
     @property
     def rpc_url(self):
         """Return the RPC URL."""
-        return f"http://localhost:{self.local_port}/rpc"
+        if self.tunnel:
+            return f"http://localhost:{self.local_port}/rpc"
+        else:
+            return f"http://localhost:{self.server_port}/rpc"
 
-    def start_ssh_tunnel(
-        self,
-    ):
+    def start_ssh_tunnel(self):
         self.tunnel = SSHTunnelForwarder(
-            "localhost",
-            ssh_username="hop3",
-            remote_bind_address=(self.host, self.port),
+            self.host,
+            ssh_username="root",
+            remote_bind_address=("localhost", self.server_port),
         )
-        self.tunnel.start()
+        logger.debug(f"Starting SSH tunnel to {self.host}:{self.server_port}")
+        try:
+            self.tunnel.start()
+        except Exception as e:
+            msg = f"Failed to start SSH tunnel: {e}"
+            raise CliError(msg) from e
 
     def __del__(self):
         if self.tunnel:
