@@ -128,3 +128,17 @@ deploy:
     just clean
     uv build packages/hop3-agent
     uv run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
+
+
+# Git tasks
+sync-code:
+    git pull h3ni main
+    git pull origin main
+    git pull ci main
+    @just push-code
+
+
+push-code:
+    git push h3ni main
+    git push origin main
+    git push ci main

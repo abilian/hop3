@@ -42,9 +42,9 @@ def lint(session: nox.Session):
 
 @nox.session(python=PYTHON_VERSIONS)
 def pytest(session: nox.Session) -> None:
-    session.install(".")
-    session.install("pytest")
-    session.run("pytest")
+    # session.install(".")
+    # session.install("pytest")
+    session.run("uv", "run", "pytest")
 
 
 @nox.session(python=PYTHON_VERSIONS)
