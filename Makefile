@@ -17,41 +17,31 @@ all: lint test
 lint:
 	just lint
 
-## Cleanup repository
-clean-and-deploy:
-	make clean-server
-	make deploy-dev
-
+## Clean development server (warning: this removes everything)
 clean-server:
 	@echo "--> Cleaning server (warning: this removes everything)"
 	-ssh root@${HOP3_DEV_HOST} apt-get purge -y nginx nginx-core nginx-common
 	ssh root@${HOP3_DEV_HOST} rm -rf /home/hop3 /etc/nginx
 
+## Deploy to development server
 deploy:
-	@echo "Use 'make deploy-dev' or 'make deploy-prod'"
-
-deploy-dev:
 	@echo "--> Deploying to" ${HOP3_DEV_HOST}
 	@make build
 	uv run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
 
-deploy-prod:
-	@echo "--> Deploying to" ${HOP3_HOST}
-	@make build
-	uv run pyinfra -y --user root ${HOP3_HOST} installer/install-hop.py
-
+## Build the python packages
 build:
 	@make clean
 	uv build packages/hop3-server
+	uv build packages/hop3-cli
 
-## Run server
+## Run server (in development mode)
 serve:
 	hop-server serve
 	# granian --interface asgi --factory hop3.server.asgi:create_app
 
 ## Alias for serve
 run: serve
-
 
 #
 # Setup
