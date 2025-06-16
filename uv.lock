@@ -1661,7 +1661,7 @@ dev = [
 
 [[package]]
 name = "hop3-cli"
-version = "0.2.3"
+version = "0.4.0a1"
 source = { editable = "packages/hop3-cli" }
 dependencies = [
     { name = "jsonrpcclient" },
