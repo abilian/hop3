@@ -1,9 +1,9 @@
 # Copyright (c) 2025, Abilian SAS
 """SSH Tunnel implementation for secure remote connections.
 
-This is currently not used, since we are using the `sshtunnel` package instead.
+**This is currently not used, since we are using the `sshtunnel` package instead.**
 
-Since `sshtunnel` needs paramyko, this implementation is kept for reference and in case we need to switch back to a custom implementation in the future.
+Since `sshtunnel` needs paramiko, this implementation is kept for reference and in case we need to switch back to a custom implementation in the future.
 """
 
 from __future__ import annotations
