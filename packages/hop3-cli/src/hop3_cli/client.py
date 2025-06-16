@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 import requests
 from jsonrpcclient import Error, parse, request
+from jsonrpcclient.responses import Response
 from loguru import logger
 from sshtunnel import SSHTunnelForwarder
 
@@ -81,7 +82,7 @@ class Client:
             self.tunnel.stop()
             self.tunnel = None
 
-    def rpc(self, method: str, *args: list[str]) -> Error | dict:
+    def rpc(self, method: str, *args: list[str]) -> Response:
         """Call a remote method."""
         json_request = request(method, args)
         response = requests.post(
