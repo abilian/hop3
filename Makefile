@@ -191,3 +191,20 @@ doc-serve:
 ## Cleanup harder
 tidy:
 	just tidy
+
+
+# Extra targets for manual git synchronization (will be run by CI later)
+
+## Sync code with remote repositories
+sync-code:
+	git pull ci devel
+	git pull origin devel
+	git pull h3ni devel
+	@make push-code
+
+
+## Push code to remote repositories
+push-code:
+	git push ci devel
+	git push origin devel
+	git push h3ni devel
