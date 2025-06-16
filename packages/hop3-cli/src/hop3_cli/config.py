@@ -75,6 +75,5 @@ def get_config(config_file: Path | str | None = None) -> Config:
         config_path = Path(config_dir) / "config.toml"
     else:
         config_path = Path(config_file)
-    config = Config(config_path)
-    config.load_config()
+    config = Config.from_toml_file(config_path)
     return config
