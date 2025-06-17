@@ -18,7 +18,7 @@ nav:
   - Home:
       - Introduction: index.md
       - Installation: installation.md
-      # - Funding: funding.md
+      - "Quick Start": quickstart.md
       - FAQ: faq.md
   - Developers:
       - "Dev. Intro": dev/index.md
@@ -29,14 +29,19 @@ nav:
       - "Orchestration": dev/orchestration.md
       - "Testing": dev/testing.md
       - "Governance": dev/governance.md
-      - "Code of Conduct": policies/code-of-conduct.md
       - "Maintainers": dev/maintainers.md
       - "Additional Notes":
           - "Intro": dev/notes/readme.md
+          - "Roadmap": dev/notes/roadmap.md
           - "Open Questions": dev/notes/questions.md
-          - "OLD TODO": dev/notes/todo.md
           - "Config": dev/notes/config.md
           - "Documentation": dev/notes/documentation.md
+  - "Policies":
+      - "Security Policy": policies/security-policy.md
+      - "Privacy Policy": policies/privacy-policy.md
+      - "Code of Conduct": policies/code-of-conduct.md
+      - "Evangelism Policy": policies/evangelism.md
+      - "Open Source Compliance": policies/open-source-compliance.md
 #  - API reference:
 #      - hop3: reference/
 

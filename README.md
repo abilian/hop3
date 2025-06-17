@@ -38,18 +38,10 @@ The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) an
 - [Development and Contribution](#development-and-contribution)
   * [Development Environment](#development-environment)
   * [Development and Delivery Pipeline](#development-and-delivery-pipeline)
-    + [CI/CD Integration](#cicd-integration)
-    + [Package Management](#package-management)
-    + [Compliance and Transparency](#compliance-and-transparency)
   * [Contributing](#contributing)
   * [Community Engagement](#community-engagement)
   * [Additional Notes](#additional-notes)
 - [Roadmap](#roadmap)
-  * [P0 (Q2 2024):](#p0-q2-2024)
-  * [P1 MVP (Q4 2024->Q2 2025):](#p1-mvp-q4-2024-q2-2025)
-  * [P2 MVP2 (Q3 2025):](#p2-mvp2-q3-2025)
-  * [P3 (Q4 2025):](#p3-q4-2025)
-  * [P4 (Q1 2026):](#p4-q1-2026)
 - [Documentation](#documentation)
 - [Copyright, Credits and Acknowledgements](#copyright-credits-and-acknowledgements)
   * [Authors](#authors)
@@ -69,7 +61,7 @@ Version 0.3.0 (branch `stable`) is the first version that can be used to deploy 
 
 Version 0.4.0 (branch `devel`) is the current development version. It is currently undergoing a very large refactoring (spliting the code base into multiple sub-projects, using a plugin architecture, etc.). It is not yet usable.
 
-=> If you want to use Hop3, please use the `stable` branch.
+=> If you want to use Hop3 (or fix bugs on the production branch), please use the `stable` branch.
 
 => If you want to contribute to Hop3, please use the `devel` branch.
 
@@ -163,7 +155,7 @@ Hop3's technology stack is carefully chosen to support its goals without relying
 
 We *aim* to support a wide range of operating systems, including:
 
-- **Linux**: Ubuntu, Debian, Archlinux, Rocky, Fedora, NixOS, Guix.
+- **Linux**: Ubuntu, Debian, Archlinux, Rocky, Alma, Fedora, NixOS, Guix...
 - **BSD**: FreeBSD, OpenBSD, NetBSD.
 
 We run CI tests on the SourceHut platform, which supports a wide range of open source distributions and operating systems. This is a work in progress, and we welcome contributions to fix issues with the current tests or to expand the list of supported OS. See: [.build](.build) for the CI scripts, and https://builds.sr.ht/~sfermigier/ for current build status.
@@ -252,151 +244,13 @@ The following tools will soon be available:
 
 ## Roadmap
 
-Here's the current roadmap for Hop3. Priorities and timelines are subject to change based on community feedback, business priorities and funding.
-
-See also the informal [TODO](./notes/todo.md) list.
-
-### P0 (Q2 2024):
-
-Initial goal: just enough to deploy [Abilian SBE](https://github.com/abilian/abilian-sbe-monorepo/).
-
-Features, UX:
-
-- [x] First working version (static sites, python apps, demo apps)
-
-Doc:
-
-- [x] Fix REUSE config
-- [x] Basic Documentation / READMEs / etc.
-
-Infra, QA, DX, refactorings:
-
-- [x] Add e2e tests (`make test-e2e`)
-- [x] Basic tests and sample apps
-- [x] Basic CI (on SourceHut)
-- [x] Basic plugin architecture (using, e.g. [pluggy](https://pluggy.readthedocs.io/en/stable/))
-- [x] Nix dev env (support for `nix-shell`)
-- [x] Test automation (using `nox`)
-- [x] Make src/hop3/run/uwsgi.py into a class
-
-### P1 MVP (Q4 2024->Q2 2025):
-
-Features:
-
-- [x] Reorganize code base into sub-projects (monorepo)
-- [x] Start multi-OS support (Ubuntu, Archlinux, Fedora, NixOS, Guix, FreeBSD...)
-- [ ] Deploy a few more useful apps: Abilian SBE, more...
-- [ ] Add postgres, redis, etc. lifecycle support using plugins
-- [ ] Improve Python builder (support for poetry, pipenv, uv, etc.)
-- [ ] Manage external services (databases, mail, etc.)
-
-Infra, QA, DX, refactorings:
-
-- [x] Unit and integration tests
-- [x] Refactor CLI (using `argparse`)]
-- [x] Switch to `uv` (from `poetry`)
-- [x] Build as a docker image
-- [ ] Run as docker image
-- [ ] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
-- [ ] Fix all typing issues (mypy and pyright)
-- [ ] Introduce new plugins (where it makes sense)
-- [ ] More end-to-end tests, examples
-- [ ] e2e CI tests
-- [ ] Basic Kubernetes support (via Karmada)
-
-H3NI project:
-
-- [ ] Stabilize and automate Testbed (Hetzner VMs, K8s, Karmada, SMO via PyInfra)
-- [ ] Conceptual design for "Application Graph" schema for SMO compatibility
-- [ ] Initial Hop3 Plugin development for NEPHELE SMO integration (request transformation, basic communication).
-- [ ] Implement functional Hop3 Plugin
-- [ ] Implement Basic Predictive Scaling component
-- [ ] Demonstrate basic horizontal scaling
-- [ ] Document Integration Architecture for Hop3-SMO
-
-
-### P2 MVP2 (Q3 2025):
-
-Features:
-
-- [ ] Backup / Restore
-- [ ] Web App / portal
-- [ ] More apps
-- [ ] Monitoring
-- [ ] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
-- [ ] Nix builds
-- [ ] Nix runtime
-- [ ] Support for (or migration from) Heroku, Render, Docker Compose, Fly… config files,
-- [ ] Unified logging
-- [ ] CLI
-  - [ ] Use an API server (WIP)
-  - [ ] Review the UX/DX
-  - [ ] Good looking logging (cf. https://bernsteinbear.com/blog/python-parallel-output/)
-
-Infra, QA, DX, refactorings:
-
-- [ ] Reorganize monorepo further
-- [ ] Improve plugin architecture, add working events
-- [ ] Agents (for distributed deployments)
-- [ ] Dedicated infra for e2e tests
-
-H3NI Project:
-
-- [ ] Implement energy-aware placement.
-- [ ] Implement advanced adaptive/predictive scaling with actuation.
-- [ ] Implement resilience features (e.g., responding to simulated failures).
-- [ ] Live migration concepts/PoC.
-
-NGI0 Project:
-
-- [ ] Develop initial Nix package for Hop3 platform components (CLI, server-side agent if applicable)
-- [ ] Develop initial Nix builder plugin for applications already in `nixpkgs`
-- [ ] Initial design and PoC for Nix-based alternatives to native builders (e.g., Python-specific)
-- [ ] Initial build process optimization and benchmarking.
-- [ ] Implement/document Security-by-design principles in architecture.
-
-
-### P3 (Q4 2025):
-
-Features:
-
-- [ ] Unified login (LDAP / IAM)
-- [ ] Container / VM support
-- [ ] Target other platforms (e.g. SlapOS, NixOS, Guix, etc.)
-- [ ] Security (Firewall, WAF, better isolation, etc.)
-- [ ] Multi-server support
-- [ ] Orchestrator
-
-NGI0 Project:
-
-- [ ] Launch Foundational Website & Blog.
-- [ ] Publish Initial Core Documentation (Developer Guide, Admin Manual, End-User Tutorials).
-- [ ] Finalize selection and packaging of all 20 F/OSS applications.
-- [ ] Finalize Experience Reports for all 20 packaged applications.
-- [ ] Finalize and submit/publish Technical Report / Research Paper.
-- [ ] Present project findings at relevant conferences/workshops.
-- [ ] Start generating Experience Reports for packaged applications.
-- [ ] Draft Technical Report / Research Paper on Hop3 & Nix integration / Security.
-- [ ] Produce Screencasts & Webinars.
-- [ ] Finalize Experience Reports for all 20 packaged applications.
-- [ ] Finalize and submit/publish Technical Report / Research Paper.
-- [ ] Present project findings at relevant conferences/workshops.
-
-
-### P4 (Q1 2026):
-
-Features:
-
-- [ ] Hosted version
-- [ ] Workload placement
-- [ ] Nomad support
-
+The current roadmap for Hop3 is available [here](notes/roadmap.md).
 
 ## Documentation
 
 See the [docs](./docs) directory for detailed information on Hop3's architecture, installation, and usage.
 
-Will soon be deployed at [https://doc.hop3.cloud](https://doc.hop3.cloud).
+Deployed at [https://hop3.cloud](https://hop3.cloud).
 
 ## Copyright, Credits and Acknowledgements
 
