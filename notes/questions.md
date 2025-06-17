@@ -1,4 +1,6 @@
-# Quick questions
+# Quick open questions
+
+(For more in-depth architectural discussions, check the [ADRS](https://github.com/abilian/hop3/tree/main/notes/adrs))
 
 ## Tooling
 
@@ -11,5 +13,5 @@
 
 ## Plugins
 
-- Do we keep using `puggy` or do we switch to `plux`?
+- Do we keep using `pluggy` or do we switch to `[plux](https://github.com/localstack/plux)`?
 - Do we introduce a sort of registry (à la `flask-super`)?

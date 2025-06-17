@@ -1688,7 +1688,7 @@ requires-dist = [
 
 [[package]]
 name = "hop3-server"
-version = "0.2.3"
+version = "0.4.0a1"
 source = { editable = "packages/hop3-server" }
 dependencies = [
     { name = "advanced-alchemy" },
@@ -1737,7 +1737,7 @@ dev = [{ name = "typing-extensions", specifier = ">=4.12.2" }]
 
 [[package]]
 name = "hop3-testing"
-version = "0.2.3"
+version = "0.4.0a1"
 source = { editable = "packages/hop3-testing" }
 dependencies = [
     { name = "devtools" },
