@@ -17,6 +17,7 @@ docs_dir: docs/src/
 nav:
   - Home:
       - Introduction: index.md
+      - Features: features.md
       - Installation: installation.md
       - "Quick Start": quickstart.md
       - FAQ: faq.md

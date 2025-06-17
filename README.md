@@ -21,32 +21,12 @@ The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) an
 - [Status](#status)
 - [Overview](#overview)
 - [Goals](#goals)
-- [Features](#features)
-  * [Web-Based Management Interface](#web-based-management-interface)
-  * [User Management and Single Sign-On (SSO)](#user-management-and-single-sign-on-sso)
-  * [Role-Based Access Control (RBAC)](#role-based-access-control-rbac)
-  * [Automated Backups and Restore](#automated-backups-and-restore)
-  * [Domain Management and SSL Certificates](#domain-management-and-ssl-certificates)
-  * [Modular Design](#modular-design)
-  * [Comprehensive Network Management](#comprehensive-network-management)
-  * [Security and Resilience Enhancements](#security-and-resilience-enhancements)
-  * [Distributed, Agent-Based Architecture](#distributed-agent-based-architecture)
-  * [Orchestration and Automation](#orchestration-and-automation)
-  * [Technology Stack](#technology-stack)
-  * [Supported OS](#supported-os)
+- [Features (Including Planned Features)](#features-including-planned-features)
 - [Getting Started](#getting-started)
 - [Development and Contribution](#development-and-contribution)
-  * [Development Environment](#development-environment)
-  * [Development and Delivery Pipeline](#development-and-delivery-pipeline)
-  * [Contributing](#contributing)
-  * [Community Engagement](#community-engagement)
-  * [Additional Notes](#additional-notes)
 - [Roadmap](#roadmap)
 - [Documentation](#documentation)
 - [Copyright, Credits and Acknowledgements](#copyright-credits-and-acknowledgements)
-  * [Authors](#authors)
-  * [Licensing / REUSE Compliance](#licensing--reuse-compliance)
-  * [Funding](#funding)
 - [What's the story behind the name?](#whats-the-story-behind-the-name)
 - [Links / References](#links--references)
 
@@ -79,69 +59,30 @@ It aims to facilitate access to cloud technologies for a diverse range of users,
 - **Openness and Collaboration**: Developed as an open-source project to encourage community-driven innovation and improvement.
 - **Inclusivity and Accessibility**: Ensures the platform is accessible to a diverse audience, including those with different abilities, through comprehensive documentation and support.
 
-## Features
+## Features (Including Planned Features)
 
-(Some of these features are still in development.)
+Hop3 provides a comprehensive suite of features (some still in development) designed for robust application management, security, and intelligent automation.
 
-### Web-Based Management Interface
+### Management and User Experience
 
-- **Centralized Management**: Hop3 offers a powerful and intuitive web-based interface, providing centralized control over applications, users, and system settings. Administrators can manage infrastructure, monitor performance, and configure settings from a single dashboard, enhancing efficiency and user experience. The dashboard includes detailed real-time analytics and event logs, ensuring full visibility over operations.
+*   **Centralized Web UI:** A powerful web dashboard for managing applications, users, and system settings, complete with real-time analytics and event logs.
+*   **User & Access Control:** Integrates with LDAP for centralized authentication and supports Single Sign-On (SSO). A granular Role-Based Access Control (RBAC) system with audit logs allows for precise permission management.
+*   **Domain & SSL Management:** Simplifies DNS configuration and automates the entire lifecycle of SSL certificates with services like Let's Encrypt.
 
-### User Management and Single Sign-On (SSO)
+### Automation and Orchestration
 
-- **Integrated LDAP Support**: Hop3 integrates seamlessly with LDAP, enabling centralized authentication and user management. This allows organizations to maintain consistent user policies and permissions across multiple applications and systems.
-- **Single Sign-On (SSO)**: Hop3 simplifies user access with SSO capabilities, allowing users to authenticate once and gain access to multiple services and applications. This improves security by reducing the need for multiple credentials and streamlining access control management.
+*   **Intelligent Orchestration Engine:** A built-in engine that manages the deployment, scaling, and resource allocation of applications without requiring external tools like Kubernetes.
+*   **Dynamic Scaling & Workload Management:** Automatically scales applications based on demand and intelligently schedules tasks, including offloading heavy computations to more powerful infrastructure.
+*   **Automated Lifecycle:** Supports automated deployments through CI/CD integration, automated backups with disaster recovery capabilities, and seamless live migration of running services between nodes without downtime.
 
-### Role-Based Access Control (RBAC)
+### Architecture and Design
 
-- **Granular Permissions**: Hop3’s RBAC system enables precise control over user access. Administrators can define user roles and assign granular permissions to limit access to specific applications, resources, or actions. This ensures compliance with organizational security policies while reducing the risk of unauthorized access.
-- **Audit Logging**: The RBAC system provides detailed audit logs of user actions and access history, ensuring traceability and accountability for security audits.
-
-### Automated Backups and Restore
-
-- **Automated Data Protection**: Hop3 offers robust data protection through automated backups and restore mechanisms. Administrators can schedule regular backups to prevent data loss and easily restore systems in case of failure. Backup processes can be customized based on retention policies, ensuring flexibility for different business requirements.
-- **Disaster Recovery**: The integrated restore functionality ensures minimal downtime in the event of failures, allowing for rapid recovery and continuity of operations.
-
-### Domain Management and SSL Certificates
-
-- **Simplified DNS Management**: Hop3 includes tools for easy domain name management, providing DNS configuration that enables users to map their domain names to services hosted on Hop3.
-- **Automated SSL Management**: Ensures secure communication by automating the management of SSL certificates through integrations with services like Let's Encrypt. This simplifies the process of obtaining, renewing, and managing certificates, ensuring encryption for data in transit without manual intervention.
-
-### Modular Design
-
-- **Pluggable Architecture**: Hop3’s modular architecture allows for flexibility in feature deployment. Administrators can add, configure, and manage modules independently, tailoring the platform to specific use cases. This modularity supports a wide range of environments and ensures the system can scale as needed.
-- **Customizable Functionality**: Users can extend the functionality of Hop3 through a variety of plug-ins, ensuring that the platform evolves with organizational needs.
-
-### Comprehensive Network Management
-
-- **Integrated Network Services**: Hop3 includes extensive network management capabilities, offering services such as firewall configurations, VPNs, DHCP, DNS, and proxy management. These features ensure that Hop3 can securely manage traffic and connections across distributed applications and infrastructures.
-- **Secure Network Policies**: The platform allows administrators to implement strict network policies, enhancing security across cloud and edge environments.
-
-### Security and Resilience Enhancements
-
-- **Advanced Security Features**: Hop3 incorporates robust security measures, including real-time monitoring, encryption for data in transit and at rest, and proactive threat detection. Built-in security modules provide continuous surveillance of application performance and system vulnerabilities.
-- **Redundancy and Failover**: Hop3 ensures high availability through redundancy and failover mechanisms. If one node or service fails, the system automatically shifts workloads to backup resources, ensuring uninterrupted service.
-- **Monitoring and Alerts**: Hop3 includes a real-time monitoring system with alert capabilities. Administrators receive notifications when performance thresholds are crossed, allowing for proactive issue resolution.
-
-### Distributed, Agent-Based Architecture
-
-- **Decentralized Control**: Hop3 utilizes a distributed agent-based architecture for decentralized data storage and processing. This enhances system resilience and ensures that operations are spread across multiple nodes, reducing the risk of failure and improving sovereignty over data and infrastructure.
-- **Fault Tolerance and Scalability**: The platform’s architecture supports fault tolerance and scalability, allowing seamless integration of new nodes. As additional resources are added, the system autonomously integrates them into the orchestration engine, ensuring smooth scaling and self-healing capabilities.
-
-### Orchestration and Automation
-
-- **Intelligent Orchestration**: Hop3’s built-in orchestration engine manages distributed applications across cloud, edge, and IoT environments. By automatically deploying, scaling, and allocating resources, the engine optimizes performance without requiring external platforms like Kubernetes.
-- **Dynamic Scaling**: Hop3 enables real-time, automatic scaling based on performance metrics and demand. This feature dynamically adjusts resource allocation to maintain optimal application performance, preventing over- or under-utilization of resources.
-- **Task Scheduling and Compute Offloading**: The platform intelligently schedules tasks and offloads compute-heavy workloads from resource-constrained devices to more powerful cloud infrastructure. This maximizes efficiency and ensures that tasks are completed in the most suitable environment.
-- **AI/ML Workflow Automation**: Hop3 integrates AI/ML workflow management, automating the orchestration of data pipelines, model training, and inferencing tasks. The system dynamically allocates computational resources to optimize performance across the AI/ML lifecycle.
-- **Live Migration**: Supports seamless live migration of running services between nodes without downtime. This ensures continuous service availability even during maintenance or infrastructure changes by leveraging checkpointing and stateful migration.
-- **Automated Deployments**: Hop3 simplifies application deployment by integrating with CI/CD pipelines. Automated workflows allow for continuous deployment, reducing manual intervention and enabling rapid iteration of new features.
-- **Workload Management**: Hop3 provides advanced workload management capabilities, implementing policies to determine how applications should be distributed across environments. This ensures that workloads are prioritized and resources are allocated efficiently across cloud, edge, and IoT nodes.
-
--> [More details](./docs/src/dev/orchestration.md)
+*   **Modular and Extensible:** Built on a flexible, pluggable architecture that allows users to add and customize functionality with plugins.
+*   **Distributed and Resilient:** Utilizes a distributed, agent-based architecture for decentralized control, ensuring fault tolerance, high availability, and easy scalability.
+*   **Comprehensive Security:** Incorporates advanced security measures, including real-time monitoring, encryption for data at rest and in transit, and secure network management tools (firewalls, VPNs, etc.).
 
 
-### Technology Stack
+## Technology Stack
 
 Hop3's technology stack is carefully chosen to support its goals without relying on conventional containerization tools like Docker or Kubernetes. Instead, it focuses on alternative, lightweight solutions that align with the project's principles of efficiency and sovereignty. The stack includes:
 
@@ -151,7 +92,7 @@ Hop3's technology stack is carefully chosen to support its goals without relying
 - **Energy-Efficient Computing**: Adopts strategies and technologies aimed at minimizing energy consumption across all operations.
 - **Open Standards and Protocols**: Committed to open standards to ensure interoperability and prevent vendor lock-in.
 
-### Supported OS
+## Supported OS
 
 We *aim* to support a wide range of operating systems, including:
 
