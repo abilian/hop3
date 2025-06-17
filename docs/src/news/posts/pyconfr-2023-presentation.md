@@ -1,7 +1,7 @@
 ______________________________________________________________________
 
 date: 2023-03-22
-description: We gave a talk about Nua during PyConFR 2023 in Bordeaux.
+description: We gave a talk about Nua (Hop3's predecessor) during PyConFR 2023 in Bordeaux.
 categories:
 
 - talk

@@ -65,13 +65,13 @@ The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) an
 > [!WARNING]
 > This code is still evolving quickly, and not meant for production yet.
 
-Version 0.2.0 (branch `stable`) is the first version that can be used to deploy a few simple web applications. It is not yet feature-complete. It is already used to host a couple of live applications.
+Version 0.3.0 (branch `stable`) is the first version that can be used to deploy a few simple web applications. It is not yet feature-complete. It is already used to host some live applications.
 
-Version 0.3 (branch `main`) is the current development version. It is currently undergoing a very large refactoring (spliting the code base into multiple sub-projects, using a plugin architecture, etc.). It is not yet usable.
+Version 0.4.0 (branch `devel`) is the current development version. It is currently undergoing a very large refactoring (spliting the code base into multiple sub-projects, using a plugin architecture, etc.). It is not yet usable.
 
 => If you want to use Hop3, please use the `stable` branch.
 
-=> If you want to contribute to Hop3, please use the `main` branch.
+=> If you want to contribute to Hop3, please use the `devel` branch.
 
 ## Overview
 
