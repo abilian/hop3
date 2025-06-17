@@ -16,15 +16,17 @@ docs_dir: docs/src/
 
 nav:
   - Home:
-      - Introduction: index.md
+      - Index: index.md
       - Features: features.md
       - Installation: installation.md
       - "Quick Start": quickstart.md
       - FAQ: faq.md
+      - Changelog: CHANGELOG.md
   - Developers:
-      - "Dev. Intro": dev/index.md
-      - "Contributing": dev/contributing.md
+      - "Index": dev/index.md
       - "Getting started": dev/getting-started.md
+      - "Contributing": dev/contributing.md
+      - "Branching Strategy": dev/branching-strategy.md
       - "Core Values": dev/core-values.md
       - "Architecture / Design": dev/architecture.md
       - "Orchestration": dev/orchestration.md
@@ -32,12 +34,13 @@ nav:
       - "Governance": dev/governance.md
       - "Maintainers": dev/maintainers.md
       - "Additional Notes":
-          - "Intro": dev/notes/readme.md
+          - "Intro": dev/notes/index.md
           - "Roadmap": dev/notes/roadmap.md
           - "Open Questions": dev/notes/questions.md
           - "Config": dev/notes/config.md
           - "Documentation": dev/notes/documentation.md
   - "Policies":
+      - "Index": policies/index.md
       - "Security Policy": policies/security-policy.md
       - "Privacy Policy": policies/privacy-policy.md
       - "Code of Conduct": policies/code-of-conduct.md

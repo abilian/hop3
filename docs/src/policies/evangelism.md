@@ -11,14 +11,14 @@ Here are some effective ways to evangelize Hop3 and contribute to its growth:
 ### 1. Publishing Content About Hop3
 
 - **Personal Blogs, Videos, Podcasts:**
-  - Share your experiences using Hop3 and your thoughts on its features and potential.
-  - Discuss your Hop3 projects and contributions, showcasing practical use cases and successes.
-  - Create tutorials about specific Hop3 tools, libraries, or functionalities.
-  - Write about challenges you encountered while using Hop3 and how you resolved them.
+    - Share your experiences using Hop3 and your thoughts on its features and potential.
+    - Discuss your Hop3 projects and contributions, showcasing practical use cases and successes.
+    - Create tutorials about specific Hop3 tools, libraries, or functionalities.
+    - Write about challenges you encountered while using Hop3 and how you resolved them.
 
 - **Platform-Specific Blogs:**
-  - Contribute to the Hop3 official blog by outlining design decisions, architectural choices, or updates about core features.
-  - Share design notes about integrations, orchestration practices, or other key elements of the platform.
+    - Contribute to the Hop3 official blog by outlining design decisions, architectural choices, or updates about core features.
+    - Share design notes about integrations, orchestration practices, or other key elements of the platform.
 
 ### 2. Showcasing Cool Projects Built With Hop3
 
@@ -55,23 +55,23 @@ Here are some effective ways to evangelize Hop3 and contribute to its growth:
 The following activities are discouraged as they may harm the reputation of Hop3 or its community:
 
 - **Unsolicited Advocacy:**
-  - Refrain from pressuring other FOSS projects or developers to port their project to Hop3 without genuine interest or context.
+    - Refrain from pressuring other FOSS projects or developers to port their project to Hop3 without genuine interest or context.
 
 - **Comparative Criticism:**
-  - Avoid putting down other orchestration platforms or cloud management tools to promote Hop3. Advocacy should focus on Hop3’s strengths rather than comparisons.
+    - Avoid putting down other orchestration platforms or cloud management tools to promote Hop3. Advocacy should focus on Hop3’s strengths rather than comparisons.
 
 - **Flame Wars:**
-  - Maintain professionalism and kindness in all discussions, especially outside Hop3 community spaces. Avoid confrontational behavior.
+    - Maintain professionalism and kindness in all discussions, especially outside Hop3 community spaces. Avoid confrontational behavior.
 
 ## Additional Resources
 
 - **Hop3 Evangelism Mailing List:**
-  - Join the mailing list to discuss promotional ideas, propose blog topics, and seek editorial feedback.
-  - This is also a place to share concerns about community behavior or outreach efforts that might need improvement.
+    - Join the mailing list to discuss promotional ideas, propose blog topics, and seek editorial feedback.
+    - This is also a place to share concerns about community behavior or outreach efforts that might need improvement.
 
 - **Code of Conduct:**
-  - While the Hop3 Code of Conduct doesn't apply formally outside the realm of the Hop3 communication and collaboration ecosystem, always strive to communicate respectfully and empathetically, and act in ways that reflect positively on the Hop3 community.
+    - While the Hop3 Code of Conduct doesn't apply formally outside the realm of the Hop3 communication and collaboration ecosystem, always strive to communicate respectfully and empathetically, and act in ways that reflect positively on the Hop3 community.
 
 ## Final Thoughts
 
-Hop3 evangelism is about building a supportive and inclusive ecosystem. By sharing your experiences, helping others, and promoting the platform with enthusiasm and integrity, you contribute to its long-term success. If you have creative ideas or want to discuss an evangelism effort, feel free to reach out via the mailing list or community forums.
+Hop3 evangelism is about building a supportive and inclusive ecosystem: by sharing your experiences, helping others, and promoting the platform with enthusiasm and integrity, you contribute to its long-term success. If you have creative ideas or want to discuss an evangelism effort, feel free to reach out via the mailing list or community forums.
