@@ -25,9 +25,19 @@ readme = "README.md"
 [project.scripts]
 hop = "hop3_cli.main:main"
 
-[tool.pdm.build]
-includes = ["src/hop3_cli"]
+# ----------------------------------------
 
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hop3_cli"]
+
+# Was:
+#[build-system]
+#requires = ["pdm-backend"]
+#build-backend = "pdm.backend"
+#
+#[tool.pdm.build]
+#includes = ["src/hop3_cli"]

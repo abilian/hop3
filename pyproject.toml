@@ -81,6 +81,7 @@ dev-dependencies = [
     "snoop>=0.6.0",
     "pydoclint[flake8]>=0.5.9",
     "ty>=0.0.0a7",
+    "hatchling>=1.27.0",
 ]
 
 [tool.uv.workspace]
