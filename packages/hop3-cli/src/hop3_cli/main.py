@@ -28,11 +28,6 @@ def main():
     run_command_from_args(args)
 
 
-# TODO: dummy config, to be replaced
-def get_config() -> Config:
-    return Config({"host": "localhost", "port": 8000})
-
-
 def run_command_from_args(args: list[str]) -> None:
     # namespace = parse_args(args)
     #
@@ -42,7 +37,7 @@ def run_command_from_args(args: list[str]) -> None:
     #     config = Config("", {})
 
     config = get_config()
-    context = Client(config=config, state=None)
+    client = Client(config=config, state=None)
 
     # args = namespace.args
 
@@ -55,23 +50,28 @@ def run_command_from_args(args: list[str]) -> None:
         # debug_cmd(args, context)
         return
 
+    response = None
     try:
-        response = context.rpc("cli", args)
+        response = client.rpc("cli", args)
     except requests.exceptions.ConnectionError:
-        err(
-            f"Could not connect to the Hop3 server at {context.rpc_url}. Is it running?"
-        )
-        sys.exit(1)
+        err(f"Could not connect to the Hop3 server at {client.rpc_url}. Is it running?")
     except requests.exceptions.HTTPError as e:
-        err(f"HTTP error while connecting to the Hop3 server: {e}")
-        sys.exit(1)
+        err(f"HTTP error while connecting to the Hop3 server:\n{e}")
     except Exception as e:
-        logger.error(f"Error while executing command: {e}")
-        print("Error while executing command:", e, file=sys.stderr)
-        sys.exit(1)
+        err(f"Error while executing command:\n{e}")
 
     match response:
         case Ok(result=result):
             Printer().print(result)
         case Error(message=message):
-            print("Error:\n", message)
+            err(f"Error:\n{message}")
+        case None:
+            pass
+
+    if client.tunnel:
+        client.tunnel.stop()
+
+
+# TODO: dummy config, to be replaced
+def get_config() -> Config:
+    return Config({"host": "localhost", "port": 8000})
