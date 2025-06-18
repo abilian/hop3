@@ -1,22 +1,25 @@
+#
 # Specific to this project
-/old-docs/
+#
 /tmp/
 /packages/hop3-server/ssl
 /data/
-/docs-old/
 /docs/Vocab/
-/docs/site/
 /site/
-/packages/hop3-docs/Vocab/
-sandbox/
 ignore.py
 
 # Temp
 /packages/hop3-web/src/hop3_web/lib/
 
-# Local environment variables
+# Local environment variables / private stuff
 .env
 .envrc
+*.private
+sandbox/
+
+#
+# Generic ignores
+#
 
 # Misc OS
 .DS_Store
