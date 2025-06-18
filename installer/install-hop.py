@@ -1,6 +1,5 @@
 # Copyright (c) 2023-2024, Abilian SAS
 
-# ruff: noqa: INP001
 
 from __future__ import annotations
 
@@ -74,6 +73,22 @@ APT::Install-Suggests "0";
 Acquire::GzipIndexes "true";
 Acquire::CompressionTypes::Order:: "gz";
 Dir::Cache { srcpkgcache ""; pkgcache ""; }
+"""
+
+# Systemd unit file for the Hop3 server
+UNIT_FILE = """
+[Unit]
+Description=Hop3 Server
+After=network.target
+
+[Service]
+User=hop3
+WorkingDirectory=/home/hop3
+ExecStart=/home/hop3/venv/bin/hop-server serve
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
 """
 
 
@@ -162,6 +177,21 @@ def setup_hop3() -> None:
             "rm /tmp/root_authorized_keys",
         ],
         _su_user=HOP3_USER,
+    )
+
+    files.put(
+        name="Install Hop3 systemd service file",
+        src=StringIO(UNIT_FILE),
+        dest="/etc/systemd/system/hop3-server.service",
+        mode="0644",
+    )
+
+    # Enable and start the service
+    systemd.service(
+        name="Enable and start Hop3 service",
+        service="hop3-server",
+        enabled=True,
+        running=True,
     )
 
 

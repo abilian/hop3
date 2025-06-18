@@ -11,6 +11,7 @@ from hop3.lib.registry import register
 from ._base import Command
 
 MODE = "development"
+HOST = "127.0.0.1"
 
 if MODE == "development":
     DEBUG = True
@@ -29,7 +30,7 @@ class Serve(Command):
         granian.Granian(
             target="hop3.server.asgi:create_app",
             factory=True,
-            address="0.0.0.0",
+            address=HOST,
             # port=port,
             interface=Interfaces.ASGI,
             log_dictconfig={"root": {"level": "DEBUG"}} if not DEBUG else {},

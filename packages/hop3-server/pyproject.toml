@@ -27,7 +27,8 @@ dependencies = [
     "toml >= 0.10.2",
     # Utils
     "devtools",
-    "granian>=2.2.0",
+    # TODO: remove reload later
+    "granian[reload]>=2.2.0",
     "psycopg2>=2.9.10",
     "webargs>=8.6.0",
     "marshmallow>=4.0.0",

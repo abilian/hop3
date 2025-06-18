@@ -1378,6 +1378,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/7d/06/2939db770247ba0b985f98b57ce587f74ec08cca688c4a80f5b8c71ac903/granian-2.3.4-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:ec793853e6dec77429ca551ce3028768225f93b569a9cda54bec9929797afb4a", size = 2787744, upload-time = "2025-06-14T13:10:23.203Z" },
 ]
 
+[package.optional-dependencies]
+reload = [
+    { name = "watchfiles" },
+]
+
 [[package]]
 name = "greenlet"
 version = "3.2.3"
@@ -1573,7 +1578,6 @@ dependencies = [
     { name = "hop3-testing" },
     { name = "invoke" },
     { name = "python-dotenv" },
-    { name = "ruff" },
     { name = "snoop" },
     { name = "tomlkit" },
 ]
@@ -1608,6 +1612,7 @@ dev = [
     { name = "pytest-beartype" },
     { name = "python-dotenv" },
     { name = "reuse" },
+    { name = "ruff" },
     { name = "sbom4python" },
     { name = "snoop" },
     { name = "spdx-tools" },
@@ -1629,7 +1634,6 @@ requires-dist = [
     { name = "hop3-testing", editable = "packages/hop3-testing" },
     { name = "invoke", specifier = "~=2.2.0" },
     { name = "python-dotenv" },
-    { name = "ruff", specifier = "!=0.11.3" },
     { name = "snoop", specifier = "~=0.6" },
     { name = "tomlkit" },
 ]
@@ -1664,6 +1668,7 @@ dev = [
     { name = "pytest-beartype", specifier = ">=0.2.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "reuse", specifier = ">=5.0" },
+    { name = "ruff", specifier = "!=0.11.3" },
     { name = "sbom4python", specifier = ">=0.11.3" },
     { name = "snoop", specifier = ">=0.6.0" },
     { name = "spdx-tools", specifier = ">=0.8.3" },
@@ -1713,7 +1718,7 @@ dependencies = [
     { name = "attrs" },
     { name = "cyclonedx-bom" },
     { name = "devtools" },
-    { name = "granian" },
+    { name = "granian", extra = ["reload"] },
     { name = "jinja2" },
     { name = "marshmallow" },
     { name = "pluggy" },
@@ -1737,7 +1742,7 @@ requires-dist = [
     { name = "attrs", specifier = ">=24.2" },
     { name = "cyclonedx-bom", specifier = ">=5.1.1" },
     { name = "devtools" },
-    { name = "granian", specifier = ">=2.2.0" },
+    { name = "granian", extras = ["reload"], specifier = ">=2.2.0" },
     { name = "jinja2" },
     { name = "marshmallow", specifier = ">=4.0.0" },
     { name = "pluggy", specifier = "~=1.4" },

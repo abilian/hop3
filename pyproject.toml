@@ -24,8 +24,6 @@ dependencies = [
     "invoke ~= 2.2.0",
     "tomlkit",
     "python-dotenv",
-    # Pinned
-    "ruff != 0.11.3",
 ]
 
 # ------------------------------------
@@ -36,6 +34,8 @@ dev-dependencies = [
     # Generic tools
     "abilian-devtools >= 0.7",
     "reuse >= 5.0",
+    # Pinned
+    "ruff != 0.11.3",
     # Used by `inv watch`
     "watchfiles >= 0.24.0",
     # Used by testing infra

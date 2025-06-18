@@ -26,7 +26,7 @@ clean-server:
 ## Deploy to development server
 deploy:
 	@echo "--> Deploying to" ${HOP3_DEV_HOST}
-	@make build
+	uv build packages/hop3-server
 	uv run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
 
 ## Build the python packages
