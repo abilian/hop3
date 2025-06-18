@@ -22,6 +22,8 @@ The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) an
 - [Overview](#overview)
 - [Goals](#goals)
 - [Features (Including Planned Features)](#features-including-planned-features)
+- [Technology Stack](#technology-stack)
+- [Supported OS](#supported-os)
 - [Getting Started](#getting-started)
 - [Development and Contribution](#development-and-contribution)
 - [Roadmap](#roadmap)
