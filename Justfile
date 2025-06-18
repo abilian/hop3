@@ -75,8 +75,8 @@ audit:
 
 # Formatting
 format:
-    uv run ruff format packages/*/src packages/*/tests
-    uv run ruff check --fix packages/*/src packages/*/tests
+    uv run ruff format packages/*/src packages/*/tests installer
+    uv run ruff check --fix packages/*/src packages/*/tests installer
     uv run markdown-toc --maxdepth 2 -i README.md
     python scripts/update-copyright.py
 
