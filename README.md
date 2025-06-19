@@ -12,7 +12,7 @@ Build status: [![builds.sr.ht status](https://builds.sr.ht/~sfermigier/hop3.svg)
 
 Hop3 is an open source platform as a service (PaaS): it enable you to deploy and manage your applications seamlessly. It is designed to be simple, secure, and easy to use.
 
-The project is hosted on both [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [GitHub](https://github.com/abilian/hop3).
+The project is hosted on [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [GitHub](https://github.com/abilian/hop3) and [Eclipse Research Labs](https://gitlab.eclipse.org/eclipse-research-labs/nephele-project/opencall-2/h3ni/hop3-h3ni).
 
 ## TOC
 
@@ -52,6 +52,11 @@ Version 0.4.0 (branch `devel`) is the current development version. It is current
 Hop3 is an open-source platform designed to enhance cloud computing with a focus on sovereignty, security, sustainability, and inclusivity.
 
 It aims to facilitate access to cloud technologies for a diverse range of users, including small and medium-sized enterprises (SMEs), non-profits, public services, and individual developers. By leveraging robust web, cloud, and open source technologies, Hop3 enables these groups to deploy and manage web applications efficiently and securely.
+
+See also the following presentations:
+
+- [Hop3: Empowering Digital Sovereignty](https://speakerdeck.com/sfermigier/hop3-empowering-digital-sovereignty) (OW2Con, June 2025)
+- [Hop3: Simplifying Cloud and Self-Hosting for Developers and SMEs](https://speakerdeck.com/sfermigier/hop3-simplifying-cloud-and-self-hosting-for-developers-and-smes) (Open Source Experience, December 2024)
 
 ## Goals
 
