@@ -101,7 +101,7 @@ We *aim* to support a wide range of operating systems, including:
 - **Linux**: Ubuntu, Debian, Archlinux, Rocky, Alma, Fedora, NixOS, Guix...
 - **BSD**: FreeBSD, OpenBSD, NetBSD.
 
-We run CI tests on the SourceHut platform, which supports a wide range of open source distributions and operating systems. This is a work in progress, and we welcome contributions to fix issues with the current tests or to expand the list of supported OS. See: [.build](.build) for the CI scripts, and https://builds.sr.ht/~sfermigier/ for current build status.
+We run CI tests on the SourceHut platform, which supports a wide range of open source distributions and operating systems. This is a work in progress, and we welcome contributions to fix issues with the current tests or to expand the list of supported OS. See: [.builds](.builds) for the CI scripts, and https://builds.sr.ht/~sfermigier/ for current build status.
 
 ## Getting Started
 
