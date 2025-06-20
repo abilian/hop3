@@ -75,26 +75,21 @@ update-deps:
 	uv pip list --outdated
 	uv pip list --format=freeze > compliance/requirements-full.txt
 
-## Generate SBOM
+## Generate Software Bill of Materials (SBOM) from venv for CRA compliance
 generate-sbom:
-	@echo "--> Generating SBOM"
+	@echo "--> Generating SBOM (assuming syft is installed)"
+	make clean
+	rm -rf .venv
 	uv sync -q --no-dev
 	uv pip list --format=freeze > compliance/requirements-prod.txt
+	syft .venv \
+		-o spdx-json=compliance/sbom-spdx.json \
+		-o cyclonedx-json=compliance/sbom-cyclonedx.json \
+		-o syft-text=compliance/sbom-syft.txt
+	npx prettier -w compliance/sbom-spdx.json
+	npx prettier -w compliance/sbom-cyclonedx.json
 	uv sync -q
-	# CycloneDX
-	uv run cyclonedx-py requirements \
-		--pyproject pyproject.toml -o compliance/sbom-cyclonedx.json \
-		compliance/requirements-prod.txt
-	# Add license information
-	uv run lbom \
-		--input_file compliance/sbom-cyclonedx.json \
-		> compliance/sbom-lbom.json
-	mv compliance/sbom-lbom.json compliance/sbom-cyclonedx.json
-	# broken
-	#	# SPDX
-	#	sbom4python -r compliance/requirements-prod.txt \
-	#		--sbom spdx --format json \
-	#		-o compliance/sbom-spdx.json
+
 
 #
 # testing & checking
