@@ -190,6 +190,6 @@ sync-code:
 
 ## Push code to remote repositories
 push-code:
-	git push ci devel
-	git push origin devel
-	git push h3ni devel
+	git push ci
+	git push origin
+	git push h3ni
