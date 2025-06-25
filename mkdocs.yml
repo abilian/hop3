@@ -21,6 +21,7 @@ nav:
       - Installation: installation.md
       - "Quick Start": quickstart.md
       - FAQ: faq.md
+      - Extra: extra.md
       - Changelog: CHANGELOG.md
   - Developers:
       - "Index": dev/index.md
