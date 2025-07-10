@@ -1,10 +1,12 @@
 # Copyright (c) 2024-2025, Abilian SAS
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from hop3.orm import App
+    from hop3.project.config import AppConfig
 
     from .env import Env
 
@@ -30,3 +32,62 @@ class Proxy(Protocol):
     workers: dict[str, str]
 
     def setup(self) -> None: ...
+
+
+@dataclass
+class DeploymentContext:
+    """
+    A simple data class to pass around context
+    """
+
+    app: App
+    app_config: AppConfig
+    new_rev: str
+    # log_callback: Callable[[str], None]  # To stream logs back
+
+
+@dataclass
+class BuildArtifact:
+    """
+    Represents a build artifact produced by a BuildStrategy.
+    """
+
+    kind: str  # e.g., "buildpack", "docker_image"
+    location: str  # e.g., "/path/to/app/venv", "my-app:latest"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+class BuildStrategy(Protocol):
+    """Interface for turning source code into a runnable artifact."""
+
+    @property
+    def name(self) -> str:
+        """A unique name for the strategy, e.g., 'buildpack' or 'docker'."""
+
+    def accept(self, context: DeploymentContext) -> bool:
+        """Return True if this strategy can build the app."""
+
+    def build(self, context: DeploymentContext) -> BuildArtifact:
+        """Execute the build process and return an artifact."""
+
+
+class DeploymentTarget(Protocol):
+    """Interface for running a build artifact."""
+
+    @property
+    def name(self) -> str:
+        """A unique name, e.g., 'uwsgi' or 'docker-compose'."""
+
+    def accept(self, artifact: BuildArtifact, context: DeploymentContext) -> bool:
+        """Return True if this target can deploy the given artifact."""
+
+    def deploy(self, artifact: BuildArtifact, context: DeploymentContext) -> dict:
+        """
+        Deploy the artifact.
+        Returns a dictionary with deployment details for the proxy,
+        e.g., {"protocol": "http", "host": "127.0.0.1", "port": 8000}.
+        """
+
+    def scale(self, app: App, deltas: dict[str, int]) -> None: ...
+
+    def stop(self, app: App) -> None: ...
