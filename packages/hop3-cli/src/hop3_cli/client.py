@@ -1,16 +1,11 @@
-# Copyright (c) 2023-2025, Abilian SAS
-"""RPC client for Hop3 server. Uses JSON-RPC over HTTP with SSH tunneling.
-
-Alternatively, it could use HTTPS with proper key exchange and
-certificate validation, but this still needs to be implemented.
-"""
+# file: packages/hop3-cli/src/hop3_cli/client.py
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 import requests
 from jsonrpcclient import Error, parse, request
@@ -25,52 +20,71 @@ if TYPE_CHECKING:
     from .state import State
 
 
-# TODO: use State
-
-
 @dataclass
 class Client:
     config: Config
     state: State | None
     tunnel: SSHTunnelForwarder | None = None
 
+    api_url_override: str | None = None
+
     def __post_init__(self):
-        """Initialize the SSH tunnel if not already started."""
-        if self.host != "localhost" and not self.tunnel:
-            self.start_ssh_tunnel()
+        """Initialize the SSH tunnel only if the scheme is ssh."""
+        parsed_url = urlparse(self.api_url)
+        if parsed_url.scheme in {"ssh", "ssh+http"}:
+            if not self.tunnel:
+                self.start_ssh_tunnel()
 
     @cached_property
-    def host(self):
-        hop3_server = os.environ.get("HOP3_SERVER", "localhost")
-        # Alternatively, we could get the remote from git config:
-        # git_remote = run_command("git config --get remote.hop3.url")
-        return hop3_server
+    def api_url(self) -> str:
+        """
+        Determine the API URL to use.
+        Priority:
+        1. Explicit override passed to the Client.
+        2. HOP3_API_URL environment variable.
+        3. URL from config file.
+        """
+        # The main.py will need to be updated to pass the --api-url flag value here.
+        if self.api_url_override:
+            return self.api_url_override
 
-    @cached_property
-    def server_port(self):
-        return self.config["server_port"]
+        # This uses the config's layered approach (env > file > default)
+        return self.config.get("api_url", "http://localhost:8000")
 
     @property
-    def local_port(self):
-        """Return the local port for the SSH tunnel."""
-        assert self.tunnel
-        return self.tunnel.local_bind_port
+    def rpc_url(self) -> str:
+        """Return the correct RPC URL based on the connection type."""
+        parsed_url = urlparse(self.api_url)
 
-    @property
-    def rpc_url(self):
-        """Return the RPC URL."""
         if self.tunnel:
-            return f"http://localhost:{self.local_port}/rpc"
-        else:
-            return f"http://localhost:{self.server_port}/rpc"
+            # If tunneled, the RPC endpoint is always on localhost at the tunnel's local port.
+            return f"http://localhost:{self.tunnel.local_bind_port}/rpc"
+
+        # For direct http/https, use the api_url directly.
+        if parsed_url.scheme in {"http", "https"}:
+            return f"{self.api_url.rstrip('/')}/rpc"
+
+        msg = f"Unsupported scheme in API URL: {parsed_url.scheme}"
+        raise CliError(msg)
 
     def start_ssh_tunnel(self):
+        """Starts the SSH tunnel based on the parsed api_url."""
+        parsed_url = urlparse(self.api_url)
+
+        ssh_host = parsed_url.hostname
+        ssh_user = parsed_url.username or self.config.get("ssh_user", "root")
+
+        # The remote port is the one the server is listening on *on the remote machine*.
+        remote_server_port = self.config.get("server_port", 8000)
+
         self.tunnel = SSHTunnelForwarder(
-            self.host,
-            ssh_username="root",
-            remote_bind_address=("localhost", self.server_port),
+            ssh_host,
+            ssh_username=ssh_user,
+            remote_bind_address=("localhost", remote_server_port),
         )
-        logger.debug(f"Starting SSH tunnel to {self.host}:{self.server_port}")
+        logger.debug(
+            f"Starting SSH tunnel to {ssh_host} (remote port: {remote_server_port})"
+        )
         try:
             self.tunnel.start()
         except Exception as e:
@@ -85,11 +99,14 @@ class Client:
     def rpc(self, method: str, *args: list[str]) -> Response:
         """Call a remote method."""
         json_request = request(method, args)
+
+        # Determine if we should verify SSL certs
+        verify_ssl = urlparse(self.api_url).scheme == "https"
+
         response = requests.post(
             self.rpc_url,
             json=json_request,
-            # verify=False,
-            # cert="../hop3-server/ssl/cert.pem",
+            verify=verify_ssl,  # Use True for HTTPS, False otherwise.
         )
         try:
             response.raise_for_status()
