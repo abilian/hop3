@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import io
-import sys
 import tarfile
 import tempfile
 from pathlib import Path
@@ -36,11 +35,7 @@ config.local.json
 
 def test_generate_archive():
     with tempfile.TemporaryDirectory() as temp_dir:
-        # --- CHANGE HERE ---
-        # Create a subdirectory with the expected name inside the temp directory.
-        project_dir = Path(temp_dir) / "my_inmemory_project"
-        project_dir.mkdir()
-        # --- END CHANGE ---
+        project_dir = Path(temp_dir)
 
         (project_dir / ".gitignore").write_text(GITIGNORE)
 
@@ -61,20 +56,15 @@ def test_generate_archive():
         (project_dir / "debug.log").touch()
         (project_dir / "config.local.json").touch()
 
-        try:
-            archive_bytes = generate_archive(project_dir)
-            assert isinstance(archive_bytes, bytes)
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            sys.exit(1)
+        archive_bytes = generate_archive(project_dir)
+        assert isinstance(archive_bytes, bytes)
 
         with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:gz") as tar:
             archived_files = tar.getnames()
-            # Now these assertions will pass because the root directory name matches.
-            assert "my_inmemory_project/src/main.py" in archived_files
-            assert "my_inmemory_project/README.md" in archived_files
-            assert "my_inmemory_project/.gitignore" in archived_files
-            assert "my_inmemory_project/important.log" in archived_files
-            assert "my_inmemory_project/venv/lib" not in archived_files
-            assert "my_inmemory_project/debug.log" not in archived_files
-            assert "my_inmemory_project/config.local.json" not in archived_files
+            assert "src/main.py" in archived_files
+            assert "README.md" in archived_files
+            assert ".gitignore" in archived_files
+            assert "important.log" in archived_files
+            assert "venv/lib" not in archived_files
+            assert "debug.log" not in archived_files
+            assert "config.local.json" not in archived_files

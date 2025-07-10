@@ -7,10 +7,14 @@
 from __future__ import annotations
 
 import subprocess
+from base64 import b64decode
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hop3.deploy import do_deploy
+from devtools import debug
+
+from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.registry import register
 from hop3.orm import App, AppRepository
 from hop3.project.procfile import parse_procfile
@@ -94,30 +98,47 @@ class DeployCmd(Command):
     db_session: Session
     name = "deploy"
 
-    def call(self, *args):
+    def call(self, *args, **kwargs):
+        debug(list(kwargs.keys()))
         if not args:
             return [{"t": "text", "text": "Usage: hop deploy <app_name>"}]
 
         app_name = args[0]
-        app = _get_app(self.db_session, app_name)
 
+        # FIXME: Q&D solution to get the app instance
         try:
-            # Pull latest changes from the remote repository
-            subprocess.run(
-                ["git", "pull"],
-                cwd=app.src_path,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        except subprocess.CalledProcessError as e:
-            return [{"t": "text", "text": f"Error pulling git repository: {e.stderr}"}]
+            app = _get_app(self.db_session, app_name)
+        except ValueError:
+            app = App(name=app_name)
+            app.create()
+            self.db_session.add(app)
+            self.db_session.commit()
 
-        try:
-            do_deploy(app)
-        except Exception as e:
-            return [{"t": "text", "text": f"Deployment failed: {e}"}]
+        archives_bytes = b64decode(kwargs["repository"])
+        Path("/tmp/repository.tgz").write_bytes(archives_bytes)
 
+        print(f"Deploying app '{app_name}' with {len(archives_bytes)} bytes of data...")
+        print(f"Extracting to {app.src_path}...")
+
+        extract_archive_to_dir(archives_bytes, app.src_path)
+
+        # try:
+        #     # Pull latest changes from the remote repository
+        #     subprocess.run(
+        #         ["git", "pull"],
+        #         cwd=app.src_path,
+        #         check=True,
+        #         capture_output=True,
+        #         text=True,
+        #     )
+        # except subprocess.CalledProcessError as e:
+        #     return [{"t": "text", "text": f"Error pulling git repository: {e.stderr}"}]
+        #
+        # try:
+        #     do_deploy(app)
+        # except Exception as e:
+        #     return [{"t": "text", "text": f"Deployment failed: {e}"}]
+        #
         return [{"t": "text", "text": f"App '{app_name}' deployed successfully."}]
 
 

@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pathspec
 
+__all__ = ["generate_archive"]
+
 
 def generate_archive(source_dir: Path) -> bytes:
     """
@@ -33,17 +35,37 @@ def generate_archive(source_dir: Path) -> bytes:
         raise ValueError(msg)
 
     # --- 1. Load .gitignore rules ---
+    spec = get_ignored_spec(source_dir)
+
+    # --- 2. Walk the directory and gather files to include ---
+    files_to_add = get_files_to_add(source_dir, spec)
+
+    # --- 3. Create the tar.gz archive in memory ---
+    fileobj = io.BytesIO()
+
+    # The 'w:gz' mode creates a gzip-compressed tar file.
+    # We pass our BytesIO object as the file to write to.
+    with tarfile.open(fileobj=fileobj, mode="w:gz") as tar:
+        for file_path in files_to_add:
+            relative_path = file_path.relative_to(source_dir)
+            arcname = Path() / relative_path
+            tar.add(file_path, arcname=str(arcname))
+
+    return fileobj.getvalue()
+
+
+def get_ignored_spec(source_dir: Path) -> pathspec.PathSpec | None:
     gitignore_path = source_dir / ".gitignore"
     spec: pathspec.PathSpec | None = None
     if gitignore_path.is_file():
         with open(gitignore_path, encoding="utf-8") as f:
             spec = pathspec.PathSpec.from_lines("gitwildmatch", f)
+    return spec
 
-    # --- 2. Walk the directory and gather files to include ---
+
+def get_files_to_add(source_dir, spec):
     files_to_add: list[Path] = []
-
     for file_path in source_dir.rglob("*"):
-        # Get path relative to the source directory for matching
         relative_path = file_path.relative_to(source_dir)
 
         # Let pathspec determine if the file should be ignored
@@ -55,18 +77,4 @@ def generate_archive(source_dir: Path) -> bytes:
             continue
 
         files_to_add.append(file_path)
-
-    # --- 3. Create the tar.gz archive in memory ---
-    fileobj = io.BytesIO()
-
-    # The 'w:gz' mode creates a gzip-compressed tar file.
-    # We pass our BytesIO object as the file to write to.
-    with tarfile.open(fileobj=fileobj, mode="w:gz") as tar:
-        archive_root_name = source_dir.name
-
-        for file_path in files_to_add:
-            relative_path = file_path.relative_to(source_dir)
-            arcname = Path(archive_root_name) / relative_path
-            tar.add(file_path, arcname=str(arcname))
-
-    return fileobj.getvalue()
+    return files_to_add
