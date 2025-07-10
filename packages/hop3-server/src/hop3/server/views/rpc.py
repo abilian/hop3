@@ -5,17 +5,20 @@ import json
 import traceback
 from typing import TYPE_CHECKING
 
+from devtools import debug
 from starlette.exceptions import HTTPException
 from starlette.responses import Response
 
 from hop3.commands import Command
 from hop3.lib.registry import lookup
 from hop3.lib.scanner import scan_package
+from hop3.lib.types import JsonDict
 from hop3.orm import get_session_factory
 from hop3.server.singletons import router
 
 if TYPE_CHECKING:
     from starlette.requests import Request
+
 
 scan_package("hop3.commands")
 commands = {command.name: command for command in lookup(Command)}
@@ -25,15 +28,20 @@ commands = {command.name: command for command in lookup(Command)}
 async def handle_rpc(request: Request):
     json_request = await request.json()
 
+    debug(json_request)
+
     method = json_request["method"]
     assert method == "cli"
 
-    params = json_request["params"][0]
-    command = params[0]
-    args = params[1:]
+    params = json_request["params"]
+    cli_args = params["cli_args"]
+    extra_args = params["extra_args"]
+
+    command = cli_args[0]
+    args = cli_args[1:]
 
     try:
-        result = call(command, args)
+        result = call(command, args, extra_args)
         result_rpc = {"jsonrpc": "2.0", "result": result, "id": 1}
         json_result = json.dumps(result_rpc)
         return Response(json_result, media_type="application/json")
@@ -42,7 +50,7 @@ async def handle_rpc(request: Request):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-def call(command_name: str, args: list[str]):
+def call(command_name: str, args: list[str], extra_args: JsonDict):
     command_class = commands.get(command_name)
     if command_class is None:
         msg = f"Command {command_name} not found"
@@ -56,5 +64,5 @@ def call(command_name: str, args: list[str]):
             class_args = {"db_session": db_session}
 
         command = command_class(**class_args)
-        result = command.call(*args)
+        result = command.call(*args, **extra_args)
         return result
