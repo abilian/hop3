@@ -2,6 +2,7 @@
 """
 Misc tests for the RPC client.
 """
+
 from __future__ import annotations
 
 from hop3_cli.main import get_extra_args

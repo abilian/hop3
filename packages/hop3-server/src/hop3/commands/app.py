@@ -38,11 +38,6 @@ class AppCmd(Command):
 
     name = "app"
 
-    def subcommands(self) -> list[type[Command]]:
-        return [
-            LaunchCmd,
-        ]
-
 
 @register
 @dataclass(frozen=True)
