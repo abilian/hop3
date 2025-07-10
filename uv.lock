@@ -1721,6 +1721,7 @@ source = { editable = "packages/hop3-cli" }
 dependencies = [
     { name = "jsonrpcclient" },
     { name = "loguru" },
+    { name = "pathspec" },
     { name = "requests" },
     { name = "sshtunnel" },
     { name = "tabulate" },
@@ -1733,6 +1734,7 @@ dependencies = [
 requires-dist = [
     { name = "jsonrpcclient", specifier = ">=4.0.3,<5.0.0" },
     { name = "loguru", specifier = ">=0.7.3" },
+    { name = "pathspec", specifier = ">=0.12.1" },
     { name = "requests", specifier = ">=2.32.3,<3.0.0" },
     { name = "sshtunnel", specifier = ">=0.4.0" },
     { name = "tabulate", specifier = ">=0.9.0,<1.0.0" },
