@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3 import config as c
-from hop3.deploy import do_deploy
+from hop3.deployers import do_deploy
 from hop3.lib.registry import lookup, register
 from hop3.orm import App, AppRepository
 from hop3.project.procfile import parse_procfile

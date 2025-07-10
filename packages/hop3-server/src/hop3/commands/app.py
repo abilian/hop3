@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from devtools import debug
 
+from hop3.deployers import do_deploy
 from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.registry import register
 from hop3.orm import App, AppRepository
@@ -134,11 +135,12 @@ class DeployCmd(Command):
         # except subprocess.CalledProcessError as e:
         #     return [{"t": "text", "text": f"Error pulling git repository: {e.stderr}"}]
         #
-        # try:
-        #     do_deploy(app)
-        # except Exception as e:
-        #     return [{"t": "text", "text": f"Deployment failed: {e}"}]
-        #
+
+        try:
+            do_deploy(app)
+        except Exception as e:
+            return [{"t": "text", "text": f"Deployment failed: {e}"}]
+
         return [{"t": "text", "text": f"App '{app_name}' deployed successfully."}]
 
 
