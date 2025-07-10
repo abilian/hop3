@@ -1,5 +1,3 @@
-# file: packages/hop3-cli/src/hop3_cli/client.py
-
 from __future__ import annotations
 
 from dataclasses import dataclass
