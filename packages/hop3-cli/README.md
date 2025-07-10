@@ -2,15 +2,7 @@
 
 This subproject provides a command-line interface for the hop3 project.
 
-## Current Implementation
-
-The basically just does a ssh connection to the server, with the command to be executed as an argument, and prints the output.
-
-## Future Implementation
-
-The CLI will interact with the `hop3-server` subproject, which will provide the API endpoints for the CLI.
-
-There is already a basic implementation, but it needs to be revised and improved.
+The CLI interacts with the `hop3-server` subproject, which provides the API endpoints for the CLI.
 
 ## TODO
 
