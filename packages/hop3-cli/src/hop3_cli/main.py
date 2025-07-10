@@ -35,11 +35,10 @@ def run_command_from_args(args: list[str]) -> None:
     #     config = get_config(namespace.config_file)
     # else:
     #     config = Config("", {})
+    # args = namespace.args
 
     config = get_config()
     client = Client(config=config, state=None)
-
-    # args = namespace.args
 
     if not args:
         args = ["help"]

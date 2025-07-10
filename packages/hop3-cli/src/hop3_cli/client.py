@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import requests
@@ -95,8 +95,14 @@ class Client:
             self.tunnel.stop()
             self.tunnel = None
 
-    def rpc(self, method: str, *args: list[str]) -> Response:
+    def rpc(
+        self, method: str, cli_args: list[str], **extra_args: dict[str, Any]
+    ) -> Response:
         """Call a remote method."""
+        args = {
+            "cli_args": cli_args,
+            "extra_args": extra_args,
+        }
         json_request = request(method, args)
 
         # Determine if we should verify SSL certs
