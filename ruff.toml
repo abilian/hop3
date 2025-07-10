@@ -69,6 +69,8 @@ lint.extend-ignore = [
     "INP001",
     "RUF045",
     "FBT003", # Boolean positional value in function call
+    "TRY300", # Consider moving this statement to an `else` block
+    "PLR0911", # Too many return statements (7 > 6)
 ]
 
 
