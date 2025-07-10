@@ -82,6 +82,7 @@ dev-dependencies = [
     "pydoclint[flake8]>=0.5.9",
     "ty>=0.0.0a7",
     "hatchling>=1.27.0",
+    "types-urllib3>=1.26.25.14",
 ]
 
 [tool.uv.workspace]
