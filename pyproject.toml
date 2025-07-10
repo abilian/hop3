@@ -24,6 +24,7 @@ dependencies = [
     "invoke ~= 2.2.0",
     "tomlkit",
     "python-dotenv",
+    "attrs>=25.3.0",
 ]
 
 # ------------------------------------
