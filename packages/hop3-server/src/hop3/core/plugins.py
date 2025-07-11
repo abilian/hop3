@@ -93,8 +93,9 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
             # We assume the name is a class attribute
             if getattr(StrategyClass, "name", None) == strategy_name_from_config:
                 return StrategyClass(context)
+        msg = f"Configured build strategy '{strategy_name_from_config}' not found."
         raise RuntimeError(
-            f"Configured build strategy '{strategy_name_from_config}' not found."
+            msg
         )
 
     # Auto-detect by finding the first one that "accepts" the context.
@@ -103,7 +104,8 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
         if instance.accept():
             return instance
 
-    raise RuntimeError("Could not find a suitable build strategy for this application.")
+    msg = "Could not find a suitable build strategy for this application."
+    raise RuntimeError(msg)
 
 
 def get_deployment_strategy(
@@ -123,56 +125,7 @@ def get_deployment_strategy(
         if instance.accept(artifact):
             return instance
 
+    msg = f"Could not find a deployment strategy compatible with artifact of kind '{artifact.kind}'."
     raise RuntimeError(
-        f"Could not find a deployment strategy compatible with artifact of kind '{artifact.kind}'."
+        msg
     )
-
-
-#
-# def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
-#     """
-#     Finds and instantiates the appropriate build strategy.
-#
-#     This function encapsulates the logic of checking app configuration
-#     and then auto-detecting a suitable strategy.
-#     """
-#     pm = get_plugin_manager()
-#
-#     # Get the list of all registered BuildStrategy *classes* from all plugins.
-#     # The hook returns a list of lists, so we flatten it.
-#     strategy_classes = [
-#         cls for sublist in pm.hook.hop3_register_build_strategies() for cls in sublist
-#     ]
-#
-#     # TODO: Add logic to check context.app_config for an explicit strategy name.
-#     # e.g., strategy_name = context.app_config.get("build.strategy", "auto")
-#
-#     # For now, we auto-detect by finding the first one that "accepts" the context.
-#     for StrategyClass in strategy_classes:
-#         # We must instantiate the class to call its `accept` method.
-#         instance = StrategyClass(context)
-#         if instance.accept(context):
-#             return instance  # Return the instantiated strategy object
-#
-#     raise RuntimeError("Could not find a suitable build strategy for this application.")
-#
-#
-# def get_deployment_strategy(
-#     context: DeploymentContext, artifact: BuildArtifact
-# ) -> DeploymentStrategy:
-#     """Finds and instantiates the appropriate deployment strategy."""
-#     pm = get_plugin_manager()
-#     strategy_classes = [
-#         cls
-#         for sublist in pm.hook.hop3_register_deployment_strategies()
-#         for cls in sublist
-#     ]
-#
-#     for StrategyClass in strategy_classes:
-#         instance = StrategyClass(context)
-#         if instance.accept(artifact):
-#             return instance
-#
-#     raise RuntimeError(
-#         f"Could not find a deployment strategy compatible with artifact of kind '{artifact.kind}'."
-#     )
