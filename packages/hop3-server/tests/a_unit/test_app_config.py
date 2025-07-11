@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from pprint import pprint
+
 from hop3.project.config import AppConfig
 
 PROCFILE1 = """
@@ -28,6 +30,22 @@ def test_config_1(tmp_path) -> None:
     assert config.web_workers == {"web": "gunicorn -w 4 -b"}
     assert config.workers == {"web": "gunicorn -w 4 -b"}
 
+    config_dict = config.to_dict()
+    expected = {
+        "app_dir": str(tmp_path),
+        "app_json": {},
+        "hop3_config": {},
+        "procfile": {
+            "post_build": "",
+            "pre_build": "",
+            "pre_run": "",
+            "web_workers": {"web": "gunicorn -w 4 -b"},
+            "workers": {"web": "gunicorn -w 4 -b"},
+        },
+        "src_dir": str(tmp_path / "src"),
+    }
+    assert config_dict == expected
+
 
 def test_config_2(tmp_path) -> None:
     (tmp_path / "src").mkdir()
@@ -45,3 +63,25 @@ def test_config_2(tmp_path) -> None:
     assert config.pre_build == 'echo "hello"'
     assert config.post_build == 'echo "goodbye"'
     assert config.pre_run == 'echo "prerun"'
+
+    config_dict = config.to_dict()
+    expected = {
+        "app_dir": str(tmp_path),
+        "app_json": {},
+        "hop3_config": {},
+        "procfile": {
+            "post_build": 'echo "goodbye"',
+            "pre_build": 'echo "hello"',
+            "pre_run": 'echo "prerun"',
+            "web_workers": {"web": "gunicorn -w 4 -b"},
+            "workers": {
+                "cron": '* * * * * echo "hello"',
+                "postbuild": 'echo "goodbye"',
+                "prebuild": 'echo "hello"',
+                "prerun": 'echo "prerun"',
+                "web": "gunicorn -w 4 -b",
+            },
+        },
+        "src_dir": str(tmp_path / "src"),
+    }
+    assert config_dict == expected
