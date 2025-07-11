@@ -99,7 +99,6 @@ class DeployCmd(Command):
     name = "deploy"
 
     def call(self, *args, **kwargs):
-        debug(list(kwargs.keys()))
         if not args:
             return [{"t": "text", "text": "Usage: hop deploy <app_name>"}]
 

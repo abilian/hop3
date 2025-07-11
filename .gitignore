@@ -7,6 +7,8 @@
 /docs/Vocab/
 /site/
 ignore.py
+packages-ignored
+packages-ignored2
 
 # Temp
 /packages/hop3-web/src/hop3_web/lib/
