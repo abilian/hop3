@@ -28,8 +28,6 @@ commands = {command.name: command for command in lookup(Command)}
 async def handle_rpc(request: Request):
     json_request = await request.json()
 
-    debug(json_request)
-
     method = json_request["method"]
     assert method == "cli"
 

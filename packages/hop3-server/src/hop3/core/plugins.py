@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pluggy
+from devtools import debug
 from pluggy import PluginManager
+from snoop import snoop
 
 from .core_plugins import CorePlugin, DockerPlugin
 from .hookspecs import Hop3Spec
@@ -65,6 +67,8 @@ def register_core_plugins(pm: PluginManager) -> None:
 
 # --- Convenience Helper Functions ---
 
+
+@snoop
 def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
     """
     Finds and instantiates the appropriate build strategy.
@@ -78,19 +82,20 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
     strategy_classes_list = pm.hook.register_build_strategies()
 
     # Flatten the list of lists into a single list of classes
-    strategy_classes = [
-        cls for sublist in strategy_classes_list for cls in sublist
-    ]
+    strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
 
     # TODO: Add logic to check context.app_config for an explicit strategy name.
+    debug(context.app_config)
     strategy_name_from_config = context.app_config.get_worker("build.strategy", "auto")
 
     if strategy_name_from_config != "auto":
         for StrategyClass in strategy_classes:
             # We assume the name is a class attribute
-            if getattr(StrategyClass, 'name', None) == strategy_name_from_config:
+            if getattr(StrategyClass, "name", None) == strategy_name_from_config:
                 return StrategyClass(context)
-        raise RuntimeError(f"Configured build strategy '{strategy_name_from_config}' not found.")
+        raise RuntimeError(
+            f"Configured build strategy '{strategy_name_from_config}' not found."
+        )
 
     # Auto-detect by finding the first one that "accepts" the context.
     for StrategyClass in strategy_classes:
@@ -102,15 +107,13 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
 
 
 def get_deployment_strategy(
-        context: DeploymentContext, artifact: BuildArtifact
+    context: DeploymentContext, artifact: BuildArtifact
 ) -> DeploymentStrategy:
     """Finds and instantiates the appropriate deployment strategy."""
     pm = get_plugin_manager()
 
     strategy_classes_list = pm.hook.register_deployment_strategies()
-    strategy_classes = [
-        cls for sublist in strategy_classes_list for cls in sublist
-    ]
+    strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
 
     # TODO: Add logic to check context.app_config for an explicit strategy name.
 
