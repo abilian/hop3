@@ -6,8 +6,7 @@ import pluggy
 from pluggy import PluginManager
 
 # Import the hook specifications that define our plugin contracts.
-from . import hookspecs
-from .core_plugins import DockerPlugin, CorePlugin
+from .core_plugins import CorePlugin, DockerPlugin
 from .hookspecs import Hop3Spec
 
 if TYPE_CHECKING:
