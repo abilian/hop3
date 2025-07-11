@@ -9,7 +9,6 @@ from __future__ import annotations
 import subprocess
 from base64 import b64decode
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from devtools import debug
@@ -116,11 +115,6 @@ class DeployCmd(Command):
             self.db_session.commit()
 
         archives_bytes = b64decode(kwargs["repository"])
-        Path("/tmp/repository.tgz").write_bytes(archives_bytes)
-
-        print(f"Deploying app '{app_name}' with {len(archives_bytes)} bytes of data...")
-        print(f"Extracting to {app.src_path}...")
-
         extract_archive_to_dir(archives_bytes, app.src_path)
 
         # try:
