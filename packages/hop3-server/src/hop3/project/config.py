@@ -17,6 +17,7 @@ class AppConfig:
     procfile: Procfile
     # XXX: not used yet
     app_json: dict
+    app_config: dict
 
     @property
     def workers(self) -> dict:

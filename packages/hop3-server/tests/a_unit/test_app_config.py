@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from pprint import pprint
-
 from hop3.project.config import AppConfig
 
 PROCFILE1 = """

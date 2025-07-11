@@ -11,8 +11,6 @@ from base64 import b64decode
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from devtools import debug
-
 from hop3.deployers import do_deploy
 from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.registry import register
