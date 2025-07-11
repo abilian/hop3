@@ -77,6 +77,7 @@ def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
     except (RuntimeError, Abort) as e:
         # Catch errors from strategy selection or execution
         log(f"Deployment failed: {e}", fg="red")
-        raise Abort(f"Deployment failed: {e}")
+        msg = f"Deployment failed: {e}"
+        raise Abort(msg)
 
     log(f"Deployment for '{app.name}' finished successfully.", level=0, fg="green")
