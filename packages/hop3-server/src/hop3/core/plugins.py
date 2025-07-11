@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pluggy
-from devtools import debug
 from pluggy import PluginManager
 from snoop import snoop
 
@@ -85,8 +84,9 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
     strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
 
     # TODO: Add logic to check context.app_config for an explicit strategy name.
-    debug(context.app_config)
-    strategy_name_from_config = context.app_config.get_worker("build.strategy", "auto")
+    # debug(context.app_config)
+    # strategy_name_from_config = context.app_config.get_worker("build.strategy", "auto")
+    strategy_name_from_config = "auto"
 
     if strategy_name_from_config != "auto":
         for StrategyClass in strategy_classes:
