@@ -4,12 +4,21 @@ Core and Docker plugins for Hop3 server.
 (Stateless, registered at startup).
 """
 
-from typing import List, Type, cast
+from __future__ import annotations
 
-from .core_strategies import BuildpackBuildStrategy, UWSGIDeploymentStrategy, DockerBuildStrategy, \
-    DockerComposeDeploymentStrategy
+from typing import cast
+
+from .core_strategies import (
+    BuildpackBuildStrategy,
+    DockerBuildStrategy,
+    DockerComposeDeploymentStrategy,
+    UWSGIDeploymentStrategy,
+)
 from .hooks import hop3_hook_impl
-from .protocols import BuildStrategy, DeploymentContext, BuildArtifact, DeploymentStrategy, DeploymentInfo
+from .protocols import (
+    BuildStrategy,
+    DeploymentStrategy,
+)
 
 
 class CorePlugin:
@@ -18,14 +27,14 @@ class CorePlugin:
     name = "core"
 
     @hop3_hook_impl
-    def register_build_strategies(self) -> List[Type[BuildStrategy]]:
+    def register_build_strategies(self) -> list[type[BuildStrategy]]:
         # This hook returns the CLASS, not an instance.
         # `cast` tells mypy that this specific class list is compatible with the protocol list.
-        return cast(List[Type[BuildStrategy]], [BuildpackBuildStrategy])
+        return cast(list[type[BuildStrategy]], [BuildpackBuildStrategy])
 
     @hop3_hook_impl
-    def register_deployment_strategies(self) -> List[Type[DeploymentStrategy]]:
-        return cast(List[Type[DeploymentStrategy]], [UWSGIDeploymentStrategy])
+    def register_deployment_strategies(self) -> list[type[DeploymentStrategy]]:
+        return cast(list[type[DeploymentStrategy]], [UWSGIDeploymentStrategy])
 
 
 class DockerPlugin:
@@ -34,9 +43,9 @@ class DockerPlugin:
     name = "docker"
 
     @hop3_hook_impl
-    def register_build_strategies(self) -> List[Type[BuildStrategy]]:
-        return cast(List[Type[BuildStrategy]], [DockerBuildStrategy])
+    def register_build_strategies(self) -> list[type[BuildStrategy]]:
+        return cast(list[type[BuildStrategy]], [DockerBuildStrategy])
 
     @hop3_hook_impl
-    def register_deployment_strategies(self) -> List[Type[DeploymentStrategy]]:
-        return cast(List[Type[DeploymentStrategy]], [DockerComposeDeploymentStrategy])
+    def register_deployment_strategies(self) -> list[type[DeploymentStrategy]]:
+        return cast(list[type[DeploymentStrategy]], [DockerComposeDeploymentStrategy])

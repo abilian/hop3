@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from hop3.core.plugins import get_build_strategy, get_deployment_strategy
 from hop3.core.protocols import DeploymentContext
-from hop3.core.plugins import get_plugin_manager  # Assume this exists
 from hop3.lib import Abort, log
 from hop3.project.config import AppConfig
 
@@ -13,52 +13,67 @@ if TYPE_CHECKING:
 __all__ = ["do_deploy"]
 
 
-def select_strategy(strategy_type: str, available_strategies: list, *args):
-    """Helper to select a strategy based on config or auto-detection."""
-    # Simplified logic: In reality, you'd get the desired strategy name from AppConfig
-    # and fall back to calling accept() on each strategy.
-    # For now, we'll just pick the first one that accepts.
-    for StrategyClass in available_strategies:
-        instance = StrategyClass()
-        if instance.accept(*args):
-            return instance
-    raise Abort(f"Could not find a suitable {strategy_type} strategy.")
-
-
 def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
+    """
+    Deploys an application using a pluggable build and deployment strategy.
+
+    This function orchestrates the deployment process:
+    1. Sets up a context object with app information.
+    2. Asks the plugin system for a suitable BuildStrategy.
+    3. Executes the build to get a BuildArtifact.
+    4. Asks the plugin system for a suitable DeploymentStrategy.
+    5. Executes the deployment.
+    6. (Future) Configures the proxy based on deployment info.
+    """
     deltas = deltas or {}
 
     # --- 1. Create Deployment Context ---
     log(f"Starting deployment for app '{app.name}'", level=0, fg="green")
-    app_config = AppConfig.from_dir(app.app_path)
-    context = DeploymentContext(app=app, app_config=app_config, log_callback=log)
 
-    pm = get_plugin_manager()
+    try:
+        app_config = AppConfig.from_dir(app.app_path)
+    except ValueError as e:
+        # Raised if Procfile is missing, etc.
+        raise Abort(str(e))
 
-    # --- 2. Select and Run Build Strategy ---
-    build_strategies = pm.hook.hop3_register_build_strategies(context=context)
-    builder = select_strategy("build", build_strategies, context)
-    log(f"Using builder: {builder.name}", level=1, fg="blue")
-
-    build_artifact = builder.build(context)
-    log(
-        f"Build successful. Artifact: {build_artifact.location} ({build_artifact.kind})",
-        level=1,
-        fg="green",
+    context = DeploymentContext(
+        app_name=app.name,
+        source_path=str(app.src_path),  # Assuming source is already in place
+        app_config=app_config,  # Pass the whole config object
     )
 
-    # --- 3. Select and Run Deployment Strategy ---
-    deployment_strategies = pm.hook.hop3_register_deployment_strategies(context=context)
-    deployer = select_strategy(
-        "deployment", deployment_strategies, build_artifact, context
-    )
-    log(f"Using deployer: {deployer.name}", level=1, fg="blue")
+    try:
+        # --- 2. Select and Run Build Strategy ---
+        builder = get_build_strategy(context)
+        log(f"Using build strategy: '{builder.name}'", level=1, fg="blue")
+        build_artifact = builder.build(context)
+        log(
+            f"Build successful. Artifact: {build_artifact.location} (kind: {build_artifact.kind})",
+            level=1,
+            fg="green",
+        )
 
-    deployment_info = deployer.deploy(build_artifact, context, deltas)
+        # --- 3. Select and Run Deployment Strategy ---
+        deployer = get_deployment_strategy(context, build_artifact)
+        log(f"Using deployment strategy: '{deployer.name}'", level=1, fg="blue")
 
-    # --- 4. Configure Proxy (Simplified) ---
-    # The proxy configuration logic would also be a pluggable strategy.
-    log("Configuring network proxy...", level=1, fg="blue")
-    # proxy_strategy.configure(app, deployment_info)
+        # The deploy method is now part of the strategy instance
+        deployment_info = deployer.deploy(build_artifact, deltas)
+        log(
+            f"Deployment successful. App running at: {deployment_info}",
+            level=1,
+            fg="green",
+        )
+
+        # --- 4. Configure Proxy (Future Step) ---
+        # pm = get_plugin_manager()
+        # proxy_strategy = pm.hook.get_proxy_strategy(...)
+        # proxy_strategy.configure(app, deployment_info)
+        # log("Proxy configured successfully.", level=1)
+
+    except (RuntimeError, Abort) as e:
+        # Catch errors from strategy selection or execution
+        log(f"Deployment failed: {e}", fg="red")
+        raise Abort(f"Deployment failed: {e}")
 
     log(f"Deployment for '{app.name}' finished successfully.", level=0, fg="green")

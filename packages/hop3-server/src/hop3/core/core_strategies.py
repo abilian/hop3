@@ -1,7 +1,12 @@
-from typing import List, Type, cast
+from __future__ import annotations
 
-from .hooks import hop3_hook_impl
-from .protocols import BuildStrategy, DeploymentContext, BuildArtifact, DeploymentStrategy, DeploymentInfo
+from .protocols import (
+    BuildArtifact,
+    BuildStrategy,
+    DeploymentContext,
+    DeploymentInfo,
+    DeploymentStrategy,
+)
 
 
 class BuildpackBuildStrategy(BuildStrategy):
