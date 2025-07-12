@@ -1,27 +1,31 @@
 from __future__ import annotations
 
 from hop3.config import UWSGI_ENABLED
-from hop3.core.protocols import BuildArtifact, DeploymentContext, DeploymentInfo
+from hop3.core.protocols import (
+    BuildArtifact,
+    DeploymentContext,
+    DeploymentInfo,
+    DeploymentStrategy,
+)
+from hop3.lib import log
+from hop3.orm import AppStateEnum
 from hop3.project.procfile import parse_procfile
+from hop3.run.spawn import spawn_app
 
 
-class UWSGIDeployer:
+class UWSGIDeployer(DeploymentStrategy):
     """The default deployment strategy, using uWSGI."""
 
     name = "uwsgi"
-    context: DeploymentContext
-    artifact: BuildArtifact
 
     def __init__(self, context: DeploymentContext, artifact: BuildArtifact):
         self.context = context
         self.artifact = artifact
 
-    def accept(self, artifact: BuildArtifact) -> bool:
-        return artifact.kind == "buildpack"
+    def accept(self) -> bool:
+        return self.artifact.kind == "buildpack"
 
-    def deploy(
-        self, artifact: BuildArtifact, deltas: dict
-    ) -> DeploymentInfo:
+    def deploy(self, deltas: dict) -> DeploymentInfo:
         # This is the old `spawn_app` function
         log(f"Deploying '{self.app.name}' with uWSGI...", level=2, fg="blue")
         spawn_app(self.app, deltas)
@@ -30,7 +34,7 @@ class UWSGIDeployer:
         self.app.run_state = AppStateEnum.RUNNING
 
         # A more robust implementation would get this info from nginx/spawn logic
-        return hookspecs.DeploymentInfo(
+        return DeploymentInfo(
             protocol="unix_socket", address=f"/path/to/{self.app.name}.sock"
         )
 

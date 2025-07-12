@@ -17,8 +17,7 @@ class DummyBuildStrategy(BuildStrategy):
 
     def build(self) -> BuildArtifact:
         """Runs `docker build` and returns a docker_image artifact."""
-        app_name = self.context.app_name
-
+        # app_name = self.context.app_name
         # # A simple tagging scheme: hop3/<app-name>:latest
         # image_tag = f"hop3/{app_name}:latest"
         # src_path = self.context.app_config.src_dir_path
@@ -52,7 +51,7 @@ class DummyBuildStrategy(BuildStrategy):
 class DummyPlugin:
     @hop3_hook_impl
     def get_build_strategies(self) -> list[type[BuildStrategy]]:
-        return cast(list[type[BuildStrategy]], [DummyBuildStrategy])
+        return [DummyBuildStrategy]
 
     # @hop3_hook_impl
     # def get_deployment_strategies(self) -> List[Type[DeploymentStrategy]]:
