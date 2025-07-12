@@ -53,7 +53,7 @@ class DockerComposeDeploymentStrategy(DeploymentStrategy):
             cmd = ["docker-compose", "up", "-d", "--remove-orphans"]
             # Add scaling logic if provided
             if deltas:
-                for service, count_delta in deltas.items():
+                for _service, _count_delta in deltas.items():
                     # This requires getting the current scale, let's assume `up` handles it for now.
                     # A more robust implementation would be needed for precise scaling.
                     log(
@@ -63,11 +63,11 @@ class DockerComposeDeploymentStrategy(DeploymentStrategy):
 
             subprocess.run(cmd, cwd=src_path, check=True, env=compose_env)
         except FileNotFoundError:
-            raise Abort(
-                "docker-compose command not found. Is it installed and in your PATH?"
-            )
+            msg = "docker-compose command not found. Is it installed and in your PATH?"
+            raise Abort(msg)
         except subprocess.CalledProcessError as e:
-            raise Abort(f"Docker Compose deployment failed: {e}")
+            msg = f"Docker Compose deployment failed: {e}"
+            raise Abort(msg)
 
         log(f"App '{app_name}' deployed successfully via Docker Compose.", fg="green")
 

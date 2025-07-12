@@ -37,13 +37,13 @@ class DockerBuildStrategy(BuildStrategy):
             )
             log(result.stdout, level=3)
         except FileNotFoundError:
-            raise Abort(
-                "Docker command not found. Is Docker installed and in your PATH?"
-            )
+            msg = "Docker command not found. Is Docker installed and in your PATH?"
+            raise Abort(msg)
         except subprocess.CalledProcessError as e:
             log(f"Docker build failed with exit code {e.returncode}:", fg="red")
             log(e.stderr, fg="red")
-            raise Abort("Docker build failed.")
+            msg = "Docker build failed."
+            raise Abort(msg)
 
         log(f"Docker image '{image_tag}' built successfully.", fg="green")
 

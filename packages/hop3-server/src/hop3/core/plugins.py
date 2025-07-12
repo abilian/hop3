@@ -7,7 +7,7 @@ from pluggy import PluginManager
 from snoop import snoop
 
 # Temp
-from hop3.plugins.build.dummy_build import DummyBuildStrategy
+from hop3.plugins.build.dummy_build.builder import DummyBuildStrategy
 
 from .hooks import hop3_hook_impl
 from .hookspecs import Hop3Spec
