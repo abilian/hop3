@@ -48,7 +48,7 @@ def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
     # --- 2. Select and Run Build Strategy ---
     builder = get_build_strategy(context)
     log(f"Using build strategy: '{builder.name}'", level=1, fg="blue")
-    build_artifact = builder.build(context)
+    build_artifact = builder.build()
     log(
         f"Build successful. Artifact: {build_artifact.location} (kind: {build_artifact.kind})",
         level=1,

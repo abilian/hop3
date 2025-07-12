@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 from typing import TYPE_CHECKING, cast
 
 import pluggy
@@ -75,7 +76,8 @@ class CorePlugin:
     def get_build_strategies(self) -> list[type[BuildStrategy]]:
         # This hook returns the CLASS, not an instance.
         # `cast` tells mypy that this specific class list is compatible with the protocol list.
-        return cast(list[type[BuildStrategy]], [DummyBuildStrategy])
+        # return cast(list[type[BuildStrategy]], [DummyBuildStrategy])
+        return [DummyBuildStrategy]
 
     # @hop3_hook_impl
     # def get_deployment_strategies(self) -> list[type[DeploymentStrategy]]:
@@ -96,7 +98,11 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
     pm = get_plugin_manager()
 
     # The result is a list of lists, e.g., [[BuildpackBuilder], [DockerBuilder]]
-    strategy_classes_list = pm.hook.get_build_strategies()
+    try:
+        strategy_classes_list = pm.hook.get_build_strategies()
+    except:
+        traceback.print_exc()
+        raise
 
     # Flatten the list of lists into a single list of classes
     strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
@@ -107,18 +113,18 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
 
     # Auto-detect by finding the first one that "accepts" the context.
     if strategy_name_from_config == "auto":
-        for StrategyClass in strategy_classes:
-            strategy = StrategyClass(context)
+        for strategy_class in strategy_classes:
+            strategy = strategy_class(context)
             if strategy.accept():
                 return strategy
 
         msg = "Could not find a suitable build strategy for this application."
         raise RuntimeError(msg)
 
-    for StrategyClass in strategy_classes:
+    for strategy_class in strategy_classes:
         # We assume the name is a class attribute
-        if getattr(StrategyClass, "name", None) == strategy_name_from_config:
-            return StrategyClass(context)
+        if getattr(strategy_class, "name", None) == strategy_name_from_config:
+            return strategy_class(context)
     msg = f"Configured build strategy '{strategy_name_from_config}' not found."
     raise RuntimeError(msg)
 
