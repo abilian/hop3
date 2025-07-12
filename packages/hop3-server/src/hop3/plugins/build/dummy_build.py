@@ -1,4 +1,6 @@
-from typing import List, Type, cast
+from __future__ import annotations
+
+from typing import cast
 
 from hop3.core.hooks import hop3_hook_impl
 from hop3.core.protocols import BuildArtifact, BuildStrategy, DeploymentContext
@@ -49,8 +51,8 @@ class DummyBuildStrategy(BuildStrategy):
 
 class DummyPlugin:
     @hop3_hook_impl
-    def get_build_strategies(self) -> List[Type[BuildStrategy]]:
-        return cast(List[Type[BuildStrategy]], [DummyBuildStrategy])
+    def get_build_strategies(self) -> list[type[BuildStrategy]]:
+        return cast(list[type[BuildStrategy]], [DummyBuildStrategy])
 
     # @hop3_hook_impl
     # def get_deployment_strategies(self) -> List[Type[DeploymentStrategy]]:

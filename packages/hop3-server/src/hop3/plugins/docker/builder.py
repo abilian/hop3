@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import subprocess
 
 from hop3.core.protocols import BuildArtifact, BuildStrategy, DeploymentContext

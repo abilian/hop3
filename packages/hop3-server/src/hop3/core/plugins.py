@@ -119,9 +119,8 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
         # We assume the name is a class attribute
         if getattr(StrategyClass, "name", None) == strategy_name_from_config:
             return StrategyClass(context)
-    else:
-        msg = f"Configured build strategy '{strategy_name_from_config}' not found."
-        raise RuntimeError(msg)
+    msg = f"Configured build strategy '{strategy_name_from_config}' not found."
+    raise RuntimeError(msg)
 
 
 def get_deployment_strategy(
