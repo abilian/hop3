@@ -12,6 +12,7 @@ from hop3.plugins.build.dummy_build.builder import DummyBuildStrategy
 
 from .hooks import hop3_hook_impl
 from .hookspecs import Hop3Spec
+from ..plugins.deploy.dummy_deploy.deploy import DummyDeployer
 
 if TYPE_CHECKING:
     from .protocols import (
@@ -79,9 +80,10 @@ class CorePlugin:
         # return cast(list[type[BuildStrategy]], [DummyBuildStrategy])
         return [DummyBuildStrategy]
 
-    # @hop3_hook_impl
-    # def get_deployment_strategies(self) -> list[type[DeploymentStrategy]]:
-    #     return cast(list[type[DeploymentStrategy]], [UWSGIDeploymentStrategy])
+    @hop3_hook_impl
+    def get_deployment_strategies(self) -> list[type[DeploymentStrategy]]:
+        return [DummyDeployer]
+        # return cast(list[type[DeploymentStrategy]], [UWSGIDeploymentStrategy])
 
 
 # --- Convenience Helper Functions ---
@@ -105,7 +107,9 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
         raise
 
     # Flatten the list of lists into a single list of classes
-    strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
+    strategy_classes: list[DeploymentStrategy] = [
+        cls for sublist in strategy_classes_list for cls in sublist
+    ]
 
     # TODO: Add logic to check context.app_config for an explicit strategy name.
     # strategy_name_from_config = context.app_config.get_worker("build.strategy", "auto")
@@ -141,9 +145,8 @@ def get_deployment_strategy(
     # TODO: Add logic to check context.app_config for an explicit strategy name.
 
     for StrategyClass in strategy_classes:
-        strategy: DeploymentStrategy = StrategyClass(context)
-        # --- FIX HERE: The `accept` method signature takes the artifact, not context again ---
-        if strategy.accept(artifact):
+        strategy: DeploymentStrategy = StrategyClass(context, artifact)
+        if strategy.accept():
             return strategy
 
     msg = f"Could not find a deployment strategy compatible with artifact of kind '{artifact.kind}'."

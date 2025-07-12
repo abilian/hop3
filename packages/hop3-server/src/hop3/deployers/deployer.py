@@ -60,7 +60,7 @@ def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
     log(f"Using deployment strategy: '{deployer.name}'", level=1, fg="blue")
 
     # The deploy method is now part of the strategy instance
-    deployment_info = deployer.deploy(build_artifact, deltas)
+    deployment_info = deployer.deploy(deltas)
     log(
         f"Deployment successful. App running at: {deployment_info}",
         level=1,
