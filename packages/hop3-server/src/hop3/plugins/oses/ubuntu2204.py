@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 
-from hop3.oses.common import HOME_DIR, HOP3_USER
+from .common import HOME_DIR, HOP3_USER
 
 # from pyinfra import host
 # from pyinfra.facts.files import File

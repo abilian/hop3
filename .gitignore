@@ -38,9 +38,8 @@ __pycache__/
 *.so
 
 # Distribution / packaging
-build/
-dist/
-var/
+/build/
+/dist/
 *.egg-info/
 *.egg
 

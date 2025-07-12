@@ -41,43 +41,42 @@ def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
 
     context = DeploymentContext(
         app_name=app.name,
-        source_path=str(app.src_path),  # Assuming source is already in place
-        app_config=app_config,  # Pass the whole config object
+        source_path=app.src_path,
+        app_config=app_config.to_dict(),
     )
 
-    try:
-        # --- 2. Select and Run Build Strategy ---
-        builder = get_build_strategy(context)
-        log(f"Using build strategy: '{builder.name}'", level=1, fg="blue")
-        build_artifact = builder.build(context)
-        log(
-            f"Build successful. Artifact: {build_artifact.location} (kind: {build_artifact.kind})",
-            level=1,
-            fg="green",
-        )
+    # --- 2. Select and Run Build Strategy ---
+    builder = get_build_strategy(context)
+    log(f"Using build strategy: '{builder.name}'", level=1, fg="blue")
+    build_artifact = builder.build(context)
+    log(
+        f"Build successful. Artifact: {build_artifact.location} (kind: {build_artifact.kind})",
+        level=1,
+        fg="green",
+    )
 
-        # --- 3. Select and Run Deployment Strategy ---
-        deployer = get_deployment_strategy(context, build_artifact)
-        log(f"Using deployment strategy: '{deployer.name}'", level=1, fg="blue")
+    # --- 3. Select and Run Deployment Strategy ---
+    deployer = get_deployment_strategy(context, build_artifact)
+    log(f"Using deployment strategy: '{deployer.name}'", level=1, fg="blue")
 
-        # The deploy method is now part of the strategy instance
-        deployment_info = deployer.deploy(build_artifact, deltas)
-        log(
-            f"Deployment successful. App running at: {deployment_info}",
-            level=1,
-            fg="green",
-        )
+    # The deploy method is now part of the strategy instance
+    deployment_info = deployer.deploy(build_artifact, deltas)
+    log(
+        f"Deployment successful. App running at: {deployment_info}",
+        level=1,
+        fg="green",
+    )
 
-        # --- 4. Configure Proxy (Future Step) ---
-        # pm = get_plugin_manager()
-        # proxy_strategy = pm.hook.get_proxy_strategy(...)
-        # proxy_strategy.configure(app, deployment_info)
-        # log("Proxy configured successfully.", level=1)
+    # --- 4. Configure Proxy (Future Step) ---
+    # pm = get_plugin_manager()
+    # proxy_strategy = pm.hook.get_proxy_strategy(...)
+    # proxy_strategy.configure(app, deployment_info)
+    # log("Proxy configured successfully.", level=1)
 
-    except (RuntimeError, Abort) as e:
-        # Catch errors from strategy selection or execution
-        log(f"Deployment failed: {e}", fg="red")
-        msg = f"Deployment failed: {e}"
-        raise Abort(msg)
+    # except (RuntimeError, Abort) as e:
+    #     # Catch errors from strategy selection or execution
+    #     log(f"Deployment failed: {e}", fg="red")
+    #     msg = f"Deployment failed: {e}"
+    #     raise Abort(msg)
 
     log(f"Deployment for '{app.name}' finished successfully.", level=0, fg="green")
