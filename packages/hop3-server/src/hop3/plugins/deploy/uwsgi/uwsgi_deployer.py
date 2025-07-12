@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from hop3.config import UWSGI_ENABLED
-from hop3.core.protocols import BuildArtifact, DeploymentContext
+from hop3.core.protocols import BuildArtifact, DeploymentContext, DeploymentInfo
 from hop3.project.procfile import parse_procfile
 
 
@@ -20,8 +20,8 @@ class UWSGIDeployer:
         return artifact.kind == "buildpack"
 
     def deploy(
-        self, artifact: hookspecs.BuildArtifact, deltas: dict
-    ) -> hookspecs.DeploymentInfo:
+        self, artifact: BuildArtifact, deltas: dict
+    ) -> DeploymentInfo:
         # This is the old `spawn_app` function
         log(f"Deploying '{self.app.name}' with uWSGI...", level=2, fg="blue")
         spawn_app(self.app, deltas)

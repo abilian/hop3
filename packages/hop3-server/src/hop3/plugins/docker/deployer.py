@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import subprocess
 
 from hop3.core.protocols import (
@@ -55,7 +57,7 @@ class DockerComposeDeploymentStrategy(DeploymentStrategy):
                     # This requires getting the current scale, let's assume `up` handles it for now.
                     # A more robust implementation would be needed for precise scaling.
                     log(
-                        f"Scaling not yet fully implemented for docker-compose, redeploying services...",
+                        "Scaling not yet fully implemented for docker-compose, redeploying services...",
                         fg="yellow",
                     )
 
@@ -82,4 +84,4 @@ class DockerComposeDeploymentStrategy(DeploymentStrategy):
             f"Stopping Docker Compose services for '{context.app_name}'...", fg="yellow"
         )
         src_path = context.app_config.src_dir_path
-        subprocess.run(["docker-compose", "down"], cwd=src_path)
+        subprocess.run(["docker-compose", "down"], check=False, cwd=src_path)
