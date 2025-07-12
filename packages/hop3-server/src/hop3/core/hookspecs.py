@@ -10,12 +10,12 @@ from .protocols import BuildStrategy, DeploymentStrategy
 # --- Hook Specification Container ---
 class Hop3Spec:
     @hop3_hook_spec
-    def register_build_strategies(self) -> list[type[BuildStrategy]]:
+    def get_build_strategies(self) -> list[type[BuildStrategy]]:
         """A hook for plugins to return their BuildStrategy classes."""
         return []  # Default empty implementation
 
     @hop3_hook_spec
-    def register_deployment_strategies(self) -> list[type[DeploymentStrategy]]:
+    def get_deployment_strategies(self) -> list[type[DeploymentStrategy]]:
         """A hook for plugins to return their DeploymentStrategy classes."""
         return []  # Default empty implementation
 

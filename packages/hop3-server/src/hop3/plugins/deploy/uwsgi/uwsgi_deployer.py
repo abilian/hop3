@@ -1,7 +1,7 @@
-# ... (imports and BuildpackBuilder class) ...
 from __future__ import annotations
 
-from hop3.config import UWSGI_ENABLED  # Add this import
+from hop3.config import UWSGI_ENABLED
+from hop3.core.protocols import BuildArtifact, DeploymentContext
 from hop3.project.procfile import parse_procfile
 
 
@@ -9,10 +9,12 @@ class UWSGIDeployer:
     """The default deployment strategy, using uWSGI."""
 
     name = "uwsgi"
+    context: DeploymentContext
+    artifact: BuildArtifact
 
-    def __init__(self, context: DeploymentContext):
+    def __init__(self, context: DeploymentContext, artifact: BuildArtifact):
         self.context = context
-        self.app = context.app
+        self.artifact = artifact
 
     def accept(self, artifact: BuildArtifact) -> bool:
         return artifact.kind == "buildpack"

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pluggy
 from pluggy import PluginManager
 from snoop import snoop
 
-from .core_plugins import CorePlugin, DockerPlugin
+# Temp
+from hop3.plugins.build.dummy_build import DummyBuildStrategy
+
+from .hooks import hop3_hook_impl
 from .hookspecs import Hop3Spec
 
 if TYPE_CHECKING:
@@ -61,7 +64,22 @@ def register_core_plugins(pm: PluginManager) -> None:
     (like Buildpack and uWSGI) are always available.
     """
     pm.register(CorePlugin())
-    pm.register(DockerPlugin())
+
+
+class CorePlugin:
+    """The plugin container for Hop3's default strategies."""
+
+    name = "core"
+
+    @hop3_hook_impl
+    def get_build_strategies(self) -> list[type[BuildStrategy]]:
+        # This hook returns the CLASS, not an instance.
+        # `cast` tells mypy that this specific class list is compatible with the protocol list.
+        return cast(list[type[BuildStrategy]], [DummyBuildStrategy])
+
+    # @hop3_hook_impl
+    # def get_deployment_strategies(self) -> list[type[DeploymentStrategy]]:
+    #     return cast(list[type[DeploymentStrategy]], [UWSGIDeploymentStrategy])
 
 
 # --- Convenience Helper Functions ---
@@ -78,34 +96,32 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
     pm = get_plugin_manager()
 
     # The result is a list of lists, e.g., [[BuildpackBuilder], [DockerBuilder]]
-    strategy_classes_list = pm.hook.register_build_strategies()
+    strategy_classes_list = pm.hook.get_build_strategies()
 
     # Flatten the list of lists into a single list of classes
     strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
 
     # TODO: Add logic to check context.app_config for an explicit strategy name.
-    # debug(context.app_config)
     # strategy_name_from_config = context.app_config.get_worker("build.strategy", "auto")
     strategy_name_from_config = "auto"
 
-    if strategy_name_from_config != "auto":
-        for StrategyClass in strategy_classes:
-            # We assume the name is a class attribute
-            if getattr(StrategyClass, "name", None) == strategy_name_from_config:
-                return StrategyClass(context)
-        msg = f"Configured build strategy '{strategy_name_from_config}' not found."
-        raise RuntimeError(
-            msg
-        )
-
     # Auto-detect by finding the first one that "accepts" the context.
-    for StrategyClass in strategy_classes:
-        instance = StrategyClass(context)
-        if instance.accept():
-            return instance
+    if strategy_name_from_config == "auto":
+        for StrategyClass in strategy_classes:
+            strategy = StrategyClass(context)
+            if strategy.accept():
+                return strategy
 
-    msg = "Could not find a suitable build strategy for this application."
-    raise RuntimeError(msg)
+        msg = "Could not find a suitable build strategy for this application."
+        raise RuntimeError(msg)
+
+    for StrategyClass in strategy_classes:
+        # We assume the name is a class attribute
+        if getattr(StrategyClass, "name", None) == strategy_name_from_config:
+            return StrategyClass(context)
+    else:
+        msg = f"Configured build strategy '{strategy_name_from_config}' not found."
+        raise RuntimeError(msg)
 
 
 def get_deployment_strategy(
@@ -114,18 +130,16 @@ def get_deployment_strategy(
     """Finds and instantiates the appropriate deployment strategy."""
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.register_deployment_strategies()
+    strategy_classes_list = pm.hook.get_deployment_strategies()
     strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
 
     # TODO: Add logic to check context.app_config for an explicit strategy name.
 
     for StrategyClass in strategy_classes:
-        instance = StrategyClass(context)
+        strategy: DeploymentStrategy = StrategyClass(context)
         # --- FIX HERE: The `accept` method signature takes the artifact, not context again ---
-        if instance.accept(artifact):
-            return instance
+        if strategy.accept(artifact):
+            return strategy
 
     msg = f"Could not find a deployment strategy compatible with artifact of kind '{artifact.kind}'."
-    raise RuntimeError(
-        msg
-    )
+    raise RuntimeError(msg)

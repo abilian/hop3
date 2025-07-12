@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
@@ -20,8 +21,11 @@ class DeploymentContext:
     """
 
     app_name: str
-    source_path: str
+    source_path: Path
     app_config: dict
+
+    def __post_init__(self):
+        assert self.source_path.is_dir()
 
     # app: App
     # app_config: AppConfig
@@ -54,15 +58,16 @@ class BuildStrategy(Protocol):
     """Interface for turning source code into a runnable artifact."""
 
     name: str
+    context: DeploymentContext
 
     # @property
     # def name(self) -> str:
     #     """A unique name for the strategy, e.g., 'buildpack' or 'docker'."""
 
-    def accept(self, context: DeploymentContext) -> bool:
+    def accept(self) -> bool:
         """Return True if this strategy can build the app."""
 
-    def build(self, context: DeploymentContext) -> BuildArtifact:
+    def build(self) -> BuildArtifact:
         """Execute the build process and return an artifact."""
 
 
@@ -71,14 +76,17 @@ class DeploymentStrategy(Protocol):
 
     name: str
 
+    context: DeploymentContext
+    artifact: BuildArtifact
+
     # @property
     # def name(self) -> str:
     #     """A unique name, e.g., 'uwsgi' or 'docker-compose'."""
 
-    def accept(self, artifact: BuildArtifact, context: DeploymentContext) -> bool:
+    def accept(self) -> bool:
         """Return True if this target can deploy the given artifact."""
 
-    def deploy(self, artifact: BuildArtifact, context: DeploymentContext) -> dict:
+    def deploy(self) -> dict:
         """
         Deploy the artifact.
         Returns a dictionary with deployment details for the proxy,
