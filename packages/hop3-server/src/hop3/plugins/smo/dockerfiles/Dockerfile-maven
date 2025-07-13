@@ -1,0 +1,40 @@
+# ---- Builder Stage ----
+# Use an official Maven image that includes a JDK
+FROM maven:3.9-eclipse-temurin-17 AS builder
+
+WORKDIR /app
+
+# Copy the pom.xml file to download dependencies first
+COPY pom.xml .
+
+# Download dependencies. This layer is cached and only runs if pom.xml changes.
+RUN mvn dependency:go-offline
+
+# Copy the rest of the source code
+COPY src ./src
+
+# Package the application into a single JAR file
+RUN mvn package -DskipTests
+
+# ---- Final Stage ----
+# Use a minimal JRE (Java Runtime Environment) image. 'slim' is a good balance.
+FROM eclipse-temurin:17-jre-slim
+
+WORKDIR /app
+
+# Create a non-root user
+RUN addgroup --system app && adduser --system --group app
+
+# Copy the packaged JAR from the builder stage
+COPY --from=builder /app/target/*.jar ./app.jar
+
+# Set ownership and user
+RUN chown app:app ./app.jar
+USER app
+
+# Expose the application port (e.g., 8080 for Spring Boot)
+EXPOSE 8080
+
+# Run the application
+# Use "exec" form to ensure proper signal handling
+CMD ["java", "-jar", "app.jar"]

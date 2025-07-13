@@ -1,0 +1,35 @@
+# ---- Builder Stage ----
+# Use an official Go image. The version should match your project's Go version.
+FROM golang:1.21-alpine AS builder
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy Go module files
+COPY go.mod go.sum ./
+
+# Download dependencies. This is cached as a separate layer.
+RUN go mod download
+
+# Copy the entire source code
+COPY . .
+
+# Build the Go application.
+# -o /app/server creates the binary named 'server' in the /app directory.
+# CGO_ENABLED=0 creates a static binary without any C dependencies.
+# -ldflags "-w -s" strips debugging information, reducing binary size.
+RUN CGO_ENABLED=0 go build -o /app/server -ldflags "-w -s" .
+
+# ---- Final Stage ----
+# Use 'scratch' for a minimal image if you have no external dependencies (like CA certs).
+# 'distroless' is a great alternative that includes essentials like CA certificates.
+FROM gcr.io/distroless/static-debian11
+
+# Copy the compiled binary from the builder stage
+COPY --from=builder /app/server /server
+
+# Expose the port your application listens on
+EXPOSE 8080
+
+# The command to run the application
+CMD ["/server"]

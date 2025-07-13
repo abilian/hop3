@@ -86,14 +86,14 @@ class DeploymentStrategy(Protocol):
     def accept(self) -> bool:
         """Return True if this target can deploy the given artifact."""
 
-    def deploy(self) -> dict:
+    def deploy(self, deltas: dict[str, int] | None = None) -> dict:
         """
         Deploy the artifact.
         Returns a dictionary with deployment details for the proxy,
         e.g., {"protocol": "http", "host": "127.0.0.1", "port": 8000}.
         """
 
-    def scale(self, deltas: dict[str, int]) -> None: ...
+    def scale(self, deltas: dict[str, int] | None = None) -> None: ...
 
     def stop(self) -> None: ...
 

@@ -11,7 +11,7 @@ from hop3.core.protocols import (
 from hop3.lib import Abort, log
 
 
-class DockerComposeDeploymentStrategy(DeploymentStrategy):
+class SmoDeploymentStrategy(DeploymentStrategy):
     """A deployment strategy that uses `docker-compose up`."""
 
     name = "docker-compose"
@@ -45,7 +45,7 @@ class DockerComposeDeploymentStrategy(DeploymentStrategy):
         }
 
         try:
-            cmd = ["docker", "compose", "up", "-d", "--remove-orphans"]
+            cmd = ["docker-compose", "up", "-d", "--remove-orphans"]
             # Add scaling logic if provided
             if deltas:
                 for _service, _count_delta in deltas.items():
@@ -58,7 +58,7 @@ class DockerComposeDeploymentStrategy(DeploymentStrategy):
 
             subprocess.run(cmd, cwd=src_path, check=True, env=compose_env)
         except FileNotFoundError:
-            msg = "docker compose command not found. Is it installed and in your PATH?"
+            msg = "docker-compose command not found. Is it installed and in your PATH?"
             raise Abort(msg)
         except subprocess.CalledProcessError as e:
             msg = f"Docker Compose deployment failed: {e}"
@@ -80,4 +80,4 @@ class DockerComposeDeploymentStrategy(DeploymentStrategy):
             fg="yellow",
         )
         src_path = self.context.source_path
-        subprocess.run(["docker", "compose", "down"], check=False, cwd=src_path)
+        subprocess.run(["docker-compose", "down"], check=False, cwd=src_path)
