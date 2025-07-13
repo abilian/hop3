@@ -39,7 +39,7 @@ class BuildArtifact:
     Represents a build artifact produced by a BuildStrategy.
     """
 
-    kind: str  # e.g., "buildpack", "docker_image"
+    kind: str  # e.g., "buildpack", "docker-image"
     location: str  # e.g., "/path/to/app/venv", "my-app:latest"
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -93,9 +93,9 @@ class DeploymentStrategy(Protocol):
         e.g., {"protocol": "http", "host": "127.0.0.1", "port": 8000}.
         """
 
-    def scale(self, app: App, deltas: dict[str, int]) -> None: ...
+    def scale(self, deltas: dict[str, int]) -> None: ...
 
-    def stop(self, app: App) -> None: ...
+    def stop(self) -> None: ...
 
 
 class Proxy(Protocol):

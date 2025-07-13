@@ -13,6 +13,7 @@ from hop3.plugins.build.dummy_build.builder import DummyBuildStrategy
 from .hooks import hop3_hook_impl
 from .hookspecs import Hop3Spec
 from ..plugins.deploy.dummy_deploy.deploy import DummyDeployer
+from ..plugins.docker.plugin import DockerPlugin
 
 if TYPE_CHECKING:
     from .protocols import (
@@ -65,7 +66,8 @@ def register_core_plugins(pm: PluginManager) -> None:
     This function is called at startup to ensure that the built-in strategies
     (like Buildpack and uWSGI) are always available.
     """
-    pm.register(CorePlugin())
+    # pm.register(CorePlugin())
+    pm.register(DockerPlugin())
 
 
 class CorePlugin:
