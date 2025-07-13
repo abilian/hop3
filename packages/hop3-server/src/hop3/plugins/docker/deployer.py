@@ -60,7 +60,9 @@ class DockerComposeDeploymentStrategy(DeploymentStrategy):
             subprocess.run(cmd, cwd=src_path, check=True, env=compose_env)
         except FileNotFoundError:
             traceback.print_exc()
-            msg = "'docker compose' command not found. Is it installed and in your PATH?"
+            msg = (
+                "'docker compose' command not found. Is it installed and in your PATH?"
+            )
             raise Abort(msg)
         except subprocess.CalledProcessError as e:
             msg = f"Docker Compose deployment failed: {e}"

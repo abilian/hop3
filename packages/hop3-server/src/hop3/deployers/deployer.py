@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from snoop import snoop
-
 from hop3.core.plugins import get_build_strategy, get_deployment_strategy
 from hop3.core.protocols import DeploymentContext
 from hop3.lib import Abort, log
@@ -15,7 +13,6 @@ if TYPE_CHECKING:
 __all__ = ["do_deploy"]
 
 
-@snoop
 def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
     """
     Deploys an application using a pluggable build and deployment strategy.

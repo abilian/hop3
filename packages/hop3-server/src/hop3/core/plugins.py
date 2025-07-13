@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 import traceback
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import pluggy
+from hop3_smo_plugin.plugin import SmoPlugin
 from pluggy import PluginManager
+from devtools import debug
 from snoop import snoop
 
 # Temp
 from hop3.plugins.build.dummy_build.builder import DummyBuildStrategy
+from hop3.plugins.deploy.dummy_deploy.deploy import DummyDeployer
 
 from .hooks import hop3_hook_impl
 from .hookspecs import Hop3Spec
-from ..plugins.deploy.dummy_deploy.deploy import DummyDeployer
-from ..plugins.docker.plugin import DockerPlugin
 
 if TYPE_CHECKING:
     from .protocols import (
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
 _plugin_manager: pluggy.PluginManager | None = None
 
 
+@snoop
 def get_plugin_manager() -> pluggy.PluginManager:
     """
     Initializes and returns the singleton Hop3 PluginManager.
@@ -59,6 +61,7 @@ def get_plugin_manager() -> pluggy.PluginManager:
     return pm
 
 
+@snoop
 def register_core_plugins(pm: PluginManager) -> None:
     """
     Registers the core Hop3 plugins with the PluginManager.
@@ -69,6 +72,7 @@ def register_core_plugins(pm: PluginManager) -> None:
     # TODO: really register the core plugins.
     # pm.register(CorePlugin())
     # pm.register(DockerPlugin())
+    pm.register(SmoPlugin())
 
 
 class CorePlugin:
@@ -86,10 +90,9 @@ class CorePlugin:
         return [DummyDeployer]
 
 
-# --- Convenience Helper Functions ---
-
-
-@snoop
+#
+# Convenience Helper Functions
+#
 def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
     """
     Finds and instantiates the appropriate build strategy.
@@ -107,9 +110,10 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
         raise
 
     # Flatten the list of lists into a single list of classes
-    strategy_classes: list[DeploymentStrategy] = [
+    strategy_classes: list[BuildStrategy] = [
         cls for sublist in strategy_classes_list for cls in sublist
     ]
+    debug(strategy_classes)
 
     # TODO: Add logic to check context.app_config for an explicit strategy name.
     # strategy_name_from_config = context.app_config.get_worker("build.strategy", "auto")

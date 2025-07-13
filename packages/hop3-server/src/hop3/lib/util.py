@@ -23,7 +23,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
-def shell(command: str | list[str], cwd: Path | str = "", **kwargs) -> subprocess.CompletedProcess:
+def shell(
+    command: str | list[str], cwd: Path | str = "", **kwargs
+) -> subprocess.CompletedProcess:
     """Run a shell command."""
     match command:
         case str():
