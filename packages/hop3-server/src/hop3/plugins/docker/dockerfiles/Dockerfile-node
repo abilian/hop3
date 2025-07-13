@@ -1,0 +1,43 @@
+# ---- Base Stage ----
+# Use an official, long-term support (LTS) version of Node.
+# Using the 'alpine' variant creates a much smaller image.
+FROM node:20-alpine AS base
+
+# Set a consistent working directory
+WORKDIR /app
+
+# ---- Builder Stage ----
+# This stage installs all dependencies, including devDependencies.
+FROM base AS builder
+
+# Copy package.json and package-lock.json first to leverage the cache.
+# This layer only rebuilds if these files change.
+COPY package.json package-lock.json ./
+
+# Install all dependencies. Using `npm ci` is recommended for CI/CD
+# as it provides faster, more reliable builds from the lockfile.
+RUN npm ci
+
+# ---- Final Stage ----
+# This is the lean production image.
+FROM base AS final
+
+# Create a non-root user for security.
+# Alpine uses `addgroup` and `adduser` slightly differently.
+RUN addgroup -S app && adduser -S app -G app
+
+# Switch to the non-root user before copying files.
+USER app
+
+# Copy the installed node_modules from the 'builder' stage.
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy the application source code.
+COPY . .
+
+# Expose the port the application will run on.
+EXPOSE 3000
+
+# The command to run the application in production.
+# This assumes your 'start' script in package.json runs `node app.js`.
+CMD ["npm", "start"]
