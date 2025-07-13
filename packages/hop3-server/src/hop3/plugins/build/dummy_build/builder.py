@@ -16,7 +16,7 @@ class DummyBuildStrategy(BuildStrategy):
         return True
 
     def build(self) -> BuildArtifact:
-        """Runs `docker build` and returns a docker_image artifact."""
+        """Runs `docker build` and returns a docker-image artifact."""
         # app_name = self.context.app_name
         # # A simple tagging scheme: hop3/<app-name>:latest
         # image_tag = f"hop3/{app_name}:latest"

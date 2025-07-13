@@ -16,26 +16,21 @@ class DockerComposeDeploymentStrategy(DeploymentStrategy):
 
     name = "docker-compose"
 
-    def __init__(self, context: DeploymentContext):
+    def __init__(self, context: DeploymentContext, artifact: BuildArtifact):
         self.context = context
+        self.artifact = artifact
 
-    def accept(self, artifact: BuildArtifact, context: DeploymentContext) -> bool:
-        """Accepts if the artifact is a docker_image and a docker-compose.yml exists."""
-        compose_file_path = context.app_config.src_dir_path / "docker-compose.yml"
-        return artifact.kind == "docker_image" and compose_file_path.is_file()
+    def accept(self) -> bool:
+        """Accepts if the artifact is a docker-image."""
+        return self.artifact.kind == "docker-image"
 
-    def deploy(
-        self,
-        artifact: BuildArtifact,
-        context: DeploymentContext,
-        deltas: dict | None = None,
-    ) -> DeploymentInfo:
+    def deploy(self, deltas: dict | None = None) -> DeploymentInfo:
         """
         Runs `docker-compose up -d`. It uses an environment variable
         to pass the specific image tag to the compose file.
         """
-        app_name = context.app_name
-        src_path = context.app_config.src_dir_path
+        app_name = self.context.app_name
+        src_path = self.context.source_path
 
         log(
             f"Deploying with Docker Compose for app '{app_name}'...", level=2, fg="blue"
@@ -44,8 +39,8 @@ class DockerComposeDeploymentStrategy(DeploymentStrategy):
         # Prepare environment variables for the docker-compose command.
         # This allows the compose file to be generic.
         compose_env = {
-            **process.env,  # Inherit environment
-            "HOP3_IMAGE_TAG": artifact.location,
+            # **os.environ,  # Inherit environment (TODO: only the relevant parts)
+            "HOP3_IMAGE_TAG": self.artifact.location,
             # Could also pass in a default port, e.g., "HOP3_PORT": "8080"
         }
 
@@ -78,10 +73,11 @@ class DockerComposeDeploymentStrategy(DeploymentStrategy):
             protocol="http", address="127.0.0.1", port=8080
         )  # Assume port 8080 for now
 
-    def stop(self, context: DeploymentContext):
+    def stop(self):
         """Runs `docker-compose down`."""
         log(
-            f"Stopping Docker Compose services for '{context.app_name}'...", fg="yellow"
+            f"Stopping Docker Compose services for '{self.context.app_name}'...",
+            fg="yellow",
         )
-        src_path = context.app_config.src_dir_path
+        src_path = self.context.source_path
         subprocess.run(["docker-compose", "down"], check=False, cwd=src_path)

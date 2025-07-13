@@ -16,15 +16,17 @@ class DockerBuildStrategy(BuildStrategy):
 
     def accept(self) -> bool:
         """Accepts if a Dockerfile is present in the source directory."""
-        dockerfile_path = self.context.app_config.src_dir_path / "Dockerfile"
+        dockerfile_path = self.context.source_path / "Dockerfile"
         return dockerfile_path.is_file()
+        # TODO: If there is no Dockerfile, it should use a default one or generate one.
+        # Let's keep this feature for later.
 
     def build(self) -> BuildArtifact:
-        """Runs `docker build` and returns a docker_image artifact."""
+        """Runs `docker build` and returns a docker-image artifact."""
         app_name = self.context.app_name
         # A simple tagging scheme: hop3/<app-name>:latest
         image_tag = f"hop3/{app_name}:latest"
-        src_path = self.context.app_config.src_dir_path
+        src_path = self.context.source_path
 
         log(f"Starting Docker build for image: {image_tag}", level=2, fg="blue")
 
@@ -49,4 +51,4 @@ class DockerBuildStrategy(BuildStrategy):
 
         # We could inspect the image to find exposed ports, but for now
         # we'll rely on the docker-compose file to map them.
-        return BuildArtifact(kind="docker_image", location=image_tag)
+        return BuildArtifact(kind="docker-image", location=image_tag)
