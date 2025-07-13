@@ -19,8 +19,7 @@ class DummyDeployer(DeploymentStrategy):
     def accept(self) -> bool:
         return True
 
-    def deploy(self, deltas: dict) -> DeploymentInfo:
-        # This is the old `spawn_app` function
+    def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:
         app_name = self.context.app_name
 
         log(f"Deploying '{app_name}' with uWSGI...", level=2, fg="blue")

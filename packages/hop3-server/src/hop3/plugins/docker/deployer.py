@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import traceback
 
 from hop3.core.protocols import (
     BuildArtifact,
@@ -45,7 +46,7 @@ class DockerComposeDeploymentStrategy(DeploymentStrategy):
         }
 
         try:
-            cmd = ["docker", "compose", "up", "-d", "--remove-orphans"]
+            cmd = ["/usr/local/bin/docker", "compose", "up", "-d", "--remove-orphans"]
             # Add scaling logic if provided
             if deltas:
                 for _service, _count_delta in deltas.items():
@@ -58,7 +59,8 @@ class DockerComposeDeploymentStrategy(DeploymentStrategy):
 
             subprocess.run(cmd, cwd=src_path, check=True, env=compose_env)
         except FileNotFoundError:
-            msg = "docker compose command not found. Is it installed and in your PATH?"
+            traceback.print_exc()
+            msg = "'docker compose' command not found. Is it installed and in your PATH?"
             raise Abort(msg)
         except subprocess.CalledProcessError as e:
             msg = f"Docker Compose deployment failed: {e}"

@@ -86,7 +86,7 @@ class DeploymentStrategy(Protocol):
     def accept(self) -> bool:
         """Return True if this target can deploy the given artifact."""
 
-    def deploy(self, deltas: dict[str, int] | None = None) -> dict:
+    def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:
         """
         Deploy the artifact.
         Returns a dictionary with deployment details for the proxy,

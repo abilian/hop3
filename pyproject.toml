@@ -6,7 +6,7 @@ authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" },
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 
 dependencies = [
     # Workspace
@@ -25,6 +25,7 @@ dependencies = [
     "tomlkit",
     "python-dotenv",
     "attrs>=25.3.0",
+    "hop3-smo-plugin",
 ]
 
 # ------------------------------------
@@ -96,6 +97,7 @@ hop3-cli = { workspace = true }
 hop3-server = { workspace = true }
 hop3-web = { workspace = true }
 hop3-testing = { workspace = true }
+hop3-smo-plugin = { path = "../hop3-plugins-for-h3ni" }
 
 # ------------------------------------
 
