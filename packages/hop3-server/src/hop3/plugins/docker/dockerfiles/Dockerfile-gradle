@@ -1,0 +1,40 @@
+# ---- Builder Stage ----
+# Use an official Gradle image with a JDK
+FROM gradle:8.5-jdk17 AS builder
+
+WORKDIR /app
+
+# Copy Gradle wrapper and build files
+COPY build.gradle settings.gradle gradlew ./
+COPY gradle ./gradle
+
+# Download dependencies first to leverage caching
+RUN ./gradlew build --no-daemon || return 0
+
+# Copy the rest of the source code
+COPY src ./src
+
+# Build the application, creating the executable JAR
+RUN ./gradlew bootJar -x test
+
+# ---- Final Stage ----
+# Use a minimal JRE (Java Runtime Environment) image
+FROM eclipse-temurin:17-jre-slim
+
+WORKDIR /app
+
+# Create a non-root user
+RUN addgroup --system app && adduser --system --group app
+
+# Copy the packaged JAR from the builder stage
+COPY --from=builder /app/build/libs/*.jar ./app.jar
+
+# Set ownership and user
+RUN chown app:app ./app.jar
+USER app
+
+# Expose the application port
+EXPOSE 8080
+
+# Run the application
+CMD ["java", "-jar", "app.jar"]
