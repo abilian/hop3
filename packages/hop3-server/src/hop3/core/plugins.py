@@ -66,8 +66,9 @@ def register_core_plugins(pm: PluginManager) -> None:
     This function is called at startup to ensure that the built-in strategies
     (like Buildpack and uWSGI) are always available.
     """
+    # TODO: really register the core plugins.
     # pm.register(CorePlugin())
-    pm.register(DockerPlugin())
+    # pm.register(DockerPlugin())
 
 
 class CorePlugin:
@@ -77,15 +78,12 @@ class CorePlugin:
 
     @hop3_hook_impl
     def get_build_strategies(self) -> list[type[BuildStrategy]]:
-        # This hook returns the CLASS, not an instance.
-        # `cast` tells mypy that this specific class list is compatible with the protocol list.
-        # return cast(list[type[BuildStrategy]], [DummyBuildStrategy])
+        # This hook returns classes, not instances.
         return [DummyBuildStrategy]
 
     @hop3_hook_impl
     def get_deployment_strategies(self) -> list[type[DeploymentStrategy]]:
         return [DummyDeployer]
-        # return cast(list[type[DeploymentStrategy]], [UWSGIDeploymentStrategy])
 
 
 # --- Convenience Helper Functions ---
