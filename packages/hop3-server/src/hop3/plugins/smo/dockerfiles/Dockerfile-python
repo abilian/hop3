@@ -1,0 +1,58 @@
+# ---- Base Stage ----
+# Use a specific, slim, and recent version for reproducibility and security.
+FROM python:3.12-slim-bookworm AS base
+
+# Set environment variables for consistency
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=on \
+    PIP_DEFAULT_TIMEOUT=100
+
+# Set a consistent working directory
+WORKDIR /app
+
+# ---- Builder Stage ----
+# This stage is for installing dependencies.
+FROM base AS builder
+
+# Install build-essential only if needed for compiling C extensions.
+# For many pure Python apps, this is not necessary.
+# RUN apt-get update && apt-get install -y --no-install-recommends build-essential
+
+# Copy only the dependency file first to leverage Docker's layer cache.
+# The layer will only be rebuilt if requirements.txt changes.
+COPY requirements.txt .
+
+# Install dependencies
+RUN pip install -r requirements.txt
+
+# ---- Final Stage ----
+# This is the small, final image that will run the application.
+FROM base AS final
+
+# Create a non-root user and group to run the application.
+RUN addgroup --system app && adduser --system --group app
+
+# Copy the installed dependencies from the 'builder' stage.
+# This keeps the final image clean of build tools.
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy the application source code.
+# This is done last, so changes to code don't invalidate the dependency layer.
+COPY . .
+
+# Change ownership of the app directory to the new user.
+RUN chown -R app:app .
+
+# Switch to the non-root user.
+USER app
+
+# Expose the port the application will run on.
+# This is good practice for documentation and for tools like Docker Compose.
+EXPOSE 8080
+
+# The command to run the application.
+# Use gunicorn for a production-ready WSGI server.
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
