@@ -4,9 +4,9 @@ import traceback
 from typing import TYPE_CHECKING
 
 import pluggy
+from devtools import debug
 from hop3_smo_plugin.plugin import SmoPlugin
 from pluggy import PluginManager
-from devtools import debug
 from snoop import snoop
 
 # Temp

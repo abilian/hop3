@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import cast
-
 from hop3.core.hooks import hop3_hook_impl
 from hop3.core.protocols import BuildArtifact, BuildStrategy, DeploymentContext
 

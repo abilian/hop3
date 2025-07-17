@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from hop3.core.hooks import hop3_hook_impl
 from hop3.core.protocols import BuildStrategy, DeploymentStrategy
+
 from .builder import DockerBuildStrategy
 from .deployer import DockerComposeDeploymentStrategy
 

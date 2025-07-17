@@ -33,7 +33,8 @@ def shell(
         case list():
             command = shlex.join(command)
         case _:
-            raise TypeError("command must be a string or a list of strings")
+            msg = "command must be a string or a list of strings"
+            raise TypeError(msg)
 
     if cwd:
         cwd = Path(cwd).resolve()
