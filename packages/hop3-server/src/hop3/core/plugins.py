@@ -5,9 +5,7 @@ from typing import TYPE_CHECKING
 
 import pluggy
 from devtools import debug
-from hop3_smo_plugin.plugin import SmoPlugin
 from pluggy import PluginManager
-from snoop import snoop
 
 # Temp
 from hop3.plugins.build.dummy_build.builder import DummyBuildStrategy
@@ -28,7 +26,6 @@ if TYPE_CHECKING:
 _plugin_manager: pluggy.PluginManager | None = None
 
 
-@snoop
 def get_plugin_manager() -> pluggy.PluginManager:
     """
     Initializes and returns the singleton Hop3 PluginManager.
@@ -61,7 +58,6 @@ def get_plugin_manager() -> pluggy.PluginManager:
     return pm
 
 
-@snoop
 def register_core_plugins(pm: PluginManager) -> None:
     """
     Registers the core Hop3 plugins with the PluginManager.
@@ -70,9 +66,10 @@ def register_core_plugins(pm: PluginManager) -> None:
     (like Buildpack and uWSGI) are always available.
     """
     # TODO: really register the core plugins.
+    # Or do we?
     # pm.register(CorePlugin())
     # pm.register(DockerPlugin())
-    pm.register(SmoPlugin())
+    # pm.register(SmoPlugin())
 
 
 class CorePlugin:
@@ -110,7 +107,7 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
         raise
 
     # Flatten the list of lists into a single list of classes
-    strategy_classes: list[BuildStrategy] = [
+    strategy_classes: list[type[BuildStrategy]] = [
         cls for sublist in strategy_classes_list for cls in sublist
     ]
     debug(strategy_classes)
@@ -148,8 +145,8 @@ def get_deployment_strategy(
 
     # TODO: Add logic to check context.app_config for an explicit strategy name.
 
-    for StrategyClass in strategy_classes:
-        strategy: DeploymentStrategy = StrategyClass(context, artifact)
+    for strategy_class in strategy_classes:
+        strategy: DeploymentStrategy = strategy_class(context, artifact)
         if strategy.accept():
             return strategy
 
