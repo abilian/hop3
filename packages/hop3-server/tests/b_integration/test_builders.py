@@ -7,7 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from hop3.builders import GoBuilder, NodeBuilder, PythonBuilder, RubyBuilder
+from hop3.plugins.build.native_build.builders import (
+    GoBuilder,
+    NodeBuilder,
+    PythonBuilder,
+    RubyBuilder,
+)
 
 APPS = [
     # ("000-static", PythonBuilder),

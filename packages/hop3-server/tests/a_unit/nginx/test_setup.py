@@ -7,7 +7,7 @@ import pytest
 
 from hop3.core.env import Env
 from hop3.orm import App
-from hop3.plugins.nginx import NginxVirtualHost
+from hop3.plugins.proxy.nginx import NginxVirtualHost
 
 
 @pytest.fixture(autouse=True)
