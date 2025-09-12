@@ -20,21 +20,12 @@ class SystemCmd(Command):
 
     name = "system"
 
-    hide_from_help = True
-
-    def subcommands(self) -> list[Command]:
-        return [
-            UptimeCmd(),
-            PSCmd(),
-            StatusCmd(),
-        ]
-
 
 @register
 class UptimeCmd(Command):
     """Show host server uptime."""
 
-    name = "uptime"
+    name = "system:uptime"
 
     def call(self, *args):
         result = subprocess.run(
@@ -47,7 +38,7 @@ class UptimeCmd(Command):
 class PSCmd(Command):
     """List all server processes."""
 
-    name = "ps"
+    name = "system:ps"
 
     def call(self, *args):
         result = subprocess.run(
@@ -60,7 +51,7 @@ class PSCmd(Command):
 class StatusCmd(Command):
     """Show Hop3 system status."""
 
-    name = "status"
+    name = "system:status"
 
     def call(self, *args):
         version = importlib.metadata.version("hop3_server")

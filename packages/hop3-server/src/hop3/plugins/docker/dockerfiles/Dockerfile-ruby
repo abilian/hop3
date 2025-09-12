@@ -1,0 +1,44 @@
+# ---- Base Stage ----
+# Use a recent, official Ruby image
+FROM ruby:3.2-slim-bookworm AS base
+
+WORKDIR /app
+
+# Set environment variables
+ENV BUNDLE_PATH="/usr/local/bundle" \
+    LANG=C.UTF-8
+
+# ---- Builder Stage ----
+FROM base AS builder
+
+# Install build dependencies that some gems might need
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential
+
+# Copy Gemfile and Gemfile.lock first
+COPY Gemfile Gemfile.lock ./
+
+# Install gems. This layer will be cached.
+RUN bundle install --jobs $(nproc) --retry 3 --without development test
+
+# ---- Final Stage ----
+FROM base AS final
+
+# Create a non-root user
+RUN addgroup --system app && adduser --system --group app
+
+# Copy the installed gems from the builder stage
+COPY --from=builder ${BUNDLE_PATH} ${BUNDLE_PATH}
+
+# Copy the application source code
+COPY . .
+
+# Set ownership and user
+RUN chown -R app:app .
+USER app
+
+# Expose the application port (e.g., 3000 for Rails/Sinatra)
+EXPOSE 3000
+
+# The command to run the application (e.g., for a Rails app)
+# Adjust this for your specific application server (Puma, Unicorn, etc.)
+CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]

@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from devtools import debug
-
 from hop3.lib.console import bold
 from hop3.lib.registry import lookup, register
 
 from ._base import Command
 
-HELP = """
+HELP_XXX = """
 COMMANDS
   apps            List apps (running or stopped).
   backup          Run a backup for an app.
@@ -40,31 +38,18 @@ class HelpCmd(Command):
     def call(self, *args):
         output = [
             bold("USAGE"),
-            f"  $ hop {self.name} ...",
+            "  $ hop <command> <args>",
             "",
             bold("COMMANDS"),
         ]
 
         commands = lookup(Command)
-        debug([c.__name__ for c in commands])
         commands.sort(key=lambda cmd: cmd.name)
         for cmd in commands:
-            name = cmd.name
-
-            if ":" not in name:
-                continue
-
-            primary_name = name.split(":")[0]
-            if primary_name != self.name:
-                continue
-
+            cmd_name = cmd.name
             help_text = cmd.__doc__ or ""
-            output.append(f"  {name:<20} {help_text}")
-
-        # return [
-        #     {"t": "text", "text": "\n".join(output)},
-        # ]
+            output.append(f"  {cmd_name:<20} {help_text}")
 
         return [
-            {"t": "text", "text": HELP},
+            {"t": "text", "text": "\n".join(output)},
         ]

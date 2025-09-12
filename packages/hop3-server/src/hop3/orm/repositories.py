@@ -10,7 +10,7 @@ class BaseRepository(SQLAlchemySyncRepository[ModelT]):
     """Base class for repositories."""
 
 
-class AppRepository(BaseRepository):
+class AppRepository(BaseRepository[App]):
     """Repository for managing App entities."""
 
     model_type = App

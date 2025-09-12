@@ -182,14 +182,12 @@ tidy:
 
 ## Sync code with remote repositories
 sync-code:
-	git pull ci devel
-	git pull origin devel
-	git pull h3ni devel
+	git pull origin
 	@make push-code
 
 
 ## Push code to remote repositories
 push-code:
-	git push ci
 	git push origin
-	git push h3ni
+	git push ci
+	git push eclipse

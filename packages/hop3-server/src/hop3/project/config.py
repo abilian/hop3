@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hop3.project.procfile import Procfile
 
@@ -17,6 +17,7 @@ class AppConfig:
     procfile: Procfile
     # XXX: not used yet
     app_json: dict
+    app_config: dict
 
     @property
     def workers(self) -> dict:
@@ -92,9 +93,11 @@ class AppConfig:
         """
         # See: https://devcenter.heroku.com/articles/app-json-schema
         # self.app_json = json.loads(Path("app.json").read_text())
+        self.app_json = {}
 
     def parse_hop3(self) -> None:
-        """Parse th hop3-specific configuration file (currently, none)."""
+        """Parse the hop3-specific configuration file (currently, none)."""
+        self.hop3_config = {}
 
     def get_worker(self, name: str):
         """Retrieve a worker's details by name from the procfile.
@@ -110,3 +113,24 @@ class AppConfig:
 
     def __repr__(self) -> str:
         return f"<AppConfig {self.app_dir}>"
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Serializes the AppConfig instance into a dictionary.
+
+        Returns:
+            A dictionary representation of the application configuration.
+        """
+        return {
+            "app_dir": str(self.app_dir),
+            "src_dir": str(self.src_dir),
+            "procfile": {
+                "workers": self.workers,
+                "web_workers": self.web_workers,
+                "pre_build": self.pre_build,
+                "post_build": self.post_build,
+                "pre_run": self.pre_run,
+            },
+            "app_json": self.app_json,
+            "hop3_config": self.hop3_config,
+        }

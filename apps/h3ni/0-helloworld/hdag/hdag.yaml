@@ -1,0 +1,45 @@
+hdaGraph:
+  imVersion: 0.4.0
+  id: hello-world-graph
+  version: "1.0.0"
+  designer: Abilian
+  description: A minimal "Hello World" application graph for SMO.
+  hdaGraphIntent:
+    useStaticPlacement: True
+    security:
+      enabled: False
+    highAvailability:
+      enabled: False
+    highPerformance:
+      enabled: False
+    energyEfficiency:
+      enabled: False
+  services:
+    - id: hello-world
+      deployment:
+        trigger:
+          auto:
+            dependencies: []
+        intent:
+          network:
+            deviceProximity:
+              enabled: False
+            latencies: []
+          compute:
+            cpu: "small"
+            ram: "small"
+            storage: "small"
+            gpu:
+              enabled: False
+          coLocation: []
+          connectionPoints: []
+          metrics: []
+      artifact:
+        ociImage: "oci://127.0.0.1:5000/test/hello-world"
+        ociConfig:
+          type: App
+          implementer: HELM
+        ociRun:
+          name: HELM
+          version: v3
+        valuesOverwrite: {}

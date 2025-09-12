@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -22,8 +23,19 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
-def shell(command: str, cwd: Path | str = "", **kwargs) -> subprocess.CompletedProcess:
+def shell(
+    command: str | list[str], cwd: Path | str = "", **kwargs
+) -> subprocess.CompletedProcess:
     """Run a shell command."""
+    match command:
+        case str():
+            command = command.strip()
+        case list():
+            command = shlex.join(command)
+        case _:
+            msg = "command must be a string or a list of strings"
+            raise TypeError(msg)
+
     if cwd:
         cwd = Path(cwd).resolve()
     else:
