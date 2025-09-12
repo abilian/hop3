@@ -24,15 +24,15 @@ lint.extend-ignore = [
     "ANN", # flake8-annotations
     "ARG", # flake8-unused-arguments
     "BLE", # flake8-blind-except
+    "CPY", # Copyright
     "D", # pydocstyle
+    "DOC", # pydocstyle
     "ERA", # eradicate
     "FIX", # flake8-fixme
     "PTH", # flake8-use-pathlib
     "S", # flake8-bandit
     "T20", # flake8-print
     "TD", # flake8-todos
-    "DOC", # pydocstyle
-    "CPY", # Copyright
 
     # False positive, don't remove
     "A004", # ... is shadowing a Python standard library module
@@ -61,14 +61,18 @@ lint.extend-ignore = [
     "TC", # Move import into a type-checking block (conflicts with wireup)
 
     # Fix these
-    "E501", # Line too long
     "B904", # Use raise ... from ...
     "B909", # Mutation to loop iterable during iteration
-    "S704", # Unsafe use of Markup
-    "RUF039", # First argument to `re.search()` is not raw string
-    "INP001",
-    "RUF045",
+    "E501", # Line too long
     "FBT003", # Boolean positional value in function call
+    "INP001",
+    "PLR0911", # Too many return statements (7 > 6)
+    "PLW0603", # Using the global statement to update ... is discouraged
+    "RUF039", # First argument to `re.search()` is not raw string
+    "RUF045",
+    "S704", # Unsafe use of Markup
+    "TRY300", # Consider moving this statement to an `else` block
+    "TRY301", # Abstract `raise` to an inner function
 ]
 
 

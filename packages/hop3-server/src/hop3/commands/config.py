@@ -22,19 +22,12 @@ class ConfigCmd(Command):
 
     name = "config"
 
-    def subcommands(self) -> list[Command]:
-        return [
-            ShowCmd(),
-            GetCmd(),
-            LiveCmd(),
-        ]
-
 
 @register
 class ShowCmd(Command):
     """Show config, e.g.: hop config <app>."""
 
-    name = "show"
+    name = "config:show"
 
     def call(self, app_name):
         app = get_app(app_name)
@@ -54,7 +47,7 @@ class ShowCmd(Command):
 class GetCmd(Command):
     """e.g.: hop config:get <app> FOO."""
 
-    name = "get"
+    name = "config:get"
 
     def call(self, app_name, setting):
         app = get_app(app_name)
@@ -69,7 +62,7 @@ class GetCmd(Command):
 class LiveCmd(Command):
     """e.g.: hop config:live <app>."""
 
-    name = "live"
+    name = "config:live"
 
     def call(self, app_name):
         app = get_app(app_name)

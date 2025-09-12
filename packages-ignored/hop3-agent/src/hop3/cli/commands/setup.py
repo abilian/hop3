@@ -17,8 +17,10 @@ from tempfile import NamedTemporaryFile
 
 from hop3 import config as c
 from hop3.cli.registry import command
-from hop3.oses.ubuntu2204 import setup_system
 from hop3.util import Abort, echo
+
+# TODO - use proper plugin system
+from hop3.plugins.oses.ubuntu2204 import setup_system
 
 
 @command

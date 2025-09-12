@@ -1,0 +1,48 @@
+# This enables the service to be discoverable by other clusters via Submariner
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+  name: {{ include "hello-world.fullname" . }}
+---
+apiVersion: policy.karmada.io/v1alpha1
+kind: PropagationPolicy
+metadata:
+  name: {{ include "hello-world.fullname" . }}-export
+spec:
+  resourceSelectors:
+    - apiVersion: multicluster.x-k8s.io/v1alpha1
+      kind: ServiceExport
+      name: {{ include "hello-world.fullname" . }}
+  placement:
+    clusterAffinity:
+      clusterNames:
+        {{- range .Values.clustersAffinity }}
+        - {{ . }}
+        {{- end }}
+---
+# This allows other clusters to import the service
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceImport
+metadata:
+  name: {{ include "hello-world.fullname" . }}
+spec:
+  type: ClusterSetIP
+  ports:
+  - port: {{ .Values.service.port }}
+    protocol: TCP
+---
+apiVersion: policy.karmada.io/v1alpha1
+kind: PropagationPolicy
+metadata:
+  name: {{ include "hello-world.fullname" . }}-import
+spec:
+  resourceSelectors:
+    - apiVersion: multicluster.x-k8s.io/v1alpha1
+      kind: ServiceImport
+      name: {{ include "hello-world.fullname" . }}
+  placement:
+    clusterAffinity:
+      clusterNames:
+        {{- range .Values.serviceImportClusters }}
+        - {{ . }}
+        {{- end }}

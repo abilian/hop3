@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import traceback
 
-from devtools import debug
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
@@ -48,7 +47,6 @@ async def cli(request: Request):
 
 
 def call(command_name: str, args: list[str]):
-    debug(command_name, args)
     command_class = commands.get(command_name)
     if command_class is None:
         msg = f"Command {command_name} not found"
@@ -61,9 +59,6 @@ def call(command_name: str, args: list[str]):
         if "db_session" in command_class.__annotations__:
             class_args = {"db_session": db_session}
 
-        debug(command_class, class_args)
         command = command_class(**class_args)
-        debug(command)
         result = command.call(*args)
-        debug(result)
         return result

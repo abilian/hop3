@@ -1,0 +1,41 @@
+# ---- Composer Stage ----
+# Use the official Composer image to install dependencies
+FROM composer:2 AS composer_builder
+
+WORKDIR /app
+
+# Copy only dependency files to leverage layer cache
+COPY composer.json composer.lock ./
+
+# Install dependencies without dev requirements and optimize autoloader
+RUN composer install --no-dev --no-interaction --optimize-autoloader
+
+# ---- Final Stage ----
+# Use an official php-fpm-alpine image for a small production environment
+FROM php:8.2-fpm-alpine
+
+WORKDIR /app
+
+# Create a non-root user
+RUN addgroup -S app && adduser -S app -G app
+
+# Copy installed dependencies from the composer stage
+COPY --from=composer_builder /app/vendor/ ./vendor/
+
+# Copy the application source code
+COPY . .
+
+# Set correct permissions for storage and bootstrap/cache directories (common for Laravel/Symfony)
+# Adjust these paths for your specific framework
+RUN chown -R app:app .
+# RUN mkdir -p storage/framework/views storage/framework/sessions storage/framework/cache
+# RUN chown -R app:app storage bootstrap/cache
+# RUN chmod -R 775 storage bootstrap/cache
+
+# Switch to the non-root user
+USER app
+
+# Expose the port FPM listens on
+EXPOSE 9000
+
+# The CMD is provided by the base php-fpm image, which starts the FPM process.

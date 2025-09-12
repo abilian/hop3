@@ -1,0 +1,34 @@
+# ---- Planner Stage ----
+# This stage is for pre-caching dependencies.
+FROM rust:1.74-slim-bookworm AS planner
+WORKDIR /app
+RUN cargo install cargo-chef
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+# ---- Builder Stage ----
+FROM rust:1.74-slim-bookworm AS builder
+WORKDIR /app
+RUN cargo install cargo-chef
+# Copy the dependency recipe from the planner stage
+COPY --from=planner /app/recipe.json recipe.json
+# Build the dependencies. This layer is cached.
+RUN cargo chef cook --release --recipe-path recipe.json
+# Copy the source code and build the application
+COPY . .
+RUN cargo build --release --bin my-app # Replace 'my-app' with your binary's name
+
+# ---- Final Stage ----
+# Use a minimal 'distroless' image for a tiny and secure runtime
+FROM gcr.io/distroless/cc-debian11
+
+WORKDIR /app
+
+# Copy the compiled binary from the builder stage
+COPY --from=builder /app/target/release/my-app .
+
+# Expose the application port
+EXPOSE 8000
+
+# Run the application
+CMD ["./my-app"]

@@ -1,86 +1,154 @@
-# Copyright (c) 2023-2025, Abilian SAS
-#
-# SPDX-License-Identifier: Apache-2.0
-
 from __future__ import annotations
 
-import importlib
-import pkgutil
+import traceback
 from typing import TYPE_CHECKING
 
 import pluggy
+from devtools import debug
 from pluggy import PluginManager
 
-from hop3.core import hookspecs
+# Temp
+from hop3.plugins.build.dummy_build.builder import DummyBuildStrategy
+from hop3.plugins.deploy.dummy_deploy.deploy import DummyDeployer
+
+from .hooks import hop3_hook_impl
+from .hookspecs import Hop3Spec
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from .protocols import (
+        BuildArtifact,
+        BuildStrategy,
+        DeploymentContext,
+        DeploymentStrategy,
+    )
+
+# Singleton instance of the PluginManager.
+_plugin_manager: pluggy.PluginManager | None = None
 
 
-def get_core_plugins() -> list:
-    """Retrieve a list of core plugins.
+def get_plugin_manager() -> pluggy.PluginManager:
+    """
+    Initializes and returns the singleton Hop3 PluginManager.
 
-    This scans the specified package for core plugins and returns a
-    list of these plugins.
+    This function is the main entry point for accessing the plugin system.
+    It creates the manager on its first call and then returns the cached
+    instance on subsequent calls. It discovers all built-in and external plugins.
 
     Returns:
-    - list: A list containing the core plugins found in the specified package.
+        The configured pluggy.PluginManager instance.
     """
-    return list(scan_package("hop3.plugins"))
+    global _plugin_manager
+    if _plugin_manager:
+        return _plugin_manager
 
-
-def scan_package(package_name: str) -> Iterator:
-    """Import all modules in a package recursively for side effects.
-
-    Input:
-    - package_name (str): The name of the package to scan and import modules from.
-
-    Returns:
-    - Iterator: An iterator that yields each module imported from the package.
-    """
-    for module_name in _iter_module_names(package_name):
-        # Import the module by name and yield it
-        yield importlib.import_module(module_name)
-
-
-def _iter_module_names(package_name: str) -> Iterator:
-    """Generate an iterator over all module names within a given package.
-
-    Input:
-    - package_name (str): The name of the package from which to list all modules.
-
-    Returns:
-    - Iterator: Yields the names of the modules within the specified package.
-    """
-    package_or_module = importlib.import_module(package_name)
-    if not hasattr(package_or_module, "__path__"):
-        # If the imported object is a module, not a package, exit the function.
-        return
-
-    path = package_or_module.__path__
-    prefix = package_or_module.__name__ + "."
-    for _, module_name, _ in pkgutil.walk_packages(path, prefix):
-        # Yield the name of each module found in the package.
-        yield module_name
-
-
-def get_plugin_manager() -> PluginManager:
-    """Initialize and configure a PluginManager for the 'hop3' project.
-
-    This creates a PluginManager instance, registers core plugin hooks,
-    and loads plugins that are defined in setuptools entry points under the
-    'hop3' category.
-
-    Returns:
-        PluginManager: An instance of PluginManager configured with core plugins and entry points.
-    """
     pm = pluggy.PluginManager("hop3")
-    pm.add_hookspecs(hookspecs)
+    pm.add_hookspecs(Hop3Spec)
 
-    for plugin in get_core_plugins():
-        pm.register(plugin)
-
-    # For plugins that are not built-in, we load them from setuptools entry points
+    # 3. Load all external plugins.
+    # This looks for installed packages that have a `[hop3.plugins]`
+    # section in their `pyproject.toml` or `entry_points` in `setup.py`.
     pm.load_setuptools_entrypoints("hop3")
 
+    # 4. Manually register the core, built-in plugins.
+    register_core_plugins(pm)
+
+    # Cache the initialized manager in the global variable.
+    _plugin_manager = pm
+
     return pm
+
+
+def register_core_plugins(pm: PluginManager) -> None:
+    """
+    Registers the core Hop3 plugins with the PluginManager.
+
+    This function is called at startup to ensure that the built-in strategies
+    (like Buildpack and uWSGI) are always available.
+    """
+    # TODO: really register the core plugins.
+    # Or do we?
+    # pm.register(CorePlugin())
+    # pm.register(DockerPlugin())
+    # pm.register(SmoPlugin())
+
+
+class CorePlugin:
+    """The plugin container for Hop3's default strategies."""
+
+    name = "core"
+
+    @hop3_hook_impl
+    def get_build_strategies(self) -> list[type[BuildStrategy]]:
+        # This hook returns classes, not instances.
+        return [DummyBuildStrategy]
+
+    @hop3_hook_impl
+    def get_deployment_strategies(self) -> list[type[DeploymentStrategy]]:
+        return [DummyDeployer]
+
+
+#
+# Convenience Helper Functions
+#
+def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
+    """
+    Finds and instantiates the appropriate build strategy.
+
+    This function encapsulates the logic of checking app configuration
+    and then auto-detecting a suitable strategy.
+    """
+    pm = get_plugin_manager()
+
+    # The result is a list of lists, e.g., [[BuildpackBuilder], [DockerBuilder]]
+    try:
+        strategy_classes_list = pm.hook.get_build_strategies()
+    except:
+        traceback.print_exc()
+        raise
+
+    # Flatten the list of lists into a single list of classes
+    strategy_classes: list[type[BuildStrategy]] = [
+        cls for sublist in strategy_classes_list for cls in sublist
+    ]
+    debug(strategy_classes)
+
+    # TODO: Add logic to check context.app_config for an explicit strategy name.
+    # strategy_name_from_config = context.app_config.get_worker("build.strategy", "auto")
+    strategy_name_from_config = "auto"
+
+    # Auto-detect by finding the first one that "accepts" the context.
+    if strategy_name_from_config == "auto":
+        for strategy_class in strategy_classes:
+            strategy = strategy_class(context)
+            if strategy.accept():
+                return strategy
+
+        msg = "Could not find a suitable build strategy for this application."
+        raise RuntimeError(msg)
+
+    for strategy_class in strategy_classes:
+        # We assume the name is a class attribute
+        if getattr(strategy_class, "name", None) == strategy_name_from_config:
+            return strategy_class(context)
+    msg = f"Configured build strategy '{strategy_name_from_config}' not found."
+    raise RuntimeError(msg)
+
+
+def get_deployment_strategy(
+    context: DeploymentContext, artifact: BuildArtifact
+) -> DeploymentStrategy:
+    """Finds and instantiates the appropriate deployment strategy."""
+    pm = get_plugin_manager()
+
+    strategy_classes_list = pm.hook.get_deployment_strategies()
+    strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
+
+    # TODO: Add logic to check context.app_config for an explicit strategy name.
+
+    for strategy_class in strategy_classes:
+        strategy: DeploymentStrategy = strategy_class(context, artifact)
+        if strategy.accept():
+            return strategy
+
+    msg = f"Could not find a deployment strategy compatible with artifact of kind '{artifact.kind}'."
+    raise RuntimeError(msg)
