@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
 from hop3.core.hooks import hop3_hook_impl

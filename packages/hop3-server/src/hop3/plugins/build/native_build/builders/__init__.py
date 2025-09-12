@@ -1,4 +1,3 @@
-# Copyright (c) 2016 Rui Carmo
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -13,6 +12,7 @@ from .go import GoBuilder
 from .node import NodeBuilder
 from .python import PythonBuilder
 from .ruby import RubyBuilder
+from .rust import RustBuilder
 
 if TYPE_CHECKING:
     from ._base import Builder
@@ -23,4 +23,5 @@ BUILDER_CLASSES: list[type[Builder]] = [
     NodeBuilder,
     ClojureBuilder,
     GoBuilder,
+    RustBuilder,
 ]

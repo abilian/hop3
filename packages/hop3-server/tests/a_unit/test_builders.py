@@ -3,8 +3,13 @@ from __future__ import annotations
 
 import pytest
 
-from hop3.builders import ClojureBuilder, NodeBuilder, PythonBuilder, RubyBuilder
-from hop3.builders.rust import RustBuilder
+from hop3.plugins.build.native_build.builders import (
+    ClojureBuilder,
+    NodeBuilder,
+    PythonBuilder,
+    RubyBuilder,
+    RustBuilder,
+)
 
 
 @pytest.fixture
