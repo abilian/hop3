@@ -2,7 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.4.0] - Unreleased
+## [Unreleased]
+
+### <!-- 0 -->🚀 Features
+
+-   **Application Configuration**: Application configurations are now handled as dictionaries for improved flexibility.
+-   **New Deployment Builder**: Implemented a new deployment builder that doesn't rely on Git for application deployment.
+-   **Enhanced CLI Commands**: Added missing CLI commands and improved the overall command interface.
+-   **Repository Deployment**: Added work-in-progress support for deploying from repositories.
+-   **RPC Enhancements**: Added ability to pass extra arguments via RPC for improved communication.
+-   **Configuration Loading**: Added support for loading configuration from environment variables.
+-   **Direct HTTP/HTTPS Connection**: Enabled direct HTTP/HTTPS connections to the server without requiring SSH tunnels.
+-   **Systemd Integration**: Added deployment and server management using systemd for better service management.
+
+### <!-- 1 -->🐛 Bug Fixes
+
+-   Fixed merge conflicts from h3ni branch integration.
+-   Updated Docker Compose command syntax from `docker-compose` to `docker compose`.
+-   Resolved typing issues throughout the codebase.
+-   Fixed client termination to prevent hanging processes.
+-   Corrected Config object constructor issues.
+-   Fixed proper naming for hop CLI.
+-   Resolved installer issues for the server component.
+
+### <!-- 2 -->🚜 Refactor
+
+-   **Code Quality**: Applied Ruff formatting and linting fixes across the codebase.
+-   **Server-side CLI**: Refactored CLI commands to have server-side implementations for better architecture.
+-   **Plugin System**: Continued work on modularizing components and improving the plugin architecture.
+
+### <!-- 7 -->⚙️ Miscellaneous
+
+-   **Dependency Updates**: Regular updates to project dependencies to maintain security and compatibility.
+-   **Repository Management**: Improved management of remote repositories and branch handling.
+-   **Code Cleanup**: General cleanup and fixes for various warnings throughout the codebase.
+-   **Development Tools**: Added dependencies on development tools for improved developer experience.
+
+## [0.4.0] - Unreleased (Previous Development)
 
 ### <!-- 0 -->🚀 Features
 
