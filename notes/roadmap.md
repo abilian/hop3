@@ -33,10 +33,6 @@ Features:
 
 - [x] Reorganize code base into sub-projects (monorepo)
 - [x] Start multi-OS support (Ubuntu, Archlinux, Fedora, NixOS, Guix, FreeBSD...)
-- [ ] Deploy a few more useful apps: Abilian SBE, more...
-- [ ] Add postgres, redis, etc. lifecycle support using plugins
-- [ ] Improve Python builder (support for poetry, pipenv, uv, etc.)
-- [ ] Manage external services (databases, mail, etc.)
 
 Infra, QA, DX, refactorings:
 
@@ -44,29 +40,30 @@ Infra, QA, DX, refactorings:
 - [x] Refactor CLI (using `argparse`)]
 - [x] Switch to `uv` (from `poetry`)
 - [x] Build as a docker image
-- [ ] Run as docker image
-- [ ] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
-- [ ] Fix all typing issues (mypy and pyright)
-- [ ] Introduce new plugins (where it makes sense)
-- [ ] More end-to-end tests, examples
-- [ ] e2e CI tests
-- [ ] Basic Kubernetes support (via Karmada)
+- [x] Basic Kubernetes support (via Karmada)
 
 H3NI project:
 
-- [ ] Stabilize and automate Testbed (Hetzner VMs, K8s, Karmada, SMO via PyInfra)
-- [ ] Conceptual design for "Application Graph" schema for SMO compatibility
-- [ ] Initial Hop3 Plugin development for NEPHELE SMO integration (request transformation, basic communication).
-- [ ] Implement functional Hop3 Plugin
-- [ ] Implement Basic Predictive Scaling component
-- [ ] Demonstrate basic horizontal scaling
-- [ ] Document Integration Architecture for Hop3-SMO
+- [x] Stabilize and automate Testbed (Hetzner VMs, K8s, Karmada, SMO via PyInfra)
+- [x] Conceptual design for "Application Graph" schema for SMO compatibility
+- [x] Initial Hop3 Plugin development for NEPHELE SMO integration (request transformation, basic communication).
+- [x] Implement functional Hop3 Plugin
+- [x] Implement Basic Predictive Scaling component
+- [x] Demonstrate basic horizontal scaling
+- [x] Document Integration Architecture for Hop3-SMO
+- [x] Implement energy-aware placement.
+- [x] Implement advanced adaptive/predictive scaling with actuation.
+- [x] Implement resilience features (e.g., responding to simulated failures).
 
 
-### P2 MVP2 (Q3 2025):
+### P2 MVP2 (Q4 2025):
 
 Features:
 
+- [ ] Deploy a few more useful apps: Abilian SBE, more...
+- [ ] Add postgres, redis, etc. lifecycle support using plugins
+- [ ] Improve Python builder (support for poetry, pipenv, uv, etc.)
+- [ ] Manage external services (databases, mail, etc.)
 - [ ] Backup / Restore
 - [ ] Web App / portal
 - [ ] More apps
@@ -83,17 +80,16 @@ Features:
 
 Infra, QA, DX, refactorings:
 
+- [ ] Run as docker image
+- [ ] Split class Deployer. Introduce "DeployStep" and "DeployContext" classes.
+- [ ] Fix all typing issues (mypy and pyright)
+- [ ] Introduce new plugins (where it makes sense)
+- [ ] More end-to-end tests, examples
+- [ ] e2e CI tests
 - [ ] Reorganize monorepo further
 - [ ] Improve plugin architecture, add working events
 - [ ] Agents (for distributed deployments)
 - [ ] Dedicated infra for e2e tests
-
-H3NI Project:
-
-- [ ] Implement energy-aware placement.
-- [ ] Implement advanced adaptive/predictive scaling with actuation.
-- [ ] Implement resilience features (e.g., responding to simulated failures).
-- [ ] Live migration concepts/PoC.
 
 NGI0 Project:
 
@@ -104,7 +100,7 @@ NGI0 Project:
 - [ ] Implement/document Security-by-design principles in architecture.
 
 
-### P3 (Q4 2025):
+### P3 (Q1 2026):
 
 Features:
 
@@ -131,7 +127,7 @@ NGI0 Project:
 - [ ] Present project findings at relevant conferences/workshops.
 
 
-### P4 (Q1 2026):
+### P4 (Q2 2026):
 
 Features:
 
@@ -142,7 +138,7 @@ Features:
 
 
 ## Old TODO
-This is an old TODO, kerp for reference only. The "official" TODO is currently in the [README.md](../README.md)
+This is an old TODO, kept for reference only. The "official" TODO is currently in the [README.md](../README.md)
 
 ### Features
 
