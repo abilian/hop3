@@ -143,8 +143,12 @@ class SSHTunnel:
         start_time = time.monotonic()
         while time.monotonic() - start_time < timeout:
             # Check if the process exited prematurely
-            if self.proc.poll() is not None:
-                stderr_output = self.proc.stderr.read().decode("utf-8", errors="ignore")
+            if self.proc is not None and self.proc.poll() is not None:
+                stderr_output = ""
+                if self.proc.stderr is not None:
+                    stderr_output = self.proc.stderr.read().decode(
+                        "utf-8", errors="ignore"
+                    )
                 msg = (
                     f"SSH tunnel process failed to start. "
                     f"Exit code: {self.proc.returncode}. Stderr: {stderr_output.strip()}"
