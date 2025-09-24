@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import requests
-from jsonrpcclient import Error, parse, request
+from jsonrpcclient import Error, Ok, parse, request
 from jsonrpcclient.responses import Response
 from loguru import logger
 from sshtunnel import SSHTunnelForwarder
@@ -48,7 +48,9 @@ class Client:
             return self.api_url_override
 
         # This uses the config's layered approach (env > file > default)
-        return self.config.get("api_url", "http://localhost:8000")
+        api_url = self.config.get("api_url", "http://localhost:8000")
+        assert isinstance(api_url, str)
+        return api_url
 
     @property
     def rpc_url(self) -> str:
@@ -115,6 +117,15 @@ class Client:
         )
         try:
             response.raise_for_status()
-            return parse(response.json())
+            parsed_response = parse(response.json())
+            # parse() can return Error, Ok, or Iterable[Error | Ok], but we expect single response
+            if isinstance(parsed_response, (Error, Ok)):
+                return parsed_response
+            else:
+                # Handle batch responses - take first response
+                responses = list(parsed_response)
+                if responses and isinstance(responses[0], (Error, Ok)):
+                    return responses[0]
+                return Error(-1, "Invalid response format", "", json_request["id"])
         except Exception as e:
             return Error(response.status_code, str(e), "", json_request["id"])

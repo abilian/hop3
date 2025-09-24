@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import sys
 from pathlib import Path
+from typing import Any
 
 import requests.exceptions
 from jsonrpcclient import Error, Ok
@@ -51,7 +52,11 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     response = None
     try:
-        response = client.rpc("cli", cli_args, **extra_args)
+        # Ensure extra_args contains only valid keyword arguments of correct types
+        validated_extra_args: dict[str, Any] = {
+            k: v for k, v in extra_args.items() if isinstance(k, str) and v is not None
+        }
+        response = client.rpc("cli", cli_args, **validated_extra_args)
     except requests.exceptions.ConnectionError:
         err(f"Could not connect to the Hop3 server at {client.rpc_url}. Is it running?")
     except requests.exceptions.HTTPError as e:
@@ -80,12 +85,11 @@ def get_extra_args(args: list[str]) -> JsonDict:
     command = args[0]
     match command:
         case "deploy":
-            extra_args = {
+            return {
                 "repository": pack_repository(),
             }
         case _:
-            extra_args = {}
-    return extra_args
+            return {}
 
 
 def pack_repository() -> str:
