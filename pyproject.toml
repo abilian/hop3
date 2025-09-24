@@ -85,6 +85,7 @@ dev-dependencies = [
     "ty>=0.0.0a7",
     "hatchling>=1.27.0",
     "types-urllib3>=1.26.25.14",
+    "pyrefly>=0.34.0",
 ]
 
 [tool.uv.workspace]
