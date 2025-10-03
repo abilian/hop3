@@ -23,6 +23,37 @@ scan_package("hop3.commands")
 commands = {command.name: command for command in lookup(Command)}
 
 
+# Public commands that don't require authentication
+PUBLIC_COMMANDS = {"auth:login", "auth:register", "help"}
+
+# Commands that need the authenticated username passed as first argument
+USERNAME_COMMANDS = {"auth:whoami"}
+
+
+def requires_authentication(command: str) -> bool:
+    """Check if a command requires authentication.
+
+    Args:
+        command: The command name
+
+    Returns:
+        True if authentication is required, False otherwise
+    """
+    return command not in PUBLIC_COMMANDS
+
+
+def command_needs_username(command: str) -> bool:
+    """Check if a command needs the authenticated username.
+
+    Args:
+        command: The command name
+
+    Returns:
+        True if the command needs the username, False otherwise
+    """
+    return command in USERNAME_COMMANDS
+
+
 @router.post("/rpc")
 async def handle_rpc(request: Request):
     json_request = await request.json()
@@ -36,6 +67,27 @@ async def handle_rpc(request: Request):
 
     command = cli_args[0]
     args = cli_args[1:]
+
+    # Check authentication for commands that require it
+    if requires_authentication(command):
+        if not request.user.is_authenticated:
+            error_rpc = {
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": 401,
+                    "message": "Authentication required. Use 'hop3 auth:login' to authenticate.",
+                },
+                "id": json_request.get("id", 1),
+            }
+            return Response(
+                json.dumps(error_rpc),
+                media_type="application/json",
+                status_code=401,
+            )
+
+        # Pass authenticated username to commands that need it
+        if command_needs_username(command):
+            args = (request.user.display_name, *args)
 
     try:
         result = call(command, args, extra_args)
