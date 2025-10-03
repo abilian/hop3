@@ -49,9 +49,9 @@ class PythonBuilder(Builder):
 
         emit(CreatingVirtualEnv(self.app_name))
 
-        self.shell(f"virtualenv {self.virtual_env}")
-        # TODO: consider using the built-in venv module instead of
-        # (or as an alternative to) virtualenv
+        # Use Python's built-in venv module (available since Python 3.3)
+        # This is more portable than virtualenv which requires separate installation
+        self.shell(f"python3 -m venv {self.virtual_env}")
 
     def install_virtualenv(self) -> None:
         """Install virtual environment and necessary dependencies for the

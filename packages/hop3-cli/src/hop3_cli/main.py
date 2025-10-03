@@ -18,7 +18,7 @@ from loguru import logger
 
 from .arguments import generate_archive
 from .client import Client
-from .config import Config
+from .config import Config, get_config
 from .console import err
 from .printer import Printer
 from .types import JsonDict
@@ -42,7 +42,7 @@ def run_command_from_args(cli_args: list[str]) -> None:
     #     config = Config("", {})
     # args = namespace.args
 
-    config = get_config()
+    config = load_config()
     client = Client(config=config, state=None)
 
     if not cli_args:
@@ -97,6 +97,6 @@ def pack_repository() -> str:
     return base64.b64encode(tar_gz).decode("ascii")
 
 
-# TODO: dummy config, to be replaced
-def get_config() -> Config:
-    return Config({"host": "localhost", "port": 8000})
+def load_config() -> Config:
+    """Load configuration from the standard user location."""
+    return get_config()

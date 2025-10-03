@@ -9,6 +9,7 @@ from .app import App, AppStateEnum
 from .backup import Backup, BackupStateEnum
 from .env import EnvVar
 from .repositories import AppRepository
+from .security import Role, User
 from .session import get_session_factory
 
 __all__ = [
@@ -18,5 +19,7 @@ __all__ = [
     "Backup",
     "BackupStateEnum",
     "EnvVar",
+    "Role",
+    "User",
     "get_session_factory",
 ]

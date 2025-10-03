@@ -110,9 +110,18 @@ class Client:
         # Determine if we should verify SSL certs
         verify_ssl = urlparse(self.api_url).scheme == "https"
 
+        # Build headers with authentication
+        headers = {"Content-Type": "application/json"}
+
+        # Add authentication token if configured
+        api_token = self.config.get("api_token", "")
+        if api_token:
+            headers["Authorization"] = f"Bearer {api_token}"
+
         response = requests.post(
             self.rpc_url,
             json=json_request,
+            headers=headers,
             verify=verify_ssl,  # Use True for HTTPS, False otherwise.
         )
         try:

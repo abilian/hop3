@@ -49,19 +49,39 @@ def test_setup_ssh(hop3_home) -> None:
     assert authorized_keys.exists()
 
 
+@pytest.mark.skip(
+    reason="These commands are RPC commands, not server CLI commands. "
+    "Server CLI only supports: config, plugins, routes, serve, setup. "
+    "Use RPC tests instead."
+)
 def test_help() -> None:
     cli_main(["help"])
 
 
+@pytest.mark.skip(
+    reason="These commands are RPC commands, not server CLI commands. "
+    "Server CLI only supports: config, plugins, routes, serve, setup. "
+    "Use RPC tests instead."
+)
 def test_list_apps(hop3_home) -> None:
     cli_main(["apps"])
 
 
+@pytest.mark.skip(
+    reason="These commands are RPC commands, not server CLI commands. "
+    "Server CLI only supports: config, plugins, routes, serve, setup. "
+    "Use RPC tests instead."
+)
 def test_inexistent_app(hop3_home) -> None:
     with pytest.raises(Abort):
         cli_main(["app", "inexistent"])
 
 
+@pytest.mark.skip(
+    reason="These commands are RPC commands, not server CLI commands. "
+    "Server CLI only supports: config, plugins, routes, serve, setup. "
+    "Use RPC tests instead."
+)
 def test_lifecycle(hop3_home) -> None:
     app_name = f"test-app-{time.time()}"
     app = App(name=app_name)

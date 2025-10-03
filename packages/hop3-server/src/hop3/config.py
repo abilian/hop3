@@ -33,6 +33,11 @@ ACME_EMAIL = config.get_str("ACME_EMAIL", "fixme@example.com")
 
 HOP3_DEBUG = config.get_bool("HOP3_DEBUG", False)
 
+# Security
+HOP3_SECRET_KEY = config.get_str("HOP3_SECRET_KEY", "")
+HOP3_TOKEN_EXPIRY_HOURS = config.get_int("HOP3_TOKEN_EXPIRY_HOURS", 24)
+HOP3_ENABLE_AUTH = config.get_bool("HOP3_ENABLE_AUTH", True)
+
 # Computed paths
 HOP3_BIN = HOP3_ROOT / "bin"
 HOP3_SCRIPT = str(HOP3_ROOT / "venv" / "bin" / "hop-agent")

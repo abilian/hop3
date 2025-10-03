@@ -30,6 +30,7 @@ class Config:
         "api_version": "v1",
         "server_port": 8000,
         "ssh_user": "root",
+        "api_token": "",  # Bearer token for authentication
         # api_key and api_secret should be managed in state, not config.
         # "api_key": None,
         # "api_secret": None,

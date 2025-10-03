@@ -371,7 +371,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -1473,6 +1473,7 @@ dev = [
     { name = "pygments" },
     { name = "pyinfra" },
     { name = "pyrefly" },
+    { name = "pytest-asyncio" },
     { name = "pytest-beartype" },
     { name = "python-dotenv" },
     { name = "reuse" },
@@ -1532,6 +1533,7 @@ dev = [
     { name = "pygments" },
     { name = "pyinfra", specifier = "~=3.0" },
     { name = "pyrefly", specifier = ">=0.34.0" },
+    { name = "pytest-asyncio", specifier = ">=0.23.0" },
     { name = "pytest-beartype", specifier = ">=0.2.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "reuse", specifier = ">=5.0" },
@@ -1588,6 +1590,7 @@ source = { editable = "packages/hop3-server" }
 dependencies = [
     { name = "advanced-alchemy" },
     { name = "attrs" },
+    { name = "bcrypt" },
     { name = "cyclonedx-bom" },
     { name = "devtools" },
     { name = "granian", extra = ["reload"] },
@@ -1595,6 +1598,7 @@ dependencies = [
     { name = "marshmallow" },
     { name = "pluggy" },
     { name = "psycopg2" },
+    { name = "pyjwt" },
     { name = "sqlalchemy" },
     { name = "starlette" },
     { name = "termcolor" },
@@ -1605,6 +1609,8 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "httpx" },
+    { name = "pytest-asyncio" },
     { name = "typing-extensions" },
 ]
 
@@ -1612,6 +1618,7 @@ dev = [
 requires-dist = [
     { name = "advanced-alchemy", specifier = ">=0.21" },
     { name = "attrs", specifier = ">=24.2" },
+    { name = "bcrypt", specifier = ">=4.0.0" },
     { name = "cyclonedx-bom", specifier = ">=5.1.1" },
     { name = "devtools" },
     { name = "granian", extras = ["reload"], specifier = ">=2.2.0" },
@@ -1619,6 +1626,7 @@ requires-dist = [
     { name = "marshmallow", specifier = ">=4.0.0" },
     { name = "pluggy", specifier = "~=1.4" },
     { name = "psycopg2", specifier = ">=2.9.10" },
+    { name = "pyjwt", specifier = ">=2.8.0" },
     { name = "sqlalchemy", specifier = "~=2.0" },
     { name = "starlette", specifier = ">=0.40" },
     { name = "termcolor", specifier = ">=2.5.0" },
@@ -1628,7 +1636,11 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "typing-extensions", specifier = ">=4.12.2" }]
+dev = [
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "pytest-asyncio", specifier = ">=0.23.0" },
+    { name = "typing-extensions", specifier = ">=4.12.2" },
+]
 
 [[package]]
 name = "hop3-testing"
@@ -2687,6 +2699,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pyjwt"
+version = "2.10.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e7/46/bd74733ff231675599650d3e47f361794b22ef3e3770998dda30d3b63726/pyjwt-2.10.1.tar.gz", hash = "sha256:3cc5772eb20009233caf06e9d8a0577824723b44e6648ee0a2aedb6cf9381953", size = 87785, upload-time = "2024-11-28T03:43:29.933Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/61/ad/689f02752eeec26aed679477e80e632ef1b682313be70793d798c1d5fc8f/PyJWT-2.10.1-py3-none-any.whl", hash = "sha256:dcdd193e30abefd5debf142f9adfcdd2b58004e644f25406ffaebd50bd98dacb", size = 22997, upload-time = "2024-11-28T03:43:27.893Z" },
+]
+
+[[package]]
 name = "pymdown-extensions"
 version = "10.16.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2788,6 +2809,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a3/5c/00a0e072241553e1a7496d638deababa67c5058571567b92a7eaa258397c/pytest-8.4.2.tar.gz", hash = "sha256:86c0d0b93306b961d58d62a4db4879f27fe25513d4b969df351abdddb3c30e01", size = 1519618, upload-time = "2025-09-04T14:34:22.711Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl", hash = "sha256:872f880de3fc3a5bdc88a11b39c9710c3497a547cfa9320bc3c5e62fbf272e79", size = 365750, upload-time = "2025-09-04T14:34:20.226Z" },
+]
+
+[[package]]
+name = "pytest-asyncio"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/42/86/9e3c5f48f7b7b638b216e4b9e645f54d199d7abbbab7a64a13b4e12ba10f/pytest_asyncio-1.2.0.tar.gz", hash = "sha256:c609a64a2a8768462d0c99811ddb8bd2583c33fd33cf7f21af1c142e824ffb57", size = 50119, upload-time = "2025-09-12T07:33:53.816Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/04/93/2fa34714b7a4ae72f2f8dad66ba17dd9a2c793220719e736dda28b7aec27/pytest_asyncio-1.2.0-py3-none-any.whl", hash = "sha256:8e17ae5e46d8e7efe51ab6494dd2010f4ca8dae51652aa3c8d55acf50bfb2e99", size = 15095, upload-time = "2025-09-12T07:33:52.639Z" },
 ]
 
 [[package]]
