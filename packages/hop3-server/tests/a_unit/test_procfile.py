@@ -74,5 +74,5 @@ def get_bad_procfiles():
 
 @pytest.mark.parametrize("bad_procfile", get_bad_procfiles())
 def test_bad_procfiles(bad_procfile) -> None:
-    with pytest.raises(ValueError):  # noqa: PT011
+    with pytest.raises(ValueError):
         Procfile.from_str(bad_procfile)

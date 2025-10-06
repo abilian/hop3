@@ -69,7 +69,7 @@ class GitHookCmd(Command):
         if len(parts) != 3:
             return [{"t": "error", "text": f"Invalid push data format: {push_data}"}]
 
-        old_sha, new_sha, ref_name = parts
+        _old_sha, new_sha, ref_name = parts
 
         # Extract branch name from ref (refs/heads/master -> master)
         branch = ref_name.split("/")[-1] if "/" in ref_name else ref_name

@@ -54,21 +54,25 @@ class BearerTokenBackend(AuthenticationBackend):
             # The RPC handler will check per-command
             if conn.url.path == "/rpc":
                 return None
-            raise AuthenticationError("Missing Authorization header")
+            msg = "Missing Authorization header"
+            raise AuthenticationError(msg)
 
         # Parse the bearer token
         try:
             scheme, token = auth_header.split(" ", 1)
         except ValueError:
-            raise AuthenticationError("Invalid Authorization header format")
+            msg = "Invalid Authorization header format"
+            raise AuthenticationError(msg)
 
         if scheme.lower() != "bearer":
-            raise AuthenticationError("Only Bearer authentication is supported")
+            msg = "Only Bearer authentication is supported"
+            raise AuthenticationError(msg)
 
         # Validate the token
         user_info = validate_token(token)
         if not user_info:
-            raise AuthenticationError("Invalid or expired token")
+            msg = "Invalid or expired token"
+            raise AuthenticationError(msg)
 
         # Return credentials and user
         scopes = user_info.get("scopes", ["authenticated"])
@@ -93,11 +97,7 @@ class BearerTokenBackend(AuthenticationBackend):
         ]
 
         path = conn.url.path
-        for public_path in public_paths:
-            if path.startswith(public_path):
-                return True
-
-        return False
+        return any(path.startswith(public_path) for public_path in public_paths)
 
 
 def AuthenticationMiddleware() -> Middleware:

@@ -71,6 +71,8 @@ lint.extend-ignore = [
     "RUF039", # First argument to `re.search()` is not raw string
     "TRY300", # Consider moving this statement to an `else` block
     "TRY301", # Abstract `raise` to an inner function
+    "N802", # Naming
+    "RUF045", # class vars
 ]
 
 
@@ -90,6 +92,10 @@ known-first-party = ["hop3"]
 ]
 "**/tests/**/*.py" = [
     "INP001", # implicit namespace package
+    "B017", #  	assert-raises-exception
+    "PT011", # 	pytest-raises-too-broad
+    "N806", #  	non-lowercase-variable-in-function
+    "SLF001", #	private-member-access
 ]
 "**/noxfile.py" = [
     "INP001", # implicit namespace package

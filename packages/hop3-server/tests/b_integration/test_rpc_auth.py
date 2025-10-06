@@ -93,7 +93,7 @@ def test_rpc_auth_login_without_token(client: TestClient):
     )
 
     # Should work even without auth (though user may not exist)
-    assert response.status_code in [200, 401]  # 200 for public access
+    assert response.status_code in {200, 401}  # 200 for public access
 
 
 def test_rpc_protected_command_without_auth(client: TestClient):

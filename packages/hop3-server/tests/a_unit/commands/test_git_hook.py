@@ -124,7 +124,7 @@ def test_extract_commit_to_source(git_hook_cmd, mock_app, tmp_path):
 
     commit_sha = "68f7abf4e6f922807889f52bc043ecd31b79f814"
 
-    with patch("subprocess.run") as mock_run, patch("shutil.rmtree") as mock_rmtree:
+    with patch("subprocess.run") as mock_run, patch("shutil.rmtree"):
         # Mock successful subprocess calls
         mock_run.return_value = Mock(returncode=0)
 
@@ -151,11 +151,11 @@ def test_extract_commit_handles_multiple_refs(git_hook_cmd, mock_app):
     with (
         patch("sys.stdin") as mock_stdin,
         patch("hop3.commands.git.GitHookCmd._extract_commit_to_source") as mock_extract,
-        patch("hop3.commands.git.do_deploy") as mock_deploy,
+        patch("hop3.commands.git.do_deploy"),
     ):
         mock_stdin.read.return_value = push_data
 
-        result = git_hook_cmd.call("test-app")
+        git_hook_cmd.call("test-app")
 
         # Should process only the first ref (master)
         mock_extract.assert_called_once_with(
