@@ -124,7 +124,9 @@ def test_rpc_protected_command_without_auth(client: TestClient):
     "to a running server."
 )
 @pytest.mark.asyncio
-async def test_rpc_protected_command_with_valid_auth(async_client: httpx.AsyncClient, valid_token: str):
+async def test_rpc_protected_command_with_valid_auth(
+    async_client: httpx.AsyncClient, valid_token: str
+):
     """Test that protected commands work with valid authentication."""
     response = await async_client.post(
         "/rpc",

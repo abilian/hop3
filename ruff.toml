@@ -69,8 +69,6 @@ lint.extend-ignore = [
     "PLR0911", # Too many return statements (7 > 6)
     "PLW0603", # Using the global statement to update ... is discouraged
     "RUF039", # First argument to `re.search()` is not raw string
-    "RUF045",
-    "S704", # Unsafe use of Markup
     "TRY300", # Consider moving this statement to an `else` block
     "TRY301", # Abstract `raise` to an inner function
 ]

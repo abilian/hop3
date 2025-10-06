@@ -40,7 +40,9 @@ def get_secret_key() -> str:
     return secret
 
 
-def create_token(username: str, scopes: list[str] | None = None, expires_hours: int = 24) -> str:
+def create_token(
+    username: str, scopes: list[str] | None = None, expires_hours: int = 24
+) -> str:
     """Create a JWT token for a user.
 
     Args:
