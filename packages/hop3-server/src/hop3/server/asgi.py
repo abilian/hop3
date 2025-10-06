@@ -26,11 +26,11 @@ def create_app():
 
     # Add authentication middleware if enabled
     # Read from environment to support test fixtures that set env vars
-    enable_auth = os.environ.get("HOP3_ENABLE_AUTH", "true").lower() in (
+    enable_auth = os.environ.get("HOP3_ENABLE_AUTH", "true").lower() in {
         "true",
         "1",
         "yes",
-    )
+    }
     middleware = []
     if enable_auth:
         middleware.append(
