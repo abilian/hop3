@@ -26,9 +26,15 @@ def create_app():
 
     # Add authentication middleware if enabled
     # Read from environment to support test fixtures that set env vars
-    enable_auth = os.environ.get("HOP3_ENABLE_AUTH", "true").lower() in ("true", "1", "yes")
+    enable_auth = os.environ.get("HOP3_ENABLE_AUTH", "true").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
     middleware = []
     if enable_auth:
-        middleware.append(Middleware(StarletteAuthMiddleware, backend=BearerTokenBackend()))
+        middleware.append(
+            Middleware(StarletteAuthMiddleware, backend=BearerTokenBackend())
+        )
 
     return Starlette(debug=DEBUG, routes=routes, middleware=middleware)

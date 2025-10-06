@@ -154,9 +154,7 @@ class AuthRegisterCmd(Command):
     db_session: Session
     name = "auth:register"
 
-    def call(
-        self, username: str = "", email: str = "", password: str = "", *args
-    ):
+    def call(self, username: str = "", email: str = "", password: str = "", *args):
         """Register a new user.
 
         Args:
@@ -176,9 +174,7 @@ class AuthRegisterCmd(Command):
             ]
 
         # Check if username already exists
-        existing_user = (
-            self.db_session.query(User).filter_by(username=username).first()
-        )
+        existing_user = self.db_session.query(User).filter_by(username=username).first()
         if existing_user:
             return [{"t": "error", "text": f"Username '{username}' already exists"}]
 
@@ -228,7 +224,10 @@ class AuthLogoutCmd(Command):
                 "t": "text",
                 "text": "Remove the token from your config file or environment:",
             },
-            {"t": "text", "text": "  - Delete 'api_token' from ~/.config/hop3-cli/config.toml"},
+            {
+                "t": "text",
+                "text": "  - Delete 'api_token' from ~/.config/hop3-cli/config.toml",
+            },
             {"t": "text", "text": "  - Or unset HOP3_API_TOKEN environment variable"},
             {"t": "text", "text": ""},
             {
