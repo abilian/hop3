@@ -98,6 +98,66 @@ class DeploymentStrategy(Protocol):
     def stop(self) -> None: ...
 
 
+class ServiceStrategy(Protocol):
+    """Interface for managing backing services (databases, caches, etc.).
+
+    A service represents a resource that applications can attach to,
+    like PostgreSQL, Redis, or Elasticsearch. Services are created independently
+    and can be shared across multiple applications.
+
+    Attributes:
+    - name (str): A unique name for the service type, e.g., 'postgres' or 'redis'.
+    - service_name (str): The specific instance name for this service.
+    """
+
+    name: str
+    service_name: str
+
+    def create(self) -> None:
+        """Create the service instance.
+
+        This should provision the necessary resources for the service,
+        such as creating a database, user, or cache instance.
+        """
+
+    def destroy(self) -> None:
+        """Destroy the service instance.
+
+        This should completely remove all resources associated with the service,
+        including data. This operation should be idempotent.
+        """
+
+    def get_connection_details(self) -> dict[str, str]:
+        """Get environment variables for connecting to this service.
+
+        Returns:
+            A dictionary of environment variable names and values that
+            applications need to connect to this service.
+            For example: {"DATABASE_URL": "postgresql://user:pass@host/db"}
+        """
+
+    def backup(self) -> Path:
+        """Create a backup of the service data.
+
+        Returns:
+            Path to the backup file or directory.
+        """
+
+    def restore(self, backup_path: Path) -> None:
+        """Restore service data from a backup.
+
+        Args:
+            backup_path: Path to the backup file or directory to restore from.
+        """
+
+    def info(self) -> dict[str, Any]:
+        """Get information about the service instance.
+
+        Returns:
+            Dictionary with service details like status, version, size, etc.
+        """
+
+
 class Proxy(Protocol):
     """A protocol for defining a proxy interface.
 

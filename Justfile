@@ -6,7 +6,7 @@
 PKG := "hop3,hop3_agent,hop3_server,hop3_web,hop3_lib"
 
 # Default recipe
-default: lint test
+default: test lint
 
 # Setup
 develop: install-deps activate-pre-commit configure-git

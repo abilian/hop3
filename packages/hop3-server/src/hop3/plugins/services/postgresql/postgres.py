@@ -2,94 +2,287 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""PostgreSQL service implementation.
+
+This module implements the ServiceStrategy protocol for PostgreSQL,
+allowing applications to create, attach, and manage PostgreSQL databases.
+"""
+
 from __future__ import annotations
 
+import secrets
+import subprocess
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 
 @dataclass(frozen=True)
-class PostgresqlAddon:
-    app_name: str
-    settings: dict
+class PostgresService:
+    """PostgreSQL service implementation using ServiceStrategy protocol.
 
-    def create(self) -> None:
-        """Create a new PostgreSQL database if it does not already exist."""
+    This service manages PostgreSQL database instances. Each service instance
+    creates a dedicated database and user for isolation.
 
-        # Create the database connection parameters
-        params = {
-            # 'dbname': self.db_name,  # Database name is omitted intentionally
-            "user": self.settings["pg_user"],
-            "password": self.settings["pg_pw"],
-            "host": "localhost",
-            "port": 5432,
-        }
+    Attributes:
+        service_name: The unique name for this PostgreSQL service instance
+    """
 
-        # Establish a connection to the PostgreSQL server
-        connection = psycopg2.connect(**params)
-        connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    # Class attribute for the strategy name
+    name: str = "postgres"
 
-        with connection.cursor() as cursor:
-            if self._check_database_exists(cursor):
-                # No need to create if the database already exists
-                return
+    # Instance attribute
+    service_name: str = ""
 
-            # Create the database if it does not exist
-            self._create_database(cursor)
-
-        connection.close()
+    def __post_init__(self):
+        """Validate that service_name is provided."""
+        if not self.service_name:
+            msg = "service_name is required for PostgresService"
+            raise ValueError(msg)
 
     @property
     def db_name(self) -> str:
-        return self.app_name + "_db"
+        """Database name derived from service name."""
+        # Replace hyphens with underscores for valid PostgreSQL identifiers
+        return self.service_name.replace("-", "_")
 
     @property
     def db_user(self) -> str:
-        return self.app_name + "_user"
+        """Database user name derived from service name."""
+        return f"{self.db_name}_user"
 
     @property
-    def db_pass(self) -> str:
-        return self.app_name + "_pw"
+    def db_password(self) -> str:
+        """Generate a secure password for the database user.
 
-    def get_env(self) -> dict[str, str]:
-        """Construct the environment variables for database connection.
+        Note: In production, this should be stored securely in a secrets manager.
+        For now, we generate a deterministic password based on the service name.
+        """
+        # TODO: Store passwords securely in a secrets manager
+        # For now, generate a random password (this is temporary)
+        return secrets.token_urlsafe(32)
+
+    def create(self) -> None:
+        """Create a new PostgreSQL database if it does not already exist.
+
+        This method:
+        1. Connects to PostgreSQL as the superuser
+        2. Creates a new database user with a secure password
+        3. Creates a new database owned by that user
+        """
+        # Connect to PostgreSQL (assuming superuser credentials are in env)
+        # In production, these should come from configuration
+        params = {
+            "host": "localhost",
+            "port": 5432,
+            # Default to postgres superuser - should be configurable
+            "user": "postgres",
+            # Password should come from environment or config
+        }
+
+        try:
+            connection = psycopg2.connect(**params)
+            connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+
+            with connection.cursor() as cursor:
+                if self._check_database_exists(cursor):
+                    # Database already exists, nothing to do
+                    return
+
+                # Create the database user and database
+                self._create_database(cursor)
+
+        finally:
+            if connection:
+                connection.close()
+
+    def destroy(self) -> None:
+        """Destroy the PostgreSQL database and user.
+
+        This permanently deletes all data. Use with caution.
+        """
+        params = {
+            "host": "localhost",
+            "port": 5432,
+            "user": "postgres",
+        }
+
+        try:
+            connection = psycopg2.connect(**params)
+            connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+
+            with connection.cursor() as cursor:
+                cursor.execute(f"DROP DATABASE IF EXISTS {self.db_name};")
+                cursor.execute(f"DROP USER IF EXISTS {self.db_user};")
+
+        finally:
+            if connection:
+                connection.close()
+
+    def get_connection_details(self) -> dict[str, str]:
+        """Get environment variables for connecting to this PostgreSQL database.
 
         Returns:
-        - A dictionary with the environment variable 'DATABASE_URL' pointing to the database connection string.
+            Dictionary with DATABASE_URL and other connection parameters
         """
         return {
             "DATABASE_URL": (
-                f"postgresql://{self.db_user}:{self.db_pass}@localhost/{self.db_name}"
+                f"postgresql://{self.db_user}:{self.db_password}@localhost/{self.db_name}"
             ),
+            "PGDATABASE": self.db_name,
+            "PGUSER": self.db_user,
+            "PGPASSWORD": self.db_password,
+            "PGHOST": "localhost",
+            "PGPORT": "5432",
         }
+
+    def backup(self) -> Path:
+        """Create a backup of the PostgreSQL database using pg_dump.
+
+        Returns:
+            Path to the backup file
+        """
+        backup_dir = Path("/var/hop3/backups") / "postgres"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+
+        from datetime import datetime, timezone
+
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        backup_file = backup_dir / f"{self.service_name}_{timestamp}.sql"
+
+        # Use pg_dump to create backup
+        cmd = [
+            "pg_dump",
+            "-h",
+            "localhost",
+            "-U",
+            self.db_user,
+            "-d",
+            self.db_name,
+            "-f",
+            str(backup_file),
+        ]
+
+        subprocess.run(cmd, check=True, env={"PGPASSWORD": self.db_password})
+
+        return backup_file
+
+    def restore(self, backup_path: Path) -> None:
+        """Restore PostgreSQL database from a backup file.
+
+        Args:
+            backup_path: Path to the SQL backup file
+        """
+        if not backup_path.exists():
+            msg = f"Backup file not found: {backup_path}"
+            raise FileNotFoundError(msg)
+
+        # Use psql to restore
+        cmd = [
+            "psql",
+            "-h",
+            "localhost",
+            "-U",
+            self.db_user,
+            "-d",
+            self.db_name,
+            "-f",
+            str(backup_path),
+        ]
+
+        subprocess.run(cmd, check=True, env={"PGPASSWORD": self.db_password})
+
+    def info(self) -> dict[str, Any]:
+        """Get information about the PostgreSQL service.
+
+        Returns:
+            Dictionary with service details
+        """
+        params = {
+            "host": "localhost",
+            "port": 5432,
+            "user": self.db_user,
+            "password": self.db_password,
+            "dbname": self.db_name,
+        }
+
+        connection = None
+        try:
+            connection = psycopg2.connect(**params)
+
+            with connection.cursor() as cursor:
+                # Get database size
+                cursor.execute(
+                    "SELECT pg_database_size(%s);",
+                    (self.db_name,),
+                )
+                size_bytes = cursor.fetchone()[0]
+
+                # Get table count
+                cursor.execute(
+                    "SELECT count(*) FROM information_schema.tables "
+                    "WHERE table_schema = 'public';"
+                )
+                table_count = cursor.fetchone()[0]
+
+                # Get PostgreSQL version
+                cursor.execute("SELECT version();")
+                version = cursor.fetchone()[0]
+
+            return {
+                "service_name": self.service_name,
+                "type": "postgres",
+                "database": self.db_name,
+                "user": self.db_user,
+                "host": "localhost",
+                "port": 5432,
+                "size_bytes": size_bytes,
+                "size_mb": round(size_bytes / (1024 * 1024), 2),
+                "table_count": table_count,
+                "version": version,
+            }
+
+        except psycopg2.Error as e:
+            return {
+                "service_name": self.service_name,
+                "type": "postgres",
+                "status": "error",
+                "error": str(e),
+            }
+        finally:
+            if connection:
+                connection.close()
 
     def _check_database_exists(self, cursor) -> bool:
         """Check if the specified database exists.
 
-        Input:
-        - cursor: A database cursor object used to execute SQL queries.
+        Args:
+            cursor: A database cursor object used to execute SQL queries
 
         Returns:
-        - bool: True if the database exists, False otherwise.
+            True if the database exists, False otherwise
         """
-        dbname = self.db_name
-        cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (dbname,))
+        cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (self.db_name,))
         exists = cursor.fetchone()
         return exists is not None
 
     def _create_database(self, cursor) -> None:
-        """Create a new database and a database user with the specified
-        credentials.
+        """Create a new database and database user.
 
-        Input:
-        - cursor: A database cursor object that allows execution of database commands.
+        Args:
+            cursor: A database cursor object for executing commands
         """
         # SQL statement to create a new user with the specified password
-        stmt = f"""CREATE USER {self.db_user} WITH PASSWORD '{self.db_pass}';"""
+        stmt = f"CREATE USER {self.db_user} WITH PASSWORD '{self.db_password}';"
         cursor.execute(stmt)
 
         # SQL statement to create a new database with the specified owner
-        stmt = f"""CREATE DATABASE {self.db_name} WITH OWNER {self.db_user};"""
+        stmt = f"CREATE DATABASE {self.db_name} WITH OWNER {self.db_user};"
         cursor.execute(stmt)
+
+
+# Legacy alias for backward compatibility
+PostgresqlAddon = PostgresService

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
         BuildStrategy,
         DeploymentContext,
         DeploymentStrategy,
+        ServiceStrategy,
     )
 
 # Singleton instance of the PluginManager.
@@ -66,6 +67,11 @@ def register_core_plugins(pm: PluginManager) -> None:
     This function is called at startup to ensure that the built-in strategies
     (like Buildpack and uWSGI) are always available.
     """
+    # Register the PostgreSQL service plugin
+    from hop3.plugins.services.postgresql.plugin import PostgresqlPlugin
+
+    pm.register(PostgresqlPlugin())
+
     # TODO: really register the core plugins.
     # Or do we?
     # pm.register(CorePlugin())
@@ -152,4 +158,34 @@ def get_deployment_strategy(
             return strategy
 
     msg = f"Could not find a deployment strategy compatible with artifact of kind '{artifact.kind}'."
+    raise RuntimeError(msg)
+
+
+def get_service_strategy(service_type: str, service_name: str) -> ServiceStrategy:
+    """
+    Finds and instantiates the appropriate service strategy.
+
+    Args:
+        service_type: The type of service (e.g., 'postgres', 'redis')
+        service_name: The specific instance name for this service
+
+    Returns:
+        An instance of the requested ServiceStrategy
+
+    Raises:
+        RuntimeError: If the requested service type is not found
+    """
+    pm = get_plugin_manager()
+
+    strategy_classes_list = pm.hook.get_service_strategies()
+    strategy_classes: list[type[ServiceStrategy]] = [
+        cls for sublist in strategy_classes_list for cls in sublist
+    ]
+
+    for strategy_class in strategy_classes:
+        # Check if the strategy name matches the requested service type
+        if getattr(strategy_class, "name", None) == service_type:
+            return strategy_class(service_name)
+
+    msg = f"Service type '{service_type}' not found. Available services: {[getattr(cls, 'name', '?') for cls in strategy_classes]}"
     raise RuntimeError(msg)
