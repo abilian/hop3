@@ -23,6 +23,7 @@ PACKAGES = [
     "python3-pip",
     "python3-click",
     "python3-dev",
+    "python3-venv",  # Required for python3 -m venv
     "python3-virtualenv",
     "python3-setuptools",
     # Prerequisite for nodeenv

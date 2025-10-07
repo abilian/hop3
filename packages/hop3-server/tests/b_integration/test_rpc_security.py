@@ -78,9 +78,9 @@ def test_tampered_token_payload(client: TestClient, valid_token: str, secret_key
     payload["sub"] = "admin"
 
     # Re-encode the payload
-    tampered_payload = base64.urlsafe_b64encode(
-        json.dumps(payload).encode()
-    ).decode().rstrip("=")
+    tampered_payload = (
+        base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+    )
 
     # Create tampered token with original signature (should fail verification)
     tampered_token = f"{parts[0]}.{tampered_payload}.{parts[2]}"
@@ -137,10 +137,14 @@ def test_token_with_none_algorithm(client: TestClient):
     }
 
     # Manually create a token with "none" algorithm
-    header = base64.urlsafe_b64encode(
-        json.dumps({"alg": "none", "typ": "JWT"}).encode()
-    ).decode().rstrip("=")
-    payload_encoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+    header = (
+        base64.urlsafe_b64encode(json.dumps({"alg": "none", "typ": "JWT"}).encode())
+        .decode()
+        .rstrip("=")
+    )
+    payload_encoded = (
+        base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+    )
 
     # Token with no signature
     malicious_token = f"{header}.{payload_encoded}."
@@ -181,7 +185,9 @@ def test_empty_authorization_header(client: TestClient):
     assert response.status_code == 401
 
 
-def test_authorization_header_without_bearer_prefix(client: TestClient, valid_token: str):
+def test_authorization_header_without_bearer_prefix(
+    client: TestClient, valid_token: str
+):
     """Test token without 'Bearer' prefix."""
     response = client.post(
         "/rpc",
@@ -288,9 +294,7 @@ def test_token_without_exp_claim(client: TestClient):
         "scopes": ["authenticated"],
         # No 'exp' claim
     }
-    no_exp_token = jwt.encode(
-        payload, os.environ["HOP3_SECRET_KEY"], algorithm="HS256"
-    )
+    no_exp_token = jwt.encode(payload, os.environ["HOP3_SECRET_KEY"], algorithm="HS256")
 
     response = client.post(
         "/rpc",
@@ -489,9 +493,7 @@ def test_extremely_large_token(client: TestClient):
         "scopes": ["authenticated"],
         "data": "A" * 10000,  # 10KB of data
     }
-    large_token = jwt.encode(
-        payload, os.environ["HOP3_SECRET_KEY"], algorithm="HS256"
-    )
+    large_token = jwt.encode(payload, os.environ["HOP3_SECRET_KEY"], algorithm="HS256")
 
     response = client.post(
         "/rpc",

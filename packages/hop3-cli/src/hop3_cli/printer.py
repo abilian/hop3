@@ -1,6 +1,7 @@
 # Copyright (c) 2023-2025, Abilian SAS
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 
 from tabulate import tabulate
@@ -24,4 +25,12 @@ class Printer:
         print(tabulate(rows, headers=headers))
 
     def print_text(self, obj: dict) -> None:
+        print(obj["text"])
+
+    def print_error(self, obj: dict) -> None:
+        """Print error messages to stderr."""
+        print(f"ERROR: {obj['text']}", file=sys.stderr)
+
+    def print_success(self, obj: dict) -> None:
+        """Print success messages."""
         print(obj["text"])
