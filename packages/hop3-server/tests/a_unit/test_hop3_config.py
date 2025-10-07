@@ -223,11 +223,10 @@ start = "python app.py"
 
 def test_file_not_found():
     """Test error handling for missing file."""
-    try:
+    import pytest
+
+    with pytest.raises(FileNotFoundError, match="File not found"):
         Hop3Config.from_file("/nonexistent/hop3.toml")
-        assert False, "Should have raised FileNotFoundError"
-    except FileNotFoundError as e:
-        assert "File not found" in str(e)
 
 
 def test_repr():

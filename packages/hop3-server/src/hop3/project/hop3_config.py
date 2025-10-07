@@ -287,4 +287,4 @@ class Hop3Config:
     def __repr__(self) -> str:
         if self.config_path:
             return f"<Hop3Config {self.config_path}>"
-        return f"<Hop3Config from_str>"
+        return "<Hop3Config from_str>"

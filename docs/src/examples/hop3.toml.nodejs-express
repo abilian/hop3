@@ -1,0 +1,55 @@
+# hop3.toml - Node.js/Express Application Example
+# This file demonstrates a complete hop3.toml configuration for an Express.js application
+
+[metadata]
+id = "my-express-app"
+version = "1.0.0"
+title = "My Express Application"
+author = "Your Name <you@example.com>"
+
+[build]
+# Commands to run during build phase
+before-build = [
+    "npm ci",  # Use ci for reproducible builds
+    "npm run build"
+]
+
+# Optional: Run tests during build
+test = "npm test"
+
+# Optional: System packages needed for build
+packages = ["nodejs", "npm"]
+
+[run]
+# Main application start command
+start = "node dist/server.js"
+
+# Alternative: use npm start
+# start = "npm start"
+
+# Commands to run before starting the application
+before-run = "npm run migrate"
+
+# System packages needed at runtime
+packages = ["nodejs"]
+
+[env]
+# Environment variables
+NODE_ENV = "production"
+PORT = "3000"
+
+[port]
+web = 3000
+
+[healthcheck]
+path = "/health"
+timeout = 30
+interval = 60
+
+[[provider]]
+name = "postgres"
+plan = "standard"
+
+[[provider]]
+name = "redis"
+plan = "basic"
