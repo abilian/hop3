@@ -1,0 +1,7 @@
+# Procfile - Simple Application Example
+# Minimal configuration following Heroku conventions
+
+# Just specify how to start your web application
+web: python app.py
+
+# That's it! This is all you need for a basic app.

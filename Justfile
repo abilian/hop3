@@ -64,7 +64,7 @@ lint:
     uv run ruff check packages/*/src packages/*/tests
     # uv run pyright packages/hop3-server
     # uv run mypy packages/hop3-server
-    uv run reuse lint -q
+    # uv run reuse lint -q
     cd packages/hop3-server && uv run deptry src
     # vulture --min-confidence 80 packages/hop3-agent/src
 

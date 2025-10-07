@@ -197,5 +197,7 @@ start = ["gunicorn app:app", "--bind 0.0.0.0:8000"]
     config = AppConfig.from_dir(tmp_path)
 
     # List commands should be joined with &&
-    assert config.pre_build == "pip install -r requirements.txt && python setup.py build"
+    assert (
+        config.pre_build == "pip install -r requirements.txt && python setup.py build"
+    )
     assert config.workers["web"] == "gunicorn app:app && --bind 0.0.0.0:8000"

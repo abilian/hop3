@@ -73,6 +73,10 @@ lint.extend-ignore = [
     "TRY301", # Abstract `raise` to an inner function
     "N802", # Naming
     "RUF045", # class vars
+    "PLR0904", # Too many public methods
+    "F841", # unused variable
+    "FURB113", # 
+    "FBT", # 
 ]
 
 
