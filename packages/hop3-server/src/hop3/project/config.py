@@ -2,10 +2,19 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Application configuration management.
+
+This module implements the "Convention over Configuration" principle:
+- Procfile is the convention (default, simple)
+- hop3.toml is configuration (optional, advanced)
+- Precedence: hop3.toml > Procfile > defaults
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from hop3.project.hop3_config import Hop3Config
 from hop3.project.procfile import Procfile
 
 if TYPE_CHECKING:
@@ -13,31 +22,96 @@ if TYPE_CHECKING:
 
 
 class AppConfig:
+    """Application configuration manager.
+
+    Supports multiple configuration sources with precedence:
+    1. hop3.toml (if present) - Advanced configuration
+    2. Procfile (if present) - Simple convention
+    3. Defaults - Fallback values
+
+    Attributes:
+        app_dir: Root directory of the application
+        procfile: Parsed Procfile (may be empty if not present)
+        hop3_config: Parsed hop3.toml (may be empty if not present)
+        app_json: Parsed app.json (Heroku compatibility, not used yet)
+        has_procfile: True if Procfile was found
+        has_hop3_toml: True if hop3.toml was found
+    """
+
     app_dir: Path
     procfile: Procfile
-    # XXX: not used yet
+    hop3_config: Hop3Config
     app_json: dict
-    app_config: dict
+    has_procfile: bool
+    has_hop3_toml: bool
 
     @property
     def workers(self) -> dict:
-        return self.procfile.workers
+        """Get worker processes with precedence: hop3.toml > Procfile.
+
+        Returns:
+            Dictionary mapping worker names to commands
+        """
+        # Start with Procfile workers (convention)
+        workers = dict(self.procfile.workers)
+
+        # Override/extend with hop3.toml workers (configuration)
+        if self.has_hop3_toml:
+            hop3_workers = self.hop3_config.get_workers_from_run_section()
+            workers.update(hop3_workers)
+
+        return workers
 
     @property
     def web_workers(self):
-        return self.procfile.web_workers
+        """Get web worker processes.
+
+        Returns:
+            Dictionary of web workers (wsgi, jwsgi, rwsgi, web)
+        """
+        web_worker_names = {"wsgi", "jwsgi", "rwsgi", "web"}
+        return {k: v for k, v in self.workers.items() if k in web_worker_names}
 
     @property
     def pre_build(self):
-        return self.procfile.workers.get("prebuild", "")
+        """Get prebuild command with precedence: hop3.toml > Procfile.
+
+        Returns:
+            Prebuild command string, empty if not defined
+        """
+        # Check hop3.toml first
+        if self.has_hop3_toml:
+            before_build = self.hop3_config.before_build_commands
+            if before_build:
+                return " && ".join(before_build)
+
+        # Fall back to Procfile
+        return self.workers.get("prebuild", "")
 
     @property
     def post_build(self):
-        return self.procfile.workers.get("postbuild", "")
+        """Get postbuild command.
+
+        Returns:
+            Postbuild command string, empty if not defined
+        """
+        return self.workers.get("postbuild", "")
 
     @property
     def pre_run(self):
-        return self.procfile.workers.get("prerun", "")
+        """Get prerun command with precedence: hop3.toml > Procfile.
+
+        Returns:
+            Prerun command string, empty if not defined
+        """
+        # Check hop3.toml first
+        if self.has_hop3_toml:
+            before_run = self.hop3_config.before_run_commands
+            if before_run:
+                return " && ".join(before_run)
+
+        # Fall back to Procfile
+        return self.workers.get("prerun", "")
 
     @property
     def src_dir(self):
@@ -51,18 +125,20 @@ class AppConfig:
         return self
 
     def parse(self) -> None:
-        self.parse_procfile()
+        self.parse_hop3()  # Parse hop3.toml first (if exists)
+        self.parse_procfile()  # Parse Procfile second (if exists)
         self.parse_app_json()
-        self.parse_hop3()
 
     def parse_procfile(self) -> None:
         # See: https://devcenter.heroku.com/articles/procfile
         procfile_path = self.get_file("Procfile")
-        if not procfile_path:
-            msg = f"Procfile not found in {self.app_dir}"
-            raise ValueError(msg)
-
-        self.procfile = Procfile.from_file(procfile_path)
+        if procfile_path:
+            self.procfile = Procfile.from_file(procfile_path)
+            self.has_procfile = True
+        else:
+            # Procfile is optional - use empty defaults
+            self.procfile = Procfile()
+            self.has_procfile = False
 
     def get_file(self, filename: str) -> Path | None:
         """Search for a file, first in the "hop3" subdirectory, then in the
@@ -96,8 +172,15 @@ class AppConfig:
         self.app_json = {}
 
     def parse_hop3(self) -> None:
-        """Parse the hop3-specific configuration file (currently, none)."""
-        self.hop3_config = {}
+        """Parse the hop3.toml configuration file if present."""
+        hop3_path = self.get_file("hop3.toml")
+        if hop3_path:
+            self.hop3_config = Hop3Config.from_file(hop3_path)
+            self.has_hop3_toml = True
+        else:
+            # hop3.toml is optional - use empty defaults
+            self.hop3_config = Hop3Config()
+            self.has_hop3_toml = False
 
     def get_worker(self, name: str):
         """Retrieve a worker's details by name from the procfile.
@@ -124,6 +207,8 @@ class AppConfig:
         return {
             "app_dir": str(self.app_dir),
             "src_dir": str(self.src_dir),
+            "has_procfile": self.has_procfile,
+            "has_hop3_toml": self.has_hop3_toml,
             "procfile": {
                 "workers": self.workers,
                 "web_workers": self.web_workers,
@@ -132,5 +217,5 @@ class AppConfig:
                 "pre_run": self.pre_run,
             },
             "app_json": self.app_json,
-            "hop3_config": self.hop3_config,
+            "hop3_config": self.hop3_config.to_dict() if self.has_hop3_toml else {},
         }
