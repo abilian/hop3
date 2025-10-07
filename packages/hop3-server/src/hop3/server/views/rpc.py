@@ -112,6 +112,16 @@ def call(command_name: str, args: list[str], extra_args: JsonDict):
         if "db_session" in command_class.__annotations__:
             class_args = {"db_session": db_session}
 
-        command = command_class(**class_args)
-        result = command.call(*args, **extra_args)
+        try:
+            command = command_class(**class_args)
+        except Exception as e:
+            error_msg = f"Failed to create command: {e}"
+            raise ValueError(error_msg) from e
+
+        try:
+            result = command.call(*args, **extra_args)
+        except Exception as e:
+            error_msg = f"Command execution failed: {e}"
+            raise ValueError(error_msg) from e
+
         return result

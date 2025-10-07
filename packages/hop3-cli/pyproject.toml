@@ -26,6 +26,7 @@ readme = "README.md"
 
 [project.scripts]
 hop = "hop3_cli.main:main"
+hop3 = "hop3_cli.main:main"
 
 # ----------------------------------------
 

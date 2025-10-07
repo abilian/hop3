@@ -93,14 +93,11 @@ def validate_token(token: str) -> dict[str, Any] | None:
             "expires_at": payload.get("exp"),
             "token_id": payload.get("jti"),
         }
-    except jwt.ExpiredSignatureError:
-        # Token has expired
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
+        # Token has expired, is invalid, or secret key not configured
         return None
-    except jwt.InvalidTokenError:
-        # Token is invalid
-        return None
-    except ValueError:
-        # Secret key not configured
+    except Exception:
+        # Unexpected error
         return None
 
 

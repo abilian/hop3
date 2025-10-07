@@ -72,6 +72,11 @@ def register_core_plugins(pm: PluginManager) -> None:
 
     pm.register(PostgresqlPlugin())
 
+    # Register the native build plugin
+    from hop3.plugins.build.native_build.plugin import NativeBuildPlugin
+
+    pm.register(NativeBuildPlugin())
+
     # TODO: really register the core plugins.
     # Or do we?
     # pm.register(CorePlugin())

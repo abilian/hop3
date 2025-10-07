@@ -44,9 +44,15 @@ test-randomly:
     @echo ""
 
 test-e2e:
-    echo "--> Running e2e tests"
+    echo "--> Running e2e tests (legacy)"
     just clean-and-deploy
     uv run hop-test
+    echo ""
+
+test-e2e-cli:
+    echo "--> Running E2E tests with hop3-cli"
+    echo "This requires HOP3_DEV_HOST to be set"
+    uv run pytest packages/hop3-server/tests/c_e2e/ -v
     echo ""
 
 test-with-coverage:

@@ -49,6 +49,7 @@ class BearerTokenBackend(AuthenticationBackend):
 
         # Get the Authorization header
         auth_header = conn.headers.get("Authorization")
+
         if not auth_header:
             # For RPC, we allow missing auth header (some commands are public)
             # The RPC handler will check per-command
@@ -89,15 +90,19 @@ class BearerTokenBackend(AuthenticationBackend):
         Returns:
             True if the endpoint is truly public, False otherwise
         """
-        # Truly public endpoints that never need authentication
-        public_paths = [
-            "/",  # Home page
+        path = conn.url.path
+
+        # Exact match for home page
+        if path == "/":
+            return True
+
+        # Prefix match for static files and health
+        public_prefixes = [
             "/static/",  # Static files
-            "/health",  # Health check
+            "/health",  # Health check (exact or with query params)
         ]
 
-        path = conn.url.path
-        return any(path.startswith(public_path) for public_path in public_paths)
+        return any(path.startswith(prefix) for prefix in public_prefixes)
 
 
 def AuthenticationMiddleware() -> Middleware:
