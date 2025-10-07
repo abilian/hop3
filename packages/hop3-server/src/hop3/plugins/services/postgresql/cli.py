@@ -18,24 +18,44 @@ class PgCmd:
 
 @command
 class PgCreateCmd:
-    """Create a PostgreSQL database: hop pg:create <name> <user> <password>."""
+    """Create a PostgreSQL database: hop pg:create <name>.
+
+    This is a convenience command that wraps 'hop services:create postgres <name>'.
+    """
 
     name = "pg:create"
 
     def add_arguments(self, parser: ArgumentParser) -> None:
-        parser.add_argument("name", type=str, help="Name of the database.")
-        parser.add_argument("user", type=str, help="Database user.")
-        parser.add_argument("password", type=str, help="User's password.")
+        parser.add_argument("name", type=str, help="Name of the database service.")
 
-    def run(self, name: str, user: str, password: str) -> None:
-        echo(f"Creating database '{name}' for user '{user}'.")
-        # TODO: Add actual implementation to create a database
-        echo(f"Database '{name}' created successfully.")
+    def run(self, name: str) -> None:
+        from hop3.core.plugins import get_service_strategy
+
+        echo(f"Creating PostgreSQL database '{name}'...")
+
+        try:
+            # Use the service strategy to create the database
+            service = get_service_strategy("postgres", name)
+            service.create()
+
+            echo(f"Database '{name}' created successfully.")
+            echo(
+                f"\nTo attach this database to an app, run:\n  hop services:attach {name} --app <app-name>"
+            )
+
+        except RuntimeError as e:
+            echo(f"Error: {e}")
+        except Exception as e:
+            echo(f"Unexpected error: {e}")
 
 
 @command
 class PgDropCmd:
-    """Drop a PostgreSQL database: hop pg:drop <name>."""
+    """Drop a PostgreSQL database: hop pg:drop <name>.
+
+    This is a convenience command that wraps 'hop services:destroy <name>'.
+    WARNING: This will permanently delete all data!
+    """
 
     name = "pg:drop"
 
@@ -43,9 +63,22 @@ class PgDropCmd:
         parser.add_argument("name", type=str, help="Name of the database to drop.")
 
     def run(self, name: str) -> None:
-        echo(f"Dropping database '{name}'.")
-        # TODO: Add actual implementation to drop a database
-        echo(f"Database '{name}' dropped successfully.")
+        from hop3.core.plugins import get_service_strategy
+
+        echo(f"Dropping database '{name}'...")
+        echo("WARNING: This will permanently delete all data!")
+
+        try:
+            # Use the service strategy to destroy the database
+            service = get_service_strategy("postgres", name)
+            service.destroy()
+
+            echo(f"Database '{name}' dropped successfully.")
+
+        except RuntimeError as e:
+            echo(f"Error: {e}")
+        except Exception as e:
+            echo(f"Unexpected error: {e}")
 
 
 @command
@@ -134,14 +167,35 @@ class PgCopyCmd:
 
 @command
 class PgCredentialsCmd:
-    """Show database credentials: hop pg:credentials."""
+    """Show database credentials: hop pg:credentials <name>."""
 
     name = "pg:credentials"
 
-    def run(self) -> None:
-        echo("Fetching database credentials...")
-        # TODO: Implement logic to fetch credentials
-        echo("Database credentials displayed successfully.")
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        parser.add_argument("name", type=str, help="Name of the database.")
+
+    def run(self, name: str) -> None:
+        from hop3.core.plugins import get_service_strategy
+
+        echo(f"Fetching credentials for database '{name}'...")
+
+        try:
+            # Use the service strategy to get connection details
+            service = get_service_strategy("postgres", name)
+            details = service.get_connection_details()
+
+            # Display the credentials
+            for key, value in details.items():
+                # Mask password in display
+                if "PASSWORD" in key.upper():
+                    echo(f"{key}: {'*' * 8}")
+                else:
+                    echo(f"{key}: {value}")
+
+        except RuntimeError as e:
+            echo(f"Error: {e}")
+        except Exception as e:
+            echo(f"Unexpected error: {e}")
 
 
 @command
@@ -158,14 +212,31 @@ class PgDiagnoseCmd:
 
 @command
 class PgInfoCmd:
-    """Show database information: hop pg:info."""
+    """Show database information: hop pg:info <name>."""
 
     name = "pg:info"
 
-    def run(self) -> None:
-        echo("Fetching database information...")
-        # TODO: Implement logic to fetch information
-        echo("Database information displayed successfully.")
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        parser.add_argument("name", type=str, help="Name of the database.")
+
+    def run(self, name: str) -> None:
+        from hop3.core.plugins import get_service_strategy
+
+        echo(f"Fetching information for database '{name}'...")
+
+        try:
+            # Use the service strategy to get info
+            service = get_service_strategy("postgres", name)
+            info = service.info()
+
+            # Display the information
+            for key, value in info.items():
+                echo(f"{key}: {value}")
+
+        except RuntimeError as e:
+            echo(f"Error: {e}")
+        except Exception as e:
+            echo(f"Unexpected error: {e}")
 
 
 @command

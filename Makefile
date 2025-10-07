@@ -7,7 +7,8 @@ PKG:=hop3,hop3_agent,hop3_server,hop3_web,hop3_lib
 # Either uncomment and set the following variables or set them in the environment
 # HOP3_DEV_HOST=XXX
 
-all: lint test
+all:
+	just all
 
 #
 # Used by CI

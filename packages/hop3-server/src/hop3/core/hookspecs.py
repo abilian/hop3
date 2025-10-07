@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from .hooks import hop3_hook_spec
-from .protocols import BuildStrategy, DeploymentStrategy
+from .protocols import BuildStrategy, DeploymentStrategy, ServiceStrategy
 
 
 # --- Hook Specification Container ---
@@ -17,6 +17,11 @@ class Hop3Spec:
     @hop3_hook_spec
     def get_deployment_strategies(self) -> list[type[DeploymentStrategy]]:
         """A hook for plugins to return their DeploymentStrategy classes."""
+        return []  # Default empty implementation
+
+    @hop3_hook_spec
+    def get_service_strategies(self) -> list[type[ServiceStrategy]]:
+        """A hook for plugins to return their ServiceStrategy classes."""
         return []  # Default empty implementation
 
     # @hop3_hook_spec
