@@ -44,7 +44,8 @@ def main():
         output.write(f"\tjust {recipe_name}\n\n")
 
     makefile_path.write_text(
-        f"{orig_makefile}\n\n# Delegate to just\n\n{output.getvalue()}")
+        f"{orig_makefile}\n\n# Delegate to just\n\n{output.getvalue()}"
+    )
 
 
 if __name__ == "__main__":

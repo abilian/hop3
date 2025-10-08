@@ -8,7 +8,9 @@ def list_all_entry_points():
     Scans the current Python environment and lists all registered entry points,
     grouped by their entry point group name.
     """
-    print(f"--- Scanning for entry points in Python environment: {sys.executable} ---\n")
+    print(
+        f"--- Scanning for entry points in Python environment: {sys.executable} ---\n"
+    )
 
     try:
         # Get all entry points available in the environment
@@ -69,10 +71,14 @@ def check_specific_group(group_name: str):
         if not entry_points:
             print(f"-> RESULT: No entry points found for group '{group_name}'.\n")
             print("   This is likely why your plugin is not being discovered.")
-            print("   Ensure the plugin is installed in this environment (`pip install -e .`).")
+            print(
+                "   Ensure the plugin is installed in this environment (`pip install -e .`)."
+            )
             print("   And that its `pyproject.toml` defines the correct group name.")
         else:
-            print(f"-> RESULT: Found {len(entry_points)} entry point(s) for group '{group_name}':\n")
+            print(
+                f"-> RESULT: Found {len(entry_points)} entry point(s) for group '{group_name}':\n"
+            )
             for ep in entry_points:
                 print(f"  - Name: {ep.name}, Value: {ep.value}")
 
@@ -80,7 +86,7 @@ def check_specific_group(group_name: str):
         print(f"An error occurred while checking for group '{group_name}': {e}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # If a command-line argument is provided, check for that specific group.
     # Otherwise, list all groups.
     if len(sys.argv) > 1:

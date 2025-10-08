@@ -5,6 +5,7 @@ from pathlib import Path
 
 def main():
     import sys
+
     src_path = Path(sys.argv[1])
     if not src_path.exists():
         print(f"Source path {src_path} does not exist.")

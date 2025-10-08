@@ -38,7 +38,8 @@ def check_infrastructure():
         # Save SSH key
         import tempfile
         from pathlib import Path
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.pem') as f:
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".pem") as f:
             f.write(ssh_key)
             ssh_key_path = f.name
 
