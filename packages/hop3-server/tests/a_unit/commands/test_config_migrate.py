@@ -10,7 +10,7 @@ from textwrap import dedent
 
 import pytest
 
-from hop3.commands.config import MigrateProcfileCmd
+from hop3.commands.config import MigrateCmd
 from hop3.project.procfile import Procfile
 
 # Test cases: (procfile_content, expected_checks)
@@ -128,8 +128,8 @@ def test_migrate_procfile_generation(tmp_path, procfile_content, expected):
     procfile_path.write_text(procfile_content)
 
     # Run migration
-    cmd = MigrateProcfileCmd()
-    result = cmd.call(str(tmp_path), dry_run=False, backup=False)
+    cmd = MigrateCmd()
+    result = cmd.call("procfile", str(tmp_path), dry_run=False, backup=False)
 
     # Check that hop3.toml was created
     hop3_toml = tmp_path / "hop3.toml"
@@ -164,8 +164,8 @@ def test_migrate_procfile_dry_run(tmp_path):
     procfile_path = tmp_path / "Procfile"
     procfile_path.write_text(procfile_content)
 
-    cmd = MigrateProcfileCmd()
-    result = cmd.call(str(tmp_path), dry_run=True, backup=False)
+    cmd = MigrateCmd()
+    result = cmd.call("procfile", str(tmp_path), dry_run=True, backup=False)
 
     # Check that NO files were created
     hop3_toml = tmp_path / "hop3.toml"
@@ -186,8 +186,8 @@ def test_migrate_procfile_with_backup(tmp_path):
     procfile_path = tmp_path / "Procfile"
     procfile_path.write_text(procfile_content)
 
-    cmd = MigrateProcfileCmd()
-    result = cmd.call(str(tmp_path), dry_run=False, backup=True)
+    cmd = MigrateCmd()
+    result = cmd.call("procfile", str(tmp_path), dry_run=False, backup=True)
 
     # Check backup was created
     backup = tmp_path / "Procfile.bak"
@@ -207,8 +207,8 @@ def test_migrate_procfile_no_backup(tmp_path):
     procfile_path = tmp_path / "Procfile"
     procfile_path.write_text(procfile_content)
 
-    cmd = MigrateProcfileCmd()
-    result = cmd.call(str(tmp_path), dry_run=False, backup=False)
+    cmd = MigrateCmd()
+    result = cmd.call("procfile", str(tmp_path), dry_run=False, backup=False)
 
     # Backup should not exist
     backup = tmp_path / "Procfile.bak"
@@ -228,8 +228,8 @@ def test_migrate_procfile_already_exists(tmp_path):
     hop3_toml = tmp_path / "hop3.toml"
     hop3_toml.write_text("[metadata]\nid = 'existing'")
 
-    cmd = MigrateProcfileCmd()
-    result = cmd.call(str(tmp_path), dry_run=False, backup=False)
+    cmd = MigrateCmd()
+    result = cmd.call("procfile", str(tmp_path), dry_run=False, backup=False)
 
     # Should return error
     assert result[0]["t"] == "error"
@@ -238,8 +238,8 @@ def test_migrate_procfile_already_exists(tmp_path):
 
 def test_migrate_procfile_not_found(tmp_path):
     """Test error when Procfile doesn't exist."""
-    cmd = MigrateProcfileCmd()
-    result = cmd.call(str(tmp_path), dry_run=False, backup=False)
+    cmd = MigrateCmd()
+    result = cmd.call("procfile", str(tmp_path), dry_run=False, backup=False)
 
     assert result[0]["t"] == "error"
     assert "not found" in result[0]["text"]
@@ -248,8 +248,8 @@ def test_migrate_procfile_not_found(tmp_path):
 def test_migrate_procfile_directory_not_found(tmp_path):
     """Test error when directory doesn't exist."""
     nonexistent = tmp_path / "nonexistent"
-    cmd = MigrateProcfileCmd()
-    result = cmd.call(str(nonexistent), dry_run=False, backup=False)
+    cmd = MigrateCmd()
+    result = cmd.call("procfile", str(nonexistent), dry_run=False, backup=False)
 
     assert result[0]["t"] == "error"
     assert "Directory not found" in result[0]["text"]
@@ -262,8 +262,8 @@ def test_migrate_procfile_src_directory(tmp_path):
     procfile_path = src_dir / "Procfile"
     procfile_path.write_text("web: gunicorn app:app")
 
-    cmd = MigrateProcfileCmd()
-    result = cmd.call(str(tmp_path), dry_run=False, backup=False)
+    cmd = MigrateCmd()
+    result = cmd.call("procfile", str(tmp_path), dry_run=False, backup=False)
 
     # Should find and convert the Procfile in src/
     hop3_toml = src_dir / "hop3.toml"
@@ -278,8 +278,8 @@ def test_migrate_procfile_hop3_subdirectory(tmp_path):
     procfile_path = hop3_dir / "Procfile"
     procfile_path.write_text("web: python app.py")
 
-    cmd = MigrateProcfileCmd()
-    result = cmd.call(str(tmp_path), dry_run=False, backup=False)
+    cmd = MigrateCmd()
+    result = cmd.call("procfile", str(tmp_path), dry_run=False, backup=False)
 
     # Should find and convert the Procfile in src/hop3/
     hop3_toml = hop3_dir / "hop3.toml"
@@ -296,7 +296,7 @@ def test_generate_hop3_toml_direct():
     """)
 
     procfile = Procfile.from_str(procfile_content)
-    cmd = MigrateProcfileCmd()
+    cmd = MigrateCmd()
     toml_content = cmd._generate_hop3_toml(procfile)
 
     # Check structure

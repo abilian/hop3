@@ -3,10 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Simple script to test SSH connection before running E2E tests.
+"""Simple script to test SSH connection before running system integration tests.
 
 Run this first to verify your setup:
-    python packages/hop3-server/tests/c_e2e/test_connection.py
+    python packages/hop3-server/tests/c_system/test_connection.py
 """
 
 from __future__ import annotations
