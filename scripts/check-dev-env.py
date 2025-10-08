@@ -35,7 +35,9 @@ if not r:
 
 r = shutil.which("just")
 if not r:
-    print("Just not found. Install it with `brew install just` or `cargo install just`.")
+    print(
+        "Just not found. Install it with `brew install just` or `cargo install just`."
+    )
     sys.exit(1)
 
 print("All good.")

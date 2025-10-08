@@ -46,9 +46,7 @@ def get_current_version() -> list[int]:
         msg = f"Error parsing pyproject.toml: {e}"
         raise Error(msg)
     except ValueError:
-        msg = (
-            "Error: Invalid version format in pyproject.toml.  Expected format: x.y.z"
-        )
+        msg = "Error: Invalid version format in pyproject.toml.  Expected format: x.y.z"
         raise Error(msg)
 
 
