@@ -1,39 +1,180 @@
 # Testing Hop3
 
-## Unit Testing
+> **Note**: For comprehensive testing documentation, see [Testing Strategy](testing-strategy.md).
 
-Each subproject in Hop3 has its own unit tests. These tests are run using the `pytest` framework. To run the tests, navigate to the root directory of the subproject and run the following command:
+## Overview
+
+Hop3 uses a four-layer testing approach:
+
+1. **Unit Tests** (`tests/a_unit/`) - Individual components in isolation
+2. **Integration Tests** (`tests/b_integration/`) - Multiple components within subsystems
+3. **System Tests** (`tests/c_system/`) - CLI ↔ Server communication
+4. **E2E Tests** (`tests/d_e2e/`) - Full deployments with Docker
+
+## Quick Start
+
+### Run All Tests (Unit + Integration)
 
 ```bash
+# Using pytest
 pytest
-# or
+
+# Using make
 make test
+
+# Using just
+just test
 ```
 
-To run all the tests from the root directory of the project, run the following command:
+### Run Specific Test Layers
 
 ```bash
-nox
+# Unit tests only (fast, ~10 seconds)
+pytest packages/hop3-server/tests/a_unit/
+
+# Integration tests only (~1 minute)
+pytest packages/hop3-server/tests/b_integration/
+
+# System integration tests (requires running server, ~5 minutes)
+pytest packages/hop3-server/tests/c_system/
+
+# Full E2E tests (requires Docker, ~20 minutes)
+pytest packages/hop3-server/tests/d_e2e/
 ```
 
-## End-to-End Testing
+## Test Organization
 
-We have developped a specific framework to test the end-to-end functionalities of Hop3.
-
-First you have to have a server or VM which you can access thourgh SSH. While it should eventually be possible to use a local VM, we currently only support remote servers.
-
-The adress of the server should be set using the `HOP3_DEV_HOST` environment variable, for instance by setting a proper value in your `.envrc` file (if you are using `direnv`).
-
-To run the end-to-end tests, navigate to the root directory of the project and run the following command:
+### Layer 1: Unit Tests (`tests/a_unit/`)
+**Scope**: Individual components in isolation
+**Speed**: Very fast (< 1s total)
+**Requirements**: None
 
 ```bash
+pytest packages/hop3-server/tests/a_unit/ -v
+```
+
+### Layer 2: Integration Tests (`tests/b_integration/`)
+**Scope**: Multiple components within subsystem
+**Speed**: Fast (< 1 minute)
+**Requirements**: None (uses TestClient, in-memory DB)
+
+```bash
+pytest packages/hop3-server/tests/b_integration/ -v
+```
+
+Includes:
+- RPC security tests
+- Authentication middleware tests
+- Multi-component interaction tests
+
+### Layer 3: System Integration Tests (`tests/c_system/`)
+**Scope**: CLI ↔ Server RPC communication
+**Speed**: Medium (2-5 minutes)
+**Requirements**: Running hop3-server
+
+```bash
+# Start server in one terminal
+hop-server serve
+
+# Run tests in another terminal
+export HOP3_API_URL=http://localhost:8000
+pytest packages/hop3-server/tests/c_system/ -v
+```
+
+Or use remote server:
+```bash
+export HOP3_DEV_HOST=hop3@test-server.example.com
+pytest packages/hop3-server/tests/c_system/ -v
+```
+
+### Layer 4: Full E2E Tests (`tests/d_e2e/`)
+**Scope**: Complete system with real deployments
+**Speed**: Slow (10-20 minutes)
+**Requirements**: Docker
+
+```bash
+# Install Docker requirements
+pip install -r packages/hop3-server/tests/d_e2e/requirements.txt
+
+# Run E2E tests
+pytest packages/hop3-server/tests/d_e2e/ -v
+```
+
+Includes:
+- Python Flask/Django deployments
+- Node.js deployments (future)
+- Ruby deployments (future)
+- Database service tests (future)
+
+## Legacy E2E Testing (hop3-testing)
+
+The `packages/hop3-testing/` package provides a legacy E2E test framework using the `hop-test` command. This is still used for manual testing but will be replaced by the Docker-based E2E tests in `tests/d_e2e/`.
+
+```bash
+# Legacy E2E tests (requires remote server)
+export HOP3_DEV_HOST=hop3@your-server.com
 make test-e2e
 ```
 
-## Contiuous Integration
+## Continuous Integration
 
-We are using `SourceHut` for our CI/CD pipeline. The configuration is stored in the `.builds` directory. The pipeline is triggered on each push to the `main` branch, but there is currently a delay because Sourcehut is currently set up as a GitHub mirror.
+### GitHub Actions (Future)
+
+Planned GitHub Actions workflow:
+- **Unit + Integration**: Run on every push
+- **System Tests**: Run with local server in background
+- **E2E Tests**: Run on schedule or manual trigger
+
+### SourceHut (Current)
+
+We are using `SourceHut` for our CI/CD pipeline. The configuration is stored in the `.builds` directory.
 
 See: <https://builds.sr.ht/~sfermigier/hop3/> for the current build status.
 
-Note that End-to-End tests are currently not run in the CI pipeline, as they require a specific setup.
+Currently running:
+- Unit tests
+- Integration tests
+- Linting and type checking
+
+E2E tests are not yet automated in CI.
+
+## Coverage
+
+View test coverage:
+```bash
+# Generate coverage report
+pytest --cov=hop3 --cov-report=html
+
+# Open in browser
+open htmlcov/index.html
+```
+
+Current coverage targets:
+- Overall: > 75%
+- Core modules: > 85%
+
+## Writing Tests
+
+See [Testing Strategy](testing-strategy.md) for:
+- Best practices
+- Test naming conventions
+- Fixture guidelines
+- Parametrized tests
+- Common patterns
+
+## Troubleshooting
+
+### Tests Hang
+- Check if server is running (for system tests)
+- Check Docker daemon (for E2E tests)
+- Use `-v -s` flags to see progress
+
+### Import Errors
+- Ensure packages are installed: `uv sync`
+- Check PYTHONPATH if running tests directly
+
+### Database Errors
+- Unit/integration tests use in-memory SQLite
+- System/E2E tests need PostgreSQL
+
+For more details, see the comprehensive [Testing Strategy](testing-strategy.md) document.
