@@ -9,6 +9,7 @@
 ignore.py
 packages-ignored
 packages-ignored2
+/local-notes
 
 # Temp
 /packages/hop3-web/src/hop3_web/lib/
@@ -61,3 +62,4 @@ coverage.xml
 
 # uv
 .python-version
+.aider*
