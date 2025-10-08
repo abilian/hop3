@@ -26,11 +26,32 @@ configure-git:
     echo "--> Configuring git"
     git config branch.autosetuprebase always
 
+# Check development environment
+check-dev-env:
+    python3 scripts/check-dev-env.py
+
 # Update dependencies
 update-deps:
+    echo "--> Updating dependencies"
     uv sync -U
     uv run pre-commit autoupdate
     uv pip list --outdated
+    uv pip list --format=freeze > compliance/requirements-full.txt
+
+# Generate Software Bill of Materials (SBOM) from venv for CRA compliance
+generate-sbom:
+    echo "--> Generating SBOM (assuming syft is installed)"
+    just clean
+    rm -rf .venv
+    uv sync -q --no-dev
+    uv pip list --format=freeze > compliance/requirements-prod.txt
+    syft .venv \
+        -o spdx-json=compliance/sbom-spdx.json \
+        -o cyclonedx-json=compliance/sbom-cyclonedx.json \
+        -o syft-text=compliance/sbom-syft.txt
+    npx prettier -w compliance/sbom-spdx.json
+    npx prettier -w compliance/sbom-cyclonedx.json
+    uv sync -q
 
 # Testing & checking
 test:
@@ -49,15 +70,21 @@ test-e2e:
     uv run hop-test
     echo ""
 
+test-system:
+    echo "--> Running system integration tests"
+    echo "This requires a running hop3-server (local or HOP3_DEV_HOST)"
+    uv run pytest packages/hop3-server/tests/c_system/ -v
+    echo ""
+
 test-e2e-cli:
-    echo "--> Running E2E tests with hop3-cli"
-    echo "This requires HOP3_DEV_HOST to be set"
-    uv run pytest packages/hop3-server/tests/c_e2e/ -v
+    echo "--> Running full E2E tests (Docker-based)"
+    echo "This requires Docker"
+    uv run pytest packages/hop3-server/tests/d_e2e/ -v
     echo ""
 
 test-with-coverage:
     echo "--> Running Python tests"
-    uv run pytest --cov=. --cov-report term-missing
+    uv run pytest --cov=hop3 --cov-report term-missing
     echo ""
 
 test-with-typeguard:
@@ -91,6 +118,10 @@ format-apps:
     bash -c "shopt -s globstar && gofmt -w apps/**/*.go"
     bash -c "shopt -s globstar && prettier -w apps/**/*.js"
 
+# Fix using ruff with unsafe fixes
+fix:
+    uv run ruff check packages/hop3-agent --fix --unsafe-fixes
+
 add-copyright:
     python scripts/update-copyright.py
 
@@ -103,16 +134,42 @@ clean:
     	.pytest_cache .pytest .DS_Store  docs/_build docs/cache docs/tmp \
     	dist build pip-wheel-metadata junit-*.xml htmlcov coverage.xml \
     	tmp
-    rm -rf */dist
+    rm -rf packages/*/dist packages/*/.pdm-build
     rm -rf .nox
     rm -rf site
     adt clean
+
+# Clean test artifacts
+clean-test:
+    rm -rf .pytest_cache .coverage htmlcov coverage.xml junit-*.xml
 
 # Cleanup harder
 tidy: clean
     rm -rf .nox .tox .venv
     bash -c "shopt -s globstar && rm -rf **/.tox **/.nox"
     rm -rf node_modules
+
+# Build & Deployment
+
+# Build the python packages
+build:
+    just clean
+    uv build packages/hop3-server
+    uv build packages/hop3-cli
+
+# Run server (in development mode)
+serve:
+    hop-server serve
+
+# Alias for serve
+run: serve
+
+# Documentation
+doc:
+    duty docs-build
+
+doc-serve:
+    duty docs
 
 #
 # Used by tests
@@ -131,21 +188,17 @@ clean-server:
 
 # Deploy to the server
 deploy:
-    echo "--> Deploying"
-    just clean
-    uv build packages/hop3-agent
+    echo "--> Deploying to ${HOP3_DEV_HOST}"
+    uv build packages/hop3-server
     uv run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
 
 
 # Git tasks
 sync-code:
-    git pull h3ni main
-    git pull origin main
-    git pull ci main
+    git pull origin
     @just push-code
 
-
 push-code:
-    git push h3ni main
-    git push origin main
-    git push ci main
+    git push origin
+    git push ci
+    git push eclipse
