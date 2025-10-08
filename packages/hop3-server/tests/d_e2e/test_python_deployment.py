@@ -98,7 +98,9 @@ def health():
 
         try:
             # Call deploy via RPC
-            response = client.rpc("cli", ["deploy", app_name], repository=repository_b64)
+            response = client.rpc(
+                "cli", ["deploy", app_name], repository=repository_b64
+            )
             print(f"Deploy response: {response}")
         finally:
             # Explicitly close the tunnel to prevent hanging
