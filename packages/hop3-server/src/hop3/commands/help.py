@@ -47,9 +47,38 @@ class HelpCmd(Command):
         commands.sort(key=lambda cmd: cmd.name)
         for cmd in commands:
             cmd_name = cmd.name
-            help_text = cmd.__doc__ or ""
+            # Extract only the first line of the docstring for the overview
+            # Full docstring is available when asking for help on a specific command
+            help_text = self._get_short_help(cmd.__doc__)
             output.append(f"  {cmd_name:<20} {help_text}")
 
         return [
             {"t": "text", "text": "\n".join(output)},
         ]
+
+    @staticmethod
+    def _get_short_help(docstring: str | None) -> str:
+        """Extract the first line (short summary) from a docstring.
+
+        Convention: The first line of a command's docstring should be a brief
+        one-line summary. This is shown in the command overview. The rest of
+        the docstring provides detailed help shown when asking for specific
+        command help.
+
+        Args:
+            docstring: The command's docstring
+
+        Returns:
+            The first line of the docstring, stripped of whitespace
+        """
+        if not docstring:
+            return ""
+
+        # Split by newlines and get the first non-empty line
+        lines = docstring.strip().split("\n")
+        for line in lines:
+            stripped = line.strip()
+            if stripped:
+                return stripped
+
+        return ""

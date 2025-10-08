@@ -90,22 +90,48 @@ class LiveCmd(Command):
 
 
 @register
-class MigrateProcfileCmd(Command):
-    """Convert Procfile to hop3.toml format.
+class MigrateCmd(Command):
+    """Migrate configuration from other PaaS formats to hop3.toml."""
 
-    Example: hop config:migrate-procfile <app_dir> [--dry-run] [--backup]
-    """
+    name = "config:migrate"
 
-    name = "config:migrate-procfile"
-
-    def call(self, app_dir: str, dry_run: bool = False, backup: bool = True):
-        """Convert a Procfile to hop3.toml format.
+    def call(
+        self,
+        from_format: str = "",
+        app_dir: str = "",
+        dry_run: bool = False,
+        backup: bool = True,
+    ):
+        """Migrate configuration from other PaaS formats to hop3.toml.
 
         Args:
+            from_format: Source format to migrate from (e.g., 'procfile')
             app_dir: Path to the application directory
             dry_run: If True, show what would be generated without writing
-            backup: If True, create backup of original Procfile
+            backup: If True, create backup of original file
         """
+        if not from_format or not app_dir:
+            return [
+                {
+                    "t": "text",
+                    "text": (
+                        "Usage: hop config:migrate <from-format> <app-dir> [--dry-run] [--backup]\n\n"
+                        "Supported formats:\n"
+                        "  procfile    Convert Procfile to hop3.toml\n\n"
+                        "Example:\n"
+                        "  hop config:migrate procfile /path/to/app"
+                    ),
+                }
+            ]
+
+        if from_format.lower() != "procfile":
+            return [
+                {
+                    "t": "error",
+                    "text": f"Unsupported format: {from_format}. Currently only 'procfile' is supported.",
+                }
+            ]
+
         app_path = Path(app_dir)
         if not app_path.exists():
             return [{"t": "error", "text": f"Directory not found: {app_dir}"}]

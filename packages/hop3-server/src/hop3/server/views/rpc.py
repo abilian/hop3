@@ -5,7 +5,6 @@ import json
 import traceback
 from typing import TYPE_CHECKING
 
-from starlette.exceptions import HTTPException
 from starlette.responses import Response
 
 from hop3.commands import Command
@@ -69,25 +68,28 @@ async def handle_rpc(request: Request):
     args = cli_args[1:]
 
     # Check authentication for commands that require it
+    # Only check if AuthenticationMiddleware is installed (i.e., auth is enabled)
     if requires_authentication(command):
-        if not request.user.is_authenticated:
-            error_rpc = {
-                "jsonrpc": "2.0",
-                "error": {
-                    "code": 401,
-                    "message": "Authentication required. Use 'hop3 auth:login' to authenticate.",
-                },
-                "id": json_request.get("id", 1),
-            }
-            return Response(
-                json.dumps(error_rpc),
-                media_type="application/json",
-                status_code=401,
-            )
+        # Check if user attribute is available (auth middleware installed)
+        if "user" in request.scope:
+            if not request.user.is_authenticated:
+                error_rpc = {
+                    "jsonrpc": "2.0",
+                    "error": {
+                        "code": 401,
+                        "message": "Authentication required. Use 'hop3 auth:login' to authenticate.",
+                    },
+                    "id": json_request.get("id", 1),
+                }
+                return Response(
+                    json.dumps(error_rpc),
+                    media_type="application/json",
+                    status_code=401,
+                )
 
-        # Pass authenticated username to commands that need it
-        if command_needs_username(command):
-            args = (request.user.display_name, *args)
+            # Pass authenticated username to commands that need it
+            if command_needs_username(command):
+                args = (request.user.display_name, *args)
 
     try:
         result = call(command, args, extra_args)
@@ -96,7 +98,36 @@ async def handle_rpc(request: Request):
         return Response(json_result, media_type="application/json")
     except ValueError as e:
         traceback.print_exc()
-        raise HTTPException(status_code=400, detail=str(e))
+        # Return JSON-RPC error instead of HTTP exception
+        error_rpc = {
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32602,  # Invalid params
+                "message": str(e),
+            },
+            "id": json_request.get("id", 1),
+        }
+        return Response(
+            json.dumps(error_rpc),
+            media_type="application/json",
+            status_code=200,  # JSON-RPC errors still return 200
+        )
+    except Exception as e:
+        traceback.print_exc()
+        # Return JSON-RPC error for any exception
+        error_rpc = {
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32603,  # Internal error
+                "message": f"{type(e).__name__}: {e!s}",
+            },
+            "id": json_request.get("id", 1),
+        }
+        return Response(
+            json.dumps(error_rpc),
+            media_type="application/json",
+            status_code=200,  # JSON-RPC errors still return 200
+        )
 
 
 def call(command_name: str, args: list[str], extra_args: JsonDict):
