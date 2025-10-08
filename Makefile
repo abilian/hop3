@@ -116,10 +116,16 @@ test-e2e:
 	hop-test
 	@echo ""
 
+test-system:
+	@echo "--> Running system integration tests"
+	@echo "This requires a running hop3-server (local or HOP3_DEV_HOST)"
+	uv run pytest packages/hop3-server/tests/c_system/ -v
+	@echo ""
+
 test-e2e-cli:
-	@echo "--> Running E2E tests with hop3-cli"
-	@echo "This requires HOP3_DEV_HOST to be set"
-	uv run pytest packages/hop3-server/tests/c_e2e/ -v
+	@echo "--> Running full E2E tests (Docker-based)"
+	@echo "This requires Docker"
+	uv run pytest packages/hop3-server/tests/d_e2e/ -v
 	@echo ""
 
 test-with-coverage:
