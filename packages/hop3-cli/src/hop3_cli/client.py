@@ -74,17 +74,29 @@ class Client:
 
         ssh_host = parsed_url.hostname
         ssh_user = parsed_url.username or self.config.get("ssh_user", "root")
+        ssh_port = parsed_url.port or self.config.get("ssh_port", 22)
 
         # The remote port is the one the server is listening on *on the remote machine*.
         remote_server_port = self.config.get("server_port", 8000)
 
+        # Build tunnel kwargs
+        tunnel_kwargs = {
+            "ssh_username": ssh_user,
+            "ssh_port": ssh_port,
+            "remote_bind_address": ("localhost", remote_server_port),
+        }
+
+        # Add SSH key if provided
+        ssh_key = self.config.get("ssh_key")
+        if ssh_key:
+            tunnel_kwargs["ssh_pkey"] = ssh_key
+
         self.tunnel = SSHTunnelForwarder(
             ssh_host,
-            ssh_username=ssh_user,
-            remote_bind_address=("localhost", remote_server_port),
+            **tunnel_kwargs,
         )
         logger.debug(
-            f"Starting SSH tunnel to {ssh_host} (remote port: {remote_server_port})"
+            f"Starting SSH tunnel to {ssh_host}:{ssh_port} (remote port: {remote_server_port})"
         )
         try:
             self.tunnel.start()

@@ -272,7 +272,8 @@ def run_hop3_command(
 
     result = subprocess.run(
         cmd,
-        check=False, env=env,
+        check=False,
+        env=env,
         capture_output=True,
         text=True,
     )

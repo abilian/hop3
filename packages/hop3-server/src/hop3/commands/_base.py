@@ -1,4 +1,33 @@
 # Copyright (c) 2023-2025, Abilian SAS
+
+"""
+Command Docstring Convention
+============================
+
+When writing CLI commands, follow this docstring convention:
+
+- **First Line**: A brief one-line summary (shown in ``hop --help`` overview)
+- **Blank Line**: Separate the summary from detailed help
+- **Detailed Help**: Usage instructions, examples, and detailed description (shown when asking for specific command help)
+
+Example:
+
+.. code-block:: python
+
+    class MyCmd(Command):
+        '''Brief one-line summary of what this command does.
+
+        This is the detailed help that includes usage instructions,
+        examples, and more detailed explanations.
+
+        Usage: hop mycommand <arg1> <arg2>
+
+        Examples:
+            hop mycommand foo bar
+            hop mycommand --option value
+        '''
+"""
+
 from __future__ import annotations
 
 from typing import ClassVar
