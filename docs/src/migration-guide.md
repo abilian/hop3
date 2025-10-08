@@ -206,10 +206,10 @@ Use the built-in migration command:
 
 ```bash
 # Dry run - see what would be generated
-hop3 config:migrate-procfile /path/to/app --dry-run
+hop3 config:migrate procfile /path/to/app --dry-run
 
 # Actually migrate
-hop3 config:migrate-procfile /path/to/app
+hop3 config:migrate procfile /path/to/app
 ```
 
 This will:

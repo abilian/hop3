@@ -279,7 +279,7 @@ plan = "standard"
 Use the migration command to convert an existing Procfile:
 
 ```bash
-hop3 config:migrate-procfile /path/to/app --dry-run
+hop3 config:migrate procfile /path/to/app --dry-run
 ```
 
 This will generate a hop3.toml from your Procfile. Review and customize as needed.
