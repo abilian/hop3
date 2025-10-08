@@ -1,0 +1,13 @@
+# Don't include these in Docker build context
+.venv/
+__pycache__/
+*.pyc
+.git/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.ruff_cache/
+.mypy_cache/
+node_modules/
+tmp/
