@@ -190,8 +190,8 @@ def api_info():
         )
 
         container = hop3_container["container"]
-        with open(f"/tmp/{app_name}.tar", "rb") as f:
-            container.put_archive("/tmp", f.read())
+        tarball_data = Path(f"/tmp/{app_name}.tar").read_bytes()
+        container.put_archive("/tmp", tarball_data)
 
         container.exec_run(
             f"su - hop3 -c '~/venv/bin/hop-server deploy {app_name} /tmp/{app_name}.tar'",

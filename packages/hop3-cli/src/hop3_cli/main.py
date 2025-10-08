@@ -48,6 +48,11 @@ def run_command_from_args(cli_args: list[str]) -> None:
     if not cli_args:
         cli_args = ["help"]
 
+    # Handle --help and -h flags
+    # Convert "hop --help" to "hop help"
+    # Convert "hop run --help" to "hop help run"
+    cli_args = handle_help_flags(cli_args)
+
     extra_args = get_extra_args(cli_args)
 
     response = None
@@ -74,6 +79,41 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     if client.tunnel:
         client.tunnel.stop()
+
+
+def handle_help_flags(args: list[str]) -> list[str]:
+    """Convert --help/-h flags to help command invocations.
+
+    Examples:
+        ["--help"] -> ["help"]
+        ["-h"] -> ["help"]
+        ["run", "--help"] -> ["help", "run"]
+        ["run", "-h"] -> ["help", "run"]
+        ["run", "myapp", "--help"] -> ["help", "run"]  # help for run, not run with --help
+
+    Args:
+        args: Command-line arguments
+
+    Returns:
+        Modified arguments with --help converted to help command
+    """
+    if not args:
+        return args
+
+    # Check if --help or -h is anywhere in the args
+    if "--help" in args or "-h" in args:
+        # Remove --help and -h from args
+        filtered_args = [arg for arg in args if arg not in {"--help", "-h"}]
+
+        if not filtered_args:
+            # Just "--help" with no command -> show general help
+            return ["help"]
+        else:
+            # "command --help" -> "help command"
+            # Only use the first argument as the command name
+            return ["help", filtered_args[0]]
+
+    return args
 
 
 #
