@@ -41,7 +41,7 @@ dev-dependencies = [
     # Used by `inv watch`
     "watchfiles >= 0.24.0",
     # Used by testing infra
-    "httpx >= 0.27.0",
+    "httpx>=0.27.0",
     "pytest-asyncio >= 0.23.0",
     "python-dotenv >= 1.0.1",
     # Experimental
@@ -87,20 +87,32 @@ dev-dependencies = [
     "hatchling>=1.27.0",
     "types-urllib3>=1.26.25.14",
     "pyrefly>=0.34.0",
+    "docker>=7.1.0",
+    "pytest>=8.4.2",
 ]
 
 [tool.uv.workspace]
 members = ["packages/*"]
 
 [tool.uv.sources]
-hop3-lib = { workspace = true }
-hop3-agent = { workspace = true }
 hop3-cli = { workspace = true }
 hop3-server = { workspace = true }
-hop3-web = { workspace = true }
 hop3-testing = { workspace = true }
-hop3-smo-plugin = { path = "../hop3-plugins-for-h3ni" }
+# hop3-web = { workspace = true }
+# hop3-lib = { workspace = true }
+# hop3-agent = { workspace = true }
+# hop3-smo-plugin = { path = "../hop3-plugins-for-h3ni" }
 
+[build-system]
+requires = ["uv-build>=0.8.4,<0.9.0"]
+build-backend = "uv_build"
+
+#[tool.uv.build-backend]
+#module-name = "xxx"
+#module-root = "src"
+
+# ------------------------------------
+# Tools
 # ------------------------------------
 
 [tool.isort]
@@ -115,10 +127,10 @@ addopts = "-ra --import-mode=importlib"
 testpaths = [
     "packages/hop3-server/tests/a_unit",
     "packages/hop3-server/tests/b_integration",
-    # E2E tests require HOP3_DEV_HOST environment variable
-    # Run with: pytest packages/hop3-server/tests/c_e2e/
-    # Or: make test-e2e-cli
-    # "packages/hop3-server/tests/c_e2e",
+    # System integration tests require running server
+    # Run with: pytest packages/hop3-server/tests/c_system/
+    # Or: make test-system
+    # "packages/hop3-server/tests/c_system",
     # Disabled for now
     #    "packages/*/tests",
     #    # Tests may be in the same directory as the code
