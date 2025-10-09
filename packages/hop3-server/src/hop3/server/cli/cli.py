@@ -54,8 +54,8 @@ def main(argv: list[str] | None = None) -> None:
 
     # Prepare keyword arguments from parsed arguments
     kwargs = vars(args)
-    _verbose = kwargs.pop("verbose")
-    _quiet = kwargs.pop("quiet")
+    global_verbose = kwargs.pop("verbose", False)
+    global_quiet = kwargs.pop("quiet", False)
 
     # The function to be executed is stored in the 'func' key, this is a classic idiom
     func: Callable | None = kwargs.pop("func", None)
@@ -63,6 +63,22 @@ def main(argv: list[str] | None = None) -> None:
     if not func:
         print_help()
         return
+
+    # Merge global verbose/quiet with command-specific verbose flags
+    # This allows both "hop-server -v cmd" and "hop-server cmd -v" to work
+    for key in list(kwargs.keys()):
+        if key.startswith("verbose_") or key == "verbose":
+            kwargs[key] = kwargs[key] or global_verbose
+        elif key.startswith("quiet_") or key == "quiet":
+            kwargs[key] = kwargs[key] or global_quiet
+
+    # If command accepts verbose/quiet parameters but doesn't have them, add global values
+    sig = inspect.signature(func)
+    params = sig.parameters
+    if "verbose" in params and "verbose" not in kwargs:
+        kwargs["verbose"] = global_verbose
+    if "quiet" in params and "quiet" not in kwargs:
+        kwargs["quiet"] = global_quiet
 
     func(**kwargs)
 
