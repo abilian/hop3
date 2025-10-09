@@ -63,22 +63,23 @@ class Plugins(Command):
 
     def _get_plugin_info(self, plugin) -> dict[str, str]:
         """Extract plugin information, handling both module and class-based plugins."""
-        # TODO: use match statement
-        if isinstance(plugin, types.ModuleType):
-            # Module-based plugin
-            return {
-                "name": getattr(plugin, "__name__", "unknown").split(".")[-1],
-                "full_path": plugin.__name__,
-                "doc": plugin.__doc__,
-            }
-        else:
-            # Class-based plugin
-            plugin_class = plugin.__class__
-            return {
-                "name": getattr(plugin, "name", plugin_class.__name__),
-                "full_path": f"{plugin_class.__module__}.{plugin_class.__name__}",
-                "doc": plugin_class.__doc__,
-            }
+
+        match plugin:
+            case types.ModuleType():
+                # Module-based plugin
+                return {
+                    "name": getattr(plugin, "__name__", "unknown").split(".")[-1],
+                    "full_path": plugin.__name__,
+                    "doc": plugin.__doc__,
+                }
+            case _:
+                # Class-based plugin
+                plugin_class = plugin.__class__
+                return {
+                    "name": getattr(plugin, "name", plugin_class.__name__),
+                    "full_path": f"{plugin_class.__module__}.{plugin_class.__name__}",
+                    "doc": plugin_class.__doc__,
+                }
 
     def _print_plugin_details(self, pm, plugin):
         """Print detailed information about a plugin using pluggy's introspection API."""
