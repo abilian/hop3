@@ -63,10 +63,18 @@ class BearerTokenBackend(AuthenticationBackend):
         try:
             scheme, token = auth_header.split(" ", 1)
         except ValueError:
+            # For RPC, allow through with invalid header format
+            # The RPC handler will reject if the command requires auth
+            if conn.url.path == "/rpc":
+                return None
             msg = "Invalid Authorization header format"
             raise AuthenticationError(msg)
 
         if scheme.lower() != "bearer":
+            # For RPC, allow through with invalid scheme
+            # The RPC handler will reject if the command requires auth
+            if conn.url.path == "/rpc":
+                return None
             msg = "Only Bearer authentication is supported"
             raise AuthenticationError(msg)
 
@@ -76,6 +84,12 @@ class BearerTokenBackend(AuthenticationBackend):
         # Validate the token
         user_info = validate_token(token)
         if not user_info:
+            # For RPC, allow through with invalid token
+            # This allows public commands (auth:register, auth:login) to work
+            # even if the user has an expired token in their config
+            # The RPC handler will reject if the command requires auth
+            if conn.url.path == "/rpc":
+                return None
             msg = "Invalid or expired token"
             raise AuthenticationError(msg)
 
