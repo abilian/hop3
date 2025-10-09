@@ -21,6 +21,7 @@ from starlette.middleware import Middleware
 from starlette.middleware.authentication import (
     AuthenticationMiddleware as StarletteAuthMiddleware,
 )
+from starlette.responses import JSONResponse
 
 from hop3.server.security.tokens import validate_token
 
@@ -69,6 +70,9 @@ class BearerTokenBackend(AuthenticationBackend):
             msg = "Only Bearer authentication is supported"
             raise AuthenticationError(msg)
 
+        # Strip whitespace from token
+        token = token.strip()
+
         # Validate the token
         user_info = validate_token(token)
         if not user_info:
@@ -105,10 +109,30 @@ class BearerTokenBackend(AuthenticationBackend):
         return any(path.startswith(prefix) for prefix in public_prefixes)
 
 
+def on_auth_error(conn: HTTPConnection, exc: AuthenticationError) -> JSONResponse:
+    """Custom error handler that returns 401 instead of 400.
+
+    Args:
+        conn: The HTTP connection
+        exc: The authentication error
+
+    Returns:
+        JSON response with 401 status code
+    """
+    return JSONResponse(
+        {"detail": str(exc)},
+        status_code=401,
+    )
+
+
 def AuthenticationMiddleware() -> Middleware:
     """Create the authentication middleware.
 
     Returns:
         Configured authentication middleware
     """
-    return Middleware(StarletteAuthMiddleware, backend=BearerTokenBackend())
+    return Middleware(
+        StarletteAuthMiddleware,
+        backend=BearerTokenBackend(),
+        on_error=on_auth_error,
+    )

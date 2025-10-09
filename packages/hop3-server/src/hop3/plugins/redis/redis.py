@@ -18,7 +18,6 @@ class RedisAddon:
         """Create Redis instance configuration if needed."""
         # Redis doesn't require database creation like PostgreSQL
         # Configuration would be handled by Redis instance provisioning
-        pass
 
     @property
     def instance_name(self) -> str:

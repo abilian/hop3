@@ -11,7 +11,7 @@ from starlette.middleware.authentication import (
 )
 
 from .lib.scanner import scan_package
-from .middleware.auth import BearerTokenBackend
+from .middleware.auth import BearerTokenBackend, on_auth_error
 from .singletons import router
 
 if TYPE_CHECKING:
@@ -34,7 +34,11 @@ def create_app():
     middleware = []
     if enable_auth:
         middleware.append(
-            Middleware(StarletteAuthMiddleware, backend=BearerTokenBackend())
+            Middleware(
+                StarletteAuthMiddleware,
+                backend=BearerTokenBackend(),
+                on_error=on_auth_error,
+            )
         )
 
     return Starlette(debug=DEBUG, routes=routes, middleware=middleware)
