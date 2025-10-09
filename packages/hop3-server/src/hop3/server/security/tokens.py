@@ -19,6 +19,9 @@ import jwt
 if TYPE_CHECKING:
     pass
 
+# Valid scopes that can be assigned to tokens
+VALID_SCOPES = {"authenticated", "admin", "user"}
+
 
 def get_secret_key() -> str:
     """Get the secret key for token signing.
@@ -83,12 +86,36 @@ def validate_token(token: str) -> dict[str, Any] | None:
     """
     try:
         secret_key = get_secret_key()
-        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+
+        # Decode with strict validation
+        # - algorithms=["HS256"]: Only allow HS256, prevents "none" algorithm attack
+        # - options: Require specific claims
+        payload = jwt.decode(
+            token,
+            secret_key,
+            algorithms=["HS256"],
+            options={
+                "require": ["exp", "sub"],  # Require expiration and subject
+            },
+        )
+
+        # Validate that the token has proper scopes
+        scopes = payload.get("scopes", [])
+        if not isinstance(scopes, list):
+            return None
+
+        # Scopes list must not be empty
+        if not scopes:
+            return None
+
+        # At least one scope must be valid
+        if not any(scope in VALID_SCOPES for scope in scopes):
+            return None
 
         # Extract user info from payload
         return {
             "username": payload.get("sub"),
-            "scopes": payload.get("scopes", ["authenticated"]),
+            "scopes": scopes,
             "issued_at": payload.get("iat"),
             "expires_at": payload.get("exp"),
             "token_id": payload.get("jti"),
