@@ -26,7 +26,20 @@ commands = {command.name: command for command in lookup(Command)}
 PUBLIC_COMMANDS = {"auth:login", "auth:register", "help"}
 
 # Commands that need the authenticated username passed as first argument
-USERNAME_COMMANDS = {"auth:whoami"}
+USERNAME_COMMANDS = {
+    "auth:whoami",
+    # Admin commands (all require authenticated username for permission checks)
+    "admin:user:add",
+    "admin:user:remove",
+    "admin:user:list",
+    "admin:user:enable",
+    "admin:user:disable",
+    "admin:user:grant-admin",
+    "admin:user:revoke-admin",
+    "admin:user:set-password",
+    "admin:user:info",
+    "admin:user:generate-token",
+}
 
 
 def requires_authentication(command: str) -> bool:
