@@ -1,6 +1,3 @@
-# Copyright (c) 2025, Abilian SAS
-from __future__ import annotations
-
-
-def main() -> None:
-    print("Hello from hop3-docker-plugin!")
+# Copyright (c) 2023-2025, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0

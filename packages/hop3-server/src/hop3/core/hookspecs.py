@@ -1,31 +1,39 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
+
 from __future__ import annotations
 
-from .hooks import hop3_hook_spec
-from .protocols import BuildStrategy, DeploymentStrategy, ServiceStrategy
+from .hooks import hookspec
 
 
-# --- Hook Specification Container ---
-class Hop3Spec:
-    @hop3_hook_spec
-    def get_build_strategies(self) -> list[type[BuildStrategy]]:
-        """A hook for plugins to return their BuildStrategy classes."""
-        return []  # Default empty implementation
+@hookspec
+def cli_commands() -> None:
+    """Get CLI commands."""
 
-    @hop3_hook_spec
-    def get_deployment_strategies(self) -> list[type[DeploymentStrategy]]:
-        """A hook for plugins to return their DeploymentStrategy classes."""
-        return []  # Default empty implementation
 
-    @hop3_hook_spec
-    def get_service_strategies(self) -> list[type[ServiceStrategy]]:
-        """A hook for plugins to return their ServiceStrategy classes."""
-        return []  # Default empty implementation
+@hookspec
+def get_build_strategies() -> list:
+    """Get build strategies provided by this plugin.
 
-    # @hop3_hook_spec
-    # def register_cli_commands(self) -> List[Type[TODO]]:
-    #     """A hook for plugins to return their CLI commands."""
-    #     return []  # Default empty implementation
-    #
+    Returns:
+        List of BuildStrategy classes
+    """
+
+
+@hookspec
+def get_deployment_strategies() -> list:
+    """Get deployment strategies provided by this plugin.
+
+    Returns:
+        List of DeploymentStrategy classes
+    """
+
+
+@hookspec
+def get_service_strategies() -> list:
+    """Get service strategies provided by this plugin.
+
+    Returns:
+        List of ServiceStrategy classes
+    """

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from hop3.plugins.build.native_build.builders import (
+from hop3.builders import (
     ClojureBuilder,
     NodeBuilder,
     PythonBuilder,

@@ -49,20 +49,9 @@ class PythonBuilder(Builder):
 
         emit(CreatingVirtualEnv(self.app_name))
 
-        # Use Python's built-in venv module (available since Python 3.3)
-        # This is more portable than virtualenv which requires separate installation
-        try:
-            self.shell(f"python3 -m venv {self.virtual_env}")
-        except Exception as e:
-            error_msg = (
-                f"Failed to create virtual environment for '{self.app_name}': {e}\n\n"
-                "This usually means the python3-venv package is not installed.\n"
-                "On Debian/Ubuntu systems, install it with:\n"
-                "  sudo apt-get install python3-venv\n\n"
-                "On RHEL/CentOS/Fedora systems, install it with:\n"
-                "  sudo dnf install python3-virtualenv\n"
-            )
-            raise RuntimeError(error_msg) from e
+        self.shell(f"virtualenv {self.virtual_env}")
+        # TODO: consider using the built-in venv module instead of
+        # (or as an alternative to) virtualenv
 
     def install_virtualenv(self) -> None:
         """Install virtual environment and necessary dependencies for the
