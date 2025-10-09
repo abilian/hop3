@@ -96,6 +96,7 @@ def get_plugin_manager() -> PluginManager:
 
     # Import hookspecs as a module, not a class
     from . import hookspecs
+
     pm.add_hookspecs(hookspecs)
 
     # Import all plugin modules and auto-discover plugin instances
