@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hop3.plugins.build.native_build.builders import (
+from hop3.builders import (
     GoBuilder,
     NodeBuilder,
     PythonBuilder,

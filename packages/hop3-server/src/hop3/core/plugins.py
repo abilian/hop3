@@ -1,6 +1,9 @@
 # Copyright (c) 2025, Abilian SAS
+
 from __future__ import annotations
 
+import importlib
+import pkgutil
 import traceback
 from typing import TYPE_CHECKING
 
@@ -13,9 +16,10 @@ from hop3.plugins.build.dummy_build.builder import DummyBuildStrategy
 from hop3.plugins.deploy.dummy_deploy.deploy import DummyDeployer
 
 from .hooks import hop3_hook_impl
-from .hookspecs import Hop3Spec
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from .protocols import (
         BuildArtifact,
         BuildStrategy,
@@ -28,69 +32,85 @@ if TYPE_CHECKING:
 _plugin_manager: pluggy.PluginManager | None = None
 
 
-def get_plugin_manager() -> pluggy.PluginManager:
-    """
-    Initializes and returns the singleton Hop3 PluginManager.
+def get_core_plugins() -> Iterator:
+    """Discover and import all core plugin modules.
 
-    This function is the main entry point for accessing the plugin system.
-    It creates the manager on its first call and then returns the cached
-    instance on subsequent calls. It discovers all built-in and external plugins.
+    This scans the hop3.plugins package and imports all modules,
+    which causes plugin instances to be created and exported.
 
     Returns:
-        The configured pluggy.PluginManager instance.
+        Iterator of imported plugin modules
+    """
+    return scan_package("hop3.plugins")
+
+
+def scan_package(package_name: str) -> Iterator:
+    """Import all modules in a package recursively for side effects.
+
+    Args:
+        package_name: The name of the package to scan and import modules from.
+
+    Returns:
+        Iterator that yields each module imported from the package.
+    """
+    for module_name in _iter_module_names(package_name):
+        # Import the module by name and yield it
+        yield importlib.import_module(module_name)
+
+
+def _iter_module_names(package_name: str) -> Iterator:
+    """Generate an iterator over all module names within a given package.
+
+    Args:
+        package_name: The name of the package from which to list all modules.
+
+    Returns:
+        Iterator that yields the names of the modules within the specified package.
+    """
+    package_or_module = importlib.import_module(package_name)
+    if not hasattr(package_or_module, "__path__"):
+        # If the imported object is a module, not a package, exit the function.
+        return
+
+    path = package_or_module.__path__
+    prefix = package_or_module.__name__ + "."
+    for _, module_name, _ in pkgutil.walk_packages(path, prefix):
+        # Yield the name of each module found in the package.
+        yield module_name
+
+
+def get_plugin_manager() -> PluginManager:
+    """Initialize and configure a PluginManager for the 'hop3' project.
+
+    This uses pluggy's natural discovery: plugin modules export a `plugin`
+    instance which gets auto-registered when the module is imported.
+
+    Returns:
+        PluginManager: An instance of PluginManager configured with core plugins and entry points.
     """
     global _plugin_manager
     if _plugin_manager:
         return _plugin_manager
 
     pm = pluggy.PluginManager("hop3")
-    pm.add_hookspecs(Hop3Spec)
 
-    # 3. Load all external plugins.
-    # This looks for installed packages that have a `[hop3.plugins]`
-    # section in their `pyproject.toml` or `entry_points` in `setup.py`.
+    # Import hookspecs as a module, not a class
+    from . import hookspecs
+    pm.add_hookspecs(hookspecs)
+
+    # Import all plugin modules and auto-discover plugin instances
+    for module in get_core_plugins():
+        # Each plugin module should export a `plugin` instance
+        if hasattr(module, "plugin"):
+            pm.register(module.plugin)
+
+    # For plugins that are not built-in, we load them from setuptools entry points
     pm.load_setuptools_entrypoints("hop3")
-
-    # 4. Manually register the core, built-in plugins.
-    register_core_plugins(pm)
 
     # Cache the initialized manager in the global variable.
     _plugin_manager = pm
 
     return pm
-
-
-def register_core_plugins(pm: PluginManager) -> None:
-    """
-    Registers the core Hop3 plugins with the PluginManager.
-
-    This function is called at startup to ensure that the built-in strategies
-    (like Buildpack and uWSGI) are always available.
-    """
-    # Register the PostgreSQL service plugin
-    from hop3.plugins.services.postgresql.plugin import PostgresqlPlugin
-
-    pm.register(PostgresqlPlugin())
-
-    # Register the Redis service plugin
-    from hop3.plugins.services.redis.plugin import RedisPlugin
-
-    pm.register(RedisPlugin())
-
-    # Register the native build plugin
-    from hop3.plugins.build.native_build.plugin import NativeBuildPlugin
-
-    pm.register(NativeBuildPlugin())
-
-    # Register the Docker plugin
-    from hop3.plugins.docker.plugin import DockerPlugin
-
-    pm.register(DockerPlugin())
-
-    # TODO: really register the core plugins.
-    # Or do we?
-    # pm.register(CorePlugin())
-    # pm.register(SmoPlugin())
 
 
 class CorePlugin:
@@ -99,12 +119,12 @@ class CorePlugin:
     name = "core"
 
     @hop3_hook_impl
-    def get_build_strategies(self) -> list[type[BuildStrategy]]:
+    def get_build_strategies(self) -> list:
         # This hook returns classes, not instances.
         return [DummyBuildStrategy]
 
     @hop3_hook_impl
-    def get_deployment_strategies(self) -> list[type[DeploymentStrategy]]:
+    def get_deployment_strategies(self) -> list:
         return [DummyDeployer]
 
 

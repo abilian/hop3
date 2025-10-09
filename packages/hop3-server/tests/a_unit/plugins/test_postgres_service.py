@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from hop3.plugins.services.postgresql.postgres import PostgresService
+from hop3.plugins.postgresql.postgres import PostgresService
 
 
 @pytest.fixture
@@ -115,7 +115,7 @@ def test_backup_creates_file(postgres_service, tmp_path):
         patch("subprocess.run") as mock_run,
         patch("pathlib.Path.mkdir"),
         patch(
-            "hop3.plugins.services.postgresql.postgres.Path",
+            "hop3.plugins.postgresql.postgres.Path",
             return_value=tmp_path / "backups" / "postgres",
         ),
     ):
@@ -226,7 +226,7 @@ def test_create_database_executes_sql(postgres_service):
 
 def test_legacy_alias():
     """Test that PostgresqlAddon is an alias for PostgresService."""
-    from hop3.plugins.services.postgresql.postgres import (
+    from hop3.plugins.postgresql.postgres import (
         PostgresqlAddon,
         PostgresService,
     )

@@ -1,4 +1,6 @@
 # Copyright (c) 2023-2025, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
@@ -35,73 +37,99 @@ class Plugins(Command):
         pm = get_plugin_manager()
         plugins = list(pm.get_plugins())
 
+        # Filter out module plugins that have no hooks (just imported for side effects)
+        plugins_with_hooks = [p for p in plugins if pm.get_hookcallers(p)]
+
         if not verbose:
             # Simple listing
             print("Registered plugins:")
-            for plugin in plugins:
-                plugin_name = getattr(plugin, "name", plugin.__class__.__name__)
-                print(
-                    f"- {plugin_name} ({plugin.__class__.__module__}.{plugin.__class__.__name__})"
-                )
+            for plugin in plugins_with_hooks:
+                plugin_info = self._get_plugin_info(plugin)
+                print(f"- {plugin_info['name']} ({plugin_info['full_path']})")
         else:
             # Detailed listing
-            print(f"Registered plugins ({len(plugins)}):\n")
-            for plugin in plugins:
-                self._print_plugin_details(plugin)
+            print(f"Registered plugins ({len(plugins_with_hooks)}):\n")
+            for plugin in plugins_with_hooks:
+                self._print_plugin_details(pm, plugin)
                 print()  # Empty line between plugins
 
-    def _print_plugin_details(self, plugin):
-        """Print detailed information about a plugin."""
-        plugin_name = getattr(plugin, "name", plugin.__class__.__name__)
-        plugin_class = plugin.__class__
-        plugin_module = plugin_class.__module__
-        plugin_class_name = plugin_class.__name__
+    def _get_plugin_info(self, plugin) -> dict[str, str]:
+        """Extract plugin information, handling both module and class-based plugins."""
+        import types
+
+        if isinstance(plugin, types.ModuleType):
+            # Module-based plugin
+            return {
+                "name": getattr(plugin, "__name__", "unknown").split(".")[-1],
+                "full_path": plugin.__name__,
+                "doc": plugin.__doc__,
+            }
+        else:
+            # Class-based plugin
+            plugin_class = plugin.__class__
+            return {
+                "name": getattr(plugin, "name", plugin_class.__name__),
+                "full_path": f"{plugin_class.__module__}.{plugin_class.__name__}",
+                "doc": plugin_class.__doc__,
+            }
+
+    def _print_plugin_details(self, pm, plugin):
+        """Print detailed information about a plugin using pluggy's introspection API."""
+        plugin_info = self._get_plugin_info(plugin)
 
         # Header
-        print(f"Plugin: {plugin_name}")
-        print(f"  Class: {plugin_module}.{plugin_class_name}")
+        print(f"Plugin: {plugin_info['name']}")
+        print(f"  Module/Class: {plugin_info['full_path']}")
 
         # Docstring
-        if plugin_class.__doc__:
-            doc = plugin_class.__doc__.strip().split("\n")[0]  # First line only
+        if plugin_info["doc"]:
+            doc = plugin_info["doc"].strip().split("\n")[0]  # First line only
             print(f"  Description: {doc}")
 
-        # Check what hooks this plugin implements
-        hooks = []
+        # Use pluggy's API to introspect what hooks this plugin implements
+        hook_impls = pm.get_hookcallers(plugin)
 
-        if hasattr(plugin, "get_build_strategies"):
-            try:
-                strategies = plugin.get_build_strategies()
-                strategy_names = [
-                    getattr(s, "name", s.__name__) for s in strategies
-                ]
-                hooks.append(f"Build strategies: {', '.join(strategy_names)}")
-            except Exception:
-                hooks.append("Build strategies: <error retrieving>")
+        if hook_impls:
+            print("  Capabilities:")
+            for hook_caller in hook_impls:
+                hook_name = hook_caller.name
 
-        if hasattr(plugin, "get_deployment_strategies"):
-            try:
-                strategies = plugin.get_deployment_strategies()
-                strategy_names = [
-                    getattr(s, "name", s.__name__) for s in strategies
-                ]
-                hooks.append(f"Deployment strategies: {', '.join(strategy_names)}")
-            except Exception:
-                hooks.append("Deployment strategies: <error retrieving>")
+                # Get human-readable description from hookspec docstring
+                hook_description = self._get_hook_description(pm, hook_name)
 
-        if hasattr(plugin, "get_service_strategies"):
-            try:
-                strategies = plugin.get_service_strategies()
-                strategy_names = [
-                    getattr(s, "name", s.__name__) for s in strategies
-                ]
-                hooks.append(f"Service strategies: {', '.join(strategy_names)}")
-            except Exception:
-                hooks.append("Service strategies: <error retrieving>")
-
-        if hooks:
-            print("  Provides:")
-            for hook in hooks:
-                print(f"    - {hook}")
+                # For strategy hooks, show what strategies are provided
+                if hook_name in (
+                    "get_build_strategies",
+                    "get_deployment_strategies",
+                    "get_service_strategies",
+                ):
+                    try:
+                        method = getattr(plugin, hook_name, None)
+                        if method:
+                            strategies = method()
+                            strategy_names = [
+                                getattr(s, "name", s.__name__) for s in strategies
+                            ]
+                            if strategy_names:
+                                print(f"    - {hook_description}: {', '.join(strategy_names)}")
+                            else:
+                                print(f"    - {hook_description}: (none configured)")
+                    except Exception:
+                        print(f"    - {hook_description}: <error retrieving>")
+                else:
+                    # For other hooks, just show the description
+                    print(f"    - {hook_description}")
         else:
-            print("  Provides: (no strategies registered)")
+            print("  Capabilities: (none)")
+
+    def _get_hook_description(self, pm, hook_name: str) -> str:
+        """Get a human-readable description of a hook from its hookspec docstring."""
+        # Map hook names to user-friendly descriptions
+        descriptions = {
+            "get_build_strategies": "Provides build strategies",
+            "get_deployment_strategies": "Provides deployment strategies",
+            "get_service_strategies": "Provides service strategies",
+            "cli_commands": "Provides CLI commands",
+        }
+
+        return descriptions.get(hook_name, hook_name.replace("_", " ").title())
