@@ -40,20 +40,61 @@ class SetupCmd(Command):
 
     name = "setup"
 
-    def run(self) -> None:
+    def add_arguments(self, parser) -> None:
+        """Add command-specific arguments."""
+        parser.add_argument(
+            "-v",
+            "--verbose",
+            action="store_true",
+            dest="verbose_setup",
+            help="Show detailed information during setup",
+        )
+
+    def run(self, verbose_setup: bool = False) -> None:
         echo(f"Running in Python {'.'.join(map(str, sys.version_info))}")
 
+        if verbose_setup:
+            echo(f"HOP3_ROOT: {c.HOP3_ROOT}", fg="blue")
+            echo("")
+
         # Create required paths
+        if verbose_setup:
+            echo("Creating required directories:", fg="yellow")
+
+        created_count = 0
+        existing_count = 0
         for p in c.ROOT_DIRS:
             path = Path(p)
             if not path.exists():
-                echo(f"Creating '{p}'.", fg="green")
+                echo(f"  Creating '{p}'.", fg="green")
                 path.mkdir(parents=True)
+                created_count += 1
+            else:
+                if verbose_setup:
+                    echo(f"  Directory '{p}' already exists.", fg="blue")
+                existing_count += 1
+
+        if verbose_setup:
+            echo("")
+            echo(
+                f"Directories: {created_count} created, {existing_count} already existed",
+                fg="blue",
+            )
+            echo("")
 
         # Set up the uWSGI emperor config
         cpu_count = os.cpu_count() or 1
         pw_name = pwd.getpwuid(os.getuid()).pw_name
         gr_name = grp.getgrgid(os.getgid()).gr_name
+
+        if verbose_setup:
+            echo("Configuring uWSGI emperor:", fg="yellow")
+            echo(f"  CPU count: {cpu_count}", fg="blue")
+            echo(f"  User: {pw_name} (UID: {os.getuid()})", fg="blue")
+            echo(f"  Group: {gr_name} (GID: {os.getgid()})", fg="blue")
+            echo(f"  Worker threads: {cpu_count * 2}", fg="blue")
+            echo("")
+
         settings = [
             ("chdir", c.UWSGI_ROOT),
             ("emperor", c.UWSGI_ENABLED),
@@ -66,10 +107,21 @@ class SetupCmd(Command):
             ("enable-threads", "true"),
             ("threads", f"{cpu_count * 2}"),
         ]
-        with (c.UWSGI_ROOT / "uwsgi.ini").open("w") as h:
+
+        uwsgi_config_path = c.UWSGI_ROOT / "uwsgi.ini"
+        with uwsgi_config_path.open("w") as h:
             h.write("[uwsgi]\n")
             for k, v in settings:
                 h.write(f"{k:s} = {v}\n")
+
+        if verbose_setup:
+            echo(f"Created uWSGI config: {uwsgi_config_path}", fg="green")
+            echo("")
+            echo("Configuration settings:", fg="yellow")
+            for k, v in settings:
+                echo(f"  {k}: {v}", fg="blue")
+            echo("")
+            echo("Setup completed successfully!", fg="green")
 
 
 @register
