@@ -17,6 +17,8 @@ if TYPE_CHECKING:
     import subprocess
     from pathlib import Path
 
+    from hop3.core.protocols import DeploymentContext
+
 
 class Builder(ABC):
     """A builder for an application.
@@ -27,12 +29,17 @@ class Builder(ABC):
     the abstract methods to provide specific behavior for accepting input and building
     the application.
 
+    Supports both legacy initialization (app_name string) and new plugin system
+    (DeploymentContext object).
+
     Attributes
     ----------
     app_name : str
         The name of the application.
     app_path : Path
         The path to the application directory.
+    context : DeploymentContext | None
+        The deployment context (only set when using new plugin system).
     name : ClassVar[str]
         Class-level attribute representing the name of the builder.
     requirements : ClassVar[list[str]]
@@ -41,18 +48,40 @@ class Builder(ABC):
 
     app_name: str
     app_path: Path
+    context: DeploymentContext | None
 
     # Class attitutes
     name: ClassVar[str]
     requirements: ClassVar[list[str]]
 
-    def __init__(self, app_name: str, app_path: Path | None = None) -> None:
-        """Initialize the class with the specified app name."""
-        self.app_name = app_name
-        if app_path:
-            self.app_path = app_path
+    def __init__(
+        self,
+        app_name_or_context: str | DeploymentContext,
+        app_path: Path | None = None,
+    ) -> None:
+        """Initialize the class with the specified app name or deployment context.
+
+        Args:
+        ----
+            app_name_or_context: Either an app name string (legacy) or a DeploymentContext object (new plugin system)
+            app_path: Optional path to the application directory (only used with legacy string signature)
+        """
+        # Handle new plugin system: DeploymentContext object
+        if hasattr(app_name_or_context, "app_name"):
+            # It's a DeploymentContext
+            context = app_name_or_context
+            self.app_name = context.app_name
+            # For the new plugin system, app_path is the parent of source_path
+            self.app_path = context.source_path.parent
+            self.context = context
         else:
-            self.app_path = c.APP_ROOT / app_name
+            # Legacy signature: app_name as string
+            self.app_name = app_name_or_context
+            if app_path:
+                self.app_path = app_path
+            else:
+                self.app_path = c.APP_ROOT / self.app_name
+            self.context = None
 
     @abstractmethod
     def accept(self) -> bool:

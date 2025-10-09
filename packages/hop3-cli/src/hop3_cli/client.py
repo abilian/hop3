@@ -137,6 +137,18 @@ class Client:
             verify=verify_ssl,  # Use True for HTTPS, False otherwise.
         )
         try:
+            # Check for 401 Unauthorized specifically
+            if response.status_code == 401:
+                error_msg = (
+                    "Authentication required.\n\n"
+                    "To authenticate, use one of the following methods:\n"
+                    "  1. Login: hop auth:login <username> <password>\n"
+                    "  2. Register: hop auth:register <username> <email> <password>\n\n"
+                    "After logging in, save the token to ~/.config/hop3-cli/config.toml\n"
+                    "or set the HOP3_API_TOKEN environment variable."
+                )
+                return Error(401, error_msg, "", json_request["id"])
+
             response.raise_for_status()
             parsed_response = parse(response.json())
             # parse() can return Error, Ok, or Iterable[Error | Ok], but we expect single response
@@ -148,5 +160,13 @@ class Client:
                 if responses and isinstance(responses[0], (Error, Ok)):
                     return responses[0]
                 return Error(-1, "Invalid response format", "", json_request["id"])
+        except requests.exceptions.HTTPError as e:
+            # For other HTTP errors, provide the status code and message
+            return Error(
+                response.status_code,
+                f"HTTP {response.status_code} error: {e!s}",
+                "",
+                json_request["id"],
+            )
         except Exception as e:
             return Error(response.status_code, str(e), "", json_request["id"])

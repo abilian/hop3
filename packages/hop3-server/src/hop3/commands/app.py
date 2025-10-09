@@ -130,7 +130,17 @@ class DeployCmd(Command):
         try:
             do_deploy(app)
         except Exception as e:
-            return [{"t": "text", "text": f"Deployment failed: {e}"}]
+            import traceback
+
+            tb = traceback.format_exc()
+            error_msg = f"Deployment failed: {e}\n\nTraceback:\n{tb}"
+            # Also log to server console for debugging
+            print(
+                f"[ERROR] Deployment failed for {app_name}:",
+                file=__import__("sys").stderr,
+            )
+            print(tb, file=__import__("sys").stderr)
+            return [{"t": "text", "text": error_msg}]
 
         return [{"t": "text", "text": f"App '{app_name}' deployed successfully."}]
 
