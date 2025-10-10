@@ -26,7 +26,19 @@ if TYPE_CHECKING:
 def shell(
     command: str | list[str], cwd: Path | str = "", **kwargs
 ) -> subprocess.CompletedProcess:
-    """Run a shell command."""
+    """Run a shell command with detailed error reporting.
+
+    Args:
+        command: Command to execute (string or list of strings)
+        cwd: Working directory for the command
+        **kwargs: Additional arguments passed to subprocess.run
+
+    Returns:
+        CompletedProcess object
+
+    Raises:
+        subprocess.CalledProcessError: If command fails, with stdout/stderr included
+    """
     match command:
         case str():
             command = command.strip()
@@ -47,7 +59,35 @@ def shell(
     kwargs["shell"] = True
     if cwd:
         kwargs["cwd"] = str(cwd)
-    return subprocess.run(command, **kwargs, check=True)
+
+    # Capture output for better error messages, but still show it
+    if "capture_output" not in kwargs and "stdout" not in kwargs:
+        kwargs["capture_output"] = True
+        kwargs["text"] = True
+
+    try:
+        result = subprocess.run(command, **kwargs, check=True)
+        # Print captured output if we captured it
+        if result.stdout:
+            print(result.stdout, end="")
+        return result
+    except subprocess.CalledProcessError as e:
+        # Enhance error message with captured output
+        error_parts = [f"Command failed with exit code {e.returncode}: {command}"]
+        if e.stdout:
+            error_parts.append(f"\nStdout:\n{e.stdout}")
+        if e.stderr:
+            error_parts.append(f"\nStderr:\n{e.stderr}")
+
+        # Print the full error to console
+        error_msg = "\n".join(error_parts)
+        print(error_msg, file=sys.stderr)
+        sys.stderr.flush()
+
+        # Re-raise with enhanced message
+        raise subprocess.CalledProcessError(
+            e.returncode, e.cmd, output=e.stdout, stderr=e.stderr
+        ) from e
 
 
 def check_binaries(binaries) -> bool:

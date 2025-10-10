@@ -7,8 +7,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from hop3.core.plugins import get_build_strategy
 from hop3.core.protocols import DeploymentContext
 
@@ -55,7 +53,7 @@ def test_get_build_strategy_with_node_project(tmp_path: Path):
 
 
 def test_get_build_strategy_no_suitable_builder(tmp_path: Path):
-    """Test that get_build_strategy raises error when no builder accepts the project."""
+    """Test that get_build_strategy falls back to DummyBuildStrategy when no specific builder accepts."""
     # Create source directory without any recognized project files
     src_dir = tmp_path / "src"
     src_dir.mkdir()
@@ -64,6 +62,6 @@ def test_get_build_strategy_no_suitable_builder(tmp_path: Path):
     # Create DeploymentContext
     context = DeploymentContext(app_name="test-app", source_path=src_dir, app_config={})
 
-    # Verify it raises an error when no builder accepts the project
-    with pytest.raises(RuntimeError, match="Could not find a suitable build strategy"):
-        get_build_strategy(context)
+    # Since DummyBuildStrategy accepts everything, it should succeed
+    builder = get_build_strategy(context)
+    assert builder.name == "dummy"

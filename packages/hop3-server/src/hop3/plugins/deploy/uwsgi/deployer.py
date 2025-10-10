@@ -9,7 +9,7 @@ from hop3.core.protocols import (
     DeploymentStrategy,
 )
 from hop3.lib import log
-from hop3.orm import AppStateEnum
+from hop3.orm import App, AppStateEnum
 from hop3.project.procfile import parse_procfile
 from hop3.run.spawn import spawn_app
 
@@ -23,11 +23,31 @@ class UWSGIDeployer(DeploymentStrategy):
         self.context = context
         self.artifact = artifact
 
-    def accept(self) -> bool:
-        return self.artifact.kind == "buildpack"
+    @property
+    def app(self) -> App:
+        """Get the app from the context."""
+        if self.context.app is None:
+            msg = "App not provided in deployment context"
+            raise RuntimeError(msg)
+        return self.context.app
 
-    def deploy(self, deltas: dict) -> DeploymentInfo:
-        # This is the old `spawn_app` function
+    def accept(self) -> bool:
+        # Accept virtualenv (Python, Ruby), node, and buildpack artifacts
+        return self.artifact.kind in {
+            "buildpack",
+            "virtualenv",
+            "node",
+            "ruby",
+            "php",
+            "clojure",
+            "rust",
+            "go",
+        }
+
+    def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:
+        """Deploy the app using uWSGI."""
+        deltas = deltas or {}
+
         log(f"Deploying '{self.app.name}' with uWSGI...", level=2, fg="blue")
         spawn_app(self.app, deltas)
 
@@ -43,7 +63,7 @@ class UWSGIDeployer(DeploymentStrategy):
         """Starts the app by calling deploy with no scaling changes."""
         log(f"Starting '{self.app.name}' with uWSGI...", level=2, fg="blue")
         # For uWSGI, starting is the same as deploying the current state.
-        self.deploy(None, {})  # `None` for artifact means "use existing"
+        self.deploy({})
 
     def stop(self) -> None:
         """Stops the app by removing its uWSGI .ini files from the enabled directory."""
@@ -85,11 +105,12 @@ class UWSGIDeployer(DeploymentStrategy):
         # Other runtime resource cleanup specific to uWSGI could go here,
         # but most is covered by the file-based approach.
 
-    def scale(self, deltas: dict[str, int]) -> None:
+    def scale(self, deltas: dict[str, int] | None = None) -> None:
         """Scaling is a specific type of deployment."""
+        deltas = deltas or {}
         log(f"Scaling '{self.app.name}' with deltas: {deltas}", level=2, fg="blue")
         # For uWSGI, scaling is the same as re-deploying with new deltas
-        self.deploy(None, deltas)
+        self.deploy(deltas)
 
     def get_status(self) -> dict:
         """Gets process status from the SCALING file."""

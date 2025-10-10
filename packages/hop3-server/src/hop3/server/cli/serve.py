@@ -1,6 +1,8 @@
 # Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
+import os
+
 import granian
 from granian.constants import Interfaces
 from granian.log import LogLevels
@@ -10,8 +12,8 @@ from hop3.lib.registry import register
 
 from ._base import Command
 
-MODE = "development"
-HOST = "127.0.0.1"
+MODE = os.environ.get("HOP3_MODE", "production")
+HOST = os.environ.get("HOP3_HOST", "0.0.0.0")
 
 if MODE == "development":
     DEBUG = True

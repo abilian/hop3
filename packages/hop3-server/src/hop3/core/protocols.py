@@ -23,11 +23,11 @@ class DeploymentContext:
     app_name: str
     source_path: Path
     app_config: dict
+    app: App | None = None  # The full App object from the database
 
     def __post_init__(self):
         assert self.source_path.is_dir()
 
-    # app: App
     # app_config: AppConfig
     # new_rev: str
     # log_callback: Callable[[str], None]  # To stream logs back

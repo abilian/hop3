@@ -159,6 +159,7 @@ class AppLauncher:
             "NGINX_IPV4_ADDRESS": "0.0.0.0",
             "NGINX_IPV6_ADDRESS": "[::]",
             "BIND_ADDRESS": "127.0.0.1",
+            "NGINX_SERVER_NAME": "_",  # Catch-all server name for development
         }
 
         # add node path if present

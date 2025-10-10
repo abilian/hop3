@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import subprocess
+import traceback
 from base64 import b64decode
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -129,9 +130,33 @@ class DeployCmd(Command):
 
         try:
             do_deploy(app)
-        except Exception as e:
-            import traceback
+            # Commit the app state changes (e.g., run_state = RUNNING)
+            self.db_session.commit()
 
+        # TODO: make the exception handling a generic mechanism (reusable by other commands)
+        except subprocess.CalledProcessError as e:
+            # Handle subprocess errors specially to show command output
+            tb = traceback.format_exc()
+            error_parts = [
+                f"Deployment failed: Command exited with code {e.returncode}",
+                f"Command: {e.cmd}",
+            ]
+            if e.stdout:
+                error_parts.append(f"\nStdout:\n{e.stdout}")
+            if e.stderr:
+                error_parts.append(f"\nStderr:\n{e.stderr}")
+            error_parts.append(f"\nFull traceback:\n{tb}")
+
+            error_msg = "\n".join(error_parts)
+
+            # Also log to server console for debugging
+            print(
+                f"[ERROR] Deployment failed for {app_name}:",
+                file=__import__("sys").stderr,
+            )
+            print(error_msg, file=__import__("sys").stderr)
+            return [{"t": "text", "text": error_msg}]
+        except Exception as e:
             tb = traceback.format_exc()
             error_msg = f"Deployment failed: {e}\n\nTraceback:\n{tb}"
             # Also log to server console for debugging
