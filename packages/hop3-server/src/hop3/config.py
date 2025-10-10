@@ -17,7 +17,7 @@ if TESTING:
 
 
 def get_parameters():
-    return {k: v for k, v in globals().items() if re.match("[A-Z0-9_]+$", k)}
+    return {k: v for k, v in globals().items() if re.match(r"[A-Z0-9_]+$", k)}
 
 
 # Configured

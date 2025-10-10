@@ -17,10 +17,6 @@ from starlette.authentication import (
     AuthenticationError,
     SimpleUser,
 )
-from starlette.middleware import Middleware
-from starlette.middleware.authentication import (
-    AuthenticationMiddleware as StarletteAuthMiddleware,
-)
 from starlette.responses import JSONResponse
 
 from hop3.server.security.tokens import validate_token
@@ -136,17 +132,4 @@ def on_auth_error(conn: HTTPConnection, exc: AuthenticationError) -> JSONRespons
     return JSONResponse(
         {"detail": str(exc)},
         status_code=401,
-    )
-
-
-def AuthenticationMiddleware() -> Middleware:
-    """Create the authentication middleware.
-
-    Returns:
-        Configured authentication middleware
-    """
-    return Middleware(
-        StarletteAuthMiddleware,
-        backend=BearerTokenBackend(),
-        on_error=on_auth_error,
     )
