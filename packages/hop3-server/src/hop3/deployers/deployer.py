@@ -41,6 +41,7 @@ def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
         app_name=app.name,
         source_path=app.src_path,
         app_config=app_config.to_dict(),
+        app=app,
     )
 
     # --- 2. Select and Run Build Strategy ---

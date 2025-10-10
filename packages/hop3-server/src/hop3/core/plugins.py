@@ -54,7 +54,6 @@ def scan_package(package_name: str) -> Iterator:
         Iterator that yields each module imported from the package.
     """
     for module_name in _iter_module_names(package_name):
-        # Import the module by name and yield it
         yield importlib.import_module(module_name)
 
 
@@ -75,7 +74,6 @@ def _iter_module_names(package_name: str) -> Iterator:
     path = package_or_module.__path__
     prefix = package_or_module.__name__ + "."
     for _, module_name, _ in pkgutil.walk_packages(path, prefix):
-        # Yield the name of each module found in the package.
         yield module_name
 
 
@@ -98,6 +96,10 @@ def get_plugin_manager() -> PluginManager:
     from . import hookspecs
 
     pm.add_hookspecs(hookspecs)
+
+    # Register the core plugin first (provides dummy strategies)
+    core_plugin = CorePlugin()
+    pm.register(core_plugin)
 
     # Import all plugin modules and auto-discover plugin instances
     for module in get_core_plugins():
@@ -222,5 +224,6 @@ def get_service_strategy(service_type: str, service_name: str) -> ServiceStrateg
         if getattr(strategy_class, "name", None) == service_type:
             return strategy_class(service_name)
 
-    msg = f"Service type '{service_type}' not found. Available services: {[getattr(cls, 'name', '?') for cls in strategy_classes]}"
+    available_services = [getattr(cls, "name", "?") for cls in strategy_classes]
+    msg = f"Service type '{service_type}' not found. Available services: {available_services}"
     raise RuntimeError(msg)

@@ -218,3 +218,39 @@ class App(BigIntAuditBase):
         log(f"restarting app '{self.name}'...", fg="blue")
         self.stop()
         self.start()
+
+    def get_logs(self, lines: int = 100) -> list[str]:
+        """Get the most recent log lines for the application.
+
+        Args:
+            lines: Number of log lines to retrieve (default: 100)
+
+        Returns:
+            List of log lines
+        """
+        # Find all log files in the log directory (e.g., web.1.log, worker.1.log)
+        if not self.log_path.exists():
+            return [f"No log directory found for app '{self.name}'"]
+
+        log_files = sorted(self.log_path.glob("*.log"))
+        if not log_files:
+            return [f"No log files found for app '{self.name}'"]
+
+        # Collect logs from all workers
+        all_logs = []
+        for log_file in log_files:
+            try:
+                with open(log_file) as f:
+                    file_lines = f.readlines()
+                    # Add header to identify which worker the logs are from
+                    worker_name = log_file.stem  # e.g., "web.1"
+                    all_logs.append(f"==> {worker_name} <==")
+                    all_logs.extend(line.rstrip() for line in file_lines)
+                    all_logs.append("")  # Blank line between files
+            except Exception as e:
+                all_logs.append(f"Error reading {log_file.name}: {e}")
+
+        # Return the last N lines across all log files
+        return (
+            all_logs[-lines:] if all_logs else [f"No log content for app '{self.name}'"]
+        )

@@ -98,6 +98,9 @@ class NginxVirtualHost(Proxy):
         # Check the generated Nginx configuration for errors
         self.check_config(self.nginx_conf_path)
 
+        # Reload nginx to apply the new configuration
+        self.reload_nginx()
+
     def setup_backend(self):
         # default to reverse proxying to the TCP port we picked
         self.update_env(
@@ -242,6 +245,81 @@ class NginxVirtualHost(Proxy):
         #     echo(f"here is the broken config\n{content}")
         #     # nginx_conf_path.unlink()
         #     sys.exit(1)
+
+    def reload_nginx(self) -> None:
+        """Reload nginx to apply configuration changes.
+
+        Attempts to reload nginx using available methods. Silently skips if:
+        - Running in test environment (PYTEST_CURRENT_TEST set)
+        - No reload mechanism is available
+        - Commands fail (logs warning instead of raising)
+        """
+        import os
+        import subprocess
+
+        # Skip reload in test environments
+        if os.environ.get("PYTEST_CURRENT_TEST"):
+            return
+
+        timeout = 5  # 5 second timeout to prevent hanging
+
+        try:
+            # Try supervisorctl with sudo (for containerized/supervised environments)
+            result = subprocess.run(
+                ["sudo", "-n", "supervisorctl", "restart", "nginx"],
+                check=True,
+                capture_output=True,
+                timeout=timeout,
+            )
+            log("nginx reloaded via supervisorctl", level=2)
+            return
+        except (
+            subprocess.CalledProcessError,
+            FileNotFoundError,
+            subprocess.TimeoutExpired,
+        ):
+            pass  # Try next method
+
+        try:
+            # Fall back to systemctl (for systemd environments)
+            subprocess.run(
+                ["sudo", "-n", "systemctl", "reload", "nginx"],
+                check=True,
+                capture_output=True,
+                timeout=timeout,
+            )
+            log("nginx reloaded via systemctl", level=2)
+            return
+        except (
+            subprocess.CalledProcessError,
+            FileNotFoundError,
+            subprocess.TimeoutExpired,
+        ):
+            pass  # Try next method
+
+        try:
+            # Fall back to nginx -s reload (direct nginx command)
+            subprocess.run(
+                ["sudo", "-n", "nginx", "-s", "reload"],
+                check=True,
+                capture_output=True,
+                timeout=timeout,
+            )
+            log("nginx reloaded via nginx -s reload", level=2)
+            return
+        except (
+            subprocess.CalledProcessError,
+            FileNotFoundError,
+            subprocess.TimeoutExpired,
+        ):
+            pass  # All methods failed
+
+        # Log warning if all methods failed
+        log(
+            "Warning: could not reload nginx automatically (all methods failed or timed out)",
+            level=2,
+            fg="yellow",
+        )
 
     def get_static_paths(self) -> list[tuple[str, Path]]:
         """Get a mapping of static URL prefixes to file system paths.

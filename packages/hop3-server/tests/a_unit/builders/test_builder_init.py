@@ -84,3 +84,32 @@ def test_builder_rejects_non_python_project(tmp_path: Path):
 
     # Verify it rejects non-Python projects
     assert builder.accept() is False
+
+
+def test_builder_returns_build_artifact(tmp_path: Path, monkeypatch):
+    """Test that build() returns a BuildArtifact."""
+    from hop3.core.protocols import BuildArtifact
+
+    # Create source directory with requirements.txt
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "requirements.txt").write_text("flask==2.0.0\n")
+
+    # Create DeploymentContext
+    context = DeploymentContext(app_name="test-app", source_path=src_dir, app_config={})
+
+    # Initialize builder with context
+    builder = PythonBuilder(context)
+
+    # Change to source directory
+    monkeypatch.chdir(src_dir)
+
+    # Build the app
+    artifact = builder.build()
+
+    # Verify build() returns a BuildArtifact
+    assert isinstance(artifact, BuildArtifact)
+    assert artifact.kind == "virtualenv"
+    assert artifact.location == str(tmp_path / "venv")
+    assert artifact.metadata["app_name"] == "test-app"
+    assert "python_path" in artifact.metadata

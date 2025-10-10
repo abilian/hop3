@@ -125,15 +125,17 @@ def get_extra_args(args: list[str]) -> JsonDict:
     command = args[0]
     match command:
         case "deploy":
+            # args[0]="deploy", args[1]=app_name, args[2]=directory
+            directory = Path(args[2]) if len(args) > 2 else Path()
             return {
-                "repository": pack_repository(),
+                "repository": pack_repository(directory),
             }
         case _:
             return {}
 
 
-def pack_repository() -> str:
-    tar_gz = generate_archive(Path())
+def pack_repository(directory: Path = Path()) -> str:
+    tar_gz = generate_archive(directory)
     return base64.b64encode(tar_gz).decode("ascii")
 
 
