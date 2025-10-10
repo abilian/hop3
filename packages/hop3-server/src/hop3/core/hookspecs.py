@@ -37,3 +37,13 @@ def get_service_strategies() -> list:
     Returns:
         List of ServiceStrategy classes
     """
+
+
+@hookspec
+def get_os_strategies() -> list:
+    """Get OS setup strategies provided by this plugin.
+
+    Returns:
+        List of OSSetupStrategy classes that can detect and configure
+        specific operating systems for hop3.
+    """

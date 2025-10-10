@@ -179,3 +179,61 @@ class Proxy(Protocol):
     workers: dict[str, str]
 
     def setup(self) -> None: ...
+
+
+class OSSetupStrategy(Protocol):
+    """Interface for OS-specific server setup and configuration.
+
+    An OS setup strategy handles the installation of dependencies and
+    system configuration for a specific Linux distribution and version.
+    This allows hop3 to support multiple operating systems through plugins.
+
+    Attributes:
+    - name (str): Unique identifier for this OS, e.g., 'debian12', 'ubuntu2204'
+    - display_name (str): Human-readable name, e.g., 'Debian 12 (Bookworm)'
+    - packages (list[str]): List of system packages required for hop3
+    """
+
+    name: str
+    display_name: str
+    packages: list[str]
+
+    def detect(self) -> bool:
+        """Check if this strategy matches the current operating system.
+
+        This should read /etc/os-release or similar system files to
+        determine if the current OS matches this strategy.
+
+        Returns:
+            True if this strategy should be used for the current OS.
+        """
+
+    def setup_server(self) -> None:
+        """Install dependencies and configure the system for hop3.
+
+        This should:
+        1. Configure package manager settings (e.g., APT config)
+        2. Create the hop3 user account
+        3. Install required system packages
+        4. Set up necessary symbolic links or system configurations
+
+        This method should be idempotent - safe to run multiple times.
+        """
+
+    def ensure_packages(self, packages: list[str], *, update: bool = True) -> None:
+        """Install system packages using the OS package manager.
+
+        Args:
+            packages: List of package names to install
+            update: Whether to update package lists before installing
+        """
+
+    def ensure_user(self, user: str, home: str, shell: str, group: str) -> None:
+        """Create a system user account if it doesn't exist.
+
+        Args:
+            user: Username to create
+            home: Home directory path
+            shell: Default shell path
+            group: Primary group name
+        """

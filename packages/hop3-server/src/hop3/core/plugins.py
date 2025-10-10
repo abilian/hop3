@@ -25,6 +25,7 @@ if TYPE_CHECKING:
         BuildStrategy,
         DeploymentContext,
         DeploymentStrategy,
+        OSSetupStrategy,
         ServiceStrategy,
     )
 
@@ -227,3 +228,53 @@ def get_service_strategy(service_type: str, service_name: str) -> ServiceStrateg
     available_services = [getattr(cls, "name", "?") for cls in strategy_classes]
     msg = f"Service type '{service_type}' not found. Available services: {available_services}"
     raise RuntimeError(msg)
+
+
+def get_os_strategy() -> OSSetupStrategy:
+    """
+    Auto-detect and return the appropriate OS setup strategy for the current system.
+
+    This queries all registered OS strategies via the plugin system and asks each
+    one if it matches the current operating system (via the detect() method).
+
+    Returns:
+        An instance of the OS setup strategy that matches the current OS
+
+    Raises:
+        RuntimeError: If no matching OS strategy is found
+    """
+
+    pm = get_plugin_manager()
+
+    strategy_classes_list = pm.hook.get_os_strategies()
+    strategy_classes: list[type[OSSetupStrategy]] = [
+        cls for sublist in strategy_classes_list for cls in sublist
+    ]
+
+    # Try each strategy's detect() method
+    for strategy_class in strategy_classes:
+        strategy = strategy_class()
+        if strategy.detect():
+            return strategy
+
+    available_oses = [getattr(cls, "display_name", "?") for cls in strategy_classes]
+    msg = (
+        f"Could not detect a supported operating system. "
+        f"Available OS strategies: {available_oses}"
+    )
+    raise RuntimeError(msg)
+
+
+def list_supported_os() -> list[str]:
+    """
+    Get a list of all supported operating systems.
+
+    Returns:
+        List of display names for all registered OS strategies
+    """
+    pm = get_plugin_manager()
+
+    strategy_classes_list = pm.hook.get_os_strategies()
+    strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
+
+    return [getattr(cls, "display_name", "Unknown") for cls in strategy_classes]
