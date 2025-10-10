@@ -12,7 +12,10 @@ class DummyBuildStrategy(BuildStrategy):
         self.context = context
 
     def accept(self) -> bool:
-        return True
+        # Only accept if explicitly requested via .dummy-build marker file
+        # This prevents it from being selected by default over real builders
+        marker_file = self.context.source_path / ".dummy-build"
+        return marker_file.exists()
 
     def build(self) -> BuildArtifact:
         """Runs `docker build` and returns a docker-image artifact."""

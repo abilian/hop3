@@ -2,145 +2,107 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Dockerfile for Hop3 End-to-End Tests
-# This creates a container with a full Hop3 server environment including systemd
+# Simplified Dockerfile for Hop3 E2E Tests (works on macOS)
+# This version doesn't use systemd - services are started manually
 
 FROM ubuntu:22.04
 
-# Prevent interactive prompts during package installation
+# Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
 
-# Install systemd and basic utilities
+# Install basic utilities
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        systemd \
-        systemd-sysv \
         ca-certificates \
         curl \
         openssh-server \
+        supervisor \
     && apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    rm -rf /var/lib/apt/lists/*
 
-# Remove unnecessary systemd services to speed up boot
-RUN cd /lib/systemd/system/sysinit.target.wants/ && \
-    ls | grep -v systemd-tmpfiles-setup | xargs rm -f && \
-    rm -f /lib/systemd/system/multi-user.target.wants/* && \
-    rm -f /etc/systemd/system/*.wants/* && \
-    rm -f /lib/systemd/system/local-fs.target.wants/* && \
-    rm -f /lib/systemd/system/sockets.target.wants/*udev* && \
-    rm -f /lib/systemd/system/sockets.target.wants/*initctl* && \
-    rm -f /lib/systemd/system/basic.target.wants/* && \
-    rm -f /lib/systemd/system/anaconda.target.wants/*
-
-# Install Hop3 dependencies (same as installer)
+# Install Hop3 dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         # Basic tools
         bc \
         git \
         sudo \
-        cron \
         build-essential \
-        libpcre3-dev \
-        zlib1g-dev \
+        pkg-config \
         # Python
         python3 \
         python3-pip \
-        python3-click \
-        python3-dev \
         python3-venv \
         python3-virtualenv \
+        python3-dev \
         python3-setuptools \
+        python3-wheel \
+        # Libraries needed for Python packages
+        libffi-dev \
+        libssl-dev \
         # Nginx
         nginx \
-        acl \
-        # uwsgi
+        # uWSGI
         uwsgi-core \
         uwsgi-plugin-python3 \
-        # Let's Encrypt
-        certbot \
-        # Ruby (for test apps)
-        ruby \
-        ruby-dev \
-        ruby-bundler \
-        # Node.js (for test apps)
-        npm \
-        nodeenv \
-        # Go (for test apps)
-        golang \
         # PostgreSQL
-        libpq-dev \
         postgresql \
+        postgresql-client \
+        libpq-dev \
     && apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    rm -rf /var/lib/apt/lists/*
 
 # Create hop3 user
-RUN useradd -m -s /bin/bash -G www-data hop3 && \
+RUN useradd -m -s /bin/bash hop3 && \
     echo "hop3:hop3" | chpasswd && \
     echo "hop3 ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Setup SSH for hop3 user
-RUN mkdir -p /home/hop3/.ssh && \
-    ssh-keygen -t rsa -b 4096 -f /home/hop3/.ssh/id_rsa -N "" && \
+# Setup SSH
+RUN mkdir -p /var/run/sshd && \
+    mkdir -p /home/hop3/.ssh && \
+    ssh-keygen -t rsa -b 2048 -f /home/hop3/.ssh/id_rsa -N "" && \
     cat /home/hop3/.ssh/id_rsa.pub >> /home/hop3/.ssh/authorized_keys && \
     chmod 700 /home/hop3/.ssh && \
     chmod 600 /home/hop3/.ssh/authorized_keys && \
     chown -R hop3:hop3 /home/hop3/.ssh
 
-# Configure SSH server
-RUN mkdir -p /var/run/sshd && \
-    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+# Configure SSH
+RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
     sed -i 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' /etc/pam.d/sshd
 
-# Copy hop3 distribution
+# Copy and install hop3
 COPY dist/hop3_server-*.tar.gz /tmp/hop3-server.tar.gz
-
-# Install hop3 in virtual environment
 RUN su - hop3 -c "python3 -m venv ~/venv && \
-    ~/venv/bin/pip install --upgrade pip && \
-    ~/venv/bin/pip install /tmp/hop3-server.tar.gz"
-
-# Run hop3 setup
-RUN su - hop3 -c "~/venv/bin/hop-server setup"
+    ~/venv/bin/pip install --no-cache-dir --upgrade pip && \
+    ~/venv/bin/pip install --no-cache-dir /tmp/hop3-server.tar.gz" && \
+    rm /tmp/hop3-server.tar.gz
 
 # Create hop3 environment file
 RUN echo 'HOP3_SECRET_KEY=e2e-test-secret-key-do-not-use-in-production' > /home/hop3/.env && \
-    echo 'HOP3_ENABLE_AUTH=true' >> /home/hop3/.env && \
+    echo 'HOP3_ENABLE_AUTH=false' >> /home/hop3/.env && \
+    echo 'HOP3_DB_URL=sqlite:////home/hop3/hop3.db' >> /home/hop3/.env && \
+    echo 'ACME_ENGINE=self-signed' >> /home/hop3/.env && \
     chown hop3:hop3 /home/hop3/.env && \
     chmod 600 /home/hop3/.env
 
-# Create hop3-server systemd service
-RUN echo '[Unit]\n\
-Description=Hop3 Server\n\
-After=network.target postgresql.service\n\
-\n\
-[Service]\n\
-Type=simple\n\
-User=hop3\n\
-WorkingDirectory=/home/hop3\n\
-EnvironmentFile=-/home/hop3/.env\n\
-ExecStart=/home/hop3/venv/bin/hop-server serve\n\
-Restart=always\n\
-StandardOutput=journal\n\
-StandardError=journal\n\
-\n\
-[Install]\n\
-WantedBy=multi-user.target' > /etc/systemd/system/hop3-server.service
+# Run hop3 setup with environment variables
+RUN su - hop3 -c "export HOP3_SECRET_KEY='e2e-test-secret-key-do-not-use-in-production' && \
+    export HOP3_ENABLE_AUTH='false' && \
+    export HOP3_DB_URL='sqlite:////home/hop3/hop3.db' && \
+    export ACME_ENGINE='self-signed' && \
+    ~/venv/bin/hop-server setup"
 
-# Enable hop3-server service
-RUN systemctl enable hop3-server.service && \
-    systemctl enable postgresql.service && \
-    systemctl enable ssh.service
+# Configure nginx to include hop3 configs
+RUN echo 'include /home/hop3/nginx/*.conf;' > /etc/nginx/sites-enabled/hop3 && \
+    rm -f /etc/nginx/sites-enabled/default
+
+# Create supervisor config to manage services
+RUN mkdir -p /var/log/supervisor
+COPY packages/hop3-server/tests/d_e2e/docker/supervisord.conf /etc/supervisor/supervisord.conf
 
 # Expose ports
 EXPOSE 22 80 443 8000
 
-# Set stopsignal to SIGRTMIN+3 for proper systemd shutdown
-STOPSIGNAL SIGRTMIN+3
-
-# Volume for hop3 apps
-VOLUME ["/home/hop3/apps"]
-
-# Start systemd
-CMD ["/lib/systemd/systemd"]
+# Start supervisor (which will start SSH and hop3-server)
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
