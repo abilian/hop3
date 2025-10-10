@@ -38,6 +38,8 @@ lint.extend-ignore = [
     "A004", # ... is shadowing a Python standard library module
     "A005", # ... is shadowing a Python builtin module
     "COM812", # Missing trailing comma
+    "FURB113", # repeated-append
+    "INP001", # implicit-namespace-package
     "ISC001", # (The following rules may cause conflicts when used with the formatter)
     "PGH003", # Use specific rule codes when ignoring type issues
     "PLC0414", # Import alias does not rename original package
@@ -51,6 +53,7 @@ lint.extend-ignore = [
     "PLR0917", # ...
     "PLR2004", # Magic number
     "PLR6301", # Method could be a function
+    "PLR0904", # too-many-public-methods
     "PLW1514", # `pathlib.Path(...).write_text` without explicit `encoding` argument
     "RET504", # Unnecessary assignment before `return` statement
     "RET505", # Unnecessary `else` after `return` statement"
@@ -60,23 +63,19 @@ lint.extend-ignore = [
     "TC", # Move import into a type-checking block (conflicts with wireup)
 
     # Fix these
-    "B904", # Use raise ... from ...
-    "B909", # Mutation to loop iterable during iteration
-    "E501", # Line too long
-    "F841", # unused variable
-    "FBT", #
-    "FBT003", # Boolean positional value in function call
-    "FURB113", #
-    "INP001",
-    "N802", # Naming
-    "PERF203", #
-    "PLR0904", # Too many public methods
-    "PLR0911", # Too many return statements (7 > 6)
-    "PLW0603", # Using the global statement to update ... is discouraged
-    "RUF039", # First argument to `re.search()` is not raw string
-    "RUF045", # class vars
-    "TRY300", # Consider moving this statement to an `else` block
-    "TRY301", # Abstract `raise` to an inner function
+    "E501", #   	line-too-long
+    "RUF045", # 	implicit-class-var-in-dataclass
+    "B904", #   	raise-without-from-inside-except
+    "TRY300", # 	try-consider-else
+    "F841", #   	unused-variable
+    "FBT001", # 	boolean-type-hint-positional-argument
+    "FBT002", # 	boolean-default-value-positional-argument
+    "FBT003", # 	boolean-positional-value-in-call
+    "TRY301", # 	raise-within-try
+    "PLR0911", #	too-many-return-statements
+    "PERF203", #	try-except-in-loop
+    "B909", #   	loop-iterator-mutation
+    "PLW0603", #	global-statement
 ]
 
 
