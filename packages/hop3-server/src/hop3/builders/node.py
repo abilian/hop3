@@ -11,6 +11,7 @@ import os
 from hop3 import config as c
 from hop3.core.env import Env
 from hop3.core.events import InstallingVirtualEnv, emit
+from hop3.core.protocols import BuildArtifact
 from hop3.lib import Abort, chdir, check_binaries, log, prepend_to_path
 
 from ._base import Builder
@@ -36,7 +37,7 @@ class NodeBuilder(Builder):
         """
         return self.check_exists("package.json")
 
-    def build(self) -> None:
+    def build(self) -> BuildArtifact:
         """Build the project environment.
 
         This creates the necessary directories and installs the required
@@ -49,6 +50,15 @@ class NodeBuilder(Builder):
             os.environ["PATH"] = str(env["PATH"])
             self.install_node(env)
             self.install_modules(env)
+
+        return BuildArtifact(
+            kind="node",
+            location=str(self.virtual_env),
+            metadata={
+                "node_modules": str(self.src_path / "node_modules"),
+                "app_name": self.app_name,
+            },
+        )
 
     def get_env(self) -> Env:
         """Get the environment variables for the application.

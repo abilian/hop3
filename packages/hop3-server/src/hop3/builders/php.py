@@ -9,6 +9,7 @@ from subprocess import CalledProcessError
 from typing import TYPE_CHECKING
 
 from hop3.core.events import InstallingDependencies, PreparingBuildEnv, emit
+from hop3.core.protocols import BuildArtifact
 from hop3.lib import chdir, shell
 
 from ._base import Builder
@@ -34,13 +35,19 @@ class PHPBuilder(Builder):
         indicating it is a PHP project."""
         return self.check_exists("composer.json")
 
-    def build(self) -> None:
+    def build(self) -> BuildArtifact:
         """Build the PHP project by installing dependencies and potentially
         running custom scripts."""
         with chdir(self.src_path):
             env = self.get_env()
             self.prepare_build_env(env)
             self.install_dependencies()
+
+        return BuildArtifact(
+            kind="php",
+            location=str(self.src_path),
+            metadata={"app_name": self.app_name},
+        )
 
     def prepare_build_env(self, env: Env) -> None:
         """Prepare the environment for building the project, if necessary.

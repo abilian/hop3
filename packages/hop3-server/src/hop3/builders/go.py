@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from hop3.core.protocols import BuildArtifact
+
 from ._base import Builder
 
 
@@ -26,8 +28,14 @@ class GoBuilder(Builder):
             list(self.src_path.glob("*.go"))
         ) > 0
 
-    def build(self) -> None:
+    def build(self) -> BuildArtifact:
         """Build the Go application."""
         # This method would contain the implementation details
         # to compile and build a Go project
         # TODO: implement
+
+        return BuildArtifact(
+            kind="go",
+            location=str(self.src_path),
+            metadata={"app_name": self.app_name},
+        )

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hop3 import config as c
 from hop3.core.env import Env
+from hop3.core.protocols import BuildArtifact
 from hop3.lib import shell
 
 if TYPE_CHECKING:
@@ -110,8 +111,12 @@ class Builder(ABC):
         return any((self.src_path / file).exists() for file in file_or_files)
 
     @abstractmethod
-    def build(self) -> None:
-        """Build app from sources (implemented by subclasses)."""
+    def build(self) -> BuildArtifact:
+        """Build app from sources (implemented by subclasses).
+
+        Returns:
+            BuildArtifact describing what was built
+        """
 
     #
     # Properties
