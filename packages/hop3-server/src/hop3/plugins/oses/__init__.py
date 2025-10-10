@@ -1,10 +1,11 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Setup scripts for various OSes (not working yet).
+"""OS setup strategy plugins.
 
-NOTE: the functions in this module are currently implemented
-in the installer (`installer/install-hop.py`).
+This package contains plugins for setting up hop3 on different operating systems.
+Each OS plugin implements the OSSetupStrategy protocol and can auto-detect
+whether it matches the current system.
 """
 
 from __future__ import annotations
