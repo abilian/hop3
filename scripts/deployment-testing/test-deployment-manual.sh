@@ -8,6 +8,7 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${GREEN}=== Hop3 Manual Deployment Test ===${NC}\n"
@@ -37,7 +38,7 @@ else
 fi
 
 # Stop and remove existing container if it exists
-CONTAINER_NAME="hop3-manual-test"
+CONTAINER_NAME="hop3-deployment-test"
 if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     echo "Stopping and removing existing container..."
     docker stop $CONTAINER_NAME > /dev/null 2>&1 || true
@@ -93,7 +94,7 @@ ACTUAL_HTTP_PORT=$(docker port $CONTAINER_NAME 80 | cut -d: -f2)
 ACTUAL_API_PORT=$(docker port $CONTAINER_NAME 8000 | cut -d: -f2)
 
 # Get SSH key
-SSH_KEY="/tmp/hop3-manual-test-key"
+SSH_KEY="/tmp/hop3-deployment-test-key"
 docker exec $CONTAINER_NAME cat /home/hop3/.ssh/id_rsa > $SSH_KEY
 chmod 600 $SSH_KEY
 
@@ -143,7 +144,7 @@ cat > Procfile <<'EOF'
 web: flask --app app run --host 0.0.0.0 --port $PORT
 EOF
 
-cat > env <<EOF
+cat > ENV <<EOF
 NGINX_SERVER_NAME=$HOSTNAME
 EOF
 
@@ -237,28 +238,28 @@ fi
 echo -e "\n${GREEN}=== Next Steps ===${NC}"
 echo ""
 echo "1. Add hostname to /etc/hosts:"
-echo "   ${YELLOW}echo '127.0.0.1 $HOSTNAME' | sudo tee -a /etc/hosts${NC}"
+echo -e "   ${YELLOW}echo '127.0.0.1 $HOSTNAME' | sudo tee -a /etc/hosts${NC}"
 echo ""
 echo "2. Access the application:"
-echo "   ${YELLOW}curl http://localhost:$ACTUAL_HTTP_PORT/ -H 'Host: $HOSTNAME'${NC}"
+echo -e "   ${YELLOW}curl http://localhost:$ACTUAL_HTTP_PORT/ -H 'Host: $HOSTNAME'${NC}"
 echo "   or in browser: http://localhost:$ACTUAL_HTTP_PORT/ (with Host header)"
 echo ""
 echo "3. Deploy another app:"
-echo "   ${YELLOW}export HOP3_API_URL=\"ssh://hop3@localhost:$ACTUAL_SSH_PORT\"${NC}"
-echo "   ${YELLOW}export HOP3_SSH_KEY=\"$SSH_KEY\"${NC}"
-echo "   ${YELLOW}uv run hop3 deploy myapp /path/to/app${NC}"
+echo -e "   ${YELLOW}export HOP3_API_URL=\"ssh://hop3@localhost:$ACTUAL_SSH_PORT\"${NC}"
+echo -e "   ${YELLOW}export HOP3_SSH_KEY=\"$SSH_KEY\"${NC}"
+echo -e "   ${YELLOW}uv run hop3 deploy myapp /path/to/app${NC}"
 echo ""
 echo "4. Check logs:"
-echo "   ${YELLOW}uv run hop3 logs $APP_NAME${NC}"
+echo -e "   ${YELLOW}uv run hop3 logs $APP_NAME${NC}"
 echo ""
 echo "5. SSH into container:"
-echo "   ${YELLOW}ssh -i $SSH_KEY -p $ACTUAL_SSH_PORT hop3@localhost${NC}"
+echo -e "   ${YELLOW}ssh -i $SSH_KEY -p $ACTUAL_SSH_PORT hop3@localhost${NC}"
 echo ""
 echo "6. View nginx config:"
-echo "   ${YELLOW}docker exec $CONTAINER_NAME cat /home/hop3/nginx/$APP_NAME.conf${NC}"
+echo -e "   ${YELLOW}docker exec $CONTAINER_NAME cat /home/hop3/nginx/$APP_NAME.conf${NC}"
 echo ""
 echo "7. Cleanup when done:"
-echo "   ${YELLOW}docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME${NC}"
-echo "   ${YELLOW}rm -rf $APP_DIR $TARBALL $SSH_KEY${NC}"
+echo -e "   ${YELLOW}docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME${NC}"
+echo -e "   ${YELLOW}rm -rf $APP_DIR $TARBALL $SSH_KEY${NC}"
 echo ""
 echo -e "${GREEN}=== Test Complete ===${NC}"
