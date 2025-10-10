@@ -19,26 +19,22 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-# Build Docker image if it doesn't exist
+# Build Docker image
 IMAGE_TAG="hop3-e2e:test"
-if ! docker image inspect $IMAGE_TAG > /dev/null 2>&1; then
-    echo -e "${YELLOW}Building Docker image (this may take 5-10 minutes)...${NC}"
+echo -e "${YELLOW}Building Docker image (this may take 5-10 minutes)...${NC}"
 
-    # Build hop3-server distribution
-    echo "Building hop3-server distribution..."
-    uv build packages/hop3-server
+# Build hop3-server distribution
+echo "Building hop3-server distribution..."
+uv build packages/hop3-server
 
-    # Build Docker image
-    docker build -f packages/hop3-server/tests/d_e2e/docker/Dockerfile \
-        -t $IMAGE_TAG .
+# Build Docker image
+docker build -f packages/hop3-server/tests/d_e2e/docker/Dockerfile \
+    -t $IMAGE_TAG .
 
-    echo -e "${GREEN}✓ Docker image built${NC}"
-else
-    echo -e "${GREEN}✓ Using existing Docker image${NC}"
-fi
+echo -e "${GREEN}✓ Docker image built${NC}"
 
 # Stop and remove existing container if it exists
-CONTAINER_NAME="hop3-multi-test"
+CONTAINER_NAME="hop3-deployment-test"
 if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     echo "Stopping and removing existing container..."
     docker stop $CONTAINER_NAME > /dev/null 2>&1 || true
@@ -94,7 +90,7 @@ ACTUAL_HTTP_PORT=$(docker port $CONTAINER_NAME 80 | cut -d: -f2)
 ACTUAL_API_PORT=$(docker port $CONTAINER_NAME 8000 | cut -d: -f2)
 
 # Get SSH key
-SSH_KEY="/tmp/hop3-multi-test-key"
+SSH_KEY="/tmp/hop3-deployment-test-key"
 docker exec $CONTAINER_NAME cat /home/hop3/.ssh/id_rsa > $SSH_KEY
 chmod 600 $SSH_KEY
 
