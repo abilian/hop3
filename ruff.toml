@@ -57,26 +57,26 @@ lint.extend-ignore = [
     "S101", # Use of `assert` detected
     "SIM102", # Use a single `if` statement instead of nested `if` statements
     "SIM108", # Use ternary operator
-    "TC003", # Move import into a type-checking block (conflicts with SQLA ORM)
     "TC", # Move import into a type-checking block (conflicts with wireup)
 
     # Fix these
     "B904", # Use raise ... from ...
     "B909", # Mutation to loop iterable during iteration
     "E501", # Line too long
+    "F841", # unused variable
+    "FBT", #
     "FBT003", # Boolean positional value in function call
+    "FURB113", #
     "INP001",
+    "N802", # Naming
+    "PERF203", #
+    "PLR0904", # Too many public methods
     "PLR0911", # Too many return statements (7 > 6)
     "PLW0603", # Using the global statement to update ... is discouraged
     "RUF039", # First argument to `re.search()` is not raw string
+    "RUF045", # class vars
     "TRY300", # Consider moving this statement to an `else` block
     "TRY301", # Abstract `raise` to an inner function
-    "N802", # Naming
-    "RUF045", # class vars
-    "PLR0904", # Too many public methods
-    "F841", # unused variable
-    "FURB113", # 
-    "FBT", # 
 ]
 
 
