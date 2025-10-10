@@ -1,7 +1,7 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Setup script for Ubuntu 22.04 LTS (Jammy Jellyfish)."""
+"""Setup script for Debian 13 (Trixie)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from io import StringIO
 
 from hop3.oses.helpers import Debian
 
-# Package list for Ubuntu 22.04 LTS
+# Package list for Debian 13
 PACKAGES = [
     "bc",
     "git",
@@ -78,13 +78,13 @@ platform = Debian()
 
 def setup_server() -> None:
     """Configures the server by setting up necessary files, users, packages,
-    and symlinks for Ubuntu 22.04 LTS.
+    and symlinks for Debian 13 (Trixie).
 
     This performs the following tasks:
 
     - Puts an APT configuration file at a specified location.
     - Ensures the hop3 user with defined attributes exists.
-    - Installs required Ubuntu packages and performs an update.
+    - Installs required Debian packages and performs an update.
     - Creates symbolic links for node and yarn commands.
     """
 
@@ -102,7 +102,7 @@ def setup_server() -> None:
     )
 
     platform.ensure_packages(
-        name="Install Ubuntu Packages",
+        name="Install Debian Packages",
         packages=PACKAGES,
         update=True,
     )

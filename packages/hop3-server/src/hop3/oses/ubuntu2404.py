@@ -1,7 +1,7 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Setup script for Ubuntu 22.04 LTS (Jammy Jellyfish)."""
+"""Setup script for Ubuntu 24.04 LTS (Noble Numbat)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from io import StringIO
 
 from hop3.oses.helpers import Debian
 
-# Package list for Ubuntu 22.04 LTS
+# Package list for Ubuntu 24.04 LTS
 PACKAGES = [
     "bc",
     "git",
@@ -78,7 +78,7 @@ platform = Debian()
 
 def setup_server() -> None:
     """Configures the server by setting up necessary files, users, packages,
-    and symlinks for Ubuntu 22.04 LTS.
+    and symlinks for Ubuntu 24.04 LTS.
 
     This performs the following tasks:
 
