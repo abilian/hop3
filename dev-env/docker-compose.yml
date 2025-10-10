@@ -1,0 +1,33 @@
+services:
+  hop3-dev:
+    image: hop3-dev:latest
+    container_name: hop3-dev
+    build:
+      context: ..
+      dockerfile: dev-env/Dockerfile
+    ports:
+      - "2222:22"    # SSH
+      - "8000:8000"  # hop3-server API (JSON-RPC)
+      - "8080:80"    # HTTP (nginx)
+      - "8443:443"   # HTTPS (nginx)
+      - "5432:5432"  # PostgreSQL
+    volumes:
+      # Persist app data
+      - hop3-apps:/home/hop3/.hop3/apps
+      - hop3-data:/home/hop3/.hop3/data
+      # Persist PostgreSQL data
+      - hop3-postgres:/var/lib/postgresql/14/main
+    environment:
+      - HOP3_ROOT=/home/hop3/.hop3
+      - POSTGRES_HOST=localhost
+    command: /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
+    healthcheck:
+      test: ["CMD", "supervisorctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  hop3-apps:
+  hop3-data:
+  hop3-postgres:
