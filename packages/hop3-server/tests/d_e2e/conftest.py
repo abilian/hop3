@@ -30,16 +30,11 @@ def pytest_configure(config):
 @pytest.fixture(scope="session")
 def docker_client() -> Generator[docker.DockerClient, None, None]:
     """Provide Docker client for tests."""
-    try:
-        client = docker.from_env()
-        # Test Docker connectivity
-        client.ping()
-        yield client
-    except Exception as e:
-        pytest.skip(f"Docker not available: {e}")
-    finally:
-        if "client" in locals():
-            client.close()
+    client = docker.from_env()
+    # Test Docker connectivity
+    client.ping()
+    yield client
+    client.close()
 
 
 @pytest.fixture(scope="session")
@@ -61,7 +56,7 @@ def hop3_image(docker_client: docker.DockerClient) -> str:
 
     project_root = Path(__file__).parent.parent.parent.parent.parent
     # Use simple Dockerfile that works on macOS (no systemd)
-    dockerfile_path = Path(__file__).parent / "docker" / "Dockerfile.simple"
+    dockerfile_path = Path(__file__).parent / "docker" / "Dockerfile"
 
     # Build hop3 distribution first
     print("Building hop3-server distribution...")
@@ -94,7 +89,7 @@ def hop3_image(docker_client: docker.DockerClient) -> str:
         for log in e.build_log:
             if "stream" in log:
                 print(log["stream"].strip())
-        pytest.fail(f"Failed to build Docker image: {e}")
+        raise AssertionError(f"Failed to build Docker image: {e}")
 
 
 @pytest.fixture(scope="class")
