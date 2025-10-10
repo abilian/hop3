@@ -11,6 +11,7 @@ from pathlib import Path
 
 from hop3.core.env import Env
 from hop3.core.events import BuildEvent, CreatingVirtualEnv, emit
+from hop3.core.protocols import BuildArtifact
 from hop3.lib import log, prepend_to_path
 
 from ._base import Builder
@@ -56,7 +57,7 @@ class ClojureBuilder(Builder):
         """
         return (self.src_path / "deps.edn").exists()
 
-    def build(self) -> None:
+    def build(self) -> BuildArtifact:
         """Build the Clojure application.
 
         This creates a virtual environment, builds the Clojure
@@ -69,6 +70,15 @@ class ClojureBuilder(Builder):
         target_path = self.src_path / "target"
         target_path.mkdir(parents=True, exist_ok=True)
         self._build(self.get_env())
+
+        return BuildArtifact(
+            kind="clojure",
+            location=str(target_path),
+            metadata={
+                "app_name": self.app_name,
+                "is_leiningen": self.is_leiningen_app,
+            },
+        )
 
     def get_env(self) -> Env:
         """Get the environment variables for the current setup.

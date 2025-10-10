@@ -9,6 +9,7 @@ from subprocess import CalledProcessError
 from typing import TYPE_CHECKING
 
 from hop3.core.events import CompilingProject, CreatingBuildEnv, emit
+from hop3.core.protocols import BuildArtifact
 from hop3.lib import chdir
 
 from ._base import Builder
@@ -35,12 +36,18 @@ class RustBuilder(Builder):
         """
         return self.check_exists("Cargo.toml")
 
-    def build(self) -> None:
+    def build(self) -> BuildArtifact:
         """Build the Rust project using cargo."""
         with chdir(self.src_path):
             env = self.get_env()
             self.prepare_build_env(env)
             self.compile_project()
+
+        return BuildArtifact(
+            kind="rust",
+            location=str(self.src_path / "target"),
+            metadata={"app_name": self.app_name},
+        )
 
     def prepare_build_env(self, env: Env) -> None:
         """Prepare the environment for building the project, if necessary.

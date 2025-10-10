@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from hop3.core.env import Env
 from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
+from hop3.core.protocols import BuildArtifact
 from hop3.lib import chdir, prepend_to_path
 
 from ._base import Builder
@@ -28,13 +29,19 @@ class RubyBuilder(Builder):
     def accept(self) -> bool:
         return self.check_exists("Gemfile")
 
-    def build(self) -> None:
+    def build(self) -> BuildArtifact:
         with chdir(self.src_path):
             env = self.get_env()
             self.make_virtual_env(env)
 
             emit(InstallingVirtualEnv(self.app_name))
             self.shell("bundle install", env=env)
+
+        return BuildArtifact(
+            kind="ruby",
+            location=str(self.virtual_env),
+            metadata={"app_name": self.app_name},
+        )
 
     def get_env(self) -> Env:
         path = prepend_to_path(
