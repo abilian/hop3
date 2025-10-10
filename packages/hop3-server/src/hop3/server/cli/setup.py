@@ -16,11 +16,9 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from hop3 import config as c
+from hop3.core.plugins import get_os_strategy
 from hop3.lib import Abort, echo
 from hop3.lib.registry import register
-
-# TODO - use proper plugin system
-from hop3.plugins.oses.ubuntu2204 import setup_system
 from hop3.server.cli import Command
 
 
@@ -31,7 +29,10 @@ class SetupSystemCmd(Command):
     name = "setup:system"
 
     def run(self) -> None:
-        setup_system()
+        """Run OS-specific system setup using the plugin system."""
+        strategy = get_os_strategy()
+        echo(f"Detected OS: {strategy.display_name}", fg="green")
+        strategy.setup_server()
 
 
 @register
