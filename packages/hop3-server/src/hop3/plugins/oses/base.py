@@ -9,6 +9,7 @@ import os
 import subprocess
 from io import StringIO
 from pathlib import Path
+from typing import ClassVar
 
 
 class BaseOSStrategy:
@@ -20,7 +21,7 @@ class BaseOSStrategy:
 
     name: str = "base"
     display_name: str = "Base OS"
-    packages: list[str] = []
+    packages: ClassVar[list[str]] = []
 
     HOP3_USER = "hop3"
     HOME_DIR = f"/home/{HOP3_USER}"
@@ -142,8 +143,8 @@ class BaseOSStrategy:
         os_info = {}
         try:
             with open("/etc/os-release") as f:
-                for line in f:
-                    line = line.strip()
+                for raw_line in f:
+                    line = raw_line.strip()
                     if not line or line.startswith("#") or "=" not in line:
                         continue
                     key, value = line.split("=", 1)
