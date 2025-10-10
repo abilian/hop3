@@ -3,7 +3,3 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
-
-from .auth import AuthenticationMiddleware
-
-__all__ = ["AuthenticationMiddleware"]
