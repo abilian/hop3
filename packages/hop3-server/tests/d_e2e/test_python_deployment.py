@@ -6,15 +6,14 @@
 
 from __future__ import annotations
 
+import base64
 import subprocess
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import base64
 import httpx
 import pytest
-
 from hop3_cli.client import Client
 from hop3_cli.config import Config
 
@@ -159,16 +158,17 @@ def health():
                     assert "Hello from Flask E2E Test" in response.text
                     print(f"✓ HTTP access working via virtual host {hostname}")
                     break
-                elif response.status_code == 502:
+                if response.status_code == 502:
                     # Backend not ready yet, wait and retry
-                    print(f"  Attempt {attempt + 1}/{max_attempts}: Backend not ready (502), waiting...")
+                    print(
+                        f"  Attempt {attempt + 1}/{max_attempts}: Backend not ready (502), waiting..."
+                    )
                     time.sleep(1)
                     attempt += 1
                     continue
-                else:
-                    # Unexpected status code
-                    print(f"  Unexpected status code: {response.status_code}")
-                    assert False, f"Unexpected status code: {response.status_code}"
+                # Unexpected status code
+                print(f"  Unexpected status code: {response.status_code}")
+                pytest.fail(f"Unexpected status code: {response.status_code}")
             except (httpx.HTTPError, httpx.ConnectError) as e:
                 last_error = e
                 print(f"  Attempt {attempt + 1}/{max_attempts}: Connection error: {e}")

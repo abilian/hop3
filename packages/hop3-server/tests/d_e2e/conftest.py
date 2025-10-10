@@ -89,7 +89,8 @@ def hop3_image(docker_client: docker.DockerClient) -> str:
         for log in e.build_log:
             if "stream" in log:
                 print(log["stream"].strip())
-        raise AssertionError(f"Failed to build Docker image: {e}")
+        msg = f"Failed to build Docker image: {e}"
+        raise AssertionError(msg)
 
 
 @pytest.fixture(scope="class")
