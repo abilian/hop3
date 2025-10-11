@@ -102,6 +102,22 @@ class NginxVirtualHost(Proxy):
         self.reload_nginx()
 
     def setup_backend(self):
+        # For static-only apps, skip backend configuration entirely
+        # (they serve files directly without a backend process)
+        if len(self.workers) == 1 and "static" in self.workers:
+            self.env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = ""
+            self.env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
+            # Set a dummy NGINX_SOCKET to prevent template errors
+            # (it won't be used since we remove the upstream block later)
+            self.env["NGINX_SOCKET"] = ""
+            # Mark this as a static-only app for template generation
+            self.env["HOP3_STATIC_ONLY"] = "1"
+            log(
+                f"nginx will serve static files directly for '{self.app_name}' (no backend process)",
+                level=2,
+            )
+            return
+
         # default to reverse proxying to the TCP port we picked
         self.update_env(
             "HOP3_INTERNAL_NGINX_UWSGI_SETTINGS",
@@ -185,6 +201,24 @@ class NginxVirtualHost(Proxy):
             )
         else:
             buffer = expand_vars(NGINX_TEMPLATE, self.env)
+
+        # For static-only apps, remove the upstream block entirely
+        # (static files are served directly without a backend)
+        if self.env.get("HOP3_STATIC_ONLY"):
+            # Remove lines from "upstream $APP {" to the closing "}"
+            lines = buffer.split("\n")
+            filtered_lines = []
+            in_upstream = False
+            for line in lines:
+                if line.strip().startswith("upstream "):
+                    in_upstream = True
+                    continue
+                if in_upstream:
+                    if line.strip() == "}":
+                        in_upstream = False
+                    continue
+                filtered_lines.append(line)
+            buffer = "\n".join(filtered_lines)
 
         # remove all references to IPv6 listeners (for environments where it's disabled)
         if self.env.get_bool("DISABLE_IPV6"):
