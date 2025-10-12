@@ -30,6 +30,8 @@ RUN apt-get update && \
         sudo \
         build-essential \
         pkg-config \
+        libpcre3-dev \
+        zlib1g-dev \
         # Python
         python3 \
         python3-pip \
@@ -43,6 +45,7 @@ RUN apt-get update && \
         libssl-dev \
         # Nginx
         nginx \
+        acl \
         # uWSGI
         uwsgi-core \
         uwsgi-plugin-python3 \
@@ -50,13 +53,32 @@ RUN apt-get update && \
         postgresql \
         postgresql-client \
         libpq-dev \
+        # Language runtimes for builders
+        # - Ruby
+        ruby \
+        ruby-dev \
+        ruby-bundler \
+        # - Node.js
+        npm \
+        nodeenv \
+        yarnpkg \
+        # - Go
+        golang \
+        # - Clojure
+        clojure \
+        leiningen \
+        # Extra libraries
+        libcairo2 \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Create hop3 user
+# Create hop3 user and add www-data to hop3 group for socket access
 RUN useradd -m -s /bin/bash hop3 && \
     echo "hop3:hop3" | chpasswd && \
-    echo "hop3 ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+    echo "hop3 ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    usermod -a -G hop3 www-data
 
 # Setup SSH
 RUN mkdir -p /var/run/sshd && \
