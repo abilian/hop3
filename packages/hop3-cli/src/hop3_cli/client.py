@@ -53,6 +53,11 @@ class Client:
         return api_url
 
     @property
+    def using_ssh_tunnel(self) -> bool:
+        """Check if we're using an SSH tunnel for connection."""
+        return self.tunnel is not None
+
+    @property
     def rpc_url(self) -> str:
         """Return the correct RPC URL based on the connection type."""
         parsed_url = urlparse(self.api_url)
@@ -86,8 +91,8 @@ class Client:
             "remote_bind_address": ("localhost", remote_server_port),
         }
 
-        # Add SSH key if provided
-        ssh_key = self.config.get("ssh_key")
+        # Add SSH key if provided (optional - can use ssh-agent or default keys)
+        ssh_key = self.config.get("ssh_key", None)
         if ssh_key:
             tunnel_kwargs["ssh_pkey"] = ssh_key
 
@@ -126,6 +131,8 @@ class Client:
         headers = {"Content-Type": "application/json"}
 
         # Add authentication token if configured
+        # Note: Even with SSH tunnel, we still use token for authorization
+        # SSH provides transport security, token provides authorization
         api_token = self.config.get("api_token", "")
         if api_token:
             headers["Authorization"] = f"Bearer {api_token}"
@@ -162,9 +169,24 @@ class Client:
                 return Error(-1, "Invalid response format", "", json_request["id"])
         except requests.exceptions.HTTPError as e:
             # For other HTTP errors, provide the status code and message
+            # Try to extract error details from response body
+            error_detail = f"HTTP {response.status_code} error: {e!s}"
+            try:
+                error_body = response.json()
+                if "detail" in error_body:
+                    error_detail += f"\nDetail: {error_body['detail']}"
+                elif "error" in error_body:
+                    error_detail += f"\nError: {error_body['error']}"
+                else:
+                    error_detail += f"\nResponse: {error_body}"
+            except Exception:
+                # If we can't parse JSON, try to show raw response
+                if response.text:
+                    error_detail += f"\nResponse: {response.text[:500]}"
+
             return Error(
                 response.status_code,
-                f"HTTP {response.status_code} error: {e!s}",
+                error_detail,
                 "",
                 json_request["id"],
             )
