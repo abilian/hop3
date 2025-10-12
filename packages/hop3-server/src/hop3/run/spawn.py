@@ -62,8 +62,17 @@ class AppLauncher:
         handling environment-specific setups, including nginx and uwsgi
         configurations."""
 
+        # Update app model with port and hostname from environment
+        # Port is always assigned in make_env()
+        if "PORT" in self.env:
+            self.app.port = int(self.env["PORT"])
+
         # Set up nginx if we have NGINX_SERVER_NAME set
         nginx_server_name = self.env.get("NGINX_SERVER_NAME", "")
+
+        # Update hostname in app model
+        if nginx_server_name and nginx_server_name != "_":
+            self.app.hostname = nginx_server_name
 
         # Only setup nginx if NGINX_SERVER_NAME is set to a real value (not "_" or empty)
         if nginx_server_name and nginx_server_name != "_":
