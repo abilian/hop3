@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import psycopg2
+from psycopg2 import sql
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 
@@ -29,19 +30,26 @@ class PostgresService:
 
     Attributes:
         service_name: The unique name for this PostgreSQL service instance
+        _password: Optional pre-generated password (for internal use)
     """
 
     # Class attribute for the strategy name
     name: str = "postgres"
 
-    # Instance attribute
+    # Instance attributes
     service_name: str = ""
+    _password: str = ""  # Internal: pre-generated password
 
     def __post_init__(self):
-        """Validate that service_name is provided."""
+        """Validate that service_name is provided and generate password if needed."""
         if not self.service_name:
             msg = "service_name is required for PostgresService"
             raise ValueError(msg)
+
+        # Generate password if not provided (frozen dataclass workaround)
+        if not self._password:
+            # Use object.__setattr__ to set on frozen dataclass
+            object.__setattr__(self, "_password", secrets.token_urlsafe(32))
 
     @property
     def db_name(self) -> str:
@@ -56,14 +64,13 @@ class PostgresService:
 
     @property
     def db_password(self) -> str:
-        """Generate a secure password for the database user.
+        """Get the secure password for the database user.
 
         Note: In production, this should be stored securely in a secrets manager.
-        For now, we generate a deterministic password based on the service name.
+        For now, we generate and cache a random password per instance.
         """
         # TODO: Store passwords securely in a secrets manager
-        # For now, generate a random password (this is temporary)
-        return secrets.token_urlsafe(32)
+        return self._password
 
     def create(self) -> None:
         """Create a new PostgreSQL database if it does not already exist.
@@ -83,6 +90,7 @@ class PostgresService:
             # Password should come from environment or config
         }
 
+        connection = None
         try:
             connection = psycopg2.connect(**params)
             connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
@@ -110,13 +118,23 @@ class PostgresService:
             "user": "postgres",
         }
 
+        connection = None
         try:
             connection = psycopg2.connect(**params)
             connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
 
             with connection.cursor() as cursor:
-                cursor.execute(f"DROP DATABASE IF EXISTS {self.db_name};")
-                cursor.execute(f"DROP USER IF EXISTS {self.db_user};")
+                # Use sql.Identifier to safely escape database and user names
+                cursor.execute(
+                    sql.SQL("DROP DATABASE IF EXISTS {}").format(
+                        sql.Identifier(self.db_name)
+                    )
+                )
+                cursor.execute(
+                    sql.SQL("DROP USER IF EXISTS {}").format(
+                        sql.Identifier(self.db_user)
+                    )
+                )
 
         finally:
             if connection:
@@ -275,14 +293,20 @@ class PostgresService:
         Args:
             cursor: A database cursor object for executing commands
         """
-        # SQL statement to create a new user with the specified password
-        stmt = f"CREATE USER {self.db_user} WITH PASSWORD '{self.db_password}';"
-        cursor.execute(stmt)
+        # Use sql.Identifier for user/db names and sql.Literal for password
+        # to prevent SQL injection
+        cursor.execute(
+            sql.SQL("CREATE USER {} WITH PASSWORD {}").format(
+                sql.Identifier(self.db_user), sql.Literal(self.db_password)
+            )
+        )
 
-        # SQL statement to create a new database with the specified owner
-        stmt = f"CREATE DATABASE {self.db_name} WITH OWNER {self.db_user};"
-        cursor.execute(stmt)
+        cursor.execute(
+            sql.SQL("CREATE DATABASE {} WITH OWNER {}").format(
+                sql.Identifier(self.db_name), sql.Identifier(self.db_user)
+            )
+        )
 
 
-# Legacy alias for backward compatibility
-PostgresqlAddon = PostgresService
+# Backwards compatibility alias
+PostgresqlService = PostgresService
