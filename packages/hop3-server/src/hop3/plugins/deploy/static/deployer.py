@@ -1,0 +1,168 @@
+# Copyright (c) 2025, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0
+"""Deployment strategy for static file applications."""
+
+from __future__ import annotations
+
+import os
+
+from hop3.config import HOP3_ROOT, HOP3_USER
+from hop3.core.env import Env
+from hop3.core.protocols import (
+    BuildArtifact,
+    DeploymentContext,
+    DeploymentInfo,
+    DeploymentStrategy,
+)
+from hop3.lib import log
+from hop3.orm import App, AppStateEnum
+from hop3.plugins.proxy.nginx import NginxVirtualHost
+from hop3.project.config import AppConfig
+
+
+class StaticDeployer(DeploymentStrategy):
+    """Deployment strategy for static file applications.
+
+    Static apps don't require any runtime process - they're served directly by nginx.
+    """
+
+    name = "static"
+
+    def __init__(self, context: DeploymentContext, artifact: BuildArtifact):
+        self.context = context
+        self.artifact = artifact
+
+    @property
+    def app(self) -> App:
+        """Get the app from the context."""
+        if self.context.app is None:
+            msg = "App not provided in deployment context"
+            raise RuntimeError(msg)
+        return self.context.app
+
+    def accept(self) -> bool:
+        """Accept only static artifacts."""
+        return self.artifact.kind == "static"
+
+    def _make_env(self) -> Env:
+        """Create environment for nginx configuration.
+
+        Similar to AppLauncher.make_env() but simplified for static apps.
+        """
+        app_config = AppConfig.from_dir(self.app.app_path)
+        virtualenv_path = self.app.virtualenv_path
+
+        # Bootstrap environment
+        env = Env({
+            "APP": self.app.name,
+            "HOME": HOP3_ROOT,
+            "USER": HOP3_USER,
+            "PATH": f"{virtualenv_path / 'bin'}:{os.environ['PATH']}",
+            "PWD": str(self.app.app_path),
+            "VIRTUAL_ENV": str(virtualenv_path),
+        })
+
+        safe_defaults = {
+            "NGINX_IPV4_ADDRESS": "0.0.0.0",
+            "NGINX_IPV6_ADDRESS": "[::]",
+            "BIND_ADDRESS": "127.0.0.1",
+            "PORT": "0",  # Dummy port for static apps (not used, but needed by nginx setup)
+            "NGINX_SERVER_NAME": "_",  # Catch-all server name for development
+        }
+
+        # Load environment variables shipped with repo (if any)
+        env_file = self.app.src_path / "ENV"
+        env.parse_settings(env_file)
+
+        # Load environment variables from the ORM
+        env.update(self.app.get_runtime_env())
+
+        # Handle IPv6
+        if env.get_bool("DISABLE_IPV6"):
+            safe_defaults.pop("NGINX_IPV6_ADDRESS", None)
+            log("nginx will NOT use IPv6", level=3)
+
+        # Safe defaults for addressing
+        for k, v in safe_defaults.items():
+            if k not in env:
+                log(f"nginx {k:s} will be set to {v}", level=3)
+                env[k] = v
+
+        # Set the static path to the artifact location
+        # The format is "/url_prefix:filesystem_path"
+        # For static apps, we serve from root ("/") and point to the artifact location
+        env["NGINX_STATIC_PATHS"] = f"/:{self.artifact.location}/"
+
+        return env
+
+    def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:
+        """Deploy the static app.
+
+        For static apps, deployment just means marking them as RUNNING.
+        Nginx will serve the files directly from the artifact location.
+        """
+        log(f"Deploying static app '{self.app.name}'...", level=2, fg="blue")
+
+        # Mark the app as RUNNING
+        self.app.run_state = AppStateEnum.RUNNING
+
+        # Set up nginx configuration for static file serving
+        env = self._make_env()
+        if "NGINX_SERVER_NAME" in env:
+            app_config = AppConfig.from_dir(self.app.app_path)
+            workers = app_config.workers
+
+            log(
+                f"Setting up nginx for static app '{self.app.name}'...",
+                level=2,
+                fg="blue",
+            )
+            nginx = NginxVirtualHost(self.app, env, workers)
+            nginx.setup()
+
+        # Return deployment info (nginx will serve from static_path)
+        static_path = self.artifact.location
+        return DeploymentInfo(
+            protocol="static",
+            address=static_path,
+        )
+
+    def start(self) -> None:
+        """Start the static app (same as deploy)."""
+        log(f"Starting static app '{self.app.name}'...", level=2, fg="blue")
+        self.deploy({})
+
+    def stop(self) -> None:
+        """Stop the static app."""
+        log(f"Stopping static app '{self.app.name}'...", level=2, fg="yellow")
+        self.app.run_state = AppStateEnum.STOPPED
+        log(f"Static app '{self.app.name}' stopped.", level=2, fg="green")
+
+    def restart(self) -> None:
+        """Restart the static app (no-op for static files)."""
+        log(f"Restarting static app '{self.app.name}'...", level=2, fg="blue")
+        # For static apps, there's nothing to restart - just ensure it's running
+        if self.app.run_state != AppStateEnum.RUNNING:
+            self.start()
+        else:
+            log(f"Static app '{self.app.name}' already running.", level=2, fg="green")
+
+    def destroy(self) -> None:
+        """Destroy the static app deployment."""
+        self.stop()
+
+    def scale(self, deltas: dict[str, int] | None = None) -> None:
+        """Scaling is not applicable for static apps."""
+        log(
+            f"Scaling not applicable for static app '{self.app.name}'",
+            level=2,
+            fg="yellow",
+        )
+
+    def get_status(self) -> dict:
+        """Get the status of the static app."""
+        return {
+            "running": self.app.run_state == AppStateEnum.RUNNING,
+            "processes": {},  # No processes for static files
+        }
