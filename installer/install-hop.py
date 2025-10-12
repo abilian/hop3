@@ -110,9 +110,17 @@ def setup_server() -> None:
         src=StringIO(APT_CONF),
         dest="/etc/apt/apt.conf.d/00-hop3",
     )
+
+    # Create hop3 group first
+    server.group(
+        name="Create hop3 group",
+        group=HOP3_USER,
+    )
+
     server.user(
         name="Add hop3 user",
         user=HOP3_USER,
+        group=HOP3_USER,
         home=HOME_DIR,
         shell="/bin/bash",
     )
