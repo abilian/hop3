@@ -127,6 +127,10 @@ class PrintingConsole(Console):
                 print(blue(msg))
             case "yellow":
                 print(yellow(msg))
+            case "cyan":
+                print(cyan(msg))
+            case "magenta":
+                print(magenta(msg))
             case _:
                 msg = f"Unknown color: {fg}"
                 raise ValueError(msg)

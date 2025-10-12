@@ -115,19 +115,6 @@ class DeployCmd(Command):
         archives_bytes = b64decode(kwargs["repository"])
         extract_archive_to_dir(archives_bytes, app.src_path)
 
-        # try:
-        #     # Pull latest changes from the remote repository
-        #     subprocess.run(
-        #         ["git", "pull"],
-        #         cwd=app.src_path,
-        #         check=True,
-        #         capture_output=True,
-        #         text=True,
-        #     )
-        # except subprocess.CalledProcessError as e:
-        #     return [{"t": "text", "text": f"Error pulling git repository: {e.stderr}"}]
-        #
-
         try:
             do_deploy(app)
             # Commit the app state changes (e.g., run_state = RUNNING)

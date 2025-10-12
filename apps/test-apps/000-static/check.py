@@ -12,12 +12,26 @@ import sys
 import httpx
 
 
-def check(hostname) -> None:
-    url = f"https://{hostname}/"
-    response = httpx.get(url, verify=False)
-    assert response.is_success
-    assert "Hello World!" in response.text
+def check(hostname: str, port: int = 443) -> None:
+    """Check if the static app is serving correctly.
+
+    Args:
+        hostname: Virtual host name (e.g., 'app.test.local')
+        port: HTTP port to connect to (default: 443)
+    """
+    # Use localhost with Host header to avoid DNS resolution
+    url = f"http://localhost:{port}/"
+    response = httpx.get(
+        url,
+        headers={"Host": hostname},
+        verify=False,
+        timeout=5.0,
+        follow_redirects=True,
+    )
+    assert response.is_success, f"Expected success, got {response.status_code}"
+    assert "Hello World!" in response.text, f"Unexpected content: {response.text[:100]}"
 
 
 if __name__ == "__main__":
-    check(sys.argv[1])
+    port = int(sys.argv[2]) if len(sys.argv) > 2 else 443
+    check(sys.argv[1], port)
