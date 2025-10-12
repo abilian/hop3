@@ -9,7 +9,7 @@ from __future__ import annotations
 from hop3.core.hooks import hookimpl
 
 from . import cli
-from .postgres import PostgresqlAddon
+from .postgres import PostgresqlService
 
 assert cli
 
@@ -22,7 +22,7 @@ class PostgresqlPlugin:
     @hookimpl
     def get_service_strategies(self) -> list:
         """Return PostgreSQL service strategy."""
-        return [PostgresqlAddon]
+        return [PostgresqlService]
 
 
 # Auto-register plugin instance when module is imported

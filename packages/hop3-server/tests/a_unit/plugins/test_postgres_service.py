@@ -225,10 +225,10 @@ def test_create_database_executes_sql(postgres_service):
 
 
 def test_legacy_alias():
-    """Test that PostgresqlAddon is an alias for PostgresService."""
+    """Test that PostgresqlService is an alias for PostgresService."""
     from hop3.plugins.postgresql.postgres import (
-        PostgresqlAddon,
+        PostgresqlService,
         PostgresService,
     )
 
-    assert PostgresqlAddon is PostgresService
+    assert PostgresqlService is PostgresService
