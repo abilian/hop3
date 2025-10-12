@@ -84,9 +84,17 @@ class AppLauncher:
             try:
                 nginx = NginxVirtualHost(self.app, self.env, self.workers)
                 nginx.setup()
-                log(f"✓ Nginx setup completed for '{self.app_name}'", level=0, fg="green")
+                log(
+                    f"✓ Nginx setup completed for '{self.app_name}'",
+                    level=0,
+                    fg="green",
+                )
             except Exception as e:
-                log(f"✗ Nginx setup failed for '{self.app_name}': {e}", level=0, fg="red")
+                log(
+                    f"✗ Nginx setup failed for '{self.app_name}': {e}",
+                    level=0,
+                    fg="red",
+                )
                 import traceback
 
                 traceback.print_exc()
