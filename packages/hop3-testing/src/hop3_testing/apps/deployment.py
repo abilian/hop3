@@ -145,13 +145,15 @@ class DeploymentSession:
             # Deploy via RPC
             target_info = self.target.info
 
+            # Build SSH API URL (must use api_url_override to bypass HOP3_API_URL env var)
+            api_url = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
+
             env_config = {
-                "api_url": f"ssh://{target_info.ssh_host}:{target_info.ssh_port}",
                 "ssh_key": target_info.ssh_key,
             }
 
             config = Config(data=env_config)
-            client = Client(config=config, state=None)
+            client = Client(config=config, state=None, api_url_override=api_url)
 
             try:
                 response = client.rpc(
@@ -300,6 +302,9 @@ class DeploymentSession:
 
         try:
             hostname = f"{self.app_name}.test.local"
+            target_info = self.target.info
+            http_port = int(target_info.http_base.split(":")[-1])
+
             check_script_path = self.app.path / "check.py"
 
             # Execute check script
@@ -310,12 +315,14 @@ class DeploymentSession:
                 print("check() function not found in check.py")
                 return False
 
-            result = ctx["check"](hostname)
-            print(f"Check script result: {result}")
-            return bool(result)
+            # Pass both hostname and port to check script
+            # Check scripts use assertions - if they complete without error, they passed
+            ctx["check"](hostname, http_port)
+            print("✓ Check script passed")
+            return True
 
         except Exception as e:
-            print(f"Check script failed: {e}")
+            print(f"✗ Check script failed: {e}")
             return False
 
     def cleanup(self) -> bool:

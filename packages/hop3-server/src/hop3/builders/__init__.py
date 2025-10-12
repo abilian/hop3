@@ -14,11 +14,13 @@ from .node import NodeBuilder
 from .python import PythonBuilder
 from .ruby import RubyBuilder
 from .rust import RustBuilder
+from .static import StaticBuilder
 
 if TYPE_CHECKING:
     from ._base import Builder
 
 BUILDER_CLASSES: list[type[Builder]] = [
+    StaticBuilder,  # Try static first (fastest detection)
     PythonBuilder,
     RubyBuilder,
     NodeBuilder,

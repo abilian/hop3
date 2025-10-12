@@ -97,10 +97,14 @@ def extract_archive_to_dir(archive_bytes: bytes, target_dir: Path) -> None:
             else:
                 for member in members:
                     # --- Security Check: Prevent Path Traversal ---
-                    member_path = Path(member.name).resolve()
+                    # Resolve the member path relative to target_dir, not cwd
+                    member_path = (target_dir / member.name).resolve()
                     # A safe path must be a subdirectory of the target_dir.
-                    # We achieve this by checking if target_dir is a parent.
-                    if target_dir not in member_path.parents:
+                    # We achieve this by checking if target_dir is a parent or the path itself.
+                    if (
+                        target_dir not in member_path.parents
+                        and member_path != target_dir
+                    ):
                         msg = f"Attempted path traversal in tar file: '{member.name}' is outside the target directory."
                         raise tarfile.TarError(msg)
 

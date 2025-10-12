@@ -63,9 +63,30 @@ class AppLauncher:
         configurations."""
 
         # Set up nginx if we have NGINX_SERVER_NAME set
-        if "NGINX_SERVER_NAME" in self.env:
-            nginx = NginxVirtualHost(self.app, self.env, self.workers)
-            nginx.setup()
+        nginx_server_name = self.env.get("NGINX_SERVER_NAME", "")
+
+        # Only setup nginx if NGINX_SERVER_NAME is set to a real value (not "_" or empty)
+        if nginx_server_name and nginx_server_name != "_":
+            log(
+                f"Setting up nginx for '{self.app_name}' with server_name='{nginx_server_name}'",
+                level=1,
+                fg="green",
+            )
+            try:
+                nginx = NginxVirtualHost(self.app, self.env, self.workers)
+                nginx.setup()
+                log(f"✓ Nginx setup completed for '{self.app_name}'", level=0, fg="green")
+            except Exception as e:
+                log(f"✗ Nginx setup failed for '{self.app_name}': {e}", level=0, fg="red")
+                import traceback
+
+                traceback.print_exc()
+        else:
+            log(
+                f"Skipping nginx setup for '{self.app_name}' (server_name is '{nginx_server_name}')",
+                level=2,
+                fg="yellow",
+            )
 
         # Configured worker count using dict.fromkeys to initialize each key with value 1
         web_worker_count = dict.fromkeys(self.web_workers.keys(), 1)
@@ -188,7 +209,6 @@ class AppLauncher:
         # Safe defaults for addressing
         for k, v in safe_defaults.items():
             if k not in env:
-                log(f"nginx {k:s} will be set to {v}", level=3)
                 env[k] = v
 
         return env

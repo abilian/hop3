@@ -124,6 +124,10 @@ class Builder(ABC):
     @property
     def src_path(self) -> Path:
         """Get the source path for the application."""
+        # For new plugin system, use context.source_path directly
+        if self.context:
+            return self.context.source_path
+        # For legacy system, assume source is in app_path/src
         return self.app_path / "src"
 
     @property
