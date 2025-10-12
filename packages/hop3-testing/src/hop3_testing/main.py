@@ -25,8 +25,12 @@ Examples:
   # Test all apps using Docker
   hop-test --target docker
 
-  # Test specific app
+  # Test specific app by name
   hop-test --target docker --app 010-flask-pip-wsgi
+
+  # Test specific app by path
+  hop-test --target docker --app apps/test-apps/010-flask-pip-wsgi
+  hop-test --target docker --app path/to/my-app
 
   # Test against remote server
   hop-test --target remote --host myserver.com --ssh-key ~/.ssh/id_rsa
@@ -76,7 +80,7 @@ Examples:
     )
     app_group.add_argument(
         "--app",
-        help="Test specific app by name",
+        help="Test specific app by name or path (e.g., '010-flask-pip-wsgi' or 'path/to/app')",
     )
     app_group.add_argument(
         "--category",
@@ -117,12 +121,17 @@ Examples:
     docker_group.add_argument(
         "--use-cache",
         action="store_true",
-        help="Use cached Docker image instead of rebuilding (faster but may use stale code)",
+        help="Skip build entirely if image exists (fastest, but may use stale image)",
     )
     docker_group.add_argument(
         "--no-rebuild",
         action="store_true",
         help="Alias for --use-cache",
+    )
+    docker_group.add_argument(
+        "--force-rebuild",
+        action="store_true",
+        help="Force full rebuild without using Docker layer cache (slowest)",
     )
 
     args = parser.parse_args()
@@ -192,10 +201,12 @@ def create_target(args) -> DockerTarget | RemoteTarget:
 
     # Docker target (default)
     use_cache = args.use_cache or args.no_rebuild
+    force_rebuild = args.force_rebuild if hasattr(args, "force_rebuild") else False
     config = {
         "image_tag": "hop3-e2e:test",
         "rebuild": not use_cache,  # Rebuild by default unless --use-cache
         "use_cache": use_cache,
+        "force_rebuild": force_rebuild,
     }
     return DockerTarget(config)
 
@@ -211,6 +222,54 @@ def get_apps_to_test(catalog: TestAppCatalog, args) -> list:
         List of TestApp instances
     """
     if args.app:
+        # Check if app is a path (contains / or \ or is an existing directory)
+        if "/" in args.app or "\\" in args.app or Path(args.app).exists():
+            # Treat as a path to app directory
+            app_path = Path(args.app).resolve()
+            if not app_path.is_dir():
+                print(f"❌ Path '{args.app}' is not a directory")
+                return []
+
+            # Extract app name from directory name
+            app_name = app_path.name
+
+            # Determine category from name prefix
+            if app_name.startswith("000-"):
+                category = "static"
+            elif app_name.startswith("01"):
+                category = "python-simple"
+            elif app_name.startswith("02"):
+                category = "nodejs"
+            elif app_name.startswith("03"):
+                category = "golang"
+            elif app_name.startswith("04"):
+                category = "ruby"
+            elif app_name.startswith("1"):
+                category = "python-advanced"
+            else:
+                category = "other"
+
+            # Read description from README if available
+            description = ""
+            readme_path = app_path / "README.md"
+            if readme_path.exists():
+                with readme_path.open() as f:
+                    first_line = f.readline().strip()
+                    if first_line.startswith("#"):
+                        description = first_line.lstrip("#").strip()
+
+            from .apps.catalog import TestApp
+
+            return [
+                TestApp(
+                    name=app_name,
+                    path=app_path,
+                    category=category,
+                    description=description,
+                )
+            ]
+
+        # Otherwise, look up by name in catalog
         app = catalog.get(args.app)
         return [app] if app else []
 
