@@ -11,11 +11,13 @@ from pyinfra.facts.files import File
 from pyinfra.operations import apt, files, pip, postgres, server, systemd
 
 PACKAGES = [
+    # Basic tools
     "bc",
     "git",
     "sudo",
     "cron",
     "build-essential",
+    "pkg-config",
     "libpcre3-dev",
     "zlib1g-dev",
     # Python
@@ -26,36 +28,36 @@ PACKAGES = [
     "python3-venv",  # Required for python3 -m venv
     "python3-virtualenv",
     "python3-setuptools",
-    # Prerequisite for nodeenv
-    # "python2",
+    "python3-wheel",
+    # Libraries needed for Python packages
+    "libffi-dev",
+    "libssl-dev",
     # Nginx
     "nginx",
     "acl",
-    # uwsgi
+    # uWSGI
     "uwsgi-core",
     "uwsgi-plugin-python3",
     # Let's Encrypt
     "certbot",
-    # For builders
+    # PostgreSQL
+    "libpq-dev",
+    "postgresql",
+    # Language runtimes for builders
     # - Ruby
     "ruby",
     "ruby-dev",
     "ruby-bundler",
-    # - Nodejs
+    # - Node.js
     "npm",
+    "nodeenv",
+    "yarnpkg",
     # - Go
     "golang",
     # - Clojure
     "clojure",
     "leiningen",
-    # - Nodejs
-    "npm",
-    "nodeenv",
-    "yarnpkg",
-    # Addons
-    "libpq-dev",
-    "postgresql",
-    # Extra libs, for now
+    # Extra libraries
     "libcairo2",
     "libpango-1.0-0",
     "libpangoft2-1.0-0",
@@ -113,7 +115,12 @@ def setup_server() -> None:
         user=HOP3_USER,
         home=HOME_DIR,
         shell="/bin/bash",
-        group="www-data",
+    )
+
+    # Add www-data to hop3 group so nginx can access uWSGI sockets
+    server.shell(
+        name="Add www-data to hop3 group",
+        commands=["usermod -a -G hop3 www-data"],
     )
 
     apt.packages(
