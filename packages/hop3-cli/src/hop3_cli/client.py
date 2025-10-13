@@ -161,12 +161,11 @@ class Client:
             # parse() can return Error, Ok, or Iterable[Error | Ok], but we expect single response
             if isinstance(parsed_response, (Error, Ok)):
                 return parsed_response
-            else:
-                # Handle batch responses - take first response
-                responses = list(parsed_response)
-                if responses and isinstance(responses[0], (Error, Ok)):
-                    return responses[0]
-                return Error(-1, "Invalid response format", "", json_request["id"])
+            # Handle batch responses - take first response
+            responses = list(parsed_response)
+            if responses and isinstance(responses[0], (Error, Ok)):
+                return responses[0]
+            return Error(-1, "Invalid response format", "", json_request["id"])
         except requests.exceptions.HTTPError as e:
             # For other HTTP errors, provide the status code and message
             # Try to extract error details from response body

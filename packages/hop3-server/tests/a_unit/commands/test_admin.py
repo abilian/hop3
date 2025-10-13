@@ -265,7 +265,7 @@ def test_admin_user_grant_admin(
     def query_side_effect(model):
         if model == User:
             return user_mock
-        elif model == Role:
+        if model == Role:
             return role_mock
         return Mock()
 

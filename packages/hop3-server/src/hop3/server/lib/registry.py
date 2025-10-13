@@ -46,8 +46,7 @@ class Registry:
 
         if tag:
             return [obj for obj, metadata in objs if tag == metadata.tag]
-        else:
-            return [obj for obj, _metadata in objs]
+        return [obj for obj, _metadata in objs]
 
     def _lookup_by_name(self, name: str) -> list[tuple[Any, Metadata]]:
         result = []

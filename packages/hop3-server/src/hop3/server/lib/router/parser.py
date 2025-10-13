@@ -88,8 +88,7 @@ class StarletteParser(AsyncParser):
         except json.JSONDecodeError as exc:
             if exc.doc == "":
                 return core.missing
-            else:
-                return self._handle_invalid_json_error(exc, req)
+            return self._handle_invalid_json_error(exc, req)
         except UnicodeDecodeError as exc:
             return self._handle_invalid_json_error(exc, req)
         return json_data
@@ -185,8 +184,7 @@ class StarletteParser(AsyncParser):
                     handler = getattr(endpoint, each)
                     setattr(endpoint, each, decorator(handler))
             return endpoint
-        else:
-            return decorator(fn)
+        return decorator(fn)
 
 
 parser = StarletteParser()

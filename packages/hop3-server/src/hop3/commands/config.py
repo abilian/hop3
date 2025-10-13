@@ -57,8 +57,7 @@ class GetCmd(Command):
         env = app.get_env()
         if setting in env:
             return [{"t": "text", "text": env[setting]}]
-        else:
-            return [{"t": "text", "text": f"Setting '{setting}' not found."}]
+        return [{"t": "text", "text": f"Setting '{setting}' not found."}]
 
 
 @register

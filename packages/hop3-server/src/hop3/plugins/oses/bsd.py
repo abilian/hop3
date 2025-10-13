@@ -95,7 +95,7 @@ class BSDStrategy(BaseOSStrategy):
         system = platform.system()
         if system == "FreeBSD":
             return FREEBSD_PACKAGES
-        elif system == "OpenBSD":
+        if system == "OpenBSD":
             return OPENBSD_PACKAGES
         return []
 

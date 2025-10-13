@@ -61,13 +61,12 @@ def test_ssh_connection():
             print("   ✓ SSH connection successful")
             print(f"   Output: {result.stdout.strip()}")
             return True
-        else:
-            print("   ❌ SSH connection failed")
-            print(f"   stderr: {result.stderr}")
-            if __name__ != "__main__":
-                msg = f"SSH connection failed: {result.stderr}"
-                raise AssertionError(msg)
-            return False
+        print("   ❌ SSH connection failed")
+        print(f"   stderr: {result.stderr}")
+        if __name__ != "__main__":
+            msg = f"SSH connection failed: {result.stderr}"
+            raise AssertionError(msg)
+        return False
 
     except subprocess.TimeoutExpired:
         print("   ❌ SSH connection timed out after 15 seconds")
@@ -104,13 +103,12 @@ def test_hop3_cli_available():
         if result.returncode == 0:
             print("   ✓ hop3-cli is installed")
             return True
-        else:
-            print("   ❌ hop3-cli returned error")
-            print(f"   stderr: {result.stderr}")
-            if __name__ != "__main__":
-                msg = f"hop3-cli error: {result.stderr}"
-                raise AssertionError(msg)
-            return False
+        print("   ❌ hop3-cli returned error")
+        print(f"   stderr: {result.stderr}")
+        if __name__ != "__main__":
+            msg = f"hop3-cli error: {result.stderr}"
+            raise AssertionError(msg)
+        return False
 
     except FileNotFoundError:
         print("   ❌ hop3 command not found")
@@ -148,14 +146,13 @@ def test_hop3_cli_connection():
             print("   ✓ hop3-cli can connect to server")
             print(f"   Output (first 200 chars): {result.stdout[:200]}")
             return True
-        else:
-            print("   ❌ hop3-cli connection failed")
-            print(f"   stderr: {result.stderr}")
-            print(f"   stdout: {result.stdout}")
-            if __name__ != "__main__":
-                msg = f"hop3-cli connection failed: {result.stderr}"
-                raise AssertionError(msg)
-            return False
+        print("   ❌ hop3-cli connection failed")
+        print(f"   stderr: {result.stderr}")
+        print(f"   stdout: {result.stdout}")
+        if __name__ != "__main__":
+            msg = f"hop3-cli connection failed: {result.stderr}"
+            raise AssertionError(msg)
+        return False
 
     except subprocess.TimeoutExpired:
         print("   ❌ hop3 command timed out after 30 seconds")
@@ -192,12 +189,11 @@ def test_auth_commands_available():
         ):
             print("   ✓ Authentication commands are available")
             return True
-        else:
-            print("   ⚠️  Authentication commands NOT found in help output")
-            print("   This means:")
-            print("   - E2E tests will be skipped (they require authentication)")
-            print("   - You can still test manually without authentication")
-            return False
+        print("   ⚠️  Authentication commands NOT found in help output")
+        print("   This means:")
+        print("   - E2E tests will be skipped (they require authentication)")
+        print("   - You can still test manually without authentication")
+        return False
 
     except Exception as e:
         print(f"   ❌ Failed to check auth commands: {e}")
@@ -231,20 +227,19 @@ def test_auth_register_command():
             print("   ✓ auth:register command works")
             print("   Note: User 'test-diagnostic-user' was created")
             return True
-        elif "already exists" in result.stdout + result.stderr:
+        if "already exists" in result.stdout + result.stderr:
             print("   ✓ auth:register command works (user already exists)")
             return True
-        elif "Authentication not enabled" in result.stdout + result.stderr:
+        if "Authentication not enabled" in result.stdout + result.stderr:
             print("   ⚠️  Authentication is not enabled on the server")
             print("   To enable authentication, set on the server:")
             print("   export HOP3_ENABLE_AUTH=true")
             print("   export HOP3_SECRET_KEY=your-secret-key")
             return False
-        else:
-            print("   ❌ auth:register returned error")
-            print(f"   stdout: {result.stdout}")
-            print(f"   stderr: {result.stderr}")
-            return False
+        print("   ❌ auth:register returned error")
+        print(f"   stdout: {result.stdout}")
+        print(f"   stderr: {result.stderr}")
+        return False
 
     except subprocess.TimeoutExpired:
         print("   ❌ auth:register command timed out after 10 seconds")
@@ -291,17 +286,16 @@ def test_auth_login_command():
             print("   ⚠️  Login succeeded but couldn't extract token")
             print(f"   stdout: {result.stdout[:300]}")
             return False
-        else:
-            print("   ❌ auth:login failed")
-            print(f"   Exit code: {result.returncode}")
-            print(f"   stdout: {result.stdout[:200]}")
-            print(f"   stderr: {result.stderr[:200]}")
-            print("\n   This is causing E2E tests to fail!")
-            print("   Possible causes:")
-            print("   1. Invalid credentials")
-            print("   2. Server authentication issue")
-            print("   3. RPC request format problem")
-            return False
+        print("   ❌ auth:login failed")
+        print(f"   Exit code: {result.returncode}")
+        print(f"   stdout: {result.stdout[:200]}")
+        print(f"   stderr: {result.stderr[:200]}")
+        print("\n   This is causing E2E tests to fail!")
+        print("   Possible causes:")
+        print("   1. Invalid credentials")
+        print("   2. Server authentication issue")
+        print("   3. RPC request format problem")
+        return False
 
     except subprocess.TimeoutExpired:
         print("   ❌ auth:login timed out")

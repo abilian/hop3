@@ -121,10 +121,9 @@ def handle_help_flags(args: list[str]) -> list[str]:
         if not filtered_args:
             # Just "--help" with no command -> show general help
             return ["help"]
-        else:
-            # "command --help" -> "help command"
-            # Only use the first argument as the command name
-            return ["help", filtered_args[0]]
+        # "command --help" -> "help command"
+        # Only use the first argument as the command name
+        return ["help", filtered_args[0]]
 
     return args
 

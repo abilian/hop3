@@ -56,7 +56,6 @@ lint.extend-ignore = [
     "PLR0904", # too-many-public-methods
     "PLW1514", # `pathlib.Path(...).write_text` without explicit `encoding` argument
     "RET504", # Unnecessary assignment before `return` statement
-    "RET505", # Unnecessary `else` after `return` statement"
     "S101", # Use of `assert` detected
     "SIM102", # Use a single `if` statement instead of nested `if` statements
     "SIM108", # Use ternary operator
@@ -65,8 +64,8 @@ lint.extend-ignore = [
     # Fix these
     "E501", #   	line-too-long
     "RUF045", # 	implicit-class-var-in-dataclass
-    "B904", #   	raise-without-from-inside-except
     "TRY300", # 	try-consider-else
+    "B904", #   	raise-without-from-inside-except
     "F841", #   	unused-variable
     "FBT001", # 	boolean-type-hint-positional-argument
     "FBT002", # 	boolean-default-value-positional-argument

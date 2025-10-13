@@ -157,8 +157,7 @@ def get_console() -> Console:
     testing = "PYTEST_VERSION" in environ
     if testing:
         return TestingConsole()
-    else:
-        return PrintingConsole()
+    return PrintingConsole()
 
 
 console = get_console()
