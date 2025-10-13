@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from sqlalchemy.orm import Session
@@ -136,7 +136,6 @@ def test_admin_user_add_with_admin_flag(
     mock_db_session, mock_admin_user, mock_admin_role
 ):
     """Test user creation with admin flag."""
-    from unittest.mock import patch
 
     # Create a mock for the new user that will be created
     mock_new_user = Mock(spec=User)

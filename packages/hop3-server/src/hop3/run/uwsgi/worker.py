@@ -103,7 +103,7 @@ class UwsgiWorker:
         and other uWSGI parameters. It also checks for virtual
         environment existence and handles optional idle settings.
         """
-        from hop3.orm import App
+        from hop3.orm import App  # noqa: PLC0415 - Avoid circular import
 
         env = self.env.copy()
 
@@ -176,7 +176,7 @@ class UwsgiWorker:
         variables and inserting user-defined UWSGI settings if
         specified.
         """
-        from hop3.orm import App
+        from hop3.orm import App  # noqa: PLC0415 - Avoid circular import
 
         app = App(name=self.app_name)
 

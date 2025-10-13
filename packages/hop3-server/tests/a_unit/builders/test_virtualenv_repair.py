@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import subprocess
+import time
 from pathlib import Path
 
 from hop3.builders.python import PythonBuilder
@@ -42,7 +44,6 @@ def test_broken_virtualenv_is_recreated(tmp_path: Path, monkeypatch):
     # Verify the virtualenv was recreated with working Python
     assert python_link.exists()
     # Verify it's actually executable and working
-    import subprocess
 
     result = subprocess.run(
         [str(python_link), "--version"],
@@ -75,7 +76,6 @@ def test_working_virtualenv_is_not_recreated(tmp_path: Path, monkeypatch):
     stat1 = python_link.stat()
 
     # Call make_virtual_env again - should NOT recreate
-    import time
 
     time.sleep(0.1)  # Ensure time difference would be detectable
     builder.make_virtual_env()

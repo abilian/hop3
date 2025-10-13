@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import traceback
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -95,7 +96,6 @@ class AppLauncher:
                     level=0,
                     fg="red",
                 )
-                import traceback
 
                 traceback.print_exc()
         else:

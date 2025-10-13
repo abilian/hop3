@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from hop3.builders.python import PythonBuilder
-from hop3.core.protocols import DeploymentContext
+from hop3.core.protocols import BuildArtifact, DeploymentContext
 
 
 def test_builder_with_deployment_context(tmp_path: Path):
@@ -88,8 +88,6 @@ def test_builder_rejects_non_python_project(tmp_path: Path):
 
 def test_builder_returns_build_artifact(tmp_path: Path, monkeypatch):
     """Test that build() returns a BuildArtifact."""
-    from hop3.core.protocols import BuildArtifact
-
     # Create source directory with requirements.txt
     src_dir = tmp_path / "src"
     src_dir.mkdir()

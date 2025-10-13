@@ -18,7 +18,7 @@ from hop3.commands.auth import (
     AuthRegisterCmd,
     AuthWhoamiCmd,
 )
-from hop3.orm.security import Role, User
+from hop3.orm.security import AuditBase, Role, User
 
 
 @pytest.fixture(autouse=True)
@@ -34,7 +34,6 @@ def db_session():
     """Create an in-memory SQLite database for testing."""
     engine = create_engine("sqlite:///:memory:")
     # Create all tables
-    from hop3.orm.security import AuditBase
 
     AuditBase.metadata.create_all(engine)
 

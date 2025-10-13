@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -182,8 +183,6 @@ def test_app_catalog(request) -> TestAppCatalog:
     """
     apps_dir = request.config.getoption("--apps-dir")
     if apps_dir:
-        from pathlib import Path
-
         apps_dir = Path(apps_dir)
 
     return TestAppCatalog(apps_dir=apps_dir)

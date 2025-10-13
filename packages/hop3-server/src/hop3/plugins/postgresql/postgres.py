@@ -13,6 +13,7 @@ from __future__ import annotations
 import secrets
 import subprocess
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -165,8 +166,6 @@ class PostgresService:
         """
         backup_dir = Path("/var/hop3/backups") / "postgres"
         backup_dir.mkdir(parents=True, exist_ok=True)
-
-        from datetime import datetime, timezone
 
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         backup_file = backup_dir / f"{self.service_name}_{timestamp}.sql"

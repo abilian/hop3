@@ -8,6 +8,7 @@ This plugin supports macOS (all versions) using Homebrew for package management.
 
 from __future__ import annotations
 
+import os
 import platform
 import subprocess
 
@@ -130,7 +131,6 @@ class MacOSStrategy(BaseOSStrategy):
 
         # Create user using dscl (Directory Service command line)
         # This is macOS-specific user creation
-        import os
 
         # Find next available UID (start from 501, which is standard for macOS user accounts)
         uid = 501

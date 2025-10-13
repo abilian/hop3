@@ -121,7 +121,6 @@ class App(BigIntAuditBase):
         This updates the environment settings for the application
         identified by the instance's name attribute.
         """
-        from .env import EnvVar
 
         self.env_vars.clear()
         for key, value in env.items():
