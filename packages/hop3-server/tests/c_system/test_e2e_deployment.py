@@ -19,6 +19,7 @@ Requirements:
 from __future__ import annotations
 
 import os
+import shutil
 import time
 from pathlib import Path
 
@@ -86,7 +87,6 @@ class TestTarballDeployment:
             pytest.skip("Test app source not found")
 
         # Copy test app to deployment directory
-        import shutil
 
         app_dir = deployed_app["dir"]
         for item in test_app_source.iterdir():

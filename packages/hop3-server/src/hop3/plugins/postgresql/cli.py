@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from argparse import ArgumentParser
 
+from hop3.core.plugins import get_service_strategy
 from hop3.lib import echo
 from hop3.lib.decorators import command
 
@@ -29,8 +30,6 @@ class PgCreateCmd:
         parser.add_argument("name", type=str, help="Name of the database service.")
 
     def run(self, name: str) -> None:
-        from hop3.core.plugins import get_service_strategy
-
         echo(f"Creating PostgreSQL database '{name}'...")
 
         try:
@@ -63,8 +62,6 @@ class PgDropCmd:
         parser.add_argument("name", type=str, help="Name of the database to drop.")
 
     def run(self, name: str) -> None:
-        from hop3.core.plugins import get_service_strategy
-
         echo(f"Dropping database '{name}'...")
         echo("WARNING: This will permanently delete all data!")
 
@@ -175,8 +172,6 @@ class PgCredentialsCmd:
         parser.add_argument("name", type=str, help="Name of the database.")
 
     def run(self, name: str) -> None:
-        from hop3.core.plugins import get_service_strategy
-
         echo(f"Fetching credentials for database '{name}'...")
 
         try:
@@ -220,8 +215,6 @@ class PgInfoCmd:
         parser.add_argument("name", type=str, help="Name of the database.")
 
     def run(self, name: str) -> None:
-        from hop3.core.plugins import get_service_strategy
-
         echo(f"Fetching information for database '{name}'...")
 
         try:

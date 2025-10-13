@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import traceback
 from base64 import b64decode
@@ -13,6 +14,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from hop3.deployers import do_deploy
+from hop3.lib import log
 from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.registry import register
 from hop3.orm import App, AppRepository
@@ -274,8 +276,6 @@ class DestroyCmd(Command):
             return [{"t": "text", "text": "Usage: hop destroy <app_name>"}]
         app_name = args[0]
 
-        from hop3.lib import log
-
         debug_msgs = []
 
         def debug(msg):
@@ -304,8 +304,6 @@ class DestroyCmd(Command):
         debug("[DESTROY] Commit completed successfully")
 
         # Verify deletion
-        from hop3.orm import AppRepository
-
         app_repo = AppRepository(session=self.db_session)
         still_exists = app_repo.get_one_or_none(name=app_name)
         if still_exists:
@@ -326,11 +324,6 @@ class DestroyCmd(Command):
 
     def _reload_nginx(self) -> None:
         """Reload nginx to apply configuration changes after app destruction."""
-        import os
-        import subprocess
-
-        from hop3.lib import log
-
         # Skip reload in test environments
         if os.environ.get("PYTEST_CURRENT_TEST"):
             return

@@ -15,6 +15,7 @@ from pluggy import PluginManager
 from hop3.plugins.build.dummy_build.builder import DummyBuildStrategy
 from hop3.plugins.deploy.dummy_deploy.deploy import DummyDeployer
 
+from . import hookspecs
 from .hooks import hop3_hook_impl
 
 if TYPE_CHECKING:
@@ -94,7 +95,6 @@ def get_plugin_manager() -> PluginManager:
     pm = pluggy.PluginManager("hop3")
 
     # Import hookspecs as a module, not a class
-    from . import hookspecs
 
     pm.add_hookspecs(hookspecs)
 

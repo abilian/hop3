@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import shutil
+import subprocess
 from pathlib import Path
 
 from hop3.core.env import Env
@@ -59,7 +61,6 @@ class PythonBuilder(Builder):
 
     def make_virtual_env(self) -> None:
         """Create and activate a virtual environment."""
-        import shutil
 
         python_path = self.virtual_env / "bin" / "python"
 
@@ -69,8 +70,6 @@ class PythonBuilder(Builder):
             if python_path.exists():
                 # Check if it's actually executable
                 try:
-                    import subprocess
-
                     result = subprocess.run(
                         [str(python_path), "--version"],
                         check=False,
@@ -100,8 +99,6 @@ class PythonBuilder(Builder):
 
         # Verify it's executable
         try:
-            import subprocess
-
             result = subprocess.run(
                 [str(python_path), "--version"],
                 check=False,

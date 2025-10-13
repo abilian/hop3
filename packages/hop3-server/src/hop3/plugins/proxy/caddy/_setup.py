@@ -253,7 +253,6 @@ class CaddyVirtualHost(Proxy):
         Input:
         - caddy_conf_path (Path): The path to the caddy configuration file to be checked.
         """
-        import subprocess
 
         try:
             # Caddy can validate a specific config file

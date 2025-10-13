@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from hop3.project.hop3_config import Hop3Config
 
 
@@ -223,7 +225,6 @@ start = "python app.py"
 
 def test_file_not_found():
     """Test error handling for missing file."""
-    import pytest
 
     with pytest.raises(FileNotFoundError, match="File not found"):
         Hop3Config.from_file("/nonexistent/hop3.toml")

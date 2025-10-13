@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -288,8 +290,6 @@ class NginxVirtualHost(Proxy):
         - No reload mechanism is available
         - Commands fail (logs warning instead of raising)
         """
-        import os
-        import subprocess
 
         # Skip reload in test environments
         if os.environ.get("PYTEST_CURRENT_TEST"):

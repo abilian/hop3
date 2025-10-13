@@ -8,9 +8,10 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, Mock, patch
 
+import psycopg2
 import pytest
 
-from hop3.plugins.postgresql.postgres import PostgresService
+from hop3.plugins.postgresql.postgres import PostgresqlService, PostgresService
 
 
 @pytest.fixture
@@ -186,7 +187,6 @@ def test_info_returns_database_details(postgres_service):
 
 def test_info_handles_connection_errors(postgres_service):
     """Test that info handles connection errors gracefully."""
-    import psycopg2
 
     with patch("psycopg2.connect") as mock_connect:
         mock_connect.side_effect = psycopg2.OperationalError("Connection failed")
@@ -226,9 +226,5 @@ def test_create_database_executes_sql(postgres_service):
 
 def test_legacy_alias():
     """Test that PostgresqlService is an alias for PostgresService."""
-    from hop3.plugins.postgresql.postgres import (
-        PostgresqlService,
-        PostgresService,
-    )
 
     assert PostgresqlService is PostgresService

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import traceback
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -134,9 +135,9 @@ class ServicesAttachCmd(Command):
 
         try:
             # Check if app exists
-            from hop3.orm.repositories import AppRepository
+            from hop3.orm.repositories import AppRepository  # noqa: PLC0415
 
-            app_repo = AppRepository(self.db_session)
+            app_repo = AppRepository(session=self.db_session)
             app = app_repo.get_one_or_none(name=app_name)
 
             if not app:
@@ -188,8 +189,6 @@ class ServicesAttachCmd(Command):
         except RuntimeError as e:
             return [{"t": "error", "text": f"Error attaching service: {e}"}]
         except Exception as e:
-            import traceback
-
             traceback.print_exc()
             return [{"t": "error", "text": f"Unexpected error: {e}"}]
 
@@ -247,9 +246,9 @@ class ServicesDetachCmd(Command):
 
         try:
             # Check if app exists
-            from hop3.orm.repositories import AppRepository
+            from hop3.orm.repositories import AppRepository  # noqa: PLC0415
 
-            app_repo = AppRepository(self.db_session)
+            app_repo = AppRepository(session=self.db_session)
             app = app_repo.get_one_or_none(name=app_name)
 
             if not app:

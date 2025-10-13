@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING, Any
 
 import paramiko
@@ -222,7 +223,6 @@ class RemoteTarget(DeploymentTarget):
         Returns:
             RemoteTarget instance
         """
-        import os
 
         config = {}
 
