@@ -2,21 +2,32 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CLI commands."""
+"""CLI commands for configuration management."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hop3.lib.registry import register
-from hop3.orm import App
+from hop3.orm import App, AppRepository, EnvVar
 from hop3.project.procfile import Procfile
 
 from ._base import Command
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
-def get_app(app_name):
-    return App()
+
+def _get_app(db_session: Session, app_name: str) -> App:
+    """Helper to retrieve an app or raise a consistent error."""
+    app_repo = AppRepository(session=db_session)
+    app = app_repo.get_one_or_none(name=app_name)
+    if not app:
+        msg = f"App '{app_name}' not found."
+        raise ValueError(msg)
+    return app
 
 
 @register
@@ -27,14 +38,16 @@ class ConfigCmd(Command):
 
 
 @register
+@dataclass(frozen=True)
 class ShowCmd(Command):
     """Show config, e.g.: hop config <app>."""
 
+    db_session: Session
     name = "config:show"
 
     def call(self, app_name):
-        app = get_app(app_name)
-        env = app.get_env()
+        app = _get_app(self.db_session, app_name)
+        env = app.get_runtime_env()
 
         rows = [[k, v] for k, v in env.items()]
         return [
@@ -47,27 +60,31 @@ class ShowCmd(Command):
 
 
 @register
+@dataclass(frozen=True)
 class GetCmd(Command):
     """e.g.: hop config:get <app> FOO."""
 
+    db_session: Session
     name = "config:get"
 
     def call(self, app_name, setting):
-        app = get_app(app_name)
-        env = app.get_env()
+        app = _get_app(self.db_session, app_name)
+        env = app.get_runtime_env()
         if setting in env:
             return [{"t": "text", "text": env[setting]}]
         return [{"t": "text", "text": f"Setting '{setting}' not found."}]
 
 
 @register
+@dataclass(frozen=True)
 class LiveCmd(Command):
     """e.g.: hop config:live <app>."""
 
+    db_session: Session
     name = "config:live"
 
     def call(self, app_name):
-        app = get_app(app_name)
+        app = _get_app(self.db_session, app_name)
         env = app.get_runtime_env()
 
         if not env:
@@ -86,6 +103,159 @@ class LiveCmd(Command):
                 "rows": rows,
             }
         ]
+
+
+@register
+@dataclass(frozen=True)
+class SetCmd(Command):
+    """Set environment variables for an app.
+
+    Usage: hop config:set <app> KEY=VALUE [KEY2=VALUE2 ...]
+
+    Examples:
+        hop config:set myapp DEBUG=true
+        hop config:set myapp DATABASE_URL=postgres://... REDIS_URL=redis://...
+    """
+
+    db_session: Session
+    name = "config:set"
+
+    def call(self, app_name, *settings):
+        if not settings:
+            return [
+                {
+                    "t": "text",
+                    "text": "Usage: hop config:set <app> KEY=VALUE [KEY2=VALUE2 ...]\n"
+                    "Example: hop config:set myapp DEBUG=true",
+                }
+            ]
+
+        app = _get_app(self.db_session, app_name)
+
+        # Parse settings
+        changes = []
+        errors = []
+        for setting in settings:
+            if "=" not in setting:
+                errors.append(
+                    f"Invalid setting format: '{setting}' (expected KEY=VALUE)"
+                )
+                continue
+
+            key, value = setting.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+
+            if not key:
+                errors.append(f"Empty key in setting: '{setting}'")
+                continue
+
+            # Check if variable already exists
+            existing = None
+            for env_var in app.env_vars:
+                if env_var.name == key:
+                    existing = env_var
+                    break
+
+            if existing:
+                old_value = existing.value
+                existing.value = value
+                changes.append(f"Updated {key}={value} (was: {old_value})")
+            else:
+                new_var = EnvVar(name=key, value=value, app=app)
+                app.env_vars.append(new_var)
+                changes.append(f"Set {key}={value}")
+
+        if errors:
+            return [{"t": "error", "text": "\n".join(errors)}]
+
+        # Commit changes to database
+        self.db_session.commit()
+
+        result = [
+            {"t": "text", "text": f"Updated configuration for '{app_name}':"},
+        ]
+        for change in changes:
+            result.append({"t": "text", "text": f"  • {change}"})
+
+        result.append({
+            "t": "text",
+            "text": "\nNote: Run 'hop app:restart <app>' to apply changes to running app.",
+        })
+
+        return result
+
+
+@register
+@dataclass(frozen=True)
+class UnsetCmd(Command):
+    """Unset environment variables for an app.
+
+    Usage: hop config:unset <app> KEY [KEY2 ...]
+
+    Examples:
+        hop config:unset myapp DEBUG
+        hop config:unset myapp DATABASE_URL REDIS_URL
+    """
+
+    db_session: Session
+    name = "config:unset"
+
+    def call(self, app_name, *keys):
+        if not keys:
+            return [
+                {
+                    "t": "text",
+                    "text": "Usage: hop config:unset <app> KEY [KEY2 ...]\n"
+                    "Example: hop config:unset myapp DEBUG",
+                }
+            ]
+
+        app = _get_app(self.db_session, app_name)
+
+        # Remove specified variables
+        removed = []
+        not_found = []
+        for raw_key in keys:
+            key = raw_key.strip()
+            if not key:
+                continue
+
+            found = False
+            for env_var in app.env_vars:
+                if env_var.name == key:
+                    app.env_vars.remove(env_var)
+                    removed.append(key)
+                    found = True
+                    break
+
+            if not found:
+                not_found.append(key)
+
+        # Commit changes to database
+        self.db_session.commit()
+
+        result = []
+        if removed:
+            result.append({
+                "t": "text",
+                "text": f"Removed configuration from '{app_name}':",
+            })
+            for key in removed:
+                result.append({"t": "text", "text": f"  • {key}"})
+
+        if not_found:
+            result.append({"t": "text", "text": "\nNot found:"})
+            for key in not_found:
+                result.append({"t": "text", "text": f"  • {key}"})
+
+        if removed:
+            result.append({
+                "t": "text",
+                "text": "\nNote: Run 'hop app:restart <app>' to apply changes to running app.",
+            })
+
+        return result
 
 
 @register

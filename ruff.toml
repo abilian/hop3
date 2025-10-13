@@ -9,7 +9,6 @@ exclude = [
     "packages/hop3-lib/src/hop3_lib/actors",
     "packages/hop3-lib/src/hop3_lib/bus",
     "packages/hop3-cli/src/hop3_cli/commands",
-    "packages/hop3-server/src/hop3/server/old_cli",
 ]
 
 lint.select = [
@@ -74,6 +73,7 @@ lint.extend-ignore = [
     "PERF203", #	try-except-in-loop
     "B909", #   	loop-iterator-mutation
     "PLW0603", #	global-statement
+    "PERF401", #
 ]
 
 
