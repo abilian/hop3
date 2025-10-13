@@ -282,13 +282,12 @@ class ServicesDetachCmd(Command):
                     },
                     {"t": "text", "text": f"\nRemoved: {', '.join(removed_vars)}"},
                 ]
-            else:
-                return [
-                    {
-                        "t": "text",
-                        "text": f"Service '{service_name}' was not attached to app '{app_name}'.",
-                    }
-                ]
+            return [
+                {
+                    "t": "text",
+                    "text": f"Service '{service_name}' was not attached to app '{app_name}'.",
+                }
+            ]
 
         except Exception as e:
             return [{"t": "error", "text": f"Error detaching service: {e}"}]

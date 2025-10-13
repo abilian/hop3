@@ -47,55 +47,54 @@ def _type2field(
 ) -> Field:
     if isinstance(type_, Field):
         return type_
-    else:
-        default = signature.parameters[name].default
-        required = default is inspect.Parameter.empty
-        field_kwargs = {"required": required}
-        args = getattr(type_, "__args__", [])
+    default = signature.parameters[name].default
+    required = default is inspect.Parameter.empty
+    field_kwargs = {"required": required}
+    args = getattr(type_, "__args__", [])
 
-        if not required:
-            field_kwargs["load_default"] = default
+    if not required:
+        field_kwargs["load_default"] = default
 
-        origin_cls = getattr(type_, "__origin__", None) or type_
-        try:
-            field_cls = type_mapping[origin_cls]
-        except KeyError as key_err:
-            if type(type_) is typing.TypeVar:
+    origin_cls = getattr(type_, "__origin__", None) or type_
+    try:
+        field_cls = type_mapping[origin_cls]
+    except KeyError as key_err:
+        if type(type_) is typing.TypeVar:
+            field_cls = fields.Field
+        # typing.Optional[T] or typing.Union[T, None] -> fields.Field(allow_none=True)
+        elif origin_cls is typing.Union and type(None) in args:
+            field_kwargs["allow_none"] = True
+            non_none_args = [arg for arg in args if arg is not type(None)]
+            # If only one other type is passed, get the proper field for that type
+            # e.g. typing.Union[int, None] -> fields.Int(allow_none=True)
+            if len(non_none_args) == 1:
+                try:
+                    field_cls = type_mapping[non_none_args[0]]
+                except KeyError as err:
+                    raise TypeMappingError(name, origin_cls) from err
+            else:
                 field_cls = fields.Field
-            # typing.Optional[T] or typing.Union[T, None] -> fields.Field(allow_none=True)
-            elif origin_cls is typing.Union and type(None) in args:
-                field_kwargs["allow_none"] = True
-                non_none_args = [arg for arg in args if arg is not type(None)]
-                # If only one other type is passed, get the proper field for that type
-                # e.g. typing.Union[int, None] -> fields.Int(allow_none=True)
-                if len(non_none_args) == 1:
-                    try:
-                        field_cls = type_mapping[non_none_args[0]]
-                    except KeyError as err:
-                        raise TypeMappingError(name, origin_cls) from err
-                else:
-                    field_cls = fields.Field
-            else:
-                raise TypeMappingError(name, origin_cls) from key_err
+        else:
+            raise TypeMappingError(name, origin_cls) from key_err
 
-        # Handle container fields
-        if issubclass(field_cls, fields.List):
-            args = getattr(type_, "__args__", [])
-            if args:
-                inner_type = args[0]
-                container = _type2field(name, inner_type, signature, type_mapping)
-            else:
-                container = fields.Field()
-            field_kwargs["cls_or_instance"] = container
-        elif issubclass(field_cls, fields.Dict):
-            if args:
-                key_type, val_type = args
-                key_container = _type2field(name, key_type, signature, type_mapping)
-                field_kwargs["keys"] = key_container
-                value_container = _type2field(name, val_type, signature, type_mapping)
-                field_kwargs["values"] = value_container
-        field_kwargs.update(kwargs)
-        return field_cls(**field_kwargs)
+    # Handle container fields
+    if issubclass(field_cls, fields.List):
+        args = getattr(type_, "__args__", [])
+        if args:
+            inner_type = args[0]
+            container = _type2field(name, inner_type, signature, type_mapping)
+        else:
+            container = fields.Field()
+        field_kwargs["cls_or_instance"] = container
+    elif issubclass(field_cls, fields.Dict):
+        if args:
+            key_type, val_type = args
+            key_container = _type2field(name, key_type, signature, type_mapping)
+            field_kwargs["keys"] = key_container
+            value_container = _type2field(name, val_type, signature, type_mapping)
+            field_kwargs["values"] = value_container
+    field_kwargs.update(kwargs)
+    return field_cls(**field_kwargs)
 
 
 def annotations2schema(
