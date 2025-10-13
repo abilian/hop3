@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import yaml
+
 from hop3.config import ACME_EMAIL, ACME_WWW, TRAEFIK_ROOT
 from hop3.container import container
 from hop3.core.protocols import Proxy
@@ -285,8 +287,6 @@ class TraefikVirtualHost(Proxy):
         # Traefik doesn't have a built-in validate command for individual files
         # We can do basic YAML syntax checking
         try:
-            import yaml
-
             with open(traefik_conf_path) as f:
                 yaml.safe_load(f)
             log(f"Traefik config validation passed for {traefik_conf_path}", level=2)

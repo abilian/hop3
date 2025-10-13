@@ -1,4 +1,7 @@
 # Copyright (c) 2023-2025, Abilian SAS
+"""
+These tests need to be rewritten differently.
+"""
 from __future__ import annotations
 
 import shutil

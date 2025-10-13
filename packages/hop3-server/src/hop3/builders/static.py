@@ -34,8 +34,7 @@ class StaticBuilder(Builder):
         # Check if Procfile contains "static:" entry
         procfile_content = procfile_path.read_text()
         for line in procfile_content.splitlines():
-            line = line.strip()
-            if line.startswith("static:"):
+            if line.strip().startswith("static:"):
                 return True
 
         return False
@@ -77,10 +76,10 @@ class StaticBuilder(Builder):
         procfile_content = procfile_path.read_text()
 
         for line in procfile_content.splitlines():
-            line = line.strip()
-            if line.startswith("static:"):
+            stripped_line = line.strip()
+            if stripped_line.startswith("static:"):
                 # Extract directory path after "static:"
-                static_dir = line.split(":", 1)[1].strip()
+                static_dir = stripped_line.split(":", 1)[1].strip()
                 return static_dir
 
         # Default to "public" if not found (shouldn't happen if accept() passed)
