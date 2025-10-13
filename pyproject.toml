@@ -28,11 +28,14 @@ dependencies = [
     # "hop3-smo-plugin",
 ]
 
-# ------------------------------------
+[project.urls]
+"Homepage" = "https://hop3.cloud/"
+"Source Code" = "https://github.com/abilian/hop3"
+"Issue Tracker" = "https://github.com/abilian/hop3/issues"
+"Original Project" = "https://github.com/abilian/nua"
 
-[tool.uv]
-package = false
-dev-dependencies = [
+[dependency-groups]
+dev = [
     # Generic tools
     "abilian-devtools >= 0.7",
     "reuse >= 5.0",
@@ -40,10 +43,14 @@ dev-dependencies = [
     "ruff != 0.11.3",
     # Used by `inv watch`
     "watchfiles >= 0.24.0",
-    # Used by testing infra
-    "httpx>=0.27.0",
+    # Testing and testing infra
+    "pytest>=8.4.2",
     "pytest-asyncio >= 0.23.0",
+    "httpx>=0.27.0",
     "python-dotenv >= 1.0.1",
+    "urllib3",
+    "snoop>=0.6.0",
+    "docker>=7.1.0",
     # Experimental
     "infer-types~=1.0.0",
     # Installer
@@ -54,9 +61,12 @@ dev-dependencies = [
     "types-paramiko>=3.5.0.20240928",
     "types-pytz>=2024.2.0.20241003",
     "types-tabulate>=0.9.0.20240106",
+    "types-urllib3>=1.26.25.14",
     # Type checking
+    "pyrefly>=0.34.0",
     "beartype>=0.19.0",
     "pytest-beartype>=0.2.0",
+    "ty>=0.0.0a7",
     # More tools
     "import-linter>=2.1",
     # Doc (temp - this should go in hop3-docs)
@@ -75,21 +85,19 @@ dev-dependencies = [
     "mkdocs-roamlinks-plugin",
     "mkdocstrings[python]",
     "pygments",
-    "urllib3",
+    "pydoclint[flake8]>=0.5.9",
     # SBOM
     "cyclonedx-bom>=5.1.1",
     "lbom>=0.6",
     "sbom4python>=0.11.3",
     "spdx-tools>=0.8.3",
-    "snoop>=0.6.0",
-    "pydoclint[flake8]>=0.5.9",
-    "ty>=0.0.0a7",
-    "hatchling>=1.27.0",
-    "types-urllib3>=1.26.25.14",
-    "pyrefly>=0.34.0",
-    "docker>=7.1.0",
-    "pytest>=8.4.2",
+    # More
 ]
+
+# ------------------------------------
+
+[tool.uv]
+package = false
 
 [tool.uv.workspace]
 members = ["packages/*"]

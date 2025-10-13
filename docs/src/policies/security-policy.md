@@ -81,7 +81,7 @@ Once a vulnerability has been fixed and a patch is released, we will publish a s
 
 -   GitHub Security Advisories in the relevant repository.
 -   A post on our official project blog or news section.
--   Notes in the official `CHANGELOG.md` for the corresponding release.
+-   Notes in the official `CHANGES.md` for the corresponding release.
 
 ## Questions
 
