@@ -22,7 +22,7 @@ nav:
       - "Quick Start": quickstart.md
       - FAQ: faq.md
       - Extra: extra.md
-      - Changelog: CHANGELOG.md
+      - Changelog: CHANGES.md
   - Developers:
       - "Index": dev/index.md
       - "Getting started": dev/getting-started.md
