@@ -4,15 +4,54 @@
 
 """Hop3 test runner - CLI for deployment testing."""
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import argparse
 import os
 import sys
+import warnings
 from pathlib import Path
 
+# Suppress cryptography deprecation warnings from paramiko
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="paramiko")
+warnings.filterwarnings("ignore", message=".*TripleDES.*", category=DeprecationWarning)
+
 from .apps import DeploymentSession, TestAppCatalog
+from .apps.catalog import TestApp
 from .targets import DockerTarget, RemoteTarget
+
+EPILOG = """Examples:
+
+  # Test all apps
+  hop-test --target docker
+
+  # Test specific app by name
+  hop-test --target docker 010-flask-pip-wsgi
+
+  # Test specific app by path
+  hop-test --target docker apps/test-apps/010-flask-pip-wsgi
+
+  # Test multiple apps
+  hop-test --target docker 010-flask-pip-wsgi 020-nodejs-express
+
+  # Test using shell glob patterns (shell expands the glob)
+  hop-test --target docker apps/test-apps/01*
+  hop-test --target docker apps/test-apps/0[12]*
+
+  # Mix names and paths
+  hop-test --target docker 010-flask-pip-wsgi apps/test-apps/020-nodejs-express
+
+  # Test specific category
+  hop-test --target docker --category python-simple
+
+  # Test against remote server
+  hop-test --target remote --host myserver.com --ssh-key ~/.ssh/id_rsa
+
+  # Run with pytest instead
+  pytest packages/hop3-testing/tests/ -v --target docker
+"""
 
 
 def main() -> None:
@@ -20,27 +59,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run Hop3 deployment tests",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Test all apps using Docker
-  hop-test --target docker
-
-  # Test specific app by name
-  hop-test --target docker --app 010-flask-pip-wsgi
-
-  # Test specific app by path
-  hop-test --target docker --app apps/test-apps/010-flask-pip-wsgi
-  hop-test --target docker --app path/to/my-app
-
-  # Test against remote server
-  hop-test --target remote --host myserver.com --ssh-key ~/.ssh/id_rsa
-
-  # Test specific category
-  hop-test --target docker --category python-simple
-
-  # Run with pytest instead
-  pytest packages/hop3-testing/tests/ -v --target docker
-        """,
+        epilog=EPILOG,
     )
 
     # Target configuration
@@ -74,13 +93,14 @@ Examples:
     # App selection
     app_group = parser.add_argument_group("Application selection")
     app_group.add_argument(
+        "apps",
+        nargs="*",
+        help="App name(s) or path(s) to test (shell glob patterns supported)",
+    )
+    app_group.add_argument(
         "--apps-dir",
         type=Path,
         help="Path to test apps directory (default: auto-detect)",
-    )
-    app_group.add_argument(
-        "--app",
-        help="Test specific app by name or path (e.g., '010-flask-pip-wsgi' or 'path/to/app')",
     )
     app_group.add_argument(
         "--category",
@@ -211,6 +231,33 @@ def create_target(args) -> DockerTarget | RemoteTarget:
     return DockerTarget(config)
 
 
+def _create_test_app_from_path(app_path: Path) -> TestApp:
+    """Create a TestApp instance from a directory path."""
+    app_name = app_path.name
+    category = "other"
+
+    # Read description from README if available
+    description = ""
+    readme_path = app_path / "README.md"
+    if readme_path.exists():
+        with readme_path.open() as f:
+            first_line = f.readline().strip()
+            if first_line.startswith("#"):
+                description = first_line.lstrip("#").strip()
+
+    return TestApp(
+        name=app_name,
+        path=app_path,
+        category=category,
+        description=description,
+    )
+
+
+def _is_path_spec(spec: str) -> bool:
+    """Check if spec looks like a path (contains path separators or exists)."""
+    return "/" in spec or "\\" in spec or Path(spec).exists()
+
+
 def get_apps_to_test(catalog: TestAppCatalog, args) -> list:
     """Get list of apps to test based on arguments.
 
@@ -221,57 +268,36 @@ def get_apps_to_test(catalog: TestAppCatalog, args) -> list:
     Returns:
         List of TestApp instances
     """
-    if args.app:
-        # Check if app is a path (contains / or \ or is an existing directory)
-        if "/" in args.app or "\\" in args.app or Path(args.app).exists():
-            # Treat as a path to app directory
-            app_path = Path(args.app).resolve()
-            if not app_path.is_dir():
-                print(f"❌ Path '{args.app}' is not a directory")
-                return []
+    if args.apps:
+        apps = []
+        seen_paths = set()
 
-            # Extract app name from directory name
-            app_name = app_path.name
+        for app_spec in args.apps:
+            if _is_path_spec(app_spec):
+                # Handle path-based spec
+                app_path = Path(app_spec).resolve()
 
-            # Determine category from name prefix
-            if app_name.startswith("000-"):
-                category = "static"
-            elif app_name.startswith("01"):
-                category = "python-simple"
-            elif app_name.startswith("02"):
-                category = "nodejs"
-            elif app_name.startswith("03"):
-                category = "golang"
-            elif app_name.startswith("04"):
-                category = "ruby"
-            elif app_name.startswith("1"):
-                category = "python-advanced"
+                if not app_path.is_dir():
+                    print(f"⚠️  Not a directory: {app_spec}")
+                    continue
+
+                if app_path in seen_paths:
+                    continue
+
+                seen_paths.add(app_path)
+                apps.append(_create_test_app_from_path(app_path))
             else:
-                category = "other"
+                # Handle catalog name lookup
+                app = catalog.get(app_spec)
+                if not app:
+                    print(f"⚠️  App not found in catalog: {app_spec}")
+                    continue
 
-            # Read description from README if available
-            description = ""
-            readme_path = app_path / "README.md"
-            if readme_path.exists():
-                with readme_path.open() as f:
-                    first_line = f.readline().strip()
-                    if first_line.startswith("#"):
-                        description = first_line.lstrip("#").strip()
+                if app.path not in seen_paths:
+                    seen_paths.add(app.path)
+                    apps.append(app)
 
-            from .apps.catalog import TestApp
-
-            return [
-                TestApp(
-                    name=app_name,
-                    path=app_path,
-                    category=category,
-                    description=description,
-                )
-            ]
-
-        # Otherwise, look up by name in catalog
-        app = catalog.get(args.app)
-        return [app] if app else []
+        return apps
 
     if args.category:
         return list(catalog.filter(category=args.category))

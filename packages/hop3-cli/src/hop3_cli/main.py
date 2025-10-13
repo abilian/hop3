@@ -5,16 +5,23 @@ All the logic is implemented on the server side, this script is just a
 thin wrapper around SSH to communicate with the server.
 """
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import base64
 import sys
+import warnings
 from pathlib import Path
 from typing import Any
 
 import requests.exceptions
 from jsonrpcclient import Error, Ok
 from loguru import logger
+
+# Suppress cryptography deprecation warnings from paramiko
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="paramiko")
+warnings.filterwarnings("ignore", message=".*TripleDES.*", category=DeprecationWarning)
 
 from .arguments import generate_archive
 from .client import Client
@@ -64,16 +71,22 @@ def run_command_from_args(cli_args: list[str]) -> None:
         response = client.rpc("cli", cli_args, **validated_extra_args)
     except requests.exceptions.ConnectionError:
         err(f"Could not connect to the Hop3 server at {client.rpc_url}. Is it running?")
+        sys.exit(1)
     except requests.exceptions.HTTPError as e:
         err(f"HTTP error while connecting to the Hop3 server:\n{e}")
+        sys.exit(1)
     except Exception as e:
         err(f"Error while executing command:\n{e}")
+        sys.exit(1)
 
     match response:
         case Ok(result=result):
             Printer().print(result)
         case Error(message=message):
             err(f"Error:\n{message}")
+            if client.tunnel:
+                client.tunnel.stop()
+            sys.exit(1)
         case None:
             pass
 

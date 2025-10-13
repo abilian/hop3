@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import time
+import traceback
 from http import HTTPStatus
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -20,8 +21,9 @@ from hop3_cli.client import Client
 from hop3_cli.config import Config
 
 if TYPE_CHECKING:
-    from .catalog import TestApp
     from hop3_testing.targets.base import DeploymentTarget
+
+    from .catalog import TestApp
 
 
 class DeploymentSession:
@@ -217,7 +219,6 @@ class DeploymentSession:
             return self.app_name in result.stdout
         except Exception as e:
             print(f"check_deployed() exception: {e}")
-            import traceback
             traceback.print_exc()
             return False
 
@@ -343,8 +344,20 @@ class DeploymentSession:
                 env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
                 env["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"
 
+                print(f"\n[DEBUG] Destroying {self.app_name}")
+
+                # List apps before destroy
+                before = subprocess.run(
+                    ["hop3", "apps"],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                print(f"[DEBUG] Apps before destroy:\n{before.stdout}")
+
                 result = subprocess.run(
-                    ["hop3", "destroy", self.app_name],
+                    ["hop3", "app:destroy", self.app_name],
                     env=env,
                     capture_output=True,
                     text=True,
@@ -352,15 +365,46 @@ class DeploymentSession:
                 )
 
                 if result.returncode == 0:
-                    print(f"✓ App {self.app_name} destroyed")
+                    print(f"✓ App {self.app_name} destroy command completed")
+                    print(f"[SERVER STDOUT] (length={len(result.stdout)})")
+                    if result.stdout.strip():
+                        print(result.stdout)
+                    print(f"[SERVER STDERR] (length={len(result.stderr)})")
+                    if result.stderr.strip():
+                        # Filter out cryptography warnings
+                        stderr_lines = [l for l in result.stderr.split('\n') if 'CryptographyDeprecationWarning' not in l and 'TripleDES' not in l]
+                        if stderr_lines:
+                            print('\n'.join(stderr_lines))
+
+                    # Wait a moment for server-side cleanup
+                    time.sleep(2)
+
+                    # Check if app is gone
+                    after = subprocess.run(
+                        ["hop3", "apps"],
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    print(f"[DEBUG] Apps after destroy:\n{after.stdout}")
+
+                    if self.app_name in after.stdout:
+                        print(f"⚠ WARNING: {self.app_name} still in database after destroy!")
+                        success = False
+                    else:
+                        print(f"✓ Verified {self.app_name} removed from database")
                 else:
-                    print(f"⚠ Failed to destroy app: {result.stderr}")
+                    print(f"❌ Failed to destroy app (exit code {result.returncode})")
+                    if result.stderr:
+                        print(f"[DEBUG] Destroy stderr: {result.stderr}")
                     success = False
 
                 self.deployed = False
 
             except Exception as e:
-                print(f"Error destroying app: {e}")
+                print(f"❌ Exception during destroy: {e}")
+                traceback.print_exc()
                 success = False
 
         # Remove temp directory
@@ -385,40 +429,46 @@ class DeploymentSession:
         """
         try:
             # Prepare
+            print(f"[STAGE] Preparing {self.app_name}")
             self.prepare()
 
             # Deploy
+            print(f"[STAGE] Deploying {self.app_name}")
             if not self.deploy():
+                print(f"❌ [FAILED AT] Deploy stage for {self.app_name}")
                 return False
 
             # Check deployment
+            print(f"[STAGE] Checking deployment for {self.app_name}")
             if not self.check_deployed():
-                print("App deployment check failed")
+                print(f"❌ [FAILED AT] Deployment check for {self.app_name}")
                 return False
 
             # Test HTTP (if app has web interface)
             if self.app.has_procfile:
+                print(f"[STAGE] Testing HTTP for {self.app_name}")
                 if not self.test_http():
-                    print("HTTP test failed")
+                    print(f"❌ [FAILED AT] HTTP test for {self.app_name}")
                     return False
 
             # Run check script
             if self.app.has_check_script:
+                print(f"[STAGE] Running check script for {self.app_name}")
                 if not self.run_check_script():
-                    print("Check script failed")
+                    print(f"❌ [FAILED AT] Check script for {self.app_name}")
                     return False
 
             print(f"✓ All tests passed for {self.app_name}")
             return True
 
         except Exception as e:
-            print(f"Test failed with exception: {e}")
-            import traceback
+            print(f"❌ [FAILED AT] Exception for {self.app_name}: {e}")
             traceback.print_exc()
             return False
 
         finally:
             if cleanup:
+                print(f"[STAGE] Cleanup for {self.app_name}")
                 self.cleanup()
 
     def __enter__(self) -> DeploymentSession:

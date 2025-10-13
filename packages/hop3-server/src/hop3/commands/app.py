@@ -273,15 +273,93 @@ class DestroyCmd(Command):
         if not args:
             return [{"t": "text", "text": "Usage: hop destroy <app_name>"}]
         app_name = args[0]
+
+        from hop3.lib import log
+
+        debug_msgs = []
+
+        def debug(msg):
+            log(msg, level=1)
+            debug_msgs.append(msg)
+
+        debug(f"[DESTROY] Starting destroy for '{app_name}'")
+
         app = _get_app(self.db_session, app_name)
+        debug(f"[DESTROY] App fetched from session (session id={id(self.db_session)})")
 
         # Stop the app first to release any file locks
         app.stop()
+        debug("[DESTROY] App stopped")
+
         # Clean up filesystem (repo, src, logs, configs etc.)
         app.destroy()
+        debug("[DESTROY] Filesystem cleaned")
 
         # Remove from the database
+        debug("[DESTROY] Calling db_session.delete()")
         self.db_session.delete(app)
-        self.db_session.commit()
 
-        return [{"t": "text", "text": f"App '{app_name}' has been destroyed."}]
+        debug("[DESTROY] Calling db_session.commit()")
+        self.db_session.commit()
+        debug("[DESTROY] Commit completed successfully")
+
+        # Verify deletion
+        from hop3.orm import AppRepository
+
+        app_repo = AppRepository(session=self.db_session)
+        still_exists = app_repo.get_one_or_none(name=app_name)
+        if still_exists:
+            debug("[DESTROY] WARNING: App still exists in database after commit!")
+        else:
+            debug("[DESTROY] Verified: App no longer in database")
+
+        # Reload nginx to remove the app's routing configuration
+        self._reload_nginx()
+
+        return [
+            {
+                "t": "text",
+                "text": f"App '{app_name}' has been destroyed.\n\nDebug:\n"
+                + "\n".join(debug_msgs),
+            }
+        ]
+
+    def _reload_nginx(self) -> None:
+        """Reload nginx to apply configuration changes after app destruction."""
+        import os
+        import subprocess
+
+        from hop3.lib import log
+
+        # Skip reload in test environments
+        if os.environ.get("PYTEST_CURRENT_TEST"):
+            return
+
+        # Try supervisorctl restart (for Docker/E2E environments)
+        try:
+            subprocess.run(
+                ["sudo", "-n", "supervisorctl", "restart", "nginx"],
+                check=True,
+                capture_output=True,
+                timeout=5,
+            )
+            log("nginx reloaded after app destruction", level=2)
+            return
+        except Exception:
+            pass
+
+        # Try systemctl reload (for systemd)
+        try:
+            subprocess.run(
+                ["sudo", "-n", "systemctl", "reload", "nginx"],
+                check=True,
+                capture_output=True,
+                timeout=5,
+            )
+            log("nginx reloaded after app destruction", level=2)
+            return
+        except Exception:
+            pass
+
+        # Silently continue if reload fails - nginx will pick up changes eventually
+        log("nginx reload skipped (no reload method available)", level=3)
