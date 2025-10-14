@@ -47,3 +47,13 @@ def get_os_strategies() -> list:
         List of OSSetupStrategy classes that can detect and configure
         specific operating systems for hop3.
     """
+
+
+@hookspec
+def get_proxy_strategies() -> list:
+    """Get proxy strategies provided by this plugin.
+
+    Returns:
+        List of Proxy classes that can configure reverse proxies
+        (Nginx, Caddy, Traefik, etc.) for hop3 applications.
+    """

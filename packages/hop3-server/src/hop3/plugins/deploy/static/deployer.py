@@ -9,6 +9,7 @@ import os
 
 from hop3.config import HOP3_ROOT, HOP3_USER
 from hop3.core.env import Env
+from hop3.core.plugins import get_proxy_strategy
 from hop3.core.protocols import (
     BuildArtifact,
     DeploymentContext,
@@ -17,7 +18,6 @@ from hop3.core.protocols import (
 )
 from hop3.lib import log
 from hop3.orm import App, AppStateEnum
-from hop3.plugins.proxy.nginx import NginxVirtualHost
 from hop3.project.config import AppConfig
 
 
@@ -114,12 +114,12 @@ class StaticDeployer(DeploymentStrategy):
             workers = app_config.workers
 
             log(
-                f"Setting up nginx for static app '{self.app.name}'...",
+                f"Setting up proxy for static app '{self.app.name}'...",
                 level=2,
                 fg="blue",
             )
-            nginx = NginxVirtualHost(self.app, env, workers)
-            nginx.setup()
+            proxy = get_proxy_strategy(self.app, env, workers)
+            proxy.setup()
 
         # Return deployment info (nginx will serve from static_path)
         static_path = self.artifact.location
