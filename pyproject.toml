@@ -69,29 +69,34 @@ dev = [
     "ty>=0.0.0a7",
     # More tools
     "import-linter>=2.1",
-    # Doc (temp - this should go in hop3-docs)
-    "duty>=1.4.3",
-    "markdown-callouts>=0.4",
-    "markdown-exec>=1.8",
-    "mkdocs",
-    "mkdocs-coverage>=1.0",
-    "mkdocs-gen-files>=0.5",
-    "mkdocs-git-revision-date-localized-plugin>=1.2",
-    "mkdocs-include-markdown-plugin",
-    "mkdocs-literate-nav>=0.6",
-    "mkdocs-material",
-    "mkdocs-material-extensions",
-    "mkdocs-minify-plugin>=0.8",
-    "mkdocs-roamlinks-plugin",
-    "mkdocstrings[python]",
-    "pygments",
-    "pydoclint[flake8]>=0.5.9",
     # SBOM
     "cyclonedx-bom>=5.1.1",
     "lbom>=0.6",
     "sbom4python>=0.11.3",
     "spdx-tools>=0.8.3",
-    # More
+]
+
+doc = [
+    # MkDocs core and extensions
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocs-material-extensions",
+    # MkDocs plugins
+    "mkdocs-coverage>=1.0",
+    "mkdocs-gen-files>=0.5",
+    "mkdocs-git-revision-date-localized-plugin>=1.2",
+    "mkdocs-include-markdown-plugin",
+    "mkdocs-literate-nav>=0.6",
+    "mkdocs-minify-plugin>=0.8",
+    "mkdocs-roamlinks-plugin",
+    "mkdocstrings[python]",
+    # Markdown extensions
+    "markdown-callouts>=0.4",
+    "markdown-exec>=1.8",
+    # Syntax highlighting
+    "pygments",
+    # Documentation linting
+    "pydoclint[flake8]>=0.5.9",
 ]
 
 # ------------------------------------

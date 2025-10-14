@@ -199,10 +199,14 @@ clean-test:
 
 ## Documentation
 doc:
-	duty docs-build
+	@echo "--> Building documentation"
+	cd docs && $(MAKE) build
 
 doc-serve:
-	duty docs
+	@echo "--> Serving documentation"
+	cd docs && $(MAKE) serve
 
-deploy-doc:
-        rsync -e ssh -avz site/ root@hop3.cloud:/var/www/hop3.cloud/
+doc-deploy:
+	@echo "--> Deploying documentation"
+	make doc
+	rsync -e ssh -avz docs/site/ root@hop3.cloud:/var/www/hop3.cloud/

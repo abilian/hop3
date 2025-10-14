@@ -12,7 +12,7 @@ repo_name: 'abilian/hop3'
 repo_url: 'https://github.com/abilian/hop3'
 edit_uri: 'https://github.com/abilian/hop3/blob/main/docs/src'
 
-docs_dir: docs/src/
+docs_dir: src/
 
 nav:
   - Home:
@@ -90,7 +90,7 @@ plugins:
   - markdown-exec
   - gen-files:
       scripts:
-        - scripts/gen_ref_nav.py
+        - ../scripts/gen_ref_nav.py
   - literate-nav:
       nav_file: SUMMARY.md
   - coverage
@@ -137,7 +137,7 @@ plugins:
 
 theme:
   name: material
-  custom_dir: docs/overrides
+  custom_dir: overrides/
   icon:
     logo: material/book-open-page-variant
   features:
@@ -188,5 +188,5 @@ extra:
     provider: custom
 
 extra_css:
-  - docs/stylesheets/theme.css
-  - docs/stylesheets/extra.css
+  - stylesheets/theme.css
+  - stylesheets/extra.css
