@@ -170,15 +170,6 @@ format-apps:
 	bash -c "shopt -s globstar && prettier -w apps/**/*.js"
 	@echo ""
 
-## Fix using ruff
-fix:
-	ruff check packages/hop3-agent --fix --unsafe-fixes
-
-add-copyright:
-	@echo "--> Adding/updating copyright headers"
-	python scripts/update-copyright.py
-	@echo ""
-
 ## Clean up
 clean:
 	bash -c "shopt -s globstar && rm -f **/*.pyc"
@@ -189,7 +180,7 @@ clean:
 		tmp
 	rm -rf packages/*/dist packages/*/.pdm-build
 	rm -rf .nox
-	rm -rf site
+	rm -rf docs/site
 	adt clean
 
 clean-test:
