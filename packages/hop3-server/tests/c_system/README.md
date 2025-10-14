@@ -9,11 +9,14 @@ This directory contains system integration tests that verify hop3-cli and hop3-s
 System integration tests verify:
 - ✅ CLI ↔ Server RPC communication
 - ✅ Authentication flow (register, login, token validation)
-- ✅ All CLI commands execute successfully
-- ✅ Service management commands (without actual deployments)
-- ❌ No actual application deployments
-- ❌ No nginx/uwsgi configuration
-- ❌ No systemd services
+- ✅ Basic CLI commands execute successfully
+- ✅ Basic deployment via tarball (deploy command)
+- ✅ Git archive extraction and security
+- ❌ No full application lifecycle (start/stop/restart)
+- ❌ No nginx/uwsgi configuration tests
+- ❌ No systemd service tests
+
+**Note**: Tests requiring full deployment infrastructure (uwsgi, nginx, systemd) have been moved to `tests/d_e2e/test_full_deployment.py`.
 
 ## Requirements
 
@@ -22,57 +25,73 @@ System integration tests verify:
    pip install -e packages/hop3-cli
    ```
 
-2. **hop3-server** must be running. Two options:
+2. **hop3-server** - Three options:
 
-   **Option A: Local Server (Development)**
+   **Option A: Automatic Local Server (Default - Recommended)**
+   ```bash
+   # No setup needed! Tests will automatically:
+   # - Start a server in /tmp/hop3-system-test-XXXXX/
+   # - Configure authentication
+   # - Clean up after tests complete
+
+   pytest packages/hop3-server/tests/c_system/
+   ```
+
+   **Option B: Manual Local Server (Development)**
    ```bash
    # Terminal 1: Start server
    hop-server serve
 
    # Terminal 2: Run tests
    export HOP3_API_URL=http://localhost:8000
-   pytest tests/c_system/
+   pytest packages/hop3-server/tests/c_system/
    ```
 
-   **Option B: Remote Server (CI)**
+   **Option C: Remote Server (CI/Production Testing)**
    ```bash
    export HOP3_DEV_HOST=hop3@test-server.example.com
-   pytest tests/c_system/
+   pytest packages/hop3-server/tests/c_system/
    ```
 
-3. **Server configuration** (if not using defaults):
+   **Option D: Full Infrastructure Testing (Production-like)**
    ```bash
-   export HOP3_ENABLE_AUTH=true
-   export HOP3_SECRET_KEY="your-secret-key"
+   # Server must have uwsgi, nginx, systemd fully configured
+   export HOP3_DEV_HOST=hop3@production-test-server.example.com
+   export HOP3_FULL_INFRASTRUCTURE=true
+   pytest packages/hop3-server/tests/c_system/
    ```
 
 ## Running System Integration Tests
 
-### First, test your connection:
+### Recommended: Automatic local server (no setup needed)
 ```bash
-# Run diagnostic script to verify setup
-python packages/hop3-server/tests/c_system/test_connection.py
-```
-
-This will check:
-- SSH connectivity to server (if using HOP3_DEV_HOST)
-- HTTP connectivity to server (if using HOP3_API_URL)
-- hop3-cli installation
-- Server responsiveness
-
-### Run all system tests:
-```bash
-# With verbose output
+# Just run the tests - server starts automatically!
 pytest packages/hop3-server/tests/c_system/ -v -s
 
 # Less verbose
 pytest packages/hop3-server/tests/c_system/
-```
 
-### Run specific test:
-```bash
+# Run specific test
 pytest packages/hop3-server/tests/c_system/test_connection.py -v
 ```
+
+The tests will:
+1. Automatically start a server in `/tmp/hop3-system-test-XXXXX/`
+2. Wait for it to be ready
+3. Run all tests
+4. Stop and clean up the server
+
+### Optional: Test connection to remote server
+```bash
+# For remote server testing, run diagnostic script first
+export HOP3_DEV_HOST=hop3@test-server.example.com
+python packages/hop3-server/tests/c_system/test_connection.py
+```
+
+This will check:
+- SSH connectivity to server
+- hop3-cli installation
+- Server responsiveness
 
 ### Skip system tests (run only unit and integration):
 ```bash
@@ -83,40 +102,44 @@ pytest packages/hop3-server/tests/a_unit packages/hop3-server/tests/b_integratio
 
 ### `conftest.py`
 Provides pytest fixtures for system integration testing:
-- `system_enabled`: Checks if system tests can run (server available)
-- `hop3_config_dir`: Creates temporary config directory
+- `local_server`: Automatically starts/stops a server in /tmp (session scope)
+- `e2e_enabled`: Checks if system tests can run (uses local or remote server)
+- `hop3_config_dir`: Creates temporary config directory and sets HOP3_API_URL
 - `system_auth_token`: Registers test user and gets authentication token
 - `test_app_dir`: Creates temporary directory for test data
+- `deployed_app`: Manages app deployment lifecycle and cleanup
 - `hop3()`: Helper function to run hop3-cli commands
+- `requires_full_infrastructure`: Skip marker for tests requiring uwsgi/nginx/systemd
+- `remote_server_only`: Skip marker for remote server diagnostic tests
 
 ### `test_connection.py`
 Diagnostic tests to verify system setup:
-- SSH connectivity
-- HTTP connectivity
+- SSH connectivity (remote servers only)
 - CLI availability
-- Server responsiveness
+- CLI connection to server
 - Authentication commands available
+- Authentication registration and login
 
-### `test_auth_flow.py` (future)
-Tests authentication flow end-to-end:
-- User registration via `hop3 auth:register`
-- Login via `hop3 auth:login`
-- Token validation
-- Logout via `hop3 auth:logout`
+### `test_e2e_deployment.py`
+Basic deployment tests (no full infrastructure needed):
+- Tarball deployment via `hop3 deploy`
+- Application listing via `hop3 apps`
+- Authentication requirements
 
-### `test_app_management.py` (future)
-Tests app management commands (without actual deployment):
-- `hop3 apps` - list apps
-- `hop3 status <app>` - check app status
-- App name validation
-- Error handling
+### `test_e2e_git_hook.py`
+Git-hook deployment tests (no full infrastructure needed):
+- Invalid commit reference handling
+- Git archive extraction
+- Path traversal prevention
+- Authentication requirements
 
-### `test_service_commands.py` (future)
-Tests service management commands:
-- `hop3 services:list`
-- `hop3 services:create postgres <name>`
-- `hop3 services:info <service>`
-- `hop3 services:destroy <service>`
+### Tests Moved to `tests/d_e2e/`
+The following test categories require full infrastructure and are in `test_full_deployment.py`:
+- Application lifecycle (start, stop, restart, status)
+- Environment variable management (config:set, config:get, config:unset)
+- Application destruction (destroy)
+- Web endpoint accessibility
+- Full git-hook deployment workflow
 
 ## Key Differences: System vs E2E vs Integration
 
@@ -211,45 +234,52 @@ sudo journalctl -u hop3-server -f
 
 ## CI Integration
 
-System integration tests are designed for CI with:
-1. Server started in background: `hop-server serve &`
-2. Wait for server to be ready: `sleep 5`
-3. Set HOP3_API_URL to localhost
-4. Run tests: `pytest tests/c_system/`
+System integration tests are designed for CI and require **no manual server setup**!
 
 Example GitHub Actions workflow:
 ```yaml
-- name: Start hop3-server
-  run: |
-    hop-server serve &
-    sleep 5
-
 - name: Run system integration tests
   run: |
-    export HOP3_API_URL=http://localhost:8000
-    pytest tests/c_system/ -v
+    # Tests automatically start and stop server
+    pytest packages/hop3-server/tests/c_system/ -v
+```
+
+For testing against a specific server (optional):
+```yaml
+- name: Run system integration tests against dev server
+  env:
+    HOP3_DEV_HOST: hop3@dev.example.com
+  run: |
+    pytest packages/hop3-server/tests/c_system/ -v
 ```
 
 ## Server Setup Requirements
 
-System tests require the server to have:
+### Automatic local server (default)
+**No setup required!** The test fixtures automatically:
+- Create a temporary directory in `/tmp/hop3-system-test-XXXXX/`
+- Enable authentication with a test secret key
+- Initialize the database
+- Start the server
+- Clean up after tests
+
+### Remote server (HOP3_DEV_HOST)
+If using a remote server for basic tests, it must have:
 - ✅ Authentication enabled (`HOP3_ENABLE_AUTH=true`)
 - ✅ Secret key configured (`HOP3_SECRET_KEY`)
 - ✅ Database initialized
-- ❌ No need for nginx
-- ❌ No need for uwsgi
-- ❌ No need for systemd
-- ❌ No need for actual deployment capabilities
+- ❌ No need for nginx (unless `HOP3_FULL_INFRASTRUCTURE=true`)
+- ❌ No need for uwsgi (unless `HOP3_FULL_INFRASTRUCTURE=true`)
+- ❌ No need for systemd (unless `HOP3_FULL_INFRASTRUCTURE=true`)
 
-## Migration from c_e2e
+### Full infrastructure server (HOP3_FULL_INFRASTRUCTURE=true)
+If running full deployment tests, the server needs:
+- ✅ All of the above (auth, secret key, database)
+- ✅ nginx configured and running
+- ✅ uwsgi configured for application deployments
+- ✅ systemd for service management
+- ✅ Full deployment pipeline working
 
-These tests were previously in `tests/c_e2e/` but were renamed to `c_system/` to better reflect their scope:
-
-- **Old name**: "End-to-End Tests" (c_e2e)
-- **New name**: "System Integration Tests" (c_system)
-- **Reason**: These tests don't deploy applications, so they're not true E2E tests
-
-True end-to-end tests with actual deployments are now in `tests/d_e2e/`.
 
 ## Future Enhancements
 

@@ -2,9 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pytest fixtures for end-to-end tests using hop3-cli binary.
+"""Pytest fixtures for system integration tests using hop3-cli binary.
 
-This module provides fixtures for E2E testing that:
+This module provides fixtures for system integration testing that:
+- Automatically start a local server in /tmp if HOP3_DEV_HOST is not set
 - Use the hop3-cli binary exclusively (no direct SSH)
 - Set up authentication with JWT tokens
 - Test both tarball and git-hook deployment methods
@@ -15,45 +16,163 @@ from __future__ import annotations
 
 import os
 import shutil
+import signal
 import subprocess
 import tempfile
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import httpx
 import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-# Get server from environment (required for E2E tests)
+# Get server from environment (optional - will start local server if not set)
 E2E_SERVER = os.environ.get("HOP3_DEV_HOST")
-E2E_TEST_USER = "e2e-test-user"
-E2E_TEST_EMAIL = "e2e-test@example.com"
-E2E_TEST_PASSWORD = "e2e-test-password-12345"
+E2E_TEST_USER = "system-test-user"
+E2E_TEST_EMAIL = "system-test@example.com"
+E2E_TEST_PASSWORD = "system-test-password-12345"
+
+# Track whether we're using a local test server (no full infrastructure)
+_using_local_server = E2E_SERVER is None
+
+# Full infrastructure tests require explicit opt-in via environment variable
+# These tests need uwsgi, nginx, systemd, etc.
+_has_full_infrastructure = os.environ.get("HOP3_FULL_INFRASTRUCTURE", "").lower() in {
+    "1",
+    "true",
+    "yes",
+}
+
+# Define skip marker for tests that require full deployment infrastructure
+requires_full_infrastructure = pytest.mark.skipif(
+    not _has_full_infrastructure,
+    reason="Test requires full deployment infrastructure (uwsgi, nginx, systemd). "
+    "Set HOP3_FULL_INFRASTRUCTURE=true to run these tests.",
+)
+
+
+@pytest.fixture(scope="session")
+def local_server() -> Generator[tuple[str, Path], None, None]:
+    """Start a local hop3-server in /tmp for testing.
+
+    This fixture:
+    1. Creates a temporary directory in /tmp for the server
+    2. Sets up environment variables for the server
+    3. Starts the server process in the background
+    4. Waits for the server to be ready
+    5. Yields the API URL and server root directory
+    6. Stops the server and cleans up
+
+    Returns:
+        Tuple of (api_url, server_root_path)
+    """
+    # Create temporary directory for server
+    server_root = Path(tempfile.mkdtemp(prefix="hop3-system-test-", dir="/tmp"))
+
+    print("\n=== Starting Local Server ===")
+    print(f"Server root: {server_root}")
+
+    # Set up environment for server
+    env = os.environ.copy()
+    env.update({
+        "HOP3_ROOT": str(server_root),
+        "HOP3_SECRET_KEY": "test-secret-key-for-system-tests",
+        "HOP3_ENABLE_AUTH": "true",
+        "HOP3_API_HOST": "127.0.0.1",
+        "HOP3_API_PORT": "8000",
+    })
+
+    # Start server process
+    print("Starting hop-server serve...")
+    server_process = subprocess.Popen(
+        ["hop-server", "serve"],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    # Wait for server to be ready
+    api_url = "http://127.0.0.1:8000"
+    max_attempts = 30
+    for attempt in range(max_attempts):
+        try:
+            response = httpx.get(f"{api_url}/health", timeout=2.0)
+            if response.status_code == 200:
+                print(f"Server is ready after {attempt + 1} attempts")
+                break
+        except (httpx.ConnectError, httpx.TimeoutException):
+            if attempt < max_attempts - 1:
+                time.sleep(1)
+            else:
+                # Server failed to start
+                server_process.kill()
+                stdout, stderr = server_process.communicate(timeout=5)
+                print(f"Server stdout: {stdout[:500]}")
+                print(f"Server stderr: {stderr[:500]}")
+                pytest.fail(f"Server failed to start after {max_attempts} seconds")
+
+    print(f"Server ready at {api_url}")
+
+    try:
+        yield api_url, server_root
+    finally:
+        # Stop server
+        print("\n=== Stopping Local Server ===")
+        if server_process.poll() is None:
+            server_process.send_signal(signal.SIGTERM)
+            try:
+                server_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                server_process.kill()
+                server_process.wait(timeout=5)
+
+        # Clean up server root
+        if server_root.exists():
+            shutil.rmtree(server_root)
+
+        print("Server stopped and cleaned up")
 
 
 @pytest.fixture(scope="session")
 def e2e_enabled() -> bool:
-    """Check if E2E tests are enabled."""
-    if not E2E_SERVER:
-        pytest.skip("E2E tests require HOP3_DEV_HOST environment variable")
+    """Check if system tests are enabled.
 
-    print("\n=== E2E Test Setup ===")
-    print(f"Server: {E2E_SERVER}")
+    Tests can run with either:
+    - Remote server (HOP3_DEV_HOST environment variable)
+    - Local server (automatically started)
+    """
+    if E2E_SERVER:
+        print("\n=== System Test Setup (Remote Server) ===")
+        print(f"Server: {E2E_SERVER}")
+    else:
+        print("\n=== System Test Setup (Local Server) ===")
+        print("Server will be started automatically in /tmp")
+
     print(f"Test user: {E2E_TEST_USER}")
 
     return True
 
 
 @pytest.fixture(scope="session")
-def hop3_config_dir(e2e_enabled) -> Generator[Path, None, None]:
+def hop3_config_dir(e2e_enabled, request) -> Generator[Path, None, None]:
     """Set up hop3-cli configuration via environment variables."""
-    config_dir = Path(tempfile.mkdtemp(prefix="hop3-e2e-config-"))
+    config_dir = Path(tempfile.mkdtemp(prefix="hop3-system-test-config-"))
 
     # Set API URL via environment variable (hop3-cli checks HOP3_API_URL)
     original_api_url = os.environ.get("HOP3_API_URL")
-    api_url = f"ssh://{E2E_SERVER}"
+
+    if E2E_SERVER:
+        # Use remote server via SSH
+        api_url = f"ssh://{E2E_SERVER}"
+    else:
+        # Use local server via HTTP - request the local_server fixture
+        local_server_fixture = request.getfixturevalue("local_server")
+        api_url, _server_root = local_server_fixture
+
     os.environ["HOP3_API_URL"] = api_url
 
     print("\n=== Configuration ===")
@@ -74,7 +193,7 @@ def hop3_config_dir(e2e_enabled) -> Generator[Path, None, None]:
 
 
 @pytest.fixture(scope="session")
-def e2e_auth_token(hop3_config_dir: Path) -> Generator[str, None, None]:
+def system_auth_token(hop3_config_dir: Path) -> Generator[str, None, None]:
     """Create test user and get authentication token."""
     print("\n=== Registering test user ===")
     print(f"Running: hop3 auth:register {E2E_TEST_USER} ...")
@@ -90,7 +209,7 @@ def e2e_auth_token(hop3_config_dir: Path) -> Generator[str, None, None]:
         )
     except subprocess.TimeoutExpired:
         pytest.fail(
-            "Registration command timed out after 30 seconds. Check SSH connection."
+            "Registration command timed out after 30 seconds. Check server connection."
         )
 
     print(f"Registration exit code: {result.returncode}")
@@ -123,7 +242,9 @@ def e2e_auth_token(hop3_config_dir: Path) -> Generator[str, None, None]:
             timeout=30,  # 30 second timeout
         )
     except subprocess.TimeoutExpired:
-        pytest.fail("Login command timed out after 30 seconds. Check SSH connection.")
+        pytest.fail(
+            "Login command timed out after 30 seconds. Check server connection."
+        )
 
     print(f"Login exit code: {result.returncode}")
     if result.stdout:
@@ -183,6 +304,10 @@ Looking for line containing 'Your API token:' followed by token on next line.
 
     # Logout after all tests
     subprocess.run(["hop3", "auth:logout"], check=False, capture_output=True)
+
+
+# Keep old name for backward compatibility
+e2e_auth_token = system_auth_token
 
 
 @pytest.fixture
