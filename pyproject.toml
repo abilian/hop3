@@ -140,17 +140,18 @@ addopts = "-ra --import-mode=importlib"
 testpaths = [
     "packages/hop3-server/tests/a_unit",
     "packages/hop3-server/tests/b_integration",
-    # System integration tests require running server
-    # Run with: pytest packages/hop3-server/tests/c_system/
-    # Or: make test-system
-    # "packages/hop3-server/tests/c_system",
+    "packages/hop3-server/tests/c_system",
+    "packages/hop3-cli/tests",
+    # E2E tests with Docker are slow - run separately with: make test-e2e
+    # "packages/hop3-server/tests/d_e2e",
     # Disabled for now
     #    "packages/*/tests",
     #    # Tests may be in the same directory as the code
     #    "packages/*/src",
 ]
 markers = [
-    "e2e: End-to-end tests using hop3-cli binary (requires HOP3_DEV_HOST)",
+    "e2e: End-to-end tests using hop3-cli binary (auto-starts local server)",
+    "docker: E2E tests using Docker containers (slow, run with make test-e2e)",
 ]
 
 # ------------------------------------
