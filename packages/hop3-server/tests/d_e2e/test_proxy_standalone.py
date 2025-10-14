@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 import docker
+import docker.errors
 import httpx
 from hop3_cli.client import Client
 from hop3_cli.config import Config
@@ -136,11 +137,14 @@ def index():
 """)
 
         (test_dir / "requirements.txt").write_text("flask>=3.0\n")
+        # Note: Don't use 'cd' in Procfile - uwsgi config sets chdir automatically
         (test_dir / "Procfile").write_text(
-            f"web: cd {test_dir} && flask --app app run --host 0.0.0.0 --port $PORT\n"
+            "web: flask --app app run --host 0.0.0.0 --port $PORT\n"
         )
         # IMPORTANT: Environment file must be named "ENV" (uppercase), not "env"
-        (test_dir / "ENV").write_text(f"NGINX_SERVER_NAME={hostname}\n")
+        # Each proxy type uses its own environment variable name
+        server_name_var = f"{proxy_type.upper()}_SERVER_NAME"
+        (test_dir / "ENV").write_text(f"{server_name_var}={hostname}\n")
 
         # Create git repo
         subprocess.run(["git", "init"], cwd=test_dir, check=True, capture_output=True)
@@ -222,6 +226,30 @@ def index():
         result = container.exec_run("tail -20 /var/log/nginx/error.log")
         if result.exit_code == 0:
             print(result.output.decode())
+
+        # Check uwsgi status
+        print("\nChecking uwsgi status...")
+        result = container.exec_run("supervisorctl status uwsgi")
+        print(f"uwsgi status: {result.output.decode()}")
+
+        # Check uwsgi logs
+        print("\nChecking uwsgi logs...")
+        result = container.exec_run("tail -50 /var/log/supervisor/uwsgi.log")
+        if result.exit_code == 0:
+            print("=== uwsgi.log (last 50 lines) ===")
+            print(result.output.decode())
+
+        # Check if the app's uwsgi config exists
+        print(f"\nChecking uwsgi config for {app_name}...")
+        result = container.exec_run(f"ls -la /home/hop3/uwsgi-enabled/")
+        print(f"uwsgi-enabled dir: {result.output.decode()}")
+
+        result = container.exec_run(f"cat /home/hop3/uwsgi-enabled/{app_name}_web.1.ini")
+        if result.exit_code == 0:
+            print(f"\nuwsgi config for {app_name}:")
+            print(result.output.decode())
+        else:
+            print(f"✗ Could not read uwsgi config: {result.output.decode()}")
 
         # Wait for deployment
         print(f"\nWaiting 15 seconds for {proxy_type} to settle...")
