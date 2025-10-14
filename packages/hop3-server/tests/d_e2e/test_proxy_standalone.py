@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import base64
+import os
 import subprocess
 import sys
 import time
@@ -176,8 +177,6 @@ def index():
 
         # IMPORTANT: Unset HOP3_* environment variables to prevent them from overriding config
         # Config.get() checks environment variables first, so we need to clear them for E2E tests
-        import os
-
         old_api_url = os.environ.pop("HOP3_API_URL", None)
         old_ssh_key = os.environ.pop("HOP3_SSH_KEY", None)
 
