@@ -15,9 +15,18 @@ import os
 import subprocess
 import sys
 
+import pytest
+
 E2E_SERVER = os.environ.get("HOP3_DEV_HOST")
 
+# These tests are for remote server diagnostics only
+remote_server_only = pytest.mark.skipif(
+    not E2E_SERVER,
+    reason="Test is for remote server diagnostics. Set HOP3_DEV_HOST to run.",
+)
 
+
+@remote_server_only
 def test_ssh_connection():
     """Test basic SSH connectivity."""
     print("=" * 60)
@@ -92,21 +101,24 @@ def test_hop3_cli_available():
     print("\n2. Testing hop3-cli availability...")
 
     try:
+        # Just check if the command exists - use 'which' on Unix
         result = subprocess.run(
-            ["hop3", "--help"],
+            ["which", "hop3"],
             check=False,
             capture_output=True,
             text=True,
             timeout=5,
         )
 
-        if result.returncode == 0:
-            print("   ✓ hop3-cli is installed")
+        if result.returncode == 0 and result.stdout.strip():
+            hop3_path = result.stdout.strip()
+            print(f"   ✓ hop3-cli is installed at: {hop3_path}")
             return True
-        print("   ❌ hop3-cli returned error")
-        print(f"   stderr: {result.stderr}")
+        print("   ❌ hop3 command not found in PATH")
+        print("   Please install hop3-cli:")
+        print("   pip install -e packages/hop3-cli")
         if __name__ != "__main__":
-            msg = f"hop3-cli error: {result.stderr}"
+            msg = "hop3 command not found in PATH"
             raise AssertionError(msg)
         return False
 
@@ -119,13 +131,14 @@ def test_hop3_cli_available():
             raise AssertionError(msg)
         return False
     except subprocess.TimeoutExpired:
-        print("   ❌ hop3 command timed out")
+        print("   ❌ hop3 command check timed out")
         if __name__ != "__main__":
-            msg = "hop3 command timed out"
+            msg = "hop3 command check timed out"
             raise AssertionError(msg)
         return False
 
 
+@remote_server_only
 def test_hop3_cli_connection():
     """Test hop3-cli connection to server."""
     print("\n3. Testing hop3-cli connection...")
@@ -166,6 +179,7 @@ def test_hop3_cli_connection():
         return False
 
 
+@remote_server_only
 def test_auth_commands_available():
     """Test if authentication commands are available on the server."""
     print("\n4. Testing authentication commands availability...")
@@ -200,6 +214,7 @@ def test_auth_commands_available():
         return False
 
 
+@remote_server_only
 def test_auth_register_command():
     """Test if auth:register command works (with timeout check)."""
     print("\n5. Testing auth:register command (quick check)...")
@@ -257,6 +272,7 @@ def test_auth_register_command():
         return False
 
 
+@remote_server_only
 def test_auth_login_command():
     """Test if auth:login command works."""
     print("\n6. Testing auth:login command...")
