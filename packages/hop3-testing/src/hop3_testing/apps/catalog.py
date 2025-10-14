@@ -177,30 +177,3 @@ class TestAppCatalog:
             Number of apps
         """
         return len(self.apps)
-
-
-def get_test_apps(
-    apps_dir: Path | None = None,
-    category: str | None = None,
-    app_name: str | None = None,
-) -> list[TestApp]:
-    """Get test applications matching the criteria.
-
-    Args:
-        apps_dir: Path to test apps directory
-        category: Filter by category
-        app_name: Get specific app by name
-
-    Returns:
-        List of TestApp objects
-    """
-    catalog = TestAppCatalog(apps_dir)
-
-    if app_name:
-        app = catalog.get(app_name)
-        return [app] if app else []
-
-    if category:
-        return list(catalog.filter(category=category))
-
-    return list(catalog)
