@@ -7,8 +7,8 @@ PKG:=hop3,hop3_agent,hop3_server,hop3_web,hop3_lib
 # Either uncomment and set the following variables or set them in the environment
 # HOP3_DEV_HOST=XXX
 
-all:
-	just all
+all: test lint
+
 
 #
 # Used by CI
@@ -16,7 +16,15 @@ all:
 
 ## Lint / check typing
 lint:
-	just lint
+	@echo "--> Linting code"
+	uv run ruff check packages/*/src packages/*/tests
+	cd packages/hop3-server && uv run deptry src
+	@echo ""
+
+## Clean and deploy the server
+clean-and-deploy:
+	make clean-server
+	make deploy
 
 ## Clean development server (warning: this removes everything)
 clean-server:
@@ -140,24 +148,36 @@ test-with-typeguard:
 
 ## Run a security audit
 audit:
-	# uvx pip-audit .
-	# uvx safety scan
-	just audit
+	@echo "--> Running security audit"
+	# We're using 'nox' to run the audit tools because we don't want
+	# the dependencies of the audit tools to be installed in the main environment.
+	nox -e audit
+	@echo ""
 
 ## Formatting
 format:
-	just format
+	@echo "--> Formatting code"
+	uv run ruff format packages/*/src packages/*/tests installer
+	uv run ruff check --fix packages/*/src packages/*/tests installer
+	uv run markdown-toc --maxdepth 3 -i README.md
+	python scripts/update-copyright.py
+	@echo ""
 
 ## Format apps
 format-apps:
-	just format-apps
+	@echo "--> Formatting apps"
+	bash -c "shopt -s globstar && gofmt -w apps/**/*.go"
+	bash -c "shopt -s globstar && prettier -w apps/**/*.js"
+	@echo ""
 
 ## Fix using ruff
 fix:
 	ruff check packages/hop3-agent --fix --unsafe-fixes
 
 add-copyright:
-	just add-copyright
+	@echo "--> Adding/updating copyright headers"
+	python scripts/update-copyright.py
+	@echo ""
 
 ## Clean up
 clean:
@@ -173,11 +193,9 @@ clean:
 	adt clean
 
 clean-test:
-	just clean-test
-
-## Default recipe
-default:
-	just default
+	@echo "--> Cleaning test artifacts"
+	rm -rf .pytest_cache .coverage htmlcov coverage.xml junit-*.xml
+	@echo ""
 
 ## Documentation
 doc:
@@ -185,22 +203,3 @@ doc:
 
 doc-serve:
 	duty docs
-
-## Cleanup harder
-tidy:
-	just tidy
-
-
-# Extra targets for manual git synchronization (will be run by CI later)
-
-## Sync code with remote repositories
-sync-code:
-	git pull origin
-	@make push-code
-
-
-## Push code to remote repositories
-push-code:
-	git push origin
-	git push ci
-	git push eclipse
