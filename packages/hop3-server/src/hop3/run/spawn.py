@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING
 
 from hop3.config import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
 from hop3.core.env import Env
+from hop3.core.plugins import get_proxy_strategy
 from hop3.lib import echo, get_free_port, log
 from hop3.lib.settings import write_settings
-from hop3.plugins.proxy.nginx import NginxVirtualHost
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
 
@@ -75,24 +75,24 @@ class AppLauncher:
         if nginx_server_name and nginx_server_name != "_":
             self.app.hostname = nginx_server_name
 
-        # Only setup nginx if NGINX_SERVER_NAME is set to a real value (not "_" or empty)
+        # Only setup proxy if NGINX_SERVER_NAME is set to a real value (not "_" or empty)
         if nginx_server_name and nginx_server_name != "_":
             log(
-                f"Setting up nginx for '{self.app_name}' with server_name='{nginx_server_name}'",
+                f"Setting up proxy for '{self.app_name}' with server_name='{nginx_server_name}'",
                 level=1,
                 fg="green",
             )
             try:
-                nginx = NginxVirtualHost(self.app, self.env, self.workers)
-                nginx.setup()
+                proxy = get_proxy_strategy(self.app, self.env, self.workers)
+                proxy.setup()
                 log(
-                    f"✓ Nginx setup completed for '{self.app_name}'",
+                    f"✓ Proxy setup completed for '{self.app_name}'",
                     level=0,
                     fg="green",
                 )
             except Exception as e:
                 log(
-                    f"✗ Nginx setup failed for '{self.app_name}': {e}",
+                    f"✗ Proxy setup failed for '{self.app_name}': {e}",
                     level=0,
                     fg="red",
                 )
@@ -100,7 +100,7 @@ class AppLauncher:
                 traceback.print_exc()
         else:
             log(
-                f"Skipping nginx setup for '{self.app_name}' (server_name is '{nginx_server_name}')",
+                f"Skipping proxy setup for '{self.app_name}' (server_name is '{nginx_server_name}')",
                 level=2,
                 fg="yellow",
             )

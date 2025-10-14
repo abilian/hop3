@@ -27,6 +27,7 @@ if TYPE_CHECKING:
         DeploymentContext,
         DeploymentStrategy,
         OSSetupStrategy,
+        Proxy,
         ServiceStrategy,
     )
 
@@ -278,3 +279,54 @@ def list_supported_os() -> list[str]:
     strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
 
     return [getattr(cls, "display_name", "Unknown") for cls in strategy_classes]
+
+
+def get_proxy_strategy(app, env, workers: dict[str, str]) -> Proxy:
+    """
+    Finds and instantiates the appropriate proxy strategy based on server configuration.
+
+    The proxy type is determined by the HOP3_PROXY_TYPE environment variable,
+    which is a server-wide setting (not per-application).
+
+    Args:
+        app: The App instance to configure the proxy for
+        env: The environment configuration (Env instance)
+        workers: Dictionary mapping worker names to their socket paths
+
+    Returns:
+        An instance of the configured Proxy strategy
+
+    Raises:
+        RuntimeError: If the configured proxy type is not found
+    """
+    # Import here to avoid circular dependency
+    from hop3.config import HOP3_PROXY_TYPE  # noqa: PLC0415
+
+    pm = get_plugin_manager()
+
+    strategy_classes_list = pm.hook.get_proxy_strategies()
+    strategy_classes: list[type[Proxy]] = [
+        cls for sublist in strategy_classes_list for cls in sublist
+    ]
+
+    # Get the configured proxy type (server-wide setting)
+    proxy_type = HOP3_PROXY_TYPE.lower()
+
+    # Find the matching proxy strategy
+    for strategy_class in strategy_classes:
+        # The proxy plugin has a name like "nginx", "caddy", "traefik"
+        # We need to check the class name or look for a name attribute
+        class_name = strategy_class.__name__.lower()
+        if (
+            proxy_type in class_name
+            or getattr(strategy_class, "name", None) == proxy_type
+        ):
+            return strategy_class(app, env, workers)
+
+    available_proxies = [cls.__name__ for cls in strategy_classes]
+    msg = (
+        f"Configured proxy type '{HOP3_PROXY_TYPE}' not found. "
+        f"Available proxies: {available_proxies}. "
+        f"Set HOP3_PROXY_TYPE environment variable to one of: nginx, caddy, traefik"
+    )
+    raise RuntimeError(msg)
