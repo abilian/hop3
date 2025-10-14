@@ -32,6 +32,7 @@ RUN apt-get update && \
         pkg-config \
         libpcre3-dev \
         zlib1g-dev \
+        wget \
         # Python
         python3 \
         python3-pip \
@@ -74,6 +75,25 @@ RUN apt-get update && \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Install Caddy (for proxy plugin testing)
+# Using official Caddy repository for Ubuntu
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends debian-keyring debian-archive-keyring apt-transport-https gnupg && \
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg && \
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends caddy && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Traefik (for proxy plugin testing)
+# Download static binary from official releases
+RUN wget -q https://github.com/traefik/traefik/releases/download/v2.11.0/traefik_v2.11.0_linux_amd64.tar.gz -O /tmp/traefik.tar.gz && \
+    tar -xzf /tmp/traefik.tar.gz -C /usr/local/bin/ && \
+    chmod +x /usr/local/bin/traefik && \
+    rm /tmp/traefik.tar.gz && \
+    mkdir -p /etc/traefik /etc/traefik/dynamic
+
 # Create hop3 user and add www-data to hop3 group for socket access
 RUN useradd -m -s /bin/bash hop3 && \
     echo "hop3:hop3" | chpasswd && \
@@ -93,12 +113,13 @@ RUN mkdir -p /var/run/sshd && \
 RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
     sed -i 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' /etc/pam.d/sshd
 
-# Copy and install hop3
-COPY dist/hop3_server-*.tar.gz /tmp/hop3-server.tar.gz
+# Copy hop3-server source code and install directly from source
+# This ensures we always test the latest code without needing to run 'uv build' first
+COPY packages/hop3-server /tmp/hop3-server
 RUN su - hop3 -c "python3 -m venv ~/venv && \
     ~/venv/bin/pip install --no-cache-dir --upgrade pip && \
-    ~/venv/bin/pip install --no-cache-dir /tmp/hop3-server.tar.gz" && \
-    rm /tmp/hop3-server.tar.gz
+    ~/venv/bin/pip install --no-cache-dir -e /tmp/hop3-server" && \
+    chown -R hop3:hop3 /tmp/hop3-server
 
 # Create hop3 environment file
 RUN echo 'HOP3_SECRET_KEY=e2e-test-secret-key-do-not-use-in-production' > /home/hop3/.env && \
@@ -119,12 +140,15 @@ RUN su - hop3 -c "export HOP3_SECRET_KEY='e2e-test-secret-key-do-not-use-in-prod
 RUN echo 'include /home/hop3/nginx/*.conf;' > /etc/nginx/sites-enabled/hop3 && \
     rm -f /etc/nginx/sites-enabled/default
 
-# Create supervisor config to manage services
+# Create log directory for supervisor
 RUN mkdir -p /var/log/supervisor
-COPY packages/hop3-server/tests/d_e2e/docker/supervisord.conf /etc/supervisor/supervisord.conf
+
+# Copy and setup entrypoint script that configures supervisord based on HOP3_PROXY_TYPE
+COPY packages/hop3-server/tests/d_e2e/docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Expose ports
 EXPOSE 22 80 443 8000
 
-# Start supervisor (which will start SSH and hop3-server)
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+# Use entrypoint script to dynamically configure proxy based on HOP3_PROXY_TYPE
+CMD ["/entrypoint.sh"]
