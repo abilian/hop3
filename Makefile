@@ -203,3 +203,6 @@ doc:
 
 doc-serve:
 	duty docs
+
+deploy-doc:
+        rsync -e ssh -avz site/ root@hop3.cloud:/var/www/hop3.cloud/
