@@ -72,18 +72,6 @@ wheels = [
 ]
 
 [[package]]
-name = "ansimarkup"
-version = "1.5.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "colorama" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/17/57/2ca7c2ab234a01ac778b22fed926e7a63194699b4c1695517653723ae85f/ansimarkup-1.5.0.tar.gz", hash = "sha256:96c65d75bbed07d3dcbda8dbede8c2252c984f90d0ca07434b88a6bbf345fad3", size = 13959, upload-time = "2021-01-27T15:37:21.526Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/22/09/3ad81e40d752ef51a9a8c320c9385de0d98a4dad68c0e4f793befc610f56/ansimarkup-1.5.0-py2.py3-none-any.whl", hash = "sha256:3146ca74af5f69e48a9c3d41b31085c0d6378f803edeb364856d37c11a684acf", size = 11124, upload-time = "2021-01-27T15:37:20.308Z" },
-]
-
-[[package]]
 name = "anyio"
 version = "4.11.0"
 source = { registry = "https://pypi.org/simple" }
@@ -682,18 +670,6 @@ wheels = [
 ]
 
 [[package]]
-name = "duty"
-version = "1.6.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "failprint" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/07/45/e6d0209ebec8dadef28389b8de33dc0c95919f4794a0117e829dbc526631/duty-1.6.3.tar.gz", hash = "sha256:006f09863b8550ea62b0f8a4a52591dc61a82abe9c2b1c0407f8ba55c9c67f18", size = 130370, upload-time = "2025-09-19T10:05:42.787Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/1b/97/771b4b3e7b1994d08517f0509f52313cd6021e41e705e6c7ca2962fcbfb3/duty-1.6.3-py3-none-any.whl", hash = "sha256:30a58bac94cdbdfddb91e28ed4e805cb0e4f965b59783cab6ebaef4d8defb3f4", size = 120704, upload-time = "2025-09-19T10:05:41.472Z" },
-]
-
-[[package]]
 name = "elementpath"
 version = "5.0.4"
 source = { registry = "https://pypi.org/simple" }
@@ -718,20 +694,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/cc/28/c14e053b6762b1044f34a13aab6859bbf40456d37d23aa286ac24cfd9a5d/executing-2.2.1.tar.gz", hash = "sha256:3632cc370565f6648cc328b32435bd120a1e4ebb20c77e3fdde9a13cd1e533c4", size = 1129488, upload-time = "2025-09-01T09:48:10.866Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c1/ea/53f2148663b321f21b5a606bd5f191517cf40b7072c0497d3c92c4a13b1e/executing-2.2.1-py2.py3-none-any.whl", hash = "sha256:760643d3452b4d777d295bb167ccc74c64a81df23fb5e08eff250c425a4b2017", size = 28317, upload-time = "2025-09-01T09:48:08.5Z" },
-]
-
-[[package]]
-name = "failprint"
-version = "1.0.6"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "ansimarkup" },
-    { name = "jinja2" },
-    { name = "ptyprocess", marker = "sys_platform != 'win32'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/db/28/043c32004d2e8b5aa8f1c27d89f9e0fd09e07e78d73b896b22677109b87c/failprint-1.0.6.tar.gz", hash = "sha256:f88e8e4764de43e15416ce96cfef1a8f24ff9bcc58b3e309a1ba7eccbc45ccaf", size = 47747, upload-time = "2025-08-15T13:48:56.323Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/35/97/52f177e15bde8fa4ab8e2d4e928496b6f847524632f649625056922ff333/failprint-1.0.6-py3-none-any.whl", hash = "sha256:400a7fd3c272e1ce0b768842cafd291568fbb8a1fbc176bbd9813707d869f9a6", size = 21398, upload-time = "2025-08-15T13:48:55.166Z" },
 ]
 
 [[package]]
@@ -1001,26 +963,10 @@ dev = [
     { name = "beartype" },
     { name = "cyclonedx-bom" },
     { name = "docker" },
-    { name = "duty" },
     { name = "httpx" },
     { name = "import-linter" },
     { name = "infer-types" },
     { name = "lbom" },
-    { name = "markdown-callouts" },
-    { name = "markdown-exec" },
-    { name = "mkdocs" },
-    { name = "mkdocs-coverage" },
-    { name = "mkdocs-gen-files" },
-    { name = "mkdocs-git-revision-date-localized-plugin" },
-    { name = "mkdocs-include-markdown-plugin" },
-    { name = "mkdocs-literate-nav" },
-    { name = "mkdocs-material" },
-    { name = "mkdocs-material-extensions" },
-    { name = "mkdocs-minify-plugin" },
-    { name = "mkdocs-roamlinks-plugin" },
-    { name = "mkdocstrings", extra = ["python"] },
-    { name = "pydoclint", extra = ["flake8"] },
-    { name = "pygments" },
     { name = "pyinfra" },
     { name = "pyrefly" },
     { name = "pytest" },
@@ -1042,6 +988,23 @@ dev = [
     { name = "urllib3" },
     { name = "watchfiles" },
 ]
+doc = [
+    { name = "markdown-callouts" },
+    { name = "markdown-exec" },
+    { name = "mkdocs" },
+    { name = "mkdocs-coverage" },
+    { name = "mkdocs-gen-files" },
+    { name = "mkdocs-git-revision-date-localized-plugin" },
+    { name = "mkdocs-include-markdown-plugin" },
+    { name = "mkdocs-literate-nav" },
+    { name = "mkdocs-material" },
+    { name = "mkdocs-material-extensions" },
+    { name = "mkdocs-minify-plugin" },
+    { name = "mkdocs-roamlinks-plugin" },
+    { name = "mkdocstrings", extra = ["python"] },
+    { name = "pydoclint", extra = ["flake8"] },
+    { name = "pygments" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1062,26 +1025,10 @@ dev = [
     { name = "beartype", specifier = ">=0.19.0" },
     { name = "cyclonedx-bom", specifier = ">=5.1.1" },
     { name = "docker", specifier = ">=7.1.0" },
-    { name = "duty", specifier = ">=1.4.3" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "import-linter", specifier = ">=2.1" },
     { name = "infer-types", specifier = "~=1.0.0" },
     { name = "lbom", specifier = ">=0.6" },
-    { name = "markdown-callouts", specifier = ">=0.4" },
-    { name = "markdown-exec", specifier = ">=1.8" },
-    { name = "mkdocs" },
-    { name = "mkdocs-coverage", specifier = ">=1.0" },
-    { name = "mkdocs-gen-files", specifier = ">=0.5" },
-    { name = "mkdocs-git-revision-date-localized-plugin", specifier = ">=1.2" },
-    { name = "mkdocs-include-markdown-plugin" },
-    { name = "mkdocs-literate-nav", specifier = ">=0.6" },
-    { name = "mkdocs-material" },
-    { name = "mkdocs-material-extensions" },
-    { name = "mkdocs-minify-plugin", specifier = ">=0.8" },
-    { name = "mkdocs-roamlinks-plugin" },
-    { name = "mkdocstrings", extras = ["python"] },
-    { name = "pydoclint", extras = ["flake8"], specifier = ">=0.5.9" },
-    { name = "pygments" },
     { name = "pyinfra", specifier = "~=3.0" },
     { name = "pyrefly", specifier = ">=0.34.0" },
     { name = "pytest", specifier = ">=8.4.2" },
@@ -1102,6 +1049,23 @@ dev = [
     { name = "types-urllib3", specifier = ">=1.26.25.14" },
     { name = "urllib3" },
     { name = "watchfiles", specifier = ">=0.24.0" },
+]
+doc = [
+    { name = "markdown-callouts", specifier = ">=0.4" },
+    { name = "markdown-exec", specifier = ">=1.8" },
+    { name = "mkdocs" },
+    { name = "mkdocs-coverage", specifier = ">=1.0" },
+    { name = "mkdocs-gen-files", specifier = ">=0.5" },
+    { name = "mkdocs-git-revision-date-localized-plugin", specifier = ">=1.2" },
+    { name = "mkdocs-include-markdown-plugin" },
+    { name = "mkdocs-literate-nav", specifier = ">=0.6" },
+    { name = "mkdocs-material" },
+    { name = "mkdocs-material-extensions" },
+    { name = "mkdocs-minify-plugin", specifier = ">=0.8" },
+    { name = "mkdocs-roamlinks-plugin" },
+    { name = "mkdocstrings", extras = ["python"] },
+    { name = "pydoclint", extras = ["flake8"], specifier = ">=0.5.9" },
+    { name = "pygments" },
 ]
 
 [[package]]
@@ -2061,15 +2025,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/89/8d/9d12bc8677c24dad3
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b5/bf/635fbe5dd10ed200afbbfbe98f8602829252ca1cce81cc48fb25ed8dadc0/psycopg2-2.9.11-cp312-cp312-win_amd64.whl", hash = "sha256:e03e4a6dbe87ff81540b434f2e5dc2bddad10296db5eea7bdc995bf5f4162938", size = 2713969, upload-time = "2025-10-10T11:10:15.946Z" },
     { url = "https://files.pythonhosted.org/packages/88/5a/18c8cb13fc6908dc41a483d2c14d927a7a3f29883748747e8cb625da6587/psycopg2-2.9.11-cp313-cp313-win_amd64.whl", hash = "sha256:8dc379166b5b7d5ea66dcebf433011dfc51a7bb8a5fc12367fa05668e5fc53c8", size = 2714048, upload-time = "2025-10-10T11:10:19.816Z" },
-]
-
-[[package]]
-name = "ptyprocess"
-version = "0.7.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/20/e5/16ff212c1e452235a90aeb09066144d0c5a6a8c0834397e03f5224495c4e/ptyprocess-0.7.0.tar.gz", hash = "sha256:5c5d0a3b48ceee0b48485e0c26037c0acd7d29765ca3fbb5cb3831d347423220", size = 70762, upload-time = "2020-12-28T15:15:30.155Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/22/a6/858897256d0deac81a172289110f31629fc4cee19b6f01283303e18c8db3/ptyprocess-0.7.0-py2.py3-none-any.whl", hash = "sha256:4b41f3967fce3af57cc7e94b888626c18bf37a083e3651ca8feeb66d492fef35", size = 13993, upload-time = "2020-12-28T15:15:28.35Z" },
 ]
 
 [[package]]
