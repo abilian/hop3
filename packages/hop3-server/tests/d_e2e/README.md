@@ -10,15 +10,6 @@ This directory contains full end-to-end tests that deploy real applications in i
    docker info
    ```
 
-2. **Python dependencies** for tests:
-   ```bash
-   pip install docker httpx pytest
-   ```
-
-3. **Built hop3-server package**:
-   ```bash
-   uv build packages/hop3-server
-   ```
 
 ## Quick Start
 
@@ -50,7 +41,7 @@ Each test class gets a fresh container with:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ 1. Build Docker Image (session scope, once per run)         │
+│ 1. Build Docker Image (session scope, once per run)          │
 │    - Build hop3-server distribution                          │
 │    - Create Docker image with systemd                        │
 │    - Install hop3 and all dependencies                       │
@@ -58,9 +49,9 @@ Each test class gets a fresh container with:
                  │
                  ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ 2. Start Container (class scope, once per test class)       │
+│ 2. Start Container (class scope, once per test class)        │
 │    - Start container with systemd                            │
-│    - Wait for services (hop3-server, postgresql, ssh)       │
+│    - Wait for services (hop3-server, postgresql, ssh)        │
 │    - Extract connection details (ports, SSH key)             │
 └────────────────┬─────────────────────────────────────────────┘
                  │
@@ -91,11 +82,29 @@ tests/d_e2e/
 │   ├── Dockerfile          # Container image definition
 │   └── .dockerignore       # Build context exclusions
 ├── conftest.py             # Pytest fixtures (container management)
+├── test_full_deployment.py     # Full infrastructure tests (lifecycle, env vars, etc.)
 ├── test_python_deployment.py   # Python app tests
+├── test_proxy_plugins.py       # Proxy plugin tests (nginx, caddy, traefik)
 ├── test_nodejs_deployment.py   # Node.js app tests (future)
 ├── test_ruby_deployment.py     # Ruby app tests (future)
 └── README.md               # This file
 ```
+
+### Test Files
+
+- **test_full_deployment.py**: Tests requiring full deployment infrastructure (uwsgi, nginx, systemd):
+  - Application lifecycle (start, stop, restart, status)
+  - Environment variable management
+  - Application destruction and cleanup
+  - Web endpoint accessibility
+  - Git-hook deployment workflow
+
+  These tests can run in two modes:
+  1. Docker containers (using fixtures from conftest.py)
+  2. Remote servers with `HOP3_FULL_INFRASTRUCTURE=true` environment variable
+
+- **test_python_deployment.py**: Python application deployment tests
+- **test_proxy_plugins.py**: Proxy plugin (nginx, caddy, traefik) tests
 
 ## Writing E2E Tests
 
