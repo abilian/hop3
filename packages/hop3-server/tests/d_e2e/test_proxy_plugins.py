@@ -189,14 +189,17 @@ def proxy_info():
 
         (test_app_dir / "requirements.txt").write_text("flask>=3.0\n")
 
+        # Note: Don't use 'cd' in Procfile - uwsgi config sets chdir automatically
         (test_app_dir / "Procfile").write_text(
-            f"web: cd {test_app_dir} && flask --app app run --host 0.0.0.0 --port $PORT\n"
+            "web: flask --app app run --host 0.0.0.0 --port $PORT\n"
         )
 
         # Configure virtual host
         # IMPORTANT: Environment file must be named "ENV" (uppercase), not "env"
+        # Each proxy type uses its own environment variable name
         hostname = f"{app_name}.test.local"
-        (test_app_dir / "ENV").write_text(f"NGINX_SERVER_NAME={hostname}\n")
+        server_name_var = f"{proxy_type.upper()}_SERVER_NAME"
+        (test_app_dir / "ENV").write_text(f"{server_name_var}={hostname}\n")
 
         # Initialize git repo
         subprocess.run(
