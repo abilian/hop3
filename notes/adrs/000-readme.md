@@ -2,7 +2,26 @@
 
 Architectural Decision Records (or ADR) are documents that captures an important architectural decision made along with its context and consequences.
 
+These ADRs should provide:
+
+1. Decision-focused content - Why we made these choices
+2. Complete interfaces - Anyone can implement a plugin
+3. Concrete examples - Not abstract, but simplified
+4. Configuration guidance - How to use and configure
+5. Trade-offs documentation - Alternatives considered and why rejected
+
+They dshouldn't include:
+
+- Exhaustive feature lists for each implementation
+- Step-by-step integration guides
+- Implementation details for all variants
+- Detailed testing procedures
+
+The ADRs are architectural specifications with sufficient detail to understand responsibilities and implement functionalities, while remaining focused on decisions rather than becoming implementation manuals.
+
 More info: https://lab.abilian.com/Tech/Software%20Engineering/Architectural%20Decision%20Records/
+
+Here's a template:
 
 ______________________________________________________________________
 

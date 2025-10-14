@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import docker
+import docker.errors
 import pytest
 
 if TYPE_CHECKING:
@@ -58,13 +59,9 @@ def hop3_image(docker_client: docker.DockerClient) -> str:
     # Use simple Dockerfile that works on macOS (no systemd)
     dockerfile_path = Path(__file__).parent / "docker" / "Dockerfile"
 
-    # Build hop3 distribution first
-    print("Building hop3-server distribution...")
-    subprocess.run(
-        ["uv", "build", "packages/hop3-server"],
-        cwd=project_root,
-        check=True,
-    )
+    # NOTE: We no longer need to build the distribution!
+    # The Dockerfile now copies source code and installs directly with 'pip install -e'
+    # This ensures we always test the latest code without manual build steps
 
     # Build Docker image
     try:

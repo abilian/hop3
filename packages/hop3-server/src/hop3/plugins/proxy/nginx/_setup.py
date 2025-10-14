@@ -286,13 +286,14 @@ class NginxVirtualHost(Proxy):
         """Reload nginx to apply configuration changes.
 
         Attempts to reload nginx using available methods. Silently skips if:
-        - Running in test environment (PYTEST_CURRENT_TEST set)
+        - Running in unit/integration test environment (not E2E)
         - No reload mechanism is available
         - Commands fail (logs warning instead of raising)
         """
 
-        # Skip reload in test environments
-        if os.environ.get("PYTEST_CURRENT_TEST"):
+        # Skip reload in unit/integration tests, but NOT in E2E tests
+        # E2E tests run in Docker containers and need nginx to actually reload
+        if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get("HOP3_E2E_TEST"):
             return
 
         timeout = 5  # 5 second timeout to prevent hanging
