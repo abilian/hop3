@@ -40,7 +40,9 @@ def main():
         print(f"✓ Using existing image: {image_tag}\n")
     except docker.errors.ImageNotFound:
         print(f"✗ Image {image_tag} not found. Please build it first.")
-        print(f"  Run: docker build -f packages/hop3-server/tests/d_e2e/docker/Dockerfile -t {image_tag} .")
+        print(
+            f"  Run: docker build -f packages/hop3-server/tests/d_e2e/docker/Dockerfile -t {image_tag} ."
+        )
         return 1
 
     # Start container
@@ -89,7 +91,7 @@ def main():
                     print("✓ hop3-server is responding\n")
                     break
             except Exception as e:
-                print(f"  Attempt {i+1}/30: {e}")
+                print(f"  Attempt {i + 1}/30: {e}")
 
             time.sleep(2)
         else:
@@ -103,7 +105,7 @@ def main():
         http_port = int(ports["80/tcp"][0]["HostPort"])
         api_port = int(ports["8000/tcp"][0]["HostPort"])
 
-        print(f"Container ports:")
+        print("Container ports:")
         print(f"  SSH:  {ssh_port}")
         print(f"  HTTP: {http_port}")
         print(f"  API:  {api_port}\n")
@@ -148,7 +150,9 @@ def index():
 
         # Create git repo
         subprocess.run(["git", "init"], cwd=test_dir, check=True, capture_output=True)
-        subprocess.run(["git", "add", "."], cwd=test_dir, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=test_dir, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "Initial commit"],
             cwd=test_dir,
@@ -166,24 +170,29 @@ def index():
         )
 
         # Deploy
-        print(f"Deploying app...")
+        print("Deploying app...")
         tarball_bytes = Path(tarball_path).read_bytes()
         repository_b64 = base64.b64encode(tarball_bytes).decode("utf-8")
 
         # IMPORTANT: Unset HOP3_* environment variables to prevent them from overriding config
         # Config.get() checks environment variables first, so we need to clear them for E2E tests
         import os
+
         old_api_url = os.environ.pop("HOP3_API_URL", None)
         old_ssh_key = os.environ.pop("HOP3_SSH_KEY", None)
 
         try:
-            config = Config(data={
-                "api_url": f"ssh://hop3@localhost:{ssh_port}",
-                "ssh_key": str(ssh_key_path),
-            })
+            config = Config(
+                data={
+                    "api_url": f"ssh://hop3@localhost:{ssh_port}",
+                    "ssh_key": str(ssh_key_path),
+                }
+            )
             client = Client(config=config, state=None)
 
-            response = client.rpc("cli", ["deploy", app_name], repository=repository_b64)
+            response = client.rpc(
+                "cli", ["deploy", app_name], repository=repository_b64
+            )
             print(f"✓ Deploy response: {response}\n")
         finally:
             # Restore environment variables
@@ -211,7 +220,7 @@ def index():
         print(f"Nginx status: {result.output.decode()}")
 
         print("\nChecking nginx config files...")
-        result = container.exec_run(f"ls -la /home/hop3/nginx/")
+        result = container.exec_run("ls -la /home/hop3/nginx/")
         print(f"Nginx configs: {result.output.decode()}")
 
         result = container.exec_run(f"cat /home/hop3/nginx/{app_name}.conf")
@@ -241,10 +250,12 @@ def index():
 
         # Check if the app's uwsgi config exists
         print(f"\nChecking uwsgi config for {app_name}...")
-        result = container.exec_run(f"ls -la /home/hop3/uwsgi-enabled/")
+        result = container.exec_run("ls -la /home/hop3/uwsgi-enabled/")
         print(f"uwsgi-enabled dir: {result.output.decode()}")
 
-        result = container.exec_run(f"cat /home/hop3/uwsgi-enabled/{app_name}_web.1.ini")
+        result = container.exec_run(
+            f"cat /home/hop3/uwsgi-enabled/{app_name}_web.1.ini"
+        )
         if result.exit_code == 0:
             print(f"\nuwsgi config for {app_name}:")
             print(result.output.decode())
@@ -268,18 +279,17 @@ def index():
                 print(f"  Attempt {attempt + 1}: HTTP {response.status_code}")
 
                 if response.status_code == 200:
-                    print(f"\n✓ SUCCESS!")
+                    print("\n✓ SUCCESS!")
                     print(f"  Response: {response.text[:100]}")
                     if f"Hello from {proxy_type.upper()} proxy" in response.text:
                         print(f"\n{'=' * 70}")
                         print(f"✓ {proxy_type.upper()} PROXY TEST PASSED!")
                         print(f"{'=' * 70}\n")
                         return 0
-                    else:
-                        print(f"✗ Unexpected response content")
-                        return 1
-                elif response.status_code == 502:
-                    print(f"    Backend not ready (502)")
+                    print("✗ Unexpected response content")
+                    return 1
+                if response.status_code == 502:
+                    print("    Backend not ready (502)")
                 else:
                     print(f"    Unexpected status: {response.status_code}")
 
@@ -288,7 +298,7 @@ def index():
 
             time.sleep(1)
 
-        print(f"\n✗ Test failed after 30 attempts")
+        print("\n✗ Test failed after 30 attempts")
 
         # Final debugging
         print("\nFinal debugging info:")
@@ -300,7 +310,7 @@ def index():
 
         print(f"\nContainer ID: {container.id}")
         print(f"To inspect: docker exec -it {container.id} bash")
-        print(f"To keep running, press Ctrl+C and container will remain")
+        print("To keep running, press Ctrl+C and container will remain")
 
         input("\nPress Enter to stop container and exit...")
 
