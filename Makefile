@@ -9,10 +9,18 @@ PKG:=hop3,hop3_agent,hop3_server,hop3_web,hop3_lib
 
 all: test lint
 
+#
+# Help
+#
+help:
+	adt help-make
 
 #
 # Used by CI
 #
+
+## Lint / check typing
+check: lint
 
 ## Lint / check typing
 lint:

@@ -149,7 +149,7 @@ class TestTarballDeploymentWithStatus:
         assert app_name in result.stdout, f"App {app_name} not found in apps list"
 
         # Cleanup
-        hop3_command("destroy", app_name)
+        hop3_command("app:destroy", app_name)
 
 
 class TestApplicationLifecycle:
@@ -184,7 +184,7 @@ class TestApplicationLifecycle:
         assert result.returncode == 0
 
         # Cleanup
-        hop3_command("destroy", app_name)
+        hop3_command("app:destroy", app_name)
 
     def test_app_restart(
         self, hop3_container: dict[str, Any], hop3_command, test_app_dir: Path
@@ -206,7 +206,7 @@ class TestApplicationLifecycle:
         assert result.returncode == 0
 
         # Cleanup
-        hop3_command("destroy", app_name)
+        hop3_command("app:destroy", app_name)
 
 
 class TestEnvironmentVariables:
@@ -216,13 +216,62 @@ class TestEnvironmentVariables:
         self, hop3_container: dict[str, Any], hop3_command, test_app_dir: Path
     ):
         """Test setting and getting environment variables."""
-        pytest.skip("config:set/config:get commands not yet fully implemented in E2E")
+        app_name = f"config-test-{int(time.time())}"
+
+        # Deploy app
+        deploy_flask_app(hop3_container, test_app_dir, app_name)
+        time.sleep(15)
+
+        # Set environment variables
+        result = hop3_command("config:set", app_name, "TEST_VAR=hello", "ANOTHER_VAR=world")
+        assert result.returncode == 0, f"Failed to set config: {result.stderr}"
+        assert "TEST_VAR" in result.stdout
+
+        # Get a specific environment variable
+        result = hop3_command("config:get", app_name, "TEST_VAR")
+        assert result.returncode == 0, f"Failed to get config: {result.stderr}"
+        assert "hello" in result.stdout
+
+        # Verify it's in the config list
+        result = hop3_command("config:show", app_name)
+        assert result.returncode == 0, f"Failed to show config: {result.stderr}"
+        assert "TEST_VAR" in result.stdout
+        assert "ANOTHER_VAR" in result.stdout
+
+        # Cleanup
+        hop3_command("app:destroy", app_name)
 
     def test_unset_env_var(
         self, hop3_container: dict[str, Any], hop3_command, test_app_dir: Path
     ):
         """Test unsetting environment variables."""
-        pytest.skip("config:unset command not yet fully implemented in E2E")
+        app_name = f"unset-test-{int(time.time())}"
+
+        # Deploy app
+        deploy_flask_app(hop3_container, test_app_dir, app_name)
+        time.sleep(15)
+
+        # Set environment variable
+        result = hop3_command("config:set", app_name, "TO_REMOVE=temporary")
+        assert result.returncode == 0, f"Failed to set config: {result.stderr}"
+
+        # Verify it exists
+        result = hop3_command("config:get", app_name, "TO_REMOVE")
+        assert result.returncode == 0
+        assert "temporary" in result.stdout
+
+        # Unset the variable
+        result = hop3_command("config:unset", app_name, "TO_REMOVE")
+        assert result.returncode == 0, f"Failed to unset config: {result.stderr}"
+        assert "TO_REMOVE" in result.stdout or "Removed" in result.stdout
+
+        # Verify it's gone
+        result = hop3_command("config:get", app_name, "TO_REMOVE")
+        # Getting a non-existent var should still return 0 but say not found
+        assert "not found" in result.stdout.lower() or "TO_REMOVE" not in result.stdout
+
+        # Cleanup
+        hop3_command("app:destroy", app_name)
 
 
 class TestApplicationDestruction:
@@ -232,7 +281,26 @@ class TestApplicationDestruction:
         self, hop3_container: dict[str, Any], hop3_command, test_app_dir: Path
     ):
         """Test destroying an application."""
-        pytest.skip("destroy command not yet implemented in CLI")
+        app_name = f"destroy-test-{int(time.time())}"
+
+        # Deploy app
+        deploy_flask_app(hop3_container, test_app_dir, app_name)
+        time.sleep(15)
+
+        # Verify app exists
+        result = hop3_command("apps")
+        assert result.returncode == 0
+        assert app_name in result.stdout, f"App {app_name} not found in apps list"
+
+        # Destroy the app
+        result = hop3_command("app:destroy", app_name)
+        assert result.returncode == 0, f"Failed to destroy app: {result.stderr}"
+        assert "destroyed" in result.stdout.lower() or app_name in result.stdout
+
+        # Verify app is gone
+        result = hop3_command("apps")
+        assert result.returncode == 0
+        assert app_name not in result.stdout, f"App {app_name} still in apps list after destroy"
 
 
 class TestWebEndpoint:
@@ -294,7 +362,7 @@ class TestWebEndpoint:
             )
 
         # Cleanup
-        hop3_command("destroy", app_name)
+        hop3_command("app:destroy", app_name)
 
 
 class TestGitHookDeployment:

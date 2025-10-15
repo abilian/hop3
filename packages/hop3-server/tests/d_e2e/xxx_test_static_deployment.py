@@ -225,5 +225,5 @@ h1 {
         print(f"✓ Static app {app_name} deployed successfully")
 
         # Cleanup
-        result = hop3_command("destroy", app_name)
+        result = hop3_command("app:destroy", app_name)
         assert result.returncode == 0, f"Failed to destroy app: {result.stderr}"
