@@ -285,3 +285,178 @@ def hop3_command(hop3_container: dict[str, Any]):
         return run_hop3_command(hop3_container, *args)
 
     return _run
+
+
+# ============================================================================
+# Deployment Helpers
+# ============================================================================
+
+
+def init_git_repo(app_dir: Path) -> None:
+    """Initialize git repository with test app files.
+
+    Args:
+        app_dir: Directory containing app files to commit
+    """
+    # Create isolated git environment to avoid picking up parent repo
+    env = os.environ.copy()
+    env.update({
+        "GIT_AUTHOR_NAME": "Test",
+        "GIT_AUTHOR_EMAIL": "test@test.com",
+        "GIT_COMMITTER_NAME": "Test",
+        "GIT_COMMITTER_EMAIL": "test@test.com",
+    })
+    # Unset variables that might point to parent repo
+    env.pop("GIT_DIR", None)
+    env.pop("GIT_WORK_TREE", None)
+    # Prevent git from looking in parent directories
+    env["GIT_CEILING_DIRECTORIES"] = str(app_dir.parent)
+
+    subprocess.run(
+        ["git", "init"], cwd=app_dir, check=True, capture_output=True, env=env
+    )
+    subprocess.run(
+        ["git", "add", "."], cwd=app_dir, check=True, capture_output=True, env=env
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "Initial commit"],
+        cwd=app_dir,
+        check=True,
+        capture_output=True,
+        env=env,
+    )
+
+
+def create_tarball(app_dir: Path, app_name: str) -> Path:
+    """Create gzip-compressed tarball from git repo.
+
+    Args:
+        app_dir: Directory containing git repository
+        app_name: Name for the tarball
+
+    Returns:
+        Path to created tarball
+    """
+    # Create isolated git environment to avoid picking up parent repo
+    env = os.environ.copy()
+    env.pop("GIT_DIR", None)
+    env.pop("GIT_WORK_TREE", None)
+    # Prevent git from looking in parent directories
+    env["GIT_CEILING_DIRECTORIES"] = str(app_dir.parent)
+
+    tarball_path = Path(f"/tmp/{app_name}.tar.gz")
+    # Explicitly specify git directory to avoid parent repo contamination
+    git_dir = app_dir / ".git"
+    subprocess.run(
+        [
+            "git",
+            f"--git-dir={git_dir}",
+            f"--work-tree={app_dir}",
+            "archive",
+            "--format=tar.gz",
+            "-o",
+            str(tarball_path),
+            "HEAD",
+        ],
+        check=True,
+        capture_output=True,
+        env=env,
+    )
+    return tarball_path
+
+
+def deploy_via_rpc(
+    hop3_container: dict[str, Any], app_name: str, tarball_path: Path
+) -> dict:
+    """Deploy application via hop3 CLI command (no Python code dependency).
+
+    Args:
+        hop3_container: Container fixture with connection info
+        app_name: Name of the app to deploy
+        tarball_path: Path to tarball to deploy
+
+    Returns:
+        Deployment response dict (success status)
+    """
+    ssh_key = hop3_container["ssh_key"]
+    ssh_port = hop3_container["ssh_port"]
+
+    # Set environment for hop3 CLI
+    env = os.environ.copy()
+    env["HOP3_API_URL"] = f"ssh://hop3@localhost:{ssh_port}"
+    env["HOP3_SSH_KEY"] = ssh_key
+    env["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"
+
+    # Deploy using hop3 CLI with tarball as stdin
+    with open(tarball_path, "rb") as f:
+        result = subprocess.run(
+            ["hop3", "deploy", app_name],
+            stdin=f,
+            capture_output=True,
+            check=False,
+            env=env,
+            timeout=60,
+        )
+
+    # Check if deployment succeeded
+    if result.returncode != 0:
+        print(
+            f"Deployment failed (exit code {result.returncode}): {result.stderr.decode()}"
+        )
+        return {"status": "error", "message": result.stderr.decode()}
+
+    return {"status": "success", "message": result.stdout.decode()}
+
+
+def deploy_flask_app(
+    hop3_container: dict[str, Any],
+    test_app_dir: Path,
+    app_name: str,
+    app_code: str | None = None,
+    env_vars: dict[str, str] | None = None,
+    procfile_content: str | None = None,
+) -> None:
+    """Deploy a Flask app via RPC (complete helper).
+
+    Args:
+        hop3_container: Container fixture with connection info
+        test_app_dir: Directory for app files
+        app_name: Name of the app to deploy
+        app_code: Optional custom Flask app code
+        env_vars: Optional environment variables to write to ENV file
+        procfile_content: Optional custom Procfile content
+    """
+    # Create Flask app
+    if app_code is None:
+        app_code = """
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route("/")
+def index():
+    return "Hello from Flask!"
+
+@app.route("/health")
+def health():
+    return {"status": "ok"}
+"""
+
+    (test_app_dir / "app.py").write_text(app_code)
+    (test_app_dir / "requirements.txt").write_text("flask>=3.0\n")
+
+    # Create Procfile (uwsgi config sets chdir automatically, so no 'cd' needed)
+    if procfile_content is None:
+        procfile_content = "web: flask --app app run --host 0.0.0.0 --port $PORT\n"
+    (test_app_dir / "Procfile").write_text(procfile_content)
+
+    # Write environment variables if provided
+    if env_vars:
+        env_content = "\n".join(f"{k}={v}" for k, v in env_vars.items()) + "\n"
+        (test_app_dir / "ENV").write_text(env_content)
+
+    # Initialize git, create tarball, and deploy
+    init_git_repo(test_app_dir)
+    tarball_path = create_tarball(test_app_dir, app_name)
+    response = deploy_via_rpc(hop3_container, app_name, tarball_path)
+    print(f"Deploy response: {response}")

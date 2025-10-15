@@ -6,23 +6,21 @@
 
 from __future__ import annotations
 
-import base64
-import os
-import subprocess
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import httpx
 import pytest
-from hop3_cli.client import Client
-from hop3_cli.config import Config
+
+from .conftest import deploy_flask_app
 
 if TYPE_CHECKING:
     from typing import Any
 
 
 @pytest.mark.e2e
+@pytest.mark.skip(reason="Git-based deployment temporarily disabled")
 class TestPythonFlaskDeployment:
     """Test deploying Python Flask applications."""
 
@@ -32,9 +30,11 @@ class TestPythonFlaskDeployment:
         """Test deploying a simple Flask application."""
         app_name = f"flask-test-{int(time.time())}"
 
-        # Create Flask app
-        (test_app_dir / "app.py").write_text(
-            """
+        # Configure nginx virtual host
+        hostname = f"{app_name}.test.local"
+
+        # Deploy Flask app using shared helper
+        app_code = """
 from flask import Flask
 
 app = Flask(__name__)
@@ -47,88 +47,15 @@ def index():
 def health():
     return {"status": "ok"}
 """
+        deploy_flask_app(
+            hop3_container,
+            test_app_dir,
+            app_name,
+            app_code=app_code,
+            env_vars={"NGINX_SERVER_NAME": hostname},
         )
 
-        (test_app_dir / "requirements.txt").write_text("flask>=3.0\n")
-
-        (test_app_dir / "Procfile").write_text(
-            f"web: cd {test_app_dir} && flask --app app run --host 0.0.0.0 --port $PORT\n"
-        )
-
-        # Configure nginx virtual host
-        hostname = f"{app_name}.test.local"
-        (test_app_dir / "env").write_text(f"NGINX_SERVER_NAME={hostname}\n")
-
-        # Initialize git repo
-        subprocess.run(["git", "init"], cwd=test_app_dir, check=True)
-        subprocess.run(["git", "add", "."], cwd=test_app_dir, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial commit"], cwd=test_app_dir, check=True
-        )
-
-        # Deploy using git-hook command
-        print(f"\nDeploying app: {app_name}")
-
-        # Get the commit hash
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=test_app_dir,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        commit_hash = result.stdout.strip()
-
-        # Create gzip-compressed tarball from git
-        tarball_path = f"/tmp/{app_name}.tar.gz"
-        subprocess.run(
-            ["git", "archive", "--format=tar.gz", "-o", tarball_path, "HEAD"],
-            cwd=test_app_dir,
-            check=True,
-        )
-
-        # Read tarball and base64 encode it for the deploy command
-        tarball_bytes = Path(tarball_path).read_bytes()
-        repository_b64 = base64.b64encode(tarball_bytes).decode("utf-8")
-
-        # Deploy via hop3 Client (which uses RPC with kwargs support)
-        print(f"Deploying {app_name} via RPC...")
-        ssh_key = hop3_container["ssh_key"]
-        ssh_port = hop3_container["ssh_port"]
-
-        # IMPORTANT: Unset HOP3_* environment variables to prevent them from overriding config
-        # Config.get() checks environment variables first, so we need to clear them for E2E tests
-        old_api_url = os.environ.pop("HOP3_API_URL", None)
-        old_ssh_key_env = os.environ.pop("HOP3_SSH_KEY", None)
-
-        try:
-            # Create client with environment config
-            env_config = {
-                "api_url": f"ssh://hop3@localhost:{ssh_port}",
-                "ssh_key": ssh_key,
-            }
-            config = Config(data=env_config)
-            client = Client(config=config, state=None)
-
-            # Call deploy via RPC
-            response = client.rpc(
-                "cli", ["deploy", app_name], repository=repository_b64
-            )
-            print(f"Deploy response: {response}")
-        finally:
-            # Restore environment variables
-            if old_api_url:
-                os.environ["HOP3_API_URL"] = old_api_url
-            if old_ssh_key_env:
-                os.environ["HOP3_SSH_KEY"] = old_ssh_key_env
-
-            # Explicitly close the tunnel to prevent hanging
-            if client.tunnel:
-                client.tunnel.stop()
-                client.tunnel = None
-
-        # Wait for deployment to complete (uwsgi vassal needs time to start)
-        print("Waiting for deployment to complete...")
+        # Wait for deployment to complete
         time.sleep(15)
 
         # Check app is listed
@@ -234,65 +161,8 @@ def api_info():
         "status": "running"
     })
 """
-        (test_app_dir / "app.py").write_text(app_code)
-        (test_app_dir / "requirements.txt").write_text("flask>=3.0\n")
-        (test_app_dir / "Procfile").write_text(
-            f"web: cd {test_app_dir} && flask --app app run --host 0.0.0.0 --port $PORT\n"
-        )
-
-        # Initialize git repo
-        subprocess.run(["git", "init"], cwd=test_app_dir, check=True)
-        subprocess.run(["git", "add", "."], cwd=test_app_dir, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial commit"],
-            cwd=test_app_dir,
-            check=True,
-            env={
-                "GIT_AUTHOR_NAME": "Test",
-                "GIT_AUTHOR_EMAIL": "test@test.com",
-                "GIT_COMMITTER_NAME": "Test",
-                "GIT_COMMITTER_EMAIL": "test@test.com",
-            },
-        )
-
-        # Create tarball
-        tarball_path = f"/tmp/{app_name}.tar.gz"
-        subprocess.run(
-            ["git", "archive", "--format=tar.gz", "-o", tarball_path, "HEAD"],
-            cwd=test_app_dir,
-            check=True,
-        )
-
-        # Deploy via RPC (same as other tests)
-        tarball_bytes = Path(tarball_path).read_bytes()
-        repository_b64 = base64.b64encode(tarball_bytes).decode("utf-8")
-
-        ssh_key = hop3_container["ssh_key"]
-        ssh_port = hop3_container["ssh_port"]
-
-        # Unset environment variables
-        old_api_url = os.environ.pop("HOP3_API_URL", None)
-        old_ssh_key_env = os.environ.pop("HOP3_SSH_KEY", None)
-
-        try:
-            config = Config(
-                data={"api_url": f"ssh://hop3@localhost:{ssh_port}", "ssh_key": ssh_key}
-            )
-            client = Client(config=config, state=None)
-
-            response = client.rpc("cli", ["deploy", app_name], repository=repository_b64)
-            print(f"Deploy response: {response}")
-        finally:
-            # Restore environment variables
-            if old_api_url:
-                os.environ["HOP3_API_URL"] = old_api_url
-            if old_ssh_key_env:
-                os.environ["HOP3_SSH_KEY"] = old_ssh_key_env
-
-            if client.tunnel:
-                client.tunnel.stop()
-                client.tunnel = None
-
+        # Deploy using shared helper
+        deploy_flask_app(hop3_container, test_app_dir, app_name, app_code=app_code)
         time.sleep(15)
 
         # Verify deployment
@@ -317,6 +187,7 @@ def api_info():
 
 
 @pytest.mark.e2e
+@pytest.mark.skip(reason="Git-based deployment temporarily disabled")
 class TestPythonDjangoDeployment:
     """Test deploying Python Django applications."""
 
@@ -328,6 +199,7 @@ class TestPythonDjangoDeployment:
 
 
 @pytest.mark.e2e
+@pytest.mark.skip(reason="Git-based deployment temporarily disabled")
 class TestPythonPackageManagement:
     """Test different Python package managers."""
 

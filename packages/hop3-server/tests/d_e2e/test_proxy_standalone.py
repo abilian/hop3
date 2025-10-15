@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import base64
 import os
 import subprocess
 import sys
@@ -17,8 +16,6 @@ from pathlib import Path
 import docker
 import docker.errors
 import httpx
-from hop3_cli.client import Client
-from hop3_cli.config import Config
 
 
 def main():
@@ -170,39 +167,33 @@ def index():
             capture_output=True,
         )
 
-        # Deploy
+        # Deploy via hop3 CLI
         print("Deploying app...")
-        tarball_bytes = Path(tarball_path).read_bytes()
-        repository_b64 = base64.b64encode(tarball_bytes).decode("utf-8")
 
-        # IMPORTANT: Unset HOP3_* environment variables to prevent them from overriding config
-        # Config.get() checks environment variables first, so we need to clear them for E2E tests
-        old_api_url = os.environ.pop("HOP3_API_URL", None)
-        old_ssh_key = os.environ.pop("HOP3_SSH_KEY", None)
+        # Set environment for hop3 CLI
+        env = os.environ.copy()
+        env["HOP3_API_URL"] = f"ssh://hop3@localhost:{ssh_port}"
+        env["HOP3_SSH_KEY"] = str(ssh_key_path)
+        env["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"
 
-        try:
-            config = Config(
-                data={
-                    "api_url": f"ssh://hop3@localhost:{ssh_port}",
-                    "ssh_key": str(ssh_key_path),
-                }
+        # Deploy using hop3 CLI with tarball as stdin
+        with open(tarball_path, "rb") as f:
+            result = subprocess.run(
+                ["hop3", "deploy", app_name],
+                stdin=f,
+                capture_output=True,
+                check=False,
+                text=True,
+                env=env,
+                timeout=60,
             )
-            client = Client(config=config, state=None)
 
-            response = client.rpc(
-                "cli", ["deploy", app_name], repository=repository_b64
+        if result.returncode != 0:
+            print(
+                f"✗ Deployment failed (exit code {result.returncode}): {result.stderr}"
             )
-            print(f"✓ Deploy response: {response}\n")
-        finally:
-            # Restore environment variables
-            if old_api_url:
-                os.environ["HOP3_API_URL"] = old_api_url
-            if old_ssh_key:
-                os.environ["HOP3_SSH_KEY"] = old_ssh_key
-
-            if client.tunnel:
-                client.tunnel.stop()
-                client.tunnel = None
+        else:
+            print(f"✓ Deploy succeeded: {result.stdout}\n")
 
         # Check hop3-server logs to see what happened during deployment
         print("Checking hop3-server logs...")

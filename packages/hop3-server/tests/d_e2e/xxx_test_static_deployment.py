@@ -6,16 +6,14 @@
 
 from __future__ import annotations
 
-import base64
-import subprocess
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import httpx
 import pytest
-from hop3_cli.client import Client
-from hop3_cli.config import Config
+
+from .conftest import create_tarball, deploy_via_rpc, init_git_repo
 
 if TYPE_CHECKING:
     from typing import Any
@@ -79,73 +77,14 @@ h1 {
 
         # Configure nginx virtual host
         hostname = f"{app_name}.test.local"
-        (test_app_dir / "env").write_text(f"NGINX_SERVER_NAME={hostname}\n")
+        (test_app_dir / "ENV").write_text(f"NGINX_SERVER_NAME={hostname}\n")
 
-        # Initialize git repo
-        subprocess.run(
-            ["git", "init"], cwd=test_app_dir, check=True, capture_output=True
-        )
-        subprocess.run(
-            ["git", "add", "."], cwd=test_app_dir, check=True, capture_output=True
-        )
-        subprocess.run(
-            ["git", "commit", "-m", "Initial commit"],
-            cwd=test_app_dir,
-            check=True,
-            capture_output=True,
-        )
-
-        # Deploy using git-hook command
+        # Deploy using shared helpers
         print(f"\nDeploying static app: {app_name}")
-
-        # Get the commit hash
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=test_app_dir,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        commit_hash = result.stdout.strip()
-
-        # Create gzip-compressed tarball from git
-        tarball_path = f"/tmp/{app_name}.tar.gz"
-        subprocess.run(
-            ["git", "archive", "--format=tar.gz", "-o", tarball_path, "HEAD"],
-            cwd=test_app_dir,
-            check=True,
-            capture_output=True,
-        )
-
-        # Read tarball and base64 encode it for the deploy command
-        tarball_bytes = Path(tarball_path).read_bytes()
-        repository_b64 = base64.b64encode(tarball_bytes).decode("utf-8")
-
-        # Deploy via hop3 Client (which uses RPC with kwargs support)
-        print(f"Deploying {app_name} via RPC...")
-        ssh_key = hop3_container["ssh_key"]
-        ssh_port = hop3_container["ssh_port"]
-
-        # Create client with environment config
-        # Note: Must use api_url_override to bypass HOP3_API_URL environment variable
-        ssh_api_url = f"ssh://hop3@localhost:{ssh_port}"
-        env_config = {
-            "ssh_key": ssh_key,
-        }
-        config = Config(data=env_config)
-        client = Client(config=config, state=None, api_url_override=ssh_api_url)
-
-        try:
-            # Call deploy via RPC
-            response = client.rpc(
-                "cli", ["deploy", app_name], repository=repository_b64
-            )
-            print(f"Deploy response: {response}")
-        finally:
-            # Explicitly close the tunnel to prevent hanging
-            if client.tunnel:
-                client.tunnel.stop()
-                client.tunnel = None
+        init_git_repo(test_app_dir)
+        tarball_path = create_tarball(test_app_dir, app_name)
+        response = deploy_via_rpc(hop3_container, app_name, tarball_path)
+        print(f"Deploy response: {response}")
 
         # Wait for deployment to complete (static apps should be fast)
         print("Waiting for deployment to complete...")

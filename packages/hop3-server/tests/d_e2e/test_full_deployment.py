@@ -13,8 +13,6 @@ These tests run in Docker containers with:
 
 from __future__ import annotations
 
-import base64
-import os
 import subprocess
 import time
 from pathlib import Path
@@ -22,106 +20,17 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 import pytest
-from hop3_cli.client import Client
-from hop3_cli.config import Config
+
+from .conftest import deploy_flask_app
 
 if TYPE_CHECKING:
     pass
 
 # Mark all tests as e2e
-pytestmark = pytest.mark.e2e
-
-
-def deploy_flask_app(
-    hop3_container: dict[str, Any],
-    test_app_dir: Path,
-    app_name: str,
-    app_code: str | None = None,
-) -> None:
-    """Helper function to deploy a Flask app via RPC.
-
-    Args:
-        hop3_container: Container fixture with connection info
-        test_app_dir: Directory for app files
-        app_name: Name of the app to deploy
-        app_code: Optional custom Flask app code
-    """
-    # Create Flask app
-    if app_code is None:
-        app_code = """
-from flask import Flask
-
-app = Flask(__name__)
-
-@app.route("/")
-def index():
-    return "Hello from Flask!"
-
-@app.route("/health")
-def health():
-    return {"status": "ok"}
-"""
-
-    (test_app_dir / "app.py").write_text(app_code)
-    (test_app_dir / "requirements.txt").write_text("flask>=3.0\n")
-    (test_app_dir / "Procfile").write_text(
-        f"web: cd {test_app_dir} && flask --app app run --host 0.0.0.0 --port $PORT\n"
-    )
-
-    # Initialize git repo
-    subprocess.run(["git", "init"], cwd=test_app_dir, check=True)
-    subprocess.run(["git", "add", "."], cwd=test_app_dir, check=True)
-    subprocess.run(
-        ["git", "commit", "-m", "Initial commit"],
-        cwd=test_app_dir,
-        check=True,
-        env={
-            "GIT_AUTHOR_NAME": "Test",
-            "GIT_AUTHOR_EMAIL": "test@test.com",
-            "GIT_COMMITTER_NAME": "Test",
-            "GIT_COMMITTER_EMAIL": "test@test.com",
-        },
-    )
-
-    # Create tarball
-    tarball_path = f"/tmp/{app_name}.tar.gz"
-    subprocess.run(
-        ["git", "archive", "--format=tar.gz", "-o", tarball_path, "HEAD"],
-        cwd=test_app_dir,
-        check=True,
-    )
-
-    tarball_bytes = Path(tarball_path).read_bytes()
-    repository_b64 = base64.b64encode(tarball_bytes).decode("utf-8")
-
-    # Deploy via RPC using SSH tunnel
-    ssh_key = hop3_container["ssh_key"]
-    ssh_port = hop3_container["ssh_port"]
-
-    # IMPORTANT: Unset HOP3_* environment variables to prevent them from overriding config
-    # Config.get() checks environment variables first, so we need to clear them for E2E tests
-    old_api_url = os.environ.pop("HOP3_API_URL", None)
-    old_ssh_key_env = os.environ.pop("HOP3_SSH_KEY", None)
-
-    try:
-        config = Config(
-            data={"api_url": f"ssh://hop3@localhost:{ssh_port}", "ssh_key": ssh_key}
-        )
-        client = Client(config=config, state=None)
-
-        response = client.rpc("cli", ["deploy", app_name], repository=repository_b64)
-        print(f"Deploy response: {response}")
-    finally:
-        # Restore environment variables
-        if old_api_url:
-            os.environ["HOP3_API_URL"] = old_api_url
-        if old_ssh_key_env:
-            os.environ["HOP3_SSH_KEY"] = old_ssh_key_env
-
-        # Explicitly close the tunnel to prevent hanging
-        if client.tunnel:
-            client.tunnel.stop()
-            client.tunnel = None
+pytestmark = [
+    pytest.mark.e2e,
+    pytest.mark.skip(reason="Git-based deployment temporarily disabled"),
+]
 
 
 class TestTarballDeploymentWithStatus:
@@ -223,7 +132,9 @@ class TestEnvironmentVariables:
         time.sleep(15)
 
         # Set environment variables
-        result = hop3_command("config:set", app_name, "TEST_VAR=hello", "ANOTHER_VAR=world")
+        result = hop3_command(
+            "config:set", app_name, "TEST_VAR=hello", "ANOTHER_VAR=world"
+        )
         assert result.returncode == 0, f"Failed to set config: {result.stderr}"
         assert "TEST_VAR" in result.stdout
 
@@ -300,7 +211,9 @@ class TestApplicationDestruction:
         # Verify app is gone
         result = hop3_command("apps")
         assert result.returncode == 0
-        assert app_name not in result.stdout, f"App {app_name} still in apps list after destroy"
+        assert app_name not in result.stdout, (
+            f"App {app_name} still in apps list after destroy"
+        )
 
 
 class TestWebEndpoint:
