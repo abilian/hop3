@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import base64
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -95,21 +96,32 @@ def health():
         ssh_key = hop3_container["ssh_key"]
         ssh_port = hop3_container["ssh_port"]
 
-        # Create client with environment config
-        env_config = {
-            "api_url": f"ssh://hop3@localhost:{ssh_port}",
-            "ssh_key": ssh_key,
-        }
-        config = Config(data=env_config)
-        client = Client(config=config, state=None)
+        # IMPORTANT: Unset HOP3_* environment variables to prevent them from overriding config
+        # Config.get() checks environment variables first, so we need to clear them for E2E tests
+        old_api_url = os.environ.pop("HOP3_API_URL", None)
+        old_ssh_key_env = os.environ.pop("HOP3_SSH_KEY", None)
 
         try:
+            # Create client with environment config
+            env_config = {
+                "api_url": f"ssh://hop3@localhost:{ssh_port}",
+                "ssh_key": ssh_key,
+            }
+            config = Config(data=env_config)
+            client = Client(config=config, state=None)
+
             # Call deploy via RPC
             response = client.rpc(
                 "cli", ["deploy", app_name], repository=repository_b64
             )
             print(f"Deploy response: {response}")
         finally:
+            # Restore environment variables
+            if old_api_url:
+                os.environ["HOP3_API_URL"] = old_api_url
+            if old_ssh_key_env:
+                os.environ["HOP3_SSH_KEY"] = old_ssh_key_env
+
             # Explicitly close the tunnel to prevent hanging
             if client.tunnel:
                 client.tunnel.stop()

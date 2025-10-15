@@ -92,19 +92,26 @@ tests/d_e2e/
 
 ### Test Files
 
-- **test_full_deployment.py**: Tests requiring full deployment infrastructure (uwsgi, nginx, systemd):
+- **test_full_deployment.py**: Full deployment lifecycle tests (uwsgi, nginx, systemd):
   - Application lifecycle (start, stop, restart, status)
-  - Environment variable management
+  - Environment variable management (config:set, config:get, config:unset)
   - Application destruction and cleanup
   - Web endpoint accessibility
   - Git-hook deployment workflow
-
-  These tests can run in two modes:
-  1. Docker containers (using fixtures from conftest.py)
-  2. Remote servers with `HOP3_FULL_INFRASTRUCTURE=true` environment variable
+  - Uses Docker containers (via `hop3_container` fixture)
+  - Helper function `deploy_flask_app()` for common deployment pattern
 
 - **test_python_deployment.py**: Python application deployment tests
-- **test_proxy_plugins.py**: Proxy plugin (nginx, caddy, traefik) tests
+  - Flask deployment with various configurations
+  - Django deployment (TODO)
+  - Package management (pip, poetry, pipenv)
+  - Uses Docker containers (via `hop3_container` fixture)
+
+- **test_proxy_plugins.py**: Proxy plugin tests
+  - nginx proxy configuration
+  - caddy proxy configuration (TODO)
+  - traefik proxy configuration (TODO)
+  - Uses Docker containers (via `hop3_container` fixture)
 
 ## Writing E2E Tests
 
