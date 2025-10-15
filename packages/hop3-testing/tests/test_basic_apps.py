@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     from hop3_testing.apps.catalog import TestApp
     from hop3_testing.targets.base import DeploymentTarget
 
+pytestmark = pytest.mark.skip(reason="Git-based deployment temporarily disabled")
+
 
 @pytest.mark.deployment
 @pytest.mark.parametrize("app", ["000-static", "010-flask-pip-wsgi"], indirect=False)

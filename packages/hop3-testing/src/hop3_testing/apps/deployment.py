@@ -66,8 +66,8 @@ class DeploymentSession:
         self.temp_dir: Path | None = None
 
         # Debug settings
-        self.verbose = config.get("verbose", False)
-        self.debug = config.get("debug", False)
+        self.verbose = self.config.get("verbose", False)
+        self.debug = self.config.get("debug", False)
 
     def prepare(self) -> Path:
         """Prepare the application for deployment.

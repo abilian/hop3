@@ -47,9 +47,10 @@ def test_hop3_cli_available():
         timeout=5,
     )
 
-    assert result.returncode == 0 and result.stdout.strip(), (
+    assert result.returncode == 0, (
         "hop3 command not found in PATH. Install with: pip install -e packages/hop3-cli"
     )
+    assert result.stdout.strip(), "hop3 command returned empty output"
 
 
 @remote_server_only
@@ -134,8 +135,11 @@ def test_auth_login_command():
         timeout=10,
     )
 
-    assert result.returncode == 0 and "Your API token:" in result.stdout, (
+    assert result.returncode == 0, (
         f"auth:login failed (exit code {result.returncode}):\n"
         f"stdout: {result.stdout[:200]}\n"
         f"stderr: {result.stderr[:200]}"
+    )
+    assert "Your API token:" in result.stdout, (
+        f"auth:login did not return API token:\nstdout: {result.stdout[:200]}"
     )

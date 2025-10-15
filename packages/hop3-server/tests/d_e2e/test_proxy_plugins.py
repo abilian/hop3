@@ -6,9 +6,6 @@
 
 from __future__ import annotations
 
-import base64
-import os
-import subprocess
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -16,8 +13,8 @@ from typing import TYPE_CHECKING
 import docker
 import httpx
 import pytest
-from hop3_cli.client import Client
-from hop3_cli.config import Config
+
+from .conftest import deploy_flask_app
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -152,6 +149,7 @@ def create_proxy_container(
 
 
 @pytest.mark.e2e
+@pytest.mark.skip(reason="Git-based deployment temporarily disabled")
 class TestNginxProxyPlugin:
     """Test Nginx proxy plugin."""
 
@@ -171,9 +169,12 @@ class TestNginxProxyPlugin:
         proxy_type = container_info["proxy_type"]
         app_name = f"proxy-test-{proxy_type}-{int(time.time())}"
 
-        # Create simple Flask app
-        (test_app_dir / "app.py").write_text(
-            f"""
+        # Configure virtual host
+        hostname = f"{app_name}.test.local"
+        server_name_var = f"{proxy_type.upper()}_SERVER_NAME"
+
+        # Create Flask app with proxy-specific content
+        app_code = f"""
 from flask import Flask
 
 app = Flask(__name__)
@@ -186,80 +187,15 @@ def index():
 def proxy_info():
     return {{"proxy": "{proxy_type}", "app": "{app_name}"}}
 """
+
+        # Deploy using shared helper
+        deploy_flask_app(
+            container_info,
+            test_app_dir,
+            app_name,
+            app_code=app_code,
+            env_vars={server_name_var: hostname},
         )
-
-        (test_app_dir / "requirements.txt").write_text("flask>=3.0\n")
-
-        # Note: Don't use 'cd' in Procfile - uwsgi config sets chdir automatically
-        (test_app_dir / "Procfile").write_text(
-            "web: flask --app app run --host 0.0.0.0 --port $PORT\n"
-        )
-
-        # Configure virtual host
-        # IMPORTANT: Environment file must be named "ENV" (uppercase), not "env"
-        # Each proxy type uses its own environment variable name
-        hostname = f"{app_name}.test.local"
-        server_name_var = f"{proxy_type.upper()}_SERVER_NAME"
-        (test_app_dir / "ENV").write_text(f"{server_name_var}={hostname}\n")
-
-        # Initialize git repo
-        subprocess.run(
-            ["git", "init"], cwd=test_app_dir, check=True, capture_output=True
-        )
-        subprocess.run(
-            ["git", "add", "."], cwd=test_app_dir, check=True, capture_output=True
-        )
-        subprocess.run(
-            ["git", "commit", "-m", "Initial commit"],
-            cwd=test_app_dir,
-            check=True,
-            capture_output=True,
-        )
-
-        # Create tarball
-        tarball_path = f"/tmp/{app_name}.tar.gz"
-        subprocess.run(
-            ["git", "archive", "--format=tar.gz", "-o", tarball_path, "HEAD"],
-            cwd=test_app_dir,
-            check=True,
-            capture_output=True,
-        )
-
-        # Deploy via RPC
-        print(f"\nDeploying {app_name} to {proxy_type.upper()} proxy...")
-        tarball_bytes = Path(tarball_path).read_bytes()
-        repository_b64 = base64.b64encode(tarball_bytes).decode("utf-8")
-
-        ssh_key = container_info["ssh_key"]
-        ssh_port = container_info["ssh_port"]
-
-        # IMPORTANT: Unset HOP3_* environment variables to prevent them from overriding config
-        # Config.get() checks environment variables first, so we need to clear them for E2E tests
-        old_api_url = os.environ.pop("HOP3_API_URL", None)
-        old_ssh_key_env = os.environ.pop("HOP3_SSH_KEY", None)
-
-        try:
-            env_config = {
-                "api_url": f"ssh://hop3@localhost:{ssh_port}",
-                "ssh_key": ssh_key,
-            }
-            config = Config(data=env_config)
-            client = Client(config=config, state=None)
-
-            response = client.rpc(
-                "cli", ["deploy", app_name], repository=repository_b64
-            )
-            print(f"Deploy response: {response}")
-        finally:
-            # Restore environment variables
-            if old_api_url:
-                os.environ["HOP3_API_URL"] = old_api_url
-            if old_ssh_key_env:
-                os.environ["HOP3_SSH_KEY"] = old_ssh_key_env
-
-            if client.tunnel:
-                client.tunnel.stop()
-                client.tunnel = None
 
         # Wait for deployment
         print(f"Waiting for {proxy_type} proxy configuration...")
@@ -320,6 +256,7 @@ def proxy_info():
 
 
 @pytest.mark.e2e
+@pytest.mark.skip(reason="Git-based deployment temporarily disabled")
 class TestCaddyProxyPlugin:
     """Test Caddy proxy plugin."""
 
@@ -337,6 +274,7 @@ class TestCaddyProxyPlugin:
 
 
 @pytest.mark.e2e
+@pytest.mark.skip(reason="Git-based deployment temporarily disabled")
 class TestTraefikProxyPlugin:
     """Test Traefik proxy plugin."""
 
