@@ -197,7 +197,7 @@ def health():
         print(f"✓ Flask app {app_name} deployed successfully")
 
         # Cleanup
-        result = hop3_command("destroy", app_name)
+        result = hop3_command("app:destroy", app_name)
         assert result.returncode == 0, f"Failed to destroy app: {result.stderr}"
 
     def test_deploy_flask_with_poetry(
@@ -213,8 +213,7 @@ def health():
         app_name = f"flask-routes-{int(time.time())}"
 
         # Create Flask app with multiple routes
-        (test_app_dir / "app.py").write_text(
-            """
+        app_code = """
 from flask import Flask, jsonify
 
 app = Flask(__name__)
@@ -235,45 +234,74 @@ def api_info():
         "status": "running"
     })
 """
-        )
-
+        (test_app_dir / "app.py").write_text(app_code)
         (test_app_dir / "requirements.txt").write_text("flask>=3.0\n")
-
         (test_app_dir / "Procfile").write_text(
             f"web: cd {test_app_dir} && flask --app app run --host 0.0.0.0 --port $PORT\n"
         )
 
-        # Initialize git and deploy
+        # Initialize git repo
         subprocess.run(["git", "init"], cwd=test_app_dir, check=True)
         subprocess.run(["git", "add", "."], cwd=test_app_dir, check=True)
         subprocess.run(
-            ["git", "commit", "-m", "Initial commit"], cwd=test_app_dir, check=True
+            ["git", "commit", "-m", "Initial commit"],
+            cwd=test_app_dir,
+            check=True,
+            env={
+                "GIT_AUTHOR_NAME": "Test",
+                "GIT_AUTHOR_EMAIL": "test@test.com",
+                "GIT_COMMITTER_NAME": "Test",
+                "GIT_COMMITTER_EMAIL": "test@test.com",
+            },
         )
 
-        # Create and upload tarball
+        # Create tarball
+        tarball_path = f"/tmp/{app_name}.tar.gz"
         subprocess.run(
-            ["git", "archive", "--format=tar", "-o", f"/tmp/{app_name}.tar", "HEAD"],
+            ["git", "archive", "--format=tar.gz", "-o", tarball_path, "HEAD"],
             cwd=test_app_dir,
             check=True,
         )
 
-        container = hop3_container["container"]
-        tarball_data = Path(f"/tmp/{app_name}.tar").read_bytes()
-        container.put_archive("/tmp", tarball_data)
+        # Deploy via RPC (same as other tests)
+        tarball_bytes = Path(tarball_path).read_bytes()
+        repository_b64 = base64.b64encode(tarball_bytes).decode("utf-8")
 
-        container.exec_run(
-            f"su - hop3 -c '~/venv/bin/hop-server deploy {app_name} /tmp/{app_name}.tar'",
-            user="root",
-        )
+        ssh_key = hop3_container["ssh_key"]
+        ssh_port = hop3_container["ssh_port"]
+
+        # Unset environment variables
+        old_api_url = os.environ.pop("HOP3_API_URL", None)
+        old_ssh_key_env = os.environ.pop("HOP3_SSH_KEY", None)
+
+        try:
+            config = Config(
+                data={"api_url": f"ssh://hop3@localhost:{ssh_port}", "ssh_key": ssh_key}
+            )
+            client = Client(config=config, state=None)
+
+            response = client.rpc("cli", ["deploy", app_name], repository=repository_b64)
+            print(f"Deploy response: {response}")
+        finally:
+            # Restore environment variables
+            if old_api_url:
+                os.environ["HOP3_API_URL"] = old_api_url
+            if old_ssh_key_env:
+                os.environ["HOP3_SSH_KEY"] = old_ssh_key_env
+
+            if client.tunnel:
+                client.tunnel.stop()
+                client.tunnel = None
 
         time.sleep(15)
 
         # Verify deployment
         result = hop3_command("apps")
-        assert app_name in result.stdout
+        assert result.returncode == 0
+        assert app_name in result.stdout, f"App {app_name} not found in apps list"
 
         # Cleanup
-        hop3_command("destroy", app_name)
+        hop3_command("app:destroy", app_name)
 
     def test_flask_app_lifecycle(
         self, hop3_container: dict[str, Any], hop3_command, test_app_dir: Path
