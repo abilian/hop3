@@ -20,10 +20,9 @@ Requirements:
 from __future__ import annotations
 
 import os
-import time
 from pathlib import Path
 
-from .conftest import create_simple_flask_app, hop3
+from .conftest import create_simple_flask_app, hop3, wait_for_app_in_list
 
 
 class TestTarballDeployment:
@@ -52,12 +51,8 @@ class TestTarballDeployment:
                 or "deployed" in result.stdout.lower()
             )
 
-            # Wait for app to start
-            time.sleep(5)
-
-            # Check app appears in apps list
-            result = hop3("apps")
-            assert app_name in result.stdout
+            # Wait for app to appear in apps list
+            assert wait_for_app_in_list(app_name, timeout=30)
 
         finally:
             os.chdir(original_dir)
@@ -117,12 +112,9 @@ class TestAppsList:
         try:
             hop3("deploy", app_name)
             deployed_app["deployed"] = True
-            time.sleep(5)
 
-            # List apps
-            result = hop3("apps")
-            assert result.returncode == 0
-            assert app_name in result.stdout
+            # Wait for app to appear in apps list
+            assert wait_for_app_in_list(app_name, timeout=30)
 
         finally:
             os.chdir(original_dir)

@@ -18,10 +18,9 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import httpx
 import pytest
 
-from .conftest import deploy_flask_app
+from .conftest import deploy_flask_app, wait_for_app_status, wait_for_http_ready
 
 if TYPE_CHECKING:
     pass
@@ -45,8 +44,8 @@ class TestTarballDeploymentWithStatus:
         # Deploy app
         deploy_flask_app(hop3_container, test_app_dir, app_name)
 
-        # Wait for deployment
-        time.sleep(15)
+        # Wait for app to be running
+        wait_for_app_status(hop3_command, app_name, timeout=60)
 
         # Check status
         result = hop3_command("app:status", app_name)
@@ -72,12 +71,12 @@ class TestApplicationLifecycle:
 
         # Deploy app
         deploy_flask_app(hop3_container, test_app_dir, app_name)
-        time.sleep(15)
+        wait_for_app_status(hop3_command, app_name, timeout=60)
 
         # Stop the app
         result = hop3_command("app:stop", app_name)
         assert result.returncode == 0, f"Failed to stop: {result.stderr}"
-        time.sleep(2)
+        wait_for_app_status(hop3_command, app_name, expected_states=["STOPPED"], timeout=30)
 
         # Verify stopped
         result = hop3_command("app:status", app_name)
@@ -86,7 +85,7 @@ class TestApplicationLifecycle:
         # Start the app
         result = hop3_command("app:start", app_name)
         assert result.returncode == 0, f"Failed to start: {result.stderr}"
-        time.sleep(2)
+        wait_for_app_status(hop3_command, app_name, timeout=30)
 
         # Verify started
         result = hop3_command("app:status", app_name)
@@ -103,12 +102,12 @@ class TestApplicationLifecycle:
 
         # Deploy app
         deploy_flask_app(hop3_container, test_app_dir, app_name)
-        time.sleep(15)
+        wait_for_app_status(hop3_command, app_name, timeout=60)
 
         # Restart the app
         result = hop3_command("app:restart", app_name)
         assert result.returncode == 0, f"Failed to restart: {result.stderr}"
-        time.sleep(3)
+        wait_for_app_status(hop3_command, app_name, timeout=30)
 
         # Verify running
         result = hop3_command("app:status", app_name)
@@ -129,7 +128,7 @@ class TestEnvironmentVariables:
 
         # Deploy app
         deploy_flask_app(hop3_container, test_app_dir, app_name)
-        time.sleep(15)
+        wait_for_app_status(hop3_command, app_name, timeout=60)
 
         # Set environment variables
         result = hop3_command(
@@ -160,7 +159,7 @@ class TestEnvironmentVariables:
 
         # Deploy app
         deploy_flask_app(hop3_container, test_app_dir, app_name)
-        time.sleep(15)
+        wait_for_app_status(hop3_command, app_name, timeout=60)
 
         # Set environment variable
         result = hop3_command("config:set", app_name, "TO_REMOVE=temporary")
@@ -196,7 +195,7 @@ class TestApplicationDestruction:
 
         # Deploy app
         deploy_flask_app(hop3_container, test_app_dir, app_name)
-        time.sleep(15)
+        wait_for_app_status(hop3_command, app_name, timeout=60)
 
         # Verify app exists
         result = hop3_command("apps")
@@ -227,52 +226,27 @@ class TestWebEndpoint:
 
         # Deploy app
         deploy_flask_app(hop3_container, test_app_dir, app_name)
+        wait_for_app_status(hop3_command, app_name, timeout=60)
 
         # Configure nginx virtual host
         hostname = f"{app_name}.test.local"
         (test_app_dir / "env").write_text(f"NGINX_SERVER_NAME={hostname}\n")
 
-        # Wait for app to start and nginx to configure
-        time.sleep(20)
-
         # Get HTTP port from container
         http_port = hop3_container["http_base"].split(":")[-1]
+        url = f"http://localhost:{http_port}/"
 
-        # Test HTTP access with virtual host
+        # Test HTTP access with virtual host using polling helper
         print(f"Testing HTTP access on port {http_port} with Host: {hostname}")
+        success, error = wait_for_http_ready(
+            url,
+            expected_content="Hello from Flask",
+            headers={"Host": hostname},
+            timeout=60,
+        )
 
-        max_attempts = 30
-        response = None
-        last_error = None
-
-        for attempt in range(max_attempts):
-            try:
-                response = httpx.get(
-                    f"http://localhost:{http_port}/",
-                    headers={"Host": hostname},
-                    timeout=2.0,
-                )
-                if response.status_code == 200:
-                    print(f"✓ HTTP access working: {response.text[:100]}")
-                    assert "Hello from Flask" in response.text
-                    break
-                if response.status_code == 502:
-                    # Backend not ready yet
-                    print(
-                        f"  Attempt {attempt + 1}/{max_attempts}: Backend not ready (502)"
-                    )
-                    time.sleep(1)
-                    continue
-                print(f"  Unexpected status code: {response.status_code}")
-            except (httpx.HTTPError, httpx.ConnectError) as e:
-                last_error = e
-                print(f"  Attempt {attempt + 1}/{max_attempts}: Connection error: {e}")
-                time.sleep(1)
-        else:
-            # Max attempts reached - skip instead of fail
-            pytest.skip(
-                f"Could not connect to app after {max_attempts} attempts. Last error: {last_error}"
-            )
+        if not success:
+            pytest.skip(f"Could not connect to app. {error}")
 
         # Cleanup
         hop3_command("app:destroy", app_name)

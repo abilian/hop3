@@ -393,6 +393,34 @@ def hop3(
     return result
 
 
+def wait_for_app_in_list(app_name: str, timeout: int = 30) -> bool:
+    """Poll 'hop3 apps' until app appears in list.
+
+    Args:
+        app_name: Name of the app to look for
+        timeout: Maximum wait time in seconds
+
+    Returns:
+        True if app found, False if timeout
+    """
+    print(f"Waiting for app '{app_name}' to appear in apps list...")
+    start_time = time.time()
+
+    while time.time() - start_time < timeout:
+        try:
+            result = hop3("apps", check=False)
+            if result.returncode == 0 and app_name in result.stdout:
+                print(f"✓ App '{app_name}' found in apps list")
+                return True
+        except Exception as e:
+            print(f"  Warning: Error checking apps list: {e}")
+
+        time.sleep(1)
+
+    print(f"✗ Timeout waiting for app '{app_name}' in apps list")
+    return False
+
+
 def create_simple_flask_app(app_dir: Path, app_name: str) -> None:
     """Create a simple Flask app for testing.
 

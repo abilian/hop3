@@ -242,6 +242,52 @@ def test_app_dir(tmp_path: Path) -> Path:
     return app_dir
 
 
+@pytest.fixture
+def deployed_flask_app(
+    hop3_container: dict[str, Any], hop3_command, test_app_dir: Path
+) -> Generator[dict[str, Any], None, None]:
+    """Deploy a Flask app and automatically clean it up after the test.
+
+    This fixture provides a complete deployment workflow:
+    - Creates a simple Flask app
+    - Initializes git repository
+    - Creates tarball and deploys
+    - Waits for app to be running
+    - Automatically destroys app after test
+
+    Yields:
+        Dict with app info: {"name": str, "dir": Path, "url": str}
+    """
+    app_name = f"e2e-test-{int(time.time())}"
+
+    # Deploy the app
+    deploy_flask_app(hop3_container, test_app_dir, app_name)
+
+    # Wait for app to be ready
+    wait_for_app_status(hop3_command, app_name, timeout=60)
+
+    # Get HTTP URL
+    http_port = hop3_container["http_base"].split(":")[-1]
+    app_url = f"http://localhost:{http_port}/"
+
+    app_info = {
+        "name": app_name,
+        "dir": test_app_dir,
+        "url": app_url,
+        "hostname": f"{app_name}.test.local",
+    }
+
+    yield app_info
+
+    # Automatic cleanup
+    print(f"\nCleaning up app: {app_name}")
+    try:
+        hop3_command("app:destroy", app_name)
+        print(f"✓ App {app_name} destroyed")
+    except Exception as e:
+        print(f"⚠ Warning: Failed to destroy app {app_name}: {e}")
+
+
 def run_hop3_command(
     container_info: dict[str, Any], *args: str
 ) -> subprocess.CompletedProcess:
@@ -460,3 +506,96 @@ def health():
     tarball_path = create_tarball(test_app_dir, app_name)
     response = deploy_via_rpc(hop3_container, app_name, tarball_path)
     print(f"Deploy response: {response}")
+
+
+def wait_for_app_status(
+    hop3_command,
+    app_name: str,
+    expected_states: list[str] | None = None,
+    timeout: int = 60,
+) -> bool:
+    """Poll app:status until app reaches expected state.
+
+    Args:
+        hop3_command: The hop3_command fixture
+        app_name: Name of the app to check
+        expected_states: List of acceptable states (default: ["RUNNING"])
+        timeout: Maximum wait time in seconds
+
+    Returns:
+        True if app reached expected state, False if timeout
+    """
+    if expected_states is None:
+        expected_states = ["RUNNING"]
+
+    print(f"Waiting for app '{app_name}' to reach state: {expected_states}")
+    start_time = time.time()
+
+    while time.time() - start_time < timeout:
+        try:
+            result = hop3_command("app:status", app_name)
+            if result.returncode == 0:
+                stdout = result.stdout.upper()
+                if any(state in stdout for state in expected_states):
+                    print(f"✓ App '{app_name}' reached expected state")
+                    return True
+        except Exception as e:
+            print(f"  Warning: Error checking app status: {e}")
+
+        time.sleep(2)
+
+    print(f"✗ Timeout waiting for app '{app_name}' to reach {expected_states}")
+    return False
+
+
+def wait_for_http_ready(
+    url: str,
+    expected_status: int = 200,
+    expected_content: str | None = None,
+    timeout: int = 60,
+    headers: dict[str, str] | None = None,
+) -> tuple[bool, str]:
+    """Poll HTTP endpoint until it's ready.
+
+    Args:
+        url: URL to poll
+        expected_status: Expected HTTP status code (default: 200)
+        expected_content: Optional content to look for in response
+        timeout: Maximum wait time in seconds
+        headers: Optional HTTP headers (e.g., {"Host": "example.com"})
+
+    Returns:
+        Tuple of (success: bool, error_message: str)
+    """
+    import httpx
+
+    print(f"Waiting for HTTP endpoint: {url}")
+    start_time = time.time()
+    last_error = None
+
+    while time.time() - start_time < timeout:
+        try:
+            response = httpx.get(url, headers=headers or {}, timeout=2.0, follow_redirects=True)
+
+            if response.status_code == expected_status:
+                if expected_content is None or expected_content in response.text:
+                    print(f"✓ HTTP endpoint ready: {url}")
+                    return True, ""
+                print("  Content check failed, retrying...")
+
+            elif response.status_code == 502:
+                # Backend not ready yet
+                print("  Backend not ready (502), retrying...")
+
+            else:
+                print(f"  Unexpected status {response.status_code}, retrying...")
+
+        except (httpx.HTTPError, httpx.ConnectError) as e:
+            last_error = str(e)
+            print(f"  Connection error: {e}")
+
+        time.sleep(1)
+
+    error_msg = f"Timeout after {timeout}s. Last error: {last_error}"
+    print(f"✗ {error_msg}")
+    return False, error_msg

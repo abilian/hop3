@@ -20,6 +20,105 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
 
+def verify_proxy_deployment(container_info: dict, test_app_dir: Path) -> None:
+    """Common test logic for proxy deployment.
+
+    Tests that a deployed app can be accessed through the configured proxy
+    (Nginx, Caddy, or Traefik) with proper virtual host routing.
+
+    Args:
+        container_info: Container fixture with proxy configuration
+        test_app_dir: Directory for test app files
+    """
+    proxy_type = container_info["proxy_type"]
+    app_name = f"proxy-test-{proxy_type}-{int(time.time())}"
+
+    # Configure virtual host
+    hostname = f"{app_name}.test.local"
+    server_name_var = f"{proxy_type.upper()}_SERVER_NAME"
+
+    # Create Flask app with proxy-specific content
+    app_code = f"""
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route("/")
+def index():
+    return "Hello from {proxy_type.upper()} proxy!"
+
+@app.route("/proxy-info")
+def proxy_info():
+    return {{"proxy": "{proxy_type}", "app": "{app_name}"}}
+"""
+
+    # Deploy using shared helper
+    deploy_flask_app(
+        container_info,
+        test_app_dir,
+        app_name,
+        app_code=app_code,
+        env_vars={server_name_var: hostname},
+    )
+
+    # Wait for deployment
+    print(f"Waiting for {proxy_type} proxy configuration...")
+    time.sleep(15)
+
+    # Verify deployment
+    print(f"Testing HTTP access through {proxy_type.upper()} proxy...")
+    http_port = container_info["http_port"]
+
+    max_attempts = 30
+    attempt = 0
+    last_error = None
+
+    while attempt < max_attempts:
+        try:
+            response = httpx.get(
+                f"http://localhost:{http_port}/",
+                headers={"Host": hostname},
+                timeout=2.0,
+            )
+            print(f"  HTTP Response: {response.status_code}")
+
+            if response.status_code == 200:
+                print(f"  Content: {response.text[:100]}")
+                assert f"Hello from {proxy_type.upper()} proxy" in response.text
+                print(f"✓ {proxy_type.upper()} proxy routing working correctly")
+                break
+            if response.status_code == 502:
+                time.sleep(1)
+                attempt += 1
+                continue
+            print(f"  Unexpected status code: {response.status_code}")
+            pytest.fail(f"Unexpected status code: {response.status_code}")
+
+        except (httpx.HTTPError, httpx.ConnectError) as e:
+            last_error = e
+            # print(f"  Attempt {attempt + 1}/{max_attempts}: Connection error: {e}")
+            time.sleep(1)
+            attempt += 1
+    else:
+        print(
+            f"✗ {proxy_type.upper()} proxy test failed after {max_attempts} attempts"
+        )
+        if last_error:
+            print(f"Last error: {last_error}")
+        pytest.fail(f"{proxy_type.upper()} proxy did not route traffic correctly")
+
+    print(f"✓ {proxy_type.upper()} proxy plugin test passed")
+
+    # Cleanup
+    print(f"Cleaning up {app_name}...")
+    # Use container exec for cleanup to avoid SSH tunnel issues
+    container = container_info["container"]
+    container.exec_run(
+        f"su - hop3 -c '~/venv/bin/hop-server app:destroy {app_name}'",
+        user="root",
+    )
+
+
 def create_proxy_container(
     docker_client: docker.DockerClient, hop3_image: str, proxy_type: str
 ) -> Generator[dict, None, None]:
@@ -162,97 +261,7 @@ class TestNginxProxyPlugin:
 
     def test_nginx_proxy_deployment(self, proxy_container: dict, test_app_dir: Path):
         """Test deploying an app with Nginx proxy."""
-        self._test_proxy_deployment(proxy_container, test_app_dir)
-
-    def _test_proxy_deployment(self, container_info: dict, test_app_dir: Path):
-        """Common test logic for proxy deployment."""
-        proxy_type = container_info["proxy_type"]
-        app_name = f"proxy-test-{proxy_type}-{int(time.time())}"
-
-        # Configure virtual host
-        hostname = f"{app_name}.test.local"
-        server_name_var = f"{proxy_type.upper()}_SERVER_NAME"
-
-        # Create Flask app with proxy-specific content
-        app_code = f"""
-from flask import Flask
-
-app = Flask(__name__)
-
-@app.route("/")
-def index():
-    return "Hello from {proxy_type.upper()} proxy!"
-
-@app.route("/proxy-info")
-def proxy_info():
-    return {{"proxy": "{proxy_type}", "app": "{app_name}"}}
-"""
-
-        # Deploy using shared helper
-        deploy_flask_app(
-            container_info,
-            test_app_dir,
-            app_name,
-            app_code=app_code,
-            env_vars={server_name_var: hostname},
-        )
-
-        # Wait for deployment
-        print(f"Waiting for {proxy_type} proxy configuration...")
-        time.sleep(15)
-
-        # Verify deployment
-        print(f"Testing HTTP access through {proxy_type.upper()} proxy...")
-        http_port = container_info["http_port"]
-
-        max_attempts = 30
-        attempt = 0
-        last_error = None
-
-        while attempt < max_attempts:
-            try:
-                response = httpx.get(
-                    f"http://localhost:{http_port}/",
-                    headers={"Host": hostname},
-                    timeout=2.0,
-                )
-                print(f"  HTTP Response: {response.status_code}")
-
-                if response.status_code == 200:
-                    print(f"  Content: {response.text[:100]}")
-                    assert f"Hello from {proxy_type.upper()} proxy" in response.text
-                    print(f"✓ {proxy_type.upper()} proxy routing working correctly")
-                    break
-                if response.status_code == 502:
-                    time.sleep(1)
-                    attempt += 1
-                    continue
-                print(f"  Unexpected status code: {response.status_code}")
-                pytest.fail(f"Unexpected status code: {response.status_code}")
-
-            except (httpx.HTTPError, httpx.ConnectError) as e:
-                last_error = e
-                # print(f"  Attempt {attempt + 1}/{max_attempts}: Connection error: {e}")
-                time.sleep(1)
-                attempt += 1
-        else:
-            print(
-                f"✗ {proxy_type.upper()} proxy test failed after {max_attempts} attempts"
-            )
-            if last_error:
-                print(f"Last error: {last_error}")
-            pytest.fail(f"{proxy_type.upper()} proxy did not route traffic correctly")
-
-        print(f"✓ {proxy_type.upper()} proxy plugin test passed")
-
-        # Cleanup
-        print(f"Cleaning up {app_name}...")
-        # Use container exec for cleanup to avoid SSH tunnel issues
-        container = container_info["container"]
-        container.exec_run(
-            f"su - hop3 -c '~/venv/bin/hop-server app:destroy {app_name}'",
-            user="root",
-        )
+        verify_proxy_deployment(proxy_container, test_app_dir)
 
 
 @pytest.mark.e2e
@@ -269,8 +278,7 @@ class TestCaddyProxyPlugin:
 
     def test_caddy_proxy_deployment(self, proxy_container: dict, test_app_dir: Path):
         """Test deploying an app with Caddy proxy."""
-        # Reuse the same test logic
-        TestNginxProxyPlugin()._test_proxy_deployment(proxy_container, test_app_dir)
+        verify_proxy_deployment(proxy_container, test_app_dir)
 
 
 @pytest.mark.e2e
@@ -287,5 +295,4 @@ class TestTraefikProxyPlugin:
 
     def test_traefik_proxy_deployment(self, proxy_container: dict, test_app_dir: Path):
         """Test deploying an app with Traefik proxy."""
-        # Reuse the same test logic
-        TestNginxProxyPlugin()._test_proxy_deployment(proxy_container, test_app_dir)
+        verify_proxy_deployment(proxy_container, test_app_dir)
