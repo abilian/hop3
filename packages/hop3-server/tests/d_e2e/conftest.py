@@ -19,6 +19,9 @@ import pytest
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+# Note: test_full_deployment.py now uses Docker fixtures like other d_e2e tests
+# No need to import c_system fixtures anymore
+
 
 def pytest_configure(config):
     """Add custom markers."""

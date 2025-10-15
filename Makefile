@@ -108,32 +108,29 @@ generate-sbom:
 # NB: keep tests in the Makefile for now, because if CI.
 
 ## Run python tests
-test:
-	@echo "--> Running Python tests"
-	uv run pytest
+test: test-full
+
+test-quick:
+	@echo "--> Running quick Python tests"
+	# uv run pytest -m "not slow and not network"
+	uv run pytest packages/hop3-server/tests/a_unit
+	uv run pytest packages/hop3-server/tests/b_integration
 	@echo ""
 
-test-randomly:
-	@echo "--> Running Python tests in random order"
-	uv run pytest --random-order
+test-full:
+	@echo "--> Running full Python tests"
+	uv run pytest -q --tb=short packages/hop3-server/tests/a_unit
+	uv run pytest -q --tb=short packages/hop3-server/tests/b_integration
+	uv run pytest -q --tb=short packages/hop3-server/tests/c_system
+	uv run pytest -q --tb=short packages/hop3-server/tests/d_e2e
+	uv run pytest -q --tb=short packages/hop3-testing/tests/
+	uv run pytest -q --tb=short packages/hop3-cli/tests
 	@echo ""
 
-test-e2e:
-	@echo "--> Running e2e tests (legacy)"
+test-server:
+	@echo "--> Running e2e tests against a remote server"
 	make deploy
 	hop-test
-	@echo ""
-
-test-system:
-	@echo "--> Running system integration tests"
-	@echo "This requires a running hop3-server (local or HOP3_DEV_HOST)"
-	uv run pytest packages/hop3-server/tests/c_system/ -v
-	@echo ""
-
-test-e2e-cli:
-	@echo "--> Running full E2E tests (Docker-based)"
-	@echo "This requires Docker"
-	uv run pytest packages/hop3-server/tests/d_e2e/ -v
 	@echo ""
 
 test-with-coverage:
