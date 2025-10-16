@@ -26,10 +26,7 @@ if TYPE_CHECKING:
     pass
 
 # Mark all tests as e2e
-pytestmark = [
-    pytest.mark.e2e,
-    pytest.mark.skip(reason="Git-based deployment temporarily disabled"),
-]
+pytestmark = pytest.mark.e2e
 
 
 class TestTarballDeploymentWithStatus:
@@ -255,6 +252,7 @@ class TestWebEndpoint:
 class TestGitHookDeployment:
     """Test deployment via git-hook command (git push workflow)."""
 
+    @pytest.mark.skip(reason="Git push workflow not yet implemented - requires git server infrastructure")
     def test_git_hook_deployment(
         self, hop3_container: dict[str, Any], hop3_command, test_app_dir: Path
     ):

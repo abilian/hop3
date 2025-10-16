@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 import docker
 import docker.errors
+import httpx
 import pytest
 
 if TYPE_CHECKING:
@@ -374,39 +375,32 @@ def init_git_repo(app_dir: Path) -> None:
 
 
 def create_tarball(app_dir: Path, app_name: str) -> Path:
-    """Create gzip-compressed tarball from git repo.
+    """Create gzip-compressed tarball from app directory.
 
     Args:
-        app_dir: Directory containing git repository
+        app_dir: Directory containing app files
         app_name: Name for the tarball
 
     Returns:
         Path to created tarball
     """
-    # Create isolated git environment to avoid picking up parent repo
-    env = os.environ.copy()
-    env.pop("GIT_DIR", None)
-    env.pop("GIT_WORK_TREE", None)
-    # Prevent git from looking in parent directories
-    env["GIT_CEILING_DIRECTORIES"] = str(app_dir.parent)
-
     tarball_path = Path(f"/tmp/{app_name}.tar.gz")
-    # Explicitly specify git directory to avoid parent repo contamination
-    git_dir = app_dir / ".git"
+
+    # Use tar directly to avoid git archive complexities
+    # Create tarball with files at root level (no directory wrapper)
+    # This ensures the extracted files are directly in the app's src directory
     subprocess.run(
         [
-            "git",
-            f"--git-dir={git_dir}",
-            f"--work-tree={app_dir}",
-            "archive",
-            "--format=tar.gz",
-            "-o",
+            "tar",
+            "-czf",
             str(tarball_path),
-            "HEAD",
+            "--exclude=.git",
+            "-C",
+            str(app_dir),  # Change to app_dir itself, not parent
+            ".",  # Archive everything in current directory
         ],
         check=True,
         capture_output=True,
-        env=env,
     )
     return tarball_path
 
@@ -567,8 +561,6 @@ def wait_for_http_ready(
     Returns:
         Tuple of (success: bool, error_message: str)
     """
-    import httpx
-
     print(f"Waiting for HTTP endpoint: {url}")
     start_time = time.time()
     last_error = None

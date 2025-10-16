@@ -14,8 +14,6 @@ from hop3_testing.apps import DeploymentSession
 if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
 
-pytestmark = pytest.mark.skip(reason="Git-based deployment temporarily disabled")
-
 
 @pytest.mark.deployment
 @pytest.mark.slow

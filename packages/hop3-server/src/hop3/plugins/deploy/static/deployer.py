@@ -89,10 +89,9 @@ class StaticDeployer(DeploymentStrategy):
                 log(f"nginx {k:s} will be set to {v}", level=3)
                 env[k] = v
 
-        # Set the static path to the artifact location
-        # The format is "/url_prefix:filesystem_path"
-        # For static apps, we serve from root ("/") and point to the artifact location
-        env["NGINX_STATIC_PATHS"] = f"/:{self.artifact.location}/"
+        # NOTE: We don't set NGINX_STATIC_PATHS here because the nginx setup
+        # will automatically handle it from the "static" worker in the Procfile.
+        # The worker path ("public") gets resolved relative to src_path by nginx setup.
 
         return env
 

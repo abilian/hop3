@@ -20,6 +20,59 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
 
+@pytest.mark.e2e
+class TestNginxProxyPlugin:
+    """Test Nginx proxy plugin."""
+
+    @pytest.fixture(scope="class")
+    def proxy_container(
+        self, docker_client: docker.DockerClient, hop3_image: str
+    ) -> Generator[dict, None, None]:
+        """Create container with Nginx proxy."""
+        yield from create_proxy_container(docker_client, hop3_image, "nginx")
+
+    def test_nginx_proxy_deployment(self, proxy_container: dict, test_app_dir: Path):
+        """Test deploying an app with Nginx proxy."""
+        verify_proxy_deployment(proxy_container, test_app_dir)
+
+
+@pytest.mark.e2e
+@pytest.mark.skip(reason="Caddy proxy plugin not yet fully implemented")
+class TestCaddyProxyPlugin:
+    """Test Caddy proxy plugin."""
+
+    @pytest.fixture(scope="class")
+    def proxy_container(
+        self, docker_client: docker.DockerClient, hop3_image: str
+    ) -> Generator[dict, None, None]:
+        """Create container with Caddy proxy."""
+        yield from create_proxy_container(docker_client, hop3_image, "caddy")
+
+    def test_caddy_proxy_deployment(self, proxy_container: dict, test_app_dir: Path):
+        """Test deploying an app with Caddy proxy."""
+        verify_proxy_deployment(proxy_container, test_app_dir)
+
+
+@pytest.mark.e2e
+@pytest.mark.skip(reason="Traefik proxy plugin not yet fully implemented")
+class TestTraefikProxyPlugin:
+    """Test Traefik proxy plugin."""
+
+    @pytest.fixture(scope="class")
+    def proxy_container(
+        self, docker_client: docker.DockerClient, hop3_image: str
+    ) -> Generator[dict, None, None]:
+        """Create container with Traefik proxy."""
+        yield from create_proxy_container(docker_client, hop3_image, "traefik")
+
+    def test_traefik_proxy_deployment(self, proxy_container: dict, test_app_dir: Path):
+        """Test deploying an app with Traefik proxy."""
+        verify_proxy_deployment(proxy_container, test_app_dir)
+
+
+#
+# Utilities
+#
 def verify_proxy_deployment(container_info: dict, test_app_dir: Path) -> None:
     """Common test logic for proxy deployment.
 
@@ -245,54 +298,3 @@ def create_proxy_container(
             ssh_key_path.unlink()
 
         print(f"{proxy_type.capitalize()} container stopped and removed.")
-
-
-@pytest.mark.e2e
-@pytest.mark.skip(reason="Git-based deployment temporarily disabled")
-class TestNginxProxyPlugin:
-    """Test Nginx proxy plugin."""
-
-    @pytest.fixture(scope="class")
-    def proxy_container(
-        self, docker_client: docker.DockerClient, hop3_image: str
-    ) -> Generator[dict, None, None]:
-        """Create container with Nginx proxy."""
-        yield from create_proxy_container(docker_client, hop3_image, "nginx")
-
-    def test_nginx_proxy_deployment(self, proxy_container: dict, test_app_dir: Path):
-        """Test deploying an app with Nginx proxy."""
-        verify_proxy_deployment(proxy_container, test_app_dir)
-
-
-@pytest.mark.e2e
-@pytest.mark.skip(reason="Git-based deployment temporarily disabled")
-class TestCaddyProxyPlugin:
-    """Test Caddy proxy plugin."""
-
-    @pytest.fixture(scope="class")
-    def proxy_container(
-        self, docker_client: docker.DockerClient, hop3_image: str
-    ) -> Generator[dict, None, None]:
-        """Create container with Caddy proxy."""
-        yield from create_proxy_container(docker_client, hop3_image, "caddy")
-
-    def test_caddy_proxy_deployment(self, proxy_container: dict, test_app_dir: Path):
-        """Test deploying an app with Caddy proxy."""
-        verify_proxy_deployment(proxy_container, test_app_dir)
-
-
-@pytest.mark.e2e
-@pytest.mark.skip(reason="Git-based deployment temporarily disabled")
-class TestTraefikProxyPlugin:
-    """Test Traefik proxy plugin."""
-
-    @pytest.fixture(scope="class")
-    def proxy_container(
-        self, docker_client: docker.DockerClient, hop3_image: str
-    ) -> Generator[dict, None, None]:
-        """Create container with Traefik proxy."""
-        yield from create_proxy_container(docker_client, hop3_image, "traefik")
-
-    def test_traefik_proxy_deployment(self, proxy_container: dict, test_app_dir: Path):
-        """Test deploying an app with Traefik proxy."""
-        verify_proxy_deployment(proxy_container, test_app_dir)
