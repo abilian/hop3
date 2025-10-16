@@ -20,8 +20,16 @@ from jsonrpcclient import Error, Ok
 from loguru import logger
 
 # Suppress cryptography deprecation warnings from paramiko
+# These warnings come from paramiko's use of deprecated TripleDES cipher
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="paramiko")
-warnings.filterwarnings("ignore", message=".*TripleDES.*", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*TripleDES.*")
+warnings.filterwarnings("ignore", message=".*CryptographyDeprecationWarning.*")
+# Catch all deprecation warnings from cryptography module
+try:
+    from cryptography.utils import CryptographyDeprecationWarning
+    warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
+except ImportError:
+    pass
 
 from .arguments import generate_archive
 from .client import Client
