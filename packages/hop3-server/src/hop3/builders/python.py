@@ -12,7 +12,7 @@ from pathlib import Path
 from hop3.core.env import Env
 from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
 from hop3.core.protocols import BuildArtifact
-from hop3.lib import chdir
+from hop3.lib import chdir, log
 
 from ._base import Builder
 
@@ -119,14 +119,29 @@ class PythonBuilder(Builder):
 
         python = self.virtual_env / "bin" / "python"
 
+        assert self.src_path.exists()
+        assert self.virtual_env.exists()
+        assert python.exists()
+
         # Install dependencies from requirements.txt if it exists
-        if Path("requirements.txt").exists():
-            self.shell(f"{python} -m pip install -r requirements.txt")
-        # Install dependencies using pyproject.toml if it exists
-        elif Path("pyproject.toml").exists():
-            self.shell(f"{python} -m pip install .")
-        else:
-            # This should never happen as `accept` checks for the presence of
-            # requirements.txt or pyproject.toml
-            msg = f"requirements.txt or pyproject.toml not found for '{self.app_name}'"
-            raise FileNotFoundError(msg)
+        # Use absolute paths based on self.src_path to avoid directory confusion
+        requirements_file = self.src_path / "requirements.txt"
+        pyproject_file = self.src_path / "pyproject.toml"
+
+        # DEBUG: List all files in src_path to diagnose the issue
+        files_in_src = sorted(f.name for f in self.src_path.iterdir())
+        log(f"Files in {self.src_path}: {files_in_src}", fg="yellow")
+
+        # Always use requirements.txt if it exists, even if pyproject.toml also exists
+        # This prevents pip from using a stray/unwanted pyproject.toml
+        match requirements_file.exists(), pyproject_file.exists():
+            case True, _:
+                log(f"Installing from requirements.txt: {requirements_file}", fg="green")
+                self.shell(f"{python} -m pip install -r {requirements_file}")
+            case False, True:
+                self.shell(f"{python} -m pip install .")
+            case False, False:
+                # This should never happen as `accept` checks for the presence of
+                # requirements.txt or pyproject.toml
+                msg = f"requirements.txt or pyproject.toml not found for '{self.app_name}'"
+                raise FileNotFoundError(msg)

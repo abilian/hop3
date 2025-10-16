@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.e2e
-@pytest.mark.skip(reason="Git-based deployment temporarily disabled")
 class TestPythonFlaskDeployment:
     """Test deploying Python Flask applications."""
 
@@ -187,7 +186,6 @@ def api_info():
 
 
 @pytest.mark.e2e
-@pytest.mark.skip(reason="Git-based deployment temporarily disabled")
 class TestPythonDjangoDeployment:
     """Test deploying Python Django applications."""
 
@@ -199,7 +197,6 @@ class TestPythonDjangoDeployment:
 
 
 @pytest.mark.e2e
-@pytest.mark.skip(reason="Git-based deployment temporarily disabled")
 class TestPythonPackageManagement:
     """Test different Python package managers."""
 

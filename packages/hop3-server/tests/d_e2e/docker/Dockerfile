@@ -114,12 +114,15 @@ RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/
     sed -i 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' /etc/pam.d/sshd
 
 # Copy hop3-server source code and install directly from source
-# This ensures we always test the latest code without needing to run 'uv build' first
-COPY packages/hop3-server /tmp/hop3-server
-RUN su - hop3 -c "python3 -m venv ~/venv && \
+# Install to /opt/hop3-server to keep it separate from app deployment directories
+COPY packages/hop3-server /opt/hop3-server
+# Remove docs directory to avoid symlink issues, install, then remove pyproject.toml
+RUN rm -rf /opt/hop3-server/docs && \
+    su - hop3 -c "python3 -m venv ~/venv && \
     ~/venv/bin/pip install --no-cache-dir --upgrade pip && \
-    ~/venv/bin/pip install --no-cache-dir -e /tmp/hop3-server" && \
-    chown -R hop3:hop3 /tmp/hop3-server
+    ~/venv/bin/pip install --no-cache-dir -e /opt/hop3-server" && \
+    rm -f /opt/hop3-server/pyproject.toml && \
+    chown -R hop3:hop3 /opt/hop3-server
 
 # Create hop3 environment file
 RUN echo 'HOP3_SECRET_KEY=e2e-test-secret-key-do-not-use-in-production' > /home/hop3/.env && \
