@@ -10,6 +10,7 @@ thin wrapper around SSH to communicate with the server.
 from __future__ import annotations
 
 import base64
+import re
 import sys
 import warnings
 from pathlib import Path
@@ -90,7 +91,11 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     match response:
         case Ok(result=result):
-            Printer().print(result)
+            # Handle auth:login specially - save token automatically
+            if cli_args and cli_args[0] == "auth:login":
+                handle_login_response(result, config)
+            else:
+                Printer().print(result)
         case Error(message=message):
             err(f"Error:\n{message}")
             if client.tunnel:
@@ -101,6 +106,66 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     if client.tunnel:
         client.tunnel.stop()
+
+
+def handle_login_response(result: list[dict], config: Config) -> None:
+    """Handle auth:login response - extract and save token, then print modified output.
+
+    Args:
+        result: The RPC response from auth:login
+        config: The config object to save the token to
+    """
+    # JWT token pattern (3 base64url segments separated by dots)
+    jwt_pattern = re.compile(r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
+
+    token = None
+    modified_result = []
+
+    for item in result:
+        if item.get("t") == "text":
+            text = item.get("text", "")
+            # Check if this text contains a JWT token
+            match = jwt_pattern.search(text)
+            if match:
+                token = match.group(0)
+                # Skip messages about saving to config file or setting environment variable
+                if "config file" in text.lower() or "environment variable" in text.lower():
+                    continue
+            # Keep other text messages
+            modified_result.append(item)
+        else:
+            # Keep non-text messages (tables, errors, etc.)
+            modified_result.append(item)
+
+    # Save token if found
+    if token:
+        try:
+            config.save({"api_token": token})
+            # Add success message about saving the token
+            modified_result.append({
+                "t": "text",
+                "text": f"\nAPI token saved to {config.config_file}",
+            })
+            modified_result.append({
+                "t": "text",
+                "text": "You can now use hop3 commands without additional authentication.",
+            })
+        except Exception as e:
+            modified_result.append({
+                "t": "error",
+                "text": f"Failed to save token to config: {e}",
+            })
+            modified_result.append({
+                "t": "text",
+                "text": f"\nYour API token: {token}",
+            })
+            modified_result.append({
+                "t": "text",
+                "text": f"Please save it manually to {config.config_file or '~/.config/hop3-cli/config.toml'}",
+            })
+
+    # Print the modified result
+    Printer().print(modified_result)
 
 
 def handle_help_flags(args: list[str]) -> list[str]:

@@ -19,6 +19,14 @@ import jwt
 if TYPE_CHECKING:
     pass
 
+
+def _get_config():
+    """Lazy import to avoid circular dependency."""
+    from hop3 import config as c  # noqa: PLC0415
+
+    return c
+
+
 # Valid scopes that can be assigned to tokens
 VALID_SCOPES = {"authenticated", "admin", "user"}
 
@@ -26,14 +34,23 @@ VALID_SCOPES = {"authenticated", "admin", "user"}
 def get_secret_key() -> str:
     """Get the secret key for token signing.
 
+    Checks environment variable first (for tests and overrides),
+    then falls back to config file.
+
     Returns:
         The secret key from config or environment
 
     Raises:
         ValueError: If no secret key is configured
     """
-    # Read directly from environment to support test fixtures
-    secret = os.environ.get("HOP3_SECRET_KEY", "")
+    # Check environment first (for tests and dynamic overrides)
+    secret = os.environ.get("HOP3_SECRET_KEY")
+
+    # Fall back to config file
+    if not secret:
+        c = _get_config()
+        secret = c.HOP3_SECRET_KEY
+
     if not secret:
         msg = (
             "HOP3_SECRET_KEY must be set in configuration or environment. "

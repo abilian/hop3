@@ -18,9 +18,10 @@ APP_AUTHOR = "Abilian SAS"
 _marker = object()
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class Config:
     data: dict = dataclasses.field(default_factory=dict)
+    config_file: Path | None = None
 
     # These are the ultimate fallbacks if nothing is configured.
     defaults: ClassVar[dict] = {
@@ -38,23 +39,23 @@ class Config:
 
     @staticmethod
     def from_dict(data: dict) -> Config:
-        return Config(data)
+        return Config(data=data)
 
     @staticmethod
     def from_toml_file(file: Path) -> Config:
         if not file.exists():
             # It's okay for the config file not to exist; we'll use defaults.
-            return Config({})
+            return Config(data={}, config_file=file)
 
         with file.open() as f:
             try:
                 data = toml.load(f)
-                return Config(data)
+                return Config(data=data, config_file=file)
             except toml.TomlDecodeError:
                 # FIXME: abort instead of returning empty config?
                 # Handle malformed config file gracefully.
                 # You might want to log a warning here.
-                return Config({})
+                return Config(data={}, config_file=file)
 
     def __getitem__(self, item):
         value = self.get(item)
@@ -90,6 +91,27 @@ class Config:
 
         # If not found anywhere, raise KeyError
         raise KeyError(key)
+
+    def save(self, updates: dict | None = None) -> None:
+        """Save the config to the TOML file.
+
+        Args:
+            updates: Optional dictionary of updates to merge into config before saving
+        """
+        if not self.config_file:
+            msg = "Cannot save: config_file path not set"
+            raise ValueError(msg)
+
+        # Merge updates into data
+        if updates:
+            self.data.update(updates)
+
+        # Ensure parent directory exists
+        self.config_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write to file
+        with self.config_file.open("w") as f:
+            toml.dump(self.data, f)
 
 
 def get_config(config_file: Path | str | None = None) -> Config:
