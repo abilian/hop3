@@ -18,7 +18,7 @@ This is a major architectural release that restructures Hop3 into a modern clien
 - **Configuration System**: Support for both Procfile (convention) and hop3.toml (configuration) with precedence rules
 - **Service Framework**: Plugin-based service/addon system with PostgreSQL implementation for managed databases
 - **Git Push Deployment**: Support for `git push` deployment method using git hooks
-- **OS Plugin System**: Pluggable OS abstraction layer supporting Debian 12, Ubuntu 22.04, and extensible to other distributions
+- **OS Plugin System**: Pluggable OS abstraction layer with family-based plugins supporting all Debian-based (Debian, Ubuntu, derivatives) and Red Hat-based (RHEL, Rocky, Alma, Fedora, CentOS) distributions, plus Arch, BSD, and macOS
 - **Web UI Scaffolding**: Initial structure for future web-based management interface
 - **Backup System**: Basic application backup mechanism (WIP)
 - **SBOM Generation**: Automatic Software Bill of Materials generation for supply chain security
@@ -33,7 +33,7 @@ This is a major architectural release that restructures Hop3 into a modern clien
 - **Path Handling**: Modernized to use `pathlib.Path` objects throughout
 - **Command Execution**: Updated to use `subprocess.run` instead of legacy methods
 - **License**: Changed to Apache 2.0
-- **Proxy Architecture**: Refactored Nginx, Caddy, and Traefik implementations to use abstract `BaseProxy` class, eliminating ~240 lines of code duplication
+- **Proxy Architecture**: Refactored Nginx, Caddy, and Traefik implementations to use abstract `BaseProxy` class, eliminating ~240 lines of code duplication. Standardized `HOST_NAME` environment variable across all proxy plugins (replaced `NGINX_HOST_NAME`, `CADDY_SERVER_NAME`, `TRAEFIK_SERVER_NAME`)
 
 ### Removed
 
