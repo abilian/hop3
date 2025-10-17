@@ -272,6 +272,41 @@ pytest packages/hop3-server/tests/d_e2e/ -v
 pytest packages/hop3-server/tests/d_e2e/test_flask_app.py -v
 ```
 
+### E2E Test Suite Consolidation
+
+**Status**: As of October 2025, Hop3 is consolidating its E2E test suites to reduce duplication and improve testing efficiency.
+
+**Two E2E Frameworks**:
+
+1. **`packages/hop3-testing/tests/`** (Legacy Framework)
+   - Uses DeploymentTarget abstraction
+   - Supports Docker and remote server targets
+   - **Status**: Deprecated for E2E testing, preserved as library
+
+2. **`packages/hop3-server/tests/d_e2e/`** (Modern Framework)
+   - Docker-focused with comprehensive fixtures
+   - Better infrastructure and cleanup
+   - Includes proxy plugin testing
+   - **Status**: Primary E2E test suite
+
+**Migration Status**:
+
+The following tests have been deprecated and migrated to d_e2e:
+- `test_deploy_basic_app()` → `test_python_deployment.py` and `test_full_deployment.py`
+- `test_deploy_all_simple_apps()` → `test_full_deployment.py`
+- `test_static_app_deployment()` → `test_static_deployment.py`
+- `test_flask_app_deployment()` → `test_python_deployment.py` and `test_full_deployment.py`
+
+Tests in `packages/hop3-testing/tests/test_basic_apps.py` are now marked as skipped with references to their d_e2e equivalents.
+
+**Benefits**:
+- 20-40% reduction in E2E test execution time
+- Single, consistent E2E framework
+- Clearer test organization
+- Easier maintenance
+
+**For Details**: See `local-notes/TEST-SUITE-CONSOLIDATION.md` for complete analysis and migration plan.
+
 ## Best Practices
 
 ### Writing Tests

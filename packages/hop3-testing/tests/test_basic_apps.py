@@ -18,12 +18,20 @@ if TYPE_CHECKING:
 
 @pytest.mark.deployment
 @pytest.mark.parametrize("app", ["000-static", "010-flask-pip-wsgi"], indirect=False)
+@pytest.mark.skip(
+    reason="Migrated to d_e2e suite (packages/hop3-server/tests/d_e2e/). "
+    "See local-notes/TEST-SUITE-CONSOLIDATION.md for details."
+)
 def test_deploy_basic_app(
     deployment_target: DeploymentTarget,
     test_app_catalog,
     app: str,
 ):
     """Test deploying basic applications.
+
+    DEPRECATED: This test has been migrated to the d_e2e test suite.
+    - Static app: test_static_deployment.py
+    - Flask app: test_python_deployment.py and test_full_deployment.py
 
     Args:
         deployment_target: Deployment target fixture
@@ -43,11 +51,18 @@ def test_deploy_basic_app(
 
 @pytest.mark.deployment
 @pytest.mark.slow
+@pytest.mark.skip(
+    reason="Migrated to d_e2e suite (packages/hop3-server/tests/d_e2e/test_full_deployment.py). "
+    "See local-notes/TEST-SUITE-CONSOLIDATION.md for details."
+)
 def test_deploy_all_simple_apps(
     deployment_target: DeploymentTarget,
     simple_apps: list[TestApp],
 ):
     """Test deploying all simple applications.
+
+    DEPRECATED: This test has been migrated to the d_e2e test suite.
+    The d_e2e suite provides more comprehensive lifecycle testing.
 
     This test deploys each simple app one by one and verifies it works.
 
@@ -90,11 +105,18 @@ def test_deploy_all_simple_apps(
 
 
 @pytest.mark.deployment
+@pytest.mark.skip(
+    reason="Migrated to d_e2e suite (packages/hop3-server/tests/d_e2e/test_static_deployment.py). "
+    "See local-notes/TEST-SUITE-CONSOLIDATION.md for details."
+)
 def test_static_app_deployment(
     deployment_target: DeploymentTarget,
     test_app_catalog,
 ):
     """Test deploying a static HTML application.
+
+    DEPRECATED: This test has been migrated to the d_e2e test suite.
+    See test_static_deployment.py in d_e2e for the modern implementation.
 
     Args:
         deployment_target: Deployment target fixture
@@ -117,11 +139,20 @@ def test_static_app_deployment(
 
 
 @pytest.mark.deployment
+@pytest.mark.skip(
+    reason="Migrated to d_e2e suite (packages/hop3-server/tests/d_e2e/test_python_deployment.py "
+    "and test_full_deployment.py). See local-notes/TEST-SUITE-CONSOLIDATION.md for details."
+)
 def test_flask_app_deployment(
     deployment_target: DeploymentTarget,
     test_app_catalog,
 ):
     """Test deploying a Flask application.
+
+    DEPRECATED: This test has been migrated to the d_e2e test suite.
+    The d_e2e suite provides more comprehensive Flask deployment testing with:
+    - test_python_deployment.py: Basic Flask deployment
+    - test_full_deployment.py: Complete lifecycle testing
 
     Args:
         deployment_target: Deployment target fixture
