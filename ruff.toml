@@ -61,6 +61,7 @@ lint.extend-ignore = [
 
     # Fix these
     "E501", #   	line-too-long
+    "RUF005",
     "RUF045", # 	implicit-class-var-in-dataclass
     "TRY300", # 	try-consider-else
     "B904", #   	raise-without-from-inside-except
