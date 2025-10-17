@@ -40,6 +40,74 @@ We have implemented several measures to ensure the security and integrity of the
 
 We are committed to protecting any data we handle. For detailed information, please see our [**Privacy Policy**](./privacy-policy.md). Key measures include encryption at rest for sensitive data and secure backup procedures.
 
+### Testing Mode Security
+
+#### HOP3_UNSAFE Mode
+
+For automated testing purposes, Hop3 includes a `HOP3_UNSAFE` configuration option that **completely disables authentication and authorization**. This mode exists solely to simplify automated testing in isolated Docker containers.
+
+⚠️ **CRITICAL SECURITY WARNING** ⚠️
+
+**What HOP3_UNSAFE Does:**
+- Bypasses all authentication checks
+- Grants full admin access to all requests
+- Treats all requests as authenticated admin users
+- Disables JWT token validation
+- Disables command-level authorization
+
+**Acceptable Use:**
+- ✅ Automated tests running in isolated Docker containers
+- ✅ Local development in completely isolated environments
+- ✅ CI/CD pipelines with network-isolated test containers
+
+**NEVER Use In:**
+- ❌ Production servers
+- ❌ Staging servers
+- ❌ Any server accessible from a network
+- ❌ Any shared development environment
+- ❌ Any environment with real user data
+
+**How to Verify It's Disabled:**
+
+Before deploying any Hop3 instance to a network-accessible environment:
+
+```bash
+# Check environment variables
+env | grep HOP3_UNSAFE  # Should return nothing or "false"
+
+# Check configuration file
+grep -i unsafe /etc/hop3/hop3-server.toml  # Should not exist or be "false"
+
+# Test that authentication is enforced
+curl http://your-server:8080/rpc -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"method":"app:list"}'
+# Should return 401 Unauthorized
+```
+
+**Configuration:**
+
+HOP3_UNSAFE can be enabled via:
+
+1. Environment variable:
+```bash
+export HOP3_UNSAFE=true  # ONLY in isolated test containers
+```
+
+2. Configuration file (`hop3-server.toml`):
+```toml
+[security]
+unsafe = true  # ONLY in isolated test containers
+```
+
+**Our Commitment:**
+
+- HOP3_UNSAFE is **only** documented in testing and security documentation
+- Installation scripts **never** enable HOP3_UNSAFE
+- Default configuration files **never** include HOP3_UNSAFE
+- The codebase includes explicit warning comments wherever HOP3_UNSAFE is checked
+- Any production deployment guide explicitly warns against enabling HOP3_UNSAFE
+
 ## Responsible Disclosure Policy
 
 We take security vulnerabilities very seriously. If you believe you have found a security vulnerability in the Hop3 software or our project infrastructure, we ask that you report it to us privately to allow us time to investigate and remediate the issue.

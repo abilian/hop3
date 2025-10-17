@@ -32,13 +32,159 @@ For each set of changes, create a new branch in your forked repository. Use a de
 
 - **Update Documentation**: If your changes require updates to the documentation, include those in your PR. Accurate and up-to-date documentation is crucial for users and contributors.
 
-- **Testing**: Include tests for your changes to ensure that the new code works as expected and does not break existing functionality. Add new tests if you're introducing new features or fixing bugs.
+- **Testing**: Include tests for your changes to ensure that the new code works as expected and does not break existing functionality. Add new tests if you're introducing new features or fixing bugs. See the [Testing](#testing) section below for detailed requirements.
 
 - **Review Process**: After submitting your PR, one of the project maintainers will review your changes. Be open to feedback and be prepared to make adjustments to your code. The review process is a collaborative effort, and constructive dialogue is welcome.
 
 ### 4. Submitting Your Pull Request
 
 Once you've completed your changes, pushed them to your fork, and ensured they align with the contribution guidelines, you're ready to submit a pull request to the main Hop3 repository. In your PR, provide a clear description of the changes and reference any related issues.
+
+## Testing
+
+Hop3 uses a comprehensive four-layer testing strategy. All contributions should include appropriate tests.
+
+### Test Requirements
+
+**For Bug Fixes:**
+- Add a test that reproduces the bug (should fail before your fix)
+- Verify the test passes after your fix
+- Add tests at the appropriate layer (usually unit or integration)
+
+**For New Features:**
+- Add unit tests for new functions/classes
+- Add integration tests for component interactions
+- Add system tests if the feature involves CLI commands
+- Add E2E tests if the feature involves complete workflows
+
+### Running Tests
+
+Before submitting a PR, ensure all tests pass:
+
+```bash
+# Quick tests (unit + integration) - run before every commit
+pytest packages/hop3-server/tests/a_unit/ packages/hop3-server/tests/b_integration/
+
+# System tests - run before pushing
+pytest packages/hop3-server/tests/c_system/
+
+# All tests (takes longer)
+pytest
+```
+
+### Test Layers
+
+1. **Unit Tests** (`tests/a_unit/`): Fast, isolated tests of individual functions
+   - No external dependencies
+   - Mock all I/O operations
+   - Should run in < 1 second
+
+2. **Integration Tests** (`tests/b_integration/`): Component interaction tests
+   - Uses in-memory database
+   - Uses Starlette TestClient
+   - Should run in ~10 seconds
+
+3. **System Tests** (`tests/c_system/`): CLI ↔ Server communication tests
+   - **Requires Docker**
+   - Tests use isolated Docker containers
+   - Should run in ~20 seconds (after initial image build)
+
+4. **E2E Tests** (`tests/d_e2e/`): Complete workflow tests
+   - **Requires Docker**
+   - Tests real application deployments
+   - Should run in 10-20 minutes
+
+### Docker Requirement
+
+System and E2E tests require Docker to be installed and running:
+
+```bash
+# Check Docker is installed
+docker --version
+
+# Check Docker daemon is running
+docker ps
+```
+
+If you don't have Docker installed:
+- **macOS**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop)
+- **Linux**: Install via your package manager (e.g., `apt install docker.io`)
+- **Windows**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop)
+
+### Test Environment Setup
+
+```bash
+# Install test dependencies
+uv sync --dev
+
+# Ensure HOP3_DEV_HOST is not set (for Docker-based testing)
+unset HOP3_DEV_HOST
+
+# Run tests
+pytest
+```
+
+### Writing Tests
+
+Follow these guidelines when writing tests:
+
+1. **Place tests in the correct layer**: Unit tests for isolated functions, integration tests for component interactions, etc.
+
+2. **Use descriptive names**: Test names should clearly describe what they test
+   ```python
+   def test_user_cannot_delete_other_users_apps():
+       """Test that users can only delete their own apps."""
+   ```
+
+3. **Follow Arrange-Act-Assert pattern**:
+   ```python
+   def test_app_deployment():
+       # Arrange
+       app = create_test_app()
+
+       # Act
+       result = deploy_app(app)
+
+       # Assert
+       assert result.success
+       assert result.app.state == "RUNNING"
+   ```
+
+4. **Use fixtures for common setup**:
+   ```python
+   @pytest.fixture
+   def sample_app(tmp_path):
+       """Create a sample app directory."""
+       app_dir = tmp_path / "test-app"
+       app_dir.mkdir()
+       (app_dir / "Procfile").write_text("web: python app.py")
+       return app_dir
+   ```
+
+5. **Test both success and failure cases**:
+   ```python
+   def test_valid_app_name_accepted():
+       assert is_valid_app_name("my-app")
+
+   def test_invalid_app_name_rejected():
+       assert not is_valid_app_name("my app")  # spaces not allowed
+   ```
+
+### Test Configuration
+
+System and E2E tests run in Docker containers with `HOP3_UNSAFE=true` to bypass authentication. This is **only** safe because:
+- Tests run in completely isolated Docker containers
+- Containers are destroyed after tests complete
+- Containers are not exposed to any network
+
+**Never** use `HOP3_UNSAFE` outside of isolated test containers. See the [Security Policy](../../policies/security-policy.md#hop3_unsafe-mode) for more details.
+
+### Additional Testing Resources
+
+For comprehensive testing documentation, see:
+- [Testing Strategy](./testing-strategy.md) - Complete testing guide
+- [Testing Documentation](./testing.md) - Quick reference
+- [TEST-STATUS.md](/TEST-STATUS.md) - Current test status
 
 ## Community and Conduct
 
