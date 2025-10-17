@@ -7,8 +7,9 @@
 from __future__ import annotations
 
 import inspect
+import re
 import sys
-from argparse import ArgumentParser
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from collections.abc import Callable
 
 from hop3.lib.registry import lookup
@@ -18,6 +19,41 @@ from . import Command
 from .help import Help, print_help
 
 scan_package("hop3.server.cli")
+
+
+class HopServerArgumentParser(ArgumentParser):
+    """Custom ArgumentParser with better error messages."""
+
+    def error(self, message: str):
+        """Override error to provide better messages for invalid commands."""
+        # Check if this is an invalid choice error
+        if "invalid choice:" in message:
+            # Extract the invalid command from the error message
+            match = re.search(r"invalid choice: '([^']+)'", message)
+            if match:
+                invalid_cmd = match.group(1)
+                # Get available commands
+                commands = lookup(Command)
+                command_names = []
+                for cmd in commands:
+                    name = getattr(cmd, "name", None) or cmd.__name__.lower()
+                    if name:  # Filter out empty names
+                        command_names.append(name)
+                command_names = sorted(command_names)
+
+                self.print_usage(sys.stderr)
+                print(f"\nError: Unknown command '{invalid_cmd}'", file=sys.stderr)
+                print(
+                    f"\nAvailable commands: {', '.join(command_names)}", file=sys.stderr
+                )
+                print(
+                    "\nUse 'hop-server --help' for more information.", file=sys.stderr
+                )
+                self.exit(2)
+
+        # For other errors, use default behavior
+        self.print_usage(sys.stderr)
+        self.exit(2, f"{self.prog}: error: {message}\n")
 
 
 class CLI:
@@ -92,7 +128,7 @@ def create_parser() -> ArgumentParser:
     Returns:
         ArgumentParser: A parser object configured with common and sub-command arguments.
     """
-    parser = ArgumentParser(description="Hop3 CLI")
+    parser = HopServerArgumentParser(description="Hop3 CLI")
 
     # Add flags for verbosity
     parser.add_argument(
@@ -131,8 +167,19 @@ def add_cmd_to_subparsers(subparsers, cmd):
     else:
         func = Help(name)
 
-    # Create a subparser for the command
-    subparser = subparsers.add_parser(name, help=cmd.__doc__)
+    # Get docstring - use only first line for the help text
+    doc = cmd.__doc__ or ""
+    # Get first line only (before first blank line or newline)
+    help_text = doc.strip().split("\n\n")[0].split("\n")[0] if doc else ""
+
+    # Create a subparser for the command with RawDescriptionHelpFormatter
+    # This preserves the formatting of the description (docstring)
+    subparser = subparsers.add_parser(
+        name,
+        help=help_text,
+        description=doc,
+        formatter_class=RawDescriptionHelpFormatter,
+    )
     subparser.set_defaults(func=func)
 
     # Add the app argument if the command has an App parameter
