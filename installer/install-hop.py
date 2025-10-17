@@ -208,6 +208,7 @@ def setup_hop3() -> None:
         service="hop3-server",
         enabled=True,
         running=True,
+        restarted=True,  # Restart to pick up config changes from setup
     )
 
 

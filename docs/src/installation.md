@@ -52,13 +52,15 @@ poetry run pyinfra --user root {$TARGET_HOST} installer/install-hop.py
   This command will:
   - Create necessary directories
   - Configure the uWSGI emperor
-  - Generate and save `HOP3_SECRET_KEY` to `/home/hop3/.env` (used for JWT token signing)
+  - Generate and save `HOP3_SECRET_KEY` to `/home/hop3/hop3-server.toml` (used for JWT token signing)
 
   After setup completes, restart the hop3 service to load the configuration:
 
   ```bash
   sudo systemctl restart hop3
   ```
+
+  The generated `hop3-server.toml` file contains server-wide configuration. You can edit this file to customize other server settings.
 
 - **Configure Hop3**: You may need to perform additional configuration steps specific to your application or environment. Refer to the Hop3 documentation for detailed configuration options.
 

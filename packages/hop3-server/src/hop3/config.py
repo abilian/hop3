@@ -5,23 +5,21 @@ import os
 import re
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 from hop3.lib.config import Config
 
-# Load environment from .env file if it exists
-# This allows hop3 to work both in systemd (which loads the file via EnvironmentFile)
-# and in manual/development scenarios
+# Load server configuration from hop3-server.toml if it exists
 TESTING = "PYTEST_VERSION" in os.environ
 
 if not TESTING:
     # Try to load from the standard location
     hop3_root = Path(os.environ.get("HOP3_ROOT", "/home/hop3"))
-    env_file = hop3_root / ".env"
-    if env_file.exists():
-        load_dotenv(env_file)
-
-config = Config()
+    config_file = hop3_root / "hop3-server.toml"
+    if config_file.exists():
+        config = Config(file=config_file)
+    else:
+        config = Config()
+else:
+    config = Config()
 
 if TESTING:
     os.environ["HOP3_ROOT"] = "/tmp/hop3"
