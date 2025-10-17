@@ -5,6 +5,7 @@ Description=Hop3 uWSGI Emperor
 After=syslog.target
 
 [Service]
+EnvironmentFile=-/home/hop3/.env
 ExecStart=/usr/local/bin/uwsgi-hop3 --ini /home/hop3/uwsgi/uwsgi.ini
 User=hop3
 Group=www-data

@@ -8,6 +8,7 @@ from __future__ import annotations
 import grp
 import os
 import pwd
+import secrets
 import stat
 import subprocess
 import sys
@@ -122,7 +123,88 @@ class SetupCmd(Command):
             for k, v in settings:
                 echo(f"  {k}: {v}", fg="blue")
             echo("")
+
+        # Set up HOP3_SECRET_KEY
+        self.setup_secret_key(verbose_setup)
+
+        if verbose_setup:
+            echo("")
             echo("Setup completed successfully!", fg="green")
+
+    def setup_secret_key(self, verbose: bool = False) -> None:
+        """Generate and configure HOP3_SECRET_KEY if not already set.
+
+        Args:
+            verbose: Whether to show detailed output
+        """
+        # Check if already set in environment
+        if os.environ.get("HOP3_SECRET_KEY"):
+            if verbose:
+                echo("Secret key configuration:", fg="yellow")
+                echo("  HOP3_SECRET_KEY already set in environment", fg="blue")
+            return
+
+        # Path to server environment file
+        env_file = c.HOP3_ROOT / ".env"
+
+        # Check if already set in .env file
+        if env_file.exists():
+            env_content = env_file.read_text()
+            if "HOP3_SECRET_KEY" in env_content:
+                if verbose:
+                    echo("Secret key configuration:", fg="yellow")
+                    echo(
+                        f"  HOP3_SECRET_KEY already configured in {env_file}", fg="blue"
+                    )
+                return
+
+        # Generate new secret key
+        echo("Secret key configuration:", fg="yellow")
+        secret_key = secrets.token_urlsafe(32)
+
+        # Save to .env file
+        try:
+            # Create .env file or append if it exists
+            mode = "a" if env_file.exists() else "w"
+            with env_file.open(mode) as f:
+                if mode == "a":
+                    f.write("\n")
+                f.write("# Hop3 secret key for JWT token signing\n")
+                f.write(f'HOP3_SECRET_KEY="{secret_key}"\n')
+
+            # Set restrictive permissions (owner read/write only)
+            env_file.chmod(0o600)
+
+            echo(f"  Generated and saved HOP3_SECRET_KEY to {env_file}", fg="green")
+            echo("")
+            echo(
+                "  IMPORTANT: Restart the hop3 service to load the key:",
+                fg="yellow",
+            )
+            echo("    sudo systemctl restart hop3", fg="white")
+            echo("")
+            echo(
+                "  IMPORTANT: Keep this key secret! It's used to sign authentication tokens",
+                fg="yellow",
+            )
+
+            if verbose:
+                echo("")
+                echo(f"  Secret key: {secret_key}", fg="blue")
+                echo("  File permissions: 0600 (owner read/write only)", fg="blue")
+
+        except Exception as e:
+            echo(
+                f"  Warning: Could not save HOP3_SECRET_KEY to {env_file}: {e}",
+                fg="red",
+            )
+            echo("")
+            echo(
+                "  Please manually set HOP3_SECRET_KEY in your environment file:",
+                fg="yellow",
+            )
+            echo(f"  echo 'HOP3_SECRET_KEY=\"{secret_key}\"' >> {env_file}", fg="white")
+            echo(f"  chmod 600 {env_file}", fg="white")
 
 
 @register
