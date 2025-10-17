@@ -1,6 +1,7 @@
 # Copyright (c) 2024-2025, Abilian SAS
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
@@ -179,6 +180,145 @@ class Proxy(Protocol):
     workers: dict[str, str]
 
     def setup(self) -> None: ...
+
+
+@dataclass(frozen=True)
+class BaseProxy(ABC):
+    """Abstract base class for proxy implementations.
+
+    This class provides common functionality for all proxy strategies
+    (Nginx, Caddy, Traefik, etc.) to eliminate code duplication.
+
+    Concrete proxy classes should inherit from this and implement
+    the abstract methods for proxy-specific behavior.
+    """
+
+    app: App
+    env: Env
+    workers: dict[str, str]
+
+    @property
+    def app_name(self) -> str:
+        """Get the application name."""
+        return self.app.name
+
+    @property
+    def app_path(self) -> Path:
+        """Get the application directory path."""
+        return self.app.app_path
+
+    @property
+    def src_path(self) -> Path:
+        """Get the application source directory path."""
+        return self.app.src_path
+
+    @abstractmethod
+    def get_proxy_name(self) -> str:
+        """Return the proxy name (e.g., 'nginx', 'caddy', 'traefik').
+
+        This is used to construct proxy-specific environment variable names.
+        """
+
+    def update_env(self, key: str, value: str = "", template: str = "") -> None:
+        """Update an environment variable, optionally from a template.
+
+        Args:
+            key: Environment variable name
+            value: Value to set (used if template is empty)
+            template: Template string to format with current env vars
+        """
+        if template:
+            value = template.format(**self.env)
+        self.env[key] = value
+
+    def setup(self) -> None:
+        """Configure the proxy environment for the application.
+
+        This orchestrates the setup process by calling various setup methods
+        in the correct order. This method is the same for all proxies.
+        """
+        self.setup_backend()
+        self.setup_certificates()
+        self.setup_cache()
+        self.setup_static()
+        self.extra_setup()
+        self.generate_config()
+        self.check_config()
+        self.reload_proxy()
+
+    @abstractmethod
+    def setup_backend(self) -> None:
+        """Configure the backend connection (TCP or Unix socket)."""
+
+    @abstractmethod
+    def setup_certificates(self) -> None:
+        """Setup SSL certificates for the application."""
+
+    @abstractmethod
+    def setup_cache(self) -> None:
+        """Configure caching for the application."""
+
+    @abstractmethod
+    def setup_static(self) -> None:
+        """Configure static file serving."""
+
+    @abstractmethod
+    def extra_setup(self) -> None:
+        """Perform additional proxy-specific setup."""
+
+    @abstractmethod
+    def generate_config(self) -> None:
+        """Generate the proxy configuration file."""
+
+    @abstractmethod
+    def check_config(self) -> None:
+        """Validate the generated proxy configuration."""
+
+    @abstractmethod
+    def reload_proxy(self) -> None:
+        """Reload the proxy to apply configuration changes."""
+
+    def get_static_paths(self) -> list[tuple[str, Path]]:
+        """Get a mapping of static URL prefixes to file system paths.
+
+        This method is identical across all proxy implementations,
+        only the environment variable name differs.
+
+        Returns:
+            list of tuples: Each tuple contains a URL prefix and Path object.
+        """
+        proxy_name = self.get_proxy_name().upper()
+        static_paths = self.env.get(f"{proxy_name}_STATIC_PATHS", "")
+
+        # Prepend static worker path if present
+        if "static" in self.workers:
+            stripped = self.workers["static"].strip("/").rstrip("/")
+            if stripped.startswith(":"):
+                prefix = "/"
+            else:
+                prefix = "/:"
+
+            if not stripped:
+                stripped = "."
+
+            separator = "," if static_paths else ""
+            static_paths = prefix + stripped + "/" + separator + static_paths
+
+        items = static_paths.split(",") if static_paths else []
+
+        result = []
+        for item in items:
+            static_url, static_path_str = item.split(":")
+            static_path_str = static_path_str.rstrip()
+            if static_path_str[0] == "/":
+                # Use absolute path
+                static_path = Path(static_path_str)
+            else:
+                # Use relative path based on src_path
+                static_path = self.src_path / static_path_str
+            result.append((static_url, static_path))
+
+        return result
 
 
 class OSSetupStrategy(Protocol):

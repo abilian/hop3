@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from starlette.responses import Response
 
+from hop3 import config
 from hop3.commands import Command
 from hop3.lib.registry import lookup
 from hop3.lib.scanner import scan_package
@@ -70,7 +71,10 @@ async def handle_rpc(request: Request):
     # For security: Check authentication BEFORE revealing if command exists
     # (for commands that would require auth if they existed)
     # This prevents information disclosure about available commands
-    if command_class is None or requires_authentication(command_class):
+    # Skip authentication check if HOP3_UNSAFE is true (testing mode only)
+    if not config.HOP3_UNSAFE and (
+        command_class is None or requires_authentication(command_class)
+    ):
         # Check if user attribute is available (auth middleware installed)
         if "user" in request.scope:
             if not request.user.is_authenticated:

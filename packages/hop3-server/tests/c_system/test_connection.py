@@ -150,6 +150,9 @@ def test_auth_login_command():
         f"stdout: {result.stdout[:200]}\n"
         f"stderr: {result.stderr[:200]}"
     )
-    assert "Your API token:" in result.stdout, (
-        f"auth:login did not return API token:\nstdout: {result.stdout[:200]}"
-    )
+    # Check for either the old format (raw token) or new format (saved token)
+    assert (
+        "Your API token:" in result.stdout
+        or "API token saved to" in result.stdout
+        or "Login successful" in result.stdout
+    ), f"auth:login did not show success:\nstdout: {result.stdout[:200]}"

@@ -47,7 +47,8 @@ HOP3_DEBUG = config.get_bool("HOP3_DEBUG", False)
 # Security
 HOP3_SECRET_KEY = config.get_str("HOP3_SECRET_KEY", "")
 HOP3_TOKEN_EXPIRY_HOURS = config.get_int("HOP3_TOKEN_EXPIRY_HOURS", 24)
-HOP3_ENABLE_AUTH = config.get_bool("HOP3_ENABLE_AUTH", True)
+# UNSAFE MODE: Disables all authentication - USE ONLY FOR TESTING
+HOP3_UNSAFE = config.get_bool("HOP3_UNSAFE", False)
 
 # Proxy configuration (server-wide)
 HOP3_PROXY_TYPE = config.get_str("HOP3_PROXY_TYPE", "nginx")
