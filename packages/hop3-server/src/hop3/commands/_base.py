@@ -38,6 +38,9 @@ from hop3.lib.registry import lookup
 
 class Command:
     name: ClassVar[str] = ""
+    # Authentication metadata (default: requires auth, doesn't need username)
+    requires_auth: ClassVar[bool] = True
+    pass_username: ClassVar[bool] = False
 
     def call(self, *args):
         return self.get_help()

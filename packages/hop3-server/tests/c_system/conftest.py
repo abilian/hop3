@@ -5,8 +5,8 @@
 """Pytest fixtures for system integration tests using hop3-cli binary.
 
 This module provides fixtures for system integration testing that:
-- Automatically start a local server in /tmp if HOP3_DEV_HOST is not set
-- Use the hop3-cli binary exclusively (no direct SSH)
+- Start a Docker container with hop3-server for isolated testing
+- Use the hop3-cli binary exclusively (no direct Python imports)
 - Set up authentication with JWT tokens
 - Test both tarball and git-hook deployment methods
 - Clean up resources after tests
@@ -16,27 +16,22 @@ from __future__ import annotations
 
 import os
 import shutil
-import signal
 import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-import httpx
+import docker
+import docker.errors
 import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-# Get server from environment (optional - will start local server if not set)
-E2E_SERVER = os.environ.get("HOP3_DEV_HOST")
 E2E_TEST_USER = "system-test-user"
 E2E_TEST_EMAIL = "system-test@example.com"
 E2E_TEST_PASSWORD = "system-test-password-12345"
-
-# Track whether we're using a local test server (no full infrastructure)
-_using_local_server = E2E_SERVER is None
 
 # Full infrastructure tests require explicit opt-in via environment variable
 # These tests need uwsgi, nginx, systemd, etc.
@@ -55,129 +50,186 @@ requires_full_infrastructure = pytest.mark.skipif(
 
 
 @pytest.fixture(scope="session")
-def local_server() -> Generator[tuple[str, Path], None, None]:
-    """Start a local hop3-server in /tmp for testing.
+def docker_client() -> Generator[docker.DockerClient, None, None]:
+    """Provide Docker client for tests."""
+    client = docker.from_env()
+    # Test Docker connectivity
+    try:
+        client.ping()
+    except Exception as e:
+        pytest.skip(f"Docker is not available: {e}")
+    yield client
+    client.close()
 
-    This fixture:
-    1. Creates a temporary directory in /tmp for the server
-    2. Sets up environment variables for the server
-    3. Starts the server process in the background
-    4. Waits for the server to be ready
-    5. Yields the API URL and server root directory
-    6. Stops the server and cleans up
+
+@pytest.fixture(scope="session")
+def hop3_image(docker_client: docker.DockerClient) -> str:
+    """Build or get hop3 E2E test image."""
+    image_tag = "hop3-e2e:test"
+
+    # Check if image already exists
+    try:
+        docker_client.images.get(image_tag)
+        print(f"Using existing Docker image: {image_tag}")
+        return image_tag
+    except docker.errors.ImageNotFound:
+        pass
+
+    # Build the image
+    print(f"Building Docker image: {image_tag}")
+    print("This may take 5-10 minutes on first run...")
+
+    project_root = Path(__file__).parent.parent.parent.parent.parent
+    dockerfile_path = Path(__file__).parent.parent / "d_e2e" / "docker" / "Dockerfile"
+
+    # Build Docker image
+    try:
+        _image, logs = docker_client.images.build(
+            path=str(project_root),
+            dockerfile=str(dockerfile_path),
+            tag=image_tag,
+            rm=True,
+            forcerm=True,
+        )
+
+        # Print build logs
+        for log in logs:
+            if "stream" in log:
+                print(log["stream"].strip())
+
+        print(f"Successfully built image: {image_tag}")
+        return image_tag
+
+    except docker.errors.BuildError as e:
+        print(f"Build failed: {e}")
+        for log in e.build_log:
+            if "stream" in log:
+                print(log["stream"].strip())
+        pytest.fail(f"Failed to build Docker image: {e}")
+
+
+@pytest.fixture(scope="session")
+def local_server(
+    docker_client: docker.DockerClient, hop3_image: str
+) -> Generator[dict[str, Any], None, None]:
+    """Start a Docker container with hop3-server for testing.
 
     Returns:
-        Tuple of (api_url, server_root_path)
+        Dict with container info including api_url and container object
     """
-    # Create temporary directory for server
-    server_root = Path(tempfile.mkdtemp(prefix="hop3-system-test-", dir="/tmp"))
+    print("\n=== Starting Docker Container ===")
 
-    print("\n=== Starting Local Server ===")
-    print(f"Server root: {server_root}")
-
-    # Set up environment for server
-    env = os.environ.copy()
-    env.update({
-        "HOP3_ROOT": str(server_root),
-        "HOP3_SECRET_KEY": "test-secret-key-for-system-tests",
-        "HOP3_ENABLE_AUTH": "true",
-        "HOP3_API_HOST": "127.0.0.1",
-        "HOP3_API_PORT": "8000",
-    })
-
-    # Start server process
-    print("Starting hop-server serve...")
-    server_process = subprocess.Popen(
-        ["hop-server", "serve"],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+    # Start container
+    container = docker_client.containers.run(
+        hop3_image,
+        detach=True,
+        ports={
+            "22/tcp": None,  # SSH - random port
+            "80/tcp": None,  # HTTP - random port
+            "8000/tcp": None,  # Hop3 server - random port
+        },
     )
 
-    # Wait for server to be ready
-    api_url = "http://127.0.0.1:8000"
-    max_attempts = 30
-    for attempt in range(max_attempts):
-        try:
-            response = httpx.get(f"{api_url}/health", timeout=2.0)
-            if response.status_code == 200:
-                print(f"Server is ready after {attempt + 1} attempts")
-                break
-        except (httpx.ConnectError, httpx.TimeoutException):
-            if attempt < max_attempts - 1:
-                time.sleep(1)
-            else:
-                # Server failed to start
-                server_process.kill()
-                stdout, stderr = server_process.communicate(timeout=5)
-                print(f"Server stdout: {stdout[:500]}")
-                print(f"Server stderr: {stderr[:500]}")
-                pytest.fail(f"Server failed to start after {max_attempts} seconds")
-
-    print(f"Server ready at {api_url}")
-
     try:
-        yield api_url, server_root
-    finally:
-        # Stop server
-        print("\n=== Stopping Local Server ===")
-        if server_process.poll() is None:
-            server_process.send_signal(signal.SIGTERM)
+        # Wait for services to initialize
+        print("Waiting for services to initialize...")
+        time.sleep(5)
+
+        # Check if container is still running
+        container.reload()
+        if container.status != "running":
+            print(f"Container exited with status: {container.status}")
+            print("Container logs:")
+            print(container.logs().decode())
+            pytest.fail(f"Container failed to start (status: {container.status})")
+
+        # Wait for hop3-server to be ready
+        print("Waiting for hop3-server to be ready...")
+        max_wait = 60
+        start_time = time.time()
+
+        while time.time() - start_time < max_wait:
+            container.reload()
+            if container.status != "running":
+                print(f"Container exited during startup: {container.status}")
+                print("Container logs:")
+                print(container.logs().decode())
+                pytest.fail(
+                    f"Container stopped unexpectedly (status: {container.status})"
+                )
+
+            # Check if hop3-server is responding
             try:
-                server_process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                server_process.kill()
-                server_process.wait(timeout=5)
+                result = container.exec_run(
+                    "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/ || echo '000'"
+                )
+                if b"200" in result.output or b"404" in result.output:
+                    print("✓ hop3-server is responding")
+                    break
+            except Exception as e:
+                print(f"Warning: Failed to check server health: {e}")
 
-        # Clean up server root
-        if server_root.exists():
-            shutil.rmtree(server_root)
+            time.sleep(2)
+        else:
+            print("hop3-server did not start in time")
+            print("\nContainer logs:")
+            print(container.logs().decode())
+            pytest.fail("hop3-server failed to start")
 
-        print("Server stopped and cleaned up")
+        # Get container info
+        container.reload()
+        ports = container.attrs["NetworkSettings"]["Ports"]
+
+        # Extract host ports
+        api_port = ports["8000/tcp"][0]["HostPort"]
+        http_port = ports["80/tcp"][0]["HostPort"]
+
+        api_url = f"http://localhost:{api_port}"
+
+        print("Container ready:")
+        print(f"  API: {api_url}")
+        print(f"  HTTP: http://localhost:{http_port}")
+
+        # Return dict similar to d_e2e but simpler (HTTP-only, no SSH)
+        container_info = {
+            "container": container,
+            "api_url": api_url,
+            "http_port": int(http_port),
+        }
+
+        yield container_info
+
+    finally:
+        # Cleanup
+        print("\n=== Stopping Docker Container ===")
+        try:
+            container.reload()
+            if container.status == "running":
+                container.stop(timeout=10)
+            container.remove(force=True)
+            print("Container stopped and removed")
+        except Exception as e:
+            print(f"Warning: Error stopping container: {e}")
 
 
 @pytest.fixture(scope="session")
-def e2e_enabled() -> bool:
-    """Check if system tests are enabled.
-
-    Tests can run with either:
-    - Remote server (HOP3_DEV_HOST environment variable)
-    - Local server (automatically started)
-    """
-    if E2E_SERVER:
-        print("\n=== System Test Setup (Remote Server) ===")
-        print(f"Server: {E2E_SERVER}")
-    else:
-        print("\n=== System Test Setup (Local Server) ===")
-        print("Server will be started automatically in /tmp")
-
-    print(f"Test user: {E2E_TEST_USER}")
-
-    return True
-
-
-@pytest.fixture(scope="session")
-def hop3_config_dir(e2e_enabled, request) -> Generator[Path, None, None]:
+def hop3_config_dir(local_server: dict[str, Any]) -> Generator[Path, None, None]:
     """Set up hop3-cli configuration via environment variables."""
     config_dir = Path(tempfile.mkdtemp(prefix="hop3-system-test-config-"))
 
     # Set API URL via environment variable (hop3-cli checks HOP3_API_URL)
     original_api_url = os.environ.get("HOP3_API_URL")
+    original_secret_key = os.environ.get("HOP3_SECRET_KEY")
 
-    if E2E_SERVER:
-        # Use remote server via SSH
-        api_url = f"ssh://{E2E_SERVER}"
-    else:
-        # Use local server via HTTP - request the local_server fixture
-        local_server_fixture = request.getfixturevalue("local_server")
-        api_url, _server_root = local_server_fixture
-
+    # Use Docker container API
+    api_url = local_server["api_url"]
     os.environ["HOP3_API_URL"] = api_url
+    os.environ["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"
 
     print("\n=== Configuration ===")
     print(f"API URL: {api_url}")
     print(f"Config dir: {config_dir}")
+    print(f"Test user: {E2E_TEST_USER}")
 
     yield config_dir
 
@@ -190,6 +242,11 @@ def hop3_config_dir(e2e_enabled, request) -> Generator[Path, None, None]:
         os.environ["HOP3_API_URL"] = original_api_url
     else:
         os.environ.pop("HOP3_API_URL", None)
+
+    if original_secret_key:
+        os.environ["HOP3_SECRET_KEY"] = original_secret_key
+    else:
+        os.environ.pop("HOP3_SECRET_KEY", None)
 
 
 @pytest.fixture(scope="session")

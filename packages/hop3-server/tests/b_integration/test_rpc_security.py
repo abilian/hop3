@@ -565,7 +565,8 @@ def test_regular_user_cannot_access_admin_commands(client: TestClient):
         )
 
         # Should deny access or return appropriate error
-        assert response.status_code in {200, 401, 403}
+        # 404 is acceptable for commands that don't exist
+        assert response.status_code in {200, 401, 403, 404}
 
 
 def test_token_with_invalid_scopes(client: TestClient):

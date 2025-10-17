@@ -34,6 +34,7 @@ class HelpCmd(Command):
     """Display useful help messages."""
 
     name = "help"
+    requires_auth = False  # Public command
 
     def call(self, *args):
         # If a command name is provided, show detailed help for that command

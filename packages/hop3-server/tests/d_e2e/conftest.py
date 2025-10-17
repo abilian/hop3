@@ -567,7 +567,9 @@ def wait_for_http_ready(
 
     while time.time() - start_time < timeout:
         try:
-            response = httpx.get(url, headers=headers or {}, timeout=2.0, follow_redirects=True)
+            response = httpx.get(
+                url, headers=headers or {}, timeout=2.0, follow_redirects=True
+            )
 
             if response.status_code == expected_status:
                 if expected_content is None or expected_content in response.text:

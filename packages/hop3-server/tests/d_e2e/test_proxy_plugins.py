@@ -153,9 +153,7 @@ def proxy_info():
             time.sleep(1)
             attempt += 1
     else:
-        print(
-            f"✗ {proxy_type.upper()} proxy test failed after {max_attempts} attempts"
-        )
+        print(f"✗ {proxy_type.upper()} proxy test failed after {max_attempts} attempts")
         if last_error:
             print(f"Last error: {last_error}")
         pytest.fail(f"{proxy_type.upper()} proxy did not route traffic correctly")

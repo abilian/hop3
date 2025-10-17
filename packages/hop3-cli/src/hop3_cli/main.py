@@ -27,6 +27,7 @@ warnings.filterwarnings("ignore", message=".*CryptographyDeprecationWarning.*")
 # Catch all deprecation warnings from cryptography module
 try:
     from cryptography.utils import CryptographyDeprecationWarning
+
     warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
 except ImportError:
     pass
