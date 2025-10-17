@@ -3,12 +3,25 @@ from __future__ import annotations
 
 import os
 import re
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 from hop3.lib.config import Config
 
-config = Config()
-
+# Load environment from .env file if it exists
+# This allows hop3 to work both in systemd (which loads the file via EnvironmentFile)
+# and in manual/development scenarios
 TESTING = "PYTEST_VERSION" in os.environ
+
+if not TESTING:
+    # Try to load from the standard location
+    hop3_root = Path(os.environ.get("HOP3_ROOT", "/home/hop3"))
+    env_file = hop3_root / ".env"
+    if env_file.exists():
+        load_dotenv(env_file)
+
+config = Config()
 
 if TESTING:
     os.environ["HOP3_ROOT"] = "/tmp/hop3"

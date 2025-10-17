@@ -43,6 +43,23 @@ poetry run pyinfra --user root {$TARGET_HOST} installer/install-hop.py
 
 ## Post-Installation Steps
 
+- **Run hop-server setup**: After installation, SSH into your server as the `hop3` user and run:
+
+  ```bash
+  hop-server setup
+  ```
+
+  This command will:
+  - Create necessary directories
+  - Configure the uWSGI emperor
+  - Generate and save `HOP3_SECRET_KEY` to `/home/hop3/.env` (used for JWT token signing)
+
+  After setup completes, restart the hop3 service to load the configuration:
+
+  ```bash
+  sudo systemctl restart hop3
+  ```
+
 - **Configure Hop3**: You may need to perform additional configuration steps specific to your application or environment. Refer to the Hop3 documentation for detailed configuration options.
 
 - **Deploy Your Application**: With Hop3 installed, you can now deploy your web applications. Follow the Hop3 deployment guide to learn how to prepare your application for deployment.
