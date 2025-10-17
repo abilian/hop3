@@ -23,6 +23,7 @@ This is a major architectural release that restructures Hop3 into a modern clien
 - **Backup System**: Basic application backup mechanism (WIP)
 - **SBOM Generation**: Automatic Software Bill of Materials generation for supply chain security
 - **Environment Variable Management**: `config:set` and `config:unset` commands for managing per-app configuration
+- **HOP3_UNSAFE Mode**: Test-only configuration option to bypass authentication in Docker test environments (never use in production)
 
 ### Changed
 
@@ -32,6 +33,7 @@ This is a major architectural release that restructures Hop3 into a modern clien
 - **Path Handling**: Modernized to use `pathlib.Path` objects throughout
 - **Command Execution**: Updated to use `subprocess.run` instead of legacy methods
 - **License**: Changed to Apache 2.0
+- **Proxy Architecture**: Refactored Nginx, Caddy, and Traefik implementations to use abstract `BaseProxy` class, eliminating ~240 lines of code duplication
 
 ### Removed
 

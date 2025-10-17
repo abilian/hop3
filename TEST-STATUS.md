@@ -9,7 +9,7 @@ packages/hop3-server/tests/
 ├── a_unit/              # Layer 1: Unit Tests
 ├── b_integration/       # Layer 2: Integration Tests
 ├── c_system/            # Layer 3: System Tests
-└── d_e2e/              # Layer 4: End-to-End Tests
+└── d_e2e/               # Layer 4: End-to-End Tests
 ```
 
 ### Test Pyramid (Bottom to Top)
@@ -69,11 +69,12 @@ packages/hop3-server/tests/
 #### Layer 3: System Tests (`c_system/`)
 **Purpose**: Test the full application with real dependencies in Docker
 
-**Current Status**: ✅ Recently Fixed (converted to Docker)
+**Current Status**: ✅ Working
 - Medium execution time (~20 seconds after image build)
 - Uses Docker containers (hop3-e2e:test image)
 - Real hop3-server running in container
 - HTTP-based CLI communication
+- **HOP3_UNSAFE=true** bypasses authentication in Docker (test-only, never use in production)
 
 **Coverage**:
 - CLI availability and basic functionality
@@ -83,10 +84,11 @@ packages/hop3-server/tests/
 - Git hook deployment
 
 **What's Working**:
-- 9 tests passing with Docker
+- 14 tests passing with Docker
 - Isolated test environment
 - Consistent with d_e2e infrastructure
 - No dependency on remote servers
+- Authentication bypass for simplified testing
 
 **What's Missing**:
 - Full deployment workflow tests
@@ -104,6 +106,7 @@ packages/hop3-server/tests/
 - Docker containers with supervisor (not systemd)
 - Full hop3 stack (server, SSH, HTTP, apps)
 - Real deployment workflows
+- **HOP3_UNSAFE=true** configured in Dockerfile for authentication-free testing
 
 **Coverage**:
 - Python Flask app deployment
@@ -163,6 +166,13 @@ packages/hop3-server/tests/
    - Fail fast on unit/integration failures
    - Parallel test execution where possible
    - Test result reporting and coverage tracking
+
+### Recent Improvements
+
+✅ **Completed** (October 2025):
+1. **HOP3_UNSAFE Mode**: Added test-only authentication bypass for Docker environments with clear security warnings
+2. **System Test Updates**: Updated fixtures to handle authentication bypass and new CLI token auto-save format
+3. **Test Counts**: All 186 unit tests, 50 integration tests (2 skipped), and 14 system tests passing
 
 ### Next Steps (Testing)
 
