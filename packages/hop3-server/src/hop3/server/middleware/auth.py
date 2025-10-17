@@ -19,6 +19,7 @@ from starlette.authentication import (
 )
 from starlette.responses import JSONResponse
 
+from hop3 import config
 from hop3.server.security.tokens import validate_token
 
 if TYPE_CHECKING:
@@ -40,6 +41,13 @@ class BearerTokenBackend(AuthenticationBackend):
         Raises:
             AuthenticationError: If the token is invalid
         """
+        # UNSAFE MODE: Skip authentication entirely if HOP3_UNSAFE is true
+        # WARNING: This should ONLY be used in testing environments
+        if config.HOP3_UNSAFE:
+            return AuthCredentials(["authenticated", "admin"]), SimpleUser(
+                "unsafe-test-user"
+            )
+
         # Skip authentication entirely for truly public endpoints
         if self._is_truly_public_endpoint(conn):
             return None

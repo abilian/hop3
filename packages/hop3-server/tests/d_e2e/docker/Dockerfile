@@ -126,7 +126,7 @@ RUN rm -rf /opt/hop3-server/docs && \
 
 # Create hop3 environment file
 RUN echo 'HOP3_SECRET_KEY=e2e-test-secret-key-do-not-use-in-production' > /home/hop3/.env && \
-    echo 'HOP3_ENABLE_AUTH=false' >> /home/hop3/.env && \
+    echo 'HOP3_UNSAFE=true' >> /home/hop3/.env && \
     echo 'HOP3_DB_URL=sqlite:////home/hop3/hop3.db' >> /home/hop3/.env && \
     echo 'ACME_ENGINE=self-signed' >> /home/hop3/.env && \
     chown hop3:hop3 /home/hop3/.env && \
@@ -134,7 +134,7 @@ RUN echo 'HOP3_SECRET_KEY=e2e-test-secret-key-do-not-use-in-production' > /home/
 
 # Run hop3 setup with environment variables
 RUN su - hop3 -c "export HOP3_SECRET_KEY='e2e-test-secret-key-do-not-use-in-production' && \
-    export HOP3_ENABLE_AUTH='false' && \
+    export HOP3_UNSAFE='true' && \
     export HOP3_DB_URL='sqlite:////home/hop3/hop3.db' && \
     export ACME_ENGINE='self-signed' && \
     ~/venv/bin/hop-server setup"

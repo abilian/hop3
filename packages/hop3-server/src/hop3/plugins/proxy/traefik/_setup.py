@@ -15,7 +15,7 @@ import yaml
 
 from hop3.config import ACME_EMAIL, ACME_WWW, TRAEFIK_ROOT
 from hop3.container import container
-from hop3.core.protocols import Proxy
+from hop3.core.protocols import BaseProxy
 from hop3.lib import command_output, expand_vars, log
 from hop3.services.certificates import CertificatesManager
 
@@ -36,10 +36,14 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class TraefikVirtualHost(Proxy):
+class TraefikVirtualHost(BaseProxy):
     app: App
     env: Env
     workers: dict[str, str]
+
+    def get_proxy_name(self) -> str:
+        """Return the proxy name for environment variable construction."""
+        return "traefik"
 
     def __post_init__(self) -> None:
         # Normalize server name list (Traefik supports multiple hosts with backticks)
@@ -61,52 +65,6 @@ class TraefikVirtualHost(Proxy):
                 "TRAEFIK_ACME_EMAIL": ACME_EMAIL,
             },
         )
-
-    @property
-    def app_name(self) -> str:
-        return self.app.name
-
-    @property
-    def app_path(self) -> Path:
-        return self.app.app_path
-
-    @property
-    def src_path(self) -> Path:
-        return self.app.src_path
-
-    def update_env(self, key: str, value: str = "", template: str = "") -> None:
-        if template:
-            value = template.format(**self.env)
-        self.env[key] = value
-
-    def setup(self) -> None:
-        """Configures the Traefik environment for the application.
-
-        This sets up the necessary environment variables and
-        configurations for Traefik to properly serve the application,
-        based on the application's configuration and deployment setup.
-        """
-
-        self.setup_backend()
-
-        # Get certificates and add them to the traefik configuration
-        self.setup_certificates()
-
-        # Setup caching and static file handling
-        self.setup_cache()
-        self.setup_static()
-
-        # Additional misc setup
-        self.extra_setup()
-
-        # Configure proxy settings and generate buffer with the configuration
-        self.generate_config()
-
-        # Check the generated Traefik configuration for errors
-        self.check_config(self.traefik_conf_path)
-
-        # Reload traefik to apply the new configuration
-        self.reload_traefik()
 
     def setup_backend(self):
         """Configure the backend connection (TCP or Unix socket)."""
@@ -278,18 +236,17 @@ class TraefikVirtualHost(Proxy):
         else:
             self.env["HOP3_INTERNAL_TRAEFIK_CUSTOM_CONFIG"] = ""
 
-    def check_config(self, traefik_conf_path: Path) -> None:
-        """Validate the Traefik configuration file.
-
-        Input:
-        - traefik_conf_path (Path): The path to the traefik configuration file to be checked.
-        """
+    def check_config(self) -> None:
+        """Validate the Traefik configuration file."""
         # Traefik doesn't have a built-in validate command for individual files
         # We can do basic YAML syntax checking
         try:
-            with open(traefik_conf_path) as f:
+            with open(self.traefik_conf_path) as f:
                 yaml.safe_load(f)
-            log(f"Traefik config validation passed for {traefik_conf_path}", level=2)
+            log(
+                f"Traefik config validation passed for {self.traefik_conf_path}",
+                level=2,
+            )
         except ImportError:
             log(
                 "Warning: PyYAML not installed, skipping config validation",
@@ -301,7 +258,7 @@ class TraefikVirtualHost(Proxy):
                 f"Error: invalid YAML in traefik config - {e}",
                 fg="red",
             )
-            content = traefik_conf_path.read_text()
+            content = self.traefik_conf_path.read_text()
             log(f"Broken config content:\n{content}")
             raise
         except Exception as e:
@@ -311,7 +268,7 @@ class TraefikVirtualHost(Proxy):
                 fg="yellow",
             )
 
-    def reload_traefik(self) -> None:
+    def reload_proxy(self) -> None:
         """Reload traefik to apply configuration changes.
 
         Attempts to reload traefik using available methods. Silently skips if:
@@ -365,55 +322,6 @@ class TraefikVirtualHost(Proxy):
             "Note: Traefik may auto-reload config files if file watching is enabled",
             level=2,
         )
-
-    def get_static_paths(self) -> list[tuple[str, Path]]:
-        """Get a mapping of static URL prefixes to file system paths.
-
-        Retrieves a mapping of URL prefixes to local file system paths
-        for static content, based on environment configuration and worker settings.
-
-        Returns:
-            list of tuples: A list where each tuple contains a URL prefix as a string
-            and the corresponding file system path as a Path object.
-        """
-        static_paths = self.env.get("TRAEFIK_STATIC_PATHS", "")
-
-        # prepend static worker path if present
-        if "static" in self.workers:
-            stripped = self.workers["static"].strip("/").rstrip("/")
-            if stripped.startswith(":"):
-                prefix = "/"
-            else:
-                prefix = "/:"
-
-            if not stripped:
-                stripped = "."
-
-            if static_paths:
-                separator = ","
-            else:
-                separator = ""
-
-            static_paths = prefix + stripped + "/" + separator + static_paths
-
-        if static_paths:
-            items = static_paths.split(",")
-        else:
-            items = []
-
-        result = []
-        for item in items:
-            static_url, static_path_str = item.split(":")
-            static_path_str = static_path_str.rstrip()
-            if static_path_str[0] == "/":
-                # Use absolute path
-                static_path = Path(static_path_str)
-            else:
-                # Use relative path based on src_path
-                static_path = self.src_path / static_path_str
-            result.append((static_url, static_path))
-
-        return result
 
     def setup_cache(self) -> None:
         """Configure Traefik caching for the application.

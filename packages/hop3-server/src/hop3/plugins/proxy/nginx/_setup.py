@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from hop3.config import ACME_WWW, CACHE_ROOT, NGINX_ROOT
 from hop3.container import container
-from hop3.core.protocols import Proxy
+from hop3.core.protocols import BaseProxy
 from hop3.lib import command_output, expand_vars, log
 from hop3.services.certificates import CertificatesManager
 
@@ -34,10 +34,14 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class NginxVirtualHost(Proxy):
+class NginxVirtualHost(BaseProxy):
     app: App
     env: Env
     workers: dict[str, str]
+
+    def get_proxy_name(self) -> str:
+        """Return the proxy name for environment variable construction."""
+        return "nginx"
 
     def __post_init__(self) -> None:
         # Hack to get around ClickCommand
@@ -56,52 +60,6 @@ class NginxVirtualHost(Proxy):
                 "ACME_WWW": ACME_WWW,
             },
         )
-
-    @property
-    def app_name(self) -> str:
-        return self.app.name
-
-    @property
-    def app_path(self) -> Path:
-        return self.app.app_path
-
-    @property
-    def src_path(self) -> Path:
-        return self.app.src_path
-
-    def update_env(self, key: str, value: str = "", template: str = "") -> None:
-        if template:
-            value = template.format(**self.env)
-        self.env[key] = value
-
-    def setup(self) -> None:
-        """Configures the Nginx environment for the application.
-
-        This sets up the necessary environment variables and
-        configurations for Nginx to properly serve the application,
-        based on the application's configuration and deployment setup.
-        """
-
-        self.setup_backend()
-
-        # Get certificates and add them to the nginx configuration
-        self.setup_certificates()
-
-        # Setup caching and static file handling
-        self.setup_cache()
-        self.setup_static()
-
-        # Additinal misc setup
-        self.extra_setup()
-
-        # Configure proxy settings and generate buffer with the configuration
-        self.generate_config()
-
-        # Check the generated Nginx configuration for errors
-        self.check_config(self.nginx_conf_path)
-
-        # Reload nginx to apply the new configuration
-        self.reload_nginx()
 
     def setup_backend(self):
         # For static-only apps, skip backend configuration entirely
@@ -264,12 +222,8 @@ class NginxVirtualHost(Proxy):
         self.env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = expand_vars(tpl, self.env)
         self.env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
 
-    def check_config(self, nginx_conf_path: Path) -> None:
-        """Prevent broken config from breaking other deployments.
-
-        Input:
-        - nginx_conf_path (Path): The path to the nginx configuration file to be checked.
-        """
+    def check_config(self) -> None:
+        """Prevent broken config from breaking other deployments."""
         # FIXME: currently broken (should be run as root)
         return
 
@@ -277,12 +231,12 @@ class NginxVirtualHost(Proxy):
         #     subprocess.check_output(["/usr/sbin/nginx", "-t"])
         # except subprocess.CalledProcessError:
         #     echo(f"Error: broken nginx config - removing", fg="red")
-        #     content = nginx_conf_path.read_text()
+        #     content = self.nginx_conf_path.read_text()
         #     echo(f"here is the broken config\n{content}")
-        #     # nginx_conf_path.unlink()
+        #     # self.nginx_conf_path.unlink()
         #     sys.exit(1)
 
-    def reload_nginx(self) -> None:
+    def reload_proxy(self) -> None:
         """Reload nginx to apply configuration changes.
 
         Attempts to reload nginx using available methods. Silently skips if:
@@ -357,55 +311,6 @@ class NginxVirtualHost(Proxy):
             level=2,
             fg="yellow",
         )
-
-    def get_static_paths(self) -> list[tuple[str, Path]]:
-        """Get a mapping of static URL prefixes to file system paths.
-
-        Retrieves a mapping of URL prefixes to local file system paths
-        for static content, based on environment configuration and worker settings.
-
-        Returns:
-            list of tuples: A list where each tuple contains a URL prefix as a string
-            and the corresponding file system path as a Path object.
-        """
-        static_paths = self.env.get("NGINX_STATIC_PATHS", "")
-
-        # prepend static worker path if present
-        if "static" in self.workers:
-            stripped = self.workers["static"].strip("/").rstrip("/")
-            if stripped.startswith(":"):
-                prefix = "/"
-            else:
-                prefix = "/:"
-
-            if not stripped:
-                stripped = "."
-
-            if static_paths:
-                separator = ","
-            else:
-                separator = ""
-
-            static_paths = prefix + stripped + "/" + separator + static_paths
-
-        if static_paths:
-            items = static_paths.split(",")
-        else:
-            items = []
-
-        result = []
-        for item in items:
-            static_url, static_path_str = item.split(":")
-            static_path_str = static_path_str.rstrip()
-            if static_path_str[0] == "/":
-                # Use absolute path
-                static_path = Path(static_path_str)
-            else:
-                # Use relative path based on src_path
-                static_path = self.src_path / static_path_str
-            result.append((static_url, static_path))
-
-        return result
 
     def setup_cache(self) -> None:
         """Configure Nginx caching for the application.

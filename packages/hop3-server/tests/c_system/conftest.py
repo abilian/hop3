@@ -315,21 +315,37 @@ def system_auth_token(hop3_config_dir: Path) -> Generator[str, None, None]:
             pytest.skip("Authentication not enabled on server")
         pytest.fail(f"Failed to login: {error_output}")
 
+    # Check if authentication is disabled
+    # If "Authentication not enabled" appears in output, skip token extraction
+    combined_output = result.stdout + result.stderr
+    if "Authentication not enabled" in combined_output:
+        print("\n=== Authentication not enabled on server - skipping token setup ===\n")
+        yield ""  # Return empty string for token
+        return
+
     # Extract token from output
-    # Format is:
-    # Login successful for user: {username}
-    #
-    # Your API token:
-    # {token}
-    # ...
+    # Format can be:
+    # 1. Old format: "Your API token:" followed by token on next line
+    # 2. New format: "API token saved to /path/to/config.toml"
     token = None
     lines = result.stdout.split("\n")
+
+    # Try to find token in old format
     for i, line in enumerate(lines):
         if "Your API token:" in line:
             # Token is on the next line
             if i + 1 < len(lines):
                 token = lines[i + 1].strip()
                 break
+
+    # If token was saved to config file, we don't need to extract it
+    # The CLI will read it from the config file automatically
+    if not token and "API token saved to" in result.stdout:
+        print("\n=== Token saved to config file by CLI ===")
+        print("CLI will use token from config file automatically")
+        # Return dummy token since we don't need to set it manually
+        yield "token-saved-to-config"
+        return
 
     if not token:
         # Debug output
