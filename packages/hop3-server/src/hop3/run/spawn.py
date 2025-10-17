@@ -10,6 +10,8 @@ import traceback
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from sqlalchemy.orm import object_session
+
 from hop3.config import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
 from hop3.core.env import Env
 from hop3.core.plugins import get_proxy_strategy
@@ -74,6 +76,11 @@ class AppLauncher:
         # Update hostname in app model
         if host_name and host_name != "_":
             self.app.hostname = host_name
+
+        # Persist port/hostname changes to database
+        session = object_session(self.app)
+        if session:
+            session.commit()
 
         # Only setup proxy if HOST_NAME is set to a real value (not "_" or empty)
         if host_name and host_name != "_":
