@@ -42,6 +42,8 @@ tasks:
 
   - test: |
       cd hop3
+      # Ensure HOP3_DEV_HOST is not set for c_system tests (they use Docker)
+      unset HOP3_DEV_HOST
       uv run make test
 
   - e2e: |

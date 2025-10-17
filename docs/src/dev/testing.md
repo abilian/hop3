@@ -68,24 +68,32 @@ Includes:
 - Multi-component interaction tests
 
 ### Layer 3: System Integration Tests (`tests/c_system/`)
-**Scope**: CLI ↔ Server RPC communication
-**Speed**: Medium (2-5 minutes)
-**Requirements**: Running hop3-server
+**Scope**: CLI ↔ Server RPC communication via Docker
+**Speed**: Medium (~20 seconds after initial image build)
+**Requirements**: Docker
 
 ```bash
-# Start server in one terminal
-hop-server serve
-
-# Run tests in another terminal
-export HOP3_API_URL=http://localhost:8000
+# Tests automatically start Docker container with hop3-server
+# Ensure HOP3_DEV_HOST is NOT set
+unset HOP3_DEV_HOST
 pytest packages/hop3-server/tests/c_system/ -v
 ```
 
-Or use remote server:
+**Docker-based Testing** (default):
+- Tests automatically build and use `hop3-e2e:test` Docker image
+- Fresh container per test session
+- Isolated, reproducible environment
+- No manual server management needed
+
+**Remote Server Diagnostics** (optional):
+Some tests in `test_connection.py` can optionally test against a remote server:
 ```bash
+# Only for remote server diagnostics (not regular testing)
 export HOP3_DEV_HOST=hop3@test-server.example.com
-pytest packages/hop3-server/tests/c_system/ -v
+pytest packages/hop3-server/tests/c_system/test_connection.py -v
 ```
+
+⚠️ **Important**: For normal development and CI/CD, always ensure `HOP3_DEV_HOST` is **not set**.
 
 ### Layer 4: Full E2E Tests (`tests/d_e2e/`)
 **Scope**: Complete system with real deployments

@@ -20,78 +20,60 @@ System integration tests verify:
 
 ## Requirements
 
-1. **hop3-cli binary** must be installed and available in PATH:
+1. **Docker** - Required for running tests
+   ```bash
+   # Verify Docker is installed and running
+   docker ps
+   ```
+
+2. **hop3-cli binary** - Must be installed and available in PATH:
    ```bash
    pip install -e packages/hop3-cli
    ```
 
-2. **hop3-server** - Three options:
-
-   **Option A: Automatic Local Server (Default - Recommended)**
-   ```bash
-   # No setup needed! Tests will automatically:
-   # - Start a server in /tmp/hop3-system-test-XXXXX/
-   # - Configure authentication
-   # - Clean up after tests complete
-
-   pytest packages/hop3-server/tests/c_system/
-   ```
-
-   **Option B: Manual Local Server (Development)**
-   ```bash
-   # Terminal 1: Start server
-   hop-server serve
-
-   # Terminal 2: Run tests
-   export HOP3_API_URL=http://localhost:8000
-   pytest packages/hop3-server/tests/c_system/
-   ```
-
-   **Option C: Remote Server (CI/Production Testing)**
-   ```bash
-   export HOP3_DEV_HOST=hop3@test-server.example.com
-   pytest packages/hop3-server/tests/c_system/
-   ```
-
-   **Option D: Full Infrastructure Testing (Production-like)**
-   ```bash
-   # Server must have uwsgi, nginx, systemd fully configured
-   export HOP3_DEV_HOST=hop3@production-test-server.example.com
-   export HOP3_FULL_INFRASTRUCTURE=true
-   pytest packages/hop3-server/tests/c_system/
-   ```
-
 ## Running System Integration Tests
 
-### Recommended: Automatic local server (no setup needed)
-```bash
-# Just run the tests - server starts automatically!
-pytest packages/hop3-server/tests/c_system/ -v -s
+### Default: Docker-based testing (Recommended)
 
-# Less verbose
-pytest packages/hop3-server/tests/c_system/
+```bash
+# IMPORTANT: Ensure HOP3_DEV_HOST is NOT set
+unset HOP3_DEV_HOST
+
+# Run all system tests
+pytest packages/hop3-server/tests/c_system/ -v
 
 # Run specific test
 pytest packages/hop3-server/tests/c_system/test_connection.py -v
 ```
 
-The tests will:
-1. Automatically start a server in `/tmp/hop3-system-test-XXXXX/`
-2. Wait for it to be ready
-3. Run all tests
-4. Stop and clean up the server
+**What happens automatically**:
+1. Tests build or reuse `hop3-e2e:test` Docker image
+2. Fresh Docker container starts with hop3-server
+3. Container is isolated and reproducible
+4. Authentication configured automatically
+5. All tests run against container
+6. Container is cleaned up after tests
 
-### Optional: Test connection to remote server
+**Benefits of Docker-based testing**:
+- ✅ No manual server setup required
+- ✅ Isolated environment (no conflicts)
+- ✅ Reproducible across machines
+- ✅ Same infrastructure as d_e2e tests
+- ✅ Automatic cleanup
+
+### Optional: Remote Server Diagnostics
+
+Some tests in `test_connection.py` can optionally run against a remote server for diagnostics:
+
 ```bash
-# For remote server testing, run diagnostic script first
+# Only for remote server diagnostics (not regular testing)
 export HOP3_DEV_HOST=hop3@test-server.example.com
-python packages/hop3-server/tests/c_system/test_connection.py
+pytest packages/hop3-server/tests/c_system/test_connection.py -v
 ```
 
-This will check:
-- SSH connectivity to server
-- hop3-cli installation
-- Server responsiveness
+⚠️ **WARNING**: Setting `HOP3_DEV_HOST` will cause tests to connect to that remote server instead of using Docker. This is **only** for diagnosing remote server issues, not for regular development or CI/CD.
+
+For CI/CD, **always ensure `HOP3_DEV_HOST` is not set**.
 
 ### Skip system tests (run only unit and integration):
 ```bash
@@ -101,16 +83,16 @@ pytest packages/hop3-server/tests/a_unit packages/hop3-server/tests/b_integratio
 ## Test Structure
 
 ### `conftest.py`
-Provides pytest fixtures for system integration testing:
-- `local_server`: Automatically starts/stops a server in /tmp (session scope)
-- `e2e_enabled`: Checks if system tests can run (uses local or remote server)
-- `hop3_config_dir`: Creates temporary config directory and sets HOP3_API_URL
-- `system_auth_token`: Registers test user and gets authentication token
-- `test_app_dir`: Creates temporary directory for test data
-- `deployed_app`: Manages app deployment lifecycle and cleanup
+Provides pytest fixtures for Docker-based system integration testing:
+- `docker_client()`: Provides Docker client connection
+- `hop3_image()`: Builds or reuses `hop3-e2e:test` Docker image (session scope)
+- `local_server()`: Starts Docker container with hop3-server (session scope)
+- `hop3_config_dir()`: Creates temporary config directory and sets environment variables
+- `system_auth_token()`: Registers test user and gets authentication token
+- `test_app_dir()`: Creates temporary directory for test data
+- `deployed_app()`: Manages app deployment lifecycle and cleanup
 - `hop3()`: Helper function to run hop3-cli commands
 - `requires_full_infrastructure`: Skip marker for tests requiring uwsgi/nginx/systemd
-- `remote_server_only`: Skip marker for remote server diagnostic tests
 
 ### `test_connection.py`
 Diagnostic tests to verify system setup:
@@ -146,12 +128,12 @@ The following test categories require full infrastructure and are in `test_full_
 | Aspect | Integration Tests | System Tests | E2E Tests |
 |--------|------------------|--------------|-----------|
 | **Location** | `tests/b_integration/` | `tests/c_system/` | `tests/d_e2e/` |
-| **Server** | TestClient (no process) | Real server process | Real server + system |
+| **Server** | TestClient (no process) | Docker container | Docker container |
 | **CLI** | Direct function calls | Real hop3-cli binary | Real hop3-cli binary |
-| **Network** | In-memory | Real HTTP/SSH | Real HTTP/SSH |
+| **Network** | In-memory | Real HTTP | Real HTTP/SSH |
 | **Deployments** | Mocked | No deployments | Real deployments |
-| **Speed** | Very fast (<1s) | Fast (2-5s) | Slow (30-60s) |
-| **Isolation** | Complete | Shared server | Complete (container) |
+| **Speed** | Very fast (<1s) | Fast (20s + build) | Slow (30-60s) |
+| **Isolation** | Complete | Complete (container) | Complete (container) |
 
 ## Authentication Flow
 
@@ -169,24 +151,28 @@ Tests use environment variables (`HOP3_API_URL` and `HOP3_API_TOKEN`) instead of
 
 If tests hang for more than 30 seconds:
 
-1. **Check if server is running**:
+1. **Check if Docker is running**:
    ```bash
-   # For local server
-   curl http://localhost:8000/health
+   # Verify Docker daemon is running
+   docker ps
 
-   # For remote server
-   ssh hop3@your-server.com "systemctl status hop3-server"
+   # Check if hop3 container is running
+   docker ps | grep hop3-e2e
    ```
 
 2. **Check environment variables**:
    ```bash
    echo $HOP3_API_URL
-   echo $HOP3_DEV_HOST
+   echo $HOP3_DEV_HOST  # Should be empty for normal testing!
    ```
 
-3. **Run diagnostic script**:
+3. **Check Docker container logs**:
    ```bash
-   python packages/hop3-server/tests/c_system/test_connection.py
+   # Find the container ID
+   docker ps | grep hop3-e2e
+
+   # View container logs
+   docker logs <container-id>
    ```
 
 ### Verbose test output
@@ -204,26 +190,26 @@ Flags explained:
 
 ### Test authentication manually:
 ```bash
-# Using local server
-export HOP3_API_URL="http://localhost:8000"
-hop3 auth:register testuser test@example.com testpassword
-hop3 auth:login testuser testpassword
-hop3 apps
+# Get the API URL from running test container
+docker ps | grep hop3-e2e  # Find the port mapping
 
-# Using SSH tunnel (remote server)
-export HOP3_API_URL="ssh://hop3@your-server.com"
+# Example: If port 8000 is mapped to 32768
+export HOP3_API_URL="http://localhost:32768"
+hop3 auth:register testuser test@example.com testpassword
 hop3 auth:login testuser testpassword
 hop3 apps
 ```
 
 ### Check server logs:
 ```bash
-# Local server (if using hop-server serve)
-# Check terminal output
+# Docker container logs
+docker logs <container-id>
 
-# Remote server
-ssh hop3@dev.example.com
-sudo journalctl -u hop3-server -f
+# Follow logs in real-time
+docker logs -f <container-id>
+
+# Check supervisor logs inside container
+docker exec <container-id> cat /var/log/supervisor/hop3-server.log
 ```
 
 ### Common timeout causes:
@@ -236,49 +222,57 @@ sudo journalctl -u hop3-server -f
 
 System integration tests are designed for CI and require **no manual server setup**!
 
+They automatically use Docker to create isolated test environments.
+
 Example GitHub Actions workflow:
 ```yaml
 - name: Run system integration tests
   run: |
-    # Tests automatically start and stop server
+    # IMPORTANT: Ensure HOP3_DEV_HOST is not set
+    unset HOP3_DEV_HOST
+    # Tests automatically build Docker image and start container
     pytest packages/hop3-server/tests/c_system/ -v
 ```
 
-For testing against a specific server (optional):
-```yaml
-- name: Run system integration tests against dev server
-  env:
-    HOP3_DEV_HOST: hop3@dev.example.com
-  run: |
-    pytest packages/hop3-server/tests/c_system/ -v
-```
+⚠️ **CI/CD Best Practice**: Always ensure `HOP3_DEV_HOST` environment variable is **not set** when running c_system tests in CI/CD pipelines. This ensures tests use the isolated Docker environment instead of attempting to connect to external servers.
 
 ## Server Setup Requirements
 
-### Automatic local server (default)
-**No setup required!** The test fixtures automatically:
-- Create a temporary directory in `/tmp/hop3-system-test-XXXXX/`
-- Enable authentication with a test secret key
-- Initialize the database
-- Start the server
-- Clean up after tests
+### Docker-based Testing (Default & Recommended)
 
-### Remote server (HOP3_DEV_HOST)
-If using a remote server for basic tests, it must have:
+**No setup required!** Tests automatically use Docker for complete isolation:
+
+**What happens automatically**:
+1. **Docker Image**: Tests build or reuse `hop3-e2e:test` image (session scope)
+2. **Fresh Container**: New container started for each test session
+3. **Environment Setup**:
+   - Authentication enabled with test secret key
+   - Database initialized automatically
+   - hop3-server started via supervisor
+4. **Environment Variables**: `HOP3_API_URL` and `HOP3_SECRET_KEY` set automatically
+5. **Network Isolation**: Tests communicate via HTTP to random host ports
+6. **Automatic Cleanup**: Container stopped and removed after tests
+
+**Requirements**:
+- Docker daemon running
+- `hop3-cli` binary installed (`pip install -e packages/hop3-cli`)
+
+### Remote Server Diagnostics (Optional, Not Recommended)
+
+Some tests in `test_connection.py` can optionally run against a remote server by setting `HOP3_DEV_HOST`:
+
+```bash
+export HOP3_DEV_HOST=hop3@test-server.example.com
+pytest packages/hop3-server/tests/c_system/test_connection.py -v
+```
+
+⚠️ **This is ONLY for diagnosing issues with actual remote servers, NOT for regular testing!**
+
+Remote server requirements (if used):
 - ✅ Authentication enabled (`HOP3_ENABLE_AUTH=true`)
 - ✅ Secret key configured (`HOP3_SECRET_KEY`)
 - ✅ Database initialized
-- ❌ No need for nginx (unless `HOP3_FULL_INFRASTRUCTURE=true`)
-- ❌ No need for uwsgi (unless `HOP3_FULL_INFRASTRUCTURE=true`)
-- ❌ No need for systemd (unless `HOP3_FULL_INFRASTRUCTURE=true`)
-
-### Full infrastructure server (HOP3_FULL_INFRASTRUCTURE=true)
-If running full deployment tests, the server needs:
-- ✅ All of the above (auth, secret key, database)
-- ✅ nginx configured and running
-- ✅ uwsgi configured for application deployments
-- ✅ systemd for service management
-- ✅ Full deployment pipeline working
+- ❌ **Not needed**: nginx, uwsgi, systemd (those are for E2E tests in `d_e2e/`)
 
 
 ## Future Enhancements
