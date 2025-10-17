@@ -120,18 +120,35 @@ def handle_login_response(result: list[dict], config: Config) -> None:
 
     token = None
     modified_result = []
+    found_token = False
+
+    # Keywords that indicate manual token save instructions
+    skip_keywords = [
+        "your api token",
+        "save this token",
+        "config file",
+        "api_token =",
+        "environment variable",
+        "export hop3_api_token",
+    ]
 
     for item in result:
         if item.get("t") == "text":
             text = item.get("text", "")
+
             # Check if this text contains a JWT token
             match = jwt_pattern.search(text)
-            if match:
+            if match and not found_token:
                 token = match.group(0)
-                # Skip messages about saving to config file or setting environment variable
-                if "config file" in text.lower() or "environment variable" in text.lower():
-                    continue
-            # Keep other text messages
+                found_token = True
+                # Skip the line containing the JWT token itself
+                continue
+
+            # Skip all manual instruction messages (before or after token)
+            if any(keyword in text.lower() for keyword in skip_keywords):
+                continue
+
+            # Keep other text messages (success message, empty lines)
             modified_result.append(item)
         else:
             # Keep non-text messages (tables, errors, etc.)
