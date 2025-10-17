@@ -45,8 +45,8 @@ class NginxVirtualHost(BaseProxy):
 
     def __post_init__(self) -> None:
         # Hack to get around ClickCommand
-        server_name_list = self.env["NGINX_SERVER_NAME"].split(",")
-        self.env["NGINX_SERVER_NAME"] = " ".join(server_name_list)
+        server_name_list = self.env["HOST_NAME"].split(",")
+        self.env["HOST_NAME"] = " ".join(server_name_list)
 
         nginx_version = command_output("nginx -V")
         nginx_ssl = "443 ssl"
@@ -103,7 +103,7 @@ class NginxVirtualHost(BaseProxy):
             )
 
     def setup_certificates(self) -> None:
-        domain_name = self.env["NGINX_SERVER_NAME"].split()[0]
+        domain_name = self.env["HOST_NAME"].split()[0]
         certificate_manager = container.get(CertificatesManager)
         certificate = certificate_manager.get_certificate(domain_name)
         (NGINX_ROOT / f"{self.app_name}.key").write_text(certificate.get_key())
@@ -149,14 +149,14 @@ class NginxVirtualHost(BaseProxy):
         )
         log(
             f"nginx will map app '{self.app_name}' to hostname(s)"
-            f" '{self.env['NGINX_SERVER_NAME']}'",
+            f" '{self.env['HOST_NAME']}'",
             level=2,
         )
         if self.env.get_bool("NGINX_HTTPS_ONLY"):
             buffer = expand_vars(NGINX_HTTPS_ONLY_TEMPLATE, self.env)
             log(
                 "nginx will redirect all requests to hostname(s)"
-                f" '{self.env['NGINX_SERVER_NAME']}' to HTTPS",
+                f" '{self.env['HOST_NAME']}' to HTTPS",
                 level=2,
             )
         else:

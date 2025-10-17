@@ -229,7 +229,7 @@ class TestWebEndpoint:
 
         # Configure nginx virtual host
         hostname = f"{app_name}.test.local"
-        (test_app_dir / "env").write_text(f"NGINX_SERVER_NAME={hostname}\n")
+        (test_app_dir / "env").write_text(f"HOST_NAME={hostname}\n")
 
         # Get HTTP port from container
         http_port = hop3_container["http_base"].split(":")[-1]

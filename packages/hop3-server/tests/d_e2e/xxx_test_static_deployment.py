@@ -77,7 +77,7 @@ h1 {
 
         # Configure nginx virtual host
         hostname = f"{app_name}.test.local"
-        (test_app_dir / "ENV").write_text(f"NGINX_SERVER_NAME={hostname}\n")
+        (test_app_dir / "ENV").write_text(f"HOST_NAME={hostname}\n")
 
         # Deploy using shared helpers
         print(f"\nDeploying static app: {app_name}")

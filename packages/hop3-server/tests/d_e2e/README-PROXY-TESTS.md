@@ -121,7 +121,7 @@ def _test_proxy_deployment(self, container_info, test_app_dir):
     # 2. Create requirements.txt and Procfile
 
     # 3. Configure virtual host
-    (test_app_dir / "env").write_text("NGINX_SERVER_NAME=app.test.local")
+    (test_app_dir / "env").write_text("HOST_NAME=app.test.local")
 
     # 4. Deploy via RPC
     client.rpc("cli", ["deploy", app_name], repository=tarball_b64)

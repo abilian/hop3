@@ -178,7 +178,7 @@ EOF
 
     HOSTNAME="${APP_NAME}.local"
     cat > ENV <<EOF
-NGINX_SERVER_NAME=$HOSTNAME
+HOST_NAME=$HOSTNAME
 EOF
 
     # Initialize git

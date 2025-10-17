@@ -90,7 +90,7 @@ class DeploymentSession:
         env_file = self.temp_dir / "ENV"
         if not env_file.exists() and self.app.has_procfile:
             hostname = f"{self.app_name}.test.local"
-            env_file.write_text(f"NGINX_SERVER_NAME={hostname}\n")
+            env_file.write_text(f"HOST_NAME={hostname}\n")
 
         # Initialize git if not already initialized
         git_dir = self.temp_dir / ".git"

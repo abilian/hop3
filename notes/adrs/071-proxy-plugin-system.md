@@ -60,7 +60,7 @@ class Proxy(Protocol):
 - `app.state` - Current application state
 
 **`env: Env`** - Application environment variables:
-- `NGINX_SERVER_NAME` - Primary domain(s) for this app (comma-separated)
+- `HOST_NAME` - Primary domain(s) for this app (comma-separated)
 - `NGINX_STATIC_PATHS` - Static file paths to serve directly
 - `NGINX_CLOUDFLARE_CERT` - Enable Cloudflare Origin certificates
 - Additional proxy-specific environment variables
@@ -128,7 +128,7 @@ Applications configure proxy behavior via environment variables in their `ENV` f
 
 ```bash
 # Application ENV file
-NGINX_SERVER_NAME=example.com,www.example.com
+HOST_NAME=example.com,www.example.com
 NGINX_STATIC_PATHS=/static:/media
 NGINX_CLOUDFLARE_CERT=1
 ```
@@ -146,7 +146,7 @@ class NginxVirtualHost:
 
     def setup(self) -> None:
         """Configure Nginx for this application."""
-        server_name = self.env["NGINX_SERVER_NAME"]
+        server_name = self.env["HOST_NAME"]
 
         # 1. Generate upstream backends configuration
         upstream_config = self._generate_upstream(self.workers)

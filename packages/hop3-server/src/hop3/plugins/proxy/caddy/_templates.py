@@ -7,7 +7,7 @@ from __future__ import annotations
 
 # Basic Caddy configuration template
 CADDY_TEMPLATE = """
-$CADDY_SERVER_NAME {
+$HOST_NAME {
     $HOP3_INTERNAL_CADDY_TLS
     $HOP3_INTERNAL_CADDY_CUSTOM_CLAUSES
     $HOP3_INTERNAL_CADDY_STATIC_MAPPINGS
@@ -19,11 +19,11 @@ $CADDY_SERVER_NAME {
 
 # HTTPS-only template (HTTP to HTTPS redirect)
 CADDY_HTTPS_ONLY_TEMPLATE = """
-http://$CADDY_SERVER_NAME {
+http://$HOST_NAME {
     redir https://{host}{uri} permanent
 }
 
-https://$CADDY_SERVER_NAME {
+https://$HOST_NAME {
     $HOP3_INTERNAL_CADDY_TLS
     $HOP3_INTERNAL_CADDY_CUSTOM_CLAUSES
     $HOP3_INTERNAL_CADDY_STATIC_MAPPINGS

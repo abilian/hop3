@@ -46,9 +46,9 @@ class CaddyVirtualHost(BaseProxy):
 
     def __post_init__(self) -> None:
         # Normalize server name list
-        server_name_list = self.env["CADDY_SERVER_NAME"].split(",")
+        server_name_list = self.env["HOST_NAME"].split(",")
         # Caddy uses space-separated alternative names in the server block
-        self.env["CADDY_SERVER_NAME"] = " ".join(server_name_list)
+        self.env["HOST_NAME"] = " ".join(server_name_list)
 
         # Check Caddy version
         try:
@@ -87,7 +87,7 @@ class CaddyVirtualHost(BaseProxy):
 
     def setup_certificates(self) -> None:
         """Setup SSL certificates for the application."""
-        domain_name = self.env["CADDY_SERVER_NAME"].split()[0]
+        domain_name = self.env["HOST_NAME"].split()[0]
 
         # Check if we should use automatic HTTPS or manual certificates
         use_auto_https = self.env.get_bool("CADDY_AUTO_HTTPS", False)
@@ -161,7 +161,7 @@ class CaddyVirtualHost(BaseProxy):
 
         log(
             f"caddy will serve app '{self.app_name}' on hostname(s)"
-            f" '{self.env['CADDY_SERVER_NAME']}'",
+            f" '{self.env['HOST_NAME']}'",
             level=2,
         )
 
@@ -170,7 +170,7 @@ class CaddyVirtualHost(BaseProxy):
             buffer = expand_vars(CADDY_HTTPS_ONLY_TEMPLATE, self.env)
             log(
                 f"caddy will redirect all HTTP requests to HTTPS for"
-                f" '{self.env['CADDY_SERVER_NAME']}'",
+                f" '{self.env['HOST_NAME']}'",
                 level=2,
             )
         else:

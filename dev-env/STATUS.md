@@ -101,7 +101,7 @@ curl -H "Host: app1.local" http://localhost:8080/
 curl -H "Host: app2.local" http://localhost:8080/
 ```
 
-**Proper Fix**: Implement `hop config:set` command to set `NGINX_SERVER_NAME` per-app.
+**Proper Fix**: Implement `hop config:set` command to set `HOST_NAME` per-app.
 
 ### 2. Port/Hostname Display
 
@@ -160,7 +160,7 @@ localhost:5432 -> 5432 (PostgreSQL)
 
 ## Next Steps
 
-1. **High Priority**: Change NGINX_SERVER_NAME default from `_` to `{appname}.hop3`
+1. **High Priority**: Change HOST_NAME default from `_` to `{appname}.hop3`
 2. **High Priority**: Save port/hostname to database for status display
 3. **High Priority**: Implement `hop config:set` command
 4. **Medium**: HTTPS testing, documentation updates

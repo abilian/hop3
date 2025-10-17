@@ -68,7 +68,7 @@ class StaticDeployer(DeploymentStrategy):
             "NGINX_IPV6_ADDRESS": "[::]",
             "BIND_ADDRESS": "127.0.0.1",
             "PORT": "0",  # Dummy port for static apps (not used, but needed by nginx setup)
-            "NGINX_SERVER_NAME": "_",  # Catch-all server name for development
+            "HOST_NAME": "_",  # Catch-all server name for development
         }
 
         # Load environment variables shipped with repo (if any)
@@ -108,7 +108,7 @@ class StaticDeployer(DeploymentStrategy):
 
         # Set up nginx configuration for static file serving
         env = self._make_env()
-        if "NGINX_SERVER_NAME" in env:
+        if "HOST_NAME" in env:
             app_config = AppConfig.from_dir(self.app.app_path)
             workers = app_config.workers
 

@@ -30,7 +30,7 @@ upstream $APP {
 server {
   listen      $NGINX_IPV6_ADDRESS:80;
   listen      $NGINX_IPV4_ADDRESS:80;
-  server_name $NGINX_SERVER_NAME;
+  server_name $HOST_NAME;
 
   location ^~ /.well-known/acme-challenge {
     allow all;
@@ -52,7 +52,7 @@ NGINX_COMMON_FRAGMENT = r"""
   listen              $NGINX_IPV4_ADDRESS:$NGINX_SSL;
   ssl_certificate     $NGINX_ROOT/$APP.crt;
   ssl_certificate_key $NGINX_ROOT/$APP.key;
-  server_name         $NGINX_SERVER_NAME;
+  server_name         $HOST_NAME;
   # These are not required under systemd - enable for debugging only
   # access_log        $LOG_ROOT/$APP/access.log;
   # error_log         $LOG_ROOT/$APP/error.log;
@@ -95,7 +95,7 @@ NGINX_ACME_FIRSTRUN_TEMPLATE = """
 server {
   listen      $NGINX_IPV6_ADDRESS:80;
   listen      $NGINX_IPV4_ADDRESS:80;
-  server_name $NGINX_SERVER_NAME;
+  server_name $HOST_NAME;
 
   location ^~ /.well-known/acme-challenge {
     allow all;
