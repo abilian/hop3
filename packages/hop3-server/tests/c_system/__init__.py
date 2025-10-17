@@ -2,10 +2,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""End-to-end tests using hop3-cli binary.
+"""System integration tests using hop3-cli binary and Docker.
 
-These tests require:
-- HOP3_DEV_HOST environment variable
+These tests use Docker by default for isolated, reproducible testing:
+- Docker daemon running
 - hop3-cli binary in PATH
-- Running server with authentication enabled
+
+Optional: Set HOP3_DEV_HOST for remote server diagnostics (not recommended for regular testing).
 """

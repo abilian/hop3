@@ -14,7 +14,7 @@ see tests/d_e2e/test_full_deployment.py
 
 Requirements:
 - hop3-cli binary must be installed and in PATH
-- Server running (auto-started in /tmp or via HOP3_DEV_HOST)
+- Server running (auto-started in Docker container)
 """
 
 from __future__ import annotations
