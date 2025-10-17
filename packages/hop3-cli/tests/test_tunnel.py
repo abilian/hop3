@@ -22,7 +22,10 @@ def get_current_user():
     return pwd.getpwuid(user_id).pw_name
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Test requires Unix-specific modules (pwd, os.geteuid)")
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Test requires Unix-specific modules (pwd, os.geteuid)",
+)
 def test_custom_tunnel():
     with SSHTunnel(
         remote_host="localhost",
@@ -34,7 +37,10 @@ def test_custom_tunnel():
         s.connect(("localhost", tunnel.local_port))
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Test requires Unix-specific modules (pwd, os.geteuid)")
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Test requires Unix-specific modules (pwd, os.geteuid)",
+)
 def test_sshtunnel():
     server = SSHTunnelForwarder(
         "localhost",

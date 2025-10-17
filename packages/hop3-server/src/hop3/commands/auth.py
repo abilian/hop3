@@ -35,6 +35,7 @@ class AuthLoginCmd(Command):
 
     db_session: Session
     name = "auth:login"
+    requires_auth = False  # Public command
 
     def call(self, username: str = "", password: str = "", *args):
         """Authenticate a user and return an API token.
@@ -104,6 +105,7 @@ class AuthWhoamiCmd(Command):
 
     db_session: Session
     name = "auth:whoami"
+    pass_username = True  # Needs authenticated username
 
     def call(self, username: str = "", *args):
         """Display information about the authenticated user.
@@ -153,6 +155,7 @@ class AuthRegisterCmd(Command):
 
     db_session: Session
     name = "auth:register"
+    requires_auth = False  # Public command
 
     def call(self, username: str = "", email: str = "", password: str = "", *args):
         """Register a new user.

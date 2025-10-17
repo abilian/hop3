@@ -71,6 +71,7 @@ class AdminUserAddCmd(Command):
 
     db_session: Session
     name = "admin:user:add"
+    pass_username = True  # Needs authenticated username for permission checks
 
     def call(
         self,
@@ -163,6 +164,7 @@ class AdminUserRemoveCmd(Command):
 
     db_session: Session
     name = "admin:user:remove"
+    pass_username = True  # Needs authenticated username for permission checks
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Remove a user account.
@@ -210,6 +212,7 @@ class AdminUserListCmd(Command):
 
     db_session: Session
     name = "admin:user:list"
+    pass_username = True  # Needs authenticated username for permission checks
 
     def call(self, authenticated_username: str = "", *args):
         """List all user accounts.
@@ -267,6 +270,7 @@ class AdminUserEnableCmd(Command):
 
     db_session: Session
     name = "admin:user:enable"
+    pass_username = True  # Needs authenticated username for permission checks
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Enable a user account.
@@ -313,6 +317,7 @@ class AdminUserDisableCmd(Command):
 
     db_session: Session
     name = "admin:user:disable"
+    pass_username = True  # Needs authenticated username for permission checks
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Disable a user account.
@@ -363,6 +368,7 @@ class AdminUserGrantAdminCmd(Command):
 
     db_session: Session
     name = "admin:user:grant-admin"
+    pass_username = True  # Needs authenticated username for permission checks
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Grant admin privileges to a user.
@@ -428,6 +434,7 @@ class AdminUserRevokeAdminCmd(Command):
 
     db_session: Session
     name = "admin:user:revoke-admin"
+    pass_username = True  # Needs authenticated username for permission checks
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Revoke admin privileges from a user.
@@ -497,6 +504,7 @@ class AdminUserSetPasswordCmd(Command):
 
     db_session: Session
     name = "admin:user:set-password"
+    pass_username = True  # Needs authenticated username for permission checks
 
     def call(
         self,
@@ -554,6 +562,7 @@ class AdminUserInfoCmd(Command):
 
     db_session: Session
     name = "admin:user:info"
+    pass_username = True  # Needs authenticated username for permission checks
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Display detailed information about a user.
@@ -614,6 +623,7 @@ class AdminUserGenerateTokenCmd(Command):
 
     db_session: Session
     name = "admin:user:generate-token"
+    pass_username = True  # Needs authenticated username for permission checks
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Generate a new API token for a user.

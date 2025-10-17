@@ -136,7 +136,9 @@ class PythonBuilder(Builder):
         # This prevents pip from using a stray/unwanted pyproject.toml
         match requirements_file.exists(), pyproject_file.exists():
             case True, _:
-                log(f"Installing from requirements.txt: {requirements_file}", fg="green")
+                log(
+                    f"Installing from requirements.txt: {requirements_file}", fg="green"
+                )
                 self.shell(f"{python} -m pip install -r {requirements_file}")
             case False, True:
                 self.shell(f"{python} -m pip install .")

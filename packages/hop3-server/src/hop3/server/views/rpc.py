@@ -22,48 +22,32 @@ scan_package("hop3.commands")
 commands = {command.name: command for command in lookup(Command)}
 
 
-# Public commands that don't require authentication
-PUBLIC_COMMANDS = {"auth:login", "auth:register", "help"}
-
-# Commands that need the authenticated username passed as first argument
-USERNAME_COMMANDS = {
-    "auth:whoami",
-    # Admin commands (all require authenticated username for permission checks)
-    "admin:user:add",
-    "admin:user:remove",
-    "admin:user:list",
-    "admin:user:enable",
-    "admin:user:disable",
-    "admin:user:grant-admin",
-    "admin:user:revoke-admin",
-    "admin:user:set-password",
-    "admin:user:info",
-    "admin:user:generate-token",
-}
-
-
-def requires_authentication(command: str) -> bool:
+def requires_authentication(command_class: type[Command]) -> bool:
     """Check if a command requires authentication.
 
+    Uses the declarative `requires_auth` class attribute.
+
     Args:
-        command: The command name
+        command_class: The command class
 
     Returns:
         True if authentication is required, False otherwise
     """
-    return command not in PUBLIC_COMMANDS
+    return getattr(command_class, "requires_auth", True)
 
 
-def command_needs_username(command: str) -> bool:
+def command_needs_username(command_class: type[Command]) -> bool:
     """Check if a command needs the authenticated username.
 
+    Uses the declarative `pass_username` class attribute.
+
     Args:
-        command: The command name
+        command_class: The command class
 
     Returns:
         True if the command needs the username, False otherwise
     """
-    return command in USERNAME_COMMANDS
+    return getattr(command_class, "pass_username", False)
 
 
 @router.post("/rpc")
@@ -77,12 +61,16 @@ async def handle_rpc(request: Request):
     cli_args = params["cli_args"]
     extra_args = params["extra_args"]
 
-    command = cli_args[0]
+    command_name = cli_args[0]
     args = cli_args[1:]
 
-    # Check authentication for commands that require it
-    # Only check if AuthenticationMiddleware is installed (i.e., auth is enabled)
-    if requires_authentication(command):
+    # Look up the command class
+    command_class = commands.get(command_name)
+
+    # For security: Check authentication BEFORE revealing if command exists
+    # (for commands that would require auth if they existed)
+    # This prevents information disclosure about available commands
+    if command_class is None or requires_authentication(command_class):
         # Check if user attribute is available (auth middleware installed)
         if "user" in request.scope:
             if not request.user.is_authenticated:
@@ -100,12 +88,29 @@ async def handle_rpc(request: Request):
                     status_code=401,
                 )
 
-            # Pass authenticated username to commands that need it
-            if command_needs_username(command):
-                args = (request.user.display_name, *args)
+    # Now check if command actually exists (after auth check)
+    if command_class is None:
+        error_rpc = {
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32601,  # Method not found
+                "message": f"Command '{command_name}' not found",
+            },
+            "id": json_request.get("id", 1),
+        }
+        return Response(
+            json.dumps(error_rpc),
+            media_type="application/json",
+            status_code=404,
+        )
+
+    # Pass authenticated username to commands that need it
+    if command_needs_username(command_class):
+        if "user" in request.scope and request.user.is_authenticated:
+            args = (request.user.display_name, *args)
 
     try:
-        result = call(command, args, extra_args)
+        result = call(command_name, args, extra_args)
         result_rpc = {"jsonrpc": "2.0", "result": result, "id": 1}
         json_result = json.dumps(result_rpc)
         return Response(json_result, media_type="application/json")

@@ -73,7 +73,9 @@ class TestApplicationLifecycle:
         # Stop the app
         result = hop3_command("app:stop", app_name)
         assert result.returncode == 0, f"Failed to stop: {result.stderr}"
-        wait_for_app_status(hop3_command, app_name, expected_states=["STOPPED"], timeout=30)
+        wait_for_app_status(
+            hop3_command, app_name, expected_states=["STOPPED"], timeout=30
+        )
 
         # Verify stopped
         result = hop3_command("app:status", app_name)
@@ -252,7 +254,9 @@ class TestWebEndpoint:
 class TestGitHookDeployment:
     """Test deployment via git-hook command (git push workflow)."""
 
-    @pytest.mark.skip(reason="Git push workflow not yet implemented - requires git server infrastructure")
+    @pytest.mark.skip(
+        reason="Git push workflow not yet implemented - requires git server infrastructure"
+    )
     def test_git_hook_deployment(
         self, hop3_container: dict[str, Any], hop3_command, test_app_dir: Path
     ):

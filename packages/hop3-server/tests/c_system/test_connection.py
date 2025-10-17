@@ -135,6 +135,16 @@ def test_auth_login_command():
         timeout=10,
     )
 
+    combined_output = result.stdout + result.stderr
+
+    # Skip if server isn't properly configured
+    if "HOP3_SECRET_KEY must be set" in combined_output:
+        pytest.skip("Remote server is not configured with HOP3_SECRET_KEY")
+
+    # Authentication not enabled is OK - skip the test
+    if "Authentication not enabled" in combined_output:
+        pytest.skip("Authentication not enabled on server")
+
     assert result.returncode == 0, (
         f"auth:login failed (exit code {result.returncode}):\n"
         f"stdout: {result.stdout[:200]}\n"
