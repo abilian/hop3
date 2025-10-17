@@ -51,7 +51,7 @@ def health():
             test_app_dir,
             app_name,
             app_code=app_code,
-            env_vars={"NGINX_SERVER_NAME": hostname},
+            env_vars={"HOST_NAME": hostname},
         )
 
         # Wait for deployment to complete

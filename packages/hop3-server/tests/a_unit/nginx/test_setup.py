@@ -16,7 +16,7 @@ def created_directory():
 
 
 def test_get_static_paths_0() -> None:
-    env = Env({"NGINX_SERVER_NAME": "testapp.com"})
+    env = Env({"HOST_NAME": "testapp.com"})
     workers: dict[str, str] = {}
     nginx = NginxVirtualHost(App(name="testapp"), env, workers)
     assert nginx.get_static_paths() == []
@@ -24,7 +24,7 @@ def test_get_static_paths_0() -> None:
 
 def test_get_static_paths_1() -> None:
     env = Env({
-        "NGINX_SERVER_NAME": "testapp.com",
+        "HOST_NAME": "testapp.com",
         "NGINX_STATIC_PATHS": "/prefix1:path1",
     })
     workers: dict[str, str] = {}
@@ -35,7 +35,7 @@ def test_get_static_paths_1() -> None:
 
 
 def test_get_static_paths_2() -> None:
-    env = Env({"NGINX_SERVER_NAME": "testapp.com"})
+    env = Env({"HOST_NAME": "testapp.com"})
     workers: dict[str, str] = {"static": "public"}
     nginx = NginxVirtualHost(App(name="testapp"), env, workers)
     result = nginx.get_static_paths()
@@ -56,7 +56,7 @@ def env() -> Env:
     env = Env()
     env.update({
         "PORT": "8000",
-        "NGINX_SERVER_NAME": "testapp.com",
+        "HOST_NAME": "testapp.com",
     })
     env.update(SAFE_DEFAULTS)
     return env

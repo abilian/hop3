@@ -284,7 +284,7 @@ class WsgiWorker(UwsgiWorker):
                 raise Abort(msg)
 
         # If running under nginx, don't expose a port at all
-        if "NGINX_SERVER_NAME" in self.env:
+        if "HOST_NAME" in self.env:
             sock = c.NGINX_ROOT / f"{self.app_name}.sock"
             self.log(f"nginx will talk to uWSGI via {sock}")
             self.settings += [

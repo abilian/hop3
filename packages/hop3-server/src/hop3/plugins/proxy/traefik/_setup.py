@@ -47,9 +47,9 @@ class TraefikVirtualHost(BaseProxy):
 
     def __post_init__(self) -> None:
         # Normalize server name list (Traefik supports multiple hosts with backticks)
-        server_name_list = self.env["TRAEFIK_SERVER_NAME"].split(",")
+        server_name_list = self.env["HOST_NAME"].split(",")
         # For Traefik, we'll use the first domain as primary
-        self.env["TRAEFIK_SERVER_NAME"] = server_name_list[0].strip()
+        self.env["HOST_NAME"] = server_name_list[0].strip()
 
         # Check Traefik version
         try:
@@ -89,7 +89,7 @@ class TraefikVirtualHost(BaseProxy):
 
     def setup_certificates(self) -> None:
         """Setup SSL certificates for the application."""
-        domain_name = self.env["TRAEFIK_SERVER_NAME"].split()[0]
+        domain_name = self.env["HOST_NAME"].split()[0]
 
         # Check if we should use automatic HTTPS or manual certificates
         use_auto_https = self.env.get_bool("TRAEFIK_AUTO_HTTPS", True)
@@ -164,7 +164,7 @@ class TraefikVirtualHost(BaseProxy):
         """
         log(
             f"traefik will serve app '{self.app_name}' on hostname(s)"
-            f" '{self.env['TRAEFIK_SERVER_NAME']}'",
+            f" '{self.env['HOST_NAME']}'",
             level=2,
         )
 
@@ -173,7 +173,7 @@ class TraefikVirtualHost(BaseProxy):
             buffer = expand_vars(TRAEFIK_HTTPS_ONLY_TEMPLATE, self.env)
             log(
                 f"traefik will redirect all HTTP requests to HTTPS for"
-                f" '{self.env['TRAEFIK_SERVER_NAME']}'",
+                f" '{self.env['HOST_NAME']}'",
                 level=2,
             )
         else:
@@ -210,7 +210,7 @@ class TraefikVirtualHost(BaseProxy):
                     "static_path": static_path,
                     "static_index": static_index,
                     "APP": self.app_name,
-                    "TRAEFIK_SERVER_NAME": self.env["TRAEFIK_SERVER_NAME"],
+                    "HOST_NAME": self.env["HOST_NAME"],
                 },
             )
             service = expand_vars(

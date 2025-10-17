@@ -61,7 +61,7 @@ class TestSession:
         self.test_web()
 
     def test_web(self) -> None:
-        self.hop("config:set", f"NGINX_SERVER_NAME={self.app_host_name}")
+        self.hop("config:set", f"HOST_NAME={self.app_host_name}")
         if self.app_name.startswith("clojure"):
             time.sleep(CLOJURE_WAIT)
         else:

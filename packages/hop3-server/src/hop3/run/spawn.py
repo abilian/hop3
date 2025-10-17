@@ -68,17 +68,17 @@ class AppLauncher:
         if "PORT" in self.env:
             self.app.port = int(self.env["PORT"])
 
-        # Set up nginx if we have NGINX_SERVER_NAME set
-        nginx_server_name = self.env.get("NGINX_SERVER_NAME", "")
+        # Set up nginx if we have HOST_NAME set
+        host_name = self.env.get("HOST_NAME", "")
 
         # Update hostname in app model
-        if nginx_server_name and nginx_server_name != "_":
-            self.app.hostname = nginx_server_name
+        if host_name and host_name != "_":
+            self.app.hostname = host_name
 
-        # Only setup proxy if NGINX_SERVER_NAME is set to a real value (not "_" or empty)
-        if nginx_server_name and nginx_server_name != "_":
+        # Only setup proxy if HOST_NAME is set to a real value (not "_" or empty)
+        if host_name and host_name != "_":
             log(
-                f"Setting up proxy for '{self.app_name}' with server_name='{nginx_server_name}'",
+                f"Setting up proxy for '{self.app_name}' with server_name='{host_name}'",
                 level=1,
                 fg="green",
             )
@@ -100,7 +100,7 @@ class AppLauncher:
                 traceback.print_exc()
         else:
             log(
-                f"Skipping proxy setup for '{self.app_name}' (server_name is '{nginx_server_name}')",
+                f"Skipping proxy setup for '{self.app_name}' (server_name is '{host_name}')",
                 level=2,
                 fg="yellow",
             )
@@ -197,7 +197,7 @@ class AppLauncher:
             "NGINX_IPV4_ADDRESS": "0.0.0.0",
             "NGINX_IPV6_ADDRESS": "[::]",
             "BIND_ADDRESS": "127.0.0.1",
-            "NGINX_SERVER_NAME": "_",  # Catch-all server name for development
+            "HOST_NAME": "_",  # Catch-all server name for development
         }
 
         # add node path if present

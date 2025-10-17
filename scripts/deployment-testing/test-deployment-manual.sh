@@ -145,7 +145,7 @@ web: flask --app app run --host 0.0.0.0 --port $PORT
 EOF
 
 cat > ENV <<EOF
-NGINX_SERVER_NAME=$HOSTNAME
+HOST_NAME=$HOSTNAME
 EOF
 
 # Initialize git

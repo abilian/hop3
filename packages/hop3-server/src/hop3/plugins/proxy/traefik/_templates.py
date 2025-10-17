@@ -10,7 +10,7 @@ TRAEFIK_TEMPLATE = """
 http:
   routers:
     $APP-router:
-      rule: "Host(`$TRAEFIK_SERVER_NAME`)"
+      rule: "Host(`$HOST_NAME`)"
       service: "$APP-service"
       entryPoints:
         - web
@@ -38,7 +38,7 @@ TRAEFIK_HTTPS_ONLY_TEMPLATE = """
 http:
   routers:
     $APP-http-router:
-      rule: "Host(`$TRAEFIK_SERVER_NAME`)"
+      rule: "Host(`$HOST_NAME`)"
       entryPoints:
         - web
       middlewares:
@@ -46,7 +46,7 @@ http:
       service: "$APP-service"
 
     $APP-https-router:
-      rule: "Host(`$TRAEFIK_SERVER_NAME`)"
+      rule: "Host(`$HOST_NAME`)"
       entryPoints:
         - websecure
       service: "$APP-service"
@@ -77,7 +77,7 @@ http:
 # Static file serving middleware (uses replacePath)
 HOP3_INTERNAL_TRAEFIK_STATIC_ROUTER = """
     $APP-static-$static_index:
-      rule: "Host(`$TRAEFIK_SERVER_NAME`) && PathPrefix(`$static_url`)"
+      rule: "Host(`$HOST_NAME`) && PathPrefix(`$static_url`)"
       service: "$APP-static-$static_index-service"
       entryPoints:
         - web

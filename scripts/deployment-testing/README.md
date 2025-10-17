@@ -66,7 +66,7 @@ Tests deploying two applications simultaneously to verify multi-tenancy.
 - Nginx configuration for both apps
 
 **Known Limitations:**
-- Virtual host routing: Both apps currently use default `server_name _` (catch-all), so nginx routes all requests to the first app encountered. To properly test virtual host isolation, apps need unique `NGINX_SERVER_NAME` values.
+- Virtual host routing: Both apps currently use default `server_name _` (catch-all), so nginx routes all requests to the first app encountered. To properly test virtual host isolation, apps need unique `HOST_NAME` values.
 
 **Cleanup:**
 ```bash
@@ -142,7 +142,7 @@ docker exec <container> cat /home/hop3/apps/<appname>/log/web.1.log
 
 To properly test virtual host routing with multiple apps:
 
-1. Each app needs a unique `NGINX_SERVER_NAME` in its `env` file
+1. Each app needs a unique `HOST_NAME` in its `env` file
 2. Add entries to `/etc/hosts`:
    ```bash
    echo '127.0.0.1 app1.local app2.local' | sudo tee -a /etc/hosts
