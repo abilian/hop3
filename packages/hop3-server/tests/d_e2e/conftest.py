@@ -17,6 +17,20 @@ import docker.errors
 import httpx
 import pytest
 
+FLASK_APP_CODE = """
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route("/")
+def index():
+    return "Hello from Flask!"
+
+@app.route("/health")
+def health():
+    return {"status": "ok"}
+"""
+
 if TYPE_CHECKING:
     from collections.abc import Generator
 
@@ -47,20 +61,11 @@ def hop3_image(docker_client: docker.DockerClient) -> str:
     """Build hop3 E2E test image if not already built."""
     image_tag = "hop3-e2e:test"
 
-    # Check if image already exists
-    try:
-        docker_client.images.get(image_tag)
-        print(f"Using existing Docker image: {image_tag}")
-        return image_tag
-    except docker.errors.ImageNotFound:
-        pass
-
     # Build the image
     print(f"Building Docker image: {image_tag}")
     print("This may take 5-10 minutes on first run...")
 
     project_root = Path(__file__).parent.parent.parent.parent.parent
-    # Use simple Dockerfile that works on macOS (no systemd)
     dockerfile_path = Path(__file__).parent / "docker" / "Dockerfile"
 
     # NOTE: We no longer need to build the distribution!
@@ -468,19 +473,7 @@ def deploy_flask_app(
     """
     # Create Flask app
     if app_code is None:
-        app_code = """
-from flask import Flask
-
-app = Flask(__name__)
-
-@app.route("/")
-def index():
-    return "Hello from Flask!"
-
-@app.route("/health")
-def health():
-    return {"status": "ok"}
-"""
+        app_code = FLASK_APP_CODE
 
     (test_app_dir / "app.py").write_text(app_code)
     (test_app_dir / "requirements.txt").write_text("flask>=3.0\n")

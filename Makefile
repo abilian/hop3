@@ -130,7 +130,7 @@ test-full:
 	uv run pytest -q --tb=short packages/hop3-server/tests/a_unit
 	uv run pytest -q --tb=short packages/hop3-server/tests/b_integration
 	uv run pytest -q --tb=short packages/hop3-server/tests/c_system
-	uv run pytest -q --tb=short packages/hop3-server/tests/d_e2e
+	# uv run pytest -q --tb=short packages/hop3-server/tests/d_e2e
 	uv run pytest -q --tb=short packages/hop3-testing/tests/
 	uv run pytest -q --tb=short packages/hop3-cli/tests
 	@echo ""

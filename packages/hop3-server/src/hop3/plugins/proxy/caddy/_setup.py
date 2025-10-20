@@ -1,4 +1,3 @@
-# Copyright (c) 2016 Rui Carmo
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -51,11 +50,8 @@ class CaddyVirtualHost(BaseProxy):
         self.env["HOST_NAME"] = " ".join(server_name_list)
 
         # Check Caddy version
-        try:
-            caddy_version = command_output("caddy version")
-            log(f"Using Caddy version: {caddy_version}", level=2)
-        except Exception:
-            log("Warning: Could not determine Caddy version", level=2, fg="yellow")
+        caddy_version = command_output("caddy version") or "???"
+        log(f"Using Caddy version: {caddy_version}", level=2)
 
         self.env.update(
             {
