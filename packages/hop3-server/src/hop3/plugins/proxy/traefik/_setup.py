@@ -1,4 +1,3 @@
-# Copyright (c) 2016 Rui Carmo
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -52,11 +51,8 @@ class TraefikVirtualHost(BaseProxy):
         self.env["HOST_NAME"] = server_name_list[0].strip()
 
         # Check Traefik version
-        try:
-            traefik_version = command_output("traefik version")
-            log(f"Using Traefik version: {traefik_version}", level=2)
-        except Exception:
-            log("Warning: Could not determine Traefik version", level=2, fg="yellow")
+        traefik_version = command_output("traefik version") or "???"
+        log(f"Using Traefik version: {traefik_version}", level=2)
 
         self.env.update(
             {

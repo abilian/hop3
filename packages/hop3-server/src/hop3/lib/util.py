@@ -160,7 +160,7 @@ def command_output(cmd) -> str:
         # Capture the current environment variables
         env = os.environ
         return str(check_output(cmd, stderr=STDOUT, env=env, shell=True))
-    except Exception:
+    except subprocess.CalledProcessError:
         return ""
 
 
