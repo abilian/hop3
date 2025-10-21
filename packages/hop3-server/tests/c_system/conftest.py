@@ -266,7 +266,9 @@ def system_auth_token(hop3_config_dir: Path) -> Generator[str, None, None]:
             timeout=30,  # 30 second timeout
         )
     except subprocess.TimeoutExpired:
-        msg = "Registration command timed out after 30 seconds. Check server connection."
+        msg = (
+            "Registration command timed out after 30 seconds. Check server connection."
+        )
         raise AssertionError(msg)
 
     print(f"Registration exit code: {result.returncode}")

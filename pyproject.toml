@@ -120,10 +120,6 @@ hop3-testing = { workspace = true }
 requires = ["uv-build>=0.8.4,<0.9.0"]
 build-backend = "uv_build"
 
-#[tool.uv.build-backend]
-#module-name = "xxx"
-#module-root = "src"
-
 # ------------------------------------
 # Tools
 # ------------------------------------
