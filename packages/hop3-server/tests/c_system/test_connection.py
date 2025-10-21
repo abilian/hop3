@@ -11,7 +11,7 @@ import subprocess
 
 import pytest
 
-E2E_SERVER = os.environ.get("HOP3_DEV_HOST")
+E2E_SERVER = os.environ.get("HOP3_DEV_HOST", "")
 
 # These tests are for remote server diagnostics only
 remote_server_only = pytest.mark.skipif(
