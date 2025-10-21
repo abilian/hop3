@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import traceback
 from base64 import b64decode
 from dataclasses import dataclass
@@ -138,23 +139,23 @@ class DeployCmd(Command):
 
             error_msg = "\n".join(error_parts)
 
-            # Also log to server console for debugging
-            print(
-                f"[ERROR] Deployment failed for {app_name}:",
-                file=__import__("sys").stderr,
-            )
-            print(error_msg, file=__import__("sys").stderr)
-            return [{"t": "text", "text": error_msg}]
+            # Log to server console for debugging
+            print(f"[ERROR] Deployment failed for {app_name}:", file=sys.stderr)
+            print(error_msg, file=sys.stderr)
+
+            # Re-raise as ValueError so RPC handler returns proper JSON-RPC error
+            # This ensures the CLI client receives an Error response and exits with code 1
+            raise ValueError(error_msg) from e
         except Exception as e:
             tb = traceback.format_exc()
             error_msg = f"Deployment failed: {e}\n\nTraceback:\n{tb}"
-            # Also log to server console for debugging
-            print(
-                f"[ERROR] Deployment failed for {app_name}:",
-                file=__import__("sys").stderr,
-            )
-            print(tb, file=__import__("sys").stderr)
-            return [{"t": "text", "text": error_msg}]
+            # Log to server console for debugging
+            print(f"[ERROR] Deployment failed for {app_name}:", file=sys.stderr)
+            print(tb, file=sys.stderr)
+
+            # Re-raise as ValueError so RPC handler returns proper JSON-RPC error
+            # This ensures the CLI client receives an Error response and exits with code 1
+            raise ValueError(error_msg) from e
 
         return [{"t": "text", "text": f"App '{app_name}' deployed successfully."}]
 
@@ -322,6 +323,7 @@ class DestroyCmd(Command):
             }
         ]
 
+    # TODO: this should use a signal/event bus system instead
     def _reload_nginx(self) -> None:
         """Reload nginx to apply configuration changes after app destruction."""
         # Skip reload in test environments
