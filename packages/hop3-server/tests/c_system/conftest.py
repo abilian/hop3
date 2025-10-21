@@ -105,7 +105,8 @@ def hop3_image(docker_client: docker.DockerClient) -> str:
         for log in e.build_log:
             if "stream" in log:
                 print(log["stream"].strip())
-        pytest.fail(f"Failed to build Docker image: {e}")
+        msg = f"Failed to build Docker image: {e}"
+        raise AssertionError(msg)
 
 
 @pytest.fixture(scope="session")
@@ -265,9 +266,8 @@ def system_auth_token(hop3_config_dir: Path) -> Generator[str, None, None]:
             timeout=30,  # 30 second timeout
         )
     except subprocess.TimeoutExpired:
-        pytest.fail(
-            "Registration command timed out after 30 seconds. Check server connection."
-        )
+        msg = "Registration command timed out after 30 seconds. Check server connection."
+        raise AssertionError(msg)
 
     print(f"Registration exit code: {result.returncode}")
     if result.stdout:
@@ -360,7 +360,7 @@ stderr:
 
 Looking for line containing 'Your API token:' followed by token on next line.
 """
-        pytest.fail(debug_info)
+        raise AssertionError(debug_info)
 
     print("\n=== Token extracted ===")
     print(f"Token (first 20 chars): {token[:20]}...")
