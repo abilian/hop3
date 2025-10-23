@@ -248,52 +248,6 @@ def test_app_dir(tmp_path: Path) -> Path:
     return app_dir
 
 
-@pytest.fixture
-def deployed_flask_app(
-    hop3_container: dict[str, Any], hop3_command, test_app_dir: Path
-) -> Generator[dict[str, Any], None, None]:
-    """Deploy a Flask app and automatically clean it up after the test.
-
-    This fixture provides a complete deployment workflow:
-    - Creates a simple Flask app
-    - Initializes git repository
-    - Creates tarball and deploys
-    - Waits for app to be running
-    - Automatically destroys app after test
-
-    Yields:
-        Dict with app info: {"name": str, "dir": Path, "url": str}
-    """
-    app_name = f"e2e-test-{int(time.time())}"
-
-    # Deploy the app
-    deploy_flask_app(hop3_container, test_app_dir, app_name)
-
-    # Wait for app to be ready
-    wait_for_app_status(hop3_command, app_name, timeout=60)
-
-    # Get HTTP URL
-    http_port = hop3_container["http_base"].split(":")[-1]
-    app_url = f"http://localhost:{http_port}/"
-
-    app_info = {
-        "name": app_name,
-        "dir": test_app_dir,
-        "url": app_url,
-        "hostname": f"{app_name}.test.local",
-    }
-
-    yield app_info
-
-    # Automatic cleanup
-    print(f"\nCleaning up app: {app_name}")
-    try:
-        hop3_command("app:destroy", app_name)
-        print(f"✓ App {app_name} destroyed")
-    except Exception as e:
-        print(f"⚠ Warning: Failed to destroy app {app_name}: {e}")
-
-
 def run_hop3_command(
     container_info: dict[str, Any], *args: str
 ) -> subprocess.CompletedProcess:
