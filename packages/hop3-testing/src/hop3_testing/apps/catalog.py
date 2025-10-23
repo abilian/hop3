@@ -15,12 +15,12 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class TestApp:
+class AppSource:
     """Represents a test application."""
 
     name: str
     path: Path
-    category: str
+    category: str = ""
     description: str = ""
 
     @property
