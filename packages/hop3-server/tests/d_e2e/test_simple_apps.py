@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 from hop3_testing.apps import DeploymentSession
-from hop3_testing.apps.catalog import TestApp
+from hop3_testing.apps.catalog import AppSource
 
 # Get all test apps from apps/test-apps/
 APPS_DIR = Path(__file__).parents[4] / "apps" / "test-apps"
@@ -26,7 +26,7 @@ TEST_APPS = [
 def test_app_deployment(app_dir: Path, deployment_target):
     """Test deployment of an application from apps/test-apps/."""
     app_name = app_dir.name
-    app = TestApp(name=app_name, path=app_dir)
+    app = AppSource(name=app_name, path=app_dir)
     with DeploymentSession(app, deployment_target) as session:
         assert session.deploy()
         assert session.check_deployed()

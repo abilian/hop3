@@ -7,12 +7,12 @@
 from __future__ import annotations
 
 import pytest
-from hop3_testing.apps import TestAppCatalog
+from hop3_testing.apps import AppSourceCatalog
 
 
 def test_test_app_catalog():
     """Test that TestAppCatalog can find test apps."""
-    catalog = TestAppCatalog()
+    catalog = AppSourceCatalog()
 
     # Should find some apps
     assert len(catalog) > 0, "No test apps found"
@@ -30,7 +30,7 @@ def test_test_app_catalog():
 
 def test_test_app_filtering():
     """Test filtering test apps."""
-    catalog = TestAppCatalog()
+    catalog = AppSourceCatalog()
 
     # Filter by category
     python_apps = list(catalog.filter(category="python-simple"))
@@ -40,7 +40,7 @@ def test_test_app_filtering():
 
 def test_test_app_properties():
     """Test TestApp properties."""
-    catalog = TestAppCatalog()
+    catalog = AppSourceCatalog()
 
     static_app = catalog.get("000-static")
     if not static_app:

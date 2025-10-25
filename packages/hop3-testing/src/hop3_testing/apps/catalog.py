@@ -34,7 +34,7 @@ class AppSource:
         return (self.path / "Procfile").exists()
 
 
-class TestAppCatalog:
+class AppSourceCatalog:
     """Catalog of test applications.
 
     This class provides access to the test applications in the apps/test-apps directory.
@@ -55,9 +55,9 @@ class TestAppCatalog:
             apps_dir = project_root / "apps" / "test-apps"
 
         self.apps_dir = apps_dir
-        self._apps: dict[str, TestApp] | None = None
+        self._apps: dict[str, AppSource] | None = None
 
-    def _scan_apps(self) -> dict[str, TestApp]:
+    def _scan_apps(self) -> dict[str, AppSource]:
         """Scan the apps directory for test applications.
 
         Returns:
@@ -104,7 +104,7 @@ class TestAppCatalog:
                     if first_line.startswith("#"):
                         description = first_line.lstrip("#").strip()
 
-            apps[name] = TestApp(
+            apps[name] = AppSource(
                 name=name,
                 path=app_dir,
                 category=category,
@@ -114,7 +114,7 @@ class TestAppCatalog:
         return apps
 
     @property
-    def apps(self) -> dict[str, TestApp]:
+    def apps(self) -> dict[str, AppSource]:
         """Get all test applications.
 
         Returns:
@@ -124,7 +124,7 @@ class TestAppCatalog:
             self._apps = self._scan_apps()
         return self._apps
 
-    def get(self, name: str) -> TestApp | None:
+    def get(self, name: str) -> AppSource | None:
         """Get a test application by name.
 
         Args:
@@ -135,7 +135,7 @@ class TestAppCatalog:
         """
         return self.apps.get(name)
 
-    def filter(self, category: str | None = None, has_check: bool | None = None) -> Iterator[TestApp]:
+    def filter(self, category: str | None = None, has_check: bool | None = None) -> Iterator[AppSource]:
         """Filter test applications.
 
         Args:
@@ -162,7 +162,7 @@ class TestAppCatalog:
         """
         return sorted({app.category for app in self.apps.values()})
 
-    def __iter__(self) -> Iterator[TestApp]:
+    def __iter__(self) -> Iterator[AppSource]:
         """Iterate over all test applications.
 
         Yields:

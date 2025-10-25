@@ -23,7 +23,7 @@ from hop3_cli.config import Config
 if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
 
-    from .catalog import TestApp
+    from .catalog import AppSource
 
 
 class DeploymentSession:
@@ -38,7 +38,7 @@ class DeploymentSession:
 
     def __init__(
         self,
-        app: TestApp,
+        app: AppSource,
         target: DeploymentTarget,
         app_name: str | None = None,
         config: dict[str, Any] | None = None,
