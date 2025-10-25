@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import pytest
-from hop3_testing.apps import TestAppCatalog
+from hop3_testing.apps import AppSourceCatalog
 from hop3_testing.targets import DeploymentTarget, DockerTarget, RemoteTarget
 
 
@@ -86,4 +86,4 @@ def deployment_target(request):
 @pytest.fixture(scope="session")
 def app_catalog():
     """Provides a TestAppCatalog instance for accessing test applications."""
-    return TestAppCatalog()
+    return AppSourceCatalog()

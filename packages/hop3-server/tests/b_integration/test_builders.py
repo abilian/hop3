@@ -22,7 +22,7 @@ APPS = [
     ("040-sinatra", RubyBuilder),
     ("100-flask-gunicorn-pip", PythonBuilder),
     ("110-flask-gunicorn-poetry", PythonBuilder),
-    ("120-flask-pip-alt", PythonBuilder),
+    # ("120-flask-pip-alt", PythonBuilder),
     ("130-golang-minimal", GoBuilder),
 ]
 

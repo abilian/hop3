@@ -18,8 +18,8 @@ from pathlib import Path
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="paramiko")
 warnings.filterwarnings("ignore", message=".*TripleDES.*", category=DeprecationWarning)
 
-from .apps import DeploymentSession, TestAppCatalog
-from .apps.catalog import TestApp
+from .apps import AppSourceCatalog, DeploymentSession
+from .apps.catalog import AppSource
 from .targets import DockerTarget, RemoteTarget
 
 EPILOG = """Examples:
@@ -160,7 +160,7 @@ def main() -> None:
     target = create_target(args)
 
     # Get apps to test
-    catalog = TestAppCatalog(apps_dir=args.apps_dir)
+    catalog = AppSourceCatalog(apps_dir=args.apps_dir)
     apps = get_apps_to_test(catalog, args)
 
     if not apps:
@@ -231,7 +231,7 @@ def create_target(args) -> DockerTarget | RemoteTarget:
     return DockerTarget(config)
 
 
-def _create_test_app_from_path(app_path: Path) -> TestApp:
+def _create_test_app_from_path(app_path: Path) -> AppSource:
     """Create a TestApp instance from a directory path."""
     app_name = app_path.name
     category = "other"
@@ -245,7 +245,7 @@ def _create_test_app_from_path(app_path: Path) -> TestApp:
             if first_line.startswith("#"):
                 description = first_line.lstrip("#").strip()
 
-    return TestApp(
+    return AppSource(
         name=app_name,
         path=app_path,
         category=category,
@@ -258,7 +258,7 @@ def _is_path_spec(spec: str) -> bool:
     return "/" in spec or "\\" in spec or Path(spec).exists()
 
 
-def get_apps_to_test(catalog: TestAppCatalog, args) -> list:
+def get_apps_to_test(catalog: AppSourceCatalog, args) -> list:
     """Get list of apps to test based on arguments.
 
     Args:

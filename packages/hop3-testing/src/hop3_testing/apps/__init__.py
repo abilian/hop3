@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
-from .catalog import TestAppCatalog
+from .catalog import AppSourceCatalog
 from .deployment import DeploymentSession
 
 __all__ = [
     "DeploymentSession",
-    "TestAppCatalog",
+    "AppSourceCatalog",
 ]
