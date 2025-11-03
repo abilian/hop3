@@ -58,6 +58,7 @@ HOP3_BIN = HOP3_ROOT / "bin"
 HOP3_SCRIPT = str(HOP3_ROOT / "venv" / "bin" / "hop-agent")
 
 APP_ROOT = HOP3_ROOT / "apps"
+BACKUP_ROOT = HOP3_ROOT / "backups"
 
 NGINX_ROOT = HOP3_ROOT / "nginx"
 CACHE_ROOT = HOP3_ROOT / "cache"
@@ -73,6 +74,7 @@ ACME_WWW = HOP3_ROOT / "acme"
 
 ROOT_DIRS = [
     APP_ROOT,
+    BACKUP_ROOT,
     CACHE_ROOT,
     UWSGI_ROOT,
     UWSGI_AVAILABLE,
