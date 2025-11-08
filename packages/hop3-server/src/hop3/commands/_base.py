@@ -41,6 +41,9 @@ class Command:
     # Authentication metadata (default: requires auth, doesn't need username)
     requires_auth: ClassVar[bool] = True
     pass_username: ClassVar[bool] = False
+    # Destructive action metadata (default: not destructive)
+    # Set to True for commands that delete/destroy data (requires confirmation)
+    destructive: ClassVar[bool] = False
 
     def call(self, *args):
         return self.get_help()

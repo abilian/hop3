@@ -186,6 +186,67 @@ For comprehensive testing documentation, see:
 - [Testing Documentation](./testing.md) - Quick reference
 - [TEST-STATUS.md](/TEST-STATUS.md) - Current test status
 
+## Continuous Integration
+
+Hop3 uses GitHub Actions for continuous integration. All pull requests must pass CI checks before being merged.
+
+### CI Workflows
+
+**Main Test Workflow** (`.github/workflows/test.yml`):
+- Runs on every push and pull request to `main` and `devel` branches
+- Tests on Python 3.12 and 3.13
+- Includes:
+  - Unit tests
+  - Integration tests
+  - CLI tests
+  - Linting (Ruff)
+  - Dependency health checks
+  - Security scanning (pip-audit, safety)
+  - Code coverage reporting
+
+**E2E Test Workflow** (`.github/workflows/e2e.yml`):
+- Runs on schedule (nightly at 2 AM UTC)
+- Runs on manual trigger
+- Runs on pushes to `main` (but not PRs to keep CI times reasonable)
+- Includes:
+  - E2E tests with Docker
+  - System tests with Docker
+  - Log artifact upload for debugging
+
+### Viewing CI Results
+
+After submitting a PR:
+1. Wait for CI checks to complete (usually 5-10 minutes for main tests)
+2. Check the "Checks" tab on your PR to see results
+3. If tests fail, click on the failed check for detailed logs
+4. Fix any issues and push new commits (CI will automatically re-run)
+
+### Running CI Checks Locally
+
+Before submitting a PR, you can run the same checks locally:
+
+```bash
+# Run the same checks as CI
+make lint          # Linting
+make test          # Unit + integration tests
+pytest packages/hop3-server/tests/d_e2e  # E2E tests (slow)
+
+# Code coverage (like CI)
+pytest --cov=hop3 --cov-report=term-missing \
+  packages/hop3-server/tests/a_unit \
+  packages/hop3-server/tests/b_integration \
+  packages/hop3-cli/tests
+```
+
+### Coverage Requirements
+
+Code coverage is tracked and reported by CI. While we don't enforce strict coverage requirements, we expect:
+- New features to include tests that cover the main code paths
+- Bug fixes to include regression tests
+- Coverage not to decrease significantly with new changes
+
+Coverage reports are uploaded to Codecov and available as artifacts on the GitHub Actions run.
+
 ## Community and Conduct
 
 Hop3 is committed to fostering an inclusive and welcoming community. We expect all contributors to adhere to our Code of Conduct, which outlines our expectations for behavior within our community. Respect, collaboration, and constructive communication are key to our community's health and success.

@@ -84,9 +84,9 @@ class BackupCreateCmd(Command):
                 f"Location: {backup_path}",
                 f"Total size: {self._format_size(manifest.size_bytes)}",
                 "",
-                f"Contents:",
-                f"  - Source code",
-                f"  - Data directory",
+                "Contents:",
+                "  - Source code",
+                "  - Data directory",
                 f"  - Environment variables ({manifest.env_vars_count} variables)",
             ]
 
@@ -366,9 +366,7 @@ class BackupRestoreCmd(Command):
             manifest = manager.get_backup_info(backup_id)
             app_name = target_app_name or manifest.app_name
 
-            output = [
-                {"t": "text", "text": f"Restoring backup {backup_id}...\n"}
-            ]
+            output = [{"t": "text", "text": f"Restoring backup {backup_id}...\n"}]
 
             # Verify backup integrity
             verification = manager.verify_backup(backup_id)
@@ -424,6 +422,7 @@ class BackupDeleteCmd(Command):
 
     db_session: Session
     name = "backup:delete"
+    destructive = True
 
     def call(self, *args):
         """Delete a backup."""

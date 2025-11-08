@@ -538,13 +538,17 @@ class BackupManager:
                 service_backup_path = service.backup()
 
                 # Copy service backup to our backup directory
-                dest_filename = f"{service_type}_{service_name}{service_backup_path.suffix}"
+                dest_filename = (
+                    f"{service_type}_{service_name}{service_backup_path.suffix}"
+                )
                 dest_path = services_dir / dest_filename
 
                 shutil.copy2(service_backup_path, dest_path)
 
                 size = dest_path.stat().st_size
-                log(f"Backed up service {service_name} ({service_type}): {self._format_size(size)}")
+                log(
+                    f"Backed up service {service_name} ({service_type}): {self._format_size(size)}"
+                )
 
                 services_info.append({
                     "type": service_type,
@@ -602,7 +606,9 @@ class BackupManager:
 
         log("Restored data directory")
 
-    def _restore_env(self, app: App, backup_dir: Path, manifest: BackupManifest) -> None:
+    def _restore_env(
+        self, app: App, backup_dir: Path, manifest: BackupManifest
+    ) -> None:
         """Restore environment variables from backup.
 
         Args:

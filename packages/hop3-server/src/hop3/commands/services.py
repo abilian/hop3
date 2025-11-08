@@ -304,6 +304,7 @@ class ServicesDestroyCmd(Command):
 
     db_session: Session
     name = "services:destroy"
+    destructive = True
 
     def call(self, *args):
         """Destroy a service instance."""

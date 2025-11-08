@@ -35,11 +35,14 @@
 - ✅ Password management
 - ✅ Token generation
 
-#### Testing
+#### Testing & CI/CD
 - ✅ Unit tests (fast, isolated)
 - ✅ Integration tests (auth, RPC, security)
 - ✅ System tests (Docker-based)
 - ✅ E2E infrastructure (Docker, supervisor)
+- ✅ GitHub Actions CI/CD (test, lint, security, coverage)
+- ✅ Automated testing on Python 3.12 and 3.13
+- ✅ Nightly E2E test runs
 
 ### What's Partially Working ⚠️
 

@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
-from .base import DeploymentTarget
+from .base import CommandResult, DeploymentTarget
 from .docker import DockerTarget
 from .remote import RemoteTarget
 
 __all__ = [
+    "CommandResult",
     "DeploymentTarget",
     "DockerTarget",
     "RemoteTarget",

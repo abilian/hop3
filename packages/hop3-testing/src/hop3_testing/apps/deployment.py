@@ -357,7 +357,7 @@ class DeploymentSession:
                 print(f"[DEBUG] Apps before destroy:\n{before.stdout}")
 
                 result = subprocess.run(
-                    ["hop3", "app:destroy", self.app_name],
+                    ["hop3", "app:destroy", self.app_name, "-y"],
                     env=env,
                     capture_output=True,
                     text=True,

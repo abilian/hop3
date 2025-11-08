@@ -37,7 +37,9 @@ from .arguments import generate_archive
 from .client import Client
 from .config import Config, get_config
 from .console import err
-from .printer import Printer
+from .flags import parse_flags
+from .prompts import confirm, show_destructive_warning, type_to_confirm
+from .rich_printer import RichPrinter
 from .types import JsonDict
 
 logger.remove()
@@ -51,13 +53,15 @@ def main():
 
 
 def run_command_from_args(cli_args: list[str]) -> None:
-    # namespace = parse_args(args)
-    #
-    # if "config_file" in namespace:
-    #     config = get_config(namespace.config_file)
-    # else:
-    #     config = Config("", {})
-    # args = namespace.args
+    # Parse CLI flags (--json, --quiet, -y, etc.)
+    flags, cli_args = parse_flags(cli_args)
+
+    # Create printer with appropriate output mode
+    printer = RichPrinter(
+        verbose=flags.verbose,
+        quiet=flags.quiet,
+        json_output=flags.json_output,
+    )
 
     config = load_config()
     client = Client(config=config, state=None)
@@ -69,6 +73,11 @@ def run_command_from_args(cli_args: list[str]) -> None:
     # Convert "hop --help" to "hop help"
     # Convert "hop run --help" to "hop help run"
     cli_args = handle_help_flags(cli_args)
+
+    # Check for destructive commands and prompt for confirmation
+    if not flags.skip_confirm and is_destructive_command(cli_args):
+        if not confirm_destructive_action(cli_args, printer):
+            sys.exit(0)  # User cancelled
 
     extra_args = get_extra_args(cli_args)
 
@@ -93,9 +102,9 @@ def run_command_from_args(cli_args: list[str]) -> None:
         case Ok(result=result):
             # Handle auth:login specially - save token automatically
             if cli_args and cli_args[0] == "auth:login":
-                handle_login_response(result, config)
+                handle_login_response(result, config, printer)
             else:
-                Printer().print(result)
+                printer.print(result)
         case Error(message=message):
             err(f"Error:\n{message}")
             if client.tunnel:
@@ -104,16 +113,109 @@ def run_command_from_args(cli_args: list[str]) -> None:
         case None:
             pass
 
+    # Flush JSON output if in JSON mode
+    if printer.json_output:
+        printer.flush_json()
+
     if client.tunnel:
         client.tunnel.stop()
 
 
-def handle_login_response(result: list[dict], config: Config) -> None:
+def is_destructive_command(cli_args: list[str]) -> bool:
+    """Check if the command is destructive (requires confirmation).
+
+    Args:
+        cli_args: Command-line arguments
+
+    Returns:
+        True if command is destructive, False otherwise
+    """
+    if not cli_args:
+        return False
+
+    command = cli_args[0]
+
+    # List of destructive commands that require confirmation
+    destructive_commands = {
+        "app:destroy",
+        "destroy",  # Alias for app:destroy
+        "backup:delete",
+        "services:destroy",
+    }
+
+    return command in destructive_commands
+
+
+def confirm_destructive_action(cli_args: list[str], printer: RichPrinter) -> bool:
+    """Prompt user to confirm a destructive action.
+
+    Args:
+        cli_args: Command-line arguments
+        printer: Printer for output (for JSON mode detection)
+
+    Returns:
+        True if user confirmed, False if cancelled
+    """
+    if printer.json_output:
+        # In JSON mode, auto-confirm (user should use -y flag)
+        return True
+
+    command = cli_args[0]
+    args = cli_args[1:]
+
+    # app:destroy or destroy command - requires type-to-confirm
+    if command in ("app:destroy", "destroy"):
+        if not args:
+            # No app name provided, let server handle error
+            return True
+
+        app_name = args[0]
+        show_destructive_warning(
+            "destroy",
+            f"app '{app_name}'",
+            "All files, data, and configuration will be permanently deleted.",
+        )
+        return type_to_confirm(f"Type '{app_name}' to confirm:", app_name)
+
+    # backup:delete command
+    if command == "backup:delete":
+        if not args:
+            return True
+
+        backup_id = args[0]
+        show_destructive_warning(
+            "delete",
+            f"backup '{backup_id}'",
+            "This backup cannot be recovered once deleted.",
+        )
+        return confirm("Are you sure you want to delete this backup?")
+
+    # services:destroy command
+    if command == "services:destroy":
+        if not args:
+            return True
+
+        service_name = args[0]
+        show_destructive_warning(
+            "destroy",
+            f"service '{service_name}'",
+            "All data in this service will be permanently deleted.",
+        )
+        return type_to_confirm(f"Type '{service_name}' to confirm:", service_name)
+
+    # Unknown destructive command (shouldn't happen)
+    return confirm("This action cannot be undone. Continue?")
+
+
+def handle_login_response(
+    result: list[dict], config: Config, printer: RichPrinter
+) -> None:
     """Handle auth:login response - extract and save token, then print modified output.
 
     Args:
         result: The RPC response from auth:login
         config: The config object to save the token to
+        printer: Printer for output
     """
     # JWT token pattern (3 base64url segments separated by dots)
     jwt_pattern = re.compile(r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
@@ -182,7 +284,7 @@ def handle_login_response(result: list[dict], config: Config) -> None:
             })
 
     # Print the modified result
-    Printer().print(modified_result)
+    printer.print(modified_result)
 
 
 def handle_help_flags(args: list[str]) -> list[str]:
