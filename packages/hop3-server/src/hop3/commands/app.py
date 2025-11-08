@@ -271,6 +271,7 @@ class DestroyCmd(Command):
 
     db_session: Session
     name = "app:destroy"
+    destructive = True
 
     def call(self, *args):
         if not args:

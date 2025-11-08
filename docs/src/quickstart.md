@@ -152,6 +152,84 @@ If you want to remove the application and all its associated resources:
 hop3 destroy hello-hop3
 ```
 
+## Step 6: Backup and Restore
+
+Hop3 provides a powerful backup and restore system to protect your applications and data. This is essential for production deployments.
+
+### Create a Backup
+
+Before making changes to your application, it's always a good idea to create a backup:
+
+```bash
+hop3 backup:create hello-hop3
+```
+
+This creates a complete backup including:
+- Source code (git repository)
+- Application data
+- Environment variables
+- Any attached services (databases, etc.)
+
+You'll see output like:
+
+```
+Creating backup for app 'hello-hop3'...
+
+Backup created successfully!
+
+Backup ID: 20251108_143022_a8f3d9
+Location: /var/hop3/backups/apps/hello-hop3/20251108_143022_a8f3d9
+Total size: 2.3 MB
+
+To restore this backup:
+  hop3 backup:restore 20251108_143022_a8f3d9
+```
+
+### List Your Backups
+
+To see all backups for your application:
+
+```bash
+hop3 backup:list hello-hop3
+```
+
+Or list all backups across all applications:
+
+```bash
+hop3 backup:list
+```
+
+### Restore from Backup
+
+If something goes wrong, you can restore your application to a previous state:
+
+```bash
+hop3 backup:restore 20251108_143022_a8f3d9
+hop3 restart hello-hop3
+```
+
+This restores:
+- All source code to the exact state at backup time
+- Application data files
+- Environment variables
+- Service configurations
+
+!!! tip "Best Practice: Backup Before Deployment"
+    Get in the habit of creating a backup before each deployment:
+    ```bash
+    # Create backup
+    hop3 backup:create hello-hop3
+
+    # Deploy new version
+    hop3 deploy
+
+    # If something goes wrong, restore
+    hop3 backup:restore <backup-id>
+    hop3 restart hello-hop3
+    ```
+
+For complete backup documentation, see the [**Backup and Restore Guide**](backup-restore.md).
+
 ## Congratulations!
 
 You have successfully deployed and managed your first application on Hop3. You can now use this workflow to deploy your own, more complex applications. Explore the rest of the documentation to learn about advanced features like managing environment variables, connecting to databases, and more.

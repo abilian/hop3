@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -14,6 +16,16 @@ from typing_extensions import Self
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+
+@dataclass
+class CommandResult:
+    """Result of a command execution."""
+
+    success: bool
+    stdout: str
+    stderr: str
+    returncode: int
 
 
 @dataclass
@@ -100,6 +112,40 @@ class DeploymentTarget(ABC):
         """
         msg = "get_logs not implemented for this target"
         raise NotImplementedError(msg)
+
+    def run_command(self, *args: str) -> CommandResult:
+        """Run a hop3 command on the target.
+
+        Args:
+            *args: Command and arguments (e.g., "backup:create", "my-app")
+
+        Returns:
+            CommandResult with success status and output
+        """
+        target_info = self.info
+
+        env = os.environ.copy()
+        env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
+        env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
+        env["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"
+
+        # Always add -y flag to skip confirmations in E2E tests
+        cmd_args = ["hop3", *args, "-y"]
+
+        result = subprocess.run(
+            cmd_args,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        return CommandResult(
+            success=result.returncode == 0,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            returncode=result.returncode,
+        )
 
     def __enter__(self) -> Self:
         """Context manager entry."""

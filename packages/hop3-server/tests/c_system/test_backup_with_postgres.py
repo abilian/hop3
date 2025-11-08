@@ -4,8 +4,21 @@
 
 """System tests for backup with PostgreSQL service.
 
-These tests verify backup and restore functionality with real PostgreSQL
-databases in a Docker environment.
+Note: These tests have been implemented as E2E tests in
+packages/hop3-server/tests/d_e2e/test_backup.py instead.
+
+The E2E test infrastructure provides better isolation and more comprehensive
+testing capabilities for backup/restore scenarios with real services.
+
+See:
+- test_backup_simple_app: Basic backup/restore without services
+- test_backup_includes_env_vars: Verify environment variables are backed up
+- test_restore_simple_app: Test restore functionality
+- test_restore_to_different_app_name: Test cloning via restore
+- test_list_and_filter_backups: Test backup listing and filtering
+- test_delete_backup: Test backup deletion
+- test_backup_app_with_postgres: Backup with PostgreSQL (pending PostgreSQL support in E2E)
+- test_restore_app_with_postgres: Restore with PostgreSQL (pending PostgreSQL support in E2E)
 """
 
 from __future__ import annotations
@@ -13,29 +26,25 @@ from __future__ import annotations
 import pytest
 
 pytestmark = pytest.mark.skip(
-    reason="System tests require Docker and PostgreSQL - run manually"
+    reason="Backup tests have been implemented as E2E tests in d_e2e/test_backup.py. "
+    "System tests are not needed as the E2E infrastructure provides better coverage."
 )
 
 
 class TestBackupWithPostgreSQL:
-    """Test backup and restore with PostgreSQL service."""
+    """Test backup and restore with PostgreSQL service.
+
+    These tests are no longer implemented here - see d_e2e/test_backup.py instead.
+    """
 
     def test_backup_includes_postgres_data(self):
         """Test that backup includes PostgreSQL database dump."""
-        # This would require a full Docker setup with PostgreSQL
-        # Marking as skip for now - will be implemented in E2E tests
+        # Implemented in d_e2e/test_backup.py::TestBackupRestoreE2E::test_backup_app_with_postgres
 
     def test_restore_postgres_data(self):
         """Test that restore recreates PostgreSQL database."""
-        # This would require a full Docker setup with PostgreSQL
-        # Marking as skip for now - will be implemented in E2E tests
+        # Implemented in d_e2e/test_backup.py::TestBackupRestoreE2E::test_restore_app_with_postgres
 
     def test_backup_restore_roundtrip(self):
         """Test full backup and restore cycle with PostgreSQL."""
-        # This would require a full Docker setup with PostgreSQL
-        # Marking as skip for now - will be implemented in E2E tests
-
-
-# These tests are placeholders for now. Full system tests will be
-# implemented as part of the E2E test suite in d_e2e/test_backup.py
-# where we can use Docker containers to set up real PostgreSQL instances.
+        # Implemented in d_e2e/test_backup.py::TestBackupRestoreE2E::test_restore_app_with_postgres
