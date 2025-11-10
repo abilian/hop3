@@ -121,14 +121,14 @@ test: test-full
 test-quick:
 	@echo "--> Running quick Python tests"
 	# uv run pytest -m "not slow and not network"
-	uv run pytest packages/hop3-server/tests/a_unit
-	uv run pytest packages/hop3-server/tests/b_integration
+	uv run pytest -n 2 packages/hop3-server/tests/a_unit
+	uv run pytest -n 4 packages/hop3-server/tests/b_integration
 	@echo ""
 
 test-full:
 	@echo "--> Running full Python tests"
-	uv run pytest -q --tb=short packages/hop3-server/tests/a_unit
-	uv run pytest -q --tb=short packages/hop3-server/tests/b_integration
+	uv run pytest -n 2 -q --tb=short packages/hop3-server/tests/a_unit
+	uv run pytest -n 4 -q --tb=short packages/hop3-server/tests/b_integration
 	# uv run pytest -q --tb=short packages/hop3-server/tests/c_system
 	uv run pytest -q --tb=short packages/hop3-server/tests/d_e2e
 	uv run pytest -q --tb=short packages/hop3-cli/tests
