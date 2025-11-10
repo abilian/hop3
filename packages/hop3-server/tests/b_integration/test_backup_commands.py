@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import shutil
 import tarfile
-from pathlib import Path
 
 import pytest
 from advanced_alchemy.base import BigIntAuditBase
@@ -29,12 +28,12 @@ from hop3.orm import App, EnvVar
 
 @pytest.fixture
 def test_db():
-    """Create a test database."""
-    db_path = Path("/tmp/test_backup.db")
-    if db_path.exists():
-        db_path.unlink()
+    """Create a test database.
 
-    engine = create_engine(f"sqlite:///{db_path}")
+    Uses in-memory SQLite database to support parallel test execution.
+    Each test worker gets its own isolated in-memory database.
+    """
+    engine = create_engine("sqlite:///:memory:")
     BigIntAuditBase.metadata.create_all(engine)
 
     SessionLocal = sessionmaker(bind=engine)
@@ -44,8 +43,6 @@ def test_db():
 
     session.close()
     engine.dispose()
-    if db_path.exists():
-        db_path.unlink()
 
 
 @pytest.fixture

@@ -24,7 +24,8 @@ from typing import TYPE_CHECKING, Any
 from hop3 import config as c
 from hop3.core.plugins import get_service_strategy
 from hop3.lib import log
-from hop3.orm import App, Backup, BackupStateEnum
+from hop3.orm import App, Backup, BackupStateEnum, EnvVar
+from hop3.orm.repositories import AppRepository
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -262,8 +263,6 @@ class BackupManager:
         app_name = target_app_name or manifest.app_name
 
         # Get or create app
-        from hop3.orm.repositories import AppRepository
-
         app_repo = AppRepository(session=self.db_session)
         app = app_repo.get_one_or_none(name=app_name)
 
@@ -628,8 +627,6 @@ class BackupManager:
         app.env_vars.clear()
 
         # Restore env vars
-        from hop3.orm import EnvVar
-
         for key, value in env_data.items():
             env_var = EnvVar(name=key, value=value, app=app)
             app.env_vars.append(env_var)
@@ -777,7 +774,7 @@ class BackupManager:
             Version string
         """
         try:
-            from hop3 import __version__
+            from hop3 import __version__  # noqa: PLC0415
 
             return __version__
         except ImportError:

@@ -91,7 +91,8 @@ if __name__ == "__main__":
             assert result.success, f"Backup info failed: {result.stderr}"
             assert backup_id in result.stdout
             assert session.app_name in result.stdout
-            assert "Integrity" in result.stdout and "valid" in result.stdout.lower()
+            assert "Integrity" in result.stdout
+            assert "valid" in result.stdout.lower()
 
     def test_backup_includes_env_vars(self, deployment_target, tmp_path):
         """Test that backups include environment variables."""

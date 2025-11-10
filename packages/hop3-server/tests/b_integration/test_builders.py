@@ -13,6 +13,7 @@ from hop3.builders import (
     PythonBuilder,
     RubyBuilder,
 )
+from hop3.core.protocols import BuildArtifact, DeploymentContext
 
 APPS = [
     # ("000-static", PythonBuilder),
@@ -42,3 +43,30 @@ def test_builders(tmp_path, app_name, builder_cls):
 
     builder.build()
     # Nothing to assert, builder would raise an exception if something went wrong
+
+
+def test_builder_returns_build_artifact(tmp_path: Path, monkeypatch):
+    """Test that build() returns a BuildArtifact."""
+    # Create source directory with requirements.txt
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "requirements.txt").write_text("flask==2.0.0\n")
+
+    # Create DeploymentContext
+    context = DeploymentContext(app_name="test-app", source_path=src_dir, app_config={})
+
+    # Initialize builder with context
+    builder = PythonBuilder(context)
+
+    # Change to source directory
+    monkeypatch.chdir(src_dir)
+
+    # Build the app
+    artifact = builder.build()
+
+    # Verify build() returns a BuildArtifact
+    assert isinstance(artifact, BuildArtifact)
+    assert artifact.kind == "virtualenv"
+    assert artifact.location == str(tmp_path / "venv")
+    assert artifact.metadata["app_name"] == "test-app"
+    assert "python_path" in artifact.metadata
