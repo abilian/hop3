@@ -141,9 +141,11 @@ def test_confirm_destructive_action_shows_warnings():
     printer = RichPrinter()
 
     stderr_capture = StringIO()
-    with patch.object(sys, "stderr", stderr_capture):
-        with patch("builtins.input", return_value="my-app"):
-            confirm_destructive_action(["app:destroy", "my-app"], printer)
+    with (
+        patch.object(sys, "stderr", stderr_capture),
+        patch("builtins.input", return_value="my-app"),
+    ):
+        confirm_destructive_action(["app:destroy", "my-app"], printer)
 
     output = stderr_capture.getvalue()
     assert "⚠  WARNING: DESTRUCTIVE ACTION" in output
@@ -156,9 +158,11 @@ def test_confirm_destructive_action_app_destroy_warning_details():
     printer = RichPrinter()
 
     stderr_capture = StringIO()
-    with patch.object(sys, "stderr", stderr_capture):
-        with patch("builtins.input", return_value="my-app"):
-            confirm_destructive_action(["app:destroy", "my-app"], printer)
+    with (
+        patch.object(sys, "stderr", stderr_capture),
+        patch("builtins.input", return_value="my-app"),
+    ):
+        confirm_destructive_action(["app:destroy", "my-app"], printer)
 
     output = stderr_capture.getvalue()
     assert "All files, data, and configuration will be permanently deleted." in output
@@ -169,9 +173,11 @@ def test_confirm_destructive_action_backup_delete_warning_details():
     printer = RichPrinter()
 
     stderr_capture = StringIO()
-    with patch.object(sys, "stderr", stderr_capture):
-        with patch("builtins.input", return_value="y"):
-            confirm_destructive_action(["backup:delete", "backup-123"], printer)
+    with (
+        patch.object(sys, "stderr", stderr_capture),
+        patch("builtins.input", return_value="y"),
+    ):
+        confirm_destructive_action(["backup:delete", "backup-123"], printer)
 
     output = stderr_capture.getvalue()
     assert "backup 'backup-123'" in output
@@ -183,9 +189,11 @@ def test_confirm_destructive_action_services_destroy_warning_details():
     printer = RichPrinter()
 
     stderr_capture = StringIO()
-    with patch.object(sys, "stderr", stderr_capture):
-        with patch("builtins.input", return_value="postgres"):
-            confirm_destructive_action(["services:destroy", "postgres"], printer)
+    with (
+        patch.object(sys, "stderr", stderr_capture),
+        patch("builtins.input", return_value="postgres"),
+    ):
+        confirm_destructive_action(["services:destroy", "postgres"], printer)
 
     output = stderr_capture.getvalue()
     assert "service 'postgres'" in output

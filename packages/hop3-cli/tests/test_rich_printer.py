@@ -293,7 +293,8 @@ def test_rich_printer_immutability():
 
     try:
         printer.quiet = True  # type: ignore
-        assert False, "Should have raised AttributeError"
+        msg = "Should have raised AttributeError"
+        raise AssertionError(msg)
     except AttributeError:
         # Expected - frozen dataclass
         pass

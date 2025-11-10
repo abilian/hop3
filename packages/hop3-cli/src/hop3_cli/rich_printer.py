@@ -143,7 +143,7 @@ class RichPrinter:
             return
 
         text = obj.get("text", "")
-        self.console.print(f"[bold blue]ℹ[/bold blue] {text}")
+        self.console.print(f"[bold blue]i[/bold blue] {text}")
 
     def print_progress(self, obj: dict) -> None:
         """Print progress indicator."""
@@ -195,4 +195,4 @@ class RichPrinter:
         if not response:
             return default
 
-        return response in ("y", "yes")
+        return response in {"y", "yes"}

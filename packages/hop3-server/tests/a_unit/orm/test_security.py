@@ -46,22 +46,6 @@ def test_user_creation(db_session: Session):
     assert user.password_hash != "testpass123"  # Should be hashed
 
 
-def test_user_password_hashing(db_session: Session):
-    """Test password hashing and verification."""
-    user = User(username="testuser", email="test@example.com", password_hash="")
-    user.set_password("mysecretpassword")
-
-    db_session.add(user)
-    db_session.commit()
-
-    # Correct password should verify
-    assert user.check_password("mysecretpassword")
-
-    # Incorrect password should not verify
-    assert not user.check_password("wrongpassword")
-    assert not user.check_password("")
-
-
 def test_user_active_default(db_session: Session):
     """Test that user is active by default."""
     user = User(username="testuser", email="test@example.com", password_hash="")

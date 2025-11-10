@@ -148,6 +148,8 @@ def test_parse_flags_preserves_arg_order():
     assert args == ["deploy", "my-app", "/path/to/dir"]
 
     flags, args = parse_flags(["-y", "destroy", "--quiet", "app1", "app2"])
+    assert flags.skip_confirm is True
+    assert flags.quiet is True
     assert args == ["destroy", "app1", "app2"]
 
 
@@ -169,7 +171,8 @@ def test_cli_flags_immutability():
     # Attempting to modify should raise an error
     try:
         flags.json_output = False  # type: ignore
-        assert False, "Should have raised FrozenInstanceError"
+        msg = "Should have raised FrozenInstanceError"
+        raise AssertionError(msg)
     except AttributeError:
         # Expected - frozen dataclass prevents modification
         pass

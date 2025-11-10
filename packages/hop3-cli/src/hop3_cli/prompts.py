@@ -35,7 +35,7 @@ def confirm(message: str, default: bool = False) -> bool:
     if not response:
         return default
 
-    return response in ("y", "yes")
+    return response in {"y", "yes"}
 
 
 def type_to_confirm(message: str, required_text: str) -> bool:

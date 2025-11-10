@@ -164,7 +164,7 @@ def confirm_destructive_action(cli_args: list[str], printer: RichPrinter) -> boo
     args = cli_args[1:]
 
     # app:destroy or destroy command - requires type-to-confirm
-    if command in ("app:destroy", "destroy"):
+    if command in {"app:destroy", "destroy"}:
         if not args:
             # No app name provided, let server handle error
             return True
