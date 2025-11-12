@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Services - Hop3 Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8">
+    <div class="sm:flex sm:items-center">
+        <div class="sm:flex-auto">
+            <h1 class="text-2xl font-semibold leading-6 text-gray-900">Services</h1>
+            <p class="mt-2 text-sm text-gray-700">
+                Manage attached services like PostgreSQL, Redis, and more.
+            </p>
+        </div>
+    </div>
+
+    <div class="mt-8 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+        </svg>
+        <h3 class="mt-2 text-sm font-semibold text-gray-900">Coming Soon</h3>
+        <p class="mt-1 text-sm text-gray-500">Service management UI will be available in a future release.</p>
+        <p class="mt-1 text-sm text-gray-500">Use the CLI for now: <code class="bg-gray-100 px-2 py-1 rounded">hop3 services:list</code></p>
+    </div>
+</div>
+{% endblock %}

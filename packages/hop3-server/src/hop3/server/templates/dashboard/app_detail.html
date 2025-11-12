@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}{{ app.name }} - Hop3 Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8">
+    <!-- Header with actions -->
+    <div class="sm:flex sm:items-center sm:justify-between mb-8">
+        <div>
+            <nav class="flex mb-2" aria-label="Breadcrumb">
+                <ol class="flex items-center space-x-2">
+                    <li>
+                        <a href="/dashboard" class="text-gray-400 hover:text-gray-500">
+                            Applications
+                        </a>
+                    </li>
+                    <li>
+                        <span class="text-gray-400">/</span>
+                    </li>
+                    <li>
+                        <span class="text-gray-900 font-medium">{{ app.name }}</span>
+                    </li>
+                </ol>
+            </nav>
+            <h1 class="text-3xl font-bold leading-6 text-gray-900">{{ app.name }}</h1>
+            <p class="mt-2 text-sm text-gray-700">
+                Application details and process information
+            </p>
+        </div>
+        <div class="mt-4 sm:ml-16 sm:mt-0 flex flex-col sm:flex-row gap-2">
+            <a href="/dashboard/apps/{{ app.name }}/logs"
+               class="inline-flex items-center justify-center rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500">
+                View Logs
+            </a>
+            <button type="button"
+                    class="inline-flex items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+                Restart App
+            </button>
+        </div>
+    </div>
+
+    <!-- Status card with HTMX polling -->
+    <div id="status-container"
+         hx-get="/dashboard/apps/{{ app.name }}/status"
+         hx-trigger="every 5s"
+         hx-swap="innerHTML">
+        {% include 'dashboard/_app_status.html' %}
+    </div>
+
+    <!-- Application Information -->
+    <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <!-- Basic Info Card -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Basic Information</h3>
+                <dl class="grid grid-cols-1 gap-x-4 gap-y-6">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Application Name</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ app.name }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Port</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ app.port }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Hostname</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
+                            {% if app.hostname %}
+                                <a href="http://{{ app.hostname }}" target="_blank" class="text-blue-600 hover:text-blue-900">
+                                    {{ app.hostname }}
+                                    <svg class="inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                </a>
+                            {% else %}
+                                <span class="text-gray-400">Not configured</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Created At</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ app.created_at.strftime('%Y-%m-%d %H:%M:%S') if app.created_at else 'N/A' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Last Updated</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ app.updated_at.strftime('%Y-%m-%d %H:%M:%S') if app.updated_at else 'N/A' }}</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Paths Card -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Application Paths</h3>
+                <dl class="grid grid-cols-1 gap-x-4 gap-y-6">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Root Path</dt>
+                        <dd class="mt-1 text-sm text-gray-900 font-mono text-xs">{{ app.app_path }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Source Path</dt>
+                        <dd class="mt-1 text-sm text-gray-900 font-mono text-xs">{{ app.src_path }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Data Path</dt>
+                        <dd class="mt-1 text-sm text-gray-900 font-mono text-xs">{{ app.data_path }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Log Path</dt>
+                        <dd class="mt-1 text-sm text-gray-900 font-mono text-xs">{{ app.log_path }}</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <!-- Processes/Workers Card -->
+    {% if app.workers %}
+    <div class="mt-8 bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Processes</h3>
+            <div class="overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-300">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">
+                                Process Type
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                Command
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for process_type, command in app.workers.items() %}
+                        <tr>
+                            <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
+                                <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset
+                                    {% if process_type in ['web', 'wsgi', 'jwsgi', 'rwsgi'] %}
+                                        bg-blue-50 text-blue-700 ring-blue-600/20
+                                    {% elif process_type == 'worker' %}
+                                        bg-purple-50 text-purple-700 ring-purple-600/20
+                                    {% elif process_type == 'cron' %}
+                                        bg-yellow-50 text-yellow-700 ring-yellow-600/20
+                                    {% else %}
+                                        bg-gray-50 text-gray-700 ring-gray-600/20
+                                    {% endif %}
+                                ">
+                                    {{ process_type }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-4 text-sm text-gray-500 font-mono">
+                                {{ command }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Environment Variables Card -->
+    {% if app.env_var_count > 0 %}
+    <div class="mt-8 bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium leading-6 text-gray-900">Environment Variables</h3>
+                <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">
+                    {{ app.env_var_count }} variables
+                </span>
+            </div>
+            <p class="text-sm text-gray-500">
+                Environment variables are managed via the CLI. Use <code class="bg-gray-100 px-2 py-1 rounded text-xs">hop3 config:set</code> to add or update variables.
+            </p>
+            <div class="mt-4">
+                <a href="/dashboard/apps/{{ app.name }}/env" class="text-sm text-blue-600 hover:text-blue-900 font-medium">
+                    View and manage environment variables →
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Quick Actions -->
+    <div class="mt-8 bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Quick Actions</h3>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <a href="/dashboard/apps/{{ app.name }}/logs" class="relative block w-full rounded-lg border-2 border-dashed border-gray-300 p-6 text-center hover:border-gray-400">
+                    <svg class="mx-auto h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span class="mt-2 block text-sm font-medium text-gray-900">View Logs</span>
+                </a>
+
+                <a href="/dashboard/apps/{{ app.name }}/env" class="relative block w-full rounded-lg border-2 border-dashed border-gray-300 p-6 text-center hover:border-gray-400">
+                    <svg class="mx-auto h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span class="mt-2 block text-sm font-medium text-gray-900">Environment Variables</span>
+                </a>
+
+                <button type="button" class="relative block w-full rounded-lg border-2 border-dashed border-gray-300 p-6 text-center hover:border-gray-400">
+                    <svg class="mx-auto h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                    </svg>
+                    <span class="mt-2 block text-sm font-medium text-gray-900">Database Backup</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

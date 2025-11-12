@@ -13,6 +13,7 @@ dependencies = [
     "starlette>=0.40",
     "attrs >= 24.2",
     "jinja2",
+    "itsdangerous>=2.0.0",
     # "cattrs",
     # Plugins and DI
     "pluggy ~= 1.4",

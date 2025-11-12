@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, Abilian SAS
+# Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
@@ -17,6 +17,8 @@ SUB_REPOS = [
     "packages/hop3-testing",
 ]
 
+# Note: we use 'uv' instead of 'pip' to make setup quicker
+# '--active' and 'external=True' are needed for proper setup
 nox.options.default_venv_backend = "uv|virtualenv"
 
 
@@ -31,8 +33,6 @@ def lint(session: nox.Session):
     """Run linters."""
     src_dirs = glob.glob("packages/*/src/") + glob.glob("packages/*/tests/")
     session.run("uv", "run", "--active", "ruff", "check", *src_dirs)
-    # session.run("uv", "run", "pyright", "packages/hop3-server")
-    # session.run("uv", "run", "mypy", "packages/hop3-server")
     session.run("uv", "run", "--active", "reuse", "lint", "-q")
     with session.chdir("packages/hop3-server"):
         session.run("uv", "run", "--active", "deptry", "src")
@@ -42,9 +42,9 @@ def lint(session: nox.Session):
 
 @nox.session(python=PYTHON_VERSIONS)
 def pytest(session: nox.Session) -> None:
-    # session.install(".")
-    # session.install("pytest")
-    session.run("uv", "run", "pytest")
+    # Note: we use 'uv' instead of 'pip' to make setup quicker
+    # '--active' is needed for proper setup
+    session.run("uv", "run", "--active", "pytest")
 
 
 @nox.session(python=PYTHON_VERSIONS)

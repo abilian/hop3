@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Hop3 Dashboard{% endblock %}</title>
+
+    <!-- TailwindCSS CDN (for development) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10/dist/ext/sse.js"></script>
+
+    <!-- Alpine.js -->
+    <script src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full">
+    <div class="min-h-full">
+        {% if request.user.is_authenticated %}
+        <!-- Navigation -->
+        <nav class="bg-white shadow-sm">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div class="flex h-16 justify-between">
+                    <div class="flex">
+                        <!-- Logo -->
+                        <div class="flex flex-shrink-0 items-center">
+                            <a href="/dashboard" class="text-2xl font-bold text-blue-600">
+                                Hop3
+                            </a>
+                        </div>
+
+                        <!-- Primary Navigation -->
+                        <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                            <a href="/dashboard"
+                               class="{% if request.url.path == '/dashboard' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium">
+                                Applications
+                            </a>
+                            <a href="/dashboard/services"
+                               class="{% if request.url.path.startswith('/dashboard/services') %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium">
+                                Services
+                            </a>
+                            <a href="/dashboard/backups"
+                               class="{% if request.url.path.startswith('/dashboard/backups') %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium">
+                                Backups
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- User menu -->
+                    <div class="hidden sm:ml-6 sm:flex sm:items-center">
+                        <div x-data="{ open: false }" class="relative ml-3">
+                            <div>
+                                <button @click="open = !open"
+                                        type="button"
+                                        class="flex rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                        id="user-menu-button">
+                                    <span class="sr-only">Open user menu</span>
+                                    <div class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
+                                        <span class="text-white font-medium text-sm">
+                                            {{ request.user.display_name[0]|upper }}
+                                        </span>
+                                    </div>
+                                </button>
+                            </div>
+
+                            <div x-show="open"
+                                 @click.away="open = false"
+                                 x-transition:enter="transition ease-out duration-200"
+                                 x-transition:enter-start="transform opacity-0 scale-95"
+                                 x-transition:enter-end="transform opacity-100 scale-100"
+                                 x-transition:leave="transition ease-in duration-75"
+                                 x-transition:leave-start="transform opacity-100 scale-100"
+                                 x-transition:leave-end="transform opacity-0 scale-95"
+                                 class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+                                 style="display: none;">
+                                <div class="px-4 py-2 text-sm text-gray-700 border-b">
+                                    <div class="font-medium">{{ request.user.display_name }}</div>
+                                    <div class="text-gray-500 text-xs">{{ request.user.username }}</div>
+                                </div>
+                                <a href="/auth/profile" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    Profile
+                                </a>
+                                <a href="/auth/logout" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    Sign out
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mobile menu button -->
+                    <div class="-mr-2 flex items-center sm:hidden">
+                        <button type="button"
+                                @click="mobileMenuOpen = !mobileMenuOpen"
+                                class="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500">
+                            <span class="sr-only">Open main menu</span>
+                            <svg class="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile menu -->
+            <div x-show="mobileMenuOpen"
+                 x-data="{ mobileMenuOpen: false }"
+                 class="sm:hidden"
+                 style="display: none;">
+                <div class="space-y-1 pb-3 pt-2">
+                    <a href="/dashboard"
+                       class="{% if request.url.path == '/dashboard' %}border-blue-500 bg-blue-50 text-blue-700{% else %}border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700{% endif %} block border-l-4 py-2 pl-3 pr-4 text-base font-medium">
+                        Applications
+                    </a>
+                    <a href="/dashboard/services"
+                       class="{% if request.url.path.startswith('/dashboard/services') %}border-blue-500 bg-blue-50 text-blue-700{% else %}border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700{% endif %} block border-l-4 py-2 pl-3 pr-4 text-base font-medium">
+                        Services
+                    </a>
+                    <a href="/dashboard/backups"
+                       class="{% if request.url.path.startswith('/dashboard/backups') %}border-blue-500 bg-blue-50 text-blue-700{% else %}border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700{% endif %} block border-l-4 py-2 pl-3 pr-4 text-base font-medium">
+                        Backups
+                    </a>
+                </div>
+                <div class="border-t border-gray-200 pb-3 pt-4">
+                    <div class="flex items-center px-4">
+                        <div class="flex-shrink-0">
+                            <div class="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center">
+                                <span class="text-white font-medium">
+                                    {{ request.user.display_name[0]|upper }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="ml-3">
+                            <div class="text-base font-medium text-gray-800">{{ request.user.display_name }}</div>
+                            <div class="text-sm font-medium text-gray-500">{{ request.user.username }}</div>
+                        </div>
+                    </div>
+                    <div class="mt-3 space-y-1">
+                        <a href="/auth/profile" class="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">
+                            Profile
+                        </a>
+                        <a href="/auth/logout" class="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">
+                            Sign out
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+        {% endif %}
+
+        <!-- Page content -->
+        <div class="{% if request.user.is_authenticated %}py-10{% else %}flex min-h-full flex-1 flex-col justify-center py-12{% endif %}">
+            <main>
+                <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+        </div>
+    </div>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
