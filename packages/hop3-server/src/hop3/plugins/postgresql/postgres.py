@@ -6,6 +6,8 @@
 
 This module implements the ServiceStrategy protocol for PostgreSQL,
 allowing applications to create, attach, and manage PostgreSQL databases.
+
+Credentials are stored encrypted in the database using Fernet encryption.
 """
 
 from __future__ import annotations
@@ -15,11 +17,14 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import psycopg2
 from psycopg2 import sql
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
+if TYPE_CHECKING:
+    pass
 
 
 @dataclass(frozen=True)

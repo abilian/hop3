@@ -17,6 +17,7 @@ This is a major architectural release that restructures Hop3 into a modern clien
 - **JWT Authentication**: Secure user authentication with JWT tokens, bcrypt password hashing, and role-based access control
 - **Configuration System**: Support for both Procfile (convention) and hop3.toml (configuration) with precedence rules
 - **Service Framework**: Plugin-based service/addon system with PostgreSQL implementation for managed databases
+- **Service Credential Persistence**: ⚠️ **BREAKING CHANGE** - Service credentials now encrypted and persisted to database using Fernet AEAD encryption with PBKDF2-HMAC-SHA256 key derivation. Requires `HOP3_SECRET_KEY` environment variable for production deployments. Credentials survive server restarts and are properly managed through the entire service lifecycle (attach, detach, destroy)
 - **Git Push Deployment**: Support for `git push` deployment method using git hooks
 - **OS Plugin System**: Pluggable OS abstraction layer with family-based plugins supporting all Debian-based (Debian, Ubuntu, derivatives) and Red Hat-based (RHEL, Rocky, Alma, Fedora, CentOS) distributions, plus Arch, BSD, and macOS
 - **Web UI Scaffolding**: Initial structure for future web-based management interface

@@ -105,6 +105,7 @@ def test_services_attach_success(mock_db_session, mock_app):
     with (
         patch("hop3.orm.repositories.AppRepository") as mock_repo_class,
         patch("hop3.commands.services.get_service_strategy") as mock_get_service,
+        patch("hop3.commands.services.get_credential_encryptor") as mock_encryptor,
     ):
         mock_repo = mock_repo_class.return_value
         mock_repo.get_one_or_none.return_value = mock_app
@@ -116,10 +117,17 @@ def test_services_attach_success(mock_db_session, mock_app):
         }
         mock_get_service.return_value = mock_service
 
-        # Mock query for existing env vars
-        mock_query = Mock()
-        mock_query.filter_by.return_value.first.return_value = None
-        mock_db_session.query.return_value = mock_query
+        # Mock encryptor
+        mock_enc_instance = mock_encryptor.return_value
+        mock_enc_instance.encrypt.return_value = "encrypted_data"
+
+        # Mock query to return no existing credential and no env vars
+        def query_side_effect(model):
+            mock_query = Mock()
+            mock_query.filter_by.return_value.first.return_value = None
+            return mock_query
+
+        mock_db_session.query.side_effect = query_side_effect
 
         cmd = ServicesAttachCmd(db_session=mock_db_session)
         result = cmd.call("my-database", "--app", "test-app")
@@ -135,6 +143,7 @@ def test_services_attach_updates_existing_vars(mock_db_session, mock_app):
     with (
         patch("hop3.orm.repositories.AppRepository") as mock_repo_class,
         patch("hop3.commands.services.get_service_strategy") as mock_get_service,
+        patch("hop3.commands.services.get_credential_encryptor") as mock_encryptor,
     ):
         mock_repo = mock_repo_class.return_value
         mock_repo.get_one_or_none.return_value = mock_app
@@ -145,12 +154,24 @@ def test_services_attach_updates_existing_vars(mock_db_session, mock_app):
         }
         mock_get_service.return_value = mock_service
 
+        # Mock encryptor
+        mock_enc_instance = mock_encryptor.return_value
+        mock_enc_instance.encrypt.return_value = "encrypted_data"
+
         # Mock existing environment variable
         existing_var = Mock(spec=EnvVar)
         existing_var.value = "old_value"
-        mock_query = Mock()
-        mock_query.filter_by.return_value.first.return_value = existing_var
-        mock_db_session.query.return_value = mock_query
+
+        # Mock query to return no credential, then existing env var
+        def query_side_effect(model):
+            mock_query = Mock()
+            if model.__name__ == "ServiceCredential":
+                mock_query.filter_by.return_value.first.return_value = None
+            else:  # EnvVar
+                mock_query.filter_by.return_value.first.return_value = existing_var
+            return mock_query
+
+        mock_db_session.query.side_effect = query_side_effect
 
         cmd = ServicesAttachCmd(db_session=mock_db_session)
         result = cmd.call("my-database", "--app", "test-app")
@@ -163,23 +184,35 @@ def test_services_detach_success(mock_db_session, mock_app):
     """Test successful service detachment."""
     with (
         patch("hop3.orm.repositories.AppRepository") as mock_repo_class,
-        patch("hop3.commands.services.get_service_strategy") as mock_get_service,
+        patch("hop3.commands.services.get_credential_encryptor") as mock_encryptor,
     ):
         mock_repo = mock_repo_class.return_value
         mock_repo.get_one_or_none.return_value = mock_app
 
-        mock_service = Mock()
-        mock_service.get_connection_details.return_value = {
+        # Mock stored credential
+        mock_credential = Mock()
+        mock_credential.encrypted_data = "encrypted_data"
+
+        # Mock decryptor
+        mock_enc_instance = mock_encryptor.return_value
+        mock_enc_instance.decrypt.return_value = {
             "DATABASE_URL": "postgresql://user:pass@localhost/db",
             "PGHOST": "localhost",
         }
-        mock_get_service.return_value = mock_service
 
         # Mock existing env var
         existing_var = Mock(spec=EnvVar)
-        mock_query = Mock()
-        mock_query.filter_by.return_value.first.return_value = existing_var
-        mock_db_session.query.return_value = mock_query
+
+        # Mock query to return credential first, then env vars
+        def query_side_effect(model):
+            mock_query = Mock()
+            if model.__name__ == "ServiceCredential":
+                mock_query.filter_by.return_value.first.return_value = mock_credential
+            else:  # EnvVar
+                mock_query.filter_by.return_value.first.return_value = existing_var
+            return mock_query
+
+        mock_db_session.query.side_effect = query_side_effect
 
         cmd = ServicesDetachCmd(db_session=mock_db_session)
         result = cmd.call("my-database", "--app", "test-app")
@@ -194,6 +227,11 @@ def test_services_destroy_success(mock_db_session):
     with patch("hop3.commands.services.get_service_strategy") as mock_get_service:
         mock_service = Mock()
         mock_get_service.return_value = mock_service
+
+        # Mock query to return empty list of credentials
+        mock_query = Mock()
+        mock_query.filter_by.return_value.all.return_value = []
+        mock_db_session.query.return_value = mock_query
 
         cmd = ServicesDestroyCmd(db_session=mock_db_session)
         result = cmd.call("my-database", "--service-type", "postgres")

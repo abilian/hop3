@@ -30,6 +30,7 @@ dependencies = [
     # Security
     "pyjwt>=2.8.0",
     "bcrypt>=4.0.0",
+    "cryptography>=42.0.0",
     # TODO: remove reload later
     "granian[reload]>=2.2.0",
     "psycopg2>=2.9.10",

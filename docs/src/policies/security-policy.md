@@ -40,6 +40,93 @@ We have implemented several measures to ensure the security and integrity of the
 
 We are committed to protecting any data we handle. For detailed information, please see our [**Privacy Policy**](./privacy-policy.md). Key measures include encryption at rest for sensitive data and secure backup procedures.
 
+### Service Credential Encryption
+
+#### HOP3_SECRET_KEY Requirement
+
+Hop3 stores backing service credentials (databases, caches, etc.) encrypted at rest using industry-standard encryption. This requires a secret key configured via the `HOP3_SECRET_KEY` environment variable.
+
+**Encryption Details:**
+- **Algorithm:** Fernet (symmetric AEAD - Authenticated Encryption with Associated Data)
+- **Key Derivation:** PBKDF2-HMAC-SHA256 with 100,000 iterations (OWASP recommended minimum)
+- **Storage:** Credentials encrypted in SQLite database
+- **Security Properties:**
+  - Authenticated encryption (tampering detected automatically)
+  - Database backups safe (cannot decrypt without secret key)
+  - Thread-safe encryption operations
+  - URL-safe base64 encoding
+
+**Generating HOP3_SECRET_KEY:**
+
+Generate a strong, cryptographically secure secret key:
+
+```bash
+# Using Python (recommended)
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# Using OpenSSL
+openssl rand -base64 32
+```
+
+**Configuration:**
+
+Set the environment variable before starting the Hop3 server:
+
+```bash
+# In environment file (e.g., /etc/hop3/environment)
+export HOP3_SECRET_KEY="your-generated-secret-key-here"
+
+# Or in systemd service file
+[Service]
+Environment="HOP3_SECRET_KEY=your-generated-secret-key-here"
+```
+
+⚠️ **CRITICAL SECURITY REQUIREMENTS** ⚠️
+
+**DO:**
+- ✅ Generate a unique secret key for each Hop3 installation
+- ✅ Use a cryptographically secure random generator (as shown above)
+- ✅ Store the secret key securely (e.g., in environment files with restricted permissions)
+- ✅ Back up the secret key securely (you cannot decrypt credentials without it)
+- ✅ Restrict file permissions on configuration files containing the key (e.g., `chmod 600`)
+- ✅ Use a key length of at least 32 bytes (256 bits)
+
+**DO NOT:**
+- ❌ Use weak or predictable values (e.g., "password", "secret123")
+- ❌ Commit the secret key to version control
+- ❌ Share the secret key across multiple Hop3 installations
+- ❌ Store the key in publicly readable files
+- ❌ Transmit the key over insecure channels
+- ❌ Lose the secret key (credentials cannot be recovered)
+
+**Key Rotation:**
+
+If you need to rotate your encryption key:
+
+1. Generate a new secret key
+2. Before changing HOP3_SECRET_KEY, re-attach all services to apps (this re-encrypts with the old key)
+3. Update HOP3_SECRET_KEY to the new key
+4. Re-attach all services again (this re-encrypts with the new key)
+
+Alternatively, for a fresh start:
+1. Detach all services from all apps
+2. Update HOP3_SECRET_KEY
+3. Re-attach all services
+
+**Impact of Lost Secret Key:**
+
+If you lose your HOP3_SECRET_KEY:
+- Existing service credentials cannot be decrypted
+- You must detach and re-attach all services to generate new credentials
+- This is a breaking change requiring service reconfiguration
+
+**Backup Recommendations:**
+
+- Include HOP3_SECRET_KEY in your secure backup procedures
+- Store the key separately from database backups
+- Use a secrets management system (e.g., HashiCorp Vault, AWS Secrets Manager) for production deployments
+- Document the key location in your disaster recovery procedures
+
 ### Testing Mode Security
 
 #### HOP3_UNSAFE Mode
