@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}{{ app_name }} Environment Variables - Hop3 Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8" x-data="{
+    searchTerm: '',
+    showSecrets: false,
+    copiedKey: null,
+    get filteredVars() {
+        if (!this.searchTerm) return {{ env_vars | tojson }};
+        const term = this.searchTerm.toLowerCase();
+        return {{ env_vars | tojson }}.filter(v =>
+            v.name.toLowerCase().includes(term) ||
+            v.value.toLowerCase().includes(term)
+        );
+    },
+    copyToClipboard(text, key) {
+        navigator.clipboard.writeText(text).then(() => {
+            this.copiedKey = key;
+            setTimeout(() => { this.copiedKey = null; }, 2000);
+        });
+    },
+    isSecret(name) {
+        const secretPatterns = ['PASSWORD', 'SECRET', 'KEY', 'TOKEN', 'API', 'CREDENTIAL'];
+        return secretPatterns.some(pattern => name.toUpperCase().includes(pattern));
+    },
+    maskValue(value) {
+        if (value.length <= 8) return '••••••••';
+        return value.substring(0, 4) + '••••••••' + value.substring(value.length - 4);
+    }
+}">
+    <!-- Header with actions -->
+    <div class="sm:flex sm:items-center sm:justify-between mb-6">
+        <div>
+            <nav class="flex mb-2" aria-label="Breadcrumb">
+                <ol class="flex items-center space-x-2">
+                    <li>
+                        <a href="/dashboard" class="text-gray-400 hover:text-gray-500">
+                            Applications
+                        </a>
+                    </li>
+                    <li>
+                        <span class="text-gray-400">/</span>
+                    </li>
+                    <li>
+                        <a href="/dashboard/apps/{{ app_name }}" class="text-gray-400 hover:text-gray-500">
+                            {{ app_name }}
+                        </a>
+                    </li>
+                    <li>
+                        <span class="text-gray-400">/</span>
+                    </li>
+                    <li>
+                        <span class="text-gray-900 font-medium">Environment Variables</span>
+                    </li>
+                </ol>
+            </nav>
+            <h1 class="text-3xl font-bold leading-6 text-gray-900">Environment Variables</h1>
+            <p class="mt-2 text-sm text-gray-700">
+                Configuration and secrets for {{ app_name }}
+            </p>
+        </div>
+        <div class="mt-4 sm:ml-16 sm:mt-0 flex flex-col sm:flex-row gap-2">
+            <button type="button"
+                    @click="showSecrets = !showSecrets"
+                    :class="showSecrets ? 'bg-yellow-600 text-white hover:bg-yellow-500' : 'bg-white text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50'"
+                    class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm">
+                <svg class="-ml-0.5 mr-1.5 h-5 w-5" :class="showSecrets ? 'text-white' : 'text-gray-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span x-text="showSecrets ? 'Hide Secrets' : 'Show Secrets'"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- CLI Info Banner -->
+    <div class="mb-6 bg-blue-50 border-l-4 border-blue-400 p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                    <strong>Note:</strong> Environment variables can only be modified via the CLI.
+                    Use <code class="bg-blue-100 px-2 py-0.5 rounded text-xs font-mono">hop3 config:set {{ app_name }} KEY=value</code> to add or update variables.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="mb-4">
+        <label for="search" class="sr-only">Search environment variables</label>
+        <input type="text"
+               id="search"
+               x-model="searchTerm"
+               placeholder="Search by name or value..."
+               class="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6">
+    </div>
+
+    <!-- Results count -->
+    <div class="mb-4 text-sm text-gray-500">
+        Showing <span x-text="filteredVars.length"></span> of <span x-text="{{ env_vars | length }}"></span> variables
+    </div>
+
+    {% if env_vars %}
+    <!-- Environment Variables List -->
+    <div class="bg-white shadow rounded-lg overflow-hidden">
+        <ul role="list" class="divide-y divide-gray-200">
+            <template x-for="envVar in filteredVars" :key="envVar.name">
+                <li class="px-4 py-4 sm:px-6 hover:bg-gray-50">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <p class="text-sm font-medium text-gray-900 font-mono" x-text="envVar.name"></p>
+                                <!-- Service indicator -->
+                                <span x-show="envVar.is_service"
+                                      class="inline-flex items-center rounded-md bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700 ring-1 ring-inset ring-purple-700/10">
+                                    <svg class="-ml-0.5 mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 9a1 1 0 112 0 1 1 0 01-2 0zm1-5a1 1 0 00-1 1v2a1 1 0 102 0V5a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                    </svg>
+                                    Service
+                                </span>
+                                <!-- Secret indicator -->
+                                <span x-show="isSecret(envVar.name)"
+                                      class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
+                                    <svg class="-ml-0.5 mr-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                    Secret
+                                </span>
+                            </div>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-600 font-mono break-all">
+                                    <span x-show="!showSecrets && isSecret(envVar.name)" x-text="maskValue(envVar.value)"></span>
+                                    <span x-show="showSecrets || !isSecret(envVar.name)" x-text="envVar.value"></span>
+                                </p>
+                            </div>
+                            <template x-if="envVar.description">
+                                <p class="mt-1 text-xs text-gray-500" x-text="envVar.description"></p>
+                            </template>
+                        </div>
+                        <div class="ml-4 flex-shrink-0 flex gap-2">
+                            <!-- Copy value button -->
+                            <button type="button"
+                                    @click="copyToClipboard(envVar.value, envVar.name)"
+                                    :class="copiedKey === envVar.name ? 'text-green-600' : 'text-gray-400 hover:text-gray-500'"
+                                    class="inline-flex items-center rounded p-1">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <template x-if="copiedKey === envVar.name">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </template>
+                                    <template x-if="copiedKey !== envVar.name">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </template>
+                                </svg>
+                            </button>
+                            <!-- Copy name button -->
+                            <button type="button"
+                                    @click="copyToClipboard(envVar.name, 'name_' + envVar.name)"
+                                    :class="copiedKey === 'name_' + envVar.name ? 'text-green-600' : 'text-gray-400 hover:text-gray-500'"
+                                    class="inline-flex items-center rounded p-1"
+                                    title="Copy variable name">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <template x-if="copiedKey === 'name_' + envVar.name">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </template>
+                                    <template x-if="copiedKey !== 'name_' + envVar.name">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                    </template>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </li>
+            </template>
+        </ul>
+    </div>
+
+    <!-- Statistics -->
+    <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <div class="bg-white shadow rounded-lg p-4">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+                <div class="ml-3 w-0 flex-1">
+                    <dt class="text-sm font-medium text-gray-500 truncate">Total Variables</dt>
+                    <dd class="text-lg font-semibold text-gray-900">{{ env_vars | length }}</dd>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white shadow rounded-lg p-4">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                    </svg>
+                </div>
+                <div class="ml-3 w-0 flex-1">
+                    <dt class="text-sm font-medium text-gray-500 truncate">Service Variables</dt>
+                    <dd class="text-lg font-semibold text-gray-900">{{ service_var_count }}</dd>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white shadow rounded-lg p-4" x-data="{ secretCount: {{ env_vars | tojson }}.filter(v => ['PASSWORD', 'SECRET', 'KEY', 'TOKEN', 'API', 'CREDENTIAL'].some(p => v.name.toUpperCase().includes(p))).length }">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                </div>
+                <div class="ml-3 w-0 flex-1">
+                    <dt class="text-sm font-medium text-gray-500 truncate">Secrets</dt>
+                    <dd class="text-lg font-semibold text-gray-900" x-text="secretCount"></dd>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white shadow rounded-lg p-4">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div class="ml-3 w-0 flex-1">
+                    <dt class="text-sm font-medium text-gray-500 truncate">Regular Variables</dt>
+                    <dd class="text-lg font-semibold text-gray-900">{{ env_vars | length - service_var_count }}</dd>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center bg-white shadow rounded-lg py-12">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <h3 class="mt-2 text-sm font-semibold text-gray-900">No environment variables</h3>
+        <p class="mt-1 text-sm text-gray-500">Get started by adding your first environment variable via the CLI.</p>
+        <div class="mt-6">
+            <code class="bg-gray-100 px-4 py-2 rounded text-sm font-mono text-gray-900">
+                hop3 config:set {{ app_name }} KEY=value
+            </code>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Help Section -->
+    <div class="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h4 class="text-sm font-medium text-gray-900 mb-2">Managing Environment Variables</h4>
+        <div class="text-sm text-gray-600 space-y-1">
+            <p><strong>Set a variable:</strong> <code class="bg-gray-200 px-2 py-0.5 rounded text-xs font-mono">hop3 config:set {{ app_name }} KEY=value</code></p>
+            <p><strong>Remove a variable:</strong> <code class="bg-gray-200 px-2 py-0.5 rounded text-xs font-mono">hop3 config:unset {{ app_name }} KEY</code></p>
+            <p><strong>List all variables:</strong> <code class="bg-gray-200 px-2 py-0.5 rounded text-xs font-mono">hop3 config {{ app_name }}</code></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

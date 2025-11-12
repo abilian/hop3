@@ -20,16 +20,26 @@ from hop3.server.security.tokens import create_token
 @pytest.fixture(autouse=True)
 def setup_test_env():
     """Set up test environment."""
+    # ruff: noqa: PLC0415
+    import importlib
+
+    from hop3 import config
+
     os.environ["HOP3_SECRET_KEY"] = "test-secret-for-rpc-testing"
     os.environ["HOP3_ENABLE_AUTH"] = "true"
-    # Disable authentication temporarily for setup
-    original_auth = os.environ.get("HOP3_ENABLE_AUTH")
+    # Ensure HOP3_UNSAFE is not set (clear any previous test pollution)
+    os.environ.pop("HOP3_UNSAFE", None)
+
+    # Reload config to pick up new environment variables
+    importlib.reload(config)
+
     yield
-    if original_auth:
-        os.environ["HOP3_ENABLE_AUTH"] = original_auth
-    else:
-        os.environ.pop("HOP3_ENABLE_AUTH", None)
+
     os.environ.pop("HOP3_SECRET_KEY", None)
+    os.environ.pop("HOP3_ENABLE_AUTH", None)
+
+    # Reload config again to pick up cleaned environment
+    importlib.reload(config)
 
 
 @pytest.fixture

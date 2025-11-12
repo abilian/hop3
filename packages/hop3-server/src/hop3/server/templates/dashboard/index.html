@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Applications - Hop3 Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8" x-data="{
+    search: '',
+    statusFilter: 'all',
+    apps: {{ apps | tojson }},
+    get filteredApps() {
+        return this.apps.filter(app => {
+            const matchesSearch = app.name.toLowerCase().includes(this.search.toLowerCase());
+            const matchesStatus = this.statusFilter === 'all' || app.state === this.statusFilter;
+            return matchesSearch && matchesStatus;
+        });
+    }
+}">
+    <div class="sm:flex sm:items-center">
+        <div class="sm:flex-auto">
+            <h1 class="text-2xl font-semibold leading-6 text-gray-900">Applications</h1>
+            <p class="mt-2 text-sm text-gray-700">
+                A list of all deployed applications on your Hop3 server.
+            </p>
+        </div>
+        <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+            <button type="button"
+                    class="block rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                Deploy New App
+            </button>
+        </div>
+    </div>
+
+    {% if apps %}
+    <!-- Search and Filter Controls -->
+    <div class="mt-6 flex flex-col sm:flex-row gap-4">
+        <div class="flex-1">
+            <label for="search" class="sr-only">Search applications</label>
+            <input type="text"
+                   x-model="search"
+                   placeholder="Search applications..."
+                   class="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6">
+        </div>
+        <div>
+            <label for="status-filter" class="sr-only">Filter by status</label>
+            <select x-model="statusFilter"
+                    class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-blue-600 sm:text-sm sm:leading-6">
+                <option value="all">All Status</option>
+                <option value="RUNNING">Running</option>
+                <option value="STOPPED">Stopped</option>
+                <option value="PAUSED">Paused</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Results count -->
+    <div class="mt-4 text-sm text-gray-500">
+        Showing <span x-text="filteredApps.length"></span> of <span x-text="apps.length"></span> applications
+    </div>
+
+    <!-- Mobile Card View (visible on small screens) -->
+    <div class="mt-8 grid grid-cols-1 gap-4 sm:hidden">
+        <template x-for="app in filteredApps" :key="app.name">
+            <div class="bg-white shadow rounded-lg overflow-hidden">
+                <a :href="`/dashboard/apps/${app.name}`" class="block hover:bg-gray-50">
+                    <div class="px-4 py-5">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-medium text-gray-900" x-text="app.name"></h3>
+                            <span :class="{
+                                'bg-green-50 text-green-700 ring-green-600/20': app.state === 'RUNNING',
+                                'bg-gray-50 text-gray-700 ring-gray-600/20': app.state === 'STOPPED',
+                                'bg-yellow-50 text-yellow-700 ring-yellow-600/20': app.state !== 'RUNNING' && app.state !== 'STOPPED'
+                            }" class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset">
+                                <template x-if="app.state === 'RUNNING'">
+                                    <svg class="-ml-0.5 mr-1.5 h-2 w-2 fill-green-500" viewBox="0 0 8 8">
+                                        <circle cx="4" cy="4" r="4" />
+                                    </svg>
+                                </template>
+                                <span x-text="app.state"></span>
+                            </span>
+                        </div>
+                        <dl class="mt-4 space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <dt class="text-gray-500">Port</dt>
+                                <dd class="text-gray-900 font-medium" x-text="app.port"></dd>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <dt class="text-gray-500">Created</dt>
+                                <dd class="text-gray-900" x-text="app.created_at || 'N/A'"></dd>
+                            </div>
+                        </dl>
+                        <div class="mt-4 flex">
+                            <span class="text-sm text-blue-600 font-medium">
+                                View details →
+                            </span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </template>
+    </div>
+
+    <!-- Desktop Table View (hidden on small screens) -->
+    <div class="mt-8 flow-root hidden sm:block">
+        <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                <table class="min-w-full divide-y divide-gray-300">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">
+                                Name
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                Status
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                Port
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                Created
+                            </th>
+                            <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-0">
+                                <span class="sr-only">Actions</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <template x-for="app in filteredApps" :key="app.name">
+                            <tr>
+                                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
+                                    <a :href="`/dashboard/apps/${app.name}`" class="text-blue-600 hover:text-blue-900" x-text="app.name"></a>
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    <span :class="{
+                                        'bg-green-50 text-green-700 ring-green-600/20': app.state === 'RUNNING',
+                                        'bg-gray-50 text-gray-700 ring-gray-600/20': app.state === 'STOPPED',
+                                        'bg-yellow-50 text-yellow-700 ring-yellow-600/20': app.state !== 'RUNNING' && app.state !== 'STOPPED'
+                                    }" class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset" x-text="app.state"></span>
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500" x-text="app.port"></td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500" x-text="app.created_at || 'N/A'"></td>
+                                <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
+                                    <a :href="`/dashboard/apps/${app.name}`" class="text-blue-600 hover:text-blue-900">
+                                        View
+                                        <span class="sr-only" x-text="', ' + app.name"></span>
+                                    </a>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="mt-8 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+        </svg>
+        <h3 class="mt-2 text-sm font-semibold text-gray-900">No applications</h3>
+        <p class="mt-1 text-sm text-gray-500">Get started by deploying your first application.</p>
+        <div class="mt-6">
+            <button type="button"
+                    class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                </svg>
+                Deploy New App
+            </button>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

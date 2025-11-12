@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Backups - Hop3 Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8">
+    <div class="sm:flex sm:items-center">
+        <div class="sm:flex-auto">
+            <h1 class="text-2xl font-semibold leading-6 text-gray-900">Backups</h1>
+            <p class="mt-2 text-sm text-gray-700">
+                Browse and restore application backups.
+            </p>
+        </div>
+    </div>
+
+    <div class="mt-8 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+        </svg>
+        <h3 class="mt-2 text-sm font-semibold text-gray-900">Coming Soon</h3>
+        <p class="mt-1 text-sm text-gray-500">Backup management UI will be available in a future release.</p>
+        <p class="mt-1 text-sm text-gray-500">Use the CLI for now: <code class="bg-gray-100 px-2 py-1 rounded">hop3 backup:list</code></p>
+    </div>
+</div>
+{% endblock %}

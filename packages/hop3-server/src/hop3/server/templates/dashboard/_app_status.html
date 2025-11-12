@@ -1,0 +1,58 @@
+<!-- Status card content (updated via HTMX polling) -->
+<div class="bg-white shadow rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-lg font-medium leading-6 text-gray-900">Application Status</h3>
+                <p class="mt-1 text-sm text-gray-500">
+                    Current state and health information
+                </p>
+            </div>
+            <div>
+                <span class="inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ring-1 ring-inset
+                    {% if app.state == 'RUNNING' %}
+                        bg-green-50 text-green-700 ring-green-600/20
+                    {% elif app.state == 'STOPPED' %}
+                        bg-gray-50 text-gray-700 ring-gray-600/20
+                    {% elif app.state == 'PAUSED' %}
+                        bg-yellow-50 text-yellow-700 ring-yellow-600/20
+                    {% else %}
+                        bg-red-50 text-red-700 ring-red-600/20
+                    {% endif %}
+                ">
+                    {% if app.state == 'RUNNING' %}
+                        <svg class="-ml-0.5 mr-1.5 h-2 w-2 fill-green-500" viewBox="0 0 8 8">
+                            <circle cx="4" cy="4" r="4" />
+                        </svg>
+                    {% endif %}
+                    {{ app.state }}
+                </span>
+            </div>
+        </div>
+
+        <!-- Status Details -->
+        <dl class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <div class="overflow-hidden rounded-lg bg-gray-50 px-4 py-5">
+                <dt class="truncate text-sm font-medium text-gray-500">Status</dt>
+                <dd class="mt-1 text-2xl font-semibold tracking-tight text-gray-900">{{ app.state }}</dd>
+            </div>
+
+            <div class="overflow-hidden rounded-lg bg-gray-50 px-4 py-5">
+                <dt class="truncate text-sm font-medium text-gray-500">Port</dt>
+                <dd class="mt-1 text-2xl font-semibold tracking-tight text-gray-900">{{ app.port }}</dd>
+            </div>
+
+            <div class="overflow-hidden rounded-lg bg-gray-50 px-4 py-5">
+                <dt class="truncate text-sm font-medium text-gray-500">Processes</dt>
+                <dd class="mt-1 text-2xl font-semibold tracking-tight text-gray-900">{{ app.worker_count }}</dd>
+            </div>
+        </dl>
+
+        <!-- Last Updated Time -->
+        <div class="mt-4 text-right">
+            <p class="text-xs text-gray-500">
+                Last updated: <span id="last-update-time">{{ now.strftime('%H:%M:%S') if now else 'Unknown' }}</span>
+            </p>
+        </div>
+    </div>
+</div>
