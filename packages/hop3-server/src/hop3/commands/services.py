@@ -10,9 +10,10 @@ import traceback
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from hop3.core.credentials import get_credential_encryptor
 from hop3.core.plugins import get_service_strategy
 from hop3.lib.decorators import register
-from hop3.orm import EnvVar
+from hop3.orm import EnvVar, ServiceCredential
 
 from ._base import Command
 
@@ -149,6 +150,33 @@ class ServicesAttachCmd(Command):
             # Get connection details from the service
             connection_details = service.get_connection_details()
 
+            # Store credentials encrypted in database
+            encryptor = get_credential_encryptor()
+
+            # Check if credential already exists
+            existing_credential = (
+                self.db_session.query(ServiceCredential)
+                .filter_by(
+                    app_id=app.id, service_type=service_type, service_name=service_name
+                )
+                .first()
+            )
+
+            if existing_credential:
+                # Update existing credential
+                existing_credential.encrypted_data = encryptor.encrypt(
+                    connection_details
+                )
+            else:
+                # Create new credential
+                credential = ServiceCredential(
+                    app_id=app.id,
+                    service_type=service_type,
+                    service_name=service_name,
+                    encrypted_data=encryptor.encrypt(connection_details),
+                )
+                self.db_session.add(credential)
+
             # Add each environment variable to the app
             added_vars = []
             for key, value in connection_details.items():
@@ -254,9 +282,30 @@ class ServicesDetachCmd(Command):
             if not app:
                 return [{"t": "error", "text": f"App '{app_name}' not found"}]
 
-            # Get the service strategy to know which env vars to remove
-            service = get_service_strategy(service_type, service_name)
-            connection_details = service.get_connection_details()
+            # Remove stored credential
+            credential = (
+                self.db_session.query(ServiceCredential)
+                .filter_by(
+                    app_id=app.id, service_type=service_type, service_name=service_name
+                )
+                .first()
+            )
+
+            if credential:
+                # Get connection details to know which env vars to remove
+                encryptor = get_credential_encryptor()
+                connection_details = encryptor.decrypt(credential.encrypted_data)
+
+                # Remove the credential
+                self.db_session.delete(credential)
+            else:
+                # Fallback: Try to get connection details from service if credential not found
+                try:
+                    service = get_service_strategy(service_type, service_name)
+                    connection_details = service.get_connection_details()
+                except Exception:
+                    # If we can't get connection details, we can't know which env vars to remove
+                    connection_details = {}
 
             # Remove each environment variable
             removed_vars = []
@@ -336,6 +385,18 @@ class ServicesDestroyCmd(Command):
         try:
             # Get the service strategy
             service = get_service_strategy(service_type, service_name)
+
+            # Clean up all stored credentials for this service
+            credentials = (
+                self.db_session.query(ServiceCredential)
+                .filter_by(service_type=service_type, service_name=service_name)
+                .all()
+            )
+
+            for credential in credentials:
+                self.db_session.delete(credential)
+
+            self.db_session.commit()
 
             # Destroy the service
             service.destroy()

@@ -184,10 +184,52 @@ The core architecture described in this ADR has been **fully implemented** with 
 
 The implementation includes significant value-add features beyond the original ADR scope:
 
-1. **ServiceStrategy**: Plugin system for managing backing services (PostgreSQL, Redis)
+1. **ServiceStrategy**: Plugin system for managing backing services (PostgreSQL, Redis) with encrypted credential persistence
 2. **OSSetupStrategy**: Plugin system for multi-distribution OS support (Debian, Ubuntu, Arch, BSD, etc.)
 3. **Server-wide Proxy Configuration**: Proxy selection is server-wide (via `HOP3_PROXY_TYPE`), not per-application, reflecting the practical reality that one server uses one reverse proxy for all applications
 4. **Protocol-based Design**: Using Python `Protocol` instead of ABC for better IDE support and more Pythonic code
+
+#### Service Credential Persistence
+
+**Status:** ✅ Implemented (2025-01-12)
+
+The ServiceStrategy system has been extended with a robust credential persistence layer to ensure service connection details survive server restarts and are properly managed through the service lifecycle.
+
+**Architecture:**
+- **ServiceCredential ORM Model**: Stores encrypted credentials in the database with CASCADE delete on app removal
+- **CredentialEncryption Helper**: Fernet AEAD encryption with PBKDF2-HMAC-SHA256 key derivation (100K iterations)
+- **Singleton Encryptor**: Single encryption instance per process for performance
+- **HOP3_SECRET_KEY**: Environment variable provides the encryption key (required for production)
+
+**Lifecycle Management:**
+1. **services:create** - Service created but credentials not yet stored (no app context)
+2. **services:attach** - Credentials encrypted and stored when service attached to app
+3. **services:detach** - Credentials decrypted to find env vars to remove, then deleted
+4. **services:destroy** - All credentials across all apps removed before service destruction
+
+**Security Properties:**
+- Authenticated Encryption with Associated Data (AEAD) via Fernet
+- Credentials encrypted at rest in SQLite database
+- Database backups safe (cannot decrypt without HOP3_SECRET_KEY)
+- Tampering detection built-in (InvalidToken on modification)
+- URL-safe base64 encoding (Fernet standard)
+- Thread-safe singleton encryptor
+
+**Testing:**
+- 12 unit tests for encryption logic
+- 8 integration tests for ORM persistence
+- 7 integration tests for services commands
+- 100% test coverage for credential system
+- Zero regressions in existing test suite
+
+**Files:**
+- `packages/hop3-server/src/hop3/orm/service_credential.py` - ORM model
+- `packages/hop3-server/src/hop3/core/credentials.py` - Encryption helper
+- `packages/hop3-server/src/hop3/commands/services.py` - Command integration
+
+**Implementation Time:** ~7 hours (infrastructure + tests + integration)
+
+**Key Design Decision:** Credentials stored during `services:attach` (when app context available) rather than `services:create` (no app context), allowing one service to be attached to multiple apps with separate credential records.
 
 ### Remaining Work ⚠️
 

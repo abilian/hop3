@@ -21,6 +21,7 @@ from hop3.run.spawn import spawn_app
 
 if TYPE_CHECKING:
     from .env import EnvVar
+    from .service_credential import ServiceCredential
 
 
 class AppStateEnum(Enum):
@@ -48,6 +49,10 @@ class App(BigIntAuditBase):
 
     env_vars: Mapped[list[EnvVar]] = relationship(
         back_populates="app", cascade="all, delete-orphan"
+    )
+
+    service_credentials: Mapped[list[ServiceCredential]] = relationship(
+        back_populates="app", cascade="all, delete-orphan", lazy="selectin"
     )
 
     def check_exists(self) -> None:
