@@ -131,12 +131,38 @@ You should see the "Hello, Hop3!" message from your Flask application.
 
 ## Step 5: Managing Your App
 
-Hop3 provides commands to manage your running application. Here are a few essential ones:
+Hop3 provides commands to manage your running application. The CLI features rich, colorful output to make information easy to read and understand.
 
 #### Check Application Status
 To see the status of your app and its running processes:
 ```bash
-hop3 status hello-hop3
+hop3 app:status hello-hop3
+```
+
+You'll see a nicely formatted table showing:
+```
+┏━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┓
+┃ Application ┃ Status   ┃ Processes ┃ URL             ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━┩
+│ hello-hop3  │ RUNNING  │ web: 2    │ hello-hop3.hop3 │
+│             │          │           │ .example.com    │
+└─────────────┴──────────┴───────────┴─────────────────┘
+```
+
+**For automation and scripts**, use JSON output:
+```bash
+hop3 app:status hello-hop3 --json
+```
+```json
+{
+  "status": "success",
+  "data": {
+    "name": "hello-hop3",
+    "state": "RUNNING",
+    "processes": {"web": 2},
+    "url": "hello-hop3.hop3.example.com"
+  }
+}
 ```
 
 #### View Live Logs
@@ -146,11 +172,35 @@ hop3 logs hello-hop3
 ```
 Press `Ctrl+C` to stop streaming.
 
+#### List All Applications
+See all your deployed applications at a glance:
+```bash
+hop3 app:list
+```
+
 #### Destroy the Application
 If you want to remove the application and all its associated resources:
 ```bash
-hop3 destroy hello-hop3
+hop3 app:destroy hello-hop3
 ```
+
+⚠️ **Destructive commands require confirmation.** To prevent accidental deletion, you'll be prompted:
+```
+WARNING: This will permanently delete the app 'hello-hop3' and all its data.
+Type the app name to confirm: hello-hop3
+```
+
+**To skip confirmations in scripts**, use the `-y` flag:
+```bash
+hop3 app:destroy hello-hop3 -y
+```
+
+!!! tip "Quiet Output for Scripts"
+    When writing automation scripts, use `--quiet` to suppress unnecessary output:
+    ```bash
+    hop3 deploy --quiet
+    hop3 app:status myapp --json --quiet
+    ```
 
 ## Step 6: Backup and Restore
 
@@ -170,16 +220,26 @@ This creates a complete backup including:
 - Environment variables
 - Any attached services (databases, etc.)
 
-You'll see output like:
+You'll see rich formatted output like:
 
 ```
-Creating backup for app 'hello-hop3'...
+╭──────────────────────────────────────────────────────────────╮
+│                Creating Backup for 'hello-hop3'              │
+╰──────────────────────────────────────────────────────────────╯
 
-Backup created successfully!
+✓ Backing up source code (git repository)
+✓ Backing up application data
+✓ Backing up environment variables
+✓ Backing up service configurations
 
-Backup ID: 20251108_143022_a8f3d9
-Location: /var/hop3/backups/apps/hello-hop3/20251108_143022_a8f3d9
+╭──────────────────────────────────────────────────────────────╮
+│                   Backup Created Successfully                │
+╰──────────────────────────────────────────────────────────────╯
+
+Backup ID:  20251108_143022_a8f3d9
+Location:   /var/hop3/backups/apps/hello-hop3/20251108_143022_a8f3d9
 Total size: 2.3 MB
+Duration:   1.2s
 
 To restore this backup:
   hop3 backup:restore 20251108_143022_a8f3d9
@@ -193,10 +253,26 @@ To see all backups for your application:
 hop3 backup:list hello-hop3
 ```
 
+You'll see a table with all available backups:
+```
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
+┃ Backup ID             ┃ Application ┃ Size    ┃ Created             ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
+│ 20251108_143022_a8f3d9│ hello-hop3  │ 2.3 MB  │ 2025-11-08 14:30:22 │
+│ 20251107_091534_f2e1b7│ hello-hop3  │ 2.1 MB  │ 2025-11-07 09:15:34 │
+│ 20251106_183245_d9c4a2│ hello-hop3  │ 2.0 MB  │ 2025-11-06 18:32:45 │
+└───────────────────────┴─────────────┴─────────┴─────────────────────┘
+```
+
 Or list all backups across all applications:
 
 ```bash
 hop3 backup:list
+```
+
+**For scripting**, use JSON output:
+```bash
+hop3 backup:list hello-hop3 --json
 ```
 
 ### Restore from Backup
@@ -230,6 +306,139 @@ This restores:
 
 For complete backup documentation, see the [**Backup and Restore Guide**](backup-restore.md).
 
+## Step 7: Working with Environment Variables
+
+Applications often need configuration through environment variables. Hop3 makes this easy with intuitive commands.
+
+#### Setting Environment Variables
+
+Set a single environment variable:
+```bash
+hop3 config:set hello-hop3 DEBUG=true
+```
+
+Set multiple variables at once:
+```bash
+hop3 config:set hello-hop3 DEBUG=true LOG_LEVEL=info MAX_WORKERS=4
+```
+
+#### Viewing Environment Variables
+
+List all environment variables for your app:
+```bash
+hop3 config:list hello-hop3
+```
+
+You'll see a formatted table:
+```
+┏━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+┃ Variable    ┃ Value             ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
+│ PORT        │ 5000              │
+│ DEBUG       │ true              │
+│ LOG_LEVEL   │ info              │
+│ MAX_WORKERS │ 4                 │
+└─────────────┴───────────────────┘
+```
+
+Get a specific variable's value:
+```bash
+hop3 config:get hello-hop3 DEBUG
+```
+
+**For scripts**, use JSON output:
+```bash
+hop3 config:list hello-hop3 --json
+```
+```json
+{
+  "status": "success",
+  "data": {
+    "PORT": "5000",
+    "DEBUG": "true",
+    "LOG_LEVEL": "info",
+    "MAX_WORKERS": "4"
+  }
+}
+```
+
+#### Removing Environment Variables
+
+Remove a variable:
+```bash
+hop3 config:unset hello-hop3 DEBUG
+```
+
+!!! note "Restart Required"
+    After changing environment variables, restart your app for the changes to take effect:
+    ```bash
+    hop3 app:restart hello-hop3
+    ```
+
+## Advanced CLI Features
+
+### JSON Output for Automation
+
+Almost all Hop3 commands support `--json` output for scripting and automation:
+
+```bash
+# Get app status in JSON
+hop3 app:status myapp --json | jq '.data.state'
+
+# List all apps and filter by status
+hop3 app:list --json | jq '.data[] | select(.state == "RUNNING")'
+
+# Create backup and capture backup ID
+BACKUP_ID=$(hop3 backup:create myapp --json | jq -r '.data.backup_id')
+echo "Created backup: $BACKUP_ID"
+```
+
+### Quiet Mode for Scripts
+
+Use `--quiet` to suppress progress messages and only show essential output:
+
+```bash
+# Silent deployment (only errors shown)
+hop3 deploy --quiet
+
+# Combine with JSON for clean machine-readable output
+hop3 app:list --json --quiet
+```
+
+### Skipping Confirmations
+
+For automation, skip confirmation prompts with `-y`:
+
+```bash
+# Automated cleanup script
+hop3 app:destroy old-app -y
+hop3 backup:delete old-backup-id -y
+```
+
+⚠️ **Use with caution** - the `-y` flag bypasses safety confirmations!
+
+### Verbose Output for Debugging
+
+Get detailed output with `-v` or `--verbose`:
+
+```bash
+hop3 deploy -v
+hop3 app:status myapp --verbose
+```
+
 ## Congratulations!
 
-You have successfully deployed and managed your first application on Hop3. You can now use this workflow to deploy your own, more complex applications. Explore the rest of the documentation to learn about advanced features like managing environment variables, connecting to databases, and more.
+You have successfully deployed and managed your first application on Hop3. You can now use this workflow to deploy your own, more complex applications.
+
+## Next Steps
+
+- **[CLI Reference](cli-reference.md)** - Complete reference for all 62 Hop3 commands
+- **[Backup and Restore Guide](backup-restore.md)** - Comprehensive backup documentation
+- **[hop3.toml Reference](hop3-toml-reference.md)** - Complete configuration file reference
+- **[Migration Guide](migration-guide.md)** - Migrate from Heroku, Fly.io, or other platforms
+
+For help at any time, run:
+```bash
+hop3 help
+hop3 <command> --help
+```
