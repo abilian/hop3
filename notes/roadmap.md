@@ -61,11 +61,11 @@ H3NI project:
 Features:
 
 - [ ] Deploy a few more useful apps: Abilian SBE, more...
-- [ ] Add postgres, redis, etc. lifecycle support using plugins
+- [x] Add postgres, redis, etc. lifecycle support using plugins
 - [ ] Improve Python builder (support for poetry, pipenv, uv, etc.)
-- [ ] Manage external services (databases, mail, etc.)
-- [ ] Backup / Restore
-- [ ] Web App / portal
+- [x] Manage external services (databases, mail, etc.)
+- [x] Backup / Restore
+- [x] Web App / portal (read-only dashboard with SSE log streaming)
 - [ ] More apps
 - [ ] Monitoring
 - [ ] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.

@@ -55,20 +55,48 @@
 
 ## Feature Development Tasks
 
-### 8. Web UI Implementation
-- **Status**: Basic scaffolding exists
-- **Action**: Implement actual web interface functionality
-- **Priority**: Medium (part of 0.4.0 goals)
+### 8. Web UI Implementation ✅ COMPLETED (2025-11-13)
+- **Status**: ✅ Production-ready read-only dashboard implemented
+- **Completed Features**:
+  - Application list and detail views with real-time status updates
+  - Server-Sent Events (SSE) log streaming with auto-scroll
+  - Environment variables management with secret masking
+  - Service detail pages with connection information
+  - Backup management (list, info, restore, delete)
+  - Modular architecture (apps, services, backups modules)
+  - TailwindCSS + HTMX + Alpine.js stack
+  - Full authentication integration with `@require_auth` decorator
+- **Architecture**: Multi-Page Application (MPA) with server-side rendering
+- **Test Coverage**: 128 integration tests passing
+- **Files**: `packages/hop3-server/src/hop3/server/views/dashboard/*`
 
-### 9. Database Service Plugins
+### 9. Database Service Plugins ✅ COMPLETED (2025-11-12)
 - **Goal**: PostgreSQL, Redis lifecycle management
-- **Status**: Planned in roadmap P1 MVP
-- **Action**: Implement service management plugins
+- **Status**: ✅ PostgreSQL service fully implemented with encrypted credentials
+- **Completed Features**:
+  - Service creation and destruction
+  - Credential persistence with Fernet AEAD encryption
+  - Connection details management
+  - Service backup and restore
+  - Service info and statistics
+- **Files**:
+  - `packages/hop3-server/src/hop3/plugins/postgresql/postgres.py`
+  - `packages/hop3-server/src/hop3/orm/service_credential.py`
 
-### 10. Backup/Restore Enhancement
-- **Issue**: Basic mechanism exists but incomplete
-- **Files**: `packages/hop3-server/src/hop3/orm/backup.py:24` - Add encryption
-- **Action**: Complete backup functionality with encryption
+### 10. Backup/Restore Enhancement ✅ COMPLETED (2025-11-13)
+- **Status**: ✅ Full backup/restore system implemented with 46 tests
+- **Completed Features**:
+  - Application source code backup
+  - Environment variables backup
+  - Service data backup (PostgreSQL)
+  - Backup verification with SHA256 checksums
+  - Backup listing and filtering
+  - Backup restore to same or different app
+  - Backup deletion
+  - Fail-fast behavior (backup fails if services cannot be backed up)
+- **Security**: Incomplete backups now properly marked as FAILED
+- **Test Coverage**: 18 unit tests + 9 E2E tests
+- **Files**: `packages/hop3-server/src/hop3/core/backup.py`
 
 ## Quality & Infrastructure Tasks
 
@@ -110,12 +138,15 @@
 ## Success Metrics
 
 - [ ] 0.4.0 branch becomes usable for basic deployments
-- [ ] Plugin architecture fully functional
-- [ ] All typing issues resolved
+- [x] Plugin architecture fully functional (PostgreSQL plugin complete)
+- [ ] All serious typing issues resolved
 - [ ] Core App model refactoring complete
 - [ ] Monorepo structure finalized
+- [x] Web UI dashboard operational (read-only)
+- [x] Backup/restore system production-ready
+- [x] Service credential encryption implemented
+- [x] CLI UX improvements complete (rich formatting, confirmations)
 
 ---
 
-*Last updated: 2025-09-23*
-*Based on: git log analysis, roadmap.md, and codebase TODO/FIXME review*
+*Last updated: 2025-11-13*
