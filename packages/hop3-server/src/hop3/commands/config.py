@@ -36,16 +36,70 @@ class ConfigCmd(Command):
 
     name = "config"
 
+    def call(self, *args):
+        """Show usage help for config commands."""
+        return [
+            {
+                "t": "text",
+                "text": "Manage application configuration and environment variables",
+            },
+            {"t": "text", "text": ""},
+            {"t": "text", "text": "Usage:"},
+            {
+                "t": "text",
+                "text": "  hop3 config:show <app-name>         Show all config variables",
+            },
+            {
+                "t": "text",
+                "text": "  hop3 config:get <app-name> <key>    Get a specific variable",
+            },
+            {
+                "t": "text",
+                "text": "  hop3 config:set <app-name> KEY=VAL  Set variables",
+            },
+            {
+                "t": "text",
+                "text": "  hop3 config:unset <app-name> KEY    Remove variables",
+            },
+            {
+                "t": "text",
+                "text": "  hop3 config:live <app-name>         Show live runtime config",
+            },
+            {"t": "text", "text": ""},
+            {"t": "text", "text": "All commands also support --app flag:"},
+            {"t": "text", "text": "  hop3 config:show --app <app-name>"},
+            {"t": "text", "text": ""},
+            {"t": "text", "text": "Examples:"},
+            {"t": "text", "text": "  hop3 config:show myapp"},
+            {"t": "text", "text": "  hop3 config:get myapp DATABASE_URL"},
+            {"t": "text", "text": "  hop3 config:set myapp DEBUG=true WORKERS=4"},
+            {"t": "text", "text": "  hop3 config:unset myapp DEBUG"},
+        ]
+
 
 @register
 @dataclass(frozen=True)
 class ShowCmd(Command):
-    """Show config, e.g.: hop config <app>."""
+    """Show config, e.g.: hop config:show <app> or hop config:show --app <app>."""
 
     db_session: Session
     name = "config:show"
 
-    def call(self, app_name):
+    def call(self, *args):
+        app_name = self._parse_app_name(args)
+        if not app_name:
+            return [
+                {
+                    "t": "text",
+                    "text": (
+                        "Usage: hop3 config:show <app-name>\n"
+                        "   or: hop3 config:show --app <app-name>\n\n"
+                        "Example:\n"
+                        "  hop3 config:show myapp"
+                    ),
+                }
+            ]
+
         app = _get_app(self.db_session, app_name)
         env = app.get_runtime_env()
 
@@ -58,32 +112,104 @@ class ShowCmd(Command):
             }
         ]
 
+    def _parse_app_name(self, args):
+        """Parse app name from positional or --app flag."""
+        if not args:
+            return None
+
+        # Check for --app flag
+        i = 0
+        while i < len(args):
+            if args[i] == "--app" and i + 1 < len(args):
+                return args[i + 1]
+            i += 1
+
+        # Default to first positional argument
+        return args[0] if args else None
+
 
 @register
 @dataclass(frozen=True)
 class GetCmd(Command):
-    """e.g.: hop config:get <app> FOO."""
+    """e.g.: hop config:get <app> KEY or hop config:get --app <app> KEY."""
 
     db_session: Session
     name = "config:get"
 
-    def call(self, app_name, setting):
+    def call(self, *args):
+        app_name, setting = self._parse_args(args)
+        if not app_name or not setting:
+            return [
+                {
+                    "t": "text",
+                    "text": (
+                        "Usage: hop3 config:get <app-name> <key>\n"
+                        "   or: hop3 config:get --app <app-name> <key>\n\n"
+                        "Example:\n"
+                        "  hop3 config:get myapp DATABASE_URL"
+                    ),
+                }
+            ]
+
         app = _get_app(self.db_session, app_name)
         env = app.get_runtime_env()
         if setting in env:
             return [{"t": "text", "text": env[setting]}]
         return [{"t": "text", "text": f"Setting '{setting}' not found."}]
 
+    def _parse_args(self, args):
+        """Parse app name and setting from positional or --app flag."""
+        if not args:
+            return None, None
+
+        app_name = None
+        setting = None
+
+        # Check for --app flag
+        remaining_args = []
+        i = 0
+        while i < len(args):
+            if args[i] == "--app" and i + 1 < len(args):
+                app_name = args[i + 1]
+                i += 2
+            else:
+                remaining_args.append(args[i])
+                i += 1
+
+        # If --app was used, first remaining arg is the setting
+        if app_name:
+            setting = remaining_args[0] if remaining_args else None
+        else:
+            # Otherwise, first arg is app, second is setting
+            app_name = remaining_args[0] if len(remaining_args) > 0 else None
+            setting = remaining_args[1] if len(remaining_args) > 1 else None
+
+        return app_name, setting
+
 
 @register
 @dataclass(frozen=True)
 class LiveCmd(Command):
-    """e.g.: hop config:live <app>."""
+    """e.g.: hop config:live <app> or hop config:live --app <app>."""
 
     db_session: Session
     name = "config:live"
 
-    def call(self, app_name):
+    def call(self, *args):
+        app_name = self._parse_app_name(args)
+        if not app_name:
+            return [
+                {
+                    "t": "text",
+                    "text": (
+                        "Usage: hop3 config:live <app-name>\n"
+                        "   or: hop3 config:live --app <app-name>\n\n"
+                        "Example:\n"
+                        "  hop3 config:live myapp"
+                    ),
+                }
+            ]
+
         app = _get_app(self.db_session, app_name)
         env = app.get_runtime_env()
 
@@ -104,6 +230,21 @@ class LiveCmd(Command):
             }
         ]
 
+    def _parse_app_name(self, args):
+        """Parse app name from positional or --app flag."""
+        if not args:
+            return None
+
+        # Check for --app flag
+        i = 0
+        while i < len(args):
+            if args[i] == "--app" and i + 1 < len(args):
+                return args[i + 1]
+            i += 1
+
+        # Default to first positional argument
+        return args[0] if args else None
+
 
 @register
 @dataclass(frozen=True)
@@ -111,22 +252,27 @@ class SetCmd(Command):
     """Set environment variables for an app.
 
     Usage: hop config:set <app> KEY=VALUE [KEY2=VALUE2 ...]
+       or: hop config:set --app <app> KEY=VALUE [KEY2=VALUE2 ...]
 
     Examples:
         hop config:set myapp DEBUG=true
-        hop config:set myapp DATABASE_URL=postgres://... REDIS_URL=redis://...
+        hop config:set --app myapp DATABASE_URL=postgres://... REDIS_URL=redis://...
     """
 
     db_session: Session
     name = "config:set"
 
-    def call(self, app_name, *settings):
-        if not settings:
+    def call(self, *args):
+        app_name, settings = self._parse_args(args)
+        if not app_name or not settings:
             return [
                 {
                     "t": "text",
-                    "text": "Usage: hop config:set <app> KEY=VALUE [KEY2=VALUE2 ...]\n"
-                    "Example: hop config:set myapp DEBUG=true",
+                    "text": (
+                        "Usage: hop config:set <app> KEY=VALUE [KEY2=VALUE2 ...]\n"
+                        "   or: hop config:set --app <app> KEY=VALUE [KEY2=VALUE2 ...]\n\n"
+                        "Example: hop config:set myapp DEBUG=true"
+                    ),
                 }
             ]
 
@@ -185,6 +331,34 @@ class SetCmd(Command):
 
         return result
 
+    def _parse_args(self, args):
+        """Parse app name and settings from positional or --app flag."""
+        if not args:
+            return None, []
+
+        app_name = None
+        remaining_args = []
+
+        # Check for --app flag
+        i = 0
+        while i < len(args):
+            if args[i] == "--app" and i + 1 < len(args):
+                app_name = args[i + 1]
+                i += 2
+            else:
+                remaining_args.append(args[i])
+                i += 1
+
+        # If --app was used, all remaining args are settings
+        if app_name:
+            settings = remaining_args
+        else:
+            # Otherwise, first arg is app, rest are settings
+            app_name = remaining_args[0] if remaining_args else None
+            settings = remaining_args[1:] if len(remaining_args) > 1 else []
+
+        return app_name, settings
+
 
 @register
 @dataclass(frozen=True)
@@ -192,22 +366,27 @@ class UnsetCmd(Command):
     """Unset environment variables for an app.
 
     Usage: hop config:unset <app> KEY [KEY2 ...]
+       or: hop config:unset --app <app> KEY [KEY2 ...]
 
     Examples:
         hop config:unset myapp DEBUG
-        hop config:unset myapp DATABASE_URL REDIS_URL
+        hop config:unset --app myapp DATABASE_URL REDIS_URL
     """
 
     db_session: Session
     name = "config:unset"
 
-    def call(self, app_name, *keys):
-        if not keys:
+    def call(self, *args):
+        app_name, keys = self._parse_args(args)
+        if not app_name or not keys:
             return [
                 {
                     "t": "text",
-                    "text": "Usage: hop config:unset <app> KEY [KEY2 ...]\n"
-                    "Example: hop config:unset myapp DEBUG",
+                    "text": (
+                        "Usage: hop config:unset <app> KEY [KEY2 ...]\n"
+                        "   or: hop config:unset --app <app> KEY [KEY2 ...]\n\n"
+                        "Example: hop config:unset myapp DEBUG"
+                    ),
                 }
             ]
 
@@ -256,6 +435,34 @@ class UnsetCmd(Command):
             })
 
         return result
+
+    def _parse_args(self, args):
+        """Parse app name and keys from positional or --app flag."""
+        if not args:
+            return None, []
+
+        app_name = None
+        remaining_args = []
+
+        # Check for --app flag
+        i = 0
+        while i < len(args):
+            if args[i] == "--app" and i + 1 < len(args):
+                app_name = args[i + 1]
+                i += 2
+            else:
+                remaining_args.append(args[i])
+                i += 1
+
+        # If --app was used, all remaining args are keys
+        if app_name:
+            keys = remaining_args
+        else:
+            # Otherwise, first arg is app, rest are keys
+            app_name = remaining_args[0] if remaining_args else None
+            keys = remaining_args[1:] if len(remaining_args) > 1 else []
+
+        return app_name, keys
 
 
 @register

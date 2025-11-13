@@ -13,7 +13,9 @@ from typing import TYPE_CHECKING
 
 from starlette.responses import RedirectResponse, Response
 
+from hop3 import config
 from hop3.core.backup import BackupManager
+from hop3.core.plugins import get_service_strategy
 from hop3.orm import App
 from hop3.orm.service_credential import ServiceCredential
 from hop3.project.config import AppConfig
@@ -22,6 +24,28 @@ from hop3.server.singletons import router, templates
 
 if TYPE_CHECKING:
     from starlette.requests import Request
+
+
+def is_authenticated(request: Request) -> bool:
+    """Check if user is authenticated, handling cases where auth middleware is not installed.
+
+    Args:
+        request: The HTTP request
+
+    Returns:
+        True if authenticated or in unsafe mode, False otherwise
+    """
+    # If HOP3_UNSAFE is true (testing mode), skip authentication
+    if config.HOP3_UNSAFE:
+        return True
+
+    # Check if auth middleware is installed
+    if "user" not in request.scope:
+        # No auth middleware installed, default to unauthenticated
+        return False
+
+    # Auth middleware is installed, check authentication status
+    return request.user.is_authenticated
 
 
 @router.get("/")
@@ -34,7 +58,7 @@ def index(request: Request):
     Returns:
         Redirect to dashboard or login
     """
-    if request.user.is_authenticated:
+    if is_authenticated(request):
         return RedirectResponse(url="/dashboard", status_code=302)
     return RedirectResponse(url="/auth/login", status_code=302)
 
@@ -50,7 +74,7 @@ def dashboard_index(request: Request):
         Template response with application list
     """
     # Require authentication
-    if not request.user.is_authenticated:
+    if not is_authenticated(request):
         return RedirectResponse(url="/auth/login", status_code=302)
 
     # Get all applications
@@ -85,7 +109,7 @@ def dashboard_services(request: Request):
         Template response with services list
     """
     # Require authentication
-    if not request.user.is_authenticated:
+    if not is_authenticated(request):
         return RedirectResponse(url="/auth/login", status_code=302)
 
     # Get all service credentials from database
@@ -109,6 +133,71 @@ def dashboard_services(request: Request):
     return templates(request, "dashboard/services.html", ctx)
 
 
+@router.get("/dashboard/services/{service_name}")
+def service_detail(request: Request):
+    """Display service detail page.
+
+    Args:
+        request: The HTTP request
+
+    Returns:
+        Template response with service details
+    """
+    # Require authentication
+    if not is_authenticated(request):
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    service_name = request.path_params["service_name"]
+
+    # Get service credential from database
+    with get_session() as db_session:
+        credential = (
+            db_session.query(ServiceCredential)
+            .filter(ServiceCredential.service_name == service_name)
+            .first()
+        )
+
+        if not credential:
+            # Service not found
+            return templates(
+                request,
+                "dashboard/error.html",
+                {
+                    "error_title": "Service Not Found",
+                    "error_message": f"Service '{service_name}' does not exist.",
+                },
+                status_code=404,
+            )
+
+        # Get app name for the service
+        app = credential.app
+
+        # Get service strategy and connection details
+        try:
+            service = get_service_strategy(credential.service_type, service_name)
+            connection_details = service.get_connection_details()
+            info = service.info()
+        except Exception as e:
+            connection_details = {}
+            info = {"error": str(e)}
+
+        service_data = {
+            "service_name": credential.service_name,
+            "service_type": credential.service_type,
+            "app_name": app.name,
+            "created_at": credential.created_at.strftime("%Y-%m-%d %H:%M")
+            if credential.created_at
+            else "N/A",
+        }
+
+    ctx = {
+        "service": service_data,
+        "connection_details": connection_details,
+        "info": info,
+    }
+    return templates(request, "dashboard/service_detail.html", ctx)
+
+
 @router.get("/dashboard/backups")
 def dashboard_backups(request: Request):
     """Display backups page.
@@ -120,7 +209,7 @@ def dashboard_backups(request: Request):
         Template response with backups list
     """
     # Require authentication
-    if not request.user.is_authenticated:
+    if not is_authenticated(request):
         return RedirectResponse(url="/auth/login", status_code=302)
 
     # Get all backups from database
@@ -177,7 +266,7 @@ def app_detail(request: Request):
         Template response with app details
     """
     # Require authentication
-    if not request.user.is_authenticated:
+    if not is_authenticated(request):
         return RedirectResponse(url="/auth/login", status_code=302)
 
     app_name = request.path_params["app_name"]
@@ -239,7 +328,7 @@ def app_status(request: Request):
         Template response with status fragment
     """
     # Require authentication
-    if not request.user.is_authenticated:
+    if not is_authenticated(request):
         return RedirectResponse(url="/auth/login", status_code=302)
 
     app_name = request.path_params["app_name"]
@@ -292,7 +381,7 @@ def app_logs(request: Request):
         Template response with logs viewer
     """
     # Require authentication
-    if not request.user.is_authenticated:
+    if not is_authenticated(request):
         return RedirectResponse(url="/auth/login", status_code=302)
 
     app_name = request.path_params["app_name"]
@@ -330,7 +419,7 @@ def app_logs_stream(request: Request):
         Plain text response with logs
     """
     # Require authentication
-    if not request.user.is_authenticated:
+    if not is_authenticated(request):
         return Response(content="Unauthorized", status_code=401)
 
     app_name = request.path_params["app_name"]
@@ -360,7 +449,7 @@ def app_logs_download(request: Request):
         Text file download response
     """
     # Require authentication
-    if not request.user.is_authenticated:
+    if not is_authenticated(request):
         return RedirectResponse(url="/auth/login", status_code=302)
 
     app_name = request.path_params["app_name"]
@@ -402,7 +491,7 @@ def app_env_vars(request: Request):
         Template response with environment variables
     """
     # Require authentication
-    if not request.user.is_authenticated:
+    if not is_authenticated(request):
         return RedirectResponse(url="/auth/login", status_code=302)
 
     app_name = request.path_params["app_name"]
@@ -467,7 +556,7 @@ def app_restart(request: Request):
         Redirect to app detail page with success message
     """
     # Require authentication
-    if not request.user.is_authenticated:
+    if not is_authenticated(request):
         return RedirectResponse(url="/auth/login", status_code=302)
 
     app_name = request.path_params["app_name"]
@@ -502,7 +591,7 @@ def app_backup(request: Request):
         Redirect to app detail page with success message
     """
     # Require authentication
-    if not request.user.is_authenticated:
+    if not is_authenticated(request):
         return RedirectResponse(url="/auth/login", status_code=302)
 
     app_name = request.path_params["app_name"]
@@ -538,7 +627,7 @@ def backup_info(request: Request):
         Template response with backup details
     """
     # Require authentication
-    if not request.user.is_authenticated:
+    if not is_authenticated(request):
         return RedirectResponse(url="/auth/login", status_code=302)
 
     backup_id = request.path_params["backup_id"]
@@ -606,7 +695,7 @@ def backup_restore(request: Request):
         Redirect to backups page
     """
     # Require authentication
-    if not request.user.is_authenticated:
+    if not is_authenticated(request):
         return RedirectResponse(url="/auth/login", status_code=302)
 
     backup_id = request.path_params["backup_id"]
@@ -641,7 +730,7 @@ def backup_delete(request: Request):
         Redirect to backups page
     """
     # Require authentication
-    if not request.user.is_authenticated:
+    if not is_authenticated(request):
         return RedirectResponse(url="/auth/login", status_code=302)
 
     backup_id = request.path_params["backup_id"]

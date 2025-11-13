@@ -88,11 +88,13 @@ class PostgresService:
         """
         # Connect to PostgreSQL (assuming superuser credentials are in env)
         # In production, these should come from configuration
+        # Try to connect to template1 database which should always exist
         params = {
             "host": "localhost",
             "port": 5432,
             # Default to postgres superuser - should be configurable
             "user": "postgres",
+            "dbname": "template1",  # Use template1 instead of postgres
             # Password should come from environment or config
         }
 
@@ -122,6 +124,7 @@ class PostgresService:
             "host": "localhost",
             "port": 5432,
             "user": "postgres",
+            "dbname": "template1",  # Use template1 instead of postgres
         }
 
         connection = None
