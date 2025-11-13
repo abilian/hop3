@@ -206,22 +206,84 @@ class AuthRegisterCmd(Command):
 @register
 @dataclass(frozen=True)
 class AuthLogoutCmd(Command):
-    """Logout (invalidate current token)."""
+    """Logout (invalidate current token).
+
+    This command revokes the current token, making it immediately invalid
+    even before its expiration time. The token is added to a revocation list
+    and will be rejected by the authentication middleware.
+    """
 
     name = "auth:logout"
+    pass_username = True  # Request passes the username from the token
+    pass_token_info = True  # Request passes the full token
 
-    def call(self, *args):
-        """Logout the current user.
+    def call(self, username: str, _token: str | None = None):
+        """Logout the current user by revoking their token.
 
-        Note: With JWT tokens, logout is client-side only. The token will
-        expire based on its expiration time. For immediate invalidation,
-        a token revocation list would be needed.
+        Args:
+            username: The authenticated username (injected by RPC handler)
+            _token: The JWT token (injected by RPC handler, starts with _)
 
         Returns:
-            Logout instructions
+            Logout success message
         """
+        from datetime import datetime, timezone  # noqa: PLC0415
+
+        import jwt  # noqa: PLC0415
+
+        from hop3.server.security.tokens import (  # noqa: PLC0415
+            get_secret_key,
+            revoke_token,
+        )
+
+        # Decode the token to get jti and expiration
+        if _token:
+            try:
+                secret_key = get_secret_key()
+                payload = jwt.decode(
+                    _token,
+                    secret_key,
+                    algorithms=["HS256"],
+                    options={"verify_exp": False},
+                )
+
+                jti = payload.get("jti")
+                exp = payload.get("exp")
+
+                if jti and exp:
+                    # Convert expiration timestamp to datetime
+                    expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
+
+                    # Revoke the token
+                    revoke_token(jti, expires_at, reason="user_logout")
+
+                    return [
+                        {"t": "success", "text": f"Logged out user: {username}"},
+                        {"t": "text", "text": ""},
+                        {
+                            "t": "text",
+                            "text": "Your token has been revoked and is no longer valid.",
+                        },
+                        {"t": "text", "text": ""},
+                        {
+                            "t": "text",
+                            "text": "Remove the token from your config file or environment:",
+                        },
+                        {
+                            "t": "text",
+                            "text": "  - Delete 'api_token' from ~/.config/hop3-cli/config.toml",
+                        },
+                        {
+                            "t": "text",
+                            "text": "  - Or unset HOP3_API_TOKEN environment variable",
+                        },
+                    ]
+            except Exception:
+                pass  # Fall through to generic message
+
+        # Fallback if token couldn't be revoked
         return [
-            {"t": "text", "text": "Logout successful"},
+            {"t": "text", "text": f"Logged out user: {username}"},
             {"t": "text", "text": ""},
             {
                 "t": "text",
@@ -234,7 +296,7 @@ class AuthLogoutCmd(Command):
             {"t": "text", "text": "  - Or unset HOP3_API_TOKEN environment variable"},
             {"t": "text", "text": ""},
             {
-                "t": "text",
-                "text": "Note: The token will remain valid until it expires.",
+                "t": "warning",
+                "text": "Note: Token revocation requires a valid JWT with jti claim.",
             },
         ]

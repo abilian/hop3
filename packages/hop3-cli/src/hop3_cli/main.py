@@ -64,7 +64,6 @@ def run_command_from_args(cli_args: list[str]) -> None:
     )
 
     config = load_config()
-    client = Client(config=config, state=None)
 
     if not cli_args:
         cli_args = ["help"]
@@ -81,44 +80,45 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     extra_args = get_extra_args(cli_args)
 
-    response = None
-    try:
-        # Ensure extra_args contains only valid keyword arguments of correct types
-        validated_extra_args: dict[str, Any] = {
-            k: v for k, v in extra_args.items() if isinstance(k, str) and v is not None
-        }
-        response = client.rpc("cli", cli_args, **validated_extra_args)
-    except requests.exceptions.ConnectionError:
-        err(f"Could not connect to the Hop3 server at {client.rpc_url}. Is it running?")
-        sys.exit(1)
-    except requests.exceptions.HTTPError as e:
-        err(f"HTTP error while connecting to the Hop3 server:\n{e}")
-        sys.exit(1)
-    except Exception as e:
-        err(f"Error while executing command:\n{e}")
-        sys.exit(1)
-
-    match response:
-        case Ok(result=result):
-            # Handle auth:login specially - save token automatically
-            if cli_args and cli_args[0] == "auth:login":
-                handle_login_response(result, config, printer)
-            else:
-                printer.print(result)
-        case Error(message=message):
-            err(f"Error:\n{message}")
-            if client.tunnel:
-                client.tunnel.stop()
+    # Use Client as context manager to ensure tunnel cleanup
+    with Client(config=config, state=None) as client:
+        response = None
+        try:
+            # Ensure extra_args contains only valid keyword arguments of correct types
+            validated_extra_args: dict[str, Any] = {
+                k: v
+                for k, v in extra_args.items()
+                if isinstance(k, str) and v is not None
+            }
+            response = client.rpc("cli", cli_args, **validated_extra_args)
+        except requests.exceptions.ConnectionError:
+            err(
+                f"Could not connect to the Hop3 server at {client.rpc_url}. Is it running?"
+            )
             sys.exit(1)
-        case None:
-            pass
+        except requests.exceptions.HTTPError as e:
+            err(f"HTTP error while connecting to the Hop3 server:\n{e}")
+            sys.exit(1)
+        except Exception as e:
+            err(f"Error while executing command:\n{e}")
+            sys.exit(1)
 
-    # Flush JSON output if in JSON mode
-    if printer.json_output:
-        printer.flush_json()
+        match response:
+            case Ok(result=result):
+                # Handle auth:login specially - save token automatically
+                if cli_args and cli_args[0] == "auth:login":
+                    handle_login_response(result, config, printer)
+                else:
+                    printer.print(result)
+            case Error(message=message):
+                err(f"Error:\n{message}")
+                sys.exit(1)
+            case None:
+                pass
 
-    if client.tunnel:
-        client.tunnel.stop()
+        # Flush JSON output if in JSON mode
+        if printer.json_output:
+            printer.flush_json()
 
 
 def is_destructive_command(cli_args: list[str]) -> bool:

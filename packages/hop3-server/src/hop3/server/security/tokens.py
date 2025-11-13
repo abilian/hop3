@@ -95,11 +95,16 @@ def create_token(
 def validate_token(token: str) -> dict[str, Any] | None:
     """Validate a JWT token and return the payload.
 
+    This function:
+    1. Decodes and validates the JWT structure
+    2. Checks the revocation list to ensure the token hasn't been revoked
+    3. Validates scopes and claims
+
     Args:
         token: The JWT token string to validate
 
     Returns:
-        The token payload if valid, None otherwise
+        The token payload if valid and not revoked, None otherwise
     """
     try:
         secret_key = get_secret_key()
@@ -115,6 +120,11 @@ def validate_token(token: str) -> dict[str, Any] | None:
                 "require": ["exp", "sub"],  # Require expiration and subject
             },
         )
+
+        # Check if token is revoked (if jti is present)
+        jti = payload.get("jti")
+        if jti and is_token_revoked(jti):
+            return None
 
         # Validate that the token has proper scopes
         scopes = payload.get("scopes", [])
@@ -135,7 +145,7 @@ def validate_token(token: str) -> dict[str, Any] | None:
             "scopes": scopes,
             "issued_at": payload.get("iat"),
             "expires_at": payload.get("exp"),
-            "token_id": payload.get("jti"),
+            "token_id": jti,
         }
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
         # Token has expired, is invalid, or secret key not configured
@@ -143,6 +153,57 @@ def validate_token(token: str) -> dict[str, Any] | None:
     except Exception:
         # Unexpected error
         return None
+
+
+def is_token_revoked(jti: str) -> bool:
+    """Check if a token has been revoked.
+
+    Args:
+        jti: JWT ID to check
+
+    Returns:
+        True if the token is revoked, False otherwise
+    """
+    from hop3.orm import RevokedToken  # noqa: PLC0415
+    from hop3.server.lib.database import get_session  # noqa: PLC0415
+
+    try:
+        with get_session() as db_session:
+            revoked = (
+                db_session.query(RevokedToken).filter_by(jti=jti).first() is not None
+            )
+            return revoked
+    except Exception:
+        # If there's a database error, fail open (allow the token)
+        # This prevents a database outage from locking out all users
+        return False
+
+
+def revoke_token(jti: str, expires_at: datetime, reason: str | None = None) -> None:
+    """Revoke a token by adding it to the revocation list.
+
+    Args:
+        jti: JWT ID to revoke
+        expires_at: When the token expires (for cleanup)
+        reason: Optional reason for revocation (e.g., "user_logout")
+    """
+    from hop3.orm import RevokedToken  # noqa: PLC0415
+    from hop3.server.lib.database import get_session  # noqa: PLC0415
+
+    with get_session() as db_session:
+        # Check if already revoked
+        existing = db_session.query(RevokedToken).filter_by(jti=jti).first()
+        if existing:
+            return  # Already revoked
+
+        # Add to revocation list
+        revoked_token = RevokedToken(
+            jti=jti,
+            expires_at=expires_at,
+            reason=reason,
+        )
+        db_session.add(revoked_token)
+        db_session.commit()
 
 
 def generate_api_key() -> str:

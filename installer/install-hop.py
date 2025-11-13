@@ -340,13 +340,48 @@ def setup_nginx() -> None:
 
 
 def setup_postgres() -> None:
+    """Set up PostgreSQL with a secure, randomly generated password.
+
+    The password is:
+    1. Generated using secrets.token_urlsafe (cryptographically secure)
+    2. Stored in /home/hop3/.hop3_postgres_password with 0600 permissions
+    3. Used to create the PostgreSQL role for the hop3 user
+
+    NOTE: The hop3 role is currently created for future use but is not actively
+    used by hop3-server. The PostgreSQL service plugin connects as 'postgres'
+    using peer authentication (the default on Debian/Ubuntu). This allows the
+    system hop3 user to connect without a password by switching to the postgres
+    system user. However, we still set a secure password for defense-in-depth.
+    """
+    import secrets
+    from pathlib import Path
+
+    # Generate a secure random password
+    db_password = secrets.token_urlsafe(32)
+
+    # Store the password in a secure location
+    password_file = Path(f"{HOME_DIR}/.hop3_postgres_password")
+
+    # Write password file with restricted permissions
+    server.shell(
+        name="Create secure password file",
+        commands=[
+            f"echo '{db_password}' > {password_file}",
+            f"chmod 600 {password_file}",
+            f"chown {HOP3_USER}:{HOP3_USER} {password_file}",
+        ],
+    )
+
+    # Create PostgreSQL role with the generated password
     postgres.role(
         role="hop3",
-        password="hop3pw",
+        password=db_password,
         login=True,
         superuser=True,
         _su_user="postgres",
     )
+
+    # Create the hop3 database
     postgres.database(
         name="hop3",
         database="hop3",

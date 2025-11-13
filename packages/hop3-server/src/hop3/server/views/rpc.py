@@ -51,6 +51,20 @@ def command_needs_username(command_class: type[Command]) -> bool:
     return getattr(command_class, "pass_username", False)
 
 
+def command_needs_token_info(command_class: type[Command]) -> bool:
+    """Check if a command needs the full token information.
+
+    Uses the declarative `pass_token_info` class attribute.
+
+    Args:
+        command_class: The command class
+
+    Returns:
+        True if the command needs token info (jti, exp), False otherwise
+    """
+    return getattr(command_class, "pass_token_info", False)
+
+
 @router.post("/rpc")
 async def handle_rpc(request: Request):
     json_request = await request.json()
@@ -112,6 +126,16 @@ async def handle_rpc(request: Request):
     if command_needs_username(command_class):
         if "user" in request.scope and request.user.is_authenticated:
             args = (request.user.display_name, *args)
+
+    # Pass token information to commands that need it (e.g., logout)
+    if command_needs_token_info(command_class):
+        if "user" in request.scope and request.user.is_authenticated:
+            # Extract token from Authorization header
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:].strip()
+                # Add token to extra_args so it can be passed to the command
+                extra_args["_token"] = token
 
     try:
         result = call(command_name, args, extra_args)
