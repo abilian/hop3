@@ -32,10 +32,13 @@
                class="inline-flex items-center justify-center rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500">
                 View Logs
             </a>
-            <button type="button"
-                    class="inline-flex items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
-                Restart App
-            </button>
+            <form method="post" action="/dashboard/apps/{{ app.name }}/restart" class="inline">
+                <button type="submit"
+                        onclick="return confirm('Are you sure you want to restart {{ app.name }}?')"
+                        class="inline-flex items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+                    Restart App
+                </button>
+            </form>
         </div>
     </div>
 
@@ -204,12 +207,16 @@
                     <span class="mt-2 block text-sm font-medium text-gray-900">Environment Variables</span>
                 </a>
 
-                <button type="button" class="relative block w-full rounded-lg border-2 border-dashed border-gray-300 p-6 text-center hover:border-gray-400">
-                    <svg class="mx-auto h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-                    </svg>
-                    <span class="mt-2 block text-sm font-medium text-gray-900">Database Backup</span>
-                </button>
+                <form method="post" action="/dashboard/apps/{{ app.name }}/backup" class="block">
+                    <button type="submit"
+                            onclick="return confirm('Are you sure you want to create a backup of {{ app.name }}? This may take several minutes depending on the size of your application and databases.')"
+                            class="relative block w-full rounded-lg border-2 border-dashed border-gray-300 p-6 text-center hover:border-gray-400 cursor-pointer">
+                        <svg class="mx-auto h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                        </svg>
+                        <span class="mt-2 block text-sm font-medium text-gray-900">Database Backup</span>
+                    </button>
+                </form>
             </div>
         </div>
     </div>

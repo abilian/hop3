@@ -25,7 +25,6 @@ dependencies = [
     "tomlkit",
     "python-dotenv",
     "attrs>=25.3.0",
-    # "hop3-smo-plugin",
 ]
 
 [project.urls]

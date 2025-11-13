@@ -6,37 +6,18 @@
 
 from __future__ import annotations
 
+import re
+import time
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from starlette.authentication import AuthCredentials, SimpleUser
 from starlette.testclient import TestClient
 
 from hop3.orm.security import AuditBase
 from hop3.server.asgi import create_app
-
-
-@pytest.fixture(autouse=True)
-def setup_test_env(monkeypatch):
-    """Set up test environment."""
-    # ruff: noqa: PLC0415
-    import importlib
-
-    from hop3 import config
-
-    monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-for-dashboard-testing")
-    monkeypatch.setenv("HOP3_SESSION_SECRET", "test-session-secret-for-dashboard")
-    monkeypatch.setenv("HOP3_ENABLE_AUTH", "true")
-    # Use UNSAFE mode to bypass authentication for testing
-    monkeypatch.setenv("HOP3_UNSAFE", "true")
-
-    # Need to reload config after setting env vars
-    importlib.reload(config)
-
-    yield
-
-    # CRITICAL: Reload config again after test to pick up cleaned environment
-    # monkeypatch automatically restores env vars, but config module is cached
-    importlib.reload(config)
+from hop3.server.middleware.auth import SessionAuthBackend
 
 
 @pytest.fixture
@@ -67,14 +48,26 @@ def client():
 
 
 @pytest.fixture
-def authenticated_client(client: TestClient):
+def authenticated_client(client: TestClient, monkeypatch):
     """Create an authenticated test client.
 
-    Note: Using HOP3_UNSAFE=true from setup_test_env to bypass authentication.
-    The views will use the default database (which may be empty), but that's OK
-    for testing that the pages render correctly.
+    Uses monkeypatch to mock the authentication backend to return
+    an authenticated user, avoiding the need to set environment variables
+    and reload config modules.
     """
-    return client
+
+    async def mock_authenticate(self, conn):  # noqa: RUF029
+        """Mock authentication that always returns an authenticated user."""
+        # Return authenticated user with admin scope
+        # Note: Must be async to match Starlette's auth middleware signature
+        return AuthCredentials(["authenticated", "admin"]), SimpleUser("test-user")
+
+    # Patch the authenticate method on the SessionAuthBackend class
+    monkeypatch.setattr(SessionAuthBackend, "authenticate", mock_authenticate)
+
+    # Create a new app with the patched authentication
+    app = create_app()
+    return TestClient(app)
 
 
 # Root Endpoint Tests
@@ -103,7 +96,9 @@ def test_dashboard_index_empty(authenticated_client: TestClient):
     """Test dashboard index with no applications."""
     response = authenticated_client.get("/dashboard")
     assert response.status_code == 200
-    assert b"No applications" in response.content or b"Deploy New App" in response.content
+    assert (
+        b"No applications" in response.content or b"Deploy New App" in response.content
+    )
 
 
 # Services and Backups Placeholder Tests
@@ -243,9 +238,13 @@ def test_app_env_page_structure(authenticated_client: TestClient):
         # Check for Alpine.js data attributes
         assert b"x-data" in response.content
         # Check for search functionality
-        assert b"searchTerm" in response.content or b"search" in response.content.lower()
+        assert (
+            b"searchTerm" in response.content or b"search" in response.content.lower()
+        )
         # Check for secret masking functionality
-        assert b"showSecrets" in response.content or b"secret" in response.content.lower()
+        assert (
+            b"showSecrets" in response.content or b"secret" in response.content.lower()
+        )
     else:
         # App doesn't exist, should redirect
         assert response.status_code == 302
@@ -275,26 +274,24 @@ def test_logs_stream_htmx_compatible(authenticated_client: TestClient):
 
 
 def test_logs_requires_authentication(client: TestClient):
-    """Test that logs page requires authentication when UNSAFE mode is off."""
-    # Note: This test will pass in UNSAFE mode, but documents the requirement
-    response = client.get("/dashboard/apps/testapp/logs")
-    # In UNSAFE mode, will succeed; in normal mode, would redirect to login
-    assert response.status_code in {200, 302}
+    """Test that logs page requires authentication."""
+    response = client.get("/dashboard/apps/testapp/logs", follow_redirects=False)
+    # Without authentication, should return 401 or redirect to login
+    assert response.status_code in {302, 401}
 
 
 def test_env_vars_requires_authentication(client: TestClient):
-    """Test that env vars page requires authentication when UNSAFE mode is off."""
-    # Note: This test will pass in UNSAFE mode, but documents the requirement
-    response = client.get("/dashboard/apps/testapp/env")
-    # In UNSAFE mode, will succeed; in normal mode, would redirect to login
-    assert response.status_code in {200, 302}
+    """Test that env vars page requires authentication."""
+    response = client.get("/dashboard/apps/testapp/env", follow_redirects=False)
+    # Without authentication, should return 401 or redirect to login
+    assert response.status_code in {302, 401}
 
 
 def test_logs_stream_unauthorized(client: TestClient):
-    """Test logs stream returns appropriate response for unauthorized requests."""
+    """Test logs stream returns 401 for unauthorized requests."""
     response = client.get("/dashboard/apps/testapp/logs/stream")
-    # In UNSAFE mode, will succeed; in normal mode, would return 401
-    assert response.status_code in {200, 401, 404}
+    # Without authentication, should return 401
+    assert response.status_code == 401
 
 
 # Navigation and Breadcrumbs Tests
@@ -365,7 +362,10 @@ def test_logs_page_has_search_controls(authenticated_client: TestClient):
         # Check for search button/functionality
         assert b"Search" in response.content or b"search" in response.content.lower()
         # Check for auto-scroll toggle
-        assert b"auto-scroll" in response.content.lower() or b"Auto-scroll" in response.content
+        assert (
+            b"auto-scroll" in response.content.lower()
+            or b"Auto-scroll" in response.content
+        )
     else:
         # App doesn't exist, should redirect
         assert response.status_code == 302
@@ -377,7 +377,9 @@ def test_logs_page_has_download_button(authenticated_client: TestClient):
         "/dashboard/apps/testapp/logs", follow_redirects=False
     )
     if response.status_code == 200:
-        assert b"Download" in response.content or b"download" in response.content.lower()
+        assert (
+            b"Download" in response.content or b"download" in response.content.lower()
+        )
         assert b"/logs/download" in response.content
     else:
         # App doesn't exist, should redirect
@@ -391,7 +393,10 @@ def test_env_page_has_copy_functionality(authenticated_client: TestClient):
     )
     if response.status_code == 200:
         # Check for copy functionality (clipboard API)
-        assert b"clipboard" in response.content.lower() or b"copy" in response.content.lower()
+        assert (
+            b"clipboard" in response.content.lower()
+            or b"copy" in response.content.lower()
+        )
     else:
         # App doesn't exist, should redirect
         assert response.status_code == 302
@@ -450,7 +455,6 @@ def test_logs_stream_handles_missing_app_with_404(authenticated_client: TestClie
 
 def test_dashboard_response_time_acceptable(authenticated_client: TestClient):
     """Test that dashboard loads reasonably quickly."""
-    import time
     start = time.time()
     response = authenticated_client.get("/dashboard")
     elapsed = time.time() - start
@@ -493,3 +497,62 @@ def test_env_page_service_variable_detection(authenticated_client: TestClient):
         # Check for service variable detection logic
         content = response.content.decode("utf-8", errors="ignore")
         assert "_URL" in content or "_HOST" in content or "service" in content.lower()
+
+
+# JSON Serialization Tests
+
+
+def test_dashboard_json_serialization_with_apps(authenticated_client: TestClient):
+    """Test that dashboard properly serializes app data to JSON (datetime handling)."""
+    response = authenticated_client.get("/dashboard")
+    assert response.status_code == 200
+
+    # The page should render without JSON serialization errors
+    content = response.content.decode("utf-8", errors="ignore")
+    assert "apps:" in content  # Alpine.js data
+    assert "dashboardData()" in content  # Alpine.js initialization
+
+    # Should not have datetime objects in JSON
+    assert "datetime.datetime" not in content
+    assert "<built-in" not in content
+
+    # Should have the function definition
+    assert "function dashboardData()" in content
+
+
+def test_dashboard_handles_empty_apps_list(authenticated_client: TestClient):
+    """Test that dashboard handles empty apps list without errors."""
+    response = authenticated_client.get("/dashboard")
+    assert response.status_code == 200
+
+    # Should show empty state
+    content = response.content.decode("utf-8", errors="ignore")
+    assert "No applications" in content or "Deploy New App" in content
+
+    # Should have valid Alpine.js data
+    assert "apps:" in content
+
+
+def test_dashboard_app_list_data_structure(authenticated_client: TestClient):
+    """Test that dashboard app list has correct data structure."""
+    response = authenticated_client.get("/dashboard")
+    assert response.status_code == 200
+
+    content = response.content.decode("utf-8", errors="ignore")
+
+    # Alpine.js data should always be present
+    assert "apps:" in content
+
+    # Check that apps data is present and looks like valid JSON
+    if '"name"' in content and "apps: [" in content:
+        # Has apps - should have JSON array with proper structure
+        assert '"state":' in content or "'state':" in content
+        assert '"port":' in content or "'port':" in content
+
+        # Should NOT have datetime objects (regression test)
+        # Look for Python datetime repr patterns
+        assert not re.search(r"datetime\.datetime\(", content)
+        assert "<built-in method" not in content
+    else:
+        # Empty apps list
+        assert "apps: []" in content or "apps: [" not in content

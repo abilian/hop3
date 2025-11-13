@@ -13,13 +13,106 @@
         </div>
     </div>
 
+    {% if services %}
+    <!-- Services Table -->
+    <div class="mt-8 flow-root">
+        <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                <table class="min-w-full divide-y divide-gray-300">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">
+                                Service Name
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                Type
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                Application
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                Created
+                            </th>
+                            <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-0">
+                                <span class="sr-only">Actions</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for service in services %}
+                        <tr>
+                            <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
+                                {{ service.service_name }}
+                            </td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset
+                                    {% if service.service_type == 'postgresql' %}
+                                        bg-blue-50 text-blue-700 ring-blue-600/20
+                                    {% elif service.service_type == 'redis' %}
+                                        bg-red-50 text-red-700 ring-red-600/20
+                                    {% elif service.service_type == 'mysql' %}
+                                        bg-orange-50 text-orange-700 ring-orange-600/20
+                                    {% else %}
+                                        bg-gray-50 text-gray-700 ring-gray-600/20
+                                    {% endif %}
+                                ">
+                                    {{ service.service_type }}
+                                </span>
+                            </td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                                <a href="/dashboard/apps/{{ service.app_name }}" class="text-blue-600 hover:text-blue-900">
+                                    {{ service.app_name }}
+                                </a>
+                            </td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                {{ service.created_at }}
+                            </td>
+                            <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
+                                <span class="text-gray-400 text-xs">CLI only</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-blue-800">Manage services via CLI</h3>
+                <div class="mt-2 text-sm text-blue-700">
+                    <p>To create, configure, or delete services, use the command line:</p>
+                    <ul class="mt-2 list-disc list-inside space-y-1">
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 postgresql:create &lt;name&gt;</code> - Create a PostgreSQL database</li>
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 postgresql:link &lt;app&gt; &lt;db&gt;</code> - Link database to app</li>
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 postgresql:destroy &lt;name&gt;</code> - Delete a database</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
     <div class="mt-8 text-center">
         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
         </svg>
-        <h3 class="mt-2 text-sm font-semibold text-gray-900">Coming Soon</h3>
-        <p class="mt-1 text-sm text-gray-500">Service management UI will be available in a future release.</p>
-        <p class="mt-1 text-sm text-gray-500">Use the CLI for now: <code class="bg-gray-100 px-2 py-1 rounded">hop3 services:list</code></p>
+        <h3 class="mt-2 text-sm font-semibold text-gray-900">No services yet</h3>
+        <p class="mt-1 text-sm text-gray-500">Create your first service using the CLI.</p>
+        <div class="mt-4 bg-gray-50 rounded-lg p-4 text-left max-w-md mx-auto">
+            <p class="text-sm text-gray-700 mb-2">Example: Create and link a PostgreSQL database</p>
+            <code class="block bg-gray-900 text-gray-100 p-3 rounded text-xs">
+                hop3 postgresql:create mydb<br>
+                hop3 postgresql:link myapp mydb
+            </code>
+        </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}

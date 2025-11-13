@@ -8,18 +8,107 @@
         <div class="sm:flex-auto">
             <h1 class="text-2xl font-semibold leading-6 text-gray-900">Backups</h1>
             <p class="mt-2 text-sm text-gray-700">
-                Browse and restore application backups.
+                Browse and manage application backups.
             </p>
         </div>
     </div>
 
+    {% if backups %}
+    <!-- Backups Table -->
+    <div class="mt-8 flow-root">
+        <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                <table class="min-w-full divide-y divide-gray-300">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">
+                                Backup ID
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                Application
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                Created
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                Size
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                Services
+                            </th>
+                            <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-0">
+                                <span class="sr-only">Actions</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for backup in backups %}
+                        <tr>
+                            <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-mono text-gray-900 sm:pl-0">
+                                {{ backup.backup_id }}
+                            </td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
+                                <a href="/dashboard/apps/{{ backup.app_name }}" class="text-blue-600 hover:text-blue-900">
+                                    {{ backup.app_name }}
+                                </a>
+                            </td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                {{ backup.created }}
+                            </td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                {{ backup.size }}
+                            </td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                {% if backup.services_count > 0 %}
+                                    <span class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
+                                        {{ backup.services_count }} service(s)
+                                    </span>
+                                {% else %}
+                                    <span class="text-gray-400">No services</span>
+                                {% endif %}
+                            </td>
+                            <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
+                                <div class="flex justify-end gap-2">
+                                    <a href="/dashboard/backups/{{ backup.backup_id }}/info"
+                                       class="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-500">
+                                        Info
+                                    </a>
+                                    <form method="post" action="/dashboard/backups/{{ backup.backup_id }}/restore" class="inline">
+                                        <button type="submit"
+                                                onclick="return confirm('Are you sure you want to restore this backup? This will overwrite the current application data for {{ backup.app_name }}.')"
+                                                class="inline-flex items-center rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-green-500">
+                                            Restore
+                                        </button>
+                                    </form>
+                                    <form method="post" action="/dashboard/backups/{{ backup.backup_id }}/delete" class="inline">
+                                        <button type="submit"
+                                                onclick="return confirm('Are you sure you want to delete this backup? This action cannot be undone!')"
+                                                class="inline-flex items-center rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500">
+                                            Delete
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
     <div class="mt-8 text-center">
         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
         </svg>
-        <h3 class="mt-2 text-sm font-semibold text-gray-900">Coming Soon</h3>
-        <p class="mt-1 text-sm text-gray-500">Backup management UI will be available in a future release.</p>
-        <p class="mt-1 text-sm text-gray-500">Use the CLI for now: <code class="bg-gray-100 px-2 py-1 rounded">hop3 backup:list</code></p>
+        <h3 class="mt-2 text-sm font-semibold text-gray-900">No backups yet</h3>
+        <p class="mt-1 text-sm text-gray-500">Create your first backup from an application detail page.</p>
+        <div class="mt-6">
+            <a href="/dashboard" class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+                View Applications
+            </a>
+        </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}
