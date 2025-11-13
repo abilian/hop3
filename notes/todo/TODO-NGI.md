@@ -24,13 +24,13 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
  **Objective:** To improve the security and resilience of Hop3 by adding robust features and tools.
 
  **Deliverables:**
- * **M3.1 Backing services:** Integration of essential services like storage and email.
+ * **M3.1 Backing services:** ✅ **COMPLETED** (2025-11-12) - PostgreSQL service plugin with encrypted credentials (Fernet AEAD)
  * **M3.2 Upgrades:** Mechanisms for seamless platform and application updates, including data migrations.
- * **M3.3 Backups:** Automated backup and restoration capabilities with resilience and migration testing.
- * **M3.4 Testing framework and infrastructure:** A comprehensive framework for end-to-end and runtime-specific canary tests.
+ * **M3.3 Backups:** ✅ **COMPLETED** (2025-11-13) - Full backup/restore system with service data, checksums, and fail-fast behavior (46 tests)
+ * **M3.4 Testing framework and infrastructure:** ✅ **COMPLETED** (2025-11-08) - 329 tests across 4 layers (unit, integration, system, E2E) with CI automation
  * **M3.5 Firewalls:** Network-level firewalls and a Web Application Firewall (WAF).
- * **M3.6 CLI (basic):** A redesigned Command-Line Interface with improved user experience.
- * **M3.7 Web UI (basic):** A basic web-based User Interface for non-technical users.
+ * **M3.6 CLI (basic):** ✅ **COMPLETED** (2025-11-08) - Rich CLI with color formatting, confirmation prompts, and message type conventions (30 CLI tests)
+ * **M3.7 Web UI (basic):** ✅ **COMPLETED** (2025-11-13) - Production-ready dashboard with SSE log streaming, service management, and backup UI (128 integration tests)
  * **M3.8 Process outcomes of security audit and accessibility scan:** The results and implemented improvements from security and accessibility assessments.
 
  ### T4: Packaged Applications
