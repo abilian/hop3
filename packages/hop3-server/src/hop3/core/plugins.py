@@ -224,7 +224,7 @@ def get_service_strategy(service_type: str, service_name: str) -> ServiceStrateg
     for strategy_class in strategy_classes:
         # Check if the strategy name matches the requested service type
         if getattr(strategy_class, "name", None) == service_type:
-            return strategy_class(service_name)
+            return strategy_class(service_name=service_name)
 
     available_services = [getattr(cls, "name", "?") for cls in strategy_classes]
     msg = f"Service type '{service_type}' not found. Available services: {available_services}"

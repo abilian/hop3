@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}{{ service.service_name }} - Service Details - Hop3 Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-4" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="/dashboard" class="text-gray-700 hover:text-gray-900">
+                    Dashboard
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <a href="/dashboard/services" class="ml-1 text-gray-700 hover:text-gray-900">
+                        Services
+                    </a>
+                </div>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="ml-1 text-gray-500">{{ service.service_name }}</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="sm:flex sm:items-center sm:justify-between">
+        <div class="sm:flex-auto">
+            <h1 class="text-2xl font-semibold leading-6 text-gray-900">{{ service.service_name }}</h1>
+            <p class="mt-2 text-sm text-gray-700">
+                <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset
+                    {% if service.service_type == 'postgres' %}
+                        bg-blue-50 text-blue-700 ring-blue-600/20
+                    {% elif service.service_type == 'redis' %}
+                        bg-red-50 text-red-700 ring-red-600/20
+                    {% elif service.service_type == 'mysql' %}
+                        bg-orange-50 text-orange-700 ring-orange-600/20
+                    {% else %}
+                        bg-gray-50 text-gray-700 ring-gray-600/20
+                    {% endif %}
+                ">
+                    {{ service.service_type }}
+                </span>
+                attached to
+                <a href="/dashboard/apps/{{ service.app_name }}" class="text-blue-600 hover:text-blue-900 font-medium">
+                    {{ service.app_name }}
+                </a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Service Stats -->
+    {% if info and not info.error %}
+    <div class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <!-- Database Size -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <dt class="text-sm font-medium text-gray-500 truncate">Database Size</dt>
+                <dd class="mt-1 text-3xl font-semibold text-gray-900">{{ info.size_mb }} MB</dd>
+            </div>
+        </div>
+
+        <!-- Table Count -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <dt class="text-sm font-medium text-gray-500 truncate">Tables</dt>
+                <dd class="mt-1 text-3xl font-semibold text-gray-900">{{ info.table_count }}</dd>
+            </div>
+        </div>
+
+        <!-- Host -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <dt class="text-sm font-medium text-gray-500 truncate">Host</dt>
+                <dd class="mt-1 text-2xl font-semibold text-gray-900">{{ info.host }}</dd>
+            </div>
+        </div>
+
+        <!-- Port -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <dt class="text-sm font-medium text-gray-500 truncate">Port</dt>
+                <dd class="mt-1 text-3xl font-semibold text-gray-900">{{ info.port }}</dd>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Connection Details -->
+    <div class="mt-8">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Connection Details</h2>
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                    <div class="sm:col-span-1">
+                        <dt class="text-sm font-medium text-gray-500">Database Name</dt>
+                        <dd class="mt-1 text-sm text-gray-900 font-mono">{{ info.database if info else service.service_name }}</dd>
+                    </div>
+                    <div class="sm:col-span-1">
+                        <dt class="text-sm font-medium text-gray-500">User</dt>
+                        <dd class="mt-1 text-sm text-gray-900 font-mono">{{ info.user if info else 'N/A' }}</dd>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <dt class="text-sm font-medium text-gray-500">Connection URL</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
+                            <div class="flex items-center gap-2">
+                                <code id="connection-url" class="block bg-gray-50 p-3 rounded text-xs flex-1 overflow-x-auto">
+                                    {{ connection_details.DATABASE_URL if connection_details else 'N/A' }}
+                                </code>
+                                <button onclick="copyToClipboard('connection-url')"
+                                        class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+                                    Copy
+                                </button>
+                            </div>
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <!-- Environment Variables -->
+    {% if connection_details %}
+    <div class="mt-8">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Environment Variables</h2>
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <p class="text-sm text-gray-500 mb-4">
+                    These environment variables are automatically injected into your application.
+                </p>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-300">
+                        <thead>
+                            <tr>
+                                <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase">Variable</th>
+                                <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase">Value</th>
+                                <th class="py-3 px-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            {% for key, value in connection_details.items() %}
+                            <tr>
+                                <td class="py-3 px-3 text-sm font-mono text-gray-900">{{ key }}</td>
+                                <td class="py-3 px-3 text-sm font-mono text-gray-700">
+                                    <code id="env-{{ key }}" class="bg-gray-50 px-2 py-1 rounded">{{ value }}</code>
+                                </td>
+                                <td class="py-3 px-3 text-right text-sm">
+                                    <button onclick="copyToClipboard('env-{{ key }}')"
+                                            class="text-blue-600 hover:text-blue-900 text-xs">
+                                        Copy
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Version Info -->
+    {% if info and info.version %}
+    <div class="mt-8">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Version Information</h2>
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <pre class="text-xs text-gray-700 whitespace-pre-wrap font-mono">{{ info.version }}</pre>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Error State -->
+    {% if info and info.error %}
+    <div class="mt-8">
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">Unable to connect to service</h3>
+                    <div class="mt-2 text-sm text-red-700">
+                        <p>{{ info.error }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- CLI Management Info -->
+    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-blue-800">Manage this service via CLI</h3>
+                <div class="mt-2 text-sm text-blue-700">
+                    <ul class="list-disc list-inside space-y-1">
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 services:info {{ service.service_name }}</code> - View service information</li>
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 backup:create {{ service.app_name }}</code> - Create backup (includes this service)</li>
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 services:destroy {{ service.service_name }}</code> - Delete this service</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    const text = element.textContent.trim();
+
+    navigator.clipboard.writeText(text).then(() => {
+        // Show brief success feedback
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = 'Copied!';
+        button.classList.add('text-green-600');
+
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.classList.remove('text-green-600');
+        }, 2000);
+    });
+}
+</script>
+{% endblock %}
