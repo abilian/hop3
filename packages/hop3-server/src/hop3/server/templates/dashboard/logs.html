@@ -134,25 +134,37 @@
                 <span class="ml-4 text-sm text-gray-300 font-mono">{{ app_name }}.log</span>
             </div>
             <div class="text-xs text-gray-400">
-                Last 500 lines • Updates every 3s
+                Real-time streaming • Last 50 lines on connect
             </div>
         </div>
 
         <div class="relative">
             <div id="log-container"
                  class="overflow-auto font-mono text-sm text-gray-100 p-4 h-[600px]"
-                 hx-get="/dashboard/apps/{{ app_name }}/logs/stream"
-                 hx-trigger="load, every 3s"
-                 hx-swap="innerHTML"
-                 hx-target="#log-content"
-                 @htmx:afterSwap="if (autoScroll) { $el.scrollTop = $el.scrollHeight; }">
-                <pre id="log-content" class="whitespace-pre-wrap break-words">{{ logs | join('\n') }}</pre>
+                 x-init="$nextTick(() => { if (autoScroll) $el.scrollTop = $el.scrollHeight; })">
+                <pre id="log-content"
+                     class="whitespace-pre-wrap break-words"
+                     hx-ext="sse"
+                     sse-connect="/dashboard/apps/{{ app_name }}/logs/stream"
+                     sse-swap="message"
+                     hx-swap="beforeend"
+                     @htmx:sseMessage="if (autoScroll) { $el.closest('#log-container').scrollTop = $el.closest('#log-container').scrollHeight; }">{{ logs | join('\n') }}</pre>
             </div>
 
-            <!-- Loading indicator -->
+            <!-- Connection Status indicator -->
             <div class="absolute top-2 right-2">
-                <div class="htmx-indicator bg-blue-600 text-white text-xs px-2 py-1 rounded shadow-lg">
-                    Updating...
+                <div id="connection-status"
+                     x-data="{ connected: false }"
+                     @htmx:sseOpen="connected = true"
+                     @htmx:sseClose="connected = false"
+                     @htmx:sseError="connected = false">
+                    <span x-show="connected" class="bg-green-600 text-white text-xs px-2 py-1 rounded shadow-lg flex items-center">
+                        <span class="inline-block w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></span>
+                        Live
+                    </span>
+                    <span x-show="!connected" class="bg-yellow-600 text-white text-xs px-2 py-1 rounded shadow-lg">
+                        Connecting...
+                    </span>
                 </div>
             </div>
         </div>

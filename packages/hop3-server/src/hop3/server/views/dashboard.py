@@ -292,6 +292,17 @@ def app_detail(request: Request):
                 # If config can't be loaded, just show empty workers
                 pass
 
+        # Get attached services
+        services = []
+        for credential in app.service_credentials:
+            services.append({
+                "service_name": credential.service_name,
+                "service_type": credential.service_type,
+                "created_at": credential.created_at.strftime("%Y-%m-%d %H:%M")
+                if credential.created_at
+                else "N/A",
+            })
+
         # Prepare context
         ctx = {
             "app": {
@@ -311,6 +322,7 @@ def app_detail(request: Request):
                 "worker_count": worker_count,
                 "env_var_count": len(app.env_vars),
             },
+            "services": services,
             "now": datetime.now(timezone.utc),
         }
 
@@ -478,6 +490,110 @@ def app_logs_download(request: Request):
                 "Content-Disposition": f'attachment; filename="{filename}"',
             },
         )
+
+
+@router.get("/dashboard/apps/{app_name}/logs/stream")
+async def app_logs_stream(request: Request):
+    """Stream application logs via Server-Sent Events (SSE).
+
+    Args:
+        request: The HTTP request
+
+    Returns:
+        SSE stream response
+    """
+    # Require authentication
+    if not is_authenticated(request):
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    app_name = request.path_params["app_name"]
+
+    # Get application from database
+    with get_session() as db_session:
+        app = db_session.query(App).filter_by(name=app_name).first()
+
+        if not app:
+            # Return error event
+            async def error_generator():
+                yield f"event: error\ndata: App '{app_name}' not found\n\n"
+
+            return Response(
+                content=error_generator(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no",
+                },
+            )
+
+        log_path = Path(app.log_path)
+
+    # Generator function for SSE
+    async def log_generator():
+        """Generate SSE events from log file."""
+        import asyncio
+
+        try:
+            # Send initial logs (last 50 lines)
+            if log_path.exists():
+                with open(log_path) as f:
+                    lines = f.readlines()
+                    initial_lines = lines[-50:] if len(lines) > 50 else lines
+                    for line in initial_lines:
+                        line = line.rstrip()
+                        if line:
+                            # Escape newlines and send as SSE event
+                            escaped_line = line.replace("\n", "\\n")
+                            yield f"data: {escaped_line}\n\n"
+
+            # Track file position for tail functionality
+            file_size = log_path.stat().st_size if log_path.exists() else 0
+
+            # Stream new lines as they appear (tail -f behavior)
+            while True:
+                # Check if client disconnected
+                if await request.is_disconnected():
+                    break
+
+                if log_path.exists():
+                    current_size = log_path.stat().st_size
+
+                    # File has new content
+                    if current_size > file_size:
+                        with open(log_path) as f:
+                            f.seek(file_size)
+                            new_lines = f.readlines()
+                            for line in new_lines:
+                                line = line.rstrip()
+                                if line:
+                                    escaped_line = line.replace("\n", "\\n")
+                                    yield f"data: {escaped_line}\n\n"
+
+                        file_size = current_size
+
+                    # File was truncated or rotated
+                    elif current_size < file_size:
+                        file_size = 0
+
+                # Wait before checking again (1 second polling)
+                await asyncio.sleep(1)
+
+        except asyncio.CancelledError:
+            # Client disconnected
+            pass
+        except Exception as e:
+            yield f"event: error\ndata: Error streaming logs: {e}\n\n"
+
+    return Response(
+        content=log_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )
 
 
 @router.get("/dashboard/apps/{app_name}/env")
