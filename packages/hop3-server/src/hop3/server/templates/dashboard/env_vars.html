@@ -3,33 +3,7 @@
 {% block title %}{{ app_name }} Environment Variables - Hop3 Dashboard{% endblock %}
 
 {% block content %}
-<div class="px-4 sm:px-6 lg:px-8" x-data="{
-    searchTerm: '',
-    showSecrets: false,
-    copiedKey: null,
-    get filteredVars() {
-        if (!this.searchTerm) return {{ env_vars | tojson }};
-        const term = this.searchTerm.toLowerCase();
-        return {{ env_vars | tojson }}.filter(v =>
-            v.name.toLowerCase().includes(term) ||
-            v.value.toLowerCase().includes(term)
-        );
-    },
-    copyToClipboard(text, key) {
-        navigator.clipboard.writeText(text).then(() => {
-            this.copiedKey = key;
-            setTimeout(() => { this.copiedKey = null; }, 2000);
-        });
-    },
-    isSecret(name) {
-        const secretPatterns = ['PASSWORD', 'SECRET', 'KEY', 'TOKEN', 'API', 'CREDENTIAL'];
-        return secretPatterns.some(pattern => name.toUpperCase().includes(pattern));
-    },
-    maskValue(value) {
-        if (value.length <= 8) return '••••••••';
-        return value.substring(0, 4) + '••••••••' + value.substring(value.length - 4);
-    }
-}">
+<div class="px-4 sm:px-6 lg:px-8" x-data="envVarsData()">
     <!-- Header with actions -->
     <div class="sm:flex sm:items-center sm:justify-between mb-6">
         <div>
@@ -104,7 +78,7 @@
 
     <!-- Results count -->
     <div class="mb-4 text-sm text-gray-500">
-        Showing <span x-text="filteredVars.length"></span> of <span x-text="{{ env_vars | length }}"></span> variables
+        Showing <span x-text="filteredVars.length"></span> of <span x-text="envVars.length"></span> variables
     </div>
 
     {% if env_vars %}
@@ -211,7 +185,7 @@
             </div>
         </div>
 
-        <div class="bg-white shadow rounded-lg p-4" x-data="{ secretCount: {{ env_vars | tojson }}.filter(v => ['PASSWORD', 'SECRET', 'KEY', 'TOKEN', 'API', 'CREDENTIAL'].some(p => v.name.toUpperCase().includes(p))).length }">
+        <div class="bg-white shadow rounded-lg p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <svg class="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -267,4 +241,48 @@
         </div>
     </div>
 </div>
+
+<script>
+function envVarsData() {
+    return {
+        searchTerm: '',
+        showSecrets: false,
+        copiedKey: null,
+        envVars: {{ env_vars | tojson | safe }},
+
+        get filteredVars() {
+            if (!this.searchTerm) return this.envVars;
+            const term = this.searchTerm.toLowerCase();
+            return this.envVars.filter(v =>
+                v.name.toLowerCase().includes(term) ||
+                v.value.toLowerCase().includes(term)
+            );
+        },
+
+        copyToClipboard(text, key) {
+            navigator.clipboard.writeText(text).then(() => {
+                this.copiedKey = key;
+                setTimeout(() => { this.copiedKey = null; }, 2000);
+            });
+        },
+
+        isSecret(name) {
+            const secretPatterns = ['PASSWORD', 'SECRET', 'KEY', 'TOKEN', 'API', 'CREDENTIAL'];
+            return secretPatterns.some(pattern => name.toUpperCase().includes(pattern));
+        },
+
+        maskValue(value) {
+            if (value.length <= 8) return '••••••••';
+            return value.substring(0, 4) + '••••••••' + value.substring(value.length - 4);
+        },
+
+        get secretCount() {
+            const secretPatterns = ['PASSWORD', 'SECRET', 'KEY', 'TOKEN', 'API', 'CREDENTIAL'];
+            return this.envVars.filter(v =>
+                secretPatterns.some(p => v.name.toUpperCase().includes(p))
+            ).length;
+        }
+    };
+}
+</script>
 {% endblock %}

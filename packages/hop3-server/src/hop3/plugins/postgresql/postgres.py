@@ -172,7 +172,9 @@ class PostgresService:
         Returns:
             Path to the backup file
         """
-        backup_dir = Path("/var/hop3/backups") / "postgres"
+        from hop3.config import HOP3_ROOT
+
+        backup_dir = HOP3_ROOT / "backups" / "postgres"
         backup_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")

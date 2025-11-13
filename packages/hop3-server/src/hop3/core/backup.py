@@ -206,7 +206,8 @@ class BackupManager:
             backup_record.size = total_size
             self.db_session.commit()
 
-            log(f"Backup created: {backup_id}")
+            log(f"Backup created successfully: {backup_id}")
+
             return backup_id, backup_dir
 
         except Exception as e:
@@ -527,6 +528,7 @@ class BackupManager:
         services_dir.mkdir(exist_ok=True)
 
         services_info = []
+        failed_services = []
 
         # Discover attached services by examining environment variables
         attached_services = self._get_attached_services(app)
@@ -557,7 +559,18 @@ class BackupManager:
                 })
 
             except Exception as e:
-                log(f"Warning: Failed to backup service {service_name}: {e}")
+                failed_services.append((service_name, service_type, str(e)))
+                log(f"✗ Failed to backup service {service_name} ({service_type}): {e}")
+
+        # If any services failed to backup, raise an error
+        if failed_services:
+            error_details = "\n".join(
+                f"  - {name} ({stype}): {error}"
+                for name, stype, error in failed_services
+            )
+            raise RuntimeError(
+                f"Backup failed: Could not backup {len(failed_services)} attached service(s):\n{error_details}"
+            )
 
         return services_info
 
