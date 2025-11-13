@@ -21,6 +21,18 @@ if TYPE_CHECKING:
 
 @dataclass
 class Client:
+    """Hop3 RPC client with reliable SSH tunnel cleanup.
+
+    This class is designed to be used as a context manager to ensure proper
+    cleanup of SSH tunnels:
+
+        with Client(config, state) as client:
+            result = client.rpc("command", ["arg1", "arg2"])
+
+    When used as a context manager, the SSH tunnel is guaranteed to be stopped
+    when exiting the context, even if an exception occurs.
+    """
+
     config: Config
     state: State | None
     tunnel: SSHTunnelForwarder | None = None
@@ -33,6 +45,25 @@ class Client:
         if parsed_url.scheme in {"ssh", "ssh+http"}:
             if not self.tunnel:
                 self.start_ssh_tunnel()
+
+    def __enter__(self):
+        """Enter context manager - tunnel already started in __post_init__."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context manager - stop tunnel."""
+        self.stop()
+        return False  # Don't suppress exceptions
+
+    def stop(self):
+        """Stop the SSH tunnel if running."""
+        if self.tunnel:
+            try:
+                self.tunnel.stop()
+            except Exception as e:
+                logger.warning(f"Error stopping SSH tunnel: {e}")
+            finally:
+                self.tunnel = None
 
     @cached_property
     def api_url(self) -> str:
@@ -110,9 +141,17 @@ class Client:
             raise CliError(msg) from e
 
     def __del__(self):
-        if self.tunnel:
-            self.tunnel.stop()
-            self.tunnel = None
+        """Fallback cleanup (but don't rely on this)."""
+        if self.tunnel and getattr(self.tunnel, "is_alive", lambda: False)():
+            import warnings
+
+            warnings.warn(
+                "SSH tunnel was not properly closed. "
+                "Use Client as context manager: `with Client(...) as client:`",
+                ResourceWarning,
+                stacklevel=2,
+            )
+            self.stop()
 
     def rpc(
         self, method: str, cli_args: list[str], **extra_args: dict[str, Any]

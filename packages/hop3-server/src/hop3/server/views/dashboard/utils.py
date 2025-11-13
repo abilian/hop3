@@ -52,7 +52,6 @@ def require_auth(func: Callable) -> Callable:
         Wrapped function that checks authentication
     """
     import asyncio
-    import inspect
 
     if asyncio.iscoroutinefunction(func):
         # Async function wrapper
@@ -63,15 +62,15 @@ def require_auth(func: Callable) -> Callable:
             return await func(request, *args, **kwargs)
 
         return async_wrapper
-    else:
-        # Sync function wrapper
-        @wraps(func)
-        def sync_wrapper(request: Request, *args, **kwargs):
-            if not is_authenticated(request):
-                return RedirectResponse(url="/auth/login", status_code=302)
-            return func(request, *args, **kwargs)
+    # Sync function wrapper
 
-        return sync_wrapper
+    @wraps(func)
+    def sync_wrapper(request: Request, *args, **kwargs):
+        if not is_authenticated(request):
+            return RedirectResponse(url="/auth/login", status_code=302)
+        return func(request, *args, **kwargs)
+
+    return sync_wrapper
 
 
 def format_size(size_bytes: int) -> str:

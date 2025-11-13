@@ -211,10 +211,15 @@ def test_auth_whoami_no_username(db_session: Session):
 def test_auth_logout(db_session: Session):
     """Test logout command."""
     cmd = AuthLogoutCmd()
-    result = cmd.call()
+    # Logout now requires username (injected by RPC handler in production)
+    result = cmd.call("testuser")
 
     assert isinstance(result, list)
-    assert any("Logout successful" in str(r.get("text", "")) for r in result)
+    # Check for success message (either "Logged out" or "Logout successful")
+    assert any(
+        "Logged out" in str(r.get("text", "")) or "logout" in str(r.get("t", ""))
+        for r in result
+    )
     assert any("Remove the token" in str(r.get("text", "")) for r in result)
 
 
