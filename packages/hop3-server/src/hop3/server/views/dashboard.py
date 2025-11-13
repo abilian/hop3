@@ -541,10 +541,10 @@ async def app_logs_stream(request: Request):
                     lines = f.readlines()
                     initial_lines = lines[-50:] if len(lines) > 50 else lines
                     for line in initial_lines:
-                        line = line.rstrip()
+                        stripped_line = line.rstrip()
                         if line:
                             # Escape newlines and send as SSE event
-                            escaped_line = line.replace("\n", "\\n")
+                            escaped_line = stripped_line.replace("\n", "\\n")
                             yield f"data: {escaped_line}\n\n"
 
             # Track file position for tail functionality
@@ -565,9 +565,9 @@ async def app_logs_stream(request: Request):
                             f.seek(file_size)
                             new_lines = f.readlines()
                             for line in new_lines:
-                                line = line.rstrip()
+                                stripped_line = line.rstrip()
                                 if line:
-                                    escaped_line = line.replace("\n", "\\n")
+                                    escaped_line = stripped_line.replace("\n", "\\n")
                                     yield f"data: {escaped_line}\n\n"
 
                         file_size = current_size
