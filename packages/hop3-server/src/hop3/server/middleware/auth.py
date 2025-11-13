@@ -184,7 +184,9 @@ class SessionAuthBackend(AuthenticationBackend):
                                 self.display_name = display_name
                                 self.is_authenticated = True
 
-                        return AuthCredentials(scopes), WebUser(username, user.display_name)
+                        return AuthCredentials(scopes), WebUser(
+                            username, user.display_name
+                        )
 
         # Fall back to bearer token authentication (API/CLI)
         return await self.bearer_backend.authenticate(conn)

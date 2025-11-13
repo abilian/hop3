@@ -118,11 +118,7 @@ def profile(request: Request):
 
     # Get user from database
     with get_session() as db_session:
-        user = (
-            db_session.query(User)
-            .filter_by(username=request.user.username)
-            .first()
-        )
+        user = db_session.query(User).filter_by(username=request.user.username).first()
 
         if not user:
             # Session is invalid, clear it

@@ -3,18 +3,7 @@
 {% block title %}Applications - Hop3 Dashboard{% endblock %}
 
 {% block content %}
-<div class="px-4 sm:px-6 lg:px-8" x-data="{
-    search: '',
-    statusFilter: 'all',
-    apps: {{ apps | tojson }},
-    get filteredApps() {
-        return this.apps.filter(app => {
-            const matchesSearch = app.name.toLowerCase().includes(this.search.toLowerCase());
-            const matchesStatus = this.statusFilter === 'all' || app.state === this.statusFilter;
-            return matchesSearch && matchesStatus;
-        });
-    }
-}">
+<div class="px-4 sm:px-6 lg:px-8" x-data="dashboardData()">
     <div class="sm:flex sm:items-center">
         <div class="sm:flex-auto">
             <h1 class="text-2xl font-semibold leading-6 text-gray-900">Applications</h1>
@@ -24,11 +13,42 @@
         </div>
         <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
             <button type="button"
+                    @click="$refs.deployModal.showModal()"
                     class="block rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                 Deploy New App
             </button>
         </div>
     </div>
+
+    <!-- Deploy Modal -->
+    <dialog x-ref="deployModal" class="rounded-lg shadow-xl p-0 backdrop:bg-gray-900/50">
+        <div class="bg-white w-full max-w-2xl">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Deploy New Application</h3>
+            </div>
+            <div class="px-6 py-4">
+                <p class="text-sm text-gray-700 mb-4">
+                    To deploy a new application to Hop3, use the command line interface:
+                </p>
+                <div class="bg-gray-900 text-gray-100 p-4 rounded-md font-mono text-sm">
+                    <div class="mb-2"># Navigate to your app directory</div>
+                    <div class="mb-2 text-green-400">cd /path/to/your/app</div>
+                    <div class="mb-2 mt-4"># Deploy the application</div>
+                    <div class="text-green-400">hop3 deploy</div>
+                </div>
+                <p class="text-sm text-gray-600 mt-4">
+                    For more information, see the <a href="/docs" class="text-blue-600 hover:text-blue-800 underline">documentation</a>.
+                </p>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
+                <button type="button"
+                        @click="$refs.deployModal.close()"
+                        class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                    Close
+                </button>
+            </div>
+        </div>
+    </dialog>
 
     {% if apps %}
     <!-- Search and Filter Controls -->
@@ -170,4 +190,21 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+function dashboardData() {
+    return {
+        search: '',
+        statusFilter: 'all',
+        apps: {{ apps | tojson }},
+        get filteredApps() {
+            return this.apps.filter(app => {
+                const matchesSearch = app.name.toLowerCase().includes(this.search.toLowerCase());
+                const matchesStatus = this.statusFilter === 'all' || app.state === this.statusFilter;
+                return matchesSearch && matchesStatus;
+            });
+        }
+    }
+}
+</script>
 {% endblock %}

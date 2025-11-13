@@ -30,28 +30,11 @@ from hop3.server.security.tokens import create_token
 
 
 @pytest.fixture(autouse=True)
-def setup_security_test_env():
+def setup_security_test_env(monkeypatch):
     """Set up test environment with authentication enabled."""
-    # ruff: noqa: PLC0415
-    import importlib
-
-    from hop3 import config
-
-    os.environ["HOP3_SECRET_KEY"] = "test-security-secret-key"
-    os.environ["HOP3_ENABLE_AUTH"] = "true"
-    # Ensure HOP3_UNSAFE is not set (clear any previous test pollution)
-    os.environ.pop("HOP3_UNSAFE", None)
-
-    # Reload config to pick up new environment variables
-    importlib.reload(config)
-
-    yield
-
-    os.environ.pop("HOP3_SECRET_KEY", None)
-    os.environ.pop("HOP3_ENABLE_AUTH", None)
-
-    # Reload config again to pick up cleaned environment
-    importlib.reload(config)
+    # Set required secrets without needing to reload config
+    monkeypatch.setenv("HOP3_SECRET_KEY", "test-security-secret-key")
+    monkeypatch.setenv("HOP3_ENABLE_AUTH", "true")
 
 
 @pytest.fixture
