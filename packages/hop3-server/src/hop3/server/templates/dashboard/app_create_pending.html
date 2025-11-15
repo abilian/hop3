@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}App Creation Pending{% endblock %}
+
+{% block breadcrumb %}
+<nav class="text-sm text-gray-500 mb-4">
+    <a href="/dashboard" class="hover:text-blue-600">Dashboard</a>
+    <span class="mx-2">/</span>
+    <span class="text-gray-900">Create App</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white shadow rounded-lg p-6">
+        <div class="flex items-center mb-6">
+            <div class="flex-shrink-0">
+                <svg class="h-12 w-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <div class="ml-4">
+                <h1 class="text-2xl font-bold text-gray-900">App Creation Coming Soon</h1>
+                <p class="text-gray-600 mt-1">Web UI app creation is under development</p>
+            </div>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <p class="text-blue-900 mb-2">{{ message }}</p>
+            <pre class="bg-blue-900 text-blue-100 p-3 rounded text-sm overflow-x-auto"><code>{{ command }}</code></pre>
+        </div>
+
+        <div class="mt-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-3">Using the CLI</h2>
+            <p class="text-gray-700 mb-4">
+                The Hop3 CLI provides full deployment functionality. Here's how to deploy your application:
+            </p>
+
+            <ol class="list-decimal list-inside space-y-2 text-gray-700 mb-6">
+                <li>Install the Hop3 CLI: <code class="bg-gray-100 px-2 py-1 rounded text-sm">pip install hop3-cli</code></li>
+                <li>Configure your server: <code class="bg-gray-100 px-2 py-1 rounded text-sm">hop3 config:set-server &lt;server-url&gt;</code></li>
+                <li>Deploy your app: <code class="bg-gray-100 px-2 py-1 rounded text-sm">hop3 deploy &lt;app-name&gt; /path/to/app</code></li>
+            </ol>
+
+            <div class="flex items-center justify-between pt-4 border-t">
+                <a
+                    href="/dashboard/apps/new"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                    Back to Form
+                </a>
+                <a
+                    href="/dashboard"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                    Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
