@@ -30,6 +30,192 @@ if TYPE_CHECKING:
     from starlette.requests import Request
 
 
+@router.get("/dashboard/apps/new")
+@require_auth
+def app_create_form(request: Request):
+    """Display the create app form.
+
+    Args:
+        request: The HTTP request
+
+    Returns:
+        Template response with create app form
+    """
+    ctx = {
+        "builders": [
+            {
+                "id": "auto",
+                "name": "Auto-detect",
+                "description": "Automatically detect builder from project files",
+            },
+            {
+                "id": "python",
+                "name": "Python",
+                "description": "Python applications (Django, Flask, FastAPI, etc.)",
+            },
+            {
+                "id": "nodejs",
+                "name": "Node.js",
+                "description": "Node.js applications (Express, Next.js, etc.)",
+            },
+            {
+                "id": "static",
+                "name": "Static",
+                "description": "Static HTML/CSS/JS sites",
+            },
+            {
+                "id": "ruby",
+                "name": "Ruby",
+                "description": "Ruby applications (Rails, Sinatra, etc.)",
+            },
+            {"id": "go", "name": "Go", "description": "Go applications"},
+        ],
+    }
+    return templates(request, "dashboard/app_create.html", ctx)
+
+
+@router.post("/dashboard/apps/new")
+@require_auth
+async def app_create_submit(request: Request):
+    """Handle app creation form submission.
+
+    Args:
+        request: The HTTP request with form data
+
+    Returns:
+        Redirect to app detail page or form with errors
+    """
+    from hop3.orm import App, EnvVar
+
+    # Parse form data
+    form = await request.form()
+    app_name = form.get("app_name", "").strip()
+    builder = form.get("builder", "auto").strip()
+    git_url = form.get("git_url", "").strip()
+    env_vars_text = form.get("env_vars", "").strip()
+
+    # Validation errors
+    errors = []
+
+    # Validate app name
+    if not app_name:
+        errors.append("App name is required")
+    elif not app_name.replace("-", "").replace("_", "").isalnum():
+        errors.append(
+            "App name can only contain letters, numbers, hyphens, and underscores"
+        )
+    elif len(app_name) < 3:
+        errors.append("App name must be at least 3 characters")
+    elif len(app_name) > 63:
+        errors.append("App name must be less than 64 characters")
+
+    # Check if app already exists
+    if not errors:
+        with get_session() as db_session:
+            existing_app = get_app_or_none(db_session, app_name)
+            if existing_app:
+                errors.append(f"App '{app_name}' already exists")
+
+    # Parse environment variables
+    env_vars = {}
+    if env_vars_text:
+        for line in env_vars_text.split("\n"):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, value = line.split("=", 1)
+                env_vars[key.strip()] = value.strip()
+
+    # If validation failed, return to form with errors
+    if errors:
+        ctx = {
+            "errors": errors,
+            "app_name": app_name,
+            "builder": builder,
+            "git_url": git_url,
+            "env_vars": env_vars_text,
+            "builders": [
+                {
+                    "id": "auto",
+                    "name": "Auto-detect",
+                    "description": "Automatically detect builder from project files",
+                },
+                {
+                    "id": "python",
+                    "name": "Python",
+                    "description": "Python applications",
+                },
+                {
+                    "id": "nodejs",
+                    "name": "Node.js",
+                    "description": "Node.js applications",
+                },
+                {"id": "static", "name": "Static", "description": "Static sites"},
+                {"id": "ruby", "name": "Ruby", "description": "Ruby applications"},
+                {"id": "go", "name": "Go", "description": "Go applications"},
+            ],
+        }
+        return templates(request, "dashboard/app_create.html", ctx)
+
+    # Create the app
+    try:
+        with get_session() as db_session:
+            # Create app instance
+            app = App(name=app_name)
+            app.create()  # Creates directory structure
+
+            # Add environment variables
+            for key, value in env_vars.items():
+                env_var = EnvVar(name=key, value=value)
+                app.env_vars.append(env_var)
+
+            # Store builder preference if not auto-detect
+            if builder != "auto":
+                builder_var = EnvVar(name="BUILDER", value=builder)
+                app.env_vars.append(builder_var)
+
+            db_session.add(app)
+            db_session.commit()
+
+            # Redirect to app detail page
+            return RedirectResponse(
+                url=f"/dashboard/apps/{app_name}?created=true", status_code=303
+            )
+
+    except Exception as e:
+        # If app creation fails, show error
+        errors.append(f"Failed to create app: {e!s}")
+        ctx = {
+            "errors": errors,
+            "app_name": app_name,
+            "builder": builder,
+            "git_url": git_url,
+            "env_vars": env_vars_text,
+            "builders": [
+                {
+                    "id": "auto",
+                    "name": "Auto-detect",
+                    "description": "Automatically detect builder from project files",
+                },
+                {
+                    "id": "python",
+                    "name": "Python",
+                    "description": "Python applications",
+                },
+                {
+                    "id": "nodejs",
+                    "name": "Node.js",
+                    "description": "Node.js applications",
+                },
+                {"id": "static", "name": "Static", "description": "Static sites"},
+                {"id": "ruby", "name": "Ruby", "description": "Ruby applications"},
+                {"id": "go", "name": "Go", "description": "Go applications"},
+            ],
+        }
+        return templates(request, "dashboard/app_create.html", ctx)
+
+
 @router.get("/dashboard/apps/{app_name}")
 @require_auth
 def app_detail(request: Request):
