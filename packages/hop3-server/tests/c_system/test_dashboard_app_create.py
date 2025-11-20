@@ -46,44 +46,39 @@ def db_session(tmp_path: Path):
 
 @pytest.fixture
 def test_client(tmp_path: Path, monkeypatch):
-    """Create an authenticated test client with temporary database."""
-    # Patch HOP3_ROOT BEFORE any imports happen
+    """Create an authenticated test client with temporary database.
+
+    This is a system test fixture that uses REAL implementations:
+    - Real App.create() method (creates actual directories)
+    - Real database operations (SQLite in tmp_path)
+    - Real template rendering
+    - Real route handlers
+
+    Only authentication is mocked for test convenience.
+    """
+    # Patch HOP3_ROOT and derived paths in all locations
     import hop3.config
+    import hop3.orm.app
 
     monkeypatch.setattr(hop3.config, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(hop3.config, "APP_ROOT", tmp_path / "apps")
+    monkeypatch.setattr(hop3.orm.app.c, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(hop3.orm.app.c, "APP_ROOT", tmp_path / "apps")
 
     # Create required directory structure
     (tmp_path / "apps").mkdir(exist_ok=True)
     (tmp_path / "data").mkdir(exist_ok=True)
     (tmp_path / "logs").mkdir(exist_ok=True)
 
-    # Mock App.create() to use tmp_path instead of trying to patch HOP3_ROOT
-    def mock_app_create(self):
-        """Mock App.create() that uses tmp_path."""
-        app_path = tmp_path / "apps" / self.name
-        app_path.mkdir(exist_ok=True)
-
-        # Create subdirectories
-        repo_path = app_path / "git"
-        src_path = app_path / "src"
-        data_path = app_path / "data"
-        log_path = app_path / "logs"
-
-        for path in [repo_path, src_path, data_path, log_path]:
-            path.mkdir(exist_ok=True)
-
-    monkeypatch.setattr(App, "create", mock_app_create)
-
-    # Mock authentication to bypass login
+    # Mock authentication only (all other code is real)
     async def mock_authenticate(self, conn):  # noqa: RUF029
         """Mock authentication that always returns an authenticated user."""
         return AuthCredentials(["authenticated", "admin"]), SimpleUser("test-user")
 
     monkeypatch.setattr(SessionAuthBackend, "authenticate", mock_authenticate)
 
-    # Create Starlette app with mocked auth
-    # The app will use get_session_factory() which reads HOP3_ROOT
-    # Since we patched it above, it will use tmp_path / "hop3.db"
+    # Create Starlette app
+    # Uses real App.create() and all real business logic
     app = create_app()
     client = TestClient(app)
 
@@ -214,6 +209,18 @@ def test_app_create_success(test_client, tmp_path: Path):
     assert env_vars["BUILDER"] == "python"
 
     session.close()
+
+    # SYSTEM TEST: Verify file system state (real App.create() was called)
+    app_path = tmp_path / "apps" / "test-app"
+    assert app_path.exists(), "App directory should exist"
+    assert app_path.is_dir(), "App path should be a directory"
+
+    # Verify all subdirectories were created by App.create()
+    # Note: These match the actual paths created by App.create() in app.py:68-69
+    assert (app_path / "git").exists(), "git directory should exist (repo_path)"
+    assert (app_path / "src").exists(), "src directory should exist (src_path)"
+    assert (app_path / "data").exists(), "data directory should exist (data_path)"
+    assert (app_path / "log").exists(), "log directory should exist (log_path)"
 
 
 def test_app_create_auto_detect_builder(test_client, tmp_path: Path):
