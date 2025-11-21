@@ -13,7 +13,7 @@ from advanced_alchemy.base import BigIntAuditBase
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from hop3 import config as c
+from hop3.config import HopConfig
 from hop3.core.env import Env
 from hop3.deployers import do_deploy
 from hop3.lib import Abort, log
@@ -56,7 +56,7 @@ class App(BigIntAuditBase):
     )
 
     def check_exists(self) -> None:
-        if not (c.APP_ROOT / self.name).exists():
+        if not (HopConfig.get_instance().APP_ROOT / self.name).exists():
             msg = f"Error: app '{self.name}' not found."
             raise Abort(msg)
 
@@ -82,7 +82,7 @@ class App(BigIntAuditBase):
     @property
     def app_path(self) -> Path:
         """Path to the root directory of the app."""
-        return c.APP_ROOT / self.name
+        return HopConfig.get_instance().APP_ROOT / self.name
 
     @property
     def repo_path(self) -> Path:
@@ -172,16 +172,17 @@ class App(BigIntAuditBase):
         remove_file(self.virtualenv_path)
         remove_file(self.log_path)
 
-        for p in [c.UWSGI_AVAILABLE, c.UWSGI_ENABLED]:
+        cfg = HopConfig.get_instance()
+        for p in [cfg.UWSGI_AVAILABLE, cfg.UWSGI_ENABLED]:
             for f in Path(p).glob(f"{app_name}*.ini"):
                 remove_file(f)
 
-        remove_file(c.NGINX_ROOT / f"{app_name}.conf")
-        remove_file(c.NGINX_ROOT / f"{app_name}.sock")
-        remove_file(c.NGINX_ROOT / f"{app_name}.key")
-        remove_file(c.NGINX_ROOT / f"{app_name}.crt")
+        remove_file(cfg.NGINX_ROOT / f"{app_name}.conf")
+        remove_file(cfg.NGINX_ROOT / f"{app_name}.sock")
+        remove_file(cfg.NGINX_ROOT / f"{app_name}.key")
+        remove_file(cfg.NGINX_ROOT / f"{app_name}.crt")
 
-        acme_link = Path(c.ACME_WWW, app_name)
+        acme_link = Path(cfg.ACME_WWW, app_name)
         acme_certs = acme_link.resolve()
         remove_file(acme_link)
         remove_file(acme_certs)
@@ -203,7 +204,9 @@ class App(BigIntAuditBase):
         self.run_state = AppStateEnum.STOPPED
 
         app_name = self.name
-        config_files = list(c.UWSGI_ENABLED.glob(f"{app_name}*.ini"))
+        config_files = list(
+            HopConfig.get_instance().UWSGI_ENABLED.glob(f"{app_name}*.ini")
+        )
 
         if len(config_files) > 0:
             log(f"Stopping app '{app_name}'...", fg="blue")

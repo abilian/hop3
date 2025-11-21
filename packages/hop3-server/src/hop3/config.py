@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from hop3.lib.config import Config as ConfigLoader
 
@@ -238,7 +238,7 @@ class HopConfig:
 
     # Utility Methods
 
-    def get_parameters(self) -> dict[str, any]:
+    def get_parameters(self) -> dict[str, Any]:
         """Get all configuration parameters as a dict.
 
         Useful for debugging and introspection.
@@ -269,6 +269,87 @@ class HopConfig:
 
 # Global singleton instance
 config = HopConfig.get_instance()
+
+
+# Explicit module-level exports for type checking
+# Type checkers will see these as real module attributes with proper types
+# They are evaluated once at import time, but __getattr__ provides dynamic access
+# For testing, use HopConfig.set_instance() to update the singleton
+
+# Base Configuration
+HOP3_ROOT: Path = config.HOP3_ROOT
+HOP3_USER: str = config.HOP3_USER
+HOP3_BIN: Path = config.HOP3_BIN
+HOP3_SCRIPT: str = config.HOP3_SCRIPT
+HOP3_DEBUG: bool = config.HOP3_DEBUG
+HOP3_SECRET_KEY: str = config.HOP3_SECRET_KEY
+HOP3_TOKEN_EXPIRY_HOURS: int = config.HOP3_TOKEN_EXPIRY_HOURS
+HOP3_UNSAFE: bool = config.HOP3_UNSAFE
+HOP3_PROXY_TYPE: str = config.HOP3_PROXY_TYPE
+MODE: str = config.MODE
+
+# Paths
+APP_ROOT: Path = config.APP_ROOT
+BACKUP_ROOT: Path = config.BACKUP_ROOT
+NGINX_ROOT: Path = config.NGINX_ROOT
+CADDY_ROOT: Path = config.CADDY_ROOT
+TRAEFIK_ROOT: Path = config.TRAEFIK_ROOT
+CACHE_ROOT: Path = config.CACHE_ROOT
+UWSGI_ROOT: Path = config.UWSGI_ROOT
+UWSGI_AVAILABLE: Path = config.UWSGI_AVAILABLE
+UWSGI_ENABLED: Path = config.UWSGI_ENABLED
+UWSGI_LOG_MAXSIZE: str = config.UWSGI_LOG_MAXSIZE
+
+# ACME Configuration
+ACME_ENGINE: str = config.ACME_ENGINE
+ACME_ROOT_CA: str = config.ACME_ROOT_CA
+ACME_EMAIL: str = config.ACME_EMAIL
+ACME_WWW: Path = config.ACME_WWW
+
+# Constants
+CRON_REGEXP: str = config.CRON_REGEXP
+ROOT_DIRS: list[Path] = config.ROOT_DIRS
+TESTING: bool = config.TESTING
+
+# Explicit exports for type checking and import discovery
+__all__ = [  # noqa: RUF022
+    # Class and instance
+    "HopConfig",
+    "config",
+    # Base configuration
+    "HOP3_ROOT",
+    "HOP3_USER",
+    "HOP3_BIN",
+    "HOP3_SCRIPT",
+    "HOP3_DEBUG",
+    "HOP3_SECRET_KEY",
+    "HOP3_TOKEN_EXPIRY_HOURS",
+    "HOP3_UNSAFE",
+    "HOP3_PROXY_TYPE",
+    "MODE",
+    # Paths
+    "APP_ROOT",
+    "BACKUP_ROOT",
+    "NGINX_ROOT",
+    "CADDY_ROOT",
+    "TRAEFIK_ROOT",
+    "CACHE_ROOT",
+    "UWSGI_ROOT",
+    "UWSGI_AVAILABLE",
+    "UWSGI_ENABLED",
+    "UWSGI_LOG_MAXSIZE",
+    # ACME
+    "ACME_ENGINE",
+    "ACME_ROOT_CA",
+    "ACME_EMAIL",
+    "ACME_WWW",
+    # Constants
+    "CRON_REGEXP",
+    "ROOT_DIRS",
+    "TESTING",
+    # Utility functions
+    "get_parameters",
+]
 
 
 # Backward compatibility: module-level constants

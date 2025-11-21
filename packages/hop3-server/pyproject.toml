@@ -78,13 +78,18 @@ exclude = [
 
 # -----------------------------------------------------------------------------
 
+# X imported but missing from the dependency definitions
 [tool.deptry.per_rule_ignores]
-DEP001 = ["tomli"]
+DEP001 = [
+    "tomli",
+]
 
 # X defined as a dependency but not used in the codebase
 DEP002 = [
     "cyclonedx-bom",
     "jinja2",
+    "itsdangerous",
+    "python-multipart",
 ]
 
 #DEP003 = [

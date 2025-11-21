@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hop3 import config as c
+from hop3.config import HopConfig
 from hop3.core.plugins import get_service_strategy
 from hop3.lib import log
 from hop3.orm import App, Backup, BackupStateEnum, EnvVar
@@ -762,7 +762,7 @@ class BackupManager:
         Returns:
             Path to backup directory
         """
-        return c.BACKUP_ROOT / "apps" / app_name / backup_id
+        return HopConfig.get_instance().BACKUP_ROOT / "apps" / app_name / backup_id
 
     def _format_size(self, size_bytes: int) -> str:
         """Format byte size as human-readable string.
