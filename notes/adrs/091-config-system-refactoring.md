@@ -1,6 +1,6 @@
 # ADR 091: Configuration System Refactoring for Testability
 
-Status: **Proposed**
+Status: **Adopted**
 
 ## Introduction
 
@@ -12,7 +12,7 @@ Replace the current module-level constant configuration (`hop3/config.py`) with 
 
 ## Status
 
-**Proposed** - Awaiting review and discussion.
+**Implemented**
 
 ## Context and Goals
 

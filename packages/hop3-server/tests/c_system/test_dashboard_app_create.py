@@ -16,7 +16,10 @@ from sqlalchemy.orm import sessionmaker
 from starlette.authentication import AuthCredentials, SimpleUser
 from starlette.testclient import TestClient
 
-from hop3.orm import App
+from hop3.config import HopConfig
+from hop3.orm import App, reset_session_factory_cache
+from hop3.server.asgi import create_app
+from hop3.server.lib.database import get_session
 from hop3.server.middleware.auth import SessionAuthBackend
 
 
@@ -43,7 +46,7 @@ def db_session(tmp_path: Path):
     session.close()
 
 
-@pytest.fixture(scope="function", autouse=False)
+@pytest.fixture(autouse=False)
 def test_client(tmp_path: Path, monkeypatch):
     """Create an authenticated test client with in-memory database.
 
@@ -62,10 +65,6 @@ def test_client(tmp_path: Path, monkeypatch):
     monkeypatch.setenv(
         "HOP3_DATABASE_URI", "sqlite:///file::memory:?cache=shared&uri=true"
     )
-
-    from hop3.config import HopConfig
-    from hop3.orm import reset_session_factory_cache
-    from hop3.server.asgi import create_app
 
     # Reset any existing config singleton first
     HopConfig.reset_instance()
@@ -193,24 +192,10 @@ def test_app_create_success(test_client, tmp_path: Path):
     )
 
     # Should redirect to app detail page
-    if response.status_code != 303:
-        print(f"\n=== ERROR: Expected 303, got {response.status_code} ===")
-        content = response.content.decode()
-        # Look for error messages
-        if "Validation Errors" in content or "Failed to create" in content:
-            import re
-
-            errors = re.findall(r"<li>(.*?)</li>", content)
-            print(f"Errors found: {errors}")
-        print(content[:2000])
-        print("===\n")
-
     assert response.status_code == 303
     assert response.headers["location"] == "/dashboard/apps/test-app?created=true"
 
     # Verify app was created in database (use the same database as the app)
-    from hop3.server.lib.database import get_session
-
     with get_session() as session:
         app = session.query(App).filter_by(name="test-app").first()
         assert app is not None
@@ -251,8 +236,6 @@ def test_app_create_auto_detect_builder(test_client, tmp_path: Path):
     assert response.status_code == 303
 
     # Verify app was created without BUILDER env var
-    from hop3.server.lib.database import get_session
-
     with get_session() as session:
         app = session.query(App).filter_by(name="auto-app").first()
         assert app is not None
@@ -312,8 +295,6 @@ API_HOST=example.com
     assert response.status_code == 303
 
     # Verify environment variables
-    from hop3.server.lib.database import get_session
-
     with get_session() as session:
         app = session.query(App).filter_by(name="env-test").first()
         env_vars = {var.name: var.value for var in app.env_vars}

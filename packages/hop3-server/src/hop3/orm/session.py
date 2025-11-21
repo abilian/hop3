@@ -1,6 +1,7 @@
 # Copyright (c) 2024-2025, Abilian SAS
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from advanced_alchemy.base import BigIntAuditBase
@@ -44,8 +45,6 @@ def get_session_factory(database_uri: str = "") -> sessionmaker:
         For testing, use reset_session_factory_cache() to clear the cache.
         You can also set HOP3_DATABASE_URI=sqlite:///:memory: for in-memory tests.
     """
-    import os
-
     if not database_uri:
         # Check for environment variable override (useful for testing)
         database_uri = os.environ.get("HOP3_DATABASE_URI", "")
