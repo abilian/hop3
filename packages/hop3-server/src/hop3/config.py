@@ -278,31 +278,17 @@ def get_parameters():
     return {k: v for k, v in globals().items() if re.match(r"[A-Z0-9_]+$", k)}
 
 
-# Expose config properties as module-level attributes for backward compatibility
-TESTING = config.TESTING
-MODE = config.MODE
-HOP3_ROOT = config.HOP3_ROOT
-HOP3_USER = config.HOP3_USER
-HOP3_DEBUG = config.HOP3_DEBUG
-HOP3_SECRET_KEY = config.HOP3_SECRET_KEY
-HOP3_TOKEN_EXPIRY_HOURS = config.HOP3_TOKEN_EXPIRY_HOURS
-HOP3_UNSAFE = config.HOP3_UNSAFE
-HOP3_PROXY_TYPE = config.HOP3_PROXY_TYPE
-ACME_ENGINE = config.ACME_ENGINE
-ACME_ROOT_CA = config.ACME_ROOT_CA
-ACME_EMAIL = config.ACME_EMAIL
-HOP3_BIN = config.HOP3_BIN
-HOP3_SCRIPT = config.HOP3_SCRIPT
-APP_ROOT = config.APP_ROOT
-BACKUP_ROOT = config.BACKUP_ROOT
-NGINX_ROOT = config.NGINX_ROOT
-CACHE_ROOT = config.CACHE_ROOT
-CADDY_ROOT = config.CADDY_ROOT
-TRAEFIK_ROOT = config.TRAEFIK_ROOT
-UWSGI_ROOT = config.UWSGI_ROOT
-UWSGI_AVAILABLE = config.UWSGI_AVAILABLE
-UWSGI_ENABLED = config.UWSGI_ENABLED
-UWSGI_LOG_MAXSIZE = config.UWSGI_LOG_MAXSIZE
-ACME_WWW = config.ACME_WWW
-ROOT_DIRS = config.ROOT_DIRS
-CRON_REGEXP = config.CRON_REGEXP
+# Module-level __getattr__ to make "constants" dynamically read from config singleton
+# This ensures that when tests update the config singleton, the module-level
+# constants also reflect the new values
+def __getattr__(name: str):
+    """Dynamic attribute lookup for backward compatibility.
+
+    This allows code to use `from hop3.config import APP_ROOT` and have it
+    automatically use the current config singleton value, even if the singleton
+    changes during testing.
+    """
+    cfg = HopConfig.get_instance()
+    if hasattr(cfg, name):
+        return getattr(cfg, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -17,7 +17,6 @@ from starlette.authentication import AuthCredentials, SimpleUser
 from starlette.testclient import TestClient
 
 from hop3.orm import App
-from hop3.server.asgi import create_app
 from hop3.server.middleware.auth import SessionAuthBackend
 
 
@@ -46,22 +45,35 @@ def db_session(tmp_path: Path):
 
 @pytest.fixture(scope="function", autouse=False)
 def test_client(tmp_path: Path, monkeypatch):
-    """Create an authenticated test client with temporary database.
+    """Create an authenticated test client with in-memory database.
 
     This is a system test fixture that uses REAL implementations:
-    - Real App.create() method (creates actual directories)
-    - Real database operations (SQLite in tmp_path)
+    - Real App.create() method (creates actual directories in tmp_path)
+    - Real database operations (in-memory SQLite for speed)
     - Real template rendering
     - Real route handlers
 
     Only authentication is mocked for test convenience.
     """
+    # CRITICAL: Set environment variable BEFORE any imports
+    # This ensures get_session_factory() uses in-memory database
+    # Use shared in-memory database (file::memory:?cache=shared) so all
+    # connections share the same database
+    monkeypatch.setenv(
+        "HOP3_DATABASE_URI", "sqlite:///file::memory:?cache=shared&uri=true"
+    )
+
     from hop3.config import HopConfig
+    from hop3.orm import reset_session_factory_cache
+    from hop3.server.asgi import create_app
 
     # Reset any existing config singleton first
     HopConfig.reset_instance()
 
-    # Create test config with custom HOP3_ROOT (no monkeypatching!)
+    # Reset session factory cache to ensure fresh database
+    reset_session_factory_cache()
+
+    # Create test config with custom HOP3_ROOT
     test_config = HopConfig(hop3_root=tmp_path)
     HopConfig.set_instance(test_config)
 
@@ -70,22 +82,23 @@ def test_client(tmp_path: Path, monkeypatch):
     (tmp_path / "data").mkdir(exist_ok=True)
     (tmp_path / "logs").mkdir(exist_ok=True)
 
-    # Mock authentication only (all other code is real)
+    # Mock authentication (must be done before create_app())
     async def mock_authenticate(self, conn):  # noqa: RUF029
         """Mock authentication that always returns an authenticated user."""
         return AuthCredentials(["authenticated", "admin"]), SimpleUser("test-user")
 
     monkeypatch.setattr(SessionAuthBackend, "authenticate", mock_authenticate)
 
-    # Create Starlette app
+    # Create Starlette app - will use in-memory database via environment variable
     # Uses real App.create() and all real business logic
     app = create_app()
     client = TestClient(app)
 
     yield client
 
-    # Cleanup: reset config singleton for next test
+    # Cleanup: reset config singleton and session factory cache for next test
     HopConfig.reset_instance()
+    reset_session_factory_cache()
 
 
 def test_app_create_form_loads(test_client):
