@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
@@ -143,8 +144,6 @@ class Client:
     def __del__(self):
         """Fallback cleanup (but don't rely on this)."""
         if self.tunnel and getattr(self.tunnel, "is_alive", lambda: False)():
-            import warnings
-
             warnings.warn(
                 "SSH tunnel was not properly closed. "
                 "Use Client as context manager: `with Client(...) as client:`",

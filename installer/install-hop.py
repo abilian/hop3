@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import glob
+import secrets
 from io import StringIO
+from pathlib import Path
 
 from pyinfra import host
 from pyinfra.facts.files import File
@@ -353,9 +355,6 @@ def setup_postgres() -> None:
     system hop3 user to connect without a password by switching to the postgres
     system user. However, we still set a secure password for defense-in-depth.
     """
-    import secrets
-    from pathlib import Path
-
     # Generate a secure random password
     db_password = secrets.token_urlsafe(32)
 
