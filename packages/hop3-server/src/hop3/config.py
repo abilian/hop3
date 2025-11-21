@@ -4,89 +4,305 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
+from typing import ClassVar
 
-from hop3.lib.config import Config
-
-# Load server configuration from hop3-server.toml if it exists
-TESTING = "PYTEST_VERSION" in os.environ
-
-if not TESTING:
-    # Try to load from the standard location
-    hop3_root = Path(os.environ.get("HOP3_ROOT", "/home/hop3"))
-    config_file = hop3_root / "hop3-server.toml"
-    if config_file.exists():
-        config = Config(file=config_file)
-    else:
-        config = Config()
-else:
-    config = Config()
-
-if TESTING:
-    os.environ["HOP3_ROOT"] = "/tmp/hop3"
-    os.environ["ACME_ENGINE"] = "self-signed"
-    os.environ["ACME_EMAIL"] = "test@example.com"
+from hop3.lib.config import Config as ConfigLoader
 
 
+class HopConfig:
+    """Hop3 configuration with lazy evaluation and testability.
+
+    This class provides:
+    - Lazy property evaluation (derived values auto-update)
+    - Dependency injection support for testing
+    - Type-safe configuration access
+    - Backward compatibility with module-level access
+
+    Usage:
+        # In production code
+        from hop3.config import config
+        app_path = config.APP_ROOT / "myapp"
+
+        # In tests
+        test_config = HopConfig(hop3_root=tmp_path)
+        app = App(name="test", config=test_config)
+    """
+
+    # Class variable for global singleton instance
+    _instance: ClassVar[HopConfig | None] = None
+
+    def __init__(
+        self,
+        config_loader: ConfigLoader | None = None,
+        hop3_root: Path | str | None = None,
+    ):
+        """Initialize configuration.
+
+        Args:
+            config_loader: Optional ConfigLoader instance (for file-based config)
+            hop3_root: Optional override for HOP3_ROOT (useful for testing)
+        """
+        self._config_loader = config_loader or self._create_default_loader()
+        self._hop3_root_override = Path(hop3_root) if hop3_root else None
+
+    @staticmethod
+    def _create_default_loader() -> ConfigLoader:
+        """Create default config loader."""
+        testing = "PYTEST_VERSION" in os.environ
+
+        if not testing:
+            hop3_root = Path(os.environ.get("HOP3_ROOT", "/home/hop3"))
+            config_file = hop3_root / "hop3-server.toml"
+            if config_file.exists():
+                return ConfigLoader(file=config_file)
+
+        # Testing mode or no config file
+        loader = ConfigLoader()
+
+        # Set test defaults
+        if testing:
+            os.environ.setdefault("HOP3_ROOT", "/tmp/hop3")
+            os.environ.setdefault("ACME_ENGINE", "self-signed")
+            os.environ.setdefault("ACME_EMAIL", "test@example.com")
+
+        return loader
+
+    # Base Configuration Properties
+
+    @property
+    def HOP3_ROOT(self) -> Path:
+        """Root directory for all Hop3 data."""
+        if self._hop3_root_override:
+            return self._hop3_root_override
+        return self._config_loader.get_path("HOP3_ROOT", "/home/hop3")
+
+    @property
+    def HOP3_USER(self) -> str:
+        """System user running Hop3."""
+        return self._config_loader.get_str("HOP3_USER", "hop3")
+
+    @property
+    def MODE(self) -> str:
+        """Operating mode: production, development, testing."""
+        return self._config_loader.get_str("MODE", "production")
+
+    @property
+    def HOP3_DEBUG(self) -> bool:
+        """Enable debug mode."""
+        return self._config_loader.get_bool("HOP3_DEBUG", False)
+
+    # Security Configuration
+
+    @property
+    def HOP3_SECRET_KEY(self) -> str:
+        """Secret key for session encryption."""
+        return self._config_loader.get_str("HOP3_SECRET_KEY", "")
+
+    @property
+    def HOP3_TOKEN_EXPIRY_HOURS(self) -> int:
+        """JWT token expiry in hours."""
+        return self._config_loader.get_int("HOP3_TOKEN_EXPIRY_HOURS", 24)
+
+    @property
+    def HOP3_UNSAFE(self) -> bool:
+        """UNSAFE MODE: Disables authentication. USE ONLY FOR TESTING."""
+        return self._config_loader.get_bool("HOP3_UNSAFE", False)
+
+    # Proxy Configuration
+
+    @property
+    def HOP3_PROXY_TYPE(self) -> str:
+        """Reverse proxy type: nginx, caddy, traefik."""
+        return self._config_loader.get_str("HOP3_PROXY_TYPE", "nginx")
+
+    # ACME Configuration
+
+    @property
+    def ACME_ENGINE(self) -> str:
+        """ACME client engine: certbot, self-signed."""
+        testing = "PYTEST_VERSION" in os.environ
+        default = "self-signed" if testing else "certbot"
+        return self._config_loader.get_str("ACME_ENGINE", default)
+
+    @property
+    def ACME_ROOT_CA(self) -> str:
+        """ACME root certificate authority."""
+        return self._config_loader.get_str("ACME_ROOT_CA", "letsencrypt.org")
+
+    @property
+    def ACME_EMAIL(self) -> str:
+        """Email for ACME registration."""
+        testing = "PYTEST_VERSION" in os.environ
+        default = "test@example.com" if testing else "fixme@example.com"
+        return self._config_loader.get_str("ACME_EMAIL", default)
+
+    # Derived Paths (Lazy Evaluation)
+
+    @property
+    def HOP3_BIN(self) -> Path:
+        """Binary directory."""
+        return self.HOP3_ROOT / "bin"
+
+    @property
+    def HOP3_SCRIPT(self) -> str:
+        """Path to hop-agent script."""
+        return str(self.HOP3_ROOT / "venv" / "bin" / "hop-agent")
+
+    @property
+    def APP_ROOT(self) -> Path:
+        """Root directory for all applications."""
+        return self.HOP3_ROOT / "apps"
+
+    @property
+    def BACKUP_ROOT(self) -> Path:
+        """Root directory for backups."""
+        return self.HOP3_ROOT / "backups"
+
+    @property
+    def NGINX_ROOT(self) -> Path:
+        """Nginx configuration directory."""
+        return self.HOP3_ROOT / "nginx"
+
+    @property
+    def CACHE_ROOT(self) -> Path:
+        """Cache directory."""
+        return self.HOP3_ROOT / "cache"
+
+    @property
+    def CADDY_ROOT(self) -> Path:
+        """Caddy configuration directory."""
+        return self.HOP3_ROOT / "caddy"
+
+    @property
+    def TRAEFIK_ROOT(self) -> Path:
+        """Traefik configuration directory."""
+        return self.HOP3_ROOT / "traefik"
+
+    @property
+    def UWSGI_ROOT(self) -> Path:
+        """uWSGI configuration root."""
+        return self.HOP3_ROOT / "uwsgi"
+
+    @property
+    def UWSGI_AVAILABLE(self) -> Path:
+        """uWSGI available configurations."""
+        return self.HOP3_ROOT / "uwsgi-available"
+
+    @property
+    def UWSGI_ENABLED(self) -> Path:
+        """uWSGI enabled configurations."""
+        return self.HOP3_ROOT / "uwsgi-enabled"
+
+    @property
+    def UWSGI_LOG_MAXSIZE(self) -> str:
+        """uWSGI log max size."""
+        return "1048576"
+
+    @property
+    def ACME_WWW(self) -> Path:
+        """ACME challenge directory."""
+        return self.HOP3_ROOT / "acme"
+
+    @property
+    def ROOT_DIRS(self) -> list[Path]:
+        """All root directories that should be created on setup."""
+        return [
+            self.APP_ROOT,
+            self.BACKUP_ROOT,
+            self.CACHE_ROOT,
+            self.UWSGI_ROOT,
+            self.UWSGI_AVAILABLE,
+            self.UWSGI_ENABLED,
+            self.NGINX_ROOT,
+        ]
+
+    # Constants
+
+    @property
+    def CRON_REGEXP(self) -> str:
+        """Regular expression for cron job parsing."""
+        return (
+            r"^((?:(?:\*\/)?\d+)|\*) "
+            r"((?:(?:\*\/)?\d+)|\*) "
+            r"((?:(?:\*\/)?\d+)|\*) "
+            r"((?:(?:\*\/)?\d+)|\*) "
+            r"((?:(?:\*\/)?\d+)|\*) "
+            r"(.*)$"
+        )
+
+    @property
+    def TESTING(self) -> bool:
+        """Check if running in test mode."""
+        return "PYTEST_VERSION" in os.environ
+
+    # Utility Methods
+
+    def get_parameters(self) -> dict[str, any]:
+        """Get all configuration parameters as a dict.
+
+        Useful for debugging and introspection.
+        """
+        return {
+            name: getattr(self, name)
+            for name in dir(self)
+            if name.isupper() and not name.startswith("_")
+        }
+
+    @classmethod
+    def get_instance(cls) -> HopConfig:
+        """Get or create the global singleton instance."""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def set_instance(cls, instance: HopConfig) -> None:
+        """Set the global singleton instance (useful for testing)."""
+        cls._instance = instance
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        """Reset the global singleton (useful for testing)."""
+        cls._instance = None
+
+
+# Global singleton instance
+config = HopConfig.get_instance()
+
+
+# Backward compatibility: module-level constants
+# These delegate to the config object for lazy evaluation
+# New code should use: from hop3.config import config
 def get_parameters():
+    """Get all configuration parameters (backward compatibility)."""
     return {k: v for k, v in globals().items() if re.match(r"[A-Z0-9_]+$", k)}
 
 
-# Configured
-MODE = config.get_str("MODE", "production")
-
-HOP3_ROOT = config.get_path("HOP3_ROOT", "/home/hop3")
-HOP3_USER = config.get_str("HOP3_USER", "hop3")
-
-ACME_ENGINE = config.get_str("ACME_ENGINE", "certbot")
-ACME_ROOT_CA = config.get_str("ACME_ROOT_CA", "letsencrypt.org")
-# FIXME
-ACME_EMAIL = config.get_str("ACME_EMAIL", "fixme@example.com")
-
-HOP3_DEBUG = config.get_bool("HOP3_DEBUG", False)
-
-# Security
-HOP3_SECRET_KEY = config.get_str("HOP3_SECRET_KEY", "")
-HOP3_TOKEN_EXPIRY_HOURS = config.get_int("HOP3_TOKEN_EXPIRY_HOURS", 24)
-# UNSAFE MODE: Disables all authentication - USE ONLY FOR TESTING
-HOP3_UNSAFE = config.get_bool("HOP3_UNSAFE", False)
-
-# Proxy configuration (server-wide)
-HOP3_PROXY_TYPE = config.get_str("HOP3_PROXY_TYPE", "nginx")
-
-# Computed paths
-HOP3_BIN = HOP3_ROOT / "bin"
-HOP3_SCRIPT = str(HOP3_ROOT / "venv" / "bin" / "hop-agent")
-
-APP_ROOT = HOP3_ROOT / "apps"
-BACKUP_ROOT = HOP3_ROOT / "backups"
-
-NGINX_ROOT = HOP3_ROOT / "nginx"
-CACHE_ROOT = HOP3_ROOT / "cache"
-CADDY_ROOT = HOP3_ROOT / "caddy"
-TRAEFIK_ROOT = HOP3_ROOT / "traefik"
-
-UWSGI_ROOT = HOP3_ROOT / "uwsgi"
-UWSGI_AVAILABLE = HOP3_ROOT / "uwsgi-available"
-UWSGI_ENABLED = HOP3_ROOT / "uwsgi-enabled"
-UWSGI_LOG_MAXSIZE = "1048576"
-
-ACME_WWW = HOP3_ROOT / "acme"
-
-ROOT_DIRS = [
-    APP_ROOT,
-    BACKUP_ROOT,
-    CACHE_ROOT,
-    UWSGI_ROOT,
-    UWSGI_AVAILABLE,
-    UWSGI_ENABLED,
-    NGINX_ROOT,
-]
-
-CRON_REGEXP = (
-    r"^((?:(?:\*\/)?\d+)|\*) "
-    r"((?:(?:\*\/)?\d+)|\*) "
-    r"((?:(?:\*\/)?\d+)|\*) "
-    r"((?:(?:\*\/)?\d+)|\*) "
-    r"((?:(?:\*\/)?\d+)|\*) "
-    r"(.*)$"
-)
+# Expose config properties as module-level attributes for backward compatibility
+TESTING = config.TESTING
+MODE = config.MODE
+HOP3_ROOT = config.HOP3_ROOT
+HOP3_USER = config.HOP3_USER
+HOP3_DEBUG = config.HOP3_DEBUG
+HOP3_SECRET_KEY = config.HOP3_SECRET_KEY
+HOP3_TOKEN_EXPIRY_HOURS = config.HOP3_TOKEN_EXPIRY_HOURS
+HOP3_UNSAFE = config.HOP3_UNSAFE
+HOP3_PROXY_TYPE = config.HOP3_PROXY_TYPE
+ACME_ENGINE = config.ACME_ENGINE
+ACME_ROOT_CA = config.ACME_ROOT_CA
+ACME_EMAIL = config.ACME_EMAIL
+HOP3_BIN = config.HOP3_BIN
+HOP3_SCRIPT = config.HOP3_SCRIPT
+APP_ROOT = config.APP_ROOT
+BACKUP_ROOT = config.BACKUP_ROOT
+NGINX_ROOT = config.NGINX_ROOT
+CACHE_ROOT = config.CACHE_ROOT
+CADDY_ROOT = config.CADDY_ROOT
+TRAEFIK_ROOT = config.TRAEFIK_ROOT
+UWSGI_ROOT = config.UWSGI_ROOT
+UWSGI_AVAILABLE = config.UWSGI_AVAILABLE
+UWSGI_ENABLED = config.UWSGI_ENABLED
+UWSGI_LOG_MAXSIZE = config.UWSGI_LOG_MAXSIZE
+ACME_WWW = config.ACME_WWW
+ROOT_DIRS = config.ROOT_DIRS
+CRON_REGEXP = config.CRON_REGEXP

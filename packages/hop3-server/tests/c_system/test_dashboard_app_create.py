@@ -44,7 +44,7 @@ def db_session(tmp_path: Path):
     session.close()
 
 
-@pytest.fixture
+@pytest.fixture(scope="function", autouse=False)
 def test_client(tmp_path: Path, monkeypatch):
     """Create an authenticated test client with temporary database.
 
@@ -56,14 +56,14 @@ def test_client(tmp_path: Path, monkeypatch):
 
     Only authentication is mocked for test convenience.
     """
-    # Patch HOP3_ROOT and derived paths in all locations
-    import hop3.config
-    import hop3.orm.app
+    from hop3.config import HopConfig
 
-    monkeypatch.setattr(hop3.config, "HOP3_ROOT", tmp_path)
-    monkeypatch.setattr(hop3.config, "APP_ROOT", tmp_path / "apps")
-    monkeypatch.setattr(hop3.orm.app.c, "HOP3_ROOT", tmp_path)
-    monkeypatch.setattr(hop3.orm.app.c, "APP_ROOT", tmp_path / "apps")
+    # Reset any existing config singleton first
+    HopConfig.reset_instance()
+
+    # Create test config with custom HOP3_ROOT (no monkeypatching!)
+    test_config = HopConfig(hop3_root=tmp_path)
+    HopConfig.set_instance(test_config)
 
     # Create required directory structure
     (tmp_path / "apps").mkdir(exist_ok=True)
@@ -82,7 +82,10 @@ def test_client(tmp_path: Path, monkeypatch):
     app = create_app()
     client = TestClient(app)
 
-    return client
+    yield client
+
+    # Cleanup: reset config singleton for next test
+    HopConfig.reset_instance()
 
 
 def test_app_create_form_loads(test_client):
@@ -192,23 +195,19 @@ def test_app_create_success(test_client, tmp_path: Path):
     assert response.status_code == 303
     assert response.headers["location"] == "/dashboard/apps/test-app?created=true"
 
-    # Verify app was created in database
-    db_path = tmp_path / "hop3.db"
-    engine = create_engine(f"sqlite:///{db_path}")
-    SessionLocal = sessionmaker(bind=engine)
-    session = SessionLocal()
+    # Verify app was created in database (use the same database as the app)
+    from hop3.server.lib.database import get_session
 
-    app = session.query(App).filter_by(name="test-app").first()
-    assert app is not None
-    assert app.name == "test-app"
+    with get_session() as session:
+        app = session.query(App).filter_by(name="test-app").first()
+        assert app is not None
+        assert app.name == "test-app"
 
-    # Verify environment variables
-    env_vars = {var.name: var.value for var in app.env_vars}
-    assert env_vars["DEBUG"] == "true"
-    assert env_vars["API_KEY"] == "secret123"
-    assert env_vars["BUILDER"] == "python"
-
-    session.close()
+        # Verify environment variables
+        env_vars = {var.name: var.value for var in app.env_vars}
+        assert env_vars["DEBUG"] == "true"
+        assert env_vars["API_KEY"] == "secret123"
+        assert env_vars["BUILDER"] == "python"
 
     # SYSTEM TEST: Verify file system state (real App.create() was called)
     app_path = tmp_path / "apps" / "test-app"
@@ -239,19 +238,15 @@ def test_app_create_auto_detect_builder(test_client, tmp_path: Path):
     assert response.status_code == 303
 
     # Verify app was created without BUILDER env var
-    db_path = tmp_path / "hop3.db"
-    engine = create_engine(f"sqlite:///{db_path}")
-    SessionLocal = sessionmaker(bind=engine)
-    session = SessionLocal()
+    from hop3.server.lib.database import get_session
 
-    app = session.query(App).filter_by(name="auto-app").first()
-    assert app is not None
+    with get_session() as session:
+        app = session.query(App).filter_by(name="auto-app").first()
+        assert app is not None
 
-    # BUILDER env var should not be set for auto-detect
-    env_vars = {var.name: var.value for var in app.env_vars}
-    assert "BUILDER" not in env_vars
-
-    session.close()
+        # BUILDER env var should not be set for auto-detect
+        env_vars = {var.name: var.value for var in app.env_vars}
+        assert "BUILDER" not in env_vars
 
 
 def test_app_create_duplicate_name(test_client, tmp_path: Path):
@@ -304,20 +299,16 @@ API_HOST=example.com
     assert response.status_code == 303
 
     # Verify environment variables
-    db_path = tmp_path / "hop3.db"
-    engine = create_engine(f"sqlite:///{db_path}")
-    SessionLocal = sessionmaker(bind=engine)
-    session = SessionLocal()
+    from hop3.server.lib.database import get_session
 
-    app = session.query(App).filter_by(name="env-test").first()
-    env_vars = {var.name: var.value for var in app.env_vars}
+    with get_session() as session:
+        app = session.query(App).filter_by(name="env-test").first()
+        env_vars = {var.name: var.value for var in app.env_vars}
 
-    assert env_vars["DATABASE_URL"] == "postgres://localhost/db"
-    assert env_vars["API_KEY"] == "secret"
-    assert env_vars["API_HOST"] == "example.com"
-    assert env_vars["BUILDER"] == "nodejs"
-
-    session.close()
+        assert env_vars["DATABASE_URL"] == "postgres://localhost/db"
+        assert env_vars["API_KEY"] == "secret"
+        assert env_vars["API_HOST"] == "example.com"
+        assert env_vars["BUILDER"] == "nodejs"
 
 
 def test_app_create_valid_name_formats(test_client, tmp_path: Path):
