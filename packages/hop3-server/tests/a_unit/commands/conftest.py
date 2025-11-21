@@ -9,7 +9,13 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import create_engine
 
-from hop3.orm import App, AppRepository, EnvVar, get_session_factory
+from hop3.orm import (
+    App,
+    AppRepository,
+    EnvVar,
+    get_session_factory,
+    reset_session_factory_cache,
+)
 
 DATABASE_URI = "sqlite:///:memory:"
 
@@ -23,10 +29,15 @@ def engine():
 @pytest.fixture
 def db_session(engine):
     """Create a test database session."""
+    # Reset cache to ensure fresh database for each test
+    reset_session_factory_cache()
     session_factory = get_session_factory(DATABASE_URI)
 
     with session_factory() as db_session:
         yield db_session
+
+    # Clean up cache after test
+    reset_session_factory_cache()
 
 
 @pytest.fixture

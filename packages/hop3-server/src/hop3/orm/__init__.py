@@ -12,7 +12,7 @@ from .repositories import AppRepository
 from .revoked_token import RevokedToken
 from .security import Role, User
 from .service_credential import ServiceCredential
-from .session import get_session_factory
+from .session import get_session_factory, reset_session_factory_cache
 
 __all__ = [
     "App",
@@ -26,4 +26,5 @@ __all__ = [
     "ServiceCredential",
     "User",
     "get_session_factory",
+    "reset_session_factory_cache",
 ]

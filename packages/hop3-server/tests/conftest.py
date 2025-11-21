@@ -87,3 +87,18 @@ def deployment_target(request):
 def app_catalog():
     """Provides a TestAppCatalog instance for accessing test applications."""
     return AppSourceCatalog()
+
+
+# 4. Reset session factory cache before each test to ensure test isolation
+@pytest.fixture(autouse=True)
+def reset_session_factory():
+    """Reset session factory cache before each test to prevent database state pollution.
+
+    This ensures that each test gets a fresh database connection and prevents
+    tests from accidentally sharing database state through the session factory cache.
+    """
+    from hop3.orm import reset_session_factory_cache
+
+    reset_session_factory_cache()
+    yield
+    reset_session_factory_cache()
