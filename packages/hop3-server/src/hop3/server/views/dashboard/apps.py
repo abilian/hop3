@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from operator import itemgetter
 from pathlib import Path
@@ -14,6 +15,7 @@ from typing import TYPE_CHECKING
 from starlette.responses import RedirectResponse, Response, StreamingResponse
 
 from hop3.core.backup import BackupManager
+from hop3.orm import App, EnvVar
 from hop3.project.config import AppConfig
 from hop3.server.lib.database import get_session
 from hop3.server.singletons import router, templates
@@ -85,8 +87,6 @@ async def app_create_submit(request: Request):
     Returns:
         Redirect to app detail page or form with errors
     """
-    from hop3.orm import App, EnvVar
-
     # Parse form data
     form = await request.form()
     app_name = form.get("app_name", "").strip()
@@ -511,8 +511,6 @@ async def app_logs_stream(request: Request):
     # Generator function for SSE
     async def log_generator():
         """Generate SSE events from log file."""
-        import asyncio
-
         try:
             # Send initial logs (last 50 lines)
             if log_path.exists():

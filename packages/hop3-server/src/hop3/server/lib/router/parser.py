@@ -86,7 +86,7 @@ class StarletteParser(AsyncParser):
         try:
             json_data = await req.json()
         except json.JSONDecodeError as exc:
-            if exc.doc == "":
+            if not exc.doc:
                 return core.missing
             return self._handle_invalid_json_error(exc, req)
         except UnicodeDecodeError as exc:
