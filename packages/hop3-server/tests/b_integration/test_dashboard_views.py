@@ -15,7 +15,9 @@ from sqlalchemy.orm import sessionmaker
 from starlette.authentication import AuthCredentials, SimpleUser
 from starlette.testclient import TestClient
 
+from hop3.orm import get_session_factory
 from hop3.orm.security import AuditBase
+from hop3.orm.session import reset_session_factory_cache
 from hop3.server.asgi import create_app
 from hop3.server.middleware.auth import SessionAuthBackend
 
@@ -34,22 +36,49 @@ def db_session():
     session.close()
 
 
-# Note: Database fixtures removed because views run in thread pool
-# and SQLite connections can't be shared across threads.
-# These tests now focus on testing that pages render correctly
-# without requiring specific database state.
+@pytest.fixture
+def isolated_database(monkeypatch, worker_id):
+    """Configure an isolated test database for this test worker.
+
+    Uses SQLite with shared cache mode to allow the test client's thread pool
+    to access the same in-memory database as the test fixtures.
+
+    Each pytest-xdist worker gets its own database to prevent cross-contamination.
+    """
+    # Create worker-specific database URI
+    # Use shared cache mode so threads can access the same in-memory DB
+    if worker_id == "master":
+        # Single-process mode
+        db_uri = "sqlite:///file::memory:?cache=shared&uri=true"
+    else:
+        # Multi-process mode - each worker gets its own database
+        db_uri = f"sqlite:///file:memdb_{worker_id}?mode=memory&cache=shared&uri=true"
+
+    # Set environment variable for get_session_factory()
+    monkeypatch.setenv("HOP3_DATABASE_URI", db_uri)
+
+    # Reset session factory cache to pick up new database URI
+    reset_session_factory_cache()
+
+    # Create the database schema
+    session_factory = get_session_factory()
+
+    yield db_uri
+
+    # Cleanup
+    reset_session_factory_cache()
 
 
 @pytest.fixture
-def client():
-    """Create a test client."""
+def client(isolated_database):
+    """Create a test client with isolated database."""
     app = create_app()
     return TestClient(app)
 
 
 @pytest.fixture
-def authenticated_client(client: TestClient, monkeypatch):
-    """Create an authenticated test client.
+def authenticated_client(isolated_database, monkeypatch):
+    """Create an authenticated test client with isolated database.
 
     Uses monkeypatch to mock the authentication backend to return
     an authenticated user, avoiding the need to set environment variables

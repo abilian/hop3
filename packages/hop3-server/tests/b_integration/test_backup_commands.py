@@ -15,7 +15,6 @@ from advanced_alchemy.base import BigIntAuditBase
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from hop3 import config as c
 from hop3.commands.backup import (
     BackupCreateCmd,
     BackupDeleteCmd,
@@ -23,6 +22,7 @@ from hop3.commands.backup import (
     BackupListCmd,
     BackupRestoreCmd,
 )
+from hop3.config import HopConfig
 from hop3.orm import App, EnvVar
 
 
@@ -48,14 +48,14 @@ def test_db():
 @pytest.fixture
 def test_app(test_db, tmp_path):
     """Create a test application."""
-    # Override HOP3_ROOT for testing
-    c.HOP3_ROOT = tmp_path
-    c.APP_ROOT = tmp_path / "apps"
-    c.BACKUP_ROOT = tmp_path / "backups"
+    # Reset and create test config
+    HopConfig.reset_instance()
+    test_config = HopConfig(hop3_root=tmp_path)
+    HopConfig.set_instance(test_config)
 
     # Create root directories
-    c.APP_ROOT.mkdir(parents=True, exist_ok=True)
-    c.BACKUP_ROOT.mkdir(parents=True, exist_ok=True)
+    test_config.APP_ROOT.mkdir(parents=True, exist_ok=True)
+    test_config.BACKUP_ROOT.mkdir(parents=True, exist_ok=True)
 
     # Create app
     app = App(name="test-app", hostname="test.example.com", port=8000)
@@ -89,6 +89,8 @@ def test_app(test_db, tmp_path):
     if app.app_path.exists():
         shutil.rmtree(app.app_path)
 
+    HopConfig.reset_instance()
+
 
 class TestBackupCreateCommand:
     """Test backup:create command."""
@@ -104,7 +106,7 @@ class TestBackupCreateCommand:
         assert result[1]["t"] == "success"
 
         # Check that backup was created
-        backup_dir = c.BACKUP_ROOT / "apps" / "test-app"
+        backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
         assert backup_dir.exists()
 
         # Should have one backup directory
@@ -125,7 +127,7 @@ class TestBackupCreateCommand:
         result = cmd.call("test-app", "--no-services")
 
         # Find the backup directory
-        backup_dir = c.BACKUP_ROOT / "apps" / "test-app"
+        backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
         backup_path = next(iter(backup_dir.iterdir()))
 
         # Check env.json
@@ -146,7 +148,7 @@ class TestBackupCreateCommand:
         result = cmd.call("test-app", "--no-services")
 
         # Find the backup directory
-        backup_dir = c.BACKUP_ROOT / "apps" / "test-app"
+        backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
         backup_path = next(iter(backup_dir.iterdir()))
 
         # Check source.tar.gz
@@ -165,7 +167,7 @@ class TestBackupCreateCommand:
         result = cmd.call("test-app", "--no-services")
 
         # Find the backup directory
-        backup_dir = c.BACKUP_ROOT / "apps" / "test-app"
+        backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
         backup_path = next(iter(backup_dir.iterdir()))
 
         # Check data.tar.gz
@@ -184,7 +186,7 @@ class TestBackupCreateCommand:
         result = cmd.call("test-app", "--no-services")
 
         # Find the backup directory
-        backup_dir = c.BACKUP_ROOT / "apps" / "test-app"
+        backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
         backup_path = next(iter(backup_dir.iterdir()))
 
         # Check metadata.json
@@ -292,7 +294,7 @@ class TestBackupInfoCommand:
         create_result = create_cmd.call("test-app", "--no-services")
 
         # Extract backup ID from result
-        backup_dir = c.BACKUP_ROOT / "apps" / "test-app"
+        backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
         backup_id = next(iter(backup_dir.iterdir())).name
 
         # Get backup info
@@ -337,7 +339,7 @@ class TestBackupRestoreCommand:
         create_cmd.call("test-app", "--no-services")
 
         # Get backup ID
-        backup_dir = c.BACKUP_ROOT / "apps" / "test-app"
+        backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
         backup_id = next(iter(backup_dir.iterdir())).name
 
         # Modify app data
@@ -361,7 +363,7 @@ class TestBackupRestoreCommand:
         create_cmd.call("test-app", "--no-services")
 
         # Get backup ID
-        backup_dir = c.BACKUP_ROOT / "apps" / "test-app"
+        backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
         backup_id = next(iter(backup_dir.iterdir())).name
 
         # Restore to different app
@@ -372,7 +374,7 @@ class TestBackupRestoreCommand:
         assert result[1]["t"] == "success"
 
         # Check that new app was created
-        restored_app_path = c.APP_ROOT / "restored-app"
+        restored_app_path = HopConfig.get_instance().APP_ROOT / "restored-app"
         assert restored_app_path.exists()
         assert (restored_app_path / "data" / "data.txt").exists()
 
@@ -383,7 +385,7 @@ class TestBackupRestoreCommand:
         create_cmd.call("test-app", "--no-services")
 
         # Get backup ID
-        backup_dir = c.BACKUP_ROOT / "apps" / "test-app"
+        backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
         backup_id = next(iter(backup_dir.iterdir())).name
 
         # Clear env vars
@@ -432,7 +434,7 @@ class TestBackupDeleteCommand:
         create_cmd.call("test-app", "--no-services")
 
         # Get backup ID
-        backup_dir = c.BACKUP_ROOT / "apps" / "test-app"
+        backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
         backup_path = next(iter(backup_dir.iterdir()))
         backup_id = backup_path.name
 
