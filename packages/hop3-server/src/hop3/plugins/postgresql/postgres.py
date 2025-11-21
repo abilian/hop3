@@ -23,6 +23,8 @@ import psycopg2
 from psycopg2 import sql
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
+from hop3.config import HOP3_ROOT
+
 if TYPE_CHECKING:
     pass
 
@@ -172,8 +174,6 @@ class PostgresService:
         Returns:
             Path to the backup file
         """
-        from hop3.config import HOP3_ROOT
-
         backup_dir = HOP3_ROOT / "backups" / "postgres"
         backup_dir.mkdir(parents=True, exist_ok=True)
 

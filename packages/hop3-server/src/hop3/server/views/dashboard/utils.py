@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from functools import wraps
 from typing import TYPE_CHECKING
@@ -51,8 +52,6 @@ def require_auth(func: Callable) -> Callable:
     Returns:
         Wrapped function that checks authentication
     """
-    import asyncio
-
     if asyncio.iscoroutinefunction(func):
         # Async function wrapper
         @wraps(func)
