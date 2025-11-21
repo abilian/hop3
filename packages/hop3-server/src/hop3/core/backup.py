@@ -568,9 +568,8 @@ class BackupManager:
                 f"  - {name} ({stype}): {error}"
                 for name, stype, error in failed_services
             )
-            raise RuntimeError(
-                f"Backup failed: Could not backup {len(failed_services)} attached service(s):\n{error_details}"
-            )
+            msg = f"Backup failed: Could not backup {len(failed_services)} attached service(s):\n{error_details}"
+            raise RuntimeError(msg)
 
         return services_info
 

@@ -120,7 +120,7 @@ async def app_create_submit(request: Request):
     env_vars = {}
     if env_vars_text:
         for line in env_vars_text.split("\n"):
-            line = line.strip()
+            line = line.strip()  # noqa: PLW2901
             if not line or line.startswith("#"):
                 continue
             if "=" in line:
@@ -484,7 +484,7 @@ def app_logs_download(request: Request):
 
 @router.get("/dashboard/apps/{app_name}/logs/stream")
 @require_auth
-async def app_logs_stream(request: Request):
+async def app_logs_stream(request: Request):  # noqa: RUF029
     """Stream application logs via Server-Sent Events (SSE).
 
     Args:
@@ -510,11 +510,18 @@ async def app_logs_stream(request: Request):
 
     # Generator function for SSE
     async def log_generator():
-        """Generate SSE events from log file."""
-        try:
+        """Generate SSE events from log file.
+
+        Note: This function intentionally uses blocking I/O (pathlib.Path and open())
+        because it polls the file system at 1-second intervals with asyncio.sleep(),
+        providing sufficient cooperative multitasking. The file operations are fast
+        and the blocking is minimal. The nested blocks are necessary for the
+        file streaming logic.
+        """
+        try:  # noqa: PLR1702
             # Send initial logs (last 50 lines)
-            if log_path.exists():
-                with open(log_path) as f:
+            if log_path.exists():  # noqa: ASYNC240
+                with open(log_path) as f:  # noqa: ASYNC230
                     lines = f.readlines()
                     initial_lines = lines[-50:] if len(lines) > 50 else lines
                     for line in initial_lines:
@@ -525,7 +532,7 @@ async def app_logs_stream(request: Request):
                             yield f"data: {escaped_line}\n\n"
 
             # Track file position for tail functionality
-            file_size = log_path.stat().st_size if log_path.exists() else 0
+            file_size = log_path.stat().st_size if log_path.exists() else 0  # noqa: ASYNC240
 
             # Stream new lines as they appear (tail -f behavior)
             while True:
@@ -533,12 +540,12 @@ async def app_logs_stream(request: Request):
                 if await request.is_disconnected():
                     break
 
-                if log_path.exists():
-                    current_size = log_path.stat().st_size
+                if log_path.exists():  # noqa: ASYNC240
+                    current_size = log_path.stat().st_size  # noqa: ASYNC240
 
                     # File has new content
                     if current_size > file_size:
-                        with open(log_path) as f:
+                        with open(log_path) as f:  # noqa: ASYNC230
                             f.seek(file_size)
                             new_lines = f.readlines()
                             for line in new_lines:

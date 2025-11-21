@@ -1,4 +1,5 @@
 # Copyright (c) 2024-2025, Abilian SAS
+# ruff: noqa: N802
 from __future__ import annotations
 
 import os
@@ -291,4 +292,5 @@ def __getattr__(name: str):
     cfg = HopConfig.get_instance()
     if hasattr(cfg, name):
         return getattr(cfg, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
