@@ -10,6 +10,8 @@ import pytest
 from hop3_testing.apps import AppSourceCatalog
 from hop3_testing.targets import DeploymentTarget, DockerTarget, RemoteTarget
 
+from hop3.orm import reset_session_factory_cache
+
 
 # 1. Add command-line options to pytest
 def pytest_addoption(parser):
@@ -97,8 +99,6 @@ def reset_session_factory():
     This ensures that each test gets a fresh database connection and prevents
     tests from accidentally sharing database state through the session factory cache.
     """
-    from hop3.orm import reset_session_factory_cache
-
     reset_session_factory_cache()
     yield
     reset_session_factory_cache()
