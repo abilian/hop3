@@ -57,3 +57,32 @@ def get_proxy_strategies() -> list:
         List of Proxy classes that can configure reverse proxies
         (Nginx, Caddy, Traefik, etc.) for hop3 applications.
     """
+
+
+@hookspec
+def get_di_providers() -> list:
+    """Get DI providers from this plugin.
+
+    Plugins can implement this hook to contribute Dishka providers
+    to the application's dependency injection container.
+
+    Returns:
+        List of Dishka Provider instances that will be registered
+        in the application container.
+
+    Example:
+        ```python
+        from dishka import Provider, provide, Scope
+
+        class MyPluginProvider(Provider):
+            scope = Scope.APP
+
+            @provide
+            def get_my_service(self) -> MyService:
+                return MyService()
+
+        @hop3_hook_impl
+        def get_di_providers() -> list:
+            return [MyPluginProvider()]
+        ```
+    """
