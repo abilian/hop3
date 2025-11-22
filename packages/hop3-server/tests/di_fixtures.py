@@ -6,12 +6,13 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 import pytest
 from dishka import make_container
 
-from hop3.di.providers import ConfigProvider, HopServicesProvider
+from hop3.di.providers import ConfigProvider, DatabaseProvider, HopServicesProvider
 
 if TYPE_CHECKING:
     from dishka import Container
@@ -24,6 +25,8 @@ def di_container() -> Container:
     This fixture provides a fresh Dishka container for each test,
     ensuring test isolation.
 
+    Uses in-memory SQLite database for testing to avoid side effects.
+
     Yields:
         Container: A fresh Dishka container with all providers registered
 
@@ -32,11 +35,19 @@ def di_container() -> Container:
             service = di_container.get(MyService)
             assert service is not None
     """
-    container = make_container(
-        ConfigProvider(),
-        HopServicesProvider(),
-    )
+    # Use in-memory SQLite for testing
+    os.environ["HOP3_DATABASE_URI"] = "sqlite:///:memory:"
 
-    yield container
+    try:
+        container = make_container(
+            ConfigProvider(),
+            DatabaseProvider(),
+            HopServicesProvider(),
+        )
 
-    container.close()
+        yield container
+
+        container.close()
+    finally:
+        # Clean up env var
+        os.environ.pop("HOP3_DATABASE_URI", None)
