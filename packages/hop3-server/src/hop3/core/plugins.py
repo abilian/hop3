@@ -109,6 +109,10 @@ def get_plugin_manager() -> PluginManager:
         if hasattr(module, "plugin"):
             pm.register(module.plugin)
 
+        # Also register the module itself to discover module-level hooks
+        # (e.g., get_di_providers() function)
+        pm.register(module)
+
     # For plugins that are not built-in, we load them from setuptools entry points
     pm.load_setuptools_entrypoints("hop3")
 
