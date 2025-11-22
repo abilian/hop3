@@ -184,7 +184,7 @@ System and E2E tests run in Docker containers with `HOP3_UNSAFE=true` to bypass 
 For comprehensive testing documentation, see:
 - [Testing Strategy](./testing-strategy.md) - Complete testing guide
 - [Testing Documentation](./testing.md) - Quick reference
-- [TEST-STATUS.md](/TEST-STATUS.md) - Current test status
+- [TEST-STATUS.md](/notes/test-status.md) - Current test status
 
 ## Continuous Integration
 

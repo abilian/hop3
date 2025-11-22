@@ -619,7 +619,7 @@ pytest --memray
 
 ## References
 
-- [TEST-STATUS.md](/TEST-STATUS.md) - Current test status
-- [PROJECT-STATUS.md](/PROJECT-STATUS.md) - Overall project status
+- [TEST-STATUS.md](/notes/test-status.md) - Current test status
+- [PROJECT-STATUS.md](/notes/current-status.md) - Overall project status
 - [pytest documentation](https://docs.pytest.org/)
 - [Testing Best Practices](https://testdriven.io/blog/testing-best-practices/)
