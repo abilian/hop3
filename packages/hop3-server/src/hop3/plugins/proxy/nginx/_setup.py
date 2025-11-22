@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3.config import ACME_WWW, CACHE_ROOT, NGINX_ROOT
-from hop3.container import container
 from hop3.core.protocols import BaseProxy
+from hop3.di import create_container
 from hop3.lib import command_output, expand_vars, log
 from hop3.services.certificates import CertificatesManager
 
@@ -104,10 +104,15 @@ class NginxVirtualHost(BaseProxy):
 
     def setup_certificates(self) -> None:
         domain_name = self.env["HOST_NAME"].split()[0]
-        certificate_manager = container.get(CertificatesManager)
-        certificate = certificate_manager.get_certificate(domain_name)
-        (NGINX_ROOT / f"{self.app_name}.key").write_text(certificate.get_key())
-        (NGINX_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
+        # Create container for this CLI/deployment context
+        container = create_container()
+        try:
+            certificate_manager = container.get(CertificatesManager)
+            certificate = certificate_manager.get_certificate(domain_name)
+            (NGINX_ROOT / f"{self.app_name}.key").write_text(certificate.get_key())
+            (NGINX_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
+        finally:
+            container.close()
 
     def extra_setup(self):
         # Conditionally block .git folders from being served

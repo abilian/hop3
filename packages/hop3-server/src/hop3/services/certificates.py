@@ -10,7 +10,6 @@ from pathlib import Path
 from textwrap import dedent
 
 from attrs import frozen
-from wireup import service
 
 from hop3.config import ACME_ENGINE, HOP3_ROOT, NGINX_ROOT
 from hop3.lib import log
@@ -23,9 +22,13 @@ RE_DOMAIN_VALIDATOR = re.compile(
 )
 
 
-@service
 class CertificatesManager:
-    """Stateless service class for managing SSL certificates."""
+    """Stateless service class for managing SSL certificates.
+
+    This service is now managed by Dishka dependency injection framework.
+    It is registered in APP scope, meaning a single instance is created
+    and reused throughout the application lifetime.
+    """
 
     def get_certificate(self, domain_name: str) -> Certificate:
         # if not RE_DOMAIN_VALIDATOR.match(domain_name):

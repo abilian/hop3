@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING
 import yaml
 
 from hop3.config import ACME_EMAIL, ACME_WWW, TRAEFIK_ROOT
-from hop3.container import container
 from hop3.core.protocols import BaseProxy
+from hop3.di import create_container
 from hop3.lib import command_output, expand_vars, log
 from hop3.services.certificates import CertificatesManager
 
@@ -100,10 +100,18 @@ class TraefikVirtualHost(BaseProxy):
             )
         else:
             # Use manual certificates managed by hop3
-            certificate_manager = container.get(CertificatesManager)
-            certificate = certificate_manager.get_certificate(domain_name)
-            (TRAEFIK_ROOT / f"{self.app_name}.key").write_text(certificate.get_key())
-            (TRAEFIK_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
+            container = create_container()
+            try:
+                certificate_manager = container.get(CertificatesManager)
+                certificate = certificate_manager.get_certificate(domain_name)
+                (TRAEFIK_ROOT / f"{self.app_name}.key").write_text(
+                    certificate.get_key()
+                )
+                (TRAEFIK_ROOT / f"{self.app_name}.crt").write_text(
+                    certificate.get_crt()
+                )
+            finally:
+                container.close()
             self.env["HOP3_INTERNAL_TRAEFIK_TLS"] = expand_vars(
                 TRAEFIK_TLS_MANUAL, self.env
             )
