@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dishka import Provider, Scope, provide
 
-from hop3.config import HopConfig
 from hop3.core.hooks import hookimpl
 
 from . import cli
@@ -34,21 +33,20 @@ class RedisPluginProvider(Provider):
 
     Provides RedisClientFactory for centralized Redis configuration
     and connection management.
+
+    Configuration is read from environment variables with REDIS_ prefix.
     """
 
     scope = Scope.APP
 
     @provide
-    def get_redis_factory(self, config: HopConfig) -> RedisClientFactory:
+    def get_redis_factory(self) -> RedisClientFactory:
         """Provide Redis client factory service.
 
-        Dependencies:
-            config: Application configuration (from ConfigProvider)
-
         Returns:
-            RedisClientFactory instance configured from HopConfig
+            RedisClientFactory instance configured from REDIS_* environment variables
         """
-        return RedisClientFactory.from_config(config)
+        return RedisClientFactory.from_config()
 
 
 @hookimpl

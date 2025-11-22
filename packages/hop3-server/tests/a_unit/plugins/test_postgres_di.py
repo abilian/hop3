@@ -6,23 +6,25 @@
 
 from __future__ import annotations
 
+import os
 from unittest.mock import Mock
 
-from dishka import Provider, make_container, provide
+from dishka import Provider, Scope, make_container, provide
 
-from hop3.config import HopConfig
 from hop3.di import create_container
+from hop3.lib.config import Config
 from hop3.plugins.postgresql.admin import PostgresAdmin
 
 
 def test_postgres_admin_from_config():
-    """Test creating PostgresAdmin from HopConfig."""
-    config = HopConfig()
+    """Test creating PostgresAdmin from Config."""
+    config = Config(env_prefix="POSTGRES_")
     admin = PostgresAdmin.from_config(config)
 
-    assert admin.host == config.postgres_host
-    assert admin.port == config.postgres_port
-    assert admin.superuser == config.postgres_superuser
+    # Should use default values when env vars not set
+    assert admin.host == "localhost"
+    assert admin.port == 5432
+    assert admin.superuser == "postgres"
 
 
 def test_postgres_admin_get_connection_params():
@@ -106,16 +108,13 @@ def test_postgres_admin_is_singleton():
 
 def test_postgres_admin_with_custom_config():
     """Test PostgresAdmin with custom configuration."""
-    import os
-
     # Set custom config via environment
     os.environ["POSTGRES_HOST"] = "customhost"
     os.environ["POSTGRES_PORT"] = "5433"
     os.environ["POSTGRES_SUPERUSER"] = "customuser"
 
     try:
-        config = HopConfig()
-        admin = PostgresAdmin.from_config(config)
+        admin = PostgresAdmin.from_config()
 
         assert admin.host == "customhost"
         assert admin.port == 5433
@@ -129,7 +128,6 @@ def test_postgres_admin_with_custom_config():
 
 def test_postgres_admin_with_mock_provider():
     """Test PostgresAdmin with mocked provider for testing."""
-    from dishka import Scope
 
     class MockPostgresProvider(Provider):
         """Mock provider for testing."""

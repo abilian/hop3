@@ -6,23 +6,25 @@
 
 from __future__ import annotations
 
+import os
 from unittest.mock import Mock
 
 from dishka import Provider, Scope, make_container, provide
 
-from hop3.config import HopConfig
 from hop3.di import create_container
+from hop3.lib.config import Config
 from hop3.plugins.redis.factory import RedisClientFactory
 
 
 def test_redis_factory_from_config():
-    """Test creating RedisClientFactory from HopConfig."""
-    config = HopConfig()
+    """Test creating RedisClientFactory from Config."""
+    config = Config(env_prefix="REDIS_")
     factory = RedisClientFactory.from_config(config)
 
-    assert factory.host == config.redis_host
-    assert factory.port == config.redis_port
-    assert factory.max_connections == config.redis_max_connections
+    # Should use default values when env vars not set
+    assert factory.host == "localhost"
+    assert factory.port == 6379
+    assert factory.max_connections == 50
 
 
 def test_redis_factory_get_connection_params():
@@ -106,8 +108,6 @@ def test_redis_factory_is_singleton():
 
 def test_redis_factory_with_custom_config():
     """Test RedisClientFactory with custom configuration."""
-    import os
-
     # Set custom config via environment
     os.environ["REDIS_HOST"] = "customhost"
     os.environ["REDIS_PORT"] = "6380"
@@ -115,8 +115,7 @@ def test_redis_factory_with_custom_config():
     os.environ["REDIS_MAX_CONNECTIONS"] = "100"
 
     try:
-        config = HopConfig()
-        factory = RedisClientFactory.from_config(config)
+        factory = RedisClientFactory.from_config()
 
         assert factory.host == "customhost"
         assert factory.port == 6380

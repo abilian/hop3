@@ -236,48 +236,6 @@ class HopConfig:
         """Check if running in test mode."""
         return "PYTEST_VERSION" in os.environ
 
-    # Service Configuration (PostgreSQL, Redis, etc.)
-
-    @property
-    def postgres_host(self) -> str:
-        """PostgreSQL server host."""
-        return self._config_loader.get_str("POSTGRES_HOST", "localhost")
-
-    @property
-    def postgres_port(self) -> int:
-        """PostgreSQL server port."""
-        return self._config_loader.get_int("POSTGRES_PORT", 5432)
-
-    @property
-    def postgres_superuser(self) -> str:
-        """PostgreSQL superuser name."""
-        return self._config_loader.get_str("POSTGRES_SUPERUSER", "postgres")
-
-    @property
-    def postgres_superuser_password(self) -> str | None:
-        """PostgreSQL superuser password (optional)."""
-        return self._config_loader.get_str("POSTGRES_SUPERUSER_PASSWORD", None)
-
-    @property
-    def redis_host(self) -> str:
-        """Redis server host."""
-        return self._config_loader.get_str("REDIS_HOST", "localhost")
-
-    @property
-    def redis_port(self) -> int:
-        """Redis server port."""
-        return self._config_loader.get_int("REDIS_PORT", 6379)
-
-    @property
-    def redis_password(self) -> str | None:
-        """Redis server password (optional)."""
-        return self._config_loader.get_str("REDIS_PASSWORD", None)
-
-    @property
-    def redis_max_connections(self) -> int:
-        """Maximum Redis connections in pool."""
-        return self._config_loader.get_int("REDIS_MAX_CONNECTIONS", 50)
-
     # Utility Methods
 
     def get_parameters(self) -> dict[str, Any]:
