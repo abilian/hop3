@@ -11,10 +11,8 @@ connection configuration and can be injected via Dishka DI.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from hop3.config import HopConfig
+from hop3.lib.config import Config
 
 
 @dataclass(frozen=True)
@@ -29,6 +27,12 @@ class PostgresAdmin:
     The actual PostgreSQL operations are handled by PostgresService
     instances, which can use this admin service for connection details.
 
+    Configuration is read from environment variables with POSTGRES_ prefix:
+    - POSTGRES_HOST (default: localhost)
+    - POSTGRES_PORT (default: 5432)
+    - POSTGRES_SUPERUSER (default: postgres)
+    - POSTGRES_SUPERUSER_PASSWORD (optional)
+
     Attributes:
         host: PostgreSQL server host
         port: PostgreSQL server port
@@ -42,20 +46,23 @@ class PostgresAdmin:
     superuser_password: str | None = None
 
     @classmethod
-    def from_config(cls, config: HopConfig) -> PostgresAdmin:
-        """Create PostgresAdmin from application configuration.
+    def from_config(cls, config: Config | None = None) -> PostgresAdmin:
+        """Create PostgresAdmin from configuration.
 
         Args:
-            config: Application configuration
+            config: Optional Config instance. If not provided, creates one with POSTGRES_ prefix.
 
         Returns:
-            PostgresAdmin instance configured from HopConfig
+            PostgresAdmin instance configured from environment/config file
         """
+        if config is None:
+            config = Config(env_prefix="POSTGRES_")
+
         return cls(
-            host=config.postgres_host,
-            port=config.postgres_port,
-            superuser=config.postgres_superuser,
-            superuser_password=getattr(config, "postgres_superuser_password", None),
+            host=config.get_str("HOST", "localhost"),
+            port=config.get_int("PORT", 5432),
+            superuser=config.get_str("SUPERUSER", "postgres"),
+            superuser_password=config.get_str("SUPERUSER_PASSWORD", None),
         )
 
     def get_connection_params(self, dbname: str = "template1") -> dict[str, any]:

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dishka import Provider, Scope, provide
 
-from hop3.config import HopConfig
 from hop3.core.hooks import hookimpl
 
 from . import cli
@@ -34,21 +33,20 @@ class PostgresPluginProvider(Provider):
 
     Provides PostgresAdmin for centralized PostgreSQL configuration
     and connection management.
+
+    Configuration is read from environment variables with POSTGRES_ prefix.
     """
 
     scope = Scope.APP
 
     @provide
-    def get_postgres_admin(self, config: HopConfig) -> PostgresAdmin:
+    def get_postgres_admin(self) -> PostgresAdmin:
         """Provide PostgreSQL admin service.
 
-        Dependencies:
-            config: Application configuration (from ConfigProvider)
-
         Returns:
-            PostgresAdmin instance configured from HopConfig
+            PostgresAdmin instance configured from POSTGRES_* environment variables
         """
-        return PostgresAdmin.from_config(config)
+        return PostgresAdmin.from_config()
 
 
 @hookimpl

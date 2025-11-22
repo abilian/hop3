@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from hop3.config import HopConfig
+from hop3.lib.config import Config
 
 
 @dataclass(frozen=True)
@@ -27,6 +27,12 @@ class RedisClientFactory:
     The actual Redis operations are handled by RedisAddon instances,
     which can use this factory for connection details.
 
+    Configuration is read from environment variables with REDIS_ prefix:
+    - REDIS_HOST (default: localhost)
+    - REDIS_PORT (default: 6379)
+    - REDIS_PASSWORD (optional)
+    - REDIS_MAX_CONNECTIONS (default: 50)
+
     Attributes:
         host: Redis server host
         port: Redis server port
@@ -40,20 +46,23 @@ class RedisClientFactory:
     max_connections: int = 50
 
     @classmethod
-    def from_config(cls, config: HopConfig) -> RedisClientFactory:
-        """Create RedisClientFactory from application configuration.
+    def from_config(cls, config: Config | None = None) -> RedisClientFactory:
+        """Create RedisClientFactory from configuration.
 
         Args:
-            config: Application configuration
+            config: Optional Config instance. If not provided, creates one with REDIS_ prefix.
 
         Returns:
-            RedisClientFactory instance configured from HopConfig
+            RedisClientFactory instance configured from environment/config file
         """
+        if config is None:
+            config = Config(env_prefix="REDIS_")
+
         return cls(
-            host=config.redis_host,
-            port=config.redis_port,
-            password=config.redis_password,
-            max_connections=config.redis_max_connections,
+            host=config.get_str("HOST", "localhost"),
+            port=config.get_int("PORT", 6379),
+            password=config.get_str("PASSWORD", None),
+            max_connections=config.get_int("MAX_CONNECTIONS", 50),
         )
 
     def get_connection_params(self, db: int = 0) -> dict[str, any]:

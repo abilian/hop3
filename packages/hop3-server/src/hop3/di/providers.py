@@ -36,9 +36,27 @@ class HopServicesProvider(Provider):
     # It will be created once and reused throughout the application lifetime
     certificates_manager = provide(CertificatesManager)
 
+    # NOTE: BackupManager provider is commented out until we have DatabaseProvider
+    # providing Session in REQUEST scope. BackupManager can still be created
+    # manually with BackupManager(db_session) where needed.
+    #
+    # @provide(scope=Scope.REQUEST)
+    # def get_backup_manager(self, db_session: Session) -> BackupManager:
+    #     """Provide BackupManager instance.
+    #
+    #     BackupManager requires a database session, so it uses REQUEST scope
+    #     to get a fresh session for each request/operation.
+    #
+    #     Dependencies:
+    #         db_session: SQLAlchemy database session (from DatabaseProvider)
+    #
+    #     Returns:
+    #         BackupManager instance configured with the current session
+    #     """
+    #     return BackupManager(db_session)
 
-# Future providers can be added here:
-# - DatabaseProvider (for ORM session management with REQUEST scope)
-# - BackupServiceProvider (for backup operations)
+
+# Future providers to add:
+# - DatabaseProvider (for ORM session management with REQUEST scope) - REQUIRED for BackupManager
 # - GitServiceProvider (for git operations)
 # etc.
