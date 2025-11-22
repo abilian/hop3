@@ -12,6 +12,8 @@ from hop3_testing.targets import DeploymentTarget, DockerTarget, RemoteTarget
 
 from hop3.orm import reset_session_factory_cache
 
+from .di_fixtures import di_container  # noqa: F401
+
 
 # 1. Add command-line options to pytest
 def pytest_addoption(parser):

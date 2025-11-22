@@ -6,12 +6,15 @@ import secrets
 import warnings
 from typing import TYPE_CHECKING
 
+from dishka.integrations.starlette import setup_dishka
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.authentication import (
     AuthenticationMiddleware as StarletteAuthMiddleware,
 )
 from starlette.middleware.sessions import SessionMiddleware
+
+from hop3.di import create_async_container
 
 from .lib.scanner import scan_package
 from .middleware.auth import SessionAuthBackend, on_auth_error
@@ -64,4 +67,12 @@ def create_app():
             )
         )
 
-    return Starlette(debug=DEBUG, routes=routes, middleware=middleware)
+    app = Starlette(debug=DEBUG, routes=routes, middleware=middleware)
+
+    # Setup Dishka dependency injection
+    # This integrates Dishka with Starlette for automatic container lifecycle
+    # management and dependency injection in request handlers
+    container = create_async_container()
+    setup_dishka(container, app=app)
+
+    return app

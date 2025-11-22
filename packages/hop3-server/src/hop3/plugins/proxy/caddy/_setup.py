@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3.config import ACME_EMAIL, ACME_WWW, CADDY_ROOT
-from hop3.container import container
 from hop3.core.protocols import BaseProxy
+from hop3.di import create_container
 from hop3.lib import command_output, expand_vars, log
 from hop3.services.certificates import CertificatesManager
 
@@ -97,10 +97,14 @@ class CaddyVirtualHost(BaseProxy):
             )
         else:
             # Use manual certificates managed by hop3
-            certificate_manager = container.get(CertificatesManager)
-            certificate = certificate_manager.get_certificate(domain_name)
-            (CADDY_ROOT / f"{self.app_name}.key").write_text(certificate.get_key())
-            (CADDY_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
+            container = create_container()
+            try:
+                certificate_manager = container.get(CertificatesManager)
+                certificate = certificate_manager.get_certificate(domain_name)
+                (CADDY_ROOT / f"{self.app_name}.key").write_text(certificate.get_key())
+                (CADDY_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
+            finally:
+                container.close()
             self.env["HOP3_INTERNAL_CADDY_TLS"] = expand_vars(
                 CADDY_TLS_MANUAL, self.env
             )

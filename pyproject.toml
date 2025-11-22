@@ -25,6 +25,7 @@ dependencies = [
     "tomlkit",
     "python-dotenv",
     "attrs>=25.3.0",
+    "dishka>=1.7.2",
 ]
 
 [project.urls]
