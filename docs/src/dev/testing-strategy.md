@@ -42,9 +42,9 @@ Hop3 uses a comprehensive four-layer testing pyramid to ensure code quality, rel
 
 **Characteristics**:
 - Very fast execution (< 1 second total)
-- No external dependencies
-- Mock all I/O operations (database, filesystem, network)
-- Test business logic only
+- No external dependencies (uses in-memory SQLite for database)
+- Test business logic and service behavior
+- Use dependency injection fixtures for services
 
 **Example**:
 ```python
@@ -53,12 +53,30 @@ def test_app_name_validation():
     assert is_valid_app_name("my-app")
     assert not is_valid_app_name("my app")  # spaces not allowed
     assert not is_valid_app_name("123app")  # can't start with number
+
+def test_backup_manager(di_container):
+    """Test BackupManager with DI container."""
+    with di_container() as request_container:
+        manager = request_container.get(BackupManager)
+        assert isinstance(manager, BackupManager)
 ```
 
 **Running**:
 ```bash
 pytest packages/hop3-server/tests/a_unit/ -v
 ```
+
+### Dependency Injection Testing
+
+Unit tests extensively use Hop3's Dishka DI system. See the [DI Testing Guide](di-testing-guide.md) for detailed patterns and best practices.
+
+**Key Principles**:
+- Use real services with in-memory database (not mocks)
+- Use pytest fixtures for container management
+- Use `di_container` fixture for core services
+- Use `create_container()` fixture for plugin services
+- No environment manipulation in tests (use `autouse` fixtures)
+- No unnecessary try/finally blocks (use fixtures)
 
 ## Layer 2: Integration Tests
 
@@ -619,7 +637,10 @@ pytest --memray
 
 ## References
 
+- [DI Testing Guide](di-testing-guide.md) - Dependency injection testing patterns and best practices
 - [TEST-STATUS.md](/notes/test-status.md) - Current test status
 - [PROJECT-STATUS.md](/notes/current-status.md) - Overall project status
+- [ADR 092](/notes/adrs/092-pluggy-dishka-integration.md) - Pluggy+Dishka integration architecture
 - [pytest documentation](https://docs.pytest.org/)
+- [Dishka documentation](https://dishka.readthedocs.io/)
 - [Testing Best Practices](https://testdriven.io/blog/testing-best-practices/)
