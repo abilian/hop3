@@ -10,8 +10,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from advanced_alchemy.base import BigIntAuditBase
-from sqlalchemy import String
+from sqlalchemy import String, TypeDecorator
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import Integer as SQLInteger
 
 from hop3.config import HopConfig
 from hop3.core.env import Env
@@ -41,6 +42,35 @@ class AppStateEnum(Enum):
     FAILED = 5  # Application failed to start or crashed
 
 
+class IntEnum(TypeDecorator):
+    """Custom type that stores enum values as integers but returns enum objects."""
+
+    impl = SQLInteger
+    cache_ok = True
+
+    def __init__(self, enum_class):
+        self.enum_class = enum_class
+        super().__init__()
+
+    def process_bind_param(self, value, dialect):
+        """Convert enum to integer for storage."""
+        if value is None:
+            return None
+        if isinstance(value, self.enum_class):
+            return value.value
+        return value
+
+    def process_result_value(self, value, dialect):
+        """Convert integer to enum when reading."""
+        if value is None:
+            return None
+        # Handle both string and integer values from database
+        # SQLite may return strings, so convert to int first
+        if isinstance(value, str):
+            value = int(value)
+        return self.enum_class(value)
+
+
 # Valid state transitions (from_state -> to_state)
 VALID_STATE_TRANSITIONS = {
     AppStateEnum.STOPPED: {AppStateEnum.STARTING, AppStateEnum.FAILED},
@@ -65,7 +95,9 @@ class App(BigIntAuditBase):
     __tablename__ = "app"
 
     name: Mapped[str] = mapped_column(String(128))
-    run_state: Mapped[AppStateEnum] = mapped_column(default=AppStateEnum.STOPPED)
+    run_state: Mapped[AppStateEnum] = mapped_column(
+        IntEnum(AppStateEnum), default=AppStateEnum.STOPPED
+    )
     port: Mapped[int] = mapped_column(default=0)
     hostname: Mapped[str] = mapped_column(default="")
     error_message: Mapped[str] = mapped_column(String(1024), default="")
