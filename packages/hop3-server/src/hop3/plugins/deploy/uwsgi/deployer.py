@@ -49,10 +49,15 @@ class UWSGIDeployer(DeploymentStrategy):
         deltas = deltas or {}
 
         log(f"Deploying '{self.app.name}' with uWSGI...", level=2, fg="blue")
+
+        # Use state machine transition
+        if self.app.run_state == AppStateEnum.STOPPED:
+            self.app._transition_state(AppStateEnum.STARTING)  # noqa: SLF001
+
         spawn_app(self.app, deltas)
 
-        # Mark the app as RUNNING in the database
-        self.app.run_state = AppStateEnum.RUNNING
+        # Mark the app as RUNNING using state machine
+        self.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
 
         # A more robust implementation would get this info from nginx/spawn logic
         return DeploymentInfo(
@@ -69,15 +74,23 @@ class UWSGIDeployer(DeploymentStrategy):
         """Stops the app by removing its uWSGI .ini files from the enabled directory."""
         log(f"Stopping '{self.app.name}'...", level=2, fg="yellow")
 
+        # Use state machine transition: RUNNING -> STOPPING
+        if self.app.run_state == AppStateEnum.RUNNING:
+            self.app._transition_state(AppStateEnum.STOPPING)  # noqa: SLF001
+
         config_files = list(UWSGI_ENABLED.glob(f"{self.app.name}*.ini"))
         if not config_files:
             log(f"App '{self.app.name}' is already stopped or not deployed.", level=3)
+            # If already stopped in filesystem, ensure DB state matches
+            if self.app.run_state != AppStateEnum.STOPPED:
+                self.app._transition_state(AppStateEnum.STOPPED)  # noqa: SLF001
             return
 
         for config_file in config_files:
             config_file.unlink()
 
-        self.app.run_state = AppStateEnum.STOPPED
+        # Complete transition: STOPPING -> STOPPED
+        self.app._transition_state(AppStateEnum.STOPPED)  # noqa: SLF001
         log(f"App '{self.app.name}' stopped.", level=2, fg="green")
 
     def restart(self) -> None:
