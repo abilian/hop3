@@ -148,3 +148,7 @@ def create_app():
     setup_dishka(container=container, app=app)
 
     return app
+
+
+# Create module-level app instance for Litestar CLI
+app = create_app()

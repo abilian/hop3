@@ -488,8 +488,15 @@ class DashboardController(Controller):
             try:
                 app.restart()
                 db_session.commit()
+                # Add success message via query parameter
+                return Redirect(
+                    path=f"/dashboard/apps/{app_name}?action=restart&success=true"
+                )
             except Exception as e:
                 print(f"Error restarting app {app_name}: {e}")
+                return Redirect(
+                    path=f"/dashboard/apps/{app_name}?action=restart&success=false"
+                )
 
         return Redirect(path=f"/dashboard/apps/{app_name}")
 
@@ -512,8 +519,15 @@ class DashboardController(Controller):
             try:
                 app.stop()
                 db_session.commit()
+                # Add success message via query parameter
+                return Redirect(
+                    path=f"/dashboard/apps/{app_name}?action=stop&success=true"
+                )
             except Exception as e:
                 print(f"Error stopping app {app_name}: {e}")
+                return Redirect(
+                    path=f"/dashboard/apps/{app_name}?action=stop&success=false"
+                )
 
         return Redirect(path=f"/dashboard/apps/{app_name}")
 
