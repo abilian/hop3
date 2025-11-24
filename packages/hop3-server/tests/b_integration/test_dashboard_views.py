@@ -10,16 +10,14 @@ import re
 import time
 
 import pytest
+from litestar.testing import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from starlette.authentication import AuthCredentials, SimpleUser
-from starlette.testclient import TestClient
 
 from hop3.orm import get_session_factory
 from hop3.orm.security import AuditBase
 from hop3.orm.session import reset_session_factory_cache
 from hop3.server.asgi import create_app
-from hop3.server.middleware.auth import SessionAuthBackend
 
 
 @pytest.fixture
@@ -80,21 +78,14 @@ def client(isolated_database):
 def authenticated_client(isolated_database, monkeypatch):
     """Create an authenticated test client with isolated database.
 
-    Uses monkeypatch to mock the authentication backend to return
-    an authenticated user, avoiding the need to set environment variables
-    and reload config modules.
+    Uses HOP3_UNSAFE mode to bypass authentication for testing.
     """
+    # Enable unsafe mode to bypass authentication guards
+    import hop3.config
 
-    async def mock_authenticate(self, conn):  # noqa: RUF029
-        """Mock authentication that always returns an authenticated user."""
-        # Return authenticated user with admin scope
-        # Note: Must be async to match Starlette's auth middleware signature
-        return AuthCredentials(["authenticated", "admin"]), SimpleUser("test-user")
+    monkeypatch.setattr(hop3.config, "HOP3_UNSAFE", True)
 
-    # Patch the authenticate method on the SessionAuthBackend class
-    monkeypatch.setattr(SessionAuthBackend, "authenticate", mock_authenticate)
-
-    # Create a new app with the patched authentication
+    # Create a new app with authentication bypassed
     app = create_app()
     return TestClient(app)
 
@@ -521,11 +512,16 @@ def test_logs_page_terminal_styling(authenticated_client: TestClient):
 
 def test_env_page_service_variable_detection(authenticated_client: TestClient):
     """Test that env vars page can detect service-generated variables."""
-    response = authenticated_client.get("/dashboard/apps/testapp/env")
+    response = authenticated_client.get(
+        "/dashboard/apps/testapp/env", follow_redirects=False
+    )
     if response.status_code == 200:
         # Check for service variable detection logic
         content = response.content.decode("utf-8", errors="ignore")
         assert "_URL" in content or "_HOST" in content or "service" in content.lower()
+    else:
+        # App doesn't exist, should redirect
+        assert response.status_code == 302
 
 
 # JSON Serialization Tests

@@ -9,7 +9,7 @@ from __future__ import annotations
 import httpx
 import pytest
 import pytest_asyncio
-from starlette.testclient import TestClient
+from litestar.testing import TestClient
 
 from hop3.server.asgi import create_app
 from hop3.server.security.tokens import create_token
