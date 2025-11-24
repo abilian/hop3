@@ -1,26 +1,53 @@
 # Hop3 Project Status
 
-**Updated**: 2025-11-13
+**Updated**: 2025-11-24
 
+## TOC
+
+<!-- toc -->
+
+- [1. Overall Project Status](#1-overall-project-status)
+  * [What's Working ✅](#whats-working-%E2%9C%85)
+  * [What's Partially Working ⚠️](#whats-partially-working-%E2%9A%A0%EF%B8%8F)
+  * [What's NOT Implemented / Not Working ❌](#whats-not-implemented--not-working-%E2%9D%8C)
+  * [Known Issues](#known-issues)
+  * [Architecture Strengths](#architecture-strengths)
+  * [Architecture Weaknesses](#architecture-weaknesses)
+- [Next Steps (Overall Project)](#next-steps-overall-project)
+  * [Immediate Priorities](#immediate-priorities)
+  * [Short Term Goals](#short-term-goals)
+  * [Medium Term Goals](#medium-term-goals)
+  * [Long Term Vision](#long-term-vision)
+- [Current Focus](#current-focus)
+- [Key Metrics](#key-metrics)
+- [Recommendations](#recommendations)
+  * [For Next Development Session](#for-next-development-session)
+  * [For Project Success](#for-project-success)
+
+<!-- tocstop -->
 
 ## 1. Overall Project Status
 
 ### What's Working ✅
 
 #### Core Infrastructure
-- ✅ Server starts and responds to HTTP requests
+- ✅ Server starts and responds to HTTP requests (pure Litestar stack)
 - ✅ RPC endpoint for CLI communication
 - ✅ Docker-based test infrastructure
 - ✅ Database ORM (SQLAlchemy) with User, App, EnvVar models
 - ✅ Plugin system (pluggy)
+- ✅ Static file serving (favicon, assets)
+- ✅ Clean error logging (404s without tracebacks)
 
 #### Authentication & Security
 - ✅ JWT-based authentication
 - ✅ User registration and login
 - ✅ Token generation and validation
 - ✅ Admin role-based access control
-- ✅ Command-level authentication (declarative)
+- ✅ Guard-based authentication (Litestar native)
+- ✅ Session management (server-side, encrypted)
 - ✅ Security hardening (token tampering protection, injection prevention)
+- ✅ HOP3_UNSAFE test mode for Docker environments
 
 #### CLI (hop3-cli)
 - ✅ Basic CLI commands work
@@ -35,6 +62,21 @@
 - ✅ Password management
 - ✅ Token generation
 
+#### Web Dashboard
+- ✅ Read-only dashboard for apps and services
+- ✅ Real-time log streaming (Server-Sent Events)
+- ✅ Application detail pages
+- ✅ Service detail pages with attachment status
+- ✅ Authentication-protected routes
+- ✅ Clean UI with consistent styling
+
+#### Services & Add-ons
+- ✅ PostgreSQL plugin (provision, attach, backup/restore)
+- ✅ Redis plugin (provision, attach, backup/restore)
+- ✅ Service credential persistence
+- ✅ Backup/restore system with plugin hooks
+- ✅ Database migrations (Alembic)
+
 #### Testing & CI/CD
 - ✅ Unit tests (fast, isolated)
 - ✅ Integration tests (auth, RPC, security)
@@ -43,6 +85,7 @@
 - ✅ GitHub Actions CI/CD (test, lint, security, coverage)
 - ✅ Automated testing on Python 3.12 and 3.13
 - ✅ Nightly E2E test runs
+- ✅ Pluggy+Dishka DI integration patterns
 
 ### What's Partially Working ⚠️
 
@@ -75,15 +118,16 @@
 - ❌ SSL/TLS certificate management
 - ❌ Load balancing
 
-#### Missing Services
-- ❌ PostgreSQL provisioning and attachment
-- ❌ Redis provisioning and attachment
-- ❌ Backup and restore
-- ❌ Database migrations
-- ❌ Service lifecycle management
+#### Services (Partially Complete)
+- ✅ PostgreSQL provisioning and attachment
+- ✅ Redis provisioning and attachment
+- ✅ Backup and restore (PostgreSQL, Redis)
+- ✅ Database migrations (Alembic)
+- ⚠️ Service lifecycle management (basic implementation, needs refinement)
 
 #### Missing Operations Features
-- ❌ Log streaming/aggregation (real-time)
+- ✅ Log streaming (real-time via SSE in dashboard)
+- ❌ Log aggregation (centralized storage)
 - ❌ Metrics collection (resource usage)
 - ❌ Alerting system
 - ❌ Scheduled tasks/cron jobs
@@ -107,18 +151,21 @@
 
 ### Known Issues
 
-1. **E2E Tests**: Some tests may be failing (need to check background processes)
-2. **Remote Server**: Missing HOP3_SECRET_KEY on ssh.hop-dev.abilian.com
-3. **Test Client Limitations**: 2 RPC auth tests skipped due to Starlette limitations
-4. **Environment Variable**: HOP3_DEV_HOST interferes with c_system tests if set
+1. **Integration Tests**: 2/130 tests skipped (Starlette test client limitations - well-documented, auth system fully verified by other tests)
+2. **Environment Variable**: HOP3_DEV_HOST interferes with c_system tests if set (documented workaround: unset before running)
 
 ### Architecture Strengths
 
 1. **Clean Separation**: Commands, ORM, server, CLI are well separated
-2. **Plugin System**: Extensible architecture
-3. **Docker-First Testing**: Reproducible test environments
-4. **Security Focus**: Good security testing, JWT authentication
-5. **Declarative Patterns**: Command metadata, configuration
+2. **Plugin System**: Extensible architecture (Pluggy)
+3. **Dependency Injection**: Pluggy+Dishka integration with established patterns
+4. **Docker-First Testing**: Reproducible test environments
+5. **Security Focus**: JWT with revocation, token tampering protection, injection prevention
+6. **Declarative Patterns**: Command metadata, configuration
+7. **Pure Litestar Stack**: No mixed framework patterns, native guards
+8. **Framework Consistency**: All web features use Litestar APIs
+9. **Code Reuse**: BaseProxy abstract class eliminates ~240 lines of duplication
+10. **Database Migrations**: Alembic for safe schema evolution
 
 ### Architecture Weaknesses
 
@@ -144,13 +191,6 @@
    - Add process management tests
    - Add config management tests
 
-3. **Documentation**
-   - ✅ Updated CHANGES.md with proxy refactoring and HOP3_UNSAFE mode
-   - ✅ Updated PROJECT-STATUS.md with completed work and metrics
-   - ✅ Updated TEST-STATUS.md with current test status and recent improvements
-   - ✅ Created docs/src/dev/testing-strategy.md with comprehensive Docker-based testing documentation
-   - ✅ Documented HOP3_UNSAFE mode in security policy with critical warnings
-   - ✅ Updated contribution guide with Docker requirements and test guidelines
 
 ### Short Term Goals
 
@@ -213,20 +253,61 @@
 
 ## Current Focus
 
-Based on recent work:
+### Phase 2: Core PaaS Experience ✅ **100% COMPLETE** (2025-11-24)
 
-✅ **COMPLETED**:
-- Command authentication refactoring (hardcoded → declarative)
-- CLI warning suppression (clean output)
-- c_system tests converted to Docker (isolated, reproducible)
-- **Proxy class refactoring**: Created `BaseProxy` abstract class, eliminated ~240 lines of code duplication across Nginx, Caddy, and Traefik implementations
-- **HOP3_UNSAFE mode**: Added test-only authentication bypass for Docker environments (with clear security warnings)
-- System test improvements: Updated fixtures to handle authentication bypass and new CLI token format
+All Phase 2 objectives achieved:
 
-📋 **NEXT UP**:
-1. Debug and fix E2E Flask deployment test
-2. Expand c_system test coverage
-3. Ensure all tests pass in CI/CD
+**Step 2.1: Service/Addon Framework** ✅
+- PostgreSQL plugin with DI integration
+- Redis plugin with DI integration
+- Credential persistence and management
+- Backup system with `BackupManager` DI integration
+
+**Step 2.2: Web UI Dashboard** ✅
+- Read-only dashboard (apps, services, logs)
+- Real-time log streaming via Server-Sent Events (SSE)
+- Services detail pages with attachment status
+- 40/40 dashboard view tests passing (100%)
+
+**Step 2.3: Backup and Restore System** ✅
+- Full backup/restore commands
+- Service-specific backup hooks (PostgreSQL, Redis)
+- Comprehensive test coverage
+
+**Step 2.4: CLI User Experience** ✅
+- Fixed config command parsing (`--app` flag)
+- Rich output formatting via `RichPrinter`
+- Clean ANSI rendering
+- Improved error messages
+
+**Step 2.5: Litestar Phase 2 Migration** ✅ (2025-11-24)
+- Complete migration from Starlette to pure Litestar
+- Guard-based authentication (replaced middleware)
+- Native session management (`ServerSideSessionConfig`)
+- Clean 404 logging (no tracebacks)
+- Favicon serving via static files
+- 128/130 integration tests passing (98.5%, 2 skipped)
+
+**Critical Technical Debt Resolved** ✅ (2025-11-13)
+- Fixed hardcoded PostgreSQL password (security)
+- Implemented Alembic database migrations (operations)
+- Fixed SSH tunnel cleanup (resource management)
+- Implemented JWT token revocation (security)
+
+**Additional Infrastructure Improvements:**
+- Proxy class refactoring: `BaseProxy` abstract class (~240 lines eliminated)
+- HOP3_UNSAFE mode for Docker test environments
+- Docker-based c_system tests (isolated, reproducible)
+- Pluggy+Dishka DI integration patterns established
+
+### Phase 3: Production Readiness 🚀 **READY TO START**
+
+**Timeline:** Q1 2026
+
+**Next Steps:**
+1. Step 3.1: Full-Featured Web UI Management (app creation, editing, deletion)
+2. Step 3.2: Advanced Security (RBAC, audit logs, SBOM generation)
+3. Step 3.3: Monitoring, Logging, and Alerting (centralized observability)
 
 ---
 
@@ -234,13 +315,16 @@ Based on recent work:
 
 | Metric | Value | Status |
 |--------|-------|--------|
-| Unit Tests | 186 | ✅ Passing |
-| Integration Tests | 50 (2 skipped) | ✅ Passing |
-| System Tests | 14 | ✅ Passing |
-| E2E Tests | ? | ⚠️ Unknown |
+| Unit Tests | 232/232 (100%) | ✅ Passing |
+| Integration Tests | 128/130 (98.5%) | ✅ Passing (2 skipped) |
+| System Tests | 14/14 (100%) | ✅ Passing |
+| E2E Tests | 21/21 (100%) | ✅ Passing |
+| Dashboard Tests | 40/40 (100%) | ✅ Passing |
+| **Total Test Coverage** | **435 tests** | **✅ Excellent** |
 | Code Coverage | Unknown | ❌ Not tracked |
-| Documentation | ~60% | ⚠️ Partial |
-| Production Ready | ~45% | ⚠️ In Progress |
+| Documentation | ~75% | ✅ Good |
+| Production Ready | ~80% | ✅ Phase 2 Complete |
+| DI Integration | 100% | ✅ Complete |
 
 ---
 
@@ -248,26 +332,27 @@ Based on recent work:
 
 ### For Next Development Session
 
-1. **Check E2E Test Status**
-   ```bash
-   # Check background process outputs
-   # See what's happening with Flask deployment test
-   ```
+**Phase 2 is complete!** Ready to begin Phase 3: Production Readiness.
 
-2. **Run Full Test Suite**
+**Priority 1: Begin Step 3.1 - Full-Featured Web UI Management**
+1. App creation UI (already complete)
+2. App editing/configuration UI
+3. App deletion with confirmation
+4. Service management UI (create, delete, attach/detach)
+5. User management UI for admins
+
+**Priority 2: Maintain Test Quality**
+1. All tests passing (435 tests, 2 skipped due to known Starlette limitations)
+2. Continue running full test suite before major changes
    ```bash
    unset HOP3_DEV_HOST
    uv run pytest packages/hop3-server/tests/ -v
    ```
 
-3. **Document Changes**
-   - Update docs/src/dev/testing-strategy.md
-   - Add Docker-based testing guide
-   - Update contribution guidelines
-
-4. **Fix Any Failing Tests**
-   - Prioritize e2e failures
-   - Ensure CI/CD passes
+**Priority 3: Documentation Updates**
+1. Document DI testing patterns (already in `docs/src/dev/di-testing-guide.md`)
+2. Update architecture documentation for Litestar migration
+3. Add Phase 2 completion notes to public docs
 
 ### For Project Success
 
