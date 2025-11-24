@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
 
 from litestar import Controller, Request, get, post
 from litestar.response import Redirect, Template
@@ -15,9 +14,6 @@ from litestar.response import Redirect, Template
 from hop3.orm import User
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
-
-if TYPE_CHECKING:
-    from litestar.datastructures import FormMultiDict
 
 
 class AuthController(Controller):
@@ -49,18 +45,22 @@ class AuthController(Controller):
         return Template(template_name="auth/login.html", context=ctx)
 
     @post("/login")
-    async def login_submit(self, request: Request, data: FormMultiDict) -> Redirect:
+    async def login_submit(
+        self,
+        request: Request,
+    ) -> Redirect:
         """Handle login form submission.
 
         Args:
             request: HTTP request
-            data: Form data from request
 
         Returns:
             Redirect to dashboard on success, or back to login on failure
         """
-        username = data.get("username", "")
-        password = data.get("password", "")
+        # Get form data directly from request
+        form_data = await request.form()
+        username = form_data.get("username", "")
+        password = form_data.get("password", "")
 
         if not username or not password:
             return Redirect(

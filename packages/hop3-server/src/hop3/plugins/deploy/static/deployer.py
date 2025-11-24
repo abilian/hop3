@@ -103,8 +103,12 @@ class StaticDeployer(DeploymentStrategy):
         """
         log(f"Deploying static app '{self.app.name}'...", level=2, fg="blue")
 
-        # Mark the app as RUNNING
-        self.app.run_state = AppStateEnum.RUNNING
+        # Use state machine transition
+        # The App.start() method handles STOPPED -> STARTING -> RUNNING
+        # For deployers, we can directly set to RUNNING if already past STARTING
+        if self.app.run_state == AppStateEnum.STOPPED:
+            self.app._transition_state(AppStateEnum.STARTING)  # noqa: SLF001
+        self.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
 
         # Set up nginx configuration for static file serving
         env = self._make_env()
@@ -135,7 +139,10 @@ class StaticDeployer(DeploymentStrategy):
     def stop(self) -> None:
         """Stop the static app."""
         log(f"Stopping static app '{self.app.name}'...", level=2, fg="yellow")
-        self.app.run_state = AppStateEnum.STOPPED
+        # Use state machine transition: RUNNING -> STOPPING -> STOPPED
+        if self.app.run_state == AppStateEnum.RUNNING:
+            self.app._transition_state(AppStateEnum.STOPPING)  # noqa: SLF001
+        self.app._transition_state(AppStateEnum.STOPPED)  # noqa: SLF001
         log(f"Static app '{self.app.name}' stopped.", level=2, fg="green")
 
     def restart(self) -> None:

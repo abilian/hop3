@@ -14,15 +14,26 @@
                         bg-green-50 text-green-700 ring-green-600/20
                     {% elif app.state == 'STOPPED' %}
                         bg-gray-50 text-gray-700 ring-gray-600/20
-                    {% elif app.state == 'PAUSED' %}
-                        bg-yellow-50 text-yellow-700 ring-yellow-600/20
-                    {% else %}
+                    {% elif app.state == 'STARTING' or app.state == 'STOPPING' %}
+                        bg-blue-50 text-blue-700 ring-blue-600/20
+                    {% elif app.state == 'FAILED' %}
                         bg-red-50 text-red-700 ring-red-600/20
+                    {% else %}
+                        bg-gray-50 text-gray-700 ring-gray-600/20
                     {% endif %}
                 ">
                     {% if app.state == 'RUNNING' %}
                         <svg class="-ml-0.5 mr-1.5 h-2 w-2 fill-green-500" viewBox="0 0 8 8">
                             <circle cx="4" cy="4" r="4" />
+                        </svg>
+                    {% elif app.state == 'STARTING' or app.state == 'STOPPING' %}
+                        <svg class="-ml-0.5 mr-1.5 h-3 w-3 animate-spin text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    {% elif app.state == 'FAILED' %}
+                        <svg class="-ml-0.5 mr-1.5 h-3 w-3 fill-red-600" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                         </svg>
                     {% endif %}
                     {{ app.state }}
@@ -47,6 +58,25 @@
                 <dd class="mt-1 text-2xl font-semibold tracking-tight text-gray-900">{{ app.worker_count }}</dd>
             </div>
         </dl>
+
+        <!-- Error Message (for FAILED state) -->
+        {% if app.state == 'FAILED' and app.error_message %}
+        <div class="mt-6 rounded-md bg-red-50 p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">Application Error</h3>
+                    <div class="mt-2 text-sm text-red-700">
+                        <p>{{ app.error_message }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Last Updated Time -->
         <div class="mt-4 text-right">

@@ -6,7 +6,7 @@
 
 This controller handles all dashboard routes including:
 - Main dashboard (app list)
-- App management (create, detail, restart, backup)
+- App management (create, detail, restart, stop, backup)
 - App logs (view, download, stream)
 - App environment variables
 - Services management
@@ -419,6 +419,7 @@ class DashboardController(Controller):
                     "state": get_app_state_dict(app),
                     "port": app.port,
                     "worker_count": worker_count,
+                    "error_message": app.error_message,
                 },
                 "now": datetime.now(timezone.utc),
             }
@@ -489,6 +490,30 @@ class DashboardController(Controller):
                 db_session.commit()
             except Exception as e:
                 print(f"Error restarting app {app_name}: {e}")
+
+        return Redirect(path=f"/dashboard/apps/{app_name}")
+
+    @post("/apps/{app_name:str}/stop", status_code=303, sync_to_thread=False)
+    def app_stop(self, app_name: str) -> Redirect:
+        """Stop an application.
+
+        Args:
+            app_name: Application name from path
+
+        Returns:
+            Redirect to app detail page
+        """
+        with get_session() as db_session:
+            app = get_app_or_none(db_session, app_name)
+
+            if not app:
+                return Redirect(path="/dashboard")
+
+            try:
+                app.stop()
+                db_session.commit()
+            except Exception as e:
+                print(f"Error stopping app {app_name}: {e}")
 
         return Redirect(path=f"/dashboard/apps/{app_name}")
 

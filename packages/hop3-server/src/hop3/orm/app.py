@@ -27,13 +27,35 @@ if TYPE_CHECKING:
 class AppStateEnum(Enum):
     """Enumeration for representing the state of an application.
 
-    The state of an application can be RUNNING, STOPPED, or PAUSED.
+    States follow a finite state machine with these transitions:
+    - STOPPED -> STARTING -> RUNNING
+    - RUNNING -> STOPPING -> STOPPED
+    - Any state -> FAILED (on error)
+    - FAILED -> STOPPED (manual recovery)
     """
 
-    RUNNING = 1
-    STOPPED = 2
-    PAUSED = 3
-    # ...
+    STOPPED = 1  # Application is not running
+    STARTING = 2  # Application is starting up (transitional)
+    RUNNING = 3  # Application is running normally
+    STOPPING = 4  # Application is shutting down (transitional)
+    FAILED = 5  # Application failed to start or crashed
+
+
+# Valid state transitions (from_state -> to_state)
+VALID_STATE_TRANSITIONS = {
+    AppStateEnum.STOPPED: {AppStateEnum.STARTING, AppStateEnum.FAILED},
+    AppStateEnum.STARTING: {AppStateEnum.RUNNING, AppStateEnum.FAILED},
+    AppStateEnum.RUNNING: {AppStateEnum.STOPPING, AppStateEnum.FAILED},
+    AppStateEnum.STOPPING: {AppStateEnum.STOPPED, AppStateEnum.FAILED},
+    AppStateEnum.FAILED: {
+        AppStateEnum.STOPPED,
+        AppStateEnum.STARTING,
+    },  # Manual recovery
+}
+
+
+class StateTransitionError(Exception):
+    """Raised when an invalid state transition is attempted."""
 
 
 class App(BigIntAuditBase):
@@ -46,6 +68,7 @@ class App(BigIntAuditBase):
     run_state: Mapped[AppStateEnum] = mapped_column(default=AppStateEnum.STOPPED)
     port: Mapped[int] = mapped_column(default=0)
     hostname: Mapped[str] = mapped_column(default="")
+    error_message: Mapped[str] = mapped_column(String(1024), default="")
 
     env_vars: Mapped[list[EnvVar]] = relationship(
         back_populates="app", cascade="all, delete-orphan"
@@ -75,6 +98,35 @@ class App(BigIntAuditBase):
     @property
     def is_running(self) -> bool:
         return self.run_state == AppStateEnum.RUNNING
+
+    def _transition_state(self, new_state: AppStateEnum, error_msg: str = "") -> None:
+        """Transition to a new state with validation.
+
+        Args:
+            new_state: Target state to transition to
+            error_msg: Optional error message (for FAILED state)
+
+        Raises:
+            StateTransitionError: If the transition is not valid
+        """
+        current_state = self.run_state
+        valid_transitions = VALID_STATE_TRANSITIONS.get(current_state, set())
+
+        if new_state not in valid_transitions:
+            msg = f"Invalid state transition: {current_state.name} -> {new_state.name}"
+            raise StateTransitionError(msg)
+
+        self.run_state = new_state
+        if new_state == AppStateEnum.FAILED:
+            self.error_message = error_msg
+        else:
+            # Clear error message on successful state transitions
+            self.error_message = ""
+
+        log(
+            f"App '{self.name}' state: {current_state.name} -> {new_state.name}",
+            fg="blue",
+        )
 
     #
     # Paths
@@ -193,37 +245,84 @@ class App(BigIntAuditBase):
             log(f"Preserving folder '{data_dir}'", level=2, fg="blue")
 
     def start(self) -> None:
-        """Initiates the process to start an application by calling the
-        spawn_app function."""
-        self.run_state = AppStateEnum.RUNNING
-        spawn_app(self)
+        """Start the application with proper state transitions.
+
+        Transitions: STOPPED -> STARTING -> RUNNING (or FAILED on error)
+
+        Raises:
+            StateTransitionError: If the app is not in a startable state
+        """
+        # Transition to STARTING state
+        self._transition_state(AppStateEnum.STARTING)
+
+        try:
+            # Spawn the application processes
+            spawn_app(self)
+
+            # Transition to RUNNING state on success
+            self._transition_state(AppStateEnum.RUNNING)
+
+        except Exception as e:
+            # Transition to FAILED state on error
+            error_msg = f"Failed to start: {e}"
+            self._transition_state(AppStateEnum.FAILED, error_msg)
+            log(f"Error starting app '{self.name}': {e}", fg="red")
+            raise
 
     def stop(self) -> None:
-        """Stops the application by removing its configuration files if they
-        exist."""
-        self.run_state = AppStateEnum.STOPPED
+        """Stop the application with proper state transitions.
 
-        app_name = self.name
-        config_files = list(
-            HopConfig.get_instance().UWSGI_ENABLED.glob(f"{app_name}*.ini")
-        )
+        Transitions: RUNNING -> STOPPING -> STOPPED (or FAILED on error)
 
-        if len(config_files) > 0:
-            log(f"Stopping app '{app_name}'...", fg="blue")
-            for config_file in config_files:
-                config_file.unlink()
-        else:
-            # TODO app could be already stopped. Need to able to tell the difference.
-            log(f"Error: app '{app_name}' not deployed!", fg="red")
+        Raises:
+            StateTransitionError: If the app is not in a stoppable state
+        """
+        # Transition to STOPPING state
+        self._transition_state(AppStateEnum.STOPPING)
+
+        try:
+            app_name = self.name
+            config_files = list(
+                HopConfig.get_instance().UWSGI_ENABLED.glob(f"{app_name}*.ini")
+            )
+
+            if len(config_files) > 0:
+                log(f"Stopping app '{app_name}'...", fg="blue")
+                for config_file in config_files:
+                    config_file.unlink()
+            else:
+                # App not deployed - treat as warning, not error
+                log(f"Warning: app '{app_name}' has no running processes", fg="yellow")
+
+            # Transition to STOPPED state on success
+            self._transition_state(AppStateEnum.STOPPED)
+
+        except Exception as e:
+            # Transition to FAILED state on error
+            error_msg = f"Failed to stop: {e}"
+            self._transition_state(AppStateEnum.FAILED, error_msg)
+            log(f"Error stopping app '{self.name}': {e}", fg="red")
+            raise
 
     def restart(self) -> None:
         """Restart (or just start) a deployed app.
 
-        This stops and then starts the application, effectively
-        restarting it.
+        For RUNNING apps: transitions through STOPPING -> STOPPED -> STARTING -> RUNNING
+        For STOPPED/FAILED apps: transitions through STARTING -> RUNNING
+
+        This method handles the state machine transitions properly.
         """
-        log(f"restarting app '{self.name}'...", fg="blue")
-        self.stop()
+        log(f"Restarting app '{self.name}'...", fg="blue")
+
+        # If app is running, stop it first
+        if self.run_state == AppStateEnum.RUNNING:
+            self.stop()
+
+        # If app is in FAILED state, transition to STOPPED first (recovery)
+        if self.run_state == AppStateEnum.FAILED:
+            self._transition_state(AppStateEnum.STOPPED)
+
+        # Now start the app
         self.start()
 
     def get_logs(self, lines: int = 100) -> list[str]:

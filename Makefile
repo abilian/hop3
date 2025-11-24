@@ -163,9 +163,17 @@ format:
 	@echo "--> Formatting code"
 	uv run ruff format packages/*/src packages/*/tests installer
 	uv run ruff check --fix packages/*/src packages/*/tests installer
-	uv run markdown-toc --maxdepth 3 -i README.md
+	@make update-tocs
 	python scripts/update-copyright.py
 	@echo ""
+
+update-tocs:
+	uv run markdown-toc --maxdepth 3 -i README.md
+	uv run markdown-toc --maxdepth 3 -i notes/todo/TODO-next.md
+	uv run markdown-toc --maxdepth 3 -i notes/todo/TODO-NGI.md
+	uv run markdown-toc --maxdepth 3 -i notes/roadmap.md
+	uv run markdown-toc --maxdepth 3 -i notes/current-status.md
+	uv run markdown-toc --maxdepth 3 -i notes/test-status.md
 
 ## Format apps
 format-apps:
