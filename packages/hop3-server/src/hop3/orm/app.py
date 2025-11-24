@@ -129,7 +129,96 @@ class App(BigIntAuditBase):
 
     @property
     def is_running(self) -> bool:
+        """Check if app reports as RUNNING in database state."""
         return self.run_state == AppStateEnum.RUNNING
+
+    def check_actual_status(self) -> AppStateEnum:
+        """Check the actual running status by verifying processes are alive.
+
+        Uses multiple methods to verify if the app is actually running:
+        1. Check if uWSGI socket files exist (most reliable)
+        2. Check if uWSGI processes are running
+        3. Fall back to checking config files
+
+        Returns the actual state based on whether worker processes exist.
+        This is used to sync the database state with reality.
+        """
+        import subprocess
+
+        cfg = HopConfig.get_instance()
+
+        # Method 1: Check for socket file (most reliable for web workers)
+        socket_path = cfg.NGINX_ROOT / f"{self.name}.sock"
+        if socket_path.exists():
+            # Socket exists, but is it being listened to?
+            # Try to check if there's a process using this socket
+            try:
+                result = subprocess.run(
+                    ["lsof", str(socket_path)],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                )
+                if result.returncode == 0:
+                    # Socket is being used by a process
+                    return AppStateEnum.RUNNING
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                # lsof not available or timed out, continue to next check
+                pass
+
+        # Method 2: Check for running uWSGI processes with this app's name
+        # uWSGI sets procname-prefix to "{app_name}:{kind}:"
+        try:
+            result = subprocess.run(
+                ["pgrep", "-f", f"{self.name}:"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                # Found running processes
+                return AppStateEnum.RUNNING
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            # pgrep not available or timed out, continue to next check
+            pass
+
+        # Method 3: Fall back to checking config files
+        # This is the least reliable but works on all platforms
+        config_files = list(cfg.UWSGI_ENABLED.glob(f"{self.name}*.ini"))
+        if len(config_files) > 0:
+            # Config files exist, but we couldn't verify processes
+            # Could be starting up or crashed
+            # Return STOPPED to be conservative
+            return AppStateEnum.STOPPED
+
+        # No config files at all
+        return AppStateEnum.STOPPED
+
+    def sync_state(self) -> bool:
+        """Synchronize database state with actual running status.
+
+        This checks if the app is actually running and updates transitional states
+        (STARTING/STOPPING) to their final states (RUNNING/STOPPED).
+
+        Returns:
+            True if state was updated, False if no change
+        """
+        actual_status = self.check_actual_status()
+        current_state = self.run_state
+
+        # Only update transitional states
+        if current_state == AppStateEnum.STARTING:
+            if actual_status == AppStateEnum.RUNNING:
+                self._transition_state(AppStateEnum.RUNNING)
+                return True
+        elif current_state == AppStateEnum.STOPPING:
+            if actual_status == AppStateEnum.STOPPED:
+                self._transition_state(AppStateEnum.STOPPED)
+                return True
+
+        return False
 
     def _transition_state(self, new_state: AppStateEnum, error_msg: str = "") -> None:
         """Transition to a new state with validation.
@@ -279,7 +368,9 @@ class App(BigIntAuditBase):
     def start(self) -> None:
         """Start the application with proper state transitions.
 
-        Transitions: STOPPED -> STARTING -> RUNNING (or FAILED on error)
+        Transitions: STOPPED -> STARTING
+        The app stays in STARTING until actual status is verified.
+        Use sync_state() to update to RUNNING once processes are confirmed running.
 
         Raises:
             StateTransitionError: If the app is not in a startable state
@@ -288,11 +379,12 @@ class App(BigIntAuditBase):
         self._transition_state(AppStateEnum.STARTING)
 
         try:
-            # Spawn the application processes
+            # Spawn the application processes (writes config files for uWSGI emperor)
+            # This is async - the actual processes start after uWSGI emperor picks up the files
             spawn_app(self)
 
-            # Transition to RUNNING state on success
-            self._transition_state(AppStateEnum.RUNNING)
+            # NOTE: We deliberately do NOT transition to RUNNING here
+            # The app stays in STARTING state until sync_state() verifies it's actually running
 
         except Exception as e:
             # Transition to FAILED state on error
@@ -304,7 +396,9 @@ class App(BigIntAuditBase):
     def stop(self) -> None:
         """Stop the application with proper state transitions.
 
-        Transitions: RUNNING -> STOPPING -> STOPPED (or FAILED on error)
+        Transitions: RUNNING -> STOPPING
+        The app stays in STOPPING until actual status is verified.
+        Use sync_state() to update to STOPPED once processes are confirmed stopped.
 
         Raises:
             StateTransitionError: If the app is not in a stoppable state
@@ -326,8 +420,8 @@ class App(BigIntAuditBase):
                 # App not deployed - treat as warning, not error
                 log(f"Warning: app '{app_name}' has no running processes", fg="yellow")
 
-            # Transition to STOPPED state on success
-            self._transition_state(AppStateEnum.STOPPED)
+            # NOTE: We deliberately do NOT transition to STOPPED here
+            # The app stays in STOPPING state until sync_state() verifies it's actually stopped
 
         except Exception as e:
             # Transition to FAILED state on error
@@ -341,21 +435,33 @@ class App(BigIntAuditBase):
 
         For RUNNING apps: transitions through STOPPING -> STOPPED -> STARTING -> RUNNING
         For STOPPED/FAILED apps: transitions through STARTING -> RUNNING
+        For STARTING/STOPPING apps: no-op (already in transition)
 
         This method handles the state machine transitions properly.
         """
         log(f"Restarting app '{self.name}'...", fg="blue")
 
+        # If app is already in a transitional state, do nothing
+        if self.run_state in (AppStateEnum.STARTING, AppStateEnum.STOPPING):
+            log(
+                f"App '{self.name}' is already in {self.run_state.name} state, skipping restart",
+                fg="yellow",
+            )
+            return
+
         # If app is running, stop it first
         if self.run_state == AppStateEnum.RUNNING:
             self.stop()
+            # Transition to STOPPED after stopping (completing the STOPPING state)
+            self._transition_state(AppStateEnum.STOPPED)
 
         # If app is in FAILED state, transition to STOPPED first (recovery)
         if self.run_state == AppStateEnum.FAILED:
             self._transition_state(AppStateEnum.STOPPED)
 
-        # Now start the app
-        self.start()
+        # Now start the app (only if we're in STOPPED state)
+        if self.run_state == AppStateEnum.STOPPED:
+            self.start()
 
     def get_logs(self, lines: int = 100) -> list[str]:
         """Get the most recent log lines for the application.
