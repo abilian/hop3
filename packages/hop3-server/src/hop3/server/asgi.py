@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING
 from dishka.integrations.litestar import setup_dishka
 from litestar import Litestar, Request, Response
 from litestar.contrib.jinja import JinjaTemplateEngine
-from litestar.exceptions import NotFoundException
+from litestar.exceptions import NotAuthorizedException, NotFoundException
 from litestar.middleware.session.server_side import ServerSideSessionConfig
 from litestar.static_files import create_static_files_router
-from litestar.status_codes import HTTP_404_NOT_FOUND
+from litestar.status_codes import HTTP_401_UNAUTHORIZED, HTTP_404_NOT_FOUND
 from litestar.stores.memory import MemoryStore
 from litestar.template.config import TemplateConfig
 
@@ -33,46 +33,31 @@ if TYPE_CHECKING:
 DEBUG = True
 
 
-class Suppress404Filter(logging.Filter):
-    """Logging filter to suppress 404 exception tracebacks."""
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        """Suppress log records about 404 exceptions."""
-        # Suppress ERROR logs about 404/NotFoundException
-        if record.levelno == logging.ERROR:
-            # Check message content
-            msg_str = str(record.msg) if record.msg else ""
-            # Check if it's a 404-related log
-            if (
-                "NotFoundException" in msg_str
-                or "404" in msg_str
-                or "/nonexistent" in msg_str
-                or "/favicon" in msg_str
-            ):
-                return False
-            # Check exception info
-            if record.exc_info:
-                exc_type = record.exc_info[0]
-                if exc_type and exc_type.__name__ == "NotFoundException":
-                    return False
-        return True
-
-
 def handle_404(request: Request, exc: NotFoundException) -> Response:
-    """Handle 404 errors with minimal logging (no traceback).
-
-    In debug mode, 404s are logged as single-line entries without tracebacks.
-    Other exceptions still show full tracebacks in debug mode.
-    """
-    # Log 404 as INFO level instead of ERROR (no traceback)
+    """Handle 404 errors with minimal logging (no traceback)."""
     logger = logging.getLogger("litestar")
     logger.info(
-        f"[{request.scope.get('method', 'GET')}] {request.url.path} - 404 Not Found"
+        "[%s] %s - 404 Not Found",
+        request.scope.get("method", "GET"),
+        request.url.path,
     )
-
     return Response(
         content={"detail": "Not Found"},
         status_code=HTTP_404_NOT_FOUND,
+    )
+
+
+def handle_401(request: Request, exc: NotAuthorizedException) -> Response:
+    """Handle 401 authentication errors with minimal logging (no traceback)."""
+    logger = logging.getLogger("litestar")
+    logger.info(
+        "[%s] %s - 401 Unauthorized",
+        request.scope.get("method", "GET"),
+        request.url.path,
+    )
+    return Response(
+        content={"detail": exc.detail or "Authentication required"},
+        status_code=HTTP_401_UNAUTHORIZED,
     )
 
 
@@ -82,9 +67,6 @@ def create_app():
     All routes are now handled by Litestar controllers.
     Legacy Starlette mount has been removed after complete migration.
     """
-    # Configure logging to suppress 404 exception tracebacks
-    litestar_logger = logging.getLogger("litestar")
-    litestar_logger.addFilter(Suppress404Filter())
 
     # Get session secret for middleware
     session_secret = os.environ.get("HOP3_SESSION_SECRET")
@@ -139,7 +121,10 @@ def create_app():
         middleware=[session_config.middleware],
         template_config=template_config,
         stores={"sessions": MemoryStore()},
-        exception_handlers={NotFoundException: handle_404},
+        exception_handlers={
+            NotFoundException: handle_404,
+            NotAuthorizedException: handle_401,
+        },
     )
 
     # Setup Dishka dependency injection
