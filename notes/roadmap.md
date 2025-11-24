@@ -1,5 +1,28 @@
 # Roadmap / TODO
 
+<!-- toc -->
+
+- [Current Roadmap](#current-roadmap)
+  * [P0 (Q2 2024):](#p0-q2-2024)
+  * [P1 MVP (Q4 2024->Q2 2025):](#p1-mvp-q4-2024-q2-2025)
+  * [P2 MVP2 (Q4 2025):](#p2-mvp2-q4-2025)
+  * [P3 (Q1 2026):](#p3-q1-2026)
+  * [P4 (Q2 2026):](#p4-q2-2026)
+- [Old TODO](#old-todo)
+  * [Features](#features)
+  * [Architecture](#architecture)
+  * [UX for users](#ux-for-users)
+  * [DX](#dx)
+  * [Apps](#apps)
+  * [Documentation](#documentation)
+  * [Infra, QA](#infra-qa)
+  * [Code / refactorings](#code--refactorings)
+  * [Security](#security)
+  * [Monitoring and Logging](#monitoring-and-logging)
+  * [Performance](#performance)
+
+<!-- tocstop -->
+
 ## Current Roadmap
 
 Here's the current roadmap for Hop3. Priorities and timelines are subject to change based on community feedback, business priorities and funding.
@@ -69,9 +92,6 @@ Features:
 - [ ] More apps
 - [ ] Monitoring
 - [ ] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
-- [ ] Nix builds
-- [ ] Nix runtime
-- [ ] Support for (or migration from) Heroku, Render, Docker Compose, Fly… config files,
 - [ ] Unified logging
 - [ ] CLI
   - [ ] Use an API server (WIP)
@@ -91,15 +111,6 @@ Infra, QA, DX, refactorings:
 - [ ] Agents (for distributed deployments)
 - [ ] Dedicated infra for e2e tests
 
-NGI0 Project:
-
-- [ ] Develop initial Nix package for Hop3 platform components (CLI, server-side agent if applicable)
-- [ ] Develop initial Nix builder plugin for applications already in `nixpkgs`
-- [ ] Initial design and PoC for Nix-based alternatives to native builders (e.g., Python-specific)
-- [ ] Initial build process optimization and benchmarking.
-- [ ] Implement/document Security-by-design principles in architecture.
-
-
 ### P3 (Q1 2026):
 
 Features:
@@ -113,6 +124,14 @@ Features:
 
 NGI0 Project:
 
+- [ ] Nix builds
+- [ ] Nix runtime
+- [ ] Develop initial Nix package for Hop3 platform components (CLI, server-side agent if applicable)
+- [ ] Develop initial Nix builder plugin for applications already in `nixpkgs`
+- [ ] Initial design and PoC for Nix-based alternatives to native builders (e.g., Python-specific)
+- [ ] Initial build process optimization and benchmarking.
+- [ ] Implement/document Security-by-design principles in architecture.
+- [ ] Support for (or migration from) Heroku, Render, Docker Compose, Fly… config files,
 - [ ] Launch Foundational Website & Blog.
 - [ ] Publish Initial Core Documentation (Developer Guide, Admin Manual, End-User Tutorials).
 - [ ] Finalize selection and packaging of all 20 F/OSS applications.

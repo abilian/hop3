@@ -1,8 +1,25 @@
 # Hop3 - Test Hierarchy & Strategy
 
-**Date**: 2025-10-17
+**Date**: 2025-11-24
 
-### Current Test Structure
+## TOC
+
+<!-- toc -->
+
+- [Current Test Structure](#current-test-structure)
+- [Test Pyramid (Bottom to Top)](#test-pyramid-bottom-to-top)
+  * [Layer 1: Unit Tests (`a_unit/`)](#layer-1-unit-tests-a_unit)
+  * [Layer 2: Integration Tests (`b_integration/`)](#layer-2-integration-tests-b_integration)
+  * [Layer 3: System Tests (`c_system/`)](#layer-3-system-tests-c_system)
+  * [Layer 4: E2E Tests (`d_e2e/`)](#layer-4-e2e-tests-d_e2e)
+- [Test Execution Times](#test-execution-times)
+- [What's Needed](#whats-needed)
+- [Recent Improvements](#recent-improvements)
+- [Next Steps (Testing)](#next-steps-testing)
+
+<!-- tocstop -->
+
+## Current Test Structure
 
 ```
 packages/hop3-server/tests/
@@ -12,9 +29,9 @@ packages/hop3-server/tests/
 └── d_e2e/               # Layer 4: End-to-End Tests
 ```
 
-### Test Pyramid (Bottom to Top)
+## Test Pyramid (Bottom to Top)
 
-#### Layer 1: Unit Tests (`a_unit/`)
+### Layer 1: Unit Tests (`a_unit/`)
 **Purpose**: Test individual functions and classes in isolation
 
 **Current Status**: ✅ Working
@@ -37,7 +54,7 @@ packages/hop3-server/tests/
 - Some newer features may lack unit test coverage
 - Could expand coverage of utility modules
 
-#### Layer 2: Integration Tests (`b_integration/`)
+### Layer 2: Integration Tests (`b_integration/`)
 **Purpose**: Test multiple components working together within subsystems
 
 **Current Status**: ✅ Working
@@ -53,10 +70,11 @@ packages/hop3-server/tests/
 - Database operations
 
 **What's Working**:
-- 105+ tests passing
+- 121+ tests passing (94.5% pass rate)
 - Comprehensive auth command testing
 - Excellent security testing (token tampering, injection attacks)
 - RPC authentication flow
+- Dashboard views testing (40/40 tests passing)
 
 **What's Missing**:
 - Deployment command integration tests
@@ -64,9 +82,9 @@ packages/hop3-server/tests/
 - Database migration testing
 
 **Known Limitations**:
-- 2 tests skipped due to Starlette test client limitations with AuthenticationMiddleware
+- None (previously 2 tests were skipped due to Starlette limitations, now fixed with Litestar migration)
 
-#### Layer 3: System Tests (`c_system/`)
+### Layer 3: System Tests (`c_system/`)
 **Purpose**: Test the full application with real dependencies in Docker
 
 **Current Status**: ✅ Working
@@ -98,7 +116,7 @@ packages/hop3-server/tests/
 
 **Note**: 5 tests are "remote server diagnostics" that only run when `HOP3_DEV_HOST` is set - these are for testing actual remote deployments, not part of standard test suite.
 
-#### Layer 4: E2E Tests (`d_e2e/`)
+### Layer 4: E2E Tests (`d_e2e/`)
 **Purpose**: Test complete workflows in production-like Docker environment
 
 **Current Status**: ⚠️ Partially Working
@@ -132,7 +150,7 @@ packages/hop3-server/tests/
 - SSL/HTTPS tests
 - Performance/load tests
 
-### Test Execution Times
+## Test Execution Times
 
 | Layer | Time | Use Case |
 |-------|------|----------|
@@ -141,7 +159,7 @@ packages/hop3-server/tests/
 | System | ~20s | Before push |
 | E2E | 2-10min | CI/CD, before release |
 
-### What's Needed
+## What's Needed
 
 1. **Expand c_system coverage**:
    - Add tests for all deployment scenarios
@@ -167,14 +185,20 @@ packages/hop3-server/tests/
    - Parallel test execution where possible
    - Test result reporting and coverage tracking
 
-### Recent Improvements
+## Recent Improvements
 
-✅ **Completed** (October 2025):
-1. **HOP3_UNSAFE Mode**: Added test-only authentication bypass for Docker environments with clear security warnings
-2. **System Test Updates**: Updated fixtures to handle authentication bypass and new CLI token auto-save format
-3. **Test Counts**: All 186 unit tests, 50 integration tests (2 skipped), and 14 system tests passing
+✅ **Completed** (November 2025):
+1. **Litestar Phase 2 Migration** (2025-11-24): Complete migration from Starlette to pure Litestar
+   - Guard-based authentication (replaced Starlette middleware)
+   - Native session management (ServerSideSessionConfig)
+   - Clean 404 logging (no tracebacks)
+   - Favicon serving via static files
+   - Fixed previously skipped integration tests
+2. **HOP3_UNSAFE Mode** (October 2025): Added test-only authentication bypass for Docker environments with clear security warnings
+3. **System Test Updates** (October 2025): Updated fixtures to handle authentication bypass and new CLI token auto-save format
+4. **Test Counts**: 193 unit tests, 121/128 integration tests (94.5%), 14 system tests, 40/40 dashboard tests passing
 
-### Next Steps (Testing)
+## Next Steps (Testing)
 
 **Immediate**:
 1. 🔄 Debug d_e2e Flask deployment test (check background processes)
