@@ -11,16 +11,14 @@ from pathlib import Path
 
 import pytest
 from advanced_alchemy.base import BigIntAuditBase
+from litestar.testing import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from starlette.authentication import AuthCredentials, SimpleUser
-from starlette.testclient import TestClient
 
 from hop3.config import HopConfig
 from hop3.orm import App, reset_session_factory_cache
 from hop3.server.asgi import create_app
 from hop3.server.lib.database import get_session
-from hop3.server.middleware.auth import SessionAuthBackend
 
 
 @pytest.fixture(autouse=True)
@@ -81,14 +79,12 @@ def test_client(tmp_path: Path, monkeypatch):
     (tmp_path / "data").mkdir(exist_ok=True)
     (tmp_path / "logs").mkdir(exist_ok=True)
 
-    # Mock authentication (must be done before create_app())
-    async def mock_authenticate(self, conn):  # noqa: RUF029
-        """Mock authentication that always returns an authenticated user."""
-        return AuthCredentials(["authenticated", "admin"]), SimpleUser("test-user")
+    # Enable unsafe mode to bypass authentication
+    import hop3.config
 
-    monkeypatch.setattr(SessionAuthBackend, "authenticate", mock_authenticate)
+    monkeypatch.setattr(hop3.config, "HOP3_UNSAFE", True)
 
-    # Create Starlette app - will use in-memory database via environment variable
+    # Create Litestar app - will use in-memory database via environment variable
     # Uses real App.create() and all real business logic
     app = create_app()
     client = TestClient(app)

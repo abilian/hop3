@@ -146,7 +146,6 @@
 
 3. **Documentation**
    - ✅ Updated CHANGES.md with proxy refactoring and HOP3_UNSAFE mode
-   - ✅ Updated CLAUDE.md with BaseProxy architecture and test configuration
    - ✅ Updated PROJECT-STATUS.md with completed work and metrics
    - ✅ Updated TEST-STATUS.md with current test status and recent improvements
    - ✅ Created docs/src/dev/testing-strategy.md with comprehensive Docker-based testing documentation

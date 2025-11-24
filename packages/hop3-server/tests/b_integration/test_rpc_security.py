@@ -23,7 +23,7 @@ from datetime import UTC, datetime, timedelta
 
 import jwt
 import pytest
-from starlette.testclient import TestClient
+from litestar.testing import TestClient
 
 from hop3.server.asgi import create_app
 from hop3.server.security.tokens import create_token
