@@ -397,6 +397,9 @@ class DashboardController(Controller):
     def app_status(self, app_name: str) -> Template:
         """Get application status (for HTMX polling).
 
+        This endpoint also synchronizes transitional states (STARTING/STOPPING)
+        with actual running status.
+
         Args:
             app_name: Application name from path
 
@@ -411,6 +414,10 @@ class DashboardController(Controller):
                     template_name="dashboard/_app_status.html",
                     context={"app": None, "now": datetime.now(timezone.utc)},
                 )
+
+            # Sync transitional states (STARTING->RUNNING, STOPPING->STOPPED)
+            app.sync_state()
+            db_session.commit()
 
             worker_count = get_worker_count(app)
 
