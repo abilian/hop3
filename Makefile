@@ -54,7 +54,8 @@ build:
 
 ## Run server (in development mode)
 serve:
-	hop-server serve
+	litestar --app asgi:create_app run --debug --reload
+	# hop-server serve
 	# granian --interface asgi --factory hop3.server.asgi:create_app
 
 ## Alias for serve
