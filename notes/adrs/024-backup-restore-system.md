@@ -289,9 +289,10 @@ class Addon(Protocol):
 ```
 
 PostgreSQL example:
+
 ```python
 def backup(self) -> Path:
-    backup_file = backup_dir / f"{self.service_name}_{timestamp}.sql"
+    backup_file = backup_dir / f"{self.addon_name}_{timestamp}.sql"
     subprocess.run([
         "pg_dump", "-h", "localhost",
         "-U", self.db_user, "-d", self.db_name,

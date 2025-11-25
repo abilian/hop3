@@ -611,7 +611,7 @@ Make operations safe to run multiple times:
 def create(self):
     """Create service (idempotent)."""
     if self._already_exists():
-        log(f"Service {self.service_name} already exists", fg="yellow")
+        log(f"Service {self.addon_name} already exists", fg="yellow")
         return
 
     # ... create service

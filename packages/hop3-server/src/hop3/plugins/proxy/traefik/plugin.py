@@ -17,7 +17,7 @@ class TraefikProxyPlugin:
     name = "traefik"
 
     @hookimpl
-    def get_proxy_strategies(self) -> list:
+    def get_proxies(self) -> list:
         """Return Traefik proxy strategy."""
         return [TraefikVirtualHost]
 

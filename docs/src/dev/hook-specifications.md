@@ -201,10 +201,10 @@ class DatabasePlugin:
 Services are managed through the CLI and API:
 
 ```python
-from hop3.core.plugins import get_service_strategy
+from hop3.core.plugins import get_addon
 
 # Find service strategy by name
-strategy_class = get_service_strategy("postgres")
+strategy_class = get_addon("postgres")
 
 # Instantiate for specific service instance
 service = strategy_class(service_name="mydb")
@@ -280,16 +280,16 @@ os_strategy.setup_server()
 
 ---
 
-### get_proxy_strategies
+### get_proxies
 
 **Purpose**: Register reverse proxy strategies (Nginx, Caddy, Traefik, etc.).
 
-**Location**: `hop3.core.hookspecs.get_proxy_strategies`
+**Location**: `hop3.core.hookspecs.get_proxies`
 
 **Signature**:
 ```python
 @hookspec
-def get_proxy_strategies() -> list:
+def get_proxies() -> list:
     """Get proxy strategies provided by this plugin.
 
     Returns:
@@ -309,7 +309,7 @@ from .caddy_proxy import CaddyVirtualHost
 
 class ProxyPlugin:
     @hookimpl
-    def get_proxy_strategies(self) -> list:
+    def get_proxies(self) -> list:
         """Provide Nginx and Caddy proxy strategies."""
         return [NginxVirtualHost, CaddyVirtualHost]
 ```

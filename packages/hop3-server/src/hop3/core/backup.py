@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hop3.config import HopConfig
-from hop3.core.plugins import get_service_strategy
+from hop3.core.plugins import get_addon
 from hop3.lib import log
 from hop3.orm import App, Backup, BackupStateEnum, EnvVar
 from hop3.orm.repositories import AppRepository
@@ -535,7 +535,7 @@ class BackupManager:
 
         for service_type, service_name in attached_services:
             try:
-                service = get_service_strategy(service_type, service_name)
+                service = get_addon(service_type, service_name)
                 service_backup_path = service.backup()
 
                 # Copy service backup to our backup directory
@@ -666,7 +666,7 @@ class BackupManager:
 
             try:
                 # Get or create service
-                service = get_service_strategy(service_type, service_name)
+                service = get_addon(service_type, service_name)
 
                 # Restore service
                 service.restore(backup_file)

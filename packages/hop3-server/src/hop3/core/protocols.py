@@ -132,7 +132,7 @@ class Addon(Protocol):
     name: str
     # TODO / FIXME name vs service_name is confusing, rename one of them
     # also we are an "addon" now, not a "service"
-    service_name: str
+    addon_name: str
 
     def create(self) -> None:
         """Create the service instance.

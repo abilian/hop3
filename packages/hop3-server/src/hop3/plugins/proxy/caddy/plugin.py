@@ -17,7 +17,7 @@ class CaddyProxyPlugin:
     name = "caddy"
 
     @hookimpl
-    def get_proxy_strategies(self) -> list:
+    def get_proxies(self) -> list:
         """Return Caddy proxy strategy."""
         return [CaddyVirtualHost]
 

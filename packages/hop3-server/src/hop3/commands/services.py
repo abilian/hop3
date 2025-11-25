@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from hop3.core.credentials import get_credential_encryptor
-from hop3.core.plugins import get_service_strategy
+from hop3.core.plugins import get_addon
 from hop3.lib.decorators import register
 from hop3.orm import EnvVar, ServiceCredential
 
@@ -55,7 +55,7 @@ class ServicesCreateCmd(Command):
 
         try:
             # Get the service strategy from the plugin system
-            service = get_service_strategy(service_type, service_name)
+            service = get_addon(service_type, service_name)
 
             # Create the service
             service.create()
@@ -145,7 +145,7 @@ class ServicesAttachCmd(Command):
                 return [{"t": "error", "text": f"App '{app_name}' not found"}]
 
             # Get the service strategy
-            service = get_service_strategy(service_type, service_name)
+            service = get_addon(service_type, service_name)
 
             # Get connection details from the service
             connection_details = service.get_connection_details()
@@ -301,7 +301,7 @@ class ServicesDetachCmd(Command):
             else:
                 # Fallback: Try to get connection details from service if credential not found
                 try:
-                    service = get_service_strategy(service_type, service_name)
+                    service = get_addon(service_type, service_name)
                     connection_details = service.get_connection_details()
                 except Exception:
                     # If we can't get connection details, we can't know which env vars to remove
@@ -384,7 +384,7 @@ class ServicesDestroyCmd(Command):
 
         try:
             # Get the service strategy
-            service = get_service_strategy(service_type, service_name)
+            service = get_addon(service_type, service_name)
 
             # Clean up all stored credentials for this service
             credentials = (
@@ -453,7 +453,7 @@ class ServicesInfoCmd(Command):
 
         try:
             # Get the service strategy
-            service = get_service_strategy(service_type, service_name)
+            service = get_addon(service_type, service_name)
 
             # Get service info
             info = service.info()
