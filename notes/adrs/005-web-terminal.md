@@ -1,4 +1,4 @@
-# ADR 008: Web Terminal for Application Management
+# ADR 005: Web Terminal for Application Management
 
 **Status:** Proposed
 **Date:** 2025-01-23
