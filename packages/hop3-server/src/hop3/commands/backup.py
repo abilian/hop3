@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.core.backup import BackupManager
 from hop3.lib.decorators import register
@@ -32,7 +32,7 @@ class BackupCreateCmd(Command):
     """
 
     db_session: Session
-    name = "backup:create"
+    name: ClassVar[str] = "backup:create"
 
     def call(self, *args):
         """Create a backup of an application."""
@@ -134,7 +134,7 @@ class BackupListCmd(Command):
     """
 
     db_session: Session
-    name = "backup:list"
+    name: ClassVar[str] = "backup:list"
 
     def call(self, *args):
         """List available backups."""
@@ -227,7 +227,7 @@ class BackupInfoCmd(Command):
     """
 
     db_session: Session
-    name = "backup:info"
+    name: ClassVar[str] = "backup:info"
 
     def call(self, *args):
         """Get backup information."""
@@ -330,7 +330,7 @@ class BackupRestoreCmd(Command):
     """
 
     db_session: Session
-    name = "backup:restore"
+    name: ClassVar[str] = "backup:restore"
 
     def call(self, *args):
         """Restore an application from backup."""
@@ -421,8 +421,8 @@ class BackupDeleteCmd(Command):
     """
 
     db_session: Session
-    name = "backup:delete"
-    destructive = True
+    name: ClassVar[str] = "backup:delete"
+    destructive: ClassVar[bool] = True
 
     def call(self, *args):
         """Delete a backup."""
@@ -498,4 +498,4 @@ class BackupCmd(Command):
       backup:delete   Delete a backup
     """
 
-    name = "backup"
+    name: ClassVar[str] = "backup"

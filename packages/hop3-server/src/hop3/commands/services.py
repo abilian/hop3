@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import traceback
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.plugins import get_addon
@@ -34,7 +34,7 @@ class ServicesCreateCmd(Command):
     """
 
     db_session: Session
-    name = "services:create"
+    name: ClassVar[str] = "services:create"
 
     def call(self, *args):
         """Create a new service instance."""
@@ -93,7 +93,7 @@ class ServicesAttachCmd(Command):
     """
 
     db_session: Session
-    name = "services:attach"
+    name: ClassVar[str] = "services:attach"
 
     def call(self, *args):
         """Attach a service to an application."""
@@ -232,7 +232,7 @@ class ServicesDetachCmd(Command):
     """
 
     db_session: Session
-    name = "services:detach"
+    name: ClassVar[str] = "services:detach"
 
     def call(self, *args):
         """Detach a service from an application."""
@@ -352,8 +352,8 @@ class ServicesDestroyCmd(Command):
     """
 
     db_session: Session
-    name = "services:destroy"
-    destructive = True
+    name: ClassVar[str] = "services:destroy"
+    destructive: ClassVar[bool] = True
 
     def call(self, *args):
         """Destroy a service instance."""
@@ -423,7 +423,7 @@ class ServicesInfoCmd(Command):
     """
 
     db_session: Session
-    name = "services:info"
+    name: ClassVar[str] = "services:info"
 
     def call(self, *args):
         """Get service information."""

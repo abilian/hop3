@@ -653,21 +653,47 @@ class DashboardController(Controller):
 
             log_path = Path(app.log_path)
 
+        async def _send_initial_logs(
+            log_path_anyio: anyio.Path,
+        ) -> AsyncIterator[str]:
+            """Send initial log lines (last 50) as SSE events."""
+            if not await log_path_anyio.exists():
+                return
+
+            content = await log_path_anyio.read_text()
+            lines = content.splitlines(keepends=True)
+            initial_lines = lines[-50:] if len(lines) > 50 else lines
+
+            for line in initial_lines:
+                stripped_line = line.rstrip()
+                if line:
+                    escaped_line = stripped_line.replace("\n", "\\n")
+                    yield f"data: {escaped_line}\n\n"
+
+        async def _send_new_log_lines(
+            log_path: Path, file_size: int
+        ) -> AsyncIterator[str]:
+            """Read and send new log lines from file."""
+            async with await anyio.open_file(log_path, "r") as f:
+                await f.seek(file_size)
+                new_content = await f.read()
+                new_lines = new_content.splitlines(keepends=True)
+
+                for line in new_lines:
+                    stripped_line = line.rstrip()
+                    if line:
+                        escaped_line = stripped_line.replace("\n", "\\n")
+                        yield f"data: {escaped_line}\n\n"
+
         # Generator function for SSE
         async def log_generator() -> AsyncIterator[str]:
             """Generate SSE events from log file."""
             try:
-                # Send initial logs (last 50 lines)
                 log_path_anyio = anyio.Path(log_path)
-                if await log_path_anyio.exists():
-                    content = await log_path_anyio.read_text()
-                    lines = content.splitlines(keepends=True)
-                    initial_lines = lines[-50:] if len(lines) > 50 else lines
-                    for line in initial_lines:
-                        stripped_line = line.rstrip()
-                        if line:
-                            escaped_line = stripped_line.replace("\n", "\\n")
-                            yield f"data: {escaped_line}\n\n"
+
+                # Send initial logs (last 50 lines)
+                async for event in _send_initial_logs(log_path_anyio):
+                    yield event
 
                 # Track file position for tail functionality
                 file_size = (
@@ -683,19 +709,8 @@ class DashboardController(Controller):
 
                         # File has new content
                         if current_size > file_size:
-                            # Read only new content
-                            async with await anyio.open_file(log_path, "r") as f:
-                                await f.seek(file_size)
-                                new_content = await f.read()
-                                new_lines = new_content.splitlines(keepends=True)
-                                for line in new_lines:
-                                    stripped_line = line.rstrip()
-                                    if line:
-                                        escaped_line = stripped_line.replace(
-                                            "\n", "\\n"
-                                        )
-                                        yield f"data: {escaped_line}\n\n"
-
+                            async for event in _send_new_log_lines(log_path, file_size):
+                                yield event
                             file_size = current_size
 
                         # File was truncated or rotated

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from hop3.lib.console import bold
 from hop3.lib.registry import lookup, register
 
@@ -33,8 +35,8 @@ COMMANDS
 class HelpCmd(Command):
     """Display useful help messages."""
 
-    name = "help"
-    requires_auth = False  # Public command
+    name: ClassVar[str] = "help"
+    requires_auth: ClassVar[bool] = False  # Public command
 
     def call(self, *args):
         # If a command name is provided, show detailed help for that command

@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 """add_app_state_machine_and_error_message
 
 Revision ID: 0d21c362f66d

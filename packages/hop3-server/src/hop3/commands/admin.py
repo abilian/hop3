@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.lib.registry import register
 from hop3.orm import User
@@ -51,7 +51,7 @@ def require_admin(username: str, db_session: Session) -> list[dict] | None:
 class AdminCmd(Command):
     """Administrative commands."""
 
-    name = "admin"
+    name: ClassVar[str] = "admin"
 
 
 @register
@@ -70,8 +70,9 @@ class AdminUserAddCmd(Command):
     """
 
     db_session: Session
-    name = "admin:user:add"
-    pass_username = True  # Needs authenticated username for permission checks
+    name: ClassVar[str] = "admin:user:add"
+    # Needs authenticated username for permission checks
+    pass_username: ClassVar[bool] = True
 
     def call(
         self,
@@ -163,8 +164,9 @@ class AdminUserRemoveCmd(Command):
     """
 
     db_session: Session
-    name = "admin:user:remove"
-    pass_username = True  # Needs authenticated username for permission checks
+    name: ClassVar[str] = "admin:user:remove"
+    # Needs authenticated username for permission checks
+    pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Remove a user account.
@@ -211,8 +213,9 @@ class AdminUserListCmd(Command):
     """
 
     db_session: Session
-    name = "admin:user:list"
-    pass_username = True  # Needs authenticated username for permission checks
+    name: ClassVar[str] = "admin:user:list"
+    # Needs authenticated username for permission checks
+    pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", *args):
         """List all user accounts.
@@ -269,8 +272,9 @@ class AdminUserEnableCmd(Command):
     """
 
     db_session: Session
-    name = "admin:user:enable"
-    pass_username = True  # Needs authenticated username for permission checks
+    name: ClassVar[str] = "admin:user:enable"
+    # Needs authenticated username for permission checks
+    pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Enable a user account.
@@ -316,8 +320,9 @@ class AdminUserDisableCmd(Command):
     """
 
     db_session: Session
-    name = "admin:user:disable"
-    pass_username = True  # Needs authenticated username for permission checks
+    name: ClassVar[str] = "admin:user:disable"
+    # Needs authenticated username for permission checks
+    pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Disable a user account.
@@ -367,8 +372,9 @@ class AdminUserGrantAdminCmd(Command):
     """
 
     db_session: Session
-    name = "admin:user:grant-admin"
-    pass_username = True  # Needs authenticated username for permission checks
+    name: ClassVar[str] = "admin:user:grant-admin"
+    # Needs authenticated username for permission checks
+    pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Grant admin privileges to a user.
@@ -433,8 +439,9 @@ class AdminUserRevokeAdminCmd(Command):
     """
 
     db_session: Session
-    name = "admin:user:revoke-admin"
-    pass_username = True  # Needs authenticated username for permission checks
+    name: ClassVar[str] = "admin:user:revoke-admin"
+    # Needs authenticated username for permission checks
+    pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Revoke admin privileges from a user.
@@ -503,8 +510,9 @@ class AdminUserSetPasswordCmd(Command):
     """
 
     db_session: Session
-    name = "admin:user:set-password"
-    pass_username = True  # Needs authenticated username for permission checks
+    name: ClassVar[str] = "admin:user:set-password"
+    # Needs authenticated username for permission checks
+    pass_username: ClassVar[bool] = True
 
     def call(
         self,
@@ -561,8 +569,9 @@ class AdminUserInfoCmd(Command):
     """
 
     db_session: Session
-    name = "admin:user:info"
-    pass_username = True  # Needs authenticated username for permission checks
+    name: ClassVar[str] = "admin:user:info"
+    # Needs authenticated username for permission checks
+    pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Display detailed information about a user.
@@ -622,8 +631,9 @@ class AdminUserGenerateTokenCmd(Command):
     """
 
     db_session: Session
-    name = "admin:user:generate-token"
-    pass_username = True  # Needs authenticated username for permission checks
+    name: ClassVar[str] = "admin:user:generate-token"
+    # Needs authenticated username for permission checks
+    pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", username: str = "", *args):
         """Generate a new API token for a user.

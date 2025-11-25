@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.lib.registry import register
 from hop3.orm import User
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 class AuthCmd(Command):
     """Authentication commands."""
 
-    name = "auth"
+    name: ClassVar[str] = "auth"
 
 
 @register
@@ -34,8 +34,8 @@ class AuthLoginCmd(Command):
     """Authenticate and receive an API token."""
 
     db_session: Session
-    name = "auth:login"
-    requires_auth = False  # Public command
+    name: ClassVar[str] = "auth:login"
+    requires_auth: ClassVar[bool] = False  # Public command
 
     def call(self, username: str = "", password: str = "", *args):
         """Authenticate a user and return an API token.
@@ -104,8 +104,8 @@ class AuthWhoamiCmd(Command):
     """Display current authenticated user information."""
 
     db_session: Session
-    name = "auth:whoami"
-    pass_username = True  # Needs authenticated username
+    name: ClassVar[str] = "auth:whoami"
+    pass_username: ClassVar[bool] = True  # Needs authenticated username
 
     def call(self, username: str = "", *args):
         """Display information about the authenticated user.
@@ -154,8 +154,8 @@ class AuthRegisterCmd(Command):
     """Register a new user account."""
 
     db_session: Session
-    name = "auth:register"
-    requires_auth = False  # Public command
+    name: ClassVar[str] = "auth:register"
+    requires_auth: ClassVar[bool] = False  # Public command
 
     def call(self, username: str = "", email: str = "", password: str = "", *args):
         """Register a new user.
@@ -213,9 +213,9 @@ class AuthLogoutCmd(Command):
     and will be rejected by the authentication middleware.
     """
 
-    name = "auth:logout"
-    pass_username = True  # Request passes the username from the token
-    pass_token_info = True  # Request passes the full token
+    name: ClassVar[str] = "auth:logout"
+    pass_username: ClassVar[bool] = True  # Request passes the username from the token
+    pass_token_info: ClassVar[bool] = True  # Request passes the full token
 
     def call(self, username: str, _token: str | None = None):
         """Logout the current user by revoking their token.

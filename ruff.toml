@@ -40,12 +40,6 @@ lint.extend-ignore = [
     "PGH003", # Use specific rule codes when ignoring type issues
     "PLC0414", # Import alias does not rename original package
     "PLC1901", # An empty string is falsey; consider using `not s` if this is intended
-    "C901", # Function is too complex
-    "PLR0912", # Too many branches
-    "PLR0913", # Too many arguments
-    "PLR0914", # Too many local variables
-    "PLR0915", # Too many statements
-    "PLR0917", # ...
     "PLR2004", # Magic number
     "PLR6301", # Method could be a function
     "PLR0904", # too-many-public-methods
@@ -55,23 +49,35 @@ lint.extend-ignore = [
     "SIM102", # Use a single `if` statement instead of nested `if` statements
     "SIM108", # Use ternary operator
     "TC", # Move import into a type-checking block (conflicts with wireup)
+    "TRY300", # Consider moving this statement to an `else` block
+    "PERF401", #  7 - PERF401	manual-list-comprehension
 
     # Fix these
+    "C901", # Function is too complex
+    "PLR0912", # Too many branches
+    "PLR0913", # Too many arguments
+    "PLR0914", # Too many local variables
+    "PLR0915", # Too many statements
+    "PLR0917", # ...
     "E501", #   	line-too-long
-    "RUF005",
-    "RUF045", # 	implicit-class-var-in-dataclass
-    "TRY300", # 	try-consider-else
-    "B904", #   	raise-without-from-inside-except
-    "F841", #   	unused-variable
-    "FBT001", # 	boolean-type-hint-positional-argument
-    "FBT002", # 	boolean-default-value-positional-argument
-    "FBT003", # 	boolean-positional-value-in-call
-    "TRY301", # 	raise-within-try
-    "PLR0911", #	too-many-return-statements
-    "PERF203", #	try-except-in-loop
-    "B909", #   	loop-iterator-mutation
-    "PLW0603", #	global-statement
-    "PERF401", #
+#    "RUF045", # 69 - RUF045 	implicit-class-var-in-dataclass
+    "F841", # 26 - F841   	unused-variable
+    "FBT001", # 24 - FBT001 	boolean-type-hint-positional-argument
+    "FBT002", # 16 - FBT002 	boolean-default-value-positional-argument
+    "B904", # 15 - B904   	raise-without-from-inside-except
+    "PLR6201", # 12 - PLR6201	literal-membership
+    "PLR0911", #  9 - PLR0911	too-many-return-statements
+    "FBT003", #  5 - FBT003 	boolean-positional-value-in-call
+    "RUF005", #  5 - RUF005 	collection-literal-concatenation
+    "PLW0603", #  4 - PLW0603	global-statement
+    "TRY301", #  4 - TRY301 	raise-within-try
+    "PERF203", #  3 - PERF203	try-except-in-loop
+    "PLC0415", #  3 - PLC0415	import-outside-top-level
+    "B008", #  1 - B008   	function-call-in-default-argument
+    "B909", #  1 - B909   	loop-iterator-mutation
+    "PLW2901", #  1 - PLW2901	redefined-loop-name
+    "RUF012", #  1 - RUF012 	mutable-class-default
+    "RUF100", # Unused noqa
 ]
 
 

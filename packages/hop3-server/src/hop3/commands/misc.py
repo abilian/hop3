@@ -11,7 +11,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3 import config as c
 from hop3.deployers import do_deploy
@@ -44,7 +44,7 @@ class BackupCmd(Command):
     """Run a backup for an app's source code and virtual environment."""
 
     db_session: Session
-    name = "backup"
+    name: ClassVar[str] = "backup"
 
     def call(self, *args):
         if not args:
@@ -87,7 +87,7 @@ class BackupCmd(Command):
 class PluginsCmd(Command):
     """List installed plugins and their commands."""
 
-    name = "plugins"
+    name: ClassVar[str] = "plugins"
 
     def call(self, *args):
         # This implementation introspects the command registry
@@ -122,7 +122,7 @@ class PSCmd(Command):
     """Show process count for an app."""
 
     db_session: Session
-    name = "ps"
+    name: ClassVar[str] = "ps"
 
     def call(self, *args):
         if not args:
@@ -151,7 +151,7 @@ class PsScaleCmd(Command):
     """Set the process count (e.g., hop ps:scale <app_name> web=2 worker=1)."""
 
     db_session: Session
-    name = "ps:scale"
+    name: ClassVar[str] = "ps:scale"
 
     def call(self, *args):
         if len(args) < 2:
@@ -214,7 +214,7 @@ class RunCmd(Command):
     """Run a command in the context of an app."""
 
     db_session: Session
-    name = "run"
+    name: ClassVar[str] = "run"
 
     def call(self, *args):
         if len(args) < 2:
@@ -264,7 +264,7 @@ class SbomCmd(Command):
     """Generate a Software Bill of Materials (SBOM) for an app."""
 
     db_session: Session
-    name = "sbom"
+    name: ClassVar[str] = "sbom"
 
     def call(self, *args):
         if not args:
@@ -321,7 +321,7 @@ class SbomCmd(Command):
 class PgCmd(Command):
     """Manage a PostgreSQL database. (Placeholder)"""
 
-    name = "pg"
+    name: ClassVar[str] = "pg"
 
     def call(self, *args):
         return [{"t": "text", "text": "PostgreSQL commands are not yet implemented."}]
@@ -332,7 +332,7 @@ class PgCmd(Command):
 class RedisCmd(Command):
     """Manage a Redis instance. (Placeholder)"""
 
-    name = "redis"
+    name: ClassVar[str] = "redis"
 
     def call(self, *args):
         return [{"t": "text", "text": "Redis commands are not yet implemented."}]

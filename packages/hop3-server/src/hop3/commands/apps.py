@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.lib.registry import register
 from hop3.orm import AppRepository
@@ -25,7 +25,7 @@ class AppsCmd(Command):
     """List all applications."""
 
     db_session: Session
-    name = "apps"
+    name: ClassVar[str] = "apps"
 
     def call(self, *args):
         app_repo = AppRepository(session=self.db_session)

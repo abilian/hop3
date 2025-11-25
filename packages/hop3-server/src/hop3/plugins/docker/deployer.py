@@ -201,6 +201,55 @@ class DockerComposeDeployer(Deployer):
             )
             return False
 
+    def _parse_service_line(self, line: str) -> tuple[str, dict] | None:
+        """Parse a single service status line.
+
+        Args:
+            line: Tab-separated line with format: Name\tState\tStatus
+
+        Returns:
+            Tuple of (service_name, service_info) or None if line is invalid
+        """
+        if "\t" not in line:
+            return None
+
+        parts = line.split("\t")
+        if len(parts) < 2:
+            return None
+
+        name, state = parts[0], parts[1]
+        service_status = parts[2] if len(parts) > 2 else ""
+        service_info = {
+            "state": state,
+            "status": service_status,
+        }
+        return name, service_info
+
+    def _parse_docker_compose_output(self, output: str) -> dict:
+        """Parse docker compose ps output into service status dict.
+
+        Args:
+            output: Output from docker compose ps command
+
+        Returns:
+            Dict with 'services' and 'running' keys
+        """
+        services = {}
+        any_running = False
+
+        for line in output.strip().split("\n"):
+            parsed = self._parse_service_line(line)
+            if parsed:
+                name, service_info = parsed
+                services[name] = service_info
+                if "running" in service_info["state"].lower():
+                    any_running = True
+
+        return {
+            "services": services,
+            "running": any_running,
+        }
+
     def get_status(self) -> dict:
         """Get detailed status of Docker Compose services."""
         src_path = self.context.source_path
@@ -226,23 +275,7 @@ class DockerComposeDeployer(Deployer):
             )
 
             if result.returncode == 0 and result.stdout.strip():
-                lines = result.stdout.strip().split("\n")
-                any_running = False
-
-                for line in lines:
-                    if "\t" in line:
-                        parts = line.split("\t")
-                        if len(parts) >= 2:
-                            name, state = parts[0], parts[1]
-                            service_status = parts[2] if len(parts) > 2 else ""
-                            status["services"][name] = {
-                                "state": state,
-                                "status": service_status,
-                            }
-                            if "running" in state.lower():
-                                any_running = True
-
-                status["running"] = any_running
+                status = self._parse_docker_compose_output(result.stdout)
 
         except Exception as e:
             log(

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.lib.registry import register
 from hop3.orm import App, AppRepository, EnvVar
@@ -34,7 +34,7 @@ def _get_app(db_session: Session, app_name: str) -> App:
 class ConfigCmd(Command):
     """Manage an application config / env."""
 
-    name = "config"
+    name: ClassVar[str] = "config"
 
     def call(self, *args):
         """Show usage help for config commands."""
@@ -83,7 +83,7 @@ class ShowCmd(Command):
     """Show config, e.g.: hop config:show <app> or hop config:show --app <app>."""
 
     db_session: Session
-    name = "config:show"
+    name: ClassVar[str] = "config:show"
 
     def call(self, *args):
         app_name = self._parse_app_name(args)
@@ -134,7 +134,7 @@ class GetCmd(Command):
     """e.g.: hop config:get <app> KEY or hop config:get --app <app> KEY."""
 
     db_session: Session
-    name = "config:get"
+    name: ClassVar[str] = "config:get"
 
     def call(self, *args):
         app_name, setting = self._parse_args(args)
@@ -193,7 +193,7 @@ class LiveCmd(Command):
     """e.g.: hop config:live <app> or hop config:live --app <app>."""
 
     db_session: Session
-    name = "config:live"
+    name: ClassVar[str] = "config:live"
 
     def call(self, *args):
         app_name = self._parse_app_name(args)
@@ -260,7 +260,7 @@ class SetCmd(Command):
     """
 
     db_session: Session
-    name = "config:set"
+    name: ClassVar[str] = "config:set"
 
     def call(self, *args):
         app_name, settings = self._parse_args(args)
@@ -374,7 +374,7 @@ class UnsetCmd(Command):
     """
 
     db_session: Session
-    name = "config:unset"
+    name: ClassVar[str] = "config:unset"
 
     def call(self, *args):
         app_name, keys = self._parse_args(args)
@@ -469,7 +469,7 @@ class UnsetCmd(Command):
 class MigrateCmd(Command):
     """Migrate configuration from other PaaS formats to hop3.toml."""
 
-    name = "config:migrate"
+    name: ClassVar[str] = "config:migrate"
 
     def call(
         self,

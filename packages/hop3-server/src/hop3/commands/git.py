@@ -12,7 +12,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.deployers import do_deploy
 from hop3.lib import log
@@ -31,7 +31,7 @@ class GitHookCmd(Command):
     """Handle git post-receive hook to trigger deployment."""
 
     db_session: Session
-    name = "git-hook"
+    name: ClassVar[str] = "git-hook"
 
     def call(self, *args):
         """Process git post-receive hook data and trigger deployment.
