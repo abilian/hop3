@@ -238,6 +238,7 @@ class BaseProxy(ABC):
 
         This is used to construct proxy-specific environment variable names.
         """
+        ...
 
     def update_env(self, key: str, value: str = "", template: str = "") -> None:
         """Update an environment variable, optionally from a template.
@@ -269,34 +270,42 @@ class BaseProxy(ABC):
     @abstractmethod
     def setup_backend(self) -> None:
         """Configure the backend connection (TCP or Unix socket)."""
+        ...
 
     @abstractmethod
     def setup_certificates(self) -> None:
         """Setup SSL certificates for the application."""
+        ...
 
     @abstractmethod
     def setup_cache(self) -> None:
         """Configure caching for the application."""
+        ...
 
     @abstractmethod
     def setup_static(self) -> None:
         """Configure static file serving."""
+        ...
 
     @abstractmethod
     def extra_setup(self) -> None:
         """Perform additional proxy-specific setup."""
+        ...
 
     @abstractmethod
     def generate_config(self) -> None:
         """Generate the proxy configuration file."""
+        ...
 
     @abstractmethod
     def check_config(self) -> None:
         """Validate the generated proxy configuration."""
+        ...
 
     @abstractmethod
     def reload_proxy(self) -> None:
         """Reload the proxy to apply configuration changes."""
+        ...
 
     def get_static_paths(self) -> list[tuple[str, Path]]:
         """Get a mapping of static URL prefixes to file system paths.

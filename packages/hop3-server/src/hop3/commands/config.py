@@ -543,6 +543,7 @@ class MigrateCmd(Command):
             ]
 
         # Create backup if requested
+        backup_path = None
         if backup:
             backup_path = procfile_path.with_suffix(".bak")
             backup_path.write_text(procfile_path.read_text())
