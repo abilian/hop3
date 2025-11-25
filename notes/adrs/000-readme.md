@@ -34,6 +34,7 @@ Architectural Decision Records (or ADR) are documents that captures an important
 | [026](./026-dashboard-ui-test-classification.md) | Dashboard UI Test Classification | Accepted |
 | [027](./027-config-system-refactoring.md) | Configuration System Refactoring for Testability | Accepted |
 | [028](./028-pluggy-dishka-integration.md) | Pluggy + Dishka Integration for Plugin-Contributed Services | Accepted |
+| [029](./029-reconciliation-health-checks.md) | Application Reconciliation and Health Check System | Draft |
 
 ### Status Legend
 
