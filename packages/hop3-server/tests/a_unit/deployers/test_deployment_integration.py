@@ -5,12 +5,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
 from hop3.core.plugins import get_deployment_strategy
 from hop3.core.protocols import BuildArtifact, DeploymentContext
 from hop3.orm import App
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_uwsgi_deployer_selected_for_virtualenv(tmp_path: Path):

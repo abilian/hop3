@@ -7,9 +7,12 @@ from __future__ import annotations
 
 import subprocess
 import time
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hop3.builders.python import PythonBuilder
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_broken_virtualenv_is_recreated(tmp_path: Path, monkeypatch):

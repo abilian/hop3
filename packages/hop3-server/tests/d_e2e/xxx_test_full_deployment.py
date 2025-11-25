@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import subprocess
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -23,7 +22,7 @@ import pytest
 from .conftest import deploy_flask_app, wait_for_app_status, wait_for_http_ready
 
 if TYPE_CHECKING:
-    pass
+    from pathlib import Path
 
 # Mark all tests as e2e
 pytestmark = pytest.mark.e2e

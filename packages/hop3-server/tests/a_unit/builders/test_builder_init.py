@@ -5,10 +5,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hop3.builders.python import PythonBuilder
 from hop3.core.protocols import DeploymentContext
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_builder_with_deployment_context(tmp_path: Path):
