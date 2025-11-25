@@ -3,7 +3,11 @@
 **Status:** Accepted
 **Date:** 2025-11-08
 **Authors:** Hop3 Development Team
-**Related:** ADR 020 (Pluggable Architecture)
+**Related:** [ADR 016](016-backups.md) (Long-term Strategy), ADR 020 (Pluggable Architecture)
+
+## Relationship to ADR 016
+
+This ADR describes the **Phase 1 implementation** of Hop3's backup system. [ADR 016](016-backups.md) defines the long-term backup strategy including features planned for future phases (automated scheduling, remote storage, encryption, incremental backups). This ADR focuses on the foundational implementation that enables those future enhancements.
 
 ## Context
 
@@ -330,13 +334,15 @@ def backup(self) -> Path:
 
 ## References
 
-- Implementation: `packages/hop3-server/src/hop3/core/backup.py`
-- Commands: `packages/hop3-server/src/hop3/commands/backup.py`
-- Tests: `packages/hop3-server/tests/{a_unit,b_integration,d_e2e}/test_backup*.py`
-- User Documentation: `docs/src/backup-restore.md`
-- Service Protocol: `packages/hop3-server/src/hop3/core/protocols.py`
+- **Strategy**: [ADR 016: Backup Strategy](016-backups.md) (long-term vision, phases 2-3)
+- **Implementation**: `packages/hop3-server/src/hop3/core/backup.py`
+- **Commands**: `packages/hop3-server/src/hop3/commands/backup.py`
+- **Tests**: `packages/hop3-server/tests/{a_unit,b_integration,d_e2e}/test_backup*.py`
+- **User Documentation**: `docs/src/backup-restore.md`
+- **Service Protocol**: `packages/hop3-server/src/hop3/core/protocols.py`
 
 ## Revision History
 
 - **2025-11-08**: Initial ADR (v1.0)
-- Implemented in Hop3 v0.8.0
+- **2025-11-25**: Added cross-reference to ADR 016 (long-term strategy)
+- Implemented in Hop3 v0.4.0
