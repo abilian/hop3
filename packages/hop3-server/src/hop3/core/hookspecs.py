@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
-from hop3.core.protocols import OS, Addon, Builder, Deployer
+from dishka import Provider
+
+from hop3.core.protocols import OS, Addon, Builder, Deployer, Proxy
 
 from .hooks import hookspec
 
@@ -52,7 +54,7 @@ def get_os_implementations() -> list[OS]:
 
 
 @hookspec
-def get_proxy_strategies() -> list:
+def get_proxies() -> list[Proxy]:
     """Get proxy strategies provided by this plugin.
 
     Returns:
@@ -62,7 +64,7 @@ def get_proxy_strategies() -> list:
 
 
 @hookspec
-def get_di_providers() -> list:
+def get_di_providers() -> list[Provider]:
     """Get DI providers from this plugin.
 
     Plugins can implement this hook to contribute Dishka providers

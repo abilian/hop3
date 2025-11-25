@@ -104,14 +104,28 @@ def get_plugin_manager() -> PluginManager:
     pm.register(core_plugin)
 
     # Import all plugin modules and auto-discover plugin instances
+    #
+    # Plugin Architecture Notes:
+    # - Each plugin package can have both module-level hooks AND a plugin class
+    # - Module-level hooks (e.g., get_di_providers()) are registered on the module itself
+    # - Plugin class hooks (e.g., get_builders()) are registered on the plugin instance
+    # - We register BOTH to support both patterns
+    #
+    # Example: PostgreSQL plugin has:
+    #   - Module-level: @hookimpl def get_di_providers() -> list
+    #   - Plugin class: PostgresqlPlugin with @hookimpl def get_addons()
+    #
+    # Important: To avoid duplicate registration, plugin packages should NOT
+    # export the plugin instance from __init__.py if they also have a plugin.py.
+    # Only plugin.py should export the plugin instance.
     for module in get_core_plugins():
-        # Each plugin module should export a `plugin` instance
+        # Register the module to capture module-level hooks (like get_di_providers)
+        pm.register(module)
+
+        # Additionally register the plugin instance if it exists
+        # This allows both module-level hooks and plugin-class hooks
         if hasattr(module, "plugin"):
             pm.register(module.plugin)
-
-        # Also register the module itself to discover module-level hooks
-        # (e.g., get_di_providers() function)
-        pm.register(module)
 
     # For plugins that are not built-in, we load them from setuptools entry points
     pm.load_setuptools_entrypoints("hop3")
@@ -274,13 +288,13 @@ def get_deployer_by_name(app, runtime_name: str) -> Deployer:
     raise RuntimeError(msg)
 
 
-def get_service_strategy(service_type: str, service_name: str) -> Addon:
+def get_addon(addon_type: str, addon_name: str) -> Addon:
     """
     Finds and instantiates the appropriate service strategy.
 
     Args:
-        service_type: The type of service (e.g., 'postgres', 'redis')
-        service_name: The specific instance name for this service
+        addon_type: The type of service (e.g., 'postgres', 'redis')
+        addon_name: The specific instance name for this service
 
     Returns:
         An instance of the requested Addon
@@ -290,18 +304,20 @@ def get_service_strategy(service_type: str, service_name: str) -> Addon:
     """
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.get_addons()
-    strategy_classes: list[type[Addon]] = [
-        cls for sublist in strategy_classes_list for cls in sublist
+    addon_classes_list = pm.hook.get_addons()
+    addon_classes: list[type[Addon]] = [
+        cls for sublist in addon_classes_list for cls in sublist
     ]
 
-    for strategy_class in strategy_classes:
+    for addon_class in addon_classes:
         # Check if the strategy name matches the requested service type
-        if getattr(strategy_class, "name", None) == service_type:
-            return strategy_class(service_name=service_name)
+        if getattr(addon_class, "name", None) == addon_type:
+            return addon_class(addon_name=addon_name)
 
-    available_services = [getattr(cls, "name", "?") for cls in strategy_classes]
-    msg = f"Service type '{service_type}' not found. Available services: {available_services}"
+    available_addons = [getattr(cls, "name", "?") for cls in addon_classes]
+    msg = (
+        f"Service type '{addon_type}' not found. Available services: {available_addons}"
+    )
     raise RuntimeError(msg)
 
 
@@ -378,7 +394,7 @@ def get_proxy_strategy(app, env, workers: dict[str, str]) -> Proxy:
 
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.get_proxy_strategies()
+    strategy_classes_list = pm.hook.get_proxies()
     strategy_classes: list[type[Proxy]] = [
         cls for sublist in strategy_classes_list for cls in sublist
     ]

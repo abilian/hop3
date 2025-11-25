@@ -374,17 +374,18 @@ Create a new service instance.
 - Should be idempotent
 
 **Example**:
+
 ```python
 def create(self) -> None:
     """Create PostgreSQL database."""
     # Check if already exists
     if self._database_exists():
-        log(f"Database {self.service_name} already exists", fg="yellow")
+        log(f"Database {self.addon_name} already exists", fg="yellow")
         return
 
     # Create database and user
     subprocess.run([
-        "sudo", "-u", "postgres", "createdb", self.service_name
+        "sudo", "-u", "postgres", "createdb", self.addon_name
     ], check=True)
 ```
 
@@ -399,11 +400,12 @@ Destroy the service instance and all its data.
 - Should be idempotent
 
 **Example**:
+
 ```python
 def destroy(self) -> None:
     """Destroy PostgreSQL database."""
     subprocess.run([
-        "sudo", "-u", "postgres", "dropdb", "--if-exists", self.service_name
+        "sudo", "-u", "postgres", "dropdb", "--if-exists", self.addon_name
     ])
 ```
 
@@ -419,12 +421,13 @@ Get environment variables for applications to connect to this service.
 - Use localhost for local services
 
 **Example**:
+
 ```python
 def get_connection_details(self) -> dict[str, str]:
     """Return PostgreSQL connection details."""
     return {
-        "DATABASE_URL": f"postgresql://hop3:password@localhost/{self.service_name}",
-        "POSTGRES_DB": self.service_name,
+        "DATABASE_URL": f"postgresql://hop3:password@localhost/{self.addon_name}",
+        "POSTGRES_DB": self.addon_name,
         "POSTGRES_HOST": "localhost",
         "POSTGRES_PORT": "5432"
     }
@@ -443,15 +446,16 @@ Create a backup of service data.
 - Store in predictable location
 
 **Example**:
+
 ```python
 def backup(self) -> Path:
     """Backup PostgreSQL database."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_file = Path(f"/home/hop3/backups/postgres_{self.service_name}_{timestamp}.sql")
+    backup_file = Path(f"/home/hop3/backups/postgres_{self.addon_name}_{timestamp}.sql")
 
     with backup_file.open("w") as f:
         subprocess.run([
-            "sudo", "-u", "postgres", "pg_dump", self.service_name
+            "sudo", "-u", "postgres", "pg_dump", self.addon_name
         ], stdout=f, check=True)
 
     return backup_file
@@ -471,6 +475,7 @@ Restore service data from a backup.
 - Restart service
 
 **Example**:
+
 ```python
 def restore(self, backup_path: Path) -> None:
     """Restore PostgreSQL database."""
@@ -481,7 +486,7 @@ def restore(self, backup_path: Path) -> None:
     # Restore from backup
     with backup_path.open() as f:
         subprocess.run([
-            "sudo", "-u", "postgres", "psql", self.service_name
+            "sudo", "-u", "postgres", "psql", self.addon_name
         ], stdin=f, check=True)
 ```
 
@@ -497,18 +502,19 @@ Get information about the service instance.
 - Should be fast
 
 **Example**:
+
 ```python
 def info(self) -> dict[str, Any]:
     """Get PostgreSQL database info."""
     # Get database size
     result = subprocess.run([
         "sudo", "-u", "postgres", "psql", "-c",
-        f"SELECT pg_database_size('{self.service_name}');"
+        f"SELECT pg_database_size('{self.addon_name}');"
     ], capture_output=True, text=True)
 
     return {
         "service_type": "postgres",
-        "service_name": self.service_name,
+        "service_name": self.addon_name,
         "status": "running" if self._is_running() else "stopped",
         "version": self._get_version(),
         "size_bytes": self._parse_size(result.stdout)

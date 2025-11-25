@@ -101,6 +101,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
 
+
 def backup(self) -> Path:
     """Create a backup of the PostgreSQL database using pg_dump."""
     # 1. Define backup directory
@@ -109,7 +110,7 @@ def backup(self) -> Path:
 
     # 2. Generate unique filename with timestamp
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    backup_file = backup_dir / f"{self.service_name}_{timestamp}.sql"
+    backup_file = backup_dir / f"{self.addon_name}_{timestamp}.sql"
 
     # 3. Run service-specific backup command
     cmd = [
