@@ -64,6 +64,48 @@ def format_table(headers: list[str], rows: list[list]) -> str:
     return "\n".join([header_line, separator] + row_lines)
 
 
+def _format_dict_item(item: dict) -> str:
+    """Format a single dictionary item based on its type.
+
+    Args:
+        item: Dictionary with 't' (type) field
+
+    Returns:
+        Formatted string
+    """
+    item_type = item.get("t")
+    if item_type == "text":
+        return item.get("text", "")
+    if item_type == "error":
+        return f"ERROR: {item.get('text', '')}"
+    if item_type == "success":
+        return f"SUCCESS: {item.get('text', '')}"
+    if item_type == "table":
+        headers = item.get("headers", [])
+        rows = item.get("rows", [])
+        return format_table(headers, rows)
+    # Unknown format
+    return json.dumps(item, indent=2)
+
+
+def _format_list_result(result: list) -> str:
+    """Format list of message dicts.
+
+    Args:
+        result: List of items (dicts or other)
+
+    Returns:
+        Formatted string
+    """
+    output_parts = []
+    for item in result:
+        if isinstance(item, dict):
+            output_parts.append(_format_dict_item(item))
+        else:
+            output_parts.append(str(item))
+    return "\n".join(output_parts)
+
+
 def format_output(result):
     """Format command result for console output.
 
@@ -77,39 +119,9 @@ def format_output(result):
         Formatted string for console output
     """
     if isinstance(result, list):
-        # Handle list of message dicts (common format)
-        output_parts = []
-        for item in result:
-            if isinstance(item, dict):
-                if item.get("t") == "text":
-                    output_parts.append(item.get("text", ""))
-                elif item.get("t") == "error":
-                    output_parts.append(f"ERROR: {item.get('text', '')}")
-                elif item.get("t") == "success":
-                    output_parts.append(f"SUCCESS: {item.get('text', '')}")
-                elif item.get("t") == "table":
-                    # Format table nicely
-                    headers = item.get("headers", [])
-                    rows = item.get("rows", [])
-                    output_parts.append(format_table(headers, rows))
-                else:
-                    # Unknown format, print as JSON
-                    output_parts.append(json.dumps(item, indent=2))
-            else:
-                output_parts.append(str(item))
-        return "\n".join(output_parts)
+        return _format_list_result(result)
     if isinstance(result, dict):
-        # Single dict result
-        if result.get("t") == "text":
-            return result.get("text", "")
-        if result.get("t") == "error":
-            return f"ERROR: {result.get('text', '')}"
-        if result.get("t") == "table":
-            # Format table nicely
-            headers = result.get("headers", [])
-            rows = result.get("rows", [])
-            return format_table(headers, rows)
-        return json.dumps(result, indent=2)
+        return _format_dict_item(result)
     if isinstance(result, str):
         return result
     # Fallback: JSON representation
