@@ -166,7 +166,7 @@ class RedHatFamilyPlugin:
     """
 
     @hop3_hook_impl
-    def get_os_strategies(self) -> list:
+    def get_os_implementations(self) -> list:
         return [RedHatFamilyStrategy]
 
 

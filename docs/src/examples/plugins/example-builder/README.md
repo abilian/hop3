@@ -14,7 +14,7 @@ This plugin provides a simple build strategy that creates a Python virtualenv fo
 
 ## How It Works
 
-1. **Plugin Registration**: The `ExamplePlugin` class implements the `get_build_strategies()` hook
+1. **Plugin Registration**: The `ExamplePlugin` class implements the `get_builders()` hook
 2. **Detection**: The builder checks for `requirements.txt` to detect Python apps
 3. **Build Process**: Creates a virtualenv and installs dependencies
 4. **Artifact**: Returns information about the created virtualenv
@@ -60,7 +60,7 @@ The plugin uses `@hookimpl` to implement hooks:
 
 ```python
 @hookimpl
-def get_build_strategies(self) -> list:
+def get_builders(self) -> list:
     return [ExampleBuilder]
 ```
 

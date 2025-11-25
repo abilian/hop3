@@ -12,7 +12,7 @@ We implement build and deployment as a two-stage plugin system with **per-applic
 
 1. **Per-Application Selection:** Each application auto-detects appropriate build and deployment strategies based on its codebase
 2. **Two Protocol Interfaces:** `BuildStrategy` and `DeploymentStrategy` define interfaces with `accept()` methods
-3. **Plugin Discovery:** Strategies discovered via `get_build_strategies()` and `get_deployment_strategies()` hookspecs
+3. **Plugin Discovery:** Strategies discovered via `get_builders()` and `get_deployment_strategies()` hookspecs
 4. **Data Flow Pipeline:** `DeploymentContext` → `BuildArtifact` → `DeploymentInfo`
 5. **Orchestration:** `do_deploy(app, deltas)` coordinates the pipeline
 
@@ -208,7 +208,7 @@ class NativeBuildPlugin:
     name = "native-build"
 
     @hookimpl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         """Return list of build strategy classes."""
         return [
             PythonBuilder,
@@ -435,7 +435,7 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
         RuntimeError: If no strategy accepts the application
     """
     pm = get_plugin_manager()
-    strategy_classes = flatten(pm.hook.get_build_strategies())
+    strategy_classes = flatten(pm.hook.get_builders())
 
     for strategy_class in strategy_classes:
         strategy = strategy_class(context)

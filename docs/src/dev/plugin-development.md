@@ -191,7 +191,8 @@ Service strategies manage backing services (databases, caches, etc.).
 
 ```python
 from pathlib import Path
-from hop3.core.protocols import ServiceStrategy
+from hop3.core.protocols import Addon
+
 
 class RedisService:
     """Manage Redis service instances."""
@@ -338,7 +339,7 @@ class NginxVirtualHost(BaseProxy):
 
 OS setup strategies handle operating system-specific configuration.
 
-**Protocol**: `OSSetupStrategy` (from `hop3.core.protocols`)
+**Protocol**: `OS` (from `hop3.core.protocols`)
 
 **Required attributes**:
 - `name` (str): OS identifier (e.g., "debian12", "ubuntu2204")
@@ -355,7 +356,7 @@ OS setup strategies handle operating system-specific configuration.
 
 ```python
 from pathlib import Path
-from hop3.core.protocols import OSSetupStrategy
+from hop3.core.protocols import OS
 
 class DebianFamilyOS:
     """Support for Debian-based distributions."""
@@ -435,7 +436,7 @@ class MyPlugin:
     name = "my_plugin"
 
     @hookimpl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         """Return build strategies."""
         return [MyBuilder]
 
@@ -501,7 +502,7 @@ class MyExternalPlugin:
     name = "my_external_plugin"
 
     @hookimpl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         return [MyBuilder]
 
 plugin = MyExternalPlugin()
@@ -551,7 +552,7 @@ from hop3.core.plugins import get_plugin_manager
 def test_plugin_registered():
     """Test that plugin is discovered."""
     pm = get_plugin_manager()
-    strategies = pm.hook.get_build_strategies()
+    strategies = pm.hook.get_builders()
     strategy_classes = [cls for sublist in strategies for cls in sublist]
 
     names = [getattr(cls, "name", None) for cls in strategy_classes]
@@ -681,7 +682,7 @@ class MyBuilder:
 # plugin.py
 class MyPlugin:
     @hookimpl
-    def get_build_strategies(self):
+    def get_builders(self):
         return [MyBuilder]
 
 # Missing: plugin = MyPlugin()
@@ -691,7 +692,7 @@ class MyPlugin:
 ```python
 class MyPlugin:
     @hookimpl
-    def get_build_strategies(self):
+    def get_builders(self):
         return [MyBuilder]
 
 # Must create instance for auto-registration
@@ -719,7 +720,7 @@ __all__ = ["plugin"]
 **Wrong**:
 ```python
 @hookimpl
-def get_build_strategies(self):
+def get_builders(self):
     # Don't instantiate here
     return [MyBuilder()]
 ```
@@ -727,7 +728,7 @@ def get_build_strategies(self):
 **Correct**:
 ```python
 @hookimpl
-def get_build_strategies(self):
+def get_builders(self):
     # Return classes, not instances
     return [MyBuilder]
 ```

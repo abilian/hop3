@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from hop3.core.protocols import Addon, Builder
+
 from .hooks import hookspec
 
 
@@ -13,11 +15,11 @@ def cli_commands() -> None:
 
 
 @hookspec
-def get_build_strategies() -> list:
-    """Get build strategies provided by this plugin.
+def get_builders() -> list[Builder]:
+    """Get builders provided by this plugin.
 
     Returns:
-        List of BuildStrategy classes
+        List of Builders classes
     """
 
 
@@ -31,20 +33,20 @@ def get_deployment_strategies() -> list:
 
 
 @hookspec
-def get_service_strategies() -> list:
-    """Get service strategies provided by this plugin.
+def get_addons() -> list[Addon]:
+    """Get addons provided by this plugin.
 
     Returns:
-        List of ServiceStrategy classes
+        List of Addon classes
     """
 
 
 @hookspec
-def get_os_strategies() -> list:
+def get_os_implementations() -> list:
     """Get OS setup strategies provided by this plugin.
 
     Returns:
-        List of OSSetupStrategy classes that can detect and configure
+        List of OS classes that can detect and configure
         specific operating systems for hop3.
     """
 

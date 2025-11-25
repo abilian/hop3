@@ -31,7 +31,7 @@ class ExamplePlugin:
     name = "example"
 
     @hookimpl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         """Return build strategies provided by this plugin.
 
         This hook is called by the plugin manager during initialization

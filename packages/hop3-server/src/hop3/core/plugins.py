@@ -22,13 +22,13 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from .protocols import (
+        OS,
+        Addon,
         BuildArtifact,
         Builder,
         DeploymentContext,
         DeploymentStrategy,
-        OSSetupStrategy,
         Proxy,
-        ServiceStrategy,
     )
 
 # Singleton instance of the PluginManager.
@@ -128,7 +128,7 @@ class CorePlugin:
     name = "core"
 
     @hop3_hook_impl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         # This hook returns classes, not instances.
         return [DummyBuilder]
 
@@ -151,7 +151,7 @@ def get_build_strategy(context: DeploymentContext) -> Builder:
 
     # The result is a list of lists, e.g., [[BuildpackBuilder], [DockerBuilder]]
     try:
-        strategy_classes_list = pm.hook.get_build_strategies()
+        strategy_classes_list = pm.hook.get_builders()
     except:
         traceback.print_exc()
         raise
@@ -274,7 +274,7 @@ def get_deployment_strategy_by_name(app, runtime_name: str) -> DeploymentStrateg
     raise RuntimeError(msg)
 
 
-def get_service_strategy(service_type: str, service_name: str) -> ServiceStrategy:
+def get_service_strategy(service_type: str, service_name: str) -> Addon:
     """
     Finds and instantiates the appropriate service strategy.
 
@@ -290,8 +290,8 @@ def get_service_strategy(service_type: str, service_name: str) -> ServiceStrateg
     """
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.get_service_strategies()
-    strategy_classes: list[type[ServiceStrategy]] = [
+    strategy_classes_list = pm.hook.get_addons()
+    strategy_classes: list[type[Addon]] = [
         cls for sublist in strategy_classes_list for cls in sublist
     ]
 
@@ -305,7 +305,7 @@ def get_service_strategy(service_type: str, service_name: str) -> ServiceStrateg
     raise RuntimeError(msg)
 
 
-def get_os_strategy() -> OSSetupStrategy:
+def get_os_strategy() -> OS:
     """
     Auto-detect and return the appropriate OS setup strategy for the current system.
 
@@ -321,8 +321,8 @@ def get_os_strategy() -> OSSetupStrategy:
 
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.get_os_strategies()
-    strategy_classes: list[type[OSSetupStrategy]] = [
+    strategy_classes_list = pm.hook.get_os_implementations()
+    strategy_classes: list[type[OS]] = [
         cls for sublist in strategy_classes_list for cls in sublist
     ]
 
@@ -349,7 +349,7 @@ def list_supported_os() -> list[str]:
     """
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.get_os_strategies()
+    strategy_classes_list = pm.hook.get_os_implementations()
     strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
 
     return [getattr(cls, "display_name", "Unknown") for cls in strategy_classes]

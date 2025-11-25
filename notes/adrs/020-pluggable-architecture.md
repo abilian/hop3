@@ -185,7 +185,7 @@ The core architecture described in this ADR has been **fully implemented** with 
 The implementation includes significant value-add features beyond the original ADR scope:
 
 1. **ServiceStrategy**: Plugin system for managing backing services (PostgreSQL, Redis) with encrypted credential persistence
-2. **OSSetupStrategy**: Plugin system for multi-distribution OS support (Debian, Ubuntu, Arch, BSD, etc.)
+2. **OS**: Plugin system for multi-distribution OS support (Debian, Ubuntu, Arch, BSD, etc.)
 3. **Server-wide Proxy Configuration**: Proxy selection is server-wide (via `HOP3_PROXY_TYPE`), not per-application, reflecting the practical reality that one server uses one reverse proxy for all applications
 4. **Protocol-based Design**: Using Python `Protocol` instead of ABC for better IDE support and more Pythonic code
 
