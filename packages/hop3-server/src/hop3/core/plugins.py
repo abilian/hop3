@@ -187,7 +187,21 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
 def get_deployment_strategy(
     context: DeploymentContext, artifact: BuildArtifact
 ) -> DeploymentStrategy:
-    """Finds and instantiates the appropriate deployment strategy."""
+    """Finds and instantiates the appropriate deployment strategy.
+
+    This function is used during the build-deploy pipeline to auto-select
+    a deployment strategy based on the artifact type.
+
+    Args:
+        context: Deployment context with app information
+        artifact: Build artifact to deploy
+
+    Returns:
+        DeploymentStrategy instance that accepts the artifact
+
+    Raises:
+        RuntimeError: If no compatible strategy is found
+    """
     pm = get_plugin_manager()
 
     strategy_classes_list = pm.hook.get_deployment_strategies()
@@ -201,6 +215,62 @@ def get_deployment_strategy(
             return strategy
 
     msg = f"Could not find a deployment strategy compatible with artifact of kind '{artifact.kind}'."
+    raise RuntimeError(msg)
+
+
+def get_deployment_strategy_by_name(app, runtime_name: str) -> DeploymentStrategy:
+    """Get a deployment strategy by name for lifecycle operations.
+
+    This function is used for lifecycle management (start, stop, restart, status)
+    where we need to look up a strategy by name rather than auto-detecting.
+
+    Args:
+        app: App instance (for creating deployment context)
+        runtime_name: Name of the runtime (e.g., 'uwsgi', 'docker-compose')
+
+    Returns:
+        DeploymentStrategy instance for the named runtime
+
+    Raises:
+        RuntimeError: If the runtime name is not found
+
+    Example:
+        >>> strategy = get_deployment_strategy_by_name(app, 'uwsgi')
+        >>> is_running = strategy.check_status()
+    """
+    from hop3.core.protocols import BuildArtifact, DeploymentContext  # noqa: PLC0415
+
+    pm = get_plugin_manager()
+
+    strategy_classes_list = pm.hook.get_deployment_strategies()
+    strategy_classes: list[type[DeploymentStrategy]] = [
+        cls for sublist in strategy_classes_list for cls in sublist
+    ]
+
+    # Find strategy by name
+    for strategy_class in strategy_classes:
+        if getattr(strategy_class, "name", None) == runtime_name:
+            # Create deployment context for lifecycle operations
+            context = DeploymentContext(
+                app_name=app.name,
+                source_path=app.src_path,
+                app_config={},
+                app=app,
+            )
+            # Create dummy artifact (not needed for lifecycle ops)
+            artifact = BuildArtifact(
+                kind="unknown",
+                location=str(app.virtualenv_path)
+                if hasattr(app, "virtualenv_path")
+                else "",
+            )
+            return strategy_class(context, artifact)
+
+    # Provide helpful error message with available runtimes
+    available_runtimes = [getattr(cls, "name", "?") for cls in strategy_classes]
+    msg = (
+        f"Runtime '{runtime_name}' not found. Available runtimes: {available_runtimes}"
+    )
     raise RuntimeError(msg)
 
 

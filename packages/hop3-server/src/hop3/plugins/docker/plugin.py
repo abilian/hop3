@@ -10,6 +10,8 @@ This plugin provides Docker-based build and deployment strategies.
 from __future__ import annotations
 
 from hop3.core.hooks import hookimpl
+from hop3.plugins.docker.builder import DockerBuildStrategy
+from hop3.plugins.docker.deployer import DockerComposeDeploymentStrategy
 
 
 class DockerPlugin:
@@ -23,13 +25,21 @@ class DockerPlugin:
 
     @hookimpl
     def get_build_strategies(self) -> list:
-        # TODO: Implement Docker build strategies
-        return []
+        """Return Docker build strategies.
+
+        Returns:
+            List containing DockerBuildStrategy class
+        """
+        return [DockerBuildStrategy]
 
     @hookimpl
     def get_deployment_strategies(self) -> list:
-        # TODO: Implement Docker Compose deployment strategies
-        return []
+        """Return Docker Compose deployment strategies.
+
+        Returns:
+            List containing DockerComposeDeploymentStrategy class
+        """
+        return [DockerComposeDeploymentStrategy]
 
 
 # Auto-register plugin instance when module is imported
