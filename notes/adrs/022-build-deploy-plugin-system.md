@@ -11,17 +11,17 @@ The original Hop3 architecture combined build and deployment logic into a monoli
 We implement build and deployment as a two-stage plugin system with **per-application auto-detection**:
 
 1. **Per-Application Selection:** Each application auto-detects appropriate build and deployment strategies based on its codebase
-2. **Two Protocol Interfaces:** `BuildStrategy` and `Deployer` define interfaces with `accept()` methods
+2. **Two Protocol Interfaces:** `Builder` and `Deployer` define interfaces with `accept()` methods
 3. **Plugin Discovery:** Strategies discovered via `get_builders()` and `get_deployers()` hookspecs
 4. **Data Flow Pipeline:** `DeploymentContext` → `BuildArtifact` → `DeploymentInfo`
 5. **Orchestration:** `do_deploy(app, deltas)` coordinates the pipeline
 
 ## Build Plugin Interface
 
-### BuildStrategy Protocol
+### Builder Protocol
 
 ```python
-class BuildStrategy(Protocol):
+class Builder(Protocol):
     """Interface for turning source code into a runnable artifact."""
 
     name: str                    # Strategy identifier (e.g., "python", "docker")
@@ -63,7 +63,7 @@ class BuildStrategy(Protocol):
 ```python
 @dataclass
 class BuildArtifact:
-    """Describes a build artifact produced by a BuildStrategy."""
+    """Describes a build artifact produced by a Builder."""
 
     kind: str         # Artifact type: "buildpack", "docker-image", "nix-closure", "static"
     location: str     # Path or identifier: "/path/to/venv", "myapp:latest"
@@ -420,7 +420,7 @@ def do_deploy(app: App, deltas: dict[str, int] | None = None) -> None:
 ### Strategy Selection Functions
 
 ```python
-def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
+def get_build_strategy(context: DeploymentContext) -> Builder:
     """Find and instantiate appropriate build strategy.
 
     Tries each registered strategy's accept() method until one returns True.
@@ -429,7 +429,7 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
         context: Application context
 
     Returns:
-        BuildStrategy instance ready to build
+        Builder instance ready to build
 
     Raises:
         RuntimeError: If no strategy accepts the application

@@ -28,7 +28,7 @@ class DockerPlugin:
         """Return Docker build strategies.
 
         Returns:
-            List containing DockerBuildStrategy class
+            List containing DockerBuilder class
         """
         return [DockerBuilder]
 

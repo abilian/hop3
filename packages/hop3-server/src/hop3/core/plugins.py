@@ -283,7 +283,7 @@ def get_service_strategy(service_type: str, service_name: str) -> Addon:
         service_name: The specific instance name for this service
 
     Returns:
-        An instance of the requested ServiceStrategy
+        An instance of the requested Addon
 
     Raises:
         RuntimeError: If the requested service type is not found

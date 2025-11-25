@@ -35,7 +35,7 @@ Modify core code when you need to:
 
 Build strategies convert source code into deployable artifacts.
 
-**Protocol**: `BuildStrategy` (from `hop3.core.protocols`)
+**Protocol**: `Builder` (from `hop3.core.protocols`)
 
 **Required attributes**:
 - `name` (str): Unique identifier (e.g., "python", "docker")
@@ -173,7 +173,7 @@ class DockerComposeDeployer:
 
 Service strategies manage backing services (databases, caches, etc.).
 
-**Protocol**: `ServiceStrategy` (from `hop3.core.protocols`)
+**Protocol**: `Addon` (from `hop3.core.protocols`)
 
 **Required attributes**:
 - `name` (str): Service type (e.g., "postgres", "redis")

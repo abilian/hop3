@@ -5,7 +5,7 @@ This guide explains how to add backup and restore functionality to Hop3 service 
 ## Table of Contents
 
 - [Overview](#overview)
-- [ServiceStrategy Protocol](#servicestrategy-protocol)
+- [Addon Protocol](#Addon-protocol)
 - [Implementing backup()](#implementing-backup)
 - [Implementing restore()](#implementing-restore)
 - [Best Practices](#best-practices)
@@ -14,7 +14,7 @@ This guide explains how to add backup and restore functionality to Hop3 service 
 
 ## Overview
 
-Hop3's backup system automatically discovers and backs up services attached to applications. Services must implement the `ServiceStrategy` protocol, which includes `backup()` and `restore()` methods.
+Hop3's backup system automatically discovers and backs up services attached to applications. Services must implement the `Addon` protocol, which includes `backup()` and `restore()` methods.
 
 ### How It Works
 
@@ -24,15 +24,15 @@ Hop3's backup system automatically discovers and backs up services attached to a
 4. **Metadata**: Records the service backup in `metadata.json` with checksum
 5. **Restoration**: During restore, calls `service.restore(backup_path)` to restore the service data
 
-## ServiceStrategy Protocol
+## Addon Protocol
 
-All services must implement the `ServiceStrategy` protocol defined in `hop3/core/protocols.py`:
+All services must implement the `Addon` protocol defined in `hop3/core/protocols.py`:
 
 ```python
 from pathlib import Path
 from typing import Protocol
 
-class ServiceStrategy(Protocol):
+class Addon(Protocol):
     """Protocol that all service strategies must implement."""
 
     # Service identification
@@ -569,7 +569,7 @@ When implementing backup/restore for a new service:
 ## Further Reading
 
 - [ADR 081: Backup and Restore System](../adrs/081-backup-restore-system.md)
-- ServiceStrategy Protocol (in `protocols.py`)
+- Addon Protocol (in `protocols.py`)
 - [Backup and Restore User Guide](../../../backup-restore.md)
 - [PostgreSQL backup documentation](https://www.postgresql.org/docs/current/backup.html)
 - [Redis persistence](https://redis.io/topics/persistence)

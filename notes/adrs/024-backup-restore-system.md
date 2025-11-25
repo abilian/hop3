@@ -74,7 +74,7 @@ Each backup is stored as a **directory** containing:
    - Alternative considered: MD5 (rejected - cryptographically broken), SHA512 (rejected - overkill)
 
 5. **Service Plugin Integration**
-   - Leverages existing `ServiceStrategy` protocol
+   - Leverages existing `Addon` protocol
    - Each service implements `backup()` and `restore()` methods
    - Service-specific backup format (e.g., PostgreSQL uses `pg_dump`)
    - Extensible: new services automatically support backup
@@ -202,7 +202,7 @@ This provides:
    - Benefit: Human-readable, debuggable
 
 3. **Service-Specific vs Generic Backup**
-   - Chose: Service-specific (via ServiceStrategy)
+   - Chose: Service-specific (via Addon)
    - Trade-off: Each service needs backup implementation
    - Benefit: Optimal backup format per service (e.g., PostgreSQL dump vs Redis RDB)
 
@@ -278,7 +278,7 @@ This provides:
 Services must implement:
 
 ```python
-class ServiceStrategy(Protocol):
+class Addon(Protocol):
     def backup(self) -> Path:
         """Create backup, return path to backup file."""
         ...

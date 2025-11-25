@@ -4,7 +4,7 @@
 
 """PostgreSQL service implementation.
 
-This module implements the ServiceStrategy protocol for PostgreSQL,
+This module implements the Addon protocol for PostgreSQL,
 allowing applications to create, attach, and manage PostgreSQL databases.
 
 Credentials are stored encrypted in the database using Fernet encryption.
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class PostgresService:
-    """PostgreSQL service implementation using ServiceStrategy protocol.
+    """PostgreSQL service implementation using Addon protocol.
 
     This service manages PostgreSQL database instances. Each service instance
     creates a dedicated database and user for isolation.
