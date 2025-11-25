@@ -37,7 +37,7 @@ class DeploymentContext:
 @dataclass
 class BuildArtifact:
     """
-    Represents a build artifact produced by a BuildStrategy.
+    Represents a build artifact produced by a Builder.
     """
 
     kind: str  # e.g., "buildpack", "docker-image"
@@ -55,7 +55,7 @@ class DeploymentInfo:
 #
 # --- Protocols (Interfaces for the Strategies) ---
 #
-class BuildStrategy(Protocol):
+class Builder(Protocol):
     """Interface for turning source code into a runnable artifact."""
 
     name: str
@@ -72,7 +72,7 @@ class BuildStrategy(Protocol):
         """Execute the build process and return an artifact."""
 
 
-class DeploymentStrategy(Protocol):
+class Deployer(Protocol):
     """Interface for running a build artifact."""
 
     name: str
@@ -98,9 +98,27 @@ class DeploymentStrategy(Protocol):
 
     def stop(self) -> None: ...
 
+    def check_status(self) -> bool:
+        """Check if the deployed application is actually running.
 
-class ServiceStrategy(Protocol):
-    """Interface for managing backing services (databases, caches, etc.).
+        Returns:
+            True if processes/containers are confirmed running, False otherwise.
+
+        This method should verify actual running state by checking:
+        - For uWSGI: socket files, process listings, config files
+        - For Docker: container status (docker ps)
+        - For systemd: service status (systemctl is-active)
+        - For Podman: container status (podman ps)
+        - etc.
+
+        Implementation should be reliable and not assume state based on
+        configuration files alone.
+        """
+        ...
+
+
+class Addon(Protocol):
+    """Interface for managing addons, also called backing services (databases, caches, etc.).
 
     A service represents a resource that applications can attach to,
     like PostgreSQL, Redis, or Elasticsearch. Services are created independently
@@ -112,7 +130,9 @@ class ServiceStrategy(Protocol):
     """
 
     name: str
-    service_name: str
+    # TODO / FIXME name vs service_name is confusing, rename one of them
+    # also we are an "addon" now, not a "service"
+    addon_name: str
 
     def create(self) -> None:
         """Create the service instance.
@@ -321,7 +341,7 @@ class BaseProxy(ABC):
         return result
 
 
-class OSSetupStrategy(Protocol):
+class OS(Protocol):
     """Interface for OS-specific server setup and configuration.
 
     An OS setup strategy handles the installation of dependencies and

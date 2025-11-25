@@ -12,7 +12,7 @@ We implement proxy configuration as a plugin system with **server-wide configura
 
 1. **Server-Wide Selection:** Proxy type is set via `HOP3_PROXY_TYPE` environment variable (server config), not per-application
 2. **Proxy Protocol:** A Python `Protocol` defines the interface with `setup(app, env, workers)` method
-3. **Plugin Discovery:** Proxies are discovered via `get_proxy_strategies()` hookspec
+3. **Plugin Discovery:** Proxies are discovered via `get_proxies()` hookspec
 4. **Three Implementations:** Nginx (default), Caddy, and Traefik plugins
 
 ## Proxy Plugin Interface
@@ -101,7 +101,7 @@ class NginxProxyPlugin:
     name = "nginx"
 
     @hookimpl
-    def get_proxy_strategies(self) -> list:
+    def get_proxies(self) -> list:
         """Return list of proxy strategy classes."""
         return [NginxVirtualHost]
 
@@ -224,7 +224,7 @@ def get_proxy_strategy(app: App, env: Env, workers: dict[str, str]) -> Proxy:
     from hop3.config import HOP3_PROXY_TYPE
 
     pm = get_plugin_manager()
-    strategies = pm.hook.get_proxy_strategies()
+    strategies = pm.hook.get_proxies()
 
     for strategy_class in flatten(strategies):
         if HOP3_PROXY_TYPE in strategy_class.__name__.lower():

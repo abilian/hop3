@@ -67,9 +67,7 @@ class TestServicesAttachWithCredentials:
 
     def test_attach_stores_credential(self, test_db, test_app, mock_service):
         """Test that attaching a service stores encrypted credentials."""
-        with patch(
-            "hop3.commands.services.get_service_strategy", return_value=mock_service
-        ):
+        with patch("hop3.commands.services.get_addon", return_value=mock_service):
             cmd = ServicesAttachCmd(db_session=test_db)
             result = cmd.call(
                 "test-db", "--app", "test-app", "--service-type", "postgres"
@@ -99,9 +97,7 @@ class TestServicesAttachWithCredentials:
 
     def test_attach_creates_env_vars(self, test_db, test_app, mock_service):
         """Test that attaching a service creates environment variables."""
-        with patch(
-            "hop3.commands.services.get_service_strategy", return_value=mock_service
-        ):
+        with patch("hop3.commands.services.get_addon", return_value=mock_service):
             cmd = ServicesAttachCmd(db_session=test_db)
             cmd.call("test-db", "--app", "test-app", "--service-type", "postgres")
 
@@ -115,9 +111,7 @@ class TestServicesAttachWithCredentials:
 
     def test_attach_twice_updates_credential(self, test_db, test_app, mock_service):
         """Test that attaching the same service twice updates the credential."""
-        with patch(
-            "hop3.commands.services.get_service_strategy", return_value=mock_service
-        ):
+        with patch("hop3.commands.services.get_addon", return_value=mock_service):
             cmd = ServicesAttachCmd(db_session=test_db)
 
             # First attach
@@ -150,9 +144,7 @@ class TestServicesDetachWithCredentials:
 
     def test_detach_removes_credential(self, test_db, test_app, mock_service):
         """Test that detaching a service removes the stored credential."""
-        with patch(
-            "hop3.commands.services.get_service_strategy", return_value=mock_service
-        ):
+        with patch("hop3.commands.services.get_addon", return_value=mock_service):
             # First attach
             attach_cmd = ServicesAttachCmd(db_session=test_db)
             attach_cmd.call(
@@ -177,9 +169,7 @@ class TestServicesDetachWithCredentials:
 
     def test_detach_removes_env_vars(self, test_db, test_app, mock_service):
         """Test that detaching a service removes environment variables."""
-        with patch(
-            "hop3.commands.services.get_service_strategy", return_value=mock_service
-        ):
+        with patch("hop3.commands.services.get_addon", return_value=mock_service):
             # First attach
             attach_cmd = ServicesAttachCmd(db_session=test_db)
             attach_cmd.call(
@@ -204,9 +194,7 @@ class TestServicesDestroyWithCredentials:
 
     def test_destroy_removes_all_credentials(self, test_db, mock_service):
         """Test that destroying a service removes credentials from all apps."""
-        with patch(
-            "hop3.commands.services.get_service_strategy", return_value=mock_service
-        ):
+        with patch("hop3.commands.services.get_addon", return_value=mock_service):
             # Create two apps
             app1 = App(name="app1", hostname="app1.local", port=8001)
             app2 = App(name="app2", hostname="app2.local", port=8002)
@@ -262,9 +250,7 @@ class TestCredentialPersistence:
             session1.add(app)
             session1.commit()
 
-            with patch(
-                "hop3.commands.services.get_service_strategy", return_value=mock_service
-            ):
+            with patch("hop3.commands.services.get_addon", return_value=mock_service):
                 cmd = ServicesAttachCmd(db_session=session1)
                 cmd.call(
                     "persist-db", "--app", "persist-app", "--service-type", "postgres"

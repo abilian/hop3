@@ -3,14 +3,14 @@ from __future__ import annotations
 
 from hop3.core.protocols import (
     BuildArtifact,
+    Deployer,
     DeploymentContext,
     DeploymentInfo,
-    DeploymentStrategy,
 )
 from hop3.lib import log
 
 
-class DummyDeployer(DeploymentStrategy):
+class DummyDeployer(Deployer):
     name = "dummy"
 
     def __init__(self, context: DeploymentContext, artifact: BuildArtifact):

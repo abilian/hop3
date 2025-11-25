@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import subprocess
 
-from hop3.core.protocols import BuildArtifact, BuildStrategy, DeploymentContext
+from hop3.core.protocols import BuildArtifact, Builder, DeploymentContext
 from hop3.lib import Abort, log
 
 
-class DockerBuildStrategy(BuildStrategy):
+class DockerBuilder(Builder):
     """A build strategy that uses `docker build`."""
 
     name = "docker"

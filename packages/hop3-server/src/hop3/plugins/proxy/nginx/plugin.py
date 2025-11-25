@@ -17,7 +17,7 @@ class NginxProxyPlugin:
     name = "nginx"
 
     @hookimpl
-    def get_proxy_strategies(self) -> list:
+    def get_proxies(self) -> list:
         """Return Nginx proxy strategy."""
         return [NginxVirtualHost]
 

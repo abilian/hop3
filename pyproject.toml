@@ -129,7 +129,7 @@ profile = "black"
 [tool.pytest.ini_options]
 # See: https://docs.pytest.org/en/7.1.x/explanation/pythonpath.html#import-modes
 # and: https://docs.pytest.org/en/7.1.x/explanation/goodpractices.html#choosing-an-import-mode
-addopts = "-ra --import-mode=importlib"
+addopts = "-ra --import-mode=importlib -q --tb=short"
 testpaths = [
     "packages/hop3-server/tests/a_unit",
     "packages/hop3-server/tests/b_integration",

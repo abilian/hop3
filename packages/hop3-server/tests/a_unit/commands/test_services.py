@@ -49,7 +49,7 @@ def test_services_create_requires_arguments(mock_db_session):
 
 def test_services_create_with_postgres(mock_db_session):
     """Test creating a PostgreSQL service."""
-    with patch("hop3.commands.services.get_service_strategy") as mock_get_service:
+    with patch("hop3.commands.services.get_addon") as mock_get_service:
         mock_service = Mock()
         mock_get_service.return_value = mock_service
 
@@ -65,7 +65,7 @@ def test_services_create_with_postgres(mock_db_session):
 
 def test_services_create_handles_errors(mock_db_session):
     """Test error handling in services:create."""
-    with patch("hop3.commands.services.get_service_strategy") as mock_get_service:
+    with patch("hop3.commands.services.get_addon") as mock_get_service:
         mock_get_service.side_effect = RuntimeError("Service type not found")
 
         cmd = ServicesCreateCmd(db_session=mock_db_session)
@@ -104,7 +104,7 @@ def test_services_attach_success(mock_db_session, mock_app):
     """Test successful service attachment."""
     with (
         patch("hop3.orm.repositories.AppRepository") as mock_repo_class,
-        patch("hop3.commands.services.get_service_strategy") as mock_get_service,
+        patch("hop3.commands.services.get_addon") as mock_get_service,
         patch("hop3.commands.services.get_credential_encryptor") as mock_encryptor,
     ):
         mock_repo = mock_repo_class.return_value
@@ -142,7 +142,7 @@ def test_services_attach_updates_existing_vars(mock_db_session, mock_app):
     """Test that services:attach updates existing environment variables."""
     with (
         patch("hop3.orm.repositories.AppRepository") as mock_repo_class,
-        patch("hop3.commands.services.get_service_strategy") as mock_get_service,
+        patch("hop3.commands.services.get_addon") as mock_get_service,
         patch("hop3.commands.services.get_credential_encryptor") as mock_encryptor,
     ):
         mock_repo = mock_repo_class.return_value
@@ -224,7 +224,7 @@ def test_services_detach_success(mock_db_session, mock_app):
 
 def test_services_destroy_success(mock_db_session):
     """Test successful service destruction."""
-    with patch("hop3.commands.services.get_service_strategy") as mock_get_service:
+    with patch("hop3.commands.services.get_addon") as mock_get_service:
         mock_service = Mock()
         mock_get_service.return_value = mock_service
 
@@ -242,7 +242,7 @@ def test_services_destroy_success(mock_db_session):
 
 def test_services_info_success(mock_db_session):
     """Test successful service info retrieval."""
-    with patch("hop3.commands.services.get_service_strategy") as mock_get_service:
+    with patch("hop3.commands.services.get_addon") as mock_get_service:
         mock_service = Mock()
         mock_service.info.return_value = {
             "service_name": "my-database",

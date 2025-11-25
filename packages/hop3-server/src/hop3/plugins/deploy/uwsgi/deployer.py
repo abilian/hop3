@@ -1,12 +1,14 @@
 # Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
-from hop3.config import UWSGI_ENABLED
+import subprocess
+
+from hop3.config import UWSGI_ENABLED, HopConfig
 from hop3.core.protocols import (
     BuildArtifact,
+    Deployer,
     DeploymentContext,
     DeploymentInfo,
-    DeploymentStrategy,
 )
 from hop3.lib import log
 from hop3.orm import App, AppStateEnum
@@ -14,7 +16,7 @@ from hop3.project.procfile import parse_procfile
 from hop3.run.spawn import spawn_app
 
 
-class UWSGIDeployer(DeploymentStrategy):
+class UWSGIDeployer(Deployer):
     """The default deployment strategy, using uWSGI."""
 
     name = "uwsgi"
@@ -124,6 +126,68 @@ class UWSGIDeployer(DeploymentStrategy):
         log(f"Scaling '{self.app.name}' with deltas: {deltas}", level=2, fg="blue")
         # For uWSGI, scaling is the same as re-deploying with new deltas
         self.deploy(deltas)
+
+    def check_status(self) -> bool:
+        """Check if the deployed uWSGI application is actually running.
+
+        Returns:
+            True if processes are confirmed running, False otherwise.
+
+        Uses multiple methods to verify if the app is actually running:
+        1. Check if uWSGI socket files exist (most reliable)
+        2. Check if uWSGI processes are running
+        3. Fall back to checking config files
+        """
+        cfg = HopConfig.get_instance()
+
+        # Method 1: Check for socket file (most reliable for web workers)
+        socket_path = cfg.NGINX_ROOT / f"{self.app.name}.sock"
+        if socket_path.exists():
+            # Socket exists, but is it being listened to?
+            # Try to check if there's a process using this socket
+            try:
+                result = subprocess.run(
+                    ["lsof", str(socket_path)],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                )
+                if result.returncode == 0:
+                    # Socket is being used by a process
+                    return True
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                # lsof not available or timed out, continue to next check
+                pass
+
+        # Method 2: Check for running uWSGI processes with this app's name
+        # uWSGI sets procname-prefix to "{app_name}:{kind}:"
+        try:
+            result = subprocess.run(
+                ["pgrep", "-f", f"{self.app.name}:"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                # Found running processes
+                return True
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            # pgrep not available or timed out, continue to next check
+            pass
+
+        # Method 3: Fall back to checking config files
+        # This is the least reliable but works on all platforms
+        config_files = list(cfg.UWSGI_ENABLED.glob(f"{self.app.name}*.ini"))
+        if len(config_files) > 0:
+            # Config files exist, but we couldn't verify processes
+            # Could be starting up or crashed
+            # Return False to be conservative
+            return False
+
+        # No config files at all
+        return False
 
     def get_status(self) -> dict:
         """Gets process status from the SCALING file."""
