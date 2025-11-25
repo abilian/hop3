@@ -1,9 +1,9 @@
-# ADR 081: Backup and Restore System
+# ADR 024: Backup and Restore System
 
 **Status:** Accepted
 **Date:** 2025-11-08
 **Authors:** Hop3 Development Team
-**Related:** ADR 070 (Pluggable Architecture)
+**Related:** ADR 020 (Pluggable Architecture)
 
 ## Context
 

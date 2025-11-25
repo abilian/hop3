@@ -1,4 +1,4 @@
-# ADR-080: Runtime Stack Replacement - Simplifying Process Management and Reverse Proxy
+# ADR-023: Runtime Stack Replacement - Simplifying Process Management and Reverse Proxy
 
 Status: `Proposed`
 
@@ -641,8 +641,8 @@ From nginx experience:
 
 ## Related
 
-- **ADR-070: Pluggable Architecture** - This proposal fits within the plugin architecture, with Granian and Caddy as new plugins
-- **ADR-020: Security and Resilience** - ACME integration improves security posture
+- **ADR-020: Pluggable Architecture** - This proposal fits within the plugin architecture, with Granian and Caddy as new plugins
+- **ADR-010: Security and Resilience** - ACME integration improves security posture
 - **ADR-002: Config Format** - hop3.toml can specify runtime preferences
 
 ## References

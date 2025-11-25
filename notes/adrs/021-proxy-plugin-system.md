@@ -1,10 +1,10 @@
-# ADR-071: Proxy Plugin System for Reverse Proxy Configuration
+# ADR-021: Proxy Plugin System for Reverse Proxy Configuration
 
 Status: `Accepted`
 
 ## Context
 
-The original Hop3 architecture hardcoded Nginx as the reverse proxy, making it impossible to use alternatives like Caddy or Traefik without modifying core code. With the pluggable architecture (ADR-070), proxy configuration became the third stage in the deployment pipeline, but with a critical architectural constraint: **there is only one reverse proxy for an entire server**.
+The original Hop3 architecture hardcoded Nginx as the reverse proxy, making it impossible to use alternatives like Caddy or Traefik without modifying core code. With the pluggable architecture (ADR-020), proxy configuration became the third stage in the deployment pipeline, but with a critical architectural constraint: **there is only one reverse proxy for an entire server**.
 
 ## Decision
 
@@ -300,6 +300,6 @@ A server runs **one reverse proxy instance** listening on ports 80/443:
 
 ## References
 
-- [ADR-070: Pluggable Architecture](./070-pluggable-architecture.md)
-- [ADR-072: Build and Deployment Plugin System](./072-build-deploy-plugin-system.md)
+- [ADR-020: Pluggable Architecture](./020-pluggable-architecture.md)
+- [ADR-022: Build and Deployment Plugin System](./022-build-deploy-plugin-system.md)
 - [Python Protocol (PEP 544)](https://peps.python.org/pep-0544/)

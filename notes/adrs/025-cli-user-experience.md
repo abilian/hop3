@@ -1,9 +1,9 @@
-# ADR 082: CLI User Experience Improvements
+# ADR 025: CLI User Experience Improvements
 
 **Status:** In Progress
 **Date:** 2025-11-08
 **Authors:** Hop3 Development Team
-**Related:** ADR 081 (Backup and Restore System)
+**Related:** ADR 024 (Backup and Restore System)
 
 ## Context
 
@@ -544,7 +544,7 @@ Did you mean: 'my-app'?
 **Implementation:**
 - Phase 1: `packages/hop3-server/src/hop3/commands/_base.py`
 - Phase 1: `packages/hop3-cli/src/hop3_cli/rich_printer.py`
-- ADR: `notes/adrs/082-cli-user-experience.md`
+- ADR: `notes/adrs/025-cli-user-experience.md`
 
 ## Revision History
 

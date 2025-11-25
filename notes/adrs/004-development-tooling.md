@@ -6,6 +6,7 @@ Status: Accepted
 
 Revisions:
 
+- v1.1: Updated Task Runner section to reflect current state (2025-11-25)
 - v1.0: First version (2025-10-08)
 
 ## Summary
@@ -40,24 +41,14 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 
 **Configuration**: `pyproject.toml` with `[tool.uv]` and `[tool.uv.workspace]` sections
 
-### Task Runner: Just
+### Task Runner: Make
 
-**Tool**: [just](https://github.com/casey/just)
+**Current Tool**: [Make](https://www.gnu.org/software/make/) + [Invoke](https://www.pyinvoke.org/)
 
-**Rationale**:
-- **Modern Syntax**: Clean, intuitive command runner syntax (similar to make but better)
-- **Cross-platform**: Works consistently on macOS, Linux, and Windows
-- **Features**: Better error messages, recipe parameters, command-line arguments
-- **Ergonomics**: Better developer experience than Make (proper string handling, no tab issues)
-
-**Replaced**: Make (keeping Makefile temporarily for CI compatibility)
-
-**Configuration**: `justfile` in repository root
-
-**Migration Strategy**:
-- All Make targets have been ported to Just recipes
-- Makefile currently delegates to justfile for most operations
-- Complete migration planned once CI is updated
+**Current State**:
+- `Makefile` in repository root is the primary task runner
+- `tasks.py` provides Invoke-based tasks for sub-repository management
+- Both are actively used for CI/CD and developer workflows
 
 ### Linting and Formatting: Ruff
 
@@ -198,7 +189,7 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 
 ### Benefits
 
-1. **Performance**: Modern, fast tools (uv, Ruff, Just) significantly improve developer experience
+1. **Performance**: Modern, fast tools (uv, Ruff) significantly improve developer experience
 2. **Consistency**: Single source of truth for code formatting and linting
 3. **Simplicity**: Fewer tools to learn and configure (Ruff replaces 5+ tools)
 4. **Modern Stack**: Aligned with current Python ecosystem best practices
@@ -207,16 +198,12 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 
 ### Drawbacks
 
-1. **Learning Curve**: Team needs to learn new tools (Just, uv)
-2. **Migration**: Temporary overhead maintaining both Make and Just during transition
-3. **Stability**: Some tools (uv, Just) are newer and may have occasional breaking changes
-4. **Tooling Proliferation**: Still quite a few tools despite consolidation efforts
+1. **Tooling Proliferation**: Still quite a few tools despite consolidation efforts
 
 ### Trade-offs
 
 1. **Speed vs Maturity**: Chose faster, newer tools (uv, Ruff) over more mature alternatives (poetry, pylint)
-2. **Simplicity vs Features**: Chose focused tools (Just) over feature-rich but complex alternatives (Make, Invoke)
-3. **Single Tool vs Best of Breed**: Consolidated where possible (Ruff) but kept separate tools where specialized (pytest, mypy)
+2. **Single Tool vs Best of Breed**: Consolidated where possible (Ruff) but kept separate tools where specialized (pytest, pirefly, mypy)
 
 ## Action Items
 
@@ -224,25 +211,18 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
    - [ ] Create developer onboarding guide with tool setup instructions
    - [ ] Add tool usage examples to documentation
 
-2. **Migration**:
-   - ✅ Port all Make targets to justfile
-   - [ ] Update CI/CD to use justfile
-   - [ ] Keep Makefile as a thin wrapper around
-
 3. **Configuration**:
    - ✅ Consolidate tool configuration in pyproject.toml where possible
-   - [ ] Review and optimize ruff configuration
+   - ✅ Review and optimize ruff configuration
    - [ ] Document configuration decisions
 
 4. **Training**:
-   - [ ] Create Just cheat sheet for developers
    - [ ] Document uv workflow patterns
    - [ ] Share best practices for pre-commit hooks
 
 ## References
 
 - [uv Documentation](https://github.com/astral-sh/uv)
-- [Just Manual](https://just.systems/)
 - [Ruff Documentation](https://docs.astral.sh/ruff/)
 - [pytest Documentation](https://docs.pytest.org/)
 - [Pyrefly](https://github.com/tmke8/pyrefly)
@@ -252,14 +232,13 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 
 ## Notes
 
-This tooling stack represents a modern, performance-focused approach to Python development. The emphasis on speed (uv, Ruff, Just) and developer experience aligns with our goal of maintaining high development velocity while ensuring code quality.
+This tooling stack represents a modern, performance-focused approach to Python development. The emphasis on speed (uv, Ruff) and developer experience aligns with our goal of maintaining high development velocity while ensuring code quality.
 
-The choice of Rust-based tools (uv, Ruff, Just) reflects a broader industry trend toward using systems programming languages for developer tools where performance matters.
+The choice of Rust-based tools (uv, Ruff) reflects a broader industry trend toward using systems programming languages for developer tools where performance matters.
 
 We intentionally avoided tool proliferation by:
 - Using Ruff instead of 5+ separate linting tools
 - Using uv instead of multiple package management tools
-- Using Just instead of Make, Invoke, and custom scripts
 
 However, we kept specialized tools (pytest, Pyrefly, mkdocs) where they excel in their domain rather than trying to force everything into a single tool.
 

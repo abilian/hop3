@@ -1,6 +1,6 @@
-# ADR 090: Dashboard UI Test Classification - Integration vs System Tests
+# ADR 026: Dashboard UI Test Classification - Integration vs System Tests
 
-Status: **Accepted** (2025-11-20)
+Status: **Accepted** (2025-11-20, updated 2025-11-25)
 
 ## Introduction
 
@@ -8,11 +8,7 @@ This ADR addresses the question of how to properly classify and implement tests 
 
 ## Summary
 
-We need to decide whether dashboard UI tests (currently in `b_integration/test_dashboard_app_create.py`) should remain as integration tests with mocked file system operations, or move to system tests with full real dependencies including file system operations.
-
-## Status
-
-**Under Discussion** - Awaiting decision on test classification approach.
+Dashboard UI tests that involve file system operations have been moved to system tests (`c_system/`) with real `App.create()` implementation, rather than remaining as integration tests with mocked file operations.
 
 ## Context and Goals
 
@@ -524,8 +520,8 @@ config = Config()
 
 ## Related
 
-- **ADR 070**: Pluggable Architecture - Discusses separation of concerns
-- **ADR 081**: Backup/Restore System - Another feature that needs testing classification
+- **ADR 020**: Pluggable Architecture - Discusses separation of concerns
+- **ADR 024**: Backup/Restore System - Another feature that needs testing classification
 - **Testing Strategy** (`docs/src/dev/testing-strategy.md`) - Current guidelines
 
 ## References
