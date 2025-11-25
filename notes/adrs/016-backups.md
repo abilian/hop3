@@ -1,67 +1,97 @@
-# ADR: Backup Strategy for Hop3
+# ADR 016: Backup Strategy for Hop3
 
-**Status**: Draft
+**Status**: Accepted (Long-term Strategy)
+**Date**: 2024 (original), 2025-11-15 (updated)
+**Related**: [ADR 024](024-backup-restore-system.md) (Implementation)
 
 ## Context and Goals
 
 Ensuring the availability and integrity of data is critical for the Hop3 platform. A robust backup strategy is essential to protect against data loss, corruption, and ensure quick recovery in case of failures. The goal is to define a comprehensive backup strategy that covers different types of data (e.g., configuration files, application data, and databases) and ensures that backups are performed regularly, stored securely, and can be restored efficiently.
 
+**Note**: This ADR defines the **long-term vision** for Hop3's backup capabilities. See [ADR 024](024-backup-restore-system.md) for the current implementation, which represents Phase 1 of this strategy.
+
 ## Decision
 
 Hop3 will implement a comprehensive backup strategy that includes regular backups of critical data, secure storage of backup files, and efficient restoration procedures. This strategy will encompass application data, configuration files, and databases.
+
+The implementation is phased:
+
+| Feature | Phase | Status | ADR |
+|---------|-------|--------|-----|
+| Manual full backups | Phase 1 | ✅ Implemented | ADR 024 |
+| Local storage | Phase 1 | ✅ Implemented | ADR 024 |
+| Checksum verification | Phase 1 | ✅ Implemented | ADR 024 |
+| Service-specific backups | Phase 1 | ✅ Implemented | ADR 024 |
+| Automated scheduled backups | Phase 2 | 🔲 Planned | - |
+| Retention policies | Phase 2 | 🔲 Planned | - |
+| Remote storage (S3, B2) | Phase 3 | 🔲 Planned | - |
+| Encryption | Phase 3 | 🔲 Planned | - |
+| Incremental backups | Phase 3 | 🔲 Planned | - |
+| Transaction log backups | Phase 3 | 🔲 Planned | - |
 
 ## Key Components
 
 ### Backup Types and Frequency
 
-1. **Configuration Files**:
+**Phase 1 (Current - ADR 024)**:
+- Manual full backups on demand
+- All application components in one backup
 
+**Phase 2+ (Future)**:
+
+1. **Configuration Files**:
    - **Frequency**: Daily backups of configuration files such as `hop3.toml` and other relevant configurations.
    - **Retention**: Retain daily backups for 30 days and monthly backups for 12 months.
 
-1. **Application Data**:
-
+2. **Application Data**:
    - **Frequency**: Incremental backups daily and full backups weekly for application data.
    - **Retention**: Retain daily incremental backups for 30 days and weekly full backups for 6 months.
 
-1. **Databases**:
-
+3. **Databases**:
    - **Frequency**: Daily backups of databases with transaction log backups every hour.
    - **Retention**: Retain daily backups for 30 days and monthly backups for 12 months.
 
 ### Backup Storage and Security
 
+**Phase 1 (Current - ADR 024)**:
+- Local file-based storage only
+- File permissions (600) for access control
+- SHA256 checksums for integrity
+
+**Phase 2+ (Future)**:
+
 1. **Storage Locations**:
-
    - **Local Storage**: Store backups locally on a dedicated backup server or storage device.
-   - **Remote Storage**: Use remote storage solutions such as cloud storage providers (e.g., AWS S3, Google Cloud Storage) for redundancy and disaster recovery.
+   - **Remote Storage**: Use remote storage solutions such as cloud storage providers (e.g., AWS S3, Google Cloud Storage, Backblaze B2) for redundancy and disaster recovery.
 
-1. **Security Measures**:
-
-   - **Encryption**: Encrypt all backup files at rest and in transit to ensure data confidentiality.
+2. **Security Measures**:
+   - **Encryption**: Encrypt all backup files at rest and in transit to ensure data confidentiality (using Age or GPG).
    - **Access Control**: Implement strict access control measures to restrict access to backup files to authorized personnel only.
 
 ### Restoration Procedures
 
-1. **Regular Testing**:
+**Phase 1 (Current - ADR 024)**:
+- Manual restore via CLI (`hop3 backup:restore`)
+- Checksum verification before restore
+- Service-specific restore (PostgreSQL via `pg_restore`, etc.)
 
+**Phase 2+ (Future)**:
+
+1. **Regular Testing**:
    - **Test Restorations**: Perform regular test restorations to ensure that backup files are not corrupted and can be restored successfully.
    - **Documentation**: Maintain detailed documentation of the restoration procedures and update it regularly.
 
-1. **Automated Restoration**:
-
+2. **Automated Restoration**:
    - **Automation Tools**: Use automated tools and scripts to facilitate quick and efficient restoration of backups.
    - **Monitoring**: Implement monitoring systems to detect and alert on backup failures or issues.
 
 ### Continuous Improvement
 
 1. **Feedback Loop**:
-
    - **User Feedback**: Establish a feedback loop with users and administrators to continuously improve the backup strategy based on real-world usage and feedback.
    - **Performance Monitoring**: Monitor the performance and reliability of the backup processes to identify and address any issues promptly.
 
-1. **Community Engagement**:
-
+2. **Community Engagement**:
    - **Hop3 Community**: Encourage contributions from the Hop3 community to refine and enhance the backup strategy.
 
 ## Consequences
@@ -70,36 +100,50 @@ Hop3 will implement a comprehensive backup strategy that includes regular backup
 
 - **Data Protection**: Ensures the availability and integrity of critical data.
 - **Quick Recovery**: Facilitates quick recovery in case of data loss or corruption.
-- **Security**: Enhances security through encryption and strict access control measures.
+- **Security**: Enhances security through encryption and strict access control measures (Phase 3).
 
 ### Drawbacks
 
 - **Resource Intensive**: Requires significant storage resources and network bandwidth for regular backups.
 - **Management Complexity**: Adds complexity to system management, requiring careful planning and monitoring.
+- **Phased Delivery**: Full feature set not immediately available.
 
 ## Risks
 
 - **Backup Failures**: Potential risk of backup failures or corruption. Mitigation involves regular testing and monitoring.
-- **Security Breaches**: Risk of unauthorized access to backup files. Mitigation includes strong encryption and access control measures.
+- **Security Breaches**: Risk of unauthorized access to backup files. Mitigation includes strong encryption (Phase 3) and access control measures.
 
-## Action Items
+## Implementation Roadmap
 
-1. **Implement Backup Procedures**:
+### Phase 1: Foundation ✅ (ADR 024)
+- [x] Manual backup/restore commands
+- [x] Local file-based storage
+- [x] Directory-based backup format
+- [x] SHA256 checksums
+- [x] Service plugin integration (PostgreSQL, Redis)
+- [x] Database tracking of backups
 
-   - Establish regular backup schedules for configuration files, application data, and databases.
-   - Ensure backups are stored securely both locally and remotely.
+### Phase 2: Automation (Future)
+- [ ] Scheduled backups with cron-like syntax
+- [ ] Configurable in `hop3.toml`
+- [ ] Retention policies with automatic cleanup
+- [ ] Backup monitoring and alerting
 
-1. **Enhance Security**:
+### Phase 3: Enterprise Features (Future)
+- [ ] Remote storage backends (S3, B2, Azure)
+- [ ] Encryption (Age or GPG)
+- [ ] Incremental backups
+- [ ] Transaction log backups for databases
+- [ ] Point-in-time recovery
+- [ ] Backup verification scheduler
 
-   - Implement encryption and access control measures for all backup files.
-   - Conduct regular security audits and vulnerability assessments.
+## References
 
-1. **Test and Monitor**:
+- **Implementation**: [ADR 024: Backup and Restore System](024-backup-restore-system.md)
+- **Code**: `packages/hop3-server/src/hop3/core/backup.py`
+- **User Docs**: `docs/src/backup-restore.md`
 
-   - Perform regular test restorations to ensure the integrity and reliability of backups.
-   - Monitor backup processes and address any issues promptly.
+## Revision History
 
-1. **Engage with Community**:
-
-   - Encourage contributions and feedback from the Hop3 community to continuously improve the backup strategy.
-   - Provide documentation and support to help users and administrators implement the backup strategy effectively.
+- **2024**: Initial draft
+- **2025-11**: Updated to reflect phased implementation and relationship with ADR 024
