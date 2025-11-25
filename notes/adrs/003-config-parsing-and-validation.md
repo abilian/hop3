@@ -2,7 +2,12 @@
 
 ### Status
 
-Status: Draft (v0.1)
+Status: Draft (v0.2)
+
+Revisions:
+
+- v0.2: Clarified current implementation vs planned Pydantic migration (2025-11-25)
+- v0.1: Initial draft (2024-07-17)
 
 ### Context
 
@@ -23,9 +28,18 @@ However, we also choose to support JSON and YAML as alternatives because the con
 - Use Pydantic to validate the `hop3.toml` file.
 - Add specific code to validate the "env" section (because we don't know the keywords a priori), and possibly other sections.
 
+### Current Implementation Status
+
+**Note (2025-11-25):** The current implementation uses ad-hoc property-based validation via Python dataclasses and `@property` methods, not Pydantic. Key files:
+
+- `packages/hop3-server/src/hop3/project/hop3_config.py` - `Hop3Config` class with `tomllib` parsing
+- `packages/hop3-server/src/hop3/project/config.py` - `AppConfig` class with property-based access
+
+The migration to Pydantic-based validation remains a planned action item.
+
 ### Alternatives
 
-- Status quo (ad-hoc class with `@properties` that can provide)
+- Status quo (ad-hoc class with `@properties` that can provide) - **currently in use**
 
 ### Consequences
 
@@ -37,6 +51,7 @@ However, we also choose to support JSON and YAML as alternatives because the con
 
 ### Action Items
 
+- [ ] **Migrate to Pydantic validation**: Replace current property-based validation with Pydantic models
 - Converge the configuration format to something consistent between all the examples that are currently available:
   - Make the schema as described with Pydantic consistent with the schema described (or specified) in the documentation.
   - Make the schema consistent with the existing configuration files.
