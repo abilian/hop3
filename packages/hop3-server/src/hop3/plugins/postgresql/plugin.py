@@ -23,7 +23,7 @@ class PostgresqlPlugin:
     name = "postgresql"
 
     @hookimpl
-    def get_service_strategies(self) -> list:
+    def get_addons(self) -> list:
         """Return PostgreSQL service strategy."""
         return [PostgresqlService]
 

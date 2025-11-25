@@ -9,7 +9,7 @@ This directory contains example plugins demonstrating various aspects of the Hop
 A minimal build strategy plugin that demonstrates:
 - Plugin structure and registration
 - BuildStrategy protocol implementation
-- Hook implementation (`get_build_strategies()`)
+- Hook implementation (`get_builders()`)
 - Error handling and logging
 - Build artifact creation
 

@@ -24,7 +24,7 @@ class DockerPlugin:
     name = "docker"
 
     @hookimpl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         """Return Docker build strategies.
 
         Returns:

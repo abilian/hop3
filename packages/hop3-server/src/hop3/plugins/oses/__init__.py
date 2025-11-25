@@ -4,7 +4,7 @@
 """OS setup strategy plugins.
 
 This package contains plugins for setting up hop3 on different operating systems.
-Each OS plugin implements the OSSetupStrategy protocol and can auto-detect
+Each OS plugin implements the OS protocol and can auto-detect
 whether it matches the current system.
 """
 

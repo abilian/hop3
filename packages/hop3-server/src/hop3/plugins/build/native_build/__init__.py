@@ -13,7 +13,7 @@ class NativeBuildPlugin:
     """Plugin that provides native build strategies for various languages."""
 
     @hop3_hook_impl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         """Return all native builder classes."""
         return BUILDER_CLASSES
 

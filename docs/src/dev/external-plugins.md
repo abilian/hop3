@@ -109,7 +109,7 @@ class MyPlugin:
     name = "my_plugin"
 
     @hookimpl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         """Provide MyFramework build strategy."""
         return [MyBuilder]
 
@@ -522,7 +522,7 @@ class SimplePlugin:
     name = "simple"
 
     @hookimpl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         # Just re-export existing builder with custom name
         return [PythonBuilder]
 
@@ -543,7 +543,7 @@ class MySQLPlugin:
     name = "mysql"
 
     @hookimpl
-    def get_service_strategies(self) -> list:
+    def get_addons(self) -> list:
         return [MySQLService]
 
 plugin = MySQLPlugin()
@@ -579,7 +579,7 @@ class MyFrameworkPlugin:
     name = "myframework"
 
     @hookimpl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         return [MyFrameworkBuilder]
 
     @hookimpl
@@ -587,7 +587,7 @@ class MyFrameworkPlugin:
         return [MyFrameworkDeployer]
 
     @hookimpl
-    def get_service_strategies(self) -> list:
+    def get_addons(self) -> list:
         return [MyFrameworkCache]
 
 plugin = MyFrameworkPlugin()

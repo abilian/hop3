@@ -117,8 +117,8 @@ class DeploymentStrategy(Protocol):
         ...
 
 
-class ServiceStrategy(Protocol):
-    """Interface for managing backing services (databases, caches, etc.).
+class Addon(Protocol):
+    """Interface for managing addons, also called backing services (databases, caches, etc.).
 
     A service represents a resource that applications can attach to,
     like PostgreSQL, Redis, or Elasticsearch. Services are created independently
@@ -339,7 +339,7 @@ class BaseProxy(ABC):
         return result
 
 
-class OSSetupStrategy(Protocol):
+class OS(Protocol):
     """Interface for OS-specific server setup and configuration.
 
     An OS setup strategy handles the installation of dependencies and

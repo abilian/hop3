@@ -16,7 +16,7 @@ Hooks are defined using the `@hookspec` decorator in `hookspecs.py`:
 from hop3.core.hooks import hookspec
 
 @hookspec
-def get_build_strategies() -> list:
+def get_builders() -> list:
     """Get build strategies provided by this plugin."""
 ```
 
@@ -29,7 +29,7 @@ from hop3.core.hooks import hookimpl
 
 class MyPlugin:
     @hookimpl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         return [MyBuildStrategy]
 ```
 
@@ -41,23 +41,23 @@ Hooks are called via the plugin manager:
 from hop3.core.plugins import get_plugin_manager
 
 pm = get_plugin_manager()
-results = pm.hook.get_build_strategies()  # Returns list of lists
+results = pm.hook.get_builders()  # Returns list of lists
 # Flatten results
 strategies = [item for sublist in results for item in sublist]
 ```
 
 ## Available Hooks
 
-### get_build_strategies
+### get_builders
 
 **Purpose**: Register build strategies for converting source code to artifacts.
 
-**Location**: `hop3.core.hookspecs.get_build_strategies`
+**Location**: `hop3.core.hookspecs.get_builders`
 
 **Signature**:
 ```python
 @hookspec
-def get_build_strategies() -> list:
+def get_builders() -> list:
     """Get build strategies provided by this plugin.
 
     Returns:
@@ -76,7 +76,7 @@ from .docker_builder import DockerBuilder
 
 class MyPlugin:
     @hookimpl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         """Provide Python and Docker build strategies."""
         return [PythonBuilder, DockerBuilder]
 ```
@@ -163,16 +163,16 @@ strategy = get_deployment_strategy_by_name(app, "docker-compose")
 
 ---
 
-### get_service_strategies
+### get_addons
 
 **Purpose**: Register service strategies for managing backing services.
 
-**Location**: `hop3.core.hookspecs.get_service_strategies`
+**Location**: `hop3.core.hookspecs.get_addons`
 
 **Signature**:
 ```python
 @hookspec
-def get_service_strategies() -> list:
+def get_addons() -> list:
     """Get service strategies provided by this plugin.
 
     Returns:
@@ -191,7 +191,7 @@ from .redis_service import RedisService
 
 class DatabasePlugin:
     @hookimpl
-    def get_service_strategies(self) -> list:
+    def get_addons(self) -> list:
         """Provide PostgreSQL and Redis service strategies."""
         return [PostgresService, RedisService]
 ```
@@ -223,25 +223,25 @@ connection = service.get_connection_details()
 
 ---
 
-### get_os_strategies
+### get_os_implementations
 
 **Purpose**: Register OS setup strategies for different Linux distributions.
 
-**Location**: `hop3.core.hookspecs.get_os_strategies`
+**Location**: `hop3.core.hookspecs.get_os_implementations`
 
 **Signature**:
 ```python
 @hookspec
-def get_os_strategies() -> list:
+def get_os_implementations() -> list:
     """Get OS setup strategies provided by this plugin.
 
     Returns:
-        List of OSSetupStrategy classes that can detect and configure
+        List of OS classes that can detect and configure
         specific operating systems for hop3.
     """
 ```
 
-**Returns**: List of classes implementing `OSSetupStrategy` protocol.
+**Returns**: List of classes implementing `OS` protocol.
 
 **Implementation Example**:
 
@@ -252,7 +252,7 @@ from .ubuntu import UbuntuOS
 
 class DebianPlugin:
     @hookimpl
-    def get_os_strategies(self) -> list:
+    def get_os_implementations(self) -> list:
         """Provide Debian and Ubuntu OS strategies."""
         return [DebianOS, UbuntuOS]
 ```
@@ -500,12 +500,12 @@ To ensure a hook runs first or last, use `hookimpl` options:
 
 ```python
 @hookimpl(tryfirst=True)
-def get_build_strategies(self) -> list:
+def get_builders(self) -> list:
     """This will be called before other implementations."""
     return [MyBuilder]
 
 @hookimpl(trylast=True)
-def get_build_strategies(self) -> list:
+def get_builders(self) -> list:
     """This will be called after other implementations."""
     return [FallbackBuilder]
 ```
@@ -521,12 +521,12 @@ Most hooks return lists of **strategy classes** (not instances):
 ```python
 # Correct
 @hookimpl
-def get_build_strategies(self) -> list:
+def get_builders(self) -> list:
     return [PythonBuilder, NodeBuilder]
 
 # Wrong - don't instantiate
 @hookimpl
-def get_build_strategies(self) -> list:
+def get_builders(self) -> list:
     return [PythonBuilder(), NodeBuilder()]  # ❌
 ```
 
@@ -558,7 +558,7 @@ class RedisPlugin:
     name = "redis"
 
     @hookimpl
-    def get_service_strategies(self) -> list:
+    def get_addons(self) -> list:
         return [RedisService]
 
 # Auto-register
@@ -579,7 +579,7 @@ class BuildpackPlugin:
     name = "buildpack"
 
     @hookimpl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         return [PythonBuilder, NodeBuilder, RubyBuilder]
 
 plugin = BuildpackPlugin()
@@ -598,7 +598,7 @@ class DockerPlugin:
     name = "docker"
 
     @hookimpl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         return [DockerBuilder]
 
     @hookimpl
@@ -628,7 +628,7 @@ class PostgresPlugin:
     name = "postgres"
 
     @hookimpl
-    def get_service_strategies(self) -> list:
+    def get_addons(self) -> list:
         return [PostgresService]
 
     @hookimpl
@@ -654,7 +654,7 @@ def test_plugin_registered():
     pm = get_plugin_manager()
 
     # Get all build strategies
-    results = pm.hook.get_build_strategies()
+    results = pm.hook.get_builders()
     strategies = [cls for sublist in results for cls in sublist]
 
     # Check our strategy is in the list
@@ -672,7 +672,7 @@ from my_plugin.plugin import MyPlugin
 def test_get_build_strategies():
     """Test hook implementation returns correct strategies."""
     plugin = MyPlugin()
-    strategies = plugin.get_build_strategies()
+    strategies = plugin.get_builders()
 
     assert len(strategies) == 2
     assert strategies[0].name == "python"
@@ -712,14 +712,14 @@ def test_strategy_discovery(tmp_path):
 **Wrong**:
 ```python
 @hookimpl
-def get_build_strategies(self) -> list:
+def get_builders(self) -> list:
     return [MyBuilder(context)]  # ❌ No context available here
 ```
 
 **Correct**:
 ```python
 @hookimpl
-def get_build_strategies(self) -> list:
+def get_builders(self) -> list:
     return [MyBuilder]  # ✅ Return class
 ```
 
@@ -730,7 +730,7 @@ def get_build_strategies(self) -> list:
 # plugin.py
 class MyPlugin:
     @hookimpl
-    def get_build_strategies(self):
+    def get_builders(self):
         return [MyBuilder]
 
 # Missing: plugin = MyPlugin()
@@ -740,7 +740,7 @@ class MyPlugin:
 ```python
 class MyPlugin:
     @hookimpl
-    def get_build_strategies(self):
+    def get_builders(self):
         return [MyBuilder]
 
 # Must instantiate for auto-registration
@@ -768,14 +768,14 @@ __all__ = ["plugin"]
 **Wrong**:
 ```python
 @hookimpl
-def get_build_strategies(self) -> list:
+def get_builders(self) -> list:
     return MyBuilder  # ❌ Single class, not list
 ```
 
 **Correct**:
 ```python
 @hookimpl
-def get_build_strategies(self) -> list:
+def get_builders(self) -> list:
     return [MyBuilder]  # ✅ List of classes
 ```
 
@@ -783,13 +783,13 @@ def get_build_strategies(self) -> list:
 
 **Wrong**:
 ```python
-results = pm.hook.get_build_strategies()
+results = pm.hook.get_builders()
 # results = [[Builder1, Builder2], [Builder3]]  ❌ List of lists
 ```
 
 **Correct**:
 ```python
-results = pm.hook.get_build_strategies()
+results = pm.hook.get_builders()
 strategies = [cls for sublist in results for cls in sublist]
 # strategies = [Builder1, Builder2, Builder3]  ✅ Flat list
 ```
@@ -804,7 +804,7 @@ Only register strategies if certain conditions are met:
 
 ```python
 @hookimpl
-def get_build_strategies(self) -> list:
+def get_builders(self) -> list:
     """Only provide Docker builder if Docker is available."""
     strategies = []
 
@@ -846,7 +846,7 @@ Wrap other plugins' hooks (advanced):
 
 ```python
 @hookimpl(hookwrapper=True)
-def get_build_strategies(self):
+def get_builders(self):
     """Wrap and modify other plugins' results."""
     # Get results from other plugins
     outcome = yield

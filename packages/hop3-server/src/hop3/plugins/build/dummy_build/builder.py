@@ -23,5 +23,5 @@ class DummyBuilder(Builder):
 
 class DummyPlugin:
     @hop3_hook_impl
-    def get_build_strategies(self) -> list[type[Builder]]:
+    def get_builders(self) -> list[type[Builder]]:
         return [DummyBuilder]

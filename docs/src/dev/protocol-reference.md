@@ -16,7 +16,7 @@ All protocols are defined in `hop3/core/protocols.py` using Python's PEP 544 Pro
   - [ServiceStrategy](#servicestrategy)
   - [Proxy](#proxy)
   - [BaseProxy](#baseproxy)
-  - [OSSetupStrategy](#ossetupstrategy)
+  - [OS](#OS)
 
 ---
 
@@ -724,9 +724,9 @@ See `packages/hop3-server/src/hop3/plugins/proxy/nginx/_setup.py` for the Nginx 
 
 ---
 
-### OSSetupStrategy
+### OS
 
-**Location**: `hop3.core.protocols.OSSetupStrategy`
+**Location**: `hop3.core.protocols.OS`
 
 **Purpose**: Handle operating system-specific server setup and package management.
 
@@ -900,7 +900,7 @@ When implementing a strategy, use this checklist to ensure protocol compliance:
 - [ ] `reload_proxy()` is graceful
 - [ ] Uses `get_static_paths()` helper
 
-### OSSetupStrategy
+### OS
 - [ ] `name` attribute set (OS identifier)
 - [ ] `display_name` attribute set
 - [ ] `packages` list defined
