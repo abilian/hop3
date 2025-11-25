@@ -11,6 +11,7 @@ connection configuration and can be injected via Dishka DI.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from hop3.lib.config import Config
 
@@ -65,7 +66,7 @@ class PostgresAdmin:
             superuser_password=config.get_str("SUPERUSER_PASSWORD", None),
         )
 
-    def get_connection_params(self, dbname: str = "template1") -> dict[str, any]:
+    def get_connection_params(self, dbname: str = "template1") -> dict[str, Any]:
         """Get connection parameters for psycopg2.
 
         Args:

@@ -69,7 +69,6 @@ lint.extend-ignore = [
     "B008", #  1 - B008   	function-call-in-default-argument
     "B909", #  1 - B909   	loop-iterator-mutation
     "PLW2901", #  1 - PLW2901	redefined-loop-name
-#    "RUF012", #  1 - RUF012 	mutable-class-default
     "RUF100", # Unused noqa
     "PLR0915", #	too-many-statements
     "C901",    #	complex-structure

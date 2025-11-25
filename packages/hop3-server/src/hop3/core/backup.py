@@ -27,6 +27,31 @@ from hop3.lib import log
 from hop3.orm import App, Backup, BackupStateEnum, EnvVar
 from hop3.orm.repositories import AppRepository
 
+
+def format_size(size_bytes: float) -> str:
+    """Format byte size as human-readable string.
+
+    Args:
+        size_bytes: Size in bytes (accepts int or float)
+
+    Returns:
+        Formatted string like "1.5 MB"
+
+    Examples:
+        >>> format_size(1024)
+        '1.0 KB'
+        >>> format_size(1536)
+        '1.5 KB'
+        >>> format_size(1048576)
+        '1.0 MB'
+    """
+    for unit in ["B", "KB", "MB", "GB"]:
+        if size_bytes < 1024:
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f} TB"
+
+
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
@@ -764,7 +789,7 @@ class BackupManager:
         """
         return HopConfig.get_instance().BACKUP_ROOT / "apps" / app_name / backup_id
 
-    def _format_size(self, size_bytes: int) -> str:
+    def _format_size(self, size_bytes: float) -> str:
         """Format byte size as human-readable string.
 
         Args:

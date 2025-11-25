@@ -11,6 +11,7 @@ connection configuration and can be injected via Dishka DI.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from hop3.lib.config import Config
 
@@ -65,7 +66,7 @@ class RedisClientFactory:
             max_connections=config.get_int("MAX_CONNECTIONS", 50),
         )
 
-    def get_connection_params(self, db: int = 0) -> dict[str, any]:
+    def get_connection_params(self, db: int = 0) -> dict[str, Any]:
         """Get connection parameters for redis-py.
 
         Args:

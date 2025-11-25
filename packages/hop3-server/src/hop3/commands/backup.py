@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
-from hop3.core.backup import BackupManager
+from hop3.core.backup import BackupManager, format_size
 from hop3.lib.decorators import register
 from hop3.orm.repositories import AppRepository
 
@@ -82,7 +82,7 @@ class BackupCreateCmd(Command):
             info_lines = [
                 f"Backup ID: {backup_id}",
                 f"Location: {backup_path}",
-                f"Total size: {self._format_size(manifest.size_bytes)}",
+                f"Total size: {format_size(manifest.size_bytes)}",
                 "",
                 "Contents:",
                 "  - Source code",
@@ -95,7 +95,7 @@ class BackupCreateCmd(Command):
                 for service in manifest.services:
                     info_lines.append(
                         f"    • {service['name']} ({service['type']}): "
-                        f"{self._format_size(service['size_bytes'])}"
+                        f"{format_size(service['size_bytes'])}"
                     )
 
             info_lines.extend([
@@ -110,14 +110,6 @@ class BackupCreateCmd(Command):
 
         except Exception as e:
             return [{"t": "error", "text": f"Backup creation failed: {e}"}]
-
-    def _format_size(self, size_bytes: int) -> str:
-        """Format byte size as human-readable string."""
-        for unit in ["B", "KB", "MB", "GB"]:
-            if size_bytes < 1024:
-                return f"{size_bytes:.1f} {unit}"
-            size_bytes /= 1024
-        return f"{size_bytes:.1f} TB"
 
 
 @register
@@ -195,7 +187,7 @@ class BackupListCmd(Command):
                 rows.append([
                     backup.backup_id,
                     backup.app_name,
-                    self._format_size(backup.size_bytes),
+                    format_size(backup.size_bytes),
                     created,
                     "COMPLETED",  # TODO: Get actual status from DB
                     services_str,
@@ -205,14 +197,6 @@ class BackupListCmd(Command):
 
         except Exception as e:
             return [{"t": "error", "text": f"Error listing backups: {e}"}]
-
-    def _format_size(self, size_bytes: int) -> str:
-        """Format byte size as human-readable string."""
-        for unit in ["B", "KB", "MB", "GB"]:
-            if size_bytes < 1024:
-                return f"{size_bytes:.1f} {unit}"
-            size_bytes /= 1024
-        return f"{size_bytes:.1f} TB"
 
 
 @register
@@ -260,7 +244,7 @@ class BackupInfoCmd(Command):
                 f"Backup ID: {manifest.backup_id}",
                 f"Application: {manifest.app_name}",
                 f"Created: {manifest.created_at}",
-                f"Total Size: {self._format_size(manifest.size_bytes)}",
+                f"Total Size: {format_size(manifest.size_bytes)}",
                 f"Format Version: {manifest.format_version}",
                 f"Hop3 Version: {manifest.hop3_version}",
                 "",
@@ -284,7 +268,7 @@ class BackupInfoCmd(Command):
                 for service in manifest.services:
                     lines.append(
                         f"  - {service['type']}:{service['name']} "
-                        f"({self._format_size(service['size_bytes'])})"
+                        f"({format_size(service['size_bytes'])})"
                     )
 
             # Show app metadata
@@ -307,14 +291,6 @@ class BackupInfoCmd(Command):
             return [{"t": "error", "text": str(e)}]
         except Exception as e:
             return [{"t": "error", "text": f"Error getting backup info: {e}"}]
-
-    def _format_size(self, size_bytes: int) -> str:
-        """Format byte size as human-readable string."""
-        for unit in ["B", "KB", "MB", "GB"]:
-            if size_bytes < 1024:
-                return f"{size_bytes:.1f} {unit}"
-            size_bytes /= 1024
-        return f"{size_bytes:.1f} TB"
 
 
 @register
@@ -455,7 +431,7 @@ class BackupDeleteCmd(Command):
                     "text": (
                         f"Deleting backup {backup_id}\n\n"
                         f"Application: {manifest.app_name}\n"
-                        f"Size: {self._format_size(manifest.size_bytes)}\n"
+                        f"Size: {format_size(manifest.size_bytes)}\n"
                         f"Created: {manifest.created_at}\n"
                     ),
                 }
@@ -475,14 +451,6 @@ class BackupDeleteCmd(Command):
             return [{"t": "error", "text": str(e)}]
         except Exception as e:
             return [{"t": "error", "text": f"Error deleting backup: {e}"}]
-
-    def _format_size(self, size_bytes: int) -> str:
-        """Format byte size as human-readable string."""
-        for unit in ["B", "KB", "MB", "GB"]:
-            if size_bytes < 1024:
-                return f"{size_bytes:.1f} {unit}"
-            size_bytes /= 1024
-        return f"{size_bytes:.1f} TB"
 
 
 @register
