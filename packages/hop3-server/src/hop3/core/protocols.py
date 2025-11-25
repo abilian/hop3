@@ -55,7 +55,7 @@ class DeploymentInfo:
 #
 # --- Protocols (Interfaces for the Strategies) ---
 #
-class BuildStrategy(Protocol):
+class Builder(Protocol):
     """Interface for turning source code into a runnable artifact."""
 
     name: str

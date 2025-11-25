@@ -12,7 +12,7 @@ from devtools import debug
 from pluggy import PluginManager
 
 # Temp
-from hop3.plugins.build.dummy_build.builder import DummyBuildStrategy
+from hop3.plugins.build.dummy_build.builder import DummyBuilder
 from hop3.plugins.deploy.dummy_deploy.deploy import DummyDeployer
 
 from . import hookspecs
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
     from .protocols import (
         BuildArtifact,
-        BuildStrategy,
+        Builder,
         DeploymentContext,
         DeploymentStrategy,
         OSSetupStrategy,
@@ -130,7 +130,7 @@ class CorePlugin:
     @hop3_hook_impl
     def get_build_strategies(self) -> list:
         # This hook returns classes, not instances.
-        return [DummyBuildStrategy]
+        return [DummyBuilder]
 
     @hop3_hook_impl
     def get_deployment_strategies(self) -> list:
@@ -140,7 +140,7 @@ class CorePlugin:
 #
 # Convenience Helper Functions
 #
-def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
+def get_build_strategy(context: DeploymentContext) -> Builder:
     """
     Finds and instantiates the appropriate build strategy.
 
@@ -157,7 +157,7 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
         raise
 
     # Flatten the list of lists into a single list of classes
-    strategy_classes: list[type[BuildStrategy]] = [
+    strategy_classes: list[type[Builder]] = [
         cls for sublist in strategy_classes_list for cls in sublist
     ]
     debug(strategy_classes)
