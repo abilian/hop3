@@ -1,4 +1,4 @@
-# ADR 092: Pluggy + Dishka Integration for Plugin-Contributed Services
+# ADR 028: Pluggy + Dishka Integration for Plugin-Contributed Services
 
 ## Status
 
@@ -352,7 +352,7 @@ def register_services():
 
 ## Related Decisions
 
-- **ADR 091**: Config System Refactoring - Moved to Dishka for configuration
+- **ADR 027**: Config System Refactoring - Moved to Dishka for configuration
 - **Dishka Migration** (2025-01): Migrated from wireup to Dishka
 - **No Global Singleton** (2025-01): Removed global container pattern
 

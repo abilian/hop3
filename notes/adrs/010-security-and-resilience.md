@@ -1,4 +1,4 @@
-Security and Resilience Enhancements in Hop3
+# ADR: Security and Resilience Enhancements in Hop3
 
 **Status**: Draft
 

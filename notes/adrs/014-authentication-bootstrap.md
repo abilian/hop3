@@ -1,4 +1,4 @@
-# ADR 023: Authentication Bootstrap Process
+# ADR 014: Authentication Bootstrap Process
 
 **Status**: Draft (Early)
 
@@ -209,5 +209,5 @@ Allow first user registration without authentication:
 
 ## Related ADRs
 
-- ADR 020: Security and Resilience Enhancements
-- ADR 022: Multi-Factor Authentication (MFA)
+- ADR 010: Security and Resilience Enhancements
+- ADR 012: Multi-Factor Authentication (MFA)

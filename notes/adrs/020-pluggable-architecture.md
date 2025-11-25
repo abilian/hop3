@@ -1,4 +1,4 @@
-# ADR-070: Pluggable Architecture for Core Deployment Workflow
+# ADR-020: Pluggable Architecture for Core Deployment Workflow
 
 Status: `Accepted` (for H3NI)
 

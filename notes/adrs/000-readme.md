@@ -2,6 +2,50 @@
 
 Architectural Decision Records (or ADR) are documents that captures an important architectural decision made along with its context and consequences.
 
+## ADR Index
+
+| # | Title | Status |
+|---|-------|--------|
+| [001](./001-config-files.md) | Config Files for Hop3 | Draft |
+| [002](./002-config-format.md) | Detailed `hop3.toml` Format | Draft |
+| [003](./003-config-parsing-and-validation.md) | Config Parsing and Validation | Draft |
+| [004](./004-development-tooling.md) | Development Tooling | Accepted |
+| [005](./005-web-terminal.md) | Web Terminal for Application Management | Proposed |
+| [006](./006-nix-integration.md) | Nix Integration with Hop3 | Draft |
+| [007](./007-nix-builder.md) | Development of Nix Builders for Existing Packages | Draft |
+| [008](./008-nix-builders-2.md) | Creation of Nix Alternatives to Native Builders | Draft |
+| [009](./009-nix-runtime.md) | Using Nix as a Runtime Isolation Mechanism | Draft |
+| [010](./010-security-and-resilience.md) | Security and Resilience Enhancements | Draft |
+| [011](./011-encryption.md) | Data Encryption and Protection | Draft |
+| [012](./012-mfa.md) | Multi-Factor Authentication (MFA) | Draft |
+| [013](./013-supply-chain.md) | Software Supply Chain Security and SBOMs | Draft |
+| [014](./014-authentication-bootstrap.md) | Authentication Bootstrap Process | Draft |
+| [015](./015-documentation.md) | Documentation and Community Engagement | Draft |
+| [016](./016-backups.md) | Backup Strategy | Draft |
+| [017](./017-agent-based-architecture.md) | Distributed, Agent-Based Architecture | Draft |
+| [018](./018-cli-architecture.md) | CLI-Server Communication | Accepted |
+| [019](./019-cli-commands.md) | Basic Commands for the Hop3 Command-Line | Draft |
+| [020](./020-pluggable-architecture.md) | Pluggable Architecture for Core Deployment Workflow | Accepted |
+| [021](./021-proxy-plugin-system.md) | Proxy Plugin System for Reverse Proxy Configuration | Accepted |
+| [022](./022-build-deploy-plugin-system.md) | Build and Deployment Plugin System | Accepted |
+| [023](./023-runtime-stack-replacement.md) | Runtime Stack Replacement | Proposed |
+| [024](./024-backup-restore-system.md) | Backup and Restore System | Accepted |
+| [025](./025-cli-user-experience.md) | CLI User Experience Improvements | In Progress |
+| [026](./026-dashboard-ui-test-classification.md) | Dashboard UI Test Classification | Accepted |
+| [027](./027-config-system-refactoring.md) | Configuration System Refactoring for Testability | Accepted |
+| [028](./028-pluggy-dishka-integration.md) | Pluggy + Dishka Integration for Plugin-Contributed Services | Accepted |
+
+### Status Legend
+
+- **Draft**: Initial proposal, not yet reviewed
+- **Proposed**: Under active discussion
+- **In Progress**: Partially implemented
+- **Accepted**: Approved and implemented (or ready for implementation)
+- **Deprecated**: No longer recommended
+- **Superseded**: Replaced by a newer ADR
+
+---
+
 These ADRs should provide:
 
 1. Decision-focused content - Why we made these choices

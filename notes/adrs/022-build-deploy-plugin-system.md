@@ -1,10 +1,10 @@
-# ADR-072: Build and Deployment Plugin System
+# ADR-022: Build and Deployment Plugin System
 
 Status: `Accepted`
 
 ## Context
 
-The original Hop3 architecture combined build and deployment logic into a monolithic class with hardcoded conditionals for different application types. Supporting new build systems (Docker, Nix) or deployment targets (Kubernetes, external orchestrators) required invasive core changes. With the pluggable architecture (ADR-070), build and deployment became the first two stages of the pipeline, with a key principle: **the application's codebase determines which strategies are used**.
+The original Hop3 architecture combined build and deployment logic into a monolithic class with hardcoded conditionals for different application types. Supporting new build systems (Docker, Nix) or deployment targets (Kubernetes, external orchestrators) required invasive core changes. With the pluggable architecture (ADR-020), build and deployment became the first two stages of the pipeline, with a key principle: **the application's codebase determines which strategies are used**.
 
 ## Decision
 
@@ -414,7 +414,7 @@ def do_deploy(app: App, deltas: dict[str, int] | None = None) -> None:
     deployment_info = deployer.deploy(deltas)
     log(f"Deployed: {deployment_info.protocol}://{deployment_info.address}")
 
-    # (Proxy configuration happens separately - see ADR-071)
+    # (Proxy configuration happens separately - see ADR-021)
 ```
 
 ### Strategy Selection Functions
@@ -478,7 +478,7 @@ def get_deployment_strategy(
 
 ### Why Per-Application (Not Server-Wide)?
 
-Unlike proxy (server-wide, ADR-071), build and deployment must be **per-application**:
+Unlike proxy (server-wide, ADR-021), build and deployment must be **per-application**:
 
 - **Different Requirements:** Python apps need pip/venv, Node apps need npm, static sites need no build
 - **No Shared Resource:** Each app has independent build and processes (unlike shared reverse proxy)
@@ -552,7 +552,7 @@ Separating build from deployment enables composition:
 
 ## References
 
-- [ADR-070: Pluggable Architecture](./070-pluggable-architecture.md)
-- [ADR-071: Proxy Plugin System](./071-proxy-plugin-system.md)
+- [ADR-020: Pluggable Architecture](./020-pluggable-architecture.md)
+- [ADR-021: Proxy Plugin System](./021-proxy-plugin-system.md)
 - [Heroku Buildpacks](https://devcenter.heroku.com/articles/buildpacks)
 - [Python Protocol (PEP 544)](https://peps.python.org/pep-0544/)
