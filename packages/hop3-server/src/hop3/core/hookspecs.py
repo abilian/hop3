@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from hop3.core.protocols import Addon, Builder
+from hop3.core.protocols import OS, Addon, Builder, Deployer
 
 from .hooks import hookspec
 
@@ -24,11 +24,11 @@ def get_builders() -> list[Builder]:
 
 
 @hookspec
-def get_deployment_strategies() -> list:
+def get_deployers() -> list[Deployer]:
     """Get deployment strategies provided by this plugin.
 
     Returns:
-        List of DeploymentStrategy classes
+        List of Deployer classes
     """
 
 
@@ -42,7 +42,7 @@ def get_addons() -> list[Addon]:
 
 
 @hookspec
-def get_os_implementations() -> list:
+def get_os_implementations() -> list[OS]:
     """Get OS setup strategies provided by this plugin.
 
     Returns:

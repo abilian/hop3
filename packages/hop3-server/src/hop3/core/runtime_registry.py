@@ -2,7 +2,7 @@
 """Runtime strategy registry for deployment backends.
 
 .. deprecated:: 0.2.0
-    This module is deprecated. Use `hop3.core.plugins.get_deployment_strategy_by_name()` instead.
+    This module is deprecated. Use `hop3.core.plugins.get_deployer_by_name()` instead.
     The hardcoded registry approach has been replaced with plugin-based discovery.
 
     Migration guide:
@@ -13,8 +13,8 @@
 
         New code::
 
-            from hop3.core.plugins import get_deployment_strategy_by_name
-            strategy = get_deployment_strategy_by_name(app, app.runtime)
+            from hop3.core.plugins import get_deployer_by_name
+            strategy = get_deployer_by_name(app, app.runtime)
 
     The plugin-based approach provides:
     - Single source of truth (no duplicate registrations)
@@ -34,32 +34,32 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hop3.core.protocols import BuildArtifact, DeploymentContext, DeploymentStrategy
+from hop3.core.protocols import BuildArtifact, Deployer, DeploymentContext
 from hop3.plugins.deploy.uwsgi.deployer import UWSGIDeployer
-from hop3.plugins.docker.deployer import DockerComposeDeploymentStrategy
+from hop3.plugins.docker.deployer import DockerComposeDeployer
 
 if TYPE_CHECKING:
     from hop3.orm import App
 
 
 # Registry of deployment strategies
-DEPLOYMENT_STRATEGIES: dict[str, type[DeploymentStrategy]] = {
+DEPLOYMENT_STRATEGIES: dict[str, type[Deployer]] = {
     "uwsgi": UWSGIDeployer,
-    "docker-compose": DockerComposeDeploymentStrategy,
+    "docker-compose": DockerComposeDeployer,
     # Future runtimes:
     # "systemd": SystemdDeployer,
     # "podman": PodmanDeployer,
 }
 
 
-def get_deployment_strategy(app: App) -> DeploymentStrategy:
+def get_deployment_strategy(app: App) -> Deployer:
     """Get the appropriate deployment strategy for an app based on its runtime.
 
     Args:
         app: The App instance to get the deployment strategy for
 
     Returns:
-        An instance of the appropriate DeploymentStrategy
+        An instance of the appropriate Deployer
 
     Raises:
         ValueError: If the app's runtime is not registered
@@ -87,12 +87,12 @@ def get_deployment_strategy(app: App) -> DeploymentStrategy:
     return strategy_class(context=context, artifact=artifact)
 
 
-def register_runtime(name: str, strategy_class: type[DeploymentStrategy]) -> None:
+def register_runtime(name: str, strategy_class: type[Deployer]) -> None:
     """Register a new deployment strategy.
 
     Args:
         name: The runtime name (e.g., "docker", "systemd")
-        strategy_class: The DeploymentStrategy class to register
+        strategy_class: The Deployer class to register
     """
     DEPLOYMENT_STRATEGIES[name] = strategy_class
 

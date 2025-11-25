@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from hop3.core.hooks import hookimpl
 from hop3.plugins.docker.builder import DockerBuilder
-from hop3.plugins.docker.deployer import DockerComposeDeploymentStrategy
+from hop3.plugins.docker.deployer import DockerComposeDeployer
 
 
 class DockerPlugin:
@@ -33,13 +33,13 @@ class DockerPlugin:
         return [DockerBuilder]
 
     @hookimpl
-    def get_deployment_strategies(self) -> list:
+    def get_deployers(self) -> list:
         """Return Docker Compose deployment strategies.
 
         Returns:
-            List containing DockerComposeDeploymentStrategy class
+            List containing DockerComposeDeployer class
         """
-        return [DockerComposeDeploymentStrategy]
+        return [DockerComposeDeployer]
 
 
 # Auto-register plugin instance when module is imported

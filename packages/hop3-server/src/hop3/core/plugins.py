@@ -26,8 +26,8 @@ if TYPE_CHECKING:
         Addon,
         BuildArtifact,
         Builder,
+        Deployer,
         DeploymentContext,
-        DeploymentStrategy,
         Proxy,
     )
 
@@ -133,7 +133,7 @@ class CorePlugin:
         return [DummyBuilder]
 
     @hop3_hook_impl
-    def get_deployment_strategies(self) -> list:
+    def get_deployers(self) -> list:
         return [DummyDeployer]
 
 
@@ -186,7 +186,7 @@ def get_build_strategy(context: DeploymentContext) -> Builder:
 
 def get_deployment_strategy(
     context: DeploymentContext, artifact: BuildArtifact
-) -> DeploymentStrategy:
+) -> Deployer:
     """Finds and instantiates the appropriate deployment strategy.
 
     This function is used during the build-deploy pipeline to auto-select
@@ -197,20 +197,20 @@ def get_deployment_strategy(
         artifact: Build artifact to deploy
 
     Returns:
-        DeploymentStrategy instance that accepts the artifact
+        Deployer instance that accepts the artifact
 
     Raises:
         RuntimeError: If no compatible strategy is found
     """
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.get_deployment_strategies()
+    strategy_classes_list = pm.hook.get_deployers()
     strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
 
     # TODO: Add logic to check context.app_config for an explicit strategy name.
 
     for strategy_class in strategy_classes:
-        strategy: DeploymentStrategy = strategy_class(context, artifact)
+        strategy: Deployer = strategy_class(context, artifact)
         if strategy.accept():
             return strategy
 
@@ -218,7 +218,7 @@ def get_deployment_strategy(
     raise RuntimeError(msg)
 
 
-def get_deployment_strategy_by_name(app, runtime_name: str) -> DeploymentStrategy:
+def get_deployer_by_name(app, runtime_name: str) -> Deployer:
     """Get a deployment strategy by name for lifecycle operations.
 
     This function is used for lifecycle management (start, stop, restart, status)
@@ -229,21 +229,21 @@ def get_deployment_strategy_by_name(app, runtime_name: str) -> DeploymentStrateg
         runtime_name: Name of the runtime (e.g., 'uwsgi', 'docker-compose')
 
     Returns:
-        DeploymentStrategy instance for the named runtime
+        Deployer instance for the named runtime
 
     Raises:
         RuntimeError: If the runtime name is not found
 
     Example:
-        >>> strategy = get_deployment_strategy_by_name(app, 'uwsgi')
+        >>> strategy = get_deployer_by_name(app, 'uwsgi')
         >>> is_running = strategy.check_status()
     """
     from hop3.core.protocols import BuildArtifact, DeploymentContext  # noqa: PLC0415
 
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.get_deployment_strategies()
-    strategy_classes: list[type[DeploymentStrategy]] = [
+    strategy_classes_list = pm.hook.get_deployers()
+    strategy_classes: list[type[Deployer]] = [
         cls for sublist in strategy_classes_list for cls in sublist
     ]
 

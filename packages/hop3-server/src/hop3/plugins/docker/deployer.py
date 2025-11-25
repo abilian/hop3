@@ -6,14 +6,14 @@ import traceback
 
 from hop3.core.protocols import (
     BuildArtifact,
+    Deployer,
     DeploymentContext,
     DeploymentInfo,
-    DeploymentStrategy,
 )
 from hop3.lib import Abort, log
 
 
-class DockerComposeDeploymentStrategy(DeploymentStrategy):
+class DockerComposeDeployer(Deployer):
     """A deployment strategy that uses `docker-compose up`."""
 
     name = "docker-compose"

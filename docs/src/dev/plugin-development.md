@@ -90,7 +90,7 @@ class PythonBuildStrategy:
 
 Deployment strategies run build artifacts and manage their lifecycle.
 
-**Protocol**: `DeploymentStrategy` (from `hop3.core.protocols`)
+**Protocol**: `Deployer` (from `hop3.core.protocols`)
 
 **Required attributes**:
 - `name` (str): Unique identifier (e.g., "uwsgi", "docker-compose")
@@ -108,9 +108,9 @@ Deployment strategies run build artifacts and manage their lifecycle.
 
 ```python
 import subprocess
-from hop3.core.protocols import DeploymentStrategy, DeploymentInfo
+from hop3.core.protocols import Deployer, DeploymentInfo
 
-class DockerComposeDeploymentStrategy:
+class DockerComposeDeployer:
     """Deploy applications using Docker Compose."""
 
     name = "docker-compose"
@@ -441,7 +441,7 @@ class MyPlugin:
         return [MyBuilder]
 
     @hookimpl
-    def get_deployment_strategies(self) -> list:
+    def get_deployers(self) -> list:
         """Return deployment strategies."""
         return [MyDeployer]
 

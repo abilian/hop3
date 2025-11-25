@@ -114,7 +114,7 @@ class MyPlugin:
         return [MyBuilder]
 
     @hookimpl
-    def get_deployment_strategies(self) -> list:
+    def get_deployers(self) -> list:
         """Provide MyFramework deployment strategy."""
         return [MyDeployer]
 
@@ -493,8 +493,8 @@ from hop3.core.runtime_registry import get_deployment_strategy
 strategy = get_deployment_strategy(app)
 
 # New
-from hop3.core.plugins import get_deployment_strategy_by_name
-strategy = get_deployment_strategy_by_name(app, app.runtime)
+from hop3.core.plugins import get_deployer_by_name
+strategy = get_deployer_by_name(app, app.runtime)
 ```
 
 ### Security Updates
@@ -583,7 +583,7 @@ class MyFrameworkPlugin:
         return [MyFrameworkBuilder]
 
     @hookimpl
-    def get_deployment_strategies(self) -> list:
+    def get_deployers(self) -> list:
         return [MyFrameworkDeployer]
 
     @hookimpl

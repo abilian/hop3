@@ -16,7 +16,7 @@ from . import Command
 # Strategy hooks that provide lists of strategies
 STRATEGY_HOOKS = {
     "get_builders",
-    "get_deployment_strategies",
+    "get_deployers",
     "get_addons",
 }
 
@@ -152,7 +152,7 @@ class Plugins(Command):
         # Map hook names to user-friendly descriptions
         descriptions = {
             "get_builders": "Provides build strategies",
-            "get_deployment_strategies": "Provides deployment strategies",
+            "get_deployers": "Provides deployment strategies",
             "get_addons": "Provides service strategies",
             "cli_commands": "Provides CLI commands",
         }
