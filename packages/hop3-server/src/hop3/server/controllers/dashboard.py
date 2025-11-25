@@ -19,7 +19,7 @@ import asyncio
 from datetime import datetime, timezone
 from operator import itemgetter
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import anyio
 from litestar import Controller, get, post
@@ -41,6 +41,40 @@ if TYPE_CHECKING:
 # ============================================================================
 # Helper Functions (kept as utilities, not methods)
 # ============================================================================
+
+# Builder configuration list used by app creation forms
+BUILDER_OPTIONS = [
+    {
+        "id": "auto",
+        "name": "Auto-detect",
+        "description": "Automatically detect builder from project files",
+    },
+    {
+        "id": "python",
+        "name": "Python",
+        "description": "Python applications (Django, Flask, FastAPI, etc.)",
+    },
+    {
+        "id": "nodejs",
+        "name": "Node.js",
+        "description": "Node.js applications (Express, Next.js, etc.)",
+    },
+    {
+        "id": "static",
+        "name": "Static",
+        "description": "Static HTML/CSS/JS sites",
+    },
+    {
+        "id": "ruby",
+        "name": "Ruby",
+        "description": "Ruby applications (Rails, Sinatra, etc.)",
+    },
+    {
+        "id": "go",
+        "name": "Go",
+        "description": "Go applications",
+    },
+]
 
 
 def get_app_or_none(db_session, app_name: str) -> App | None:
@@ -130,7 +164,7 @@ class DashboardController(Controller):
     """
 
     path = "/dashboard"
-    guards = [auth_guard]
+    guards: ClassVar = [auth_guard]
 
     # ========================================================================
     # Main Dashboard
