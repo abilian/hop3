@@ -16,7 +16,7 @@ class UWSGIPlugin:
     name = "uwsgi-deploy"
 
     @hop3_hook_impl
-    def get_deployment_strategies(self) -> list:
+    def get_deployers(self) -> list:
         """Return uWSGI deployment strategy."""
         return [UWSGIDeployer]
 

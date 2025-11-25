@@ -23,7 +23,7 @@ class RedisPlugin:
     name = "redis"
 
     @hookimpl
-    def get_service_strategies(self) -> list:
+    def get_addons(self) -> list:
         """Return Redis service strategy."""
         return [RedisAddon]
 

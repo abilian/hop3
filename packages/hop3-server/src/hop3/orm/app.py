@@ -95,6 +95,7 @@ class App(BigIntAuditBase):
     __tablename__ = "app"
 
     name: Mapped[str] = mapped_column(String(128))
+    runtime: Mapped[str] = mapped_column(String(64), default="uwsgi")
     run_state: Mapped[AppStateEnum] = mapped_column(
         IntEnum(AppStateEnum), default=AppStateEnum.STOPPED
     )
@@ -133,68 +134,25 @@ class App(BigIntAuditBase):
         return self.run_state == AppStateEnum.RUNNING
 
     def check_actual_status(self) -> AppStateEnum:
-        """Check the actual running status by verifying processes are alive.
+        """Check the actual running status by delegating to the deployment strategy.
 
-        Uses multiple methods to verify if the app is actually running:
-        1. Check if uWSGI socket files exist (most reliable)
-        2. Check if uWSGI processes are running
-        3. Fall back to checking config files
+        This method is runtime-agnostic - it delegates the actual status checking
+        to the appropriate deployment strategy (uWSGI, Docker, systemd, etc.) based
+        on the app's runtime field.
 
         Returns the actual state based on whether worker processes exist.
         This is used to sync the database state with reality.
         """
-        import subprocess
+        from hop3.core.plugins import get_deployer_by_name
 
-        cfg = HopConfig.get_instance()
-
-        # Method 1: Check for socket file (most reliable for web workers)
-        socket_path = cfg.NGINX_ROOT / f"{self.name}.sock"
-        if socket_path.exists():
-            # Socket exists, but is it being listened to?
-            # Try to check if there's a process using this socket
-            try:
-                result = subprocess.run(
-                    ["lsof", str(socket_path)],
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                    timeout=2,
-                )
-                if result.returncode == 0:
-                    # Socket is being used by a process
-                    return AppStateEnum.RUNNING
-            except (subprocess.TimeoutExpired, FileNotFoundError):
-                # lsof not available or timed out, continue to next check
-                pass
-
-        # Method 2: Check for running uWSGI processes with this app's name
-        # uWSGI sets procname-prefix to "{app_name}:{kind}:"
         try:
-            result = subprocess.run(
-                ["pgrep", "-f", f"{self.name}:"],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=2,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                # Found running processes
-                return AppStateEnum.RUNNING
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            # pgrep not available or timed out, continue to next check
-            pass
-
-        # Method 3: Fall back to checking config files
-        # This is the least reliable but works on all platforms
-        config_files = list(cfg.UWSGI_ENABLED.glob(f"{self.name}*.ini"))
-        if len(config_files) > 0:
-            # Config files exist, but we couldn't verify processes
-            # Could be starting up or crashed
-            # Return STOPPED to be conservative
+            strategy = get_deployer_by_name(self, self.runtime)
+            is_running = strategy.check_status()
+            return AppStateEnum.RUNNING if is_running else AppStateEnum.STOPPED
+        except (ValueError, RuntimeError) as e:
+            # Unknown runtime or error checking status - log and return STOPPED
+            log(f"Error checking status for app '{self.name}': {e}", fg="red")
             return AppStateEnum.STOPPED
-
-        # No config files at all
-        return AppStateEnum.STOPPED
 
     def sync_state(self) -> bool:
         """Synchronize database state with actual running status.

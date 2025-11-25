@@ -1,6 +1,6 @@
 # OS Setup Strategy Plugins
 
-This directory contains plugins for setting up hop3 on different operating systems. Each plugin implements the `OSSetupStrategy` protocol and can auto-detect whether it matches the current system.
+This directory contains plugins for setting up hop3 on different operating systems. Each plugin implements the `OS` protocol and can auto-detect whether it matches the current system.
 
 ## Architecture
 
@@ -9,9 +9,9 @@ This directory contains plugins for setting up hop3 on different operating syste
 OS setup is handled through hop3's plugin system:
 
 ```
-OSSetupStrategy Protocol (protocols.py)
+OS Protocol (protocols.py)
     ↓
-get_os_strategies() hookspec (hookspecs.py)
+get_os_implementations() hookspec (hookspecs.py)
     ↓
 Plugin Registration (each OS plugin)
     ↓
@@ -33,7 +33,7 @@ Auto-discovery via get_os_strategy() (plugins.py)
 
 Each OS plugin consists of:
 
-1. **Strategy Class**: Implements `OSSetupStrategy` protocol
+1. **Strategy Class**: Implements `OS` protocol
    - `name`: Unique identifier (e.g., "debian12")
    - `display_name`: Human-readable name (e.g., "Debian 12 (Bookworm)")
    - `packages`: List of required packages
@@ -41,7 +41,7 @@ Each OS plugin consists of:
    - `setup_server()`: Performs installation and configuration
 
 2. **Plugin Class**: Provides the strategy via hooks
-   - Implements `@hop3_hook_impl` decorated `get_os_strategies()`
+   - Implements `@hop3_hook_impl` decorated `get_os_implementations()`
    - Returns list containing the Strategy class
 
 3. **Plugin Instance**: For auto-discovery
@@ -159,7 +159,7 @@ class AlpinePlugin:
     """Plugin that provides Alpine Linux OS setup strategy."""
 
     @hop3_hook_impl
-    def get_os_strategies(self) -> list:
+    def get_os_implementations(self) -> list:
         return [AlpineStrategy]
 
 
@@ -320,7 +320,7 @@ The `bsd.py` plugin handles **BSD systems**:
 
 ## Related Files
 
-- Core Protocol: `packages/hop3-server/src/hop3/core/protocols.py` (OSSetupStrategy)
-- Hookspec: `packages/hop3-server/src/hop3/core/hookspecs.py` (get_os_strategies)
+- Core Protocol: `packages/hop3-server/src/hop3/core/protocols.py` (OS)
+- Hookspec: `packages/hop3-server/src/hop3/core/hookspecs.py` (get_os_implementations)
 - Discovery: `packages/hop3-server/src/hop3/core/plugins.py` (get_os_strategy)
 - Legacy Modules: `packages/hop3-server/src/hop3/oses/` (to be deprecated)

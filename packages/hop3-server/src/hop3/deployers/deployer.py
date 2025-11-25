@@ -20,9 +20,9 @@ def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
 
     This function orchestrates the deployment process:
     1. Sets up a context object with app information.
-    2. Asks the plugin system for a suitable BuildStrategy.
+    2. Asks the plugin system for a suitable Builder.
     3. Executes the build to get a BuildArtifact.
-    4. Asks the plugin system for a suitable DeploymentStrategy.
+    4. Asks the plugin system for a suitable Deployer.
     5. Executes the deployment.
     6. (Future) Configures the proxy based on deployment info.
     """

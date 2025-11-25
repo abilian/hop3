@@ -12,7 +12,7 @@ from devtools import debug
 from pluggy import PluginManager
 
 # Temp
-from hop3.plugins.build.dummy_build.builder import DummyBuildStrategy
+from hop3.plugins.build.dummy_build.builder import DummyBuilder
 from hop3.plugins.deploy.dummy_deploy.deploy import DummyDeployer
 
 from . import hookspecs
@@ -22,13 +22,13 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from .protocols import (
+        OS,
+        Addon,
         BuildArtifact,
-        BuildStrategy,
+        Builder,
+        Deployer,
         DeploymentContext,
-        DeploymentStrategy,
-        OSSetupStrategy,
         Proxy,
-        ServiceStrategy,
     )
 
 # Singleton instance of the PluginManager.
@@ -104,14 +104,28 @@ def get_plugin_manager() -> PluginManager:
     pm.register(core_plugin)
 
     # Import all plugin modules and auto-discover plugin instances
+    #
+    # Plugin Architecture Notes:
+    # - Each plugin package can have both module-level hooks AND a plugin class
+    # - Module-level hooks (e.g., get_di_providers()) are registered on the module itself
+    # - Plugin class hooks (e.g., get_builders()) are registered on the plugin instance
+    # - We register BOTH to support both patterns
+    #
+    # Example: PostgreSQL plugin has:
+    #   - Module-level: @hookimpl def get_di_providers() -> list
+    #   - Plugin class: PostgresqlPlugin with @hookimpl def get_addons()
+    #
+    # Important: To avoid duplicate registration, plugin packages should NOT
+    # export the plugin instance from __init__.py if they also have a plugin.py.
+    # Only plugin.py should export the plugin instance.
     for module in get_core_plugins():
-        # Each plugin module should export a `plugin` instance
+        # Register the module to capture module-level hooks (like get_di_providers)
+        pm.register(module)
+
+        # Additionally register the plugin instance if it exists
+        # This allows both module-level hooks and plugin-class hooks
         if hasattr(module, "plugin"):
             pm.register(module.plugin)
-
-        # Also register the module itself to discover module-level hooks
-        # (e.g., get_di_providers() function)
-        pm.register(module)
 
     # For plugins that are not built-in, we load them from setuptools entry points
     pm.load_setuptools_entrypoints("hop3")
@@ -128,19 +142,19 @@ class CorePlugin:
     name = "core"
 
     @hop3_hook_impl
-    def get_build_strategies(self) -> list:
+    def get_builders(self) -> list:
         # This hook returns classes, not instances.
-        return [DummyBuildStrategy]
+        return [DummyBuilder]
 
     @hop3_hook_impl
-    def get_deployment_strategies(self) -> list:
+    def get_deployers(self) -> list:
         return [DummyDeployer]
 
 
 #
 # Convenience Helper Functions
 #
-def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
+def get_build_strategy(context: DeploymentContext) -> Builder:
     """
     Finds and instantiates the appropriate build strategy.
 
@@ -151,13 +165,13 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
 
     # The result is a list of lists, e.g., [[BuildpackBuilder], [DockerBuilder]]
     try:
-        strategy_classes_list = pm.hook.get_build_strategies()
+        strategy_classes_list = pm.hook.get_builders()
     except:
         traceback.print_exc()
         raise
 
     # Flatten the list of lists into a single list of classes
-    strategy_classes: list[type[BuildStrategy]] = [
+    strategy_classes: list[type[Builder]] = [
         cls for sublist in strategy_classes_list for cls in sublist
     ]
     debug(strategy_classes)
@@ -186,17 +200,31 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
 
 def get_deployment_strategy(
     context: DeploymentContext, artifact: BuildArtifact
-) -> DeploymentStrategy:
-    """Finds and instantiates the appropriate deployment strategy."""
+) -> Deployer:
+    """Finds and instantiates the appropriate deployment strategy.
+
+    This function is used during the build-deploy pipeline to auto-select
+    a deployment strategy based on the artifact type.
+
+    Args:
+        context: Deployment context with app information
+        artifact: Build artifact to deploy
+
+    Returns:
+        Deployer instance that accepts the artifact
+
+    Raises:
+        RuntimeError: If no compatible strategy is found
+    """
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.get_deployment_strategies()
+    strategy_classes_list = pm.hook.get_deployers()
     strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
 
     # TODO: Add logic to check context.app_config for an explicit strategy name.
 
     for strategy_class in strategy_classes:
-        strategy: DeploymentStrategy = strategy_class(context, artifact)
+        strategy: Deployer = strategy_class(context, artifact)
         if strategy.accept():
             return strategy
 
@@ -204,38 +232,96 @@ def get_deployment_strategy(
     raise RuntimeError(msg)
 
 
-def get_service_strategy(service_type: str, service_name: str) -> ServiceStrategy:
+def get_deployer_by_name(app, runtime_name: str) -> Deployer:
+    """Get a deployment strategy by name for lifecycle operations.
+
+    This function is used for lifecycle management (start, stop, restart, status)
+    where we need to look up a strategy by name rather than auto-detecting.
+
+    Args:
+        app: App instance (for creating deployment context)
+        runtime_name: Name of the runtime (e.g., 'uwsgi', 'docker-compose')
+
+    Returns:
+        Deployer instance for the named runtime
+
+    Raises:
+        RuntimeError: If the runtime name is not found
+
+    Example:
+        >>> strategy = get_deployer_by_name(app, 'uwsgi')
+        >>> is_running = strategy.check_status()
+    """
+    from hop3.core.protocols import BuildArtifact, DeploymentContext  # noqa: PLC0415
+
+    pm = get_plugin_manager()
+
+    strategy_classes_list = pm.hook.get_deployers()
+    strategy_classes: list[type[Deployer]] = [
+        cls for sublist in strategy_classes_list for cls in sublist
+    ]
+
+    # Find strategy by name
+    for strategy_class in strategy_classes:
+        if getattr(strategy_class, "name", None) == runtime_name:
+            # Create deployment context for lifecycle operations
+            context = DeploymentContext(
+                app_name=app.name,
+                source_path=app.src_path,
+                app_config={},
+                app=app,
+            )
+            # Create dummy artifact (not needed for lifecycle ops)
+            artifact = BuildArtifact(
+                kind="unknown",
+                location=str(app.virtualenv_path)
+                if hasattr(app, "virtualenv_path")
+                else "",
+            )
+            return strategy_class(context, artifact)
+
+    # Provide helpful error message with available runtimes
+    available_runtimes = [getattr(cls, "name", "?") for cls in strategy_classes]
+    msg = (
+        f"Runtime '{runtime_name}' not found. Available runtimes: {available_runtimes}"
+    )
+    raise RuntimeError(msg)
+
+
+def get_addon(addon_type: str, addon_name: str) -> Addon:
     """
     Finds and instantiates the appropriate service strategy.
 
     Args:
-        service_type: The type of service (e.g., 'postgres', 'redis')
-        service_name: The specific instance name for this service
+        addon_type: The type of service (e.g., 'postgres', 'redis')
+        addon_name: The specific instance name for this service
 
     Returns:
-        An instance of the requested ServiceStrategy
+        An instance of the requested Addon
 
     Raises:
         RuntimeError: If the requested service type is not found
     """
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.get_service_strategies()
-    strategy_classes: list[type[ServiceStrategy]] = [
-        cls for sublist in strategy_classes_list for cls in sublist
+    addon_classes_list = pm.hook.get_addons()
+    addon_classes: list[type[Addon]] = [
+        cls for sublist in addon_classes_list for cls in sublist
     ]
 
-    for strategy_class in strategy_classes:
+    for addon_class in addon_classes:
         # Check if the strategy name matches the requested service type
-        if getattr(strategy_class, "name", None) == service_type:
-            return strategy_class(service_name=service_name)
+        if getattr(addon_class, "name", None) == addon_type:
+            return addon_class(addon_name=addon_name)
 
-    available_services = [getattr(cls, "name", "?") for cls in strategy_classes]
-    msg = f"Service type '{service_type}' not found. Available services: {available_services}"
+    available_addons = [getattr(cls, "name", "?") for cls in addon_classes]
+    msg = (
+        f"Service type '{addon_type}' not found. Available services: {available_addons}"
+    )
     raise RuntimeError(msg)
 
 
-def get_os_strategy() -> OSSetupStrategy:
+def get_os_strategy() -> OS:
     """
     Auto-detect and return the appropriate OS setup strategy for the current system.
 
@@ -251,8 +337,8 @@ def get_os_strategy() -> OSSetupStrategy:
 
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.get_os_strategies()
-    strategy_classes: list[type[OSSetupStrategy]] = [
+    strategy_classes_list = pm.hook.get_os_implementations()
+    strategy_classes: list[type[OS]] = [
         cls for sublist in strategy_classes_list for cls in sublist
     ]
 
@@ -279,7 +365,7 @@ def list_supported_os() -> list[str]:
     """
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.get_os_strategies()
+    strategy_classes_list = pm.hook.get_os_implementations()
     strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
 
     return [getattr(cls, "display_name", "Unknown") for cls in strategy_classes]
@@ -308,7 +394,7 @@ def get_proxy_strategy(app, env, workers: dict[str, str]) -> Proxy:
 
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.get_proxy_strategies()
+    strategy_classes_list = pm.hook.get_proxies()
     strategy_classes: list[type[Proxy]] = [
         cls for sublist in strategy_classes_list for cls in sublist
     ]

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from argparse import ArgumentParser
 
-from hop3.core.plugins import get_service_strategy
+from hop3.core.plugins import get_addon
 from hop3.lib import echo
 from hop3.lib.decorators import command
 
@@ -34,7 +34,7 @@ class PgCreateCmd:
 
         try:
             # Use the service strategy to create the database
-            service = get_service_strategy("postgres", name)
+            service = get_addon("postgres", name)
             service.create()
 
             echo(f"Database '{name}' created successfully.")
@@ -67,7 +67,7 @@ class PgDropCmd:
 
         try:
             # Use the service strategy to destroy the database
-            service = get_service_strategy("postgres", name)
+            service = get_addon("postgres", name)
             service.destroy()
 
             echo(f"Database '{name}' dropped successfully.")
@@ -176,7 +176,7 @@ class PgCredentialsCmd:
 
         try:
             # Use the service strategy to get connection details
-            service = get_service_strategy("postgres", name)
+            service = get_addon("postgres", name)
             details = service.get_connection_details()
 
             # Display the credentials
@@ -219,7 +219,7 @@ class PgInfoCmd:
 
         try:
             # Use the service strategy to get info
-            service = get_service_strategy("postgres", name)
+            service = get_addon("postgres", name)
             info = service.info()
 
             # Display the information
