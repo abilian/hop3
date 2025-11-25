@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 from hop3.core.hooks import hop3_hook_impl
-from hop3.core.protocols import BuildArtifact, BuildStrategy, DeploymentContext
+from hop3.core.protocols import BuildArtifact, Builder, DeploymentContext
 
 
-class DummyBuildStrategy(BuildStrategy):
+class DummyBuilder(Builder):
     name = "dummy"
 
     def __init__(self, context: DeploymentContext):
@@ -23,5 +23,5 @@ class DummyBuildStrategy(BuildStrategy):
 
 class DummyPlugin:
     @hop3_hook_impl
-    def get_build_strategies(self) -> list[type[BuildStrategy]]:
-        return [DummyBuildStrategy]
+    def get_build_strategies(self) -> list[type[Builder]]:
+        return [DummyBuilder]
