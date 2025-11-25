@@ -1,100 +1,423 @@
-# ADR: Distributed, Agent-Based Architecture for Hop3
+# ADR 017: Distributed, Agent-Based Architecture for Hop3
 
 **Status**: Draft
 
+**Date**: 2025-11-25
+
+**Revisions**:
+- v0.2: Revised to align with phased implementation plan and ADR 029 (2025-11-25)
+- v0.1: Initial draft
+
+## Introduction
+
+This ADR describes the long-term vision for Hop3's evolution from a single-server PaaS to a distributed, agent-based platform. It establishes the architectural principles and evolution path while recognizing that foundational work (ADR 029) must be completed first.
+
+## Summary
+
+Hop3 will evolve through four phases:
+
+1. **Phase 1** (ADR 029): Single-server reconciliation, health checks, and restart policies
+2. **Phase 2**: Extract agent responsibilities into a separate module
+3. **Phase 3**: Multi-server support with central coordinator
+4. **Phase 4**: Full distributed scheduling and orchestration
+
+This phased approach allows Hop3 to gain production reliability immediately (Phase 1) while building toward a scalable distributed architecture over time.
+
 ## Context and Goals
 
-The Hop3 platform aims to deploy and manage web applications in a scalable, reliable, and efficient manner. A distributed, agent-based architecture offers significant advantages in terms of scalability, fault tolerance, and decentralization. By leveraging the theory of promises, invented by Mark Burgess, this architecture can ensure robust and predictable behavior in a distributed system. The goal is to design and implement a distributed, agent-based architecture for Hop3 that enhances its ability to manage medium to large-scale deployments efficiently and reliably.
+### Context
+
+Hop3 is currently a single-server PaaS optimized for simplicity. Comparing Hop3's architecture with production-grade orchestrators (like Kubernetes, Nomad, or the "Cube" pattern from container orchestration literature) reveals several gaps:
+
+| Aspect | Production Orchestrators | Hop3 Current |
+|--------|-------------------------|--------------|
+| Architecture | Distributed Manager-Worker | Single-server monolithic |
+| Reconciliation | Periodic background loop | On-demand only |
+| Health Checks | Active probing + remediation | Defined but not implemented |
+| Restart Policy | Always/OnFailure/Never | Not implemented |
+| Metrics | Worker collects CPU/Memory | Not implemented |
+| Event Log | Immutable state changes | Not implemented |
+
+While multi-server distribution isn't needed for Hop3's primary use case (single-server simplicity), the **patterns** from distributed systems (reconciliation loops, health monitoring, self-healing) provide significant reliability benefits even on a single server.
+
+### Goals
+
+1. **Incremental Evolution**: Build distributed capabilities incrementally, not as a big-bang rewrite
+2. **Single-Server First**: Ensure single-server deployments gain full reliability benefits
+3. **Production Patterns**: Adopt proven patterns from production orchestrators
+4. **Minimal Complexity**: Add multi-server support only when justified by concrete requirements
+5. **Promise-Based Design**: Use the theory of promises for coordination semantics
+
+### Non-Goals
+
+- Competing with Kubernetes for large-scale container orchestration
+- Supporting arbitrary distributed consensus algorithms
+- Real-time sub-second state synchronization
 
 ## Decision
 
-Hop3 will adopt a distributed, agent-based architecture where multiple agents, deployed across various nodes, manage the deployment and operation of web applications. This architecture will utilize the principles of the theory of promises to ensure consistent and reliable behavior across the distributed system.
+Hop3 will adopt an agent-based architecture where each server runs an autonomous agent that:
+1. Manages local application lifecycle
+2. Maintains promises about application state
+3. Reports status to a coordinator (in multi-server mode)
+4. Self-heals based on configured policies
 
-## Key Components
+The architecture will be implemented in phases, with each phase delivering standalone value.
 
-### Agent-Based Architecture
+## Detailed Design
 
-1. **Agents**:
+### Phase 1: Single-Server Foundations (ADR 029)
 
-   - **Deployment**: Deploy agents on each node in the network to handle local tasks such as application deployment, monitoring, and maintenance.
-   - **Autonomy**: Each agent operates autonomously, making local decisions based on its configuration and state while coordinating with other agents as needed.
+**Status**: Detailed design in ADR 029
 
-1. **Coordination**:
+Phase 1 implements the core patterns on a single server:
 
-   - **Promised-Based Coordination**: Utilize the theory of promises to coordinate actions between agents. Agents make promises about their behavior and state changes, which other agents can depend on.
-   - **Decentralized Control**: Avoid a single point of failure by ensuring that control is decentralized. Each agent can independently verify and enforce the promises made by other agents.
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Hop3 Server                          │
+│                                                         │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────┐   │
+│  │   Watchdog   │───▶│   Database   │◀───│   CLI    │   │
+│  │   Service    │    │   (SQLite)   │    │          │   │
+│  └──────┬───────┘    └──────────────┘    └──────────┘   │
+│         │                                               │
+│         ▼                                               │
+│  ┌──────────────┐    ┌──────────────┐                   │
+│  │   Health     │    │    uWSGI     │                   │
+│  │   Checker    │───▶│   Emperor    │                   │
+│  └──────────────┘    └──────────────┘                   │
+│                             │                           │
+│                             ▼                           │
+│                      ┌──────────────┐                   │
+│                      │ App Processes│                   │
+│                      └──────────────┘                   │
+└─────────────────────────────────────────────────────────┘
+```
 
-### Theory of Promises
+Key deliverables:
+- `WatchdogService`: Background reconciliation loop (30-60 second cycle)
+- `HealthChecker`: Command and HTTP-based health probing
+- `RestartPolicy`: NEVER, ON_FAILURE, ALWAYS with exponential backoff
+- `AppEvent`: Immutable audit log of state changes
 
-1. **Promises**:
+### Phase 2: Agent Module Extraction
 
-   - **Definition**: A promise is a declaration made by an agent about its future behavior or state. Promises are used to manage expectations and dependencies between agents.
-   - **Types of Promises**: Different types of promises include state promises (e.g., "I promise to maintain a running state") and action promises (e.g., "I promise to deploy an application").
+Phase 2 extracts agent responsibilities into a distinct module, preparing for distribution:
 
-1. **Promise Management**:
+```python
+class LocalAgent:
+    """Agent running on a single Hop3 server."""
 
-   - **Creation and Verification**: Agents create promises based on their current state and capabilities. Promises are verified by other agents to ensure compliance.
-   - **Conflict Resolution**: Mechanisms are in place to resolve conflicts when promises cannot be fulfilled, ensuring system stability and consistency.
+    def __init__(self, node_id: str, coordinator: Coordinator | None = None):
+        self.node_id = node_id
+        self.watchdog = WatchdogService()
+        self.health_checker = HealthChecker()
+        self.coordinator = coordinator  # None for single-server
 
-### Scalability and Fault Tolerance
+    async def run(self) -> None:
+        """Main agent loop."""
+        while True:
+            # 1. Reconcile local state
+            await self.watchdog.reconcile()
 
-1. **Scalability**:
+            # 2. Run health checks
+            await self.health_checker.check_all()
 
-   - **Horizontal Scaling**: Easily scale the system horizontally by adding more agents. Each agent manages a portion of the overall workload, distributing the load evenly.
-   - **Load Balancing**: Implement load balancing strategies to ensure that no single agent is overwhelmed, improving overall system performance.
+            # 3. Process restart policies
+            await self.watchdog.process_restarts()
 
-1. **Fault Tolerance**:
+            # 4. Report to coordinator (if multi-server)
+            if self.coordinator:
+                await self.report_status()
 
-   - **Redundancy**: Deploy multiple agents to handle critical tasks, ensuring that the system can tolerate the failure of individual agents without significant impact.
-   - **Self-Healing**: Agents detect and recover from failures autonomously, making the system more resilient to faults and disruptions.
+            await asyncio.sleep(30)
 
-### Continuous Improvement
+    async def report_status(self) -> AgentStatus:
+        """Report agent status to coordinator."""
+        return AgentStatus(
+            node_id=self.node_id,
+            timestamp=datetime.now(UTC),
+            apps=self._get_app_statuses(),
+            resources=self._get_resource_usage(),
+        )
 
-1. **Feedback Loop**:
+    def receive_task(self, task: Task) -> Promise:
+        """Receive a task from coordinator and return a promise."""
+        return Promise(
+            promiser=self.node_id,
+            promisee="coordinator",
+            body=f"deploy:{task.app_name}",
+            status="pending",
+        )
+```
 
-   - **User Feedback**: Establish a feedback loop with users and administrators to continuously improve the agent-based architecture based on real-world usage and feedback.
-   - **Performance Monitoring**: Monitor the performance and reliability of the agents to identify and address any issues promptly.
+Key deliverables:
+- `LocalAgent`: Encapsulates all agent responsibilities
+- `AgentStatus`: Standardized status reporting format
+- `Task` / `Promise`: Data structures for task assignment
 
-1. **Community Engagement**:
+### Phase 3: Multi-Server Coordinator
 
-   - **Hop3 Community**: Encourage contributions from the Hop3 community to refine and enhance the distributed, agent-based architecture.
+Phase 3 adds a central coordinator for multi-server deployments:
+
+```
+┌───────────────────────────────────────────────────────┐
+│                       Coordinator                     │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐  │
+│  │  Scheduler  │   │   Task      │   │   Promise   │  │
+│  │  (3-phase)  │   │   Queue     │   │   Registry  │  │
+│  └─────────────┘   └─────────────┘   └─────────────┘  │
+└────────────────────────────┬──────────────────────────┘
+                             │ HTTP/gRPC
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+        ┌──────────┐   ┌──────────┐   ┌──────────┐
+        │  Agent   │   │  Agent   │   │  Agent   │
+        │  Node 1  │   │  Node 2  │   │  Node 3  │
+        └──────────┘   └──────────┘   └──────────┘
+```
+
+**Coordinator Responsibilities:**
+
+```python
+class Coordinator:
+    """Central coordinator for multi-server Hop3."""
+
+    def __init__(self):
+        self.agents: dict[str, AgentConnection] = {}
+        self.scheduler = Scheduler()
+        self.task_queue = TaskQueue()
+        self.promise_registry = PromiseRegistry()
+
+    async def deploy_app(self, app: App) -> DeploymentResult:
+        """Deploy application to best available node."""
+        # 1. Filter: Find capable nodes
+        candidates = self.scheduler.filter(
+            self.agents.values(),
+            requirements=app.resource_requirements,
+        )
+
+        # 2. Score: Rank by resource availability
+        scored = self.scheduler.score(candidates)
+
+        # 3. Pick: Select best node
+        target = self.scheduler.pick(scored)
+
+        # 4. Create task and send to agent
+        task = Task(app_name=app.name, action="deploy")
+        promise = await target.assign_task(task)
+
+        # 5. Register promise and track
+        self.promise_registry.register(promise)
+        return DeploymentResult(node=target.node_id, promise_id=promise.id)
+
+    async def reconciliation_loop(self) -> None:
+        """Periodic reconciliation with all agents."""
+        while True:
+            for agent in self.agents.values():
+                status = await agent.get_status()
+                await self._reconcile_agent(agent, status)
+            await asyncio.sleep(30)
+```
+
+**Three-Phase Scheduler:**
+
+```python
+class Scheduler:
+    """Three-phase scheduler for task placement."""
+
+    def filter(
+        self,
+        agents: Iterable[AgentConnection],
+        requirements: ResourceRequirements,
+    ) -> list[AgentConnection]:
+        """Phase 1: Filter out incapable nodes."""
+        return [
+            agent for agent in agents
+            if agent.has_capacity(requirements)
+            and agent.is_healthy()
+            and not agent.is_draining()
+        ]
+
+    def score(
+        self,
+        candidates: list[AgentConnection],
+    ) -> list[tuple[AgentConnection, float]]:
+        """Phase 2: Score remaining candidates."""
+        scored = []
+        for agent in candidates:
+            score = (
+                0.4 * agent.available_memory_ratio()
+                + 0.3 * agent.available_cpu_ratio()
+                + 0.2 * agent.app_spread_score()  # Prefer nodes with fewer apps
+                + 0.1 * agent.locality_score()    # Prefer co-located dependencies
+            )
+            scored.append((agent, score))
+        return sorted(scored, key=lambda x: x[1], reverse=True)
+
+    def pick(
+        self,
+        scored: list[tuple[AgentConnection, float]],
+    ) -> AgentConnection:
+        """Phase 3: Pick the best candidate."""
+        if not scored:
+            raise NoCapacityError("No nodes available for scheduling")
+        return scored[0][0]
+```
+
+Key deliverables:
+- `Coordinator`: Central management service
+- `Scheduler`: Three-phase scheduling algorithm
+- `AgentConnection`: Agent communication protocol
+- `PromiseRegistry`: Track and verify promises
+
+### Phase 4: Advanced Orchestration
+
+Phase 4 adds advanced features:
+
+1. **Placement Constraints**: Affinity/anti-affinity rules
+2. **Rolling Updates**: Zero-downtime deployments across nodes
+3. **Resource Quotas**: Per-tenant resource limits
+4. **Federation**: Multi-coordinator for geographic distribution
+
+### Theory of Promises Integration
+
+The theory of promises (Mark Burgess) provides the semantic foundation:
+
+**Promise Types:**
+
+```python
+class Promise:
+    """A declaration by an agent about its behavior."""
+
+    promiser: str        # Agent making the promise
+    promisee: str        # Who can depend on it ("any" for broadcast)
+    body: str            # What is promised (e.g., "running:myapp")
+    status: PromiseStatus  # pending, kept, broken
+    timestamp: datetime
+
+class PromiseStatus(enum.Enum):
+    PENDING = "pending"    # Promise made, not yet verified
+    KEPT = "kept"          # Promise verified as fulfilled
+    BROKEN = "broken"      # Promise verified as not fulfilled
+```
+
+**Promise Verification:**
+
+```python
+async def verify_promises(self) -> list[BrokenPromise]:
+    """Verify all registered promises against actual state."""
+    broken = []
+    for promise in self.promise_registry.active():
+        agent = self.agents.get(promise.promiser)
+        if not agent:
+            broken.append(BrokenPromise(promise, reason="agent_unavailable"))
+            continue
+
+        # Parse promise body and verify
+        if promise.body.startswith("running:"):
+            app_name = promise.body.split(":")[1]
+            status = await agent.get_app_status(app_name)
+            if status.state != AppState.RUNNING:
+                broken.append(BrokenPromise(promise, reason="app_not_running"))
+
+    return broken
+```
+
+**Promise-Based Coordination:**
+
+Instead of imperative commands ("deploy this app now"), the coordinator expresses desired state and agents make promises:
+
+1. Coordinator: "I need app X running on some node"
+2. Agent A: "I promise to run app X" (promise pending)
+3. Agent A deploys app X
+4. Agent A: Updates promise status to "kept"
+5. Coordinator: Verifies promise periodically
+
+This provides:
+- **Decentralization**: Agents decide how to fulfill promises
+- **Fault Tolerance**: Broken promises trigger re-scheduling
+- **Auditability**: Promise history provides clear audit trail
 
 ## Consequences
 
 ### Benefits
 
-- **Scalability**: Enhances the ability to manage large-scale deployments by distributing tasks across multiple agents.
-- **Fault Tolerance**: Improves system resilience by ensuring that failures in individual agents do not affect the overall system.
-- **Decentralization**: Avoids single points of failure and bottlenecks by distributing control across multiple agents.
+1. **Incremental Value**: Each phase delivers standalone improvements
+2. **Production Reliability**: Single-server deployments become self-healing
+3. **Scalability Path**: Clear evolution to multi-server when needed
+4. **Semantic Clarity**: Promise theory provides rigorous coordination semantics
+5. **Debugging**: Promise history and event logs enable root cause analysis
 
 ### Drawbacks
 
-- **Complexity**: Increases the complexity of the system by introducing multiple autonomous agents and coordination mechanisms.
-- **Overhead**: Adds overhead for managing and verifying promises, as well as coordinating actions between agents.
+1. **Complexity**: Multi-server coordination adds significant complexity
+2. **Overhead**: Promise verification and reconciliation consume resources
+3. **Learning Curve**: Promise theory concepts require documentation and training
 
-## Risks
+### Trade-offs
 
-- **Coordination Challenges**: Potential challenges in coordinating actions between agents. Mitigation involves robust implementation of the theory of promises and thorough testing.
-- **Adoption Resistance**: Some users and developers may resist the shift to a more complex, distributed architecture. Mitigation includes providing comprehensive documentation and support.
+| Aspect | Decision | Alternative | Why Rejected |
+|--------|----------|-------------|--------------|
+| Evolution | Phased | Big-bang | Risk too high, value delayed |
+| Coordination | Promise-based | Imperative | Less fault tolerant |
+| Scheduling | 3-phase | Simple round-robin | Insufficient for heterogeneous nodes |
+| Storage | Per-agent SQLite | Distributed consensus | Unnecessary complexity for Hop3 scale |
 
 ## Action Items
 
-1. **Implement Agent-Based Architecture**:
+### Phase 1: Single-Server Foundations (Current Priority)
 
-   - Deploy agents across nodes and implement promised-based coordination.
-   - Ensure agents can autonomously manage local tasks while coordinating with other agents.
+See ADR 029 for detailed action items. Summary:
 
-1. **Enhance Scalability and Fault Tolerance**:
+1. Implement `WatchdogService` with reconciliation loop
+2. Implement `HealthChecker` for active health monitoring
+3. Add `RestartPolicy` to App model
+4. Create `AppEvent` audit log
+5. Add CLI commands for health status and event history
 
-   - Implement load balancing and redundancy strategies.
-   - Ensure agents can detect and recover from failures autonomously.
+### Phase 2: Agent Module Extraction
 
-1. **Engage with Community**:
+1. Extract `LocalAgent` class encapsulating agent responsibilities
+2. Define `AgentStatus` reporting format
+3. Define `Task` and `Promise` data structures
+4. Refactor WatchdogService to use agent abstraction
+5. Add agent configuration to `hop3.toml`
 
-   - Encourage contributions and feedback from the Hop3 community to continuously improve the architecture.
-   - Provide documentation and support to help users and developers adopt the new architecture.
+### Phase 3: Multi-Server Coordinator
 
-1. **Monitor and Improve**:
+1. Implement `Coordinator` service
+2. Implement three-phase `Scheduler`
+3. Define agent-coordinator communication protocol (HTTP/gRPC)
+4. Implement `PromiseRegistry` for promise tracking
+5. Add multi-server configuration and CLI commands
+6. Implement agent discovery/registration
 
-   - Continuously monitor the performance and reliability of the agents.
-   - Implement improvements based on feedback and monitoring results.
+### Phase 4: Advanced Orchestration
+
+1. Implement placement constraints
+2. Implement rolling update strategy
+3. Add resource quotas
+4. Consider federation requirements
+
+## Prior Art
+
+- **Kubernetes**: Manager-worker architecture with reconciliation loops
+- **Nomad**: Three-phase scheduler (feasibility, ranking, selection)
+- **CFEngine**: Theory of promises for configuration management
+- **Cube Orchestrator**: Educational reference for container orchestration patterns
+- **systemd**: Local process supervision with restart policies
+
+## Related
+
+- [ADR 020: Pluggable Architecture](./020-pluggable-architecture.md) - Plugin system used by agents
+- [ADR 022: Build and Deployment Plugin System](./022-build-deploy-plugin-system.md) - Deployment strategies
+- [ADR 029: Reconciliation and Health Checks](./029-reconciliation-health-checks.md) - Phase 1 implementation details
+
+## References
+
+- Burgess, Mark. "Promise Theory: Principles and Applications" (2015)
+- Burgess, Mark. "In Search of Certainty" (2013)
+- Kubernetes Documentation: [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/)
+- Nomad Documentation: [Scheduling](https://developer.hashicorp.com/nomad/docs/concepts/scheduling)
+- "Build an Orchestrator in Go (From Scratch)" by Tim Boring
