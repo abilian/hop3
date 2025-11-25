@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import httpx
@@ -16,6 +15,7 @@ import pytest
 from .conftest import deploy_flask_app
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from typing import Any
 
 

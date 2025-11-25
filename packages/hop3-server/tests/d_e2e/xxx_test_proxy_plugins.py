@@ -10,7 +10,6 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import docker
 import httpx
 import pytest
 
@@ -18,6 +17,8 @@ from .conftest import deploy_flask_app
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+
+    import docker
 
 
 @pytest.mark.e2e

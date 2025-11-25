@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 from advanced_alchemy.base import BigIntAuditBase
@@ -19,6 +19,9 @@ from hop3.config import HopConfig
 from hop3.orm import App, reset_session_factory_cache
 from hop3.server.asgi import create_app
 from hop3.server.lib.database import get_session
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture(autouse=True)

@@ -6,11 +6,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
-from sqlalchemy.orm import Session
 
 from hop3.commands.config import SetCmd, UnsetCmd
 from hop3.orm import App, AppRepository
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 def test_config_set_new_variable(db_session: Session, test_app: App):
