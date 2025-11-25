@@ -95,24 +95,18 @@ class ServicesAttachCmd(Command):
     db_session: Session
     name: ClassVar[str] = "services:attach"
 
-    def call(self, *args):
-        """Attach a service to an application."""
-        # Parse arguments
+    def _parse_attach_args(self, args) -> tuple[str, str | None, str] | None:
+        """Parse command arguments.
+
+        Returns:
+            Tuple of (service_name, app_name, service_type) or None if invalid
+        """
         if len(args) < 1:
-            return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 services:attach <service-name> --app <app-name> [--service-type <type>]\n\n"
-                        "Example:\n"
-                        "  hop3 services:attach my-database --app my-app --service-type postgres"
-                    ),
-                }
-            ]
+            return None
 
         service_name = args[0]
         app_name = None
-        service_type = "postgres"  # Default to postgres for now
+        service_type = "postgres"  # Default
 
         # Parse optional arguments
         i = 1
@@ -125,6 +119,76 @@ class ServicesAttachCmd(Command):
                 i += 2
             else:
                 i += 1
+
+        return service_name, app_name, service_type
+
+    def _store_or_update_credential(
+        self,
+        app_id: int,
+        service_type: str,
+        service_name: str,
+        connection_details: dict,
+    ):
+        """Store or update encrypted service credentials."""
+        encryptor = get_credential_encryptor()
+
+        existing_credential = (
+            self.db_session.query(ServiceCredential)
+            .filter_by(
+                app_id=app_id, service_type=service_type, service_name=service_name
+            )
+            .first()
+        )
+
+        if existing_credential:
+            existing_credential.encrypted_data = encryptor.encrypt(connection_details)
+        else:
+            credential = ServiceCredential(
+                app_id=app_id,
+                service_type=service_type,
+                service_name=service_name,
+                encrypted_data=encryptor.encrypt(connection_details),
+            )
+            self.db_session.add(credential)
+
+    def _add_env_vars(self, app_id: int, connection_details: dict) -> list[str]:
+        """Add or update environment variables for the app.
+
+        Returns:
+            List of status messages for each variable added/updated
+        """
+        added_vars = []
+        for key, value in connection_details.items():
+            existing_var = (
+                self.db_session.query(EnvVar).filter_by(app_id=app_id, name=key).first()
+            )
+
+            if existing_var:
+                existing_var.value = value
+                added_vars.append(f"Updated {key}")
+            else:
+                env_var = EnvVar(app_id=app_id, name=key, value=value)
+                self.db_session.add(env_var)
+                added_vars.append(f"Added {key}")
+
+        return added_vars
+
+    def call(self, *args):
+        """Attach a service to an application."""
+        parsed = self._parse_attach_args(args)
+        if not parsed:
+            return [
+                {
+                    "t": "text",
+                    "text": (
+                        "Usage: hop3 services:attach <service-name> --app <app-name> [--service-type <type>]\n\n"
+                        "Example:\n"
+                        "  hop3 services:attach my-database --app my-app --service-type postgres"
+                    ),
+                }
+            ]
+
+        service_name, app_name, service_type = parsed
 
         if not app_name:
             return [
@@ -144,58 +208,15 @@ class ServicesAttachCmd(Command):
             if not app:
                 return [{"t": "error", "text": f"App '{app_name}' not found"}]
 
-            # Get the service strategy
+            # Get the service strategy and connection details
             service = get_addon(service_type, service_name)
-
-            # Get connection details from the service
             connection_details = service.get_connection_details()
 
-            # Store credentials encrypted in database
-            encryptor = get_credential_encryptor()
-
-            # Check if credential already exists
-            existing_credential = (
-                self.db_session.query(ServiceCredential)
-                .filter_by(
-                    app_id=app.id, service_type=service_type, service_name=service_name
-                )
-                .first()
+            # Store credentials and add environment variables
+            self._store_or_update_credential(
+                app.id, service_type, service_name, connection_details
             )
-
-            if existing_credential:
-                # Update existing credential
-                existing_credential.encrypted_data = encryptor.encrypt(
-                    connection_details
-                )
-            else:
-                # Create new credential
-                credential = ServiceCredential(
-                    app_id=app.id,
-                    service_type=service_type,
-                    service_name=service_name,
-                    encrypted_data=encryptor.encrypt(connection_details),
-                )
-                self.db_session.add(credential)
-
-            # Add each environment variable to the app
-            added_vars = []
-            for key, value in connection_details.items():
-                # Check if variable already exists
-                existing_var = (
-                    self.db_session.query(EnvVar)
-                    .filter_by(app_id=app.id, name=key)
-                    .first()
-                )
-
-                if existing_var:
-                    # Update existing variable
-                    existing_var.value = value
-                    added_vars.append(f"Updated {key}")
-                else:
-                    # Create new variable
-                    env_var = EnvVar(app_id=app.id, name=key, value=value)
-                    self.db_session.add(env_var)
-                    added_vars.append(f"Added {key}")
+            added_vars = self._add_env_vars(app.id, connection_details)
 
             self.db_session.commit()
 
@@ -234,19 +255,14 @@ class ServicesDetachCmd(Command):
     db_session: Session
     name: ClassVar[str] = "services:detach"
 
-    def call(self, *args):
-        """Detach a service from an application."""
+    def _parse_detach_args(self, args) -> tuple[str, str | None, str] | None:
+        """Parse command arguments.
+
+        Returns:
+            Tuple of (service_name, app_name, service_type) or None if invalid
+        """
         if len(args) < 1:
-            return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 services:detach <service-name> --app <app-name> [--service-type <type>]\n\n"
-                        "Example:\n"
-                        "  hop3 services:detach my-database --app my-app"
-                    ),
-                }
-            ]
+            return None
 
         service_name = args[0]
         app_name = None
@@ -263,6 +279,74 @@ class ServicesDetachCmd(Command):
                 i += 2
             else:
                 i += 1
+
+        return service_name, app_name, service_type
+
+    def _get_connection_details(
+        self, app_id: int, service_type: str, service_name: str
+    ) -> dict:
+        """Get connection details from stored credential or service.
+
+        Returns:
+            Dictionary of connection details (may be empty if not found)
+        """
+        credential = (
+            self.db_session.query(ServiceCredential)
+            .filter_by(
+                app_id=app_id, service_type=service_type, service_name=service_name
+            )
+            .first()
+        )
+
+        if credential:
+            encryptor = get_credential_encryptor()
+            connection_details = encryptor.decrypt(credential.encrypted_data)
+            # Remove the credential
+            self.db_session.delete(credential)
+            return connection_details
+
+        # Fallback: Try to get connection details from service
+        try:
+            service = get_addon(service_type, service_name)
+            return service.get_connection_details()
+        except Exception:
+            # If we can't get connection details, return empty dict
+            return {}
+
+    def _remove_env_vars(self, app_id: int, connection_details: dict) -> list[str]:
+        """Remove environment variables from the app.
+
+        Returns:
+            List of removed variable names
+        """
+        removed_vars = []
+        for key in connection_details:
+            env_var = (
+                self.db_session.query(EnvVar).filter_by(app_id=app_id, name=key).first()
+            )
+
+            if env_var:
+                self.db_session.delete(env_var)
+                removed_vars.append(key)
+
+        return removed_vars
+
+    def call(self, *args):
+        """Detach a service from an application."""
+        parsed = self._parse_detach_args(args)
+        if not parsed:
+            return [
+                {
+                    "t": "text",
+                    "text": (
+                        "Usage: hop3 services:detach <service-name> --app <app-name> [--service-type <type>]\n\n"
+                        "Example:\n"
+                        "  hop3 services:detach my-database --app my-app"
+                    ),
+                }
+            ]
+
+        service_name, app_name, service_type = parsed
 
         if not app_name:
             return [
@@ -282,43 +366,13 @@ class ServicesDetachCmd(Command):
             if not app:
                 return [{"t": "error", "text": f"App '{app_name}' not found"}]
 
-            # Remove stored credential
-            credential = (
-                self.db_session.query(ServiceCredential)
-                .filter_by(
-                    app_id=app.id, service_type=service_type, service_name=service_name
-                )
-                .first()
+            # Get connection details and remove credential
+            connection_details = self._get_connection_details(
+                app.id, service_type, service_name
             )
 
-            if credential:
-                # Get connection details to know which env vars to remove
-                encryptor = get_credential_encryptor()
-                connection_details = encryptor.decrypt(credential.encrypted_data)
-
-                # Remove the credential
-                self.db_session.delete(credential)
-            else:
-                # Fallback: Try to get connection details from service if credential not found
-                try:
-                    service = get_addon(service_type, service_name)
-                    connection_details = service.get_connection_details()
-                except Exception:
-                    # If we can't get connection details, we can't know which env vars to remove
-                    connection_details = {}
-
-            # Remove each environment variable
-            removed_vars = []
-            for key in connection_details:
-                env_var = (
-                    self.db_session.query(EnvVar)
-                    .filter_by(app_id=app.id, name=key)
-                    .first()
-                )
-
-                if env_var:
-                    self.db_session.delete(env_var)
-                    removed_vars.append(key)
+            # Remove environment variables
+            removed_vars = self._remove_env_vars(app.id, connection_details)
 
             self.db_session.commit()
 

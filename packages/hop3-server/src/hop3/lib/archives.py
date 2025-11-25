@@ -14,6 +14,75 @@ MAX_EXTRACTED_SIZE_BYTES = (
 MAX_FILE_COUNT = 10000  # Maximum number of files in archive
 
 
+def _validate_archive_size(archive_bytes: bytes) -> None:
+    """Validate that archive size doesn't exceed limits."""
+    if len(archive_bytes) > MAX_ARCHIVE_SIZE_BYTES:
+        msg = (
+            f"Archive size ({len(archive_bytes)} bytes) exceeds maximum "
+            f"allowed size ({MAX_ARCHIVE_SIZE_BYTES} bytes)"
+        )
+        raise ValueError(msg)
+
+
+def _prepare_target_directory(target_dir: Path) -> None:
+    """Clear or create the target directory."""
+    if target_dir.exists():
+        # Clear the directory to ensure we start fresh.
+        # This is safer than deleting and recreating, which could have
+        # permission issues if the parent directory is not writable.
+        for item in target_dir.iterdir():
+            if item.is_dir():
+                shutil.rmtree(item)
+            else:
+                item.unlink()
+    else:
+        # Create the directory if it doesn't exist
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+
+def _validate_archive_members(members: list) -> None:
+    """Validate archive member count and total size."""
+    # File count limit
+    if len(members) > MAX_FILE_COUNT:
+        msg = (
+            f"Archive contains {len(members)} files, which exceeds "
+            f"the maximum allowed ({MAX_FILE_COUNT})"
+        )
+        raise ValueError(msg)
+
+    # Decompression bomb protection
+    total_size = sum(member.size for member in members if member.isfile())
+    if total_size > MAX_EXTRACTED_SIZE_BYTES:
+        msg = (
+            f"Archive would extract to {total_size} bytes, which exceeds "
+            f"the maximum allowed ({MAX_EXTRACTED_SIZE_BYTES})"
+        )
+        raise ValueError(msg)
+
+
+def _validate_member_path(member, target_dir: Path) -> None:
+    """Validate a single archive member for security issues."""
+    # Prevent path traversal
+    member_path = (target_dir / member.name).resolve()
+    if target_dir not in member_path.parents and member_path != target_dir:
+        msg = f"Attempted path traversal in tar file: '{member.name}' is outside the target directory."
+        raise tarfile.TarError(msg)
+
+    # Check for malicious filenames
+    if any(char in member.name for char in ["\0", "\r", "\n"]):
+        msg = f"Malicious filename detected: '{member.name}' contains null or newline characters"
+        raise ValueError(msg)
+
+
+def _extract_members_legacy(
+    tar: tarfile.TarFile, members: list, target_dir: Path
+) -> None:
+    """Extract tar members with legacy manual security checks (Python < 3.12)."""
+    for member in members:
+        _validate_member_path(member, target_dir)
+        tar.extract(member, path=target_dir)
+
+
 def extract_archive_to_dir(archive_bytes: bytes, target_dir: Path) -> None:
     """
     Extracts an in-memory tar.gz archive into a target directory.
@@ -42,78 +111,23 @@ def extract_archive_to_dir(archive_bytes: bytes, target_dir: Path) -> None:
         PermissionError: If unable to clear or write to the target directory.
         Exception: Catches other potential extraction errors.
     """
-    # --- 0. Validate archive size ---
-    if len(archive_bytes) > MAX_ARCHIVE_SIZE_BYTES:
-        msg = (
-            f"Archive size ({len(archive_bytes)} bytes) exceeds maximum "
-            f"allowed size ({MAX_ARCHIVE_SIZE_BYTES} bytes)"
-        )
-        raise ValueError(msg)
-
+    _validate_archive_size(archive_bytes)
     target_dir = Path(target_dir).resolve()
+    _prepare_target_directory(target_dir)
 
-    # --- 1. Prepare the target directory ---
-    if target_dir.exists():
-        # Clear the directory to ensure we start fresh.
-        # This is safer than deleting and recreating, which could have
-        # permission issues if the parent directory is not writable.
-        for item in target_dir.iterdir():
-            if item.is_dir():
-                shutil.rmtree(item)
-            else:
-                item.unlink()
-    else:
-        # Create the directory if it doesn't exist
-        target_dir.mkdir(parents=True, exist_ok=True)
-
-    # --- 2. Extract the archive from the in-memory bytes object ---
     fileobj = io.BytesIO(archive_bytes)
 
     try:
         with tarfile.open(fileobj=fileobj, mode="r:gz") as tar:
             members = tar.getmembers()
+            _validate_archive_members(members)
 
-            # --- Security Check: File count limit ---
-            if len(members) > MAX_FILE_COUNT:
-                msg = (
-                    f"Archive contains {len(members)} files, which exceeds "
-                    f"the maximum allowed ({MAX_FILE_COUNT})"
-                )
-                raise ValueError(msg)
-
-            # --- Security Check: Decompression bomb protection ---
-            total_size = sum(member.size for member in members if member.isfile())
-            if total_size > MAX_EXTRACTED_SIZE_BYTES:
-                msg = (
-                    f"Archive would extract to {total_size} bytes, which exceeds "
-                    f"the maximum allowed ({MAX_EXTRACTED_SIZE_BYTES})"
-                )
-                raise ValueError(msg)
-
-            # Important: Use the `data` filter with Python 3.12+ for security.
-            # For older versions, we manually check each member.
+            # Use the `data` filter with Python 3.12+ for security.
+            # For older versions, manually check each member.
             if hasattr(tarfile, "data_filter"):
                 tar.extractall(path=target_dir, filter="data")
             else:
-                for member in members:
-                    # --- Security Check: Prevent Path Traversal ---
-                    # Resolve the member path relative to target_dir, not cwd
-                    member_path = (target_dir / member.name).resolve()
-                    # A safe path must be a subdirectory of the target_dir.
-                    # We achieve this by checking if target_dir is a parent or the path itself.
-                    if (
-                        target_dir not in member_path.parents
-                        and member_path != target_dir
-                    ):
-                        msg = f"Attempted path traversal in tar file: '{member.name}' is outside the target directory."
-                        raise tarfile.TarError(msg)
-
-                    # --- Security Check: Malicious filenames ---
-                    if any(char in member.name for char in ["\0", "\r", "\n"]):
-                        msg = f"Malicious filename detected: '{member.name}' contains null or newline characters"
-                        raise ValueError(msg)
-
-                    tar.extract(member, path=target_dir)
+                _extract_members_legacy(tar, members, target_dir)
 
         print(f"Successfully extracted archive to: {target_dir}")
 

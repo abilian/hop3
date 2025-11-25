@@ -60,63 +60,79 @@ class AppLauncher:
     def web_workers(self):
         return self.config.web_workers
 
-    def spawn_app(self) -> None:
-        """Create the app's workers by setting up web worker configurations and
-        handling environment-specific setups, including nginx and uwsgi
-        configurations."""
-
-        # Update app model with port and hostname from environment
-        # Port is always assigned in make_env()
+    def _update_app_metadata(self, host_name: str) -> None:
+        """Update app model with port and hostname, persisting to database."""
         if "PORT" in self.env:
             self.app.port = int(self.env["PORT"])
 
-        # Set up nginx if we have HOST_NAME set
-        host_name = self.env.get("HOST_NAME", "")
-
-        # Update hostname in app model
         if host_name and host_name != "_":
             self.app.hostname = host_name
 
-        # Persist port/hostname changes to database
         session = object_session(self.app)
         if session:
             session.commit()
 
-        # Only setup proxy if HOST_NAME is set to a real value (not "_" or empty)
-        if host_name and host_name != "_":
-            log(
-                f"Setting up proxy for '{self.app_name}' with server_name='{host_name}'",
-                level=1,
-                fg="green",
-            )
-            try:
-                proxy = get_proxy_strategy(self.app, self.env, self.workers)
-                proxy.setup()
-                log(
-                    f"✓ Proxy setup completed for '{self.app_name}'",
-                    level=0,
-                    fg="green",
-                )
-            except Exception as e:
-                log(
-                    f"✗ Proxy setup failed for '{self.app_name}': {e}",
-                    level=0,
-                    fg="red",
-                )
-
-                traceback.print_exc()
-        else:
+    def _setup_proxy(self, host_name: str) -> None:
+        """Setup proxy configuration if HOST_NAME is set to a real value."""
+        if not host_name or host_name == "_":
             log(
                 f"Skipping proxy setup for '{self.app_name}' (server_name is '{host_name}')",
                 level=2,
                 fg="yellow",
             )
+            return
 
-        # Configured worker count using dict.fromkeys to initialize each key with value 1
+        log(
+            f"Setting up proxy for '{self.app_name}' with server_name='{host_name}'",
+            level=1,
+            fg="green",
+        )
+        try:
+            proxy = get_proxy_strategy(self.app, self.env, self.workers)
+            proxy.setup()
+            log(
+                f"✓ Proxy setup completed for '{self.app_name}'",
+                level=0,
+                fg="green",
+            )
+        except Exception as e:
+            log(
+                f"✗ Proxy setup failed for '{self.app_name}': {e}",
+                level=0,
+                fg="red",
+            )
+            traceback.print_exc()
+
+    def _calculate_worker_changes(self, web_worker_count: dict) -> tuple[dict, dict]:
+        """Calculate which workers to create and destroy based on deltas.
+
+        Returns:
+            Tuple of (to_create, to_destroy) dictionaries
+        """
+        to_create = {}
+        to_destroy = {}
+
+        for env_key in web_worker_count:
+            to_create[env_key] = range(1, web_worker_count[env_key] + 1)
+            if self.deltas.get(env_key):
+                to_create[env_key] = range(
+                    1,
+                    web_worker_count[env_key] + self.deltas[env_key] + 1,
+                )
+                if self.deltas[env_key] < 0:
+                    to_destroy[env_key] = range(
+                        web_worker_count[env_key],
+                        web_worker_count[env_key] + self.deltas[env_key],
+                        -1,
+                    )
+                web_worker_count[env_key] += self.deltas[env_key]
+
+        return to_create, to_destroy
+
+    def _get_worker_counts(self, scaling) -> dict:
+        """Get web worker counts from configuration and scaling file."""
         web_worker_count = dict.fromkeys(self.web_workers.keys(), 1)
-        scaling = self.virtualenv_path / "SCALING"
 
-        # Check if scaling configuration file exists and update web_worker_count
         if scaling.exists():
             web_worker_count.update(
                 {
@@ -125,52 +141,46 @@ class AppLauncher:
                     if worker in self.web_workers
                 },
             )
+        return web_worker_count
 
-        deltas = self.deltas
-        to_create = {}
-        to_destroy = {}
-
-        # Determine workers to create and destroy based on deltas
-        for env_key in web_worker_count:
-            to_create[env_key] = range(1, web_worker_count[env_key] + 1)
-            if deltas.get(env_key):
-                to_create[env_key] = range(
-                    1,
-                    web_worker_count[env_key] + deltas[env_key] + 1,
-                )
-                # If delta is negative, calculate which workers to destroy
-                if deltas[env_key] < 0:
-                    to_destroy[env_key] = range(
-                        web_worker_count[env_key],
-                        web_worker_count[env_key] + deltas[env_key],
-                        -1,
-                    )
-                web_worker_count[env_key] += deltas[env_key]
-
+    def _prepare_environment(self) -> Env:
+        """Prepare environment by removing internal variables."""
         env = self.env.copy()
-
-        # Cleanup environment variables that are internal
         for env_key in list(env.keys()):
             if env_key.startswith("HOP3_INTERNAL_"):
                 del env[env_key]
+        return env
 
-        # Save current settings to file
-
-        # app = App(self.app_name)
-        app = self.app
-        live = app.virtualenv_path / "LIVE_ENV"
-        write_settings(live, env)
-
-        # Write worker count settings to scaling file
-        write_settings(scaling, web_worker_count, ":")
-
-        # Handle auto-restart via uwsgi if enabled
+    def _handle_auto_restart(self, env: Env) -> None:
+        """Handle auto-restart by removing uwsgi configs if enabled."""
         if env.get_bool("HOP3_AUTO_RESTART", default=True):
             configs = list(UWSGI_ENABLED.glob(f"{self.app_name}*.ini"))
             if configs:
                 echo("-----> Removing uwsgi configs to trigger auto-restart.")
                 for config in configs:
                     config.unlink()
+
+    def spawn_app(self) -> None:
+        """Create the app's workers by setting up web worker configurations and
+        handling environment-specific setups, including nginx and uwsgi
+        configurations."""
+
+        host_name = self.env.get("HOST_NAME", "")
+        self._update_app_metadata(host_name)
+        self._setup_proxy(host_name)
+
+        scaling = self.virtualenv_path / "SCALING"
+        web_worker_count = self._get_worker_counts(scaling)
+        to_create, to_destroy = self._calculate_worker_changes(web_worker_count)
+
+        env = self._prepare_environment()
+
+        # Save current settings to file
+        live = self.app.virtualenv_path / "LIVE_ENV"
+        write_settings(live, env)
+        write_settings(scaling, web_worker_count, ":")
+
+        self._handle_auto_restart(env)
 
         # Create new workers and remove unnecessary ones
         self.create_new_workers(to_create, env)
