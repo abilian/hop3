@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 """add runtime field to app model
 
 Revision ID: 961bfd2ecce5

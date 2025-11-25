@@ -450,7 +450,7 @@ def hop3(
             timeout=timeout,
             env=os.environ.copy(),  # Explicitly pass environment
         )
-    except subprocess.TimeoutExpired as e:
+    except subprocess.TimeoutExpired:
         print(f"Command timed out after {timeout} seconds")
         raise
 

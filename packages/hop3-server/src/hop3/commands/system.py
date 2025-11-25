@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import subprocess
+from typing import ClassVar
 
 from hop3.lib.registry import register
 
@@ -18,14 +19,14 @@ from ._base import Command
 class SystemCmd(Command):
     """Manage the hop3 system."""
 
-    name = "system"
+    name: ClassVar[str] = "system"
 
 
 @register
 class UptimeCmd(Command):
     """Show host server uptime."""
 
-    name = "system:uptime"
+    name: ClassVar[str] = "system:uptime"
 
     def call(self, *args):
         result = subprocess.run(
@@ -38,7 +39,7 @@ class UptimeCmd(Command):
 class PSCmd(Command):
     """List all server processes."""
 
-    name = "system:ps"
+    name: ClassVar[str] = "system:ps"
 
     def call(self, *args):
         result = subprocess.run(
@@ -51,7 +52,7 @@ class PSCmd(Command):
 class StatusCmd(Command):
     """Show Hop3 system status."""
 
-    name = "system:status"
+    name: ClassVar[str] = "system:status"
 
     def call(self, *args):
         version = importlib.metadata.version("hop3_server")

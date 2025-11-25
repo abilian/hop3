@@ -12,7 +12,7 @@ import sys
 import traceback
 from base64 import b64decode
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.deployers import do_deploy
 from hop3.lib import log
@@ -42,7 +42,7 @@ def _get_app(db_session: Session, app_name: str) -> App:
 class AppCmd(Command):
     """Commands for managing app instances."""
 
-    name = "app"
+    name: ClassVar[str] = "app"
 
 
 @register
@@ -51,7 +51,7 @@ class LaunchCmd(Command):
     """Create and configure a new app from a source code repository."""
 
     db_session: Session
-    name = "app:launch"
+    name: ClassVar[str] = "app:launch"
 
     def call(self, *args):
         if len(args) != 2:
@@ -98,7 +98,7 @@ class DeployCmd(Command):
     """Deploy an application from its configured repository."""
 
     db_session: Session
-    name = "deploy"
+    name: ClassVar[str] = "deploy"
 
     def call(self, *args, **kwargs):
         if not args:
@@ -166,7 +166,7 @@ class StatusCmd(Command):
     """Show detailed status of an application."""
 
     db_session: Session
-    name = "app:status"
+    name: ClassVar[str] = "app:status"
 
     def call(self, *args):
         if not args:
@@ -196,7 +196,7 @@ class LogsCmd(Command):
     """Show application logs."""
 
     db_session: Session
-    name = "app:logs"
+    name: ClassVar[str] = "app:logs"
 
     def call(self, *args):
         if not args:
@@ -215,7 +215,7 @@ class StartCmd(Command):
     """Start a stopped app."""
 
     db_session: Session
-    name = "app:start"
+    name: ClassVar[str] = "app:start"
 
     def call(self, *args):
         if not args:
@@ -233,7 +233,7 @@ class StopCmd(Command):
     """Stop a running app."""
 
     db_session: Session
-    name = "app:stop"
+    name: ClassVar[str] = "app:stop"
 
     def call(self, *args):
         if not args:
@@ -252,7 +252,7 @@ class RestartCmd(Command):
     """Restart an application."""
 
     db_session: Session
-    name = "app:restart"
+    name: ClassVar[str] = "app:restart"
 
     def call(self, *args):
         if not args:
@@ -270,8 +270,8 @@ class DestroyCmd(Command):
     """Destroy an app, removing all files and configuration."""
 
     db_session: Session
-    name = "app:destroy"
-    destructive = True
+    name: ClassVar[str] = "app:destroy"
+    destructive: ClassVar[bool] = True
 
     def call(self, *args):
         if not args:
