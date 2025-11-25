@@ -21,6 +21,7 @@ from operator import itemgetter
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import anyio
 from litestar import Controller, get, post
 from litestar.datastructures import FormMultiDict
 from litestar.response import Redirect, Response, Stream, Template
@@ -657,29 +658,36 @@ class DashboardController(Controller):
             """Generate SSE events from log file."""
             try:
                 # Send initial logs (last 50 lines)
-                if log_path.exists():
-                    with open(log_path) as f:
-                        lines = f.readlines()
-                        initial_lines = lines[-50:] if len(lines) > 50 else lines
-                        for line in initial_lines:
-                            stripped_line = line.rstrip()
-                            if line:
-                                escaped_line = stripped_line.replace("\n", "\\n")
-                                yield f"data: {escaped_line}\n\n"
+                log_path_anyio = anyio.Path(log_path)
+                if await log_path_anyio.exists():
+                    content = await log_path_anyio.read_text()
+                    lines = content.splitlines(keepends=True)
+                    initial_lines = lines[-50:] if len(lines) > 50 else lines
+                    for line in initial_lines:
+                        stripped_line = line.rstrip()
+                        if line:
+                            escaped_line = stripped_line.replace("\n", "\\n")
+                            yield f"data: {escaped_line}\n\n"
 
                 # Track file position for tail functionality
-                file_size = log_path.stat().st_size if log_path.exists() else 0
+                file_size = (
+                    (await log_path_anyio.stat()).st_size
+                    if await log_path_anyio.exists()
+                    else 0
+                )
 
                 # Stream new lines as they appear (tail -f behavior)
                 while True:
-                    if log_path.exists():
-                        current_size = log_path.stat().st_size
+                    if await log_path_anyio.exists():
+                        current_size = (await log_path_anyio.stat()).st_size
 
                         # File has new content
                         if current_size > file_size:
-                            with open(log_path) as f:
-                                f.seek(file_size)
-                                new_lines = f.readlines()
+                            # Read only new content
+                            async with await anyio.open_file(log_path, "r") as f:
+                                await f.seek(file_size)
+                                new_content = await f.read()
+                                new_lines = new_content.splitlines(keepends=True)
                                 for line in new_lines:
                                     stripped_line = line.rstrip()
                                     if line:

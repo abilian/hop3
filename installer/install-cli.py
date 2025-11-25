@@ -302,7 +302,9 @@ def update_shell_path(bin_dir: Path, modify_path: bool) -> None:
     config_file = SHELL_CONFIGS.get(shell)
 
     if not config_file:
-        log_warning(f"Unknown shell: {shell}. Please add {bin_dir} to your PATH manually.")
+        log_warning(
+            f"Unknown shell: {shell}. Please add {bin_dir} to your PATH manually."
+        )
         return
 
     # Check if we've already modified this file

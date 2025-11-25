@@ -52,7 +52,9 @@ HOME_DIR = Path("/home") / HOP3_USER
 VENV_DIR = HOME_DIR / "venv"
 
 PACKAGE_NAME = "hop3-server"
-GIT_URL = "git+https://github.com/abilian/hop3.git@main#subdirectory=packages/hop3-server"
+GIT_URL = (
+    "git+https://github.com/abilian/hop3.git@main#subdirectory=packages/hop3-server"
+)
 
 # System dependencies by distribution
 DEBIAN_PACKAGES = [
@@ -328,7 +330,11 @@ def detect_distro() -> str:
         content = os_release.read_text()
         if "debian" in content.lower() or "ubuntu" in content.lower():
             return "debian"
-        if "fedora" in content.lower() or "rhel" in content.lower() or "centos" in content.lower():
+        if (
+            "fedora" in content.lower()
+            or "rhel" in content.lower()
+            or "centos" in content.lower()
+        ):
             return "fedora"
         if "arch" in content.lower():
             return "arch"
@@ -444,9 +450,12 @@ def create_hop3_user() -> None:
         run_command([
             "useradd",
             "-m",
-            "-g", HOP3_GROUP,
-            "-s", "/bin/bash",
-            "-d", str(HOME_DIR),
+            "-g",
+            HOP3_GROUP,
+            "-s",
+            "/bin/bash",
+            "-d",
+            str(HOME_DIR),
             HOP3_USER,
         ])
     else:
@@ -529,7 +538,9 @@ def setup_ssh_keys() -> None:
         # Copy keys to temp location
         temp_keys = Path("/tmp/root_authorized_keys")
         shutil.copy2(root_keys, temp_keys)
-        os.chown(temp_keys, pwd.getpwnam(HOP3_USER).pw_uid, grp.getgrnam(HOP3_GROUP).gr_gid)
+        os.chown(
+            temp_keys, pwd.getpwnam(HOP3_USER).pw_uid, grp.getgrnam(HOP3_GROUP).gr_gid
+        )
 
         # Run setup:ssh
         run_as_hop3(f"{hop_server} setup:ssh {temp_keys}")
@@ -620,13 +631,21 @@ def setup_postgres(skip: bool) -> None:
     password_file = HOME_DIR / ".hop3_postgres_password"
     password_file.write_text(db_password)
     os.chmod(password_file, 0o600)
-    os.chown(password_file, pwd.getpwnam(HOP3_USER).pw_uid, grp.getgrnam(HOP3_GROUP).gr_gid)
+    os.chown(
+        password_file, pwd.getpwnam(HOP3_USER).pw_uid, grp.getgrnam(HOP3_GROUP).gr_gid
+    )
 
     # Create PostgreSQL role and database
     try:
         # Check if role exists
         result = run_command(
-            ["su", "-", "postgres", "-c", f"psql -tAc \"SELECT 1 FROM pg_roles WHERE rolname='{HOP3_USER}'\""],
+            [
+                "su",
+                "-",
+                "postgres",
+                "-c",
+                f"psql -tAc \"SELECT 1 FROM pg_roles WHERE rolname='{HOP3_USER}'\"",
+            ],
             capture_output=True,
             check=False,
         )
@@ -634,13 +653,22 @@ def setup_postgres(skip: bool) -> None:
         if "1" not in (result.stdout or ""):
             log_info("Creating PostgreSQL role...")
             run_command([
-                "su", "-", "postgres", "-c",
-                f"psql -c \"CREATE ROLE {HOP3_USER} WITH LOGIN SUPERUSER PASSWORD '{db_password}'\""
+                "su",
+                "-",
+                "postgres",
+                "-c",
+                f"psql -c \"CREATE ROLE {HOP3_USER} WITH LOGIN SUPERUSER PASSWORD '{db_password}'\"",
             ])
 
         # Check if database exists
         result = run_command(
-            ["su", "-", "postgres", "-c", f"psql -tAc \"SELECT 1 FROM pg_database WHERE datname='{HOP3_USER}'\""],
+            [
+                "su",
+                "-",
+                "postgres",
+                "-c",
+                f"psql -tAc \"SELECT 1 FROM pg_database WHERE datname='{HOP3_USER}'\"",
+            ],
             capture_output=True,
             check=False,
         )
@@ -648,8 +676,11 @@ def setup_postgres(skip: bool) -> None:
         if "1" not in (result.stdout or ""):
             log_info("Creating PostgreSQL database...")
             run_command([
-                "su", "-", "postgres", "-c",
-                f"psql -c \"CREATE DATABASE {HOP3_USER} OWNER {HOP3_USER}\""
+                "su",
+                "-",
+                "postgres",
+                "-c",
+                f'psql -c "CREATE DATABASE {HOP3_USER} OWNER {HOP3_USER}"',
             ])
 
     except subprocess.CalledProcessError as e:
@@ -670,12 +701,16 @@ def setup_acme() -> None:
     else:
         log_info("Installing acme.sh...")
         # Download and install
-        run_as_hop3("curl -fsSL https://raw.githubusercontent.com/Neilpang/acme.sh/master/acme.sh -o /tmp/acme.sh")
+        run_as_hop3(
+            "curl -fsSL https://raw.githubusercontent.com/Neilpang/acme.sh/master/acme.sh -o /tmp/acme.sh"
+        )
         run_as_hop3("bash /tmp/acme.sh --install")
         run_as_hop3("rm /tmp/acme.sh")
 
     # Set default CA to Let's Encrypt
-    run_as_hop3(f"bash {HOME_DIR}/.acme.sh/acme.sh --set-default-ca --server letsencrypt")
+    run_as_hop3(
+        f"bash {HOME_DIR}/.acme.sh/acme.sh --set-default-ca --server letsencrypt"
+    )
 
     log_success("ACME/Let's Encrypt configured.")
 
@@ -699,16 +734,17 @@ def verify_installation() -> bool:
     if result.stdout.strip() == "active":
         log_success("Hop3 server is running.")
         return True
-    else:
-        log_warning("Hop3 server service is not running.")
-        log_warning("Check with: sudo systemctl status hop3-server")
-        return True  # Still consider installation successful
+    log_warning("Hop3 server service is not running.")
+    log_warning("Check with: sudo systemctl status hop3-server")
+    return True  # Still consider installation successful
 
 
 def print_success_message() -> None:
     """Print success message with next steps."""
     print()
-    print(f"{Colors.GREEN}{Colors.BOLD}Hop3 Server installed successfully!{Colors.RESET}")
+    print(
+        f"{Colors.GREEN}{Colors.BOLD}Hop3 Server installed successfully!{Colors.RESET}"
+    )
     print()
     print("Installation locations:")
     print(f"  - Home directory: {HOME_DIR}")
