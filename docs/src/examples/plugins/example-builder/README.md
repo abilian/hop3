@@ -25,7 +25,7 @@ This plugin provides a simple build strategy that creates a Python virtualenv fo
 
 Study the code to understand:
 - How to structure a plugin
-- How to implement the `BuildStrategy` protocol
+- How to implement the `Builder` protocol
 - How to register strategies via hooks
 - How to return build artifacts
 
@@ -43,10 +43,10 @@ Copy this structure for your own build strategy:
 
 ### Protocol Implementation
 
-The `ExampleBuilder` class implements the `BuildStrategy` protocol:
+The `ExampleBuilder` class implements the `Builder` protocol:
 
 ```python
-class BuildStrategy(Protocol):
+class Builder(Protocol):
     name: str
     context: DeploymentContext
 

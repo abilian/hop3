@@ -11,9 +11,9 @@ All protocols are defined in `hop3/core/protocols.py` using Python's PEP 544 Pro
   - [BuildArtifact](#buildartifact)
   - [DeploymentInfo](#deploymentinfo)
 - [Strategy Protocols](#strategy-protocols)
-  - [BuildStrategy](#buildstrategy)
+  - [Builder](#Builder)
   - [Deployer](#Deployer)
-  - [ServiceStrategy](#servicestrategy)
+  - [Addon](#Addon)
   - [Proxy](#proxy)
   - [BaseProxy](#baseproxy)
   - [OS](#OS)
@@ -126,9 +126,9 @@ info = DeploymentInfo(
 
 ## Strategy Protocols
 
-### BuildStrategy
+### Builder
 
-**Location**: `hop3.core.protocols.BuildStrategy`
+**Location**: `hop3.core.protocols.Builder`
 
 **Purpose**: Convert source code into a runnable artifact.
 
@@ -348,9 +348,9 @@ See `packages/hop3-server/src/hop3/plugins/docker/deployer.py` for the Docker Co
 
 ---
 
-### ServiceStrategy
+### Addon
 
-**Location**: `hop3.core.protocols.ServiceStrategy`
+**Location**: `hop3.core.protocols.Addon`
 
 **Purpose**: Manage backing services (databases, caches, message queues, etc.).
 
@@ -860,7 +860,7 @@ See `packages/hop3-server/src/hop3/plugins/oses/debian_family.py` for the Debian
 
 When implementing a strategy, use this checklist to ensure protocol compliance:
 
-### BuildStrategy
+### Builder
 - [ ] `name` attribute set to unique string
 - [ ] `context` attribute assigned in `__init__`
 - [ ] `accept()` method returns bool
@@ -881,7 +881,7 @@ When implementing a strategy, use this checklist to ensure protocol compliance:
 - [ ] `check_status()` doesn't raise exceptions
 - [ ] `scale()` handles worker scaling
 
-### ServiceStrategy
+### Addon
 - [ ] `name` attribute set (service type)
 - [ ] `service_name` attribute set (instance name)
 - [ ] `create()` is idempotent

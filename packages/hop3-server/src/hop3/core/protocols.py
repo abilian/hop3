@@ -37,7 +37,7 @@ class DeploymentContext:
 @dataclass
 class BuildArtifact:
     """
-    Represents a build artifact produced by a BuildStrategy.
+    Represents a build artifact produced by a Builder.
     """
 
     kind: str  # e.g., "buildpack", "docker-image"

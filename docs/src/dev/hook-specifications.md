@@ -61,11 +61,11 @@ def get_builders() -> list:
     """Get build strategies provided by this plugin.
 
     Returns:
-        List of BuildStrategy classes
+        List of Builder classes
     """
 ```
 
-**Returns**: List of classes implementing `BuildStrategy` protocol.
+**Returns**: List of classes implementing `Builder` protocol.
 
 **Implementation Example**:
 
@@ -95,7 +95,7 @@ strategy = get_build_strategy(context, artifact)
 **Notes**:
 - Return strategy **classes**, not instances
 - Each class must have a `name` attribute
-- Each class must implement the `BuildStrategy` protocol
+- Each class must implement the `Builder` protocol
 - Multiple plugins can provide build strategies
 - Strategies are tried in registration order until one accepts
 
@@ -176,11 +176,11 @@ def get_addons() -> list:
     """Get service strategies provided by this plugin.
 
     Returns:
-        List of ServiceStrategy classes
+        List of Addon classes
     """
 ```
 
-**Returns**: List of classes implementing `ServiceStrategy` protocol.
+**Returns**: List of classes implementing `Addon` protocol.
 
 **Implementation Example**:
 
@@ -217,7 +217,7 @@ connection = service.get_connection_details()
 **Notes**:
 - Return strategy **classes**, not instances
 - Each class must have a `name` attribute (service type)
-- Each class must implement the `ServiceStrategy` protocol
+- Each class must implement the `Addon` protocol
 - Service instances are created per database/cache/etc.
 - Multiple plugins can provide different service types
 

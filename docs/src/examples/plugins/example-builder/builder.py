@@ -21,7 +21,7 @@ from hop3.lib import Abort, log
 class ExampleBuilder:
     """Example build strategy for Python applications.
 
-    This builder demonstrates the BuildStrategy protocol implementation
+    This builder demonstrates the Builder protocol implementation
     with a simple virtualenv-based build process.
 
     Attributes:
