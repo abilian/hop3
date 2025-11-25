@@ -98,6 +98,24 @@ class DeploymentStrategy(Protocol):
 
     def stop(self) -> None: ...
 
+    def check_status(self) -> bool:
+        """Check if the deployed application is actually running.
+
+        Returns:
+            True if processes/containers are confirmed running, False otherwise.
+
+        This method should verify actual running state by checking:
+        - For uWSGI: socket files, process listings, config files
+        - For Docker: container status (docker ps)
+        - For systemd: service status (systemctl is-active)
+        - For Podman: container status (podman ps)
+        - etc.
+
+        Implementation should be reliable and not assume state based on
+        configuration files alone.
+        """
+        ...
+
 
 class ServiceStrategy(Protocol):
     """Interface for managing backing services (databases, caches, etc.).

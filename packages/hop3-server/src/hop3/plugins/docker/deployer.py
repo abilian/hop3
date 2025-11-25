@@ -86,3 +86,168 @@ class DockerComposeDeploymentStrategy(DeploymentStrategy):
         )
         src_path = self.context.source_path
         subprocess.run(["docker", "compose", "down"], check=False, cwd=src_path)
+
+    def start(self) -> None:
+        """Start the app by deploying with no scaling changes."""
+        log(
+            f"Starting '{self.context.app_name}' with Docker Compose...",
+            level=2,
+            fg="blue",
+        )
+        self.deploy({})
+
+    def restart(self) -> None:
+        """Restart Docker Compose services."""
+        log(f"Restarting '{self.context.app_name}'...", level=2, fg="blue")
+        src_path = self.context.source_path
+        try:
+            subprocess.run(["docker", "compose", "restart"], check=True, cwd=src_path)
+            log(
+                f"App '{self.context.app_name}' restart triggered.", level=2, fg="green"
+            )
+        except subprocess.CalledProcessError as e:
+            log(
+                f"Docker Compose restart failed, falling back to stop/start: {e}",
+                fg="yellow",
+            )
+            self.stop()
+            self.start()
+
+    def destroy(self) -> None:
+        """Destruction is a superset of stop."""
+        self.stop()
+
+    def scale(self, deltas: dict[str, int] | None = None) -> None:
+        """Scale Docker Compose services."""
+        deltas = deltas or {}
+        if not deltas:
+            log("No scaling deltas provided", fg="yellow")
+            return
+
+        log(
+            f"Scaling '{self.context.app_name}' with deltas: {deltas}",
+            level=2,
+            fg="blue",
+        )
+        src_path = self.context.source_path
+        scale_args = []
+        for service, count in deltas.items():
+            scale_args.extend(["--scale", f"{service}={count}"])
+
+        try:
+            cmd = ["docker", "compose", "up", "-d", "--remove-orphans"] + scale_args
+            subprocess.run(cmd, check=True, cwd=src_path)
+            log(f"App '{self.context.app_name}' scaled successfully.", fg="green")
+        except subprocess.CalledProcessError as e:
+            msg = f"Docker Compose scaling failed: {e}"
+            raise Abort(msg)
+
+    def check_status(self) -> bool:
+        """Check if Docker Compose services are actually running.
+
+        Returns:
+            True if containers are confirmed running, False otherwise.
+
+        Uses `docker compose ps` to check the status of services.
+        """
+        src_path = self.context.source_path
+
+        try:
+            # Use docker compose ps with format to get service status
+            # Format: {{.Name}}\t{{.State}}
+            result = subprocess.run(
+                ["docker", "compose", "ps", "--format", "{{.Name}}\t{{.State}}"],
+                cwd=src_path,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+
+            if result.returncode != 0:
+                # docker compose ps failed - likely no compose file or docker not running
+                return False
+
+            # Parse output to check if any services are running
+            lines = result.stdout.strip().split("\n")
+            if not lines or lines[0] == "":
+                # No services found
+                return False
+
+            # Check if at least one service is in "running" state
+            for line in lines:
+                if "\t" in line:
+                    _name, state = line.split("\t", 1)
+                    if "running" in state.lower():
+                        return True
+
+            # No running services found
+            return False
+
+        except subprocess.TimeoutExpired:
+            log(
+                f"Timeout checking status for '{self.context.app_name}'",
+                fg="yellow",
+            )
+            return False
+        except FileNotFoundError:
+            # docker command not available
+            log("Docker command not found", fg="red")
+            return False
+        except Exception as e:
+            log(
+                f"Error checking Docker Compose status for '{self.context.app_name}': {e}",
+                fg="red",
+            )
+            return False
+
+    def get_status(self) -> dict:
+        """Get detailed status of Docker Compose services."""
+        src_path = self.context.source_path
+        status = {
+            "running": False,
+            "services": {},
+        }
+
+        try:
+            result = subprocess.run(
+                [
+                    "docker",
+                    "compose",
+                    "ps",
+                    "--format",
+                    "{{.Name}}\t{{.State}}\t{{.Status}}",
+                ],
+                cwd=src_path,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+
+            if result.returncode == 0 and result.stdout.strip():
+                lines = result.stdout.strip().split("\n")
+                any_running = False
+
+                for line in lines:
+                    if "\t" in line:
+                        parts = line.split("\t")
+                        if len(parts) >= 2:
+                            name, state = parts[0], parts[1]
+                            service_status = parts[2] if len(parts) > 2 else ""
+                            status["services"][name] = {
+                                "state": state,
+                                "status": service_status,
+                            }
+                            if "running" in state.lower():
+                                any_running = True
+
+                status["running"] = any_running
+
+        except Exception as e:
+            log(
+                f"Error getting Docker Compose status for '{self.context.app_name}': {e}",
+                fg="yellow",
+            )
+
+        return status
