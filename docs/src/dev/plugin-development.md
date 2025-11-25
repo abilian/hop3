@@ -49,7 +49,8 @@ Build strategies convert source code into deployable artifacts.
 
 ```python
 from pathlib import Path
-from hop3.core.protocols import BuildStrategy, BuildArtifact, DeploymentContext
+from hop3.core.protocols import Builder, BuildArtifact, DeploymentContext
+
 
 class PythonBuildStrategy:
     """Build Python applications using virtualenv."""
@@ -62,8 +63,8 @@ class PythonBuildStrategy:
     def accept(self) -> bool:
         """Accept if requirements.txt or pyproject.toml exists."""
         src_path = self.context.source_path
-        return (src_path / "requirements.txt").exists() or \
-               (src_path / "pyproject.toml").exists()
+        return (src_path / "requirements.txt").exists() or
+            (src_path / "pyproject.toml").exists()
 
     def build(self) -> BuildArtifact:
         """Create virtualenv and install dependencies."""
@@ -76,7 +77,7 @@ class PythonBuildStrategy:
         # Install dependencies
         pip = venv_path / "bin" / "pip"
         subprocess.run([str(pip), "install", "-r", "requirements.txt"],
-                      cwd=self.context.source_path, check=True)
+                       cwd=self.context.source_path, check=True)
 
         return BuildArtifact(
             kind="virtualenv",

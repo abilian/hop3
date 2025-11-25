@@ -151,8 +151,9 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from hop3.core.protocols import BuildStrategy, BuildArtifact, DeploymentContext
+from hop3.core.protocols import Builder, BuildArtifact, DeploymentContext
 from hop3.lib import log, Abort
+
 
 class MyBuilder:
     """Build strategy for MyFramework applications."""
