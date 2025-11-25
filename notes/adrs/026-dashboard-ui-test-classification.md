@@ -1,4 +1,4 @@
-# ADR 090: Dashboard UI Test Classification - Integration vs System Tests
+# ADR 026: Dashboard UI Test Classification - Integration vs System Tests
 
 Status: **Accepted** (2025-11-20)
 
@@ -524,8 +524,8 @@ config = Config()
 
 ## Related
 
-- **ADR 070**: Pluggable Architecture - Discusses separation of concerns
-- **ADR 081**: Backup/Restore System - Another feature that needs testing classification
+- **ADR 020**: Pluggable Architecture - Discusses separation of concerns
+- **ADR 024**: Backup/Restore System - Another feature that needs testing classification
 - **Testing Strategy** (`docs/src/dev/testing-strategy.md`) - Current guidelines
 
 ## References

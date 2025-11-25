@@ -81,7 +81,7 @@ Credentials are stored in `~/.hop3/credentials.toml` or similar, and may also be
 
 ## Related
 
-- CLI commands overview [ADR-060](./060-cli-architecture.md)
+- CLI commands overview [ADR-018](./018-cli-architecture.md)
 
 ## Open Questions
 

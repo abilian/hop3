@@ -96,7 +96,7 @@ In a previous project (Nua), a "smart" CLI with embedded presentation logic prov
 
 ## Related
 
-- CLI commands overview [ADR-061](./061-cli-commands.md)
+- CLI commands overview [ADR-019](./019-cli-commands.md)
 - CLI API (TODO)
 
 ## References

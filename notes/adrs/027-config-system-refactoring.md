@@ -1,6 +1,6 @@
-# ADR 091: Configuration System Refactoring for Testability
+# ADR 027: Configuration System Refactoring for Testability
 
-Status: **Adopted**
+Status: **Accepted**
 
 ## Introduction
 
@@ -64,7 +64,7 @@ class App:
 
 5. **Unclear Dependencies**: Hard to see what config values a component depends on
 
-6. **Testing Anti-Pattern**: Recent test migration (ADR 090) highlighted this:
+6. **Testing Anti-Pattern**: Recent test migration (ADR 026) highlighted this:
    > "I don't like monkeypatching the environment. Can we think of something more elegant?"
 
 ### Goals
@@ -574,7 +574,7 @@ def test_app_create(tmp_path):
 
 ### From Current Test Issues
 
-The dashboard UI tests (ADR 090) revealed the pain of monkeypatching:
+The dashboard UI tests (ADR 026) revealed the pain of monkeypatching:
 - Had to patch 4+ different locations
 - Still didn't work until we also mocked `App.create()`
 - Tests broke when import order changed
@@ -822,7 +822,7 @@ def test_something(app_config):
 
 ## Related
 
-- **ADR 090**: Dashboard UI Test Classification - Highlighted monkeypatching pain
+- **ADR 026**: Dashboard UI Test Classification - Highlighted monkeypatching pain
 - **ADR 001-003**: Original config system ADRs
 - **Testing Strategy** (`docs/src/dev/testing-strategy.md`) - Will need updates
 
