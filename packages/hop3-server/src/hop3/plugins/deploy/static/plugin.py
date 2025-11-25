@@ -16,7 +16,7 @@ class StaticDeployPlugin:
     name = "static-deploy"
 
     @hop3_hook_impl
-    def get_deployment_strategies(self) -> list:
+    def get_deployers(self) -> list:
         """Return static deployment strategy."""
         return [StaticDeployer]
 

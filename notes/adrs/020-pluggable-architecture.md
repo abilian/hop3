@@ -35,7 +35,7 @@ The original Hop3 architecture combined the logic for building, deploying, and p
 
 ## Decision
 
-We will refactor the core deployment logic into a three-stage pipeline managed by a central orchestrator. Each stage will be implemented by a "Strategy" plugin that conforms to a specific interface (`BuildStrategy`, `DeploymentStrategy`, `ProxyStrategy`). We will use the `pluggy` library to manage plugin discovery and execution via standard Python `entry_points`. Application-specific configuration will be managed through a `hop3.toml` file in the application's repository.
+We will refactor the core deployment logic into a three-stage pipeline managed by a central orchestrator. Each stage will be implemented by a "Strategy" plugin that conforms to a specific interface (`BuildStrategy`, `Deployer`, `ProxyStrategy`). We will use the `pluggy` library to manage plugin discovery and execution via standard Python `entry_points`. Application-specific configuration will be managed through a `hop3.toml` file in the application's repository.
 
 ## Detailed Design
 
@@ -49,7 +49,7 @@ The new architecture is composed of several key concepts:
 
 2.  **Strategies (Plugins):** These are classes that implement the logic for a specific stage. Each strategy must implement a specific Python `Protocol` (interface):
     *   **`BuildStrategy`**: Defines a `build()` method that takes source code and returns a `BuildArtifact` (e.g., a path to a built directory or a Docker image tag).
-    *   **`DeploymentStrategy`**: Defines a `deploy()` method that takes a `BuildArtifact` and returns `DeploymentInfo` (e.g., the host/port or socket path of the running application).
+    *   **`Deployer`**: Defines a `deploy()` method that takes a `BuildArtifact` and returns `DeploymentInfo` (e.g., the host/port or socket path of the running application).
     *   **`ProxyStrategy`**: Defines a `configure()` method that takes `DeploymentInfo` to set up the reverse proxy.
 
 3.  **Plugin Management (`pluggy`):**
@@ -76,7 +76,7 @@ graph TD
     subgraph "Core Orchestrator: do_deploy()"
         B --> C{1- Load hop3.toml};
         C --> D{2- Select & Run <b>BuildStrategy</b>};
-        D -- BuildArtifact --> E{3- Select & Run <b>DeploymentStrategy</b>};
+        D -- BuildArtifact --> E{3- Select & Run <b>Deployer</b>};
         E -- DeploymentInfo --> F{4- Select & Run <b>ProxyStrategy</b>};
     end
 
@@ -111,7 +111,7 @@ graph TD
 
 ### Benefits
 
-1.  **Extensibility:** The platform is now open to new technologies. Adding support for a new runtime like WebAssembly is as simple as creating and installing a new `DeploymentStrategy` plugin.
+1.  **Extensibility:** The platform is now open to new technologies. Adding support for a new runtime like WebAssembly is as simple as creating and installing a new `Deployer` plugin.
 2.  **Flexibility:** Developers have full control over their application's lifecycle, from build to deployment.
 3.  **Maintainability:** The core codebase is significantly simplified. The complex logic is isolated within individual plugins, making them easier to develop, test, and debug.
 4.  **Clear Integration Path:** Provides a clear, non-intrusive path for integrating with external systems like the NEPHELE SMO.

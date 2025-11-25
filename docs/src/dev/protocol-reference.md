@@ -12,7 +12,7 @@ All protocols are defined in `hop3/core/protocols.py` using Python's PEP 544 Pro
   - [DeploymentInfo](#deploymentinfo)
 - [Strategy Protocols](#strategy-protocols)
   - [BuildStrategy](#buildstrategy)
-  - [DeploymentStrategy](#deploymentstrategy)
+  - [Deployer](#Deployer)
   - [ServiceStrategy](#servicestrategy)
   - [Proxy](#proxy)
   - [BaseProxy](#baseproxy)
@@ -199,9 +199,9 @@ See `packages/hop3-server/src/hop3/builders/python.py` for the canonical Python 
 
 ---
 
-### DeploymentStrategy
+### Deployer
 
-**Location**: `hop3.core.protocols.DeploymentStrategy`
+**Location**: `hop3.core.protocols.Deployer`
 
 **Purpose**: Run a build artifact and manage its lifecycle.
 
@@ -870,7 +870,7 @@ When implementing a strategy, use this checklist to ensure protocol compliance:
 - [ ] Build creates isolated environment
 - [ ] Build is reproducible
 
-### DeploymentStrategy
+### Deployer
 - [ ] `name` attribute set to unique string
 - [ ] `context` and `artifact` attributes assigned
 - [ ] `accept()` checks `artifact.kind`

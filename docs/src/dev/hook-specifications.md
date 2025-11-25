@@ -101,24 +101,24 @@ strategy = get_build_strategy(context, artifact)
 
 ---
 
-### get_deployment_strategies
+### get_deployers
 
 **Purpose**: Register deployment strategies (runtimes) for running artifacts.
 
-**Location**: `hop3.core.hookspecs.get_deployment_strategies`
+**Location**: `hop3.core.hookspecs.get_deployers`
 
 **Signature**:
 ```python
 @hookspec
-def get_deployment_strategies() -> list:
+def get_deployers() -> list:
     """Get deployment strategies provided by this plugin.
 
     Returns:
-        List of DeploymentStrategy classes
+        List of Deployer classes
     """
 ```
 
-**Returns**: List of classes implementing `DeploymentStrategy` protocol.
+**Returns**: List of classes implementing `Deployer` protocol.
 
 **Implementation Example**:
 
@@ -129,7 +129,7 @@ from .systemd_deployer import SystemdDeployer
 
 class MyPlugin:
     @hookimpl
-    def get_deployment_strategies(self) -> list:
+    def get_deployers(self) -> list:
         """Provide uWSGI and systemd deployment strategies."""
         return [UWSGIDeployer, SystemdDeployer]
 ```
@@ -148,16 +148,16 @@ strategy = get_deployment_strategy(context, artifact)
 
 2. **For lifecycle operations** (by name):
 ```python
-from hop3.core.plugins import get_deployment_strategy_by_name
+from hop3.core.plugins import get_deployer_by_name
 
 # Look up strategy by name for start/stop/restart
-strategy = get_deployment_strategy_by_name(app, "docker-compose")
+strategy = get_deployer_by_name(app, "docker-compose")
 ```
 
 **Notes**:
 - Return strategy **classes**, not instances
 - Each class must have a `name` attribute
-- Each class must implement the `DeploymentStrategy` protocol
+- Each class must implement the `Deployer` protocol
 - The `name` attribute is used to match `app.runtime` field
 - Multiple strategies can exist; selection is by `accept()` or by name
 
@@ -602,7 +602,7 @@ class DockerPlugin:
         return [DockerBuilder]
 
     @hookimpl
-    def get_deployment_strategies(self) -> list:
+    def get_deployers(self) -> list:
         return [DockerDeployer]
 
 plugin = DockerPlugin()
@@ -824,7 +824,7 @@ Generate strategies based on configuration:
 
 ```python
 @hookimpl
-def get_deployment_strategies(self) -> list:
+def get_deployers(self) -> list:
     """Provide strategies based on config."""
     from hop3.config import HopConfig
 

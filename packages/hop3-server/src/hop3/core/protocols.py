@@ -72,7 +72,7 @@ class Builder(Protocol):
         """Execute the build process and return an artifact."""
 
 
-class DeploymentStrategy(Protocol):
+class Deployer(Protocol):
     """Interface for running a build artifact."""
 
     name: str
@@ -130,6 +130,8 @@ class Addon(Protocol):
     """
 
     name: str
+    # TODO / FIXME name vs service_name is confusing, rename one of them
+    # also we are an "addon" now, not a "service"
     service_name: str
 
     def create(self) -> None:

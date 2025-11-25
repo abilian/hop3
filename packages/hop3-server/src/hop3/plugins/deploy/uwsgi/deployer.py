@@ -6,9 +6,9 @@ import subprocess
 from hop3.config import UWSGI_ENABLED, HopConfig
 from hop3.core.protocols import (
     BuildArtifact,
+    Deployer,
     DeploymentContext,
     DeploymentInfo,
-    DeploymentStrategy,
 )
 from hop3.lib import log
 from hop3.orm import App, AppStateEnum
@@ -16,7 +16,7 @@ from hop3.project.procfile import parse_procfile
 from hop3.run.spawn import spawn_app
 
 
-class UWSGIDeployer(DeploymentStrategy):
+class UWSGIDeployer(Deployer):
     """The default deployment strategy, using uWSGI."""
 
     name = "uwsgi"

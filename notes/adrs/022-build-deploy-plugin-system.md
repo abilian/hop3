@@ -11,8 +11,8 @@ The original Hop3 architecture combined build and deployment logic into a monoli
 We implement build and deployment as a two-stage plugin system with **per-application auto-detection**:
 
 1. **Per-Application Selection:** Each application auto-detects appropriate build and deployment strategies based on its codebase
-2. **Two Protocol Interfaces:** `BuildStrategy` and `DeploymentStrategy` define interfaces with `accept()` methods
-3. **Plugin Discovery:** Strategies discovered via `get_builders()` and `get_deployment_strategies()` hookspecs
+2. **Two Protocol Interfaces:** `BuildStrategy` and `Deployer` define interfaces with `accept()` methods
+3. **Plugin Discovery:** Strategies discovered via `get_builders()` and `get_deployers()` hookspecs
 4. **Data Flow Pipeline:** `DeploymentContext` → `BuildArtifact` → `DeploymentInfo`
 5. **Orchestration:** `do_deploy(app, deltas)` coordinates the pipeline
 
@@ -117,10 +117,10 @@ DeploymentContext(
 
 ## Deployment Plugin Interface
 
-### DeploymentStrategy Protocol
+### Deployer Protocol
 
 ```python
-class DeploymentStrategy(Protocol):
+class Deployer(Protocol):
     """Interface for running a build artifact."""
 
     name: str                    # Strategy identifier
@@ -230,7 +230,7 @@ class UWSGIPlugin:
     name = "uwsgi-deploy"
 
     @hookimpl
-    def get_deployment_strategies(self) -> list:
+    def get_deployers(self) -> list:
         """Return list of deployment strategy classes."""
         return [UWSGIDeployer]
 
@@ -448,7 +448,7 @@ def get_build_strategy(context: DeploymentContext) -> BuildStrategy:
 def get_deployment_strategy(
     context: DeploymentContext,
     artifact: BuildArtifact
-) -> DeploymentStrategy:
+) -> Deployer:
     """Find and instantiate appropriate deployment strategy.
 
     Tries each registered strategy's accept() method until one accepts the artifact.
@@ -458,13 +458,13 @@ def get_deployment_strategy(
         artifact: Build artifact from build stage
 
     Returns:
-        DeploymentStrategy instance ready to deploy
+        Deployer instance ready to deploy
 
     Raises:
         RuntimeError: If no strategy accepts the artifact
     """
     pm = get_plugin_manager()
-    strategy_classes = flatten(pm.hook.get_deployment_strategies())
+    strategy_classes = flatten(pm.hook.get_deployers())
 
     for strategy_class in strategy_classes:
         strategy = strategy_class(context, artifact)

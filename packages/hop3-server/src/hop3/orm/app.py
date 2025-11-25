@@ -143,10 +143,10 @@ class App(BigIntAuditBase):
         Returns the actual state based on whether worker processes exist.
         This is used to sync the database state with reality.
         """
-        from hop3.core.plugins import get_deployment_strategy_by_name
+        from hop3.core.plugins import get_deployer_by_name
 
         try:
-            strategy = get_deployment_strategy_by_name(self, self.runtime)
+            strategy = get_deployer_by_name(self, self.runtime)
             is_running = strategy.check_status()
             return AppStateEnum.RUNNING if is_running else AppStateEnum.STOPPED
         except (ValueError, RuntimeError) as e:

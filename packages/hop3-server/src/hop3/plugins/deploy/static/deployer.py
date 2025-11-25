@@ -12,16 +12,16 @@ from hop3.core.env import Env
 from hop3.core.plugins import get_proxy_strategy
 from hop3.core.protocols import (
     BuildArtifact,
+    Deployer,
     DeploymentContext,
     DeploymentInfo,
-    DeploymentStrategy,
 )
 from hop3.lib import log
 from hop3.orm import App, AppStateEnum
 from hop3.project.config import AppConfig
 
 
-class StaticDeployer(DeploymentStrategy):
+class StaticDeployer(Deployer):
     """Deployment strategy for static file applications.
 
     Static apps don't require any runtime process - they're served directly by nginx.
