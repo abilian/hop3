@@ -96,7 +96,7 @@ def get_worker_count(app: App) -> int:
         return 0
 
 
-def get_app_state_dict(app: App) -> dict:
+def get_app_state_dict(app: App) -> str:
     """Convert app run state to string representation."""
     if hasattr(app.run_state, "name"):
         return app.run_state.name
@@ -767,7 +767,7 @@ class DashboardController(Controller):
                 yield f"event: error\ndata: Error streaming logs: {e}\n\n"
 
         return Stream(
-            iterator=log_generator(),
+            content=log_generator(),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",

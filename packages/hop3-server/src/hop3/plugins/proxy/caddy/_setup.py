@@ -86,7 +86,7 @@ class CaddyVirtualHost(BaseProxy):
         domain_name = self.env["HOST_NAME"].split()[0]
 
         # Check if we should use automatic HTTPS or manual certificates
-        use_auto_https = self.env.get_bool("CADDY_AUTO_HTTPS", False)
+        use_auto_https = self.env.get_bool("CADDY_AUTO_HTTPS", default=False)
 
         if use_auto_https:
             # Use Caddy's automatic HTTPS with Let's Encrypt
@@ -122,7 +122,7 @@ class CaddyVirtualHost(BaseProxy):
         self.env["CADDY_ACL"] = ""
 
         # Enable compression by default
-        if not self.env.get_bool("CADDY_DISABLE_COMPRESSION", False):
+        if not self.env.get_bool("CADDY_DISABLE_COMPRESSION", default=False):
             self.env["HOP3_INTERNAL_CADDY_COMPRESSION"] = CADDY_COMPRESSION
         else:
             self.env["HOP3_INTERNAL_CADDY_COMPRESSION"] = ""
