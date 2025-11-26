@@ -23,15 +23,6 @@ from hop3.server.lib.database import get_session
 if TYPE_CHECKING:
     from pathlib import Path
 
-pytestmark = pytest.mark.skip(
-    reason="Litestar TestClient cannot handle FormMultiDict parameters. Verified with test_form_encoding.py: "
-    "TestClient.post(..., data={...}) with FormMultiDict type hint causes 'JSON is malformed' error, "
-    "and using Body(media_type=RequestEncodingType.URL_ENCODED) causes 'Unsupported type: dict' error. "
-    "This is a confirmed limitation of Litestar's TestClient (not the application code). "
-    "The endpoints work correctly in production with real HTTP requests. "
-    "These tests should be re-enabled when implemented as E2E tests with real HTTP requests."
-)
-
 
 @pytest.fixture(autouse=True)
 def setup_secret_key():

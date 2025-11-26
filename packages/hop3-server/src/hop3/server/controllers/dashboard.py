@@ -19,11 +19,12 @@ import asyncio
 from datetime import datetime, timezone
 from operator import itemgetter
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Annotated, ClassVar
 
 import anyio
 from litestar import Controller, get, post
-from litestar.datastructures import FormMultiDict
+from litestar.enums import RequestEncodingType
+from litestar.params import Body
 from litestar.response import Redirect, Response, Stream, Template
 
 from hop3.core.backup import BackupManager
@@ -241,7 +242,12 @@ class DashboardController(Controller):
         return Template(template_name="dashboard/app_create.html", context=ctx)
 
     @post("/apps/new", status_code=303)
-    async def app_create_submit(self, data: FormMultiDict) -> Template | Redirect:
+    async def app_create_submit(
+        self,
+        data: Annotated[
+            dict[str, str], Body(media_type=RequestEncodingType.URL_ENCODED)
+        ],
+    ) -> Template | Redirect:
         """Handle app creation form submission.
 
         Args:
@@ -341,7 +347,9 @@ class DashboardController(Controller):
                 db_session.commit()
 
                 # Redirect to app detail page
-                return Redirect(path=f"/dashboard/apps/{app_name}?created=true")
+                return Redirect(
+                    path=f"/dashboard/apps/{app_name}?created=true", status_code=303
+                )
 
         except Exception as e:
             # If app creation fails, show error
