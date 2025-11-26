@@ -116,7 +116,7 @@ class DeploymentSession:
 
         return self.temp_dir
 
-    def deploy(self, wait_time: int = 15) -> bool:
+    def deploy(self, wait_time: int = 5) -> bool:
         """Deploy the application to the target.
 
         Args:
@@ -227,7 +227,7 @@ class DeploymentSession:
         hostname: str | None = None,
         path: str = "/",
         expected_status: int = HTTPStatus.OK,
-        max_retries: int = 30,
+        max_retries: int = 20,
     ) -> bool:
         """Test HTTP access to the deployed app.
 
@@ -274,7 +274,7 @@ class DeploymentSession:
                 if response.status_code == HTTPStatus.BAD_GATEWAY:
                     # Backend not ready, retry
                     print(f"  Attempt {attempt + 1}/{max_retries}: Backend not ready, retrying...")
-                    time.sleep(1)
+                    time.sleep(0.5)
                     continue
 
                 print(f"  Unexpected status code: {response.status_code}")
@@ -282,7 +282,7 @@ class DeploymentSession:
 
             except (httpx.HTTPError, httpx.ConnectError) as e:
                 print(f"  Attempt {attempt + 1}/{max_retries}: {e}")
-                time.sleep(1)
+                time.sleep(0.5)
 
         print(f"✗ HTTP test failed after {max_retries} attempts")
         return False

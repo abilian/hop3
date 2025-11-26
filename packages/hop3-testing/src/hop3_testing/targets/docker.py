@@ -34,8 +34,6 @@ class DockerTarget(DeploymentTarget):
             config: Configuration dictionary with optional keys:
                 - image_tag: Docker image tag (default: "hop3-e2e:test")
                 - dockerfile: Path to Dockerfile (default: auto-detect)
-                - rebuild: Whether to rebuild image (default: True, uses Docker layer caching)
-                - use_cache: Skip build entirely if image exists (default: False)
                 - force_rebuild: Disable Docker layer cache for full rebuild (default: False)
                 - container_name: Name for the container (default: auto-generated)
                 - ports: Custom port mappings (default: auto-assign)
@@ -50,15 +48,13 @@ class DockerTarget(DeploymentTarget):
             config.get("image_tag", "hop3-e2e:test") if config else "hop3-e2e:test"
         )
         self.container_name = config.get("container_name") if config else None
-        self.rebuild = config.get("rebuild", True) if config else True
-        self.use_cache = config.get("use_cache", False) if config else False
         self.force_rebuild = config.get("force_rebuild", False) if config else False
 
     def _build_image(self, force: bool = False) -> None:
         """Build the Docker image.
 
         Args:
-            force: Force rebuild without using cache (nocache=True)
+            force: Force rebuild without using Docker layer cache (nocache=True)
         """
         # Check if image exists
         image_exists = False
@@ -68,14 +64,11 @@ class DockerTarget(DeploymentTarget):
         except ImageNotFound:
             pass
 
-        # If use_cache is True and image exists, skip build entirely
-        if self.use_cache and image_exists:
-            print(f"✓ Using cached Docker image: {self.image_tag}")
-            return
-
         # Always build (with Docker layer caching unless force=True)
         print(f"Building Docker image: {self.image_tag}")
-        if image_exists:
+        if force:
+            print("(Force rebuild - ignoring Docker layer cache)")
+        elif image_exists:
             print("(Docker will use cached layers where possible)")
         else:
             print("(First build - this may take 5-10 minutes...)")
@@ -134,16 +127,8 @@ class DockerTarget(DeploymentTarget):
         Returns:
             TargetInfo with connection details
         """
-        # Build image if needed (Docker will use layer caching automatically)
-        if self.rebuild:
-            self._build_image(force=self.force_rebuild)  # Use force_rebuild flag
-        elif not self.use_cache:
-            # If not rebuilding and not using cache, just ensure image exists
-            try:
-                self.client.images.get(self.image_tag)
-            except ImageNotFound:
-                print(f"Image {self.image_tag} not found, building...")
-                self._build_image(force=False)
+        # Always build image (Docker layer caching makes this fast if nothing changed)
+        self._build_image(force=self.force_rebuild)
 
         print("\n" + "=" * 60)
         print("Starting Hop3 Docker container...")
@@ -283,6 +268,33 @@ class DockerTarget(DeploymentTarget):
             metadata={
                 "container_id": self.container.id,
                 "container_name": self.container.name,
+            },
+        )
+
+    def _reuse_container(self, info_data: dict) -> None:
+        """Reuse an existing container started by another worker.
+
+        Args:
+            info_data: Dictionary with container_id and connection info
+        """
+        container_id = info_data["container_id"]
+        self.container = self.client.containers.get(container_id)
+
+        # Restore SSH key
+        self.ssh_key_path = Path(info_data["ssh_key"])
+
+        # Restore target info
+        from .base import TargetInfo
+
+        self._info = TargetInfo(
+            ssh_host="hop3@localhost",
+            ssh_port=info_data["ssh_port"],
+            ssh_key=info_data["ssh_key"],
+            http_base=info_data["http_base"],
+            api_url=info_data["api_url"],
+            metadata={
+                "container_id": container_id,
+                "reused": True,
             },
         )
 
