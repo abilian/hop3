@@ -65,12 +65,15 @@ class BackupCreateCmd(Command):
                 {"t": "text", "text": f"Creating backup for app '{app_name}'...\n"}
             ]
 
-            backup_id, backup_path = manager.create_backup(app, include_addons)
+            backup_id, backup_path = manager.create_backup(
+                app, include_addons=include_addons
+            )
 
             # Get backup info for display
             manifest = manager.get_backup_info(backup_id)
 
             # Calculate component sizes
+            # FIXME: not used
             source_size = manifest.checksums.get("source.tar.gz", "")
             data_size = manifest.checksums.get("data.tar.gz", "")
 

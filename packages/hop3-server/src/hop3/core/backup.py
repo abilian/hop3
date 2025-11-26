@@ -140,14 +140,12 @@ class BackupManager:
         """
         self.db_session = db_session
 
-    def create_backup(
-        self, app: App, include_services: bool = True
-    ) -> tuple[str, Path]:
+    def create_backup(self, app: App, include_addons: bool = True) -> tuple[str, Path]:
         """Create a backup of an application.
 
         Args:
             app: Application to backup
-            include_services: Whether to include attached services
+            include_addons: Whether to include attached services
 
         Returns:
             Tuple of (backup_id, backup_path)
@@ -175,12 +173,13 @@ class BackupManager:
 
         try:
             # Backup components
+            # FIXME: not used
             source_info = self._backup_source(app, backup_dir)
             data_info = self._backup_data(app, backup_dir)
             env_info = self._backup_env(app, backup_dir)
 
             addons_info = []
-            if include_services:
+            if include_addons:
                 addons_info = self._backup_addons(app, backup_dir)
 
             # Create checksums

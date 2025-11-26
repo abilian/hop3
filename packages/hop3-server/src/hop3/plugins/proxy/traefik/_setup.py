@@ -88,7 +88,7 @@ class TraefikVirtualHost(BaseProxy):
         domain_name = self.env["HOST_NAME"].split()[0]
 
         # Check if we should use automatic HTTPS or manual certificates
-        use_auto_https = self.env.get_bool("TRAEFIK_AUTO_HTTPS", True)
+        use_auto_https = self.env.get_bool("TRAEFIK_AUTO_HTTPS", default=True)
 
         if use_auto_https:
             # Use Traefik's automatic HTTPS with Let's Encrypt
