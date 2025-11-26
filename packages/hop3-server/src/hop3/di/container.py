@@ -6,7 +6,7 @@
 
 This module provides container creation for Dishka dependency injection.
 The container lifecycle is managed by:
-- Starlette integration for web requests (via setup_dishka)
+- Litestar integration for web requests (via setup_dishka)
 - Explicit creation for CLI/deployment contexts
 
 Plugin Integration:
@@ -87,14 +87,14 @@ def create_async_container() -> AsyncContainer:
     This creates a fresh async container with all providers registered,
     including providers contributed by plugins via the get_di_providers() hook.
 
-    Use this for web contexts with async views (Starlette, FastAPI).
+    Use this for web contexts with async views (Litestar, FastAPI).
 
     Returns:
         AsyncContainer: Dishka async container with all providers registered
 
     Example:
         # For web contexts, use setup_dishka() instead (see asgi.py)
-        from dishka.integrations.starlette import setup_dishka
+        from dishka.integrations.litestar import setup_dishka
 
         container = create_async_container()
         setup_dishka(container, app=app)

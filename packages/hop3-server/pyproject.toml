@@ -9,7 +9,6 @@ readme = "README.md"
 
 dependencies = [
     # Web / app server
-    "starlette>=0.40",  # Still needed for SessionMiddleware and AuthenticationMiddleware
     "litestar[standard]>=2.18.0",
     "attrs >= 24.2",
     "jinja2",

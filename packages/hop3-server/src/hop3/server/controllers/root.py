@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from litestar import Controller, get
 from litestar.response import Redirect
-from litestar.types import Scope
 
 from hop3 import config
 
@@ -22,11 +23,11 @@ class RootController(Controller):
     path = "/"
 
     @get("/", sync_to_thread=False)
-    def root_redirect(self, scope: Scope) -> Redirect:
+    def root_redirect(self, scope: Any) -> Redirect:
         """Redirect root to dashboard or login.
 
         Args:
-            scope: ASGI scope for request context
+            scope: ASGI scope for request context (dict-like object)
 
         Returns:
             Redirect to dashboard or login page

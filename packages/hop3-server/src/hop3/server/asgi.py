@@ -68,11 +68,7 @@ def handle_401(request: Request, exc: NotAuthorizedException) -> Redirect:
 
 
 def create_app():
-    """Create Litestar application with Dishka DI integration.
-
-    All routes are now handled by Litestar controllers.
-    Legacy Starlette mount has been removed after complete migration.
-    """
+    """Create Litestar application with Dishka DI integration."""
     # Suppress tracebacks for expected HTTP exceptions (401, 404)
     litestar_logger = logging.getLogger("litestar")
     litestar_logger.addFilter(SuppressHTTPExceptionTraceback())

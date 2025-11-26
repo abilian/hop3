@@ -94,8 +94,8 @@ graph TD
     *   `project/`: Logic for parsing project-specific files like `Procfile`.
     *   `run/`: Code responsible for spawning and managing runtime processes, primarily by generating uWSGI configurations.
     *   `services/`: Manages system-level services, like the `CertificatesManager` for SSL.
-    *   `src/hop3/server/`: A modern, separate ASGI (Starlette) application that provides a management API.
-        *   `cli/`: A CLI for managing the Starlette server itself (e.g., `serve`, `routes`).
+    *   `src/hop3/server/`: A modern, separate ASGI (Litestar) application that provides a management API.
+        *   `cli/`: A CLI for managing the Litestar server itself (e.g., `serve`, `routes`).
         *   `views/`: API endpoints, including the `/rpc` endpoint and a WebSocket-based `/terminal`.
 *   `tests/`: Unit and integration tests for the platform.
 *   `noxfile.py`: CI script for linting and testing using `nox`.
@@ -174,4 +174,4 @@ make lint
 
 *   **Addon Services**: The `postgresql` and `redis` plugins contain CLI stubs but lack implementation. This is a major area for expansion.
 *   **Security**: The file `src/hop3/orm/security.py` is commented out, indicating that user and role management for the API is a planned feature.
-*   **Web Dashboard**: The foundation with Starlette and a web terminal suggests a full web-based UI could be a future goal.
+*   **Web Dashboard**: The foundation with Litestar and a web terminal suggests a full web-based UI could be a future goal.
