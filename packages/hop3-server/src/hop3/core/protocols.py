@@ -118,64 +118,67 @@ class Deployer(Protocol):
 
 
 class Addon(Protocol):
-    """Interface for managing addons, also called backing services (databases, caches, etc.).
+    """Interface for managing addons (backing services like databases, caches, etc.).
 
-    A service represents a resource that applications can attach to,
-    like PostgreSQL, Redis, or Elasticsearch. Services are created independently
+    An addon represents a resource that applications can attach to,
+    like PostgreSQL, Redis, or Elasticsearch. Addons are created independently
     and can be shared across multiple applications.
 
+    In 12-factor app terminology, these are called "backing services" - resources
+    the app consumes over the network as part of its normal operation.
+
     Attributes:
-    - name (str): A unique name for the service type, e.g., 'postgres' or 'redis'.
-    - service_name (str): The specific instance name for this service.
+    - name (str): Addon type identifier, e.g., 'postgres' or 'redis'.
+    - addon_name (str): The specific instance name for this addon.
+
+    TODO: Rename 'name' to 'addon_type' for clarity
     """
 
     name: str
-    # TODO / FIXME name vs service_name is confusing, rename one of them
-    # also we are an "addon" now, not a "service"
     addon_name: str
 
     def create(self) -> None:
-        """Create the service instance.
+        """Create the addon instance.
 
-        This should provision the necessary resources for the service,
+        This should provision the necessary resources for the addon,
         such as creating a database, user, or cache instance.
         """
 
     def destroy(self) -> None:
-        """Destroy the service instance.
+        """Destroy the addon instance.
 
-        This should completely remove all resources associated with the service,
+        This should completely remove all resources associated with the addon,
         including data. This operation should be idempotent.
         """
 
     def get_connection_details(self) -> dict[str, str]:
-        """Get environment variables for connecting to this service.
+        """Get environment variables for connecting to this addon.
 
         Returns:
             A dictionary of environment variable names and values that
-            applications need to connect to this service.
+            applications need to connect to this addon.
             For example: {"DATABASE_URL": "postgresql://user:pass@host/db"}
         """
 
     def backup(self) -> Path:
-        """Create a backup of the service data.
+        """Create a backup of the addon data.
 
         Returns:
             Path to the backup file or directory.
         """
 
     def restore(self, backup_path: Path) -> None:
-        """Restore service data from a backup.
+        """Restore addon data from a backup.
 
         Args:
             backup_path: Path to the backup file or directory to restore from.
         """
 
     def info(self) -> dict[str, Any]:
-        """Get information about the service instance.
+        """Get information about the addon instance.
 
         Returns:
-            Dictionary with service details like status, version, size, etc.
+            Dictionary with addon details like status, version, size, etc.
         """
 
 

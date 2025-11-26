@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from hop3.config import HopConfig
 from hop3.core.backup import BackupManager
 from hop3.orm.session import get_session_factory
-from hop3.services.certificates import CertificatesManager
+from hop3.platform.certificates import CertificatesManager
 
 
 class ConfigProvider(Provider):

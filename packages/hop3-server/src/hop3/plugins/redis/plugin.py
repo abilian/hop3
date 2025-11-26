@@ -18,18 +18,18 @@ assert cli
 
 
 class RedisPlugin:
-    """Redis service plugin for Hop3."""
+    """Redis addon plugin for Hop3."""
 
     name = "redis"
 
     @hookimpl
     def get_addons(self) -> list:
-        """Return Redis service strategy."""
+        """Return Redis addon implementation."""
         return [RedisAddon]
 
 
 class RedisPluginProvider(Provider):
-    """DI provider for Redis services.
+    """DI provider for Redis addon infrastructure.
 
     Provides RedisClientFactory for centralized Redis configuration
     and connection management.
@@ -41,7 +41,7 @@ class RedisPluginProvider(Provider):
 
     @provide
     def get_redis_factory(self) -> RedisClientFactory:
-        """Provide Redis client factory service.
+        """Provide Redis client factory.
 
         Returns:
             RedisClientFactory instance configured from REDIS_* environment variables

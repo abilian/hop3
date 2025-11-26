@@ -6,7 +6,7 @@
 
 This module provides the BackupManager class for creating and restoring
 complete application backups including source code, data, environment
-variables, and attached services.
+variables, and attached addons.
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ class BackupManifest:
     size_bytes: int
     checksums: dict[str, str]
     app_metadata: dict[str, Any]
-    services: list[dict[str, Any]]
+    addons: list[dict[str, Any]]
     env_vars_count: int
     expires_after: int
 
@@ -127,7 +127,7 @@ class BackupManager:
     - Source code (git repository)
     - Application data directory
     - Environment variables
-    - Attached services (databases, caches, etc.)
+    - Attached addons (databases, caches, etc.)
 
     All backups are stored in /var/hop3/backups/apps/<app-name>/<backup-id>/
     """
@@ -179,9 +179,9 @@ class BackupManager:
             data_info = self._backup_data(app, backup_dir)
             env_info = self._backup_env(app, backup_dir)
 
-            services_info = []
+            addons_info = []
             if include_services:
-                services_info = self._backup_services(app, backup_dir)
+                addons_info = self._backup_addons(app, backup_dir)
 
             # Create checksums
             checksums = {}
@@ -190,7 +190,7 @@ class BackupManager:
                 if file_path.exists():
                     checksums[filename] = self._calculate_checksum(file_path)
 
-            for service_info in services_info:
+            for service_info in addons_info:
                 service_file = backup_dir / service_info["backup_file"]
                 if service_file.exists():
                     checksums[service_info["backup_file"]] = self._calculate_checksum(
@@ -218,7 +218,7 @@ class BackupManager:
                     "port": app.port,
                     "run_state": app.run_state.name,
                 },
-                services=services_info,
+                addons=addons_info,
                 env_vars_count=len(app.env_vars),
                 expires_after=0,
             )
@@ -309,7 +309,7 @@ class BackupManager:
             self._restore_source(app, backup_dir)
             self._restore_data(app, backup_dir)
             self._restore_env(app, backup_dir, manifest)
-            self._restore_services(app, backup_dir, manifest)
+            self._restore_addons(app, backup_dir, manifest)
 
             # Restore app metadata
             app.hostname = manifest.app_metadata.get("hostname", "")
@@ -539,26 +539,26 @@ class BackupManager:
 
         return {"size": size, "count": len(env_data)}
 
-    def _backup_services(self, app: App, backup_dir: Path) -> list[dict]:
-        """Backup attached services.
+    def _backup_addons(self, app: App, backup_dir: Path) -> list[dict]:
+        """Backup attached addons.
 
         Args:
             app: Application to backup
             backup_dir: Directory to store backup
 
         Returns:
-            List of service backup info dicts
+            List of addon backup info dicts
         """
-        services_dir = backup_dir / "services"
-        services_dir.mkdir(exist_ok=True)
+        addons_dir = backup_dir / "addons"
+        addons_dir.mkdir(exist_ok=True)
 
-        services_info = []
-        failed_services = []
+        addons_info = []
+        failed_addons = []
 
         # Discover attached services by examining environment variables
-        attached_services = self._get_attached_services(app)
+        attached_addons = self._get_attached_addons(app)
 
-        for service_type, service_name in attached_services:
+        for service_type, service_name in attached_addons:
             try:
                 service = get_addon(service_type, service_name)
                 service_backup_path = service.backup()
@@ -567,7 +567,7 @@ class BackupManager:
                 dest_filename = (
                     f"{service_type}_{service_name}{service_backup_path.suffix}"
                 )
-                dest_path = services_dir / dest_filename
+                dest_path = addons_dir / dest_filename
 
                 shutil.copy2(service_backup_path, dest_path)
 
@@ -576,27 +576,27 @@ class BackupManager:
                     f"Backed up service {service_name} ({service_type}): {format_size(size)}"
                 )
 
-                services_info.append({
+                addons_info.append({
                     "type": service_type,
                     "name": service_name,
-                    "backup_file": f"services/{dest_filename}",
+                    "backup_file": f"addons/{dest_filename}",
                     "size_bytes": size,
                 })
 
             except Exception as e:
-                failed_services.append((service_name, service_type, str(e)))
+                failed_addons.append((service_name, service_type, str(e)))
                 log(f"✗ Failed to backup service {service_name} ({service_type}): {e}")
 
         # If any services failed to backup, raise an error
-        if failed_services:
+        if failed_addons:
             error_details = "\n".join(
                 f"  - {name} ({stype}): {error}"
-                for name, stype, error in failed_services
+                for name, stype, error in failed_addons
             )
-            msg = f"Backup failed: Could not backup {len(failed_services)} attached service(s):\n{error_details}"
+            msg = f"Backup failed: Could not backup {len(failed_addons)} attached service(s):\n{error_details}"
             raise RuntimeError(msg)
 
-        return services_info
+        return addons_info
 
     def _restore_source(self, app: App, backup_dir: Path) -> None:
         """Restore source code from backup.
@@ -670,17 +670,17 @@ class BackupManager:
 
         log(f"Restored {len(env_data)} environment variables")
 
-    def _restore_services(
+    def _restore_addons(
         self, app: App, backup_dir: Path, manifest: BackupManifest
     ) -> None:
-        """Restore services from backup.
+        """Restore addons from backup.
 
         Args:
             app: Application to restore to
             backup_dir: Backup directory
             manifest: Backup manifest
         """
-        for service_info in manifest.services:
+        for service_info in manifest.addons:
             service_type = service_info["type"]
             service_name = service_info["name"]
             backup_file = backup_dir / service_info["backup_file"]
@@ -701,10 +701,10 @@ class BackupManager:
             except Exception as e:
                 log(f"Warning: Failed to restore service {service_name}: {e}")
 
-    def _get_attached_services(self, app: App) -> list[tuple[str, str]]:
-        """Get list of attached services for an app.
+    def _get_attached_addons(self, app: App) -> list[tuple[str, str]]:
+        """Get list of attached addons for an app.
 
-        This examines environment variables to discover attached services.
+        This examines environment variables to discover attached addons.
 
         Args:
             app: Application to check

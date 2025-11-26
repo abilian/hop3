@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ service.service_name }} - Service Details - Hop3 Dashboard{% endblock %}
+{% block title %}{{ addon.addon_name }} - Service Details - Hop3 Dashboard{% endblock %}
 
 {% block content %}
 <div class="px-4 sm:px-6 lg:px-8">
@@ -17,7 +17,7 @@
                     <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
                     </svg>
-                    <a href="/dashboard/services" class="ml-1 text-gray-700 hover:text-gray-900">
+                    <a href="/dashboard/addons" class="ml-1 text-gray-700 hover:text-gray-900">
                         Services
                     </a>
                 </div>
@@ -27,7 +27,7 @@
                     <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
                     </svg>
-                    <span class="ml-1 text-gray-500">{{ service.service_name }}</span>
+                    <span class="ml-1 text-gray-500">{{ addon.addon_name }}</span>
                 </div>
             </li>
         </ol>
@@ -36,24 +36,24 @@
     <!-- Header -->
     <div class="sm:flex sm:items-center sm:justify-between">
         <div class="sm:flex-auto">
-            <h1 class="text-2xl font-semibold leading-6 text-gray-900">{{ service.service_name }}</h1>
+            <h1 class="text-2xl font-semibold leading-6 text-gray-900">{{ addon.addon_name }}</h1>
             <p class="mt-2 text-sm text-gray-700">
                 <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset
-                    {% if service.service_type == 'postgres' %}
+                    {% if addon.addon_type == 'postgres' %}
                         bg-blue-50 text-blue-700 ring-blue-600/20
-                    {% elif service.service_type == 'redis' %}
+                    {% elif addon.addon_type == 'redis' %}
                         bg-red-50 text-red-700 ring-red-600/20
-                    {% elif service.service_type == 'mysql' %}
+                    {% elif addon.addon_type == 'mysql' %}
                         bg-orange-50 text-orange-700 ring-orange-600/20
                     {% else %}
                         bg-gray-50 text-gray-700 ring-gray-600/20
                     {% endif %}
                 ">
-                    {{ service.service_type }}
+                    {{ addon.addon_type }}
                 </span>
                 attached to
-                <a href="/dashboard/apps/{{ service.app_name }}" class="text-blue-600 hover:text-blue-900 font-medium">
-                    {{ service.app_name }}
+                <a href="/dashboard/apps/{{ addon.app_name }}" class="text-blue-600 hover:text-blue-900 font-medium">
+                    {{ addon.app_name }}
                 </a>
             </p>
         </div>
@@ -104,7 +104,7 @@
                 <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
                     <div class="sm:col-span-1">
                         <dt class="text-sm font-medium text-gray-500">Database Name</dt>
-                        <dd class="mt-1 text-sm text-gray-900 font-mono">{{ info.database if info else service.service_name }}</dd>
+                        <dd class="mt-1 text-sm text-gray-900 font-mono">{{ info.database if info else addon.addon_name }}</dd>
                     </div>
                     <div class="sm:col-span-1">
                         <dt class="text-sm font-medium text-gray-500">User</dt>
@@ -215,9 +215,9 @@
                 <h3 class="text-sm font-medium text-blue-800">Manage this service via CLI</h3>
                 <div class="mt-2 text-sm text-blue-700">
                     <ul class="list-disc list-inside space-y-1">
-                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 services:info {{ service.service_name }}</code> - View service information</li>
-                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 backup:create {{ service.app_name }}</code> - Create backup (includes this service)</li>
-                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 services:destroy {{ service.service_name }}</code> - Delete this service</li>
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 addons:info {{ addon.addon_name }}</code> - View service information</li>
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 backup:create {{ addon.app_name }}</code> - Create backup (includes this service)</li>
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 addons:destroy {{ addon.addon_name }}</code> - Delete this service</li>
                     </ul>
                 </div>
             </div>

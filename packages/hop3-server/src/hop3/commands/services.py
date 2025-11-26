@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.plugins import get_addon
 from hop3.lib.decorators import register
-from hop3.orm import EnvVar, ServiceCredential
+from hop3.orm import AddonCredential, EnvVar
 
 from ._base import Command
 
@@ -23,18 +23,18 @@ if TYPE_CHECKING:
 
 @register
 @dataclass(frozen=True)
-class ServicesCreateCmd(Command):
+class AddonsCreateCmd(Command):
     """Create a new backing service instance.
 
-    Usage: hop3 services:create <service-type> <service-name>
+    Usage: hop3 addons:create <service-type> <service-name>
 
     Examples:
-        hop3 services:create postgres my-database
-        hop3 services:create redis my-cache
+        hop3 addons:create postgres my-database
+        hop3 addons:create redis my-cache
     """
 
     db_session: Session
-    name: ClassVar[str] = "services:create"
+    name: ClassVar[str] = "addons:create"
 
     def call(self, *args):
         """Create a new service instance."""
@@ -43,9 +43,9 @@ class ServicesCreateCmd(Command):
                 {
                     "t": "text",
                     "text": (
-                        "Usage: hop3 services:create <service-type> <service-name>\n\n"
+                        "Usage: hop3 addons:create <service-type> <service-name>\n\n"
                         "Example:\n"
-                        "  hop3 services:create postgres my-database"
+                        "  hop3 addons:create postgres my-database"
                     ),
                 }
             ]
@@ -67,7 +67,7 @@ class ServicesCreateCmd(Command):
                 },
                 {
                     "t": "text",
-                    "text": f"\nTo attach this service to an app, run:\n  hop3 services:attach {service_name} --app <app-name>",
+                    "text": f"\nTo attach this service to an app, run:\n  hop3 addons:attach {service_name} --app <app-name>",
                 },
             ]
 
@@ -79,21 +79,21 @@ class ServicesCreateCmd(Command):
 
 @register
 @dataclass(frozen=True)
-class ServicesAttachCmd(Command):
+class AddonsAttachCmd(Command):
     """Attach a service to an application.
 
     This command injects the service's connection details as environment
     variables into the specified application.
 
-    Usage: hop3 services:attach <service-name> --app <app-name> [--service-type <type>]
+    Usage: hop3 addons:attach <service-name> --app <app-name> [--service-type <type>]
 
     Examples:
-        hop3 services:attach my-database --app my-app --service-type postgres
-        hop3 services:attach my-cache --app my-app --service-type redis
+        hop3 addons:attach my-database --app my-app --service-type postgres
+        hop3 addons:attach my-cache --app my-app --service-type redis
     """
 
     db_session: Session
-    name: ClassVar[str] = "services:attach"
+    name: ClassVar[str] = "addons:attach"
 
     def _parse_attach_args(self, args) -> tuple[str, str | None, str] | None:
         """Parse command arguments.
@@ -133,9 +133,9 @@ class ServicesAttachCmd(Command):
         encryptor = get_credential_encryptor()
 
         existing_credential = (
-            self.db_session.query(ServiceCredential)
+            self.db_session.query(AddonCredential)
             .filter_by(
-                app_id=app_id, service_type=service_type, service_name=service_name
+                app_id=app_id, addon_type=service_type, addon_name=service_name
             )
             .first()
         )
@@ -143,10 +143,10 @@ class ServicesAttachCmd(Command):
         if existing_credential:
             existing_credential.encrypted_data = encryptor.encrypt(connection_details)
         else:
-            credential = ServiceCredential(
+            credential = AddonCredential(
                 app_id=app_id,
-                service_type=service_type,
-                service_name=service_name,
+                addon_type=service_type,
+                addon_name=service_name,
                 encrypted_data=encryptor.encrypt(connection_details),
             )
             self.db_session.add(credential)
@@ -181,9 +181,9 @@ class ServicesAttachCmd(Command):
                 {
                     "t": "text",
                     "text": (
-                        "Usage: hop3 services:attach <service-name> --app <app-name> [--service-type <type>]\n\n"
+                        "Usage: hop3 addons:attach <service-name> --app <app-name> [--service-type <type>]\n\n"
                         "Example:\n"
-                        "  hop3 services:attach my-database --app my-app --service-type postgres"
+                        "  hop3 addons:attach my-database --app my-app --service-type postgres"
                     ),
                 }
             ]
@@ -194,7 +194,7 @@ class ServicesAttachCmd(Command):
             return [
                 {
                     "t": "error",
-                    "text": "Error: --app parameter is required\n\nUsage: hop3 services:attach <service-name> --app <app-name>",
+                    "text": "Error: --app parameter is required\n\nUsage: hop3 addons:attach <service-name> --app <app-name>",
                 }
             ]
 
@@ -244,16 +244,16 @@ class ServicesAttachCmd(Command):
 
 @register
 @dataclass(frozen=True)
-class ServicesDetachCmd(Command):
+class AddonsDetachCmd(Command):
     """Detach a service from an application.
 
     This removes the service's environment variables from the application.
 
-    Usage: hop3 services:detach <service-name> --app <app-name> [--service-type <type>]
+    Usage: hop3 addons:detach <service-name> --app <app-name> [--service-type <type>]
     """
 
     db_session: Session
-    name: ClassVar[str] = "services:detach"
+    name: ClassVar[str] = "addons:detach"
 
     def _parse_detach_args(self, args) -> tuple[str, str | None, str] | None:
         """Parse command arguments.
@@ -291,9 +291,9 @@ class ServicesDetachCmd(Command):
             Dictionary of connection details (may be empty if not found)
         """
         credential = (
-            self.db_session.query(ServiceCredential)
+            self.db_session.query(AddonCredential)
             .filter_by(
-                app_id=app_id, service_type=service_type, service_name=service_name
+                app_id=app_id, addon_type=service_type, addon_name=service_name
             )
             .first()
         )
@@ -339,9 +339,9 @@ class ServicesDetachCmd(Command):
                 {
                     "t": "text",
                     "text": (
-                        "Usage: hop3 services:detach <service-name> --app <app-name> [--service-type <type>]\n\n"
+                        "Usage: hop3 addons:detach <service-name> --app <app-name> [--service-type <type>]\n\n"
                         "Example:\n"
-                        "  hop3 services:detach my-database --app my-app"
+                        "  hop3 addons:detach my-database --app my-app"
                     ),
                 }
             ]
@@ -397,16 +397,16 @@ class ServicesDetachCmd(Command):
 
 @register
 @dataclass(frozen=True)
-class ServicesDestroyCmd(Command):
+class AddonsDestroyCmd(Command):
     """Destroy a service instance.
 
     WARNING: This will permanently delete all data in the service!
 
-    Usage: hop3 services:destroy <service-name> [--service-type <type>]
+    Usage: hop3 addons:destroy <service-name> [--service-type <type>]
     """
 
     db_session: Session
-    name: ClassVar[str] = "services:destroy"
+    name: ClassVar[str] = "addons:destroy"
     destructive: ClassVar[bool] = True
 
     def call(self, *args):
@@ -416,10 +416,10 @@ class ServicesDestroyCmd(Command):
                 {
                     "t": "text",
                     "text": (
-                        "Usage: hop3 services:destroy <service-name> [--service-type <type>]\n\n"
+                        "Usage: hop3 addons:destroy <service-name> [--service-type <type>]\n\n"
                         "WARNING: This will permanently delete all data!\n\n"
                         "Example:\n"
-                        "  hop3 services:destroy my-database --service-type postgres"
+                        "  hop3 addons:destroy my-database --service-type postgres"
                     ),
                 }
             ]
@@ -442,8 +442,8 @@ class ServicesDestroyCmd(Command):
 
             # Clean up all stored credentials for this service
             credentials = (
-                self.db_session.query(ServiceCredential)
-                .filter_by(service_type=service_type, service_name=service_name)
+                self.db_session.query(AddonCredential)
+                .filter_by(addon_type=service_type, addon_name=service_name)
                 .all()
             )
 
@@ -470,14 +470,14 @@ class ServicesDestroyCmd(Command):
 
 @register
 @dataclass(frozen=True)
-class ServicesInfoCmd(Command):
+class AddonsInfoCmd(Command):
     """Get information about a service instance.
 
-    Usage: hop3 services:info <service-name> [--service-type <type>]
+    Usage: hop3 addons:info <service-name> [--service-type <type>]
     """
 
     db_session: Session
-    name: ClassVar[str] = "services:info"
+    name: ClassVar[str] = "addons:info"
 
     def call(self, *args):
         """Get service information."""
@@ -486,9 +486,9 @@ class ServicesInfoCmd(Command):
                 {
                     "t": "text",
                     "text": (
-                        "Usage: hop3 services:info <service-name> [--service-type <type>]\n\n"
+                        "Usage: hop3 addons:info <service-name> [--service-type <type>]\n\n"
                         "Example:\n"
-                        "  hop3 services:info my-database --service-type postgres"
+                        "  hop3 addons:info my-database --service-type postgres"
                     ),
                 }
             ]

@@ -1,7 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
-from hop3.services.certificates import RE_DOMAIN_VALIDATOR
+from hop3.platform.certificates import RE_DOMAIN_VALIDATOR
 
 
 def test_domain_validation():

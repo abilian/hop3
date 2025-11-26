@@ -124,11 +124,11 @@ def test_dashboard_index_empty(authenticated_client: TestClient):
 # Services and Backups Placeholder Tests
 
 
-def test_dashboard_services(authenticated_client: TestClient):
-    """Test services placeholder page."""
-    response = authenticated_client.get("/dashboard/services")
+def test_dashboard_addons(authenticated_client: TestClient):
+    """Test addons placeholder page."""
+    response = authenticated_client.get("/dashboard/addons")
     assert response.status_code == 200
-    assert b"Services" in response.content or b"Coming soon" in response.content
+    assert b"Addons" in response.content or b"Coming soon" in response.content
 
 
 def test_dashboard_backups(authenticated_client: TestClient):

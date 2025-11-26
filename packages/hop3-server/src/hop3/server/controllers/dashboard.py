@@ -29,7 +29,7 @@ from litestar.response import Redirect, Response, Stream, Template
 from hop3.core.backup import BackupManager
 from hop3.core.plugins import get_addon
 from hop3.orm import App, EnvVar
-from hop3.orm.service_credential import ServiceCredential
+from hop3.orm.addon_credential import AddonCredential
 from hop3.project.config import AppConfig
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
@@ -102,18 +102,18 @@ def get_app_state_dict(app: App) -> dict:
     return str(app.run_state)
 
 
-def get_services_for_app(app: App) -> list[dict]:
-    """Get list of services attached to an app."""
-    services = []
-    for credential in app.service_credentials:
-        services.append({
-            "service_name": credential.service_name,
-            "service_type": credential.service_type,
+def get_addons_for_app(app: App) -> list[dict]:
+    """Get list of addons attached to an app."""
+    addons = []
+    for credential in app.addon_credentials:
+        addons.append({
+            "addon_name": credential.addon_name,
+            "addon_type": credential.addon_type,
             "created_at": credential.created_at.strftime("%Y-%m-%d %H:%M")
             if credential.created_at
             else "N/A",
         })
-    return services
+    return addons
 
 
 def format_size(size_bytes: int) -> str:
@@ -158,7 +158,7 @@ class DashboardController(Controller):
     """Dashboard web interface controller.
 
     Handles all dashboard routes for viewing and managing applications,
-    services, and backups through a web interface.
+    addons, and backups through a web interface.
 
     All routes require authentication via auth_guard.
     """
@@ -402,8 +402,8 @@ class DashboardController(Controller):
                 except Exception:
                     pass
 
-            # Get attached services
-            services = get_services_for_app(app)
+            # Get attached addons
+            addons = get_addons_for_app(app)
 
             # Prepare context
             ctx = {
@@ -422,7 +422,7 @@ class DashboardController(Controller):
                     "worker_count": worker_count,
                     "env_var_count": len(app.env_vars),
                 },
-                "services": services,
+                "addons": addons,
                 "now": datetime.now(timezone.utc),
             }
 
@@ -592,7 +592,7 @@ class DashboardController(Controller):
             try:
                 manager = BackupManager(db_session)
                 backup_id, backup_path = manager.create_backup(
-                    app, include_services=True
+                    app, include_addons=True
                 )
                 print(f"Backup created successfully: {backup_id} at {backup_path}")
             except Exception as e:
@@ -771,82 +771,82 @@ class DashboardController(Controller):
         )
 
     # ========================================================================
-    # Services Management
+    # Addons Management
     # ========================================================================
 
-    @get("/services", sync_to_thread=False)
-    def dashboard_services(self) -> Template | Redirect:
-        """Display services page.
+    @get("/addons", sync_to_thread=False)
+    def dashboard_addons(self) -> Template | Redirect:
+        """Display addons page.
 
         Args:
 
         Returns:
-            Template response with services list
+            Template response with addons list
         """
-        # Get all service credentials from database
+        # Get all addon credentials from database
         with get_session() as db_session:
-            credentials = db_session.query(ServiceCredential).join(App).all()
+            credentials = db_session.query(AddonCredential).join(App).all()
 
             # Convert to dict for template
-            services = []
+            addons = []
             for cred in credentials:
-                services.append({
+                addons.append({
                     "id": cred.id,
                     "app_name": cred.app.name,
-                    "service_type": cred.service_type,
-                    "service_name": cred.addon_name,
+                    "addon_type": cred.addon_type,
+                    "addon_name": cred.addon_name,
                     "created_at": cred.created_at.strftime("%Y-%m-%d %H:%M")
                     if cred.created_at
                     else "N/A",
                 })
 
-        ctx = {"services": services}
-        return Template(template_name="dashboard/services.html", context=ctx)
+        ctx = {"addons": addons}
+        return Template(template_name="dashboard/addons.html", context=ctx)
 
-    @get("/services/{service_name:str}", sync_to_thread=False)
-    def service_detail(self, service_name: str) -> Template:
-        """Display service detail page.
+    @get("/addons/{addon_name:str}", sync_to_thread=False)
+    def addon_detail(self, addon_name: str) -> Template:
+        """Display addon detail page.
 
         Args:
-            service_name: Service name from path
+            addon_name: Addon name from path
 
         Returns:
-            Template response with service details
+            Template response with addon details
         """
-        # Get service credential from database
+        # Get addon credential from database
         with get_session() as db_session:
             credential = (
-                db_session.query(ServiceCredential)
-                .filter(ServiceCredential.service_name == service_name)
+                db_session.query(AddonCredential)
+                .filter(AddonCredential.addon_name == addon_name)
                 .first()
             )
 
             if not credential:
-                # Service not found
+                # Addon not found
                 return Template(
                     template_name="dashboard/error.html",
                     context={
-                        "error_title": "Service Not Found",
-                        "error_message": f"Service '{service_name}' does not exist.",
+                        "error_title": "Addon Not Found",
+                        "error_message": f"Addon '{addon_name}' does not exist.",
                     },
                     status_code=404,
                 )
 
-            # Get app name for the service
+            # Get app name for the addon
             app = credential.app
 
-            # Get service strategy and connection details
+            # Get addon strategy and connection details
             try:
-                service = get_addon(credential.service_type, service_name)
-                connection_details = service.get_connection_details()
-                info = service.info()
+                addon = get_addon(credential.addon_type, addon_name)
+                connection_details = addon.get_connection_details()
+                info = addon.info()
             except Exception as e:
                 connection_details = {}
                 info = {"error": str(e)}
 
-            service_data = {
-                "service_name": credential.addon_name,
-                "service_type": credential.service_type,
+            addon_data = {
+                "addon_name": credential.addon_name,
+                "addon_type": credential.addon_type,
                 "app_name": app.name,
                 "created_at": credential.created_at.strftime("%Y-%m-%d %H:%M")
                 if credential.created_at
@@ -854,11 +854,11 @@ class DashboardController(Controller):
             }
 
         ctx = {
-            "service": service_data,
+            "addon": addon_data,
             "connection_details": connection_details,
             "info": info,
         }
-        return Template(template_name="dashboard/service_detail.html", context=ctx)
+        return Template(template_name="dashboard/addon_detail.html", context=ctx)
 
     # ========================================================================
     # Backups Management
@@ -884,15 +884,15 @@ class DashboardController(Controller):
                 created = format_backup_datetime(
                     manifest.backup_id, manifest.created_at
                 )
-                services_list = [s["name"] for s in manifest.services]
+                addons_list = [s["name"] for s in manifest.addons]
 
                 backups.append({
                     "backup_id": manifest.backup_id,
                     "app_name": manifest.app_name,
                     "created": created,
                     "size": format_size(manifest.size_bytes),
-                    "services_count": len(manifest.services),
-                    "services": ", ".join(services_list) if services_list else "None",
+                    "addons_count": len(manifest.addons),
+                    "addons": ", ".join(addons_list) if addons_list else "None",
                 })
 
         ctx = {"backups": backups}
@@ -935,7 +935,7 @@ class DashboardController(Controller):
                         "format_version": manifest.format_version,
                         "hop3_version": manifest.hop3_version,
                         "env_vars_count": manifest.env_vars_count,
-                        "services": manifest.services,
+                        "addons": manifest.addons,
                         "app_metadata": manifest.app_metadata,
                         "checksums": checksums,
                         "all_valid": all_valid,

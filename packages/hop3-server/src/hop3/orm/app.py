@@ -21,8 +21,8 @@ from hop3.lib import Abort, log
 from hop3.run.spawn import spawn_app
 
 if TYPE_CHECKING:
+    from .addon_credential import AddonCredential
     from .env import EnvVar
-    from .service_credential import ServiceCredential
 
 
 class AppStateEnum(Enum):
@@ -107,7 +107,7 @@ class App(BigIntAuditBase):
         back_populates="app", cascade="all, delete-orphan"
     )
 
-    service_credentials: Mapped[list[ServiceCredential]] = relationship(
+    addon_credentials: Mapped[list[AddonCredential]] = relationship(
         back_populates="app", cascade="all, delete-orphan", lazy="selectin"
     )
 
