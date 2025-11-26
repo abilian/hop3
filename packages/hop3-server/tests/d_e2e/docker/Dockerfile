@@ -4,12 +4,20 @@
 
 # Simplified Dockerfile for Hop3 E2E Tests (works on macOS)
 # This version doesn't use systemd - services are started manually
+#
+# LAYER OPTIMIZATION:
+# Layers are ordered from least-frequently-changing to most-frequently-changing
+# to maximize Docker cache reuse during rebuilds.
 
 FROM ubuntu:22.04
 
 # Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
+
+# =============================================================================
+# LAYER 1: System packages (rarely change)
+# =============================================================================
 
 # Install basic utilities
 RUN apt-get update && \
@@ -94,6 +102,10 @@ RUN wget -q https://github.com/traefik/traefik/releases/download/v2.11.0/traefik
     rm /tmp/traefik.tar.gz && \
     mkdir -p /etc/traefik /etc/traefik/dynamic
 
+# =============================================================================
+# LAYER 2: User and SSH setup (rarely change)
+# =============================================================================
+
 # Create hop3 user and add www-data to hop3 group for socket access
 RUN useradd -m -s /bin/bash hop3 && \
     echo "hop3:hop3" | chpasswd && \
@@ -113,16 +125,39 @@ RUN mkdir -p /var/run/sshd && \
 RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
     sed -i 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' /etc/pam.d/sshd
 
-# Copy hop3-server source code and install directly from source
-# Install to /opt/hop3-server to keep it separate from app deployment directories
-COPY packages/hop3-server /opt/hop3-server
-# Remove docs directory to avoid symlink issues, install, then remove pyproject.toml
-RUN rm -rf /opt/hop3-server/docs && \
-    su - hop3 -c "python3 -m venv ~/venv && \
-    ~/venv/bin/pip install --no-cache-dir --upgrade pip && \
-    ~/venv/bin/pip install --no-cache-dir -e /opt/hop3-server" && \
-    rm -f /opt/hop3-server/pyproject.toml && \
+# =============================================================================
+# LAYER 3: Python dependencies (change when pyproject.toml changes)
+# =============================================================================
+
+# Create virtualenv first (this layer is stable)
+RUN su - hop3 -c "python3 -m venv ~/venv && \
+    ~/venv/bin/pip install --no-cache-dir --upgrade pip"
+
+# Copy ONLY pyproject.toml and README.md first to install dependencies
+# This layer is cached as long as dependencies don't change
+COPY packages/hop3-server/pyproject.toml /opt/hop3-server/pyproject.toml
+COPY packages/hop3-server/README.md /opt/hop3-server/README.md
+
+# Create minimal package structure needed for pip install
+RUN mkdir -p /opt/hop3-server/src/hop3 && \
+    echo '__version__ = "0.0.0"' > /opt/hop3-server/src/hop3/__init__.py && \
     chown -R hop3:hop3 /opt/hop3-server
+
+# Install dependencies (this is the expensive step - now cached!)
+RUN su - hop3 -c "~/venv/bin/pip install --no-cache-dir -e /opt/hop3-server"
+
+# =============================================================================
+# LAYER 4: Application code (changes frequently)
+# =============================================================================
+
+# Now copy the actual source code
+COPY packages/hop3-server/src /opt/hop3-server/src
+RUN rm -rf /opt/hop3-server/src/hop3/__pycache__ && \
+    chown -R hop3:hop3 /opt/hop3-server/src
+
+# =============================================================================
+# LAYER 5: Configuration and setup (changes rarely)
+# =============================================================================
 
 # Create hop3 environment file
 RUN echo 'HOP3_SECRET_KEY=e2e-test-secret-key-do-not-use-in-production' > /home/hop3/.env && \
