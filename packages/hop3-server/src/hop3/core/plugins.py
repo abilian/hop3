@@ -289,18 +289,23 @@ def get_deployer_by_name(app, runtime_name: str) -> Deployer:
 
 
 def get_addon(addon_type: str, addon_name: str) -> Addon:
-    """
-    Finds and instantiates the appropriate service strategy.
+    """Get an addon instance by type and name.
+
+    Finds and instantiates the appropriate addon implementation.
 
     Args:
-        addon_type: The type of service (e.g., 'postgres', 'redis')
-        addon_name: The specific instance name for this service
+        addon_type: The type of addon (e.g., 'postgres', 'redis')
+        addon_name: The specific instance name for this addon
 
     Returns:
         An instance of the requested Addon
 
     Raises:
-        RuntimeError: If the requested service type is not found
+        RuntimeError: If the requested addon type is not found
+
+    Example:
+        addon = get_addon('postgres', 'mydb')
+        addon.create()
     """
     pm = get_plugin_manager()
 
@@ -310,14 +315,12 @@ def get_addon(addon_type: str, addon_name: str) -> Addon:
     ]
 
     for addon_class in addon_classes:
-        # Check if the strategy name matches the requested service type
+        # Check if the addon type matches
         if getattr(addon_class, "name", None) == addon_type:
             return addon_class(addon_name=addon_name)
 
     available_addons = [getattr(cls, "name", "?") for cls in addon_classes]
-    msg = (
-        f"Service type '{addon_type}' not found. Available services: {available_addons}"
-    )
+    msg = f"Addon type '{addon_type}' not found. Available addons: {available_addons}"
     raise RuntimeError(msg)
 
 

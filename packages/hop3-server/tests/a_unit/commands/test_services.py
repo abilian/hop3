@@ -12,11 +12,11 @@ import pytest
 from sqlalchemy.orm import Session
 
 from hop3.commands.services import (
-    ServicesAttachCmd,
-    ServicesCreateCmd,
-    ServicesDestroyCmd,
-    ServicesDetachCmd,
-    ServicesInfoCmd,
+    AddonsAttachCmd,
+    AddonsCreateCmd,
+    AddonsDestroyCmd,
+    AddonsDetachCmd,
+    AddonsInfoCmd,
 )
 from hop3.orm import App, EnvVar
 
@@ -39,7 +39,7 @@ def mock_app():
 
 def test_services_create_requires_arguments(mock_db_session):
     """Test that services:create requires both service type and name."""
-    cmd = ServicesCreateCmd(db_session=mock_db_session)
+    cmd = AddonsCreateCmd(db_session=mock_db_session)
     result = cmd.call()
 
     assert len(result) == 1
@@ -53,7 +53,7 @@ def test_services_create_with_postgres(mock_db_session):
         mock_service = Mock()
         mock_get_service.return_value = mock_service
 
-        cmd = ServicesCreateCmd(db_session=mock_db_session)
+        cmd = AddonsCreateCmd(db_session=mock_db_session)
         result = cmd.call("postgres", "my-database")
 
         mock_get_service.assert_called_once_with("postgres", "my-database")
@@ -68,7 +68,7 @@ def test_services_create_handles_errors(mock_db_session):
     with patch("hop3.commands.services.get_addon") as mock_get_service:
         mock_get_service.side_effect = RuntimeError("Service type not found")
 
-        cmd = ServicesCreateCmd(db_session=mock_db_session)
+        cmd = AddonsCreateCmd(db_session=mock_db_session)
         result = cmd.call("invalid-type", "my-service")
 
         assert len(result) == 1
@@ -78,7 +78,7 @@ def test_services_create_handles_errors(mock_db_session):
 
 def test_services_attach_requires_app_name(mock_db_session):
     """Test that services:attach requires --app parameter."""
-    cmd = ServicesAttachCmd(db_session=mock_db_session)
+    cmd = AddonsAttachCmd(db_session=mock_db_session)
     result = cmd.call("my-database")
 
     assert len(result) == 1
@@ -92,7 +92,7 @@ def test_services_attach_app_not_found(mock_db_session):
         mock_repo = mock_repo_class.return_value
         mock_repo.get_one_or_none.return_value = None
 
-        cmd = ServicesAttachCmd(db_session=mock_db_session)
+        cmd = AddonsAttachCmd(db_session=mock_db_session)
         result = cmd.call("my-database", "--app", "nonexistent-app")
 
         assert len(result) == 1
@@ -129,7 +129,7 @@ def test_services_attach_success(mock_db_session, mock_app):
 
         mock_db_session.query.side_effect = query_side_effect
 
-        cmd = ServicesAttachCmd(db_session=mock_db_session)
+        cmd = AddonsAttachCmd(db_session=mock_db_session)
         result = cmd.call("my-database", "--app", "test-app")
 
         assert len(result) == 3
@@ -165,7 +165,7 @@ def test_services_attach_updates_existing_vars(mock_db_session, mock_app):
         # Mock query to return no credential, then existing env var
         def query_side_effect(model):
             mock_query = Mock()
-            if model.__name__ == "ServiceCredential":
+            if model.__name__ == "AddonCredential":
                 mock_query.filter_by.return_value.first.return_value = None
             else:  # EnvVar
                 mock_query.filter_by.return_value.first.return_value = existing_var
@@ -173,7 +173,7 @@ def test_services_attach_updates_existing_vars(mock_db_session, mock_app):
 
         mock_db_session.query.side_effect = query_side_effect
 
-        cmd = ServicesAttachCmd(db_session=mock_db_session)
+        cmd = AddonsAttachCmd(db_session=mock_db_session)
         result = cmd.call("my-database", "--app", "test-app")
 
         assert "Updated DATABASE_URL" in result[1]["text"]
@@ -206,7 +206,7 @@ def test_services_detach_success(mock_db_session, mock_app):
         # Mock query to return credential first, then env vars
         def query_side_effect(model):
             mock_query = Mock()
-            if model.__name__ == "ServiceCredential":
+            if model.__name__ == "AddonCredential":
                 mock_query.filter_by.return_value.first.return_value = mock_credential
             else:  # EnvVar
                 mock_query.filter_by.return_value.first.return_value = existing_var
@@ -214,7 +214,7 @@ def test_services_detach_success(mock_db_session, mock_app):
 
         mock_db_session.query.side_effect = query_side_effect
 
-        cmd = ServicesDetachCmd(db_session=mock_db_session)
+        cmd = AddonsDetachCmd(db_session=mock_db_session)
         result = cmd.call("my-database", "--app", "test-app")
 
         assert "detached" in result[0]["text"].lower()
@@ -233,7 +233,7 @@ def test_services_destroy_success(mock_db_session):
         mock_query.filter_by.return_value.all.return_value = []
         mock_db_session.query.return_value = mock_query
 
-        cmd = ServicesDestroyCmd(db_session=mock_db_session)
+        cmd = AddonsDestroyCmd(db_session=mock_db_session)
         result = cmd.call("my-database", "--service-type", "postgres")
 
         mock_service.destroy.assert_called_once()
@@ -252,7 +252,7 @@ def test_services_info_success(mock_db_session):
         }
         mock_get_service.return_value = mock_service
 
-        cmd = ServicesInfoCmd(db_session=mock_db_session)
+        cmd = AddonsInfoCmd(db_session=mock_db_session)
         result = cmd.call("my-database")
 
         mock_service.info.assert_called_once()

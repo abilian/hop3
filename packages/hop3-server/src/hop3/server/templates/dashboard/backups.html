@@ -59,12 +59,12 @@
                                 {{ backup.size }}
                             </td>
                             <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                {% if backup.services_count > 0 %}
+                                {% if backup.addons_count > 0 %}
                                     <span class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
-                                        {{ backup.services_count }} service(s)
+                                        {{ backup.addons_count }} addon(s)
                                     </span>
                                 {% else %}
-                                    <span class="text-gray-400">No services</span>
+                                    <span class="text-gray-400">No addons</span>
                                 {% endif %}
                             </td>
                             <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">

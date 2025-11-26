@@ -1,7 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""ORM model for encrypted service credentials."""
+"""ORM model for encrypted addon credentials."""
 
 from __future__ import annotations
 
@@ -15,12 +15,13 @@ if TYPE_CHECKING:
     from hop3.orm import App
 
 
-class ServiceCredential(BigIntAuditBase):
-    """Encrypted storage for service credentials.
+class AddonCredential(BigIntAuditBase):
+    """Encrypted storage for addon credentials.
 
     Stores connection details and authentication credentials for attached
-    services (PostgreSQL, Redis, S3, etc.). Credentials are encrypted at
-    rest using Fernet symmetric encryption derived from HOP3_SECRET_KEY.
+    addons (PostgreSQL, Redis, S3, etc.). Addons are backing services in
+    12-factor app terminology. Credentials are encrypted at rest using
+    Fernet symmetric encryption derived from HOP3_SECRET_KEY.
 
     Examples:
         PostgreSQL credentials:
@@ -41,21 +42,21 @@ class ServiceCredential(BigIntAuditBase):
             }
     """
 
-    __tablename__ = "service_credential"
+    __tablename__ = "addon_credential"
 
     # Foreign key to app (cascade delete)
     app_id: Mapped[int] = mapped_column(
         ForeignKey("app.id", ondelete="CASCADE"), nullable=False
     )
 
-    # Service identification
-    service_type: Mapped[str] = mapped_column(
+    # Addon identification
+    addon_type: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
-        comment="Service type: postgresql, redis, s3, etc.",
+        comment="Addon type: postgresql, redis, s3, etc.",
     )
-    service_name: Mapped[str] = mapped_column(
-        String(128), nullable=False, comment="User-provided service instance name"
+    addon_name: Mapped[str] = mapped_column(
+        String(128), nullable=False, comment="User-provided addon instance name"
     )
 
     # Encrypted credentials (JSON blob)
@@ -72,14 +73,14 @@ class ServiceCredential(BigIntAuditBase):
     __table_args__ = (
         UniqueConstraint(
             "app_id",
-            "service_type",
-            "service_name",
-            name="uq_service_credential_app_service",
+            "addon_type",
+            "addon_name",
+            name="uq_addon_credential_app_addon",
         ),
     )
 
     def __repr__(self) -> str:
         return (
-            f"<ServiceCredential(app_id={self.app_id}, "
+            f"<AddonCredential(app_id={self.app_id}, "
             f"type={self.addon_type}, name={self.addon_name})>"
         )

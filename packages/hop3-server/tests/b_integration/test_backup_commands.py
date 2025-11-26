@@ -99,7 +99,7 @@ class TestBackupCreateCommand:
         """Test creating a simple backup without services."""
         cmd = BackupCreateCmd(db_session=test_db)
 
-        result = cmd.call("test-app", "--no-services")
+        result = cmd.call("test-app", "--no-addons")
 
         # Should return success messages
         assert len(result) >= 2
@@ -124,7 +124,7 @@ class TestBackupCreateCommand:
         """Test that backup includes environment variables."""
         cmd = BackupCreateCmd(db_session=test_db)
 
-        result = cmd.call("test-app", "--no-services")
+        result = cmd.call("test-app", "--no-addons")
 
         # Find the backup directory
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -145,7 +145,7 @@ class TestBackupCreateCommand:
         """Test that backup includes source code."""
         cmd = BackupCreateCmd(db_session=test_db)
 
-        result = cmd.call("test-app", "--no-services")
+        result = cmd.call("test-app", "--no-addons")
 
         # Find the backup directory
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -164,7 +164,7 @@ class TestBackupCreateCommand:
         """Test that backup includes application data."""
         cmd = BackupCreateCmd(db_session=test_db)
 
-        result = cmd.call("test-app", "--no-services")
+        result = cmd.call("test-app", "--no-addons")
 
         # Find the backup directory
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -183,7 +183,7 @@ class TestBackupCreateCommand:
         """Test that backup generates correct metadata."""
         cmd = BackupCreateCmd(db_session=test_db)
 
-        result = cmd.call("test-app", "--no-services")
+        result = cmd.call("test-app", "--no-addons")
 
         # Find the backup directory
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -242,7 +242,7 @@ class TestBackupListCommand:
         """Test listing backups."""
         # Create a backup first
         create_cmd = BackupCreateCmd(db_session=test_db)
-        create_cmd.call("test-app", "--no-services")
+        create_cmd.call("test-app", "--no-addons")
 
         # List backups
         list_cmd = BackupListCmd(db_session=test_db)
@@ -260,7 +260,7 @@ class TestBackupListCommand:
         """Test filtering backups by app."""
         # Create a backup
         create_cmd = BackupCreateCmd(db_session=test_db)
-        create_cmd.call("test-app", "--no-services")
+        create_cmd.call("test-app", "--no-addons")
 
         # List backups for this app
         list_cmd = BackupListCmd(db_session=test_db)
@@ -274,7 +274,7 @@ class TestBackupListCommand:
         """Test filtering by non-existent app."""
         # Create a backup
         create_cmd = BackupCreateCmd(db_session=test_db)
-        create_cmd.call("test-app", "--no-services")
+        create_cmd.call("test-app", "--no-addons")
 
         # List backups for different app
         list_cmd = BackupListCmd(db_session=test_db)
@@ -291,7 +291,7 @@ class TestBackupInfoCommand:
         """Test getting backup info."""
         # Create a backup
         create_cmd = BackupCreateCmd(db_session=test_db)
-        create_result = create_cmd.call("test-app", "--no-services")
+        create_result = create_cmd.call("test-app", "--no-addons")
 
         # Extract backup ID from result
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -336,7 +336,7 @@ class TestBackupRestoreCommand:
         """Test restoring a backup."""
         # Create a backup
         create_cmd = BackupCreateCmd(db_session=test_db)
-        create_cmd.call("test-app", "--no-services")
+        create_cmd.call("test-app", "--no-addons")
 
         # Get backup ID
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -360,7 +360,7 @@ class TestBackupRestoreCommand:
         """Test restoring backup to different app name."""
         # Create a backup
         create_cmd = BackupCreateCmd(db_session=test_db)
-        create_cmd.call("test-app", "--no-services")
+        create_cmd.call("test-app", "--no-addons")
 
         # Get backup ID
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -382,7 +382,7 @@ class TestBackupRestoreCommand:
         """Test that restore includes environment variables."""
         # Create a backup
         create_cmd = BackupCreateCmd(db_session=test_db)
-        create_cmd.call("test-app", "--no-services")
+        create_cmd.call("test-app", "--no-addons")
 
         # Get backup ID
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"
@@ -431,7 +431,7 @@ class TestBackupDeleteCommand:
         """Test deleting a backup."""
         # Create a backup
         create_cmd = BackupCreateCmd(db_session=test_db)
-        create_cmd.call("test-app", "--no-services")
+        create_cmd.call("test-app", "--no-addons")
 
         # Get backup ID
         backup_dir = HopConfig.get_instance().BACKUP_ROOT / "apps" / "test-app"

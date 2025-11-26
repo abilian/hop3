@@ -14,7 +14,7 @@ from hop3.config import ACME_EMAIL, ACME_WWW, CADDY_ROOT
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
 from hop3.lib import command_output, expand_vars, log
-from hop3.services.certificates import CertificatesManager
+from hop3.platform.certificates import CertificatesManager
 
 from ._templates import (
     CADDY_BLOCK_GIT,

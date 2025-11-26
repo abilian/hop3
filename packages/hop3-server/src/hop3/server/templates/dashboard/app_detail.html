@@ -239,13 +239,13 @@
     {% endif %}
 
     <!-- Attached Services Card -->
-    {% if services %}
+    {% if addons %}
     <div class="mt-8 bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-medium leading-6 text-gray-900">Attached Services</h3>
                 <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">
-                    {{ services | length }} service(s)
+                    {{ addons | length }} service(s)
                 </span>
             </div>
             <div class="overflow-hidden">
@@ -267,11 +267,11 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
-                        {% for service in services %}
+                        {% for service in addons %}
                         <tr>
                             <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
-                                <a href="/dashboard/services/{{ service.service_name }}" class="text-blue-600 hover:text-blue-900">
-                                    {{ service.service_name }}
+                                <a href="/dashboard/addons/{{ addon.addon_name }}" class="text-blue-600 hover:text-blue-900">
+                                    {{ addon.addon_name }}
                                 </a>
                             </td>
                             <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
@@ -293,7 +293,7 @@
                                 {{ service.created_at }}
                             </td>
                             <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
-                                <a href="/dashboard/services/{{ service.service_name }}"
+                                <a href="/dashboard/addons/{{ addon.addon_name }}"
                                    class="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-500">
                                     View Details
                                 </a>

@@ -24,11 +24,11 @@ if TYPE_CHECKING:
 class BackupCreateCmd(Command):
     """Create a backup of an application.
 
-    Usage: hop3 backup:create <app> [--no-services]
+    Usage: hop3 backup:create <app> [--no-addons]
 
     Examples:
         hop3 backup:create my-app
-        hop3 backup:create my-app --no-services
+        hop3 backup:create my-app --no-addons
     """
 
     db_session: Session
@@ -41,7 +41,7 @@ class BackupCreateCmd(Command):
                 {
                     "t": "text",
                     "text": (
-                        "Usage: hop3 backup:create <app> [--no-services]\n\n"
+                        "Usage: hop3 backup:create <app> [--no-addons]\n\n"
                         "Example:\n"
                         "  hop3 backup:create my-app"
                     ),
@@ -49,7 +49,7 @@ class BackupCreateCmd(Command):
             ]
 
         app_name = args[0]
-        include_services = "--no-services" not in args
+        include_addons = "--no-addons" not in args
 
         # Check if app exists
         app_repo = AppRepository(session=self.db_session)
@@ -65,7 +65,7 @@ class BackupCreateCmd(Command):
                 {"t": "text", "text": f"Creating backup for app '{app_name}'...\n"}
             ]
 
-            backup_id, backup_path = manager.create_backup(app, include_services)
+            backup_id, backup_path = manager.create_backup(app, include_addons)
 
             # Get backup info for display
             manifest = manager.get_backup_info(backup_id)
@@ -90,12 +90,12 @@ class BackupCreateCmd(Command):
                 f"  - Environment variables ({manifest.env_vars_count} variables)",
             ]
 
-            if manifest.services:
-                info_lines.append(f"  - Services: {len(manifest.services)}")
-                for service in manifest.services:
+            if manifest.addons:
+                info_lines.append(f"  - Addons: {len(manifest.addons)}")
+                for addon in manifest.addons:
                     info_lines.append(
-                        f"    • {service['name']} ({service['type']}): "
-                        f"{format_size(service['size_bytes'])}"
+                        f"    • {addon['name']} ({addon['type']}): "
+                        f"{format_size(addon['size_bytes'])}"
                     )
 
             info_lines.extend([
@@ -181,8 +181,8 @@ class BackupListCmd(Command):
                 else:
                     created = backup.created_at
 
-                services_list = [s["name"] for s in backup.services]
-                services_str = ", ".join(services_list) if services_list else "-"
+                addons_list = [s["name"] for s in backup.addons]
+                addons_str = ", ".join(addons_list) if addons_list else "-"
 
                 rows.append([
                     backup.backup_id,
@@ -190,7 +190,7 @@ class BackupListCmd(Command):
                     format_size(backup.size_bytes),
                     created,
                     "COMPLETED",  # TODO: Get actual status from DB
-                    services_str,
+                    addons_str,
                 ])
 
             return [{"t": "table", "headers": headers, "rows": rows}]
@@ -262,13 +262,13 @@ class BackupInfoCmd(Command):
                     lines.append(f"     {checksum}")
 
             # Show services
-            if manifest.services:
+            if manifest.addons:
                 lines.append("")
-                lines.append(f"Services Included: ({len(manifest.services)})")
-                for service in manifest.services:
+                lines.append(f"Addons Included: ({len(manifest.addons)})")
+                for addon in manifest.addons:
                     lines.append(
-                        f"  - {service['type']}:{service['name']} "
-                        f"({format_size(service['size_bytes'])})"
+                        f"  - {addon['type']}:{addon['name']} "
+                        f"({format_size(addon['size_bytes'])})"
                     )
 
             # Show app metadata

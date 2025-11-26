@@ -14,7 +14,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from hop3.core.credentials import get_credential_encryptor
-from hop3.orm import App, ServiceCredential
+from hop3.orm import AddonCredential, App
 
 
 @pytest.fixture
@@ -43,8 +43,8 @@ def test_app(test_db):
     return app
 
 
-class TestServiceCredentialModel:
-    """Test ServiceCredential ORM model."""
+class TestAddonCredentialModel:
+    """Test AddonCredential ORM model."""
 
     def test_create_credential(self, test_db, test_app):
         """Test creating a service credential."""
@@ -56,10 +56,10 @@ class TestServiceCredentialModel:
             "database": "test_db",
         }
 
-        credential = ServiceCredential(
+        credential = AddonCredential(
             app_id=test_app.id,
-            service_type="postgresql",
-            service_name="test-db",
+            addon_type="postgresql",
+            addon_name="test-db",
             encrypted_data=encryptor.encrypt(credential_data),
         )
 
@@ -69,8 +69,8 @@ class TestServiceCredentialModel:
         # Verify it was created
         assert credential.id is not None
         assert credential.app_id == test_app.id
-        assert credential.service_type == "postgresql"
-        assert credential.service_name == "test-db"
+        assert credential.addon_type == "postgresql"
+        assert credential.addon_name == "test-db"
 
     def test_retrieve_and_decrypt_credential(self, test_db, test_app):
         """Test retrieving and decrypting stored credentials."""
@@ -84,10 +84,10 @@ class TestServiceCredentialModel:
         }
 
         # Store credential
-        credential = ServiceCredential(
+        credential = AddonCredential(
             app_id=test_app.id,
-            service_type="postgresql",
-            service_name="my-db",
+            addon_type="postgresql",
+            addon_name="my-db",
             encrypted_data=encryptor.encrypt(original_data),
         )
         test_db.add(credential)
@@ -95,9 +95,9 @@ class TestServiceCredentialModel:
 
         # Retrieve credential
         retrieved = (
-            test_db.query(ServiceCredential)
+            test_db.query(AddonCredential)
             .filter_by(
-                app_id=test_app.id, service_type="postgresql", service_name="my-db"
+                app_id=test_app.id, addon_type="postgresql", addon_name="my-db"
             )
             .one()
         )
@@ -113,20 +113,20 @@ class TestServiceCredentialModel:
         data = {"password": "secret"}
 
         # Create first credential
-        cred1 = ServiceCredential(
+        cred1 = AddonCredential(
             app_id=test_app.id,
-            service_type="postgresql",
-            service_name="db1",
+            addon_type="postgresql",
+            addon_name="db1",
             encrypted_data=encryptor.encrypt(data),
         )
         test_db.add(cred1)
         test_db.commit()
 
         # Try to create duplicate
-        cred2 = ServiceCredential(
+        cred2 = AddonCredential(
             app_id=test_app.id,
-            service_type="postgresql",
-            service_name="db1",  # Same name
+            addon_type="postgresql",
+            addon_name="db1",  # Same name
             encrypted_data=encryptor.encrypt(data),
         )
         test_db.add(cred2)
@@ -143,17 +143,17 @@ class TestServiceCredentialModel:
 
         # Create multiple credentials for the app
         for i in range(3):
-            cred = ServiceCredential(
+            cred = AddonCredential(
                 app_id=test_app.id,
-                service_type="postgresql",
-                service_name=f"db{i}",
+                addon_type="postgresql",
+                addon_name=f"db{i}",
                 encrypted_data=encryptor.encrypt({"password": f"pass{i}"}),
             )
             test_db.add(cred)
         test_db.commit()
 
         # Verify credentials exist
-        count = test_db.query(ServiceCredential).filter_by(app_id=test_app.id).count()
+        count = test_db.query(AddonCredential).filter_by(app_id=test_app.id).count()
         assert count == 3
 
         # Delete the app
@@ -161,7 +161,7 @@ class TestServiceCredentialModel:
         test_db.commit()
 
         # Verify credentials are gone (cascade delete)
-        count = test_db.query(ServiceCredential).filter_by(app_id=test_app.id).count()
+        count = test_db.query(AddonCredential).filter_by(app_id=test_app.id).count()
         assert count == 0
 
     def test_multiple_services_per_app(self, test_db, test_app):
@@ -169,10 +169,10 @@ class TestServiceCredentialModel:
         encryptor = get_credential_encryptor()
 
         # PostgreSQL credential
-        postgres_cred = ServiceCredential(
+        postgres_cred = AddonCredential(
             app_id=test_app.id,
-            service_type="postgresql",
-            service_name="main-db",
+            addon_type="postgresql",
+            addon_name="main-db",
             encrypted_data=encryptor.encrypt({
                 "username": "pguser",
                 "password": "pgpass",
@@ -180,10 +180,10 @@ class TestServiceCredentialModel:
         )
 
         # Redis credential
-        redis_cred = ServiceCredential(
+        redis_cred = AddonCredential(
             app_id=test_app.id,
-            service_type="redis",
-            service_name="cache",
+            addon_type="redis",
+            addon_name="cache",
             encrypted_data=encryptor.encrypt({"password": "redispass"}),
         )
 
@@ -193,13 +193,13 @@ class TestServiceCredentialModel:
 
         # Retrieve and verify both
         postgres_retrieved = (
-            test_db.query(ServiceCredential)
-            .filter_by(app_id=test_app.id, service_type="postgresql")
+            test_db.query(AddonCredential)
+            .filter_by(app_id=test_app.id, addon_type="postgresql")
             .one()
         )
         redis_retrieved = (
-            test_db.query(ServiceCredential)
-            .filter_by(app_id=test_app.id, service_type="redis")
+            test_db.query(AddonCredential)
+            .filter_by(app_id=test_app.id, addon_type="redis")
             .one()
         )
 
@@ -211,14 +211,14 @@ class TestServiceCredentialModel:
         )
 
     def test_app_relationship(self, test_db, test_app):
-        """Test the relationship between App and ServiceCredential."""
+        """Test the relationship between App and AddonCredential."""
         encryptor = get_credential_encryptor()
 
         # Create credential
-        cred = ServiceCredential(
+        cred = AddonCredential(
             app_id=test_app.id,
-            service_type="postgresql",
-            service_name="test-db",
+            addon_type="postgresql",
+            addon_name="test-db",
             encrypted_data=encryptor.encrypt({"password": "test"}),
         )
         test_db.add(cred)
@@ -228,8 +228,8 @@ class TestServiceCredentialModel:
         test_db.refresh(test_app)
 
         # Access credentials through app relationship
-        assert len(test_app.service_credentials) == 1
-        assert test_app.service_credentials[0].service_name == "test-db"
+        assert len(test_app.addon_credentials) == 1
+        assert test_app.addon_credentials[0].addon_name == "test-db"
 
     def test_credential_persistence_across_sessions(self, test_app):
         """Test that credentials persist across database sessions."""
@@ -250,10 +250,10 @@ class TestServiceCredentialModel:
             session1.add(app)
             session1.commit()
 
-            cred = ServiceCredential(
+            cred = AddonCredential(
                 app_id=app.id,
-                service_type="postgresql",
-                service_name="persist-db",
+                addon_type="postgresql",
+                addon_name="persist-db",
                 encrypted_data=encryptor.encrypt(credential_data),
             )
             session1.add(cred)
@@ -267,8 +267,8 @@ class TestServiceCredentialModel:
             session2 = Session2()
 
             retrieved_cred = (
-                session2.query(ServiceCredential)
-                .filter_by(app_id=app_id, service_name="persist-db")
+                session2.query(AddonCredential)
+                .filter_by(app_id=app_id, addon_name="persist-db")
                 .one()
             )
 
@@ -285,10 +285,10 @@ class TestServiceCredentialModel:
         sensitive_password = "SuperSecretPassword123!"
         credential_data = {"password": sensitive_password}
 
-        cred = ServiceCredential(
+        cred = AddonCredential(
             app_id=test_app.id,
-            service_type="postgresql",
-            service_name="secure-db",
+            addon_type="postgresql",
+            addon_name="secure-db",
             encrypted_data=encryptor.encrypt(credential_data),
         )
         test_db.add(cred)

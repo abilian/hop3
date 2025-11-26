@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock
 
-from hop3.core.backup import BackupManager, BackupManifest
+from hop3.core.backup import BackupManager, BackupManifest, format_size
 
 
 class TestBackupManifest:
@@ -26,7 +26,7 @@ class TestBackupManifest:
             size_bytes=15728640,
             checksums={"source.tar.gz": "sha256:abc123"},
             app_metadata={"hostname": "test.example.com", "port": 8000},
-            services=[
+            addons=[
                 {
                     "type": "postgres",
                     "name": "test-db",
@@ -41,7 +41,7 @@ class TestBackupManifest:
         assert manifest.backup_id == "20251030_143022_a8f3d9"
         assert manifest.app_name == "test-app"
         assert manifest.size_bytes == 15728640
-        assert len(manifest.services) == 1
+        assert len(manifest.addons) == 1
 
     def test_to_json(self):
         """Test converting manifest to JSON."""
@@ -54,7 +54,7 @@ class TestBackupManifest:
             size_bytes=1024,
             checksums={},
             app_metadata={},
-            services=[],
+            addons=[],
             env_vars_count=0,
             expires_after=0,
         )
@@ -76,7 +76,7 @@ class TestBackupManifest:
             "size_bytes": 1024,
             "checksums": {},
             "app_metadata": {},
-            "services": [],
+            "addons": [],
             "env_vars_count": 0,
             "expires_after": 0,
         }
@@ -97,7 +97,7 @@ class TestBackupManifest:
             size_bytes=1024,
             checksums={"file.tar.gz": "sha256:123"},
             app_metadata={"port": 8000},
-            services=[{"type": "postgres", "name": "db"}],
+            addons=[{"type": "postgres", "name": "db"}],
             env_vars_count=5,
             expires_after=7,
         )
@@ -110,7 +110,7 @@ class TestBackupManifest:
         assert restored.app_name == original.app_name
         assert restored.size_bytes == original.size_bytes
         assert restored.checksums == original.checksums
-        assert restored.services == original.services
+        assert restored.addons == original.addons
 
 
 class TestBackupManager:
@@ -233,17 +233,6 @@ class TestBackupManager:
         # Verify should fail
         assert not manager._verify_checksums(tmp_path, checksums)
 
-    def test_format_size(self):
-        """Test size formatting."""
-        mock_session = MagicMock()
-        manager = BackupManager(mock_session)
-
-        assert manager._format_size(500) == "500.0 B"
-        assert manager._format_size(1024) == "1.0 KB"
-        assert manager._format_size(1024 * 1024) == "1.0 MB"
-        assert manager._format_size(1024 * 1024 * 1024) == "1.0 GB"
-        assert manager._format_size(1536) == "1.5 KB"
-
     def test_get_backup_dir(self):
         """Test backup directory path generation."""
         mock_session = MagicMock()
@@ -265,7 +254,7 @@ class TestBackupManager:
         # Should return a string (could be "unknown" if not installed)
         assert isinstance(version, str)
 
-    def test_get_attached_services_postgres(self):
+    def test_get_attached_addons_postgres(self):
         """Test service discovery for PostgreSQL."""
         mock_session = MagicMock()
         manager = BackupManager(mock_session)
@@ -277,12 +266,12 @@ class TestBackupManager:
         mock_env_var.value = "postgresql://user:pass@localhost/mydb"
         mock_app.env_vars = [mock_env_var]
 
-        services = manager._get_attached_services(mock_app)
+        services = manager._get_attached_addons(mock_app)
 
         assert len(services) == 1
         assert services[0] == ("postgres", "mydb")
 
-    def test_get_attached_services_none(self):
+    def test_get_attached_addons_none(self):
         """Test service discovery with no services."""
         mock_session = MagicMock()
         manager = BackupManager(mock_session)
@@ -291,7 +280,7 @@ class TestBackupManager:
         mock_app = MagicMock()
         mock_app.env_vars = []
 
-        services = manager._get_attached_services(mock_app)
+        services = manager._get_attached_addons(mock_app)
 
         assert len(services) == 0
 
@@ -306,7 +295,7 @@ class TestBackupManager:
             size_bytes=1024,
             checksums={"file.tar.gz": "sha256:abc123"},
             app_metadata={"hostname": "test.example.com"},
-            services=[],
+            addons=[],
             env_vars_count=5,
             expires_after=0,
         )
@@ -327,3 +316,13 @@ class TestBackupManager:
         assert restored.backup_id == manifest.backup_id
         assert restored.app_name == manifest.app_name
         assert restored.checksums == manifest.checksums
+
+
+def test_format_size():
+    """Test size formatting."""
+
+    assert format_size(500) == "500.0 B"
+    assert format_size(1024) == "1.0 KB"
+    assert format_size(1024 * 1024) == "1.0 MB"
+    assert format_size(1024 * 1024 * 1024) == "1.0 GB"
+    assert format_size(1536) == "1.5 KB"

@@ -18,18 +18,18 @@ assert cli
 
 
 class PostgresqlPlugin:
-    """PostgreSQL service plugin for Hop3."""
+    """PostgreSQL addon plugin for Hop3."""
 
     name = "postgresql"
 
     @hookimpl
     def get_addons(self) -> list:
-        """Return PostgreSQL service strategy."""
+        """Return PostgreSQL addon implementation."""
         return [PostgresqlService]
 
 
 class PostgresPluginProvider(Provider):
-    """DI provider for PostgreSQL services.
+    """DI provider for PostgreSQL addon infrastructure.
 
     Provides PostgresAdmin for centralized PostgreSQL configuration
     and connection management.
@@ -41,7 +41,7 @@ class PostgresPluginProvider(Provider):
 
     @provide
     def get_postgres_admin(self) -> PostgresAdmin:
-        """Provide PostgreSQL admin service.
+        """Provide PostgreSQL administration interface.
 
         Returns:
             PostgresAdmin instance configured from POSTGRES_* environment variables

@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from hop3.di import create_container
-from hop3.services.certificates import CertificatesManager
+from hop3.platform.certificates import CertificatesManager
 
 
 def test_certificates_manager_with_di(di_container):
