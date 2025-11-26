@@ -70,7 +70,7 @@ class DatabaseProvider(Provider):
             session.close()
 
 
-class HopServicesProvider(Provider):
+class HopCoreProvider(Provider):
     """Provides Hop3 core services."""
 
     scope = Scope.APP

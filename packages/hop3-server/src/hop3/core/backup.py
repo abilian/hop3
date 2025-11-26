@@ -590,8 +590,7 @@ class BackupManager:
         # If any services failed to backup, raise an error
         if failed_addons:
             error_details = "\n".join(
-                f"  - {name} ({stype}): {error}"
-                for name, stype, error in failed_addons
+                f"  - {name} ({stype}): {error}" for name, stype, error in failed_addons
             )
             msg = f"Backup failed: Could not backup {len(failed_addons)} attached service(s):\n{error_details}"
             raise RuntimeError(msg)

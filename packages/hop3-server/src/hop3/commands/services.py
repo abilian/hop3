@@ -134,9 +134,7 @@ class AddonsAttachCmd(Command):
 
         existing_credential = (
             self.db_session.query(AddonCredential)
-            .filter_by(
-                app_id=app_id, addon_type=service_type, addon_name=service_name
-            )
+            .filter_by(app_id=app_id, addon_type=service_type, addon_name=service_name)
             .first()
         )
 
@@ -292,9 +290,7 @@ class AddonsDetachCmd(Command):
         """
         credential = (
             self.db_session.query(AddonCredential)
-            .filter_by(
-                app_id=app_id, addon_type=service_type, addon_name=service_name
-            )
+            .filter_by(app_id=app_id, addon_type=service_type, addon_name=service_name)
             .first()
         )
 
