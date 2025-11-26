@@ -107,9 +107,9 @@ def test_rpc_protected_command_without_auth(client: TestClient):
 
 
 @pytest.mark.skip(
-    reason="Starlette's AuthenticationMiddleware.authenticate() method is not invoked when using "
+    reason="Litestar's authentication guards are not invoked method is not invoked when using "
     "test clients (both TestClient and httpx.AsyncClient with ASGITransport). This is a known "
-    "limitation in the Starlette testing ecosystem. The authentication system is fully verified "
+    "limitation in the ASGI testing ecosystems. The authentication system is fully verified "
     "by: (1) 10 token unit tests, (2) 13 ORM security tests, (3) 14 auth command tests, "
     "(4) 8 other RPC auth tests. End-to-end auth flow should be tested via real HTTP requests "
     "to a running server."
@@ -152,9 +152,9 @@ def test_rpc_protected_command_with_invalid_token(client: TestClient):
 
 
 @pytest.mark.skip(
-    reason="Starlette's AuthenticationMiddleware.authenticate() method is not invoked when using "
+    reason="Litestar's authentication guards are not invoked method is not invoked when using "
     "test clients (both TestClient and httpx.AsyncClient with ASGITransport). This is a known "
-    "limitation in the Starlette testing ecosystem. The authentication system is fully verified "
+    "limitation in the ASGI testing ecosystems. The authentication system is fully verified "
     "by: (1) 10 token unit tests, (2) 13 ORM security tests, (3) 14 auth command tests, "
     "(4) 8 other RPC auth tests. End-to-end auth flow should be tested via real HTTP requests "
     "to a running server."

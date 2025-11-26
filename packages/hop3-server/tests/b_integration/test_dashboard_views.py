@@ -308,9 +308,9 @@ def test_env_vars_requires_authentication(client: TestClient):
 
 
 @pytest.mark.skip(
-    reason="Starlette's AuthenticationMiddleware.authenticate() method is not invoked "
+    reason="Litestar's authentication guards are not invoked "
     "when using test clients (both TestClient and httpx.AsyncClient with ASGITransport). "
-    "This is a known limitation in the Starlette testing ecosystem. The authentication system "
+    "This is a known limitation in ASGI testing ecosystems. The authentication system "
     "is fully verified by: (1) 10 token unit tests, (2) 13 ORM security tests, (3) 14 auth command tests, "
     "(4) 8 other RPC auth tests. End-to-end auth flow should be tested via real HTTP requests to a running server."
 )

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import psycopg2
@@ -114,15 +115,11 @@ def test_backup_creates_file(postgres_service, tmp_path):
     """Test that backup creates a file."""
     with (
         patch("subprocess.run") as mock_run,
-        patch("pathlib.Path.mkdir"),
-        patch(
-            "hop3.plugins.postgresql.postgres.Path",
-            return_value=tmp_path / "backups" / "postgres",
-        ),
+        patch("hop3.plugins.postgresql.postgres.HOP3_ROOT", tmp_path),
     ):
         mock_run.return_value = Mock(returncode=0)
 
-        _backup_path = postgres_service.backup()
+        backup_path = postgres_service.backup()
 
         # Verify pg_dump was called
         mock_run.assert_called_once()
@@ -130,6 +127,11 @@ def test_backup_creates_file(postgres_service, tmp_path):
         assert "pg_dump" in args
         assert "-d" in args
         assert "test_db" in args
+
+        # Verify the return value is a real Path object (not a mock)
+        assert isinstance(backup_path, Path)
+        assert backup_path.parent == tmp_path / "backups" / "postgres"
+        assert backup_path.suffix == ".sql"
 
 
 def test_restore_from_backup(postgres_service, tmp_path):

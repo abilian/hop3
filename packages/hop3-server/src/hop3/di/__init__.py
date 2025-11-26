@@ -5,8 +5,8 @@
 """Dependency injection infrastructure using Dishka.
 
 Usage:
-    # For web endpoints (Starlette)
-    from dishka.integrations.starlette import FromDishka, inject
+    # For web endpoints (Litestar)
+    from dishka.integrations.litestar import FromDishka, inject
 
     @inject
     async def my_view(service: FromDishka[MyService]):
