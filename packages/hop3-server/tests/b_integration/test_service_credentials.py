@@ -96,9 +96,7 @@ class TestAddonCredentialModel:
         # Retrieve credential
         retrieved = (
             test_db.query(AddonCredential)
-            .filter_by(
-                app_id=test_app.id, addon_type="postgresql", addon_name="my-db"
-            )
+            .filter_by(app_id=test_app.id, addon_type="postgresql", addon_name="my-db")
             .one()
         )
 

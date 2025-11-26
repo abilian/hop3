@@ -26,11 +26,11 @@ Usage:
 from __future__ import annotations
 
 from .container import create_async_container, create_container
-from .providers import ConfigProvider, HopServicesProvider
+from .providers import ConfigProvider, HopCoreProvider
 
 __all__ = [
     "ConfigProvider",
-    "HopServicesProvider",
+    "HopCoreProvider",
     "create_async_container",
     "create_container",
 ]

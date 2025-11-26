@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 from dishka import make_async_container, make_container
 
-from .providers import ConfigProvider, DatabaseProvider, HopServicesProvider
+from .providers import ConfigProvider, DatabaseProvider, HopCoreProvider
 
 if TYPE_CHECKING:
     from dishka import AsyncContainer, Container
@@ -71,7 +71,7 @@ def create_container() -> Container:
     providers = [
         ConfigProvider(),
         DatabaseProvider(),
-        HopServicesProvider(),
+        HopCoreProvider(),
     ]
 
     # Add plugin providers
@@ -103,7 +103,7 @@ def create_async_container() -> AsyncContainer:
     providers = [
         ConfigProvider(),
         DatabaseProvider(),
-        HopServicesProvider(),
+        HopCoreProvider(),
     ]
 
     # Add plugin providers

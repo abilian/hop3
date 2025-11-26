@@ -591,9 +591,7 @@ class DashboardController(Controller):
 
             try:
                 manager = BackupManager(db_session)
-                backup_id, backup_path = manager.create_backup(
-                    app, include_addons=True
-                )
+                backup_id, backup_path = manager.create_backup(app, include_addons=True)
                 print(f"Backup created successfully: {backup_id} at {backup_path}")
             except Exception as e:
                 print(f"Error creating backup for app {app_name}: {e}")
