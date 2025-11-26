@@ -51,23 +51,23 @@ class AddonsCreateCmd(Command):
             ]
 
         service_type = args[0]
-        service_name = args[1]
+        addon_name = args[1]
 
         try:
             # Get the service strategy from the plugin system
-            service = get_addon(service_type, service_name)
+            addon = get_addon(service_type, addon_name)
 
             # Create the service
-            service.create()
+            addon.create()
 
             return [
                 {
                     "t": "text",
-                    "text": f"Service '{service_name}' of type '{service_type}' created successfully.",
+                    "text": f"Addon '{addon_name}' of type '{service_type}' created successfully.",
                 },
                 {
                     "t": "text",
-                    "text": f"\nTo attach this service to an app, run:\n  hop3 addons:attach {service_name} --app <app-name>",
+                    "text": f"\nTo attach this service to an app, run:\n  hop3 addons:attach {addon_name} --app <app-name>",
                 },
             ]
 
@@ -99,12 +99,12 @@ class AddonsAttachCmd(Command):
         """Parse command arguments.
 
         Returns:
-            Tuple of (service_name, app_name, service_type) or None if invalid
+            Tuple of (addon_name, app_name, service_type) or None if invalid
         """
         if len(args) < 1:
             return None
 
-        service_name = args[0]
+        addon_name = args[0]
         app_name = None
         service_type = "postgres"  # Default
 
@@ -120,13 +120,13 @@ class AddonsAttachCmd(Command):
             else:
                 i += 1
 
-        return service_name, app_name, service_type
+        return addon_name, app_name, service_type
 
     def _store_or_update_credential(
         self,
         app_id: int,
         service_type: str,
-        service_name: str,
+        addon_name: str,
         connection_details: dict,
     ):
         """Store or update encrypted service credentials."""
@@ -134,7 +134,7 @@ class AddonsAttachCmd(Command):
 
         existing_credential = (
             self.db_session.query(AddonCredential)
-            .filter_by(app_id=app_id, addon_type=service_type, addon_name=service_name)
+            .filter_by(app_id=app_id, addon_type=service_type, addon_name=addon_name)
             .first()
         )
 
@@ -144,7 +144,7 @@ class AddonsAttachCmd(Command):
             credential = AddonCredential(
                 app_id=app_id,
                 addon_type=service_type,
-                addon_name=service_name,
+                addon_name=addon_name,
                 encrypted_data=encryptor.encrypt(connection_details),
             )
             self.db_session.add(credential)
@@ -186,7 +186,7 @@ class AddonsAttachCmd(Command):
                 }
             ]
 
-        service_name, app_name, service_type = parsed
+        addon_name, app_name, service_type = parsed
 
         if not app_name:
             return [
@@ -207,12 +207,12 @@ class AddonsAttachCmd(Command):
                 return [{"t": "error", "text": f"App '{app_name}' not found"}]
 
             # Get the service strategy and connection details
-            service = get_addon(service_type, service_name)
-            connection_details = service.get_connection_details()
+            addon = get_addon(service_type, addon_name)
+            connection_details = addon.get_connection_details()
 
             # Store credentials and add environment variables
             self._store_or_update_credential(
-                app.id, service_type, service_name, connection_details
+                app.id, service_type, addon_name, connection_details
             )
             added_vars = self._add_env_vars(app.id, connection_details)
 
@@ -221,7 +221,7 @@ class AddonsAttachCmd(Command):
             return [
                 {
                     "t": "text",
-                    "text": f"Service '{service_name}' attached to app '{app_name}' successfully.",
+                    "text": f"Addon '{addon_name}' attached to app '{app_name}' successfully.",
                 },
                 {
                     "t": "text",
@@ -257,12 +257,12 @@ class AddonsDetachCmd(Command):
         """Parse command arguments.
 
         Returns:
-            Tuple of (service_name, app_name, service_type) or None if invalid
+            Tuple of (addon_name, app_name, service_type) or None if invalid
         """
         if len(args) < 1:
             return None
 
-        service_name = args[0]
+        addon_name = args[0]
         app_name = None
         service_type = "postgres"  # Default
 
@@ -278,10 +278,10 @@ class AddonsDetachCmd(Command):
             else:
                 i += 1
 
-        return service_name, app_name, service_type
+        return addon_name, app_name, service_type
 
     def _get_connection_details(
-        self, app_id: int, service_type: str, service_name: str
+        self, app_id: int, service_type: str, addon_name: str
     ) -> dict:
         """Get connection details from stored credential or service.
 
@@ -290,7 +290,7 @@ class AddonsDetachCmd(Command):
         """
         credential = (
             self.db_session.query(AddonCredential)
-            .filter_by(app_id=app_id, addon_type=service_type, addon_name=service_name)
+            .filter_by(app_id=app_id, addon_type=service_type, addon_name=addon_name)
             .first()
         )
 
@@ -303,8 +303,8 @@ class AddonsDetachCmd(Command):
 
         # Fallback: Try to get connection details from service
         try:
-            service = get_addon(service_type, service_name)
-            return service.get_connection_details()
+            addon = get_addon(service_type, addon_name)
+            return addon.get_connection_details()
         except Exception:
             # If we can't get connection details, return empty dict
             return {}
@@ -342,7 +342,7 @@ class AddonsDetachCmd(Command):
                 }
             ]
 
-        service_name, app_name, service_type = parsed
+        addon_name, app_name, service_type = parsed
 
         if not app_name:
             return [
@@ -364,7 +364,7 @@ class AddonsDetachCmd(Command):
 
             # Get connection details and remove credential
             connection_details = self._get_connection_details(
-                app.id, service_type, service_name
+                app.id, service_type, addon_name
             )
 
             # Remove environment variables
@@ -376,14 +376,14 @@ class AddonsDetachCmd(Command):
                 return [
                     {
                         "t": "text",
-                        "text": f"Service '{service_name}' detached from app '{app_name}'.",
+                        "text": f"Addon '{addon_name}' detached from app '{app_name}'.",
                     },
                     {"t": "text", "text": f"\nRemoved: {', '.join(removed_vars)}"},
                 ]
             return [
                 {
                     "t": "text",
-                    "text": f"Service '{service_name}' was not attached to app '{app_name}'.",
+                    "text": f"Addon '{addon_name}' was not attached to app '{app_name}'.",
                 }
             ]
 
@@ -420,7 +420,7 @@ class AddonsDestroyCmd(Command):
                 }
             ]
 
-        service_name = args[0]
+        addon_name = args[0]
         service_type = "postgres"  # Default
 
         # Parse optional arguments
@@ -434,12 +434,12 @@ class AddonsDestroyCmd(Command):
 
         try:
             # Get the service strategy
-            service = get_addon(service_type, service_name)
+            addon = get_addon(service_type, addon_name)
 
             # Clean up all stored credentials for this service
             credentials = (
                 self.db_session.query(AddonCredential)
-                .filter_by(addon_type=service_type, addon_name=service_name)
+                .filter_by(addon_type=service_type, addon_name=addon_name)
                 .all()
             )
 
@@ -449,12 +449,12 @@ class AddonsDestroyCmd(Command):
             self.db_session.commit()
 
             # Destroy the service
-            service.destroy()
+            addon.destroy()
 
             return [
                 {
                     "t": "text",
-                    "text": f"Service '{service_name}' of type '{service_type}' destroyed successfully.",
+                    "text": f"Addon '{addon_name}' of type '{service_type}' destroyed successfully.",
                 }
             ]
 
@@ -489,7 +489,7 @@ class AddonsInfoCmd(Command):
                 }
             ]
 
-        service_name = args[0]
+        addon_name = args[0]
         service_type = "postgres"  # Default
 
         # Parse optional arguments
@@ -503,15 +503,15 @@ class AddonsInfoCmd(Command):
 
         try:
             # Get the service strategy
-            service = get_addon(service_type, service_name)
+            addon = get_addon(service_type, addon_name)
 
             # Get service info
-            info = service.info()
+            info = addon.info()
 
             # Format the output
-            lines = [f"Service: {service_name}", f"Type: {service_type}", ""]
+            lines = [f"Addon: {addon_name}", f"Type: {service_type}", ""]
             for key, value in info.items():
-                if key not in {"service_name", "type"}:
+                if key not in {"addon_name", "type"}:
                     lines.append(f"{key}: {value}")
 
             return [{"t": "text", "text": "\n".join(lines)}]

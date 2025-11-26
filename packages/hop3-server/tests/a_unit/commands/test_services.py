@@ -245,7 +245,7 @@ def test_services_info_success(mock_db_session):
     with patch("hop3.commands.services.get_addon") as mock_get_service:
         mock_service = Mock()
         mock_service.info.return_value = {
-            "service_name": "my-database",
+            "addon_name": "my-database",
             "type": "postgres",
             "size_mb": 42.5,
             "table_count": 10,

@@ -11,31 +11,31 @@ from unittest.mock import MagicMock, Mock, patch
 import psycopg2
 import pytest
 
-from hop3.plugins.postgresql.postgres import PostgresqlService, PostgresService
+from hop3.plugins.postgresql.postgres import PostgresAddon, PostgresqlAddon
 
 
 @pytest.fixture
 def postgres_service():
-    """Create a PostgresService instance for testing."""
-    return PostgresService(service_name="test-db")
+    """Create a PostgresAddon instance for testing."""
+    return PostgresAddon(addon_name="test-db")
 
 
-def test_postgres_service_requires_service_name():
-    """Test that PostgresService requires a service_name."""
-    with pytest.raises(ValueError, match="service_name is required"):
-        PostgresService(service_name="")
+def test_postgres_addon_requires_service_name():
+    """Test that PostgresAddon requires a service_name."""
+    with pytest.raises(ValueError, match="addon_name is required"):
+        PostgresAddon(addon_name="")
 
 
-def test_postgres_service_properties(postgres_service):
-    """Test PostgresService property derivations."""
+def test_postgres_addon_properties(postgres_service):
+    """Test PostgresAddon property derivations."""
     assert postgres_service.db_name == "test_db"  # Hyphens replaced with underscores
     assert postgres_service.db_user == "test_db_user"
     assert len(postgres_service.db_password) > 0
 
 
-def test_postgres_service_hyphen_handling():
+def test_postgres_addon_hyphen_handling():
     """Test that hyphens in service names are converted to underscores."""
-    service = PostgresService(service_name="my-test-db")
+    service = PostgresAddon(addon_name="my-test-db")
     assert service.db_name == "my_test_db"
     assert service.db_user == "my_test_db_user"
 
@@ -176,7 +176,7 @@ def test_info_returns_database_details(postgres_service):
 
         info = postgres_service.info()
 
-        assert info["service_name"] == "test-db"
+        assert info["addon_name"] == "test-db"
         assert info["type"] == "postgres"
         assert info["database"] == "test_db"
         assert info["size_bytes"] == 1024 * 1024 * 50
@@ -193,7 +193,7 @@ def test_info_handles_connection_errors(postgres_service):
 
         info = postgres_service.info()
 
-        assert info["service_name"] == "test-db"
+        assert info["addon_name"] == "test-db"
         assert info["type"] == "postgres"
         assert info["status"] == "error"
         assert "Connection failed" in info["error"]
@@ -225,6 +225,6 @@ def test_create_database_executes_sql(postgres_service):
 
 
 def test_legacy_alias():
-    """Test that PostgresqlService is an alias for PostgresService."""
+    """Test that PostgresqlAddon is an alias for PostgresAddon."""
 
-    assert PostgresqlService is PostgresService
+    assert PostgresqlAddon is PostgresAddon

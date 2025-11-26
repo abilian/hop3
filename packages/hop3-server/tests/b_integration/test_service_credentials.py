@@ -105,7 +105,7 @@ class TestAddonCredentialModel:
         assert decrypted_data == original_data
 
     def test_unique_constraint(self, test_db, test_app):
-        """Test unique constraint on (app_id, service_type, service_name)."""
+        """Test unique constraint on (app_id, service_type, addon_name)."""
         encryptor = get_credential_encryptor()
 
         data = {"password": "secret"}

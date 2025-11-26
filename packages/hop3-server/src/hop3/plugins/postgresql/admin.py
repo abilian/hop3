@@ -25,7 +25,7 @@ class PostgresAdmin:
     Dishka DI for easier testing and configuration management.
 
     This is a lightweight service that provides connection parameters.
-    The actual PostgreSQL operations are handled by PostgresService
+    The actual PostgreSQL operations are handled by PostgresAddon
     instances, which can use this admin service for connection details.
 
     Configuration is read from environment variables with POSTGRES_ prefix:

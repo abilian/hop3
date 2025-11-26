@@ -12,7 +12,7 @@ from hop3.core.hooks import hookimpl
 
 from . import cli
 from .admin import PostgresAdmin
-from .postgres import PostgresqlService
+from .postgres import PostgresqlAddon
 
 assert cli
 
@@ -25,7 +25,7 @@ class PostgresqlPlugin:
     @hookimpl
     def get_addons(self) -> list:
         """Return PostgreSQL addon implementation."""
-        return [PostgresqlService]
+        return [PostgresqlAddon]
 
 
 class PostgresPluginProvider(Provider):

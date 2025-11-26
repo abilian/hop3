@@ -30,14 +30,14 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class PostgresService:
+class PostgresAddon:
     """PostgreSQL service implementation using Addon protocol.
 
     This service manages PostgreSQL database instances. Each service instance
     creates a dedicated database and user for isolation.
 
     Attributes:
-        service_name: The unique name for this PostgreSQL service instance
+        addon_name: The unique name for this PostgreSQL service instance
         _password: Optional pre-generated password (for internal use)
     """
 
@@ -45,13 +45,13 @@ class PostgresService:
     name: str = "postgres"
 
     # Instance attributes
-    service_name: str = ""
+    addon_name: str = ""
     _password: str = ""  # Internal: pre-generated password
 
     def __post_init__(self):
-        """Validate that service_name is provided and generate password if needed."""
-        if not self.service_name:
-            msg = "service_name is required for PostgresService"
+        """Validate that addon_name is provided and generate password if needed."""
+        if not self.addon_name:
+            msg = "addon_name is required for PostgresAddon"
             raise ValueError(msg)
 
         # Generate password if not provided (frozen dataclass workaround)
@@ -63,7 +63,7 @@ class PostgresService:
     def db_name(self) -> str:
         """Database name derived from service name."""
         # Replace hyphens with underscores for valid PostgreSQL identifiers
-        return self.service_name.replace("-", "_")
+        return self.addon_name.replace("-", "_")
 
     @property
     def db_user(self) -> str:
@@ -178,7 +178,7 @@ class PostgresService:
         backup_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        backup_file = backup_dir / f"{self.service_name}_{timestamp}.sql"
+        backup_file = backup_dir / f"{self.addon_name}_{timestamp}.sql"
 
         # Use pg_dump to create backup
         cmd = [
@@ -260,7 +260,7 @@ class PostgresService:
                 version = cursor.fetchone()[0]
 
             return {
-                "service_name": self.service_name,
+                "addon_name": self.addon_name,
                 "type": "postgres",
                 "database": self.db_name,
                 "user": self.db_user,
@@ -274,7 +274,7 @@ class PostgresService:
 
         except psycopg2.Error as e:
             return {
-                "service_name": self.service_name,
+                "addon_name": self.addon_name,
                 "type": "postgres",
                 "status": "error",
                 "error": str(e),
@@ -318,4 +318,4 @@ class PostgresService:
 
 
 # Backwards compatibility alias
-PostgresqlService = PostgresService
+PostgresqlAddon = PostgresAddon
