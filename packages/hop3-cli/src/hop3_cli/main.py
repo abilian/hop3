@@ -195,13 +195,13 @@ def confirm_destructive_action(cli_args: list[str], printer: RichPrinter) -> boo
         if not args:
             return True
 
-        service_name = args[0]
+        addon_name = args[0]
         show_destructive_warning(
             "destroy",
-            f"service '{service_name}'",
+            f"service '{addon_name}'",
             "All data in this service will be permanently deleted.",
         )
-        return type_to_confirm(f"Type '{service_name}' to confirm:", service_name)
+        return type_to_confirm(f"Type '{addon_name}' to confirm:", addon_name)
 
     # Unknown destructive command (shouldn't happen)
     return confirm("This action cannot be undone. Continue?")

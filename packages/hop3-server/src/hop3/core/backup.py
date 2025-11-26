@@ -558,34 +558,32 @@ class BackupManager:
         # Discover attached services by examining environment variables
         attached_addons = self._get_attached_addons(app)
 
-        for service_type, service_name in attached_addons:
+        for service_type, addon_name in attached_addons:
             try:
-                service = get_addon(service_type, service_name)
-                service_backup_path = service.backup()
+                addon = get_addon(service_type, addon_name)
+                addon_backup_path = addon.backup()
 
                 # Copy service backup to our backup directory
-                dest_filename = (
-                    f"{service_type}_{service_name}{service_backup_path.suffix}"
-                )
+                dest_filename = f"{service_type}_{addon_name}{addon_backup_path.suffix}"
                 dest_path = addons_dir / dest_filename
 
-                shutil.copy2(service_backup_path, dest_path)
+                shutil.copy2(addon_backup_path, dest_path)
 
                 size = dest_path.stat().st_size
                 log(
-                    f"Backed up service {service_name} ({service_type}): {format_size(size)}"
+                    f"Backed up service {addon_name} ({service_type}): {format_size(size)}"
                 )
 
                 addons_info.append({
                     "type": service_type,
-                    "name": service_name,
+                    "name": addon_name,
                     "backup_file": f"addons/{dest_filename}",
                     "size_bytes": size,
                 })
 
             except Exception as e:
-                failed_addons.append((service_name, service_type, str(e)))
-                log(f"✗ Failed to backup service {service_name} ({service_type}): {e}")
+                failed_addons.append((addon_name, service_type, str(e)))
+                log(f"✗ Failed to backup service {addon_name} ({service_type}): {e}")
 
         # If any services failed to backup, raise an error
         if failed_addons:
@@ -681,24 +679,24 @@ class BackupManager:
         """
         for service_info in manifest.addons:
             service_type = service_info["type"]
-            service_name = service_info["name"]
+            addon_name = service_info["name"]
             backup_file = backup_dir / service_info["backup_file"]
 
             if not backup_file.exists():
-                log(f"Warning: Service backup not found: {backup_file}")
+                log(f"Warning: Addon backup not found: {backup_file}")
                 continue
 
             try:
                 # Get or create service
-                service = get_addon(service_type, service_name)
+                addon = get_addon(service_type, addon_name)
 
                 # Restore service
-                service.restore(backup_file)
+                addon.restore(backup_file)
 
-                log(f"Restored service {service_name} ({service_type})")
+                log(f"Restored service {addon_name} ({service_type})")
 
             except Exception as e:
-                log(f"Warning: Failed to restore service {service_name}: {e}")
+                log(f"Warning: Failed to restore service {addon_name}: {e}")
 
     def _get_attached_addons(self, app: App) -> list[tuple[str, str]]:
         """Get list of attached addons for an app.
@@ -709,7 +707,7 @@ class BackupManager:
             app: Application to check
 
         Returns:
-            List of (service_type, service_name) tuples
+            List of (service_type, addon_name) tuples
         """
         services = []
 
@@ -721,7 +719,7 @@ class BackupManager:
                 url = env_var.value
                 if "postgresql://" in url:
                     db_name = url.split("/")[-1].split("?")[0]
-                    # Service name is typically the database name
+                    # Addon name is typically the database name
                     services.append(("postgres", db_name))
 
             # TODO: Add detection for Redis, MySQL, etc.

@@ -9,7 +9,7 @@ This controller handles all dashboard routes including:
 - App management (create, detail, restart, stop, backup)
 - App logs (view, download, stream)
 - App environment variables
-- Services management
+- Addons management
 - Backups management
 """
 

@@ -121,7 +121,7 @@ def test_dashboard_index_empty(authenticated_client: TestClient):
     )
 
 
-# Services and Backups Placeholder Tests
+# Addons and Backups Placeholder Tests
 
 
 def test_dashboard_addons(authenticated_client: TestClient):
