@@ -480,7 +480,7 @@ class BackupManager:
             tar.add(repo_path, arcname="git")
 
         size = tar_path.stat().st_size
-        log(f"Backed up source: {self._format_size(size)}")
+        log(f"Backed up source: {format_size(size)}")
 
         return {"size": size}
 
@@ -509,7 +509,7 @@ class BackupManager:
             tar.add(data_path, arcname="data")
 
         size = tar_path.stat().st_size
-        log(f"Backed up data: {self._format_size(size)}")
+        log(f"Backed up data: {format_size(size)}")
 
         return {"size": size}
 
@@ -573,7 +573,7 @@ class BackupManager:
 
                 size = dest_path.stat().st_size
                 log(
-                    f"Backed up service {service_name} ({service_type}): {self._format_size(size)}"
+                    f"Backed up service {service_name} ({service_type}): {format_size(size)}"
                 )
 
                 services_info.append({
@@ -788,21 +788,6 @@ class BackupManager:
             Path to backup directory
         """
         return HopConfig.get_instance().BACKUP_ROOT / "apps" / app_name / backup_id
-
-    def _format_size(self, size_bytes: float) -> str:
-        """Format byte size as human-readable string.
-
-        Args:
-            size_bytes: Size in bytes
-
-        Returns:
-            Formatted string like "1.5 MB"
-        """
-        for unit in ["B", "KB", "MB", "GB"]:
-            if size_bytes < 1024:
-                return f"{size_bytes:.1f} {unit}"
-            size_bytes /= 1024
-        return f"{size_bytes:.1f} TB"
 
     def _get_hop3_version(self) -> str:
         """Get the current Hop3 version.
