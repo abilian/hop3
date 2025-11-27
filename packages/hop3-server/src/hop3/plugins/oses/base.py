@@ -9,7 +9,6 @@ import os
 import subprocess
 from io import StringIO
 from pathlib import Path
-from typing import ClassVar
 
 
 class BaseOSStrategy:
@@ -20,8 +19,22 @@ class BaseOSStrategy:
     """
 
     name: str = "base"
-    display_name: str = "Base OS"
-    packages: ClassVar[list[str]] = []
+
+    @property
+    def display_name(self) -> str:
+        """Human-readable name for this OS.
+
+        Subclasses should override this property to provide a specific display name.
+        """
+        return "Base OS"
+
+    @property
+    def packages(self) -> list[str]:
+        """List of system packages required for hop3.
+
+        Subclasses should override this property to provide OS-specific packages.
+        """
+        return []
 
     HOP3_USER = "hop3"
     HOME_DIR = f"/home/{HOP3_USER}"

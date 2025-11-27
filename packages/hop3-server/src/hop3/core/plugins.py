@@ -183,7 +183,7 @@ def get_build_strategy(context: DeploymentContext) -> Builder:
     # Auto-detect by finding the first one that "accepts" the context.
     if strategy_name_from_config == "auto":
         for strategy_class in strategy_classes:
-            strategy = strategy_class(context)  # type: ignore[call-arg]
+            strategy = strategy_class(context)
             if strategy.accept():
                 return strategy
 
@@ -193,7 +193,7 @@ def get_build_strategy(context: DeploymentContext) -> Builder:
     for strategy_class in strategy_classes:
         # We assume the name is a class attribute
         if getattr(strategy_class, "name", None) == strategy_name_from_config:
-            return strategy_class(context)  # type: ignore[call-arg]
+            return strategy_class(context)
     msg = f"Configured build strategy '{strategy_name_from_config}' not found."
     raise RuntimeError(msg)
 
@@ -278,7 +278,7 @@ def get_deployer_by_name(app, runtime_name: str) -> Deployer:
                 if hasattr(app, "virtualenv_path")
                 else "",
             )
-            return strategy_class(context, artifact)  # type: ignore[call-arg]
+            return strategy_class(context, artifact)
 
     # Provide helpful error message with available runtimes
     available_runtimes = [getattr(cls, "name", "?") for cls in strategy_classes]
@@ -317,7 +317,7 @@ def get_addon(addon_type: str, addon_name: str) -> Addon:
     for addon_class in addon_classes:
         # Check if the addon type matches
         if getattr(addon_class, "name", None) == addon_type:
-            return addon_class(addon_name=addon_name)  # type: ignore[call-arg]
+            return addon_class(addon_name=addon_name)
 
     available_addons = [getattr(cls, "name", "?") for cls in addon_classes]
     msg = f"Addon type '{addon_type}' not found. Available addons: {available_addons}"
