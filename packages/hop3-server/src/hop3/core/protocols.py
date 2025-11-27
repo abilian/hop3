@@ -61,9 +61,9 @@ class Builder(Protocol):
     name: str
     context: DeploymentContext
 
-    # @property
-    # def name(self) -> str:
-    #     """A unique name for the strategy, e.g., 'buildpack' or 'docker'."""
+    def __init__(self, context: DeploymentContext) -> None:
+        """Initialize the builder with a deployment context."""
+        ...
 
     def accept(self) -> bool:
         """Return True if this strategy can build the app."""
@@ -80,9 +80,9 @@ class Deployer(Protocol):
     context: DeploymentContext
     artifact: BuildArtifact
 
-    # @property
-    # def name(self) -> str:
-    #     """A unique name, e.g., 'uwsgi' or 'docker-compose'."""
+    def __init__(self, context: DeploymentContext, artifact: BuildArtifact) -> None:
+        """Initialize the deployer with context and build artifact."""
+        ...
 
     def accept(self) -> bool:
         """Return True if this target can deploy the given artifact."""
@@ -136,6 +136,14 @@ class Addon(Protocol):
 
     name: str
     addon_name: str
+
+    def __init__(self, *, addon_name: str) -> None:
+        """Initialize the addon with an instance name.
+
+        Args:
+            addon_name: The specific instance name for this addon.
+        """
+        ...
 
     def create(self) -> None:
         """Create the addon instance.
@@ -201,6 +209,16 @@ class Proxy(Protocol):
     app: App
     env: Env
     workers: dict[str, str]
+
+    def __init__(self, app: App, env: Env, workers: dict[str, str]) -> None:
+        """Initialize the proxy with application, environment, and worker configuration.
+
+        Args:
+            app: The application to be proxied.
+            env: Environment configuration.
+            workers: Worker configurations.
+        """
+        ...
 
     def setup(self) -> None: ...
 
@@ -367,11 +385,23 @@ class OS(Protocol):
     """
 
     name: str
-    packages: list[str]
+
+    def __init__(self) -> None:
+        """Initialize the OS strategy.
+
+        OS strategies are typically instantiated without arguments
+        and use system introspection (e.g., /etc/os-release) to configure themselves.
+        """
+        ...
 
     @property
     def display_name(self) -> str:
         """Human-readable name for this OS."""
+        ...
+
+    @property
+    def packages(self) -> list[str]:
+        """List of system packages required for hop3."""
         ...
 
     def detect(self) -> bool:

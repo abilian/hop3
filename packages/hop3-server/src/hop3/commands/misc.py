@@ -92,7 +92,7 @@ class PluginsCmd(Command):
     def call(self, *args):
         # This implementation introspects the command registry
         all_commands = lookup(Command)
-        command_groups = {}
+        command_groups: dict[str, list[str]] = {}
         for cmd_class in sorted(all_commands, key=lambda c: c.name):
             module_name = cmd_class.__module__
             if module_name.startswith("hop3.plugins."):
