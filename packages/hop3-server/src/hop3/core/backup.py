@@ -12,6 +12,7 @@ variables, and attached addons.
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
 import secrets
 import shutil
@@ -791,9 +792,4 @@ class BackupManager:
         Returns:
             Version string
         """
-        try:
-            from hop3 import __version__  # noqa: PLC0415
-
-            return __version__
-        except ImportError:
-            return "unknown"
+        return importlib.metadata.version("hop3-server")

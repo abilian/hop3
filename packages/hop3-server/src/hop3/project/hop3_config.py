@@ -15,10 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-try:
-    import tomllib  # Python 3.11+
-except ModuleNotFoundError:
-    import tomli as tomllib  # Backport for Python < 3.11
+import tomllib  # Python 3.11+
 
 
 @dataclass

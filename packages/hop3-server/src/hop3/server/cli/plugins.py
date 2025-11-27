@@ -70,7 +70,7 @@ class Plugins(Command):
                 return {
                     "name": getattr(plugin, "__name__", "unknown").split(".")[-1],
                     "full_path": plugin.__name__,
-                    "doc": plugin.__doc__,
+                    "doc": plugin.__doc__ or "",
                 }
             case _:
                 # Class-based plugin
@@ -78,7 +78,7 @@ class Plugins(Command):
                 return {
                     "name": getattr(plugin, "name", plugin_class.__name__),
                     "full_path": f"{plugin_class.__module__}.{plugin_class.__name__}",
-                    "doc": plugin_class.__doc__,
+                    "doc": plugin_class.__doc__ or "",
                 }
 
     def _print_plugin_details(self, pm, plugin):
