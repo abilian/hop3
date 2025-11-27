@@ -17,7 +17,7 @@ def cli_commands() -> None:
 
 
 @hookspec
-def get_builders() -> list[Builder]:
+def get_builders() -> list[Builder]:  # type: ignore[empty-body]
     """Get builders provided by this plugin.
 
     Returns:
@@ -26,7 +26,7 @@ def get_builders() -> list[Builder]:
 
 
 @hookspec
-def get_deployers() -> list[Deployer]:
+def get_deployers() -> list[Deployer]:  # type: ignore[empty-body]
     """Get deployment strategies provided by this plugin.
 
     Returns:
@@ -35,7 +35,7 @@ def get_deployers() -> list[Deployer]:
 
 
 @hookspec
-def get_addons() -> list[Addon]:
+def get_addons() -> list[Addon]:  # type: ignore[empty-body]
     """Get addons provided by this plugin.
 
     Returns:
@@ -44,7 +44,7 @@ def get_addons() -> list[Addon]:
 
 
 @hookspec
-def get_os_implementations() -> list[OS]:
+def get_os_implementations() -> list[OS]:  # type: ignore[empty-body]
     """Get OS setup strategies provided by this plugin.
 
     Returns:
@@ -54,7 +54,7 @@ def get_os_implementations() -> list[OS]:
 
 
 @hookspec
-def get_proxies() -> list[Proxy]:
+def get_proxies() -> list[Proxy]:  # type: ignore[empty-body]
     """Get proxy strategies provided by this plugin.
 
     Returns:
@@ -64,7 +64,7 @@ def get_proxies() -> list[Proxy]:
 
 
 @hookspec
-def get_di_providers() -> list[Provider]:
+def get_di_providers() -> list[Provider]:  # type: ignore[empty-body]
     """Get DI providers from this plugin.
 
     Plugins can implement this hook to contribute Dishka providers

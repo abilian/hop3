@@ -9,7 +9,7 @@
 # Layers are ordered from least-frequently-changing to most-frequently-changing
 # to maximize Docker cache reuse during rebuilds.
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive

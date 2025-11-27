@@ -5,7 +5,7 @@
 # Dockerfile for Hop3 Development Environment
 # Builds hop3-server inside Docker - no pre-build needed!
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive

@@ -367,8 +367,12 @@ class OS(Protocol):
     """
 
     name: str
-    display_name: str
     packages: list[str]
+
+    @property
+    def display_name(self) -> str:
+        """Human-readable name for this OS."""
+        ...
 
     def detect(self) -> bool:
         """Check if this strategy matches the current operating system.
