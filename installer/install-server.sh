@@ -17,6 +17,7 @@
 #   HOP3_VERBOSE          Enable verbose output (1 or true)
 #   HOP3_VERSION          Install specific version
 #   HOP3_GIT              Install from git (1 or true)
+#   HOP3_BRANCH           Git branch to install from (default: main)
 #   HOP3_LOCAL_PACKAGE    Local package directory (for testing)
 #   HOP3_SKIP_DEPS        Skip system dependency installation (1 or true)
 #   HOP3_SKIP_NGINX       Skip nginx setup (1 or true)
@@ -371,7 +372,10 @@ main() {
     # Build extra arguments from environment variables
     EXTRA_ARGS=""
     if [ -n "${HOP3_LOCAL_PACKAGE:-}" ]; then
-        EXTRA_ARGS="--local-path $HOP3_LOCAL_PACKAGE"
+        EXTRA_ARGS="$EXTRA_ARGS --local-path $HOP3_LOCAL_PACKAGE"
+    fi
+    if [ -n "${HOP3_BRANCH:-}" ]; then
+        EXTRA_ARGS="$EXTRA_ARGS --branch $HOP3_BRANCH"
     fi
 
     # Execute the Python installer with all arguments passed through
