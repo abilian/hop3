@@ -17,6 +17,7 @@
 #   HOP3_VERBOSE          Enable verbose output (1 or true)
 #   HOP3_VERSION          Install specific version
 #   HOP3_GIT              Install from git (1 or true)
+#   HOP3_LOCAL_PACKAGE    Local package directory (for testing)
 #   HOP3_SKIP_DEPS        Skip system dependency installation (1 or true)
 #   HOP3_SKIP_NGINX       Skip nginx setup (1 or true)
 #   HOP3_SKIP_POSTGRES    Skip PostgreSQL setup (1 or true)
@@ -35,10 +36,13 @@ set -e
 # Configuration
 # =============================================================================
 
-INSTALLER_URL="https://hop3.cloud/install-server.py"
+INSTALLER_URL="${HOP3_INSTALLER_URL:-https://hop3.cloud/install-server.py}"
 INSTALLER_PATH="/tmp/hop3-install-server.py"
 MIN_PYTHON_VERSION_MAJOR=3
 MIN_PYTHON_VERSION_MINOR=10
+
+# For local testing: set HOP3_LOCAL_INSTALLER to the path of install-server.py
+LOCAL_INSTALLER="${HOP3_LOCAL_INSTALLER:-}"
 
 # =============================================================================
 # Colors
@@ -279,6 +283,19 @@ check_venv_module() {
 # =============================================================================
 
 download_installer() {
+    # Check for local installer first (for testing)
+    if [ -n "$LOCAL_INSTALLER" ]; then
+        if [ -f "$LOCAL_INSTALLER" ]; then
+            log_info "Using local installer: $LOCAL_INSTALLER"
+            cp "$LOCAL_INSTALLER" "$INSTALLER_PATH"
+            log_success "Installer copied from local path."
+            return 0
+        else
+            log_error "Local installer not found: $LOCAL_INSTALLER"
+            exit 1
+        fi
+    fi
+
     log_info "Downloading Python installer..."
 
     # Try curl first, then wget
@@ -351,8 +368,15 @@ main() {
     log_info "Running Python installer..."
     echo ""
 
+    # Build extra arguments from environment variables
+    EXTRA_ARGS=""
+    if [ -n "${HOP3_LOCAL_PACKAGE:-}" ]; then
+        EXTRA_ARGS="--local-path $HOP3_LOCAL_PACKAGE"
+    fi
+
     # Execute the Python installer with all arguments passed through
-    exec "$PYTHON" "$INSTALLER_PATH" "$@"
+    # shellcheck disable=SC2086
+    exec "$PYTHON" "$INSTALLER_PATH" $EXTRA_ARGS "$@"
 }
 
 main "$@"

@@ -19,6 +19,7 @@
 #   HOP3_VERSION          Install specific version
 #   HOP3_GIT              Install from git (1 or true)
 #   HOP3_BIN_DIR          Custom binary directory
+#   HOP3_LOCAL_PACKAGE    Local package directory (for testing)
 
 # Re-execute with bash if not already running in bash
 # This ensures we have access to bash-specific features if needed
@@ -34,10 +35,13 @@ set -e
 # Configuration
 # =============================================================================
 
-INSTALLER_URL="https://hop3.cloud/install-cli.py"
+INSTALLER_URL="${HOP3_INSTALLER_URL:-https://hop3.cloud/install-cli.py}"
 INSTALLER_PATH="/tmp/hop3-install-cli.py"
 MIN_PYTHON_VERSION_MAJOR=3
 MIN_PYTHON_VERSION_MINOR=10
+
+# For local testing: set HOP3_LOCAL_INSTALLER to the path of install-cli.py
+LOCAL_INSTALLER="${HOP3_LOCAL_INSTALLER:-}"
 
 # =============================================================================
 # Colors
@@ -97,6 +101,7 @@ Options:
     --verbose           Enable verbose output
     --version VERSION   Install a specific version (e.g., 0.4.0)
     --git               Install from git (head of main branch)
+    --local-path PATH   Install from a local directory
     --bin-dir PATH      Custom binary directory (default: ~/.local/bin)
     --help              Show this help message
 
@@ -106,6 +111,7 @@ Environment Variables:
     HOP3_VERBOSE            Set to '1' or 'true' for verbose output
     HOP3_VERSION            Install specific version
     HOP3_GIT                Set to '1' or 'true' to install from git
+    HOP3_LOCAL_PACKAGE      Local package directory (for testing)
     HOP3_BIN_DIR            Custom binary directory
 
 Examples:
@@ -274,6 +280,19 @@ check_venv_module() {
 # =============================================================================
 
 download_installer() {
+    # Check for local installer first (for testing)
+    if [ -n "$LOCAL_INSTALLER" ]; then
+        if [ -f "$LOCAL_INSTALLER" ]; then
+            log_info "Using local installer: $LOCAL_INSTALLER"
+            cp "$LOCAL_INSTALLER" "$INSTALLER_PATH"
+            log_success "Installer copied from local path."
+            return 0
+        else
+            log_error "Local installer not found: $LOCAL_INSTALLER"
+            exit 1
+        fi
+    fi
+
     log_info "Downloading Python installer..."
 
     # Try curl first, then wget
@@ -345,8 +364,15 @@ main() {
     log_info "Running Python installer..."
     echo ""
 
+    # Build extra arguments from environment variables
+    EXTRA_ARGS=""
+    if [ -n "${HOP3_LOCAL_PACKAGE:-}" ]; then
+        EXTRA_ARGS="--local-path $HOP3_LOCAL_PACKAGE"
+    fi
+
     # Execute the Python installer with all arguments passed through
-    exec "$PYTHON" "$INSTALLER_PATH" "$@"
+    # shellcheck disable=SC2086
+    exec "$PYTHON" "$INSTALLER_PATH" $EXTRA_ARGS "$@"
 }
 
 main "$@"

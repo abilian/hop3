@@ -18,6 +18,7 @@ Options:
     --verbose           Enable verbose output
     --version VERSION   Install a specific version (e.g., 0.4.0)
     --git               Install from git (head of main branch)
+    --local-path PATH   Install from a local directory
     --bin-dir PATH      Custom binary directory (default: ~/.local/bin)
     --help              Show this help message
 """
@@ -211,7 +212,9 @@ def create_virtual_environment() -> None:
     log_success("Virtual environment created.")
 
 
-def install_hop3_cli(version: str | None, use_git: bool) -> None:
+def install_hop3_cli(
+    version: str | None, use_git: bool, local_path: Path | None
+) -> None:
     """Install the hop3-cli package into the virtual environment."""
     pip_path = VENV_DIR / "bin" / "pip"
 
@@ -219,8 +222,19 @@ def install_hop3_cli(version: str | None, use_git: bool) -> None:
     log_info("Upgrading pip...")
     run_command([str(pip_path), "install", "--upgrade", "pip"], capture_output=True)
 
+    # Install build backend if installing from source (needed for uv-build backend)
+    if use_git or local_path:
+        log_info("Installing build dependencies...")
+        run_command(
+            [str(pip_path), "install", "uv"],
+            capture_output=True,
+        )
+
     # Determine what to install
-    if use_git:
+    if local_path:
+        log_info(f"Installing hop3-cli from local path: {local_path}")
+        package_spec = str(local_path)
+    elif use_git:
         log_info("Installing hop3-cli from git (main branch)...")
         package_spec = GIT_URL
     elif version:
@@ -238,7 +252,9 @@ def install_hop3_cli(version: str | None, use_git: bool) -> None:
         )
     except subprocess.CalledProcessError:
         log_error("Failed to install hop3-cli.")
-        if use_git:
+        if local_path:
+            log_error(f"Make sure the path exists and contains a valid package: {local_path}")
+        elif use_git:
             log_error("Make sure git is installed and you have network access.")
         else:
             log_error("The package may not be available on PyPI yet.")
@@ -451,6 +467,13 @@ Examples:
     )
 
     parser.add_argument(
+        "--local-path",
+        type=Path,
+        default=os.environ.get("HOP3_LOCAL_PACKAGE"),
+        help="Install from a local directory (e.g., /vagrant/packages/hop3-cli)",
+    )
+
+    parser.add_argument(
         "--bin-dir",
         type=Path,
         default=Path(os.environ.get("HOP3_BIN_DIR", str(DEFAULT_BIN_DIR))),
@@ -484,7 +507,7 @@ def main() -> None:
     # Run installation steps
     create_install_directory()
     create_virtual_environment()
-    install_hop3_cli(args.version, args.git)
+    install_hop3_cli(args.version, args.git, args.local_path)
     expose_cli_commands(args.bin_dir)
     update_shell_path(args.bin_dir, not args.no_modify_path)
 

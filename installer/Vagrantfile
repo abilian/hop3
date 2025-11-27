@@ -1,0 +1,136 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+#
+# Vagrantfile for testing Hop3 installers
+#
+# Usage:
+#   vagrant up ubuntu          # Start Ubuntu VM
+#   vagrant up debian          # Start Debian VM
+#   vagrant up fedora          # Start Fedora VM
+#   vagrant up                 # Start all VMs
+#
+#   vagrant ssh ubuntu         # SSH into Ubuntu VM
+#   vagrant destroy -f         # Destroy all VMs
+#
+# Test with:
+#   ./test-installers.py --vm ubuntu --type cli
+#   ./test-installers.py --vm ubuntu --type server
+#   ./test-installers.py --all
+#
+# Provider selection:
+#   VAGRANT_DEFAULT_PROVIDER=qemu vagrant up ubuntu
+#   VAGRANT_DEFAULT_PROVIDER=libvirt vagrant up ubuntu
+
+# Detect host architecture
+def get_arch
+  host_arch = `uname -m`.strip
+  if host_arch.include?('arm') || host_arch.include?('aarch64')
+    return 'arm64'
+  else
+    return 'amd64'
+  end
+end
+
+ARCH = get_arch()
+
+# Box definitions - using generic boxes that support multiple providers
+BOXES = {
+  'ubuntu' => {
+    'amd64' => "boxen/ubuntu-24.04",
+    'arm64' => "cloud-image/ubuntu-24.04"
+  },
+  'debian' => {
+    'amd64' => 'generic/debian12',
+    'arm64' => 'generic/debian12'
+  },
+  'fedora' => {
+    'amd64' => 'generic/fedora40',
+    'arm64' => 'generic/fedora40'
+  }
+}
+
+# Common provisioning script to ensure Python 3.10+ is available
+PROVISION_SCRIPT = <<-SHELL
+  echo "=== Provisioning VM ==="
+
+  # Detect distro
+  if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    DISTRO=$ID
+  else
+    DISTRO="unknown"
+  fi
+
+  echo "Detected distro: $DISTRO"
+
+  case $DISTRO in
+    ubuntu|debian)
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -qq
+      apt-get install -y -qq python3 python3-venv git curl >/dev/null 2>&1
+      ;;
+    fedora)
+      dnf install -y -q python3 python3-pip git curl >/dev/null 2>&1
+      ;;
+    arch)
+      pacman -Sy --noconfirm python python-pip git curl >/dev/null 2>&1
+      ;;
+  esac
+
+  # Verify Python version
+  PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+  echo "Python version: $PYTHON_VERSION"
+
+  echo "=== Provisioning complete ==="
+SHELL
+
+Vagrant.configure("2") do |config|
+  # QEMU provider (recommended for Fedora host)
+  config.vm.provider "qemu" do |qe|
+    qe.memory = "2048"
+    qe.cpus = 2
+    qe.net_device = "virtio-net-pci"
+  end
+
+  # Libvirt provider
+  config.vm.provider "libvirt" do |lv|
+    lv.memory = 2048
+    lv.cpus = 2
+    lv.driver = "qemu"
+    # Use user-mode networking (doesn't require complex firewall setup)
+    lv.management_network_mode = "nat"
+  end
+
+  # VirtualBox provider (if available)
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = 2048
+    vb.cpus = 2
+    vb.gui = false
+    vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+  end
+
+  # Sync the entire hop3 repo (need access to packages/ for local testing)
+  config.vm.synced_folder "..", "/vagrant", type: "rsync",
+    rsync__exclude: [".git/", "__pycache__/", "*.pyc", ".vagrant/", "*.egg-info/", ".venv/", ".tox/", "node_modules/"]
+
+  # Ubuntu VM
+  config.vm.define "ubuntu", primary: true do |ubuntu|
+    ubuntu.vm.box = BOXES['ubuntu'][ARCH]
+    ubuntu.vm.hostname = "hop3-test-ubuntu"
+    ubuntu.vm.provision "shell", inline: PROVISION_SCRIPT
+  end
+
+  # Debian VM
+  #config.vm.define "debian", autostart: false do |debian|
+  #  debian.vm.box = BOXES['debian'][ARCH]
+  #  debian.vm.hostname = "hop3-test-debian"
+  #  debian.vm.provision "shell", inline: PROVISION_SCRIPT
+  #end
+
+  # Fedora VM
+  #config.vm.define "fedora", autostart: false do |fedora|
+  #  fedora.vm.box = BOXES['fedora'][ARCH]
+  #  fedora.vm.hostname = "hop3-test-fedora"
+  #  fedora.vm.provision "shell", inline: PROVISION_SCRIPT
+  #end
+end
