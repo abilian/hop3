@@ -165,7 +165,7 @@ class DashboardController(Controller):
     """
 
     path = "/dashboard"
-    guards: ClassVar = [auth_guard]
+    guards: ClassVar = [auth_guard]  # type: ignore[misc]
 
     # ========================================================================
     # Main Dashboard
