@@ -17,7 +17,8 @@ Options:
     --no-modify-path    Don't modify shell configuration files
     --verbose           Enable verbose output
     --version VERSION   Install a specific version (e.g., 0.4.0)
-    --git               Install from git (head of main branch)
+    --git               Install from git repository
+    --branch BRANCH     Git branch to install from (default: main)
     --local-path PATH   Install from a local directory
     --bin-dir PATH      Custom binary directory (default: ~/.local/bin)
     --help              Show this help message
@@ -41,7 +42,9 @@ VENV_DIR = INSTALL_DIR / "venv"
 DEFAULT_BIN_DIR = Path.home() / ".local" / "bin"
 
 PACKAGE_NAME = "hop3-cli"
-GIT_URL = "git+https://github.com/abilian/hop3.git@main#subdirectory=packages/hop3-cli"
+GIT_REPO = "https://github.com/abilian/hop3.git"
+GIT_SUBDIR = "packages/hop3-cli"
+DEFAULT_BRANCH = "main"
 
 CLI_COMMANDS = ["hop3", "hop"]
 
@@ -213,7 +216,7 @@ def create_virtual_environment() -> None:
 
 
 def install_hop3_cli(
-    version: str | None, use_git: bool, local_path: Path | None
+    version: str | None, use_git: bool, local_path: Path | None, branch: str
 ) -> None:
     """Install the hop3-cli package into the virtual environment."""
     pip_path = VENV_DIR / "bin" / "pip"
@@ -235,8 +238,9 @@ def install_hop3_cli(
         log_info(f"Installing hop3-cli from local path: {local_path}")
         package_spec = str(local_path)
     elif use_git:
-        log_info("Installing hop3-cli from git (main branch)...")
-        package_spec = GIT_URL
+        git_url = f"git+{GIT_REPO}@{branch}#subdirectory={GIT_SUBDIR}"
+        log_info(f"Installing hop3-cli from git ({branch} branch)...")
+        package_spec = git_url
     elif version:
         log_info(f"Installing hop3-cli version {version}...")
         package_spec = f"{PACKAGE_NAME}=={version}"
@@ -463,7 +467,14 @@ Examples:
         "--git",
         action="store_true",
         default=os.environ.get("HOP3_GIT", "").lower() in ("1", "true"),
-        help="Install from git (head of main branch)",
+        help="Install from git repository",
+    )
+
+    parser.add_argument(
+        "--branch",
+        type=str,
+        default=os.environ.get("HOP3_BRANCH", DEFAULT_BRANCH),
+        help=f"Git branch to install from (default: {DEFAULT_BRANCH})",
     )
 
     parser.add_argument(
@@ -507,7 +518,7 @@ def main() -> None:
     # Run installation steps
     create_install_directory()
     create_virtual_environment()
-    install_hop3_cli(args.version, args.git, args.local_path)
+    install_hop3_cli(args.version, args.git, args.local_path, args.branch)
     expose_cli_commands(args.bin_dir)
     update_shell_path(args.bin_dir, not args.no_modify_path)
 

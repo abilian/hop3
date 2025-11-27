@@ -19,7 +19,8 @@ Options:
     --force             Force reinstall even if already installed
     --verbose           Enable verbose output
     --version VERSION   Install a specific version (e.g., 0.4.0)
-    --git               Install from git (head of main branch)
+    --git               Install from git repository
+    --branch BRANCH     Git branch to install from (default: main)
     --local-path PATH   Install from a local directory
     --skip-deps         Skip system dependency installation
     --skip-nginx        Skip nginx setup
@@ -49,9 +50,9 @@ HOME_DIR = Path("/home") / HOP3_USER
 VENV_DIR = HOME_DIR / "venv"
 
 PACKAGE_NAME = "hop3-server"
-GIT_URL = (
-    "git+https://github.com/abilian/hop3.git@main#subdirectory=packages/hop3-server"
-)
+GIT_REPO = "https://github.com/abilian/hop3.git"
+GIT_SUBDIR = "packages/hop3-server"
+DEFAULT_BRANCH = "main"
 
 # System dependencies by distribution
 DEBIAN_PACKAGES = [
@@ -458,6 +459,17 @@ def create_hop3_user() -> None:
     else:
         log_debug(f"User {HOP3_USER} already exists.")
 
+    # Ensure home directory exists with correct permissions
+    if not HOME_DIR.exists():
+        log_info(f"Creating home directory: {HOME_DIR}")
+        HOME_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Set ownership and permissions
+    hop3_uid = pwd.getpwnam(HOP3_USER).pw_uid
+    hop3_gid = grp.getgrnam(HOP3_GROUP).gr_gid
+    os.chown(HOME_DIR, hop3_uid, hop3_gid)
+    os.chmod(HOME_DIR, 0o755)
+
     # Add www-data to hop3 group (for nginx socket access)
     if user_exists("www-data"):
         log_info("Adding www-data to hop3 group...")
@@ -481,7 +493,7 @@ def create_virtual_environment() -> None:
 
 
 def install_hop3_server(
-    version: str | None, use_git: bool, local_path: Path | None
+    version: str | None, use_git: bool, local_path: Path | None, branch: str
 ) -> None:
     """Install the hop3-server package into the virtual environment."""
     pip_path = VENV_DIR / "bin" / "pip"
@@ -500,8 +512,9 @@ def install_hop3_server(
         log_info(f"Installing hop3-server from local path: {local_path}")
         package_spec = str(local_path)
     elif use_git:
-        log_info("Installing hop3-server from git (main branch)...")
-        package_spec = GIT_URL
+        git_url = f"git+{GIT_REPO}@{branch}#subdirectory={GIT_SUBDIR}"
+        log_info(f"Installing hop3-server from git ({branch} branch)...")
+        package_spec = git_url
     elif version:
         log_info(f"Installing hop3-server version {version}...")
         package_spec = f"{PACKAGE_NAME}=={version}"
@@ -541,26 +554,38 @@ def setup_ssh_keys() -> None:
     log_info("Setting up SSH keys...")
 
     root_keys = Path("/root/.ssh/authorized_keys")
-    if root_keys.exists():
-        hop_server = VENV_DIR / "bin" / "hop-server"
-
-        # Copy keys to temp location
-        temp_keys = Path("/tmp/root_authorized_keys")
-        shutil.copy2(root_keys, temp_keys)
-        os.chown(
-            temp_keys, pwd.getpwnam(HOP3_USER).pw_uid, grp.getgrnam(HOP3_GROUP).gr_gid
-        )
-
-        # Run setup:ssh
-        run_as_hop3(f"{hop_server} setup:ssh {temp_keys}")
-
-        # Clean up
-        temp_keys.unlink()
-
-        log_success("SSH keys configured.")
-    else:
+    if not root_keys.exists():
         log_warning("No root SSH keys found. Skipping SSH setup.")
         log_warning("You'll need to add SSH keys manually later.")
+        return
+
+    # Check if the file has valid content
+    content = root_keys.read_text().strip()
+    if not content:
+        log_warning("Root SSH authorized_keys file is empty. Skipping SSH setup.")
+        log_warning("You'll need to add SSH keys manually later.")
+        return
+
+    hop_server = VENV_DIR / "bin" / "hop-server"
+
+    # Copy keys to temp location
+    temp_keys = Path("/tmp/root_authorized_keys")
+    shutil.copy2(root_keys, temp_keys)
+    os.chown(
+        temp_keys, pwd.getpwnam(HOP3_USER).pw_uid, grp.getgrnam(HOP3_GROUP).gr_gid
+    )
+
+    # Run setup:ssh (may fail if keys are invalid)
+    try:
+        run_as_hop3(f"{hop_server} setup:ssh {temp_keys}")
+        log_success("SSH keys configured.")
+    except subprocess.CalledProcessError:
+        log_warning("Failed to configure SSH keys (invalid key format?).")
+        log_warning("You'll need to add SSH keys manually later.")
+    finally:
+        # Clean up
+        if temp_keys.exists():
+            temp_keys.unlink()
 
 
 def setup_systemd_services() -> None:
@@ -709,12 +734,12 @@ def setup_acme() -> None:
         run_as_hop3(f"bash {acme_sh} --upgrade")
     else:
         log_info("Installing acme.sh...")
-        # Download and install
+        # Download and install (must run from the directory containing acme.sh)
         run_as_hop3(
             "curl -fsSL https://raw.githubusercontent.com/Neilpang/acme.sh/master/acme.sh -o /tmp/acme.sh"
         )
-        run_as_hop3("bash /tmp/acme.sh --install")
-        run_as_hop3("rm /tmp/acme.sh")
+        run_as_hop3("cd /tmp && bash acme.sh --install")
+        run_command(["rm", "-f", "/tmp/acme.sh"])
 
     # Set default CA to Let's Encrypt
     run_as_hop3(
@@ -833,7 +858,14 @@ Examples:
         "--git",
         action="store_true",
         default=os.environ.get("HOP3_GIT", "").lower() in ("1", "true"),
-        help="Install from git (head of main branch)",
+        help="Install from git repository",
+    )
+
+    parser.add_argument(
+        "--branch",
+        type=str,
+        default=os.environ.get("HOP3_BRANCH", DEFAULT_BRANCH),
+        help=f"Git branch to install from (default: {DEFAULT_BRANCH})",
     )
 
     parser.add_argument(
@@ -894,7 +926,7 @@ def main() -> None:
     install_system_dependencies(args.skip_deps)
     create_hop3_user()
     create_virtual_environment()
-    install_hop3_server(args.version, args.git, args.local_path)
+    install_hop3_server(args.version, args.git, args.local_path, args.branch)
     run_hop3_setup()
     setup_ssh_keys()
     setup_systemd_services()

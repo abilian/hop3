@@ -18,6 +18,7 @@
 #   HOP3_VERBOSE          Enable verbose output (1 or true)
 #   HOP3_VERSION          Install specific version
 #   HOP3_GIT              Install from git (1 or true)
+#   HOP3_BRANCH           Git branch to install from (default: main)
 #   HOP3_BIN_DIR          Custom binary directory
 #   HOP3_LOCAL_PACKAGE    Local package directory (for testing)
 
@@ -100,7 +101,8 @@ Options:
     --no-modify-path    Don't modify shell configuration files
     --verbose           Enable verbose output
     --version VERSION   Install a specific version (e.g., 0.4.0)
-    --git               Install from git (head of main branch)
+    --git               Install from git repository
+    --branch BRANCH     Git branch to install from (default: main)
     --local-path PATH   Install from a local directory
     --bin-dir PATH      Custom binary directory (default: ~/.local/bin)
     --help              Show this help message
@@ -111,6 +113,7 @@ Environment Variables:
     HOP3_VERBOSE            Set to '1' or 'true' for verbose output
     HOP3_VERSION            Install specific version
     HOP3_GIT                Set to '1' or 'true' to install from git
+    HOP3_BRANCH             Git branch to install from (default: main)
     HOP3_LOCAL_PACKAGE      Local package directory (for testing)
     HOP3_BIN_DIR            Custom binary directory
 
@@ -367,7 +370,10 @@ main() {
     # Build extra arguments from environment variables
     EXTRA_ARGS=""
     if [ -n "${HOP3_LOCAL_PACKAGE:-}" ]; then
-        EXTRA_ARGS="--local-path $HOP3_LOCAL_PACKAGE"
+        EXTRA_ARGS="$EXTRA_ARGS --local-path $HOP3_LOCAL_PACKAGE"
+    fi
+    if [ -n "${HOP3_BRANCH:-}" ]; then
+        EXTRA_ARGS="$EXTRA_ARGS --branch $HOP3_BRANCH"
     fi
 
     # Execute the Python installer with all arguments passed through

@@ -33,11 +33,11 @@ end
 
 ARCH = get_arch()
 
-# Box definitions - using generic boxes that support multiple providers
+# Box definitions
 BOXES = {
   'ubuntu' => {
-    'amd64' => "boxen/ubuntu-24.04",
-    'arm64' => "cloud-image/ubuntu-24.04"
+    'amd64' => 'boxen/ubuntu-24.04',
+    'arm64' => 'boxen/ubuntu-24.04'
   },
   'debian' => {
     'amd64' => 'generic/debian12',
