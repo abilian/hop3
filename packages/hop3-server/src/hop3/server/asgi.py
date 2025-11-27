@@ -18,6 +18,7 @@ from litestar.response import Redirect
 from litestar.static_files import create_static_files_router
 from litestar.stores.memory import MemoryStore
 from litestar.template.config import TemplateConfig
+from litestar.types import ControllerRouterHandler
 
 from hop3.di import create_async_container
 
@@ -94,7 +95,7 @@ def create_app():
         directories=[static_dir],
     )
 
-    route_handlers = [
+    route_handlers: list[ControllerRouterHandler] = [
         RootController,  # Root redirect (/)
         RPCController,  # JSON-RPC endpoint (/rpc)
         AuthController,  # Web authentication (/auth/*)
