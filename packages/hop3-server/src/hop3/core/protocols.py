@@ -16,9 +16,26 @@ if TYPE_CHECKING:
 # --- Data Structures ---
 #
 @dataclass
-class DeploymentContext:
+class BuildContext:
+    """Context for build operations (before deployment).
+
+    Contains information needed during the build phase, before deployment.
+    Separate from DeploymentContext to avoid coupling build and deploy concerns.
     """
-    A simple data class to pass around context
+
+    app_name: str
+    source_path: Path
+    app_config: dict
+
+    def __post_init__(self):
+        assert self.source_path.is_dir()
+
+
+@dataclass
+class DeploymentContext:
+    """Context for deployment operations (after build).
+
+    Contains information needed during the deployment phase, after build.
     """
 
     app_name: str
@@ -56,7 +73,20 @@ class DeploymentInfo:
 # --- Protocols (Interfaces for the Strategies) ---
 #
 class Builder(Protocol):
-    """Interface for turning source code into a runnable artifact."""
+    """Top-level build orchestrator - defines HOW to build.
+
+    Builders orchestrate the build process and may delegate to language
+    toolchains for language-specific operations.
+
+    Examples:
+    - LocalBuilder: Builds on host using native language toolchains
+    - DockerBuilder: Builds in container using Dockerfile
+    - NixBuilder: Builds with Nix for reproducibility
+
+    Note: This protocol will transition from DeploymentContext to BuildContext
+    in future phases. Current implementations still use DeploymentContext for
+    backward compatibility.
+    """
 
     name: str
     context: DeploymentContext
@@ -70,6 +100,41 @@ class Builder(Protocol):
 
     def build(self) -> BuildArtifact:
         """Execute the build process and return an artifact."""
+
+
+class LanguageToolchain(Protocol):
+    """Language-specific build toolchain - defines WHAT tools to use.
+
+    Toolchains handle language-specific build operations like installing
+    dependencies, compiling code, and bundling assets.
+
+    LanguageToolchains are used by LocalBuilder to build applications
+    in specific programming languages. Other builders (DockerBuilder, NixBuilder)
+    do not use toolchains.
+
+    Examples:
+    - PythonToolchain: Uses pip/uv, creates virtualenv, compiles .pyc
+    - NodeToolchain: Uses npm/yarn, runs webpack, transpiles JS
+    - JavaToolchain: Uses maven/gradle, compiles .class files
+    """
+
+    name: str
+    context: BuildContext
+
+    def __init__(self, context: BuildContext) -> None:
+        """Initialize the toolchain with a build context."""
+        ...
+
+    def accept(self) -> bool:
+        """Check if this toolchain applies to the project.
+
+        Examples:
+        - PythonToolchain: checks for requirements.txt or pyproject.toml
+        - NodeToolchain: checks for package.json
+        """
+
+    def build(self) -> BuildArtifact:
+        """Execute language-specific build and return the artifact."""
 
 
 class Deployer(Protocol):
