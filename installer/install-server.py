@@ -93,7 +93,7 @@ Type=simple
 User=hop3
 Group=hop3
 WorkingDirectory=/home/hop3
-ExecStart=/home/hop3/venv/bin/hop-server run
+ExecStart=/home/hop3/venv/bin/hop-server serve
 Restart=always
 RestartSec=5
 

@@ -181,10 +181,11 @@ class Spinner:
 class CommandError(Exception):
     """Raised when a command fails."""
 
-    def __init__(self, cmd: list[str], returncode: int, stderr: str):
+    def __init__(self, cmd: list[str], returncode: int, stderr: str, stdout: str = ""):
         self.cmd = cmd
         self.returncode = returncode
         self.stderr = stderr
+        self.stdout = stdout
         super().__init__(f"Command failed: {' '.join(cmd)}")
 
 
@@ -207,7 +208,7 @@ def run_cmd(
     )
 
     if check and result.returncode != 0:
-        raise CommandError(cmd, result.returncode, result.stderr or "")
+        raise CommandError(cmd, result.returncode, result.stderr or "", result.stdout or "")
 
     return result
 
@@ -275,6 +276,8 @@ def check_existing_installation(force: bool) -> bool:
 
 def create_virtual_environment() -> None:
     """Create a Python virtual environment."""
+    import urllib.request
+
     # Create install directory
     INSTALL_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -282,9 +285,41 @@ def create_virtual_environment() -> None:
     if VENV_DIR.exists():
         shutil.rmtree(VENV_DIR)
 
-    # Create venv
+    # Try creating venv with pip first (faster if ensurepip is available)
     with Spinner("Creating virtual environment..."):
-        run_cmd([sys.executable, "-m", "venv", str(VENV_DIR)])
+        result = run_cmd(
+            [sys.executable, "-m", "venv", str(VENV_DIR)],
+            check=False,
+        )
+
+    if result.returncode == 0:
+        print_success(f"Virtual environment created at {VENV_DIR}")
+        return
+
+    # Fallback: create venv without pip, then bootstrap pip manually
+    # This works on systems where python3-venv is installed but ensurepip is not
+    print_info("ensurepip not available, bootstrapping pip manually...")
+
+    # Remove failed venv attempt
+    if VENV_DIR.exists():
+        shutil.rmtree(VENV_DIR)
+
+    with Spinner("Creating virtual environment (without pip)..."):
+        run_cmd([sys.executable, "-m", "venv", "--without-pip", str(VENV_DIR)])
+
+    # Download and run get-pip.py
+    get_pip_url = "https://bootstrap.pypa.io/get-pip.py"
+    get_pip_path = INSTALL_DIR / "get-pip.py"
+
+    with Spinner("Downloading pip installer..."):
+        urllib.request.urlretrieve(get_pip_url, get_pip_path)
+
+    venv_python = VENV_DIR / "bin" / "python"
+    with Spinner("Installing pip..."):
+        run_cmd([str(venv_python), str(get_pip_path), "--quiet"])
+
+    # Clean up
+    get_pip_path.unlink(missing_ok=True)
 
     print_success(f"Virtual environment created at {VENV_DIR}")
 
@@ -361,45 +396,52 @@ def create_command_symlinks(bin_dir: Path) -> int:
     return count
 
 
-def update_shell_config(bin_dir: Path, modify_path: bool) -> None:
-    """Update shell configuration if needed."""
+def update_shell_config(bin_dir: Path, modify_path: bool) -> bool:
+    """Update shell configuration if needed. Returns True if PATH is active."""
     # Check if already in PATH
     path_dirs = os.environ.get("PATH", "").split(os.pathsep)
-    if str(bin_dir) in path_dirs:
-        print_info("PATH already configured")
-        return
+    path_is_active = str(bin_dir) in path_dirs
+
+    if path_is_active:
+        print_success("PATH already configured")
+        return True
 
     if not modify_path:
         print_warning(f"Add {bin_dir} to your PATH manually")
-        return
+        return False
 
     # Detect shell and update config
     shell = get_current_shell()
     if not shell or shell not in SHELL_CONFIGS:
         print_warning(f"Add this to your shell config: export PATH=\"{bin_dir}:$PATH\"")
-        return
+        return False
 
     config_file = SHELL_CONFIGS[shell]
     marker = "# Added by Hop3 CLI installer"
 
-    # Check if already added
+    # Check if already added to config file
+    config_has_path = False
     if config_file.exists():
         content = config_file.read_text()
-        if marker in content:
-            print_info("Shell config already updated")
-            return
+        config_has_path = marker in content
 
-    # Add PATH export
-    if shell == "fish":
-        line = f"\n{marker}\nfish_add_path {bin_dir}\n"
+    if not config_has_path:
+        # Add PATH export
+        if shell == "fish":
+            line = f"\n{marker}\nfish_add_path {bin_dir}\n"
+        else:
+            line = f'\n{marker}\nexport PATH="{bin_dir}:$PATH"\n'
+
+        with open(config_file, "a") as f:
+            f.write(line)
+        print_success(f"Updated {config_file}")
     else:
-        line = f'\n{marker}\nexport PATH="{bin_dir}:$PATH"\n'
+        print_info("Shell config already updated")
 
-    with open(config_file, "a") as f:
-        f.write(line)
-
-    print_success(f"Updated {config_file}")
-    print_info("Restart your shell or run: source " + str(config_file))
+    # PATH is in config but not active in current session
+    print_warning(f"To use hop3 now, run: source {config_file}")
+    print_detail("Or start a new terminal session")
+    return False
 
 
 def verify_installation() -> bool:
@@ -424,7 +466,7 @@ def verify_installation() -> bool:
     return True  # Still consider it installed
 
 
-def print_final_message(bin_dir: Path) -> None:
+def print_final_message(bin_dir: Path, path_is_active: bool) -> None:
     """Print success message with next steps."""
     print()
     print(f"{Colors.GREEN}{Colors.BOLD}Installation complete!{Colors.RESET}")
@@ -433,9 +475,15 @@ def print_final_message(bin_dir: Path) -> None:
     print(f"  {Colors.BOLD}Location:{Colors.RESET}  {INSTALL_DIR}")
     print()
     print(f"  {Colors.BOLD}Get started:{Colors.RESET}")
-    print("    hop3 --help           Show available commands")
-    print("    hop3 auth:login       Log in to your Hop3 server")
-    print("    hop3 apps             List your applications")
+    if path_is_active:
+        print("    hop3 --help           Show available commands")
+        print("    hop3 auth:login       Log in to your Hop3 server")
+    else:
+        # Show full path since hop3 isn't in PATH yet
+        print(f"    {bin_dir}/hop3 --help")
+        print()
+        print(f"  {Colors.BOLD}Or reload your shell first:{Colors.RESET}")
+        print(f"    source ~/.bashrc      (then use 'hop3' directly)")
     print()
     print(f"  {Colors.BOLD}To uninstall:{Colors.RESET}")
     print(f"    rm -rf {INSTALL_DIR}")
@@ -575,7 +623,22 @@ def main() -> int:
     try:
         create_virtual_environment()
     except CommandError as e:
-        print_error(f"Failed to create virtual environment: {e.stderr}")
+        print_error("Failed to create virtual environment")
+        # Show the most useful error info
+        error_output = e.stderr.strip() or e.stdout.strip()
+        if error_output:
+            for line in error_output.split("\n"):
+                if line.strip():
+                    print_detail(line.strip())
+        else:
+            print_detail(f"Command: {' '.join(e.cmd)}")
+            print_detail(f"Exit code: {e.returncode}")
+        # Provide helpful suggestions
+        print()
+        print_info("Possible fixes:")
+        print_detail("1. Check disk space: df -h ~/.hop3-cli")
+        print_detail("2. Check permissions: ls -la ~/.hop3-cli")
+        print_detail("3. Check network access (needed to download pip)")
         return 1
 
     # Step 3: Install package
@@ -612,7 +675,7 @@ def main() -> int:
     print()
     print_step(5, total_steps, "Configuring PATH...")
 
-    update_shell_config(args.bin_dir, not args.no_modify_path)
+    path_is_active = update_shell_config(args.bin_dir, not args.no_modify_path)
 
     # Verify
     print()
@@ -620,7 +683,7 @@ def main() -> int:
         print_warning("Installation may have issues")
 
     # Success message
-    print_final_message(args.bin_dir)
+    print_final_message(args.bin_dir, path_is_active)
 
     return 0
 
