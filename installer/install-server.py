@@ -1,194 +1,99 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Hop3 Server Installer.
+"""
+Hop3 Server Installer
 
-This script installs the Hop3 Server by:
-1. Installing system dependencies
-2. Creating the hop3 user and group
-3. Creating a virtual environment at /home/hop3/venv
-4. Installing the hop3-server package
-5. Running initial setup
-6. Configuring systemd services
-7. Optionally setting up nginx and PostgreSQL
+A single-file installer for the Hop3 Server.
+Uses only Python standard library for maximum portability.
+Must be run as root.
 
 Usage:
-    sudo python install-server.py [OPTIONS]
-
-Options:
-    --force             Force reinstall even if already installed
-    --verbose           Enable verbose output
-    --version VERSION   Install a specific version (e.g., 0.4.0)
-    --git               Install from git repository
-    --branch BRANCH     Git branch to install from (default: main)
-    --local-path PATH   Install from a local directory
-    --skip-deps         Skip system dependency installation
-    --skip-nginx        Skip nginx setup
-    --skip-postgres     Skip PostgreSQL setup
-    --help              Show this help message
+    curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
+    curl -LsSf https://hop3.cloud/install-server.py | sudo python3 - --git
+    sudo python3 install-server.py --help
 """
-
 from __future__ import annotations
+
+# =============================================================================
+# Version Check (must run before any 3.10+ features are used at runtime)
+# =============================================================================
+
+import sys
+
+MIN_PYTHON = (3, 10)
+
+if sys.version_info < MIN_PYTHON:
+    print(f"Error: Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]}+ required")
+    print(f"Found: Python {sys.version_info.major}.{sys.version_info.minor}")
+    print()
+    print("Please install a newer Python version:")
+    print("  Ubuntu/Debian: sudo apt install python3.11")
+    print("  Fedora:        sudo dnf install python3.11")
+    sys.exit(1)
+
+# =============================================================================
+# Imports (standard library only)
+# =============================================================================
 
 import argparse
 import grp
+import itertools
 import os
 import pwd
-import secrets
 import shutil
 import subprocess
-import sys
+import threading
+import time
 from pathlib import Path
 
 # =============================================================================
 # Configuration
 # =============================================================================
 
-HOP3_USER = "hop3"
-HOP3_GROUP = "hop3"
-HOME_DIR = Path("/home") / HOP3_USER
-VENV_DIR = HOME_DIR / "venv"
-
 PACKAGE_NAME = "hop3-server"
 GIT_REPO = "https://github.com/abilian/hop3.git"
 GIT_SUBDIR = "packages/hop3-server"
 DEFAULT_BRANCH = "main"
 
+HOP3_USER = "hop3"
+HOP3_GROUP = "hop3"
+HOME_DIR = Path("/home") / HOP3_USER
+VENV_DIR = HOME_DIR / "venv"
+
 # System dependencies by distribution
 DEBIAN_PACKAGES = [
-    # Basic tools
-    "bc",
-    "git",
-    "sudo",
-    "cron",
-    "build-essential",
-    "pkg-config",
-    "libpcre3-dev",
-    "zlib1g-dev",
-    # Python
-    "python3",
-    "python3-pip",
-    "python3-dev",
-    "python3-venv",
-    "python3-virtualenv",
-    "python3-setuptools",
-    "python3-wheel",
-    # Libraries needed for Python packages
-    "libffi-dev",
-    "libssl-dev",
-    # Nginx
-    "nginx",
-    "acl",
-    # uWSGI
-    "uwsgi-core",
-    "uwsgi-plugin-python3",
-    # Let's Encrypt
-    "certbot",
-    # PostgreSQL
-    "libpq-dev",
-    "postgresql",
-    # Language runtimes for builders
-    # - Ruby
-    "ruby",
-    "ruby-dev",
-    "ruby-bundler",
-    # - Node.js
-    "npm",
-    "nodeenv",
-    # - Go
-    "golang",
+    "bc", "git", "sudo", "cron", "build-essential",
+    "libpcre3-dev", "zlib1g-dev",
+    "nginx", "postgresql", "postgresql-contrib",
+    "python3-dev", "python3-pip", "python3-venv",
+    "curl", "wget", "rsync", "socat",
+    "libjpeg-dev", "libpng-dev", "libwebp-dev",
+    "libpq-dev", "libffi-dev", "libssl-dev",
 ]
 
 FEDORA_PACKAGES = [
-    # Basic tools
-    "bc",
-    "git",
-    "sudo",
-    "cronie",
-    "gcc",
-    "gcc-c++",
-    "make",
-    "pkg-config",
-    "pcre-devel",
-    "zlib-devel",
-    # Python
-    "python3",
-    "python3-pip",
-    "python3-devel",
-    "python3-virtualenv",
-    "python3-setuptools",
-    "python3-wheel",
-    # Libraries
-    "libffi-devel",
-    "openssl-devel",
-    # Nginx
-    "nginx",
-    "acl",
-    # uWSGI
-    "uwsgi",
-    "uwsgi-plugin-python3",
-    # Let's Encrypt
-    "certbot",
-    # PostgreSQL
-    "libpq-devel",
-    "postgresql-server",
-    "postgresql",
-    # Language runtimes
-    "ruby",
-    "ruby-devel",
-    "rubygem-bundler",
-    "npm",
-    "golang",
+    "bc", "git", "sudo", "cronie", "gcc", "gcc-c++", "make",
+    "pcre-devel", "zlib-devel",
+    "nginx", "postgresql-server", "postgresql-contrib",
+    "python3-devel", "python3-pip",
+    "curl", "wget", "rsync", "socat",
+    "libjpeg-devel", "libpng-devel", "libwebp-devel",
+    "libpq-devel", "libffi-devel", "openssl-devel",
 ]
 
-ARCH_PACKAGES = [
-    # Basic tools
-    "bc",
-    "git",
-    "sudo",
-    "cronie",
-    "base-devel",
-    "pkg-config",
-    "pcre",
-    "zlib",
-    # Python
-    "python",
-    "python-pip",
-    "python-virtualenv",
-    "python-setuptools",
-    "python-wheel",
-    # Libraries
-    "libffi",
-    "openssl",
-    # Nginx
-    "nginx",
-    "acl",
-    # uWSGI
-    "uwsgi",
-    "uwsgi-plugin-python",
-    # Let's Encrypt
-    "certbot",
-    # PostgreSQL
-    "postgresql-libs",
-    "postgresql",
-    # Language runtimes
-    "ruby",
-    "ruby-bundler",
-    "npm",
-    "go",
-]
-
-# Systemd unit file for the Hop3 server
-SYSTEMD_UNIT = """\
-[Unit]
+# Systemd service units
+SYSTEMD_UNIT = """[Unit]
 Description=Hop3 Server
-After=network.target
+After=network.target postgresql.service
 
 [Service]
+Type=simple
 User=hop3
 Group=hop3
 WorkingDirectory=/home/hop3
-ExecStart=/home/hop3/venv/bin/hop-server serve
+ExecStart=/home/hop3/venv/bin/hop-server run
 Restart=always
 RestartSec=5
 
@@ -196,20 +101,17 @@ RestartSec=5
 WantedBy=multi-user.target
 """
 
-# Systemd unit file for uWSGI
-UWSGI_UNIT = """\
-[Unit]
+UWSGI_UNIT = """[Unit]
 Description=uWSGI Emperor for Hop3
 After=network.target
 
 [Service]
+Type=notify
 User=hop3
 Group=hop3
-ExecStart=/usr/local/bin/uwsgi-hop3 --emperor /home/hop3/.hop3/uwsgi-enabled --die-on-term
+ExecStart=/home/hop3/venv/bin/uwsgi --emperor /home/hop3/uwsgi-enabled --stats /tmp/hop3-uwsgi-stats.sock
 Restart=always
-RestartSec=5
 KillSignal=SIGQUIT
-Type=notify
 NotifyAccess=all
 
 [Install]
@@ -217,29 +119,26 @@ WantedBy=multi-user.target
 """
 
 # =============================================================================
-# Terminal Colors
+# Terminal Output
 # =============================================================================
 
 
 class Colors:
-    """ANSI color codes for terminal output."""
+    """ANSI color codes."""
 
     RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
     RED = "\033[0;31m"
     GREEN = "\033[0;32m"
     YELLOW = "\033[0;33m"
     BLUE = "\033[0;34m"
-    BOLD = "\033[1m"
+    CYAN = "\033[0;36m"
 
     @classmethod
     def disable(cls) -> None:
-        """Disable colors (for non-TTY output)."""
-        cls.RESET = ""
-        cls.RED = ""
-        cls.GREEN = ""
-        cls.YELLOW = ""
-        cls.BLUE = ""
-        cls.BOLD = ""
+        for attr in ["RESET", "BOLD", "DIM", "RED", "GREEN", "YELLOW", "BLUE", "CYAN"]:
+            setattr(cls, attr, "")
 
 
 # Disable colors if not a TTY
@@ -247,104 +146,148 @@ if not sys.stdout.isatty():
     Colors.disable()
 
 
-# =============================================================================
-# Logging Functions
-# =============================================================================
-
-VERBOSE = False
-
-
-def log_info(message: str) -> None:
-    """Print an info message."""
-    print(f"{Colors.BLUE}[INFO]{Colors.RESET} {message}")
+def print_header(title: str) -> None:
+    """Print a styled header."""
+    print()
+    print(f"{Colors.BOLD}{Colors.CYAN}{title}{Colors.RESET}")
+    print(f"{Colors.DIM}{'=' * len(title)}{Colors.RESET}")
+    print()
 
 
-def log_success(message: str) -> None:
+def print_step(step: int, total: int, message: str) -> None:
+    """Print a step indicator."""
+    print(f"\n{Colors.BOLD}[{step}/{total}]{Colors.RESET} {message}")
+
+
+def print_success(message: str) -> None:
     """Print a success message."""
-    print(f"{Colors.GREEN}[OK]{Colors.RESET} {message}")
+    print(f"      {Colors.GREEN}✓{Colors.RESET} {message}")
 
 
-def log_warning(message: str) -> None:
+def print_info(message: str) -> None:
+    """Print an info message."""
+    print(f"      {Colors.BLUE}ℹ{Colors.RESET} {message}")
+
+
+def print_warning(message: str) -> None:
     """Print a warning message."""
-    print(f"{Colors.YELLOW}[WARN]{Colors.RESET} {message}")
+    print(f"      {Colors.YELLOW}⚠{Colors.RESET} {message}")
 
 
-def log_error(message: str) -> None:
-    """Print an error message to stderr."""
-    print(f"{Colors.RED}[ERROR]{Colors.RESET} {message}", file=sys.stderr)
+def print_error(message: str) -> None:
+    """Print an error message."""
+    print(f"      {Colors.RED}✗{Colors.RESET} {message}", file=sys.stderr)
 
 
-def log_debug(message: str) -> None:
-    """Print a debug message (only in verbose mode)."""
-    if VERBOSE:
-        print(f"{Colors.BLUE}[DEBUG]{Colors.RESET} {message}")
+def print_detail(message: str) -> None:
+    """Print a detail/sub-item."""
+    print(f"        {Colors.DIM}{message}{Colors.RESET}")
 
 
 # =============================================================================
-# Utility Functions
+# Spinner for Long Operations
 # =============================================================================
 
 
-def run_command(
+class Spinner:
+    """A simple terminal spinner for long-running operations."""
+
+    CHARS = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+    def __init__(self, message: str):
+        self.message = message
+        self.spinning = False
+        self.thread: threading.Thread | None = None
+
+    def __enter__(self) -> Spinner:
+        if sys.stdout.isatty():
+            self.spinning = True
+            self.thread = threading.Thread(target=self._spin, daemon=True)
+            self.thread.start()
+        else:
+            print(f"      ... {self.message}")
+        return self
+
+    def __exit__(self, *args) -> None:
+        self.spinning = False
+        if self.thread:
+            self.thread.join(timeout=0.5)
+        if sys.stdout.isatty():
+            print(f"\r{' ' * (len(self.message) + 12)}\r", end="")
+
+    def _spin(self) -> None:
+        for char in itertools.cycle(self.CHARS):
+            if not self.spinning:
+                break
+            print(f"\r      {Colors.CYAN}{char}{Colors.RESET} {self.message}", end="", flush=True)
+            time.sleep(0.08)
+
+
+# =============================================================================
+# Command Execution
+# =============================================================================
+
+
+class CommandError(Exception):
+    """Raised when a command fails."""
+
+    def __init__(self, cmd: list[str], returncode: int, stderr: str):
+        self.cmd = cmd
+        self.returncode = returncode
+        self.stderr = stderr
+        super().__init__(f"Command failed: {' '.join(cmd)}")
+
+
+def run_cmd(
     cmd: list[str],
+    capture: bool = True,
     check: bool = True,
-    capture_output: bool = False,
-    env: dict | None = None,
-    user: str | None = None,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
-    """Run a command and handle errors."""
-    if user:
-        cmd = ["su", "-", user, "-c", " ".join(cmd)]
+    """Run a command and return the result."""
+    run_env = os.environ.copy()
+    if env:
+        run_env.update(env)
 
-    log_debug(f"Running: {' '.join(cmd)}")
-    try:
-        result = subprocess.run(
-            cmd,
-            check=check,
-            capture_output=capture_output,
-            text=True,
-            env=env,
-        )
-        return result
-    except subprocess.CalledProcessError as e:
-        log_error(f"Command failed: {' '.join(cmd)}")
-        if e.stdout:
-            log_error(f"stdout: {e.stdout}")
-        if e.stderr:
-            log_error(f"stderr: {e.stderr}")
-        raise
+    result = subprocess.run(
+        cmd,
+        capture_output=capture,
+        text=True,
+        env=run_env,
+    )
+
+    if check and result.returncode != 0:
+        raise CommandError(cmd, result.returncode, result.stderr or "")
+
+    return result
 
 
 def run_as_hop3(cmd: str) -> subprocess.CompletedProcess:
     """Run a command as the hop3 user."""
-    return run_command(["su", "-", HOP3_USER, "-c", cmd])
+    return run_cmd(["su", "-", HOP3_USER, "-c", cmd])
+
+
+def cmd_exists(cmd: str) -> bool:
+    """Check if a command exists in PATH."""
+    return shutil.which(cmd) is not None
+
+
+# =============================================================================
+# System Detection
+# =============================================================================
 
 
 def detect_distro() -> str:
-    """Detect the Linux distribution."""
-    # Check /etc/os-release
+    """Detect the Linux distribution. Returns 'debian', 'fedora', or 'unknown'."""
     os_release = Path("/etc/os-release")
     if os_release.exists():
         content = os_release.read_text()
-        if "debian" in content.lower() or "ubuntu" in content.lower():
+        if any(d in content.lower() for d in ["ubuntu", "debian", "mint", "pop"]):
             return "debian"
-        if (
-            "fedora" in content.lower()
-            or "rhel" in content.lower()
-            or "centos" in content.lower()
-        ):
+        if any(d in content.lower() for d in ["fedora", "rhel", "centos", "rocky", "alma"]):
             return "fedora"
         if "arch" in content.lower():
             return "arch"
-
-    # Fallback to checking package managers
-    if shutil.which("apt"):
-        return "debian"
-    if shutil.which("dnf"):
-        return "fedora"
-    if shutil.which("pacman"):
-        return "arch"
-
     return "unknown"
 
 
@@ -371,485 +314,323 @@ def group_exists(groupname: str) -> bool:
 # =============================================================================
 
 
-def check_root() -> None:
-    """Check if running as root."""
-    if os.geteuid() != 0:
-        log_error("This installer must be run as root.")
-        log_error("Please run with sudo:")
-        log_error("  sudo python install-server.py")
-        sys.exit(1)
-
-
-def check_existing_installation(force: bool) -> bool:
-    """Check if Hop3 Server is already installed.
-
-    Returns True if we should proceed with installation.
-    """
-    hop_server_bin = VENV_DIR / "bin" / "hop-server"
-    if hop_server_bin.exists():
-        if force:
-            log_info("Existing installation found. Forcing reinstall...")
-            return True
-        log_warning("Hop3 Server is already installed.")
-        log_info("Use --force to reinstall.")
-        return False
-    return True
-
-
-def install_system_dependencies(skip: bool) -> None:
-    """Install system dependencies using the appropriate package manager."""
+def install_system_deps(distro: str, skip: bool) -> None:
+    """Install system dependencies."""
     if skip:
-        log_info("Skipping system dependency installation (--skip-deps).")
+        print_info("Skipping system dependencies (--skip-deps)")
         return
-
-    distro = detect_distro()
-    log_info(f"Detected distribution: {distro}")
 
     if distro == "debian":
-        log_info("Installing Debian/Ubuntu packages...")
-        run_command(["apt", "update"], capture_output=not VERBOSE)
-        run_command(
-            ["apt", "install", "-y"] + DEBIAN_PACKAGES,
-            capture_output=not VERBOSE,
-        )
+        with Spinner("Updating package lists..."):
+            run_cmd(["apt-get", "update", "-qq"])
+        with Spinner("Installing packages (this may take a while)..."):
+            run_cmd(
+                ["apt-get", "install", "-y", "-qq"] + DEBIAN_PACKAGES,
+                env={"DEBIAN_FRONTEND": "noninteractive"},
+            )
+        print_success(f"Installed {len(DEBIAN_PACKAGES)} packages")
+
     elif distro == "fedora":
-        log_info("Installing Fedora/RHEL packages...")
-        run_command(
-            ["dnf", "install", "-y"] + FEDORA_PACKAGES,
-            capture_output=not VERBOSE,
-        )
-    elif distro == "arch":
-        log_info("Installing Arch Linux packages...")
-        run_command(
-            ["pacman", "-Sy", "--noconfirm"] + ARCH_PACKAGES,
-            capture_output=not VERBOSE,
-        )
+        with Spinner("Installing packages (this may take a while)..."):
+            run_cmd(["dnf", "install", "-y", "-q"] + FEDORA_PACKAGES)
+        print_success(f"Installed {len(FEDORA_PACKAGES)} packages")
+
     else:
-        log_warning(f"Unknown distribution: {distro}")
-        log_warning("Skipping automatic dependency installation.")
-        log_warning("Please install the required packages manually.")
-        return
-
-    log_success("System dependencies installed.")
+        print_warning(f"Unknown distro '{distro}', skipping package installation")
+        print_detail("You may need to install dependencies manually")
 
 
-def create_hop3_user() -> None:
+def create_user_and_group() -> None:
     """Create the hop3 user and group."""
-    # Create group if it doesn't exist
+    # Create group
     if not group_exists(HOP3_GROUP):
-        log_info(f"Creating group: {HOP3_GROUP}")
-        run_command(["groupadd", HOP3_GROUP])
+        run_cmd(["groupadd", HOP3_GROUP])
+        print_success(f"Created group: {HOP3_GROUP}")
     else:
-        log_debug(f"Group {HOP3_GROUP} already exists.")
+        print_info(f"Group {HOP3_GROUP} already exists")
 
-    # Create user if it doesn't exist
+    # Create user
     if not user_exists(HOP3_USER):
-        log_info(f"Creating user: {HOP3_USER}")
-        run_command([
-            "useradd",
-            "-m",
-            "-g",
-            HOP3_GROUP,
-            "-s",
-            "/bin/bash",
-            "-d",
-            str(HOME_DIR),
+        run_cmd([
+            "useradd", "-m",
+            "-g", HOP3_GROUP,
+            "-s", "/bin/bash",
+            "-d", str(HOME_DIR),
             HOP3_USER,
         ])
+        print_success(f"Created user: {HOP3_USER}")
     else:
-        log_debug(f"User {HOP3_USER} already exists.")
+        print_info(f"User {HOP3_USER} already exists")
 
     # Ensure home directory exists with correct permissions
     if not HOME_DIR.exists():
-        log_info(f"Creating home directory: {HOME_DIR}")
         HOME_DIR.mkdir(parents=True, exist_ok=True)
+        print_info(f"Created home directory: {HOME_DIR}")
 
-    # Set ownership and permissions
     hop3_uid = pwd.getpwnam(HOP3_USER).pw_uid
     hop3_gid = grp.getgrnam(HOP3_GROUP).gr_gid
     os.chown(HOME_DIR, hop3_uid, hop3_gid)
     os.chmod(HOME_DIR, 0o755)
 
-    # Add www-data to hop3 group (for nginx socket access)
+    # Add www-data to hop3 group
     if user_exists("www-data"):
-        log_info("Adding www-data to hop3 group...")
-        run_command(["usermod", "-a", "-G", HOP3_GROUP, "www-data"])
-
-    log_success("User and group configured.")
+        run_cmd(["usermod", "-a", "-G", HOP3_GROUP, "www-data"], check=False)
+        print_info("Added www-data to hop3 group")
 
 
 def create_virtual_environment() -> None:
-    """Create a Python virtual environment for hop3."""
-    log_info(f"Creating virtual environment: {VENV_DIR}")
-
+    """Create Python virtual environment."""
     if VENV_DIR.exists():
-        log_debug("Removing existing virtual environment...")
         shutil.rmtree(VENV_DIR)
 
-    # Create venv as hop3 user
-    run_as_hop3(f"python3 -m venv {VENV_DIR}")
+    with Spinner("Creating virtual environment..."):
+        run_as_hop3(f"python3 -m venv {VENV_DIR}")
 
-    log_success("Virtual environment created.")
+    print_success(f"Virtual environment created at {VENV_DIR}")
 
 
-def install_hop3_server(
-    version: str | None, use_git: bool, local_path: Path | None, branch: str
+def install_package(
+    version: str | None,
+    use_git: bool,
+    branch: str,
+    local_path: str | None,
+    verbose: bool,
 ) -> None:
-    """Install the hop3-server package into the virtual environment."""
-    pip_path = VENV_DIR / "bin" / "pip"
+    """Install the hop3-server package."""
+    pip = f"{VENV_DIR}/bin/pip"
 
-    # Upgrade pip first
-    log_info("Upgrading pip...")
-    run_as_hop3(f"{pip_path} install --upgrade pip")
-
-    # Install build backend if installing from source (needed for uv-build backend)
-    if use_git or local_path:
-        log_info("Installing build dependencies...")
-        run_as_hop3(f"{pip_path} install uv")
+    # Upgrade pip
+    with Spinner("Upgrading pip..."):
+        run_as_hop3(f"{pip} install --upgrade pip")
 
     # Determine what to install
     if local_path:
-        log_info(f"Installing hop3-server from local path: {local_path}")
-        package_spec = str(local_path)
+        package_spec = local_path
+        source_desc = f"local path ({local_path})"
     elif use_git:
-        git_url = f"git+{GIT_REPO}@{branch}#subdirectory={GIT_SUBDIR}"
-        log_info(f"Installing hop3-server from git ({branch} branch)...")
-        package_spec = git_url
+        with Spinner("Installing build tools..."):
+            run_as_hop3(f"{pip} install uv")
+        package_spec = f"git+{GIT_REPO}@{branch}#subdirectory={GIT_SUBDIR}"
+        source_desc = f"git ({branch} branch)"
     elif version:
-        log_info(f"Installing hop3-server version {version}...")
         package_spec = f"{PACKAGE_NAME}=={version}"
+        source_desc = f"PyPI (version {version})"
     else:
-        log_info("Installing hop3-server (latest version)...")
         package_spec = PACKAGE_NAME
+        source_desc = "PyPI (latest)"
 
-    # Install the package
-    try:
-        run_as_hop3(f"{pip_path} install '{package_spec}'")
-    except subprocess.CalledProcessError:
-        log_error("Failed to install hop3-server.")
-        if local_path:
-            log_error(f"Make sure the path exists and contains a valid package: {local_path}")
-        elif use_git:
-            log_error("Make sure git is installed and you have network access.")
-        else:
-            log_error("The package may not be available on PyPI yet.")
-            log_error("Try using --git to install from the git repository.")
-        sys.exit(1)
+    # Install
+    with Spinner(f"Installing hop3-server from {source_desc}..."):
+        run_as_hop3(f"{pip} install '{package_spec}'")
 
-    log_success("hop3-server installed successfully.")
+    print_success("hop3-server installed successfully")
 
 
 def run_hop3_setup() -> None:
-    """Run hop3 setup to initialize directories and configuration."""
-    log_info("Running hop3 setup...")
+    """Run hop3 setup command."""
+    hop_server = f"{VENV_DIR}/bin/hop-server"
 
-    hop_server = VENV_DIR / "bin" / "hop-server"
-    run_as_hop3(f"{hop_server} setup")
+    with Spinner("Running initial setup..."):
+        run_as_hop3(f"{hop_server} setup")
 
-    log_success("Hop3 setup complete.")
+    print_success("Hop3 initial setup complete")
 
 
 def setup_ssh_keys() -> None:
-    """Copy root's SSH authorized_keys to hop3 user."""
-    log_info("Setting up SSH keys...")
-
+    """Copy root SSH keys to hop3 user if available."""
     root_keys = Path("/root/.ssh/authorized_keys")
+
     if not root_keys.exists():
-        log_warning("No root SSH keys found. Skipping SSH setup.")
-        log_warning("You'll need to add SSH keys manually later.")
+        print_info("No root SSH keys found, skipping")
         return
 
-    # Check if the file has valid content
     content = root_keys.read_text().strip()
     if not content:
-        log_warning("Root SSH authorized_keys file is empty. Skipping SSH setup.")
-        log_warning("You'll need to add SSH keys manually later.")
+        print_info("Root SSH keys file is empty, skipping")
         return
 
-    hop_server = VENV_DIR / "bin" / "hop-server"
-
-    # Copy keys to temp location
+    hop_server = f"{VENV_DIR}/bin/hop-server"
     temp_keys = Path("/tmp/root_authorized_keys")
-    shutil.copy2(root_keys, temp_keys)
-    os.chown(
-        temp_keys, pwd.getpwnam(HOP3_USER).pw_uid, grp.getgrnam(HOP3_GROUP).gr_gid
-    )
 
-    # Run setup:ssh (may fail if keys are invalid)
     try:
+        # Copy keys to temp location
+        shutil.copy2(root_keys, temp_keys)
+        hop3_uid = pwd.getpwnam(HOP3_USER).pw_uid
+        hop3_gid = grp.getgrnam(HOP3_GROUP).gr_gid
+        os.chown(temp_keys, hop3_uid, hop3_gid)
+
+        # Run setup:ssh
         run_as_hop3(f"{hop_server} setup:ssh {temp_keys}")
-        log_success("SSH keys configured.")
-    except subprocess.CalledProcessError:
-        log_warning("Failed to configure SSH keys (invalid key format?).")
-        log_warning("You'll need to add SSH keys manually later.")
+        print_success("SSH keys configured")
+    except CommandError:
+        print_warning("Could not configure SSH keys (invalid format?)")
     finally:
-        # Clean up
         if temp_keys.exists():
             temp_keys.unlink()
 
 
-def setup_systemd_services() -> None:
+def setup_systemd() -> None:
     """Install and enable systemd services."""
-    log_info("Setting up systemd services...")
-
     # Hop3 server service
     service_path = Path("/etc/systemd/system/hop3-server.service")
     service_path.write_text(SYSTEMD_UNIT)
-    log_debug(f"Created {service_path}")
 
     # uWSGI service
-    uwsgi_service_path = Path("/etc/systemd/system/uwsgi-hop3.service")
-    uwsgi_service_path.write_text(UWSGI_UNIT)
-    log_debug(f"Created {uwsgi_service_path}")
+    uwsgi_path = Path("/etc/systemd/system/uwsgi-hop3.service")
+    uwsgi_path.write_text(UWSGI_UNIT)
 
-    # Create uwsgi symlink
-    uwsgi_bin = Path("/usr/local/bin/uwsgi-hop3")
-    if not uwsgi_bin.exists():
-        uwsgi_source = Path("/usr/bin/uwsgi")
-        if uwsgi_source.exists():
-            uwsgi_bin.symlink_to(uwsgi_source)
+    # Reload and enable
+    run_cmd(["systemctl", "daemon-reload"])
+    run_cmd(["systemctl", "enable", "hop3-server"], check=False)
+    run_cmd(["systemctl", "enable", "uwsgi-hop3"], check=False)
+    run_cmd(["systemctl", "start", "hop3-server"], check=False)
 
-    # Reload systemd
-    run_command(["systemctl", "daemon-reload"])
-
-    # Enable and start hop3-server
-    run_command(["systemctl", "enable", "hop3-server"])
-    run_command(["systemctl", "start", "hop3-server"])
-
-    # Enable uwsgi-hop3 (don't start yet, no apps)
-    run_command(["systemctl", "enable", "uwsgi-hop3"])
-
-    log_success("Systemd services configured.")
+    print_success("Systemd services configured")
 
 
 def setup_nginx(skip: bool) -> None:
-    """Configure nginx as reverse proxy."""
+    """Configure nginx."""
     if skip:
-        log_info("Skipping nginx setup (--skip-nginx).")
+        print_info("Skipping nginx setup (--skip-nginx)")
         return
 
-    log_info("Setting up nginx...")
-
-    # Restart nginx to pick up any changes
-    run_command(["systemctl", "enable", "nginx"])
-    run_command(["systemctl", "restart", "nginx"])
-
-    log_success("Nginx configured.")
+    run_cmd(["systemctl", "enable", "nginx"], check=False)
+    run_cmd(["systemctl", "start", "nginx"], check=False)
+    print_success("Nginx enabled and started")
 
 
-def setup_postgres(skip: bool) -> None:
-    """Set up PostgreSQL database and user."""
+def setup_postgres(skip: bool, distro: str) -> None:
+    """Configure PostgreSQL."""
     if skip:
-        log_info("Skipping PostgreSQL setup (--skip-postgres).")
+        print_info("Skipping PostgreSQL setup (--skip-postgres)")
         return
 
-    log_info("Setting up PostgreSQL...")
-
-    distro = detect_distro()
-
-    # Initialize PostgreSQL on Fedora/RHEL if needed
+    # Initialize PostgreSQL on Fedora
     if distro == "fedora":
-        data_dir = Path("/var/lib/pgsql/data")
-        if not data_dir.exists() or not any(data_dir.iterdir()):
-            log_info("Initializing PostgreSQL database...")
-            run_command(["postgresql-setup", "--initdb"], check=False)
+        if not Path("/var/lib/pgsql/data/pg_hba.conf").exists():
+            run_cmd(["postgresql-setup", "--initdb"], check=False)
 
-    # Start and enable PostgreSQL
-    run_command(["systemctl", "enable", "postgresql"])
-    run_command(["systemctl", "start", "postgresql"])
+    run_cmd(["systemctl", "enable", "postgresql"], check=False)
+    run_cmd(["systemctl", "start", "postgresql"], check=False)
 
-    # Generate secure password
-    db_password = secrets.token_urlsafe(32)
-
-    # Store password in secure file
-    password_file = HOME_DIR / ".hop3_postgres_password"
-    password_file.write_text(db_password)
-    os.chmod(password_file, 0o600)
-    os.chown(
-        password_file, pwd.getpwnam(HOP3_USER).pw_uid, grp.getgrnam(HOP3_GROUP).gr_gid
-    )
-
-    # Create PostgreSQL role and database
+    # Create role and database
     try:
-        # Check if role exists
-        result = run_command(
-            [
-                "su",
-                "-",
-                "postgres",
-                "-c",
-                f"psql -tAc \"SELECT 1 FROM pg_roles WHERE rolname='{HOP3_USER}'\"",
-            ],
-            capture_output=True,
+        run_cmd(
+            ["su", "-", "postgres", "-c", f"createuser --createdb {HOP3_USER}"],
             check=False,
         )
-
-        if "1" not in (result.stdout or ""):
-            log_info("Creating PostgreSQL role...")
-            run_command([
-                "su",
-                "-",
-                "postgres",
-                "-c",
-                f"psql -c \"CREATE ROLE {HOP3_USER} WITH LOGIN SUPERUSER PASSWORD '{db_password}'\"",
-            ])
-
-        # Check if database exists
-        result = run_command(
-            [
-                "su",
-                "-",
-                "postgres",
-                "-c",
-                f"psql -tAc \"SELECT 1 FROM pg_database WHERE datname='{HOP3_USER}'\"",
-            ],
-            capture_output=True,
+        run_cmd(
+            ["su", "-", "postgres", "-c", f"createdb -O {HOP3_USER} hop3"],
             check=False,
         )
-
-        if "1" not in (result.stdout or ""):
-            log_info("Creating PostgreSQL database...")
-            run_command([
-                "su",
-                "-",
-                "postgres",
-                "-c",
-                f'psql -c "CREATE DATABASE {HOP3_USER} OWNER {HOP3_USER}"',
-            ])
-
-    except subprocess.CalledProcessError as e:
-        log_warning(f"PostgreSQL setup encountered an error: {e}")
-        log_warning("You may need to configure PostgreSQL manually.")
-
-    log_success("PostgreSQL configured.")
+        print_success("PostgreSQL role and database created")
+    except CommandError:
+        print_info("PostgreSQL role/database may already exist")
 
 
-def setup_acme() -> None:
-    """Install acme.sh for Let's Encrypt certificates."""
-    log_info("Setting up ACME/Let's Encrypt...")
+def setup_acme(skip: bool) -> None:
+    """Install acme.sh for Let's Encrypt."""
+    if skip:
+        print_info("Skipping ACME setup (--skip-acme)")
+        return
 
     acme_sh = HOME_DIR / ".acme.sh" / "acme.sh"
+
     if acme_sh.exists():
-        log_debug("acme.sh already installed, upgrading...")
-        run_as_hop3(f"bash {acme_sh} --upgrade")
-    else:
-        log_info("Installing acme.sh...")
-        # Download and install (must run from the directory containing acme.sh)
+        print_info("acme.sh already installed")
+        return
+
+    with Spinner("Installing acme.sh..."):
+        # Download
         run_as_hop3(
             "curl -fsSL https://raw.githubusercontent.com/Neilpang/acme.sh/master/acme.sh -o /tmp/acme.sh"
         )
+        # Install (must run from /tmp)
         run_as_hop3("cd /tmp && bash acme.sh --install")
-        run_command(["rm", "-f", "/tmp/acme.sh"])
+        run_cmd(["rm", "-f", "/tmp/acme.sh"])
 
-    # Set default CA to Let's Encrypt
-    run_as_hop3(
-        f"bash {HOME_DIR}/.acme.sh/acme.sh --set-default-ca --server letsencrypt"
-    )
-
-    log_success("ACME/Let's Encrypt configured.")
+    # Set default CA
+    if acme_sh.exists():
+        run_as_hop3(f"bash {acme_sh} --set-default-ca --server letsencrypt")
+        print_success("acme.sh installed and configured")
+    else:
+        print_warning("acme.sh installation may have failed")
 
 
 def verify_installation() -> bool:
-    """Verify that the installation was successful."""
-    log_info("Verifying installation...")
-
+    """Verify the installation."""
     hop_server = VENV_DIR / "bin" / "hop-server"
+
     if not hop_server.exists():
-        log_error("hop-server command not found in virtual environment.")
+        print_error("hop-server not found")
         return False
 
-    # Check if service is running
-    result = run_command(
-        ["systemctl", "is-active", "hop3-server"],
-        capture_output=True,
-        check=False,
-    )
-
+    # Check service status
+    result = run_cmd(["systemctl", "is-active", "hop3-server"], capture=True, check=False)
     if result.stdout.strip() == "active":
-        log_success("Hop3 server is running.")
-        return True
-    log_warning("Hop3 server service is not running.")
-    log_warning("Check with: sudo systemctl status hop3-server")
-    return True  # Still consider installation successful
+        print_success("hop3-server service is running")
+    else:
+        print_warning("hop3-server service is not running")
+        print_detail("Check with: sudo systemctl status hop3-server")
+
+    return True
 
 
-def print_success_message() -> None:
+def print_final_message() -> None:
     """Print success message with next steps."""
     print()
-    print(
-        f"{Colors.GREEN}{Colors.BOLD}Hop3 Server installed successfully!{Colors.RESET}"
-    )
+    print(f"{Colors.GREEN}{Colors.BOLD}Installation complete!{Colors.RESET}")
     print()
-    print("Installation locations:")
-    print(f"  - Home directory: {HOME_DIR}")
-    print(f"  - Virtual environment: {VENV_DIR}")
-    print(f"  - Server binary: {VENV_DIR}/bin/hop-server")
+    print(f"  {Colors.BOLD}User:{Colors.RESET}      {HOP3_USER}")
+    print(f"  {Colors.BOLD}Home:{Colors.RESET}      {HOME_DIR}")
+    print(f"  {Colors.BOLD}Venv:{Colors.RESET}      {VENV_DIR}")
     print()
-    print("Services:")
-    print("  - hop3-server.service  (main server)")
-    print("  - uwsgi-hop3.service   (uWSGI emperor)")
+    print(f"  {Colors.BOLD}Services:{Colors.RESET}")
+    print("    sudo systemctl status hop3-server")
+    print("    sudo systemctl status uwsgi-hop3")
     print()
-    print("Useful commands:")
-    print("  sudo systemctl status hop3-server    Check server status")
-    print("  sudo systemctl restart hop3-server   Restart server")
-    print("  sudo journalctl -u hop3-server -f    View server logs")
+    print(f"  {Colors.BOLD}Next steps:{Colors.RESET}")
+    print("    1. Add your SSH key:  ssh-copy-id hop3@your-server")
+    print("    2. Deploy an app:     hop3 deploy your-app.git")
     print()
-    print("Next steps:")
-    print("  1. Configure your domain's DNS to point to this server")
-    print("  2. Add SSH keys for users who will deploy apps")
-    print("  3. Deploy your first app!")
-    print()
-
-
-def print_uninstall_instructions() -> None:
-    """Print uninstall instructions."""
-    print(f"{Colors.BOLD}To uninstall Hop3 Server:{Colors.RESET}")
-    print("  sudo systemctl stop hop3-server uwsgi-hop3")
-    print("  sudo systemctl disable hop3-server uwsgi-hop3")
-    print("  sudo userdel -r hop3")
-    print("  sudo rm -f /etc/systemd/system/hop3-server.service")
-    print("  sudo rm -f /etc/systemd/system/uwsgi-hop3.service")
-    print("  sudo systemctl daemon-reload")
-    print("  # Optionally remove nginx configs and PostgreSQL database")
+    print(f"  {Colors.BOLD}Logs:{Colors.RESET}")
+    print("    sudo journalctl -u hop3-server -f")
     print()
 
 
 # =============================================================================
-# Argument Parsing
+# CLI Argument Parsing
 # =============================================================================
 
 
-def parse_arguments() -> argparse.Namespace:
-    """Parse command-line arguments."""
+def create_parser() -> argparse.ArgumentParser:
+    """Create the argument parser."""
     parser = argparse.ArgumentParser(
-        description="Install the Hop3 Server.",
+        prog="install-server.py",
+        description="Install the Hop3 Server. Must be run as root.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  sudo python install-server.py                    Install latest version
-  sudo python install-server.py --git              Install from git (main branch)
-  sudo python install-server.py --version 0.4.0   Install specific version
-  sudo python install-server.py --skip-postgres   Skip PostgreSQL setup
-        """,
-    )
+  sudo python3 install-server.py                  Install latest from PyPI
+  sudo python3 install-server.py --git            Install from git (main branch)
+  sudo python3 install-server.py --git --branch x Install from git (x branch)
+  sudo python3 install-server.py --skip-postgres  Skip PostgreSQL setup
 
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        default=os.environ.get("HOP3_FORCE_REINSTALL", "").lower() in ("1", "true"),
-        help="Force reinstall even if already installed",
-    )
-
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        default=os.environ.get("HOP3_VERBOSE", "").lower() in ("1", "true"),
-        help="Enable verbose output",
+Environment Variables:
+  HOP3_VERSION          Install specific version
+  HOP3_GIT              Install from git (1 or true)
+  HOP3_BRANCH           Git branch (default: main)
+  HOP3_LOCAL_PACKAGE    Install from local path
+  HOP3_SKIP_DEPS        Skip system dependencies
+  HOP3_SKIP_NGINX       Skip nginx setup
+  HOP3_SKIP_POSTGRES    Skip PostgreSQL setup
+  HOP3_SKIP_ACME        Skip ACME/Let's Encrypt setup
+""",
     )
 
     parser.add_argument(
         "--version",
-        type=str,
+        metavar="VERSION",
         default=os.environ.get("HOP3_VERSION"),
         help="Install a specific version (e.g., 0.4.0)",
     )
@@ -863,16 +644,23 @@ Examples:
 
     parser.add_argument(
         "--branch",
-        type=str,
+        metavar="BRANCH",
         default=os.environ.get("HOP3_BRANCH", DEFAULT_BRANCH),
         help=f"Git branch to install from (default: {DEFAULT_BRANCH})",
     )
 
     parser.add_argument(
         "--local-path",
-        type=Path,
+        metavar="PATH",
         default=os.environ.get("HOP3_LOCAL_PACKAGE"),
-        help="Install from a local directory (e.g., /vagrant/packages/hop3-server)",
+        help="Install from a local directory",
+    )
+
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        default=os.environ.get("HOP3_FORCE", "").lower() in ("1", "true"),
+        help="Force reinstall even if already installed",
     )
 
     parser.add_argument(
@@ -896,7 +684,21 @@ Examples:
         help="Skip PostgreSQL setup",
     )
 
-    return parser.parse_args()
+    parser.add_argument(
+        "--skip-acme",
+        action="store_true",
+        default=os.environ.get("HOP3_SKIP_ACME", "").lower() in ("1", "true"),
+        help="Skip ACME/Let's Encrypt setup",
+    )
+
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        default=os.environ.get("HOP3_VERBOSE", "").lower() in ("1", "true"),
+        help="Show verbose output",
+    )
+
+    return parser
 
 
 # =============================================================================
@@ -904,42 +706,122 @@ Examples:
 # =============================================================================
 
 
-def main() -> None:
-    """Main entry point."""
-    global VERBOSE
+def main() -> int:
+    """Main entry point. Returns exit code."""
+    parser = create_parser()
+    args = parser.parse_args()
 
-    args = parse_arguments()
-    VERBOSE = args.verbose
+    # Header
+    print_header("Hop3 Server Installer")
 
-    print()
-    print(f"{Colors.BOLD}Hop3 Server Installer{Colors.RESET}")
-    print("=" * 40)
-    print()
+    # Check root
+    if os.geteuid() != 0:
+        print_error("This installer must be run as root")
+        print_detail("Use: sudo python3 install-server.py")
+        return 1
 
-    # Pre-flight checks
-    check_root()
+    # Detect distro
+    distro = detect_distro()
+    print_info(f"Detected distribution: {distro}")
 
-    if not check_existing_installation(args.force):
-        sys.exit(0)
+    total_steps = 10
 
-    # Run installation steps
-    install_system_dependencies(args.skip_deps)
-    create_hop3_user()
-    create_virtual_environment()
-    install_hop3_server(args.version, args.git, args.local_path, args.branch)
-    run_hop3_setup()
+    # Step 1: System dependencies
+    print_step(1, total_steps, "Installing system dependencies...")
+    try:
+        install_system_deps(distro, args.skip_deps)
+    except CommandError as e:
+        print_error(f"Failed to install dependencies: {e.stderr[:200]}")
+        return 1
+
+    # Step 2: Create user
+    print_step(2, total_steps, "Creating hop3 user and group...")
+    try:
+        create_user_and_group()
+    except CommandError as e:
+        print_error(f"Failed to create user: {e.stderr}")
+        return 1
+
+    # Step 3: Virtual environment
+    print_step(3, total_steps, "Creating virtual environment...")
+    try:
+        create_virtual_environment()
+    except CommandError as e:
+        print_error(f"Failed to create venv: {e.stderr}")
+        return 1
+
+    # Step 4: Install package
+    print_step(4, total_steps, "Installing hop3-server...")
+    try:
+        install_package(
+            version=args.version,
+            use_git=args.git,
+            branch=args.branch,
+            local_path=args.local_path,
+            verbose=args.verbose,
+        )
+    except CommandError as e:
+        print_error("Failed to install hop3-server")
+        if args.verbose:
+            print_detail(e.stderr[:500])
+        return 1
+
+    # Step 5: Run setup
+    print_step(5, total_steps, "Running initial setup...")
+    try:
+        run_hop3_setup()
+    except CommandError as e:
+        print_error(f"Setup failed: {e.stderr[:200]}")
+        return 1
+
+    # Step 6: SSH keys
+    print_step(6, total_steps, "Configuring SSH keys...")
     setup_ssh_keys()
-    setup_systemd_services()
-    setup_nginx(args.skip_nginx)
-    setup_postgres(args.skip_postgres)
-    setup_acme()
 
-    # Verify and report
+    # Step 7: Systemd
+    print_step(7, total_steps, "Setting up systemd services...")
+    try:
+        setup_systemd()
+    except CommandError as e:
+        print_warning(f"Systemd setup issue: {e.stderr[:100]}")
+
+    # Step 8: Nginx
+    print_step(8, total_steps, "Configuring nginx...")
+    try:
+        setup_nginx(args.skip_nginx)
+    except CommandError as e:
+        print_warning(f"Nginx setup issue: {e.stderr[:100]}")
+
+    # Step 9: PostgreSQL
+    print_step(9, total_steps, "Configuring PostgreSQL...")
+    try:
+        setup_postgres(args.skip_postgres, distro)
+    except CommandError as e:
+        print_warning(f"PostgreSQL setup issue: {e.stderr[:100]}")
+
+    # Step 10: ACME
+    print_step(10, total_steps, "Setting up ACME/Let's Encrypt...")
+    try:
+        setup_acme(args.skip_acme)
+    except CommandError as e:
+        print_warning(f"ACME setup issue: {e.stderr[:100]}")
+
+    # Verify
+    print()
     verify_installation()
 
-    print_success_message()
-    print_uninstall_instructions()
+    # Success
+    print_final_message()
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("\n\nInstallation cancelled.")
+        sys.exit(130)
+    except Exception as e:
+        print(f"\n{Colors.RED}Error:{Colors.RESET} {e}", file=sys.stderr)
+        sys.exit(1)
