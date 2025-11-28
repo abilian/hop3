@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dishka import Provider
 
-from hop3.core.protocols import OS, Addon, Builder, Deployer, Proxy
+from hop3.core.protocols import OS, Addon, Builder, Deployer, LanguageToolchain, Proxy
 
 from .hooks import hookspec
 
@@ -21,7 +21,19 @@ def get_builders() -> list[Builder]:  # type: ignore[empty-body]
     """Get builders provided by this plugin.
 
     Returns:
-        List of Builders classes
+        List of Builder classes (Level 1: orchestration strategies)
+    """
+
+
+@hookspec
+def get_language_toolchains() -> list[LanguageToolchain]:  # type: ignore[empty-body]
+    """Get language-specific toolchains provided by this plugin.
+
+    Language toolchains are used by LocalBuilder to build applications
+    in specific programming languages (Python, Node, Java, etc.).
+
+    Returns:
+        List of LanguageToolchain classes for building language-specific projects.
     """
 
 
