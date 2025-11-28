@@ -4,11 +4,11 @@ from __future__ import annotations
 import pytest
 
 from hop3.builders import (
-    ClojureBuilder,
-    NodeBuilder,
-    PythonBuilder,
-    RubyBuilder,
-    RustBuilder,
+    ClojureToolchain,
+    NodeToolchain,
+    PythonToolchain,
+    RubyToolchain,
+    RustToolchain,
 )
 
 
@@ -19,35 +19,35 @@ def app_path(tmp_path):
     return app_path
 
 
-def test_python_builder(app_path):
+def test_python_toolchain(app_path):
     (app_path / "src" / "requirements.txt").write_text("flask")
-    builder = PythonBuilder("myapp", app_path)
-    assert builder.accept()
+    toolchain = PythonToolchain("myapp", app_path)
+    assert toolchain.accept()
 
 
-def test_node_builder(app_path):
+def test_node_toolchain(app_path):
     (app_path / "src" / "package.json").write_text("{}")
-    builder = NodeBuilder("myapp", app_path)
-    assert builder.accept()
+    toolchain = NodeToolchain("myapp", app_path)
+    assert toolchain.accept()
 
 
-def test_rust_builder(app_path):
+def test_rust_toolchain(app_path):
     (app_path / "src" / "Cargo.toml").write_text("[package]\nname = 'myapp'")
-    builder = RustBuilder("myapp", app_path)
-    assert builder.accept()
+    toolchain = RustToolchain("myapp", app_path)
+    assert toolchain.accept()
 
 
-def test_ruby_builder(app_path):
+def test_ruby_toolchain(app_path):
     (app_path / "src" / "Gemfile").write_text(
         "source 'https://rubygems.org'\ngem 'sinatra'"
     )
-    builder = RubyBuilder("myapp", app_path)
-    assert builder.accept()
+    toolchain = RubyToolchain("myapp", app_path)
+    assert toolchain.accept()
 
 
-def test_clojure_builder(app_path):
+def test_clojure_toolchain(app_path):
     (app_path / "src" / "deps.edn").write_text(
         '{:deps {org.clojure/clojure {:mvn/version "1.10.1"}}}'
     )
-    builder = ClojureBuilder("myapp", app_path)
-    assert builder.accept()
+    toolchain = ClojureToolchain("myapp", app_path)
+    assert toolchain.accept()

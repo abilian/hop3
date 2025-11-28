@@ -1,7 +1,7 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Builder for PHP projects."""
+"""Language toolchain for PHP projects."""
 
 from __future__ import annotations
 
@@ -12,14 +12,14 @@ from hop3.core.events import InstallingDependencies, PreparingBuildEnv, emit
 from hop3.core.protocols import BuildArtifact
 from hop3.lib import chdir, shell
 
-from ._base import Builder
+from ._base import LanguageToolchain
 
 if TYPE_CHECKING:
     from hop3.core.env import Env
 
 
-class PHPBuilder(Builder):
-    """Build PHP projects using composer.
+class PHPToolchain(LanguageToolchain):
+    """Language toolchain for PHP projects using composer.
 
     This provides methods to check for PHP project configurations,
     prepare the environment, and install necessary project dependencies

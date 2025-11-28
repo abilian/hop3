@@ -1,17 +1,17 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Builder for Go projects."""
+"""Language toolchain for Go projects."""
 
 from __future__ import annotations
 
 from hop3.core.protocols import BuildArtifact
 
-from ._base import Builder
+from ._base import LanguageToolchain
 
 
-class GoBuilder(Builder):
-    """Builds Go projects.
+class GoToolchain(LanguageToolchain):
+    """Language toolchain for Go projects.
 
     This is responsible for building Go projects by checking for Go
     dependencies or source files and then executing the necessary build

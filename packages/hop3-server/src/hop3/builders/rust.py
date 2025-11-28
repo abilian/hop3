@@ -1,7 +1,7 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Builder for Rust projects."""
+"""Language toolchain for Rust projects."""
 
 from __future__ import annotations
 
@@ -12,14 +12,14 @@ from hop3.core.events import CompilingProject, CreatingBuildEnv, emit
 from hop3.core.protocols import BuildArtifact
 from hop3.lib import chdir
 
-from ._base import Builder
+from ._base import LanguageToolchain
 
 if TYPE_CHECKING:
     from hop3.core.env import Env
 
 
-class RustBuilder(Builder):
-    """A class representing a Rust builder, a type of Builder."""
+class RustToolchain(LanguageToolchain):
+    """Language toolchain for Rust projects."""
 
     name = "Rust"
     requirements = ["cargo"]  # noqa: RUF012

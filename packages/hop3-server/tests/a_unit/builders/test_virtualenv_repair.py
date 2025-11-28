@@ -9,7 +9,7 @@ import subprocess
 import time
 from typing import TYPE_CHECKING
 
-from hop3.builders.python import PythonBuilder
+from hop3.builders.python import PythonToolchain
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -35,14 +35,14 @@ def test_broken_virtualenv_is_recreated(tmp_path: Path, monkeypatch):
     assert venv_bin.exists()
     assert not python_link.exists()  # Broken symlink
 
-    # Create builder
-    builder = PythonBuilder("test-app", tmp_path)
+    # Create toolchain
+    toolchain = PythonToolchain("test-app", tmp_path)
 
-    # Change to the source directory (required by builder)
+    # Change to the source directory (required by toolchain)
     monkeypatch.chdir(src_dir)
 
     # Call make_virtual_env - should detect and fix broken virtualenv
-    builder.make_virtual_env()
+    toolchain.make_virtual_env()
 
     # Verify the virtualenv was recreated with working Python
     assert python_link.exists()
@@ -65,14 +65,14 @@ def test_working_virtualenv_is_not_recreated(tmp_path: Path, monkeypatch):
     src_dir.mkdir()
     (src_dir / "requirements.txt").write_text("flask==2.0.0\n")
 
-    # Create builder
-    builder = PythonBuilder("test-app", tmp_path)
+    # Create toolchain
+    toolchain = PythonToolchain("test-app", tmp_path)
 
     # Change to the source directory
     monkeypatch.chdir(src_dir)
 
     # Create virtualenv first time
-    builder.make_virtual_env()
+    toolchain.make_virtual_env()
 
     # Get the creation time
     python_link = tmp_path / "venv" / "bin" / "python"
@@ -81,7 +81,7 @@ def test_working_virtualenv_is_not_recreated(tmp_path: Path, monkeypatch):
     # Call make_virtual_env again - should NOT recreate
 
     time.sleep(0.1)  # Ensure time difference would be detectable
-    builder.make_virtual_env()
+    toolchain.make_virtual_env()
 
     # Verify it wasn't recreated (same inode/creation time)
     stat2 = python_link.stat()

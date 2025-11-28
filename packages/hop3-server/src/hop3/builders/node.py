@@ -2,7 +2,7 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Builder for Node projects."""
+"""Language toolchain for Node projects."""
 
 from __future__ import annotations
 
@@ -14,11 +14,11 @@ from hop3.core.events import InstallingVirtualEnv, emit
 from hop3.core.protocols import BuildArtifact
 from hop3.lib import Abort, chdir, check_binaries, log, prepend_to_path
 
-from ._base import Builder
+from ._base import LanguageToolchain
 
 
-class NodeBuilder(Builder):
-    """A builder class for creating Node projects."""
+class NodeToolchain(LanguageToolchain):
+    """Language toolchain for Node projects."""
 
     name = "Node"
     requirements = ["node", "npm"]  # noqa: RUF012

@@ -98,13 +98,23 @@ public = true
 
 With your application code and configuration ready, you can now deploy it.
 
-1.  **Log in to your Hop3 Server:**
-    Open your terminal and use the `hop3 login` command. Replace `hop3.example.com` with your server's hostname.
+1.  **Configure your CLI (first time only):**
+
+    If this is your first time using Hop3, you need to create an admin user and configure your CLI. The easiest way is:
 
     ```bash
-    hop3 login --server hop3.example.com
-    # You will be prompted for your credentials.
+    hop3 init --ssh root@hop3.example.com
     ```
+
+    This will prompt you for admin credentials and automatically save your API token.
+
+    If you've already set up the server and just need to configure a new machine:
+
+    ```bash
+    hop3 login --ssh root@hop3.example.com
+    ```
+
+    See the [Installation Guide](./installation.md) for detailed setup instructions.
 
 2.  **Deploy the Application:**
     From inside your `hello-hop3` project directory, run the deploy command:

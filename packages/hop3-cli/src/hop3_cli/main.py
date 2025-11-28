@@ -38,6 +38,7 @@ from .client import Client
 from .config import Config, get_config
 from .console import err
 from .flags import parse_flags
+from .local_commands import handle_local_command, is_local_command
 from .prompts import confirm, show_destructive_warning, type_to_confirm
 from .rich_printer import RichPrinter
 from .types import JsonDict
@@ -67,6 +68,13 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     if not cli_args:
         cli_args = ["help"]
+
+    # Handle local commands (init, config) that don't need server
+    # Check BEFORE help flag conversion so "init --help" works
+    if is_local_command(cli_args):
+        handled = handle_local_command(cli_args, config, printer)
+        if handled:
+            return
 
     # Handle --help and -h flags
     # Convert "hop --help" to "hop help"
