@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from attrs import field, mutable
 
-from hop3.builders import BUILDER_CLASSES
+from hop3.builders import TOOLCHAIN_CLASSES
 from hop3.lib import Abort, chdir, check_binaries, log, shell
 from hop3.project.config import AppConfig
 from hop3.run.spawn import spawn_app
@@ -140,13 +140,13 @@ class Deployer:
         workers = self.workers
         builder_detected = False
 
-        # Iterate through builder classes to find one that can handle the application
-        for builder_class in BUILDER_CLASSES:
-            builder = builder_class(self.app_name)
-            if builder.accept():
-                assert check_binaries(builder.requirements)
-                log(f"{builder.name} app detected.", level=3, fg="green")
-                builder.build()
+        # Iterate through toolchain classes to find one that can handle the application
+        for toolchain_class in TOOLCHAIN_CLASSES:
+            toolchain = toolchain_class(self.app_name)
+            if toolchain.accept():
+                assert check_binaries(toolchain.requirements)
+                log(f"{toolchain.name} app detected.", level=3, fg="green")
+                toolchain.build()
                 builder_detected = True
 
         # Check if specific worker combinations imply a generic or static app

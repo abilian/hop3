@@ -2,7 +2,7 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Builder for Clojure projects."""
+"""Language toolchain for Clojure projects."""
 
 from __future__ import annotations
 
@@ -14,11 +14,11 @@ from hop3.core.events import BuildEvent, CreatingVirtualEnv, emit
 from hop3.core.protocols import BuildArtifact
 from hop3.lib import log, prepend_to_path
 
-from ._base import Builder
+from ._base import LanguageToolchain
 
 
-class ClojureBuilder(Builder):
-    """Builds Clojure projects (with either Leiningen or CLI).
+class ClojureToolchain(LanguageToolchain):
+    """Language toolchain for Clojure projects (with either Leiningen or CLI).
 
     This provides methods to build Clojure projects by determining if
     the project is a Leiningen app or a CLI Clojure app, setting up the

@@ -2,7 +2,7 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Base class for builders."""
+"""Base class for language toolchains."""
 
 from __future__ import annotations
 
@@ -11,27 +11,26 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hop3 import config as c
 from hop3.core.env import Env
-from hop3.core.protocols import BuildArtifact
+from hop3.core.protocols import BuildArtifact, BuildContext
 from hop3.lib import shell
 
 if TYPE_CHECKING:
     import subprocess
     from pathlib import Path
 
-    from hop3.core.protocols import DeploymentContext
 
+class LanguageToolchain(ABC):
+    """A language-specific build toolchain.
 
-class Builder(ABC):
-    """A builder for an application.
-
-    This abstract base class provides a framework for building applications. It defines
-    properties and methods that are common to all builders, such as checking for file
+    This abstract base class provides a framework for building applications in
+    specific programming languages (Python, Node, Java, etc.). It defines
+    properties and methods that are common to all toolchains, such as checking for file
     existence in a given path and executing shell commands. Subclasses must implement
     the abstract methods to provide specific behavior for accepting input and building
     the application.
 
-    Supports both legacy initialization (app_name string) and new plugin system
-    (DeploymentContext object).
+    LanguageToolchains are used by LocalBuilder to build applications. Other builders
+    (DockerBuilder, NixBuilder) do not use toolchains.
 
     Attributes
     ----------
@@ -39,50 +38,45 @@ class Builder(ABC):
         The name of the application.
     app_path : Path
         The path to the application directory.
-    context : DeploymentContext | None
-        The deployment context (only set when using new plugin system).
+    context : BuildContext
+        The build context.
     name : ClassVar[str]
-        Class-level attribute representing the name of the builder.
+        Class-level attribute representing the name of the toolchain.
     requirements : ClassVar[list[str]]
-        Class-level attribute representing the list of requirements for the builder.
+        Class-level attribute representing the list of requirements for the toolchain.
     """
 
     app_name: str
     app_path: Path
-    context: DeploymentContext | None
+    context: BuildContext
 
-    # Class attitutes
+    # Class attributes
     name: ClassVar[str]
     requirements: ClassVar[list[str]]
 
     def __init__(
         self,
-        app_name_or_context: str | DeploymentContext,
+        context_or_app_name: BuildContext | str,
         app_path: Path | None = None,
     ) -> None:
-        """Initialize the class with the specified app name or deployment context.
+        """Initialize the toolchain with a build context or legacy parameters.
 
         Args:
         ----
-            app_name_or_context: Either an app name string (legacy) or a DeploymentContext object (new plugin system)
-            app_path: Optional path to the application directory (only used with legacy string signature)
+            context_or_app_name: Either a BuildContext object (preferred) or app_name string (legacy)
+            app_path: Legacy parameter - application path (only used with string app_name)
         """
-        # Handle new plugin system: DeploymentContext object
-        if hasattr(app_name_or_context, "app_name"):
-            # It's a DeploymentContext
-            context = app_name_or_context
-            self.app_name = context.app_name
-            # For the new plugin system, app_path is the parent of source_path
-            self.app_path = context.source_path.parent
-            self.context = context
+        if isinstance(context_or_app_name, str):
+            # Legacy style: string app_name + app_path
+            # TODO: Remove in Phase 3 when LocalBuilder is implemented
+            self.context = None  # type: ignore[assignment]
+            self.app_name = context_or_app_name
+            self.app_path = app_path  # type: ignore[assignment]
         else:
-            # Legacy signature: app_name as string
-            self.app_name = app_name_or_context
-            if app_path:
-                self.app_path = app_path
-            else:
-                self.app_path = c.APP_ROOT / self.app_name
-            self.context = None
+            # New style: BuildContext or DeploymentContext
+            self.context = context_or_app_name
+            self.app_name = context_or_app_name.app_name
+            self.app_path = context_or_app_name.source_path.parent
 
     @abstractmethod
     def accept(self) -> bool:
@@ -124,10 +118,9 @@ class Builder(ABC):
     @property
     def src_path(self) -> Path:
         """Get the source path for the application."""
-        # For new plugin system, use context.source_path directly
-        if self.context:
+        if self.context is not None:
             return self.context.source_path
-        # For legacy system, assume source is in app_path/src
+        # Legacy mode: app_path / src
         return self.app_path / "src"
 
     @property

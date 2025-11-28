@@ -1,17 +1,17 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Builder for static file applications."""
+"""Language toolchain for static file applications."""
 
 from __future__ import annotations
 
 from hop3.core.protocols import BuildArtifact
 
-from ._base import Builder
+from ._base import LanguageToolchain
 
 
-class StaticBuilder(Builder):
-    """Builder for static file applications.
+class StaticToolchain(LanguageToolchain):
+    """Language toolchain for static file applications.
 
     This builder handles applications that serve static files (HTML, CSS, JS, images, etc.)
     without requiring any build process. It detects static apps by looking for a Procfile

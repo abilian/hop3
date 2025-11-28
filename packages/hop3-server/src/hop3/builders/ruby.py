@@ -2,7 +2,7 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Builder for Ruby projects."""
+"""Language toolchain for Ruby projects."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
 from hop3.core.protocols import BuildArtifact
 from hop3.lib import chdir, prepend_to_path
 
-from ._base import Builder
+from ._base import LanguageToolchain
 
 
-class RubyBuilder(Builder):
-    """Builds Ruby projects.
+class RubyToolchain(LanguageToolchain):
+    """Language toolchain for Ruby projects.
 
     This is responsible for setting up and building Ruby projects. It
     checks for the existence of a Gemfile to confirm it is a Ruby

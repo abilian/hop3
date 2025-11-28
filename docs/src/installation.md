@@ -62,6 +62,65 @@ poetry run pyinfra --user root {$TARGET_HOST} installer/install-hop.py
 
   The generated `hop3-server.toml` file contains server-wide configuration. You can edit this file to customize other server settings.
 
+- **Create the first admin user**: Before you can use Hop3, you need to create an admin user and configure your local CLI. The easiest way is to use the SSH-assisted bootstrap from your workstation:
+
+  ```bash
+  hop3 init --ssh root@your-server.com
+  ```
+
+  This command will:
+  1. Connect to your server via SSH
+  2. Prompt you for admin username, email, and password
+  3. Create the admin user on the server
+  4. Save the API token to your local `~/.config/hop3-cli/config.toml`
+
+  Example session:
+  ```
+  $ hop3 init --ssh root@my-server.com
+
+  Connecting to my-server.com...
+  Server URL [https://my-server.com]:
+  Admin username: admin
+  Admin email: admin@company.com
+  Admin password: ********
+  Confirm password: ********
+
+  Admin user 'admin' created successfully.
+  Configuration saved to ~/.config/hop3-cli/config.toml
+
+  You're all set! Try:
+    hop3 status       # Check server status
+    hop3 apps         # List applications
+  ```
+
+  **Alternative: Manual setup** - If you prefer to set up manually, SSH into your server and run:
+
+  ```bash
+  ssh root@your-server.com
+  hop-server admin:create admin admin@example.com
+  # Enter password when prompted
+  # Copy the displayed token
+  ```
+
+  Then configure your local CLI:
+
+  ```bash
+  hop3 config set server https://your-server.com
+  hop3 config set token <paste-token-here>
+  ```
+
+  **For automation (CI/CD)**: Use non-interactive mode:
+
+  ```bash
+  echo "$ADMIN_PASSWORD" | hop3 init \
+    --ssh deploy@my-server.com \
+    --username admin \
+    --email admin@company.com \
+    --server https://my-server.com \
+    --password-stdin \
+    --yes
+  ```
+
 - **Configure Hop3**: You may need to perform additional configuration steps specific to your application or environment. Refer to the Hop3 documentation for detailed configuration options.
 
 - **Deploy Your Application**: With Hop3 installed, you can now deploy your web applications. Follow the Hop3 deployment guide to learn how to prepare your application for deployment.

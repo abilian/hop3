@@ -1,7 +1,7 @@
 # Copyright (c) 2023-2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Builder for Python projects."""
+"""Language toolchain for Python projects."""
 
 from __future__ import annotations
 
@@ -14,11 +14,11 @@ from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
 from hop3.core.protocols import BuildArtifact
 from hop3.lib import chdir, log
 
-from ._base import Builder
+from ._base import LanguageToolchain
 
 
-class PythonBuilder(Builder):
-    """Builder for Python projects.
+class PythonToolchain(LanguageToolchain):
+    """Language toolchain for Python projects.
 
     This provides the necessary methods to build Python projects by
     creating a virtual environment and installing dependencies. It
