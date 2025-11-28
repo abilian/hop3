@@ -232,11 +232,11 @@ class SetupSshCmd(Command):
         parser.add_argument("public_key_file", type=str)
 
     def run(self, public_key_file: str) -> None:
-        """Process a public key file or read from standard input to manage
-        keys.
+        """Process a public key file or read from standard input to manage keys.
 
-        Input:
-        - public_key_file (str): The path to the public key file. If set to '-', the key is read from standard input.
+        Args:
+            public_key_file: The path to the public key file. If set to '-',
+                           the key is read from standard input.
         """
         if public_key_file == "-":
             self.add_helper(Path(public_key_file))
