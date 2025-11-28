@@ -27,6 +27,8 @@ else:
 class Serve(Command):
     """Launch the server."""
 
+    name = "serve"
+
     def run(self):
         reload = DEBUG
         granian.Granian(
