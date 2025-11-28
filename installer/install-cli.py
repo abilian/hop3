@@ -1,89 +1,93 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Hop3 CLI Installer.
+"""
+Hop3 CLI Installer
 
-This script installs the Hop3 CLI tool by:
-1. Creating a virtual environment at ~/.hop3-cli/venv
-2. Installing the hop3-cli package
-3. Creating symlinks in ~/.local/bin for 'hop3' and 'hop' commands
-4. Optionally updating shell configuration for PATH
+A single-file installer for the Hop3 CLI tool.
+Uses only Python standard library for maximum portability.
 
 Usage:
-    python install-cli.py [OPTIONS]
-
-Options:
-    --force             Force reinstall even if already installed
-    --no-modify-path    Don't modify shell configuration files
-    --verbose           Enable verbose output
-    --version VERSION   Install a specific version (e.g., 0.4.0)
-    --git               Install from git repository
-    --branch BRANCH     Git branch to install from (default: main)
-    --local-path PATH   Install from a local directory
-    --bin-dir PATH      Custom binary directory (default: ~/.local/bin)
-    --help              Show this help message
+    curl -LsSf https://hop3.cloud/install-cli.py | python3 -
+    curl -LsSf https://hop3.cloud/install-cli.py | python3 - --git
+    python3 install-cli.py --help
 """
-
 from __future__ import annotations
 
+# =============================================================================
+# Version Check (must run before any 3.10+ features are used at runtime)
+# =============================================================================
+
+import sys
+
+MIN_PYTHON = (3, 10)
+
+if sys.version_info < MIN_PYTHON:
+    print(f"Error: Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]}+ required")
+    print(f"Found: Python {sys.version_info.major}.{sys.version_info.minor}")
+    print()
+    print("Please install a newer Python version:")
+    print("  Ubuntu/Debian: sudo apt install python3.11")
+    print("  Fedora:        sudo dnf install python3.11")
+    print("  macOS:         brew install python@3.11")
+    sys.exit(1)
+
+# =============================================================================
+# Imports (standard library only)
+# =============================================================================
+
 import argparse
+import itertools
 import os
 import shutil
 import subprocess
-import sys
+import threading
+import time
 from pathlib import Path
 
 # =============================================================================
 # Configuration
 # =============================================================================
 
-INSTALL_DIR = Path.home() / ".hop3-cli"
-VENV_DIR = INSTALL_DIR / "venv"
-DEFAULT_BIN_DIR = Path.home() / ".local" / "bin"
-
 PACKAGE_NAME = "hop3-cli"
 GIT_REPO = "https://github.com/abilian/hop3.git"
 GIT_SUBDIR = "packages/hop3-cli"
 DEFAULT_BRANCH = "main"
 
+INSTALL_DIR = Path.home() / ".hop3-cli"
+VENV_DIR = INSTALL_DIR / "venv"
+DEFAULT_BIN_DIR = Path.home() / ".local" / "bin"
+
 CLI_COMMANDS = ["hop3", "hop"]
 
-# Shell configuration files
 SHELL_CONFIGS = {
     "bash": Path.home() / ".bashrc",
     "zsh": Path.home() / ".zshrc",
     "fish": Path.home() / ".config" / "fish" / "config.fish",
 }
 
-# Path export line (marker comment helps identify our addition)
-PATH_EXPORT_MARKER = "# Added by Hop3 CLI installer"
-PATH_EXPORT_BASH = 'export PATH="$HOME/.local/bin:$PATH"'
-PATH_EXPORT_FISH = "fish_add_path $HOME/.local/bin"
-
 # =============================================================================
-# Terminal Colors
+# Terminal Output
 # =============================================================================
 
 
 class Colors:
-    """ANSI color codes for terminal output."""
+    """ANSI color codes."""
 
     RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
     RED = "\033[0;31m"
     GREEN = "\033[0;32m"
     YELLOW = "\033[0;33m"
     BLUE = "\033[0;34m"
-    BOLD = "\033[1m"
+    CYAN = "\033[0;36m"
 
     @classmethod
     def disable(cls) -> None:
-        """Disable colors (for non-TTY output)."""
-        cls.RESET = ""
-        cls.RED = ""
-        cls.GREEN = ""
-        cls.YELLOW = ""
-        cls.BLUE = ""
-        cls.BOLD = ""
+        for attr in ["RESET", "BOLD", "DIM", "RED", "GREEN", "YELLOW", "BLUE", "CYAN"]:
+            setattr(cls, attr, "")
 
 
 # Disable colors if not a TTY
@@ -91,72 +95,156 @@ if not sys.stdout.isatty():
     Colors.disable()
 
 
-# =============================================================================
-# Logging Functions
-# =============================================================================
-
-VERBOSE = False
-
-
-def log_info(message: str) -> None:
-    """Print an info message."""
-    print(f"{Colors.BLUE}[INFO]{Colors.RESET} {message}")
+def print_header(title: str) -> None:
+    """Print a styled header."""
+    print()
+    print(f"{Colors.BOLD}{Colors.CYAN}{title}{Colors.RESET}")
+    print(f"{Colors.DIM}{'=' * len(title)}{Colors.RESET}")
+    print()
 
 
-def log_success(message: str) -> None:
+def print_step(step: int, total: int, message: str) -> None:
+    """Print a step indicator."""
+    print(f"{Colors.BOLD}[{step}/{total}]{Colors.RESET} {message}")
+
+
+def print_success(message: str) -> None:
     """Print a success message."""
-    print(f"{Colors.GREEN}[OK]{Colors.RESET} {message}")
+    print(f"      {Colors.GREEN}✓{Colors.RESET} {message}")
 
 
-def log_warning(message: str) -> None:
+def print_info(message: str) -> None:
+    """Print an info message."""
+    print(f"      {Colors.BLUE}ℹ{Colors.RESET} {message}")
+
+
+def print_warning(message: str) -> None:
     """Print a warning message."""
-    print(f"{Colors.YELLOW}[WARN]{Colors.RESET} {message}")
+    print(f"      {Colors.YELLOW}⚠{Colors.RESET} {message}")
 
 
-def log_error(message: str) -> None:
-    """Print an error message to stderr."""
-    print(f"{Colors.RED}[ERROR]{Colors.RESET} {message}", file=sys.stderr)
+def print_error(message: str) -> None:
+    """Print an error message."""
+    print(f"      {Colors.RED}✗{Colors.RESET} {message}", file=sys.stderr)
 
 
-def log_debug(message: str) -> None:
-    """Print a debug message (only in verbose mode)."""
-    if VERBOSE:
-        print(f"{Colors.BLUE}[DEBUG]{Colors.RESET} {message}")
+def print_detail(message: str) -> None:
+    """Print a detail/sub-item."""
+    print(f"        {Colors.DIM}{message}{Colors.RESET}")
 
 
 # =============================================================================
-# Utility Functions
+# Spinner for Long Operations
 # =============================================================================
 
 
-def run_command(
+class Spinner:
+    """A simple terminal spinner for long-running operations."""
+
+    CHARS = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+    def __init__(self, message: str):
+        self.message = message
+        self.spinning = False
+        self.thread: threading.Thread | None = None
+
+    def __enter__(self) -> Spinner:
+        if sys.stdout.isatty():
+            self.spinning = True
+            self.thread = threading.Thread(target=self._spin, daemon=True)
+            self.thread.start()
+        else:
+            print(f"      ... {self.message}")
+        return self
+
+    def __exit__(self, *args) -> None:
+        self.spinning = False
+        if self.thread:
+            self.thread.join(timeout=0.5)
+        if sys.stdout.isatty():
+            # Clear the spinner line
+            print(f"\r{' ' * (len(self.message) + 10)}\r", end="")
+
+    def _spin(self) -> None:
+        for char in itertools.cycle(self.CHARS):
+            if not self.spinning:
+                break
+            print(f"\r      {Colors.CYAN}{char}{Colors.RESET} {self.message}", end="", flush=True)
+            time.sleep(0.08)
+
+
+# =============================================================================
+# Command Execution
+# =============================================================================
+
+
+class CommandError(Exception):
+    """Raised when a command fails."""
+
+    def __init__(self, cmd: list[str], returncode: int, stderr: str):
+        self.cmd = cmd
+        self.returncode = returncode
+        self.stderr = stderr
+        super().__init__(f"Command failed: {' '.join(cmd)}")
+
+
+def run_cmd(
     cmd: list[str],
+    capture: bool = True,
     check: bool = True,
-    capture_output: bool = False,
-    env: dict | None = None,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
-    """Run a command and handle errors."""
-    log_debug(f"Running: {' '.join(cmd)}")
+    """Run a command and return the result."""
+    run_env = os.environ.copy()
+    if env:
+        run_env.update(env)
+
+    result = subprocess.run(
+        cmd,
+        capture_output=capture,
+        text=True,
+        env=run_env,
+    )
+
+    if check and result.returncode != 0:
+        raise CommandError(cmd, result.returncode, result.stderr or "")
+
+    return result
+
+
+def cmd_exists(cmd: str) -> bool:
+    """Check if a command exists in PATH."""
+    return shutil.which(cmd) is not None
+
+
+# =============================================================================
+# System Checks
+# =============================================================================
+
+
+def check_python() -> str:
+    """Check Python version. Returns version string."""
+    version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    return version
+
+
+def check_venv() -> bool:
+    """Check if venv module is available."""
     try:
-        result = subprocess.run(
-            cmd,
-            check=check,
-            capture_output=capture_output,
-            text=True,
-            env=env,
-        )
-        return result
-    except subprocess.CalledProcessError as e:
-        log_error(f"Command failed: {' '.join(cmd)}")
-        if e.stdout:
-            log_error(f"stdout: {e.stdout}")
-        if e.stderr:
-            log_error(f"stderr: {e.stderr}")
-        raise
+        import venv  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
 
 
-def get_current_shell() -> str:
-    """Detect the user's current shell."""
+def check_git() -> bool:
+    """Check if git is available."""
+    return cmd_exists("git")
+
+
+def get_current_shell() -> str | None:
+    """Detect the current shell."""
     shell = os.environ.get("SHELL", "")
     if "zsh" in shell:
         return "zsh"
@@ -164,281 +252,266 @@ def get_current_shell() -> str:
         return "fish"
     if "bash" in shell:
         return "bash"
-    # Default to bash
-    return "bash"
+    return None
 
 
 # =============================================================================
-# Installation Steps
+# Installation Functions
 # =============================================================================
 
 
 def check_existing_installation(force: bool) -> bool:
-    """Check if Hop3 CLI is already installed.
-
-    Returns True if we should proceed with installation.
-    """
-    hop3_bin = VENV_DIR / "bin" / "hop3"
-    if hop3_bin.exists():
+    """Check for existing installation. Returns True if should proceed."""
+    if VENV_DIR.exists():
         if force:
-            log_info("Existing installation found. Forcing reinstall...")
+            print_info("Existing installation found, will reinstall (--force)")
             return True
-        log_warning("Hop3 CLI is already installed.")
-        log_info("Use --force to reinstall.")
+        print_warning("Hop3 CLI is already installed")
+        print_detail(f"Location: {INSTALL_DIR}")
+        print_detail("Use --force to reinstall")
         return False
     return True
 
 
-def create_install_directory() -> None:
-    """Create the installation directory."""
-    log_info(f"Creating installation directory: {INSTALL_DIR}")
-    INSTALL_DIR.mkdir(parents=True, exist_ok=True)
-
-
 def create_virtual_environment() -> None:
     """Create a Python virtual environment."""
-    log_info(f"Creating virtual environment: {VENV_DIR}")
+    # Create install directory
+    INSTALL_DIR.mkdir(parents=True, exist_ok=True)
 
+    # Remove existing venv if present
     if VENV_DIR.exists():
-        log_debug("Removing existing virtual environment...")
         shutil.rmtree(VENV_DIR)
 
-    try:
-        run_command([sys.executable, "-m", "venv", str(VENV_DIR)])
-    except subprocess.CalledProcessError:
-        log_error("Failed to create virtual environment.")
-        log_error("Make sure the 'venv' module is installed.")
-        log_error("On Debian/Ubuntu: sudo apt install python3-venv")
-        log_error("On Fedora: sudo dnf install python3-venv")
-        sys.exit(1)
+    # Create venv
+    with Spinner("Creating virtual environment..."):
+        run_cmd([sys.executable, "-m", "venv", str(VENV_DIR)])
 
-    log_success("Virtual environment created.")
+    print_success(f"Virtual environment created at {VENV_DIR}")
 
 
-def install_hop3_cli(
-    version: str | None, use_git: bool, local_path: Path | None, branch: str
+def install_package(
+    version: str | None,
+    use_git: bool,
+    branch: str,
+    local_path: str | None,
+    verbose: bool,
 ) -> None:
-    """Install the hop3-cli package into the virtual environment."""
-    pip_path = VENV_DIR / "bin" / "pip"
+    """Install the hop3-cli package."""
+    pip = str(VENV_DIR / "bin" / "pip")
 
     # Upgrade pip first
-    log_info("Upgrading pip...")
-    run_command([str(pip_path), "install", "--upgrade", "pip"], capture_output=True)
-
-    # Install build backend if installing from source (needed for uv-build backend)
-    if use_git or local_path:
-        log_info("Installing build dependencies...")
-        run_command(
-            [str(pip_path), "install", "uv"],
-            capture_output=True,
-        )
+    with Spinner("Upgrading pip..."):
+        run_cmd([pip, "install", "--upgrade", "pip"])
 
     # Determine what to install
     if local_path:
-        log_info(f"Installing hop3-cli from local path: {local_path}")
-        package_spec = str(local_path)
+        package_spec = local_path
+        source_desc = f"local path ({local_path})"
     elif use_git:
-        git_url = f"git+{GIT_REPO}@{branch}#subdirectory={GIT_SUBDIR}"
-        log_info(f"Installing hop3-cli from git ({branch} branch)...")
-        package_spec = git_url
+        # Install uv for build backend
+        with Spinner("Installing build tools..."):
+            run_cmd([pip, "install", "uv"])
+        package_spec = f"git+{GIT_REPO}@{branch}#subdirectory={GIT_SUBDIR}"
+        source_desc = f"git ({branch} branch)"
     elif version:
-        log_info(f"Installing hop3-cli version {version}...")
         package_spec = f"{PACKAGE_NAME}=={version}"
+        source_desc = f"PyPI (version {version})"
     else:
-        log_info("Installing hop3-cli (latest version)...")
         package_spec = PACKAGE_NAME
+        source_desc = "PyPI (latest)"
 
     # Install the package
-    try:
-        run_command(
-            [str(pip_path), "install", package_spec],
-            capture_output=not VERBOSE,
-        )
-    except subprocess.CalledProcessError:
-        log_error("Failed to install hop3-cli.")
-        if local_path:
-            log_error(f"Make sure the path exists and contains a valid package: {local_path}")
-        elif use_git:
-            log_error("Make sure git is installed and you have network access.")
+    with Spinner(f"Installing hop3-cli from {source_desc}..."):
+        cmd = [pip, "install", package_spec]
+        if verbose:
+            run_cmd(cmd, capture=False)
         else:
-            log_error("The package may not be available on PyPI yet.")
-            log_error("Try using --git to install from the git repository.")
-        sys.exit(1)
+            run_cmd(cmd)
 
-    log_success("hop3-cli installed successfully.")
+    print_success("hop3-cli installed successfully")
 
 
-def expose_cli_commands(bin_dir: Path) -> None:
-    """Create symlinks to the CLI commands in the bin directory."""
-    log_info(f"Creating command symlinks in {bin_dir}")
-
-    # Create bin directory if it doesn't exist
+def create_command_symlinks(bin_dir: Path) -> int:
+    """Create symlinks for CLI commands. Returns count of created links."""
     bin_dir.mkdir(parents=True, exist_ok=True)
+    count = 0
 
-    exposed_count = 0
     for cmd in CLI_COMMANDS:
         source = VENV_DIR / "bin" / cmd
         target = bin_dir / cmd
 
         if not source.exists():
-            log_debug(f"Source command not found: {source} (skipping)")
             continue
 
-        # Remove existing symlink or file
+        # Remove existing
         if target.exists() or target.is_symlink():
-            log_debug(f"Removing existing {target}")
             target.unlink()
 
-        # Try to create symlink, fall back to copy
+        # Create symlink
         try:
             target.symlink_to(source)
-            log_debug(f"Created symlink: {target} -> {source}")
-            exposed_count += 1
+            print_success(f"Created symlink: {target}")
+            count += 1
         except OSError:
-            # Symlinks may not work on some systems, copy instead
-            log_debug(f"Symlink failed, copying {source} to {target}")
+            # Fallback to copy
             shutil.copy2(source, target)
-            exposed_count += 1
+            print_success(f"Copied command: {target}")
+            count += 1
 
-    if exposed_count == 0:
-        log_warning("No CLI commands were found to expose.")
-    else:
-        log_success(f"CLI commands exposed ({exposed_count} command(s)).")
+    return count
 
 
-def update_shell_path(bin_dir: Path, modify_path: bool) -> None:
-    """Update shell configuration to include bin_dir in PATH."""
+def update_shell_config(bin_dir: Path, modify_path: bool) -> None:
+    """Update shell configuration if needed."""
+    # Check if already in PATH
+    path_dirs = os.environ.get("PATH", "").split(os.pathsep)
+    if str(bin_dir) in path_dirs:
+        print_info("PATH already configured")
+        return
+
     if not modify_path:
-        log_info("Skipping PATH modification (--no-modify-path).")
+        print_warning(f"Add {bin_dir} to your PATH manually")
         return
 
-    # Check if bin_dir is already in PATH
-    current_path = os.environ.get("PATH", "")
-    if str(bin_dir) in current_path.split(os.pathsep):
-        log_info(f"{bin_dir} is already in PATH.")
-        return
-
+    # Detect shell and update config
     shell = get_current_shell()
-    config_file = SHELL_CONFIGS.get(shell)
-
-    if not config_file:
-        log_warning(
-            f"Unknown shell: {shell}. Please add {bin_dir} to your PATH manually."
-        )
+    if not shell or shell not in SHELL_CONFIGS:
+        print_warning(f"Add this to your shell config: export PATH=\"{bin_dir}:$PATH\"")
         return
 
-    # Check if we've already modified this file
+    config_file = SHELL_CONFIGS[shell]
+    marker = "# Added by Hop3 CLI installer"
+
+    # Check if already added
     if config_file.exists():
         content = config_file.read_text()
-        if PATH_EXPORT_MARKER in content:
-            log_info(f"PATH already configured in {config_file}")
+        if marker in content:
+            print_info("Shell config already updated")
             return
 
-    # Determine the export line based on shell
+    # Add PATH export
     if shell == "fish":
-        export_line = f"\n{PATH_EXPORT_MARKER}\n{PATH_EXPORT_FISH}\n"
+        line = f"\n{marker}\nfish_add_path {bin_dir}\n"
     else:
-        export_line = f"\n{PATH_EXPORT_MARKER}\n{PATH_EXPORT_BASH}\n"
+        line = f'\n{marker}\nexport PATH="{bin_dir}:$PATH"\n'
 
-    log_info(f"Adding PATH to {config_file}")
+    with open(config_file, "a") as f:
+        f.write(line)
 
-    # Create parent directory if needed (for fish)
-    config_file.parent.mkdir(parents=True, exist_ok=True)
-
-    # Append to the config file
-    with config_file.open("a") as f:
-        f.write(export_line)
-
-    log_success(f"Updated {config_file}")
+    print_success(f"Updated {config_file}")
+    print_info("Restart your shell or run: source " + str(config_file))
 
 
 def verify_installation() -> bool:
-    """Verify that the installation was successful."""
-    log_info("Verifying installation...")
+    """Verify the installation works."""
+    hop3 = VENV_DIR / "bin" / "hop3"
+    if not hop3.exists():
+        hop3 = VENV_DIR / "bin" / "hop"
 
-    # Try hop3 first, fall back to hop
-    hop3_bin = VENV_DIR / "bin" / "hop3"
-    hop_bin = VENV_DIR / "bin" / "hop"
-
-    if hop3_bin.exists():
-        verify_bin = hop3_bin
-    elif hop_bin.exists():
-        verify_bin = hop_bin
-    else:
-        log_error("Neither hop3 nor hop command found in virtual environment.")
+    if not hop3.exists():
+        print_error("Command not found in virtual environment")
         return False
 
     try:
-        result = run_command(
-            [str(verify_bin), "help"],
-            capture_output=True,
-            check=False,
-        )
+        result = run_cmd([str(hop3), "--help"], check=False)
         if result.returncode == 0:
-            log_success("Installation verified successfully.")
+            print_success("Installation verified")
             return True
-        log_warning(f"{verify_bin.name} command exists but returned an error.")
-        log_debug(f"Output: {result.stdout}")
-        log_debug(f"Error: {result.stderr}")
-        return True  # Still consider it a success
-    except Exception as e:
-        log_error(f"Failed to verify installation: {e}")
-        return False
+    except Exception:
+        pass
+
+    print_warning("Command exists but returned an error")
+    return True  # Still consider it installed
 
 
-def print_success_message(bin_dir: Path) -> None:
-    """Print success message with usage instructions."""
+def print_final_message(bin_dir: Path) -> None:
+    """Print success message with next steps."""
     print()
-    print(f"{Colors.GREEN}{Colors.BOLD}Hop3 CLI installed successfully!{Colors.RESET}")
+    print(f"{Colors.GREEN}{Colors.BOLD}Installation complete!{Colors.RESET}")
     print()
-    print("Installation locations:")
-    print(f"  - Virtual environment: {VENV_DIR}")
-    print(f"  - Commands: {bin_dir}/hop3, {bin_dir}/hop")
+    print(f"  {Colors.BOLD}Commands:{Colors.RESET}  hop3, hop")
+    print(f"  {Colors.BOLD}Location:{Colors.RESET}  {INSTALL_DIR}")
     print()
-    print("You may need to restart your shell or run:")
-    shell = get_current_shell()
-    config_file = SHELL_CONFIGS.get(shell, Path("~/.bashrc"))
-    print(f"  source {config_file}")
+    print(f"  {Colors.BOLD}Get started:{Colors.RESET}")
+    print("    hop3 --help           Show available commands")
+    print("    hop3 auth:login       Log in to your Hop3 server")
+    print("    hop3 apps             List your applications")
     print()
-    print("Get started:")
-    print("  hop3 help              Show available commands")
-    print("  hop3 auth:login        Log in to your Hop3 server")
-    print("  hop3 apps              List your applications")
-    print()
-
-
-def print_uninstall_instructions() -> None:
-    """Print uninstall instructions."""
-    print(f"{Colors.BOLD}To uninstall Hop3 CLI:{Colors.RESET}")
-    print(f"  rm -rf {INSTALL_DIR}")
-    print(f"  rm -f {DEFAULT_BIN_DIR}/hop3 {DEFAULT_BIN_DIR}/hop")
-    print("  # Optionally remove the PATH line from your shell config")
+    print(f"  {Colors.BOLD}To uninstall:{Colors.RESET}")
+    print(f"    rm -rf {INSTALL_DIR}")
+    print(f"    rm -f {bin_dir}/hop3 {bin_dir}/hop")
     print()
 
 
 # =============================================================================
-# Argument Parsing
+# CLI Argument Parsing
 # =============================================================================
 
 
-def parse_arguments() -> argparse.Namespace:
-    """Parse command-line arguments."""
+def create_parser() -> argparse.ArgumentParser:
+    """Create the argument parser."""
     parser = argparse.ArgumentParser(
+        prog="install-cli.py",
         description="Install the Hop3 CLI tool.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python install-cli.py                    Install latest version
-  python install-cli.py --git              Install from git (main branch)
-  python install-cli.py --version 0.4.0    Install specific version
-  python install-cli.py --force            Force reinstall
-        """,
+  python3 install-cli.py                    Install latest version from PyPI
+  python3 install-cli.py --git              Install from git (main branch)
+  python3 install-cli.py --git --branch dev Install from git (dev branch)
+  python3 install-cli.py --version 0.4.0    Install specific version
+  python3 install-cli.py --force            Force reinstall
+
+Environment Variables:
+  HOP3_VERSION          Install specific version
+  HOP3_GIT              Install from git (1 or true)
+  HOP3_BRANCH           Git branch (default: main)
+  HOP3_LOCAL_PACKAGE    Install from local path
+  HOP3_FORCE            Force reinstall (1 or true)
+  HOP3_NO_MODIFY_PATH   Don't modify shell config (1 or true)
+""",
+    )
+
+    parser.add_argument(
+        "--version",
+        metavar="VERSION",
+        default=os.environ.get("HOP3_VERSION"),
+        help="Install a specific version (e.g., 0.4.0)",
+    )
+
+    parser.add_argument(
+        "--git",
+        action="store_true",
+        default=os.environ.get("HOP3_GIT", "").lower() in ("1", "true"),
+        help="Install from git repository",
+    )
+
+    parser.add_argument(
+        "--branch",
+        metavar="BRANCH",
+        default=os.environ.get("HOP3_BRANCH", DEFAULT_BRANCH),
+        help=f"Git branch to install from (default: {DEFAULT_BRANCH})",
+    )
+
+    parser.add_argument(
+        "--local-path",
+        metavar="PATH",
+        default=os.environ.get("HOP3_LOCAL_PACKAGE"),
+        help="Install from a local directory",
+    )
+
+    parser.add_argument(
+        "--bin-dir",
+        metavar="PATH",
+        type=Path,
+        default=Path(os.environ.get("HOP3_BIN_DIR", str(DEFAULT_BIN_DIR))),
+        help=f"Directory for command symlinks (default: {DEFAULT_BIN_DIR})",
     )
 
     parser.add_argument(
         "--force",
         action="store_true",
-        default=os.environ.get("HOP3_FORCE_REINSTALL", "").lower() in ("1", "true"),
+        default=os.environ.get("HOP3_FORCE", "").lower() in ("1", "true"),
         help="Force reinstall even if already installed",
     )
 
@@ -453,45 +526,10 @@ Examples:
         "--verbose",
         action="store_true",
         default=os.environ.get("HOP3_VERBOSE", "").lower() in ("1", "true"),
-        help="Enable verbose output",
+        help="Show verbose output",
     )
 
-    parser.add_argument(
-        "--version",
-        type=str,
-        default=os.environ.get("HOP3_VERSION"),
-        help="Install a specific version (e.g., 0.4.0)",
-    )
-
-    parser.add_argument(
-        "--git",
-        action="store_true",
-        default=os.environ.get("HOP3_GIT", "").lower() in ("1", "true"),
-        help="Install from git repository",
-    )
-
-    parser.add_argument(
-        "--branch",
-        type=str,
-        default=os.environ.get("HOP3_BRANCH", DEFAULT_BRANCH),
-        help=f"Git branch to install from (default: {DEFAULT_BRANCH})",
-    )
-
-    parser.add_argument(
-        "--local-path",
-        type=Path,
-        default=os.environ.get("HOP3_LOCAL_PACKAGE"),
-        help="Install from a local directory (e.g., /vagrant/packages/hop3-cli)",
-    )
-
-    parser.add_argument(
-        "--bin-dir",
-        type=Path,
-        default=Path(os.environ.get("HOP3_BIN_DIR", str(DEFAULT_BIN_DIR))),
-        help=f"Custom binary directory (default: {DEFAULT_BIN_DIR})",
-    )
-
-    return parser.parse_args()
+    return parser
 
 
 # =============================================================================
@@ -499,37 +537,100 @@ Examples:
 # =============================================================================
 
 
-def main() -> None:
-    """Main entry point."""
-    global VERBOSE
+def main() -> int:
+    """Main entry point. Returns exit code."""
+    parser = create_parser()
+    args = parser.parse_args()
 
-    args = parse_arguments()
-    VERBOSE = args.verbose
+    # Header
+    print_header("Hop3 CLI Installer")
 
-    print()
-    print(f"{Colors.BOLD}Hop3 CLI Installer{Colors.RESET}")
-    print("=" * 40)
-    print()
+    total_steps = 5
 
-    # Check for existing installation
+    # Step 1: System checks
+    print_step(1, total_steps, "Checking system requirements...")
+
+    python_version = check_python()
+    print_success(f"Python {python_version}")
+
+    if not check_venv():
+        print_error("Python venv module not found")
+        print_detail("Install with: sudo apt install python3-venv")
+        return 1
+    print_success("venv module available")
+
+    if args.git and not args.local_path and not check_git():
+        print_error("Git not found (required for --git)")
+        print_detail("Install with: sudo apt install git")
+        return 1
+
+    # Check existing installation
     if not check_existing_installation(args.force):
-        sys.exit(0)
+        return 0
 
-    # Run installation steps
-    create_install_directory()
-    create_virtual_environment()
-    install_hop3_cli(args.version, args.git, args.local_path, args.branch)
-    expose_cli_commands(args.bin_dir)
-    update_shell_path(args.bin_dir, not args.no_modify_path)
+    # Step 2: Create virtual environment
+    print()
+    print_step(2, total_steps, "Creating virtual environment...")
 
-    # Verify and report
+    try:
+        create_virtual_environment()
+    except CommandError as e:
+        print_error(f"Failed to create virtual environment: {e.stderr}")
+        return 1
+
+    # Step 3: Install package
+    print()
+    print_step(3, total_steps, "Installing hop3-cli...")
+
+    try:
+        install_package(
+            version=args.version,
+            use_git=args.git,
+            branch=args.branch,
+            local_path=args.local_path,
+            verbose=args.verbose,
+        )
+    except CommandError as e:
+        print_error("Failed to install hop3-cli")
+        if args.verbose:
+            print_detail(e.stderr)
+        if args.git:
+            print_detail("Make sure git is installed and you have network access")
+        else:
+            print_detail("Try --git to install from the git repository")
+        return 1
+
+    # Step 4: Create symlinks
+    print()
+    print_step(4, total_steps, "Creating command symlinks...")
+
+    count = create_command_symlinks(args.bin_dir)
+    if count == 0:
+        print_warning("No commands found to symlink")
+
+    # Step 5: Update PATH
+    print()
+    print_step(5, total_steps, "Configuring PATH...")
+
+    update_shell_config(args.bin_dir, not args.no_modify_path)
+
+    # Verify
+    print()
     if not verify_installation():
-        log_error("Installation verification failed.")
-        sys.exit(1)
+        print_warning("Installation may have issues")
 
-    print_success_message(args.bin_dir)
-    print_uninstall_instructions()
+    # Success message
+    print_final_message(args.bin_dir)
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("\n\nInstallation cancelled.")
+        sys.exit(130)
+    except Exception as e:
+        print(f"\n{Colors.RED}Error:{Colors.RESET} {e}", file=sys.stderr)
+        sys.exit(1)
