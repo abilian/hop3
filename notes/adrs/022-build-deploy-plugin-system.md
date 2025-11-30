@@ -400,8 +400,8 @@ def do_deploy(app: App, deltas: dict[str, int] | None = None) -> None:
         app=app,
     )
 
-    # 2. Select and run build strategy
-    builder = get_build_strategy(context)  # Auto-detects via accept()
+    # 2. Select and run builder
+    builder = get_builder(context)  # Auto-detects via accept()
     log(f"Building with: {builder.name}")
 
     artifact = builder.build()
@@ -420,10 +420,10 @@ def do_deploy(app: App, deltas: dict[str, int] | None = None) -> None:
 ### Strategy Selection Functions
 
 ```python
-def get_build_strategy(context: DeploymentContext) -> Builder:
-    """Find and instantiate appropriate build strategy.
+def get_builder(context: DeploymentContext) -> Builder:
+    """Find and instantiate appropriate builder.
 
-    Tries each registered strategy's accept() method until one returns True.
+    Tries each registered builder's accept() method until one returns True.
 
     Args:
         context: Application context

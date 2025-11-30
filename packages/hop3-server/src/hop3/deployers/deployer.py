@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hop3.core.plugins import get_build_strategy, get_deployment_strategy
+from hop3.core.plugins import get_builder, get_deployment_strategy
 from hop3.core.protocols import DeploymentContext
 from hop3.lib import Abort, log
 from hop3.project.config import AppConfig
@@ -16,7 +16,7 @@ __all__ = ["do_deploy"]
 
 def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
     """
-    Deploys an application using a pluggable build and deployment strategy.
+    Deploys an application using a pluggable builder and deployer.
 
     This function orchestrates the deployment process:
     1. Sets up a context object with app information.
@@ -44,9 +44,9 @@ def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
         app=app,
     )
 
-    # --- 2. Select and Run Build Strategy ---
-    builder = get_build_strategy(context)
-    log(f"Using build strategy: '{builder.name}'", level=1, fg="blue")
+    # --- 2. Select and Run Builder ---
+    builder = get_builder(context)
+    log(f"Using builder: '{builder.name}'", level=1, fg="blue")
     build_artifact = builder.build()
     log(
         f"Build successful. Artifact: {build_artifact.location} (kind: {build_artifact.kind})",

@@ -6,13 +6,11 @@
 
 from __future__ import annotations
 
-import io
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-
 from hop3_cli.config import Config
 from hop3_cli.local_commands import (
     BootstrapError,
@@ -20,9 +18,7 @@ from hop3_cli.local_commands import (
     config_set,
     config_show,
     extract_token,
-    handle_config,
     handle_init,
-    handle_local_command,
     handle_login_ssh,
     infer_server_url,
     is_local_command,
@@ -152,7 +148,9 @@ class TestConfigCommands:
 
     def test_config_set(self, temp_config, mock_printer, capsys):
         """Test setting a config value."""
-        result = config_set(["api_url", "https://new-server.com"], temp_config, mock_printer)
+        result = config_set(
+            ["api_url", "https://new-server.com"], temp_config, mock_printer
+        )
         assert result is True
 
         # Verify it was saved
@@ -160,7 +158,9 @@ class TestConfigCommands:
 
     def test_config_set_alias(self, temp_config, mock_printer, capsys):
         """Test setting config using alias."""
-        result = config_set(["server", "https://alias-test.com"], temp_config, mock_printer)
+        result = config_set(
+            ["server", "https://alias-test.com"], temp_config, mock_printer
+        )
         assert result is True
 
         # 'server' should be converted to 'api_url'
@@ -209,7 +209,9 @@ class TestHandleInit:
 
     def test_init_success(self, temp_config, mock_printer, capsys):
         """Test successful init via SSH."""
-        mock_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiJ9.signature"
+        mock_token = (
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiJ9.signature"
+        )
 
         # Mock SSH execution
         mock_result = Mock()
@@ -219,7 +221,10 @@ class TestHandleInit:
 
         with (
             patch("hop3_cli.local_commands.subprocess.run", return_value=mock_result),
-            patch("hop3_cli.local_commands.getpass.getpass", side_effect=["pass123", "pass123"]),
+            patch(
+                "hop3_cli.local_commands.getpass.getpass",
+                side_effect=["pass123", "pass123"],
+            ),
             patch("builtins.input", side_effect=["admin", "admin@example.com", ""]),
         ):
             result = handle_init(
@@ -251,7 +256,9 @@ class TestHandleLoginSsh:
 
     def test_login_ssh_help(self, temp_config, mock_printer, capsys):
         """Test login --ssh --help shows help."""
-        result = handle_login_ssh(["--ssh", "user@host", "--help"], temp_config, mock_printer)
+        result = handle_login_ssh(
+            ["--ssh", "user@host", "--help"], temp_config, mock_printer
+        )
         assert result is True
 
         captured = capsys.readouterr()
@@ -259,7 +266,9 @@ class TestHandleLoginSsh:
 
     def test_login_ssh_success(self, temp_config, mock_printer, capsys):
         """Test successful login via SSH."""
-        mock_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyIn0.signature"
+        mock_token = (
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyIn0.signature"
+        )
 
         mock_result = Mock()
         mock_result.returncode = 0
@@ -268,7 +277,9 @@ class TestHandleLoginSsh:
 
         with (
             patch("hop3_cli.local_commands.subprocess.run", return_value=mock_result),
-            patch("builtins.input", side_effect=["", "testuser"]),  # Server URL default, username
+            patch(
+                "builtins.input", side_effect=["", "testuser"]
+            ),  # Server URL default, username
         ):
             result = handle_login_ssh(
                 ["--ssh", "root@test.com"],

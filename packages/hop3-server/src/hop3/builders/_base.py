@@ -9,7 +9,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar
 
-from hop3 import config as c
 from hop3.core.env import Env
 from hop3.core.protocols import BuildArtifact, BuildContext
 from hop3.lib import shell

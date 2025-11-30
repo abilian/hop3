@@ -49,9 +49,7 @@ def is_local_command(args: list[str]) -> bool:
     return False
 
 
-def handle_local_command(
-    args: list[str], config: "Config", printer: "RichPrinter"
-) -> bool:
+def handle_local_command(args: list[str], config: Config, printer: RichPrinter) -> bool:
     """Handle a local command.
 
     Returns:
@@ -65,15 +63,15 @@ def handle_local_command(
 
     if command == "init":
         return handle_init(cmd_args, config, printer)
-    elif command == "config":
+    if command == "config":
         return handle_config(cmd_args, config, printer)
-    elif command == "login" and "--ssh" in args:
+    if command == "login" and "--ssh" in args:
         return handle_login_ssh(cmd_args, config, printer)
 
     return False
 
 
-def handle_login_ssh(args: list[str], config: "Config", printer: "RichPrinter") -> bool:
+def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> bool:
     """Handle the login --ssh command for getting token via SSH.
 
     Usage:
@@ -148,7 +146,7 @@ def handle_login_ssh(args: list[str], config: "Config", printer: "RichPrinter") 
     return True
 
 
-def handle_init(args: list[str], config: "Config", printer: "RichPrinter") -> bool:
+def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
     """Handle the init command for bootstrapping server connection.
 
     Usage:
@@ -255,7 +253,7 @@ def handle_init(args: list[str], config: "Config", printer: "RichPrinter") -> bo
     return True
 
 
-def handle_config(args: list[str], config: "Config", printer: "RichPrinter") -> bool:
+def handle_config(args: list[str], config: Config, printer: RichPrinter) -> bool:
     """Handle the config command for managing local configuration.
 
     Usage:
@@ -272,19 +270,18 @@ def handle_config(args: list[str], config: "Config", printer: "RichPrinter") -> 
 
     if subcommand == "show":
         return config_show(config, printer)
-    elif subcommand == "set":
+    if subcommand == "set":
         return config_set(sub_args, config, printer)
-    elif subcommand == "get":
+    if subcommand == "get":
         return config_get(sub_args, config, printer)
-    else:
-        print(f"Unknown config subcommand: {subcommand}", file=sys.stderr)
-        print_config_help()
-        sys.exit(1)
+    print(f"Unknown config subcommand: {subcommand}", file=sys.stderr)
+    print_config_help()
+    sys.exit(1)
 
     return True
 
 
-def config_show(config: "Config", printer: "RichPrinter") -> bool:
+def config_show(config: Config, printer: RichPrinter) -> bool:
     """Show current configuration."""
     print(f"Config file: {config.config_file}\n")
 
@@ -308,7 +305,7 @@ def config_show(config: "Config", printer: "RichPrinter") -> bool:
     return True
 
 
-def config_set(args: list[str], config: "Config", printer: "RichPrinter") -> bool:
+def config_set(args: list[str], config: Config, printer: RichPrinter) -> bool:
     """Set a configuration value."""
     if len(args) < 2:
         print("Usage: hop3 config set <key> <value>", file=sys.stderr)
@@ -326,13 +323,15 @@ def config_set(args: list[str], config: "Config", printer: "RichPrinter") -> boo
         key = "api_token"
 
     config.save({key: value})
-    print(f"Set {key} = {value[:20] + '...' if 'token' in key and len(value) > 20 else value}")
+    print(
+        f"Set {key} = {value[:20] + '...' if 'token' in key and len(value) > 20 else value}"
+    )
     print(f"Saved to {config.config_file}")
 
     return True
 
 
-def config_get(args: list[str], config: "Config", printer: "RichPrinter") -> bool:
+def config_get(args: list[str], config: Config, printer: RichPrinter) -> bool:
     """Get a configuration value."""
     if not args:
         print("Usage: hop3 config get <key>", file=sys.stderr)
@@ -357,7 +356,6 @@ def config_get(args: list[str], config: "Config", printer: "RichPrinter") -> boo
 
 class BootstrapError(Exception):
     """Error during bootstrap process."""
-    pass
 
 
 def create_admin_via_ssh(
@@ -383,6 +381,7 @@ def create_admin_via_ssh(
     # Run via SSH
     result = subprocess.run(
         ["ssh", ssh_target, remote_cmd],
+        check=False,
         input=password.encode(),
         capture_output=True,
         text=True,
@@ -419,6 +418,7 @@ def get_token_via_ssh(ssh_target: str, username: str) -> str:
 
     result = subprocess.run(
         ["ssh", ssh_target, remote_cmd],
+        check=False,
         capture_output=True,
         text=True,
     )
