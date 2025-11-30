@@ -7,8 +7,6 @@
 from __future__ import annotations
 
 import io
-import sys
-from datetime import datetime, timezone
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -72,18 +70,25 @@ class TestAdminCreate:
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
-            patch("hop3.server.cli.admin.getpass.getpass", side_effect=["password123", "password123"]),
+            patch(
+                "hop3.server.cli.admin.getpass.getpass",
+                side_effect=["password123", "password123"],
+            ),
             patch("hop3.server.cli.admin.User", return_value=mock_new_user),
             patch("sys.stdout", captured_output),
         ):
             cmd = AdminCreate()
-            cmd.run(username="newadmin", email="admin@example.com", password_stdin=False)
+            cmd.run(
+                username="newadmin", email="admin@example.com", password_stdin=False
+            )
 
         output = captured_output.getvalue()
         assert "Admin user 'newadmin' created successfully" in output
         assert "Token:" in output or "eyJ" in output  # JWT token present
 
-    def test_create_admin_password_stdin(self, mock_db_session, mock_admin_role, monkeypatch):
+    def test_create_admin_password_stdin(
+        self, mock_db_session, mock_admin_role, monkeypatch
+    ):
         """Test admin creation with password from stdin."""
         monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
 
@@ -121,11 +126,16 @@ class TestAdminCreate:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        mock_session.query.return_value.filter_by.return_value.first.return_value = mock_user
+        mock_session.query.return_value.filter_by.return_value.first.return_value = (
+            mock_user
+        )
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
-            patch("hop3.server.cli.admin.getpass.getpass", side_effect=["password123", "password123"]),
+            patch(
+                "hop3.server.cli.admin.getpass.getpass",
+                side_effect=["password123", "password123"],
+            ),
             pytest.raises(SystemExit) as exc_info,
         ):
             cmd = AdminCreate()
@@ -143,11 +153,16 @@ class TestAdminCreate:
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
-            patch("hop3.server.cli.admin.getpass.getpass", side_effect=["password123", "different"]),
+            patch(
+                "hop3.server.cli.admin.getpass.getpass",
+                side_effect=["password123", "different"],
+            ),
             pytest.raises(SystemExit) as exc_info,
         ):
             cmd = AdminCreate()
-            cmd.run(username="newadmin", email="admin@example.com", password_stdin=False)
+            cmd.run(
+                username="newadmin", email="admin@example.com", password_stdin=False
+            )
 
         assert exc_info.value.code == 1
 
@@ -162,7 +177,9 @@ class TestAdminToken:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        mock_session.query.return_value.filter_by.return_value.first.return_value = mock_user
+        mock_session.query.return_value.filter_by.return_value.first.return_value = (
+            mock_user
+        )
 
         captured_output = io.StringIO()
 
@@ -203,7 +220,9 @@ class TestAdminToken:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        mock_session.query.return_value.filter_by.return_value.first.return_value = mock_user
+        mock_session.query.return_value.filter_by.return_value.first.return_value = (
+            mock_user
+        )
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
@@ -225,7 +244,9 @@ class TestAdminList:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        mock_session.query.return_value.order_by.return_value.all.return_value = [mock_user]
+        mock_session.query.return_value.order_by.return_value.all.return_value = [
+            mock_user
+        ]
 
         captured_output = io.StringIO()
 
@@ -273,13 +294,18 @@ class TestAdminResetPassword:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        mock_session.query.return_value.filter_by.return_value.first.return_value = mock_user
+        mock_session.query.return_value.filter_by.return_value.first.return_value = (
+            mock_user
+        )
 
         captured_output = io.StringIO()
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
-            patch("hop3.server.cli.admin.getpass.getpass", side_effect=["newpass123", "newpass123"]),
+            patch(
+                "hop3.server.cli.admin.getpass.getpass",
+                side_effect=["newpass123", "newpass123"],
+            ),
             patch("sys.stdout", captured_output),
         ):
             cmd = AdminResetPassword()
@@ -296,7 +322,9 @@ class TestAdminResetPassword:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        mock_session.query.return_value.filter_by.return_value.first.return_value = mock_user
+        mock_session.query.return_value.filter_by.return_value.first.return_value = (
+            mock_user
+        )
 
         captured_output = io.StringIO()
 
@@ -322,7 +350,10 @@ class TestAdminResetPassword:
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
-            patch("hop3.server.cli.admin.getpass.getpass", side_effect=["newpass123", "newpass123"]),
+            patch(
+                "hop3.server.cli.admin.getpass.getpass",
+                side_effect=["newpass123", "newpass123"],
+            ),
             pytest.raises(SystemExit) as exc_info,
         ):
             cmd = AdminResetPassword()

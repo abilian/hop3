@@ -79,9 +79,7 @@ class AdminCreate(Command):
 
         with get_session() as db_session:
             # Check if username already exists
-            existing_user = (
-                db_session.query(User).filter_by(username=username).first()
-            )
+            existing_user = db_session.query(User).filter_by(username=username).first()
             if existing_user:
                 print(f"Error: Username '{username}' already exists", file=sys.stderr)
                 sys.exit(1)

@@ -154,47 +154,55 @@ class CorePlugin:
 #
 # Convenience Helper Functions
 #
-def get_build_strategy(context: DeploymentContext) -> Builder:
-    """
-    Finds and instantiates the appropriate build strategy.
+def get_builder(context: DeploymentContext) -> Builder:
+    """Finds and instantiates the appropriate builder.
 
     This function encapsulates the logic of checking app configuration
-    and then auto-detecting a suitable strategy.
+    and then auto-detecting a suitable builder.
+
+    Args:
+        context: DeploymentContext containing app information
+
+    Returns:
+        Builder instance (LocalBuilder, DockerBuilder, etc.)
+
+    Raises:
+        RuntimeError: If no suitable builder is found
     """
     pm = get_plugin_manager()
 
-    # The result is a list of lists, e.g., [[BuildpackBuilder], [DockerBuilder]]
+    # The result is a list of lists, e.g., [[LocalBuilder], [DockerBuilder]]
     try:
-        strategy_classes_list = pm.hook.get_builders()
+        builder_classes_list = pm.hook.get_builders()
     except:
         traceback.print_exc()
         raise
 
     # Flatten the list of lists into a single list of classes
-    strategy_classes: list[type[Builder]] = [
-        cls for sublist in strategy_classes_list for cls in sublist
+    builder_classes: list[type[Builder]] = [
+        cls for sublist in builder_classes_list for cls in sublist
     ]
-    debug(strategy_classes)
+    debug(builder_classes)
 
-    # TODO: Add logic to check context.app_config for an explicit strategy name.
-    # strategy_name_from_config = context.app_config.get_worker("build.strategy", "auto")
-    strategy_name_from_config = "auto"
+    # TODO: Add logic to check context.app_config for an explicit builder name.
+    # builder_name_from_config = context.app_config.get("build.builder", "auto")
+    builder_name_from_config = "auto"
 
     # Auto-detect by finding the first one that "accepts" the context.
-    if strategy_name_from_config == "auto":
-        for strategy_class in strategy_classes:
-            strategy = strategy_class(context)
-            if strategy.accept():
-                return strategy
+    if builder_name_from_config == "auto":
+        for builder_class in builder_classes:
+            builder = builder_class(context)
+            if builder.accept():
+                return builder
 
-        msg = "Could not find a suitable build strategy for this application."
+        msg = "Could not find a suitable builder for this application."
         raise RuntimeError(msg)
 
-    for strategy_class in strategy_classes:
+    for builder_class in builder_classes:
         # We assume the name is a class attribute
-        if getattr(strategy_class, "name", None) == strategy_name_from_config:
-            return strategy_class(context)
-    msg = f"Configured build strategy '{strategy_name_from_config}' not found."
+        if getattr(builder_class, "name", None) == builder_name_from_config:
+            return builder_class(context)
+    msg = f"Configured builder '{builder_name_from_config}' not found."
     raise RuntimeError(msg)
 
 

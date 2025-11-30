@@ -43,14 +43,14 @@ from hop3.core.plugins import get_plugin_manager
 pm = get_plugin_manager()
 results = pm.hook.get_builders()  # Returns list of lists
 # Flatten results
-strategies = [item for sublist in results for item in sublist]
+builders = [item for sublist in results for item in sublist]
 ```
 
 ## Available Hooks
 
 ### get_builders
 
-**Purpose**: Register build strategies for converting source code to artifacts.
+**Purpose**: Register builders for converting source code to artifacts.
 
 **Location**: `hop3.core.hookspecs.get_builders`
 
