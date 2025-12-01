@@ -22,7 +22,7 @@ from unittest.mock import patch
 import pytest
 
 from hop3.orm import Role, User
-from hop3.server.cli.admin import AdminCreate
+from hop3.server.cli.admin import AdminCreate, AdminList, AdminResetPassword, AdminToken
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -213,3 +213,222 @@ class TestAdminCreateIntegration:
         db_session.expire_all()
         user = db_session.query(User).filter_by(username="mismatch").first()
         assert user is None, "No user should be created when passwords don't match"
+
+
+@pytest.mark.integration
+class TestAdminTokenIntegration:
+    """Integration tests for admin:token command using state-based testing."""
+
+    def test_generate_token_success(
+        self, db_session: Session, sample_user: User, monkeypatch
+    ):
+        """Test successful token generation.
+
+        ARRANGE:
+            - Set up test environment with secret key
+            - Create a sample user in the database (via fixture)
+
+        ACT:
+            - Run AdminToken.run() to generate a token
+
+        ASSERT:
+            - Verify output contains token and success message
+        """
+        # ARRANGE
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        captured_output = io.StringIO()
+
+        # ACT
+        with patch("sys.stdout", captured_output):
+            cmd = AdminToken()
+            cmd.run(username="testuser")
+
+        # ASSERT
+        output = captured_output.getvalue()
+        assert "API token generated for user: testuser" in output
+        assert "Token:" in output
+
+    def test_generate_token_user_not_found(self, db_session: Session, monkeypatch):
+        """Test error when user doesn't exist."""
+        # ARRANGE
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+
+        # ACT + ASSERT
+        with pytest.raises(SystemExit) as exc_info:
+            cmd = AdminToken()
+            cmd.run(username="nonexistent")
+
+        assert exc_info.value.code == 1
+
+    def test_generate_token_disabled_user(
+        self, db_session: Session, sample_user: User, monkeypatch
+    ):
+        """Test error when user is disabled."""
+        # ARRANGE
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+
+        # Mark user as inactive
+        sample_user.active = False
+        db_session.commit()
+
+        # ACT + ASSERT
+        with pytest.raises(SystemExit) as exc_info:
+            cmd = AdminToken()
+            cmd.run(username="testuser")
+
+        assert exc_info.value.code == 1
+
+
+@pytest.mark.integration
+class TestAdminListIntegration:
+    """Integration tests for admin:list command using state-based testing."""
+
+    def test_list_users_success(
+        self, db_session: Session, sample_user: User, monkeypatch
+    ):
+        """Test listing users.
+
+        ARRANGE:
+            - Set up test environment with secret key
+            - Create a sample user in the database (via fixture)
+
+        ACT:
+            - Run AdminList.run() to list users
+
+        ASSERT:
+            - Verify output contains user information
+            - Verify total user count
+        """
+        # ARRANGE
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        captured_output = io.StringIO()
+
+        # ACT
+        with patch("sys.stdout", captured_output):
+            cmd = AdminList()
+            cmd.run()
+
+        # ASSERT
+        output = captured_output.getvalue()
+        assert "testuser" in output
+        assert "test@example.com" in output
+        assert "Total users: 1" in output
+
+    def test_list_users_empty(self, db_session: Session, monkeypatch):
+        """Test listing when no users exist."""
+        # ARRANGE
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        captured_output = io.StringIO()
+
+        # ACT
+        with patch("sys.stdout", captured_output):
+            cmd = AdminList()
+            cmd.run()
+
+        # ASSERT
+        output = captured_output.getvalue()
+        assert "No users found" in output
+
+
+@pytest.mark.integration
+class TestAdminResetPasswordIntegration:
+    """Integration tests for admin:reset-password command using state-based testing."""
+
+    def test_reset_password_success(
+        self, db_session: Session, sample_user: User, monkeypatch
+    ):
+        """Test successful password reset.
+
+        ARRANGE:
+            - Set up test environment with secret key
+            - Create a sample user in the database (via fixture)
+
+        ACT:
+            - Run AdminResetPassword.run() with new password
+
+        ASSERT:
+            - Verify user's password was changed
+            - Verify old password no longer works
+            - Verify new password works
+            - Verify success output
+        """
+        # ARRANGE
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        captured_output = io.StringIO()
+
+        # Store original password for comparison
+        original_password = "testpass123"
+        new_password = "newpass123"
+
+        # Verify original password works before reset
+        assert sample_user.check_password(original_password)
+
+        # ACT
+        with (
+            patch(
+                "hop3.server.cli.admin.getpass.getpass",
+                side_effect=[new_password, new_password],
+            ),
+            patch("sys.stdout", captured_output),
+        ):
+            cmd = AdminResetPassword()
+            cmd.run(username="testuser", password_stdin=False)
+
+        # ASSERT: Verify password was changed
+        db_session.expire_all()
+        db_session.refresh(sample_user)
+
+        assert sample_user.check_password(new_password), "New password should work"
+        assert not sample_user.check_password(original_password), (
+            "Old password should not work"
+        )
+
+        # Verify output
+        output = captured_output.getvalue()
+        assert "Password reset successfully" in output
+
+    def test_reset_password_stdin(
+        self, db_session: Session, sample_user: User, monkeypatch
+    ):
+        """Test password reset with stdin.
+
+        This tests automation scenario where password is piped in.
+        """
+        # ARRANGE
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        captured_output = io.StringIO()
+        new_password = "stdin_newpass123"
+
+        # ACT
+        with (
+            patch("sys.stdin", io.StringIO(f"{new_password}\n")),
+            patch("sys.stdout", captured_output),
+        ):
+            cmd = AdminResetPassword()
+            cmd.run(username="testuser", password_stdin=True)
+
+        # ASSERT
+        db_session.expire_all()
+        db_session.refresh(sample_user)
+        assert sample_user.check_password(new_password)
+
+        output = captured_output.getvalue()
+        assert "Password reset successfully" in output
+
+    def test_reset_password_user_not_found(self, db_session: Session, monkeypatch):
+        """Test error when user doesn't exist."""
+        # ARRANGE
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+
+        # ACT + ASSERT
+        with (
+            patch(
+                "hop3.server.cli.admin.getpass.getpass",
+                side_effect=["newpass123", "newpass123"],
+            ),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            cmd = AdminResetPassword()
+            cmd.run(username="nonexistent", password_stdin=False)
+
+        assert exc_info.value.code == 1
