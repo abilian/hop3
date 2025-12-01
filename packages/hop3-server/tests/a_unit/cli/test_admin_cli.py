@@ -136,7 +136,8 @@ class TestAdminCreate:
             patch(
                 "hop3.server.cli.admin.getpass.getpass",
                 side_effect=["password123", "password123"],
-            ), pytest.raises(SystemExit) as exc_info
+            ),
+            pytest.raises(SystemExit) as exc_info,
         ):
             cmd = AdminCreate()  # noqa: PT012
             cmd.run(username="testuser", email="new@example.com", password_stdin=False)
@@ -156,7 +157,8 @@ class TestAdminCreate:
             patch(
                 "hop3.server.cli.admin.getpass.getpass",
                 side_effect=["password123", "different"],
-            ), pytest.raises(SystemExit) as exc_info
+            ),
+            pytest.raises(SystemExit) as exc_info,
         ):
             cmd = AdminCreate()  # noqa: PT012
             cmd.run(
@@ -352,7 +354,8 @@ class TestAdminResetPassword:
             patch(
                 "hop3.server.cli.admin.getpass.getpass",
                 side_effect=["newpass123", "newpass123"],
-            ), pytest.raises(SystemExit) as exc_info
+            ),
+            pytest.raises(SystemExit) as exc_info,
         ):
             cmd = AdminResetPassword()  # noqa: PT012
             cmd.run(username="nonexistent", password_stdin=False)
