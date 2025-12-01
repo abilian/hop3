@@ -77,6 +77,7 @@ lint.extend-ignore = [
     "PLC0206", #	dict-index-missing-items
     "PLR0914", #	too-many-locals
     "PLR0917", #	too-many-positional-arguments
+    "PT012",
 ]
 
 
