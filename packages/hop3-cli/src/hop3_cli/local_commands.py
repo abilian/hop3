@@ -389,14 +389,14 @@ def create_admin_via_ssh(
 
     if result.returncode != 0:
         error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
-        raise BootstrapError(f"Failed to create admin: {error_msg}")
+        msg = f"Failed to create admin: {error_msg}"
+        raise BootstrapError(msg)
 
     # Parse token from output
     token = extract_token(result.stdout)
     if not token:
-        raise BootstrapError(
-            f"Could not extract token from server response:\n{result.stdout}"
-        )
+        msg = f"Could not extract token from server response:\n{result.stdout}"
+        raise BootstrapError(msg)
 
     return token
 
@@ -425,13 +425,13 @@ def get_token_via_ssh(ssh_target: str, username: str) -> str:
 
     if result.returncode != 0:
         error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
-        raise BootstrapError(f"Failed to get token: {error_msg}")
+        msg = f"Failed to get token: {error_msg}"
+        raise BootstrapError(msg)
 
     token = extract_token(result.stdout)
     if not token:
-        raise BootstrapError(
-            f"Could not extract token from server response:\n{result.stdout}"
-        )
+        msg = f"Could not extract token from server response:\n{result.stdout}"
+        raise BootstrapError(msg)
 
     return token
 
