@@ -1179,6 +1179,7 @@ source = { editable = "packages/hop3-server" }
 dependencies = [
     { name = "advanced-alchemy" },
     { name = "alembic" },
+    { name = "anyio" },
     { name = "attrs" },
     { name = "bcrypt" },
     { name = "cryptography" },
@@ -1212,6 +1213,7 @@ dev = [
 requires-dist = [
     { name = "advanced-alchemy", specifier = ">=0.21" },
     { name = "alembic", specifier = "~=1.13" },
+    { name = "anyio" },
     { name = "attrs", specifier = ">=24.2" },
     { name = "bcrypt", specifier = ">=4.0.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
