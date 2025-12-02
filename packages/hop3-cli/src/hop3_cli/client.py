@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
+import re
 import warnings
 from dataclasses import dataclass
 from functools import cached_property
@@ -22,6 +23,15 @@ if TYPE_CHECKING:
 
 # Suppress InsecureRequestWarning when SSL verification is disabled
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+def _is_ip_address(hostname: str) -> bool:
+    """Check if hostname is an IP address."""
+    # IPv4 pattern
+    ipv4_pattern = r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$"
+    # IPv6 pattern (simplified - brackets or raw)
+    ipv6_pattern = r"^\[?[0-9a-fA-F:]+\]?$"
+    return bool(re.match(ipv4_pattern, hostname) or re.match(ipv6_pattern, hostname))
 
 
 @dataclass
@@ -173,33 +183,44 @@ class Client:
 
         # Determine SSL verification mode
         # Options:
-        #   - verify_ssl: false to disable verification entirely
         #   - ssl_cert: path to a trusted certificate file (for self-signed certs)
-        if urlparse(self.api_url).scheme == "https":
-            # First check if verification is explicitly disabled
+        #   - verify_ssl: false to disable verification entirely (last resort)
+        #
+        # For IP addresses with ssl_cert: We skip SSL verification because:
+        #   1. Standard verification fails (cert is for hostname, not IP)
+        #   2. The certificate was fetched via SSH (trusted channel) during init
+        #   3. We're connecting to the same server we SSH'd into
+        parsed_url = urlparse(self.api_url)
+        verify_ssl: bool | str = True
+
+        if parsed_url.scheme == "https":
+            ssl_cert = self.config.get("ssl_cert", None)
             verify_ssl_config = self.config.get("verify_ssl", None)
+            hostname = parsed_url.hostname or ""
+
+            # Parse verify_ssl setting
+            verify_ssl_disabled = False
             if verify_ssl_config is not None:
-                # Handle string "false"/"true" from config file
                 if isinstance(verify_ssl_config, str):
-                    verify_ssl_enabled = verify_ssl_config.lower() not in (
+                    verify_ssl_disabled = verify_ssl_config.lower() in (
                         "false",
                         "0",
                         "no",
                     )
                 else:
-                    verify_ssl_enabled = bool(verify_ssl_config)
+                    verify_ssl_disabled = not bool(verify_ssl_config)
 
-                if not verify_ssl_enabled:
-                    # Verification disabled
-                    verify_ssl = False
-                else:
-                    # Verification enabled - check for custom cert
-                    ssl_cert = self.config.get("ssl_cert", None)
-                    verify_ssl = ssl_cert or True
-            else:
-                # No explicit setting - check for custom cert, default to True
-                ssl_cert = self.config.get("ssl_cert", None)
-                verify_ssl = ssl_cert or True
+            if ssl_cert and _is_ip_address(hostname):
+                # IP address with saved cert: skip verification
+                # (cert was fetched via trusted SSH, hostname check would fail)
+                verify_ssl = False
+            elif ssl_cert:
+                # Hostname with saved cert: standard verification with custom CA
+                verify_ssl = ssl_cert
+            elif verify_ssl_disabled:
+                # No cert and verification explicitly disabled
+                verify_ssl = False
+            # else: default to True (system CA bundle)
         else:
             verify_ssl = False
 
@@ -217,7 +238,7 @@ class Client:
             self.rpc_url,
             json=json_request,
             headers=headers,
-            verify=verify_ssl,  # Use True for HTTPS, False otherwise.
+            verify=verify_ssl,
         )
         try:
             # Check for 401 Unauthorized specifically

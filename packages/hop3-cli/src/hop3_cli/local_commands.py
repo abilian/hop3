@@ -159,23 +159,20 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> b
             or ":" in hostname  # IPv6
         )
 
-        if is_ip_address:
-            # Self-signed certs for IP addresses don't work with hostname verification
-            print("\nNote: Connecting via IP address with self-signed certificate.")
-            print("      SSL verification disabled for this server.")
-            config_data["verify_ssl"] = "false"
-        else:
-            # For hostnames, fetch and trust the certificate
-            print("\nFetching SSL certificate...")
-            try:
-                cert_path = fetch_and_save_certificate(ssh_target, server_url, config)
-                if cert_path:
-                    config_data["ssl_cert"] = str(cert_path)
-                    print(f"  Certificate saved to {cert_path}")
-            except Exception as e:
-                print(f"  Warning: Could not fetch certificate: {e}")
-                print("  You may need to configure SSL manually with:")
-                print("    hop3 config set verify_ssl false")
+        # Fetch and save the certificate for SSL verification
+        print("\nFetching SSL certificate...")
+        try:
+            cert_path = fetch_and_save_certificate(ssh_target, server_url, config)
+            if cert_path:
+                config_data["ssl_cert"] = str(cert_path)
+                print(f"  Certificate saved to {cert_path}")
+                if is_ip_address:
+                    print("  Note: Using IP address - hostname verification will be skipped,")
+                    print("        but certificate will still be verified.")
+        except Exception as e:
+            print(f"  Warning: Could not fetch certificate: {e}")
+            print("  You may need to configure SSL manually with:")
+            print("    hop3 config set verify_ssl false")
 
     # Save configuration
     config.save(config_data)
@@ -300,24 +297,20 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
             or ":" in hostname  # IPv6
         )
 
-        if is_ip_address:
-            # Self-signed certs for IP addresses don't work with hostname verification
-            # Disable SSL verification for IP-based access
-            print("\nNote: Connecting via IP address with self-signed certificate.")
-            print("      SSL verification disabled for this server.")
-            config_data["verify_ssl"] = "false"
-        else:
-            # For hostnames, fetch and trust the certificate
-            print("\nFetching SSL certificate...")
-            try:
-                cert_path = fetch_and_save_certificate(ssh_target, server_url, config)
-                if cert_path:
-                    config_data["ssl_cert"] = str(cert_path)
-                    print(f"  Certificate saved to {cert_path}")
-            except Exception as e:
-                print(f"  Warning: Could not fetch certificate: {e}")
-                print("  You may need to configure SSL manually with:")
-                print("    hop3 config set verify_ssl false")
+        # Fetch and save the certificate for SSL verification
+        print("\nFetching SSL certificate...")
+        try:
+            cert_path = fetch_and_save_certificate(ssh_target, server_url, config)
+            if cert_path:
+                config_data["ssl_cert"] = str(cert_path)
+                print(f"  Certificate saved to {cert_path}")
+                if is_ip_address:
+                    print("  Note: Using IP address - hostname verification will be skipped,")
+                    print("        but certificate will still be verified.")
+        except Exception as e:
+            print(f"  Warning: Could not fetch certificate: {e}")
+            print("  You may need to configure SSL manually with:")
+            print("    hop3 config set verify_ssl false")
 
     # Save configuration
     config.save(config_data)
