@@ -177,21 +177,23 @@ def start_container(distro: str) -> bool:
 
     # Start container with installer directory mounted
     try:
-        run_command([
-            "docker",
-            "run",
-            "-d",
-            "--name",
-            name,
-            "-v",
-            f"{SCRIPT_DIR}:/installer:ro",
-            "-w",
-            "/installer",
-            image,
-            "bash",
-            "-c",
-            f"{install_cmd} && sleep infinity",
-        ])
+        run_command(
+            [
+                "docker",
+                "run",
+                "-d",
+                "--name",
+                name,
+                "-v",
+                f"{SCRIPT_DIR}:/installer:ro",
+                "-w",
+                "/installer",
+                image,
+                "bash",
+                "-c",
+                f"{install_cmd} && sleep infinity",
+            ]
+        )
     except subprocess.CalledProcessError as e:
         log_error(f"Failed to start container: {e}")
         return False

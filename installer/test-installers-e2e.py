@@ -559,6 +559,8 @@ def cleanup_server(host: str) -> None:
         # Remove any hop3-related nginx configs
         "rm -f /etc/nginx/sites-available/hop3* /etc/nginx/sites-enabled/hop3* 2>/dev/null || true",
         "rm -f /etc/nginx/conf.d/hop3* 2>/dev/null || true",
+        # Remove SSL certificates
+        "rm -rf /etc/hop3 2>/dev/null || true",
     ]
     for cmd in cleanup_commands:
         ssh_run(host, cmd, check=False, sudo=True)
@@ -725,6 +727,49 @@ def validate_server_installation(host: str) -> bool:
         log_success("PostgreSQL hop3 database exists")
     else:
         log_error("PostgreSQL hop3 database not found")
+        all_passed = False
+
+    # Check nginx is running
+    result = ssh_run(host, "systemctl is-active nginx 2>/dev/null", check=False)
+    if "active" in result.stdout:
+        log_success("nginx service is running")
+    else:
+        log_error("nginx service is not running")
+        all_passed = False
+
+    # Check nginx config exists
+    result = ssh_run(
+        host,
+        "test -f /etc/nginx/sites-available/hop3 || test -f /etc/nginx/conf.d/hop3.conf",
+        check=False,
+    )
+    if result.returncode == 0:
+        log_success("nginx hop3 config exists")
+    else:
+        log_error("nginx hop3 config not found")
+        all_passed = False
+
+    # Check SSL certificate exists
+    result = ssh_run(
+        host,
+        "test -f /etc/hop3/ssl/hop3.crt && test -f /etc/hop3/ssl/hop3.key",
+        check=False,
+    )
+    if result.returncode == 0:
+        log_success("SSL certificate exists")
+    else:
+        log_error("SSL certificate not found")
+        all_passed = False
+
+    # Verify nginx config is valid
+    result = ssh_run(host, "nginx -t 2>&1", check=False)
+    if result.returncode == 0:
+        log_success("nginx configuration is valid")
+    else:
+        log_error("nginx configuration is invalid")
+        if VERBOSE:
+            print(result.stdout)
+            print(result.stderr)
         all_passed = False
 
     return all_passed
