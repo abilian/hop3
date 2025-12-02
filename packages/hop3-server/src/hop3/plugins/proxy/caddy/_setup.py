@@ -187,8 +187,8 @@ class CaddyVirtualHost(BaseProxy):
 
         static_paths = self.get_static_paths()
 
-        for static_url, _static_path in static_paths:
-            static_path = str(_static_path)
+        for static_url, static_path_ in static_paths:
+            static_path = str(static_path_)
             log(
                 f"caddy will serve static files from {static_url} -> {static_path}",
                 level=2,

@@ -212,8 +212,8 @@ class NginxVirtualHost(BaseProxy):
 
         static_paths = self.get_static_paths()
 
-        for static_url, _static_path in static_paths:
-            static_path = str(_static_path)
+        for static_url, static_path_ in static_paths:
+            static_path = str(static_path_)
             log(f"nginx will map {static_url} to {static_path}.", level=2)
             self.env["HOP3_INTERNAL_NGINX_STATIC_MAPPINGS"] += expand_vars(
                 HOP3_INTERNAL_NGINX_STATIC_MAPPING,
