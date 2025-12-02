@@ -7,6 +7,7 @@
 This module provides a canonical asgi.py at the project root for easy
 development with Litestar CLI. Just run: `uv run litestar run --reload`
 """
+
 from __future__ import annotations
 
 from hop3.server.asgi import create_app

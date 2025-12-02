@@ -55,10 +55,7 @@ class Config:
             return True
 
         # Check config file
-        if "api_url" in self.data:
-            return True
-
-        return False
+        return "api_url" in self.data
 
     def get_api_url(self) -> str | None:
         """Get the API URL if configured, None otherwise.
