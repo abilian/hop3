@@ -78,14 +78,19 @@ class Client:
         1. Explicit override passed to the Client.
         2. HOP3_API_URL environment variable.
         3. URL from config file.
+        4. Developer mode (HOP3_DEV_MODE=true) enables localhost:8000.
         """
         # The main.py will need to be updated to pass the --api-url flag value here.
         if self.api_url_override:
             return self.api_url_override
 
-        # This uses the config's layered approach (env > file > default)
-        api_url = self.config.get("api_url", "http://localhost:8000")
-        assert isinstance(api_url, str)
+        # Use the config's get_api_url which handles dev mode and returns None if unconfigured
+        api_url = self.config.get_api_url()
+        if api_url is None:
+            # This shouldn't happen if main.py checks is_configured() first,
+            # but provide a sensible fallback for direct Client usage
+            msg = "API URL not configured. Run 'hop3 init --ssh root@server' to set up."
+            raise CliError(msg)
         return api_url
 
     @property

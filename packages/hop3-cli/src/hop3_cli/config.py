@@ -25,9 +25,8 @@ class Config:
 
     # These are the ultimate fallbacks if nothing is configured.
     defaults: ClassVar[dict] = {
-        # Defaulting to localhost to encourage local dev first.
-        # A production setup would override this in a config file or env var.
-        "api_url": "http://localhost:8000",
+        # No default api_url - unconfigured state should be detected
+        # Developers should set HOP3_DEV_MODE=true for localhost defaults
         "api_version": "v1",
         "server_port": 8000,
         "ssh_user": "root",
@@ -36,6 +35,50 @@ class Config:
         # "api_key": None,
         # "api_secret": None,
     }
+
+    def is_configured(self) -> bool:
+        """Check if the CLI has been configured with a server URL.
+
+        Returns True if api_url is set via:
+        1. Environment variable (HOP3_API_URL)
+        2. Config file
+        3. Developer mode (HOP3_DEV_MODE=true enables localhost:8000)
+
+        Returns False if no server has been configured.
+        """
+        # Check for developer mode
+        if os.environ.get("HOP3_DEV_MODE", "").lower() in ("true", "1", "yes"):
+            return True
+
+        # Check environment variable
+        if "HOP3_API_URL" in os.environ:
+            return True
+
+        # Check config file
+        if "api_url" in self.data:
+            return True
+
+        return False
+
+    def get_api_url(self) -> str | None:
+        """Get the API URL if configured, None otherwise.
+
+        For developers: Set HOP3_DEV_MODE=true to use localhost:8000
+        """
+        # Check for developer mode first
+        if os.environ.get("HOP3_DEV_MODE", "").lower() in ("true", "1", "yes"):
+            # In dev mode, default to localhost but allow override
+            return self.get("api_url", "http://localhost:8000")
+
+        # Check environment variable
+        if "HOP3_API_URL" in os.environ:
+            return os.environ["HOP3_API_URL"]
+
+        # Check config file
+        if "api_url" in self.data:
+            return self.data["api_url"]
+
+        return None
 
     @staticmethod
     def from_dict(data: dict) -> Config:

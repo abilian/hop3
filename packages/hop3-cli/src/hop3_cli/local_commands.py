@@ -361,7 +361,15 @@ def handle_config(args: list[str], config: Config, printer: RichPrinter) -> bool
 
 def config_show(config: Config, printer: RichPrinter) -> bool:
     """Show current configuration."""
+    import os
+
     print(f"Config file: {config.config_file}\n")
+
+    # Show dev mode status
+    dev_mode = os.environ.get("HOP3_DEV_MODE", "").lower() in ("true", "1", "yes")
+    if dev_mode:
+        print("Developer mode: ENABLED (HOP3_DEV_MODE)")
+        print("  Localhost default: http://localhost:8000\n")
 
     if config.data:
         print("Current settings:")
@@ -379,6 +387,12 @@ def config_show(config: Config, printer: RichPrinter) -> bool:
     for key, value in sorted(config.defaults.items()):
         if key not in config.data:
             print(f"  {key} = {value}")
+
+    # Show configuration status
+    print(f"\nConfigured: {config.is_configured()}")
+    if not config.is_configured():
+        print("\nTo configure, run:")
+        print("  hop3 init --ssh root@your-server.com")
 
     return True
 
