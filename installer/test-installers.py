@@ -1,543 +1,431 @@
 #!/usr/bin/env python3
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Test script for Hop3 installers using Vagrant.
+"""Unified test script for Hop3 installers.
+
+Supports multiple backends: SSH (remote servers), Docker (containers),
+and Vagrant (virtual machines).
 
 Usage:
-    ./test-installers.py                           # Test CLI on Ubuntu
-    ./test-installers.py --vm ubuntu --type cli    # Test CLI on Ubuntu
-    ./test-installers.py --vm ubuntu --type server # Test server on Ubuntu
-    ./test-installers.py --vm fedora --type both   # Test both on Fedora
-    ./test-installers.py --all                     # Test CLI on all VMs
-    ./test-installers.py --all --type server       # Test server on all VMs
-    ./test-installers.py --cleanup                 # Destroy all VMs
+    # SSH backend (remote server)
+    ./test-installers.py ssh --host root@server.example.com
+    ./test-installers.py ssh --host user@server --method git --type both
 
-Options:
-    --vm <name>       VM to test on (ubuntu, debian, fedora)
-    --type <type>     Installer type: cli, server, or both (default: cli)
-    --all             Test on all VMs
-    --keep            Keep VMs running after test
-    --cleanup         Destroy all VMs and exit
-    --verbose         Verbose output
-    --help            Show this help
+    # Docker backend (containers)
+    ./test-installers.py docker --distro ubuntu
+    ./test-installers.py docker --distro fedora --type cli
+
+    # Vagrant backend (VMs)
+    ./test-installers.py vagrant --vm ubuntu
+    ./test-installers.py vagrant --vm fedora --type server
+
+Common options:
+    --type TYPE         Installer to test: cli, server, or both (default: both)
+    --method METHOD     Installation method: pypi, git, local, or all (default: git)
+    --branch BRANCH     Git branch for git method (default: devel)
+    --version VERSION   Version for pypi method
+    --keep              Keep environment after test
+    --verbose           Show verbose output
+    --dry-run           Show commands without executing (SSH only)
 """
 
 from __future__ import annotations
 
 import argparse
 import os
-import subprocess
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 
-# =============================================================================
-# Configuration
-# =============================================================================
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+
+from testing.common import (
+    log_error,
+    log_header,
+    set_dry_run,
+    set_verbose,
+)
+from testing.runner import INSTALL_METHODS, TestConfig, TestRunner
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
-AVAILABLE_VMS = ["ubuntu", "debian", "fedora"]
-DEFAULT_VM = "ubuntu"
-DEFAULT_TYPE = "cli"
 
+# Available distros/VMs for each backend
+DOCKER_DISTROS = ["ubuntu", "debian", "fedora"]
+VAGRANT_VMS = ["ubuntu", "debian", "fedora"]
 
-# =============================================================================
-# Terminal Colors
-# =============================================================================
 
-
-@dataclass
-class Colors:
-    """ANSI color codes for terminal output."""
-
-    RESET: str = "\033[0m"
-    RED: str = "\033[0;31m"
-    GREEN: str = "\033[0;32m"
-    YELLOW: str = "\033[0;33m"
-    BLUE: str = "\033[0;34m"
-    MAGENTA: str = "\033[0;35m"
-    CYAN: str = "\033[0;36m"
-    BOLD: str = "\033[1m"
-
-
-# Disable colors if not a TTY
-if sys.stdout.isatty():
-    C = Colors()
-else:
-    C = Colors(
-        RESET="",
-        RED="",
-        GREEN="",
-        YELLOW="",
-        BLUE="",
-        MAGENTA="",
-        CYAN="",
-        BOLD="",
-    )
-
-
-# =============================================================================
-# Logging
-# =============================================================================
-
-VERBOSE = False
-
-
-def log_info(message: str) -> None:
-    """Print an info message."""
-    print(f"{C.BLUE}[INFO]{C.RESET} {message}")
-
-
-def log_success(message: str) -> None:
-    """Print a success message."""
-    print(f"{C.GREEN}[PASS]{C.RESET} {message}")
-
-
-def log_warning(message: str) -> None:
-    """Print a warning message."""
-    print(f"{C.YELLOW}[WARN]{C.RESET} {message}")
-
-
-def log_error(message: str) -> None:
-    """Print an error message."""
-    print(f"{C.RED}[FAIL]{C.RESET} {message}", file=sys.stderr)
-
-
-def log_debug(message: str) -> None:
-    """Print a debug message (only in verbose mode)."""
-    if VERBOSE:
-        print(f"{C.BLUE}[DEBUG]{C.RESET} {message}")
-
-
-def log_header(message: str) -> None:
-    """Print a header."""
-    print()
-    print(f"{C.BOLD}{C.CYAN}=== {message} ==={C.RESET}")
-    print()
-
-
-# =============================================================================
-# Command Execution
-# =============================================================================
-
-
-def run_command(
-    cmd: list[str],
-    check: bool = True,
-    capture_output: bool = False,
-    cwd: Path | None = None,
-) -> subprocess.CompletedProcess:
-    """Run a command and return the result."""
-    log_debug(f"Running: {' '.join(cmd)}")
-    return subprocess.run(
-        cmd,
-        check=check,
-        capture_output=capture_output,
-        text=True,
-        cwd=cwd,
-    )
-
-
-def run_vagrant(
-    *args: str,
-    check: bool = True,
-    capture_output: bool = False,
-) -> subprocess.CompletedProcess:
-    """Run a vagrant command."""
-    cmd = ["vagrant", *args]
-    return run_command(cmd, check=check, capture_output=capture_output, cwd=SCRIPT_DIR)
-
-
-def run_in_vm(vm_name: str, command: str) -> subprocess.CompletedProcess:
-    """Run a command inside a Vagrant VM."""
-    return run_vagrant("ssh", vm_name, "-c", command, capture_output=True, check=False)
-
-
-# =============================================================================
-# Vagrant Helpers
-# =============================================================================
-
-
-def vm_is_running(vm_name: str) -> bool:
-    """Check if a VM is running."""
-    try:
-        result = run_vagrant("status", vm_name, capture_output=True, check=False)
-        return "running" in result.stdout
-    except Exception:
-        return False
-
-
-def start_vm(vm_name: str) -> bool:
-    """Start a Vagrant VM."""
-    log_info(f"Starting VM: {vm_name}")
-
-    if vm_is_running(vm_name):
-        log_info(f"VM {vm_name} is already running")
-        return True
-
-    try:
-        if VERBOSE:
-            run_vagrant("up", vm_name)
-        else:
-            result = run_vagrant("up", vm_name, capture_output=True, check=False)
-            # Print only important lines
-            for line in result.stdout.splitlines():
-                if "==>" in line or "error" in line.lower():
-                    print(line)
-            if result.returncode != 0:
-                print(result.stderr)
-                return False
-    except subprocess.CalledProcessError as e:
-        log_error(f"Failed to start VM: {e}")
-        return False
-
-    if vm_is_running(vm_name):
-        log_success(f"VM {vm_name} is running")
-        return True
-    log_error(f"Failed to start VM {vm_name}")
-    return False
-
-
-def stop_vm(vm_name: str) -> None:
-    """Stop a Vagrant VM."""
-    log_info(f"Stopping VM: {vm_name}")
-    try:
-        run_vagrant("halt", vm_name, capture_output=True, check=False)
-    except Exception:
-        pass
-
-
-def destroy_vm(vm_name: str) -> None:
-    """Destroy a Vagrant VM."""
-    log_info(f"Destroying VM: {vm_name}")
-    try:
-        run_vagrant("destroy", "-f", vm_name, capture_output=True, check=False)
-    except Exception:
-        pass
-
-
-def sync_files(vm_name: str) -> None:
-    """Sync files to the VM."""
-    log_info("Syncing files to VM...")
-    try:
-        run_vagrant("rsync", vm_name, capture_output=True, check=False)
-    except Exception:
-        pass
-
-
-# =============================================================================
-# Test Functions
-# =============================================================================
-
-
-def test_cli_installer(vm_name: str) -> bool:
-    """Test the CLI installer on a VM.
-
-    Returns True if all tests pass.
-    """
-    log_header(f"Testing CLI Installer on {vm_name}")
-    all_passed = True
-
-    # Run the installer with --git flag (package not on PyPI yet)
-    log_info("Running CLI installer...")
-    install_cmd = (
-        "HOP3_LOCAL_INSTALLER=/vagrant/install-cli.py "
-        "bash /vagrant/install-cli.sh --git --no-modify-path --verbose"
-    )
-    result = run_in_vm(vm_name, install_cmd)
-
-    if result.returncode == 0:
-        log_success("CLI installer completed")
-    else:
-        log_error("CLI installer failed")
-        if VERBOSE:
-            print(result.stdout)
-            print(result.stderr)
-        return False
-
-    # Validate installation
-    log_info("Validating CLI installation...")
-
-    # Check venv exists
-    result = run_in_vm(vm_name, "test -d ~/.hop3-cli/venv")
-    if result.returncode == 0:
-        log_success("Virtual environment exists")
-    else:
-        log_error("Virtual environment not found")
-        all_passed = False
-
-    # Check hop command exists (either hop or hop3)
-    result = run_in_vm(
-        vm_name, "test -f ~/.hop3-cli/venv/bin/hop || test -f ~/.hop3-cli/venv/bin/hop3"
-    )
-    if result.returncode == 0:
-        log_success("CLI command installed")
-    else:
-        log_error("CLI command not found")
-        all_passed = False
-
-    # Check symlink in .local/bin
-    result = run_in_vm(vm_name, "test -L ~/.local/bin/hop || test -f ~/.local/bin/hop")
-    if result.returncode == 0:
-        log_success("Symlink created in ~/.local/bin")
-    else:
-        log_warning("Symlink not found in ~/.local/bin (may be expected)")
-
-    # Try running the command
-    result = run_in_vm(vm_name, "~/.hop3-cli/venv/bin/hop help 2>&1")
-    if "error" in result.stdout.lower() or "could not connect" in result.stdout.lower():
-        log_success("CLI command runs (expected connection error - no server)")
-    elif result.returncode == 0:
-        log_success("CLI command runs successfully")
-    else:
-        log_warning("CLI command output unexpected")
-        if VERBOSE:
-            print(result.stdout)
-
-    return all_passed
-
-
-def test_server_installer(vm_name: str) -> bool:
-    """Test the server installer on a VM.
-
-    Returns True if all tests pass.
-    """
-    log_header(f"Testing Server Installer on {vm_name}")
-    all_passed = True
-
-    # Run the installer with --git flag and skip some setup for testing
-    log_info("Running server installer (this may take a while)...")
-    install_cmd = (
-        "sudo HOP3_LOCAL_INSTALLER=/vagrant/install-server.py "
-        "bash /vagrant/install-server.sh --git --skip-postgres --verbose"
-    )
-    result = run_in_vm(vm_name, install_cmd)
-
-    if result.returncode == 0:
-        log_success("Server installer completed")
-    else:
-        log_error("Server installer failed")
-        if VERBOSE:
-            print(result.stdout)
-            print(result.stderr)
-        return False
-
-    # Validate installation
-    log_info("Validating server installation...")
-
-    # Check hop3 user exists
-    result = run_in_vm(vm_name, "id hop3")
-    if result.returncode == 0:
-        log_success("hop3 user exists")
-    else:
-        log_error("hop3 user not found")
-        all_passed = False
-
-    # Check venv exists
-    result = run_in_vm(vm_name, "sudo test -d /home/hop3/venv")
-    if result.returncode == 0:
-        log_success("Virtual environment exists")
-    else:
-        log_error("Virtual environment not found")
-        all_passed = False
-
-    # Check hop-server command exists
-    result = run_in_vm(vm_name, "sudo test -f /home/hop3/venv/bin/hop-server")
-    if result.returncode == 0:
-        log_success("hop-server command installed")
-    else:
-        log_error("hop-server command not found")
-        all_passed = False
-
-    # Check systemd service
-    result = run_in_vm(vm_name, "systemctl is-enabled hop3-server 2>/dev/null")
-    if "enabled" in result.stdout:
-        log_success("hop3-server service is enabled")
-    else:
-        log_warning("hop3-server service not enabled")
-
-    return all_passed
-
-
-def run_tests(vm_name: str, test_type: str) -> bool:
-    """Run tests on a VM.
-
-    Returns True if all tests pass.
-    """
-    log_header(f"Running Tests on {vm_name}")
-
-    # Start VM
-    if not start_vm(vm_name):
-        log_error(f"Could not start VM {vm_name}")
-        return False
-
-    # Sync files
-    sync_files(vm_name)
-
-    # Run tests based on type
-    all_passed = True
-
-    if test_type in ("cli", "both"):
-        if not test_cli_installer(vm_name):
-            all_passed = False
-
-    if test_type in ("server", "both"):
-        if not test_server_installer(vm_name):
-            all_passed = False
-
-    return all_passed
-
-
-# =============================================================================
-# Argument Parsing
-# =============================================================================
-
-
-def parse_arguments() -> argparse.Namespace:
-    """Parse command-line arguments."""
+def create_parser() -> argparse.ArgumentParser:
+    """Create argument parser with subcommands."""
     parser = argparse.ArgumentParser(
-        description="Test Hop3 installers using Vagrant.",
+        prog="test-installers.py",
+        description="Unified test script for Hop3 installers.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    # Create subparsers for each backend
+    subparsers = parser.add_subparsers(dest="backend", help="Test backend to use")
+
+    # SSH backend
+    ssh_parser = subparsers.add_parser(
+        "ssh",
+        help="Test on remote server via SSH",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    # Test CLI installer on Ubuntu (default)
-    ./test-installers.py
-
-    # Test server installer on Fedora
-    ./test-installers.py --vm fedora --type server
-
-    # Test both installers on all VMs
-    ./test-installers.py --all --type both
-
-    # Clean up all VMs
-    ./test-installers.py --cleanup
-
-Available VMs:
-    ubuntu      Ubuntu 24.04 LTS (Noble)
-    debian      Debian 12 (Bookworm)
-    fedora      Fedora 40
-
-Test Types:
-    cli         Test the CLI installer (install-cli.sh)
-    server      Test the server installer (install-server.sh)
-    both        Test both installers
+    ./test-installers.py ssh --host root@server.example.com
+    ./test-installers.py ssh --host user@server --type both --method git
+    ./test-installers.py ssh --host user@server --method pypi --version 0.4.0
         """,
     )
+    ssh_parser.add_argument(
+        "--host",
+        metavar="HOST",
+        default=os.environ.get("HOP3_TEST_HOST"),
+        help="SSH target (user@hostname). Can also set HOP3_TEST_HOST env var",
+    )
+    ssh_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show commands without executing",
+    )
+    _add_common_args(ssh_parser)
 
-    parser.add_argument(
+    # Docker backend
+    docker_parser = subparsers.add_parser(
+        "docker",
+        help="Test in Docker containers",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+    ./test-installers.py docker --distro ubuntu
+    ./test-installers.py docker --distro fedora --type cli
+    ./test-installers.py docker --all
+
+Note: Server tests are limited in Docker (no systemd).
+        """,
+    )
+    docker_parser.add_argument(
+        "--distro",
+        choices=DOCKER_DISTROS,
+        default="ubuntu",
+        help="Distribution to test on (default: ubuntu)",
+    )
+    docker_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Test on all available distros",
+    )
+    docker_parser.add_argument(
+        "--cleanup",
+        action="store_true",
+        help="Remove all test containers and exit",
+    )
+    _add_common_args(docker_parser)
+
+    # Vagrant backend
+    vagrant_parser = subparsers.add_parser(
+        "vagrant",
+        help="Test in Vagrant VMs",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+    ./test-installers.py vagrant --vm ubuntu
+    ./test-installers.py vagrant --vm fedora --type server
+    ./test-installers.py vagrant --all
+
+Requires: Vagrant and VirtualBox (or another provider).
+        """,
+    )
+    vagrant_parser.add_argument(
         "--vm",
-        type=str,
-        default=DEFAULT_VM,
-        choices=AVAILABLE_VMS,
-        help=f"VM to test on (default: {DEFAULT_VM})",
+        choices=VAGRANT_VMS,
+        default="ubuntu",
+        help="VM to test on (default: ubuntu)",
     )
-
-    parser.add_argument(
-        "--type",
-        type=str,
-        default=DEFAULT_TYPE,
-        choices=["cli", "server", "both"],
-        help=f"Installer type to test (default: {DEFAULT_TYPE})",
-    )
-
-    parser.add_argument(
+    vagrant_parser.add_argument(
         "--all",
         action="store_true",
         help="Test on all available VMs",
     )
-
-    parser.add_argument(
-        "--keep",
-        action="store_true",
-        help="Keep VMs running after test",
-    )
-
-    parser.add_argument(
+    vagrant_parser.add_argument(
         "--cleanup",
         action="store_true",
         help="Destroy all VMs and exit",
     )
+    _add_common_args(vagrant_parser)
 
+    return parser
+
+
+def _add_common_args(parser: argparse.ArgumentParser) -> None:
+    """Add common arguments to a subparser."""
+    parser.add_argument(
+        "--type",
+        choices=["cli", "server", "both"],
+        default="both",
+        help="Installer type to test (default: both)",
+    )
+    parser.add_argument(
+        "--method",
+        choices=INSTALL_METHODS + ["all"],
+        default="git",
+        help="Installation method to test (default: git)",
+    )
+    parser.add_argument(
+        "--branch",
+        metavar="BRANCH",
+        default=os.environ.get("HOP3_BRANCH", "devel"),
+        help="Git branch for git method (default: devel)",
+    )
+    parser.add_argument(
+        "--version",
+        metavar="VERSION",
+        default=os.environ.get("HOP3_VERSION"),
+        help="Specific version for pypi method",
+    )
+    parser.add_argument(
+        "--keep",
+        action="store_true",
+        help="Keep environment after test",
+    )
     parser.add_argument(
         "--verbose",
         action="store_true",
         help="Enable verbose output",
     )
 
-    return parser.parse_args()
+
+def run_ssh_tests(args: argparse.Namespace) -> int:
+    """Run tests using SSH backend."""
+    from testing.backends.ssh import SSHBackend
+
+    if not args.host:
+        log_error(
+            "No host specified. Use --host or set HOP3_TEST_HOST environment variable"
+        )
+        print()
+        print("Example:")
+        print("  ./test-installers.py ssh --host user@server.example.com")
+        return 1
+
+    # Print test plan
+    log_header("Hop3 Installer E2E Tests (SSH)")
+    print(f"  Host:    {args.host}")
+    print(f"  Type:    {args.type}")
+    print(f"  Method:  {args.method}")
+    print(f"  Branch:  {args.branch}")
+    if args.version:
+        print(f"  Version: {args.version}")
+    print()
+
+    # Create backend and config
+    backend = SSHBackend(args.host)
+    config = TestConfig(
+        method=args.method if args.method != "all" else "git",
+        branch=args.branch,
+        version=args.version,
+        installer_dir=SCRIPT_DIR,
+        skip_acme=True,
+    )
+
+    # Setup
+    if not backend.setup():
+        return 1
+
+    # Determine methods to test
+    methods = INSTALL_METHODS if args.method == "all" else [args.method]
+
+    # Run tests
+    runner = TestRunner(backend, config)
+    try:
+        if args.type in ("cli", "both"):
+            log_header("CLI Installer Tests")
+            runner.run_cli_tests(methods)
+
+        if args.type in ("server", "both"):
+            log_header("Server Installer Tests")
+            runner.run_server_tests(methods)
+    finally:
+        if not args.keep:
+            if args.type in ("cli", "both"):
+                backend.cleanup_cli()
+            if args.type in ("server", "both"):
+                backend.cleanup_server()
+
+    # Summary
+    return 0 if runner.print_summary() else 1
 
 
-# =============================================================================
-# Main
-# =============================================================================
-
-
-def main() -> None:
-    """Main entry point."""
-    global VERBOSE
-
-    args = parse_arguments()
-    VERBOSE = args.verbose
-
-    # Change to script directory
-    os.chdir(SCRIPT_DIR)
+def run_docker_tests(args: argparse.Namespace) -> int:
+    """Run tests using Docker backend."""
+    from testing.backends.docker import DockerBackend
 
     # Handle cleanup
     if args.cleanup:
-        log_header("Cleaning up all VMs")
-        for vm in AVAILABLE_VMS:
-            destroy_vm(vm)
-        log_success("Cleanup complete")
-        sys.exit(0)
+        log_header("Cleaning up Docker containers")
+        for distro in DOCKER_DISTROS:
+            backend = DockerBackend(distro, SCRIPT_DIR)
+            backend.teardown()
+        print("Cleanup complete")
+        return 0
 
-    # Determine which VMs to test
-    vms_to_test = AVAILABLE_VMS if args.all else [args.vm]
+    # Determine distros to test
+    distros = DOCKER_DISTROS if args.all else [args.distro]
 
     # Print test plan
-    print()
-    print(f"{C.BOLD}Hop3 Installer Test{C.RESET}")
-    print("=" * 40)
-    print(f"VMs:  {', '.join(vms_to_test)}")
-    print(f"Type: {args.type}")
-    print("=" * 40)
+    log_header("Hop3 Installer Tests (Docker)")
+    print(f"  Distros: {', '.join(distros)}")
+    print(f"  Type:    {args.type}")
+    print(f"  Method:  {args.method}")
     print()
 
-    # Track results
-    results: dict[str, bool] = {}
+    all_results = {}
 
-    # Run tests
-    for vm in vms_to_test:
+    for distro in distros:
+        log_header(f"Testing on {distro}")
+
+        backend = DockerBackend(distro, SCRIPT_DIR)
+        config = TestConfig(
+            method=args.method if args.method != "all" else "git",
+            branch=args.branch,
+            installer_dir=SCRIPT_DIR,
+        )
+
+        if not backend.setup():
+            all_results[distro] = False
+            continue
+
+        runner = TestRunner(backend, config)
         try:
-            results[vm] = run_tests(vm, args.type)
-        except Exception as e:
-            log_error(f"Exception while testing {vm}: {e}")
-            results[vm] = False
+            methods = INSTALL_METHODS if args.method == "all" else [args.method]
+
+            if args.type in ("cli", "both"):
+                runner.run_cli_tests(methods)
+
+            if args.type in ("server", "both"):
+                runner.run_server_tests(methods)
+
+            all_results[distro] = all(r.passed for r in runner.results)
         finally:
-            # Clean up VM unless --keep
             if not args.keep:
-                destroy_vm(vm)
+                backend.teardown()
 
-    # Print summary
-    log_header("Test Summary")
+    # Overall summary
+    log_header("Overall Summary")
+    total = len(all_results)
+    passed = sum(1 for v in all_results.values() if v)
+    print(f"  Total:  {total}")
+    print(f"  Passed: {passed}")
+    print(f"  Failed: {total - passed}")
 
-    total = len(results)
-    passed = sum(1 for v in results.values() if v)
-    failed = total - passed
+    return 0 if passed == total else 1
 
-    print(f"Total:  {total}")
-    print(f"Passed: {passed}")
-    print(f"Failed: {failed}")
 
-    if failed > 0:
+def run_vagrant_tests(args: argparse.Namespace) -> int:
+    """Run tests using Vagrant backend."""
+    from testing.backends.vagrant import VagrantBackend
+
+    # Handle cleanup
+    if args.cleanup:
+        log_header("Cleaning up Vagrant VMs")
+        for vm in VAGRANT_VMS:
+            backend = VagrantBackend(vm, SCRIPT_DIR)
+            backend.teardown()
+        print("Cleanup complete")
+        return 0
+
+    # Determine VMs to test
+    vms = VAGRANT_VMS if args.all else [args.vm]
+
+    # Print test plan
+    log_header("Hop3 Installer Tests (Vagrant)")
+    print(f"  VMs:     {', '.join(vms)}")
+    print(f"  Type:    {args.type}")
+    print(f"  Method:  {args.method}")
+    print()
+
+    all_results = {}
+
+    for vm in vms:
+        log_header(f"Testing on {vm}")
+
+        backend = VagrantBackend(vm, SCRIPT_DIR)
+        config = TestConfig(
+            method=args.method if args.method != "all" else "git",
+            branch=args.branch,
+            installer_dir=SCRIPT_DIR,
+        )
+
+        if not backend.setup():
+            all_results[vm] = False
+            continue
+
+        runner = TestRunner(backend, config)
+        try:
+            methods = INSTALL_METHODS if args.method == "all" else [args.method]
+
+            if args.type in ("cli", "both"):
+                runner.run_cli_tests(methods)
+
+            if args.type in ("server", "both"):
+                runner.run_server_tests(methods)
+
+            all_results[vm] = all(r.passed for r in runner.results)
+        finally:
+            if not args.keep:
+                backend.teardown()
+            else:
+                backend.stop()
+
+    # Overall summary
+    log_header("Overall Summary")
+    total = len(all_results)
+    passed = sum(1 for v in all_results.values() if v)
+    print(f"  Total:  {total}")
+    print(f"  Passed: {passed}")
+    print(f"  Failed: {total - passed}")
+
+    return 0 if passed == total else 1
+
+
+def main() -> int:
+    """Main entry point."""
+    parser = create_parser()
+    args = parser.parse_args()
+
+    # Check backend was specified
+    if not args.backend:
+        parser.print_help()
         print()
-        failed_vms = [vm for vm, success in results.items() if not success]
-        log_error(f"Failed on: {', '.join(failed_vms)}")
-        sys.exit(1)
+        print("Please specify a backend: ssh, docker, or vagrant")
+        return 1
+
+    # Set global flags
+    set_verbose(args.verbose)
+    if hasattr(args, "dry_run") and args.dry_run:
+        set_dry_run(True)
+
+    # Run appropriate backend
+    if args.backend == "ssh":
+        return run_ssh_tests(args)
+    elif args.backend == "docker":
+        return run_docker_tests(args)
+    elif args.backend == "vagrant":
+        return run_vagrant_tests(args)
     else:
-        print()
-        log_success("All tests passed!")
-        sys.exit(0)
+        log_error(f"Unknown backend: {args.backend}")
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("\n\nTests cancelled.")
+        sys.exit(130)
+    except Exception as e:
+        log_error(f"Unexpected error: {e}")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)

@@ -1,20 +1,46 @@
 # Testing the Hop3 Installers
 
-This document explains how to test the Hop3 installers using the provided test scripts.
+This document explains how to test the Hop3 installers using the unified test script.
 
 ## Overview
 
-There are three test scripts available, each suited for different scenarios:
+The `test-installers.py` script provides a unified interface for testing Hop3 installers across different environments:
 
-| Script | Environment | Use Case |
-|--------|-------------|----------|
-| `test-installers-e2e.py` | Remote server via SSH | Production-like testing on real servers |
-| `test-installers-docker.py` | Local Docker containers | Quick iteration, CI/CD pipelines |
-| `test-installers.py` | Local Vagrant VMs | Full system testing with systemd |
+| Backend | Command | Use Case |
+|---------|---------|----------|
+| SSH | `./test-installers.py ssh` | Production-like testing on real servers |
+| Docker | `./test-installers.py docker` | Quick iteration, CI/CD pipelines |
+| Vagrant | `./test-installers.py vagrant` | Full system testing with systemd |
 
-## E2E Testing on Remote Servers
+## Quick Start
 
-The `test-installers-e2e.py` script tests installers on a real remote server via SSH. This is the most realistic test environment.
+```bash
+# Test on remote server via SSH
+./test-installers.py ssh --host root@server.example.com
+
+# Test in Docker container
+./test-installers.py docker --distro ubuntu
+
+# Test in Vagrant VM
+./test-installers.py vagrant --vm ubuntu
+```
+
+## Common Options
+
+All backends support these options:
+
+| Option | Description |
+|--------|-------------|
+| `--type TYPE` | Installer to test: `cli`, `server`, or `both` (default: `both`) |
+| `--method METHOD` | Installation method: `pypi`, `git`, `local`, or `all` (default: `git`) |
+| `--branch BRANCH` | Git branch for git method (default: `devel`) |
+| `--version VERSION` | Version for pypi method |
+| `--keep` | Keep environment after test |
+| `--verbose` | Show detailed output |
+
+## SSH Backend
+
+Test on remote servers via SSH. This is the most realistic test environment.
 
 ### Prerequisites
 
@@ -22,69 +48,129 @@ The `test-installers-e2e.py` script tests installers on a real remote server via
 2. **Python 3.10+** installed on the target server
 3. **Root/sudo access** for server installer tests
 
-### Quick Start
+### Usage
 
 ```bash
 # Set target host (or use --host argument)
 export HOP3_TEST_HOST=user@server.example.com
 
-# Run all tests (CLI + Server, all methods)
-./test-installers-e2e.py
+# Run all tests
+./test-installers.py ssh --host root@server.example.com
 
-# Or specify host directly
-./test-installers-e2e.py --host root@server.example.com
+# Test only CLI installer
+./test-installers.py ssh --host user@server --type cli
+
+# Test git installation from specific branch
+./test-installers.py ssh --host user@server --method git --branch main
+
+# Dry run (preview commands)
+./test-installers.py ssh --host user@server --dry-run
+
+# Keep installation after test
+./test-installers.py ssh --host user@server --keep --verbose
 ```
 
-### Command-Line Options
+### SSH-Specific Options
 
-```
---host HOST         SSH target (user@hostname)
---type TYPE         Installer to test: cli, server, or both (default: both)
---method METHOD     Installation method: pypi, git, version, local, or all (default: all)
---branch BRANCH     Git branch for git method (default: devel)
---version VERSION   Version for version method (default: 0.3.0)
---keep              Keep installation after test (don't cleanup)
---verbose           Show detailed output
---dry-run           Show commands without executing
+| Option | Description |
+|--------|-------------|
+| `--host HOST` | SSH target (user@hostname) |
+| `--dry-run` | Show commands without executing |
+
+## Docker Backend
+
+Test in Docker containers for fast, isolated testing without needing a remote server.
+
+### Prerequisites
+
+- Docker installed and running locally
+
+### Usage
+
+```bash
+# Test on Ubuntu (default)
+./test-installers.py docker
+
+# Test on specific distro
+./test-installers.py docker --distro fedora
+
+# Test on all distros
+./test-installers.py docker --all
+
+# Cleanup containers
+./test-installers.py docker --cleanup
 ```
 
-### Installation Methods
+### Supported Distros
+
+- `ubuntu` - Ubuntu 24.04 LTS
+- `debian` - Debian 12
+- `fedora` - Fedora 40
+
+### Docker-Specific Options
+
+| Option | Description |
+|--------|-------------|
+| `--distro DISTRO` | Distribution to test on (default: `ubuntu`) |
+| `--all` | Test on all available distros |
+| `--cleanup` | Remove all test containers and exit |
+
+### Limitations
+
+- Server installer tests are limited (no systemd in containers)
+- Best for CLI installer testing and quick iteration
+
+## Vagrant Backend
+
+Test in Vagrant VMs for full system testing including systemd services.
+
+### Prerequisites
+
+- Vagrant installed
+- VirtualBox or another Vagrant provider
+
+### Usage
+
+```bash
+# Test on Ubuntu (default)
+./test-installers.py vagrant --vm ubuntu
+
+# Test server installer
+./test-installers.py vagrant --vm ubuntu --type server
+
+# Test on all VMs
+./test-installers.py vagrant --all
+
+# Keep VMs running
+./test-installers.py vagrant --keep
+
+# Cleanup all VMs
+./test-installers.py vagrant --cleanup
+```
+
+### Available VMs
+
+- `ubuntu` - Ubuntu 24.04 LTS
+- `debian` - Debian 12
+- `fedora` - Fedora 40
+
+### Vagrant-Specific Options
+
+| Option | Description |
+|--------|-------------|
+| `--vm VM` | VM to test on (default: `ubuntu`) |
+| `--all` | Test on all available VMs |
+| `--cleanup` | Destroy all VMs and exit |
+
+## Installation Methods
 
 | Method | What It Tests |
 |--------|---------------|
-| `pypi` | Install from PyPI (use `--version` for specific version, default: latest) |
+| `pypi` | Install from PyPI (use `--version` for specific version) |
 | `git` | Install from git repository (use `--branch` option) |
-| `local` | Upload and install from local package directory |
+| `local` | Install from local package directory |
 
-### Examples
-
-```bash
-# Test only CLI installer
-./test-installers-e2e.py --host user@server --type cli
-
-# Test only server installer (requires root)
-./test-installers-e2e.py --host root@server --type server
-
-# Test only git installation method
-./test-installers-e2e.py --host user@server --method git
-
-# Test git installation from specific branch
-./test-installers-e2e.py --host user@server --method git --branch main
-
-# Test PyPI with specific version
-./test-installers-e2e.py --host user@server --method pypi --version 0.3.0
-
-# Test local path installation (uploads packages from your machine)
-./test-installers-e2e.py --host user@server --method local
-
-# Dry run (preview commands)
-./test-installers-e2e.py --host user@server --dry-run
-
-# Keep installation after test (for manual inspection)
-./test-installers-e2e.py --host user@server --keep --verbose
-```
-
-### What Gets Tested
+## What Gets Tested
 
 **CLI Installer Tests:**
 - Virtual environment creation at `~/.hop3-cli/venv`
@@ -97,104 +183,22 @@ export HOP3_TEST_HOST=user@server.example.com
 - Virtual environment at `/home/hop3/venv`
 - Package installation (`hop3-server`)
 - Systemd service configuration (`hop3-server.service`)
+- PostgreSQL database and role setup
+- Nginx reverse proxy configuration
+- SSL certificate setup
 - Service status verification
-
-### Cleanup
-
-By default, the script cleans up installations between tests. Use `--keep` to preserve the installation for inspection:
-
-```bash
-# Run test and keep installation
-./test-installers-e2e.py --host user@server --method git --keep
-
-# Then SSH in to inspect
-ssh user@server
-ls -la ~/.hop3-cli/
-~/.hop3-cli/venv/bin/hop3 --help
-```
-
-## Docker Testing
-
-The `test-installers-docker.py` script uses Docker containers for fast, isolated testing without needing a remote server.
-
-### Prerequisites
-
-- Docker installed and running locally
-
-### Usage
-
-```bash
-# Test CLI installer on Ubuntu (default)
-./test-installers-docker.py
-
-# Test on specific distro
-./test-installers-docker.py --distro fedora
-
-# Test on all distros
-./test-installers-docker.py --all
-
-# Cleanup containers
-./test-installers-docker.py --cleanup
-```
-
-### Supported Distros
-
-- `ubuntu` - Ubuntu 24.04 LTS
-- `debian` - Debian 12
-- `fedora` - Fedora 40
-
-### Limitations
-
-- Server installer tests are limited (no systemd in containers)
-- Best for CLI installer testing and quick iteration
-
-## Vagrant Testing
-
-The `test-installers.py` script uses Vagrant VMs for full system testing including systemd services.
-
-### Prerequisites
-
-- Vagrant installed
-- VirtualBox or another Vagrant provider
-
-### Usage
-
-```bash
-# Test CLI installer on Ubuntu (default)
-./test-installers.py
-
-# Test server installer
-./test-installers.py --vm ubuntu --type server
-
-# Test on all VMs
-./test-installers.py --all
-
-# Keep VMs running
-./test-installers.py --keep
-
-# Cleanup all VMs
-./test-installers.py --cleanup
-```
-
-### Available VMs
-
-- `ubuntu` - Ubuntu 24.04 LTS
-- `debian` - Debian 12
-- `fedora` - Fedora 40
 
 ## Environment Variables
 
-All test scripts support configuration via environment variables:
-
 | Variable | Description |
 |----------|-------------|
-| `HOP3_TEST_HOST` | SSH target for E2E tests |
+| `HOP3_TEST_HOST` | SSH target for SSH backend tests |
 | `HOP3_BRANCH` | Git branch to test (default: devel) |
 | `HOP3_VERSION` | Specific version to test |
 
 ## CI/CD Integration
 
-For CI/CD pipelines, use the Docker test script:
+For CI/CD pipelines, use the Docker backend:
 
 ```yaml
 # Example GitHub Actions
@@ -203,10 +207,10 @@ test-installers:
   steps:
     - uses: actions/checkout@v4
     - name: Test CLI installer
-      run: ./installer/test-installers-docker.py --type cli --all
+      run: ./installer/test-installers.py docker --type cli --all
 ```
 
-For more thorough testing, use the E2E script with a test server:
+For more thorough testing, use the SSH backend with a test server:
 
 ```yaml
 test-installers-e2e:
@@ -216,7 +220,7 @@ test-installers-e2e:
     - name: Test installers on server
       env:
         HOP3_TEST_HOST: ${{ secrets.TEST_SERVER_HOST }}
-      run: ./installer/test-installers-e2e.py --method git
+      run: ./installer/test-installers.py ssh --method git
 ```
 
 ## Troubleshooting
@@ -248,10 +252,10 @@ Server installer tests require root or sudo access:
 
 ```bash
 # Use root user
-./test-installers-e2e.py --host root@server --type server
+./test-installers.py ssh --host root@server --type server
 
 # Or ensure sudo works without password
-./test-installers-e2e.py --host user@server --type server
+./test-installers.py ssh --host user@server --type server
 ```
 
 ### Package Not Found on PyPI
@@ -263,8 +267,30 @@ Server installer tests require root or sudo access:
 The package may not be published yet. Use git or local method instead:
 
 ```bash
-./test-installers-e2e.py --host user@server --method git
+./test-installers.py ssh --host user@server --method git
 ```
+
+### Docker Container Won't Start
+
+```
+[FAIL] Failed to start container
+```
+
+**Solutions:**
+1. Verify Docker is running: `docker ps`
+2. Check for port conflicts
+3. Run cleanup: `./test-installers.py docker --cleanup`
+
+### Vagrant VM Won't Start
+
+```
+[FAIL] Failed to start VM
+```
+
+**Solutions:**
+1. Verify Vagrant and VirtualBox are installed
+2. Check VirtualBox settings
+3. Run cleanup: `./test-installers.py vagrant --cleanup`
 
 ## Test Output
 
@@ -272,18 +298,13 @@ Successful test output looks like:
 
 ```
 ============================================================
-  Hop3 Installer E2E Tests
+  Hop3 Installer E2E Tests (SSH)
 ============================================================
 
   Host:    user@server.example.com
   Type:    both
-  Method:  all
+  Method:  git
   Branch:  devel
-
-[INFO] Checking SSH connection...
-[PASS] SSH connection OK
-[INFO] Checking Python version on remote host...
-[PASS] Remote Python: Python 3.12.0
 
 ============================================================
   CLI Installer Tests
@@ -293,8 +314,9 @@ Successful test output looks like:
 
 [INFO] Cleaning up CLI installation...
 [PASS] CLI cleanup complete
-[INFO] Running installer (git devel)...
-[INFO] Validating installation...
+[INFO] Running installer (git)...
+[PASS] CLI installer completed
+[INFO] Validating CLI installation...
 [PASS] Virtual environment exists
 [PASS] CLI command installed
 [PASS] Symlink created
@@ -304,14 +326,34 @@ Successful test output looks like:
   Test Summary
 ============================================================
 
-  Total:   4
-  Passed:  4
+  Total:   2
+  Passed:  2
   Failed:  0
 
-  [PASS] cli-pypi
   [PASS] cli-git
-  [PASS] cli-version
-  [PASS] cli-local
+  [PASS] server-git
 
 [PASS] All tests passed!
 ```
+
+## Architecture
+
+The test framework uses a modular architecture:
+
+```
+installer/
+├── test-installers.py       # Unified CLI
+└── testing/
+    ├── __init__.py
+    ├── common.py            # Shared utilities (logging, CommandResult)
+    ├── runner.py            # TestRunner, TestConfig, TestResult
+    ├── validators.py        # Validation functions
+    └── backends/
+        ├── __init__.py
+        ├── base.py          # Abstract Backend class
+        ├── ssh.py           # SSHBackend
+        ├── docker.py        # DockerBackend
+        └── vagrant.py       # VagrantBackend
+```
+
+Each backend implements the same interface, making it easy to add new test environments.
