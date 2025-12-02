@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 """
@@ -13,12 +12,12 @@ Usage:
     curl -LsSf https://hop3.cloud/install-cli.py | python3 - --git
     python3 install-cli.py --help
 """
+
 from __future__ import annotations
 
 # =============================================================================
 # Version Check (must run before any 3.10+ features are used at runtime)
 # =============================================================================
-
 import sys
 
 MIN_PYTHON = (3, 10)
@@ -169,7 +168,11 @@ class Spinner:
         for char in itertools.cycle(self.CHARS):
             if not self.spinning:
                 break
-            print(f"\r      {Colors.CYAN}{char}{Colors.RESET} {self.message}", end="", flush=True)
+            print(
+                f"\r      {Colors.CYAN}{char}{Colors.RESET} {self.message}",
+                end="",
+                flush=True,
+            )
             time.sleep(0.08)
 
 
@@ -202,13 +205,16 @@ def run_cmd(
 
     result = subprocess.run(
         cmd,
+        check=False,
         capture_output=capture,
         text=True,
         env=run_env,
     )
 
     if check and result.returncode != 0:
-        raise CommandError(cmd, result.returncode, result.stderr or "", result.stdout or "")
+        raise CommandError(
+            cmd, result.returncode, result.stderr or "", result.stdout or ""
+        )
 
     return result
 
@@ -225,7 +231,9 @@ def cmd_exists(cmd: str) -> bool:
 
 def check_python() -> str:
     """Check Python version. Returns version string."""
-    version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    version = (
+        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    )
     return version
 
 
@@ -413,7 +421,7 @@ def update_shell_config(bin_dir: Path, modify_path: bool) -> bool:
     # Detect shell and update config
     shell = get_current_shell()
     if not shell or shell not in SHELL_CONFIGS:
-        print_warning(f"Add this to your shell config: export PATH=\"{bin_dir}:$PATH\"")
+        print_warning(f'Add this to your shell config: export PATH="{bin_dir}:$PATH"')
         return False
 
     config_file = SHELL_CONFIGS[shell]
@@ -483,7 +491,7 @@ def print_final_message(bin_dir: Path, path_is_active: bool) -> None:
         print(f"    {bin_dir}/hop3 --help")
         print()
         print(f"  {Colors.BOLD}Or reload your shell first:{Colors.RESET}")
-        print(f"    source ~/.bashrc      (then use 'hop3' directly)")
+        print("    source ~/.bashrc      (then use 'hop3' directly)")
     print()
     print(f"  {Colors.BOLD}To uninstall:{Colors.RESET}")
     print(f"    rm -rf {INSTALL_DIR}")

@@ -169,19 +169,28 @@ def start_container(distro: str) -> bool:
 
     # Determine install command based on distro
     if distro in ("ubuntu", "debian"):
-        install_cmd = "apt-get update && apt-get install -y python3 python3-venv git curl"
+        install_cmd = (
+            "apt-get update && apt-get install -y python3 python3-venv git curl"
+        )
     else:  # fedora
         install_cmd = "dnf install -y python3 python3-pip git curl"
 
     # Start container with installer directory mounted
     try:
         run_command([
-            "docker", "run", "-d",
-            "--name", name,
-            "-v", f"{SCRIPT_DIR}:/installer:ro",
-            "-w", "/installer",
+            "docker",
+            "run",
+            "-d",
+            "--name",
+            name,
+            "-v",
+            f"{SCRIPT_DIR}:/installer:ro",
+            "-w",
+            "/installer",
             image,
-            "bash", "-c", f"{install_cmd} && sleep infinity"
+            "bash",
+            "-c",
+            f"{install_cmd} && sleep infinity",
         ])
     except subprocess.CalledProcessError as e:
         log_error(f"Failed to start container: {e}")
@@ -190,10 +199,17 @@ def start_container(distro: str) -> bool:
     # Wait for package installation to complete
     log_info("Waiting for package installation...")
     try:
-        run_command([
-            "docker", "exec", name,
-            "bash", "-c", "while ! command -v python3 &>/dev/null; do sleep 1; done"
-        ], check=True)
+        run_command(
+            [
+                "docker",
+                "exec",
+                name,
+                "bash",
+                "-c",
+                "while ! command -v python3 &>/dev/null; do sleep 1; done",
+            ],
+            check=True,
+        )
     except subprocess.CalledProcessError:
         log_error("Package installation timed out")
         return False
@@ -232,8 +248,7 @@ def test_cli_installer(distro: str) -> bool:
     # Run the installer
     log_info("Running CLI installer...")
     result = run_in_container(
-        distro,
-        "python3 /installer/install-cli.py --git --no-modify-path --verbose"
+        distro, "python3 /installer/install-cli.py --git --no-modify-path --verbose"
     )
 
     if result.returncode == 0:
@@ -298,7 +313,7 @@ def test_server_installer(distro: str) -> bool:
     log_info("Running server installer (limited test - no systemd)...")
     result = run_in_container(
         distro,
-        "python3 /installer/install-server.py --git --skip-deps --skip-postgres --skip-nginx --verbose 2>&1 || true"
+        "python3 /installer/install-server.py --git --skip-deps --skip-postgres --skip-nginx --verbose 2>&1 || true",
     )
 
     # Check if hop3 user was created
@@ -306,7 +321,9 @@ def test_server_installer(distro: str) -> bool:
     if result.returncode == 0:
         log_success("hop3 user exists")
     else:
-        log_warning("hop3 user not created (expected in Docker without full privileges)")
+        log_warning(
+            "hop3 user not created (expected in Docker without full privileges)"
+        )
 
     # Check if venv directory structure would be correct
     log_info("Server installer test limited in Docker (no systemd)")

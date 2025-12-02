@@ -194,9 +194,8 @@ def start_vm(vm_name: str) -> bool:
     if vm_is_running(vm_name):
         log_success(f"VM {vm_name} is running")
         return True
-    else:
-        log_error(f"Failed to start VM {vm_name}")
-        return False
+    log_error(f"Failed to start VM {vm_name}")
+    return False
 
 
 def stop_vm(vm_name: str) -> None:
@@ -278,9 +277,7 @@ def test_cli_installer(vm_name: str) -> bool:
         all_passed = False
 
     # Check symlink in .local/bin
-    result = run_in_vm(
-        vm_name, "test -L ~/.local/bin/hop || test -f ~/.local/bin/hop"
-    )
+    result = run_in_vm(vm_name, "test -L ~/.local/bin/hop || test -f ~/.local/bin/hop")
     if result.returncode == 0:
         log_success("Symlink created in ~/.local/bin")
     else:
