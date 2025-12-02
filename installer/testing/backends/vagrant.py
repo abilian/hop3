@@ -143,17 +143,21 @@ class VagrantBackend(Backend):
         """Upload a file to the VM.
 
         Note: Vagrant VMs use shared folders, so this copies to /vagrant.
+        The Vagrantfile syncs the parent of vagrant_dir (hop3 root) to /vagrant.
         """
         # Files are already synced via rsync/shared folders
         # Just verify the file exists
-        rel_path = local_path.relative_to(self.vagrant_dir)
+        project_root = self.vagrant_dir.parent  # hop3 root
+        rel_path = local_path.relative_to(project_root)
         result = self.run(f"test -f /vagrant/{rel_path}")
         return result.success
 
     def upload_dir(self, local_path: Path, remote_path: str) -> bool:
         """Upload a directory to the VM."""
         # Directories are already synced via rsync/shared folders
-        rel_path = local_path.relative_to(self.vagrant_dir)
+        # The Vagrantfile syncs the parent of vagrant_dir (hop3 root) to /vagrant.
+        project_root = self.vagrant_dir.parent  # hop3 root
+        rel_path = local_path.relative_to(project_root)
         result = self.run(f"test -d /vagrant/{rel_path}")
         return result.success
 
@@ -180,5 +184,5 @@ class VagrantBackend(Backend):
     def get_installer_path(self, installer_type: str) -> str:
         """Get path to installer in VM (shared folder)."""
         if installer_type == "cli":
-            return "/vagrant/install-cli.py"
-        return "/vagrant/install-server.py"
+            return "/vagrant/installer/install-cli.py"
+        return "/vagrant/installer/install-server.py"
