@@ -84,9 +84,7 @@ class HelpCmd(Command):
                 output.append(f"  {name:<16} {help_text}")
 
         output.append("")
-        output.append(
-            "Use 'hop help <command>' to see subcommands and detailed help."
-        )
+        output.append("Use 'hop help <command>' to see subcommands and detailed help.")
 
         return [
             {"t": "text", "text": "\n".join(output)},
@@ -147,9 +145,7 @@ class HelpCmd(Command):
 
         # Find subcommands (commands that start with this command name followed by :)
         prefix = command_name + ":"
-        subcommands = [
-            c for c in all_commands if c.name.startswith(prefix)
-        ]
+        subcommands = [c for c in all_commands if c.name.startswith(prefix)]
 
         if subcommands:
             subcommands.sort(key=lambda c: c.name)
