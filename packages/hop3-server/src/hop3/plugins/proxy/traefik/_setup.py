@@ -197,8 +197,8 @@ class TraefikVirtualHost(BaseProxy):
 
         static_paths = self.get_static_paths()
 
-        for idx, (static_url, _static_path) in enumerate(static_paths):
-            static_path = str(_static_path)
+        for idx, (static_url, static_path_) in enumerate(static_paths):
+            static_path = str(static_path_)
             static_index = idx
             log(
                 f"traefik will serve static files from {static_url} -> {static_path}",
