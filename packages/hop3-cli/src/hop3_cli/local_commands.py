@@ -30,6 +30,9 @@ LOCAL_COMMANDS = {"init", "config"}
 # Commands that may be handled locally depending on arguments
 CONDITIONAL_LOCAL_COMMANDS = {"login"}
 
+# Path to hop-server on the remote server
+HOP_SERVER_PATH = "/home/hop3/venv/bin/hop-server"
+
 
 def is_local_command(args: list[str]) -> bool:
     """Check if the command should be handled locally."""
@@ -131,17 +134,57 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> b
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Save configuration
-    config.save({
+    # Prepare config data
+    config_data = {
         "api_url": server_url,
         "api_token": token,
-    })
+    }
 
-    print(f"Token generated for user '{username}'")
-    print(f"\nConfiguration saved to {config.config_file}")
+    # If using HTTPS and no SSL config, handle SSL verification
+    existing_cert = config.get("ssl_cert", None)
+    existing_verify = config.get("verify_ssl", None)
+    if (
+        server_url.startswith("https://")
+        and not existing_cert
+        and existing_verify is None
+    ):
+        from urllib.parse import urlparse
+
+        parsed = urlparse(server_url)
+        hostname = parsed.hostname
+
+        # Check if connecting via IP address
+        is_ip_address = hostname and (
+            hostname.replace(".", "").isdigit()  # IPv4
+            or ":" in hostname  # IPv6
+        )
+
+        if is_ip_address:
+            # Self-signed certs for IP addresses don't work with hostname verification
+            print("\nNote: Connecting via IP address with self-signed certificate.")
+            print("      SSL verification disabled for this server.")
+            config_data["verify_ssl"] = "false"
+        else:
+            # For hostnames, fetch and trust the certificate
+            print("\nFetching SSL certificate...")
+            try:
+                cert_path = fetch_and_save_certificate(ssh_target, server_url, config)
+                if cert_path:
+                    config_data["ssl_cert"] = str(cert_path)
+                    print(f"  Certificate saved to {cert_path}")
+            except Exception as e:
+                print(f"  Warning: Could not fetch certificate: {e}")
+                print("  You may need to configure SSL manually with:")
+                print("    hop3 config set verify_ssl false")
+
+    # Save configuration
+    config.save(config_data)
+
+    print(f"\nToken generated for user '{username}'")
+    print(f"Configuration saved to {config.config_file}")
     print("\nWelcome back! Try:")
-    print("  hop3 status       # Check server status")
-    print("  hop3 apps         # List applications")
+    print("  hop3 apps           # List applications")
+    print("  hop3 auth:whoami    # Check current user")
 
     return True
 
@@ -238,17 +281,52 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Save configuration
-    config.save({
+    # Prepare config data
+    config_data = {
         "api_url": server_url,
         "api_token": token,
-    })
+    }
 
-    print(f"Admin user '{username}' created successfully.")
-    print(f"\nConfiguration saved to {config.config_file}")
+    # If using HTTPS, handle SSL verification
+    if server_url.startswith("https://"):
+        from urllib.parse import urlparse
+
+        parsed = urlparse(server_url)
+        hostname = parsed.hostname
+
+        # Check if connecting via IP address
+        is_ip_address = hostname and (
+            hostname.replace(".", "").isdigit()  # IPv4
+            or ":" in hostname  # IPv6
+        )
+
+        if is_ip_address:
+            # Self-signed certs for IP addresses don't work with hostname verification
+            # Disable SSL verification for IP-based access
+            print("\nNote: Connecting via IP address with self-signed certificate.")
+            print("      SSL verification disabled for this server.")
+            config_data["verify_ssl"] = "false"
+        else:
+            # For hostnames, fetch and trust the certificate
+            print("\nFetching SSL certificate...")
+            try:
+                cert_path = fetch_and_save_certificate(ssh_target, server_url, config)
+                if cert_path:
+                    config_data["ssl_cert"] = str(cert_path)
+                    print(f"  Certificate saved to {cert_path}")
+            except Exception as e:
+                print(f"  Warning: Could not fetch certificate: {e}")
+                print("  You may need to configure SSL manually with:")
+                print("    hop3 config set verify_ssl false")
+
+    # Save configuration
+    config.save(config_data)
+
+    print(f"\nAdmin user '{username}' created successfully.")
+    print(f"Configuration saved to {config.config_file}")
     print("\nYou're all set! Try:")
-    print("  hop3 status       # Check server status")
-    print("  hop3 apps         # List applications")
+    print("  hop3 apps           # List applications")
+    print("  hop3 auth:whoami    # Check current user")
 
     return True
 
@@ -314,13 +392,15 @@ def config_set(args: list[str], config: Config, printer: RichPrinter) -> bool:
     key = args[0]
     value = args[1]
 
-    # Validate key
-    valid_keys = {"api_url", "api_token", "server", "ssh_user"}
-    # Also allow 'server' as alias for 'api_url'
+    # Normalize key aliases
     if key == "server":
         key = "api_url"
     if key == "token":
         key = "api_token"
+
+    # Convert boolean-like values for verify_ssl
+    if key == "verify_ssl":
+        value = str(value.lower() in ("true", "yes", "1")).lower()
 
     config.save({key: value})
     print(
@@ -375,14 +455,16 @@ def create_admin_via_ssh(
     Raises:
         BootstrapError: If the command fails
     """
-    # Build the remote command
-    remote_cmd = f"hop-server admin:create {shlex.quote(username)} {shlex.quote(email)} --password-stdin"
+    # Build the remote command - run as hop3 user to ensure correct file ownership
+    # The database is created on first access, so running as hop3 ensures it's owned by hop3:hop3
+    hop3_cmd = f"{HOP_SERVER_PATH} admin:create {shlex.quote(username)} {shlex.quote(email)} --password-stdin"
+    remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
 
     # Run via SSH
     result = subprocess.run(
         ["ssh", ssh_target, remote_cmd],
         check=False,
-        input=password.encode(),
+        input=password,
         capture_output=True,
         text=True,
     )
@@ -414,7 +496,9 @@ def get_token_via_ssh(ssh_target: str, username: str) -> str:
     Raises:
         BootstrapError: If the command fails
     """
-    remote_cmd = f"hop-server admin:token {shlex.quote(username)}"
+    # Run as hop3 user for consistency and proper file access
+    hop3_cmd = f"{HOP_SERVER_PATH} admin:token {shlex.quote(username)}"
+    remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
 
     result = subprocess.run(
         ["ssh", ssh_target, remote_cmd],
@@ -434,6 +518,68 @@ def get_token_via_ssh(ssh_target: str, username: str) -> str:
         raise BootstrapError(msg)
 
     return token
+
+
+def fetch_and_save_certificate(
+    ssh_target: str, server_url: str, config: Config
+) -> str | None:
+    """Fetch the server's SSL certificate via SSH and save it locally.
+
+    Args:
+        ssh_target: SSH target (user@host)
+        server_url: The HTTPS URL of the server
+        config: Config object to determine where to save the certificate
+
+    Returns:
+        Path to the saved certificate file, or None if failed
+    """
+    from urllib.parse import urlparse
+
+    # Extract hostname from server URL
+    parsed = urlparse(server_url)
+    hostname = parsed.hostname
+    port = parsed.port or 443
+
+    # Use openssl to fetch the certificate via SSH
+    # This runs on the server and returns the certificate
+    remote_cmd = (
+        f"openssl s_client -connect {hostname}:{port} "
+        f"-servername {hostname} </dev/null 2>/dev/null | "
+        f"openssl x509 2>/dev/null"
+    )
+
+    result = subprocess.run(
+        ["ssh", ssh_target, remote_cmd],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+
+    cert_content = result.stdout.strip()
+
+    # Validate it looks like a certificate
+    if "-----BEGIN CERTIFICATE-----" not in cert_content:
+        return None
+
+    # Save the certificate next to the config file
+    config_dir = config.config_file.parent if config.config_file else None
+    if not config_dir:
+        return None
+
+    # Use hostname for the certificate filename
+    safe_hostname = hostname.replace(".", "_").replace(":", "_")
+    cert_path = config_dir / f"{safe_hostname}.crt"
+
+    # Ensure directory exists
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write the certificate
+    cert_path.write_text(cert_content + "\n")
+
+    return cert_path
 
 
 def extract_token(output: str) -> str | None:
@@ -514,11 +660,15 @@ Subcommands:
 Keys:
   server (api_url)  Server URL (e.g., https://my-server.com)
   token (api_token) API authentication token
+  ssl_cert          Path to trusted certificate file (for self-signed certs)
+  verify_ssl        Verify SSL certificates (true/false, default: true)
 
 Examples:
   hop3 config show
   hop3 config set server https://my-server.com
   hop3 config set token eyJhbGciOiJI...
+  hop3 config set ssl_cert ~/server.crt  # Trust a specific certificate
+  hop3 config set verify_ssl false       # Disable SSL verification (less secure)
   hop3 config get server
 """)
 

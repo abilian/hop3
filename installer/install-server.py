@@ -35,6 +35,7 @@ if sys.version_info < MIN_PYTHON:
 # =============================================================================
 # Imports (standard library only)
 # =============================================================================
+# ruff: noqa: E402 - imports must come after version check
 
 import argparse
 import grp

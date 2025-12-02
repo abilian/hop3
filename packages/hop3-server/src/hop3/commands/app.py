@@ -148,10 +148,12 @@ class DeployCmd(Command):
             raise ValueError(error_msg) from e
         except Exception as e:
             tb = traceback.format_exc()
-            error_msg = f"Deployment failed: {e}\n\nTraceback:\n{tb}"
-            # Log to server console for debugging
+            # Log full traceback to server console for debugging
             print(f"[ERROR] Deployment failed for {app_name}:", file=sys.stderr)
             print(tb, file=sys.stderr)
+
+            # Build user-friendly error message (no traceback)
+            error_msg = f"Deployment failed: {e}"
 
             # Re-raise as ValueError so RPC handler returns proper JSON-RPC error
             # This ensures the CLI client receives an Error response and exits with code 1

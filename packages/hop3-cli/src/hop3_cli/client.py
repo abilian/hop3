@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import requests
+import urllib3
 from jsonrpcclient import Error, Ok, parse, request
 from jsonrpcclient.responses import Response
 from loguru import logger
@@ -18,6 +19,9 @@ from .exceptions import CliError
 if TYPE_CHECKING:
     from .config import Config
     from .state import State
+
+# Suppress InsecureRequestWarning when SSL verification is disabled
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 @dataclass
@@ -162,8 +166,37 @@ class Client:
         }
         json_request = request(method, args)
 
-        # Determine if we should verify SSL certs
-        verify_ssl = urlparse(self.api_url).scheme == "https"
+        # Determine SSL verification mode
+        # Options:
+        #   - verify_ssl: false to disable verification entirely
+        #   - ssl_cert: path to a trusted certificate file (for self-signed certs)
+        if urlparse(self.api_url).scheme == "https":
+            # First check if verification is explicitly disabled
+            verify_ssl_config = self.config.get("verify_ssl", None)
+            if verify_ssl_config is not None:
+                # Handle string "false"/"true" from config file
+                if isinstance(verify_ssl_config, str):
+                    verify_ssl_enabled = verify_ssl_config.lower() not in (
+                        "false",
+                        "0",
+                        "no",
+                    )
+                else:
+                    verify_ssl_enabled = bool(verify_ssl_config)
+
+                if not verify_ssl_enabled:
+                    # Verification disabled
+                    verify_ssl = False
+                else:
+                    # Verification enabled - check for custom cert
+                    ssl_cert = self.config.get("ssl_cert", None)
+                    verify_ssl = ssl_cert or True
+            else:
+                # No explicit setting - check for custom cert, default to True
+                ssl_cert = self.config.get("ssl_cert", None)
+                verify_ssl = ssl_cert or True
+        else:
+            verify_ssl = False
 
         # Build headers with authentication
         headers = {"Content-Type": "application/json"}
