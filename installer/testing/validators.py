@@ -181,6 +181,6 @@ def validate_server_installation(backend: Backend) -> bool:
                 print(result.stderr)
             all_passed = False
     else:
-        log_warning("Skipping systemd checks (not supported by this backend)")
+        log_info("Skipping systemd checks (not supported by this backend)")
 
     return all_passed
