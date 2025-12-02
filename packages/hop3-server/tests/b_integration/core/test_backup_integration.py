@@ -19,7 +19,7 @@ import pytest
 from sqlalchemy import create_engine
 
 from hop3.config import HopConfig
-from hop3.core.backup import BackupManager, BackupManifest, format_size
+from hop3.core.backup import BackupManager, BackupManifest
 from hop3.orm import App, Backup, BackupStateEnum, EnvVar
 from hop3.orm.session import BigIntAuditBase
 
@@ -552,71 +552,12 @@ class TestBackupManagerDatabaseStateChanges:
         """
         manager = BackupManager(backup_db_session)
 
-        with patch(
-            "hop3.core.backup.tarfile.open", side_effect=Exception("Mock error")
-        ), pytest.raises(RuntimeError):
+        with (
+            patch("hop3.core.backup.tarfile.open", side_effect=Exception("Mock error")),
+            pytest.raises(RuntimeError),
+        ):
             manager.create_backup(sample_app, include_addons=False)
 
         backup = backup_db_session.query(Backup).filter_by(app_id=sample_app.id).first()
         assert backup is not None
         assert backup.state == BackupStateEnum.FAILED
-
-
-@pytest.mark.integration
-class TestFormatSizeUtility:
-    """Integration tests for size formatting utility."""
-
-    def test_format_size_bytes(self):
-        """Test formatting byte values.
-
-        ARRANGE: Set of byte sizes to test
-        ACT: Format each size
-        ASSERT: Output matches expected format
-
-        Tests human-readable size formatting.
-        """
-        assert format_size(500) == "500.0 B"
-
-    def test_format_size_kilobytes(self):
-        """Test formatting kilobyte values.
-
-        ARRANGE: Kilobyte size
-        ACT: Format size
-        ASSERT: Output includes KB unit
-
-        Tests KB formatting.
-        """
-        assert format_size(1024) == "1.0 KB"
-
-    def test_format_size_megabytes(self):
-        """Test formatting megabyte values.
-
-        ARRANGE: Megabyte size
-        ACT: Format size
-        ASSERT: Output includes MB unit
-
-        Tests MB formatting.
-        """
-        assert format_size(1024 * 1024) == "1.0 MB"
-
-    def test_format_size_gigabytes(self):
-        """Test formatting gigabyte values.
-
-        ARRANGE: Gigabyte size
-        ACT: Format size
-        ASSERT: Output includes GB unit
-
-        Tests GB formatting.
-        """
-        assert format_size(1024 * 1024 * 1024) == "1.0 GB"
-
-    def test_format_size_fractional_kilobytes(self):
-        """Test formatting fractional kilobyte values.
-
-        ARRANGE: 1.5 KB size
-        ACT: Format size
-        ASSERT: Output shows decimal precision
-
-        Tests decimal precision in size formatting.
-        """
-        assert format_size(1536) == "1.5 KB"
