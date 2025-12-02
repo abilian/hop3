@@ -38,6 +38,10 @@ dependencies = [
     # Config
     "pyyaml>=6.0.3",
     "python-multipart>=0.0.20",
+    # Transitive dependencies
+    "anyio",
+    # Needed for some reason
+    "sniffio",
 ]
 
 [dependency-groups]
@@ -86,6 +90,7 @@ DEP002 = [
     "jinja2",
     "itsdangerous",
     "python-multipart",
+    "sniffio",
 ]
 
 #DEP003 = [
