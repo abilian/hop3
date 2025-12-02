@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 """
@@ -14,12 +13,12 @@ Usage:
     curl -LsSf https://hop3.cloud/install-server.py | sudo python3 - --git
     sudo python3 install-server.py --help
 """
+
 from __future__ import annotations
 
 # =============================================================================
 # Version Check (must run before any 3.10+ features are used at runtime)
 # =============================================================================
-
 import sys
 
 MIN_PYTHON = (3, 10)
@@ -64,23 +63,56 @@ VENV_DIR = HOME_DIR / "venv"
 
 # System dependencies by distribution
 DEBIAN_PACKAGES = [
-    "bc", "git", "sudo", "cron", "build-essential",
-    "libpcre3-dev", "zlib1g-dev",
-    "nginx", "postgresql", "postgresql-contrib",
-    "python3-dev", "python3-pip", "python3-venv",
-    "curl", "wget", "rsync", "socat",
-    "libjpeg-dev", "libpng-dev", "libwebp-dev",
-    "libpq-dev", "libffi-dev", "libssl-dev",
+    "bc",
+    "git",
+    "sudo",
+    "cron",
+    "build-essential",
+    "libpcre3-dev",
+    "zlib1g-dev",
+    "nginx",
+    "postgresql",
+    "postgresql-contrib",
+    "python3-dev",
+    "python3-pip",
+    "python3-venv",
+    "curl",
+    "wget",
+    "rsync",
+    "socat",
+    "libjpeg-dev",
+    "libpng-dev",
+    "libwebp-dev",
+    "libpq-dev",
+    "libffi-dev",
+    "libssl-dev",
 ]
 
 FEDORA_PACKAGES = [
-    "bc", "git", "sudo", "cronie", "gcc", "gcc-c++", "make",
-    "pcre-devel", "zlib-devel",
-    "nginx", "postgresql-server", "postgresql-contrib",
-    "python3-devel", "python3-pip",
-    "curl", "wget", "rsync", "socat",
-    "libjpeg-devel", "libpng-devel", "libwebp-devel",
-    "libpq-devel", "libffi-devel", "openssl-devel",
+    "bc",
+    "git",
+    "sudo",
+    "cronie",
+    "gcc",
+    "gcc-c++",
+    "make",
+    "pcre-devel",
+    "zlib-devel",
+    "nginx",
+    "postgresql-server",
+    "postgresql-contrib",
+    "python3-devel",
+    "python3-pip",
+    "curl",
+    "wget",
+    "rsync",
+    "socat",
+    "libjpeg-devel",
+    "libpng-devel",
+    "libwebp-devel",
+    "libpq-devel",
+    "libffi-devel",
+    "openssl-devel",
 ]
 
 # Systemd service units
@@ -219,7 +251,11 @@ class Spinner:
         for char in itertools.cycle(self.CHARS):
             if not self.spinning:
                 break
-            print(f"\r      {Colors.CYAN}{char}{Colors.RESET} {self.message}", end="", flush=True)
+            print(
+                f"\r      {Colors.CYAN}{char}{Colors.RESET} {self.message}",
+                end="",
+                flush=True,
+            )
             time.sleep(0.08)
 
 
@@ -251,6 +287,7 @@ def run_cmd(
 
     result = subprocess.run(
         cmd,
+        check=False,
         capture_output=capture,
         text=True,
         env=run_env,
@@ -284,7 +321,9 @@ def detect_distro() -> str:
         content = os_release.read_text()
         if any(d in content.lower() for d in ["ubuntu", "debian", "mint", "pop"]):
             return "debian"
-        if any(d in content.lower() for d in ["fedora", "rhel", "centos", "rocky", "alma"]):
+        if any(
+            d in content.lower() for d in ["fedora", "rhel", "centos", "rocky", "alma"]
+        ):
             return "fedora"
         if "arch" in content.lower():
             return "arch"
@@ -352,10 +391,14 @@ def create_user_and_group() -> None:
     # Create user
     if not user_exists(HOP3_USER):
         run_cmd([
-            "useradd", "-m",
-            "-g", HOP3_GROUP,
-            "-s", "/bin/bash",
-            "-d", str(HOME_DIR),
+            "useradd",
+            "-m",
+            "-g",
+            HOP3_GROUP,
+            "-s",
+            "/bin/bash",
+            "-d",
+            str(HOME_DIR),
             HOP3_USER,
         ])
         print_success(f"Created user: {HOP3_USER}")
@@ -566,7 +609,9 @@ def verify_installation() -> bool:
         return False
 
     # Check service status
-    result = run_cmd(["systemctl", "is-active", "hop3-server"], capture=True, check=False)
+    result = run_cmd(
+        ["systemctl", "is-active", "hop3-server"], capture=True, check=False
+    )
     if result.stdout.strip() == "active":
         print_success("hop3-server service is running")
     else:
