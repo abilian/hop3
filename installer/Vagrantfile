@@ -34,18 +34,19 @@ end
 ARCH = get_arch()
 
 # Box definitions
+# Note: VirtualBox requires x86_64. For ARM64 (Apple Silicon), use QEMU or libvirt provider.
 BOXES = {
   'ubuntu' => {
-    'amd64' => 'boxen/ubuntu-24.04',
-    'arm64' => 'boxen/ubuntu-24.04'
+    'amd64' => 'bento/ubuntu-24.04',
+    'arm64' => 'perk/ubuntu-24.04-arm64'  # Requires QEMU provider
   },
   'debian' => {
-    'amd64' => 'generic/debian12',
-    'arm64' => 'generic/debian12'
+    'amd64' => 'bento/debian-12',
+    'arm64' => 'generic/debian12'  # Requires QEMU provider
   },
   'fedora' => {
-    'amd64' => 'generic/fedora40',
-    'arm64' => 'generic/fedora40'
+    'amd64' => 'bento/fedora-40',
+    'arm64' => 'generic/fedora40'  # Requires QEMU provider
   }
 }
 
