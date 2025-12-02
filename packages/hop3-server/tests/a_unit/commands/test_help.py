@@ -6,7 +6,16 @@
 
 from __future__ import annotations
 
+import pytest
+
 from hop3.commands.help import HelpCmd
+from hop3.lib.scanner import scan_package
+
+
+@pytest.fixture(scope="module", autouse=True)
+def register_all_commands():
+    """Register all commands before running help tests."""
+    scan_package("hop3.commands")
 
 
 def test_help_overview():
@@ -140,3 +149,74 @@ def test_help_detailed_shows_full_docstring():
     assert "COMMAND: help" in text
     # Should show the docstring
     assert "Display useful help messages" in text
+
+
+def test_help_all_shows_all_commands():
+    """Test that 'hop help --all' shows all commands including subcommands."""
+    cmd = HelpCmd()
+    result = cmd.call("--all")
+
+    assert len(result) == 1
+    assert result[0]["t"] == "text"
+    text = result[0]["text"]
+
+    # Check for ALL COMMANDS section
+    assert "ALL COMMANDS" in text
+
+    # Should show subcommands (commands with colons)
+    # These are commands like auth:login, config:set, etc.
+    # We check for the pattern of colon-separated commands
+    lines = text.split("\n")
+    has_subcommands = any(":" in line for line in lines)
+    assert has_subcommands, "Expected subcommands to be shown with --all flag"
+
+
+def test_help_default_shows_only_top_level():
+    """Test that default help shows only top-level commands (no subcommands)."""
+    cmd = HelpCmd()
+    result = cmd.call()
+
+    assert len(result) == 1
+    text = result[0]["text"]
+
+    # Should have hint about using help --all
+    assert "hop help --all" in text
+
+    # Commands section should not include subcommand lines
+    # (lines starting with "  " followed by a name containing ":")
+    lines = text.split("\n")
+    # Find lines in COMMANDS section
+    in_commands = False
+    for line in lines:
+        if "COMMANDS" in line:
+            in_commands = True
+            continue
+        if in_commands and line.strip():
+            # Skip hint lines
+            if line.startswith("Use "):
+                continue
+            # Command lines start with "  " followed by command name
+            if line.startswith("  ") and not line.strip().startswith("$"):
+                # Extract command name (first word after leading spaces)
+                parts = line.split()
+                if parts:
+                    cmd_name = parts[0]
+                    assert ":" not in cmd_name, (
+                        f"Subcommand '{cmd_name}' should not appear in default help"
+                    )
+
+
+def test_help_shows_subcommands_for_namespace():
+    """Test that 'hop help <namespace>' shows subcommands."""
+    cmd = HelpCmd()
+    # 'auth' is a namespace command with subcommands like auth:login, etc.
+    result = cmd.call("auth")
+
+    assert len(result) == 1
+    text = result[0]["text"]
+
+    # Should show SUBCOMMANDS section
+    assert "SUBCOMMANDS" in text
+
+    # Should list auth subcommands
+    assert "auth:" in text

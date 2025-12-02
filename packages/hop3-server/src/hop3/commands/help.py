@@ -9,58 +9,105 @@ from hop3.lib.registry import lookup, register
 
 from ._base import Command
 
-HELP_XXX = """
-COMMANDS
-  apps            List apps (running or stopped).
-  backup          Run a backup for an app.
-  config          Manage app config. Type 'hop config' for help.
-  deploy          Deploy app.
-  destroy         Destroy app, remove all files.
-  help            Display help information for the Hop3 CLI.
-  logs            Tail running logs, e.g: hop-agent logs <app> [<process>].
-  pg              Manage a PostgreSQL database.
-  plugins         List installed plugins.
-  ps              Show process count for app.
-  redis           Manage Redis commands.
-  restart         Restart an app.
-  run             Run command in the context of app, e.g.: hop run ls -- -al.
-  sbom            Generate a SBOM for an app.
-  setup           Initialize environment.
-  start           Stop an app.
-  stop            Stop an app.
-"""
-
 
 @register
 class HelpCmd(Command):
-    """Display useful help messages."""
+    """Display useful help messages.
+
+    Usage:
+        hop help              Show top-level commands
+        hop help <command>    Show detailed help for a command
+        hop help --all        Show all commands including subcommands
+
+    Examples:
+        hop help auth         Show auth command help and its subcommands
+        hop help config:set   Show help for config:set command
+    """
 
     name: ClassVar[str] = "help"
     requires_auth: ClassVar[bool] = False  # Public command
 
     def call(self, *args):
+        # Parse --all flag
+        args = list(args)
+        show_all = "--all" in args
+        if show_all:
+            args.remove("--all")
+
         # If a command name is provided, show detailed help for that command
         if args:
             command_name = args[0]
             return self._detailed_help(command_name)
 
-        # Otherwise, show overview of all commands
+        # Show commands overview
+        if show_all:
+            return self._show_all_commands()
+        return self._show_top_level_commands()
+
+    def _show_top_level_commands(self):
+        """Show only top-level commands (simplified overview)."""
         output = [
             bold("USAGE"),
             "  $ hop <command> <args>",
-            "  $ hop help <command>  # Show detailed help for a command",
+            "  $ hop help <command>    # Show help for a command",
+            "  $ hop help --all        # Show all commands including subcommands",
             "",
             bold("COMMANDS"),
+        ]
+
+        commands = lookup(Command)
+
+        # Find top-level commands and count subcommands
+        top_level_cmds = {}  # name -> cmd
+        subcommand_counts = {}  # prefix -> count
+
+        for cmd in commands:
+            name = cmd.name
+            if ":" in name:
+                # This is a subcommand - count it under its prefix
+                prefix = name.split(":")[0]
+                subcommand_counts[prefix] = subcommand_counts.get(prefix, 0) + 1
+            else:
+                # This is a top-level command
+                top_level_cmds[name] = cmd
+
+        # Build output
+        for name in sorted(top_level_cmds.keys()):
+            cmd = top_level_cmds[name]
+            help_text = self._get_short_help(cmd.__doc__)
+            sub_count = subcommand_counts.get(name, 0)
+
+            if sub_count > 0:
+                # Add indicator for commands with subcommands
+                output.append(f"  {name:<16} {help_text}")
+            else:
+                output.append(f"  {name:<16} {help_text}")
+
+        output.append("")
+        output.append(
+            "Use 'hop help <command>' to see subcommands and detailed help."
+        )
+
+        return [
+            {"t": "text", "text": "\n".join(output)},
+        ]
+
+    def _show_all_commands(self):
+        """Show all commands including subcommands (full listing)."""
+        output = [
+            bold("USAGE"),
+            "  $ hop <command> <args>",
+            "  $ hop help <command>    # Show help for a command",
+            "",
+            bold("ALL COMMANDS"),
         ]
 
         commands = lookup(Command)
         commands.sort(key=lambda cmd: cmd.name)
         for cmd in commands:
             cmd_name = cmd.name
-            # Extract only the first line of the docstring for the overview
-            # Full docstring is available when asking for help on a specific command
             help_text = self._get_short_help(cmd.__doc__)
-            output.append(f"  {cmd_name:<20} {help_text}")
+            output.append(f"  {cmd_name:<24} {help_text}")
 
         return [
             {"t": "text", "text": "\n".join(output)},
@@ -69,13 +116,16 @@ class HelpCmd(Command):
     def _detailed_help(self, command_name: str):
         """Show detailed help for a specific command.
 
+        If the command has subcommands, they will be listed as well.
+
         Args:
             command_name: The name of the command to show help for
 
         Returns:
             Formatted help output for the command
         """
-        commands = {cmd.name: cmd for cmd in lookup(Command)}
+        all_commands = lookup(Command)
+        commands = {cmd.name: cmd for cmd in all_commands}
 
         if command_name not in commands:
             return [
@@ -94,6 +144,20 @@ class HelpCmd(Command):
             "",
             docstring.strip(),
         ]
+
+        # Find subcommands (commands that start with this command name followed by :)
+        prefix = command_name + ":"
+        subcommands = [
+            c for c in all_commands if c.name.startswith(prefix)
+        ]
+
+        if subcommands:
+            subcommands.sort(key=lambda c: c.name)
+            output.append("")
+            output.append(bold("SUBCOMMANDS"))
+            for sub in subcommands:
+                help_text = self._get_short_help(sub.__doc__)
+                output.append(f"  {sub.name:<24} {help_text}")
 
         return [
             {"t": "text", "text": "\n".join(output)},
