@@ -195,7 +195,17 @@ def get_builder(context: DeploymentContext) -> Builder:
             if builder.accept():
                 return builder
 
-        msg = "Could not find a suitable builder for this application."
+        # Build helpful error message
+        available_builders = [
+            getattr(cls, "name", cls.__name__) for cls in builder_classes
+        ]
+        msg = (
+            "Could not find a suitable builder for this application.\n\n"
+            "This usually means the application type was not recognized.\n"
+            "Make sure you have one of: Procfile, hop3.toml, requirements.txt, "
+            "package.json, Cargo.toml, go.mod, or similar.\n\n"
+            f"Available builders: {', '.join(available_builders)}"
+        )
         raise RuntimeError(msg)
 
     for builder_class in builder_classes:

@@ -109,9 +109,10 @@ Installs the Hop3 server for hosting applications. Must be run as root.
 5. Run initial Hop3 setup
 6. Configure SSH keys (if root keys exist)
 7. Set up systemd services
-8. Configure nginx
-9. Configure PostgreSQL
-10. Install acme.sh for Let's Encrypt
+8. Generate SSL certificate (self-signed by default)
+9. Configure nginx as reverse proxy
+10. Configure PostgreSQL
+11. Install acme.sh and optionally request Let's Encrypt certificate
 
 ### Command-Line Options
 
@@ -121,6 +122,7 @@ Installs the Hop3 server for hosting applications. Must be run as root.
 | `--git` | `HOP3_GIT=1` | Install from git repository |
 | `--branch BRANCH` | `HOP3_BRANCH` | Git branch (default: `main`) |
 | `--local-path PATH` | `HOP3_LOCAL_PACKAGE` | Install from local directory |
+| `--domain DOMAIN` | `HOP3_DOMAIN` | Domain for Let's Encrypt certificate |
 | `--force` | `HOP3_FORCE=1` | Force reinstall |
 | `--skip-deps` | `HOP3_SKIP_DEPS=1` | Skip system dependency installation |
 | `--skip-nginx` | `HOP3_SKIP_NGINX=1` | Skip nginx setup |
@@ -131,8 +133,11 @@ Installs the Hop3 server for hosting applications. Must be run as root.
 ### Examples
 
 ```bash
-# Install latest from PyPI
+# Install with self-signed certificate (default)
 sudo python3 install-server.py
+
+# Install with Let's Encrypt certificate for a domain
+sudo python3 install-server.py --domain hop3.example.com
 
 # Install from git (specific branch)
 sudo python3 install-server.py --git --branch develop
@@ -146,6 +151,28 @@ sudo python3 install-server.py --skip-postgres --skip-acme
 # Using environment variables
 HOP3_GIT=1 HOP3_BRANCH=develop sudo -E python3 install-server.py
 ```
+
+### SSL Certificates
+
+By default, the installer generates a **self-signed SSL certificate** for immediate HTTPS support. This is suitable for:
+- Development and testing
+- Internal/private servers
+- Initial setup before configuring a domain
+
+To use a **Let's Encrypt certificate**, provide a domain name:
+
+```bash
+sudo python3 install-server.py --domain hop3.example.com
+```
+
+Requirements for Let's Encrypt:
+- The domain must point to this server's IP address
+- Ports 80 and 443 must be accessible from the internet
+- The server must be reachable at the specified domain
+
+The certificate will be automatically renewed by acme.sh.
+
+**Note:** The installer currently uses nginx as the reverse proxy. Support for alternative proxies (Caddy, Traefik) is planned for future versions.
 
 ### Supported Distributions
 
@@ -185,22 +212,39 @@ HOP3_GIT=1 HOP3_BRANCH=develop sudo -E python3 install-server.py
 | Commands | `/home/hop3/venv/bin/hop-server` |
 | Systemd services | `/etc/systemd/system/hop3-server.service` |
 | uWSGI service | `/etc/systemd/system/uwsgi-hop3.service` |
+| SSL certificate | `/etc/hop3/ssl/hop3.crt` |
+| SSL private key | `/etc/hop3/ssl/hop3.key` |
+| Nginx config (Debian) | `/etc/nginx/sites-available/hop3` |
+| Nginx config (Fedora) | `/etc/nginx/conf.d/hop3.conf` |
 
 ### Systemd Services
 
-Two services are installed:
+Three services are configured:
 
-- **hop3-server**: Main Hop3 server daemon
+- **hop3-server**: Main Hop3 server daemon (API server on port 8000)
 - **uwsgi-hop3**: uWSGI emperor for application workers
+- **nginx**: Reverse proxy for HTTPS termination
 
 ```bash
 # Check status
 sudo systemctl status hop3-server
 sudo systemctl status uwsgi-hop3
+sudo systemctl status nginx
 
 # View logs
 sudo journalctl -u hop3-server -f
 ```
+
+### API Endpoints
+
+After installation, the Hop3 API is available at:
+
+- `https://<server-ip>/rpc` - JSON-RPC API endpoint
+- `https://<server-ip>/hop3/` - Web UI (if enabled)
+- `https://<server-ip>/health` - Health check endpoint
+
+If using Let's Encrypt with a domain:
+- `https://hop3.example.com/rpc`
 
 ## Development and Testing
 

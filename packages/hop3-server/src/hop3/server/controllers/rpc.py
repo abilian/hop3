@@ -20,6 +20,7 @@ from hop3.lib.registry import lookup
 from hop3.lib.scanner import scan_package
 from hop3.lib.types import JsonDict
 from hop3.orm import get_session_factory
+from hop3.server.security.tokens import validate_token
 
 if TYPE_CHECKING:
     pass
@@ -132,106 +133,213 @@ class RPCController(Controller):
         Returns:
             JSON-RPC response
         """
+        # Parse request
         method = data["method"]
         assert method == "cli"
 
         params = data["params"]
         cli_args = params["cli_args"]
         extra_args = params["extra_args"]
+        request_id = data.get("id", 1)
 
         command_name = cli_args[0]
         args = cli_args[1:]
 
-        # Look up the command class
+        # Look up command
         command_class = commands.get(command_name)
 
-        # For security: Check authentication BEFORE revealing if command exists
-        # This prevents information disclosure about available commands
-        # Skip authentication check if HOP3_UNSAFE is true (testing mode only)
-        if not config.HOP3_UNSAFE and (
-            command_class is None or requires_authentication(command_class)
-        ):
-            # Check if user is authenticated via session
-            user_id = request.session.get("user_id")
-            if not user_id:
-                error_rpc = {
-                    "jsonrpc": "2.0",
-                    "error": {
-                        "code": 401,
-                        "message": "Authentication required. Use 'hop3 auth:login' to authenticate.",
-                    },
-                    "id": data.get("id", 1),
-                }
-                return Response(
-                    content=json.dumps(error_rpc),
-                    media_type="application/json",
-                    status_code=401,
-                )
+        # Check authentication (before revealing if command exists)
+        auth_error = self._check_authentication(request, command_class)
+        if auth_error:
+            return auth_error
 
-        # Now check if command actually exists (after auth check)
+        # Validate command exists
         if command_class is None:
-            error_rpc = {
-                "jsonrpc": "2.0",
-                "error": {
-                    "code": -32601,  # Method not found
-                    "message": f"Command '{command_name}' not found",
-                },
-                "id": data.get("id", 1),
-            }
-            return Response(
-                content=json.dumps(error_rpc),
-                media_type="application/json",
+            return self._build_error_response(
+                code=-32601,  # Method not found
+                message=f"Command '{command_name}' not found",
+                request_id=request_id,
                 status_code=404,
             )
+
+        # Prepare arguments and execute
+        prepared_args, prepared_extra_args = self._prepare_command_args(
+            request, command_class, args, extra_args
+        )
+        return self._execute_command(
+            command_name, prepared_args, prepared_extra_args, request_id
+        )
+
+    def _build_error_response(
+        self, code: int, message: str, request_id: int, status_code: int = 200
+    ) -> Response:
+        """Build a JSON-RPC error response.
+
+        Args:
+            code: JSON-RPC error code
+            message: Error message
+            request_id: Request ID from the original request
+            status_code: HTTP status code (default 200 per JSON-RPC spec)
+
+        Returns:
+            JSON-RPC error response
+        """
+        error_rpc = {
+            "jsonrpc": "2.0",
+            "error": {"code": code, "message": message},
+            "id": request_id,
+        }
+        return Response(
+            content=json.dumps(error_rpc),
+            media_type="application/json",
+            status_code=status_code,
+        )
+
+    def _build_success_response(self, result: JsonDict, request_id: int) -> Response:
+        """Build a JSON-RPC success response.
+
+        Args:
+            result: Command execution result
+            request_id: Request ID from the original request
+
+        Returns:
+            JSON-RPC success response
+        """
+        result_rpc = {"jsonrpc": "2.0", "result": result, "id": request_id}
+        return Response(
+            content=json.dumps(result_rpc),
+            media_type="application/json",
+        )
+
+    def _authenticate_from_bearer_token(self, request: Request) -> bool:
+        """Try to authenticate using Bearer token from Authorization header.
+
+        Args:
+            request: HTTP request
+
+        Returns:
+            True if authentication succeeded, False otherwise
+        """
+        auth_header = request.headers.get("authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return False
+
+        token = auth_header[7:].strip()
+        token_info = validate_token(token)
+        if not token_info:
+            return False
+
+        # Token is valid - set session data
+        username = token_info["username"]
+        request.session["user_id"] = username
+        request.session["username"] = username
+        request.session["scopes"] = token_info["scopes"]
+        return True
+
+    def _check_authentication(
+        self, request: Request, command_class: type[Command] | None
+    ) -> Response | None:
+        """Check if the request is authenticated when required.
+
+        For security, authentication is checked BEFORE revealing if the command
+        exists. This prevents information disclosure about available commands.
+
+        Args:
+            request: HTTP request
+            command_class: The command class (may be None if not found)
+
+        Returns:
+            Error response if authentication failed, None if OK
+        """
+        # Skip authentication check in unsafe testing mode
+        if config.HOP3_UNSAFE:
+            return None
+
+        # Check if authentication is required
+        if command_class is not None and not requires_authentication(command_class):
+            return None
+
+        # Check session first
+        user_id = request.session.get("user_id")
+        if user_id:
+            return None
+
+        # Try Bearer token authentication
+        if self._authenticate_from_bearer_token(request):
+            return None
+
+        # Authentication failed
+        return self._build_error_response(
+            code=401,
+            message="Authentication required. Use 'hop3 auth:login' to authenticate.",
+            request_id=1,
+            status_code=401,
+        )
+
+    def _prepare_command_args(
+        self,
+        request: Request,
+        command_class: type[Command],
+        args: list[str],
+        extra_args: JsonDict,
+    ) -> tuple[tuple, JsonDict]:
+        """Prepare command arguments by injecting username and token info.
+
+        Args:
+            request: HTTP request
+            command_class: The command class
+            args: Positional arguments
+            extra_args: Keyword arguments
+
+        Returns:
+            Tuple of (prepared_args, prepared_extra_args)
+        """
+        prepared_args = tuple(args)
+        prepared_extra_args = extra_args.copy()
 
         # Pass authenticated username to commands that need it
         if command_needs_username(command_class):
             username = request.session.get("username")
             if username:
-                args = (username, *args)
+                prepared_args = (username, *prepared_args)
 
         # Pass token information to commands that need it (e.g., logout)
         if command_needs_token_info(command_class):
-            # Extract token from Authorization header
             auth_header = request.headers.get("authorization", "")
             if auth_header.startswith("Bearer "):
                 token = auth_header[7:].strip()
-                extra_args["_token"] = token
+                prepared_extra_args["_token"] = token
 
+        return prepared_args, prepared_extra_args
+
+    def _execute_command(
+        self, command_name: str, args: tuple, extra_args: JsonDict, request_id: int
+    ) -> Response:
+        """Execute the command and return appropriate response.
+
+        Args:
+            command_name: Name of the command to execute
+            args: Positional arguments
+            extra_args: Keyword arguments
+            request_id: Request ID for the response
+
+        Returns:
+            JSON-RPC response (success or error)
+        """
         try:
-            result = call(command_name, args, extra_args)
-            result_rpc = {"jsonrpc": "2.0", "result": result, "id": 1}
-            return Response(
-                content=json.dumps(result_rpc),
-                media_type="application/json",
-            )
+            result = call(command_name, list(args), extra_args)
+            return self._build_success_response(result, request_id)
         except ValueError as e:
             traceback.print_exc()
-            error_rpc = {
-                "jsonrpc": "2.0",
-                "error": {
-                    "code": -32602,  # Invalid params
-                    "message": str(e),
-                },
-                "id": data.get("id", 1),
-            }
-            return Response(
-                content=json.dumps(error_rpc),
-                media_type="application/json",
-                status_code=200,  # JSON-RPC errors still return 200
+            return self._build_error_response(
+                code=-32602,  # Invalid params
+                message=str(e),
+                request_id=request_id,
             )
         except Exception as e:
             traceback.print_exc()
-            error_rpc = {
-                "jsonrpc": "2.0",
-                "error": {
-                    "code": -32603,  # Internal error
-                    "message": f"{type(e).__name__}: {e!s}",
-                },
-                "id": data.get("id", 1),
-            }
-            return Response(
-                content=json.dumps(error_rpc),
-                media_type="application/json",
-                status_code=200,  # JSON-RPC errors still return 200
+            return self._build_error_response(
+                code=-32603,  # Internal error
+                message=f"{type(e).__name__}: {e!s}",
+                request_id=request_id,
             )

@@ -170,6 +170,7 @@ This is an old TODO, kept for reference only. The "official" TODO is currently i
 ### Architecture
 
 - [ ] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
+  - Note: The installer currently defaults to nginx as the reverse proxy. Future versions should support alternative frontends (Caddy, Traefik, etc.) via a `--proxy` flag or similar mechanism. The server already has plugin support for multiple proxies (see `hop3/plugins/proxy/`).
 - [ ] Introduce multi-tenant support
 - [ ] Agents
 - [ ] Multi-server support

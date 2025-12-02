@@ -99,10 +99,33 @@ def run_command_from_args(cli_args: list[str]) -> None:
                 if isinstance(k, str) and v is not None
             }
             response = client.rpc("cli", cli_args, **validated_extra_args)
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.SSLError:
             err(
-                f"Could not connect to the Hop3 server at {client.rpc_url}. Is it running?"
+                f"SSL certificate verification failed for {client.rpc_url}.\n\n"
+                "Options:\n"
+                "  1. Trust this server's certificate:\n"
+                "     hop3 config set ssl_cert /path/to/server.crt\n\n"
+                "  2. Disable SSL verification (less secure):\n"
+                "     hop3 config set verify_ssl false"
             )
+            sys.exit(1)
+        except requests.exceptions.ConnectionError as e:
+            # Check if it's actually an SSL error wrapped in ConnectionError
+            error_str = str(e).lower()
+            if "ssl" in error_str or "certificate" in error_str:
+                err(
+                    f"SSL certificate verification failed for {client.rpc_url}.\n\n"
+                    "Options:\n"
+                    "  1. Trust this server's certificate:\n"
+                    "     hop3 config set ssl_cert /path/to/server.crt\n\n"
+                    "  2. Disable SSL verification (less secure):\n"
+                    "     hop3 config set verify_ssl false"
+                )
+            else:
+                err(
+                    f"Could not connect to the Hop3 server at {client.rpc_url}.\n"
+                    "Is it running?"
+                )
             sys.exit(1)
         except requests.exceptions.HTTPError as e:
             err(f"HTTP error while connecting to the Hop3 server:\n{e}")
