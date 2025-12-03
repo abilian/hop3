@@ -47,24 +47,38 @@ class UWSGIDeployer(Deployer):
         }
 
     def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:
-        """Deploy the app using uWSGI."""
+        """Deploy the app using uWSGI.
+
+        Handles both fresh deployments and redeployments:
+        - STOPPED -> STARTING -> RUNNING (fresh deploy)
+        - RUNNING -> STOPPING -> STOPPED -> STARTING -> RUNNING (redeploy)
+        """
         deltas = deltas or {}
+
+        current_state = self.app.run_state
+
+        # Handle redeployment: stop first if already running
+        if current_state == AppStateEnum.RUNNING:
+            log(f"App '{self.app.name}' is running, redeploying...", level=1, fg="blue")
+            self.stop()
+            current_state = self.app.run_state
 
         log(f"Deploying '{self.app.name}' with uWSGI...", level=2, fg="blue")
 
-        # Use state machine transition
-        if self.app.run_state == AppStateEnum.STOPPED:
+        # Transition from STOPPED to STARTING
+        if current_state == AppStateEnum.STOPPED:
             self.app._transition_state(AppStateEnum.STARTING)  # noqa: SLF001
 
         spawn_app(self.app, deltas)
 
-        # Mark the app as RUNNING using state machine
+        # Mark the app as RUNNING
         self.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
 
-        # A more robust implementation would get this info from nginx/spawn logic
-        return DeploymentInfo(
-            protocol="unix_socket", address=f"/path/to/{self.app.name}.sock"
-        )
+        # Return actual socket path used by nginx
+        from hop3 import config as c
+
+        socket_path = c.NGINX_ROOT / f"{self.app.name}.sock"
+        return DeploymentInfo(protocol="unix_socket", address=str(socket_path))
 
     def start(self) -> None:
         """Starts the app by calling deploy with no scaling changes."""

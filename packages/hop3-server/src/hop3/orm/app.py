@@ -192,7 +192,15 @@ class App(BigIntAuditBase):
         valid_transitions = VALID_STATE_TRANSITIONS.get(current_state, set())
 
         if new_state not in valid_transitions:
-            msg = f"Invalid state transition: {current_state.name} -> {new_state.name}"
+            # Provide user-friendly error messages for common cases
+            if current_state == new_state:
+                state_name = current_state.name.lower()
+                msg = f"App '{self.name}' is already {state_name}."
+            else:
+                msg = (
+                    f"Cannot transition app '{self.name}' from "
+                    f"{current_state.name} to {new_state.name}."
+                )
             raise StateTransitionError(msg)
 
         self.run_state = new_state
@@ -204,6 +212,7 @@ class App(BigIntAuditBase):
 
         log(
             f"App '{self.name}' state: {current_state.name} -> {new_state.name}",
+            level=2,
             fg="blue",
         )
 

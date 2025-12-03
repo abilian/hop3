@@ -152,7 +152,16 @@ def run_command_from_args(cli_args: list[str]) -> None:
                 else:
                     printer.print(result)
             case Error(message=message):
-                err(f"Error:\n{message}")
+                # Clean up nested error prefixes for better readability
+                clean_message = message
+                # Remove redundant prefixes like "Command execution failed: "
+                prefixes_to_strip = [
+                    "Command execution failed: ",
+                    "Deployment failed: ",
+                ]
+                for prefix in prefixes_to_strip:
+                    clean_message = clean_message.removeprefix(prefix)
+                err(clean_message)
                 sys.exit(1)
             case None:
                 pass

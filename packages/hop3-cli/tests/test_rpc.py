@@ -17,4 +17,5 @@ def test_extra_args():
 def test_extra_args_deploy():
     args = ["deploy"]
     extra_args = get_extra_args(args)
-    assert list(extra_args.keys()) == ["repository"]
+    assert "repository" in extra_args
+    assert "verbosity" in extra_args
