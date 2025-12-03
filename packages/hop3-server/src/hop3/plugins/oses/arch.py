@@ -161,6 +161,8 @@ class ArchPlugin:
     - EndeavourOS
     """
 
+    name = "arch"
+
     @hop3_hook_impl
     def get_os_implementations(self) -> list:
         return [ArchStrategy]

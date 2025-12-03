@@ -206,6 +206,8 @@ class MacOSStrategy(BaseOSStrategy):
 class MacOSPlugin:
     """Plugin that provides macOS OS setup strategy."""
 
+    name = "macos"
+
     @hop3_hook_impl
     def get_os_implementations(self) -> list:
         return [MacOSStrategy]

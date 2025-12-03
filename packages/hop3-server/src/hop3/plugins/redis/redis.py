@@ -4,15 +4,19 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
 class RedisAddon:
     """Redis service addon for Hop3 applications."""
 
-    app_name: str
-    settings: dict
+    # Class attribute for the strategy name
+    name: str = "redis"
+
+    # Instance attributes
+    app_name: str = ""
+    settings: dict = field(default_factory=dict)
 
     def create(self) -> None:
         """Create Redis instance configuration if needed."""

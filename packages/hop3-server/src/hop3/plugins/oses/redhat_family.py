@@ -165,6 +165,8 @@ class RedHatFamilyPlugin:
     - CentOS (all versions)
     """
 
+    name = "redhat-family"
+
     @hop3_hook_impl
     def get_os_implementations(self) -> list:
         return [RedHatFamilyStrategy]

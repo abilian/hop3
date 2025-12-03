@@ -187,6 +187,8 @@ class BSDPlugin:
     - OpenBSD (all versions)
     """
 
+    name = "bsd"
+
     @hop3_hook_impl
     def get_os_implementations(self) -> list:
         return [BSDStrategy]
