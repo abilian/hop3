@@ -29,6 +29,7 @@ if TYPE_CHECKING:
         Deployer,
         DeploymentContext,
         Proxy,
+        WafEngine,
     )
 
 # Singleton instance of the PluginManager.
@@ -451,3 +452,66 @@ def get_proxy_strategy(app, env, workers: dict[str, str]) -> Proxy:
         f"Set HOP3_PROXY_TYPE environment variable to one of: nginx, caddy, traefik"
     )
     raise RuntimeError(msg)
+
+
+def get_waf_engine() -> WafEngine | None:
+    """Get the configured WAF engine instance.
+
+    The WAF engine type is determined by the HOP3_WAF_ENGINE server setting.
+    Returns None if WAF is not enabled at the server level.
+
+    Returns:
+        An instance of the configured WafEngine, or None if WAF is disabled.
+
+    Raises:
+        RuntimeError: If the configured WAF engine type is not found.
+    """
+    # Import here to avoid circular dependency
+    from hop3.config import HopConfig  # noqa: PLC0415
+
+    config = HopConfig.get_instance()
+
+    # Check if WAF is enabled at server level
+    if not getattr(config, "HOP3_WAF_ENABLED", False):
+        return None
+
+    pm = get_plugin_manager()
+
+    # Get all registered WAF engines
+    engine_classes_list = pm.hook.get_waf_engines()
+    engine_classes: list[type[WafEngine]] = [
+        cls for sublist in engine_classes_list for cls in sublist
+    ]
+
+    if not engine_classes:
+        # No WAF engines registered - WAF not available
+        return None
+
+    # Get the configured engine type (server-wide setting)
+    engine_type = getattr(config, "HOP3_WAF_ENGINE", "lewaf").lower()
+
+    # Find the matching WAF engine
+    for engine_class in engine_classes:
+        engine_name = getattr(engine_class, "name", "").lower()
+        if engine_name == engine_type:
+            return engine_class()
+
+    available_engines = [getattr(cls, "name", "?") for cls in engine_classes]
+    msg = (
+        f"Configured WAF engine '{engine_type}' not found. "
+        f"Available engines: {available_engines}. "
+        f"Set HOP3_WAF_ENGINE to one of: {', '.join(available_engines)}"
+    )
+    raise RuntimeError(msg)
+
+
+def is_waf_enabled() -> bool:
+    """Check if WAF is enabled at the server level.
+
+    Returns:
+        True if WAF is enabled in server configuration.
+    """
+    from hop3.config import HopConfig  # noqa: PLC0415
+
+    config = HopConfig.get_instance()
+    return getattr(config, "HOP3_WAF_ENABLED", False)

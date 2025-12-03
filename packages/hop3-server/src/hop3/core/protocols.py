@@ -69,6 +69,44 @@ class DeploymentInfo:
     port: int | None = None
 
 
+@dataclass
+class WafConfig:
+    """WAF configuration for an application.
+
+    This dataclass holds all WAF-related settings for a single application,
+    parsed from hop3.toml [waf] and [security.rules] sections.
+
+    Attributes:
+        app_name: Name of the application this config applies to.
+        enabled: Whether WAF is enabled for this app.
+        engine: WAF engine to use ('lewaf', 'coraza' in future).
+        ruleset: Rule set to load ('owasp-crs', 'minimal', 'none').
+        paranoia_level: CRS paranoia level (1-4, higher = stricter).
+        mode: Operating mode ('block' or 'detect' for logging only).
+        exclusions: Paths excluded from CRS inspection.
+        disabled_rules: CRS rule IDs to disable.
+        custom_rules: Custom SecLang rules (advanced users).
+        allow_paths: Paths that bypass WAF entirely.
+        deny_paths: Paths blocked before WAF inspection.
+        allow_ips: IPs that bypass all security.
+        deny_ips: IPs blocked at WAF level.
+    """
+
+    app_name: str
+    enabled: bool = False
+    engine: str = "lewaf"
+    ruleset: str = "owasp-crs"
+    paranoia_level: int = 1
+    mode: str = "block"
+    exclusions: list[str] = field(default_factory=list)
+    disabled_rules: list[int] = field(default_factory=list)
+    custom_rules: str = ""
+    allow_paths: list[str] = field(default_factory=list)
+    deny_paths: list[str] = field(default_factory=list)
+    allow_ips: list[str] = field(default_factory=list)
+    deny_ips: list[str] = field(default_factory=list)
+
+
 #
 # --- Protocols (Interfaces for the Strategies) ---
 #
@@ -507,4 +545,97 @@ class OS(Protocol):
             home: Home directory path
             shell: Default shell path
             group: Primary group name
+        """
+
+
+class WafEngine(Protocol):
+    """Interface for WAF engine implementations.
+
+    A WAF engine provides web application firewall capabilities, inspecting
+    HTTP traffic and blocking malicious requests based on rules (OWASP CRS,
+    custom rules, simple allow/deny patterns).
+
+    The WAF runs as a reverse proxy service between the front-end proxy (Nginx)
+    and application backends. It is managed as a separate process by Honcho.
+
+    Implementations:
+    - LeWafEngine: Pure Python WAF using LeWAF library
+    - CorazaEngine: Go-based WAF using Coraza (future)
+
+    Attributes:
+        name: Identifier for this engine (e.g., 'lewaf', 'coraza').
+    """
+
+    name: str
+
+    def __init__(self) -> None:
+        """Initialize the WAF engine."""
+        ...
+
+    def start(self) -> None:
+        """Start the WAF service.
+
+        This launches the WAF reverse proxy process. The process listens
+        on a Unix socket and proxies requests to application backends.
+        """
+
+    def stop(self) -> None:
+        """Stop the WAF service.
+
+        Gracefully shuts down the WAF process, allowing in-flight
+        requests to complete.
+        """
+
+    def reload(self) -> None:
+        """Reload WAF configuration without restart.
+
+        Triggers a configuration reload (e.g., by touching the config file).
+        This applies new per-app rules without dropping connections.
+        """
+
+    def is_running(self) -> bool:
+        """Check if the WAF service is running.
+
+        Returns:
+            True if the WAF process is alive and accepting connections.
+        """
+
+    def configure_app(self, config: WafConfig) -> None:
+        """Configure WAF rules for an application.
+
+        Generates and writes the WAF configuration for a specific app.
+        Call reload() after configuring all apps to apply changes.
+
+        Args:
+            config: WAF configuration for the application.
+        """
+
+    def remove_app(self, app_name: str) -> None:
+        """Remove WAF configuration for an application.
+
+        Removes the app's WAF rules. Call reload() to apply.
+
+        Args:
+            app_name: Name of the application to remove.
+        """
+
+    def get_upstream_socket(self) -> Path:
+        """Get the socket path that the proxy should connect to.
+
+        Returns:
+            Path to the Unix socket where WAF listens for connections.
+            The front-end proxy (Nginx) routes traffic here.
+        """
+
+    def get_app_upstream(self, app_name: str) -> str:
+        """Get the upstream address for an app after WAF processing.
+
+        For apps with WAF enabled, traffic flows:
+        Nginx -> WAF socket -> App socket
+
+        Args:
+            app_name: Name of the application.
+
+        Returns:
+            The socket/address WAF should proxy to (usually the app's uWSGI socket).
         """

@@ -116,6 +116,28 @@ class HopConfig:
         """Reverse proxy type: nginx, caddy, traefik."""
         return self._config_loader.get_str("HOP3_PROXY_TYPE", "nginx")
 
+    # WAF Configuration
+
+    @property
+    def HOP3_WAF_ENABLED(self) -> bool:
+        """Enable WAF at server level. Apps must also opt-in via hop3.toml."""
+        return self._config_loader.get_bool("HOP3_WAF_ENABLED", False)
+
+    @property
+    def HOP3_WAF_ENGINE(self) -> str:
+        """WAF engine to use: lewaf, coraza (future)."""
+        return self._config_loader.get_str("HOP3_WAF_ENGINE", "lewaf")
+
+    @property
+    def HOP3_WAF_DEFAULT_PARANOIA(self) -> int:
+        """Default CRS paranoia level (1-4). Can be overridden per-app."""
+        return self._config_loader.get_int("HOP3_WAF_DEFAULT_PARANOIA", 1)
+
+    @property
+    def HOP3_WAF_DEFAULT_MODE(self) -> str:
+        """Default WAF mode: 'block' or 'detect' (log only)."""
+        return self._config_loader.get_str("HOP3_WAF_DEFAULT_MODE", "block")
+
     # ACME Configuration
 
     @property
@@ -195,6 +217,36 @@ class HopConfig:
         return self.HOP3_ROOT / "uwsgi-enabled"
 
     @property
+    def WAF_ROOT(self) -> Path:
+        """WAF service root directory."""
+        return self.HOP3_ROOT / "waf"
+
+    @property
+    def WAF_CONFIG(self) -> Path:
+        """WAF configuration directory."""
+        return self.WAF_ROOT / "config"
+
+    @property
+    def WAF_APPS_CONFIG(self) -> Path:
+        """Per-app WAF configuration directory."""
+        return self.WAF_CONFIG / "apps"
+
+    @property
+    def WAF_CRS(self) -> Path:
+        """OWASP Core Rule Set directory."""
+        return self.WAF_CONFIG / "crs"
+
+    @property
+    def WAF_LOG(self) -> Path:
+        """WAF audit log directory."""
+        return self.HOP3_ROOT / "log" / "waf"
+
+    @property
+    def WAF_SOCKET(self) -> Path:
+        """WAF service Unix socket."""
+        return self.WAF_ROOT / "lewaf.sock"
+
+    @property
     def UWSGI_LOG_MAXSIZE(self) -> str:
         """uWSGI log max size."""
         return "1048576"
@@ -215,6 +267,11 @@ class HopConfig:
             self.UWSGI_AVAILABLE,
             self.UWSGI_ENABLED,
             self.NGINX_ROOT,
+            self.WAF_ROOT,
+            self.WAF_CONFIG,
+            self.WAF_APPS_CONFIG,
+            self.WAF_CRS,
+            self.WAF_LOG,
         ]
 
     # Constants

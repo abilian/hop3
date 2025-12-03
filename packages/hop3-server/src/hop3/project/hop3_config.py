@@ -250,6 +250,112 @@ class Hop3Config:
         return self._data.get("provider", [])
 
     # =========================================================================
+    # [waf] section - Web Application Firewall configuration
+    # =========================================================================
+
+    @property
+    def waf(self) -> dict[str, Any]:
+        """Get the [waf] section."""
+        return self._data.get("waf", {})
+
+    @property
+    def waf_enabled(self) -> bool:
+        """Check if WAF is enabled for this application."""
+        return self.waf.get("enabled", False)
+
+    @property
+    def waf_engine(self) -> str:
+        """Get the WAF engine (lewaf, coraza)."""
+        return self.waf.get("engine", "lewaf")
+
+    @property
+    def waf_ruleset(self) -> str:
+        """Get the WAF ruleset (owasp-crs, minimal, none)."""
+        return self.waf.get("ruleset", "owasp-crs")
+
+    @property
+    def waf_paranoia_level(self) -> int:
+        """Get the CRS paranoia level (1-4)."""
+        return self.waf.get("paranoia_level", 1)
+
+    @property
+    def waf_mode(self) -> str:
+        """Get the WAF mode (block, detect)."""
+        return self.waf.get("mode", "block")
+
+    @property
+    def waf_exclusions(self) -> dict[str, Any]:
+        """Get the [waf.exclusions] section."""
+        return self.waf.get("exclusions", {})
+
+    @property
+    def waf_crs(self) -> dict[str, Any]:
+        """Get the [waf.crs] section for custom CRS rules."""
+        return self.waf.get("crs", {})
+
+    # =========================================================================
+    # [security.rules] section - Simple allow/deny rules
+    # =========================================================================
+
+    @property
+    def security(self) -> dict[str, Any]:
+        """Get the [security] section."""
+        return self._data.get("security", {})
+
+    @property
+    def security_rules(self) -> dict[str, Any]:
+        """Get the [security.rules] section."""
+        return self.security.get("rules", {})
+
+    @property
+    def security_allow_paths(self) -> list[str]:
+        """Get paths that bypass WAF inspection."""
+        return self.security_rules.get("allow", [])
+
+    @property
+    def security_deny_paths(self) -> list[str]:
+        """Get paths that are blocked before WAF inspection."""
+        return self.security_rules.get("deny", [])
+
+    @property
+    def security_allow_ips(self) -> list[str]:
+        """Get IPs that bypass all security checks."""
+        return self.security_rules.get("allow_ips", [])
+
+    @property
+    def security_deny_ips(self) -> list[str]:
+        """Get IPs that are blocked at WAF level."""
+        return self.security_rules.get("deny_ips", [])
+
+    def get_waf_config(self, app_name: str) -> dict[str, Any]:
+        """Build a complete WAF configuration dict for this application.
+
+        This combines [waf] and [security.rules] sections into a single
+        configuration object that can be used by the WAF engine.
+
+        Args:
+            app_name: Name of the application.
+
+        Returns:
+            Dictionary with all WAF configuration for this app.
+        """
+        return {
+            "app_name": app_name,
+            "enabled": self.waf_enabled,
+            "engine": self.waf_engine,
+            "ruleset": self.waf_ruleset,
+            "paranoia_level": self.waf_paranoia_level,
+            "mode": self.waf_mode,
+            "exclusions": self.waf_exclusions.get("paths", []),
+            "disabled_rules": self.waf_exclusions.get("rule_ids", []),
+            "custom_rules": self.waf_crs.get("custom", ""),
+            "allow_paths": self.security_allow_paths,
+            "deny_paths": self.security_deny_paths,
+            "allow_ips": self.security_allow_ips,
+            "deny_ips": self.security_deny_ips,
+        }
+
+    # =========================================================================
     # Utility methods
     # =========================================================================
 

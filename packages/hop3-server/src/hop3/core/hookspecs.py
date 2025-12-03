@@ -6,7 +6,15 @@ from __future__ import annotations
 
 from dishka import Provider
 
-from hop3.core.protocols import OS, Addon, Builder, Deployer, LanguageToolchain, Proxy
+from hop3.core.protocols import (
+    OS,
+    Addon,
+    Builder,
+    Deployer,
+    LanguageToolchain,
+    Proxy,
+    WafEngine,
+)
 
 from .hooks import hookspec
 
@@ -72,6 +80,20 @@ def get_proxies() -> list[Proxy]:  # type: ignore[empty-body]
     Returns:
         List of Proxy classes that can configure reverse proxies
         (Nginx, Caddy, Traefik, etc.) for hop3 applications.
+    """
+
+
+@hookspec
+def get_waf_engines() -> list[WafEngine]:  # type: ignore[empty-body]
+    """Get WAF engine implementations provided by this plugin.
+
+    WAF engines provide web application firewall capabilities, inspecting
+    HTTP traffic and blocking malicious requests based on OWASP CRS rules,
+    custom rules, and simple allow/deny patterns.
+
+    Returns:
+        List of WafEngine classes that can provide WAF protection
+        (LeWAF, Coraza, etc.) for hop3 applications.
     """
 
 
