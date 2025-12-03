@@ -392,91 +392,120 @@ def load_config() -> Config:
 def inject_local_commands_into_help(result: list[dict]) -> list[dict]:
     """Inject local CLI commands into the help output from the server.
 
-    The local commands (init, login, settings) are handled by the CLI
-    and don't exist on the server, so we need to add them to the help
-    output so users can discover them.
-
-    The server may return help as a single text block with newlines,
-    so we need to handle that format.
+    Local commands (init, login, settings) are handled by the CLI and don't
+    exist on the server, so we add them to help output for discoverability.
 
     Args:
         result: The help response from the server
 
     Returns:
-        Modified result with local commands injected
+        Modified result with local commands injected alphabetically
     """
     from .local_commands import LOCAL_COMMANDS_INFO
 
     modified_result = []
-
     for item in result:
         if item.get("t") != "text":
             modified_result.append(item)
             continue
 
         text = item.get("text", "")
-
-        # Check if this is a multi-line text block containing COMMANDS
         if "\n" in text and "COMMANDS" in text:
-            # Process line by line
-            lines = text.split("\n")
-            new_lines = []
-            in_commands_section = False
-            injected_commands = set()
-
-            for line in lines:
-                # Check if entering COMMANDS section
-                if line.strip() == "COMMANDS":
-                    in_commands_section = True
-                    new_lines.append(line)
-                    continue
-
-                # Check if leaving COMMANDS section (empty line or new section header)
-                if in_commands_section and line.strip() and not line.startswith("  "):
-                    # Inject remaining local commands before leaving section
-                    for local_cmd in sorted(LOCAL_COMMANDS_INFO.keys()):
-                        if local_cmd not in injected_commands:
-                            desc = LOCAL_COMMANDS_INFO[local_cmd]
-                            new_lines.append(f"  {local_cmd:16} {desc}")
-                            injected_commands.add(local_cmd)
-                    in_commands_section = False
-
-                # If in commands section, check if we need to inject before this command
-                if in_commands_section and line.startswith("  ") and line.strip():
-                    parts = line.strip().split(None, 1)
-                    if parts:
-                        current_cmd = parts[0]
-                        # Inject local commands that come before this one alphabetically
-                        for local_cmd in sorted(LOCAL_COMMANDS_INFO.keys()):
-                            if (
-                                local_cmd not in injected_commands
-                                and local_cmd < current_cmd
-                            ):
-                                desc = LOCAL_COMMANDS_INFO[local_cmd]
-                                new_lines.append(f"  {local_cmd:16} {desc}")
-                                injected_commands.add(local_cmd)
-
-                new_lines.append(line)
-
-            # If still in commands section at end, inject remaining
-            if in_commands_section:
-                for local_cmd in sorted(LOCAL_COMMANDS_INFO.keys()):
-                    if local_cmd not in injected_commands:
-                        desc = LOCAL_COMMANDS_INFO[local_cmd]
-                        # Find the last command line and insert after it
-                        insert_idx = len(new_lines)
-                        for i in range(len(new_lines) - 1, -1, -1):
-                            if new_lines[i].startswith("  ") and new_lines[i].strip():
-                                insert_idx = i + 1
-                                break
-                        new_lines.insert(insert_idx, f"  {local_cmd:16} {desc}")
-                        injected_commands.add(local_cmd)
-
-            modified_result.append({"t": "text", "text": "\n".join(new_lines)})
+            new_text = _process_help_text_with_local_commands(text, LOCAL_COMMANDS_INFO)
+            modified_result.append({"t": "text", "text": new_text})
         else:
             modified_result.append(item)
 
     return modified_result
+
+
+def _process_help_text_with_local_commands(
+    text: str,
+    local_commands: dict[str, str],
+) -> str:
+    """Process help text and inject local commands into COMMANDS section."""
+    lines = text.split("\n")
+    new_lines = []
+    in_commands_section = False
+    injected: set[str] = set()
+
+    for line in lines:
+        if line.strip() == "COMMANDS":
+            in_commands_section = True
+            new_lines.append(line)
+            continue
+
+        if in_commands_section and line.strip() and not line.startswith("  "):
+            # Leaving COMMANDS section - inject remaining commands first
+            new_lines.extend(_inject_remaining_commands(local_commands, injected))
+            in_commands_section = False
+
+        if in_commands_section and _is_command_line(line):
+            current_cmd = _get_command_name(line)
+            if current_cmd:
+                new_lines.extend(
+                    _inject_commands_before(current_cmd, local_commands, injected)
+                )
+
+        new_lines.append(line)
+
+    # If still in commands section at end, inject remaining
+    if in_commands_section:
+        remaining = _inject_remaining_commands(local_commands, injected)
+        if remaining:
+            # Insert after last command line
+            insert_idx = len(new_lines)
+            for i in range(len(new_lines) - 1, -1, -1):
+                if _is_command_line(new_lines[i]):
+                    insert_idx = i + 1
+                    break
+            for j, cmd_line in enumerate(remaining):
+                new_lines.insert(insert_idx + j, cmd_line)
+
+    return "\n".join(new_lines)
+
+
+def _inject_remaining_commands(
+    local_commands: dict[str, str],
+    injected: set[str],
+) -> list[str]:
+    """Return all local commands not yet injected."""
+    lines = []
+    for cmd in sorted(local_commands.keys()):
+        if cmd not in injected:
+            lines.append(_format_help_command(cmd, local_commands[cmd]))
+            injected.add(cmd)
+    return lines
+
+
+def _is_command_line(line: str) -> bool:
+    """Check if a line is a command entry (indented, non-empty)."""
+    return line.startswith("  ") and bool(line.strip())
+
+
+def _get_command_name(line: str) -> str | None:
+    """Extract command name from a help line."""
+    parts = line.strip().split(None, 1)
+    return parts[0] if parts else None
+
+
+def _inject_commands_before(
+    current_cmd: str,
+    local_commands: dict[str, str],
+    injected: set[str],
+) -> list[str]:
+    """Return local commands that should appear before current_cmd alphabetically."""
+    lines = []
+    for cmd in sorted(local_commands.keys()):
+        if cmd not in injected and cmd < current_cmd:
+            lines.append(_format_help_command(cmd, local_commands[cmd]))
+            injected.add(cmd)
+    return lines
+
+
+def _format_help_command(name: str, description: str) -> str:
+    """Format a command entry for help output."""
+    return f"  {name:16} {description}"
 
 
 def show_unconfigured_message(cli_args: list[str]) -> None:
