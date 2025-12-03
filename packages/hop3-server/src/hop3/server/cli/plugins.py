@@ -18,6 +18,9 @@ STRATEGY_HOOKS = {
     "get_builders",
     "get_deployers",
     "get_addons",
+    "get_language_toolchains",
+    "get_proxies",
+    "get_os_implementations",
 }
 
 
@@ -39,122 +42,314 @@ class Plugins(Command):
 
     def run(self, verbose_plugins: bool = False):
         app = create_app()
-        self._list_plugins(app, verbose_plugins)
-
-    def _list_plugins(self, app, verbose: bool = False):
         pm = get_plugin_manager()
-        plugins = list(pm.get_plugins())
 
-        # Filter out module plugins that have no hooks (just imported for side effects)
-        plugins_with_hooks = [p for p in plugins if pm.get_hookcallers(p)]
-
-        if not verbose:
-            # Simple listing
-            print("Registered plugins:")
-            for plugin in plugins_with_hooks:
-                plugin_info = self._get_plugin_info(plugin)
-                print(f"- {plugin_info['name']} ({plugin_info['full_path']})")
+        if verbose_plugins:
+            self._print_verbose(pm)
         else:
-            # Detailed listing
-            print(f"Registered plugins ({len(plugins_with_hooks)}):\n")
-            for plugin in plugins_with_hooks:
-                self._print_plugin_details(pm, plugin)
-                print()  # Empty line between plugins
+            self._print_summary(pm)
 
-    def _get_plugin_info(self, plugin) -> dict[str, str]:
-        """Extract plugin information, handling both module and class-based plugins."""
+    def _print_summary(self, pm) -> None:
+        """Print a compact, flat summary of capabilities."""
+        capabilities = self._gather_capabilities(pm)
 
-        match plugin:
-            case types.ModuleType():
-                # Module-based plugin
-                return {
-                    "name": getattr(plugin, "__name__", "unknown").split(".")[-1],
-                    "full_path": plugin.__name__,
-                    "doc": plugin.__doc__ or "",
-                }
-            case _:
-                # Class-based plugin
-                plugin_class = plugin.__class__
-                return {
-                    "name": getattr(plugin, "name", plugin_class.__name__),
-                    "full_path": f"{plugin_class.__module__}.{plugin_class.__name__}",
-                    "doc": plugin_class.__doc__ or "",
-                }
+        title = "Hop3 Capabilities"
+        print(title)
+        print("=" * len(title))
+        print()
 
-    def _print_plugin_details(self, pm, plugin):
-        """Print detailed information about a plugin using pluggy's introspection API."""
-        plugin_info = self._get_plugin_info(plugin)
+        # Flat list - one line per capability type
+        if capabilities["builders"]:
+            builders = ", ".join(sorted(capabilities["builders"]))
+            print(f"Builders:    {builders}")
 
-        # Header
-        print(f"Plugin: {plugin_info['name']}")
-        print(f"  Module/Class: {plugin_info['full_path']}")
+        if capabilities["toolchains"]:
+            langs = ", ".join(sorted(capabilities["toolchains"]))
+            print(f"Languages:   {langs}")
 
-        # Docstring
-        if plugin_info["doc"]:
-            doc = plugin_info["doc"].strip().split("\n")[0]  # First line only
-            print(f"  Description: {doc}")
+        if capabilities["deployers"]:
+            deployers = ", ".join(sorted(capabilities["deployers"]))
+            print(f"Deployers:   {deployers}")
 
-        # Use pluggy's API to introspect what hooks this plugin implements
-        hook_impls = pm.get_hookcallers(plugin)
+        if capabilities["proxies"]:
+            active_proxy = self._get_active_proxy()
+            proxies_display = []
+            for p in sorted(capabilities["proxies"]):
+                if p == active_proxy:
+                    proxies_display.append(f"{p} ✓")
+                else:
+                    proxies_display.append(p)
+            print(f"Proxies:     {', '.join(proxies_display)}")
 
-        if not hook_impls:
-            print("  Capabilities: (none)")
-            return
+        if capabilities["os_support"]:
+            detected_os = self._get_detected_os(pm)
+            os_display = []
+            for os_name in sorted(capabilities["os_support"]):
+                if os_name == detected_os:
+                    os_display.append(f"{os_name} ✓")
+                else:
+                    os_display.append(os_name)
+            print(f"OS Support:  {', '.join(os_display)}")
 
-        print("  Capabilities:")
-        for hook_caller in hook_impls:
-            hook_name = hook_caller.name
-            hook_description = self._get_hook_description(pm, hook_name)
-            self._print_hook_capability(plugin, hook_name, hook_description)
+        if capabilities["addons"]:
+            addons = ", ".join(sorted(capabilities["addons"]))
+            print(f"Addons:      {addons}")
 
-    def _print_hook_capability(
-        self, plugin, hook_name: str, hook_description: str
-    ) -> None:
-        """Print a single hook capability for a plugin.
+        print()
+        print("✓ = active/detected on this system")
+        print("Use --verbose for detailed plugin information.")
 
-        Args:
-            plugin: The plugin instance
-            hook_name: The name of the hook
-            hook_description: Human-readable description of the hook
-        """
-        # For strategy hooks, show what strategies are provided
-        if hook_name in STRATEGY_HOOKS:
-            self._print_strategy_hook(plugin, hook_name, hook_description)
-        else:
-            # For other hooks, just show the description
-            print(f"    - {hook_description}")
-
-    def _print_strategy_hook(
-        self, plugin, hook_name: str, hook_description: str
-    ) -> None:
-        """Print strategy hook details with list of strategies.
-
-        Args:
-            plugin: The plugin instance
-            hook_name: The name of the strategy hook
-            hook_description: Human-readable description of the hook
-        """
-        method = getattr(plugin, hook_name, None)
-        if not method:
-            print(f"    - {hook_description}: (none configured)")
-            return
-
-        strategies = method()
-        strategy_names = [getattr(s, "name", s.__name__) for s in strategies]
-
-        if strategy_names:
-            print(f"    - {hook_description}: {', '.join(strategy_names)}")
-        else:
-            print(f"    - {hook_description}: (none configured)")
-
-    def _get_hook_description(self, pm, hook_name: str) -> str:
-        """Get a human-readable description of a hook from its hookspec docstring."""
-        # Map hook names to user-friendly descriptions
-        descriptions = {
-            "get_builders": "Provides build strategies",
-            "get_deployers": "Provides deployment strategies",
-            "get_addons": "Provides service strategies",
-            "cli_commands": "Provides CLI commands",
+    def _gather_capabilities(self, pm) -> dict[str, set[str]]:
+        """Gather all capabilities from registered plugins."""
+        capabilities = {
+            "builders": set(),
+            "deployers": set(),
+            "toolchains": set(),
+            "proxies": set(),
+            "os_support": set(),
+            "addons": set(),
         }
 
-        return descriptions.get(hook_name, hook_name.replace("_", " ").title())
+        # Get all strategies from hooks
+        try:
+            for builder_list in pm.hook.get_builders():
+                for builder in builder_list:
+                    name = getattr(builder, "name", builder.__name__)
+                    if name != "dummy":  # Skip internal dummy
+                        capabilities["builders"].add(name)
+        except Exception:
+            pass
+
+        try:
+            for deployer_list in pm.hook.get_deployers():
+                for deployer in deployer_list:
+                    name = getattr(deployer, "name", deployer.__name__)
+                    if name != "dummy":  # Skip internal dummy
+                        capabilities["deployers"].add(name)
+        except Exception:
+            pass
+
+        try:
+            for toolchain_list in pm.hook.get_language_toolchains():
+                for toolchain in toolchain_list:
+                    name = getattr(toolchain, "name", toolchain.__name__)
+                    lang_name = self._toolchain_to_language(name)
+                    if lang_name:  # Skip non-language toolchains
+                        capabilities["toolchains"].add(lang_name)
+        except Exception:
+            pass
+
+        try:
+            for proxy_list in pm.hook.get_proxies():
+                for proxy in proxy_list:
+                    name = self._extract_proxy_name(proxy)
+                    capabilities["proxies"].add(name)
+        except Exception:
+            pass
+
+        try:
+            for os_list in pm.hook.get_os_implementations():
+                for os_impl in os_list:
+                    name = getattr(os_impl, "name", os_impl.__name__.lower())
+                    capabilities["os_support"].add(name)
+        except Exception:
+            pass
+
+        try:
+            for addon_list in pm.hook.get_addons():
+                for addon in addon_list:
+                    name = getattr(addon, "name", addon.__name__.lower())
+                    capabilities["addons"].add(name)
+        except Exception:
+            pass
+
+        return capabilities
+
+    def _toolchain_to_language(self, toolchain_name: str) -> str | None:
+        """Convert toolchain name to user-friendly language name.
+
+        Returns None for non-language toolchains (like static).
+        """
+        mapping = {
+            "python": "Python",
+            "node": "Node.js",
+            "nodejs": "Node.js",
+            "ruby": "Ruby",
+            "go": "Go",
+            "golang": "Go",
+            "rust": "Rust",
+            "clojure": "Clojure",
+            "java": "Java",
+            "php": "PHP",
+        }
+        return mapping.get(toolchain_name.lower())
+
+    def _extract_proxy_name(self, proxy_class) -> str:
+        """Extract clean proxy name from class."""
+        # First try explicit name attribute
+        if hasattr(proxy_class, "name"):
+            return proxy_class.name
+
+        # Extract from class name (e.g., NginxVirtualHost -> nginx)
+        class_name = proxy_class.__name__
+        # Remove common suffixes
+        for suffix in ["VirtualHost", "Proxy", "Strategy"]:
+            class_name = class_name.removesuffix(suffix)
+        return class_name.lower()
+
+    def _get_active_proxy(self) -> str | None:
+        """Get the currently configured proxy type."""
+        try:
+            from hop3.config import HOP3_PROXY_TYPE
+
+            return HOP3_PROXY_TYPE.lower()
+        except Exception:
+            return None
+
+    def _get_detected_os(self, pm) -> str | None:
+        """Get the detected OS for this system."""
+        try:
+            for os_list in pm.hook.get_os_implementations():
+                for os_class in os_list:
+                    os_instance = os_class()
+                    if hasattr(os_instance, "detect") and os_instance.detect():
+                        return getattr(os_class, "name", os_class.__name__.lower())
+        except Exception:
+            pass
+        return None
+
+    def _print_verbose(self, pm) -> None:
+        """Print detailed information about each plugin, grouped by category."""
+        plugins = list(pm.get_plugins())
+        plugins_with_hooks = [p for p in plugins if pm.get_hookcallers(p)]
+        filtered_plugins = self._filter_redundant_plugins(plugins_with_hooks)
+
+        # Skip internal/core plugins
+        user_plugins = [p for p in filtered_plugins if not self._is_internal_plugin(p)]
+
+        # Categorize plugins
+        categorized = self._categorize_plugins(pm, user_plugins)
+
+        print(f"Registered Plugins ({len(user_plugins)})")
+        print("=" * 60)
+
+        # Print in logical order
+        category_order = ["Build", "Deploy", "Proxy", "OS", "Addons", "Other"]
+        for category in category_order:
+            if category not in categorized:
+                continue
+
+            print(f"\n{category}:")
+            print("-" * 40)
+            for plugin in sorted(
+                categorized[category], key=lambda p: self._get_plugin_name(p)
+            ):
+                self._print_plugin_details(pm, plugin)
+
+    def _categorize_plugins(self, pm, plugins: list) -> dict[str, list]:
+        """Categorize plugins based on the hooks they implement."""
+        # Hook to category mapping
+        hook_categories = {
+            "get_builders": "Build",
+            "get_language_toolchains": "Build",
+            "get_deployers": "Deploy",
+            "get_proxies": "Proxy",
+            "get_os_implementations": "OS",
+            "get_addons": "Addons",
+        }
+
+        categorized: dict[str, list] = {}
+
+        for plugin in plugins:
+            hook_impls = pm.get_hookcallers(plugin)
+            category = "Other"
+
+            if hook_impls:
+                for hook_caller in hook_impls:
+                    hook_name = hook_caller.name
+                    if hook_name in hook_categories:
+                        category = hook_categories[hook_name]
+                        break
+
+            if category not in categorized:
+                categorized[category] = []
+            categorized[category].append(plugin)
+
+        return categorized
+
+    def _is_internal_plugin(self, plugin) -> bool:
+        """Check if this is an internal plugin that shouldn't be shown."""
+        name = self._get_plugin_name(plugin)
+        return name == "core"
+
+    def _get_plugin_name(self, plugin) -> str:
+        """Get the display name for a plugin."""
+        if isinstance(plugin, types.ModuleType):
+            parts = plugin.__name__.split(".")
+            if "plugins" in parts:
+                idx = parts.index("plugins")
+                if idx + 1 < len(parts):
+                    return parts[idx + 1]
+            return parts[-1]
+        return getattr(plugin, "name", plugin.__class__.__name__.lower())
+
+    def _filter_redundant_plugins(self, plugins: list) -> list:
+        """Filter out module-level plugins when a class-based plugin exists."""
+        result = []
+        seen_modules = set()
+
+        for plugin in plugins:
+            if not isinstance(plugin, types.ModuleType):
+                seen_modules.add(plugin.__class__.__module__)
+
+        for plugin in plugins:
+            if isinstance(plugin, types.ModuleType):
+                if plugin.__name__ not in seen_modules:
+                    result.append(plugin)
+            else:
+                result.append(plugin)
+
+        return result
+
+    def _print_plugin_details(self, pm, plugin) -> None:
+        """Print detailed information about a single plugin."""
+        name = self._get_plugin_name(plugin)
+
+        if isinstance(plugin, types.ModuleType):
+            path = plugin.__name__
+            doc = (plugin.__doc__ or "").strip().split("\n")[0]
+        else:
+            plugin_class = plugin.__class__
+            path = f"{plugin_class.__module__}.{plugin_class.__name__}"
+            doc = (plugin_class.__doc__ or "").strip().split("\n")[0]
+
+        print(f"\n{name}")
+        print(f"  Path: {path}")
+        if doc:
+            print(f"  {doc}")
+
+        # Show what this plugin provides
+        hook_impls = pm.get_hookcallers(plugin)
+        if hook_impls:
+            for hook_caller in hook_impls:
+                hook_name = hook_caller.name
+                if hook_name in STRATEGY_HOOKS:
+                    method = getattr(plugin, hook_name, None)
+                    if method:
+                        items = method()
+                        if items:
+                            item_names = [getattr(s, "name", s.__name__) for s in items]
+                            label = self._get_hook_label(hook_name)
+                            print(f"  {label}: {', '.join(item_names)}")
+
+    def _get_hook_label(self, hook_name: str) -> str:
+        """Get a short label for a hook."""
+        labels = {
+            "get_builders": "Builders",
+            "get_deployers": "Deployers",
+            "get_language_toolchains": "Toolchains",
+            "get_proxies": "Proxies",
+            "get_os_implementations": "OS",
+            "get_addons": "Addons",
+        }
+        return labels.get(hook_name, hook_name)

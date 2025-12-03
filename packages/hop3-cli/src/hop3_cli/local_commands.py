@@ -167,7 +167,9 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> b
                 config_data["ssl_cert"] = str(cert_path)
                 print(f"  Certificate saved to {cert_path}")
                 if is_ip_address:
-                    print("  Note: Using IP address - hostname verification will be skipped,")
+                    print(
+                        "  Note: Using IP address - hostname verification will be skipped,"
+                    )
                     print("        but certificate will still be verified.")
         except Exception as e:
             print(f"  Warning: Could not fetch certificate: {e}")
@@ -305,7 +307,9 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
                 config_data["ssl_cert"] = str(cert_path)
                 print(f"  Certificate saved to {cert_path}")
                 if is_ip_address:
-                    print("  Note: Using IP address - hostname verification will be skipped,")
+                    print(
+                        "  Note: Using IP address - hostname verification will be skipped,"
+                    )
                     print("        but certificate will still be verified.")
         except Exception as e:
             print(f"  Warning: Could not fetch certificate: {e}")

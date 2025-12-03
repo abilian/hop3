@@ -170,6 +170,8 @@ class DebianFamilyPlugin:
     - Linux Mint, Pop!_OS, and other Debian derivatives
     """
 
+    name = "debian-family"
+
     @hop3_hook_impl
     def get_os_implementations(self) -> list:
         return [DebianFamilyStrategy]
