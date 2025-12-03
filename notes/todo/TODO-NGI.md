@@ -64,7 +64,7 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
   - Docker-based E2E test infrastructure
   - Pluggy+Dishka DI testing patterns
 
-* **M3.5 Firewalls:** ❌ **NOT STARTED**
+* **M3.5 Firewalls:** ⚠️ **PARTIALLY COMPLETE**
   - Network-level firewalls configuration
   - Web Application Firewall (WAF) integration
   - *Priority: Phase 3 (Q2 2026)*

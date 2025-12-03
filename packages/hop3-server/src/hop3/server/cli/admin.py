@@ -138,9 +138,11 @@ class AdminCreate(Command):
             print("API Token (save this - it won't be shown again):")
             print(token)
             print()
-            print("Configure your CLI:")
-            print("  hop3 settings set server https://your-server.com")
-            print(f"  hop3 settings set token {token}")
+            print("Quick login (replace SERVER_URL with your server address):")
+            print(f'  hop3 login "SERVER_URL?token={token}"')
+            print()
+            print("Example for local development:")
+            print(f'  hop3 login "http://localhost:8000?token={token}"')
 
 
 @register
@@ -191,8 +193,11 @@ class AdminToken(Command):
             print("Token:")
             print(token)
             print()
-            print("Configure your CLI:")
-            print(f"  hop3 settings set token {token}")
+            print("Quick login (replace SERVER_URL with your server address):")
+            print(f'  hop3 login "SERVER_URL?token={token}"')
+            print()
+            print("Example for local development:")
+            print(f'  hop3 login "http://localhost:8000?token={token}"')
 
 
 @register

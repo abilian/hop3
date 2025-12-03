@@ -89,7 +89,9 @@ class Help:
             output.append(f"  {name:<24} {help_text}")
 
         output.append("")
-        output.append(f"Use 'hop-server {self.command_name}:<subcommand> --help' for details.")
+        output.append(
+            f"Use 'hop-server {self.command_name}:<subcommand> --help' for details."
+        )
 
         print("\n".join(output))
 

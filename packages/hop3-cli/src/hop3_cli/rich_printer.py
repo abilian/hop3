@@ -24,12 +24,24 @@ class RichPrinter:
     verbose: bool = False
     quiet: bool = False
     json_output: bool = False
+    debug: bool = False
 
     def __post_init__(self):
         """Initialize console after dataclass creation."""
         object.__setattr__(self, "_console", Console(stderr=False))
         object.__setattr__(self, "_console_err", Console(stderr=True))
         object.__setattr__(self, "_json_buffer", [])
+
+    @property
+    def verbosity(self) -> int:
+        """Get verbosity level as integer."""
+        if self.quiet:
+            return 0
+        if self.debug:
+            return 3
+        if self.verbose:
+            return 2
+        return 1
 
     @property
     def console(self) -> Console:
@@ -158,6 +170,43 @@ class RichPrinter:
         # For now, just print with a spinner emoji
         # TODO: Implement real progress bar for long operations
         self.console.print(f"[cyan]⏳[/cyan] {text}")
+
+    def print_log(self, obj: dict) -> None:
+        """Print deployment log entry with appropriate color and verbosity filtering.
+
+        Log levels:
+            0 = important (always shown unless quiet)
+            1 = normal (shown by default)
+            2 = verbose (shown with -v)
+            3 = debug (shown with --debug)
+        """
+        if self.json_output:
+            self.json_buffer.append(obj)
+            return
+
+        msg = obj.get("msg", "")
+        level = obj.get("level", 0)
+        fg = obj.get("fg", "")
+
+        # Filter based on verbosity
+        if level > self.verbosity:
+            return
+
+        # Map server colors to Rich styles
+        style_map = {
+            "green": "green",
+            "red": "red",
+            "blue": "cyan",
+            "yellow": "yellow",
+            "cyan": "cyan",
+            "magenta": "magenta",
+        }
+        style = style_map.get(fg, "")
+
+        if style:
+            self.console.print(f"[{style}]{msg}[/{style}]")
+        else:
+            self.console.print(msg)
 
     def print_panel(self, obj: dict) -> None:
         """Print text in a panel/box."""

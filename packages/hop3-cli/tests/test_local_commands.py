@@ -300,11 +300,12 @@ class TestHandleLogin:
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
         )
 
-        result = handle_login_token(
-            ["--token", mock_token, "--server", "http://localhost:8000"],
-            temp_config,
-            mock_printer,
-        )
+        with patch("hop3_cli.local_commands._verify_token", return_value="testuser"):
+            result = handle_login_token(
+                ["--token", mock_token, "--server", "http://localhost:8000"],
+                temp_config,
+                mock_printer,
+            )
 
         assert result is True
         assert temp_config.data["api_token"] == mock_token
@@ -318,11 +319,12 @@ class TestHandleLogin:
         # Pre-configure server
         temp_config.data["api_url"] = "https://existing-server.com"
 
-        result = handle_login_token(
-            ["--token", mock_token],
-            temp_config,
-            mock_printer,
-        )
+        with patch("hop3_cli.local_commands._verify_token", return_value="testuser"):
+            result = handle_login_token(
+                ["--token", mock_token],
+                temp_config,
+                mock_printer,
+            )
 
         assert result is True
         assert temp_config.data["api_token"] == mock_token
@@ -334,6 +336,24 @@ class TestHandleLogin:
             handle_login_token(["--token"], temp_config, mock_printer)
         assert exc_info.value.code == 1
 
+    def test_login_token_verification_fails(self, temp_config, mock_printer):
+        """Test token login fails when verification fails."""
+        mock_token = (
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
+        )
+
+        with patch("hop3_cli.local_commands._verify_token", return_value=None):
+            with pytest.raises(SystemExit) as exc_info:
+                handle_login_token(
+                    ["--token", mock_token, "--server", "http://localhost:8000"],
+                    temp_config,
+                    mock_printer,
+                )
+            assert exc_info.value.code == 1
+
+        # Config should NOT be saved
+        assert "api_token" not in temp_config.data
+
     def test_login_url_with_token(self, temp_config, mock_printer, capsys):
         """Test login with URL containing embedded token."""
         mock_token = (
@@ -341,7 +361,8 @@ class TestHandleLogin:
         )
         url_with_token = f"http://localhost:8000?token={mock_token}"
 
-        result = handle_login([url_with_token], temp_config, mock_printer)
+        with patch("hop3_cli.local_commands._verify_token", return_value="testuser"):
+            result = handle_login([url_with_token], temp_config, mock_printer)
 
         assert result is True
         assert temp_config.data["api_token"] == mock_token
@@ -354,7 +375,8 @@ class TestHandleLogin:
         )
         url_with_token = f"https://my-server.com/api?token={mock_token}"
 
-        result = handle_login([url_with_token], temp_config, mock_printer)
+        with patch("hop3_cli.local_commands._verify_token", return_value="testuser"):
+            result = handle_login([url_with_token], temp_config, mock_printer)
 
         assert result is True
         assert temp_config.data["api_token"] == mock_token
