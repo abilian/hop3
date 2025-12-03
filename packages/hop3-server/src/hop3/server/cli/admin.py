@@ -25,6 +25,24 @@ from ._base import Command
 
 
 @register
+class Admin(Command):
+    """Manage admin users and authentication tokens.
+
+    Subcommands:
+        admin:create         Create a new admin user
+        admin:token          Generate a new token for an existing user
+        admin:list           List all users
+        admin:reset-password Reset a user's password
+
+    Use 'hop-server admin:<subcommand> --help' for details.
+    """
+
+    name = "admin"
+
+    # No run method - Help class will show subcommands
+
+
+@register
 class AdminCreate(Command):
     """Create an admin user and display an API token.
 
@@ -43,8 +61,8 @@ class AdminCreate(Command):
         echo "secretpass" | hop-server admin:create admin admin@example.com --password-stdin
 
     The generated API token should be saved and used to configure the CLI:
-        hop3 config set server https://your-server.com
-        hop3 config set token <token>
+        hop3 settings set server https://your-server.com
+        hop3 settings set token <token>
     """
 
     name = "admin:create"
@@ -97,6 +115,10 @@ class AdminCreate(Command):
                 db_session.add(admin_role)
                 db_session.flush()
 
+            # Generate token BEFORE creating user - if this fails, we don't want
+            # to leave a user in the database without being able to return a token
+            token = create_token(username, scopes=["admin", "authenticated"])
+
             # Create user
             user = User(
                 username=username,
@@ -111,17 +133,14 @@ class AdminCreate(Command):
             db_session.add(user)
             db_session.commit()
 
-            # Generate token
-            token = create_token(username, scopes=["admin", "authenticated"])
-
             print(f"Admin user '{username}' created successfully.")
             print()
             print("API Token (save this - it won't be shown again):")
             print(token)
             print()
             print("Configure your CLI:")
-            print("  hop3 config set server https://your-server.com")
-            print(f"  hop3 config set token {token}")
+            print("  hop3 settings set server https://your-server.com")
+            print(f"  hop3 settings set token {token}")
 
 
 @register
@@ -173,7 +192,7 @@ class AdminToken(Command):
             print(token)
             print()
             print("Configure your CLI:")
-            print(f"  hop3 config set token {token}")
+            print(f"  hop3 settings set token {token}")
 
 
 @register

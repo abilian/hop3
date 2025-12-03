@@ -190,10 +190,18 @@ def get_builder(context: DeploymentContext) -> Builder:
 
     # Auto-detect by finding the first one that "accepts" the context.
     if builder_name_from_config == "auto":
+        rejection_reasons = []
         for builder_class in builder_classes:
-            builder = builder_class(context)
-            if builder.accept():
-                return builder
+            builder_name = getattr(builder_class, "name", builder_class.__name__)
+            try:
+                builder = builder_class(context)
+                if builder.accept():
+                    return builder
+                # Builder didn't accept - record reason if available
+                reason = getattr(builder, "rejection_reason", "no matching files")
+                rejection_reasons.append(f"  - {builder_name}: {reason}")
+            except Exception as e:
+                rejection_reasons.append(f"  - {builder_name}: error - {e}")
 
         # Build helpful error message
         available_builders = [
@@ -204,7 +212,9 @@ def get_builder(context: DeploymentContext) -> Builder:
             "This usually means the application type was not recognized.\n"
             "Make sure you have one of: Procfile, hop3.toml, requirements.txt, "
             "package.json, Cargo.toml, go.mod, or similar.\n\n"
-            f"Available builders: {', '.join(available_builders)}"
+            f"Available builders: {', '.join(available_builders)}\n\n"
+            f"Source path: {context.source_path}\n\n"
+            "Builder checks:\n" + "\n".join(rejection_reasons)
         )
         raise RuntimeError(msg)
 

@@ -105,8 +105,8 @@ poetry run pyinfra --user root {$TARGET_HOST} installer/install-hop.py
   Then configure your local CLI:
 
   ```bash
-  hop3 config set server https://your-server.com
-  hop3 config set token <paste-token-here>
+  hop3 settings set server https://your-server.com
+  hop3 settings set token <paste-token-here>
   ```
 
   **For automation (CI/CD)**: Use non-interactive mode:

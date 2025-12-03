@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for local CLI commands (init, config, login --ssh)."""
+"""Tests for local CLI commands (init, settings, login --ssh)."""
 
 from __future__ import annotations
 
@@ -14,14 +14,15 @@ import pytest
 from hop3_cli.config import Config
 from hop3_cli.local_commands import (
     BootstrapError,
-    config_get,
-    config_set,
-    config_show,
     extract_token,
     handle_init,
-    handle_login_ssh,
+    handle_login,
+    handle_login_token,
     infer_server_url,
     is_local_command,
+    settings_get,
+    settings_set,
+    settings_show,
 )
 from hop3_cli.rich_printer import RichPrinter
 
@@ -38,19 +39,16 @@ class TestIsLocalCommand:
         assert is_local_command(["init"]) is True
         assert is_local_command(["init", "--ssh", "user@host"]) is True
 
-    def test_config_command(self):
-        """Test that config is recognized as local."""
-        assert is_local_command(["config"]) is True
-        assert is_local_command(["config", "show"]) is True
+    def test_settings_command(self):
+        """Test that settings is recognized as local."""
+        assert is_local_command(["settings"]) is True
+        assert is_local_command(["settings", "show"]) is True
 
-    def test_login_without_ssh(self):
-        """Test that login without --ssh is not local."""
-        assert is_local_command(["login"]) is False
-        assert is_local_command(["login", "user", "pass"]) is False
-
-    def test_login_with_ssh(self):
-        """Test that login with --ssh is local."""
+    def test_login_command(self):
+        """Test that login is recognized as local (all forms)."""
+        assert is_local_command(["login"]) is True
         assert is_local_command(["login", "--ssh", "user@host"]) is True
+        assert is_local_command(["login", "--username", "admin"]) is True
 
     def test_other_commands(self):
         """Test that other commands are not local."""
@@ -106,8 +104,8 @@ class TestInferServerUrl:
         assert infer_server_url("example.com:2222") == "https://example.com"
 
 
-class TestConfigCommands:
-    """Tests for config subcommands."""
+class TestSettingsCommands:
+    """Tests for settings subcommands."""
 
     @pytest.fixture
     def temp_config(self):
@@ -122,21 +120,21 @@ class TestConfigCommands:
         """Create a mock printer."""
         return MagicMock(spec=RichPrinter)
 
-    def test_config_show_empty(self, temp_config, mock_printer, capsys):
-        """Test config show with no settings."""
-        result = config_show(temp_config, mock_printer)
+    def test_settings_show_empty(self, temp_config, mock_printer, capsys):
+        """Test settings show with no settings."""
+        result = settings_show(temp_config, mock_printer)
         assert result is True
 
         captured = capsys.readouterr()
         assert "No settings configured" in captured.out
 
-    def test_config_show_with_data(self, temp_config, mock_printer, capsys):
-        """Test config show with settings."""
+    def test_settings_show_with_data(self, temp_config, mock_printer, capsys):
+        """Test settings show with settings."""
         # Use a token longer than 20 chars to trigger masking
         long_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.sig"
         temp_config.data = {"api_url": "https://test.com", "api_token": long_token}
 
-        result = config_show(temp_config, mock_printer)
+        result = settings_show(temp_config, mock_printer)
         assert result is True
 
         captured = capsys.readouterr()
@@ -146,9 +144,9 @@ class TestConfigCommands:
         # Full token should not appear
         assert long_token not in captured.out
 
-    def test_config_set(self, temp_config, mock_printer, capsys):
-        """Test setting a config value."""
-        result = config_set(
+    def test_settings_set(self, temp_config, mock_printer, capsys):
+        """Test setting a settings value."""
+        result = settings_set(
             ["api_url", "https://new-server.com"], temp_config, mock_printer
         )
         assert result is True
@@ -156,9 +154,9 @@ class TestConfigCommands:
         # Verify it was saved
         assert temp_config.data["api_url"] == "https://new-server.com"
 
-    def test_config_set_alias(self, temp_config, mock_printer, capsys):
-        """Test setting config using alias."""
-        result = config_set(
+    def test_settings_set_alias(self, temp_config, mock_printer, capsys):
+        """Test setting settings using alias."""
+        result = settings_set(
             ["server", "https://alias-test.com"], temp_config, mock_printer
         )
         assert result is True
@@ -166,11 +164,11 @@ class TestConfigCommands:
         # 'server' should be converted to 'api_url'
         assert temp_config.data["api_url"] == "https://alias-test.com"
 
-    def test_config_get(self, temp_config, mock_printer, capsys):
-        """Test getting a config value."""
+    def test_settings_get(self, temp_config, mock_printer, capsys):
+        """Test getting a settings value."""
         temp_config.data = {"api_url": "https://test.com"}
 
-        result = config_get(["api_url"], temp_config, mock_printer)
+        result = settings_get(["api_url"], temp_config, mock_printer)
         assert result is True
 
         captured = capsys.readouterr()
@@ -238,8 +236,8 @@ class TestHandleInit:
         assert "https://test.com" in temp_config.data["api_url"]
 
 
-class TestHandleLoginSsh:
-    """Tests for handle_login_ssh command."""
+class TestHandleLogin:
+    """Tests for handle_login command."""
 
     @pytest.fixture
     def temp_config(self):
@@ -254,15 +252,14 @@ class TestHandleLoginSsh:
         """Create a mock printer."""
         return MagicMock(spec=RichPrinter)
 
-    def test_login_ssh_help(self, temp_config, mock_printer, capsys):
-        """Test login --ssh --help shows help."""
-        result = handle_login_ssh(
-            ["--ssh", "user@host", "--help"], temp_config, mock_printer
-        )
+    def test_login_help(self, temp_config, mock_printer, capsys):
+        """Test login --help shows help."""
+        result = handle_login(["--help"], temp_config, mock_printer)
         assert result is True
 
         captured = capsys.readouterr()
-        assert "Usage: hop3 login --ssh" in captured.out
+        assert "Usage: hop3 login" in captured.out
+        assert "--ssh" in captured.out
 
     def test_login_ssh_success(self, temp_config, mock_printer, capsys):
         """Test successful login via SSH."""
@@ -281,7 +278,7 @@ class TestHandleLoginSsh:
                 "builtins.input", side_effect=["", "testuser"]
             ),  # Server URL default, username
         ):
-            result = handle_login_ssh(
+            result = handle_login(
                 ["--ssh", "root@test.com"],
                 temp_config,
                 mock_printer,
@@ -289,6 +286,79 @@ class TestHandleLoginSsh:
 
         assert result is True
         assert temp_config.data["api_token"] == mock_token
+
+    def test_login_password_unconfigured(self, temp_config, mock_printer):
+        """Test password login fails when server not configured."""
+        # Config is empty, so server is not configured
+        with pytest.raises(SystemExit) as exc_info:
+            handle_login([], temp_config, mock_printer)
+        assert exc_info.value.code == 1
+
+    def test_login_token_success(self, temp_config, mock_printer, capsys):
+        """Test successful token-based login."""
+        mock_token = (
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
+        )
+
+        result = handle_login_token(
+            ["--token", mock_token, "--server", "http://localhost:8000"],
+            temp_config,
+            mock_printer,
+        )
+
+        assert result is True
+        assert temp_config.data["api_token"] == mock_token
+        assert temp_config.data["api_url"] == "http://localhost:8000"
+
+    def test_login_token_with_existing_server(self, temp_config, mock_printer, capsys):
+        """Test token login uses existing server config."""
+        mock_token = (
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
+        )
+        # Pre-configure server
+        temp_config.data["api_url"] = "https://existing-server.com"
+
+        result = handle_login_token(
+            ["--token", mock_token],
+            temp_config,
+            mock_printer,
+        )
+
+        assert result is True
+        assert temp_config.data["api_token"] == mock_token
+        assert temp_config.data["api_url"] == "https://existing-server.com"
+
+    def test_login_token_missing_token(self, temp_config, mock_printer):
+        """Test token login fails when token not provided."""
+        with pytest.raises(SystemExit) as exc_info:
+            handle_login_token(["--token"], temp_config, mock_printer)
+        assert exc_info.value.code == 1
+
+    def test_login_url_with_token(self, temp_config, mock_printer, capsys):
+        """Test login with URL containing embedded token."""
+        mock_token = (
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
+        )
+        url_with_token = f"http://localhost:8000?token={mock_token}"
+
+        result = handle_login([url_with_token], temp_config, mock_printer)
+
+        assert result is True
+        assert temp_config.data["api_token"] == mock_token
+        assert temp_config.data["api_url"] == "http://localhost:8000"
+
+    def test_login_url_with_token_and_path(self, temp_config, mock_printer, capsys):
+        """Test login with URL containing path and embedded token."""
+        mock_token = (
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
+        )
+        url_with_token = f"https://my-server.com/api?token={mock_token}"
+
+        result = handle_login([url_with_token], temp_config, mock_printer)
+
+        assert result is True
+        assert temp_config.data["api_token"] == mock_token
+        assert temp_config.data["api_url"] == "https://my-server.com/api"
 
 
 class TestBootstrapError:

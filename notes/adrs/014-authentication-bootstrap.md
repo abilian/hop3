@@ -81,8 +81,8 @@ hop-server admin:create myuser me@example.com
 # Token: eyJhbGciOiJI...
 
 # 3. On local machine, configure CLI
-hop3 config set server https://my-server.com
-hop3 config set token eyJhbGciOiJI...
+hop3 settings set server https://my-server.com
+hop3 settings set token eyJhbGciOiJI...
 
 # 4. Verify
 hop3 auth:whoami
@@ -176,8 +176,8 @@ echo "$ADMIN_PASSWORD" | hop3 init \
 | 1 | `ssh root@server` | `hop3 init --ssh root@server` |
 | 2 | `hop-server admin:create ...` | (automated) |
 | 3 | Copy token from output | (automated) |
-| 4 | `hop3 config set server ...` | (automated) |
-| 5 | `hop3 config set token ...` | (automated) |
+| 4 | `hop3 settings set server ...` | (automated) |
+| 5 | `hop3 settings set token ...` | (automated) |
 | 6 | `exit` SSH | (automated) |
 
 ---
