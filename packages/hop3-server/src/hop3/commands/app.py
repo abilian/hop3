@@ -9,7 +9,10 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import time
 import traceback
+import urllib.error
+import urllib.request
 from base64 import b64decode
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
@@ -197,7 +200,7 @@ class StatusCmd(Command):
 
     def call(self, *args):
         if not args:
-            return [{"t": "text", "text": "Usage: hop status <app_name>"}]
+            return [{"t": "text", "text": "Usage: hop app:status <app_name>"}]
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
 
@@ -207,14 +210,112 @@ class StatusCmd(Command):
             worker_map = parse_procfile(scaling_file)
             worker_count = sum(int(v) for v in worker_map.values())
 
+        # Build connection URL
+        if app.port:
+            local_url = f"http://127.0.0.1:{app.port}"
+        else:
+            local_url = "Not available"
+
         rows = [
             ["Name", app.name],
             ["Status", app.run_state.name],
             ["Workers", str(worker_count)],
+            ["Local URL", local_url],
             ["Hostname", app.hostname or "Not configured"],
-            ["Port", str(app.port) if app.port else "Not assigned"],
         ]
         return [{"t": "table", "headers": ["Property", "Value"], "rows": rows}]
+
+
+@register
+@dataclass(frozen=True)
+class PingCmd(Command):
+    """Check if an application is responding to HTTP requests.
+
+    Usage: hop3 app:ping <app_name> [path]
+
+    Examples:
+        hop3 app:ping myapp           # Ping root path
+        hop3 app:ping myapp /health   # Ping health endpoint
+    """
+
+    db_session: Session
+    name: ClassVar[str] = "app:ping"
+
+    def call(self, *args):
+        if not args:
+            return [{"t": "text", "text": "Usage: hop app:ping <app_name> [path]"}]
+
+        app_name = args[0]
+        path = args[1] if len(args) > 1 else "/"
+        app = _get_app(self.db_session, app_name)
+
+        if not app.port:
+            return [{"t": "error", "text": f"App '{app_name}' has no port assigned"}]
+
+        url = f"http://127.0.0.1:{app.port}{path}"
+        timeout = 10  # seconds
+
+        try:
+            start_time = time.time()
+            req = urllib.request.Request(url, method="GET")
+            req.add_header("User-Agent", "hop3-ping/1.0")
+
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                elapsed = (time.time() - start_time) * 1000  # ms
+                status = response.status
+                content_type = response.headers.get("Content-Type", "unknown")
+                content_length = response.headers.get("Content-Length", "unknown")
+
+                rows = [
+                    ["URL", url],
+                    ["Status", f"{status} OK"],
+                    ["Response Time", f"{elapsed:.0f}ms"],
+                    ["Content-Type", content_type],
+                    ["Content-Length", f"{content_length} bytes"],
+                ]
+                return [
+                    {"t": "success", "text": f"App '{app_name}' is responding"},
+                    {"t": "table", "headers": ["Property", "Value"], "rows": rows},
+                ]
+
+        except urllib.error.HTTPError as e:
+            elapsed = (time.time() - start_time) * 1000
+            return [
+                {"t": "warning", "text": f"App '{app_name}' returned HTTP {e.code}"},
+                {
+                    "t": "table",
+                    "headers": ["Property", "Value"],
+                    "rows": [
+                        ["URL", url],
+                        ["Status", f"{e.code} {e.reason}"],
+                        ["Response Time", f"{elapsed:.0f}ms"],
+                    ],
+                },
+            ]
+
+        except urllib.error.URLError as e:
+            reason = str(e.reason)
+            if "Connection refused" in reason:
+                return [
+                    {
+                        "t": "error",
+                        "text": f"App '{app_name}' is not listening on port {app.port}",
+                    },
+                    {
+                        "t": "text",
+                        "text": "The app may not be running or may have crashed.",
+                    },
+                ]
+            return [{"t": "error", "text": f"Connection failed: {reason}"}]
+
+        except TimeoutError:
+            return [
+                {"t": "error", "text": f"App '{app_name}' timed out after {timeout}s"},
+                {"t": "text", "text": "The app may be overloaded or hung."},
+            ]
+
+        except Exception as e:
+            return [{"t": "error", "text": f"Error pinging app: {e}"}]
 
 
 @register

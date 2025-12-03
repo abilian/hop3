@@ -63,25 +63,16 @@ class TraefikVirtualHost(BaseProxy):
         )
 
     def setup_backend(self):
-        """Configure the backend connection (TCP or Unix socket)."""
-        # Check if using WSGI workers (which typically use Unix sockets)
-        if "wsgi" in self.workers or "jwsgi" in self.workers:
-            # Configure for Unix socket if WSGI or JWSGI workers are involved
-            sock = TRAEFIK_ROOT / f"{self.app_name}.sock"
-            # Traefik requires http:// scheme even for unix sockets
-            self.update_env("TRAEFIK_BACKEND", f"http://unix:{sock}")
-            self.update_env("BIND_ADDRESS", f"unix://{sock}")
-            if "PORT" in self.env:
-                del self.env["PORT"]
-        else:
-            # Configure for TCP connection
-            bind_address = self.env.get("BIND_ADDRESS", "127.0.0.1")
-            port = self.env.get("PORT", "8000")
-            self.update_env("TRAEFIK_BACKEND", f"http://{bind_address}:{port}")
-            log(
-                f"traefik will proxy app '{self.app_name}' to {bind_address}:{port}",
-                level=2,
-            )
+        """Configure the backend connection (always HTTP for all workers)."""
+        # Always use HTTP proxy for all workers (including WSGI)
+        # This allows direct HTTP access for development, debugging, and health checks
+        bind_address = self.env.get("BIND_ADDRESS", "127.0.0.1")
+        port = self.env.get("PORT", "8000")
+        self.update_env("TRAEFIK_BACKEND", f"http://{bind_address}:{port}")
+        log(
+            f"traefik will proxy app '{self.app_name}' to http://{bind_address}:{port}",
+            level=2,
+        )
 
     def setup_certificates(self) -> None:
         """Setup SSL certificates for the application."""

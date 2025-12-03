@@ -283,21 +283,14 @@ class WsgiWorker(UwsgiWorker):
                 msg = "Error: malformed setting 'UWSGI_ASYNCIO'."
                 raise Abort(msg)
 
-        # If running under nginx, don't expose a port at all
-        if "HOST_NAME" in self.env:
-            sock = c.NGINX_ROOT / f"{self.app_name}.sock"
-            self.log(f"nginx will talk to uWSGI via {sock}")
-            self.settings += [
-                ("socket", sock),
-                ("chmod-socket", "664"),
-            ]
-        else:
-            self.log("nginx will talk to uWSGI via {BIND_ADDRESS:s}:{PORT:s}")
-            self.settings += [
-                ("http", "{BIND_ADDRESS:s}:{PORT:s}".format(**self.env)),
-                ("http-use-socket", "{BIND_ADDRESS:s}:{PORT:s}".format(**self.env)),
-                ("http-socket", "{BIND_ADDRESS:s}:{PORT:s}".format(**self.env)),
-            ]
+        # Always use HTTP socket for direct access and nginx proxying
+        # This simplifies local development and testing
+        bind_addr = self.env.get("BIND_ADDRESS", "127.0.0.1")
+        port = self.env.get("PORT", "5000")
+        self.log(f"uWSGI will listen on http://{bind_addr}:{port}")
+        self.settings += [
+            ("http-socket", f"{bind_addr}:{port}"),
+        ]
 
 
 @dataclass
