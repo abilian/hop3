@@ -62,6 +62,7 @@ def run_command_from_args(cli_args: list[str]) -> None:
         verbose=flags.verbose,
         quiet=flags.quiet,
         json_output=flags.json_output,
+        debug=flags.debug,
     )
 
     config = load_config()
@@ -91,7 +92,7 @@ def run_command_from_args(cli_args: list[str]) -> None:
         if not confirm_destructive_action(cli_args, printer):
             sys.exit(0)  # User cancelled
 
-    extra_args = get_extra_args(cli_args)
+    extra_args = get_extra_args(cli_args, verbosity=flags.verbosity)
 
     # Use Client as context manager to ensure tunnel cleanup
     with Client(config=config, state=None) as client:
@@ -365,8 +366,13 @@ def handle_help_flags(args: list[str]) -> list[str]:
 # Ad-hoc functions to generate extra arguments for commands.
 # TODO: refactor properly.
 #
-def get_extra_args(args: list[str]) -> JsonDict:
-    """Generate a dictionary of extra arguments."""
+def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
+    """Generate a dictionary of extra arguments.
+
+    Args:
+        args: Command-line arguments
+        verbosity: Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
+    """
     command = args[0]
     match command:
         case "deploy":
@@ -374,6 +380,7 @@ def get_extra_args(args: list[str]) -> JsonDict:
             directory = Path(args[2]) if len(args) > 2 else Path()
             return {
                 "repository": pack_repository(directory),
+                "verbosity": verbosity,
             }
         case _:
             return {}

@@ -32,7 +32,6 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from hop3.lib.console import bold
 from hop3.lib.registry import lookup
 
 
@@ -50,10 +49,10 @@ class Command:
 
     def get_help(self):
         output = [
-            bold("USAGE"),
-            f"  $ hop {self.name} <args>",
+            "USAGE",
+            f"  $ hop {self.name} <subcommand>",
             "",
-            bold("COMMANDS"),
+            "SUBCOMMANDS",
         ]
         commands = lookup(Command)
         commands.sort(key=lambda cmd: cmd.name)
@@ -67,8 +66,11 @@ class Command:
             if primary_name != self.name:
                 continue
 
-            help_text = cmd.__doc__ or ""
-            output.append(f"  {cmd_name:<20} {help_text}")
+            help_text = _get_first_line(cmd.__doc__)
+            output.append(f"  {cmd_name:<28} {help_text}")
+
+        output.append("")
+        output.append(f"Use 'hop {self.name}:<subcommand> --help' for details.")
 
         return [
             {"t": "text", "text": "\n".join(output)},
@@ -77,13 +79,13 @@ class Command:
     def subcommands(self):
         return []
 
-    # def get_help(self):
-    #     subcommands = self.subcommands()
-    #     subcommand_names = sorted(subcommand.name for subcommand in subcommands)
-    #     return [
-    #         {"t": "text", "text": "Unknown subcommand"},
-    #         {
-    #             "t": "text",
-    #             "text": "Available subcommands: " + ", ".join(subcommand_names),
-    #         },
-    #     ]
+
+def _get_first_line(docstring: str | None) -> str:
+    """Extract the first non-empty line from a docstring."""
+    if not docstring:
+        return ""
+    for line in docstring.strip().split("\n"):
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    return ""

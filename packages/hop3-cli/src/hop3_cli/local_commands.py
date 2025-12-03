@@ -228,7 +228,25 @@ def handle_login_token(args: list[str], config: Config, printer: RichPrinter) ->
         hop3 login --token <token> --server http://localhost:8000
         hop3 login --token <token>  # Uses existing server config
     """
-    # Parse arguments
+    token, server_url = _parse_token_args(args)
+    server_url = _resolve_server_url(server_url, config)
+
+    # Verify connection before saving
+    username = _verify_token(server_url, token)
+    if not username:
+        sys.exit(1)
+
+    # Save configuration only after successful verification
+    config.save({"api_url": server_url, "api_token": token})
+
+    print(f"\nLogged in as {username}")
+    print(f"Configuration saved to {config.config_file}")
+
+    return True
+
+
+def _parse_token_args(args: list[str]) -> tuple[str, str | None]:
+    """Parse --token and --server arguments."""
     token = None
     server_url = None
 
@@ -249,41 +267,91 @@ def handle_login_token(args: list[str], config: Config, printer: RichPrinter) ->
         print("\nError: --token requires a token value", file=sys.stderr)
         sys.exit(1)
 
-    # Validate token looks like a JWT
     if not token.startswith("eyJ"):
         print("Warning: Token doesn't look like a JWT token", file=sys.stderr)
 
-    # If server URL not provided, try to get from config or prompt
-    if not server_url:
-        existing_url = config.get("api_url", None)
-        if existing_url:
-            server_url = existing_url
-            print(f"Using existing server: {server_url}")
-        else:
-            # For dev mode, suggest localhost
-            import os
+    return token, server_url
 
-            if os.environ.get("HOP3_DEV_MODE", "").lower() in ("true", "1", "yes"):
-                default_url = "http://localhost:8000"
-            else:
-                default_url = "https://your-server.com"
 
-            server_url = input(f"Server URL [{default_url}]: ").strip() or default_url
+def _resolve_server_url(server_url: str | None, config) -> str:
+    """Resolve server URL from argument, config, or prompt."""
+    if server_url:
+        return server_url
 
-    # Save configuration
-    config_data = {
-        "api_url": server_url,
-        "api_token": token,
-    }
-    config.save(config_data)
+    existing_url = config.get("api_url", None)
+    if existing_url:
+        print(f"Using existing server: {existing_url}")
+        return existing_url
 
-    print(f"\nToken configured for {server_url}")
-    print(f"Configuration saved to {config.config_file}")
-    print("\nYou're all set! Try:")
-    print("  hop3 apps           # List applications")
-    print("  hop3 auth:whoami    # Check current user")
+    # Prompt for URL
+    import os
 
-    return True
+    if os.environ.get("HOP3_DEV_MODE", "").lower() in ("true", "1", "yes"):
+        default_url = "http://localhost:8000"
+    else:
+        default_url = "https://your-server.com"
+
+    return input(f"Server URL [{default_url}]: ").strip() or default_url
+
+
+def _verify_token(server_url: str, token: str) -> str | None:
+    """Verify token by calling auth:whoami on the server.
+
+    Returns:
+        Username if successful, None if verification failed
+    """
+    from .client import Client
+    from .config import Config as TempConfig
+
+    # Create a temporary config for verification
+    temp_config = TempConfig(
+        data={"api_url": server_url, "api_token": token},
+        config_file=None,
+    )
+
+    print(f"Verifying connection to {server_url}...")
+
+    try:
+        with Client(config=temp_config, state=None) as client:
+            from jsonrpcclient import Error, Ok
+
+            response = client.rpc("cli", ["auth:whoami"])
+
+            match response:
+                case Ok(result=result):
+                    # Extract username from response
+                    return _extract_username_from_whoami(result)
+                case Error(message=message):
+                    print(f"Authentication failed: {message}", file=sys.stderr)
+                    return None
+                case _:
+                    print("Unexpected response from server", file=sys.stderr)
+                    return None
+
+    except ConnectionError:
+        print(f"Could not connect to {server_url}", file=sys.stderr)
+        print("Is the server running?", file=sys.stderr)
+        return None
+    except Exception as e:
+        print(f"Connection error: {e}", file=sys.stderr)
+        return None
+
+
+def _extract_username_from_whoami(result: list[dict]) -> str | None:
+    """Extract username from auth:whoami response."""
+    for item in result:
+        if item.get("t") == "text":
+            text = item.get("text", "")
+            # Look for "Logged in as: username" or similar patterns
+            if "Logged in as:" in text:
+                parts = text.split("Logged in as:")
+                if len(parts) > 1:
+                    return parts[1].strip().split()[0]
+            # Fallback: return first non-empty word
+            words = text.strip().split()
+            if words:
+                return words[0]
+    return "user"  # Default if we can't extract
 
 
 def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> bool:

@@ -101,10 +101,15 @@ class DeployCmd(Command):
     name: ClassVar[str] = "deploy"
 
     def call(self, *args, **kwargs):
+        from hop3.lib.console import capture_logs
+
         if not args:
             return [{"t": "text", "text": "Usage: hop deploy <app_name>"}]
 
         app_name = args[0]
+
+        # Get verbosity from kwargs (default: 1=normal)
+        verbosity = kwargs.get("verbosity", 1)
 
         # FIXME: Q&D solution to get the app instance
         try:
@@ -118,48 +123,68 @@ class DeployCmd(Command):
         archives_bytes = b64decode(kwargs["repository"])
         extract_archive_to_dir(archives_bytes, app.src_path)
 
-        try:
-            do_deploy(app)
-            # Commit the app state changes (e.g., run_state = RUNNING)
-            self.db_session.commit()
+        # Capture logs during deployment
+        with capture_logs(verbosity=verbosity) as captured:
+            try:
+                do_deploy(app)
+                # Commit the app state changes (e.g., run_state = RUNNING)
+                self.db_session.commit()
 
-        # TODO: make the exception handling a generic mechanism (reusable by other commands)
-        except subprocess.CalledProcessError as e:
-            # Handle subprocess errors specially to show command output
-            tb = traceback.format_exc()
-            error_parts = [
-                f"Deployment failed: Command exited with code {e.returncode}",
-                f"Command: {e.cmd}",
-            ]
-            if e.stdout:
-                error_parts.append(f"\nStdout:\n{e.stdout}")
-            if e.stderr:
-                error_parts.append(f"\nStderr:\n{e.stderr}")
-            error_parts.append(f"\nFull traceback:\n{tb}")
+            # TODO: make the exception handling a generic mechanism (reusable by other commands)
+            except subprocess.CalledProcessError as e:
+                # Handle subprocess errors specially to show command output
+                tb = traceback.format_exc()
+                error_parts = [
+                    f"Deployment failed: Command exited with code {e.returncode}",
+                    f"Command: {e.cmd}",
+                ]
+                if e.stdout:
+                    error_parts.append(f"\nStdout:\n{e.stdout}")
+                if e.stderr:
+                    error_parts.append(f"\nStderr:\n{e.stderr}")
 
-            error_msg = "\n".join(error_parts)
+                error_msg = "\n".join(error_parts)
 
-            # Log to server console for debugging
-            print(f"[ERROR] Deployment failed for {app_name}:", file=sys.stderr)
-            print(error_msg, file=sys.stderr)
+                # Log to server console for debugging
+                print(f"[ERROR] Deployment failed for {app_name}:", file=sys.stderr)
+                print(tb, file=sys.stderr)
 
-            # Re-raise as ValueError so RPC handler returns proper JSON-RPC error
-            # This ensures the CLI client receives an Error response and exits with code 1
-            raise ValueError(error_msg) from e
-        except Exception as e:
-            tb = traceback.format_exc()
-            # Log full traceback to server console for debugging
-            print(f"[ERROR] Deployment failed for {app_name}:", file=sys.stderr)
-            print(tb, file=sys.stderr)
+                # Re-raise as ValueError so RPC handler returns proper JSON-RPC error
+                # This ensures the CLI client receives an Error response and exits with code 1
+                raise ValueError(error_msg) from e
+            except Exception as e:
+                tb = traceback.format_exc()
+                # Log full traceback to server console for debugging
+                print(f"[ERROR] Deployment failed for {app_name}:", file=sys.stderr)
+                print(tb, file=sys.stderr)
 
-            # Build user-friendly error message (no traceback)
-            error_msg = f"Deployment failed: {e}"
+                # Build user-friendly error message (no traceback)
+                error_msg = f"Deployment failed: {e}"
 
-            # Re-raise as ValueError so RPC handler returns proper JSON-RPC error
-            # This ensures the CLI client receives an Error response and exits with code 1
-            raise ValueError(error_msg) from e
+                # Re-raise as ValueError so RPC handler returns proper JSON-RPC error
+                # This ensures the CLI client receives an Error response and exits with code 1
+                raise ValueError(error_msg) from e
 
-        return [{"t": "text", "text": f"App '{app_name}' deployed successfully."}]
+        # Build response with logs
+        logs = captured.get_logs()
+        response = []
+
+        # Add deployment logs
+        for entry in logs:
+            response.append({
+                "t": "log",
+                "msg": entry["msg"],
+                "fg": entry.get("fg", ""),
+                "level": entry.get("level", 0),
+            })
+
+        # Add final success message
+        response.append({
+            "t": "text",
+            "text": f"App '{app_name}' deployed successfully.",
+        })
+
+        return response
 
 
 @register

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from hop3.lib.console import bold
 from hop3.lib.registry import lookup, register
 
 from ._base import Command
@@ -47,12 +46,12 @@ class HelpCmd(Command):
     def _show_top_level_commands(self):
         """Show only top-level commands (simplified overview)."""
         output = [
-            bold("USAGE"),
+            "USAGE",
             "  $ hop <command> <args>",
             "  $ hop help <command>    # Show help for a command",
             "  $ hop help --all        # Show all commands including subcommands",
             "",
-            bold("COMMANDS"),
+            "COMMANDS",
         ]
 
         commands = lookup(Command)
@@ -93,11 +92,11 @@ class HelpCmd(Command):
     def _show_all_commands(self):
         """Show all commands including subcommands (full listing)."""
         output = [
-            bold("USAGE"),
+            "USAGE",
             "  $ hop <command> <args>",
             "  $ hop help <command>    # Show help for a command",
             "",
-            bold("ALL COMMANDS"),
+            "ALL COMMANDS",
         ]
 
         commands = lookup(Command)
@@ -138,7 +137,7 @@ class HelpCmd(Command):
         docstring = cmd.__doc__ or "No help available for this command."
 
         output = [
-            bold(f"COMMAND: {command_name}"),
+            f"COMMAND: {command_name}",
             "",
             docstring.strip(),
         ]
@@ -150,10 +149,10 @@ class HelpCmd(Command):
         if subcommands:
             subcommands.sort(key=lambda c: c.name)
             output.append("")
-            output.append(bold("SUBCOMMANDS"))
+            output.append("SUBCOMMANDS")
             for sub in subcommands:
                 help_text = self._get_short_help(sub.__doc__)
-                output.append(f"  {sub.name:<24} {help_text}")
+                output.append(f"  {sub.name:<28} {help_text}")
 
         return [
             {"t": "text", "text": "\n".join(output)},

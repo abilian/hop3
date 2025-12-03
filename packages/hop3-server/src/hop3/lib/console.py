@@ -9,9 +9,11 @@ import sys
 
 __all__ = [
     "Abort",
+    "CapturingConsole",
     "black",
     "blue",
     "bold",
+    "capture_logs",
     "console",
     "cyan",
     "debug",
@@ -155,6 +157,52 @@ class TestingConsole(Console):
         return "\n".join(self.buffer)
 
 
+class CapturingConsole(Console):
+    """A console that captures messages and also prints them.
+
+    Used during deployment to collect logs that can be returned to the client.
+    """
+
+    def __init__(self, verbosity: int = 1) -> None:
+        """Initialize with verbosity level.
+
+        Args:
+            verbosity: 0=quiet, 1=normal, 2=verbose, 3=debug
+        """
+        self.buffer: list[dict] = []
+        self.verbosity = verbosity
+        self._printer = PrintingConsole()
+
+    def echo(self, msg, fg: str = "", level: int = 0) -> None:
+        """Capture message to buffer and optionally print."""
+        # Always capture
+        self.buffer.append({"msg": msg, "fg": fg, "level": level})
+        # Print based on verbosity
+        if level <= self.verbosity:
+            self._printer.echo(msg, fg=fg)
+
+    def reset(self) -> None:
+        """Clear the buffer."""
+        self.buffer.clear()
+
+    def output(self) -> str:
+        """Return captured messages as a single string."""
+        return "\n".join(entry["msg"] for entry in self.buffer)
+
+    def get_logs(self, max_level: int | None = None) -> list[dict]:
+        """Get captured logs up to a certain level.
+
+        Args:
+            max_level: Maximum level to include (None = all)
+
+        Returns:
+            List of log entries
+        """
+        if max_level is None:
+            return self.buffer.copy()
+        return [entry for entry in self.buffer if entry.get("level", 0) <= max_level]
+
+
 def get_console() -> Console:
     """Return the console object used for logging."""
     # Useful for developing
@@ -164,13 +212,74 @@ def get_console() -> Console:
     return PrintingConsole()
 
 
-console = get_console()
-echo = console.echo
+# Global console instance - can be temporarily replaced
+_console: Console = get_console()
 
 
-def log(msg: str, level=0, fg="green") -> None:
-    """Log a message to the console."""
-    echo(f"{'-' * level}> {msg}", fg=fg)
+def get_current_console() -> Console:
+    """Get the current console instance."""
+    return _console
+
+
+def set_console(new_console: Console) -> Console:
+    """Set the console and return the old one."""
+    global _console
+    old = _console
+    _console = new_console
+    return old
+
+
+# For backward compatibility
+console = _console
+
+
+def echo(msg: str, fg: str = "") -> None:
+    """Print message using current console."""
+    _console.echo(msg, fg=fg)
+
+
+def log(msg: str, level: int = 0, fg: str = "green") -> None:
+    """Log a message to the console.
+
+    Args:
+        msg: Message to log
+        level: Indentation/verbosity level (0=important, 1=normal, 2=verbose, 3=debug)
+        fg: Foreground color
+    """
+    formatted = f"{'-' * level}> {msg}" if level > 0 else f"> {msg}"
+    # If using CapturingConsole, pass the level
+    if isinstance(_console, CapturingConsole):
+        _console.echo(formatted, fg=fg, level=level)
+    else:
+        _console.echo(formatted, fg=fg)
+
+
+class capture_logs:
+    """Context manager to capture logs during execution.
+
+    Usage:
+        with capture_logs(verbosity=2) as captured:
+            do_deploy(app)
+        logs = captured.get_logs()
+
+    Args:
+        verbosity: 0=quiet, 1=normal (default), 2=verbose, 3=debug
+    """
+
+    def __init__(self, verbosity: int = 1) -> None:
+        self.verbosity = verbosity
+        self.console: CapturingConsole | None = None
+        self.old_console: Console | None = None
+
+    def __enter__(self) -> CapturingConsole:
+        self.console = CapturingConsole(verbosity=self.verbosity)
+        self.old_console = set_console(self.console)
+        return self.console
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        if self.old_console is not None:
+            set_console(self.old_console)
+        return False
 
 
 def panic(msg: str) -> None:
