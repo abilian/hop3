@@ -35,6 +35,10 @@ Architectural Decision Records (or ADR) are documents that captures an important
 | [027](./027-config-system-refactoring.md) | Configuration System Refactoring for Testability | Accepted |
 | [028](./028-pluggy-dishka-integration.md) | Pluggy + Dishka Integration for Plugin-Contributed Services | Accepted |
 | [029](./029-reconciliation-health-checks.md) | Application Reconciliation and Health Check System | Draft |
+| [030](./030-two-level-build-architecture.md) | Two-Level Build Architecture | Proposed |
+| [031](./031-project-terminology.md) | Project Terminology | Proposed |
+| [032](./032-deployment-strategies-artifact-lifecycle.md) | Deployment Strategies and Artifact Lifecycle | Proposed |
+| [033](./033-waf-integration.md) | Web Application Firewall (WAF) Integration | Draft |
 
 ### Status Legend
 
