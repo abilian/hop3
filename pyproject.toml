@@ -43,6 +43,8 @@ dev = [
     "ruff != 0.11.3",
     # Used by `inv watch`
     "watchfiles >= 0.24.0",
+    # Used by `make run` to manage multiple processes
+    "honcho >= 1.1.0",
     # Testing and testing infra
     "pytest>=8.4.2",
     "pytest-asyncio >= 0.23.0",
@@ -75,6 +77,7 @@ dev = [
     "sbom4python>=0.11.3",
     "spdx-tools>=0.8.3",
     "pytest-xdist>=3.8.0",
+    "uwsgi>=2.0.31",
 ]
 
 doc = [

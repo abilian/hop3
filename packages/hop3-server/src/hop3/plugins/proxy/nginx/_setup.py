@@ -20,7 +20,6 @@ from hop3.platform.certificates import CertificatesManager
 from ._templates import (
     HOP3_INTERNAL_NGINX_CACHE_MAPPING,
     HOP3_INTERNAL_NGINX_STATIC_MAPPING,
-    HOP3_INTERNAL_NGINX_UWSGI_SETTINGS,
     HOP3_INTERNAL_PROXY_CACHE_PATH,
     NGINX_COMMON_FRAGMENT,
     NGINX_HTTPS_ONLY_TEMPLATE,
@@ -78,29 +77,18 @@ class NginxVirtualHost(BaseProxy):
             )
             return
 
-        # default to reverse proxying to the TCP port we picked
+        # Always use HTTP proxy_pass for all workers (including WSGI)
+        # This allows direct HTTP access for development, debugging, and health checks
+        # uWSGI listens on HTTP sockets, and nginx proxies to them
         self.update_env(
             "HOP3_INTERNAL_NGINX_UWSGI_SETTINGS",
             template="proxy_pass http://{BIND_ADDRESS:s}:{PORT:s};",
         )
-        if "wsgi" in self.workers or "jwsgi" in self.workers:
-            # Configure for Unix socket if WSGI or JWSGI workers are involved
-            sock = NGINX_ROOT / f"{self.app_name}.sock"
-            self.env["HOP3_INTERNAL_NGINX_UWSGI_SETTINGS"] = expand_vars(
-                HOP3_INTERNAL_NGINX_UWSGI_SETTINGS,
-                self.env,
-            )
-            self.update_env("NGINX_SOCKET", f"unix://{sock}")
-            self.update_env("BIND_ADDRESS", f"unix://{sock}")
-            if "PORT" in self.env:
-                del self.env["PORT"]
-        else:
-            # Configure for TCP socket if no WSGI or JWSGI workers are involved
-            self.update_env("NGINX_SOCKET", template="{BIND_ADDRESS:s}:{PORT:s}")
-            log(
-                f"nginx will look for app '{self.app_name}' on {self.env['NGINX_SOCKET']}",
-                level=2,
-            )
+        self.update_env("NGINX_SOCKET", template="{BIND_ADDRESS:s}:{PORT:s}")
+        log(
+            f"nginx will proxy to app '{self.app_name}' on http://{self.env['BIND_ADDRESS']}:{self.env['PORT']}",
+            level=2,
+        )
 
     def setup_certificates(self) -> None:
         domain_name = self.env["HOST_NAME"].split()[0]

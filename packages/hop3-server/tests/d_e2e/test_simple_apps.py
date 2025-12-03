@@ -20,6 +20,20 @@ TEST_APPS = [
     if app_dir.is_dir() and not app_dir.name.startswith(".")
 ]
 
+# Network error patterns that indicate infrastructure issues, not code bugs
+NETWORK_ERROR_PATTERNS = [
+    "ERR_SOCKET_TIMEOUT",
+    "ETIMEDOUT",
+    "ECONNREFUSED",
+    "network connectivity",
+    "Socket timeout",
+]
+
+
+def _is_network_error(error_message: str) -> bool:
+    """Check if an error message indicates a network/infrastructure issue."""
+    return any(pattern in error_message for pattern in NETWORK_ERROR_PATTERNS)
+
 
 @pytest.mark.e2e
 @pytest.mark.parametrize("app_dir", TEST_APPS)
@@ -33,6 +47,15 @@ def test_app_deployment(app_dir: Path, deployment_target):
 
     app = AppSource(name=app_name, path=app_dir)
     with DeploymentSession(app, deployment_target) as session:
-        assert session.deploy()
+        deploy_result = session.deploy()
+
+        # Check for network errors in deployment and skip if found
+        if hasattr(session, "_last_deploy_error") and session._last_deploy_error:
+            if _is_network_error(session._last_deploy_error):
+                pytest.skip(
+                    f"Skipping due to network error: {session._last_deploy_error[:100]}"
+                )
+
+        assert deploy_result
         assert session.check_deployed()
         assert session.test_http()

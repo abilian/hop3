@@ -52,14 +52,16 @@ build:
 	uv build packages/hop3-server
 	uv build packages/hop3-cli
 
-## Run server (in development mode)
+## Run full development stack (web server + uWSGI emperor)
 serve:
-	litestar --app asgi:create_app run --debug --reload
-	# hop-server serve
-	# granian --interface asgi --factory hop3.server.asgi:create_app
+	honcho -f Procfile.dev start
 
 ## Alias for serve
 run: serve
+
+## Run only the web server (without uWSGI)
+serve-web:
+	litestar --app asgi:create_app run --debug --reload
 
 #
 # Setup

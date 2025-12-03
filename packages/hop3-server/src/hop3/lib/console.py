@@ -254,7 +254,7 @@ def log(msg: str, level: int = 0, fg: str = "green") -> None:
         _console.echo(formatted, fg=fg)
 
 
-class capture_logs:
+class CaptureLogs:
     """Context manager to capture logs during execution.
 
     Usage:
@@ -280,6 +280,9 @@ class capture_logs:
         if self.old_console is not None:
             set_console(self.old_console)
         return False
+
+
+capture_logs = CaptureLogs
 
 
 def panic(msg: str) -> None:
