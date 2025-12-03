@@ -130,17 +130,16 @@ class PythonToolchain(LanguageToolchain):
 
         # DEBUG: List all files in src_path to diagnose the issue
         files_in_src = sorted(f.name for f in self.src_path.iterdir())
-        log(f"Files in {self.src_path}: {files_in_src}", fg="yellow")
+        log(f"Files in {self.src_path}: {files_in_src}", level=3, fg="yellow")
 
         # Always use requirements.txt if it exists, even if pyproject.toml also exists
         # This prevents pip from using a stray/unwanted pyproject.toml
         match requirements_file.exists(), pyproject_file.exists():
             case True, _:
-                log(
-                    f"Installing from requirements.txt: {requirements_file}", fg="green"
-                )
+                log("Installing from requirements.txt", level=2, fg="green")
                 self.shell(f"{python} -m pip install -r {requirements_file}")
             case False, True:
+                log("Installing from pyproject.toml", level=2, fg="green")
                 self.shell(f"{python} -m pip install .")
             case False, False:
                 # This should never happen as `accept` checks for the presence of
