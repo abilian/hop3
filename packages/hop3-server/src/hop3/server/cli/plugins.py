@@ -8,6 +8,7 @@ import types
 from argparse import ArgumentParser
 
 from hop3.core.plugins import get_plugin_manager
+from hop3.lib.console import bold, dim, green
 from hop3.lib.registry import register
 from hop3.server.asgi import create_app
 
@@ -54,50 +55,50 @@ class Plugins(Command):
         capabilities = self._gather_capabilities(pm)
 
         title = "Hop3 Capabilities"
-        print(title)
+        print(bold(title))
         print("=" * len(title))
         print()
 
         # Flat list - one line per capability type
         if capabilities["builders"]:
             builders = ", ".join(sorted(capabilities["builders"]))
-            print(f"Builders:    {builders}")
+            print(f"{bold('Builders:')}    {builders}")
 
         if capabilities["toolchains"]:
             langs = ", ".join(sorted(capabilities["toolchains"]))
-            print(f"Languages:   {langs}")
+            print(f"{bold('Languages:')}   {langs}")
 
         if capabilities["deployers"]:
             deployers = ", ".join(sorted(capabilities["deployers"]))
-            print(f"Deployers:   {deployers}")
+            print(f"{bold('Deployers:')}   {deployers}")
 
         if capabilities["proxies"]:
             active_proxy = self._get_active_proxy()
             proxies_display = []
             for p in sorted(capabilities["proxies"]):
                 if p == active_proxy:
-                    proxies_display.append(f"{p} ✓")
+                    proxies_display.append(f"{p} {green('✓')}")
                 else:
                     proxies_display.append(p)
-            print(f"Proxies:     {', '.join(proxies_display)}")
+            print(f"{bold('Proxies:')}     {', '.join(proxies_display)}")
 
         if capabilities["os_support"]:
             detected_os = self._get_detected_os(pm)
             os_display = []
             for os_name in sorted(capabilities["os_support"]):
                 if os_name == detected_os:
-                    os_display.append(f"{os_name} ✓")
+                    os_display.append(f"{os_name} {green('✓')}")
                 else:
                     os_display.append(os_name)
-            print(f"OS Support:  {', '.join(os_display)}")
+            print(f"{bold('OS Support:')}  {', '.join(os_display)}")
 
         if capabilities["addons"]:
             addons = ", ".join(sorted(capabilities["addons"]))
-            print(f"Addons:      {addons}")
+            print(f"{bold('Addons:')}      {addons}")
 
         print()
-        print("✓ = active/detected on this system")
-        print("Use --verbose for detailed plugin information.")
+        print(dim(f"{green('✓')} = active/detected on this system"))
+        print(dim("Use --verbose for detailed plugin information."))
 
     def _gather_capabilities(self, pm) -> dict[str, set[str]]:
         """Gather all capabilities from registered plugins."""
@@ -230,8 +231,9 @@ class Plugins(Command):
         # Categorize plugins
         categorized = self._categorize_plugins(pm, user_plugins)
 
-        print(f"Registered Plugins ({len(user_plugins)})")
-        print("=" * 60)
+        title = f"Registered Plugins ({len(user_plugins)})"
+        print(bold(title))
+        print("=" * len(title))
 
         # Print in logical order
         category_order = ["Build", "Deploy", "Proxy", "OS", "Addons", "Other"]
@@ -239,11 +241,10 @@ class Plugins(Command):
             if category not in categorized:
                 continue
 
-            print(f"\n{category}:")
-            print("-" * 40)
-            for plugin in sorted(
-                categorized[category], key=lambda p: self._get_plugin_name(p)
-            ):
+            header = f"{category}:"
+            print(f"\n{bold(header)}")
+            print("-" * len(header))
+            for plugin in sorted(categorized[category], key=self._get_plugin_name):
                 self._print_plugin_details(pm, plugin)
 
     def _categorize_plugins(self, pm, plugins: list) -> dict[str, list]:
@@ -323,8 +324,8 @@ class Plugins(Command):
             path = f"{plugin_class.__module__}.{plugin_class.__name__}"
             doc = (plugin_class.__doc__ or "").strip().split("\n")[0]
 
-        print(f"\n{name}")
-        print(f"  Path: {path}")
+        print(f"\n{bold(name)}")
+        print(f"  Path: {dim(path)}")
         if doc:
             print(f"  {doc}")
 
