@@ -109,9 +109,9 @@ def run_command_from_args(cli_args: list[str]) -> None:
                 f"SSL certificate verification failed for {client.rpc_url}.\n\n"
                 "Options:\n"
                 "  1. Trust this server's certificate:\n"
-                "     hop3 config set ssl_cert /path/to/server.crt\n\n"
+                "     hop3 settings set ssl_cert /path/to/server.crt\n\n"
                 "  2. Disable SSL verification (less secure):\n"
-                "     hop3 config set verify_ssl false"
+                "     hop3 settings set verify_ssl false"
             )
             sys.exit(1)
         except requests.exceptions.ConnectionError as e:
@@ -122,9 +122,9 @@ def run_command_from_args(cli_args: list[str]) -> None:
                     f"SSL certificate verification failed for {client.rpc_url}.\n\n"
                     "Options:\n"
                     "  1. Trust this server's certificate:\n"
-                    "     hop3 config set ssl_cert /path/to/server.crt\n\n"
+                    "     hop3 settings set ssl_cert /path/to/server.crt\n\n"
                     "  2. Disable SSL verification (less secure):\n"
-                    "     hop3 config set verify_ssl false"
+                    "     hop3 settings set verify_ssl false"
                 )
             else:
                 err(
@@ -144,6 +144,10 @@ def run_command_from_args(cli_args: list[str]) -> None:
                 # Handle auth:login specially - save token automatically
                 if cli_args and cli_args[0] == "auth:login":
                     handle_login_response(result, config, printer)
+                elif cli_args == ["help"] and not printer.json_output:
+                    # Inject local commands into help output
+                    result = inject_local_commands_into_help(result)
+                    printer.print(result)
                 else:
                     printer.print(result)
             case Error(message=message):
@@ -385,6 +389,96 @@ def load_config() -> Config:
     return get_config()
 
 
+def inject_local_commands_into_help(result: list[dict]) -> list[dict]:
+    """Inject local CLI commands into the help output from the server.
+
+    The local commands (init, login, settings) are handled by the CLI
+    and don't exist on the server, so we need to add them to the help
+    output so users can discover them.
+
+    The server may return help as a single text block with newlines,
+    so we need to handle that format.
+
+    Args:
+        result: The help response from the server
+
+    Returns:
+        Modified result with local commands injected
+    """
+    from .local_commands import LOCAL_COMMANDS_INFO
+
+    modified_result = []
+
+    for item in result:
+        if item.get("t") != "text":
+            modified_result.append(item)
+            continue
+
+        text = item.get("text", "")
+
+        # Check if this is a multi-line text block containing COMMANDS
+        if "\n" in text and "COMMANDS" in text:
+            # Process line by line
+            lines = text.split("\n")
+            new_lines = []
+            in_commands_section = False
+            injected_commands = set()
+
+            for line in lines:
+                # Check if entering COMMANDS section
+                if line.strip() == "COMMANDS":
+                    in_commands_section = True
+                    new_lines.append(line)
+                    continue
+
+                # Check if leaving COMMANDS section (empty line or new section header)
+                if in_commands_section and line.strip() and not line.startswith("  "):
+                    # Inject remaining local commands before leaving section
+                    for local_cmd in sorted(LOCAL_COMMANDS_INFO.keys()):
+                        if local_cmd not in injected_commands:
+                            desc = LOCAL_COMMANDS_INFO[local_cmd]
+                            new_lines.append(f"  {local_cmd:16} {desc}")
+                            injected_commands.add(local_cmd)
+                    in_commands_section = False
+
+                # If in commands section, check if we need to inject before this command
+                if in_commands_section and line.startswith("  ") and line.strip():
+                    parts = line.strip().split(None, 1)
+                    if parts:
+                        current_cmd = parts[0]
+                        # Inject local commands that come before this one alphabetically
+                        for local_cmd in sorted(LOCAL_COMMANDS_INFO.keys()):
+                            if (
+                                local_cmd not in injected_commands
+                                and local_cmd < current_cmd
+                            ):
+                                desc = LOCAL_COMMANDS_INFO[local_cmd]
+                                new_lines.append(f"  {local_cmd:16} {desc}")
+                                injected_commands.add(local_cmd)
+
+                new_lines.append(line)
+
+            # If still in commands section at end, inject remaining
+            if in_commands_section:
+                for local_cmd in sorted(LOCAL_COMMANDS_INFO.keys()):
+                    if local_cmd not in injected_commands:
+                        desc = LOCAL_COMMANDS_INFO[local_cmd]
+                        # Find the last command line and insert after it
+                        insert_idx = len(new_lines)
+                        for i in range(len(new_lines) - 1, -1, -1):
+                            if new_lines[i].startswith("  ") and new_lines[i].strip():
+                                insert_idx = i + 1
+                                break
+                        new_lines.insert(insert_idx, f"  {local_cmd:16} {desc}")
+                        injected_commands.add(local_cmd)
+
+            modified_result.append({"t": "text", "text": "\n".join(new_lines)})
+        else:
+            modified_result.append(item)
+
+    return modified_result
+
+
 def show_unconfigured_message(cli_args: list[str]) -> None:
     """Show helpful setup instructions when CLI is not configured.
 
@@ -401,8 +495,8 @@ def show_unconfigured_message(cli_args: list[str]) -> None:
     print("If you already have a user account:")
     print("  hop3 login --ssh root@your-server.com\n")
     print("Or configure manually:")
-    print("  hop3 config set server https://your-server.com")
-    print("  hop3 config set token <your-api-token>\n")
+    print("  hop3 settings set server https://your-server.com")
+    print("  hop3 settings set token <your-api-token>\n")
     print("For developers running a local server:")
     print("  export HOP3_DEV_MODE=true")
     print("  hop3 help")

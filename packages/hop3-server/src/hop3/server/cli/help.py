@@ -61,9 +61,9 @@ class Help:
     def __call__(self):
         output = [
             bold("USAGE"),
-            f"  $ hop {self.command_name} ...",
+            f"  $ hop-server {self.command_name}:<subcommand> [options]",
             "",
-            bold("COMMANDS"),
+            bold("SUBCOMMANDS"),
         ]
 
         commands = lookup(Command)
@@ -78,12 +78,18 @@ class Help:
             if primary_name != self.command_name:
                 continue
 
-            help_text = cmd.__doc__ or ""
-            if "INTERNAL" in help_text:
+            doc = cmd.__doc__ or ""
+            if "INTERNAL" in doc:
                 # Skip internal commands
                 continue
 
-            output.append(f"  {name:<20} {help_text}")
+            # Get only the first line of docstring
+            help_text = doc.strip().split("\n")[0] if doc else ""
+
+            output.append(f"  {name:<24} {help_text}")
+
+        output.append("")
+        output.append(f"Use 'hop-server {self.command_name}:<subcommand> --help' for details.")
 
         print("\n".join(output))
 

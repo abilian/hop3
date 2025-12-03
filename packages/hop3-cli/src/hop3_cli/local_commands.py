@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Local CLI commands that don't require server communication.
+"""CLI commands handled locally.
 
-These commands run entirely on the client side:
-- init: Bootstrap a new server connection (with optional SSH)
-- config: Manage local CLI configuration
-- login --ssh: Get token via SSH for existing user
+These commands are processed by the CLI without requiring an RPC call to the server:
+- init: Bootstrap a new server connection via SSH
+- login: Authenticate (via SSH or username/password)
+- settings: Manage local CLI configuration
 """
 
 from __future__ import annotations
@@ -24,11 +24,15 @@ if TYPE_CHECKING:
     from .rich_printer import RichPrinter
 
 
-# Commands that are handled locally (not sent to server)
-LOCAL_COMMANDS = {"init", "config"}
+# Commands that are handled locally (not sent to server via RPC)
+# Format: command_name -> description
+LOCAL_COMMANDS_INFO = {
+    "init": "Initialize connection to a Hop3 server via SSH.",
+    "login": "Authenticate to a server.",
+    "settings": "Manage local CLI settings (server URL, token, SSL).",
+}
 
-# Commands that may be handled locally depending on arguments
-CONDITIONAL_LOCAL_COMMANDS = {"login"}
+LOCAL_COMMANDS = set(LOCAL_COMMANDS_INFO.keys())
 
 # Path to hop-server on the remote server
 HOP_SERVER_PATH = "/home/hop3/venv/bin/hop-server"
@@ -40,16 +44,7 @@ def is_local_command(args: list[str]) -> bool:
         return False
 
     command = args[0]
-
-    # Always local commands
-    if command in LOCAL_COMMANDS:
-        return True
-
-    # Conditional local commands (check for --ssh flag)
-    if command in CONDITIONAL_LOCAL_COMMANDS:
-        return "--ssh" in args
-
-    return False
+    return command in LOCAL_COMMANDS
 
 
 def handle_local_command(args: list[str], config: Config, printer: RichPrinter) -> bool:
@@ -66,12 +61,229 @@ def handle_local_command(args: list[str], config: Config, printer: RichPrinter) 
 
     if command == "init":
         return handle_init(cmd_args, config, printer)
-    if command == "config":
-        return handle_config(cmd_args, config, printer)
-    if command == "login" and "--ssh" in args:
-        return handle_login_ssh(cmd_args, config, printer)
+    if command == "login":
+        return handle_login(cmd_args, config, printer)
+    if command == "settings":
+        return handle_settings(cmd_args, config, printer)
 
     return False
+
+
+def handle_login(args: list[str], config: Config, printer: RichPrinter) -> bool:
+    """Handle the login command.
+
+    Supports multiple authentication methods:
+    - URL with token: http://server:port?token=eyJ... (easiest for local dev)
+    - --ssh user@server: SSH-based authentication (for remote servers)
+    - --token <token>: Use a pre-generated token with separate --server
+    - (default): Username/password authentication via the server API
+
+    Usage:
+        hop3 login "http://localhost:8000?token=eyJ..."  # URL with embedded token
+        hop3 login --ssh user@server                     # SSH-based auth
+        hop3 login --token <token> --server <url>        # Separate token and server
+        hop3 login                                       # Username/password auth
+    """
+    # Check for help first
+    if "--help" in args or "-h" in args:
+        print_login_help()
+        return True
+
+    # Check for URL with embedded token (e.g., http://localhost:8000?token=eyJ...)
+    if args and not args[0].startswith("-"):
+        from urllib.parse import parse_qs, urlparse
+
+        potential_url = args[0]
+        if "?" in potential_url and "token=" in potential_url:
+            parsed = urlparse(potential_url)
+            query_params = parse_qs(parsed.query)
+            if "token" in query_params:
+                token = query_params["token"][0]
+                # Reconstruct server URL without the token parameter
+                server_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                return handle_login_token(
+                    ["--token", token, "--server", server_url], config, printer
+                )
+
+    # Dispatch based on authentication method
+    if "--ssh" in args:
+        return handle_login_ssh(args, config, printer)
+
+    if "--token" in args:
+        return handle_login_token(args, config, printer)
+
+    # Default: password-based authentication
+    return handle_login_password(args, config, printer)
+
+
+def handle_login_password(
+    args: list[str], config: Config, printer: RichPrinter
+) -> bool:
+    """Handle password-based login via the server API.
+
+    Usage:
+        hop3 login
+        hop3 login --username admin
+    """
+    # Check if server is configured
+    if not config.is_configured():
+        print("Server not configured.", file=sys.stderr)
+        print("\nTo configure, use one of:", file=sys.stderr)
+        print(
+            "  hop3 init --ssh root@your-server.com  # First-time setup",
+            file=sys.stderr,
+        )
+        print(
+            "  hop3 login --ssh root@your-server.com # If you have SSH access",
+            file=sys.stderr,
+        )
+        print("  hop3 settings set server https://your-server.com", file=sys.stderr)
+        sys.exit(1)
+
+    # Parse arguments
+    username = None
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--username" and i + 1 < len(args):
+            username = args[i + 1]
+            i += 2
+        else:
+            i += 1
+
+    # Prompt for credentials
+    if not username:
+        username = input("Username: ").strip()
+        if not username:
+            print("Error: Username cannot be empty", file=sys.stderr)
+            sys.exit(1)
+
+    password = getpass.getpass("Password: ")
+    if not password:
+        print("Error: Password cannot be empty", file=sys.stderr)
+        sys.exit(1)
+
+    # Call auth:login via RPC
+    from .client import Client
+
+    print(f"\nAuthenticating as {username}...")
+
+    with Client(config=config, state=None) as client:
+        try:
+            from jsonrpcclient import Error, Ok
+
+            response = client.rpc("cli", ["auth:login", username, password])
+
+            match response:
+                case Ok(result=result):
+                    # Extract and save token from response
+                    token = _extract_token_from_login_response(result)
+                    if token:
+                        config.save({"api_token": token})
+                        print(f"Logged in as {username}")
+                        print(f"Token saved to {config.config_file}")
+                    else:
+                        # Just print the response if we can't extract token
+                        printer.print(result)
+                case Error(message=message):
+                    print(f"Login failed: {message}", file=sys.stderr)
+                    sys.exit(1)
+                case _:
+                    print("Unexpected response from server", file=sys.stderr)
+                    sys.exit(1)
+
+        except Exception as e:
+            print(f"Error during login: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    return True
+
+
+def _extract_token_from_login_response(result: list[dict]) -> str | None:
+    """Extract JWT token from auth:login response.
+
+    Args:
+        result: The RPC response from auth:login
+
+    Returns:
+        The JWT token or None if not found
+    """
+    import re
+
+    jwt_pattern = re.compile(r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
+
+    for item in result:
+        if item.get("t") == "text":
+            text = item.get("text", "")
+            match = jwt_pattern.search(text)
+            if match:
+                return match.group(0)
+    return None
+
+
+def handle_login_token(args: list[str], config: Config, printer: RichPrinter) -> bool:
+    """Handle token-based login for local development or automation.
+
+    Usage:
+        hop3 login --token <token> --server http://localhost:8000
+        hop3 login --token <token>  # Uses existing server config
+    """
+    # Parse arguments
+    token = None
+    server_url = None
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--token" and i + 1 < len(args):
+            token = args[i + 1]
+            i += 2
+        elif arg == "--server" and i + 1 < len(args):
+            server_url = args[i + 1]
+            i += 2
+        else:
+            i += 1
+
+    if not token:
+        print_login_help()
+        print("\nError: --token requires a token value", file=sys.stderr)
+        sys.exit(1)
+
+    # Validate token looks like a JWT
+    if not token.startswith("eyJ"):
+        print("Warning: Token doesn't look like a JWT token", file=sys.stderr)
+
+    # If server URL not provided, try to get from config or prompt
+    if not server_url:
+        existing_url = config.get("api_url", None)
+        if existing_url:
+            server_url = existing_url
+            print(f"Using existing server: {server_url}")
+        else:
+            # For dev mode, suggest localhost
+            import os
+
+            if os.environ.get("HOP3_DEV_MODE", "").lower() in ("true", "1", "yes"):
+                default_url = "http://localhost:8000"
+            else:
+                default_url = "https://your-server.com"
+
+            server_url = input(f"Server URL [{default_url}]: ").strip() or default_url
+
+    # Save configuration
+    config_data = {
+        "api_url": server_url,
+        "api_token": token,
+    }
+    config.save(config_data)
+
+    print(f"\nToken configured for {server_url}")
+    print(f"Configuration saved to {config.config_file}")
+    print("\nYou're all set! Try:")
+    print("  hop3 apps           # List applications")
+    print("  hop3 auth:whoami    # Check current user")
+
+    return True
 
 
 def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> bool:
@@ -81,11 +293,6 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> b
         hop3 login --ssh user@server
         hop3 login --ssh user@server --username admin
     """
-    # Check for help first
-    if "--help" in args or "-h" in args:
-        print_login_ssh_help()
-        return True
-
     # Parse arguments
     ssh_target = None
     username = None
@@ -107,8 +314,10 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> b
             i += 1
 
     if not ssh_target:
-        print_login_ssh_help()
-        print("\nError: --ssh argument is required", file=sys.stderr)
+        print_login_help()
+        print(
+            "\nError: --ssh requires a target (e.g., root@server.com)", file=sys.stderr
+        )
         sys.exit(1)
 
     # Infer server URL from SSH target if not provided
@@ -174,7 +383,7 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> b
         except Exception as e:
             print(f"  Warning: Could not fetch certificate: {e}")
             print("  You may need to configure SSL manually with:")
-            print("    hop3 config set verify_ssl false")
+            print("    hop3 settings set verify_ssl false")
 
     # Save configuration
     config.save(config_data)
@@ -314,7 +523,7 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
         except Exception as e:
             print(f"  Warning: Could not fetch certificate: {e}")
             print("  You may need to configure SSL manually with:")
-            print("    hop3 config set verify_ssl false")
+            print("    hop3 settings set verify_ssl false")
 
     # Save configuration
     config.save(config_data)
@@ -328,36 +537,36 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
     return True
 
 
-def handle_config(args: list[str], config: Config, printer: RichPrinter) -> bool:
-    """Handle the config command for managing local configuration.
+def handle_settings(args: list[str], config: Config, printer: RichPrinter) -> bool:
+    """Handle the settings command for managing local CLI settings.
 
     Usage:
-        hop3 config show
-        hop3 config set <key> <value>
-        hop3 config get <key>
+        hop3 settings show
+        hop3 settings set <key> <value>
+        hop3 settings get <key>
     """
     if not args or args[0] in ("--help", "-h"):
-        print_config_help()
+        print_settings_help()
         return True
 
     subcommand = args[0]
     sub_args = args[1:]
 
     if subcommand == "show":
-        return config_show(config, printer)
+        return settings_show(config, printer)
     if subcommand == "set":
-        return config_set(sub_args, config, printer)
+        return settings_set(sub_args, config, printer)
     if subcommand == "get":
-        return config_get(sub_args, config, printer)
-    print(f"Unknown config subcommand: {subcommand}", file=sys.stderr)
-    print_config_help()
+        return settings_get(sub_args, config, printer)
+    print(f"Unknown settings subcommand: {subcommand}", file=sys.stderr)
+    print_settings_help()
     sys.exit(1)
 
     return True
 
 
-def config_show(config: Config, printer: RichPrinter) -> bool:
-    """Show current configuration."""
+def settings_show(config: Config, printer: RichPrinter) -> bool:
+    """Show current CLI settings."""
     import os
 
     print(f"Config file: {config.config_file}\n")
@@ -394,10 +603,10 @@ def config_show(config: Config, printer: RichPrinter) -> bool:
     return True
 
 
-def config_set(args: list[str], config: Config, printer: RichPrinter) -> bool:
-    """Set a configuration value."""
+def settings_set(args: list[str], config: Config, printer: RichPrinter) -> bool:
+    """Set a CLI settings value."""
     if len(args) < 2:
-        print("Usage: hop3 config set <key> <value>", file=sys.stderr)
+        print("Usage: hop3 settings set <key> <value>", file=sys.stderr)
         sys.exit(1)
 
     key = args[0]
@@ -422,10 +631,10 @@ def config_set(args: list[str], config: Config, printer: RichPrinter) -> bool:
     return True
 
 
-def config_get(args: list[str], config: Config, printer: RichPrinter) -> bool:
-    """Get a configuration value."""
+def settings_get(args: list[str], config: Config, printer: RichPrinter) -> bool:
+    """Get a CLI settings value."""
     if not args:
-        print("Usage: hop3 config get <key>", file=sys.stderr)
+        print("Usage: hop3 settings get <key>", file=sys.stderr)
         sys.exit(1)
 
     key = args[0]
@@ -657,16 +866,16 @@ Examples:
 """)
 
 
-def print_config_help():
-    """Print help for the config command."""
-    print("""Usage: hop3 config <subcommand> [args]
+def print_settings_help():
+    """Print help for the settings command."""
+    print("""Usage: hop3 settings <subcommand> [args]
 
-Manage local CLI configuration.
+Manage local CLI settings.
 
 Subcommands:
-  show              Show current configuration
-  set <key> <value> Set a configuration value
-  get <key>         Get a configuration value
+  show              Show current settings
+  set <key> <value> Set a settings value
+  get <key>         Get a settings value
 
 Keys:
   server (api_url)  Server URL (e.g., https://my-server.com)
@@ -675,37 +884,43 @@ Keys:
   verify_ssl        Verify SSL certificates (true/false, default: true)
 
 Examples:
-  hop3 config show
-  hop3 config set server https://my-server.com
-  hop3 config set token eyJhbGciOiJI...
-  hop3 config set ssl_cert ~/server.crt  # Trust a specific certificate
-  hop3 config set verify_ssl false       # Disable SSL verification (less secure)
-  hop3 config get server
+  hop3 settings show
+  hop3 settings set server https://my-server.com
+  hop3 settings set token eyJhbGciOiJI...
+  hop3 settings set ssl_cert ~/server.crt  # Trust a specific certificate
+  hop3 settings set verify_ssl false       # Disable SSL verification (less secure)
+  hop3 settings get server
 """)
 
 
-def print_login_ssh_help():
-    """Print help for the login --ssh command."""
-    print("""Usage: hop3 login --ssh <user@server> [options]
+def print_login_help():
+    """Print help for the login command."""
+    print("""Usage: hop3 login [options]
 
-Get an API token for an existing user via SSH.
+Authenticate to a Hop3 server.
 
-This command is useful when:
-- You lost your token and need a new one
-- You're setting up the CLI on a new machine
-- You need to rotate your token
+Authentication methods:
+  <url>?token=<token>    URL with embedded token (easiest for local dev)
+  --ssh <user@server>    SSH-based authentication (for remote servers)
+  --token <token>        Use a pre-generated token (with --server)
+  (default)              Username/password authentication
 
 Options:
-  --ssh <user@server>    SSH target for the server (required)
-  --username <name>      Username (prompted if not provided)
-  --server <url>         Server URL (inferred from SSH target if not provided)
+  --ssh <user@server>    Use SSH-based authentication
+  --token <token>        Use a pre-generated API token
+  --server <url>         Server URL (for --token, prompted if not configured)
+  --username <name>      Username (for password auth, prompted if not provided)
 
 Examples:
-  # Interactive
+  # URL with embedded token (easiest for local development)
+  hop-server admin:create admin admin@example.com  # Get token
+  hop3 login "http://localhost:8000?token=eyJ..."
+
+  # SSH-based login (for remote servers)
   hop3 login --ssh root@my-server.com
 
-  # Non-interactive
-  hop3 login --ssh root@my-server.com --username admin --server https://my-server.com
+  # Password-based login (server must be configured)
+  hop3 login
 
 Note: For first-time setup (creating a new admin user), use:
   hop3 init --ssh root@my-server.com

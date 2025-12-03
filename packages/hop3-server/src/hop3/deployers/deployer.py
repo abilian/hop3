@@ -41,10 +41,23 @@ def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
         # Raised if Procfile is missing, etc.
         raise Abort(str(e))
 
+    # Log parsed configuration for debugging
+    log(f"Config parsed from: {app_config.app_dir}", level=2)
+    log(f"  has_procfile: {app_config.has_procfile}", level=2)
+    log(f"  has_hop3_toml: {app_config.has_hop3_toml}", level=2)
+    log(f"  workers: {list(app_config.workers.keys())}", level=2)
+    if app_config.pre_build:
+        log(f"  pre_build: {app_config.pre_build}", level=2)
+    if app_config.post_build:
+        log(f"  post_build: {app_config.post_build}", level=2)
+
     # --- 2. Run Prebuild Hook ---
     # This runs BEFORE builder selection because prebuild may fetch source code
     # or generate files that the builder needs to detect the app type.
-    _run_hook("prebuild", app_config.pre_build, app.src_path)
+    prebuild_cmd = app_config.pre_build
+    if prebuild_cmd:
+        log(f"Found prebuild command: {prebuild_cmd}", level=2)
+    _run_hook("prebuild", prebuild_cmd, app.src_path)
 
     # --- 3. Select and Run Builder ---
     context = DeploymentContext(
