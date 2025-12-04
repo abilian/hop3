@@ -57,6 +57,7 @@ serve:
 	honcho -f Procfile.dev start
 
 ## Alias for serve
+dev: serve
 run: serve
 
 ## Run only the web server (without uWSGI)

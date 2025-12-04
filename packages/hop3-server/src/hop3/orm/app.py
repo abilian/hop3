@@ -361,41 +361,24 @@ class App(BigIntAuditBase):
             raise
 
     def stop(self) -> None:
-        """Stop the application with proper state transitions.
+        """Stop the application by removing uWSGI config files.
 
-        Transitions: RUNNING -> STOPPING
-        The app stays in STOPPING until actual status is verified.
-        Use sync_state() to update to STOPPED once processes are confirmed stopped.
-
-        Raises:
-            StateTransitionError: If the app is not in a stoppable state
+        The uWSGI emperor will detect the removed config and stop the vassal.
+        Always performs cleanup even if state says STOPPED, to handle
+        state-reality mismatches.
         """
-        # Transition to STOPPING state
-        self._transition_state(AppStateEnum.STOPPING)
+        cfg = HopConfig.get_instance()
 
-        try:
-            app_name = self.name
-            config_files = list(
-                HopConfig.get_instance().UWSGI_ENABLED.glob(f"{app_name}*.ini")
-            )
+        # Remove uWSGI config files - emperor will stop the vassal
+        config_files = list(cfg.UWSGI_ENABLED.glob(f"{self.name}*.ini"))
+        for config_file in config_files:
+            config_file.unlink()
 
-            if len(config_files) > 0:
-                log(f"Stopping app '{app_name}'...", fg="blue")
-                for config_file in config_files:
-                    config_file.unlink()
-            else:
-                # App not deployed - treat as warning, not error
-                log(f"Warning: app '{app_name}' has no running processes", fg="yellow")
-
-            # NOTE: We deliberately do NOT transition to STOPPED here
-            # The app stays in STOPPING state until sync_state() verifies it's actually stopped
-
-        except Exception as e:
-            # Transition to FAILED state on error
-            error_msg = f"Failed to stop: {e}"
-            self._transition_state(AppStateEnum.FAILED, error_msg)
-            log(f"Error stopping app '{self.name}': {e}", fg="red")
-            raise
+        # Update state machine
+        if self.run_state == AppStateEnum.RUNNING:
+            self._transition_state(AppStateEnum.STOPPING)
+        elif self.run_state not in (AppStateEnum.STOPPED, AppStateEnum.STOPPING):
+            self.run_state = AppStateEnum.STOPPED
 
     def restart(self) -> None:
         """Restart (or just start) a deployed app.

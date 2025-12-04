@@ -371,7 +371,11 @@ class StopCmd(Command):
         app = _get_app(self.db_session, app_name)
         app.stop()
         self.db_session.commit()
-        return [{"t": "text", "text": f"App '{app_name}' is stopping..."}]
+
+        # Give uWSGI emperor a moment to notice the config change
+        time.sleep(1)
+
+        return [{"t": "text", "text": f"App '{app_name}' stopped."}]
 
 
 @register
@@ -395,7 +399,13 @@ class RestartCmd(Command):
 @register
 @dataclass(frozen=True)
 class DestroyCmd(Command):
-    """Destroy an app, removing all files and configuration."""
+    """Destroy an app, removing all files and configuration.
+
+    Usage: hop3 app:destroy <app_name> [--force]
+
+    Options:
+      -y, --yes, --force   Skip confirmation prompt
+    """
 
     db_session: Session
     name: ClassVar[str] = "app:destroy"
@@ -403,54 +413,27 @@ class DestroyCmd(Command):
 
     def call(self, *args):
         if not args:
-            return [{"t": "text", "text": "Usage: hop destroy <app_name>"}]
+            return [{"t": "text", "text": "Usage: hop3 app:destroy <app_name> [--force]"}]
         app_name = args[0]
 
-        debug_msgs = []
-
-        def debug(msg):
-            log(msg, level=1)
-            debug_msgs.append(msg)
-
-        debug(f"[DESTROY] Starting destroy for '{app_name}'")
+        log(f"Destroying app '{app_name}'...", level=2)
 
         app = _get_app(self.db_session, app_name)
-        debug(f"[DESTROY] App fetched from session (session id={id(self.db_session)})")
 
         # Stop the app first to release any file locks
         app.stop()
-        debug("[DESTROY] App stopped")
 
         # Clean up filesystem (repo, src, logs, configs etc.)
         app.destroy()
-        debug("[DESTROY] Filesystem cleaned")
 
         # Remove from the database
-        debug("[DESTROY] Calling db_session.delete()")
         self.db_session.delete(app)
-
-        debug("[DESTROY] Calling db_session.commit()")
         self.db_session.commit()
-        debug("[DESTROY] Commit completed successfully")
-
-        # Verify deletion
-        app_repo = AppRepository(session=self.db_session)
-        still_exists = app_repo.get_one_or_none(name=app_name)
-        if still_exists:
-            debug("[DESTROY] WARNING: App still exists in database after commit!")
-        else:
-            debug("[DESTROY] Verified: App no longer in database")
 
         # Reload nginx to remove the app's routing configuration
         self._reload_nginx()
 
-        return [
-            {
-                "t": "text",
-                "text": f"App '{app_name}' has been destroyed.\n\nDebug:\n"
-                + "\n".join(debug_msgs),
-            }
-        ]
+        return [{"t": "text", "text": f"App '{app_name}' has been destroyed."}]
 
     # TODO: this should use a signal/event bus system instead
     def _reload_nginx(self) -> None:
