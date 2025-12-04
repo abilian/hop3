@@ -27,17 +27,7 @@ class StaticToolchain(LanguageToolchain):
         Returns:
             True if Procfile contains a "static:" entry, False otherwise
         """
-        procfile_path = self.src_path / "Procfile"
-        if not procfile_path.exists():
-            return False
-
-        # Check if Procfile contains "static:" entry
-        procfile_content = procfile_path.read_text()
-        for line in procfile_content.splitlines():
-            if line.strip().startswith("static:"):
-                return True
-
-        return False
+        return self._parse_static_entry() is not None
 
     def build(self) -> BuildArtifact:
         """Build the static application (no actual build needed).
@@ -72,15 +62,25 @@ class StaticToolchain(LanguageToolchain):
         Returns:
             Path to the static directory relative to src_path
         """
-        procfile_path = self.src_path / "Procfile"
-        procfile_content = procfile_path.read_text()
+        static_dir = self._parse_static_entry()
+        # Default to "public" if not found (shouldn't happen if accept() passed)
+        return static_dir or "public"
 
+    def _parse_static_entry(self) -> str | None:
+        """Parse Procfile to find static entry.
+
+        Returns:
+            The static directory path if found, None otherwise
+        """
+        procfile_path = self.src_path / "Procfile"
+        if not procfile_path.exists():
+            return None
+
+        procfile_content = procfile_path.read_text()
         for line in procfile_content.splitlines():
             stripped_line = line.strip()
             if stripped_line.startswith("static:"):
                 # Extract directory path after "static:"
-                static_dir = stripped_line.split(":", 1)[1].strip()
-                return static_dir
+                return stripped_line.split(":", 1)[1].strip()
 
-        # Default to "public" if not found (shouldn't happen if accept() passed)
-        return "public"
+        return None

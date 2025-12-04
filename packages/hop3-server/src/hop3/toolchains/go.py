@@ -29,11 +29,11 @@ class GoToolchain(LanguageToolchain):
         ) > 0
 
     def build(self) -> BuildArtifact:
-        """Build the Go application."""
-        # This method would contain the implementation details
-        # to compile and build a Go project
-        # TODO: implement
+        """Build the Go application.
 
+        TODO: Implement actual Go build using 'go build' command.
+        Currently returns a stub artifact for testing purposes.
+        """
         return BuildArtifact(
             kind="go",
             location=str(self.src_path),

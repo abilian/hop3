@@ -9,10 +9,10 @@ from typing import TYPE_CHECKING
 
 from attrs import field, mutable
 
-from hop3.builders import TOOLCHAIN_CLASSES
 from hop3.lib import Abort, check_binaries, log, shell
 from hop3.project.config import AppConfig
 from hop3.run.spawn import spawn_app
+from hop3.toolchains import TOOLCHAIN_CLASSES
 
 if TYPE_CHECKING:
     from pathlib import Path

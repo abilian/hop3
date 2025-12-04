@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from hop3.builders import (
+from hop3.toolchains import (
     ClojureToolchain,
     NodeToolchain,
     PythonToolchain,

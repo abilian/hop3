@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from hop3.builders import TOOLCHAIN_CLASSES
 from hop3.core.hooks import hop3_hook_impl
+from hop3.toolchains import TOOLCHAIN_CLASSES
 
 
 class NativeBuildPlugin:

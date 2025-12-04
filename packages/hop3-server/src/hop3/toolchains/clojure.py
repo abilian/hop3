@@ -30,12 +30,8 @@ class ClojureToolchain(LanguageToolchain):
     # TODO
     requirements = []  # noqa: RUF012
 
-    def accept(self):
-        """Check if the object is a Leiningen app or a CLI Clojure app.
-
-        Returns
-            bool: True if the object is a Leiningen app or a CLI Clojure app, False otherwise.
-        """
+    def accept(self) -> bool:
+        """Check if the object is a Leiningen app or a CLI Clojure app."""
         return self.check_exists(["project.clj", "deps.edn"])
 
     @property
@@ -81,17 +77,11 @@ class ClojureToolchain(LanguageToolchain):
         )
 
     def get_env(self) -> Env:
-        """Get the environment variables for the current setup.
-
-        Returns
-        -------
-            Env: The environment variables based on the current setup.
-        """
+        """Get the environment variables for the current setup."""
         path = prepend_to_path(
             [
                 self.virtual_env / "bin",
-                # FIXME: probably bad
-                Path(self.app_name) / ".bin",
+                self.src_path / ".bin",
             ],
         )
 
@@ -103,16 +93,10 @@ class ClojureToolchain(LanguageToolchain):
         )
 
         if self.is_leiningen_app:
-            lein_home = os.environ.get(
-                "LEIN_HOME",
-                os.path.join(os.environ["HOME"], ".lein"),
-            )
+            lein_home = os.environ.get("LEIN_HOME", str(Path.home() / ".lein"))
             env["LEIN_HOME"] = lein_home
         else:
-            clj_config = os.environ.get(
-                "CLJ_CONFIG",
-                os.path.join(os.environ["HOME"], ".clojure"),
-            )
+            clj_config = os.environ.get("CLJ_CONFIG", str(Path.home() / ".clojure"))
             env["CLJ_CONFIG"] = clj_config
 
         env.parse_settings(self.env_file)

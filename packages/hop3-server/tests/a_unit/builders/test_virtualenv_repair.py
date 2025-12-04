@@ -9,7 +9,7 @@ import subprocess
 import time
 from typing import TYPE_CHECKING
 
-from hop3.builders.python import PythonToolchain
+from hop3.toolchains.python import PythonToolchain
 
 if TYPE_CHECKING:
     from pathlib import Path
