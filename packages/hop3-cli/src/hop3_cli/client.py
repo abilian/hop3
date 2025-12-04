@@ -181,58 +181,8 @@ class Client:
         }
         json_request = request(method, args)
 
-        # Determine SSL verification mode
-        # Options:
-        #   - ssl_cert: path to a trusted certificate file (for self-signed certs)
-        #   - verify_ssl: false to disable verification entirely (last resort)
-        #
-        # For IP addresses with ssl_cert: We skip SSL verification because:
-        #   1. Standard verification fails (cert is for hostname, not IP)
-        #   2. The certificate was fetched via SSH (trusted channel) during init
-        #   3. We're connecting to the same server we SSH'd into
-        parsed_url = urlparse(self.api_url)
-        verify_ssl: bool | str = True
-
-        if parsed_url.scheme == "https":
-            ssl_cert = self.config.get("ssl_cert", None)
-            verify_ssl_config = self.config.get("verify_ssl", None)
-            hostname = parsed_url.hostname or ""
-
-            # Parse verify_ssl setting
-            verify_ssl_disabled = False
-            if verify_ssl_config is not None:
-                if isinstance(verify_ssl_config, str):
-                    verify_ssl_disabled = verify_ssl_config.lower() in (
-                        "false",
-                        "0",
-                        "no",
-                    )
-                else:
-                    verify_ssl_disabled = not bool(verify_ssl_config)
-
-            if ssl_cert and _is_ip_address(hostname):
-                # IP address with saved cert: skip verification
-                # (cert was fetched via trusted SSH, hostname check would fail)
-                verify_ssl = False
-            elif ssl_cert:
-                # Hostname with saved cert: standard verification with custom CA
-                verify_ssl = ssl_cert
-            elif verify_ssl_disabled:
-                # No cert and verification explicitly disabled
-                verify_ssl = False
-            # else: default to True (system CA bundle)
-        else:
-            verify_ssl = False
-
-        # Build headers with authentication
-        headers = {"Content-Type": "application/json"}
-
-        # Add authentication token if configured
-        # Note: Even with SSH tunnel, we still use token for authorization
-        # SSH provides transport security, token provides authorization
-        api_token = self.config.get("api_token", "")
-        if api_token:
-            headers["Authorization"] = f"Bearer {api_token}"
+        verify_ssl = self._get_ssl_verification()
+        headers = self._build_headers()
 
         response = requests.post(
             self.rpc_url,
@@ -240,51 +190,117 @@ class Client:
             headers=headers,
             verify=verify_ssl,
         )
-        try:
-            # Check for 401 Unauthorized specifically
-            if response.status_code == 401:
-                error_msg = (
-                    "Authentication required.\n\n"
-                    "To authenticate, use one of the following methods:\n"
-                    "  1. Login: hop auth:login <username> <password>\n"
-                    "  2. Register: hop auth:register <username> <email> <password>\n\n"
-                    "After logging in, save the token to ~/.config/hop3-cli/config.toml\n"
-                    "or set the HOP3_API_TOKEN environment variable."
-                )
-                return Error(401, error_msg, "", json_request["id"])
 
+        return self._parse_response(response, json_request)
+
+    def _get_ssl_verification(self) -> bool | str:
+        """Determine SSL verification mode based on config."""
+        parsed_url = urlparse(self.api_url)
+
+        if parsed_url.scheme != "https":
+            return False
+
+        ssl_cert = self.config.get("ssl_cert", None)
+        verify_ssl_config = self.config.get("verify_ssl", None)
+        hostname = parsed_url.hostname or ""
+
+        # Check if verification is explicitly disabled
+        verify_ssl_disabled = self._is_verify_ssl_disabled(verify_ssl_config)
+
+        if ssl_cert and _is_ip_address(hostname):
+            # IP address with saved cert: skip verification
+            # (cert was fetched via trusted SSH, hostname check would fail)
+            return False
+        if ssl_cert:
+            # Hostname with saved cert: standard verification with custom CA
+            return ssl_cert
+
+        # Default to system CA bundle unless explicitly disabled
+        return not verify_ssl_disabled
+
+    def _is_verify_ssl_disabled(self, verify_ssl_config: str | bool | None) -> bool:
+        """Check if SSL verification is explicitly disabled in config."""
+        if verify_ssl_config is None:
+            return False
+        if isinstance(verify_ssl_config, str):
+            return verify_ssl_config.lower() in ("false", "0", "no")
+        return not bool(verify_ssl_config)
+
+    def _build_headers(self) -> dict[str, str]:
+        """Build request headers with authentication."""
+        headers = {"Content-Type": "application/json"}
+        api_token = self.config.get("api_token", "")
+        if api_token:
+            headers["Authorization"] = f"Bearer {api_token}"
+        return headers
+
+    def _parse_response(
+        self, response: requests.Response, json_request: dict
+    ) -> Response:
+        """Parse HTTP response into JSON-RPC response."""
+        request_id = json_request["id"]
+
+        try:
+            if response.status_code == 401:
+                return self._make_auth_error(request_id)
+
+            # Try to parse as JSON-RPC response (even for non-200 status codes)
+            json_rpc_response = self._try_parse_jsonrpc(response, request_id)
+            if json_rpc_response is not None:
+                return json_rpc_response
+
+            # For non-200 responses without JSON-RPC error, raise HTTP error
             response.raise_for_status()
-            parsed_response = parse(response.json())
-            # parse() can return Error, Ok, or Iterable[Error | Ok], but we expect single response
+            return Error(-1, "Unexpected response format", "", request_id)
+
+        except requests.exceptions.HTTPError as e:
+            error_detail = f"HTTP {response.status_code} error: {e!s}"
+            if response.text:
+                error_detail += f"\nResponse: {response.text[:500]}"
+            return Error(response.status_code, error_detail, "", request_id)
+        except Exception as e:
+            return Error(response.status_code, str(e), "", request_id)
+
+    def _make_auth_error(self, request_id: int) -> Error:
+        """Create authentication required error."""
+        error_msg = (
+            "Authentication required.\n\n"
+            "To authenticate, use one of the following methods:\n"
+            "  1. Login: hop auth:login <username> <password>\n"
+            "  2. Register: hop auth:register <username> <email> <password>\n\n"
+            "After logging in, save the token to ~/.config/hop3-cli/config.toml\n"
+            "or set the HOP3_API_TOKEN environment variable."
+        )
+        return Error(401, error_msg, "", request_id)
+
+    def _try_parse_jsonrpc(
+        self, response: requests.Response, request_id: int
+    ) -> Response | None:
+        """Try to parse response as JSON-RPC. Returns None if not valid JSON-RPC."""
+        try:
+            json_body = response.json()
+        except ValueError:
+            return None
+
+        # Check if this is a JSON-RPC error response
+        if "error" in json_body and isinstance(json_body["error"], dict):
+            rpc_error = json_body["error"]
+            return Error(
+                rpc_error.get("code", response.status_code),
+                rpc_error.get("message", "Unknown error"),
+                rpc_error.get("data", ""),
+                request_id,
+            )
+
+        # Parse successful JSON-RPC response
+        if response.ok:
+            parsed_response = parse(json_body)
             if isinstance(parsed_response, (Error, Ok)):
                 return parsed_response
             # Handle batch responses - take first response
             responses = list(parsed_response)
             if responses and isinstance(responses[0], (Error, Ok)):
                 return responses[0]
-            return Error(-1, "Invalid response format", "", json_request["id"])
-        except requests.exceptions.HTTPError as e:
-            # For other HTTP errors, provide the status code and message
-            # Try to extract error details from response body
-            error_detail = f"HTTP {response.status_code} error: {e!s}"
-            try:
-                error_body = response.json()
-                if "detail" in error_body:
-                    error_detail += f"\nDetail: {error_body['detail']}"
-                elif "error" in error_body:
-                    error_detail += f"\nError: {error_body['error']}"
-                else:
-                    error_detail += f"\nResponse: {error_body}"
-            except Exception:
-                # If we can't parse JSON, try to show raw response
-                if response.text:
-                    error_detail += f"\nResponse: {response.text[:500]}"
+            return Error(-1, "Invalid response format", "", request_id)
 
-            return Error(
-                response.status_code,
-                error_detail,
-                "",
-                json_request["id"],
-            )
-        except Exception as e:
-            return Error(response.status_code, str(e), "", json_request["id"])
+        return None

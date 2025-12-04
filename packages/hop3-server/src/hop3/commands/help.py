@@ -28,14 +28,14 @@ class HelpCmd(Command):
 
     def call(self, *args):
         # Parse --all flag
-        args = list(args)
-        show_all = "--all" in args
+        arg_list = list(args)
+        show_all = "--all" in arg_list
         if show_all:
-            args.remove("--all")
+            arg_list.remove("--all")
 
         # If a command name is provided, show detailed help for that command
-        if args:
-            command_name = args[0]
+        if arg_list:
+            command_name = arg_list[0]
             return self._detailed_help(command_name)
 
         # Show commands overview
@@ -57,8 +57,8 @@ class HelpCmd(Command):
         commands = lookup(Command)
 
         # Find top-level commands and count subcommands
-        top_level_cmds = {}  # name -> cmd
-        subcommand_counts = {}  # prefix -> count
+        top_level_cmds: dict[str, type[Command]] = {}
+        subcommand_counts: dict[str, int] = {}
 
         for cmd in commands:
             name = cmd.name

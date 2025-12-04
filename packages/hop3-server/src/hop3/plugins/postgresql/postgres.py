@@ -17,16 +17,13 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import psycopg2
 from psycopg2 import sql
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 from hop3.config import HOP3_ROOT
-
-if TYPE_CHECKING:
-    pass
 
 
 @dataclass(frozen=True)

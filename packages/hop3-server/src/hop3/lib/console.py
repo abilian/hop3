@@ -276,10 +276,9 @@ class CaptureLogs:
         self.old_console = set_console(self.console)
         return self.console
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         if self.old_console is not None:
             set_console(self.old_console)
-        return False
 
 
 capture_logs = CaptureLogs

@@ -15,15 +15,11 @@ This module migrates unit tests to state-based integration tests:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 from unittest.mock import Mock, patch
 
 import pytest
 
 from hop3.plugins.postgresql.postgres import PostgresAddon, PostgresqlAddon
-
-if TYPE_CHECKING:
-    pass
 
 
 @pytest.fixture

@@ -7,15 +7,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 import bcrypt as bcrypt_lib
 from advanced_alchemy.base import BigIntAuditBase
 from sqlalchemy import Column, ForeignKey, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-if TYPE_CHECKING:
-    pass
 
 AuditBase = BigIntAuditBase
 

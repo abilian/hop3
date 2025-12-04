@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import traceback
-from typing import TYPE_CHECKING
 
 from litestar import Controller, Request, post
 from litestar.params import Body
@@ -21,9 +20,6 @@ from hop3.lib.scanner import scan_package
 from hop3.lib.types import JsonDict
 from hop3.orm import get_session_factory
 from hop3.server.security.tokens import validate_token
-
-if TYPE_CHECKING:
-    pass
 
 # Scan and register all CLI commands
 scan_package("hop3.commands")

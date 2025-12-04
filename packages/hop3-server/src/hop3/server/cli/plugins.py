@@ -102,7 +102,7 @@ class Plugins(Command):
 
     def _gather_capabilities(self, pm) -> dict[str, set[str]]:
         """Gather all capabilities from registered plugins."""
-        capabilities = {
+        capabilities: dict[str, set[str]] = {
             "builders": set(),
             "deployers": set(),
             "toolchains": set(),
@@ -111,35 +111,51 @@ class Plugins(Command):
             "addons": set(),
         }
 
-        # Get all strategies from hooks
+        self._gather_builders(pm, capabilities)
+        self._gather_deployers(pm, capabilities)
+        self._gather_toolchains(pm, capabilities)
+        self._gather_proxies(pm, capabilities)
+        self._gather_os_support(pm, capabilities)
+        self._gather_addons(pm, capabilities)
+
+        return capabilities
+
+    def _gather_builders(self, pm, capabilities: dict[str, set[str]]) -> None:
+        """Gather builder capabilities from plugins."""
         try:
             for builder_list in pm.hook.get_builders():
                 for builder in builder_list:
                     name = getattr(builder, "name", builder.__name__)
-                    if name != "dummy":  # Skip internal dummy
+                    if name != "dummy":
                         capabilities["builders"].add(name)
         except Exception:
             pass
 
+    def _gather_deployers(self, pm, capabilities: dict[str, set[str]]) -> None:
+        """Gather deployer capabilities from plugins."""
         try:
             for deployer_list in pm.hook.get_deployers():
                 for deployer in deployer_list:
                     name = getattr(deployer, "name", deployer.__name__)
-                    if name != "dummy":  # Skip internal dummy
+                    if name != "dummy":
                         capabilities["deployers"].add(name)
         except Exception:
             pass
 
+    def _gather_toolchains(self, pm, capabilities: dict[str, set[str]]) -> None:
+        """Gather toolchain capabilities from plugins."""
         try:
             for toolchain_list in pm.hook.get_language_toolchains():
                 for toolchain in toolchain_list:
                     name = getattr(toolchain, "name", toolchain.__name__)
                     lang_name = self._toolchain_to_language(name)
-                    if lang_name:  # Skip non-language toolchains
+                    if lang_name:
                         capabilities["toolchains"].add(lang_name)
         except Exception:
             pass
 
+    def _gather_proxies(self, pm, capabilities: dict[str, set[str]]) -> None:
+        """Gather proxy capabilities from plugins."""
         try:
             for proxy_list in pm.hook.get_proxies():
                 for proxy in proxy_list:
@@ -148,6 +164,8 @@ class Plugins(Command):
         except Exception:
             pass
 
+    def _gather_os_support(self, pm, capabilities: dict[str, set[str]]) -> None:
+        """Gather OS support capabilities from plugins."""
         try:
             for os_list in pm.hook.get_os_implementations():
                 for os_impl in os_list:
@@ -156,6 +174,8 @@ class Plugins(Command):
         except Exception:
             pass
 
+    def _gather_addons(self, pm, capabilities: dict[str, set[str]]) -> None:
+        """Gather addon capabilities from plugins."""
         try:
             for addon_list in pm.hook.get_addons():
                 for addon in addon_list:
@@ -163,8 +183,6 @@ class Plugins(Command):
                     capabilities["addons"].add(name)
         except Exception:
             pass
-
-        return capabilities
 
     def _toolchain_to_language(self, toolchain_name: str) -> str | None:
         """Convert toolchain name to user-friendly language name.
