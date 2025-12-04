@@ -6,7 +6,6 @@ import os
 import secrets
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from dishka.integrations.litestar import setup_dishka
 from litestar import Litestar, Request
@@ -30,9 +29,6 @@ from .controllers import (
     RPCController,
 )
 from .state_sync import start_state_sync_service, stop_state_sync_service
-
-if TYPE_CHECKING:
-    pass
 
 DEBUG = True
 

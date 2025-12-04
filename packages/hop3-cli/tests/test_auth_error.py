@@ -51,3 +51,64 @@ def test_other_http_errors():
     # Check that we got an Error response
     assert isinstance(response, Error)
     assert response.code == 500
+
+
+def test_jsonrpc_error_with_http_404():
+    """Test that JSON-RPC errors returned with HTTP 404 are parsed correctly.
+
+    The server returns HTTP 404 with a JSON-RPC error body for "command not found".
+    The client should extract the clean error message, not show the HTTP error.
+    """
+    config = Config(data={"api_url": "http://localhost:8000"})
+    client = Client(config=config, state=None)
+
+    # Mock the requests.post to return a 404 with JSON-RPC error body
+    mock_response = Mock()
+    mock_response.status_code = 404
+    mock_response.ok = False
+    mock_response.json.return_value = {
+        "jsonrpc": "2.0",
+        "error": {
+            "code": -32601,
+            "message": "Command 'xxx' not found",
+        },
+        "id": 1,
+    }
+
+    with patch("hop3_cli.client.requests.post", return_value=mock_response):
+        response = client.rpc("cli", ["xxx"])
+
+    # Check that we got an Error response with the clean message
+    assert isinstance(response, Error)
+    assert response.code == -32601
+    assert response.message == "Command 'xxx' not found"
+    # Should NOT contain HTTP 404 error text
+    assert "HTTP" not in response.message
+    assert "404" not in response.message
+
+
+def test_jsonrpc_error_with_data_field():
+    """Test that JSON-RPC error data field is preserved."""
+    config = Config(data={"api_url": "http://localhost:8000"})
+    client = Client(config=config, state=None)
+
+    mock_response = Mock()
+    mock_response.status_code = 400
+    mock_response.ok = False
+    mock_response.json.return_value = {
+        "jsonrpc": "2.0",
+        "error": {
+            "code": -32602,
+            "message": "Invalid params",
+            "data": "Missing required parameter 'app_name'",
+        },
+        "id": 1,
+    }
+
+    with patch("hop3_cli.client.requests.post", return_value=mock_response):
+        response = client.rpc("cli", ["app:start"])
+
+    assert isinstance(response, Error)
+    assert response.code == -32602
+    assert response.message == "Invalid params"
+    assert response.data == "Missing required parameter 'app_name'"

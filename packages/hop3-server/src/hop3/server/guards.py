@@ -10,16 +10,11 @@ They check if the user is authenticated before allowing access to the route.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from litestar.connection import ASGIConnection
 from litestar.exceptions import NotAuthorizedException
 from litestar.handlers import BaseRouteHandler
 
 from hop3 import config
-
-if TYPE_CHECKING:
-    pass
 
 
 def auth_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:

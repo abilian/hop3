@@ -13,13 +13,9 @@ this list to reject revoked tokens even if they haven't expired yet.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
 
 from advanced_alchemy.base import BigIntAuditBase
 from sqlalchemy.orm import Mapped, mapped_column
-
-if TYPE_CHECKING:
-    pass
 
 
 class RevokedToken(BigIntAuditBase):

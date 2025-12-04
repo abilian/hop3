@@ -371,7 +371,39 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> b
         hop3 login --ssh user@server
         hop3 login --ssh user@server --username admin
     """
-    # Parse arguments
+    ssh_target, username, server_url = _parse_login_ssh_args(args)
+
+    # Prompt for username if not provided
+    if not username:
+        username = input("Username: ").strip()
+        if not username:
+            print("Error: Username cannot be empty", file=sys.stderr)
+            sys.exit(1)
+
+    # Execute via SSH
+    print(f"\nConnecting to {ssh_target}...")
+
+    try:
+        token = get_token_via_ssh(ssh_target, username)
+    except BootstrapError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Prepare and save config
+    config_data = {"api_url": server_url, "api_token": token}
+    _handle_ssl_certificate(ssh_target, server_url, config, config_data)
+    config.save(config_data)
+
+    _print_login_success(username, config)
+    return True
+
+
+def _parse_login_ssh_args(args: list[str]) -> tuple[str, str | None, str]:
+    """Parse arguments for login --ssh command.
+
+    Returns:
+        Tuple of (ssh_target, username, server_url)
+    """
     ssh_target = None
     username = None
     server_url = None
@@ -405,74 +437,58 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> b
         if response:
             server_url = response
 
-    # Prompt for username if not provided
-    if not username:
-        username = input("Username: ").strip()
-        if not username:
-            print("Error: Username cannot be empty", file=sys.stderr)
-            sys.exit(1)
+    return ssh_target, username, server_url
 
-    # Execute via SSH
-    print(f"\nConnecting to {ssh_target}...")
 
-    try:
-        token = get_token_via_ssh(ssh_target, username)
-    except BootstrapError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+def _handle_ssl_certificate(
+    ssh_target: str, server_url: str, config: Config, config_data: dict
+) -> None:
+    """Handle SSL certificate fetching for HTTPS connections.
 
-    # Prepare config data
-    config_data = {
-        "api_url": server_url,
-        "api_token": token,
-    }
-
-    # If using HTTPS and no SSL config, handle SSL verification
+    Updates config_data with ssl_cert path if successful.
+    """
     existing_cert = config.get("ssl_cert", None)
     existing_verify = config.get("verify_ssl", None)
-    if (
-        server_url.startswith("https://")
-        and not existing_cert
-        and existing_verify is None
-    ):
-        from urllib.parse import urlparse
 
-        parsed = urlparse(server_url)
-        hostname = parsed.hostname
+    if not server_url.startswith("https://"):
+        return
+    if existing_cert or existing_verify is not None:
+        return
 
-        # Check if connecting via IP address
-        is_ip_address = hostname and (
-            hostname.replace(".", "").isdigit()  # IPv4
-            or ":" in hostname  # IPv6
-        )
+    from urllib.parse import urlparse
 
-        # Fetch and save the certificate for SSL verification
-        print("\nFetching SSL certificate...")
-        try:
-            cert_path = fetch_and_save_certificate(ssh_target, server_url, config)
-            if cert_path:
-                config_data["ssl_cert"] = str(cert_path)
-                print(f"  Certificate saved to {cert_path}")
-                if is_ip_address:
-                    print(
-                        "  Note: Using IP address - hostname verification will be skipped,"
-                    )
-                    print("        but certificate will still be verified.")
-        except Exception as e:
-            print(f"  Warning: Could not fetch certificate: {e}")
-            print("  You may need to configure SSL manually with:")
-            print("    hop3 settings set verify_ssl false")
+    parsed = urlparse(server_url)
+    hostname = parsed.hostname
 
-    # Save configuration
-    config.save(config_data)
+    # Check if connecting via IP address
+    is_ip_address = hostname and (
+        hostname.replace(".", "").isdigit() or ":" in hostname
+    )
 
+    print("\nFetching SSL certificate...")
+    try:
+        cert_path = fetch_and_save_certificate(ssh_target, server_url, config)
+        if cert_path:
+            config_data["ssl_cert"] = str(cert_path)
+            print(f"  Certificate saved to {cert_path}")
+            if is_ip_address:
+                print(
+                    "  Note: Using IP address - hostname verification will be skipped,"
+                )
+                print("        but certificate will still be verified.")
+    except Exception as e:
+        print(f"  Warning: Could not fetch certificate: {e}")
+        print("  You may need to configure SSL manually with:")
+        print("    hop3 settings set verify_ssl false")
+
+
+def _print_login_success(username: str, config: Config) -> None:
+    """Print success message after login."""
     print(f"\nToken generated for user '{username}'")
     print(f"Configuration saved to {config.config_file}")
     print("\nWelcome back! Try:")
     print("  hop3 apps           # List applications")
     print("  hop3 auth:whoami    # Check current user")
-
-    return True
 
 
 def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
@@ -483,7 +499,52 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
         hop3 init --ssh user@server --username admin --email admin@example.com
         echo "password" | hop3 init --ssh user@server --username admin --email admin@example.com --password-stdin
     """
-    # Parse arguments
+    parsed = _parse_init_args(args)
+    if parsed is None:
+        return True  # Help was shown
+
+    ssh_target, username, email, server_url, password_stdin, auto_yes = parsed
+
+    # Infer server URL from SSH target if not provided
+    if not server_url:
+        server_url = infer_server_url(ssh_target)
+        if not auto_yes:
+            response = input(f"Server URL [{server_url}]: ").strip()
+            if response:
+                server_url = response
+
+    # Gather credentials
+    username, email, password = _gather_init_credentials(
+        username, email, password_stdin
+    )
+
+    # Execute via SSH
+    print(f"\nConnecting to {ssh_target}...")
+
+    try:
+        token = create_admin_via_ssh(ssh_target, username, email, password)
+    except BootstrapError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Prepare and save config
+    config_data = {"api_url": server_url, "api_token": token}
+    _handle_ssl_certificate(ssh_target, server_url, config, config_data)
+    config.save(config_data)
+
+    _print_init_success(username, config)
+    return True
+
+
+def _parse_init_args(
+    args: list[str],
+) -> tuple[str, str | None, str | None, str | None, bool, bool] | None:
+    """Parse arguments for init command.
+
+    Returns:
+        Tuple of (ssh_target, username, email, server_url, password_stdin, auto_yes)
+        or None if help was shown
+    """
     ssh_target = None
     username = None
     email = None
@@ -514,7 +575,7 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
             i += 1
         elif arg in ("--help", "-h"):
             print_init_help()
-            return True
+            return None
         else:
             i += 1
 
@@ -523,15 +584,17 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
         print("\nError: --ssh argument is required", file=sys.stderr)
         sys.exit(1)
 
-    # Infer server URL from SSH target if not provided
-    if not server_url:
-        server_url = infer_server_url(ssh_target)
-        if not auto_yes:
-            response = input(f"Server URL [{server_url}]: ").strip()
-            if response:
-                server_url = response
+    return ssh_target, username, email, server_url, password_stdin, auto_yes
 
-    # Prompt for username and email if not provided
+
+def _gather_init_credentials(
+    username: str | None, email: str | None, password_stdin: bool
+) -> tuple[str, str, str]:
+    """Gather username, email, and password for init command.
+
+    Returns:
+        Tuple of (username, email, password)
+    """
     if not username:
         username = input("Admin username: ").strip()
         if not username:
@@ -544,7 +607,6 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
             print("Error: Email cannot be empty", file=sys.stderr)
             sys.exit(1)
 
-    # Get password
     if password_stdin:
         password = sys.stdin.read().strip()
     else:
@@ -558,61 +620,16 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
         print("Error: Password cannot be empty", file=sys.stderr)
         sys.exit(1)
 
-    # Execute via SSH
-    print(f"\nConnecting to {ssh_target}...")
+    return username, email, password
 
-    try:
-        token = create_admin_via_ssh(ssh_target, username, email, password)
-    except BootstrapError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
 
-    # Prepare config data
-    config_data = {
-        "api_url": server_url,
-        "api_token": token,
-    }
-
-    # If using HTTPS, handle SSL verification
-    if server_url.startswith("https://"):
-        from urllib.parse import urlparse
-
-        parsed = urlparse(server_url)
-        hostname = parsed.hostname
-
-        # Check if connecting via IP address
-        is_ip_address = hostname and (
-            hostname.replace(".", "").isdigit()  # IPv4
-            or ":" in hostname  # IPv6
-        )
-
-        # Fetch and save the certificate for SSL verification
-        print("\nFetching SSL certificate...")
-        try:
-            cert_path = fetch_and_save_certificate(ssh_target, server_url, config)
-            if cert_path:
-                config_data["ssl_cert"] = str(cert_path)
-                print(f"  Certificate saved to {cert_path}")
-                if is_ip_address:
-                    print(
-                        "  Note: Using IP address - hostname verification will be skipped,"
-                    )
-                    print("        but certificate will still be verified.")
-        except Exception as e:
-            print(f"  Warning: Could not fetch certificate: {e}")
-            print("  You may need to configure SSL manually with:")
-            print("    hop3 settings set verify_ssl false")
-
-    # Save configuration
-    config.save(config_data)
-
+def _print_init_success(username: str, config: Config) -> None:
+    """Print success message after init."""
     print(f"\nAdmin user '{username}' created successfully.")
     print(f"Configuration saved to {config.config_file}")
     print("\nYou're all set! Try:")
     print("  hop3 apps           # List applications")
     print("  hop3 auth:whoami    # Check current user")
-
-    return True
 
 
 def handle_settings(args: list[str], config: Config, printer: RichPrinter) -> bool:

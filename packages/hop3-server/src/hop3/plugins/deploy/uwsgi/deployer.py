@@ -160,8 +160,8 @@ class UWSGIDeployer(Deployer):
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.settimeout(1)
-                    result = s.connect_ex(("127.0.0.1", self.app.port))
-                    if result == 0:
+                    connect_result = s.connect_ex(("127.0.0.1", self.app.port))
+                    if connect_result == 0:
                         # Port is listening
                         return True
             except OSError:
@@ -170,14 +170,14 @@ class UWSGIDeployer(Deployer):
         # Method 2: Check for running uWSGI processes with this app's name
         # uWSGI sets procname-prefix to "{app_name}:{kind}:"
         try:
-            result = subprocess.run(
+            pgrep_result = subprocess.run(
                 ["pgrep", "-f", f"{self.app.name}:"],
                 check=False,
                 capture_output=True,
                 text=True,
                 timeout=2,
             )
-            if result.returncode == 0 and result.stdout.strip():
+            if pgrep_result.returncode == 0 and pgrep_result.stdout.strip():
                 # Found running processes
                 return True
         except (subprocess.TimeoutExpired, FileNotFoundError):

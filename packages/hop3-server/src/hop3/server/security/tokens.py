@@ -12,12 +12,9 @@ from __future__ import annotations
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import jwt
-
-if TYPE_CHECKING:
-    pass
 
 
 def _get_config():

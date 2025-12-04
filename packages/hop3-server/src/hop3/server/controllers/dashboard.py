@@ -150,6 +150,154 @@ def is_service_var(var_name: str) -> bool:
     return any(suffix in var_name.upper() for suffix in service_suffixes)
 
 
+def _validate_app_name(app_name: str) -> list[str]:
+    """Validate app name and return list of errors."""
+    errors = []
+
+    if not app_name:
+        errors.append("App name is required")
+    elif not app_name.replace("-", "").replace("_", "").isalnum():
+        errors.append(
+            "App name can only contain letters, numbers, hyphens, and underscores"
+        )
+    elif len(app_name) < 3:
+        errors.append("App name must be at least 3 characters")
+    elif len(app_name) > 63:
+        errors.append("App name must be less than 64 characters")
+
+    # Check if app already exists
+    if not errors:
+        with get_session() as db_session:
+            existing_app = get_app_or_none(db_session, app_name)
+            if existing_app:
+                errors.append(f"App '{app_name}' already exists")
+
+    return errors
+
+
+def _parse_env_vars(env_vars_text: str) -> dict[str, str]:
+    """Parse environment variables from text."""
+    env_vars = {}
+    if env_vars_text:
+        for line in env_vars_text.split("\n"):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, value = line.split("=", 1)
+                env_vars[key.strip()] = value.strip()
+    return env_vars
+
+
+def _create_form_response(
+    errors: list[str],
+    app_name: str,
+    builder: str,
+    git_url: str,
+    env_vars_text: str,
+) -> Template:
+    """Create template response for app creation form with errors."""
+    ctx = {
+        "errors": errors,
+        "app_name": app_name,
+        "builder": builder,
+        "git_url": git_url,
+        "env_vars": env_vars_text,
+        "builders": BUILDER_OPTIONS,
+    }
+    return Template(template_name="dashboard/app_create.html", context=ctx)
+
+
+def _create_app(app_name: str, builder: str, env_vars: dict[str, str]) -> Redirect:
+    """Create app and return redirect to detail page."""
+    with get_session() as db_session:
+        app = App(name=app_name)
+        app.create()
+
+        for key, value in env_vars.items():
+            env_var = EnvVar(name=key, value=value)
+            app.env_vars.append(env_var)
+
+        if builder != "auto":
+            builder_var = EnvVar(name="BUILDER", value=builder)
+            app.env_vars.append(builder_var)
+
+        db_session.add(app)
+        db_session.commit()
+
+        return Redirect(
+            path=f"/dashboard/apps/{app_name}?created=true", status_code=303
+        )
+
+
+async def _create_log_generator(log_path: Path) -> AsyncIterator[str]:
+    """Create async generator for log streaming."""
+
+    try:
+        log_path_anyio = anyio.Path(log_path)
+
+        # Send initial logs (last 50 lines)
+        async for event in _send_initial_logs(log_path_anyio):
+            yield event
+
+        # Track file position for tail functionality
+        file_size = await _get_file_size(log_path_anyio)
+
+        # Stream new lines as they appear (tail -f behavior)
+        while True:
+            if await log_path_anyio.exists():
+                current_size = (await log_path_anyio.stat()).st_size
+
+                if current_size > file_size:
+                    async for event in _send_new_log_lines(log_path, file_size):
+                        yield event
+                    file_size = current_size
+                elif current_size < file_size:
+                    file_size = 0  # File truncated or rotated
+
+            await asyncio.sleep(1)
+
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        yield f"event: error\ndata: Error streaming logs: {e}\n\n"
+
+
+async def _get_file_size(log_path_anyio: anyio.Path) -> int:
+    """Get file size or 0 if file doesn't exist."""
+    if await log_path_anyio.exists():
+        return (await log_path_anyio.stat()).st_size
+    return 0
+
+
+async def _send_initial_logs(log_path_anyio: anyio.Path) -> AsyncIterator[str]:
+    """Send initial log lines (last 50) as SSE events."""
+    if not await log_path_anyio.exists():
+        return
+
+    content = await log_path_anyio.read_text()
+    lines = content.splitlines(keepends=True)
+    initial_lines = lines[-50:] if len(lines) > 50 else lines
+
+    for line in initial_lines:
+        if line:
+            escaped_line = line.rstrip().replace("\n", "\\n")
+            yield f"data: {escaped_line}\n\n"
+
+
+async def _send_new_log_lines(log_path: Path, file_size: int) -> AsyncIterator[str]:
+    """Read and send new log lines from file."""
+    async with await anyio.open_file(log_path, "r") as f:
+        await f.seek(file_size)
+        new_content = await f.read()
+        new_lines = new_content.splitlines(keepends=True)
+
+        for line in new_lines:
+            if line:
+                escaped_line = line.rstrip().replace("\n", "\\n")
+                yield f"data: {escaped_line}\n\n"
+
+
 # ============================================================================
 # Dashboard Controller
 # ============================================================================
@@ -262,126 +410,24 @@ class DashboardController(Controller):
         git_url = data.get("git_url", "").strip()
         env_vars_text = data.get("env_vars", "").strip()
 
-        # Validation errors
-        errors = []
-
-        # Validate app name
-        if not app_name:
-            errors.append("App name is required")
-        elif not app_name.replace("-", "").replace("_", "").isalnum():
-            errors.append(
-                "App name can only contain letters, numbers, hyphens, and underscores"
-            )
-        elif len(app_name) < 3:
-            errors.append("App name must be at least 3 characters")
-        elif len(app_name) > 63:
-            errors.append("App name must be less than 64 characters")
-
-        # Check if app already exists
-        if not errors:
-            with get_session() as db_session:
-                existing_app = get_app_or_none(db_session, app_name)
-                if existing_app:
-                    errors.append(f"App '{app_name}' already exists")
-
-        # Parse environment variables
-        env_vars = {}
-        if env_vars_text:
-            for line in env_vars_text.split("\n"):
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if "=" in line:
-                    key, value = line.split("=", 1)
-                    env_vars[key.strip()] = value.strip()
+        # Validate and check for errors
+        errors = _validate_app_name(app_name)
+        env_vars = _parse_env_vars(env_vars_text)
 
         # If validation failed, return to form with errors
         if errors:
-            ctx = {
-                "errors": errors,
-                "app_name": app_name,
-                "builder": builder,
-                "git_url": git_url,
-                "env_vars": env_vars_text,
-                "builders": [
-                    {
-                        "id": "auto",
-                        "name": "Auto-detect",
-                        "description": "Automatically detect builder from project files",
-                    },
-                    {
-                        "id": "python",
-                        "name": "Python",
-                        "description": "Python applications",
-                    },
-                    {
-                        "id": "nodejs",
-                        "name": "Node.js",
-                        "description": "Node.js applications",
-                    },
-                    {"id": "static", "name": "Static", "description": "Static sites"},
-                    {"id": "ruby", "name": "Ruby", "description": "Ruby applications"},
-                    {"id": "go", "name": "Go", "description": "Go applications"},
-                ],
-            }
-            return Template(template_name="dashboard/app_create.html", context=ctx)
+            return _create_form_response(
+                errors, app_name, builder, git_url, env_vars_text
+            )
 
         # Create the app
         try:
-            with get_session() as db_session:
-                # Create app instance
-                app = App(name=app_name)
-                app.create()  # Creates directory structure
-
-                # Add environment variables
-                for key, value in env_vars.items():
-                    env_var = EnvVar(name=key, value=value)
-                    app.env_vars.append(env_var)
-
-                # Store builder preference if not auto-detect
-                if builder != "auto":
-                    builder_var = EnvVar(name="BUILDER", value=builder)
-                    app.env_vars.append(builder_var)
-
-                db_session.add(app)
-                db_session.commit()
-
-                # Redirect to app detail page
-                return Redirect(
-                    path=f"/dashboard/apps/{app_name}?created=true", status_code=303
-                )
-
+            return _create_app(app_name, builder, env_vars)
         except Exception as e:
-            # If app creation fails, show error
-            errors.append(f"Failed to create app: {e!s}")
-            ctx = {
-                "errors": errors,
-                "app_name": app_name,
-                "builder": builder,
-                "git_url": git_url,
-                "env_vars": env_vars_text,
-                "builders": [
-                    {
-                        "id": "auto",
-                        "name": "Auto-detect",
-                        "description": "Automatically detect builder from project files",
-                    },
-                    {
-                        "id": "python",
-                        "name": "Python",
-                        "description": "Python applications",
-                    },
-                    {
-                        "id": "nodejs",
-                        "name": "Node.js",
-                        "description": "Node.js applications",
-                    },
-                    {"id": "static", "name": "Static", "description": "Static sites"},
-                    {"id": "ruby", "name": "Ruby", "description": "Ruby applications"},
-                    {"id": "go", "name": "Go", "description": "Go applications"},
-                ],
-            }
-            return Template(template_name="dashboard/app_create.html", context=ctx)
+            errors = [f"Failed to create app: {e!s}"]
+            return _create_form_response(
+                errors, app_name, builder, git_url, env_vars_text
+            )
 
     @get("/apps/{app_name:str}", sync_to_thread=False)
     def app_detail(self, app_name: str) -> Template | Redirect:
@@ -680,7 +726,6 @@ class DashboardController(Controller):
         Returns:
             SSE stream response
         """
-        # Get application from database
         with get_session() as db_session:
             app = get_app_or_none(db_session, app_name)
 
@@ -693,81 +738,8 @@ class DashboardController(Controller):
 
             log_path = Path(app.log_path)
 
-        async def _send_initial_logs(
-            log_path_anyio: anyio.Path,
-        ) -> AsyncIterator[str]:
-            """Send initial log lines (last 50) as SSE events."""
-            if not await log_path_anyio.exists():
-                return
-
-            content = await log_path_anyio.read_text()
-            lines = content.splitlines(keepends=True)
-            initial_lines = lines[-50:] if len(lines) > 50 else lines
-
-            for line in initial_lines:
-                stripped_line = line.rstrip()
-                if line:
-                    escaped_line = stripped_line.replace("\n", "\\n")
-                    yield f"data: {escaped_line}\n\n"
-
-        async def _send_new_log_lines(
-            log_path: Path, file_size: int
-        ) -> AsyncIterator[str]:
-            """Read and send new log lines from file."""
-            async with await anyio.open_file(log_path, "r") as f:
-                await f.seek(file_size)
-                new_content = await f.read()
-                new_lines = new_content.splitlines(keepends=True)
-
-                for line in new_lines:
-                    stripped_line = line.rstrip()
-                    if line:
-                        escaped_line = stripped_line.replace("\n", "\\n")
-                        yield f"data: {escaped_line}\n\n"
-
-        # Generator function for SSE
-        async def log_generator() -> AsyncIterator[str]:
-            """Generate SSE events from log file."""
-            try:
-                log_path_anyio = anyio.Path(log_path)
-
-                # Send initial logs (last 50 lines)
-                async for event in _send_initial_logs(log_path_anyio):
-                    yield event
-
-                # Track file position for tail functionality
-                file_size = (
-                    (await log_path_anyio.stat()).st_size
-                    if await log_path_anyio.exists()
-                    else 0
-                )
-
-                # Stream new lines as they appear (tail -f behavior)
-                while True:
-                    if await log_path_anyio.exists():
-                        current_size = (await log_path_anyio.stat()).st_size
-
-                        # File has new content
-                        if current_size > file_size:
-                            async for event in _send_new_log_lines(log_path, file_size):
-                                yield event
-                            file_size = current_size
-
-                        # File was truncated or rotated
-                        elif current_size < file_size:
-                            file_size = 0
-
-                    # Wait before checking again (1 second polling)
-                    await asyncio.sleep(1)
-
-            except asyncio.CancelledError:
-                # Client disconnected
-                pass
-            except Exception as e:
-                yield f"event: error\ndata: Error streaming logs: {e}\n\n"
-
         return Stream(
-            content=log_generator(),
+            content=_create_log_generator(log_path),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",

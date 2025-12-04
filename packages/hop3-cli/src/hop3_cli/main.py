@@ -78,74 +78,59 @@ def run_command_from_args(cli_args: list[str]) -> None:
             return
 
     # Handle --help and -h flags
-    # Convert "hop --help" to "hop help"
-    # Convert "hop run --help" to "hop help run"
     cli_args = handle_help_flags(cli_args)
 
-    # Check if CLI is configured before trying to connect to server
+    # Check prerequisites (config, auth, destructive confirmation)
+    _check_prerequisites(cli_args, config, printer, flags)
+
+    # Execute the RPC command
+    extra_args = get_extra_args(cli_args, verbosity=flags.verbosity)
+    response = _execute_rpc_command(cli_args, config, extra_args)
+
+    # Handle the response
+    _handle_response(response, cli_args, config, printer)
+
+
+def _check_prerequisites(
+    cli_args: list[str], config: Config, printer: RichPrinter, flags
+) -> None:
+    """Check all prerequisites before executing a command."""
+    # Check if CLI is configured
     if not config.is_configured():
         show_unconfigured_message(cli_args)
         sys.exit(1)
 
-    # Check authentication before asking for destructive confirmation
-    # This prevents confusing UX where user confirms destruction only to be told they're not logged in
+    # Check authentication
     if not config.is_authenticated():
         show_unauthenticated_message()
         sys.exit(1)
 
     # For destructive commands, verify token is valid BEFORE asking for confirmation
-    # This prevents the user from confirming a destructive action only to find out they're not logged in
     if is_destructive_command(cli_args):
         if not verify_authentication(config):
             show_unauthenticated_message()
             sys.exit(1)
 
-    # Check for destructive commands and prompt for confirmation
+    # Prompt for confirmation on destructive commands
     if not flags.skip_confirm and is_destructive_command(cli_args):
         if not confirm_destructive_action(cli_args, printer):
             sys.exit(0)  # User cancelled
 
-    extra_args = get_extra_args(cli_args, verbosity=flags.verbosity)
 
-    # Use Client as context manager to ensure tunnel cleanup
+def _execute_rpc_command(cli_args: list[str], config: Config, extra_args: dict) -> Any:
+    """Execute RPC command and handle connection errors."""
     with Client(config=config, state=None) as client:
-        response = None
         try:
-            # Ensure extra_args contains only valid keyword arguments of correct types
             validated_extra_args: dict[str, Any] = {
                 k: v
                 for k, v in extra_args.items()
                 if isinstance(k, str) and v is not None
             }
-            response = client.rpc("cli", cli_args, **validated_extra_args)
+            return client.rpc("cli", cli_args, **validated_extra_args)
         except requests.exceptions.SSLError:
-            err(
-                f"SSL certificate verification failed for {client.rpc_url}.\n\n"
-                "Options:\n"
-                "  1. Trust this server's certificate:\n"
-                "     hop3 settings set ssl_cert /path/to/server.crt\n\n"
-                "  2. Disable SSL verification (less secure):\n"
-                "     hop3 settings set verify_ssl false"
-            )
-            sys.exit(1)
+            _handle_ssl_error(client.rpc_url)
         except requests.exceptions.ConnectionError as e:
-            # Check if it's actually an SSL error wrapped in ConnectionError
-            error_str = str(e).lower()
-            if "ssl" in error_str or "certificate" in error_str:
-                err(
-                    f"SSL certificate verification failed for {client.rpc_url}.\n\n"
-                    "Options:\n"
-                    "  1. Trust this server's certificate:\n"
-                    "     hop3 settings set ssl_cert /path/to/server.crt\n\n"
-                    "  2. Disable SSL verification (less secure):\n"
-                    "     hop3 settings set verify_ssl false"
-                )
-            else:
-                err(
-                    f"Could not connect to the Hop3 server at {client.rpc_url}.\n"
-                    "Is it running?"
-                )
-            sys.exit(1)
+            _handle_connection_error(e, client.rpc_url)
         except requests.exceptions.HTTPError as e:
             err(f"HTTP error while connecting to the Hop3 server:\n{e}")
             sys.exit(1)
@@ -153,35 +138,76 @@ def run_command_from_args(cli_args: list[str]) -> None:
             err(f"Error while executing command:\n{e}")
             sys.exit(1)
 
-        match response:
-            case Ok(result=result):
-                # Handle auth:login specially - save token automatically
-                if cli_args and cli_args[0] == "auth:login":
-                    handle_login_response(result, config, printer)
-                elif cli_args == ["help"] and not printer.json_output:
-                    # Inject local commands into help output
-                    result = inject_local_commands_into_help(result)
-                    printer.print(result)
-                else:
-                    printer.print(result)
-            case Error(message=message):
-                # Clean up nested error prefixes for better readability
-                clean_message = message
-                # Remove redundant prefixes like "Command execution failed: "
-                prefixes_to_strip = [
-                    "Command execution failed: ",
-                    "Deployment failed: ",
-                ]
-                for prefix in prefixes_to_strip:
-                    clean_message = clean_message.removeprefix(prefix)
-                err(clean_message)
-                sys.exit(1)
-            case None:
-                pass
 
-        # Flush JSON output if in JSON mode
-        if printer.json_output:
-            printer.flush_json()
+def _handle_ssl_error(rpc_url: str) -> None:
+    """Handle SSL certificate verification errors."""
+    err(
+        f"SSL certificate verification failed for {rpc_url}.\n\n"
+        "Options:\n"
+        "  1. Trust this server's certificate:\n"
+        "     hop3 settings set ssl_cert /path/to/server.crt\n\n"
+        "  2. Disable SSL verification (less secure):\n"
+        "     hop3 settings set verify_ssl false"
+    )
+    sys.exit(1)
+
+
+def _handle_connection_error(e: Exception, rpc_url: str) -> None:
+    """Handle connection errors, including wrapped SSL errors."""
+    error_str = str(e).lower()
+    if "ssl" in error_str or "certificate" in error_str:
+        _handle_ssl_error(rpc_url)
+    else:
+        err(f"Could not connect to the Hop3 server at {rpc_url}.\nIs it running?")
+        sys.exit(1)
+
+
+def _handle_response(
+    response: Any, cli_args: list[str], config: Config, printer: RichPrinter
+) -> None:
+    """Handle the RPC response."""
+    match response:
+        case Ok(result=result):
+            _handle_ok_response(result, cli_args, config, printer)
+        case Error(code=code, message=message):
+            _handle_error_response(code, message)
+        case None:
+            pass
+
+    # Flush JSON output if in JSON mode
+    if printer.json_output:
+        printer.flush_json()
+
+
+def _handle_ok_response(
+    result: list[dict], cli_args: list[str], config: Config, printer: RichPrinter
+) -> None:
+    """Handle successful RPC response."""
+    if cli_args and cli_args[0] == "auth:login":
+        handle_login_response(result, config, printer)
+    elif cli_args == ["help"] and not printer.json_output:
+        result = inject_local_commands_into_help(result)
+        printer.print(result)
+    else:
+        printer.print(result)
+
+
+def _handle_error_response(code: int, message: str) -> None:
+    """Handle RPC error response."""
+    clean_message = message
+    prefixes_to_strip = [
+        "Command execution failed: ",
+        "Deployment failed: ",
+    ]
+    for prefix in prefixes_to_strip:
+        clean_message = clean_message.removeprefix(prefix)
+
+    # Add helpful hints for specific error codes
+    if code == -32601:  # Method/command not found
+        clean_message += "\n\nRun 'hop help' to see available commands."
+
+    err(clean_message)
+    sys.exit(1)
 
 
 def is_destructive_command(cli_args: list[str]) -> bool:
