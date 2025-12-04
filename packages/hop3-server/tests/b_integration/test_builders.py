@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from hop3.builders import (
+from hop3.core.protocols import BuildArtifact, DeploymentContext
+from hop3.toolchains import (
     GoToolchain,
     NodeToolchain,
     PythonToolchain,
     RubyToolchain,
 )
-from hop3.core.protocols import BuildArtifact, DeploymentContext
 
 APPS = [
     # ("000-static", PythonToolchain),

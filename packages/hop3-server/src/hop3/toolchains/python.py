@@ -61,43 +61,37 @@ class PythonToolchain(LanguageToolchain):
 
     def make_virtual_env(self) -> None:
         """Create and activate a virtual environment."""
-
         python_path = self.virtual_env / "bin" / "python"
 
-        # Check if virtualenv exists
+        # Check if virtualenv exists and is valid
         if (self.virtual_env / "bin").exists():
-            # Verify the Python binary is valid (not a broken symlink)
-            if python_path.exists():
-                # Check if it's actually executable
-                try:
-                    result = subprocess.run(
-                        [str(python_path), "--version"],
-                        check=False,
-                        capture_output=True,
-                        timeout=5,
-                    )
-                    if result.returncode == 0:
-                        # Virtualenv is valid, nothing to do
-                        return
-                except (subprocess.SubprocessError, OSError):
-                    pass
+            if self._is_python_executable(python_path):
+                return  # Virtualenv is valid, nothing to do
 
             # Virtualenv exists but is broken - remove it
-            print(f"Removing broken virtualenv at {self.virtual_env} (broken symlinks)")
+            log(
+                f"Removing broken virtualenv at {self.virtual_env}",
+                level=2,
+                fg="yellow",
+            )
             shutil.rmtree(self.virtual_env, ignore_errors=True)
 
         emit(CreatingVirtualEnv(self.app_name))
-
         self.shell(f"virtualenv {self.virtual_env}")
-        # TODO: consider using the built-in venv module instead of
-        # (or as an alternative to) virtualenv
 
         # Verify the virtualenv was created successfully
         if not python_path.exists():
             msg = f"Virtual environment creation failed: {python_path} does not exist"
             raise RuntimeError(msg)
 
-        # Verify it's executable
+        if not self._is_python_executable(python_path):
+            msg = f"Virtual environment Python is not working: {python_path}"
+            raise RuntimeError(msg)
+
+    def _is_python_executable(self, python_path: Path) -> bool:
+        """Check if Python binary at path is valid and executable."""
+        if not python_path.exists():
+            return False
         try:
             result = subprocess.run(
                 [str(python_path), "--version"],
@@ -105,12 +99,9 @@ class PythonToolchain(LanguageToolchain):
                 capture_output=True,
                 timeout=5,
             )
-            if result.returncode != 0:
-                msg = f"Virtual environment Python is not working: {python_path}"
-                raise RuntimeError(msg)
-        except (subprocess.SubprocessError, OSError) as e:
-            msg = f"Virtual environment Python is not executable: {python_path}: {e}"
-            raise RuntimeError(msg) from e
+            return result.returncode == 0
+        except (subprocess.SubprocessError, OSError):
+            return False
 
     def install_virtualenv(self) -> None:
         """Install virtual environment and necessary dependencies for the

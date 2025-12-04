@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-import os
-
 from hop3 import config as c
 from hop3.core.env import Env
 from hop3.core.events import InstallingVirtualEnv, emit
@@ -28,13 +26,8 @@ class NodeToolchain(LanguageToolchain):
     # or check_requirements(["node", "npm"])
     # or check_requirements(["nodeenv"])
 
-    def accept(self):
-        """Check if the package.json file exists in the specified app path.
-
-        Returns
-        -------
-            bool: True if the package.json file exists, False otherwise.
-        """
+    def accept(self) -> bool:
+        """Check if the package.json file exists in the specified app path."""
         return self.check_exists("package.json")
 
     def build(self) -> BuildArtifact:
@@ -47,7 +40,6 @@ class NodeToolchain(LanguageToolchain):
 
         with chdir(self.src_path):
             env = self.get_env()
-            os.environ["PATH"] = str(env["PATH"])
             self.install_node(env)
             self.install_modules(env)
 
@@ -126,14 +118,12 @@ class NodeToolchain(LanguageToolchain):
                     raise Abort(msg)
 
                 # Log installation of the specified node version using nodeenv
-                msg = "Installing node version '{NODE_VERSION:s}' using nodeenv".format(
-                    **env
+                log(
+                    f"Installing node version '{version}' using nodeenv",
+                    level=3,
+                    fg="green",
                 )
-                log(msg, level=3, fg="green")
-                cmd = (
-                    "nodeenv --prebuilt --node={NODE_VERSION:s} --clean-src --force"
-                    " {VIRTUAL_ENV:s}".format(**env)
-                )
+                cmd = f"nodeenv --prebuilt --node={version} --clean-src --force {self.virtual_env}"
                 self.shell(cmd, cwd=self.virtual_env, env=env)
             else:
                 log(f"Node is installed at {version}.", level=3, fg="green")

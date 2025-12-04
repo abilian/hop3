@@ -316,57 +316,28 @@ This is a critical distinction to avoid confusion:
 
 ---
 
-## TODO: Codebase Alignment
+## Codebase Alignment Status
 
-The following discrepancies exist between this terminology and the current codebase:
+> **Updated 2025-12-04**: The two-level build architecture from ADR 030 is fully implemented.
 
-### High Priority
+### Completed
 
-1. **Rename `hop3/builders/*Builder` → `*Toolchain`**
-   - `PythonBuilder` → `PythonToolchain`
-   - `NodeBuilder` → `NodeToolchain`
-   - `RubyBuilder` → `RubyToolchain`
-   - `GoBuilder` → `GoToolchain`
-   - `RustBuilder` → `RustToolchain`
-   - `ClojureBuilder` → `ClojureToolchain`
-   - `StaticBuilder` → `StaticToolchain`
-   - File: `packages/hop3-server/src/hop3/builders/*.py`
-   - See ADR 030 Phase 2
+| Item | Status |
+|------|--------|
+| Rename `*Builder` → `*Toolchain` classes | ✅ Complete |
+| Rename ABC to `LanguageToolchain` | ✅ Complete |
+| Rename `BUILDER_CLASSES` → `TOOLCHAIN_CLASSES` | ✅ Complete |
+| Implement `LocalBuilder` | ✅ Complete |
+| Add `BuildContext` dataclass | ✅ Complete |
+| Add `LanguageToolchain` protocol | ✅ Complete |
 
-2. **Rename `hop3/builders/_base.py::Builder` → `LanguageToolchain`**
-   - The abstract base class should match the protocol name
-   - See ADR 030 Phase 2
+### Remaining
 
-3. **Rename `BUILDER_CLASSES` → `TOOLCHAIN_CLASSES`**
-   - File: `packages/hop3-server/src/hop3/builders/__init__.py`
-   - See ADR 030 Phase 2
-
-4. **Implement `LocalBuilder`**
-   - Create proper Level 1 builder that orchestrates toolchains
-   - File: `packages/hop3-server/src/hop3/plugins/build/local/builder.py`
-   - See ADR 030 Phase 3
-
-### Medium Priority
-
-5. **Consider renaming `Addon.name` → `Addon.addon_type`**
-   - Current `name` field represents the addon type (e.g., "postgres")
-   - Would improve clarity alongside `addon_name` (instance name)
-   - Noted as TODO in `packages/hop3-server/src/hop3/core/protocols.py:199`
-
-6. **Update Builder protocol to use BuildContext**
-   - Current: `context: DeploymentContext`
-   - Target: `context: BuildContext`
-   - See note in protocols.py lines 86-88
-
-### Low Priority (Documentation)
-
-7. **Update architecture documentation**
-   - Reflect two-level build architecture
-   - Document Builder vs LanguageToolchain distinction
-
-8. **Create plugin developer guide**
-   - When to implement Builder vs LanguageToolchain
-   - Examples for each
+| Item | Priority | Notes |
+|------|----------|-------|
+| Rename directory `builders/` → `toolchains/` | Low | Cosmetic; code is correct |
+| Consider `Addon.name` → `Addon.addon_type` | Medium | See `protocols.py:199` |
+| Plugin developer guide | Low | Document Builder vs LanguageToolchain |
 
 ---
 
@@ -487,5 +458,6 @@ This terminology is successful when:
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2025-12-04 | 1.2 | Updated codebase alignment status - ADR 030 implementation complete |
 | 2025-11-28 | 1.1 | Added Blueprint terminology (proposed) for App Marketplace use case |
 | 2025-11-28 | 1.0 | Initial version consolidating terminology decisions |

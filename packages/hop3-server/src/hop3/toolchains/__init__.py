@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from .clojure import ClojureToolchain
 from .go import GoToolchain
 from .node import NodeToolchain
+from .php import PHPToolchain
 from .python import PythonToolchain
 from .ruby import RubyToolchain
 from .rust import RustToolchain
@@ -24,6 +25,7 @@ TOOLCHAIN_CLASSES: list[type[LanguageToolchain]] = [
     PythonToolchain,
     RubyToolchain,
     NodeToolchain,
+    PHPToolchain,
     ClojureToolchain,
     GoToolchain,
     RustToolchain,

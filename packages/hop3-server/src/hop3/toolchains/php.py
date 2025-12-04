@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from hop3.core.events import InstallingDependencies, PreparingBuildEnv, emit
 from hop3.core.protocols import BuildArtifact
-from hop3.lib import chdir, shell
+from hop3.lib import chdir
 
 from ._base import LanguageToolchain
 
@@ -65,9 +65,9 @@ class PHPToolchain(LanguageToolchain):
         emit(InstallingDependencies(self.app_name))
 
         try:
-            shell("composer install", cwd=self.src_path)
+            self.shell("composer install")
         except CalledProcessError as e:
             msg = (
                 f"Failed to install dependencies for PHP project '{self.app_name}': {e}"
             )
-            raise RuntimeError(msg)
+            raise RuntimeError(msg) from e

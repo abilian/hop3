@@ -1,14 +1,18 @@
 # ADR 030: Two-Level Build Architecture
 
-**Status**: Accepted
+**Status**: Implemented
 **Date**: 2025-11-28
+**Implemented**: 2025-12-04
 **Related ADRs**: ADR 020 (Pluggable Architecture), ADR 022 (Build/Deploy Plugin System)
 
 ---
 
 ## Context
 
-The current build system conflates two distinct architectural levels into a single hierarchy:
+> **Note**: This section describes the problems that existed *before* this ADR was implemented.
+> The two-level architecture is now in place and working.
+
+The original build system conflated two distinct architectural levels into a single hierarchy:
 
 1. **Build orchestration** (HOW to build): Should we build locally, in Docker, with Nix?
 2. **Language-specific tooling** (WHAT to build): How do we build Python vs Node vs Java?
@@ -294,410 +298,51 @@ artifact = builder.build()
 
 ---
 
-## Implementation Plan
-
-### Phase 1: Add BuildContext + LanguageToolchain Protocol (1-2 hours)
-
-**File**: `packages/hop3-server/src/hop3/core/protocols.py`
-
-```python
-# 1. Add BuildContext dataclass
-@dataclass
-class BuildContext:
-    """Context for build operations.
-
-    Contains information needed during the build phase, before deployment.
-    Separate from DeploymentContext to avoid coupling build and deploy concerns.
-    """
-    app_name: str
-    source_path: Path
-    app_config: dict
-
-    def __post_init__(self):
-        assert self.source_path.is_dir()
-
-
-# 2. Update existing Builder protocol
-class Builder(Protocol):
-    """Top-level build orchestrator."""
-    name: str
-    context: BuildContext  # ← Change from DeploymentContext
-
-    def __init__(self, context: BuildContext) -> None:  # ← Change
-        ...
-
-    def accept(self) -> bool:
-        """Check if this builder should be used."""
-
-    def build(self) -> BuildArtifact:
-        """Orchestrate the build process."""
-
-
-# 3. Add new LanguageToolchain protocol
-class LanguageToolchain(Protocol):
-    """Language-specific build toolchain - defines WHAT tools to use."""
-    name: str
-    context: BuildContext  # ← Uses BuildContext
-
-    def __init__(self, context: BuildContext) -> None:
-        ...
-
-    def accept(self) -> bool:
-        """Check if this toolchain applies to the project."""
-
-    def build(self) -> BuildArtifact:
-        """Execute language-specific build."""
-```
-
-**File**: `packages/hop3-server/src/hop3/core/hookspecs.py`
-
-```python
-@hookspec
-def get_language_toolchains() -> list[type[LanguageToolchain]]:
-    """Get language-specific toolchains (PythonToolchain, NodeToolchain, etc.)
-
-    Returns:
-        List of LanguageToolchain classes for building language-specific projects.
-    """
-```
-
-**Impact**: Non-breaking - adds new BuildContext and LanguageToolchain protocol alongside existing code
-
----
-
-### Phase 2: Rename Existing Classes (2-4 hours)
-
-**Strategy**: Systematic renaming using IDE refactoring tools
-
-| Current File | Current Class | New Class | Protocol |
-|--------------|---------------|-----------|----------|
-| `hop3/builders/_base.py` | `Builder` (ABC) | `LanguageToolchain` | Level 2 |
-| `hop3/builders/python.py` | `PythonBuilder` | `PythonToolchain` | Level 2 |
-| `hop3/builders/node.py` | `NodeBuilder` | `NodeToolchain` | Level 2 |
-| `hop3/builders/ruby.py` | `RubyBuilder` | `RubyToolchain` | Level 2 |
-| `hop3/builders/go.py` | `GoBuilder` | `GoToolchain` | Level 2 |
-| `hop3/builders/rust.py` | `RustBuilder` | `RustToolchain` | Level 2 |
-| `hop3/builders/static.py` | `StaticBuilder` | `StaticToolchain` | Level 2 |
-| `hop3/builders/clojure.py` | `ClojureBuilder` | `ClojureToolchain` | Level 2 |
-| `hop3/builders/php.py` | `PhpBuilder` | `PhpToolchain` | Level 2 |
-
-**Steps**:
-1. Rename `hop3/builders/_base.py::Builder` → `LanguageToolchain`
-2. Update all imports
-3. Rename each `*Builder` class → `*Toolchain`
-4. Update `hop3/builders/__init__.py`:
-   ```python
-   TOOLCHAIN_CLASSES: list[type[LanguageToolchain]] = [
-       StaticToolchain,
-       PythonToolchain,
-       NodeToolchain,
-       # ...
-   ]
-   ```
-
-**Impact**: Breaking change - all references must be updated
-
----
-
-### Phase 3: Implement LocalBuilder (4-6 hours)
-
-**File**: `packages/hop3-server/src/hop3/plugins/build/local/builder.py`
-
-```python
-from hop3.core.protocols import Builder, LanguageToolchain, BuildContext, BuildArtifact
-from hop3.builders import TOOLCHAIN_CLASSES
-
-class LocalBuilder(Builder):
-    """Build directly on host using native language toolchains.
-
-    This is the ONLY builder that uses LanguageToolchains.
-    Other builders (Docker, Nix) encapsulate their build logic differently.
-
-    This builder:
-    1. Auto-detects which language toolchains apply (Python, Node, etc.)
-    2. Invokes each toolchain to build the respective components
-    3. Combines artifacts if multiple toolchains are used
-    """
-    name = "local"
-
-    def __init__(self, context: BuildContext) -> None:
-        """Initialize local builder with build context."""
-        self.context = context
-
-    def accept(self) -> bool:
-        """Always accept - local building is the default."""
-        return True
-
-    def build(self) -> BuildArtifact:
-        """Build using local toolchains."""
-        # 1. Discover applicable toolchains
-        toolchains = self._discover_toolchains(self.context)
-
-        if not toolchains:
-            raise RuntimeError("No language toolchain detected for this project")
-
-        # 2. Build with each toolchain (supports multi-language apps)
-        artifacts = []
-        for toolchain_class in toolchains:
-            toolchain = toolchain_class(self.context)
-            artifact = toolchain.build()
-            artifacts.append(artifact)
-
-        # 3. Single toolchain case
-        if len(artifacts) == 1:
-            return artifacts[0]
-
-        # 4. Multi-toolchain case (e.g., Python + Node)
-        return self._combine_artifacts(artifacts)
-
-    def _discover_toolchains(self, context: BuildContext) -> list[type[LanguageToolchain]]:
-        """Auto-detect which toolchains apply to this project.
-
-        Example: A Python backend + Node frontend would return both
-        PythonToolchain and NodeToolchain.
-        """
-        applicable = []
-        for toolchain_class in TOOLCHAIN_CLASSES:
-            # Create temporary instance to check acceptance
-            toolchain = toolchain_class(context)
-            if toolchain.accept():
-                applicable.append(toolchain_class)
-        return applicable
-
-    def _combine_artifacts(self, artifacts: list[BuildArtifact]) -> BuildArtifact:
-        """Combine multiple artifacts for multi-language apps."""
-        # Simple implementation: return composite artifact
-        return BuildArtifact(
-            kind="multi-language",
-            location=str(self.context.source_path.parent),
-            metadata={"artifacts": [a.__dict__ for a in artifacts]}
-        )
-```
-
-**File**: `packages/hop3-server/src/hop3/plugins/build/local/plugin.py`
-
-```python
-from hop3.core.hooks import hop3_hook_impl
-from .builder import LocalBuilder
-
-class LocalBuildPlugin:
-    """Plugin that provides local build capability."""
-
-    name = "local-build"
-
-    @hop3_hook_impl
-    def get_builders(self) -> list:
-        """Return LocalBuilder for building on the host."""
-        return [LocalBuilder]
-
-# Auto-register plugin instance when module is imported
-plugin = LocalBuildPlugin()
-```
-
-**Impact**: New functionality - enables proper multi-toolchain support
-
----
-
-### Phase 4: Update Plugin System (1-2 hours)
-
-**File**: `packages/hop3-server/src/hop3/plugins/build/native_build/plugin.py`
-
-```python
-from hop3.builders import TOOLCHAIN_CLASSES
-from hop3.core.hooks import hop3_hook_impl
-
-class NativeBuildPlugin:
-    """Plugin that provides native language toolchains."""
-
-    name = "native-build"
-
-    @hop3_hook_impl
-    def get_language_toolchains(self) -> list:
-        """Return native toolchains for Python, Node, Ruby, etc."""
-        return TOOLCHAIN_CLASSES
-
-# Auto-register plugin instance when module is imported
-plugin = NativeBuildPlugin()
-```
-
-**File**: `packages/hop3-server/src/hop3/core/plugins.py`
-
-Update `get_build_strategy()` → `get_builder()`:
-
-```python
-def get_builder(context: BuildContext) -> Builder:
-    """Find and instantiate the appropriate builder.
-
-    Selection order:
-    1. Explicit configuration: context.app_config.get("build.method", "auto")
-    2. Auto-detection: First builder that accepts the context
-
-    Args:
-        context: Build context with app information
-
-    Returns:
-        Builder instance (LocalBuilder, DockerBuilder, etc.)
-
-    Raises:
-        RuntimeError: If no suitable builder is found
-    """
-    pm = get_plugin_manager()
-
-    # Get all registered builders (Level 1)
-    builder_classes_list = pm.hook.get_builders()
-    builder_classes = [
-        cls for sublist in builder_classes_list for cls in sublist
-    ]
-
-    # TODO: Check context.app_config for explicit builder selection
-    builder_name_from_config = "auto"
-
-    # Auto-detect by finding the first one that accepts
-    if builder_name_from_config == "auto":
-        for builder_class in builder_classes:
-            builder = builder_class(context)
-            if builder.accept():
-                return builder
-
-        raise RuntimeError("Could not find a suitable builder for this application")
-
-    # Explicit builder selection
-    for builder_class in builder_classes:
-        if getattr(builder_class, "name", None) == builder_name_from_config:
-            return builder_class(context)
-
-    raise RuntimeError(f"Configured builder '{builder_name_from_config}' not found")
-```
-
-**Impact**: Updates orchestration logic to use new two-level system
-
----
-
-### Phase 5: Fix Type Errors (30 minutes)
-
-Now that we've split the abstractions and introduced BuildContext, the dual constructor issue disappears:
-
-**Before** (Level 1 + Level 2 conflated, using DeploymentContext):
-```python
-class Builder(ABC):
-    def __init__(
-        self,
-        app_name_or_context: str | DeploymentContext,  # ❌ Serves two purposes
-        app_path: Path | None = None,
-    ) -> None:
-        if hasattr(app_name_or_context, "app_name"):  # ❌ Type narrowing fails
-            # New plugin system path
-            ...
-        else:
-            # Legacy path
-            ...
-```
-
-**After** (Level 2 only, using BuildContext):
-```python
-class LanguageToolchain(ABC):
-    def __init__(self, context: BuildContext) -> None:  # ✅ Single signature
-        """Initialize toolchain with build context."""
-        self.context = context
-        self.app_name = context.app_name
-        self.src_path = context.source_path
-```
-
-**Level 1 classes** (Builders) also have clean signatures with BuildContext:
-```python
-class LocalBuilder(Builder):
-    def __init__(self, context: BuildContext) -> None:  # ✅ Single signature
-        """Initialize local builder with build context."""
-        self.context = context
-```
-
-**Impact**: Resolves the mypy errors without needing `isinstance()` workarounds. BuildContext properly separates build-time from deployment-time concerns.
-
----
-
-### Phase 6: Update Documentation (2-3 hours)
-
-**Files to update**:
-- `docs/src/dev/architecture.md` - Add two-level build architecture section
-- `CLAUDE.md` - Update with new terminology
-- Plugin author guide (future) - Explain when to implement Builder vs LanguageToolchain
-
-**Key documentation points**:
-- Difference between Builder and LanguageToolchain
-- When to implement each (build method vs language support)
-- How multi-language builds work
-- Configuration options for selecting builders
-
----
-
-### Phase 7: Testing (3-4 hours)
-
-**Test categories**:
-
-1. **Unit tests** for new protocols:
-   - `LanguageToolchain.accept()` logic
-   - `LocalBuilder._discover_toolchains()`
-
-2. **Integration tests** for builder selection:
-   - `get_builder()` returns correct builder
-   - Auto-detection works
-   - Config-based selection works
-
-3. **System tests** for multi-toolchain builds:
-   - Python-only app builds correctly
-   - Node-only app builds correctly
-   - Python+Node app builds both components
-
-4. **E2E tests** for full deployment:
-   - Apps deploy successfully with LocalBuilder
-   - Verify artifacts are correct
-
-**Estimated effort**: 3-4 hours to write comprehensive tests
-
----
-
-### Phase 8: Migration of Toolchains to Plugins (Future Work)
-
-**Goal**: Move `hop3/builders/` → `hop3/plugins/toolchains/`
-
-**Structure**:
-```
-hop3/plugins/toolchains/
-├── python/
-│   ├── toolchain.py        # PythonToolchain
-│   └── plugin.py           # Plugin registration
-├── node/
-│   ├── toolchain.py        # NodeToolchain
-│   └── plugin.py
-└── java/
-    ├── toolchain.py        # JavaToolchain
-    └── plugin.py
-```
-
-**Benefits**:
-- Toolchains become first-class plugins
-- External plugins can add new language support
-- Consistent architecture (all strategies are plugins)
-
-**Effort**: 1-2 days for systematic migration
-
-**Timeline**: After Phase 1-7 are complete and stable
-
----
-
-## Timeline Summary
-
-| Phase | Description | Estimated Time |
-|-------|-------------|----------------|
-| 1 | Add LanguageToolchain protocol | 1-2 hours |
-| 2 | Rename existing classes | 2-4 hours |
-| 3 | Implement LocalBuilder | 4-6 hours |
-| 4 | Update plugin system | 1-2 hours |
-| 5 | Fix type errors | 30 minutes |
-| 6 | Update documentation | 2-3 hours |
-| 7 | Testing | 3-4 hours |
-| **Total** | **Core implementation** | **14-22 hours** (~2-3 days) |
-| 8 (Future) | Migrate toolchains to plugins | 1-2 days |
+## Implementation Status
+
+> **All core phases are complete.** The two-level build architecture is fully implemented.
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 1 | Add BuildContext + LanguageToolchain protocol | ✅ Complete |
+| 2 | Rename existing classes to `*Toolchain` | ✅ Complete |
+| 3 | Implement LocalBuilder | ✅ Complete |
+| 4 | Update plugin system | ✅ Complete |
+| 5 | Fix type errors | ✅ Complete |
+| 6 | Update documentation | ✅ Complete |
+| 7 | Testing | ✅ Complete |
+| 8 | Rename directory `builders/` → `toolchains/` | Pending (low priority) |
+
+### Current File Locations
+
+**Protocols** (`packages/hop3-server/src/hop3/core/protocols.py`):
+- `Builder` - Level 1 protocol (orchestration)
+- `LanguageToolchain` - Level 2 protocol (language-specific)
+- `BuildContext` - Context for build operations
+- `BuildArtifact` - Describes built output
+
+**LocalBuilder** (`packages/hop3-server/src/hop3/plugins/build/local_build/builder.py`):
+- Orchestrates toolchains for local builds
+- Auto-detects applicable toolchains
+- Supports multi-language builds
+
+**LanguageToolchains** (`packages/hop3-server/src/hop3/builders/`):
+- `_base.py` - `LanguageToolchain` ABC
+- `python.py` - `PythonToolchain`
+- `node.py` - `NodeToolchain`
+- `ruby.py` - `RubyToolchain`
+- `go.py` - `GoToolchain`
+- `rust.py` - `RustToolchain`
+- `clojure.py` - `ClojureToolchain`
+- `php.py` - `PHPToolchain`
+- `static.py` - `StaticToolchain`
+- `__init__.py` - Exports `TOOLCHAIN_CLASSES`
+
+### Remaining Work
+
+**Directory rename** (low priority):
+- Rename `hop3/builders/` → `hop3/toolchains/` for consistency
+- The directory contains toolchains, not builders
 
 ---
 
