@@ -54,6 +54,7 @@ build:
 
 ## Run full development stack (web server + uWSGI emperor)
 serve:
+	hop-server setup
 	honcho -f Procfile.dev start
 
 ## Alias for serve

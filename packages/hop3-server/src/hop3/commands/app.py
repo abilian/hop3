@@ -361,25 +361,16 @@ class StartCmd(Command):
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
 
-        # Sync state first to get actual status
-        if app.run_state.name in ("STARTING", "STOPPING"):
-            app.sync_state()
-            self.db_session.commit()
-
+        # Check current state (background service keeps this fresh)
         state = app.run_state.name
         if state == "RUNNING":
             return [{"t": "text", "text": f"App '{app_name}' is already running."}]
         if state == "STARTING":
-            # Still starting after sync - genuinely still starting
             return [
-                {"t": "text", "text": f"App '{app_name}' is still starting..."},
-                {
-                    "t": "text",
-                    "text": "Use 'hop3 app:status' to check when it's running.",
-                },
+                {"t": "text", "text": f"App '{app_name}' is already starting..."},
+                {"t": "text", "text": "Use 'hop3 app:status' to check progress."},
             ]
         if state == "STOPPING":
-            # Still stopping after sync
             return [
                 {"t": "text", "text": f"App '{app_name}' is currently stopping."},
                 {"t": "text", "text": "Wait for it to stop, then start it again."},
@@ -409,25 +400,16 @@ class StopCmd(Command):
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
 
-        # Sync state first to get actual status
-        if app.run_state.name in ("STARTING", "STOPPING"):
-            app.sync_state()
-            self.db_session.commit()
-
+        # Check current state (background service keeps this fresh)
         state = app.run_state.name
         if state == "STOPPED":
             return [{"t": "text", "text": f"App '{app_name}' is already stopped."}]
         if state == "STOPPING":
-            # Still stopping after sync - genuinely still stopping
             return [
-                {"t": "text", "text": f"App '{app_name}' is still stopping..."},
-                {
-                    "t": "text",
-                    "text": "Use 'hop3 app:status' to check when it's stopped.",
-                },
+                {"t": "text", "text": f"App '{app_name}' is already stopping..."},
+                {"t": "text", "text": "Use 'hop3 app:status' to check progress."},
             ]
         if state == "STARTING":
-            # Still starting after sync
             return [
                 {"t": "text", "text": f"App '{app_name}' is currently starting."},
                 {"t": "text", "text": "Wait for it to start, then stop it."},

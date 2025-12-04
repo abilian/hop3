@@ -21,6 +21,7 @@ from litestar.template.config import TemplateConfig
 from litestar.types import ControllerRouterHandler
 
 from hop3.di import create_async_container
+from hop3.orm import get_session_factory
 
 from .controllers import (
     AuthController,
@@ -28,6 +29,7 @@ from .controllers import (
     RootController,
     RPCController,
 )
+from .state_sync import start_state_sync_service, stop_state_sync_service
 
 if TYPE_CHECKING:
     pass
@@ -66,6 +68,17 @@ class SuppressHTTPExceptionTraceback(logging.Filter):
 def handle_401(request: Request, exc: NotAuthorizedException) -> Redirect:
     """Redirect to login page on authentication failure."""
     return Redirect(path="/auth/login")
+
+
+def on_startup() -> None:
+    """Start background services when server starts."""
+    session_factory = get_session_factory()
+    start_state_sync_service(session_factory)
+
+
+def on_shutdown() -> None:
+    """Stop background services when server shuts down."""
+    stop_state_sync_service()
 
 
 def create_app():
@@ -142,6 +155,8 @@ def create_app():
         exception_handlers={
             NotAuthorizedException: handle_401,
         },
+        on_startup=[on_startup],
+        on_shutdown=[on_shutdown],
     )
 
     # Setup Dishka dependency injection
