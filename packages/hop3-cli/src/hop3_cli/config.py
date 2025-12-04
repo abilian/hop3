@@ -57,6 +57,23 @@ class Config:
         # Check config file
         return "api_url" in self.data
 
+    def is_authenticated(self) -> bool:
+        """Check if the CLI has authentication credentials.
+
+        Returns True if api_token is set via:
+        1. Environment variable (HOP3_API_TOKEN)
+        2. Config file
+
+        Returns False if no authentication token is available.
+        """
+        # Check environment variable
+        if os.environ.get("HOP3_API_TOKEN"):
+            return True
+
+        # Check config file
+        token = self.data.get("api_token", "")
+        return bool(token)
+
     def get_api_url(self) -> str | None:
         """Get the API URL if configured, None otherwise.
 

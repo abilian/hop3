@@ -9,7 +9,10 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import time
 import traceback
+import urllib.error
+import urllib.request
 from base64 import b64decode
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
@@ -197,24 +200,132 @@ class StatusCmd(Command):
 
     def call(self, *args):
         if not args:
-            return [{"t": "text", "text": "Usage: hop status <app_name>"}]
+            return [{"t": "text", "text": "Usage: hop app:status <app_name>"}]
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
 
-        worker_count = 0
-        scaling_file = app.virtualenv_path / "SCALING"
-        if scaling_file.exists():
-            worker_map = parse_procfile(scaling_file)
-            worker_count = sum(int(v) for v in worker_map.values())
+        # Sync state with reality for transitional states (STARTING/STOPPING)
+        # This verifies actual process status and updates accordingly
+        if app.run_state.name in ("STARTING", "STOPPING"):
+            app.sync_state()
+            self.db_session.commit()
 
         rows = [
             ["Name", app.name],
             ["Status", app.run_state.name],
-            ["Workers", str(worker_count)],
-            ["Hostname", app.hostname or "Not configured"],
-            ["Port", str(app.port) if app.port else "Not assigned"],
         ]
+
+        # Only show runtime info if app is running
+        if app.run_state.name == "RUNNING":
+            worker_count = 0
+            scaling_file = app.virtualenv_path / "SCALING"
+            if scaling_file.exists():
+                worker_map = parse_procfile(scaling_file)
+                worker_count = sum(int(v) for v in worker_map.values())
+            rows.append(["Workers", str(worker_count)])
+
+            if app.port:
+                rows.append(["Local URL", f"http://127.0.0.1:{app.port}"])
+
+        if app.hostname:
+            rows.append(["Hostname", app.hostname])
+
         return [{"t": "table", "headers": ["Property", "Value"], "rows": rows}]
+
+
+@register
+@dataclass(frozen=True)
+class PingCmd(Command):
+    """Check if an application is responding to HTTP requests.
+
+    Usage: hop3 app:ping <app_name> [path]
+
+    Examples:
+        hop3 app:ping myapp           # Ping root path
+        hop3 app:ping myapp /health   # Ping health endpoint
+    """
+
+    db_session: Session
+    name: ClassVar[str] = "app:ping"
+
+    def call(self, *args):
+        if not args:
+            return [{"t": "text", "text": "Usage: hop app:ping <app_name> [path]"}]
+
+        app_name = args[0]
+        path = args[1] if len(args) > 1 else "/"
+        app = _get_app(self.db_session, app_name)
+
+        if app.run_state.name == "STOPPED":
+            return [{"t": "text", "text": f"App '{app_name}' is stopped."}]
+
+        if not app.port:
+            return [{"t": "text", "text": f"App '{app_name}' has no port assigned."}]
+
+        url = f"http://127.0.0.1:{app.port}{path}"
+        timeout = 10  # seconds
+
+        try:
+            start_time = time.time()
+            req = urllib.request.Request(url, method="GET")
+            req.add_header("User-Agent", "hop3-ping/1.0")
+
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                elapsed = (time.time() - start_time) * 1000  # ms
+                status = response.status
+                content_type = response.headers.get("Content-Type", "unknown")
+                content_length = response.headers.get("Content-Length", "unknown")
+
+                rows = [
+                    ["URL", url],
+                    ["Status", f"{status} OK"],
+                    ["Response Time", f"{elapsed:.0f}ms"],
+                    ["Content-Type", content_type],
+                    ["Content-Length", f"{content_length} bytes"],
+                ]
+                return [
+                    {"t": "success", "text": f"App '{app_name}' is responding"},
+                    {"t": "table", "headers": ["Property", "Value"], "rows": rows},
+                ]
+
+        except urllib.error.HTTPError as e:
+            elapsed = (time.time() - start_time) * 1000
+            return [
+                {"t": "warning", "text": f"App '{app_name}' returned HTTP {e.code}"},
+                {
+                    "t": "table",
+                    "headers": ["Property", "Value"],
+                    "rows": [
+                        ["URL", url],
+                        ["Status", f"{e.code} {e.reason}"],
+                        ["Response Time", f"{elapsed:.0f}ms"],
+                    ],
+                },
+            ]
+
+        except urllib.error.URLError as e:
+            reason = str(e.reason)
+            if "Connection refused" in reason:
+                return [
+                    {
+                        "t": "error",
+                        "text": f"App '{app_name}' is not listening on port {app.port}",
+                    },
+                    {
+                        "t": "text",
+                        "text": "The app may not be running or may have crashed.",
+                    },
+                ]
+            return [{"t": "error", "text": f"Connection failed: {reason}"}]
+
+        except TimeoutError:
+            return [
+                {"t": "error", "text": f"App '{app_name}' timed out after {timeout}s"},
+                {"t": "text", "text": "The app may be overloaded or hung."},
+            ]
+
+        except Exception as e:
+            return [{"t": "error", "text": f"Error pinging app: {e}"}]
 
 
 @register
@@ -249,9 +360,29 @@ class StartCmd(Command):
             return [{"t": "text", "text": "Usage: hop start <app_name>"}]
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
+
+        # Check current state (background service keeps this fresh)
+        state = app.run_state.name
+        if state == "RUNNING":
+            return [{"t": "text", "text": f"App '{app_name}' is already running."}]
+        if state == "STARTING":
+            return [
+                {"t": "text", "text": f"App '{app_name}' is already starting..."},
+                {"t": "text", "text": "Use 'hop3 app:status' to check progress."},
+            ]
+        if state == "STOPPING":
+            return [
+                {"t": "text", "text": f"App '{app_name}' is currently stopping."},
+                {"t": "text", "text": "Wait for it to stop, then start it again."},
+            ]
+
         app.start()
         self.db_session.commit()
-        return [{"t": "text", "text": f"App '{app_name}' is starting..."}]
+
+        return [
+            {"t": "text", "text": f"App '{app_name}' is starting..."},
+            {"t": "text", "text": "Use 'hop3 app:status' to check when it's running."},
+        ]
 
 
 @register
@@ -268,9 +399,29 @@ class StopCmd(Command):
 
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
+
+        # Check current state (background service keeps this fresh)
+        state = app.run_state.name
+        if state == "STOPPED":
+            return [{"t": "text", "text": f"App '{app_name}' is already stopped."}]
+        if state == "STOPPING":
+            return [
+                {"t": "text", "text": f"App '{app_name}' is already stopping..."},
+                {"t": "text", "text": "Use 'hop3 app:status' to check progress."},
+            ]
+        if state == "STARTING":
+            return [
+                {"t": "text", "text": f"App '{app_name}' is currently starting."},
+                {"t": "text", "text": "Wait for it to start, then stop it."},
+            ]
+
         app.stop()
         self.db_session.commit()
-        return [{"t": "text", "text": f"App '{app_name}' is stopping..."}]
+
+        return [
+            {"t": "text", "text": f"App '{app_name}' is stopping..."},
+            {"t": "text", "text": "Use 'hop3 app:status' to check when it's stopped."},
+        ]
 
 
 @register
@@ -288,13 +439,23 @@ class RestartCmd(Command):
         app = _get_app(self.db_session, app_name)
         app.restart()
         self.db_session.commit()
-        return [{"t": "text", "text": f"App '{app_name}' is restarting..."}]
+
+        return [
+            {"t": "text", "text": f"App '{app_name}' restart triggered."},
+            {"t": "text", "text": "Use 'hop3 app:status' to check status."},
+        ]
 
 
 @register
 @dataclass(frozen=True)
 class DestroyCmd(Command):
-    """Destroy an app, removing all files and configuration."""
+    """Destroy an app, removing all files and configuration.
+
+    Usage: hop3 app:destroy <app_name> [--force]
+
+    Options:
+      -y, --yes, --force   Skip confirmation prompt
+    """
 
     db_session: Session
     name: ClassVar[str] = "app:destroy"
@@ -302,54 +463,29 @@ class DestroyCmd(Command):
 
     def call(self, *args):
         if not args:
-            return [{"t": "text", "text": "Usage: hop destroy <app_name>"}]
+            return [
+                {"t": "text", "text": "Usage: hop3 app:destroy <app_name> [--force]"}
+            ]
         app_name = args[0]
 
-        debug_msgs = []
-
-        def debug(msg):
-            log(msg, level=1)
-            debug_msgs.append(msg)
-
-        debug(f"[DESTROY] Starting destroy for '{app_name}'")
+        log(f"Destroying app '{app_name}'...", level=2)
 
         app = _get_app(self.db_session, app_name)
-        debug(f"[DESTROY] App fetched from session (session id={id(self.db_session)})")
 
         # Stop the app first to release any file locks
         app.stop()
-        debug("[DESTROY] App stopped")
 
         # Clean up filesystem (repo, src, logs, configs etc.)
         app.destroy()
-        debug("[DESTROY] Filesystem cleaned")
 
         # Remove from the database
-        debug("[DESTROY] Calling db_session.delete()")
         self.db_session.delete(app)
-
-        debug("[DESTROY] Calling db_session.commit()")
         self.db_session.commit()
-        debug("[DESTROY] Commit completed successfully")
-
-        # Verify deletion
-        app_repo = AppRepository(session=self.db_session)
-        still_exists = app_repo.get_one_or_none(name=app_name)
-        if still_exists:
-            debug("[DESTROY] WARNING: App still exists in database after commit!")
-        else:
-            debug("[DESTROY] Verified: App no longer in database")
 
         # Reload nginx to remove the app's routing configuration
         self._reload_nginx()
 
-        return [
-            {
-                "t": "text",
-                "text": f"App '{app_name}' has been destroyed.\n\nDebug:\n"
-                + "\n".join(debug_msgs),
-            }
-        ]
+        return [{"t": "text", "text": f"App '{app_name}' has been destroyed."}]
 
     # TODO: this should use a signal/event bus system instead
     def _reload_nginx(self) -> None:

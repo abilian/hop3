@@ -5,10 +5,12 @@
 
 from __future__ import annotations
 
+import functools
 import grp
 import os
 import pwd
 import shutil
+import subprocess
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,6 +26,65 @@ if TYPE_CHECKING:
     from hop3.core.env import Env
 
 __all__ = ["spawn_uwsgi_worker"]
+
+
+@functools.cache
+def _needs_python_plugin() -> bool:
+    """Check if uWSGI needs the python3 plugin to be loaded explicitly.
+
+    System-packaged uWSGI (apt/yum) uses modular plugins and needs this.
+    Pip-installed uWSGI has Python built-in and doesn't need it.
+
+    Returns:
+        True if plugin directive is needed, False otherwise.
+    """
+    try:
+        # Check if python3 plugin file exists (system uWSGI)
+        # Different distros put it in different places
+        plugin_paths = [
+            # Debian/Ubuntu
+            Path("/usr/lib/uwsgi/plugins/python3_plugin.so"),
+            Path("/usr/lib/uwsgi/plugins/python312_plugin.so"),
+            Path("/usr/lib/uwsgi/plugins/python311_plugin.so"),
+            Path("/usr/lib/uwsgi/plugins/python310_plugin.so"),
+            # Ubuntu with arch-specific paths
+            Path("/usr/lib/x86_64-linux-gnu/uwsgi/plugins/python3_plugin.so"),
+            Path("/usr/lib/aarch64-linux-gnu/uwsgi/plugins/python3_plugin.so"),
+            # RHEL/Fedora
+            Path("/usr/lib64/uwsgi/python3_plugin.so"),
+        ]
+        for path in plugin_paths:
+            if path.exists():
+                return True
+
+        # Also check by globbing the plugin directory
+        plugin_dirs = [
+            Path("/usr/lib/uwsgi/plugins"),
+            Path("/usr/lib64/uwsgi"),
+        ]
+        for plugin_dir in plugin_dirs:
+            if plugin_dir.is_dir():
+                # If there are any python*_plugin.so files, we need plugins
+                if list(plugin_dir.glob("python*_plugin.so")):
+                    return True
+
+        # Alternative: check if uWSGI binary is in /usr/bin (system) vs venv
+        result = subprocess.run(
+            ["which", "uwsgi"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            uwsgi_path = result.stdout.strip()
+            # System uWSGI is typically in /usr/bin
+            if uwsgi_path.startswith("/usr/bin"):
+                return True
+
+        return False
+    except Exception:
+        # If detection fails, assume pip-installed (no plugin needed)
+        return False
 
 
 def spawn_uwsgi_worker(
@@ -268,14 +329,17 @@ class WsgiWorker(UwsgiWorker):
         self.settings += [
             ("module", self.command),
             ("threads", self.env.get("UWSGI_THREADS", "4")),
-            ("plugin", "python3"),
         ]
+
+        # Only add plugin directive for system-packaged uWSGI (apt/yum)
+        # pip-installed uWSGI has Python built-in and doesn't need it
+        if _needs_python_plugin():
+            self.settings.add("plugin", "python3")
 
         if "UWSGI_ASYNCIO" in self.env:
             try:
                 tasks = int(self.env["UWSGI_ASYNCIO"])
                 self.settings += [
-                    ("plugin", "asyncio_python3"),
                     ("async", tasks),
                 ]
                 self.log(f"uwsgi will support {tasks} async tasks")
@@ -283,21 +347,14 @@ class WsgiWorker(UwsgiWorker):
                 msg = "Error: malformed setting 'UWSGI_ASYNCIO'."
                 raise Abort(msg)
 
-        # If running under nginx, don't expose a port at all
-        if "HOST_NAME" in self.env:
-            sock = c.NGINX_ROOT / f"{self.app_name}.sock"
-            self.log(f"nginx will talk to uWSGI via {sock}")
-            self.settings += [
-                ("socket", sock),
-                ("chmod-socket", "664"),
-            ]
-        else:
-            self.log("nginx will talk to uWSGI via {BIND_ADDRESS:s}:{PORT:s}")
-            self.settings += [
-                ("http", "{BIND_ADDRESS:s}:{PORT:s}".format(**self.env)),
-                ("http-use-socket", "{BIND_ADDRESS:s}:{PORT:s}".format(**self.env)),
-                ("http-socket", "{BIND_ADDRESS:s}:{PORT:s}".format(**self.env)),
-            ]
+        # Always use HTTP socket for direct access and nginx proxying
+        # This simplifies local development and testing
+        bind_addr = self.env.get("BIND_ADDRESS", "127.0.0.1")
+        port = self.env.get("PORT", "5000")
+        self.log(f"uWSGI will listen on http://{bind_addr}:{port}")
+        self.settings += [
+            ("http-socket", f"{bind_addr}:{port}"),
+        ]
 
 
 @dataclass

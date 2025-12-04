@@ -1,0 +1,5 @@
+# Development Procfile - used by honcho to run all services
+# Usage: honcho -f Procfile.dev start
+
+web: litestar --app asgi:create_app run --debug --reload
+uwsgi: uwsgi --emperor ${HOP3_ROOT:-/tmp/hop3}/uwsgi-enabled --die-on-term --log-master

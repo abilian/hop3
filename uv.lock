@@ -1010,6 +1010,18 @@ wheels = [
 ]
 
 [[package]]
+name = "honcho"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/65/c8/d860888358bf5c8a6e7d78d1b508b59b0e255afd5655f243b8f65166dafd/honcho-2.0.0.tar.gz", hash = "sha256:af3815c03c634bf67d50f114253ea9fef72ecff26e4fd06b29234789ac5b8b2e", size = 45618, upload-time = "2024-10-06T14:26:53.871Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/48/1c/25631fc359955569e63f5446dbb7022c320edf9846cbe892ee5113433a7e/honcho-2.0.0-py3-none-any.whl", hash = "sha256:56dcd04fc72d362a4befb9303b1a1a812cba5da283526fbc6509be122918ddf3", size = 22093, upload-time = "2024-10-06T14:26:52.181Z" },
+]
+
+[[package]]
 name = "hop3"
 version = "0.4.0a2"
 source = { virtual = "." }
@@ -1032,6 +1044,7 @@ dev = [
     { name = "beartype" },
     { name = "cyclonedx-bom" },
     { name = "docker" },
+    { name = "honcho" },
     { name = "httpx" },
     { name = "import-linter" },
     { name = "infer-types" },
@@ -1056,6 +1069,7 @@ dev = [
     { name = "types-toml" },
     { name = "types-urllib3" },
     { name = "urllib3" },
+    { name = "uwsgi" },
     { name = "watchfiles" },
 ]
 doc = [
@@ -1096,6 +1110,7 @@ dev = [
     { name = "beartype", specifier = ">=0.19.0" },
     { name = "cyclonedx-bom", specifier = ">=5.1.1" },
     { name = "docker", specifier = ">=7.1.0" },
+    { name = "honcho", specifier = ">=1.1.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "import-linter", specifier = ">=2.1" },
     { name = "infer-types", specifier = "~=1.0.0" },
@@ -1120,6 +1135,7 @@ dev = [
     { name = "types-toml", specifier = ">=0.10.8.20240310" },
     { name = "types-urllib3", specifier = ">=1.26.25.14" },
     { name = "urllib3" },
+    { name = "uwsgi", specifier = ">=2.0.31" },
     { name = "watchfiles", specifier = ">=0.24.0" },
 ]
 doc = [
@@ -3407,6 +3423,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d2/53/8369e5219a5855869bcee5f4d317f6da0e2c669aecf0ef7d371e3d084449/uvloop-0.22.1-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:bc5ef13bbc10b5335792360623cc378d52d7e62c2de64660616478c32cd0598e", size = 4119472, upload-time = "2025-10-16T22:16:41.694Z" },
     { url = "https://files.pythonhosted.org/packages/f8/ba/d69adbe699b768f6b29a5eec7b47dd610bd17a69de51b251126a801369ea/uvloop-0.22.1-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:1f38ec5e3f18c8a10ded09742f7fb8de0108796eb673f30ce7762ce1b8550cad", size = 4239051, upload-time = "2025-10-16T22:16:43.224Z" },
 ]
+
+[[package]]
+name = "uwsgi"
+version = "2.0.31"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9f/49/2f57640e889ba509fd1fae10cccec1b58972a07c2724486efba94c5ea448/uwsgi-2.0.31.tar.gz", hash = "sha256:e8f8b350ccc106ff93a65247b9136f529c14bf96b936ac5b264c6ff9d0c76257", size = 822796, upload-time = "2025-10-11T19:17:28.794Z" }
 
 [[package]]
 name = "virtualenv"

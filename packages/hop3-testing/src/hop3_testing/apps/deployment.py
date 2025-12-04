@@ -64,6 +64,7 @@ class DeploymentSession:
         # Deployment state
         self.deployed = False
         self.temp_dir: Path | None = None
+        self._last_deploy_error: str | None = None
 
         # Debug settings
         self.verbose = self.config.get("verbose", False)
@@ -162,6 +163,11 @@ class DeploymentSession:
                     "cli", ["deploy", self.app_name], repository=repository_b64
                 )
                 print(f"Deploy response: {response}")
+
+                # Check for RPC error response and capture error message
+                from jsonrpcclient import Error
+                if isinstance(response, Error):
+                    self._last_deploy_error = response.message
             finally:
                 # Close tunnel to prevent hanging
                 if client.tunnel:

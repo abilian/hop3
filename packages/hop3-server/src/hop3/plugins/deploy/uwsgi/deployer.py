@@ -74,11 +74,10 @@ class UWSGIDeployer(Deployer):
         # Mark the app as RUNNING
         self.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
 
-        # Return actual socket path used by nginx
-        from hop3 import config as c
-
-        socket_path = c.NGINX_ROOT / f"{self.app.name}.sock"
-        return DeploymentInfo(protocol="unix_socket", address=str(socket_path))
+        # Return HTTP socket info (apps now listen on HTTP ports)
+        bind_address = "127.0.0.1"
+        port = self.app.port
+        return DeploymentInfo(protocol="http", address=bind_address, port=port)
 
     def start(self) -> None:
         """Starts the app by calling deploy with no scaling changes."""
@@ -148,30 +147,24 @@ class UWSGIDeployer(Deployer):
             True if processes are confirmed running, False otherwise.
 
         Uses multiple methods to verify if the app is actually running:
-        1. Check if uWSGI socket files exist (most reliable)
+        1. Check if the HTTP port is listening (most reliable)
         2. Check if uWSGI processes are running
         3. Fall back to checking config files
         """
         cfg = HopConfig.get_instance()
 
-        # Method 1: Check for socket file (most reliable for web workers)
-        socket_path = cfg.NGINX_ROOT / f"{self.app.name}.sock"
-        if socket_path.exists():
-            # Socket exists, but is it being listened to?
-            # Try to check if there's a process using this socket
+        # Method 1: Check if the HTTP port is listening
+        if self.app.port:
+            import socket
+
             try:
-                result = subprocess.run(
-                    ["lsof", str(socket_path)],
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                    timeout=2,
-                )
-                if result.returncode == 0:
-                    # Socket is being used by a process
-                    return True
-            except (subprocess.TimeoutExpired, FileNotFoundError):
-                # lsof not available or timed out, continue to next check
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(1)
+                    result = s.connect_ex(("127.0.0.1", self.app.port))
+                    if result == 0:
+                        # Port is listening
+                        return True
+            except OSError:
                 pass
 
         # Method 2: Check for running uWSGI processes with this app's name

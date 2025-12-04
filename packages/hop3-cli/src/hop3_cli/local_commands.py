@@ -328,12 +328,22 @@ def _verify_token(server_url: str, token: str) -> str | None:
                     print("Unexpected response from server", file=sys.stderr)
                     return None
 
-    except ConnectionError:
-        print(f"Could not connect to {server_url}", file=sys.stderr)
-        print("Is the server running?", file=sys.stderr)
-        return None
     except Exception as e:
-        print(f"Connection error: {e}", file=sys.stderr)
+        error_str = str(e).lower()
+        # Check for connection-related errors
+        if "connection refused" in error_str or "failed to establish" in error_str:
+            print(f"Could not connect to {server_url}", file=sys.stderr)
+            print("Is the server running?", file=sys.stderr)
+        elif "timeout" in error_str:
+            print(f"Connection to {server_url} timed out.", file=sys.stderr)
+            print("The server may be slow or unreachable.", file=sys.stderr)
+        elif "ssl" in error_str or "certificate" in error_str:
+            print(f"SSL/TLS error connecting to {server_url}", file=sys.stderr)
+            print(
+                "Check that the server URL is correct (http vs https).", file=sys.stderr
+            )
+        else:
+            print(f"Could not connect to {server_url}", file=sys.stderr)
         return None
 
 

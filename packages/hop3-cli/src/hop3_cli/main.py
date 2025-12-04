@@ -87,6 +87,19 @@ def run_command_from_args(cli_args: list[str]) -> None:
         show_unconfigured_message(cli_args)
         sys.exit(1)
 
+    # Check authentication before asking for destructive confirmation
+    # This prevents confusing UX where user confirms destruction only to be told they're not logged in
+    if not config.is_authenticated():
+        show_unauthenticated_message()
+        sys.exit(1)
+
+    # For destructive commands, verify token is valid BEFORE asking for confirmation
+    # This prevents the user from confirming a destructive action only to find out they're not logged in
+    if is_destructive_command(cli_args):
+        if not verify_authentication(config):
+            show_unauthenticated_message()
+            sys.exit(1)
+
     # Check for destructive commands and prompt for confirmation
     if not flags.skip_confirm and is_destructive_command(cli_args):
         if not confirm_destructive_action(cli_args, printer):
@@ -545,3 +558,38 @@ def show_unconfigured_message(cli_args: list[str]) -> None:
     print("For developers running a local server:")
     print("  export HOP3_DEV_MODE=true")
     print("  hop3 help")
+
+
+def show_unauthenticated_message() -> None:
+    """Show helpful login instructions when CLI is not authenticated."""
+    print("Authentication required.\n")
+    print("To authenticate, use one of the following methods:")
+    print("  1. Login: hop3 login <url-with-token>")
+    print("  2. Init:  hop3 init --ssh root@your-server.com\n")
+    print("After logging in, save the token to ~/.config/hop3-cli/config.toml")
+    print("or set the HOP3_API_TOKEN environment variable.")
+
+
+def verify_authentication(config: Config) -> bool:
+    """Verify that the current authentication token is valid.
+
+    Makes a lightweight auth:whoami call to check if the token works.
+
+    Args:
+        config: The CLI configuration
+
+    Returns:
+        True if authenticated, False otherwise
+    """
+    from jsonrpcclient import Error, Ok
+
+    try:
+        with Client(config=config, state=None) as client:
+            response = client.rpc("cli", ["auth:whoami"])
+            match response:
+                case Ok():
+                    return True
+                case Error():
+                    return False
+    except Exception:
+        return False
