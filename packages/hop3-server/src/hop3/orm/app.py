@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import shutil
+import time
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -178,6 +179,34 @@ class App(BigIntAuditBase):
 
         return False
 
+    def _wait_for_actual_state(
+        self,
+        expected_state: AppStateEnum,
+        timeout: float = 10.0,
+        poll_interval: float = 0.5,
+    ) -> bool:
+        """Wait for the app to reach the expected actual state.
+
+        Polls check_actual_status() until the expected state is reached or timeout.
+
+        Args:
+            expected_state: The state we're waiting for (RUNNING or STOPPED)
+            timeout: Maximum seconds to wait (default: 10.0)
+            poll_interval: Seconds between status checks (default: 0.5)
+
+        Returns:
+            True if the expected state was reached, False if timed out
+        """
+        deadline = time.time() + timeout
+
+        while time.time() < deadline:
+            actual_state = self.check_actual_status()
+            if actual_state == expected_state:
+                return True
+            time.sleep(poll_interval)
+
+        return False
+
     def _transition_state(self, new_state: AppStateEnum, error_msg: str = "") -> None:
         """Transition to a new state with validation.
 
@@ -333,14 +362,18 @@ class App(BigIntAuditBase):
             log(f"Preserving folder '{data_dir}'", level=2, fg="blue")
 
     def start(self) -> None:
-        """Start the application with proper state transitions.
+        """Start the application (non-blocking).
 
-        Transitions: STOPPED -> STARTING
-        The app stays in STARTING until actual status is verified.
-        Use sync_state() to update to RUNNING once processes are confirmed running.
+        Spawns the app by writing uWSGI config files. The uWSGI emperor will
+        pick up the config and start the vassal asynchronously.
+
+        The app transitions to STARTING state. Use sync_state() or check
+        app:status to verify when it reaches RUNNING.
 
         Raises:
             StateTransitionError: If the app is not in a startable state
+
+        Transitions: STOPPED -> STARTING (RUNNING verified by sync_state)
         """
         # Transition to STARTING state
         self._transition_state(AppStateEnum.STARTING)
@@ -350,9 +383,6 @@ class App(BigIntAuditBase):
             # This is async - the actual processes start after uWSGI emperor picks up the files
             spawn_app(self)
 
-            # NOTE: We deliberately do NOT transition to RUNNING here
-            # The app stays in STARTING state until sync_state() verifies it's actually running
-
         except Exception as e:
             # Transition to FAILED state on error
             error_msg = f"Failed to start: {e}"
@@ -361,11 +391,18 @@ class App(BigIntAuditBase):
             raise
 
     def stop(self) -> None:
-        """Stop the application by removing uWSGI config files.
+        """Stop the application (non-blocking).
 
-        The uWSGI emperor will detect the removed config and stop the vassal.
+        Removes uWSGI config files. The uWSGI emperor will detect the removal
+        and stop the vassal asynchronously.
+
+        The app transitions to STOPPING state. Use sync_state() or check
+        app:status to verify when it reaches STOPPED.
+
         Always performs cleanup even if state says STOPPED, to handle
         state-reality mismatches.
+
+        Transitions: RUNNING -> STOPPING (STOPPED verified by sync_state)
         """
         cfg = HopConfig.get_instance()
 
@@ -374,36 +411,58 @@ class App(BigIntAuditBase):
         for config_file in config_files:
             config_file.unlink()
 
-        # Update state machine
+        # If already stopped, nothing more to do
+        if self.run_state == AppStateEnum.STOPPED:
+            return
+
+        # Transition to STOPPING if coming from RUNNING
         if self.run_state == AppStateEnum.RUNNING:
             self._transition_state(AppStateEnum.STOPPING)
-        elif self.run_state not in (AppStateEnum.STOPPED, AppStateEnum.STOPPING):
+        elif self.run_state == AppStateEnum.STOPPING:
+            pass  # Already in STOPPING
+        else:
+            # For other states (STARTING, FAILED), force to STOPPED directly
             self.run_state = AppStateEnum.STOPPED
 
     def restart(self) -> None:
-        """Restart (or just start) a deployed app.
+        """Restart (or just start) a deployed app (non-blocking).
 
-        For RUNNING apps: transitions through STOPPING -> STOPPED -> STARTING -> RUNNING
-        For STOPPED/FAILED apps: transitions through STARTING -> RUNNING
+        For RUNNING apps: uses touch-based restart (uWSGI emperor reloads vassal)
+        For STOPPED/FAILED apps: transitions through STARTING
         For STARTING/STOPPING apps: no-op (already in transition)
 
-        This method handles the state machine transitions properly.
+        Use sync_state() or app:status to verify the app reaches RUNNING.
         """
         log(f"Restarting app '{self.name}'...", fg="blue")
 
         # If app is already in a transitional state, do nothing
         if self.run_state in (AppStateEnum.STARTING, AppStateEnum.STOPPING):
             log(
-                f"App '{self.name}' is already in {self.run_state.name} state, skipping restart",
+                f"App '{self.name}' is already in {self.run_state.name} state, "
+                "skipping restart",
                 fg="yellow",
             )
             return
 
-        # If app is running, stop it first
+        # If app is running, use touch-based restart (fast, no state transition)
         if self.run_state == AppStateEnum.RUNNING:
-            self.stop()
-            # Transition to STOPPED after stopping (completing the STOPPING state)
-            self._transition_state(AppStateEnum.STOPPED)
+            cfg = HopConfig.get_instance()
+            config_files = list(cfg.UWSGI_ENABLED.glob(f"{self.name}*.ini"))
+            if config_files:
+                for config_file in config_files:
+                    config_file.touch()
+                log(f"App '{self.name}' restart triggered.", level=2, fg="green")
+            else:
+                # No config files but state says running - inconsistent state
+                # Fall through to start
+                log(
+                    f"App '{self.name}' has no config files, starting fresh.",
+                    level=2,
+                    fg="yellow",
+                )
+                self.run_state = AppStateEnum.STOPPED
+                self.start()
+            return
 
         # If app is in FAILED state, transition to STOPPED first (recovery)
         if self.run_state == AppStateEnum.FAILED:

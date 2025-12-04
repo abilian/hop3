@@ -204,25 +204,32 @@ class StatusCmd(Command):
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
 
-        worker_count = 0
-        scaling_file = app.virtualenv_path / "SCALING"
-        if scaling_file.exists():
-            worker_map = parse_procfile(scaling_file)
-            worker_count = sum(int(v) for v in worker_map.values())
-
-        # Build connection URL
-        if app.port:
-            local_url = f"http://127.0.0.1:{app.port}"
-        else:
-            local_url = "Not available"
+        # Sync state with reality for transitional states (STARTING/STOPPING)
+        # This verifies actual process status and updates accordingly
+        if app.run_state.name in ("STARTING", "STOPPING"):
+            app.sync_state()
+            self.db_session.commit()
 
         rows = [
             ["Name", app.name],
             ["Status", app.run_state.name],
-            ["Workers", str(worker_count)],
-            ["Local URL", local_url],
-            ["Hostname", app.hostname or "Not configured"],
         ]
+
+        # Only show runtime info if app is running
+        if app.run_state.name == "RUNNING":
+            worker_count = 0
+            scaling_file = app.virtualenv_path / "SCALING"
+            if scaling_file.exists():
+                worker_map = parse_procfile(scaling_file)
+                worker_count = sum(int(v) for v in worker_map.values())
+            rows.append(["Workers", str(worker_count)])
+
+            if app.port:
+                rows.append(["Local URL", f"http://127.0.0.1:{app.port}"])
+
+        if app.hostname:
+            rows.append(["Hostname", app.hostname])
+
         return [{"t": "table", "headers": ["Property", "Value"], "rows": rows}]
 
 
@@ -249,8 +256,11 @@ class PingCmd(Command):
         path = args[1] if len(args) > 1 else "/"
         app = _get_app(self.db_session, app_name)
 
+        if app.run_state.name == "STOPPED":
+            return [{"t": "text", "text": f"App '{app_name}' is stopped."}]
+
         if not app.port:
-            return [{"t": "error", "text": f"App '{app_name}' has no port assigned"}]
+            return [{"t": "text", "text": f"App '{app_name}' has no port assigned."}]
 
         url = f"http://127.0.0.1:{app.port}{path}"
         timeout = 10  # seconds
@@ -350,9 +360,38 @@ class StartCmd(Command):
             return [{"t": "text", "text": "Usage: hop start <app_name>"}]
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
+
+        # Sync state first to get actual status
+        if app.run_state.name in ("STARTING", "STOPPING"):
+            app.sync_state()
+            self.db_session.commit()
+
+        state = app.run_state.name
+        if state == "RUNNING":
+            return [{"t": "text", "text": f"App '{app_name}' is already running."}]
+        if state == "STARTING":
+            # Still starting after sync - genuinely still starting
+            return [
+                {"t": "text", "text": f"App '{app_name}' is still starting..."},
+                {
+                    "t": "text",
+                    "text": "Use 'hop3 app:status' to check when it's running.",
+                },
+            ]
+        if state == "STOPPING":
+            # Still stopping after sync
+            return [
+                {"t": "text", "text": f"App '{app_name}' is currently stopping."},
+                {"t": "text", "text": "Wait for it to stop, then start it again."},
+            ]
+
         app.start()
         self.db_session.commit()
-        return [{"t": "text", "text": f"App '{app_name}' is starting..."}]
+
+        return [
+            {"t": "text", "text": f"App '{app_name}' is starting..."},
+            {"t": "text", "text": "Use 'hop3 app:status' to check when it's running."},
+        ]
 
 
 @register
@@ -369,13 +408,38 @@ class StopCmd(Command):
 
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
+
+        # Sync state first to get actual status
+        if app.run_state.name in ("STARTING", "STOPPING"):
+            app.sync_state()
+            self.db_session.commit()
+
+        state = app.run_state.name
+        if state == "STOPPED":
+            return [{"t": "text", "text": f"App '{app_name}' is already stopped."}]
+        if state == "STOPPING":
+            # Still stopping after sync - genuinely still stopping
+            return [
+                {"t": "text", "text": f"App '{app_name}' is still stopping..."},
+                {
+                    "t": "text",
+                    "text": "Use 'hop3 app:status' to check when it's stopped.",
+                },
+            ]
+        if state == "STARTING":
+            # Still starting after sync
+            return [
+                {"t": "text", "text": f"App '{app_name}' is currently starting."},
+                {"t": "text", "text": "Wait for it to start, then stop it."},
+            ]
+
         app.stop()
         self.db_session.commit()
 
-        # Give uWSGI emperor a moment to notice the config change
-        time.sleep(1)
-
-        return [{"t": "text", "text": f"App '{app_name}' stopped."}]
+        return [
+            {"t": "text", "text": f"App '{app_name}' is stopping..."},
+            {"t": "text", "text": "Use 'hop3 app:status' to check when it's stopped."},
+        ]
 
 
 @register
@@ -393,7 +457,11 @@ class RestartCmd(Command):
         app = _get_app(self.db_session, app_name)
         app.restart()
         self.db_session.commit()
-        return [{"t": "text", "text": f"App '{app_name}' is restarting..."}]
+
+        return [
+            {"t": "text", "text": f"App '{app_name}' restart triggered."},
+            {"t": "text", "text": "Use 'hop3 app:status' to check status."},
+        ]
 
 
 @register
@@ -413,7 +481,9 @@ class DestroyCmd(Command):
 
     def call(self, *args):
         if not args:
-            return [{"t": "text", "text": "Usage: hop3 app:destroy <app_name> [--force]"}]
+            return [
+                {"t": "text", "text": "Usage: hop3 app:destroy <app_name> [--force]"}
+            ]
         app_name = args[0]
 
         log(f"Destroying app '{app_name}'...", level=2)
