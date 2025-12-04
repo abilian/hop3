@@ -9,14 +9,14 @@ from hop3.core.hooks import hop3_hook_impl
 from hop3.toolchains import TOOLCHAIN_CLASSES
 
 
-class NativeBuildPlugin:
+class LanguageToolchainsPlugin:
     """Plugin that provides language toolchains for various languages.
 
     This plugin provides Level 2 toolchains (PythonToolchain, NodeToolchain, etc.)
     that are used by LocalBuilder to build applications.
     """
 
-    name = "native-build"
+    name = "language-toolchains"
 
     @hop3_hook_impl
     def get_language_toolchains(self) -> list:
@@ -29,4 +29,4 @@ class NativeBuildPlugin:
 
 
 # Auto-register plugin instance when module is imported
-plugin = NativeBuildPlugin()
+plugin = LanguageToolchainsPlugin()

@@ -109,7 +109,7 @@ class TestDeploymentStrategySelection:
         assert deployer.app.name == "test-app"
 
     def test_deployment_strategy_priority_for_multiple_artifacts(self, tmp_path: Path):
-        """Test that UWSGIDeployer is selected before DummyDeployer.
+        """Test that UWSGIDeployer is selected for various artifact types.
 
         ARRANGE:
             - Create real App instance

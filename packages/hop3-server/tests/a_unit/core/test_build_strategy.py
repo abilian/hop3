@@ -52,29 +52,9 @@ def test_get_builder_with_node_project(tmp_path: Path):
     assert builder.context == context
 
 
-def test_get_builder_no_suitable_builder(tmp_path: Path):
-    """Test that get_builder uses DummyBuilder when .dummy-build marker exists."""
-    # Create source directory without any recognized project files
-    src_dir = tmp_path / "src"
-    src_dir.mkdir()
-    (src_dir / "README.md").write_text("# Test Project\n")
-
-    # Create .dummy-build marker file to explicitly request DummyBuilder
-    # (DummyBuilder only accepts if this marker exists)
-    (src_dir / ".dummy-build").touch()
-
-    # Create DeploymentContext
-    context = DeploymentContext(app_name="test-app", source_path=src_dir, app_config={})
-
-    # With .dummy-build marker, DummyBuilder should accept
-    builder = get_builder(context)
-    assert builder.name == "dummy"
-
-
 def test_get_builder_no_builder_raises_error(tmp_path: Path):
     """Test that get_builder raises RuntimeError when no builder accepts."""
     # Create source directory without any recognized project files
-    # and WITHOUT .dummy-build marker
     src_dir = tmp_path / "src"
     src_dir.mkdir()
     (src_dir / "README.md").write_text("# Test Project\n")
@@ -82,6 +62,6 @@ def test_get_builder_no_builder_raises_error(tmp_path: Path):
     # Create DeploymentContext
     context = DeploymentContext(app_name="test-app", source_path=src_dir, app_config={})
 
-    # Without any recognized files or .dummy-build marker, should raise RuntimeError
+    # Without any recognized files, should raise RuntimeError
     with pytest.raises(RuntimeError, match="Could not find a suitable builder"):
         get_builder(context)

@@ -80,7 +80,7 @@ def test_uwsgi_deployer_has_app_access(tmp_path: Path):
 
 
 def test_deployment_strategy_priority(tmp_path: Path):
-    """Test that UWSGIDeployer is selected before DummyDeployer."""
+    """Test that UWSGIDeployer is selected for various artifact types."""
     app = Mock(spec=App)
     app.name = "test-app"
 

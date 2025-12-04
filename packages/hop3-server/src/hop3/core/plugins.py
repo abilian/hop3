@@ -11,12 +11,7 @@ import pluggy
 from devtools import debug
 from pluggy import PluginManager
 
-# Temp
-from hop3.plugins.build.dummy_build.builder import DummyBuilder
-from hop3.plugins.deploy.dummy_deploy.deploy import DummyDeployer
-
 from . import hookspecs
-from .hooks import hop3_hook_impl
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -99,10 +94,6 @@ def get_plugin_manager() -> PluginManager:
 
     pm.add_hookspecs(hookspecs)
 
-    # Register the core plugin first (provides dummy strategies)
-    core_plugin = CorePlugin()
-    pm.register(core_plugin)
-
     # Import all plugin modules and auto-discover plugin instances
     #
     # Plugin Architecture Notes:
@@ -134,21 +125,6 @@ def get_plugin_manager() -> PluginManager:
     _plugin_manager = pm
 
     return pm
-
-
-class CorePlugin:
-    """The plugin container for Hop3's default strategies."""
-
-    name = "core"
-
-    @hop3_hook_impl
-    def get_builders(self) -> list:
-        # This hook returns classes, not instances.
-        return [DummyBuilder]
-
-    @hop3_hook_impl
-    def get_deployers(self) -> list:
-        return [DummyDeployer]
 
 
 #
