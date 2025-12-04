@@ -241,3 +241,192 @@ id = "test"
 
     # Test with file path would show path in repr
     # (tested implicitly in test_from_file)
+
+
+# =============================================================================
+# WAF Configuration Tests
+# =============================================================================
+
+
+def test_waf_section_defaults():
+    """Test default values when [waf] section is missing."""
+    content = """
+[metadata]
+id = "test"
+"""
+    config = Hop3Config.from_str(content)
+
+    assert config.waf_enabled is False
+    assert config.waf_engine == "lewaf"
+    assert config.waf_ruleset == "owasp-crs"
+    assert config.waf_paranoia_level == 1
+    assert config.waf_mode == "block"
+    assert config.waf_exclusions == {}
+    assert config.waf_crs == {}
+
+
+def test_waf_section_full():
+    """Test parsing complete [waf] section."""
+    content = """
+[waf]
+enabled = true
+engine = "coraza"
+ruleset = "minimal"
+paranoia_level = 2
+mode = "detect"
+
+[waf.exclusions]
+paths = ["/api/webhook", "/health"]
+rule_ids = [942100, 942200]
+
+[waf.crs]
+custom = 'SecRule REQUEST_URI "@contains /admin" "id:10001,deny,status:403"'
+"""
+    config = Hop3Config.from_str(content)
+
+    assert config.waf_enabled is True
+    assert config.waf_engine == "coraza"
+    assert config.waf_ruleset == "minimal"
+    assert config.waf_paranoia_level == 2
+    assert config.waf_mode == "detect"
+    assert config.waf_exclusions == {
+        "paths": ["/api/webhook", "/health"],
+        "rule_ids": [942100, 942200],
+    }
+    assert "custom" in config.waf_crs
+
+
+def test_waf_section_partial():
+    """Test parsing partial [waf] section with defaults."""
+    content = """
+[waf]
+enabled = true
+paranoia_level = 3
+"""
+    config = Hop3Config.from_str(content)
+
+    assert config.waf_enabled is True
+    assert config.waf_engine == "lewaf"  # default
+    assert config.waf_ruleset == "owasp-crs"  # default
+    assert config.waf_paranoia_level == 3
+    assert config.waf_mode == "block"  # default
+
+
+def test_security_rules_section():
+    """Test [security.rules] section parsing."""
+    content = """
+[security.rules]
+allow = ["/health", "/metrics"]
+deny = ["/admin/debug", "/phpMyAdmin"]
+allow_ips = ["10.0.0.0/8", "192.168.1.100"]
+deny_ips = ["1.2.3.4", "5.6.7.8"]
+"""
+    config = Hop3Config.from_str(content)
+
+    assert config.security_allow_paths == ["/health", "/metrics"]
+    assert config.security_deny_paths == ["/admin/debug", "/phpMyAdmin"]
+    assert config.security_allow_ips == ["10.0.0.0/8", "192.168.1.100"]
+    assert config.security_deny_ips == ["1.2.3.4", "5.6.7.8"]
+
+
+def test_security_rules_defaults():
+    """Test default values for [security.rules]."""
+    content = """
+[metadata]
+id = "test"
+"""
+    config = Hop3Config.from_str(content)
+
+    assert config.security_allow_paths == []
+    assert config.security_deny_paths == []
+    assert config.security_allow_ips == []
+    assert config.security_deny_ips == []
+
+
+def test_get_waf_config():
+    """Test get_waf_config() method returns complete config dict."""
+    content = """
+[waf]
+enabled = true
+engine = "lewaf"
+ruleset = "owasp-crs"
+paranoia_level = 2
+mode = "block"
+
+[waf.exclusions]
+paths = ["/webhook"]
+rule_ids = [942100]
+
+[waf.crs]
+custom = "SecRule ..."
+
+[security.rules]
+allow = ["/health"]
+deny = ["/admin"]
+allow_ips = ["10.0.0.0/8"]
+deny_ips = ["1.2.3.4"]
+"""
+    config = Hop3Config.from_str(content)
+    waf_config = config.get_waf_config("my-app")
+
+    assert waf_config["app_name"] == "my-app"
+    assert waf_config["enabled"] is True
+    assert waf_config["engine"] == "lewaf"
+    assert waf_config["ruleset"] == "owasp-crs"
+    assert waf_config["paranoia_level"] == 2
+    assert waf_config["mode"] == "block"
+    assert waf_config["exclusions"] == ["/webhook"]
+    assert waf_config["disabled_rules"] == [942100]
+    assert waf_config["custom_rules"] == "SecRule ..."
+    assert waf_config["allow_paths"] == ["/health"]
+    assert waf_config["deny_paths"] == ["/admin"]
+    assert waf_config["allow_ips"] == ["10.0.0.0/8"]
+    assert waf_config["deny_ips"] == ["1.2.3.4"]
+
+
+def test_get_waf_config_defaults():
+    """Test get_waf_config() with default values."""
+    content = ""
+    config = Hop3Config.from_str(content)
+    waf_config = config.get_waf_config("default-app")
+
+    assert waf_config["app_name"] == "default-app"
+    assert waf_config["enabled"] is False
+    assert waf_config["engine"] == "lewaf"
+    assert waf_config["ruleset"] == "owasp-crs"
+    assert waf_config["paranoia_level"] == 1
+    assert waf_config["mode"] == "block"
+    assert waf_config["exclusions"] == []
+    assert waf_config["disabled_rules"] == []
+    assert waf_config["custom_rules"] == ""
+    assert waf_config["allow_paths"] == []
+    assert waf_config["deny_paths"] == []
+    assert waf_config["allow_ips"] == []
+    assert waf_config["deny_ips"] == []
+
+
+def test_has_section_waf():
+    """Test has_section() for waf and security sections."""
+    content = """
+[waf]
+enabled = true
+
+[security.rules]
+allow = ["/health"]
+"""
+    config = Hop3Config.from_str(content)
+
+    assert config.has_section("waf") is True
+    assert config.has_section("security") is True
+
+
+def test_has_section_waf_missing():
+    """Test has_section() returns False when waf section missing."""
+    content = """
+[metadata]
+id = "test"
+"""
+    config = Hop3Config.from_str(content)
+
+    assert config.has_section("waf") is False
+    assert config.has_section("security") is False

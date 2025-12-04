@@ -14,7 +14,8 @@ from sqlalchemy.orm import object_session
 
 from hop3.config import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
 from hop3.core.env import Env
-from hop3.core.plugins import get_proxy_strategy
+from hop3.core.plugins import get_proxy_strategy, get_waf_engine, is_waf_enabled
+from hop3.core.protocols import WafConfig
 from hop3.lib import echo, get_free_port, log
 from hop3.lib.settings import write_settings
 from hop3.project.config import AppConfig
@@ -103,6 +104,84 @@ class AppLauncher:
             )
             traceback.print_exc()
 
+    def _setup_waf(self) -> None:
+        """Configure WAF protection for the application if enabled.
+
+        WAF is configured when both:
+        1. WAF is enabled at the server level (HOP3_WAF_ENABLED)
+        2. WAF is enabled for this app in hop3.toml ([waf] enabled = true)
+        """
+        # Check if WAF is enabled at server level
+        if not is_waf_enabled():
+            return
+
+        # Check if app has WAF configuration
+        if not self.config.has_hop3_toml:
+            return
+
+        hop3_config = self.config.hop3_config
+        if not hop3_config.waf_enabled:
+            return
+
+        log(
+            f"Setting up WAF protection for '{self.app_name}'",
+            level=1,
+            fg="green",
+        )
+
+        try:
+            # Get the WAF engine
+            waf_engine = get_waf_engine()
+            if waf_engine is None:
+                log(
+                    f"WAF engine not available, skipping WAF setup for '{self.app_name}'",
+                    level=2,
+                    fg="yellow",
+                )
+                return
+
+            # Build WafConfig from hop3.toml
+            waf_config_dict = hop3_config.get_waf_config(self.app_name)
+            waf_config = WafConfig(
+                app_name=waf_config_dict["app_name"],
+                enabled=waf_config_dict["enabled"],
+                engine=waf_config_dict["engine"],
+                ruleset=waf_config_dict["ruleset"],
+                paranoia_level=waf_config_dict["paranoia_level"],
+                mode=waf_config_dict["mode"],
+                exclusions=waf_config_dict["exclusions"],
+                disabled_rules=waf_config_dict["disabled_rules"],
+                custom_rules=waf_config_dict["custom_rules"],
+                allow_paths=waf_config_dict["allow_paths"],
+                deny_paths=waf_config_dict["deny_paths"],
+                allow_ips=waf_config_dict["allow_ips"],
+                deny_ips=waf_config_dict["deny_ips"],
+            )
+
+            # Store backend address for WAF routing
+            # The WAF needs to know where to forward requests after inspection
+            backend_address = self.env.get("NGINX_SOCKET", "")
+            if backend_address:
+                # Store in env for WAF config generation
+                self.env["WAF_BACKEND_ADDRESS"] = backend_address
+
+            # Configure WAF for this app
+            waf_engine.configure_app(waf_config)
+
+            log(
+                f"✓ WAF protection configured for '{self.app_name}' "
+                f"(mode={waf_config.mode}, paranoia={waf_config.paranoia_level})",
+                level=0,
+                fg="green",
+            )
+        except Exception as e:
+            log(
+                f"✗ WAF setup failed for '{self.app_name}': {e}",
+                level=0,
+                fg="red",
+            )
+            traceback.print_exc()
+
     def _calculate_worker_changes(self, web_worker_count: dict) -> tuple[dict, dict]:
         """Calculate which workers to create and destroy based on deltas.
 
@@ -168,6 +247,7 @@ class AppLauncher:
         host_name = self.env.get("HOST_NAME", "")
         self._update_app_metadata(host_name)
         self._setup_proxy(host_name)
+        self._setup_waf()  # Configure WAF after proxy setup
 
         scaling = self.virtualenv_path / "SCALING"
         web_worker_count = self._get_worker_counts(scaling)

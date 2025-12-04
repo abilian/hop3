@@ -31,6 +31,8 @@ dependencies = [
     "pyjwt>=2.8.0",
     "bcrypt>=4.0.0",
     "cryptography>=42.0.0",
+    # WAF
+    "lewaf>=1.4.0",
     # ASGI server
     "granian[reload]>=2.2.0",
     # PostgreSQL
@@ -42,6 +44,7 @@ dependencies = [
     "anyio",
     # Needed for some reason
     "sniffio",
+    "loguru>=0.7.3",
 ]
 
 [dependency-groups]
@@ -66,8 +69,10 @@ build-backend = "uv_build"
 module-name = "hop3"
 module-root = "src"
 
-#[tool.uv.sources]
-#hop3-testing = { path = "../hop3-testing", editable = true }
+[tool.uv.sources]
+# hop3-testing = { path = "../hop3-testing", editable = true }
+# LeWAF: Currently private, will move to public PyPI later
+lewaf = { git = "ssh://git@git.sr.ht/~sfermigier/lewaf" }
 
 # ----------------------------------------
 

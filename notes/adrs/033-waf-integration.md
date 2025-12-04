@@ -1,7 +1,8 @@
 # ADR 033: Web Application Firewall (WAF) and Network Security Integration
 
-**Status**: Draft
+**Status**: Accepted (Phase 1 Implemented)
 **Date**: 2025-12-03
+**Last Updated**: 2025-12-04
 **Related ADRs**: ADR 010 (Security and Resilience), ADR 021 (Proxy Plugin System), ADR 020 (Pluggable Architecture)
 
 ---
@@ -1140,6 +1141,13 @@ These questions were raised during design and have been resolved:
 7. **Firewall Privileges**: *Resolved* - Separate firewall agent process with CAP_NET_ADMIN capability, communicates with Hop3 server via Unix socket IPC. See "Network Firewall Agent" section.
 
 8. **Single vs Multi-Instance WAF**: *Resolved* - Single LeWAF service handles all applications, with per-app configuration loaded dynamically based on Host header. See "Single WAF Instance Architecture" section.
+
+9. **LeWAF Dependency Model**: *Resolved* - LeWAF is a **hard dependency** for Phase 1. This means:
+   - `lewaf` package is listed as a required dependency in `pyproject.toml`
+   - WAF features are always available (no optional imports)
+   - Simplifies testing and deployment for initial release
+   - Will migrate to "a la carte" (optional dependency with graceful degradation) in a future phase once the WAF integration is proven in production
+   - Current source: Private git repository `git@git.sr.ht:~sfermigier/lewaf` (will move to public PyPI later)
 
 ## Unresolved Questions
 

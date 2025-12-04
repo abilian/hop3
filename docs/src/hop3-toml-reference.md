@@ -180,6 +180,79 @@ retention = 7             # Days to keep backups
 - `schedule` (string): Cron expression for backup schedule
 - `retention` (number): Number of days to retain backups
 
+### [waf] - Web Application Firewall
+
+Configure WAF (Web Application Firewall) protection for your application.
+
+```toml
+[waf]
+enabled = true                # Enable WAF protection
+engine = "lewaf"              # WAF engine (lewaf, coraza in future)
+ruleset = "owasp-crs"         # Ruleset (owasp-crs, minimal, none)
+paranoia_level = 1            # CRS paranoia level (1-4)
+mode = "block"                # Mode: "block" or "detect"
+
+# Path exclusions (bypass WAF inspection)
+[waf.exclusions]
+paths = ["/api/webhook", "/health"]
+rule_ids = [942100, 942200]   # Disable specific CRS rules
+
+# Custom SecLang rules
+[waf.crs]
+custom = """
+SecRule REQUEST_URI "@contains /admin" "id:10001,deny,status:403,msg:'Admin access blocked'"
+"""
+```
+
+**Fields:**
+- `enabled` (boolean): Enable/disable WAF for this app (default: false)
+- `engine` (string): WAF engine to use (default: "lewaf")
+- `ruleset` (string): CRS ruleset - "owasp-crs", "minimal", or "none" (default: "owasp-crs")
+- `paranoia_level` (number): CRS paranoia level 1-4 (default: 1)
+  - Level 1: Basic protection, low false positives
+  - Level 2: Enhanced protection, some false positives
+  - Level 3: Strong protection, moderate false positives
+  - Level 4: Maximum protection, high false positives
+- `mode` (string): "block" to block attacks, "detect" to log only (default: "block")
+
+**Exclusions:**
+- `paths` (array): Paths that bypass WAF inspection (e.g., webhooks)
+- `rule_ids` (array): Specific CRS rule IDs to disable
+
+**Note:** WAF must also be enabled at the server level (`HOP3_WAF_ENABLED=true` in `hop3-server.toml`).
+
+### [security.rules] - Simple Allow/Deny Rules
+
+Configure simple path and IP-based access rules (processed before WAF).
+
+```toml
+[security.rules]
+# Paths that bypass all WAF inspection
+allow = ["/health", "/metrics", "/.well-known/"]
+
+# Paths that are blocked immediately (before WAF)
+deny = ["/admin/debug", "/phpMyAdmin", "/.git/"]
+
+# IPs/CIDRs that bypass security checks
+allow_ips = ["10.0.0.0/8", "192.168.0.0/16"]
+
+# IPs/CIDRs that are blocked at WAF level
+deny_ips = ["1.2.3.4", "5.6.7.0/24"]
+```
+
+**Fields:**
+- `allow` (array): Paths that bypass WAF inspection entirely
+- `deny` (array): Paths blocked before reaching WAF (403 response)
+- `allow_ips` (array): IP addresses/CIDRs that bypass all security
+- `deny_ips` (array): IP addresses/CIDRs blocked at WAF level
+
+**Rule Processing Order:**
+1. IP allow list check (bypass all)
+2. IP deny list check (block)
+3. Path deny list check (block)
+4. Path allow list check (bypass WAF)
+5. WAF inspection (if enabled)
+
 ### [[provider]] - Service Dependencies
 
 Declare backing services your application needs (databases, caches, etc.).
@@ -268,6 +341,38 @@ packages = ["nodejs"]
 
 [port]
 web = 3000
+
+[[provider]]
+name = "postgres"
+plan = "standard"
+```
+
+### Application with WAF Protection
+
+```toml
+[metadata]
+id = "secure-api"
+version = "1.0.0"
+
+[run]
+start = "gunicorn app:app --workers 4"
+
+# Enable WAF with OWASP CRS
+[waf]
+enabled = true
+ruleset = "owasp-crs"
+paranoia_level = 2
+mode = "block"
+
+# Exclude webhook endpoint from WAF inspection
+[waf.exclusions]
+paths = ["/api/webhook"]
+
+# Simple security rules
+[security.rules]
+allow = ["/health", "/metrics"]
+deny = ["/admin/debug", "/.env"]
+allow_ips = ["10.0.0.0/8"]
 
 [[provider]]
 name = "postgres"
