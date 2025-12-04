@@ -6,12 +6,13 @@ from __future__ import annotations
 
 import shutil
 import time
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from advanced_alchemy.base import BigIntAuditBase
-from sqlalchemy import String, TypeDecorator
+from sqlalchemy import DateTime, String, TypeDecorator
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Integer as SQLInteger
 
@@ -103,6 +104,9 @@ class App(BigIntAuditBase):
     port: Mapped[int] = mapped_column(default=0)
     hostname: Mapped[str] = mapped_column(default="")
     error_message: Mapped[str] = mapped_column(String(1024), default="")
+    state_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=None, nullable=True
+    )
 
     env_vars: Mapped[list[EnvVar]] = relationship(
         back_populates="app", cascade="all, delete-orphan"
@@ -233,6 +237,8 @@ class App(BigIntAuditBase):
             raise StateTransitionError(msg)
 
         self.run_state = new_state
+        self.state_changed_at = datetime.now(UTC)
+
         if new_state == AppStateEnum.FAILED:
             self.error_message = error_msg
         else:
