@@ -6,7 +6,7 @@ image: ubuntu/22.04
 
 # SSH key for e2e test machine
 secrets:
-- 705a1519-b37e-4205-94a4-354c085dbdcc
+  - 705a1519-b37e-4205-94a4-354c085dbdcc
 
 packages:
   # Build tools
@@ -44,6 +44,7 @@ tasks:
       cd hop3
       # Ensure HOP3_DEV_HOST is not set for c_system tests (they use Docker)
       unset HOP3_DEV_HOST
+      sudo chmod 666 /var/run/docker.sock
       uv run make test
 
   - e2e: |
