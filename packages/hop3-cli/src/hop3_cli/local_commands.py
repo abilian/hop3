@@ -339,7 +339,9 @@ def _verify_token(server_url: str, token: str) -> str | None:
             print("The server may be slow or unreachable.", file=sys.stderr)
         elif "ssl" in error_str or "certificate" in error_str:
             print(f"SSL/TLS error connecting to {server_url}", file=sys.stderr)
-            print("Check that the server URL is correct (http vs https).", file=sys.stderr)
+            print(
+                "Check that the server URL is correct (http vs https).", file=sys.stderr
+            )
         else:
             print(f"Could not connect to {server_url}", file=sys.stderr)
         return None
