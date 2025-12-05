@@ -45,6 +45,7 @@ Options:
   --admin-user USER     Admin username to create (default: admin)
   --admin-email EMAIL   Admin email (default: admin@example.com)
   --admin-password PWD  Admin password (default: randomly generated)
+  --app-hostname HOST   Hostname for the demo app (default: a1.hop.demo)
   --skip-install        Skip installation (Hop3 already installed)
   --no-cleanup          Don't destroy the demo app at the end
   --pause SECONDS       Pause between steps (default: 0.5)
@@ -64,6 +65,9 @@ python demo.py 46.62.169.221 --no-cleanup
 
 # Custom admin credentials
 python demo.py 46.62.169.221 --admin-user myuser --admin-email me@example.com
+
+# Custom hostname for the demo app
+python demo.py 46.62.169.221 --app-hostname myapp.example.com
 
 # Slower pacing for screencasts
 python demo.py 46.62.169.221 --pause 2

@@ -413,14 +413,28 @@ def demo_app_management(ctx: DemoContext) -> None:
     run_hop3("app:status hello-hop3")
     pause(ctx.pause_between_steps)
 
-    # Test the application via HTTP
-    print_step("Testing the application via HTTP...")
-    test_url = f"http://{ctx.server_ip}:8000"
-    print_info("Note: In production, you'd access via hostname.")
-    print_info(f"For this demo, we'll use the server IP: {test_url}")
+    # Test the application via HTTPS with virtual host
+    print_step(f"Testing the application via HTTPS at {ctx.app_url}...")
+    print_info("Using curl with -k flag to accept self-signed certificate.")
 
-    # Get the app port from status and test it
-    result = run_hop3("app:ping hello-hop3", check=False)
+    # First, use hop3's built-in ping (internal check)
+    run_hop3("app:ping hello-hop3", check=False)
+    pause(ctx.pause_between_steps)
+
+    # Now test via the actual public URL with curl
+    print_step(f"Verifying external access via {ctx.app_url}...")
+    curl_cmd = f"curl -sk {ctx.app_url}/"
+    print_command(curl_cmd)
+    result = subprocess.run(curl_cmd, shell=True, capture_output=True, text=True, check=False)
+    if result.returncode == 0 and result.stdout:
+        print(f"  {Colors.GREEN}Response:{Colors.RESET}")
+        print(f"  {result.stdout.strip()}")
+        print()
+        print_success(f"Application accessible at {ctx.app_url}")
+    else:
+        print_error(f"Failed to access {ctx.app_url}")
+        if result.stderr:
+            print(f"  {Colors.RED}{result.stderr.strip()}{Colors.RESET}")
     pause(ctx.pause_between_steps)
 
     # Set environment variables
@@ -493,6 +507,8 @@ def print_summary(ctx: DemoContext) -> None:
     print(f"  SSH Target:    {ctx.ssh_target}")
     print(f"  Admin User:    {ctx.admin_user}")
     print(f"  Admin Email:   {ctx.admin_email}")
+    print(f"  App Hostname:  {ctx.app_hostname}")
+    print(f"  App URL:       {ctx.app_url}")
     print(f"  Skip Install:  {ctx.skip_install}")
     print(f"  No Cleanup:    {ctx.no_cleanup}")
     print()
@@ -531,6 +547,11 @@ Examples:
         help="Admin password (default: randomly generated)",
     )
     parser.add_argument(
+        "--app-hostname",
+        default="a1.hop.demo",
+        help="Hostname for the demo app (default: a1.hop.demo)",
+    )
+    parser.add_argument(
         "--skip-install",
         action="store_true",
         help="Skip the installation phase (assume Hop3 is already installed)",
@@ -562,6 +583,7 @@ def main() -> None:
         admin_user=args.admin_user,
         admin_email=args.admin_email,
         admin_password=admin_password,
+        app_hostname=args.app_hostname,
         skip_install=args.skip_install,
         no_cleanup=args.no_cleanup,
         pause_between_steps=args.pause,
@@ -603,7 +625,9 @@ def main() -> None:
         print_success("The Hop3 demo has finished successfully.")
         print()
         if ctx.no_cleanup:
-            print(f"  Your application is running at: http://{ctx.server_ip}")
+            print(f"  Your application is running at: {ctx.app_url}")
+            print(f"  Test it with: curl -sk {ctx.app_url}/")
+            print()
             print("  Admin credentials:")
             print(f"    Username: {ctx.admin_user}")
             print(f"    Password: {ctx.admin_password}")
