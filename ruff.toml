@@ -58,7 +58,6 @@ lint.extend-ignore = [
     "FBT001", # 24 - FBT001 	boolean-type-hint-positional-argument
     "FBT002", # 16 - FBT002 	boolean-default-value-positional-argument
     "B904", # 15 - B904   	raise-without-from-inside-except
-    "PLR6201", # 12 - PLR6201	literal-membership
     "PLR0911", #  9 - PLR0911	too-many-return-statements
     "FBT003", #  5 - FBT003 	boolean-positional-value-in-call
     "RUF005", #  5 - RUF005 	collection-literal-concatenation
@@ -70,7 +69,6 @@ lint.extend-ignore = [
     "B909", #  1 - B909   	loop-iterator-mutation
     "PLW2901", #  1 - PLW2901	redefined-loop-name
     "RUF100", # Unused noqa
-    "PLR0912", #	too-many-branches
     "PLR0913", #	too-many-arguments
     "PLC0206", #	dict-index-missing-items
     "PLR0914", #	too-many-locals
@@ -102,6 +100,7 @@ known-first-party = ["hop3"]
     "PLR0915", #	too-many-statements
     "C901",    #	complex-structure
     "PLC2701", # Private name import
+    "PLR0912", # too-many-branches
 ]
 "**/noxfile.py" = [
     "INP001", # implicit namespace package

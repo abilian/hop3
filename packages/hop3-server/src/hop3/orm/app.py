@@ -525,7 +525,7 @@ class App(BigIntAuditBase):
         log(f"Restarting app '{self.name}'...", fg="blue")
 
         # If app is already in a transitional state, do nothing
-        if self.run_state in (AppStateEnum.STARTING, AppStateEnum.STOPPING):
+        if self.run_state in {AppStateEnum.STARTING, AppStateEnum.STOPPING}:
             log(
                 f"App '{self.name}' is already in {self.run_state.name} state, "
                 "skipping restart",

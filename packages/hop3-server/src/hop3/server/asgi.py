@@ -52,10 +52,10 @@ class SuppressHTTPExceptionTraceback(logging.Filter):
         # Check exception type in exc_info
         if record.exc_info:
             exc_type = record.exc_info[0]
-            if exc_type and exc_type.__name__ in (
+            if exc_type and exc_type.__name__ in {
                 "NotFoundException",
                 "NotAuthorizedException",
-            ):
+            }:
                 return False
 
         return True

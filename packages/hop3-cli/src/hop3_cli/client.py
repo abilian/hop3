@@ -223,7 +223,7 @@ class Client:
         if verify_ssl_config is None:
             return False
         if isinstance(verify_ssl_config, str):
-            return verify_ssl_config.lower() in ("false", "0", "no")
+            return verify_ssl_config.lower() in {"false", "0", "no"}
         return not bool(verify_ssl_config)
 
     def _build_headers(self) -> dict[str, str]:
