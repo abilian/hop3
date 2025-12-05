@@ -654,6 +654,9 @@ def setup_nginx(skip: bool, domain: str | None = None) -> None:
             default_site.unlink()
             print_info("Removed default nginx site")
 
+    # Add include for app-specific nginx configs in /home/hop3/nginx/
+    _add_hop3_nginx_include()
+
     # Test nginx config
     try:
         run_cmd(["nginx", "-t"])
@@ -666,6 +669,52 @@ def setup_nginx(skip: bool, domain: str | None = None) -> None:
     run_cmd(["systemctl", "enable", "nginx"], check=False)
     run_cmd(["systemctl", "restart", "nginx"], check=False)
     print_success("Nginx enabled and started")
+
+
+def _add_hop3_nginx_include() -> None:
+    """Add include directive for hop3 app configs to nginx.conf."""
+    nginx_conf = Path("/etc/nginx/nginx.conf")
+    include_line = "include /home/hop3/nginx/*.conf;"
+
+    if not nginx_conf.exists():
+        print_warning("nginx.conf not found, skipping app include setup")
+        return
+
+    content = nginx_conf.read_text()
+
+    # Check if already present
+    if include_line in content:
+        print_info("Hop3 app nginx include already configured")
+        return
+
+    # Create the nginx directory for app configs
+    hop3_nginx_dir = HOME_DIR / "nginx"
+    hop3_nginx_dir.mkdir(parents=True, exist_ok=True)
+    hop3_uid = pwd.getpwnam(HOP3_USER).pw_uid
+    hop3_gid = grp.getgrnam(HOP3_GROUP).gr_gid
+    os.chown(hop3_nginx_dir, hop3_uid, hop3_gid)
+
+    # Find the right place to add the include (after sites-enabled or conf.d include)
+    # Look for existing include patterns in the http block
+    lines = content.split("\n")
+    new_lines = []
+    include_added = False
+
+    for i, line in enumerate(lines):
+        new_lines.append(line)
+        # Add after sites-enabled or conf.d include
+        if not include_added and "include" in line:
+            if "sites-enabled" in line or "conf.d" in line:
+                # Preserve indentation
+                indent = len(line) - len(line.lstrip())
+                new_lines.append(" " * indent + include_line)
+                include_added = True
+
+    if include_added:
+        nginx_conf.write_text("\n".join(new_lines))
+        print_success("Added hop3 app nginx include to nginx.conf")
+    else:
+        print_warning("Could not find suitable location for nginx include")
 
 
 def setup_postgres(skip: bool, distro: str) -> None:
