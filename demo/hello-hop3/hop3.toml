@@ -1,0 +1,24 @@
+# hop3.toml - Hop3 application configuration
+
+# The [metadata] section is mandatory. It describes your application.
+[metadata]
+id = "hello-hop3"
+version = "0.1.0"
+title = "Hello Hop3 App"
+author = "Hop3 Demo"
+description = "A simple Flask application to demonstrate Hop3 deployment."
+
+# The [build] section tells Hop3 how to prepare your application.
+[build]
+# We specify the Python builder and tell it to install packages from requirements.txt
+builder = "python-3.10"
+pip-install = ["-r", "requirements.txt"]
+
+# The [run] section specifies the command to start your application.
+[run]
+start = "gunicorn --workers 2 --bind 0.0.0.0:$PORT app:app"
+
+# The [port] section declares which internal port should be exposed to the web.
+[port.web]
+container = 5000
+public = true
