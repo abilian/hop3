@@ -1,8 +1,16 @@
 # Copyright (c) 2025, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0
+"""Docker Compose deployment strategy for Hop3.
+
+This deployer runs applications using Docker Compose, which allows for
+complex multi-container deployments with networking, volumes, and scaling.
+"""
+
 from __future__ import annotations
 
 import subprocess
-import traceback
+from typing import TYPE_CHECKING
 
 from hop3.core.protocols import (
     BuildArtifact,
@@ -12,275 +20,322 @@ from hop3.core.protocols import (
 )
 from hop3.lib import Abort, log
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
+# Default timeout for Docker commands (seconds)
+DOCKER_COMMAND_TIMEOUT = 60
+
 
 class DockerComposeDeployer(Deployer):
-    """A deployment strategy that uses `docker-compose up`."""
+    """Deployment strategy using Docker Compose.
+
+    This deployer:
+    1. Accepts docker-image artifacts from DockerBuilder
+    2. Uses docker-compose.yml in the app source to orchestrate containers
+    3. Manages lifecycle (start, stop, restart, scale)
+
+    Requirements:
+    - Docker and Docker Compose must be installed
+    - App must have a docker-compose.yml file
+    - The compose file should reference ${HOP3_IMAGE_TAG} for the app image
+    """
 
     name = "docker-compose"
 
-    def __init__(self, context: DeploymentContext, artifact: BuildArtifact):
+    def __init__(self, context: DeploymentContext, artifact: BuildArtifact) -> None:
+        """Initialize DockerComposeDeployer.
+
+        Args:
+            context: Deployment context with app information
+            artifact: Build artifact (must be kind="docker-image")
+        """
         self.context = context
         self.artifact = artifact
 
+    @property
+    def source_path(self) -> Path:
+        """Get the source path from context."""
+        return self.context.source_path
+
+    @property
+    def app_name(self) -> str:
+        """Get the app name from context."""
+        return self.context.app_name
+
     def accept(self) -> bool:
-        """Accepts if the artifact is a docker-image."""
-        return self.artifact.kind == "docker-image"
+        """Check if this deployer can handle the artifact.
 
-    def deploy(self, deltas: dict | None = None) -> DeploymentInfo:
+        Returns:
+            True if artifact is a docker-image and compose file exists
         """
-        Runs `docker-compose up -d`. It uses an environment variable
-        to pass the specific image tag to the compose file.
+        if self.artifact.kind != "docker-image":
+            return False
+
+        # Check for docker-compose.yml or docker-compose.yaml
+        compose_files = ["docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"]
+        return any((self.source_path / f).exists() for f in compose_files)
+
+    def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:
+        """Deploy the application using Docker Compose.
+
+        Args:
+            deltas: Optional scaling deltas for services
+
+        Returns:
+            DeploymentInfo with connection details
+
+        Raises:
+            Abort: If deployment fails
         """
-        app_name = self.context.app_name
-        src_path = self.context.source_path
+        deltas = deltas or {}
 
-        log(
-            f"Deploying with Docker Compose for app '{app_name}'...", level=2, fg="blue"
-        )
+        log(f"Deploying '{self.app_name}' with Docker Compose...", level=2, fg="blue")
 
-        # Prepare environment variables for the docker-compose command.
-        # This allows the compose file to be generic.
-        compose_env = {
-            # **os.environ,  # Inherit environment (TODO: only the relevant parts)
-            "HOP3_IMAGE_TAG": self.artifact.location,
-            # Could also pass in a default port, e.g., "HOP3_PORT": "8080"
-        }
+        # Build the docker compose command
+        cmd = ["docker", "compose", "up", "-d", "--remove-orphans"]
 
-        try:
-            cmd = ["/usr/local/bin/docker", "compose", "up", "-d", "--remove-orphans"]
-            # Add scaling logic if provided
-            if deltas:
-                for _service, _count_delta in deltas.items():
-                    # This requires getting the current scale, let's assume `up` handles it for now.
-                    # A more robust implementation would be needed for precise scaling.
-                    log(
-                        "Scaling not yet fully implemented for docker-compose, redeploying services...",
-                        fg="yellow",
-                    )
+        # Add scaling if provided
+        for service, count in deltas.items():
+            cmd.extend(["--scale", f"{service}={count}"])
 
-            subprocess.run(cmd, cwd=src_path, check=True, env=compose_env)
-        except FileNotFoundError:
-            traceback.print_exc()
-            msg = (
-                "'docker compose' command not found. Is it installed and in your PATH?"
-            )
-            raise Abort(msg)
-        except subprocess.CalledProcessError as e:
-            msg = f"Docker Compose deployment failed: {e}"
-            raise Abort(msg)
+        # Set environment for compose file
+        env = self._get_compose_env()
 
-        log(f"App '{app_name}' deployed successfully via Docker Compose.", fg="green")
+        self._run_compose_command(cmd, env=env)
 
-        # This part is tricky. A real implementation would need to inspect the
-        # docker-compose services to find the published host port.
-        # For now, we return a placeholder.
+        log(f"App '{self.app_name}' deployed successfully.", level=2, fg="green")
+
+        # Get the port from artifact metadata or discover it
+        port = self._discover_port()
+
         return DeploymentInfo(
-            protocol="http", address="127.0.0.1", port=8080
-        )  # Assume port 8080 for now
-
-    def stop(self):
-        """Runs `docker-compose down`."""
-        log(
-            f"Stopping Docker Compose services for '{self.context.app_name}'...",
-            fg="yellow",
+            protocol="http",
+            address="127.0.0.1",
+            port=port,
         )
-        src_path = self.context.source_path
-        subprocess.run(["docker", "compose", "down"], check=False, cwd=src_path)
 
     def start(self) -> None:
-        """Start the app by deploying with no scaling changes."""
-        log(
-            f"Starting '{self.context.app_name}' with Docker Compose...",
-            level=2,
-            fg="blue",
-        )
-        self.deploy({})
+        """Start the application."""
+        log(f"Starting '{self.app_name}' with Docker Compose...", level=2, fg="blue")
+        self.deploy()
+
+    def stop(self) -> None:
+        """Stop the application."""
+        log(f"Stopping '{self.app_name}'...", level=2, fg="yellow")
+
+        cmd = ["docker", "compose", "stop"]
+        self._run_compose_command(cmd, check=False)
+
+        log(f"App '{self.app_name}' stopped.", level=2, fg="green")
 
     def restart(self) -> None:
-        """Restart Docker Compose services."""
-        log(f"Restarting '{self.context.app_name}'...", level=2, fg="blue")
-        src_path = self.context.source_path
+        """Restart the application."""
+        log(f"Restarting '{self.app_name}'...", level=2, fg="blue")
+
+        cmd = ["docker", "compose", "restart"]
         try:
-            subprocess.run(["docker", "compose", "restart"], check=True, cwd=src_path)
-            log(
-                f"App '{self.context.app_name}' restart triggered.", level=2, fg="green"
-            )
-        except subprocess.CalledProcessError as e:
-            log(
-                f"Docker Compose restart failed, falling back to stop/start: {e}",
-                fg="yellow",
-            )
+            self._run_compose_command(cmd)
+            log(f"App '{self.app_name}' restarted.", level=2, fg="green")
+        except Abort:
+            # Fallback to stop/start
+            log("Restart failed, falling back to stop/start...", level=2, fg="yellow")
             self.stop()
             self.start()
 
     def destroy(self) -> None:
-        """Destruction is a superset of stop."""
-        self.stop()
+        """Destroy the application and clean up resources."""
+        log(f"Destroying '{self.app_name}'...", level=2, fg="yellow")
+
+        cmd = ["docker", "compose", "down", "--volumes", "--remove-orphans"]
+        self._run_compose_command(cmd, check=False)
+
+        log(f"App '{self.app_name}' destroyed.", level=2, fg="green")
 
     def scale(self, deltas: dict[str, int] | None = None) -> None:
-        """Scale Docker Compose services."""
+        """Scale services up or down.
+
+        Args:
+            deltas: Dictionary mapping service names to desired replica counts
+        """
         deltas = deltas or {}
         if not deltas:
-            log("No scaling deltas provided", fg="yellow")
+            log("No scaling deltas provided.", level=2, fg="yellow")
             return
 
-        log(
-            f"Scaling '{self.context.app_name}' with deltas: {deltas}",
-            level=2,
-            fg="blue",
-        )
-        src_path = self.context.source_path
-        scale_args = []
-        for service, count in deltas.items():
-            scale_args.extend(["--scale", f"{service}={count}"])
+        log(f"Scaling '{self.app_name}': {deltas}", level=2, fg="blue")
 
-        try:
-            cmd = ["docker", "compose", "up", "-d", "--remove-orphans"] + scale_args
-            subprocess.run(cmd, check=True, cwd=src_path)
-            log(f"App '{self.context.app_name}' scaled successfully.", fg="green")
-        except subprocess.CalledProcessError as e:
-            msg = f"Docker Compose scaling failed: {e}"
-            raise Abort(msg)
+        cmd = ["docker", "compose", "up", "-d", "--no-recreate"]
+        for service, count in deltas.items():
+            cmd.extend(["--scale", f"{service}={count}"])
+
+        env = self._get_compose_env()
+        self._run_compose_command(cmd, env=env)
+
+        log(f"App '{self.app_name}' scaled.", level=2, fg="green")
 
     def check_status(self) -> bool:
-        """Check if Docker Compose services are actually running.
+        """Check if the application is running.
 
         Returns:
-            True if containers are confirmed running, False otherwise.
-
-        Uses `docker compose ps` to check the status of services.
+            True if at least one container is running
         """
-        src_path = self.context.source_path
-
         try:
-            # Use docker compose ps with format to get service status
-            # Format: {{.Name}}\t{{.State}}
             result = subprocess.run(
-                ["docker", "compose", "ps", "--format", "{{.Name}}\t{{.State}}"],
-                cwd=src_path,
+                ["docker", "compose", "ps", "--format", "{{.State}}"],
+                cwd=self.source_path,
                 check=False,
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=DOCKER_COMMAND_TIMEOUT,
             )
 
             if result.returncode != 0:
-                # docker compose ps failed - likely no compose file or docker not running
                 return False
 
-            # Parse output to check if any services are running
-            lines = result.stdout.strip().split("\n")
-            if not lines or lines[0] == "":
-                # No services found
-                return False
+            states = result.stdout.strip().split("\n")
+            return any("running" in state.lower() for state in states if state)
 
-            # Check if at least one service is in "running" state
-            for line in lines:
-                if "\t" in line:
-                    _name, state = line.split("\t", 1)
-                    if "running" in state.lower():
-                        return True
-
-            # No running services found
+        except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
             return False
-
-        except subprocess.TimeoutExpired:
-            log(
-                f"Timeout checking status for '{self.context.app_name}'",
-                fg="yellow",
-            )
-            return False
-        except FileNotFoundError:
-            # docker command not available
-            log("Docker command not found", fg="red")
-            return False
-        except Exception as e:
-            log(
-                f"Error checking Docker Compose status for '{self.context.app_name}': {e}",
-                fg="red",
-            )
-            return False
-
-    def _parse_service_line(self, line: str) -> tuple[str, dict] | None:
-        """Parse a single service status line.
-
-        Args:
-            line: Tab-separated line with format: Name\tState\tStatus
-
-        Returns:
-            Tuple of (service_name, service_info) or None if line is invalid
-        """
-        if "\t" not in line:
-            return None
-
-        parts = line.split("\t")
-        if len(parts) < 2:
-            return None
-
-        name, state = parts[0], parts[1]
-        service_status = parts[2] if len(parts) > 2 else ""
-        service_info = {
-            "state": state,
-            "status": service_status,
-        }
-        return name, service_info
-
-    def _parse_docker_compose_output(self, output: str) -> dict:
-        """Parse docker compose ps output into service status dict.
-
-        Args:
-            output: Output from docker compose ps command
-
-        Returns:
-            Dict with 'services' and 'running' keys
-        """
-        services = {}
-        any_running = False
-
-        for line in output.strip().split("\n"):
-            parsed = self._parse_service_line(line)
-            if parsed:
-                name, service_info = parsed
-                services[name] = service_info
-                if "running" in service_info["state"].lower():
-                    any_running = True
-
-        return {
-            "services": services,
-            "running": any_running,
-        }
 
     def get_status(self) -> dict:
-        """Get detailed status of Docker Compose services."""
-        src_path = self.context.source_path
-        status = {
+        """Get detailed status of the deployment.
+
+        Returns:
+            Dictionary with running status and service details
+        """
+        services: dict[str, dict[str, str]] = {}
+        status: dict[str, bool | dict[str, dict[str, str]]] = {
             "running": False,
-            "services": {},
+            "services": services,
         }
 
         try:
             result = subprocess.run(
-                [
-                    "docker",
-                    "compose",
-                    "ps",
-                    "--format",
-                    "{{.Name}}\t{{.State}}\t{{.Status}}",
-                ],
-                cwd=src_path,
+                ["docker", "compose", "ps", "--format", "{{.Name}}\t{{.State}}\t{{.Status}}"],
+                cwd=self.source_path,
                 check=False,
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=DOCKER_COMMAND_TIMEOUT,
             )
 
-            if result.returncode == 0 and result.stdout.strip():
-                status = self._parse_docker_compose_output(result.stdout)
+            if result.returncode != 0 or not result.stdout.strip():
+                return status
+
+            for line in result.stdout.strip().split("\n"):
+                if "\t" not in line:
+                    continue
+                parts = line.split("\t")
+                if len(parts) >= 2:
+                    name, state = parts[0], parts[1]
+                    service_status = parts[2] if len(parts) > 2 else ""
+                    services[name] = {
+                        "state": state,
+                        "status": service_status,
+                    }
+                    if "running" in state.lower():
+                        status["running"] = True
 
         except Exception as e:
-            log(
-                f"Error getting Docker Compose status for '{self.context.app_name}': {e}",
-                fg="yellow",
-            )
+            log(f"Error getting status: {e}", level=3, fg="yellow")
 
         return status
+
+    def _get_compose_env(self) -> dict[str, str]:
+        """Get environment variables for Docker Compose.
+
+        Returns:
+            Dictionary of environment variables
+        """
+        import os
+
+        env = os.environ.copy()
+        env["HOP3_IMAGE_TAG"] = self.artifact.location
+        env["HOP3_APP_NAME"] = self.app_name
+
+        # Pass through exposed ports if available
+        if "exposed_ports" in self.artifact.metadata:
+            ports = self.artifact.metadata["exposed_ports"]
+            if ports:
+                env["HOP3_APP_PORT"] = str(ports[0])
+
+        return env
+
+    def _run_compose_command(
+        self,
+        cmd: list[str],
+        env: dict[str, str] | None = None,
+        check: bool = True,
+    ) -> subprocess.CompletedProcess:
+        """Run a Docker Compose command.
+
+        Args:
+            cmd: Command and arguments
+            env: Environment variables (optional)
+            check: Whether to raise on non-zero exit
+
+        Returns:
+            CompletedProcess result
+
+        Raises:
+            Abort: If command fails and check=True
+        """
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=self.source_path,
+                check=check,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=DOCKER_COMMAND_TIMEOUT,
+            )
+            return result
+
+        except FileNotFoundError:
+            msg = "Docker Compose not found. Is Docker installed?"
+            raise Abort(msg)
+
+        except subprocess.TimeoutExpired:
+            msg = f"Docker Compose command timed out: {' '.join(cmd)}"
+            raise Abort(msg)
+
+        except subprocess.CalledProcessError as e:
+            log(f"Docker Compose failed: {e.stderr}", level=2, fg="red")
+            msg = f"Docker Compose command failed: {' '.join(cmd)}"
+            raise Abort(msg)
+
+    def _discover_port(self) -> int:
+        """Discover the port the application is listening on.
+
+        Returns:
+            Port number (defaults to 8080 if not discoverable)
+        """
+        # First check artifact metadata
+        if "exposed_ports" in self.artifact.metadata:
+            ports = self.artifact.metadata["exposed_ports"]
+            if ports:
+                return ports[0]
+
+        # Try to get port from running container
+        try:
+            result = subprocess.run(
+                ["docker", "compose", "port", "web", "8080"],
+                cwd=self.source_path,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                # Output format: 0.0.0.0:32768
+                port_str = result.stdout.strip().split(":")[-1]
+                if port_str.isdigit():
+                    return int(port_str)
+        except Exception:
+            pass
+
+        # Default fallback
+        return 8080
