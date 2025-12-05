@@ -366,6 +366,13 @@ def deploy_sample_app(ctx: DemoContext) -> None:
         print()
     pause(ctx.pause_between_steps)
 
+    # Set the hostname for the app before deployment
+    print_step(f"Configuring hostname: {ctx.app_hostname}")
+    # Pre-create the app to set HOST_NAME before deployment
+    run_hop3(f"config:set hello-hop3 HOST_NAME={ctx.app_hostname}", check=False)
+    print_success(f"Hostname set to {ctx.app_hostname}")
+    pause(ctx.pause_between_steps)
+
     # Deploy the application
     print_step("Deploying hello-hop3 application...")
     original_dir = os.getcwd()

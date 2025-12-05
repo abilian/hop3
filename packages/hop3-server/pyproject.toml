@@ -42,6 +42,7 @@ dependencies = [
     "anyio",
     # Needed for some reason
     "sniffio",
+    "uwsgi>=2.0.31",
 ]
 
 [dependency-groups]
