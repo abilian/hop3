@@ -1,55 +1,194 @@
 # Copyright (c) 2025, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0
+"""Docker build strategy for Hop3.
+
+This builder creates Docker images from applications that have a Dockerfile.
+It integrates with the Hop3 build pipeline and produces artifacts that can
+be deployed using DockerComposeDeployer.
+"""
+
 from __future__ import annotations
 
 import subprocess
+from typing import TYPE_CHECKING
 
-from hop3.core.protocols import BuildArtifact, Builder, DeploymentContext
+from hop3.core.protocols import BuildArtifact, BuildContext, DeploymentContext
 from hop3.lib import Abort, log
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-class DockerBuilder(Builder):
-    """A build strategy that uses `docker build`."""
+
+class DockerBuilder:
+    """Build strategy that uses `docker build` to create container images.
+
+    This builder:
+    1. Detects projects with a Dockerfile
+    2. Runs `docker build` to create an image
+    3. Returns a BuildArtifact with kind="docker-image"
+
+    The resulting artifact can be deployed using DockerComposeDeployer.
+    """
 
     name = "docker"
 
-    def __init__(self, context: DeploymentContext):
+    def __init__(self, context: BuildContext | DeploymentContext) -> None:
+        """Initialize DockerBuilder with build context.
+
+        Args:
+            context: Build or deployment context containing app information
+        """
         self.context = context
 
+    @property
+    def source_path(self) -> Path:
+        """Get the source path from context."""
+        return self.context.source_path
+
+    @property
+    def app_name(self) -> str:
+        """Get the app name from context."""
+        return self.context.app_name
+
     def accept(self) -> bool:
-        """Accepts if a Dockerfile is present in the source directory."""
-        dockerfile_path = self.context.source_path / "Dockerfile"
+        """Check if this builder should handle the project.
+
+        Returns:
+            True if a Dockerfile exists in the source directory
+        """
+        dockerfile_path = self.source_path / "Dockerfile"
         return dockerfile_path.is_file()
-        # TODO: If there is no Dockerfile, it should use a default one or generate one.
-        # Let's keep this feature for later.
 
     def build(self) -> BuildArtifact:
-        """Runs `docker build` and returns a docker-image artifact."""
-        app_name = self.context.app_name
-        # A simple tagging scheme: hop3/<app-name>:latest
-        image_tag = f"hop3/{app_name}:latest"
-        src_path = self.context.source_path
+        """Build a Docker image from the Dockerfile.
 
-        log(f"Starting Docker build for image: {image_tag}", level=2, fg="blue")
+        Returns:
+            BuildArtifact with kind="docker-image" and the image tag as location
+
+        Raises:
+            Abort: If Docker is not installed or build fails
+        """
+        image_tag = self._generate_image_tag()
+
+        log(f"Building Docker image: {image_tag}", level=2, fg="blue")
+
+        self._run_docker_build(image_tag)
+
+        log(f"Docker image '{image_tag}' built successfully.", level=2, fg="green")
+
+        # Extract metadata from Dockerfile if possible
+        metadata = self._extract_metadata()
+
+        return BuildArtifact(
+            kind="docker-image",
+            location=image_tag,
+            metadata=metadata,
+        )
+
+    def _generate_image_tag(self) -> str:
+        """Generate a Docker image tag for this app.
+
+        Returns:
+            Image tag in format: hop3/<app-name>:latest
+        """
+        # Sanitize app name for Docker tag (lowercase, no special chars)
+        safe_name = self.app_name.lower().replace("_", "-")
+        return f"hop3/{safe_name}:latest"
+
+    def _run_docker_build(self, image_tag: str) -> None:
+        """Execute docker build command.
+
+        Args:
+            image_tag: The tag to apply to the built image
+
+        Raises:
+            Abort: If Docker is not found or build fails
+        """
+        cmd = ["docker", "build", "-t", image_tag, "."]
 
         try:
-            # Using subprocess.run for simplicity. A real implementation might
-            # stream the output line by line using Popen.
-            cmd = ["docker", "build", "-t", image_tag, "."]
             result = subprocess.run(
-                cmd, cwd=src_path, check=True, capture_output=True, text=True
+                cmd,
+                cwd=self.source_path,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=600,  # 10 minute timeout for builds
             )
-            log(result.stdout, level=3)
+            # Log build output at debug level
+            if result.stdout:
+                log(result.stdout, level=4)
+
         except FileNotFoundError:
             msg = "Docker command not found. Is Docker installed and in your PATH?"
             raise Abort(msg)
-        except subprocess.CalledProcessError as e:
-            log(f"Docker build failed with exit code {e.returncode}:", fg="red")
-            log(e.stderr, fg="red")
-            msg = "Docker build failed."
+
+        except subprocess.TimeoutExpired:
+            msg = "Docker build timed out after 10 minutes."
             raise Abort(msg)
 
-        log(f"Docker image '{image_tag}' built successfully.", fg="green")
+        except subprocess.CalledProcessError as e:
+            log(f"Docker build failed with exit code {e.returncode}:", level=1, fg="red")
+            if e.stderr:
+                log(e.stderr, level=1, fg="red")
+            msg = f"Docker build failed: {e.stderr[:200] if e.stderr else 'unknown error'}"
+            raise Abort(msg)
 
-        # We could inspect the image to find exposed ports, but for now
-        # we'll rely on the docker-compose file to map them.
-        return BuildArtifact(kind="docker-image", location=image_tag)
+    def _extract_metadata(self) -> dict:
+        """Extract metadata from Dockerfile.
+
+        Returns:
+            Dictionary with metadata like exposed ports
+        """
+        metadata: dict[str, str | list[int]] = {
+            "app_name": self.app_name,
+            "builder": "docker",
+        }
+
+        exposed_ports = self._parse_exposed_ports()
+        if exposed_ports:
+            metadata["exposed_ports"] = exposed_ports
+
+        return metadata
+
+    def _parse_exposed_ports(self) -> list[int]:
+        """Parse EXPOSE directives from Dockerfile.
+
+        Returns:
+            List of exposed port numbers, empty if none found or on error
+        """
+        dockerfile_path = self.source_path / "Dockerfile"
+        if not dockerfile_path.exists():
+            return []
+
+        try:
+            content = dockerfile_path.read_text()
+        except Exception:
+            return []  # Metadata extraction is best-effort
+
+        ports = []
+        for line in content.splitlines():
+            ports.extend(self._parse_expose_line(line))
+        return ports
+
+    def _parse_expose_line(self, line: str) -> list[int]:
+        """Parse a single EXPOSE line from Dockerfile.
+
+        Args:
+            line: A line from the Dockerfile
+
+        Returns:
+            List of port numbers found on this line
+        """
+        line = line.strip()
+        if not line.upper().startswith("EXPOSE"):
+            return []
+
+        ports = []
+        # Parse: EXPOSE 8080 or EXPOSE 8080/tcp or EXPOSE 80 443
+        for part in line.split()[1:]:
+            port_str = part.split("/")[0]
+            if port_str.isdigit():
+                ports.append(int(port_str))
+        return ports

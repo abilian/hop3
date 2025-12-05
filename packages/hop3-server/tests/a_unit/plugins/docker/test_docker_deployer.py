@@ -1,0 +1,357 @@
+# Copyright (c) 2025, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0
+"""Unit tests for DockerComposeDeployer."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from hop3.core.protocols import BuildArtifact, DeploymentContext
+from hop3.lib import Abort
+from hop3.plugins.docker.deployer import DockerComposeDeployer
+
+
+@pytest.fixture
+def docker_artifact() -> BuildArtifact:
+    """Create a docker-image artifact for testing."""
+    return BuildArtifact(
+        kind="docker-image",
+        location="hop3/test-app:latest",
+        metadata={"app_name": "test-app", "exposed_ports": [8080]},
+    )
+
+
+@pytest.fixture
+def non_docker_artifact() -> BuildArtifact:
+    """Create a non-docker artifact for testing."""
+    return BuildArtifact(
+        kind="virtualenv",
+        location="/path/to/venv",
+        metadata={},
+    )
+
+
+class TestDockerComposeDeployerAccept:
+    """Tests for DockerComposeDeployer.accept() method."""
+
+    def test_accept_with_docker_artifact_and_compose_file(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ):
+        """Should accept docker-image artifact with docker-compose.yml."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        assert deployer.accept() is True
+
+    def test_accept_with_compose_yaml(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ):
+        """Should accept with docker-compose.yaml extension."""
+        (tmp_path / "docker-compose.yaml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        assert deployer.accept() is True
+
+    def test_accept_with_compose_yml(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ):
+        """Should accept with compose.yml (new Docker Compose format)."""
+        (tmp_path / "compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        assert deployer.accept() is True
+
+    def test_reject_non_docker_artifact(
+        self, tmp_path: Path, non_docker_artifact: BuildArtifact
+    ):
+        """Should reject non-docker artifacts."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, non_docker_artifact)
+
+        assert deployer.accept() is False
+
+    def test_reject_without_compose_file(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ):
+        """Should reject docker artifact without compose file."""
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        assert deployer.accept() is False
+
+
+class TestDockerComposeDeployerDeploy:
+    """Tests for DockerComposeDeployer.deploy() method."""
+
+    def test_deploy_success(self, tmp_path: Path, docker_artifact: BuildArtifact):
+        """Should return DeploymentInfo on successful deploy."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+            info = deployer.deploy()
+
+            assert info.protocol == "http"
+            assert info.address == "127.0.0.1"
+            assert info.port == 8080  # From artifact metadata
+
+            # Verify docker compose up was called
+            mock_run.assert_called()
+            call_args = mock_run.call_args
+            assert "docker" in call_args[0][0]
+            assert "compose" in call_args[0][0]
+            assert "up" in call_args[0][0]
+
+    def test_deploy_with_scaling(self, tmp_path: Path, docker_artifact: BuildArtifact):
+        """Should include scaling arguments when deltas provided."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+            deployer.deploy(deltas={"web": 3})
+
+            call_args = mock_run.call_args
+            cmd = call_args[0][0]
+            assert "--scale" in cmd
+            assert "web=3" in cmd
+
+    def test_deploy_docker_not_found(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ):
+        """Should raise Abort when Docker is not installed."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = FileNotFoundError()
+
+            with pytest.raises(Abort, match="Docker Compose not found"):
+                deployer.deploy()
+
+
+class TestDockerComposeDeployerLifecycle:
+    """Tests for lifecycle methods (start, stop, restart, destroy)."""
+
+    def test_stop(self, tmp_path: Path, docker_artifact: BuildArtifact):
+        """Should run docker compose stop."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+
+            deployer.stop()
+
+            call_args = mock_run.call_args
+            cmd = call_args[0][0]
+            assert "stop" in cmd
+
+    def test_destroy(self, tmp_path: Path, docker_artifact: BuildArtifact):
+        """Should run docker compose down with cleanup flags."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+
+            deployer.destroy()
+
+            call_args = mock_run.call_args
+            cmd = call_args[0][0]
+            assert "down" in cmd
+            assert "--volumes" in cmd
+
+
+class TestDockerComposeDeployerStatus:
+    """Tests for status methods."""
+
+    def test_check_status_running(self, tmp_path: Path, docker_artifact: BuildArtifact):
+        """Should return True when containers are running."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="running\nrunning\n",
+            )
+
+            assert deployer.check_status() is True
+
+    def test_check_status_not_running(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ):
+        """Should return False when no containers are running."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="exited\n",
+            )
+
+            assert deployer.check_status() is False
+
+    def test_check_status_docker_error(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ):
+        """Should return False on Docker errors."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stdout="")
+
+            assert deployer.check_status() is False
+
+    def test_get_status_detailed(self, tmp_path: Path, docker_artifact: BuildArtifact):
+        """Should return detailed status with service info."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="test-app-web-1\trunning\tUp 5 minutes\n",
+            )
+
+            status = deployer.get_status()
+
+            assert status["running"] is True
+            assert "test-app-web-1" in status["services"]
+            assert status["services"]["test-app-web-1"]["state"] == "running"
+
+
+class TestDockerComposeDeployerPortDiscovery:
+    """Tests for port discovery."""
+
+    def test_discover_port_from_metadata(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ):
+        """Should use port from artifact metadata."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        port = deployer._discover_port()
+
+        assert port == 8080
+
+    def test_discover_port_fallback(self, tmp_path: Path):
+        """Should fall back to 8080 when port not discoverable."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        artifact = BuildArtifact(
+            kind="docker-image",
+            location="hop3/test-app:latest",
+            metadata={},  # No exposed_ports
+        )
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, artifact)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stdout="")
+
+            port = deployer._discover_port()
+
+            assert port == 8080
