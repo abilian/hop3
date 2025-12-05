@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import time
 from datetime import UTC, datetime
@@ -370,8 +371,8 @@ class App(BigIntAuditBase):
     def start(self) -> None:
         """Start the application (non-blocking).
 
-        Spawns the app by writing uWSGI config files. The uWSGI emperor will
-        pick up the config and start the vassal asynchronously.
+        For uWSGI apps: Spawns by writing config files for the uWSGI emperor.
+        For Docker apps: Runs docker compose up -d.
 
         The app transitions to STARTING state. Use sync_state() or check
         app:status to verify when it reaches RUNNING.
@@ -385,9 +386,12 @@ class App(BigIntAuditBase):
         self._transition_state(AppStateEnum.STARTING)
 
         try:
-            # Spawn the application processes (writes config files for uWSGI emperor)
-            # This is async - the actual processes start after uWSGI emperor picks up the files
-            spawn_app(self)
+            if self.runtime == "docker-compose":
+                self._start_docker_compose()
+            else:
+                # Spawn the application processes (writes config files for uWSGI emperor)
+                # This is async - the actual processes start after uWSGI emperor picks up the files
+                spawn_app(self)
 
         except Exception as e:
             # Transition to FAILED state on error
@@ -396,11 +400,51 @@ class App(BigIntAuditBase):
             log(f"Error starting app '{self.name}': {e}", fg="red")
             raise
 
+    def _start_docker_compose(self) -> None:
+        """Start the app using Docker Compose."""
+        import subprocess
+
+        from hop3.lib import get_free_port
+
+        log(f"Starting Docker Compose app '{self.name}'...", level=2, fg="blue")
+
+        # Use existing port or allocate a new one
+        if not self.port or self.port == 0:
+            self.port = get_free_port()
+            log(f"Allocated port {self.port} for app", level=2)
+
+        # Set up environment with allocated port
+        env = {
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": os.environ.get("HOME", ""),
+            "PORT": str(self.port),
+        }
+
+        try:
+            subprocess.run(
+                ["docker", "compose", "-p", self.name, "up", "-d", "--remove-orphans"],
+                cwd=self.src_path,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=env,
+            )
+            # Transition directly to RUNNING since docker compose up is synchronous
+            self._transition_state(AppStateEnum.RUNNING)
+            log(f"Docker Compose app '{self.name}' started.", level=2, fg="green")
+        except subprocess.CalledProcessError as e:
+            log(f"Docker Compose start failed: {e.stderr}", level=2, fg="red")
+            raise
+        except subprocess.TimeoutExpired:
+            log("Docker Compose start timed out", level=2, fg="red")
+            raise
+
     def stop(self) -> None:
         """Stop the application (non-blocking).
 
-        Removes uWSGI config files. The uWSGI emperor will detect the removal
-        and stop the vassal asynchronously.
+        For uWSGI apps: Removes config files, emperor stops the vassal.
+        For Docker apps: Runs docker compose stop.
 
         The app transitions to STOPPING state. Use sync_state() or check
         app:status to verify when it reaches STOPPED.
@@ -410,16 +454,23 @@ class App(BigIntAuditBase):
 
         Transitions: RUNNING -> STOPPING (STOPPED verified by sync_state)
         """
+        # If already stopped, nothing more to do
+        if self.run_state == AppStateEnum.STOPPED:
+            return
+
+        if self.runtime == "docker-compose":
+            self._stop_docker_compose()
+        else:
+            self._stop_uwsgi()
+
+    def _stop_uwsgi(self) -> None:
+        """Stop uWSGI-based app by removing config files."""
         cfg = HopConfig.get_instance()
 
         # Remove uWSGI config files - emperor will stop the vassal
         config_files = list(cfg.UWSGI_ENABLED.glob(f"{self.name}*.ini"))
         for config_file in config_files:
             config_file.unlink()
-
-        # If already stopped, nothing more to do
-        if self.run_state == AppStateEnum.STOPPED:
-            return
 
         # Transition to STOPPING if coming from RUNNING
         if self.run_state == AppStateEnum.RUNNING:
@@ -430,10 +481,42 @@ class App(BigIntAuditBase):
             # For other states (STARTING, FAILED), force to STOPPED directly
             self.run_state = AppStateEnum.STOPPED
 
+    def _stop_docker_compose(self) -> None:
+        """Stop Docker Compose app."""
+        import subprocess
+
+        log(f"Stopping Docker Compose app '{self.name}'...", level=2, fg="blue")
+
+        # Transition to STOPPING if coming from RUNNING
+        if self.run_state == AppStateEnum.RUNNING:
+            self._transition_state(AppStateEnum.STOPPING)
+
+        try:
+            subprocess.run(
+                ["docker", "compose", "-p", self.name, "stop"],
+                cwd=self.src_path,
+                check=False,  # Don't fail if already stopped
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            # Transition directly to STOPPED since docker compose stop is synchronous
+            self._transition_state(AppStateEnum.STOPPED)
+            log(f"Docker Compose app '{self.name}' stopped.", level=2, fg="green")
+        except subprocess.TimeoutExpired:
+            log("Docker Compose stop timed out", level=2, fg="yellow")
+            # Force to STOPPED anyway
+            self.run_state = AppStateEnum.STOPPED
+        except Exception as e:
+            log(f"Error stopping Docker Compose app: {e}", level=2, fg="yellow")
+            # Force to STOPPED anyway
+            self.run_state = AppStateEnum.STOPPED
+
     def restart(self) -> None:
         """Restart (or just start) a deployed app (non-blocking).
 
-        For RUNNING apps: uses touch-based restart (uWSGI emperor reloads vassal)
+        For uWSGI RUNNING apps: uses touch-based restart (emperor reloads vassal)
+        For Docker RUNNING apps: uses docker compose restart
         For STOPPED/FAILED apps: transitions through STARTING
         For STARTING/STOPPING apps: no-op (already in transition)
 
@@ -450,24 +533,12 @@ class App(BigIntAuditBase):
             )
             return
 
-        # If app is running, use touch-based restart (fast, no state transition)
+        # If app is running, use runtime-appropriate restart
         if self.run_state == AppStateEnum.RUNNING:
-            cfg = HopConfig.get_instance()
-            config_files = list(cfg.UWSGI_ENABLED.glob(f"{self.name}*.ini"))
-            if config_files:
-                for config_file in config_files:
-                    config_file.touch()
-                log(f"App '{self.name}' restart triggered.", level=2, fg="green")
+            if self.runtime == "docker-compose":
+                self._restart_docker_compose()
             else:
-                # No config files but state says running - inconsistent state
-                # Fall through to start
-                log(
-                    f"App '{self.name}' has no config files, starting fresh.",
-                    level=2,
-                    fg="yellow",
-                )
-                self.run_state = AppStateEnum.STOPPED
-                self.start()
+                self._restart_uwsgi()
             return
 
         # If app is in FAILED state, transition to STOPPED first (recovery)
@@ -476,6 +547,55 @@ class App(BigIntAuditBase):
 
         # Now start the app (only if we're in STOPPED state)
         if self.run_state == AppStateEnum.STOPPED:
+            self.start()
+
+    def _restart_uwsgi(self) -> None:
+        """Restart uWSGI app using touch-based restart."""
+        cfg = HopConfig.get_instance()
+        config_files = list(cfg.UWSGI_ENABLED.glob(f"{self.name}*.ini"))
+        if config_files:
+            for config_file in config_files:
+                config_file.touch()
+            log(f"App '{self.name}' restart triggered.", level=2, fg="green")
+        else:
+            # No config files but state says running - inconsistent state
+            log(
+                f"App '{self.name}' has no config files, starting fresh.",
+                level=2,
+                fg="yellow",
+            )
+            self.run_state = AppStateEnum.STOPPED
+            self.start()
+
+    def _restart_docker_compose(self) -> None:
+        """Restart Docker Compose app."""
+        import subprocess
+
+        log(f"Restarting Docker Compose app '{self.name}'...", level=2, fg="blue")
+
+        try:
+            subprocess.run(
+                ["docker", "compose", "-p", self.name, "restart"],
+                cwd=self.src_path,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            log(f"Docker Compose app '{self.name}' restarted.", level=2, fg="green")
+        except subprocess.CalledProcessError as e:
+            log(f"Docker Compose restart failed: {e.stderr}", level=2, fg="yellow")
+            # Fall back to stop/start
+            log("Falling back to stop/start...", level=2, fg="yellow")
+            self.stop()
+            self.start()
+        except subprocess.TimeoutExpired:
+            log(
+                "Docker Compose restart timed out, trying stop/start...",
+                level=2,
+                fg="yellow",
+            )
+            self.stop()
             self.start()
 
     def get_logs(self, lines: int = 100) -> list[str]:

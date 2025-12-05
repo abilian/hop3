@@ -6,7 +6,11 @@
 
 from __future__ import annotations
 
-from hop3_cli.main import handle_help_flags, inject_local_commands_into_help
+from hop3_cli.main import (
+    _is_help_command,
+    handle_help_flags,
+    inject_local_commands_into_help,
+)
 
 
 def test_help_flags_basic():
@@ -35,6 +39,22 @@ def test_help_flags_with_subcommands():
     """Test --help with subcommands."""
     assert handle_help_flags(["config:show", "--help"]) == ["help", "config:show"]
     assert handle_help_flags(["app:status", "-h"]) == ["help", "app:status"]
+
+
+def test_is_help_command():
+    """Test _is_help_command helper function."""
+    # Plain help command
+    assert _is_help_command(["help"]) is True
+    # Help with --all flag
+    assert _is_help_command(["help", "--all"]) is True
+    # Help for specific command (should NOT inject local commands)
+    assert _is_help_command(["help", "deploy"]) is False
+    assert _is_help_command(["help", "config:set"]) is False
+    # Not a help command
+    assert _is_help_command(["deploy"]) is False
+    assert _is_help_command(["apps"]) is False
+    # Empty args
+    assert _is_help_command([]) is False
 
 
 class TestInjectLocalCommandsIntoHelp:
@@ -99,3 +119,48 @@ class TestInjectLocalCommandsIntoHelp:
         result = inject_local_commands_into_help(server_help)
         # Should return unchanged
         assert len(result) == 1
+
+    def test_injects_into_all_commands_section(self):
+        """Test that local commands are injected into ALL COMMANDS section (--all flag)."""
+        # Simulate server help --all output
+        server_help = [
+            {
+                "t": "text",
+                "text": (
+                    "USAGE\n"
+                    "  $ hop <command>\n"
+                    "\n"
+                    "ALL COMMANDS\n"
+                    "  admin            Administrative commands.\n"
+                    "  admin:users      Manage users.\n"
+                    "  apps             List all applications.\n"
+                    "  deploy           Deploy an application.\n"
+                ),
+            }
+        ]
+
+        result = inject_local_commands_into_help(server_help)
+
+        # Get the text content
+        text = result[0].get("text", "")
+
+        # Extract command names from the ALL COMMANDS section
+        commands = []
+        in_commands = False
+        for line in text.split("\n"):
+            if line.strip() == "ALL COMMANDS":
+                in_commands = True
+                continue
+            if in_commands and line.startswith("  ") and line.strip():
+                cmd = line.strip().split()[0]
+                commands.append(cmd)
+            elif in_commands and line.strip() and not line.startswith("  "):
+                break
+
+        # Verify local commands are present
+        assert "init" in commands
+        assert "login" in commands
+        assert "settings" in commands
+
+        # Verify alphabetical order is maintained
+        assert commands == sorted(commands)

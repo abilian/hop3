@@ -126,21 +126,27 @@ class TestDockerComposeDeployerDeploy:
         )
         deployer = DockerComposeDeployer(context, docker_artifact)
 
-        with patch("subprocess.run") as mock_run:
+        with (
+            patch("subprocess.run") as mock_run,
+            patch(
+                "hop3.plugins.docker.deployer.get_free_port", return_value=9999
+            ) as mock_port,
+        ):
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
             info = deployer.deploy()
 
             assert info.protocol == "http"
             assert info.address == "127.0.0.1"
-            assert info.port == 8080  # From artifact metadata
+            assert info.port == 9999  # From allocated port
 
-            # Verify docker compose up was called
-            mock_run.assert_called()
-            call_args = mock_run.call_args
-            assert "docker" in call_args[0][0]
-            assert "compose" in call_args[0][0]
-            assert "up" in call_args[0][0]
+            # Verify docker compose up was called (first call)
+            assert mock_run.call_count >= 1
+            first_call = mock_run.call_args_list[0]
+            cmd = first_call[0][0]
+            assert "docker" in cmd
+            assert "compose" in cmd
+            assert "up" in cmd
 
     def test_deploy_with_scaling(self, tmp_path: Path, docker_artifact: BuildArtifact):
         """Should include scaling arguments when deltas provided."""
@@ -153,13 +159,17 @@ class TestDockerComposeDeployerDeploy:
         )
         deployer = DockerComposeDeployer(context, docker_artifact)
 
-        with patch("subprocess.run") as mock_run:
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("hop3.plugins.docker.deployer.get_free_port", return_value=9999),
+        ):
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
             deployer.deploy(deltas={"web": 3})
 
-            call_args = mock_run.call_args
-            cmd = call_args[0][0]
+            # Check the first call (docker compose up) for scaling args
+            first_call = mock_run.call_args_list[0]
+            cmd = first_call[0][0]
             assert "--scale" in cmd
             assert "web=3" in cmd
 
@@ -355,3 +365,182 @@ class TestDockerComposeDeployerPortDiscovery:
             port = deployer._discover_port()
 
             assert port == 8080
+
+
+class TestDockerComposeDeployerProxyIntegration:
+    """Tests for proxy integration methods."""
+
+    def test_make_proxy_env_basic(self, tmp_path: Path, docker_artifact: BuildArtifact):
+        """Should create environment with required proxy variables."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        env = deployer._make_proxy_env(8080)
+
+        assert env["APP"] == "test-app"
+        assert env["PORT"] == "8080"
+        assert env["BIND_ADDRESS"] == "127.0.0.1"
+        assert env["HOST_NAME"] == "_"  # Default when not configured
+        assert "NGINX_IPV4_ADDRESS" in env
+
+    def test_make_proxy_env_with_env_file(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ):
+        """Should load HOST_NAME from ENV file."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+        (tmp_path / "ENV").write_text("HOST_NAME=myapp.example.com\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        env = deployer._make_proxy_env(8080)
+
+        assert env["HOST_NAME"] == "myapp.example.com"
+
+    def test_make_proxy_env_with_app_runtime_env(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ):
+        """Should load HOST_NAME from App runtime environment."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        # Create a mock App with runtime environment
+        mock_app = MagicMock()
+        mock_app.get_runtime_env.return_value = {"HOST_NAME": "runtime.example.com"}
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+            app=mock_app,
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        env = deployer._make_proxy_env(8080)
+
+        assert env["HOST_NAME"] == "runtime.example.com"
+
+    def test_get_workers(self, tmp_path: Path, docker_artifact: BuildArtifact):
+        """Should return web worker for Docker apps."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        workers = deployer._get_workers()
+
+        assert workers == {"web": "docker-compose"}
+
+    def test_setup_proxy_skipped_when_no_app(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ):
+        """Should skip proxy setup when no App in context."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+            app=None,  # No app
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        with patch("hop3.plugins.docker.deployer.get_proxy_strategy") as mock_get_proxy:
+            deployer._setup_proxy(8080)
+
+            # Proxy strategy should NOT be called
+            mock_get_proxy.assert_not_called()
+
+    def test_setup_proxy_skipped_when_hostname_is_catchall(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ):
+        """Should skip proxy setup when HOST_NAME is '_'."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        mock_app = MagicMock()
+        mock_app.get_runtime_env.return_value = {}  # No HOST_NAME
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+            app=mock_app,
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        with patch("hop3.plugins.docker.deployer.get_proxy_strategy") as mock_get_proxy:
+            deployer._setup_proxy(8080)
+
+            # Proxy strategy should NOT be called
+            mock_get_proxy.assert_not_called()
+
+    def test_setup_proxy_called_when_hostname_configured(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ):
+        """Should call proxy setup when HOST_NAME is configured."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        mock_app = MagicMock()
+        mock_app.get_runtime_env.return_value = {"HOST_NAME": "myapp.example.com"}
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+            app=mock_app,
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        mock_proxy = MagicMock()
+        with patch(
+            "hop3.plugins.docker.deployer.get_proxy_strategy", return_value=mock_proxy
+        ) as mock_get_proxy:
+            deployer._setup_proxy(8080)
+
+            # Proxy strategy should be called
+            mock_get_proxy.assert_called_once()
+            mock_proxy.setup.assert_called_once()
+
+            # Verify proxy was called with correct arguments
+            call_args = mock_get_proxy.call_args
+            assert call_args[0][0] == mock_app  # First arg is app
+            assert call_args[0][2] == {"web": "docker-compose"}  # Third arg is workers
+
+    def test_setup_proxy_handles_exception(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ):
+        """Should handle proxy setup exceptions gracefully."""
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+
+        mock_app = MagicMock()
+        mock_app.get_runtime_env.return_value = {"HOST_NAME": "myapp.example.com"}
+
+        context = DeploymentContext(
+            app_name="test-app",
+            source_path=tmp_path,
+            app_config={},
+            app=mock_app,
+        )
+        deployer = DockerComposeDeployer(context, docker_artifact)
+
+        mock_proxy = MagicMock()
+        mock_proxy.setup.side_effect = RuntimeError("Proxy configuration failed")
+
+        with patch(
+            "hop3.plugins.docker.deployer.get_proxy_strategy", return_value=mock_proxy
+        ):
+            # Should not raise - exception is caught and logged
+            deployer._setup_proxy(8080)
