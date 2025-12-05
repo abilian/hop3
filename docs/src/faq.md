@@ -98,7 +98,7 @@ Each backup is verified with SHA256 checksums to ensure data integrity.
 
 ```bash
 hop3 backup:restore <backup-id>
-hop3 restart <app-name>
+hop3 app:restart <app-name>
 ```
 
 Replace `<backup-id>` with the ID from your backup (e.g., `20251108_143022_a8f3d9`). You can find backup IDs by running `hop3 backup:list`. The restore process verifies checksums to ensure data integrity before restoring.

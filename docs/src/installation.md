@@ -89,8 +89,8 @@ poetry run pyinfra --user root {$TARGET_HOST} installer/install-hop.py
   Configuration saved to ~/.config/hop3-cli/config.toml
 
   You're all set! Try:
-    hop3 status       # Check server status
-    hop3 apps         # List applications
+    hop3 apps           # List applications
+    hop3 auth:whoami    # Check current user
   ```
 
   **Alternative: Manual setup** - If you prefer to set up manually, SSH into your server and run:

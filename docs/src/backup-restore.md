@@ -96,7 +96,7 @@ hop3 backup:restore 20251108_143022_a8f3d9
 # Port: 8000
 #
 # To start the application:
-#   hop3 restart my-app
+#   hop3 app:restart my-app
 ```
 
 ## Creating Backups
@@ -289,7 +289,7 @@ The restore process includes **safety checks** at every step.
 After restoring, you typically need to restart the application:
 
 ```bash
-hop3 restart <app-name>
+hop3 app:restart <app-name>
 ```
 
 ## Deleting Backups
@@ -378,9 +378,9 @@ Periodically test your backups:
 ```bash
 hop3 backup:create prod-app
 hop3 backup:restore <backup-id> --target-app prod-app-test
-hop3 restart prod-app-test
+hop3 app:restart prod-app-test
 # Test the application
-hop3 destroy prod-app-test
+hop3 app:destroy prod-app-test
 ```
 
 ### Security Considerations
@@ -412,7 +412,7 @@ hop3 deploy myapp
 
 # 3. If something goes wrong, restore
 hop3 backup:restore <backup-id>
-hop3 restart myapp
+hop3 app:restart myapp
 ```
 
 ## Troubleshooting
@@ -648,7 +648,7 @@ In case of complete server failure:
 3. **Restore applications** one by one:
    ```bash
    hop3 backup:restore <backup-id>
-   hop3 restart <app-name>
+   hop3 app:restart <app-name>
    ```
 
 **Pro tip:** Keep backups in multiple locations:
@@ -674,7 +674,7 @@ hop3 deploy myapp
 if [ $? -ne 0 ]; then
     echo "Deployment failed, restoring backup..."
     hop3 backup:restore $backup_id
-    hop3 restart myapp
+    hop3 app:restart myapp
     exit 1
 fi
 

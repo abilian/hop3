@@ -24,7 +24,7 @@ The Hop3 CLI has been enhanced with:
 **Affected commands:**
 - `hop3 app:destroy <app>`
 - `hop3 backup:delete <backup-id>`
-- `hop3 services:destroy <service>`
+- `hop3 addons:destroy <service>`
 
 **What changed:**
 These commands now prompt for confirmation by typing the app/service name or backup ID.
@@ -334,7 +334,7 @@ hop3 config:set myapp \
 
 # Verify variables are set
 echo "Verifying configuration..."
-VARS=$(hop3 config:list myapp --json --quiet | jq -r '.data | keys[]')
+VARS=$(hop3 config:show myapp --json --quiet | jq -r '.data | keys[]')
 echo "Set variables: $VARS"
 
 # Restart application
