@@ -178,14 +178,14 @@ hop3 app:status hello-hop3 --json
 #### View Live Logs
 To see a real-time stream of your application's logs, which is incredibly useful for debugging:
 ```bash
-hop3 logs hello-hop3
+hop3 app:logs hello-hop3
 ```
 Press `Ctrl+C` to stop streaming.
 
 #### List All Applications
 See all your deployed applications at a glance:
 ```bash
-hop3 app:list
+hop3 apps
 ```
 
 #### Destroy the Application
@@ -291,7 +291,7 @@ If something goes wrong, you can restore your application to a previous state:
 
 ```bash
 hop3 backup:restore 20251108_143022_a8f3d9
-hop3 restart hello-hop3
+hop3 app:restart hello-hop3
 ```
 
 This restores:
@@ -311,7 +311,7 @@ This restores:
 
     # If something goes wrong, restore
     hop3 backup:restore <backup-id>
-    hop3 restart hello-hop3
+    hop3 app:restart hello-hop3
     ```
 
 For complete backup documentation, see the [**Backup and Restore Guide**](backup-restore.md).
@@ -336,7 +336,7 @@ hop3 config:set hello-hop3 DEBUG=true LOG_LEVEL=info MAX_WORKERS=4
 
 List all environment variables for your app:
 ```bash
-hop3 config:list hello-hop3
+hop3 config:show hello-hop3
 ```
 
 You'll see a formatted table:
@@ -358,7 +358,7 @@ hop3 config:get hello-hop3 DEBUG
 
 **For scripts**, use JSON output:
 ```bash
-hop3 config:list hello-hop3 --json
+hop3 config:show hello-hop3 --json
 ```
 ```json
 {

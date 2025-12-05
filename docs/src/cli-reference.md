@@ -752,13 +752,13 @@ hop3 backup:delete backup-myapp-20251112-143022 --yes
 
 Services are backing infrastructure (databases, caches, queues) that can be attached to applications.
 
-### `hop3 services:create`
+### `hop3 addons:create`
 
 Create a new backing service instance.
 
 **Usage:**
 ```bash
-hop3 services:create <service_type> <service_name>
+hop3 addons:create <service_type> <service_name>
 ```
 
 **Arguments:**
@@ -767,7 +767,7 @@ hop3 services:create <service_type> <service_name>
 
 **Example:**
 ```bash
-hop3 services:create postgres myapp-db
+hop3 addons:create postgres myapp-db
 ```
 
 **Output:**
@@ -775,23 +775,23 @@ hop3 services:create postgres myapp-db
 Service 'myapp-db' of type 'postgres' created successfully.
 
 To attach this service to an app, run:
-  hop3 services:attach myapp-db --app <app-name>
+  hop3 addons:attach myapp-db --app <app-name>
 ```
 
 **Notes:**
 - Service created but not yet attached to any app
 - Credentials generated and stored encrypted
-- Use `services:attach` to connect to an application
+- Use `addons:attach` to connect to an application
 
 ---
 
-### `hop3 services:attach`
+### `hop3 addons:attach`
 
 Attach a service to an application.
 
 **Usage:**
 ```bash
-hop3 services:attach <service_name> --app <app_name> [--service-type <type>]
+hop3 addons:attach <service_name> --app <app_name> [--service-type <type>]
 ```
 
 **Arguments:**
@@ -803,7 +803,7 @@ hop3 services:attach <service_name> --app <app_name> [--service-type <type>]
 
 **Example:**
 ```bash
-hop3 services:attach myapp-db --app myapp --service-type postgres
+hop3 addons:attach myapp-db --app myapp --service-type postgres
 ```
 
 **Output:**
@@ -827,18 +827,18 @@ Restart your app for changes to take effect:
 
 ---
 
-### `hop3 services:detach`
+### `hop3 addons:detach`
 
 Detach a service from an application.
 
 **Usage:**
 ```bash
-hop3 services:detach <service_name> --app <app_name> [--service-type <type>]
+hop3 addons:detach <service_name> --app <app_name> [--service-type <type>]
 ```
 
 **Example:**
 ```bash
-hop3 services:detach myapp-db --app myapp
+hop3 addons:detach myapp-db --app myapp
 ```
 
 **Notes:**
@@ -848,13 +848,13 @@ hop3 services:detach myapp-db --app myapp
 
 ---
 
-### `hop3 services:destroy` ⚠️
+### `hop3 addons:destroy` ⚠️
 
 **DESTRUCTIVE** - Destroy a service instance.
 
 **Usage:**
 ```bash
-hop3 services:destroy <service_name> [--service-type <type>]
+hop3 addons:destroy <service_name> [--service-type <type>]
 ```
 
 **Warning:**
@@ -874,13 +874,13 @@ Type the service name to confirm: myapp-db
 
 ---
 
-### `hop3 services:info`
+### `hop3 addons:info`
 
 Get information about a service instance.
 
 **Usage:**
 ```bash
-hop3 services:info <service_name> [--service-type <type>]
+hop3 addons:info <service_name> [--service-type <type>]
 ```
 
 **Example Output:**

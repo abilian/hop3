@@ -56,8 +56,8 @@ Map Heroku addons to Hop3 services:
 heroku addons:create heroku-postgresql:standard-0
 
 # Hop3
-hop3 services:create postgres myapp-db
-hop3 services:attach myapp myapp-db
+hop3 addons:create postgres myapp-db
+hop3 addons:attach myapp myapp-db
 ```
 
 **Heroku Redis:**
@@ -66,8 +66,8 @@ hop3 services:attach myapp myapp-db
 heroku addons:create heroku-redis:premium-0
 
 # Hop3
-hop3 services:create redis myapp-cache
-hop3 services:attach myapp myapp-cache
+hop3 addons:create redis myapp-cache
+hop3 addons:attach myapp myapp-cache
 ```
 
 ### Step 4: Deploy
@@ -80,14 +80,14 @@ hop3 deploy myapp
 
 | Heroku | Hop3 | Notes |
 |--------|------|-------|
-| `heroku create` | `hop3 create myapp` | Create app |
+| `heroku create` | `hop3 app:launch <repo> myapp` | Create app from repo |
 | `git push heroku main` | `hop3 deploy myapp` | Deploy code |
 | `heroku config:set` | `hop3 config:set` | Set env vars |
-| `heroku addons:create heroku-postgresql` | `hop3 services:create postgres` | Database |
-| `heroku addons:create heroku-redis` | `hop3 services:create redis` | Cache |
+| `heroku addons:create heroku-postgresql` | `hop3 addons:create postgres` | Database |
+| `heroku addons:create heroku-redis` | `hop3 addons:create redis` | Cache |
 | `heroku ps` | `hop3 ps myapp` | Process status |
-| `heroku logs -t` | `hop3 logs -f myapp` | View logs |
-| `heroku restart` | `hop3 restart myapp` | Restart app |
+| `heroku logs -t` | `hop3 app:logs myapp` | View logs |
+| `heroku restart` | `hop3 app:restart myapp` | Restart app |
 
 ### Common Gotchas
 
@@ -172,8 +172,8 @@ web = 8080
 fly postgres create --name myapp-db
 
 # Hop3
-hop3 services:create postgres myapp-db
-hop3 services:attach myapp myapp-db
+hop3 addons:create postgres myapp-db
+hop3 addons:attach myapp myapp-db
 ```
 
 ### Step 3: Deploy
@@ -186,13 +186,13 @@ hop3 deploy myapp
 
 | Fly.io | Hop3 | Notes |
 |--------|------|-------|
-| `fly launch` | `hop3 create myapp` | Create app |
+| `fly launch` | `hop3 app:launch <repo> myapp` | Create app from repo |
 | `fly deploy` | `hop3 deploy myapp` | Deploy code |
 | `fly secrets set` | `hop3 config:set` | Set secrets |
-| `fly postgres create` | `hop3 services:create postgres` | Database |
-| `fly status` | `hop3 status myapp` | App status |
-| `fly logs` | `hop3 logs myapp` | View logs |
-| `fly restart` | `hop3 restart myapp` | Restart app |
+| `fly postgres create` | `hop3 addons:create postgres` | Database |
+| `fly status` | `hop3 app:status myapp` | App status |
+| `fly logs` | `hop3 app:logs myapp` | View logs |
+| `fly restart` | `hop3 app:restart myapp` | Restart app |
 
 ---
 
