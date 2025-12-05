@@ -101,6 +101,7 @@ known-first-party = ["hop3"]
     "SLF001", #	private-member-access
     "PLR0915", #	too-many-statements
     "C901",    #	complex-structure
+    "PLC2701", # Private name import
 ]
 "**/noxfile.py" = [
     "INP001", # implicit namespace package

@@ -160,9 +160,13 @@ def get_builder(context: DeploymentContext) -> Builder:
     ]
     debug(builder_classes)
 
-    # TODO: Add logic to check context.app_config for an explicit builder name.
-    # builder_name_from_config = context.app_config.get("build.builder", "auto")
-    builder_name_from_config = "auto"
+    # Check app_config for explicit builder selection
+    # Users can set [build] builder = "docker" in hop3.toml
+    build_config = context.app_config.get("build", {})
+    if isinstance(build_config, dict):
+        builder_name_from_config = build_config.get("builder", "auto")
+    else:
+        builder_name_from_config = "auto"
 
     # Auto-detect by finding the first one that "accepts" the context.
     if builder_name_from_config == "auto":

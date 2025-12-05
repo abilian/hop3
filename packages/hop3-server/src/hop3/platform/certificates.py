@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from textwrap import dedent
@@ -84,6 +85,18 @@ class Certificate:
         shell(cmd)
 
     def generate_with_certbot(self):
+        # Check if certbot is installed
+        if not shutil.which("certbot"):
+            log(
+                "certbot not found, falling back to self-signed certificate. "
+                "Install certbot for Let's Encrypt certificates, or set "
+                "ACME_ENGINE=self-signed to suppress this warning.",
+                level=1,
+                fg="yellow",
+            )
+            self.generate_self_signed()
+            return
+
         certbot_root = HOP3_ROOT / "certbot"
         live_cert_file = certbot_root / f"config/live/{self.domain_name}/fullchain.pem"
         live_key_file = certbot_root / f"config/live/{self.domain_name}/privkey.pem"
@@ -110,16 +123,30 @@ class Certificate:
 
             (NGINX_ROOT / "__certbot_webroot.conf").write_text(nginx_webroot_conf)
 
+            from hop3.config import ACME_EMAIL
+
             cmd = (
                 f"certbot certonly --webroot -w {webroot} -d {self.domain_name} -n "
                 f"--config-dir {certbot_root}/config "
                 f"--work-dir {certbot_root}/work "
                 f"--logs-dir {certbot_root}/logs "
-                "--agree-tos --email sf@fermigier.com"
+                f"--agree-tos --email {ACME_EMAIL}"
             )
-            shell(cmd)
 
-            (NGINX_ROOT / "__certbot_webroot.conf").unlink()
+            try:
+                shell(cmd)
+            except subprocess.CalledProcessError as e:
+                log(
+                    f"certbot failed (exit code {e.returncode}), "
+                    "falling back to self-signed certificate.",
+                    level=1,
+                    fg="yellow",
+                )
+                (NGINX_ROOT / "__certbot_webroot.conf").unlink(missing_ok=True)
+                self.generate_self_signed()
+                return
+
+            (NGINX_ROOT / "__certbot_webroot.conf").unlink(missing_ok=True)
 
         cert = live_cert_file.read_text()
         self.crt_file.write_text(cert)

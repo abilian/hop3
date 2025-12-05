@@ -55,12 +55,35 @@ Source Code                DockerBuilder              DockerComposeDeployer
                          location="hop3/app:latest"  port=8080
 ```
 
-### Detection Rules
+### Builder Selection
+
+#### Explicit Selection (Recommended)
+
+Users can explicitly choose Docker via `hop3.toml`:
+
+```toml
+# hop3.toml
+[build]
+builder = "docker"
+```
+
+Available builder names:
+- `"docker"` - Use DockerBuilder (requires Dockerfile)
+- `"local"` - Use LocalBuilder (native toolchains)
+- `"auto"` - Auto-detect (default)
+
+#### Auto-Detection Rules
+
+If `builder = "auto"` or not specified, the first matching builder wins:
 
 | Builder | Accepts When |
 |---------|--------------|
-| LocalBuilder | Any language toolchain accepts (requirements.txt, package.json, etc.) |
 | DockerBuilder | `Dockerfile` exists in source directory |
+| LocalBuilder | Any language toolchain accepts (requirements.txt, package.json, etc.) |
+
+**Note**: If both `Dockerfile` and `requirements.txt` exist, use explicit selection to ensure predictable behavior.
+
+### Deployer Selection
 
 | Deployer | Accepts When |
 |----------|--------------|
@@ -92,24 +115,107 @@ Hop3 provides these environment variables to the compose file:
 
 ### Proxy Integration
 
-**Current State**: Docker-deployed apps do NOT integrate with Hop3's proxy system (nginx/caddy/traefik).
+**Decision**: Use the **Direct Proxy Integration** pattern, following StaticDeployer's approach.
 
-**Future Work**: To enable proxy integration:
+This approach:
+- Works with any configured proxy (nginx, caddy, traefik)
+- Is consistent with existing Hop3 architecture
+- Requires no special proxy-specific configuration
+- Uses the same `get_proxy_strategy()` / `proxy.setup()` flow as other deployers
 
-1. **Option A: Traefik labels** (Recommended)
-   - Add Traefik labels to docker-compose services
-   - Traefik auto-discovers containers and routes traffic
-   - Requires Traefik to be the configured proxy
+#### Architecture
 
-2. **Option B: Manual nginx config**
-   - DockerComposeDeployer generates nginx upstream config
-   - Points to container's published port
-   - Similar to current UWSGIDeployer approach
+```
+                                    ┌─────────────────────────────────┐
+                                    │         Hop3 Server             │
+                                    │                                 │
+                             ┌─────────────┐    ┌──────────────────┐  │
+                             │   Proxy     │    │ Docker Container │  │
+Internet ──▶ Port 80/443 ──▶ │ nginx/caddy │──▶ │   127.0.0.1:PORT │  │
+                             │  /traefik   │    │   (app:8080)     │  │
+                             └─────────────┘    └──────────────────┘  │
+                                    │                                 │
+                                    └─────────────────────────────────┘
+```
 
-3. **Option C: Docker network bridge**
-   - Create a shared Docker network for Hop3 apps
-   - Nginx runs in a container on the same network
-   - Route by container name, not port
+**Key insight**: The proxy doesn't care whether the backend is a uWSGI process, a static folder, or a Docker container. It only needs:
+1. A `HOST_NAME` to route requests
+2. A `BIND_ADDRESS:PORT` to forward to
+3. Standard environment configuration
+
+#### Container Port Binding
+
+Docker containers MUST bind to the host's loopback interface:
+
+```yaml
+# docker-compose.yml - CORRECT
+services:
+  web:
+    image: ${HOP3_IMAGE_TAG}
+    ports:
+      - "127.0.0.1:${HOP3_HOST_PORT:-8080}:8080"  # Host-only binding
+```
+
+**Why `127.0.0.1`?**
+- Prevents direct external access to container
+- All traffic goes through Hop3's proxy (enabling SSL, rate limiting, etc.)
+- Consistent with uWSGI apps that bind to localhost
+
+#### Environment Variables for Proxy
+
+DockerComposeDeployer provides these variables:
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `HOP3_IMAGE_TAG` | Docker image to run | `hop3/myapp:latest` |
+| `HOP3_APP_NAME` | Application name | `myapp` |
+| `HOP3_HOST_PORT` | Port on host (for proxy) | `8080` |
+| `HOP3_APP_PORT` | Port inside container | `8080` |
+| `HOST_NAME` | Domain name(s) for routing | `myapp.example.com` |
+| `BIND_ADDRESS` | Always `127.0.0.1` | `127.0.0.1` |
+| `PORT` | Alias for `HOP3_HOST_PORT` | `8080` |
+
+#### Implementation in DockerComposeDeployer
+
+The deployer follows StaticDeployer's pattern:
+
+```python
+def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:
+    # 1. Start container
+    self._start_container()
+
+    # 2. Build environment for proxy
+    env = self._make_proxy_env()
+
+    # 3. Setup proxy (if HOST_NAME configured)
+    host_name = env.get("HOST_NAME", "_")
+    if host_name and host_name != "_":
+        proxy = get_proxy_strategy(self.app, env, self._get_workers())
+        proxy.setup()
+
+    # 4. Update app state
+    self.app._transition_state(AppStateEnum.RUNNING)
+
+    return DeploymentInfo(
+        protocol="http",
+        address="127.0.0.1",
+        port=self._get_host_port(),
+    )
+```
+
+#### Alternatives Considered
+
+1. **Traefik Labels** (Not chosen)
+   - Pros: Auto-discovery, no manual config
+   - Cons: Traefik-only, requires Docker network management, different pattern from other deployers
+
+2. **Docker Network Bridge** (Not chosen)
+   - Pros: No port mapping needed, cleaner networking
+   - Cons: Requires nginx in container, complex network setup, diverges from native deployment model
+
+3. **Direct Proxy Integration** (Chosen)
+   - Pros: Consistent with existing architecture, works with any proxy, simple implementation
+   - Cons: Requires explicit port mapping in compose file
 
 ### Lifecycle Management
 
@@ -138,40 +244,146 @@ Ports are discovered in this order:
 | Component | Status | Tests |
 |-----------|--------|-------|
 | DockerBuilder | ✅ Implemented | ✅ 14 tests |
-| DockerComposeDeployer | ✅ Implemented | ✅ 16 tests |
+| DockerComposeDeployer | ✅ Implemented | ✅ 24 tests |
 | DockerPlugin (registration) | ✅ Implemented | - |
-| Proxy integration | ❌ Not implemented | - |
+| Proxy integration | ✅ Implemented | ✅ 8 tests |
 | Multi-stage builds | ❌ Not implemented | - |
 | Build args support | ❌ Not implemented | - |
 
-## Future Enhancements
+## Implementation Details: Proxy Integration
 
-### Phase 1: Proxy Integration
+The following methods were added to `DockerComposeDeployer`:
 
-Add Traefik labels to docker-compose for automatic routing:
+### `_make_proxy_env()` method
+
+Create environment dictionary following StaticDeployer's pattern:
+
+```python
+def _make_proxy_env(self) -> Env:
+    """Create environment for proxy configuration."""
+    env = Env({
+        "APP": self.app_name,
+        "HOME": HOP3_ROOT,
+        "USER": HOP3_USER,
+        "PATH": os.environ["PATH"],
+        "PWD": str(self.context.source_path),
+    })
+
+    safe_defaults = {
+        "NGINX_IPV4_ADDRESS": "0.0.0.0",
+        "NGINX_IPV6_ADDRESS": "[::]",
+        "BIND_ADDRESS": "127.0.0.1",
+        "PORT": str(self._get_host_port()),
+        "HOST_NAME": "_",
+    }
+
+    # Load ENV file from app source
+    env_file = self.context.source_path / "ENV"
+    env.parse_settings(env_file)
+
+    # Load runtime env vars from ORM
+    if self.context.app:
+        env.update(self.context.app.get_runtime_env())
+
+    # Apply defaults
+    for k, v in safe_defaults.items():
+        if k not in env:
+            env[k] = v
+
+    return env
+```
+
+### `_get_workers()` method
+
+Returns a minimal workers dict for proxy configuration:
+
+```python
+def _get_workers(self) -> dict[str, str]:
+    """Get workers configuration for proxy.
+
+    Docker apps have a single 'web' worker that is the container itself.
+    """
+    return {"web": "docker-compose"}
+```
+
+### `_setup_proxy()` method (called from `deploy()`)
+
+```python
+def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:
+    # ... existing container startup code ...
+
+    # Setup proxy if HOST_NAME is configured
+    env = self._make_proxy_env()
+    host_name = env.get("HOST_NAME", "_")
+
+    if host_name and host_name != "_" and self.context.app:
+        log(f"Setting up proxy for '{self.app_name}'...", level=2, fg="blue")
+        try:
+            proxy = get_proxy_strategy(self.context.app, env, self._get_workers())
+            proxy.setup()
+            log(f"✓ Proxy configured for '{self.app_name}'", level=2, fg="green")
+        except Exception as e:
+            log(f"✗ Proxy setup failed: {e}", level=1, fg="red")
+
+    # ... rest of deploy ...
+```
+
+### docker-compose.yml requirements
+
+Users must use host-only port binding:
 
 ```yaml
+version: '3.8'
 services:
   web:
     image: ${HOP3_IMAGE_TAG}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.${HOP3_APP_NAME}.rule=Host(`${HOST_NAME}`)"
+    ports:
+      - "127.0.0.1:${PORT:-8080}:8080"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-}
 ```
 
-### Phase 2: Build Improvements
+### Required imports
+
+```python
+from hop3.config import HOP3_ROOT, HOP3_USER
+from hop3.core.env import Env
+from hop3.core.plugins import get_proxy_strategy
+```
+
+### Test coverage
+
+The proxy integration is covered by 8 unit tests:
+- `test_make_proxy_env_basic` - Environment creation with required variables
+- `test_make_proxy_env_with_env_file` - Loading HOST_NAME from ENV file
+- `test_make_proxy_env_with_app_runtime_env` - Loading HOST_NAME from ORM
+- `test_get_workers` - Returns correct workers dict
+- `test_setup_proxy_skipped_when_no_app` - Skips when no App in context
+- `test_setup_proxy_skipped_when_hostname_is_catchall` - Skips when HOST_NAME="_"
+- `test_setup_proxy_called_when_hostname_configured` - Calls proxy when configured
+- `test_setup_proxy_handles_exception` - Graceful exception handling
+
+## Future Enhancements
+
+### Phase 1: Build Improvements
 
 1. **Build arguments**: Pass environment variables as build args
 2. **Multi-stage builds**: Support for complex Dockerfiles
 3. **Buildx support**: Enable BuildKit features
 4. **Image caching**: Reuse layers across deployments
 
-### Phase 3: Advanced Orchestration
+### Phase 2: Advanced Orchestration
 
-1. **Health checks**: Monitor container health
-2. **Rolling updates**: Zero-downtime deployments
-3. **Resource limits**: CPU/memory constraints
-4. **Secrets management**: Integrate with Docker secrets
+1. **Health checks**: Monitor container health via HTTP endpoint
+2. **Rolling updates**: Zero-downtime deployments with blue-green
+3. **Resource limits**: CPU/memory constraints via compose
+4. **Secrets management**: Integrate with Docker secrets or Hop3 secrets
+
+### Phase 3: Multi-Container Apps
+
+1. **Sidecar services**: Support for redis, postgres, etc.
+2. **Service discovery**: Internal DNS for container communication
+3. **Volume management**: Persistent data across deployments
 
 ## Consequences
 
@@ -180,14 +392,16 @@ services:
 - Supports applications that require containerization
 - Consistent lifecycle management (same API as uWSGI deployer)
 - Multi-container applications supported via compose
+- Proxy integration uses same pattern as other deployers (consistency)
+- Works with any configured proxy (nginx, caddy, traefik)
 - Tested with 30 unit tests
 
 ### Negative
 
 - Requires Docker to be installed on the server
-- No automatic proxy integration (must be configured manually)
 - Port discovery is heuristic-based
 - Scaling requires compose file to support it
+- Users must use `127.0.0.1:PORT` binding in compose files
 
 ### Neutral
 
@@ -200,10 +414,18 @@ services:
 
 ```
 myapp/
+├── hop3.toml        # Explicit builder selection
 ├── Dockerfile
 ├── docker-compose.yml
 ├── app.py
+├── ENV              # Optional: set HOST_NAME here
 └── requirements.txt
+```
+
+**hop3.toml:**
+```toml
+[build]
+builder = "docker"   # Use Docker even if requirements.txt exists
 ```
 
 **Dockerfile:**
@@ -224,13 +446,48 @@ services:
   web:
     image: ${HOP3_IMAGE_TAG}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:${PORT:-8080}:8080"  # Host-only binding for proxy
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-}
+```
+
+**ENV (optional, or set via `hop config:set`):**
+```
+HOST_NAME=myapp.example.com
 ```
 
 **Deploy:**
 ```bash
 hop apps:create myapp
+hop config:set myapp HOST_NAME=myapp.example.com  # Enable proxy routing
 git push hop3 main
+```
+
+### Docker App with Database
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  web:
+    image: ${HOP3_IMAGE_TAG}
+    ports:
+      - "127.0.0.1:${PORT:-8080}:8080"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/app
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=app
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
 ```
 
 ## References

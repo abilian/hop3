@@ -185,7 +185,7 @@ def _handle_ok_response(
     """Handle successful RPC response."""
     if cli_args and cli_args[0] == "auth:login":
         handle_login_response(result, config, printer)
-    elif cli_args == ["help"] and not printer.json_output:
+    elif _is_help_command(cli_args) and not printer.json_output:
         result = inject_local_commands_into_help(result)
         printer.print(result)
     else:
@@ -208,6 +208,24 @@ def _handle_error_response(code: int, message: str) -> None:
 
     err(clean_message)
     sys.exit(1)
+
+
+def _is_help_command(cli_args: list[str]) -> bool:
+    """Check if this is a help command (with or without --all flag).
+
+    Args:
+        cli_args: Command-line arguments
+
+    Returns:
+        True if this is a help command that should have local commands injected
+    """
+    if not cli_args:
+        return False
+    # Match "help" or "help --all" but not "help <command>"
+    if cli_args[0] != "help":
+        return False
+    # "help" alone or "help --all"
+    return len(cli_args) == 1 or cli_args == ["help", "--all"]
 
 
 def is_destructive_command(cli_args: list[str]) -> bool:
@@ -485,7 +503,7 @@ def _process_help_text_with_local_commands(
     injected: set[str] = set()
 
     for line in lines:
-        if line.strip() == "COMMANDS":
+        if line.strip() in ("COMMANDS", "ALL COMMANDS"):
             in_commands_section = True
             new_lines.append(line)
             continue

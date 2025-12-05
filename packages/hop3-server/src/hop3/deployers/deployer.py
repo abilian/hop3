@@ -91,13 +91,55 @@ def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
         fg="green",
     )
 
-    # --- 6. Configure Proxy (Future Step) ---
-    # pm = get_plugin_manager()
-    # proxy_strategy = pm.hook.get_proxy_strategy(...)
-    # proxy_strategy.configure(app, deployment_info)
-    # log("Proxy configured successfully.", level=1)
+    # --- 6. Update App Model ---
+    # Store runtime info so start/stop/status commands know how to handle this app
+    _update_app_model(app, deployer.name, deployment_info, app_config)
 
     log(f"Deployment for '{app.name}' finished successfully.", level=0, fg="green")
+
+
+def _update_app_model(
+    app: App, runtime: str, deployment_info, app_config: AppConfig
+) -> None:
+    """Update the App model with deployment information.
+
+    Args:
+        app: The App model instance to update
+        runtime: The deployer name (e.g., "docker-compose", "uwsgi")
+        deployment_info: DeploymentInfo with port and address
+        app_config: Parsed application configuration
+    """
+    from hop3.core.env import Env
+    from hop3.orm.app import AppStateEnum
+
+    # Update runtime so start/stop commands know how to handle this app
+    app.runtime = runtime
+
+    # Update port from deployment info
+    if deployment_info.port:
+        app.port = deployment_info.port
+
+    # Update hostname from environment config
+    # Check ENV file or app's runtime environment
+    env = Env({})
+    env_file = app.src_path / "ENV"
+    if env_file.exists():
+        env.parse_settings(env_file)
+    # Also check app's stored runtime env
+    env.update(app.get_runtime_env())
+    host_name = env.get("HOST_NAME", "")
+    if host_name and host_name != "_":
+        app.hostname = host_name
+
+    # Update run state to RUNNING (deployment succeeded)
+    app.run_state = AppStateEnum.RUNNING
+
+    log(
+        f"App '{app.name}' model updated: runtime={runtime}, port={app.port}, "
+        f"hostname={app.hostname or '(none)'}, state=RUNNING",
+        level=2,
+        fg="blue",
+    )
 
 
 def _run_hook(hook_name: str, command: str, cwd: Path) -> None:
