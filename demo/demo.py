@@ -128,11 +128,15 @@ class DemoContext:
         return f"https://{self.app_hostname}"
 
 
-def run_local(cmd: str, *, show: bool = True, check: bool = True) -> subprocess.CompletedProcess:
+def run_local(
+    cmd: str, *, show: bool = True, check: bool = True
+) -> subprocess.CompletedProcess:
     """Run a command locally."""
     if show:
         print_command(cmd)
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=False)
+    result = subprocess.run(
+        cmd, shell=True, capture_output=True, text=True, check=False
+    )
     if check and result.returncode != 0:
         print_error(f"Command failed with exit code {result.returncode}")
         if result.stderr:
@@ -141,12 +145,16 @@ def run_local(cmd: str, *, show: bool = True, check: bool = True) -> subprocess.
     return result
 
 
-def run_ssh(ctx: DemoContext, cmd: str, *, show: bool = True, check: bool = True) -> subprocess.CompletedProcess:
+def run_ssh(
+    ctx: DemoContext, cmd: str, *, show: bool = True, check: bool = True
+) -> subprocess.CompletedProcess:
     """Run a command on the remote server via SSH."""
     ssh_cmd = f'ssh -o StrictHostKeyChecking=accept-new {ctx.ssh_target} "{cmd}"'
     if show:
         print_command(f"ssh {ctx.ssh_target} '{cmd}'")
-    result = subprocess.run(ssh_cmd, shell=True, capture_output=True, text=True, check=False)
+    result = subprocess.run(
+        ssh_cmd, shell=True, capture_output=True, text=True, check=False
+    )
     if check and result.returncode != 0:
         print_error(f"SSH command failed with exit code {result.returncode}")
         if result.stderr:
@@ -155,12 +163,16 @@ def run_ssh(ctx: DemoContext, cmd: str, *, show: bool = True, check: bool = True
     return result
 
 
-def run_hop3(cmd: str, *, show: bool = True, check: bool = True) -> subprocess.CompletedProcess:
+def run_hop3(
+    cmd: str, *, show: bool = True, check: bool = True
+) -> subprocess.CompletedProcess:
     """Run a hop3 CLI command."""
     full_cmd = f"hop3 {cmd}"
     if show:
         print_command(full_cmd)
-    result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True, check=False)
+    result = subprocess.run(
+        full_cmd, shell=True, capture_output=True, text=True, check=False
+    )
     if result.stdout:
         print(result.stdout)
     if check and result.returncode != 0:
@@ -214,53 +226,39 @@ def install_hop3_on_server(ctx: DemoContext) -> None:
     check_ubuntu_version(ctx)
     pause(ctx.pause_between_steps)
 
-    # Step 1: Update system packages
-    print_step("Updating system packages...")
-    run_ssh(ctx, "apt-get update -qq")
-    print_success("System packages updated")
-    pause(ctx.pause_between_steps)
-
-    # Step 2: Build packages locally and run pyinfra to remote
-    print_step("Building Hop3 packages locally...")
-
     # Get the local hop3 repo path
     hop3_repo = Path(__file__).parent.parent
-    if not (hop3_repo / "installer" / "install-hop.py").exists():
-        print_error("Cannot find Hop3 repository. Run this script from the hop3 directory.")
+    installer_path = hop3_repo / "installer" / "install-server.py"
+    if not installer_path.exists():
+        print_error(
+            "Cannot find Hop3 installer. Run this script from the hop3 directory."
+        )
         sys.exit(1)
 
-    # Build packages locally
-    run_local(f"cd {hop3_repo} && uv build packages/hop3-server", show=False)
-    run_local(f"cd {hop3_repo} && uv build packages/hop3-cli", show=False)
-    print_success("Hop3 packages built locally")
+    # Step 1: Copy the installer to the remote server
+    print_step("Copying installer to server...")
+    run_local(
+        f"scp -o StrictHostKeyChecking=accept-new {installer_path} {ctx.ssh_target}:/tmp/install-server.py"
+    )
+    print_success("Installer copied to server")
     pause(ctx.pause_between_steps)
 
-    # Step 3: Run the installer from local to remote
+    # Step 2: Run the installer (installs from git devel branch)
     print_step("Running Hop3 installer (this may take a few minutes)...")
-    run_local(
-        f"cd {hop3_repo} && uv run pyinfra -y --user root {ctx.server_ip} installer/install-hop.py",
+    print_info("Installing from git branch: devel")
+    run_ssh(
+        ctx,
+        "python3 /tmp/install-server.py --git --branch devel --verbose",
     )
     print_success("Hop3 installation completed")
     pause(ctx.pause_between_steps)
 
-    # Step 4: Install uwsgi (not included in hop3-server package)
-    print_step("Installing uwsgi...")
-    run_ssh(ctx, "/home/hop3/venv/bin/pip install uwsgi -q")
-    run_ssh(ctx, "systemctl daemon-reload && systemctl restart uwsgi-hop3")
-    print_success("uwsgi installed and running")
-    pause(ctx.pause_between_steps)
-
-    # Step 5: Run hop-server setup
-    print_step("Running hop-server setup...")
-    run_ssh(ctx, "su - hop3 -c '/home/hop3/venv/bin/hop-server setup'")
-    print_success("hop-server setup completed")
-    pause(ctx.pause_between_steps)
-
-    # Step 6: Restart hop3-server service
-    print_step("Restarting hop3-server service...")
-    run_ssh(ctx, "systemctl restart hop3-server")
-    run_ssh(ctx, "systemctl status hop3-server --no-pager")
-    print_success("hop3-server service restarted")
+    # Step 3: Verify services are running
+    print_step("Verifying services...")
+    run_ssh(ctx, "systemctl status hop3-server --no-pager", check=False)
+    run_ssh(ctx, "systemctl status uwsgi-hop3 --no-pager", check=False)
+    run_ssh(ctx, "systemctl status nginx --no-pager", check=False)
+    print_success("Hop3 services are running")
 
 
 # =============================================================================
@@ -295,9 +293,13 @@ def configure_cli(ctx: DemoContext) -> None:
         f"--server http://{ctx.server_ip}:8000 "
         f"--password-stdin --yes"
     )
-    print_command(f"hop3 init --ssh {ctx.ssh_target} --username {ctx.admin_user} --email {ctx.admin_email}")
+    print_command(
+        f"hop3 init --ssh {ctx.ssh_target} --username {ctx.admin_user} --email {ctx.admin_email}"
+    )
 
-    result = subprocess.run(init_cmd, shell=True, capture_output=True, text=True, check=False)
+    result = subprocess.run(
+        init_cmd, shell=True, capture_output=True, text=True, check=False
+    )
     if result.stdout:
         print(result.stdout)
 
@@ -312,7 +314,9 @@ def configure_cli(ctx: DemoContext) -> None:
                 f"--server http://{ctx.server_ip}:8000 "
                 f"--password-stdin"
             )
-            result = subprocess.run(login_cmd, shell=True, capture_output=True, text=True, check=False)
+            result = subprocess.run(
+                login_cmd, shell=True, capture_output=True, text=True, check=False
+            )
             if result.stdout:
                 print(result.stdout)
             if result.returncode != 0:
@@ -366,14 +370,7 @@ def deploy_sample_app(ctx: DemoContext) -> None:
         print()
     pause(ctx.pause_between_steps)
 
-    # Set the hostname for the app before deployment
-    print_step(f"Configuring hostname: {ctx.app_hostname}")
-    # Pre-create the app to set HOST_NAME before deployment
-    run_hop3(f"config:set hello-hop3 HOST_NAME={ctx.app_hostname}", check=False)
-    print_success(f"Hostname set to {ctx.app_hostname}")
-    pause(ctx.pause_between_steps)
-
-    # Deploy the application
+    # Deploy the application (first time creates the app)
     print_step("Deploying hello-hop3 application...")
     original_dir = os.getcwd()
     try:
@@ -382,6 +379,22 @@ def deploy_sample_app(ctx: DemoContext) -> None:
     finally:
         os.chdir(original_dir)
     print_success("Application deployed")
+    pause(ctx.pause_between_steps)
+
+    # Set the hostname for the app (now that it exists)
+    print_step(f"Configuring hostname: {ctx.app_hostname}")
+    run_hop3(f"config:set hello-hop3 HOST_NAME={ctx.app_hostname}")
+    print_success(f"Hostname set to {ctx.app_hostname}")
+    pause(ctx.pause_between_steps)
+
+    # Redeploy to regenerate nginx config with the hostname
+    print_step("Redeploying to apply hostname configuration...")
+    try:
+        os.chdir(DEMO_APP_DIR)
+        run_hop3("deploy hello-hop3")
+    finally:
+        os.chdir(original_dir)
+    print_success("Application redeployed with hostname")
     pause(ctx.pause_between_steps)
 
     # Wait for app to start
@@ -422,19 +435,34 @@ def demo_app_management(ctx: DemoContext) -> None:
     pause(ctx.pause_between_steps)
 
     # Now test via the actual public URL with curl
+    # This is the critical test - we must get our app's response, not nginx default page
     print_step(f"Verifying external access via {ctx.app_url}...")
     curl_cmd = f"curl -sk {ctx.app_url}/"
     print_command(curl_cmd)
-    result = subprocess.run(curl_cmd, shell=True, capture_output=True, text=True, check=False)
-    if result.returncode == 0 and result.stdout:
+    result = subprocess.run(
+        curl_cmd, shell=True, capture_output=True, text=True, check=False
+    )
+
+    # Check that we got our app's response, not nginx default page
+    expected_content = "Hello, Hop3"
+    if result.returncode == 0 and expected_content in result.stdout:
         print(f"  {Colors.GREEN}Response:{Colors.RESET}")
         print(f"  {result.stdout.strip()}")
         print()
         print_success(f"Application accessible at {ctx.app_url}")
     else:
-        print_error(f"Failed to access {ctx.app_url}")
+        print_error(f"Failed to access application at {ctx.app_url}")
+        print()
+        if result.stdout:
+            print(f"  {Colors.YELLOW}Got response:{Colors.RESET}")
+            # Show first 200 chars of response
+            print(f"  {result.stdout[:200].strip()}")
+            print()
         if result.stderr:
-            print(f"  {Colors.RED}{result.stderr.strip()}{Colors.RESET}")
+            print(f"  {Colors.RED}Error: {result.stderr.strip()}{Colors.RESET}")
+        print_error(f"Expected response containing '{expected_content}' but got nginx default page or error.")
+        print_info("This usually means HOST_NAME was not applied correctly to nginx config.")
+        sys.exit(1)
     pause(ctx.pause_between_steps)
 
     # Set environment variables
@@ -491,11 +519,11 @@ def print_banner() -> None:
     """Print the demo banner."""
     banner = """
     ╦ ╦╔═╗╔═╗┌─┐  ╔╦╗┌─┐┌┬┐┌─┐
-    ╠═╣║ ║╠═╝  ─┤   ║║├┤ ││││ │
+    ╠═╣║ ║╠═╝ ─┤   ║║├┤ ││││ │
     ╩ ╩╚═╝╩  └─┘  ═╩╝└─┘┴ ┴└─┘
 
     Hop3 Installation & Quickstart Demo
-    ====================================
+    ===================================
     """
     print(f"{Colors.CYAN}{Colors.BOLD}{banner}{Colors.RESET}")
 
@@ -594,8 +622,12 @@ def main() -> None:
 
     # Confirm before proceeding
     if not args.skip_install:
-        print(f"{Colors.YELLOW}This will install Hop3 on {ctx.server_ip}.{Colors.RESET}")
-        print(f"{Colors.YELLOW}The server should be a fresh Ubuntu 22.04 installation.{Colors.RESET}")
+        print(
+            f"{Colors.YELLOW}This will install Hop3 on {ctx.server_ip}.{Colors.RESET}"
+        )
+        print(
+            f"{Colors.YELLOW}The server should be a fresh Ubuntu 22.04 installation.{Colors.RESET}"
+        )
         print()
 
     try:
