@@ -22,7 +22,6 @@ from hop3.lib import log
 from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.registry import register
 from hop3.orm import App, AppRepository
-from hop3.project.procfile import parse_procfile
 
 from ._base import Command
 
@@ -199,6 +198,8 @@ class StatusCmd(Command):
     name: ClassVar[str] = "app:status"
 
     def call(self, *args):
+        from .apps import _get_instance_count
+
         if not args:
             return [{"t": "text", "text": "Usage: hop app:status <app_name>"}]
         app_name = args[0]
@@ -217,12 +218,8 @@ class StatusCmd(Command):
 
         # Only show runtime info if app is running
         if app.run_state.name == "RUNNING":
-            worker_count = 0
-            scaling_file = app.virtualenv_path / "SCALING"
-            if scaling_file.exists():
-                worker_map = parse_procfile(scaling_file)
-                worker_count = sum(int(v) for v in worker_map.values())
-            rows.append(["Workers", str(worker_count)])
+            instance_count = _get_instance_count(app)
+            rows.append(["Instances", str(instance_count)])
 
             if app.port:
                 rows.append(["Local URL", f"http://127.0.0.1:{app.port}"])
