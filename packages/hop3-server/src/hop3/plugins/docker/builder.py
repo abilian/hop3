@@ -11,15 +11,14 @@ be deployed using DockerComposeDeployer.
 from __future__ import annotations
 
 import subprocess
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from pathlib import Path
 
-from hop3.core.protocols import BuildArtifact, BuildContext, DeploymentContext
+from hop3.core.protocols import BuildArtifact, BuildContext
 from hop3.lib import Abort, log
 
-if TYPE_CHECKING:
-    from pathlib import Path
 
-
+@dataclass(frozen=True)
 class DockerBuilder:
     """Build strategy that uses `docker build` to create container images.
 
@@ -31,15 +30,8 @@ class DockerBuilder:
     The resulting artifact can be deployed using DockerComposeDeployer.
     """
 
-    name = "docker"
-
-    def __init__(self, context: BuildContext | DeploymentContext) -> None:
-        """Initialize DockerBuilder with build context.
-
-        Args:
-            context: Build or deployment context containing app information
-        """
-        self.context = context
+    context: BuildContext
+    name: str = "docker"
 
     @property
     def source_path(self) -> Path:
@@ -129,7 +121,9 @@ class DockerBuilder:
             raise Abort(msg)
 
         except subprocess.CalledProcessError as e:
-            log(f"Docker build failed with exit code {e.returncode}:", level=1, fg="red")
+            log(
+                f"Docker build failed with exit code {e.returncode}:", level=1, fg="red"
+            )
             if e.stderr:
                 log(e.stderr, level=1, fg="red")
             msg = f"Docker build failed: {e.stderr[:200] if e.stderr else 'unknown error'}"

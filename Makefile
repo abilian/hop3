@@ -25,6 +25,7 @@ check: lint
 ## Lint / check typing
 lint:
 	@echo "--> Linting code"
+	uv run ruff format --check packages/*/src packages/*/tests
 	uv run ruff check packages/*/src packages/*/tests
 	uv run mypy packages/hop3-server/src
 	cd packages/hop3-server && uv run deptry src

@@ -10,7 +10,8 @@ complex multi-container deployments with networking, volumes, and scaling.
 from __future__ import annotations
 
 import subprocess
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from pathlib import Path
 
 from hop3.core.protocols import (
     BuildArtifact,
@@ -20,13 +21,11 @@ from hop3.core.protocols import (
 )
 from hop3.lib import Abort, log
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
 # Default timeout for Docker commands (seconds)
 DOCKER_COMMAND_TIMEOUT = 60
 
 
+@dataclass(frozen=True)
 class DockerComposeDeployer(Deployer):
     """Deployment strategy using Docker Compose.
 
@@ -41,17 +40,9 @@ class DockerComposeDeployer(Deployer):
     - The compose file should reference ${HOP3_IMAGE_TAG} for the app image
     """
 
-    name = "docker-compose"
-
-    def __init__(self, context: DeploymentContext, artifact: BuildArtifact) -> None:
-        """Initialize DockerComposeDeployer.
-
-        Args:
-            context: Deployment context with app information
-            artifact: Build artifact (must be kind="docker-image")
-        """
-        self.context = context
-        self.artifact = artifact
+    context: DeploymentContext
+    artifact: BuildArtifact
+    name: str = "docker-compose"
 
     @property
     def source_path(self) -> Path:
@@ -73,7 +64,12 @@ class DockerComposeDeployer(Deployer):
             return False
 
         # Check for docker-compose.yml or docker-compose.yaml
-        compose_files = ["docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"]
+        compose_files = [
+            "docker-compose.yml",
+            "docker-compose.yaml",
+            "compose.yml",
+            "compose.yaml",
+        ]
         return any((self.source_path / f).exists() for f in compose_files)
 
     def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:
@@ -213,7 +209,13 @@ class DockerComposeDeployer(Deployer):
 
         try:
             result = subprocess.run(
-                ["docker", "compose", "ps", "--format", "{{.Name}}\t{{.State}}\t{{.Status}}"],
+                [
+                    "docker",
+                    "compose",
+                    "ps",
+                    "--format",
+                    "{{.Name}}\t{{.State}}\t{{.Status}}",
+                ],
                 cwd=self.source_path,
                 check=False,
                 capture_output=True,
