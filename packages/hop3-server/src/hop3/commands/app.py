@@ -207,7 +207,7 @@ class StatusCmd(Command):
 
         # Sync state with reality for transitional states (STARTING/STOPPING)
         # This verifies actual process status and updates accordingly
-        if app.run_state.name in ("STARTING", "STOPPING"):
+        if app.run_state.name in {"STARTING", "STOPPING"}:
             app.sync_state()
             self.db_session.commit()
 

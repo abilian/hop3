@@ -503,7 +503,7 @@ def _process_help_text_with_local_commands(
     injected: set[str] = set()
 
     for line in lines:
-        if line.strip() in ("COMMANDS", "ALL COMMANDS"):
+        if line.strip() in {"COMMANDS", "ALL COMMANDS"}:
             in_commands_section = True
             new_lines.append(line)
             continue

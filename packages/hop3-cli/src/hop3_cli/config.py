@@ -47,7 +47,7 @@ class Config:
         Returns False if no server has been configured.
         """
         # Check for developer mode
-        if os.environ.get("HOP3_DEV_MODE", "").lower() in ("true", "1", "yes"):
+        if os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}:
             return True
 
         # Check environment variable
@@ -80,7 +80,7 @@ class Config:
         For developers: Set HOP3_DEV_MODE=true to use localhost:8000
         """
         # Check for developer mode first
-        if os.environ.get("HOP3_DEV_MODE", "").lower() in ("true", "1", "yes"):
+        if os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}:
             # In dev mode, default to localhost but allow override
             return self.get("api_url", "http://localhost:8000")
 

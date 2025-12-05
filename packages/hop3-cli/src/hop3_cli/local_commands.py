@@ -125,33 +125,58 @@ def handle_login_password(
         hop3 login
         hop3 login --username admin
     """
-    # Check if server is configured
-    if not config.is_configured():
-        print("Server not configured.", file=sys.stderr)
-        print("\nTo configure, use one of:", file=sys.stderr)
-        print(
-            "  hop3 init --ssh root@your-server.com  # First-time setup",
-            file=sys.stderr,
-        )
-        print(
-            "  hop3 login --ssh root@your-server.com # If you have SSH access",
-            file=sys.stderr,
-        )
-        print("  hop3 settings set server https://your-server.com", file=sys.stderr)
-        sys.exit(1)
+    _ensure_server_configured(config)
+    username = _parse_username_arg(args)
+    username, password = _prompt_credentials(username)
 
-    # Parse arguments
-    username = None
+    # Call auth:login via RPC
+    from .client import Client
+
+    print(f"\nAuthenticating as {username}...")
+
+    with Client(config=config, state=None) as client:
+        try:
+            response = client.rpc("cli", ["auth:login", username, password])
+            _handle_login_response(response, username, config, printer)
+
+        except Exception as e:
+            print(f"Error during login: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    return True
+
+
+def _ensure_server_configured(config: Config) -> None:
+    """Check if server is configured, exit with help if not."""
+    if config.is_configured():
+        return
+
+    print("Server not configured.", file=sys.stderr)
+    print("\nTo configure, use one of:", file=sys.stderr)
+    print(
+        "  hop3 init --ssh root@your-server.com  # First-time setup",
+        file=sys.stderr,
+    )
+    print(
+        "  hop3 login --ssh root@your-server.com # If you have SSH access",
+        file=sys.stderr,
+    )
+    print("  hop3 settings set server https://your-server.com", file=sys.stderr)
+    sys.exit(1)
+
+
+def _parse_username_arg(args: list[str]) -> str | None:
+    """Parse --username argument from args."""
     i = 0
     while i < len(args):
-        arg = args[i]
-        if arg == "--username" and i + 1 < len(args):
-            username = args[i + 1]
-            i += 2
-        else:
-            i += 1
+        if args[i] == "--username" and i + 1 < len(args):
+            return args[i + 1]
+        i += 1
+    return None
 
-    # Prompt for credentials
+
+def _prompt_credentials(username: str | None) -> tuple[str, str]:
+    """Prompt for username and password, return both."""
     if not username:
         username = input("Username: ").strip()
         if not username:
@@ -163,40 +188,30 @@ def handle_login_password(
         print("Error: Password cannot be empty", file=sys.stderr)
         sys.exit(1)
 
-    # Call auth:login via RPC
-    from .client import Client
+    return username, password
 
-    print(f"\nAuthenticating as {username}...")
 
-    with Client(config=config, state=None) as client:
-        try:
-            from jsonrpcclient import Error, Ok
+def _handle_login_response(
+    response, username: str, config: Config, printer: RichPrinter
+) -> None:
+    """Handle the RPC response from auth:login."""
+    from jsonrpcclient import Error, Ok
 
-            response = client.rpc("cli", ["auth:login", username, password])
-
-            match response:
-                case Ok(result=result):
-                    # Extract and save token from response
-                    token = _extract_token_from_login_response(result)
-                    if token:
-                        config.save({"api_token": token})
-                        print(f"Logged in as {username}")
-                        print(f"Token saved to {config.config_file}")
-                    else:
-                        # Just print the response if we can't extract token
-                        printer.print(result)
-                case Error(message=message):
-                    print(f"Login failed: {message}", file=sys.stderr)
-                    sys.exit(1)
-                case _:
-                    print("Unexpected response from server", file=sys.stderr)
-                    sys.exit(1)
-
-        except Exception as e:
-            print(f"Error during login: {e}", file=sys.stderr)
+    match response:
+        case Ok(result=result):
+            token = _extract_token_from_login_response(result)
+            if token:
+                config.save({"api_token": token})
+                print(f"Logged in as {username}")
+                print(f"Token saved to {config.config_file}")
+            else:
+                printer.print(result)
+        case Error(message=message):
+            print(f"Login failed: {message}", file=sys.stderr)
             sys.exit(1)
-
-    return True
+        case _:
+            print("Unexpected response from server", file=sys.stderr)
+            sys.exit(1)
 
 
 def _extract_token_from_login_response(result: list[dict]) -> str | None:
@@ -286,7 +301,7 @@ def _resolve_server_url(server_url: str | None, config) -> str:
     # Prompt for URL
     import os
 
-    if os.environ.get("HOP3_DEV_MODE", "").lower() in ("true", "1", "yes"):
+    if os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}:
         default_url = "http://localhost:8000"
     else:
         default_url = "https://your-server.com"
@@ -570,10 +585,10 @@ def _parse_init_args(
         elif arg == "--password-stdin":
             password_stdin = True
             i += 1
-        elif arg in ("--yes", "-y"):
+        elif arg in {"--yes", "-y"}:
             auto_yes = True
             i += 1
-        elif arg in ("--help", "-h"):
+        elif arg in {"--help", "-h"}:
             print_init_help()
             return None
         else:
@@ -640,7 +655,7 @@ def handle_settings(args: list[str], config: Config, printer: RichPrinter) -> bo
         hop3 settings set <key> <value>
         hop3 settings get <key>
     """
-    if not args or args[0] in ("--help", "-h"):
+    if not args or args[0] in {"--help", "-h"}:
         print_settings_help()
         return True
 
@@ -667,7 +682,7 @@ def settings_show(config: Config, printer: RichPrinter) -> bool:
     print(f"Config file: {config.config_file}\n")
 
     # Show dev mode status
-    dev_mode = os.environ.get("HOP3_DEV_MODE", "").lower() in ("true", "1", "yes")
+    dev_mode = os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}
     if dev_mode:
         print("Developer mode: ENABLED (HOP3_DEV_MODE)")
         print("  Localhost default: http://localhost:8000\n")
@@ -715,7 +730,7 @@ def settings_set(args: list[str], config: Config, printer: RichPrinter) -> bool:
 
     # Convert boolean-like values for verify_ssl
     if key == "verify_ssl":
-        value = str(value.lower() in ("true", "yes", "1")).lower()
+        value = str(value.lower() in {"true", "yes", "1"}).lower()
 
     config.save({key: value})
     print(
