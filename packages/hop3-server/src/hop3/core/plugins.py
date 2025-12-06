@@ -236,7 +236,64 @@ def get_deployment_strategy(
         if strategy.accept():
             return strategy
 
-    msg = f"Could not find a deployment strategy compatible with artifact of kind '{artifact.kind}'."
+    # Build a helpful error message showing what's available
+    available_deployers = []
+    for cls in strategy_classes:
+        name = getattr(cls, "name", cls.__name__)
+        available_deployers.append(name)
+
+    # Build hints based on artifact kind
+    hints = []
+
+    if artifact.kind == "docker-image":
+        if not available_deployers:
+            hints.append(
+                "No deployers are loaded. Check your hop3-server installation."
+            )
+        elif "docker-compose" not in available_deployers:
+            hints.append("The Docker Compose deployer is not loaded.")
+            hints.append("Run 'hop3 system:info -v' to see loaded plugins.")
+        else:
+            # Deployer is loaded but didn't accept - shouldn't happen for docker-image
+            hints.append("The Docker Compose deployer is available but did not accept.")
+            hints.append(
+                "This may indicate an internal error. Please report this issue."
+            )
+
+    elif artifact.kind == "virtualenv":
+        if "uwsgi" not in available_deployers:
+            hints.append("The uWSGI deployer is not loaded.")
+            hints.append("Run 'hop3 system:info -v' to see loaded plugins.")
+        else:
+            hints.append("The uWSGI deployer is available but did not accept.")
+            hints.append("Check your app configuration:")
+            hints.append(
+                "  - Ensure you have a Procfile or hop3.toml with a web worker"
+            )
+            hints.append("  - Example Procfile: web: gunicorn app:app")
+
+    elif artifact.kind == "static":
+        if "static" not in available_deployers:
+            hints.append("The Static deployer is not loaded.")
+        else:
+            hints.append("The Static deployer is available but did not accept.")
+
+    else:
+        # Unknown artifact kind
+        hints.append(
+            f"Artifact kind '{artifact.kind}' is not recognized by any deployer."
+        )
+        hints.append("Check your app configuration:")
+        hints.append("  - Verify hop3.toml [build] section if present")
+        hints.append("  - Ensure the build process completed successfully")
+
+    if available_deployers:
+        hints.append(f"\nAvailable deployers: {', '.join(available_deployers)}")
+        hints.append("Run 'hop3 system:info -v' to see all loaded plugins.")
+
+    msg = f"Could not find a deployment strategy for artifact kind '{artifact.kind}'."
+    if hints:
+        msg += "\n\n" + "\n".join(hints)
     raise RuntimeError(msg)
 
 

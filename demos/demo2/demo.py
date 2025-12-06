@@ -3,18 +3,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Hop3 Demo Script.
+"""Hop3 Demo 2 - Docker Deployment.
 
-This script automates the complete Hop3 installation and quickstart workflow
-on a blank Ubuntu server. Designed for generating screencasts with clear
-on-screen messages.
+This script demonstrates deploying a Docker-based application with Hop3.
+It assumes Hop3 is already installed (use demo1 first for fresh servers).
 
 Usage:
     python demo.py <server_ip> [options]
 
 Examples:
     python demo.py 46.62.169.221
-    python demo.py 46.62.169.221 --skip-install
     python demo.py 46.62.169.221 --no-cleanup
 """
 
@@ -33,9 +31,8 @@ from pathlib import Path
 # Configuration
 # =============================================================================
 
-HOP3_REPO = "https://github.com/abilian/hop3.git"
-HOP3_BRANCH = "devel"
-DEMO_APP_DIR = Path(__file__).parent / "hello-hop3"
+APP_NAME = "hello-docker"
+DEMO_APP_DIR = Path(__file__).parent / "hello-docker"
 
 
 # =============================================================================
@@ -113,9 +110,8 @@ class DemoContext:
     admin_user: str
     admin_email: str
     admin_password: str
-    app_hostname: str = "a1.hop.demo"
+    app_hostname: str = "a2.hop.demo"
     ssh_user: str = "root"
-    skip_install: bool = False
     no_cleanup: bool = False
     pause_between_steps: float = 0.5
 
@@ -184,12 +180,65 @@ def run_hop3(
 
 
 # =============================================================================
-# Phase 1: Server Installation
+# Phase 1: Prerequisites Check
 # =============================================================================
 
 
-def verify_ssh_access(ctx: DemoContext) -> None:
-    """Verify SSH access to the server."""
+def update_hop3_server(ctx: DemoContext) -> None:
+    """Update hop3-server on the remote server from local build."""
+    print_step("Updating hop3-server to latest version...")
+
+    # Get the local hop3 repo path
+    hop3_repo = Path(__file__).parent.parent.parent
+    server_pkg = hop3_repo / "packages" / "hop3-server"
+
+    if not server_pkg.exists():
+        print_error("Cannot find hop3-server package directory.")
+        sys.exit(1)
+
+    # Build the package locally
+    print_info("Building hop3-server package locally...")
+    result = run_local(f"cd {hop3_repo} && uv build packages/hop3-server", show=False, check=False)
+    if result.returncode != 0:
+        print_error("Failed to build hop3-server package.")
+        sys.exit(1)
+
+    # Find the built wheel
+    dist_dir = hop3_repo / "packages" / "hop3-server" / "dist"
+    wheels = list(dist_dir.glob("hop3_server-*.whl"))
+    if not wheels:
+        print_error("No wheel file found after build.")
+        sys.exit(1)
+    wheel_path = max(wheels, key=lambda p: p.stat().st_mtime)  # Latest wheel
+
+    # Copy wheel to server
+    print_info(f"Copying {wheel_path.name} to server...")
+    run_local(
+        f"scp -o StrictHostKeyChecking=accept-new {wheel_path} {ctx.ssh_target}:/tmp/",
+        show=False,
+    )
+
+    # Install the wheel on server
+    print_info("Installing hop3-server on server...")
+    run_ssh(
+        ctx,
+        f"/home/hop3/venv/bin/pip install --upgrade /tmp/{wheel_path.name}",
+        show=False,
+    )
+
+    # Restart hop3-server to load new code
+    print_info("Restarting hop3-server...")
+    run_ssh(ctx, "systemctl restart hop3-server", show=False)
+    time.sleep(2)
+
+    print_success("hop3-server updated")
+
+
+def verify_prerequisites(ctx: DemoContext) -> None:
+    """Verify prerequisites for Docker deployment."""
+    print_header("PHASE 1: Checking Prerequisites")
+
+    # Verify SSH access
     print_step("Verifying SSH access to the server...")
     result = run_ssh(ctx, "echo 'SSH connection successful'", show=False, check=False)
     if result.returncode != 0:
@@ -197,68 +246,69 @@ def verify_ssh_access(ctx: DemoContext) -> None:
         print_info("Please ensure SSH key authentication is configured.")
         sys.exit(1)
     print_success(f"Connected to {ctx.server_ip}")
+    pause(ctx.pause_between_steps)
 
-
-def check_ubuntu_version(ctx: DemoContext) -> None:
-    """Check that the server is running a supported Ubuntu version."""
-    print_step("Checking Ubuntu version...")
-    result = run_ssh(ctx, "cat /etc/os-release | grep VERSION_ID", show=False)
-    supported_versions = ["22.04", "24.04"]
-    version_found = None
-    for version in supported_versions:
-        if version in result.stdout:
-            version_found = version
-            break
-    if not version_found:
-        print_error(f"This script requires Ubuntu {' or '.join(supported_versions)}")
-        print_info(f"Found: {result.stdout.strip()}")
+    # Check if Hop3 is installed
+    print_step("Checking if Hop3 is installed...")
+    result = run_ssh(ctx, "test -f /home/hop3/venv/bin/hop-server", show=False, check=False)
+    if result.returncode != 0:
+        print_error("Hop3 is not installed on this server.")
+        print_info("Please run demo1 first to install Hop3.")
         sys.exit(1)
-    print_success(f"Ubuntu {version_found} LTS detected")
-
-
-def install_hop3_on_server(ctx: DemoContext) -> None:
-    """Install Hop3 on the remote server."""
-    print_header("PHASE 1: Installing Hop3 on the Server")
-
-    verify_ssh_access(ctx)
+    print_success("Hop3 is installed")
     pause(ctx.pause_between_steps)
 
-    check_ubuntu_version(ctx)
+    # Update hop3-server to latest version from local build
+    update_hop3_server(ctx)
     pause(ctx.pause_between_steps)
 
-    # Get the local hop3 repo path (demos/demo1/demo.py -> hop3 root)
-    hop3_repo = Path(__file__).parent.parent.parent
-    installer_path = hop3_repo / "installer" / "install-server.py"
-    if not installer_path.exists():
-        print_error(
-            "Cannot find Hop3 installer. Run this script from the hop3 directory."
-        )
+    # Check if Docker is installed
+    print_step("Checking if Docker is installed...")
+    result = run_ssh(ctx, "which docker", show=False, check=False)
+    if result.returncode != 0:
+        print_info("Docker is not installed. Installing docker.io package...")
+        run_ssh(ctx, "apt-get update -qq && apt-get install -y -qq docker.io")
+        run_ssh(ctx, "systemctl enable docker && systemctl start docker")
+        print_success("Docker installed and started")
+    else:
+        print_success("Docker is available")
+    pause(ctx.pause_between_steps)
+
+    # Ensure hop3 user is in docker group
+    print_step("Ensuring hop3 user is in docker group...")
+    result = run_ssh(ctx, "groups hop3 | grep -q docker", show=False, check=False)
+    if result.returncode != 0:
+        print_info("Adding hop3 user to docker group...")
+        run_ssh(ctx, "usermod -aG docker hop3")
+    else:
+        print_info("hop3 user is already in docker group")
+
+    # Always restart hop3-server to ensure it has docker group access
+    # (the running process may have been started before group membership)
+    print_step("Restarting hop3-server to ensure Docker access...")
+    run_ssh(ctx, "systemctl restart hop3-server")
+    time.sleep(3)  # Give the service time to restart
+    print_success("hop3-server restarted")
+
+    # Verify hop3-server can access Docker
+    print_step("Verifying hop3-server can access Docker...")
+    # Test by running docker through hop3-server's environment
+    result = run_ssh(ctx, "su - hop3 -c 'docker ps'", show=False, check=False)
+    if result.returncode != 0:
+        print_error("hop3 user still cannot access Docker.")
+        print_info("Check: groups hop3 and systemctl status hop3-server")
         sys.exit(1)
-
-    # Step 1: Copy the installer to the remote server
-    print_step("Copying installer to server...")
-    run_local(
-        f"scp -o StrictHostKeyChecking=accept-new {installer_path} {ctx.ssh_target}:/tmp/install-server.py"
-    )
-    print_success("Installer copied to server")
+    print_success("Docker access verified")
     pause(ctx.pause_between_steps)
 
-    # Step 2: Run the installer (installs from git devel branch)
-    print_step("Running Hop3 installer (this may take a few minutes)...")
-    print_info("Installing from git branch: devel")
-    run_ssh(
-        ctx,
-        "python3 /tmp/install-server.py --git --branch devel --verbose",
-    )
-    print_success("Hop3 installation completed")
-    pause(ctx.pause_between_steps)
-
-    # Step 3: Verify services are running
-    print_step("Verifying services...")
-    run_ssh(ctx, "systemctl status hop3-server --no-pager", check=False)
-    run_ssh(ctx, "systemctl status uwsgi-hop3 --no-pager", check=False)
-    run_ssh(ctx, "systemctl status nginx --no-pager", check=False)
-    print_success("Hop3 services are running")
+    # Check hop3 CLI
+    print_step("Checking hop3 CLI availability...")
+    result = run_local("which hop3", show=False, check=False)
+    if result.returncode != 0:
+        print_error("hop3 CLI not found. Please install it first.")
+        print_info("Run: pip install hop3-cli")
+        sys.exit(1)
+    print_success("hop3 CLI found")
 
 
 # =============================================================================
@@ -269,16 +319,6 @@ def install_hop3_on_server(ctx: DemoContext) -> None:
 def configure_cli(ctx: DemoContext) -> None:
     """Configure the local Hop3 CLI."""
     print_header("PHASE 2: Configuring Hop3 CLI")
-
-    # Check if hop3 CLI is available
-    print_step("Checking hop3 CLI availability...")
-    result = run_local("which hop3", show=False, check=False)
-    if result.returncode != 0:
-        print_error("hop3 CLI not found. Please install it first.")
-        print_info("Run: pip install hop3-cli")
-        sys.exit(1)
-    print_success("hop3 CLI found")
-    pause(ctx.pause_between_steps)
 
     # Create admin user via SSH (or login if user already exists)
     print_step(f"Setting up admin user '{ctx.admin_user}'...")
@@ -341,22 +381,36 @@ def configure_cli(ctx: DemoContext) -> None:
 
 
 # =============================================================================
-# Phase 3: Deploy Sample Application
+# Phase 3: Deploy Docker Application
 # =============================================================================
 
 
-def deploy_sample_app(ctx: DemoContext) -> None:
-    """Deploy the hello-hop3 sample application."""
-    print_header("PHASE 3: Deploying Sample Application")
+def deploy_docker_app(ctx: DemoContext) -> None:
+    """Deploy the Docker-based hello-docker application."""
+    print_header("PHASE 3: Deploying Docker Application")
 
     # Show the app structure
-    print_step("Sample application structure:")
+    print_step("Docker application structure:")
     print()
-    print(f"  {Colors.CYAN}hello-hop3/{Colors.RESET}")
-    print(f"  ├── {Colors.GREEN}app.py{Colors.RESET}           - Flask application")
-    print(f"  ├── {Colors.GREEN}requirements.txt{Colors.RESET} - Python dependencies")
-    print(f"  └── {Colors.GREEN}hop3.toml{Colors.RESET}        - Hop3 configuration")
+    print(f"  {Colors.CYAN}hello-docker/{Colors.RESET}")
+    print(f"  ├── {Colors.GREEN}app.py{Colors.RESET}             - Flask application")
+    print(f"  ├── {Colors.GREEN}requirements.txt{Colors.RESET}   - Python dependencies")
+    print(f"  ├── {Colors.BLUE}Dockerfile{Colors.RESET}          - Container image definition")
+    print(f"  └── {Colors.GREEN}hop3.toml{Colors.RESET}          - Hop3 configuration")
     print()
+    print_info("Note: Hop3 generates docker-compose.yml automatically from the Dockerfile.")
+    print()
+    pause(ctx.pause_between_steps)
+
+    # Show Dockerfile content
+    print_step("Dockerfile (container image definition):")
+    dockerfile = DEMO_APP_DIR / "Dockerfile"
+    if dockerfile.exists():
+        print()
+        content = dockerfile.read_text()
+        for line in content.split("\n"):
+            print(f"  {Colors.DIM}{line}{Colors.RESET}")
+        print()
     pause(ctx.pause_between_steps)
 
     # Show hop3.toml content
@@ -365,17 +419,18 @@ def deploy_sample_app(ctx: DemoContext) -> None:
     if hop3_toml.exists():
         print()
         content = hop3_toml.read_text()
-        for line in content.split("\n")[:15]:  # Show first 15 lines
+        for line in content.split("\n"):
             print(f"  {Colors.DIM}{line}{Colors.RESET}")
         print()
     pause(ctx.pause_between_steps)
 
-    # Deploy the application (first time creates the app)
-    print_step("Deploying hello-hop3 application...")
+    # Deploy the application (first time creates the app and builds Docker image)
+    print_step(f"Deploying {APP_NAME} application...")
+    print_info("This will build the Docker image and start the container.")
     original_dir = os.getcwd()
     try:
         os.chdir(DEMO_APP_DIR)
-        run_hop3("deploy hello-hop3")
+        run_hop3(f"deploy {APP_NAME}")
     finally:
         os.chdir(original_dir)
     print_success("Application deployed")
@@ -383,7 +438,7 @@ def deploy_sample_app(ctx: DemoContext) -> None:
 
     # Set the hostname for the app (now that it exists)
     print_step(f"Configuring hostname: {ctx.app_hostname}")
-    run_hop3(f"config:set hello-hop3 HOST_NAME={ctx.app_hostname}")
+    run_hop3(f"config:set {APP_NAME} HOST_NAME={ctx.app_hostname}")
     print_success(f"Hostname set to {ctx.app_hostname}")
     pause(ctx.pause_between_steps)
 
@@ -391,20 +446,20 @@ def deploy_sample_app(ctx: DemoContext) -> None:
     print_step("Redeploying to apply hostname configuration...")
     try:
         os.chdir(DEMO_APP_DIR)
-        run_hop3("deploy hello-hop3")
+        run_hop3(f"deploy {APP_NAME}")
     finally:
         os.chdir(original_dir)
     print_success("Application redeployed with hostname")
     pause(ctx.pause_between_steps)
 
-    # Wait for app to start
-    print_step("Waiting for application to start...")
-    time.sleep(3)
+    # Wait for container to start
+    print_step("Waiting for container to start...")
+    time.sleep(5)
 
     # Verify deployment
     print_step("Checking application status...")
-    run_hop3("app:status hello-hop3")
-    print_success("Application is running")
+    run_hop3(f"app:status {APP_NAME}")
+    print_success("Docker container is running")
 
 
 # =============================================================================
@@ -413,8 +468,8 @@ def deploy_sample_app(ctx: DemoContext) -> None:
 
 
 def demo_app_management(ctx: DemoContext) -> None:
-    """Demonstrate application management commands."""
-    print_header("PHASE 4: Application Management")
+    """Demonstrate Docker application management commands."""
+    print_header("PHASE 4: Docker Application Management")
 
     # List all apps
     print_step("Listing all deployed applications...")
@@ -423,7 +478,12 @@ def demo_app_management(ctx: DemoContext) -> None:
 
     # Check detailed status
     print_step("Checking detailed application status...")
-    run_hop3("app:status hello-hop3")
+    run_hop3(f"app:status {APP_NAME}")
+    pause(ctx.pause_between_steps)
+
+    # Show Docker containers on server
+    print_step("Viewing Docker containers on server...")
+    run_ssh(ctx, "su - hop3 -c 'docker ps --filter name=hello-docker'")
     pause(ctx.pause_between_steps)
 
     # Test the application via HTTPS with virtual host
@@ -431,11 +491,10 @@ def demo_app_management(ctx: DemoContext) -> None:
     print_info("Using curl with -k flag to accept self-signed certificate.")
 
     # First, use hop3's built-in ping (internal check)
-    run_hop3("app:ping hello-hop3", check=False)
+    run_hop3(f"app:ping {APP_NAME}", check=False)
     pause(ctx.pause_between_steps)
 
     # Now test via the actual public URL with curl
-    # This is the critical test - we must get our app's response, not nginx default page
     print_step(f"Verifying external access via {ctx.app_url}...")
     curl_cmd = f"curl -sk {ctx.app_url}/"
     print_command(curl_cmd)
@@ -444,49 +503,63 @@ def demo_app_management(ctx: DemoContext) -> None:
     )
 
     # Check that we got our app's response, not nginx default page
-    expected_content = "Hello, Hop3"
+    expected_content = "Hello from Docker"
     if result.returncode == 0 and expected_content in result.stdout:
         print(f"  {Colors.GREEN}Response:{Colors.RESET}")
         print(f"  {result.stdout.strip()}")
         print()
-        print_success(f"Application accessible at {ctx.app_url}")
+        print_success(f"Docker application accessible at {ctx.app_url}")
     else:
         print_error(f"Failed to access application at {ctx.app_url}")
         print()
         if result.stdout:
             print(f"  {Colors.YELLOW}Got response:{Colors.RESET}")
-            # Show first 200 chars of response
             print(f"  {result.stdout[:200].strip()}")
             print()
         if result.stderr:
             print(f"  {Colors.RED}Error: {result.stderr.strip()}{Colors.RESET}")
-        print_error(f"Expected response containing '{expected_content}' but got nginx default page or error.")
+        print_error(
+            f"Expected response containing '{expected_content}' but got nginx default page or error."
+        )
         print_info("This usually means HOST_NAME was not applied correctly to nginx config.")
         sys.exit(1)
     pause(ctx.pause_between_steps)
 
+    # Test the /info endpoint
+    print_step("Testing the /info endpoint...")
+    curl_cmd = f"curl -sk {ctx.app_url}/info"
+    print_command(curl_cmd)
+    result = subprocess.run(
+        curl_cmd, shell=True, capture_output=True, text=True, check=False
+    )
+    if result.returncode == 0:
+        print(f"  {Colors.GREEN}Container info:{Colors.RESET}")
+        print(f"  {result.stdout.strip()}")
+        print()
+    pause(ctx.pause_between_steps)
+
     # Set environment variables
     print_step("Setting environment variables...")
-    run_hop3("config:set hello-hop3 DEBUG=true LOG_LEVEL=info")
+    run_hop3(f"config:set {APP_NAME} FLASK_ENV=development DEBUG=true")
     pause(ctx.pause_between_steps)
 
     # Show environment variables
     print_step("Viewing environment variables...")
-    run_hop3("config:show hello-hop3")
+    run_hop3(f"config:show {APP_NAME}")
     pause(ctx.pause_between_steps)
 
-    # Restart app to apply changes
-    print_step("Restarting application to apply changes...")
-    run_hop3("app:restart hello-hop3")
+    # Restart container to apply changes
+    print_step("Restarting container to apply changes...")
+    run_hop3(f"app:restart {APP_NAME}")
 
     # Wait for restart
-    time.sleep(2)
-    print_success("Application restarted")
+    time.sleep(3)
+    print_success("Container restarted")
     pause(ctx.pause_between_steps)
 
     # Check status again
     print_step("Verifying application status after restart...")
-    run_hop3("app:status hello-hop3")
+    run_hop3(f"app:status {APP_NAME}")
 
 
 # =============================================================================
@@ -498,15 +571,20 @@ def cleanup(ctx: DemoContext) -> None:
     """Clean up the demo application."""
     print_header("PHASE 5: Cleanup")
 
-    print_step("Destroying the hello-hop3 application...")
-    print_info("Using -y flag to skip confirmation prompt")
-    run_hop3("app:destroy hello-hop3 -y")
+    print_step(f"Destroying the {APP_NAME} application...")
+    print_info("This will stop and remove the Docker container.")
+    run_hop3(f"app:destroy {APP_NAME} -y")
     print_success("Application destroyed")
     pause(ctx.pause_between_steps)
 
     # Verify cleanup
     print_step("Verifying cleanup - listing applications...")
     run_hop3("apps")
+    pause(ctx.pause_between_steps)
+
+    # Show Docker containers
+    print_step("Verifying Docker containers removed...")
+    run_ssh(ctx, "su - hop3 -c 'docker ps -a --filter name=hello-docker'", check=False)
     print_success("Cleanup complete")
 
 
@@ -518,12 +596,12 @@ def cleanup(ctx: DemoContext) -> None:
 def print_banner() -> None:
     """Print the demo banner."""
     banner = """
-    ╦ ╦╔═╗╔═╗┌─┐  ╔╦╗┌─┐┌┬┐┌─┐
-    ╠═╣║ ║╠═╝ ─┤   ║║├┤ ││││ │
-    ╩ ╩╚═╝╩  └─┘  ═╩╝└─┘┴ ┴└─┘
+    ╦ ╦╔═╗╔═╗┌─┐  ╔╦╗┌─┐┌┬┐┌─┐  ┌─┐
+    ╠═╣║ ║╠═╝ ─┤   ║║├┤ ││││ │  ┌─┘
+    ╩ ╩╚═╝╩  └─┘  ═╩╝└─┘┴ ┴└─┘  └─┘
 
-    Hop3 Installation & Quickstart Demo
-    ===================================
+    Docker Deployment Demo
+    ======================
     """
     print(f"{Colors.CYAN}{Colors.BOLD}{banner}{Colors.RESET}")
 
@@ -534,24 +612,28 @@ def print_summary(ctx: DemoContext) -> None:
     print(f"  Server IP:     {ctx.server_ip}")
     print(f"  SSH Target:    {ctx.ssh_target}")
     print(f"  Admin User:    {ctx.admin_user}")
-    print(f"  Admin Email:   {ctx.admin_email}")
+    print(f"  App Name:      {APP_NAME}")
     print(f"  App Hostname:  {ctx.app_hostname}")
     print(f"  App URL:       {ctx.app_url}")
-    print(f"  Skip Install:  {ctx.skip_install}")
     print(f"  No Cleanup:    {ctx.no_cleanup}")
+    print()
+    print(f"{Colors.BLUE}This demo showcases Docker-based deployment with Hop3:{Colors.RESET}")
+    print("  - Building Docker images from Dockerfile")
+    print("  - Deploying containers with Docker Compose")
+    print("  - Routing traffic through nginx proxy")
     print()
 
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Hop3 Installation & Quickstart Demo",
+        description="Hop3 Docker Deployment Demo",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   python demo.py 46.62.169.221
-  python demo.py 46.62.169.221 --skip-install
-  python demo.py 46.62.169.221 --admin-user myuser --admin-email me@example.com
+  python demo.py 46.62.169.221 --no-cleanup
+  python demo.py 46.62.169.221 --app-hostname myapp.example.com
         """,
     )
     parser.add_argument("server_ip", help="IP address of the target server")
@@ -563,7 +645,7 @@ Examples:
     parser.add_argument(
         "--admin-user",
         default="admin",
-        help="Admin username to create (default: admin)",
+        help="Admin username (default: admin)",
     )
     parser.add_argument(
         "--admin-email",
@@ -576,13 +658,8 @@ Examples:
     )
     parser.add_argument(
         "--app-hostname",
-        default="a1.hop.demo",
-        help="Hostname for the demo app (default: a1.hop.demo)",
-    )
-    parser.add_argument(
-        "--skip-install",
-        action="store_true",
-        help="Skip the installation phase (assume Hop3 is already installed)",
+        default="a2.hop.demo",
+        help="Hostname for the demo app (default: a2.hop.demo)",
     )
     parser.add_argument(
         "--no-cleanup",
@@ -612,7 +689,6 @@ def main() -> None:
         admin_email=args.admin_email,
         admin_password=admin_password,
         app_hostname=args.app_hostname,
-        skip_install=args.skip_install,
         no_cleanup=args.no_cleanup,
         pause_between_steps=args.pause,
     )
@@ -620,28 +696,15 @@ def main() -> None:
     print_banner()
     print_summary(ctx)
 
-    # Confirm before proceeding
-    if not args.skip_install:
-        print(
-            f"{Colors.YELLOW}This will install Hop3 on {ctx.server_ip}.{Colors.RESET}"
-        )
-        print(
-            f"{Colors.YELLOW}The server should be a fresh Ubuntu 22.04 installation.{Colors.RESET}"
-        )
-        print()
-
     try:
-        # Phase 1: Installation
-        if not ctx.skip_install:
-            install_hop3_on_server(ctx)
-        else:
-            print_info("Skipping installation phase (--skip-install)")
+        # Phase 1: Prerequisites Check
+        verify_prerequisites(ctx)
 
         # Phase 2: CLI Configuration
         configure_cli(ctx)
 
-        # Phase 3: Deploy Sample App
-        deploy_sample_app(ctx)
+        # Phase 3: Deploy Docker App
+        deploy_docker_app(ctx)
 
         # Phase 4: App Management Demo
         demo_app_management(ctx)
@@ -654,11 +717,12 @@ def main() -> None:
 
         # Final summary
         print_header("Demo Complete!")
-        print_success("The Hop3 demo has finished successfully.")
+        print_success("The Docker deployment demo has finished successfully.")
         print()
         if ctx.no_cleanup:
-            print(f"  Your application is running at: {ctx.app_url}")
+            print(f"  Your Docker application is running at: {ctx.app_url}")
             print(f"  Test it with: curl -sk {ctx.app_url}/")
+            print(f"  Container info: curl -sk {ctx.app_url}/info")
             print()
             print("  Admin credentials:")
             print(f"    Username: {ctx.admin_user}")
