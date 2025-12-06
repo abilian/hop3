@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .context import DemoContext
+    from lib.context import DemoContext
 
 
 # Files that indicate a Hop3-compatible application
@@ -103,7 +103,7 @@ def run_generic_demo(ctx: DemoContext, app_dir: Path) -> None:
         ctx: Demo context
         app_dir: Path to the application directory
     """
-    from .app import (
+    from lib.app import (
         check_app_status,
         cleanup_app,
         deploy_app,
@@ -111,9 +111,11 @@ def run_generic_demo(ctx: DemoContext, app_dir: Path) -> None:
         set_hostname,
         wait_for_app,
     )
-    from .output import (
+    from lib.output import (
         Colors,
+        get_output_level,
         pause,
+        print_blank,
         print_header,
         print_info,
         print_step,
@@ -142,26 +144,28 @@ def run_generic_demo(ctx: DemoContext, app_dir: Path) -> None:
     app_hostname = f"{app_name}.hop.demo"
     app_url = f"https://{app_hostname}"
 
-    # Print header
+    # Print header and details (skip in quiet mode)
     print_header(f"Generic Demo: {app_dir.name}")
-    print()
-    print(f"  {Colors.BOLD}Application:{Colors.RESET} {app_dir}")
-    print(f"  {Colors.BOLD}Type:{Colors.RESET}        {app_type}")
-    print(f"  {Colors.BOLD}App name:{Colors.RESET}    {app_name}")
-    print(f"  {Colors.BOLD}Hostname:{Colors.RESET}    {app_hostname}")
-    print()
+    if get_output_level() >= 2:  # NORMAL or VERBOSE
+        print_blank()
+        print(f"  {Colors.BOLD}Application:{Colors.RESET} {app_dir}")
+        print(f"  {Colors.BOLD}Type:{Colors.RESET}        {app_type}")
+        print(f"  {Colors.BOLD}App name:{Colors.RESET}    {app_name}")
+        print(f"  {Colors.BOLD}Hostname:{Colors.RESET}    {app_hostname}")
+        print_blank()
     pause(ctx.pause_between_steps)
 
-    # Show directory contents
+    # Show directory contents (skip in quiet mode)
     print_step("Application files:")
-    print()
-    files = sorted(app_dir.iterdir())
-    for f in files[:10]:  # Limit to first 10 files
-        icon = "📁" if f.is_dir() else "📄"
-        print(f"  {icon} {f.name}")
-    if len(files) > 10:
-        print(f"  ... and {len(files) - 10} more files")
-    print()
+    if get_output_level() >= 2:  # NORMAL or VERBOSE
+        print_blank()
+        files = sorted(app_dir.iterdir())
+        for f in files[:10]:  # Limit to first 10 files
+            icon = "📁" if f.is_dir() else "📄"
+            print(f"  {icon} {f.name}")
+        if len(files) > 10:
+            print(f"  ... and {len(files) - 10} more files")
+        print_blank()
     pause(ctx.pause_between_steps)
 
     # Deploy

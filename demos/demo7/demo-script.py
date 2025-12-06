@@ -1,8 +1,8 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Demo 2: Docker Deployment.
+"""Demo 7: Flask with Gunicorn.
 
-Demonstrates deploying a Docker-based application with Hop3.
+Demonstrates deploying a Flask app with explicit Gunicorn configuration.
 """
 
 from __future__ import annotations
@@ -14,17 +14,17 @@ if TYPE_CHECKING:
     from lib import DemoContext
 
 # Demo metadata
-TITLE = "Demo 2: Docker Deployment"
+TITLE = "Demo 7: Flask + Gunicorn"
 DESCRIPTION = """
-Demonstrates deploying a Docker-based application with Hop3:
-  - Building Docker images from Dockerfile
-  - Deploying containers with Docker Compose
-  - Routing traffic through nginx proxy
+Demonstrates Flask with explicit Gunicorn server:
+  - Gunicorn as WSGI server (instead of default uWSGI)
+  - Custom Procfile web command
+  - Direct control over server configuration
 """
 
-APP_NAME = "hello-docker"
-APP_DIR = Path(__file__).parent / "hello-docker"
-DEFAULT_HOSTNAME = "a2.hop.demo"
+APP_NAME = "flask-gunicorn"
+APP_DIR = Path(__file__).parent / "flask-gunicorn"
+DEFAULT_HOSTNAME = "a7.hop.demo"
 
 
 def run(ctx: DemoContext) -> None:
@@ -47,41 +47,34 @@ def run(ctx: DemoContext) -> None:
         test_app_via_hop3,
         wait_for_app,
     )
-    from lib.server import ensure_docker
 
     app_hostname = DEFAULT_HOSTNAME
     app_url = f"https://{app_hostname}"
 
-    # Ensure Docker is available
-    ensure_docker(ctx)
-    pause(ctx.pause_between_steps)
-
     # Show app structure
-    print_header("Deploying Docker Application")
+    print_header("Deploying Flask with Gunicorn")
 
     show_app_structure(
         APP_NAME,
         [
             ("app.py", "Flask application"),
-            ("requirements.txt", "Python dependencies"),
-            ("Dockerfile", "Container image definition"),
-            ("hop3.toml", "Hop3 configuration (builder=docker)"),
+            ("requirements.txt", "Python dependencies (includes gunicorn)"),
+            ("Procfile", "Explicit gunicorn command"),
         ],
     )
-    print_info("Note: Hop3 generates docker-compose.yml automatically from the Dockerfile.")
+    print_info("This demo uses Gunicorn instead of the default uWSGI.")
     print_blank()
     pause(ctx.pause_between_steps)
 
-    # Show Dockerfile
-    show_file_content(APP_DIR / "Dockerfile", "Dockerfile:")
+    # Show Procfile (key difference from demo1)
+    show_file_content(APP_DIR / "Procfile", "Procfile (with explicit Gunicorn):")
     pause(ctx.pause_between_steps)
 
-    # Show hop3.toml
-    show_file_content(APP_DIR / "hop3.toml", "Hop3 configuration (hop3.toml):")
+    # Show requirements.txt
+    show_file_content(APP_DIR / "requirements.txt", "requirements.txt:")
     pause(ctx.pause_between_steps)
 
     # Deploy the application
-    print_info("This will: 1) Build Docker image, 2) Generate compose file, 3) Start container")
     deploy_app(ctx, APP_NAME, APP_DIR)
 
     # Set hostname
@@ -90,24 +83,23 @@ def run(ctx: DemoContext) -> None:
     # Redeploy to apply hostname
     redeploy_app(ctx, APP_NAME, APP_DIR)
 
-    # Wait for container to start (Docker containers may take longer)
-    wait_for_app(seconds=5, message="Waiting for container to start...")
+    # Wait for app
+    wait_for_app(seconds=3)
 
-    # Verify deployment
+    # Check status
     check_app_status(ctx, APP_NAME)
 
     # Test application
     print_header("Testing Application")
 
     test_app_via_hop3(ctx, APP_NAME, app_url)
-    test_app_via_curl(ctx, app_url, expected_content="Hello from Docker")
+    test_app_via_curl(ctx, app_url, expected_content="Hello World")
 
     # Demo app management
     print_header("Application Management")
 
     list_apps(ctx)
-    check_app_status(ctx, APP_NAME)
-    restart_app(ctx, APP_NAME, wait_seconds=3)
+    restart_app(ctx, APP_NAME, wait_seconds=2)
 
     # Cleanup
     cleanup_app(ctx, APP_NAME, app_url)

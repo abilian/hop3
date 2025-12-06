@@ -5,7 +5,46 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import IntEnum
 from pathlib import Path
+from typing import Literal
+
+
+class OutputLevel(IntEnum):
+    """Output verbosity levels."""
+
+    SILENT = 0   # No output (errors to stderr only)
+    QUIET = 1    # Minimal output (phases + results)
+    NORMAL = 2   # Default (step-by-step)
+    VERBOSE = 3  # Extra details + stack traces
+
+
+@dataclass
+class DemoResult:
+    """Result of running a single demo."""
+
+    name: str
+    title: str
+    status: Literal["pass", "fail", "skip"]
+    duration: float  # seconds
+    error: str | None = None
+
+
+@dataclass
+class DemoInfo:
+    """Information about a demo for inventory display."""
+
+    name: str
+    title: str
+    description: str
+    app_name: str
+    app_dir: Path
+    hostname: str
+    app_type: str
+    files: list[str]
+    location: Path
+    is_symlink: bool = False
+    symlink_target: str | None = None
 
 
 @dataclass
@@ -27,6 +66,7 @@ class DemoContext:
     no_cleanup: bool = False
     use_local_code: bool = False
     verbose: bool = False
+    output_level: OutputLevel = OutputLevel.NORMAL
 
     # Paths
     hop3_repo: Path = field(default_factory=lambda: Path(__file__).parent.parent.parent)

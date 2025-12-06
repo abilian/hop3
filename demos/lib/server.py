@@ -4,15 +4,13 @@
 
 from __future__ import annotations
 
-import subprocess
-import sys
 from typing import TYPE_CHECKING
 
-from .commands import run_local, run_ssh
-from .output import pause, print_error, print_info, print_step, print_success
+from lib.commands import CommandError, run_local, run_ssh
+from lib.output import pause, print_error, print_info, print_step, print_success
 
 if TYPE_CHECKING:
-    from .context import DemoContext
+    from lib.context import DemoContext
 
 
 def verify_ssh_access(ctx: DemoContext) -> None:
@@ -22,7 +20,7 @@ def verify_ssh_access(ctx: DemoContext) -> None:
     if result.returncode != 0:
         print_error(f"Cannot connect to {ctx.ssh_target}")
         print_info("Please ensure SSH key authentication is configured.")
-        sys.exit(1)
+        raise CommandError(f"Cannot connect to {ctx.ssh_target}")
     print_success(f"Connected to {ctx.server_ip}")
 
 
@@ -39,7 +37,7 @@ def check_ubuntu_version(ctx: DemoContext) -> None:
     if not version_found:
         print_error(f"This script requires Ubuntu {' or '.join(supported_versions)}")
         print_info(f"Found: {result.stdout.strip()}")
-        sys.exit(1)
+        raise CommandError(f"Unsupported Ubuntu version: {result.stdout.strip()}")
     print_success(f"Ubuntu {version_found} LTS detected")
 
 
@@ -58,7 +56,7 @@ def install_hop3(ctx: DemoContext) -> None:
     """Install Hop3 on the server."""
     if not ctx.installer_path.exists():
         print_error("Cannot find Hop3 installer.")
-        sys.exit(1)
+        raise CommandError(f"Installer not found: {ctx.installer_path}")
 
     # Copy installer to server
     print_step("Copying installer to server...")
@@ -94,7 +92,7 @@ def sync_local_code(ctx: DemoContext) -> None:
     server_pkg = ctx.packages_path / "hop3-server"
     if not server_pkg.exists():
         print_error(f"Cannot find hop3-server package at {server_pkg}")
-        sys.exit(1)
+        raise CommandError(f"Package not found: {server_pkg}")
 
     # Rsync the package to server
     rsync_cmd = (
@@ -107,7 +105,7 @@ def sync_local_code(ctx: DemoContext) -> None:
     result = run_local(rsync_cmd, show=ctx.verbose, check=False)
     if result.returncode != 0:
         print_error("Failed to sync code to server")
-        sys.exit(1)
+        raise CommandError("Failed to sync code to server")
     print_success("Local code synced to server")
 
 
@@ -134,14 +132,14 @@ def update_hop3_server(ctx: DemoContext) -> None:
         )
         if result.returncode != 0:
             print_error("Failed to build hop3-server package.")
-            sys.exit(1)
+            raise CommandError("Failed to build hop3-server package")
 
         # Find the built wheel (uv build outputs to repo root's dist/)
         dist_dir = ctx.dist_path
         wheels = list(dist_dir.glob("hop3_server-*.whl"))
         if not wheels:
             print_error("No wheel file found after build.")
-            sys.exit(1)
+            raise CommandError("No wheel file found after build")
         wheel_path = max(wheels, key=lambda p: p.stat().st_mtime)
 
         # Copy wheel to server

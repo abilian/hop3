@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Shared utilities for Hop3 demos."""
 
-from .app import (
+# App management
+from lib.app import (
     check_app_status,
     cleanup_app,
     deploy_app,
@@ -18,38 +19,47 @@ from .app import (
     test_app_via_hop3,
     wait_for_app,
 )
-from .commands import run_hop3, run_local, run_ssh
-from .context import DemoContext
-from .output import (
+
+# Commands
+from lib.commands import CommandError, run_hop3, run_local, run_ssh
+
+# Context and data classes
+from lib.context import DemoContext, DemoInfo, DemoResult, OutputLevel
+
+# Output helpers
+from lib.output import (
     Colors,
+    format_duration,
+    get_output_level,
     pause,
+    print_blank,
     print_command,
+    print_demo_result,
     print_error,
     print_header,
     print_info,
+    print_phase_result,
     print_step,
     print_success,
+    print_summary_line,
+    print_summary_stats,
+    print_warning,
+    set_output_level,
 )
 
 __all__ = [
-    "Colors",
+    # Context
     "DemoContext",
+    "DemoInfo",
+    "DemoResult",
+    "OutputLevel",
+    # App management
     "check_app_status",
     "cleanup_app",
     "deploy_app",
     "list_apps",
-    "pause",
-    "print_command",
-    "print_error",
-    "print_header",
-    "print_info",
-    "print_step",
-    "print_success",
     "redeploy_app",
     "restart_app",
-    "run_hop3",
-    "run_local",
-    "run_ssh",
     "set_env_vars",
     "set_hostname",
     "show_app_structure",
@@ -58,4 +68,27 @@ __all__ = [
     "test_app_via_curl",
     "test_app_via_hop3",
     "wait_for_app",
+    # Commands
+    "CommandError",
+    "run_hop3",
+    "run_local",
+    "run_ssh",
+    # Output
+    "Colors",
+    "format_duration",
+    "get_output_level",
+    "pause",
+    "print_blank",
+    "print_command",
+    "print_demo_result",
+    "print_error",
+    "print_header",
+    "print_info",
+    "print_phase_result",
+    "print_step",
+    "print_success",
+    "print_summary_line",
+    "print_summary_stats",
+    "print_warning",
+    "set_output_level",
 ]
