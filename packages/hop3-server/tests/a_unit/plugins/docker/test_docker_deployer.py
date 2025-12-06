@@ -98,10 +98,14 @@ class TestDockerComposeDeployerAccept:
 
         assert deployer.accept() is False
 
-    def test_reject_without_compose_file(
+    def test_accept_without_compose_file(
         self, tmp_path: Path, docker_artifact: BuildArtifact
     ):
-        """Should reject docker artifact without compose file."""
+        """Should accept docker artifact even without compose file.
+
+        Hop3 generates docker-compose.yml automatically if not provided.
+        See ADR 033 for details.
+        """
         context = DeploymentContext(
             app_name="test-app",
             source_path=tmp_path,
@@ -109,7 +113,7 @@ class TestDockerComposeDeployerAccept:
         )
         deployer = DockerComposeDeployer(context, docker_artifact)
 
-        assert deployer.accept() is False
+        assert deployer.accept() is True
 
 
 class TestDockerComposeDeployerDeploy:

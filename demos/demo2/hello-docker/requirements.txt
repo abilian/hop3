@@ -1,0 +1,3 @@
+# Python dependencies for hello-docker demo app
+Flask
+gunicorn
