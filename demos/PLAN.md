@@ -15,14 +15,15 @@ A unified demo system for showcasing Hop3 features. Supports multiple demos that
 
 ```
 demos/
-├── demo.py           # Unified entry point
-├── lib/              # Shared utilities
+├── demo.py             # Demo launcher (entry point)
+├── lib/                # Shared utilities
 │   ├── __init__.py
-│   ├── app.py        # Common app management routines
-│   ├── commands.py   # run_local, run_ssh, run_hop3
-│   ├── context.py    # DemoContext dataclass
-│   ├── output.py     # Terminal output helpers
-│   └── server.py     # Server setup, sync, update
+│   ├── app.py          # Common app management routines
+│   ├── commands.py     # run_local, run_ssh, run_hop3
+│   ├── context.py      # DemoContext dataclass
+│   ├── generic_demo.py # Generic demo for any Hop3 app
+│   ├── output.py       # Terminal output helpers
+│   └── server.py       # Server setup, sync, update
 ├── demo1/
 │   ├── demo-script.py  # Demo metadata + run() function
 │   └── hello-hop3/     # Sample Flask app
@@ -30,6 +31,129 @@ demos/
     ├── demo-script.py  # Demo metadata + run() function
     └── hello-docker/   # Sample Docker app
 ```
+
+## Command-Line Interface
+
+### Synopsis
+
+```
+python demos/demo.py --host HOST [options] [demos...]
+python demos/demo.py --help
+python demos/demo.py --list
+```
+
+### Help Output
+
+```
+usage: demo.py --host HOST [options] [demos...]
+
+Hop3 Demo Runner - Interactive demonstrations of Hop3 deployment features.
+
+This tool runs demos that showcase Hop3 capabilities. Each demo deploys a
+sample application, tests it, and demonstrates lifecycle management.
+
+Required:
+  -H, --host HOST          Target server IP address
+
+Server Options:
+  --ssh-user USER          SSH user for server connection (default: root)
+  --skip-install           Skip Hop3 installation (assume already installed)
+  -l, --local              Sync local hop3-server code via rsync
+
+Authentication:
+  --admin-user USER        Admin username to create (default: admin)
+  --admin-email EMAIL      Admin email address (default: admin@example.com)
+  --admin-password PWD     Admin password (auto-generated if not specified)
+
+Demo Execution:
+  -k, --keep               Keep deployed apps running after demo completes
+  -p, --pause SECS         Pause between demo steps in seconds (default: 0.5)
+  -v, --verbose            Show detailed output and stack traces
+
+Information:
+  -h, --help               Show this help message and exit
+  --list                   List available built-in demos and exit
+
+Demos:
+  Specify one or more demos to run. If none specified, runs all built-in demos.
+
+  Built-in demos (in demos/ directory):
+    demo1                  uWSGI deployment (Python/Flask)
+    demo2                  Docker deployment
+
+  You can also specify:
+    - External paths: ~/my-project or /path/to/demo
+      (runs demo-script.py if present, otherwise runs generic demo)
+    - 'all': Explicitly run all built-in demos
+
+Examples:
+  # Run all demos on a server
+  python demos/demo.py --host 46.62.169.221
+
+  # Run a specific demo
+  python demos/demo.py --host 46.62.169.221 demo1
+
+  # Run multiple demos
+  python demos/demo.py --host 46.62.169.221 demo1 demo2
+
+  # Development: test local code changes
+  python demos/demo.py --host 46.62.169.221 --local demo1
+
+  # Keep apps running for debugging
+  python demos/demo.py --host 46.62.169.221 --keep demo2
+
+  # Run external demo from any directory
+  python demos/demo.py --host 46.62.169.221 ~/my-project
+
+  # Recording screencast with longer pauses
+  python demos/demo.py --host 46.62.169.221 --pause 2 --keep
+
+  # Mix built-in and external demos
+  python demos/demo.py --host 46.62.169.221 demo1 ~/my-app --keep
+```
+
+### Option Reference
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--host HOST` | `-H` | (required) | Target server IP address |
+| `--ssh-user USER` | | `root` | SSH user for server connection |
+| `--skip-install` | | false | Skip Hop3 installation phase |
+| `--local` | `-l` | false | Use local code via rsync |
+| `--admin-user USER` | | `admin` | Admin username to create |
+| `--admin-email EMAIL` | | `admin@example.com` | Admin email address |
+| `--admin-password PWD` | | (random) | Admin password |
+| `--keep` | `-k` | false | Don't destroy apps after demo |
+| `--pause SECS` | `-p` | `0.5` | Pause between steps |
+| `--verbose` | `-v` | false | Verbose output |
+| `--help` | `-h` | | Show help and exit |
+| `--list` | | | List available demos and exit |
+
+### Demo Arguments
+
+Demo arguments are positional and come after all options:
+
+1. **Built-in demo names**: `demo1`, `demo2`, etc.
+   - Auto-discovered from `demos/` subdirectories containing `demo-script.py`
+
+2. **External paths**: `~/my-project`, `/path/to/demo`
+   - If `demo-script.py` exists: runs custom demo script
+   - If no `demo-script.py`: runs **generic demo** (deploy, test, cleanup)
+   - Supports `~` expansion and relative paths
+
+3. **Keyword `all`**: Run all built-in demos
+   - Case-insensitive (`all`, `ALL`, `All`)
+
+4. **Default**: If no demos specified, equivalent to `all`
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | All demos completed successfully |
+| 1 | One or more demos failed |
+| 2 | Invalid arguments or missing required options |
+| 130 | Interrupted by user (Ctrl+C) |
 
 ## Demo Flow
 
@@ -53,7 +177,7 @@ Each demo has its own `demo-script.py` with a `run(ctx)` function that:
 - Sets up hostname/proxy
 - Tests the deployment
 - Demonstrates app management
-- Cleans up (unless `--no-cleanup`)
+- Cleans up (unless `--keep`)
 
 ## Key Features
 
@@ -61,7 +185,7 @@ Each demo has its own `demo-script.py` with a `run(ctx)` function that:
 
 Syncs local hop3-server code to server via rsync:
 ```bash
-python demos/demo.py 46.62.169.221 demo1 --local
+python demos/demo.py --host 46.62.169.221 --local demo1
 ```
 
 This allows testing changes without committing/pushing.
@@ -70,16 +194,60 @@ This allows testing changes without committing/pushing.
 
 Run demos individually or in sequence:
 ```bash
-python demos/demo.py 46.62.169.221 demo1        # Single demo
-python demos/demo.py 46.62.169.221 demo1 demo2  # Multiple
-python demos/demo.py 46.62.169.221              # All demos
+python demos/demo.py --host 46.62.169.221 demo1           # Single demo
+python demos/demo.py --host 46.62.169.221 demo1 demo2     # Multiple
+python demos/demo.py --host 46.62.169.221                 # All demos
+```
+
+### External Demos
+
+Run demos from any directory:
+```bash
+python demos/demo.py --host 46.62.169.221 ~/my-project
+python demos/demo.py --host 46.62.169.221 /tmp/test-demo
+```
+
+If the directory contains a `demo-script.py`, it runs the custom script.
+Otherwise, the **generic demo** runs automatically.
+
+### Generic Demo
+
+When pointing to a directory without `demo-script.py`, the launcher runs a
+generic demo that works with any Hop3 application:
+
+1. **Detects app type** by looking for:
+   - `hop3.toml` - Hop3 configuration
+   - `Dockerfile` - Docker-based app
+   - `requirements.txt` - Python app
+   - `package.json` - Node.js app
+   - `Procfile` - Heroku-style app
+
+2. **Derives app name** from the directory name (sanitized)
+
+3. **Runs standard workflow**:
+   - Deploy the application
+   - Set hostname (`<app-name>.hop.demo`)
+   - Redeploy to apply hostname
+   - Check status
+   - Test via curl (if web app)
+   - Cleanup (unless `--keep`)
+
+Example:
+```bash
+# Deploy any Hop3-compatible app
+python demos/demo.py --host 46.62.169.221 ~/my-flask-app
+
+# Keep it running for testing
+python demos/demo.py --host 46.62.169.221 ~/my-flask-app --keep
 ```
 
 ### Auto-Discovery
 
-New demos are automatically discovered if they have a `demo-script.py`.
+Built-in demos are automatically discovered from subdirectories of `demos/` that contain a `demo-script.py` file.
 
 ## Creating a New Demo
+
+### Built-in Demo
 
 1. Create directory: `demos/demo3/`
 
@@ -120,9 +288,39 @@ def run(ctx: DemoContext) -> None:
     cleanup_app(ctx, APP_NAME, app_url)
 ```
 
-3. Add sample application files
+3. Add sample application files in `demos/demo3/my-app/`
 
-4. Test: `python demos/demo.py <server_ip> demo3`
+4. Test: `python demos/demo.py --host <server_ip> demo3`
+
+### External Demo (Custom Script)
+
+Same structure as built-in, but can live anywhere:
+```
+~/my-project/
+├── demo-script.py    # Custom demo logic
+└── my-app/           # Your application
+    ├── app.py
+    ├── requirements.txt
+    └── hop3.toml
+```
+
+Run with: `python demos/demo.py --host <server_ip> ~/my-project`
+
+### External Demo (Generic / No Script)
+
+Just point to any Hop3-compatible application directory:
+```
+~/my-flask-app/
+├── app.py
+├── requirements.txt
+└── hop3.toml
+```
+
+Run with: `python demos/demo.py --host <server_ip> ~/my-flask-app`
+
+The generic demo will:
+- Use `my-flask-app` as the app name
+- Deploy, configure hostname, test, and cleanup automatically
 
 ## Output Style
 
@@ -138,25 +336,34 @@ def run(ctx: DemoContext) -> None:
 ✓ Ubuntu 24.04 LTS detected
 ```
 
-## Available Demos
+## Available Built-in Demos
 
-| Demo | Description | Hostname |
-|------|-------------|----------|
+| Demo | Description | App Hostname |
+|------|-------------|--------------|
 | demo1 | uWSGI deployment (Python/Flask) | a1.hop.demo |
 | demo2 | Docker deployment | a2.hop.demo |
 
-## Usage Examples
+## Quick Reference
 
 ```bash
-# Run all demos
-python demos/demo.py 46.62.169.221
+# Basic usage
+python demos/demo.py --host 46.62.169.221
 
-# Single demo with local code
-python demos/demo.py 46.62.169.221 demo1 --local
+# Development workflow
+python demos/demo.py --host 46.62.169.221 --local demo1
 
-# Keep apps running for debugging
-python demos/demo.py 46.62.169.221 demo2 --no-cleanup
+# Debugging (keep apps running)
+python demos/demo.py --host 46.62.169.221 --keep demo2
 
-# Screencast with longer pauses
-python demos/demo.py 46.62.169.221 --pause 2
+# Screencast recording
+python demos/demo.py --host 46.62.169.221 --pause 2 --keep
+
+# External project
+python demos/demo.py --host 46.62.169.221 ~/my-project --keep
+
+# List available demos
+python demos/demo.py --list
+
+# Help
+python demos/demo.py --help
 ```

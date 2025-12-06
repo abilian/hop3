@@ -6,13 +6,16 @@ Demo applications and scripts for showcasing Hop3 features.
 
 ```bash
 # Run all demos on a server
-python demos/demo.py <server_ip>
+python demos/demo.py --host 46.62.169.221
 
 # Run a specific demo
-python demos/demo.py <server_ip> demo1
+python demos/demo.py --host 46.62.169.221 demo1
 
 # Run multiple demos
-python demos/demo.py <server_ip> demo1 demo2
+python demos/demo.py --host 46.62.169.221 demo1 demo2
+
+# Run your own app
+python demos/demo.py --host 46.62.169.221 ~/my-flask-app
 ```
 
 ## Available Demos
@@ -22,36 +25,70 @@ python demos/demo.py <server_ip> demo1 demo2
 | demo1 | uWSGI deployment (Python/Flask) | a1.hop.demo |
 | demo2 | Docker deployment | a2.hop.demo |
 
-## Options
+Use `python demos/demo.py --list` to see all available demos.
+
+## Command Reference
 
 ```
-python demos/demo.py <server_ip> [demo_names...] [options]
+usage: demo.py --host HOST [options] [demos...]
 
-Options:
-  --ssh-user USER        SSH user for the server (default: root)
-  --admin-user USER      Admin username to create (default: admin)
-  --admin-email EMAIL    Admin email (default: admin@example.com)
-  --admin-password PWD   Admin password (default: randomly generated)
-  --local                Use local code via rsync (for development)
-  --skip-install         Skip Hop3 installation (assume already installed)
-  --no-cleanup           Don't destroy demo apps at the end
-  --pause SECONDS        Pause between steps (default: 0.5)
-  --verbose, -v          Enable verbose output
+Required:
+  -H, --host HOST          Target server IP address
+
+Server Options:
+  --ssh-user USER          SSH user for server connection (default: root)
+  --skip-install           Skip Hop3 installation (assume already installed)
+  -l, --local              Sync local hop3-server code via rsync
+
+Authentication:
+  --admin-user USER        Admin username to create (default: admin)
+  --admin-email EMAIL      Admin email address (default: admin@example.com)
+  --admin-password PWD     Admin password (auto-generated if not specified)
+
+Demo Execution:
+  -k, --keep               Keep deployed apps running after demo completes
+  -p, --pause SECS         Pause between demo steps in seconds (default: 0.5)
+  -v, --verbose            Show detailed output and stack traces
+
+Information:
+  -h, --help               Show this help message and exit
+  --list                   List available built-in demos and exit
 ```
 
-## Development Mode
+## Common Use Cases
+
+### Development Mode
 
 Test local code changes without committing:
 
 ```bash
 # Sync local code to server and run demo
-python demos/demo.py 46.62.169.221 demo1 --local
+python demos/demo.py --host 46.62.169.221 --local demo1
 
 # Keep apps running for debugging
-python demos/demo.py 46.62.169.221 demo2 --local --no-cleanup
+python demos/demo.py --host 46.62.169.221 --local --keep demo2
 ```
 
 The `--local` flag uses rsync to sync your local hop3-server code to the server.
+
+### Recording Screencasts
+
+```bash
+# Longer pauses, keep apps visible
+python demos/demo.py --host 46.62.169.221 --pause 2 --keep
+```
+
+### External Applications
+
+Run any Hop3-compatible application:
+
+```bash
+# Your app with hop3.toml, Dockerfile, or requirements.txt
+python demos/demo.py --host 46.62.169.221 ~/my-project
+
+# Keep it running after demo
+python demos/demo.py --host 46.62.169.221 ~/my-project --keep
+```
 
 ## Prerequisites
 
@@ -60,14 +97,6 @@ The `--local` flag uses rsync to sync your local hop3-server code to the server.
   - Python 3.10+
   - Hop3 CLI installed (`pip install hop3-cli`)
   - SSH key authentication configured
-
-## Recording Screencasts
-
-```bash
-asciinema rec hop3-demo.cast
-python demos/demo.py 46.62.169.221 demo1 --pause 2 --no-cleanup
-# Stop with Ctrl+D
-```
 
 ## Troubleshooting
 
@@ -95,14 +124,15 @@ Initial installation takes 5-10 minutes. Use `--skip-install` if Hop3 is already
 
 ```
 demos/
-├── demo.py           # Unified demo runner
-├── lib/              # Shared utilities
+├── demo.py             # Demo launcher
+├── lib/                # Shared utilities
 │   ├── __init__.py
-│   ├── app.py        # Common app management routines
-│   ├── commands.py   # run_local, run_ssh, run_hop3
-│   ├── context.py    # DemoContext dataclass
-│   ├── output.py     # Terminal output helpers
-│   └── server.py     # Server setup, sync, update
+│   ├── app.py          # Common app management routines
+│   ├── commands.py     # run_local, run_ssh, run_hop3
+│   ├── context.py      # DemoContext dataclass
+│   ├── generic_demo.py # Generic demo for any Hop3 app
+│   ├── output.py       # Terminal output helpers
+│   └── server.py       # Server setup, sync, update
 ├── demo1/
 │   ├── demo-script.py  # Demo logic
 │   └── hello-hop3/     # Sample Flask app
@@ -113,7 +143,24 @@ demos/
 
 ## Creating a New Demo
 
+### Option 1: Custom Demo Script
+
 1. Create directory: `demos/demo3/`
 2. Create `demo-script.py` with `TITLE`, `DESCRIPTION`, and `run(ctx)` function
 3. Add sample application files
 4. The demo is auto-discovered
+
+### Option 2: Generic Demo (No Script Needed)
+
+Just point to any Hop3-compatible application:
+
+```bash
+python demos/demo.py --host 46.62.169.221 ~/my-app
+```
+
+The generic demo will automatically:
+- Detect app type (Python, Docker, Node.js, etc.)
+- Deploy using the appropriate builder
+- Set up hostname and proxy
+- Test the deployment
+- Clean up (unless `--keep`)
