@@ -10,9 +10,10 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .commands import run_hop3
-from .output import (
+from lib.commands import run_hop3
+from lib.output import (
     Colors,
+    get_output_level,
     pause,
     print_error,
     print_header,
@@ -22,7 +23,7 @@ from .output import (
 )
 
 if TYPE_CHECKING:
-    from .context import DemoContext
+    from lib.context import DemoContext
 
 
 def deploy_app(ctx: DemoContext, app_name: str, app_dir: Path) -> None:
@@ -121,9 +122,10 @@ def test_app_via_curl(
     result = subprocess.run(curl_cmd, shell=True, capture_output=True, text=True, check=False)
 
     if result.returncode == 0 and expected_content in result.stdout:
-        print(f"  {Colors.GREEN}Response:{Colors.RESET}")
-        print(f"  {result.stdout.strip()}")
-        print()
+        if get_output_level() >= 2:  # NORMAL or VERBOSE
+            print(f"  {Colors.GREEN}Response:{Colors.RESET}")
+            print(f"  {result.stdout.strip()}")
+            print()
         print_success(f"Application accessible at {app_url}")
     else:
         print_error(f"Failed to access application at {app_url}")
@@ -230,6 +232,9 @@ def show_file_content(
         title: Title to display
         max_lines: Maximum lines to show (None for all)
     """
+    if get_output_level() < 2:  # SILENT or QUIET
+        return
+
     print_step(title)
     if file_path.exists():
         print()
@@ -249,6 +254,9 @@ def show_app_structure(app_name: str, files: list[tuple[str, str]]) -> None:
         app_name: Name of the application directory
         files: List of (filename, description) tuples
     """
+    if get_output_level() < 2:  # SILENT or QUIET
+        return
+
     print_step("Application structure:")
     print()
     print(f"  {Colors.CYAN}{app_name}/{Colors.RESET}")
