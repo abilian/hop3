@@ -203,8 +203,8 @@ def update_hop3_server(ctx: DemoContext) -> None:
         print_error("Failed to build hop3-server package.")
         sys.exit(1)
 
-    # Find the built wheel
-    dist_dir = hop3_repo / "packages" / "hop3-server" / "dist"
+    # Find the built wheel (uv build outputs to repo root's dist/)
+    dist_dir = hop3_repo / "dist"
     wheels = list(dist_dir.glob("hop3_server-*.whl"))
     if not wheels:
         print_error("No wheel file found after build.")
