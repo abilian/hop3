@@ -1,79 +1,57 @@
 # Hop3 Demos
 
-This directory contains demo scripts that automate Hop3 workflows for screencasts and tutorials.
+Demo applications and scripts for showcasing Hop3 features.
+
+## Quick Start
+
+```bash
+# Run all demos on a server
+python demos/demo.py <server_ip>
+
+# Run a specific demo
+python demos/demo.py <server_ip> demo1
+
+# Run multiple demos
+python demos/demo.py <server_ip> demo1 demo2
+```
 
 ## Available Demos
 
-### Demo 1: Installation & Quickstart (uWSGI)
+| Demo | Description | App Hostname |
+|------|-------------|--------------|
+| demo1 | uWSGI deployment (Python/Flask) | a1.hop.demo |
+| demo2 | Docker deployment | a2.hop.demo |
 
-**Path:** `demo1/`
+## Options
 
-Demonstrates the complete Hop3 installation and quickstart workflow:
-- Installing Hop3 on a fresh Ubuntu server
-- Configuring the CLI and creating an admin user
-- Deploying a sample Flask application (uWSGI-based)
-- Application management commands
+```
+python demos/demo.py <server_ip> [demo_names...] [options]
 
-```bash
-# Full installation + deployment
-python demos/demo1/demo.py 46.62.169.221
-
-# Skip installation (Hop3 already installed)
-python demos/demo1/demo.py 46.62.169.221 --skip-install
+Options:
+  --ssh-user USER        SSH user for the server (default: root)
+  --admin-user USER      Admin username to create (default: admin)
+  --admin-email EMAIL    Admin email (default: admin@example.com)
+  --admin-password PWD   Admin password (default: randomly generated)
+  --local                Use local code via rsync (for development)
+  --skip-install         Skip Hop3 installation (assume already installed)
+  --no-cleanup           Don't destroy demo apps at the end
+  --pause SECONDS        Pause between steps (default: 0.5)
+  --verbose, -v          Enable verbose output
 ```
 
-### Demo 2: Docker Deployment
+## Development Mode
 
-**Path:** `demo2/`
-
-Demonstrates Docker-based deployment with Hop3:
-- Building Docker images from Dockerfile
-- Deploying containers with Docker Compose
-- Routing traffic through nginx proxy to containers
-- Managing Docker-based applications
-
-**Prerequisite:** Requires Hop3 to be installed (run demo1 first on fresh servers).
+Test local code changes without committing:
 
 ```bash
-python demos/demo2/demo.py 46.62.169.221
+# Sync local code to server and run demo
+python demos/demo.py 46.62.169.221 demo1 --local
+
+# Keep apps running for debugging
+python demos/demo.py 46.62.169.221 demo2 --local --no-cleanup
 ```
 
-## Common Options
-
-All demos support these common options:
-
-| Option | Description |
-|--------|-------------|
-| `--ssh-user USER` | SSH user (default: root) |
-| `--admin-user USER` | Admin username (default: admin) |
-| `--admin-email EMAIL` | Admin email (default: admin@example.com) |
-| `--admin-password PWD` | Admin password (default: randomly generated) |
-| `--app-hostname HOST` | Hostname for the app (demo1: a1.hop.demo, demo2: a2.hop.demo) |
-| `--no-cleanup` | Keep the app running after the demo |
-| `--pause SECONDS` | Pause between steps (default: 0.5) |
-
-## Recording Screencasts
-
-For best results with `asciinema`:
-
-```bash
-# Start recording
-asciinema rec hop3-demo.cast
-
-# Run a demo with longer pauses
-python demos/demo1/demo.py 46.62.169.221 --pause 2 --no-cleanup
-
-# Stop recording with Ctrl+D
-```
-
-## Test Server Hostnames
-
-For testing, these hostnames are pre-configured to point to the test server:
-
-- `a1.hop.demo` - Demo 1 (uWSGI app)
-- `a2.hop.demo` - Demo 2 (Docker app)
-- `a3.hop.demo` - Reserved for future demos
-- etc.
+The `--local` flag uses rsync to sync your local hop3-server code to the server.
 
 ## Prerequisites
 
@@ -82,3 +60,60 @@ For testing, these hostnames are pre-configured to point to the test server:
   - Python 3.10+
   - Hop3 CLI installed (`pip install hop3-cli`)
   - SSH key authentication configured
+
+## Recording Screencasts
+
+```bash
+asciinema rec hop3-demo.cast
+python demos/demo.py 46.62.169.221 demo1 --pause 2 --no-cleanup
+# Stop with Ctrl+D
+```
+
+## Troubleshooting
+
+### SSH Connection Issues
+
+```bash
+# Test connection
+ssh root@<server_ip> echo "Connected"
+
+# Set up SSH keys if needed
+ssh-copy-id root@<server_ip>
+```
+
+### hop3 CLI Not Found
+
+```bash
+pip install hop3-cli
+```
+
+### Installation Takes Too Long
+
+Initial installation takes 5-10 minutes. Use `--skip-install` if Hop3 is already installed.
+
+## Directory Structure
+
+```
+demos/
+├── demo.py           # Unified demo runner
+├── lib/              # Shared utilities
+│   ├── __init__.py
+│   ├── app.py        # Common app management routines
+│   ├── commands.py   # run_local, run_ssh, run_hop3
+│   ├── context.py    # DemoContext dataclass
+│   ├── output.py     # Terminal output helpers
+│   └── server.py     # Server setup, sync, update
+├── demo1/
+│   ├── demo-script.py  # Demo logic
+│   └── hello-hop3/     # Sample Flask app
+└── demo2/
+    ├── demo-script.py  # Demo logic
+    └── hello-docker/   # Sample Docker app
+```
+
+## Creating a New Demo
+
+1. Create directory: `demos/demo3/`
+2. Create `demo-script.py` with `TITLE`, `DESCRIPTION`, and `run(ctx)` function
+3. Add sample application files
+4. The demo is auto-discovered
