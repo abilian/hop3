@@ -16,6 +16,7 @@ from hop3.config import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
 from hop3.core.env import Env
 from hop3.core.plugins import get_proxy_strategy
 from hop3.lib import echo, get_free_port, log
+from hop3.lib.logging import server_log
 from hop3.lib.settings import write_settings
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
@@ -101,6 +102,9 @@ class AppLauncher:
                 level=0,
                 fg="red",
             )
+            server_log.exception(
+                "Proxy setup failed", app_name=self.app_name, error=str(e)
+            )
             traceback.print_exc()
 
     def _calculate_worker_changes(self, web_worker_count: dict) -> tuple[dict, dict]:
@@ -164,6 +168,11 @@ class AppLauncher:
         """Create the app's workers by setting up web worker configurations and
         handling environment-specific setups, including nginx and uwsgi
         configurations."""
+        server_log.info(
+            "Spawning app workers",
+            app_name=self.app_name,
+            workers=list(self.workers.keys()),
+        )
 
         host_name = self.env.get("HOST_NAME", "")
         self._update_app_metadata(host_name)
@@ -227,10 +236,22 @@ class AppLauncher:
         # Settings shipped with the app
         env_file = self.app.src_path / "ENV"
         env.parse_settings(env_file)
+        server_log.debug(
+            "Loaded ENV file",
+            app_name=self.app_name,
+            env_file=str(env_file),
+            env_file_exists=env_file.exists(),
+        )
 
         # Load environment variables from the ORM
         runtime_env = self.app.get_runtime_env()
         env.update(runtime_env)
+        server_log.info(
+            "Loaded runtime env_vars from ORM",
+            app_name=self.app_name,
+            env_vars_count=len(runtime_env),
+            env_vars_keys=list(runtime_env.keys()),
+        )
 
         # Pick a port if none defined
         if "PORT" not in env:

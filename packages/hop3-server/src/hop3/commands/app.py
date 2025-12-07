@@ -104,6 +104,7 @@ class DeployCmd(Command):
 
     def call(self, *args, **kwargs):
         from hop3.lib.console import capture_logs
+        from hop3.lib.logging import server_log
 
         if not args:
             return [{"t": "text", "text": "Usage: hop deploy <app_name>"}]
@@ -115,11 +116,18 @@ class DeployCmd(Command):
 
         try:
             app = _get_app(self.db_session, app_name)
+            server_log.info(
+                "Deploy: retrieved existing app",
+                app_name=app_name,
+                app_id=app.id,
+                env_vars_count=len(list(app.env_vars)),
+            )
         except ValueError:
             app = App(name=app_name)
             app.create()
             self.db_session.add(app)
             self.db_session.commit()
+            server_log.info("Deploy: created new app", app_name=app_name, app_id=app.id)
 
         archives_bytes = b64decode(kwargs["repository"])
         extract_archive_to_dir(archives_bytes, app.src_path)
