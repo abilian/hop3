@@ -40,8 +40,10 @@ DEFAULT_LOG_FILE = DEFAULT_LOG_DIR / "server.log"
 LOG_LEVEL = os.environ.get("HOP3_LOG_LEVEL", "INFO").upper()
 
 # Log rotation settings
-LOG_MAX_BYTES = int(os.environ.get("HOP3_LOG_MAX_MB", "10")) * 1024 * 1024  # Default 10MB
-LOG_BACKUP_COUNT = int(os.environ.get("HOP3_LOG_BACKUP_COUNT", "5"))  # Keep 5 old files
+# Default: 10MB
+LOG_MAX_BYTES = int(os.environ.get("HOP3_LOG_MAX_MB", "10")) * 1024 * 1024
+# Default: keep 5 old files
+LOG_BACKUP_COUNT = int(os.environ.get("HOP3_LOG_BACKUP_COUNT", "5"))
 
 
 class ServerLogger:

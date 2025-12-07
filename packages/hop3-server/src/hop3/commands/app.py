@@ -335,20 +335,94 @@ class PingCmd(Command):
 @register
 @dataclass(frozen=True)
 class LogsCmd(Command):
-    """Show application logs."""
+    """Show application logs.
+
+    Usage: hop3 app:logs <app_name> [options]
+
+    Options:
+        -n, --lines N      Number of lines to show (default: 100)
+        --grep PATTERN     Filter lines matching pattern
+
+    Examples:
+        hop3 app:logs myapp              # Last 100 lines
+        hop3 app:logs myapp -n 50        # Last 50 lines
+        hop3 app:logs myapp --grep error # Lines containing 'error'
+    """
 
     db_session: Session
     name: ClassVar[str] = "app:logs"
 
     def call(self, *args):
-        if not args:
-            return [{"t": "text", "text": "Usage: hop logs <app_name>"}]
+        import re
 
-        app_name = args[0]
+        # Parse args: first positional is app_name, rest are options
+        parsed = self._parse_args(args)
+        app_name = parsed.get("app_name")
+
+        if not app_name:
+            return [{"t": "text", "text": "Usage: hop3 app:logs <app_name> [options]"}]
+
+        lines = parsed.get("lines", 100)
+        grep = parsed.get("grep", "")
+
         app = _get_app(self.db_session, app_name)
-        # TODO: Implement log streaming and filtering by process type
-        logs = app.get_logs()
-        return [{"t": "text", "text": "\n".join(logs)}]
+        log_lines = app.get_logs(lines=lines)
+
+        # Apply grep filter if specified
+        if grep:
+            pattern = re.compile(grep, re.IGNORECASE)
+            log_lines = [ln for ln in log_lines if pattern.search(ln)]
+
+        if not log_lines:
+            return [{"t": "text", "text": "No log entries found."}]
+
+        return [{"t": "text", "text": "\n".join(log_lines)}]
+
+    def _parse_args(self, args: tuple) -> dict:
+        """Parse CLI arguments: <app_name> [-n N] [--grep PATTERN]."""
+        result = {}
+        args_list = list(args)
+        i = 0
+
+        while i < len(args_list):
+            arg = args_list[i]
+
+            # Handle -n shorthand
+            if arg == "-n" and i + 1 < len(args_list):
+                result["lines"] = int(args_list[i + 1])
+                i += 2
+                continue
+
+            # Handle --key=value format
+            if arg.startswith("--") and "=" in arg:
+                key, value = arg[2:].split("=", 1)
+                if key == "lines":
+                    result[key] = int(value)
+                else:
+                    result[key] = value
+                i += 1
+                continue
+
+            # Handle --key value format
+            if arg.startswith("--") and i + 1 < len(args_list):
+                key = arg[2:]
+                value = args_list[i + 1]
+                if key == "lines":
+                    result[key] = int(value)
+                else:
+                    result[key] = value
+                i += 2
+                continue
+
+            # First non-option argument is app_name
+            if not arg.startswith("-") and "app_name" not in result:
+                result["app_name"] = arg
+                i += 1
+                continue
+
+            i += 1
+
+        return result
 
 
 @register
