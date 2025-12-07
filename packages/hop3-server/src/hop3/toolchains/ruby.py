@@ -37,6 +37,14 @@ class RubyToolchain(LanguageToolchain):
             emit(InstallingVirtualEnv(self.app_name))
             self.shell("bundle install", env=env)
 
+            # Write runtime environment file so bundle exec finds gems
+            # This file is loaded by spawn.py's make_env()
+            env_file = self.src_path / "ENV"
+            with open(env_file, "a") as f:
+                f.write("\n# Ruby gem paths (auto-generated)\n")
+                f.write(f"BUNDLE_PATH={self.virtual_env}\n")
+                f.write(f"GEM_HOME={self.virtual_env}\n")
+
         return BuildArtifact(
             kind="ruby",
             location=str(self.virtual_env),
@@ -55,6 +63,10 @@ class RubyToolchain(LanguageToolchain):
             {
                 "VIRTUAL_ENV": self.virtual_env,
                 "PATH": path,
+                # Always set BUNDLE_PATH to ensure gems are installed locally
+                # This prevents permission errors when redeploying
+                "BUNDLE_PATH": str(self.virtual_env),
+                "GEM_HOME": str(self.virtual_env),
             },
         )
         env.parse_settings(self.env_file)

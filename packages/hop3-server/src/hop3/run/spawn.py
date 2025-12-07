@@ -229,7 +229,8 @@ class AppLauncher:
         env.parse_settings(env_file)
 
         # Load environment variables from the ORM
-        env.update(self.app.get_runtime_env())
+        runtime_env = self.app.get_runtime_env()
+        env.update(runtime_env)
 
         # Pick a port if none defined
         if "PORT" not in env:

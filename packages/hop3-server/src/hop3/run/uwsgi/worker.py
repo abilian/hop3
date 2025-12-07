@@ -372,8 +372,15 @@ class WebWorker(UwsgiWorker):
 
         This modifies the current settings to include the specified
         command associated with the key 'attach-daemon'.
+
+        Commands are wrapped in 'sh -c' to enable shell variable expansion
+        (e.g., $PORT) which is standard for Heroku-style Procfiles.
         """
-        self.settings.add("attach-daemon", self.command)
+        # Wrap command in shell to enable variable expansion (e.g., $PORT)
+        # This is required because uWSGI's attach-daemon uses exec() directly
+        # and doesn't perform shell expansion
+        shell_cmd = f'sh -c "{self.command}"'
+        self.settings.add("attach-daemon", shell_cmd)
 
 
 @dataclass
@@ -381,4 +388,6 @@ class GenericWorker(UwsgiWorker):
     kind: str = "generic"
 
     def update_settings(self) -> None:
-        self.settings.add("attach-daemon", self.command)
+        # Wrap command in shell to enable variable expansion (e.g., $PORT)
+        shell_cmd = f'sh -c "{self.command}"'
+        self.settings.add("attach-daemon", shell_cmd)

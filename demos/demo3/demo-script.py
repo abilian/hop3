@@ -92,7 +92,7 @@ def run(ctx: DemoContext) -> None:
     # Test application
     print_header("Testing Application")
 
-    test_app_via_hop3(ctx, APP_NAME, app_url)
+    test_app_via_hop3(ctx, APP_NAME, app_url, is_static=True)
     test_app_via_curl(ctx, app_url, expected_content="Hello World")
 
     # Demo app management

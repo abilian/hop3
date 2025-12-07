@@ -296,6 +296,15 @@ class SetCmd(Command):
                 errors.append(f"Empty key in setting: '{setting}'")
                 continue
 
+            # Validate HOST_NAME uniqueness
+            if key == "HOST_NAME" and value and value != "_":
+                conflict = self._check_hostname_conflict(app_name, value)
+                if conflict:
+                    errors.append(
+                        f"Hostname '{value}' is already used by app '{conflict}'"
+                    )
+                    continue
+
             # Check if variable already exists
             existing = None
             for env_var in app.env_vars:
@@ -358,6 +367,39 @@ class SetCmd(Command):
             settings = remaining_args[1:] if len(remaining_args) > 1 else []
 
         return app_name, settings
+
+    def _check_hostname_conflict(self, current_app: str, hostname: str) -> str | None:
+        """Check if a hostname is already used by another app.
+
+        Args:
+            current_app: Name of the current app (to exclude from check)
+            hostname: Hostname to check
+
+        Returns:
+            Name of the conflicting app, or None if no conflict.
+        """
+        # Handle comma-separated hostnames (check each one)
+        hostnames_to_check = [h.strip() for h in hostname.split(",") if h.strip()]
+
+        app_repo = AppRepository(session=self.db_session)
+        all_apps = app_repo.list()
+
+        for app in all_apps:
+            if app.name == current_app:
+                continue
+
+            # Get the app's current HOST_NAME
+            for env_var in app.env_vars:
+                if env_var.name == "HOST_NAME" and env_var.value:
+                    existing_hostnames = [
+                        h.strip() for h in env_var.value.split(",") if h.strip()
+                    ]
+                    # Check for any overlap
+                    for new_hostname in hostnames_to_check:
+                        if new_hostname in existing_hostnames:
+                            return app.name
+
+        return None
 
 
 @register

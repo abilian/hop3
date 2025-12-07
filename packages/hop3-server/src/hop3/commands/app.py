@@ -113,7 +113,6 @@ class DeployCmd(Command):
         # Get verbosity from kwargs (default: 1=normal)
         verbosity = kwargs.get("verbosity", 1)
 
-        # FIXME: Q&D solution to get the app instance
         try:
             app = _get_app(self.db_session, app_name)
         except ValueError:
