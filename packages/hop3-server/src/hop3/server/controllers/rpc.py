@@ -15,6 +15,7 @@ from litestar.response import Response
 
 from hop3 import config
 from hop3.commands import Command
+from hop3.lib.logging import server_log
 from hop3.lib.registry import lookup
 from hop3.lib.scanner import scan_package
 from hop3.lib.types import JsonDict
@@ -85,7 +86,14 @@ def call(command_name: str, args: list[str], extra_args: JsonDict):
     command_class = commands.get(command_name)
     if command_class is None:
         msg = f"Command {command_name} not found"
+        server_log.error("Command not found", command=command_name)
         raise ValueError(msg)
+
+    server_log.debug(
+        "Creating command instance",
+        command=command_name,
+        command_class=command_class.__name__,
+    )
 
     session_factory = get_session_factory()
     with session_factory() as db_session:
@@ -93,17 +101,40 @@ def call(command_name: str, args: list[str], extra_args: JsonDict):
 
         if "db_session" in command_class.__annotations__:
             class_args = {"db_session": db_session}
+            server_log.debug("Command uses db_session", command=command_name)
 
         try:
             command = command_class(**class_args)
         except Exception as e:
             error_msg = f"Failed to create command: {e}"
+            server_log.error(
+                "Failed to create command instance",
+                command=command_name,
+                error=str(e),
+            )
             raise ValueError(error_msg) from e
 
         try:
+            server_log.debug(
+                "Calling command.call()",
+                command=command_name,
+                args=args,
+                extra_args_keys=list(extra_args.keys()),
+            )
             result = command.call(*args, **extra_args)
+            server_log.debug(
+                "Command.call() returned",
+                command=command_name,
+                result_type=type(result).__name__,
+            )
         except Exception as e:
             error_msg = f"Command execution failed: {e}"
+            server_log.error(
+                "Command.call() raised exception",
+                command=command_name,
+                error_type=type(e).__name__,
+                error=str(e),
+            )
             raise ValueError(error_msg) from e
 
         return result
@@ -140,6 +171,15 @@ class RPCController(Controller):
 
         command_name = cli_args[0]
         args = cli_args[1:]
+
+        # Log all incoming RPC commands for debugging
+        server_log.info(
+            "RPC request received",
+            command=command_name,
+            args=args,
+            extra_args_keys=list(extra_args.keys()),
+            request_id=request_id,
+        )
 
         # Look up command
         command_class = commands.get(command_name)
@@ -322,10 +362,27 @@ class RPCController(Controller):
         Returns:
             JSON-RPC response (success or error)
         """
+        server_log.info(
+            "Executing command",
+            command=command_name,
+            args=args,
+            extra_args_keys=list(extra_args.keys()),
+        )
         try:
             result = call(command_name, list(args), extra_args)
+            server_log.info(
+                "Command completed successfully",
+                command=command_name,
+                result_type=type(result).__name__,
+                result_length=len(result) if isinstance(result, (list, dict)) else None,
+            )
             return self._build_success_response(result, request_id)
         except ValueError as e:
+            server_log.error(
+                "Command failed with ValueError",
+                command=command_name,
+                error=str(e),
+            )
             traceback.print_exc()
             return self._build_error_response(
                 code=-32602,  # Invalid params
@@ -333,6 +390,12 @@ class RPCController(Controller):
                 request_id=request_id,
             )
         except Exception as e:
+            server_log.error(
+                "Command failed with exception",
+                command=command_name,
+                error_type=type(e).__name__,
+                error=str(e),
+            )
             traceback.print_exc()
             return self._build_error_response(
                 code=-32603,  # Internal error

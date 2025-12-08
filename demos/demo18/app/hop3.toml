@@ -1,0 +1,10 @@
+# hop3.toml - Docker Node.js application
+
+[metadata]
+id = "demo18-docker-nodejs"
+version = "1.0.0"
+title = "Docker Node.js Demo"
+description = "Demonstrates Docker deployment with Node.js/Express"
+
+[build]
+builder = "docker"

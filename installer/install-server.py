@@ -42,6 +42,7 @@ import grp
 import itertools
 import os
 import pwd
+import secrets
 import shutil
 import subprocess
 import threading
@@ -717,11 +718,15 @@ def _add_hop3_nginx_include() -> None:
         print_warning("Could not find suitable location for nginx include")
 
 
-def setup_postgres(skip: bool, distro: str) -> None:
-    """Configure PostgreSQL."""
+def setup_postgres(skip: bool, distro: str) -> str | None:
+    """Configure PostgreSQL.
+
+    Returns:
+        The generated postgres superuser password, or None if skipped.
+    """
     if skip:
         print_info("Skipping PostgreSQL setup (--skip-postgres)")
-        return
+        return None
 
     # Initialize PostgreSQL on Fedora
     if distro == "fedora":
@@ -731,7 +736,7 @@ def setup_postgres(skip: bool, distro: str) -> None:
     run_cmd(["systemctl", "enable", "postgresql"], check=False)
     run_cmd(["systemctl", "start", "postgresql"], check=False)
 
-    # Create role and database
+    # Create role and database for hop3 user
     try:
         run_cmd(
             ["su", "-", "postgres", "-c", f"createuser --createdb {HOP3_USER}"],
@@ -744,6 +749,138 @@ def setup_postgres(skip: bool, distro: str) -> None:
         print_success("PostgreSQL role and database created")
     except CommandError:
         print_info("PostgreSQL role/database may already exist")
+
+    # Set a password for the postgres superuser
+    # This is needed for hop3-server to create addon databases via TCP connection
+    pg_password = "hop3_" + secrets.token_hex(16)
+
+    # Use psql to set the password (peer auth works since we're root -> postgres user)
+    sql_cmd = f"ALTER USER postgres PASSWORD '{pg_password}';"
+    result = run_cmd(
+        ["su", "-", "postgres", "-c", f'psql -c "{sql_cmd}"'],
+        check=False,
+    )
+    if result.returncode == 0:
+        print_success("PostgreSQL superuser password configured")
+    else:
+        print_warning("Could not set PostgreSQL superuser password")
+        return None
+
+    # Configure PostgreSQL to accept connections from Docker containers
+    # Docker containers connect via host.docker.internal which routes to 172.17.x.x
+    _configure_postgres_for_docker(distro)
+
+    return pg_password
+
+
+def _configure_postgres_for_docker(distro: str) -> None:
+    """Configure PostgreSQL to accept connections from Docker containers.
+
+    This modifies postgresql.conf and pg_hba.conf to:
+    1. Listen on all interfaces (not just localhost)
+    2. Allow password auth from Docker bridge network (172.17.0.0/16)
+    """
+    # Find PostgreSQL config directory
+    if distro == "fedora":
+        pg_conf_dir = Path("/var/lib/pgsql/data")
+    else:  # debian
+        # Find the postgresql version directory
+        pg_dirs = list(Path("/etc/postgresql").glob("*/main"))
+        if not pg_dirs:
+            print_warning("Could not find PostgreSQL config directory")
+            return
+        pg_conf_dir = pg_dirs[0]
+
+    pg_conf = pg_conf_dir / "postgresql.conf"
+    pg_hba = pg_conf_dir / "pg_hba.conf"
+
+    if not pg_conf.exists():
+        print_warning(f"PostgreSQL config not found at {pg_conf}")
+        return
+
+    # Update listen_addresses to accept connections from Docker
+    conf_content = pg_conf.read_text()
+    if "listen_addresses = '*'" not in conf_content:
+        # Comment out existing listen_addresses and add new one
+        new_lines = []
+        for line in conf_content.split("\n"):
+            if line.strip().startswith("listen_addresses"):
+                new_lines.append(f"# {line}  # commented by hop3 installer")
+            else:
+                new_lines.append(line)
+        new_lines.append("")
+        new_lines.append("# Added by hop3 installer for Docker container access")
+        new_lines.append("listen_addresses = '*'")
+        pg_conf.write_text("\n".join(new_lines))
+        print_success("PostgreSQL configured to listen on all interfaces")
+
+    # Add pg_hba.conf rule for Docker networks
+    # 172.16.0.0/12 covers all Docker networks (172.16.x.x - 172.31.x.x)
+    # including default bridge (172.17.x.x) and docker-compose networks (172.18+)
+    hba_content = pg_hba.read_text()
+    docker_rule = "host    all    all    172.16.0.0/12    scram-sha-256"
+    if "172.16.0.0/12" not in hba_content:
+        # Add rule before the first "host" line (after local rules)
+        new_lines = []
+        docker_rule_added = False
+        for line in hba_content.split("\n"):
+            # Add Docker rule before first host rule
+            if not docker_rule_added and line.strip().startswith("host"):
+                new_lines.append(
+                    "# Added by hop3 installer for Docker container access"
+                )
+                new_lines.append(docker_rule)
+                new_lines.append("")
+                docker_rule_added = True
+            new_lines.append(line)
+        # If no host rules found, add at end
+        if not docker_rule_added:
+            new_lines.append("")
+            new_lines.append("# Added by hop3 installer for Docker container access")
+            new_lines.append(docker_rule)
+        pg_hba.write_text("\n".join(new_lines))
+        print_success("PostgreSQL configured to accept Docker container connections")
+
+    # Restart PostgreSQL to apply changes
+    run_cmd(["systemctl", "restart", "postgresql"], check=False)
+    print_success("PostgreSQL restarted with new configuration")
+
+
+def write_server_config(pg_password: str | None) -> None:
+    """Write hop3-server.toml configuration file.
+
+    This configures hop3-server with:
+    - PostgreSQL connection settings (host, password)
+    """
+    config_file = HOME_DIR / "hop3-server.toml"
+
+    # Build config content
+    lines = [
+        "# Hop3 Server Configuration",
+        "# Auto-generated by installer",
+        "",
+    ]
+
+    if pg_password:
+        lines.extend(
+            [
+                "# PostgreSQL admin connection settings",
+                "# Use 127.0.0.1 (TCP) instead of localhost (Unix socket) for password auth",
+                'POSTGRES_HOST = "127.0.0.1"',
+                f'POSTGRES_SUPERUSER_PASSWORD = "{pg_password}"',
+                "",
+            ]
+        )
+
+    config_file.write_text("\n".join(lines))
+
+    # Set ownership to hop3 user
+    hop3_uid = pwd.getpwnam(HOP3_USER).pw_uid
+    hop3_gid = grp.getgrnam(HOP3_GROUP).gr_gid
+    os.chown(config_file, hop3_uid, hop3_gid)
+    os.chmod(config_file, 0o600)  # Secure - contains password
+
+    print_success(f"Server configuration written to {config_file}")
 
 
 def setup_acme(skip: bool) -> None:
@@ -1077,7 +1214,7 @@ def main() -> int:
     distro = detect_distro()
     print_info(f"Detected distribution: {distro}")
 
-    total_steps = 11
+    total_steps = 12
 
     # Show configuration
     if args.domain:
@@ -1160,13 +1297,21 @@ def main() -> int:
 
     # Step 10: PostgreSQL
     print_step(10, total_steps, "Configuring PostgreSQL...")
+    pg_password = None
     try:
-        setup_postgres(args.skip_postgres, distro)
+        pg_password = setup_postgres(args.skip_postgres, distro)
     except CommandError as e:
         print_warning(f"PostgreSQL setup issue: {e.stderr[:100]}")
 
-    # Step 11: ACME/Let's Encrypt
-    print_step(11, total_steps, "Setting up ACME/Let's Encrypt...")
+    # Step 11: Write server configuration
+    print_step(11, total_steps, "Writing server configuration...")
+    try:
+        write_server_config(pg_password)
+    except Exception as e:
+        print_warning(f"Config write issue: {e}")
+
+    # Step 12: ACME/Let's Encrypt
+    print_step(12, total_steps, "Setting up ACME/Let's Encrypt...")
     try:
         # Always install acme.sh for future use
         setup_acme(args.skip_acme)

@@ -110,7 +110,7 @@ class App(BigIntAuditBase):
     )
 
     env_vars: Mapped[list[EnvVar]] = relationship(
-        back_populates="app", cascade="all, delete-orphan"
+        back_populates="app", cascade="all, delete-orphan", lazy="selectin"
     )
 
     addon_credentials: Mapped[list[AddonCredential]] = relationship(
@@ -327,9 +327,14 @@ class App(BigIntAuditBase):
         application. It also removes UWSGI and NGINX configuration files
         and sockets. However, it preserves the application's data
         directory.
+
+        For Docker apps, this also removes containers, networks, and volumes.
         """
-        # TODO: finish refactoring this method
         app_name = self.name
+
+        # First, clean up runtime resources (Docker containers, etc.)
+        if self.runtime == "docker-compose":
+            self._destroy_docker_compose()
 
         def remove_file(p: Path) -> None:
             # Remove the file or directory at the given path if it exists.
@@ -511,6 +516,43 @@ class App(BigIntAuditBase):
             log(f"Error stopping Docker Compose app: {e}", level=2, fg="yellow")
             # Force to STOPPED anyway
             self.run_state = AppStateEnum.STOPPED
+
+    def _destroy_docker_compose(self) -> None:
+        """Destroy Docker Compose app - remove containers, networks, and volumes."""
+        import subprocess
+
+        log(f"Destroying Docker Compose app '{self.name}'...", level=2, fg="yellow")
+
+        try:
+            # Use 'down --volumes --remove-orphans' to fully clean up
+            result = subprocess.run(
+                [
+                    "docker",
+                    "compose",
+                    "-p",
+                    self.name,
+                    "down",
+                    "--volumes",
+                    "--remove-orphans",
+                ],
+                cwd=self.src_path if self.src_path.exists() else None,
+                check=False,  # Don't fail if containers don't exist
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if result.returncode == 0:
+                log(f"Docker Compose app '{self.name}' destroyed.", level=2, fg="green")
+            else:
+                log(
+                    f"Docker Compose down returned {result.returncode}: {result.stderr}",
+                    level=2,
+                    fg="yellow",
+                )
+        except subprocess.TimeoutExpired:
+            log("Docker Compose destroy timed out", level=2, fg="yellow")
+        except Exception as e:
+            log(f"Error destroying Docker Compose app: {e}", level=2, fg="yellow")
 
     def restart(self) -> None:
         """Restart (or just start) a deployed app (non-blocking).

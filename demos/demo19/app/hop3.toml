@@ -1,0 +1,10 @@
+# hop3.toml - Docker Go application
+
+[metadata]
+id = "demo19-docker-go"
+version = "1.0.0"
+title = "Docker Go Demo"
+description = "Demonstrates Docker deployment with Go/Gin framework"
+
+[build]
+builder = "docker"

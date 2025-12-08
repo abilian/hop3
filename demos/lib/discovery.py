@@ -121,7 +121,9 @@ def get_demo_info(demo_name: str, demo_path: Path) -> DemoInfo | None:
     if app_subdir:
         candidate = demo_path / app_subdir
         if candidate.exists():
-            app_dir_resolved = candidate.resolve() if candidate.is_symlink() else candidate
+            app_dir_resolved = (
+                candidate.resolve() if candidate.is_symlink() else candidate
+            )
 
     # List files in demo directory
     files = [
@@ -155,23 +157,23 @@ def _detect_app_type(app_dir: Path) -> str:
     """Detect application type from directory contents."""
     if (app_dir / "Dockerfile").exists():
         return "docker"
-    elif (app_dir / "requirements.txt").exists():
+    if (app_dir / "requirements.txt").exists():
         return "python"
-    elif (app_dir / "pyproject.toml").exists():
+    if (app_dir / "pyproject.toml").exists():
         return "python-poetry"
-    elif (app_dir / "package.json").exists():
+    if (app_dir / "package.json").exists():
         return "nodejs"
-    elif (app_dir / "go.mod").exists():
+    if (app_dir / "go.mod").exists() or any(
+        f.name.endswith(".go") for f in app_dir.iterdir() if f.is_file()
+    ):
         return "golang"
-    elif any(f.name.endswith(".go") for f in app_dir.iterdir() if f.is_file()):
-        return "golang"
-    elif (app_dir / "Gemfile").exists():
+    if (app_dir / "Gemfile").exists():
         return "ruby"
-    elif (app_dir / "index.html").exists():
-        return "static"
-    elif (app_dir / "public").is_dir():
-        return "static"
-    elif any(f.name.endswith(".html") for f in app_dir.iterdir() if f.is_file()):
+    if (
+        (app_dir / "index.html").exists()
+        or (app_dir / "public").is_dir()
+        or any(f.name.endswith(".html") for f in app_dir.iterdir() if f.is_file())
+    ):
         return "static"
     return "unknown"
 

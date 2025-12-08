@@ -13,9 +13,9 @@ from typing import Literal
 class OutputLevel(IntEnum):
     """Output verbosity levels."""
 
-    SILENT = 0   # No output (errors to stderr only)
-    QUIET = 1    # Minimal output (phases + results)
-    NORMAL = 2   # Default (step-by-step)
+    SILENT = 0  # No output (errors to stderr only)
+    QUIET = 1  # Minimal output (phases + results)
+    NORMAL = 2  # Default (step-by-step)
     VERBOSE = 3  # Extra details + stack traces
 
 

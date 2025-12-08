@@ -5,10 +5,9 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 from typing import TYPE_CHECKING
 
-from lib.output import Colors, get_output_level, print_command, print_error
+from lib.output import get_output_level, print_command, print_error, red
 
 if TYPE_CHECKING:
     from lib.context import DemoContext
@@ -34,8 +33,9 @@ def run_local(
     if check and result.returncode != 0:
         print_error(f"Command failed with exit code {result.returncode}")
         if result.stderr:
-            print(f"  {Colors.RED}{result.stderr.strip()}{Colors.RESET}", file=sys.stderr)
-        raise CommandError(f"Command failed: {cmd}", result.returncode)
+            print(f"  {red(result.stderr.strip())}")
+        msg = f"Command failed: {cmd}"
+        raise CommandError(msg, result.returncode)
     return result
 
 
@@ -52,8 +52,9 @@ def run_ssh(
     if check and result.returncode != 0:
         print_error(f"SSH command failed with exit code {result.returncode}")
         if result.stderr:
-            print(f"  {Colors.RED}{result.stderr.strip()}{Colors.RESET}", file=sys.stderr)
-        raise CommandError(f"SSH command failed: {cmd}", result.returncode)
+            print(f"  {red(result.stderr.strip())}")
+        msg = f"SSH command failed: {cmd}"
+        raise CommandError(msg, result.returncode)
     return result
 
 
@@ -85,6 +86,7 @@ def run_hop3(
     if check and result.returncode != 0:
         print_error(f"hop3 command failed with exit code {result.returncode}")
         if result.stderr:
-            print(f"  {Colors.RED}{result.stderr.strip()}{Colors.RESET}", file=sys.stderr)
-        raise CommandError(f"hop3 command failed: {cmd}", result.returncode)
+            print(f"  {red(result.stderr.strip())}")
+        msg = f"hop3 command failed: {cmd}"
+        raise CommandError(msg, result.returncode)
     return result

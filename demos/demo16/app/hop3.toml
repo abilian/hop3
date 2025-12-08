@@ -1,0 +1,10 @@
+# hop3.toml - Docker app with Redis addon
+
+[metadata]
+id = "demo16-docker-redis"
+version = "0.1.0"
+title = "Docker + Redis Demo"
+description = "Demonstrates Docker deployment with Redis addon"
+
+[build]
+builder = "docker"

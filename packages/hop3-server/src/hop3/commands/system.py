@@ -185,31 +185,165 @@ class InfoCmd(Command):
         #     print(msg)
 
 
-# class LogsSubcommand(Command):
-#     """Show system logs."""
-#
-#     name = "logs"
-#
-#     arguments = [
-#         Argument("service", help="Service to show logs for"),
-#     ]
-#
-#     def run(self, service: str):
-#         if not service:
-#             print("Service must be one of: nua, letsencrypt, nginx")
-#
-#         match service:
-#             case "nua":
-#                 print("Showing Nua logs [TODO]")
-#             case "letsencrypt":
-#                 result = client.ssh("cat log/letsencrypt/letsencrypt.log")
-#                 print(result.stdout)
-#             case "nginx":
-#                 print("Showing Nginx logs [TODO]")
-#             case _:
-#                 raise BadArgumentError(
-#                     "Service must be one of: nua, letsencrypt, nginx"
-#                 )
+@register
+class SystemLogsCmd(Command):
+    """Show Hop3 server logs.
+
+    Usage: hop3 system:logs [options]
+
+    Options:
+        -n, --lines N      Number of lines to show (default: 100)
+        --since DURATION   Show logs since duration (e.g., 1h, 30m, 1d)
+        --level LEVEL      Filter by log level (DEBUG, INFO, WARNING, ERROR)
+        --grep PATTERN     Filter lines matching pattern
+        -f, --follow       Follow log output (not yet implemented)
+
+    Examples:
+        hop3 system:logs                    # Last 100 lines
+        hop3 system:logs -n 50              # Last 50 lines
+        hop3 system:logs --since 1h         # Last hour
+        hop3 system:logs --level ERROR      # Errors only
+        hop3 system:logs --grep deploy      # Lines containing 'deploy'
+    """
+
+    name: ClassVar[str] = "system:logs"
+
+    def call(self, *args, **kwargs):
+        import re
+
+        from hop3.lib.logging import DEFAULT_LOG_FILE
+
+        # Parse options from args (CLI passes them as positional strings)
+        parsed = self._parse_args(args)
+        lines = parsed.get("lines", 100)
+        since = parsed.get("since")
+        level = parsed.get("level", "").upper()
+        grep = parsed.get("grep", "")
+
+        # Check if log file exists
+        if not DEFAULT_LOG_FILE.exists():
+            return [{"t": "text", "text": f"No log file found at {DEFAULT_LOG_FILE}"}]
+
+        # Read log file
+        with open(DEFAULT_LOG_FILE, encoding="utf-8") as f:
+            all_lines = f.readlines()
+
+        # Apply --since filter
+        if since:
+            cutoff = self._parse_since(since)
+            if cutoff:
+                all_lines = self._filter_by_time(all_lines, cutoff)
+
+        # Apply --level filter
+        if level:
+            all_lines = [ln for ln in all_lines if f"[{level}]" in ln]
+
+        # Apply --grep filter
+        if grep:
+            pattern = re.compile(grep, re.IGNORECASE)
+            all_lines = [ln for ln in all_lines if pattern.search(ln)]
+
+        # Take last N lines
+        result_lines = all_lines[-lines:]
+
+        if not result_lines:
+            return [{"t": "text", "text": "No log entries found matching criteria."}]
+
+        return [{"t": "text", "text": "".join(result_lines)}]
+
+    def _parse_since(self, since: str):
+        """Parse duration string like '1h', '30m', '1d' into a cutoff datetime."""
+        import re
+        from datetime import datetime, timedelta, timezone
+
+        match = re.match(r"^(\d+)([smhd])$", since.lower())
+        if not match:
+            return None
+
+        value = int(match.group(1))
+        unit = match.group(2)
+
+        delta = {
+            "s": timedelta(seconds=value),
+            "m": timedelta(minutes=value),
+            "h": timedelta(hours=value),
+            "d": timedelta(days=value),
+        }.get(unit)
+
+        if delta:
+            return datetime.now(tz=timezone.utc) - delta
+        return None
+
+    def _filter_by_time(self, lines: list[str], cutoff) -> list[str]:
+        """Filter log lines to only include those after cutoff time."""
+        from datetime import datetime, timezone
+
+        result = []
+        for line in lines:
+            # Log format: "2025-12-07 10:15:23 [LEVEL] message"
+            if len(line) >= 19:
+                try:
+                    timestamp_str = line[:19]
+                    timestamp = datetime.strptime(
+                        timestamp_str, "%Y-%m-%d %H:%M:%S"
+                    ).replace(tzinfo=timezone.utc)
+                    if timestamp >= cutoff:
+                        result.append(line)
+                except ValueError:
+                    # Line doesn't start with valid timestamp, include it anyway
+                    # (could be continuation of previous log entry)
+                    if result:  # Only if we've started collecting
+                        result.append(line)
+        return result
+
+    def _parse_args(self, args: tuple) -> dict:
+        """Parse CLI arguments into a dictionary.
+
+        Handles:
+            -n 50, --lines 50, --lines=50
+            --since 1h, --since=1h
+            --level ERROR, --level=ERROR
+            --grep pattern, --grep=pattern
+        """
+        result = {}
+        args_list = list(args)
+        i = 0
+
+        while i < len(args_list):
+            arg = args_list[i]
+
+            # Handle -n shorthand
+            if arg == "-n" and i + 1 < len(args_list):
+                result["lines"] = int(args_list[i + 1])
+                i += 2
+                continue
+
+            # Handle --key=value format
+            if arg.startswith("--") and "=" in arg:
+                key, value = arg[2:].split("=", 1)
+                if key == "lines":
+                    result[key] = int(value)
+                else:
+                    result[key] = value
+                i += 1
+                continue
+
+            # Handle --key value format
+            if arg.startswith("--") and i + 1 < len(args_list):
+                key = arg[2:]
+                value = args_list[i + 1]
+                if key == "lines":
+                    result[key] = int(value)
+                else:
+                    result[key] = value
+                i += 2
+                continue
+
+            i += 1
+
+        return result
+
+
 #
 #
 # class SettingsSubcommand(Command):

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from hop3.core.plugins import get_builder, get_deployment_strategy
 from hop3.core.protocols import DeploymentContext
 from hop3.lib import Abort, log, shell
+from hop3.lib.logging import server_log
 from hop3.project.config import AppConfig
 
 if TYPE_CHECKING:
@@ -34,6 +35,7 @@ def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
 
     # --- 1. Parse Application Configuration ---
     log(f"Starting deployment for app '{app.name}'", level=0, fg="green")
+    server_log.info("Starting deployment", app_name=app.name, app_id=app.id)
 
     try:
         app_config = AppConfig.from_dir(app.app_path)
@@ -96,6 +98,14 @@ def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
     _update_app_model(app, deployer.name, deployment_info, app_config)
 
     log(f"Deployment for '{app.name}' finished successfully.", level=0, fg="green")
+    server_log.info(
+        "Deployment finished successfully",
+        app_name=app.name,
+        app_id=app.id,
+        runtime=deployer.name,
+        port=app.port,
+        hostname=app.hostname,
+    )
 
 
 def _update_app_model(

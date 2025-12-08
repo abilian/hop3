@@ -29,6 +29,7 @@ DEMOS_DIR = Path(__file__).parent
 if str(DEMOS_DIR) not in sys.path:
     sys.path.insert(0, str(DEMOS_DIR))
 
+import contextlib
 import secrets
 import time
 
@@ -55,13 +56,13 @@ def main() -> int:
     # Handle --list before requiring --host
     if "--list" in sys.argv:
         demo_dirs = _extract_demo_dirs()
-        list_demos(demo_dirs if demo_dirs else None)
+        list_demos(demo_dirs or None)
         return 0
 
     # Handle --inventory before requiring --host
     if "--inventory" in sys.argv:
         demo_dirs = _extract_demo_dirs()
-        show_inventory(demo_dirs if demo_dirs else None)
+        show_inventory(demo_dirs or None)
         return 0
 
     # Handle case where --host is not provided
@@ -103,10 +104,8 @@ def _extract_demo_dirs() -> list[Path]:
     args_iter = iter(sys.argv[1:])
     for arg in args_iter:
         if arg == "--demo-dir":
-            try:
+            with contextlib.suppress(StopIteration):
                 demo_dirs.append(Path(next(args_iter)))
-            except StopIteration:
-                pass
     return demo_dirs
 
 
@@ -127,7 +126,7 @@ def _resolve_demos(args, available_demos) -> list[tuple[str, Path, bool]] | None
     Returns:
         List of (name, path, is_generic) tuples, or None on error.
     """
-    demo_args = args.demos if args.demos else []
+    demo_args = args.demos or []
 
     # Handle 'all' keyword or empty list
     if not demo_args or (len(demo_args) == 1 and demo_args[0].lower() == "all"):
@@ -177,7 +176,9 @@ def _create_context(args, output_level: OutputLevel) -> DemoContext:
     )
 
 
-def _run_all_phases(ctx: DemoContext, demos_to_run: list[tuple[str, Path, bool]]) -> int:
+def _run_all_phases(
+    ctx: DemoContext, demos_to_run: list[tuple[str, Path, bool]]
+) -> int:
     """Run all demo phases.
 
     Returns:

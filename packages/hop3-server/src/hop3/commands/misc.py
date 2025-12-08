@@ -313,26 +313,73 @@ class SbomCmd(Command):
             return [{"t": "text", "text": sbom_content}]
 
 
-# --- Placeholder Addon Commands ---
+# --- Addon Command Aliases ---
+# These provide user-friendly shortcuts to the addons:* commands
 
 
 @register
 @dataclass(frozen=True)
 class PgCmd(Command):
-    """Manage a PostgreSQL database. (Placeholder)"""
+    """Manage PostgreSQL databases.
+
+    PostgreSQL databases are managed via the addons:* commands.
+
+    Examples:
+        hop3 addons:create postgres my-database
+        hop3 addons:attach my-database --app my-app --service-type postgres
+        hop3 addons:info my-database --service-type postgres
+        hop3 addons:detach my-database --app my-app --service-type postgres
+        hop3 addons:destroy my-database --service-type postgres
+    """
 
     name: ClassVar[str] = "pg"
 
     def call(self, *args):
-        return [{"t": "text", "text": "PostgreSQL commands are not yet implemented."}]
+        return [
+            {
+                "t": "text",
+                "text": (
+                    "PostgreSQL databases are managed via the addons:* commands.\n\n"
+                    "Examples:\n"
+                    "  hop3 addons:create postgres my-database\n"
+                    "  hop3 addons:attach my-database --app my-app --service-type postgres\n"
+                    "  hop3 addons:info my-database --service-type postgres\n"
+                    "  hop3 addons:detach my-database --app my-app --service-type postgres\n"
+                    "  hop3 addons:destroy my-database --service-type postgres\n\n"
+                    "Run 'hop3 help --all' to see all addons:* commands."
+                ),
+            }
+        ]
 
 
 @register
 @dataclass(frozen=True)
 class RedisCmd(Command):
-    """Manage a Redis instance. (Placeholder)"""
+    """Manage Redis instances.
+
+    Redis instances are managed via the addons:* commands.
+
+    Examples:
+        hop3 addons:create redis my-cache
+        hop3 addons:attach my-cache --app my-app --service-type redis
+        hop3 addons:info my-cache --service-type redis
+        hop3 addons:destroy my-cache --service-type redis
+    """
 
     name: ClassVar[str] = "redis"
 
     def call(self, *args):
-        return [{"t": "text", "text": "Redis commands are not yet implemented."}]
+        return [
+            {
+                "t": "text",
+                "text": (
+                    "Redis instances are managed via the addons:* commands.\n\n"
+                    "Examples:\n"
+                    "  hop3 addons:create redis my-cache\n"
+                    "  hop3 addons:attach my-cache --app my-app --service-type redis\n"
+                    "  hop3 addons:info my-cache --service-type redis\n"
+                    "  hop3 addons:destroy my-cache --service-type redis\n\n"
+                    "Run 'hop3 help --all' to see all addons:* commands."
+                ),
+            }
+        ]

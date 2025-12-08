@@ -1,0 +1,10 @@
+# hop3.toml - Docker app with PostgreSQL addon
+
+[metadata]
+id = "demo15-docker-postgres"
+version = "0.1.0"
+title = "Docker + PostgreSQL Demo"
+description = "Demonstrates Docker deployment with PostgreSQL addon"
+
+[build]
+builder = "docker"

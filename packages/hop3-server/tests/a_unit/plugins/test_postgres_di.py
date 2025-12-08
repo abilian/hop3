@@ -94,3 +94,65 @@ def test_postgres_admin_is_singleton(container):
     admin2 = container.get(PostgresAdmin)
 
     assert admin1 is admin2
+
+
+# Tests for URL parsing
+
+
+def test_postgres_admin_from_url():
+    """Test creating PostgresAdmin from a PostgreSQL URL."""
+    url = "postgresql://myuser:mypassword@db.example.com:5433/mydb"
+    admin = PostgresAdmin.from_url(url)
+
+    assert admin.host == "db.example.com"
+    assert admin.port == 5433
+    assert admin.superuser == "myuser"
+    assert admin.superuser_password == "mypassword"
+
+
+def test_postgres_admin_from_url_default_port():
+    """Test URL parsing with default port."""
+    url = "postgresql://admin:secret@localhost/postgres"
+    admin = PostgresAdmin.from_url(url)
+
+    assert admin.host == "localhost"
+    assert admin.port == 5432  # Default
+    assert admin.superuser == "admin"
+    assert admin.superuser_password == "secret"
+
+
+def test_postgres_admin_from_url_no_password():
+    """Test URL parsing without password (peer auth)."""
+    url = "postgresql://postgres@localhost/postgres"
+    admin = PostgresAdmin.from_url(url)
+
+    assert admin.host == "localhost"
+    assert admin.superuser == "postgres"
+    assert admin.superuser_password is None
+
+
+def test_postgres_admin_from_url_postgres_scheme():
+    """Test URL parsing with 'postgres' scheme (alternative spelling)."""
+    url = "postgres://user:pass@host:5432/db"
+    admin = PostgresAdmin.from_url(url)
+
+    assert admin.host == "host"
+    assert admin.superuser == "user"
+
+
+def test_postgres_admin_from_url_invalid_scheme():
+    """Test URL parsing rejects invalid scheme."""
+    with pytest.raises(ValueError, match="Invalid PostgreSQL URL scheme"):
+        PostgresAdmin.from_url("mysql://user:pass@host/db")
+
+
+def test_postgres_admin_from_url_missing_host():
+    """Test URL parsing requires hostname."""
+    with pytest.raises(ValueError, match="must include a hostname"):
+        PostgresAdmin.from_url("postgresql:///mydb")
+
+
+def test_postgres_admin_from_url_missing_user():
+    """Test URL parsing requires username."""
+    with pytest.raises(ValueError, match="must include a username"):
+        PostgresAdmin.from_url("postgresql://localhost/mydb")
