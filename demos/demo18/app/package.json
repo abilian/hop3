@@ -1,0 +1,15 @@
+{
+  "name": "demo18-docker-nodejs",
+  "version": "1.0.0",
+  "description": "Demo 18: Docker Node.js/Express application",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

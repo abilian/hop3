@@ -1,0 +1,29 @@
+# Copyright (c) 2025, Abilian SAS
+# SPDX-License-Identifier: Apache-2.0
+
+# Hop3 configuration demonstrating build hooks
+
+[metadata]
+id = "demo13"
+title = "Build Hooks Demo"
+version = "1.0.0"
+
+[build]
+# Pre-build hook: runs BEFORE the main build
+# Use for: installing build dependencies, running linters, etc.
+before-build = "python3 scripts/pre_build.py"
+
+# Post-build command (runs after main build)
+# Note: hop3.toml uses 'build' for post-build commands
+build = "python3 scripts/post_build.py"
+
+[run]
+# Start command
+start = "gunicorn app:app --bind 0.0.0.0:$PORT"
+
+# Pre-run hook: runs BEFORE starting the app
+# Use for: database migrations, cache warming, etc.
+before-run = "python3 scripts/pre_run.py"
+
+[env]
+APP_ENV = "production"

@@ -1,12 +1,17 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Terminal output helpers for demos."""
+"""Terminal output helpers for demos.
+
+Uses termcolor for proper TTY detection - colors are only output when
+stdout is a real terminal, not when piped to a file or another program.
+"""
 
 from __future__ import annotations
 
-import sys
 import time
 from typing import TYPE_CHECKING
+
+from termcolor import colored
 
 if TYPE_CHECKING:
     from lib.context import OutputLevel
@@ -15,18 +20,40 @@ if TYPE_CHECKING:
 _output_level: int = 2  # NORMAL
 
 
-class Colors:
-    """ANSI color codes for terminal output."""
+# =============================================================================
+# Color helper functions that use termcolor (TTY-aware)
+# These can be imported and used by other modules
+# =============================================================================
 
-    HEADER = "\033[95m"
-    BLUE = "\033[94m"
-    CYAN = "\033[96m"
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    RED = "\033[91m"
-    BOLD = "\033[1m"
-    DIM = "\033[2m"
-    RESET = "\033[0m"
+
+def cyan(text: str) -> str:
+    """Return cyan colored text (TTY-aware)."""
+    return colored(text, "cyan")
+
+
+def green(text: str) -> str:
+    """Return green colored text (TTY-aware)."""
+    return colored(text, "green")
+
+
+def yellow(text: str) -> str:
+    """Return yellow colored text (TTY-aware)."""
+    return colored(text, "yellow")
+
+
+def red(text: str) -> str:
+    """Return red colored text (TTY-aware)."""
+    return colored(text, "red")
+
+
+def bold(text: str) -> str:
+    """Return bold text (TTY-aware)."""
+    return colored(text, attrs=["bold"])
+
+
+def dim(text: str) -> str:
+    """Return dimmed text (TTY-aware)."""
+    return colored(text, attrs=["dark"])
 
 
 def set_output_level(level: OutputLevel | int) -> None:
@@ -62,11 +89,11 @@ def print_header(title: str, phase: bool = False) -> None:
 
     # NORMAL or VERBOSE
     width = 68
-    border = "═" * width
+    border = "=" * width
     print()
-    print(f"{Colors.CYAN}{Colors.BOLD}╔{border}╗{Colors.RESET}")
-    print(f"{Colors.CYAN}{Colors.BOLD}║  {title:<{width - 2}}║{Colors.RESET}")
-    print(f"{Colors.CYAN}{Colors.BOLD}╚{border}╝{Colors.RESET}")
+    print(cyan(bold(f"+{border}+")))
+    print(cyan(bold(f"|  {title:<{width - 2}}|")))
+    print(cyan(bold(f"+{border}+")))
     print()
 
 
@@ -74,16 +101,16 @@ def print_phase_result(success: bool) -> None:
     """Print phase result in quiet mode."""
     if _output_level == 1:  # QUIET
         if success:
-            print(f"{Colors.GREEN}OK{Colors.RESET}")
+            print(green("OK"))
         else:
-            print(f"{Colors.RED}FAIL{Colors.RESET}")
+            print(red("FAIL"))
 
 
 def print_step(message: str) -> None:
     """Print a step description."""
     if _output_level < 2:  # SILENT or QUIET
         return
-    print(f"{Colors.YELLOW}→{Colors.RESET} {message}")
+    print(f"{yellow('->')} {message}")
 
 
 def print_command(cmd: str) -> None:
@@ -91,7 +118,7 @@ def print_command(cmd: str) -> None:
     if _output_level < 2:  # SILENT or QUIET
         return
     print()
-    print(f"  {Colors.DIM}${Colors.RESET} {Colors.BOLD}{cmd}{Colors.RESET}")
+    print(f"  {dim('$')} {bold(cmd)}")
     print()
 
 
@@ -99,34 +126,30 @@ def print_success(message: str) -> None:
     """Print a success message."""
     if _output_level < 2:  # SILENT or QUIET
         return
-    print(f"{Colors.GREEN}✓{Colors.RESET} {message}")
+    print(f"{green('[OK]')} {message}")
 
 
-def print_error(message: str, to_stderr: bool = False) -> None:
-    """Print an error message.
-
-    In silent mode, errors always go to stderr.
-    """
-    if _output_level == 0:  # SILENT - errors to stderr
-        print(f"Error: {message}", file=sys.stderr)
+def print_error(message: str) -> None:
+    """Print an error message."""
+    if _output_level == 0:  # SILENT
+        print(f"Error: {message}")
         return
 
-    output = sys.stderr if to_stderr else sys.stdout
-    print(f"{Colors.RED}✗{Colors.RESET} {message}", file=output)
+    print(f"{red('[ERROR]')} {message}")
 
 
 def print_info(message: str) -> None:
     """Print an informational message."""
     if _output_level < 2:  # SILENT or QUIET
         return
-    print(f"  {Colors.DIM}{message}{Colors.RESET}")
+    print(f"  {dim(message)}")
 
 
 def print_warning(message: str) -> None:
     """Print a warning message."""
     if _output_level == 0:  # SILENT
         return
-    print(f"{Colors.YELLOW}⚠{Colors.RESET} {message}")
+    print(f"{yellow('[WARN]')} {message}")
 
 
 def pause(seconds: float = 1.0) -> None:
@@ -162,17 +185,17 @@ def print_demo_result(
     """Print a single demo result line."""
     if _output_level == 0:  # SILENT
         if status == "fail" and error:
-            print(f"Error: {name} failed - {error}", file=sys.stderr)
+            print(f"Error: {name} failed - {error}")
         return
 
     duration_str = format_duration(duration)
 
     if status == "pass":
-        status_str = f"{Colors.GREEN}PASS{Colors.RESET}"
+        status_str = green("PASS")
     elif status == "fail":
-        status_str = f"{Colors.RED}FAIL{Colors.RESET}"
+        status_str = red("FAIL")
     else:  # skip
-        status_str = f"{Colors.YELLOW}SKIP{Colors.RESET}"
+        status_str = yellow("SKIP")
 
     if _output_level == 1:  # QUIET
         if error:
@@ -184,17 +207,19 @@ def print_demo_result(
     # NORMAL or VERBOSE
     print(f"  [{status_str}] {name} - {title:<35} ({duration_str})")
     if error:
-        print(f"         └─ Error: {error}")
+        print(f"         +-- Error: {error}")
 
 
 def print_summary_line() -> None:
     """Print a horizontal line for summary section."""
     if _output_level < 2:
         return
-    print("─" * 69)
+    print("-" * 69)
 
 
-def print_summary_stats(passed: int, failed: int, skipped: int, total_duration: float) -> None:
+def print_summary_stats(
+    passed: int, failed: int, skipped: int, total_duration: float
+) -> None:
     """Print summary statistics."""
     if _output_level == 0:  # SILENT
         return
@@ -213,11 +238,11 @@ def print_summary_stats(passed: int, failed: int, skipped: int, total_duration: 
     print_summary_line()
     parts = []
     if passed > 0:
-        parts.append(f"{Colors.GREEN}{passed} passed{Colors.RESET}")
+        parts.append(green(f"{passed} passed"))
     if failed > 0:
-        parts.append(f"{Colors.RED}{failed} failed{Colors.RESET}")
+        parts.append(red(f"{failed} failed"))
     if skipped > 0:
-        parts.append(f"{Colors.YELLOW}{skipped} skipped{Colors.RESET}")
+        parts.append(yellow(f"{skipped} skipped"))
 
     print(f"Results: {', '.join(parts)}")
     print(f"Duration: {duration_str}")

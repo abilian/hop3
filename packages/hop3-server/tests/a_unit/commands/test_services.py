@@ -34,6 +34,7 @@ def mock_app():
     app = Mock(spec=App)
     app.id = 1
     app.name = "test-app"
+    app.env_vars = []  # Initialize as empty list for iteration
     return app
 
 
@@ -145,6 +146,12 @@ def test_services_attach_updates_existing_vars(mock_db_session, mock_app):
         patch("hop3.commands.services.get_addon") as mock_get_service,
         patch("hop3.commands.services.get_credential_encryptor") as mock_encryptor,
     ):
+        # Create existing env var and add to mock app's env_vars
+        existing_var = Mock(spec=EnvVar)
+        existing_var.name = "DATABASE_URL"
+        existing_var.value = "old_value"
+        mock_app.env_vars = [existing_var]  # Initialize with existing var
+
         mock_repo = mock_repo_class.return_value
         mock_repo.get_one_or_none.return_value = mock_app
 
@@ -158,17 +165,10 @@ def test_services_attach_updates_existing_vars(mock_db_session, mock_app):
         mock_enc_instance = mock_encryptor.return_value
         mock_enc_instance.encrypt.return_value = "encrypted_data"
 
-        # Mock existing environment variable
-        existing_var = Mock(spec=EnvVar)
-        existing_var.value = "old_value"
-
-        # Mock query to return no credential, then existing env var
+        # Mock query to return no credential (env vars now handled via app.env_vars)
         def query_side_effect(model):
             mock_query = Mock()
-            if model.__name__ == "AddonCredential":
-                mock_query.filter_by.return_value.first.return_value = None
-            else:  # EnvVar
-                mock_query.filter_by.return_value.first.return_value = existing_var
+            mock_query.filter_by.return_value.first.return_value = None
             return mock_query
 
         mock_db_session.query.side_effect = query_side_effect

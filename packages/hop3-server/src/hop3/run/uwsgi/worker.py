@@ -372,8 +372,30 @@ class WebWorker(UwsgiWorker):
 
         This modifies the current settings to include the specified
         command associated with the key 'attach-daemon'.
+
+        Commands are wrapped in 'sh -c' to enable shell variable expansion
+        (e.g., $PORT) which is standard for Heroku-style Procfiles.
         """
-        self.settings.add("attach-daemon", self.command)
+        from hop3.orm import App  # noqa: PLC0415 - Avoid circular import
+
+        app = App(name=self.app_name)
+
+        # Build PATH with virtualenv bin directory first
+        venv_bin = app.virtualenv_path / "bin"
+        path_dirs = [
+            str(venv_bin),
+            "/usr/local/sbin",
+            "/usr/local/bin",
+            "/usr/sbin",
+            "/usr/bin",
+        ]
+        path_value = ":".join(path_dirs)
+
+        # Wrap command in shell with explicit PATH to ensure virtualenv binaries are found
+        # This is required because uWSGI's attach-daemon spawns sh which doesn't
+        # inherit the env vars set in the uWSGI config
+        shell_cmd = f'sh -c "export PATH={path_value}; {self.command}"'
+        self.settings.add("attach-daemon", shell_cmd)
 
 
 @dataclass
@@ -381,4 +403,21 @@ class GenericWorker(UwsgiWorker):
     kind: str = "generic"
 
     def update_settings(self) -> None:
-        self.settings.add("attach-daemon", self.command)
+        from hop3.orm import App  # noqa: PLC0415 - Avoid circular import
+
+        app = App(name=self.app_name)
+
+        # Build PATH with virtualenv bin directory first
+        venv_bin = app.virtualenv_path / "bin"
+        path_dirs = [
+            str(venv_bin),
+            "/usr/local/sbin",
+            "/usr/local/bin",
+            "/usr/sbin",
+            "/usr/bin",
+        ]
+        path_value = ":".join(path_dirs)
+
+        # Wrap command in shell with explicit PATH to ensure virtualenv binaries are found
+        shell_cmd = f'sh -c "export PATH={path_value}; {self.command}"'
+        self.settings.add("attach-daemon", shell_cmd)

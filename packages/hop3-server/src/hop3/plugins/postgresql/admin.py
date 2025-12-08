@@ -10,10 +10,26 @@ connection configuration and can be injected via Dishka DI.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from hop3.lib.config import Config
+
+
+def _get_hop3_config() -> Config:
+    """Get the global hop3 configuration.
+
+    Reads from HOP3_ROOT/hop3-server.toml if it exists,
+    otherwise falls back to environment variables.
+    """
+    hop3_root = Path(os.environ.get("HOP3_ROOT", "/home/hop3"))
+    config_file = hop3_root / "hop3-server.toml"
+    if config_file.exists():
+        return Config(file=config_file)
+    return Config()
 
 
 @dataclass(frozen=True)
@@ -28,11 +44,19 @@ class PostgresAdmin:
     The actual PostgreSQL operations are handled by PostgresAddon
     instances, which can use this admin service for connection details.
 
-    Configuration is read from environment variables with POSTGRES_ prefix:
-    - POSTGRES_HOST (default: localhost)
-    - POSTGRES_PORT (default: 5432)
-    - POSTGRES_SUPERUSER (default: postgres)
-    - POSTGRES_SUPERUSER_PASSWORD (optional)
+    Configuration can be provided in two ways:
+    1. URI format (preferred for managed databases):
+       - POSTGRES_ADMIN_URL=postgresql://user:password@host:port/dbname
+
+    2. Individual settings (with POSTGRES_ prefix):
+       - POSTGRES_HOST (default: localhost)
+       - POSTGRES_PORT (default: 5432)
+       - POSTGRES_SUPERUSER (default: postgres)
+       - POSTGRES_SUPERUSER_PASSWORD (optional)
+
+    Configuration is read from:
+    - HOP3_ROOT/hop3-server.toml (if exists)
+    - Environment variables (fallback)
 
     Attributes:
         host: PostgreSQL server host
@@ -50,20 +74,85 @@ class PostgresAdmin:
     def from_config(cls, config: Config | None = None) -> PostgresAdmin:
         """Create PostgresAdmin from configuration.
 
+        Supports two configuration styles:
+        1. URI format: POSTGRES_ADMIN_URL=postgresql://user:pass@host:port/db
+        2. Individual settings: POSTGRES_HOST, POSTGRES_PORT, etc.
+
         Args:
-            config: Optional Config instance. If not provided, creates one with POSTGRES_ prefix.
+            config: Optional Config instance. If not provided, reads from
+                   hop3-server.toml or environment variables.
 
         Returns:
-            PostgresAdmin instance configured from environment/config file
+            PostgresAdmin instance configured from config file or environment
         """
         if config is None:
-            config = Config(env_prefix="POSTGRES_")
+            config = _get_hop3_config()
+
+        # First, check for URI-style configuration
+        # Try POSTGRES_ADMIN_URL first, then POSTGRES_URL
+        admin_url = config.get_str("POSTGRES_ADMIN_URL", None)
+        if not admin_url:
+            admin_url = config.get_str("POSTGRES_URL", None)
+
+        if admin_url:
+            return cls.from_url(admin_url)
+
+        # Fall back to individual settings with POSTGRES_ prefix
+        prefix_config = Config(env_prefix="POSTGRES_")
+
+        # Also check the main config file for POSTGRES_* keys
+        host = prefix_config.get_str("HOST", None) or config.get_str(
+            "POSTGRES_HOST", "localhost"
+        )
+        port_str = prefix_config.get_str("PORT", None) or config.get_str(
+            "POSTGRES_PORT", "5432"
+        )
+        superuser = prefix_config.get_str("SUPERUSER", None) or config.get_str(
+            "POSTGRES_SUPERUSER", "postgres"
+        )
+        password = prefix_config.get_str("SUPERUSER_PASSWORD", None) or config.get_str(
+            "POSTGRES_SUPERUSER_PASSWORD", None
+        )
 
         return cls(
-            host=config.get_str("HOST", "localhost"),
-            port=config.get_int("PORT", 5432),
-            superuser=config.get_str("SUPERUSER", "postgres"),
-            superuser_password=config.get_str("SUPERUSER_PASSWORD", None),
+            host=host,
+            port=int(port_str),
+            superuser=superuser,
+            superuser_password=password,
+        )
+
+    @classmethod
+    def from_url(cls, url: str) -> PostgresAdmin:
+        """Create PostgresAdmin from a PostgreSQL URL.
+
+        Args:
+            url: PostgreSQL connection URL (postgresql://user:pass@host:port/db)
+
+        Returns:
+            PostgresAdmin instance
+
+        Raises:
+            ValueError: If URL is invalid or missing required components
+        """
+        parsed = urlparse(url)
+
+        if parsed.scheme not in {"postgresql", "postgres"}:
+            msg = f"Invalid PostgreSQL URL scheme: {parsed.scheme}"
+            raise ValueError(msg)
+
+        if not parsed.hostname:
+            msg = "PostgreSQL URL must include a hostname"
+            raise ValueError(msg)
+
+        if not parsed.username:
+            msg = "PostgreSQL URL must include a username"
+            raise ValueError(msg)
+
+        return cls(
+            host=parsed.hostname,
+            port=parsed.port or 5432,
+            superuser=parsed.username,
+            superuser_password=parsed.password,
         )
 
     def get_connection_params(self, dbname: str = "template1") -> dict[str, Any]:

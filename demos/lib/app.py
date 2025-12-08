@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -12,18 +13,31 @@ from typing import TYPE_CHECKING
 
 from lib.commands import run_hop3
 from lib.output import (
-    Colors,
+    cyan,
+    dim,
     get_output_level,
+    green,
     pause,
     print_error,
     print_header,
     print_info,
     print_step,
     print_success,
+    yellow,
 )
 
 if TYPE_CHECKING:
     from lib.context import DemoContext
+
+
+def ensure_app_removed(app_name: str) -> None:
+    """Ensure an app doesn't exist before deploying.
+
+    Args:
+        app_name: Name of the application to remove if it exists
+    """
+    # Try to destroy the app, ignoring errors if it doesn't exist
+    run_hop3(f"app:destroy {app_name} -y", check=False, show=False, quiet=True)
 
 
 def deploy_app(ctx: DemoContext, app_name: str, app_dir: Path) -> None:
@@ -34,6 +48,9 @@ def deploy_app(ctx: DemoContext, app_name: str, app_dir: Path) -> None:
         app_name: Name of the application
         app_dir: Path to the application directory
     """
+    # Ensure clean state by removing any existing app
+    ensure_app_removed(app_name)
+
     print_step(f"Deploying {app_name} application...")
     original_dir = os.getcwd()
     try:
@@ -68,17 +85,66 @@ def redeploy_app(ctx: DemoContext, app_name: str, app_dir: Path) -> None:
         app_dir: Path to the application directory
     """
     print_step("Redeploying to apply configuration...")
+
+    # Simply redeploy - the app already exists with its config
+    # DeployCmd handles existing apps by retrieving them, preserving env_vars
     original_dir = os.getcwd()
     try:
         os.chdir(app_dir)
         run_hop3(f"deploy {app_name}")
     finally:
         os.chdir(original_dir)
+
     print_success("Application redeployed")
     pause(ctx.pause_between_steps)
 
 
-def wait_for_app(seconds: int = 3, message: str = "Waiting for application to start...") -> None:
+def _get_app_config(app_name: str) -> dict[str, str]:
+    """Get current config for an app.
+
+    Returns:
+        Dict of config key-value pairs.
+    """
+    result = run_hop3(f"config:show {app_name}", check=False, show=False, quiet=True)
+    config = {}
+    if result.returncode == 0 and result.stdout:
+        lines = result.stdout.strip().split("\n")
+        # Skip header line and separator line (tabulate format)
+        # Format: "Key    Value\n-----  ------\nKEY1   val1\n..."
+        data_started = False
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            # Skip header and separator lines
+            if stripped.startswith(("Key", "-")):
+                data_started = True
+                continue
+            if not data_started:
+                continue
+            # Parse table row: split on 2+ spaces (tabulate column separator)
+            parts = re.split(r"\s{2,}", stripped, maxsplit=1)
+            if len(parts) == 2:
+                key, value = parts
+                if key and not key.startswith("#"):
+                    config[key] = value
+    return config
+
+
+def _restore_app_config(app_name: str, config: dict[str, str]) -> None:
+    """Restore config to an app.
+
+    Args:
+        app_name: Name of the application
+        config: Dict of config key-value pairs
+    """
+    for key, value in config.items():
+        run_hop3(f"config:set {app_name} {key}={value}", show=False, quiet=True)
+
+
+def wait_for_app(
+    seconds: int = 5, message: str = "Waiting for application to start..."
+) -> None:
     """Wait for an application to start.
 
     Args:
@@ -106,48 +172,84 @@ def test_app_via_curl(
     ctx: DemoContext,
     app_url: str,
     expected_content: str,
+    max_retries: int = 10,
+    retry_delay: float = 2.0,
 ) -> None:
-    """Test application accessibility via curl.
+    """Test application accessibility via curl with retries.
 
     Args:
         ctx: Demo context
         app_url: URL to test
         expected_content: Content expected in response
+        max_retries: Maximum number of retry attempts
+        retry_delay: Seconds to wait between retries
 
     Raises:
         RuntimeError: If application is not accessible or content doesn't match
     """
     print_step(f"Verifying external access via {app_url}...")
-    curl_cmd = f"curl -sk {app_url}/"
-    result = subprocess.run(curl_cmd, shell=True, capture_output=True, text=True, check=False)
+    curl_cmd = f"curl -sk {app_url}"
 
-    if result.returncode == 0 and expected_content in result.stdout:
-        if get_output_level() >= 2:  # NORMAL or VERBOSE
-            print(f"  {Colors.GREEN}Response:{Colors.RESET}")
-            print(f"  {result.stdout.strip()}")
-            print()
-        print_success(f"Application accessible at {app_url}")
-    else:
-        print_error(f"Failed to access application at {app_url}")
-        if result.stdout:
-            print(f"  {Colors.YELLOW}Got response:{Colors.RESET}")
-            print(f"  {result.stdout[:200].strip()}")
-        raise RuntimeError(f"Application not accessible at {app_url}")
+    last_result = None
+    for attempt in range(max_retries):
+        result = subprocess.run(
+            curl_cmd, shell=True, capture_output=True, text=True, check=False
+        )
+        last_result = result
 
-    pause(ctx.pause_between_steps)
+        if result.returncode == 0 and expected_content in result.stdout:
+            if get_output_level() >= 2:  # NORMAL or VERBOSE
+                print(f"  {green('Response:')}")
+                print(f"  {result.stdout.strip()}")
+                print()
+            print_success(f"Application accessible at {app_url}")
+            pause(ctx.pause_between_steps)
+            return
+
+        # Check if we got a 502/504 Bad Gateway or 404 (app may still be starting)
+        if any(
+            err in result.stdout
+            for err in ["502 Bad Gateway", "504 Gateway", "404 Not Found"]
+        ) or "Connection refused" in str(result.stderr):
+            if attempt < max_retries - 1:
+                print_info(
+                    f"  App not ready yet, retrying in {retry_delay}s... ({attempt + 1}/{max_retries})"
+                )
+                time.sleep(retry_delay)
+                continue
+
+        # Got a different error, fail immediately
+        break
+
+    print_error(f"Failed to access application at {app_url}")
+    if last_result and last_result.stdout:
+        print(f"  {yellow('Got response:')}")
+        print(f"  {last_result.stdout[:200].strip()}")
+    msg = f"Application not accessible at {app_url}"
+    raise RuntimeError(msg)
 
 
-def test_app_via_hop3(ctx: DemoContext, app_name: str, app_url: str) -> None:
+def test_app_via_hop3(
+    ctx: DemoContext,
+    app_name: str,
+    app_url: str,
+    *,
+    is_static: bool = False,
+) -> None:
     """Test application using hop3 app:ping command.
 
     Args:
         ctx: Demo context
         app_name: Name of the application
         app_url: URL for display purposes
+        is_static: If True, skip app:ping (static apps have no backend port)
     """
     print_step(f"Testing the application via HTTPS at {app_url}...")
     print_info("Using curl with -k flag to accept self-signed certificate.")
-    run_hop3(f"app:ping {app_name}", check=False)
+    if is_static:
+        print_info("Static app - skipping internal ping (served directly by nginx).")
+    else:
+        run_hop3(f"app:ping {app_name}", check=False)
     pause(ctx.pause_between_steps)
 
 
@@ -243,7 +345,7 @@ def show_file_content(
         if max_lines:
             lines = lines[:max_lines]
         for line in lines:
-            print(f"  {Colors.DIM}{line}{Colors.RESET}")
+            print(f"  {dim(line)}")
         print()
 
 
@@ -259,8 +361,8 @@ def show_app_structure(app_name: str, files: list[tuple[str, str]]) -> None:
 
     print_step("Application structure:")
     print()
-    print(f"  {Colors.CYAN}{app_name}/{Colors.RESET}")
+    print(f"  {cyan(app_name + '/')}")
     for i, (filename, description) in enumerate(files):
-        prefix = "└──" if i == len(files) - 1 else "├──"
-        print(f"  {prefix} {Colors.GREEN}{filename}{Colors.RESET} - {description}")
+        prefix = "+--" if i == len(files) - 1 else "|--"
+        print(f"  {prefix} {green(filename)} - {description}")
     print()

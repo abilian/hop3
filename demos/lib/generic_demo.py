@@ -18,15 +18,15 @@ if TYPE_CHECKING:
 
 # Files that indicate a Hop3-compatible application
 APP_INDICATORS = [
-    "hop3.toml",        # Hop3 configuration
-    "Dockerfile",       # Docker-based app
+    "hop3.toml",  # Hop3 configuration
+    "Dockerfile",  # Docker-based app
     "docker-compose.yml",  # Docker Compose app
-    "requirements.txt", # Python app
-    "package.json",     # Node.js app
-    "Procfile",         # Heroku-style app
-    "Gemfile",          # Ruby app
-    "go.mod",           # Go app
-    "Cargo.toml",       # Rust app
+    "requirements.txt",  # Python app
+    "package.json",  # Node.js app
+    "Procfile",  # Heroku-style app
+    "Gemfile",  # Ruby app
+    "go.mod",  # Go app
+    "Cargo.toml",  # Rust app
 ]
 
 
@@ -112,46 +112,49 @@ def run_generic_demo(ctx: DemoContext, app_dir: Path) -> None:
         wait_for_app,
     )
     from lib.output import (
-        Colors,
+        bold,
         get_output_level,
         pause,
         print_blank,
+        print_error,
         print_header,
         print_info,
         print_step,
         print_success,
-        print_error,
     )
 
     # Validate the directory
     if not app_dir.exists():
         print_error(f"Directory not found: {app_dir}")
-        raise RuntimeError(f"Directory not found: {app_dir}")
+        msg = f"Directory not found: {app_dir}"
+        raise RuntimeError(msg)
 
     if not app_dir.is_dir():
         print_error(f"Not a directory: {app_dir}")
-        raise RuntimeError(f"Not a directory: {app_dir}")
+        msg = f"Not a directory: {app_dir}"
+        raise RuntimeError(msg)
 
     # Detect app type
     app_type = detect_app_type(app_dir)
     if not app_type:
         print_error(f"No Hop3-compatible application found in: {app_dir}")
         print_info("Expected one of: " + ", ".join(APP_INDICATORS))
-        raise RuntimeError(f"Not a Hop3-compatible application: {app_dir}")
+        msg = f"Not a Hop3-compatible application: {app_dir}"
+        raise RuntimeError(msg)
 
     # Derive app name from directory
     app_name = sanitize_app_name(app_dir.name)
-    app_hostname = f"{app_name}.hop.demo"
+    app_hostname = f"{app_name}.hop"
     app_url = f"https://{app_hostname}"
 
     # Print header and details (skip in quiet mode)
     print_header(f"Generic Demo: {app_dir.name}")
     if get_output_level() >= 2:  # NORMAL or VERBOSE
         print_blank()
-        print(f"  {Colors.BOLD}Application:{Colors.RESET} {app_dir}")
-        print(f"  {Colors.BOLD}Type:{Colors.RESET}        {app_type}")
-        print(f"  {Colors.BOLD}App name:{Colors.RESET}    {app_name}")
-        print(f"  {Colors.BOLD}Hostname:{Colors.RESET}    {app_hostname}")
+        print(f"  {bold('Application:')} {app_dir}")
+        print(f"  {bold('Type:')}        {app_type}")
+        print(f"  {bold('App name:')}    {app_name}")
+        print(f"  {bold('Hostname:')}    {app_hostname}")
         print_blank()
     pause(ctx.pause_between_steps)
 
@@ -189,7 +192,9 @@ def run_generic_demo(ctx: DemoContext, app_dir: Path) -> None:
 
     print_step(f"Application should be available at: {app_url}")
     print_info("Note: DNS must resolve to the server for external access.")
-    print_info(f"You can test locally with: curl -sk --resolve {app_hostname}:443:{ctx.server_ip} {app_url}/")
+    print_info(
+        f"You can test locally with: curl -sk --resolve {app_hostname}:443:{ctx.server_ip} {app_url}/"
+    )
     pause(ctx.pause_between_steps)
 
     # Cleanup

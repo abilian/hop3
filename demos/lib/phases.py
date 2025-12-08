@@ -13,7 +13,7 @@ from lib.commands import run_hop3
 from lib.context import DemoResult, OutputLevel
 from lib.discovery import load_demo_module
 from lib.output import (
-    Colors,
+    dim,
     pause,
     print_command,
     print_error,
@@ -22,6 +22,7 @@ from lib.output import (
     print_phase_result,
     print_step,
     print_success,
+    red,
 )
 
 if TYPE_CHECKING:
@@ -41,6 +42,7 @@ def run_prerequisites(ctx: DemoContext) -> bool:
     from lib.server import (
         check_hop3_installed,
         check_ubuntu_version,
+        configure_server_settings,
         install_hop3,
         update_hop3_server,
         verify_ssh_access,
@@ -67,6 +69,10 @@ def run_prerequisites(ctx: DemoContext) -> bool:
             install_hop3(ctx)
         else:
             update_hop3_server(ctx)
+
+        # Configure server settings (DEBUG logging, Docker hosts)
+        pause(ctx.pause_between_steps)
+        configure_server_settings(ctx)
 
         print_phase_result(True)
         pause(ctx.pause_between_steps)
@@ -142,14 +148,14 @@ def configure_cli(ctx: DemoContext) -> bool:
             if result.returncode != 0:
                 print_error("Failed to login")
                 if result.stderr:
-                    print(f"  {Colors.RED}{result.stderr.strip()}{Colors.RESET}")
+                    print(f"  {red(result.stderr.strip())}")
                 print_phase_result(False)
                 return False
             print_success(f"Logged in as '{ctx.admin_user}'")
         else:
             print_error("Failed to create admin user")
             if result.stderr:
-                print(f"  {Colors.RED}{result.stderr.strip()}{Colors.RESET}")
+                print(f"  {red(result.stderr.strip())}")
             print_phase_result(False)
             return False
     else:
@@ -211,54 +217,52 @@ def run_demo(
                 status="pass",
                 duration=duration,
             )
-        else:
-            # Load and run custom demo script
-            script_path = demo_dir / "demo-script.py"
-            module = load_demo_module(script_path)
-            if not module:
-                duration = time.time() - start_time
-                print_phase_result(False)
-                return DemoResult(
-                    name=demo_name,
-                    title=title,
-                    status="fail",
-                    duration=duration,
-                    error="Failed to load demo script",
-                )
+        # Load and run custom demo script
+        script_path = demo_dir / "demo-script.py"
+        module = load_demo_module(script_path)
+        if not module:
+            duration = time.time() - start_time
+            print_phase_result(False)
+            return DemoResult(
+                name=demo_name,
+                title=title,
+                status="fail",
+                duration=duration,
+                error="Failed to load demo script",
+            )
 
-            # Get demo info
-            title = getattr(module, "TITLE", demo_name)
-            description = getattr(module, "DESCRIPTION", "")
+        # Get demo info
+        title = getattr(module, "TITLE", demo_name)
+        description = getattr(module, "DESCRIPTION", "")
 
+        if ctx.output_level >= OutputLevel.NORMAL:
+            print_header(f"Running: {title}")
+            if description:
+                print(dim(description))
+                print()
+
+        # Run demo's main function
+        if hasattr(module, "run"):
+            module.run(ctx)
+            duration = time.time() - start_time
             if ctx.output_level >= OutputLevel.NORMAL:
-                print_header(f"Running: {title}")
-                if description:
-                    print(f"{Colors.DIM}{description}{Colors.RESET}")
-                    print()
-
-            # Run demo's main function
-            if hasattr(module, "run"):
-                module.run(ctx)
-                duration = time.time() - start_time
-                if ctx.output_level >= OutputLevel.NORMAL:
-                    print_success(f"Demo '{demo_name}' completed successfully")
-                print_phase_result(True)
-                return DemoResult(
-                    name=demo_name,
-                    title=title,
-                    status="pass",
-                    duration=duration,
-                )
-            else:
-                duration = time.time() - start_time
-                print_phase_result(False)
-                return DemoResult(
-                    name=demo_name,
-                    title=title,
-                    status="fail",
-                    duration=duration,
-                    error="Demo has no run() function",
-                )
+                print_success(f"Demo '{demo_name}' completed successfully")
+            print_phase_result(True)
+            return DemoResult(
+                name=demo_name,
+                title=title,
+                status="pass",
+                duration=duration,
+            )
+        duration = time.time() - start_time
+        print_phase_result(False)
+        return DemoResult(
+            name=demo_name,
+            title=title,
+            status="fail",
+            duration=duration,
+            error="Demo has no run() function",
+        )
 
     except KeyboardInterrupt:
         print()

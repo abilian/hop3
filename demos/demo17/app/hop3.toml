@@ -1,0 +1,10 @@
+# hop3.toml - Multi-container Docker application
+
+[metadata]
+id = "demo17-multi-container"
+version = "0.1.0"
+title = "Multi-Container Docker Demo"
+description = "Demonstrates multi-container deployment with custom docker-compose.yml"
+
+[build]
+builder = "docker"

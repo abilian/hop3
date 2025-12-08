@@ -109,6 +109,13 @@ class HopConfig:
         """UNSAFE MODE: Disables authentication. USE ONLY FOR TESTING."""
         return self._config_loader.get_bool("HOP3_UNSAFE", False)
 
+    # Logging Configuration
+
+    @property
+    def HOP3_LOG_LEVEL(self) -> str:
+        """Log level: DEBUG, INFO (default), WARNING, ERROR."""
+        return self._config_loader.get_str("HOP3_LOG_LEVEL", "INFO").upper()
+
     # Proxy Configuration
 
     @property
@@ -285,6 +292,7 @@ HOP3_DEBUG: bool = config.HOP3_DEBUG
 HOP3_SECRET_KEY: str = config.HOP3_SECRET_KEY
 HOP3_TOKEN_EXPIRY_HOURS: int = config.HOP3_TOKEN_EXPIRY_HOURS
 HOP3_UNSAFE: bool = config.HOP3_UNSAFE
+HOP3_LOG_LEVEL: str = config.HOP3_LOG_LEVEL
 HOP3_PROXY_TYPE: str = config.HOP3_PROXY_TYPE
 MODE: str = config.MODE
 
@@ -325,6 +333,7 @@ __all__ = [  # noqa: RUF022
     "HOP3_SECRET_KEY",
     "HOP3_TOKEN_EXPIRY_HOURS",
     "HOP3_UNSAFE",
+    "HOP3_LOG_LEVEL",
     "HOP3_PROXY_TYPE",
     "MODE",
     # Paths

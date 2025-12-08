@@ -76,7 +76,8 @@ class StaticDeployer(Deployer):
         env.parse_settings(env_file)
 
         # Load environment variables from the ORM
-        env.update(self.app.get_runtime_env())
+        runtime_env = self.app.get_runtime_env()
+        env.update(runtime_env)
 
         # Handle IPv6
         if env.get_bool("DISABLE_IPV6"):
@@ -103,12 +104,21 @@ class StaticDeployer(Deployer):
         """
         log(f"Deploying static app '{self.app.name}'...", level=2, fg="blue")
 
-        # Use state machine transition
-        # The App.start() method handles STOPPED -> STARTING -> RUNNING
-        # For deployers, we can directly set to RUNNING if already past STARTING
-        if self.app.run_state == AppStateEnum.STOPPED:
-            self.app._transition_state(AppStateEnum.STARTING)  # noqa: SLF001
-        self.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
+        current_state = self.app.run_state
+
+        # Handle redeployment: if already running, just update nginx config
+        if current_state == AppStateEnum.RUNNING:
+            log(
+                f"App '{self.app.name}' is running, updating configuration...",
+                level=1,
+                fg="blue",
+            )
+        else:
+            # Use state machine transition for initial deployment
+            # STOPPED -> STARTING -> RUNNING
+            if current_state == AppStateEnum.STOPPED:
+                self.app._transition_state(AppStateEnum.STARTING)  # noqa: SLF001
+            self.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
 
         # Set up nginx configuration for static file serving
         env = self._make_env()

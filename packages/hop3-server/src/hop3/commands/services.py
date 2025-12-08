@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.plugins import get_addon
 from hop3.lib.decorators import register
+from hop3.lib.logging import server_log
 from hop3.orm import AddonCredential, EnvVar
 
 from ._base import Command
@@ -38,6 +39,8 @@ class AddonsCreateCmd(Command):
 
     def call(self, *args):
         """Create a new service instance."""
+        server_log.info("addons:create called", args=args)
+
         if len(args) < 2:
             return [
                 {
@@ -55,10 +58,17 @@ class AddonsCreateCmd(Command):
 
         try:
             # Get the service strategy from the plugin system
+            server_log.info(
+                "addons:create getting addon",
+                service_type=service_type,
+                addon_name=addon_name,
+            )
             addon = get_addon(service_type, addon_name)
 
             # Create the service
+            server_log.info("addons:create calling addon.create()")
             addon.create()
+            server_log.info("addons:create addon.create() completed successfully")
 
             return [
                 {
@@ -72,8 +82,16 @@ class AddonsCreateCmd(Command):
             ]
 
         except RuntimeError as e:
+            server_log.error("addons:create RuntimeError", error=str(e))
             return [{"t": "error", "text": f"Error creating service: {e}"}]
         except Exception as e:
+            server_log.error(
+                "addons:create Exception",
+                error_type=type(e).__name__,
+                error=str(e),
+                exc_info=True,
+            )
+            traceback.print_exc()
             return [{"t": "error", "text": f"Unexpected error: {e}"}]
 
 
@@ -149,30 +167,73 @@ class AddonsAttachCmd(Command):
             )
             self.db_session.add(credential)
 
-    def _add_env_vars(self, app_id: int, connection_details: dict) -> list[str]:
+    def _add_env_vars(self, app, connection_details: dict) -> list[str]:
         """Add or update environment variables for the app.
+
+        Uses the same pattern as config:set - using the relationship and
+        appending to app.env_vars to ensure SQLAlchemy properly tracks changes.
+
+        Args:
+            app: The App ORM object (not just app_id)
+            connection_details: Dict of env var name -> value
 
         Returns:
             List of status messages for each variable added/updated
         """
+        server_log.info(
+            "Adding env vars from addon",
+            app_id=app.id,
+            app_name=app.name,
+            connection_details_keys=list(connection_details.keys()),
+            current_env_vars=[ev.name for ev in app.env_vars],
+        )
+
         added_vars = []
         for key, value in connection_details.items():
-            existing_var = (
-                self.db_session.query(EnvVar).filter_by(app_id=app_id, name=key).first()
+            # Truncate value for logging (don't log full URLs with passwords)
+            log_value = value[:30] + "..." if len(str(value)) > 30 else value
+            server_log.debug(
+                "Processing env var",
+                app_id=app.id,
+                key=key,
+                value_preview=log_value,
             )
 
-            if existing_var:
-                existing_var.value = value
-                added_vars.append(f"Updated {key}")
-            else:
-                env_var = EnvVar(app_id=app_id, name=key, value=value)
-                self.db_session.add(env_var)
-                added_vars.append(f"Added {key}")
+            # Check if variable already exists (same pattern as config:set)
+            existing = None
+            for env_var in app.env_vars:
+                if env_var.name == key:
+                    existing = env_var
+                    break
 
+            if existing:
+                existing.value = value
+                added_vars.append(f"Updated {key}")
+                server_log.info("Updated existing env var", app_id=app.id, key=key)
+            else:
+                # Create EnvVar with app_id and add to session
+                # Then append to app.env_vars for immediate visibility
+                # This pattern works with both real SQLAlchemy apps and mocks
+                new_var = EnvVar(app_id=app.id, name=key, value=value)
+                self.db_session.add(new_var)
+                # Also append to collection for immediate visibility
+                # (this is what config:set does via relationship assignment)
+                app.env_vars.append(new_var)
+                added_vars.append(f"Added {key}")
+                server_log.info("Added new env var", app_id=app.id, key=key)
+
+        server_log.info(
+            "Env vars processing complete",
+            app_id=app.id,
+            added_vars=added_vars,
+            total_env_vars=[ev.name for ev in app.env_vars],
+        )
         return added_vars
 
     def call(self, *args):
         """Attach a service to an application."""
+        server_log.info("addons:attach called", args=args)
+
         parsed = self._parse_attach_args(args)
         if not parsed:
             return [
@@ -187,6 +248,12 @@ class AddonsAttachCmd(Command):
             ]
 
         addon_name, app_name, service_type = parsed
+        server_log.info(
+            "addons:attach parsed args",
+            addon_name=addon_name,
+            app_name=app_name,
+            service_type=service_type,
+        )
 
         if not app_name:
             return [
@@ -204,19 +271,56 @@ class AddonsAttachCmd(Command):
             app = app_repo.get_one_or_none(name=app_name)
 
             if not app:
+                server_log.warning("addons:attach app not found", app_name=app_name)
                 return [{"t": "error", "text": f"App '{app_name}' not found"}]
+
+            server_log.info(
+                "addons:attach found app",
+                app_name=app_name,
+                app_id=app.id,
+                current_env_vars_count=len(list(app.env_vars)),
+            )
 
             # Get the service strategy and connection details
             addon = get_addon(service_type, addon_name)
+            server_log.info(
+                "addons:attach got addon",
+                addon_type=type(addon).__name__,
+                addon_name=addon_name,
+            )
+
             connection_details = addon.get_connection_details()
+            server_log.info(
+                "addons:attach got connection details",
+                connection_details_keys=list(connection_details.keys()),
+                has_database_url="DATABASE_URL" in connection_details,
+                has_redis_url="REDIS_URL" in connection_details,
+            )
 
             # Store credentials and add environment variables
             self._store_or_update_credential(
                 app.id, service_type, addon_name, connection_details
             )
-            added_vars = self._add_env_vars(app.id, connection_details)
+            # Pass the app object (not just app.id) to properly track relationships
+            added_vars = self._add_env_vars(app, connection_details)
 
             self.db_session.commit()
+            server_log.info(
+                "addons:attach committed",
+                app_id=app.id,
+                added_vars=added_vars,
+            )
+
+            # Verify env vars were stored
+            app_repo2 = AppRepository(session=self.db_session)
+            app_after = app_repo2.get_one_or_none(name=app_name)
+            if app_after:
+                server_log.info(
+                    "addons:attach verification",
+                    app_id=app_after.id,
+                    env_vars_count_after=len(list(app_after.env_vars)),
+                    env_vars_names=[ev.name for ev in app_after.env_vars],
+                )
 
             return [
                 {
@@ -229,13 +333,15 @@ class AddonsAttachCmd(Command):
                 },
                 {
                     "t": "text",
-                    "text": f"\nRestart your app for changes to take effect:\n  hop3 restart {app_name}",
+                    "text": f"\nRedeploy your app for changes to take effect:\n  hop3 deploy {app_name}",
                 },
             ]
 
         except RuntimeError as e:
+            server_log.error("addons:attach RuntimeError", error=str(e))
             return [{"t": "error", "text": f"Error attaching service: {e}"}]
         except Exception as e:
+            server_log.error("addons:attach Exception", error=str(e), exc_info=True)
             traceback.print_exc()
             return [{"t": "error", "text": f"Unexpected error: {e}"}]
 
