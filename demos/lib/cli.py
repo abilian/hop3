@@ -140,7 +140,7 @@ Examples:
         "-v",
         "--verbose",
         action="store_true",
-        help="Show detailed output and stack traces",
+        help="Show detailed output including Docker build logs",
     )
     output.add_argument(
         "-q",
@@ -153,6 +153,11 @@ Examples:
         "--silent",
         action="store_true",
         help="No output except errors (errors go to stderr)",
+    )
+    output.add_argument(
+        "--debug",
+        action="store_true",
+        help="Maximum verbosity (passes --debug to hop3 for build logs)",
     )
 
     # Information

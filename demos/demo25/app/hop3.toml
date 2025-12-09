@@ -1,0 +1,7 @@
+# Demo 25: Filebrowser
+[app]
+name = "demo25"
+builder = "docker"
+
+[web]
+port = 8080

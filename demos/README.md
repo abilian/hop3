@@ -73,7 +73,7 @@ Production-ready applications demonstrating Hop3's capabilities.
 | demo22 | Radicale | CalDAV/CardDAV server | - |
 | demo23 | DokuWiki | Simple wiki (file-based) | - |
 | demo24 | Listmonk | Newsletter & mailing list manager | PostgreSQL |
-| demo25 | OpenCloud | File sharing platform | - |
+| demo25 | Filebrowser | Web-based file manager | - |
 | demo26 | Miniflux | RSS/Atom feed reader | PostgreSQL |
 
 ### Default Credentials
@@ -87,7 +87,7 @@ Applications with web interfaces use these default credentials:
 | demo22 | Radicale | demo | demo |
 | demo23 | DokuWiki | - | (no auth for demo) |
 | demo24 | Listmonk | admin | admin123 |
-| demo25 | OpenCloud | admin | changeme |
+| demo25 | Filebrowser | admin | admin |
 | demo26 | Miniflux | admin | admin123 |
 
 Use `python -m demos.demo --list` to see all available demos.

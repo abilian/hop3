@@ -18,6 +18,7 @@ import subprocess
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NoReturn
 
 from hop3.config import HOP3_ROOT, HOP3_USER
 from hop3.core.env import Env
@@ -150,12 +151,12 @@ class DockerComposeDeployer(Deployer):
                 # Transform localhost to host.docker.internal for service URLs
                 # This allows containers to reach PostgreSQL/Redis on the host
                 value = env_var.value
-                if env_var.name in (
+                if env_var.name in {
                     "DATABASE_URL",
                     "REDIS_URL",
                     "PGHOST",
                     "REDIS_HOST",
-                ):
+                }:
                     value = value.replace("localhost", "host.docker.internal")
                     value = value.replace("127.0.0.1", "host.docker.internal")
                 env_lines.append(f"      - {env_var.name}={value}")
@@ -505,6 +506,10 @@ services:
         Raises:
             Abort: If command fails and check=True
         """
+        # Log the command being run at verbose level
+        cmd_str = " ".join(cmd)
+        log(f"Running: {cmd_str}", level=2, fg="cyan")
+
         try:
             result = subprocess.run(
                 cmd,
@@ -515,6 +520,11 @@ services:
                 env=env,
                 timeout=DOCKER_COMMAND_TIMEOUT,
             )
+
+            # Log output at verbose level for debugging
+            self._log_output(result.stdout, level=2, fg="cyan")
+            self._log_output(result.stderr, level=2, fg="yellow")
+
             return result
 
         except FileNotFoundError:
@@ -522,36 +532,55 @@ services:
             raise Abort(msg)
 
         except subprocess.TimeoutExpired:
-            msg = f"Docker Compose command timed out: {' '.join(cmd)}"
+            msg = f"Docker Compose command timed out: {cmd_str}"
             raise Abort(msg)
 
         except subprocess.CalledProcessError as e:
-            # Log detailed error for debugging
-            log(
-                f"Docker Compose failed with exit code {e.returncode}",
-                level=1,
-                fg="red",
-            )
-            stderr_msg = e.stderr.strip() if e.stderr else "No error details"
-            stdout_msg = e.stdout.strip() if e.stdout else ""
-            if e.stderr:
-                log(f"stderr: {stderr_msg}", level=1, fg="red")
-            if e.stdout:
-                log(f"stdout: {stdout_msg}", level=2)
-            # Log to server_log for persistent debugging
-            server_log.error(
-                "Docker Compose command failed",
-                app_name=self.app_name,
-                command=" ".join(cmd),
-                exit_code=e.returncode,
-                stderr=stderr_msg[:500],  # Truncate for logging
-                stdout=stdout_msg[:200] if stdout_msg else "",
-            )
-            # Include stderr in the abort message for visibility
-            msg = (
-                f"Docker Compose command failed: {' '.join(cmd)}\n  Error: {stderr_msg}"
-            )
-            raise Abort(msg)
+            self._handle_compose_error(e, cmd_str)
+
+    def _log_output(
+        self, output: str | None, level: int = 2, fg: str = "", prefix: str = "  "
+    ) -> None:
+        """Log multiline output line by line."""
+        if not output:
+            return
+        for line in output.strip().split("\n"):
+            if line.strip():
+                log(f"{prefix}{line}", level=level, fg=fg)
+
+    def _handle_compose_error(
+        self, e: subprocess.CalledProcessError, cmd_str: str
+    ) -> NoReturn:
+        """Handle Docker Compose command error."""
+        # Log detailed error for debugging
+        log(
+            f"Docker Compose failed with exit code {e.returncode}",
+            level=1,
+            fg="red",
+        )
+        stderr_msg = e.stderr.strip() if e.stderr else "No error details"
+        stdout_msg = e.stdout.strip() if e.stdout else ""
+
+        # Show full output for debugging
+        if e.stdout:
+            log("Command output:", level=1, fg="yellow")
+            self._log_output(stdout_msg, level=1, prefix="  ")
+        if e.stderr:
+            log("Error output:", level=1, fg="red")
+            self._log_output(stderr_msg, level=1, fg="red", prefix="  ")
+
+        # Log to server_log for persistent debugging
+        server_log.error(
+            "Docker Compose command failed",
+            app_name=self.app_name,
+            command=cmd_str,
+            exit_code=e.returncode,
+            stderr=stderr_msg[:500],  # Truncate for logging
+            stdout=stdout_msg[:200] if stdout_msg else "",
+        )
+        # Include stderr in the abort message for visibility
+        msg = f"Docker Compose command failed: {cmd_str}\n  Error: {stderr_msg}"
+        raise Abort(msg)
 
     def _discover_port(
         self, expected_port: int | None = None, compose_file: Path | None = None

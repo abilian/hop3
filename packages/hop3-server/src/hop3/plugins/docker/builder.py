@@ -11,11 +11,13 @@ be deployed using DockerComposeDeployer.
 from __future__ import annotations
 
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from hop3.core.protocols import BuildArtifact, BuildContext
 from hop3.lib import Abort, log
+from hop3.lib.logging import server_log
 
 
 @dataclass(frozen=True)
@@ -98,6 +100,9 @@ class DockerBuilder:
             Abort: If Docker is not found or build fails
         """
         cmd = ["docker", "build", "-t", image_tag, "."]
+        start_time = time.time()
+
+        log(f"Running: docker build -t {image_tag} .", level=2, fg="cyan")
 
         try:
             result = subprocess.run(
@@ -108,26 +113,134 @@ class DockerBuilder:
                 text=True,
                 timeout=600,  # 10 minute timeout for builds
             )
-            # Log build output at debug level
-            if result.stdout:
-                log(result.stdout, level=4)
+            self._handle_build_success(result, image_tag, start_time)
 
         except FileNotFoundError:
             msg = "Docker command not found. Is Docker installed and in your PATH?"
             raise Abort(msg)
 
         except subprocess.TimeoutExpired:
+            elapsed = time.time() - start_time
+            self._save_build_log("", "Build timed out after 10 minutes", elapsed)
             msg = "Docker build timed out after 10 minutes."
             raise Abort(msg)
 
         except subprocess.CalledProcessError as e:
-            log(
-                f"Docker build failed with exit code {e.returncode}:", level=1, fg="red"
+            self._handle_build_failure(e, image_tag, start_time)
+
+    def _handle_build_success(
+        self, result: subprocess.CompletedProcess, image_tag: str, start_time: float
+    ) -> None:
+        """Handle successful Docker build."""
+        elapsed = time.time() - start_time
+
+        # Log build output at verbose level (visible with -v flag)
+        self._log_output(result.stdout, level=2, fg="cyan")
+
+        # Save build logs to file for later retrieval
+        self._save_build_log(result.stdout, result.stderr, elapsed)
+
+        # Log summary at normal level
+        log(f"Docker build completed in {elapsed:.1f}s", level=1, fg="green")
+
+        # Log to server log for persistent debugging
+        server_log.info(
+            "Docker build completed",
+            app_name=self.app_name,
+            image_tag=image_tag,
+            duration_seconds=round(elapsed, 1),
+        )
+
+    def _handle_build_failure(
+        self, e: subprocess.CalledProcessError, image_tag: str, start_time: float
+    ) -> None:
+        """Handle failed Docker build."""
+        elapsed = time.time() - start_time
+
+        # Log error at normal level (always visible)
+        log(f"Docker build failed with exit code {e.returncode}:", level=1, fg="red")
+
+        # Show full build output (stdout) for debugging
+        if e.stdout:
+            log("Build output:", level=1, fg="yellow")
+            self._log_output(e.stdout, level=1, prefix="  ")
+
+        # Show error output
+        if e.stderr:
+            log("Error output:", level=1, fg="red")
+            self._log_output(e.stderr, level=1, fg="red", prefix="  ")
+
+        # Save build logs for later retrieval
+        self._save_build_log(e.stdout or "", e.stderr or "", elapsed, success=False)
+
+        # Log to server log
+        server_log.error(
+            "Docker build failed",
+            app_name=self.app_name,
+            image_tag=image_tag,
+            exit_code=e.returncode,
+            duration_seconds=round(elapsed, 1),
+            stderr=e.stderr[:500] if e.stderr else "",
+        )
+
+        msg = f"Docker build failed: {e.stderr[:200] if e.stderr else 'unknown error'}"
+        raise Abort(msg)
+
+    def _log_output(
+        self, output: str, level: int = 2, fg: str = "", prefix: str = ""
+    ) -> None:
+        """Log multiline output line by line."""
+        if not output:
+            return
+        for line in output.strip().split("\n"):
+            if line.strip():
+                log(f"{prefix}{line}", level=level, fg=fg)
+
+    def _save_build_log(
+        self, stdout: str, stderr: str, duration: float, success: bool = True
+    ) -> None:
+        """Save build log to app's log directory.
+
+        Args:
+            stdout: Build stdout output
+            stderr: Build stderr output
+            duration: Build duration in seconds
+            success: Whether build succeeded
+        """
+        try:
+            # Determine log directory - use app path if available
+            from hop3.config import HOP3_ROOT
+
+            app_log_dir = HOP3_ROOT / self.app_name / "log"
+            app_log_dir.mkdir(parents=True, exist_ok=True)
+
+            build_log_path = app_log_dir / "build.log"
+
+            # Format log content
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            status = "SUCCESS" if success else "FAILED"
+            content = f"""=== Docker Build Log ===
+Timestamp: {timestamp}
+App: {self.app_name}
+Status: {status}
+Duration: {duration:.1f}s
+
+=== STDOUT ===
+{stdout}
+
+=== STDERR ===
+{stderr}
+"""
+            build_log_path.write_text(content)
+            log(f"Build log saved to: {build_log_path}", level=2)
+
+        except Exception as e:
+            # Don't fail the build if log saving fails
+            server_log.warning(
+                "Failed to save build log",
+                app_name=self.app_name,
+                error=str(e),
             )
-            if e.stderr:
-                log(e.stderr, level=1, fg="red")
-            msg = f"Docker build failed: {e.stderr[:200] if e.stderr else 'unknown error'}"
-            raise Abort(msg)
 
     def _extract_metadata(self) -> dict:
         """Extract metadata from Dockerfile.
