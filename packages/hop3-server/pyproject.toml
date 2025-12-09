@@ -35,6 +35,8 @@ dependencies = [
     "granian[reload]>=2.2.0",
     # PostgreSQL
     "psycopg2-binary>=2.9.10",
+    # MySQL
+    "mysql-connector-python>=9.0.0",
     # Config
     "pyyaml>=6.0.3",
     "python-multipart>=0.0.20",
