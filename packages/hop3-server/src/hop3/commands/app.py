@@ -427,6 +427,49 @@ class LogsCmd(Command):
 
 @register
 @dataclass(frozen=True)
+class BuildLogsCmd(Command):
+    """Show build logs for an application.
+
+    Usage: hop3 app:build-logs <app_name>
+
+    Displays the most recent Docker/local build output for debugging
+    deployment issues.
+
+    Examples:
+        hop3 app:build-logs myapp    # Show build logs for myapp
+    """
+
+    db_session: Session
+    name: ClassVar[str] = "app:build-logs"
+
+    def call(self, *args):
+        if not args:
+            return [{"t": "text", "text": "Usage: hop3 app:build-logs <app_name>"}]
+
+        app_name = args[0]
+        app = _get_app(self.db_session, app_name)
+
+        # Look for build.log in app's log directory
+        build_log_path = app.app_path / "log" / "build.log"
+
+        if not build_log_path.exists():
+            return [
+                {
+                    "t": "text",
+                    "text": f"No build logs found for '{app_name}'.\n"
+                    "Build logs are created after the first Docker deployment.",
+                }
+            ]
+
+        try:
+            content = build_log_path.read_text()
+            return [{"t": "text", "text": content}]
+        except Exception as e:
+            return [{"t": "error", "text": f"Error reading build logs: {e}"}]
+
+
+@register
+@dataclass(frozen=True)
 class StartCmd(Command):
     """Start a stopped app."""
 

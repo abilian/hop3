@@ -74,6 +74,9 @@ lint.extend-ignore = [
     "PLR0914", #	too-many-locals
     "PLR0917", #	too-many-positional-arguments
     "PT012",
+    "C901", # ... is too complex (13 > 12)
+    "PLR0912", # Too many branches (16 > 12)
+    "SIM105", # Use `contextlib.suppress` instead of `try`-`except`-`pass`
 ]
 
 

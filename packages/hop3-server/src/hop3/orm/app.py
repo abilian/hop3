@@ -649,6 +649,91 @@ class App(BigIntAuditBase):
         Returns:
             List of log lines
         """
+        # For Docker Compose apps, fetch logs from Docker
+        if self.runtime == "docker-compose":
+            return self._get_docker_logs(lines)
+
+        # For other runtimes, read from log files
+        return self._get_file_logs(lines)
+
+    def _get_docker_logs(self, lines: int = 100) -> list[str]:
+        """Get logs from Docker container(s) for this app.
+
+        Args:
+            lines: Number of log lines to retrieve
+
+        Returns:
+            List of log lines
+        """
+        import subprocess
+
+        all_logs = []
+
+        try:
+            # Use docker compose logs to get logs from all containers
+            compose_file = self.src_path / ".hop3-compose.yml"
+            if compose_file.exists():
+                cmd = [
+                    "docker",
+                    "compose",
+                    "-f",
+                    str(compose_file),
+                    "-p",
+                    self.name,
+                    "logs",
+                    "--tail",
+                    str(lines),
+                    "--no-color",
+                ]
+            else:
+                # Fall back to docker logs for the main container
+                cmd = [
+                    "docker",
+                    "logs",
+                    "--tail",
+                    str(lines),
+                    f"{self.name}-web-1",
+                ]
+
+            result = subprocess.run(
+                cmd,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if result.stdout:
+                all_logs.append(f"==> docker logs ({self.name}) <==")
+                all_logs.extend(result.stdout.strip().split("\n"))
+
+            if result.stderr:
+                # Docker compose logs often output to stderr
+                if not result.stdout:
+                    all_logs.append(f"==> docker logs ({self.name}) <==")
+                all_logs.extend(result.stderr.strip().split("\n"))
+
+            if not all_logs:
+                all_logs.append(f"No Docker logs found for app '{self.name}'")
+
+        except subprocess.TimeoutExpired:
+            all_logs.append(f"Timeout getting Docker logs for app '{self.name}'")
+        except FileNotFoundError:
+            all_logs.append("Docker command not found. Is Docker installed?")
+        except Exception as e:
+            all_logs.append(f"Error getting Docker logs: {e}")
+
+        return all_logs
+
+    def _get_file_logs(self, lines: int = 100) -> list[str]:
+        """Get logs from log files for this app.
+
+        Args:
+            lines: Number of log lines to retrieve
+
+        Returns:
+            List of log lines
+        """
         # Find all log files in the log directory (e.g., web.1.log, worker.1.log)
         if not self.log_path.exists():
             return [f"No log directory found for app '{self.name}'"]

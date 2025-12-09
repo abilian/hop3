@@ -7,10 +7,25 @@ from __future__ import annotations
 import subprocess
 from typing import TYPE_CHECKING
 
+from lib.context import OutputLevel
 from lib.output import get_output_level, print_command, print_error, red
 
 if TYPE_CHECKING:
     from lib.context import DemoContext
+
+# Global debug flag (set by demo.py when --debug is used)
+_debug_mode: bool = False
+
+
+def set_debug_mode(enabled: bool) -> None:
+    """Enable or disable debug mode for hop3 commands."""
+    global _debug_mode
+    _debug_mode = enabled
+
+
+def get_debug_mode() -> bool:
+    """Check if debug mode is enabled."""
+    return _debug_mode
 
 
 class CommandError(Exception):
@@ -59,7 +74,12 @@ def run_ssh(
 
 
 def run_hop3(
-    cmd: str, *, show: bool = True, check: bool = True, quiet: bool = False
+    cmd: str,
+    *,
+    show: bool = True,
+    check: bool = True,
+    quiet: bool = False,
+    verbose: bool | None = None,
 ) -> subprocess.CompletedProcess:
     """Run a hop3 CLI command.
 
@@ -68,11 +88,26 @@ def run_hop3(
         show: Whether to show the command being run
         check: Whether to raise on failure
         quiet: If True, suppress stdout output regardless of global level
+        verbose: If True, pass -v flag to hop3 for detailed output.
+                 If None (default), uses verbose mode when output_level >= VERBOSE
     """
-    full_cmd = f"hop3 {cmd}"
     output_level = get_output_level()
 
-    if show and output_level >= 2:  # NORMAL or VERBOSE
+    # Determine verbosity flags to pass
+    # Debug mode (--debug) = maximum verbosity, includes all build logs
+    # Verbose mode (-v) = detailed output
+    use_debug = _debug_mode
+    use_verbose = verbose if verbose is not None else (output_level >= OutputLevel.VERBOSE)
+
+    # Build the command with optional verbose/debug flags
+    if use_debug:
+        full_cmd = f"hop3 --debug {cmd}"
+    elif use_verbose:
+        full_cmd = f"hop3 -v {cmd}"
+    else:
+        full_cmd = f"hop3 {cmd}"
+
+    if show and output_level >= OutputLevel.NORMAL:
         print_command(full_cmd)
 
     result = subprocess.run(
@@ -80,7 +115,7 @@ def run_hop3(
     )
 
     # Only print stdout in NORMAL or VERBOSE mode, and not if quiet=True
-    if result.stdout and output_level >= 2 and not quiet:
+    if result.stdout and output_level >= OutputLevel.NORMAL and not quiet:
         print(result.stdout)
 
     if check and result.returncode != 0:
