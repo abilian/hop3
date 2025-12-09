@@ -111,10 +111,13 @@ def test_info_returns_not_created_without_password(mysql_service):
 
 def test_get_connection_details_requires_password(mysql_service):
     """Test that get_connection_details fails without stored password."""
-    with patch(
-        "hop3.plugins.mysql.mysql._load_addon_secrets",
-        return_value=None,
-    ), pytest.raises(RuntimeError, match="No stored password"):
+    with (
+        patch(
+            "hop3.plugins.mysql.mysql._load_addon_secrets",
+            return_value=None,
+        ),
+        pytest.raises(RuntimeError, match="No stored password"),
+    ):
         mysql_service.get_connection_details()
 
 
