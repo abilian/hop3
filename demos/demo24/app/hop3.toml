@@ -1,0 +1,7 @@
+# Demo 24: Listmonk
+[app]
+name = "demo24"
+builder = "docker"
+
+[web]
+port = 9000
