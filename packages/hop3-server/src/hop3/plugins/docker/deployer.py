@@ -147,9 +147,6 @@ class DockerComposeDeployer(Deployer):
         # so containers can connect to services running on the host
         if self.context.app:
             for env_var in self.context.app.env_vars:
-                # Skip HOST_NAME as it's for proxy config, not the container
-                if env_var.name == "HOST_NAME":
-                    continue
                 # Transform localhost to host.docker.internal for service URLs
                 # This allows containers to reach PostgreSQL/Redis on the host
                 value = env_var.value

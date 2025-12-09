@@ -76,6 +76,11 @@ Examples:
         help="SSH user for server connection (default: root)",
     )
     server.add_argument(
+        "--admin-domain",
+        metavar="DOMAIN",
+        help="Domain for Hop3 admin UI (e.g., hop3.example.com). Required for secure HTTPS access to the dashboard.",
+    )
+    server.add_argument(
         "--skip-install",
         action="store_true",
         help="Skip Hop3 installation (assume already installed)",
