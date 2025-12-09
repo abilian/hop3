@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}All Apps - Marketplace - Hop3 Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8" x-data="marketplaceData()">
+    <!-- Header -->
+    <div class="sm:flex sm:items-center sm:justify-between">
+        <div>
+            <nav class="flex mb-2" aria-label="Breadcrumb">
+                <ol class="flex items-center space-x-2">
+                    <li>
+                        <a href="/dashboard/marketplace" class="text-gray-400 hover:text-gray-500">
+                            Marketplace
+                        </a>
+                    </li>
+                    <li>
+                        <span class="text-gray-400">/</span>
+                    </li>
+                    <li>
+                        <span class="text-gray-900 font-medium">All Apps</span>
+                    </li>
+                </ol>
+            </nav>
+            <h1 class="text-2xl font-semibold leading-6 text-gray-900">All Applications</h1>
+            <p class="mt-2 text-sm text-gray-700">
+                Browse all available apps in the marketplace.
+            </p>
+        </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="mt-6 flex flex-col sm:flex-row gap-4">
+        <div class="flex-1">
+            <label for="search" class="sr-only">Search applications</label>
+            <div class="relative">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <svg class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <input type="text"
+                       x-model="search"
+                       placeholder="Search apps by name, description, or tags..."
+                       class="block w-full rounded-md border-0 py-2 pl-10 pr-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm">
+            </div>
+        </div>
+        <div>
+            <label for="category-filter" class="sr-only">Filter by category</label>
+            <select x-model="categoryFilter"
+                    class="block w-full rounded-md border-0 py-2 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-blue-600 sm:text-sm">
+                <option value="all">All Categories</option>
+                {% for category in categories %}
+                <option value="{{ category.name }}">{{ category.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="tier-filter" class="sr-only">Filter by tier</label>
+            <select x-model="tierFilter"
+                    class="block w-full rounded-md border-0 py-2 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-blue-600 sm:text-sm">
+                <option value="all">All Tiers</option>
+                <option value="lightweight">Lightweight</option>
+                <option value="moderate">Moderate</option>
+                <option value="heavy">Heavy</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Results count -->
+    <div class="mt-4 text-sm text-gray-500">
+        Showing <span x-text="filteredApps.length"></span> of <span x-text="apps.length"></span> applications
+    </div>
+
+    <!-- App Grid -->
+    <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <template x-for="app in filteredApps" :key="app.id">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
+                <a :href="`/dashboard/marketplace/apps/${app.id}`" class="block p-4">
+                    <div class="flex items-start space-x-4">
+                        <!-- Icon or initials -->
+                        <div class="flex-shrink-0">
+                            <template x-if="app.icon_url">
+                                <img :src="app.icon_url" :alt="app.title" class="h-12 w-12 rounded-lg object-cover">
+                            </template>
+                            <template x-if="!app.icon_url">
+                                <div class="h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold text-lg"
+                                     :style="`background-color: ${app.initials_bg_color}`"
+                                     x-text="app.initials">
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Content -->
+                        <div class="flex-1 min-w-0">
+                            <h3 class="text-sm font-semibold text-gray-900 truncate" x-text="app.title"></h3>
+                            <p class="text-xs text-gray-500 truncate" x-text="app.author"></p>
+                            <p class="mt-1 text-xs text-gray-600 line-clamp-2" x-text="app.description"></p>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="mt-3 flex items-center justify-between">
+                        <div class="flex flex-wrap gap-1">
+                            <template x-for="tag in app.tags.slice(0, 2)" :key="tag">
+                                <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600" x-text="tag"></span>
+                            </template>
+                        </div>
+                        <span class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium"
+                              :class="{
+                                  'bg-green-50 text-green-700': app.resource_tier === 'lightweight',
+                                  'bg-yellow-50 text-yellow-700': app.resource_tier === 'moderate',
+                                  'bg-red-50 text-red-700': app.resource_tier === 'heavy'
+                              }"
+                              x-text="app.resource_tier">
+                        </span>
+                    </div>
+                </a>
+            </div>
+        </template>
+    </div>
+
+    <!-- Empty state -->
+    <div x-show="filteredApps.length === 0" class="mt-8 text-center py-12">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <h3 class="mt-2 text-sm font-semibold text-gray-900">No apps found</h3>
+        <p class="mt-1 text-sm text-gray-500">Try adjusting your search or filter criteria.</p>
+        <button type="button"
+                @click="search = ''; categoryFilter = 'all'; tierFilter = 'all'"
+                class="mt-4 inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+            Clear filters
+        </button>
+    </div>
+</div>
+
+<script>
+function marketplaceData() {
+    return {
+        search: '',
+        categoryFilter: 'all',
+        tierFilter: 'all',
+        apps: {{ apps_json | tojson }},
+        get filteredApps() {
+            return this.apps.filter(app => {
+                const searchLower = this.search.toLowerCase();
+                const matchesSearch = !this.search ||
+                    app.title.toLowerCase().includes(searchLower) ||
+                    app.description.toLowerCase().includes(searchLower) ||
+                    app.author.toLowerCase().includes(searchLower) ||
+                    app.tags.some(tag => tag.toLowerCase().includes(searchLower));
+                const matchesCategory = this.categoryFilter === 'all' || app.category === this.categoryFilter;
+                const matchesTier = this.tierFilter === 'all' || app.resource_tier === this.tierFilter;
+                return matchesSearch && matchesCategory && matchesTier;
+            });
+        }
+    }
+}
+</script>
+{% endblock %}

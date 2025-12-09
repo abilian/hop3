@@ -22,6 +22,7 @@ dependencies = [
     "alembic ~= 1.13",
     # Misc
     "termcolor >= 2.5.0",
+    "markdown>=3.5",
     # SBOM
     "cyclonedx-bom >= 5.1.1",
     "toml >= 0.10.2",

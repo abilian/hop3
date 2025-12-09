@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}{{ app.title }} - Marketplace - Hop3 Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-2">
+            <li>
+                <a href="/dashboard/marketplace" class="text-gray-400 hover:text-gray-500">
+                    Marketplace
+                </a>
+            </li>
+            <li>
+                <span class="text-gray-400">/</span>
+            </li>
+            <li>
+                <a href="/dashboard/marketplace/apps" class="text-gray-400 hover:text-gray-500">
+                    Apps
+                </a>
+            </li>
+            <li>
+                <span class="text-gray-400">/</span>
+            </li>
+            <li>
+                <span class="text-gray-900 font-medium">{{ app.title }}</span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Main content -->
+    <div class="lg:grid lg:grid-cols-3 lg:gap-8">
+        <!-- Left column - App info -->
+        <div class="lg:col-span-2">
+            <!-- Header -->
+            <div class="flex items-start space-x-4">
+                {% if app.icon_url %}
+                <img src="{{ app.icon_url }}" alt="{{ app.title }}" class="h-20 w-20 rounded-xl object-cover shadow-sm">
+                {% else %}
+                <div class="h-20 w-20 rounded-xl flex items-center justify-center text-white font-bold text-2xl shadow-sm"
+                     style="background-color: {{ app.initials_bg_color }};">
+                    {{ app.initials }}
+                </div>
+                {% endif %}
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">{{ app.title }}</h1>
+                    <p class="text-sm text-gray-500">by {{ app.author }}</p>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        {% if app.category %}
+                        <a href="/dashboard/marketplace/category/{{ app.category|lower|replace(' ', '-') }}"
+                           class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100">
+                            {{ app.category }}
+                        </a>
+                        {% endif %}
+                        <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium
+                            {% if app.resource_tier == 'lightweight' %}
+                                bg-green-50 text-green-700
+                            {% elif app.resource_tier == 'moderate' %}
+                                bg-yellow-50 text-yellow-700
+                            {% else %}
+                                bg-red-50 text-red-700
+                            {% endif %}
+                        ">
+                            {{ app.resource_tier }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div class="mt-8">
+                <h2 class="text-lg font-medium text-gray-900 mb-3">Description</h2>
+                <div class="prose prose-sm text-gray-600">
+                    {% if app.long_description %}
+                    <p>{{ app.long_description }}</p>
+                    {% else %}
+                    <p>{{ app.description }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Technical Details -->
+            <div class="mt-8">
+                <h2 class="text-lg font-medium text-gray-900 mb-3">Technical Details</h2>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {% if app.min_memory %}
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Minimum Memory</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ app.min_memory }} MB</dd>
+                        </div>
+                        {% endif %}
+                        {% if app.version %}
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Version</dt>
+                            <dd class="mt-1 text-sm text-gray-900">{{ app.version }}</dd>
+                        </div>
+                        {% endif %}
+                        {% if app.providers %}
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Required Services</dt>
+                            <dd class="mt-1 flex flex-wrap gap-1">
+                                {% for provider in app.providers %}
+                                <span class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium
+                                    {% if provider == 'postgres' or provider == 'postgresql' %}
+                                        bg-blue-100 text-blue-800
+                                    {% elif provider == 'redis' %}
+                                        bg-red-100 text-red-800
+                                    {% elif provider == 'mysql' %}
+                                        bg-orange-100 text-orange-800
+                                    {% else %}
+                                        bg-gray-100 text-gray-800
+                                    {% endif %}
+                                ">
+                                    {{ provider }}
+                                </span>
+                                {% endfor %}
+                            </dd>
+                        </div>
+                        {% endif %}
+                        {% if app.website %}
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Website</dt>
+                            <dd class="mt-1 text-sm">
+                                <a href="{{ app.website }}" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-500">
+                                    {{ app.website }}
+                                    <svg class="inline h-3 w-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                </a>
+                            </dd>
+                        </div>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Tags -->
+            {% if app.tags %}
+            <div class="mt-8">
+                <h2 class="text-lg font-medium text-gray-900 mb-3">Tags</h2>
+                <div class="flex flex-wrap gap-2">
+                    {% for tag in app.tags %}
+                    <span class="inline-flex items-center rounded-md px-2 py-1 text-sm font-medium bg-gray-100 text-gray-700">
+                        {{ tag }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Right column - Install form -->
+        <div class="mt-8 lg:mt-0">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 sticky top-6">
+                <div class="p-6">
+                    <h2 class="text-lg font-medium text-gray-900 mb-4">Install Application</h2>
+
+                    <!-- Error messages -->
+                    {% if errors %}
+                    <div class="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
+                        <div class="flex">
+                            <svg class="h-5 w-5 text-red-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                            </svg>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-red-800">Please fix the following errors:</h3>
+                                <ul class="mt-2 text-sm text-red-700 list-disc list-inside">
+                                    {% for error in errors %}
+                                    <li>{{ error }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <form method="post" action="/dashboard/marketplace/apps/{{ app.id }}/install">
+                        <div class="space-y-4">
+                            <!-- App name -->
+                            <div>
+                                <label for="app_name" class="block text-sm font-medium text-gray-700">
+                                    Application Name
+                                </label>
+                                <input type="text"
+                                       name="app_name"
+                                       id="app_name"
+                                       value="{{ app_name }}"
+                                       placeholder="my-{{ app.id }}"
+                                       pattern="[a-z][a-z0-9-]*"
+                                       required
+                                       class="mt-1 block w-full rounded-md border-0 py-2 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm">
+                                <p class="mt-1 text-xs text-gray-500">
+                                    Lowercase letters, numbers, and hyphens only. Must start with a letter.
+                                </p>
+                            </div>
+
+                            <!-- Required services notice -->
+                            {% if app.providers %}
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <div class="flex">
+                                    <svg class="h-5 w-5 text-blue-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <div class="ml-3">
+                                        <h3 class="text-sm font-medium text-blue-800">Required Services</h3>
+                                        <p class="mt-1 text-sm text-blue-700">
+                                            This app requires: <strong>{{ app.providers | join(', ') }}</strong>.
+                                            These will be automatically provisioned.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Submit button -->
+                            <button type="submit"
+                                    class="w-full inline-flex justify-center items-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                                <svg class="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                Install {{ app.title }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Similar Apps -->
+    {% if similar_apps %}
+    <div class="mt-12 border-t border-gray-200 pt-8">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Similar Apps</h2>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {% for similar_app in similar_apps %}
+            {% set app = similar_app %}
+            {% include "dashboard/marketplace/_app_card.html" %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
