@@ -245,7 +245,8 @@ class NginxVirtualHost(BaseProxy):
         ):
             return
 
-        timeout = 5  # 5 second timeout to prevent hanging
+        timeout = 10  # 10 second timeout to prevent hanging
+        errors = []
 
         try:
             # Try supervisorctl with sudo (for containerized/supervised environments)
@@ -257,12 +258,12 @@ class NginxVirtualHost(BaseProxy):
             )
             log("nginx reloaded via supervisorctl", level=2)
             return
-        except (
-            subprocess.CalledProcessError,
-            FileNotFoundError,
-            subprocess.TimeoutExpired,
-        ):
-            pass  # Try next method
+        except subprocess.CalledProcessError as e:
+            errors.append(f"supervisorctl: {e.stderr.decode().strip() or 'failed'}")
+        except FileNotFoundError:
+            errors.append("supervisorctl: command not found")
+        except subprocess.TimeoutExpired:
+            errors.append("supervisorctl: timeout")
 
         try:
             # Fall back to systemctl (for systemd environments)
@@ -274,12 +275,12 @@ class NginxVirtualHost(BaseProxy):
             )
             log("nginx reloaded via systemctl", level=2)
             return
-        except (
-            subprocess.CalledProcessError,
-            FileNotFoundError,
-            subprocess.TimeoutExpired,
-        ):
-            pass  # Try next method
+        except subprocess.CalledProcessError as e:
+            errors.append(f"systemctl: {e.stderr.decode().strip() or 'failed'}")
+        except FileNotFoundError:
+            errors.append("systemctl: command not found")
+        except subprocess.TimeoutExpired:
+            errors.append("systemctl: timeout")
 
         try:
             # Fall back to nginx -s reload (direct nginx command)
@@ -291,16 +292,24 @@ class NginxVirtualHost(BaseProxy):
             )
             log("nginx reloaded via nginx -s reload", level=2)
             return
-        except (
-            subprocess.CalledProcessError,
-            FileNotFoundError,
-            subprocess.TimeoutExpired,
-        ):
-            pass  # All methods failed
+        except subprocess.CalledProcessError as e:
+            errors.append(f"nginx -s reload: {e.stderr.decode().strip() or 'failed'}")
+        except FileNotFoundError:
+            errors.append("nginx: command not found")
+        except subprocess.TimeoutExpired:
+            errors.append("nginx -s reload: timeout")
 
-        # Log warning if all methods failed
+        # Log detailed warning if all methods failed
+        error_details = "; ".join(errors) if errors else "unknown"
         log(
-            "Warning: could not reload nginx automatically (all methods failed or timed out)",
+            f"Warning: could not reload nginx automatically. Errors: {error_details}",
+            level=2,
+            fg="yellow",
+        )
+        log(
+            "Hint: Ensure hop3 user has sudoers permission for nginx reload. "
+            "Run: echo 'hop3 ALL=(ALL) NOPASSWD: /usr/bin/systemctl reload nginx' | "
+            "sudo tee /etc/sudoers.d/hop3 && sudo chmod 0440 /etc/sudoers.d/hop3",
             level=2,
             fg="yellow",
         )
