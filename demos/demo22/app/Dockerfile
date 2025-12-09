@@ -17,10 +17,9 @@ RUN mkdir -p /app/data/collections
 # Copy configuration and startup script
 COPY config.template /app/config.template
 COPY rights /app/rights
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+COPY start.py /app/start.py
 
 # Radicale runs on port 5232
 EXPOSE 5232
 
-CMD ["/app/start.sh"]
+CMD ["python3", "/app/start.py"]

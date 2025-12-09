@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Install dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl ca-certificates && \
+    apt-get install -y --no-install-recommends curl ca-certificates python3 && \
     rm -rf /var/lib/apt/lists/*
 
 # renovate: datasource=github-releases depName=filebrowser/filebrowser
@@ -27,9 +27,8 @@ RUN ARCH=$(case ${TARGETARCH:-$(dpkg --print-architecture)} in \
 # Create data directories
 RUN mkdir -p /srv /app/database
 
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+COPY start.py /app/start.py
 
 EXPOSE 8080
 
-CMD ["/app/start.sh"]
+CMD ["python3", "/app/start.py"]
