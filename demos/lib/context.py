@@ -54,6 +54,7 @@ class DemoContext:
     # Server connection
     server_ip: str
     ssh_user: str = "root"
+    admin_domain: str | None = None  # Domain for admin UI (e.g., hop3.example.com)
 
     # Admin credentials
     admin_user: str = "admin"

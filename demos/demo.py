@@ -164,6 +164,7 @@ def _create_context(args, output_level: OutputLevel) -> DemoContext:
     return DemoContext(
         server_ip=args.host,
         ssh_user=args.ssh_user,
+        admin_domain=args.admin_domain,
         admin_user=args.admin_user,
         admin_email=args.admin_email,
         admin_password=admin_password,
@@ -237,12 +238,19 @@ def _show_summary(ctx: DemoContext, results: list, overall_start: float) -> int:
 
     print_summary_stats(passed, failed, skipped, overall_duration)
 
-    # Show admin credentials if keeping apps
+    # Show admin credentials and UI URL if keeping apps
     if ctx.no_cleanup and ctx.output_level >= OutputLevel.NORMAL:
         print()
         print("  Admin credentials:")
         print(f"    Username: {ctx.admin_user}")
         print(f"    Password: {ctx.admin_password}")
+        print()
+        print("  Admin UI:")
+        if ctx.admin_domain:
+            print(f"    https://{ctx.admin_domain}/")
+        else:
+            print(f"    http://{ctx.server_ip}:8000/  (direct, unsecured)")
+            print("    Tip: Use --admin-domain to enable secure HTTPS access")
 
     return 1 if failed > 0 else 0
 
