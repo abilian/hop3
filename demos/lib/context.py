@@ -54,6 +54,7 @@ class DemoContext:
     # Server connection
     server_ip: str
     ssh_user: str = "root"
+    admin_domain: str | None = None  # Domain for admin UI (e.g., hop3.example.com)
 
     # Admin credentials
     admin_user: str = "admin"
@@ -66,6 +67,7 @@ class DemoContext:
     no_cleanup: bool = False
     use_local_code: bool = False
     verbose: bool = False
+    debug: bool = False  # Maximum verbosity (--debug flag to hop3)
     output_level: OutputLevel = OutputLevel.NORMAL
 
     # Paths

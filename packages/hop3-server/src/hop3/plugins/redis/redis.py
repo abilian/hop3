@@ -149,11 +149,12 @@ class RedisAddon:
         keys = result.stdout.strip().split("\n") if result.stdout.strip() else []
 
         # Dump each key with its type and value
-        backup_data = {
+        keys_data: dict[str, dict[str, Any]] = {}
+        backup_data: dict[str, Any] = {
             "addon_name": self.addon_name,
             "db_number": self.db_number,
             "timestamp": timestamp,
-            "keys": {},
+            "keys": keys_data,
         }
 
         for key in keys:
@@ -173,7 +174,7 @@ class RedisAddon:
                 value_result = subprocess.run(
                     get_cmd, capture_output=True, text=True, check=False
                 )
-                backup_data["keys"][key] = {
+                keys_data[key] = {
                     "type": "string",
                     "value": value_result.stdout.strip(),
                 }
@@ -190,7 +191,7 @@ class RedisAddon:
                 value_result = subprocess.run(
                     get_cmd, capture_output=True, text=True, check=False
                 )
-                backup_data["keys"][key] = {
+                keys_data[key] = {
                     "type": "list",
                     "value": value_result.stdout.strip().split("\n"),
                 }
@@ -199,7 +200,7 @@ class RedisAddon:
                 value_result = subprocess.run(
                     get_cmd, capture_output=True, text=True, check=False
                 )
-                backup_data["keys"][key] = {
+                keys_data[key] = {
                     "type": "set",
                     "value": value_result.stdout.strip().split("\n"),
                 }
@@ -213,7 +214,7 @@ class RedisAddon:
                 hash_dict = {}
                 for i in range(0, len(items) - 1, 2):
                     hash_dict[items[i]] = items[i + 1]
-                backup_data["keys"][key] = {"type": "hash", "value": hash_dict}
+                keys_data[key] = {"type": "hash", "value": hash_dict}
             # Skip other types for now (zset, stream, etc.)
 
         # Write backup to file

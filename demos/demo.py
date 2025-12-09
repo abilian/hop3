@@ -34,6 +34,7 @@ import secrets
 import time
 
 from lib.cli import create_parser
+from lib.commands import set_debug_mode
 from lib.context import DemoContext, OutputLevel
 from lib.discovery import discover_demos, resolve_demo
 from lib.display import list_demos, print_banner, print_config, show_inventory
@@ -80,6 +81,10 @@ def main() -> int:
     output_level = _get_output_level(args)
     set_output_level(output_level)
 
+    # Enable debug mode for hop3 commands if --debug flag is set
+    if getattr(args, "debug", False):
+        set_debug_mode(True)
+
     # Discover and resolve demos
     available_demos = discover_demos(args.demo_dirs)
     demos_to_run = _resolve_demos(args, available_demos)
@@ -115,7 +120,7 @@ def _get_output_level(args) -> OutputLevel:
         return OutputLevel.SILENT
     if args.quiet:
         return OutputLevel.QUIET
-    if args.verbose:
+    if args.verbose or getattr(args, "debug", False):
         return OutputLevel.VERBOSE
     return OutputLevel.NORMAL
 
@@ -164,6 +169,7 @@ def _create_context(args, output_level: OutputLevel) -> DemoContext:
     return DemoContext(
         server_ip=args.host,
         ssh_user=args.ssh_user,
+        admin_domain=args.admin_domain,
         admin_user=args.admin_user,
         admin_email=args.admin_email,
         admin_password=admin_password,
@@ -172,6 +178,7 @@ def _create_context(args, output_level: OutputLevel) -> DemoContext:
         no_cleanup=args.no_cleanup,
         use_local_code=args.use_local_code,
         verbose=args.verbose,
+        debug=getattr(args, "debug", False),
         output_level=output_level,
     )
 
@@ -237,12 +244,19 @@ def _show_summary(ctx: DemoContext, results: list, overall_start: float) -> int:
 
     print_summary_stats(passed, failed, skipped, overall_duration)
 
-    # Show admin credentials if keeping apps
+    # Show admin credentials and UI URL if keeping apps
     if ctx.no_cleanup and ctx.output_level >= OutputLevel.NORMAL:
         print()
         print("  Admin credentials:")
         print(f"    Username: {ctx.admin_user}")
         print(f"    Password: {ctx.admin_password}")
+        print()
+        print("  Admin UI:")
+        if ctx.admin_domain:
+            print(f"    https://{ctx.admin_domain}/")
+        else:
+            print(f"    http://{ctx.server_ip}:8000/  (direct, unsecured)")
+            print("    Tip: Use --admin-domain to enable secure HTTPS access")
 
     return 1 if failed > 0 else 0
 

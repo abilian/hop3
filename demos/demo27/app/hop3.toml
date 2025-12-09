@@ -1,0 +1,19 @@
+# Demo 27: OpenCloud
+# A self-hosted file sharing platform
+
+[app]
+name = "demo27"
+builder = "docker"
+runtime = "docker-compose"
+
+[env]
+# Default admin password (change this!)
+ADMIN_PASSWORD = "admin"
+
+[docker]
+# OpenCloud listens on port 9200 by default
+port = 9200
+
+[web]
+# Health check path
+healthcheck = "/"

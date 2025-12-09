@@ -6,35 +6,91 @@ Demo applications and scripts for showcasing Hop3 features.
 
 ```bash
 # Run all demos on a server
-python demos/demo.py --host 46.62.169.221
+python -m demos.demo --host <server_ip>
 
 # Run a specific demo
-python demos/demo.py --host 46.62.169.221 demo1
+python -m demos.demo --host <server_ip> demo01
 
 # Run multiple demos
-python demos/demo.py --host 46.62.169.221 demo1 demo2
+python -m demos.demo --host <server_ip> demo01 demo02
 
 # Run your own app
-python demos/demo.py --host 46.62.169.221 ~/my-flask-app
+python -m demos.demo --host <server_ip> ~/my-flask-app
 ```
 
 Note: Run from the hop3 repository root directory.
 
 ## Available Demos
 
-| Demo | Description | App Hostname |
-|------|-------------|--------------|
-| demo1 | uWSGI deployment (Python/Flask) | a1.hop.demo |
-| demo2 | Docker deployment | a2.hop.demo |
-| demo3 | Static site (Nginx) | a3.hop.demo |
-| demo4 | Node.js Express | a4.hop.demo |
-| demo5 | Go with Gin framework | a5.hop.demo |
-| demo6 | Ruby Sinatra | a6.hop.demo |
-| demo7 | Flask + Gunicorn | a7.hop.demo |
-| demo8 | Python Poetry project | a8.hop.demo |
-| demo9 | Minimal Go (stdlib only) | a9.hop.demo |
+### Basic Deployment (demo01-demo09)
 
-Use `python demos/demo.py --list` to see all available demos.
+Demonstrates different builders and languages.
+
+| Demo | Description | Builder |
+|------|-------------|---------|
+| demo01 | uWSGI Deployment (Python/Flask) | uwsgi |
+| demo02 | Docker Deployment | docker |
+| demo03 | Static Site (Nginx) | static |
+| demo04 | Node.js Express | nodejs |
+| demo05 | Go with Gin | go |
+| demo06 | Ruby Sinatra | ruby |
+| demo07 | Flask + Gunicorn | python |
+| demo08 | Python Poetry | python |
+| demo09 | Minimal Go (stdlib only) | go |
+
+### Addons & Features (demo10-demo14)
+
+Demonstrates PostgreSQL, Redis, background workers, and hooks.
+
+| Demo | Description | Addons |
+|------|-------------|--------|
+| demo10 | PostgreSQL Addon | PostgreSQL |
+| demo11 | Background Workers | - |
+| demo12 | Backup and Restore | PostgreSQL |
+| demo13 | Build Hooks | - |
+| demo14 | Redis Addon | Redis |
+
+### Docker with Addons (demo15-demo19)
+
+Demonstrates Docker deployments with database addons.
+
+| Demo | Description | Addons |
+|------|-------------|--------|
+| demo15 | Docker + PostgreSQL | PostgreSQL |
+| demo16 | Docker + Redis | Redis |
+| demo17 | Docker Multi-Container | - |
+| demo18 | Docker Node.js | - |
+| demo19 | Docker Go | - |
+
+### Real-World Applications (demo20-demo26)
+
+Production-ready applications demonstrating Hop3's capabilities.
+
+| Demo | Application | Description | Addons |
+|------|-------------|-------------|--------|
+| demo20 | Umami | Privacy-focused web analytics | PostgreSQL |
+| demo21 | HedgeDoc | Collaborative markdown editor | PostgreSQL |
+| demo22 | Radicale | CalDAV/CardDAV server | - |
+| demo23 | DokuWiki | Simple wiki (file-based) | - |
+| demo24 | Listmonk | Newsletter & mailing list manager | PostgreSQL |
+| demo25 | Filebrowser | Web-based file manager | - |
+| demo26 | Miniflux | RSS/Atom feed reader | PostgreSQL |
+
+### Default Credentials
+
+Applications with web interfaces use these default credentials:
+
+| Demo | Application | Username | Password |
+|------|-------------|----------|----------|
+| demo20 | Umami | admin | umami |
+| demo21 | HedgeDoc | - | (anonymous access) |
+| demo22 | Radicale | demo | demo |
+| demo23 | DokuWiki | - | (no auth for demo) |
+| demo24 | Listmonk | admin | admin123 |
+| demo25 | Filebrowser | admin | admin |
+| demo26 | Miniflux | admin | admin123 |
+
+Use `python -m demos.demo --list` to see all available demos.
 
 ## Command Reference
 
@@ -78,10 +134,10 @@ Test local code changes without committing:
 
 ```bash
 # Sync local code to server and run demo
-python demos/demo.py --host 46.62.169.221 --local demo1
+python -m demos.demo --host <server_ip> --local demo01
 
 # Keep apps running for debugging
-python demos/demo.py --host 46.62.169.221 --local --keep demo2
+python -m demos.demo --host <server_ip> --local --keep demo02
 ```
 
 The `--local` flag uses rsync to sync your local hop3-server code to the server.
@@ -90,17 +146,17 @@ The `--local` flag uses rsync to sync your local hop3-server code to the server.
 
 ```bash
 # Longer pauses, keep apps visible
-python demos/demo.py --host 46.62.169.221 --pause 2 --keep
+python -m demos.demo --host <server_ip> --pause 2 --keep
 ```
 
 ### CI/CD Integration
 
 ```bash
 # Minimal output for CI logs
-python demos/demo.py --quiet --host 46.62.169.221 demo1
+python -m demos.demo --quiet --host <server_ip> demo01
 
 # Silent mode (errors to stderr only)
-python demos/demo.py --silent --host 46.62.169.221 demo1
+python -m demos.demo --silent --host <server_ip> demo01
 
 # Exit code: 0 = all passed, 1 = some failed
 ```
@@ -109,10 +165,10 @@ python demos/demo.py --silent --host 46.62.169.221 demo1
 
 ```bash
 # View detailed info about all demos
-python demos/demo.py --inventory
+python -m demos.demo --inventory
 
 # Include external demo directories
-python demos/demo.py --inventory --demo-dir ~/my-demos
+python -m demos.demo --inventory --demo-dir ~/my-demos
 ```
 
 ### External Applications
@@ -121,10 +177,10 @@ Run any Hop3-compatible application:
 
 ```bash
 # Your app with hop3.toml, Dockerfile, or requirements.txt
-python demos/demo.py --host 46.62.169.221 ~/my-project
+python -m demos.demo --host <server_ip> ~/my-project
 
 # Keep it running after demo
-python demos/demo.py --host 46.62.169.221 ~/my-project --keep
+python -m demos.demo --host <server_ip> ~/my-project --keep
 ```
 
 ## Prerequisites
@@ -162,7 +218,7 @@ Initial installation takes 5-10 minutes. Use `--skip-install` if Hop3 is already
 ```
 demos/
 ├── __init__.py         # Package marker
-├── demo.py             # Entry point (~240 lines)
+├── demo.py             # Entry point
 ├── lib/                # Shared utilities
 │   ├── __init__.py     # Exports
 │   ├── app.py          # Common app management routines
@@ -175,26 +231,19 @@ demos/
 │   ├── output.py       # Terminal output helpers
 │   ├── phases.py       # Execution phases (prerequisites, CLI, run)
 │   └── server.py       # Server setup, sync, update
-├── demo1/              # uWSGI (Flask)
-├── demo2/              # Docker
-├── demo3/              # Static site (symlink)
-├── demo4/              # Node.js Express (symlink)
-├── demo5/              # Go with Gin (symlink)
-├── demo6/              # Ruby Sinatra (symlink)
-├── demo7/              # Flask + Gunicorn (symlink)
-├── demo8/              # Python Poetry (symlink)
-└── demo9/              # Minimal Go (symlink)
+├── demo01/             # uWSGI (Flask)
+├── demo02/             # Docker
+├── ...
+└── demo26/             # Miniflux (RSS reader)
 ```
-
-Note: demo3-demo9 use symlinks to apps in `apps/test-apps/` to avoid duplication.
 
 ## Creating a New Demo
 
 ### Option 1: Custom Demo Script
 
-1. Create directory: `demos/demo3/`
+1. Create directory: `demos/demoXX/`
 2. Create `demo-script.py` with `TITLE`, `DESCRIPTION`, and `run(ctx)` function
-3. Add sample application files
+3. Add sample application files in `app/` subdirectory
 4. The demo is auto-discovered
 
 ### Option 2: Generic Demo (No Script Needed)
@@ -202,7 +251,7 @@ Note: demo3-demo9 use symlinks to apps in `apps/test-apps/` to avoid duplication
 Just point to any Hop3-compatible application:
 
 ```bash
-python demos/demo.py --host 46.62.169.221 ~/my-app
+python -m demos.demo --host <server_ip> ~/my-app
 ```
 
 The generic demo will automatically:

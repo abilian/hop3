@@ -76,6 +76,11 @@ Examples:
         help="SSH user for server connection (default: root)",
     )
     server.add_argument(
+        "--admin-domain",
+        metavar="DOMAIN",
+        help="Domain for Hop3 admin UI (e.g., hop3.example.com). Required for secure HTTPS access to the dashboard.",
+    )
+    server.add_argument(
         "--skip-install",
         action="store_true",
         help="Skip Hop3 installation (assume already installed)",
@@ -140,7 +145,7 @@ Examples:
         "-v",
         "--verbose",
         action="store_true",
-        help="Show detailed output and stack traces",
+        help="Show detailed output including Docker build logs",
     )
     output.add_argument(
         "-q",
@@ -153,6 +158,11 @@ Examples:
         "--silent",
         action="store_true",
         help="No output except errors (errors go to stderr)",
+    )
+    output.add_argument(
+        "--debug",
+        action="store_true",
+        help="Maximum verbosity (passes --debug to hop3 for build logs)",
     )
 
     # Information
