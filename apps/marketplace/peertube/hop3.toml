@@ -1,0 +1,71 @@
+# PeerTube - Decentralized Video Hosting
+
+[metadata]
+id = "peertube"
+version = "4.4.1"
+upstream_version = "7.3.0"
+title = "PeerTube"
+author = "PeerTube developers"
+description = "PeerTube is a free and open-source, decentralized video platform. Take back control of your videos."
+website = "https://joinpeertube.org/"
+license = "AGPL-3.0"
+tags = ["video", "youtube", "vimeo", "media", "federated", "streaming", "blog", "instagram"]
+
+[source]
+type = "tarball"
+url = "https://github.com/Chocobozzz/PeerTube/releases/download/v${upstream_version}/peertube-v${upstream_version}.tar.xz"
+
+[source.plugins]
+auth_openid_connect = { version = "1.0.3", npm = "peertube-plugin-auth-openid-connect" }
+
+[source.youtube_dl]
+version = "2021.12.17"
+url = "https://github.com/ytdl-org/youtube-dl/releases/download/${version}/youtube-dl"
+
+[source.nodejs]
+version = "22"
+
+[build]
+packages = ["nodejs", "yarn", "ffmpeg", "prosody", "nginx", "supervisor"]
+before-build = [
+    "npm install -g yarn",
+    "yarn install --production --pure-lockfile",
+    "npm install -g @peertube/peertube-cli"
+]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["nodejs", "ffmpeg", "nginx", "prosody", "supervisor", "yq"]
+
+[port]
+web = 80
+
+[tcp_ports]
+rtmp = { default = 1935, container = 1935, title = "RTMP Port", description = "RTMP Port for livestreaming" }
+
+[healthcheck]
+path = "/"
+timeout = 30
+
+[resources]
+memory = "1024M"
+
+[env]
+NODE_ENV = "production"
+
+[[provider]]
+name = "postgres"
+
+[[provider]]
+name = "redis"
+
+[integration]
+sso = true
+sendmail = true
+
+[storage]
+local = true
+
+[processes]
+peertube = "npm start"
+nginx = "nginx -g 'daemon off;'"

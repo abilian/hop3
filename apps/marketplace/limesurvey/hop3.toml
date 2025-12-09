@@ -1,0 +1,50 @@
+# LimeSurvey CE - Professional Online Surveys
+
+[metadata]
+id = "limesurvey"
+version = "1.55.0"
+upstream_version = "6.16.0+251120"
+title = "LimeSurvey CE"
+author = "LimeSurvey developers"
+description = "LimeSurvey is the leading open source survey software. It allows you to create online surveys for offline and online use."
+website = "https://www.limesurvey.org"
+license = "GPL-2.0"
+tags = ["survey", "polls", "surveymonkey", "typeform", "feedback", "forms"]
+
+[source]
+type = "tarball"
+url = "https://github.com/LimeSurvey/LimeSurvey/archive/refs/tags/${upstream_version}.tar.gz"
+
+[source.php]
+version = "8.3"
+
+[build]
+packages = ["php", "apache2"]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["php", "apache2"]
+
+[port]
+web = 8000
+
+[healthcheck]
+path = "/"
+timeout = 30
+
+[resources]
+memory = "512M"
+
+[env]
+PHP_MEMORY_LIMIT = "512M"
+
+[[provider]]
+name = "mysql"
+
+[integration]
+sendmail = true
+ldap = true
+sso = "optional"
+
+[storage]
+local = true

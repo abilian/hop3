@@ -1,0 +1,60 @@
+# Penpot - Design and Prototyping Platform
+
+[metadata]
+id = "penpot"
+version = "1.13.1"
+upstream_version = "2.11.1"
+title = "Penpot"
+author = "Kaleidos Inc"
+description = "Penpot is an open-source design and prototyping platform. It's a web-based platform for design and code collaboration."
+website = "https://penpot.app"
+license = "MPL-2.0"
+tags = ["design", "prototyping", "visualization", "figma"]
+
+[source]
+type = "docker"
+image = "penpotapp/frontend:${upstream_version}"
+backend_image = "penpotapp/backend:${upstream_version}"
+exporter_image = "penpotapp/exporter:${upstream_version}"
+
+[build]
+packages = ["nodejs"]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["nodejs", "openjdk-21-jre-headless", "supervisor"]
+
+[port]
+web = 80
+
+[healthcheck]
+path = "/api/rpc/command/get-profile"
+timeout = 30
+
+[resources]
+memory = "1536M"
+
+[env]
+NODE_ENV = "production"
+
+[[provider]]
+name = "postgres"
+
+[[provider]]
+name = "redis"
+options = { no_password = true }
+
+[integration]
+sendmail = true
+
+[integration.oidc]
+enabled = true
+redirect_uri = "/api/auth/oauth/oidc/callback"
+
+[storage]
+local = true
+
+[processes]
+backend = "java -jar /app/code/backend/penpot.jar"
+exporter = "node /app/code/exporter/app.js"
+frontend = "nginx -g 'daemon off;'"

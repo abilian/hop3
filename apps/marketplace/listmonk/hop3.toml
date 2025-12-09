@@ -1,0 +1,24 @@
+# Listmonk - High-performance Newsletter and Mailing List Manager
+
+[metadata]
+id = "listmonk"
+title = "Listmonk"
+description = "High-performance, self-hosted newsletter and mailing list manager"
+author = "Kailash Nadh"
+license = "AGPL-3.0"
+website = "https://listmonk.app/"
+repository = "https://github.com/knadh/listmonk"
+tags = ["newsletter", "email", "mailing-list"]
+
+[app]
+name = "listmonk"
+builder = "docker"
+
+[web]
+port = 9000
+
+[healthcheck]
+path = "/health"
+
+[[provider]]
+name = "postgres"

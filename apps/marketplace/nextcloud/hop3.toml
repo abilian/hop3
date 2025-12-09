@@ -1,0 +1,73 @@
+# Nextcloud - File Hosting and Collaboration Platform
+
+[metadata]
+id = "nextcloud"
+version = "5.6.2"
+upstream_version = "32.0.2"
+title = "Nextcloud"
+author = "Nextcloud developers"
+description = "Nextcloud is a safe home for all your data - access and share your files, calendars, contacts, mail and more"
+website = "https://www.nextcloud.com"
+license = "AGPL-3.0"
+tags = ["sync", "file-sharing", "files", "gallery", "dropbox", "cloud-storage"]
+
+[source]
+type = "tarball"
+url = "https://download.nextcloud.com/server/releases/nextcloud-${upstream_version}.tar.bz2"
+
+[build]
+packages = ["php8.3", "apache2", "libapache2-mod-php8.3", "php8.3-pgsql", "php8.3-mbstring", "php8.3-gd", "php8.3-xml", "php8.3-curl", "php8.3-zip", "php8.3-intl", "php8.3-ldap", "php8.3-redis", "php8.3-imagick", "php8.3-bcmath", "php8.3-gmp", "poppler-utils", "smbclient", "p7zip-full", "libreoffice", "libmagickcore-6.q16-6-extra", "imagemagick", "ffmpeg", "rar", "unrar", "supervisor"]
+
+[run]
+start = "/app/scripts/start.sh"
+before-run = ["php /app/code/occ maintenance:mode --off", "php /app/code/occ upgrade"]
+packages = ["php8.3", "apache2", "libapache2-mod-php8.3", "php8.3-pgsql", "php8.3-mbstring", "php8.3-gd", "php8.3-xml", "php8.3-curl", "php8.3-zip", "php8.3-intl", "php8.3-ldap", "php8.3-redis", "php8.3-imagick", "php8.3-bcmath", "php8.3-gmp", "imagemagick", "ffmpeg", "postgresql-client", "supervisor"]
+
+[port]
+web = 80
+
+[healthcheck]
+path = "/index.php/login"
+timeout = 30
+
+[resources]
+memory = "600M"
+
+[php]
+memory_limit = "512M"
+upload_max_filesize = "5G"
+post_max_size = "5G"
+opcache_enable = 1
+opcache_enable_cli = 1
+opcache_interned_strings_buffer = 32
+opcache_max_accelerated_files = 10000
+opcache_memory_consumption = 128
+opcache_save_comments = 1
+opcache_revalidate_freq = 1
+session_save_path = "/run/nextcloud/sessions"
+session_gc_probability = 1
+session_gc_divisor = 100
+
+[[provider]]
+name = "postgres"
+
+[[provider]]
+name = "redis"
+
+[integration]
+sso = true
+ldap = true
+sendmail = true
+turn = true
+
+[storage]
+local = true
+
+[scheduler]
+housekeeping = { schedule = "*/5 * * * *", command = "/app/scripts/cron.sh" }
+previewcleanup = { schedule = "0 2 * * *", command = "/app/scripts/preview-cleanup.sh" }
+
+[processes]
+worker_1 = "php /app/code/occ background-job:worker -v -t 3600 'OC\\TaskProcessing\\SynchronousBackgroundJob'"
+worker_2 = "php /app/code/occ background-job:worker -v -t 3600 'OC\\TaskProcessing\\SynchronousBackgroundJob'"
+worker_3 = "php /app/code/occ background-job:worker -v -t 3600 'OC\\TaskProcessing\\SynchronousBackgroundJob'"

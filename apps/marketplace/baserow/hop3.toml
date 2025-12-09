@@ -1,0 +1,67 @@
+# Baserow - No-code Database Platform
+
+[metadata]
+id = "baserow"
+version = "1.33.0"
+upstream_version = "2.0.1"
+title = "Baserow"
+author = "Baserow B.V."
+description = "Baserow is an open source no-code database tool and Airtable alternative. Create your own database without technical experience. Build databases, automations, apps and AI agents without code."
+website = "https://baserow.io"
+license = "MIT"
+tags = ["no-code", "nocode", "database", "data", "applications", "automations", "dashboards", "collaborate", "airtable", "ai", "ai-assistant"]
+
+[source]
+type = "tarball"
+url = "https://gitlab.com/baserow/baserow/-/archive/${upstream_version}/baserow-${upstream_version}.tar.gz"
+
+[source.nodejs]
+version = "24.1.0"
+
+[source.python]
+version = "3.12"
+
+[build]
+packages = ["python3", "python3-venv", "nodejs", "xmlsec1"]
+before-build = [
+    "python3 -m venv /app/code/env",
+    "/app/code/env/bin/pip install --no-cache -r /app/code/backend/requirements/base.txt",
+    "cd web-frontend && yarn install && yarn build"
+]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["python3", "nodejs", "supervisor", "xmlsec1"]
+
+[port]
+web = 80
+
+[healthcheck]
+path = "/_health"
+timeout = 30
+
+[resources]
+memory = "3072M"
+
+[env]
+LC_ALL = "C.UTF-8"
+LANG = "C.UTF-8"
+TMPDIR = "/run/temp"
+DJANGO_SETTINGS_MODULE = "baserow.config.settings.base"
+
+[[provider]]
+name = "postgres"
+
+[[provider]]
+name = "redis"
+
+[integration]
+sendmail = true
+
+[storage]
+local = true
+
+[processes]
+backend = "/app/code/env/bin/python /app/code/backend/src/baserow/manage.py runserver 0.0.0.0:8000"
+worker = "/app/code/env/bin/celery -A baserow worker -l INFO"
+frontend = "yarn --cwd /app/code/web-frontend start"

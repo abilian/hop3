@@ -1,0 +1,70 @@
+# Taiga - Project Management Platform
+
+[metadata]
+id = "taiga"
+version = "2.17.0"
+upstream_version = "6.9.0"
+title = "Taiga"
+author = "Taiga Authors"
+description = "Taiga is a project management platform for agile developers and designers. It includes features for Scrum and Kanban boards, backlogs, sprints, issue tracking, and more."
+website = "https://taiga.io"
+license = "AGPL-3.0"
+tags = ["scrum", "kanban", "project-management", "agile", "trello", "asana", "jira", "basecamp", "backlog", "sprints", "issue", "bug"]
+
+[source]
+type = "github"
+repo = "kaleidos-ventures/taiga-back"
+version = "${upstream_version}"
+
+[source.python]
+version = "3.11"
+
+[build]
+packages = ["python3.11", "python3.11-dev", "python3.11-venv", "binutils-doc", "flex", "bison", "tmux", "nginx", "nodejs"]
+before-build = [
+    # Setup Python venv
+    "mkdir -p /app/code/venv",
+    "python3.11 -m venv /app/code/venv",
+    "source /app/code/venv/bin/activate && pip3 install --no-cache --upgrade setuptools virtualenv",
+    # Download taiga-back
+    "curl -L https://github.com/kaleidos-ventures/taiga-back/archive/${upstream_version}.tar.gz | tar -xz -C /app/code/taiga-back --strip-components 1 -f -",
+    # Download taiga-front-dist
+    "curl -L https://github.com/kaleidos-ventures/taiga-front-dist/archive/${upstream_version}.tar.gz | tar -xz -C /app/code/taiga-front-dist --strip-components 1 -f -",
+    # Install Python requirements
+    "source /app/code/venv/bin/activate && pip3 install -r /app/code/taiga-back/requirements.txt",
+    "source /app/code/venv/bin/activate && pip3 install taiga-contrib-ldap-auth",
+    "source /app/code/venv/bin/activate && pip3 install taiga-contrib-slack==5.5.1",
+    # Compile messages and collect static
+    "cd /app/code/taiga-back && python3.11 manage.py compilemessages --exclude eu",
+    "cd /app/code/taiga-back && python3.11 manage.py collectstatic --noinput",
+    # Install frontend plugins
+    "mkdir -p /app/code/taiga-front-dist/dist/plugins/slack",
+    "curl https://raw.githubusercontent.com/taigaio/taiga-contrib-slack/5.5.1/front/dist/slack.js -o /app/code/taiga-front-dist/dist/plugins/slack/slack.js",
+    "curl https://raw.githubusercontent.com/taigaio/taiga-contrib-slack/5.5.1/front/dist/slack.json -o /app/code/taiga-front-dist/dist/plugins/slack/slack.json",
+    # Install json tool for config manipulation
+    "npm install json"
+]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["python3.11", "nginx", "nodejs"]
+
+[port]
+web = 8000
+
+[healthcheck]
+path = "/"
+timeout = 30
+
+[resources]
+memory = "300M"
+
+[[provider]]
+name = "postgres"
+
+[integration]
+ldap = true
+sendmail = true
+
+[storage]
+local = true

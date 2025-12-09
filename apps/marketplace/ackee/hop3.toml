@@ -1,0 +1,47 @@
+# Ackee - Privacy-focused Analytics
+
+[metadata]
+id = "ackee"
+version = "1.7.1"
+upstream_version = "3.5.1"
+title = "Ackee"
+author = "Ackee Community"
+description = "Ackee is a self-hosted, Node.js based analytics tool that focuses on privacy. It's the perfect solution for those who want to analyze their website traffic without compromising the privacy of their users."
+website = "https://ackee.electerious.com/"
+license = "MIT"
+tags = ["analytics", "tracker", "privacy"]
+
+[source]
+type = "tarball"
+url = "https://github.com/electerious/Ackee/archive/v${upstream_version}.tar.gz"
+
+[source.nodejs]
+version = "22.21.1"
+
+[build]
+packages = ["nodejs"]
+before-build = [
+    "npm install -g yarn",
+    "yarn install --production --frozen-lockfile",
+    "npm run build"
+]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["nodejs"]
+
+[port]
+web = 3000
+
+[healthcheck]
+path = "/"
+timeout = 30
+
+[resources]
+memory = "256M"
+
+[[provider]]
+name = "mongodb"
+
+[storage]
+local = true
