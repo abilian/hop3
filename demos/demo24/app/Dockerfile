@@ -3,10 +3,12 @@
 
 FROM listmonk/listmonk:latest
 
+# Install Python for startup script (listmonk is based on Alpine)
+RUN apk add --no-cache python3
+
 # Copy startup script
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
+COPY start.py /start.py
 
 EXPOSE 9000
 
-CMD ["/start.sh"]
+CMD ["python3", "/start.py"]
