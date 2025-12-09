@@ -653,6 +653,9 @@ def setup_nginx(skip: bool, domain: str | None = None) -> None:
         print_error(f"Nginx configuration test failed: {e.stderr[:200]}")
         return
 
+    # Configure sudoers for hop3 to reload nginx
+    setup_sudoers()
+
     # Enable and start/reload nginx
     run_cmd(["systemctl", "enable", "nginx"], check=False)
     run_cmd(["systemctl", "restart", "nginx"], check=False)
@@ -703,6 +706,50 @@ def _add_hop3_nginx_include() -> None:
         print_success("Added hop3 app nginx include to nginx.conf")
     else:
         print_warning("Could not find suitable location for nginx include")
+
+
+def setup_sudoers() -> None:
+    """Configure sudo permissions for hop3 user to manage services.
+
+    This allows the hop3 user to reload/restart nginx and supervisorctl
+    without a password, which is required for application deployments.
+    """
+    sudoers_file = Path("/etc/sudoers.d/hop3")
+
+    # Commands that hop3 user needs to run
+    sudoers_content = """# Hop3 service management permissions
+# Allow hop3 user to reload/restart nginx for deployments
+hop3 ALL=(ALL) NOPASSWD: /usr/bin/systemctl reload nginx
+hop3 ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart nginx
+hop3 ALL=(ALL) NOPASSWD: /usr/sbin/nginx -s reload
+hop3 ALL=(ALL) NOPASSWD: /usr/sbin/nginx -t
+# Allow supervisorctl for process management
+hop3 ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl restart nginx
+hop3 ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl restart *
+hop3 ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl start *
+hop3 ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl stop *
+hop3 ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl status *
+"""
+
+    try:
+        # Write sudoers file with correct permissions (must be 0440)
+        sudoers_file.write_text(sudoers_content)
+        os.chmod(sudoers_file, 0o440)
+
+        # Validate with visudo -c
+        result = subprocess.run(
+            ["visudo", "-c", "-f", str(sudoers_file)],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print_warning(f"Invalid sudoers file: {result.stderr}")
+            sudoers_file.unlink()
+            return
+
+        print_success("Sudoers configured for hop3 service management")
+    except Exception as e:
+        print_warning(f"Could not configure sudoers: {e}")
 
 
 def setup_postgres(skip: bool, distro: str) -> str | None:
