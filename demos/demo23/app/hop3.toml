@@ -1,0 +1,7 @@
+# Demo 23: DokuWiki
+[app]
+name = "demo23"
+builder = "docker"
+
+[web]
+port = 80
