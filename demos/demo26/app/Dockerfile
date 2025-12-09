@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Install dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl ca-certificates && \
+    apt-get install -y --no-install-recommends curl ca-certificates python3 && \
     rm -rf /var/lib/apt/lists/*
 
 # renovate: datasource=github-releases depName=miniflux/v2
@@ -25,9 +25,8 @@ RUN ARCH=$(case ${TARGETARCH:-$(dpkg --print-architecture)} in \
     curl -fsSL "https://github.com/miniflux/v2/releases/download/${MINIFLUX_VERSION}/miniflux-linux-${ARCH}" -o /app/miniflux && \
     chmod +x /app/miniflux
 
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+COPY start.py /app/start.py
 
 EXPOSE 8080
 
-CMD ["/app/start.sh"]
+CMD ["python3", "/app/start.py"]

@@ -9,8 +9,8 @@ WORKDIR /app
 # renovate: datasource=github-releases depName=umami-software/umami
 ARG UMAMI_VERSION=2.15.1
 
-# Install dependencies including OpenSSL for Prisma
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
+# Install dependencies including OpenSSL for Prisma and Python for startup script
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates python3 && rm -rf /var/lib/apt/lists/*
 
 # Download and extract Umami
 RUN curl -L https://github.com/umami-software/umami/archive/refs/tags/v${UMAMI_VERSION}.tar.gz | tar zxvf - --strip-components 1
@@ -36,7 +36,6 @@ RUN cp -r .next/static .next/standalone/.next/static && \
 EXPOSE 3000
 
 # Start script
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+COPY start.py /app/start.py
 
-CMD ["/app/start.sh"]
+CMD ["python3", "/app/start.py"]

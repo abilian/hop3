@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Install dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl ca-certificates attr && \
+    apt-get install -y --no-install-recommends curl ca-certificates attr python3 && \
     rm -rf /var/lib/apt/lists/*
 
 # renovate: datasource=github-releases depName=opencloud-eu/opencloud
@@ -30,9 +30,8 @@ RUN mkdir -p /app/data /app/config
 ENV OC_CONFIG_DIR=/app/config
 ENV OC_BASE_DATA_PATH=/app/data
 
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+COPY start.py /app/start.py
 
 EXPOSE 9200
 
-CMD ["/app/start.sh"]
+CMD ["python3", "/app/start.py"]
