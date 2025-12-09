@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}{{ category.name }} - Marketplace - Hop3 Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8">
+    <!-- Header with breadcrumb -->
+    <div class="sm:flex sm:items-center sm:justify-between">
+        <div>
+            <nav class="flex mb-2" aria-label="Breadcrumb">
+                <ol class="flex items-center space-x-2">
+                    <li>
+                        <a href="/dashboard/marketplace" class="text-gray-400 hover:text-gray-500">
+                            Marketplace
+                        </a>
+                    </li>
+                    <li>
+                        <span class="text-gray-400">/</span>
+                    </li>
+                    <li>
+                        <span class="text-gray-900 font-medium">{{ category.name }}</span>
+                    </li>
+                </ol>
+            </nav>
+            <h1 class="text-2xl font-semibold leading-6 text-gray-900">{{ category.name }}</h1>
+            <p class="mt-2 text-sm text-gray-700">
+                {{ apps | length }} application{{ 's' if apps | length != 1 else '' }} in this category.
+            </p>
+        </div>
+        <div class="mt-4 sm:mt-0">
+            <a href="/dashboard/marketplace/apps"
+               class="text-sm text-blue-600 hover:text-blue-500 font-medium">
+                &larr; Browse all apps
+            </a>
+        </div>
+    </div>
+
+    <!-- Category sidebar + app grid -->
+    <div class="mt-8 lg:grid lg:grid-cols-4 lg:gap-8">
+        <!-- Categories sidebar -->
+        <div class="hidden lg:block">
+            <h2 class="text-sm font-medium text-gray-900 mb-3">Categories</h2>
+            <nav class="space-y-1">
+                {% for cat in categories %}
+                <a href="/dashboard/marketplace/category/{{ cat.id }}"
+                   class="block px-3 py-2 rounded-md text-sm font-medium
+                       {% if cat.id == category.id %}
+                           bg-blue-50 text-blue-700
+                       {% else %}
+                           text-gray-600 hover:bg-gray-50 hover:text-gray-900
+                       {% endif %}
+                   ">
+                    <span class="flex justify-between">
+                        <span>{{ cat.name }}</span>
+                        <span class="text-gray-400">{{ cat.apps | length }}</span>
+                    </span>
+                </a>
+                {% endfor %}
+            </nav>
+        </div>
+
+        <!-- Mobile category dropdown -->
+        <div class="lg:hidden mb-6">
+            <label for="category-select" class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+            <select id="category-select"
+                    onchange="window.location.href='/dashboard/marketplace/category/' + this.value"
+                    class="block w-full rounded-md border-0 py-2 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-blue-600 sm:text-sm">
+                {% for cat in categories %}
+                <option value="{{ cat.id }}" {% if cat.id == category.id %}selected{% endif %}>
+                    {{ cat.name }} ({{ cat.apps | length }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- App grid -->
+        <div class="lg:col-span-3">
+            {% if apps %}
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {% for app in apps %}
+                {% include "dashboard/marketplace/_app_card.html" %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-12 bg-gray-50 rounded-lg">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
+                <h3 class="mt-2 text-sm font-semibold text-gray-900">No apps in this category</h3>
+                <p class="mt-1 text-sm text-gray-500">Check back later for new additions.</p>
+                <div class="mt-6">
+                    <a href="/dashboard/marketplace/apps"
+                       class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+                        Browse all apps
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

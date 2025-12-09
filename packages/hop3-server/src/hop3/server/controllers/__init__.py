@@ -8,7 +8,14 @@ from __future__ import annotations
 
 from .auth import AuthController
 from .dashboard import DashboardController
+from .marketplace import MarketplaceController
 from .root import RootController
 from .rpc import RPCController
 
-__all__ = ["AuthController", "DashboardController", "RPCController", "RootController"]
+__all__ = [
+    "AuthController",
+    "DashboardController",
+    "MarketplaceController",
+    "RPCController",
+    "RootController",
+]

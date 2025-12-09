@@ -1,0 +1,49 @@
+{# Marketplace app card - reusable component #}
+{# Variables: app (MarketplaceApp) #}
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
+    <a href="/dashboard/marketplace/apps/{{ app.id }}" class="block p-4">
+        <div class="flex items-start space-x-4">
+            <!-- Icon or initials -->
+            <div class="flex-shrink-0">
+                {% if app.icon_url %}
+                <img src="{{ app.icon_url }}" alt="{{ app.title }}" class="h-12 w-12 rounded-lg object-cover">
+                {% else %}
+                <div class="h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold text-lg"
+                     style="background-color: {{ app.initials_bg_color }};">
+                    {{ app.initials }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Content -->
+            <div class="flex-1 min-w-0">
+                <h3 class="text-sm font-semibold text-gray-900 truncate">{{ app.title }}</h3>
+                <p class="text-xs text-gray-500 truncate">{{ app.author }}</p>
+                <p class="mt-1 text-xs text-gray-600 line-clamp-2">{{ app.description }}</p>
+            </div>
+        </div>
+
+        <!-- Footer with tags and tier -->
+        <div class="mt-3 flex items-center justify-between">
+            <div class="flex flex-wrap gap-1">
+                {% for tag in app.tags[:3] %}
+                <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600">
+                    {{ tag }}
+                </span>
+                {% endfor %}
+            </div>
+            <span class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium
+                {% if app.resource_tier == 'lightweight' %}
+                    bg-green-50 text-green-700
+                {% elif app.resource_tier == 'moderate' %}
+                    bg-yellow-50 text-yellow-700
+                {% else %}
+                    bg-red-50 text-red-700
+                {% endif %}
+            ">
+                {{ app.resource_tier }}
+            </span>
+        </div>
+    </a>
+</div>
