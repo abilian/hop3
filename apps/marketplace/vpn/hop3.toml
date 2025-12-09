@@ -1,0 +1,69 @@
+# VPN - OpenVPN and WireGuard Server
+
+[metadata]
+id = "vpn"
+version = "2.10.0"
+upstream_version = "2.6.14, WireGuard Tools v1.0.20210914"
+title = "VPN"
+author = "OpenVPN & WireGuard Authors"
+description = "VPN Server providing secure network access via OpenVPN and WireGuard protocols. Includes a web-based administration interface for managing users and configurations."
+website = "https://openvpn.org/"
+license = "GPL-2.0"
+tags = ["vpn", "openvpn", "network", "wireguard"]
+
+[source]
+type = "custom"
+
+[source.nodejs]
+version = "22"
+
+[build]
+packages = ["openssl", "openvpn", "easy-rsa", "iptables", "dnsmasq", "nftables", "wireguard-tools", "nodejs"]
+before-build = [
+    # Setup EasyRSA
+    "make-cadir /app/code/easyrsa",
+    "sed -e '/^RANDFILE.*/d' -i /app/code/easyrsa/openssl-easyrsa.cnf",
+    # Setup TUN device
+    "mknod /app/code/net-tun c 10 200",
+    # Install web admin interface
+    "npm install",
+    "npm run build",
+    "rm -rf /app/code/frontend /app/code/public",
+    "npm install --production"
+]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["openssl", "openvpn", "easy-rsa", "iptables", "dnsmasq", "nftables", "wireguard-tools", "nodejs", "supervisor"]
+
+[port]
+web = 3000
+
+[tcp_ports]
+VPN_TCP_PORT = { title = "VPN TCP port", description = "Port over which OpenVPN server listens", default = 7494 }
+
+[udp_ports]
+VPN_UDP_PORT = { title = "VPN UDP port", description = "UDP Port over which OpenVPN server listens (if enabled, TCP will be disabled)", default = 7194 }
+WIREGUARD_UDP_PORT = { title = "Wireguard UDP port", description = "UDP Port over which Wireguard server listens", default = 51820 }
+
+[healthcheck]
+path = "/api/healthcheck"
+timeout = 30
+
+[resources]
+memory = "256M"
+
+[capabilities]
+net_admin = true
+ping = true
+
+[integration]
+oidc = true
+
+[storage]
+local = true
+
+[processes]
+admin = "node /app/code/server.js"
+openvpn = "openvpn --config /app/data/openvpn.conf"
+dnsmasq = "/usr/sbin/dnsmasq --keep-in-foreground --no-hosts --hostsdir=/run/dnsmasq/hosts --user=vpn --conf-file=/app/data/dnsmasq.conf"

@@ -1,0 +1,73 @@
+# OpenProject - Project Management
+
+[metadata]
+id = "openproject"
+version = "3.44.2"
+upstream_version = "16.6.2"
+title = "OpenProject"
+author = "OpenProject Developers"
+description = "OpenProject is the leading open source project management software. It supports project planning, scheduling, task management with Gantt charts, Agile and Scrum boards, time tracking, and cost reporting."
+website = "https://www.openproject.org/"
+license = "GPL-3.0"
+tags = ["project-management", "gantt", "timeline", "scrum", "agile", "kanban", "trello", "asana"]
+
+[source]
+type = "tarball"
+url = "https://github.com/opf/openproject/archive/refs/tags/v${upstream_version}.tar.gz"
+
+[source.ruby]
+version = "3.4.7"
+
+[source.nodejs]
+version = "22.18.0"
+
+[build]
+packages = ["bison", "poppler-utils", "unrtf", "tesseract-ocr", "catdoc", "libxml2", "pandoc"]
+before-build = [
+    # Install rbenv and ruby
+    "git clone https://github.com/rbenv/rbenv.git /usr/local/rbenv",
+    "git clone https://github.com/rbenv/ruby-build.git $RBENV_ROOT/plugins/ruby-build",
+    "rbenv install ${ruby_version}",
+    # Install bundler
+    "gem install bundler --no-document",
+    # Configure bundle
+    "bundle config set deployment 'true'",
+    "bundle config set without 'mysql2 sqlite development test therubyracer docker'",
+    "bundle install",
+    # Install frontend dependencies
+    "cd /app/code/frontend && npm install",
+    # Precompile assets
+    "SECRET_KEY_BASE='building-assets' ./bin/rake assets:precompile"
+]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["bison", "poppler-utils", "unrtf", "tesseract-ocr", "catdoc", "libxml2", "pandoc", "supervisor", "postgresql-client"]
+
+[port]
+web = 8080
+
+[healthcheck]
+path = "/health_checks/all"
+timeout = 30
+
+[resources]
+memory = "1500M"
+
+[env]
+RAILS_ENV = "production"
+RBENV_ROOT = "/home/hop3/rbenv"
+
+[[provider]]
+name = "postgres"
+
+[integration]
+ldap = true
+sendmail = true
+
+[storage]
+local = true
+
+[processes]
+web = "bundle exec rails server -u puma -b 0.0.0.0 -p 8080"
+worker = "bundle exec good_job start"

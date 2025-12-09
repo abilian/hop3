@@ -1,0 +1,27 @@
+# Ghost - Professional Publishing Platform
+
+[metadata]
+id = "ghost"
+title = "Ghost"
+description = "Ghost is a modern, open-source Content Management System (CMS) designed for professional publishing with a minimalist design and focus on content."
+author = "Ghost Foundation"
+license = "MIT"
+website = "https://ghost.org/"
+repository = "https://github.com/TryGhost/Ghost"
+tags = ["cms", "blog", "publishing", "content"]
+
+[app]
+name = "ghost"
+builder = "docker"
+
+[web]
+port = 2368
+
+[healthcheck]
+path = "/"
+
+[env]
+NODE_ENV = "production"
+
+[[provider]]
+name = "mysql"

@@ -1,0 +1,73 @@
+# Redmine - Flexible Project Management
+
+[metadata]
+id = "redmine"
+version = "3.9.1"
+upstream_version = "6.1.0"
+title = "Redmine"
+author = "Jean-Philippe Lang"
+description = "Redmine is a flexible project management web application written in Ruby on Rails. It includes support for multiple projects, wikis, forums, calendars, Gantt charts, and more."
+website = "https://redmine.org"
+license = "GPL-2.0"
+tags = ["project-management", "gantt", "git", "wiki", "asana", "trello", "tasks"]
+
+[source]
+type = "tarball"
+url = "https://github.com/redmine/redmine/archive/refs/tags/${upstream_version}.tar.gz"
+
+[source.ruby]
+version = "3.3.4"
+
+[build]
+packages = ["libmagickwand-dev", "subversion", "mercurial", "cvs", "bzr", "imagemagick"]
+before-build = [
+    # Install rbenv and ruby
+    "mkdir -p /usr/local/rbenv && curl -LSs 'https://github.com/rbenv/rbenv/archive/refs/tags/v1.3.0.tar.gz' | tar -xz -C /usr/local/rbenv --strip-components 1 -f -",
+    "mkdir -p $RBENV_ROOT/plugins/ruby-build && curl -LSs 'https://github.com/rbenv/ruby-build/archive/refs/tags/v20240903.tar.gz' | tar -xz -C $RBENV_ROOT/plugins/ruby-build --strip-components 1 -f -",
+    "rbenv install ${ruby_version}",
+    # Install bundler
+    "gem install bundler -v 2.5.23",
+    # Install OAuth plugin
+    "mkdir -p /app/code/plugins/redmine_oauth && curl -L 'https://github.com/kontron/redmine_oauth/archive/refs/tags/v3.0.8.tar.gz' | tar -xz --strip-components 1 -C /app/code/plugins/redmine_oauth -f -",
+    # Setup Gemfile for webrick
+    "echo \"gem 'webrick'\" > /app/code/Gemfile.local",
+    # Install gems
+    "bundle config set --local without 'development test'",
+    "bundle config set --local path '/run/redmine/vendor'",
+    "bundle install",
+    # Save vendor and bundle directories
+    "mv /app/code/.bundle /app/code/.bundle.orig",
+    "mv /run/redmine/vendor /app/code/vendor.orig",
+    "mv /app/code/plugins /app/code/plugins.orig",
+    "mv /app/code/Gemfile.lock /app/code/Gemfile.lock.save"
+]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["libmagickwand-dev", "subversion", "mercurial", "cvs", "bzr", "imagemagick", "yq", "mysql-client"]
+
+[port]
+web = 3000
+
+[healthcheck]
+path = "/"
+timeout = 30
+
+[resources]
+memory = "600M"
+
+[env]
+RAILS_ENV = "production"
+REDMINE_LANG = "en"
+LANG = "C.UTF-8"
+RBENV_ROOT = "/home/hop3/rbenv"
+
+[[provider]]
+name = "mysql"
+
+[integration]
+sendmail = true
+oidc = true
+
+[storage]
+local = true

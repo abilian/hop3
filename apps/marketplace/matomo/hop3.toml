@@ -1,0 +1,60 @@
+# Matomo - Web Analytics Platform
+
+[metadata]
+id = "matomo"
+version = "1.53.1"
+upstream_version = "5.6.1"
+title = "Matomo"
+author = "Matomo Developers"
+description = "Matomo is the leading open-source analytics platform that gives you more than just powerful analytics"
+website = "https://matomo.org/"
+license = "GPL-3.0"
+tags = ["analytics", "tracking", "profiling", "tag-manager"]
+
+[source]
+type = "tarball"
+url = "https://builds.matomo.org/piwik-${upstream_version}.tar.gz"
+
+[source.plugins]
+loginoidc = { version = "5.0.0", url = "https://github.com/cloudron-io/matomo-plugin-LoginOIDC/archive/1470f60a90fbb409b4306b6a67bd8d3079404bc9.tar.gz" }
+
+[build]
+packages = ["php8.3", "apache2", "libapache2-mod-php8.3", "php8.3-mysql", "php8.3-mbstring", "php8.3-gd", "php8.3-xml", "php8.3-curl", "php8.3-cli", "crudini"]
+
+[run]
+start = "/app/scripts/start.sh"
+before-run = "php /app/code/console core:update --yes"
+packages = ["php8.3", "apache2", "libapache2-mod-php8.3", "php8.3-mysql", "php8.3-mbstring", "php8.3-gd", "php8.3-xml", "php8.3-curl", "php8.3-cli", "mysql-client", "crudini"]
+
+[port]
+web = 8000
+
+[healthcheck]
+path = "/"
+timeout = 30
+
+[resources]
+memory = "768M"
+
+[php]
+memory_limit = "128M"
+upload_max_filesize = "64M"
+post_max_size = "64M"
+cli_memory_limit = "768M"
+session_save_path = "/run/matomo/session"
+session_gc_probability = 1
+session_gc_divisor = 100
+
+[[provider]]
+name = "mysql"
+
+[integration]
+sso = true
+sendmail = true
+multi_domain = true
+
+[storage]
+local = true
+
+[scheduler]
+archive = { schedule = "*/30 * * * *", command = "/app/scripts/cron.sh" }

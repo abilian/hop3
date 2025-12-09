@@ -1,0 +1,92 @@
+<?php
+
+/*******************************************************************/
+/* Rename this file to config.php if you want to change the values */
+/*                                                                 */
+/* Make sure all paths are absolute by using __DIR__ where needed  */
+/*******************************************************************/
+
+// Data folder (must be writeable by the web server user and absolute)
+define('DATA_DIR', '/app/data/data');
+
+// Enable/Disable debug
+define('DEBUG', false);
+
+// Available log drivers: syslog, stderr, stdout or file
+define('LOG_DRIVER', 'stderr');
+
+// Log filename if the log driver is "file"
+define('LOG_FILE', '/run/kanboard/debug.log');
+
+// Plugins directory
+define('PLUGINS_DIR', '/app/data/plugins');
+
+// Plugins directory URL
+define('PLUGIN_API_URL', 'https://kanboard.org/plugins.json');
+
+// Enable/Disable plugin installer
+define('PLUGIN_INSTALLER', true);
+
+// Available cache drivers are "file" and "memory"
+define('CACHE_DRIVER', 'memory');
+
+// Cache folder to use if cache driver is "file"
+define('CACHE_DIR', DATA_DIR.DIRECTORY_SEPARATOR.'cache');
+
+// Folder for uploaded files
+define('FILES_DIR', DATA_DIR.DIRECTORY_SEPARATOR.'files');
+
+// Enable/disable email configuration from the user interface
+define('MAIL_CONFIGURATION', false);
+
+// E-mail address used for the "From" header (notifications)
+define('MAIL_FROM', '##MAIL_FROM##');
+
+// Mail transport available: "smtp", "sendmail", "mail", "postmark", "mailgun", "sendgrid"
+define('MAIL_TRANSPORT', 'smtp');
+
+// SMTP configuration
+define('MAIL_SMTP_HOSTNAME', '##SMTP_HOST##');
+define('MAIL_SMTP_PORT', ##SMTP_PORT##);
+define('MAIL_SMTP_USERNAME', '##SMTP_USERNAME##');
+define('MAIL_SMTP_PASSWORD', '##SMTP_PASSWORD##');
+define('MAIL_SMTP_HELO_NAME', null);
+define('MAIL_SMTP_ENCRYPTION', null);
+
+// Run automatically database migrations
+define('DB_RUN_MIGRATIONS', false);
+
+// Database driver: sqlite, mysql or postgres
+define('DB_DRIVER', 'mysql');
+
+// Mysql/Postgres username
+define('DB_USERNAME', '##MYSQL_USERNAME##');
+
+// Mysql/Postgres password
+define('DB_PASSWORD', '##MYSQL_PASSWORD##');
+
+// Mysql/Postgres hostname
+define('DB_HOSTNAME', '##MYSQL_HOST##');
+
+// Mysql/Postgres database name
+define('DB_NAME', '##MYSQL_DATABASE##');
+
+// Mysql/Postgres custom port
+define('DB_PORT', ##MYSQL_PORT##);
+
+// Enable/disable remember me authentication
+define('REMEMBER_ME_AUTH', true);
+
+// Enable or disable "Strict-Transport-Security" HTTP header
+define('ENABLE_HSTS', true);
+
+// Enable or disable "X-Frame-Options: DENY" HTTP header
+define('ENABLE_XFRAME', true);
+
+// Enable/disable url rewrite
+define('ENABLE_URL_REWRITE', true);
+
+// Session handler: db or php
+define('SESSION_HANDLER', 'db');
+
+require_once "/app/data/customconfig.php";

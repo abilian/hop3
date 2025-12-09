@@ -1,0 +1,47 @@
+# Radicale - Calendar and Contact Server
+
+[metadata]
+id = "radicale"
+version = "2.9.10"
+upstream_version = "3.5.9"
+title = "Radicale"
+author = "Radicale Developers"
+description = "Radicale is a small but powerful CalDAV (calendars, to-do lists) and CardDAV (contacts) server. It shares calendars and contact lists through CalDAV, CardDAV and HTTP."
+website = "http://radicale.org/"
+license = "GPL-3.0"
+tags = ["caldav", "carddav", "contacts", "calendar", "sync"]
+
+[source]
+type = "pypi"
+package = "radicale"
+version = "${upstream_version}"
+
+[source.python]
+version = "3.10"
+
+[build]
+packages = ["python3", "python3-venv", "python3-pip"]
+before-build = [
+    "python3 -m venv /app/code/venv",
+    "source /app/code/venv/bin/activate && pip3 install ldap3 radicale==${upstream_version}"
+]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["python3"]
+
+[port]
+web = 5232
+
+[healthcheck]
+path = "/"
+timeout = 30
+
+[resources]
+memory = "256M"
+
+[integration]
+ldap = true
+
+[storage]
+local = true

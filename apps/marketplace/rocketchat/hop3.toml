@@ -1,0 +1,57 @@
+# Rocket.Chat - Team Communication Platform
+
+[metadata]
+id = "rocketchat"
+version = "2.75.2"
+upstream_version = "7.12.2"
+title = "Rocket.Chat"
+author = "RocketChat Developers"
+description = "Rocket.Chat is the leading open source team chat software solution. Free, unlimited and completely customizable with on-premises and SaaS cloud hosting."
+website = "https://rocket.chat"
+license = "MIT"
+tags = ["chat", "webchat", "slack", "teams", "matrix", "federation", "voip"]
+
+[source]
+type = "tarball"
+url = "https://cdn-download.rocket.chat/build/rocket.chat-${upstream_version}.tgz"
+
+[source.nodejs]
+version = "22"
+
+[build]
+packages = ["nodejs"]
+before-build = [
+    # Install deno
+    "wget -O /usr/bin/deno.zip https://github.com/denoland/deno/releases/download/v1.37.1/deno-x86_64-unknown-linux-gnu.zip",
+    "cd /usr/bin && unzip deno.zip && rm deno.zip",
+    # Extract and install
+    "cd /app/code/bundle/programs/server && npm install",
+    # Fix oplog parsing bug
+    "sed -e 's,useNewUrlParser: true,useNewUrlParser: false,' -i /app/code/bundle/programs/server/packages/mongo.js"
+]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["nodejs", "php-cli"]
+
+[port]
+web = 3000
+
+[healthcheck]
+path = "/"
+timeout = 30
+
+[resources]
+memory = "4096M"
+
+[[provider]]
+name = "mongodb"
+options = { oplog = true }
+
+[integration]
+sendmail = true
+oidc = true
+turn = true
+
+[storage]
+local = true

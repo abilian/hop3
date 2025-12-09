@@ -1,0 +1,68 @@
+# Pretix - Ticket Shop Application
+
+[metadata]
+id = "pretix"
+version = "1.2.0"
+upstream_version = "2025.10.0"
+title = "Pretix"
+author = "rami.io GmbH"
+description = "Pretix is a ticket shop application for conferences, festivals, concerts, tech events, shows, exhibitions, and more."
+website = "https://pretix.eu"
+license = "Apache-2.0"
+tags = ["tickets", "shop", "ticketing software"]
+
+[source]
+type = "pypi"
+package = "pretix"
+version = "${upstream_version}"
+
+[source.python]
+version = "3.12"
+
+[build]
+packages = ["python3", "python3-venv", "nginx"]
+before-build = [
+    "python3 -m venv /app/code/venv",
+    "/app/code/venv/bin/pip install pretix==${upstream_version} pretix-oidc gunicorn",
+]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["python3", "nginx", "supervisor"]
+
+[port]
+web = 8000
+
+[healthcheck]
+path = "/"
+timeout = 30
+
+[resources]
+memory = "1024M"
+
+[env]
+VENV_PATH = "/app/code/venv"
+
+[[provider]]
+name = "postgres"
+
+[[provider]]
+name = "redis"
+
+[integration]
+sendmail = true
+
+[integration.oidc]
+enabled = true
+redirect_uri = "/oidc/callback/"
+
+[storage]
+local = true
+
+[scheduler]
+housekeeping = "15,45 * * * *"
+housekeeping_command = "/app/scripts/cron.sh"
+
+[processes]
+web = "/app/code/venv/bin/gunicorn pretix.wsgi --workers 4 --max-requests 1200 --max-requests-jitter 50 --log-level info --bind 127.0.0.1:8080"
+worker = "/app/code/venv/bin/celery -A pretix.celery_app worker -l INFO"

@@ -1,0 +1,61 @@
+# Moodle - Learning Management System
+
+[metadata]
+id = "moodle"
+version = "4.0.0"
+upstream_version = "5.1.0"
+old_version = "5.0.3"  # For plugin migration
+title = "Moodle"
+author = "Moodle developers"
+description = "Moodle is the world's most popular learning management system for educators, learners and administrators"
+website = "https://moodle.org/"
+license = "GPL-3.0"
+tags = ["moodle", "learning", "lms", "education", "edutech", "canvas", "blackboard"]
+
+[source]
+type = "tarball"
+url = "https://github.com/moodle/moodle/archive/v${upstream_version}.tar.gz"
+
+[build]
+packages = ["php8.3", "apache2", "libapache2-mod-php8.3", "php8.3-pgsql", "php8.3-mbstring", "php8.3-gd", "php8.3-xml", "php8.3-curl", "php8.3-zip", "php8.3-intl", "php8.3-soap", "php8.3-redis", "rsync"]
+
+[run]
+start = "/app/scripts/start.sh"
+before-run = "php /app/data/moodle/admin/cli/upgrade.php --non-interactive"
+packages = ["php8.3", "apache2", "libapache2-mod-php8.3", "php8.3-pgsql", "php8.3-mbstring", "php8.3-gd", "php8.3-xml", "php8.3-curl", "php8.3-zip", "php8.3-intl", "php8.3-soap", "php8.3-redis", "postgresql-client"]
+
+[port]
+web = 8000
+
+[healthcheck]
+path = "/"
+timeout = 30
+
+[resources]
+memory = "500M"
+
+[php]
+memory_limit = "128M"
+upload_max_filesize = "64M"
+post_max_size = "64M"
+max_input_vars = 5000
+session_save_path = "/run/moodle/sessions"
+session_gc_probability = 1
+session_gc_divisor = 100
+
+[[provider]]
+name = "postgres"
+
+[[provider]]
+name = "redis"
+
+[integration]
+sso = true
+ldap = true
+sendmail = true
+
+[storage]
+local = true
+
+[scheduler]
+periodic = { schedule = "*/1 * * * *", command = "php /app/data/moodle/admin/cli/cron.php --keep-alive=0" }

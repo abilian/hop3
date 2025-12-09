@@ -1,0 +1,27 @@
+# AIPress24 - AI-powered Press Platform
+
+[metadata]
+id = "aipress24"
+title = "AIPress24"
+description = "AIPress24 is an AI-powered press and media platform for journalists and content creators"
+author = "AIPress24 Team"
+license = "AGPL-3.0"
+website = "https://aipress24.com/"
+repository = "https://github.com/aipress24/aipress24"
+tags = ["journalism", "media", "ai", "content", "python"]
+
+[app]
+name = "aipress24"
+builder = "docker"
+
+[web]
+port = 8000
+
+[healthcheck]
+path = "/"
+
+[[provider]]
+name = "postgres"
+
+[[provider]]
+name = "redis"

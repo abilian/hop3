@@ -1,0 +1,51 @@
+# HedgeDoc - Collaborative Markdown Editor
+
+[metadata]
+id = "hedgedoc"
+version = "1.21.1"
+upstream_version = "1.10.3"
+title = "HedgeDoc"
+author = "HedgeDoc authors"
+description = "Collaborative editor to work on notes written in Markdown. Share your knowledge with others."
+website = "https://hedgedoc.org/"
+license = "AGPL-3.0"
+tags = ["markdown", "wiki", "document", "collaboration", "notes"]
+
+[source]
+type = "tarball"
+url = "https://github.com/hedgedoc/hedgedoc/releases/download/${upstream_version}/hedgedoc-${upstream_version}.tar.gz"
+
+[source.nodejs]
+version = "20.18.3"
+
+[build]
+packages = ["curl"]
+before-build = [
+    "curl -L https://nodejs.org/dist/v${nodejs_version}/node-v${nodejs_version}-linux-x64.tar.gz | tar zxf - --strip-components 1 -C /usr/local/node",
+    "npm install -g yarn",
+    "yarn config set --home enableTelemetry 0",
+    "yarn install --immutable"
+]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["nodejs"]
+
+[port]
+web = 3000
+
+[healthcheck]
+path = "/status"
+timeout = 30
+
+[env]
+NODE_ENV = "production"
+
+[[provider]]
+name = "postgres"
+
+[integration]
+sso = true
+
+[storage]
+local = true

@@ -1,0 +1,55 @@
+# Easy!Appointments - Appointment Scheduler
+
+[metadata]
+id = "easyappointments"
+version = "1.7.1"
+upstream_version = "1.5.2"
+title = "Easy!Appointments"
+author = "Easy!Appointments developers"
+description = "Easy!Appointments is a highly customizable web application that allows your customers to book appointments with you via the web."
+website = "https://easyappointments.org"
+license = "GPL-3.0"
+tags = ["appointments", "organize", "scheduler"]
+
+[source]
+type = "tarball"
+url = "https://github.com/alextselegidis/easyappointments/releases/download/${upstream_version}/easyappointments-${upstream_version}.zip"
+
+[source.php]
+version = "8.3"
+
+[build]
+packages = ["php", "apache2"]
+before-build = [
+    "unzip easyappointments-${upstream_version}.zip"
+]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["php", "apache2"]
+
+[port]
+web = 8000
+
+[healthcheck]
+path = "/"
+timeout = 30
+
+[resources]
+memory = "512M"
+
+[env]
+PHP_MEMORY_LIMIT = "512M"
+
+[[provider]]
+name = "mysql"
+
+[integration]
+sendmail = true
+
+[storage]
+local = true
+
+[scheduler]
+sync = "*/5 * * * *"
+sync_command = "/app/scripts/cron.sh"

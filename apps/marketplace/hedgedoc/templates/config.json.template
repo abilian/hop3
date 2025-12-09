@@ -1,0 +1,14 @@
+{
+  "production": {
+    "allowAnonymous": false,
+    "allowAnonymousEdits": true,
+    "allowEmailRegister": false,
+    "allowFreeURL": true,
+    "allowPdfExport": false,
+    "debug": false,
+    "defaultPermission": "editable",
+    "email": false,
+    "imageUploadType": "filesystem",
+    "enableStatsApi": false
+  }
+}

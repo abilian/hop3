@@ -1,0 +1,72 @@
+# Cal.com - Scheduling Infrastructure
+
+[metadata]
+id = "calcom"
+version = "2.9.7"
+upstream_version = "5.9.70"
+title = "Cal.com"
+author = "Cal.com authors"
+description = "Cal.com is the event-juggling scheduler for everyone. Focus on meeting, not making meetings. Free for individuals."
+website = "https://cal.com"
+license = "AGPL-3.0"
+tags = ["meetings", "scheduler", "events", "calendly", "calendars"]
+
+[source]
+type = "tarball"
+url = "https://github.com/calcom/cal.com/archive/refs/tags/v${upstream_version}.tar.gz"
+
+[source.nodejs]
+version = "18.20.7"
+
+[build]
+packages = ["nodejs"]
+before-build = [
+    "corepack enable",
+    "yarn install",
+    "yarn workspace @calcom/trpc run build",
+    "yarn --cwd packages/embeds/embed-core workspace @calcom/embed-core run build",
+    "CI=true yarn build",
+    # Build API v2
+    "cd apps/api/v2 && yarn install",
+    "yarn workspace @calcom/api-v2 run generate-schemas",
+    "yarn workspace @calcom/api-v2 run build"
+]
+
+[run]
+start = "/app/scripts/start.sh"
+packages = ["nodejs", "supervisor"]
+
+[port]
+web = 3000
+
+[port.extra]
+api = 5555
+
+[healthcheck]
+path = "/"
+timeout = 30
+
+[resources]
+memory = "2048M"
+
+[env]
+NODE_ENV = "production"
+NODE_OPTIONS = "--max_old_space_size=8192"
+CALCOM_TELEMETRY_DISABLED = "1"
+NEXT_PUBLIC_LICENSE_CONSENT = "true"
+
+[[provider]]
+name = "postgres"
+
+[[provider]]
+name = "redis"
+
+[integration]
+sendmail = true
+
+[storage]
+local = true
+
+[processes]
+web = "yarn workspace @calcom/web run start"
+api = "yarn workspace @calcom/api-v2 run start"

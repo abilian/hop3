@@ -1,0 +1,21 @@
+# MoinMoin - Wiki Engine in Python
+
+[metadata]
+id = "moinmoin"
+title = "MoinMoin"
+description = "MoinMoin is an easy to use, full-featured and extensible wiki software package written in Python"
+author = "MoinMoin Community"
+license = "GPL-2.0"
+website = "https://moinmo.in/"
+repository = "https://github.com/moinwiki/moin"
+tags = ["wiki", "collaboration", "documentation"]
+
+[app]
+name = "moinmoin"
+builder = "docker"
+
+[web]
+port = 8080
+
+[healthcheck]
+path = "/"

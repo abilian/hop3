@@ -1,0 +1,24 @@
+# Miniflux - Minimalist RSS Feed Reader
+
+[metadata]
+id = "miniflux"
+title = "Miniflux"
+description = "Minimalist and opinionated RSS feed reader"
+author = "Frédéric Guillot"
+license = "Apache-2.0"
+website = "https://miniflux.app/"
+repository = "https://github.com/miniflux/v2"
+tags = ["rss", "feed-reader", "news-reader"]
+
+[app]
+name = "miniflux"
+builder = "docker"
+
+[web]
+port = 8080
+
+[healthcheck]
+path = "/healthcheck"
+
+[[provider]]
+name = "postgres"
