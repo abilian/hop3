@@ -1,7 +1,0 @@
-# Demo 25: OpenCloud
-[app]
-name = "demo25"
-builder = "docker"
-
-[web]
-port = 9200
