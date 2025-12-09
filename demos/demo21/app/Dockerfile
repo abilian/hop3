@@ -6,7 +6,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install dependencies
-RUN apk add --no-cache curl jq
+RUN apk add --no-cache curl jq python3
 
 # renovate: datasource=github-releases depName=hedgedoc/hedgedoc
 ARG HEDGEDOC_VERSION=1.10.3
@@ -28,7 +28,6 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 # Start script
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+COPY start.py /app/start.py
 
-CMD ["/app/start.sh"]
+CMD ["python3", "/app/start.py"]

@@ -26,10 +26,12 @@ RUN echo "upload_max_filesize = 64M" >> /usr/local/etc/php/conf.d/dokuwiki.ini &
     echo "post_max_size = 64M" >> /usr/local/etc/php/conf.d/dokuwiki.ini && \
     echo "memory_limit = 128M" >> /usr/local/etc/php/conf.d/dokuwiki.ini
 
+# Install Python for startup script
+RUN apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*
+
 # Copy startup script
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
+COPY start.py /start.py
 
 EXPOSE 80
 
-CMD ["/start.sh"]
+CMD ["python3", "/start.py"]
