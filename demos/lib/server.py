@@ -74,16 +74,23 @@ def install_hop3(ctx: DemoContext) -> None:
 
     # Run installer
     print_step("Running Hop3 installer (this may take a few minutes)...")
+
+    # Build installer command with optional admin domain
+    domain_arg = f" --domain {ctx.admin_domain}" if ctx.admin_domain else ""
+
     if ctx.use_local_code:
         # First sync local code, then install from local path
         sync_local_code(ctx)
         run_ssh(
             ctx,
-            "python3 /tmp/install-server.py --local-path /tmp/hop3-server --verbose",
+            f"python3 /tmp/install-server.py --local-path /tmp/hop3-server{domain_arg} --verbose",
         )
     else:
         print_info("Installing from git branch: devel")
-        run_ssh(ctx, "python3 /tmp/install-server.py --git --branch devel --verbose")
+        run_ssh(
+            ctx,
+            f"python3 /tmp/install-server.py --git --branch devel{domain_arg} --verbose",
+        )
     print_success("Hop3 installation completed")
     pause(ctx.pause_between_steps)
 
