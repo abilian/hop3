@@ -179,3 +179,72 @@ As a rule of thumb, plan for backups to use 50-80% of your total application siz
 - **Older Hop3 version**: May require manual intervention
 
 Hop3 will warn you if there are compatibility concerns during restore. Always test restores in a non-production environment first if you're concerned about version differences.
+
+## Troubleshooting
+
+**Q: My deployment failed. How do I see what went wrong?**
+
+**A:** Hop3 provides several ways to debug deployment issues:
+
+1. **View build logs during deployment** - Use the `-v` (verbose) or `--debug` flag:
+   ```bash
+   hop3 deploy myapp -v       # Show Docker build output
+   hop3 deploy myapp --debug  # Maximum verbosity
+   ```
+
+2. **View stored build logs after deployment** - Build logs are saved automatically:
+   ```bash
+   hop3 app:build-logs myapp
+   ```
+
+3. **Check application logs** - For runtime errors after successful builds:
+   ```bash
+   hop3 app:logs myapp
+   ```
+
+4. **Check server logs** - For persistent debugging information, check `/home/hop3/log/server.log` on the server.
+
+**Q: My Docker-based app returns 502 Bad Gateway. How do I debug this?**
+
+**A:** A 502 error typically means nginx can't connect to your application. Here's how to diagnose:
+
+1. **Check the build succeeded** - View build logs to ensure the image was created:
+   ```bash
+   hop3 app:build-logs myapp
+   ```
+
+2. **Check the container is running** - Verify the container started:
+   ```bash
+   hop3 app:status myapp
+   ```
+
+3. **Check application logs** - Look for startup errors:
+   ```bash
+   hop3 app:logs myapp
+   ```
+
+4. **Verify the port** - Ensure your app listens on the correct port (usually 8080 for Docker apps).
+
+5. **Test locally first** - Build and run your Docker image locally to verify it works:
+   ```bash
+   docker build -t myapp .
+   docker run -p 8080:8080 myapp
+   curl http://localhost:8080
+   ```
+
+**Q: How do I see detailed output when running demos?**
+
+**A:** The demo launcher supports verbose and debug modes:
+
+```bash
+# Normal mode - standard output
+python demos/demo.py --host HOST demo1
+
+# Verbose mode - shows Docker build output
+python demos/demo.py --host HOST -v demo1
+
+# Debug mode - maximum verbosity
+python demos/demo.py --host HOST --debug demo1
+```
+
+In verbose/debug mode, hop3 commands will show Docker build progress, container logs, and detailed error messages.

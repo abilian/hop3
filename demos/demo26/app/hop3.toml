@@ -1,0 +1,7 @@
+# Demo 26: Miniflux
+[app]
+name = "demo26"
+builder = "docker"
+
+[web]
+port = 8080

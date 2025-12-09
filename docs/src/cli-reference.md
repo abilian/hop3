@@ -83,7 +83,8 @@ All commands support these global flags:
 
 ### Verbosity
 
-- **`-v, --verbose`** - Enable verbose output (additional debugging information)
+- **`-v, --verbose`** - Enable verbose output (shows Docker build output, command details)
+- **`--debug`** - Maximum verbosity (shows all build logs, internal operations)
 
 ### Examples
 
@@ -291,9 +292,15 @@ hop3 deploy myapp
 5. Configures reverse proxy (nginx, Caddy, or Traefik)
 6. Starts application processes
 
+**Options:**
+- `-v, --verbose` - Show Docker build output and command details
+- `--debug` - Show all build logs (maximum verbosity)
+
 **Notes:**
 - Requires `Procfile` or `hop3.toml` for process configuration
 - Automatically detects buildpack based on files present
+- Use `-v` or `--debug` to see Docker build output for troubleshooting
+- Build logs are also saved and can be retrieved with `app:build-logs`
 - See [Deployment Guide](./deployment.md) for details
 
 ---
@@ -351,6 +358,49 @@ hop3 app:logs myapp --lines 500
 # Follow logs in real-time
 hop3 app:logs myapp --follow
 ```
+
+---
+
+### `hop3 app:build-logs`
+
+Show build logs for an application (Docker build output).
+
+**Usage:**
+```bash
+hop3 app:build-logs <app_name>
+```
+
+**Arguments:**
+- `app_name` - Name of application
+
+**Example:**
+```bash
+# Show build logs for myapp
+hop3 app:build-logs myapp
+```
+
+**Example Output:**
+```
+=== Docker Build Log ===
+Timestamp: 2025-12-09 14:30:22
+App: myapp
+Status: SUCCESS
+Duration: 45.3s
+
+=== STDOUT ===
+#1 [internal] load build definition from Dockerfile
+#2 [internal] load .dockerignore
+#3 [1/5] FROM debian:bookworm-slim
+...
+
+=== STDERR ===
+```
+
+**Notes:**
+- Shows the most recent Docker build output
+- Useful for debugging deployment failures
+- Logs are stored in `{app_path}/log/build.log`
+- Use `deploy -v` or `deploy --debug` to see output during deployment
 
 ---
 
