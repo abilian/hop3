@@ -1108,7 +1108,9 @@ def print_final_message(domain: str | None = None) -> None:
         print("    Admin UI:  http://<server-ip>:8000/ (direct, unsecured)")
         print("    API (RPC): https://<server-ip>/rpc")
         print()
-        print(f"    {Colors.YELLOW}Warning:{Colors.RESET} Without --domain, the admin UI is only accessible")
+        print(
+            f"    {Colors.YELLOW}Warning:{Colors.RESET} Without --domain, the admin UI is only accessible"
+        )
         print("    via direct connection to port 8000 (not through nginx).")
         print("    Use --domain to enable secure HTTPS access to the admin UI.")
     print()
