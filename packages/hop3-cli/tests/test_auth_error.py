@@ -1,12 +1,15 @@
 # Copyright (c) 2025, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Test authentication error messages."""
 
 from __future__ import annotations
 
 from unittest.mock import Mock, patch
 
-from hop3_cli.client import Client
 from hop3_cli.config import Config
+from hop3_cli.rpc import Client
 from jsonrpcclient import Error
 
 
@@ -20,7 +23,7 @@ def test_401_error_message():
     mock_response.status_code = 401
     mock_response.json.return_value = {}
 
-    with patch("hop3_cli.client.requests.post", return_value=mock_response):
+    with patch("hop3_cli.rpc.client.requests.post", return_value=mock_response):
         response = client.rpc("cli", ["auth"])
 
     # Check that we got an Error response
@@ -45,7 +48,7 @@ def test_other_http_errors():
     mock_response.json.return_value = {}
     mock_response.raise_for_status.side_effect = Exception("Internal Server Error")
 
-    with patch("hop3_cli.client.requests.post", return_value=mock_response):
+    with patch("hop3_cli.rpc.client.requests.post", return_value=mock_response):
         response = client.rpc("cli", ["auth"])
 
     # Check that we got an Error response
@@ -75,7 +78,7 @@ def test_jsonrpc_error_with_http_404():
         "id": 1,
     }
 
-    with patch("hop3_cli.client.requests.post", return_value=mock_response):
+    with patch("hop3_cli.rpc.client.requests.post", return_value=mock_response):
         response = client.rpc("cli", ["xxx"])
 
     # Check that we got an Error response with the clean message
@@ -105,7 +108,7 @@ def test_jsonrpc_error_with_data_field():
         "id": 1,
     }
 
-    with patch("hop3_cli.client.requests.post", return_value=mock_response):
+    with patch("hop3_cli.rpc.client.requests.post", return_value=mock_response):
         response = client.rpc("cli", ["app:start"])
 
     assert isinstance(response, Error)

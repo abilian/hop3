@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
-from hop3_cli.main import (
-    _is_help_command,
+from hop3_cli.commands.help import (
     handle_help_flags,
     inject_local_commands_into_help,
+    is_help_command,
 )
+from hop3_cli.main import requires_authentication
 
 
 def test_help_flags_basic():
@@ -35,6 +36,40 @@ def test_help_flags_basic():
     assert handle_help_flags([]) == []
 
 
+def test_version_flags():
+    """Test --version flag handling."""
+    # Just --version
+    assert handle_help_flags(["--version"]) == ["version"]
+    assert handle_help_flags(["-V"]) == ["version"]
+
+    # Command with --version (version takes precedence)
+    assert handle_help_flags(["run", "--version"]) == ["version"]
+    assert handle_help_flags(["deploy", "-V"]) == ["version"]
+
+
+def test_requires_authentication():
+    """Test requires_authentication function."""
+    # Commands that DON'T require authentication
+    assert requires_authentication(["help"]) is False
+    assert requires_authentication(["help", "deploy"]) is False
+    assert requires_authentication(["help", "--all"]) is False
+    assert requires_authentication(["version"]) is False
+    assert requires_authentication(["auth"]) is False
+    assert requires_authentication(["auth:login"]) is False
+    assert requires_authentication(["auth:login", "user", "pass"]) is False
+    assert requires_authentication(["auth:register"]) is False
+
+    # Commands that DO require authentication
+    assert requires_authentication(["apps"]) is True
+    assert requires_authentication(["deploy", "myapp"]) is True
+    assert requires_authentication(["app:status", "myapp"]) is True
+    assert requires_authentication(["config:set", "KEY", "value"]) is True
+    assert requires_authentication(["auth:whoami"]) is True  # whoami requires auth
+
+    # Empty args
+    assert requires_authentication([]) is False
+
+
 def test_help_flags_with_subcommands():
     """Test --help with subcommands."""
     assert handle_help_flags(["config:show", "--help"]) == ["help", "config:show"]
@@ -42,19 +77,19 @@ def test_help_flags_with_subcommands():
 
 
 def test_is_help_command():
-    """Test _is_help_command helper function."""
+    """Test is_help_command helper function."""
     # Plain help command
-    assert _is_help_command(["help"]) is True
+    assert is_help_command(["help"]) is True
     # Help with --all flag
-    assert _is_help_command(["help", "--all"]) is True
+    assert is_help_command(["help", "--all"]) is True
     # Help for specific command (should NOT inject local commands)
-    assert _is_help_command(["help", "deploy"]) is False
-    assert _is_help_command(["help", "config:set"]) is False
+    assert is_help_command(["help", "deploy"]) is False
+    assert is_help_command(["help", "config:set"]) is False
     # Not a help command
-    assert _is_help_command(["deploy"]) is False
-    assert _is_help_command(["apps"]) is False
+    assert is_help_command(["deploy"]) is False
+    assert is_help_command(["apps"]) is False
     # Empty args
-    assert _is_help_command([]) is False
+    assert is_help_command([]) is False
 
 
 class TestInjectLocalCommandsIntoHelp:

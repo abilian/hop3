@@ -1,80 +1,23 @@
 # Copyright (c) 2025, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Backward compatibility shim - import from hop3_cli.commands instead."""
+
 from __future__ import annotations
 
-import io
-import tarfile
-from pathlib import Path
+from .commands.arguments import (
+    generate_archive,
+    get_extra_args,
+    get_files_to_add,
+    get_ignored_spec,
+    pack_repository,
+)
 
-import pathspec
-
-__all__ = ["generate_archive"]
-
-
-def generate_archive(source_dir: Path) -> bytes:
-    """
-    Creates an in-memory tar.gz archive of a source directory as a bytes object,
-    excluding files and directories specified in a .gitignore file.
-
-    Args:
-        source_dir (Path): The path to the directory to archive.
-
-    Returns:
-        bytes: The content of the .tar.gz archive as a bytes object.
-
-    Raises:
-        ValueError: If the source_dir is not a valid directory.
-        FileNotFoundError: If the source_dir does not exist.
-    """
-    source_dir = Path(source_dir).resolve()
-
-    if not source_dir.exists():
-        msg = f"Source directory not found: {source_dir}"
-        raise FileNotFoundError(msg)
-    if not source_dir.is_dir():
-        msg = f"Source path is not a directory: {source_dir}"
-        raise ValueError(msg)
-
-    # --- 1. Load .gitignore rules ---
-    spec = get_ignored_spec(source_dir)
-
-    # --- 2. Walk the directory and gather files to include ---
-    files_to_add = get_files_to_add(source_dir, spec)
-
-    # --- 3. Create the tar.gz archive in memory ---
-    fileobj = io.BytesIO()
-
-    # The 'w:gz' mode creates a gzip-compressed tar file.
-    # We pass our BytesIO object as the file to write to.
-    with tarfile.open(fileobj=fileobj, mode="w:gz") as tar:
-        for file_path in files_to_add:
-            relative_path = file_path.relative_to(source_dir)
-            arcname = Path() / relative_path
-            tar.add(file_path, arcname=str(arcname))
-
-    return fileobj.getvalue()
-
-
-def get_ignored_spec(source_dir: Path) -> pathspec.PathSpec | None:
-    gitignore_path = source_dir / ".gitignore"
-    spec: pathspec.PathSpec | None = None
-    if gitignore_path.is_file():
-        with open(gitignore_path, encoding="utf-8") as f:
-            spec = pathspec.PathSpec.from_lines("gitwildmatch", f)
-    return spec
-
-
-def get_files_to_add(source_dir, spec):
-    files_to_add: list[Path] = []
-    for file_path in source_dir.rglob("*"):
-        relative_path = file_path.relative_to(source_dir)
-
-        # Let pathspec determine if the file should be ignored
-        if spec and spec.match_file(str(relative_path)):
-            continue
-
-        # We only add files to the tar, not directories
-        if not file_path.is_file():
-            continue
-
-        files_to_add.append(file_path)
-    return files_to_add
+__all__ = [
+    "generate_archive",
+    "get_extra_args",
+    "get_files_to_add",
+    "get_ignored_spec",
+    "pack_repository",
+]

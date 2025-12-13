@@ -1,36 +1,11 @@
-# Copyright (c) 2023-2025, Abilian SAS
+# Copyright (c) 2025, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Backward compatibility shim - import from hop3_cli.ui instead."""
+
 from __future__ import annotations
 
-import sys
-from dataclasses import dataclass
+from .ui.printer import Message, Printer
 
-from tabulate import tabulate
-
-Message = list[str]
-
-
-@dataclass(frozen=True)
-class Printer:
-    verbose: bool = False
-
-    def print(self, msg) -> None:
-        for item in msg:
-            t = item["t"]
-            meth = getattr(self, f"print_{t}")
-            meth(item)
-
-    def print_table(self, table: dict) -> None:
-        headers = table["headers"]
-        rows = table["rows"]
-        print(tabulate(rows, headers=headers))
-
-    def print_text(self, obj: dict) -> None:
-        print(obj["text"])
-
-    def print_error(self, obj: dict) -> None:
-        """Print error messages to stderr."""
-        print(f"ERROR: {obj['text']}", file=sys.stderr)
-
-    def print_success(self, obj: dict) -> None:
-        """Print success messages."""
-        print(obj["text"])
+__all__ = ["Message", "Printer"]

@@ -84,7 +84,7 @@ def load_apps(apps_dir: Path) -> list[MarketplaceApp]:
     Returns:
         List of MarketplaceApp objects
     """
-    apps = []
+    apps: list[MarketplaceApp] = []
 
     if not apps_dir.exists():
         return apps

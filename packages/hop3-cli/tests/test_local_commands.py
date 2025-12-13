@@ -11,20 +11,22 @@ from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from hop3_cli.config import Config
-from hop3_cli.local_commands import (
+from hop3_cli.commands.local import (
     BootstrapError,
     extract_token,
+    handle_auth,
     handle_init,
     handle_login,
     handle_login_token,
+    handle_version,
     infer_server_url,
     is_local_command,
     settings_get,
     settings_set,
     settings_show,
 )
-from hop3_cli.rich_printer import RichPrinter
+from hop3_cli.config import Config
+from hop3_cli.ui.rich_printer import RichPrinter
 
 
 class TestIsLocalCommand:
@@ -50,11 +52,24 @@ class TestIsLocalCommand:
         assert is_local_command(["login", "--ssh", "user@host"]) is True
         assert is_local_command(["login", "--username", "admin"]) is True
 
+    def test_version_command(self):
+        """Test that version commands are recognized as local."""
+        assert is_local_command(["version"]) is True
+        assert is_local_command(["--version"]) is True
+        assert is_local_command(["-V"]) is True
+
+    def test_auth_command(self):
+        """Test that auth (group help) is recognized as local."""
+        assert is_local_command(["auth"]) is True
+
     def test_other_commands(self):
         """Test that other commands are not local."""
         assert is_local_command(["apps"]) is False
         assert is_local_command(["deploy"]) is False
         assert is_local_command(["status"]) is False
+        # auth:* subcommands should go to server
+        assert is_local_command(["auth:login"]) is False
+        assert is_local_command(["auth:whoami"]) is False
 
 
 class TestExtractToken:
@@ -218,9 +233,9 @@ class TestHandleInit:
         mock_result.stderr = ""
 
         with (
-            patch("hop3_cli.local_commands.subprocess.run", return_value=mock_result),
+            patch("hop3_cli.commands.local.subprocess.run", return_value=mock_result),
             patch(
-                "hop3_cli.local_commands.getpass.getpass",
+                "hop3_cli.commands.local.getpass.getpass",
                 side_effect=["pass123", "pass123"],
             ),
             patch("builtins.input", side_effect=["admin", "admin@example.com", ""]),
@@ -273,7 +288,7 @@ class TestHandleLogin:
         mock_result.stderr = ""
 
         with (
-            patch("hop3_cli.local_commands.subprocess.run", return_value=mock_result),
+            patch("hop3_cli.commands.local.subprocess.run", return_value=mock_result),
             patch(
                 "builtins.input", side_effect=["", "testuser"]
             ),  # Server URL default, username
@@ -300,7 +315,7 @@ class TestHandleLogin:
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
         )
 
-        with patch("hop3_cli.local_commands._verify_token", return_value="testuser"):
+        with patch("hop3_cli.commands.local._verify_token", return_value="testuser"):
             result = handle_login_token(
                 ["--token", mock_token, "--server", "http://localhost:8000"],
                 temp_config,
@@ -319,7 +334,7 @@ class TestHandleLogin:
         # Pre-configure server
         temp_config.data["api_url"] = "https://existing-server.com"
 
-        with patch("hop3_cli.local_commands._verify_token", return_value="testuser"):
+        with patch("hop3_cli.commands.local._verify_token", return_value="testuser"):
             result = handle_login_token(
                 ["--token", mock_token],
                 temp_config,
@@ -342,7 +357,7 @@ class TestHandleLogin:
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
         )
 
-        with patch("hop3_cli.local_commands._verify_token", return_value=None):
+        with patch("hop3_cli.commands.local._verify_token", return_value=None):
             with pytest.raises(SystemExit) as exc_info:
                 handle_login_token(
                     ["--token", mock_token, "--server", "http://localhost:8000"],
@@ -361,7 +376,7 @@ class TestHandleLogin:
         )
         url_with_token = f"http://localhost:8000?token={mock_token}"
 
-        with patch("hop3_cli.local_commands._verify_token", return_value="testuser"):
+        with patch("hop3_cli.commands.local._verify_token", return_value="testuser"):
             result = handle_login([url_with_token], temp_config, mock_printer)
 
         assert result is True
@@ -375,12 +390,72 @@ class TestHandleLogin:
         )
         url_with_token = f"https://my-server.com/api?token={mock_token}"
 
-        with patch("hop3_cli.local_commands._verify_token", return_value="testuser"):
+        with patch("hop3_cli.commands.local._verify_token", return_value="testuser"):
             result = handle_login([url_with_token], temp_config, mock_printer)
 
         assert result is True
         assert temp_config.data["api_token"] == mock_token
         assert temp_config.data["api_url"] == "https://my-server.com/api"
+
+
+class TestHandleVersion:
+    """Tests for handle_version command."""
+
+    @pytest.fixture
+    def temp_config(self):
+        """Create a temporary config file."""
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.toml"
+            config = Config(data={}, config_file=config_path)
+            yield config
+
+    @pytest.fixture
+    def mock_printer(self):
+        """Create a mock printer."""
+        return MagicMock(spec=RichPrinter)
+
+    def test_version_shows_cli_version(self, temp_config, mock_printer, capsys):
+        """Test version command shows CLI version."""
+        result = handle_version([], temp_config, mock_printer)
+        assert result is True
+
+        captured = capsys.readouterr()
+        assert "hop3-cli" in captured.out
+
+
+class TestHandleAuth:
+    """Tests for handle_auth command."""
+
+    @pytest.fixture
+    def temp_config(self):
+        """Create a temporary config file."""
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.toml"
+            config = Config(data={}, config_file=config_path)
+            yield config
+
+    @pytest.fixture
+    def mock_printer(self):
+        """Create a mock printer."""
+        return MagicMock(spec=RichPrinter)
+
+    def test_auth_shows_help(self, temp_config, mock_printer, capsys):
+        """Test auth command shows authentication help."""
+        result = handle_auth([], temp_config, mock_printer)
+        assert result is True
+
+        captured = capsys.readouterr()
+        assert "Authentication commands" in captured.out
+        assert "auth:login" in captured.out
+        assert "auth:register" in captured.out
+
+    def test_auth_with_help_flag(self, temp_config, mock_printer, capsys):
+        """Test auth --help shows help."""
+        result = handle_auth(["--help"], temp_config, mock_printer)
+        assert result is True
+
+        captured = capsys.readouterr()
+        assert "Authentication commands" in captured.out
 
 
 class TestBootstrapError:
