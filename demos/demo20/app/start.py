@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Startup script for Umami Analytics."""
+from __future__ import annotations
 
 import os
 import secrets

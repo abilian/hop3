@@ -5,6 +5,7 @@
 A Flask application that runs alongside a Redis container,
 both defined in a custom docker-compose.yml file.
 """
+from __future__ import annotations
 
 import os
 

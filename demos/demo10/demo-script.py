@@ -189,9 +189,7 @@ def run(ctx: DemoContext) -> None:
             show=False,
         )
         # If info returns "not_created" status, the database is gone
-        if "not_created" in info_result.stdout.lower() or "not found" in info_result.stdout.lower():
-            print_success(f"Verified: Database '{db_name_underscore}' no longer exists.")
-        elif info_result.returncode != 0:
+        if "not_created" in info_result.stdout.lower() or "not found" in info_result.stdout.lower() or info_result.returncode != 0:
             print_success(f"Verified: Database '{db_name_underscore}' no longer exists.")
         else:
             print_warning(f"Database '{db_name_underscore}' may still exist.")
