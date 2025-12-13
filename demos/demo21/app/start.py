@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Startup script for HedgeDoc."""
+from __future__ import annotations
 
 import json
 import os

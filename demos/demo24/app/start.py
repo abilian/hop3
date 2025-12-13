@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Startup script for Listmonk."""
+from __future__ import annotations
 
 import os
 import subprocess
@@ -27,11 +28,11 @@ def main() -> None:
     if database_url:
         db_config = parse_database_url(database_url)
 
-        os.environ["LISTMONK_db__user"] = db_config["user"]
-        os.environ["LISTMONK_db__password"] = db_config["password"]
-        os.environ["LISTMONK_db__host"] = db_config["host"]
-        os.environ["LISTMONK_db__port"] = db_config["port"]
-        os.environ["LISTMONK_db__database"] = db_config["database"]
+        os.environ["LISTMONK_DB__USER"] = db_config["user"]
+        os.environ["LISTMONK_DB__PASSWORD"] = db_config["password"]
+        os.environ["LISTMONK_DB__HOST"] = db_config["host"]
+        os.environ["LISTMONK_DB__PORT"] = db_config["port"]
+        os.environ["LISTMONK_DB__DATABASE"] = db_config["database"]
 
         print("==> Database config:")
         print(f"    Host: {db_config['host']}")
@@ -40,10 +41,10 @@ def main() -> None:
         print(f"    Database: {db_config['database']}")
 
     # Set SSL mode (disable for internal connections)
-    os.environ["LISTMONK_db__ssl_mode"] = "disable"
+    os.environ["LISTMONK_DB__SSL_MODE"] = "disable"
 
     # Bind to all interfaces on port 9000
-    os.environ["LISTMONK_app__address"] = "0.0.0.0:9000"
+    os.environ["LISTMONK_APP__ADDRESS"] = "0.0.0.0:9000"
 
     # Set default admin credentials for demo
     os.environ["LISTMONK_ADMIN_USER"] = os.environ.get("ADMIN_USER", "admin")

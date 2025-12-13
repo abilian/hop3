@@ -5,6 +5,7 @@
 A Flask application running in Docker that connects to a PostgreSQL database
 provisioned via Hop3 addons.
 """
+from __future__ import annotations
 
 import os
 
