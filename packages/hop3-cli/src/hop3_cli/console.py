@@ -1,14 +1,11 @@
 # Copyright (c) 2025, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Backward compatibility shim - import from hop3_cli.ui instead."""
+
 from __future__ import annotations
 
-import sys
+from .ui.console import dim, err
 
-
-def err(*args):
-    """Print to stderr."""
-    # TODO: rename as this is misleading.
-    print(*args, file=sys.stderr)
-
-
-def dim(text: str) -> str:
-    return "\x1b[0;37m" + text + "\x1b[0m"
+__all__ = ["dim", "err"]

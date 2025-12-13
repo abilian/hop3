@@ -26,6 +26,7 @@ class AuthCmd(Command):
     """Authentication commands."""
 
     name: ClassVar[str] = "auth"
+    requires_auth: ClassVar[bool] = False  # Public command (shows help)
 
 
 @register

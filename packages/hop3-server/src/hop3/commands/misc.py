@@ -35,6 +35,30 @@ def _get_app(db_session: Session, app_name: str) -> App:
     return app
 
 
+# --- Version Command ---
+
+
+@register
+@dataclass(frozen=True)
+class VersionCmd(Command):
+    """Show version information."""
+
+    name: ClassVar[str] = "version"
+    requires_auth: ClassVar[bool] = False  # Public command
+
+    def call(self, *args):
+        from importlib.metadata import version
+
+        try:
+            server_version = version("hop3-server")
+        except Exception:
+            server_version = "unknown"
+
+        return [
+            {"t": "text", "text": f"hop3-server {server_version}"},
+        ]
+
+
 # --- Backup Command ---
 
 

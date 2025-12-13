@@ -1,0 +1,154 @@
+# Copyright (c) 2025, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""RPC response handling for the Hop3 CLI."""
+
+from __future__ import annotations
+
+import re
+import sys
+from typing import TYPE_CHECKING, Any
+
+from jsonrpcclient import Error, Ok
+
+from hop3_cli.ui.console import err
+
+if TYPE_CHECKING:
+    from hop3_cli.config import Config
+    from hop3_cli.ui.rich_printer import RichPrinter
+
+
+def handle_response(
+    response: Any, cli_args: list[str], config: Config, printer: RichPrinter
+) -> None:
+    """Handle the RPC response."""
+
+    match response:
+        case Ok(result=result):
+            handle_ok_response(result, cli_args, config, printer)
+        case Error(code=code, message=message):
+            handle_error_response(code, message)
+        case None:
+            pass
+
+    # Flush JSON output if in JSON mode
+    if printer.json_output:
+        printer.flush_json()
+
+
+def handle_ok_response(
+    result: list[dict], cli_args: list[str], config: Config, printer: RichPrinter
+) -> None:
+    """Handle successful RPC response."""
+    from hop3_cli.commands.help import inject_local_commands_into_help, is_help_command
+
+    if cli_args and cli_args[0] == "auth:login":
+        handle_login_response(result, config, printer)
+    elif is_help_command(cli_args) and not printer.json_output:
+        result = inject_local_commands_into_help(result)
+        printer.print(result)
+    else:
+        printer.print(result)
+
+
+def handle_error_response(code: int, message: str) -> None:
+    """Handle RPC error response."""
+    clean_message = message
+    prefixes_to_strip = [
+        "Command execution failed: ",
+        "Deployment failed: ",
+    ]
+    for prefix in prefixes_to_strip:
+        clean_message = clean_message.removeprefix(prefix)
+
+    # Add helpful hints for specific error codes
+    if code == -32601:  # Method/command not found
+        clean_message += "\n\nRun 'hop help' to see available commands."
+
+    err(clean_message)
+    sys.exit(1)
+
+
+def handle_login_response(
+    result: list[dict], config: Config, printer: RichPrinter
+) -> None:
+    """Handle auth:login response - extract and save token, then print modified output.
+
+    Args:
+        result: The RPC response from auth:login
+        config: The config object to save the token to
+        printer: Printer for output
+    """
+    # JWT token pattern (3 base64url segments separated by dots)
+    jwt_pattern = re.compile(r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
+
+    token = None
+    modified_result = []
+    found_token = False
+
+    # Keywords that indicate manual token save instructions
+    skip_keywords = [
+        "your api token",
+        "save this token",
+        "config file",
+        "api_token =",
+        "environment variable",
+        "export hop3_api_token",
+    ]
+
+    for item in result:
+        if item.get("t") == "text":
+            text = item.get("text", "")
+
+            # Check if this text contains a JWT token
+            match = jwt_pattern.search(text)
+            if match and not found_token:
+                token = match.group(0)
+                found_token = True
+                # Skip the line containing the JWT token itself
+                continue
+
+            # Skip all manual instruction messages (before or after token)
+            if any(keyword in text.lower() for keyword in skip_keywords):
+                continue
+
+            # Skip empty or whitespace-only text
+            if not text.strip():
+                continue
+
+            # Keep other text messages (success message, etc.)
+            modified_result.append(item)
+        else:
+            # Keep non-text messages (tables, errors, etc.)
+            modified_result.append(item)
+
+    # Save token if found
+    if token:
+        try:
+            config.save({"api_token": token})
+            # Add success message about saving the token
+            modified_result.append({
+                "t": "text",
+                "text": f"\nAPI token saved to {config.config_file}",
+            })
+            modified_result.append({
+                "t": "text",
+                "text": "You can now use hop3 commands without additional authentication.",
+            })
+        except Exception as e:
+            modified_result.append({
+                "t": "error",
+                "text": f"Failed to save token to config: {e}",
+            })
+            modified_result.append({
+                "t": "text",
+                "text": f"\nYour API token: {token}",
+            })
+            modified_result.append({
+                "t": "text",
+                "text": f"Please save it manually to {config.config_file or '~/.config/hop3-cli/config.toml'}",
+            })
+
+    # Print the modified result
+    printer.print(modified_result)
