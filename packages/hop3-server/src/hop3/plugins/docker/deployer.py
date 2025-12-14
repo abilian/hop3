@@ -247,6 +247,11 @@ services:
 
         log(f"App '{self.app_name}' deployed successfully.", level=2, fg="green")
 
+        # Save the image tag to the app for restart operations
+        if self.context.app and self.artifact.location:
+            self.context.app.image_tag = self.artifact.location
+            log(f"Saved image tag: {self.artifact.location}", level=3)
+
         # Discover the actual port (should match allocated_port)
         port = self._discover_port(allocated_port, compose_file)
 

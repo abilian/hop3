@@ -20,13 +20,16 @@ __all__ = [
     "dim",
     "echo",
     "error",
+    "get_verbosity",
     "green",
     "info",
     "log",
     "magenta",
     "panic",
     "red",
+    "set_verbosity",
     "success",
+    "verbosity_context",
     "warning",
     "yellow",
 ]
@@ -215,6 +218,10 @@ def get_console() -> Console:
 # Global console instance - can be temporarily replaced
 _console: Console = get_console()
 
+# Global verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
+# This is used when not using capture_logs context manager
+_verbosity: int = 1
+
 
 def get_current_console() -> Console:
     """Get the current console instance."""
@@ -227,6 +234,57 @@ def set_console(new_console: Console) -> Console:
     old = _console
     _console = new_console
     return old
+
+
+def get_verbosity() -> int:
+    """Get the current verbosity level.
+
+    Returns:
+        Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
+    """
+    return _verbosity
+
+
+def set_verbosity(level: int) -> int:
+    """Set the verbosity level and return the old one.
+
+    Args:
+        level: Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
+
+    Returns:
+        The previous verbosity level
+    """
+    global _verbosity
+    old = _verbosity
+    _verbosity = level
+    return old
+
+
+class VerbosityContext:
+    """Context manager to temporarily set verbosity level.
+
+    Usage:
+        with verbosity_context(2):  # verbose mode
+            log("This is verbose", level=2)
+
+    Args:
+        level: Verbosity level to use within the context
+    """
+
+    def __init__(self, level: int) -> None:
+        self.level = level
+        self.old_level: int | None = None
+
+    def __enter__(self) -> int:
+        self.old_level = set_verbosity(self.level)
+        return self.level
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        if self.old_level is not None:
+            set_verbosity(self.old_level)
+
+
+verbosity_context = VerbosityContext
 
 
 # For backward compatibility
@@ -245,12 +303,16 @@ def log(msg: str, level: int = 0, fg: str = "green") -> None:
         msg: Message to log
         level: Indentation/verbosity level (0=important, 1=normal, 2=verbose, 3=debug)
         fg: Foreground color
+
+    The message is only displayed if level <= current verbosity.
+    Verbosity can be set via set_verbosity() or capture_logs() context.
     """
     formatted = f"{'-' * level}> {msg}" if level > 0 else f"> {msg}"
-    # If using CapturingConsole, pass the level
+    # If using CapturingConsole, it handles verbosity filtering itself
     if isinstance(_console, CapturingConsole):
         _console.echo(formatted, fg=fg, level=level)
-    else:
+    # Only print if message level is within verbosity threshold
+    elif level <= _verbosity:
         _console.echo(formatted, fg=fg)
 
 
@@ -258,16 +320,22 @@ class CaptureLogs:
     """Context manager to capture logs during execution.
 
     Usage:
-        with capture_logs(verbosity=2) as captured:
+        with capture_logs() as captured:  # Uses global verbosity
             do_deploy(app)
         logs = captured.get_logs()
 
+        # Or with explicit verbosity:
+        with capture_logs(verbosity=2) as captured:
+            do_deploy(app)
+
     Args:
-        verbosity: 0=quiet, 1=normal (default), 2=verbose, 3=debug
+        verbosity: 0=quiet, 1=normal, 2=verbose, 3=debug
+                   If None, uses the global verbosity from set_verbosity()
     """
 
-    def __init__(self, verbosity: int = 1) -> None:
-        self.verbosity = verbosity
+    def __init__(self, verbosity: int | None = None) -> None:
+        # Use global verbosity if not explicitly provided
+        self.verbosity = verbosity if verbosity is not None else get_verbosity()
         self.console: CapturingConsole | None = None
         self.old_console: Console | None = None
 

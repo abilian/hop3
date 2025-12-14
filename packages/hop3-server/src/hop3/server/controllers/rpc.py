@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import traceback
+from typing import cast
 
 from litestar import Controller, Request, post
 from litestar.params import Body
@@ -75,7 +76,7 @@ def call(command_name: str, args: list[str], extra_args: JsonDict):
     Args:
         command_name: Name of the command to execute
         args: Positional arguments for the command
-        extra_args: Keyword arguments for the command
+        extra_args: Keyword arguments for the command (verbosity is extracted as context)
 
     Returns:
         Command execution result
@@ -83,6 +84,8 @@ def call(command_name: str, args: list[str], extra_args: JsonDict):
     Raises:
         ValueError: If command not found or execution fails
     """
+    from hop3.lib.console import verbosity_context
+
     command_class = commands.get(command_name)
     if command_class is None:
         msg = f"Command {command_name} not found"
@@ -94,6 +97,13 @@ def call(command_name: str, args: list[str], extra_args: JsonDict):
         command=command_name,
         command_class=command_class.__name__,
     )
+
+    # Extract verbosity from extra_args - it's a context parameter, not a command kwarg
+    verbosity_val = extra_args.pop("verbosity", 1)
+    verbosity = cast(int, verbosity_val) if isinstance(verbosity_val, int) else 1
+
+    # Prepare command kwargs (without verbosity - it's handled via context)
+    command_kwargs = extra_args.copy()
 
     session_factory = get_session_factory()
     with session_factory() as db_session:
@@ -119,9 +129,12 @@ def call(command_name: str, args: list[str], extra_args: JsonDict):
                 "Calling command.call()",
                 command=command_name,
                 args=args,
-                extra_args_keys=list(extra_args.keys()),
+                extra_args_keys=list(command_kwargs.keys()),
+                verbosity=verbosity,
             )
-            result = command.call(*args, **extra_args)
+            # Set verbosity context for the duration of command execution
+            with verbosity_context(verbosity):
+                result = command.call(*args, **command_kwargs)
             server_log.debug(
                 "Command.call() returned",
                 command=command_name,

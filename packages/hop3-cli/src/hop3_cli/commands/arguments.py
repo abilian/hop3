@@ -24,18 +24,26 @@ def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
     Args:
         args: Command-line arguments
         verbosity: Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
+
+    Returns:
+        Dictionary with extra arguments. Verbosity is always included as it's
+        used by the server to set the logging context for all commands.
     """
+    # Always include verbosity - server extracts it and uses it as context
+    extra_args: JsonDict = {"verbosity": verbosity}
+
+    if not args:
+        return extra_args
+
     command = args[0]
+
     match command:
         case "deploy":
             # args[0]="deploy", args[1]=app_name, args[2]=directory
             directory = Path(args[2]) if len(args) > 2 else Path()
-            return {
-                "repository": pack_repository(directory),
-                "verbosity": verbosity,
-            }
-        case _:
-            return {}
+            extra_args["repository"] = pack_repository(directory)
+
+    return extra_args
 
 
 def pack_repository(directory: Path = Path()) -> str:

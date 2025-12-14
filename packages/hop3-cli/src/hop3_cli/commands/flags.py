@@ -6,7 +6,24 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import os
+from dataclasses import dataclass, field
+
+
+def _get_env_verbosity() -> int | None:
+    """Get verbosity from HOP3_VERBOSITY environment variable.
+
+    Returns:
+        Verbosity level (0-3) or None if not set or invalid
+    """
+    env_val = os.environ.get("HOP3_VERBOSITY", "").strip()
+    if not env_val:
+        return None
+    try:
+        level = int(env_val)
+        return max(0, min(3, level))  # Clamp to 0-3
+    except ValueError:
+        return None
 
 
 @dataclass(frozen=True)
@@ -14,29 +31,40 @@ class CliFlags:
     """CLI flags that control output and behavior."""
 
     json_output: bool = False  # --json, -j: Machine-readable JSON output
-    quiet: bool = False  # --quiet, -q: Suppress non-error output
     skip_confirm: bool = False  # -y, --yes, --force: Skip confirmation prompts
-    verbose: bool = False  # -v, --verbose: Show verbose output
-    debug: bool = False  # --debug: Show debug output (maximum verbosity)
+
+    # Verbosity is now stored as a level (0=quiet, 1=normal, 2=verbose, 3=debug)
+    # This allows -vv, -vvv, -qq, etc.
+    verbosity: int = field(default_factory=lambda: _get_env_verbosity() or 1)
 
     @property
-    def verbosity(self) -> int:
-        """Get verbosity level as integer.
+    def quiet(self) -> bool:
+        """True if verbosity is 0 (quiet mode)."""
+        return self.verbosity == 0
 
-        Returns:
-            0 = quiet, 1 = normal, 2 = verbose, 3 = debug
-        """
-        if self.quiet:
-            return 0
-        if self.debug:
-            return 3
-        if self.verbose:
-            return 2
-        return 1
+    @property
+    def verbose(self) -> bool:
+        """True if verbosity is 2 or higher (verbose mode)."""
+        return self.verbosity >= 2
+
+    @property
+    def debug(self) -> bool:
+        """True if verbosity is 3 (debug mode)."""
+        return self.verbosity >= 3
 
 
 def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
     """Parse CLI flags from arguments and return flags + remaining args.
+
+    Supports:
+        --json, -j: Machine-readable JSON output
+        -y, --yes, --force: Skip confirmation prompts
+        -v, --verbose: Increase verbosity (can stack: -vv, -vvv)
+        -q, --quiet: Decrease verbosity (can stack: -qq)
+        --debug: Maximum verbosity (level 3)
+
+    Environment variable:
+        HOP3_VERBOSITY: Set default verbosity level (0-3)
 
     Args:
         args: Command-line arguments (e.g., ['deploy', 'my-app', '--json', '-y'])
@@ -49,45 +77,46 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
         >>> parse_flags(['deploy', 'my-app', '--json'])
         (CliFlags(json_output=True, ...), ['deploy', 'my-app'])
 
-        >>> parse_flags(['destroy', 'my-app', '-y', '--quiet'])
-        (CliFlags(quiet=True, skip_confirm=True, ...), ['destroy', 'my-app'])
+        >>> parse_flags(['destroy', 'my-app', '-y', '-vv'])
+        (CliFlags(verbosity=3, skip_confirm=True, ...), ['destroy', 'my-app'])
     """
     json_output = False
-    quiet = False
     skip_confirm = False
-    verbose = False
-    debug = False
+
+    # Start with environment default or normal (1)
+    verbosity = _get_env_verbosity() or 1
 
     # Flags to recognize
     json_flags = {"--json", "-j"}
-    quiet_flags = {"--quiet", "-q"}
     yes_flags = {"-y", "--yes", "--force"}
-    verbose_flags = {"-v", "--verbose"}
-    debug_flags = {"--debug"}
 
     # Filter out flags from args
     remaining_args = []
     for arg in args:
         if arg in json_flags:
             json_output = True
-        elif arg in quiet_flags:
-            quiet = True
         elif arg in yes_flags:
             skip_confirm = True
-        elif arg in verbose_flags:
-            verbose = True
-        elif arg in debug_flags:
-            debug = True
+        elif arg == "--debug":
+            verbosity = 3
+        elif arg == "--verbose":
+            verbosity = max(verbosity, 2)
+        elif arg == "--quiet":
+            verbosity = 0
+        elif arg.startswith("-") and all(c == "v" for c in arg[1:]):
+            # Handle -v, -vv, -vvv
+            verbosity = min(3, 1 + len(arg) - 1)  # -v=2, -vv=3, -vvv=3
+        elif arg.startswith("-") and all(c == "q" for c in arg[1:]):
+            # Handle -q, -qq (but -q is enough for quiet=0)
+            verbosity = 0
         else:
             # Not a flag, keep it
             remaining_args.append(arg)
 
     flags = CliFlags(
         json_output=json_output,
-        quiet=quiet,
         skip_confirm=skip_confirm,
-        verbose=verbose,
-        debug=debug,
+        verbosity=verbosity,
     )
 
     return flags, remaining_args

@@ -626,3 +626,112 @@ class AddonsInfoCmd(Command):
             return [{"t": "error", "text": f"Error getting service info: {e}"}]
         except Exception as e:
             return [{"t": "error", "text": f"Unexpected error: {e}"}]
+
+
+@register
+@dataclass(frozen=True)
+class AddonsStatusCmd(Command):
+    """Show detailed status and health of an addon.
+
+    Performs a health check on the addon and shows all attached applications.
+
+    Usage: hop3 addons:status <service-name> [--service-type <type>]
+
+    Examples:
+        hop3 addons:status my-database --service-type postgres
+        hop3 addons:status my-cache --service-type redis
+    """
+
+    db_session: Session
+    name: ClassVar[str] = "addons:status"
+
+    def call(self, *args):
+        """Get detailed addon status with health check."""
+        if len(args) < 1:
+            return [
+                {
+                    "t": "text",
+                    "text": (
+                        "Usage: hop3 addons:status <service-name> [--service-type <type>]\n\n"
+                        "Example:\n"
+                        "  hop3 addons:status my-database --service-type postgres"
+                    ),
+                }
+            ]
+
+        addon_name = args[0]
+        service_type = "postgres"  # Default
+
+        # Parse optional arguments
+        i = 1
+        while i < len(args):
+            if args[i] == "--service-type" and i + 1 < len(args):
+                service_type = args[i + 1]
+                i += 2
+            else:
+                i += 1
+
+        try:
+            # Get the service strategy
+            addon = get_addon(service_type, addon_name)
+
+            # Perform health check
+            health_status = "Unknown"
+            health_error = None
+            try:
+                if hasattr(addon, "health_check"):
+                    healthy = addon.health_check()
+                    health_status = "Healthy" if healthy else "Unhealthy"
+                elif hasattr(addon, "info"):
+                    # Try to get info as a basic health check
+                    addon.info()
+                    health_status = "Available"
+            except Exception as e:
+                health_status = "Unhealthy"
+                health_error = str(e)
+
+            # Get attached apps
+            credentials = (
+                self.db_session.query(AddonCredential)
+                .filter_by(addon_type=service_type, addon_name=addon_name)
+                .all()
+            )
+
+            # Get app names through the relationship
+            attached_apps = []
+            for credential in credentials:
+                if credential.app:
+                    attached_apps.append(credential.app.name)
+
+            # Build output rows
+            rows = [
+                ["Name", addon_name],
+                ["Type", service_type],
+                ["Status", health_status],
+                [
+                    "Attached Apps",
+                    ", ".join(attached_apps) if attached_apps else "None",
+                ],
+            ]
+
+            if health_error:
+                rows.append(["Error", health_error])
+
+            # Try to get additional info
+            try:
+                info = addon.info()
+                if "host" in info:
+                    rows.append(["Host", info["host"]])
+                if "port" in info:
+                    rows.append(["Port", str(info["port"])])
+                if "version" in info:
+                    rows.append(["Version", info["version"]])
+            except Exception:
+                pass
+
+            return [{"t": "table", "headers": ["Property", "Value"], "rows": rows}]
+
+        except RuntimeError as e:
+            return [{"t": "error", "text": f"Addon not found or error: {e}"}]
+        except Exception as e:
+            return [{"t": "error", "text": f"Unexpected error: {e}"}]

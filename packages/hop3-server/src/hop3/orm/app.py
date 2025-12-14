@@ -108,6 +108,12 @@ class App(BigIntAuditBase):
     state_changed_at: Mapped[datetime | None] = mapped_column(
         DateTime, default=None, nullable=True
     )
+    # Image tag for container-based runtimes (e.g., "hop3/myapp:latest")
+    image_tag: Mapped[str] = mapped_column(String(256), default="", nullable=True)
+    # Timestamp of last successful deployment (for --since-deploy log filter)
+    last_deployed_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=None, nullable=True
+    )
 
     env_vars: Mapped[list[EnvVar]] = relationship(
         back_populates="app", cascade="all, delete-orphan", lazy="selectin"
@@ -418,11 +424,14 @@ class App(BigIntAuditBase):
             self.port = get_free_port()
             log(f"Allocated port {self.port} for app", level=2)
 
-        # Set up environment with allocated port
+        # Set up environment with allocated port and image tag
         env = {
             "PATH": os.environ.get("PATH", ""),
             "HOME": os.environ.get("HOME", ""),
             "PORT": str(self.port),
+            "HOP3_IMAGE_TAG": self.image_tag or f"hop3/{self.name.lower()}:latest",
+            "HOP3_APP_NAME": self.name,
+            "HOP3_APP_PORT": str(self.port),
         }
 
         try:
@@ -615,6 +624,17 @@ class App(BigIntAuditBase):
 
         log(f"Restarting Docker Compose app '{self.name}'...", level=2, fg="blue")
 
+        # Build environment with image tag for compose file substitution
+        # This fixes the "HOP3_IMAGE_TAG not set" issue during restart
+        env = {
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": os.environ.get("HOME", ""),
+            "PORT": str(self.port) if self.port else "8080",
+            "HOP3_IMAGE_TAG": self.image_tag or f"hop3/{self.name.lower()}:latest",
+            "HOP3_APP_NAME": self.name,
+            "HOP3_APP_PORT": str(self.port) if self.port else "8080",
+        }
+
         try:
             subprocess.run(
                 ["docker", "compose", "-p", self.name, "restart"],
@@ -623,6 +643,7 @@ class App(BigIntAuditBase):
                 capture_output=True,
                 text=True,
                 timeout=60,
+                env=env,
             )
             log(f"Docker Compose app '{self.name}' restarted.", level=2, fg="green")
         except subprocess.CalledProcessError as e:
@@ -640,27 +661,29 @@ class App(BigIntAuditBase):
             self.stop()
             self.start()
 
-    def get_logs(self, lines: int = 100) -> list[str]:
+    def get_logs(self, lines: int = 100, since: str | None = None) -> list[str]:
         """Get the most recent log lines for the application.
 
         Args:
             lines: Number of log lines to retrieve (default: 100)
+            since: Only return logs after this timestamp (ISO format)
 
         Returns:
             List of log lines
         """
         # For Docker Compose apps, fetch logs from Docker
         if self.runtime == "docker-compose":
-            return self._get_docker_logs(lines)
+            return self._get_docker_logs(lines, since=since)
 
         # For other runtimes, read from log files
-        return self._get_file_logs(lines)
+        return self._get_file_logs(lines, since=since)
 
-    def _get_docker_logs(self, lines: int = 100) -> list[str]:
+    def _get_docker_logs(self, lines: int = 100, since: str | None = None) -> list[str]:
         """Get logs from Docker container(s) for this app.
 
         Args:
             lines: Number of log lines to retrieve
+            since: Only return logs after this timestamp (ISO format)
 
         Returns:
             List of log lines
@@ -685,6 +708,9 @@ class App(BigIntAuditBase):
                     str(lines),
                     "--no-color",
                 ]
+                # Add --since filter if specified
+                if since:
+                    cmd.extend(["--since", since])
             else:
                 # Fall back to docker logs for the main container
                 cmd = [
@@ -694,6 +720,10 @@ class App(BigIntAuditBase):
                     str(lines),
                     f"{self.name}-web-1",
                 ]
+                # Add --since filter if specified (docker logs also supports it)
+                if since:
+                    cmd.insert(-1, "--since")
+                    cmd.insert(-1, since)
 
             result = subprocess.run(
                 cmd,
@@ -725,11 +755,12 @@ class App(BigIntAuditBase):
 
         return all_logs
 
-    def _get_file_logs(self, lines: int = 100) -> list[str]:
+    def _get_file_logs(self, lines: int = 100, since: str | None = None) -> list[str]:
         """Get logs from log files for this app.
 
         Args:
             lines: Number of log lines to retrieve
+            since: Only return logs after this timestamp (ISO format)
 
         Returns:
             List of log lines
@@ -742,21 +773,90 @@ class App(BigIntAuditBase):
         if not log_files:
             return [f"No log files found for app '{self.name}'"]
 
+        # Parse the 'since' timestamp if provided
+        since_dt: datetime | None = None
+        if since:
+            try:
+                since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
+            except ValueError:
+                pass  # Invalid timestamp, ignore filter
+
         # Collect logs from all workers
         all_logs = []
         for log_file in log_files:
-            try:
-                with open(log_file) as f:
-                    file_lines = f.readlines()
-                    # Add header to identify which worker the logs are from
-                    worker_name = log_file.stem  # e.g., "web.1"
-                    all_logs.append(f"==> {worker_name} <==")
-                    all_logs.extend(line.rstrip() for line in file_lines)
-                    all_logs.append("")  # Blank line between files
-            except Exception as e:
-                all_logs.append(f"Error reading {log_file.name}: {e}")
+            file_logs = self._read_single_log_file(log_file, since_dt)
+            all_logs.extend(file_logs)
 
         # Return the last N lines across all log files
         return (
             all_logs[-lines:] if all_logs else [f"No log content for app '{self.name}'"]
         )
+
+    def _read_single_log_file(
+        self, log_file: Path, since_dt: datetime | None
+    ) -> list[str]:
+        """Read a single log file and optionally filter by timestamp.
+
+        Args:
+            log_file: Path to the log file
+            since_dt: Only include lines after this timestamp (or None for all)
+
+        Returns:
+            List of log lines from this file
+        """
+        result = []
+        try:
+            with open(log_file) as f:
+                file_lines = f.readlines()
+
+            # Add header to identify which worker the logs are from
+            worker_name = log_file.stem  # e.g., "web.1"
+            result.append(f"==> {worker_name} <==")
+
+            for line in file_lines:
+                stripped = line.rstrip()
+                # Filter by timestamp if since_dt is set
+                if since_dt and stripped:
+                    line_ts = self._extract_timestamp_from_log(stripped)
+                    if line_ts and line_ts < since_dt:
+                        continue
+                result.append(stripped)
+            result.append("")  # Blank line between files
+        except Exception as e:
+            result.append(f"Error reading {log_file.name}: {e}")
+
+        return result
+
+    def _extract_timestamp_from_log(self, line: str) -> datetime | None:
+        """Try to extract a timestamp from the beginning of a log line.
+
+        Supports common log formats:
+        - ISO format: 2025-01-15T10:30:00Z
+        - Common log format: [15/Jan/2025:10:30:00 +0000]
+        - Simple datetime: 2025-01-15 10:30:00
+
+        Args:
+            line: A log line
+
+        Returns:
+            Parsed datetime or None if no timestamp found
+        """
+        import re
+
+        # Try ISO format first (most common in structured logs)
+        iso_match = re.match(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", line)
+        if iso_match:
+            try:
+                return datetime.fromisoformat(iso_match.group(1))
+            except ValueError:
+                pass
+
+        # Try simple datetime format
+        simple_match = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", line)
+        if simple_match:
+            try:
+                return datetime.fromisoformat(simple_match.group(1))
+            except ValueError:
+                pass
+
+        return None
