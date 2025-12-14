@@ -1,7 +1,7 @@
 # Hop3 CLI Reference
 
 **Version:** 0.4.0
-**Last Updated:** 2025-11-12
+**Last Updated:** 2025-12-14
 
 This document provides a complete reference for all Hop3 CLI commands.
 
@@ -83,8 +83,26 @@ All commands support these global flags:
 
 ### Verbosity
 
-- **`-v, --verbose`** - Enable verbose output (shows Docker build output, command details)
-- **`--debug`** - Maximum verbosity (shows all build logs, internal operations)
+Verbosity controls how much output is displayed. The verbosity level is passed to the server and affects all command output.
+
+| Level | Value | Flags | Description |
+|-------|-------|-------|-------------|
+| Quiet | 0 | `-q`, `--quiet` | Minimal output (errors only) |
+| Normal | 1 | (default) | Standard output |
+| Verbose | 2 | `-v`, `--verbose` | Detailed output (build logs, command details) |
+| Debug | 3 | `-vv`, `--debug` | Maximum verbosity (all internal operations) |
+
+**Flag stacking:** You can use multiple `-v` flags for increased verbosity:
+- `-v` = verbose (level 2)
+- `-vv` = debug (level 3)
+- `-vvv` = debug (capped at level 3)
+
+**Environment variable:** Set `HOP3_VERBOSITY` to control default verbosity:
+```bash
+export HOP3_VERBOSITY=2  # Default to verbose mode
+```
+
+Explicit flags override the environment variable.
 
 ### Examples
 
@@ -98,8 +116,19 @@ hop3 deploy myapp -y
 # Quiet mode (minimal output)
 hop3 backup:create myapp --quiet
 
+# Verbose deployment (see Docker build output)
+hop3 -v deploy myapp
+
+# Debug mode (maximum verbosity)
+hop3 -vv deploy myapp
+# or
+hop3 --debug deploy myapp
+
 # Combine flags
 hop3 app:destroy oldapp --yes --quiet
+
+# Set default verbosity via environment
+HOP3_VERBOSITY=0 hop3 deploy myapp  # Quiet mode
 ```
 
 ---
@@ -292,14 +321,10 @@ hop3 deploy myapp
 5. Configures reverse proxy (nginx, Caddy, or Traefik)
 6. Starts application processes
 
-**Options:**
-- `-v, --verbose` - Show Docker build output and command details
-- `--debug` - Show all build logs (maximum verbosity)
-
 **Notes:**
 - Requires `Procfile` or `hop3.toml` for process configuration
 - Automatically detects buildpack based on files present
-- Use `-v` or `--debug` to see Docker build output for troubleshooting
+- Use `-v` or `-vv` to see Docker build output for troubleshooting (see [Global Flags](#global-flags))
 - Build logs are also saved and can be retrieved with `app:build-logs`
 - See [Deployment Guide](./deployment.md) for details
 
@@ -1281,6 +1306,7 @@ The Hop3 CLI uses standard exit codes:
 - **`HOP3_API_URL`** - Server URL (http://server or ssh://user@server)
 - **`HOP3_API_TOKEN`** - API authentication token (overrides ~/.hop3/token)
 - **`HOP3_CONFIG_DIR`** - Config directory (default: ~/.hop3)
+- **`HOP3_VERBOSITY`** - Default verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
 
 ### Security
 
@@ -1371,6 +1397,6 @@ hop3 <command> --help
 
 ---
 
-**Last Updated:** 2025-11-12
+**Last Updated:** 2025-12-14
 **CLI Version:** 0.4.0
 **Server Version:** 0.4.0

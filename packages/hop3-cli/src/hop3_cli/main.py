@@ -27,6 +27,7 @@ from .commands import (
     parse_flags,
 )
 from .config import Config, get_config
+from .exit_codes import ExitCode
 from .rpc import Client, handle_response
 from .ui import (
     RichPrinter,
@@ -109,23 +110,23 @@ def _check_prerequisites(
     # Check if CLI is configured
     if not config.is_configured():
         show_unconfigured_message(cli_args)
-        sys.exit(1)
+        sys.exit(ExitCode.AUTH_ERROR)
 
     # Check authentication
     if not config.is_authenticated():
         show_unauthenticated_message()
-        sys.exit(1)
+        sys.exit(ExitCode.AUTH_ERROR)
 
     # For destructive commands, verify token is valid BEFORE asking for confirmation
     if is_destructive_command(cli_args):
         if not verify_authentication(config):
             show_unauthenticated_message()
-            sys.exit(1)
+            sys.exit(ExitCode.AUTH_ERROR)
 
     # Prompt for confirmation on destructive commands
     if not flags.skip_confirm and is_destructive_command(cli_args):
         if not confirm_destructive_action(cli_args, printer):
-            sys.exit(0)  # User cancelled
+            sys.exit(ExitCode.SUCCESS)  # User cancelled
 
 
 def requires_authentication(cli_args: list[str]) -> bool:
@@ -161,10 +162,13 @@ def _execute_rpc_command(cli_args: list[str], config: Config, extra_args: dict) 
             _handle_connection_error(e, client.rpc_url)
         except requests.exceptions.HTTPError as e:
             err(f"HTTP error while connecting to the Hop3 server:\n{e}")
-            sys.exit(1)
+            sys.exit(ExitCode.CONNECTION_ERROR)
+        except TimeoutError:
+            err("Connection to the Hop3 server timed out.")
+            sys.exit(ExitCode.TIMEOUT_ERROR)
         except Exception as e:
             err(f"Error while executing command:\n{e}")
-            sys.exit(1)
+            sys.exit(ExitCode.GENERAL_ERROR)
 
 
 def _handle_ssl_error(rpc_url: str) -> None:
@@ -177,7 +181,7 @@ def _handle_ssl_error(rpc_url: str) -> None:
         "  2. Disable SSL verification (less secure):\n"
         "     hop3 settings set verify_ssl false"
     )
-    sys.exit(1)
+    sys.exit(ExitCode.CONNECTION_ERROR)
 
 
 def _handle_connection_error(e: Exception, rpc_url: str) -> None:
@@ -187,7 +191,7 @@ def _handle_connection_error(e: Exception, rpc_url: str) -> None:
         _handle_ssl_error(rpc_url)
     else:
         err(f"Could not connect to the Hop3 server at {rpc_url}.\nIs it running?")
-        sys.exit(1)
+        sys.exit(ExitCode.CONNECTION_ERROR)
 
 
 def load_config() -> Config:

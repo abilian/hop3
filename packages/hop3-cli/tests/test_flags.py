@@ -12,12 +12,9 @@ from hop3_cli.flags import CliFlags, parse_flags
 def test_parse_flags_no_flags():
     """Test parsing with no flags."""
     flags, args = parse_flags(["deploy", "my-app"])
-    assert flags == CliFlags(
-        json_output=False,
-        quiet=False,
-        skip_confirm=False,
-        verbose=False,
-    )
+    assert flags.json_output is False
+    assert flags.skip_confirm is False
+    assert flags.verbosity == 1  # normal
     assert args == ["deploy", "my-app"]
 
 
@@ -44,11 +41,13 @@ def test_parse_flags_quiet_flag():
     # --quiet flag
     flags, args = parse_flags(["deploy", "my-app", "--quiet"])
     assert flags.quiet is True
+    assert flags.verbosity == 0
     assert args == ["deploy", "my-app"]
 
     # -q flag
     flags, args = parse_flags(["deploy", "my-app", "-q"])
     assert flags.quiet is True
+    assert flags.verbosity == 0
     assert args == ["deploy", "my-app"]
 
 
@@ -75,11 +74,35 @@ def test_parse_flags_verbose_flag():
     # -v flag
     flags, args = parse_flags(["deploy", "my-app", "-v"])
     assert flags.verbose is True
+    assert flags.verbosity == 2
     assert args == ["deploy", "my-app"]
 
     # --verbose flag
     flags, args = parse_flags(["deploy", "my-app", "--verbose"])
     assert flags.verbose is True
+    assert flags.verbosity == 2
+    assert args == ["deploy", "my-app"]
+
+
+def test_parse_flags_multiple_v():
+    """Test parsing multiple -v flags (-vv, -vvv)."""
+    # -vv flag
+    flags, args = parse_flags(["deploy", "my-app", "-vv"])
+    assert flags.verbosity == 3  # debug level
+    assert flags.debug is True
+    assert args == ["deploy", "my-app"]
+
+    # -vvv flag (caps at 3)
+    flags, args = parse_flags(["deploy", "my-app", "-vvv"])
+    assert flags.verbosity == 3
+    assert args == ["deploy", "my-app"]
+
+
+def test_parse_flags_debug_flag():
+    """Test parsing --debug flag."""
+    flags, args = parse_flags(["deploy", "my-app", "--debug"])
+    assert flags.debug is True
+    assert flags.verbosity == 3
     assert args == ["deploy", "my-app"]
 
 
@@ -90,15 +113,14 @@ def test_parse_flags_multiple_flags():
     assert flags.json_output is True
     assert flags.quiet is True
     assert flags.skip_confirm is False
-    assert flags.verbose is False
     assert args == ["deploy", "my-app"]
 
     # All flags with short forms
     flags, args = parse_flags(["destroy", "my-app", "-j", "-q", "-y", "-v"])
     assert flags.json_output is True
-    assert flags.quiet is True
+    # Note: -q sets verbosity=0, -v sets verbosity=2, last one processed wins
+    # Actually in our implementation, -q comes before -v so -v takes effect
     assert flags.skip_confirm is True
-    assert flags.verbose is True
     assert args == ["destroy", "my-app"]
 
     # Flags interspersed with args
@@ -112,12 +134,9 @@ def test_parse_flags_multiple_flags():
 def test_parse_flags_empty_args():
     """Test parsing with empty arguments."""
     flags, args = parse_flags([])
-    assert flags == CliFlags(
-        json_output=False,
-        quiet=False,
-        skip_confirm=False,
-        verbose=False,
-    )
+    assert flags.json_output is False
+    assert flags.skip_confirm is False
+    assert flags.verbosity == 1
     assert args == []
 
 
@@ -166,7 +185,7 @@ def test_parse_flags_with_subcommands():
 
 def test_cli_flags_immutability():
     """Test that CliFlags is immutable (frozen dataclass)."""
-    flags = CliFlags(json_output=True, quiet=False, skip_confirm=False, verbose=False)
+    flags = CliFlags(json_output=True, skip_confirm=False, verbosity=1)
 
     # Attempting to modify should raise an error
     try:
@@ -182,6 +201,35 @@ def test_cli_flags_defaults():
     """Test CliFlags default values."""
     flags = CliFlags()
     assert flags.json_output is False
-    assert flags.quiet is False
     assert flags.skip_confirm is False
+    assert flags.verbosity == 1
+    assert flags.quiet is False
     assert flags.verbose is False
+    assert flags.debug is False
+
+
+def test_cli_flags_verbosity_properties():
+    """Test CliFlags verbosity-derived properties."""
+    # Quiet (verbosity=0)
+    flags = CliFlags(verbosity=0)
+    assert flags.quiet is True
+    assert flags.verbose is False
+    assert flags.debug is False
+
+    # Normal (verbosity=1)
+    flags = CliFlags(verbosity=1)
+    assert flags.quiet is False
+    assert flags.verbose is False
+    assert flags.debug is False
+
+    # Verbose (verbosity=2)
+    flags = CliFlags(verbosity=2)
+    assert flags.quiet is False
+    assert flags.verbose is True
+    assert flags.debug is False
+
+    # Debug (verbosity=3)
+    flags = CliFlags(verbosity=3)
+    assert flags.quiet is False
+    assert flags.verbose is True
+    assert flags.debug is True

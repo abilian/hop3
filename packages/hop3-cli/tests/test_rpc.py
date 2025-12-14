@@ -11,7 +11,8 @@ from hop3_cli.main import get_extra_args
 def test_extra_args():
     args = ["help"]
     extra_args = get_extra_args(args)
-    assert extra_args == {}
+    # Verbosity is always included - server extracts it as context
+    assert extra_args == {"verbosity": 1}
 
 
 def test_extra_args_deploy():

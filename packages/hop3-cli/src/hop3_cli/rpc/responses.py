@@ -6,12 +6,14 @@
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from typing import TYPE_CHECKING, Any
 
 from jsonrpcclient import Error, Ok
 
+from hop3_cli.exit_codes import ExitCode, map_message_to_exit, map_rpc_code_to_exit
 from hop3_cli.ui.console import err
 
 if TYPE_CHECKING:
@@ -28,7 +30,7 @@ def handle_response(
         case Ok(result=result):
             handle_ok_response(result, cli_args, config, printer)
         case Error(code=code, message=message):
-            handle_error_response(code, message)
+            handle_error_response(code, message, printer)
         case None:
             pass
 
@@ -52,8 +54,16 @@ def handle_ok_response(
         printer.print(result)
 
 
-def handle_error_response(code: int, message: str) -> None:
-    """Handle RPC error response."""
+def handle_error_response(
+    code: int, message: str, printer: RichPrinter | None = None
+) -> None:
+    """Handle RPC error response.
+
+    Args:
+        code: The JSON-RPC or HTTP error code
+        message: The error message
+        printer: Optional RichPrinter for JSON output mode
+    """
     clean_message = message
     prefixes_to_strip = [
         "Command execution failed: ",
@@ -66,8 +76,27 @@ def handle_error_response(code: int, message: str) -> None:
     if code == -32601:  # Method/command not found
         clean_message += "\n\nRun 'hop help' to see available commands."
 
-    err(clean_message)
-    sys.exit(1)
+    # Determine exit code from RPC code, falling back to message analysis
+    exit_code = map_rpc_code_to_exit(code)
+    if exit_code == ExitCode.GENERAL_ERROR:
+        # Try to infer from message content
+        exit_code = map_message_to_exit(clean_message)
+
+    # Output error in appropriate format
+    if printer and printer.json_output:
+        error_obj = {
+            "success": False,
+            "error": {
+                "code": code,
+                "message": clean_message,
+                "exit_code": exit_code,
+            },
+        }
+        print(json.dumps(error_obj, indent=2))
+    else:
+        err(clean_message)
+
+    sys.exit(exit_code)
 
 
 def handle_login_response(

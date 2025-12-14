@@ -80,27 +80,39 @@ class ConfigCmd(Command):
 @register
 @dataclass(frozen=True)
 class ShowCmd(Command):
-    """Show config, e.g.: hop config:show <app> or hop config:show --app <app>."""
+    """Show config, e.g.: hop config:show <app> or hop config:show --app <app>.
+
+    Flags:
+        --show-compose  Show the generated Docker Compose file (for container apps)
+    """
 
     db_session: Session
     name: ClassVar[str] = "config:show"
 
     def call(self, *args):
-        app_name = self._parse_app_name(args)
+        app_name, show_compose = self._parse_args(args)
         if not app_name:
             return [
                 {
                     "t": "text",
                     "text": (
-                        "Usage: hop3 config:show <app-name>\n"
-                        "   or: hop3 config:show --app <app-name>\n\n"
+                        "Usage: hop3 config:show <app-name> [--show-compose]\n"
+                        "   or: hop3 config:show --app <app-name> [--show-compose]\n\n"
+                        "Flags:\n"
+                        "  --show-compose  Show the generated Docker Compose file\n\n"
                         "Example:\n"
-                        "  hop3 config:show myapp"
+                        "  hop3 config:show myapp\n"
+                        "  hop3 config:show myapp --show-compose"
                     ),
                 }
             ]
 
         app = _get_app(self.db_session, app_name)
+
+        # If --show-compose flag is set, show the Docker Compose file
+        if show_compose:
+            return self._show_compose_file(app)
+
         env = app.get_runtime_env()
 
         rows = [[k, v] for k, v in env.items()]
@@ -112,20 +124,81 @@ class ShowCmd(Command):
             }
         ]
 
-    def _parse_app_name(self, args):
-        """Parse app name from positional or --app flag."""
-        if not args:
-            return None
+    def _show_compose_file(self, app: App) -> list[dict]:
+        """Show the generated Docker Compose file for the app.
 
-        # Check for --app flag
+        Args:
+            app: The application
+
+        Returns:
+            List of output messages
+        """
+        # Look for the generated compose file
+        compose_file = app.src_path / ".hop3-compose.yml"
+
+        if not compose_file.exists():
+            # Check for user-provided compose file
+            user_compose = app.src_path / "docker-compose.yml"
+            if user_compose.exists():
+                compose_file = user_compose
+            else:
+                user_compose_yaml = app.src_path / "docker-compose.yaml"
+                if user_compose_yaml.exists():
+                    compose_file = user_compose_yaml
+                else:
+                    return [
+                        {
+                            "t": "text",
+                            "text": f"No Docker Compose file found for app '{app.name}'.",
+                        },
+                        {
+                            "t": "text",
+                            "text": "This app may not use container-based deployment.",
+                        },
+                    ]
+
+        try:
+            content = compose_file.read_text()
+            return [
+                {
+                    "t": "text",
+                    "text": f"==> {compose_file.name} <==",
+                },
+                {"t": "code", "lang": "yaml", "text": content},
+            ]
+        except Exception as e:
+            return [{"t": "error", "text": f"Error reading compose file: {e}"}]
+
+    def _parse_args(self, args) -> tuple[str | None, bool]:
+        """Parse app name and flags from arguments.
+
+        Returns:
+            Tuple of (app_name, show_compose_flag)
+        """
+        if not args:
+            return None, False
+
+        app_name = None
+        show_compose = False
+        remaining_args = []
+
         i = 0
         while i < len(args):
             if args[i] == "--app" and i + 1 < len(args):
-                return args[i + 1]
-            i += 1
+                app_name = args[i + 1]
+                i += 2
+            elif args[i] == "--show-compose":
+                show_compose = True
+                i += 1
+            else:
+                remaining_args.append(args[i])
+                i += 1
 
-        # Default to first positional argument
-        return args[0] if args else None
+        # If --app was not used, first remaining arg is app name
+        if not app_name and remaining_args:
+            app_name = remaining_args[0]
+
+        return app_name, show_compose
 
 
 @register
