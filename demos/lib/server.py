@@ -14,6 +14,65 @@ if TYPE_CHECKING:
     from lib.context import DemoContext
 
 
+def clean_server(ctx: DemoContext) -> None:
+    """Clean the server completely before running demos.
+
+    This removes:
+    - All deployed apps (Docker containers and data)
+    - The hop3 home directory (/home/hop3)
+    - The hop3 database
+    - Nginx configurations for apps
+    """
+    print_step("Cleaning server before demo run...")
+
+    # Stop hop3-server service if running
+    print_info("Stopping hop3-server service...")
+    run_ssh(ctx, "systemctl stop hop3-server 2>/dev/null || true", show=False, check=False)
+
+    # Stop and remove any Docker containers that might be running for apps
+    print_info("Stopping any running Docker containers...")
+    run_ssh(
+        ctx,
+        "docker ps -q | xargs -r docker stop 2>/dev/null || true",
+        show=False,
+        check=False,
+    )
+    run_ssh(
+        ctx,
+        "docker ps -aq | xargs -r docker rm 2>/dev/null || true",
+        show=False,
+        check=False,
+    )
+
+    # Remove app nginx configurations
+    print_info("Removing nginx app configurations...")
+    run_ssh(
+        ctx,
+        "rm -f /etc/nginx/sites-enabled/hop3-* 2>/dev/null || true",
+        show=False,
+        check=False,
+    )
+    run_ssh(
+        ctx,
+        "rm -f /etc/nginx/sites-available/hop3-* 2>/dev/null || true",
+        show=False,
+        check=False,
+    )
+
+    # Reload nginx to apply config removal
+    run_ssh(ctx, "systemctl reload nginx 2>/dev/null || true", show=False, check=False)
+
+    # Remove the hop3 home directory completely (includes database, apps, venv)
+    print_info("Removing /home/hop3 directory...")
+    run_ssh(ctx, "rm -rf /home/hop3", show=False, check=False)
+
+    # Recreate hop3 user home directory
+    print_info("Recreating hop3 user home directory...")
+    run_ssh(ctx, "mkdir -p /home/hop3 && chown hop3:hop3 /home/hop3", show=False, check=False)
+
+    print_success("Server cleaned successfully")
+
+
 def verify_ssh_access(ctx: DemoContext) -> None:
     """Verify SSH access to the server."""
     print_step("Verifying SSH access to the server...")
@@ -122,8 +181,20 @@ def sync_local_code(ctx: DemoContext) -> None:
     result = run_local(rsync_cmd, show=ctx.verbose, check=False)
     if result.returncode != 0:
         print_error("Failed to sync code to server")
-        msg = "Failed to sync code to server"
+        if result.stdout:
+            print(f"  stdout: {result.stdout.strip()}")
+        if result.stderr:
+            print(f"  stderr: {result.stderr.strip()}")
+        msg = f"Failed to sync code to server (exit code {result.returncode})"
         raise CommandError(msg)
+
+    # Fix permissions so hop3 user can read the code during pip install
+    run_ssh(
+        ctx,
+        "chmod -R a+rX /tmp/hop3-server",
+        show=False,
+        check=False,
+    )
     print_success("Local code synced to server")
 
 
@@ -194,14 +265,16 @@ def configure_server_settings(ctx: DemoContext) -> None:
 
     This updates hop3-server.toml with demo-specific settings:
     - HOP3_LOG_LEVEL = "DEBUG" for detailed logging
+    - HOP3_SECRET_KEY = generated secret for token signing
 
     Note: PostgreSQL password and host settings are configured by the installer,
     not the demo launcher. If PostgreSQL addons fail, re-run the installer.
     """
     print_step("Configuring server settings for demos...")
 
-    # Update config to add DEBUG logging (preserves existing settings from installer)
+    # Update config to add DEBUG logging and SECRET_KEY (preserves existing settings)
     config_script = """\
+import secrets
 import toml
 from pathlib import Path
 
@@ -216,6 +289,10 @@ else:
 # Set DEBUG logging for demos
 config_data["HOP3_LOG_LEVEL"] = "DEBUG"
 
+# Generate SECRET_KEY if not already set (required for token signing)
+if "HOP3_SECRET_KEY" not in config_data:
+    config_data["HOP3_SECRET_KEY"] = secrets.token_urlsafe(32)
+
 # Write config back
 with config_file.open("w") as f:
     f.write("# Hop3 Server Configuration\\n")
@@ -224,6 +301,7 @@ with config_file.open("w") as f:
 
 print(f"Config file: {config_file}")
 print(f"  HOP3_LOG_LEVEL: {config_data.get('HOP3_LOG_LEVEL', 'NOT SET')}")
+print(f"  HOP3_SECRET_KEY: {'SET' if config_data.get('HOP3_SECRET_KEY') else 'NOT SET'}")
 print(f"  POSTGRES_HOST: {config_data.get('POSTGRES_HOST', 'NOT SET')}")
 print(f"  POSTGRES_SUPERUSER_PASSWORD: {'SET' if config_data.get('POSTGRES_SUPERUSER_PASSWORD') else 'NOT SET'}")
 print("Server config updated")

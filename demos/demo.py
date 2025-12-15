@@ -177,6 +177,7 @@ def _create_context(args, output_level: OutputLevel) -> DemoContext:
         skip_install=args.skip_install,
         no_cleanup=args.no_cleanup,
         use_local_code=args.use_local_code,
+        clean_before=getattr(args, "clean_before", False),
         verbose=args.verbose,
         debug=getattr(args, "debug", False),
         output_level=output_level,

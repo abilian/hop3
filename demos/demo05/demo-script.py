@@ -85,8 +85,8 @@ def run(ctx: DemoContext) -> None:
     # Redeploy to apply hostname
     redeploy_app(ctx, APP_NAME, APP_DIR)
 
-    # Wait for app
-    wait_for_app(seconds=3)
+    # Wait for app - Go apps need longer to compile on first deploy
+    wait_for_app(seconds=10, message="Waiting for Go compilation and app startup...")
 
     # Check status
     check_app_status(ctx, APP_NAME)
@@ -95,7 +95,8 @@ def run(ctx: DemoContext) -> None:
     print_header("Testing Application")
 
     test_app_via_hop3(ctx, APP_NAME, app_url)
-    test_app_via_curl(ctx, app_url, expected_content="Welcome to demo05")
+    # Go apps may take longer to start - use more retries
+    test_app_via_curl(ctx, app_url, expected_content="Welcome to demo05", max_retries=15)
 
     # Demo app management
     print_header("Application Management")

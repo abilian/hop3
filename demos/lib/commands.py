@@ -66,6 +66,9 @@ def run_ssh(
     )
     if check and result.returncode != 0:
         print_error(f"SSH command failed with exit code {result.returncode}")
+        # Show both stdout and stderr on failure (installer errors may be in stdout)
+        if result.stdout:
+            print(f"  {result.stdout.strip()}")
         if result.stderr:
             print(f"  {red(result.stderr.strip())}")
         msg = f"SSH command failed: {cmd}"
@@ -114,12 +117,16 @@ def run_hop3(
         full_cmd, shell=True, capture_output=True, text=True, check=False
     )
 
-    # Only print stdout in NORMAL or VERBOSE mode, and not if quiet=True
+    # Print stdout in NORMAL or VERBOSE mode (unless quiet=True)
     if result.stdout and output_level >= OutputLevel.NORMAL and not quiet:
         print(result.stdout)
 
     if check and result.returncode != 0:
         print_error(f"hop3 command failed with exit code {result.returncode}")
+        # Show stdout on failure too - it contains build logs
+        if result.stdout and (output_level < OutputLevel.NORMAL or quiet):
+            # Only show if we didn't already show it above
+            print(result.stdout)
         if result.stderr:
             print(f"  {red(result.stderr.strip())}")
         msg = f"hop3 command failed: {cmd}"
