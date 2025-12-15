@@ -1,6 +1,6 @@
 # ADR 025: CLI User Experience Improvements
 
-**Status**: Accepted
+**Status**: Final
 **Type**: Feature
 **Created**: 2025-11-08
 **Related-ADRs**: 018, 019, 024, 034

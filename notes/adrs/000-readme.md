@@ -21,27 +21,151 @@ This process is inspired by [Python's PEP process](https://www.python.org/dev/pe
 | [011](./011-encryption.md) | Data Encryption and Protection | Feature | Draft |
 | [012](./012-mfa.md) | Multi-Factor Authentication (MFA) | Feature | Draft |
 | [013](./013-supply-chain.md) | Software Supply Chain Security and SBOMs | Feature | Draft |
-| [014](./014-authentication-bootstrap.md) | Authentication Bootstrap Process | Feature | Draft |
+| [014](./014-authentication-bootstrap.md) | Authentication Bootstrap Process | Feature | Final |
 | [015](./015-documentation.md) | Documentation and Community Engagement | Process | Draft |
 | [016](./016-backups.md) | Backup Strategy | Feature | Draft |
 | [017](./017-agent-based-architecture.md) | Distributed, Agent-Based Architecture | Feature | Deferred |
-| [018](./018-cli-architecture.md) | CLI-Server Communication | Feature | Final |
-| [019](./019-cli-commands.md) | Basic Commands for the Hop3 Command-Line | Feature | Draft |
+| [018](./018-cli-architecture.md) | CLI-Server Communication | Feature | Accepted |
+| [019](./019-cli-commands.md) | Basic Commands for the Hop3 Command-Line | Feature | Accepted |
 | [020](./020-pluggable-architecture.md) | Pluggable Architecture for Core Deployment Workflow | Feature | Final |
 | [021](./021-proxy-plugin-system.md) | Proxy Plugin System for Reverse Proxy Configuration | Feature | Final |
 | [022](./022-build-deploy-plugin-system.md) | Build and Deployment Plugin System | Feature | Final |
 | [023](./023-runtime-stack-replacement.md) | Runtime Stack Replacement | Feature | Draft |
-| [024](./024-backup-restore-system.md) | Backup and Restore System | Feature | Accepted |
-| [025](./025-cli-user-experience.md) | CLI User Experience Improvements | Feature | Accepted |
+| [024](./024-backup-restore-system.md) | Backup and Restore System | Feature | Final |
+| [025](./025-cli-user-experience.md) | CLI User Experience Improvements | Feature | Final |
 | [026](./026-dashboard-ui-test-classification.md) | Dashboard UI Test Classification | Guideline | Active |
 | [027](./027-config-system-refactoring.md) | Configuration System Refactoring for Testability | Feature | Final |
-| [028](./028-pluggy-dishka-integration.md) | Pluggy + Dishka Integration for Plugin-Contributed Services | Feature | Accepted |
+| [028](./028-pluggy-dishka-integration.md) | Pluggy + Dishka Integration for Plugin-Contributed Services | Feature | Final |
 | [029](./029-reconciliation-health-checks.md) | Application Reconciliation and Health Check System | Feature | Draft |
 | [030](./030-two-level-build-architecture.md) | Two-Level Build Architecture | Feature | Final |
 | [031](./031-project-terminology.md) | Project Terminology | Guideline | Active |
-| [032](./032-deployment-strategies-artifact-lifecycle.md) | Deployment Strategies & Artifact Lifecycle | Feature | Final |
+| [032](./032-deployment-strategies-artifact-lifecycle.md) | Deployment Strategies & Artifact Lifecycle | Feature | Accepted |
 | [033](./033-docker-integration.md) | Docker Integration Strategy | Feature | Final |
 | [034](./034-streaming-deployment-logs.md) | Streaming Deployment Logs | Feature | Accepted |
+
+## ADRs by Type
+
+### Features (30)
+
+| # | Title | Status |
+|---|-------|--------|
+| [001](./001-config-files.md) | Config Files for Hop3 | Draft |
+| [002](./002-config-format.md) | Detailed `hop3.toml` Format | Draft |
+| [003](./003-config-parsing-and-validation.md) | Config Parsing and Validation | Draft |
+| [005](./005-web-terminal.md) | Web Terminal for Application Management | Draft |
+| [006](./006-nix-integration.md) | Nix Integration with Hop3 | Deferred |
+| [007](./007-nix-builder.md) | Development of Nix Builders for Existing Packages | Deferred |
+| [008](./008-nix-builders-2.md) | Creation of Nix Alternatives to Native Builders | Deferred |
+| [009](./009-nix-runtime.md) | Using Nix as a Runtime Isolation Mechanism | Deferred |
+| [010](./010-security-and-resilience.md) | Security and Resilience Enhancements | Draft |
+| [011](./011-encryption.md) | Data Encryption and Protection | Draft |
+| [012](./012-mfa.md) | Multi-Factor Authentication (MFA) | Draft |
+| [013](./013-supply-chain.md) | Software Supply Chain Security and SBOMs | Draft |
+| [014](./014-authentication-bootstrap.md) | Authentication Bootstrap Process | Final |
+| [016](./016-backups.md) | Backup Strategy | Draft |
+| [017](./017-agent-based-architecture.md) | Distributed, Agent-Based Architecture | Deferred |
+| [018](./018-cli-architecture.md) | CLI-Server Communication | Accepted |
+| [019](./019-cli-commands.md) | Basic Commands for the Hop3 Command-Line | Accepted |
+| [020](./020-pluggable-architecture.md) | Pluggable Architecture for Core Deployment Workflow | Final |
+| [021](./021-proxy-plugin-system.md) | Proxy Plugin System for Reverse Proxy Configuration | Final |
+| [022](./022-build-deploy-plugin-system.md) | Build and Deployment Plugin System | Final |
+| [023](./023-runtime-stack-replacement.md) | Runtime Stack Replacement | Draft |
+| [024](./024-backup-restore-system.md) | Backup and Restore System | Final |
+| [025](./025-cli-user-experience.md) | CLI User Experience Improvements | Final |
+| [027](./027-config-system-refactoring.md) | Configuration System Refactoring for Testability | Final |
+| [028](./028-pluggy-dishka-integration.md) | Pluggy + Dishka Integration for Plugin-Contributed Services | Final |
+| [029](./029-reconciliation-health-checks.md) | Application Reconciliation and Health Check System | Draft |
+| [030](./030-two-level-build-architecture.md) | Two-Level Build Architecture | Final |
+| [032](./032-deployment-strategies-artifact-lifecycle.md) | Deployment Strategies & Artifact Lifecycle | Accepted |
+| [033](./033-docker-integration.md) | Docker Integration Strategy | Final |
+| [034](./034-streaming-deployment-logs.md) | Streaming Deployment Logs | Accepted |
+
+### Processes (2)
+
+| # | Title | Status |
+|---|-------|--------|
+| [004](./004-development-tooling.md) | Development Tooling | Active |
+| [015](./015-documentation.md) | Documentation and Community Engagement | Draft |
+
+### Guidelines (2)
+
+| # | Title | Status |
+|---|-------|--------|
+| [026](./026-dashboard-ui-test-classification.md) | Dashboard UI Test Classification | Active |
+| [031](./031-project-terminology.md) | Project Terminology | Active |
+
+## ADRs by Status
+
+### Final (10)
+
+Fully implemented features.
+
+| # | Title | Type |
+|---|-------|------|
+| [014](./014-authentication-bootstrap.md) | Authentication Bootstrap Process | Feature |
+| [020](./020-pluggable-architecture.md) | Pluggable Architecture for Core Deployment Workflow | Feature |
+| [021](./021-proxy-plugin-system.md) | Proxy Plugin System for Reverse Proxy Configuration | Feature |
+| [022](./022-build-deploy-plugin-system.md) | Build and Deployment Plugin System | Feature |
+| [024](./024-backup-restore-system.md) | Backup and Restore System | Feature |
+| [025](./025-cli-user-experience.md) | CLI User Experience Improvements | Feature |
+| [027](./027-config-system-refactoring.md) | Configuration System Refactoring for Testability | Feature |
+| [028](./028-pluggy-dishka-integration.md) | Pluggy + Dishka Integration for Plugin-Contributed Services | Feature |
+| [030](./030-two-level-build-architecture.md) | Two-Level Build Architecture | Feature |
+| [033](./033-docker-integration.md) | Docker Integration Strategy | Feature |
+
+### Active (3)
+
+Processes and guidelines currently in effect.
+
+| # | Title | Type |
+|---|-------|------|
+| [004](./004-development-tooling.md) | Development Tooling | Process |
+| [026](./026-dashboard-ui-test-classification.md) | Dashboard UI Test Classification | Guideline |
+| [031](./031-project-terminology.md) | Project Terminology | Guideline |
+
+### Accepted (4)
+
+Approved and ready for implementation.
+
+| # | Title | Type |
+|---|-------|------|
+| [018](./018-cli-architecture.md) | CLI-Server Communication | Feature |
+| [019](./019-cli-commands.md) | Basic Commands for the Hop3 Command-Line | Feature |
+| [032](./032-deployment-strategies-artifact-lifecycle.md) | Deployment Strategies & Artifact Lifecycle | Feature |
+| [034](./034-streaming-deployment-logs.md) | Streaming Deployment Logs | Feature |
+
+### Draft (12)
+
+Initial proposals, not yet reviewed.
+
+| # | Title | Type |
+|---|-------|------|
+| [001](./001-config-files.md) | Config Files for Hop3 | Feature |
+| [002](./002-config-format.md) | Detailed `hop3.toml` Format | Feature |
+| [003](./003-config-parsing-and-validation.md) | Config Parsing and Validation | Feature |
+| [005](./005-web-terminal.md) | Web Terminal for Application Management | Feature |
+| [010](./010-security-and-resilience.md) | Security and Resilience Enhancements | Feature |
+| [011](./011-encryption.md) | Data Encryption and Protection | Feature |
+| [012](./012-mfa.md) | Multi-Factor Authentication (MFA) | Feature |
+| [013](./013-supply-chain.md) | Software Supply Chain Security and SBOMs | Feature |
+| [015](./015-documentation.md) | Documentation and Community Engagement | Process |
+| [016](./016-backups.md) | Backup Strategy | Feature |
+| [023](./023-runtime-stack-replacement.md) | Runtime Stack Replacement | Feature |
+| [029](./029-reconciliation-health-checks.md) | Application Reconciliation and Health Check System | Feature |
+
+### Deferred (5)
+
+Parked for later consideration.
+
+| # | Title | Type |
+|---|-------|------|
+| [006](./006-nix-integration.md) | Nix Integration with Hop3 | Feature |
+| [007](./007-nix-builder.md) | Development of Nix Builders for Existing Packages | Feature |
+| [008](./008-nix-builders-2.md) | Creation of Nix Alternatives to Native Builders | Feature |
+| [009](./009-nix-runtime.md) | Using Nix as a Runtime Isolation Mechanism | Feature |
+| [017](./017-agent-based-architecture.md) | Distributed, Agent-Based Architecture | Feature |
+
+---
 
 ## ADR Types
 

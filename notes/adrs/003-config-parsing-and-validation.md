@@ -7,7 +7,8 @@
 
 ## Revisions
 
-- v0.2: Clarified current implementation vs planned Pydantic migration (2025-11-25)
+- v0.3: Replaced Pydantic-specific language with generic validation requirements (2025-12-15)
+- v0.2: Clarified current implementation vs planned migration (2025-11-25)
 - v0.1: Initial draft (2024-07-17)
 
 ## Context
@@ -26,21 +27,64 @@ However, we also choose to support JSON and YAML as alternatives because the con
 ### Decision
 
 - Parse the configuration once (and report errors as soon as possible), apply some transformations, and transform it into JSON which will then be the reference file (loaded by `jsonlib` when necessary, but without any further transformations, or as little as possible).
-- Use Pydantic to validate the `hop3.toml` file.
+- Implement schema validation for the `hop3.toml` file (see Validation Requirements below).
 - Add specific code to validate the "env" section (because we don't know the keywords a priori), and possibly other sections.
 
 ### Current Implementation Status
 
-**Note (2025-11-25):** The current implementation uses ad-hoc property-based validation via Python dataclasses and `@property` methods, not Pydantic. Key files:
+**Note (2025-12-15):** The current implementation uses ad-hoc property-based access via Python dataclasses and `@property` methods. Key files:
 
 - `packages/hop3-server/src/hop3/project/hop3_config.py` - `Hop3Config` class with `tomllib` parsing
 - `packages/hop3-server/src/hop3/project/config.py` - `AppConfig` class with property-based access
 
-The migration to Pydantic-based validation remains a planned action item.
+Validation is minimal - primarily relies on TOML parse errors. Schema validation remains a planned enhancement.
+
+### Validation Requirements
+
+The validation system must provide:
+
+1. **Type Checking**
+   - Verify field types match specification (string, integer, list, dict, etc.)
+   - Handle optional vs required fields appropriately
+
+2. **Required Field Validation**
+   - Enforce mandatory fields (e.g., `[metadata].id` when metadata section is present)
+   - Provide clear errors when required fields are missing
+
+3. **Format Validation**
+   - URL format for `website`, `src-url`, `git-url` fields
+   - Version string format for `version` fields
+   - Cron pattern format for scheduled tasks
+   - App name format (alphanumeric + hyphens, length limits)
+
+4. **Semantic Validation**
+   - Worker type conflicts (e.g., can't have both `web` and `wsgi`)
+   - Provider reference validation (env vars referencing non-existent providers)
+   - Port number ranges
+
+5. **Error Message Quality**
+   - Clear, actionable error messages
+   - Include line/column numbers when possible
+   - Suggest fixes for common mistakes
+   - Support machine-readable error format (for tooling)
+
+### Implementation Options
+
+The validation requirements can be met by several approaches:
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Enhanced dataclasses** | No new deps, simple | Manual validation code |
+| **Pydantic v2** | Rich validation, JSON Schema export | Additional dependency |
+| **attrs + cattrs** | Lightweight, Pythonic | Less automatic validation |
+| **msgspec** | Fast, good validation | Less mature ecosystem |
+| **JSON Schema** | Language-agnostic, IDE support | Separate from Python code |
+
+The implementation choice is left open - any approach that meets the validation requirements is acceptable.
 
 ### Alternatives
 
-- Status quo (ad-hoc class with `@properties` that can provide) - **currently in use**
+- Status quo (ad-hoc class with `@properties`) - **currently in use**, limited validation
 
 ### Consequences
 
@@ -52,10 +96,11 @@ The migration to Pydantic-based validation remains a planned action item.
 
 ### Action Items
 
-- [ ] **Migrate to Pydantic validation**: Replace current property-based validation with Pydantic models
-- Converge the configuration format to something consistent between all the examples that are currently available:
-  - Make the schema as described with Pydantic consistent with the schema described (or specified) in the documentation.
-  - Make the schema consistent with the existing configuration files.
+- [ ] **Implement schema validation**: Add validation meeting the requirements above
+- [ ] **Converge the configuration format**: Ensure consistency between:
+  - The schema (as implemented)
+  - The documentation (ADR 002)
+  - The existing configuration files in examples
 
 ### Additional TODOs
 

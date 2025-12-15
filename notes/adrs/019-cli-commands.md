@@ -1,9 +1,41 @@
 # ADR 019: Basic Commands for the Hop3 Command-Line
 
-**Status**: Draft
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
 **Related-ADRs**: 018, 025
+
+## Implementation Status
+
+**Mostly implemented.** The CLI has more commands than specified (57 vs 27), but some ADR-specified commands are missing:
+
+### Implemented (from ADR)
+- **Authentication**: `login`, `logout`
+- **Development**: `deploy` (via `app:deploy`)
+- **System-Level**: `status`, `ssh`
+- **App-Level**: `apps` (list), `start`/`stop`/`restart`, `destroy`, `logs`, `env` operations, `run`
+- **Services**: `services` (list), service management, database-specific commands
+
+### Not Yet Implemented (from ADR)
+- **`build`**: Separate build command (currently builds happen during deploy)
+- **`revert`**: Revert failed deployment (requires ADR 032 - Deployment Strategies)
+- **`new`**: Start new project/package (scaffolding)
+- **`docker`**: Run docker command on server
+- **`upgrade`/`downgrade`**: App version management
+- **Marketplace**: `search`, `info`, `install` commands
+
+### Additional Commands (not in ADR)
+The implementation includes many commands not specified in the ADR:
+- Backup commands: `backup:create`, `backup:list`, `backup:restore`, `backup:delete`
+- Admin commands: `admin:create-user`, `admin:reset-password`
+- Server management: `server:setup`, `server:update`
+- Health/diagnostics: `healthcheck`, `info`
+- And many more (57 total commands)
+
+### Notes
+- The ADR should be updated to reflect the actual command set
+- Missing commands are tracked in the roadmap
+- See ADR 025 for CLI UX improvements
 
 ## Introduction
 

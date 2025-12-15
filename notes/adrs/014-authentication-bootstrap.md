@@ -1,6 +1,6 @@
 # ADR 014: Authentication Bootstrap Process
 
-**Status**: Accepted
+**Status**: Final
 **Type**: Feature
 **Created**: 2025-11-28
 **Related-ADRs**: 012, 018
