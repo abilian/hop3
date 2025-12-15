@@ -158,33 +158,60 @@ class DockerBuilder:
         elapsed = time.time() - start_time
 
         # Log error at normal level (always visible)
-        log(f"Docker build failed with exit code {e.returncode}:", level=1, fg="red")
+        log(f"Docker build failed with exit code {e.returncode}:", level=0, fg="red")
 
-        # Show full build output (stdout) for debugging
-        if e.stdout:
+        # Docker buildx outputs build logs to stderr, so check both
+        build_output = e.stderr or e.stdout or ""
+
+        # Show full build output for debugging (level=1 = normal, always visible)
+        if build_output:
             log("Build output:", level=1, fg="yellow")
-            self._log_output(e.stdout, level=1, prefix="  ")
-
-        # Show error output
-        if e.stderr:
-            log("Error output:", level=1, fg="red")
-            self._log_output(e.stderr, level=1, fg="red", prefix="  ")
+            self._log_output(build_output, level=1, prefix="  ")
 
         # Save build logs for later retrieval
         self._save_build_log(e.stdout or "", e.stderr or "", elapsed, success=False)
 
-        # Log to server log
+        # Log to server log (truncated for structured logging)
         server_log.error(
             "Docker build failed",
             app_name=self.app_name,
             image_tag=image_tag,
             exit_code=e.returncode,
             duration_seconds=round(elapsed, 1),
-            stderr=e.stderr[:500] if e.stderr else "",
+            stderr=build_output[:1000] if build_output else "",
         )
 
-        msg = f"Docker build failed: {e.stderr[:200] if e.stderr else 'unknown error'}"
+        # Extract the last meaningful error line for the summary message
+        error_summary = self._extract_error_summary(build_output)
+        msg = f"Docker build failed: {error_summary}"
         raise Abort(msg)
+
+    def _extract_error_summary(self, output: str) -> str:
+        """Extract a meaningful error summary from Docker build output.
+
+        Args:
+            output: Full build output
+
+        Returns:
+            A concise error summary (last non-empty line or truncated output)
+        """
+        if not output:
+            return "unknown error"
+
+        # Docker buildx format: look for ERROR lines or the last meaningful line
+        lines = [line.strip() for line in output.strip().split("\n") if line.strip()]
+        if not lines:
+            return "unknown error"
+
+        # Look for lines containing "ERROR" or "error:"
+        for line in reversed(lines):
+            if "ERROR" in line.upper() or "error:" in line.lower():
+                # Return the error line (up to 500 chars)
+                return line[:500] if len(line) > 500 else line
+
+        # Fall back to last line
+        last_line = lines[-1]
+        return last_line[:500] if len(last_line) > 500 else last_line
 
     def _log_output(
         self, output: str, level: int = 2, fg: str = "", prefix: str = ""

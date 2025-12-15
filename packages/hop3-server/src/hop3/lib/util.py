@@ -9,7 +9,6 @@ import os
 import shlex
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 from socket import AF_INET, SOCK_STREAM, socket
 from subprocess import STDOUT, check_output
@@ -17,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from hop3.lib.multi_tail import MultiTail
 
-from .console import dim, log
+from .console import log
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -27,6 +26,8 @@ def shell(
     command: str | list[str], cwd: Path | str = "", **kwargs
 ) -> subprocess.CompletedProcess:
     """Run a shell command with detailed error reporting.
+
+    All output is routed through log() so it gets captured during deployments.
 
     Args:
         command: Command to execute (string or list of strings)
@@ -53,8 +54,8 @@ def shell(
     else:
         cwd = Path.cwd()
 
-    print(dim(f"Calling: '{command}' in directory: '{cwd}'"))
-    sys.stdout.flush()
+    # Log the command (level 2 = verbose)
+    log(f"Calling: '{command}' in directory: '{cwd}'", level=2, fg="blue")
 
     kwargs["shell"] = True
     if cwd:
@@ -67,27 +68,36 @@ def shell(
 
     try:
         result = subprocess.run(command, **kwargs, check=True)
-        # Print captured output if we captured it
+        # Log captured output (level 2 = verbose, shows with -v flag)
         if result.stdout:
-            print(result.stdout, end="")
+            _log_output(result.stdout, level=2)
         return result
     except subprocess.CalledProcessError as e:
-        # Enhance error message with captured output
-        error_parts = [f"Command failed with exit code {e.returncode}: {command}"]
+        # Log error information
+        log(f"Command failed with exit code {e.returncode}: {command}", level=0, fg="red")
         if e.stdout:
-            error_parts.append(f"\nStdout:\n{e.stdout}")
+            log("Stdout:", level=1, fg="yellow")
+            _log_output(e.stdout, level=1, fg="yellow")
         if e.stderr:
-            error_parts.append(f"\nStderr:\n{e.stderr}")
-
-        # Print the full error to console
-        error_msg = "\n".join(error_parts)
-        print(error_msg, file=sys.stderr)
-        sys.stderr.flush()
+            log("Stderr:", level=1, fg="red")
+            _log_output(e.stderr, level=1, fg="red")
 
         # Re-raise with enhanced message
         raise subprocess.CalledProcessError(
             e.returncode, e.cmd, output=e.stdout, stderr=e.stderr
         ) from e
+
+
+def _log_output(output: str, level: int = 2, fg: str = "") -> None:
+    """Log multi-line output, handling each line separately.
+
+    Args:
+        output: The output string to log
+        level: Log level (0=important, 1=normal, 2=verbose, 3=debug)
+        fg: Foreground color
+    """
+    for line in output.rstrip().split("\n"):
+        log(line, level=level, fg=fg)
 
 
 def check_binaries(binaries) -> bool:
