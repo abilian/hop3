@@ -9,9 +9,13 @@ from __future__ import annotations
 from textual.app import App
 from textual.binding import Binding
 
+from hop3_tui.api.client import Hop3Client
+from hop3_tui.config import TUIConfig, get_config
+from hop3_tui.screens.app_detail import AppDetailScreen
 from hop3_tui.screens.apps import AppsScreen
 from hop3_tui.screens.chat import ChatScreen
 from hop3_tui.screens.dashboard import DashboardScreen
+from hop3_tui.screens.logs import LogsScreen
 from hop3_tui.screens.system import SystemScreen
 
 
@@ -39,14 +43,44 @@ class Hop3TUI(App[str]):
         "chat": ChatScreen,
     }
 
-    def __init__(self) -> None:
+    # Screens that can be pushed onto the stack
+    SCREENS = {
+        "app_detail": AppDetailScreen,
+        "logs": LogsScreen,
+    }
+
+    def __init__(self, config: TUIConfig | None = None) -> None:
         super().__init__()
-        self.dark = True
+        self.config = config or get_config()
+        self.api_client = Hop3Client(
+            base_url=self.config.server_url,
+            token=self.config.auth_token,
+        )
+        self.dark = self.config.theme == "dark"
 
     def on_mount(self) -> None:
         """Set up the application on mount."""
         self.switch_mode("dashboard")
+        # Show connection info
+        self.notify(
+            f"Connected to {self.config.server_url}",
+            title="Hop3 TUI",
+            timeout=3,
+        )
 
     def action_help(self) -> None:
         """Show help overlay."""
-        self.notify("Help: Press ? for help, q to quit", title="Hop3 TUI")
+        self.notify(
+            "Navigation: d=Dashboard, a=Apps, s=System, c=Chat\n"
+            "Actions: q=Quit, ?=Help",
+            title="Hop3 TUI Help",
+            timeout=5,
+        )
+
+    def push_app_detail(self, app_name: str) -> None:
+        """Push the app detail screen for a specific app."""
+        self.push_screen(AppDetailScreen(app_name=app_name))
+
+    def push_logs(self, app_name: str) -> None:
+        """Push the logs screen for a specific app."""
+        self.push_screen(LogsScreen(app_name=app_name))

@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
+# SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
+# SPDX-License-Identifier: Apache-2.0
+
+# Example configuration file for Hop3 TUI
+#
+# Copy this file to one of these locations:
+#   - ./hop3-tui.toml (current directory)
+#   - ./.hop3-tui.toml (hidden file in current directory)
+#   - ~/.config/hop3/tui.toml
+#   - ~/.hop3/tui.toml
+#
+# Environment variables override config file values:
+#   HOP3_SERVER_URL or HOP3_URL - Server URL
+#   HOP3_AUTH_TOKEN or HOP3_TOKEN - API token
+#   HOP3_TUI_THEME - Color theme
+#   HOP3_TUI_REFRESH - Refresh interval
+
+[server]
+# Hop3 server URL
+url = "http://localhost:5000"
+
+# API authentication token (optional)
+# Get this from your Hop3 server admin or generate via CLI
+# token = "your-api-token-here"
+
+[display]
+# Color theme: "dark" or "light"
+theme = "dark"
+
+# Auto-refresh interval in seconds
+# Dashboard refreshes at this rate, other screens at 2x this rate
+refresh_interval = 5
+
+# Show clock in header
+show_clock = true
+
+[behavior]
+# Enable auto-refresh of data
+auto_refresh = true
+
+# Show confirmation dialogs for destructive actions (stop, destroy, etc.)
+confirm_destructive = true

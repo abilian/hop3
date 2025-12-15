@@ -6,13 +6,19 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Footer, Header, Static
 
+from hop3_tui.api.models import AppState
 from hop3_tui.widgets.status_panel import StatusPanel
+
+if TYPE_CHECKING:
+    from hop3_tui.app import Hop3TUI
 
 
 class AppsSummary(Static):
@@ -137,20 +143,50 @@ class DashboardScreen(Screen):
             yield QuickActions()
         yield Footer()
 
+    @property
+    def hop3_app(self) -> Hop3TUI | None:
+        """Get the Hop3TUI app instance if available."""
+        if hasattr(self.app, "api_client"):
+            return self.app  # type: ignore[return-value]
+        return None
+
     def on_mount(self) -> None:
         """Initialize dashboard data."""
-        self.set_interval(5, self._refresh_data)
+        refresh_interval = 5  # Default
+        if self.hop3_app and self.hop3_app.config:
+            refresh_interval = self.hop3_app.config.refresh_interval
+        self.set_interval(refresh_interval, self._refresh_data)
         self._refresh_data()
 
     def _refresh_data(self) -> None:
         """Refresh dashboard data from server."""
-        # TODO: Fetch real data from API
-        apps_summary = self.query_one(AppsSummary)
-        apps_summary.running = 3
-        apps_summary.stopped = 2
-        apps_summary.failed = 0
+        self.run_worker(self._fetch_apps_data(), exclusive=True)
+
+    async def _fetch_apps_data(self) -> None:
+        """Fetch app data from server asynchronously."""
+        if not self.hop3_app:
+            # No API client available (e.g., in tests)
+            return
+
+        try:
+            apps = await self.hop3_app.api_client.list_apps()
+
+            # Count apps by state
+            running = sum(1 for app in apps if app.state == AppState.RUNNING)
+            stopped = sum(1 for app in apps if app.state == AppState.STOPPED)
+            failed = sum(1 for app in apps if app.state == AppState.FAILED)
+
+            # Update the summary widget
+            apps_summary = self.query_one(AppsSummary)
+            apps_summary.running = running
+            apps_summary.stopped = stopped
+            apps_summary.failed = failed
+
+        except Exception as e:
+            # On error, show notification but don't crash
+            self.notify(f"Failed to fetch apps: {e}", severity="error", timeout=5)
 
     def action_refresh(self) -> None:
         """Manual refresh action."""
         self._refresh_data()
-        self.notify("Dashboard refreshed")
+        self.notify("Refreshing dashboard...")

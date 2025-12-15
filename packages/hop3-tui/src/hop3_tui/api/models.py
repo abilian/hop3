@@ -49,7 +49,7 @@ class App(BaseModel):
 
     @property
     def is_transitional(self) -> bool:
-        return self.state in (AppState.STARTING, AppState.STOPPING)
+        return self.state in {AppState.STARTING, AppState.STOPPING}
 
 
 class SystemStatus(BaseModel):
