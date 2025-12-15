@@ -1,9 +1,9 @@
 # ADR 025: CLI User Experience Improvements
 
-**Status:** In Progress
-**Date:** 2025-11-08
-**Authors:** Hop3 Development Team
-**Related:** ADR 024 (Backup and Restore System)
+**Status**: Accepted
+**Type**: Feature
+**Created**: 2025-11-08
+**Related-ADRs**: 018, 019, 024, 034
 
 ## Context
 

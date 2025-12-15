@@ -1,9 +1,9 @@
 # ADR 024: Backup and Restore System
 
-**Status:** Accepted
-**Date:** 2025-11-08
-**Authors:** Hop3 Development Team
-**Related:** [ADR 016](016-backups.md) (Long-term Strategy), ADR 020 (Pluggable Architecture)
+**Status**: Accepted
+**Type**: Feature
+**Created**: 2025-11-08
+**Related-ADRs**: 016, 020
 
 ## Relationship to ADR 016
 

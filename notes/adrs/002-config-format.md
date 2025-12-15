@@ -1,10 +1,11 @@
-# ADR: Detailed `hop3.toml` Format
+# ADR 002: Detailed `hop3.toml` Format
 
-## Status
+**Status**: Draft
+**Type**: Feature
+**Created**: 2024-07-17
+**Related-ADRs**: 001, 003
 
-Status: Draft
-
-Revisions:
+## Revisions
 
 - v0.2: Update according to new template (2024-07-25)
 - v0.1: Initial draft (2024-07-17)

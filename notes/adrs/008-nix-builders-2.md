@@ -1,10 +1,11 @@
-# ADR: Creation of Nix Alternatives to Native Builders
+# ADR 008: Creation of Nix Alternatives to Native Builders
 
-## Status
+**Status**: Deferred
+**Type**: Feature
+**Created**: 2024-07-17
+**Related-ADRs**: 006, 007, 009
 
-Status: Draft
-
-Versions:
+## Revisions
 
 - v0.1: Initial draft (2024-07-17)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)

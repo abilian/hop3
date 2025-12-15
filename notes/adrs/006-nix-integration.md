@@ -1,10 +1,11 @@
-# ADR: Nix Integration with Hop3
+# ADR 006: Nix Integration with Hop3
 
-## Status
+**Status**: Deferred
+**Type**: Feature
+**Created**: 2024-07-17
+**Related-ADRs**: 007, 008, 009
 
-Status: Draft
-
-Versions:
+## Revisions
 
 - v0.1: Initial draft (2024-07-17)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)

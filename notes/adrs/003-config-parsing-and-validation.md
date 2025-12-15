@@ -1,15 +1,16 @@
-## ADR: Config Parsing and Validation
+# ADR 003: Config Parsing and Validation
 
-### Status
+**Status**: Draft
+**Type**: Feature
+**Created**: 2024-07-17
+**Related-ADRs**: 001, 002
 
-Status: Draft (v0.2)
-
-Revisions:
+## Revisions
 
 - v0.2: Clarified current implementation vs planned Pydantic migration (2025-11-25)
 - v0.1: Initial draft (2024-07-17)
 
-### Context
+## Context
 
 We have decided, early on in the project, to use an existing syntax (instead of creating a new DSL) for the `hop3.toml` files, which are the heart of the Hop3 platform.
 

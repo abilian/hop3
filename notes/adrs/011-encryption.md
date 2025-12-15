@@ -1,6 +1,9 @@
-# ADR: Data Encryption and Protection in Hop3
+# ADR 011: Data Encryption and Protection
 
 **Status**: Draft
+**Type**: Feature
+**Created**: 2024-07-17
+**Related-ADRs**: 010, 012, 013
 
 ## Context and Goals
 

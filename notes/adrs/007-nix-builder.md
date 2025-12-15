@@ -1,10 +1,11 @@
-# ADR: Development of Nix Builders for Existing Packages
+# ADR 007: Development of Nix Builders for Existing Packages
 
-## Status
+**Status**: Deferred
+**Type**: Feature
+**Created**: 2024-07-17
+**Related-ADRs**: 006, 008, 009
 
-Status: Draft
-
-Versions:
+## Revisions
 
 - v0.1: Initial draft (2024-07-17)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)

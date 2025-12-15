@@ -1,6 +1,9 @@
-# ADR: Basic Commands for the Hop3 Command-Line
+# ADR 019: Basic Commands for the Hop3 Command-Line
 
-Status: Draft
+**Status**: Draft
+**Type**: Feature
+**Created**: 2024-07-17
+**Related-ADRs**: 018, 025
 
 ## Introduction
 

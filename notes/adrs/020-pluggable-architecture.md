@@ -1,6 +1,9 @@
-# ADR-020: Pluggable Architecture for Core Deployment Workflow
+# ADR 020: Pluggable Architecture for Core Deployment Workflow
 
-Status: `Accepted` (for H3NI)
+**Status**: Final
+**Type**: Feature
+**Created**: 2024-10-01
+**Related-ADRs**: 021, 022, 028
 
 ## Introduction
 
@@ -9,10 +12,6 @@ This ADR documents the decision to refactor Hop3's core deployment mechanism fro
 ## Summary
 
 We will deconstruct the monolithic `Deployer` class into three distinct, pluggable stages: **Build**, **Deploy**, and **Proxy**. Each stage will be governed by a **Strategy** interface, with concrete implementations provided as plugins. A central **Orchestrator** will manage the deployment workflow, selecting and executing the appropriate strategies based on application-specific configuration found in a `hop3.toml` file. This new architecture will be powered by a plugin system using `pluggy` and standard Python `entry_points` for discovery, enabling both core and third-party extensions.
-
-## Status
-
-**Accepted.** The implementation of this architecture is complete and has been integrated into the `hop3-h3ni` fork.
 
 ## Context and Goals
 

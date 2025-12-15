@@ -1,6 +1,9 @@
 # ADR 027: Configuration System Refactoring for Testability
 
-Status: **Accepted**
+**Status**: Final
+**Type**: Feature
+**Created**: 2025-11-20
+**Related-ADRs**: 001, 002, 003
 
 ## Introduction
 
@@ -9,10 +12,6 @@ This ADR proposes refactoring Hop3's configuration system from module-level cons
 ## Summary
 
 Replace the current module-level constant configuration (`hop3/config.py`) with a configuration object that supports dependency injection, easier testing, and runtime configuration changes. This will eliminate the need for complex monkeypatching in tests while maintaining backward compatibility.
-
-## Status
-
-**Implemented**
 
 ## Context and Goals
 

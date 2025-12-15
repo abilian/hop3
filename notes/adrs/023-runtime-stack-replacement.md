@@ -1,6 +1,9 @@
-# ADR-023: Runtime Stack Replacement - Simplifying Process Management and Reverse Proxy
+# ADR 023: Runtime Stack Replacement
 
-Status: `Proposed`
+**Status**: Draft
+**Type**: Feature
+**Created**: 2024-11-01
+**Related-ADRs**: 021
 
 ## Introduction
 
@@ -15,10 +18,6 @@ We propose replacing the current three-component stack (uWSGI for application se
 3. **Custom Process Manager** - Lightweight Python daemon (replacing supervisor)
 
 This new stack will provide hot reconfiguration (add/remove apps without restarts), automatic HTTPS via ACME, and eliminate dependency on unmaintained projects (uWSGI development has ceased).
-
-## Status
-
-**Proposed.** This ADR documents the analysis and proposed solution but has not yet been approved for implementation.
 
 ## Context and Goals
 

@@ -1,8 +1,9 @@
-# ADR 016: Backup Strategy for Hop3
+# ADR 016: Backup Strategy
 
-**Status**: Accepted (Long-term Strategy)
-**Date**: 2024 (original), 2025-11-15 (updated)
-**Related**: [ADR 024](024-backup-restore-system.md) (Implementation)
+**Status**: Draft
+**Type**: Feature
+**Created**: 2024-07-17
+**Related-ADRs**: 024
 
 ## Context and Goals
 

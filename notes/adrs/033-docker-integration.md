@@ -1,8 +1,9 @@
 # ADR 033: Docker Integration Strategy
 
-**Status**: Accepted
-**Date**: 2025-12-04
-**Related ADRs**: ADR 030 (Two-Level Build Architecture), ADR 032 (Deployment Strategies)
+**Status**: Final
+**Type**: Feature
+**Created**: 2025-12-04
+**Related-ADRs**: 022, 030, 032
 
 ## Context
 

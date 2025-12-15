@@ -1,6 +1,8 @@
-# ADR 026: Dashboard UI Test Classification - Integration vs System Tests
+# ADR 026: Dashboard UI Test Classification
 
-Status: **Accepted** (2025-11-20, updated 2025-11-25)
+**Status**: Active
+**Type**: Guideline
+**Created**: 2025-11-20
 
 ## Introduction
 
