@@ -66,6 +66,7 @@ class DemoContext:
     skip_install: bool = False
     no_cleanup: bool = False
     use_local_code: bool = False
+    clean_before: bool = False  # Clean server completely before running
     verbose: bool = False
     debug: bool = False  # Maximum verbosity (--debug flag to hop3)
     output_level: OutputLevel = OutputLevel.NORMAL

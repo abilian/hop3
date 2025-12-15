@@ -86,6 +86,11 @@ Examples:
         help="Skip Hop3 installation (assume already installed)",
     )
     server.add_argument(
+        "--clean-before",
+        action="store_true",
+        help="Clean server completely before running (removes /home/hop3, database, all apps)",
+    )
+    server.add_argument(
         "-l",
         "--local",
         action="store_true",

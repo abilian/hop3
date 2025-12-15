@@ -42,6 +42,7 @@ def run_prerequisites(ctx: DemoContext) -> bool:
     from lib.server import (
         check_hop3_installed,
         check_ubuntu_version,
+        clean_server,
         configure_server_settings,
         install_hop3,
         update_hop3_server,
@@ -53,6 +54,11 @@ def run_prerequisites(ctx: DemoContext) -> bool:
     try:
         verify_ssh_access(ctx)
         pause(ctx.pause_between_steps)
+
+        # Clean server if requested (before checking ubuntu version)
+        if ctx.clean_before:
+            clean_server(ctx)
+            pause(ctx.pause_between_steps)
 
         check_ubuntu_version(ctx)
         pause(ctx.pause_between_steps)
