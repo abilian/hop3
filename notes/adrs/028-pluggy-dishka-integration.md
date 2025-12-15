@@ -1,6 +1,6 @@
 # ADR 028: Pluggy + Dishka Integration for Plugin-Contributed Services
 
-**Status**: Accepted
+**Status**: Final
 **Type**: Feature
 **Created**: 2025-11-20
 **Related-ADRs**: 020

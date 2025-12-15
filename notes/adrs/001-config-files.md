@@ -5,6 +5,26 @@
 **Created**: 2024-07-17
 **Related-ADRs**: 002, 003
 
+## Implementation Status
+
+**Partially implemented.** Core functionality works, but several specified features are missing:
+
+### Implemented
+- `hop3.toml` parsing with TOML format
+- Procfile support
+- Core sections: `[app]`, `[env]`, `[web]`, `[workers]`
+- Unified internal representation via `AppConfig` dataclass
+
+### Not Yet Implemented
+- **Schema validation**: Current implementation has minimal validation (see ADR 003)
+- **YAML/JSON formats**: Only TOML is supported
+- **CLI validation tooling**: No `hop3 config validate` command
+- **CI/CD integration**: Not documented
+
+### Related Gaps
+- See ADR 002 for detailed `hop3.toml` format gaps
+- See roadmap for implementation timeline
+
 ## Revisions
 
 - v0.2: Update according to new template (2024-07-25)
@@ -53,7 +73,8 @@ Hop3 will support configuration and metadata through multiple file formats to ac
 1. **Validation Framework**:
 
    - Develop a validation framework that works across different configuration formats, ensuring consistency and correctness.
-   - Use Pydantic for schema validation and custom logic for format-specific validation requirements.
+   - Provide clear error messages to help users fix configuration issues.
+   - See ADR 003 for detailed validation requirements.
 
 1. **Documentation and Examples**:
 
@@ -84,7 +105,6 @@ Hop3 will support configuration and metadata through multiple file formats to ac
 
 - TOML documentation: https://toml.io/en/
 - Procfile documentation: https://devcenter.heroku.com/articles/procfile
-- Pydantic documentation: https://docs.pydantic.dev/latest/
 
 ## Notes
 

@@ -5,6 +5,32 @@
 **Created**: 2024-07-17
 **Related-ADRs**: 001, 003
 
+## Implementation Status
+
+**Partially implemented.** Core `hop3.toml` sections work, but many specified fields are missing:
+
+### Implemented Sections
+- **`[metadata]`**: `id` only (other fields like `version`, `title`, `author` not parsed)
+- **`[build]`**: `builder`, `packages`, `build` commands work
+- **`[run]`**: `start`, `packages` work
+- **`[env]`**: Static values, `from`/`key` syntax, `random` passwords work
+- **`[[provider]]`**: Basic service linking works
+
+### Not Yet Implemented
+- **`[healthcheck]`**: Section defined but not parsed or used
+- **`[backup]`**: Section defined but not parsed or used
+- **`[metadata]` fields**: `version`, `title`, `author`, `description`, `tagline`, `website`, `tags`, `profile`, `release`
+- **`[build]` fields**: `license`, `src-url`, `src-checksum`, `git-url`, `git-branch`, `base-image`, `method`, `test`, `before-build`
+- **`[run]` fields**: `before-run`
+- **Environment-specific sections**: `[env.development]`, `[env.production]`
+- **Schema validation**: Minimal validation currently (see ADR 003)
+- **YAML/JSON formats**: Only TOML supported
+
+### Notes
+- The config system is functional for basic deployments
+- Advanced features (healthcheck, backup, metadata) are placeholders
+- See roadmap for implementation timeline
+
 ## Revisions
 
 - v0.2: Update according to new template (2024-07-25)
@@ -49,7 +75,8 @@ The `hop3.toml` file will be used as the primary configuration format for the Ho
 
 1. **Validation Framework**:
 
-   - Use Pydantic or similar tools for schema validation to ensure data integrity.
+   - Implement schema validation to ensure data integrity (see ADR 003 for requirements).
+   - Provide clear, actionable error messages for invalid configurations.
    - Implement format-specific validation where necessary.
 
 1. **Tooling and Support**:

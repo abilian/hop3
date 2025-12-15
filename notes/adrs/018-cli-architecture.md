@@ -1,9 +1,35 @@
 # ADR 018: CLI-Server Communication
 
-**Status**: Final
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
 **Related-ADRs**: 014, 019, 025, 034
+
+## Implementation Status
+
+**Mostly implemented.** Core JSON-RPC architecture works, but streaming is incomplete:
+
+### Implemented
+- **JSON-RPC protocol**: Full implementation over HTTPS
+- **"Dumb" CLI design**: Server handles logic and formatting
+- **HTTPS communication**: With API key authentication
+- **Server-side formatting**: Messages sent with type metadata
+- **Multiple message types**: success, error, warning, info, table, panel
+
+### Partially Implemented
+- **Streaming responses**: Available via REST endpoints (`/logs/stream`) but NOT via JSON-RPC
+  - Logs streaming works via SSE at `/api/apps/{app}/logs/stream`
+  - Deployment logs stream via REST, not the RPC protocol
+  - ADR specifies streaming within JSON-RPC using `yield` messages
+
+### Not Yet Implemented
+- **JSON-RPC streaming**: The spec calls for streaming via `yield` messages within the RPC response
+- **File transfer streaming**: Large file uploads/downloads not implemented via streaming
+
+### Notes
+- See ADR 034 for planned streaming improvements
+- Current workaround: Use REST endpoints for streaming needs
+- See roadmap for implementation timeline
 
 ## Introduction
 

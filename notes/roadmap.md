@@ -94,9 +94,36 @@ Features:
 - [ ] (Pluggable) Alternatives to uWSGI, NGINX, ACME, etc.
 - [ ] Unified logging
 - [ ] CLI
-  - [ ] Use an API server (WIP)
+  - [x] Use an API server (WIP)
   - [ ] Review the UX/DX
   - [ ] Good looking logging (cf. https://bernsteinbear.com/blog/python-parallel-output/)
+
+#### ADR Implementation Gaps (identified 2025-12-15)
+
+The following ADRs are marked as partially implemented and need completion:
+
+**ADR 001/002 - Config Files & Format** (Status: Draft):
+- [ ] Implement `[healthcheck]` section parsing and usage
+- [ ] Implement `[backup]` section parsing and usage
+- [ ] Add `[metadata]` fields: version, title, author, description, tags, etc.
+- [ ] Add environment-specific sections: `[env.development]`, `[env.production]`
+- [ ] Implement schema validation (see ADR 003 for requirements and options)
+- [ ] Add YAML/JSON format support (or remove from spec)
+- [ ] Add `hop3 config validate` CLI command
+
+**ADR 018 - CLI-Server Communication** (Status: Accepted):
+- [ ] Implement streaming via JSON-RPC (currently only REST endpoints)
+- [ ] Implement `yield` message pattern for real-time deployment output
+- [ ] See ADR 034 for detailed streaming implementation plan
+
+**ADR 019 - CLI Commands** (Status: Accepted):
+- [ ] Add `build` command (separate from deploy)
+- [ ] Add `revert` command (requires ADR 032 implementation)
+- [ ] Add `new` command for project scaffolding
+- [ ] Add `docker` command for server-side docker operations
+- [ ] Add `upgrade`/`downgrade` commands for app version management
+- [ ] Add marketplace commands: `search`, `info`, `install`
+- [ ] Update ADR to document the 57 commands actually implemented
 
 Infra, QA, DX, refactorings:
 
@@ -108,13 +135,13 @@ Infra, QA, DX, refactorings:
 - [ ] e2e CI tests
 - [ ] Reorganize monorepo further
 - [ ] Improve plugin architecture, add working events
-- [ ] Agents (for distributed deployments)
 - [ ] Dedicated infra for e2e tests
 
 ### P3 (Q1 2026):
 
 Features:
 
+- [ ] Agents (for distributed deployments)
 - [ ] Unified login (LDAP / IAM)
 - [ ] Container / VM support
 - [ ] Target other platforms (e.g. SlapOS, NixOS, Guix, etc.)
