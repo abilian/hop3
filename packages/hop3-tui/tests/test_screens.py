@@ -6,14 +6,24 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
+from hop3_tui.api.models import App as AppModel
+from hop3_tui.api.models import AppState
+from hop3_tui.screens.app_detail import (
+    AppActionsPanel,
+    AppDetailScreen,
+    AppInfoPanel,
+    AppLogsPreview,
+)
 from hop3_tui.screens.apps import AppsScreen
 from hop3_tui.screens.chat import ChatScreen
 from hop3_tui.screens.dashboard import AppsSummary, DashboardScreen
 from hop3_tui.screens.logs import LogsScreen
 from hop3_tui.screens.system import ResourcesPanel, ServicesPanel, SystemScreen
 from textual.app import App, ComposeResult
-from textual.widgets import DataTable, Input, Static
+from textual.widgets import Button, DataTable, Input, Static
 
 
 class TestDashboardScreen:
@@ -253,3 +263,465 @@ class TestLogsScreen:
         screen._filter_text = "ERROR"
         filtered = screen._get_filtered_logs()
         assert len(filtered) == 1
+
+
+class TestAppDetailScreen:
+    """Tests for AppDetailScreen."""
+
+    def test_app_detail_screen_init(self):
+        """Test AppDetailScreen initialization."""
+        screen = AppDetailScreen(app_name="myapp")
+        assert screen.app_name == "myapp"
+        assert screen._app is None
+
+    def test_app_detail_screen_default_name(self):
+        """Test AppDetailScreen with default name."""
+        screen = AppDetailScreen()
+        assert screen.app_name == ""
+
+    @pytest.mark.asyncio
+    async def test_app_detail_screen_composes(self):
+        """Test app detail screen composes correctly."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield AppDetailScreen(app_name="testapp")
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(AppDetailScreen)
+            assert screen is not None
+            # Should have info panel
+            info_panel = screen.query_one(AppInfoPanel)
+            assert info_panel is not None
+            # Should have actions panel
+            actions_panel = screen.query_one(AppActionsPanel)
+            assert actions_panel is not None
+
+    def test_get_status_style_running(self):
+        """Test status style for running state."""
+        screen = AppDetailScreen()
+        assert screen._get_status_style(AppState.RUNNING) == "green"
+
+    def test_get_status_style_stopped(self):
+        """Test status style for stopped state."""
+        screen = AppDetailScreen()
+        assert screen._get_status_style(AppState.STOPPED) == "dim"
+
+    def test_get_status_style_failed(self):
+        """Test status style for failed state."""
+        screen = AppDetailScreen()
+        assert screen._get_status_style(AppState.FAILED) == "red"
+
+    def test_get_status_style_starting(self):
+        """Test status style for starting state."""
+        screen = AppDetailScreen()
+        assert screen._get_status_style(AppState.STARTING) == "yellow"
+
+
+class TestAppInfoPanel:
+    """Tests for AppInfoPanel widget."""
+
+    @pytest.mark.asyncio
+    async def test_info_panel_renders(self):
+        """Test AppInfoPanel renders correctly."""
+        app_model = AppModel(
+            name="testapp",
+            runtime="uwsgi",
+            port=8000,
+            hostname="testapp.example.com",
+            workers=2,
+        )
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield AppInfoPanel(app_model)
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            panel = app.query_one(AppInfoPanel)
+            assert panel._app.name == "testapp"
+            assert panel._app.port == 8000
+
+
+class TestAppActionsPanel:
+    """Tests for AppActionsPanel widget."""
+
+    @pytest.mark.asyncio
+    async def test_actions_panel_running_app(self):
+        """Test AppActionsPanel for running app."""
+        app_model = AppModel(name="testapp", state=AppState.RUNNING)
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield AppActionsPanel(app_model)
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            panel = app.query_one(AppActionsPanel)
+            # Running app should have stop and restart buttons
+            stop_btn = panel.query_one("#btn-stop", Button)
+            assert stop_btn is not None
+            restart_btn = panel.query_one("#btn-restart", Button)
+            assert restart_btn is not None
+
+    @pytest.mark.asyncio
+    async def test_actions_panel_stopped_app(self):
+        """Test AppActionsPanel for stopped app."""
+        app_model = AppModel(name="testapp", state=AppState.STOPPED)
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield AppActionsPanel(app_model)
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            panel = app.query_one(AppActionsPanel)
+            # Stopped app should have start button
+            start_btn = panel.query_one("#btn-start", Button)
+            assert start_btn is not None
+
+
+class TestAppLogsPreview:
+    """Tests for AppLogsPreview widget."""
+
+    @pytest.mark.asyncio
+    async def test_logs_preview_renders(self):
+        """Test AppLogsPreview renders correctly."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield AppLogsPreview()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            preview = app.query_one(AppLogsPreview)
+            assert preview is not None
+
+    @pytest.mark.asyncio
+    async def test_logs_preview_update(self):
+        """Test updating logs preview."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield AppLogsPreview()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            preview = app.query_one(AppLogsPreview)
+            # Update with some logs
+            preview.update_logs(["Log line 1", "Log line 2", "Log line 3"])
+            # Content should be updated
+            content = preview.query_one("#logs-preview-content", Static)
+            assert content is not None
+
+    @pytest.mark.asyncio
+    async def test_logs_preview_empty(self):
+        """Test logs preview with no logs."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield AppLogsPreview()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            preview = app.query_one(AppLogsPreview)
+            preview.update_logs([])
+            # Should show "No logs available"
+
+
+class TestAppsScreenExtended:
+    """Extended tests for AppsScreen."""
+
+    def test_get_status_style_running(self):
+        """Test status style for running state."""
+        screen = AppsScreen()
+        assert screen._get_status_style(AppState.RUNNING) == "green"
+
+    def test_get_status_style_stopped(self):
+        """Test status style for stopped state."""
+        screen = AppsScreen()
+        assert screen._get_status_style(AppState.STOPPED) == "dim"
+
+    def test_get_status_style_failed(self):
+        """Test status style for failed state."""
+        screen = AppsScreen()
+        assert screen._get_status_style(AppState.FAILED) == "red"
+
+    def test_get_status_style_starting(self):
+        """Test status style for starting state."""
+        screen = AppsScreen()
+        assert screen._get_status_style(AppState.STARTING) == "yellow"
+
+    def test_get_status_style_stopping(self):
+        """Test status style for stopping state."""
+        screen = AppsScreen()
+        assert screen._get_status_style(AppState.STOPPING) == "yellow"
+
+    def test_format_updated_just_now(self):
+        """Test formatting updated timestamp - just now."""
+        screen = AppsScreen()
+        app = AppModel(name="test", updated_at=datetime.now(timezone.utc))
+        result = screen._format_updated(app)
+        assert result == "just now"
+
+    def test_format_updated_minutes_ago(self):
+        """Test formatting updated timestamp - minutes ago."""
+        from datetime import timedelta
+
+        screen = AppsScreen()
+        app = AppModel(
+            name="test",
+            updated_at=datetime.now(timezone.utc) - timedelta(minutes=5),
+        )
+        result = screen._format_updated(app)
+        assert "m ago" in result
+
+    def test_format_updated_hours_ago(self):
+        """Test formatting updated timestamp - hours ago."""
+        from datetime import timedelta
+
+        screen = AppsScreen()
+        app = AppModel(
+            name="test",
+            updated_at=datetime.now(timezone.utc) - timedelta(hours=3),
+        )
+        result = screen._format_updated(app)
+        assert "h ago" in result
+
+    def test_format_updated_days_ago(self):
+        """Test formatting updated timestamp - days ago."""
+        from datetime import timedelta
+
+        screen = AppsScreen()
+        app = AppModel(
+            name="test",
+            updated_at=datetime.now(timezone.utc) - timedelta(days=2),
+        )
+        result = screen._format_updated(app)
+        assert "d ago" in result
+
+    def test_format_updated_no_timestamp(self):
+        """Test formatting when no timestamp is set."""
+        screen = AppsScreen()
+        app = AppModel(name="test", updated_at=None)
+        result = screen._format_updated(app)
+        assert result == "N/A"
+
+    def test_format_updated_naive_datetime(self):
+        """Test formatting with naive datetime (no timezone)."""
+        screen = AppsScreen()
+        # Create a naive datetime (no timezone)
+        app = AppModel(name="test", updated_at=datetime.now())
+        result = screen._format_updated(app)
+        # Should still work
+        assert "ago" in result or result == "just now" or result == "N/A"
+
+
+class TestChatScreenExtended:
+    """Extended tests for ChatScreen commands."""
+
+    @pytest.mark.asyncio
+    async def test_chat_process_apps_command(self):
+        """Test apps command processing."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield ChatScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(ChatScreen)
+            screen._process_command("apps")
+            assert "Applications" in screen._chat_content
+
+    @pytest.mark.asyncio
+    async def test_chat_process_status_command(self):
+        """Test status command processing."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield ChatScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(ChatScreen)
+            screen._process_command("status")
+            assert "System Status" in screen._chat_content
+
+    @pytest.mark.asyncio
+    async def test_chat_process_clear_command(self):
+        """Test clear command processing."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield ChatScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(ChatScreen)
+            # Add some content first
+            screen._chat_content = "some content"
+            screen._process_command("clear")
+            assert "cleared" in screen._chat_content.lower()
+
+    @pytest.mark.asyncio
+    async def test_chat_process_unknown_command(self):
+        """Test unknown command processing."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield ChatScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(ChatScreen)
+            screen._process_command("unknowncommand")
+            assert "Unknown command" in screen._chat_content
+
+    @pytest.mark.asyncio
+    async def test_chat_process_app_without_arg(self):
+        """Test app command without argument."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield ChatScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(ChatScreen)
+            screen._process_command("app")
+            assert "Usage:" in screen._chat_content
+
+    @pytest.mark.asyncio
+    async def test_chat_process_start_command(self):
+        """Test start command processing."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield ChatScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(ChatScreen)
+            screen._process_command("start myapp")
+            assert "myapp" in screen._chat_content
+            assert "start" in screen._chat_content.lower()
+
+    @pytest.mark.asyncio
+    async def test_chat_process_stop_command(self):
+        """Test stop command processing."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield ChatScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(ChatScreen)
+            screen._process_command("stop myapp")
+            assert "myapp" in screen._chat_content
+            assert "stop" in screen._chat_content.lower()
+
+    @pytest.mark.asyncio
+    async def test_chat_process_restart_command(self):
+        """Test restart command processing."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield ChatScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(ChatScreen)
+            screen._process_command("restart myapp")
+            assert "myapp" in screen._chat_content
+            assert "restart" in screen._chat_content.lower()
+
+    @pytest.mark.asyncio
+    async def test_chat_process_logs_command(self):
+        """Test logs command processing."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield ChatScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(ChatScreen)
+            screen._process_command("logs myapp")
+            assert "myapp" in screen._chat_content
+            assert "logs" in screen._chat_content.lower()
+
+    @pytest.mark.asyncio
+    async def test_chat_history_tracking(self):
+        """Test command history tracking."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield ChatScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(ChatScreen)
+            # Manually process commands to track history
+            screen._history.append("apps")
+            screen._history.append("status")
+            screen._history_index = 2
+            assert len(screen._history) == 2
+            assert screen._history[0] == "apps"
+            assert screen._history[1] == "status"
+
+
+class TestLogsScreenExtended:
+    """Extended tests for LogsScreen."""
+
+    @pytest.mark.asyncio
+    async def test_logs_reactive_paused(self):
+        """Test paused reactive property."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield LogsScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(LogsScreen)
+            assert screen.paused is False
+            screen.paused = True
+            assert screen.paused is True
+
+    @pytest.mark.asyncio
+    async def test_logs_reactive_auto_scroll(self):
+        """Test auto_scroll reactive property."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield LogsScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(LogsScreen)
+            assert screen.auto_scroll is True
+            screen.auto_scroll = False
+            assert screen.auto_scroll is False
+
+    @pytest.mark.asyncio
+    async def test_logs_screen_composes(self):
+        """Test logs screen composes correctly."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield LogsScreen(app_name="testapp")
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(LogsScreen)
+            assert screen is not None
+            assert screen.app_name == "testapp"
+            # Should have filter input
+            filter_input = screen.query_one("#filter-input", Input)
+            assert filter_input is not None
+            # Should have logs content
+            logs_content = screen.query_one("#logs-content", Static)
+            assert logs_content is not None
