@@ -1,6 +1,9 @@
-# ADR: Software Supply Chain Security and SBOMs in Hop3
+# ADR 013: Software Supply Chain Security and SBOMs
 
 **Status**: Draft
+**Type**: Feature
+**Created**: 2024-07-17
+**Related-ADRs**: 010
 
 ## Context and Goals
 

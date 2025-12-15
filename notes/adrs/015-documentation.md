@@ -1,6 +1,8 @@
-# ADR: Documentation and Community Engagement for Hop3
+# ADR 015: Documentation and Community Engagement
 
 **Status**: Draft
+**Type**: Process
+**Created**: 2024-07-17
 
 ## Context and Goals
 

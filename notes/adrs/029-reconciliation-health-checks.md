@@ -1,10 +1,9 @@
 # ADR 029: Application Reconciliation and Health Check System
 
 **Status**: Draft
-
-**Date**: 2025-11-25
-
-**Authors**: Hop3 Development Team
+**Type**: Feature
+**Created**: 2025-11-25
+**Related-ADRs**: 017
 
 ## Introduction
 

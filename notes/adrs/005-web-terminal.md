@@ -1,9 +1,8 @@
 # ADR 005: Web Terminal for Application Management
 
-**Status:** Proposed
-**Date:** 2025-01-23
-**Deciders:** Development Team
-**Tags:** #feature #security #ux
+**Status**: Draft
+**Type**: Feature
+**Created**: 2025-01-23
 
 ## Context
 

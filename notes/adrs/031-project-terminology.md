@@ -1,10 +1,9 @@
 # ADR 031: Project Terminology (Ubiquitous Language)
 
-**Status**: Accepted
-**Date**: 2025-11-28
-**Related ADRs**: ADR 020 (Pluggable Architecture), ADR 022 (Build/Deploy Plugin System), ADR 030 (Two-Level Build Architecture)
-
----
+**Status**: Active
+**Type**: Guideline
+**Created**: 2025-11-28
+**Related-ADRs**: 020, 022, 030
 
 ## Context
 

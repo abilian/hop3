@@ -1,11 +1,10 @@
 # ADR 030: Two-Level Build Architecture
 
-**Status**: Implemented
-**Date**: 2025-11-28
-**Implemented**: 2025-12-04
-**Related ADRs**: ADR 020 (Pluggable Architecture), ADR 022 (Build/Deploy Plugin System)
-
----
+**Status**: Final
+**Type**: Feature
+**Created**: 2025-11-28
+**Implemented-In**: v0.5.0
+**Related-ADRs**: 020, 022
 
 ## Context
 

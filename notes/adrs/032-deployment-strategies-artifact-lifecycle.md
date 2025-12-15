@@ -1,10 +1,9 @@
 # ADR 032: Deployment Strategies and Artifact Lifecycle
 
-**Status**: Proposed
-**Date**: 2025-12-03
-**Related ADRs**: ADR 022 (Build/Deploy Plugin System), ADR 030 (Two-Level Build Architecture), ADR 031 (Terminology)
-
----
+**Status**: Final
+**Type**: Feature
+**Created**: 2025-12-03
+**Related-ADRs**: 022, 030, 031
 
 ## Context
 

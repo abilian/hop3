@@ -1,6 +1,9 @@
-# ADR: CLI\<->Server Communication
+# ADR 018: CLI-Server Communication
 
-Status: Accepted
+**Status**: Final
+**Type**: Feature
+**Created**: 2024-07-17
+**Related-ADRs**: 014, 019, 025, 034
 
 ## Introduction
 

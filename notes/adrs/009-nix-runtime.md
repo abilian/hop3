@@ -1,10 +1,11 @@
-# ADR: Using Nix as a Runtime Isolation Mechanism for Applications Hosted by Hop3
+# ADR 009: Using Nix as a Runtime Isolation Mechanism
 
-## Status
+**Status**: Deferred
+**Type**: Feature
+**Created**: 2024-07-17
+**Related-ADRs**: 006, 007, 008
 
-Status: Draft
-
-Version:
+## Revisions
 
 - v0.1: Initial draft (2024-07-17)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)

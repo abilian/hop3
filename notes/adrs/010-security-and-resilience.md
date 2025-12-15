@@ -1,6 +1,9 @@
-# ADR: Security and Resilience Enhancements in Hop3
+# ADR 010: Security and Resilience Enhancements
 
 **Status**: Draft
+**Type**: Feature
+**Created**: 2024-07-17
+**Related-ADRs**: 011, 012, 013
 
 ## Context and Goals
 

@@ -1,10 +1,10 @@
 # ADR 004: Development Tooling
 
-## Status
+**Status**: Active
+**Type**: Process
+**Created**: 2025-10-08
 
-Status: Accepted
-
-Revisions:
+## Revisions
 
 - v1.1: Updated Task Runner section to reflect current state (2025-11-25)
 - v1.0: First version (2025-10-08)

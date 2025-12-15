@@ -1,10 +1,12 @@
-# ADR 017: Distributed, Agent-Based Architecture for Hop3
+# ADR 017: Distributed, Agent-Based Architecture
 
-**Status**: Draft
+**Status**: Deferred
+**Type**: Feature
+**Created**: 2024-07-17
+**Related-ADRs**: 029
 
-**Date**: 2025-11-25
+## Revisions
 
-**Revisions**:
 - v0.2: Revised to align with phased implementation plan and ADR 029 (2025-11-25)
 - v0.1: Initial draft
 
