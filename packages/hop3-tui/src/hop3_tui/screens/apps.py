@@ -6,12 +6,17 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.screen import Screen
 from textual.widgets import DataTable, Footer, Header, Input, Static
 
 from hop3_tui.api.models import App, AppState
+
+if TYPE_CHECKING:
+    from hop3_tui.app import Hop3TUI
 
 
 class AppsScreen(Screen):
@@ -67,6 +72,14 @@ class AppsScreen(Screen):
     def __init__(self) -> None:
         super().__init__()
         self._apps: list[App] = []
+        self._filter_text: str = ""
+
+    @property
+    def hop3_app(self) -> Hop3TUI | None:
+        """Get the Hop3TUI app instance if available."""
+        if hasattr(self.app, "api_client"):
+            return self.app  # type: ignore[return-value]
+        return None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -83,33 +96,39 @@ class AppsScreen(Screen):
 
         # Load initial data
         self._refresh_apps()
-        self.set_interval(10, self._refresh_apps)
+        refresh_interval = 10  # Default
+        if self.hop3_app and self.hop3_app.config:
+            refresh_interval = self.hop3_app.config.refresh_interval * 2
+        self.set_interval(refresh_interval, self._refresh_apps)
 
     def _refresh_apps(self) -> None:
         """Refresh apps list from server."""
-        # TODO: Fetch from API
-        # For now, use mock data
-        self._apps = [
-            App(name="myapp", state=AppState.RUNNING, port=8000, runtime="uwsgi"),
-            App(name="api-server", state=AppState.RUNNING, port=8001, runtime="uwsgi"),
-            App(name="worker", state=AppState.STOPPED, runtime="uwsgi"),
-            App(name="frontend", state=AppState.RUNNING, port=8002, runtime="static"),
-            App(name="broken-app", state=AppState.FAILED, runtime="uwsgi"),
-        ]
-        self._update_table()
+        self.run_worker(self._fetch_apps(), exclusive=True)
 
-    def _update_table(self, filter_text: str = "") -> None:
+    async def _fetch_apps(self) -> None:
+        """Fetch apps from server asynchronously."""
+        if not self.hop3_app:
+            # No API client available (e.g., in tests)
+            return
+
+        try:
+            self._apps = await self.hop3_app.api_client.list_apps()
+            self._update_table()
+        except Exception as e:
+            self.notify(f"Failed to fetch apps: {e}", severity="error", timeout=5)
+
+    def _update_table(self) -> None:
         """Update the table with current apps."""
         table = self.query_one("#apps-table", DataTable)
         table.clear()
 
         for app in self._apps:
-            if filter_text and filter_text.lower() not in app.name.lower():
+            if self._filter_text and self._filter_text.lower() not in app.name.lower():
                 continue
 
             status_style = self._get_status_style(app.state)
             port_str = str(app.port) if app.port else "-"
-            updated = "N/A"  # TODO: Format datetime
+            updated = self._format_updated(app)
 
             table.add_row(
                 app.name,
@@ -119,6 +138,33 @@ class AppsScreen(Screen):
                 updated,
                 key=app.name,
             )
+
+    def _format_updated(self, app: App) -> str:
+        """Format the updated timestamp."""
+        if app.updated_at:
+            # Simple relative time
+            from datetime import datetime, timezone
+
+            now = datetime.now(timezone.utc)
+            if app.updated_at.tzinfo is None:
+                # Assume UTC if no timezone
+                delta = now - app.updated_at.replace(tzinfo=timezone.utc)
+            else:
+                delta = now - app.updated_at
+
+            seconds = delta.total_seconds()
+            if seconds < 60:
+                return "just now"
+            elif seconds < 3600:
+                mins = int(seconds / 60)
+                return f"{mins}m ago"
+            elif seconds < 86400:
+                hours = int(seconds / 3600)
+                return f"{hours}h ago"
+            else:
+                days = int(seconds / 86400)
+                return f"{days}d ago"
+        return "N/A"
 
     def _get_status_style(self, state: AppState) -> str:
         """Get the style for a status."""
@@ -134,21 +180,18 @@ class AppsScreen(Screen):
             case _:
                 return "white"
 
-    def _get_selected_app(self) -> App | None:
-        """Get the currently selected app."""
+    def _get_selected_app_name(self) -> str | None:
+        """Get the name of the currently selected app."""
         table = self.query_one("#apps-table", DataTable)
-        if table.cursor_row is not None and table.cursor_row < len(self._apps):
-            row_key = table.get_row_at(table.cursor_row)
-            # Find app by name
-            for app in self._apps:
-                if app.name == table.get_row_key(table.cursor_row):
-                    return app
+        if table.row_count > 0 and table.cursor_row is not None:
+            return str(table.get_cell_at((table.cursor_row, 0)))
         return None
 
     def on_input_changed(self, event: Input.Changed) -> None:
         """Handle filter input changes."""
         if event.input.id == "filter-input":
-            self._update_table(event.value)
+            self._filter_text = event.value
+            self._update_table()
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         """Handle row selection (Enter key)."""
@@ -160,35 +203,58 @@ class AppsScreen(Screen):
 
     def action_view_app(self) -> None:
         """View the selected application."""
-        table = self.query_one("#apps-table", DataTable)
-        if table.row_count > 0 and table.cursor_row is not None:
-            row_key = table.get_row_at(table.cursor_row)
-            app_name = str(table.get_cell_at((table.cursor_row, 0)))
-            self.app.push_screen("app_detail", {"app_name": app_name})
+        app_name = self._get_selected_app_name()
+        if app_name:
+            self.hop3_app.push_app_detail(app_name)
 
     def action_start_app(self) -> None:
         """Start the selected application."""
-        table = self.query_one("#apps-table", DataTable)
-        if table.row_count > 0 and table.cursor_row is not None:
-            app_name = str(table.get_cell_at((table.cursor_row, 0)))
+        app_name = self._get_selected_app_name()
+        if app_name:
             self.notify(f"Starting {app_name}...")
-            # TODO: Call API
+            self.run_worker(self._start_app(app_name))
+
+    async def _start_app(self, app_name: str) -> None:
+        """Start an app asynchronously."""
+        try:
+            await self.hop3_app.api_client.start_app(app_name)
+            self.notify(f"[green]Started {app_name}[/]")
+            self._refresh_apps()
+        except Exception as e:
+            self.notify(f"Failed to start {app_name}: {e}", severity="error")
 
     def action_stop_app(self) -> None:
         """Stop the selected application."""
-        table = self.query_one("#apps-table", DataTable)
-        if table.row_count > 0 and table.cursor_row is not None:
-            app_name = str(table.get_cell_at((table.cursor_row, 0)))
+        app_name = self._get_selected_app_name()
+        if app_name:
+            # TODO: Add confirmation dialog
             self.notify(f"Stopping {app_name}...")
-            # TODO: Call API with confirmation
+            self.run_worker(self._stop_app(app_name))
+
+    async def _stop_app(self, app_name: str) -> None:
+        """Stop an app asynchronously."""
+        try:
+            await self.hop3_app.api_client.stop_app(app_name)
+            self.notify(f"[yellow]Stopped {app_name}[/]")
+            self._refresh_apps()
+        except Exception as e:
+            self.notify(f"Failed to stop {app_name}: {e}", severity="error")
 
     def action_restart_app(self) -> None:
         """Restart the selected application."""
-        table = self.query_one("#apps-table", DataTable)
-        if table.row_count > 0 and table.cursor_row is not None:
-            app_name = str(table.get_cell_at((table.cursor_row, 0)))
+        app_name = self._get_selected_app_name()
+        if app_name:
             self.notify(f"Restarting {app_name}...")
-            # TODO: Call API
+            self.run_worker(self._restart_app(app_name))
+
+    async def _restart_app(self, app_name: str) -> None:
+        """Restart an app asynchronously."""
+        try:
+            await self.hop3_app.api_client.restart_app(app_name)
+            self.notify(f"[green]Restarted {app_name}[/]")
+            self._refresh_apps()
+        except Exception as e:
+            self.notify(f"Failed to restart {app_name}: {e}", severity="error")
 
     def action_new_app(self) -> None:
         """Create a new application."""
@@ -197,4 +263,4 @@ class AppsScreen(Screen):
     def action_refresh(self) -> None:
         """Refresh the apps list."""
         self._refresh_apps()
-        self.notify("Apps list refreshed")
+        self.notify("Refreshing apps list...")

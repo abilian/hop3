@@ -65,9 +65,11 @@ class Hop3Client:
                 )
                 response.raise_for_status()
             except httpx.HTTPStatusError as e:
-                raise Hop3ClientError(f"HTTP error: {e.response.status_code}") from e
+                msg = f"HTTP error: {e.response.status_code}"
+                raise Hop3ClientError(msg) from e
             except httpx.RequestError as e:
-                raise Hop3ClientError(f"Request failed: {e}") from e
+                msg = f"Request failed: {e}"
+                raise Hop3ClientError(msg) from e
 
             data = response.json()
             if "error" in data:

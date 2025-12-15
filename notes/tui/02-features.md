@@ -423,30 +423,41 @@ show_clock = true
 - Network timeout: Show retry option
 
 
-## Phase 1 Features (MVP)
+## Implementation Status
 
-1. Dashboard overview
-2. Apps list with basic actions (start/stop/restart)
-3. App detail view
-4. Logs view (streaming)
-5. Basic command interface
-6. System status
+### Phase 1 Features (MVP) - IMPLEMENTED
 
-## Phase 2 Features
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Dashboard overview | Done | 2x2 grid with apps summary, system status, activity, quick actions |
+| Apps list with filtering | Done | DataTable with filter input, keyboard navigation |
+| App start/stop/restart | Done | Via keyboard shortcuts and action buttons |
+| App detail view | Done | Info panel, actions panel, logs preview |
+| Logs view (streaming) | Done | Simulated streaming, filter, pause/resume |
+| Command interface | Done | 10+ commands implemented |
+| System status | Done | CPU, memory, disk with progress bars |
+| Configuration | Done | TOML file + environment variables |
+| Tests | Done | 125 tests, 82% coverage |
 
-1. Env vars management
-2. Addons management
-3. Backups management
-4. Full command interface with completion
-5. User management (admin)
+### Phase 2 Features - TODO
 
-## Phase 3 Features
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Env vars management | Not started | View/edit environment variables |
+| Addons management | Not started | List/attach/detach addons |
+| Backups management | Not started | Create/restore/delete backups |
+| Command completion | Not started | Tab completion for commands and app names |
+| User management | Not started | Admin-only user management |
 
-1. Deployment wizard
-2. Configuration editor
-3. Multi-server support
-4. Custom themes
-5. Plugin system for extensions
+### Phase 3 Features - TODO
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Deployment wizard | Not started | Step-by-step deployment flow |
+| Configuration editor | Not started | Edit hop3.toml in TUI |
+| Multi-server support | Not started | Switch between servers |
+| Custom themes | Not started | User-defined color schemes |
+| Plugin system | Not started | Extensions for custom screens/commands |
 
 
 ## Dependencies
