@@ -13,6 +13,7 @@ dependencies = [
     # "hop3-agent",
     "hop3-testing",
     "hop3-cli",
+    "hop3-tui",
     "hop3-server",
     # Later
     #    "hop3-lib",
@@ -117,6 +118,7 @@ members = ["packages/*"]
 hop3-cli = { workspace = true }
 hop3-server = { workspace = true }
 hop3-testing = { workspace = true }
+hop3-tui = { workspace = true }
 
 [build-system]
 requires = ["uv-build>=0.8.4,<0.9.0"]
