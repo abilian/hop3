@@ -1,0 +1,161 @@
+# SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
+# SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
+# SPDX-License-Identifier: Apache-2.0
+
+"""HTTP client for Hop3 JSON-RPC API."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import httpx
+
+from hop3_tui.api.models import App, AppState, Backup, SystemStatus
+
+
+class Hop3ClientError(Exception):
+    """Base exception for Hop3 client errors."""
+
+
+class Hop3Client:
+    """Client for communicating with Hop3 server via JSON-RPC."""
+
+    def __init__(
+        self,
+        base_url: str = "http://localhost:5000",
+        token: str | None = None,
+    ) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.token = token
+        self._request_id = 0
+
+    def _get_headers(self) -> dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+        return headers
+
+    def _next_request_id(self) -> int:
+        self._request_id += 1
+        return self._request_id
+
+    async def _rpc_call(
+        self,
+        cli_args: list[str],
+        extra_args: dict[str, Any] | None = None,
+    ) -> Any:
+        """Make a JSON-RPC call to the server."""
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "cli",
+            "params": {
+                "cli_args": cli_args,
+                "extra_args": extra_args or {},
+            },
+            "id": self._next_request_id(),
+        }
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(
+                    f"{self.base_url}/rpc",
+                    json=payload,
+                    headers=self._get_headers(),
+                    timeout=30.0,
+                )
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                raise Hop3ClientError(f"HTTP error: {e.response.status_code}") from e
+            except httpx.RequestError as e:
+                raise Hop3ClientError(f"Request failed: {e}") from e
+
+            data = response.json()
+            if "error" in data:
+                raise Hop3ClientError(data["error"].get("message", "Unknown error"))
+            return data.get("result")
+
+    # Application methods
+
+    async def list_apps(self) -> list[App]:
+        """Get list of all applications."""
+        result = await self._rpc_call(["apps"])
+        apps = []
+        if result and result.get("t") == "table":
+            for row in result.get("rows", []):
+                # Assuming row format: [name, status, port, ...]
+                app = App(
+                    name=row[0] if len(row) > 0 else "unknown",
+                    state=AppState(row[1]) if len(row) > 1 else AppState.STOPPED,
+                    port=int(row[2]) if len(row) > 2 and row[2] else None,
+                )
+                apps.append(app)
+        return apps
+
+    async def get_app(self, name: str) -> App | None:
+        """Get details for a specific application."""
+        result = await self._rpc_call(["app:status", name])
+        if result:
+            # Parse the result based on the format returned
+            return App(name=name)
+        return None
+
+    async def start_app(self, name: str) -> bool:
+        """Start an application."""
+        await self._rpc_call(["app:start", name])
+        return True
+
+    async def stop_app(self, name: str) -> bool:
+        """Stop an application."""
+        await self._rpc_call(["app:stop", name])
+        return True
+
+    async def restart_app(self, name: str) -> bool:
+        """Restart an application."""
+        await self._rpc_call(["app:restart", name])
+        return True
+
+    async def get_app_logs(self, name: str, lines: int = 100) -> list[str]:
+        """Get application logs."""
+        result = await self._rpc_call(["app:logs", name, "--lines", str(lines)])
+        if result and result.get("t") == "text":
+            return result.get("text", "").split("\n")
+        return []
+
+    # System methods
+
+    async def get_system_status(self) -> SystemStatus:
+        """Get system status information."""
+        result = await self._rpc_call(["system:status"])
+        # Parse result into SystemStatus model
+        return SystemStatus()
+
+    async def get_system_info(self) -> dict[str, Any]:
+        """Get system information."""
+        result = await self._rpc_call(["system:info"])
+        return result or {}
+
+    # Backup methods
+
+    async def list_backups(self) -> list[Backup]:
+        """Get list of all backups."""
+        result = await self._rpc_call(["backup:list"])
+        backups = []
+        # Parse result into Backup models
+        return backups
+
+    async def create_backup(self, app_name: str) -> str:
+        """Create a backup for an application."""
+        result = await self._rpc_call(["backup:create", app_name])
+        return result.get("backup_id", "") if result else ""
+
+    # Environment variable methods
+
+    async def get_env_vars(self, app_name: str) -> dict[str, str]:
+        """Get environment variables for an application."""
+        result = await self._rpc_call(["config:show", app_name])
+        return result or {}
+
+    async def set_env_var(self, app_name: str, key: str, value: str) -> bool:
+        """Set an environment variable."""
+        await self._rpc_call(["config:set", app_name, f"{key}={value}"])
+        return True

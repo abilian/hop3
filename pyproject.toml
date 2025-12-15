@@ -13,6 +13,7 @@ dependencies = [
     # "hop3-agent",
     "hop3-testing",
     "hop3-cli",
+    "hop3-tui",
     "hop3-server",
     # Later
     #    "hop3-lib",
@@ -79,6 +80,7 @@ dev = [
     "pytest-xdist>=3.8.0",
     "uwsgi>=2.0.31",
     "types-pyyaml>=6.0.12.20250915",
+    "types-markdown>=3.10.0.20251106",
 ]
 
 doc = [
@@ -116,6 +118,7 @@ members = ["packages/*"]
 hop3-cli = { workspace = true }
 hop3-server = { workspace = true }
 hop3-testing = { workspace = true }
+hop3-tui = { workspace = true }
 
 [build-system]
 requires = ["uv-build>=0.8.4,<0.9.0"]

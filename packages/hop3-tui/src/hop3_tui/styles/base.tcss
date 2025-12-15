@@ -1,0 +1,103 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
+ * SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Base styles for Hop3 TUI
+ */
+
+/* Global styles */
+Screen {
+    background: $surface;
+}
+
+/* Panel base styles */
+.panel {
+    border: solid $primary;
+    padding: 1;
+    background: $surface;
+}
+
+.panel:hover {
+    border: solid $accent;
+}
+
+.panel-title {
+    text-style: bold;
+    color: $text;
+    margin-bottom: 1;
+}
+
+/* Status colors */
+.status-running {
+    color: $success;
+}
+
+.status-stopped {
+    color: $text-muted;
+}
+
+.status-failed {
+    color: $error;
+}
+
+.status-starting,
+.status-stopping {
+    color: $warning;
+}
+
+/* Button styles */
+Button {
+    min-width: 12;
+}
+
+Button:focus {
+    text-style: bold;
+}
+
+/* Input styles */
+Input {
+    border: tall $primary;
+}
+
+Input:focus {
+    border: tall $accent;
+}
+
+/* DataTable styles */
+DataTable {
+    height: 100%;
+}
+
+DataTable > .datatable--header {
+    text-style: bold;
+    background: $primary-darken-2;
+}
+
+DataTable > .datatable--cursor {
+    background: $accent;
+    color: $text;
+}
+
+/* Footer customization */
+Footer {
+    background: $primary-darken-3;
+}
+
+Footer > .footer--key {
+    background: $primary;
+}
+
+/* Header customization */
+Header {
+    background: $primary-darken-2;
+}
+
+/* Scrollbar styles */
+VerticalScroll > .scrollbar {
+    background: $surface;
+}
+
+VerticalScroll > .scrollbar-thumb {
+    background: $primary;
+}
