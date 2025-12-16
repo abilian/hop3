@@ -481,7 +481,8 @@ def ensure_mysql(ctx: DemoContext) -> None:
     if "active" not in result.stdout:
         print_error("MySQL service is not running")
         run_ssh(ctx, "systemctl status mysql --no-pager", check=False)
-        raise CommandError("MySQL service failed to start")
+        msg = "MySQL service failed to start"
+        raise CommandError(msg)
     print_success("MySQL service is running")
     pause(ctx.pause_between_steps)
 
@@ -564,7 +565,8 @@ print("hop3-server.toml updated with MySQL credentials")
     )
     if result.returncode != 0:
         print_error(f"Failed to configure MySQL: {result.stderr}")
-        raise CommandError("MySQL configuration failed")
+        msg = "MySQL configuration failed"
+        raise CommandError(msg)
 
     # Restart MySQL to apply bind-address change
     print_info("Restarting MySQL to apply changes...")

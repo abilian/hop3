@@ -25,13 +25,13 @@ try:
 except ImportError:
     pass
 
-import sys
-from typing import Any
+import sys  # noqa: E402
+from typing import Any  # noqa: E402
 
-import requests.exceptions
-from loguru import logger
+import requests.exceptions  # noqa: E402
+from loguru import logger  # noqa: E402
 
-from .commands import (
+from .commands import (  # noqa: E402
     confirm_destructive_action,
     get_extra_args,
     handle_help_flags,
@@ -40,10 +40,10 @@ from .commands import (
     is_local_command,
     parse_flags,
 )
-from .config import Config, get_config
-from .exit_codes import ExitCode
-from .rpc import Client, handle_response
-from .ui import (
+from .config import Config, get_config  # noqa: E402
+from .exit_codes import ExitCode  # noqa: E402
+from .rpc import Client, handle_response  # noqa: E402
+from .ui import (  # noqa: E402
     RichPrinter,
     err,
     show_unauthenticated_message,
