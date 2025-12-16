@@ -62,7 +62,7 @@ Demonstrates Docker deployments with database addons.
 | demo18 | Docker Node.js | - |
 | demo19 | Docker Go | - |
 
-### Real-World Applications (demo20-demo26)
+### Real-World Applications (demo20-demo27)
 
 Production-ready applications demonstrating Hop3's capabilities.
 
@@ -75,6 +75,15 @@ Production-ready applications demonstrating Hop3's capabilities.
 | demo24 | Listmonk | Newsletter & mailing list manager | PostgreSQL |
 | demo25 | Filebrowser | Web-based file manager | - |
 | demo26 | Miniflux | RSS/Atom feed reader | PostgreSQL |
+| demo27 | OpenCloud | Cloud storage solution | - |
+
+### MySQL Addon Demos (demo28+)
+
+Demos using the MySQL addon.
+
+| Demo | Application | Description | Addons |
+|------|-------------|-------------|--------|
+| demo28 | Page Counter | Simple page view counter (MySQL validation) | MySQL |
 
 ### Default Credentials
 
