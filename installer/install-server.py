@@ -42,6 +42,7 @@ import grp
 import itertools
 import os
 import pwd
+import re
 import secrets
 import shutil
 import subprocess
@@ -73,6 +74,7 @@ DEBIAN_PACKAGES = [
     "libpcre3-dev",
     "zlib1g-dev",
     "nginx",
+    "supervisor",  # Process manager (used by some proxies for reload)
     "postgresql",
     "postgresql-contrib",
     "python3-dev",
@@ -108,6 +110,7 @@ FEDORA_PACKAGES = [
     "pcre-devel",
     "zlib-devel",
     "nginx",
+    "supervisor",  # Process manager (used by some proxies for reload)
     "postgresql-server",
     "postgresql-contrib",
     "python3-devel",
@@ -464,101 +467,147 @@ def install_system_deps(
 
     if distro == "debian":
         with Spinner("Updating package lists..."):
-            run_cmd(["apt-get", "update", "-qq"])
+            run_cmd(["apt-get", "update", "-q"])
 
         # Install base packages first
         with Spinner("Installing base packages (this may take a while)..."):
-            run_cmd(
-                ["apt-get", "install", "-y", "-qq"] + DEBIAN_PACKAGES,
+            result = run_cmd(
+                ["apt-get", "install", "-y"] + DEBIAN_PACKAGES,
                 env={"DEBIAN_FRONTEND": "noninteractive"},
+                check=False,
             )
+        if result.returncode != 0:
+            print_error("Base package installation failed:")
+            if result.stderr:
+                for line in result.stderr.strip().split("\n")[-10:]:
+                    print_detail(line)
+            raise CommandError("Failed to install base packages")
         print_success(f"Installed {len(DEBIAN_PACKAGES)} base packages")
 
         # Install optional packages separately to avoid conflicts blocking everything
         if with_docker:
-            with Spinner("Installing Docker..."):
-                result = run_cmd(
-                    ["apt-get", "install", "-y", "-qq"] + DEBIAN_DOCKER_PACKAGES,
-                    env={"DEBIAN_FRONTEND": "noninteractive"},
-                    check=False,
-                )
-            if result.returncode == 0:
-                print_success("Docker packages installed")
+            # Check if Docker is already installed (docker-ce or docker.io)
+            if cmd_exists("docker"):
+                print_success("Docker already installed")
             else:
-                print_warning(
-                    "Docker installation failed (may already be installed or conflict)"
-                )
-                print_detail("You can install manually: apt-get install docker.io")
+                with Spinner("Installing Docker..."):
+                    result = run_cmd(
+                        ["apt-get", "install", "-y"] + DEBIAN_DOCKER_PACKAGES,
+                        env={"DEBIAN_FRONTEND": "noninteractive"},
+                        check=False,
+                    )
+                if result.returncode == 0:
+                    print_success("Docker packages installed")
+                else:
+                    print_warning("Docker installation failed")
+                    if result.stderr:
+                        # Show last few lines of error
+                        for line in result.stderr.strip().split("\n")[-5:]:
+                            print_detail(line)
+                    print_detail("This may be due to containerd.io conflict with docker.io")
+                    print_detail("If Docker is needed, install docker-ce from Docker's repo")
 
         if with_mysql:
-            with Spinner("Installing MySQL..."):
-                result = run_cmd(
-                    ["apt-get", "install", "-y", "-qq"] + DEBIAN_MYSQL_PACKAGES,
-                    env={"DEBIAN_FRONTEND": "noninteractive"},
-                    check=False,
-                )
-            if result.returncode == 0:
-                print_success("MySQL packages installed")
+            # Check if MySQL is already installed
+            if cmd_exists("mysql"):
+                print_success("MySQL already installed")
             else:
-                print_warning(
-                    "MySQL installation failed (may already be installed or conflict)"
-                )
-                print_detail("You can install manually: apt-get install mysql-server")
+                with Spinner("Installing MySQL..."):
+                    result = run_cmd(
+                        ["apt-get", "install", "-y"] + DEBIAN_MYSQL_PACKAGES,
+                        env={"DEBIAN_FRONTEND": "noninteractive"},
+                        check=False,
+                    )
+                if result.returncode == 0:
+                    print_success("MySQL packages installed")
+                else:
+                    print_warning("MySQL installation failed")
+                    if result.stderr:
+                        for line in result.stderr.strip().split("\n")[-5:]:
+                            print_detail(line)
 
         if with_redis:
-            with Spinner("Installing Redis..."):
-                result = run_cmd(
-                    ["apt-get", "install", "-y", "-qq"] + DEBIAN_REDIS_PACKAGES,
-                    env={"DEBIAN_FRONTEND": "noninteractive"},
-                    check=False,
-                )
-            if result.returncode == 0:
-                print_success("Redis packages installed")
+            # Check if Redis is already installed
+            if cmd_exists("redis-server"):
+                print_success("Redis already installed")
             else:
-                print_warning(
-                    "Redis installation failed (may already be installed or conflict)"
-                )
-                print_detail("You can install manually: apt-get install redis-server")
+                with Spinner("Installing Redis..."):
+                    result = run_cmd(
+                        ["apt-get", "install", "-y"] + DEBIAN_REDIS_PACKAGES,
+                        env={"DEBIAN_FRONTEND": "noninteractive"},
+                        check=False,
+                    )
+                if result.returncode == 0:
+                    print_success("Redis packages installed")
+                else:
+                    print_warning("Redis installation failed")
+                    if result.stderr:
+                        for line in result.stderr.strip().split("\n")[-5:]:
+                            print_detail(line)
 
     elif distro == "fedora":
         # Install base packages first
         with Spinner("Installing base packages (this may take a while)..."):
-            run_cmd(["dnf", "install", "-y", "-q"] + FEDORA_PACKAGES)
+            result = run_cmd(["dnf", "install", "-y"] + FEDORA_PACKAGES, check=False)
+        if result.returncode != 0:
+            print_error("Base package installation failed:")
+            if result.stderr:
+                for line in result.stderr.strip().split("\n")[-10:]:
+                    print_detail(line)
+            raise CommandError("Failed to install base packages")
         print_success(f"Installed {len(FEDORA_PACKAGES)} base packages")
 
         # Install optional packages separately
         if with_docker:
-            with Spinner("Installing Docker..."):
-                result = run_cmd(
-                    ["dnf", "install", "-y", "-q"] + FEDORA_DOCKER_PACKAGES,
-                    check=False,
-                )
-            if result.returncode == 0:
-                print_success("Docker packages installed")
+            if cmd_exists("docker"):
+                print_success("Docker already installed")
             else:
-                print_warning("Docker installation failed")
+                with Spinner("Installing Docker..."):
+                    result = run_cmd(
+                        ["dnf", "install", "-y"] + FEDORA_DOCKER_PACKAGES,
+                        check=False,
+                    )
+                if result.returncode == 0:
+                    print_success("Docker packages installed")
+                else:
+                    print_warning("Docker installation failed")
+                    if result.stderr:
+                        for line in result.stderr.strip().split("\n")[-5:]:
+                            print_detail(line)
 
         if with_mysql:
-            with Spinner("Installing MySQL..."):
-                result = run_cmd(
-                    ["dnf", "install", "-y", "-q"] + FEDORA_MYSQL_PACKAGES,
-                    check=False,
-                )
-            if result.returncode == 0:
-                print_success("MySQL packages installed")
+            if cmd_exists("mysql"):
+                print_success("MySQL already installed")
             else:
-                print_warning("MySQL installation failed")
+                with Spinner("Installing MySQL..."):
+                    result = run_cmd(
+                        ["dnf", "install", "-y"] + FEDORA_MYSQL_PACKAGES,
+                        check=False,
+                    )
+                if result.returncode == 0:
+                    print_success("MySQL packages installed")
+                else:
+                    print_warning("MySQL installation failed")
+                    if result.stderr:
+                        for line in result.stderr.strip().split("\n")[-5:]:
+                            print_detail(line)
 
         if with_redis:
-            with Spinner("Installing Redis..."):
-                result = run_cmd(
-                    ["dnf", "install", "-y", "-q"] + FEDORA_REDIS_PACKAGES,
-                    check=False,
-                )
-            if result.returncode == 0:
-                print_success("Redis packages installed")
+            if cmd_exists("redis-server"):
+                print_success("Redis already installed")
             else:
-                print_warning("Redis installation failed")
+                with Spinner("Installing Redis..."):
+                    result = run_cmd(
+                        ["dnf", "install", "-y"] + FEDORA_REDIS_PACKAGES,
+                        check=False,
+                    )
+                if result.returncode == 0:
+                    print_success("Redis packages installed")
+                else:
+                    print_warning("Redis installation failed")
+                    if result.stderr:
+                        for line in result.stderr.strip().split("\n")[-5:]:
+                            print_detail(line)
 
     else:
         print_warning(f"Unknown distro '{distro}', skipping package installation")
@@ -715,6 +764,7 @@ def setup_systemd() -> None:
     run_cmd(["systemctl", "enable", "hop3-server"], check=False)
     run_cmd(["systemctl", "enable", "uwsgi-hop3"], check=False)
     run_cmd(["systemctl", "start", "hop3-server"], check=False)
+    run_cmd(["systemctl", "start", "uwsgi-hop3"], check=False)
 
     print_success("Systemd services configured")
 
@@ -968,22 +1018,26 @@ def _configure_postgres_for_docker(distro: str) -> None:
         pg_conf.write_text("\n".join(new_lines))
         print_success("PostgreSQL configured to listen on all interfaces")
 
-    # Add pg_hba.conf rule for Docker networks
-    # 172.16.0.0/12 covers all Docker networks (172.16.x.x - 172.31.x.x)
-    # including default bridge (172.17.x.x) and docker-compose networks (172.18+)
+    # Add pg_hba.conf rules for Docker networks
+    # 172.16.0.0/12 covers Docker bridge networks (172.16.x.x - 172.31.x.x)
+    # 192.168.0.0/16 covers Docker Compose networks (192.168.x.x)
     hba_content = pg_hba.read_text()
-    docker_rule = "host    all    all    172.16.0.0/12    scram-sha-256"
-    if "172.16.0.0/12" not in hba_content:
-        # Add rule before the first "host" line (after local rules)
+    docker_rules = [
+        "host    all    all    172.16.0.0/12    scram-sha-256",
+        "host    all    all    192.168.0.0/16    scram-sha-256",
+    ]
+    if "172.16.0.0/12" not in hba_content or "192.168.0.0/16" not in hba_content:
+        # Add rules before the first "host" line (after local rules)
         new_lines = []
         docker_rule_added = False
         for line in hba_content.split("\n"):
-            # Add Docker rule before first host rule
+            # Add Docker rules before first host rule
             if not docker_rule_added and line.strip().startswith("host"):
                 new_lines.append(
                     "# Added by hop3 installer for Docker container access"
                 )
-                new_lines.append(docker_rule)
+                for rule in docker_rules:
+                    new_lines.append(rule)
                 new_lines.append("")
                 docker_rule_added = True
             new_lines.append(line)
@@ -991,7 +1045,8 @@ def _configure_postgres_for_docker(distro: str) -> None:
         if not docker_rule_added:
             new_lines.append("")
             new_lines.append("# Added by hop3 installer for Docker container access")
-            new_lines.append(docker_rule)
+            for rule in docker_rules:
+                new_lines.append(rule)
         pg_hba.write_text("\n".join(new_lines))
         print_success("PostgreSQL configured to accept Docker container connections")
 
@@ -1028,31 +1083,47 @@ def setup_mysql(skip: bool, distro: str) -> str | None:
     # On Ubuntu/Debian, MySQL root uses auth_socket by default.
     # We need to switch to mysql_native_password so hop3-server (running as hop3 user)
     # can connect with a password.
-    try:
-        # First, change the auth plugin and set password (as root OS user via socket)
-        sql_cmd = (
-            f"ALTER USER 'root'@'localhost' "
-            f"IDENTIFIED WITH mysql_native_password BY '{mysql_password}'; "
-            f"FLUSH PRIVILEGES;"
-        )
-        result = run_cmd(
-            ["mysql", "-u", "root", "-e", sql_cmd],
-            check=False,
-        )
-        if result.returncode == 0:
-            print_success("MySQL root configured with password authentication")
+    #
+    # Try multiple methods:
+    # 1. Socket auth (fresh install with auth_socket)
+    # 2. debian-sys-maint user (if root already has password)
+
+    sql_cmd = (
+        f"ALTER USER 'root'@'localhost' "
+        f"IDENTIFIED WITH mysql_native_password BY '{mysql_password}'; "
+        f"FLUSH PRIVILEGES;"
+    )
+
+    # Method 1: Try socket auth (works on fresh install)
+    result = run_cmd(
+        ["mysql", "-u", "root", "-e", sql_cmd],
+        check=False,
+    )
+    if result.returncode == 0:
+        print_success("MySQL root configured with password authentication")
+    else:
+        # Method 2: Try debian-sys-maint user (for reinstalls where root has password)
+        debian_cnf = Path("/etc/mysql/debian.cnf")
+        if debian_cnf.exists():
+            print_info("Root socket auth failed, trying debian-sys-maint...")
+            result = run_cmd(
+                ["mysql", "--defaults-file=/etc/mysql/debian.cnf", "-e", sql_cmd],
+                check=False,
+            )
+            if result.returncode == 0:
+                print_success("MySQL root password reset via debian-sys-maint")
+            else:
+                print_warning("Could not configure MySQL root password")
+                print_detail("MySQL may need manual configuration")
+                if result.stderr:
+                    print_detail(result.stderr[:200])
+                return None
         else:
-            # Maybe already has a different auth setup
             print_warning("Could not configure MySQL root password")
-            print_detail("MySQL may need manual configuration")
+            print_detail("Socket auth failed and debian.cnf not found")
             if result.stderr:
                 print_detail(result.stderr[:200])
             return None
-    except CommandError as e:
-        print_warning(
-            f"Could not configure MySQL: {e.stderr[:100] if e.stderr else str(e)}"
-        )
-        return None
 
     # Verify connection works with password
     result = run_cmd(
@@ -1163,6 +1234,62 @@ def setup_docker(skip: bool) -> None:
     # Add hop3 user to docker group
     run_cmd(["usermod", "-aG", "docker", HOP3_USER], check=False)
     print_success("Docker configured (hop3 user added to docker group)")
+
+
+def setup_redis(skip: bool) -> None:
+    """Configure Redis for hop3.
+
+    This:
+    1. Enables and starts the Redis service
+    2. Configures Redis to bind to all interfaces (for Docker container access)
+    3. Disables protected mode (safe since we're behind firewall)
+    """
+    if skip:
+        print_info("Skipping Redis setup (use --with redis to enable)")
+        return
+
+    # Check if Redis is installed
+    if not cmd_exists("redis-server"):
+        print_warning("Redis not installed, skipping setup")
+        return
+
+    # Configure Redis to bind to all interfaces for Docker container access
+    redis_conf = Path("/etc/redis/redis.conf")
+    if redis_conf.exists():
+        content = redis_conf.read_text()
+        modified = False
+
+        # Update bind address to allow connections from Docker containers
+        if "bind 0.0.0.0" not in content:
+            content = re.sub(
+                r"^bind\s+.*$",
+                "bind 0.0.0.0",
+                content,
+                flags=re.MULTILINE,
+            )
+            modified = True
+
+        # Disable protected mode since we're binding to all interfaces
+        if "protected-mode no" not in content:
+            content = re.sub(
+                r"^protected-mode\s+yes",
+                "protected-mode no",
+                content,
+                flags=re.MULTILINE,
+            )
+            modified = True
+
+        if modified:
+            redis_conf.write_text(content)
+            print_info("Redis configured to bind to all interfaces")
+
+    # Enable and start Redis service
+    run_cmd(["systemctl", "enable", "redis-server"], check=False)
+    run_cmd(["systemctl", "start", "redis-server"], check=False)
+
+    # Restart Redis to apply config changes
+    run_cmd(["systemctl", "restart", "redis-server"], check=False)
+    print_success("Redis configured and started")
 
 
 def write_server_config(
@@ -1368,6 +1495,14 @@ def verify_installation() -> bool:
     else:
         print_warning("nginx service is not running")
         print_detail("Check with: sudo systemctl status nginx")
+
+    # Check uwsgi-hop3 (emperor) service status
+    result = run_cmd(["systemctl", "is-active", "uwsgi-hop3"], capture=True, check=False)
+    if result.stdout.strip() == "active":
+        print_success("uwsgi-hop3 service is running")
+    else:
+        print_warning("uwsgi-hop3 service is not running")
+        print_detail("Check with: sudo systemctl status uwsgi-hop3")
 
     # Check SSL certificate exists
     if SSL_CERT.exists() and SSL_KEY.exists():
@@ -1666,7 +1801,7 @@ def main() -> int:
     with_redis = "redis" in features
     with_docker = "docker" in features
 
-    total_steps = 14  # Base steps + MySQL + Docker steps
+    total_steps = 15  # Base steps + MySQL + Docker + Redis steps
 
     # Show configuration
     if args.domain:
@@ -1782,15 +1917,22 @@ def main() -> int:
     except CommandError as e:
         print_warning(f"Docker setup issue: {e.stderr[:100]}")
 
-    # Step 13: Write server configuration
-    print_step(13, total_steps, "Writing server configuration...")
+    # Step 13: Redis (optional)
+    print_step(13, total_steps, "Configuring Redis...")
+    try:
+        setup_redis(not with_redis)
+    except CommandError as e:
+        print_warning(f"Redis setup issue: {e.stderr[:100]}")
+
+    # Step 14: Write server configuration
+    print_step(14, total_steps, "Writing server configuration...")
     try:
         write_server_config(pg_password, mysql_password, args.domain)
     except Exception as e:
         print_warning(f"Config write issue: {e}")
 
-    # Step 14: ACME/Let's Encrypt
-    print_step(14, total_steps, "Setting up ACME/Let's Encrypt...")
+    # Step 15: ACME/Let's Encrypt
+    print_step(15, total_steps, "Setting up ACME/Let's Encrypt...")
     try:
         # Always install acme.sh for future use
         setup_acme(args.skip_acme)
