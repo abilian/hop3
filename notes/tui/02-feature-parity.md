@@ -124,4 +124,12 @@ This document compares the features available in hop3-cli and hop3-tui to identi
 - The CLI supports SSH tunneling for secure remote connections; TUI uses direct HTTP with bearer tokens
 - CLI has `--json` output mode; TUI is inherently visual
 - CLI has `-y/--yes` flag to skip confirmations; TUI always shows confirmation dialogs for safety
-- TUI reads CLI config (`~/Library/Application Support/hop3-cli/config.toml`) as fallback for server connection settings
+- TUI reads CLI config as fallback for server connection settings:
+  - macOS: `~/Library/Application Support/hop3-cli/config.toml`
+  - Windows: `%APPDATA%/hop3-cli/config.toml`
+  - Linux: `~/.config/hop3-cli/config.toml` or `~/.hop3-cli/config.toml`
+- Config priority (highest to lowest):
+  1. Environment variables (`HOP3_SERVER_URL`, `HOP3_AUTH_TOKEN`, etc.)
+  2. TUI config file (`~/.config/hop3/tui.toml`)
+  3. CLI config file (platform-specific paths above)
+  4. Default values
