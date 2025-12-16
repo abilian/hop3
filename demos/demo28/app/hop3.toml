@@ -1,0 +1,10 @@
+# hop3.toml - Docker app with MySQL addon
+
+[metadata]
+id = "demo28-mysql-counter"
+version = "0.1.0"
+title = "MySQL Page Counter Demo"
+description = "Demonstrates Docker deployment with MySQL addon - simple page view counter"
+
+[build]
+builder = "docker"

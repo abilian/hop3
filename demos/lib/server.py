@@ -136,19 +136,21 @@ def install_hop3(ctx: DemoContext) -> None:
 
     # Build installer command with optional admin domain
     domain_arg = f" --domain {ctx.admin_domain}" if ctx.admin_domain else ""
+    # Install all optional features (MySQL, Redis) for demos
+    with_all = " --with all"
 
     if ctx.use_local_code:
         # First sync local code, then install from local path
         sync_local_code(ctx)
         run_ssh(
             ctx,
-            f"python3 /tmp/install-server.py --local-path /tmp/hop3-server{domain_arg} --verbose",
+            f"python3 /tmp/install-server.py --local-path /tmp/hop3-server{domain_arg}{with_all} --verbose",
         )
     else:
         print_info("Installing from git branch: devel")
         run_ssh(
             ctx,
-            f"python3 /tmp/install-server.py --git --branch devel{domain_arg} --verbose",
+            f"python3 /tmp/install-server.py --git --branch devel{domain_arg}{with_all} --verbose",
         )
     print_success("Hop3 installation completed")
     pause(ctx.pause_between_steps)
@@ -450,6 +452,131 @@ print("PostgreSQL configured for Docker access")
 
     time.sleep(2)
     print_success("PostgreSQL configured for Docker container access")
+
+
+def ensure_mysql(ctx: DemoContext) -> None:
+    """Ensure MySQL is installed and configured for Hop3.
+
+    This:
+    1. Installs mysql-server if not present
+    2. Configures MySQL root with password authentication (not auth_socket)
+    3. Configures MySQL to accept connections from Docker containers
+    4. Updates hop3-server config with MySQL credentials
+    """
+    print_step("Checking if MySQL is installed...")
+    result = run_ssh(ctx, "which mysql", show=False, check=False)
+    if result.returncode != 0:
+        print_info("MySQL is not installed. Installing mysql-server...")
+        run_ssh(ctx, "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq mysql-server mysql-client", check=True)
+        print_success("MySQL installed")
+    else:
+        print_success("MySQL is installed")
+    pause(ctx.pause_between_steps)
+
+    # Ensure MySQL service is running
+    print_step("Ensuring MySQL service is running...")
+    run_ssh(ctx, "systemctl enable mysql", show=False, check=False)
+    run_ssh(ctx, "systemctl start mysql", show=False, check=False)
+    result = run_ssh(ctx, "systemctl is-active mysql", show=False, check=False)
+    if "active" not in result.stdout:
+        print_error("MySQL service is not running")
+        run_ssh(ctx, "systemctl status mysql --no-pager", check=False)
+        raise CommandError("MySQL service failed to start")
+    print_success("MySQL service is running")
+    pause(ctx.pause_between_steps)
+
+    # Configure MySQL for hop3 access
+    # On Ubuntu, MySQL root uses auth_socket by default - we need password auth
+    print_step("Configuring MySQL authentication for hop3...")
+    config_script = """\
+import subprocess
+import secrets
+import sys
+from pathlib import Path
+
+# Generate a secure password for hop3 to use
+mysql_password = secrets.token_urlsafe(24)
+
+# Switch root from auth_socket to mysql_native_password
+# This is required so hop3-server (running as hop3 user) can connect
+try:
+    result = subprocess.run([
+        "mysql", "-u", "root", "-e",
+        f"ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '{mysql_password}'; FLUSH PRIVILEGES;"
+    ], capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Warning: Could not set MySQL password: {result.stderr}", file=sys.stderr)
+        # Try with existing password from config
+        config_file = Path("/home/hop3/hop3-server.toml")
+        if config_file.exists():
+            import toml
+            config = toml.load(config_file)
+            existing_pw = config.get("MYSQL_SUPERUSER_PASSWORD")
+            if existing_pw:
+                mysql_password = existing_pw
+                print("Using existing MySQL password from config")
+except Exception as e:
+    print(f"Warning: MySQL configuration error: {e}", file=sys.stderr)
+
+# Verify password auth works from hop3 user context
+result = subprocess.run([
+    "mysql", "-u", "root", f"-p{mysql_password}", "-h", "127.0.0.1", "-e", "SELECT 1"
+], capture_output=True, text=True)
+if result.returncode != 0:
+    print(f"ERROR: MySQL password auth not working: {result.stderr}", file=sys.stderr)
+    sys.exit(1)
+
+# Configure MySQL to bind to all interfaces for Docker access
+mysql_conf = Path("/etc/mysql/mysql.conf.d/mysqld.cnf")
+if mysql_conf.exists():
+    content = mysql_conf.read_text()
+    if "bind-address" in content and "0.0.0.0" not in content:
+        new_content = content.replace("bind-address", "# bind-address (commented by hop3)\\n# Original: bind-address")
+        new_content += "\\n# Added by hop3 for Docker container access\\nbind-address = 0.0.0.0\\n"
+        mysql_conf.write_text(new_content)
+        print("Updated MySQL bind-address to 0.0.0.0")
+
+# Update hop3-server config with MySQL credentials
+import toml
+config_file = Path("/home/hop3/hop3-server.toml")
+if config_file.exists():
+    config_data = toml.load(config_file)
+else:
+    config_data = {}
+
+config_data["MYSQL_HOST"] = "127.0.0.1"
+config_data["MYSQL_PORT"] = "3306"
+config_data["MYSQL_SUPERUSER"] = "root"
+config_data["MYSQL_SUPERUSER_PASSWORD"] = mysql_password
+
+with config_file.open("w") as f:
+    toml.dump(config_data, f)
+
+print(f"MySQL configured with password: {mysql_password[:8]}...")
+print("hop3-server.toml updated with MySQL credentials")
+"""
+    encoded = base64.b64encode(config_script.encode()).decode()
+    result = run_ssh(
+        ctx,
+        f"echo {encoded} | base64 -d > /tmp/mysql_setup.py && sudo /home/hop3/venv/bin/python /tmp/mysql_setup.py && rm /tmp/mysql_setup.py",
+        show=False,
+        check=False,
+    )
+    if result.returncode != 0:
+        print_error(f"Failed to configure MySQL: {result.stderr}")
+        raise CommandError("MySQL configuration failed")
+
+    # Restart MySQL to apply bind-address change
+    print_info("Restarting MySQL to apply changes...")
+    run_ssh(ctx, "systemctl restart mysql", show=False, check=False)
+
+    # Restart hop3-server to pick up MySQL config
+    print_info("Restarting hop3-server to load MySQL configuration...")
+    run_ssh(ctx, "systemctl restart hop3-server", show=False)
+    import time
+    time.sleep(2)
+
+    print_success("MySQL configured for Hop3")
 
 
 def ensure_redis(ctx: DemoContext) -> None:
