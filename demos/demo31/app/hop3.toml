@@ -1,0 +1,14 @@
+# hop3.toml - Native Python app with PostgreSQL addon
+
+[metadata]
+id = "demo31-postgres"
+version = "0.1.0"
+title = "Native PostgreSQL Demo"
+description = "Demonstrates native Python deployment with PostgreSQL addon"
+
+[build]
+builder = "python-3.12"
+pip-install = ["-r", "requirements.txt"]
+
+[run]
+start = "gunicorn --workers 2 --bind 0.0.0.0:$PORT app:app"

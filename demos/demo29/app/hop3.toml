@@ -1,0 +1,15 @@
+# hop3.toml - Native Python app with MySQL addon
+
+[metadata]
+id = "demo29-mysql-counter"
+version = "0.1.0"
+title = "Native MySQL Page Counter Demo"
+description = "Demonstrates native Python deployment with MySQL addon - simple page view counter"
+
+[build]
+# Use native Python builder (no Docker)
+builder = "python-3.12"
+pip-install = ["-r", "requirements.txt"]
+
+[run]
+start = "gunicorn --workers 2 --bind 0.0.0.0:$PORT app:app"

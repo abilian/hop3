@@ -1,0 +1,14 @@
+# hop3.toml - Native Python app with Redis addon
+
+[metadata]
+id = "demo32-redis"
+version = "0.1.0"
+title = "Native Redis Demo"
+description = "Demonstrates native Python deployment with Redis addon"
+
+[build]
+builder = "python-3.12"
+pip-install = ["-r", "requirements.txt"]
+
+[run]
+start = "gunicorn --workers 2 --bind 0.0.0.0:$PORT app:app"
