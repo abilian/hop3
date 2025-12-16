@@ -327,16 +327,20 @@ print("Server config updated")
 
 
 def ensure_docker(ctx: DemoContext) -> None:
-    """Ensure Docker is installed and hop3 user has access."""
+    """Verify Docker is installed and hop3 user has access.
+
+    Note: Docker should be installed by the installer (--with docker or --with all).
+    This function only verifies the installation and configures hop3 user access.
+    """
     print_step("Checking if Docker is installed...")
     result = run_ssh(ctx, "which docker", show=False, check=False)
     if result.returncode != 0:
-        print_info("Docker is not installed. Installing docker.io package...")
-        run_ssh(ctx, "apt-get update -qq && apt-get install -y -qq docker.io")
-        run_ssh(ctx, "systemctl enable docker && systemctl start docker")
-        print_success("Docker installed and started")
-    else:
-        print_success("Docker is installed")
+        print_error("Docker is not installed!")
+        print_info("Docker should be installed by the installer with --with docker")
+        print_info("Re-run the installer with: --with all")
+        msg = "Docker not installed - run installer with --with docker"
+        raise RuntimeError(msg)
+    print_success("Docker is installed")
     pause(ctx.pause_between_steps)
 
     # Ensure hop3 user is in docker group
@@ -362,17 +366,17 @@ def ensure_docker(ctx: DemoContext) -> None:
 def ensure_postgres_docker_access(ctx: DemoContext) -> None:
     """Configure PostgreSQL to accept connections from Docker containers.
 
-    Docker containers connect via host.docker.internal which routes to 172.17.x.x.
+    Docker containers connect via host.docker.internal which routes to various IPs.
     PostgreSQL must be configured to:
     1. Listen on all interfaces (not just localhost)
-    2. Allow password auth from Docker bridge network (172.17.0.0/16)
+    2. Allow password auth from Docker networks (172.16.0.0/12 and 192.168.0.0/16)
     """
     print_step("Configuring PostgreSQL for Docker container access...")
 
-    # Check if already configured (look for Docker network rules)
+    # Check if already configured (look for Docker network rules - both ranges)
     result = run_ssh(
         ctx,
-        "grep -q '172.16.0.0/12' /etc/postgresql/*/main/pg_hba.conf 2>/dev/null",
+        "grep -q '192.168.0.0/16' /etc/postgresql/*/main/pg_hba.conf 2>/dev/null",
         show=False,
         check=False,
     )
@@ -410,26 +414,32 @@ if "listen_addresses = '*'" not in conf_content:
     pg_conf.write_text("\\n".join(new_lines))
     print("Updated postgresql.conf: listen_addresses = '*'")
 
-# Add pg_hba.conf rule for Docker networks
-# 172.16.0.0/12 covers all Docker networks (172.16.x.x - 172.31.x.x)
-# including default bridge (172.17.x.x) and docker-compose networks (172.18+)
+# Add pg_hba.conf rules for Docker networks
+# 172.16.0.0/12 covers Docker bridge networks (172.16.x.x - 172.31.x.x)
+# 192.168.0.0/16 covers Docker Compose networks (192.168.x.x)
 hba_content = pg_hba.read_text()
-if "172.16.0.0/12" not in hba_content:
+docker_rules = [
+    "host    all    all    172.16.0.0/12    scram-sha-256",
+    "host    all    all    192.168.0.0/16    scram-sha-256",
+]
+if "172.16.0.0/12" not in hba_content or "192.168.0.0/16" not in hba_content:
     new_lines = []
     docker_rule_added = False
     for line in hba_content.split("\\n"):
         if not docker_rule_added and line.strip().startswith("host"):
             new_lines.append("# Added by hop3 for Docker container access")
-            new_lines.append("host    all    all    172.16.0.0/12    scram-sha-256")
+            for rule in docker_rules:
+                new_lines.append(rule)
             new_lines.append("")
             docker_rule_added = True
         new_lines.append(line)
     if not docker_rule_added:
         new_lines.append("")
         new_lines.append("# Added by hop3 for Docker container access")
-        new_lines.append("host    all    all    172.16.0.0/12    scram-sha-256")
+        for rule in docker_rules:
+            new_lines.append(rule)
     pg_hba.write_text("\\n".join(new_lines))
-    print("Updated pg_hba.conf: added Docker network rule")
+    print("Updated pg_hba.conf: added Docker network rules")
 
 print("PostgreSQL configured for Docker access")
 """
@@ -455,212 +465,79 @@ print("PostgreSQL configured for Docker access")
 
 
 def ensure_mysql(ctx: DemoContext) -> None:
-    """Ensure MySQL is installed and configured for Hop3.
+    """Verify MySQL is installed and properly configured for Hop3.
 
-    This:
-    1. Installs mysql-server if not present
-    2. Configures MySQL root with password authentication (not auth_socket)
-    3. Configures MySQL to accept connections from Docker containers
-    4. Updates hop3-server config with MySQL credentials
+    Note: MySQL should be installed by the installer (--with mysql or --with all).
+    This function verifies the installation and checks that password auth is working.
     """
     print_step("Checking if MySQL is installed...")
     result = run_ssh(ctx, "which mysql", show=False, check=False)
     if result.returncode != 0:
-        print_info("MySQL is not installed. Installing mysql-server...")
-        run_ssh(ctx, "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq mysql-server mysql-client", check=True)
-        print_success("MySQL installed")
-    else:
-        print_success("MySQL is installed")
-    pause(ctx.pause_between_steps)
+        print_error("MySQL is not installed!")
+        print_info("MySQL should be installed by the installer with --with mysql")
+        print_info("Re-run the installer with: --with all")
+        msg = "MySQL not installed - run installer with --with mysql"
+        raise RuntimeError(msg)
+    print_success("MySQL is installed")
 
-    # Ensure MySQL service is running
-    print_step("Ensuring MySQL service is running...")
-    run_ssh(ctx, "systemctl enable mysql", show=False, check=False)
-    run_ssh(ctx, "systemctl start mysql", show=False, check=False)
+    # Verify MySQL service is running
+    print_step("Checking MySQL service status...")
     result = run_ssh(ctx, "systemctl is-active mysql", show=False, check=False)
     if "active" not in result.stdout:
         print_error("MySQL service is not running")
         run_ssh(ctx, "systemctl status mysql --no-pager", check=False)
-        msg = "MySQL service failed to start"
-        raise CommandError(msg)
+        msg = "MySQL service not running"
+        raise RuntimeError(msg)
     print_success("MySQL service is running")
-    pause(ctx.pause_between_steps)
 
-    # Configure MySQL for hop3 access
-    # On Ubuntu, MySQL root uses auth_socket by default - we need password auth
-    print_step("Configuring MySQL authentication for hop3...")
-    config_script = """\
-import subprocess
-import secrets
-import sys
-from pathlib import Path
-
-# Generate a secure password for hop3 to use
-mysql_password = secrets.token_urlsafe(24)
-
-# Switch root from auth_socket to mysql_native_password
-# This is required so hop3-server (running as hop3 user) can connect
-try:
-    result = subprocess.run([
-        "mysql", "-u", "root", "-e",
-        f"ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '{mysql_password}'; FLUSH PRIVILEGES;"
-    ], capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"Warning: Could not set MySQL password: {result.stderr}", file=sys.stderr)
-        # Try with existing password from config
-        config_file = Path("/home/hop3/hop3-server.toml")
-        if config_file.exists():
-            import toml
-            config = toml.load(config_file)
-            existing_pw = config.get("MYSQL_SUPERUSER_PASSWORD")
-            if existing_pw:
-                mysql_password = existing_pw
-                print("Using existing MySQL password from config")
-except Exception as e:
-    print(f"Warning: MySQL configuration error: {e}", file=sys.stderr)
-
-# Verify password auth works from hop3 user context
-result = subprocess.run([
-    "mysql", "-u", "root", f"-p{mysql_password}", "-h", "127.0.0.1", "-e", "SELECT 1"
-], capture_output=True, text=True)
-if result.returncode != 0:
-    print(f"ERROR: MySQL password auth not working: {result.stderr}", file=sys.stderr)
-    sys.exit(1)
-
-# Configure MySQL to bind to all interfaces for Docker access
-mysql_conf = Path("/etc/mysql/mysql.conf.d/mysqld.cnf")
-if mysql_conf.exists():
-    content = mysql_conf.read_text()
-    if "bind-address" in content and "0.0.0.0" not in content:
-        new_content = content.replace("bind-address", "# bind-address (commented by hop3)\\n# Original: bind-address")
-        new_content += "\\n# Added by hop3 for Docker container access\\nbind-address = 0.0.0.0\\n"
-        mysql_conf.write_text(new_content)
-        print("Updated MySQL bind-address to 0.0.0.0")
-
-# Update hop3-server config with MySQL credentials
-import toml
-config_file = Path("/home/hop3/hop3-server.toml")
-if config_file.exists():
-    config_data = toml.load(config_file)
-else:
-    config_data = {}
-
-config_data["MYSQL_HOST"] = "127.0.0.1"
-config_data["MYSQL_PORT"] = "3306"
-config_data["MYSQL_SUPERUSER"] = "root"
-config_data["MYSQL_SUPERUSER_PASSWORD"] = mysql_password
-
-with config_file.open("w") as f:
-    toml.dump(config_data, f)
-
-print(f"MySQL configured with password: {mysql_password[:8]}...")
-print("hop3-server.toml updated with MySQL credentials")
-"""
-    encoded = base64.b64encode(config_script.encode()).decode()
+    # Verify hop3-server can connect to MySQL (password auth configured)
+    print_step("Verifying MySQL password authentication...")
     result = run_ssh(
         ctx,
-        f"echo {encoded} | base64 -d > /tmp/mysql_setup.py && sudo /home/hop3/venv/bin/python /tmp/mysql_setup.py && rm /tmp/mysql_setup.py",
+        "grep -q MYSQL_SUPERUSER_PASSWORD /home/hop3/hop3-server.toml",
         show=False,
         check=False,
     )
     if result.returncode != 0:
-        print_error(f"Failed to configure MySQL: {result.stderr}")
-        msg = "MySQL configuration failed"
-        raise CommandError(msg)
-
-    # Restart MySQL to apply bind-address change
-    print_info("Restarting MySQL to apply changes...")
-    run_ssh(ctx, "systemctl restart mysql", show=False, check=False)
-
-    # Restart hop3-server to pick up MySQL config
-    print_info("Restarting hop3-server to load MySQL configuration...")
-    run_ssh(ctx, "systemctl restart hop3-server", show=False)
-    import time
-    time.sleep(2)
-
-    print_success("MySQL configured for Hop3")
+        print_error("MySQL password not configured in hop3-server.toml")
+        print_info("The installer should have configured MySQL credentials")
+        print_info("Re-run the installer with: --with all")
+        msg = "MySQL password not configured"
+        raise RuntimeError(msg)
+    print_success("MySQL password authentication configured")
 
 
 def ensure_redis(ctx: DemoContext) -> None:
-    """Ensure Redis is installed and configured for Docker container access.
+    """Verify Redis is installed and running.
 
-    This:
-    1. Installs redis-server if not present
-    2. Configures Redis to bind to all interfaces (for Docker access)
-    3. Enables and starts the redis-server service
+    Note: Redis should be installed by the installer (--with redis or --with all).
+    This function verifies the installation is correct.
     """
     print_step("Checking if Redis is installed...")
     result = run_ssh(ctx, "which redis-server", show=False, check=False)
     if result.returncode != 0:
-        print_info("Redis is not installed. Installing redis-server...")
-        run_ssh(ctx, "apt-get update -qq && apt-get install -y -qq redis-server")
-        print_success("Redis installed")
-    else:
-        print_success("Redis is installed")
-    pause(ctx.pause_between_steps)
+        print_error("Redis is not installed!")
+        print_info("Redis should be installed by the installer with --with redis")
+        print_info("Re-run the installer with: --with all")
+        msg = "Redis not installed - run installer with --with redis"
+        raise RuntimeError(msg)
+    print_success("Redis is installed")
 
-    # Configure Redis to bind to all interfaces for Docker access
-    print_step("Configuring Redis for Docker container access...")
-    result = run_ssh(
-        ctx,
-        "grep -q '^bind 0.0.0.0' /etc/redis/redis.conf 2>/dev/null",
-        show=False,
-        check=False,
-    )
-    if result.returncode != 0:
-        # Update bind address to allow connections from Docker containers
-        print_info("Updating Redis bind address...")
-        config_script = """\
-import re
-from pathlib import Path
-
-redis_conf = Path("/etc/redis/redis.conf")
-content = redis_conf.read_text()
-
-# Replace bind directive to allow all interfaces
-# Default is usually "bind 127.0.0.1 ::1" or "bind 127.0.0.1"
-new_content = re.sub(
-    r'^bind\\s+.*$',
-    'bind 0.0.0.0',
-    content,
-    flags=re.MULTILINE
-)
-
-# Also disable protected mode since we're binding to all interfaces
-new_content = re.sub(
-    r'^protected-mode\\s+yes',
-    'protected-mode no',
-    new_content,
-    flags=re.MULTILINE
-)
-
-redis_conf.write_text(new_content)
-print("Redis configured to bind to 0.0.0.0")
-"""
-        encoded = base64.b64encode(config_script.encode()).decode()
-        run_ssh(
-            ctx,
-            f"echo {encoded} | base64 -d > /tmp/redis_config.py && sudo python3 /tmp/redis_config.py && rm /tmp/redis_config.py",
-            show=False,
-        )
-
-        # Restart Redis to apply changes
-        print_info("Restarting Redis...")
-        run_ssh(ctx, "systemctl restart redis-server", show=False)
-        import time
-
-        time.sleep(2)
-        print_success("Redis configured for Docker access")
-    else:
-        print_success("Redis already configured for Docker access")
-
-    # Ensure Redis is enabled and running
-    print_step("Ensuring Redis service is running...")
-    run_ssh(ctx, "systemctl enable redis-server", show=False, check=False)
-    run_ssh(ctx, "systemctl start redis-server", show=False, check=False)
+    # Verify Redis service is running
+    print_step("Checking Redis service status...")
     result = run_ssh(ctx, "systemctl is-active redis-server", show=False, check=False)
-    if "active" in result.stdout:
-        print_success("Redis service is running")
-    else:
+    if "active" not in result.stdout:
         print_error("Redis service is not running")
         run_ssh(ctx, "systemctl status redis-server --no-pager", check=False)
+        msg = "Redis service not running"
+        raise RuntimeError(msg)
+    print_success("Redis service is running")
+
+    # Verify Redis is responding
+    print_step("Verifying Redis is responding...")
+    result = run_ssh(ctx, "redis-cli ping", show=False, check=False)
+    if result.returncode != 0 or "PONG" not in result.stdout:
+        print_error("Redis is not responding to ping")
+        msg = "Redis not responding"
+        raise RuntimeError(msg)
+    print_success("Redis is responding")
