@@ -432,27 +432,31 @@ show_clock = true
 | Dashboard overview | Done | 2x2 grid with apps summary, system status, activity, quick actions |
 | Apps list with filtering | Done | DataTable with filter input, keyboard navigation |
 | App start/stop/restart | Done | Via keyboard shortcuts and action buttons |
+| App delete with confirmation | Done | Confirmation dialog for destructive action |
 | App detail view | Done | Info panel, actions panel, logs preview |
 | Logs view (streaming) | Done | Simulated streaming, filter, pause/resume |
+| Logs download | Done | Download logs to file |
 | Command interface | Done | 13 commands implemented with tab completion |
 | System status | Done | CPU, memory, disk with progress bars |
 | Configuration | Done | TOML file + environment variables |
-| Tests | Done | 149 tests, 76% coverage |
+| Tests | Done | 163 tests passing |
 
-### Phase 2 Features - PARTIALLY IMPLEMENTED
+### Phase 2 Features - IMPLEMENTED
 
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Env vars management | Done | View, add, edit, delete with sensitive value hiding |
 | Tab completion | Done | Commands + app names completion |
-| Addons management | Not started | List/attach/detach addons |
-| Backups management | Not started | Create/restore/delete backups |
+| Addons management | Done | List, create, attach, detach, delete addons |
+| Backups management | Done | List, create, restore, delete backups |
+| Confirmation dialogs | Done | For stop, delete, restore operations |
 | User management | Not started | Admin-only user management |
 
 ### Phase 3 Features - TODO
 
 | Feature | Status | Notes |
 |---------|--------|-------|
+| New App dialog | Done | Create app with name validation and deploy from git URL |
 | Deployment wizard | Not started | Step-by-step deployment flow |
 | Configuration editor | Not started | Edit hop3.toml in TUI |
 | Multi-server support | Not started | Switch between servers |

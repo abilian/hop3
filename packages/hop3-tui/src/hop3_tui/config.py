@@ -40,17 +40,23 @@ class TUIConfig:
 
         Priority (highest to lowest):
         1. Environment variables (HOP3_*)
-        2. Config file (~/.config/hop3/tui.toml)
-        3. Default values
+        2. TUI config file (~/.config/hop3/tui.toml)
+        3. CLI config file (~/Library/Application Support/hop3-cli/config.toml)
+        4. Default values
         """
         config = cls()
 
-        # Load from config file first
+        # Load from CLI config file first (lowest priority file)
+        cli_config_file = cls._find_cli_config_file()
+        if cli_config_file:
+            config = cls._load_from_cli_config(cli_config_file, config)
+
+        # Load from TUI config file (overrides CLI config)
         config_file = cls._find_config_file()
         if config_file and config_file.exists():
             config = cls._load_from_file(config_file, config)
 
-        # Override with environment variables
+        # Override with environment variables (highest priority)
         config = cls._load_from_env(config)
 
         return config
@@ -71,6 +77,52 @@ class TUIConfig:
                 return path
 
         return None
+
+    @classmethod
+    def _find_cli_config_file(cls) -> Path | None:
+        """Find the hop3-cli configuration file."""
+        # Check platform-specific locations
+        import sys
+
+        if sys.platform == "darwin":
+            # macOS: ~/Library/Application Support/hop3-cli/config.toml
+            cli_config = (
+                Path.home() / "Library" / "Application Support" / "hop3-cli" / "config.toml"
+            )
+        elif sys.platform == "win32":
+            # Windows: %APPDATA%/hop3-cli/config.toml
+            appdata = os.environ.get("APPDATA", "")
+            if appdata:
+                cli_config = Path(appdata) / "hop3-cli" / "config.toml"
+            else:
+                cli_config = Path.home() / ".hop3-cli" / "config.toml"
+        else:
+            # Linux/Unix: ~/.config/hop3-cli/config.toml or ~/.hop3-cli/config.toml
+            cli_config = Path.home() / ".config" / "hop3-cli" / "config.toml"
+            if not cli_config.exists():
+                cli_config = Path.home() / ".hop3-cli" / "config.toml"
+
+        if cli_config.exists():
+            return cli_config
+
+        return None
+
+    @classmethod
+    def _load_from_cli_config(cls, path: Path, config: TUIConfig) -> TUIConfig:
+        """Load configuration from hop3-cli config file."""
+        try:
+            with open(path, "rb") as f:
+                data = tomllib.load(f)
+        except Exception:
+            return config
+
+        # CLI uses different field names
+        if "api_url" in data:
+            config.server_url = data["api_url"]
+        if "api_token" in data:
+            config.auth_token = data["api_token"]
+
+        return config
 
     @classmethod
     def _load_from_file(cls, path: Path, config: TUIConfig) -> TUIConfig:

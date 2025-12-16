@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 
 import pytest
 from hop3_tui.api.models import App as AppModel, AppState
+from hop3_tui.screens.addons import AddonsScreen
 from hop3_tui.screens.app_detail import (
     AppActionsPanel,
     AppDetailScreen,
@@ -18,6 +19,7 @@ from hop3_tui.screens.app_detail import (
     AppLogsPreview,
 )
 from hop3_tui.screens.apps import AppsScreen
+from hop3_tui.screens.backups import BackupsScreen
 from hop3_tui.screens.chat import COMMANDS, ChatScreen, CommandSuggester
 from hop3_tui.screens.dashboard import AppsSummary, DashboardScreen
 from hop3_tui.screens.env_vars import EnvVarsScreen
@@ -942,3 +944,153 @@ class TestEnvVarsScreen:
         screen = EnvVarsScreen()
         # Without mounting, _get_selected_var should handle gracefully
         # This tests the logic path, not the actual UI interaction
+
+
+class TestAddonsScreen:
+    """Tests for AddonsScreen."""
+
+    def test_addons_screen_init(self):
+        """Test AddonsScreen initialization."""
+        screen = AddonsScreen()
+        assert screen._addons == []
+        assert screen._dialog_open is False
+
+    @pytest.mark.asyncio
+    async def test_addons_screen_composes(self):
+        """Test addons screen composes correctly."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield AddonsScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(AddonsScreen)
+            assert screen is not None
+            # Should have data table
+            table = screen.query_one("#addons-table", DataTable)
+            assert table is not None
+
+    @pytest.mark.asyncio
+    async def test_addons_table_columns(self):
+        """Test addons table has expected columns."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield AddonsScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(AddonsScreen)
+            table = screen.query_one("#addons-table", DataTable)
+            # Table should have 4 columns: NAME, TYPE, APP, STATUS
+            assert len(table.columns) == 4
+
+    @pytest.mark.asyncio
+    async def test_addons_loads_mock_data(self):
+        """Test that addons screen loads mock data when no API client."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield AddonsScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(AddonsScreen)
+            # Wait for mock data to load
+            await pilot.pause()
+            # Should have mock addons loaded
+            assert len(screen._addons) > 0
+
+
+class TestBackupsScreen:
+    """Tests for BackupsScreen."""
+
+    def test_backups_screen_init(self):
+        """Test BackupsScreen initialization."""
+        screen = BackupsScreen()
+        assert screen._backups == []
+        assert screen._dialog_open is False
+
+    @pytest.mark.asyncio
+    async def test_backups_screen_composes(self):
+        """Test backups screen composes correctly."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield BackupsScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(BackupsScreen)
+            assert screen is not None
+            # Should have data table
+            table = screen.query_one("#backups-table", DataTable)
+            assert table is not None
+
+    @pytest.mark.asyncio
+    async def test_backups_table_columns(self):
+        """Test backups table has expected columns."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield BackupsScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(BackupsScreen)
+            table = screen.query_one("#backups-table", DataTable)
+            # Table should have 5 columns: ID, APP, SIZE, CREATED, ADDONS
+            assert len(table.columns) == 5
+
+    @pytest.mark.asyncio
+    async def test_backups_loads_mock_data(self):
+        """Test that backups screen loads mock data when no API client."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield BackupsScreen()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(BackupsScreen)
+            # Wait for mock data to load
+            await pilot.pause()
+            # Should have mock backups loaded
+            assert len(screen._backups) > 0
+
+    def test_format_size_bytes(self):
+        """Test size formatting for bytes."""
+        screen = BackupsScreen()
+        assert screen._format_size(512) == "512 B"
+
+    def test_format_size_kb(self):
+        """Test size formatting for kilobytes."""
+        screen = BackupsScreen()
+        result = screen._format_size(2048)
+        assert "KB" in result
+
+    def test_format_size_mb(self):
+        """Test size formatting for megabytes."""
+        screen = BackupsScreen()
+        result = screen._format_size(1048576)  # 1 MB
+        assert "MB" in result
+
+    def test_format_size_gb(self):
+        """Test size formatting for gigabytes."""
+        screen = BackupsScreen()
+        result = screen._format_size(1073741824)  # 1 GB
+        assert "GB" in result
+
+    def test_format_date_none(self):
+        """Test date formatting with None."""
+        screen = BackupsScreen()
+        assert screen._format_date(None) == "N/A"
+
+    def test_format_date_valid(self):
+        """Test date formatting with valid datetime."""
+        screen = BackupsScreen()
+        dt = datetime(2024, 3, 15, 12, 0, 0, tzinfo=timezone.utc)
+        result = screen._format_date(dt)
+        assert "2024-03-15" in result
+        assert "12:00" in result
