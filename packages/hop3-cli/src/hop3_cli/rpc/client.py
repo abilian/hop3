@@ -16,6 +16,11 @@ import urllib3
 from jsonrpcclient import Error, Ok, parse, request
 from jsonrpcclient.responses import Response
 from loguru import logger
+
+# sshtunnel uses paramiko which has deprecated TripleDES warnings
+# TODO: Consider replacing sshtunnel with subprocess-based ssh port forwarding
+# to eliminate paramiko dependency entirely. This would use native ssh -L
+# which is simpler and avoids Python crypto library deprecation issues.
 from sshtunnel import SSHTunnelForwarder
 
 from hop3_cli.exceptions import CliError

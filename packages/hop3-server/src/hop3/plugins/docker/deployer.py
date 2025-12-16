@@ -156,6 +156,7 @@ class DockerComposeDeployer(Deployer):
                     "REDIS_URL",
                     "PGHOST",
                     "REDIS_HOST",
+                    "MYSQL_HOST",
                 }:
                     value = value.replace("localhost", "host.docker.internal")
                     value = value.replace("127.0.0.1", "host.docker.internal")
@@ -233,6 +234,7 @@ services:
             self.app_name,  # Project name = app name for isolation
             "up",
             "-d",
+            "--force-recreate",  # Ensure container is recreated with new env vars
             "--remove-orphans",
         ]
 
