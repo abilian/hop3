@@ -77,7 +77,7 @@ Main Dashboard
 **Layout:**
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Applications                                    Filter: [___]│
+│ Applications                                   Filter: [___]│
 ├─────────────────────────────────────────────────────────────┤
 │ NAME             STATUS     PORT    RUNTIME      UPDATED    │
 │ ─────────────────────────────────────────────────────────── │
@@ -193,7 +193,7 @@ Main Dashboard
 │   REDIS_URL          = redis://...                          │
 │   ...                                                       │
 ├─────────────────────────────────────────────────────────────┤
-│ [a]dd  [e]dit  [d]elete  [←] Back                          │
+│ [a]dd  [e]dit  [d]elete  [←] Back                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -434,12 +434,11 @@ show_clock = true
 | App start/stop/restart | Done | Via keyboard shortcuts and action buttons |
 | App delete with confirmation | Done | Confirmation dialog for destructive action |
 | App detail view | Done | Info panel, actions panel, logs preview |
-| Logs view (streaming) | Done | Simulated streaming, filter, pause/resume |
-| Logs download | Done | Download logs to file |
+| Logs view (streaming) | Done | Streaming with filter, pause/resume, download |
 | Command interface | Done | 13 commands implemented with tab completion |
 | System status | Done | CPU, memory, disk with progress bars |
-| Configuration | Done | TOML file + environment variables |
-| Tests | Done | 163 tests passing |
+| Configuration | Done | TOML file + environment variables + CLI config fallback |
+| Tests | Done | 167 tests passing |
 
 ### Phase 2 Features - IMPLEMENTED
 
@@ -450,18 +449,24 @@ show_clock = true
 | Addons management | Done | List, create, attach, detach, delete addons |
 | Backups management | Done | List, create, restore, delete backups |
 | Confirmation dialogs | Done | For stop, delete, restore operations |
-| User management | Not started | Admin-only user management |
+| System logs view | Done | Streaming system logs with filter and download |
+| Processes view | Done | Process list with CPU/memory metrics |
+| New App dialog | Done | Create app with name validation and deploy from git URL |
+| CLI config fallback | Done | Reads hop3-cli config.toml as fallback (macOS/Windows/Linux) |
 
 ### Phase 3 Features - TODO
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| New App dialog | Done | Create app with name validation and deploy from git URL |
+| User management | Not started | Admin-only user management (see 02-feature-parity.md) |
+| Local directory deploy | Not started | Upload local source as tar.gz (CLI's primary deploy method) |
+| Run command in app | Not started | Execute command in app environment |
+| App health check | Not started | HTTP ping to verify app is responding |
+| Build logs | Not started | View Docker/local build output |
+| Process scaling | Not started | Scale worker processes |
 | Deployment wizard | Not started | Step-by-step deployment flow |
-| Configuration editor | Not started | Edit hop3.toml in TUI |
 | Multi-server support | Not started | Switch between servers |
 | Custom themes | Not started | User-defined color schemes |
-| Plugin system | Not started | Extensions for custom screens/commands |
 
 
 ## Dependencies
@@ -496,8 +501,11 @@ packages/hop3-tui/
 │       │   ├── logs.py
 │       │   ├── env_vars.py
 │       │   ├── system.py
-│       │   ├── chat.py
-│       │   └── ...
+│       │   ├── system_logs.py
+│       │   ├── processes.py
+│       │   ├── addons.py
+│       │   ├── backups.py
+│       │   └── chat.py
 │       ├── widgets/
 │       │   ├── __init__.py
 │       │   ├── status_badge.py
