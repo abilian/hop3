@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
@@ -5,6 +6,8 @@
 """Logs viewing screen with streaming support."""
 
 from __future__ import annotations
+
+from typing import ClassVar
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -73,7 +76,7 @@ class LogsScreen(Screen):
     }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[Binding]] = [
         Binding("escape", "go_back", "Back"),
         Binding("space", "toggle_pause", "Pause/Resume"),
         Binding("/", "focus_filter", "Filter"),

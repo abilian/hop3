@@ -9,8 +9,9 @@ A modern, keyboard-driven terminal interface for managing your Hop3 applications
 - **Dashboard overview** - System stats, app summary, recent activity, quick actions
 - **Applications management** - List, filter, start/stop/restart apps with keyboard shortcuts
 - **App detail view** - Detailed information with action buttons and logs preview
+- **Environment variables** - View, add, edit, delete env vars with sensitive value hiding
 - **Real-time log streaming** - Filter logs, pause/resume, auto-scroll
-- **Chat/command interface** - Interactive command line for quick operations
+- **Chat/command interface** - Interactive command line with tab completion
 - **System monitoring** - CPU, memory, disk usage and service status
 
 ## Installation
@@ -133,7 +134,7 @@ confirm_destructive = true
 
 ## Chat Commands
 
-The chat interface supports these commands:
+The chat interface supports these commands with **Tab completion**:
 
 | Command | Description |
 |---------|-------------|
@@ -143,9 +144,15 @@ The chat interface supports these commands:
 | `stop <name>` | Stop application |
 | `restart <name>` | Restart application |
 | `logs <name>` | View recent logs |
+| `env <name>` | Show environment variables |
 | `status` | Show system status |
 | `clear` | Clear chat history |
 | `help` or `?` | Show help |
+| `deploy <name>` | Deploy application |
+| `backup <name>` | Create backup |
+| `restore <id>` | Restore backup |
+
+**Tab Completion**: Press `Tab` while typing to auto-complete commands and app names.
 
 ## Screens Overview
 
@@ -257,9 +264,10 @@ packages/hop3-tui/
 │       │   ├── dashboard.py      # Main dashboard
 │       │   ├── apps.py           # Apps list
 │       │   ├── app_detail.py     # App detail view
+│       │   ├── env_vars.py       # Environment variables
 │       │   ├── logs.py           # Log viewer
 │       │   ├── system.py         # System status
-│       │   └── chat.py           # Chat interface
+│       │   └── chat.py           # Chat interface (with tab completion)
 │       ├── widgets/
 │       │   ├── __init__.py
 │       │   ├── status_badge.py   # Status indicator

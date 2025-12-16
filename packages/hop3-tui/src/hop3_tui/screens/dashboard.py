@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
@@ -6,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from textual.app import ComposeResult
 from textual.containers import Container
@@ -124,7 +125,7 @@ class DashboardScreen(Screen):
     }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[tuple[str, str, str]]] = [
         ("a", "switch_mode('apps')", "Apps"),
         ("s", "switch_mode('system')", "System"),
         ("c", "switch_mode('chat')", "Chat"),

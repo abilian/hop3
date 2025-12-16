@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
@@ -6,7 +7,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from hop3_tui.api.models import Addon, App, AppState, Backup, EnvVar, SystemStatus
 
@@ -58,7 +59,7 @@ class TestApp:
 
     def test_app_with_all_fields(self):
         """Test app with all fields populated."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         app = App(
             name="myapp",
             runtime="uwsgi",
@@ -157,7 +158,7 @@ class TestBackup:
 
     def test_basic_backup(self):
         """Test creating a basic backup."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         backup = Backup(
             id="20240315_120000",
             app_name="myapp",
@@ -170,7 +171,7 @@ class TestBackup:
 
     def test_backup_with_addons(self):
         """Test backup with addons."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         backup = Backup(
             id="20240315_120000",
             app_name="myapp",

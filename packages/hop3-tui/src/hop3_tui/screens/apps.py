@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
@@ -6,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -58,7 +59,7 @@ class AppsScreen(Screen):
     }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[Binding]] = [
         Binding("escape", "switch_mode('dashboard')", "Back"),
         Binding("enter", "view_app", "View"),
         Binding("s", "start_app", "Start"),
@@ -155,15 +156,14 @@ class AppsScreen(Screen):
             seconds = delta.total_seconds()
             if seconds < 60:
                 return "just now"
-            elif seconds < 3600:
+            if seconds < 3600:
                 mins = int(seconds / 60)
                 return f"{mins}m ago"
-            elif seconds < 86400:
+            if seconds < 86400:
                 hours = int(seconds / 3600)
                 return f"{hours}h ago"
-            else:
-                days = int(seconds / 86400)
-                return f"{days}d ago"
+            days = int(seconds / 86400)
+            return f"{days}d ago"
         return "N/A"
 
     def _get_status_style(self, state: AppState) -> str:

@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
@@ -6,11 +7,83 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, ClassVar
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import VerticalScroll
 from textual.screen import Screen
+from textual.suggester import Suggester
 from textual.widgets import Footer, Header, Input, Static
+
+if TYPE_CHECKING:
+    from hop3_tui.app import Hop3TUI
+
+
+# Available commands for completion
+COMMANDS = [
+    "apps",
+    "app",
+    "start",
+    "stop",
+    "restart",
+    "logs",
+    "env",
+    "status",
+    "clear",
+    "help",
+    "deploy",
+    "backup",
+    "restore",
+]
+
+
+class CommandSuggester(Suggester):
+    """Provides command suggestions for the chat input."""
+
+    def __init__(self, app_names: list[str] | None = None) -> None:
+        super().__init__(use_cache=False, case_sensitive=False)
+        self._app_names: list[str] = app_names or []
+
+    def update_app_names(self, app_names: list[str]) -> None:
+        """Update the list of known app names for completion."""
+        self._app_names = app_names
+
+    async def get_suggestion(self, value: str) -> str | None:
+        """Get a suggestion for the current input."""
+        if not value:
+            return None
+
+        parts = value.split()
+
+        # If typing first word, suggest commands
+        if len(parts) == 1:
+            prefix = parts[0].lower()
+            for cmd in COMMANDS:
+                if cmd.startswith(prefix) and cmd != prefix:
+                    return cmd
+            return None
+
+        # If typing second word after app-related commands, suggest app names
+        if len(parts) == 2:
+            cmd = parts[0].lower()
+            if cmd in {
+                "app",
+                "start",
+                "stop",
+                "restart",
+                "logs",
+                "env",
+                "deploy",
+                "backup",
+            }:
+                prefix = parts[1].lower()
+                for app_name in self._app_names:
+                    if app_name.lower().startswith(prefix) and app_name != parts[1]:
+                        return f"{parts[0]} {app_name}"
+                return None
+
+        return None
 
 
 class ChatMessage(Static):
@@ -79,7 +152,7 @@ class ChatScreen(Screen):
     }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[Binding]] = [
         Binding("escape", "switch_mode('dashboard')", "Back"),
     ]
 
@@ -90,21 +163,61 @@ class ChatScreen(Screen):
         self._history_index: int = 0
         # Track chat content
         self._chat_content: str = ""
+        # Command suggester for tab completion
+        self._suggester = CommandSuggester()
+
+    @property
+    def hop3_app(self) -> Hop3TUI | None:
+        """Get the Hop3TUI app instance if available."""
+        if hasattr(self.app, "api_client"):
+            return self.app  # type: ignore[return-value]
+        return None
 
     def compose(self) -> ComposeResult:
         yield Header()
         with VerticalScroll(id="chat-container"):
             yield Static(id="chat-messages")
         with Static(id="input-bar"):
-            yield Input(placeholder="Type command or ? for help", id="command-input")
+            yield Input(
+                placeholder="Type command or ? for help (Tab to complete)",
+                id="command-input",
+                suggester=self._suggester,
+            )
         yield Footer()
 
     def on_mount(self) -> None:
         """Set up the chat interface."""
         self._add_system_message(
-            "Welcome to Hop3 Command Interface\nType a command or ? for help"
+            "Welcome to Hop3 Command Interface\nType a command or ? for help\nPress Tab to auto-complete"
         )
         self.query_one("#command-input", Input).focus()
+        # Load app names for completion
+        self._load_app_names()
+
+    def _load_app_names(self) -> None:
+        """Load app names for tab completion."""
+        self.run_worker(self._fetch_app_names(), exclusive=True)
+
+    async def _fetch_app_names(self) -> None:
+        """Fetch app names from server."""
+        if not self.hop3_app:
+            # Use mock app names for testing
+            self._suggester.update_app_names([
+                "myapp",
+                "api-server",
+                "worker",
+                "frontend",
+                "broken-app",
+            ])
+            return
+
+        try:
+            apps = await self.hop3_app.api_client.list_apps()
+            app_names = [app.name for app in apps]
+            self._suggester.update_app_names(app_names)
+        except Exception:
+            # Silently fail - completion just won't have app names
+            pass
 
     def _add_user_message(self, content: str) -> None:
         """Add a user message to the chat."""

@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
@@ -5,6 +6,8 @@
 """Application detail screen."""
 
 from __future__ import annotations
+
+from typing import ClassVar
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -164,7 +167,7 @@ class AppDetailScreen(Screen):
     }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[Binding]] = [
         Binding("escape", "go_back", "Back"),
         Binding("l", "view_logs", "Logs"),
         Binding("e", "view_env", "Env Vars"),
@@ -276,7 +279,10 @@ class AppDetailScreen(Screen):
 
     def action_view_env(self) -> None:
         """View environment variables."""
-        self.notify("Env vars screen not yet implemented")
+        if hasattr(self.app, "push_env_vars"):
+            self.app.push_env_vars(self.app_name)
+        else:
+            self.notify("Env vars screen not available")
 
     def action_start_app(self) -> None:
         """Start the application."""
