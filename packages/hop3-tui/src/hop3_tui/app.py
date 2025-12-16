@@ -14,8 +14,10 @@ from textual.binding import Binding
 
 from hop3_tui.api.client import Hop3Client
 from hop3_tui.config import TUIConfig, get_config
+from hop3_tui.screens.addons import AddonsScreen
 from hop3_tui.screens.app_detail import AppDetailScreen
 from hop3_tui.screens.apps import AppsScreen
+from hop3_tui.screens.backups import BackupsScreen
 from hop3_tui.screens.chat import ChatScreen
 from hop3_tui.screens.dashboard import DashboardScreen
 from hop3_tui.screens.env_vars import EnvVarsScreen
@@ -37,6 +39,8 @@ class Hop3TUI(App[str]):
         Binding("d", "switch_mode('dashboard')", "Dashboard", show=True),
         Binding("a", "switch_mode('apps')", "Apps", show=True),
         Binding("s", "switch_mode('system')", "System", show=True),
+        Binding("o", "switch_mode('addons')", "Addons", show=True),
+        Binding("b", "switch_mode('backups')", "Backups", show=True),
         Binding("c", "switch_mode('chat')", "Chat", show=True),
     ]
 
@@ -44,6 +48,8 @@ class Hop3TUI(App[str]):
         "dashboard": DashboardScreen,
         "apps": AppsScreen,
         "system": SystemScreen,
+        "addons": AddonsScreen,
+        "backups": BackupsScreen,
         "chat": ChatScreen,
     }
 
@@ -75,7 +81,7 @@ class Hop3TUI(App[str]):
     def action_help(self) -> None:
         """Show help overlay."""
         self.notify(
-            "Navigation: d=Dashboard, a=Apps, s=System, c=Chat\n"
+            "Navigation: d=Dashboard, a=Apps, s=System, o=Addons, b=Backups, c=Chat\n"
             "Actions: q=Quit, ?=Help",
             title="Hop3 TUI Help",
             timeout=5,

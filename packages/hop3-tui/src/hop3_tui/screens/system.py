@@ -186,11 +186,15 @@ class SystemScreen(Screen):
 
     def action_view_system_logs(self) -> None:
         """View system logs."""
-        self.notify("System logs not yet implemented")
+        from hop3_tui.screens.system_logs import SystemLogsScreen
+
+        self.app.push_screen(SystemLogsScreen())
 
     def action_view_processes(self) -> None:
         """View running processes."""
-        self.notify("Processes view not yet implemented")
+        from hop3_tui.screens.processes import ProcessesScreen
+
+        self.app.push_screen(ProcessesScreen())
 
     def action_refresh(self) -> None:
         """Refresh system data."""

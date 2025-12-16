@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, ClassVar
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import VerticalScroll
+from textual.events import Key
 from textual.screen import Screen
 from textual.suggester import Suggester
 from textual.widgets import Footer, Header, Input, Static
@@ -153,7 +154,7 @@ class ChatScreen(Screen):
     """
 
     BINDINGS: ClassVar[list[Binding]] = [
-        Binding("escape", "switch_mode('dashboard')", "Back"),
+        Binding("escape", "go_back", "Back"),
     ]
 
     def __init__(self) -> None:
@@ -405,3 +406,13 @@ class ChatScreen(Screen):
         self._chat_content = ""
         messages.update("")
         self._add_system_message("Chat cleared. Type ? for help.")
+
+    def action_go_back(self) -> None:
+        """Go back to dashboard."""
+        self.app.switch_mode("dashboard")
+
+    def on_key(self, event: Key) -> None:
+        """Handle key events - ensure ESC works even with Input focused."""
+        if event.key == "escape":
+            event.prevent_default()
+            self.action_go_back()

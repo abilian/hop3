@@ -75,7 +75,11 @@ class Hop3Client:
             data = response.json()
             if "error" in data:
                 raise Hop3ClientError(data["error"].get("message", "Unknown error"))
-            return data.get("result")
+            result = data.get("result")
+            # Server returns result as a list - extract first element if present
+            if isinstance(result, list) and len(result) > 0:
+                return result[0]
+            return result
 
     # Application methods
 
@@ -187,3 +191,109 @@ class Hop3Client:
         """Delete an environment variable."""
         await self._rpc_call(["config:unset", app_name, key])
         return True
+
+    async def delete_app(self, name: str) -> bool:
+        """Delete an application."""
+        await self._rpc_call(["app:destroy", name])
+        return True
+
+    async def deploy_app(self, name: str, git_url: str) -> dict[str, Any]:
+        """Deploy an application from a git URL."""
+        result = await self._rpc_call(["app:deploy", name, "--from", git_url])
+        return result or {}
+
+    async def create_app(self, name: str) -> bool:
+        """Create an empty application."""
+        await self._rpc_call(["app:create", name])
+        return True
+
+    # Addon methods
+
+    async def list_addons(self) -> list[dict[str, Any]]:
+        """Get list of all addons."""
+        result = await self._rpc_call(["addons:list"])
+        addons = []
+        if result and result.get("t") == "table":
+            for row in result.get("rows", []):
+                addon = {
+                    "name": row[0] if len(row) > 0 else "",
+                    "type": row[1] if len(row) > 1 else "",
+                    "app_name": row[2] if len(row) > 2 else None,
+                    "status": row[3] if len(row) > 3 else "unknown",
+                }
+                addons.append(addon)
+        return addons
+
+    async def get_addon(self, name: str) -> dict[str, Any] | None:
+        """Get addon details."""
+        result = await self._rpc_call(["addons:info", name])
+        return result
+
+    async def create_addon(self, addon_type: str, name: str) -> bool:
+        """Create a new addon."""
+        await self._rpc_call(["addons:create", addon_type, name])
+        return True
+
+    async def attach_addon(self, addon_name: str, app_name: str) -> bool:
+        """Attach an addon to an application."""
+        await self._rpc_call(["addons:attach", addon_name, app_name])
+        return True
+
+    async def detach_addon(self, addon_name: str, app_name: str) -> bool:
+        """Detach an addon from an application."""
+        await self._rpc_call(["addons:detach", addon_name, app_name])
+        return True
+
+    async def delete_addon(self, name: str) -> bool:
+        """Delete an addon."""
+        await self._rpc_call(["addons:destroy", name])
+        return True
+
+    # Extended backup methods
+
+    async def get_backup(self, backup_id: str) -> Backup | None:
+        """Get backup details."""
+        result = await self._rpc_call(["backup:info", backup_id])
+        if result:
+            return Backup(
+                id=backup_id,
+                app_name=result.get("app_name", ""),
+                size_bytes=result.get("size_bytes", 0),
+                addons=result.get("addons", []),
+            )
+        return None
+
+    async def restore_backup(self, backup_id: str) -> bool:
+        """Restore a backup."""
+        await self._rpc_call(["backup:restore", backup_id])
+        return True
+
+    async def delete_backup(self, backup_id: str) -> bool:
+        """Delete a backup."""
+        await self._rpc_call(["backup:delete", backup_id])
+        return True
+
+    # Process and system log methods
+
+    async def get_processes(self) -> list[dict[str, Any]]:
+        """Get list of running processes."""
+        result = await self._rpc_call(["system:processes"])
+        processes = []
+        if result and result.get("t") == "table":
+            for row in result.get("rows", []):
+                process = {
+                    "name": row[0] if len(row) > 0 else "",
+                    "pid": row[1] if len(row) > 1 else 0,
+                    "status": row[2] if len(row) > 2 else "unknown",
+                    "cpu": row[3] if len(row) > 3 else 0.0,
+                    "memory": row[4] if len(row) > 4 else 0.0,
+                }
+                processes.append(process)
+        return processes
+
+    async def get_system_logs(self, lines: int = 100) -> list[str]:
+        """Get system logs."""
+        result = await self._rpc_call(["system:logs", "--lines", str(lines)])
+        if result and result.get("t") == "text":
+            return result.get("text", "").split("\n")
+        return []

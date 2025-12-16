@@ -3,13 +3,13 @@
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
 
-"""Logs viewing screen with streaming support."""
+"""System logs viewing screen."""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -18,12 +18,15 @@ from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Footer, Header, Input, Static
 
+if TYPE_CHECKING:
+    from hop3_tui.app import Hop3TUI
 
-class LogsScreen(Screen):
-    """Screen for viewing application logs."""
+
+class SystemLogsScreen(Screen):
+    """Screen for viewing system logs."""
 
     CSS = """
-    LogsScreen {
+    SystemLogsScreen {
         layout: vertical;
     }
 
@@ -37,17 +40,16 @@ class LogsScreen(Screen):
         text-style: bold;
     }
 
-    #logs-status {
-        dock: right;
+    #status-bar {
+        dock: top;
+        height: 1;
+        padding: 0 1;
+        background: $surface;
     }
 
     #logs-container {
         height: 1fr;
         padding: 0 1;
-    }
-
-    #logs-content {
-        height: auto;
     }
 
     .log-line {
@@ -90,17 +92,23 @@ class LogsScreen(Screen):
     paused: reactive[bool] = reactive(False)
     auto_scroll: reactive[bool] = reactive(True)
 
-    def __init__(self, app_name: str = "") -> None:
+    def __init__(self) -> None:
         super().__init__()
-        self.app_name = app_name
         self._logs: list[str] = []
-        self._filter_text = ""
+        self._filter_text: str = ""
+
+    @property
+    def hop3_app(self) -> Hop3TUI | None:
+        """Get the Hop3TUI app instance if available."""
+        if hasattr(self.app, "api_client"):
+            return self.app  # type: ignore[return-value]
+        return None
 
     def compose(self) -> ComposeResult:
         yield Header()
         with Static(id="logs-header"):
-            yield Static(f"Logs: {self.app_name}", id="logs-title")
-            yield Static("[green]STREAMING[/]", id="logs-status")
+            yield Static("System Logs", id="logs-title")
+        yield Static("[green]STREAMING[/]", id="status-bar")
         with VerticalScroll(id="logs-container"):
             yield Static(id="logs-content")
         with Static(id="filter-bar"):
@@ -108,76 +116,89 @@ class LogsScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
-        """Start loading logs."""
+        """Start log streaming."""
         self._load_initial_logs()
-        # Start streaming (simulated with interval for now)
-        self.set_interval(1, self._poll_new_logs)
+        self.set_interval(2, self._fetch_new_logs)
 
     def _load_initial_logs(self) -> None:
-        """Load initial log lines."""
-        # TODO: Fetch from API
-        self._logs = [
-            "10:32:15.123 [INFO]  Request processed in 45ms",
-            "10:32:14.987 [INFO]  GET /api/users 200",
-            "10:32:14.542 [DEBUG] Cache hit for user:123",
-            "10:32:10.234 [INFO]  Database query completed",
-            "10:32:09.876 [WARN]  Slow query detected (>100ms)",
-            "10:32:05.432 [INFO]  New connection from 10.0.0.5",
-            "10:32:01.111 [ERROR] Failed to connect to redis",
-            "10:31:55.000 [INFO]  Server started on port 8000",
-        ]
-        self._update_display()
+        """Load initial logs."""
+        self.run_worker(self._fetch_logs())
 
-    def _poll_new_logs(self) -> None:
-        """Poll for new log lines (simulate streaming)."""
-        if self.paused:
+    async def _fetch_logs(self) -> None:
+        """Fetch logs from server."""
+        if not self.hop3_app:
+            # Mock data for testing
+            self._logs = [
+                "2024-03-15 10:32:15 [INFO] System started",
+                "2024-03-15 10:32:16 [INFO] Loading configuration",
+                "2024-03-15 10:32:17 [INFO] nginx: started",
+                "2024-03-15 10:32:18 [INFO] supervisor: started",
+                "2024-03-15 10:32:19 [INFO] postgresql: started",
+                "2024-03-15 10:32:20 [INFO] redis: started",
+                "2024-03-15 10:33:00 [INFO] All services running",
+                "2024-03-15 10:35:00 [WARN] High memory usage detected: 85%",
+                "2024-03-15 10:40:00 [INFO] Scheduled backup started",
+                "2024-03-15 10:42:00 [INFO] Backup completed successfully",
+                "2024-03-15 11:00:00 [DEBUG] Health check: all services OK",
+                "2024-03-15 11:15:00 [ERROR] Connection timeout to external API",
+                "2024-03-15 11:15:05 [INFO] Retrying connection...",
+                "2024-03-15 11:15:10 [INFO] Connection restored",
+            ]
+            self._update_display()
             return
 
-        # TODO: Fetch new logs from API
-        # For demo, occasionally add a new line
-        import random
+        try:
+            self._logs = await self.hop3_app.api_client.get_system_logs(lines=100)
+            self._update_display()
+        except Exception as e:
+            self.notify(f"Failed to fetch logs: {e}", severity="error")
 
-        if random.random() > 0.7:
-            levels = ["INFO", "DEBUG", "WARN"]
-            level = random.choice(levels)
-            self._logs.append(f"10:32:20.000 [{level}]  New log entry")
+    def _fetch_new_logs(self) -> None:
+        """Fetch new logs periodically."""
+        if self.paused:
+            return
+        # In a real implementation, this would fetch only new logs
+        # For now, we'll just add a simulated new log line
+        if not self.hop3_app and self._logs:
+            now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            self._logs.append(f"{now} [INFO] Health check: OK")
             self._update_display()
 
     def _update_display(self) -> None:
         """Update the logs display."""
         content = self.query_one("#logs-content", Static)
-        filtered_logs = self._get_filtered_logs()
 
-        styled_lines = []
-        for line in filtered_logs:
-            styled_lines.append(self._style_log_line(line))
+        # Filter logs if filter text is set
+        if self._filter_text:
+            filtered = [
+                log for log in self._logs if self._filter_text.lower() in log.lower()
+            ]
+        else:
+            filtered = self._logs
 
+        # Style each line based on log level
+        styled_lines = [self._style_log_line(line) for line in filtered]
         content.update("\n".join(styled_lines))
 
-        # Auto-scroll to bottom if enabled
-        if self.auto_scroll and not self.paused:
+        # Auto-scroll to bottom
+        if self.auto_scroll:
             container = self.query_one("#logs-container", VerticalScroll)
             container.scroll_end(animate=False)
 
-    def _get_filtered_logs(self) -> list[str]:
-        """Get logs filtered by current filter text."""
-        if not self._filter_text:
-            return self._logs
-        return [log for log in self._logs if self._filter_text.lower() in log.lower()]
-
     def _style_log_line(self, line: str) -> str:
-        """Apply styling to a log line based on level."""
-        if "[ERROR]" in line:
+        """Apply styling based on log level."""
+        line_lower = line.lower()
+        if "[error]" in line_lower or "error" in line_lower:
             return f"[red]{line}[/]"
-        if "[WARN]" in line:
+        if "[warn]" in line_lower or "warning" in line_lower:
             return f"[yellow]{line}[/]"
-        if "[DEBUG]" in line:
+        if "[debug]" in line_lower:
             return f"[dim]{line}[/]"
         return line
 
     def watch_paused(self, paused: bool) -> None:
-        """Update status when paused state changes."""
-        status = self.query_one("#logs-status", Static)
+        """Update status bar when paused state changes."""
+        status = self.query_one("#status-bar", Static)
         if paused:
             status.update("[yellow]PAUSED[/]")
         else:
@@ -219,11 +240,9 @@ class LogsScreen(Screen):
             self.notify("No logs to download", severity="warning")
             return
 
-        # Create filename with timestamp
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        filename = f"{self.app_name or 'logs'}_{timestamp}.log"
+        filename = f"system_logs_{timestamp}.log"
 
-        # Write to downloads directory or current directory
         downloads = Path.home() / "Downloads"
         if downloads.exists():
             filepath = downloads / filename
