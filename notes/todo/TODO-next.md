@@ -38,7 +38,7 @@
 
 ## Current Status
 
-**Updated: 2025-11-24**
+**Updated: 2025-12-16**
 
 - **Development Status**: Phase 2 Complete (100%) - Phase 3 Ready to Start
 - **Version**: 0.4.0 development branch
@@ -60,7 +60,7 @@
 - **Impact**: Complete read-write dashboard for full management
 
 ### 2. Maintain Test Excellence
-- **Status**: ✅ All 435 tests passing (2 integration tests skipped due to known Starlette test client limitations)
+- **Status**: All 435 tests passing (2 integration tests skipped due to known Starlette test client limitations)
 - **Files**: `packages/hop3-server/tests/`
 - **Action**: Continue comprehensive testing before major changes
 - **Impact**: Ensures production readiness and code quality
@@ -114,44 +114,44 @@
 ## Completed Feature Development Tasks (Phase 2)
 
 ### 8. Web UI Implementation ✅ COMPLETED (2025-11-13)
-- **Status**: ✅ Production-ready read-only dashboard implemented
+- **Status**: Production-ready read-only dashboard implemented
 - **Completed Features**:
-  - Application list and detail views with real-time status updates
-  - Server-Sent Events (SSE) log streaming with auto-scroll
-  - Environment variables management with secret masking
-  - Service detail pages with connection information
-  - Backup management (list, info, restore, delete)
-  - Modular architecture (apps, services, backups modules)
-  - TailwindCSS + HTMX + Alpine.js stack
-  - Full authentication integration with `@require_auth` decorator
+  - [x] Application list and detail views with real-time status updates
+  - [x] Server-Sent Events (SSE) log streaming with auto-scroll
+  - [x] Environment variables management with secret masking
+  - [x] Service detail pages with connection information
+  - [x] Backup management (list, info, restore, delete)
+  - [x] Modular architecture (apps, services, backups modules)
+  - [x] TailwindCSS + HTMX + Alpine.js stack
+  - [x] Full authentication integration with `@require_auth` decorator
 - **Architecture**: Multi-Page Application (MPA) with server-side rendering
 - **Test Coverage**: 128 integration tests passing
 - **Files**: `packages/hop3-server/src/hop3/server/views/dashboard/*`
 
 ### 9. Database Service Plugins ✅ COMPLETED (2025-11-12)
 - **Goal**: PostgreSQL, Redis lifecycle management
-- **Status**: ✅ PostgreSQL service fully implemented with encrypted credentials
+- **Status**: PostgreSQL service fully implemented with encrypted credentials
 - **Completed Features**:
-  - Service creation and destruction
-  - Credential persistence with Fernet AEAD encryption
-  - Connection details management
-  - Service backup and restore
-  - Service info and statistics
+  - [x] Service creation and destruction
+  - [x] Credential persistence with Fernet AEAD encryption
+  - [x] Connection details management
+  - [x] Service backup and restore
+  - [x] Service info and statistics
 - **Files**:
   - `packages/hop3-server/src/hop3/plugins/postgresql/postgres.py`
   - `packages/hop3-server/src/hop3/orm/service_credential.py`
 
 ### 10. Backup/Restore Enhancement ✅ COMPLETED (2025-11-13)
-- **Status**: ✅ Full backup/restore system implemented with 46 tests
+- **Status**: Full backup/restore system implemented with 46 tests
 - **Completed Features**:
-  - Application source code backup
-  - Environment variables backup
-  - Service data backup (PostgreSQL)
-  - Backup verification with SHA256 checksums
-  - Backup listing and filtering
-  - Backup restore to same or different app
-  - Backup deletion
-  - Fail-fast behavior (backup fails if services cannot be backed up)
+  - [x] Application source code backup
+  - [x] Environment variables backup
+  - [x] Service data backup (PostgreSQL)
+  - [x] Backup verification with SHA256 checksums
+  - [x] Backup listing and filtering
+  - [x] Backup restore to same or different app
+  - [x] Backup deletion
+  - [x] Fail-fast behavior (backup fails if services cannot be backed up)
 - **Security**: Incomplete backups now properly marked as FAILED
 - **Test Coverage**: 18 unit tests + 9 E2E tests
 - **Files**: `packages/hop3-server/src/hop3/core/backup.py`
@@ -186,6 +186,13 @@
 - **Files**: `noxfile.py:97` - Complete docs build
 - **Action**: Improve documentation build process
 
+### 16. Replace Paramiko with Native SSH
+- **Issue**: sshtunnel uses paramiko which triggers CryptographyDeprecationWarning (TripleDES)
+- **Files**: `packages/hop3-cli/src/hop3_cli/rpc/client.py`
+- **Solution**: Replace sshtunnel with subprocess-based `ssh -L` port forwarding
+- **Benefits**: Eliminates paramiko dependency, uses native ssh, simpler code
+- **Priority**: LOW - warnings are now suppressed, functional alternative can wait
+
 ## Development Workflow
 
 1. **Focus on High Priority items first** - These block 0.4.0 usability
@@ -196,52 +203,52 @@
 ## Phase 2 Completed Items ✅
 
 ### Litestar Phase 2 Migration ✅ COMPLETED (2025-11-24)
-- **Status**: ✅ Complete migration from Starlette to pure Litestar
+- **Status**: Complete migration from Starlette to pure Litestar
 - **Completed Features**:
-  - Guard-based authentication (replaced Starlette middleware)
-  - Native session management (ServerSideSessionConfig)
-  - Clean 404 logging (no tracebacks)
-  - Favicon serving via static files
-  - 128/130 integration tests passing (98.5%, 2 skipped)
-  - Zero Starlette dependencies remaining
+  - [x] Guard-based authentication (replaced Starlette middleware)
+  - [x] Native session management (ServerSideSessionConfig)
+  - [x] Clean 404 logging (no tracebacks)
+  - [x] Favicon serving via static files
+  - [x] 128/130 integration tests passing (98.5%, 2 skipped)
+  - [x] Zero Starlette dependencies remaining
 
 ### Critical Technical Debt Resolved ✅ COMPLETED (2025-11-13)
-- **Status**: ✅ All 4 critical items complete
+- **Status**: All 4 critical items complete
 - **Security**:
-  - Fixed hardcoded PostgreSQL password (secure random generation)
-  - Implemented JWT token revocation system
+  - [x] Fixed hardcoded PostgreSQL password (secure random generation)
+  - [x] Implemented JWT token revocation system
 - **Operations**:
-  - Implemented Alembic database migrations
-  - Fixed SSH tunnel cleanup (context manager pattern)
+  - [x] Implemented Alembic database migrations
+  - [x] Fixed SSH tunnel cleanup (context manager pattern)
 
 ### DI Integration ✅ COMPLETED (2025-11-22)
-- **Status**: ✅ Pluggy+Dishka integration complete
+- **Status**: Pluggy+Dishka integration complete
 - **Completed Features**:
-  - BackupManager DI integration with REQUEST scope
-  - PostgreSQL and Redis plugin DI providers
-  - DatabaseProvider with proper session lifecycle
-  - Clean testing patterns established
-  - Documentation in docs/src/dev/di-testing-guide.md
+  - [x] BackupManager DI integration with REQUEST scope
+  - [x] PostgreSQL and Redis plugin DI providers
+  - [x] DatabaseProvider with proper session lifecycle
+  - [x] Clean testing patterns established
+  - [x] Documentation in docs/src/dev/di-testing-guide.md
 
 ## Success Metrics
 
 ### Phase 2 Metrics (Complete)
-- [x] ✅ Plugin architecture fully functional (PostgreSQL + Redis plugins)
-- [x] ✅ Web UI dashboard operational (read-only with SSE log streaming)
-- [x] ✅ Backup/restore system production-ready (46 tests)
-- [x] ✅ Service credential encryption implemented (Fernet AEAD)
-- [x] ✅ CLI UX improvements complete (rich formatting, confirmations)
-- [x] ✅ Database migrations (Alembic)
-- [x] ✅ JWT token revocation
-- [x] ✅ DI integration patterns established
-- [x] ✅ Pure Litestar stack (zero Starlette dependencies)
+- [x] Plugin architecture fully functional (PostgreSQL + Redis plugins)
+- [x] Web UI dashboard operational (read-only with SSE log streaming)
+- [x] Backup/restore system production-ready (46 tests)
+- [x] Service credential encryption implemented (Fernet AEAD)
+- [x] CLI UX improvements complete (rich formatting, confirmations)
+- [x] Database migrations (Alembic)
+- [x] JWT token revocation
+- [x] DI integration patterns established
+- [x] Pure Litestar stack (zero Starlette dependencies)
 
 ### Phase 3 Metrics (In Progress)
 - [ ] Full-featured web UI (CRUD operations for apps/services)
 - [ ] RBAC system implemented
 - [ ] Audit logging operational
 - [ ] Centralized monitoring and alerting
-- [x] ✅ All tests passing (435 tests, 2 skipped)
+- [x] All tests passing (435 tests, 2 skipped)
 - [ ] Multi-process app support
 - [ ] Zero-downtime deployments
 
