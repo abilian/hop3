@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
@@ -10,6 +11,7 @@ from hop3_tui.screens.app_detail import AppDetailScreen
 from hop3_tui.screens.apps import AppsScreen
 from hop3_tui.screens.chat import ChatScreen
 from hop3_tui.screens.dashboard import DashboardScreen
+from hop3_tui.screens.env_vars import EnvVarsScreen
 from hop3_tui.screens.logs import LogsScreen
 from hop3_tui.screens.system import SystemScreen
 
@@ -18,6 +20,7 @@ __all__ = [
     "AppsScreen",
     "ChatScreen",
     "DashboardScreen",
+    "EnvVarsScreen",
     "LogsScreen",
     "SystemScreen",
 ]

@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
@@ -5,6 +6,8 @@
 """System status screen."""
 
 from __future__ import annotations
+
+from typing import ClassVar
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -151,7 +154,7 @@ class SystemScreen(Screen):
     }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[Binding]] = [
         Binding("escape", "switch_mode('dashboard')", "Back"),
         Binding("l", "view_system_logs", "Logs"),
         Binding("p", "view_processes", "Processes"),

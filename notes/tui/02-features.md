@@ -434,19 +434,19 @@ show_clock = true
 | App start/stop/restart | Done | Via keyboard shortcuts and action buttons |
 | App detail view | Done | Info panel, actions panel, logs preview |
 | Logs view (streaming) | Done | Simulated streaming, filter, pause/resume |
-| Command interface | Done | 10+ commands implemented |
+| Command interface | Done | 13 commands implemented with tab completion |
 | System status | Done | CPU, memory, disk with progress bars |
 | Configuration | Done | TOML file + environment variables |
-| Tests | Done | 125 tests, 82% coverage |
+| Tests | Done | 149 tests, 76% coverage |
 
-### Phase 2 Features - TODO
+### Phase 2 Features - PARTIALLY IMPLEMENTED
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Env vars management | Not started | View/edit environment variables |
+| Env vars management | Done | View, add, edit, delete with sensitive value hiding |
+| Tab completion | Done | Commands + app names completion |
 | Addons management | Not started | List/attach/detach addons |
 | Backups management | Not started | Create/restore/delete backups |
-| Command completion | Not started | Tab completion for commands and app names |
 | User management | Not started | Admin-only user management |
 
 ### Phase 3 Features - TODO

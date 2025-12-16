@@ -315,4 +315,6 @@ The following table shows which recommendations were implemented in `hop3-tui`:
 - **Configuration system**: TOML config file + environment variables via `TUIConfig`
 - **API client**: JSON-RPC client with async httpx
 - **Data models**: Pydantic models for `App`, `SystemStatus`, `Addon`, `Backup`, `EnvVar`
-- **Test coverage**: 125 tests with 82% coverage
+- **Environment variables screen**: Full CRUD with sensitive value hiding
+- **Tab completion**: Commands and app names completion in chat interface
+- **Test coverage**: 149 tests with 76% coverage
