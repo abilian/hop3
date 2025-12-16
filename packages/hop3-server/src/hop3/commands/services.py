@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
 from hop3.core.credentials import get_credential_encryptor
-from hop3.core.plugins import get_addon
+from hop3.core.plugins import get_addon, get_plugin_manager
 from hop3.lib.decorators import register
 from hop3.lib.logging import server_log
 from hop3.orm import AddonCredential, EnvVar
@@ -20,6 +20,58 @@ from ._base import Command
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
+
+@register
+@dataclass(frozen=True)
+class AddonsListCmd(Command):
+    """List available addon types.
+
+    Usage: hop3 addons:list
+
+    Shows all registered addon types that can be created.
+    """
+
+    db_session: Session
+    name: ClassVar[str] = "addons:list"
+
+    def call(self, *args):
+        """List available addon types."""
+        server_log.info("addons:list called")
+
+        pm = get_plugin_manager()
+        addon_classes_list = pm.hook.get_addons()
+        addon_classes = [cls for sublist in addon_classes_list for cls in sublist]
+
+        server_log.info(
+            "addons:list found addons",
+            count=len(addon_classes),
+            addon_types=[getattr(cls, "name", "?") for cls in addon_classes],
+        )
+
+        if not addon_classes:
+            return [
+                {"t": "warning", "text": "No addon types registered."},
+                {
+                    "t": "text",
+                    "text": "Check that addon plugins are properly installed.",
+                },
+            ]
+
+        rows = []
+        for addon_class in addon_classes:
+            addon_name = getattr(addon_class, "name", "unknown")
+            addon_module = addon_class.__module__
+            rows.append([addon_name, addon_module])
+
+        return [
+            {"t": "text", "text": "Available addon types:"},
+            {
+                "t": "table",
+                "headers": ["Type", "Module"],
+                "rows": rows,
+            },
+        ]
 
 
 @register
@@ -289,13 +341,38 @@ class AddonsAttachCmd(Command):
                 addon_name=addon_name,
             )
 
-            connection_details = addon.get_connection_details()
+            # Get connection details - this may raise RuntimeError if password not found
+            try:
+                connection_details = addon.get_connection_details()
+            except RuntimeError as e:
+                server_log.error(
+                    "addons:attach get_connection_details failed",
+                    addon_name=addon_name,
+                    error=str(e),
+                )
+                return [
+                    {"t": "error", "text": f"Failed to get connection details: {e}"},
+                    {
+                        "t": "text",
+                        "text": "Make sure the addon was created first with 'addons:create'.",
+                    },
+                ]
+
             server_log.info(
                 "addons:attach got connection details",
                 connection_details_keys=list(connection_details.keys()),
                 has_database_url="DATABASE_URL" in connection_details,
-                has_redis_url="REDIS_URL" in connection_details,
             )
+
+            if not connection_details:
+                server_log.error("addons:attach connection_details is empty!")
+                return [
+                    {
+                        "t": "error",
+                        "text": "No connection details returned from addon.",
+                    },
+                    {"t": "text", "text": "This is a bug - please check server logs."},
+                ]
 
             # Store credentials and add environment variables
             self._store_or_update_credential(
@@ -311,31 +388,53 @@ class AddonsAttachCmd(Command):
                 added_vars=added_vars,
             )
 
-            # Verify env vars were stored
+            # Expire all objects to ensure fresh data is loaded for verification
+            self.db_session.expire_all()
+
+            # Verify env vars were stored by loading app fresh
             app_repo2 = AppRepository(session=self.db_session)
             app_after = app_repo2.get_one_or_none(name=app_name)
             if app_after:
+                env_var_names = [ev.name for ev in app_after.env_vars]
                 server_log.info(
                     "addons:attach verification",
                     app_id=app_after.id,
-                    env_vars_count_after=len(list(app_after.env_vars)),
-                    env_vars_names=[ev.name for ev in app_after.env_vars],
+                    env_vars_count_after=len(env_var_names),
+                    env_vars_names=env_var_names,
                 )
+                # Also verify in the returned message
+                if "DATABASE_URL" not in env_var_names:
+                    server_log.warning(
+                        "DATABASE_URL not found in app env vars after commit!",
+                        app_id=app_after.id,
+                        env_var_names=env_var_names,
+                    )
 
-            return [
+            # Build response with details about what was added
+            response = [
                 {
                     "t": "text",
                     "text": f"Addon '{addon_name}' attached to app '{app_name}' successfully.",
                 },
-                {
+            ]
+
+            if added_vars:
+                response.append({
                     "t": "text",
                     "text": "\nEnvironment variables:\n  " + "\n  ".join(added_vars),
-                },
-                {
-                    "t": "text",
-                    "text": f"\nRedeploy your app for changes to take effect:\n  hop3 deploy {app_name}",
-                },
-            ]
+                })
+            else:
+                response.append({
+                    "t": "warning",
+                    "text": "\nWARNING: No environment variables were added!",
+                })
+
+            response.append({
+                "t": "text",
+                "text": f"\nRedeploy your app for changes to take effect:\n  hop3 deploy {app_name}",
+            })
+
+            return response
 
         except RuntimeError as e:
             server_log.error("addons:attach RuntimeError", error=str(e))

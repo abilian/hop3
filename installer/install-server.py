@@ -90,6 +90,13 @@ DEBIAN_PACKAGES = [
     "libssl-dev",
 ]
 
+# Optional MySQL packages for Debian/Ubuntu
+DEBIAN_MYSQL_PACKAGES = [
+    "mysql-server",
+    "mysql-client",
+    "libmysqlclient-dev",
+]
+
 FEDORA_PACKAGES = [
     "bc",
     "git",
@@ -115,6 +122,30 @@ FEDORA_PACKAGES = [
     "libpq-devel",
     "libffi-devel",
     "openssl-devel",
+]
+
+# Optional MySQL packages for Fedora/RHEL
+FEDORA_MYSQL_PACKAGES = [
+    "mysql-server",
+    "mysql-devel",
+]
+
+# Optional Redis packages
+DEBIAN_REDIS_PACKAGES = [
+    "redis-server",
+]
+
+FEDORA_REDIS_PACKAGES = [
+    "redis",
+]
+
+# Optional Docker packages
+DEBIAN_DOCKER_PACKAGES = [
+    "docker.io",
+]
+
+FEDORA_DOCKER_PACKAGES = [
+    "docker",
 ]
 
 # Systemd service units
@@ -419,7 +450,13 @@ def group_exists(groupname: str) -> bool:
 # =============================================================================
 
 
-def install_system_deps(distro: str, skip: bool) -> None:
+def install_system_deps(
+    distro: str,
+    skip: bool,
+    with_mysql: bool = False,
+    with_redis: bool = False,
+    with_docker: bool = False,
+) -> None:
     """Install system dependencies."""
     if skip:
         print_info("Skipping system dependencies (--skip-deps)")
@@ -428,17 +465,100 @@ def install_system_deps(distro: str, skip: bool) -> None:
     if distro == "debian":
         with Spinner("Updating package lists..."):
             run_cmd(["apt-get", "update", "-qq"])
-        with Spinner("Installing packages (this may take a while)..."):
+
+        # Install base packages first
+        with Spinner("Installing base packages (this may take a while)..."):
             run_cmd(
                 ["apt-get", "install", "-y", "-qq"] + DEBIAN_PACKAGES,
                 env={"DEBIAN_FRONTEND": "noninteractive"},
             )
-        print_success(f"Installed {len(DEBIAN_PACKAGES)} packages")
+        print_success(f"Installed {len(DEBIAN_PACKAGES)} base packages")
+
+        # Install optional packages separately to avoid conflicts blocking everything
+        if with_docker:
+            with Spinner("Installing Docker..."):
+                result = run_cmd(
+                    ["apt-get", "install", "-y", "-qq"] + DEBIAN_DOCKER_PACKAGES,
+                    env={"DEBIAN_FRONTEND": "noninteractive"},
+                    check=False,
+                )
+            if result.returncode == 0:
+                print_success("Docker packages installed")
+            else:
+                print_warning(
+                    "Docker installation failed (may already be installed or conflict)"
+                )
+                print_detail("You can install manually: apt-get install docker.io")
+
+        if with_mysql:
+            with Spinner("Installing MySQL..."):
+                result = run_cmd(
+                    ["apt-get", "install", "-y", "-qq"] + DEBIAN_MYSQL_PACKAGES,
+                    env={"DEBIAN_FRONTEND": "noninteractive"},
+                    check=False,
+                )
+            if result.returncode == 0:
+                print_success("MySQL packages installed")
+            else:
+                print_warning(
+                    "MySQL installation failed (may already be installed or conflict)"
+                )
+                print_detail("You can install manually: apt-get install mysql-server")
+
+        if with_redis:
+            with Spinner("Installing Redis..."):
+                result = run_cmd(
+                    ["apt-get", "install", "-y", "-qq"] + DEBIAN_REDIS_PACKAGES,
+                    env={"DEBIAN_FRONTEND": "noninteractive"},
+                    check=False,
+                )
+            if result.returncode == 0:
+                print_success("Redis packages installed")
+            else:
+                print_warning(
+                    "Redis installation failed (may already be installed or conflict)"
+                )
+                print_detail("You can install manually: apt-get install redis-server")
 
     elif distro == "fedora":
-        with Spinner("Installing packages (this may take a while)..."):
+        # Install base packages first
+        with Spinner("Installing base packages (this may take a while)..."):
             run_cmd(["dnf", "install", "-y", "-q"] + FEDORA_PACKAGES)
-        print_success(f"Installed {len(FEDORA_PACKAGES)} packages")
+        print_success(f"Installed {len(FEDORA_PACKAGES)} base packages")
+
+        # Install optional packages separately
+        if with_docker:
+            with Spinner("Installing Docker..."):
+                result = run_cmd(
+                    ["dnf", "install", "-y", "-q"] + FEDORA_DOCKER_PACKAGES,
+                    check=False,
+                )
+            if result.returncode == 0:
+                print_success("Docker packages installed")
+            else:
+                print_warning("Docker installation failed")
+
+        if with_mysql:
+            with Spinner("Installing MySQL..."):
+                result = run_cmd(
+                    ["dnf", "install", "-y", "-q"] + FEDORA_MYSQL_PACKAGES,
+                    check=False,
+                )
+            if result.returncode == 0:
+                print_success("MySQL packages installed")
+            else:
+                print_warning("MySQL installation failed")
+
+        if with_redis:
+            with Spinner("Installing Redis..."):
+                result = run_cmd(
+                    ["dnf", "install", "-y", "-q"] + FEDORA_REDIS_PACKAGES,
+                    check=False,
+                )
+            if result.returncode == 0:
+                print_success("Redis packages installed")
+            else:
+                print_warning("Redis installation failed")
 
     else:
         print_warning(f"Unknown distro '{distro}', skipping package installation")
@@ -880,11 +1000,179 @@ def _configure_postgres_for_docker(distro: str) -> None:
     print_success("PostgreSQL restarted with new configuration")
 
 
-def write_server_config(pg_password: str | None, admin_domain: str | None) -> None:
+def setup_mysql(skip: bool, distro: str) -> str | None:
+    """Configure MySQL server.
+
+    Returns:
+        The generated MySQL root password, or None if skipped.
+    """
+    if skip:
+        print_info("Skipping MySQL setup (use --with mysql to enable)")
+        return None
+
+    # Check if MySQL is installed
+    if not cmd_exists("mysql"):
+        print_warning("MySQL not installed, skipping setup")
+        return None
+
+    # Enable and start MySQL service
+    # Service name varies by distro
+    mysql_service = "mysql" if distro == "debian" else "mysqld"
+
+    run_cmd(["systemctl", "enable", mysql_service], check=False)
+    run_cmd(["systemctl", "start", mysql_service], check=False)
+
+    # Generate a secure password for MySQL root
+    mysql_password = "hop3_" + secrets.token_hex(16)
+
+    # On Ubuntu/Debian, MySQL root uses auth_socket by default.
+    # We need to switch to mysql_native_password so hop3-server (running as hop3 user)
+    # can connect with a password.
+    try:
+        # First, change the auth plugin and set password (as root OS user via socket)
+        sql_cmd = (
+            f"ALTER USER 'root'@'localhost' "
+            f"IDENTIFIED WITH mysql_native_password BY '{mysql_password}'; "
+            f"FLUSH PRIVILEGES;"
+        )
+        result = run_cmd(
+            ["mysql", "-u", "root", "-e", sql_cmd],
+            check=False,
+        )
+        if result.returncode == 0:
+            print_success("MySQL root configured with password authentication")
+        else:
+            # Maybe already has a different auth setup
+            print_warning("Could not configure MySQL root password")
+            print_detail("MySQL may need manual configuration")
+            if result.stderr:
+                print_detail(result.stderr[:200])
+            return None
+    except CommandError as e:
+        print_warning(
+            f"Could not configure MySQL: {e.stderr[:100] if e.stderr else str(e)}"
+        )
+        return None
+
+    # Verify connection works with password
+    result = run_cmd(
+        [
+            "mysql",
+            "-u",
+            "root",
+            f"-p{mysql_password}",
+            "-h",
+            "127.0.0.1",
+            "-e",
+            "SELECT 1",
+        ],
+        check=False,
+    )
+    if result.returncode != 0:
+        print_warning("MySQL password authentication test failed")
+        print_detail("hop3-server may not be able to connect to MySQL")
+        return None
+
+    print_success("MySQL password authentication verified")
+
+    # Configure MySQL to accept connections from Docker containers
+    _configure_mysql_for_docker(distro, mysql_password)
+
+    print_success("MySQL server configured")
+    return mysql_password
+
+
+def _configure_mysql_for_docker(distro: str, mysql_password: str) -> None:
+    """Configure MySQL to accept connections from Docker containers.
+
+    This creates a MySQL user that can connect from Docker networks.
+    """
+    # Create a user that can connect from Docker bridge network
+    # Docker uses 172.17.0.0/16 by default
+    try:
+        sql_commands = """
+        CREATE USER IF NOT EXISTS 'hop3_docker'@'172.17.%' IDENTIFIED BY '{password}';
+        GRANT ALL PRIVILEGES ON *.* TO 'hop3_docker'@'172.17.%' WITH GRANT OPTION;
+        CREATE USER IF NOT EXISTS 'hop3_docker'@'172.18.%' IDENTIFIED BY '{password}';
+        GRANT ALL PRIVILEGES ON *.* TO 'hop3_docker'@'172.18.%' WITH GRANT OPTION;
+        FLUSH PRIVILEGES;
+        """.format(password=mysql_password)
+
+        run_cmd(
+            ["mysql", "-u", "root", f"-p{mysql_password}", "-e", sql_commands],
+            check=False,
+        )
+        print_success("MySQL configured for Docker container access")
+    except CommandError:
+        print_warning("Could not configure MySQL for Docker access")
+
+    # Update MySQL bind-address to allow connections from Docker
+    # Find MySQL config file
+    mysql_conf_paths = [
+        Path("/etc/mysql/mysql.conf.d/mysqld.cnf"),  # Ubuntu
+        Path("/etc/mysql/my.cnf"),  # Debian
+        Path("/etc/my.cnf"),  # Fedora/RHEL
+    ]
+
+    for conf_path in mysql_conf_paths:
+        if conf_path.exists():
+            content = conf_path.read_text()
+            if "bind-address" in content:
+                # Check if already configured for all interfaces
+                if "bind-address = 0.0.0.0" not in content:
+                    # Comment out existing bind-address and add new one
+                    new_lines = []
+                    for line in content.split("\n"):
+                        if line.strip().startswith("bind-address"):
+                            new_lines.append(f"# {line}  # commented by hop3 installer")
+                            new_lines.append(
+                                "bind-address = 0.0.0.0  # added by hop3 installer"
+                            )
+                        else:
+                            new_lines.append(line)
+                    conf_path.write_text("\n".join(new_lines))
+                    print_success("MySQL configured to listen on all interfaces")
+
+                    # Restart MySQL to apply changes
+                    mysql_service = "mysql" if distro == "debian" else "mysqld"
+                    run_cmd(["systemctl", "restart", mysql_service], check=False)
+                    print_success("MySQL restarted with new configuration")
+            break
+
+
+def setup_docker(skip: bool) -> None:
+    """Configure Docker for hop3.
+
+    This:
+    1. Enables and starts the Docker service
+    2. Adds hop3 user to docker group
+    """
+    if skip:
+        print_info("Skipping Docker setup (use --with docker to enable)")
+        return
+
+    # Check if Docker is installed
+    if not cmd_exists("docker"):
+        print_warning("Docker not installed, skipping setup")
+        return
+
+    # Enable and start Docker service
+    run_cmd(["systemctl", "enable", "docker"], check=False)
+    run_cmd(["systemctl", "start", "docker"], check=False)
+
+    # Add hop3 user to docker group
+    run_cmd(["usermod", "-aG", "docker", HOP3_USER], check=False)
+    print_success("Docker configured (hop3 user added to docker group)")
+
+
+def write_server_config(
+    pg_password: str | None, mysql_password: str | None, admin_domain: str | None
+) -> None:
     """Write hop3-server.toml configuration file.
 
     This configures hop3-server with:
     - PostgreSQL connection settings (host, password)
+    - MySQL connection settings (host, password)
     - Admin domain for the web UI
     """
     config_file = HOME_DIR / "hop3-server.toml"
@@ -912,6 +1200,18 @@ def write_server_config(pg_password: str | None, admin_domain: str | None) -> No
                 "# Use 127.0.0.1 (TCP) instead of localhost (Unix socket) for password auth",
                 'POSTGRES_HOST = "127.0.0.1"',
                 f'POSTGRES_SUPERUSER_PASSWORD = "{pg_password}"',
+                "",
+            ]
+        )
+
+    if mysql_password:
+        lines.extend(
+            [
+                "# MySQL admin connection settings",
+                'MYSQL_HOST = "127.0.0.1"',
+                'MYSQL_PORT = "3306"',
+                'MYSQL_SUPERUSER = "root"',
+                f'MYSQL_SUPERUSER_PASSWORD = "{mysql_password}"',
                 "",
             ]
         )
@@ -1078,8 +1378,17 @@ def verify_installation() -> bool:
     return True
 
 
-def print_final_message(domain: str | None = None) -> None:
+def print_final_message(
+    domain: str | None = None, features: set[str] | None = None
+) -> None:
     """Print success message with next steps."""
+    if features is None:
+        features = set()
+
+    with_docker = "docker" in features
+    with_mysql = "mysql" in features
+    with_redis = "redis" in features
+
     print()
     print(f"{Colors.GREEN}{Colors.BOLD}Installation complete!{Colors.RESET}")
     print()
@@ -1095,10 +1404,33 @@ def print_final_message(domain: str | None = None) -> None:
         print(f"    Certificate: Self-signed ({SSL_CERT})")
         print("    Note:        Use --domain to enable Let's Encrypt")
     print()
+    print(f"  {Colors.BOLD}Container Runtime:{Colors.RESET}")
+    if with_docker:
+        print("    Docker:     Installed and configured")
+    else:
+        print("    Docker:     Not installed (use --with docker to enable)")
+    print()
+    print(f"  {Colors.BOLD}Databases:{Colors.RESET}")
+    print("    PostgreSQL: Installed and configured")
+    if with_mysql:
+        print("    MySQL:      Installed and configured")
+    else:
+        print("    MySQL:      Not installed (use --with mysql to enable)")
+    if with_redis:
+        print("    Redis:      Installed and configured")
+    else:
+        print("    Redis:      Not installed (use --with redis to enable)")
+    print()
     print(f"  {Colors.BOLD}Services:{Colors.RESET}")
     print("    sudo systemctl status hop3-server")
     print("    sudo systemctl status uwsgi-hop3")
     print("    sudo systemctl status nginx")
+    if with_docker:
+        print("    sudo systemctl status docker")
+    if with_mysql:
+        print("    sudo systemctl status mysql")
+    if with_redis:
+        print("    sudo systemctl status redis")
     print()
     print(f"  {Colors.BOLD}Endpoints:{Colors.RESET}")
     if domain:
@@ -1138,17 +1470,27 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  sudo python3 install-server.py                  Install with self-signed cert
+  sudo python3 install-server.py                  Install with PostgreSQL only
+  sudo python3 install-server.py --with docker    Install with PostgreSQL + Docker
+  sudo python3 install-server.py --with mysql     Install with PostgreSQL + MySQL
+  sudo python3 install-server.py --with docker,mysql,redis
+                                                  Install with all optional features
+  sudo python3 install-server.py --with all       Install all optional features
   sudo python3 install-server.py --domain hop3.example.com
                                                   Install with Let's Encrypt cert
   sudo python3 install-server.py --git            Install from git (main branch)
-  sudo python3 install-server.py --git --branch x Install from git (x branch)
-  sudo python3 install-server.py --skip-postgres  Skip PostgreSQL setup
 
 SSL Certificates:
   By default, a self-signed certificate is generated. To use Let's Encrypt,
   provide a domain name with --domain. The server must be accessible on ports
   80 and 443, and the domain must point to this server's IP address.
+
+Optional Features (--with):
+  postgres    PostgreSQL database (installed by default, use --skip-postgres to disable)
+  docker      Docker container runtime (for containerized apps)
+  mysql       MySQL database (for WordPress, Ghost, BookStack, etc.)
+  redis       Redis cache/store (for session storage, caching)
+  all         Install all optional features (docker, mysql, redis)
 
 Environment Variables:
   HOP3_VERSION          Install specific version
@@ -1160,6 +1502,7 @@ Environment Variables:
   HOP3_SKIP_NGINX       Skip nginx setup
   HOP3_SKIP_POSTGRES    Skip PostgreSQL setup
   HOP3_SKIP_ACME        Skip ACME/Let's Encrypt setup
+  HOP3_WITH             Comma-separated list of features (mysql,redis,all)
 """,
     )
 
@@ -1220,6 +1563,14 @@ Environment Variables:
     )
 
     parser.add_argument(
+        "--with",
+        dest="with_features",
+        metavar="FEATURES",
+        default=os.environ.get("HOP3_WITH", ""),
+        help="Comma-separated list of features to install (mysql,redis,all)",
+    )
+
+    parser.add_argument(
         "--skip-acme",
         action="store_true",
         default=os.environ.get("HOP3_SKIP_ACME", "").lower() in ("1", "true"),
@@ -1241,6 +1592,49 @@ Environment Variables:
     )
 
     return parser
+
+
+# =============================================================================
+# Feature Parsing
+# =============================================================================
+
+# All available optional features
+ALL_FEATURES = {"mysql", "redis", "docker"}
+
+
+def parse_features(features_str: str) -> set[str]:
+    """Parse comma-separated feature list.
+
+    Args:
+        features_str: Comma-separated features (e.g., "mysql,redis" or "all")
+
+    Returns:
+        Set of feature names to install
+    """
+    if not features_str:
+        return set()
+
+    features_str = features_str.lower().strip()
+
+    # Handle "all" keyword
+    if features_str == "all":
+        return ALL_FEATURES.copy()
+
+    # Parse comma-separated list
+    features = set()
+    for feature in features_str.split(","):
+        feature = feature.strip()
+        if feature == "all":
+            features.update(ALL_FEATURES)
+        elif feature in ALL_FEATURES:
+            features.add(feature)
+        elif feature == "postgres":
+            # PostgreSQL is always installed by default, ignore
+            pass
+        elif feature:
+            print_warning(f"Unknown feature: {feature}")
+
+    return features
 
 
 # =============================================================================
@@ -1266,7 +1660,13 @@ def main() -> int:
     distro = detect_distro()
     print_info(f"Detected distribution: {distro}")
 
-    total_steps = 12
+    # Parse optional features
+    features = parse_features(args.with_features)
+    with_mysql = "mysql" in features
+    with_redis = "redis" in features
+    with_docker = "docker" in features
+
+    total_steps = 14  # Base steps + MySQL + Docker steps
 
     # Show configuration
     if args.domain:
@@ -1274,10 +1674,22 @@ def main() -> int:
     else:
         print_info("No domain specified (will use self-signed certificate)")
 
+    # Show optional features
+    if features:
+        print_info(f"Optional features: {', '.join(sorted(features))}")
+    else:
+        print_info("Optional features: none (use --with docker,mysql,redis to enable)")
+
     # Step 1: System dependencies
     print_step(1, total_steps, "Installing system dependencies...")
     try:
-        install_system_deps(distro, args.skip_deps)
+        install_system_deps(
+            distro,
+            args.skip_deps,
+            with_mysql=with_mysql,
+            with_redis=with_redis,
+            with_docker=with_docker,
+        )
     except CommandError as e:
         print_error(f"Failed to install dependencies: {e.stderr[:200]}")
         return 1
@@ -1355,15 +1767,30 @@ def main() -> int:
     except CommandError as e:
         print_warning(f"PostgreSQL setup issue: {e.stderr[:100]}")
 
-    # Step 11: Write server configuration
-    print_step(11, total_steps, "Writing server configuration...")
+    # Step 11: MySQL (optional)
+    print_step(11, total_steps, "Configuring MySQL...")
+    mysql_password = None
     try:
-        write_server_config(pg_password, args.domain)
+        mysql_password = setup_mysql(not with_mysql, distro)
+    except CommandError as e:
+        print_warning(f"MySQL setup issue: {e.stderr[:100]}")
+
+    # Step 12: Docker (optional)
+    print_step(12, total_steps, "Configuring Docker...")
+    try:
+        setup_docker(not with_docker)
+    except CommandError as e:
+        print_warning(f"Docker setup issue: {e.stderr[:100]}")
+
+    # Step 13: Write server configuration
+    print_step(13, total_steps, "Writing server configuration...")
+    try:
+        write_server_config(pg_password, mysql_password, args.domain)
     except Exception as e:
         print_warning(f"Config write issue: {e}")
 
-    # Step 12: ACME/Let's Encrypt
-    print_step(12, total_steps, "Setting up ACME/Let's Encrypt...")
+    # Step 14: ACME/Let's Encrypt
+    print_step(14, total_steps, "Setting up ACME/Let's Encrypt...")
     try:
         # Always install acme.sh for future use
         setup_acme(args.skip_acme)
@@ -1382,7 +1809,7 @@ def main() -> int:
     verify_installation()
 
     # Success
-    print_final_message(args.domain)
+    print_final_message(args.domain, features)
 
     return 0
 

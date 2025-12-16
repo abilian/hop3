@@ -10,8 +10,22 @@ thin wrapper around SSH to communicate with the server.
 
 from __future__ import annotations
 
-import sys
+# IMPORTANT: Suppress warnings BEFORE any imports that might trigger paramiko
+# paramiko uses deprecated TripleDES cipher which triggers CryptographyDeprecationWarning
+# These filters must be applied before paramiko is imported (via sshtunnel -> rpc)
 import warnings
+
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="paramiko")
+warnings.filterwarnings("ignore", message=".*TripleDES.*")
+warnings.filterwarnings("ignore", message=".*CryptographyDeprecationWarning.*")
+try:
+    from cryptography.utils import CryptographyDeprecationWarning
+
+    warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
+except ImportError:
+    pass
+
+import sys
 from typing import Any
 
 import requests.exceptions
@@ -35,19 +49,6 @@ from .ui import (
     show_unauthenticated_message,
     show_unconfigured_message,
 )
-
-# Suppress cryptography deprecation warnings from paramiko
-# These warnings come from paramiko's use of deprecated TripleDES cipher
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="paramiko")
-warnings.filterwarnings("ignore", message=".*TripleDES.*")
-warnings.filterwarnings("ignore", message=".*CryptographyDeprecationWarning.*")
-# Catch all deprecation warnings from cryptography module
-try:
-    from cryptography.utils import CryptographyDeprecationWarning
-
-    warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
-except ImportError:
-    pass
 
 logger.remove()
 # TODO: enable logging to stderr when properly configured

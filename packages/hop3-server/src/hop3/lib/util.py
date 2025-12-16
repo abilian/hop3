@@ -74,7 +74,11 @@ def shell(
         return result
     except subprocess.CalledProcessError as e:
         # Log error information
-        log(f"Command failed with exit code {e.returncode}: {command}", level=0, fg="red")
+        log(
+            f"Command failed with exit code {e.returncode}: {command}",
+            level=0,
+            fg="red",
+        )
         if e.stdout:
             log("Stdout:", level=1, fg="yellow")
             _log_output(e.stdout, level=1, fg="yellow")

@@ -113,12 +113,19 @@ class DeployCmd(Command):
 
         try:
             app = _get_app(self.db_session, app_name)
+            env_var_names = [ev.name for ev in app.env_vars]
             server_log.info(
                 "Deploy: retrieved existing app",
                 app_name=app_name,
                 app_id=app.id,
-                env_vars_count=len(list(app.env_vars)),
+                env_vars_count=len(env_var_names),
+                env_vars_names=env_var_names,
             )
+            if env_var_names:
+                log(
+                    f"App has {len(env_var_names)} env vars: {', '.join(env_var_names)}",
+                    level=2,
+                )
         except ValueError:
             app = App(name=app_name)
             app.create()
