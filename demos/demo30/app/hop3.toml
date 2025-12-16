@@ -1,0 +1,15 @@
+# hop3.toml - Native Python application configuration
+
+[metadata]
+id = "hello-native"
+version = "0.1.0"
+title = "Hello Native App"
+author = "Hop3 Demo"
+description = "A simple Flask application deployed natively (without Docker)."
+
+[build]
+builder = "python-3.12"
+pip-install = ["-r", "requirements.txt"]
+
+[run]
+start = "gunicorn --workers 2 --bind 0.0.0.0:$PORT app:app"
