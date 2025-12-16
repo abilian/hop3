@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
@@ -9,8 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
-from hop3_tui.api.models import App as AppModel
-from hop3_tui.api.models import AppState
+from hop3_tui.api.models import App as AppModel, AppState
 from hop3_tui.screens.app_detail import (
     AppActionsPanel,
     AppDetailScreen,
@@ -18,8 +18,9 @@ from hop3_tui.screens.app_detail import (
     AppLogsPreview,
 )
 from hop3_tui.screens.apps import AppsScreen
-from hop3_tui.screens.chat import ChatScreen
+from hop3_tui.screens.chat import COMMANDS, ChatScreen, CommandSuggester
 from hop3_tui.screens.dashboard import AppsSummary, DashboardScreen
+from hop3_tui.screens.env_vars import EnvVarsScreen
 from hop3_tui.screens.logs import LogsScreen
 from hop3_tui.screens.system import ResourcesPanel, ServicesPanel, SystemScreen
 from textual.app import App, ComposeResult
@@ -511,11 +512,13 @@ class TestAppsScreenExtended:
     def test_format_updated_naive_datetime(self):
         """Test formatting with naive datetime (no timezone)."""
         screen = AppsScreen()
-        # Create a naive datetime (no timezone)
-        app = AppModel(name="test", updated_at=datetime.now())
+        # Create a naive datetime (no timezone) - testing backward compat
+        app = AppModel(
+            name="test", updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
+        )
         result = screen._format_updated(app)
         # Should still work
-        assert "ago" in result or result == "just now" or result == "N/A"
+        assert "ago" in result or result in {"just now", "N/A"}
 
 
 class TestChatScreenExtended:
@@ -673,6 +676,97 @@ class TestChatScreenExtended:
             assert screen._history[1] == "status"
 
 
+class TestCommandSuggester:
+    """Tests for CommandSuggester."""
+
+    def test_suggester_init(self):
+        """Test suggester initialization."""
+        suggester = CommandSuggester()
+        assert suggester._app_names == []
+
+    def test_suggester_init_with_app_names(self):
+        """Test suggester initialization with app names."""
+        suggester = CommandSuggester(app_names=["myapp", "api"])
+        assert suggester._app_names == ["myapp", "api"]
+
+    def test_suggester_update_app_names(self):
+        """Test updating app names."""
+        suggester = CommandSuggester()
+        suggester.update_app_names(["app1", "app2"])
+        assert suggester._app_names == ["app1", "app2"]
+
+    @pytest.mark.asyncio
+    async def test_suggester_empty_input(self):
+        """Test suggestion for empty input."""
+        suggester = CommandSuggester()
+        result = await suggester.get_suggestion("")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_suggester_command_completion(self):
+        """Test command completion."""
+        suggester = CommandSuggester()
+        # Typing "ap" should suggest "apps" or "app"
+        result = await suggester.get_suggestion("ap")
+        assert result in {"apps", "app"}
+
+    @pytest.mark.asyncio
+    async def test_suggester_command_start(self):
+        """Test command completion for 'st'."""
+        suggester = CommandSuggester()
+        result = await suggester.get_suggestion("st")
+        assert result in {"start", "stop", "status"}
+
+    @pytest.mark.asyncio
+    async def test_suggester_no_match(self):
+        """Test no suggestion for unknown prefix."""
+        suggester = CommandSuggester()
+        result = await suggester.get_suggestion("xyz")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_suggester_complete_command(self):
+        """Test no suggestion for complete command."""
+        suggester = CommandSuggester()
+        result = await suggester.get_suggestion("apps")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_suggester_app_name_completion(self):
+        """Test app name completion."""
+        suggester = CommandSuggester(app_names=["myapp", "api-server", "worker"])
+        result = await suggester.get_suggestion("start my")
+        assert result == "start myapp"
+
+    @pytest.mark.asyncio
+    async def test_suggester_app_name_completion_multiple(self):
+        """Test app name completion with multiple matches."""
+        suggester = CommandSuggester(app_names=["app1", "app2", "other"])
+        result = await suggester.get_suggestion("logs app")
+        assert result in {"logs app1", "logs app2"}
+
+    @pytest.mark.asyncio
+    async def test_suggester_app_name_no_match(self):
+        """Test no app name suggestion for unknown prefix."""
+        suggester = CommandSuggester(app_names=["myapp", "api"])
+        result = await suggester.get_suggestion("start xyz")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_suggester_non_app_command(self):
+        """Test no app completion for non-app commands."""
+        suggester = CommandSuggester(app_names=["myapp", "api"])
+        result = await suggester.get_suggestion("status my")
+        assert result is None  # status doesn't take app name
+
+    def test_commands_list_exists(self):
+        """Test that COMMANDS list is defined."""
+        assert len(COMMANDS) > 0
+        assert "apps" in COMMANDS
+        assert "start" in COMMANDS
+        assert "help" in COMMANDS
+
+
 class TestLogsScreenExtended:
     """Extended tests for LogsScreen."""
 
@@ -725,3 +819,126 @@ class TestLogsScreenExtended:
             # Should have logs content
             logs_content = screen.query_one("#logs-content", Static)
             assert logs_content is not None
+
+
+class TestEnvVarsScreen:
+    """Tests for EnvVarsScreen."""
+
+    def test_env_vars_screen_init(self):
+        """Test EnvVarsScreen initialization."""
+        screen = EnvVarsScreen(app_name="myapp")
+        assert screen.app_name == "myapp"
+        assert screen._env_vars == []
+        assert screen._show_hidden is False
+
+    def test_env_vars_screen_default_name(self):
+        """Test EnvVarsScreen with default name."""
+        screen = EnvVarsScreen()
+        assert screen.app_name == ""
+
+    @pytest.mark.asyncio
+    async def test_env_vars_screen_composes(self):
+        """Test env vars screen composes correctly."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield EnvVarsScreen(app_name="testapp")
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(EnvVarsScreen)
+            assert screen is not None
+            assert screen.app_name == "testapp"
+            # Should have data table
+            table = screen.query_one("#env-table", DataTable)
+            assert table is not None
+
+    @pytest.mark.asyncio
+    async def test_env_vars_table_columns(self):
+        """Test env vars table has expected columns."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield EnvVarsScreen(app_name="testapp")
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(EnvVarsScreen)
+            table = screen.query_one("#env-table", DataTable)
+            # Table should have 3 columns: NAME, VALUE, TYPE
+            assert len(table.columns) == 3
+
+    def test_format_value_normal(self):
+        """Test value formatting for normal values."""
+        screen = EnvVarsScreen()
+        screen._show_hidden = True
+        assert screen._format_value("hello") == "hello"
+        assert screen._format_value("12345") == "12345"
+
+    def test_format_value_hidden_sensitive(self):
+        """Test value formatting hides sensitive values."""
+        screen = EnvVarsScreen()
+        screen._show_hidden = False
+        assert screen._format_value("sk-secret-key") == "****hidden****"
+        assert screen._format_value("mypassword123") == "****hidden****"
+
+    def test_format_value_truncate_long(self):
+        """Test value formatting truncates long values."""
+        screen = EnvVarsScreen()
+        screen._show_hidden = True
+        long_value = "a" * 100
+        result = screen._format_value(long_value)
+        assert len(result) == 50
+        assert result.endswith("...")
+
+    def test_is_sensitive_detection(self):
+        """Test sensitive value detection."""
+        screen = EnvVarsScreen()
+        assert screen._is_sensitive("sk-secret-key") is True
+        assert screen._is_sensitive("my_password_here") is True
+        assert screen._is_sensitive("auth_token_123") is True
+        assert screen._is_sensitive("hello_world") is False
+        assert screen._is_sensitive("12345") is False
+
+    @pytest.mark.asyncio
+    async def test_env_vars_toggle_visibility(self):
+        """Test toggling value visibility."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield EnvVarsScreen(app_name="testapp")
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(EnvVarsScreen)
+            assert screen._show_hidden is False
+            screen.action_toggle_visibility()
+            assert screen._show_hidden is True
+            screen.action_toggle_visibility()
+            assert screen._show_hidden is False
+
+    @pytest.mark.asyncio
+    async def test_env_vars_loads_mock_data(self):
+        """Test that env vars screen loads mock data when no API client."""
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                yield EnvVarsScreen(app_name="testapp")
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.query_one(EnvVarsScreen)
+            # Wait for mock data to load
+            await pilot.pause()
+            # Should have mock env vars loaded
+            assert len(screen._env_vars) > 0
+            # Check that mock data includes expected vars
+            var_names = [v.name for v in screen._env_vars]
+            assert "DEBUG" in var_names
+            assert "DATABASE_URL" in var_names
+
+    def test_env_vars_get_selected_var_empty(self):
+        """Test getting selected var when table is empty."""
+        screen = EnvVarsScreen()
+        # Without mounting, _get_selected_var should handle gracefully
+        # This tests the logic path, not the actual UI interaction

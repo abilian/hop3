@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
@@ -7,7 +8,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 try:
@@ -112,15 +113,15 @@ class TUIConfig:
     def _load_from_env(cls, config: TUIConfig) -> TUIConfig:
         """Load configuration from environment variables."""
         # Server URL
-        if url := os.environ.get("HOP3_SERVER_URL"):
-            config.server_url = url
-        elif url := os.environ.get("HOP3_URL"):
+        if (url := os.environ.get("HOP3_SERVER_URL")) or (
+            url := os.environ.get("HOP3_URL")
+        ):
             config.server_url = url
 
         # Auth token
-        if token := os.environ.get("HOP3_AUTH_TOKEN"):
-            config.auth_token = token
-        elif token := os.environ.get("HOP3_TOKEN"):
+        if (token := os.environ.get("HOP3_AUTH_TOKEN")) or (
+            token := os.environ.get("HOP3_TOKEN")
+        ):
             config.auth_token = token
 
         # Theme
@@ -144,7 +145,7 @@ class TUIConfig:
         # Ensure directory exists
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        content = f'''# Hop3 TUI Configuration
+        content = f"""# Hop3 TUI Configuration
 
 [server]
 url = "{self.server_url}"
@@ -158,10 +159,9 @@ show_clock = {str(self.show_clock).lower()}
 [behavior]
 auto_refresh = {str(self.auto_refresh).lower()}
 confirm_destructive = {str(self.confirm_destructive).lower()}
-'''
+"""
 
-        with open(path, "w") as f:
-            f.write(content)
+        Path(path).write_text(content)
 
 
 # Global config instance (loaded lazily)

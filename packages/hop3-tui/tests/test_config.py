@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
@@ -10,7 +11,6 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 from hop3_tui.config import TUIConfig, get_config, reset_config
 
 
@@ -225,10 +225,12 @@ class TestFindConfigFile:
 
     def test_find_no_config_file(self, tmp_path: Path):
         """Test when no config file exists."""
-        with patch("hop3_tui.config.Path.cwd", return_value=tmp_path):
-            with patch("hop3_tui.config.Path.home", return_value=tmp_path):
-                result = TUIConfig._find_config_file()
-                assert result is None
+        with (
+            patch("hop3_tui.config.Path.cwd", return_value=tmp_path),
+            patch("hop3_tui.config.Path.home", return_value=tmp_path),
+        ):
+            result = TUIConfig._find_config_file()
+            assert result is None
 
     def test_find_local_config_file(self, tmp_path: Path):
         """Test finding local config file."""

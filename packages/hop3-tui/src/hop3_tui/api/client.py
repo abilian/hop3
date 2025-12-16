@@ -1,3 +1,4 @@
+# Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
@@ -10,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from hop3_tui.api.models import App, AppState, Backup, SystemStatus
+from hop3_tui.api.models import App, AppState, Backup, EnvVar, SystemStatus
 
 
 class Hop3ClientError(Exception):
@@ -152,12 +153,37 @@ class Hop3Client:
 
     # Environment variable methods
 
-    async def get_env_vars(self, app_name: str) -> dict[str, str]:
+    async def get_env_vars(self, app_name: str) -> list[EnvVar]:
         """Get environment variables for an application."""
         result = await self._rpc_call(["config:show", app_name])
-        return result or {}
+        env_vars = []
+        if result:
+            # Result is expected to be a dict or list of env vars
+            if isinstance(result, dict):
+                for key, value in result.items():
+                    # Service vars typically have specific prefixes
+                    is_service = key.startswith(("DATABASE_", "REDIS_", "PORT", "HOST"))
+                    env_vars.append(
+                        EnvVar(name=key, value=str(value), is_service_var=is_service)
+                    )
+            elif isinstance(result, list):
+                for item in result:
+                    if isinstance(item, dict):
+                        env_vars.append(
+                            EnvVar(
+                                name=item.get("name", ""),
+                                value=item.get("value", ""),
+                                is_service_var=item.get("is_service_var", False),
+                            )
+                        )
+        return env_vars
 
     async def set_env_var(self, app_name: str, key: str, value: str) -> bool:
         """Set an environment variable."""
         await self._rpc_call(["config:set", app_name, f"{key}={value}"])
+        return True
+
+    async def delete_env_var(self, app_name: str, key: str) -> bool:
+        """Delete an environment variable."""
+        await self._rpc_call(["config:unset", app_name, key])
         return True
