@@ -12,6 +12,13 @@ from typing import TYPE_CHECKING
 from lib.commands import run_hop3
 from lib.context import DemoResult, OutputLevel
 from lib.discovery import load_demo_module
+from lib.logging import (
+    capture_failure_debug,
+    end_demo_logging,
+    get_log_session,
+    log_section,
+    start_demo_logging,
+)
 from lib.output import (
     dim,
     pause,
@@ -201,6 +208,11 @@ def run_demo(
     start_time = time.time()
     title = demo_name
     error_msg = None
+    app_name = demo_name  # Default app name for failure capture
+
+    # Start logging for this demo
+    start_demo_logging(demo_name)
+    log_section("main", f"Starting demo: {demo_name}", f"Demo directory: {demo_dir}\nGeneric: {is_generic}")
 
     # Show demo start - in quiet mode just "demo1...", in normal mode full header
     if ctx.output_level == OutputLevel.QUIET:
@@ -217,6 +229,8 @@ def run_demo(
             if ctx.output_level >= OutputLevel.NORMAL:
                 print_success(f"Demo '{demo_name}' completed successfully")
             print_phase_result(True)
+            log_section("main", "Demo completed", f"Status: PASS\nDuration: {duration:.2f}s")
+            end_demo_logging()
             return DemoResult(
                 name=demo_name,
                 title=title,
@@ -229,6 +243,8 @@ def run_demo(
         if not module:
             duration = time.time() - start_time
             print_phase_result(False)
+            log_section("main", "Demo failed", "Error: Failed to load demo script")
+            end_demo_logging()
             return DemoResult(
                 name=demo_name,
                 title=title,
@@ -240,6 +256,7 @@ def run_demo(
         # Get demo info
         title = getattr(module, "TITLE", demo_name)
         description = getattr(module, "DESCRIPTION", "")
+        app_name = getattr(module, "APP_NAME", demo_name)
 
         if ctx.output_level >= OutputLevel.NORMAL:
             print_header(f"Running: {title}")
@@ -254,6 +271,8 @@ def run_demo(
             if ctx.output_level >= OutputLevel.NORMAL:
                 print_success(f"Demo '{demo_name}' completed successfully")
             print_phase_result(True)
+            log_section("main", "Demo completed", f"Status: PASS\nDuration: {duration:.2f}s")
+            end_demo_logging()
             return DemoResult(
                 name=demo_name,
                 title=title,
@@ -262,6 +281,8 @@ def run_demo(
             )
         duration = time.time() - start_time
         print_phase_result(False)
+        log_section("main", "Demo failed", "Error: Demo has no run() function")
+        end_demo_logging()
         return DemoResult(
             name=demo_name,
             title=title,
@@ -274,6 +295,8 @@ def run_demo(
         print()
         print_error("Demo interrupted by user")
         duration = time.time() - start_time
+        log_section("main", "Demo interrupted", "Interrupted by user")
+        end_demo_logging()
         return DemoResult(
             name=demo_name,
             title=title,
@@ -285,11 +308,26 @@ def run_demo(
         error_msg = str(e)
         print_error(f"Demo '{demo_name}' failed: {e}")
         print_phase_result(False)
+
+        # Capture failure debug info (container logs, app info, etc.)
+        log_section("main", "Demo failed", f"Error: {error_msg}")
+        try:
+            capture_failure_debug(ctx, app_name)
+        except Exception as capture_err:
+            log_section("main", "Failed to capture debug info", str(capture_err))
+
+        # Print log location hint
+        log_session = get_log_session()
+        if log_session and log_session.current_demo_dir:
+            print_info(f"  Logs: {log_session.current_demo_dir}")
+
         if ctx.verbose:
             import traceback
 
             traceback.print_exc()
+
         duration = time.time() - start_time
+        end_demo_logging()
         return DemoResult(
             name=demo_name,
             title=title,

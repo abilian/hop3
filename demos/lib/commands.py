@@ -8,6 +8,7 @@ import subprocess
 from typing import TYPE_CHECKING
 
 from lib.context import OutputLevel
+from lib.logging import log_command
 from lib.output import get_output_level, print_command, print_error, red
 
 if TYPE_CHECKING:
@@ -37,14 +38,28 @@ class CommandError(Exception):
 
 
 def run_local(
-    cmd: str, *, show: bool = True, check: bool = True
+    cmd: str,
+    *,
+    show: bool = True,
+    check: bool = True,
+    log_name: str = "commands",
 ) -> subprocess.CompletedProcess:
-    """Run a command locally."""
+    """Run a command locally.
+
+    Args:
+        cmd: Command to run
+        show: Whether to show the command in console output
+        check: Whether to raise on failure
+        log_name: Name of log file to write to (default: "commands")
+    """
     if show and get_output_level() >= 2:  # NORMAL or VERBOSE
         print_command(cmd)
     result = subprocess.run(
         cmd, shell=True, capture_output=True, text=True, check=False
     )
+    # Always log command execution
+    log_command(log_name, cmd, result)
+
     if check and result.returncode != 0:
         print_error(f"Command failed with exit code {result.returncode}")
         if result.stderr:
@@ -55,15 +70,31 @@ def run_local(
 
 
 def run_ssh(
-    ctx: DemoContext, cmd: str, *, show: bool = True, check: bool = True
+    ctx: DemoContext,
+    cmd: str,
+    *,
+    show: bool = True,
+    check: bool = True,
+    log_name: str = "commands",
 ) -> subprocess.CompletedProcess:
-    """Run a command on the remote server via SSH."""
+    """Run a command on the remote server via SSH.
+
+    Args:
+        ctx: Demo context with server connection info
+        cmd: Command to run on the remote server
+        show: Whether to show the command in console output
+        check: Whether to raise on failure
+        log_name: Name of log file to write to (default: "commands")
+    """
     ssh_cmd = f'ssh -o StrictHostKeyChecking=accept-new {ctx.ssh_target} "{cmd}"'
     if show and get_output_level() >= 2:  # NORMAL or VERBOSE
         print_command(f"ssh {ctx.ssh_target} '{cmd}'")
     result = subprocess.run(
         ssh_cmd, shell=True, capture_output=True, text=True, check=False
     )
+    # Always log command execution
+    log_command(log_name, f"ssh {ctx.ssh_target} '{cmd}'", result)
+
     if check and result.returncode != 0:
         print_error(f"SSH command failed with exit code {result.returncode}")
         # Show both stdout and stderr on failure (installer errors may be in stdout)
@@ -83,6 +114,7 @@ def run_hop3(
     check: bool = True,
     quiet: bool = False,
     verbose: bool | None = None,
+    log_name: str = "hop3-commands",
 ) -> subprocess.CompletedProcess:
     """Run a hop3 CLI command.
 
@@ -93,6 +125,7 @@ def run_hop3(
         quiet: If True, suppress stdout output regardless of global level
         verbose: If True, pass -v flag to hop3 for detailed output.
                  If None (default), uses verbose mode when output_level >= VERBOSE
+        log_name: Name of log file to write to (default: "hop3-commands")
     """
     output_level = get_output_level()
 
@@ -116,6 +149,13 @@ def run_hop3(
     result = subprocess.run(
         full_cmd, shell=True, capture_output=True, text=True, check=False
     )
+
+    # Always log command execution (including deploy output)
+    # Use a more specific log name for deploy commands
+    actual_log_name = log_name
+    if cmd.startswith("deploy"):
+        actual_log_name = "deploy"
+    log_command(actual_log_name, full_cmd, result)
 
     # Print stdout in NORMAL or VERBOSE mode (unless quiet=True)
     if result.stdout and output_level >= OutputLevel.NORMAL and not quiet:

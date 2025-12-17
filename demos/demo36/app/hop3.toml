@@ -1,0 +1,24 @@
+# Kanboard - Self-hosted Kanban project management
+# https://kanboard.org/
+
+[metadata]
+id = "kanboard"
+version = "1.2.40"
+title = "Kanboard"
+description = "Kanban project management software - simple, visual, self-hosted"
+tags = ["php", "mysql", "kanban", "project-management"]
+
+[build]
+builder = "docker"
+
+[docker]
+port = 80
+
+[env]
+# Kanboard configuration
+# Database settings are injected via DATABASE_URL from MySQL addon
+LOG_DRIVER = "stdout"
+
+[[provider]]
+name = "mysql"
+plan = "standard"

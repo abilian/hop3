@@ -1,0 +1,12 @@
+# Demo 41: Piwigo Photo Gallery
+# Self-hosted photo management and gallery
+
+[metadata]
+name = "demo41"
+description = "Piwigo photo gallery"
+
+[docker]
+port = 80
+
+[[provider]]
+name = "mysql"

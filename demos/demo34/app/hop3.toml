@@ -1,0 +1,23 @@
+# hop3.toml - Native Python app with declarative MySQL provider
+#
+# This demo showcases the [[provider]] section for declaring addon dependencies.
+# The [[provider]] section declares that this app needs a MySQL database.
+
+[metadata]
+id = "demo34-provider-mysql"
+version = "0.1.0"
+title = "Declarative MySQL Demo"
+description = "Demonstrates declarative addon provisioning with [[provider]] section for MySQL"
+tags = ["python", "mysql", "provider"]
+
+[build]
+builder = "python-3.12"
+pip-install = ["-r", "requirements.txt"]
+
+[run]
+start = "gunicorn --workers 2 --bind 0.0.0.0:$PORT app:app"
+
+# Declarative provider section - this declares that the app needs MySQL
+[[provider]]
+name = "mysql"
+plan = "standard"

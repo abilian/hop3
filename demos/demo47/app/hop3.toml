@@ -1,0 +1,18 @@
+# Demo 47: Minimal Ruby/Sinatra with MySQL
+# Tests Ruby + mysql2 gem connectivity
+
+[metadata]
+id = "ruby-sinatra-mysql"
+version = "1.0"
+title = "Ruby/Sinatra + MySQL"
+description = "Minimal Ruby app testing MySQL connectivity with mysql2 gem"
+tags = ["ruby", "sinatra", "mysql"]
+
+[build]
+builder = "docker"
+
+[docker]
+port = 4567
+
+[[provider]]
+name = "mysql"

@@ -1,0 +1,19 @@
+# Demo 43: EasyAppointments
+# Open-source appointment scheduling
+# https://easyappointments.org/
+
+[metadata]
+id = "easyappointments"
+version = "1.5"
+title = "EasyAppointments"
+description = "Open-source appointment scheduling"
+tags = ["php", "mysql", "scheduling", "appointments"]
+
+[build]
+builder = "docker"
+
+[docker]
+port = 80
+
+[[provider]]
+name = "mysql"

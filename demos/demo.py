@@ -38,6 +38,7 @@ from lib.commands import set_debug_mode
 from lib.context import DemoContext, OutputLevel
 from lib.discovery import discover_demos, resolve_demo
 from lib.display import list_demos, print_banner, print_config, show_inventory
+from lib.logging import get_log_session, init_logging
 from lib.output import (
     pause,
     print_demo_result,
@@ -84,6 +85,13 @@ def main() -> int:
     # Enable debug mode for hop3 commands if --debug flag is set
     if getattr(args, "debug", False):
         set_debug_mode(True)
+
+    # Initialize logging (unless --no-logs)
+    if not getattr(args, "no_logs", False):
+        logs_dir = getattr(args, "logs_dir", None)
+        log_session = init_logging(logs_dir)
+        if output_level >= OutputLevel.NORMAL:
+            print_info(f"Logs: {log_session.session_dir}")
 
     # Discover and resolve demos
     available_demos = discover_demos(args.demo_dirs)
@@ -244,6 +252,13 @@ def _show_summary(ctx: DemoContext, results: list, overall_start: float) -> int:
         )
 
     print_summary_stats(passed, failed, skipped, overall_duration)
+
+    # Show log directory if there were failures
+    if failed > 0:
+        log_session = get_log_session()
+        if log_session:
+            print()
+            print_info(f"Detailed logs: {log_session.session_dir}")
 
     # Show admin credentials and UI URL if keeping apps
     if ctx.no_cleanup and ctx.output_level >= OutputLevel.NORMAL:

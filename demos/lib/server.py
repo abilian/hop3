@@ -464,6 +464,47 @@ print("PostgreSQL configured for Docker access")
     print_success("PostgreSQL configured for Docker container access")
 
 
+def ensure_postgres(ctx: DemoContext) -> None:
+    """Verify PostgreSQL is installed and properly configured for Hop3.
+
+    Note: PostgreSQL should be installed by the installer.
+    This function verifies the installation and checks connectivity.
+    """
+    print_step("Checking if PostgreSQL is installed...")
+    result = run_ssh(ctx, "which psql", show=False, check=False)
+    if result.returncode != 0:
+        print_error("PostgreSQL is not installed!")
+        print_info("PostgreSQL should be installed by the installer")
+        msg = "PostgreSQL not installed"
+        raise RuntimeError(msg)
+    print_success("PostgreSQL is installed")
+
+    # Verify PostgreSQL service is running
+    print_step("Checking PostgreSQL service status...")
+    result = run_ssh(ctx, "systemctl is-active postgresql", show=False, check=False)
+    if "active" not in result.stdout:
+        print_error("PostgreSQL service is not running")
+        run_ssh(ctx, "systemctl status postgresql --no-pager", check=False)
+        msg = "PostgreSQL service not running"
+        raise RuntimeError(msg)
+    print_success("PostgreSQL service is running")
+
+    # Verify hop3-server has PostgreSQL password configured
+    print_step("Verifying PostgreSQL password authentication...")
+    result = run_ssh(
+        ctx,
+        "grep -q POSTGRES_SUPERUSER_PASSWORD /home/hop3/hop3-server.toml",
+        show=False,
+        check=False,
+    )
+    if result.returncode != 0:
+        print_error("PostgreSQL password not configured in hop3-server.toml")
+        print_info("The installer should have configured PostgreSQL credentials")
+        msg = "PostgreSQL password not configured"
+        raise RuntimeError(msg)
+    print_success("PostgreSQL password authentication configured")
+
+
 def ensure_mysql(ctx: DemoContext) -> None:
     """Verify MySQL is installed and properly configured for Hop3.
 
