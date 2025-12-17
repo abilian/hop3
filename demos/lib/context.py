@@ -71,6 +71,9 @@ class DemoContext:
     debug: bool = False  # Maximum verbosity (--debug flag to hop3)
     output_level: OutputLevel = OutputLevel.NORMAL
 
+    # Logging
+    logs_dir: Path | None = None  # Base directory for logs (None = demos/logs/)
+
     # Paths
     hop3_repo: Path = field(default_factory=lambda: Path(__file__).parent.parent.parent)
 

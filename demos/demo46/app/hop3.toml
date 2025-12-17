@@ -1,0 +1,18 @@
+# Demo 46: Minimal PHP with MySQL
+# Tests PHP + MySQL connectivity
+
+[metadata]
+id = "php-mysql"
+version = "1.0"
+title = "PHP + MySQL"
+description = "Minimal PHP app testing MySQL connectivity"
+tags = ["php", "mysql"]
+
+[build]
+builder = "docker"
+
+[docker]
+port = 80
+
+[[provider]]
+name = "mysql"

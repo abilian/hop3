@@ -188,7 +188,32 @@ def test_app_via_curl(
         RuntimeError: If application is not accessible or content doesn't match
     """
     print_step(f"Verifying external access via {app_url}...")
-    curl_cmd = f"curl -sk {app_url}"
+
+    # Extract hostname from URL and use --resolve for DNS resolution
+    # This allows testing with custom hostnames like "demo37.hop"
+    from urllib.parse import urlparse
+    import socket
+
+    parsed = urlparse(app_url)
+    hostname = parsed.hostname
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+
+    # Resolve server IP if it's a hostname (--resolve requires actual IP address)
+    server_ip = ctx.server_ip
+    try:
+        # Check if server_ip is already an IP address
+        socket.inet_aton(server_ip)
+    except socket.error:
+        # It's a hostname, resolve it
+        try:
+            server_ip = socket.gethostbyname(server_ip)
+        except socket.gaierror:
+            pass  # Keep original if resolution fails
+
+    # Build curl command with --resolve to map hostname to server IP
+    # -L follows redirects (important for apps that redirect to /login, /install, etc.)
+    resolve_opt = f"--resolve {hostname}:{port}:{server_ip}" if hostname else ""
+    curl_cmd = f"curl -skL {resolve_opt} {app_url}"
 
     last_result = None
     for attempt in range(max_retries):
@@ -222,9 +247,27 @@ def test_app_via_curl(
         break
 
     print_error(f"Failed to access application at {app_url}")
-    if last_result and last_result.stdout:
-        print(f"  {yellow('Got response:')}")
-        print(f"  {last_result.stdout[:200].strip()}")
+    print_info(f"  Expected content: '{expected_content}'")
+    print_info(f"  Curl command: {curl_cmd}")
+    if last_result:
+        print_info(f"  Exit code: {last_result.returncode}")
+        if last_result.stdout:
+            print(f"  {yellow('Got response:')} ({len(last_result.stdout)} bytes)")
+            print(f"  {last_result.stdout[:500].strip()}")
+        if last_result.stderr:
+            print(f"  {yellow('Stderr:')}")
+            print(f"  {last_result.stderr[:200].strip()}")
+
+    # Log curl details to file for debugging
+    from lib.logging import log_section
+    log_section("curl-test", f"Curl test failed for {app_url}",
+                f"Command: {curl_cmd}\n"
+                f"Expected: {expected_content}\n"
+                f"Exit code: {last_result.returncode if last_result else 'N/A'}\n"
+                f"Response ({len(last_result.stdout) if last_result and last_result.stdout else 0} bytes):\n"
+                f"{last_result.stdout[:1000] if last_result and last_result.stdout else 'N/A'}\n"
+                f"Stderr: {last_result.stderr if last_result and last_result.stderr else 'N/A'}")
+
     msg = f"Application not accessible at {app_url}"
     raise RuntimeError(msg)
 

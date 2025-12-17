@@ -29,6 +29,16 @@ from lib.commands import CommandError, run_hop3, run_local, run_ssh
 # Context and data classes
 from lib.context import DemoContext, DemoInfo, DemoResult, OutputLevel
 
+# Logging
+from lib.logging import (
+    capture_failure_debug,
+    get_log_session,
+    init_logging,
+    log_command,
+    log_section,
+    log_text,
+)
+
 # Output helpers
 from lib.output import (
     bold,
@@ -63,6 +73,13 @@ __all__ = [
     "DemoInfo",
     "DemoResult",
     "OutputLevel",
+    # Logging
+    "capture_failure_debug",
+    "get_log_session",
+    "init_logging",
+    "log_command",
+    "log_section",
+    "log_text",
     # Output
     "bold",
     # App management

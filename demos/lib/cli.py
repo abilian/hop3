@@ -169,6 +169,17 @@ Examples:
         action="store_true",
         help="Maximum verbosity (passes --debug to hop3 for build logs)",
     )
+    output.add_argument(
+        "--logs-dir",
+        type=Path,
+        metavar="DIR",
+        help="Directory for detailed logs (default: demos/logs/)",
+    )
+    output.add_argument(
+        "--no-logs",
+        action="store_true",
+        help="Disable file logging entirely",
+    )
 
     # Information
     info = parser.add_argument_group("Information")

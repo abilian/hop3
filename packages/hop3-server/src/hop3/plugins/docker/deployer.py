@@ -119,12 +119,9 @@ class DockerComposeDeployer(Deployer):
         Returns:
             Path to the generated compose file
         """
-        # Get container port from artifact metadata (defaults to 8080)
-        container_port = 8080
-        if "exposed_ports" in self.artifact.metadata:
-            ports = self.artifact.metadata["exposed_ports"]
-            if ports:
-                container_port = ports[0]
+        # Get container port using centralized logic
+        container_port = self._get_container_port()
+        log(f"Using container port {container_port} for compose file", level=2)
 
         # Build environment section with app's env vars (2-space YAML indent)
         env_lines = [f"      - PORT={container_port}"]
@@ -286,6 +283,32 @@ services:
         port = get_free_port()
         log(f"Allocated new port {port}", level=2)
         return port
+
+    def _get_container_port(self) -> int:
+        """Get the container port for this application.
+
+        Priority:
+        1. hop3.toml [docker] port
+        2. Dockerfile EXPOSE
+        3. Default 8080
+
+        Returns:
+            Container port number
+        """
+        # Check hop3.toml [docker] port first (highest priority)
+        hop3_config = self.context.app_config.get("hop3_config", {})
+        docker_config = hop3_config.get("docker", {})
+        if docker_config.get("port"):
+            return int(docker_config["port"])
+
+        # Fall back to Dockerfile EXPOSE
+        if "exposed_ports" in self.artifact.metadata:
+            ports = self.artifact.metadata["exposed_ports"]
+            if ports:
+                return ports[0]
+
+        # Default to 8080
+        return 8080
 
     def _get_compose_cmd_base(self) -> list[str]:
         """Get base docker compose command with file and project args.
@@ -480,11 +503,9 @@ services:
         if port:
             env["PORT"] = str(port)
 
-        # Pass through internal container port if available
-        if "exposed_ports" in self.artifact.metadata:
-            ports = self.artifact.metadata["exposed_ports"]
-            if ports:
-                env["HOP3_APP_PORT"] = str(ports[0])
+        # Pass through internal container port
+        container_port = self._get_container_port()
+        env["HOP3_APP_PORT"] = str(container_port)
 
         # Add all app environment variables (DATABASE_URL, REDIS_URL, etc.)
         # This allows user compose files to use ${DATABASE_URL} syntax
@@ -604,12 +625,8 @@ services:
         Returns:
             Host port number (defaults to expected_port or 8080 if not discoverable)
         """
-        # Get internal container port from metadata (defaults to 8080)
-        internal_port = 8080
-        if "exposed_ports" in self.artifact.metadata:
-            ports = self.artifact.metadata["exposed_ports"]
-            if ports:
-                internal_port = ports[0]
+        # Get internal container port using same priority as _generate_compose_file
+        internal_port = self._get_container_port()
 
         # Try to get the actual HOST port from the running container
         # Use project name for proper isolation

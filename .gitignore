@@ -11,6 +11,7 @@ packages-ignored
 packages-ignored2
 /local-notes
 /docs/site/
+/demos/logs/
 
 # Temp
 /packages/hop3-web/src/hop3_web/lib/

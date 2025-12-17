@@ -1,0 +1,18 @@
+# Demo 45: Minimal Ruby/Sinatra with PostgreSQL
+# Tests Ruby + PostgreSQL connectivity
+
+[metadata]
+id = "ruby-postgres"
+version = "1.0"
+title = "Ruby/Sinatra + PostgreSQL"
+description = "Minimal Ruby app testing PostgreSQL connectivity"
+tags = ["ruby", "sinatra", "postgres"]
+
+[build]
+builder = "docker"
+
+[docker]
+port = 4567
+
+[[provider]]
+name = "postgres"

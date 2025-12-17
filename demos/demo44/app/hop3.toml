@@ -1,0 +1,22 @@
+# Redmine - Project management web application
+# https://www.redmine.org/
+
+[metadata]
+id = "redmine"
+version = "5.1"
+title = "Redmine"
+description = "Flexible project management web application"
+tags = ["ruby", "mysql", "project-management", "issue-tracker"]
+
+[build]
+builder = "docker"
+
+[docker]
+port = 3000
+
+[env]
+# Redmine configuration set via start.sh mapping
+
+[[provider]]
+name = "mysql"
+plan = "standard"

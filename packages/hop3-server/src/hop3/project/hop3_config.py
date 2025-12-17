@@ -241,6 +241,25 @@ class Hop3Config:
         return self._data.get("port", {})
 
     # =========================================================================
+    # [docker] section
+    # =========================================================================
+
+    @property
+    def docker(self) -> dict[str, Any]:
+        """Get the [docker] section."""
+        return self._data.get("docker", {})
+
+    @property
+    def docker_port(self) -> int | None:
+        """Get docker.port (container port for Docker deployments).
+
+        Returns:
+            Port number if specified, None otherwise
+        """
+        port = self.docker.get("port")
+        return int(port) if port is not None else None
+
+    # =========================================================================
     # [[provider]] section
     # =========================================================================
 
@@ -277,6 +296,7 @@ class Hop3Config:
             "run": self.run,
             "env": self.env,
             "port": self.port,
+            "docker": self.docker,
             "providers": self.providers,
             "workers": self.get_workers_from_run_section(),
         }

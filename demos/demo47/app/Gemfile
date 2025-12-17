@@ -1,0 +1,7 @@
+# Demo 47: Ruby/Sinatra + MySQL
+source 'https://rubygems.org'
+
+gem 'sinatra'
+gem 'puma'
+gem 'rackup'
+gem 'mysql2'

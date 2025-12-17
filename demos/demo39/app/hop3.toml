@@ -1,0 +1,12 @@
+# Demo 39: Matomo Analytics
+# Open-source web analytics (Google Analytics alternative)
+
+[metadata]
+name = "demo39"
+description = "Matomo web analytics platform"
+
+[docker]
+port = 80
+
+[[provider]]
+name = "mysql"
