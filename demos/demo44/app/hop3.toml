@@ -6,7 +6,7 @@ id = "redmine"
 version = "5.1"
 title = "Redmine"
 description = "Flexible project management web application"
-tags = ["ruby", "mysql", "project-management", "issue-tracker"]
+tags = ["ruby", "postgres", "project-management", "issue-tracker"]
 
 [build]
 builder = "docker"
@@ -18,5 +18,5 @@ port = 3000
 # Redmine configuration set via start.sh mapping
 
 [[provider]]
-name = "mysql"
+name = "postgres"
 plan = "standard"

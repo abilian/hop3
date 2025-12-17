@@ -1,5 +1,5 @@
 #!/bin/sh
-# Startup script for Redmine with MySQL configuration
+# Startup script for Redmine with PostgreSQL configuration
 # Note: Using /bin/sh for Alpine compatibility
 
 set -e
@@ -7,40 +7,37 @@ set -e
 # Unset DATABASE_URL to prevent it from interfering with Redmine's config
 unset DATABASE_URL
 
-# Disable MySQL SSL via environment variable (recognized by mysql2 gem)
-export MYSQL_SSL_MODE=DISABLED
-
-# Generate database.yml directly with mysql2 adapter
-if [ -n "$MYSQL_HOST" ]; then
+# Generate database.yml with postgresql adapter
+if [ -n "$PGHOST" ]; then
     cat > /usr/src/redmine/config/database.yml <<EOF
 production:
-  adapter: mysql2
-  database: ${MYSQL_DATABASE:-redmine}
-  host: ${MYSQL_HOST}
-  port: ${MYSQL_PORT:-3306}
-  username: ${MYSQL_USER:-redmine}
-  password: "${MYSQL_PASSWORD}"
-  encoding: utf8mb4
+  adapter: postgresql
+  database: ${PGDATABASE:-redmine}
+  host: ${PGHOST}
+  port: ${PGPORT:-5432}
+  username: ${PGUSER:-redmine}
+  password: "${PGPASSWORD}"
+  encoding: utf8
 EOF
-    echo "Generated database.yml with mysql2 adapter"
+    echo "Generated database.yml with postgresql adapter"
     cat /usr/src/redmine/config/database.yml
 fi
 
 # Also set REDMINE_DB_* variables for any other entrypoint logic
-if [ -n "$MYSQL_HOST" ]; then
-    export REDMINE_DB_MYSQL="$MYSQL_HOST"
+if [ -n "$PGHOST" ]; then
+    export REDMINE_DB_POSTGRES="$PGHOST"
 fi
-if [ -n "$MYSQL_PORT" ]; then
-    export REDMINE_DB_PORT="$MYSQL_PORT"
+if [ -n "$PGPORT" ]; then
+    export REDMINE_DB_PORT="$PGPORT"
 fi
-if [ -n "$MYSQL_DATABASE" ]; then
-    export REDMINE_DB_DATABASE="$MYSQL_DATABASE"
+if [ -n "$PGDATABASE" ]; then
+    export REDMINE_DB_DATABASE="$PGDATABASE"
 fi
-if [ -n "$MYSQL_USER" ]; then
-    export REDMINE_DB_USERNAME="$MYSQL_USER"
+if [ -n "$PGUSER" ]; then
+    export REDMINE_DB_USERNAME="$PGUSER"
 fi
-if [ -n "$MYSQL_PASSWORD" ]; then
-    export REDMINE_DB_PASSWORD="$MYSQL_PASSWORD"
+if [ -n "$PGPASSWORD" ]; then
+    export REDMINE_DB_PASSWORD="$PGPASSWORD"
 fi
 
 # Call the original entrypoint
