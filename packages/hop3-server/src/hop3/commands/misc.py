@@ -72,7 +72,7 @@ class BackupCmd(Command):
 
     def call(self, *args):
         if not args:
-            return [{"t": "text", "text": "Usage: hop backup <app_name>"}]
+            raise ValueError("Usage: hop backup <app_name>")
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
 
@@ -150,7 +150,7 @@ class PSCmd(Command):
 
     def call(self, *args):
         if not args:
-            return [{"t": "text", "text": "Usage: hop ps <app_name>"}]
+            raise ValueError("Usage: hop ps <app_name>")
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
         scaling_file = app.virtualenv_path / "SCALING"
@@ -292,7 +292,7 @@ class SbomCmd(Command):
 
     def call(self, *args):
         if not args:
-            return [{"t": "text", "text": "Usage: hop sbom <app_name>"}]
+            raise ValueError("Usage: hop sbom <app_name>")
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
 

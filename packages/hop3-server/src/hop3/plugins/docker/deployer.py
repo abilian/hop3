@@ -756,10 +756,6 @@ services:
             "HOST_NAME": "_",  # Default: catch-all, skips proxy setup
         }
 
-        # Load environment variables shipped with repo (if any)
-        env_file = self.source_path / "ENV"
-        env.parse_settings(env_file)
-
         # Load environment variables from the ORM
         if self.context.app:
             env.update(self.context.app.get_runtime_env())

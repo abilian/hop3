@@ -232,16 +232,11 @@ class AppLauncher:
             env["NODE_PATH"] = str(node_path)
             env["PATH"] = f"{node_path / '.bin'}:{os.environ['PATH']}"
 
-        # Load environment variables shipped with repo (if any)
-        # Settings shipped with the app
-        env_file = self.app.src_path / "ENV"
-        env.parse_settings(env_file)
-        server_log.debug(
-            "Loaded ENV file",
-            app_name=self.app_name,
-            env_file=str(env_file),
-            env_file_exists=env_file.exists(),
-        )
+        # add Ruby gem paths if this is a Ruby app
+        gemfile = self.app.src_path / "Gemfile"
+        if gemfile.exists():
+            env["BUNDLE_PATH"] = str(self.virtualenv_path)
+            env["GEM_HOME"] = str(self.virtualenv_path)
 
         # Load environment variables from the ORM
         runtime_env = self.app.get_runtime_env()

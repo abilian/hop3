@@ -45,10 +45,8 @@ def git_hook_cmd(mock_db_session):
 
 def test_git_hook_requires_app_name(git_hook_cmd):
     """Test that git-hook command requires an app name."""
-    result = git_hook_cmd.call()
-    assert len(result) == 1
-    assert result[0]["t"] == "text"
-    assert "Usage:" in result[0]["text"]
+    with pytest.raises(ValueError, match="Usage:"):
+        git_hook_cmd.call()
 
 
 def test_git_hook_app_not_found(git_hook_cmd):
