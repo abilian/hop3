@@ -77,9 +77,22 @@ DEBIAN_PACKAGES = [
     "supervisor",  # Process manager (used by some proxies for reload)
     "postgresql",
     "postgresql-contrib",
+    # Python toolchain
     "python3-dev",
     "python3-pip",
     "python3-venv",
+    "python3-virtualenv",  # Required for Python app deployments
+    "python3-setuptools",
+    # Node.js toolchain
+    "nodejs",
+    "npm",
+    # Ruby toolchain
+    "ruby",
+    "ruby-dev",
+    "ruby-bundler",
+    # Go toolchain (note: Go native builder is currently a stub)
+    "golang-go",
+    # Common utilities
     "curl",
     "wget",
     "rsync",
@@ -113,8 +126,21 @@ FEDORA_PACKAGES = [
     "supervisor",  # Process manager (used by some proxies for reload)
     "postgresql-server",
     "postgresql-contrib",
+    # Python toolchain
     "python3-devel",
     "python3-pip",
+    "python3-virtualenv",  # Required for Python app deployments
+    "python3-setuptools",
+    # Node.js toolchain
+    "nodejs",
+    "npm",
+    # Ruby toolchain
+    "ruby",
+    "ruby-devel",
+    "rubygem-bundler",
+    # Go toolchain (note: Go native builder is currently a stub)
+    "golang",
+    # Common utilities
     "curl",
     "wget",
     "rsync",
@@ -145,10 +171,12 @@ FEDORA_REDIS_PACKAGES = [
 # Optional Docker packages
 DEBIAN_DOCKER_PACKAGES = [
     "docker.io",
+    "docker-compose-v2",  # Provides 'docker compose' subcommand
 ]
 
 FEDORA_DOCKER_PACKAGES = [
     "docker",
+    "docker-compose-plugin",  # Provides 'docker compose' subcommand
 ]
 
 # Systemd service units
