@@ -71,10 +71,6 @@ class StaticDeployer(Deployer):
             "HOST_NAME": "_",  # Catch-all server name for development
         }
 
-        # Load environment variables shipped with repo (if any)
-        env_file = self.app.src_path / "ENV"
-        env.parse_settings(env_file)
-
         # Load environment variables from the ORM
         runtime_env = self.app.get_runtime_env()
         env.update(runtime_env)

@@ -86,17 +86,12 @@ class TestGitHookCmdIntegration:
             - Call command without arguments
 
         ASSERT:
-            - Verify usage error is returned
-            - Verify usage message contains proper command syntax
+            - Verify ValueError is raised with usage message
         """
         cmd = GitHookCmd(db_session=db_session)
 
-        result = cmd.call()
-
-        assert len(result) == 1
-        assert result[0]["t"] == "text"
-        assert "Usage:" in result[0]["text"]
-        assert "git-hook" in result[0]["text"]
+        with pytest.raises(ValueError, match="Usage:.*git-hook"):
+            cmd.call()
 
     def test_git_hook_app_not_found(self, db_session: Session):
         """Test error when app is not found in database.

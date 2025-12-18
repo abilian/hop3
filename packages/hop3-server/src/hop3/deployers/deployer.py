@@ -129,15 +129,9 @@ def _update_app_model(
     if deployment_info.port:
         app.port = deployment_info.port
 
-    # Update hostname from environment config
-    # Check ENV file or app's runtime environment
-    env = Env({})
-    env_file = app.src_path / "ENV"
-    if env_file.exists():
-        env.parse_settings(env_file)
-    # Also check app's stored runtime env
-    env.update(app.get_runtime_env())
-    host_name = env.get("HOST_NAME", "")
+    # Update hostname from environment config (from ORM)
+    runtime_env = app.get_runtime_env()
+    host_name = runtime_env.get("HOST_NAME", "")
     if host_name and host_name != "_":
         app.hostname = host_name
 

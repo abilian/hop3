@@ -57,7 +57,7 @@ class LaunchCmd(Command):
 
     def call(self, *args):
         if len(args) != 2:
-            return [{"t": "text", "text": "Usage: hop launch <repo_url> <app_name>"}]
+            raise ValueError("Usage: hop launch <repo_url> <app_name>")
 
         repo_url, app_name = args
         app_repo = AppRepository(session=self.db_session)
@@ -107,7 +107,7 @@ class DeployCmd(Command):
         from hop3.lib.logging import server_log
 
         if not args:
-            return [{"t": "text", "text": "Usage: hop deploy <app_name>"}]
+            raise ValueError("Usage: hop deploy <app_name>")
 
         app_name = args[0]
 
@@ -217,7 +217,7 @@ class StatusCmd(Command):
         from .apps import _get_instance_count
 
         if not args:
-            return [{"t": "text", "text": "Usage: hop app:status <app_name>"}]
+            raise ValueError("Usage: hop app:status <app_name>")
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
 
@@ -281,7 +281,7 @@ class PingCmd(Command):
 
     def call(self, *args):
         if not args:
-            return [{"t": "text", "text": "Usage: hop app:ping <app_name> [path]"}]
+            raise ValueError("Usage: hop app:ping <app_name> [path]")
 
         app_name = args[0]
         path = args[1] if len(args) > 1 else "/"
@@ -389,7 +389,7 @@ class LogsCmd(Command):
         app_name = parsed.get("app_name")
 
         if not app_name:
-            return [{"t": "text", "text": "Usage: hop3 app:logs <app_name> [options]"}]
+            raise ValueError("Usage: hop3 app:logs <app_name> [options]")
 
         lines = parsed.get("lines", 100)
         grep = parsed.get("grep", "")
@@ -499,7 +499,7 @@ class BuildLogsCmd(Command):
 
     def call(self, *args):
         if not args:
-            return [{"t": "text", "text": "Usage: hop3 app:build-logs <app_name>"}]
+            raise ValueError("Usage: hop3 app:build-logs <app_name>")
 
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
@@ -535,7 +535,7 @@ class StartCmd(Command):
         from hop3.lib.console import capture_logs
 
         if not args:
-            return [{"t": "text", "text": "Usage: hop start <app_name>"}]
+            raise ValueError("Usage: hop start <app_name>")
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
 
@@ -589,7 +589,7 @@ class StopCmd(Command):
         from hop3.lib.console import capture_logs
 
         if not args:
-            return [{"t": "text", "text": "Usage: hop stop <app_name>"}]
+            raise ValueError("Usage: hop stop <app_name>")
 
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
@@ -644,7 +644,7 @@ class RestartCmd(Command):
         from hop3.lib.console import capture_logs
 
         if not args:
-            return [{"t": "text", "text": "Usage: hop restart <app_name>"}]
+            raise ValueError("Usage: hop restart <app_name>")
         app_name = args[0]
         app = _get_app(self.db_session, app_name)
 

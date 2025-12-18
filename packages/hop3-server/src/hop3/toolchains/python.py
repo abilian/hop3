@@ -77,7 +77,9 @@ class PythonToolchain(LanguageToolchain):
             shutil.rmtree(self.virtual_env, ignore_errors=True)
 
         emit(CreatingVirtualEnv(self.app_name))
-        self.shell(f"virtualenv {self.virtual_env}")
+        # Use python3 -m virtualenv instead of bare 'virtualenv' command
+        # because python3-virtualenv package provides the module but not the binary
+        self.shell(f"python3 -m virtualenv {self.virtual_env}")
 
         # Verify the virtualenv was created successfully
         if not python_path.exists():

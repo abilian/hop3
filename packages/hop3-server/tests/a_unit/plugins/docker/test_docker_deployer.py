@@ -393,11 +393,12 @@ class TestDockerComposeDeployerProxyIntegration:
         assert env["HOST_NAME"] == "_"  # Default when not configured
         assert "NGINX_IPV4_ADDRESS" in env
 
-    def test_make_proxy_env_with_env_file(
+    def test_make_proxy_env_ignores_env_file(
         self, tmp_path: Path, docker_artifact: BuildArtifact
     ):
-        """Should load HOST_NAME from ENV file."""
+        """Should NOT load HOST_NAME from ENV file (removed feature)."""
         (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+        # ENV file exists but should be ignored - HOST_NAME comes from ORM only
         (tmp_path / "ENV").write_text("HOST_NAME=myapp.example.com\n")
 
         context = DeploymentContext(
@@ -409,7 +410,8 @@ class TestDockerComposeDeployerProxyIntegration:
 
         env = deployer._make_proxy_env(8080)
 
-        assert env["HOST_NAME"] == "myapp.example.com"
+        # ENV file is ignored, so HOST_NAME should be default "_"
+        assert env["HOST_NAME"] == "_"
 
     def test_make_proxy_env_with_app_runtime_env(
         self, tmp_path: Path, docker_artifact: BuildArtifact
