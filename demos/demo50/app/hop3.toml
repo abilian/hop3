@@ -1,0 +1,9 @@
+# hop3.toml - Native Node.js application (no Docker)
+
+[metadata]
+id = "demo50-native-nodejs"
+version = "1.0.0"
+title = "Native Node.js Demo"
+description = "Demonstrates native deployment with Node.js/Express (no Docker)"
+
+# No [build] section - auto-detect from package.json

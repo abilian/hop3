@@ -1,0 +1,14 @@
+# hop3.toml - Miniflux RSS Reader
+
+[metadata]
+id = "demo54-miniflux"
+version = "2.2.15"
+title = "Miniflux RSS Reader"
+description = "Minimalist and opinionated feed reader"
+
+[build]
+builder = "docker"
+
+[[provider]]
+name = "postgres"
+plan = "standard"

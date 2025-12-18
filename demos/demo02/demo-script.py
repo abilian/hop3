@@ -24,7 +24,6 @@ Demonstrates deploying a Docker-based application with Hop3:
 
 APP_NAME = "demo02"
 APP_DIR = Path(__file__).parent / "app"
-DEFAULT_HOSTNAME = "demo02.hop"
 
 
 def run(ctx: DemoContext) -> None:
@@ -49,7 +48,7 @@ def run(ctx: DemoContext) -> None:
     )
     from lib.server import ensure_docker
 
-    app_hostname = DEFAULT_HOSTNAME
+    app_hostname = ctx.hostname
     app_url = f"https://{app_hostname}"
 
     # Ensure Docker is available

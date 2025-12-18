@@ -27,7 +27,6 @@ Demonstrates backup and restore functionality with Hop3:
 
 APP_NAME = "demo12"
 APP_DIR = Path(__file__).parent / "app"
-DEFAULT_HOSTNAME = "demo12.hop"
 
 
 def run(ctx: DemoContext) -> None:
@@ -53,7 +52,7 @@ def run(ctx: DemoContext) -> None:
     )
     from lib.commands import run_hop3
 
-    app_hostname = DEFAULT_HOSTNAME
+    app_hostname = ctx.hostname
     app_url = f"https://{app_hostname}"
 
     # Show app structure

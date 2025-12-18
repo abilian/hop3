@@ -1,0 +1,19 @@
+# Taiga - Agile Project Management
+# https://www.taiga.io/
+
+[metadata]
+id = "taiga"
+version = "6.7.0"
+title = "Taiga"
+description = "Agile project management platform (Jira/Trello alternative)"
+tags = ["python", "django", "postgres", "project-management", "agile"]
+
+[build]
+builder = "docker"
+
+[docker]
+port = 80
+
+[[provider]]
+name = "postgres"
+plan = "standard"

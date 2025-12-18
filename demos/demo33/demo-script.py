@@ -31,7 +31,6 @@ Demonstrates the [[provider]] section in hop3.toml:
 
 APP_NAME = "demo33"
 APP_DIR = Path(__file__).parent / "app"
-DEFAULT_HOSTNAME = "demo33.hop"
 DB_NAME = "demo33-db"
 
 
@@ -57,7 +56,7 @@ def run(ctx: DemoContext) -> None:
     )
     from lib.commands import run_hop3
 
-    app_hostname = DEFAULT_HOSTNAME
+    app_hostname = ctx.hostname
     app_url = f"https://{app_hostname}"
 
     # Clean up any leftover database from previous failed runs

@@ -321,10 +321,10 @@ def run_demo(
         if log_session and log_session.current_demo_dir:
             print_info(f"  Logs: {log_session.current_demo_dir}")
 
-        if ctx.verbose:
-            import traceback
-
-            traceback.print_exc()
+        # Log full traceback to file (not console)
+        import traceback
+        tb_str = traceback.format_exc()
+        log_section("traceback", "Exception traceback", tb_str)
 
         duration = time.time() - start_time
         end_demo_logging()

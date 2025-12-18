@@ -13,7 +13,7 @@ tags = ["php", "mysql", "survey"]
 builder = "docker"
 
 [docker]
-port = 8080
+port = 80
 
 [[provider]]
 name = "mysql"

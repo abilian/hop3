@@ -1,14 +1,18 @@
-#!/bin/sh
+#!/bin/bash
 # Startup script for Redmine with PostgreSQL configuration
-# Note: Using /bin/sh for Alpine compatibility
 
 set -e
+
+echo "==> Starting Redmine"
+
+cd /usr/src/redmine
 
 # Unset DATABASE_URL to prevent it from interfering with Redmine's config
 unset DATABASE_URL
 
 # Generate database.yml with postgresql adapter
 if [ -n "$PGHOST" ]; then
+    echo "==> Creating database.yml"
     cat > /usr/src/redmine/config/database.yml <<EOF
 production:
   adapter: postgresql
@@ -19,26 +23,25 @@ production:
   password: "${PGPASSWORD}"
   encoding: utf8
 EOF
-    echo "Generated database.yml with postgresql adapter"
-    cat /usr/src/redmine/config/database.yml
+
+    echo "==> Database config:"
+    echo "    Host: ${PGHOST}"
+    echo "    Port: ${PGPORT:-5432}"
+    echo "    User: ${PGUSER}"
+    echo "    Database: ${PGDATABASE:-redmine}"
 fi
 
-# Also set REDMINE_DB_* variables for any other entrypoint logic
+# Generate secret token if not present
+if [ ! -f /usr/src/redmine/config/initializers/secret_token.rb ]; then
+    echo "==> Generating secret token"
+    bundle exec rake generate_secret_token
+fi
+
+# Run database migrations
 if [ -n "$PGHOST" ]; then
-    export REDMINE_DB_POSTGRES="$PGHOST"
-fi
-if [ -n "$PGPORT" ]; then
-    export REDMINE_DB_PORT="$PGPORT"
-fi
-if [ -n "$PGDATABASE" ]; then
-    export REDMINE_DB_DATABASE="$PGDATABASE"
-fi
-if [ -n "$PGUSER" ]; then
-    export REDMINE_DB_USERNAME="$PGUSER"
-fi
-if [ -n "$PGPASSWORD" ]; then
-    export REDMINE_DB_PASSWORD="$PGPASSWORD"
+    echo "==> Running database migrations"
+    bundle exec rake db:migrate || true
 fi
 
-# Call the original entrypoint
-exec /docker-entrypoint.sh "$@"
+echo "==> Starting Rails server..."
+exec bundle exec rails server -b 0.0.0.0 -p 3000

@@ -26,7 +26,6 @@ Demonstrates deploying HedgeDoc with Hop3:
 
 APP_NAME = "demo21"
 APP_DIR = Path(__file__).parent / "app"
-DEFAULT_HOSTNAME = "demo21.hop"
 POSTGRES_NAME = "demo21-db"
 
 
@@ -53,7 +52,7 @@ def run(ctx: DemoContext) -> None:
     from lib.commands import run_hop3
     from lib.server import ensure_docker
 
-    app_hostname = DEFAULT_HOSTNAME
+    app_hostname = ctx.hostname
     app_url = f"https://{app_hostname}"
 
     # Ensure Docker is available

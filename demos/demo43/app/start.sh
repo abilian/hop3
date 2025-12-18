@@ -3,24 +3,43 @@
 
 set -e
 
-# Map MYSQL_* variables (from Hop3 addon) to DB_* variables (expected by EasyAppointments)
-if [ -n "$MYSQL_HOST" ]; then
-    export DB_HOST="$MYSQL_HOST"
-fi
-if [ -n "$MYSQL_DATABASE" ]; then
-    export DB_NAME="$MYSQL_DATABASE"
-fi
-if [ -n "$MYSQL_USER" ]; then
-    export DB_USERNAME="$MYSQL_USER"
-fi
-if [ -n "$MYSQL_PASSWORD" ]; then
-    export DB_PASSWORD="$MYSQL_PASSWORD"
+echo "==> Starting EasyAppointments"
+
+cd /var/www/html
+
+# Create config.php from environment variables if MySQL is configured
+if [ -n "$MYSQL_HOST" ] && [ ! -f /var/www/html/config.php ]; then
+    echo "==> Creating EasyAppointments configuration"
+
+    # Copy sample config if it exists
+    if [ -f /var/www/html/config-sample.php ]; then
+        cp /var/www/html/config-sample.php /var/www/html/config.php
+    fi
+
+    # Update database settings
+    if [ -f /var/www/html/config.php ]; then
+        sed -i "s|const DB_HOST = '.*';|const DB_HOST = '${MYSQL_HOST}';|" /var/www/html/config.php
+        sed -i "s|const DB_NAME = '.*';|const DB_NAME = '${MYSQL_DATABASE}';|" /var/www/html/config.php
+        sed -i "s|const DB_USERNAME = '.*';|const DB_USERNAME = '${MYSQL_USER}';|" /var/www/html/config.php
+        sed -i "s|const DB_PASSWORD = '.*';|const DB_PASSWORD = '${MYSQL_PASSWORD}';|" /var/www/html/config.php
+
+        # Set base URL if HOST_NAME is provided
+        if [ -n "$HOST_NAME" ]; then
+            sed -i "s|const BASE_URL = '.*';|const BASE_URL = 'https://${HOST_NAME}';|" /var/www/html/config.php
+        fi
+    fi
+
+    chown www-data:www-data /var/www/html/config.php
+
+    echo "==> Database config:"
+    echo "    Host: ${MYSQL_HOST}"
+    echo "    User: ${MYSQL_USER}"
+    echo "    Database: ${MYSQL_DATABASE}"
 fi
 
-# Set base URL from HOST_NAME if provided
-if [ -n "$HOST_NAME" ]; then
-    export BASE_URL="https://${HOST_NAME}"
-fi
+# Ensure storage directory is writable
+mkdir -p /var/www/html/storage/logs /var/www/html/storage/sessions /var/www/html/storage/uploads
+chown -R www-data:www-data /var/www/html/storage 2>/dev/null || true
 
-# Call the original entrypoint (docker-entrypoint.sh handles config.php creation)
-exec docker-entrypoint.sh
+echo "==> Starting Apache..."
+exec apache2ctl -D FOREGROUND

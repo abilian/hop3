@@ -26,7 +26,6 @@ Demonstrates deploying Redmine with Hop3:
 
 APP_NAME = "demo44"
 APP_DIR = Path(__file__).parent / "app"
-DEFAULT_HOSTNAME = "demo44.hop"
 POSTGRES_NAME = "demo44-db"
 
 
@@ -53,7 +52,7 @@ def run(ctx: DemoContext) -> None:
     from lib.commands import run_hop3
     from lib.server import ensure_docker, ensure_postgres
 
-    app_hostname = DEFAULT_HOSTNAME
+    app_hostname = ctx.hostname
     app_url = f"https://{app_hostname}"
 
     # Ensure Docker and PostgreSQL are available

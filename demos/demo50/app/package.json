@@ -1,0 +1,15 @@
+{
+  "name": "demo50-native-nodejs",
+  "version": "1.0.0",
+  "description": "Demo 50: Native Node.js/Express application (no Docker)",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

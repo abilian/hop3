@@ -24,7 +24,6 @@ Demonstrates Docker deployment with Node.js/Express:
 
 APP_NAME = "demo18"
 APP_DIR = Path(__file__).parent / "app"
-DEFAULT_HOSTNAME = "demo18.hop"
 
 
 def run(ctx: DemoContext) -> None:
@@ -48,7 +47,7 @@ def run(ctx: DemoContext) -> None:
     )
     from lib.server import ensure_docker
 
-    app_hostname = DEFAULT_HOSTNAME
+    app_hostname = ctx.hostname
     app_url = f"https://{app_hostname}"
 
     # Ensure Docker is available

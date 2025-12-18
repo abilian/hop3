@@ -26,7 +26,6 @@ Demonstrates Docker deployment with MySQL addon:
 
 APP_NAME = "demo28"
 APP_DIR = Path(__file__).parent / "app"
-DEFAULT_HOSTNAME = "demo28.hop"
 DB_NAME = "demo28-db"
 
 
@@ -53,7 +52,7 @@ def run(ctx: DemoContext) -> None:
     from lib.commands import run_hop3
     from lib.server import ensure_docker, ensure_mysql
 
-    app_hostname = DEFAULT_HOSTNAME
+    app_hostname = ctx.hostname
     app_url = f"https://{app_hostname}"
 
     # Ensure Docker is available (adds hop3 user to docker group if needed)

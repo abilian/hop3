@@ -26,7 +26,6 @@ Demonstrates deploying a native Python application with Hop3:
 
 APP_NAME = "demo30"
 APP_DIR = Path(__file__).parent / "app"
-DEFAULT_HOSTNAME = "demo30.hop"
 
 
 def run(ctx: DemoContext) -> None:
@@ -50,7 +49,7 @@ def run(ctx: DemoContext) -> None:
         wait_for_app,
     )
 
-    app_hostname = DEFAULT_HOSTNAME
+    app_hostname = ctx.hostname
     app_url = f"https://{app_hostname}"
 
     # Show app structure

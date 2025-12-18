@@ -3,29 +3,49 @@
 
 set -e
 
-# Map MYSQL_* variables (from Hop3 addon) to DB_* variables (expected by LimeSurvey)
-if [ -n "$MYSQL_HOST" ]; then
-    export DB_HOST="$MYSQL_HOST"
-fi
-if [ -n "$MYSQL_PORT" ]; then
-    export DB_PORT="$MYSQL_PORT"
-fi
-if [ -n "$MYSQL_DATABASE" ]; then
-    export DB_NAME="$MYSQL_DATABASE"
-fi
-if [ -n "$MYSQL_USER" ]; then
-    export DB_USERNAME="$MYSQL_USER"
-fi
-if [ -n "$MYSQL_PASSWORD" ]; then
-    export DB_PASSWORD="$MYSQL_PASSWORD"
-fi
-export DB_TYPE="mysql"
+echo "==> Starting LimeSurvey"
 
-# Set default admin credentials if not provided
-export ADMIN_USER=${ADMIN_USER:-admin}
-export ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
-export ADMIN_NAME=${ADMIN_NAME:-"Admin User"}
-export ADMIN_EMAIL=${ADMIN_EMAIL:-"admin@example.com"}
+cd /var/www/html
 
-# Start the original entrypoint with CMD
-exec /usr/local/bin/entrypoint.sh "$@"
+# Create config.php from environment variables if MySQL is configured
+if [ -n "$MYSQL_HOST" ] && [ ! -f /var/www/html/application/config/config.php ]; then
+    echo "==> Creating LimeSurvey configuration"
+
+    cat > /var/www/html/application/config/config.php << PHPEOF
+<?php if (!defined('BASEPATH')) exit('No direct script access allowed');
+return array(
+    'components' => array(
+        'db' => array(
+            'connectionString' => 'mysql:host=${MYSQL_HOST};port=${MYSQL_PORT:-3306};dbname=${MYSQL_DATABASE};',
+            'username' => '${MYSQL_USER}',
+            'password' => '${MYSQL_PASSWORD}',
+            'charset' => 'utf8mb4',
+            'tablePrefix' => 'lime_',
+        ),
+        'urlManager' => array(
+            'urlFormat' => 'path',
+            'rules' => array(),
+            'showScriptName' => true,
+        ),
+    ),
+    'config' => array(
+        'debug' => 0,
+        'debugsql' => 0,
+    )
+);
+PHPEOF
+
+    chown www-data:www-data /var/www/html/application/config/config.php
+
+    echo "==> Database config:"
+    echo "    Host: ${MYSQL_HOST}"
+    echo "    Port: ${MYSQL_PORT:-3306}"
+    echo "    User: ${MYSQL_USER}"
+    echo "    Database: ${MYSQL_DATABASE}"
+fi
+
+# Ensure directories are writable
+chown -R www-data:www-data /var/www/html/tmp /var/www/html/upload /var/www/html/application/config 2>/dev/null || true
+
+echo "==> Starting Apache..."
+exec apache2ctl -D FOREGROUND
