@@ -39,7 +39,6 @@ class DemoInfo:
     description: str
     app_name: str
     app_dir: Path
-    hostname: str
     app_type: str
     files: list[str]
     location: Path
@@ -67,6 +66,7 @@ class DemoContext:
     no_cleanup: bool = False
     use_local_code: bool = False
     clean_before: bool = False  # Clean server completely before running
+    fail_fast: bool = False  # Stop on first failure
     verbose: bool = False
     debug: bool = False  # Maximum verbosity (--debug flag to hop3)
     output_level: OutputLevel = OutputLevel.NORMAL
@@ -80,6 +80,11 @@ class DemoContext:
     @property
     def ssh_target(self) -> str:
         return f"{self.ssh_user}@{self.server_ip}"
+
+    @property
+    def hostname(self) -> str:
+        """Return the hostname for apps (same as server_ip)."""
+        return self.server_ip
 
     @property
     def installer_path(self) -> Path:

@@ -90,13 +90,19 @@ def main() -> int:
     if not getattr(args, "no_logs", False):
         logs_dir = getattr(args, "logs_dir", None)
         log_session = init_logging(logs_dir)
-        if output_level >= OutputLevel.NORMAL:
-            print_info(f"Logs: {log_session.session_dir}")
+        # Always show log directory, even in quiet mode
+        print_info(f"Logs: {log_session.session_dir}")
 
     # Discover and resolve demos
     available_demos = discover_demos(args.demo_dirs)
     demos_to_run = _resolve_demos(args, available_demos)
     if demos_to_run is None:
+        return 2
+
+    # Enforce single demo with --keep (since all demos share the same hostname)
+    if args.no_cleanup and len(demos_to_run) > 1:
+        print_error("--keep requires a single demo (all demos share the same hostname)")
+        print_info("Specify a single demo or remove --keep")
         return 2
 
     # Create context
@@ -186,6 +192,7 @@ def _create_context(args, output_level: OutputLevel) -> DemoContext:
         no_cleanup=args.no_cleanup,
         use_local_code=args.use_local_code,
         clean_before=getattr(args, "clean_before", False),
+        fail_fast=getattr(args, "fail_fast", False),
         verbose=args.verbose,
         debug=getattr(args, "debug", False),
         output_level=output_level,
@@ -218,6 +225,11 @@ def _run_all_phases(
         for name, demo_dir, is_generic in demos_to_run:
             result = run_demo(ctx, name, demo_dir, is_generic)
             results.append(result)
+
+            # Stop on first failure if --fail-fast is set
+            if ctx.fail_fast and result.status == "fail":
+                break
+
             pause(ctx.pause_between_steps)
 
         # Phase 4: Summary
@@ -253,12 +265,11 @@ def _show_summary(ctx: DemoContext, results: list, overall_start: float) -> int:
 
     print_summary_stats(passed, failed, skipped, overall_duration)
 
-    # Show log directory if there were failures
-    if failed > 0:
-        log_session = get_log_session()
-        if log_session:
-            print()
-            print_info(f"Detailed logs: {log_session.session_dir}")
+    # Always show log directory in summary
+    log_session = get_log_session()
+    if log_session:
+        print()
+        print_info(f"Detailed logs: {log_session.session_dir}")
 
     # Show admin credentials and UI URL if keeping apps
     if ctx.no_cleanup and ctx.output_level >= OutputLevel.NORMAL:

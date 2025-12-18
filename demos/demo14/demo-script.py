@@ -27,7 +27,6 @@ Demonstrates Redis addon functionality with Hop3:
 
 APP_NAME = "demo14"
 APP_DIR = Path(__file__).parent / "app"
-DEFAULT_HOSTNAME = "demo14.hop"
 REDIS_NAME = "demo14-cache"
 
 
@@ -54,7 +53,7 @@ def run(ctx: DemoContext) -> None:
     from lib.commands import run_hop3
     from lib.server import ensure_redis
 
-    app_hostname = DEFAULT_HOSTNAME
+    app_hostname = ctx.hostname
     app_url = f"https://{app_hostname}"
 
     # Ensure Redis is available

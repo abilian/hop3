@@ -97,9 +97,6 @@ def show_inventory(demo_dirs: Sequence[Path] | None = None) -> None:
         if info.app_name:
             print(f"  {dim('App name:')} {info.app_name}")
 
-        if info.hostname:
-            print(f"  {dim('Hostname:')} {info.hostname}")
-
         print(f"  {dim('App type:')} {info.app_type}")
         print(f"  {dim('Files:')} {', '.join(info.files[:8])}", end="")
         if len(info.files) > 8:

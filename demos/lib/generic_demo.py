@@ -144,7 +144,8 @@ def run_generic_demo(ctx: DemoContext, app_dir: Path) -> None:
 
     # Derive app name from directory
     app_name = sanitize_app_name(app_dir.name)
-    app_hostname = f"{app_name}.hop"
+    # Use the server hostname for all apps (from --host argument)
+    app_hostname = ctx.hostname
     app_url = f"https://{app_hostname}"
 
     # Print header and details (skip in quiet mode)

@@ -31,7 +31,6 @@ Demonstrates the [[provider]] section in hop3.toml for MySQL:
 
 APP_NAME = "demo34"
 APP_DIR = Path(__file__).parent / "app"
-DEFAULT_HOSTNAME = "demo34.hop"
 DB_NAME = "demo34-db"
 
 
@@ -58,7 +57,7 @@ def run(ctx: DemoContext) -> None:
     from lib.commands import run_hop3
     from lib.server import ensure_mysql
 
-    app_hostname = DEFAULT_HOSTNAME
+    app_hostname = ctx.hostname
     app_url = f"https://{app_hostname}"
 
     # Ensure MySQL is available

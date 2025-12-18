@@ -91,7 +91,6 @@ def get_demo_info(demo_name: str, demo_path: Path) -> DemoInfo | None:
     title = demo_name
     description = ""
     app_name = ""
-    hostname = ""
     app_type = "unknown"
     app_subdir = None
 
@@ -106,8 +105,6 @@ def get_demo_info(demo_name: str, demo_path: Path) -> DemoInfo | None:
                 description = line.split("=", 1)[1].strip().strip("\"'")
             elif line.startswith("APP_NAME"):
                 app_name = line.split("=", 1)[1].strip().strip("\"'")
-            elif line.startswith("DEFAULT_HOSTNAME"):
-                hostname = line.split("=", 1)[1].strip().strip("\"'")
             elif line.startswith("APP_DIR") and "/" in line:
                 # Extract subdirectory from APP_DIR = Path(...) / "subdir"
                 match = re.search(r'/\s*["\']([^"\']+)["\']', line)
@@ -144,7 +141,6 @@ def get_demo_info(demo_name: str, demo_path: Path) -> DemoInfo | None:
         description=description,
         app_name=app_name,
         app_dir=demo_path,
-        hostname=hostname,
         app_type=app_type,
         files=sorted(files),
         location=demo_path,

@@ -26,7 +26,6 @@ Demonstrates native Python deployment with MySQL addon:
 
 APP_NAME = "demo29"
 APP_DIR = Path(__file__).parent / "app"
-DEFAULT_HOSTNAME = "demo29.hop"
 DB_NAME = "demo29-db"
 
 
@@ -53,7 +52,7 @@ def run(ctx: DemoContext) -> None:
     from lib.commands import run_hop3
     from lib.server import ensure_mysql
 
-    app_hostname = DEFAULT_HOSTNAME
+    app_hostname = ctx.hostname
     app_url = f"https://{app_hostname}"
 
     # Ensure MySQL is properly configured with password authentication

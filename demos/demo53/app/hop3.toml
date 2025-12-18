@@ -1,0 +1,10 @@
+# hop3.toml - PHP JSON API application
+
+[metadata]
+id = "demo53-php-api"
+version = "1.0.0"
+title = "PHP JSON API Demo"
+description = "PHP application with JSON API endpoints"
+
+[build]
+builder = "docker"

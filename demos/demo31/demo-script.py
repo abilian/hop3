@@ -26,7 +26,6 @@ Demonstrates native Python deployment with PostgreSQL addon:
 
 APP_NAME = "demo31"
 APP_DIR = Path(__file__).parent / "app"
-DEFAULT_HOSTNAME = "demo31.hop"
 DB_NAME = "demo31-db"
 
 
@@ -52,7 +51,7 @@ def run(ctx: DemoContext) -> None:
     )
     from lib.commands import run_hop3
 
-    app_hostname = DEFAULT_HOSTNAME
+    app_hostname = ctx.hostname
     app_url = f"https://{app_hostname}"
 
     # Show app structure

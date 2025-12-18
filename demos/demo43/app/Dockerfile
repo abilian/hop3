@@ -1,15 +1,43 @@
 # Demo 43: EasyAppointments
 # Open-source appointment scheduling
 # https://easyappointments.org/
+# Built from source on debian:bookworm-slim
 
-FROM alextselegidis/easyappointments:latest
+FROM debian:bookworm-slim
 
-# Copy wrapper script that maps env vars and calls original entrypoint
-COPY start.sh /usr/local/bin/start.sh
-RUN chmod +x /usr/local/bin/start.sh
+# Install Apache, PHP and extensions required by EasyAppointments
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        apache2 \
+        libapache2-mod-php \
+        php-mysql \
+        php-gd \
+        php-curl \
+        php-mbstring \
+        php-intl \
+        curl \
+        ca-certificates \
+        unzip \
+    && rm -rf /var/lib/apt/lists/* \
+    && a2enmod rewrite
 
-# Default port
+# EasyAppointments version
+ARG EA_VERSION=1.5.2
+
+# Download and extract EasyAppointments
+WORKDIR /var/www/html
+RUN rm -rf /var/www/html/* \
+    && curl -fsSL "https://github.com/alextselegidis/easyappointments/releases/download/${EA_VERSION}/easyappointments-${EA_VERSION}.zip" -o ea.zip \
+    && unzip -q ea.zip \
+    && rm ea.zip \
+    && chown -R www-data:www-data /var/www/html
+
+# Configure Apache
+RUN sed -i 's/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf \
+    && echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
+# Copy startup script
+COPY --chmod=755 start.sh /start.sh
+
 EXPOSE 80
 
-# Override entrypoint to map env vars, then call original docker-entrypoint.sh
-ENTRYPOINT ["/usr/local/bin/start.sh"]
+CMD ["/start.sh"]

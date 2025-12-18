@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-import base64
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lib.commands import CommandError, run_local, run_ssh
@@ -12,6 +12,46 @@ from lib.output import pause, print_error, print_info, print_step, print_success
 
 if TYPE_CHECKING:
     from lib.context import DemoContext
+
+# Directory containing helper scripts to copy to server
+SCRIPTS_DIR = Path(__file__).parent / "scripts"
+
+
+def _run_remote_script(
+    ctx: DemoContext,
+    script_name: str,
+    python_bin: str = "python3",
+    sudo: bool = False,
+    show: bool = False,
+) -> None:
+    """Copy a script to the server and execute it.
+
+    Args:
+        ctx: Demo context
+        script_name: Name of script in lib/scripts/ directory
+        python_bin: Python interpreter to use (default: python3)
+        sudo: Run with sudo (default: False)
+        show: Show command output (default: False)
+    """
+    script_path = SCRIPTS_DIR / script_name
+    if not script_path.exists():
+        raise CommandError(f"Script not found: {script_path}")
+
+    remote_path = f"/tmp/{script_name}"
+
+    # Copy script to server
+    run_local(
+        f"scp -o StrictHostKeyChecking=accept-new {script_path} {ctx.ssh_target}:{remote_path}",
+        show=False,
+    )
+
+    # Execute and cleanup
+    sudo_prefix = "sudo " if sudo else ""
+    run_ssh(
+        ctx,
+        f"{sudo_prefix}{python_bin} {remote_path} && rm {remote_path}",
+        show=show,
+    )
 
 
 def clean_server(ctx: DemoContext) -> None:
@@ -274,46 +314,12 @@ def configure_server_settings(ctx: DemoContext) -> None:
     """
     print_step("Configuring server settings for demos...")
 
-    # Update config to add DEBUG logging and SECRET_KEY (preserves existing settings)
-    config_script = """\
-import secrets
-import toml
-from pathlib import Path
-
-config_file = Path("/home/hop3/hop3-server.toml")
-
-# Load existing config (installer should have created it with PostgreSQL settings)
-if config_file.exists():
-    config_data = toml.load(config_file)
-else:
-    config_data = {}
-
-# Set DEBUG logging for demos
-config_data["HOP3_LOG_LEVEL"] = "DEBUG"
-
-# Generate SECRET_KEY if not already set (required for token signing)
-if "HOP3_SECRET_KEY" not in config_data:
-    config_data["HOP3_SECRET_KEY"] = secrets.token_urlsafe(32)
-
-# Write config back
-with config_file.open("w") as f:
-    f.write("# Hop3 Server Configuration\\n")
-    f.write("# PostgreSQL settings from installer, DEBUG logging from demo launcher\\n\\n")
-    toml.dump(config_data, f)
-
-print(f"Config file: {config_file}")
-print(f"  HOP3_LOG_LEVEL: {config_data.get('HOP3_LOG_LEVEL', 'NOT SET')}")
-print(f"  HOP3_SECRET_KEY: {'SET' if config_data.get('HOP3_SECRET_KEY') else 'NOT SET'}")
-print(f"  POSTGRES_HOST: {config_data.get('POSTGRES_HOST', 'NOT SET')}")
-print(f"  POSTGRES_SUPERUSER_PASSWORD: {'SET' if config_data.get('POSTGRES_SUPERUSER_PASSWORD') else 'NOT SET'}")
-print("Server config updated")
-"""
-    # Write script to temp file and execute using hop3's virtualenv Python (has toml)
-    encoded = base64.b64encode(config_script.encode()).decode()
-    run_ssh(
+    # Run configuration script (uses hop3's venv Python which has toml installed)
+    _run_remote_script(
         ctx,
-        f"echo {encoded} | base64 -d > /tmp/configure_hop3.py && sudo /home/hop3/venv/bin/python /tmp/configure_hop3.py && rm /tmp/configure_hop3.py",
-        show=False,
+        "configure_hop3.py",
+        python_bin="/home/hop3/venv/bin/python",
+        sudo=True,
     )
     print_success("Server settings configured (DEBUG logging enabled)")
 
@@ -384,76 +390,8 @@ def ensure_postgres_docker_access(ctx: DemoContext) -> None:
         print_success("PostgreSQL already configured for Docker access")
         return
 
-    # Find PostgreSQL config directory and configure
-    config_script = """\
-import subprocess
-from pathlib import Path
-
-# Find PostgreSQL config directory
-pg_dirs = list(Path("/etc/postgresql").glob("*/main"))
-if not pg_dirs:
-    print("ERROR: PostgreSQL config directory not found")
-    exit(1)
-
-pg_conf_dir = pg_dirs[0]
-pg_conf = pg_conf_dir / "postgresql.conf"
-pg_hba = pg_conf_dir / "pg_hba.conf"
-
-# Update listen_addresses
-conf_content = pg_conf.read_text()
-if "listen_addresses = '*'" not in conf_content:
-    new_lines = []
-    for line in conf_content.split("\\n"):
-        if line.strip().startswith("listen_addresses"):
-            new_lines.append(f"# {line}  # commented by hop3")
-        else:
-            new_lines.append(line)
-    new_lines.append("")
-    new_lines.append("# Added by hop3 for Docker container access")
-    new_lines.append("listen_addresses = '*'")
-    pg_conf.write_text("\\n".join(new_lines))
-    print("Updated postgresql.conf: listen_addresses = '*'")
-
-# Add pg_hba.conf rules for Docker networks
-# 172.16.0.0/12 covers Docker bridge networks (172.16.x.x - 172.31.x.x)
-# 192.168.0.0/16 covers Docker Compose networks (192.168.x.x)
-hba_content = pg_hba.read_text()
-docker_rules = [
-    "host    all    all    172.16.0.0/12    scram-sha-256",
-    "host    all    all    192.168.0.0/16    scram-sha-256",
-]
-if "172.16.0.0/12" not in hba_content or "192.168.0.0/16" not in hba_content:
-    new_lines = []
-    docker_rule_added = False
-    for line in hba_content.split("\\n"):
-        if not docker_rule_added and line.strip().startswith("host"):
-            new_lines.append("# Added by hop3 for Docker container access")
-            for rule in docker_rules:
-                new_lines.append(rule)
-            new_lines.append("")
-            docker_rule_added = True
-        new_lines.append(line)
-    if not docker_rule_added:
-        new_lines.append("")
-        new_lines.append("# Added by hop3 for Docker container access")
-        for rule in docker_rules:
-            new_lines.append(rule)
-    pg_hba.write_text("\\n".join(new_lines))
-    print("Updated pg_hba.conf: added Docker network rules")
-
-print("PostgreSQL configured for Docker access")
-"""
-    encoded = base64.b64encode(config_script.encode()).decode()
-    result = run_ssh(
-        ctx,
-        f"echo {encoded} | base64 -d > /tmp/pg_docker.py && sudo python3 /tmp/pg_docker.py && rm /tmp/pg_docker.py",
-        show=False,
-        check=False,
-    )
-
-    if result.returncode != 0:
-        print_error(f"Failed to configure PostgreSQL: {result.stderr}")
-        return
+    # Run configuration script
+    _run_remote_script(ctx, "configure_pg_docker.py", sudo=True)
 
     # Restart PostgreSQL to apply changes
     print_info("Restarting PostgreSQL to apply changes...")

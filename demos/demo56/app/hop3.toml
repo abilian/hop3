@@ -1,0 +1,14 @@
+# hop3.toml - Shlink URL Shortener
+
+[metadata]
+id = "demo56-shlink"
+version = "4.3.1"
+title = "Shlink URL Shortener"
+description = "Self-hosted URL shortener with analytics"
+
+[build]
+builder = "docker"
+
+[[provider]]
+name = "postgres"
+plan = "standard"

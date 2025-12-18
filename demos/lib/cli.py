@@ -133,7 +133,14 @@ Examples:
         "--keep",
         action="store_true",
         dest="no_cleanup",
-        help="Keep deployed apps running after demo completes",
+        help="Keep deployed app running after demo (requires single demo)",
+    )
+    execution.add_argument(
+        "-x",
+        "--fail-fast",
+        action="store_true",
+        dest="fail_fast",
+        help="Stop immediately on first demo failure",
     )
     execution.add_argument(
         "-p",

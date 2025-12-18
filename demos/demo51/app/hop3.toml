@@ -1,0 +1,9 @@
+# hop3.toml - Native Go application (no Docker)
+
+[metadata]
+id = "demo51-native-go"
+version = "1.0.0"
+title = "Native Go Demo"
+description = "Demonstrates native deployment with Go/Gin (no Docker)"
+
+# No [build] section - auto-detect from go.mod

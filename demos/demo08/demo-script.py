@@ -24,7 +24,6 @@ Demonstrates Python deployment with Poetry:
 
 APP_NAME = "demo08"
 APP_DIR = Path(__file__).parent / "app"
-DEFAULT_HOSTNAME = "demo08.hop"
 
 
 def run(ctx: DemoContext) -> None:
@@ -48,7 +47,7 @@ def run(ctx: DemoContext) -> None:
         wait_for_app,
     )
 
-    app_hostname = DEFAULT_HOSTNAME
+    app_hostname = ctx.hostname
     app_url = f"https://{app_hostname}"
 
     # Show app structure
