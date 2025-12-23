@@ -1,0 +1,135 @@
+# Copyright (c) 2025, Abilian SAS
+# SPDX-License-Identifier: Apache-2.0
+"""Base class for deployment backends."""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..config import DeployConfig
+
+
+@dataclass
+class CommandResult:
+    """Result of a command execution."""
+
+    returncode: int
+    stdout: str = ""
+    stderr: str = ""
+
+    @property
+    def success(self) -> bool:
+        return self.returncode == 0
+
+
+class DeployBackend(ABC):
+    """Abstract base class for deployment backends."""
+
+    name: str = "base"
+
+    def __init__(self, config: DeployConfig):
+        """Initialize the backend.
+
+        Args:
+            config: Deployment configuration
+        """
+        self.config = config
+
+    @abstractmethod
+    def setup(self) -> bool:
+        """Set up the deployment target.
+
+        For SSH, this verifies connectivity.
+        For Docker, this starts the container.
+
+        Returns:
+            True if setup succeeded, False otherwise
+        """
+
+    @abstractmethod
+    def teardown(self) -> None:
+        """Clean up after deployment.
+
+        For SSH, this is a no-op.
+        For Docker, this optionally stops the container.
+        """
+
+    @abstractmethod
+    def run(self, command: str, *, check: bool = True) -> CommandResult:
+        """Run a command on the target.
+
+        Args:
+            command: Command to execute
+            check: Whether to raise on non-zero exit
+
+        Returns:
+            CommandResult with returncode, stdout, stderr
+        """
+
+    def run_streaming(self, command: str) -> int:
+        """Run a command with real-time output streaming.
+
+        This method prints output as it's generated instead of capturing it.
+        Useful for long-running commands where progress feedback is important.
+
+        Args:
+            command: Command to execute
+
+        Returns:
+            Exit code of the command
+        """
+        # Default implementation falls back to regular run
+        result = self.run(command, check=False)
+        if result.stdout:
+            print(result.stdout)
+        if result.stderr:
+            print(result.stderr)
+        return result.returncode
+
+    @abstractmethod
+    def upload_file(self, local_path: Path, remote_path: str) -> bool:
+        """Upload a file to the target.
+
+        Args:
+            local_path: Local file path
+            remote_path: Remote destination path
+
+        Returns:
+            True if upload succeeded
+        """
+
+    @abstractmethod
+    def upload_dir(self, local_path: Path, remote_path: str) -> bool:
+        """Upload a directory to the target.
+
+        Args:
+            local_path: Local directory path
+            remote_path: Remote destination path
+
+        Returns:
+            True if upload succeeded
+        """
+
+    @abstractmethod
+    def is_hop3_installed(self) -> bool:
+        """Check if Hop3 is installed on the target.
+
+        Returns:
+            True if Hop3 is installed
+        """
+
+    @abstractmethod
+    def clean(self) -> None:
+        """Clean the target before fresh installation."""
+
+    @abstractmethod
+    def get_server_url(self) -> str:
+        """Get the URL to access the Hop3 server.
+
+        Returns:
+            URL string (e.g., http://192.168.1.100:8000)
+        """
