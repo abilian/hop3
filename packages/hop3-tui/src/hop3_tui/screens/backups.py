@@ -172,9 +172,7 @@ class BackupsScreen(Screen):
             yield Static("DETAILS", id="backup-details-title")
             yield Static("Select a backup to view details", id="backup-details-content")
         with Horizontal(id="backups-actions"):
-            yield Static(
-                "[n] New  [r] Restore  [d] Delete  [R] Refresh  [Esc] Back"
-            )
+            yield Static("[n] New  [r] Restore  [d] Delete  [R] Refresh  [Esc] Back")
         yield Footer()
 
     def on_mount(self) -> None:

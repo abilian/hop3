@@ -87,7 +87,11 @@ class TUIConfig:
         if sys.platform == "darwin":
             # macOS: ~/Library/Application Support/hop3-cli/config.toml
             cli_config = (
-                Path.home() / "Library" / "Application Support" / "hop3-cli" / "config.toml"
+                Path.home()
+                / "Library"
+                / "Application Support"
+                / "hop3-cli"
+                / "config.toml"
             )
         elif sys.platform == "win32":
             # Windows: %APPDATA%/hop3-cli/config.toml
