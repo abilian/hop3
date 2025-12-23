@@ -69,7 +69,9 @@ class NewAppDialog(Static):
         yield Static("Create New Application", id="dialog-title")
         yield Label("App Name:", classes="field-label")
         yield Input(placeholder="my-app", id="app-name-input")
-        yield Static("Use lowercase letters, numbers, and hyphens", classes="field-hint")
+        yield Static(
+            "Use lowercase letters, numbers, and hyphens", classes="field-hint"
+        )
         yield Label("Git URL (optional):", classes="field-label")
         yield Input(placeholder="https://github.com/user/repo.git", id="git-url-input")
         yield Static("Leave empty to create an empty app", classes="field-hint")
@@ -99,9 +101,7 @@ class NewAppDialog(Static):
                 return
 
             if app_name[0].isdigit() or app_name[0] == "-":
-                self.app.notify(
-                    "App name must start with a letter", severity="error"
-                )
+                self.app.notify("App name must start with a letter", severity="error")
                 return
 
             self.post_message(NewAppCreated(app_name, git_url or None))

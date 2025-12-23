@@ -437,14 +437,12 @@ class AddonsScreen(Screen):
         """Create an addon."""
         if not self.hop3_app:
             # Mock create
-            self._addons.append(
-                {
-                    "name": addon_name,
-                    "type": addon_type,
-                    "app_name": None,
-                    "status": "running",
-                }
-            )
+            self._addons.append({
+                "name": addon_name,
+                "type": addon_type,
+                "app_name": None,
+                "status": "running",
+            })
             self._update_table()
             self.notify(f"[green]Created {addon_name}[/]")
             return

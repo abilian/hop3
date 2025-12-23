@@ -75,7 +75,9 @@ class DeployDialog(Static):
             placeholder="https://github.com/user/repo.git",
             id="git-url-input",
         )
-        yield Static("Enter the git repository URL to deploy from", classes="field-hint")
+        yield Static(
+            "Enter the git repository URL to deploy from", classes="field-hint"
+        )
         with Horizontal(id="button-row"):
             yield Button("Deploy", id="btn-deploy-confirm", variant="primary")
             yield Button("Cancel", id="btn-cancel", variant="default")
