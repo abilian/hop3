@@ -1,0 +1,346 @@
+# Copyright (c) 2025, Abilian SAS
+# SPDX-License-Identifier: Apache-2.0
+"""Main deployment logic for Hop3."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .backends.base import DeployBackend
+    from .config import DeployConfig
+
+
+class Deployer:
+    """Handles Hop3 deployment to various targets."""
+
+    def __init__(self, config: DeployConfig, backend: DeployBackend):
+        self.config = config
+        self.backend = backend
+        self.verbose = config.verbose
+
+    def log(self, message: str, level: str = "info") -> None:
+        """Print log message."""
+        prefix = {
+            "info": "→",
+            "success": "✓",
+            "warning": "⚠",
+            "error": "✗",
+        }.get(level, "→")
+        print(f"  {prefix} {message}")
+
+    def log_step(self, step: int, message: str) -> None:
+        """Print step message."""
+        print(f"\n[{step}] {message}")
+
+    def log_output(self, result, *, always: bool = False) -> None:
+        """Print command output.
+
+        Args:
+            result: CommandResult from backend.run()
+            always: If True, show output even on success (for verbose mode)
+        """
+        # Always show output on failure, or when verbose and always=True
+        show_stdout = result.stdout.strip() and (
+            not result.success or (self.verbose and always)
+        )
+        show_stderr = result.stderr.strip() and (
+            not result.success or (self.verbose and always)
+        )
+
+        if show_stdout:
+            print("\n  --- stdout ---")
+            for line in result.stdout.strip().splitlines():
+                print(f"  {line}")
+        if show_stderr:
+            print("\n  --- stderr ---")
+            for line in result.stderr.strip().splitlines():
+                print(f"  {line}")
+        if show_stdout or show_stderr:
+            print()
+
+    def deploy(self) -> bool:
+        """Run full deployment.
+
+        Returns:
+            True if deployment succeeded
+        """
+        step = 0
+
+        try:
+            # Setup backend
+            step += 1
+            self.log_step(step, "Setting up deployment target")
+            if not self.backend.setup():
+                self.log("Failed to setup deployment target", "error")
+                return False
+            self.log("Target ready", "success")
+
+            # Clean if requested
+            if self.config.clean_before:
+                step += 1
+                self.log_step(step, "Cleaning previous installation")
+                self.backend.clean()
+                self.log("Clean complete", "success")
+
+            # Upload local code FIRST if using local code for fresh install
+            # This must happen BEFORE running the installer
+            local_path_on_server = None
+            if self.config.use_local_code and not self.backend.is_hop3_installed():
+                step += 1
+                self.log_step(step, "Uploading local code for installation")
+                local_path_on_server = self._upload_local_code_for_install()
+                if not local_path_on_server:
+                    return False
+
+            # Install or update
+            if self.config.skip_install:
+                step += 1
+                self.log_step(step, "Skipping installation (--skip-install)")
+                # Even with skip_install, update local code if requested
+                if self.config.use_local_code:
+                    step += 1
+                    self.log_step(step, "Updating with local code")
+                    if not self._update_local_code():
+                        return False
+            elif self.backend.is_hop3_installed():
+                step += 1
+                self.log_step(step, "Updating existing installation")
+                if not self._update():
+                    return False
+            else:
+                step += 1
+                self.log_step(step, "Installing Hop3")
+                if not self._install(local_path=local_path_on_server):
+                    return False
+
+            # Setup admin user
+            if self.config.admin_domain:
+                step += 1
+                self.log_step(step, "Setting up admin user")
+                if not self._setup_admin():
+                    return False
+
+            # Setup CLI
+            if not self.config.no_cli_setup:
+                step += 1
+                self.log_step(step, "Configuring local CLI")
+                self._setup_cli()
+
+            # Done
+            print("\n" + "=" * 60)
+            print("Deployment complete!")
+            print(f"Server URL: {self.backend.get_server_url()}")
+            if self.config.admin_domain:
+                print(f"Admin URL: https://{self.config.admin_domain}")
+                print(f"Admin user: {self.config.admin_user}")
+                print(f"Admin password: {self.config.admin_password}")
+            print("=" * 60)
+
+            return True
+
+        except Exception as e:
+            self.log(f"Deployment failed: {e}", "error")
+            if self.verbose:
+                import traceback
+
+                traceback.print_exc()
+            return False
+
+    def _install(self, *, local_path: str | None = None) -> bool:
+        """Install Hop3 on the target.
+
+        Args:
+            local_path: Path on the server where local code was uploaded (if any)
+        """
+        # Upload installer script
+        installer_path = self.config.installer_path
+        if not installer_path.exists():
+            self.log(f"Installer not found: {installer_path}", "error")
+            return False
+
+        self.log("Uploading installer script")
+        if not self.backend.upload_file(installer_path, "/tmp/install-server.py"):
+            self.log("Failed to upload installer", "error")
+            return False
+
+        # Build install command
+        # Use -u for unbuffered output so we can stream progress
+        install_cmd = "python3 -u /tmp/install-server.py"
+
+        # Use local path if provided (for --local flag)
+        if local_path:
+            install_cmd += f" --local-path {local_path}"
+        elif self.config.branch != "devel":
+            install_cmd += f" --git --branch {self.config.branch}"
+
+        if self.config.with_features:
+            install_cmd += f" --with {','.join(self.config.with_features)}"
+
+        # Always use verbose for better error output
+        install_cmd += " --verbose"
+
+        self.log(f"Running: {install_cmd}")
+        print()  # Blank line before streaming output
+
+        # Use streaming to show real-time progress
+        exit_code = self.backend.run_streaming(install_cmd)
+
+        print()  # Blank line after streaming output
+        if exit_code != 0:
+            self.log(f"Installation failed (exit code {exit_code})", "error")
+            return False
+
+        self.log("Installation complete", "success")
+        return True
+
+    def _update(self) -> bool:
+        """Update existing Hop3 installation."""
+        # If using local code, use that instead of git
+        if self.config.use_local_code:
+            return self._update_local_code()
+
+        self.log("Pulling latest code from git")
+
+        # Update from git
+        update_commands = [
+            "cd /home/hop3/hop3 && git fetch origin",
+            f"cd /home/hop3/hop3 && git checkout {self.config.branch}",
+            f"cd /home/hop3/hop3 && git reset --hard origin/{self.config.branch}",
+            "cd /home/hop3/hop3 && /home/hop3/venv/bin/pip install -e packages/hop3-server",
+            "systemctl restart hop3-server",
+        ]
+
+        for cmd in update_commands:
+            if self.verbose:
+                self.log(f"Running: {cmd}")
+            result = self.backend.run(cmd, check=False)
+            if not result.success:
+                self.log(f"Update command failed: {cmd}", "error")
+                self.log_output(result)
+                return False
+
+        self.log("Update complete", "success")
+        return True
+
+    def _upload_local_code_for_install(self) -> str | None:
+        """Upload local code to a temp location for fresh install.
+
+        Returns:
+            Path on server where code was uploaded, or None on failure
+        """
+        server_pkg = self.config.server_package_path
+
+        if not server_pkg.exists():
+            self.log(f"Server package not found: {server_pkg}", "error")
+            return None
+
+        remote_path = "/tmp/hop3-server"
+
+        self.log(f"Uploading {server_pkg} to {remote_path}")
+        if not self.backend.upload_dir(server_pkg, remote_path):
+            self.log("Failed to upload code", "error")
+            return None
+
+        self.log("Local code uploaded", "success")
+        return remote_path
+
+    def _update_local_code(self) -> bool:
+        """Update an existing installation with local code."""
+        server_pkg = self.config.server_package_path
+
+        if not server_pkg.exists():
+            self.log(f"Server package not found: {server_pkg}", "error")
+            return False
+
+        # Upload to temp location first
+        remote_path = "/tmp/hop3-server"
+        self.log(f"Uploading {server_pkg}")
+        if not self.backend.upload_dir(server_pkg, remote_path):
+            self.log("Failed to upload code", "error")
+            return False
+
+        # Install from uploaded code
+        self.log("Installing from uploaded code")
+        result = self.backend.run(
+            f"/home/hop3/venv/bin/pip install --upgrade {remote_path}",
+            check=False,
+        )
+        if not result.success:
+            self.log("Failed to install package", "error")
+            self.log_output(result)
+            return False
+
+        # Restart server
+        self.log("Restarting server")
+        self.backend.run("systemctl restart hop3-server", check=False)
+
+        self.log("Local code deployed", "success")
+        return True
+
+    def _setup_admin(self) -> bool:
+        """Setup admin user and domain."""
+        domain = self.config.admin_domain
+        user = self.config.admin_user
+        email = self.config.admin_email
+        password = self.config.admin_password
+
+        self.log(f"Creating admin domain: {domain}")
+
+        # Create admin app
+        commands = [
+            f"sudo -u hop3 /home/hop3/venv/bin/hop-server apps:create {domain}",
+            (
+                f"sudo -u hop3 /home/hop3/venv/bin/hop-server users:create "
+                f"--admin {user} {email} {password}"
+            ),
+        ]
+
+        for cmd in commands:
+            result = self.backend.run(cmd, check=False)
+            if not result.success:
+                # Non-fatal - admin might already exist
+                self.log(f"Command returned non-zero (may be OK): {cmd}", "warning")
+                if result.stderr.strip():
+                    self.log_output(result)
+
+        self.log("Admin setup complete", "success")
+        return True
+
+    def _setup_cli(self) -> None:
+        """Configure local CLI to connect to the deployed server."""
+        try:
+            import subprocess
+
+            # Try to configure hop3 CLI
+            host = self.config.host or "localhost"
+            subprocess.run(
+                ["hop3", "config", "set", "server", host],
+                capture_output=True,
+                check=False,
+            )
+            self.log(f"CLI configured to connect to {host}", "success")
+        except FileNotFoundError:
+            self.log("hop3 CLI not found, skipping CLI setup", "warning")
+
+
+def create_backend(config: DeployConfig) -> DeployBackend:
+    """Create appropriate backend based on config."""
+    if config.use_docker:
+        from .backends.docker import DockerDeployBackend
+
+        return DockerDeployBackend(config)
+    else:
+        from .backends.ssh import SSHDeployBackend
+
+        return SSHDeployBackend(config)
+
+
+def deploy(config: DeployConfig) -> bool:
+    """Run deployment with the given config.
+
+    This is the main entry point for programmatic use.
+    """
+    backend = create_backend(config)
+    deployer = Deployer(config, backend)
+    return deployer.deploy()

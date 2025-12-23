@@ -1,0 +1,15 @@
+# Copyright (c) 2025, Abilian SAS
+# SPDX-License-Identifier: Apache-2.0
+"""Test backends for installer testing."""
+
+from .base import Backend
+from .docker import DockerBackend
+from .ssh import SSHBackend
+from .vagrant import VagrantBackend
+
+__all__ = [
+    "Backend",
+    "DockerBackend",
+    "SSHBackend",
+    "VagrantBackend",
+]
