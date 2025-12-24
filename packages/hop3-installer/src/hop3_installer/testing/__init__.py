@@ -6,6 +6,7 @@ This package provides a unified testing framework for Hop3 installers
 with support for multiple backends (SSH, Docker, Vagrant).
 """
 
+from .cli import main
 from .common import VERBOSE, Colors, CommandResult, set_verbose
 from .runner import TestConfig, TestRunner
 
@@ -15,5 +16,6 @@ __all__ = [
     "TestConfig",
     "TestRunner",
     "VERBOSE",
+    "main",
     "set_verbose",
 ]

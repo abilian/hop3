@@ -57,9 +57,13 @@ def validate_cli_installation(backend: Backend) -> bool:
     if result.success or "usage" in result.stdout.lower():
         log_success("CLI command runs successfully")
     else:
-        log_warning("CLI command may have issues")
-        if common.VERBOSE:
-            print(result.stdout)
+        log_warning("CLI command returned an error when running --help:")
+        if result.stdout.strip():
+            print(f"  stdout: {result.stdout.strip()}")
+        if result.stderr.strip():
+            print(f"  stderr: {result.stderr.strip()}")
+        if not result.stdout.strip() and not result.stderr.strip():
+            print(f"  (no output, exit code: {result.returncode})")
 
     return all_passed
 

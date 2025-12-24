@@ -1,7 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 #
-# Vagrantfile for testing Hop3 installers
+# Vagrantfile for testing Hop3 installers (9p sync variant)
 #
 # Usage:
 #   vagrant up ubuntu          # Start Ubuntu VM
@@ -13,13 +13,17 @@
 #   vagrant destroy -f         # Destroy all VMs
 #
 # Test with:
-#   ./test-installers.py --vm ubuntu --type cli
-#   ./test-installers.py --vm ubuntu --type server
-#   ./test-installers.py --all
+#   hop3-test-installers vagrant --vm ubuntu --type cli
+#   hop3-test-installers vagrant --vm ubuntu --type server
+#   hop3-test-installers vagrant --all
 #
 # Provider selection:
 #   VAGRANT_DEFAULT_PROVIDER=qemu vagrant up ubuntu
 #   VAGRANT_DEFAULT_PROVIDER=libvirt vagrant up ubuntu
+
+# Find the project root (hop3/)
+# We're in packages/hop3-installer/src/hop3_installer/testing/vagrant/
+PROJECT_ROOT = File.expand_path('../../../../../../..', __dir__)
 
 # Detect host architecture
 def get_arch
@@ -111,7 +115,7 @@ Vagrant.configure("2") do |config|
 
   # Sync the entire hop3 repo (need access to packages/ for local testing)
   # Use 9p for libvirt (real-time sync, no rsync needed)
-  config.vm.synced_folder "..", "/vagrant", type: "9p", accessmode: "mapped", mount: true
+  config.vm.synced_folder PROJECT_ROOT, "/vagrant", type: "9p", accessmode: "mapped", mount: true
 
   # Ubuntu VM
   config.vm.define "ubuntu", primary: true do |ubuntu|

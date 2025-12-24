@@ -48,6 +48,8 @@ class DeployConfig:
 
     # Output settings
     verbose: bool = False
+    quiet: bool = False
+    log_file: Path | None = None
     dry_run: bool = False
     no_cli_setup: bool = False
 
@@ -107,6 +109,7 @@ class DeployConfig:
             HOP3_ADMIN_EMAIL - Admin email
             HOP3_ADMIN_PASSWORD - Admin password
             HOP3_VERBOSE - Verbose output (1 or true)
+            HOP3_QUIET - Quiet mode (1 or true)
             HOP3_DOCKER - Use Docker instead of SSH (1 or true)
         """
         host = os.environ.get("HOP3_DEV_HOST") or os.environ.get("HOP3_TEST_SERVER")
@@ -128,6 +131,7 @@ class DeployConfig:
             admin_email=os.environ.get("HOP3_ADMIN_EMAIL", DEFAULT_ADMIN_EMAIL),
             admin_password=os.environ.get("HOP3_ADMIN_PASSWORD", ""),
             verbose=os.environ.get("HOP3_VERBOSE", "").lower() in ("1", "true"),
+            quiet=os.environ.get("HOP3_QUIET", "").lower() in ("1", "true"),
         )
 
     def validate(self) -> list[str]:
@@ -149,6 +153,9 @@ class DeployConfig:
 
         if not self.use_docker and not self.installer_path.exists():
             errors.append(f"Installer not found: {self.installer_path}")
+
+        if self.verbose and self.quiet:
+            errors.append("Cannot use both --verbose and --quiet")
 
         return errors
 

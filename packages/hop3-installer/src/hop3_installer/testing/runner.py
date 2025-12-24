@@ -150,6 +150,12 @@ class TestRunner:
         if not self._upload_installer(installer_path, "cli"):
             return False
 
+        # For local method, upload package
+        if method == "local":
+            if not self._upload_local_package("cli"):
+                log_warning("Skipping local path test (could not upload package)")
+                return True  # Don't fail the suite
+
         # Build command
         cmd = self._build_cli_install_command(method)
 
@@ -256,14 +262,18 @@ class TestRunner:
 
         remote_path = f"/tmp/hop3-{package_type}"
 
+        log_info(f"Uploading {local_package} to {remote_path}...")
+
         # Remove existing
         self.backend.run(f"rm -rf {remote_path}")
 
         if self.backend.upload_dir(local_package, remote_path):
             # Fix permissions
             self.backend.run(f"chmod -R a+rX {remote_path}", sudo=True)
+            log_success(f"Package uploaded to {remote_path}")
             return True
 
+        log_error(f"Failed to upload package to {remote_path}")
         return False
 
     def _build_cli_install_command(self, method: str) -> str:

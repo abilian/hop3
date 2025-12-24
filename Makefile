@@ -1,5 +1,8 @@
 .PHONY: all develop test lint clean doc format
 .PHONY: clean clean-build clean-pyc clean-test coverage dist docs install lint lint/flake8
+.PHONY: deploy deploy-docker deploy-local deploy-clean deploy-status deploy-teardown
+.PHONY: test-installer test-installer-ssh test-installer-docker test-installer-vagrant
+.PHONY: test-installer-docker-all test-installer-all-methods test-installer-cleanup build-installers
 
 PKG:=hop3,hop3_agent,hop3_server,hop3_web,hop3_lib
 
@@ -42,11 +45,83 @@ clean-server:
 	-ssh root@${HOP3_DEV_HOST} apt-get purge -y nginx nginx-core nginx-common
 	ssh root@${HOP3_DEV_HOST} rm -rf /home/hop3 /etc/nginx
 
-## Deploy to development server
+## Deploy to development server (set HOP3_DEV_HOST env var)
 deploy:
 	@echo "--> Deploying to" ${HOP3_DEV_HOST}
-	uv build packages/hop3-server
-	uv run pyinfra -y --user root ${HOP3_DEV_HOST} installer/install-hop.py
+	uv run hop3-deploy
+
+## Deploy to local Docker container
+deploy-docker:
+	@echo "--> Deploying to Docker container"
+	uv run hop3-deploy --docker
+
+## Deploy with local code changes
+deploy-local:
+	@echo "--> Deploying with local code"
+	uv run hop3-deploy --local
+
+## Deploy with clean install
+deploy-clean:
+	@echo "--> Clean deploy to" ${HOP3_DEV_HOST}
+	uv run hop3-deploy --clean
+
+## Show deployment target status
+deploy-status:
+	uv run hop3-deploy --status
+
+## Teardown Docker container
+deploy-teardown:
+	uv run hop3-deploy --teardown
+
+#
+# Installer Testing
+#
+
+## Test installers via SSH (requires HOP3_TEST_HOST or --host)
+test-installer: test-installer-ssh
+
+## Test installers on remote server via SSH
+test-installer-ssh: build-installers
+	@echo "--> Testing installers via SSH (local code)"
+	uv run hop3-test-installers ssh --host ${HOP3_TEST_HOST} --type both --method local
+	@echo ""
+
+## Test installers in Docker containers
+test-installer-docker: build-installers
+	@echo "--> Testing installers in Docker (local code)"
+	uv run hop3-test-installers docker --distro ubuntu --type both --method local
+	@echo ""
+
+## Test installers in Vagrant VMs
+test-installer-vagrant: build-installers
+	@echo "--> Testing installers in Vagrant VMs (local code)"
+	uv run hop3-test-installers vagrant --vm ubuntu --type both --method local
+	@echo ""
+
+## Test installers on all Docker distros
+test-installer-docker-all: build-installers
+	@echo "--> Testing installers on all Docker distros (local code)"
+	uv run hop3-test-installers docker --all --type both --method local
+	@echo ""
+
+## Test installers with all methods (pypi, git, local) via SSH
+test-installer-all-methods: build-installers
+	@echo "--> Testing installers with all methods (pypi, git, local)"
+	uv run hop3-test-installers ssh --host ${HOP3_TEST_HOST} --type both --method all
+	@echo ""
+
+## Cleanup Docker test containers
+test-installer-cleanup:
+	@echo "--> Cleaning up Docker test containers"
+	uv run hop3-test-installers docker --cleanup
+	@echo ""
+
+## Build single-file installers
+build-installers:
+	@echo "--> Building single-file installers"
+	@mkdir -p installer
+	uv run hop3-installer-bundle --all --output-dir installer/
+	@echo ""
 
 ## Build the python packages
 build:
@@ -168,8 +243,8 @@ audit:
 ## Formatting
 format:
 	@echo "--> Formatting code"
-	uv run ruff format packages/*/src packages/*/tests installer
-	uv run ruff check --fix packages/*/src packages/*/tests installer
+	uv run ruff format packages/*/src packages/*/tests
+	uv run ruff check --fix packages/*/src packages/*/tests
 	@make update-tocs
 	python scripts/update-copyright.py
 	@echo ""

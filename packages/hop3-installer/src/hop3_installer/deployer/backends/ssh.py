@@ -75,8 +75,10 @@ class SSHDeployBackend(DeployBackend):
 
         return cmd_result
 
-    def run_streaming(self, command: str) -> int:
-        """Run a command with output going directly to terminal."""
+    def run_streaming(
+        self, command: str, *, quiet: bool = False, log_file: Path | None = None
+    ) -> int:
+        """Run a command with output handling based on mode."""
         ssh_cmd = [
             "ssh",
             *self._ssh_opts,
@@ -84,9 +86,24 @@ class SSHDeployBackend(DeployBackend):
             f"PYTHONUNBUFFERED=1 DEBIAN_FRONTEND=noninteractive {command}",
         ]
 
-        # Don't capture output - let it flow directly to terminal
-        result = subprocess.run(ssh_cmd, check=False)
-        return result.returncode
+        if quiet:
+            # Capture output for log file
+            result = subprocess.run(
+                ssh_cmd, capture_output=True, text=True, check=False
+            )
+            if log_file:
+                with open(log_file, "a") as f:
+                    f.write(f"\n=== Command: {command} ===\n")
+                    if result.stdout:
+                        f.write(result.stdout)
+                    if result.stderr:
+                        f.write(f"\n--- stderr ---\n{result.stderr}")
+                    f.write(f"\n=== Exit code: {result.returncode} ===\n")
+            return result.returncode
+        else:
+            # Stream directly to terminal
+            result = subprocess.run(ssh_cmd, check=False)
+            return result.returncode
 
     def upload_file(self, local_path: Path, remote_path: str) -> bool:
         """Upload a file via SCP."""

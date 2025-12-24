@@ -1,4 +1,0 @@
-lint.extend-ignore = [
-    # Our test scripts are not pytest tests
-    "PT",
-]

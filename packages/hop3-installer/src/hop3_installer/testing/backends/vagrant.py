@@ -29,7 +29,11 @@ class VagrantBackend(Backend):
             vagrant_dir: Path to directory containing Vagrantfile
         """
         self.vm_name = vm_name
-        self.vagrant_dir = vagrant_dir or Path(__file__).parent.parent.parent
+        if vagrant_dir:
+            self.vagrant_dir = vagrant_dir
+        else:
+            # Default: testing/vagrant/ subdirectory
+            self.vagrant_dir = Path(__file__).parent.parent / "vagrant"
 
     def _run_vagrant(
         self,
@@ -139,15 +143,25 @@ class VagrantBackend(Backend):
             stderr=result.stderr,
         )
 
+    def _find_project_root(self) -> Path:
+        """Find the project root directory (hop3/)."""
+        # Look for pyproject.toml and packages/ directory
+        current = self.vagrant_dir
+        for parent in [current, *current.parents]:
+            if (parent / "pyproject.toml").exists() and (parent / "packages").exists():
+                return parent
+        # Fallback to cwd
+        return Path.cwd()
+
     def upload(self, local_path: Path, remote_path: str) -> bool:
         """Upload a file to the VM.
 
         Note: Vagrant VMs use shared folders, so this copies to /vagrant.
-        The Vagrantfile syncs the parent of vagrant_dir (hop3 root) to /vagrant.
+        The Vagrantfile syncs the project root (hop3/) to /vagrant.
         """
         # Files are already synced via rsync/shared folders
         # Just verify the file exists
-        project_root = self.vagrant_dir.parent  # hop3 root
+        project_root = self._find_project_root()
         rel_path = local_path.relative_to(project_root)
         result = self.run(f"test -f /vagrant/{rel_path}")
         return result.success
@@ -155,8 +169,8 @@ class VagrantBackend(Backend):
     def upload_dir(self, local_path: Path, remote_path: str) -> bool:
         """Upload a directory to the VM."""
         # Directories are already synced via rsync/shared folders
-        # The Vagrantfile syncs the parent of vagrant_dir (hop3 root) to /vagrant.
-        project_root = self.vagrant_dir.parent  # hop3 root
+        # The Vagrantfile syncs the project root (hop3/) to /vagrant.
+        project_root = self._find_project_root()
         rel_path = local_path.relative_to(project_root)
         result = self.run(f"test -d /vagrant/{rel_path}")
         return result.success

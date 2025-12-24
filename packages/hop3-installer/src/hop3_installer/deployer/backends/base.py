@@ -70,24 +70,36 @@ class DeployBackend(ABC):
             CommandResult with returncode, stdout, stderr
         """
 
-    def run_streaming(self, command: str) -> int:
-        """Run a command with real-time output streaming.
-
-        This method prints output as it's generated instead of capturing it.
-        Useful for long-running commands where progress feedback is important.
+    def run_streaming(
+        self, command: str, *, quiet: bool = False, log_file: Path | None = None
+    ) -> int:
+        """Run a command with output handling based on mode.
 
         Args:
             command: Command to execute
+            quiet: If True, capture output to log file instead of terminal
+            log_file: File to write output to (required if quiet=True)
 
         Returns:
             Exit code of the command
         """
         # Default implementation falls back to regular run
         result = self.run(command, check=False)
-        if result.stdout:
-            print(result.stdout)
-        if result.stderr:
-            print(result.stderr)
+
+        if quiet and log_file:
+            with open(log_file, "a") as f:
+                f.write(f"\n=== Command: {command} ===\n")
+                if result.stdout:
+                    f.write(result.stdout)
+                if result.stderr:
+                    f.write(f"\n--- stderr ---\n{result.stderr}")
+                f.write(f"\n=== Exit code: {result.returncode} ===\n")
+        else:
+            if result.stdout:
+                print(result.stdout)
+            if result.stderr:
+                print(result.stderr)
+
         return result.returncode
 
     @abstractmethod

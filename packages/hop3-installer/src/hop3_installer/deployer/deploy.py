@@ -18,6 +18,24 @@ class Deployer:
         self.config = config
         self.backend = backend
         self.verbose = config.verbose
+        self.quiet = config.quiet
+        self.log_file = config.log_file
+
+        # Generate default log file for quiet mode
+        if self.quiet and not self.log_file:
+            from datetime import datetime
+            from pathlib import Path
+
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            self.log_file = Path(f"deploy-{timestamp}.log")
+
+        # Initialize log file
+        if self.log_file:
+            from datetime import datetime
+
+            with open(self.log_file, "w") as f:
+                f.write(f"Hop3 Deployment Log - {datetime.now().isoformat()}\n")
+                f.write("=" * 60 + "\n\n")
 
     def log(self, message: str, level: str = "info") -> None:
         """Print log message."""
@@ -27,11 +45,31 @@ class Deployer:
             "warning": "⚠",
             "error": "✗",
         }.get(level, "→")
-        print(f"  {prefix} {message}")
+
+        formatted = f"  {prefix} {message}"
+
+        # Always log to file if available
+        if self.log_file:
+            with open(self.log_file, "a") as f:
+                f.write(formatted + "\n")
+
+        # Print to terminal unless quiet (but always show errors)
+        if not self.quiet or level == "error":
+            print(formatted)
 
     def log_step(self, step: int, message: str) -> None:
         """Print step message."""
-        print(f"\n[{step}] {message}")
+        formatted = f"\n[{step}] {message}"
+
+        if self.log_file:
+            with open(self.log_file, "a") as f:
+                f.write(formatted + "\n")
+
+        if not self.quiet:
+            print(formatted)
+        else:
+            # In quiet mode, show minimal progress
+            print(f"  [{step}] {message}...", end=" ", flush=True)
 
     def log_output(self, result, *, always: bool = False) -> None:
         """Print command output.
@@ -128,14 +166,21 @@ class Deployer:
                 self._setup_cli()
 
             # Done
-            print("\n" + "=" * 60)
-            print("Deployment complete!")
-            print(f"Server URL: {self.backend.get_server_url()}")
-            if self.config.admin_domain:
-                print(f"Admin URL: https://{self.config.admin_domain}")
-                print(f"Admin user: {self.config.admin_user}")
-                print(f"Admin password: {self.config.admin_password}")
-            print("=" * 60)
+            if self.quiet:
+                print(
+                    f"\n✓ Deployment complete. Server: {self.backend.get_server_url()}"
+                )
+                if self.log_file:
+                    print(f"  Log file: {self.log_file}")
+            else:
+                print("\n" + "=" * 60)
+                print("Deployment complete!")
+                print(f"Server URL: {self.backend.get_server_url()}")
+                if self.config.admin_domain:
+                    print(f"Admin URL: https://{self.config.admin_domain}")
+                    print(f"Admin user: {self.config.admin_user}")
+                    print(f"Admin password: {self.config.admin_password}")
+                print("=" * 60)
 
             return True
 
@@ -181,12 +226,20 @@ class Deployer:
         install_cmd += " --verbose"
 
         self.log(f"Running: {install_cmd}")
-        print()  # Blank line before streaming output
+        if not self.quiet:
+            print()  # Blank line before streaming output
 
         # Use streaming to show real-time progress
-        exit_code = self.backend.run_streaming(install_cmd)
+        exit_code = self.backend.run_streaming(
+            install_cmd, quiet=self.quiet, log_file=self.log_file
+        )
 
-        print()  # Blank line after streaming output
+        if not self.quiet:
+            print()  # Blank line after streaming output
+        else:
+            # In quiet mode, log_step left cursor waiting - print result
+            print("done" if exit_code == 0 else "FAILED")
+
         if exit_code != 0:
             self.log(f"Installation failed (exit code {exit_code})", "error")
             return False
