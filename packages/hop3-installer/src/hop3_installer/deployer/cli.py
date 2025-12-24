@@ -35,6 +35,7 @@ Environment Variables:
   HOP3_CLEAN         Clean before deploy (1 or true)
   HOP3_WITH          Features to install (comma-separated)
   HOP3_DOCKER        Use Docker instead of SSH (1 or true)
+  HOP3_QUIET         Quiet mode - minimal output (1 or true)
 
 Examples:
   # Deploy to remote server
@@ -148,6 +149,17 @@ Examples:
         help="Verbose output",
     )
     output.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="Quiet mode - minimal output, capture all output to log file",
+    )
+    output.add_argument(
+        "--log-file",
+        metavar="FILE",
+        help="Log file for captured output (default: deploy-TIMESTAMP.log)",
+    )
+    output.add_argument(
         "--dry-run",
         "-n",
         action="store_true",
@@ -211,6 +223,12 @@ def config_from_args(args: argparse.Namespace) -> DeployConfig:
         config.admin_password = args.admin_password
     if args.verbose:
         config.verbose = True
+    if args.quiet:
+        config.quiet = True
+    if args.log_file:
+        from pathlib import Path
+
+        config.log_file = Path(args.log_file)
     if args.dry_run:
         config.dry_run = True
     if args.no_cli_setup:
@@ -299,19 +317,27 @@ def main() -> int:
         return 1
 
     # Show what we're doing
-    print("Hop3 Deployment")
-    print("=" * 60)
-    if config.use_docker:
-        print(f"Target: Docker container ({config.docker_container})")
+    if config.quiet:
+        target = (
+            f"Docker ({config.docker_container})"
+            if config.use_docker
+            else config.ssh_target
+        )
+        print(f"Deploying to {target}...")
     else:
-        print(f"Target: {config.ssh_target}")
-    print(f"Branch: {config.branch}")
-    print(f"Local code: {'yes' if config.use_local_code else 'no'}")
-    print(f"Clean install: {'yes' if config.clean_before else 'no'}")
-    print(f"Features: {', '.join(config.with_features)}")
-    if config.admin_domain:
-        print(f"Admin domain: {config.admin_domain}")
-    print("=" * 60)
+        print("Hop3 Deployment")
+        print("=" * 60)
+        if config.use_docker:
+            print(f"Target: Docker container ({config.docker_container})")
+        else:
+            print(f"Target: {config.ssh_target}")
+        print(f"Branch: {config.branch}")
+        print(f"Local code: {'yes' if config.use_local_code else 'no'}")
+        print(f"Clean install: {'yes' if config.clean_before else 'no'}")
+        print(f"Features: {', '.join(config.with_features)}")
+        if config.admin_domain:
+            print(f"Admin domain: {config.admin_domain}")
+        print("=" * 60)
 
     if config.dry_run:
         print("\n[Dry run - no changes made]")

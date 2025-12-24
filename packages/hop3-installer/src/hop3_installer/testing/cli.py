@@ -1,23 +1,22 @@
-#!/usr/bin/env python3
 # Copyright (c) 2025, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Unified test script for Hop3 installers.
+"""CLI for Hop3 installer testing.
 
 Supports multiple backends: SSH (remote servers), Docker (containers),
 and Vagrant (virtual machines).
 
 Usage:
     # SSH backend (remote server)
-    ./test-installers.py ssh --host root@server.example.com
-    ./test-installers.py ssh --host user@server --method git --type both
+    hop3-test-installers ssh --host root@server.example.com
+    hop3-test-installers ssh --host user@server --method git --type both
 
     # Docker backend (containers)
-    ./test-installers.py docker --distro ubuntu
-    ./test-installers.py docker --distro fedora --type cli
+    hop3-test-installers docker --distro ubuntu
+    hop3-test-installers docker --distro fedora --type cli
 
     # Vagrant backend (VMs)
-    ./test-installers.py vagrant --vm ubuntu
-    ./test-installers.py vagrant --vm fedora --type server
+    hop3-test-installers vagrant --vm ubuntu
+    hop3-test-installers vagrant --vm fedora --type server
 
 Common options:
     --type TYPE         Installer to test: cli, server, or both (default: both)
@@ -36,28 +35,71 @@ import os
 import sys
 from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
-
-from testing.common import (
-    log_error,
-    log_header,
-    set_dry_run,
-    set_verbose,
-)
-from testing.runner import INSTALL_METHODS, TestConfig, TestRunner
-
-SCRIPT_DIR = Path(__file__).parent.resolve()
+from .common import log_error, log_header, set_dry_run, set_verbose
+from .runner import INSTALL_METHODS, TestConfig, TestRunner
 
 # Available distros/VMs for each backend
 DOCKER_DISTROS = ["ubuntu", "debian", "fedora"]
 VAGRANT_VMS = ["ubuntu", "debian", "fedora"]
 
 
+def _find_project_root() -> Path:
+    """Find the project root directory."""
+    current = Path(__file__).parent
+    for parent in [current, *current.parents]:
+        if (parent / "pyproject.toml").exists() and (parent / "packages").exists():
+            return parent
+    return Path.cwd()
+
+
+def _find_or_generate_installer_dir() -> Path:
+    """Find or generate the single-file installers.
+
+    Looks for installer/ in the project root. If installers don't exist,
+    generates them using the bundler.
+    """
+    project_root = _find_project_root()
+
+    # Check for existing installers in installer/ directory
+    installer_dir = project_root / "installer"
+    if (
+        installer_dir.exists()
+        and (installer_dir / "install-server.py").exists()
+        and (installer_dir / "install-cli.py").exists()
+    ):
+        return installer_dir
+
+    # Generate installers if they don't exist
+    print("[INFO] Generating single-file installers...")
+    installer_dir.mkdir(exist_ok=True)
+
+    from ..bundler import bundle_installer
+
+    try:
+        # Generate CLI installer
+        cli_path = installer_dir / "install-cli.py"
+        cli_content = bundle_installer("cli")
+        cli_path.write_text(cli_content)
+        cli_path.chmod(0o755)
+        print(f"  Generated: {cli_path}")
+
+        # Generate server installer
+        server_path = installer_dir / "install-server.py"
+        server_content = bundle_installer("server")
+        server_path.write_text(server_content)
+        server_path.chmod(0o755)
+        print(f"  Generated: {server_path}")
+
+        return installer_dir
+    except Exception as e:
+        log_error(f"Failed to generate installers: {e}")
+        raise
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create argument parser with subcommands."""
     parser = argparse.ArgumentParser(
-        prog="test-installers.py",
+        prog="hop3-test-installers",
         description="Unified test script for Hop3 installers.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -72,16 +114,23 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    ./test-installers.py ssh --host root@server.example.com
-    ./test-installers.py ssh --host user@server --type both --method git
-    ./test-installers.py ssh --host user@server --method pypi --version 0.4.0
+    hop3-test-installers ssh --host root@server.example.com
+    hop3-test-installers ssh --host user@server --type both --method git
+    hop3-test-installers ssh --host user@server --method pypi --version 0.4.0
         """,
     )
     ssh_parser.add_argument(
         "--host",
         metavar="HOST",
         default=os.environ.get("HOP3_TEST_HOST"),
-        help="SSH target (user@hostname). Can also set HOP3_TEST_HOST env var",
+        help="SSH target (hostname or user@hostname). Can also set HOP3_TEST_HOST env var",
+    )
+    ssh_parser.add_argument(
+        "--user",
+        "-u",
+        metavar="USER",
+        default=os.environ.get("HOP3_SSH_USER", "root"),
+        help="SSH user (default: root, or set HOP3_SSH_USER env var)",
     )
     ssh_parser.add_argument(
         "--dry-run",
@@ -97,9 +146,9 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    ./test-installers.py docker --distro ubuntu
-    ./test-installers.py docker --distro fedora --type cli
-    ./test-installers.py docker --all
+    hop3-test-installers docker --distro ubuntu
+    hop3-test-installers docker --distro fedora --type cli
+    hop3-test-installers docker --all
 
 Note: Server tests are limited in Docker (no systemd).
         """,
@@ -129,9 +178,9 @@ Note: Server tests are limited in Docker (no systemd).
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    ./test-installers.py vagrant --vm ubuntu
-    ./test-installers.py vagrant --vm fedora --type server
-    ./test-installers.py vagrant --all
+    hop3-test-installers vagrant --vm ubuntu
+    hop3-test-installers vagrant --vm fedora --type server
+    hop3-test-installers vagrant --all
 
 Requires: Vagrant and VirtualBox (or another provider).
         """,
@@ -195,9 +244,9 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def run_ssh_tests(args: argparse.Namespace) -> int:
+def run_ssh_tests(args: argparse.Namespace, installer_dir: Path) -> int:
     """Run tests using SSH backend."""
-    from testing.backends.ssh import SSHBackend
+    from .backends.ssh import SSHBackend
 
     if not args.host:
         log_error(
@@ -205,12 +254,19 @@ def run_ssh_tests(args: argparse.Namespace) -> int:
         )
         print()
         print("Example:")
-        print("  ./test-installers.py ssh --host user@server.example.com")
+        print("  hop3-test-installers ssh --host server.example.com")
+        print("  hop3-test-installers ssh --host root@server.example.com")
         return 1
+
+    # Build SSH target (user@host format)
+    if "@" in args.host:
+        ssh_target = args.host
+    else:
+        ssh_target = f"{args.user}@{args.host}"
 
     # Print test plan
     log_header("Hop3 Installer E2E Tests (SSH)")
-    print(f"  Host:    {args.host}")
+    print(f"  Host:    {ssh_target}")
     print(f"  Type:    {args.type}")
     print(f"  Method:  {args.method}")
     print(f"  Branch:  {args.branch}")
@@ -219,12 +275,12 @@ def run_ssh_tests(args: argparse.Namespace) -> int:
     print()
 
     # Create backend and config
-    backend = SSHBackend(args.host)
+    backend = SSHBackend(ssh_target)
     config = TestConfig(
         method=args.method if args.method != "all" else "git",
         branch=args.branch,
         version=args.version,
-        installer_dir=SCRIPT_DIR,
+        installer_dir=installer_dir,
         skip_acme=True,
     )
 
@@ -256,15 +312,15 @@ def run_ssh_tests(args: argparse.Namespace) -> int:
     return 0 if runner.print_summary() else 1
 
 
-def run_docker_tests(args: argparse.Namespace) -> int:
+def run_docker_tests(args: argparse.Namespace, installer_dir: Path) -> int:
     """Run tests using Docker backend."""
-    from testing.backends.docker import DockerBackend
+    from .backends.docker import DockerBackend
 
     # Handle cleanup
     if args.cleanup:
         log_header("Cleaning up Docker containers")
         for distro in DOCKER_DISTROS:
-            backend = DockerBackend(distro, SCRIPT_DIR)
+            backend = DockerBackend(distro, installer_dir)
             backend.teardown()
         print("Cleanup complete")
         return 0
@@ -284,11 +340,11 @@ def run_docker_tests(args: argparse.Namespace) -> int:
     for distro in distros:
         log_header(f"Testing on {distro}")
 
-        backend = DockerBackend(distro, SCRIPT_DIR)
+        backend = DockerBackend(distro, installer_dir)
         config = TestConfig(
             method=args.method if args.method != "all" else "git",
             branch=args.branch,
-            installer_dir=SCRIPT_DIR,
+            installer_dir=installer_dir,
         )
 
         if not backend.setup():
@@ -321,15 +377,15 @@ def run_docker_tests(args: argparse.Namespace) -> int:
     return 0 if passed == total else 1
 
 
-def run_vagrant_tests(args: argparse.Namespace) -> int:
+def run_vagrant_tests(args: argparse.Namespace, installer_dir: Path) -> int:
     """Run tests using Vagrant backend."""
-    from testing.backends.vagrant import VagrantBackend
+    from .backends.vagrant import VagrantBackend
 
     # Handle cleanup
     if args.cleanup:
         log_header("Cleaning up Vagrant VMs")
         for vm in VAGRANT_VMS:
-            backend = VagrantBackend(vm, SCRIPT_DIR)
+            backend = VagrantBackend(vm, installer_dir)
             backend.teardown()
         print("Cleanup complete")
         return 0
@@ -349,11 +405,11 @@ def run_vagrant_tests(args: argparse.Namespace) -> int:
     for vm in vms:
         log_header(f"Testing on {vm}")
 
-        backend = VagrantBackend(vm, SCRIPT_DIR)
+        backend = VagrantBackend(vm, installer_dir)
         config = TestConfig(
             method=args.method if args.method != "all" else "git",
             branch=args.branch,
-            installer_dir=SCRIPT_DIR,
+            installer_dir=installer_dir,
         )
 
         if not backend.setup():
@@ -405,13 +461,16 @@ def main() -> int:
     if hasattr(args, "dry_run") and args.dry_run:
         set_dry_run(True)
 
+    # Find or generate installer directory
+    installer_dir = _find_or_generate_installer_dir()
+
     # Run appropriate backend
     if args.backend == "ssh":
-        return run_ssh_tests(args)
+        return run_ssh_tests(args, installer_dir)
     elif args.backend == "docker":
-        return run_docker_tests(args)
+        return run_docker_tests(args, installer_dir)
     elif args.backend == "vagrant":
-        return run_vagrant_tests(args)
+        return run_vagrant_tests(args, installer_dir)
     else:
         log_error(f"Unknown backend: {args.backend}")
         return 1

@@ -1,7 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 #
-# Vagrantfile for testing Hop3 installers
+# Vagrantfile for testing Hop3 installers (alvistack boxes variant)
 #
 # Usage:
 #   vagrant up ubuntu          # Start Ubuntu VM
@@ -13,13 +13,17 @@
 #   vagrant destroy -f         # Destroy all VMs
 #
 # Test with:
-#   ./test-installers.py --vm ubuntu --type cli
-#   ./test-installers.py --vm ubuntu --type server
-#   ./test-installers.py --all
+#   hop3-test-installers vagrant --vm ubuntu --type cli
+#   hop3-test-installers vagrant --vm ubuntu --type server
+#   hop3-test-installers vagrant --all
 #
 # Provider selection:
 #   VAGRANT_DEFAULT_PROVIDER=qemu vagrant up ubuntu
 #   VAGRANT_DEFAULT_PROVIDER=libvirt vagrant up ubuntu
+
+# Find the project root (hop3/)
+# We're in packages/hop3-installer/src/hop3_installer/testing/vagrant/
+PROJECT_ROOT = File.expand_path('../../../../../../..', __dir__)
 
 # Detect host architecture
 def get_arch
@@ -33,20 +37,19 @@ end
 
 ARCH = get_arch()
 
-# Box definitions
-# Note: VirtualBox requires x86_64. For ARM64 (Apple Silicon), use QEMU or libvirt provider.
+# Box definitions - using generic boxes that support multiple providers
 BOXES = {
   'ubuntu' => {
-    'amd64' => 'bento/ubuntu-24.04',
-    'arm64' => 'perk/ubuntu-24.04-arm64'  # Requires QEMU provider
+    'amd64' => 'alvistack/ubuntu-24.04',
+    'arm64' => 'generic/ubuntu2404'
   },
   'debian' => {
-    'amd64' => 'bento/debian-12',
-    'arm64' => 'generic/debian12'  # Requires QEMU provider
+    'amd64' => 'generic/debian12',
+    'arm64' => 'generic/debian12'
   },
   'fedora' => {
-    'amd64' => 'bento/fedora-40',
-    'arm64' => 'generic/fedora40'  # Requires QEMU provider
+    'amd64' => 'generic/fedora40',
+    'arm64' => 'generic/fedora40'
   }
 }
 
@@ -111,7 +114,7 @@ Vagrant.configure("2") do |config|
   end
 
   # Sync the entire hop3 repo (need access to packages/ for local testing)
-  config.vm.synced_folder "..", "/vagrant", type: "rsync",
+  config.vm.synced_folder PROJECT_ROOT, "/vagrant", type: "rsync",
     rsync__exclude: [".git/", "__pycache__/", "*.pyc", ".vagrant/", "*.egg-info/", ".venv/", ".tox/", "node_modules/"]
 
   # Ubuntu VM
@@ -122,16 +125,16 @@ Vagrant.configure("2") do |config|
   end
 
   # Debian VM
-  #config.vm.define "debian", autostart: false do |debian|
-  #  debian.vm.box = BOXES['debian'][ARCH]
-  #  debian.vm.hostname = "hop3-test-debian"
-  #  debian.vm.provision "shell", inline: PROVISION_SCRIPT
-  #end
+  config.vm.define "debian", autostart: false do |debian|
+    debian.vm.box = BOXES['debian'][ARCH]
+    debian.vm.hostname = "hop3-test-debian"
+    debian.vm.provision "shell", inline: PROVISION_SCRIPT
+  end
 
   # Fedora VM
-  #config.vm.define "fedora", autostart: false do |fedora|
-  #  fedora.vm.box = BOXES['fedora'][ARCH]
-  #  fedora.vm.hostname = "hop3-test-fedora"
-  #  fedora.vm.provision "shell", inline: PROVISION_SCRIPT
-  #end
+  config.vm.define "fedora", autostart: false do |fedora|
+    fedora.vm.box = BOXES['fedora'][ARCH]
+    fedora.vm.hostname = "hop3-test-fedora"
+    fedora.vm.provision "shell", inline: PROVISION_SCRIPT
+  end
 end

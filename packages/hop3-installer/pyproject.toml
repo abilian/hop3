@@ -39,6 +39,8 @@ hop3-install-server = "hop3_installer.server:main"
 hop3-installer-bundle = "hop3_installer.bundler:main"
 # Deployment tool for developers
 hop3-deploy = "hop3_installer.deployer:main"
+# Testing tool for installers
+hop3-test-installers = "hop3_installer.testing:main"
 
 [build-system]
 requires = ["hatchling"]
