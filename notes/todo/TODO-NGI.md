@@ -22,6 +22,10 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
 - [T2: Nix Runtime](#t2-nix-runtime)
 - [T3: Security & Resilience](#t3-security--resilience)
 - [T4: Packaged Applications](#t4-packaged-applications)
+  * [M4.1 - First 5 Applications](#m41---first-5-applications)
+  * [M4.2 - Next 5 Applications](#m42---next-5-applications)
+  * [M4.3 - Next 5 Applications](#m43---next-5-applications)
+  * [M4.4 - Last 5 Applications](#m44---last-5-applications)
 - [T5: Dissemination & Engagement](#t5-dissemination--engagement)
 
 <!-- tocstop -->
