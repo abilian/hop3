@@ -109,4 +109,3 @@ known-first-party = ["hop3"]
 "**/noxfile.py" = [
     "INP001", # implicit namespace package
 ]
- 
