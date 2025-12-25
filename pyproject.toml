@@ -11,10 +11,11 @@ requires-python = ">=3.12,<3.14"
 dependencies = [
     # Workspace
     # "hop3-agent",
-    "hop3-testing",
+    "hop3-server",
     "hop3-cli",
     "hop3-tui",
-    "hop3-server",
+    "hop3-installer",
+    "hop3-testing",
     # Later
     #    "hop3-lib",
     #    "hop3-web",
@@ -115,8 +116,9 @@ package = false
 members = ["packages/*"]
 
 [tool.uv.sources]
-hop3-cli = { workspace = true }
 hop3-server = { workspace = true }
+hop3-cli = { workspace = true }
+hop3-installer = { workspace = true }
 hop3-testing = { workspace = true }
 hop3-tui = { workspace = true }
 

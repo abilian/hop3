@@ -161,14 +161,15 @@ def extract_imports(source: str) -> tuple[set[str], str]:
 
             # Extract module name for stdlib detection
             if stripped.startswith("import "):
-                match = re.match(r"import\s+(\w+)", stripped)
+                # Capture full dotted module name (e.g., urllib.request)
+                match = re.match(r"import\s+([\w.]+)", stripped)
                 if match:
                     imports.add(match.group(1))
             elif stripped.startswith("from "):
+                # Capture full dotted module path (e.g., from urllib.request import urlretrieve)
                 match = re.match(r"from\s+([\w.]+)\s+import", stripped)
                 if match:
-                    module = match.group(1).split(".")[0]
-                    imports.add(module)
+                    imports.add(match.group(1))
 
             if is_multiline:
                 in_multiline_import = True

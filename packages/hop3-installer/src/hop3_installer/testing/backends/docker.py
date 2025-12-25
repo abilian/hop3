@@ -94,15 +94,7 @@ class DockerBackend(Backend):
                 capture_output=True,
             )
 
-        # Determine install command based on distro
-        if self.distro in ("ubuntu", "debian"):
-            install_cmd = (
-                "apt-get update && apt-get install -y python3 python3-venv git curl"
-            )
-        else:  # fedora
-            install_cmd = "dnf install -y python3 python3-pip git curl"
-
-        # Start container with installer directory mounted
+        # Start container with installer directory mounted (just sleep, no package install yet)
         try:
             subprocess.run(
                 [
@@ -116,9 +108,8 @@ class DockerBackend(Backend):
                     "-w",
                     "/installer",
                     self.image,
-                    "bash",
-                    "-c",
-                    f"{install_cmd} && sleep infinity",
+                    "sleep",
+                    "infinity",
                 ],
                 check=True,
                 capture_output=True,
@@ -127,8 +118,15 @@ class DockerBackend(Backend):
             log_error(f"Failed to start container: {e}")
             return False
 
-        # Wait for package installation to complete (python3 AND git)
+        # Install packages synchronously (not in background)
         log_info("Waiting for package installation...")
+        if self.distro in ("ubuntu", "debian"):
+            install_cmd = (
+                "apt-get update && apt-get install -y python3 python3-venv git curl"
+            )
+        else:  # fedora
+            install_cmd = "dnf install -y python3 python3-pip git curl"
+
         try:
             subprocess.run(
                 [
@@ -137,12 +135,16 @@ class DockerBackend(Backend):
                     self.container_name,
                     "bash",
                     "-c",
-                    "while ! command -v python3 &>/dev/null || ! command -v git &>/dev/null; do sleep 1; done",
+                    install_cmd,
                 ],
                 check=True,
-                timeout=120,
+                capture_output=True,
+                timeout=300,  # 5 minutes for package installation
             )
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        except subprocess.CalledProcessError as e:
+            log_error(f"Package installation failed: {e.stderr[:200] if e.stderr else ''}")
+            return False
+        except subprocess.TimeoutExpired:
             log_error("Package installation timed out")
             return False
 

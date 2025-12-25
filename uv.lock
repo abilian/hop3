@@ -6,6 +6,7 @@ requires-python = ">=3.12, <3.14"
 members = [
     "hop3",
     "hop3-cli",
+    "hop3-installer",
     "hop3-server",
     "hop3-testing",
     "hop3-tui",
@@ -1177,6 +1178,7 @@ dependencies = [
     { name = "devtools" },
     { name = "dishka" },
     { name = "hop3-cli" },
+    { name = "hop3-installer" },
     { name = "hop3-server" },
     { name = "hop3-testing" },
     { name = "hop3-tui" },
@@ -1246,6 +1248,7 @@ requires-dist = [
     { name = "devtools", specifier = "~=0.12" },
     { name = "dishka", specifier = ">=1.7.2" },
     { name = "hop3-cli", editable = "packages/hop3-cli" },
+    { name = "hop3-installer", editable = "packages/hop3-installer" },
     { name = "hop3-server", editable = "packages/hop3-server" },
     { name = "hop3-testing", editable = "packages/hop3-testing" },
     { name = "hop3-tui", editable = "packages/hop3-tui" },
@@ -1338,6 +1341,25 @@ requires-dist = [
     { name = "sshtunnel", specifier = ">=0.4.0" },
     { name = "tabulate", specifier = ">=0.9.0,<1.0.0" },
     { name = "toml", specifier = ">=0.10.2,<1.0.0" },
+]
+
+[[package]]
+name = "hop3-installer"
+version = "0.1.0"
+source = { editable = "packages/hop3-installer" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=7.0" },
+    { name = "ruff", specifier = ">=0.1.0" },
 ]
 
 [[package]]

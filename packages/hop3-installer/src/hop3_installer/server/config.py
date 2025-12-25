@@ -134,6 +134,7 @@ FEDORA_PACKAGES = [
     "wget",
     "rsync",
     "socat",
+    "openssl",  # CLI tool for SSL certificate generation
     "libjpeg-devel",
     "libpng-devel",
     "libwebp-devel",

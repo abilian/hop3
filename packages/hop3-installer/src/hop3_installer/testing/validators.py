@@ -50,14 +50,12 @@ def validate_cli_installation(backend: Backend) -> bool:
     else:
         log_warning("Symlink not found (may be expected with --no-modify-path)")
 
-    # Try running help
-    result = backend.run(
-        "~/.hop3-cli/venv/bin/hop3 --help 2>&1 || ~/.hop3-cli/venv/bin/hop --help 2>&1"
-    )
-    if result.success or "usage" in result.stdout.lower():
+    # Try running version (a local command that doesn't need server config)
+    result = backend.run("~/.hop3-cli/venv/bin/hop3 version 2>&1")
+    if result.success or "hop3" in result.stdout.lower():
         log_success("CLI command runs successfully")
     else:
-        log_warning("CLI command returned an error when running --help:")
+        log_warning("CLI command returned an error when running 'version':")
         if result.stdout.strip():
             print(f"  stdout: {result.stdout.strip()}")
         if result.stderr.strip():

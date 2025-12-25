@@ -21,6 +21,7 @@ packages-ignored2
 .envrc
 *.private
 sandbox/
+/OLD/
 
 #
 # Generic ignores
