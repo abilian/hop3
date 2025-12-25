@@ -78,7 +78,7 @@ deploy-teardown:
 #
 
 ## Test installers via SSH (requires HOP3_TEST_HOST or --host) and docker
-test-installer-all: 
+test-installer-all:
 	@make test-installer-ssh
 	@make test-installer-docker-all
 
