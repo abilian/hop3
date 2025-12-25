@@ -44,7 +44,8 @@ class GitHookCmd(Command):
         Example: aa453216... 68f7abf4... refs/heads/master
         """
         if not args:
-            raise ValueError("Usage: hop3 git-hook <app_name>")
+            msg = "Usage: hop3 git-hook <app_name>"
+            raise ValueError(msg)
 
         app_name = args[0]
 

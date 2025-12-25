@@ -21,16 +21,9 @@ class JavaToolchain(LanguageToolchain):
     requirements = ["java"]  # noqa: RUF012
 
     def accept(self) -> bool:
-        """Check if the application has Java build configuration."""
-        # Check for Maven pom.xml
-        if (self.src_path / "pom.xml").exists():
-            return True
-        # Check for Gradle build.gradle or build.gradle.kts
-        if (self.src_path / "build.gradle").exists():
-            return True
-        if (self.src_path / "build.gradle.kts").exists():
-            return True
-        return False
+        """Check if the application has Java build configuration (Maven or Gradle)."""
+        build_files = ("pom.xml", "build.gradle", "build.gradle.kts")
+        return any((self.src_path / f).exists() for f in build_files)
 
     def build(self) -> BuildArtifact:
         """Build the Java application.

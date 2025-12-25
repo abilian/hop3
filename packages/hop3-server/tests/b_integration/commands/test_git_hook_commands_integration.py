@@ -90,7 +90,7 @@ class TestGitHookCmdIntegration:
         """
         cmd = GitHookCmd(db_session=db_session)
 
-        with pytest.raises(ValueError, match="Usage:.*git-hook"):
+        with pytest.raises(ValueError, match=r"Usage:.*git-hook"):
             cmd.call()
 
     def test_git_hook_app_not_found(self, db_session: Session):

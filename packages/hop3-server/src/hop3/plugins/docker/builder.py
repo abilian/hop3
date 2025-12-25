@@ -10,6 +10,7 @@ be deployed using DockerComposeDeployer.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import time
 from dataclasses import dataclass
@@ -104,6 +105,11 @@ class DockerBuilder:
 
         log(f"Running: docker build -t {image_tag} .", level=2, fg="cyan")
 
+        # Enable BuildKit for modern Dockerfile features (COPY --chmod, etc.)
+        # BuildKit is required for many modern Dockerfiles
+        env = os.environ.copy()
+        env["DOCKER_BUILDKIT"] = "1"
+
         try:
             result = subprocess.run(
                 cmd,
@@ -112,6 +118,7 @@ class DockerBuilder:
                 capture_output=True,
                 text=True,
                 timeout=600,  # 10 minute timeout for builds
+                env=env,
             )
             self._handle_build_success(result, image_tag, start_time)
 

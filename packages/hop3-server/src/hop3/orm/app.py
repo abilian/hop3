@@ -190,7 +190,7 @@ class App(BigIntAuditBase):
 
         return False
 
-    def _wait_for_actual_state(
+    def wait_for_actual_state(
         self,
         expected_state: AppStateEnum,
         timeout: float = 10.0,

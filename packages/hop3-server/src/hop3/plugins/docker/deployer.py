@@ -406,6 +406,10 @@ services:
         """
         try:
             cmd = self._get_compose_cmd_base() + ["ps", "--format", "{{.State}}"]
+
+            # Get environment for docker compose (needed to resolve ${HOP3_IMAGE_TAG})
+            env = self._get_status_check_env()
+
             result = subprocess.run(
                 cmd,
                 cwd=self.source_path,
@@ -413,6 +417,7 @@ services:
                 capture_output=True,
                 text=True,
                 timeout=DOCKER_COMMAND_TIMEOUT,
+                env=env,
             )
 
             if result.returncode != 0:
@@ -423,6 +428,32 @@ services:
 
         except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
             return False
+
+    def _get_status_check_env(self) -> dict[str, str]:
+        """Get minimal environment for status check commands.
+
+        Returns environment variables needed for docker compose to parse
+        the compose file, particularly for variable substitution like
+        ${HOP3_IMAGE_TAG}.
+        """
+        env = {
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": os.environ.get("HOME", ""),
+        }
+
+        # Get image tag from app model if available, otherwise generate default
+        if self.context.app and self.context.app.image_tag:
+            env["HOP3_IMAGE_TAG"] = self.context.app.image_tag
+        else:
+            # Fallback to generated tag format
+            safe_name = self.app_name.lower().replace("_", "-")
+            env["HOP3_IMAGE_TAG"] = f"hop3/{safe_name}:latest"
+
+        # Add PORT for compose file port mapping resolution
+        if self.context.app and self.context.app.port:
+            env["PORT"] = str(self.context.app.port)
+
+        return env
 
     def get_status(self) -> dict:
         """Get detailed status of the deployment.
@@ -442,6 +473,10 @@ services:
                 "--format",
                 "{{.Name}}\t{{.State}}\t{{.Status}}",
             ]
+
+            # Get environment for docker compose (needed to resolve ${HOP3_IMAGE_TAG})
+            env = self._get_status_check_env()
+
             result = subprocess.run(
                 cmd,
                 cwd=self.source_path,
@@ -449,6 +484,7 @@ services:
                 capture_output=True,
                 text=True,
                 timeout=DOCKER_COMMAND_TIMEOUT,
+                env=env,
             )
 
             if result.returncode != 0 or not result.stdout.strip():
