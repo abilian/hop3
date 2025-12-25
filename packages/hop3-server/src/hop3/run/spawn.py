@@ -74,10 +74,14 @@ class AppLauncher:
             session.commit()
 
     def _setup_proxy(self, host_name: str) -> None:
-        """Setup proxy configuration if HOST_NAME is set to a real value."""
-        if not host_name or host_name == "_":
+        """Setup proxy configuration.
+
+        Note: host_name="_" is a valid nginx catch-all server_name that
+        matches any hostname. We only skip setup if host_name is completely empty.
+        """
+        if not host_name:
             log(
-                f"Skipping proxy setup for '{self.app_name}' (server_name is '{host_name}')",
+                f"Skipping proxy setup for '{self.app_name}' (no HOST_NAME configured)",
                 level=2,
                 fg="yellow",
             )
@@ -107,7 +111,7 @@ class AppLauncher:
             )
             traceback.print_exc()
 
-    def _calculate_worker_changes(self, web_worker_count: dict) -> tuple[dict, dict]:
+    def _calculate_worker_changes(self, worker_count: dict) -> tuple[dict, dict]:
         """Calculate which workers to create and destroy based on deltas.
 
         Returns:
@@ -116,36 +120,41 @@ class AppLauncher:
         to_create = {}
         to_destroy = {}
 
-        for env_key in web_worker_count:
-            to_create[env_key] = range(1, web_worker_count[env_key] + 1)
+        for env_key in worker_count:
+            to_create[env_key] = range(1, worker_count[env_key] + 1)
             if self.deltas.get(env_key):
                 to_create[env_key] = range(
                     1,
-                    web_worker_count[env_key] + self.deltas[env_key] + 1,
+                    worker_count[env_key] + self.deltas[env_key] + 1,
                 )
                 if self.deltas[env_key] < 0:
                     to_destroy[env_key] = range(
-                        web_worker_count[env_key],
-                        web_worker_count[env_key] + self.deltas[env_key],
+                        worker_count[env_key],
+                        worker_count[env_key] + self.deltas[env_key],
                         -1,
                     )
-                web_worker_count[env_key] += self.deltas[env_key]
+                worker_count[env_key] += self.deltas[env_key]
 
         return to_create, to_destroy
 
     def _get_worker_counts(self, scaling) -> dict:
-        """Get web worker counts from configuration and scaling file."""
-        web_worker_count = dict.fromkeys(self.web_workers.keys(), 1)
+        """Get worker counts from configuration and scaling file.
+
+        This includes ALL workers from the Procfile (web, worker, etc.),
+        not just web workers.
+        """
+        # Use all workers, not just web_workers
+        worker_count = dict.fromkeys(self.workers.keys(), 1)
 
         if scaling.exists():
-            web_worker_count.update(
+            worker_count.update(
                 {
                     worker: int(v)
                     for worker, v in parse_procfile(scaling).items()
-                    if worker in self.web_workers
+                    if worker in self.workers
                 },
             )
-        return web_worker_count
+        return worker_count
 
     def _prepare_environment(self) -> Env:
         """Prepare environment by removing internal variables."""
@@ -179,15 +188,15 @@ class AppLauncher:
         self._setup_proxy(host_name)
 
         scaling = self.virtualenv_path / "SCALING"
-        web_worker_count = self._get_worker_counts(scaling)
-        to_create, to_destroy = self._calculate_worker_changes(web_worker_count)
+        worker_count = self._get_worker_counts(scaling)
+        to_create, to_destroy = self._calculate_worker_changes(worker_count)
 
         env = self._prepare_environment()
 
         # Save current settings to file
         live = self.app.virtualenv_path / "LIVE_ENV"
         write_settings(live, env)
-        write_settings(scaling, web_worker_count, ":")
+        write_settings(scaling, worker_count, ":")
 
         self._handle_auto_restart(env)
 

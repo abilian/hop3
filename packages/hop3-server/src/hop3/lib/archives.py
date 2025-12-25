@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import io
+import os
 import shutil
+import stat
 import tarfile
+import time
 from pathlib import Path
 
 # Security limits for archive extraction
@@ -12,6 +15,10 @@ MAX_EXTRACTED_SIZE_BYTES = (
     2 * 1024 * 1024 * 1024
 )  # 2 GB (decompression bomb protection)
 MAX_FILE_COUNT = 10000  # Maximum number of files in archive
+
+# Retry settings for robust deletion
+RMTREE_MAX_RETRIES = 3
+RMTREE_RETRY_DELAY = 0.1  # seconds
 
 
 def _validate_archive_size(archive_bytes: bytes) -> None:
@@ -24,17 +31,74 @@ def _validate_archive_size(archive_bytes: bytes) -> None:
         raise ValueError(msg)
 
 
+def _robust_rmtree(path: Path) -> None:
+    """Remove a directory tree robustly, handling permission and race condition issues.
+
+    This handles common issues with npm's node_modules and similar complex structures:
+    - Read-only files (common in npm packages)
+    - Race conditions when files are still being accessed
+    - Deep nesting
+
+    Args:
+        path: Directory to remove
+
+    Raises:
+        OSError: If deletion fails after all retries
+    """
+
+    def handle_remove_readonly(func, path, exc_info):
+        """Error handler that fixes read-only permissions and retries."""
+        # If it's a permission error, try to fix permissions and retry
+        if isinstance(exc_info[1], PermissionError):
+            try:
+                os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                func(path)
+                return
+            except OSError:
+                pass
+        # Re-raise the original exception
+        raise exc_info[1]
+
+    last_error = None
+    for attempt in range(RMTREE_MAX_RETRIES):
+        try:
+            shutil.rmtree(path, onerror=handle_remove_readonly)
+            return  # Success
+        except OSError as e:
+            last_error = e
+            if attempt < RMTREE_MAX_RETRIES - 1:
+                # Wait a bit before retrying (handles race conditions)
+                time.sleep(RMTREE_RETRY_DELAY * (attempt + 1))
+            continue
+
+    # All retries failed - try one last time with ignore_errors as fallback
+    shutil.rmtree(path, ignore_errors=True)
+
+    # Check if it's really gone
+    if path.exists():
+        raise last_error or OSError(f"Failed to remove directory: {path}")
+
+
 def _prepare_target_directory(target_dir: Path) -> None:
-    """Clear or create the target directory."""
+    """Clear or create the target directory.
+
+    Uses robust deletion that handles:
+    - Read-only files (common in npm packages)
+    - Race conditions when processes are still accessing files
+    - Complex nested structures
+    """
     if target_dir.exists():
         # Clear the directory to ensure we start fresh.
-        # This is safer than deleting and recreating, which could have
-        # permission issues if the parent directory is not writable.
         for item in target_dir.iterdir():
             if item.is_dir():
-                shutil.rmtree(item)
+                _robust_rmtree(item)
             else:
-                item.unlink()
+                try:
+                    item.unlink()
+                except PermissionError:
+                    # Try fixing permissions and retry
+                    os.chmod(item, stat.S_IRWXU)
+                    item.unlink()
     else:
         # Create the directory if it doesn't exist
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -129,11 +193,6 @@ def extract_archive_to_dir(archive_bytes: bytes, target_dir: Path) -> None:
             else:
                 _extract_members_legacy(tar, members, target_dir)
 
-        print(f"Successfully extracted archive to: {target_dir}")
-
     except tarfile.ReadError as e:
-        print(f"Error: The provided bytes do not form a valid tar.gz archive. {e}")
-        raise
-    except Exception as e:
-        print(f"An unexpected error occurred during extraction: {e}")
-        raise
+        msg = f"The provided bytes do not form a valid tar.gz archive: {e}"
+        raise tarfile.ReadError(msg) from e

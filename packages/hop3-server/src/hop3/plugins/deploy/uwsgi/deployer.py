@@ -65,13 +65,13 @@ class UWSGIDeployer(Deployer):
 
         log(f"Deploying '{self.app.name}' with uWSGI...", level=2, fg="blue")
 
-        # Transition from STOPPED to STARTING
-        if current_state == AppStateEnum.STOPPED:
+        # Transition to STARTING (handles both STOPPED and FAILED states)
+        if current_state in {AppStateEnum.STOPPED, AppStateEnum.FAILED}:
             self.app._transition_state(AppStateEnum.STARTING)  # noqa: SLF001
 
         spawn_app(self.app, deltas)
 
-        # Mark the app as RUNNING
+        # Mark the app as RUNNING (STARTING -> RUNNING)
         self.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
 
         # Return HTTP socket info (apps now listen on HTTP ports)
@@ -146,28 +146,32 @@ class UWSGIDeployer(Deployer):
         Returns:
             True if processes are confirmed running, False otherwise.
 
-        Uses multiple methods to verify if the app is actually running:
-        1. Check if the HTTP port is listening (most reliable)
-        2. Check if uWSGI processes are running
-        3. Fall back to checking config files
+        The primary check is whether the app's HTTP port is listening.
+        This is the most reliable indicator that the app is actually serving.
+        Process checks (pgrep) are only used when no port is assigned.
         """
+        import socket
+
         cfg = HopConfig.get_instance()
 
-        # Method 1: Check if the HTTP port is listening
+        # Primary check: Is the HTTP port listening?
+        # This is the most reliable indicator that the app is actually serving
         if self.app.port:
-            import socket
-
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.settimeout(1)
                     connect_result = s.connect_ex(("127.0.0.1", self.app.port))
-                    if connect_result == 0:
-                        # Port is listening
-                        return True
+                    # Port is listening (0) = running, otherwise not running
+                    # If port is assigned but not listening, app is NOT running properly
+                    return connect_result == 0
             except OSError:
-                pass
+                # Socket error - assume not running
+                return False
 
-        # Method 2: Check for running uWSGI processes with this app's name
+        # No port assigned - fall back to process-based checks
+        # This can happen for cron workers or other non-web processes
+
+        # Check for running uWSGI processes with this app's name
         # uWSGI sets procname-prefix to "{app_name}:{kind}:"
         try:
             pgrep_result = subprocess.run(
@@ -181,16 +185,14 @@ class UWSGIDeployer(Deployer):
                 # Found running processes
                 return True
         except (subprocess.TimeoutExpired, FileNotFoundError):
-            # pgrep not available or timed out, continue to next check
+            # pgrep not available or timed out
             pass
 
-        # Method 3: Fall back to checking config files
-        # This is the least reliable but works on all platforms
+        # Check if config files exist (could be starting up)
         config_files = list(cfg.UWSGI_ENABLED.glob(f"{self.app.name}*.ini"))
         if len(config_files) > 0:
-            # Config files exist, but we couldn't verify processes
-            # Could be starting up or crashed
-            # Return False to be conservative
+            # Config files exist but no running processes detected
+            # Could be starting up or crashed - return False to be conservative
             return False
 
         # No config files at all

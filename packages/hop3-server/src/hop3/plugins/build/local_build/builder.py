@@ -27,12 +27,28 @@ class LocalBuilder:
     def __init__(self, context: BuildContext) -> None:
         """Initialize local builder with build context."""
         self.context = context
+        self.rejection_reason = ""  # Set by accept() if rejected
 
     def accept(self) -> bool:
         """Accept if at least one language toolchain can handle this project."""
+        src_path = self.context.source_path
+
+        if not src_path.exists():
+            self.rejection_reason = f"source path does not exist: {src_path}"
+            return False
+
         # Discover applicable toolchains
         toolchains = self._discover_toolchains(self.context)
-        # Only accept if we found at least one applicable toolchain
+
+        if toolchains:
+            names = [getattr(tc, "name", tc.__name__) for tc in toolchains]
+            log(f"Detected toolchains: {names}", level=2, fg="cyan")
+        else:
+            self.rejection_reason = (
+                "no language toolchain detected "
+                "(checked for package.json, requirements.txt, Cargo.toml, etc.)"
+            )
+
         return len(toolchains) > 0
 
     def build(self) -> BuildArtifact:

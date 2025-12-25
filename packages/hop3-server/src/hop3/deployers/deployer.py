@@ -119,7 +119,6 @@ def _update_app_model(
         deployment_info: DeploymentInfo with port and address
         app_config: Parsed application configuration
     """
-    from hop3.core.env import Env
     from hop3.orm.app import AppStateEnum
 
     # Update runtime so start/stop commands know how to handle this app
@@ -135,15 +134,39 @@ def _update_app_model(
     if host_name and host_name != "_":
         app.hostname = host_name
 
-    # Update run state to RUNNING (deployment succeeded)
-    app.run_state = AppStateEnum.RUNNING
-
     log(
         f"App '{app.name}' model updated: runtime={runtime}, port={app.port}, "
-        f"hostname={app.hostname or '(none)'}, state=RUNNING",
+        f"hostname={app.hostname or '(none)'}",
         level=2,
         fg="blue",
     )
+
+    # The deployer has set the state to RUNNING, but for uWSGI the process
+    # starts asynchronously via the emperor. Wait for it to actually be running.
+    # This ensures deploy doesn't return until the app is confirmed running.
+    timeout = 30.0  # 30 seconds should be enough for most apps
+    log(
+        f"Waiting for app '{app.name}' to start (timeout: {timeout}s)...",
+        level=1,
+        fg="blue",
+    )
+
+    if app.wait_for_actual_state(
+        AppStateEnum.RUNNING, timeout=timeout, poll_interval=0.5
+    ):
+        log(f"App '{app.name}' is now running.", level=1, fg="green")
+    else:
+        # App didn't start within timeout - mark as failed
+        app.run_state = AppStateEnum.FAILED
+        error_msg = f"App failed to start within {timeout}s timeout"
+        app.error_message = error_msg
+        log(
+            f"App '{app.name}' failed to start within {timeout}s. "
+            "Check logs with 'hop3 app:logs' for details.",
+            level=0,
+            fg="red",
+        )
+        raise Abort(error_msg)
 
 
 def _run_hook(hook_name: str, command: str, cwd: Path) -> None:

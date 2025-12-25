@@ -172,6 +172,20 @@ class StaticDeployer(Deployer):
             fg="yellow",
         )
 
+    def check_status(self) -> bool:
+        """Check if the static app is running.
+
+        Static apps don't have processes to check - they're served directly by nginx.
+        Once deployed, they're immediately available (nginx serves files from disk).
+
+        Returns:
+            True always, since static apps are always "running" after deployment.
+        """
+        # Static apps have no processes to check - they're served directly by nginx.
+        # Once the nginx config is in place, they're considered running.
+        # Return True to indicate immediate availability after deployment.
+        return True
+
     def get_status(self) -> dict:
         """Get the status of the static app."""
         return {

@@ -21,17 +21,9 @@ class DotNetToolchain(LanguageToolchain):
     requirements = ["dotnet"]  # noqa: RUF012
 
     def accept(self) -> bool:
-        """Check if the application has .NET project files."""
-        # Check for C# project files
-        if list(self.src_path.glob("*.csproj")):
-            return True
-        # Check for F# project files
-        if list(self.src_path.glob("*.fsproj")):
-            return True
-        # Check for solution files
-        if list(self.src_path.glob("*.sln")):
-            return True
-        return False
+        """Check if the application has .NET project files (.csproj, .fsproj, .sln)."""
+        patterns = ("*.csproj", "*.fsproj", "*.sln")
+        return any(path for pattern in patterns for path in self.src_path.glob(pattern))
 
     def build(self) -> BuildArtifact:
         """Build the .NET application.
