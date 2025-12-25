@@ -142,7 +142,9 @@ class DockerBackend(Backend):
                 timeout=300,  # 5 minutes for package installation
             )
         except subprocess.CalledProcessError as e:
-            log_error(f"Package installation failed: {e.stderr[:200] if e.stderr else ''}")
+            log_error(
+                f"Package installation failed: {e.stderr[:200] if e.stderr else ''}"
+            )
             return False
         except subprocess.TimeoutExpired:
             log_error("Package installation timed out")
