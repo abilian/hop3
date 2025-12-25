@@ -9,7 +9,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .clojure import ClojureToolchain
+from .dotnet import DotNetToolchain
+from .elixir import ElixirToolchain
 from .go import GoToolchain
+from .java import JavaToolchain
 from .node import NodeToolchain
 from .php import PHPToolchain
 from .python import PythonToolchain
@@ -29,4 +32,7 @@ TOOLCHAIN_CLASSES: list[type[LanguageToolchain]] = [
     ClojureToolchain,
     GoToolchain,
     RustToolchain,
+    JavaToolchain,
+    DotNetToolchain,
+    ElixirToolchain,
 ]

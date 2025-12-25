@@ -5,17 +5,9 @@
 
 from __future__ import annotations
 
-from subprocess import CalledProcessError
-from typing import TYPE_CHECKING
-
-from hop3.core.events import CompilingProject, CreatingBuildEnv, emit
 from hop3.core.protocols import BuildArtifact
-from hop3.lib import chdir
 
 from ._base import LanguageToolchain
-
-if TYPE_CHECKING:
-    from hop3.core.env import Env
 
 
 class RustToolchain(LanguageToolchain):
@@ -37,40 +29,20 @@ class RustToolchain(LanguageToolchain):
         return self.check_exists("Cargo.toml")
 
     def build(self) -> BuildArtifact:
-        """Build the Rust project using cargo."""
-        with chdir(self.src_path):
-            env = self.get_env()
-            self.prepare_build_env(env)
-            self.compile_project()
+        """Build the Rust project.
 
+        Unlike some other toolchains, Rust projects typically use a Procfile
+        prebuild step to compile (e.g., 'prebuild: cargo build --release').
+        This method returns a stub artifact, similar to GoToolchain, and lets
+        the Procfile prebuild handle the actual compilation.
+
+        This approach works because:
+        1. Rust compilation is slow and benefits from caching
+        2. The Procfile prebuild step runs after package installation
+        3. It allows the same pattern as Go projects
+        """
         return BuildArtifact(
             kind="rust",
-            location=str(self.src_path / "target"),
+            location=str(self.src_path),
             metadata={"app_name": self.app_name},
         )
-
-    def prepare_build_env(self, env: Env) -> None:
-        """Prepare the environment for building the project, if necessary.
-
-        This sets up the necessary environment for building a project,
-        potentially involving setting up Rust-specific environment variables or
-        installing Rust toolchains.
-
-        Input:
-        - env (Env): The environment configuration object that dictates how the
-          build process should be prepared.
-        """
-        emit(CreatingBuildEnv(self.app_name))
-
-        # TODO
-
-    def compile_project(self) -> None:
-        """Compile the Rust project using cargo."""
-        emit(CompilingProject(self.app_name))
-
-        try:
-            self.shell("cargo build")  # Attempt to build the project using cargo
-        except CalledProcessError as e:
-            # Raise a RuntimeError if the build process fails
-            msg = f"Failed to compile Rust project '{self.app_name}': {e}"
-            raise RuntimeError(msg)
