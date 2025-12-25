@@ -25,6 +25,7 @@
 - [Code Cleanup Tasks](#code-cleanup-tasks)
   * [14. Remove Legacy Code](#14-remove-legacy-code)
   * [15. Documentation Updates](#15-documentation-updates)
+  * [16. Replace Paramiko with Native SSH](#16-replace-paramiko-with-native-ssh)
 - [Development Workflow](#development-workflow)
 - [Phase 2 Completed Items ✅](#phase-2-completed-items-%E2%9C%85)
   * [Litestar Phase 2 Migration ✅ COMPLETED (2025-11-24)](#litestar-phase-2-migration-%E2%9C%85-completed-2025-11-24)
