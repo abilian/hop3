@@ -77,8 +77,10 @@ deploy-teardown:
 # Installer Testing
 #
 
-## Test installers via SSH (requires HOP3_TEST_HOST or --host)
-test-installer: test-installer-ssh
+## Test installers via SSH (requires HOP3_TEST_HOST or --host) and docker
+test-installer-all: 
+	@make test-installer-ssh
+	@make test-installer-docker-all
 
 ## Test installers on remote server via SSH
 test-installer-ssh: build-installers
@@ -122,6 +124,11 @@ build-installers:
 	@mkdir -p installer
 	uv run hop3-installer-bundle --all --output-dir installer/
 	@echo ""
+
+
+#
+# Other packages
+#
 
 ## Build the python packages
 build:

@@ -6,6 +6,7 @@ exclude = [
     "scripts",
     "tasks.py",
     "docs",
+    "installer/**/*.py",
 ]
 
 lint.select = [
@@ -108,3 +109,4 @@ known-first-party = ["hop3"]
 "**/noxfile.py" = [
     "INP001", # implicit namespace package
 ]
+ 
