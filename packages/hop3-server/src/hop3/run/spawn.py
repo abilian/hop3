@@ -239,13 +239,18 @@ class AppLauncher:
         node_path = self.virtualenv_path / "node_modules"
         if node_path.exists():
             env["NODE_PATH"] = str(node_path)
-            env["PATH"] = f"{node_path / '.bin'}:{os.environ['PATH']}"
+            # Prepend node_modules/.bin to existing PATH (not os.environ)
+            env["PATH"] = f"{node_path / '.bin'}:{env['PATH']}"
 
         # add Ruby gem paths if this is a Ruby app
         gemfile = self.app.src_path / "Gemfile"
         if gemfile.exists():
             env["BUNDLE_PATH"] = str(self.virtualenv_path)
             env["GEM_HOME"] = str(self.virtualenv_path)
+            # Add gem bin directory to PATH for gem executables (bundle, puma, etc.)
+            gem_bin = self.virtualenv_path / "bin"
+            if gem_bin.exists() and str(gem_bin) not in env["PATH"]:
+                env["PATH"] = f"{gem_bin}:{env['PATH']}"
 
         # Load environment variables from the ORM
         runtime_env = self.app.get_runtime_env()

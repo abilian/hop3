@@ -8,7 +8,6 @@ import traceback
 from typing import TYPE_CHECKING
 
 import pluggy
-from devtools import debug
 from pluggy import PluginManager
 
 from . import hookspecs
@@ -158,7 +157,6 @@ def get_builder(context: DeploymentContext) -> Builder:
     builder_classes: list[type[Builder]] = [
         cls for sublist in builder_classes_list for cls in sublist
     ]
-    debug(builder_classes)
 
     # Check app_config for explicit builder selection
     # Users can set [build] builder = "docker" in hop3.toml

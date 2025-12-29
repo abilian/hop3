@@ -434,9 +434,23 @@ class App(BigIntAuditBase):
             "HOP3_APP_PORT": str(self.port),
         }
 
+        # Find the compose file (user-supplied or generated)
+        compose_file = self._find_compose_file()
+        cmd = [
+            "docker",
+            "compose",
+            "-f",
+            str(compose_file),
+            "-p",
+            self.name,
+            "up",
+            "-d",
+            "--remove-orphans",
+        ]
+
         try:
             subprocess.run(
-                ["docker", "compose", "-p", self.name, "up", "-d", "--remove-orphans"],
+                cmd,
                 cwd=self.src_path,
                 check=True,
                 capture_output=True,
@@ -453,6 +467,33 @@ class App(BigIntAuditBase):
         except subprocess.TimeoutExpired:
             log("Docker Compose start timed out", level=2, fg="red")
             raise
+
+    def _find_compose_file(self) -> Path:
+        """Find the compose file for this app.
+
+        Returns the path to either:
+        1. User-supplied compose file (docker-compose.yml, compose.yml, etc.)
+        2. Hop3-generated compose file (.hop3-compose.yml)
+        """
+        # Check for user-supplied compose files first
+        for filename in [
+            "docker-compose.yml",
+            "docker-compose.yaml",
+            "compose.yml",
+            "compose.yaml",
+        ]:
+            compose_path = self.src_path / filename
+            if compose_path.exists():
+                return compose_path
+
+        # Fall back to Hop3-generated compose file
+        generated_path = self.src_path / ".hop3-compose.yml"
+        if generated_path.exists():
+            return generated_path
+
+        # If no compose file exists, return the generated path anyway
+        # (docker compose will fail with a clear error message)
+        return generated_path
 
     def stop(self) -> None:
         """Stop the application (non-blocking).
@@ -505,9 +546,12 @@ class App(BigIntAuditBase):
         if self.run_state == AppStateEnum.RUNNING:
             self._transition_state(AppStateEnum.STOPPING)
 
+        # Find the compose file
+        compose_file = self._find_compose_file()
+
         try:
             subprocess.run(
-                ["docker", "compose", "-p", self.name, "stop"],
+                ["docker", "compose", "-f", str(compose_file), "-p", self.name, "stop"],
                 cwd=self.src_path,
                 check=False,  # Don't fail if already stopped
                 capture_output=True,
