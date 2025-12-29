@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Demo 56: Shlink URL Shortener.
 
-Demonstrates deploying Shlink, a self-hosted URL shortener with PostgreSQL.
+Demonstrates deploying Shlink, a self-hosted URL shortener.
+Uses SQLite by default for demo simplicity (production would use PostgreSQL).
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ DESCRIPTION = """
 Demonstrates Shlink deployment with Hop3:
   - Self-hosted URL shortener
   - PHP/Mezzio backend
-  - PostgreSQL for data storage
+  - SQLite database (demo mode)
   - REST API for programmatic access
 """
 
@@ -48,7 +49,7 @@ def run(ctx: DemoContext) -> None:
     )
     from lib.server import ensure_docker
 
-    app_hostname = ctx.hostname
+    app_hostname = ctx.get_app_hostname(APP_NAME)
     app_url = f"https://{app_hostname}"
 
     # Ensure Docker is available
@@ -63,7 +64,7 @@ def run(ctx: DemoContext) -> None:
         [
             ("Dockerfile", "Container image definition"),
             ("start.sh", "Startup script with migrations"),
-            ("hop3.toml", "Hop3 configuration with PostgreSQL"),
+            ("hop3.toml", "Hop3 configuration"),
         ],
     )
     print_info("Shlink is a modern URL shortener with REST API and analytics.")
@@ -80,7 +81,7 @@ def run(ctx: DemoContext) -> None:
 
     # Deploy the application
     print_header("Step 1: Deploy Application")
-    print_info("Building Docker image and provisioning PostgreSQL...")
+    print_info("Building Docker image...")
     deploy_app(ctx, APP_NAME, APP_DIR)
     set_hostname(ctx, APP_NAME, app_hostname)
     redeploy_app(ctx, APP_NAME, APP_DIR)

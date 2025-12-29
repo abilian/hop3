@@ -47,7 +47,8 @@ def run(ctx: DemoContext) -> None:
         wait_for_app,
     )
 
-    app_hostname = ctx.hostname
+    # Use unique hostname per app to avoid nginx routing conflicts
+    app_hostname = ctx.get_app_hostname(APP_NAME)
     app_url = f"https://{app_hostname}"
 
     # Show app structure

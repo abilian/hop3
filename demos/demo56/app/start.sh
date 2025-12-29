@@ -1,5 +1,5 @@
 #!/bin/bash
-# Startup script for Shlink with PostgreSQL configuration
+# Startup script for Shlink
 
 set -e
 
@@ -7,8 +7,9 @@ echo "==> Starting Shlink"
 
 cd /var/www/shlink
 
-# Configure PostgreSQL from PG* environment variables
+# Configure database based on available environment variables
 if [ -n "$PGHOST" ]; then
+    # PostgreSQL configuration from addon
     export DB_DRIVER=postgres
     export DB_HOST="$PGHOST"
     export DB_PORT="${PGPORT:-5432}"
@@ -16,11 +17,11 @@ if [ -n "$PGHOST" ]; then
     export DB_USER="${PGUSER:-shlink}"
     export DB_PASSWORD="$PGPASSWORD"
 
-    echo "==> Database config:"
-    echo "    Driver: PostgreSQL"
-    echo "    Host: $DB_HOST"
-    echo "    Port: $DB_PORT"
-    echo "    Database: $DB_NAME"
+    echo "==> Database config: PostgreSQL at $DB_HOST:$DB_PORT"
+else
+    # Use SQLite for demo simplicity
+    export DB_DRIVER=sqlite
+    echo "==> Database config: SQLite (demo mode)"
 fi
 
 # Set default domain from HOST_NAME if available
@@ -28,15 +29,25 @@ if [ -n "$HOST_NAME" ]; then
     export DEFAULT_DOMAIN="$HOST_NAME"
     export IS_HTTPS_ENABLED=true
     echo "==> Domain: $DEFAULT_DOMAIN (HTTPS enabled)"
+else
+    export DEFAULT_DOMAIN=localhost
+    export IS_HTTPS_ENABLED=false
+    echo "==> Domain: localhost (HTTP mode)"
 fi
 
-# Run database migrations
+# Ensure data directories exist with proper permissions
+mkdir -p data/cache data/log data/locks
+chown -R www-data:www-data data/ 2>/dev/null || true
+
+# Run database migrations using Shlink's bin/cli
 echo "==> Running database migrations..."
-php vendor/bin/doctrine-migrations migrate --no-interaction --all-or-nothing 2>/dev/null || true
+if [ -f "bin/cli" ]; then
+    php bin/cli db:migrate --no-interaction 2>&1 || echo "Note: Migrations may have already run"
+fi
 
 # Clear cache
 echo "==> Clearing cache..."
-php vendor/bin/doctrine orm:clear-cache:metadata 2>/dev/null || true
+rm -rf data/cache/* 2>/dev/null || true
 
 # Start PHP built-in server
 echo "==> Starting PHP server on port 8080..."

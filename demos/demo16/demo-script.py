@@ -52,7 +52,7 @@ def run(ctx: DemoContext) -> None:
     from lib.commands import run_hop3
     from lib.server import ensure_docker, ensure_redis
 
-    app_hostname = ctx.hostname
+    app_hostname = ctx.get_app_hostname(APP_NAME)
     app_url = f"https://{app_hostname}"
 
     # Ensure Docker and Redis are available
