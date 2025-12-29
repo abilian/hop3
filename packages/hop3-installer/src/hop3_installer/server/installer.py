@@ -647,6 +647,249 @@ def setup_postgres(config: ServerInstallerConfig, distro: str) -> str | None:
 
 
 # =============================================================================
+# MySQL
+# =============================================================================
+
+
+def get_debian_mysql_credentials() -> tuple[str, str] | None:
+    """Get MySQL credentials from Debian maintenance file.
+
+    On Debian/Ubuntu, /etc/mysql/debian.cnf contains credentials for
+    the debian-sys-maint user which has full privileges.
+
+    Returns:
+        Tuple of (user, password) or None if not available.
+    """
+    debian_cnf = Path("/etc/mysql/debian.cnf")
+    if not debian_cnf.exists():
+        return None
+
+    try:
+        content = debian_cnf.read_text()
+        user = None
+        password = None
+        for line in content.split("\n"):
+            line = line.strip()
+            if line.startswith("user"):
+                user = line.split("=")[1].strip()
+            elif line.startswith("password"):
+                password = line.split("=")[1].strip()
+            if user and password:
+                return (user, password)
+    except Exception:
+        pass
+    return None
+
+
+def reset_mysql_root_auth() -> bool:
+    """Reset MySQL root authentication to socket auth.
+
+    Uses Debian maintenance user or skip-grant-tables as fallback.
+
+    Returns:
+        True if reset was successful, False otherwise.
+    """
+    import time
+
+    print_detail("Attempting to reset MySQL root authentication...")
+
+    # Method 1: Try using Debian maintenance user
+    creds = get_debian_mysql_credentials()
+    if creds:
+        user, password = creds
+        print_detail(f"Using Debian maintenance user: {user}")
+        result = run_cmd(
+            [
+                "mysql",
+                f"-u{user}",
+                f"-p{password}",
+                "-e",
+                "ALTER USER 'root'@'localhost' IDENTIFIED WITH auth_socket; FLUSH PRIVILEGES;",
+            ],
+            check=False,
+        )
+        if result.returncode == 0:
+            print_detail("Reset via debian-sys-maint succeeded")
+            return True
+
+    # Method 2: Use skip-grant-tables (more invasive but reliable)
+    print_detail("Trying skip-grant-tables method...")
+
+    # Stop MySQL
+    run_cmd(["systemctl", "stop", "mysql"], check=False)
+    run_cmd(["systemctl", "stop", "mariadb"], check=False)
+    time.sleep(2)
+
+    # Start MySQL without authentication
+    run_cmd(
+        ["mysqld", "--skip-grant-tables", "--skip-networking", "--user=mysql"],
+        check=False,
+        timeout=5,  # This will timeout as mysqld runs in foreground, that's OK
+    )
+    time.sleep(3)
+
+    # Reset root authentication
+    result = run_cmd(
+        [
+            "mysql",
+            "-e",
+            "FLUSH PRIVILEGES; ALTER USER 'root'@'localhost' IDENTIFIED WITH auth_socket;",
+        ],
+        check=False,
+    )
+
+    # Kill the mysqld process
+    run_cmd(["pkill", "-f", "skip-grant-tables"], check=False)
+    time.sleep(2)
+
+    # Restart MySQL normally
+    run_cmd(["systemctl", "start", "mysql"], check=False)
+    if run_cmd(["systemctl", "is-active", "mysql"], check=False).returncode != 0:
+        run_cmd(["systemctl", "start", "mariadb"], check=False)
+    time.sleep(2)
+
+    return result.returncode == 0
+
+
+def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
+    """Configure MySQL.
+
+    Returns:
+        The generated MySQL password for hop3 user, or None if skipped/failed.
+    """
+    if not config.with_mysql:
+        return None
+
+    print_info("Configuring MySQL...")
+
+    # Start MySQL service
+    run_cmd(["systemctl", "enable", "mysql"], check=False)
+    result = run_cmd(["systemctl", "start", "mysql"], check=False)
+
+    if result.returncode != 0:
+        # Try mariadb service name (some distros use this)
+        run_cmd(["systemctl", "enable", "mariadb"], check=False)
+        result = run_cmd(["systemctl", "start", "mariadb"], check=False)
+
+    if result.returncode != 0:
+        print_warning("Could not start MySQL service")
+        return None
+
+    print_success("MySQL service started")
+
+    # Generate a secure password
+    mysql_password = "hop3_" + secrets.token_hex(16)
+
+    # First, test if we can connect to MySQL at all
+    # Try different connection methods for MySQL root/admin access
+    mysql_root_cmd = None
+
+    # Build list of commands to try
+    test_commands = [
+        ["mysql"],  # Socket auth as current user (root)
+        ["sudo", "mysql"],  # Socket auth via sudo
+        ["mysql", "-u", "root"],  # Traditional root
+    ]
+
+    # Also try Debian maintenance user if available
+    debian_creds = get_debian_mysql_credentials()
+    if debian_creds:
+        user, password = debian_creds
+        test_commands.insert(0, ["mysql", f"-u{user}", f"-p{password}"])
+
+    for test_cmd in test_commands:
+        result = run_cmd(test_cmd + ["-e", "SELECT 1;"], check=False)
+        if result.returncode == 0:
+            mysql_root_cmd = test_cmd
+            # Don't show password in logs
+            display_cmd = " ".join(test_cmd)
+            if debian_creds and debian_creds[1] in display_cmd:
+                display_cmd = display_cmd.replace(debian_creds[1], "***")
+            print_detail(f"MySQL admin access via: {display_cmd}")
+            break
+
+    if mysql_root_cmd is None:
+        print_warning("Cannot connect to MySQL as root - attempting to reset authentication")
+
+        # Try to reset MySQL root to use socket authentication
+        # This is safe and allows the installer to proceed
+        if reset_mysql_root_auth():
+            # Retry connection after reset
+            for test_cmd in [["mysql"], ["sudo", "mysql"]]:
+                result = run_cmd(test_cmd + ["-e", "SELECT 1;"], check=False)
+                if result.returncode == 0:
+                    mysql_root_cmd = test_cmd
+                    print_success("MySQL root access restored")
+                    break
+
+        if mysql_root_cmd is None:
+            print_warning("Could not restore MySQL root access")
+            print_detail("MySQL configuration may need manual intervention")
+            return None
+
+    def run_mysql_sql(sql: str) -> subprocess.CompletedProcess:
+        """Run SQL using the working MySQL root connection."""
+        return run_cmd(mysql_root_cmd + ["-e", sql], check=False)
+
+    # Drop existing hop3 user if exists (clean slate)
+    run_mysql_sql("DROP USER IF EXISTS 'hop3'@'localhost';")
+
+    # Create hop3 user with password authentication
+    result = run_mysql_sql(
+        f"CREATE USER 'hop3'@'localhost' IDENTIFIED BY '{mysql_password}';"
+    )
+    if result.returncode != 0:
+        print_warning("Failed to create MySQL user 'hop3'")
+        if result.stderr:
+            print_detail(result.stderr[:200])
+        return None
+
+    # Grant all privileges
+    result = run_mysql_sql(
+        "GRANT ALL PRIVILEGES ON *.* TO 'hop3'@'localhost' WITH GRANT OPTION;"
+    )
+    if result.returncode != 0:
+        print_warning("Failed to grant privileges to hop3")
+        if result.stderr:
+            print_detail(result.stderr[:200])
+        return None
+
+    run_mysql_sql("FLUSH PRIVILEGES;")
+
+    print_success("MySQL user 'hop3' created with privileges")
+
+    # Verify the connection works with the new password
+    verify_result = run_cmd(
+        ["mysql", "-u", "hop3", f"-p{mysql_password}", "-e", "SELECT 1;"],
+        check=False,
+    )
+
+    if verify_result.returncode != 0:
+        print_warning("MySQL user created but connection verification failed")
+        print_detail("This may be a password plugin issue. Trying to fix...")
+
+        # Try to alter user to use mysql_native_password (compatibility)
+        fix_sql = f"ALTER USER 'hop3'@'localhost' IDENTIFIED WITH mysql_native_password BY '{mysql_password}';"
+        run_cmd(["sudo", "mysql", "-e", fix_sql], check=False)
+        run_cmd(["sudo", "mysql", "-e", "FLUSH PRIVILEGES;"], check=False)
+
+        # Retry verification
+        verify_result = run_cmd(
+            ["mysql", "-u", "hop3", f"-p{mysql_password}", "-e", "SELECT 1;"],
+            check=False,
+        )
+
+        if verify_result.returncode != 0:
+            print_warning("MySQL verification still failing")
+            if verify_result.stderr:
+                print_detail(verify_result.stderr[:200])
+            return None
+
+    print_success("MySQL connection verified successfully")
+    return mysql_password
+
+
+# =============================================================================
 # ACME / Let's Encrypt
 # =============================================================================
 
@@ -682,7 +925,11 @@ def setup_acme(config: ServerInstallerConfig) -> None:
 # =============================================================================
 
 
-def write_server_config(pg_password: str | None, domain: str | None) -> None:
+def write_server_config(
+    pg_password: str | None,
+    mysql_password: str | None,
+    domain: str | None,
+) -> None:
     """Write hop3-server.toml configuration file."""
     config_file = HOME_DIR / "hop3-server.toml"
 
@@ -711,6 +958,17 @@ def write_server_config(pg_password: str | None, domain: str | None) -> None:
             ]
         )
 
+    if mysql_password:
+        lines.extend(
+            [
+                "# MySQL admin connection settings",
+                'MYSQL_HOST = "127.0.0.1"',
+                'MYSQL_SUPERUSER = "hop3"',
+                f'MYSQL_SUPERUSER_PASSWORD = "{mysql_password}"',
+                "",
+            ]
+        )
+
     config_file.write_text("\n".join(lines))
 
     hop3_uid = pwd.getpwnam(HOP3_USER).pw_uid
@@ -726,9 +984,61 @@ def write_server_config(pg_password: str | None, domain: str | None) -> None:
 # =============================================================================
 
 
-def verify_installation() -> bool:
+def verify_mysql_config() -> bool:
+    """Verify MySQL configuration is correctly set up.
+
+    Checks that hop3 user can connect to MySQL and that
+    the config file has the proper settings.
+
+    Returns:
+        True if MySQL is properly configured, False otherwise.
+    """
+    config_file = HOME_DIR / "hop3-server.toml"
+
+    # Check that config file has MySQL password
+    if not config_file.exists():
+        print_warning("Config file not found")
+        return False
+
+    config_content = config_file.read_text()
+    if "MYSQL_SUPERUSER_PASSWORD" not in config_content:
+        print_warning("MySQL password not in config file")
+        return False
+
+    # Test MySQL connection as hop3 user using the config
+    # Extract password from config
+    mysql_password = None
+    for line in config_content.split("\n"):
+        if "MYSQL_SUPERUSER_PASSWORD" in line and "=" in line:
+            # Parse: MYSQL_SUPERUSER_PASSWORD = "value"
+            value = line.split("=", 1)[1].strip().strip('"')
+            mysql_password = value
+            break
+
+    if not mysql_password:
+        print_warning("Could not extract MySQL password from config")
+        return False
+
+    # Test connection with the hop3 MySQL user
+    result = run_cmd(
+        ["mysql", "-u", "hop3", f"-p{mysql_password}", "-e", "SELECT 1;"],
+        check=False,
+        capture=True,
+    )
+
+    if result.returncode != 0:
+        print_warning("MySQL connection test failed")
+        if result.stderr:
+            print_detail(result.stderr.strip()[:200])
+        return False
+
+    return True
+
+
+def verify_installation(config: ServerInstallerConfig) -> bool:
     """Verify the installation."""
     hop_server = VENV_DIR / "bin" / "hop-server"
+    all_ok = True
 
     if not hop_server.exists():
         print_error("hop-server not found")
@@ -753,7 +1063,48 @@ def verify_installation() -> bool:
     else:
         print_warning("SSL certificate not found")
 
-    return True
+    # Check PostgreSQL if configured
+    config_file = HOME_DIR / "hop3-server.toml"
+    if config_file.exists():
+        config_content = config_file.read_text()
+
+        if "POSTGRES_SUPERUSER_PASSWORD" in config_content:
+            result = run_cmd(
+                ["systemctl", "is-active", "postgresql"],
+                capture=True,
+                check=False,
+            )
+            if result.stdout.strip() == "active":
+                print_success("PostgreSQL service is running")
+            else:
+                print_warning("PostgreSQL service is not running")
+                all_ok = False
+
+        # Check MySQL - full end-to-end test
+        if "MYSQL_SUPERUSER_PASSWORD" in config_content:
+            result = run_cmd(
+                ["systemctl", "is-active", "mysql"],
+                capture=True,
+                check=False,
+            )
+            if result.returncode != 0:
+                result = run_cmd(
+                    ["systemctl", "is-active", "mariadb"],
+                    capture=True,
+                    check=False,
+                )
+            if result.stdout.strip() == "active":
+                # Service is running, now test configuration
+                if verify_mysql_config():
+                    print_success("MySQL configuration verified")
+                else:
+                    print_error("MySQL configuration test FAILED")
+                    all_ok = False
+            else:
+                print_warning("MySQL service is not running")
+                all_ok = False
+
+    return all_ok
 
 
 def print_final_message(config: ServerInstallerConfig) -> None:
@@ -934,7 +1285,7 @@ def main() -> int:
     if config.features:
         print_info(f"Optional features: {', '.join(sorted(config.features))}")
 
-    total_steps = 10
+    total_steps = 11
 
     # Step 1: System dependencies
     print_step(1, total_steps, "Installing system dependencies...")
@@ -1018,9 +1369,17 @@ def main() -> int:
     except CommandError as e:
         print_warning(f"PostgreSQL setup issue: {e.stderr[:100]}")
 
+    # Step 11: MySQL (if requested)
+    print_step(11, total_steps, "Configuring MySQL...")
+    mysql_password = None
+    try:
+        mysql_password = setup_mysql(config, distro)
+    except CommandError as e:
+        print_warning(f"MySQL setup issue: {e.stderr[:100]}")
+
     # Write server config
     try:
-        write_server_config(pg_password, config.domain)
+        write_server_config(pg_password, mysql_password, config.domain)
     except Exception as e:
         print_warning(f"Config write issue: {e}")
 
@@ -1032,7 +1391,10 @@ def main() -> int:
 
     # Verify
     print()
-    verify_installation()
+    if not verify_installation(config):
+        print_error("Installation verification failed!")
+        print_info("Please check the errors above and fix the configuration.")
+        return 1
 
     # Success
     print_final_message(config)
