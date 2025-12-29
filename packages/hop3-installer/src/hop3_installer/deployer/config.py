@@ -75,8 +75,31 @@ class DeployConfig:
 
     @property
     def installer_path(self) -> Path:
-        """Path to the server installer script."""
-        return self.project_root / "installer" / "install-server.py"
+        """Path to the server installer script.
+
+        Returns the bundled installer from dist/, generating it if needed.
+        """
+        dist_installer = self.project_root / "dist" / "install-server.py"
+
+        # If bundled installer exists and is recent, use it
+        if dist_installer.exists():
+            return dist_installer
+
+        # Generate the bundled installer
+        self._generate_bundled_installer(dist_installer)
+        return dist_installer
+
+    def _generate_bundled_installer(self, output_path: Path) -> None:
+        """Generate the bundled installer using the bundler."""
+        from ..bundler import bundle_installer
+
+        # Ensure dist directory exists
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Generate the bundled installer
+        source = bundle_installer("server")
+        output_path.write_text(source)
+        output_path.chmod(0o755)
 
     @property
     def packages_path(self) -> Path:

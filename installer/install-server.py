@@ -1595,6 +1595,49 @@ def write_server_config(
 # =============================================================================
 
 
+def verify_mysql_addon() -> bool:
+    """Verify MySQL addon functionality works end-to-end.
+
+    Creates a test addon, then cleans up.
+    This proves that hop3-server can actually use MySQL.
+
+    Returns:
+        True if MySQL addon works, False otherwise.
+    """
+    hop_server = VENV_DIR / "bin" / "hop-server"
+    test_addon_name = "_hop3_mysql_test"
+
+    print_info("Testing MySQL addon functionality...")
+
+    # Create test addon - this tests that hop3-server can connect to MySQL
+    # and create databases/users
+    result = run_cmd(
+        ["sudo", "-u", HOP3_USER, str(hop_server), "addons:create", "mysql", test_addon_name],
+        check=False,
+        capture=True,
+    )
+    if result.returncode != 0:
+        error_msg = result.stderr or result.stdout or "unknown error"
+        print_warning(f"MySQL addon creation failed:")
+        print_detail(error_msg[:300])
+        return False
+
+    print_detail("MySQL test addon created successfully")
+
+    # Clean up test addon
+    result = run_cmd(
+        ["sudo", "-u", HOP3_USER, str(hop_server), "addons:destroy", test_addon_name, "-y"],
+        check=False,
+        capture=True,
+    )
+    if result.returncode == 0:
+        print_detail("MySQL test addon cleaned up")
+    else:
+        print_warning("Could not clean up MySQL test addon (not critical)")
+
+    return True
+
+
 def verify_installation(config: ServerInstallerConfig) -> bool:
     """Verify the installation."""
     hop_server = VENV_DIR / "bin" / "hop-server"
@@ -1640,7 +1683,7 @@ def verify_installation(config: ServerInstallerConfig) -> bool:
                 print_warning("PostgreSQL service is not running")
                 all_ok = False
 
-        # Check MySQL if configured
+        # Check MySQL - full end-to-end test
         if "MYSQL_SUPERUSER_PASSWORD" in config_content:
             result = run_cmd(
                 ["systemctl", "is-active", "mysql"],
@@ -1654,7 +1697,12 @@ def verify_installation(config: ServerInstallerConfig) -> bool:
                     check=False,
                 )
             if result.stdout.strip() == "active":
-                print_success("MySQL service is running and configured")
+                # Service is running, now test addon functionality
+                if verify_mysql_addon():
+                    print_success("MySQL addon functionality verified")
+                else:
+                    print_error("MySQL addon test FAILED - MySQL will not work")
+                    all_ok = False
             else:
                 print_warning("MySQL service is not running")
                 all_ok = False
@@ -1954,7 +2002,10 @@ def main() -> int:
 
     # Verify
     print()
-    verify_installation(config)
+    if not verify_installation(config):
+        print_error("Installation verification failed!")
+        print_info("Please check the errors above and fix the configuration.")
+        return 1
 
     # Success
     print_final_message(config)
