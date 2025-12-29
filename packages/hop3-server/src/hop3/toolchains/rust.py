@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from hop3.core.protocols import BuildArtifact
+from hop3.lib import log
 
 from ._base import LanguageToolchain
 
@@ -29,18 +30,28 @@ class RustToolchain(LanguageToolchain):
         return self.check_exists("Cargo.toml")
 
     def build(self) -> BuildArtifact:
-        """Build the Rust project.
+        """Build the Rust project using cargo.
 
-        Unlike some other toolchains, Rust projects typically use a Procfile
-        prebuild step to compile (e.g., 'prebuild: cargo build --release').
-        This method returns a stub artifact, similar to GoToolchain, and lets
-        the Procfile prebuild handle the actual compilation.
-
-        This approach works because:
-        1. Rust compilation is slow and benefits from caching
-        2. The Procfile prebuild step runs after package installation
-        3. It allows the same pattern as Go projects
+        This compiles the Rust project in release mode and produces
+        an optimized binary.
         """
+        log(f"Building Rust application '{self.app_name}'", level=1, fg="blue")
+
+        # Build in release mode for optimized binary
+        log("Compiling Rust project with cargo...", level=2, fg="cyan")
+        result = self.shell("cargo build --release", check=False)
+
+        if result.returncode == 0:
+            log("Rust compilation successful", level=2, fg="green")
+        else:
+            log(
+                "Rust compilation failed - check Cargo.toml and source code",
+                level=1,
+                fg="red",
+            )
+            # Don't raise - let deployment continue and fail at runtime
+            # This allows debugging via logs
+
         return BuildArtifact(
             kind="rust",
             location=str(self.src_path),

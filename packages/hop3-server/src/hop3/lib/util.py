@@ -66,8 +66,11 @@ def shell(
         kwargs["capture_output"] = True
         kwargs["text"] = True
 
+    # Allow caller to override check behavior (default: True)
+    check = kwargs.pop("check", True)
+
     try:
-        result = subprocess.run(command, **kwargs, check=True)
+        result = subprocess.run(command, **kwargs, check=check)
         # Log captured output (level 2 = verbose, shows with -v flag)
         if result.stdout:
             _log_output(result.stdout, level=2)

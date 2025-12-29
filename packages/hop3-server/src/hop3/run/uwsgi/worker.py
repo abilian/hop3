@@ -391,10 +391,19 @@ class WebWorker(UwsgiWorker):
         ]
         path_value = ":".join(path_dirs)
 
-        # Wrap command in shell with explicit PATH to ensure virtualenv binaries are found
-        # This is required because uWSGI's attach-daemon spawns sh which doesn't
-        # inherit the env vars set in the uWSGI config
-        shell_cmd = f'sh -c "export PATH={path_value}; {self.command}"'
+        # Build exports for critical environment variables
+        # uWSGI's attach-daemon spawns a subprocess that may not inherit
+        # env vars from the uWSGI config, so we must export them explicitly
+        port = self.env.get("PORT", "5000")
+        bind_addr = self.env.get("BIND_ADDRESS", "127.0.0.1")
+
+        # Wrap command in shell with explicit exports
+        shell_cmd = (
+            f'sh -c "export PATH={path_value}; '
+            f"export PORT={port}; "
+            f"export BIND_ADDRESS={bind_addr}; "
+            f'{self.command}"'
+        )
         self.settings.add("attach-daemon", shell_cmd)
 
 
@@ -418,6 +427,17 @@ class GenericWorker(UwsgiWorker):
         ]
         path_value = ":".join(path_dirs)
 
-        # Wrap command in shell with explicit PATH to ensure virtualenv binaries are found
-        shell_cmd = f'sh -c "export PATH={path_value}; {self.command}"'
+        # Build exports for critical environment variables
+        # uWSGI's attach-daemon spawns a subprocess that may not inherit
+        # env vars from the uWSGI config, so we must export them explicitly
+        port = self.env.get("PORT", "5000")
+        bind_addr = self.env.get("BIND_ADDRESS", "127.0.0.1")
+
+        # Wrap command in shell with explicit exports
+        shell_cmd = (
+            f'sh -c "export PATH={path_value}; '
+            f"export PORT={port}; "
+            f"export BIND_ADDRESS={bind_addr}; "
+            f'{self.command}"'
+        )
         self.settings.add("attach-daemon", shell_cmd)

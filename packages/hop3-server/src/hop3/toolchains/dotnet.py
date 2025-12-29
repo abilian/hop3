@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from hop3.core.protocols import BuildArtifact
+from hop3.lib import log
 
 from ._base import LanguageToolchain
 
@@ -26,11 +27,26 @@ class DotNetToolchain(LanguageToolchain):
         return any(path for pattern in patterns for path in self.src_path.glob(pattern))
 
     def build(self) -> BuildArtifact:
-        """Build the .NET application.
+        """Build the .NET application using dotnet CLI."""
+        log(f"Building .NET application '{self.app_name}'", level=1, fg="blue")
 
-        .NET projects typically use a Procfile prebuild step to compile
-        (e.g., 'prebuild: dotnet publish -c Release -o out').
-        """
+        # Restore dependencies
+        log("Restoring .NET dependencies...", level=2, fg="cyan")
+        self.shell("dotnet restore")
+
+        # Build in Release mode
+        log("Building .NET application...", level=2, fg="cyan")
+        result = self.shell("dotnet build -c Release", check=False)
+
+        if result.returncode == 0:
+            log(".NET build successful", level=2, fg="green")
+        else:
+            log(
+                ".NET build failed - check project files and source code",
+                level=1,
+                fg="red",
+            )
+
         return BuildArtifact(
             kind="dotnet",
             location=str(self.src_path),

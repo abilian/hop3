@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from hop3.core.events import InstallingDependencies, PreparingBuildEnv, emit
 from hop3.core.protocols import BuildArtifact
-from hop3.lib import chdir
+from hop3.lib import chdir, log
 
 from ._base import LanguageToolchain
 
@@ -38,6 +38,8 @@ class PHPToolchain(LanguageToolchain):
     def build(self) -> BuildArtifact:
         """Build the PHP project by installing dependencies and potentially
         running custom scripts."""
+        log(f"Building PHP application '{self.app_name}'", level=1, fg="blue")
+
         with chdir(self.src_path):
             env = self.get_env()
             self.prepare_build_env(env)
@@ -56,16 +58,16 @@ class PHPToolchain(LanguageToolchain):
         or toolchains.
         """
         emit(PreparingBuildEnv(self.app_name))
-
-        # Example: Configuring PHP environment or version (skipped here for brevity).
-        # This step is optional and highly dependent on the project's requirements.
+        log("Preparing PHP build environment...", level=2, fg="cyan")
 
     def install_dependencies(self) -> None:
         """Install the PHP project's dependencies using composer."""
         emit(InstallingDependencies(self.app_name))
 
+        log("Installing PHP dependencies with composer...", level=2, fg="cyan")
         try:
-            self.shell("composer install")
+            self.shell("composer install --no-interaction --optimize-autoloader")
+            log("PHP dependencies installed successfully", level=2, fg="green")
         except CalledProcessError as e:
             msg = (
                 f"Failed to install dependencies for PHP project '{self.app_name}': {e}"

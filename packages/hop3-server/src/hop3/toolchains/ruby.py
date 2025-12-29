@@ -9,7 +9,7 @@ from __future__ import annotations
 from hop3.core.env import Env
 from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
 from hop3.core.protocols import BuildArtifact
-from hop3.lib import chdir, prepend_to_path
+from hop3.lib import chdir, log, prepend_to_path
 
 from ._base import LanguageToolchain
 
@@ -30,12 +30,16 @@ class RubyToolchain(LanguageToolchain):
         return self.check_exists("Gemfile")
 
     def build(self) -> BuildArtifact:
+        log(f"Building Ruby application '{self.app_name}'", level=1, fg="blue")
+
         with chdir(self.src_path):
             env = self.get_env()
             self.make_virtual_env(env)
 
             emit(InstallingVirtualEnv(self.app_name))
+            log("Installing Ruby gems with bundler...", level=2, fg="cyan")
             self.shell("bundle install", env=env)
+            log("Ruby gems installed successfully", level=2, fg="green")
 
         return BuildArtifact(
             kind="ruby",
