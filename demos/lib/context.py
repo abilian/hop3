@@ -83,8 +83,43 @@ class DemoContext:
 
     @property
     def hostname(self) -> str:
-        """Return the hostname for apps (same as server_ip)."""
-        return self.server_ip
+        """Return the base hostname for apps.
+
+        This returns the server IP or admin domain. Individual apps should
+        use unique hostnames like 'demo01.hop3.local' to avoid nginx routing
+        conflicts when multiple apps are deployed.
+        """
+        return self.admin_domain or self.server_ip
+
+    def get_app_hostname(self, app_name: str) -> str:
+        """Return a unique hostname for an app.
+
+        Args:
+            app_name: The name of the app (e.g., 'demo01')
+
+        Returns:
+            A unique hostname like 'demo01.hop3.local'.
+            If server_ip looks like a domain (contains '.local' or is not an IP),
+            uses it as base for subdomains.
+        """
+        base_domain = self.admin_domain or self.server_ip
+
+        # Check if base looks like a domain we can add subdomains to
+        # (e.g., 'hop3.local' but not '192.168.1.1')
+        is_ip_address = base_domain.replace(".", "").isdigit()
+        is_domain_like = (
+            ".local" in base_domain
+            or ".test" in base_domain
+            or ".dev" in base_domain
+            or (not is_ip_address and "." in base_domain)
+        )
+
+        if is_domain_like:
+            # Use subdomain: demo01.hop3.local
+            return f"{app_name}.{base_domain}"
+
+        # Fall back to server IP (all apps share same hostname - not ideal)
+        return base_domain
 
     @property
     def installer_path(self) -> Path:

@@ -51,7 +51,7 @@ def run(ctx: DemoContext) -> None:
     )
     from lib.commands import run_hop3
 
-    app_hostname = ctx.hostname
+    app_hostname = ctx.get_app_hostname(APP_NAME)
     app_url = f"https://{app_hostname}"
 
     # Show app structure
