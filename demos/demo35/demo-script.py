@@ -13,7 +13,6 @@ for automatic provisioning in a future version.
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -40,6 +39,7 @@ def run(ctx: DemoContext) -> None:
     from lib import (
         check_app_status,
         cleanup_app,
+        curl_request,
         deploy_app,
         pause,
         print_blank,
@@ -166,10 +166,7 @@ def run(ctx: DemoContext) -> None:
         print_step("Incrementing counter...")
 
         for i in range(3):
-            curl_cmd = f"curl -sk {app_url}/counter/increment"
-            result = subprocess.run(
-                curl_cmd, shell=True, capture_output=True, text=True, check=False
-            )
+            result = curl_request(ctx, f"{app_url}/counter/increment")
             if result.returncode == 0:
                 print_info(f"  Increment {i + 1}: {result.stdout.strip()}")
 

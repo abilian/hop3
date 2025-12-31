@@ -47,6 +47,7 @@ def run_prerequisites(ctx: DemoContext) -> bool:
     """
     from lib.commands import CommandError
     from lib.server import (
+        check_dns_resolution,
         check_hop3_installed,
         check_ubuntu_version,
         clean_server,
@@ -60,6 +61,10 @@ def run_prerequisites(ctx: DemoContext) -> bool:
 
     try:
         verify_ssh_access(ctx)
+        pause(ctx.pause_between_steps)
+
+        # Check DNS resolution for demo hostnames (local check, before server checks)
+        check_dns_resolution(ctx)
         pause(ctx.pause_between_steps)
 
         # Clean server if requested (before checking ubuntu version)
