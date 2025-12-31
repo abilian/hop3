@@ -125,6 +125,73 @@ def verify_ssh_access(ctx: DemoContext) -> None:
     print_success(f"Connected to {ctx.server_ip}")
 
 
+def check_dns_resolution(ctx: DemoContext) -> None:
+    """Check if DNS resolution works for demo hostnames.
+
+    Demos use hostnames like 'demo01.hop3.local' which require local DNS
+    (e.g., dnsmasq) to resolve to the server IP. This check verifies that
+    DNS is properly configured before running demos.
+
+    Raises:
+        CommandError: If DNS resolution fails or resolves to wrong IP.
+    """
+    import socket
+
+    # Build a test hostname using the same logic as get_app_hostname
+    test_hostname = ctx.get_app_hostname("test")
+
+    # If hostname is just an IP address, skip the check
+    if test_hostname == ctx.server_ip:
+        print_step("DNS check skipped (using IP address directly)")
+        return
+
+    print_step(f"Checking DNS resolution for {test_hostname}...")
+
+    # Get the expected server IP (resolve if it's a hostname)
+    expected_ip = ctx.server_ip
+    try:
+        socket.inet_aton(expected_ip)
+    except socket.error:
+        # server_ip is a hostname, resolve it
+        try:
+            expected_ip = socket.gethostbyname(ctx.server_ip)
+        except socket.gaierror:
+            print_error(f"Cannot resolve server hostname: {ctx.server_ip}")
+            msg = f"Cannot resolve server hostname: {ctx.server_ip}"
+            raise CommandError(msg)
+
+    # Try to resolve the test hostname
+    try:
+        resolved_ip = socket.gethostbyname(test_hostname)
+    except socket.gaierror:
+        print_error(f"DNS resolution failed for {test_hostname}")
+        print_info("")
+        print_info("Demo hostnames like 'demoN.hop3.local' require local DNS.")
+        print_info("Please start dnsmasq or configure /etc/hosts:")
+        print_info("")
+        print_info("  Option 1: Start dnsmasq (recommended)")
+        print_info("    sudo brew services start dnsmasq  # macOS")
+        print_info("    sudo systemctl start dnsmasq      # Linux")
+        print_info("")
+        print_info("  Option 2: Add entries to /etc/hosts")
+        print_info(f"    {expected_ip}  test.hop3.local demo01.hop3.local ...")
+        print_info("")
+        msg = f"DNS resolution failed for {test_hostname}"
+        raise CommandError(msg)
+
+    # Check if it resolves to the expected IP
+    if resolved_ip != expected_ip:
+        print_error(f"DNS resolves {test_hostname} to wrong IP")
+        print_info(f"  Expected: {expected_ip}")
+        print_info(f"  Got: {resolved_ip}")
+        print_info("")
+        print_info("Please check your dnsmasq or /etc/hosts configuration.")
+        msg = f"DNS resolves {test_hostname} to {resolved_ip} instead of {expected_ip}"
+        raise CommandError(msg)
+
+    print_success(f"DNS resolves {test_hostname} -> {resolved_ip}")
+
+
 def check_ubuntu_version(ctx: DemoContext) -> None:
     """Check that the server is running a supported Ubuntu version."""
     print_step("Checking Ubuntu version...")

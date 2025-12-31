@@ -8,6 +8,7 @@ from __future__ import annotations
 from lib.app import (
     check_app_status,
     cleanup_app,
+    curl_request,
     deploy_app,
     ensure_app_removed,
     list_apps,
@@ -85,6 +86,7 @@ __all__ = [
     # App management
     "check_app_status",
     "cleanup_app",
+    "curl_request",
     "cyan",
     "deploy_app",
     "dim",

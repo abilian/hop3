@@ -22,7 +22,8 @@ ENV APACHE_RUN_USER=www-data \
 # Enable AllowOverride for .htaccess
 RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
 
-# Copy application
+# Copy application (remove default index.html first)
+RUN rm -f /var/www/html/index.html
 COPY --chmod=644 index.php .htaccess /var/www/html/
 RUN chown -R www-data:www-data /var/www/html
 

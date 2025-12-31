@@ -272,6 +272,45 @@ def test_app_via_curl(
     raise RuntimeError(msg)
 
 
+def curl_request(ctx: DemoContext, url: str) -> subprocess.CompletedProcess:
+    """Make a curl request with proper DNS resolution.
+
+    Uses --resolve to map the hostname to the server IP, allowing
+    requests to custom hostnames like "demo32.hop3.local".
+
+    Args:
+        ctx: Demo context
+        url: URL to request
+
+    Returns:
+        CompletedProcess with stdout, stderr, and returncode
+    """
+    from urllib.parse import urlparse
+    import socket
+
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+
+    # Resolve server IP if it's a hostname
+    server_ip = ctx.server_ip
+    try:
+        socket.inet_aton(server_ip)
+    except socket.error:
+        try:
+            server_ip = socket.gethostbyname(server_ip)
+        except socket.gaierror:
+            pass
+
+    # Build curl command with --resolve
+    resolve_opt = f"--resolve {hostname}:{port}:{server_ip}" if hostname else ""
+    curl_cmd = f"curl -sk {resolve_opt} {url}"
+
+    return subprocess.run(
+        curl_cmd, shell=True, capture_output=True, text=True, check=False
+    )
+
+
 def test_app_via_hop3(
     ctx: DemoContext,
     app_name: str,
