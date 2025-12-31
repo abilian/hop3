@@ -391,19 +391,21 @@ class WebWorker(UwsgiWorker):
         ]
         path_value = ":".join(path_dirs)
 
-        # Build exports for critical environment variables
-        # uWSGI's attach-daemon spawns a subprocess that may not inherit
+        # Build exports for ALL environment variables
+        # uWSGI's attach-daemon spawns a subprocess that doesn't inherit
         # env vars from the uWSGI config, so we must export them explicitly
-        port = self.env.get("PORT", "5000")
-        bind_addr = self.env.get("BIND_ADDRESS", "127.0.0.1")
+        exports = [f"export PATH={path_value}"]
+        for key, value in self.env.items():
+            # Skip keys that shouldn't be exported or are already handled
+            if key in ("NGINX_ACL", "PATH"):
+                continue
+            # Escape single quotes in values for shell safety
+            safe_value = str(value).replace("'", "'\\''")
+            exports.append(f"export {key}='{safe_value}'")
 
-        # Wrap command in shell with explicit exports
-        shell_cmd = (
-            f'sh -c "export PATH={path_value}; '
-            f"export PORT={port}; "
-            f"export BIND_ADDRESS={bind_addr}; "
-            f'{self.command}"'
-        )
+        # Wrap command in shell with all exports
+        exports_str = "; ".join(exports)
+        shell_cmd = f'sh -c "{exports_str}; {self.command}"'
         self.settings.add("attach-daemon", shell_cmd)
 
 
@@ -427,17 +429,19 @@ class GenericWorker(UwsgiWorker):
         ]
         path_value = ":".join(path_dirs)
 
-        # Build exports for critical environment variables
-        # uWSGI's attach-daemon spawns a subprocess that may not inherit
+        # Build exports for ALL environment variables
+        # uWSGI's attach-daemon spawns a subprocess that doesn't inherit
         # env vars from the uWSGI config, so we must export them explicitly
-        port = self.env.get("PORT", "5000")
-        bind_addr = self.env.get("BIND_ADDRESS", "127.0.0.1")
+        exports = [f"export PATH={path_value}"]
+        for key, value in self.env.items():
+            # Skip keys that shouldn't be exported or are already handled
+            if key in ("NGINX_ACL", "PATH"):
+                continue
+            # Escape single quotes in values for shell safety
+            safe_value = str(value).replace("'", "'\\''")
+            exports.append(f"export {key}='{safe_value}'")
 
-        # Wrap command in shell with explicit exports
-        shell_cmd = (
-            f'sh -c "export PATH={path_value}; '
-            f"export PORT={port}; "
-            f"export BIND_ADDRESS={bind_addr}; "
-            f'{self.command}"'
-        )
+        # Wrap command in shell with all exports
+        exports_str = "; ".join(exports)
+        shell_cmd = f'sh -c "{exports_str}; {self.command}"'
         self.settings.add("attach-daemon", shell_cmd)
