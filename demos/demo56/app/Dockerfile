@@ -1,7 +1,7 @@
 # Demo 56: Shlink URL Shortener
 # Self-hosted URL shortener
 # https://shlink.io/
-# Built from source on debian:bookworm-slim
+# Built from pre-built release on debian:bookworm-slim
 
 FROM debian:bookworm-slim
 
@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         php8.2-cli \
         php8.2-fpm \
         php8.2-pgsql \
+        php8.2-sqlite3 \
         php8.2-curl \
         php8.2-gd \
         php8.2-intl \
@@ -24,10 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-
-# Shlink version (4.3.1 is the last version with PHP 8.2 dist)
+# Shlink version
 ARG SHLINK_VERSION=4.3.1
 
 # Download and extract Shlink (use pre-built release)
@@ -37,7 +35,7 @@ RUN curl -fsSL "https://github.com/shlinkio/shlink/releases/download/v${SHLINK_V
     rm shlink.zip && \
     mv shlink${SHLINK_VERSION}_php8.2_dist/* . && \
     rmdir shlink${SHLINK_VERSION}_php8.2_dist && \
-    mkdir -p data/cache data/log data/locks && \
+    mkdir -p data/cache data/log data/locks data/db && \
     chown -R www-data:www-data /var/www/shlink
 
 # Copy startup script
@@ -45,7 +43,8 @@ COPY --chmod=755 start.sh /start.sh
 
 # Runtime environment
 ENV DEFAULT_DOMAIN=localhost \
-    IS_HTTPS_ENABLED=false
+    IS_HTTPS_ENABLED=false \
+    SKIP_INITIAL_GEOLITE_DOWNLOAD=true
 
 EXPOSE 8080
 
