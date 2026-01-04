@@ -25,6 +25,9 @@ Demonstrates Docker deployment with Redis addon:
 
 APP_NAME = "demo16"
 APP_DIR = Path(__file__).parent / "app"
+
+# This demo requires Docker daemon for building/deploying containers
+REQUIRES = ["docker"]
 REDIS_NAME = "demo16-cache"
 
 

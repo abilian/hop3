@@ -34,7 +34,8 @@ class UWSGIDeployer(Deployer):
         return self.context.app
 
     def accept(self) -> bool:
-        # Accept virtualenv (Python, Ruby), node, and buildpack artifacts
+        # Accept common artifact kinds from language toolchains
+        # Note: "static" is NOT included - static files are handled by StaticDeployer
         return self.artifact.kind in {
             "buildpack",
             "virtualenv",
@@ -44,6 +45,9 @@ class UWSGIDeployer(Deployer):
             "clojure",
             "rust",
             "go",
+            "java",
+            "dotnet",
+            "elixir",
         }
 
     def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:

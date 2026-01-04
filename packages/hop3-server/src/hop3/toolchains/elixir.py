@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import shutil
+
 from hop3.core.protocols import BuildArtifact
 from hop3.lib import log
 
@@ -32,6 +34,16 @@ class ElixirToolchain(LanguageToolchain):
         This fetches dependencies and compiles the application.
         """
         log(f"Building Elixir application '{self.app_name}'", level=1, fg="blue")
+
+        # Clean build directories to avoid stale artifacts
+        # This fixes issues with corrupted _build state on redeploys
+        build_dir = self.src_path / "_build"
+        deps_dir = self.src_path / "deps"
+        if build_dir.exists():
+            log("Cleaning previous build artifacts...", level=2, fg="cyan")
+            shutil.rmtree(build_dir, ignore_errors=True)
+        if deps_dir.exists():
+            shutil.rmtree(deps_dir, ignore_errors=True)
 
         # Fetch dependencies
         log("Fetching Elixir dependencies...", level=2, fg="cyan")

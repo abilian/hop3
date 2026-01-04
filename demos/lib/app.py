@@ -198,6 +198,16 @@ def test_app_via_curl(
     hostname = parsed.hostname
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
 
+    # For Docker mode, use the mapped ports (10443 for HTTPS, 10080 for HTTP)
+    if ctx.backend == "docker":
+        backend = ctx.get_backend()
+        if parsed.scheme == "https":
+            port = getattr(backend, "port_https", 10443)
+        else:
+            port = getattr(backend, "port_http", 10080)
+        # Update URL with the mapped port
+        app_url = f"{parsed.scheme}://{hostname}:{port}{parsed.path or '/'}"
+
     # Resolve server IP if it's a hostname (--resolve requires actual IP address)
     server_ip = ctx.server_ip
     try:
@@ -291,6 +301,16 @@ def curl_request(ctx: DemoContext, url: str) -> subprocess.CompletedProcess:
     parsed = urlparse(url)
     hostname = parsed.hostname
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
+
+    # For Docker mode, use the mapped ports
+    if ctx.backend == "docker":
+        backend = ctx.get_backend()
+        if parsed.scheme == "https":
+            port = getattr(backend, "port_https", 10443)
+        else:
+            port = getattr(backend, "port_http", 10080)
+        # Update URL with the mapped port
+        url = f"{parsed.scheme}://{hostname}:{port}{parsed.path or '/'}"
 
     # Resolve server IP if it's a hostname
     server_ip = ctx.server_ip

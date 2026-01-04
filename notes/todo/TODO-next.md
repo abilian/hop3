@@ -39,13 +39,14 @@
 
 ## Current Status
 
-**Updated: 2025-12-16**
+**Updated: 2026-01-04**
 
 - **Development Status**: Phase 2 Complete (100%) - Phase 3 Ready to Start
 - **Version**: 0.4.0 development branch
 - **Architecture**: Monorepo with Pluggy+Dishka DI, Pure Litestar stack
 - **Production Readiness**: ~80% (all core PaaS features implemented)
 - **Test Coverage**: 435 tests passing across 4 layers (232 unit, 128 integration, 14 system, 21 E2E, 40 dashboard)
+- **Demo Testing**: 25 passed, 7 failed, 32 skipped (Docker backend)
 
 ## High Priority Tasks (Phase 3 - Immediate)
 
@@ -165,9 +166,13 @@
 - **Action**: Expand test suite coverage
 
 ### 12. Docker Runtime Fixes
-- **Status**: Docker building works, runtime needs fixes
-- **Roadmap**: "Run as docker image" in P1 MVP
-- **Action**: Fix Docker deployment issues
+- **Status**: Largely resolved (2026-01-04)
+- **Progress**:
+  - [x] Docker-in-Docker demos skip cleanly in Docker backend (32 demos)
+  - [x] Database services (PostgreSQL, MySQL, Redis) working in Docker backend
+  - [x] Fixed prebuild worker bug causing Elixir build failures
+  - [x] Demo12 and Demo59 now passing
+  - [ ] Add `virtualenv` to hop3 server dependencies (7 demos affected)
 
 ### 13. Multi-OS Support
 - **Status**: Basic support exists
@@ -255,4 +260,4 @@
 
 ---
 
-*Last updated: 2025-11-24*
+*Last updated: 2026-01-04*

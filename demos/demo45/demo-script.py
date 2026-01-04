@@ -25,6 +25,9 @@ Demonstrates minimal Ruby app with PostgreSQL:
 
 APP_NAME = "demo45"
 APP_DIR = Path(__file__).parent / "app"
+
+# This demo requires Docker daemon for building/deploying containers
+REQUIRES = ["docker"]
 POSTGRES_NAME = "demo45-db"
 
 

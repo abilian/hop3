@@ -215,10 +215,10 @@ class Hop3Config:
         if before_run:
             workers["prerun"] = " && ".join(before_run)
 
-        # Map build.before-build to 'prebuild' worker
-        before_build = self.before_build_commands
-        if before_build:
-            workers["prebuild"] = " && ".join(before_build)
+        # NOTE: build.before-build is NOT added as a worker here because:
+        # 1. It's already handled by deployer.py._run_hook() during deployment
+        # 2. Adding it as a worker would cause it to run continuously as a daemon
+        # The prebuild commands should only run once during the build phase
 
         return workers
 

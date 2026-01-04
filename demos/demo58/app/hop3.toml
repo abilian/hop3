@@ -1,0 +1,15 @@
+[metadata]
+id = "demo58"
+version = "1.0.0"
+title = "Static Site Prerequisite Test"
+
+[run]
+start = "python3 -m http.server $PORT --directory _site"
+
+[port]
+web = 8000
+
+[healthcheck]
+path = "/up.html"
+timeout = 30
+interval = 60

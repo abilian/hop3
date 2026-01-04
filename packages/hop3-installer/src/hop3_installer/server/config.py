@@ -71,6 +71,8 @@ DEBIAN_PACKAGES = [
     # Java toolchain
     "default-jdk",
     "maven",
+    # Rust toolchain (via rustup - installed separately)
+    # .NET toolchain (requires Microsoft repo - installed separately)
     # Common utilities
     "curl",
     "wget",
@@ -166,6 +168,7 @@ Type=simple
 User=hop3
 Group=hop3
 WorkingDirectory=/home/hop3
+EnvironmentFile=/etc/default/hop3
 ExecStart=/home/hop3/venv/bin/hop-server serve
 Restart=always
 RestartSec=5

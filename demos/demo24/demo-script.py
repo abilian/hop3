@@ -28,6 +28,9 @@ APP_NAME = "demo24"
 APP_DIR = Path(__file__).parent / "app"
 POSTGRES_NAME = "demo24-db"
 
+# This demo requires Docker daemon for building/deploying containers
+REQUIRES = ["docker"]
+
 
 def run(ctx: DemoContext) -> None:
     """Run the demo."""

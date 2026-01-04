@@ -40,14 +40,13 @@ Demos:
     - 'all': Explicitly run all built-in demos
 
 Examples:
-  python demos/demo.py --host 46.62.169.221                  Run all demos
+  python demos/demo.py --host 46.62.169.221                  Run all demos (SSH)
+  python demos/demo.py --backend docker                      Run demos in Docker
   python demos/demo.py --host 46.62.169.221 demo1            Run specific demo
   python demos/demo.py --host 46.62.169.221 -l demo1         Use local code
   python demos/demo.py --host 46.62.169.221 -k demo2         Keep apps running
-  python demos/demo.py --host 46.62.169.221 ~/my-app         External app
-  python demos/demo.py --host 46.62.169.221 -p 2 -k          Screencast mode
+  python demos/demo.py --backend docker -k demo1             Docker + keep running
   python demos/demo.py --inventory                           Show detailed inventory
-  python demos/demo.py --quiet --host HOST demo1             Minimal output
 """
 
     parser = argparse.ArgumentParser(
@@ -70,10 +69,29 @@ Examples:
     # Server options
     server = parser.add_argument_group("Server Options")
     server.add_argument(
+        "-b",
+        "--backend",
+        choices=["ssh", "docker"],
+        default="ssh",
+        help="Connection backend: ssh (remote server) or docker (local container)",
+    )
+    server.add_argument(
         "--ssh-user",
         default="root",
         metavar="USER",
         help="SSH user for server connection (default: root)",
+    )
+    server.add_argument(
+        "--docker-image",
+        default="ubuntu:24.04",
+        metavar="IMAGE",
+        help="Docker image for container backend (default: ubuntu:24.04)",
+    )
+    server.add_argument(
+        "--docker-container",
+        default="hop3-demo",
+        metavar="NAME",
+        help="Docker container name (default: hop3-demo)",
     )
     server.add_argument(
         "--admin-domain",

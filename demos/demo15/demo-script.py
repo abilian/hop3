@@ -27,6 +27,9 @@ APP_NAME = "demo15"
 APP_DIR = Path(__file__).parent / "app"
 DB_NAME = "demo15-db"
 
+# This demo requires Docker daemon for building/deploying containers
+REQUIRES = ["docker"]
+
 
 def run(ctx: DemoContext) -> None:
     """Run the demo."""

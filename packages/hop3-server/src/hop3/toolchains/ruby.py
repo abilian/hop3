@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import os
+
 from hop3.core.env import Env
 from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
 from hop3.core.protocols import BuildArtifact
@@ -55,14 +57,20 @@ class RubyToolchain(LanguageToolchain):
             ],
         )
 
-        env = Env(
+        # Start with system environment (needed for HOME, USER, LANG, etc.)
+        # then override with our Ruby-specific settings
+        env = Env(os.environ)
+        env.update(
             {
-                "VIRTUAL_ENV": self.virtual_env,
+                "VIRTUAL_ENV": str(self.virtual_env),
                 "PATH": path,
-                # Always set BUNDLE_PATH to ensure gems are installed locally
-                # This prevents permission errors when redeploying
+                # Multiple bundler settings to ensure gems are installed locally
+                # This prevents permission errors when running as hop3 user
                 "BUNDLE_PATH": str(self.virtual_env),
+                "BUNDLE_USER_HOME": str(self.virtual_env / ".bundle"),
+                "BUNDLE_USER_CACHE": str(self.virtual_env / ".bundle/cache"),
                 "GEM_HOME": str(self.virtual_env),
+                "GEM_PATH": str(self.virtual_env),
             },
         )
         env.parse_settings(self.env_file)
@@ -78,4 +86,12 @@ class RubyToolchain(LanguageToolchain):
         if not self.virtual_env.exists():
             emit(CreatingVirtualEnv(self.app_name))
             self.virtual_env.mkdir(parents=True)
-            self.shell("bundle config set --local path $VIRTUAL_ENV", env=env)
+
+        # Always ensure bundle directories exist and are configured
+        bundle_dir = self.virtual_env / ".bundle"
+        bundle_cache = bundle_dir / "cache"
+        bundle_cache.mkdir(parents=True, exist_ok=True)
+
+        # Set bundle config in the app's source directory using modern syntax
+        # The 'set' command works in both old and new bundler versions
+        self.shell(f"bundle config set path {self.virtual_env}", env=env)

@@ -8,7 +8,6 @@ Demonstrates backing up and restoring application data.
 from __future__ import annotations
 
 import re
-import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -34,6 +33,7 @@ def run(ctx: DemoContext) -> None:
     from lib import (
         check_app_status,
         cleanup_app,
+        curl_request,
         deploy_app,
         pause,
         print_blank,
@@ -90,8 +90,7 @@ def run(ctx: DemoContext) -> None:
     notes_to_add = ["First important note", "Second note for backup", "Third test note"]
     for note in notes_to_add:
         note_encoded = note.replace(" ", "%20")
-        curl_cmd = f"curl -sk {app_url}/notes/add/{note_encoded}"
-        result = subprocess.run(curl_cmd, shell=True, capture_output=True, text=True, check=False)
+        result = curl_request(ctx, f"{app_url}/notes/add/{note_encoded}")
         if result.returncode == 0:
             print_info(f"  Added: {note}")
 
@@ -152,15 +151,13 @@ def run(ctx: DemoContext) -> None:
     # Clear the data
     print_header("Step 5: Destroy Application Data")
     print_step("Clearing all notes from the application...")
-    curl_cmd = f"curl -sk {app_url}/notes/clear"
-    subprocess.run(curl_cmd, shell=True, capture_output=True, text=True, check=False)
+    curl_request(ctx, f"{app_url}/notes/clear")
     print_info("  Notes cleared.")
     pause(ctx.pause_between_steps)
 
     # Verify data is gone
     print_step("Verifying notes are gone...")
-    curl_cmd = f"curl -sk {app_url}/notes"
-    result = subprocess.run(curl_cmd, shell=True, capture_output=True, text=True, check=False)
+    result = curl_request(ctx, f"{app_url}/notes")
     if result.returncode == 0 and '"count": 0' in result.stdout:
         print_success("Notes successfully cleared - count is 0.")
     else:

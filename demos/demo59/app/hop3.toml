@@ -1,0 +1,26 @@
+[metadata]
+id = "demo59"
+version = "1.0.0"
+title = "Elixir Prerequisite Test"
+
+[build]
+# Clean all build artifacts before rebuilding to avoid stale state
+# MIX_HOME and HEX_HOME are in parent directory (..), deps/_build are in current directory
+before-build = ["rm -rf _build deps ../.mix ../.hex", "mix local.hex --force", "mix local.rebar --force", "mix deps.clean --all", "mix deps.get", "mix compile"]
+packages = ["elixir", "erlang"]
+
+[run]
+start = "elixir --no-halt -S mix run"
+
+[env]
+MIX_ENV = "prod"
+MIX_HOME = "/home/hop3/apps/demo59/.mix"
+HEX_HOME = "/home/hop3/apps/demo59/.hex"
+
+[port]
+web = 4000
+
+[healthcheck]
+path = "/up"
+timeout = 30
+interval = 60

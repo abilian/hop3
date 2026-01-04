@@ -77,32 +77,53 @@ def run_ssh(
     check: bool = True,
     log_name: str = "commands",
 ) -> subprocess.CompletedProcess:
-    """Run a command on the remote server via SSH.
+    """Run a command on the target (SSH server or Docker container).
+
+    Uses the backend from context to run commands, supporting both
+    SSH (remote servers) and Docker (local containers).
 
     Args:
-        ctx: Demo context with server connection info
-        cmd: Command to run on the remote server
+        ctx: Demo context with server/backend connection info
+        cmd: Command to run on the target
         show: Whether to show the command in console output
         check: Whether to raise on failure
         log_name: Name of log file to write to (default: "commands")
     """
-    ssh_cmd = f'ssh -o StrictHostKeyChecking=accept-new {ctx.ssh_target} "{cmd}"'
+    # Get backend from context
+    backend = ctx.get_backend()
+    backend_name = backend.name if hasattr(backend, 'name') else 'unknown'
+
     if show and get_output_level() >= 2:  # NORMAL or VERBOSE
-        print_command(f"ssh {ctx.ssh_target} '{cmd}'")
-    result = subprocess.run(
-        ssh_cmd, shell=True, capture_output=True, text=True, check=False
+        if backend_name == "docker":
+            print_command(f"docker exec {ctx.docker_container} '{cmd}'")
+        else:
+            print_command(f"ssh {ctx.ssh_target} '{cmd}'")
+
+    # Run via backend
+    cmd_result = backend.run(cmd, check=False)
+
+    # Convert to subprocess.CompletedProcess for compatibility
+    result = subprocess.CompletedProcess(
+        args=cmd,
+        returncode=cmd_result.returncode,
+        stdout=cmd_result.stdout,
+        stderr=cmd_result.stderr,
     )
-    # Always log command execution
-    log_command(log_name, f"ssh {ctx.ssh_target} '{cmd}'", result)
+
+    # Log command execution
+    if backend_name == "docker":
+        log_command(log_name, f"docker exec {ctx.docker_container} '{cmd}'", result)
+    else:
+        log_command(log_name, f"ssh {ctx.ssh_target} '{cmd}'", result)
 
     if check and result.returncode != 0:
-        print_error(f"SSH command failed with exit code {result.returncode}")
+        print_error(f"Command failed with exit code {result.returncode}")
         # Show both stdout and stderr on failure (installer errors may be in stdout)
         if result.stdout:
             print(f"  {result.stdout.strip()}")
         if result.stderr:
             print(f"  {red(result.stderr.strip())}")
-        msg = f"SSH command failed: {cmd}"
+        msg = f"Command failed: {cmd}"
         raise CommandError(msg, result.returncode)
     return result
 

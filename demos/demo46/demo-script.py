@@ -24,6 +24,9 @@ Demonstrates minimal PHP app with MySQL:
 
 APP_NAME = "demo46"
 APP_DIR = Path(__file__).parent / "app"
+
+# This demo requires Docker daemon for building/deploying containers
+REQUIRES = ["docker"]
 MYSQL_NAME = "demo46-db"
 
 

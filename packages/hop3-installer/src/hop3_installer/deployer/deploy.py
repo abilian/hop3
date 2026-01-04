@@ -367,12 +367,57 @@ class Deployer:
 
             # Try to configure hop3 CLI
             host = self.config.host or "localhost"
+            # Build the full API URL
+            api_url = f"http://{host}:8000" if "://" not in host else host
             subprocess.run(
-                ["hop3", "config", "set", "server", host],
+                ["hop3", "settings", "set", "server", api_url],
                 capture_output=True,
                 check=False,
             )
-            self.log(f"CLI configured to connect to {host}", "success")
+
+            # Create admin user and get token for CLI authentication
+            user = self.config.admin_user
+            password = self.config.admin_password
+
+            # Create admin user on server using --password-stdin (ignore if already exists)
+            self.backend.run(
+                f"echo '{password}' | sudo -u hop3 /home/hop3/venv/bin/hop-server "
+                f"admin:create {user} {user}@hop3.local --password-stdin",
+                check=False,
+            )
+
+            # Get token from server (admin:token only needs username)
+            result = self.backend.run(
+                f"sudo -u hop3 /home/hop3/venv/bin/hop-server admin:token {user}",
+                check=False,
+            )
+
+            if result.success and result.stdout.strip():
+                # Parse token from output - JWT tokens start with "eyJ"
+                token = None
+                for line in result.stdout.strip().splitlines():
+                    line = line.strip()
+                    if line.startswith("eyJ"):
+                        token = line
+                        break
+
+                if token:
+                    # Set token in local CLI config
+                    subprocess.run(
+                        ["hop3", "settings", "set", "token", token],
+                        capture_output=True,
+                        check=False,
+                    )
+                    self.log("CLI configured with authentication token", "success")
+                else:
+                    self.log(
+                        "Could not parse auth token from output (no JWT found)",
+                        "warning",
+                    )
+            else:
+                self.log("Could not get auth token (check server logs)", "warning")
+
+            self.log(f"CLI configured to connect to {api_url}", "success")
         except FileNotFoundError:
             self.log("hop3 CLI not found, skipping CLI setup", "warning")
 

@@ -143,6 +143,8 @@ def create_app():
     )
 
     # Create app with Litestar session middleware and memory store
+    # Allow larger request bodies for deployment packages (default is 10MB)
+    # Compiled binaries (Rust, Go) can be 50-100MB+
     app = Litestar(
         route_handlers=route_handlers,
         debug=DEBUG,
@@ -155,6 +157,7 @@ def create_app():
         },
         on_startup=[on_startup],
         on_shutdown=[on_shutdown],
+        request_max_body_size=200 * 1024 * 1024,  # 200MB for large deployments
     )
 
     # Setup Dishka dependency injection
