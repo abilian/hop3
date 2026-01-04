@@ -26,6 +26,9 @@ Demonstrates deploying Redmine with Hop3:
 
 APP_NAME = "demo44"
 APP_DIR = Path(__file__).parent / "app"
+
+# This demo requires Docker daemon for building/deploying containers
+REQUIRES = ["docker"]
 POSTGRES_NAME = "demo44-db"
 
 

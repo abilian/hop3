@@ -179,6 +179,9 @@ def _install_debian_deps(config: ServerInstallerConfig) -> None:
         else:
             print_success("Redis already installed")
 
+    # Install .NET SDK (requires Microsoft repo)
+    _install_dotnet_sdk("debian")
+
 
 def _install_fedora_deps(config: ServerInstallerConfig) -> None:
     """Install Fedora/RHEL dependencies."""
@@ -225,6 +228,9 @@ def _install_fedora_deps(config: ServerInstallerConfig) -> None:
         else:
             print_success("Redis already installed")
 
+    # Install .NET SDK
+    _install_dotnet_sdk("fedora")
+
 
 def _install_optional_packages(
     name: str,
@@ -247,6 +253,82 @@ def _install_optional_packages(
         if result.stderr:
             for line in result.stderr.strip().split("\n")[-5:]:
                 print_detail(line)
+
+
+def _install_dotnet_sdk(distro: str) -> None:
+    """Install .NET SDK from Microsoft repository.
+
+    .NET requires adding Microsoft's package repository before installation.
+    This installs .NET 8 (LTS) and .NET 9 SDKs.
+    """
+    if cmd_exists("dotnet"):
+        print_info(".NET SDK already installed")
+        return
+
+    if distro == "debian":
+        # Add Microsoft package repository for Debian/Ubuntu
+        with Spinner("Adding Microsoft package repository..."):
+            # Download and install the Microsoft package signing key
+            run_cmd(
+                [
+                    "wget",
+                    "-q",
+                    "https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb",
+                    "-O",
+                    "/tmp/packages-microsoft-prod.deb",
+                ],
+                check=False,
+            )
+            result = run_cmd(
+                ["dpkg", "-i", "/tmp/packages-microsoft-prod.deb"],
+                check=False,
+            )
+            run_cmd(["rm", "-f", "/tmp/packages-microsoft-prod.deb"], check=False)
+
+            if result.returncode != 0:
+                print_warning("Failed to add Microsoft repository")
+                return
+
+        # Update package lists
+        with Spinner("Updating package lists..."):
+            run_cmd(["apt-get", "update", "-q"], check=False)
+
+        # Install .NET SDKs
+        with Spinner("Installing .NET SDK 8 (LTS)..."):
+            result = run_cmd(
+                ["apt-get", "install", "-y", "dotnet-sdk-8.0"],
+                env={"DEBIAN_FRONTEND": "noninteractive"},
+                check=False,
+            )
+            if result.returncode == 0:
+                print_success(".NET SDK 8 installed")
+            else:
+                print_warning(".NET SDK 8 installation failed")
+
+        with Spinner("Installing .NET SDK 9..."):
+            result = run_cmd(
+                ["apt-get", "install", "-y", "dotnet-sdk-9.0"],
+                env={"DEBIAN_FRONTEND": "noninteractive"},
+                check=False,
+            )
+            if result.returncode == 0:
+                print_success(".NET SDK 9 installed")
+            else:
+                print_warning(".NET SDK 9 installation failed")
+
+    elif distro == "fedora":
+        # Fedora has .NET in its repos
+        with Spinner("Installing .NET SDK..."):
+            result = run_cmd(
+                ["dnf", "install", "-y", "dotnet-sdk-8.0", "dotnet-sdk-9.0"],
+                check=False,
+            )
+            if result.returncode == 0:
+                print_success(".NET SDK installed")
+            else:
+                print_warning(".NET SDK installation failed")
+    else:
+        print_warning(f"Skipping .NET SDK for unsupported distro: {distro}")
 
 
 # =============================================================================
@@ -393,8 +475,48 @@ def setup_ssh_keys() -> None:
 # =============================================================================
 
 
-def setup_systemd() -> None:
-    """Install and enable systemd services."""
+def setup_environment_file() -> str:
+    """Create /etc/default/hop3 with required environment variables.
+
+    Returns:
+        The secret key (either existing or newly generated)
+    """
+    import secrets
+
+    env_file = Path("/etc/default/hop3")
+
+    # Check if file already exists and has HOP3_SECRET_KEY
+    if env_file.exists():
+        content = env_file.read_text()
+        for line in content.splitlines():
+            if line.startswith("HOP3_SECRET_KEY="):
+                return line.split("=", 1)[1].strip()
+
+    # Generate a secure secret key
+    secret_key = secrets.token_urlsafe(32)
+
+    # Write the environment file
+    env_content = f"""# Hop3 Server Environment Variables
+# This file is loaded by the hop3-server systemd service
+
+# Secret key for JWT token signing (required for authentication)
+HOP3_SECRET_KEY={secret_key}
+"""
+    env_file.write_text(env_content)
+    env_file.chmod(0o600)  # Restrict permissions
+
+    return secret_key
+
+
+def setup_systemd() -> str:
+    """Install and enable systemd services.
+
+    Returns:
+        The secret key from the environment file
+    """
+    # Create environment file first
+    secret_key = setup_environment_file()
+
     # Hop3 server service
     service_path = Path("/etc/systemd/system/hop3-server.service")
     service_path.write_text(SYSTEMD_UNIT)
@@ -411,6 +533,8 @@ def setup_systemd() -> None:
     run_cmd(["systemctl", "start", "uwsgi-hop3"], check=False)
 
     print_success("Systemd services configured")
+
+    return secret_key
 
 
 # =============================================================================
@@ -809,7 +933,9 @@ def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
             break
 
     if mysql_root_cmd is None:
-        print_warning("Cannot connect to MySQL as root - attempting to reset authentication")
+        print_warning(
+            "Cannot connect to MySQL as root - attempting to reset authentication"
+        )
 
         # Try to reset MySQL root to use socket authentication
         # This is safe and allows the installer to proceed
@@ -929,6 +1055,7 @@ def write_server_config(
     pg_password: str | None,
     mysql_password: str | None,
     domain: str | None,
+    secret_key: str | None = None,
 ) -> None:
     """Write hop3-server.toml configuration file."""
     config_file = HOME_DIR / "hop3-server.toml"
@@ -938,6 +1065,16 @@ def write_server_config(
         "# Auto-generated by installer",
         "",
     ]
+
+    # Add secret key for JWT token signing
+    if secret_key:
+        lines.extend(
+            [
+                "# Secret key for JWT token signing (required for authentication)",
+                f'HOP3_SECRET_KEY = "{secret_key}"',
+                "",
+            ]
+        )
 
     if domain:
         lines.extend(
@@ -1342,8 +1479,9 @@ def main() -> int:
 
     # Step 7: Systemd
     print_step(7, total_steps, "Setting up systemd services...")
+    secret_key = None
     try:
-        setup_systemd()
+        secret_key = setup_systemd()
     except CommandError as e:
         print_warning(f"Systemd setup issue: {e.stderr[:100]}")
 
@@ -1377,9 +1515,9 @@ def main() -> int:
     except CommandError as e:
         print_warning(f"MySQL setup issue: {e.stderr[:100]}")
 
-    # Write server config
+    # Write server config (including secret key for CLI commands)
     try:
-        write_server_config(pg_password, mysql_password, config.domain)
+        write_server_config(pg_password, mysql_password, config.domain, secret_key)
     except Exception as e:
         print_warning(f"Config write issue: {e}")
 

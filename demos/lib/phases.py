@@ -54,26 +54,28 @@ def run_prerequisites(ctx: DemoContext) -> bool:
         configure_server_settings,
         install_hop3,
         update_hop3_server,
-        verify_ssh_access,
+        verify_connectivity,
     )
 
     print_header("Checking prerequisites", phase=True)
 
     try:
-        verify_ssh_access(ctx)
+        verify_connectivity(ctx)
         pause(ctx.pause_between_steps)
 
-        # Check DNS resolution for demo hostnames (local check, before server checks)
-        check_dns_resolution(ctx)
-        pause(ctx.pause_between_steps)
+        # For SSH backend, check DNS and Ubuntu version
+        if ctx.backend == "ssh":
+            # Check DNS resolution for demo hostnames (local check, before server checks)
+            check_dns_resolution(ctx)
+            pause(ctx.pause_between_steps)
 
-        # Clean server if requested (before checking ubuntu version)
+            check_ubuntu_version(ctx)
+            pause(ctx.pause_between_steps)
+
+        # Clean server if requested (before installation)
         if ctx.clean_before:
             clean_server(ctx)
             pause(ctx.pause_between_steps)
-
-        check_ubuntu_version(ctx)
-        pause(ctx.pause_between_steps)
 
         hop3_installed = check_hop3_installed(ctx)
 
@@ -127,57 +129,120 @@ def configure_cli(ctx: DemoContext) -> bool:
     print_success("hop3 CLI found")
     pause(ctx.pause_between_steps)
 
-    # Create admin user via SSH
+    # Get server URL based on backend
+    backend = ctx.get_backend()
+    server_url = backend.get_server_url()
+
+    # Create admin user
     print_step(f"Setting up admin user '{ctx.admin_user}'...")
-    print_info("This will connect via SSH and create/login the admin account.")
 
-    init_cmd = (
-        f"echo '{ctx.admin_password}' | hop3 init "
-        f"--ssh {ctx.ssh_target} "
-        f"--username {ctx.admin_user} "
-        f"--email {ctx.admin_email} "
-        f"--server http://{ctx.server_ip}:8000 "
-        f"--password-stdin --yes"
-    )
-    if ctx.output_level >= OutputLevel.NORMAL:
-        print_command(
-            f"hop3 init --ssh {ctx.ssh_target} --username {ctx.admin_user} --email {ctx.admin_email}"
+    if ctx.backend == "docker":
+        # For Docker, create admin user directly in the container
+        print_info("Creating admin account in Docker container...")
+        from lib.commands import run_ssh
+        import re
+
+        # Create admin user via hop3-server CLI in container
+        # The command outputs an API token that we can use for login
+        create_user_cmd = (
+            f"echo '{ctx.admin_password}' | "
+            f"/home/hop3/venv/bin/hop-server admin:create "
+            f"{ctx.admin_user} {ctx.admin_email} --password-stdin"
         )
+        result = run_ssh(ctx, create_user_cmd, check=False, show=False)
 
-    result = subprocess.run(
-        init_cmd, shell=True, capture_output=True, text=True, check=False
-    )
-    if result.stdout and ctx.output_level >= OutputLevel.VERBOSE:
-        print(result.stdout)
+        # Extract token from output (admin:create prints a JWT token)
+        api_token = None
+        if result.returncode == 0:
+            # Look for JWT token in output (starts with eyJ)
+            token_match = re.search(r'(eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)', result.stdout)
+            if token_match:
+                api_token = token_match.group(1)
 
-    if result.returncode != 0:
-        if "already exists" in result.stderr:
-            print_info("Admin user already exists, attempting login...")
-            login_cmd = (
-                f"hop3 login --ssh {ctx.ssh_target} "
-                f"--username {ctx.admin_user} "
-                f"--server http://{ctx.server_ip}:8000"
-            )
-            result = subprocess.run(
-                login_cmd, shell=True, capture_output=True, text=True, check=False
-            )
-            if result.stdout and ctx.output_level >= OutputLevel.VERBOSE:
-                print(result.stdout)
-            if result.returncode != 0:
-                print_error("Failed to login")
-                if result.stderr:
-                    print(f"  {red(result.stderr.strip())}")
-                print_phase_result(False)
-                return False
-            print_success(f"Logged in as '{ctx.admin_user}'")
+        if result.returncode != 0 and "already exists" not in result.stderr:
+            print_error("Failed to create admin user in container")
+            if result.stderr:
+                print(f"  {red(result.stderr.strip())}")
+            print_phase_result(False)
+            return False
+        print_success(f"Admin user '{ctx.admin_user}' created in container")
+
+        # Configure local CLI to connect to localhost using token-based login
+        print_info("Configuring CLI to connect to localhost...")
+
+        if api_token:
+            # Use token-based login (more reliable than password)
+            login_url = f"{server_url}?token={api_token}"
+            config_cmd = f'hop3 login "{login_url}"'
         else:
-            print_error("Failed to create admin user")
+            # Fallback to password-based login
+            config_cmd = (
+                f"echo '{ctx.admin_password}' | hop3 login "
+                f"--username {ctx.admin_user} "
+                f"--server {server_url} "
+                f"--password-stdin"
+            )
+
+        result = subprocess.run(
+            config_cmd, shell=True, capture_output=True, text=True, check=False
+        )
+        if result.returncode != 0:
+            print_error("Failed to configure CLI for Docker")
             if result.stderr:
                 print(f"  {red(result.stderr.strip())}")
             print_phase_result(False)
             return False
     else:
-        print_success(f"Admin user '{ctx.admin_user}' created")
+        # For SSH, use the standard init command
+        print_info("This will connect via SSH and create/login the admin account.")
+
+        init_cmd = (
+            f"echo '{ctx.admin_password}' | hop3 init "
+            f"--ssh {ctx.ssh_target} "
+            f"--username {ctx.admin_user} "
+            f"--email {ctx.admin_email} "
+            f"--server {server_url} "
+            f"--password-stdin --yes"
+        )
+        if ctx.output_level >= OutputLevel.NORMAL:
+            print_command(
+                f"hop3 init --ssh {ctx.ssh_target} --username {ctx.admin_user} --email {ctx.admin_email}"
+            )
+
+        result = subprocess.run(
+            init_cmd, shell=True, capture_output=True, text=True, check=False
+        )
+        if result.stdout and ctx.output_level >= OutputLevel.VERBOSE:
+            print(result.stdout)
+
+        if result.returncode != 0:
+            if "already exists" in result.stderr:
+                print_info("Admin user already exists, attempting login...")
+                login_cmd = (
+                    f"hop3 login --ssh {ctx.ssh_target} "
+                    f"--username {ctx.admin_user} "
+                    f"--server {server_url}"
+                )
+                result = subprocess.run(
+                    login_cmd, shell=True, capture_output=True, text=True, check=False
+                )
+                if result.stdout and ctx.output_level >= OutputLevel.VERBOSE:
+                    print(result.stdout)
+                if result.returncode != 0:
+                    print_error("Failed to login")
+                    if result.stderr:
+                        print(f"  {red(result.stderr.strip())}")
+                    print_phase_result(False)
+                    return False
+                print_success(f"Logged in as '{ctx.admin_user}'")
+            else:
+                print_error("Failed to create admin user")
+                if result.stderr:
+                    print(f"  {red(result.stderr.strip())}")
+                print_phase_result(False)
+                return False
+        else:
+            print_success(f"Admin user '{ctx.admin_user}' created")
     pause(ctx.pause_between_steps)
 
     # Verify authentication (quiet in non-verbose mode)
@@ -262,6 +327,24 @@ def run_demo(
         title = getattr(module, "TITLE", demo_name)
         description = getattr(module, "DESCRIPTION", "")
         app_name = getattr(module, "APP_NAME", demo_name)
+        requires = getattr(module, "REQUIRES", None)
+
+        # Check if demo requirements are satisfied by the current backend
+        satisfied, reason = ctx.check_requirements(requires)
+        if not satisfied:
+            duration = time.time() - start_time
+            skip_msg = f"Skipped: {reason}"
+            if ctx.output_level >= OutputLevel.NORMAL:
+                print_info(f"Skipping {demo_name}: {reason}")
+            log_section("main", "Demo skipped", skip_msg)
+            end_demo_logging()
+            return DemoResult(
+                name=demo_name,
+                title=title,
+                status="skip",
+                duration=duration,
+                error=skip_msg,
+            )
 
         if ctx.output_level >= OutputLevel.NORMAL:
             print_header(f"Running: {title}")

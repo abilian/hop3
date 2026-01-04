@@ -26,6 +26,9 @@ Demonstrates deploying Matomo with Hop3:
 
 APP_NAME = "demo39"
 APP_DIR = Path(__file__).parent / "app"
+
+# This demo requires Docker daemon for building/deploying containers
+REQUIRES = ["docker"]
 MYSQL_NAME = "demo39-db"
 
 

@@ -67,14 +67,18 @@ def main() -> int:
         show_inventory(demo_dirs or None)
         return 0
 
-    # Handle case where --host is not provided
-    if "-H" not in sys.argv and "--host" not in sys.argv:
-        if "-h" in sys.argv or "--help" in sys.argv:
-            parser.print_help()
-            return 0
-        print_error("Missing required argument: --host HOST")
-        print_info("Run with --help for usage information")
-        return 2
+    # Handle case where --host is not provided (required for SSH backend)
+    is_docker_backend = "--backend" in sys.argv and "docker" in sys.argv
+    is_docker_backend = is_docker_backend or ("-b" in sys.argv and "docker" in sys.argv)
+
+    if not is_docker_backend:
+        if "-H" not in sys.argv and "--host" not in sys.argv:
+            if "-h" in sys.argv or "--help" in sys.argv:
+                parser.print_help()
+                return 0
+            print_error("Missing required argument: --host HOST (or use --backend docker)")
+            print_info("Run with --help for usage information")
+            return 2
 
     args = parser.parse_args()
 
@@ -179,11 +183,23 @@ def _resolve_demos(args, available_demos) -> list[tuple[str, Path, bool]] | None
 def _create_context(args, output_level: OutputLevel) -> DemoContext:
     """Create the demo context from arguments."""
     admin_password = args.admin_password or secrets.token_urlsafe(16)
+    backend = getattr(args, "backend", "ssh")
+
+    # For Docker mode, set appropriate defaults for server_ip and admin_domain
+    if backend == "docker":
+        server_ip = "localhost"
+        admin_domain = args.admin_domain or "hop3.local"
+    else:
+        server_ip = getattr(args, "host", "") or ""
+        admin_domain = args.admin_domain
 
     return DemoContext(
-        server_ip=args.host,
+        backend=backend,
+        server_ip=server_ip,
         ssh_user=args.ssh_user,
-        admin_domain=args.admin_domain,
+        docker_image=getattr(args, "docker_image", "ubuntu:24.04"),
+        docker_container=getattr(args, "docker_container", "hop3-demo"),
+        admin_domain=admin_domain,
         admin_user=args.admin_user,
         admin_email=args.admin_email,
         admin_password=admin_password,

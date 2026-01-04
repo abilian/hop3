@@ -27,6 +27,9 @@ Demonstrates Shlink deployment with Hop3:
 APP_NAME = "demo56"
 APP_DIR = Path(__file__).parent / "app"
 
+# This demo requires Docker daemon for building/deploying containers
+REQUIRES = ["docker"]
+
 
 def run(ctx: DemoContext) -> None:
     """Run the demo."""

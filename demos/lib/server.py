@@ -17,6 +17,97 @@ if TYPE_CHECKING:
 SCRIPTS_DIR = Path(__file__).parent / "scripts"
 
 
+def _upload_file(ctx: DemoContext, local_path: Path, remote_path: str) -> bool:
+    """Upload a file to the target using the backend.
+
+    Args:
+        ctx: Demo context
+        local_path: Local file path
+        remote_path: Remote destination path
+
+    Returns:
+        True if upload succeeded
+    """
+    backend = ctx.get_backend()
+    return backend.upload_file(local_path, remote_path)
+
+
+def _upload_dir(ctx: DemoContext, local_path: Path, remote_path: str) -> bool:
+    """Upload a directory to the target using the backend.
+
+    Args:
+        ctx: Demo context
+        local_path: Local directory path
+        remote_path: Remote destination path
+
+    Returns:
+        True if upload succeeded
+    """
+    backend = ctx.get_backend()
+    return backend.upload_dir(local_path, remote_path)
+
+
+def _restart_service(ctx: DemoContext, service_name: str) -> bool:
+    """Restart a service using the backend's service management.
+
+    For Docker without systemd, uses supervisor.
+    For SSH or Docker with systemd, uses systemctl.
+
+    Args:
+        ctx: Demo context
+        service_name: Name of the service to restart
+
+    Returns:
+        True if restart succeeded
+    """
+    backend = ctx.get_backend()
+
+    # Check if backend has service management methods (Docker backend)
+    if hasattr(backend, "restart_service"):
+        return backend.restart_service(service_name)
+
+    # Fallback to systemctl via SSH (for SSH backend or older code)
+    result = run_ssh(ctx, f"systemctl restart {service_name}", show=False, check=False)
+    return result.returncode == 0
+
+
+def _start_service(ctx: DemoContext, service_name: str) -> bool:
+    """Start a service using the backend's service management."""
+    backend = ctx.get_backend()
+    if hasattr(backend, "start_service"):
+        return backend.start_service(service_name)
+    result = run_ssh(ctx, f"systemctl start {service_name}", show=False, check=False)
+    return result.returncode == 0
+
+
+def _stop_service(ctx: DemoContext, service_name: str) -> bool:
+    """Stop a service using the backend's service management."""
+    backend = ctx.get_backend()
+    if hasattr(backend, "stop_service"):
+        return backend.stop_service(service_name)
+    result = run_ssh(ctx, f"systemctl stop {service_name}", show=False, check=False)
+    return result.returncode == 0
+
+
+def _reload_service(ctx: DemoContext, service_name: str) -> bool:
+    """Reload a service configuration."""
+    backend = ctx.get_backend()
+    if hasattr(backend, "reload_service"):
+        return backend.reload_service(service_name)
+    result = run_ssh(ctx, f"systemctl reload {service_name}", show=False, check=False)
+    return result.returncode == 0
+
+
+def _is_service_active(ctx: DemoContext, service_name: str) -> bool:
+    """Check if a service is active/running."""
+    backend = ctx.get_backend()
+    if hasattr(backend, "service_status"):
+        status = backend.service_status(service_name)
+        return status == "active"
+    result = run_ssh(ctx, f"systemctl is-active {service_name}", show=False, check=False)
+    return "active" in result.stdout
+
+
 def _run_remote_script(
     ctx: DemoContext,
     script_name: str,
@@ -24,7 +115,7 @@ def _run_remote_script(
     sudo: bool = False,
     show: bool = False,
 ) -> None:
-    """Copy a script to the server and execute it.
+    """Copy a script to the target and execute it.
 
     Args:
         ctx: Demo context
@@ -39,11 +130,9 @@ def _run_remote_script(
 
     remote_path = f"/tmp/{script_name}"
 
-    # Copy script to server
-    run_local(
-        f"scp -o StrictHostKeyChecking=accept-new {script_path} {ctx.ssh_target}:{remote_path}",
-        show=False,
-    )
+    # Copy script to target using backend
+    if not _upload_file(ctx, script_path, remote_path):
+        raise CommandError(f"Failed to upload script: {script_name}")
 
     # Execute and cleanup
     sudo_prefix = "sudo " if sudo else ""
@@ -67,7 +156,7 @@ def clean_server(ctx: DemoContext) -> None:
 
     # Stop hop3-server service if running
     print_info("Stopping hop3-server service...")
-    run_ssh(ctx, "systemctl stop hop3-server 2>/dev/null || true", show=False, check=False)
+    _stop_service(ctx, "hop3-server")
 
     # Stop and remove any Docker containers that might be running for apps
     print_info("Stopping any running Docker containers...")
@@ -100,7 +189,7 @@ def clean_server(ctx: DemoContext) -> None:
     )
 
     # Reload nginx to apply config removal
-    run_ssh(ctx, "systemctl reload nginx 2>/dev/null || true", show=False, check=False)
+    _reload_service(ctx, "nginx")
 
     # Remove the hop3 home directory completely (includes database, apps, venv)
     print_info("Removing /home/hop3 directory...")
@@ -113,16 +202,32 @@ def clean_server(ctx: DemoContext) -> None:
     print_success("Server cleaned successfully")
 
 
-def verify_ssh_access(ctx: DemoContext) -> None:
-    """Verify SSH access to the server."""
-    print_step("Verifying SSH access to the server...")
-    result = run_ssh(ctx, "echo 'SSH connection successful'", show=False, check=False)
-    if result.returncode != 0:
-        print_error(f"Cannot connect to {ctx.ssh_target}")
-        print_info("Please ensure SSH key authentication is configured.")
-        msg = f"Cannot connect to {ctx.ssh_target}"
-        raise CommandError(msg)
-    print_success(f"Connected to {ctx.server_ip}")
+def verify_connectivity(ctx: DemoContext) -> None:
+    """Verify connectivity to the target (SSH or Docker).
+
+    For SSH backend: Verifies SSH access to the server.
+    For Docker backend: Verifies Docker is available and can run containers.
+    """
+    backend = ctx.get_backend()
+    backend_name = backend.name if hasattr(backend, "name") else "unknown"
+
+    if backend_name == "docker":
+        print_step("Verifying Docker connectivity...")
+        # Docker backend setup will start/create the container
+        if not backend.setup():
+            print_error("Failed to set up Docker container")
+            msg = "Docker container setup failed"
+            raise CommandError(msg)
+        print_success(f"Docker container '{ctx.docker_container}' ready")
+    else:
+        print_step("Verifying SSH access to the server...")
+        result = run_ssh(ctx, "echo 'SSH connection successful'", show=False, check=False)
+        if result.returncode != 0:
+            print_error(f"Cannot connect to {ctx.ssh_target}")
+            print_info("Please ensure SSH key authentication is configured.")
+            msg = f"Cannot connect to {ctx.ssh_target}"
+            raise CommandError(msg)
+        print_success(f"Connected to {ctx.server_ip}")
 
 
 def check_dns_resolution(ctx: DemoContext) -> None:
@@ -230,11 +335,12 @@ def install_hop3(ctx: DemoContext) -> None:
         msg = f"Installer not found: {ctx.installer_path}"
         raise CommandError(msg)
 
-    # Copy installer to server
+    # Copy installer to server using backend
     print_step("Copying installer to server...")
-    run_local(
-        f"scp -o StrictHostKeyChecking=accept-new {ctx.installer_path} {ctx.ssh_target}:/tmp/install-server.py"
-    )
+    if not _upload_file(ctx, ctx.installer_path, "/tmp/install-server.py"):
+        print_error("Failed to copy installer to server")
+        msg = "Failed to copy installer"
+        raise CommandError(msg)
     print_success("Installer copied to server")
     pause(ctx.pause_between_steps)
 
@@ -246,31 +352,58 @@ def install_hop3(ctx: DemoContext) -> None:
     # Install all optional features (MySQL, Redis) for demos
     with_all = " --with all"
 
+    # For Docker backend without systemd, the installer's verification step will fail
+    # because services aren't running yet. We'll start them via supervisor after.
+    backend = ctx.get_backend()
+    ignore_verification_failure = hasattr(backend, "has_systemd") and not backend.has_systemd
+
     if ctx.use_local_code:
         # First sync local code, then install from local path
         sync_local_code(ctx)
-        run_ssh(
+        result = run_ssh(
             ctx,
             f"python3 /tmp/install-server.py --local-path /tmp/hop3-server{domain_arg}{with_all} --verbose",
+            check=not ignore_verification_failure,
         )
+        if ignore_verification_failure and result.returncode != 0:
+            print_info("Installer verification failed (expected in supervisor mode)")
     else:
         print_info("Installing from git branch: devel")
-        run_ssh(
+        result = run_ssh(
             ctx,
             f"python3 /tmp/install-server.py --git --branch devel{domain_arg}{with_all} --verbose",
+            check=not ignore_verification_failure,
         )
+        if ignore_verification_failure and result.returncode != 0:
+            print_info("Installer verification failed (expected in supervisor mode)")
     print_success("Hop3 installation completed")
     pause(ctx.pause_between_steps)
 
-    # Verify services
+    # Configure database services under supervisor (must happen after installer)
+    backend = ctx.get_backend()
+    if hasattr(backend, "configure_database_supervisor"):
+        backend.configure_database_supervisor()
+
+    # Verify and start services
     print_step("Verifying services...")
-    run_ssh(ctx, "systemctl status hop3-server --no-pager", check=False)
-    run_ssh(ctx, "systemctl status nginx --no-pager", check=False)
+
+    # Start services (handles both systemd and supervisor)
+    _start_service(ctx, "hop3-server")
+    _start_service(ctx, "nginx")
+    _start_service(ctx, "uwsgi-hop3")  # uWSGI Emperor for app workers
+
+    # Check status (informational only, don't fail on this)
+    if hasattr(backend, "has_systemd") and not backend.has_systemd:
+        # In supervisor mode, just verify processes are running
+        run_ssh(ctx, "supervisorctl status 2>/dev/null || true", check=False)
+    else:
+        run_ssh(ctx, "systemctl status hop3-server --no-pager 2>/dev/null || true", check=False)
+        run_ssh(ctx, "systemctl status nginx --no-pager 2>/dev/null || true", check=False)
     print_success("Hop3 services are running")
 
 
 def sync_local_code(ctx: DemoContext) -> None:
-    """Sync local hop3-server code to the server using rsync."""
+    """Sync local hop3-server code to the server."""
     print_step("Syncing local hop3-server code to server...")
 
     server_pkg = ctx.packages_path / "hop3-server"
@@ -279,22 +412,11 @@ def sync_local_code(ctx: DemoContext) -> None:
         msg = f"Package not found: {server_pkg}"
         raise CommandError(msg)
 
-    # Rsync the package to server
-    rsync_cmd = (
-        f"rsync -avz --delete "
-        f"--exclude='*.pyc' --exclude='__pycache__' --exclude='.git' "
-        f"--exclude='*.egg-info' --exclude='.pytest_cache' --exclude='dist' "
-        f"{server_pkg}/ {ctx.ssh_target}:/tmp/hop3-server/"
-    )
+    # Upload the package directory using backend
     print_info(f"Syncing {server_pkg} to server...")
-    result = run_local(rsync_cmd, show=ctx.verbose, check=False)
-    if result.returncode != 0:
+    if not _upload_dir(ctx, server_pkg, "/tmp/hop3-server"):
         print_error("Failed to sync code to server")
-        if result.stdout:
-            print(f"  stdout: {result.stdout.strip()}")
-        if result.stderr:
-            print(f"  stderr: {result.stderr.strip()}")
-        msg = f"Failed to sync code to server (exit code {result.returncode})"
+        msg = "Failed to sync code to server"
         raise CommandError(msg)
 
     # Fix permissions so hop3 user can read the code during pip install
@@ -342,12 +464,12 @@ def update_hop3_server(ctx: DemoContext) -> None:
             raise CommandError(msg)
         wheel_path = max(wheels, key=lambda p: p.stat().st_mtime)
 
-        # Copy wheel to server
+        # Copy wheel to server using backend
         print_info(f"Copying {wheel_path.name} to server...")
-        run_local(
-            f"scp -o StrictHostKeyChecking=accept-new {wheel_path} {ctx.ssh_target}:/tmp/",
-            show=False,
-        )
+        if not _upload_file(ctx, wheel_path, f"/tmp/{wheel_path.name}"):
+            print_error("Failed to copy wheel to server")
+            msg = "Failed to copy wheel"
+            raise CommandError(msg)
 
         # Install the wheel on server
         print_info("Installing hop3-server on server...")
@@ -359,7 +481,7 @@ def update_hop3_server(ctx: DemoContext) -> None:
 
     # Restart hop3-server to pick up changes
     print_info("Restarting hop3-server...")
-    run_ssh(ctx, "systemctl restart hop3-server", show=False)
+    _restart_service(ctx, "hop3-server")
 
     # Wait for server to start
     import time
@@ -392,7 +514,7 @@ def configure_server_settings(ctx: DemoContext) -> None:
 
     # Restart server to pick up changes
     print_info("Restarting hop3-server to apply configuration...")
-    run_ssh(ctx, "systemctl restart hop3-server", show=False)
+    _restart_service(ctx, "hop3-server")
     import time
 
     time.sleep(2)
@@ -424,7 +546,7 @@ def ensure_docker(ctx: DemoContext) -> None:
         run_ssh(ctx, "usermod -aG docker hop3")
         # Restart hop3-server to pick up new group
         print_info("Restarting hop3-server to apply group changes...")
-        run_ssh(ctx, "systemctl restart hop3-server")
+        _restart_service(ctx, "hop3-server")
         import time
 
         time.sleep(2)
@@ -462,7 +584,7 @@ def ensure_postgres_docker_access(ctx: DemoContext) -> None:
 
     # Restart PostgreSQL to apply changes
     print_info("Restarting PostgreSQL to apply changes...")
-    run_ssh(ctx, "systemctl restart postgresql", show=False, check=False)
+    _restart_service(ctx, "postgresql")
     import time
 
     time.sleep(2)
@@ -486,10 +608,10 @@ def ensure_postgres(ctx: DemoContext) -> None:
 
     # Verify PostgreSQL service is running
     print_step("Checking PostgreSQL service status...")
-    result = run_ssh(ctx, "systemctl is-active postgresql", show=False, check=False)
-    if "active" not in result.stdout:
+    if not _is_service_active(ctx, "postgresql"):
         print_error("PostgreSQL service is not running")
-        run_ssh(ctx, "systemctl status postgresql --no-pager", check=False)
+        # Show status for debugging (fallback gracefully)
+        run_ssh(ctx, "systemctl status postgresql --no-pager 2>/dev/null || supervisorctl status postgresql 2>/dev/null || true", check=False)
         msg = "PostgreSQL service not running"
         raise RuntimeError(msg)
     print_success("PostgreSQL service is running")
@@ -528,10 +650,10 @@ def ensure_mysql(ctx: DemoContext) -> None:
 
     # Verify MySQL service is running
     print_step("Checking MySQL service status...")
-    result = run_ssh(ctx, "systemctl is-active mysql", show=False, check=False)
-    if "active" not in result.stdout:
+    if not _is_service_active(ctx, "mysql"):
         print_error("MySQL service is not running")
-        run_ssh(ctx, "systemctl status mysql --no-pager", check=False)
+        # Show status for debugging (fallback gracefully)
+        run_ssh(ctx, "systemctl status mysql --no-pager 2>/dev/null || supervisorctl status mysql 2>/dev/null || true", check=False)
         msg = "MySQL service not running"
         raise RuntimeError(msg)
     print_success("MySQL service is running")
@@ -571,10 +693,10 @@ def ensure_redis(ctx: DemoContext) -> None:
 
     # Verify Redis service is running
     print_step("Checking Redis service status...")
-    result = run_ssh(ctx, "systemctl is-active redis-server", show=False, check=False)
-    if "active" not in result.stdout:
+    if not _is_service_active(ctx, "redis-server"):
         print_error("Redis service is not running")
-        run_ssh(ctx, "systemctl status redis-server --no-pager", check=False)
+        # Show status for debugging (fallback gracefully)
+        run_ssh(ctx, "systemctl status redis-server --no-pager 2>/dev/null || supervisorctl status redis-server 2>/dev/null || true", check=False)
         msg = "Redis service not running"
         raise RuntimeError(msg)
     print_success("Redis service is running")

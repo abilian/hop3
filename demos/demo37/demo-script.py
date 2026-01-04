@@ -26,6 +26,9 @@ Demonstrates deploying WordPress with Hop3:
 
 APP_NAME = "demo37"
 APP_DIR = Path(__file__).parent / "app"
+
+# This demo requires Docker daemon for building/deploying containers
+REQUIRES = ["docker"]
 MYSQL_NAME = "demo37-db"
 
 

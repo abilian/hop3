@@ -25,6 +25,9 @@ Demonstrates Miniflux deployment with Hop3:
 
 APP_NAME = "demo54"
 APP_DIR = Path(__file__).parent / "app"
+
+# This demo requires Docker daemon for building/deploying containers
+REQUIRES = ["docker"]
 PG_NAME = "demo54-db"
 
 

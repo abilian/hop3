@@ -50,10 +50,17 @@ class DemoInfo:
 class DemoContext:
     """Context for demo execution."""
 
-    # Server connection
-    server_ip: str
+    # Backend selection
+    backend: Literal["ssh", "docker"] = "ssh"
+
+    # Server connection (for SSH backend)
+    server_ip: str = ""
     ssh_user: str = "root"
     admin_domain: str | None = None  # Domain for admin UI (e.g., hop3.example.com)
+
+    # Docker settings (for Docker backend)
+    docker_image: str = "ubuntu:24.04"
+    docker_container: str = "hop3-demo"
 
     # Admin credentials
     admin_user: str = "admin"
@@ -132,3 +139,76 @@ class DemoContext:
     @property
     def dist_path(self) -> Path:
         return self.hop3_repo / "dist"
+
+    _backend_instance: object = field(default=None, repr=False)
+
+    def get_backend(self):
+        """Get or create the backend instance.
+
+        Returns:
+            DemoBackend instance (SSHDemoBackend or DockerDemoBackend)
+        """
+        if self._backend_instance is None:
+            self._backend_instance = self._create_backend()
+        return self._backend_instance
+
+    def _create_backend(self):
+        """Create the appropriate backend based on configuration.
+
+        Returns:
+            DemoBackend instance (SSHDemoBackend or DockerDemoBackend)
+        """
+        from lib.backends import DockerDemoBackend, SSHDemoBackend
+
+        if self.backend == "docker":
+            return DockerDemoBackend(
+                container_name=self.docker_container,
+                image=self.docker_image,
+                project_root=self.hop3_repo,
+            )
+        else:
+            return SSHDemoBackend(
+                host=self.server_ip,
+                user=self.ssh_user,
+            )
+
+    def get_backend_capabilities(self) -> set[str]:
+        """Get the capabilities provided by the current backend.
+
+        Returns:
+            Set of capability strings the backend supports.
+            Capabilities include:
+            - "docker": Docker daemon available for building/running containers
+            - "systemd": Systemd init system available
+            - "ssh": Direct SSH access to server
+
+        Note: Database services (postgres, mysql, redis) are not capabilities
+        but services that need to be installed/running separately.
+        """
+        if self.backend == "docker":
+            # Docker backend runs inside a container - no Docker-in-Docker by default
+            # No systemd (uses supervisor instead)
+            return set()
+        else:
+            # SSH backend has full server access
+            return {"docker", "systemd", "ssh"}
+
+    def check_requirements(self, requires: list[str] | None) -> tuple[bool, str]:
+        """Check if demo requirements are satisfied by the current backend.
+
+        Args:
+            requires: List of required capabilities (e.g., ["docker"])
+
+        Returns:
+            Tuple of (satisfied, reason) where reason explains any unmet requirement
+        """
+        if not requires:
+            return True, ""
+
+        capabilities = self.get_backend_capabilities()
+        missing = set(requires) - capabilities
+
+        if missing:
+            return False, f"requires {', '.join(sorted(missing))} (not available in {self.backend} backend)"
+
+        return True, ""

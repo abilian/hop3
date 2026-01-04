@@ -26,6 +26,9 @@ Demonstrates multi-container Docker deployment:
 APP_NAME = "demo17"
 APP_DIR = Path(__file__).parent / "app"
 
+# This demo requires Docker daemon for building/deploying containers
+REQUIRES = ["docker"]
+
 
 def run(ctx: DemoContext) -> None:
     """Run the demo."""

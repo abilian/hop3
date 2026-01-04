@@ -1,0 +1,18 @@
+[metadata]
+id = "demo57"
+version = "1.0.0"
+title = "Ruby Prerequisite Test"
+
+[build]
+packages = ["ruby", "ruby-dev"]
+
+[run]
+start = "bundle exec puma -C config/puma.rb"
+
+[port]
+web = 4567
+
+[healthcheck]
+path = "/up"
+timeout = 30
+interval = 60
