@@ -266,7 +266,7 @@ class DockerDeployBackend(DeployBackend):
 
     def is_hop3_installed(self) -> bool:
         """Check if Hop3 is installed."""
-        result = self.run("test -f /home/hop3/venv/bin/hop-server", check=False)
+        result = self.run("test -f /home/hop3/venv/bin/hop3-server", check=False)
         return result.success
 
     def clean(self) -> None:

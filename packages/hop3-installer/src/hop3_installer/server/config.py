@@ -38,11 +38,10 @@ DEBIAN_PACKAGES = [
     "nginx",
     "postgresql",
     "postgresql-contrib",
-    # Python toolchain
+    # Python toolchain (venv is built into Python 3.3+)
     "python3-dev",
     "python3-pip",
     "python3-venv",
-    "python3-virtualenv",
     "python3-setuptools",
     # Node.js toolchain
     "nodejs",
@@ -99,10 +98,9 @@ FEDORA_PACKAGES = [
     "nginx",
     "postgresql-server",
     "postgresql-contrib",
-    # Python toolchain
+    # Python toolchain (venv is included with python3 on Fedora)
     "python3-devel",
     "python3-pip",
-    "python3-virtualenv",
     "python3-setuptools",
     # Node.js toolchain
     "nodejs",
@@ -169,7 +167,7 @@ User=hop3
 Group=hop3
 WorkingDirectory=/home/hop3
 EnvironmentFile=/etc/default/hop3
-ExecStart=/home/hop3/venv/bin/hop-server serve
+ExecStart=/home/hop3/venv/bin/hop3-server serve
 Restart=always
 RestartSec=5
 

@@ -342,9 +342,9 @@ class Deployer:
 
         # Create admin app
         commands = [
-            f"sudo -u hop3 /home/hop3/venv/bin/hop-server apps:create {domain}",
+            f"sudo -u hop3 /home/hop3/venv/bin/hop3-server apps:create {domain}",
             (
-                f"sudo -u hop3 /home/hop3/venv/bin/hop-server users:create "
+                f"sudo -u hop3 /home/hop3/venv/bin/hop3-server users:create "
                 f"--admin {user} {email} {password}"
             ),
         ]
@@ -381,14 +381,14 @@ class Deployer:
 
             # Create admin user on server using --password-stdin (ignore if already exists)
             self.backend.run(
-                f"echo '{password}' | sudo -u hop3 /home/hop3/venv/bin/hop-server "
+                f"echo '{password}' | sudo -u hop3 /home/hop3/venv/bin/hop3-server "
                 f"admin:create {user} {user}@hop3.local --password-stdin",
                 check=False,
             )
 
             # Get token from server (admin:token only needs username)
             result = self.backend.run(
-                f"sudo -u hop3 /home/hop3/venv/bin/hop-server admin:token {user}",
+                f"sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:token {user}",
                 check=False,
             )
 

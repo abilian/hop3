@@ -429,7 +429,7 @@ def install_package(config: ServerInstallerConfig) -> None:
 
 def run_hop3_setup() -> None:
     """Run hop3 setup command."""
-    hop_server = f"{VENV_DIR}/bin/hop-server"
+    hop_server = f"{VENV_DIR}/bin/hop3-server"
 
     with Spinner("Running initial setup..."):
         run_as_hop3(f"{hop_server} setup")
@@ -450,7 +450,7 @@ def setup_ssh_keys() -> None:
         print_info("Root SSH keys file is empty, skipping")
         return
 
-    hop_server = f"{VENV_DIR}/bin/hop-server"
+    hop_server = f"{VENV_DIR}/bin/hop3-server"
     temp_keys = Path("/tmp/root_authorized_keys")
 
     try:
@@ -1174,11 +1174,11 @@ def verify_mysql_config() -> bool:
 
 def verify_installation(config: ServerInstallerConfig) -> bool:
     """Verify the installation."""
-    hop_server = VENV_DIR / "bin" / "hop-server"
+    hop_server = VENV_DIR / "bin" / "hop3-server"
     all_ok = True
 
     if not hop_server.exists():
-        print_error("hop-server not found")
+        print_error("hop3-server not found")
         return False
 
     # Check services

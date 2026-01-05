@@ -94,12 +94,12 @@ def validate_server_installation(backend: Backend) -> bool:
         log_error("Virtual environment not found")
         all_passed = False
 
-    # Check hop-server command exists
-    result = backend.run("test -f /home/hop3/venv/bin/hop-server", sudo=True)
+    # Check hop3-server command exists
+    result = backend.run("test -f /home/hop3/venv/bin/hop3-server", sudo=True)
     if result.success:
-        log_success("hop-server command installed")
+        log_success("hop3-server command installed")
     else:
-        log_error("hop-server command not found")
+        log_error("hop3-server command not found")
         all_passed = False
 
     # Check systemd service (only if backend supports it)
