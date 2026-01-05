@@ -7,16 +7,16 @@ and Vagrant (virtual machines).
 
 Usage:
     # SSH backend (remote server)
-    hop3-test-installers ssh --host root@server.example.com
-    hop3-test-installers ssh --host user@server --method git --type both
+    hop3-install test ssh --host root@server.example.com
+    hop3-install test ssh --host user@server --method git --type both
 
     # Docker backend (containers)
-    hop3-test-installers docker --distro ubuntu
-    hop3-test-installers docker --distro fedora --type cli
+    hop3-install test docker --distro ubuntu
+    hop3-install test docker --distro fedora --type cli
 
     # Vagrant backend (VMs)
-    hop3-test-installers vagrant --vm ubuntu
-    hop3-test-installers vagrant --vm fedora --type server
+    hop3-install test vagrant --vm ubuntu
+    hop3-install test vagrant --vm fedora --type server
 
 Common options:
     --type TYPE         Installer to test: cli, server, or both (default: both)
@@ -99,7 +99,7 @@ def _find_or_generate_installer_dir() -> Path:
 def create_parser() -> argparse.ArgumentParser:
     """Create argument parser with subcommands."""
     parser = argparse.ArgumentParser(
-        prog="hop3-test-installers",
+        prog="hop3-install test",
         description="Unified test script for Hop3 installers.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -114,9 +114,9 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    hop3-test-installers ssh --host root@server.example.com
-    hop3-test-installers ssh --host user@server --type both --method git
-    hop3-test-installers ssh --host user@server --method pypi --version 0.4.0
+    hop3-install test ssh --host root@server.example.com
+    hop3-install test ssh --host user@server --type both --method git
+    hop3-install test ssh --host user@server --method pypi --version 0.4.0
         """,
     )
     ssh_parser.add_argument(
@@ -146,9 +146,9 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    hop3-test-installers docker --distro ubuntu
-    hop3-test-installers docker --distro fedora --type cli
-    hop3-test-installers docker --all
+    hop3-install test docker --distro ubuntu
+    hop3-install test docker --distro fedora --type cli
+    hop3-install test docker --all
 
 Note: Server tests are limited in Docker (no systemd).
         """,
@@ -178,9 +178,9 @@ Note: Server tests are limited in Docker (no systemd).
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    hop3-test-installers vagrant --vm ubuntu
-    hop3-test-installers vagrant --vm fedora --type server
-    hop3-test-installers vagrant --all
+    hop3-install test vagrant --vm ubuntu
+    hop3-install test vagrant --vm fedora --type server
+    hop3-install test vagrant --all
 
 Requires: Vagrant and VirtualBox (or another provider).
         """,
@@ -254,8 +254,8 @@ def run_ssh_tests(args: argparse.Namespace, installer_dir: Path) -> int:
         )
         print()
         print("Example:")
-        print("  hop3-test-installers ssh --host server.example.com")
-        print("  hop3-test-installers ssh --host root@server.example.com")
+        print("  hop3-install test ssh --host server.example.com")
+        print("  hop3-install test ssh --host root@server.example.com")
         return 1
 
     # Build SSH target (user@host format)
