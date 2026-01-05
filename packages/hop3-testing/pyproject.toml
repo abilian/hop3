@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [project.scripts]
-hop-test = "hop3_testing.main:main"
+hop3-test = "hop3_testing.main:main"
 
 [build-system]
 requires = ["uv-build>=0.8.4,<0.9.0"]

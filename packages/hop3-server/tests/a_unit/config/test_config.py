@@ -35,7 +35,7 @@ def test_default(monkeypatch):
 
     assert cfg.HOP3_USER == "hop3"
     assert Path("/tmp/hop3/bin") == cfg.HOP3_BIN
-    assert cfg.HOP3_SCRIPT == "/tmp/hop3/venv/bin/hop-agent"
+    assert cfg.HOP3_SCRIPT == "/tmp/hop3/venv/bin/hop3-server"
     assert Path("/tmp/hop3/apps") == cfg.APP_ROOT
 
     assert Path("/tmp/hop3/nginx") == cfg.NGINX_ROOT

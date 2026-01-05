@@ -41,11 +41,10 @@ RUN apt-get update && \
         libpcre3-dev \
         zlib1g-dev \
         wget \
-        # Python
+        # Python (venv is built into Python 3.3+)
         python3 \
         python3-pip \
         python3-venv \
-        python3-virtualenv \
         python3-dev \
         python3-setuptools \
         python3-wheel \
@@ -172,7 +171,7 @@ RUN su - hop3 -c "export HOP3_SECRET_KEY='e2e-test-secret-key-do-not-use-in-prod
     export HOP3_UNSAFE='true' && \
     export HOP3_DB_URL='sqlite:////home/hop3/hop3.db' && \
     export ACME_ENGINE='self-signed' && \
-    ~/venv/bin/hop-server setup"
+    ~/venv/bin/hop3-server setup"
 
 # Configure nginx to include hop3 configs
 RUN echo 'include /home/hop3/nginx/*.conf;' > /etc/nginx/sites-enabled/hop3 && \

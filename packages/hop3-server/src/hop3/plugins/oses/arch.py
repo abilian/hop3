@@ -31,11 +31,10 @@ PACKAGES = [
     "base-devel",  # Includes gcc, make, etc.
     "pcre",
     "zlib",
-    # Python
+    # Python (venv is included with python on Arch)
     "python",
     "python-pip",
     "python-click",
-    "python-virtualenv",
     "python-setuptools",
     # Nginx
     "nginx",

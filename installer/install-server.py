@@ -344,11 +344,10 @@ DEBIAN_PACKAGES = [
     "nginx",
     "postgresql",
     "postgresql-contrib",
-    # Python toolchain
+    # Python toolchain (venv is built into Python 3.3+)
     "python3-dev",
     "python3-pip",
     "python3-venv",
-    "python3-virtualenv",
     "python3-setuptools",
     # Node.js toolchain
     "nodejs",
@@ -403,10 +402,9 @@ FEDORA_PACKAGES = [
     "nginx",
     "postgresql-server",
     "postgresql-contrib",
-    # Python toolchain
+    # Python toolchain (venv is included with python3 on Fedora)
     "python3-devel",
     "python3-pip",
-    "python3-virtualenv",
     "python3-setuptools",
     # Node.js toolchain
     "nodejs",
@@ -472,7 +470,7 @@ Type=simple
 User=hop3
 Group=hop3
 WorkingDirectory=/home/hop3
-ExecStart=/home/hop3/venv/bin/hop-server serve
+ExecStart=/home/hop3/venv/bin/hop3-server serve
 Restart=always
 RestartSec=5
 
@@ -939,7 +937,7 @@ def install_package(config: ServerInstallerConfig) -> None:
 
 def run_hop3_setup() -> None:
     """Run hop3 setup command."""
-    hop_server = f"{VENV_DIR}/bin/hop-server"
+    hop_server = f"{VENV_DIR}/bin/hop3-server"
 
     with Spinner("Running initial setup..."):
         run_as_hop3(f"{hop_server} setup")
@@ -960,7 +958,7 @@ def setup_ssh_keys() -> None:
         print_info("Root SSH keys file is empty, skipping")
         return
 
-    hop_server = f"{VENV_DIR}/bin/hop-server"
+    hop_server = f"{VENV_DIR}/bin/hop3-server"
     temp_keys = Path("/tmp/root_authorized_keys")
 
     try:
@@ -1604,7 +1602,7 @@ def verify_mysql_addon() -> bool:
     Returns:
         True if MySQL addon works, False otherwise.
     """
-    hop_server = VENV_DIR / "bin" / "hop-server"
+    hop_server = VENV_DIR / "bin" / "hop3-server"
     test_addon_name = "_hop3_mysql_test"
 
     print_info("Testing MySQL addon functionality...")
@@ -1640,11 +1638,11 @@ def verify_mysql_addon() -> bool:
 
 def verify_installation(config: ServerInstallerConfig) -> bool:
     """Verify the installation."""
-    hop_server = VENV_DIR / "bin" / "hop-server"
+    hop_server = VENV_DIR / "bin" / "hop3-server"
     all_ok = True
 
     if not hop_server.exists():
-        print_error("hop-server not found")
+        print_error("hop3-server not found")
         return False
 
     # Check services

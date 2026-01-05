@@ -111,10 +111,11 @@ before-run = "python manage.py migrate"
     assert config.has_hop3_toml is True
 
     # Check that hop3.toml workers are available
+    # NOTE: prebuild is NOT in workers because build.before-build is handled
+    # by deployer.py._run_hook() during build phase, not as a worker daemon
     assert config.workers == {
         "web": "npm start",
         "prerun": "python manage.py migrate",
-        "prebuild": "npm install && npm run build",
     }
     assert config.web_workers == {"web": "npm start"}
     assert config.pre_build == "npm install && npm run build"
@@ -148,15 +149,21 @@ before-run = "alembic upgrade head"
     assert config.has_procfile is True
     assert config.has_hop3_toml is True
 
-    # hop3.toml should override 'web' and 'prebuild', but 'worker' from Procfile remains
-    assert config.workers == {
-        "web": "uvicorn app:app",  # From hop3.toml (overrides Procfile)
-        "worker": "celery worker",  # From Procfile (not in hop3.toml)
-        "prebuild": "echo 'hop3 prebuild'",  # From hop3.toml (overrides Procfile)
-        "prerun": "alembic upgrade head",  # From hop3.toml only
-    }
+    # hop3.toml should override 'web', but 'worker' and 'prebuild' from Procfile remain
+    # NOTE: build.before-build from hop3.toml is NOT added to workers (handled by deployer)
+    # but Procfile's prebuild worker IS kept since Procfiles define workers directly
+    assert (
+        config.workers
+        == {
+            "web": "uvicorn app:app",  # From hop3.toml (overrides Procfile)
+            "worker": "celery worker",  # From Procfile (not in hop3.toml)
+            "prebuild": 'echo "procfile prebuild"',  # From Procfile (hop3.toml before-build != worker)
+            "prerun": "alembic upgrade head",  # From hop3.toml only
+        }
+    )
     assert config.web_workers == {"web": "uvicorn app:app"}
-    assert config.pre_build == "echo 'hop3 prebuild'"  # hop3.toml wins
+    # pre_build comes from hop3.toml's build.before-build (for hook execution)
+    assert config.pre_build == "echo 'hop3 prebuild'"
     assert config.pre_run == "alembic upgrade head"
 
 

@@ -18,13 +18,13 @@ from hop3.core.hooks import hop3_hook_impl
 from .base import BaseOSStrategy
 
 # Package list for FreeBSD (pkg names)
+# Note: venv is included with python39 on FreeBSD
 FREEBSD_PACKAGES = [
     "git",
     "sudo",
-    # Python
+    # Python (venv is included with python39)
     "python39",
     "py39-pip",
-    "py39-virtualenv",
     "py39-setuptools",
     # Nginx
     "nginx",
@@ -53,12 +53,12 @@ FREEBSD_PACKAGES = [
 ]
 
 # Package list for OpenBSD (pkg_add names)
+# Note: venv is included with python3 on OpenBSD
 OPENBSD_PACKAGES = [
     "git",
-    # Python
+    # Python (venv is included with python3)
     "python3",
     "py3-pip",
-    "py3-virtualenv",
     # Nginx
     "nginx",
     # For builders

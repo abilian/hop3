@@ -209,7 +209,7 @@ System tests require a running hop3-server. Two options:
 **Option A: Local Server (Development)**
 ```bash
 # Terminal 1: Start server
-hop-server serve
+hop3-server serve
 
 # Terminal 2: Run tests
 export HOP3_API_URL=http://localhost:8000
@@ -349,7 +349,7 @@ RUN su - hop3 -c "python3 -m venv ~/venv && \
     ~/venv/bin/pip install /tmp/hop3_server-*.tar.gz"
 
 # Setup hop3
-RUN su - hop3 -c "~/venv/bin/hop-server setup"
+RUN su - hop3 -c "~/venv/bin/hop3-server setup"
 
 # Copy systemd service
 COPY tests/d_e2e/docker/hop3-server.service /etc/systemd/system/
@@ -496,7 +496,7 @@ jobs:
       - name: Start hop3-server
         run: |
           uv sync
-          uv run hop-server serve &
+          uv run hop3-server serve &
           sleep 5
 
       - name: Run system tests
@@ -551,7 +551,7 @@ jobs:
 The existing `hop3-testing` package will be gradually replaced:
 
 ### Current (hop3-testing)
-- Standalone CLI tool (`hop-test`)
+- Standalone CLI tool (`hop3-test`)
 - Uses pre-configured test server
 - Custom test runner
 - 19 test applications

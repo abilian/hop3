@@ -103,10 +103,11 @@ before-run = "npm run migrate"
     config = Hop3Config.from_str(content)
     workers = config.get_workers_from_run_section()
 
+    # NOTE: prebuild is NOT included in workers because build.before-build
+    # is handled by deployer.py._run_hook() during the build phase, not as a worker
     assert workers == {
         "web": "npm start",
         "prerun": "npm run migrate",
-        "prebuild": "npm install",
     }
 
 

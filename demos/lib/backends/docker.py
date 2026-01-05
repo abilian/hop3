@@ -473,7 +473,7 @@ class DockerDemoBackend(DemoBackend):
 
     def is_hop3_installed(self) -> bool:
         """Check if Hop3 is installed."""
-        result = self.run("test -f /home/hop3/venv/bin/hop-server", check=False)
+        result = self.run("test -f /home/hop3/venv/bin/hop3-server", check=False)
         return result.success
 
     def get_server_ip(self) -> str:
@@ -558,10 +558,10 @@ class DockerDemoBackend(DemoBackend):
 
         # Create config based on service type
         if service_name == "hop3-server":
-            # Note: hop-server serve doesn't take --host/--port args
+            # Note: hop3-server serve doesn't take --host/--port args
             # It uses configuration from hop3-server.toml
             config = """[program:hop3-server]
-command=/home/hop3/venv/bin/hop-server serve
+command=/home/hop3/venv/bin/hop3-server serve
 user=hop3
 directory=/home/hop3
 autostart=true

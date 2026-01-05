@@ -116,7 +116,7 @@ Includes:
 
 ## Legacy E2E Testing (hop3-testing)
 
-The `packages/hop3-testing/` package provides a legacy E2E test framework using the `hop-test` command. This is still used for manual testing but will be replaced by the Docker-based E2E tests in `tests/d_e2e/`.
+The `packages/hop3-testing/` package provides a legacy E2E test framework using the `hop3-test` command. This is still used for manual testing but will be replaced by the Docker-based E2E tests in `tests/d_e2e/`.
 
 ```bash
 # Legacy E2E tests (requires remote server)

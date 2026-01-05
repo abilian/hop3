@@ -69,7 +69,7 @@ sudo python3 install-server.py --local-path /path/to/hop3-server
 2. **User Setup**: Creates `hop3` user and group
 3. **Virtual Environment**: Creates Python venv at `/home/hop3/venv`
 4. **Package Installation**: Installs hop3-server
-5. **Initial Setup**: Runs `hop-server setup` to create directories and config
+5. **Initial Setup**: Runs `hop3-server setup` to create directories and config
 6. **SSH Keys**: Copies root's SSH keys to hop3 user
 7. **Systemd Services**: Configures hop3-server and uwsgi-hop3 services
 8. **SSL Certificates**: Generates self-signed cert (or Let's Encrypt if domain provided)
@@ -146,7 +146,7 @@ SSH into your server and run:
 
 ```bash
 ssh root@your-server.com
-hop-server admin:create admin admin@example.com
+hop3-server admin:create admin admin@example.com
 # Enter password when prompted
 # Copy the displayed token
 ```

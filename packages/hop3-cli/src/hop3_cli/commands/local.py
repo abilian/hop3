@@ -38,8 +38,8 @@ LOCAL_COMMANDS_INFO = {
 
 LOCAL_COMMANDS = set(LOCAL_COMMANDS_INFO.keys())
 
-# Path to hop-server on the remote server
-HOP_SERVER_PATH = "/home/hop3/venv/bin/hop-server"
+# Path to hop3-server on the remote server
+HOP_SERVER_PATH = "/home/hop3/venv/bin/hop3-server"
 
 
 def is_local_command(args: list[str]) -> bool:
@@ -1087,7 +1087,7 @@ Options:
 
 Examples:
   # URL with embedded token (easiest for local development)
-  hop-server admin:create admin admin@example.com  # Get token
+  hop3-server admin:create admin admin@example.com  # Get token
   hop3 login "http://localhost:8000?token=eyJ..."
 
   # SSH-based login (for remote servers)

@@ -46,7 +46,7 @@ test:
 test-e2e:
 	@echo "--> Running e2e tests"
 	make clean-and-deploy
-	hop-test
+	hop3-test
 	@echo ""
 
 test-randomly:

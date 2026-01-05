@@ -231,8 +231,8 @@ class HopConfig:
 
     @property
     def HOP3_SCRIPT(self) -> str:
-        """Path to hop-agent script."""
-        return str(self.HOP3_ROOT / "venv" / "bin" / "hop-agent")
+        """Path to hop3-server script."""
+        return str(self.HOP3_ROOT / "venv" / "bin" / "hop3-server")
 
     @property
     def APP_ROOT(self) -> Path:

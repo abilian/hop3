@@ -36,11 +36,10 @@ PACKAGES = [
     "make",
     "pcre-devel",
     "zlib-devel",
-    # Python
+    # Python (venv is included with python3 on RHEL/Fedora)
     "python3",
     "python3-pip",
     "python3-devel",
-    "python3-virtualenv",
     "python3-setuptools",
     # Nginx
     "nginx",

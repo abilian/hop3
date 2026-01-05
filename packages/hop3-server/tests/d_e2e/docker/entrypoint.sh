@@ -50,7 +50,7 @@ stdout_logfile=/var/log/supervisor/uwsgi.log
 stderr_logfile=/var/log/supervisor/uwsgi_err.log
 
 [program:hop3-server]
-command=/home/hop3/venv/bin/hop-server serve
+command=/home/hop3/venv/bin/hop3-server serve
 directory=/home/hop3
 user=hop3
 autostart=true

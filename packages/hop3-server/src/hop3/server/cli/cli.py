@@ -47,7 +47,7 @@ class HopServerArgumentParser(ArgumentParser):
                     f"\nAvailable commands: {', '.join(command_names)}", file=sys.stderr
                 )
                 print(
-                    "\nUse 'hop-server --help' for more information.", file=sys.stderr
+                    "\nUse 'hop3-server --help' for more information.", file=sys.stderr
                 )
                 self.exit(2)
 
@@ -101,7 +101,7 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     # Merge global verbose/quiet with command-specific verbose flags
-    # This allows both "hop-server -v cmd" and "hop-server cmd -v" to work
+    # This allows both "hop3-server -v cmd" and "hop3-server cmd -v" to work
     for key in list(kwargs.keys()):
         if key.startswith("verbose_") or key == "verbose":
             kwargs[key] = kwargs[key] or global_verbose
