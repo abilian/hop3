@@ -41,8 +41,6 @@ dependencies = [
     # Config
     "pyyaml>=6.0.3",
     "python-multipart>=0.0.20",
-    # Build tools (for creating app virtual environments)
-    "virtualenv>=20.0.0",
     # Transitive dependencies
     "anyio",
     # Needed for some reason
@@ -61,8 +59,7 @@ dev = [
 ]
 
 [project.scripts]
-hop-server = "hop3.server.cli:main"
-hop-agent = "hop3.server.cli:main"  # Alias for SSH forced command
+hop3-server = "hop3.server.cli:main"
 
 # ----------------------------------------
 

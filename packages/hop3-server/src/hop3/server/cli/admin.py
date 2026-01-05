@@ -34,7 +34,7 @@ class Admin(Command):
         admin:list           List all users
         admin:reset-password Reset a user's password
 
-    Use 'hop-server admin:<subcommand> --help' for details.
+    Use 'hop3-server admin:<subcommand> --help' for details.
     """
 
     name = "admin"
@@ -47,7 +47,7 @@ class AdminCreate(Command):
     """Create an admin user and display an API token.
 
     Usage:
-        hop-server admin:create <username> <email> [--password-stdin]
+        hop3-server admin:create <username> <email> [--password-stdin]
 
     This command creates a new admin user with the specified username and email.
     The password can be provided interactively (prompted) or via stdin for
@@ -55,10 +55,10 @@ class AdminCreate(Command):
 
     Examples:
         # Interactive (prompts for password)
-        hop-server admin:create admin admin@example.com
+        hop3-server admin:create admin admin@example.com
 
         # Non-interactive (reads password from stdin)
-        echo "secretpass" | hop-server admin:create admin admin@example.com --password-stdin
+        echo "secretpass" | hop3-server admin:create admin admin@example.com --password-stdin
 
     The generated API token should be saved and used to configure the CLI:
         hop3 settings set server https://your-server.com
@@ -150,7 +150,7 @@ class AdminToken(Command):
     """Generate a new API token for an existing user.
 
     Usage:
-        hop-server admin:token <username>
+        hop3-server admin:token <username>
 
     This command generates a new API token for an existing user.
     Useful for:
@@ -159,7 +159,7 @@ class AdminToken(Command):
     - Token rotation
 
     Examples:
-        hop-server admin:token admin
+        hop3-server admin:token admin
     """
 
     name = "admin:token"
@@ -205,7 +205,7 @@ class AdminList(Command):
     """List all users with their admin status.
 
     Usage:
-        hop-server admin:list
+        hop3-server admin:list
 
     Displays a table of all users showing:
     - Username
@@ -247,17 +247,17 @@ class AdminResetPassword(Command):
     """Reset a user's password.
 
     Usage:
-        hop-server admin:reset-password <username> [--password-stdin]
+        hop3-server admin:reset-password <username> [--password-stdin]
 
     This command resets the password for an existing user.
     Useful for account recovery when the user has forgotten their password.
 
     Examples:
         # Interactive (prompts for password)
-        hop-server admin:reset-password admin
+        hop3-server admin:reset-password admin
 
         # Non-interactive (reads password from stdin)
-        echo "newpassword" | hop-server admin:reset-password admin --password-stdin
+        echo "newpassword" | hop3-server admin:reset-password admin --password-stdin
     """
 
     name = "admin:reset-password"

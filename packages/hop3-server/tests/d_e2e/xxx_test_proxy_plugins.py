@@ -166,7 +166,7 @@ def proxy_info():
     # Use container exec for cleanup to avoid SSH tunnel issues
     container = container_info["container"]
     container.exec_run(
-        f"su - hop3 -c '~/venv/bin/hop-server app:destroy {app_name}'",
+        f"su - hop3 -c '~/venv/bin/hop3-server app:destroy {app_name}'",
         user="root",
     )
 

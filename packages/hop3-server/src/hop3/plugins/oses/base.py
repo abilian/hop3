@@ -39,7 +39,7 @@ class BaseOSStrategy:
     HOP3_USER = "hop3"
     HOME_DIR = f"/home/{HOP3_USER}"
     VENV = f"{HOME_DIR}/venv"
-    HOP_SCRIPT = f"{VENV}/bin/hop-server"
+    HOP_SCRIPT = f"{VENV}/bin/hop3-server"
 
     def detect(self) -> bool:
         """Default implementation returns False.

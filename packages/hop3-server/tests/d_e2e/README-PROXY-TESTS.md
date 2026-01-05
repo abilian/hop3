@@ -149,7 +149,7 @@ assert f"Hello from {proxy_type.upper()} proxy" in response.text
 
 ```python
 # Destroy application
-container.exec_run(f"su - hop3 -c '~/venv/bin/hop-server destroy {app_name}'")
+container.exec_run(f"su - hop3 -c '~/venv/bin/hop3-server destroy {app_name}'")
 
 # Container automatically removed after test class finishes
 ```
@@ -298,7 +298,7 @@ ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries ex
 **Workaround**: Manual testing by:
 1. Starting a container with specific proxy type
 2. SSH into the container
-3. Deploy directly via `hop-server deploy` command inside the container
+3. Deploy directly via `hop3-server deploy` command inside the container
 
 ## Future Enhancements
 

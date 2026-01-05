@@ -166,13 +166,14 @@
 - **Action**: Expand test suite coverage
 
 ### 12. Docker Runtime Fixes
-- **Status**: Largely resolved (2026-01-04)
+- **Status**: Complete ✅ (2026-01-04)
 - **Progress**:
   - [x] Docker-in-Docker demos skip cleanly in Docker backend (32 demos)
   - [x] Database services (PostgreSQL, MySQL, Redis) working in Docker backend
   - [x] Fixed prebuild worker bug causing Elixir build failures
   - [x] Demo12 and Demo59 now passing
-  - [ ] Add `virtualenv` to hop3 server dependencies (7 demos affected)
+  - [x] Changed Python toolchain to use built-in `venv` instead of external `virtualenv`
+- **Result**: All 32+ non-Docker demos pass when run in batches
 
 ### 13. Multi-OS Support
 - **Status**: Basic support exists

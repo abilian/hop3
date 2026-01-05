@@ -319,7 +319,7 @@ def check_hop3_installed(ctx: DemoContext) -> bool:
     """Check if Hop3 is installed on the server."""
     print_step("Checking if Hop3 is installed...")
     result = run_ssh(
-        ctx, "test -f /home/hop3/venv/bin/hop-server", show=False, check=False
+        ctx, "test -f /home/hop3/venv/bin/hop3-server", show=False, check=False
     )
     if result.returncode == 0:
         print_success("Hop3 is installed")

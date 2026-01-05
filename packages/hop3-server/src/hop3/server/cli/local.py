@@ -8,9 +8,9 @@ This command allows executing RPC commands directly on the server without going 
 the network layer. Useful for server administration and debugging.
 
 Example:
-    hop-server local apps
-    hop-server local auth:whoami testuser
-    hop-server local config:set myapp KEY=value
+    hop3-server local apps
+    hop3-server local auth:whoami testuser
+    hop3-server local config:set myapp KEY=value
 """
 
 from __future__ import annotations
@@ -197,10 +197,10 @@ class Local(Command):
     going through the network/RPC layer. Useful for server administration and debugging.
 
     Examples:
-        hop-server local apps
-        hop-server local auth:whoami testuser
-        hop-server local config:set myapp KEY=value
-        hop-server local help
+        hop3-server local apps
+        hop3-server local auth:whoami testuser
+        hop3-server local config:set myapp KEY=value
+        hop3-server local help
 
     Note: This bypasses authentication checks - only use for server administration.
     """

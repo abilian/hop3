@@ -236,7 +236,7 @@ If remote target tests fail:
 ssh -i ~/.ssh/id_rsa_dev user@my-dev-server.com
 
 # Check hop3 is running on remote server
-ssh -i ~/.ssh/id_rsa_dev user@my-dev-server.com "hop-server --version"
+ssh -i ~/.ssh/id_rsa_dev user@my-dev-server.com "hop3-server --version"
 ```
 
 ## Files Modified/Created

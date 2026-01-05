@@ -16,7 +16,7 @@ def main() -> None:
     cmd = "make deploy-dev"
     subprocess.run(cmd, shell=True, check=True)
 
-    cmd = "hop-test --ff"
+    cmd = "hop3-test --ff"
     subprocess.run(cmd, shell=True, check=True)
 
 

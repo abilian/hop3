@@ -61,7 +61,7 @@ class Help:
     def __call__(self):
         output = [
             bold("USAGE"),
-            f"  $ hop-server {self.command_name}:<subcommand> [options]",
+            f"  $ hop3-server {self.command_name}:<subcommand> [options]",
             "",
             bold("SUBCOMMANDS"),
         ]
@@ -90,7 +90,7 @@ class Help:
 
         output.append("")
         output.append(
-            f"Use 'hop-server {self.command_name}:<subcommand> --help' for details."
+            f"Use 'hop3-server {self.command_name}:<subcommand> --help' for details."
         )
 
         print("\n".join(output))
@@ -106,7 +106,7 @@ def get_command_name(cmd):
 
 @register
 class HelpCommand(Command):
-    """Show help information for hop-server commands."""
+    """Show help information for hop3-server commands."""
 
     name = "help"
 

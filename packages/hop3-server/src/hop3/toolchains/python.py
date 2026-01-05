@@ -27,7 +27,7 @@ class PythonToolchain(LanguageToolchain):
     """
 
     name = "Python"
-    requirements = ["python3", "pip", "virtualenv"]  # noqa: RUF012
+    requirements = ["python3", "pip"]  # noqa: RUF012
 
     def accept(self) -> bool:
         return self.check_exists(["requirements.txt", "pyproject.toml"])
@@ -77,9 +77,10 @@ class PythonToolchain(LanguageToolchain):
             shutil.rmtree(self.virtual_env, ignore_errors=True)
 
         emit(CreatingVirtualEnv(self.app_name))
-        # Use /usr/bin/python3 explicitly to ensure we use the system Python
-        # which has python3-virtualenv installed, not the hop3 venv Python
-        self.shell(f"/usr/bin/python3 -m virtualenv {self.virtual_env}")
+        # Use /usr/bin/python3 with the built-in venv module.
+        # venv is part of Python's standard library (3.3+), no external package needed.
+        # This works on all platforms (Linux, macOS) without additional dependencies.
+        self.shell(f"/usr/bin/python3 -m venv {self.virtual_env}")
 
         # Verify the virtualenv was created successfully
         if not python_path.exists():
@@ -89,6 +90,10 @@ class PythonToolchain(LanguageToolchain):
         if not self._is_python_executable(python_path):
             msg = f"Virtual environment Python is not working: {python_path}"
             raise RuntimeError(msg)
+
+        # Upgrade pip to ensure proper PEP 517 build support
+        # This is necessary for Poetry and other modern build backends
+        self.shell(f"{python_path} -m pip install --upgrade pip")
 
     def _is_python_executable(self, python_path: Path) -> bool:
         """Check if Python binary at path is valid and executable."""

@@ -1,7 +1,12 @@
 # Copyright (c) 2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Test virtualenv repair functionality."""
+"""Test virtual environment repair functionality.
+
+These tests verify that the Python toolchain correctly handles broken
+virtual environments (e.g., with broken symlinks after Python upgrade).
+The toolchain uses Python's built-in venv module, which is always available.
+"""
 
 from __future__ import annotations
 

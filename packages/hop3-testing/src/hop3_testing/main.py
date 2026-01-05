@@ -25,29 +25,29 @@ from .targets import DockerTarget, RemoteTarget
 EPILOG = """Examples:
 
   # Test all apps
-  hop-test --target docker
+  hop3-test --target docker
 
   # Test specific app by name
-  hop-test --target docker 010-flask-pip-wsgi
+  hop3-test --target docker 010-flask-pip-wsgi
 
   # Test specific app by path
-  hop-test --target docker apps/test-apps/010-flask-pip-wsgi
+  hop3-test --target docker apps/test-apps/010-flask-pip-wsgi
 
   # Test multiple apps
-  hop-test --target docker 010-flask-pip-wsgi 020-nodejs-express
+  hop3-test --target docker 010-flask-pip-wsgi 020-nodejs-express
 
   # Test using shell glob patterns (shell expands the glob)
-  hop-test --target docker apps/test-apps/01*
-  hop-test --target docker apps/test-apps/0[12]*
+  hop3-test --target docker apps/test-apps/01*
+  hop3-test --target docker apps/test-apps/0[12]*
 
   # Mix names and paths
-  hop-test --target docker 010-flask-pip-wsgi apps/test-apps/020-nodejs-express
+  hop3-test --target docker 010-flask-pip-wsgi apps/test-apps/020-nodejs-express
 
   # Test specific category
-  hop-test --target docker --category python-simple
+  hop3-test --target docker --category python-simple
 
   # Test against remote server
-  hop-test --target remote --host myserver.com --ssh-key ~/.ssh/id_rsa
+  hop3-test --target remote --host myserver.com --ssh-key ~/.ssh/id_rsa
 
   # Run with pytest instead
   pytest packages/hop3-testing/tests/ -v --target docker
@@ -55,7 +55,7 @@ EPILOG = """Examples:
 
 
 def main() -> None:
-    """Main entry point for the hop-test CLI."""
+    """Main entry point for the hop3-test CLI."""
     parser = argparse.ArgumentParser(
         description="Run Hop3 deployment tests",
         formatter_class=argparse.RawDescriptionHelpFormatter,

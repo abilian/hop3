@@ -205,8 +205,11 @@ class UwsgiWorker:
         if self.log_format:
             self.settings.add("log-format", self.log_format)
 
-        # only add virtualenv to uwsgi if it's a real virtualenv
-        if Path(env_path, "bin", "activate_this.py").exists():
+        # Only add virtualenv to uWSGI if it's a valid Python virtual environment.
+        # Check for pyvenv.cfg (created by venv) or activate_this.py (created by virtualenv).
+        is_venv = Path(env_path, "pyvenv.cfg").exists()
+        is_virtualenv = Path(env_path, "bin", "activate_this.py").exists()
+        if is_venv or is_virtualenv:
             self.settings.add("virtualenv", env_path)
 
         if "UWSGI_IDLE" in env:
@@ -397,7 +400,7 @@ class WebWorker(UwsgiWorker):
         exports = [f"export PATH={path_value}"]
         for key, value in self.env.items():
             # Skip keys that shouldn't be exported or are already handled
-            if key in ("NGINX_ACL", "PATH"):
+            if key in {"NGINX_ACL", "PATH"}:
                 continue
             # Escape single quotes in values for shell safety
             safe_value = str(value).replace("'", "'\\''")
@@ -435,7 +438,7 @@ class GenericWorker(UwsgiWorker):
         exports = [f"export PATH={path_value}"]
         for key, value in self.env.items():
             # Skip keys that shouldn't be exported or are already handled
-            if key in ("NGINX_ACL", "PATH"):
+            if key in {"NGINX_ACL", "PATH"}:
                 continue
             # Escape single quotes in values for shell safety
             safe_value = str(value).replace("'", "'\\''")

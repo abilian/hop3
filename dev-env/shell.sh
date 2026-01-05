@@ -13,7 +13,7 @@ if ! docker compose ps | grep -q "Up"; then
 fi
 
 echo "🐚 Opening shell in hop3-dev container..."
-echo "   (You are now the 'hop3' user with hop-server installed)"
+echo "   (You are now the 'hop3' user with hop3-server installed)"
 echo ""
 
 # Execute as the hop3 user

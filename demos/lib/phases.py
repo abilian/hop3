@@ -146,7 +146,7 @@ def configure_cli(ctx: DemoContext) -> bool:
         # The command outputs an API token that we can use for login
         create_user_cmd = (
             f"echo '{ctx.admin_password}' | "
-            f"/home/hop3/venv/bin/hop-server admin:create "
+            f"/home/hop3/venv/bin/hop3-server admin:create "
             f"{ctx.admin_user} {ctx.admin_email} --password-stdin"
         )
         result = run_ssh(ctx, create_user_cmd, check=False, show=False)

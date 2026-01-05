@@ -75,12 +75,13 @@ RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/
 COPY packages/hop3-server /tmp/hop3-server-src
 COPY pyproject.toml /tmp/
 
-# Build and install hop3 with uwsgi and virtualenv (all in one layer)
+# Build and install hop3 with uwsgi (all in one layer)
+# Note: venv is built into Python 3.3+, no separate virtualenv package needed
 RUN cd /tmp/hop3-server-src && \
     python3 -m venv /home/hop3/venv && \
     /home/hop3/venv/bin/pip install --no-cache-dir --upgrade pip && \
     /home/hop3/venv/bin/pip install --no-cache-dir . && \
-    /home/hop3/venv/bin/pip install --no-cache-dir uwsgi virtualenv && \
+    /home/hop3/venv/bin/pip install --no-cache-dir uwsgi && \
     chown -R hop3:hop3 /home/hop3/venv && \
     rm -rf /tmp/hop3-server-src /tmp/pyproject.toml
 
@@ -111,7 +112,7 @@ RUN su - hop3 -c "export HOP3_ROOT='/home/hop3/.hop3' && \
     export HOP3_ENABLE_AUTH='false' && \
     export HOP3_DB_URL='sqlite:////home/hop3/.hop3/hop3.db' && \
     export ACME_ENGINE='self-signed' && \
-    ~/venv/bin/hop-server setup" && \
+    ~/venv/bin/hop3-server setup" && \
     chown -R hop3:hop3 /home/hop3
 
 # Configure nginx to load hop3 app configs

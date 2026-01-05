@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # ruff: noqa: PT012
 
-"""Tests for server-side CLI admin commands (hop-server admin:*)."""
+"""Tests for server-side CLI admin commands (hop3-server admin:*)."""
 
 from __future__ import annotations
 

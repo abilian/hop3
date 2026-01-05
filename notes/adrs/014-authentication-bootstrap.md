@@ -44,7 +44,7 @@ We implement **Option A: Server-Side CLI** as the primary mechanism, with **SSH-
 
 ### Summary
 
-1. **`hop-server admin:create`** - Server-side command to create admin users
+1. **`hop3-server admin:create`** - Server-side command to create admin users
 2. **`hop3 init --ssh`** - Client-side command that automates the workflow over SSH
 
 ---
@@ -53,16 +53,16 @@ We implement **Option A: Server-Side CLI** as the primary mechanism, with **SSH-
 
 ### Commands
 
-**Server-side (hop-server):**
+**Server-side (hop3-server):**
 ```bash
-hop-server admin:create <username> <email> [--password-stdin]
+hop3-server admin:create <username> <email> [--password-stdin]
     Create admin user and display API token.
     Password read from stdin for security.
 
-hop-server admin:token <username>
+hop3-server admin:token <username>
     Generate new API token for existing user.
 
-hop-server admin:list
+hop3-server admin:list
     List all users with admin status.
 ```
 
@@ -73,7 +73,7 @@ hop-server admin:list
 ssh root@my-server.com
 
 # 2. Create admin account (password prompted or via stdin)
-hop-server admin:create myuser me@example.com
+hop3-server admin:create myuser me@example.com
 # Enter password: ********
 # Output:
 # Admin user 'myuser' created.
@@ -91,7 +91,7 @@ hop3 auth:whoami
 
 1. **Password handling**: Use `--password-stdin` to avoid password in process list
 2. **Token display**: Token shown once; user must save it
-3. **Access control**: Only users who can run `hop-server` can create admins
+3. **Access control**: Only users who can run `hop3-server` can create admins
 
 ---
 
@@ -163,7 +163,7 @@ echo "$ADMIN_PASSWORD" | hop3 init \
 ### How It Works
 
 1. CLI opens SSH connection to server
-2. Runs `hop-server admin:create` remotely
+2. Runs `hop3-server admin:create` remotely
 3. Captures the token from stdout
 4. Configures local CLI with server URL + token
 5. Closes SSH connection
@@ -173,7 +173,7 @@ echo "$ADMIN_PASSWORD" | hop3 init \
 | Step | Manual (6 steps) | SSH-Assisted (1 command) |
 |------|------------------|--------------------------|
 | 1 | `ssh root@server` | `hop3 init --ssh root@server` |
-| 2 | `hop-server admin:create ...` | (automated) |
+| 2 | `hop3-server admin:create ...` | (automated) |
 | 3 | Copy token from output | (automated) |
 | 4 | `hop3 settings set server ...` | (automated) |
 | 5 | `hop3 settings set token ...` | (automated) |
@@ -224,14 +224,14 @@ packages/hop3-server/
 ├── src/hop3/
 │   └── cli/
 │       ├── __init__.py
-│       ├── main.py          # Entry point for hop-server
+│       ├── main.py          # Entry point for hop3-server
 │       └── admin.py         # Admin commands
 ```
 
 **Entry point in pyproject.toml:**
 ```toml
 [project.scripts]
-hop-server = "hop3.cli.main:main"
+hop3-server = "hop3.cli.main:main"
 ```
 
 ### Phase 2: SSH-Assisted Bootstrap (Convenience)
@@ -286,7 +286,7 @@ import shlex
 
 def init_via_ssh(ssh_target: str, username: str, email: str, password: str, server_url: str):
     """Bootstrap Hop3 by running admin:create over SSH."""
-    remote_cmd = f"hop-server admin:create {shlex.quote(username)} {shlex.quote(email)} --password-stdin"
+    remote_cmd = f"hop3-server admin:create {shlex.quote(username)} {shlex.quote(email)} --password-stdin"
 
     result = subprocess.run(
         ["ssh", ssh_target, remote_cmd],
@@ -310,7 +310,7 @@ def init_via_ssh(ssh_target: str, username: str, email: str, password: str, serv
 
 ## Web Portal Authentication
 
-The same user created by `hop-server admin:create` can:
+The same user created by `hop3-server admin:create` can:
 1. Use CLI with the API token
 2. Login to web portal with username/password
 
@@ -326,7 +326,7 @@ No separate bootstrap needed for web portal.
 - No way to create first admin
 
 ### Changes
-1. **Add `hop-server` CLI** - new entry point (additive)
+1. **Add `hop3-server` CLI** - new entry point (additive)
 2. **Add `hop3 init --ssh`** - new command (additive)
 3. **Keep existing auth flow** - no breaking changes
 
