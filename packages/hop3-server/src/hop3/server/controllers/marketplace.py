@@ -223,7 +223,7 @@ class MarketplaceController(Controller):
     # App Installation
     # -------------------------------------------------------------------------
 
-    @post("/apps/{app_id:str}/install", status_code=303)
+    @post("/apps/{app_id:str}/install", status_code=303, sync_to_thread=True)
     def marketplace_install(
         self,
         app_id: str,

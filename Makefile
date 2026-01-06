@@ -1,6 +1,6 @@
 .PHONY: all develop test lint clean doc format build serve
 .PHONY: deploy deploy-docker clean-server clean-and-deploy
-.PHONY: test-ci test-demos test-demos-docker test-demos-ssh
+.PHONY: test-all test-ci test-demos test-demos-docker test-demos-ssh
 .PHONY: test-tutorials test-tutorials-ssh test-installer build-installers
 
 # For tests, set HOP3_DEV_HOST in your environment
@@ -125,6 +125,7 @@ test-with-typeguard:
 	@echo ""
 
 ## Run full CI test suite (pytest + demos + tutorials)
+test-all: test-ci
 test-ci:
 	@echo "=========================================="
 	@echo "Running CI test suite"
@@ -133,17 +134,20 @@ test-ci:
 	@echo "Phase 1: Run pytest..."
 	@make test
 	@echo ""
-	@echo "Phase 2: Deploy to SSH target (${HOP3_DEV_HOST})..."
-	@make deploy
+	@echo "Phase 2: Deploy to Docker..."
+	uv run hop3-deploy --local --docker
 	@echo ""
-	@echo "Phase 3: Run demos on Docker..."
-	@make test-demos-docker
+	@echo "Phase 3: Deploy to SSH target (${HOP3_DEV_HOST})..."
+	uv run hop3-deploy --local
 	@echo ""
-	@echo "Phase 4: Run demos on SSH target..."
-	@make test-demos-ssh
+	@echo "Phase 4: Run demos on Docker..."
+	python demos/demo.py --backend docker --local --quiet
 	@echo ""
-	@echo "Phase 5: Run tutorials..."
-	@make test-tutorials-ssh
+	@echo "Phase 5: Run demos on SSH target..."
+	python demos/demo.py --host ${HOP3_DEV_HOST} --local --quiet
+	@echo ""
+	@echo "Phase 6: Run tutorials..."
+	./scripts/run-all-tutorials.sh
 	@echo ""
 	@echo "=========================================="
 	@echo "CI test suite completed!"
@@ -155,13 +159,13 @@ test-demos: test-demos-docker test-demos-ssh
 ## Run demos on Docker backend
 test-demos-docker:
 	@echo "--> Running demos on Docker backend"
-	python demos/demo.py --backend docker --quiet
+	python demos/demo.py --backend docker --local --quiet
 	@echo ""
 
 ## Run demos on SSH backend (requires HOP3_DEV_HOST)
 test-demos-ssh:
 	@echo "--> Running demos on SSH backend (${HOP3_DEV_HOST})"
-	python demos/demo.py --host ${HOP3_DEV_HOST} --quiet
+	python demos/demo.py --host ${HOP3_DEV_HOST} --local --quiet
 	@echo ""
 
 ## Run tutorials
@@ -188,6 +192,7 @@ build-installers:
 test-installer: build-installers
 	@echo "--> Testing installers in Docker"
 	uv run hop3-install test docker --distro ubuntu --type both --method local
+	uv run hop3-install test ssh --distro ubuntu --type both --method local
 	@echo ""
 
 #
@@ -197,12 +202,12 @@ test-installer: build-installers
 ## Deploy to development server (set HOP3_DEV_HOST)
 deploy:
 	@echo "--> Deploying to ${HOP3_DEV_HOST}"
-	uv run hop3-deploy
+	uv run hop3-deploy --local
 
 ## Deploy to local Docker container
 deploy-docker:
 	@echo "--> Deploying to Docker container"
-	uv run hop3-deploy --docker
+	uv run hop3-deploy --local --docker
 
 ## Clean development server (WARNING: removes everything)
 clean-server:

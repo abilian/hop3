@@ -958,24 +958,45 @@ def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
         return run_cmd(mysql_root_cmd + ["-e", sql], check=False)
 
     # Drop existing hop3 user if exists (clean slate)
+    # Note: MySQL treats 'localhost' (socket) and '127.0.0.1' (TCP) as different hosts
     run_mysql_sql("DROP USER IF EXISTS 'hop3'@'localhost';")
+    run_mysql_sql("DROP USER IF EXISTS 'hop3'@'127.0.0.1';")
 
-    # Create hop3 user with password authentication
+    # Create hop3 user with password authentication for both localhost and 127.0.0.1
+    # Use mysql_native_password for compatibility with mysql-connector-python
     result = run_mysql_sql(
-        f"CREATE USER 'hop3'@'localhost' IDENTIFIED BY '{mysql_password}';"
+        f"CREATE USER 'hop3'@'localhost' IDENTIFIED WITH mysql_native_password BY '{mysql_password}';"
     )
     if result.returncode != 0:
-        print_warning("Failed to create MySQL user 'hop3'")
+        print_warning("Failed to create MySQL user 'hop3'@'localhost'")
         if result.stderr:
             print_detail(result.stderr[:200])
         return None
 
-    # Grant all privileges
+    result = run_mysql_sql(
+        f"CREATE USER 'hop3'@'127.0.0.1' IDENTIFIED WITH mysql_native_password BY '{mysql_password}';"
+    )
+    if result.returncode != 0:
+        print_warning("Failed to create MySQL user 'hop3'@'127.0.0.1'")
+        if result.stderr:
+            print_detail(result.stderr[:200])
+        return None
+
+    # Grant all privileges to both hosts
     result = run_mysql_sql(
         "GRANT ALL PRIVILEGES ON *.* TO 'hop3'@'localhost' WITH GRANT OPTION;"
     )
     if result.returncode != 0:
-        print_warning("Failed to grant privileges to hop3")
+        print_warning("Failed to grant privileges to hop3@localhost")
+        if result.stderr:
+            print_detail(result.stderr[:200])
+        return None
+
+    result = run_mysql_sql(
+        "GRANT ALL PRIVILEGES ON *.* TO 'hop3'@'127.0.0.1' WITH GRANT OPTION;"
+    )
+    if result.returncode != 0:
+        print_warning("Failed to grant privileges to hop3@127.0.0.1")
         if result.stderr:
             print_detail(result.stderr[:200])
         return None
@@ -984,32 +1005,26 @@ def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
 
     print_success("MySQL user 'hop3' created with privileges")
 
-    # Verify the connection works with the new password
+    # Verify the connection works with the new password (use 127.0.0.1 to match config)
     verify_result = run_cmd(
-        ["mysql", "-u", "hop3", f"-p{mysql_password}", "-e", "SELECT 1;"],
+        [
+            "mysql",
+            "-u",
+            "hop3",
+            f"-p{mysql_password}",
+            "-h",
+            "127.0.0.1",
+            "-e",
+            "SELECT 1;",
+        ],
         check=False,
     )
 
     if verify_result.returncode != 0:
         print_warning("MySQL user created but connection verification failed")
-        print_detail("This may be a password plugin issue. Trying to fix...")
-
-        # Try to alter user to use mysql_native_password (compatibility)
-        fix_sql = f"ALTER USER 'hop3'@'localhost' IDENTIFIED WITH mysql_native_password BY '{mysql_password}';"
-        run_cmd(["sudo", "mysql", "-e", fix_sql], check=False)
-        run_cmd(["sudo", "mysql", "-e", "FLUSH PRIVILEGES;"], check=False)
-
-        # Retry verification
-        verify_result = run_cmd(
-            ["mysql", "-u", "hop3", f"-p{mysql_password}", "-e", "SELECT 1;"],
-            check=False,
-        )
-
-        if verify_result.returncode != 0:
-            print_warning("MySQL verification still failing")
-            if verify_result.stderr:
-                print_detail(verify_result.stderr[:200])
-            return None
+        if verify_result.stderr:
+            print_detail(verify_result.stderr[:200])
+        return None
 
     print_success("MySQL connection verified successfully")
     return mysql_password
