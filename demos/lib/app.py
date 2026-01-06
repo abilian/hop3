@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lib.commands import run_hop3
+from lib.logging import timed
 from lib.output import (
     cyan,
     dim,
@@ -55,7 +56,8 @@ def deploy_app(ctx: DemoContext, app_name: str, app_dir: Path) -> None:
     original_dir = os.getcwd()
     try:
         os.chdir(app_dir)
-        run_hop3(f"deploy {app_name}")
+        with timed(f"deploy {app_name}", category="deploy"):
+            run_hop3(f"deploy {app_name}")
     finally:
         os.chdir(original_dir)
     print_success("Application deployed")
@@ -91,7 +93,8 @@ def redeploy_app(ctx: DemoContext, app_name: str, app_dir: Path) -> None:
     original_dir = os.getcwd()
     try:
         os.chdir(app_dir)
-        run_hop3(f"deploy {app_name}")
+        with timed(f"redeploy {app_name}", category="deploy"):
+            run_hop3(f"deploy {app_name}")
     finally:
         os.chdir(original_dir)
 
@@ -151,8 +154,11 @@ def wait_for_app(
         seconds: Number of seconds to wait
         message: Message to display
     """
+    from lib.logging import record_timing
+
     print_step(message)
     time.sleep(seconds)
+    record_timing(f"wait {seconds}s", seconds, category="wait")
 
 
 def check_app_status(ctx: DemoContext, app_name: str) -> None:
@@ -187,6 +193,9 @@ def test_app_via_curl(
     Raises:
         RuntimeError: If application is not accessible or content doesn't match
     """
+    from lib.logging import record_timing
+
+    curl_start = time.time()
     print_step(f"Verifying external access via {app_url}...")
 
     # Extract hostname from URL and use --resolve for DNS resolution
@@ -237,6 +246,7 @@ def test_app_via_curl(
                 print(f"  {green('Response:')}")
                 print(f"  {result.stdout.strip()}")
                 print()
+            record_timing(f"curl test ({attempt + 1} attempts)", time.time() - curl_start, category="curl")
             print_success(f"Application accessible at {app_url}")
             pause(ctx.pause_between_steps)
             return
@@ -278,6 +288,7 @@ def test_app_via_curl(
                 f"{last_result.stdout[:1000] if last_result and last_result.stdout else 'N/A'}\n"
                 f"Stderr: {last_result.stderr if last_result and last_result.stderr else 'N/A'}")
 
+    record_timing(f"curl test FAILED ({max_retries} attempts)", time.time() - curl_start, category="curl")
     msg = f"Application not accessible at {app_url}"
     raise RuntimeError(msg)
 
@@ -418,7 +429,8 @@ def cleanup_app(ctx: DemoContext, app_name: str, app_url: str) -> None:
     if not ctx.no_cleanup:
         print_header("Cleanup")
         print_step(f"Destroying the {app_name} application...")
-        run_hop3(f"app:destroy {app_name} -y")
+        with timed(f"destroy {app_name}", category="cleanup"):
+            run_hop3(f"app:destroy {app_name} -y")
         print_success("Application destroyed")
     else:
         print_info(f"Skipping cleanup. App running at {app_url}")

@@ -7,8 +7,10 @@ from __future__ import annotations
 import subprocess
 from typing import TYPE_CHECKING
 
+import time
+
 from lib.context import OutputLevel
-from lib.logging import log_command
+from lib.logging import log_command, record_timing
 from lib.output import get_output_level, print_command, print_error, red
 
 if TYPE_CHECKING:
@@ -167,9 +169,15 @@ def run_hop3(
     if show and output_level >= OutputLevel.NORMAL:
         print_command(full_cmd)
 
+    cmd_start = time.time()
     result = subprocess.run(
         full_cmd, shell=True, capture_output=True, text=True, check=False
     )
+    cmd_elapsed = time.time() - cmd_start
+
+    # Record timing for hop3 commands (extract base command for category)
+    base_cmd = cmd.split()[0] if cmd else "unknown"
+    record_timing(f"hop3 {cmd[:40]}", cmd_elapsed, category=f"hop3:{base_cmd}")
 
     # Always log command execution (including deploy output)
     # Use a more specific log name for deploy commands
