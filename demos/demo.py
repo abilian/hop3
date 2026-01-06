@@ -38,7 +38,14 @@ from lib.commands import set_debug_mode
 from lib.context import DemoContext, OutputLevel
 from lib.discovery import discover_demos, resolve_demo
 from lib.display import list_demos, print_banner, print_config, show_inventory
-from lib.logging import get_log_session, init_logging
+from lib.logging import (
+    end_demo_timing,
+    get_log_session,
+    get_timing_collector,
+    init_logging,
+    init_timing,
+    start_demo_timing,
+)
 from lib.output import (
     pause,
     print_demo_result,
@@ -96,6 +103,9 @@ def main() -> int:
         log_session = init_logging(logs_dir)
         # Always show log directory, even in quiet mode
         print_info(f"Logs: {log_session.session_dir}")
+
+    # Initialize timing instrumentation
+    init_timing()
 
     # Discover and resolve demos
     available_demos = discover_demos(args.demo_dirs)
@@ -239,8 +249,17 @@ def _run_all_phases(
         # Phase 3: Run demos
         results = []
         for name, demo_dir, is_generic in demos_to_run:
+            # Start timing for this demo
+            start_demo_timing(name)
+
             result = run_demo(ctx, name, demo_dir, is_generic)
             results.append(result)
+
+            # End timing and get summary
+            timing_summary = end_demo_timing()
+            if timing_summary and ctx.output_level >= OutputLevel.NORMAL:
+                print()
+                print(timing_summary)
 
             # Stop on first failure if --fail-fast is set
             if ctx.fail_fast and result.status == "fail":
@@ -286,6 +305,12 @@ def _show_summary(ctx: DemoContext, results: list, overall_start: float) -> int:
     if log_session:
         print()
         print_info(f"Detailed logs: {log_session.session_dir}")
+
+    # Show aggregate timing summary (for multiple demos)
+    timing_collector = get_timing_collector()
+    if timing_collector and len(timing_collector.demos) > 1:
+        print()
+        print(timing_collector.aggregate_summary())
 
     # Show admin credentials and UI URL if keeping apps
     if ctx.no_cleanup and ctx.output_level >= OutputLevel.NORMAL:

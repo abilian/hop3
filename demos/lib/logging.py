@@ -6,15 +6,19 @@ Provides file-based logging for debugging demo failures:
 - Timestamped log directories: demos/logs/YYYY-MM-DD-HH-mm/
 - Per-demo subdirectories: demo42/main.txt, demo42/docker-build.txt, etc.
 - Captures command output, docker logs, and errors
+- Timing instrumentation for performance analysis
 """
 
 from __future__ import annotations
 
 import subprocess
+import time
+from collections import defaultdict
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generator
 
 if TYPE_CHECKING:
     from .context import DemoContext
@@ -348,3 +352,215 @@ def capture_failure_debug(ctx: DemoContext, app_name: str) -> None:
     )
     if result.stdout:
         log_section("server-logs", "Hop3 server logs (last 100 lines)", result.stdout)
+
+
+# =============================================================================
+# Timing Infrastructure
+# =============================================================================
+
+
+@dataclass
+class TimingRecord:
+    """A single timing measurement."""
+
+    label: str
+    elapsed: float  # seconds
+    category: str = "general"  # "demo", "deploy", "hop3", "wait", etc.
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
+
+@dataclass
+class DemoTimings:
+    """Timing data for a single demo run."""
+
+    demo_name: str
+    start_time: float = field(default_factory=time.time)
+    end_time: float | None = None
+    records: list[TimingRecord] = field(default_factory=list)
+
+    @property
+    def total_elapsed(self) -> float:
+        """Total elapsed time for the demo."""
+        if self.end_time:
+            return self.end_time - self.start_time
+        return time.time() - self.start_time
+
+    def add(self, label: str, elapsed: float, category: str = "general") -> None:
+        """Add a timing record."""
+        self.records.append(TimingRecord(label=label, elapsed=elapsed, category=category))
+
+    def finish(self) -> None:
+        """Mark the demo as finished."""
+        self.end_time = time.time()
+
+    def summary(self) -> str:
+        """Generate a timing summary."""
+        lines = [
+            f"Timing Summary for {self.demo_name}",
+            "=" * 60,
+            f"Total time: {self.total_elapsed:.1f}s",
+            "",
+            "Breakdown by operation:",
+        ]
+
+        # Group by category
+        by_category: dict[str, list[TimingRecord]] = defaultdict(list)
+        for rec in self.records:
+            by_category[rec.category].append(rec)
+
+        for category, recs in sorted(by_category.items()):
+            cat_total = sum(r.elapsed for r in recs)
+            lines.append(f"\n  [{category}] ({cat_total:.1f}s total)")
+            for rec in recs:
+                pct = (rec.elapsed / self.total_elapsed * 100) if self.total_elapsed > 0 else 0
+                lines.append(f"    - {rec.label}: {rec.elapsed:.1f}s ({pct:.0f}%)")
+
+        # Unaccounted time
+        accounted = sum(r.elapsed for r in self.records)
+        unaccounted = self.total_elapsed - accounted
+        if unaccounted > 0.5:  # Only show if > 0.5s
+            lines.append(f"\n  [overhead/unaccounted]: {unaccounted:.1f}s")
+
+        return "\n".join(lines)
+
+
+class TimingCollector:
+    """Collects timing data across demos for aggregate analysis."""
+
+    def __init__(self) -> None:
+        self.demos: list[DemoTimings] = []
+        self._current: DemoTimings | None = None
+
+    def start_demo(self, demo_name: str) -> DemoTimings:
+        """Start timing a new demo."""
+        self._current = DemoTimings(demo_name=demo_name)
+        self.demos.append(self._current)
+        return self._current
+
+    def end_demo(self) -> DemoTimings | None:
+        """End timing the current demo."""
+        if self._current:
+            self._current.finish()
+            result = self._current
+            self._current = None
+            return result
+        return None
+
+    @property
+    def current(self) -> DemoTimings | None:
+        """Get the current demo timings."""
+        return self._current
+
+    def record(self, label: str, elapsed: float, category: str = "general") -> None:
+        """Record a timing to the current demo."""
+        if self._current:
+            self._current.add(label, elapsed, category)
+
+    def aggregate_summary(self) -> str:
+        """Generate aggregate timing summary across all demos."""
+        if not self.demos:
+            return "No timing data collected."
+
+        lines = [
+            "Aggregate Timing Summary",
+            "=" * 60,
+            f"Total demos: {len(self.demos)}",
+            f"Total time: {sum(d.total_elapsed for d in self.demos):.1f}s",
+            f"Average per demo: {sum(d.total_elapsed for d in self.demos) / len(self.demos):.1f}s",
+            "",
+        ]
+
+        # Aggregate by category across all demos
+        by_category: dict[str, list[float]] = defaultdict(list)
+        for demo in self.demos:
+            for rec in demo.records:
+                by_category[rec.category].append(rec.elapsed)
+
+        lines.append("Average time by category:")
+        for category, times in sorted(by_category.items(), key=lambda x: -sum(x[1])):
+            avg = sum(times) / len(times) if times else 0
+            total = sum(times)
+            lines.append(f"  [{category}] avg: {avg:.1f}s, total: {total:.1f}s, count: {len(times)}")
+
+        # Slowest demos
+        lines.append("\nSlowest demos:")
+        for demo in sorted(self.demos, key=lambda d: -d.total_elapsed)[:5]:
+            lines.append(f"  - {demo.demo_name}: {demo.total_elapsed:.1f}s")
+
+        return "\n".join(lines)
+
+
+# Global timing collector
+_timing_collector: TimingCollector | None = None
+
+
+def init_timing() -> TimingCollector:
+    """Initialize the global timing collector."""
+    global _timing_collector
+    _timing_collector = TimingCollector()
+    return _timing_collector
+
+
+def get_timing_collector() -> TimingCollector | None:
+    """Get the global timing collector."""
+    return _timing_collector
+
+
+def start_demo_timing(demo_name: str) -> None:
+    """Start timing a demo."""
+    if _timing_collector:
+        _timing_collector.start_demo(demo_name)
+
+
+def end_demo_timing() -> str | None:
+    """End timing the current demo and return summary."""
+    if _timing_collector:
+        demo = _timing_collector.end_demo()
+        if demo:
+            return demo.summary()
+    return None
+
+
+def record_timing(label: str, elapsed: float, category: str = "general") -> None:
+    """Record a timing measurement."""
+    if _timing_collector:
+        _timing_collector.record(label, elapsed, category)
+
+
+@contextmanager
+def timed(label: str, category: str = "general", print_result: bool = False) -> Generator[None, None, None]:
+    """Context manager to time an operation.
+
+    Args:
+        label: Description of the operation
+        category: Category for grouping (deploy, hop3, wait, curl, etc.)
+        print_result: If True, print timing to console
+
+    Usage:
+        with timed("deploy app", category="deploy"):
+            run_hop3("deploy myapp")
+    """
+    start = time.time()
+    try:
+        yield
+    finally:
+        elapsed = time.time() - start
+        record_timing(label, elapsed, category)
+        if print_result:
+            print(f"[TIMING] {label}: {elapsed:.1f}s")
+
+
+def timed_call(label: str, category: str = "general"):
+    """Decorator to time a function call.
+
+    Usage:
+        @timed_call("deploy_app", category="deploy")
+        def deploy_app(ctx, app_name, app_dir):
+            ...
+    """
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            with timed(label, category):
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
