@@ -183,6 +183,9 @@ def _install_debian_deps(config: ServerInstallerConfig) -> None:
     # Install .NET SDK (requires Microsoft repo)
     _install_dotnet_sdk("debian")
 
+    # Install Rust toolchain (via rustup)
+    _install_rust_toolchain()
+
 
 def _install_fedora_deps(config: ServerInstallerConfig) -> None:
     """Install Fedora/RHEL dependencies."""
@@ -232,6 +235,9 @@ def _install_fedora_deps(config: ServerInstallerConfig) -> None:
 
     # Install .NET SDK
     _install_dotnet_sdk("fedora")
+
+    # Install Rust toolchain (via rustup)
+    _install_rust_toolchain()
 
 
 def _install_optional_packages(
@@ -294,6 +300,88 @@ def _configure_redis() -> None:
         print_success("Redis configured and running")
     else:
         print_warning("Redis may not be running correctly")
+
+
+def _install_rust_toolchain() -> None:
+    """Install Rust toolchain via rustup.
+
+    Rust is installed using rustup, which manages the Rust toolchain.
+    This is installed for the hop3 user so apps can be built.
+    Symlinks are created in /usr/local/bin for system-wide access.
+    """
+    cargo_path = HOME_DIR / ".cargo" / "bin" / "cargo"
+    rustc_path = HOME_DIR / ".cargo" / "bin" / "rustc"
+    rustup_path = HOME_DIR / ".cargo" / "bin" / "rustup"
+
+    # Check if cargo actually works for the hop3 user
+    if cargo_path.exists():
+        result = run_as_hop3(f"{cargo_path} --version")
+        if result.returncode == 0:
+            print_info(f"Rust toolchain already installed: {result.stdout.strip()}")
+            # Ensure symlinks exist
+            _create_rust_symlinks(cargo_path, rustc_path, rustup_path)
+            return
+
+    print_info("Installing Rust toolchain via rustup...")
+
+    # Remove any broken symlinks first
+    for symlink in ["/usr/local/bin/cargo", "/usr/local/bin/rustc", "/usr/local/bin/rustup"]:
+        symlink_path = Path(symlink)
+        if symlink_path.is_symlink() and not symlink_path.exists():
+            print_detail(f"Removing broken symlink: {symlink}")
+            symlink_path.unlink()
+
+    # Install rustup for the hop3 user
+    with Spinner("Downloading and installing rustup..."):
+        result = run_as_hop3(
+            'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y'
+        )
+
+    if result.returncode != 0:
+        print_warning("Rust installation failed")
+        if result.stderr:
+            print_detail(result.stderr[:200])
+        return
+
+    # Verify installation
+    if cargo_path.exists():
+        print_success("Rust toolchain installed")
+        # Show version
+        result = run_as_hop3(f"{cargo_path} --version")
+        if result.returncode == 0:
+            print_detail(f"Version: {result.stdout.strip()}")
+
+        # Create system-wide symlinks
+        _create_rust_symlinks(cargo_path, rustc_path, rustup_path)
+    else:
+        print_warning("Rust installation completed but cargo not found")
+
+
+def _create_rust_symlinks(cargo_path: Path, rustc_path: Path, rustup_path: Path) -> None:
+    """Create symlinks in /usr/local/bin for Rust tools.
+
+    This makes cargo, rustc, and rustup accessible system-wide,
+    which is needed when subprocess runs commands without the hop3 user's PATH.
+    """
+    symlinks = [
+        (cargo_path, Path("/usr/local/bin/cargo")),
+        (rustc_path, Path("/usr/local/bin/rustc")),
+        (rustup_path, Path("/usr/local/bin/rustup")),
+    ]
+
+    for source, target in symlinks:
+        if not source.exists():
+            continue
+
+        # Remove existing symlink or file
+        if target.exists() or target.is_symlink():
+            target.unlink()
+
+        try:
+            target.symlink_to(source)
+            print_detail(f"Created symlink: {target} -> {source}")
+        except OSError as e:
+            print_warning(f"Could not create symlink {target}: {e}")
 
 
 def _install_dotnet_sdk(distro: str) -> None:
