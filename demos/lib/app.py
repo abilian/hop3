@@ -324,12 +324,23 @@ def test_app_via_curl(
         # Got a different error, fail immediately
         break
 
-    print_error(f"Failed to access application at {app_url}")
-    print_info(f"  Expected content: '{expected_content}'")
+    # Determine if it's a connection issue or content mismatch
+    if last_result and last_result.returncode == 0 and last_result.stdout:
+        # Got a response but content didn't match
+        print_error(f"Content validation failed for {app_url}")
+        print_info(f"  Expected: '{expected_content}'")
+        print_info(f"  Got: {last_result.stdout[:200].strip()}")
+        error_type = "content_mismatch"
+    else:
+        # Connection or other error
+        print_error(f"Failed to access application at {app_url}")
+        print_info(f"  Expected content: '{expected_content}'")
+        error_type = "connection_error"
+
     print_info(f"  Curl command: {curl_cmd}")
     if last_result:
         print_info(f"  Exit code: {last_result.returncode}")
-        if last_result.stdout:
+        if last_result.stdout and error_type != "content_mismatch":
             print(f"  {yellow('Got response:')} ({len(last_result.stdout)} bytes)")
             print(f"  {last_result.stdout[:500].strip()}")
         if last_result.stderr:
@@ -355,7 +366,11 @@ def test_app_via_curl(
         time.time() - curl_start,
         category="curl",
     )
-    msg = f"Application not accessible at {app_url}"
+
+    if error_type == "content_mismatch":
+        msg = f"Content validation failed at {app_url}: expected '{expected_content}' not found in response"
+    else:
+        msg = f"Application not accessible at {app_url}"
     raise RuntimeError(msg)
 
 
