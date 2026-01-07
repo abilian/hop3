@@ -20,6 +20,7 @@ from hop3.orm import App, AppRepository
 from hop3.project.procfile import parse_procfile
 
 from ._base import Command
+from ._errors import command_context
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -94,14 +95,13 @@ class BackupCmd(Command):
             str(path_to_backup.parent),
             path_to_backup.name,
         ]
-        try:
+        with command_context("creating backup", app_name=app_name):
             subprocess.run(cmd, check=True, capture_output=True, text=True)
-            return [
-                {"t": "text", "text": f"Backup for {app.name} created successfully."},
-                {"t": "text", "text": f"Location: {backup_file_path}"},
-            ]
-        except subprocess.CalledProcessError as e:
-            return [{"t": "text", "text": f"Backup failed: {e.stderr}"}]
+
+        return [
+            {"t": "text", "text": f"Backup for {app.name} created successfully."},
+            {"t": "text", "text": f"Location: {backup_file_path}"},
+        ]
 
 
 # --- Plugins Command ---
@@ -224,11 +224,10 @@ class PsScaleCmd(Command):
 
             deltas[key] = count - int(worker_count[key])
 
-        try:
+        with command_context("scaling app", app_name=app_name):
             do_deploy(app, deltas=deltas)
-            return [{"t": "text", "text": f"Scaling app '{app_name}'..."}]
-        except Exception as e:
-            return [{"t": "text", "text": f"Failed to scale app: {e}"}]
+
+        return [{"t": "text", "text": f"Scaling app '{app_name}'..."}]
 
 
 # --- Run Command ---

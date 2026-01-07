@@ -173,10 +173,8 @@ def test_deployment_failure_handling(git_hook_cmd, mock_app):
         mock_stdin.read.return_value = push_data
         mock_deploy.side_effect = Exception("Build failed: missing dependencies")
 
-        result = git_hook_cmd.call("test-app")
+        # command_context raises ValueError for JSON-RPC error handling
+        with pytest.raises(ValueError) as exc_info:
+            git_hook_cmd.call("test-app")
 
-        # Should return error message
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "Deployment failed" in result[0]["text"]
-        assert "missing dependencies" in result[0]["text"]
+        assert "missing dependencies" in str(exc_info.value)

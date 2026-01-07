@@ -20,6 +20,7 @@ from hop3.lib.registry import register
 from hop3.orm import App, AppRepository
 
 from ._base import Command
+from ._errors import command_context
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -81,7 +82,9 @@ class GitHookCmd(Command):
             fg="cyan",
         )
 
-        try:
+        with command_context(
+            "deploying from git push", app_name=app_name, commit=new_sha[:8]
+        ):
             # Extract the commit to app's source directory
             self._extract_commit_to_source(app, new_sha)
 
@@ -93,19 +96,14 @@ class GitHookCmd(Command):
                 level=0,
                 fg="green",
             )
-            return [
-                {"t": "text", "text": "-----> Deployment successful"},
-                {
-                    "t": "text",
-                    "text": f"-----> {app_name} deployed from git push ({new_sha[:8]})",
-                },
-            ]
 
-        except Exception as e:
-            log(f"Deployment from git push failed: {e}", level=0, fg="red")
-            return [
-                {"t": "error", "text": f"Deployment failed: {e}"},
-            ]
+        return [
+            {"t": "text", "text": "-----> Deployment successful"},
+            {
+                "t": "text",
+                "text": f"-----> {app_name} deployed from git push ({new_sha[:8]})",
+            },
+        ]
 
     def _extract_commit_to_source(self, app: App, commit_sha: str) -> None:
         """Extract a specific commit from the git repository to the source directory.

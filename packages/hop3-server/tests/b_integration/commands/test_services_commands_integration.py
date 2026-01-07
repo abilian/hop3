@@ -173,11 +173,11 @@ class TestAddonsCreateCmdIntegration:
 
             cmd = AddonsCreateCmd(db_session=db_session)
 
-            result = cmd.call("invalid-type", "my-service")
+            # command_context raises ValueError for JSON-RPC error handling
+            with pytest.raises(ValueError) as exc_info:
+                cmd.call("invalid-type", "my-service")
 
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "Addon type not supported" in result[0]["text"]
+            assert "Addon type not supported" in str(exc_info.value)
 
     def test_create_handles_unexpected_errors(self, db_session: Session):
         """Test error handling when addon plugin raises unexpected exception.
@@ -189,19 +189,19 @@ class TestAddonsCreateCmdIntegration:
             - Attempt to create addon
 
         ASSERT:
-            - Verify error message is returned
-            - Verify error type is "error"
+            - Verify ValueError is raised for JSON-RPC error handling
+            - Verify error message contains exception details
         """
         with patch("hop3.commands.services.get_addon") as mock_get_addon:
             mock_get_addon.side_effect = Exception("Unexpected error occurred")
 
             cmd = AddonsCreateCmd(db_session=db_session)
 
-            result = cmd.call("postgres", "my-db")
+            # command_context raises ValueError for JSON-RPC error handling
+            with pytest.raises(ValueError) as exc_info:
+                cmd.call("postgres", "my-db")
 
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "Unexpected error" in result[0]["text"]
+            assert "Unexpected error" in str(exc_info.value)
 
 
 @pytest.mark.integration
@@ -244,16 +244,16 @@ class TestAddonsAttachCmdIntegration:
             - Try to attach addon to non-existent app
 
         ASSERT:
-            - Verify error message about app not found
+            - Verify ValueError is raised for JSON-RPC error handling
             - Verify no credentials were created
         """
         cmd = AddonsAttachCmd(db_session=db_session)
 
-        result = cmd.call("my-database", "--app", "nonexistent-app")
+        # App not found raises ValueError for JSON-RPC error handling
+        with pytest.raises(ValueError) as exc_info:
+            cmd.call("my-database", "--app", "nonexistent-app")
 
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "not found" in result[0]["text"]
+        assert "not found" in str(exc_info.value)
 
         # Verify no credentials were created
         db_session.expire_all()
@@ -507,15 +507,15 @@ class TestAddonsDetachCmdIntegration:
             - Try to detach addon from non-existent app
 
         ASSERT:
-            - Verify error message about app not found
+            - Verify ValueError is raised for JSON-RPC error handling
         """
         cmd = AddonsDetachCmd(db_session=db_session)
 
-        result = cmd.call("my-database", "--app", "nonexistent-app")
+        # App not found raises ValueError for JSON-RPC error handling
+        with pytest.raises(ValueError) as exc_info:
+            cmd.call("my-database", "--app", "nonexistent-app")
 
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "not found" in result[0]["text"]
+        assert "not found" in str(exc_info.value)
 
     def test_detach_success_removes_credentials_and_env_vars(
         self, db_session: Session, test_app: App
@@ -843,7 +843,7 @@ class TestAddonsDestroyCmdIntegration:
             - Attempt to destroy addon
 
         ASSERT:
-            - Verify error message is returned
+            - Verify ValueError is raised for JSON-RPC error handling
             - Verify credentials are NOT removed (transaction rollback)
         """
         from hop3.core.credentials import get_credential_encryptor
@@ -872,11 +872,11 @@ class TestAddonsDestroyCmdIntegration:
 
             cmd = AddonsDestroyCmd(db_session=db_session)
 
-            result = cmd.call("error-db", "--service-type", "postgres")
+            # command_context raises ValueError for JSON-RPC error handling
+            with pytest.raises(ValueError) as exc_info:
+                cmd.call("error-db", "--service-type", "postgres")
 
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "Cannot destroy addon" in result[0]["text"]
+            assert "Cannot destroy addon" in str(exc_info.value)
 
         # Note: Credentials were already removed before destroy() is called
         # This is by design in the command implementation
@@ -1028,15 +1028,15 @@ class TestAddonsInfoCmdIntegration:
             - Attempt to get addon info
 
         ASSERT:
-            - Verify error message is returned
+            - Verify ValueError is raised for JSON-RPC error handling
         """
         with patch("hop3.commands.services.get_addon") as mock_get_addon:
             mock_get_addon.side_effect = RuntimeError("Addon not found")
 
             cmd = AddonsInfoCmd(db_session=db_session)
 
-            result = cmd.call("nonexistent-db")
+            # command_context raises ValueError for JSON-RPC error handling
+            with pytest.raises(ValueError) as exc_info:
+                cmd.call("nonexistent-db")
 
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "Addon not found" in result[0]["text"]
+            assert "Addon not found" in str(exc_info.value)

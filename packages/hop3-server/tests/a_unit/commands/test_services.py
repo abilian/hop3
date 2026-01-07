@@ -70,11 +70,12 @@ def test_services_create_handles_errors(mock_db_session):
         mock_get_service.side_effect = RuntimeError("Service type not found")
 
         cmd = AddonsCreateCmd(db_session=mock_db_session)
-        result = cmd.call("invalid-type", "my-service")
 
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "Service type not found" in result[0]["text"]
+        # command_context raises ValueError for JSON-RPC error handling
+        with pytest.raises(ValueError) as exc_info:
+            cmd.call("invalid-type", "my-service")
+
+        assert "Service type not found" in str(exc_info.value)
 
 
 def test_services_attach_requires_app_name(mock_db_session):
@@ -94,11 +95,12 @@ def test_services_attach_app_not_found(mock_db_session):
         mock_repo.get_one_or_none.return_value = None
 
         cmd = AddonsAttachCmd(db_session=mock_db_session)
-        result = cmd.call("my-database", "--app", "nonexistent-app")
 
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "not found" in result[0]["text"]
+        # App not found raises ValueError for JSON-RPC error handling
+        with pytest.raises(ValueError) as exc_info:
+            cmd.call("my-database", "--app", "nonexistent-app")
+
+        assert "not found" in str(exc_info.value)
 
 
 def test_services_attach_success(mock_db_session, mock_app):

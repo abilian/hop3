@@ -74,7 +74,7 @@ def _parse_deploy_args(args: list[str]) -> tuple[dict[str, str], list[str]]:
     while i < len(args):
         arg = args[i]
 
-        if arg in ("--env", "-e"):
+        if arg in {"--env", "-e"}:
             # Next argument should be KEY=VALUE
             if i + 1 < len(args):
                 env_spec = args[i + 1]

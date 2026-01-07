@@ -14,6 +14,7 @@ from hop3.lib.decorators import register
 from hop3.orm.repositories import AppRepository
 
 from ._base import Command
+from ._errors import command_context
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -56,9 +57,10 @@ class BackupCreateCmd(Command):
         app = app_repo.get_one_or_none(name=app_name)
 
         if not app:
-            return [{"t": "error", "text": f"App '{app_name}' not found"}]
+            msg = f"App '{app_name}' not found"
+            raise ValueError(msg)
 
-        try:
+        with command_context("creating backup", app_name=app_name):
             manager = BackupManager(self.db_session)
 
             output = [
@@ -71,11 +73,6 @@ class BackupCreateCmd(Command):
 
             # Get backup info for display
             manifest = manager.get_backup_info(backup_id)
-
-            # Calculate component sizes
-            # FIXME: not used
-            source_size = manifest.checksums.get("source.tar.gz", "")
-            data_size = manifest.checksums.get("data.tar.gz", "")
 
             output.append({
                 "t": "success",
@@ -109,10 +106,7 @@ class BackupCreateCmd(Command):
 
             output.append({"t": "text", "text": "\n".join(info_lines)})
 
-            return output
-
-        except Exception as e:
-            return [{"t": "error", "text": f"Backup creation failed: {e}"}]
+        return output
 
 
 @register
@@ -152,54 +146,49 @@ class BackupListCmd(Command):
             else:
                 i += 1
 
-        try:
+        with command_context("listing backups", app_name=app_name or "all"):
             manager = BackupManager(self.db_session)
             backups = manager.list_backups(app_name, limit)
 
-            if not backups:
-                if app_name:
-                    return [
-                        {"t": "text", "text": f"No backups found for app '{app_name}'"}
-                    ]
-                return [{"t": "text", "text": "No backups found"}]
+        if not backups:
+            if app_name:
+                return [{"t": "text", "text": f"No backups found for app '{app_name}'"}]
+            return [{"t": "text", "text": "No backups found"}]
 
-            # Format as table
-            headers = [
-                "BACKUP ID",
-                "APP",
-                "SIZE",
-                "CREATED",
-                "STATUS",
-                "SERVICES",
-            ]
+        # Format as table
+        headers = [
+            "BACKUP ID",
+            "APP",
+            "SIZE",
+            "CREATED",
+            "STATUS",
+            "SERVICES",
+        ]
 
-            rows = []
-            for backup in backups:
-                # Extract date from backup_id (YYYYMMDD_HHMMSS_random)
-                backup_id_parts = backup.backup_id.split("_")
-                if len(backup_id_parts) >= 2:
-                    date_str = backup_id_parts[0]
-                    time_str = backup_id_parts[1]
-                    created = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]} {time_str[:2]}:{time_str[2:4]}:{time_str[4:6]}"
-                else:
-                    created = backup.created_at
+        rows = []
+        for backup in backups:
+            # Extract date from backup_id (YYYYMMDD_HHMMSS_random)
+            backup_id_parts = backup.backup_id.split("_")
+            if len(backup_id_parts) >= 2:
+                date_str = backup_id_parts[0]
+                time_str = backup_id_parts[1]
+                created = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]} {time_str[:2]}:{time_str[2:4]}:{time_str[4:6]}"
+            else:
+                created = backup.created_at
 
-                addons_list = [s["name"] for s in backup.addons]
-                addons_str = ", ".join(addons_list) if addons_list else "-"
+            addons_list = [s["name"] for s in backup.addons]
+            addons_str = ", ".join(addons_list) if addons_list else "-"
 
-                rows.append([
-                    backup.backup_id,
-                    backup.app_name,
-                    format_size(backup.size_bytes),
-                    created,
-                    "COMPLETED",  # TODO: Get actual status from DB
-                    addons_str,
-                ])
+            rows.append([
+                backup.backup_id,
+                backup.app_name,
+                format_size(backup.size_bytes),
+                created,
+                "COMPLETED",  # TODO: Get actual status from DB
+                addons_str,
+            ])
 
-            return [{"t": "table", "headers": headers, "rows": rows}]
-
-        except Exception as e:
-            return [{"t": "error", "text": f"Error listing backups: {e}"}]
+        return [{"t": "table", "headers": headers, "rows": rows}]
 
 
 @register
@@ -232,7 +221,7 @@ class BackupInfoCmd(Command):
 
         backup_id = args[0]
 
-        try:
+        with command_context("getting backup info", backup_id=backup_id):
             manager = BackupManager(self.db_session)
             manifest = manager.get_backup_info(backup_id)
 
@@ -288,12 +277,7 @@ class BackupInfoCmd(Command):
             else:
                 lines.append("Integrity: ✗ Some files failed checksum verification")
 
-            return [{"t": "text", "text": "\n".join(lines)}]
-
-        except FileNotFoundError as e:
-            return [{"t": "error", "text": str(e)}]
-        except Exception as e:
-            return [{"t": "error", "text": f"Error getting backup info: {e}"}]
+        return [{"t": "text", "text": "\n".join(lines)}]
 
 
 @register
@@ -338,7 +322,7 @@ class BackupRestoreCmd(Command):
             else:
                 i += 1
 
-        try:
+        with command_context("restoring backup", backup_id=backup_id):
             manager = BackupManager(self.db_session)
 
             # Get backup info first
@@ -352,12 +336,8 @@ class BackupRestoreCmd(Command):
             all_valid = all(verification.values())
 
             if not all_valid:
-                return [
-                    {
-                        "t": "error",
-                        "text": "Backup integrity check failed: checksum mismatch",
-                    }
-                ]
+                msg = "Backup integrity check failed: checksum mismatch"
+                raise ValueError(msg)
 
             # Perform restore
             manager.restore_backup(backup_id, target_app_name)
@@ -378,12 +358,7 @@ class BackupRestoreCmd(Command):
 
             output.append({"t": "text", "text": "\n".join(info_lines)})
 
-            return output
-
-        except FileNotFoundError as e:
-            return [{"t": "error", "text": str(e)}]
-        except Exception as e:
-            return [{"t": "error", "text": f"Restore failed: {e}"}]
+        return output
 
 
 @register
@@ -420,7 +395,7 @@ class BackupDeleteCmd(Command):
 
         backup_id = args[0]
 
-        try:
+        with command_context("deleting backup", backup_id=backup_id):
             manager = BackupManager(self.db_session)
 
             # Get backup info first
@@ -448,12 +423,7 @@ class BackupDeleteCmd(Command):
                 "text": "Backup deleted successfully",
             })
 
-            return output
-
-        except FileNotFoundError as e:
-            return [{"t": "error", "text": str(e)}]
-        except Exception as e:
-            return [{"t": "error", "text": f"Error deleting backup: {e}"}]
+        return output
 
 
 @register
