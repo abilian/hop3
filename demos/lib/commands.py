@@ -101,8 +101,14 @@ def run_ssh(
         else:
             print_command(f"ssh {ctx.ssh_target} '{cmd}'")
 
-    # Run via backend
+    # Run via backend with timing
+    cmd_start = time.time()
     cmd_result = backend.run(cmd, check=False)
+    cmd_elapsed = time.time() - cmd_start
+
+    # Record timing for SSH commands
+    cmd_short = cmd[:30] + "..." if len(cmd) > 30 else cmd
+    record_timing(f"ssh: {cmd_short}", cmd_elapsed, category="ssh")
 
     # Convert to subprocess.CompletedProcess for compatibility
     result = subprocess.CompletedProcess(

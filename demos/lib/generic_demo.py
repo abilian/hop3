@@ -109,7 +109,7 @@ def run_generic_demo(ctx: DemoContext, app_dir: Path) -> None:
         deploy_app,
         redeploy_app,
         set_hostname,
-        wait_for_app,
+        wait_for_app_ready,
     )
     from lib.output import (
         bold,
@@ -181,9 +181,9 @@ def run_generic_demo(ctx: DemoContext, app_dir: Path) -> None:
     # Redeploy to apply hostname
     redeploy_app(ctx, app_name, app_dir)
 
-    # Wait for app
-    wait_seconds = 5 if "Docker" in app_type else 3
-    wait_for_app(seconds=wait_seconds)
+    # Wait for app to be ready (smart polling instead of fixed wait)
+    timeout = 30 if "Docker" in app_type else 15
+    wait_for_app_ready(app_name, timeout=timeout)
 
     # Check status
     check_app_status(ctx, app_name)

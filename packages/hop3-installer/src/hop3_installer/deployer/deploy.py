@@ -382,7 +382,7 @@ class Deployer:
             # Create admin user on server using --password-stdin (ignore if already exists)
             self.backend.run(
                 f"echo '{password}' | sudo -u hop3 /home/hop3/venv/bin/hop3-server "
-                f"admin:create {user} {user}@hop3.local --password-stdin",
+                f"admin:create {user} {user}@hop3.dev --password-stdin",
                 check=False,
             )
 

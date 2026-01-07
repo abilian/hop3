@@ -22,6 +22,7 @@ from lib.app import (
     test_app_via_curl,
     test_app_via_hop3,
     wait_for_app,
+    wait_for_app_ready,
 )
 
 # Commands
@@ -123,5 +124,6 @@ __all__ = [
     "test_app_via_curl",
     "test_app_via_hop3",
     "wait_for_app",
+    "wait_for_app_ready",
     "yellow",
 ]

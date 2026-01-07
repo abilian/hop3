@@ -430,6 +430,7 @@ class TimingCollector:
     def __init__(self) -> None:
         self.demos: list[DemoTimings] = []
         self._current: DemoTimings | None = None
+        self.setup_timings: list[TimingRecord] = []  # Capture setup phase timing
 
     def start_demo(self, demo_name: str) -> DemoTimings:
         """Start timing a new demo."""
@@ -452,23 +453,63 @@ class TimingCollector:
         return self._current
 
     def record(self, label: str, elapsed: float, category: str = "general") -> None:
-        """Record a timing to the current demo."""
+        """Record a timing to the current demo or setup phase."""
         if self._current:
             self._current.add(label, elapsed, category)
+        else:
+            # No demo started yet - record to setup timings
+            self.setup_timings.append(TimingRecord(label=label, elapsed=elapsed, category=category))
+
+    def setup_summary(self) -> str:
+        """Generate setup phase timing summary."""
+        if not self.setup_timings:
+            return ""
+
+        lines = [
+            "Setup Phase Timing",
+            "=" * 60,
+            f"Total setup time: {sum(r.elapsed for r in self.setup_timings):.1f}s",
+            "",
+            "Breakdown by operation:",
+        ]
+
+        # Group by category
+        by_category: dict[str, list[TimingRecord]] = defaultdict(list)
+        for rec in self.setup_timings:
+            by_category[rec.category].append(rec)
+
+        for category, records in sorted(by_category.items(), key=lambda x: -sum(r.elapsed for r in x[1])):
+            cat_total = sum(r.elapsed for r in records)
+            lines.append(f"\n  [{category}] ({cat_total:.1f}s total)")
+            for rec in records:
+                pct = (rec.elapsed / sum(r.elapsed for r in self.setup_timings)) * 100
+                lines.append(f"    - {rec.label}: {rec.elapsed:.1f}s ({pct:.0f}%)")
+
+        return "\n".join(lines)
 
     def aggregate_summary(self) -> str:
         """Generate aggregate timing summary across all demos."""
-        if not self.demos:
+        if not self.demos and not self.setup_timings:
             return "No timing data collected."
 
-        lines = [
+        lines = []
+
+        # Include setup timing if present
+        if self.setup_timings:
+            lines.append(self.setup_summary())
+            lines.append("")
+
+        if not self.demos:
+            return "\n".join(lines) if lines else "No timing data collected."
+
+        lines.extend([
             "Aggregate Timing Summary",
             "=" * 60,
             f"Total demos: {len(self.demos)}",
             f"Total time: {sum(d.total_elapsed for d in self.demos):.1f}s",
             f"Average per demo: {sum(d.total_elapsed for d in self.demos) / len(self.demos):.1f}s",
             "",
-        ]
+        ])
 
         # Aggregate by category across all demos
         by_category: dict[str, list[float]] = defaultdict(list)

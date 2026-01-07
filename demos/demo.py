@@ -83,7 +83,9 @@ def main() -> int:
             if "-h" in sys.argv or "--help" in sys.argv:
                 parser.print_help()
                 return 0
-            print_error("Missing required argument: --host HOST (or use --backend docker)")
+            print_error(
+                "Missing required argument: --host HOST (or use --backend docker)"
+            )
             print_info("Run with --help for usage information")
             return 2
 
@@ -198,7 +200,7 @@ def _create_context(args, output_level: OutputLevel) -> DemoContext:
     # For Docker mode, set appropriate defaults for server_ip and admin_domain
     if backend == "docker":
         server_ip = "localhost"
-        admin_domain = args.admin_domain or "hop3.local"
+        admin_domain = args.admin_domain or "hop3.dev"
     else:
         server_ip = getattr(args, "host", "") or ""
         admin_domain = args.admin_domain
@@ -215,6 +217,7 @@ def _create_context(args, output_level: OutputLevel) -> DemoContext:
         admin_password=admin_password,
         pause_between_steps=args.pause,
         skip_install=args.skip_install,
+        preflight=getattr(args, "preflight", False),
         no_cleanup=args.no_cleanup,
         use_local_code=args.use_local_code,
         clean_before=getattr(args, "clean_before", False),
@@ -306,11 +309,17 @@ def _show_summary(ctx: DemoContext, results: list, overall_start: float) -> int:
         print()
         print_info(f"Detailed logs: {log_session.session_dir}")
 
-    # Show aggregate timing summary (for multiple demos)
+    # Show timing summary
     timing_collector = get_timing_collector()
-    if timing_collector and len(timing_collector.demos) > 1:
-        print()
-        print(timing_collector.aggregate_summary())
+    if timing_collector:
+        # Show setup phase timing if captured
+        if timing_collector.setup_timings:
+            print()
+            print(timing_collector.setup_summary())
+        # Show aggregate timing for multiple demos
+        if len(timing_collector.demos) > 1:
+            print()
+            print(timing_collector.aggregate_summary())
 
     # Show admin credentials and UI URL if keeping apps
     if ctx.no_cleanup and ctx.output_level >= OutputLevel.NORMAL:

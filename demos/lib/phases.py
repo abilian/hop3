@@ -46,6 +46,7 @@ def run_prerequisites(ctx: DemoContext) -> bool:
         True on success, False on failure.
     """
     from lib.commands import CommandError
+    from lib.logging import record_timing
     from lib.server import (
         check_dns_resolution,
         check_hop3_installed,
@@ -57,43 +58,66 @@ def run_prerequisites(ctx: DemoContext) -> bool:
         verify_connectivity,
     )
 
+    # Skip preflight checks if not requested (faster iteration)
+    if not ctx.preflight and ctx.skip_install and not ctx.clean_before:
+        print_info("Skipping prerequisites (use --preflight to run checks)")
+        return True
+
     print_header("Checking prerequisites", phase=True)
+    phase_start = time.time()
 
     try:
-        verify_connectivity(ctx)
-        pause(ctx.pause_between_steps)
-
-        # For SSH backend, check DNS and Ubuntu version
-        if ctx.backend == "ssh":
-            # Check DNS resolution for demo hostnames (local check, before server checks)
-            check_dns_resolution(ctx)
+        # Preflight checks (only with --preflight)
+        if ctx.preflight:
+            step_start = time.time()
+            verify_connectivity(ctx)
+            record_timing("verify_connectivity", time.time() - step_start, category="setup")
             pause(ctx.pause_between_steps)
 
-            check_ubuntu_version(ctx)
-            pause(ctx.pause_between_steps)
+            # For SSH backend, check DNS and Ubuntu version
+            if ctx.backend == "ssh":
+                # Check DNS resolution for demo hostnames (local check, before server checks)
+                step_start = time.time()
+                check_dns_resolution(ctx)
+                record_timing("check_dns_resolution", time.time() - step_start, category="setup")
+                pause(ctx.pause_between_steps)
+
+                step_start = time.time()
+                check_ubuntu_version(ctx)
+                record_timing("check_ubuntu_version", time.time() - step_start, category="setup")
+                pause(ctx.pause_between_steps)
 
         # Clean server if requested (before installation)
         if ctx.clean_before:
+            step_start = time.time()
             clean_server(ctx)
+            record_timing("clean_server", time.time() - step_start, category="setup")
             pause(ctx.pause_between_steps)
 
-        hop3_installed = check_hop3_installed(ctx)
+        # Installation checks (skip if --skip-install)
+        if not ctx.skip_install:
+            step_start = time.time()
+            hop3_installed = check_hop3_installed(ctx)
+            record_timing("check_hop3_installed", time.time() - step_start, category="setup")
 
-        if ctx.skip_install:
             if not hop3_installed:
-                print_error("Hop3 is not installed and --skip-install was specified")
-                print_phase_result(False)
-                return False
-            print_info("Skipping Hop3 installation/update (--skip-install)")
-        elif not hop3_installed:
-            install_hop3(ctx)
+                step_start = time.time()
+                install_hop3(ctx)
+                record_timing("install_hop3", time.time() - step_start, category="setup")
+            else:
+                step_start = time.time()
+                update_hop3_server(ctx)
+                record_timing("update_hop3_server", time.time() - step_start, category="setup")
         else:
-            update_hop3_server(ctx)
+            print_info("Skipping Hop3 installation/update (--skip-install)")
 
-        # Configure server settings (DEBUG logging, Docker hosts)
+        # Configure server settings (DEBUG logging, Docker hosts) - always run
         pause(ctx.pause_between_steps)
+        step_start = time.time()
         configure_server_settings(ctx)
+        record_timing("configure_server_settings", time.time() - step_start, category="setup")
 
+        record_timing("prerequisites_phase", time.time() - phase_start, category="phase")
         print_phase_result(True)
         pause(ctx.pause_between_steps)
         return True
@@ -114,13 +138,18 @@ def configure_cli(ctx: DemoContext) -> bool:
     Returns:
         True on success, False on failure.
     """
+    from lib.logging import record_timing
+
     print_header("Configuring CLI", phase=True)
+    phase_start = time.time()
 
     # Check if hop3 CLI is available
     print_step("Checking hop3 CLI availability...")
+    step_start = time.time()
     result = subprocess.run(
         "which hop3", shell=True, capture_output=True, text=True, check=False
     )
+    record_timing("which_hop3", time.time() - step_start, category="setup")
     if result.returncode != 0:
         print_error("hop3 CLI not found. Please install it first.")
         print_info("Run: pip install hop3-cli")
@@ -209,9 +238,11 @@ def configure_cli(ctx: DemoContext) -> bool:
                 f"hop3 init --ssh {ctx.ssh_target} --username {ctx.admin_user} --email {ctx.admin_email}"
             )
 
+        step_start = time.time()
         result = subprocess.run(
             init_cmd, shell=True, capture_output=True, text=True, check=False
         )
+        record_timing("hop3_init", time.time() - step_start, category="setup")
         if result.stdout and ctx.output_level >= OutputLevel.VERBOSE:
             print(result.stdout)
 
@@ -223,9 +254,11 @@ def configure_cli(ctx: DemoContext) -> bool:
                     f"--username {ctx.admin_user} "
                     f"--server {server_url}"
                 )
+                step_start = time.time()
                 result = subprocess.run(
                     login_cmd, shell=True, capture_output=True, text=True, check=False
                 )
+                record_timing("hop3_login", time.time() - step_start, category="setup")
                 if result.stdout and ctx.output_level >= OutputLevel.VERBOSE:
                     print(result.stdout)
                 if result.returncode != 0:
@@ -247,12 +280,15 @@ def configure_cli(ctx: DemoContext) -> bool:
 
     # Verify authentication (quiet in non-verbose mode)
     print_step("Verifying authentication...")
+    step_start = time.time()
     try:
         run_hop3("auth:whoami", quiet=(ctx.output_level < OutputLevel.VERBOSE))
     except Exception:
         print_phase_result(False)
         return False
+    record_timing("auth_whoami", time.time() - step_start, category="setup")
     print_success("Authentication verified")
+    record_timing("configure_cli_phase", time.time() - phase_start, category="phase")
     print_phase_result(True)
 
     return True

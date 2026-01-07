@@ -74,6 +74,7 @@ class DemoContext:
     use_local_code: bool = False
     clean_before: bool = False  # Clean server completely before running
     fail_fast: bool = False  # Stop on first failure
+    preflight: bool = False  # Run preflight checks (SSH, DNS, Ubuntu version)
     verbose: bool = False
     debug: bool = False  # Maximum verbosity (--debug flag to hop3)
     output_level: OutputLevel = OutputLevel.NORMAL
@@ -93,7 +94,7 @@ class DemoContext:
         """Return the base hostname for apps.
 
         This returns the server IP or admin domain. Individual apps should
-        use unique hostnames like 'demo01.hop3.local' to avoid nginx routing
+        use unique hostnames like 'demo01.hop3.dev' to avoid nginx routing
         conflicts when multiple apps are deployed.
         """
         return self.admin_domain or self.server_ip
@@ -105,14 +106,14 @@ class DemoContext:
             app_name: The name of the app (e.g., 'demo01')
 
         Returns:
-            A unique hostname like 'demo01.hop3.local'.
+            A unique hostname like 'demo01.hop3.dev'.
             If server_ip looks like a domain (contains '.local' or is not an IP),
             uses it as base for subdomains.
         """
         base_domain = self.admin_domain or self.server_ip
 
         # Check if base looks like a domain we can add subdomains to
-        # (e.g., 'hop3.local' but not '192.168.1.1')
+        # (e.g., 'hop3.dev' but not '192.168.1.1')
         is_ip_address = base_domain.replace(".", "").isdigit()
         is_domain_like = (
             ".local" in base_domain
@@ -122,7 +123,7 @@ class DemoContext:
         )
 
         if is_domain_like:
-            # Use subdomain: demo01.hop3.local
+            # Use subdomain: demo01.hop3.dev
             return f"{app_name}.{base_domain}"
 
         # Fall back to server IP (all apps share same hostname - not ideal)
@@ -130,7 +131,7 @@ class DemoContext:
 
     @property
     def installer_path(self) -> Path:
-        return self.hop3_repo / "installer" / "install-server.py"
+        return self.hop3_repo / "dist" / "install-server.py"
 
     @property
     def packages_path(self) -> Path:
@@ -209,6 +210,9 @@ class DemoContext:
         missing = set(requires) - capabilities
 
         if missing:
-            return False, f"requires {', '.join(sorted(missing))} (not available in {self.backend} backend)"
+            return (
+                False,
+                f"requires {', '.join(sorted(missing))} (not available in {self.backend} backend)",
+            )
 
         return True, ""
