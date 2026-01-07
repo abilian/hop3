@@ -70,7 +70,7 @@ DEBIAN_PACKAGES = [
     # Java toolchain
     "default-jdk",
     "maven",
-    # Rust toolchain (via rustup - installed separately)
+    # Rust toolchain is installed via rustup (see installer.py)
     # .NET toolchain (requires Microsoft repo - installed separately)
     # Common utilities
     "curl",

@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -41,6 +43,7 @@ class TestRunner:
     project_root: Path
     tutorials_dir: Path
     log_dir: Path
+    work_dir: Path  # Temp directory for tutorial execution
     verbose: bool = False
     test_domain: str = "hop3.dev"
 
@@ -81,6 +84,40 @@ class TestRunner:
         match = re.search(r"\d+ failed", log_content)
         return match.group(0) if match else "error"
 
+    def _print_failure_details(self, log_content: str) -> None:
+        """Print detailed failure information from log content."""
+        lines = log_content.split("\n")
+
+        # Find the [FAIL] line and show context
+        for i, line in enumerate(lines):
+            if "[FAIL]" in line:
+                print(f"    {Colors.RED}→ {line.strip()}{Colors.NC}")
+                # Show the next few lines which usually contain the error details
+                for j in range(i + 1, min(i + 5, len(lines))):
+                    detail_line = lines[j].strip()
+                    if detail_line and not detail_line.startswith("="):
+                        print(f"      {detail_line}")
+                break
+
+        # Also look for common error patterns in the full log
+        error_patterns = [
+            r"Error: (.+)",
+            r"error: (.+)",
+            r"ERROR: (.+)",
+            r"not found",
+            r"Permission denied",
+            r"Connection refused",
+            r"exit code \d+",
+        ]
+        for pattern in error_patterns:
+            match = re.search(pattern, log_content, re.IGNORECASE)
+            if match:
+                error_text = match.group(0)
+                # Avoid duplicating what we already showed
+                if error_text not in log_content[:500]:  # Skip if in header
+                    print(f"    {Colors.YELLOW}Hint: {error_text}{Colors.NC}")
+                    break
+
     def has_executable_blocks(self, file_path: Path) -> bool:
         """Check if tutorial has any executable blocks."""
         try:
@@ -118,13 +155,13 @@ class TestRunner:
         if app_name:
             self.cleanup_app(app_name)
 
-        # Run the tutorial
+        # Run the tutorial in isolated work directory
         print(f"  {full_name:<40} ", end="", flush=True)
 
         start_time = time.time()
         try:
             result = subprocess.run(
-                ["tutotest", "run", str(tutorial_path)],
+                ["validoc", "run", "--workdir", str(self.work_dir), str(tutorial_path)],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -154,15 +191,7 @@ class TestRunner:
 
             # Show failure details if verbose
             if self.verbose and log_content:
-                print("    Last error:")
-                lines = log_content.split("\n")
-                fail_lines = []
-                for i, line in enumerate(lines):
-                    if "FAIL]" in line:
-                        fail_lines = lines[i : i + 3]
-                        break
-                for line in fail_lines[-5:]:
-                    print(f"    {line}")
+                self._print_failure_details(log_content)
 
             return TutorialResult(
                 name=full_name,
@@ -413,24 +442,38 @@ def main() -> int:
         print(f"{Colors.RED}Error: Tutorials directory not found: {tutorials_dir}{Colors.NC}")
         return 1
 
-    # Create runner and run all tutorials
-    runner = TestRunner(
-        project_root=project_root,
-        tutorials_dir=tutorials_dir,
-        log_dir=log_dir,
-        verbose=verbose,
-        test_domain=test_domain,
-    )
+    # Create temp directory for tutorial execution
+    # This isolates tutorials from each other and from the project root
+    work_dir = Path(tempfile.mkdtemp(prefix="hop3-tutorials-"))
+    print(f"Work directory: {work_dir}")
+    print()
 
-    runner.run_all()
-    runner.write_summary()
-    runner.print_summary()
+    try:
+        # Create runner and run all tutorials
+        runner = TestRunner(
+            project_root=project_root,
+            tutorials_dir=tutorials_dir,
+            log_dir=log_dir,
+            work_dir=work_dir,
+            verbose=verbose,
+            test_domain=test_domain,
+        )
 
-    print(f"Finished at: {datetime.now()}")
-    print(f"Logs saved to: {log_dir}")
+        runner.run_all()
+        runner.write_summary()
+        runner.print_summary()
 
-    # Exit with failure if any tutorials failed
-    return 1 if runner.failed else 0
+        print(f"Finished at: {datetime.now()}")
+        print(f"Logs saved to: {log_dir}")
+
+        # Exit with failure if any tutorials failed
+        return 1 if runner.failed else 0
+
+    finally:
+        # Clean up work directory
+        if work_dir.exists():
+            shutil.rmtree(work_dir, ignore_errors=True)
+            print(f"Cleaned up work directory: {work_dir}")
 
 
 if __name__ == "__main__":
