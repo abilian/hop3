@@ -148,7 +148,9 @@ def _restore_app_config(app_name: str, config: dict[str, str]) -> None:
 def wait_for_app(
     seconds: int = 5, message: str = "Waiting for application to start..."
 ) -> None:
-    """Wait for an application to start.
+    """Wait for an application to start (legacy fixed wait).
+
+    DEPRECATED: Use wait_for_app_ready() for smart polling instead.
 
     Args:
         seconds: Number of seconds to wait
@@ -158,7 +160,53 @@ def wait_for_app(
 
     print_step(message)
     time.sleep(seconds)
-    record_timing(f"wait {seconds}s", seconds, category="wait")
+    record_timing(f"wait {seconds}s (fixed)", seconds, category="wait")
+
+
+def wait_for_app_ready(
+    app_name: str,
+    timeout: float = 30.0,
+    poll_interval: float = 0.5,
+    message: str | None = None,
+) -> bool:
+    """Poll until application is ready.
+
+    Uses hop3 app:ping to check if the app is responding.
+    Much faster than fixed waits when app starts quickly.
+
+    Args:
+        app_name: Name of the application
+        timeout: Maximum time to wait in seconds
+        poll_interval: Time between polls in seconds
+        message: Optional message to display
+
+    Returns:
+        True if app is ready, False if timeout reached
+    """
+    from lib.logging import record_timing
+
+    if message:
+        print_step(message)
+    else:
+        print_step(f"Waiting for {app_name} to be ready...")
+
+    start = time.time()
+    attempts = 0
+
+    while time.time() - start < timeout:
+        attempts += 1
+        result = run_hop3(f"app:ping {app_name}", check=False, show=False, quiet=True)
+        if result.returncode == 0:
+            elapsed = time.time() - start
+            record_timing(f"wait ready ({attempts} polls, {elapsed:.1f}s)", elapsed, category="wait")
+            print_success(f"Application ready after {elapsed:.1f}s")
+            return True
+        time.sleep(poll_interval)
+
+    elapsed = time.time() - start
+    record_timing(f"wait timeout ({attempts} polls, {elapsed:.1f}s)", elapsed, category="wait")
+    print_error(f"Application not ready after {timeout}s")
+    return False
 
 
 def check_app_status(ctx: DemoContext, app_name: str) -> None:
@@ -200,8 +248,8 @@ def test_app_via_curl(
 
     # Extract hostname from URL and use --resolve for DNS resolution
     # This allows testing with custom hostnames like "demo37.hop"
-    from urllib.parse import urlparse
     import socket
+    from urllib.parse import urlparse
 
     parsed = urlparse(app_url)
     hostname = parsed.hostname
@@ -246,7 +294,11 @@ def test_app_via_curl(
                 print(f"  {green('Response:')}")
                 print(f"  {result.stdout.strip()}")
                 print()
-            record_timing(f"curl test ({attempt + 1} attempts)", time.time() - curl_start, category="curl")
+            record_timing(
+                f"curl test ({attempt + 1} attempts)",
+                time.time() - curl_start,
+                category="curl",
+            )
             print_success(f"Application accessible at {app_url}")
             pause(ctx.pause_between_steps)
             return
@@ -280,15 +332,23 @@ def test_app_via_curl(
 
     # Log curl details to file for debugging
     from lib.logging import log_section
-    log_section("curl-test", f"Curl test failed for {app_url}",
-                f"Command: {curl_cmd}\n"
-                f"Expected: {expected_content}\n"
-                f"Exit code: {last_result.returncode if last_result else 'N/A'}\n"
-                f"Response ({len(last_result.stdout) if last_result and last_result.stdout else 0} bytes):\n"
-                f"{last_result.stdout[:1000] if last_result and last_result.stdout else 'N/A'}\n"
-                f"Stderr: {last_result.stderr if last_result and last_result.stderr else 'N/A'}")
 
-    record_timing(f"curl test FAILED ({max_retries} attempts)", time.time() - curl_start, category="curl")
+    log_section(
+        "curl-test",
+        f"Curl test failed for {app_url}",
+        f"Command: {curl_cmd}\n"
+        f"Expected: {expected_content}\n"
+        f"Exit code: {last_result.returncode if last_result else 'N/A'}\n"
+        f"Response ({len(last_result.stdout) if last_result and last_result.stdout else 0} bytes):\n"
+        f"{last_result.stdout[:1000] if last_result and last_result.stdout else 'N/A'}\n"
+        f"Stderr: {last_result.stderr if last_result and last_result.stderr else 'N/A'}",
+    )
+
+    record_timing(
+        f"curl test FAILED ({max_retries} attempts)",
+        time.time() - curl_start,
+        category="curl",
+    )
     msg = f"Application not accessible at {app_url}"
     raise RuntimeError(msg)
 
@@ -297,7 +357,7 @@ def curl_request(ctx: DemoContext, url: str) -> subprocess.CompletedProcess:
     """Make a curl request with proper DNS resolution.
 
     Uses --resolve to map the hostname to the server IP, allowing
-    requests to custom hostnames like "demo32.hop3.local".
+    requests to custom hostnames like "demo32.hop3.dev".
 
     Args:
         ctx: Demo context
@@ -306,8 +366,8 @@ def curl_request(ctx: DemoContext, url: str) -> subprocess.CompletedProcess:
     Returns:
         CompletedProcess with stdout, stderr, and returncode
     """
-    from urllib.parse import urlparse
     import socket
+    from urllib.parse import urlparse
 
     parsed = urlparse(url)
     hostname = parsed.hostname

@@ -104,7 +104,9 @@ def _is_service_active(ctx: DemoContext, service_name: str) -> bool:
     if hasattr(backend, "service_status"):
         status = backend.service_status(service_name)
         return status == "active"
-    result = run_ssh(ctx, f"systemctl is-active {service_name}", show=False, check=False)
+    result = run_ssh(
+        ctx, f"systemctl is-active {service_name}", show=False, check=False
+    )
     return "active" in result.stdout
 
 
@@ -197,7 +199,12 @@ def clean_server(ctx: DemoContext) -> None:
 
     # Recreate hop3 user home directory
     print_info("Recreating hop3 user home directory...")
-    run_ssh(ctx, "mkdir -p /home/hop3 && chown hop3:hop3 /home/hop3", show=False, check=False)
+    run_ssh(
+        ctx,
+        "mkdir -p /home/hop3 && chown hop3:hop3 /home/hop3",
+        show=False,
+        check=False,
+    )
 
     print_success("Server cleaned successfully")
 
@@ -221,7 +228,9 @@ def verify_connectivity(ctx: DemoContext) -> None:
         print_success(f"Docker container '{ctx.docker_container}' ready")
     else:
         print_step("Verifying SSH access to the server...")
-        result = run_ssh(ctx, "echo 'SSH connection successful'", show=False, check=False)
+        result = run_ssh(
+            ctx, "echo 'SSH connection successful'", show=False, check=False
+        )
         if result.returncode != 0:
             print_error(f"Cannot connect to {ctx.ssh_target}")
             print_info("Please ensure SSH key authentication is configured.")
@@ -233,7 +242,7 @@ def verify_connectivity(ctx: DemoContext) -> None:
 def check_dns_resolution(ctx: DemoContext) -> None:
     """Check if DNS resolution works for demo hostnames.
 
-    Demos use hostnames like 'demo01.hop3.local' which require local DNS
+    Demos use hostnames like 'demo01.hop3.dev' which require local DNS
     (e.g., dnsmasq) to resolve to the server IP. This check verifies that
     DNS is properly configured before running demos.
 
@@ -271,7 +280,7 @@ def check_dns_resolution(ctx: DemoContext) -> None:
     except socket.gaierror:
         print_error(f"DNS resolution failed for {test_hostname}")
         print_info("")
-        print_info("Demo hostnames like 'demoN.hop3.local' require local DNS.")
+        print_info("Demo hostnames like 'demoN.hop3.dev' require local DNS.")
         print_info("Please start dnsmasq or configure /etc/hosts:")
         print_info("")
         print_info("  Option 1: Start dnsmasq (recommended)")
@@ -279,7 +288,7 @@ def check_dns_resolution(ctx: DemoContext) -> None:
         print_info("    sudo systemctl start dnsmasq      # Linux")
         print_info("")
         print_info("  Option 2: Add entries to /etc/hosts")
-        print_info(f"    {expected_ip}  test.hop3.local demo01.hop3.local ...")
+        print_info(f"    {expected_ip}  test.hop3.dev demo01.hop3.dev ...")
         print_info("")
         msg = f"DNS resolution failed for {test_hostname}"
         raise CommandError(msg)
@@ -355,7 +364,9 @@ def install_hop3(ctx: DemoContext) -> None:
     # For Docker backend without systemd, the installer's verification step will fail
     # because services aren't running yet. We'll start them via supervisor after.
     backend = ctx.get_backend()
-    ignore_verification_failure = hasattr(backend, "has_systemd") and not backend.has_systemd
+    ignore_verification_failure = (
+        hasattr(backend, "has_systemd") and not backend.has_systemd
+    )
 
     if ctx.use_local_code:
         # First sync local code, then install from local path
@@ -397,8 +408,14 @@ def install_hop3(ctx: DemoContext) -> None:
         # In supervisor mode, just verify processes are running
         run_ssh(ctx, "supervisorctl status 2>/dev/null || true", check=False)
     else:
-        run_ssh(ctx, "systemctl status hop3-server --no-pager 2>/dev/null || true", check=False)
-        run_ssh(ctx, "systemctl status nginx --no-pager 2>/dev/null || true", check=False)
+        run_ssh(
+            ctx,
+            "systemctl status hop3-server --no-pager 2>/dev/null || true",
+            check=False,
+        )
+        run_ssh(
+            ctx, "systemctl status nginx --no-pager 2>/dev/null || true", check=False
+        )
     print_success("Hop3 services are running")
 
 
@@ -611,7 +628,11 @@ def ensure_postgres(ctx: DemoContext) -> None:
     if not _is_service_active(ctx, "postgresql"):
         print_error("PostgreSQL service is not running")
         # Show status for debugging (fallback gracefully)
-        run_ssh(ctx, "systemctl status postgresql --no-pager 2>/dev/null || supervisorctl status postgresql 2>/dev/null || true", check=False)
+        run_ssh(
+            ctx,
+            "systemctl status postgresql --no-pager 2>/dev/null || supervisorctl status postgresql 2>/dev/null || true",
+            check=False,
+        )
         msg = "PostgreSQL service not running"
         raise RuntimeError(msg)
     print_success("PostgreSQL service is running")
@@ -653,7 +674,11 @@ def ensure_mysql(ctx: DemoContext) -> None:
     if not _is_service_active(ctx, "mysql"):
         print_error("MySQL service is not running")
         # Show status for debugging (fallback gracefully)
-        run_ssh(ctx, "systemctl status mysql --no-pager 2>/dev/null || supervisorctl status mysql 2>/dev/null || true", check=False)
+        run_ssh(
+            ctx,
+            "systemctl status mysql --no-pager 2>/dev/null || supervisorctl status mysql 2>/dev/null || true",
+            check=False,
+        )
         msg = "MySQL service not running"
         raise RuntimeError(msg)
     print_success("MySQL service is running")
@@ -696,7 +721,11 @@ def ensure_redis(ctx: DemoContext) -> None:
     if not _is_service_active(ctx, "redis-server"):
         print_error("Redis service is not running")
         # Show status for debugging (fallback gracefully)
-        run_ssh(ctx, "systemctl status redis-server --no-pager 2>/dev/null || supervisorctl status redis-server 2>/dev/null || true", check=False)
+        run_ssh(
+            ctx,
+            "systemctl status redis-server --no-pager 2>/dev/null || supervisorctl status redis-server 2>/dev/null || true",
+            check=False,
+        )
         msg = "Redis service not running"
         raise RuntimeError(msg)
     print_success("Redis service is running")

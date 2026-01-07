@@ -42,7 +42,7 @@ class TestRunner:
     tutorials_dir: Path
     log_dir: Path
     verbose: bool = False
-    test_domain: str = "hop3.local"
+    test_domain: str = "hop3.dev"
 
     # Results tracking
     results: list[TutorialResult] = field(default_factory=list)
@@ -279,7 +279,7 @@ def check_dns_resolution(test_domain: str) -> tuple[bool, str]:
     """Check if DNS wildcard resolution is working for the test domain.
 
     Args:
-        test_domain: The test domain (e.g., hop3.local)
+        test_domain: The test domain (e.g., hop3.dev)
 
     Returns:
         Tuple of (success, resolved_ip or error message)
@@ -300,7 +300,7 @@ def check_server_connectivity(test_domain: str, timeout: int = 10) -> bool:
     """Check if the Hop3 server is accessible.
 
     Args:
-        test_domain: The test domain (e.g., hop3.local)
+        test_domain: The test domain (e.g., hop3.dev)
         timeout: Connection timeout in seconds
 
     Returns:
@@ -359,7 +359,7 @@ def main() -> int:
     log_dir = project_root / "logs" / "tutorial-logs" / timestamp
 
     # Ensure HOP3_TEST_DOMAIN is set
-    test_domain = os.environ.get("HOP3_TEST_DOMAIN", "hop3.local")
+    test_domain = os.environ.get("HOP3_TEST_DOMAIN", "hop3.dev")
     os.environ["HOP3_TEST_DOMAIN"] = test_domain
 
     # Create log directory

@@ -123,7 +123,7 @@ class TestSystemStatus:
             memory_percent=62.3,
             disk_percent=80.0,
             uptime_seconds=86400,
-            hostname="hop3.local",
+            hostname="hop3.dev",
             hop3_version="0.5.0",
             apps_running=5,
             apps_stopped=2,

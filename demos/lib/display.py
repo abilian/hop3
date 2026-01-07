@@ -43,6 +43,7 @@ def print_config(ctx: DemoContext, demos: list[str]) -> None:
     print(f"  Demos to run:    {', '.join(demos)}")
     print(f"  Local code:      {ctx.use_local_code}")
     print(f"  Skip install:    {ctx.skip_install}")
+    print(f"  Preflight:       {ctx.preflight}")
     print(f"  Clean before:    {ctx.clean_before}")
     print(f"  Keep apps:       {ctx.no_cleanup}")
     print()

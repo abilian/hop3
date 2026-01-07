@@ -1,6 +1,6 @@
 # DNS Configuration for Tutorial Testing
 
-Tutorial tests require DNS wildcard resolution to work. Each deployed application gets a unique hostname like `hop3-tuto-express.hop3.local`, which must resolve to the Hop3 server IP.
+Tutorial tests require DNS wildcard resolution to work. Each deployed application gets a unique hostname like `hop3-tuto-express.hop3.dev`, which must resolve to the Hop3 server IP.
 
 ## Quick Setup (macOS)
 
@@ -12,8 +12,8 @@ python scripts/setup-dnsmasq.py <server-ip>
 ```
 
 This configures:
-- `*.hop3.local` -> `<server-ip>` (for remote SSH testing)
-- `*.hop3-docker.local` -> `127.0.0.1` (for Docker testing)
+- `*.hop3.dev` -> `<server-ip>` (for remote SSH testing)
+- `*.hop3-docker.dev` -> `127.0.0.1` (for Docker testing)
 
 ## Manual Setup
 
@@ -31,8 +31,8 @@ brew install dnsmasq
 
 ```conf
 # Wildcard DNS for Hop3 testing
-address=/hop3.local/<server-ip>
-address=/hop3-docker.local/127.0.0.1
+address=/hop3.dev/<server-ip>
+address=/hop3-docker.dev/127.0.0.1
 ```
 
 2. **Configure main dnsmasq.conf** at `/opt/homebrew/etc/dnsmasq.conf`:
@@ -51,10 +51,10 @@ conf-dir=/opt/homebrew/etc/dnsmasq.d/,*.conf
 sudo mkdir -p /etc/resolver
 
 # For remote testing
-echo "nameserver 127.0.0.1" | sudo tee /etc/resolver/hop3.local
+echo "nameserver 127.0.0.1" | sudo tee /etc/resolver/hop3.dev
 
 # For Docker testing
-echo "nameserver 127.0.0.1" | sudo tee /etc/resolver/hop3-docker.local
+echo "nameserver 127.0.0.1" | sudo tee /etc/resolver/hop3-docker.dev
 ```
 
 4. **Start dnsmasq**:
@@ -67,7 +67,7 @@ sudo dnsmasq
 
 ```bash
 # Test wildcard resolution
-dig test.hop3.local @127.0.0.1
+dig test.hop3.dev @127.0.0.1
 
 # Expected: resolves to your server IP
 ```
@@ -81,7 +81,7 @@ Once DNS is configured:
 python scripts/run-all-tutorials.py
 
 # For Docker testing
-HOP3_TEST_DOMAIN=hop3-docker.local python scripts/run-all-tutorials.py
+HOP3_TEST_DOMAIN=hop3-docker.dev python scripts/run-all-tutorials.py
 ```
 
 ## Troubleshooting
@@ -126,7 +126,7 @@ On Linux, you can use dnsmasq or NetworkManager:
 
 1. Create `/etc/NetworkManager/dnsmasq.d/hop3.conf`:
    ```conf
-   address=/hop3.local/<server-ip>
+   address=/hop3.dev/<server-ip>
    ```
 
 2. Enable dnsmasq in NetworkManager:
@@ -141,12 +141,12 @@ On Linux, you can use dnsmasq or NetworkManager:
    ```conf
    [Resolve]
    DNS=127.0.0.1
-   Domains=~hop3.local
+   Domains=~hop3.dev
    ```
 
 2. Add entry to `/etc/hosts`:
    ```
-   <server-ip> *.hop3.local
+   <server-ip> *.hop3.dev
    ```
 
 Note: Linux wildcard DNS support varies by distribution. Testing with explicit hosts entries may be needed.

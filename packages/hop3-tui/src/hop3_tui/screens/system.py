@@ -117,7 +117,7 @@ class SystemInfoPanel(Static):
         content.update(f"Hostname: {hostname}\nHop3:     {version}\nUptime:   {uptime}")
 
     def _update_display(self) -> None:
-        self.update_info("hop3.local", "v0.5.0", "14d 3h 22m")
+        self.update_info("hop3.dev", "v0.5.0", "14d 3h 22m")
 
 
 class SystemScreen(Screen):

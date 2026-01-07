@@ -135,6 +135,30 @@ class DeployCmd(Command):
             self.db_session.commit()
             server_log.info("Deploy: created new app", app_name=app_name, app_id=app.id)
 
+        # Handle --env flags: merge new env vars with existing ones
+        env_vars_from_cli = kwargs.get("env_vars", {})
+        if env_vars_from_cli:
+            from hop3.orm.env_var import EnvVar
+
+            # Get existing env as dict
+            existing_env = {ev.name: ev.value for ev in app.env_vars}
+            # Merge with CLI env vars (CLI takes precedence)
+            existing_env.update(env_vars_from_cli)
+            # Update the app
+            app.env_vars.clear()
+            for key, value in existing_env.items():
+                app.env_vars.append(EnvVar(name=key, value=value, app=app))
+            self.db_session.commit()
+
+            server_log.info(
+                "Deploy: set env vars from --env",
+                app_name=app_name,
+                env_vars_set=list(env_vars_from_cli.keys()),
+            )
+            log(
+                f"Set {len(env_vars_from_cli)} env var(s) from --env: {', '.join(env_vars_from_cli.keys())}"
+            )
+
         archives_bytes = b64decode(kwargs["repository"])
         extract_archive_to_dir(archives_bytes, app.src_path)
 

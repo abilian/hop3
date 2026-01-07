@@ -39,11 +39,63 @@ def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
 
     match command:
         case "deploy":
-            # args[0]="deploy", args[1]=app_name, args[2]=directory
-            directory = Path(args[2]) if len(args) > 2 else Path()
+            # Parse deploy-specific flags
+            # args[0]="deploy", args[1]=app_name, remaining args may include --env and directory
+            env_vars, remaining_args = _parse_deploy_args(args[1:])
+
+            # Directory is the last non-flag argument (if any)
+            directory = Path(remaining_args[-1]) if len(remaining_args) > 1 else Path()
             extra_args["repository"] = pack_repository(directory)
 
+            # Include env vars if any were specified
+            if env_vars:
+                extra_args["env_vars"] = env_vars
+
     return extra_args
+
+
+def _parse_deploy_args(args: list[str]) -> tuple[dict[str, str], list[str]]:
+    """Parse deploy command arguments, extracting --env flags.
+
+    Args:
+        args: Arguments after 'deploy' command (app_name, --env flags, directory)
+
+    Returns:
+        Tuple of (env_vars dict, remaining args without --env flags)
+
+    Example:
+        >>> _parse_deploy_args(['myapp', '--env', 'FOO=bar', '--env', 'BAZ=qux', '.'])
+        ({'FOO': 'bar', 'BAZ': 'qux'}, ['myapp', '.'])
+    """
+    env_vars: dict[str, str] = {}
+    remaining: list[str] = []
+    i = 0
+
+    while i < len(args):
+        arg = args[i]
+
+        if arg in ("--env", "-e"):
+            # Next argument should be KEY=VALUE
+            if i + 1 < len(args):
+                env_spec = args[i + 1]
+                if "=" in env_spec:
+                    key, _, value = env_spec.partition("=")
+                    env_vars[key] = value
+                i += 2
+            else:
+                i += 1  # Skip malformed --env without value
+        elif arg.startswith("--env="):
+            # Handle --env=KEY=VALUE format
+            env_spec = arg[6:]  # Remove --env=
+            if "=" in env_spec:
+                key, _, value = env_spec.partition("=")
+                env_vars[key] = value
+            i += 1
+        else:
+            remaining.append(arg)
+            i += 1
+
+    return env_vars, remaining
 
 
 def pack_repository(directory: Path = Path()) -> str:

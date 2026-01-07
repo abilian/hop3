@@ -281,7 +281,7 @@ help                    - Show help
 │                                │                            │
 │ NETWORK                        │ INFO                       │
 │ ─────────────────────────────  │ ──────────────────────     │
-│ eth0: ↓ 1.2 MB/s  ↑ 0.8 MB/s   │ Hostname: hop3.local       │
+│ eth0: ↓ 1.2 MB/s  ↑ 0.8 MB/s   │ Hostname: hop3.dev       │
 │ Connections: 42                │ Hop3: v0.5.0               │
 │                                │ Uptime: 14d 3h 22m         │
 ├────────────────────────────────┴────────────────────────────┤

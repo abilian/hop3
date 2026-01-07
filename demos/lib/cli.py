@@ -168,6 +168,11 @@ Examples:
         metavar="SECS",
         help="Pause between demo steps in seconds (default: 0.5)",
     )
+    execution.add_argument(
+        "--preflight",
+        action="store_true",
+        help="Run preflight checks (SSH, DNS, Ubuntu version). Skipped by default.",
+    )
 
     # Output control
     output = parser.add_argument_group("Output Control")
