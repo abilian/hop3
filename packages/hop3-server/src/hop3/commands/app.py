@@ -8,9 +8,7 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 import time
-import traceback
 import urllib.error
 import urllib.request
 from base64 import b64decode
@@ -24,6 +22,7 @@ from hop3.lib.registry import register
 from hop3.orm import App, AppRepository
 
 from ._base import Command
+from ._errors import command_context
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -72,19 +71,20 @@ class LaunchCmd(Command):
         self.db_session.commit()
 
         try:
-            # Clone the source code into the app's src directory
-            subprocess.run(
-                ["git", "clone", "--quiet", repo_url, str(app.src_path)],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        except subprocess.CalledProcessError as e:
+            with command_context("launching app", app_name=app_name, repo_url=repo_url):
+                # Clone the source code into the app's src directory
+                subprocess.run(
+                    ["git", "clone", "--quiet", repo_url, str(app.src_path)],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+        except ValueError:
             # Clean up if clone fails
             app.destroy()
             self.db_session.delete(app)
             self.db_session.commit()
-            return [{"t": "text", "text": f"Error cloning repository: {e.stderr}"}]
+            raise
 
         return [
             {
@@ -164,48 +164,17 @@ class DeployCmd(Command):
 
         # Capture logs during deployment (uses global verbosity context)
         with capture_logs() as captured:
-            try:
+            # Use command_context for consistent error handling:
+            # - Logs full traceback to stderr for debugging
+            # - Converts subprocess errors to user-friendly messages
+            # - Re-raises as ValueError for JSON-RPC error response
+            with command_context("deploying app", app_name=app_name):
                 do_deploy(app)
                 # Record deployment timestamp and commit state changes
                 from datetime import UTC, datetime
 
                 app.last_deployed_at = datetime.now(UTC)
                 self.db_session.commit()
-
-            # TODO: make the exception handling a generic mechanism (reusable by other commands)
-            except subprocess.CalledProcessError as e:
-                # Handle subprocess errors specially to show command output
-                tb = traceback.format_exc()
-                error_parts = [
-                    f"Deployment failed: Command exited with code {e.returncode}",
-                    f"Command: {e.cmd}",
-                ]
-                if e.stdout:
-                    error_parts.append(f"\nStdout:\n{e.stdout}")
-                if e.stderr:
-                    error_parts.append(f"\nStderr:\n{e.stderr}")
-
-                error_msg = "\n".join(error_parts)
-
-                # Log to server console for debugging
-                print(f"[ERROR] Deployment failed for {app_name}:", file=sys.stderr)
-                print(tb, file=sys.stderr)
-
-                # Re-raise as ValueError so RPC handler returns proper JSON-RPC error
-                # This ensures the CLI client receives an Error response and exits with code 1
-                raise ValueError(error_msg) from e
-            except Exception as e:
-                tb = traceback.format_exc()
-                # Log full traceback to server console for debugging
-                print(f"[ERROR] Deployment failed for {app_name}:", file=sys.stderr)
-                print(tb, file=sys.stderr)
-
-                # Build user-friendly error message (no traceback)
-                error_msg = f"Deployment failed: {e}"
-
-                # Re-raise as ValueError so RPC handler returns proper JSON-RPC error
-                # This ensures the CLI client receives an Error response and exits with code 1
-                raise ValueError(error_msg) from e
 
         # Build response with logs
         logs = captured.get_logs()
@@ -591,8 +560,9 @@ class StartCmd(Command):
 
         # Capture logs during start operation (uses global verbosity context)
         with capture_logs() as captured:
-            app.start()
-            self.db_session.commit()
+            with command_context("starting app", app_name=app_name):
+                app.start()
+                self.db_session.commit()
 
         # Build response with captured logs
         response = []
@@ -647,8 +617,9 @@ class StopCmd(Command):
 
         # Capture logs during stop operation (uses global verbosity context)
         with capture_logs() as captured:
-            app.stop()
-            self.db_session.commit()
+            with command_context("stopping app", app_name=app_name):
+                app.stop()
+                self.db_session.commit()
 
         # Build response with captured logs
         response = []
@@ -687,8 +658,9 @@ class RestartCmd(Command):
 
         # Capture logs during restart operation (uses global verbosity context)
         with capture_logs() as captured:
-            app.restart()
-            self.db_session.commit()
+            with command_context("restarting app", app_name=app_name):
+                app.restart()
+                self.db_session.commit()
 
         # Build response with captured logs
         response = []
@@ -736,20 +708,21 @@ class DestroyCmd(Command):
 
         # Capture logs during destroy operation (uses global verbosity context)
         with capture_logs() as captured:
-            log(f"Destroying app '{app_name}'...", level=2)
+            with command_context("destroying app", app_name=app_name):
+                log(f"Destroying app '{app_name}'...", level=2)
 
-            # Stop the app first to release any file locks
-            app.stop()
+                # Stop the app first to release any file locks
+                app.stop()
 
-            # Clean up filesystem (repo, src, logs, configs etc.)
-            app.destroy()
+                # Clean up filesystem (repo, src, logs, configs etc.)
+                app.destroy()
 
-            # Remove from the database
-            self.db_session.delete(app)
-            self.db_session.commit()
+                # Remove from the database
+                self.db_session.delete(app)
+                self.db_session.commit()
 
-            # Reload nginx to remove the app's routing configuration
-            self._reload_nginx()
+                # Reload nginx to remove the app's routing configuration
+                self._reload_nginx()
 
         # Build response with captured logs
         response = []

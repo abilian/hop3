@@ -208,11 +208,11 @@ class TestBackupCreateCommand:
         """Test creating backup for non-existent app."""
         cmd = BackupCreateCmd(db_session=test_db)
 
-        result = cmd.call("nonexistent-app")
+        # App not found raises ValueError for JSON-RPC error handling
+        with pytest.raises(ValueError) as exc_info:
+            cmd.call("nonexistent-app")
 
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "not found" in result[0]["text"]
+        assert "not found" in str(exc_info.value)
 
     def test_create_backup_no_args(self, test_db):
         """Test backup:create with no arguments."""
@@ -313,11 +313,12 @@ class TestBackupInfoCommand:
     def test_info_nonexistent_backup(self, test_db):
         """Test getting info for non-existent backup."""
         info_cmd = BackupInfoCmd(db_session=test_db)
-        result = info_cmd.call("nonexistent_backup")
 
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "not found" in result[0]["text"]
+        # Backup not found raises ValueError for JSON-RPC error handling
+        with pytest.raises(ValueError) as exc_info:
+            info_cmd.call("nonexistent_backup")
+
+        assert "not found" in str(exc_info.value).lower()
 
     def test_info_no_args(self, test_db):
         """Test backup:info with no arguments."""
@@ -408,11 +409,12 @@ class TestBackupRestoreCommand:
     def test_restore_nonexistent_backup(self, test_db):
         """Test restoring non-existent backup."""
         restore_cmd = BackupRestoreCmd(db_session=test_db)
-        result = restore_cmd.call("nonexistent_backup")
 
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "not found" in result[0]["text"]
+        # Backup not found raises ValueError for JSON-RPC error handling
+        with pytest.raises(ValueError) as exc_info:
+            restore_cmd.call("nonexistent_backup")
+
+        assert "not found" in str(exc_info.value).lower()
 
     def test_restore_no_args(self, test_db):
         """Test backup:restore with no arguments."""
@@ -451,11 +453,12 @@ class TestBackupDeleteCommand:
     def test_delete_nonexistent_backup(self, test_db):
         """Test deleting non-existent backup."""
         delete_cmd = BackupDeleteCmd(db_session=test_db)
-        result = delete_cmd.call("nonexistent_backup")
 
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "not found" in result[0]["text"]
+        # Backup not found raises ValueError for JSON-RPC error handling
+        with pytest.raises(ValueError) as exc_info:
+            delete_cmd.call("nonexistent_backup")
+
+        assert "not found" in str(exc_info.value).lower()
 
     def test_delete_no_args(self, test_db):
         """Test backup:delete with no arguments."""

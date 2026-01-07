@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import traceback
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
@@ -17,6 +16,7 @@ from hop3.lib.logging import server_log
 from hop3.orm import AddonCredential, EnvVar
 
 from ._base import Command
+from ._errors import command_context
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -108,7 +108,9 @@ class AddonsCreateCmd(Command):
         service_type = args[0]
         addon_name = args[1]
 
-        try:
+        with command_context(
+            "creating addon", addon_name=addon_name, service_type=service_type
+        ):
             # Get the service strategy from the plugin system
             server_log.info(
                 "addons:create getting addon",
@@ -122,29 +124,16 @@ class AddonsCreateCmd(Command):
             addon.create()
             server_log.info("addons:create addon.create() completed successfully")
 
-            return [
-                {
-                    "t": "text",
-                    "text": f"Addon '{addon_name}' of type '{service_type}' created successfully.",
-                },
-                {
-                    "t": "text",
-                    "text": f"\nTo attach this service to an app, run:\n  hop3 addons:attach {addon_name} --app <app-name>",
-                },
-            ]
-
-        except RuntimeError as e:
-            server_log.error("addons:create RuntimeError", error=str(e))
-            return [{"t": "error", "text": f"Error creating service: {e}"}]
-        except Exception as e:
-            server_log.error(
-                "addons:create Exception",
-                error_type=type(e).__name__,
-                error=str(e),
-                exc_info=True,
-            )
-            traceback.print_exc()
-            return [{"t": "error", "text": f"Unexpected error: {e}"}]
+        return [
+            {
+                "t": "text",
+                "text": f"Addon '{addon_name}' of type '{service_type}' created successfully.",
+            },
+            {
+                "t": "text",
+                "text": f"\nTo attach this service to an app, run:\n  hop3 addons:attach {addon_name} --app <app-name>",
+            },
+        ]
 
 
 @register
@@ -315,7 +304,9 @@ class AddonsAttachCmd(Command):
                 }
             ]
 
-        try:
+        with command_context(
+            "attaching addon", addon_name=addon_name, app_name=app_name
+        ):
             # Check if app exists
             from hop3.orm.repositories import AppRepository  # noqa: PLC0415
 
@@ -324,7 +315,8 @@ class AddonsAttachCmd(Command):
 
             if not app:
                 server_log.warning("addons:attach app not found", app_name=app_name)
-                return [{"t": "error", "text": f"App '{app_name}' not found"}]
+                msg = f"App '{app_name}' not found"
+                raise ValueError(msg)
 
             server_log.info(
                 "addons:attach found app",
@@ -342,21 +334,7 @@ class AddonsAttachCmd(Command):
             )
 
             # Get connection details - this may raise RuntimeError if password not found
-            try:
-                connection_details = addon.get_connection_details()
-            except RuntimeError as e:
-                server_log.error(
-                    "addons:attach get_connection_details failed",
-                    addon_name=addon_name,
-                    error=str(e),
-                )
-                return [
-                    {"t": "error", "text": f"Failed to get connection details: {e}"},
-                    {
-                        "t": "text",
-                        "text": "Make sure the addon was created first with 'addons:create'.",
-                    },
-                ]
+            connection_details = addon.get_connection_details()
 
             server_log.info(
                 "addons:attach got connection details",
@@ -366,13 +344,8 @@ class AddonsAttachCmd(Command):
 
             if not connection_details:
                 server_log.error("addons:attach connection_details is empty!")
-                return [
-                    {
-                        "t": "error",
-                        "text": "No connection details returned from addon.",
-                    },
-                    {"t": "text", "text": "This is a bug - please check server logs."},
-                ]
+                msg = "No connection details returned from addon"
+                raise ValueError(msg)
 
             # Store credentials and add environment variables
             self._store_or_update_credential(
@@ -410,39 +383,31 @@ class AddonsAttachCmd(Command):
                         env_var_names=env_var_names,
                     )
 
-            # Build response with details about what was added
-            response = [
-                {
-                    "t": "text",
-                    "text": f"Addon '{addon_name}' attached to app '{app_name}' successfully.",
-                },
-            ]
+        # Build response with details about what was added
+        response = [
+            {
+                "t": "text",
+                "text": f"Addon '{addon_name}' attached to app '{app_name}' successfully.",
+            },
+        ]
 
-            if added_vars:
-                response.append({
-                    "t": "text",
-                    "text": "\nEnvironment variables:\n  " + "\n  ".join(added_vars),
-                })
-            else:
-                response.append({
-                    "t": "warning",
-                    "text": "\nWARNING: No environment variables were added!",
-                })
-
+        if added_vars:
             response.append({
                 "t": "text",
-                "text": f"\nRedeploy your app for changes to take effect:\n  hop3 deploy {app_name}",
+                "text": "\nEnvironment variables:\n  " + "\n  ".join(added_vars),
+            })
+        else:
+            response.append({
+                "t": "warning",
+                "text": "\nWARNING: No environment variables were added!",
             })
 
-            return response
+        response.append({
+            "t": "text",
+            "text": f"\nRedeploy your app for changes to take effect:\n  hop3 deploy {app_name}",
+        })
 
-        except RuntimeError as e:
-            server_log.error("addons:attach RuntimeError", error=str(e))
-            return [{"t": "error", "text": f"Error attaching service: {e}"}]
-        except Exception as e:
-            server_log.error("addons:attach Exception", error=str(e), exc_info=True)
-            traceback.print_exc()
-            return [{"t": "error", "text": f"Unexpected error: {e}"}]
+        return response
 
 
 @register
@@ -557,7 +522,9 @@ class AddonsDetachCmd(Command):
                 }
             ]
 
-        try:
+        with command_context(
+            "detaching addon", addon_name=addon_name, app_name=app_name
+        ):
             # Check if app exists
             from hop3.orm.repositories import AppRepository  # noqa: PLC0415
 
@@ -565,7 +532,8 @@ class AddonsDetachCmd(Command):
             app = app_repo.get_one_or_none(name=app_name)
 
             if not app:
-                return [{"t": "error", "text": f"App '{app_name}' not found"}]
+                msg = f"App '{app_name}' not found"
+                raise ValueError(msg)
 
             # Get connection details and remove credential
             connection_details = self._get_connection_details(
@@ -577,23 +545,20 @@ class AddonsDetachCmd(Command):
 
             self.db_session.commit()
 
-            if removed_vars:
-                return [
-                    {
-                        "t": "text",
-                        "text": f"Addon '{addon_name}' detached from app '{app_name}'.",
-                    },
-                    {"t": "text", "text": f"\nRemoved: {', '.join(removed_vars)}"},
-                ]
+        if removed_vars:
             return [
                 {
                     "t": "text",
-                    "text": f"Addon '{addon_name}' was not attached to app '{app_name}'.",
-                }
+                    "text": f"Addon '{addon_name}' detached from app '{app_name}'.",
+                },
+                {"t": "text", "text": f"\nRemoved: {', '.join(removed_vars)}"},
             ]
-
-        except Exception as e:
-            return [{"t": "error", "text": f"Error detaching service: {e}"}]
+        return [
+            {
+                "t": "text",
+                "text": f"Addon '{addon_name}' was not attached to app '{app_name}'.",
+            }
+        ]
 
 
 @register
@@ -637,7 +602,9 @@ class AddonsDestroyCmd(Command):
             else:
                 i += 1
 
-        try:
+        with command_context(
+            "destroying addon", addon_name=addon_name, service_type=service_type
+        ):
             # Get the service strategy
             addon = get_addon(service_type, addon_name)
 
@@ -656,17 +623,12 @@ class AddonsDestroyCmd(Command):
             # Destroy the service
             addon.destroy()
 
-            return [
-                {
-                    "t": "text",
-                    "text": f"Addon '{addon_name}' of type '{service_type}' destroyed successfully.",
-                }
-            ]
-
-        except RuntimeError as e:
-            return [{"t": "error", "text": f"Error destroying service: {e}"}]
-        except Exception as e:
-            return [{"t": "error", "text": f"Unexpected error: {e}"}]
+        return [
+            {
+                "t": "text",
+                "text": f"Addon '{addon_name}' of type '{service_type}' destroyed successfully.",
+            }
+        ]
 
 
 @register
@@ -706,25 +668,22 @@ class AddonsInfoCmd(Command):
             else:
                 i += 1
 
-        try:
+        with command_context(
+            "getting addon info", addon_name=addon_name, service_type=service_type
+        ):
             # Get the service strategy
             addon = get_addon(service_type, addon_name)
 
             # Get service info
             info = addon.info()
 
-            # Format the output
-            lines = [f"Addon: {addon_name}", f"Type: {service_type}", ""]
-            for key, value in info.items():
-                if key not in {"addon_name", "type"}:
-                    lines.append(f"{key}: {value}")
+        # Format the output
+        lines = [f"Addon: {addon_name}", f"Type: {service_type}", ""]
+        for key, value in info.items():
+            if key not in {"addon_name", "type"}:
+                lines.append(f"{key}: {value}")
 
-            return [{"t": "text", "text": "\n".join(lines)}]
-
-        except RuntimeError as e:
-            return [{"t": "error", "text": f"Error getting service info: {e}"}]
-        except Exception as e:
-            return [{"t": "error", "text": f"Unexpected error: {e}"}]
+        return [{"t": "text", "text": "\n".join(lines)}]
 
 
 @register
@@ -770,7 +729,9 @@ class AddonsStatusCmd(Command):
             else:
                 i += 1
 
-        try:
+        with command_context(
+            "getting addon status", addon_name=addon_name, service_type=service_type
+        ):
             # Get the service strategy
             addon = get_addon(service_type, addon_name)
 
@@ -828,9 +789,4 @@ class AddonsStatusCmd(Command):
             except Exception:
                 pass
 
-            return [{"t": "table", "headers": ["Property", "Value"], "rows": rows}]
-
-        except RuntimeError as e:
-            return [{"t": "error", "text": f"Addon not found or error: {e}"}]
-        except Exception as e:
-            return [{"t": "error", "text": f"Unexpected error: {e}"}]
+        return [{"t": "table", "headers": ["Property", "Value"], "rows": rows}]

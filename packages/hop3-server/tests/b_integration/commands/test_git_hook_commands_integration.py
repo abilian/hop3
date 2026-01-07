@@ -320,12 +320,11 @@ bb563327e2c4f5af8g7g09552gb67057eecde7b25 79g8bcg5f7g033918900g63cd054fce42c80g9
             mock_stdin.read.return_value = push_data
             mock_deploy.side_effect = Exception("Build failed: missing dependencies")
 
-            result = cmd.call("test-app")
+            # command_context raises ValueError for JSON-RPC error handling
+            with pytest.raises(ValueError) as exc_info:
+                cmd.call("test-app")
 
-            assert len(result) == 1
-            assert result[0]["t"] == "error"
-            assert "Deployment failed" in result[0]["text"]
-            assert "missing dependencies" in result[0]["text"]
+            assert "missing dependencies" in str(exc_info.value)
 
     def test_git_hook_branch_name_extraction(
         self, db_session: Session, test_git_app: App
