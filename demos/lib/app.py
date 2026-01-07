@@ -198,13 +198,19 @@ def wait_for_app_ready(
         result = run_hop3(f"app:ping {app_name}", check=False, show=False, quiet=True)
         if result.returncode == 0:
             elapsed = time.time() - start
-            record_timing(f"wait ready ({attempts} polls, {elapsed:.1f}s)", elapsed, category="wait")
+            record_timing(
+                f"wait ready ({attempts} polls, {elapsed:.1f}s)",
+                elapsed,
+                category="wait",
+            )
             print_success(f"Application ready after {elapsed:.1f}s")
             return True
         time.sleep(poll_interval)
 
     elapsed = time.time() - start
-    record_timing(f"wait timeout ({attempts} polls, {elapsed:.1f}s)", elapsed, category="wait")
+    record_timing(
+        f"wait timeout ({attempts} polls, {elapsed:.1f}s)", elapsed, category="wait"
+    )
     print_error(f"Application not ready after {timeout}s")
     return False
 
@@ -270,7 +276,7 @@ def test_app_via_curl(
     try:
         # Check if server_ip is already an IP address
         socket.inet_aton(server_ip)
-    except socket.error:
+    except OSError:
         # It's a hostname, resolve it
         try:
             server_ip = socket.gethostbyname(server_ip)
@@ -387,7 +393,7 @@ def curl_request(ctx: DemoContext, url: str) -> subprocess.CompletedProcess:
     server_ip = ctx.server_ip
     try:
         socket.inet_aton(server_ip)
-    except socket.error:
+    except OSError:
         try:
             server_ip = socket.gethostbyname(server_ip)
         except socket.gaierror:

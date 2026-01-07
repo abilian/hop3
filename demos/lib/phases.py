@@ -71,7 +71,9 @@ def run_prerequisites(ctx: DemoContext) -> bool:
         if ctx.preflight:
             step_start = time.time()
             verify_connectivity(ctx)
-            record_timing("verify_connectivity", time.time() - step_start, category="setup")
+            record_timing(
+                "verify_connectivity", time.time() - step_start, category="setup"
+            )
             pause(ctx.pause_between_steps)
 
             # For SSH backend, check DNS and Ubuntu version
@@ -79,12 +81,16 @@ def run_prerequisites(ctx: DemoContext) -> bool:
                 # Check DNS resolution for demo hostnames (local check, before server checks)
                 step_start = time.time()
                 check_dns_resolution(ctx)
-                record_timing("check_dns_resolution", time.time() - step_start, category="setup")
+                record_timing(
+                    "check_dns_resolution", time.time() - step_start, category="setup"
+                )
                 pause(ctx.pause_between_steps)
 
                 step_start = time.time()
                 check_ubuntu_version(ctx)
-                record_timing("check_ubuntu_version", time.time() - step_start, category="setup")
+                record_timing(
+                    "check_ubuntu_version", time.time() - step_start, category="setup"
+                )
                 pause(ctx.pause_between_steps)
 
         # Clean server if requested (before installation)
@@ -98,16 +104,22 @@ def run_prerequisites(ctx: DemoContext) -> bool:
         if not ctx.skip_install:
             step_start = time.time()
             hop3_installed = check_hop3_installed(ctx)
-            record_timing("check_hop3_installed", time.time() - step_start, category="setup")
+            record_timing(
+                "check_hop3_installed", time.time() - step_start, category="setup"
+            )
 
             if not hop3_installed:
                 step_start = time.time()
                 install_hop3(ctx)
-                record_timing("install_hop3", time.time() - step_start, category="setup")
+                record_timing(
+                    "install_hop3", time.time() - step_start, category="setup"
+                )
             else:
                 step_start = time.time()
                 update_hop3_server(ctx)
-                record_timing("update_hop3_server", time.time() - step_start, category="setup")
+                record_timing(
+                    "update_hop3_server", time.time() - step_start, category="setup"
+                )
         else:
             print_info("Skipping Hop3 installation/update (--skip-install)")
 
@@ -115,9 +127,13 @@ def run_prerequisites(ctx: DemoContext) -> bool:
         pause(ctx.pause_between_steps)
         step_start = time.time()
         configure_server_settings(ctx)
-        record_timing("configure_server_settings", time.time() - step_start, category="setup")
+        record_timing(
+            "configure_server_settings", time.time() - step_start, category="setup"
+        )
 
-        record_timing("prerequisites_phase", time.time() - phase_start, category="phase")
+        record_timing(
+            "prerequisites_phase", time.time() - phase_start, category="phase"
+        )
         print_phase_result(True)
         pause(ctx.pause_between_steps)
         return True
@@ -168,8 +184,9 @@ def configure_cli(ctx: DemoContext) -> bool:
     if ctx.backend == "docker":
         # For Docker, create admin user directly in the container
         print_info("Creating admin account in Docker container...")
-        from lib.commands import run_ssh
         import re
+
+        from lib.commands import run_ssh
 
         # Create admin user via hop3-server CLI in container
         # The command outputs an API token that we can use for login
@@ -184,7 +201,9 @@ def configure_cli(ctx: DemoContext) -> bool:
         api_token = None
         if result.returncode == 0:
             # Look for JWT token in output (starts with eyJ)
-            token_match = re.search(r'(eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)', result.stdout)
+            token_match = re.search(
+                r"(eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)", result.stdout
+            )
             if token_match:
                 api_token = token_match.group(1)
 
@@ -318,7 +337,11 @@ def run_demo(
 
     # Start logging for this demo
     start_demo_logging(demo_name)
-    log_section("main", f"Starting demo: {demo_name}", f"Demo directory: {demo_dir}\nGeneric: {is_generic}")
+    log_section(
+        "main",
+        f"Starting demo: {demo_name}",
+        f"Demo directory: {demo_dir}\nGeneric: {is_generic}",
+    )
 
     # Show demo start - in quiet mode just "demo1...", in normal mode full header
     if ctx.output_level == OutputLevel.QUIET:
@@ -335,7 +358,9 @@ def run_demo(
             if ctx.output_level >= OutputLevel.NORMAL:
                 print_success(f"Demo '{demo_name}' completed successfully")
             print_phase_result(True)
-            log_section("main", "Demo completed", f"Status: PASS\nDuration: {duration:.2f}s")
+            log_section(
+                "main", "Demo completed", f"Status: PASS\nDuration: {duration:.2f}s"
+            )
             end_demo_logging()
             return DemoResult(
                 name=demo_name,
@@ -395,7 +420,9 @@ def run_demo(
             if ctx.output_level >= OutputLevel.NORMAL:
                 print_success(f"Demo '{demo_name}' completed successfully")
             print_phase_result(True)
-            log_section("main", "Demo completed", f"Status: PASS\nDuration: {duration:.2f}s")
+            log_section(
+                "main", "Demo completed", f"Status: PASS\nDuration: {duration:.2f}s"
+            )
             end_demo_logging()
             return DemoResult(
                 name=demo_name,
@@ -447,6 +474,7 @@ def run_demo(
 
         # Log full traceback to file (not console)
         import traceback
+
         tb_str = traceback.format_exc()
         log_section("traceback", "Exception traceback", tb_str)
 

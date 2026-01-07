@@ -116,7 +116,9 @@ class DockerDemoBackend(DemoBackend):
         if not result.success or "systemd" not in result.stdout:
             return False
         # Then check if systemctl works
-        result = self.run("systemctl is-system-running 2>/dev/null || true", check=False)
+        result = self.run(
+            "systemctl is-system-running 2>/dev/null || true", check=False
+        )
         # Accept "running", "degraded", or "starting" as valid states
         return any(
             state in result.stdout
@@ -266,7 +268,10 @@ class DockerDemoBackend(DemoBackend):
             self.run("mkdir -p /var/log/supervisor", check=False)
             self.run("mkdir -p /etc/supervisor/conf.d", check=False)
             # Start supervisord in background
-            self.run("supervisord -c /etc/supervisor/supervisord.conf 2>&1 || true", check=False)
+            self.run(
+                "supervisord -c /etc/supervisor/supervisord.conf 2>&1 || true",
+                check=False,
+            )
 
         # Install database services for demos that need them
         self._install_database_services()
@@ -335,17 +340,22 @@ class DockerDemoBackend(DemoBackend):
         self._ensure_supervisor_config("mysql")
 
         # Reload supervisor to pick up new configs
-        self.run("supervisorctl reread && supervisorctl update 2>&1 || true", check=False)
+        self.run(
+            "supervisorctl reread && supervisorctl update 2>&1 || true", check=False
+        )
 
         # Explicitly start the services
-        self.run("supervisorctl start postgresql redis-server mysql 2>&1 || true", check=False)
+        self.run(
+            "supervisorctl start postgresql redis-server mysql 2>&1 || true",
+            check=False,
+        )
 
         # Wait for services to be ready and verify
         self.run("sleep 3", check=False)
 
         # Create PostgreSQL user (service must be running)
         self.run(
-            "su - postgres -c \"psql -c \\\"CREATE USER hop3 WITH PASSWORD 'hop3' CREATEDB SUPERUSER;\\\"\" 2>&1 || true",
+            'su - postgres -c "psql -c \\"CREATE USER hop3 WITH PASSWORD \'hop3\' CREATEDB SUPERUSER;\\"" 2>&1 || true',
             check=False,
         )
         # Configure pg_hba.conf for trust auth (for addons to work)
@@ -353,8 +363,8 @@ class DockerDemoBackend(DemoBackend):
         self.run(
             # First, backup and modify pg_hba.conf to use trust for local connections
             "PG_HBA=$(ls /etc/postgresql/*/main/pg_hba.conf 2>/dev/null | head -1) && "
-            "if [ -f \"$PG_HBA\" ]; then "
-            "  cp \"$PG_HBA\" \"$PG_HBA.bak\" && "
+            'if [ -f "$PG_HBA" ]; then '
+            '  cp "$PG_HBA" "$PG_HBA.bak" && '
             # Replace default authentication with trust for local connections
             "  sed -i 's/^local\\s*all\\s*all\\s*peer/local all all trust/' \"$PG_HBA\" && "
             "  sed -i 's/^host\\s*all\\s*all\\s*127.0.0.1\\/32\\s*scram-sha-256/host all all 127.0.0.1\\/32 trust/' \"$PG_HBA\" && "
@@ -371,13 +381,13 @@ class DockerDemoBackend(DemoBackend):
         self.run(
             "mysql -e \"CREATE USER IF NOT EXISTS 'hop3'@'localhost' IDENTIFIED BY 'hop3'; "
             "GRANT ALL PRIVILEGES ON *.* TO 'hop3'@'localhost' WITH GRANT OPTION; "
-            "FLUSH PRIVILEGES;\" 2>&1 || true",
+            'FLUSH PRIVILEGES;" 2>&1 || true',
             check=False,
         )
         # Also set root password for mysql_native_password auth (some tools expect root)
         self.run(
             "mysql -e \"ALTER USER 'root'@'localhost' IDENTIFIED BY 'root'; "
-            "FLUSH PRIVILEGES;\" 2>&1 || true",
+            'FLUSH PRIVILEGES;" 2>&1 || true',
             check=False,
         )
 
@@ -424,11 +434,12 @@ class DockerDemoBackend(DemoBackend):
         )
 
         if check and not cmd_result.success:
-            raise RuntimeError(
+            msg = (
                 f"Docker exec failed: {command}\n"
                 f"Exit code: {result.returncode}\n"
                 f"stderr: {result.stderr}"
             )
+            raise RuntimeError(msg)
 
         return cmd_result
 

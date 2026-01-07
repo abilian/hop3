@@ -167,11 +167,10 @@ class DemoContext:
                 image=self.docker_image,
                 project_root=self.hop3_repo,
             )
-        else:
-            return SSHDemoBackend(
-                host=self.server_ip,
-                user=self.ssh_user,
-            )
+        return SSHDemoBackend(
+            host=self.server_ip,
+            user=self.ssh_user,
+        )
 
     def get_backend_capabilities(self) -> set[str]:
         """Get the capabilities provided by the current backend.
@@ -190,9 +189,8 @@ class DemoContext:
             # Docker backend runs inside a container - no Docker-in-Docker by default
             # No systemd (uses supervisor instead)
             return set()
-        else:
-            # SSH backend has full server access
-            return {"docker", "systemd", "ssh"}
+        # SSH backend has full server access
+        return {"docker", "systemd", "ssh"}
 
     def check_requirements(self, requires: list[str] | None) -> tuple[bool, str]:
         """Check if demo requirements are satisfied by the current backend.

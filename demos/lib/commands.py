@@ -5,9 +5,8 @@
 from __future__ import annotations
 
 import subprocess
-from typing import TYPE_CHECKING
-
 import time
+from typing import TYPE_CHECKING
 
 from lib.context import OutputLevel
 from lib.logging import log_command, record_timing
@@ -93,7 +92,7 @@ def run_ssh(
     """
     # Get backend from context
     backend = ctx.get_backend()
-    backend_name = backend.name if hasattr(backend, 'name') else 'unknown'
+    backend_name = backend.name if hasattr(backend, "name") else "unknown"
 
     if show and get_output_level() >= 2:  # NORMAL or VERBOSE
         if backend_name == "docker":
@@ -162,7 +161,9 @@ def run_hop3(
     # Debug mode (--debug) = maximum verbosity, includes all build logs
     # Verbose mode (-v) = detailed output
     use_debug = _debug_mode
-    use_verbose = verbose if verbose is not None else (output_level >= OutputLevel.VERBOSE)
+    use_verbose = (
+        verbose if verbose is not None else (output_level >= OutputLevel.VERBOSE)
+    )
 
     # Build the command with optional verbose/debug flags
     if use_debug:
@@ -182,7 +183,7 @@ def run_hop3(
     cmd_elapsed = time.time() - cmd_start
 
     # Record timing for hop3 commands (extract base command for category)
-    base_cmd = cmd.split()[0] if cmd else "unknown"
+    base_cmd = cmd.split(maxsplit=1)[0] if cmd else "unknown"
     record_timing(f"hop3 {cmd[:40]}", cmd_elapsed, category=f"hop3:{base_cmd}")
 
     # Always log command execution (including deploy output)

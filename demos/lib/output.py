@@ -157,6 +157,7 @@ def pause(seconds: float = 1.0) -> None:
     if _output_level < 2:  # SILENT or QUIET - no pauses
         return
     from lib.logging import record_timing
+
     time.sleep(seconds)
     record_timing(f"pause {seconds}s", seconds, category="pause")
 
