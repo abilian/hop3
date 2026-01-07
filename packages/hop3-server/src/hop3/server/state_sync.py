@@ -115,7 +115,8 @@ class StateSyncService:
             Number of apps whose state was updated
         """
         apps = (
-            session.query(App)
+            session
+            .query(App)
             .filter(App.run_state.in_([AppStateEnum.STARTING, AppStateEnum.STOPPING]))
             .all()
         )

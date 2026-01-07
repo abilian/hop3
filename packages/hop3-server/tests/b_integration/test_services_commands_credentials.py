@@ -79,7 +79,8 @@ class TestServicesAttachWithCredentials:
 
             # Credential should be stored
             credential = (
-                test_db.query(AddonCredential)
+                test_db
+                .query(AddonCredential)
                 .filter_by(
                     app_id=test_app.id, addon_type="postgres", addon_name="test-db"
                 )
@@ -125,7 +126,8 @@ class TestServicesAttachWithCredentials:
 
             # Should still have only one credential
             credentials = (
-                test_db.query(AddonCredential)
+                test_db
+                .query(AddonCredential)
                 .filter_by(
                     app_id=test_app.id, addon_type="postgres", addon_name="test-db"
                 )
@@ -209,7 +211,8 @@ class TestServicesDestroyWithCredentials:
 
             # Verify credentials exist
             credentials = (
-                test_db.query(AddonCredential)
+                test_db
+                .query(AddonCredential)
                 .filter_by(addon_type="postgres", addon_name="shared-db")
                 .all()
             )
@@ -225,7 +228,8 @@ class TestServicesDestroyWithCredentials:
 
             # All credentials should be removed
             credentials = (
-                test_db.query(AddonCredential)
+                test_db
+                .query(AddonCredential)
                 .filter_by(addon_type="postgres", addon_name="shared-db")
                 .all()
             )
@@ -264,7 +268,8 @@ class TestCredentialPersistence:
             session2 = Session2()
 
             credential = (
-                session2.query(AddonCredential)
+                session2
+                .query(AddonCredential)
                 .filter_by(
                     app_id=app_id, addon_type="postgres", addon_name="persist-db"
                 )

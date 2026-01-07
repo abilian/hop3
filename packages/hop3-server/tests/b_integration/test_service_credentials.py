@@ -95,7 +95,8 @@ class TestAddonCredentialModel:
 
         # Retrieve credential
         retrieved = (
-            test_db.query(AddonCredential)
+            test_db
+            .query(AddonCredential)
             .filter_by(app_id=test_app.id, addon_type="postgresql", addon_name="my-db")
             .one()
         )
@@ -191,12 +192,14 @@ class TestAddonCredentialModel:
 
         # Retrieve and verify both
         postgres_retrieved = (
-            test_db.query(AddonCredential)
+            test_db
+            .query(AddonCredential)
             .filter_by(app_id=test_app.id, addon_type="postgresql")
             .one()
         )
         redis_retrieved = (
-            test_db.query(AddonCredential)
+            test_db
+            .query(AddonCredential)
             .filter_by(app_id=test_app.id, addon_type="redis")
             .one()
         )
@@ -265,7 +268,8 @@ class TestAddonCredentialModel:
             session2 = Session2()
 
             retrieved_cred = (
-                session2.query(AddonCredential)
+                session2
+                .query(AddonCredential)
                 .filter_by(app_id=app_id, addon_name="persist-db")
                 .one()
             )

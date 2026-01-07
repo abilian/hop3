@@ -139,7 +139,8 @@ def sanitize_app_name(app) -> str:
     # Filter valid characters (alphanumeric, ".", "_", and "-") from the app name
     # Remove trailing whitespace and leading slashes from the app name
     app = (
-        "".join(c for c in app if c.isalnum() or c in {".", "_", "-"})
+        ""
+        .join(c for c in app if c.isalnum() or c in {".", "_", "-"})
         .rstrip()
         .lstrip("/")
     )
