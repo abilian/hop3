@@ -794,7 +794,8 @@ class DashboardController(Controller):
         # Get addon credential from database
         with get_session() as db_session:
             credential = (
-                db_session.query(AddonCredential)
+                db_session
+                .query(AddonCredential)
                 .filter(AddonCredential.addon_name == addon_name)
                 .first()
             )

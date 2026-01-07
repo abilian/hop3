@@ -262,7 +262,8 @@ class BackupManager:
         """
         # Find backup in database
         backup_record = (
-            self.db_session.query(Backup)
+            self.db_session
+            .query(Backup)
             .join(App)
             .filter(Backup.remote_path.contains(backup_id))
             .first()
@@ -371,7 +372,8 @@ class BackupManager:
             FileNotFoundError: If backup not found
         """
         backup_record = (
-            self.db_session.query(Backup)
+            self.db_session
+            .query(Backup)
             .filter(Backup.remote_path.contains(backup_id))
             .first()
         )
@@ -399,7 +401,8 @@ class BackupManager:
             FileNotFoundError: If backup not found
         """
         backup_record = (
-            self.db_session.query(Backup)
+            self.db_session
+            .query(Backup)
             .filter(Backup.remote_path.contains(backup_id))
             .first()
         )
@@ -435,7 +438,8 @@ class BackupManager:
         manifest = self.get_backup_info(backup_id)
 
         backup_record = (
-            self.db_session.query(Backup)
+            self.db_session
+            .query(Backup)
             .filter(Backup.remote_path.contains(backup_id))
             .first()
         )

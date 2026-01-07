@@ -368,7 +368,8 @@ class TestAddonsAttachCmdIntegration:
 
         # Check DATABASE_URL was updated
         database_url_var = (
-            db_session.query(EnvVar)
+            db_session
+            .query(EnvVar)
             .filter_by(app_id=test_app.id, name="DATABASE_URL")
             .first()
         )
@@ -678,7 +679,8 @@ class TestAddonsDetachCmdIntegration:
 
         # Postgres credential should be gone
         pg_cred_check = (
-            db_session.query(AddonCredential)
+            db_session
+            .query(AddonCredential)
             .filter_by(app_id=test_app.id, addon_type="postgres")
             .first()
         )
@@ -686,7 +688,8 @@ class TestAddonsDetachCmdIntegration:
 
         # Redis credential should remain
         redis_cred_check = (
-            db_session.query(AddonCredential)
+            db_session
+            .query(AddonCredential)
             .filter_by(app_id=test_app.id, addon_type="redis")
             .first()
         )
@@ -694,7 +697,8 @@ class TestAddonsDetachCmdIntegration:
 
         # DATABASE_URL should be gone
         db_url_var = (
-            db_session.query(EnvVar)
+            db_session
+            .query(EnvVar)
             .filter_by(app_id=test_app.id, name="DATABASE_URL")
             .first()
         )
@@ -702,7 +706,8 @@ class TestAddonsDetachCmdIntegration:
 
         # REDIS_URL should remain
         redis_url_var = (
-            db_session.query(EnvVar)
+            db_session
+            .query(EnvVar)
             .filter_by(app_id=test_app.id, name="REDIS_URL")
             .first()
         )
@@ -774,7 +779,8 @@ class TestAddonsDestroyCmdIntegration:
 
         # Verify setup
         assert (
-            db_session.query(AddonCredential)
+            db_session
+            .query(AddonCredential)
             .filter_by(addon_type="postgres", addon_name="shared-db")
             .count()
             == 2
@@ -795,7 +801,8 @@ class TestAddonsDestroyCmdIntegration:
 
         # All credentials for this addon should be removed
         remaining_creds = (
-            db_session.query(AddonCredential)
+            db_session
+            .query(AddonCredential)
             .filter_by(addon_type="postgres", addon_name="shared-db")
             .all()
         )

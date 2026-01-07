@@ -78,6 +78,7 @@ lint.extend-ignore = [
     "C901", # ... is too complex (13 > 12)
     "PLR0912", # Too many branches (16 > 12)
     "SIM105", # Use `contextlib.suppress` instead of `try`-`except`-`pass`
+    "SIM117", # combine context managers
 ]
 
 

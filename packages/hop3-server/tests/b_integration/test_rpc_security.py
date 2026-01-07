@@ -136,7 +136,8 @@ def test_token_with_none_algorithm(client: TestClient):
 
     # Manually create a token with "none" algorithm
     header = (
-        base64.urlsafe_b64encode(json.dumps({"alg": "none", "typ": "JWT"}).encode())
+        base64
+        .urlsafe_b64encode(json.dumps({"alg": "none", "typ": "JWT"}).encode())
         .decode()
         .rstrip("=")
     )

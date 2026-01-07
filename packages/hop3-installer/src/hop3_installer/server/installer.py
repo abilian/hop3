@@ -280,7 +280,9 @@ def _configure_redis() -> None:
         check=False,
     )
     if result.returncode != 0:
-        print_warning("Could not set replica-read-only=no (Redis may not be running yet)")
+        print_warning(
+            "Could not set replica-read-only=no (Redis may not be running yet)"
+        )
 
     # Remove any replicaof configuration (make this a primary)
     result = run_cmd(
@@ -325,7 +327,11 @@ def _install_rust_toolchain() -> None:
     print_info("Installing Rust toolchain via rustup...")
 
     # Remove any broken symlinks first
-    for symlink in ["/usr/local/bin/cargo", "/usr/local/bin/rustc", "/usr/local/bin/rustup"]:
+    for symlink in [
+        "/usr/local/bin/cargo",
+        "/usr/local/bin/rustc",
+        "/usr/local/bin/rustup",
+    ]:
         symlink_path = Path(symlink)
         if symlink_path.is_symlink() and not symlink_path.exists():
             print_detail(f"Removing broken symlink: {symlink}")
@@ -357,7 +363,9 @@ def _install_rust_toolchain() -> None:
         print_warning("Rust installation completed but cargo not found")
 
 
-def _create_rust_symlinks(cargo_path: Path, rustc_path: Path, rustup_path: Path) -> None:
+def _create_rust_symlinks(
+    cargo_path: Path, rustc_path: Path, rustup_path: Path
+) -> None:
     """Create symlinks in /usr/local/bin for Rust tools.
 
     This makes cargo, rustc, and rustup accessible system-wide,

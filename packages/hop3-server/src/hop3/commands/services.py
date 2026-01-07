@@ -192,7 +192,8 @@ class AddonsAttachCmd(Command):
         encryptor = get_credential_encryptor()
 
         existing_credential = (
-            self.db_session.query(AddonCredential)
+            self.db_session
+            .query(AddonCredential)
             .filter_by(app_id=app_id, addon_type=service_type, addon_name=addon_name)
             .first()
         )
@@ -459,7 +460,8 @@ class AddonsDetachCmd(Command):
             Dictionary of connection details (may be empty if not found)
         """
         credential = (
-            self.db_session.query(AddonCredential)
+            self.db_session
+            .query(AddonCredential)
             .filter_by(app_id=app_id, addon_type=service_type, addon_name=addon_name)
             .first()
         )
@@ -610,7 +612,8 @@ class AddonsDestroyCmd(Command):
 
             # Clean up all stored credentials for this service
             credentials = (
-                self.db_session.query(AddonCredential)
+                self.db_session
+                .query(AddonCredential)
                 .filter_by(addon_type=service_type, addon_name=addon_name)
                 .all()
             )
@@ -752,7 +755,8 @@ class AddonsStatusCmd(Command):
 
             # Get attached apps
             credentials = (
-                self.db_session.query(AddonCredential)
+                self.db_session
+                .query(AddonCredential)
                 .filter_by(addon_type=service_type, addon_name=addon_name)
                 .all()
             )
