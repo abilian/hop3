@@ -78,6 +78,10 @@ class RedisAddon:
             msg = f"Redis is not accessible: {result.stderr or 'no response'}"
             raise RuntimeError(msg)
 
+        # Ensure Redis is configured as a primary (not a read-only replica)
+        # This fixes "You can't write against a read only replica" errors
+        self._ensure_writable()
+
         # Select the database and set a marker key to indicate it's in use
         marker_cmd = [
             "redis-cli",
@@ -89,8 +93,48 @@ class RedisAddon:
         ]
         result = subprocess.run(marker_cmd, capture_output=True, text=True, check=False)
         if result.returncode != 0:
-            msg = f"Failed to initialize Redis database: {result.stderr}"
+            # Check if this is a read-only replica error
+            if "read only replica" in result.stderr.lower():
+                msg = (
+                    "Redis is configured as a read-only replica. "
+                    "Run 'redis-cli REPLICAOF NO ONE' to make it a primary, "
+                    "or re-run the Hop3 installer with --features=redis"
+                )
+            else:
+                msg = f"Failed to initialize Redis database: {result.stderr}"
             raise RuntimeError(msg)
+
+    def _ensure_writable(self) -> None:
+        """Ensure Redis is writable (not a read-only replica).
+
+        If Redis is configured as a replica, attempt to make it a primary.
+        """
+        # Check if Redis is a replica
+        result = subprocess.run(
+            ["redis-cli", "INFO", "replication"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return  # Can't check, assume it's fine
+
+        # Check if role is slave/replica
+        if "role:slave" in result.stdout:
+            # Try to make it a primary
+            subprocess.run(
+                ["redis-cli", "REPLICAOF", "NO", "ONE"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            # Also allow writes on replica (fallback if REPLICAOF fails)
+            subprocess.run(
+                ["redis-cli", "CONFIG", "SET", "replica-read-only", "no"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
 
     def destroy(self) -> None:
         """Clear all data in the Redis database for this addon.
