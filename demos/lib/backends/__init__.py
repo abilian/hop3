@@ -32,10 +32,10 @@ def create_backend(backend_type: str, config: dict) -> DemoBackend:
             image=config.get("image", "ubuntu:24.04"),
             project_root=config.get("project_root"),
         )
-    elif backend_type == "ssh":
+    if backend_type == "ssh":
         return SSHDemoBackend(
             host=config["host"],
             user=config.get("user", "root"),
         )
-    else:
-        raise ValueError(f"Unknown backend type: {backend_type}")
+    msg = f"Unknown backend type: {backend_type}"
+    raise ValueError(msg)

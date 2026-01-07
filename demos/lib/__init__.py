@@ -75,15 +75,10 @@ __all__ = [
     "DemoInfo",
     "DemoResult",
     "OutputLevel",
-    # Logging
-    "capture_failure_debug",
-    "get_log_session",
-    "init_logging",
-    "log_command",
-    "log_section",
-    "log_text",
     # Output
     "bold",
+    # Logging
+    "capture_failure_debug",
     # App management
     "check_app_status",
     "cleanup_app",
@@ -93,9 +88,14 @@ __all__ = [
     "dim",
     "ensure_app_removed",
     "format_duration",
+    "get_log_session",
     "get_output_level",
     "green",
+    "init_logging",
     "list_apps",
+    "log_command",
+    "log_section",
+    "log_text",
     "pause",
     "print_blank",
     "print_command",

@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import shlex
 import subprocess
 from pathlib import Path
 
@@ -38,7 +37,6 @@ class SSHDemoBackend(DemoBackend):
 
     def teardown(self) -> None:
         """No cleanup needed for SSH."""
-        pass
 
     def run(self, command: str, *, check: bool = True) -> CommandResult:
         """Run a command on the remote server via SSH."""
@@ -68,11 +66,12 @@ class SSHDemoBackend(DemoBackend):
         )
 
         if check and not cmd_result.success:
-            raise RuntimeError(
+            msg = (
                 f"SSH command failed: {command}\n"
                 f"Exit code: {result.returncode}\n"
                 f"stderr: {result.stderr}"
             )
+            raise RuntimeError(msg)
 
         return cmd_result
 

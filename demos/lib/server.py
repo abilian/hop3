@@ -128,13 +128,15 @@ def _run_remote_script(
     """
     script_path = SCRIPTS_DIR / script_name
     if not script_path.exists():
-        raise CommandError(f"Script not found: {script_path}")
+        msg = f"Script not found: {script_path}"
+        raise CommandError(msg)
 
     remote_path = f"/tmp/{script_name}"
 
     # Copy script to target using backend
     if not _upload_file(ctx, script_path, remote_path):
-        raise CommandError(f"Failed to upload script: {script_name}")
+        msg = f"Failed to upload script: {script_name}"
+        raise CommandError(msg)
 
     # Execute and cleanup
     sudo_prefix = "sudo " if sudo else ""
@@ -265,7 +267,7 @@ def check_dns_resolution(ctx: DemoContext) -> None:
     expected_ip = ctx.server_ip
     try:
         socket.inet_aton(expected_ip)
-    except socket.error:
+    except OSError:
         # server_ip is a hostname, resolve it
         try:
             expected_ip = socket.gethostbyname(ctx.server_ip)

@@ -14,11 +14,12 @@ from __future__ import annotations
 import subprocess
 import time
 from collections import defaultdict
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .context import DemoContext
@@ -32,7 +33,9 @@ class LogSession:
     """Manages logging for a demo run session."""
 
     base_dir: Path
-    timestamp: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d-%H-%M"))
+    timestamp: str = field(
+        default_factory=lambda: datetime.now().strftime("%Y-%m-%d-%H-%M")
+    )
     _current_demo: str | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
@@ -111,16 +114,16 @@ class LogSession:
         """
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         content = f"""
-{'=' * 80}
+{"=" * 80}
 [{timestamp}] Command: {command}
 Exit code: {result.returncode}
-{'=' * 80}
+{"=" * 80}
 
 --- STDOUT ---
-{result.stdout or '(empty)'}
+{result.stdout or "(empty)"}
 
 --- STDERR ---
-{result.stderr or '(empty)'}
+{result.stderr or "(empty)"}
 
 """
         self.write(name, content, demo_name)
@@ -142,9 +145,9 @@ Exit code: {result.returncode}
         """
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         section = f"""
-{'=' * 80}
+{"=" * 80}
 [{timestamp}] {section_title}
-{'=' * 80}
+{"=" * 80}
 
 {content}
 
@@ -387,7 +390,9 @@ class DemoTimings:
 
     def add(self, label: str, elapsed: float, category: str = "general") -> None:
         """Add a timing record."""
-        self.records.append(TimingRecord(label=label, elapsed=elapsed, category=category))
+        self.records.append(
+            TimingRecord(label=label, elapsed=elapsed, category=category)
+        )
 
     def finish(self) -> None:
         """Mark the demo as finished."""
@@ -412,7 +417,11 @@ class DemoTimings:
             cat_total = sum(r.elapsed for r in recs)
             lines.append(f"\n  [{category}] ({cat_total:.1f}s total)")
             for rec in recs:
-                pct = (rec.elapsed / self.total_elapsed * 100) if self.total_elapsed > 0 else 0
+                pct = (
+                    (rec.elapsed / self.total_elapsed * 100)
+                    if self.total_elapsed > 0
+                    else 0
+                )
                 lines.append(f"    - {rec.label}: {rec.elapsed:.1f}s ({pct:.0f}%)")
 
         # Unaccounted time
@@ -458,7 +467,9 @@ class TimingCollector:
             self._current.add(label, elapsed, category)
         else:
             # No demo started yet - record to setup timings
-            self.setup_timings.append(TimingRecord(label=label, elapsed=elapsed, category=category))
+            self.setup_timings.append(
+                TimingRecord(label=label, elapsed=elapsed, category=category)
+            )
 
     def setup_summary(self) -> str:
         """Generate setup phase timing summary."""
@@ -478,7 +489,9 @@ class TimingCollector:
         for rec in self.setup_timings:
             by_category[rec.category].append(rec)
 
-        for category, records in sorted(by_category.items(), key=lambda x: -sum(r.elapsed for r in x[1])):
+        for category, records in sorted(
+            by_category.items(), key=lambda x: -sum(r.elapsed for r in x[1])
+        ):
             cat_total = sum(r.elapsed for r in records)
             lines.append(f"\n  [{category}] ({cat_total:.1f}s total)")
             for rec in records:
@@ -521,7 +534,9 @@ class TimingCollector:
         for category, times in sorted(by_category.items(), key=lambda x: -sum(x[1])):
             avg = sum(times) / len(times) if times else 0
             total = sum(times)
-            lines.append(f"  [{category}] avg: {avg:.1f}s, total: {total:.1f}s, count: {len(times)}")
+            lines.append(
+                f"  [{category}] avg: {avg:.1f}s, total: {total:.1f}s, count: {len(times)}"
+            )
 
         # Slowest demos
         lines.append("\nSlowest demos:")
@@ -569,7 +584,9 @@ def record_timing(label: str, elapsed: float, category: str = "general") -> None
 
 
 @contextmanager
-def timed(label: str, category: str = "general", print_result: bool = False) -> Generator[None, None, None]:
+def timed(
+    label: str, category: str = "general", print_result: bool = False
+) -> Generator[None, None, None]:
     """Context manager to time an operation.
 
     Args:
@@ -599,9 +616,12 @@ def timed_call(label: str, category: str = "general"):
         def deploy_app(ctx, app_name, app_dir):
             ...
     """
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             with timed(label, category):
                 return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
