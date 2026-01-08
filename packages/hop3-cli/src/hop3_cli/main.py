@@ -221,5 +221,7 @@ def verify_authentication(config: Config) -> bool:
                     return True
                 case Error():
                     return False
+                case _:
+                    return False
     except Exception:
         return False

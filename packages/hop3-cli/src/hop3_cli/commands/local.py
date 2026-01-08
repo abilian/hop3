@@ -345,6 +345,9 @@ def _parse_token_args(args: list[str]) -> tuple[str, str | None]:
         print("\nError: --token requires a token value", file=sys.stderr)
         sys.exit(1)
 
+    # Type narrowing: token is str after the check above
+    assert token is not None
+
     if not token.startswith("eyJ"):
         print("Warning: Token doesn't look like a JWT token", file=sys.stderr)
 
@@ -508,6 +511,9 @@ def _parse_login_ssh_args(args: list[str]) -> tuple[str, str | None, str]:
         )
         sys.exit(1)
 
+    # Type narrowing: ssh_target is str after the check above
+    assert ssh_target is not None
+
     # Infer server URL from SSH target if not provided
     if not server_url:
         server_url = infer_server_url(ssh_target)
@@ -662,6 +668,9 @@ def _parse_init_args(
         print_init_help()
         print("\nError: --ssh argument is required", file=sys.stderr)
         sys.exit(1)
+
+    # Type narrowing: ssh_target is str after the check above
+    assert ssh_target is not None
 
     return ssh_target, username, email, server_url, password_stdin, auto_yes
 
@@ -934,6 +943,9 @@ def fetch_and_save_certificate(
     hostname = parsed.hostname
     port = parsed.port or 443
 
+    if not hostname:
+        return None
+
     # Use openssl to fetch the certificate via SSH
     # This runs on the server and returns the certificate
     remote_cmd = (
@@ -973,7 +985,7 @@ def fetch_and_save_certificate(
     # Write the certificate
     cert_path.write_text(cert_content + "\n")
 
-    return cert_path
+    return str(cert_path)
 
 
 def extract_token(output: str) -> str | None:

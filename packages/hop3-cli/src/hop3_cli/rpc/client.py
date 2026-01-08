@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 import requests
 import urllib3
+import urllib3.exceptions
 from jsonrpcclient import Error, Ok, parse, request
 from jsonrpcclient.responses import Response
 from loguru import logger
