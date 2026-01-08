@@ -7,7 +7,14 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from ..common import CommandResult, log_debug, log_error, log_info, log_success
+from hop3_installer.testing.common import (
+    CommandResult,
+    log_debug,
+    log_error,
+    log_info,
+    log_success,
+)
+
 from .base import Backend
 
 # Docker images for each distro
@@ -120,7 +127,7 @@ class DockerBackend(Backend):
 
         # Install packages synchronously (not in background)
         log_info("Waiting for package installation...")
-        if self.distro in ("ubuntu", "debian"):
+        if self.distro in {"ubuntu", "debian"}:
             install_cmd = (
                 "apt-get update && apt-get install -y python3 python3-venv git curl"
             )

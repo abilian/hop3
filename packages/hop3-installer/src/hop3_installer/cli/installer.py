@@ -19,7 +19,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from ..common import (
+from hop3_installer.common import (
     Colors,
     CommandError,
     Spinner,
@@ -35,6 +35,7 @@ from ..common import (
     print_warning,
     run_cmd,
 )
+
 from .config import (
     CLI_COMMANDS,
     DEFAULT_BIN_DIR,
@@ -250,7 +251,7 @@ def update_shell_config(bin_dir: Path, modify_path: bool) -> bool:
         else:
             line = f'\n{marker}\nexport PATH="{bin_dir}:$PATH"\n'
 
-        with open(config_file, "a") as f:
+        with Path(config_file).open("a") as f:
             f.write(line)
         print_success(f"Updated {config_file}")
     else:

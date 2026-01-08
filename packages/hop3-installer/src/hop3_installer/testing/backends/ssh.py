@@ -8,7 +8,15 @@ import shlex
 import subprocess
 from pathlib import Path
 
-from ..common import DRY_RUN, CommandResult, log_debug, log_error, log_info, log_success
+from hop3_installer.testing.common import (
+    DRY_RUN,
+    CommandResult,
+    log_debug,
+    log_error,
+    log_info,
+    log_success,
+)
+
 from .base import Backend
 
 
@@ -39,27 +47,26 @@ class SSHBackend(Backend):
             return True
 
         result = self.run("echo 'SSH OK'")
-        if result.success:
-            log_success("SSH connection OK")
-
-            # Check Python version
-            log_info("Checking Python version on remote host...")
-            result = self.run(
-                "python3 --version 2>/dev/null || python --version 2>/dev/null"
-            )
-            if result.success:
-                log_success(f"Remote Python: {result.stdout.strip()}")
-                return True
-            else:
-                log_error("Python 3 not found on remote host")
-                return False
-        else:
+        if not result.success:
             log_error(f"Cannot connect to {self.host}")
             return False
 
+        log_success("SSH connection OK")
+
+        # Check Python version
+        log_info("Checking Python version on remote host...")
+        result = self.run(
+            "python3 --version 2>/dev/null || python --version 2>/dev/null"
+        )
+        if result.success:
+            log_success(f"Remote Python: {result.stdout.strip()}")
+            return True
+
+        log_error("Python 3 not found on remote host")
+        return False
+
     def teardown(self) -> None:
         """No teardown needed for SSH backend."""
-        pass
 
     def run(self, command: str, sudo: bool = False) -> CommandResult:
         """Run a command on the remote host via SSH."""
@@ -193,7 +200,7 @@ class SSHBackend(Backend):
         distro = distro_result.stdout.strip().lower() if distro_result.success else ""
 
         # Purge packages based on distro
-        if distro in ("ubuntu", "debian"):
+        if distro in {"ubuntu", "debian"}:
             apt_env = "DEBIAN_FRONTEND=noninteractive"
             package_commands = [
                 "systemctl stop postgresql nginx 2>/dev/null || true",
@@ -208,7 +215,7 @@ class SSHBackend(Backend):
                 "rm -rf /etc/nginx /var/log/nginx /var/www/html",
                 f"{apt_env} apt-get autoremove -y 2>/dev/null || true",
             ]
-        elif distro in ("fedora", "rhel", "centos", "rocky", "almalinux"):
+        elif distro in {"fedora", "rhel", "centos", "rocky", "almalinux"}:
             package_commands = [
                 "systemctl stop postgresql nginx 2>/dev/null || true",
                 "dnf remove -y postgresql postgresql-server postgresql-contrib 2>/dev/null || true",

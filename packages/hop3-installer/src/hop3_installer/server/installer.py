@@ -26,7 +26,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from ..common import (
+from hop3_installer.common import (
     Colors,
     CommandError,
     Spinner,
@@ -42,6 +42,7 @@ from ..common import (
     print_warning,
     run_cmd,
 )
+
 from .config import (
     DEBIAN_DOCKER_PACKAGES,
     DEBIAN_MYSQL_PACKAGES,
@@ -60,6 +61,7 @@ from .config import (
     NGINX_CONFIG,
     PACKAGE_NAME,
     SSL_CERT,
+    SSL_CERT_VALIDITY_DAYS,
     SSL_DIR,
     SSL_KEY,
     SUDOERS_CONTENT,
@@ -486,19 +488,17 @@ def create_user_and_group() -> None:
 
     # Create user
     if not user_exists(HOP3_USER):
-        run_cmd(
-            [
-                "useradd",
-                "-m",
-                "-g",
-                HOP3_GROUP,
-                "-s",
-                "/bin/bash",
-                "-d",
-                str(HOME_DIR),
-                HOP3_USER,
-            ]
-        )
+        run_cmd([
+            "useradd",
+            "-m",
+            "-g",
+            HOP3_GROUP,
+            "-s",
+            "/bin/bash",
+            "-d",
+            str(HOME_DIR),
+            HOP3_USER,
+        ])
         print_success(f"Created user: {HOP3_USER}")
     else:
         print_info(f"User {HOP3_USER} already exists")
@@ -511,7 +511,7 @@ def create_user_and_group() -> None:
     hop3_uid = pwd.getpwnam(HOP3_USER).pw_uid
     hop3_gid = grp.getgrnam(HOP3_GROUP).gr_gid
     os.chown(HOME_DIR, hop3_uid, hop3_gid)
-    os.chmod(HOME_DIR, 0o755)
+    Path(HOME_DIR).chmod(0o755)
 
     # Add www-data to hop3 group
     if user_exists("www-data"):
@@ -605,7 +605,7 @@ def setup_ssh_keys() -> None:
         hop3_uid = pwd.getpwnam(HOP3_USER).pw_uid
         hop3_gid = grp.getgrnam(HOP3_GROUP).gr_gid
         os.chown(temp_keys, hop3_uid, hop3_gid)
-        os.chmod(temp_keys, 0o600)  # Restrict permissions
+        Path(temp_keys).chmod(0o600)  # Restrict permissions
 
         # Run setup:ssh - quote the path for safety
         run_as_hop3(f"{hop_server} setup:ssh {shlex.quote(str(temp_keys))}")
@@ -697,29 +697,27 @@ def setup_ssl_selfsigned() -> None:
     SSL_DIR.mkdir(parents=True, exist_ok=True)
 
     with Spinner("Generating self-signed SSL certificate..."):
-        run_cmd(
-            [
-                "openssl",
-                "req",
-                "-x509",
-                "-nodes",
-                "-days",
-                "3650",
-                "-newkey",
-                "rsa:2048",
-                "-keyout",
-                str(SSL_KEY),
-                "-out",
-                str(SSL_CERT),
-                "-subj",
-                "/CN=hop3-server/O=Hop3/C=US",
-                "-addext",
-                "subjectAltName=DNS:localhost,IP:127.0.0.1",
-            ]
-        )
+        run_cmd([
+            "openssl",
+            "req",
+            "-x509",
+            "-nodes",
+            "-days",
+            str(SSL_CERT_VALIDITY_DAYS),
+            "-newkey",
+            "rsa:2048",
+            "-keyout",
+            str(SSL_KEY),
+            "-out",
+            str(SSL_CERT),
+            "-subj",
+            "/CN=hop3-server/O=Hop3/C=US",
+            "-addext",
+            "subjectAltName=DNS:localhost,IP:127.0.0.1",
+        ])
 
-    os.chmod(SSL_KEY, 0o600)
-    os.chmod(SSL_CERT, 0o644)
+    Path(SSL_KEY).chmod(0o600)
+    Path(SSL_CERT).chmod(0o644)
 
     print_success("Self-signed SSL certificate generated")
     print_detail(f"Certificate: {SSL_CERT}")
@@ -842,7 +840,7 @@ def setup_sudoers() -> None:
 
     try:
         sudoers_file.write_text(SUDOERS_CONTENT)
-        os.chmod(sudoers_file, 0o440)
+        Path(sudoers_file).chmod(0o440)
 
         # Validate with visudo
         result = subprocess.run(
@@ -1232,50 +1230,42 @@ def write_server_config(
 
     # Add secret key for JWT token signing
     if secret_key:
-        lines.extend(
-            [
-                "# Secret key for JWT token signing (required for authentication)",
-                f'HOP3_SECRET_KEY = "{secret_key}"',
-                "",
-            ]
-        )
+        lines.extend([
+            "# Secret key for JWT token signing (required for authentication)",
+            f'HOP3_SECRET_KEY = "{secret_key}"',
+            "",
+        ])
 
     if domain:
-        lines.extend(
-            [
-                "# Admin UI domain",
-                f'ADMIN_DOMAIN = "{domain}"',
-                "",
-            ]
-        )
+        lines.extend([
+            "# Admin UI domain",
+            f'ADMIN_DOMAIN = "{domain}"',
+            "",
+        ])
 
     if pg_password:
-        lines.extend(
-            [
-                "# PostgreSQL admin connection settings",
-                'POSTGRES_HOST = "127.0.0.1"',
-                f'POSTGRES_SUPERUSER_PASSWORD = "{pg_password}"',
-                "",
-            ]
-        )
+        lines.extend([
+            "# PostgreSQL admin connection settings",
+            'POSTGRES_HOST = "127.0.0.1"',
+            f'POSTGRES_SUPERUSER_PASSWORD = "{pg_password}"',
+            "",
+        ])
 
     if mysql_password:
-        lines.extend(
-            [
-                "# MySQL admin connection settings",
-                'MYSQL_HOST = "127.0.0.1"',
-                'MYSQL_SUPERUSER = "hop3"',
-                f'MYSQL_SUPERUSER_PASSWORD = "{mysql_password}"',
-                "",
-            ]
-        )
+        lines.extend([
+            "# MySQL admin connection settings",
+            'MYSQL_HOST = "127.0.0.1"',
+            'MYSQL_SUPERUSER = "hop3"',
+            f'MYSQL_SUPERUSER_PASSWORD = "{mysql_password}"',
+            "",
+        ])
 
     config_file.write_text("\n".join(lines))
 
     hop3_uid = pwd.getpwnam(HOP3_USER).pw_uid
     hop3_gid = grp.getgrnam(HOP3_GROUP).gr_gid
     os.chown(config_file, hop3_uid, hop3_gid)
-    os.chmod(config_file, 0o600)
+    Path(config_file).chmod(0o600)
 
     print_success(f"Server configuration written to {config_file}")
 

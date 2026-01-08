@@ -7,8 +7,16 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from ...common import find_project_root
-from ..common import VERBOSE, CommandResult, log_debug, log_error, log_info, log_success
+from hop3_installer.common import find_project_root
+from hop3_installer.testing.common import (
+    VERBOSE,
+    CommandResult,
+    log_debug,
+    log_error,
+    log_info,
+    log_success,
+)
+
 from .base import Backend
 
 

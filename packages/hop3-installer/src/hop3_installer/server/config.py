@@ -20,10 +20,11 @@ HOP3_GROUP = "hop3"
 HOME_DIR = Path("/home") / HOP3_USER
 VENV_DIR = HOME_DIR / "venv"
 
-# SSL certificate paths
+# SSL certificate configuration
 SSL_DIR = Path("/etc/hop3/ssl")
 SSL_CERT = SSL_DIR / "hop3.crt"
 SSL_KEY = SSL_DIR / "hop3.key"
+SSL_CERT_VALIDITY_DAYS = 3650  # 10 years for self-signed certificates
 
 # System dependencies by distribution
 # Note: npm is handled separately to avoid conflicts with NodeSource's nodejs
@@ -300,17 +301,17 @@ class ServerInstallerConfig:
 
         return cls(
             version=os.environ.get("HOP3_VERSION"),
-            use_git=os.environ.get("HOP3_GIT", "").lower() in ("1", "true"),
+            use_git=os.environ.get("HOP3_GIT", "").lower() in {"1", "true"},
             branch=os.environ.get("HOP3_BRANCH", DEFAULT_BRANCH),
             local_path=os.environ.get("HOP3_LOCAL_PACKAGE"),
-            force=os.environ.get("HOP3_FORCE", "").lower() in ("1", "true"),
-            skip_deps=os.environ.get("HOP3_SKIP_DEPS", "").lower() in ("1", "true"),
-            skip_nginx=os.environ.get("HOP3_SKIP_NGINX", "").lower() in ("1", "true"),
+            force=os.environ.get("HOP3_FORCE", "").lower() in {"1", "true"},
+            skip_deps=os.environ.get("HOP3_SKIP_DEPS", "").lower() in {"1", "true"},
+            skip_nginx=os.environ.get("HOP3_SKIP_NGINX", "").lower() in {"1", "true"},
             skip_postgres=os.environ.get("HOP3_SKIP_POSTGRES", "").lower()
-            in ("1", "true"),
-            skip_acme=os.environ.get("HOP3_SKIP_ACME", "").lower() in ("1", "true"),
+            in {"1", "true"},
+            skip_acme=os.environ.get("HOP3_SKIP_ACME", "").lower() in {"1", "true"},
             domain=os.environ.get("HOP3_DOMAIN"),
-            verbose=os.environ.get("HOP3_VERBOSE", "").lower() in ("1", "true"),
+            verbose=os.environ.get("HOP3_VERBOSE", "").lower() in {"1", "true"},
             features=features,
         )
 

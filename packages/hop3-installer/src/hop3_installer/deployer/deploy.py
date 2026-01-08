@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import pathlib
 import shlex
 from typing import TYPE_CHECKING
 
@@ -34,7 +35,7 @@ class Deployer:
         if self.log_file:
             from datetime import datetime
 
-            with open(self.log_file, "w") as f:
+            with Path(self.log_file).open("w") as f:
                 f.write(f"Hop3 Deployment Log - {datetime.now().isoformat()}\n")
                 f.write("=" * 60 + "\n\n")
 
@@ -51,7 +52,7 @@ class Deployer:
 
         # Always log to file if available
         if self.log_file:
-            with open(self.log_file, "a") as f:
+            with pathlib.Path(self.log_file).open("a") as f:
                 f.write(formatted + "\n")
 
         # Print to terminal unless quiet (but always show errors)
@@ -63,7 +64,7 @@ class Deployer:
         formatted = f"\n[{step}] {message}"
 
         if self.log_file:
-            with open(self.log_file, "a") as f:
+            with pathlib.Path(self.log_file).open("a") as f:
                 f.write(formatted + "\n")
 
         if not self.quiet:
@@ -458,10 +459,10 @@ def create_backend(config: DeployConfig) -> DeployBackend:
         from .backends.docker import DockerDeployBackend
 
         return DockerDeployBackend(config)
-    else:
-        from .backends.ssh import SSHDeployBackend
 
-        return SSHDeployBackend(config)
+    from .backends.ssh import SSHDeployBackend
+
+    return SSHDeployBackend(config)
 
 
 def deploy(config: DeployConfig) -> bool:

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import sys
 
-from ..common import Colors, CommandResult
+from hop3_installer.common import Colors, CommandResult
 
 # Re-export for backwards compatibility
 __all__ = [
