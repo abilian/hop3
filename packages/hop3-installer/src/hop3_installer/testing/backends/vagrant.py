@@ -7,6 +7,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from ...common import find_project_root
 from ..common import VERBOSE, CommandResult, log_debug, log_error, log_info, log_success
 from .base import Backend
 
@@ -145,13 +146,7 @@ class VagrantBackend(Backend):
 
     def _find_project_root(self) -> Path:
         """Find the project root directory (hop3/)."""
-        # Look for pyproject.toml and packages/ directory
-        current = self.vagrant_dir
-        for parent in [current, *current.parents]:
-            if (parent / "pyproject.toml").exists() and (parent / "packages").exists():
-                return parent
-        # Fallback to cwd
-        return Path.cwd()
+        return find_project_root(self.vagrant_dir)
 
     def upload(self, local_path: Path, remote_path: str) -> bool:
         """Upload a file to the VM.

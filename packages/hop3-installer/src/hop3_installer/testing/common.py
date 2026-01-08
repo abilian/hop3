@@ -5,7 +5,25 @@
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
+
+from ..common import Colors, CommandResult
+
+# Re-export for backwards compatibility
+__all__ = [
+    "CommandResult",
+    "Colors",
+    "VERBOSE",
+    "DRY_RUN",
+    "set_verbose",
+    "set_dry_run",
+    "log_info",
+    "log_success",
+    "log_warning",
+    "log_error",
+    "log_debug",
+    "log_header",
+    "log_subheader",
+]
 
 # =============================================================================
 # Global State
@@ -28,61 +46,12 @@ def set_dry_run(value: bool) -> None:
 
 
 # =============================================================================
-# Command Result
-# =============================================================================
-
-
-@dataclass
-class CommandResult:
-    """Result of a command execution."""
-
-    returncode: int
-    stdout: str = ""
-    stderr: str = ""
-
-    @property
-    def success(self) -> bool:
-        """Check if the command succeeded."""
-        return self.returncode == 0
-
-
-# =============================================================================
 # Terminal Colors
 # =============================================================================
 
-
-@dataclass
-class Colors:
-    """ANSI color codes for terminal output."""
-
-    RESET: str = "\033[0m"
-    RED: str = "\033[0;31m"
-    GREEN: str = "\033[0;32m"
-    YELLOW: str = "\033[0;33m"
-    BLUE: str = "\033[0;34m"
-    MAGENTA: str = "\033[0;35m"
-    CYAN: str = "\033[0;36m"
-    BOLD: str = "\033[1m"
-    DIM: str = "\033[2m"
-
-    @classmethod
-    def disabled(cls) -> Colors:
-        """Return a Colors instance with all colors disabled."""
-        return cls(
-            RESET="",
-            RED="",
-            GREEN="",
-            YELLOW="",
-            BLUE="",
-            MAGENTA="",
-            CYAN="",
-            BOLD="",
-            DIM="",
-        )
-
-
-# Global colors instance - disabled if not a TTY
-C = Colors() if sys.stdout.isatty() else Colors.disabled()
+# Alias for Colors class - allows using C.RED, C.BLUE etc. in log functions
+# The Colors class from common.py uses class attributes, so C.BLUE works directly
+C = Colors
 
 
 # =============================================================================

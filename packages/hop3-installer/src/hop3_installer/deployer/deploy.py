@@ -185,7 +185,11 @@ class Deployer:
                         print(f"Admin password: {self.config.admin_password}")
                     else:
                         # Show masked password with hint
-                        masked = self.config.admin_password[:4] + "..." + self.config.admin_password[-4:]
+                        masked = (
+                            self.config.admin_password[:4]
+                            + "..."
+                            + self.config.admin_password[-4:]
+                        )
                         print(f"Admin password: {masked} (use --verbose to show full)")
                 print("=" * 60)
 
@@ -345,6 +349,10 @@ class Deployer:
     def _setup_admin(self) -> bool:
         """Setup admin user and domain."""
         domain = self.config.admin_domain
+        if not domain:
+            self.log("No admin domain configured, skipping admin setup")
+            return True
+
         user = self.config.admin_user
         email = self.config.admin_email
         password = self.config.admin_password

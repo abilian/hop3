@@ -5,25 +5,16 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from ...common import CommandResult
 
 if TYPE_CHECKING:
     from ..config import DeployConfig
 
-
-@dataclass
-class CommandResult:
-    """Result of a command execution."""
-
-    returncode: int
-    stdout: str = ""
-    stderr: str = ""
-
-    @property
-    def success(self) -> bool:
-        return self.returncode == 0
+# Re-export for backwards compatibility
+__all__ = ["CommandResult", "DeployBackend"]
 
 
 class DeployBackend(ABC):
