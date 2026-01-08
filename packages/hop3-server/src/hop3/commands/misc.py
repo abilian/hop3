@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from importlib.metadata import version as get_version
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -48,10 +49,8 @@ class VersionCmd(Command):
     requires_auth: ClassVar[bool] = False  # Public command
 
     def call(self, *args):
-        from importlib.metadata import version
-
         try:
-            server_version = version("hop3-server")
+            server_version = get_version("hop3-server")
         except Exception:
             server_version = "unknown"
 

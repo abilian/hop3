@@ -284,8 +284,6 @@ class DockerTarget(DeploymentTarget):
         self.ssh_key_path = Path(info_data["ssh_key"])
 
         # Restore target info
-        from .base import TargetInfo
-
         self._info = TargetInfo(
             ssh_host="hop3@localhost",
             ssh_port=info_data["ssh_port"],

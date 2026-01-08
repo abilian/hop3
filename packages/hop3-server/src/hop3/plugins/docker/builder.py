@@ -16,6 +16,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from hop3.config import HOP3_ROOT
 from hop3.core.protocols import BuildArtifact, BuildContext
 from hop3.lib import Abort, log
 from hop3.lib.logging import server_log
@@ -243,8 +244,6 @@ class DockerBuilder:
         """
         try:
             # Determine log directory - use app path if available
-            from hop3.config import HOP3_ROOT
-
             app_log_dir = HOP3_ROOT / self.app_name / "log"
             app_log_dir.mkdir(parents=True, exist_ok=True)
 

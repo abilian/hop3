@@ -8,11 +8,15 @@ from __future__ import annotations
 
 import importlib.metadata
 import platform
+import re
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
 from typing import ClassVar
 
+from hop3.config import HOP3_ROOT
 from hop3.core.plugins import get_plugin_manager
+from hop3.lib.logging import DEFAULT_LOG_FILE
 from hop3.lib.registry import register
 
 from ._base import Command
@@ -166,8 +170,6 @@ class InfoCmd(Command):
             "Paths",
             "-" * 40,
         ])
-        from hop3.config import HOP3_ROOT
-
         lines.append(f"HOP3_ROOT:      {HOP3_ROOT}")
         lines.append(f"Apps dir:       {HOP3_ROOT / 'apps'}")
         lines.append(f"Nginx conf:     {HOP3_ROOT / 'nginx'}")
@@ -209,10 +211,6 @@ class SystemLogsCmd(Command):
     name: ClassVar[str] = "system:logs"
 
     def call(self, *args, **kwargs):
-        import re
-
-        from hop3.lib.logging import DEFAULT_LOG_FILE
-
         # Parse options from args (CLI passes them as positional strings)
         parsed = self._parse_args(args)
         lines = parsed.get("lines", 100)
@@ -253,9 +251,6 @@ class SystemLogsCmd(Command):
 
     def _parse_since(self, since: str):
         """Parse duration string like '1h', '30m', '1d' into a cutoff datetime."""
-        import re
-        from datetime import datetime, timedelta, timezone
-
         match = re.match(r"^(\d+)([smhd])$", since.lower())
         if not match:
             return None
@@ -276,8 +271,6 @@ class SystemLogsCmd(Command):
 
     def _filter_by_time(self, lines: list[str], cutoff) -> list[str]:
         """Filter log lines to only include those after cutoff time."""
-        from datetime import datetime, timezone
-
         result = []
         for line in lines:
             # Log format: "2025-12-07 10:15:23 [LEVEL] message"

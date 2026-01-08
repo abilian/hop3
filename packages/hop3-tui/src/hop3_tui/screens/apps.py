@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, ClassVar
 
 from textual.app import ComposeResult
@@ -248,8 +249,6 @@ class AppsScreen(Screen):
         """Format the updated timestamp."""
         if app.updated_at:
             # Simple relative time
-            from datetime import datetime, timezone
-
             now = datetime.now(timezone.utc)
             if app.updated_at.tzinfo is None:
                 # Assume UTC if no timezone

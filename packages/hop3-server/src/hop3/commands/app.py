@@ -7,22 +7,30 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import time
 import urllib.error
 import urllib.request
 from base64 import b64decode
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from hop3.core.credentials import get_credential_encryptor
 from hop3.deployers import do_deploy
 from hop3.lib import log
 from hop3.lib.archives import extract_archive_to_dir
+from hop3.lib.console import capture_logs
+from hop3.lib.logging import server_log
 from hop3.lib.registry import register
-from hop3.orm import App, AppRepository
+from hop3.orm import AddonCredential, App, AppRepository
+from hop3.orm.app import AppStateEnum
+from hop3.orm.env_var import EnvVar
 
 from ._base import Command
 from ._errors import command_context
+from .apps import _get_instance_count
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -104,9 +112,6 @@ class DeployCmd(Command):
     name: ClassVar[str] = "deploy"
 
     def call(self, *args, **kwargs):
-        from hop3.lib.console import capture_logs
-        from hop3.lib.logging import server_log
-
         if not args:
             msg = "Usage: hop deploy <app_name>"
             raise ValueError(msg)
@@ -138,8 +143,6 @@ class DeployCmd(Command):
         # Handle --env flags: merge new env vars with existing ones
         env_vars_from_cli = kwargs.get("env_vars", {})
         if env_vars_from_cli:
-            from hop3.orm.env_var import EnvVar
-
             # Get existing env as dict
             existing_env = {ev.name: ev.value for ev in app.env_vars}
             # Merge with CLI env vars (CLI takes precedence)
@@ -171,8 +174,6 @@ class DeployCmd(Command):
             with command_context("deploying app", app_name=app_name):
                 do_deploy(app)
                 # Record deployment timestamp and commit state changes
-                from datetime import UTC, datetime
-
                 app.last_deployed_at = datetime.now(UTC)
                 self.db_session.commit()
 
@@ -207,10 +208,6 @@ class StatusCmd(Command):
     name: ClassVar[str] = "app:status"
 
     def call(self, *args):
-        from hop3.orm.app import AppStateEnum
-
-        from .apps import _get_instance_count
-
         if not args:
             msg = "Usage: hop app:status <app_name>"
             raise ValueError(msg)
@@ -383,8 +380,6 @@ class LogsCmd(Command):
     name: ClassVar[str] = "app:logs"
 
     def call(self, *args):
-        import re
-
         # Parse args: first positional is app_name, rest are options
         parsed = self._parse_args(args)
         app_name = parsed.get("app_name")
@@ -535,8 +530,6 @@ class StartCmd(Command):
     name: ClassVar[str] = "app:start"
 
     def call(self, *args):
-        from hop3.lib.console import capture_logs
-
         if not args:
             msg = "Usage: hop start <app_name>"
             raise ValueError(msg)
@@ -591,8 +584,6 @@ class StopCmd(Command):
     name: ClassVar[str] = "app:stop"
 
     def call(self, *args):
-        from hop3.lib.console import capture_logs
-
         if not args:
             msg = "Usage: hop stop <app_name>"
             raise ValueError(msg)
@@ -648,8 +639,6 @@ class RestartCmd(Command):
     name: ClassVar[str] = "app:restart"
 
     def call(self, *args):
-        from hop3.lib.console import capture_logs
-
         if not args:
             msg = "Usage: hop restart <app_name>"
             raise ValueError(msg)
@@ -696,8 +685,6 @@ class DestroyCmd(Command):
     destructive: ClassVar[bool] = True
 
     def call(self, *args):
-        from hop3.lib.console import capture_logs
-
         if not args:
             return [
                 {"t": "text", "text": "Usage: hop3 app:destroy <app_name> [--force]"}
@@ -883,9 +870,6 @@ class EnvCmd(Command):
         Returns:
             Set of variable names that were injected by addons
         """
-        from hop3.core.credentials import get_credential_encryptor
-        from hop3.orm import AddonCredential
-
         addon_vars: set[str] = set()
 
         # Query addon credentials for this app
@@ -999,8 +983,6 @@ class DebugCmd(Command):
 
     def _get_status_section(self, app) -> list[dict[str, Any]]:
         """Get app status information."""
-        from hop3.orm.app import AppStateEnum
-
         actual_state = app.check_actual_status()
         db_state = app.run_state
 

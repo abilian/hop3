@@ -5,7 +5,9 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
+import subprocess
 import time
 from datetime import UTC, datetime
 from enum import Enum
@@ -19,8 +21,9 @@ from sqlalchemy.types import Integer as SQLInteger
 
 from hop3.config import HopConfig
 from hop3.core.env import Env
+from hop3.core.plugins import get_deployer_by_name
 from hop3.deployers import do_deploy
-from hop3.lib import Abort, log
+from hop3.lib import Abort, get_free_port, log
 from hop3.run.spawn import spawn_app
 
 if TYPE_CHECKING:
@@ -155,8 +158,6 @@ class App(BigIntAuditBase):
         Returns the actual state based on whether worker processes exist.
         This is used to sync the database state with reality.
         """
-        from hop3.core.plugins import get_deployer_by_name
-
         try:
             strategy = get_deployer_by_name(self, self.runtime)
             is_running = strategy.check_status()
@@ -413,10 +414,6 @@ class App(BigIntAuditBase):
 
     def _start_docker_compose(self) -> None:
         """Start the app using Docker Compose."""
-        import subprocess
-
-        from hop3.lib import get_free_port
-
         log(f"Starting Docker Compose app '{self.name}'...", level=2, fg="blue")
 
         # Use existing port or allocate a new one
@@ -538,8 +535,6 @@ class App(BigIntAuditBase):
 
     def _stop_docker_compose(self) -> None:
         """Stop Docker Compose app."""
-        import subprocess
-
         log(f"Stopping Docker Compose app '{self.name}'...", level=2, fg="blue")
 
         # Transition to STOPPING if coming from RUNNING
@@ -572,8 +567,6 @@ class App(BigIntAuditBase):
 
     def _destroy_docker_compose(self) -> None:
         """Destroy Docker Compose app - remove containers, networks, and volumes."""
-        import subprocess
-
         log(f"Destroying Docker Compose app '{self.name}'...", level=2, fg="yellow")
 
         try:
@@ -664,8 +657,6 @@ class App(BigIntAuditBase):
 
     def _restart_docker_compose(self) -> None:
         """Restart Docker Compose app."""
-        import subprocess
-
         log(f"Restarting Docker Compose app '{self.name}'...", level=2, fg="blue")
 
         # Build environment with image tag for compose file substitution
@@ -732,8 +723,6 @@ class App(BigIntAuditBase):
         Returns:
             List of log lines
         """
-        import subprocess
-
         all_logs = []
 
         try:
@@ -885,8 +874,6 @@ class App(BigIntAuditBase):
         Returns:
             Parsed datetime or None if no timestamp found
         """
-        import re
-
         # Try ISO format first (most common in structured logs)
         iso_match = re.match(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", line)
         if iso_match:

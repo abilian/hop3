@@ -16,6 +16,9 @@ from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Footer, Header, Static
 
+from hop3_tui.screens.processes import ProcessesScreen
+from hop3_tui.screens.system_logs import SystemLogsScreen
+
 
 class ResourcesPanel(Static):
     """Panel showing system resources."""
@@ -186,14 +189,10 @@ class SystemScreen(Screen):
 
     def action_view_system_logs(self) -> None:
         """View system logs."""
-        from hop3_tui.screens.system_logs import SystemLogsScreen
-
         self.app.push_screen(SystemLogsScreen())
 
     def action_view_processes(self) -> None:
         """View running processes."""
-        from hop3_tui.screens.processes import ProcessesScreen
-
         self.app.push_screen(ProcessesScreen())
 
     def action_refresh(self) -> None:

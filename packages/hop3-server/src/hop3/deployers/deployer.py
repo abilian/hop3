@@ -8,6 +8,7 @@ from hop3.core.plugins import get_builder, get_deployment_strategy
 from hop3.core.protocols import DeploymentContext
 from hop3.lib import Abort, log, shell
 from hop3.lib.logging import server_log
+from hop3.orm.app import AppStateEnum
 from hop3.project.config import AppConfig
 
 if TYPE_CHECKING:
@@ -119,8 +120,6 @@ def _update_app_model(
         deployment_info: DeploymentInfo with port and address
         app_config: Parsed application configuration
     """
-    from hop3.orm.app import AppStateEnum
-
     # Update runtime so start/stop commands know how to handle this app
     app.runtime = runtime
 

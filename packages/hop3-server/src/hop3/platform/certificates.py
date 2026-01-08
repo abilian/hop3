@@ -12,7 +12,7 @@ from textwrap import dedent
 
 from attrs import frozen
 
-from hop3.config import ACME_ENGINE, HOP3_ROOT, NGINX_ROOT
+from hop3.config import ACME_EMAIL, ACME_ENGINE, HOP3_ROOT, NGINX_ROOT
 from hop3.lib import log
 
 KEY_STORE = HOP3_ROOT / "certificates"
@@ -122,8 +122,6 @@ class Certificate:
             )
 
             (NGINX_ROOT / "__certbot_webroot.conf").write_text(nginx_webroot_conf)
-
-            from hop3.config import ACME_EMAIL
 
             cmd = (
                 f"certbot certonly --webroot -w {webroot} -d {self.domain_name} -n "

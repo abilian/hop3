@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -82,8 +83,6 @@ class TUIConfig:
     def _find_cli_config_file(cls) -> Path | None:
         """Find the hop3-cli configuration file."""
         # Check platform-specific locations
-        import sys
-
         if sys.platform == "darwin":
             # macOS: ~/Library/Application Support/hop3-cli/config.toml
             cli_config = (

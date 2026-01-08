@@ -16,6 +16,7 @@ from litestar.response import Response
 
 from hop3 import config
 from hop3.commands import Command
+from hop3.lib.console import verbosity_context
 from hop3.lib.logging import server_log
 from hop3.lib.registry import lookup
 from hop3.lib.scanner import scan_package
@@ -84,8 +85,6 @@ def call(command_name: str, args: list[str], extra_args: JsonDict):
     Raises:
         ValueError: If command not found or execution fails
     """
-    from hop3.lib.console import verbosity_context
-
     command_class = commands.get(command_name)
     if command_class is None:
         msg = f"Command {command_name} not found"
