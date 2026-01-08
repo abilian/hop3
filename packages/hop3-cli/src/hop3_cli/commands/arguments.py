@@ -161,7 +161,7 @@ def get_ignored_spec(source_dir: Path) -> pathspec.PathSpec | None:
     spec: pathspec.PathSpec | None = None
     if gitignore_path.is_file():
         with open(gitignore_path, encoding="utf-8") as f:
-            spec = pathspec.PathSpec.from_lines("gitwildmatch", f)
+            spec = pathspec.PathSpec.from_lines("gitignore", f)
     return spec
 
 
