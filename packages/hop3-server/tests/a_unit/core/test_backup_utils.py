@@ -1,7 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-present Abilian SAS <contact@abilian.com>
 #
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: Apache-2.0
 
 """Unit tests for backup utility functions."""
 
