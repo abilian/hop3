@@ -265,9 +265,9 @@ def show_status(config: DeployConfig) -> int:
 
         print(f"Server URL: {backend.get_server_url()}")
         return 0
-    else:
-        print("✗ Target is not reachable")
-        return 1
+
+    print("✗ Target is not reachable")
+    return 1
 
 
 def do_teardown(config: DeployConfig) -> int:

@@ -23,7 +23,7 @@ import sys
 
 def main() -> int:
     """Main entry point for hop3-install."""
-    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+    if len(sys.argv) < 2 or sys.argv[1] in {"-h", "--help"}:
         print_help()
         return 0
 

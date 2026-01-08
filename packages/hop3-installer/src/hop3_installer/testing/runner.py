@@ -281,14 +281,15 @@ class TestRunner:
         installer_path = self.backend.get_installer_path("cli")
         base_cmd = f"python3 {installer_path} --no-modify-path --verbose"
 
-        if method == "pypi":
-            if self.config.version:
-                return f"{base_cmd} --version {self.config.version}"
-            return base_cmd
-        elif method == "git":
-            return f"{base_cmd} --git --branch {self.config.branch}"
-        else:  # local
-            return f"{base_cmd} --local-path /tmp/hop3-cli"
+        match method:
+            case "pypi":
+                if self.config.version:
+                    return f"{base_cmd} --version {self.config.version}"
+                return base_cmd
+            case "git":
+                return f"{base_cmd} --git --branch {self.config.branch}"
+            case _:  # local
+                return f"{base_cmd} --local-path /tmp/hop3-cli"
 
     def _build_server_install_command(self, method: str) -> str:
         """Build the server installer command."""
@@ -298,10 +299,11 @@ class TestRunner:
         if self.config.skip_acme:
             base_cmd += " --skip-acme"
 
-        if method == "git":
-            return f"{base_cmd} --git --branch {self.config.branch}"
-        else:  # local
-            return f"{base_cmd} --local-path /tmp/hop3-server"
+        match method:
+            case "git":
+                return f"{base_cmd} --git --branch {self.config.branch}"
+            case _:  # local
+                return f"{base_cmd} --local-path /tmp/hop3-server"
 
     def print_summary(self) -> bool:
         """Print test summary.

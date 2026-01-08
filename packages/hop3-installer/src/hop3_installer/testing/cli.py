@@ -35,7 +35,8 @@ import os
 import sys
 from pathlib import Path
 
-from ..common import find_project_root
+from hop3_installer.common import find_project_root
+
 from .common import log_error, log_header, set_dry_run, set_verbose
 from .runner import INSTALL_METHODS, TestConfig, TestRunner
 
@@ -65,7 +66,7 @@ def _find_or_generate_installer_dir() -> Path:
     print("[INFO] Generating single-file installers...")
     installer_dir.mkdir(exist_ok=True)
 
-    from ..bundler import bundle_installer
+    from hop3_installer.bundler import bundle_installer
 
     try:
         # Generate CLI installer
@@ -286,18 +287,18 @@ def run_ssh_tests(args: argparse.Namespace, installer_dir: Path) -> int:
     # Run tests
     runner = TestRunner(backend, config)
     try:
-        if args.type in ("cli", "both"):
+        if args.type in {"cli", "both"}:
             log_header("CLI Installer Tests")
             runner.run_cli_tests(methods)
 
-        if args.type in ("server", "both"):
+        if args.type in {"server", "both"}:
             log_header("Server Installer Tests")
             runner.run_server_tests(methods)
     finally:
         if not args.keep:
-            if args.type in ("cli", "both"):
+            if args.type in {"cli", "both"}:
                 backend.cleanup_cli()
-            if args.type in ("server", "both"):
+            if args.type in {"server", "both"}:
                 backend.cleanup_server()
 
     # Summary
@@ -347,10 +348,10 @@ def run_docker_tests(args: argparse.Namespace, installer_dir: Path) -> int:
         try:
             methods = INSTALL_METHODS if args.method == "all" else [args.method]
 
-            if args.type in ("cli", "both"):
+            if args.type in {"cli", "both"}:
                 runner.run_cli_tests(methods)
 
-            if args.type in ("server", "both"):
+            if args.type in {"server", "both"}:
                 runner.run_server_tests(methods)
 
             all_results[distro] = all(r.passed for r in runner.results)
@@ -412,10 +413,10 @@ def run_vagrant_tests(args: argparse.Namespace, installer_dir: Path) -> int:
         try:
             methods = INSTALL_METHODS if args.method == "all" else [args.method]
 
-            if args.type in ("cli", "both"):
+            if args.type in {"cli", "both"}:
                 runner.run_cli_tests(methods)
 
-            if args.type in ("server", "both"):
+            if args.type in {"server", "both"}:
                 runner.run_server_tests(methods)
 
             all_results[vm] = all(r.passed for r in runner.results)
@@ -457,15 +458,16 @@ def main() -> int:
     installer_dir = _find_or_generate_installer_dir()
 
     # Run appropriate backend
-    if args.backend == "ssh":
-        return run_ssh_tests(args, installer_dir)
-    elif args.backend == "docker":
-        return run_docker_tests(args, installer_dir)
-    elif args.backend == "vagrant":
-        return run_vagrant_tests(args, installer_dir)
-    else:
-        log_error(f"Unknown backend: {args.backend}")
-        return 1
+    match args.backend:
+        case "ssh":
+            return run_ssh_tests(args, installer_dir)
+        case "docker":
+            return run_docker_tests(args, installer_dir)
+        case "vagrant":
+            return run_vagrant_tests(args, installer_dir)
+        case _:
+            log_error(f"Unknown backend: {args.backend}")
+            return 1
 
 
 if __name__ == "__main__":

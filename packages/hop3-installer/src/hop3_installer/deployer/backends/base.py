@@ -8,10 +8,10 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ...common import CommandResult
+from hop3_installer.common import CommandResult
 
 if TYPE_CHECKING:
-    from ..config import DeployConfig
+    from hop3_installer.deployer.config import DeployConfig
 
 # Re-export for backwards compatibility
 __all__ = ["CommandResult", "DeployBackend"]
@@ -78,7 +78,7 @@ class DeployBackend(ABC):
         result = self.run(command, check=False)
 
         if quiet and log_file:
-            with open(log_file, "a") as f:
+            with Path(log_file).open("a") as f:
                 f.write(f"\n=== Command: {command} ===\n")
                 if result.stdout:
                     f.write(result.stdout)

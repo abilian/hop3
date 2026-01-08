@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from .base import CommandResult, DeployBackend
 
 if TYPE_CHECKING:
-    from ..config import DeployConfig
+    from hop3_installer.deployer.config import DeployConfig
 
 
 class DockerDeployBackend(DeployBackend):
@@ -229,7 +229,7 @@ class DockerDeployBackend(DeployBackend):
                 docker_cmd, capture_output=True, text=True, check=False
             )
             if log_file:
-                with open(log_file, "a") as f:
+                with Path(log_file).open("a") as f:
                     f.write(f"\n=== Command: {command} ===\n")
                     if result.stdout:
                         f.write(result.stdout)
@@ -237,10 +237,10 @@ class DockerDeployBackend(DeployBackend):
                         f.write(f"\n--- stderr ---\n{result.stderr}")
                     f.write(f"\n=== Exit code: {result.returncode} ===\n")
             return result.returncode
-        else:
-            # Stream directly to terminal
-            result = subprocess.run(docker_cmd, check=False)
-            return result.returncode
+
+        # Stream directly to terminal
+        result = subprocess.run(docker_cmd, check=False)
+        return result.returncode
 
     def upload_file(self, local_path: Path, remote_path: str) -> bool:
         """Copy a file into the container."""
