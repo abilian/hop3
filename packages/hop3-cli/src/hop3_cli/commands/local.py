@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import getpass
 import os
-import re
 import shlex
 import subprocess
 import sys
@@ -28,6 +27,7 @@ from jsonrpcclient import Error, Ok
 
 from hop3_cli.config import Config as TempConfig
 from hop3_cli.rpc import Client
+from hop3_cli.tokens import extract_jwt
 
 if TYPE_CHECKING:
     from hop3_cli.config import Config
@@ -288,14 +288,12 @@ def _extract_token_from_login_response(result: list[dict]) -> str | None:
     Returns:
         The JWT token or None if not found
     """
-    jwt_pattern = re.compile(r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
-
     for item in result:
         if item.get("t") == "text":
             text = item.get("text", "")
-            match = jwt_pattern.search(text)
-            if match:
-                return match.group(0)
+            token = extract_jwt(text)
+            if token:
+                return token
     return None
 
 
@@ -935,9 +933,10 @@ def fetch_and_save_certificate(
 
     # Use openssl to fetch the certificate via SSH
     # This runs on the server and returns the certificate
+    # Use shlex.quote to prevent command injection via crafted hostnames
     remote_cmd = (
-        f"openssl s_client -connect {hostname}:{port} "
-        f"-servername {hostname} </dev/null 2>/dev/null | "
+        f"openssl s_client -connect {shlex.quote(hostname)}:{port} "
+        f"-servername {shlex.quote(hostname)} </dev/null 2>/dev/null | "
         f"openssl x509 2>/dev/null"
     )
 
@@ -984,13 +983,7 @@ def extract_token(output: str) -> str | None:
     Returns:
         The JWT token or None if not found
     """
-    # JWT token pattern (3 base64url segments separated by dots)
-    jwt_pattern = re.compile(r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
-
-    match = jwt_pattern.search(output)
-    if match:
-        return match.group(0)
-    return None
+    return extract_jwt(output)
 
 
 def infer_server_url(ssh_target: str) -> str:
