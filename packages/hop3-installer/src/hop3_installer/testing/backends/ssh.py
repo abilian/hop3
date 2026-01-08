@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import shlex
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hop3_installer.testing.common import (
     DRY_RUN,
@@ -18,6 +18,9 @@ from hop3_installer.testing.common import (
 )
 
 from .base import Backend
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class SSHBackend(Backend):
