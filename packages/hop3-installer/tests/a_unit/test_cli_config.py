@@ -1,12 +1,12 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Unit tests for hop3_installer.cli.config module."""
+"""Unit tests for hop3_installer.cli_installer.config module."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from hop3_installer.cli.config import (
+from hop3_installer.cli_installer.config import (
     CLI_COMMANDS,
     DEFAULT_BIN_DIR,
     DEFAULT_BRANCH,

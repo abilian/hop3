@@ -31,11 +31,11 @@ class TestConstants:
 
     def test_cli_modules_contains_installer(self):
         """CLI_MODULES should contain the CLI installer."""
-        assert "cli/installer.py" in CLI_MODULES
+        assert "cli_installer/installer.py" in CLI_MODULES
 
     def test_server_modules_contains_installer(self):
         """SERVER_MODULES should contain the server installer."""
-        assert "server/installer.py" in SERVER_MODULES
+        assert "server_installer/installer.py" in SERVER_MODULES
 
     def test_stdlib_imports_contains_common_modules(self):
         """STDLIB_IMPORTS should contain commonly used stdlib modules."""

@@ -34,11 +34,11 @@ def main() -> int:
 
     match subcommand:
         case "cli":
-            from .cli.installer import main as cli_main
+            from .cli_installer.installer import main as cli_main
 
             return cli_main()
         case "server":
-            from .server.installer import main as server_main
+            from .server_installer.installer import main as server_main
 
             return server_main()
         case "bundle":
