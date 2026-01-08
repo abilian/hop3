@@ -294,6 +294,17 @@ The TUI communicates with the Hop3 server via JSON-RPC over HTTP. The API client
 - Automatic retry on connection errors
 - Request ID tracking
 
+## Documentation
+
+- **User Guide**: [Main documentation](../../docs/src/guide.md)
+- **System Architecture**: [Architecture overview](../../docs/src/dev/architecture.md)
+- **Package Internals**: [Deep-dive documentation](./docs/internals.md)
+
+## Related Packages
+
+- [hop3-server](../hop3-server/) - The server that hop3-tui communicates with
+- [hop3-cli](../hop3-cli/) - Alternative command-line interface
+
 ## License
 
-Apache-2.0
+Apache-2.0 - Copyright (c) 2024-2025, Abilian SAS
