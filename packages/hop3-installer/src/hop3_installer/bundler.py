@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Abilian SAS
+# Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 """Single-file installer bundler.
 
@@ -71,7 +71,7 @@ HEADER_TEMPLATE = '''#!/usr/bin/env python3
 #     uv run hop3-install bundle --all --output-dir installer/
 #
 # =============================================================================
-# Copyright (c) 2025, Abilian SAS
+# Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 """
 {description}
