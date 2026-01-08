@@ -29,6 +29,7 @@ import sys  # noqa: E402
 from typing import Any  # noqa: E402
 
 import requests.exceptions  # noqa: E402
+from jsonrpcclient import Error, Ok  # noqa: E402
 from loguru import logger  # noqa: E402
 
 from .commands import (  # noqa: E402
@@ -211,8 +212,6 @@ def verify_authentication(config: Config) -> bool:
     Returns:
         True if authenticated, False otherwise
     """
-    from jsonrpcclient import Error, Ok
-
     try:
         with Client(config=config) as client:
             response = client.rpc("cli", ["auth:whoami"])

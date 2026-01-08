@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from jsonrpcclient import Error, Ok
 
+from hop3_cli.commands.help import inject_local_commands_into_help, is_help_command
 from hop3_cli.exit_codes import ExitCode, map_message_to_exit, map_rpc_code_to_exit
 from hop3_cli.ui.console import err
 
@@ -43,8 +44,6 @@ def handle_ok_response(
     result: list[dict], cli_args: list[str], config: Config, printer: RichPrinter
 ) -> None:
     """Handle successful RPC response."""
-    from hop3_cli.commands.help import inject_local_commands_into_help, is_help_command
-
     if cli_args and cli_args[0] == "auth:login":
         handle_login_response(result, config, printer)
     elif is_help_command(cli_args) and not printer.json_output:

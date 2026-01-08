@@ -15,11 +15,19 @@ These commands are processed by the CLI without requiring an RPC call to the ser
 from __future__ import annotations
 
 import getpass
+import os
 import re
 import shlex
 import subprocess
 import sys
+from importlib.metadata import version as get_version
 from typing import TYPE_CHECKING
+from urllib.parse import parse_qs, urlparse
+
+from jsonrpcclient import Error, Ok
+
+from hop3_cli.config import Config as TempConfig
+from hop3_cli.rpc import Client
 
 if TYPE_CHECKING:
     from hop3_cli.config import Config
@@ -84,10 +92,8 @@ def handle_local_command(args: list[str], config: Config, printer: RichPrinter) 
 
 def handle_version(args: list[str], config: Config, printer: RichPrinter) -> bool:
     """Handle the version command - show CLI version locally."""
-    from importlib.metadata import version
-
     try:
-        cli_version = version("hop3-cli")
+        cli_version = get_version("hop3-cli")
     except Exception:
         cli_version = "unknown"
 
@@ -156,8 +162,6 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> bool:
 
     # Check for URL with embedded token (e.g., http://localhost:8000?token=eyJ...)
     if args and not args[0].startswith("-"):
-        from urllib.parse import parse_qs, urlparse
-
         potential_url = args[0]
         if "?" in potential_url and "token=" in potential_url:
             parsed = urlparse(potential_url)
@@ -195,8 +199,6 @@ def handle_login_password(
     username, password = _prompt_credentials(username)
 
     # Call auth:login via RPC
-    from hop3_cli.rpc import Client
-
     print(f"\nAuthenticating as {username}...")
 
     with Client(config=config) as client:
@@ -260,8 +262,6 @@ def _handle_login_response(
     response, username: str, config: Config, printer: RichPrinter
 ) -> None:
     """Handle the RPC response from auth:login."""
-    from jsonrpcclient import Error, Ok
-
     match response:
         case Ok(result=result):
             token = _extract_token_from_login_response(result)
@@ -365,8 +365,6 @@ def _resolve_server_url(server_url: str | None, config) -> str:
         return existing_url
 
     # Prompt for URL
-    import os
-
     if os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}:
         default_url = "http://localhost:8000"
     else:
@@ -381,9 +379,6 @@ def _verify_token(server_url: str, token: str) -> str | None:
     Returns:
         Username if successful, None if verification failed
     """
-    from hop3_cli.config import Config as TempConfig
-    from hop3_cli.rpc import Client
-
     # Create a temporary config for verification
     temp_config = TempConfig(
         data={"api_url": server_url, "api_token": token},
@@ -394,8 +389,6 @@ def _verify_token(server_url: str, token: str) -> str | None:
 
     try:
         with Client(config=temp_config) as client:
-            from jsonrpcclient import Error, Ok
-
             response = client.rpc("cli", ["auth:whoami"])
 
             match response:
@@ -538,8 +531,6 @@ def _handle_ssl_certificate(
         return
     if existing_cert or existing_verify is not None:
         return
-
-    from urllib.parse import urlparse
 
     parsed = urlparse(server_url)
     hostname = parsed.hostname
@@ -750,8 +741,6 @@ def handle_settings(args: list[str], config: Config, printer: RichPrinter) -> bo
 
 def settings_show(config: Config, printer: RichPrinter) -> bool:
     """Show current CLI settings."""
-    import os
-
     print(f"Config file: {config.config_file}\n")
 
     # Show dev mode status
@@ -936,8 +925,6 @@ def fetch_and_save_certificate(
     Returns:
         Path to the saved certificate file, or None if failed
     """
-    from urllib.parse import urlparse
-
     # Extract hostname from server URL
     parsed = urlparse(server_url)
     hostname = parsed.hostname
