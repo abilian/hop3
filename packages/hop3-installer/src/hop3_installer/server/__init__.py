@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Hop3 Server installer module."""
 
+from __future__ import annotations
+
 from .installer import main
 
 __all__ = ["main"]

@@ -23,6 +23,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from typing_extensions import Self
+
 # =============================================================================
 # Terminal Colors
 # =============================================================================
@@ -116,7 +118,7 @@ class Spinner:
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
 
-    def __enter__(self) -> Spinner:
+    def __enter__(self) -> Self:
         if sys.stdout.isatty():
             self._stop_event.clear()
             self._thread = threading.Thread(target=self._spin, daemon=True)

@@ -19,6 +19,8 @@ Usage:
     HOP3_DEV_HOST=192.168.1.100 make deploy
 """
 
+from __future__ import annotations
+
 from .cli import main
 from .config import DeployConfig
 from .deploy import Deployer, create_backend, deploy
