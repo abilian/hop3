@@ -4,9 +4,10 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from hop3_installer.common import env_bool, env_str
 
 # Package configuration
 PACKAGE_NAME = "hop3-server"
@@ -296,22 +297,20 @@ class ServerInstallerConfig:
     @classmethod
     def from_env(cls) -> ServerInstallerConfig:
         """Create config from environment variables."""
-        features_str = os.environ.get("HOP3_WITH", "")
-        features = parse_features(features_str)
+        features = parse_features(env_str("HOP3_WITH", ""))
 
         return cls(
-            version=os.environ.get("HOP3_VERSION"),
-            use_git=os.environ.get("HOP3_GIT", "").lower() in {"1", "true"},
-            branch=os.environ.get("HOP3_BRANCH", DEFAULT_BRANCH),
-            local_path=os.environ.get("HOP3_LOCAL_PACKAGE"),
-            force=os.environ.get("HOP3_FORCE", "").lower() in {"1", "true"},
-            skip_deps=os.environ.get("HOP3_SKIP_DEPS", "").lower() in {"1", "true"},
-            skip_nginx=os.environ.get("HOP3_SKIP_NGINX", "").lower() in {"1", "true"},
-            skip_postgres=os.environ.get("HOP3_SKIP_POSTGRES", "").lower()
-            in {"1", "true"},
-            skip_acme=os.environ.get("HOP3_SKIP_ACME", "").lower() in {"1", "true"},
-            domain=os.environ.get("HOP3_DOMAIN"),
-            verbose=os.environ.get("HOP3_VERBOSE", "").lower() in {"1", "true"},
+            version=env_str("HOP3_VERSION"),
+            use_git=env_bool("HOP3_GIT"),
+            branch=env_str("HOP3_BRANCH", DEFAULT_BRANCH),
+            local_path=env_str("HOP3_LOCAL_PACKAGE"),
+            force=env_bool("HOP3_FORCE"),
+            skip_deps=env_bool("HOP3_SKIP_DEPS"),
+            skip_nginx=env_bool("HOP3_SKIP_NGINX"),
+            skip_postgres=env_bool("HOP3_SKIP_POSTGRES"),
+            skip_acme=env_bool("HOP3_SKIP_ACME"),
+            domain=env_str("HOP3_DOMAIN"),
+            verbose=env_bool("HOP3_VERBOSE"),
             features=features,
         )
 

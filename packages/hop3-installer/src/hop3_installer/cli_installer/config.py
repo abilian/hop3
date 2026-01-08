@@ -4,9 +4,10 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from hop3_installer.common import env_bool, env_path, env_str
 
 # Package configuration
 PACKAGE_NAME = "hop3-cli"
@@ -50,13 +51,12 @@ class CLIInstallerConfig:
     def from_env(cls) -> CLIInstallerConfig:
         """Create config from environment variables."""
         return cls(
-            version=os.environ.get("HOP3_VERSION"),
-            use_git=os.environ.get("HOP3_GIT", "").lower() in {"1", "true"},
-            branch=os.environ.get("HOP3_BRANCH", DEFAULT_BRANCH),
-            local_path=os.environ.get("HOP3_LOCAL_PACKAGE"),
-            bin_dir=Path(os.environ.get("HOP3_BIN_DIR", str(DEFAULT_BIN_DIR))),
-            force=os.environ.get("HOP3_FORCE", "").lower() in {"1", "true"},
-            no_modify_path=os.environ.get("HOP3_NO_MODIFY_PATH", "").lower()
-            in {"1", "true"},
-            verbose=os.environ.get("HOP3_VERBOSE", "").lower() in {"1", "true"},
+            version=env_str("HOP3_VERSION"),
+            use_git=env_bool("HOP3_GIT"),
+            branch=env_str("HOP3_BRANCH", DEFAULT_BRANCH),
+            local_path=env_str("HOP3_LOCAL_PACKAGE"),
+            bin_dir=env_path("HOP3_BIN_DIR", DEFAULT_BIN_DIR),
+            force=env_bool("HOP3_FORCE"),
+            no_modify_path=env_bool("HOP3_NO_MODIFY_PATH"),
+            verbose=env_bool("HOP3_VERBOSE"),
         )

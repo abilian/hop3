@@ -22,6 +22,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import overload
 
 from typing_extensions import Self
 
@@ -325,3 +326,73 @@ def check_python_version() -> None:
         print("  Fedora:        sudo dnf install python3.11")
         print("  macOS:         brew install python@3.11")
         sys.exit(1)
+
+
+# =============================================================================
+# Environment Variable Helpers
+# =============================================================================
+
+
+@overload
+def env_str(name: str) -> str | None: ...
+
+
+@overload
+def env_str(name: str, default: str) -> str: ...
+
+
+def env_str(name: str, default: str | None = None) -> str | None:
+    """Get a string environment variable.
+
+    Args:
+        name: Environment variable name.
+        default: Default value if not set.
+
+    Returns:
+        The environment variable value, or default if not set.
+        When default is a str, return type is str.
+        When default is None (or omitted), return type is str | None.
+    """
+    return os.environ.get(name, default)
+
+
+def env_bool(name: str) -> bool:
+    """Get a boolean environment variable.
+
+    Recognizes "1" and "true" (case-insensitive) as True.
+
+    Args:
+        name: Environment variable name.
+
+    Returns:
+        True if set to "1" or "true", False otherwise.
+    """
+    return os.environ.get(name, "").lower() in {"1", "true"}
+
+
+def env_path(name: str, default: Path) -> Path:
+    """Get a Path environment variable.
+
+    Args:
+        name: Environment variable name.
+        default: Default Path if not set.
+
+    Returns:
+        Path from environment variable, or default.
+    """
+    value = os.environ.get(name)
+    return Path(value) if value else default
+
+
+def env_list(name: str, separator: str = ",") -> list[str]:
+    """Get a list from a separated environment variable.
+
+    Args:
+        name: Environment variable name.
+        separator: Separator character (default: comma).
+
+    Returns:
+        List of stripped, non-empty values.
+    """
+    value = os.environ.get(name, "")
+    return [item.strip() for item in value.split(separator) if item.strip()]
