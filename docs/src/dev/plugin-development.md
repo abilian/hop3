@@ -1,26 +1,28 @@
 # Plugin Development Guide
 
-This guide covers how to create plugins for Hop3 to extend its functionality with new build strategies, deployment runtimes, services, proxies, and operating system support.
+This guide covers how to create plugins for Hop3 to extend its functionality with new builders, language toolchains, deployers, addons, proxies, and operating system support.
 
 ## Overview
 
 Hop3 uses a plugin-based architecture built on [pluggy](https://pluggy.readthedocs.io/), the same plugin framework used by pytest. Plugins allow you to extend Hop3 with:
 
-- **Build Strategies**: Convert source code into runnable artifacts (e.g., Python buildpack, Docker builder)
-- **Deployment Strategies** (Runtimes): Run build artifacts (e.g., uWSGI, Docker Compose, systemd)
-- **Service Strategies**: Manage backing services like databases and caches (e.g., PostgreSQL, Redis, MySQL)
-- **Proxy Strategies**: Configure reverse proxies (e.g., Nginx, Caddy, Traefik)
-- **OS Setup Strategies**: Support different Linux distributions (e.g., Debian, Ubuntu, RHEL)
+- **Builders**: Orchestrate builds (local vs containerized) - e.g., LocalBuilder, DockerBuilder
+- **Language Toolchains**: Language-specific build tooling - e.g., Python, Node, Ruby, Go, Rust
+- **Deployers**: Run build artifacts - e.g., uWSGI, Docker Compose, Static
+- **Addons**: Backing services (databases, caches) - e.g., PostgreSQL, Redis, MySQL
+- **Proxies**: Configure reverse proxies - e.g., Nginx, Caddy, Traefik
+- **OS Implementations**: Support Linux distributions - e.g., Debian family, Red Hat family
 
 ## When to Create a Plugin
 
 Create a plugin when you want to:
 
-- **Add support for a new programming language** (build strategy)
-- **Support a new deployment method** (deployment strategy/runtime)
-- **Integrate a new service** like MySQL, MongoDB, Elasticsearch (service strategy)
-- **Add support for a new reverse proxy** (proxy strategy)
-- **Support a new Linux distribution** (OS setup strategy)
+- **Add support for a new programming language** (language toolchain)
+- **Support a new build orchestration method** (builder)
+- **Support a new deployment runtime** (deployer)
+- **Integrate a new backing service** like MongoDB, Elasticsearch (addon)
+- **Add support for a new reverse proxy** (proxy)
+- **Support a new Linux distribution** (OS implementation)
 
 Modify core code when you need to:
 
@@ -31,9 +33,11 @@ Modify core code when you need to:
 
 ## Plugin Types
 
-### 1. Build Strategies
+### 1. Builders
 
-Build strategies convert source code into deployable artifacts.
+Builders orchestrate the build process. There are two levels:
+- **Level 1 (Orchestrators)**: Decide HOW to build (local vs containerized)
+- **Level 2 (Language Toolchains)**: Language-specific build logic (used by LocalBuilder)
 
 **Protocol**: `Builder` (from `hop3.core.protocols`)
 
@@ -86,9 +90,25 @@ class PythonBuildStrategy:
         )
 ```
 
-### 2. Deployment Strategies (Runtimes)
+### 2. Language Toolchains
 
-Deployment strategies run build artifacts and manage their lifecycle.
+Language toolchains provide language-specific build logic. They are used by `LocalBuilder` to build applications for specific programming languages.
+
+**Protocol**: `LanguageToolchain` (from `hop3.core.protocols`)
+
+**Required methods**:
+- `accept() -> bool`: Return `True` if this toolchain can build the app
+- `build() -> BuildArtifact`: Execute build and return artifact info
+
+**Hook**: `get_language_toolchains()`
+
+**Location**: `hop3/plugins/build/language_toolchains/`
+
+**Available toolchains**: Python, Node.js, Ruby, Go, Rust, Java, PHP, Clojure, .NET, Elixir, Static
+
+### 3. Deployers
+
+Deployers run build artifacts and manage their lifecycle.
 
 **Protocol**: `Deployer` (from `hop3.core.protocols`)
 
@@ -169,11 +189,15 @@ class DockerComposeDeployer:
         subprocess.run(cmd, cwd=self.context.source_path, check=True)
 ```
 
-### 3. Service Strategies
+### 4. Addons
 
-Service strategies manage backing services (databases, caches, etc.).
+Addons manage backing services (databases, caches, etc.). They are independent resources that can be shared across applications.
 
 **Protocol**: `Addon` (from `hop3.core.protocols`)
+
+**Hook**: `get_addons()`
+
+**Location**: `hop3/plugins/{postgresql,mysql,redis}/`
 
 **Required attributes**:
 - `name` (str): Service type (e.g., "postgres", "redis")
@@ -251,11 +275,15 @@ class RedisService:
         }
 ```
 
-### 4. Proxy Strategies
+### 5. Proxies
 
-Proxy strategies configure reverse proxies for applications.
+Proxies configure reverse proxies for applications.
 
 **Base Class**: `BaseProxy` (from `hop3.core.protocols`)
+
+**Hook**: `get_proxies()`
+
+**Location**: `hop3/plugins/proxy/{nginx,caddy,traefik}/`
 
 **Required attributes**:
 - `app` (App): Application instance
@@ -335,11 +363,15 @@ class NginxVirtualHost(BaseProxy):
         subprocess.run(["systemctl", "reload", "nginx"], check=True)
 ```
 
-### 5. OS Setup Strategies
+### 6. OS Implementations
 
-OS setup strategies handle operating system-specific configuration.
+OS implementations handle operating system-specific configuration.
 
 **Protocol**: `OS` (from `hop3.core.protocols`)
+
+**Hook**: `get_os_implementations()`
+
+**Location**: `hop3/plugins/oses/`
 
 **Required attributes**:
 - `name` (str): OS identifier (e.g., "debian12", "ubuntu2204")
@@ -427,7 +459,7 @@ hop3/plugins/
 **Plugin class** (`plugin.py`):
 ```python
 from hop3.core.hooks import hookimpl
-from .builder import MyBuilder
+from .toolchain import MyLanguageToolchain
 from .deployer import MyDeployer
 
 class MyPlugin:
@@ -436,18 +468,28 @@ class MyPlugin:
     name = "my_plugin"
 
     @hookimpl
-    def get_builders(self) -> list:
-        """Return build strategies."""
-        return [MyBuilder]
+    def get_language_toolchains(self) -> list:
+        """Return language toolchain classes."""
+        return [MyLanguageToolchain]
 
     @hookimpl
     def get_deployers(self) -> list:
-        """Return deployment strategies."""
+        """Return deployer classes."""
         return [MyDeployer]
 
 # Auto-register when module is imported
 plugin = MyPlugin()
 ```
+
+**Available hooks**:
+- `get_builders()` - Return Builder classes
+- `get_language_toolchains()` - Return LanguageToolchain classes
+- `get_deployers()` - Return Deployer classes
+- `get_addons()` - Return Addon classes
+- `get_proxies()` - Return Proxy classes
+- `get_os_implementations()` - Return OS classes
+- `get_di_providers()` - Return Dishka Provider instances
+- `cli_commands()` - Register CLI commands
 
 **Important**: The `__init__.py` must import the plugin:
 ```python
@@ -779,6 +821,7 @@ def check_status(self) -> bool:
 ## Getting Help
 
 - Review existing plugins in `hop3/plugins/`
-- Check the architectural review: `local-notes/PLUGIN-ARCHITECTURE-REVIEW.md`
+- Check hook specifications in `hop3/core/hookspecs.py`
+- Check protocol definitions in `hop3/core/protocols.py`
 - Ask questions in the project discussions
 - Read the pluggy documentation: https://pluggy.readthedocs.io/
