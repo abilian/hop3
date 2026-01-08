@@ -36,6 +36,12 @@ requires = ["uv-build>=0.8.4,<0.9.0"]
 build-backend = "uv_build"
 
 
+[tool.pytest.ini_options]
+filterwarnings = [
+    # paramiko uses TripleDES which cryptography has deprecated
+    "ignore:TripleDES has been moved:cryptography.utils.CryptographyDeprecationWarning",
+]
+
 # Was:
 #[build-system]
 #requires = ["pdm-backend"]
