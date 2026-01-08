@@ -149,7 +149,7 @@ def requires_authentication(cli_args: list[str]) -> bool:
 
 def _execute_rpc_command(cli_args: list[str], config: Config, extra_args: dict) -> Any:
     """Execute RPC command and handle connection errors."""
-    with Client(config=config, state=None) as client:
+    with Client(config=config) as client:
         try:
             validated_extra_args: dict[str, Any] = {
                 k: v
@@ -214,7 +214,7 @@ def verify_authentication(config: Config) -> bool:
     from jsonrpcclient import Error, Ok
 
     try:
-        with Client(config=config, state=None) as client:
+        with Client(config=config) as client:
             response = client.rpc("cli", ["auth:whoami"])
             match response:
                 case Ok():

@@ -16,7 +16,7 @@ from jsonrpcclient import Error
 def test_401_error_message():
     """Test that 401 errors return a helpful message."""
     config = Config(data={"api_url": "http://localhost:8000"})
-    client = Client(config=config, state=None)
+    client = Client(config=config)
 
     # Mock the requests.post to return a 401 response
     mock_response = Mock()
@@ -40,7 +40,7 @@ def test_401_error_message():
 def test_other_http_errors():
     """Test that other HTTP errors are handled properly."""
     config = Config(data={"api_url": "http://localhost:8000"})
-    client = Client(config=config, state=None)
+    client = Client(config=config)
 
     # Mock the requests.post to return a 500 response
     mock_response = Mock()
@@ -63,7 +63,7 @@ def test_jsonrpc_error_with_http_404():
     The client should extract the clean error message, not show the HTTP error.
     """
     config = Config(data={"api_url": "http://localhost:8000"})
-    client = Client(config=config, state=None)
+    client = Client(config=config)
 
     # Mock the requests.post to return a 404 with JSON-RPC error body
     mock_response = Mock()
@@ -93,7 +93,7 @@ def test_jsonrpc_error_with_http_404():
 def test_jsonrpc_error_with_data_field():
     """Test that JSON-RPC error data field is preserved."""
     config = Config(data={"api_url": "http://localhost:8000"})
-    client = Client(config=config, state=None)
+    client = Client(config=config)
 
     mock_response = Mock()
     mock_response.status_code = 400

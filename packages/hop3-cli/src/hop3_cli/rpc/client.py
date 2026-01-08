@@ -27,7 +27,6 @@ from hop3_cli.exceptions import CliError
 
 if TYPE_CHECKING:
     from hop3_cli.config import Config
-    from hop3_cli.state import State
 
 # Suppress InsecureRequestWarning when SSL verification is disabled
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -49,7 +48,7 @@ class Client:
     This class is designed to be used as a context manager to ensure proper
     cleanup of SSH tunnels:
 
-        with Client(config, state) as client:
+        with Client(config) as client:
             result = client.rpc("command", ["arg1", "arg2"])
 
     When used as a context manager, the SSH tunnel is guaranteed to be stopped
@@ -57,7 +56,6 @@ class Client:
     """
 
     config: Config
-    state: State | None
     tunnel: SSHTunnelForwarder | None = None
 
     api_url_override: str | None = None
