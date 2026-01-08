@@ -54,7 +54,6 @@ lint.extend-ignore = [
 
     # Fix this
     "E501", #   	[ ] line-too-long
-    "PLC0415", #	[ ] import-outside-top-level
     "F841", #   	[ ] unused-variable
     "PLR0915", #	[ ] too-many-statements
     "TC003", #  	[ ] typing-only-standard-library-import

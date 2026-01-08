@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import re
 import sys
 from pathlib import Path
@@ -5,7 +7,7 @@ from pathlib import Path
 PAT_1Y = r"# Copyright \(c\) ([0-9]+), Abilian SAS"
 PAT_2Y = r"# Copyright \(c\) ([0-9]+)-([0-9]+), Abilian SAS"
 
-CURRENT_YEAR = 2025
+CURRENT_YEAR = 2026
 
 
 def main(args=None):
