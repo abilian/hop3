@@ -66,6 +66,128 @@ def validate_cli_installation(backend: Backend) -> bool:
     return all_passed
 
 
+def _validate_hop3_service(backend: Backend) -> bool:
+    """Validate hop3-server systemd service status.
+
+    Returns:
+        True (service status is advisory, not critical).
+    """
+    result = backend.run("systemctl is-enabled hop3-server 2>/dev/null")
+    if "enabled" in result.stdout:
+        log_success("hop3-server service is enabled")
+    else:
+        log_warning("hop3-server service not enabled")
+
+    result = backend.run("systemctl is-active hop3-server 2>/dev/null")
+    if "active" in result.stdout:
+        log_success("hop3-server service is running")
+    else:
+        log_warning("hop3-server service is not running (may need configuration)")
+
+    return True  # Service status is advisory
+
+
+def _validate_postgresql(backend: Backend) -> bool:
+    """Validate PostgreSQL installation and configuration.
+
+    Returns:
+        True if all PostgreSQL checks pass, False otherwise.
+    """
+    all_ok = True
+
+    result = backend.run("systemctl is-active postgresql 2>/dev/null")
+    if "active" in result.stdout:
+        log_success("PostgreSQL service is running")
+    else:
+        log_error("PostgreSQL service is not running")
+        all_ok = False
+
+    result = backend.run(
+        """su - postgres -c "psql -tAc \\"SELECT 1 FROM pg_roles WHERE rolname='hop3'\\"" """
+    )
+    if "1" in result.stdout:
+        log_success("PostgreSQL hop3 role exists")
+    else:
+        log_error("PostgreSQL hop3 role not found")
+        all_ok = False
+
+    result = backend.run(
+        """su - postgres -c "psql -tAc \\"SELECT 1 FROM pg_database WHERE datname='hop3'\\"" """
+    )
+    if "1" in result.stdout:
+        log_success("PostgreSQL hop3 database exists")
+    else:
+        log_error("PostgreSQL hop3 database not found")
+        all_ok = False
+
+    return all_ok
+
+
+def _validate_nginx(backend: Backend) -> bool:
+    """Validate nginx installation and configuration.
+
+    Returns:
+        True if all nginx checks pass, False otherwise.
+    """
+    all_ok = True
+
+    result = backend.run("systemctl is-active nginx 2>/dev/null")
+    if "active" in result.stdout:
+        log_success("nginx service is running")
+    else:
+        log_error("nginx service is not running")
+        all_ok = False
+
+    result = backend.run(
+        "test -f /etc/nginx/sites-available/hop3 || test -f /etc/nginx/conf.d/hop3.conf"
+    )
+    if result.success:
+        log_success("nginx hop3 config exists")
+    else:
+        log_error("nginx hop3 config not found")
+        all_ok = False
+
+    result = backend.run(
+        "test -f /etc/hop3/ssl/hop3.crt && test -f /etc/hop3/ssl/hop3.key"
+    )
+    if result.success:
+        log_success("SSL certificate exists")
+    else:
+        log_error("SSL certificate not found")
+        all_ok = False
+
+    result = backend.run("nginx -t 2>&1")
+    if result.success:
+        log_success("nginx configuration is valid")
+    else:
+        log_error("nginx configuration is invalid")
+        if common.VERBOSE:
+            print(result.stdout)
+            print(result.stderr)
+        all_ok = False
+
+    return all_ok
+
+
+def _validate_systemd_services(backend: Backend) -> bool:
+    """Validate all systemd-dependent services.
+
+    Returns:
+        True if all services are properly configured, False otherwise.
+    """
+    all_ok = True
+
+    _validate_hop3_service(backend)  # Advisory only
+
+    if not _validate_postgresql(backend):
+        all_ok = False
+
+    if not _validate_nginx(backend):
+        all_ok = False
+
+    return all_ok
+
+
 def validate_server_installation(backend: Backend) -> bool:
     """Validate server installation using the provided backend.
 
@@ -102,85 +224,9 @@ def validate_server_installation(backend: Backend) -> bool:
         log_error("hop3-server command not found")
         all_passed = False
 
-    # Check systemd service (only if backend supports it)
+    # Check systemd services (only if backend supports it)
     if backend.supports_systemd:
-        result = backend.run("systemctl is-enabled hop3-server 2>/dev/null")
-        if "enabled" in result.stdout:
-            log_success("hop3-server service is enabled")
-        else:
-            log_warning("hop3-server service not enabled")
-
-        result = backend.run("systemctl is-active hop3-server 2>/dev/null")
-        if "active" in result.stdout:
-            log_success("hop3-server service is running")
-        else:
-            log_warning("hop3-server service is not running (may need configuration)")
-
-        # Check PostgreSQL
-        result = backend.run("systemctl is-active postgresql 2>/dev/null")
-        if "active" in result.stdout:
-            log_success("PostgreSQL service is running")
-        else:
-            log_error("PostgreSQL service is not running")
-            all_passed = False
-
-        # Check PostgreSQL hop3 role exists
-        result = backend.run(
-            """su - postgres -c "psql -tAc \\"SELECT 1 FROM pg_roles WHERE rolname='hop3'\\"" """
-        )
-        if "1" in result.stdout:
-            log_success("PostgreSQL hop3 role exists")
-        else:
-            log_error("PostgreSQL hop3 role not found")
-            all_passed = False
-
-        # Check PostgreSQL hop3 database exists
-        result = backend.run(
-            """su - postgres -c "psql -tAc \\"SELECT 1 FROM pg_database WHERE datname='hop3'\\"" """
-        )
-        if "1" in result.stdout:
-            log_success("PostgreSQL hop3 database exists")
-        else:
-            log_error("PostgreSQL hop3 database not found")
-            all_passed = False
-
-        # Check nginx is running
-        result = backend.run("systemctl is-active nginx 2>/dev/null")
-        if "active" in result.stdout:
-            log_success("nginx service is running")
-        else:
-            log_error("nginx service is not running")
-            all_passed = False
-
-        # Check nginx config exists
-        result = backend.run(
-            "test -f /etc/nginx/sites-available/hop3 || test -f /etc/nginx/conf.d/hop3.conf"
-        )
-        if result.success:
-            log_success("nginx hop3 config exists")
-        else:
-            log_error("nginx hop3 config not found")
-            all_passed = False
-
-        # Check SSL certificate exists
-        result = backend.run(
-            "test -f /etc/hop3/ssl/hop3.crt && test -f /etc/hop3/ssl/hop3.key"
-        )
-        if result.success:
-            log_success("SSL certificate exists")
-        else:
-            log_error("SSL certificate not found")
-            all_passed = False
-
-        # Verify nginx config is valid
-        result = backend.run("nginx -t 2>&1")
-        if result.success:
-            log_success("nginx configuration is valid")
-        else:
-            log_error("nginx configuration is invalid")
-            if common.VERBOSE:
-                print(result.stdout)
-                print(result.stderr)
+        if not _validate_systemd_services(backend):
             all_passed = False
     else:
         log_info("Skipping systemd checks (not supported by this backend)")

@@ -261,7 +261,9 @@ class TestDeployConfigPaths:
     def test_server_package_path(self, mock_project_root: Path):
         """server_package_path should return packages/hop3-server."""
         config = DeployConfig(project_root=mock_project_root)
-        assert config.server_package_path == mock_project_root / "packages" / "hop3-server"
+        assert (
+            config.server_package_path == mock_project_root / "packages" / "hop3-server"
+        )
 
     def test_dist_path(self, mock_project_root: Path):
         """dist_path should return project_root/dist."""

@@ -187,12 +187,8 @@ Examples:
     return parser
 
 
-def config_from_args(args: argparse.Namespace) -> DeployConfig:
-    """Create DeployConfig from parsed arguments."""
-    # Start from environment
-    config = DeployConfig.from_env()
-
-    # Override with CLI arguments
+def _apply_target_overrides(config: DeployConfig, args: argparse.Namespace) -> None:
+    """Apply target-related CLI overrides to config."""
     if args.host:
         config.host = args.host
     if args.docker:
@@ -203,6 +199,10 @@ def config_from_args(args: argparse.Namespace) -> DeployConfig:
         config.docker_container = args.docker_container
     if args.ssh_user != DEFAULT_SSH_USER:
         config.ssh_user = args.ssh_user
+
+
+def _apply_install_overrides(config: DeployConfig, args: argparse.Namespace) -> None:
+    """Apply installation-related CLI overrides to config."""
     if args.branch != DEFAULT_BRANCH:
         config.branch = args.branch
     if args.use_local:
@@ -213,6 +213,10 @@ def config_from_args(args: argparse.Namespace) -> DeployConfig:
         config.clean_before = True
     if args.features:
         config.with_features = [f.strip() for f in args.features.split(",")]
+
+
+def _apply_admin_overrides(config: DeployConfig, args: argparse.Namespace) -> None:
+    """Apply admin user CLI overrides to config."""
     if args.admin_domain:
         config.admin_domain = args.admin_domain
     if args.admin_user != DEFAULT_ADMIN_USER:
@@ -221,6 +225,10 @@ def config_from_args(args: argparse.Namespace) -> DeployConfig:
         config.admin_email = args.admin_email
     if args.admin_password:
         config.admin_password = args.admin_password
+
+
+def _apply_output_overrides(config: DeployConfig, args: argparse.Namespace) -> None:
+    """Apply output-related CLI overrides to config."""
     if args.verbose:
         config.verbose = True
     if args.quiet:
@@ -233,6 +241,16 @@ def config_from_args(args: argparse.Namespace) -> DeployConfig:
         config.dry_run = True
     if args.no_cli_setup:
         config.no_cli_setup = True
+
+
+def config_from_args(args: argparse.Namespace) -> DeployConfig:
+    """Create DeployConfig from parsed arguments."""
+    config = DeployConfig.from_env()
+
+    _apply_target_overrides(config, args)
+    _apply_install_overrides(config, args)
+    _apply_admin_overrides(config, args)
+    _apply_output_overrides(config, args)
 
     return config
 
@@ -285,12 +303,46 @@ def do_teardown(config: DeployConfig) -> int:
     return 0
 
 
+def _print_deployment_banner(config: DeployConfig) -> None:
+    """Print deployment banner showing configuration."""
+    if config.quiet:
+        target = (
+            f"Docker ({config.docker_container})"
+            if config.use_docker
+            else config.ssh_target
+        )
+        print(f"Deploying to {target}...")
+        return
+
+    print("Hop3 Deployment")
+    print("=" * 60)
+    if config.use_docker:
+        print(f"Target: Docker container ({config.docker_container})")
+    else:
+        print(f"Target: {config.ssh_target}")
+    print(f"Branch: {config.branch}")
+    print(f"Local code: {'yes' if config.use_local_code else 'no'}")
+    print(f"Clean install: {'yes' if config.clean_before else 'no'}")
+    print(f"Features: {', '.join(config.with_features)}")
+    if config.admin_domain:
+        print(f"Admin domain: {config.admin_domain}")
+    print("=" * 60)
+
+
+def _handle_validation_errors(errors: list[str]) -> int:
+    """Print validation errors and return exit code."""
+    print("Configuration errors:")
+    for error in errors:
+        print(f"  • {error}")
+    print()
+    print("Use --help for usage information")
+    return 1
+
+
 def main() -> int:
     """Main entry point."""
     parser = create_parser()
     args = parser.parse_args()
-
-    # Build config
     config = config_from_args(args)
 
     # Handle special actions
@@ -309,35 +361,9 @@ def main() -> int:
     # Validate config
     errors = config.validate()
     if errors:
-        print("Configuration errors:")
-        for error in errors:
-            print(f"  • {error}")
-        print()
-        print("Use --help for usage information")
-        return 1
+        return _handle_validation_errors(errors)
 
-    # Show what we're doing
-    if config.quiet:
-        target = (
-            f"Docker ({config.docker_container})"
-            if config.use_docker
-            else config.ssh_target
-        )
-        print(f"Deploying to {target}...")
-    else:
-        print("Hop3 Deployment")
-        print("=" * 60)
-        if config.use_docker:
-            print(f"Target: Docker container ({config.docker_container})")
-        else:
-            print(f"Target: {config.ssh_target}")
-        print(f"Branch: {config.branch}")
-        print(f"Local code: {'yes' if config.use_local_code else 'no'}")
-        print(f"Clean install: {'yes' if config.clean_before else 'no'}")
-        print(f"Features: {', '.join(config.with_features)}")
-        if config.admin_domain:
-            print(f"Admin domain: {config.admin_domain}")
-        print("=" * 60)
+    _print_deployment_banner(config)
 
     if config.dry_run:
         print("\n[Dry run - no changes made]")
