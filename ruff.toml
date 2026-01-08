@@ -52,33 +52,42 @@ lint.extend-ignore = [
     "TRY300", # Consider moving this statement to an `else` block
     "PERF401", #  7 - PERF401	manual-list-comprehension
 
-    # Fix these
-    "E501", #   	line-too-long
-    "TC", # Move import into a type-checking block (conflicts with wireup)
-    "F841", # 26 - F841   	unused-variable
-    "FBT001", # 24 - FBT001 	boolean-type-hint-positional-argument
-    "FBT002", # 16 - FBT002 	boolean-default-value-positional-argument
-    "B904", # 15 - B904   	raise-without-from-inside-except
-    "PLR0911", #  9 - PLR0911	too-many-return-statements
-    "FBT003", #  5 - FBT003 	boolean-positional-value-in-call
-    "RUF005", #  5 - RUF005 	collection-literal-concatenation
-    "PLW0603", #  4 - PLW0603	global-statement
-    "TRY301", #  4 - TRY301 	raise-within-try
-    "PERF203", #  3 - PERF203	try-except-in-loop
-    "PLC0415", #  3 - PLC0415	import-outside-top-level
-    "B008", #  1 - B008   	function-call-in-default-argument
-    "B909", #  1 - B909   	loop-iterator-mutation
-    "PLW2901", #  1 - PLW2901	redefined-loop-name
-    "RUF100", # Unused noqa
-    "PLR0913", #	too-many-arguments
-    "PLC0206", #	dict-index-missing-items
-    "PLR0914", #	too-many-locals
-    "PLR0917", #	too-many-positional-arguments
-    "PT012",
-    "C901", # ... is too complex (13 > 12)
-    "PLR0912", # Too many branches (16 > 12)
-    "SIM105", # Use `contextlib.suppress` instead of `try`-`except`-`pass`
-    "SIM117", # combine context managers
+    # Fix this
+    "E501", #   	[ ] line-too-long
+    "PLC0415", #	[ ] import-outside-top-level
+    "F841", #   	[ ] unused-variable
+    "PLR0915", #	[ ] too-many-statements
+    "TC003", #  	[ ] typing-only-standard-library-import
+    "FBT001", # 	[ ] boolean-type-hint-positional-argument
+    "FBT002", # 	[ ] boolean-default-value-positional-argument
+    "FBT003", # 	[ ] boolean-positional-value-in-call
+    "TC002", #  	[ ] typing-only-third-party-import
+    "B904", #   	[ ] raise-without-from-inside-except
+    "PLR0912", #	[ ] too-many-branches
+    "PLW0603", #	[ ] global-statement
+    "E402", #   	[ ] module-import-not-at-top-of-file
+    "EXE001", # 	[ ] shebang-not-executable
+    "PLR0911", #	[ ] too-many-return-statements
+    "PLW1508", #	[ ] invalid-envvar-default
+    "TC001", #  	[ ] typing-only-first-party-import
+    "C901", #   	[ ] complex-structure
+    "RUF005", # 	[ ] collection-literal-concatenation
+    "DTZ005", # 	[ ] call-datetime-now-without-tzinfo
+    "PERF203", #	[ ] try-except-in-loop
+    "PT012", #  	[ ] pytest-raises-with-multiple-statements
+    "RUF100", # 	[*] unused-noqa
+    "SIM105", # 	[ ] suppressible-exception
+    "SIM117", # 	[ ] multiple-with-statements
+    "PLR0913", #	[ ] too-many-arguments
+    "PLW2901", #	[ ] redefined-loop-name
+    "PT028", #  	[ ] pytest-parameter-with-default-argument
+    "PLR0914", #	[ ] too-many-locals
+    "B008", #   	[ ] function-call-in-default-argument
+    "B909", #   	[ ] loop-iterator-mutation
+    "F403", #   	[ ] undefined-local-with-import-star
+    "PLC0206", #	[ ] dict-index-missing-items
+    "PLR0917", #	[ ] too-many-positional-arguments
+    "TC004", #  	[ ] runtime-import-in-type-checking-block
 ]
 
 

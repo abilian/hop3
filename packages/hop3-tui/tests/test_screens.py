@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from hop3_tui.api.models import App as AppModel, AppState
@@ -470,8 +470,6 @@ class TestAppsScreenExtended:
 
     def test_format_updated_minutes_ago(self):
         """Test formatting updated timestamp - minutes ago."""
-        from datetime import timedelta
-
         screen = AppsScreen()
         app = AppModel(
             name="test",
@@ -482,8 +480,6 @@ class TestAppsScreenExtended:
 
     def test_format_updated_hours_ago(self):
         """Test formatting updated timestamp - hours ago."""
-        from datetime import timedelta
-
         screen = AppsScreen()
         app = AppModel(
             name="test",
@@ -494,8 +490,6 @@ class TestAppsScreenExtended:
 
     def test_format_updated_days_ago(self):
         """Test formatting updated timestamp - days ago."""
-        from datetime import timedelta
-
         screen = AppsScreen()
         app = AppModel(
             name="test",
