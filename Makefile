@@ -82,7 +82,7 @@ format:
 	uv run ruff format packages/*/src packages/*/tests
 	uv run ruff check --fix packages/*/src packages/*/tests
 	@make update-tocs
-	python scripts/update-copyright.py
+	# python scripts/update-copyright.py
 	@echo ""
 
 update-tocs:
