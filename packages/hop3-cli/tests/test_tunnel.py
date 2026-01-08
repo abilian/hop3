@@ -7,7 +7,7 @@ import socket
 import sys
 
 import pytest
-from hop3_cli.tunnel import SSHTunnel
+from hop3_cli.rpc.tunnel import SSHTunnel
 from sshtunnel import SSHTunnelForwarder
 
 # Asuming there is a local SSH server running for testing purposes
