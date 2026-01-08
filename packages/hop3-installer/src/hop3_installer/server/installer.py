@@ -19,9 +19,11 @@ import grp
 import os
 import pwd
 import secrets
+import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from ..common import (
@@ -542,6 +544,7 @@ def install_package(config: ServerInstallerConfig) -> None:
         run_as_hop3(f"{pip} install --upgrade pip")
 
     # Determine what to install
+    # Note: All user-controlled package specs are quoted to prevent command injection
     if config.local_path:
         package_spec = config.local_path
         source_desc = f"local path ({config.local_path})"
@@ -557,9 +560,9 @@ def install_package(config: ServerInstallerConfig) -> None:
         package_spec = PACKAGE_NAME
         source_desc = "PyPI (latest)"
 
-    # Install
+    # Install - use shlex.quote to prevent command injection from user-provided values
     with Spinner(f"Installing hop3-server from {source_desc}..."):
-        run_as_hop3(f"{pip} install '{package_spec}'")
+        run_as_hop3(f"{pip} install {shlex.quote(package_spec)}")
 
     print_success("hop3-server installed successfully")
 
@@ -588,17 +591,24 @@ def setup_ssh_keys() -> None:
         return
 
     hop_server = f"{VENV_DIR}/bin/hop3-server"
-    temp_keys = Path("/tmp/root_authorized_keys")
+
+    # Use secure temp file instead of predictable path
+    fd, temp_path = tempfile.mkstemp(prefix="hop3_ssh_keys_", suffix=".txt")
+    temp_keys = Path(temp_path)
 
     try:
-        # Copy keys to temp location
+        # Write keys to secure temp file
+        os.close(fd)  # Close the file descriptor, we'll write via shutil
         shutil.copy2(root_keys, temp_keys)
+
+        # Set ownership so hop3 user can read it
         hop3_uid = pwd.getpwnam(HOP3_USER).pw_uid
         hop3_gid = grp.getgrnam(HOP3_GROUP).gr_gid
         os.chown(temp_keys, hop3_uid, hop3_gid)
+        os.chmod(temp_keys, 0o600)  # Restrict permissions
 
-        # Run setup:ssh
-        run_as_hop3(f"{hop_server} setup:ssh {temp_keys}")
+        # Run setup:ssh - quote the path for safety
+        run_as_hop3(f"{hop_server} setup:ssh {shlex.quote(str(temp_keys))}")
         print_success("SSH keys configured")
     except CommandError:
         print_warning("Could not configure SSH keys (invalid format?)")

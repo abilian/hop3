@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import shlex
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -179,7 +180,13 @@ class Deployer:
                 if self.config.admin_domain:
                     print(f"Admin URL: https://{self.config.admin_domain}")
                     print(f"Admin user: {self.config.admin_user}")
-                    print(f"Admin password: {self.config.admin_password}")
+                    # Only show full password in verbose mode to avoid CI log exposure
+                    if self.verbose:
+                        print(f"Admin password: {self.config.admin_password}")
+                    else:
+                        # Show masked password with hint
+                        masked = self.config.admin_password[:4] + "..." + self.config.admin_password[-4:]
+                        print(f"Admin password: {masked} (use --verbose to show full)")
                 print("=" * 60)
 
             return True
@@ -215,9 +222,10 @@ class Deployer:
 
         # Use local path if provided (for --local flag)
         if local_path:
-            install_cmd += f" --local-path {local_path}"
+            install_cmd += f" --local-path {shlex.quote(local_path)}"
         elif self.config.branch != "devel":
-            install_cmd += f" --git --branch {self.config.branch}"
+            # Quote branch name to prevent command injection
+            install_cmd += f" --git --branch {shlex.quote(self.config.branch)}"
 
         if self.config.with_features:
             install_cmd += f" --with {','.join(self.config.with_features)}"
@@ -255,11 +263,14 @@ class Deployer:
 
         self.log("Pulling latest code from git")
 
+        # Quote branch name to prevent command injection
+        safe_branch = shlex.quote(self.config.branch)
+
         # Update from git
         update_commands = [
             "cd /home/hop3/hop3 && git fetch origin",
-            f"cd /home/hop3/hop3 && git checkout {self.config.branch}",
-            f"cd /home/hop3/hop3 && git reset --hard origin/{self.config.branch}",
+            f"cd /home/hop3/hop3 && git checkout {safe_branch}",
+            f"cd /home/hop3/hop3 && git reset --hard origin/{safe_branch}",
             "cd /home/hop3/hop3 && /home/hop3/venv/bin/pip install -e packages/hop3-server",
             "systemctl restart hop3-server",
         ]
@@ -340,12 +351,18 @@ class Deployer:
 
         self.log(f"Creating admin domain: {domain}")
 
+        # Quote all user-controlled values to prevent command injection
+        safe_domain = shlex.quote(domain)
+        safe_user = shlex.quote(user)
+        safe_email = shlex.quote(email)
+        safe_password = shlex.quote(password)
+
         # Create admin app
         commands = [
-            f"sudo -u hop3 /home/hop3/venv/bin/hop3-server apps:create {domain}",
+            f"sudo -u hop3 /home/hop3/venv/bin/hop3-server apps:create {safe_domain}",
             (
                 f"sudo -u hop3 /home/hop3/venv/bin/hop3-server users:create "
-                f"--admin {user} {email} {password}"
+                f"--admin {safe_user} {safe_email} {safe_password}"
             ),
         ]
 
@@ -379,16 +396,21 @@ class Deployer:
             user = self.config.admin_user
             password = self.config.admin_password
 
+            # Quote user-controlled values to prevent command injection
+            safe_user = shlex.quote(user)
+            safe_password = shlex.quote(password)
+            safe_email = shlex.quote(f"{user}@hop3.dev")
+
             # Create admin user on server using --password-stdin (ignore if already exists)
             self.backend.run(
-                f"echo '{password}' | sudo -u hop3 /home/hop3/venv/bin/hop3-server "
-                f"admin:create {user} {user}@hop3.dev --password-stdin",
+                f"echo {safe_password} | sudo -u hop3 /home/hop3/venv/bin/hop3-server "
+                f"admin:create {safe_user} {safe_email} --password-stdin",
                 check=False,
             )
 
             # Get token from server (admin:token only needs username)
             result = self.backend.run(
-                f"sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:token {user}",
+                f"sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:token {safe_user}",
                 check=False,
             )
 
