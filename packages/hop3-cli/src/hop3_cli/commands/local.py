@@ -199,7 +199,7 @@ def handle_login_password(
 
     print(f"\nAuthenticating as {username}...")
 
-    with Client(config=config, state=None) as client:
+    with Client(config=config) as client:
         try:
             response = client.rpc("cli", ["auth:login", username, password])
             _handle_login_response(response, username, config, printer)
@@ -390,7 +390,7 @@ def _verify_token(server_url: str, token: str) -> str | None:
     print(f"Verifying connection to {server_url}...")
 
     try:
-        with Client(config=temp_config, state=None) as client:
+        with Client(config=temp_config) as client:
             from jsonrpcclient import Error, Ok
 
             response = client.rpc("cli", ["auth:whoami"])
