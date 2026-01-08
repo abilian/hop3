@@ -233,9 +233,9 @@ class TestHandleInit:
         mock_result.stderr = ""
 
         with (
-            patch("hop3_cli.commands.local.subprocess.run", return_value=mock_result),
+            patch("hop3_cli.commands.local.ssh_ops.subprocess.run", return_value=mock_result),
             patch(
-                "hop3_cli.commands.local.getpass.getpass",
+                "hop3_cli.commands.local.init_cmd.getpass.getpass",
                 side_effect=["pass123", "pass123"],
             ),
             patch("builtins.input", side_effect=["admin", "admin@example.com", ""]),
@@ -288,7 +288,7 @@ class TestHandleLogin:
         mock_result.stderr = ""
 
         with (
-            patch("hop3_cli.commands.local.subprocess.run", return_value=mock_result),
+            patch("hop3_cli.commands.local.ssh_ops.subprocess.run", return_value=mock_result),
             patch(
                 "builtins.input", side_effect=["", "testuser"]
             ),  # Server URL default, username
@@ -315,7 +315,7 @@ class TestHandleLogin:
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
         )
 
-        with patch("hop3_cli.commands.local._verify_token", return_value="testuser"):
+        with patch("hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"):
             result = handle_login_token(
                 ["--token", mock_token, "--server", "http://localhost:8000"],
                 temp_config,
@@ -334,7 +334,7 @@ class TestHandleLogin:
         # Pre-configure server
         temp_config.data["api_url"] = "https://existing-server.com"
 
-        with patch("hop3_cli.commands.local._verify_token", return_value="testuser"):
+        with patch("hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"):
             result = handle_login_token(
                 ["--token", mock_token],
                 temp_config,
@@ -357,7 +357,7 @@ class TestHandleLogin:
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
         )
 
-        with patch("hop3_cli.commands.local._verify_token", return_value=None):
+        with patch("hop3_cli.commands.local.login_cmd._verify_token", return_value=None):
             with pytest.raises(SystemExit) as exc_info:
                 handle_login_token(
                     ["--token", mock_token, "--server", "http://localhost:8000"],
@@ -376,7 +376,7 @@ class TestHandleLogin:
         )
         url_with_token = f"http://localhost:8000?token={mock_token}"
 
-        with patch("hop3_cli.commands.local._verify_token", return_value="testuser"):
+        with patch("hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"):
             result = handle_login([url_with_token], temp_config, mock_printer)
 
         assert result is True
@@ -390,7 +390,7 @@ class TestHandleLogin:
         )
         url_with_token = f"https://my-server.com/api?token={mock_token}"
 
-        with patch("hop3_cli.commands.local._verify_token", return_value="testuser"):
+        with patch("hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"):
             result = handle_login([url_with_token], temp_config, mock_printer)
 
         assert result is True

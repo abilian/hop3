@@ -7,7 +7,7 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-from hop3_cli.arguments import generate_archive
+from hop3_cli.commands.arguments import generate_archive
 
 GITIGNORE = """
 # IDE and OS files

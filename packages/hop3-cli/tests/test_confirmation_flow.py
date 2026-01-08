@@ -14,7 +14,7 @@ from hop3_cli.main import (
     confirm_destructive_action,
     is_destructive_command,
 )
-from hop3_cli.rich_printer import RichPrinter
+from hop3_cli.ui.rich_printer import RichPrinter
 
 
 def test_is_destructive_command_app_destroy():

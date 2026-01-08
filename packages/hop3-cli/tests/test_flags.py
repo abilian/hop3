@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from hop3_cli.flags import CliFlags, parse_flags
+from hop3_cli.commands.flags import CliFlags, parse_flags
 
 
 def test_parse_flags_no_flags():

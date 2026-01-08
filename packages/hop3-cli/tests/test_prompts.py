@@ -10,7 +10,7 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
-from hop3_cli.prompts import confirm, show_destructive_warning, type_to_confirm
+from hop3_cli.ui.prompts import confirm, show_destructive_warning, type_to_confirm
 
 
 def test_confirm_yes():

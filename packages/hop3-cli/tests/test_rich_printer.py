@@ -11,7 +11,7 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
-from hop3_cli.rich_printer import RichPrinter
+from hop3_cli.ui.rich_printer import RichPrinter
 
 
 def test_rich_printer_creation():
