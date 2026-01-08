@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Abilian SAS
+# Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 """Hop3 installer testing framework.
 
