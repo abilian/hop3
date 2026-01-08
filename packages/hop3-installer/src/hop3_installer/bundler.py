@@ -330,9 +330,10 @@ def bundle_installer(installer_type: str) -> str:
             import_lines.append(f"import {imp}")
         # Skip non-stdlib imports (they should all be relative)
 
-    # Add dataclass imports
+    # Add specific imports needed by bundled code
     import_lines.append("from dataclasses import dataclass, field")
     import_lines.append("from pathlib import Path")
+    import_lines.append("from typing import overload")
 
     import_block = "\n".join(import_lines) + "\n"
 

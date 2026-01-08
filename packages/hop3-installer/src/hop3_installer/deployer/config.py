@@ -4,12 +4,11 @@
 
 from __future__ import annotations
 
-import os
 import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from hop3_installer.common import find_project_root
+from hop3_installer.common import env_bool, env_list, env_str, find_project_root
 
 # Default values
 DEFAULT_BRANCH = "devel"
@@ -139,26 +138,23 @@ class DeployConfig:
             HOP3_QUIET - Quiet mode (1 or true)
             HOP3_DOCKER - Use Docker instead of SSH (1 or true)
         """
-        host = os.environ.get("HOP3_DEV_HOST") or os.environ.get("HOP3_TEST_SERVER")
-        use_docker = os.environ.get("HOP3_DOCKER", "").lower() in {"1", "true"}
-
-        features_str = os.environ.get("HOP3_WITH", "")
-        features = [f.strip() for f in features_str.split(",") if f.strip()]
+        host = env_str("HOP3_DEV_HOST") or env_str("HOP3_TEST_SERVER")
+        features = env_list("HOP3_WITH")
 
         return cls(
             host=host,
-            use_docker=use_docker,
-            ssh_user=os.environ.get("HOP3_SSH_USER", DEFAULT_SSH_USER),
-            branch=os.environ.get("HOP3_BRANCH", DEFAULT_BRANCH),
-            use_local_code=os.environ.get("HOP3_LOCAL", "").lower() in {"1", "true"},
-            clean_before=os.environ.get("HOP3_CLEAN", "").lower() in {"1", "true"},
+            use_docker=env_bool("HOP3_DOCKER"),
+            ssh_user=env_str("HOP3_SSH_USER", DEFAULT_SSH_USER),
+            branch=env_str("HOP3_BRANCH", DEFAULT_BRANCH),
+            use_local_code=env_bool("HOP3_LOCAL"),
+            clean_before=env_bool("HOP3_CLEAN"),
             with_features=features or ["docker"],
-            admin_domain=os.environ.get("HOP3_ADMIN_DOMAIN"),
-            admin_user=os.environ.get("HOP3_ADMIN_USER", DEFAULT_ADMIN_USER),
-            admin_email=os.environ.get("HOP3_ADMIN_EMAIL", DEFAULT_ADMIN_EMAIL),
-            admin_password=os.environ.get("HOP3_ADMIN_PASSWORD", ""),
-            verbose=os.environ.get("HOP3_VERBOSE", "").lower() in {"1", "true"},
-            quiet=os.environ.get("HOP3_QUIET", "").lower() in {"1", "true"},
+            admin_domain=env_str("HOP3_ADMIN_DOMAIN"),
+            admin_user=env_str("HOP3_ADMIN_USER", DEFAULT_ADMIN_USER),
+            admin_email=env_str("HOP3_ADMIN_EMAIL", DEFAULT_ADMIN_EMAIL),
+            admin_password=env_str("HOP3_ADMIN_PASSWORD", ""),
+            verbose=env_bool("HOP3_VERBOSE"),
+            quiet=env_bool("HOP3_QUIET"),
         )
 
     def validate(self) -> list[str]:

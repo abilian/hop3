@@ -19,6 +19,10 @@ from hop3_installer.common import (
     check_python_version,
     cmd_exists,
     detect_distro,
+    env_bool,
+    env_list,
+    env_path,
+    env_str,
     find_project_root,
     get_current_shell,
     print_detail,
@@ -432,3 +436,157 @@ class TestCheckPythonVersion:
         """check_python_version should not exit for current Python."""
         # Should not raise - we're running on a valid Python
         check_python_version()  # No exception expected
+
+
+# =============================================================================
+# Environment Variable Helper Tests
+# =============================================================================
+
+
+class TestEnvStr:
+    """Tests for env_str function."""
+
+    def test_returns_value_when_set(self, clean_env):
+        """env_str should return value when env var is set."""
+        clean_env["TEST_VAR"] = "test_value"
+        assert env_str("TEST_VAR") == "test_value"
+
+    def test_returns_none_when_not_set(self, clean_env):
+        """env_str should return None when env var is not set."""
+        clean_env.pop("TEST_VAR", None)
+        assert env_str("TEST_VAR") is None
+
+    def test_returns_default_when_not_set(self, clean_env):
+        """env_str should return default when env var is not set."""
+        clean_env.pop("TEST_VAR", None)
+        assert env_str("TEST_VAR", "default") == "default"
+
+    def test_returns_value_over_default(self, clean_env):
+        """env_str should return value even when default is provided."""
+        clean_env["TEST_VAR"] = "actual"
+        assert env_str("TEST_VAR", "default") == "actual"
+
+    def test_returns_empty_string_when_set_empty(self, clean_env):
+        """env_str should return empty string when set to empty."""
+        clean_env["TEST_VAR"] = ""
+        assert env_str("TEST_VAR") == ""
+
+
+class TestEnvBool:
+    """Tests for env_bool function."""
+
+    def test_returns_true_for_1(self, clean_env):
+        """env_bool should return True for '1'."""
+        clean_env["TEST_VAR"] = "1"
+        assert env_bool("TEST_VAR") is True
+
+    def test_returns_true_for_true_lowercase(self, clean_env):
+        """env_bool should return True for 'true'."""
+        clean_env["TEST_VAR"] = "true"
+        assert env_bool("TEST_VAR") is True
+
+    def test_returns_true_for_true_uppercase(self, clean_env):
+        """env_bool should return True for 'TRUE'."""
+        clean_env["TEST_VAR"] = "TRUE"
+        assert env_bool("TEST_VAR") is True
+
+    def test_returns_true_for_true_mixed_case(self, clean_env):
+        """env_bool should return True for 'True'."""
+        clean_env["TEST_VAR"] = "True"
+        assert env_bool("TEST_VAR") is True
+
+    def test_returns_false_for_0(self, clean_env):
+        """env_bool should return False for '0'."""
+        clean_env["TEST_VAR"] = "0"
+        assert env_bool("TEST_VAR") is False
+
+    def test_returns_false_for_false(self, clean_env):
+        """env_bool should return False for 'false'."""
+        clean_env["TEST_VAR"] = "false"
+        assert env_bool("TEST_VAR") is False
+
+    def test_returns_false_for_other_values(self, clean_env):
+        """env_bool should return False for other values."""
+        clean_env["TEST_VAR"] = "yes"
+        assert env_bool("TEST_VAR") is False
+
+    def test_returns_false_when_not_set(self, clean_env):
+        """env_bool should return False when env var is not set."""
+        clean_env.pop("TEST_VAR", None)
+        assert env_bool("TEST_VAR") is False
+
+
+class TestEnvPath:
+    """Tests for env_path function."""
+
+    def test_returns_path_when_set(self, clean_env):
+        """env_path should return Path when env var is set."""
+        clean_env["TEST_VAR"] = "/some/path"
+        result = env_path("TEST_VAR", Path("/default"))
+        assert result == Path("/some/path")
+
+    def test_returns_default_when_not_set(self, clean_env):
+        """env_path should return default when env var is not set."""
+        clean_env.pop("TEST_VAR", None)
+        default = Path("/default/path")
+        result = env_path("TEST_VAR", default)
+        assert result == default
+
+    def test_returns_default_when_empty(self, clean_env):
+        """env_path should return default when env var is empty."""
+        clean_env["TEST_VAR"] = ""
+        default = Path("/default/path")
+        result = env_path("TEST_VAR", default)
+        assert result == default
+
+    def test_handles_relative_paths(self, clean_env):
+        """env_path should handle relative paths."""
+        clean_env["TEST_VAR"] = "relative/path"
+        result = env_path("TEST_VAR", Path("/default"))
+        assert result == Path("relative/path")
+
+
+class TestEnvList:
+    """Tests for env_list function."""
+
+    def test_returns_list_from_comma_separated(self, clean_env):
+        """env_list should split comma-separated values."""
+        clean_env["TEST_VAR"] = "a,b,c"
+        result = env_list("TEST_VAR")
+        assert result == ["a", "b", "c"]
+
+    def test_strips_whitespace(self, clean_env):
+        """env_list should strip whitespace from items."""
+        clean_env["TEST_VAR"] = " a , b , c "
+        result = env_list("TEST_VAR")
+        assert result == ["a", "b", "c"]
+
+    def test_filters_empty_items(self, clean_env):
+        """env_list should filter empty items."""
+        clean_env["TEST_VAR"] = "a,,b,  ,c"
+        result = env_list("TEST_VAR")
+        assert result == ["a", "b", "c"]
+
+    def test_returns_empty_list_when_not_set(self, clean_env):
+        """env_list should return empty list when env var is not set."""
+        clean_env.pop("TEST_VAR", None)
+        result = env_list("TEST_VAR")
+        assert result == []
+
+    def test_returns_empty_list_when_empty(self, clean_env):
+        """env_list should return empty list when env var is empty."""
+        clean_env["TEST_VAR"] = ""
+        result = env_list("TEST_VAR")
+        assert result == []
+
+    def test_custom_separator(self, clean_env):
+        """env_list should use custom separator."""
+        clean_env["TEST_VAR"] = "a:b:c"
+        result = env_list("TEST_VAR", separator=":")
+        assert result == ["a", "b", "c"]
+
+    def test_single_item(self, clean_env):
+        """env_list should handle single item."""
+        clean_env["TEST_VAR"] = "single"
+        result = env_list("TEST_VAR")
+        assert result == ["single"]
