@@ -22,7 +22,6 @@ from sqlalchemy.types import Integer as SQLInteger
 from hop3.config import HopConfig
 from hop3.core.env import Env
 from hop3.core.plugins import get_deployer_by_name
-from hop3.deployers import do_deploy
 from hop3.lib import Abort, get_free_port, log
 from hop3.run.spawn import spawn_app
 
@@ -323,6 +322,9 @@ class App(BigIntAuditBase):
         This serves as a wrapper that calls the `do_deploy` function,
         which handles the actual deployment steps necessary for the application.
         """
+        # Lazy import to avoid circular dependency
+        from hop3.deployers import do_deploy  # noqa: PLC0415
+
         do_deploy(self)
 
     def destroy(self) -> None:

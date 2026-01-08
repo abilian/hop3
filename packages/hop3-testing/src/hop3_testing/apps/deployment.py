@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import httpx
-from hop3_cli.client import Client
 from hop3_cli.config import Config
+from hop3_cli.rpc import Client
 
 if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
@@ -156,7 +156,7 @@ class DeploymentSession:
             }
 
             config = Config(data=env_config)
-            client = Client(config=config, state=None, api_url_override=api_url)
+            client = Client(config=config, api_url_override=api_url)
 
             try:
                 response = client.rpc(

@@ -24,9 +24,7 @@ from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.console import capture_logs
 from hop3.lib.logging import server_log
 from hop3.lib.registry import register
-from hop3.orm import AddonCredential, App, AppRepository
-from hop3.orm.app import AppStateEnum
-from hop3.orm.env_var import EnvVar
+from hop3.orm import AddonCredential, App, AppRepository, AppStateEnum, EnvVar
 
 from ._base import Command
 from ._errors import command_context
