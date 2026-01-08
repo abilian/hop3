@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import random
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import ClassVar
@@ -135,8 +136,6 @@ class LogsScreen(Screen):
 
         # TODO: Fetch new logs from API
         # For demo, occasionally add a new line
-        import random
-
         if random.random() > 0.7:
             levels = ["INFO", "DEBUG", "WARN"]
             level = random.choice(levels)

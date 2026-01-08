@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
+import socket
 import subprocess
 
 from hop3.config import UWSGI_ENABLED, HopConfig
@@ -154,8 +155,6 @@ class UWSGIDeployer(Deployer):
         This is the most reliable indicator that the app is actually serving.
         Process checks (pgrep) are only used when no port is assigned.
         """
-        import socket
-
         cfg = HopConfig.get_instance()
 
         # Primary check: Is the HTTP port listening?

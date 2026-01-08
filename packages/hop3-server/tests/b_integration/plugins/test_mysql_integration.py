@@ -238,8 +238,6 @@ class TestMySQLBackupRestore:
 
     def test_restore_recovers_data(self, mysql_addon, tmp_path):
         """Test that restore actually recovers data."""
-        import hop3.plugins.mysql.mysql as mysql_module
-
         original_root = mysql_module.HOP3_ROOT
         mysql_module.HOP3_ROOT = tmp_path
 

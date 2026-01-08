@@ -7,6 +7,7 @@ from __future__ import annotations
 import types
 from argparse import ArgumentParser
 
+from hop3.config import HOP3_PROXY_TYPE
 from hop3.core.plugins import get_plugin_manager
 from hop3.lib.console import bold, dim, green
 from hop3.lib.registry import register
@@ -219,8 +220,6 @@ class Plugins(Command):
     def _get_active_proxy(self) -> str | None:
         """Get the currently configured proxy type."""
         try:
-            from hop3.config import HOP3_PROXY_TYPE
-
             return HOP3_PROXY_TYPE.lower()
         except Exception:
             return None

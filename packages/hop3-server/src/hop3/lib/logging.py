@@ -32,6 +32,12 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
 
+# Import config module - may fail during early bootstrap
+try:
+    from hop3 import config as hop3_config
+except ImportError:
+    hop3_config = None  # type: ignore[assignment]
+
 
 def _get_log_level() -> str:
     """Get log level from config or environment.
@@ -42,25 +48,24 @@ def _get_log_level() -> str:
     if os.environ.get("HOP3_LOG_LEVEL"):
         return os.environ["HOP3_LOG_LEVEL"].upper()
 
-    # Try to read from config (lazy import to avoid circular dependency)
-    try:
-        from hop3.config import config
-
-        return config.HOP3_LOG_LEVEL
-    except ImportError:
-        pass
+    # Try to read from config
+    if hop3_config is not None:
+        try:
+            return hop3_config.config.HOP3_LOG_LEVEL
+        except Exception:
+            pass
 
     return "INFO"
 
 
 def _get_log_dir() -> Path:
     """Get log directory from config or environment."""
-    try:
-        from hop3.config import config
-
-        return config.HOP3_ROOT / "log"
-    except ImportError:
-        return Path(os.environ.get("HOP3_ROOT", "/home/hop3")) / "log"
+    if hop3_config is not None:
+        try:
+            return hop3_config.config.HOP3_ROOT / "log"
+        except Exception:
+            pass
+    return Path(os.environ.get("HOP3_ROOT", "/home/hop3")) / "log"
 
 
 # Default log location (computed at import time, but configure() uses fresh values)

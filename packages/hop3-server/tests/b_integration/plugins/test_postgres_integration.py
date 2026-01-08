@@ -232,8 +232,6 @@ class TestPostgresBackupRestore:
 
     def test_restore_recovers_data(self, postgres_addon, tmp_path):
         """Test that restore actually recovers data."""
-        import hop3.plugins.postgresql.postgres as pg_module
-
         original_root = pg_module.HOP3_ROOT
         pg_module.HOP3_ROOT = tmp_path
 
