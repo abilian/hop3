@@ -29,14 +29,14 @@ SRC_DIR = Path(__file__).parent
 # Files to include in each installer, in order
 CLI_MODULES = [
     "common.py",
-    "cli/config.py",
-    "cli/installer.py",
+    "cli_installer/config.py",
+    "cli_installer/installer.py",
 ]
 
 SERVER_MODULES = [
     "common.py",
-    "server/config.py",
-    "server/installer.py",
+    "server_installer/config.py",
+    "server_installer/installer.py",
 ]
 
 # Standard library imports that should be at the top
