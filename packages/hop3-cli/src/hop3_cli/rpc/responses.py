@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import json
-import re
 import sys
 from typing import TYPE_CHECKING, Any
 
@@ -15,6 +14,7 @@ from jsonrpcclient import Error, Ok
 
 from hop3_cli.commands.help import inject_local_commands_into_help, is_help_command
 from hop3_cli.exit_codes import ExitCode, map_message_to_exit, map_rpc_code_to_exit
+from hop3_cli.tokens import JWT_PATTERN
 from hop3_cli.ui.console import err
 
 if TYPE_CHECKING:
@@ -108,9 +108,6 @@ def handle_login_response(
         config: The config object to save the token to
         printer: Printer for output
     """
-    # JWT token pattern (3 base64url segments separated by dots)
-    jwt_pattern = re.compile(r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
-
     token = None
     modified_result = []
     found_token = False
@@ -130,7 +127,7 @@ def handle_login_response(
             text = item.get("text", "")
 
             # Check if this text contains a JWT token
-            match = jwt_pattern.search(text)
+            match = JWT_PATTERN.search(text)
             if match and not found_token:
                 token = match.group(0)
                 found_token = True
