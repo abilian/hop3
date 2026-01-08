@@ -35,6 +35,7 @@ import os
 import sys
 from pathlib import Path
 
+from ..common import find_project_root
 from .common import log_error, log_header, set_dry_run, set_verbose
 from .runner import INSTALL_METHODS, TestConfig, TestRunner
 
@@ -43,22 +44,13 @@ DOCKER_DISTROS = ["ubuntu", "debian", "fedora"]
 VAGRANT_VMS = ["ubuntu", "debian", "fedora"]
 
 
-def _find_project_root() -> Path:
-    """Find the project root directory."""
-    current = Path(__file__).parent
-    for parent in [current, *current.parents]:
-        if (parent / "pyproject.toml").exists() and (parent / "packages").exists():
-            return parent
-    return Path.cwd()
-
-
 def _find_or_generate_installer_dir() -> Path:
     """Find or generate the single-file installers.
 
     Looks for installer/ in the project root. If installers don't exist,
     generates them using the bundler.
     """
-    project_root = _find_project_root()
+    project_root = find_project_root(Path(__file__).parent)
 
     # Check for existing installers in installer/ directory
     installer_dir = project_root / "installer"

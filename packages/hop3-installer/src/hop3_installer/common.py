@@ -151,6 +151,20 @@ class Spinner:
 
 
 @dataclass
+class CommandResult:
+    """Result of a command execution."""
+
+    returncode: int
+    stdout: str = ""
+    stderr: str = ""
+
+    @property
+    def success(self) -> bool:
+        """Check if the command succeeded."""
+        return self.returncode == 0
+
+
+@dataclass
 class CommandError(Exception):
     """Raised when a command fails."""
 
@@ -168,6 +182,7 @@ def run_cmd(
     capture: bool = True,
     check: bool = True,
     env: dict[str, str] | None = None,
+    timeout: float | None = None,
 ) -> subprocess.CompletedProcess:
     """Run a command and return the result.
 
@@ -176,6 +191,7 @@ def run_cmd(
         capture: Whether to capture stdout/stderr
         check: Whether to raise CommandError on non-zero exit
         env: Additional environment variables
+        timeout: Timeout in seconds (None for no timeout)
 
     Returns:
         CompletedProcess with returncode, stdout, stderr
@@ -187,13 +203,23 @@ def run_cmd(
     if env:
         run_env.update(env)
 
-    result = subprocess.run(
-        cmd,
-        check=False,
-        capture_output=capture,
-        text=True,
-        env=run_env,
-    )
+    try:
+        result = subprocess.run(
+            cmd,
+            check=False,
+            capture_output=capture,
+            text=True,
+            env=run_env,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        # Return a failed result on timeout
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=-1,
+            stdout="",
+            stderr="Command timed out",
+        )
 
     if check and result.returncode != 0:
         raise CommandError(
@@ -259,6 +285,28 @@ def get_current_shell() -> str | None:
 
 
 MIN_PYTHON = (3, 10)
+
+
+def find_project_root(start_path: Path | None = None) -> Path:
+    """Find the project root directory.
+
+    Walks up from the starting path looking for pyproject.toml and packages/ directory.
+
+    Args:
+        start_path: Path to start searching from. If None, uses current working directory.
+
+    Returns:
+        Path to project root, or current working directory if not found.
+    """
+    current = start_path or Path.cwd()
+
+    for parent in [current, *current.parents]:
+        if (parent / "pyproject.toml").exists() and (parent / "packages").exists():
+            return parent
+        if (parent / ".git").exists() and (parent / "packages").exists():
+            return parent
+
+    return Path.cwd()
 
 
 def check_python_version() -> None:

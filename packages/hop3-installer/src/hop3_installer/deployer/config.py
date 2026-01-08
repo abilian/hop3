@@ -9,6 +9,8 @@ import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ..common import find_project_root
+
 # Default values
 DEFAULT_BRANCH = "devel"
 DEFAULT_SSH_USER = "root"
@@ -54,7 +56,9 @@ class DeployConfig:
     no_cli_setup: bool = False
 
     # Paths (auto-detected)
-    project_root: Path = field(default_factory=lambda: _find_project_root())
+    project_root: Path = field(
+        default_factory=lambda: find_project_root(Path(__file__).parent)
+    )
 
     def __post_init__(self):
         """Validate and set defaults after initialization."""
@@ -181,21 +185,3 @@ class DeployConfig:
             errors.append("Cannot use both --verbose and --quiet")
 
         return errors
-
-
-def _find_project_root() -> Path:
-    """Find the project root directory.
-
-    Looks for pyproject.toml or .git directory.
-    """
-    current = Path(__file__).parent
-
-    # Walk up to find project root
-    for parent in [current, *current.parents]:
-        if (parent / "pyproject.toml").exists() and (parent / "packages").exists():
-            return parent
-        if (parent / ".git").exists() and (parent / "packages").exists():
-            return parent
-
-    # Fallback to current working directory
-    return Path.cwd()

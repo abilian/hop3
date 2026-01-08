@@ -273,7 +273,7 @@ def _configure_redis() -> None:
     - Enabled and started
     - Accessible on localhost
     """
-    print_step("Configuring Redis...")
+    print_info("Configuring Redis...")
 
     # Ensure Redis is not configured as a replica
     # This fixes the "You can't write against a read only replica" error
@@ -628,8 +628,6 @@ def setup_environment_file() -> str:
     Returns:
         The secret key (either existing or newly generated)
     """
-    import secrets
-
     env_file = Path("/etc/default/hop3")
 
     # Check if file already exists and has HOP3_SECRET_KEY
@@ -1100,9 +1098,13 @@ def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
             print_detail("MySQL configuration may need manual intervention")
             return None
 
+    # At this point mysql_root_cmd is guaranteed to be set
+    assert mysql_root_cmd is not None
+    root_cmd = mysql_root_cmd  # Capture in local variable for type checker
+
     def run_mysql_sql(sql: str) -> subprocess.CompletedProcess:
         """Run SQL using the working MySQL root connection."""
-        return run_cmd(mysql_root_cmd + ["-e", sql], check=False)
+        return run_cmd(root_cmd + ["-e", sql], check=False)
 
     # Drop existing hop3 user if exists (clean slate)
     # Note: MySQL treats 'localhost' (socket) and '127.0.0.1' (TCP) as different hosts
