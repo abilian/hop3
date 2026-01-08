@@ -99,60 +99,115 @@ class Deployer:
         if show_stdout or show_stderr:
             print()
 
+    def _handle_install_or_update(
+        self, step: int, local_path_on_server: str | None
+    ) -> tuple[bool, int]:
+        """Handle installation or update logic.
+
+        Returns:
+            Tuple of (success, updated_step_count).
+        """
+        if self.config.skip_install:
+            step += 1
+            self.log_step(step, "Skipping installation (--skip-install)")
+            # Even with skip_install, update local code if requested
+            if self.config.use_local_code:
+                step += 1
+                self.log_step(step, "Updating with local code")
+                if not self._update_local_code():
+                    return False, step
+        elif self.backend.is_hop3_installed():
+            step += 1
+            self.log_step(step, "Updating existing installation")
+            if not self._update():
+                return False, step
+        else:
+            step += 1
+            self.log_step(step, "Installing Hop3")
+            if not self._install(local_path=local_path_on_server):
+                return False, step
+
+        return True, step
+
+    def _print_completion_message(self) -> None:
+        """Print deployment completion message."""
+        if self.quiet:
+            print(f"\n✓ Deployment complete. Server: {self.backend.get_server_url()}")
+            if self.log_file:
+                print(f"  Log file: {self.log_file}")
+            return
+
+        print("\n" + "=" * 60)
+        print("Deployment complete!")
+        print(f"Server URL: {self.backend.get_server_url()}")
+
+        if self.config.admin_domain:
+            print(f"Admin URL: https://{self.config.admin_domain}")
+            print(f"Admin user: {self.config.admin_user}")
+            # Only show full password in verbose mode to avoid CI log exposure
+            if self.verbose:
+                print(f"Admin password: {self.config.admin_password}")
+            else:
+                # Show masked password with hint
+                masked = (
+                    self.config.admin_password[:4]
+                    + "..."
+                    + self.config.admin_password[-4:]
+                )
+                print(f"Admin password: {masked} (use --verbose to show full)")
+
+        print("=" * 60)
+
+    def _setup_and_prepare(self) -> tuple[bool, int, str | None]:
+        """Setup backend and prepare for deployment.
+
+        Returns:
+            Tuple of (success, step_count, local_path_on_server).
+        """
+        step = 0
+
+        # Setup backend
+        step += 1
+        self.log_step(step, "Setting up deployment target")
+        if not self.backend.setup():
+            self.log("Failed to setup deployment target", "error")
+            return False, step, None
+        self.log("Target ready", "success")
+
+        # Clean if requested
+        if self.config.clean_before:
+            step += 1
+            self.log_step(step, "Cleaning previous installation")
+            self.backend.clean()
+            self.log("Clean complete", "success")
+
+        # Upload local code FIRST if using local code for fresh install
+        local_path_on_server = None
+        if self.config.use_local_code and not self.backend.is_hop3_installed():
+            step += 1
+            self.log_step(step, "Uploading local code for installation")
+            local_path_on_server = self._upload_local_code_for_install()
+            if not local_path_on_server:
+                return False, step, None
+
+        return True, step, local_path_on_server
+
     def deploy(self) -> bool:
         """Run full deployment.
 
         Returns:
             True if deployment succeeded
         """
-        step = 0
-
         try:
-            # Setup backend
-            step += 1
-            self.log_step(step, "Setting up deployment target")
-            if not self.backend.setup():
-                self.log("Failed to setup deployment target", "error")
+            # Setup and prepare
+            success, step, local_path_on_server = self._setup_and_prepare()
+            if not success:
                 return False
-            self.log("Target ready", "success")
-
-            # Clean if requested
-            if self.config.clean_before:
-                step += 1
-                self.log_step(step, "Cleaning previous installation")
-                self.backend.clean()
-                self.log("Clean complete", "success")
-
-            # Upload local code FIRST if using local code for fresh install
-            # This must happen BEFORE running the installer
-            local_path_on_server = None
-            if self.config.use_local_code and not self.backend.is_hop3_installed():
-                step += 1
-                self.log_step(step, "Uploading local code for installation")
-                local_path_on_server = self._upload_local_code_for_install()
-                if not local_path_on_server:
-                    return False
 
             # Install or update
-            if self.config.skip_install:
-                step += 1
-                self.log_step(step, "Skipping installation (--skip-install)")
-                # Even with skip_install, update local code if requested
-                if self.config.use_local_code:
-                    step += 1
-                    self.log_step(step, "Updating with local code")
-                    if not self._update_local_code():
-                        return False
-            elif self.backend.is_hop3_installed():
-                step += 1
-                self.log_step(step, "Updating existing installation")
-                if not self._update():
-                    return False
-            else:
-                step += 1
-                self.log_step(step, "Installing Hop3")
-                if not self._install(local_path=local_path_on_server):
-                    return False
+            success, step = self._handle_install_or_update(step, local_path_on_server)
+            if not success:
+                return False
 
             # Setup admin user
             if self.config.admin_domain:
@@ -167,33 +222,7 @@ class Deployer:
                 self.log_step(step, "Configuring local CLI")
                 self._setup_cli()
 
-            # Done
-            if self.quiet:
-                print(
-                    f"\n✓ Deployment complete. Server: {self.backend.get_server_url()}"
-                )
-                if self.log_file:
-                    print(f"  Log file: {self.log_file}")
-            else:
-                print("\n" + "=" * 60)
-                print("Deployment complete!")
-                print(f"Server URL: {self.backend.get_server_url()}")
-                if self.config.admin_domain:
-                    print(f"Admin URL: https://{self.config.admin_domain}")
-                    print(f"Admin user: {self.config.admin_user}")
-                    # Only show full password in verbose mode to avoid CI log exposure
-                    if self.verbose:
-                        print(f"Admin password: {self.config.admin_password}")
-                    else:
-                        # Show masked password with hint
-                        masked = (
-                            self.config.admin_password[:4]
-                            + "..."
-                            + self.config.admin_password[-4:]
-                        )
-                        print(f"Admin password: {masked} (use --verbose to show full)")
-                print("=" * 60)
-
+            self._print_completion_message()
             return True
 
         except Exception as e:

@@ -406,21 +406,12 @@ Environment Variables:
 # Main
 # =============================================================================
 
+TOTAL_STEPS = 5
 
-def main() -> int:
-    """Main entry point.
 
-    Returns:
-        Exit code (0 for success, non-zero for failure)
-    """
-    # Check Python version first
-    check_python_version()
-
-    parser = create_parser()
-    args = parser.parse_args()
-
-    # Convert args to config
-    config = CLIInstallerConfig(
+def _config_from_args(args: argparse.Namespace) -> CLIInstallerConfig:
+    """Create CLIInstallerConfig from parsed arguments."""
+    return CLIInstallerConfig(
         version=args.version,
         use_git=args.git,
         branch=args.branch,
@@ -431,13 +422,14 @@ def main() -> int:
         verbose=args.verbose,
     )
 
-    # Header
-    print_header("Hop3 CLI Installer")
 
-    total_steps = 5
+def _check_system_requirements(config: CLIInstallerConfig) -> bool:
+    """Check system requirements for CLI installation.
 
-    # Step 1: System checks
-    print_step(1, total_steps, "Checking system requirements...")
+    Returns:
+        True if requirements met, False otherwise.
+    """
+    print_step(1, TOTAL_STEPS, "Checking system requirements...")
 
     python_version = (
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
@@ -447,12 +439,51 @@ def main() -> int:
     if not check_venv():
         print_error("Python venv module not found")
         print_detail("Install with: sudo apt install python3-venv")
-        return 1
+        return False
     print_success("venv module available")
 
     if config.use_git and not config.local_path and not check_git():
         print_error("Git not found (required for --git)")
         print_detail("Install with: sudo apt install git")
+        return False
+
+    return True
+
+
+def _handle_venv_creation_error(e: CommandError) -> None:
+    """Handle virtual environment creation error with helpful output."""
+    print_error("Failed to create virtual environment")
+    error_output = e.stderr.strip() or e.stdout.strip()
+    if error_output:
+        for line in error_output.split("\n"):
+            if line.strip():
+                print_detail(line.strip())
+    else:
+        print_detail(f"Command: {' '.join(e.cmd)}")
+        print_detail(f"Exit code: {e.returncode}")
+    print()
+    print_info("Possible fixes:")
+    print_detail("1. Check disk space: df -h ~/.hop3-cli")
+    print_detail("2. Check permissions: ls -la ~/.hop3-cli")
+    print_detail("3. Check network access (needed to download pip)")
+
+
+def main() -> int:
+    """Main entry point.
+
+    Returns:
+        Exit code (0 for success, non-zero for failure)
+    """
+    check_python_version()
+
+    parser = create_parser()
+    args = parser.parse_args()
+    config = _config_from_args(args)
+
+    print_header("Hop3 CLI Installer")
+
+    # Step 1: System checks
+    if not _check_system_requirements(config):
         return 1
 
     # Check existing installation
@@ -460,30 +491,15 @@ def main() -> int:
         return 0
 
     # Step 2: Create virtual environment
-    print_step(2, total_steps, "Creating virtual environment...")
-
+    print_step(2, TOTAL_STEPS, "Creating virtual environment...")
     try:
         create_virtual_environment()
     except CommandError as e:
-        print_error("Failed to create virtual environment")
-        error_output = e.stderr.strip() or e.stdout.strip()
-        if error_output:
-            for line in error_output.split("\n"):
-                if line.strip():
-                    print_detail(line.strip())
-        else:
-            print_detail(f"Command: {' '.join(e.cmd)}")
-            print_detail(f"Exit code: {e.returncode}")
-        print()
-        print_info("Possible fixes:")
-        print_detail("1. Check disk space: df -h ~/.hop3-cli")
-        print_detail("2. Check permissions: ls -la ~/.hop3-cli")
-        print_detail("3. Check network access (needed to download pip)")
+        _handle_venv_creation_error(e)
         return 1
 
     # Step 3: Install package
-    print_step(3, total_steps, "Installing hop3-cli...")
-
+    print_step(3, TOTAL_STEPS, "Installing hop3-cli...")
     try:
         install_package(config)
     except CommandError as e:
@@ -497,15 +513,13 @@ def main() -> int:
         return 1
 
     # Step 4: Create symlinks
-    print_step(4, total_steps, "Creating command symlinks...")
-
+    print_step(4, TOTAL_STEPS, "Creating command symlinks...")
     count = create_command_symlinks(config.bin_dir)
     if count == 0:
         print_warning("No commands found to symlink")
 
     # Step 5: Update PATH
-    print_step(5, total_steps, "Configuring PATH...")
-
+    print_step(5, TOTAL_STEPS, "Configuring PATH...")
     path_is_active = update_shell_config(config.bin_dir, not config.no_modify_path)
 
     # Verify

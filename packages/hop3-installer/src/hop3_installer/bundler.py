@@ -125,17 +125,37 @@ SERVER_USAGE = """Usage:
 # =============================================================================
 
 
+def _is_multiline_import(stripped: str) -> bool:
+    """Check if an import statement spans multiple lines."""
+    return "(" in stripped and ")" not in stripped
+
+
+def _should_skip_import(stripped: str) -> bool:
+    """Check if an import should be skipped (relative or future imports)."""
+    return stripped.startswith("from .") or "from __future__" in stripped
+
+
+def _extract_module_name(stripped: str) -> str | None:
+    """Extract module name from an import statement."""
+    if stripped.startswith("import "):
+        match = re.match(r"import\s+([\w.]+)", stripped)
+        return match.group(1) if match else None
+    if stripped.startswith("from "):
+        match = re.match(r"from\s+([\w.]+)\s+import", stripped)
+        return match.group(1) if match else None
+    return None
+
+
 def extract_imports(source: str) -> tuple[set[str], str]:
     """Extract import statements from source code.
 
     Returns:
         Tuple of (set of import names, source with imports removed)
     """
-    imports = set()
+    imports: set[str] = set()
     lines = source.split("\n")
-    new_lines = []
+    new_lines: list[str] = []
     in_multiline_import = False
-    skip_multiline_import = False
 
     for line in lines:
         stripped = line.strip()
@@ -148,52 +168,62 @@ def extract_imports(source: str) -> tuple[set[str], str]:
         if in_multiline_import:
             if ")" in stripped:
                 in_multiline_import = False
-                skip_multiline_import = False
-            if skip_multiline_import:
-                continue
-            # If not skipping, we would add the line, but we skip all imports
             continue
 
         # Check for import statements
-        if stripped.startswith("import ") or stripped.startswith("from "):
-            # Check if it's a multi-line import
-            is_multiline = "(" in stripped and ")" not in stripped
+        if stripped.startswith(("import ", "from ")):
+            is_multiline = _is_multiline_import(stripped)
 
-            # Skip relative imports (from . or from ..)
-            if stripped.startswith("from ."):
+            if _should_skip_import(stripped):
                 if is_multiline:
                     in_multiline_import = True
-                    skip_multiline_import = True
                 continue
 
-            # Skip future imports (handled in header)
-            if "from __future__" in stripped:
-                if is_multiline:
-                    in_multiline_import = True
-                    skip_multiline_import = True
-                continue
-
-            # Extract module name for stdlib detection
-            if stripped.startswith("import "):
-                # Capture full dotted module name (e.g., urllib.request)
-                match = re.match(r"import\s+([\w.]+)", stripped)
-                if match:
-                    imports.add(match.group(1))
-            elif stripped.startswith("from "):
-                # Capture full dotted module path (e.g., from urllib.request import urlretrieve)
-                match = re.match(r"from\s+([\w.]+)\s+import", stripped)
-                if match:
-                    imports.add(match.group(1))
+            module_name = _extract_module_name(stripped)
+            if module_name:
+                imports.add(module_name)
 
             if is_multiline:
                 in_multiline_import = True
-                skip_multiline_import = True
-
             continue
 
         new_lines.append(line)
 
     return imports, "\n".join(new_lines)
+
+
+def _skip_leading_whitespace_and_comments(lines: list[str], start: int) -> int:
+    """Skip leading whitespace and comment lines, return new index."""
+    i = start
+    while i < len(lines):
+        stripped = lines[i].strip()
+        if stripped and not stripped.startswith("#"):
+            break
+        i += 1
+    return i
+
+
+def _skip_module_docstring(lines: list[str], start: int) -> int:
+    """Skip module docstring if present, return new index."""
+    if start >= len(lines):
+        return start
+
+    stripped = lines[start].strip()
+    if not (stripped.startswith('"""') or stripped.startswith("'''")):
+        return start
+
+    quote = stripped[:3]
+    # Single-line docstring like """text"""
+    if stripped.count(quote) >= 2 and len(stripped) > 3:
+        return start + 1
+
+    # Multi-line docstring - find the end
+    i = start + 1
+    while i < len(lines):
+        if quote in lines[i]:
+            return i + 1
+        i += 1
+    return i
 
 
 def extract_code_body(source: str) -> str:
@@ -205,50 +235,22 @@ def extract_code_body(source: str) -> str:
     - if __name__ == "__main__" block at the end
     """
     lines = source.split("\n")
-    new_lines = []
-    i = 0
     n = len(lines)
 
-    # Skip leading whitespace and comments
-    while i < n:
-        stripped = lines[i].strip()
-        if stripped and not stripped.startswith("#"):
-            break
-        i += 1
-
-    # Check for module docstring (must be at column 0)
-    if i < n:
-        line = lines[i]
-        stripped = line.strip()
-
-        # Detect module docstring (triple quotes at start of line)
-        if stripped.startswith('"""') or stripped.startswith("'''"):
-            quote = stripped[:3]
-            # Check if it's a single-line docstring
-            if stripped.count(quote) >= 2 and len(stripped) > 3:
-                # Single-line docstring like """text"""
-                i += 1
-            else:
-                # Multi-line docstring - find the end
-                i += 1
-                while i < n:
-                    if quote in lines[i]:
-                        i += 1
-                        break
-                    i += 1
+    # Skip leading content
+    i = _skip_leading_whitespace_and_comments(lines, 0)
+    i = _skip_module_docstring(lines, i)
 
     # Skip any blank lines after docstring
     while i < n and not lines[i].strip():
         i += 1
 
     # Collect remaining lines until if __name__ block
+    new_lines = []
     while i < n:
         stripped = lines[i].strip()
-
-        # Stop at if __name__ == "__main__" block
         if stripped.startswith('if __name__ == "__main__"'):
             break
-
         new_lines.append(lines[i])
         i += 1
 

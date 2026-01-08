@@ -120,8 +120,8 @@ def install_system_deps(distro: str, config: ServerInstallerConfig) -> None:
         print_detail("You may need to install dependencies manually")
 
 
-def _install_debian_deps(config: ServerInstallerConfig) -> None:
-    """Install Debian/Ubuntu dependencies."""
+def _install_debian_base_packages() -> None:
+    """Install base Debian/Ubuntu packages."""
     with Spinner("Updating package lists..."):
         run_cmd(["apt-get", "update", "-q"])
 
@@ -161,7 +161,9 @@ def _install_debian_deps(config: ServerInstallerConfig) -> None:
     else:
         print_success("npm already available")
 
-    # Optional packages
+
+def _install_debian_optional_packages(config: ServerInstallerConfig) -> None:
+    """Install optional Debian/Ubuntu packages based on config."""
     if config.with_docker:
         _install_optional_packages(
             "Docker", DEBIAN_DOCKER_PACKAGES, "apt-get", "DEBIAN_FRONTEND"
@@ -184,15 +186,17 @@ def _install_debian_deps(config: ServerInstallerConfig) -> None:
             print_success("Redis already installed")
         _configure_redis()
 
-    # Install .NET SDK (requires Microsoft repo)
-    _install_dotnet_sdk("debian")
 
-    # Install Rust toolchain (via rustup)
+def _install_debian_deps(config: ServerInstallerConfig) -> None:
+    """Install Debian/Ubuntu dependencies."""
+    _install_debian_base_packages()
+    _install_debian_optional_packages(config)
+    _install_dotnet_sdk("debian")
     _install_rust_toolchain()
 
 
-def _install_fedora_deps(config: ServerInstallerConfig) -> None:
-    """Install Fedora/RHEL dependencies."""
+def _install_fedora_base_packages() -> None:
+    """Install base Fedora/RHEL packages."""
     with Spinner("Installing base packages (this may take a while)..."):
         result = run_cmd(["dnf", "install", "-y"] + FEDORA_PACKAGES, check=False)
 
@@ -220,7 +224,9 @@ def _install_fedora_deps(config: ServerInstallerConfig) -> None:
     else:
         print_success("npm already available")
 
-    # Optional packages
+
+def _install_fedora_optional_packages(config: ServerInstallerConfig) -> None:
+    """Install optional Fedora/RHEL packages based on config."""
     if config.with_docker:
         _install_optional_packages("Docker", FEDORA_DOCKER_PACKAGES, "dnf", None)
 
@@ -237,10 +243,12 @@ def _install_fedora_deps(config: ServerInstallerConfig) -> None:
             print_success("Redis already installed")
         _configure_redis()
 
-    # Install .NET SDK
-    _install_dotnet_sdk("fedora")
 
-    # Install Rust toolchain (via rustup)
+def _install_fedora_deps(config: ServerInstallerConfig) -> None:
+    """Install Fedora/RHEL dependencies."""
+    _install_fedora_base_packages()
+    _install_fedora_optional_packages(config)
+    _install_dotnet_sdk("fedora")
     _install_rust_toolchain()
 
 
@@ -1018,18 +1026,12 @@ def reset_mysql_root_auth() -> bool:
     return result.returncode == 0
 
 
-def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
-    """Configure MySQL.
+def _start_mysql_service() -> bool:
+    """Start MySQL or MariaDB service.
 
     Returns:
-        The generated MySQL password for hop3 user, or None if skipped/failed.
+        True if service started successfully, False otherwise.
     """
-    if not config.with_mysql:
-        return None
-
-    print_info("Configuring MySQL...")
-
-    # Start MySQL service
     run_cmd(["systemctl", "enable", "mysql"], check=False)
     result = run_cmd(["systemctl", "start", "mysql"], check=False)
 
@@ -1038,21 +1040,19 @@ def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
         run_cmd(["systemctl", "enable", "mariadb"], check=False)
         result = run_cmd(["systemctl", "start", "mariadb"], check=False)
 
-    if result.returncode != 0:
-        print_warning("Could not start MySQL service")
-        return None
+    return result.returncode == 0
 
-    print_success("MySQL service started")
 
-    # Generate a secure password
-    mysql_password = "hop3_" + secrets.token_hex(16)
+def _find_mysql_admin_connection() -> list[str] | None:
+    """Find a working MySQL admin connection method.
 
-    # First, test if we can connect to MySQL at all
-    # Try different connection methods for MySQL root/admin access
-    mysql_root_cmd = None
+    Tries various methods to connect to MySQL as an admin user.
 
+    Returns:
+        Command list that works, or None if no method works.
+    """
     # Build list of commands to try
-    test_commands = [
+    test_commands: list[list[str]] = [
         ["mysql"],  # Socket auth as current user (root)
         ["sudo", "mysql"],  # Socket auth via sudo
         ["mysql", "-u", "root"],  # Traditional root
@@ -1067,93 +1067,113 @@ def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
     for test_cmd in test_commands:
         result = run_cmd(test_cmd + ["-e", "SELECT 1;"], check=False)
         if result.returncode == 0:
-            mysql_root_cmd = test_cmd
             # Don't show password in logs
             display_cmd = " ".join(test_cmd)
             if debian_creds and debian_creds[1] in display_cmd:
                 display_cmd = display_cmd.replace(debian_creds[1], "***")
             print_detail(f"MySQL admin access via: {display_cmd}")
-            break
+            return test_cmd
 
-    if mysql_root_cmd is None:
-        print_warning(
-            "Cannot connect to MySQL as root - attempting to reset authentication"
-        )
+    return None
 
-        # Try to reset MySQL root to use socket authentication
-        # This is safe and allows the installer to proceed
-        if reset_mysql_root_auth():
-            # Retry connection after reset
-            for test_cmd in [["mysql"], ["sudo", "mysql"]]:
-                result = run_cmd(test_cmd + ["-e", "SELECT 1;"], check=False)
-                if result.returncode == 0:
-                    mysql_root_cmd = test_cmd
-                    print_success("MySQL root access restored")
-                    break
 
-        if mysql_root_cmd is None:
-            print_warning("Could not restore MySQL root access")
-            print_detail("MySQL configuration may need manual intervention")
-            return None
+def _restore_mysql_admin_access() -> list[str] | None:
+    """Attempt to restore MySQL admin access after failed connection.
 
-    # At this point mysql_root_cmd is guaranteed to be set
-    assert mysql_root_cmd is not None
-    root_cmd = mysql_root_cmd  # Capture in local variable for type checker
+    Returns:
+        Working command list, or None if restoration failed.
+    """
+    print_warning(
+        "Cannot connect to MySQL as root - attempting to reset authentication"
+    )
 
-    def run_mysql_sql(sql: str) -> subprocess.CompletedProcess:
-        """Run SQL using the working MySQL root connection."""
+    if not reset_mysql_root_auth():
+        return None
+
+    # Retry connection after reset
+    for test_cmd in [["mysql"], ["sudo", "mysql"]]:
+        result = run_cmd(test_cmd + ["-e", "SELECT 1;"], check=False)
+        if result.returncode == 0:
+            print_success("MySQL root access restored")
+            return test_cmd
+
+    print_warning("Could not restore MySQL root access")
+    print_detail("MySQL configuration may need manual intervention")
+    return None
+
+
+def _create_mysql_hop3_user(root_cmd: list[str], mysql_password: str) -> bool:
+    """Create hop3 MySQL user with privileges.
+
+    Args:
+        root_cmd: Working MySQL admin command.
+        mysql_password: Password to set for hop3 user.
+
+    Returns:
+        True if user created successfully, False otherwise.
+    """
+
+    def run_sql(sql: str) -> subprocess.CompletedProcess:
         return run_cmd(root_cmd + ["-e", sql], check=False)
 
     # Drop existing hop3 user if exists (clean slate)
     # Note: MySQL treats 'localhost' (socket) and '127.0.0.1' (TCP) as different hosts
-    run_mysql_sql("DROP USER IF EXISTS 'hop3'@'localhost';")
-    run_mysql_sql("DROP USER IF EXISTS 'hop3'@'127.0.0.1';")
+    run_sql("DROP USER IF EXISTS 'hop3'@'localhost';")
+    run_sql("DROP USER IF EXISTS 'hop3'@'127.0.0.1';")
 
     # Create hop3 user with password authentication for both localhost and 127.0.0.1
     # Use mysql_native_password for compatibility with mysql-connector-python
-    result = run_mysql_sql(
+    result = run_sql(
         f"CREATE USER 'hop3'@'localhost' IDENTIFIED WITH mysql_native_password BY '{mysql_password}';"
     )
     if result.returncode != 0:
         print_warning("Failed to create MySQL user 'hop3'@'localhost'")
         if result.stderr:
             print_detail(result.stderr[:200])
-        return None
+        return False
 
-    result = run_mysql_sql(
+    result = run_sql(
         f"CREATE USER 'hop3'@'127.0.0.1' IDENTIFIED WITH mysql_native_password BY '{mysql_password}';"
     )
     if result.returncode != 0:
         print_warning("Failed to create MySQL user 'hop3'@'127.0.0.1'")
         if result.stderr:
             print_detail(result.stderr[:200])
-        return None
+        return False
 
     # Grant all privileges to both hosts
-    result = run_mysql_sql(
+    result = run_sql(
         "GRANT ALL PRIVILEGES ON *.* TO 'hop3'@'localhost' WITH GRANT OPTION;"
     )
     if result.returncode != 0:
         print_warning("Failed to grant privileges to hop3@localhost")
         if result.stderr:
             print_detail(result.stderr[:200])
-        return None
+        return False
 
-    result = run_mysql_sql(
+    result = run_sql(
         "GRANT ALL PRIVILEGES ON *.* TO 'hop3'@'127.0.0.1' WITH GRANT OPTION;"
     )
     if result.returncode != 0:
         print_warning("Failed to grant privileges to hop3@127.0.0.1")
         if result.stderr:
             print_detail(result.stderr[:200])
-        return None
+        return False
 
-    run_mysql_sql("FLUSH PRIVILEGES;")
+    run_sql("FLUSH PRIVILEGES;")
+    return True
 
-    print_success("MySQL user 'hop3' created with privileges")
 
-    # Verify the connection works with the new password (use 127.0.0.1 to match config)
-    verify_result = run_cmd(
+def _verify_mysql_hop3_connection(mysql_password: str) -> bool:
+    """Verify hop3 user can connect to MySQL.
+
+    Args:
+        mysql_password: Password for hop3 user.
+
+    Returns:
+        True if connection verified, False otherwise.
+    """
+    result = run_cmd(
         [
             "mysql",
             "-u",
@@ -1167,10 +1187,50 @@ def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
         check=False,
     )
 
-    if verify_result.returncode != 0:
+    if result.returncode != 0:
         print_warning("MySQL user created but connection verification failed")
-        if verify_result.stderr:
-            print_detail(verify_result.stderr[:200])
+        if result.stderr:
+            print_detail(result.stderr[:200])
+        return False
+
+    return True
+
+
+def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
+    """Configure MySQL.
+
+    Returns:
+        The generated MySQL password for hop3 user, or None if skipped/failed.
+    """
+    if not config.with_mysql:
+        return None
+
+    print_info("Configuring MySQL...")
+
+    # Start MySQL service
+    if not _start_mysql_service():
+        print_warning("Could not start MySQL service")
+        return None
+    print_success("MySQL service started")
+
+    # Generate a secure password
+    mysql_password = "hop3_" + secrets.token_hex(16)
+
+    # Find a working admin connection
+    mysql_root_cmd = _find_mysql_admin_connection()
+
+    if mysql_root_cmd is None:
+        mysql_root_cmd = _restore_mysql_admin_access()
+        if mysql_root_cmd is None:
+            return None
+
+    # Create hop3 user with privileges
+    if not _create_mysql_hop3_user(mysql_root_cmd, mysql_password):
+        return None
+    print_success("MySQL user 'hop3' created with privileges")
+
+    # Verify the connection works
+    if not _verify_mysql_hop3_connection(mysql_password):
         return None
 
     print_success("MySQL connection verified successfully")
@@ -1326,16 +1386,8 @@ def verify_mysql_config() -> bool:
     return True
 
 
-def verify_installation(config: ServerInstallerConfig) -> bool:
-    """Verify the installation."""
-    hop_server = VENV_DIR / "bin" / "hop3-server"
-    all_ok = True
-
-    if not hop_server.exists():
-        print_error("hop3-server not found")
-        return False
-
-    # Check services
+def _verify_services() -> None:
+    """Verify core services are running."""
     for service, name in [
         ("hop3-server", "hop3-server service"),
         ("nginx", "nginx service"),
@@ -1348,54 +1400,76 @@ def verify_installation(config: ServerInstallerConfig) -> bool:
             print_warning(f"{name} is not running")
             print_detail(f"Check with: sudo systemctl status {service}")
 
+
+def _verify_database_services(config_content: str) -> bool:
+    """Verify database services are running and configured.
+
+    Returns:
+        True if all database services are OK, False otherwise.
+    """
+    all_ok = True
+
+    if "POSTGRES_SUPERUSER_PASSWORD" in config_content:
+        result = run_cmd(
+            ["systemctl", "is-active", "postgresql"],
+            capture=True,
+            check=False,
+        )
+        if result.stdout.strip() == "active":
+            print_success("PostgreSQL service is running")
+        else:
+            print_warning("PostgreSQL service is not running")
+            all_ok = False
+
+    if "MYSQL_SUPERUSER_PASSWORD" in config_content:
+        result = run_cmd(
+            ["systemctl", "is-active", "mysql"],
+            capture=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            result = run_cmd(
+                ["systemctl", "is-active", "mariadb"],
+                capture=True,
+                check=False,
+            )
+        if result.stdout.strip() == "active":
+            if verify_mysql_config():
+                print_success("MySQL configuration verified")
+            else:
+                print_error("MySQL configuration test FAILED")
+                all_ok = False
+        else:
+            print_warning("MySQL service is not running")
+            all_ok = False
+
+    return all_ok
+
+
+def verify_installation(config: ServerInstallerConfig) -> bool:
+    """Verify the installation."""
+    hop_server = VENV_DIR / "bin" / "hop3-server"
+
+    if not hop_server.exists():
+        print_error("hop3-server not found")
+        return False
+
+    _verify_services()
+
     # Check SSL
     if SSL_CERT.exists() and SSL_KEY.exists():
         print_success("SSL certificate is configured")
     else:
         print_warning("SSL certificate not found")
 
-    # Check PostgreSQL if configured
+    # Check databases if configured
     config_file = HOME_DIR / "hop3-server.toml"
     if config_file.exists():
         config_content = config_file.read_text()
+        if not _verify_database_services(config_content):
+            return False
 
-        if "POSTGRES_SUPERUSER_PASSWORD" in config_content:
-            result = run_cmd(
-                ["systemctl", "is-active", "postgresql"],
-                capture=True,
-                check=False,
-            )
-            if result.stdout.strip() == "active":
-                print_success("PostgreSQL service is running")
-            else:
-                print_warning("PostgreSQL service is not running")
-                all_ok = False
-
-        # Check MySQL - full end-to-end test
-        if "MYSQL_SUPERUSER_PASSWORD" in config_content:
-            result = run_cmd(
-                ["systemctl", "is-active", "mysql"],
-                capture=True,
-                check=False,
-            )
-            if result.returncode != 0:
-                result = run_cmd(
-                    ["systemctl", "is-active", "mariadb"],
-                    capture=True,
-                    check=False,
-                )
-            if result.stdout.strip() == "active":
-                # Service is running, now test configuration
-                if verify_mysql_config():
-                    print_success("MySQL configuration verified")
-                else:
-                    print_error("MySQL configuration test FAILED")
-                    all_ok = False
-            else:
-                print_warning("MySQL service is not running")
-                all_ok = False
-
-    return all_ok
+    return True
 
 
 def print_final_message(config: ServerInstallerConfig) -> None:
@@ -1531,21 +1605,131 @@ Optional Features (--with):
 # Main
 # =============================================================================
 
+TOTAL_STEPS = 11
 
-def main() -> int:
-    """Main entry point.
+
+def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
+    """Run critical installation steps that must succeed.
+
+    Args:
+        distro: Detected distribution name.
+        config: Installation configuration.
 
     Returns:
-        Exit code (0 for success, non-zero for failure)
+        True if all critical steps succeeded, False otherwise.
     """
-    check_python_version()
+    # Step 1: System dependencies
+    print_step(1, TOTAL_STEPS, "Installing system dependencies...")
+    try:
+        install_system_deps(distro, config)
+    except CommandError as e:
+        print_error(f"Failed to install dependencies: {e.stderr[:200]}")
+        return False
 
-    parser = create_parser()
-    args = parser.parse_args()
+    # Step 2: Create user
+    print_step(2, TOTAL_STEPS, "Creating hop3 user and group...")
+    try:
+        create_user_and_group()
+    except CommandError as e:
+        print_error(f"Failed to create user: {e.stderr}")
+        return False
 
-    # Convert args to config
+    # Step 3: Virtual environment
+    print_step(3, TOTAL_STEPS, "Creating virtual environment...")
+    try:
+        create_virtual_environment()
+    except CommandError as e:
+        print_error(f"Failed to create venv: {e.stderr}")
+        return False
+
+    # Step 4: Install package
+    print_step(4, TOTAL_STEPS, "Installing hop3-server...")
+    try:
+        install_package(config)
+    except CommandError as e:
+        print_error("Failed to install hop3-server")
+        if e.stdout:
+            print_detail("--- stdout ---")
+            for line in e.stdout.strip().split("\n")[-20:]:
+                print_detail(line)
+        if e.stderr:
+            print_detail("--- stderr ---")
+            for line in e.stderr.strip().split("\n")[-20:]:
+                print_detail(line)
+        return False
+
+    # Step 5: Run setup
+    print_step(5, TOTAL_STEPS, "Running initial setup...")
+    try:
+        run_hop3_setup()
+    except CommandError as e:
+        print_error(f"Setup failed: {e.stderr[:200]}")
+        return False
+
+    return True
+
+
+def _run_service_setup_steps(
+    distro: str, config: ServerInstallerConfig
+) -> tuple[str | None, str | None, str | None]:
+    """Run service configuration steps (non-critical).
+
+    Args:
+        distro: Detected distribution name.
+        config: Installation configuration.
+
+    Returns:
+        Tuple of (secret_key, pg_password, mysql_password).
+    """
+    # Step 6: SSH keys
+    print_step(6, TOTAL_STEPS, "Configuring SSH keys...")
+    setup_ssh_keys()
+
+    # Step 7: Systemd
+    print_step(7, TOTAL_STEPS, "Setting up systemd services...")
+    secret_key = None
+    try:
+        secret_key = setup_systemd()
+    except CommandError as e:
+        print_warning(f"Systemd setup issue: {e.stderr[:100]}")
+
+    # Step 8: SSL certificates
+    print_step(8, TOTAL_STEPS, "Setting up SSL certificates...")
+    try:
+        setup_ssl_selfsigned()
+    except CommandError as e:
+        print_warning(f"SSL setup issue: {e.stderr[:100]}")
+
+    # Step 9: Nginx
+    print_step(9, TOTAL_STEPS, "Configuring nginx...")
+    try:
+        setup_nginx(config)
+    except CommandError as e:
+        print_warning(f"Nginx setup issue: {e.stderr[:100]}")
+
+    # Step 10: PostgreSQL
+    print_step(10, TOTAL_STEPS, "Configuring PostgreSQL...")
+    pg_password = None
+    try:
+        pg_password = setup_postgres(config, distro)
+    except CommandError as e:
+        print_warning(f"PostgreSQL setup issue: {e.stderr[:100]}")
+
+    # Step 11: MySQL (if requested)
+    print_step(11, TOTAL_STEPS, "Configuring MySQL...")
+    mysql_password = None
+    try:
+        mysql_password = setup_mysql(config, distro)
+    except CommandError as e:
+        print_warning(f"MySQL setup issue: {e.stderr[:100]}")
+
+    return secret_key, pg_password, mysql_password
+
+
+def _config_from_args(args: argparse.Namespace) -> ServerInstallerConfig:
+    """Create ServerInstallerConfig from parsed arguments."""
     features = parse_features(args.with_features)
-    config = ServerInstallerConfig(
+    return ServerInstallerConfig(
         version=args.version,
         use_git=args.git,
         branch=args.branch,
@@ -1559,6 +1743,19 @@ def main() -> int:
         verbose=args.verbose,
         features=features,
     )
+
+
+def main() -> int:
+    """Main entry point.
+
+    Returns:
+        Exit code (0 for success, non-zero for failure)
+    """
+    check_python_version()
+
+    parser = create_parser()
+    args = parser.parse_args()
+    config = _config_from_args(args)
 
     # Header
     print_header("Hop3 Server Installer")
@@ -1576,98 +1773,12 @@ def main() -> int:
     if config.features:
         print_info(f"Optional features: {', '.join(sorted(config.features))}")
 
-    total_steps = 11
-
-    # Step 1: System dependencies
-    print_step(1, total_steps, "Installing system dependencies...")
-    try:
-        install_system_deps(distro, config)
-    except CommandError as e:
-        print_error(f"Failed to install dependencies: {e.stderr[:200]}")
+    # Run critical steps (steps 1-5)
+    if not _run_critical_steps(distro, config):
         return 1
 
-    # Step 2: Create user
-    print_step(2, total_steps, "Creating hop3 user and group...")
-    try:
-        create_user_and_group()
-    except CommandError as e:
-        print_error(f"Failed to create user: {e.stderr}")
-        return 1
-
-    # Step 3: Virtual environment
-    print_step(3, total_steps, "Creating virtual environment...")
-    try:
-        create_virtual_environment()
-    except CommandError as e:
-        print_error(f"Failed to create venv: {e.stderr}")
-        return 1
-
-    # Step 4: Install package
-    print_step(4, total_steps, "Installing hop3-server...")
-    try:
-        install_package(config)
-    except CommandError as e:
-        print_error("Failed to install hop3-server")
-        # Always show error output
-        if e.stdout:
-            print_detail("--- stdout ---")
-            for line in e.stdout.strip().split("\n")[-20:]:
-                print_detail(line)
-        if e.stderr:
-            print_detail("--- stderr ---")
-            for line in e.stderr.strip().split("\n")[-20:]:
-                print_detail(line)
-        return 1
-
-    # Step 5: Run setup
-    print_step(5, total_steps, "Running initial setup...")
-    try:
-        run_hop3_setup()
-    except CommandError as e:
-        print_error(f"Setup failed: {e.stderr[:200]}")
-        return 1
-
-    # Step 6: SSH keys
-    print_step(6, total_steps, "Configuring SSH keys...")
-    setup_ssh_keys()
-
-    # Step 7: Systemd
-    print_step(7, total_steps, "Setting up systemd services...")
-    secret_key = None
-    try:
-        secret_key = setup_systemd()
-    except CommandError as e:
-        print_warning(f"Systemd setup issue: {e.stderr[:100]}")
-
-    # Step 8: SSL certificates
-    print_step(8, total_steps, "Setting up SSL certificates...")
-    try:
-        setup_ssl_selfsigned()
-    except CommandError as e:
-        print_warning(f"SSL setup issue: {e.stderr[:100]}")
-
-    # Step 9: Nginx
-    print_step(9, total_steps, "Configuring nginx...")
-    try:
-        setup_nginx(config)
-    except CommandError as e:
-        print_warning(f"Nginx setup issue: {e.stderr[:100]}")
-
-    # Step 10: PostgreSQL
-    print_step(10, total_steps, "Configuring PostgreSQL...")
-    pg_password = None
-    try:
-        pg_password = setup_postgres(config, distro)
-    except CommandError as e:
-        print_warning(f"PostgreSQL setup issue: {e.stderr[:100]}")
-
-    # Step 11: MySQL (if requested)
-    print_step(11, total_steps, "Configuring MySQL...")
-    mysql_password = None
-    try:
-        mysql_password = setup_mysql(config, distro)
-    except CommandError as e:
-        print_warning(f"MySQL setup issue: {e.stderr[:100]}")
+    # Run service setup steps (steps 6-11)
+    secret_key, pg_password, mysql_password = _run_service_setup_steps(distro, config)
 
     # Write server config (including secret key for CLI commands)
     try:
