@@ -18,12 +18,14 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from subprocess import CalledProcessError
 from typing import TYPE_CHECKING
 from unittest.mock import Mock, patch
 
 import pytest
 
 from hop3.commands.git import GitHookCmd
+from hop3.config import HopConfig
 from hop3.orm import App
 
 if TYPE_CHECKING:
@@ -42,8 +44,6 @@ def test_git_app(db_session: Session, tmp_path: Path, monkeypatch) -> App:
     Returns:
         App instance with git repository paths set up
     """
-    from hop3.config import HopConfig
-
     # Setup test HopConfig with temporary directory
     HopConfig.reset_instance()
     test_config = HopConfig(hop3_root=tmp_path)
@@ -376,8 +376,6 @@ bb563327e2c4f5af8g7g09552gb67057eecde7b25 79g8bcg5f7g033918900g63cd054fce42c80g9
             - Verify exception is properly raised
             - Verify error contains subprocess error details
         """
-        from subprocess import CalledProcessError
-
         commit_sha = "68f7abf4e6f922807889f52bc043ecd31b79f814"
 
         cmd = GitHookCmd(db_session=db_session)

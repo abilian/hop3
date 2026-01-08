@@ -419,7 +419,7 @@ class MySQLAddon:
             result = cursor.fetchone()
             size_bytes: int = 0
             if result and isinstance(result, tuple) and result[0]:
-                size_bytes = cast(int, result[0])
+                size_bytes = cast("int", result[0])
 
             # Get table count
             cursor.execute(
@@ -432,14 +432,14 @@ class MySQLAddon:
             table_result = cursor.fetchone()
             table_count: int = 0
             if table_result and isinstance(table_result, tuple):
-                table_count = cast(int, table_result[0])
+                table_count = cast("int", table_result[0])
 
             # Get MySQL version
             cursor.execute("SELECT VERSION()")
             version_result = cursor.fetchone()
             version: str = ""
             if version_result and isinstance(version_result, tuple):
-                version = cast(str, version_result[0])
+                version = cast("str", version_result[0])
 
             return {
                 "addon_name": self.addon_name,

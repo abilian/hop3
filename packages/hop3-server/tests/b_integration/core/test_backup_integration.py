@@ -17,6 +17,7 @@ from unittest.mock import patch
 
 import pytest
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from hop3.config import HopConfig
 from hop3.core.backup import BackupManager, BackupManifest
@@ -58,8 +59,6 @@ def backup_db_session(backup_db_engine):
     Yields:
         SQLAlchemy Session for database operations
     """
-    from sqlalchemy.orm import sessionmaker
-
     SessionLocal = sessionmaker(bind=backup_db_engine)
     session = SessionLocal()
 

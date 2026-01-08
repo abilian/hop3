@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, ClassVar
+from typing import Annotated, ClassVar
 
 from litestar import Controller, get, post
 from litestar.enums import RequestEncodingType
@@ -27,10 +27,6 @@ from hop3.orm import App, EnvVar
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
 from hop3.server.marketplace import MarketplaceService
-
-if TYPE_CHECKING:
-    pass
-
 
 # ============================================================================
 # Helper Functions

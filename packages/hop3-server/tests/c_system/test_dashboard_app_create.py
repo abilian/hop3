@@ -15,6 +15,7 @@ from litestar.testing import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import hop3.config
 from hop3.config import HopConfig
 from hop3.orm import App, reset_session_factory_cache
 from hop3.server.asgi import create_app
@@ -83,8 +84,6 @@ def test_client(tmp_path: Path, monkeypatch):
     (tmp_path / "logs").mkdir(exist_ok=True)
 
     # Enable unsafe mode to bypass authentication
-    import hop3.config
-
     monkeypatch.setattr(hop3.config, "HOP3_UNSAFE", True)
 
     # Create Litestar app - will use in-memory database via environment variable

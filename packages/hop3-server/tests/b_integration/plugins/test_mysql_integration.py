@@ -25,6 +25,7 @@ import uuid
 import mysql.connector
 import pytest
 
+import hop3.plugins.mysql.mysql as mysql_module
 from hop3.plugins.mysql.admin import MySQLAdmin
 from hop3.plugins.mysql.mysql import MySQLAddon
 
@@ -199,8 +200,6 @@ class TestMySQLBackupRestore:
 
     def test_backup_creates_file(self, mysql_addon, tmp_path):
         """Test that backup creates an actual SQL file."""
-        import hop3.plugins.mysql.mysql as mysql_module
-
         # Temporarily override HOP3_ROOT for test
         original_root = mysql_module.HOP3_ROOT
         mysql_module.HOP3_ROOT = tmp_path
