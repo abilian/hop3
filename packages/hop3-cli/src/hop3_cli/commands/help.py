@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from .local import LOCAL_COMMANDS_INFO
+
 
 def handle_help_flags(args: list[str]) -> list[str]:
     """Convert --help/-h flags to help command invocations.
@@ -75,8 +77,6 @@ def inject_local_commands_into_help(result: list[dict]) -> list[dict]:
     Returns:
         Modified result with local commands injected alphabetically
     """
-    from .local import LOCAL_COMMANDS_INFO
-
     modified_result = []
     for item in result:
         if item.get("t") != "text":
