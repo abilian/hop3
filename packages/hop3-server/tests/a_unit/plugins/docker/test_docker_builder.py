@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -223,8 +224,6 @@ class TestDockerBuilderBuild:
         builder = DockerBuilder(context)
 
         with patch("subprocess.run") as mock_run:
-            import subprocess
-
             mock_run.side_effect = subprocess.CalledProcessError(
                 1, "docker build", stderr="Error: image not found"
             )
@@ -245,8 +244,6 @@ class TestDockerBuilderBuild:
         builder = DockerBuilder(context)
 
         with patch("subprocess.run") as mock_run:
-            import subprocess
-
             mock_run.side_effect = subprocess.TimeoutExpired("docker build", 600)
 
             with pytest.raises(Abort, match="timed out"):

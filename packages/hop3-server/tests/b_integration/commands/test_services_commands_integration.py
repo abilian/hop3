@@ -28,6 +28,7 @@ from hop3.commands.services import (
     AddonsDetachCmd,
     AddonsInfoCmd,
 )
+from hop3.core.credentials import get_credential_encryptor
 from hop3.orm import AddonCredential, App, EnvVar
 
 if TYPE_CHECKING:
@@ -534,8 +535,6 @@ class TestAddonsDetachCmdIntegration:
             - Verify environment variables were removed
             - Verify success message
         """
-        from hop3.core.credentials import get_credential_encryptor
-
         encryptor = get_credential_encryptor()
         connection_details = {
             "DATABASE_URL": "postgresql://user:pass@localhost/db",
@@ -627,8 +626,6 @@ class TestAddonsDetachCmdIntegration:
             - Verify other addon's credential remains
             - Verify only specified addon's env vars were removed
         """
-        from hop3.core.credentials import get_credential_encryptor
-
         encryptor = get_credential_encryptor()
 
         # Postgres credential and env vars
@@ -756,8 +753,6 @@ class TestAddonsDestroyCmdIntegration:
             - Verify all credentials for that addon were removed
             - Verify success message
         """
-        from hop3.core.credentials import get_credential_encryptor
-
         encryptor = get_credential_encryptor()
         connection_details = {"DATABASE_URL": "postgresql://localhost/db"}
 
@@ -853,8 +848,6 @@ class TestAddonsDestroyCmdIntegration:
             - Verify ValueError is raised for JSON-RPC error handling
             - Verify credentials are NOT removed (transaction rollback)
         """
-        from hop3.core.credentials import get_credential_encryptor
-
         encryptor = get_credential_encryptor()
 
         app = App(name="error-app", hostname="error.local", port=8000)

@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from filelock import FileLock
 from hop3_testing.apps import AppSourceCatalog
 from hop3_testing.targets import DeploymentTarget, DockerTarget, RemoteTarget
 
@@ -95,8 +96,6 @@ def deployment_target(request, tmp_path_factory):
         info_file = root_tmp / "deployment_target.json"
 
         # Use filelock for coordination (built into pytest-xdist)
-        from filelock import FileLock
-
         with FileLock(str(lock_file)):
             if info_file.exists():
                 # Another worker already started the container - reuse it

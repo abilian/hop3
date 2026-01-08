@@ -25,6 +25,7 @@ import uuid
 import psycopg2
 import pytest
 
+import hop3.plugins.postgresql.postgres as pg_module
 from hop3.plugins.postgresql.admin import PostgresAdmin
 from hop3.plugins.postgresql.postgres import PostgresAddon
 
@@ -196,8 +197,6 @@ class TestPostgresBackupRestore:
 
     def test_backup_creates_file(self, postgres_addon, tmp_path):
         """Test that backup creates an actual SQL file."""
-        import hop3.plugins.postgresql.postgres as pg_module
-
         # Temporarily override HOP3_ROOT for test
         original_root = pg_module.HOP3_ROOT
         pg_module.HOP3_ROOT = tmp_path
