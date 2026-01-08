@@ -1,117 +1,152 @@
-# Hop3 Installer
+# hop3-installer
 
-Modular installer package for the Hop3 CLI and Server components.
+Installation toolkit for deploying Hop3 to servers and containers.
 
 ## Overview
 
-This package provides:
+hop3-installer provides two main tools:
+- **hop3-install** - Production installer for end users and sysadmins
+- **hop3-deploy** - Developer tool for deploying during development
 
-1. **Modular source code** for installers (`src/hop3_installer/`)
-2. **Bundler script** to generate single-file installers
-3. **Testing framework** for validating installers across multiple environments
+The installers use only Python standard library, making them easy to distribute as single-file scripts.
 
-## Structure
+## Features
 
-```
-packages/hop3-installer/
-├── pyproject.toml              # Package configuration
-├── README.md                   # This file
-└── src/hop3_installer/
-    ├── __init__.py
-    ├── common.py               # Shared utilities (Colors, Spinner, etc.)
-    ├── bundler.py              # Single-file bundler script
-    ├── cli/
-    │   ├── __init__.py
-    │   ├── config.py           # CLI installer configuration
-    │   └── installer.py        # CLI installer logic
-    ├── server/
-    │   ├── __init__.py
-    │   ├── config.py           # Server installer configuration
-    │   └── installer.py        # Server installer logic
-    └── testing/
-        ├── __init__.py
-        ├── common.py           # Test utilities
-        ├── runner.py           # Test runner
-        ├── validators.py       # Installation validators
-        └── backends/
-            ├── __init__.py
-            ├── base.py         # Backend abstract base class
-            ├── docker.py       # Docker container backend
-            ├── ssh.py          # SSH remote backend
-            └── vagrant.py      # Vagrant VM backend
-```
+- **Single-file distribution** - Bundle into standalone Python scripts
+- **No dependencies** - Uses only Python stdlib for maximum portability
+- **Multiple backends** - Test on Docker, SSH, or Vagrant
+- **Developer workflow** - Deploy local code changes for testing
 
-## Usage
+## Installation
 
-### Development
-
-Install the package in development mode:
+### For development
 
 ```bash
+# From workspace root
 cd packages/hop3-installer
-pip install -e .
+uv pip install -e ".[dev]"
 ```
 
-### Generate Single-File Installers
+## Quick Start
 
-Bundle the modular source into standalone scripts:
+### Production Installation (hop3-install)
+
+```bash
+# Install hop3-cli on local machine
+hop3-install cli
+
+# Install hop3-server on current machine (run as root)
+sudo hop3-install server
+
+# Or use the one-liner
+curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
+```
+
+### Developer Deployment (hop3-deploy)
+
+```bash
+# Deploy to remote server
+export HOP3_DEV_HOST=server.example.com
+hop3-deploy
+
+# Deploy with local code changes
+hop3-deploy --local
+
+# Deploy to Docker container
+hop3-deploy --docker
+
+# Clean installation
+hop3-deploy --clean
+```
+
+## Architecture
+
+```
+hop3-installer/
+├── src/hop3_installer/
+│   ├── cli/                 # CLI installer
+│   │   ├── config.py        # Configuration
+│   │   └── installer.py     # Installation logic
+│   ├── server/              # Server installer
+│   │   ├── config.py        # Configuration
+│   │   └── installer.py     # Installation logic
+│   ├── deployer/            # Developer deployment tool
+│   │   ├── cli.py           # CLI interface
+│   │   ├── deploy.py        # Deployment logic
+│   │   └── backends/        # SSH, Docker backends
+│   ├── testing/             # Test framework
+│   │   ├── runner.py        # Test execution
+│   │   ├── validators.py    # Installation checks
+│   │   └── backends/        # Docker, SSH, Vagrant
+│   ├── bundler.py           # Single-file bundler
+│   └── common.py            # Shared utilities
+└── tests/
+```
+
+## Commands
+
+### hop3-install
+
+| Subcommand | Description |
+|------------|-------------|
+| `cli` | Install hop3-cli on local machine |
+| `server` | Install hop3-server (requires root) |
+| `bundle` | Generate single-file installers |
+
+### hop3-deploy
+
+| Option | Description |
+|--------|-------------|
+| `--host HOST` | Target server hostname |
+| `--docker` | Deploy to Docker container |
+| `--local` | Upload and use local code |
+| `--clean` | Clean existing installation |
+| `--admin-domain` | Set up admin interface |
+
+## Development
+
+### Generate single-file installers
 
 ```bash
 # Generate both installers
-python -m hop3_installer.bundler --all --output-dir dist/
+hop3-install bundle --all --output-dir dist/
 
 # Generate specific installer
-python -m hop3_installer.bundler --type cli --output install-cli.py
-python -m hop3_installer.bundler --type server --output install-server.py
+hop3-install bundle --type server --output install-server.py
 ```
 
-### Run Installers Directly (for development)
+### Running tests
 
 ```bash
-# CLI installer
-python -m hop3_installer.cli --help
+# From package directory
+uv run pytest tests/ -v
 
-# Server installer (requires root)
-sudo python -m hop3_installer.server --help
+# Test installers on Docker
+hop3-test-installers docker --distro ubuntu
+
+# Test on remote server
+hop3-test-installers ssh --host user@server.example.com
 ```
 
-### Testing
-
-Run installer tests using different backends:
+### Code quality
 
 ```bash
-# SSH (remote server)
-python -m hop3_installer.testing.main ssh --host user@server.example.com
-
-# Docker (containers)
-python -m hop3_installer.testing.main docker --distro ubuntu
-
-# Vagrant (VMs)
-python -m hop3_installer.testing.main vagrant --vm ubuntu
+uv run ruff check src/
+uv run ruff format src/
 ```
 
-## Design Principles
+## Documentation
 
-1. **Single-file distribution**: Production installers are standalone Python scripts
-2. **Standard library only**: No external dependencies for installers
-3. **Modular development**: Code is organized into modules for maintainability
-4. **Comprehensive testing**: Multiple backends for testing different environments
+- **Installation Guide**: [Main documentation](../../docs/src/installation.md)
+- **Installer Details**: [Installer documentation](../../docs/src/installer.md)
+- **Installer Testing**: [Testing guide](../../docs/src/dev/installer-testing.md)
+- **Package Internals**: [Deep-dive documentation](./docs/internals.md)
 
-## Generating Releases
+## Related Packages
 
-When releasing, generate fresh single-file installers:
-
-```bash
-# From project root
-cd packages/hop3-installer
-python -m hop3_installer.bundler --all --output-dir ../../installer/
-```
-
-The generated files can be:
-- Served from `https://hop3.cloud/install-cli.py` and `install-server.py`
-- Used with `curl -LsSf URL | python3 -`
-- Downloaded and run directly
+- [hop3-server](../hop3-server/) - The server component installed by this package
+- [hop3-cli](../hop3-cli/) - The CLI component installed by this package
 
 ## License
 
-Apache-2.0 - Copyright (c) 2025, Abilian SAS
+Apache-2.0 - Copyright (c) 2024-2026, Abilian SAS
