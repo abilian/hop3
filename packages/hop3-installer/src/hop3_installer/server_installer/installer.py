@@ -34,6 +34,7 @@ from .acme import setup_acme
 from .cli import TOTAL_STEPS, config_from_args, create_parser
 from .config import ServerInstallerConfig  # noqa: TC001
 from .deps import install_system_deps
+from .deps_common import install_rust_toolchain
 from .mysql import setup_mysql
 from .nginx import setup_nginx
 from .postgres import setup_postgres
@@ -53,7 +54,7 @@ from .verify import print_final_message, verify_installation, write_server_confi
 # =============================================================================
 
 
-def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
+def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:  # noqa: C901
     """Run critical installation steps that must succeed.
 
     Args:
@@ -78,6 +79,12 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     except CommandError as e:
         print_error(f"Failed to create user: {e.stderr}")
         return False
+
+    # Install Rust toolchain (needs hop3 user to exist)
+    try:
+        install_rust_toolchain()
+    except CommandError as e:
+        print_warning(f"Rust toolchain installation failed: {e.stderr[:100]}")
 
     # Step 3: Virtual environment
     print_step(3, TOTAL_STEPS, "Creating virtual environment...")
