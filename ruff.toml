@@ -62,14 +62,12 @@ lint.extend-ignore = [
     "F841", #   	[ ] unused-variable
     "PLR0915", #	[ ] too-many-statements
     "B904", #   	[ ] raise-without-from-inside-except
-    "PLR0912", #	[ ] too-many-branches
     "PLW0603", #	[ ] global-statement
     "E402", #   	[ ] module-import-not-at-top-of-file
     "EXE001", # 	[ ] shebang-not-executable
     "PLR0911", #	[ ] too-many-return-statements
     "PLW1508", #	[ ] invalid-envvar-default
     "TC001", #  	[ ] typing-only-first-party-import
-    "C901", #   	[ ] complex-structure
     "RUF005", # 	[ ] collection-literal-concatenation
     "DTZ005", # 	[ ] call-datetime-now-without-tzinfo
     "PERF203", #	[ ] try-except-in-loop
