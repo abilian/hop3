@@ -50,7 +50,7 @@ class DockerTarget(DeploymentTarget):
         self.container_name = config.get("container_name") if config else None
         self.force_rebuild = config.get("force_rebuild", False) if config else False
 
-    def _build_image(self, force: bool = False) -> None:
+    def _build_image(self, *, force: bool = False) -> None:
         """Build the Docker image.
 
         Args:

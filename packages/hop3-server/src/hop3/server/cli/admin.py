@@ -77,7 +77,7 @@ class AdminCreate(Command):
             help="Read password from stdin (for automation)",
         )
 
-    def run(self, username: str, email: str, password_stdin: bool = False) -> None:
+    def run(self, username: str, email: str, *, password_stdin: bool = False) -> None:
         # Get password
         if password_stdin:
             password = sys.stdin.read().strip()
@@ -271,7 +271,7 @@ class AdminResetPassword(Command):
             help="Read password from stdin (for automation)",
         )
 
-    def run(self, username: str, password_stdin: bool = False) -> None:
+    def run(self, username: str, *, password_stdin: bool = False) -> None:
         # Get password
         if password_stdin:
             password = sys.stdin.read().strip()

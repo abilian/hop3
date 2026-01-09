@@ -169,7 +169,7 @@ class DockerBackend(Backend):
             capture_output=True,
         )
 
-    def run(self, command: str, sudo: bool = False) -> CommandResult:
+    def run(self, command: str, *, sudo: bool = False) -> CommandResult:
         """Run a command inside the container."""
         # sudo is a no-op in Docker (already root)
         docker_cmd = [

@@ -232,7 +232,7 @@ class DockerBuilder:
                 log(f"{prefix}{line}", level=level, fg=fg)
 
     def _save_build_log(
-        self, stdout: str, stderr: str, duration: float, success: bool = True
+        self, stdout: str, stderr: str, duration: float, *, success: bool = True
     ) -> None:
         """Save build log to app's log directory.
 

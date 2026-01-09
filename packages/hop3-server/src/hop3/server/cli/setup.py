@@ -54,7 +54,7 @@ class SetupCmd(Command):
             help="Show detailed information during setup",
         )
 
-    def run(self, verbose_setup: bool = False) -> None:
+    def run(self, *, verbose_setup: bool = False) -> None:
         echo(f"Running in Python {'.'.join(map(str, sys.version_info))}")
 
         if verbose_setup:
@@ -127,13 +127,13 @@ class SetupCmd(Command):
             echo("")
 
         # Set up HOP3_SECRET_KEY
-        self.setup_secret_key(verbose_setup)
+        self.setup_secret_key(verbose=verbose_setup)
 
         if verbose_setup:
             echo("")
             echo("Setup completed successfully!", fg="green")
 
-    def setup_secret_key(self, verbose: bool = False) -> None:
+    def setup_secret_key(self, *, verbose: bool = False) -> None:
         """Generate and configure HOP3_SECRET_KEY if not already set.
 
         Args:

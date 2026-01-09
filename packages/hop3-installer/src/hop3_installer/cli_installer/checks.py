@@ -33,7 +33,7 @@ def check_git() -> bool:
     return cmd_exists("git")
 
 
-def check_existing_installation(force: bool) -> bool:
+def check_existing_installation(*, force: bool) -> bool:
     """Check for existing installation.
 
     Returns:

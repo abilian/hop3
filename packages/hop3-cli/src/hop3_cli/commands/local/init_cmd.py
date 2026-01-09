@@ -44,7 +44,7 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
 
     # Gather credentials
     username, email, password = _gather_init_credentials(
-        username, email, password_stdin
+        username, email, password_stdin=password_stdin
     )
 
     # Execute via SSH
@@ -120,7 +120,7 @@ def _parse_init_args(
 
 
 def _gather_init_credentials(
-    username: str | None, email: str | None, password_stdin: bool
+    username: str | None, email: str | None, *, password_stdin: bool
 ) -> tuple[str, str, str]:
     """Gather username, email, and password for init command.
 

@@ -53,7 +53,7 @@ def create_command_symlinks(bin_dir: Path) -> int:
     return count
 
 
-def update_shell_config(bin_dir: Path, modify_path: bool) -> bool:
+def update_shell_config(bin_dir: Path, *, modify_path: bool) -> bool:
     """Update shell configuration if needed.
 
     Returns:

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 _debug_mode: bool = False
 
 
-def set_debug_mode(enabled: bool) -> None:
+def set_debug_mode(*, enabled: bool) -> None:
     """Enable or disable debug mode for hop3 commands."""
     global _debug_mode
     _debug_mode = enabled

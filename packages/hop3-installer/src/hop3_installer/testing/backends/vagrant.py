@@ -132,7 +132,7 @@ class VagrantBackend(Backend):
         except Exception:
             pass
 
-    def run(self, command: str, sudo: bool = False) -> CommandResult:
+    def run(self, command: str, *, sudo: bool = False) -> CommandResult:
         """Run a command inside the Vagrant VM."""
         if sudo:
             command = f"sudo {command}"

@@ -39,7 +39,7 @@ def verify_installation() -> bool:
     return True  # Still consider it installed
 
 
-def print_final_message(bin_dir: Path, path_is_active: bool) -> None:
+def print_final_message(bin_dir: Path, *, path_is_active: bool) -> None:
     """Print success message with next steps."""
     print()
     print(f"{Colors.GREEN}{Colors.BOLD}Installation complete!{Colors.RESET}")

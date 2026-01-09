@@ -88,7 +88,7 @@ class RedisClientFactory:
 
         return params
 
-    def get_url(self, db: int = 0, include_password: bool = False) -> str:
+    def get_url(self, db: int = 0, *, include_password: bool = False) -> str:
         """Get Redis connection URL.
 
         Args:

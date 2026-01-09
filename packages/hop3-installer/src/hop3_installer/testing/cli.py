@@ -450,9 +450,9 @@ def main() -> int:
         return 1
 
     # Set global flags
-    set_verbose(args.verbose)
+    set_verbose(value=args.verbose)
     if hasattr(args, "dry_run") and args.dry_run:
-        set_dry_run(True)
+        set_dry_run(value=True)
 
     # Find or generate installer directory
     installer_dir = _find_or_generate_installer_dir()

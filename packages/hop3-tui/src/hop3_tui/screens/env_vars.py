@@ -64,6 +64,7 @@ class EnvVarEditDialog(Static):
         app_name: str,
         var_name: str = "",
         var_value: str = "",
+        *,
         is_edit: bool = False,
     ) -> None:
         super().__init__()

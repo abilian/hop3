@@ -72,7 +72,7 @@ def should_output(min_level: int) -> bool:
     return _output_level >= min_level
 
 
-def print_header(title: str, phase: bool = False) -> None:
+def print_header(title: str, *, phase: bool = False) -> None:
     """Print a prominent section header.
 
     Args:
@@ -97,7 +97,7 @@ def print_header(title: str, phase: bool = False) -> None:
     print()
 
 
-def print_phase_result(success: bool) -> None:
+def print_phase_result(*, success: bool) -> None:
     """Print phase result in quiet mode."""
     if _output_level == 1:  # QUIET
         if success:

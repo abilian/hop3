@@ -51,15 +51,13 @@ lint.extend-ignore = [
     "SIM108", # Use ternary operator
     "TRY300", # Consider moving this statement to an `else` block
     "PERF401", #  7 - PERF401	manual-list-comprehension
+    "RUF067", # `__init__` module should only contain docstrings and re-exports
 
     # Fix this
     "E501", #   	[ ] line-too-long
     "F841", #   	[ ] unused-variable
     "PLR0915", #	[ ] too-many-statements
     "TC003", #  	[ ] typing-only-standard-library-import
-    "FBT001", # 	[ ] boolean-type-hint-positional-argument
-    "FBT002", # 	[ ] boolean-default-value-positional-argument
-    "FBT003", # 	[ ] boolean-positional-value-in-call
     "TC002", #  	[ ] typing-only-third-party-import
     "B904", #   	[ ] raise-without-from-inside-except
     "PLR0912", #	[ ] too-many-branches
@@ -102,7 +100,9 @@ known-first-party = ["hop3"]
 [lint.per-file-ignores]
 "**/src/**/*.py" = [
     "PT", # Pytest warnings in source code are probably false positives
-
+]
+"packages/hop3-server/src/hop3/orm/**/*.py" = [
+    "TC",
 ]
 "**/tests/**/*.py" = [
     "INP001", # implicit namespace package

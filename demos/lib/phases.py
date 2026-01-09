@@ -134,12 +134,12 @@ def run_prerequisites(ctx: DemoContext) -> bool:
         record_timing(
             "prerequisites_phase", time.time() - phase_start, category="phase"
         )
-        print_phase_result(True)
+        print_phase_result(success=True)
         pause(ctx.pause_between_steps)
         return True
 
     except CommandError as e:
-        print_phase_result(False)
+        print_phase_result(success=False)
         if ctx.verbose:
             print_error(str(e))
         return False
@@ -169,7 +169,7 @@ def configure_cli(ctx: DemoContext) -> bool:
     if result.returncode != 0:
         print_error("hop3 CLI not found. Please install it first.")
         print_info("Run: pip install hop3-cli")
-        print_phase_result(False)
+        print_phase_result(success=False)
         return False
     print_success("hop3 CLI found")
     pause(ctx.pause_between_steps)
@@ -211,7 +211,7 @@ def configure_cli(ctx: DemoContext) -> bool:
             print_error("Failed to create admin user in container")
             if result.stderr:
                 print(f"  {red(result.stderr.strip())}")
-            print_phase_result(False)
+            print_phase_result(success=False)
             return False
         print_success(f"Admin user '{ctx.admin_user}' created in container")
 
@@ -238,7 +238,7 @@ def configure_cli(ctx: DemoContext) -> bool:
             print_error("Failed to configure CLI for Docker")
             if result.stderr:
                 print(f"  {red(result.stderr.strip())}")
-            print_phase_result(False)
+            print_phase_result(success=False)
             return False
     else:
         # For SSH, use the standard init command
@@ -284,14 +284,14 @@ def configure_cli(ctx: DemoContext) -> bool:
                     print_error("Failed to login")
                     if result.stderr:
                         print(f"  {red(result.stderr.strip())}")
-                    print_phase_result(False)
+                    print_phase_result(success=False)
                     return False
                 print_success(f"Logged in as '{ctx.admin_user}'")
             else:
                 print_error("Failed to create admin user")
                 if result.stderr:
                     print(f"  {red(result.stderr.strip())}")
-                print_phase_result(False)
+                print_phase_result(success=False)
                 return False
         else:
             print_success(f"Admin user '{ctx.admin_user}' created")
@@ -303,12 +303,12 @@ def configure_cli(ctx: DemoContext) -> bool:
     try:
         run_hop3("auth:whoami", quiet=(ctx.output_level < OutputLevel.VERBOSE))
     except Exception:
-        print_phase_result(False)
+        print_phase_result(success=False)
         return False
     record_timing("auth_whoami", time.time() - step_start, category="setup")
     print_success("Authentication verified")
     record_timing("configure_cli_phase", time.time() - phase_start, category="phase")
-    print_phase_result(True)
+    print_phase_result(success=True)
 
     return True
 
@@ -317,6 +317,7 @@ def run_demo(
     ctx: DemoContext,
     demo_name: str,
     demo_dir: Path,
+    *,
     is_generic: bool,
 ) -> DemoResult:
     """Run a single demo.
@@ -357,7 +358,7 @@ def run_demo(
             duration = time.time() - start_time
             if ctx.output_level >= OutputLevel.NORMAL:
                 print_success(f"Demo '{demo_name}' completed successfully")
-            print_phase_result(True)
+            print_phase_result(success=True)
             log_section(
                 "main", "Demo completed", f"Status: PASS\nDuration: {duration:.2f}s"
             )
@@ -373,7 +374,7 @@ def run_demo(
         module = load_demo_module(script_path)
         if not module:
             duration = time.time() - start_time
-            print_phase_result(False)
+            print_phase_result(success=False)
             log_section("main", "Demo failed", "Error: Failed to load demo script")
             end_demo_logging()
             return DemoResult(
@@ -419,7 +420,7 @@ def run_demo(
             duration = time.time() - start_time
             if ctx.output_level >= OutputLevel.NORMAL:
                 print_success(f"Demo '{demo_name}' completed successfully")
-            print_phase_result(True)
+            print_phase_result(success=True)
             log_section(
                 "main", "Demo completed", f"Status: PASS\nDuration: {duration:.2f}s"
             )
@@ -431,7 +432,7 @@ def run_demo(
                 duration=duration,
             )
         duration = time.time() - start_time
-        print_phase_result(False)
+        print_phase_result(success=False)
         log_section("main", "Demo failed", "Error: Demo has no run() function")
         end_demo_logging()
         return DemoResult(
@@ -458,7 +459,7 @@ def run_demo(
     except Exception as e:
         error_msg = str(e)
         print_error(f"Demo '{demo_name}' failed: {e}")
-        print_phase_result(False)
+        print_phase_result(success=False)
 
         # Capture failure debug info (container logs, app info, etc.)
         log_section("main", "Demo failed", f"Error: {error_msg}")

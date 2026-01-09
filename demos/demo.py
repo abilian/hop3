@@ -97,7 +97,7 @@ def main() -> int:
 
     # Enable debug mode for hop3 commands if --debug flag is set
     if getattr(args, "debug", False):
-        set_debug_mode(True)
+        set_debug_mode(enabled=True)
 
     # Initialize logging (unless --no-logs)
     if not getattr(args, "no_logs", False):
@@ -255,7 +255,7 @@ def _run_all_phases(
             # Start timing for this demo
             start_demo_timing(name)
 
-            result = run_demo(ctx, name, demo_dir, is_generic)
+            result = run_demo(ctx, name, demo_dir, is_generic=is_generic)
             results.append(result)
 
             # End timing and get summary

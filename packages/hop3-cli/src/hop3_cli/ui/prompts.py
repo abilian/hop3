@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 
 
-def confirm(message: str, default: bool = False) -> bool:
+def confirm(message: str, *, default: bool = False) -> bool:
     """Ask user for yes/no confirmation.
 
     Args:

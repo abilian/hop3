@@ -71,7 +71,7 @@ class SSHBackend(Backend):
     def teardown(self) -> None:
         """No teardown needed for SSH backend."""
 
-    def run(self, command: str, sudo: bool = False) -> CommandResult:
+    def run(self, command: str, *, sudo: bool = False) -> CommandResult:
         """Run a command on the remote host via SSH."""
         if sudo:
             # Use shlex.quote to safely escape the command

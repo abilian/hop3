@@ -45,7 +45,7 @@ class Backend(ABC):
         """
 
     @abstractmethod
-    def run(self, command: str, sudo: bool = False) -> CommandResult:
+    def run(self, command: str, *, sudo: bool = False) -> CommandResult:
         """Run a command in the test environment.
 
         Args:

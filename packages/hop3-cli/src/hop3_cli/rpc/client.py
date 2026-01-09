@@ -225,7 +225,10 @@ class Client:
         # Default to system CA bundle unless explicitly disabled
         return not verify_ssl_disabled
 
-    def _is_verify_ssl_disabled(self, verify_ssl_config: str | bool | None) -> bool:
+    def _is_verify_ssl_disabled(
+        self,
+        verify_ssl_config: str | bool | None,  # noqa: FBT001
+    ) -> bool:
         """Check if SSL verification is explicitly disabled in config."""
         if verify_ssl_config is None:
             return False

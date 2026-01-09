@@ -89,8 +89,8 @@ class SystemLogsScreen(Screen):
         Binding("d", "download_logs", "Download"),
     ]
 
-    paused: reactive[bool] = reactive(False)
-    auto_scroll: reactive[bool] = reactive(True)
+    paused: reactive[bool] = reactive(False)  # noqa: FBT003
+    auto_scroll: reactive[bool] = reactive(True)  # noqa: FBT003
 
     def __init__(self) -> None:
         super().__init__()
@@ -196,7 +196,7 @@ class SystemLogsScreen(Screen):
             return f"[dim]{line}[/]"
         return line
 
-    def watch_paused(self, paused: bool) -> None:
+    def watch_paused(self, paused: bool) -> None:  # noqa: FBT001
         """Update status bar when paused state changes."""
         status = self.query_one("#status-bar", Static)
         if paused:

@@ -555,6 +555,7 @@ services:
         self,
         cmd: list[str],
         env: dict[str, str] | None = None,
+        *,
         check: bool = True,
     ) -> subprocess.CompletedProcess:
         """Run a Docker Compose command.
