@@ -278,42 +278,34 @@ class ChatScreen(Screen):
         cmd = parts[0].lower() if parts else ""
         args = parts[1:] if len(parts) > 1 else []
 
-        match cmd:
-            case "?" | "help":
-                self._show_help()
-            case "apps":
-                self._cmd_apps()
-            case "app":
-                if args:
-                    self._cmd_app_detail(args[0])
-                else:
-                    self._add_error_message("Usage: app <name>")
-            case "start":
-                if args:
-                    self._cmd_start(args[0])
-                else:
-                    self._add_error_message("Usage: start <app_name>")
-            case "stop":
-                if args:
-                    self._cmd_stop(args[0])
-                else:
-                    self._add_error_message("Usage: stop <app_name>")
-            case "restart":
-                if args:
-                    self._cmd_restart(args[0])
-                else:
-                    self._add_error_message("Usage: restart <app_name>")
-            case "logs":
-                if args:
-                    self._cmd_logs(args[0])
-                else:
-                    self._add_error_message("Usage: logs <app_name>")
-            case "status":
-                self._cmd_status()
-            case "clear":
-                self._cmd_clear()
-            case _:
-                self._add_error_message(f"Unknown command: {cmd}\nType ? for help")
+        # Commands that don't require arguments
+        simple_commands = {
+            "?": self._show_help,
+            "help": self._show_help,
+            "apps": self._cmd_apps,
+            "status": self._cmd_status,
+            "clear": self._cmd_clear,
+        }
+
+        # Commands that require an app name argument
+        app_commands = {
+            "app": (self._cmd_app_detail, "app <name>"),
+            "start": (self._cmd_start, "start <app_name>"),
+            "stop": (self._cmd_stop, "stop <app_name>"),
+            "restart": (self._cmd_restart, "restart <app_name>"),
+            "logs": (self._cmd_logs, "logs <app_name>"),
+        }
+
+        if cmd in simple_commands:
+            simple_commands[cmd]()
+        elif cmd in app_commands:
+            handler, usage = app_commands[cmd]
+            if args:
+                handler(args[0])
+            else:
+                self._add_error_message(f"Usage: {usage}")
+        else:
+            self._add_error_message(f"Unknown command: {cmd}\nType ? for help")
 
     def _show_help(self) -> None:
         """Show help message."""
