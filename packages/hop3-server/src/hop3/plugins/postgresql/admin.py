@@ -176,7 +176,9 @@ class PostgresAdmin:
 
         return params
 
-    def get_dsn(self, dbname: str = "template1", include_password: bool = False) -> str:
+    def get_dsn(
+        self, dbname: str = "template1", *, include_password: bool = False
+    ) -> str:
         """Get Data Source Name (DSN) connection string.
 
         Args:

@@ -585,7 +585,7 @@ def record_timing(label: str, elapsed: float, category: str = "general") -> None
 
 @contextmanager
 def timed(
-    label: str, category: str = "general", print_result: bool = False
+    label: str, category: str = "general", *, print_result: bool = False
 ) -> Generator[None, None, None]:
     """Context manager to time an operation.
 

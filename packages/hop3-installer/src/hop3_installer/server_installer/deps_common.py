@@ -136,9 +136,7 @@ def install_optional_packages(
         configure_redis_func()
 
 
-def install_feature_packages(
-    name: str, packages: list[str], spec: PackageSpec
-) -> None:
+def install_feature_packages(name: str, packages: list[str], spec: PackageSpec) -> None:
     """Install a set of feature packages."""
     with Spinner(f"Installing {name} packages..."):
         result = run_cmd(
@@ -302,7 +300,9 @@ def install_dotnet_sdk_debian() -> None:
             check=False,
         )
         if result.returncode != 0:
-            print_warning(f"Failed to download Microsoft repo package for {distro} {version}")
+            print_warning(
+                f"Failed to download Microsoft repo package for {distro} {version}"
+            )
             print_detail("Trying Ubuntu 24.04 as fallback...")
             result = run_cmd(
                 [

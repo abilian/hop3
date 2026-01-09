@@ -33,13 +33,13 @@ VERBOSE = False
 DRY_RUN = False
 
 
-def set_verbose(value: bool) -> None:
+def set_verbose(*, value: bool) -> None:
     """Set verbose mode globally."""
     global VERBOSE
     VERBOSE = value
 
 
-def set_dry_run(value: bool) -> None:
+def set_dry_run(*, value: bool) -> None:
     """Set dry-run mode globally."""
     global DRY_RUN
     DRY_RUN = value

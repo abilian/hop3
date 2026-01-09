@@ -90,7 +90,7 @@ class HopConfig:
     @property
     def HOP3_DEBUG(self) -> bool:
         """Enable debug mode."""
-        return self._config_loader.get_bool("HOP3_DEBUG", False)
+        return self._config_loader.get_bool("HOP3_DEBUG", default=False)
 
     # Security Configuration
 
@@ -107,7 +107,7 @@ class HopConfig:
     @property
     def HOP3_UNSAFE(self) -> bool:
         """UNSAFE MODE: Disables authentication. USE ONLY FOR TESTING."""
-        return self._config_loader.get_bool("HOP3_UNSAFE", False)
+        return self._config_loader.get_bool("HOP3_UNSAFE", default=False)
 
     # Logging Configuration
 

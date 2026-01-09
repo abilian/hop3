@@ -81,7 +81,7 @@ def main() -> int:
         return 1
 
     # Check existing installation
-    if not check_existing_installation(config.force):
+    if not check_existing_installation(force=config.force):
         return 0
 
     # Step 2: Create virtual environment
@@ -114,7 +114,9 @@ def main() -> int:
 
     # Step 5: Update PATH
     print_step(5, TOTAL_STEPS, "Configuring PATH...")
-    path_is_active = update_shell_config(config.bin_dir, not config.no_modify_path)
+    path_is_active = update_shell_config(
+        config.bin_dir, modify_path=not config.no_modify_path
+    )
 
     # Verify
     print()
@@ -122,7 +124,7 @@ def main() -> int:
         print_warning("Installation may have issues")
 
     # Success message
-    print_final_message(config.bin_dir, path_is_active)
+    print_final_message(config.bin_dir, path_is_active=path_is_active)
 
     return 0
 

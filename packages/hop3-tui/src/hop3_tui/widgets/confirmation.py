@@ -79,14 +79,14 @@ class ConfirmationDialog(ModalScreen[bool]):
         if event.button.id == "btn-confirm":
             if self.on_confirm:
                 self.on_confirm()
-            self.dismiss(True)
+            self.dismiss(True)  # noqa: FBT003
         else:
-            self.dismiss(False)
+            self.dismiss(False)  # noqa: FBT003
 
     def on_key(self, event) -> None:
         """Handle key presses."""
         if event.key == "escape":
-            self.dismiss(False)
+            self.dismiss(False)  # noqa: FBT003
         elif event.key == "enter":
             # Don't auto-confirm, require explicit button press
             pass

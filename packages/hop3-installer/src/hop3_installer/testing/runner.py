@@ -97,7 +97,7 @@ class TestRunner:
             except Exception as e:
                 log_error(f"Exception during {test_name}: {e}")
                 results[test_name] = False
-                self.results.append(TestResult(test_name, False, str(e)))
+                self.results.append(TestResult(test_name, passed=False, error=str(e)))
 
         return results
 
@@ -128,7 +128,7 @@ class TestRunner:
             except Exception as e:
                 log_error(f"Exception during {test_name}: {e}")
                 results[test_name] = False
-                self.results.append(TestResult(test_name, False, str(e)))
+                self.results.append(TestResult(test_name, passed=False, error=str(e)))
 
         return results
 

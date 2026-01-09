@@ -114,6 +114,7 @@ def _run_remote_script(
     ctx: DemoContext,
     script_name: str,
     python_bin: str = "python3",
+    *,
     sudo: bool = False,
     show: bool = False,
 ) -> None:

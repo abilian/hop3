@@ -146,7 +146,7 @@ class TestConfirmationDialog:
                     callback=self.handle_result,
                 )
 
-            def handle_result(self, result: bool) -> None:
+            def handle_result(self, result: bool) -> None:  # noqa: FBT001
                 nonlocal confirmed
                 confirmed = result
 

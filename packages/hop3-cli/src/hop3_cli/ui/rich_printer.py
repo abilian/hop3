@@ -224,7 +224,7 @@ class RichPrinter:
         panel = Panel(text, title=title, border_style=style)
         self.console.print(panel)
 
-    def confirm(self, message: str, default: bool = False) -> bool:
+    def confirm(self, message: str, *, default: bool = False) -> bool:
         """Ask for user confirmation.
 
         Args:

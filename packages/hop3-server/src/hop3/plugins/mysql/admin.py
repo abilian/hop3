@@ -178,7 +178,7 @@ class MySQLAdmin:
 
         return params
 
-    def get_dsn(self, database: str = "", include_password: bool = False) -> str:
+    def get_dsn(self, database: str = "", *, include_password: bool = False) -> str:
         """Get Data Source Name (DSN) connection string.
 
         Args:

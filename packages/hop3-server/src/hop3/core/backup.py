@@ -141,7 +141,9 @@ class BackupManager:
         """
         self.db_session = db_session
 
-    def create_backup(self, app: App, include_addons: bool = True) -> tuple[str, Path]:
+    def create_backup(
+        self, app: App, *, include_addons: bool = True
+    ) -> tuple[str, Path]:
         """Create a backup of an application.
 
         Args:

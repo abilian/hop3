@@ -42,7 +42,7 @@ class Plugins(Command):
             help="Show detailed information about each plugin",
         )
 
-    def run(self, verbose_plugins: bool = False):
+    def run(self, *, verbose_plugins: bool = False):
         app = create_app()
         pm = get_plugin_manager()
 

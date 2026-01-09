@@ -182,6 +182,7 @@ class CommandError(Exception):
 
 def run_cmd(
     cmd: list[str],
+    *,
     capture: bool = True,
     check: bool = True,
     env: dict[str, str] | None = None,

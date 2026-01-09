@@ -93,6 +93,7 @@ class ChatMessage(Static):
     def __init__(
         self,
         content: str,
+        *,
         is_user: bool = True,
         is_error: bool = False,
     ) -> None:
