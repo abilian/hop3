@@ -52,13 +52,15 @@ lint.extend-ignore = [
     "TRY300", # Consider moving this statement to an `else` block
     "PERF401", #  7 - PERF401	manual-list-comprehension
     "RUF067", # `__init__` module should only contain docstrings and re-exports
-
-    # Fix this
+    # Needed by the DI and SQLA frameworks
+    "TC003", #  	[ ] typing-only-standard-library-import
+    "TC002", #  	[ ] typing-only-third-party-import
+    #
+    # Fix this (later)
+    #
     "E501", #   	[ ] line-too-long
     "F841", #   	[ ] unused-variable
     "PLR0915", #	[ ] too-many-statements
-    "TC003", #  	[ ] typing-only-standard-library-import
-    "TC002", #  	[ ] typing-only-third-party-import
     "B904", #   	[ ] raise-without-from-inside-except
     "PLR0912", #	[ ] too-many-branches
     "PLW0603", #	[ ] global-statement
