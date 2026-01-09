@@ -80,17 +80,39 @@ class DeployConfig:
     def installer_path(self) -> Path:
         """Path to the server installer script.
 
-        Returns the bundled installer from dist/, generating it if needed.
+        Returns the bundled installer from dist/, regenerating if source is newer.
         """
         dist_installer = self.project_root / "dist" / "install-server.py"
 
-        # If bundled installer exists and is recent, use it
+        # Check if bundle exists and is up-to-date with source files
         if dist_installer.exists():
-            return dist_installer
+            if not self._is_bundle_stale(dist_installer):
+                return dist_installer
 
         # Generate the bundled installer
         self._generate_bundled_installer(dist_installer)
         return dist_installer
+
+    def _is_bundle_stale(self, bundle_path: Path) -> bool:
+        """Check if bundle is older than any source module.
+
+        Args:
+            bundle_path: Path to the bundled installer.
+
+        Returns:
+            True if any source module is newer than the bundle.
+        """
+        from hop3_installer.bundler import SERVER_MODULES, SRC_DIR
+
+        bundle_mtime = bundle_path.stat().st_mtime
+
+        for module_path in SERVER_MODULES:
+            source_file = SRC_DIR / module_path
+            if source_file.exists():
+                if source_file.stat().st_mtime > bundle_mtime:
+                    return True
+
+        return False
 
     def _generate_bundled_installer(self, output_path: Path) -> None:
         """Generate the bundled installer using the bundler."""

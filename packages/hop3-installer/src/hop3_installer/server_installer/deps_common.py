@@ -8,16 +8,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from hop3_installer.common import (
+    CommandError,
     Spinner,
     cmd_exists,
     print_detail,
+    print_error,
     print_info,
     print_success,
     print_warning,
     run_cmd,
 )
 
-from .config import HOME_DIR
+from .config import HOME_DIR, ServerInstallerConfig
 from .user import run_as_hop3
 
 # =============================================================================
@@ -47,6 +49,109 @@ class PackageSpec:
     # Commands that need special handling (check before install)
     conditional_packages: dict[str, str] = field(default_factory=dict)
     # Maps command name -> package name, e.g., {"npm": "npm"}
+
+
+# =============================================================================
+# Shared Package Installation Functions
+# =============================================================================
+
+
+def install_base_packages(spec: PackageSpec) -> None:
+    """Install base packages using the given spec."""
+    # Update package lists if needed
+    if spec.update_cmd:
+        with Spinner("Updating package lists..."):
+            run_cmd(spec.update_cmd)
+
+    # Install base packages
+    with Spinner("Installing base packages (this may take a while)..."):
+        result = run_cmd(
+            [spec.pkg_manager, "install", "-y"] + spec.base_packages,
+            env=spec.env_vars if spec.env_vars else None,
+            check=False,
+        )
+
+    if result.returncode != 0:
+        print_error("Base package installation failed")
+        if result.stderr:
+            for line in result.stderr.strip().split("\n")[-10:]:
+                print_detail(line)
+        raise CommandError(
+            [spec.pkg_manager, "install"] + spec.base_packages,
+            result.returncode,
+            result.stderr or "",
+        )
+
+    print_success(f"Installed {len(spec.base_packages)} base packages")
+
+    # Handle conditional packages (packages that may conflict)
+    for cmd_name, pkg_name in spec.conditional_packages.items():
+        install_conditional_package(cmd_name, pkg_name, spec)
+
+
+def install_conditional_package(
+    cmd_name: str, pkg_name: str, spec: PackageSpec
+) -> None:
+    """Install a package only if the command doesn't already exist."""
+    if cmd_exists(cmd_name):
+        print_success(f"{cmd_name} already available")
+        return
+
+    print_info(f"{cmd_name} not found, installing {pkg_name}...")
+    with Spinner(f"Installing {pkg_name}..."):
+        result = run_cmd(
+            [spec.pkg_manager, "install", "-y", pkg_name],
+            env=spec.env_vars if spec.env_vars else None,
+            check=False,
+        )
+    if result.returncode == 0:
+        print_success(f"{pkg_name} installed")
+    else:
+        print_warning(
+            f"{pkg_name} installation failed (may conflict with other packages)"
+        )
+
+
+def install_optional_packages(
+    config: ServerInstallerConfig,
+    spec: PackageSpec,
+    configure_redis_func: callable,
+) -> None:
+    """Install optional packages based on config."""
+    if config.with_docker:
+        install_feature_packages("Docker", spec.docker_packages, spec)
+
+    if config.with_mysql:
+        if not cmd_exists("mysql"):
+            install_feature_packages("MySQL", spec.mysql_packages, spec)
+        else:
+            print_success("MySQL already installed")
+
+    if config.with_redis:
+        if not cmd_exists("redis-server"):
+            install_feature_packages("Redis", spec.redis_packages, spec)
+        else:
+            print_success("Redis already installed")
+        configure_redis_func()
+
+
+def install_feature_packages(
+    name: str, packages: list[str], spec: PackageSpec
+) -> None:
+    """Install a set of feature packages."""
+    with Spinner(f"Installing {name} packages..."):
+        result = run_cmd(
+            [spec.pkg_manager, "install", "-y"] + packages,
+            env=spec.env_vars if spec.env_vars else None,
+            check=False,
+        )
+    if result.returncode == 0:
+        print_success(f"{name} packages installed")
+    else:
+        print_warning(f"{name} installation failed")
+        if result.stderr:
+            for line in result.stderr.strip().split("\n")[-5:]:
+                print_detail(line)
 
 
 # =============================================================================
@@ -147,25 +252,71 @@ def _create_rust_symlinks(
 # =============================================================================
 
 
+def _detect_debian_version() -> tuple[str, str]:
+    """Detect Debian/Ubuntu version for Microsoft repo URL.
+
+    Returns:
+        Tuple of (distro, version) e.g., ("ubuntu", "24.04") or ("debian", "12")
+    """
+    # Try /etc/os-release first (works on most modern systems)
+    os_release = Path("/etc/os-release")
+    if os_release.exists():
+        content = os_release.read_text()
+        distro = ""
+        version = ""
+        for line in content.split("\n"):
+            if line.startswith("ID="):
+                distro = line.split("=")[1].strip().strip('"').lower()
+            elif line.startswith("VERSION_ID="):
+                version = line.split("=")[1].strip().strip('"')
+        if distro and version:
+            return (distro, version)
+
+    # Fallback to Ubuntu 24.04 as default
+    return ("ubuntu", "24.04")
+
+
 def install_dotnet_sdk_debian() -> None:
     """Install .NET SDK on Debian/Ubuntu from Microsoft repository."""
     if cmd_exists("dotnet"):
         print_info(".NET SDK already installed")
         return
 
+    # Detect the actual OS version
+    distro, version = _detect_debian_version()
+    print_detail(f"Detected {distro} {version}")
+
+    # Microsoft provides packages for specific distro/version combinations
+    # See: https://learn.microsoft.com/en-us/dotnet/core/install/linux
+    repo_url = (
+        f"https://packages.microsoft.com/config/{distro}/{version}/"
+        "packages-microsoft-prod.deb"
+    )
+
     # Add Microsoft package repository for Debian/Ubuntu
     with Spinner("Adding Microsoft package repository..."):
         # Download and install the Microsoft package signing key
-        run_cmd(
-            [
-                "wget",
-                "-q",
-                "https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb",
-                "-O",
-                "/tmp/packages-microsoft-prod.deb",
-            ],
+        result = run_cmd(
+            ["wget", "-q", repo_url, "-O", "/tmp/packages-microsoft-prod.deb"],
             check=False,
         )
+        if result.returncode != 0:
+            print_warning(f"Failed to download Microsoft repo package for {distro} {version}")
+            print_detail("Trying Ubuntu 24.04 as fallback...")
+            result = run_cmd(
+                [
+                    "wget",
+                    "-q",
+                    "https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb",
+                    "-O",
+                    "/tmp/packages-microsoft-prod.deb",
+                ],
+                check=False,
+            )
+            if result.returncode != 0:
+                print_warning("Failed to download Microsoft repository package")
+                return
+
         result = run_cmd(
             ["dpkg", "-i", "/tmp/packages-microsoft-prod.deb"],
             check=False,
