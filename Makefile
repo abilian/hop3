@@ -5,7 +5,7 @@
 
 # For tests, set HOP3_DEV_HOST in your environment
 
-all: test lint
+all: ruff test lint
 
 #
 # Help
@@ -64,11 +64,16 @@ serve-web:
 # Code Quality
 #
 
+## Quick lint
+ruff:
+	uv run ruff format --check packages/*/src packages/*/tests
+	uv run ruff check packages/*/src packages/*/tests
+	# uv run ty check packages/*/src
+
 ## Lint and type check
 lint:
 	@echo "--> Linting code"
-	uv run ruff format --check packages/*/src packages/*/tests
-	uv run ruff check packages/*/src packages/*/tests
+	@make ruff
 	uv run mypy packages/hop3-server/src
 	cd packages/hop3-server && uv run deptry src
 	@echo ""
