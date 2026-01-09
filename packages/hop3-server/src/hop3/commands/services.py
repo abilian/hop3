@@ -709,21 +709,45 @@ class AddonsStatusCmd(Command):
     def call(self, *args):
         """Get detailed addon status with health check."""
         if len(args) < 1:
-            return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 addons:status <service-name> [--service-type <type>]\n\n"
-                        "Example:\n"
-                        "  hop3 addons:status my-database --service-type postgres"
-                    ),
-                }
-            ]
+            return self._usage_message()
 
+        addon_name, service_type = self._parse_args(args)
+
+        with command_context(
+            "getting addon status", addon_name=addon_name, service_type=service_type
+        ):
+            addon = get_addon(service_type, addon_name)
+            health_status, health_error = self._check_addon_health(addon)
+            attached_apps = self._get_attached_apps(service_type, addon_name)
+            rows = self._build_status_rows(
+                addon,
+                addon_name,
+                service_type,
+                health_status,
+                health_error,
+                attached_apps,
+            )
+
+        return [{"t": "table", "headers": ["Property", "Value"], "rows": rows}]
+
+    def _usage_message(self) -> list[dict]:
+        """Return usage message."""
+        return [
+            {
+                "t": "text",
+                "text": (
+                    "Usage: hop3 addons:status <service-name> [--service-type <type>]\n\n"
+                    "Example:\n"
+                    "  hop3 addons:status my-database --service-type postgres"
+                ),
+            }
+        ]
+
+    def _parse_args(self, args: tuple) -> tuple[str, str]:
+        """Parse command arguments."""
         addon_name = args[0]
         service_type = "postgres"  # Default
 
-        # Parse optional arguments
         i = 1
         while i < len(args):
             if args[i] == "--service-type" and i + 1 < len(args):
@@ -732,65 +756,61 @@ class AddonsStatusCmd(Command):
             else:
                 i += 1
 
-        with command_context(
-            "getting addon status", addon_name=addon_name, service_type=service_type
-        ):
-            # Get the service strategy
-            addon = get_addon(service_type, addon_name)
+        return addon_name, service_type
 
-            # Perform health check
-            health_status = "Unknown"
-            health_error = None
-            try:
-                if hasattr(addon, "health_check"):
-                    healthy = addon.health_check()
-                    health_status = "Healthy" if healthy else "Unhealthy"
-                elif hasattr(addon, "info"):
-                    # Try to get info as a basic health check
-                    addon.info()
-                    health_status = "Available"
-            except Exception as e:
-                health_status = "Unhealthy"
-                health_error = str(e)
+    def _check_addon_health(self, addon) -> tuple[str, str | None]:
+        """Perform health check on addon."""
+        health_status = "Unknown"
+        health_error = None
+        try:
+            if hasattr(addon, "health_check"):
+                healthy = addon.health_check()
+                health_status = "Healthy" if healthy else "Unhealthy"
+            elif hasattr(addon, "info"):
+                addon.info()
+                health_status = "Available"
+        except Exception as e:
+            health_status = "Unhealthy"
+            health_error = str(e)
+        return health_status, health_error
 
-            # Get attached apps
-            credentials = (
-                self.db_session
-                .query(AddonCredential)
-                .filter_by(addon_type=service_type, addon_name=addon_name)
-                .all()
-            )
+    def _get_attached_apps(self, service_type: str, addon_name: str) -> list[str]:
+        """Get list of apps attached to this addon."""
+        credentials = (
+            self.db_session
+            .query(AddonCredential)
+            .filter_by(addon_type=service_type, addon_name=addon_name)
+            .all()
+        )
+        return [cred.app.name for cred in credentials if cred.app]
 
-            # Get app names through the relationship
-            attached_apps = []
-            for credential in credentials:
-                if credential.app:
-                    attached_apps.append(credential.app.name)
+    def _build_status_rows(
+        self,
+        addon,
+        addon_name: str,
+        service_type: str,
+        health_status: str,
+        health_error: str | None,
+        attached_apps: list[str],
+    ) -> list[list[str]]:
+        """Build output rows for status table."""
+        rows = [
+            ["Name", addon_name],
+            ["Type", service_type],
+            ["Status", health_status],
+            ["Attached Apps", ", ".join(attached_apps) if attached_apps else "None"],
+        ]
 
-            # Build output rows
-            rows = [
-                ["Name", addon_name],
-                ["Type", service_type],
-                ["Status", health_status],
-                [
-                    "Attached Apps",
-                    ", ".join(attached_apps) if attached_apps else "None",
-                ],
-            ]
+        if health_error:
+            rows.append(["Error", health_error])
 
-            if health_error:
-                rows.append(["Error", health_error])
+        # Try to get additional info
+        try:
+            info = addon.info()
+            for key in ("host", "port", "version"):
+                if key in info:
+                    rows.append([key.capitalize(), str(info[key])])
+        except Exception:
+            pass
 
-            # Try to get additional info
-            try:
-                info = addon.info()
-                if "host" in info:
-                    rows.append(["Host", info["host"]])
-                if "port" in info:
-                    rows.append(["Port", str(info["port"])])
-                if "version" in info:
-                    rows.append(["Version", info["version"]])
-            except Exception:
-                pass
-
-        return [{"t": "table", "headers": ["Property", "Value"], "rows": rows}]
+        return rows

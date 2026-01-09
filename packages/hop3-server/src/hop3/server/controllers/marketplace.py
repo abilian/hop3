@@ -246,66 +246,17 @@ class MarketplaceController(Controller):
             errors.append(f"An app named '{app_name}' already exists")
 
         if errors:
-            # Re-render detail page with errors
-            similar_apps = []
-            if marketplace_app.category:
-                category = next(
-                    (
-                        c
-                        for c in service.list_categories()
-                        if c.name == marketplace_app.category
-                    ),
-                    None,
-                )
-                if category:
-                    similar_apps = [a for a in category.apps if a.id != app_id][:4]
-
-            ctx = {
-                "app": marketplace_app,
-                "similar_apps": similar_apps,
-                "errors": errors,
-                "app_name": app_name,
-            }
-            return Template(
-                template_name="dashboard/marketplace/detail.html", context=ctx
+            return self._render_install_errors(
+                service, marketplace_app, app_id, app_name, errors
             )
 
         # Create the app
         with get_session() as db_session:
-            # Create App record
             app = App(name=app_name)
             app.create()  # Creates directories
 
-            # Copy source files from marketplace
-            if marketplace_app.source_path:
-                src_path = Path(marketplace_app.source_path)
-                if src_path.exists():
-                    # Copy all files from marketplace app to the new app's source directory
-                    dest_path = Path(app.src_path)
-                    dest_path.mkdir(parents=True, exist_ok=True)
-                    for item in src_path.iterdir():
-                        if item.is_file():
-                            shutil.copy2(item, dest_path / item.name)
-                        elif item.is_dir() and item.name not in {
-                            "__pycache__",
-                            ".git",
-                        }:
-                            shutil.copytree(
-                                item, dest_path / item.name, dirs_exist_ok=True
-                            )
-
-            # Set up environment variables from marketplace app
-            # (Provider setup will be added in Phase 4)
-            env_vars_str = data.get("env_vars", "").strip()
-            if env_vars_str:
-                for line in env_vars_str.split("\n"):
-                    line = line.strip()
-                    if "=" in line and not line.startswith("#"):
-                        key, _, value = line.partition("=")
-                        key = key.strip()
-                        value = value.strip()
-                        if key:
-                            app.env_vars.append(EnvVar(name=key, value=value))
+            _copy_marketplace_source(marketplace_app, app)
+            _parse_and_add_env_vars(app, data.get("env_vars", ""))
 
             db_session.add(app)
             db_session.commit()
@@ -316,3 +267,69 @@ class MarketplaceController(Controller):
         return Redirect(
             path=f"/dashboard/apps/{app_name}?installed=true", status_code=303
         )
+
+    def _render_install_errors(
+        self,
+        service: MarketplaceService,
+        marketplace_app,
+        app_id: str,
+        app_name: str,
+        errors: list[str],
+    ) -> Template:
+        """Re-render detail page with validation errors."""
+        similar_apps = []
+        if marketplace_app.category:
+            category = next(
+                (
+                    c
+                    for c in service.list_categories()
+                    if c.name == marketplace_app.category
+                ),
+                None,
+            )
+            if category:
+                similar_apps = [a for a in category.apps if a.id != app_id][:4]
+
+        ctx = {
+            "app": marketplace_app,
+            "similar_apps": similar_apps,
+            "errors": errors,
+            "app_name": app_name,
+        }
+        return Template(template_name="dashboard/marketplace/detail.html", context=ctx)
+
+
+def _copy_marketplace_source(marketplace_app, app: App) -> None:
+    """Copy source files from marketplace app to new app."""
+    if not marketplace_app.source_path:
+        return
+
+    src_path = Path(marketplace_app.source_path)
+    if not src_path.exists():
+        return
+
+    dest_path = Path(app.src_path)
+    dest_path.mkdir(parents=True, exist_ok=True)
+
+    excluded_dirs = {"__pycache__", ".git"}
+    for item in src_path.iterdir():
+        if item.is_file():
+            shutil.copy2(item, dest_path / item.name)
+        elif item.is_dir() and item.name not in excluded_dirs:
+            shutil.copytree(item, dest_path / item.name, dirs_exist_ok=True)
+
+
+def _parse_and_add_env_vars(app: App, env_vars_str: str) -> None:
+    """Parse environment variables string and add to app."""
+    env_vars_str = env_vars_str.strip()
+    if not env_vars_str:
+        return
+
+    for line in env_vars_str.split("\n"):
+        line = line.strip()
+        if "=" in line and not line.startswith("#"):
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip()
+            if key:
+                app.env_vars.append(EnvVar(name=key, value=value))

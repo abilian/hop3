@@ -155,7 +155,8 @@ class Config:
         try:
             return cast(value)
         except (TypeError, ValueError):
-            msg = f"Config '{key}' has value '{value}'. Not a valid {cast.__name__}."
+            cast_name = getattr(cast, "__name__", repr(cast))
+            msg = f"Config '{key}' has value '{value}'. Not a valid {cast_name}."
             raise ValueError(msg)
 
     def _parse_file(self, file: Path) -> None:

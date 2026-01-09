@@ -145,14 +145,16 @@ def create_app():
     # Create app with Litestar session middleware and memory store
     # Allow larger request bodies for deployment packages (default is 10MB)
     # Compiled binaries (Rust, Go) can be 50-100MB+
+    # Note: type ignores are for ty's overly strict generic variance checking
+    # with Litestar's types (JinjaTemplateEngine is a valid engine, Redirect is a Response)
     app = Litestar(
         route_handlers=route_handlers,
         debug=DEBUG,
         middleware=[session_config.middleware],
-        template_config=template_config,
+        template_config=template_config,  # type: ignore[arg-type]
         logging_config=logging_config,
         stores={"sessions": MemoryStore()},
-        exception_handlers={
+        exception_handlers={  # type: ignore[arg-type]
             NotAuthorizedException: handle_401,
         },
         on_startup=[on_startup],
