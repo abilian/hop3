@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import traceback
-from typing import cast
 
 from litestar import Controller, Request, post
 from litestar.params import Body
@@ -99,7 +98,7 @@ def call(command_name: str, args: list[str], extra_args: JsonDict):
 
     # Extract verbosity from extra_args - it's a context parameter, not a command kwarg
     verbosity_val = extra_args.pop("verbosity", 1)
-    verbosity = cast("int", verbosity_val) if isinstance(verbosity_val, int) else 1
+    verbosity = verbosity_val if isinstance(verbosity_val, int) else 1
 
     # Prepare command kwargs (without verbosity - it's handled via context)
     command_kwargs = extra_args.copy()

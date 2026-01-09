@@ -234,65 +234,88 @@ def get_deployment_strategy(
         if strategy.accept():
             return strategy
 
-    # Build a helpful error message showing what's available
-    available_deployers = []
-    for cls in strategy_classes:
-        name = getattr(cls, "name", cls.__name__)
-        available_deployers.append(name)
-
-    # Build hints based on artifact kind
-    hints = []
-
-    if artifact.kind == "docker-image":
-        if not available_deployers:
-            hints.append(
-                "No deployers are loaded. Check your hop3-server installation."
-            )
-        elif "docker-compose" not in available_deployers:
-            hints.append("The Docker Compose deployer is not loaded.")
-            hints.append("Run 'hop3 system:info -v' to see loaded plugins.")
-        else:
-            # Deployer is loaded but didn't accept - shouldn't happen for docker-image
-            hints.append("The Docker Compose deployer is available but did not accept.")
-            hints.append(
-                "This may indicate an internal error. Please report this issue."
-            )
-
-    elif artifact.kind == "virtualenv":
-        if "uwsgi" not in available_deployers:
-            hints.append("The uWSGI deployer is not loaded.")
-            hints.append("Run 'hop3 system:info -v' to see loaded plugins.")
-        else:
-            hints.append("The uWSGI deployer is available but did not accept.")
-            hints.append("Check your app configuration:")
-            hints.append(
-                "  - Ensure you have a Procfile or hop3.toml with a web worker"
-            )
-            hints.append("  - Example Procfile: web: gunicorn app:app")
-
-    elif artifact.kind == "static":
-        if "static" not in available_deployers:
-            hints.append("The Static deployer is not loaded.")
-        else:
-            hints.append("The Static deployer is available but did not accept.")
-
-    else:
-        # Unknown artifact kind
-        hints.append(
-            f"Artifact kind '{artifact.kind}' is not recognized by any deployer."
-        )
-        hints.append("Check your app configuration:")
-        hints.append("  - Verify hop3.toml [build] section if present")
-        hints.append("  - Ensure the build process completed successfully")
-
-    if available_deployers:
-        hints.append(f"\nAvailable deployers: {', '.join(available_deployers)}")
-        hints.append("Run 'hop3 system:info -v' to see all loaded plugins.")
+    # No strategy accepted - build error message
+    available_deployers = [
+        getattr(cls, "name", cls.__name__) for cls in strategy_classes
+    ]
+    hints = _build_deployment_hints(artifact.kind, available_deployers)
 
     msg = f"Could not find a deployment strategy for artifact kind '{artifact.kind}'."
     if hints:
         msg += "\n\n" + "\n".join(hints)
     raise RuntimeError(msg)
+
+
+def _build_deployment_hints(
+    artifact_kind: str, available_deployers: list[str]
+) -> list[str]:
+    """Build helpful hints for deployment strategy errors."""
+    hints: list[str] = []
+
+    hint_builders = {
+        "docker-image": _hints_for_docker_image,
+        "virtualenv": _hints_for_virtualenv,
+        "static": _hints_for_static,
+    }
+
+    builder = hint_builders.get(artifact_kind)
+    if builder:
+        hints.extend(builder(available_deployers))
+    else:
+        hints.extend(_hints_for_unknown_artifact(artifact_kind))
+
+    if available_deployers:
+        hints.append(f"\nAvailable deployers: {', '.join(available_deployers)}")
+        hints.append("Run 'hop3 system:info -v' to see all loaded plugins.")
+
+    return hints
+
+
+def _hints_for_docker_image(available_deployers: list[str]) -> list[str]:
+    """Build hints for docker-image artifact kind."""
+    if not available_deployers:
+        return ["No deployers are loaded. Check your hop3-server installation."]
+    if "docker-compose" not in available_deployers:
+        return [
+            "The Docker Compose deployer is not loaded.",
+            "Run 'hop3 system:info -v' to see loaded plugins.",
+        ]
+    return [
+        "The Docker Compose deployer is available but did not accept.",
+        "This may indicate an internal error. Please report this issue.",
+    ]
+
+
+def _hints_for_virtualenv(available_deployers: list[str]) -> list[str]:
+    """Build hints for virtualenv artifact kind."""
+    if "uwsgi" not in available_deployers:
+        return [
+            "The uWSGI deployer is not loaded.",
+            "Run 'hop3 system:info -v' to see loaded plugins.",
+        ]
+    return [
+        "The uWSGI deployer is available but did not accept.",
+        "Check your app configuration:",
+        "  - Ensure you have a Procfile or hop3.toml with a web worker",
+        "  - Example Procfile: web: gunicorn app:app",
+    ]
+
+
+def _hints_for_static(available_deployers: list[str]) -> list[str]:
+    """Build hints for static artifact kind."""
+    if "static" not in available_deployers:
+        return ["The Static deployer is not loaded."]
+    return ["The Static deployer is available but did not accept."]
+
+
+def _hints_for_unknown_artifact(artifact_kind: str) -> list[str]:
+    """Build hints for unknown artifact kinds."""
+    return [
+        f"Artifact kind '{artifact_kind}' is not recognized by any deployer.",
+        "Check your app configuration:",
+        "  - Verify hop3.toml [build] section if present",
+        "  - Ensure the build process completed successfully",
+    ]
 
 
 def get_deployer_by_name(app, runtime_name: str) -> Deployer:

@@ -29,6 +29,7 @@ from typing import Any
 
 import psycopg2
 from psycopg2 import sql
+from psycopg2.errors import DuplicateObject  # type: ignore[attr-defined]
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 from hop3.config import HOP3_ROOT
@@ -178,7 +179,7 @@ class PostgresAddon:
                                 sql.Literal(password),
                             )
                         )
-                    except psycopg2.errors.DuplicateObject:
+                    except DuplicateObject:
                         # User exists, update password
                         cursor.execute(
                             sql.SQL("ALTER USER {} WITH PASSWORD {}").format(
@@ -195,7 +196,7 @@ class PostgresAddon:
                                 sql.Literal(password),
                             )
                         )
-                    except psycopg2.errors.DuplicateObject:
+                    except DuplicateObject:
                         # User already exists, update password
                         cursor.execute(
                             sql.SQL("ALTER USER {} WITH PASSWORD {}").format(

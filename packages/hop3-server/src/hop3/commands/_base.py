@@ -44,7 +44,7 @@ class Command:
     # Set to True for commands that delete/destroy data (requires confirmation)
     destructive: ClassVar[bool] = False
 
-    def call(self, *args):
+    def call(self, *args, **kwargs):
         return self.get_help()
 
     def get_help(self):
