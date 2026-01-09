@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable  # noqa: TC003
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -115,7 +116,7 @@ def install_conditional_package(
 def install_optional_packages(
     config: ServerInstallerConfig,
     spec: PackageSpec,
-    configure_redis_func: callable,
+    configure_redis_func: Callable[[], None],
 ) -> None:
     """Install optional packages based on config."""
     if config.with_docker:

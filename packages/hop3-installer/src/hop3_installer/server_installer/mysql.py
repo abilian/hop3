@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import secrets
 import subprocess  # noqa: TC003
-import time
 from pathlib import Path
 
 from hop3_installer.common import (
@@ -20,7 +19,7 @@ from hop3_installer.common import (
 from .config import ServerInstallerConfig  # noqa: TC001
 
 
-def get_debian_mysql_credentials() -> tuple[str, str] | None:
+def _get_debian_mysql_credentials() -> tuple[str, str] | None:
     """Get MySQL credentials from Debian maintenance file.
 
     On Debian/Ubuntu, /etc/mysql/debian.cnf contains credentials for
@@ -48,74 +47,6 @@ def get_debian_mysql_credentials() -> tuple[str, str] | None:
     except Exception:
         pass
     return None
-
-
-def reset_mysql_root_auth() -> bool:
-    """Reset MySQL root authentication to socket auth.
-
-    Uses Debian maintenance user or skip-grant-tables as fallback.
-
-    Returns:
-        True if reset was successful, False otherwise.
-    """
-    print_detail("Attempting to reset MySQL root authentication...")
-
-    # Method 1: Try using Debian maintenance user
-    creds = get_debian_mysql_credentials()
-    if creds:
-        user, password = creds
-        print_detail(f"Using Debian maintenance user: {user}")
-        result = run_cmd(
-            [
-                "mysql",
-                f"-u{user}",
-                f"-p{password}",
-                "-e",
-                "ALTER USER 'root'@'localhost' IDENTIFIED WITH auth_socket; FLUSH PRIVILEGES;",
-            ],
-            check=False,
-        )
-        if result.returncode == 0:
-            print_detail("Reset via debian-sys-maint succeeded")
-            return True
-
-    # Method 2: Use skip-grant-tables (more invasive but reliable)
-    print_detail("Trying skip-grant-tables method...")
-
-    # Stop MySQL
-    run_cmd(["systemctl", "stop", "mysql"], check=False)
-    run_cmd(["systemctl", "stop", "mariadb"], check=False)
-    time.sleep(2)
-
-    # Start MySQL without authentication
-    run_cmd(
-        ["mysqld", "--skip-grant-tables", "--skip-networking", "--user=mysql"],
-        check=False,
-        timeout=5,  # This will timeout as mysqld runs in foreground, that's OK
-    )
-    time.sleep(3)
-
-    # Reset root authentication
-    result = run_cmd(
-        [
-            "mysql",
-            "-e",
-            "FLUSH PRIVILEGES; ALTER USER 'root'@'localhost' IDENTIFIED WITH auth_socket;",
-        ],
-        check=False,
-    )
-
-    # Kill the mysqld process
-    run_cmd(["pkill", "-f", "skip-grant-tables"], check=False)
-    time.sleep(2)
-
-    # Restart MySQL normally
-    run_cmd(["systemctl", "start", "mysql"], check=False)
-    if run_cmd(["systemctl", "is-active", "mysql"], check=False).returncode != 0:
-        run_cmd(["systemctl", "start", "mariadb"], check=False)
-    time.sleep(2)
-
-    return result.returncode == 0
 
 
 def _start_mysql_service() -> bool:
@@ -151,7 +82,7 @@ def _find_mysql_admin_connection() -> list[str] | None:
     ]
 
     # Also try Debian maintenance user if available
-    debian_creds = get_debian_mysql_credentials()
+    debian_creds = _get_debian_mysql_credentials()
     if debian_creds:
         user, password = debian_creds
         test_commands.insert(0, ["mysql", f"-u{user}", f"-p{password}"])
@@ -166,31 +97,6 @@ def _find_mysql_admin_connection() -> list[str] | None:
             print_detail(f"MySQL admin access via: {display_cmd}")
             return test_cmd
 
-    return None
-
-
-def _restore_mysql_admin_access() -> list[str] | None:
-    """Attempt to restore MySQL admin access after failed connection.
-
-    Returns:
-        Working command list, or None if restoration failed.
-    """
-    print_warning(
-        "Cannot connect to MySQL as root - attempting to reset authentication"
-    )
-
-    if not reset_mysql_root_auth():
-        return None
-
-    # Retry connection after reset
-    for test_cmd in [["mysql"], ["sudo", "mysql"]]:
-        result = run_cmd(test_cmd + ["-e", "SELECT 1;"], check=False)
-        if result.returncode == 0:
-            print_success("MySQL root access restored")
-            return test_cmd
-
-    print_warning("Could not restore MySQL root access")
-    print_detail("MySQL configuration may need manual intervention")
     return None
 
 
@@ -305,16 +211,17 @@ def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
         return None
     print_success("MySQL service started")
 
-    # Generate a secure password
-    mysql_password = "hop3_" + secrets.token_hex(16)
-
     # Find a working admin connection
     mysql_root_cmd = _find_mysql_admin_connection()
 
     if mysql_root_cmd is None:
-        mysql_root_cmd = _restore_mysql_admin_access()
-        if mysql_root_cmd is None:
-            return None
+        print_warning("Could not connect to MySQL as admin")
+        print_detail("Please check MySQL is running and has default authentication")
+        print_detail("You may need to configure MySQL manually")
+        return None
+
+    # Generate a secure password
+    mysql_password = "hop3_" + secrets.token_hex(16)
 
     # Create hop3 user with privileges
     if not _create_mysql_hop3_user(mysql_root_cmd, mysql_password):
