@@ -4,7 +4,7 @@
 name = "110-flask-gunicorn-poetry"
 category = "deployment"
 tier = "medium"
-priority = "P1"
+priority = "P0"
 description = "Flask application with Gunicorn and Poetry"
 
 [test.requirements]

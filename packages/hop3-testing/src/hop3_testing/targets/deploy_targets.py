@@ -785,12 +785,20 @@ class ReadyTarget(DeploymentTarget):
                     operation="check_image",
                     message=f"Image {self.image} not found",
                     details={
-                        "hint": "Build with: hop3-test build-ready-image",
+                        "hint": "Build with: hop3-test-new build-ready-image",
                     },
                 )
-                self._save_diagnostics_on_error()
-                msg = f"Image {self.image} not found. Build it first."
-                raise RuntimeError(msg)
+                # Don't save here - let the outer exception handler do it
+                msg = f"Image {self.image} not found. Build it with: hop3-test-new build-ready-image"
+                raise RuntimeError(msg) from None
+
+            # Remove any existing container with the same name
+            try:
+                existing = client.containers.get(self.container_name)
+                print(f"Removing existing container: {self.container_name}")
+                existing.remove(force=True)
+            except docker.errors.NotFound:
+                pass  # No existing container, good
 
             # Start container
             self._container = client.containers.run(

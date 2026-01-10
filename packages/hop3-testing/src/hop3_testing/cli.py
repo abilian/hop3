@@ -438,6 +438,12 @@ def package(
 @click.option("--clean", is_flag=True, help="Clean install (remove existing)")
 @click.option("--target", type=click.Choice(["docker", "remote"]), default="docker")
 @click.option("--host", help="Remote host (for remote target)")
+@click.option(
+    "--mode",
+    type=click.Choice(["dev", "ci"]),
+    default="dev",
+    help="Test mode: dev (fast P0 only) or ci (fast+medium P0)",
+)
 @click.option("--keep", is_flag=True, help="Keep target after tests")
 @click.option("--fail-fast", is_flag=True, help="Stop on first failure")
 @click.option(
@@ -446,6 +452,7 @@ def package(
     default="text",
     help="Report format: none, text (console), or html",
 )
+@click.option("-q", "--quiet", is_flag=True, help="Quiet mode (suppress recap)")
 @click.pass_context
 def system_test(
     ctx: click.Context,
@@ -454,9 +461,11 @@ def system_test(
     clean: bool,
     target: str,
     host: str | None,
+    mode: str,
     keep: bool,
     fail_fast: bool,
     report: str,
+    quiet: bool,
 ) -> None:
     """Test Hop3 system using real hop3-deploy.
 
@@ -465,18 +474,19 @@ def system_test(
     installation and deployment paths.
 
     Examples:
-        hop3-test-new system                    # Deploy local code to Docker
+        hop3-test-new system                    # Deploy local code to Docker (dev mode)
+        hop3-test-new system --mode ci          # Include medium-tier tests
         hop3-test-new system --deploy-from git  # Deploy from git
         hop3-test-new system --clean            # Clean install
         hop3-test-new system --deploy-from none # Use existing deployment
     """
     verbose = ctx.obj["verbose"]
 
-    # Load catalog and select P0 tests (known-good apps)
+    # Load catalog and select tests based on mode
     catalog = TestCatalog(ctx.obj["root"])
     catalog.scan()
 
-    mode_config = get_mode_config("dev")  # Fast P0 tests for system testing
+    mode_config = get_mode_config(mode)
     selector = TestSelector(catalog)
     tests = selector.select_for_target(mode_config, target)
 
@@ -491,6 +501,7 @@ def system_test(
     click.echo(f"\nDeploy from: {deploy_from}")
     if deploy_from == "git":
         click.echo(f"Branch: {branch}")
+    click.echo(f"Test mode: {mode} ({mode_config.description})")
     click.echo(f"Clean install: {clean}")
     click.echo(f"Tests to run: {len(tests)}")
 
@@ -511,7 +522,7 @@ def system_test(
         target_obj = RemoteTarget({"host": host})
 
     # Run tests
-    _run_system_tests(ctx, tests, target_obj, keep, fail_fast, report)
+    _run_system_tests(ctx, tests, target_obj, keep, fail_fast, report, quiet)
 
 
 @cli.command("apps")
@@ -535,6 +546,7 @@ def system_test(
     default="text",
     help="Report format: none, text (console), or html",
 )
+@click.option("-q", "--quiet", is_flag=True, help="Quiet mode (suppress recap)")
 @click.pass_context
 def apps_test(
     ctx: click.Context,
@@ -546,6 +558,7 @@ def apps_test(
     keep: bool,
     fail_fast: bool,
     report: str,
+    quiet: bool,
 ) -> None:
     """Test applications against a pre-deployed Hop3 server.
 
@@ -611,7 +624,7 @@ def apps_test(
         target_obj = RemoteTarget({"host": host})
 
     # Run tests
-    _run_app_tests(ctx, tests, target_obj, keep, fail_fast, report)
+    _run_app_tests(ctx, tests, target_obj, keep, fail_fast, report, quiet)
 
 
 def _run_system_tests(
@@ -621,11 +634,12 @@ def _run_system_tests(
     keep: bool,
     fail_fast: bool,
     report: str = "text",
+    quiet: bool = False,
 ) -> None:
     """Run system tests with full deployment."""
     verbose = ctx.obj["verbose"]
     store = ResultStore()
-    reporter = ConsoleReporter(verbose=verbose)
+    reporter = ConsoleReporter(verbose=verbose, quiet=quiet)
 
     try:
         click.echo("\nDeploying Hop3 via hop3-deploy...")
@@ -674,16 +688,22 @@ def _run_app_tests(
     keep: bool,
     fail_fast: bool,
     report: str = "text",
+    quiet: bool = False,
 ) -> None:
     """Run app tests against pre-deployed server."""
     verbose = ctx.obj["verbose"]
     store = ResultStore()
-    reporter = ConsoleReporter(verbose=verbose)
+    reporter = ConsoleReporter(verbose=verbose, quiet=quiet)
 
     try:
         click.echo("\nStarting test environment...")
         target.start()
+    except RuntimeError as e:
+        # Clean exit for expected errors (e.g., image not found)
+        click.echo(f"\nError: {e}", err=True)
+        sys.exit(1)
 
+    try:
         store.start_run(
             mode="apps",
             target_type="ready",
@@ -845,6 +865,67 @@ def _generate_reports(
 def _create_target(target_type: str, host: str | None) -> DeploymentTarget:
     """Create a deployment target (simple version)."""
     return _create_target_with_options(target_type=target_type, host=host)
+
+
+@cli.command("build-ready-image")
+@click.option("--tag", default="hop3-ready:latest", help="Image tag")
+@click.option("--no-cache", is_flag=True, help="Build without Docker cache")
+@click.pass_context
+def build_ready_image(ctx: click.Context, tag: str, no_cache: bool) -> None:
+    """Build the hop3-ready Docker image for app testing.
+
+    This builds a Docker image with Hop3 pre-installed and ready to use.
+    The image is used by 'hop3-test apps' for fast app testing.
+
+    Examples:
+        hop3-test-new build-ready-image                    # Build default image
+        hop3-test-new build-ready-image --tag my-hop3:v1   # Custom tag
+        hop3-test-new build-ready-image --no-cache         # Force rebuild
+    """
+    import subprocess
+
+    # Find project root and Dockerfile
+    root = ctx.obj["root"]
+    dockerfile_path = root / "packages" / "hop3-server" / "tests" / "d_e2e" / "docker" / "Dockerfile"
+
+    if not dockerfile_path.exists():
+        click.echo(f"Dockerfile not found at: {dockerfile_path}", err=True)
+        sys.exit(1)
+
+    click.echo(f"\n{'=' * 70}")
+    click.echo("Building hop3-ready Docker image")
+    click.echo(f"{'=' * 70}")
+    click.echo(f"\nDockerfile: {dockerfile_path}")
+    click.echo(f"Context: {root}")
+    click.echo(f"Tag: {tag}")
+    click.echo()
+
+    # Build command
+    cmd = [
+        "docker", "build",
+        "-f", str(dockerfile_path),
+        "-t", tag,
+    ]
+    if no_cache:
+        cmd.append("--no-cache")
+    cmd.append(str(root))
+
+    click.echo(f"Running: {' '.join(cmd)}\n")
+
+    try:
+        result = subprocess.run(cmd, check=True)
+        click.echo(f"\n{'=' * 70}")
+        click.echo(f"Successfully built: {tag}")
+        click.echo(f"{'=' * 70}")
+        click.echo("\nYou can now run:")
+        click.echo(f"  hop3-test-new apps           # Test all apps")
+        click.echo(f"  hop3-test-new apps 010-flask # Test specific app")
+    except subprocess.CalledProcessError as e:
+        click.echo(f"\nBuild failed with exit code {e.returncode}", err=True)
+        sys.exit(1)
+    except FileNotFoundError:
+        click.echo("Docker not found. Please install Docker.", err=True)
+        sys.exit(1)
 
 
 def _create_target_with_options(

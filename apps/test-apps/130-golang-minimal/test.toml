@@ -4,7 +4,7 @@
 name = "130-golang-minimal"
 category = "deployment"
 tier = "medium"
-priority = "P1"
+priority = "P0"
 description = "Minimal Go application without framework"
 
 [test.requirements]

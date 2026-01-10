@@ -4,7 +4,7 @@
 name = "100-flask-gunicorn-pip"
 category = "deployment"
 tier = "medium"
-priority = "P1"
+priority = "P0"
 description = "Flask application with Gunicorn and pip"
 
 [test.requirements]
