@@ -19,6 +19,7 @@ class ConsoleReporter:
     def __init__(
         self,
         verbose: bool = False,
+        quiet: bool = False,
         output: TextIO | None = None,
         color: bool = True,
     ):
@@ -26,10 +27,12 @@ class ConsoleReporter:
 
         Args:
             verbose: Whether to show detailed output
+            quiet: Whether to suppress recap (show only pass/fail summary)
             output: Output stream (defaults to stdout)
             color: Whether to use colored output
         """
         self.verbose = verbose
+        self.quiet = quiet
         self.output = output or sys.stdout
         self.color = color and hasattr(self.output, "isatty") and self.output.isatty()
 
@@ -109,6 +112,66 @@ class ConsoleReporter:
                         f"  - {r.test.name}: {r.error or 'validation failed'}",
                         file=self.output,
                     )
+
+        # Show recap unless quiet mode
+        if not self.quiet and results:
+            self._print_recap(results, total_duration)
+
+    def _print_recap(self, results: list[TestResult], total_duration: float) -> None:
+        """Print a recap of what was tested.
+
+        Args:
+            results: List of all test results
+            total_duration: Total time for all tests
+        """
+        print(file=self.output)
+        print(self._colorize("Recap:", "bold"), file=self.output)
+
+        # Group by category
+        by_category: dict[str, list[TestResult]] = {}
+        for r in results:
+            cat = r.test.category or "uncategorized"
+            if cat not in by_category:
+                by_category[cat] = []
+            by_category[cat].append(r)
+
+        # Group by tier
+        by_tier: dict[str, int] = {}
+        for r in results:
+            tier = r.test.tier or "unknown"
+            by_tier[tier] = by_tier.get(tier, 0) + 1
+
+        # Collect unique technologies/covers
+        technologies: set[str] = set()
+        for r in results:
+            if hasattr(r.test, "metadata") and r.test.metadata:
+                covers = getattr(r.test.metadata, "covers", []) or []
+                technologies.update(covers)
+
+        # Print category breakdown
+        for cat, cat_results in sorted(by_category.items()):
+            passed = sum(1 for r in cat_results if r.passed)
+            total = len(cat_results)
+            status = self._colorize("✓", "green") if passed == total else self._colorize("✗", "red")
+            print(f"  {status} {cat}: {passed}/{total} passed", file=self.output)
+
+        # Print tier breakdown
+        if len(by_tier) > 1:
+            tier_parts = [f"{tier}={count}" for tier, count in sorted(by_tier.items())]
+            print(f"  Tiers: {', '.join(tier_parts)}", file=self.output)
+
+        # Print technologies if available
+        if technologies:
+            tech_list = sorted(technologies)
+            if len(tech_list) > 10:
+                tech_str = ", ".join(tech_list[:10]) + f", ... (+{len(tech_list) - 10} more)"
+            else:
+                tech_str = ", ".join(tech_list)
+            print(f"  Covers: {tech_str}", file=self.output)
+
+        # Print timing info
+        avg_time = total_duration / len(results) if results else 0
+        print(f"  Avg time per test: {avg_time:.1f}s", file=self.output)
 
     def report_package_result(self, result: TestResult) -> None:
         """Report result of package validation.
