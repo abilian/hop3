@@ -1,0 +1,26 @@
+# Test definition for Go Gin app
+
+[test]
+name = "030-golang-gin"
+category = "deployment"
+tier = "fast"
+priority = "P0"
+description = "Go application using Gin framework"
+
+[test.requirements]
+targets = ["docker", "remote"]
+services = []
+
+[test.metadata]
+author = "hop3-team"
+covers = ["golang", "gin"]
+
+[deployment]
+path = "."
+type = "golang"
+
+[[validations]]
+type = "http"
+path = "/"
+[validations.expect]
+status = 200

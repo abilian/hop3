@@ -1454,6 +1454,7 @@ name = "hop3-testing"
 version = "0.4.0a1"
 source = { editable = "packages/hop3-testing" }
 dependencies = [
+    { name = "click" },
     { name = "devtools" },
     { name = "docker" },
     { name = "hop3-cli" },
@@ -1462,10 +1463,12 @@ dependencies = [
     { name = "paramiko" },
     { name = "pytest" },
     { name = "python-dotenv" },
+    { name = "sqlalchemy" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "click", specifier = ">=8.0.0" },
     { name = "devtools", specifier = ">=0.12.2" },
     { name = "docker", specifier = ">=7.0.0" },
     { name = "hop3-cli", editable = "packages/hop3-cli" },
@@ -1474,6 +1477,7 @@ requires-dist = [
     { name = "paramiko", specifier = ">=2.11.0,<3.0.0" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "sqlalchemy", specifier = ">=2.0.0" },
 ]
 
 [[package]]

@@ -1,0 +1,26 @@
+# Test definition for Node.js Express app
+
+[test]
+name = "020-nodejs-express"
+category = "deployment"
+tier = "fast"
+priority = "P0"
+description = "Basic Node.js Express application"
+
+[test.requirements]
+targets = ["docker", "remote"]
+services = []
+
+[test.metadata]
+author = "hop3-team"
+covers = ["nodejs", "express", "npm"]
+
+[deployment]
+path = "."
+type = "nodejs"
+
+[[validations]]
+type = "http"
+path = "/"
+[validations.expect]
+status = 200

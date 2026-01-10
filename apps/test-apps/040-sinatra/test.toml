@@ -1,0 +1,26 @@
+# Test definition for Ruby Sinatra app
+
+[test]
+name = "040-sinatra"
+category = "deployment"
+tier = "fast"
+priority = "P0"
+description = "Ruby application using Sinatra framework"
+
+[test.requirements]
+targets = ["docker", "remote"]
+services = []
+
+[test.metadata]
+author = "hop3-team"
+covers = ["ruby", "sinatra", "bundler"]
+
+[deployment]
+path = "."
+type = "ruby"
+
+[[validations]]
+type = "http"
+path = "/"
+[validations.expect]
+status = 200

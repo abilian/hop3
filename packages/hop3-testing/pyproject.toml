@@ -21,10 +21,17 @@ dependencies = [
     "httpx>=0.27.2",
     # Pin paramiko to 2.x for compatibility with sshtunnel (used in hop3-cli)
     "paramiko>=2.11.0,<3.0.0",
+    # CLI
+    "click>=8.0.0",
+    # Result storage
+    "sqlalchemy>=2.0.0",
 ]
 
 [project.scripts]
+# Original CLI (backwards compatibility)
 hop3-test = "hop3_testing.main:main"
+# New CLI with test.toml support
+hop3-test-new = "hop3_testing.cli:main"
 
 [build-system]
 requires = ["uv-build>=0.8.4,<0.9.0"]
