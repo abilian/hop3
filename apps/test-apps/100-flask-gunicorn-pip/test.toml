@@ -1,0 +1,26 @@
+# Test definition for Flask with Gunicorn
+
+[test]
+name = "100-flask-gunicorn-pip"
+category = "deployment"
+tier = "medium"
+priority = "P1"
+description = "Flask application with Gunicorn and pip"
+
+[test.requirements]
+targets = ["docker", "remote"]
+services = []
+
+[test.metadata]
+author = "hop3-team"
+covers = ["python", "flask", "gunicorn", "pip"]
+
+[deployment]
+path = "."
+type = "python"
+
+[[validations]]
+type = "http"
+path = "/"
+[validations.expect]
+status = 200

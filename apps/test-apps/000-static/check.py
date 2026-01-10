@@ -19,9 +19,9 @@ def check(hostname, port):
         port: The HTTP port to connect to
     """
     url = f"http://localhost:{port}/"
-    response = httpx.get(url, headers={"Host": hostname}, verify=False)
+    response = httpx.get(url, headers={"Host": hostname}, verify=False, follow_redirects=True)
     assert response.is_success, f"HTTP request failed with status {response.status_code}"
-    assert "Hello World!" in response.text, f"Expected 'Hello World!' in response, got: {response.text}"
+    assert "Hello World!" in response.text, f"Expected 'Hello World!' in response, got: {response.text[:200]}"
 
 
 if __name__ == "__main__":

@@ -2,6 +2,8 @@
 .PHONY: deploy deploy-docker clean-server clean-and-deploy
 .PHONY: test-all test-ci test-demos test-demos-docker test-demos-ssh
 .PHONY: test-tutorials test-tutorials-ssh test-installer build-installers
+.PHONY: test-dev test-ci-new test-nightly test-list test-run
+.PHONY: test-system test-system-clean test-apps test-app
 
 # For tests, set HOP3_DEV_HOST in your environment
 
@@ -181,6 +183,64 @@ test-tutorials-ssh:
 	@echo "--> Running tutorials on SSH backend"
 	./scripts/run-all-tutorials.sh
 	@echo ""
+
+#
+# New unified test runner (hop3-test-new)
+#
+
+## Run quick tests with new runner (fast, P0 only) - LEGACY
+test-dev:
+	@echo "--> Running dev tests (fast, P0)"
+	uv run hop3-test-new dev --target docker
+	@echo ""
+
+## Run CI tests with new runner (fast+medium, P0)
+test-ci-new:
+	@echo "--> Running CI tests (fast+medium, P0)"
+	uv run hop3-test-new ci --target docker
+	@echo ""
+
+## Run nightly tests with new runner (all tiers, all priorities)
+test-nightly:
+	@echo "--> Running nightly tests (all)"
+	uv run hop3-test-new nightly --target docker
+	@echo ""
+
+## List available tests
+test-list:
+	@uv run hop3-test-new list
+
+## Run specific tests by name
+test-run:
+	@echo "Usage: make test-run APPS='app1 app2'"
+	@echo "Example: make test-run APPS='010-flask-pip-wsgi 020-nodejs-express'"
+
+#
+# System and App Testing (NEW - uses hop3-deploy)
+#
+
+## Test Hop3 system with hop3-deploy (local code)
+test-system:
+	@echo "--> Testing Hop3 system (via hop3-deploy)"
+	uv run hop3-test-new system --deploy-from local
+	@echo ""
+
+## Test Hop3 system with clean install
+test-system-clean:
+	@echo "--> Testing Hop3 system (clean install)"
+	uv run hop3-test-new system --deploy-from local --clean
+	@echo ""
+
+## Test apps against pre-built image (fast, no deployment)
+test-apps:
+	@echo "--> Testing apps (pre-built image)"
+	uv run hop3-test-new apps
+	@echo ""
+
+## Test specific app
+test-app:
+	@echo "Usage: make test-app APP=010-flask-pip-wsgi"
+	@if [ -n "$(APP)" ]; then uv run hop3-test-new apps $(APP); fi
 
 #
 # Installer Testing
