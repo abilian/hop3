@@ -228,6 +228,70 @@ class DeploymentSession:
             traceback.print_exc()
             return False
 
+    def test_http_detailed(
+        self,
+        hostname: str | None = None,
+        path: str = "/",
+        expected_status: int = HTTPStatus.OK,
+        max_retries: int = 20,
+    ) -> dict[str, Any]:
+        """Test HTTP access and return detailed results.
+
+        Returns:
+            Dict with: passed, message, details (url, status, body preview, etc.)
+        """
+        result = {"passed": False, "message": "", "details": {}}
+
+        if not self.deployed:
+            result["message"] = "App not deployed yet"
+            return result
+
+        if hostname is None:
+            hostname = f"{self.app_name}.test.local"
+
+        target_info = self.target.info
+        http_port = target_info.http_base.split(":")[-1]
+        url = f"http://localhost:{http_port}{path}"
+
+        result["details"]["url"] = url
+        result["details"]["hostname"] = hostname
+        result["details"]["expected_status"] = expected_status
+
+        for attempt in range(max_retries):
+            try:
+                response = httpx.get(
+                    url,
+                    headers={"Host": hostname},
+                    timeout=2.0,
+                    follow_redirects=True,
+                )
+
+                result["details"]["status_code"] = response.status_code
+                result["details"]["attempts"] = attempt + 1
+
+                # Capture body preview
+                body = response.text[:500] if response.text else ""
+                result["details"]["body_preview"] = body
+
+                if response.status_code == expected_status:
+                    result["passed"] = True
+                    result["message"] = f"HTTP {response.status_code} from {url}"
+                    return result
+
+                if response.status_code == HTTPStatus.BAD_GATEWAY:
+                    time.sleep(0.5)
+                    continue
+
+                result["message"] = f"HTTP {response.status_code} (expected {expected_status})"
+                return result
+
+            except (httpx.HTTPError, httpx.ConnectError) as e:
+                result["details"]["last_error"] = str(e)
+                time.sleep(0.5)
+
+        result["message"] = f"HTTP test failed after {max_retries} attempts"
+        return result
+
     def test_http(
         self,
         hostname: str | None = None,
@@ -292,6 +356,58 @@ class DeploymentSession:
 
         print(f"✗ HTTP test failed after {max_retries} attempts")
         return False
+
+    def run_check_script_detailed(self) -> dict[str, Any]:
+        """Run the app's check.py script and return detailed results.
+
+        Returns:
+            Dict with: passed, message, details
+        """
+        result = {"passed": False, "message": "", "details": {}}
+
+        if not self.app.has_check_script:
+            result["passed"] = True
+            result["message"] = "No check script (skipped)"
+            return result
+
+        if not self.deployed:
+            result["message"] = "App not deployed yet"
+            return result
+
+        try:
+            hostname = f"{self.app_name}.test.local"
+            target_info = self.target.info
+            http_port = int(target_info.http_base.split(":")[-1])
+
+            check_script_path = self.app.path / "check.py"
+            result["details"]["script"] = str(check_script_path)
+            result["details"]["hostname"] = hostname
+            result["details"]["port"] = http_port
+
+            # Execute check script
+            ctx: dict[str, Any] = {}
+            exec(check_script_path.read_text(), ctx)
+
+            if "check" not in ctx:
+                result["message"] = "check() function not found in check.py"
+                return result
+
+            ctx["check"](hostname, http_port)
+            result["passed"] = True
+            result["message"] = f"check.py passed ({check_script_path.name})"
+            return result
+
+        except AssertionError as e:
+            result["message"] = f"Assertion failed: {e}"
+            result["details"]["error_type"] = "AssertionError"
+            result["details"]["error"] = str(e)
+            return result
+
+        except Exception as e:
+            result["message"] = f"Check script error: {e}"
+            result["details"]["error_type"] = type(e).__name__
+            result["details"]["error"] = str(e)
+            return result
 
     def run_check_script(self) -> bool:
         """Run the app's check.py script if it exists.
