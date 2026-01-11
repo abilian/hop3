@@ -2,9 +2,43 @@
 
 ## Overview
 
-Hop3 uses a comprehensive four-layer testing pyramid to ensure code quality, reliability, and security. This document describes the testing strategy, best practices, and guidelines for writing and running tests.
+Hop3 uses a comprehensive testing strategy combining two complementary approaches:
 
-## The Testing Pyramid
+1. **pytest-based Test Layers** - Traditional unit, integration, system, and E2E tests
+2. **Application Deployment Testing** - Testing real app deployments via `hop3-test-new`
+
+This document describes both approaches, their purposes, and how to use them effectively.
+
+## Testing Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Testing Strategy                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  pytest Layers              │  Application Testing (hop3-test-new)  │
+│  ─────────────              │  ────────────────────────────────────  │
+│                             │                                        │
+│  ┌─────────────┐            │  ┌─────────────────────────────────┐  │
+│  │   E2E       │ Slow       │  │  System Testing                 │  │
+│  │  (d_e2e/)   │            │  │  - Uses hop3-deploy             │  │
+│  ├─────────────┤            │  │  - Tests Hop3 installation      │  │
+│  │   System    │            │  │  - 5-8 known-good apps          │  │
+│  │ (c_system/) │            │  └─────────────────────────────────┘  │
+│  ├─────────────┤            │                                        │
+│  │ Integration │            │  ┌─────────────────────────────────┐  │
+│  │(b_integr./) │            │  │  Apps Testing                   │  │
+│  ├─────────────┤            │  │  - Uses pre-built image         │  │
+│  │   Unit      │ Fast       │  │  - Tests app deployments        │  │
+│  │  (a_unit/)  │            │  │  - 66+ test applications        │  │
+│  └─────────────┘            │  └─────────────────────────────────┘  │
+│                             │                                        │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Part 1: pytest Test Layers
+
+### The Testing Pyramid
 
 ```
            /\
@@ -34,7 +68,7 @@ Hop3 uses a comprehensive four-layer testing pyramid to ensure code quality, rel
 | System | ~20s | CLI ↔ Server | Docker | Before push |
 | E2E | 10-20min | Complete workflows | Docker + apps | CI/CD |
 
-## Layer 1: Unit Tests
+### Layer 1: Unit Tests
 
 **Location**: `packages/hop3-server/tests/a_unit/`
 
@@ -66,19 +100,7 @@ def test_backup_manager(di_container):
 pytest packages/hop3-server/tests/a_unit/ -v
 ```
 
-### Dependency Injection Testing
-
-Unit tests extensively use Hop3's Dishka DI system. See the [DI Testing Guide](di-testing-guide.md) for detailed patterns and best practices.
-
-**Key Principles**:
-- Use real services with in-memory database (not mocks)
-- Use pytest fixtures for container management
-- Use `di_container` fixture for core services
-- Use `create_container()` fixture for plugin services
-- No environment manipulation in tests (use `autouse` fixtures)
-- No unnecessary try/finally blocks (use fixtures)
-
-## Layer 2: Integration Tests
+### Layer 2: Integration Tests
 
 **Location**: `packages/hop3-server/tests/b_integration/`
 
@@ -123,7 +145,7 @@ def test_auth_login_flow(client, db):
 pytest packages/hop3-server/tests/b_integration/ -v
 ```
 
-## Layer 3: System Tests
+### Layer 3: System Tests
 
 **Location**: `packages/hop3-server/tests/c_system/`
 
@@ -143,113 +165,14 @@ pytest packages/hop3-server/tests/b_integration/ -v
 - App lifecycle (deploy, list, destroy)
 - Git hook deployment
 
-### Docker-Based Testing Infrastructure
-
-System tests automatically use Docker to provide an isolated, reproducible test environment:
-
+**Running**:
 ```bash
-# Tests automatically:
-# 1. Build hop3-e2e:test Docker image (if needed)
-# 2. Start container with hop3-server
-# 3. Wait for server to be ready
-# 4. Run tests against container
-# 5. Clean up container
-
-pytest packages/hop3-server/tests/c_system/ -v
-```
-
-The Docker image includes:
-- Complete hop3-server installation
-- SQLite database
-- Supervisor for process management
-- SSH and HTTP access
-- Test applications
-
-**Important**: Ensure `HOP3_DEV_HOST` is **not set** for Docker-based testing:
-```bash
+# Ensure HOP3_DEV_HOST is not set
 unset HOP3_DEV_HOST
 pytest packages/hop3-server/tests/c_system/ -v
 ```
 
-### HOP3_UNSAFE Mode
-
-For simplified testing in Docker environments, system and E2E tests use `HOP3_UNSAFE` mode to bypass authentication.
-
-**Configuration**:
-
-The Docker container is configured with:
-```bash
-# In .env file
-HOP3_UNSAFE=true
-```
-
-Or in `hop3-server.toml`:
-```toml
-[security]
-unsafe = true
-```
-
-**What HOP3_UNSAFE Does**:
-
-When `HOP3_UNSAFE=true`:
-1. Authentication middleware returns a mock admin user for all requests
-2. RPC handler skips authentication checks
-3. All commands are accessible without tokens
-4. All requests are treated as authenticated admin users
-
-**Security Warning**:
-
-⚠️ **CRITICAL SECURITY WARNING** ⚠️
-
-`HOP3_UNSAFE` completely disables authentication and authorization. This mode:
-- Must **NEVER** be used in production
-- Must **ONLY** be used in isolated test environments
-- Should **ONLY** be enabled in Docker containers used for testing
-- Grants **full admin access** to anyone who can reach the server
-
-The middleware includes explicit checks:
-```python
-# In middleware/auth.py
-if config.HOP3_UNSAFE:
-    # WARNING: This should ONLY be used in testing environments
-    return AuthCredentials(["authenticated", "admin"]), SimpleUser("unsafe-test-user")
-```
-
-**Verifying HOP3_UNSAFE is Disabled**:
-
-Before deploying to production, always verify:
-```bash
-# Check environment
-echo $HOP3_UNSAFE  # Should be empty or "false"
-
-# Check config file
-grep -i unsafe /etc/hop3/hop3-server.toml  # Should not exist or be false
-
-# Check running server
-curl http://localhost:8080/health  # Should require authentication
-```
-
-### Remote Server Diagnostics (Optional)
-
-Some tests can optionally run against a remote server for diagnostics:
-```bash
-# Only for remote server diagnostics
-export HOP3_DEV_HOST=hop3@test-server.example.com
-pytest packages/hop3-server/tests/c_system/test_connection.py -v
-```
-
-This is **not** part of the standard test suite and is only for testing actual remote deployments.
-
-**Running**:
-```bash
-# Standard Docker-based tests
-pytest packages/hop3-server/tests/c_system/ -v
-
-# With verbose output
-pytest packages/hop3-server/tests/c_system/ -v -s
-```
-
-## Layer 4: E2E Tests
+### Layer 4: E2E Tests
 
 **Location**: `packages/hop3-server/tests/d_e2e/`
 
@@ -269,63 +192,337 @@ pytest packages/hop3-server/tests/c_system/ -v -s
 - Git hook deployment
 - Security tests
 
-**Infrastructure**:
-
-E2E tests use a comprehensive Docker setup:
-- `hop3-e2e:test` image with full installation
-- Supervisor for process management (not systemd)
-- Real nginx/caddy/traefik proxy
-- Real application deployments
-- Network isolation
-
 **Running**:
 ```bash
-# Install Docker requirements
-pip install -r packages/hop3-server/tests/d_e2e/requirements.txt
-
-# Run E2E tests
 pytest packages/hop3-server/tests/d_e2e/ -v
-
-# Run specific test
-pytest packages/hop3-server/tests/d_e2e/test_flask_app.py -v
 ```
 
-### E2E Test Suite Consolidation
+---
 
-**Status**: As of October 2025, Hop3 is consolidating its E2E test suites to reduce duplication and improve testing efficiency.
+## Part 2: Application Deployment Testing (hop3-test-new)
 
-**Two E2E Frameworks**:
+The `hop3-test-new` CLI provides a dedicated system for testing application deployments against Hop3. This complements the pytest layers by focusing on real-world deployment scenarios.
 
-1. **`packages/hop3-testing/tests/`** (Legacy Framework)
-   - Uses DeploymentTarget abstraction
-   - Supports Docker and remote server targets
-   - **Status**: Deprecated for E2E testing, preserved as library
+### Architecture
 
-2. **`packages/hop3-server/tests/d_e2e/`** (Modern Framework)
-   - Docker-focused with comprehensive fixtures
-   - Better infrastructure and cleanup
-   - Includes proxy plugin testing
-   - **Status**: Primary E2E test suite
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                       hop3-test-new                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌───────────────┐    ┌───────────────┐    ┌───────────────┐       │
+│  │  Test Catalog │    │  Test Runner  │    │   Reporters   │       │
+│  │  - Scans apps │    │  - Deploys    │    │  - Console    │       │
+│  │  - test.toml  │    │  - Validates  │    │  - HTML       │       │
+│  │  - Selection  │    │  - Cleanup    │    │  - Recap      │       │
+│  └───────┬───────┘    └───────┬───────┘    └───────────────┘       │
+│          │                    │                                      │
+│          └────────────────────┼──────────────────────────────────┐  │
+│                               │                                   │  │
+│  ┌────────────────────────────┴────────────────────────────────┐ │  │
+│  │                    Deployment Targets                        │ │  │
+│  ├──────────────────┬──────────────────┬──────────────────────┤ │  │
+│  │ DockerDeployTarget│   ReadyTarget    │   RemoteTarget      │ │  │
+│  │ - hop3-deploy    │ - Pre-built img  │ - SSH to server     │ │  │
+│  │ - Fresh install  │ - Fast startup   │ - Existing Hop3     │ │  │
+│  │ - System testing │ - App testing    │ - Production test   │ │  │
+│  └──────────────────┴──────────────────┴──────────────────────┘ │  │
+│                                                                   │  │
+└───────────────────────────────────────────────────────────────────┘  │
+```
 
-**Migration Status**:
+### Test Catalog System
 
-The following tests have been deprecated and migrated to d_e2e:
-- `test_deploy_basic_app()` → `test_python_deployment.py` and `test_full_deployment.py`
-- `test_deploy_all_simple_apps()` → `test_full_deployment.py`
-- `test_static_app_deployment()` → `test_static_deployment.py`
-- `test_flask_app_deployment()` → `test_python_deployment.py` and `test_full_deployment.py`
+The test catalog discovers and manages test applications using `test.toml` configuration files.
 
-Tests in `packages/hop3-testing/tests/test_basic_apps.py` are now marked as skipped with references to their d_e2e equivalents.
+#### Test App Directory Structure
 
-**Benefits**:
-- 20-40% reduction in E2E test execution time
-- Single, consistent E2E framework
-- Clearer test organization
-- Easier maintenance
+```
+apps/test-apps/
+├── 000-static/
+│   ├── index.html
+│   ├── Procfile
+│   └── test.toml          # Test configuration
+├── 010-flask-pip-wsgi/
+│   ├── app.py
+│   ├── requirements.txt
+│   ├── Procfile
+│   └── test.toml
+├── 020-nodejs-express/
+│   ├── app.js
+│   ├── package.json
+│   └── test.toml
+└── ...
+```
 
-**For Details**: See `local-notes/TEST-SUITE-CONSOLIDATION.md` for complete analysis and migration plan.
+#### test.toml Configuration
 
-## Best Practices
+```toml
+# Test definition for Flask app with pip and uWSGI
+
+[test]
+name = "010-flask-pip-wsgi"
+category = "deployment"        # deployment, demo, tutorial
+tier = "fast"                  # fast, medium, slow, very-slow
+priority = "P0"                # P0 (critical), P1 (important), P2 (nice-to-have)
+description = "Basic Flask application with pip dependencies and uWSGI"
+
+[test.requirements]
+targets = ["docker", "remote"]  # Supported targets
+services = []                   # Required services: postgresql, mysql, redis
+
+[test.metadata]
+author = "hop3-team"
+covers = ["python", "flask", "pip", "uwsgi"]  # Technologies tested
+
+[deployment]
+path = "."                     # Path to app within test dir
+type = "python"                # App type hint
+
+# Validation rules
+[[validations]]
+type = "http"
+path = "/"
+[validations.expect]
+status = 200
+contains = "Hello"
+
+[[validations]]
+type = "http"
+path = "/api/health"
+[validations.expect]
+status = 200
+content_type = "application/json"
+```
+
+### Test Modes
+
+Test modes define which tests to run based on tier and priority:
+
+| Mode | Tiers | Priorities | Categories | Use Case |
+|------|-------|------------|------------|----------|
+| `dev` | fast | P0 | deployment | Quick developer verification |
+| `ci` | fast, medium | P0 | deployment, demo | CI pipeline |
+| `nightly` | fast, medium, slow | P0, P1 | all | Nightly comprehensive |
+| `release` | all | all | all | Release validation |
+
+```bash
+# Dev mode (default) - ~90 seconds, 5 tests
+hop3-test-new system
+
+# CI mode - ~150 seconds, 8 tests
+hop3-test-new system --mode ci
+
+# Full release validation
+hop3-test-new system --mode release
+```
+
+### Deployment Targets
+
+#### DockerDeployTarget (System Testing)
+
+Uses `hop3-deploy --docker` to create a fresh Hop3 installation for each test run.
+
+**Use case**: Testing Hop3 itself (installation, deployment pipeline)
+
+```bash
+hop3-test-new system                    # Default: deploy local code
+hop3-test-new system --deploy-from git  # Deploy from git
+hop3-test-new system --clean            # Clean install
+```
+
+**What happens**:
+1. Starts Docker container (ubuntu:24.04)
+2. Runs `hop3-deploy --docker --local` to install Hop3
+3. Starts services (nginx, PostgreSQL, uWSGI emperor, hop3-server)
+4. Runs test apps sequentially
+5. Collects diagnostics on failure
+6. Cleans up container
+
+#### ReadyTarget (App Testing)
+
+Uses a pre-built Docker image (`hop3-ready:latest`) with Hop3 already installed.
+
+**Use case**: Testing applications (fast iteration, skip installation)
+
+```bash
+# Build the image first (one-time)
+hop3-test-new build-ready-image
+
+# Run app tests
+hop3-test-new apps                      # All apps
+hop3-test-new apps 010-flask-pip-wsgi   # Specific app
+hop3-test-new apps --category python    # By category
+```
+
+**What happens**:
+1. Starts container from `hop3-ready:latest`
+2. Services already running
+3. Runs test apps sequentially
+4. Validates HTTP endpoints
+5. Cleans up apps between tests
+
+#### RemoteTarget (Remote Server Testing)
+
+Tests against an existing Hop3 server via SSH.
+
+**Use case**: Testing against real servers, staging validation
+
+```bash
+hop3-test-new apps --target remote --host server.example.com
+```
+
+### Test Execution Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Test Execution Flow                           │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  1. Catalog Scan                                                     │
+│     ├── Discover test.toml files                                    │
+│     ├── Parse configurations                                        │
+│     └── Build test list                                             │
+│                                                                      │
+│  2. Test Selection                                                   │
+│     ├── Apply mode filters (tier, priority)                         │
+│     ├── Apply category filters                                      │
+│     └── Apply target compatibility                                  │
+│                                                                      │
+│  3. Target Setup                                                     │
+│     ├── Start Docker container (or connect to remote)               │
+│     ├── Wait for services ready                                     │
+│     └── Verify hop3-server responding                               │
+│                                                                      │
+│  4. For Each Test:                                                   │
+│     ├── Prepare app (copy to temp dir, init git)                    │
+│     ├── Deploy (hop3 app:deploy)                                    │
+│     ├── Verify deployment (hop3 apps)                               │
+│     ├── Run validations (HTTP checks, custom scripts)               │
+│     ├── Collect diagnostics on failure                              │
+│     └── Cleanup (hop3 app:destroy)                                  │
+│                                                                      │
+│  5. Reporting                                                        │
+│     ├── Print results (PASS/FAIL per test)                          │
+│     ├── Summary (total passed/failed, duration)                     │
+│     ├── Recap (categories, tiers, technologies)                     │
+│     └── Save diagnostic logs                                        │
+│                                                                      │
+│  6. Cleanup                                                          │
+│     └── Stop container (unless --keep)                              │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Validation Types
+
+#### HTTP Validation
+
+```toml
+[[validations]]
+type = "http"
+path = "/"
+method = "GET"                 # GET, POST, etc.
+[validations.expect]
+status = 200
+contains = "Hello World"       # Body contains string
+content_type = "text/html"     # Content-Type header
+```
+
+#### Custom Script Validation
+
+Apps can include a `check.py` script for custom validation:
+
+```python
+# check.py
+import httpx
+
+def check(hostname: str, port: int) -> bool:
+    """Custom validation logic."""
+    response = httpx.get(
+        f"http://{hostname}:{port}/api/health",
+        follow_redirects=True
+    )
+    data = response.json()
+    return data.get("status") == "healthy"
+```
+
+### Diagnostic Collection
+
+When tests fail, the system collects diagnostic information:
+
+```
+test-logs/
+└── 20260110_155610/
+    └── system-hop3-test-docker/
+        ├── diagnostics.json      # Structured diagnostics
+        ├── phases.json           # Phase timing
+        ├── nginx-error.log       # nginx logs
+        ├── nginx-access.log
+        ├── uwsgi.log             # uWSGI emperor logs
+        ├── hop3-server.log       # Server logs
+        └── app-specific/
+            └── 010-flask.log     # Per-app logs
+```
+
+Diagnostic phases:
+- `setup` - Target initialization
+- `deploy` - Deployment command
+- `service_start` - Service startup
+- `health_check` - Health verification
+- `validation` - Test validations
+
+### Test Output
+
+#### Console Output
+
+```
+======================================================================
+SYSTEM TESTING MODE
+Testing Hop3 itself with known-good applications
+======================================================================
+
+Deploy from: local
+Test mode: ci (CI tests (fast+medium + P0 + deployment/demo))
+Clean install: False
+Tests to run: 8
+
+Deploying Hop3 via hop3-deploy...
+[... deployment output ...]
+
+[000-static] Deploying 000-static-1768057582...
+✓ HTTP test passed (status: 200)
+[PASS] 000-static (7.17s)
+
+[010-flask-pip-wsgi] Deploying 010-flask-pip-wsgi-1768057589...
+✓ HTTP test passed (status: 200)
+[PASS] 010-flask-pip-wsgi (17.21s)
+
+...
+
+============================================================
+All 8 tests passed!
+Total time: 148.55s
+============================================================
+
+Recap:
+  ✓ deployment: 8/8 passed
+  Tiers: fast=5, medium=3
+  Covers: flask, go, golang, gunicorn, minimal, nginx, nodejs, pip, poetry, ...
+  Avg time per test: 18.6s
+```
+
+#### Quiet Mode
+
+Use `-q/--quiet` to suppress the recap:
+
+```bash
+hop3-test-new apps -q
+```
+
+---
+
+## Part 3: Best Practices
 
 ### Writing Tests
 
@@ -334,6 +531,14 @@ Tests in `packages/hop3-testing/tests/test_basic_apps.py` are now marked as skip
 3. **Use descriptive names**: `test_user_cannot_delete_other_users_apps()`
 4. **Arrange-Act-Assert**: Structure tests clearly
 5. **Avoid test interdependence**: Tests should be independent and order-agnostic
+
+### Creating Test Apps
+
+1. **Keep apps minimal**: Only include what's needed to test the deployment
+2. **Use meaningful names**: `010-flask-pip-wsgi` describes the stack
+3. **Include test.toml**: Define clear validation criteria
+4. **Set appropriate tier/priority**: fast+P0 for core functionality
+5. **Document covers**: List technologies being tested
 
 ### Test Naming Conventions
 
@@ -377,53 +582,32 @@ def test_app_name_validation(app_name, valid):
     assert is_valid_app_name(app_name) == valid
 ```
 
-### Mocking
+---
 
-Use mocking appropriately in unit tests:
-
-```python
-from unittest.mock import patch, MagicMock
-
-def test_deploy_calls_git_clone():
-    """Test that deploy() calls git clone."""
-    with patch('subprocess.run') as mock_run:
-        deploy_from_git("https://github.com/user/repo.git")
-        mock_run.assert_called_once()
-        args = mock_run.call_args[0][0]
-        assert "git" in args
-        assert "clone" in args
-```
-
-## Running Tests
+## Part 4: Running Tests
 
 ### Quick Commands
 
 ```bash
-# All tests (unit + integration only)
-pytest
+# All unit + integration tests
+make test
 
-# All tests including system/E2E
-pytest packages/hop3-server/tests/
+# System tests (Hop3 deployment testing)
+make test-system
 
-# Specific layer
+# App tests (all 66 apps)
+make test-apps
+
+# Specific pytest layer
 pytest packages/hop3-server/tests/a_unit/
 pytest packages/hop3-server/tests/b_integration/
 pytest packages/hop3-server/tests/c_system/
 pytest packages/hop3-server/tests/d_e2e/
 
-# Specific test file
-pytest packages/hop3-server/tests/a_unit/test_app.py
-
-# Specific test
-pytest packages/hop3-server/tests/a_unit/test_app.py::test_app_name_validation
-
 # With coverage
 pytest --cov=hop3 --cov-report=html
 
 # Verbose output
-pytest -v
-
-# Show print statements
 pytest -v -s
 
 # Stop on first failure
@@ -439,71 +623,57 @@ pytest --lf
 # Install dependencies
 uv sync
 
-# Install test dependencies
-uv sync --dev
-
 # Ensure HOP3_DEV_HOST is not set (for Docker tests)
 unset HOP3_DEV_HOST
 
-# Set up test database (if needed)
-export HOP3_DB_URL=sqlite:///:memory:
+# Build ready image for app testing
+uv run hop3-test-new build-ready-image
 ```
 
-## Continuous Integration
+---
 
-### Pre-commit Checks
+## Part 5: Continuous Integration
 
-Before committing:
-```bash
-# Run fast tests
-pytest packages/hop3-server/tests/a_unit/ packages/hop3-server/tests/b_integration/
+### Recommended CI Pipeline
 
-# Run linting
-make lint
+```yaml
+# Stage 1: Fast Feedback (every commit)
+fast-tests:
+  - make lint
+  - make test  # Unit + integration
 
-# Run type checking
-make typecheck
+# Stage 2: System Tests (every push/PR)
+system-tests:
+  - make test-system  # Dev mode, 5 apps, ~2min
+
+# Stage 3: Full App Tests (merge to main)
+app-tests:
+  - hop3-test-new build-ready-image
+  - make test-apps  # 66 apps, ~14min
+
+# Stage 4: Nightly
+nightly:
+  - hop3-test-new system --mode nightly
 ```
 
-### Pre-push Checks
+### Current CI (SourceHut)
 
-Before pushing:
-```bash
-# Run system tests
-pytest packages/hop3-server/tests/c_system/
+- Unit tests
+- Integration tests
+- Linting and type checking
 
-# Run all tests
-make test
-```
+See: <https://builds.sr.ht/~sfermigier/hop3/>
 
-### CI/CD Pipeline
+---
 
-Recommended CI/CD stages:
+## Part 6: Coverage Targets
 
-1. **Fast Feedback** (every commit):
-   - Unit tests
-   - Integration tests
-   - Linting
-   - Type checking
-
-2. **Medium Checks** (every push):
-   - System tests (Docker)
-   - Code coverage
-   - Security scans
-
-3. **Full Validation** (scheduled/release):
-   - E2E tests
-   - Performance tests
-   - Security audits
-
-## Coverage Targets
-
-| Component | Target | Current |
-|-----------|--------|---------|
-| Overall | > 75% | ~70% |
-| Core modules | > 85% | ~80% |
-| Commands | > 90% | ~85% |
-| Plugins | > 70% | ~65% |
+| Component | Target | Notes |
+|-----------|--------|-------|
+| Overall | > 75% | Combined pytest coverage |
+| Core modules | > 85% | hop3/core/, hop3/orm/ |
+| Commands | > 90% | hop3/commands/ |
+| Plugins | > 70% | hop3/plugins/ |
 
 View coverage:
 ```bash
@@ -511,59 +681,57 @@ pytest --cov=hop3 --cov-report=html
 open htmlcov/index.html
 ```
 
-## Troubleshooting
+---
+
+## Part 7: Troubleshooting
+
+### "Image hop3-ready:latest not found"
+
+```bash
+uv run hop3-test-new build-ready-image
+```
 
 ### Tests Hang
 
-- Check Docker daemon is running
-- Check for background processes
-- Use `-v -s` to see progress
-- Check logs: `docker logs <container-id>`
+- Check Docker daemon: `docker ps`
+- Use verbose mode: `pytest -v -s` or `hop3-test-new apps -v`
+- Check container logs: `docker logs hop3-app-test`
+- Check for zombie containers: `docker ps -a | grep hop3`
 
 ### Import Errors
 
 ```bash
-# Reinstall dependencies
 uv sync
-
-# Check PYTHONPATH
-echo $PYTHONPATH
-
-# Install in editable mode
-uv pip install -e packages/hop3-server/
 ```
-
-### Database Errors
-
-- Unit/integration tests use in-memory SQLite (no setup needed)
-- System/E2E tests use SQLite in Docker (automatic)
-- Check database file permissions
 
 ### Docker Issues
 
 ```bash
-# Check Docker is running
-docker ps
-
-# Rebuild test image
-docker build -f packages/hop3-server/tests/d_e2e/docker/Dockerfile -t hop3-e2e:test .
-
 # Clean up containers
-docker ps -a | grep hop3 | awk '{print $1}' | xargs docker rm -f
+docker rm -f hop3-app-test hop3-system-test
 
-# Check container logs
-docker logs <container-id>
+# Clean up images
+docker rmi hop3-ready:latest
+
+# Rebuild
+uv run hop3-test-new build-ready-image
 ```
 
-### Authentication Issues in Tests
+### Authentication Issues
 
-If tests fail with authentication errors:
+For Docker tests, `HOP3_UNSAFE=true` is set in the container. If tests fail with auth errors:
+1. Check the Dockerfile includes `HOP3_UNSAFE=true`
+2. Check the container started correctly
 
-1. **For Docker tests**: Verify `HOP3_UNSAFE=true` is set in Dockerfile
-2. **For remote tests**: Ensure you have valid token in `~/.config/hop3-cli/config.toml`
-3. **Check environment**: `env | grep HOP3`
+---
 
-## Security Testing
+## Part 8: Security Testing
+
+### HOP3_UNSAFE Mode
+
+For testing in Docker environments, `HOP3_UNSAFE=true` bypasses authentication.
+
+**Warning**: Never use in production. Only for isolated test environments.
 
 ### Testing Authentication
 
@@ -579,10 +747,7 @@ def test_unauthenticated_request_fails():
 ```python
 def test_non_admin_cannot_create_users():
     """Test that non-admin users cannot create users."""
-    # Login as regular user
     token = login_as_user("regular-user")
-
-    # Try to create user
     response = client.post(
         "/rpc",
         headers={"Authorization": f"Bearer {token}"},
@@ -591,56 +756,12 @@ def test_non_admin_cannot_create_users():
     assert response.status_code == 403
 ```
 
-### Testing Input Validation
-
-```python
-def test_sql_injection_prevented():
-    """Test that SQL injection attempts are prevented."""
-    response = client.post("/rpc", json={
-        "method": "app:list",
-        "params": {"name": "'; DROP TABLE apps; --"}
-    })
-    # Should not cause error, should return empty result
-    assert response.status_code == 200
-```
-
-## Performance Testing
-
-### Load Testing (Future)
-
-```bash
-# Using locust
-locust -f tests/load/locustfile.py
-
-# Using hey
-hey -n 1000 -c 10 http://localhost:8080/health
-```
-
-### Resource Monitoring
-
-```bash
-# Monitor during tests
-docker stats
-
-# Check memory usage
-pytest --memray
-```
-
-## Future Improvements
-
-1. **Coverage**: Increase overall coverage to 80%+
-2. **Performance**: Add benchmark tests
-3. **Chaos**: Add chaos engineering tests
-4. **Security**: Add automated security scanning
-5. **Load**: Add load testing suite
-6. **Mutation**: Add mutation testing
+---
 
 ## References
 
-- [DI Testing Guide](di-testing-guide.md) - Dependency injection testing patterns and best practices
-- [TEST-STATUS.md](/notes/test-status.md) - Current test status
-- [PROJECT-STATUS.md](/notes/current-status.md) - Overall project status
-- [ADR 092](/notes/adrs/092-pluggy-dishka-integration.md) - Pluggy+Dishka integration architecture
+- [Testing Quick Start](testing.md) - Quick reference guide
+- [DI Testing Guide](di-testing-guide.md) - Dependency injection testing patterns
+- [Test Status](/notes/test-status.md) - Current test status
 - [pytest documentation](https://docs.pytest.org/)
 - [Dishka documentation](https://dishka.readthedocs.io/)
-- [Testing Best Practices](https://testdriven.io/blog/testing-best-practices/)

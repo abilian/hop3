@@ -1,0 +1,77 @@
+# Dockerfile for hop3 system testing
+# This installs OS packages in cacheable layers.
+#
+# Docker automatically caches unchanged layers, so rebuilds are fast
+# unless package lists change.
+#
+# Build: docker build -f Dockerfile.base -t hop3-test:latest .
+# Run:   docker run -d --name hop3-test hop3-test:latest
+
+FROM ubuntu:24.04
+
+# Avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Layer 1: Update apt cache (invalidated if base image changes)
+RUN apt-get update
+
+# Layer 2: Essential tools (rarely changes)
+RUN apt-get install -y --no-install-recommends \
+    python3 \
+    python3-venv \
+    python3-dev \
+    git \
+    curl \
+    sudo \
+    ca-certificates
+
+# Layer 3: Build tools (rarely changes)
+RUN apt-get install -y --no-install-recommends \
+    build-essential \
+    libffi-dev \
+    libssl-dev
+
+# Layer 4: Network/SSH tools (rarely changes)
+RUN apt-get install -y --no-install-recommends \
+    openssh-server \
+    openssh-client \
+    gnupg
+
+# Layer 5: Web and database servers (may change with new features)
+RUN apt-get install -y --no-install-recommends \
+    nginx \
+    postgresql \
+    postgresql-contrib
+
+# Layer 6: Utilities (cleanup)
+RUN apt-get install -y --no-install-recommends \
+    procps \
+    net-tools \
+    iproute2 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Layer 7: Setup SSH
+RUN mkdir -p /run/sshd
+
+# Layer 8: Create hop3 user
+RUN groupadd -g 1000 hop3 \
+    && useradd -m -u 1000 -g hop3 -s /bin/bash hop3 \
+    && echo 'hop3 ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/hop3 \
+    && chmod 440 /etc/sudoers.d/hop3
+
+# Layer 9: Pre-create directories
+RUN mkdir -p /home/hop3/.ssh \
+    && mkdir -p /home/hop3/venv \
+    && mkdir -p /home/hop3/apps \
+    && mkdir -p /home/hop3/repos \
+    && mkdir -p /home/hop3/envs \
+    && mkdir -p /home/hop3/logs \
+    && mkdir -p /home/hop3/nginx-enabled \
+    && mkdir -p /home/hop3/uwsgi-enabled \
+    && mkdir -p /var/log/uwsgi \
+    && chown -R hop3:hop3 /home/hop3 \
+    && chown -R hop3:hop3 /var/log/uwsgi
+
+# Keep container running
+CMD ["sleep", "infinity"]

@@ -112,13 +112,16 @@ class DeploymentTestRunner:
                         error=f"Deploy failed: {deploy_logs}",
                     )
 
-                # Capture success
+                # Capture success with details
+                deploy_duration = time.time() - start_time
+                deploy_logs = f"Deployed {session.app_name} in {deploy_duration:.1f}s"
                 validation_results.append(
                     ValidationResult(
                         passed=True,
-                        message="Deployment succeeded",
-                        duration=time.time() - start_time,
+                        message=f"Deployed {session.app_name} ({deploy_duration:.1f}s)",
+                        duration=deploy_duration,
                         validation_type="deploy",
+                        details={"app_name": session.app_name},
                     )
                 )
 
@@ -135,7 +138,7 @@ class DeploymentTestRunner:
                 validation_results.append(
                     ValidationResult(
                         passed=True,
-                        message="App appears in deployment list",
+                        message=f"Found {session.app_name} in app list",
                         duration=0.0,
                         validation_type="deploy_check",
                     )
@@ -144,49 +147,47 @@ class DeploymentTestRunner:
                 # Run HTTP test if app has Procfile
                 if app_source.has_procfile:
                     http_start = time.time()
-                    http_passed = session.test_http()
+                    http_result = session.test_http_detailed()
                     validation_results.append(
                         ValidationResult(
-                            passed=http_passed,
-                            message="HTTP test passed"
-                            if http_passed
-                            else "HTTP test failed",
+                            passed=http_result["passed"],
+                            message=http_result["message"],
                             duration=time.time() - http_start,
                             validation_type="http",
+                            details=http_result.get("details"),
                         )
                     )
 
-                    if not http_passed:
+                    if not http_result["passed"]:
                         return TestResult(
                             test=test,
                             passed=False,
                             validation_results=validation_results,
                             total_duration=time.time() - start_time,
-                            error="HTTP test failed",
+                            error=http_result["message"],
                         )
 
                 # Run check script if present
                 if app_source.has_check_script:
                     check_start = time.time()
-                    check_passed = session.run_check_script()
+                    check_result = session.run_check_script_detailed()
                     validation_results.append(
                         ValidationResult(
-                            passed=check_passed,
-                            message="Check script passed"
-                            if check_passed
-                            else "Check script failed",
+                            passed=check_result["passed"],
+                            message=check_result["message"],
                             duration=time.time() - check_start,
                             validation_type="check_script",
+                            details=check_result.get("details"),
                         )
                     )
 
-                    if not check_passed:
+                    if not check_result["passed"]:
                         return TestResult(
                             test=test,
                             passed=False,
                             validation_results=validation_results,
                             total_duration=time.time() - start_time,
-                            error="Check script failed",
+                            error=check_result["message"],
                         )
 
                 # Run additional validations from test.toml
