@@ -8,7 +8,7 @@ This plugin supports macOS (all versions) using Homebrew for package management.
 
 from __future__ import annotations
 
-import os
+import pathlib
 import platform
 import subprocess
 
@@ -134,7 +134,7 @@ class MacOSStrategy(BaseOSStrategy):
 
         # Find next available UID (start from 501, which is standard for macOS user accounts)
         uid = 501
-        while os.path.exists(f"/Users/{user}"):
+        while pathlib.Path(f"/Users/{user}").exists():
             uid += 1
 
         # Create user

@@ -107,7 +107,7 @@ class BackupManifest:
         Returns:
             BackupManifest instance
         """
-        with open(path) as f:
+        with Path(path).open() as f:
             data = json.load(f)
         return cls.from_json(data)
 
@@ -117,7 +117,7 @@ class BackupManifest:
         Args:
             path: Path where to write metadata.json
         """
-        with open(path, "w") as f:
+        with Path(path).open("w") as f:
             json.dump(self.to_json(), f, indent=2)
 
 
@@ -534,7 +534,7 @@ class BackupManager:
             env_data[env_var.name] = env_var.value
 
         env_path = backup_dir / "env.json"
-        with open(env_path, "w") as f:
+        with Path(env_path).open("w") as f:
             json.dump(env_data, f, indent=2)
 
         # Set restrictive permissions for sensitive data
@@ -660,7 +660,7 @@ class BackupManager:
             log("Warning: No environment backup found")
             return
 
-        with open(env_path) as f:
+        with Path(env_path).open() as f:
             env_data = json.load(f)
 
         # Clear existing env vars
@@ -752,7 +752,7 @@ class BackupManager:
             Hex string of SHA256 checksum
         """
         sha256 = hashlib.sha256()
-        with open(file_path, "rb") as f:
+        with Path(file_path).open("rb") as f:
             for chunk in iter(lambda: f.read(8192), b""):
                 sha256.update(chunk)
         return f"sha256:{sha256.hexdigest()}"

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import io
-import os
 import shutil
 import stat
 import tarfile
@@ -51,7 +50,7 @@ def _robust_rmtree(path: Path) -> None:
         # If it's a permission error, try to fix permissions and retry
         if isinstance(exc_info[1], PermissionError):
             try:
-                os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                Path(path).chmod(stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
                 func(path)
                 return
             except OSError:
@@ -97,7 +96,7 @@ def _prepare_target_directory(target_dir: Path) -> None:
                     item.unlink()
                 except PermissionError:
                     # Try fixing permissions and retry
-                    os.chmod(item, stat.S_IRWXU)
+                    Path(item).chmod(stat.S_IRWXU)
                     item.unlink()
     else:
         # Create the directory if it doesn't exist

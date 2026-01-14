@@ -10,6 +10,7 @@ This plugin supports:
 
 from __future__ import annotations
 
+import pathlib
 import platform
 import subprocess
 
@@ -164,7 +165,7 @@ class BSDStrategy(BaseOSStrategy):
         # Enable services based on BSD variant
         if system == "FreeBSD":
             # FreeBSD uses rc.conf
-            with open("/etc/rc.conf", "a") as f:
+            with pathlib.Path("/etc/rc.conf").open("a") as f:
                 f.write("\n# hop3 services\n")
                 f.write('nginx_enable="YES"\n')
                 f.write('postgresql_enable="YES"\n')

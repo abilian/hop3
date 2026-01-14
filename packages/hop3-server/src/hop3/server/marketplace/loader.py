@@ -26,7 +26,7 @@ def load_app(app_dir: Path) -> MarketplaceApp | None:
         return None
 
     try:
-        with open(toml_path, "rb") as f:
+        with Path(toml_path).open("rb") as f:
             data = tomllib.load(f)
     except tomllib.TOMLDecodeError as e:
         print(f"  Warning: Skipping {app_dir.name} - TOML parse error: {e}")

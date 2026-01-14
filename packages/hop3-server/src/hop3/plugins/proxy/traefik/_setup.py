@@ -236,7 +236,7 @@ class TraefikVirtualHost(BaseProxy):
         # Traefik doesn't have a built-in validate command for individual files
         # We can do basic YAML syntax checking
         try:
-            with open(self.traefik_conf_path) as f:
+            with Path(self.traefik_conf_path).open() as f:
                 yaml.safe_load(f)
             log(
                 f"Traefik config validation passed for {self.traefik_conf_path}",

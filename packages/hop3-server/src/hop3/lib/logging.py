@@ -194,6 +194,6 @@ def get_recent_logs(lines: int = 100) -> list[str]:
     if not DEFAULT_LOG_FILE.exists():
         return []
 
-    with open(DEFAULT_LOG_FILE) as f:
+    with Path(DEFAULT_LOG_FILE).open() as f:
         all_lines = f.readlines()
         return all_lines[-lines:]

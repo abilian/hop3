@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from io import StringIO
 from pathlib import Path
@@ -141,11 +140,11 @@ class BaseOSStrategy:
             target: File or directory the symlink points to
         """
         # Remove existing symlink or file
-        if os.path.exists(path) or os.path.islink(path):
-            os.unlink(path)
+        if Path(path).exists() or Path(path).is_symlink():
+            Path(path).unlink()
 
         # Create new symlink
-        os.symlink(target, path)
+        Path(path).symlink_to(target)
 
     def read_os_release(self) -> dict[str, str]:
         """Parse /etc/os-release and return as dictionary.
@@ -155,7 +154,7 @@ class BaseOSStrategy:
         """
         os_info = {}
         try:
-            with open("/etc/os-release") as f:
+            with Path("/etc/os-release").open() as f:
                 for raw_line in f:
                     line = raw_line.strip()
                     if not line or line.startswith("#") or "=" not in line:
