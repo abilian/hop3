@@ -53,7 +53,7 @@ def _load_addon_secrets(addon_name: str) -> dict[str, Any] | None:
     """Load stored secrets for an addon."""
     secrets_file = _get_addon_secrets_file(addon_name)
     if secrets_file.exists():
-        with open(secrets_file) as f:
+        with Path(secrets_file).open() as f:
             return json.load(f)
     return None
 
@@ -61,7 +61,7 @@ def _load_addon_secrets(addon_name: str) -> dict[str, Any] | None:
 def _save_addon_secrets(addon_name: str, secrets_data: dict[str, Any]) -> None:
     """Save secrets for an addon."""
     secrets_file = _get_addon_secrets_file(addon_name)
-    with open(secrets_file, "w") as f:
+    with Path(secrets_file).open("w") as f:
         json.dump(secrets_data, f, indent=2)
     # Secure the file
     secrets_file.chmod(0o600)

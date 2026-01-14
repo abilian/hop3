@@ -841,7 +841,7 @@ class App(BigIntAuditBase):
         """
         result = []
         try:
-            with open(log_file) as f:
+            with Path(log_file).open() as f:
                 file_lines = f.readlines()
 
             # Add header to identify which worker the logs are from

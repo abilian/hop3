@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import importlib.metadata
+import pathlib
 import platform
 import re
 import subprocess
@@ -223,7 +224,7 @@ class SystemLogsCmd(Command):
             return [{"t": "text", "text": f"No log file found at {DEFAULT_LOG_FILE}"}]
 
         # Read log file
-        with open(DEFAULT_LOG_FILE, encoding="utf-8") as f:
+        with pathlib.Path(DEFAULT_LOG_FILE).open(encoding="utf-8") as f:
             all_lines = f.readlines()
 
         # Apply --since filter

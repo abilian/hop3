@@ -262,7 +262,7 @@ class RedisAddon:
             # Skip other types for now (zset, stream, etc.)
 
         # Write backup to file
-        with open(backup_file, "w") as f:
+        with Path(backup_file).open("w") as f:
             json.dump(backup_data, f, indent=2)
 
         return backup_file
@@ -277,7 +277,7 @@ class RedisAddon:
             msg = f"Backup file not found: {backup_path}"
             raise FileNotFoundError(msg)
 
-        with open(backup_path) as f:
+        with Path(backup_path).open() as f:
             backup_data = json.load(f)
 
         # Restore each key based on its type
