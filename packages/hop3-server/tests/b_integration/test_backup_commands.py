@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import pathlib
 import shutil
 import tarfile
 
@@ -134,7 +135,7 @@ class TestBackupCreateCommand:
         env_file = backup_path / "env.json"
         assert env_file.exists()
 
-        with open(env_file) as f:
+        with pathlib.Path(env_file).open() as f:
             env_data = json.load(f)
 
         assert env_data["FOO"] == "bar"
@@ -193,7 +194,7 @@ class TestBackupCreateCommand:
         metadata_file = backup_path / "metadata.json"
         assert metadata_file.exists()
 
-        with open(metadata_file) as f:
+        with pathlib.Path(metadata_file).open() as f:
             metadata = json.load(f)
 
         assert metadata["app_name"] == "test-app"

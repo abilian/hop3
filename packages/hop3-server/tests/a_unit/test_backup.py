@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import pathlib
 from unittest.mock import MagicMock
 
 from hop3.core.backup import BackupManager, BackupManifest, format_size
@@ -306,7 +307,7 @@ class TestBackupManager:
 
         # File should exist and be valid JSON
         assert manifest_file.exists()
-        with open(manifest_file) as f:
+        with pathlib.Path(manifest_file).open() as f:
             data = json.load(f)
             assert data["backup_id"] == "test_backup"
 
