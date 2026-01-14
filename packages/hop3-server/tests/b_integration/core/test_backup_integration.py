@@ -12,6 +12,7 @@ tar/backup files, subprocess if used).
 from __future__ import annotations
 
 import json
+import pathlib
 import shutil
 from unittest.mock import patch
 
@@ -209,7 +210,7 @@ class TestBackupManifestIntegration:
         original.to_file(manifest_file)
 
         assert manifest_file.exists()
-        with open(manifest_file) as f:
+        with pathlib.Path(manifest_file).open() as f:
             data = json.load(f)
             assert data["backup_id"] == "test_backup"
 

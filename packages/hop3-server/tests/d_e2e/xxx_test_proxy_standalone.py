@@ -177,7 +177,7 @@ def index():
         env["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"
 
         # Deploy using hop3 CLI with tarball as stdin
-        with open(tarball_path, "rb") as f:
+        with Path(tarball_path).open("rb") as f:
             result = subprocess.run(
                 ["hop3", "deploy", app_name],
                 stdin=f,
