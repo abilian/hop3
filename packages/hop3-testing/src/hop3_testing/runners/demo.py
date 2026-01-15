@@ -19,8 +19,8 @@ from .base import TestResult, ValidationResult
 from .validations import run_validation
 
 if TYPE_CHECKING:
-    from ..catalog.models import DemoStep, TestDefinition
-    from ..targets.base import DeploymentTarget
+    from hop3_testing.catalog.models import DemoStep, TestDefinition
+    from hop3_testing.targets.base import DeploymentTarget
 
 
 class DemoTestRunner:
@@ -245,7 +245,7 @@ class DemoTestRunner:
         Returns:
             ValidationResult if step produces a validation, None otherwise
         """
-        from ..catalog.models import Validation, ValidationExpect
+        from hop3_testing.catalog.models import Validation, ValidationExpect
 
         start_time = time.time()
 

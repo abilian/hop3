@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..catalog.models import TestDefinition, Validation
+    from hop3_testing.catalog.models import TestDefinition, Validation
 
 
 @dataclass

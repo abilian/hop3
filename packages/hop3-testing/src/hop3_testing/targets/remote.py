@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 import paramiko
 
 from .base import DeploymentTarget, TargetInfo
+from .constants import HEALTH_CHECK_COMMAND, HEALTHY_STATUS_CODES
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -91,8 +92,9 @@ class RemoteTarget(DeploymentTarget):
         elif self.password:
             connect_kwargs["password"] = self.password
         else:
-            msg = "Either ssh_key or password must be provided"
-            raise ValueError(msg)
+            # Try default SSH keys and ssh-agent (like regular ssh command)
+            connect_kwargs["look_for_keys"] = True
+            connect_kwargs["allow_agent"] = True
 
         try:
             self.ssh_client.connect(**connect_kwargs)
@@ -147,11 +149,10 @@ class RemoteTarget(DeploymentTarget):
 
         try:
             # Check if hop3-server is responding
-            _stdin, stdout, _stderr = self.ssh_client.exec_command(
-                "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/ || echo '000'"
-            )
+            _stdin, stdout, _stderr = self.ssh_client.exec_command(HEALTH_CHECK_COMMAND)
             output = stdout.read().decode().strip()
-            return output in {"200", "404"}
+            # Accept any healthy status code (server is responding)
+            return output in HEALTHY_STATUS_CODES
         except Exception:
             return False
 

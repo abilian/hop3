@@ -15,6 +15,7 @@ import docker
 from docker.errors import BuildError, ImageNotFound
 
 from .base import DeploymentTarget, TargetInfo
+from .constants import HEALTH_CHECK_COMMAND, HEALTHY_STATUS_CODES
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -200,11 +201,9 @@ class DockerTarget(DeploymentTarget):
 
             # Check if hop3-server is responding
             try:
-                result = self.container.exec_run(
-                    "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/ || echo '000'"
-                )
-                # Accept 200 (OK) or 404 (no route but server responding)
-                if b"200" in result.output or b"404" in result.output:
+                result = self.container.exec_run(HEALTH_CHECK_COMMAND)
+                # Accept any healthy status code (server is responding)
+                if any(code.encode() in result.output for code in HEALTHY_STATUS_CODES):
                     print("✓ hop3-server is responding")
                     return True
             except Exception as e:
@@ -331,10 +330,8 @@ class DockerTarget(DeploymentTarget):
                 return False
 
             # Quick health check
-            result = self.container.exec_run(
-                "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/ || echo '000'"
-            )
-            return b"200" in result.output or b"404" in result.output
+            result = self.container.exec_run(HEALTH_CHECK_COMMAND)
+            return any(code.encode() in result.output for code in HEALTHY_STATUS_CODES)
         except Exception:
             return False
 

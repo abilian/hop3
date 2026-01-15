@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING
 from .base import ValidationResult
 
 if TYPE_CHECKING:
-    from ..catalog.models import Validation
-    from ..targets.base import DeploymentTarget
+    from hop3_testing.catalog.models import Validation
+    from hop3_testing.targets.base import DeploymentTarget
 
 
 def run_validation(

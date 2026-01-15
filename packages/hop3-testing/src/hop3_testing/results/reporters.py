@@ -10,7 +10,7 @@ import sys
 from typing import TYPE_CHECKING, TextIO
 
 if TYPE_CHECKING:
-    from ..runners.base import TestResult
+    from hop3_testing.runners.base import TestResult
 
 
 class ConsoleReporter:
@@ -152,7 +152,11 @@ class ConsoleReporter:
         for cat, cat_results in sorted(by_category.items()):
             passed = sum(1 for r in cat_results if r.passed)
             total = len(cat_results)
-            status = self._colorize("✓", "green") if passed == total else self._colorize("✗", "red")
+            status = (
+                self._colorize("✓", "green")
+                if passed == total
+                else self._colorize("✗", "red")
+            )
             print(f"  {status} {cat}: {passed}/{total} passed", file=self.output)
 
         # Print tier breakdown
@@ -164,7 +168,9 @@ class ConsoleReporter:
         if technologies:
             tech_list = sorted(technologies)
             if len(tech_list) > 10:
-                tech_str = ", ".join(tech_list[:10]) + f", ... (+{len(tech_list) - 10} more)"
+                tech_str = (
+                    ", ".join(tech_list[:10]) + f", ... (+{len(tech_list) - 10} more)"
+                )
             else:
                 tech_str = ", ".join(tech_list)
             print(f"  Covers: {tech_str}", file=self.output)

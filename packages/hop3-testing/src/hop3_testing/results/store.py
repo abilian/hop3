@@ -16,7 +16,7 @@ from sqlalchemy.orm import sessionmaker
 from .models import Base, TestResultRecord, TestRun, ValidationRecord
 
 if TYPE_CHECKING:
-    from ..runners.base import TestResult
+    from hop3_testing.runners.base import TestResult
 
 
 class ResultStore:

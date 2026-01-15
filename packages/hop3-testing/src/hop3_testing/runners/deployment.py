@@ -9,13 +9,14 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING
 
-from ..apps.catalog import AppSource
-from ..apps.deployment import DeploymentSession
+from hop3_testing.apps.catalog import AppSource
+from hop3_testing.apps.deployment import DeploymentSession
+
 from .base import TestResult, ValidationResult
 
 if TYPE_CHECKING:
-    from ..catalog.models import TestDefinition
-    from ..targets.base import DeploymentTarget
+    from hop3_testing.catalog.models import TestDefinition
+    from hop3_testing.targets.base import DeploymentTarget
 
 
 class DeploymentTestRunner:
@@ -168,27 +169,54 @@ class DeploymentTestRunner:
                         )
 
                 # Run check script if present
+                # Note: Check scripts use localhost URLs so they only work for
+                # local/Docker targets. For remote targets, skip check scripts
+                # and rely on HTTP tests instead.
                 if app_source.has_check_script:
-                    check_start = time.time()
-                    check_result = session.run_check_script_detailed()
-                    validation_results.append(
-                        ValidationResult(
-                            passed=check_result["passed"],
-                            message=check_result["message"],
-                            duration=time.time() - check_start,
-                            validation_type="check_script",
-                            details=check_result.get("details"),
-                        )
+                    from urllib.parse import urlparse
+
+                    target_info = self.target.info
+                    parsed_http = urlparse(target_info.http_base)
+                    is_remote_target = parsed_http.hostname not in (
+                        "localhost",
+                        "127.0.0.1",
                     )
 
-                    if not check_result["passed"]:
-                        return TestResult(
-                            test=test,
-                            passed=False,
-                            validation_results=validation_results,
-                            total_duration=time.time() - start_time,
-                            error=check_result["message"],
+                    if is_remote_target:
+                        # Skip check scripts for remote targets
+                        validation_results.append(
+                            ValidationResult(
+                                passed=True,
+                                message="Check script skipped (remote target)",
+                                duration=0.0,
+                                validation_type="check_script",
+                                details={
+                                    "skipped": True,
+                                    "reason": "Remote targets don't support localhost-based check scripts",
+                                },
+                            )
                         )
+                    else:
+                        check_start = time.time()
+                        check_result = session.run_check_script_detailed()
+                        validation_results.append(
+                            ValidationResult(
+                                passed=check_result["passed"],
+                                message=check_result["message"],
+                                duration=time.time() - check_start,
+                                validation_type="check_script",
+                                details=check_result.get("details"),
+                            )
+                        )
+
+                        if not check_result["passed"]:
+                            return TestResult(
+                                test=test,
+                                passed=False,
+                                validation_results=validation_results,
+                                total_duration=time.time() - start_time,
+                                error=check_result["message"],
+                            )
 
                 # Run additional validations from test.toml
                 # (The built-in validations above cover the basic cases,
