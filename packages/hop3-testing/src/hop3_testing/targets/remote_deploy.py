@@ -107,6 +107,10 @@ class RemoteDeployTarget(DeployTargetBase):
                 },
             )
 
+            # Print equivalent CLI command for reproducibility
+            cli_cmd = self._build_cli_command()
+            print(f"\nEquivalent command: {cli_cmd}\n")
+
             # Create backend and deployer
             self._deployer_backend = SSHDeployBackend(deploy_config)
             deployer = Deployer(deploy_config, self._deployer_backend)
@@ -188,6 +192,23 @@ class RemoteDeployTarget(DeployTargetBase):
             )
             self._save_diagnostics_on_error()
             raise
+
+    def _build_cli_command(self) -> str:
+        """Build equivalent hop3-deploy CLI command for reproducibility."""
+        cmd_parts = ["hop3-deploy", "--host", self.host]
+
+        if self.user != DEFAULT_SSH_ROOT_USER:
+            cmd_parts.extend(["--user", self.user])
+        if self.port != DEFAULT_SSH_PORT:
+            cmd_parts.extend(["--port", str(self.port)])
+        if self.use_local:
+            cmd_parts.append("--local")
+        if self.clean_before:
+            cmd_parts.append("--clean")
+        if self.branch and self.branch != "devel":
+            cmd_parts.extend(["--branch", self.branch])
+
+        return " ".join(cmd_parts)
 
     def _configure_test_mode(self) -> bool:
         """Configure the server for test mode (disable authentication).

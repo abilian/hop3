@@ -47,7 +47,12 @@ def run_system_tests(
     try:
         click.echo("\nDeploying Hop3 via hop3-deploy...")
         target.start()
+    except RuntimeError as e:
+        # Clean exit for expected errors (deployment failures, port conflicts, etc.)
+        click.echo(f"\nDeployment failed: {e}", err=True)
+        sys.exit(1)
 
+    try:
         store.start_run(
             mode="system",
             target_type="docker-deploy",
@@ -179,7 +184,12 @@ def run_tests(
     try:
         click.echo("\nStarting test environment...")
         target.start()
+    except RuntimeError as e:
+        # Clean exit for expected errors (deployment failures, port conflicts, etc.)
+        click.echo(f"\nDeployment failed: {e}", err=True)
+        sys.exit(1)
 
+    try:
         store.start_run(
             mode=mode,
             target_type=target_type,

@@ -54,24 +54,12 @@ RUN apt-get install -y --no-install-recommends \
 # Layer 7: Setup SSH
 RUN mkdir -p /run/sshd
 
-# Layer 8: Create hop3 user
-RUN groupadd -g 1000 hop3 \
-    && useradd -m -u 1000 -g hop3 -s /bin/bash hop3 \
-    && echo 'hop3 ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/hop3 \
-    && chmod 440 /etc/sudoers.d/hop3
+# Note: hop3 user creation is handled by hop3-install server
+# The installer creates the user with proper UID/GID for the target system
 
-# Layer 9: Pre-create directories
-RUN mkdir -p /home/hop3/.ssh \
-    && mkdir -p /home/hop3/venv \
-    && mkdir -p /home/hop3/apps \
-    && mkdir -p /home/hop3/repos \
-    && mkdir -p /home/hop3/envs \
-    && mkdir -p /home/hop3/logs \
-    && mkdir -p /home/hop3/nginx-enabled \
-    && mkdir -p /home/hop3/uwsgi-enabled \
-    && mkdir -p /var/log/uwsgi \
-    && chown -R hop3:hop3 /home/hop3 \
-    && chown -R hop3:hop3 /var/log/uwsgi
+# Layer 8: Pre-create uwsgi log directory (owned by root initially,
+# installer will fix ownership after creating hop3 user)
+RUN mkdir -p /var/log/uwsgi
 
 # Keep container running
 CMD ["sleep", "infinity"]
