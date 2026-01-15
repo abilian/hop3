@@ -345,4 +345,5 @@ clean:
 	rm -rf packages/*/dist packages/*/.pdm-build
 	rm -rf .nox
 	rm -rf docs/site
+	rm -rf test-logs/
 	adt clean
