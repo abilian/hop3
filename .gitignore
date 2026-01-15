@@ -1,67 +1,23 @@
-#
-# Specific to this project
-#
-/tmp/
-/packages/hop3-server/ssl
-/data/
-/docs/Vocab/
-/site/
-ignore.py
-packages-ignored
-packages-ignored2
-/local-notes
-/docs/site/
-/demos/logs/
-
-# Temp
-/packages/hop3-web/src/hop3_web/lib/
-
-# Local environment variables / private stuff
-.env
-.envrc
-*.private
-sandbox/
-/OLD/
-
-#
-# Generic ignores
-#
-
-# Misc OS
-.DS_Store
-.zip
-
-# Python virtualenv
-.venv/
-
-# Byte-compiled / optimized / DLL files
+# Python-generated files
 __pycache__/
-*.py[cod]
-
-# C extensions
-*.so
-
-# Distribution / packaging
-/build/
-/dist/
-*.egg-info/
-*.egg
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
 .coverage
-.cache
-nosetests.xml
-coverage.xml
 
-# Logs
-*.log
-
-# IDE files
-.idea/
-.vscode/
-
-# uv
+# Virtual environments
+.venv
 .python-version
+
+# Local / secrets / tmp
+.envrc
+/sandbox/
+OLD/
+apps/sandbox/
+data/
+demos/logs/
+demos/sandbox/
+docs/Vocab/
+test-logs/
