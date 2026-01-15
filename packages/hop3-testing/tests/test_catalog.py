@@ -17,6 +17,7 @@ from hop3_testing.catalog import (
     load_test_definition,
 )
 from hop3_testing.catalog.loader import generate_test_definition_from_app
+from hop3_testing.selector import TestSelector, get_mode_config
 
 
 # Test data directory (relative to project root)
@@ -171,13 +172,11 @@ class TestCatalogScanning:
         # If test not found, it's okay - catalog might be scanned differently
 
 
-class TestSelector:
+class TestSelectorTests:
     """Tests for test selection."""
 
     def test_dev_mode_selection(self):
         """Test that dev mode selects appropriate tests."""
-        from hop3_testing.selector import TestSelector, get_mode_config
-
         root = PROJECT_ROOT
         catalog = TestCatalog(root)
         catalog.scan()
@@ -193,8 +192,6 @@ class TestSelector:
 
     def test_ci_mode_selection(self):
         """Test that CI mode selects appropriate tests."""
-        from hop3_testing.selector import TestSelector, get_mode_config
-
         root = PROJECT_ROOT
         catalog = TestCatalog(root)
         catalog.scan()
@@ -205,5 +202,5 @@ class TestSelector:
 
         # CI mode should select fast and medium P0 tests
         for test in tests:
-            assert test.tier in (Tier.FAST, Tier.MEDIUM)
+            assert test.tier in {Tier.FAST, Tier.MEDIUM}
             assert test.priority == Priority.P0

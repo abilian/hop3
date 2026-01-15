@@ -13,6 +13,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import docker
+
 from hop3_testing.diagnostics import DiagnosticCollector
 
 from .base import DeploymentTarget, TargetInfo
@@ -67,8 +69,6 @@ class ReadyTarget(DeploymentTarget):
         Returns:
             TargetInfo with connection details
         """
-        import docker
-
         # Initialize diagnostic context
         self.diagnostics.set_context(
             test_name=f"apps-{self.container_name}",

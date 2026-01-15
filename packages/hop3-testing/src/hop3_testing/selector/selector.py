@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from hop3_testing.catalog.models import TargetType
+
 from .modes import ModeConfig
 
 if TYPE_CHECKING:
@@ -102,8 +104,6 @@ class TestSelector:
         tests = self.select(mode_config, **kwargs)
 
         # Then filter by target type
-        from hop3_testing.catalog.models import TargetType
-
         target = TargetType(target_type)
         return [t for t in tests if t.can_run_on(target)]
 
