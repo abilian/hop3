@@ -50,6 +50,7 @@ class DockerTarget(DeploymentTarget):
         )
         self.container_name = config.get("container_name") if config else None
         self.force_rebuild = config.get("force_rebuild", False) if config else False
+        self.verbose = config.get("verbose", False) if config else False
 
     def _build_image(self, *, force: bool = False) -> None:
         """Build the Docker image.
@@ -107,10 +108,17 @@ class DockerTarget(DeploymentTarget):
                 nocache=force,  # Only disable cache when force=True
             )
 
-            # Print build logs
+            # Capture build logs (only print on failure or in verbose mode)
+            build_logs = []
             for log in logs:
                 if "stream" in log:
-                    print(log["stream"].strip())
+                    build_logs.append(log["stream"].strip())
+
+            # Only show logs in verbose mode
+            if self.verbose:
+                for line in build_logs:
+                    if line:
+                        print(line)
 
             print(f"Successfully built image: {self.image_tag}")
 

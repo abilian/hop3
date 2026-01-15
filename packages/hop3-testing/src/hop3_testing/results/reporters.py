@@ -63,10 +63,10 @@ class ConsoleReporter:
         else:
             status = self._colorize("FAIL", "red")
 
-        name = result.test.name
         duration = f"{result.total_duration:.2f}s"
 
-        print(f"[{status}] {name} ({duration})", file=self.output)
+        # Note: test name is already printed by the runner, just add status
+        print(f"{status} ({duration})", file=self.output)
 
         if not result.passed and (self.verbose or result.error):
             if result.error:

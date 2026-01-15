@@ -18,9 +18,11 @@ if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
 
 
-def create_target(target_type: str, host: str | None) -> DeploymentTarget:
+def create_target(
+    target_type: str, host: str | None, verbose: bool = False
+) -> DeploymentTarget:
     """Create a deployment target (simple version)."""
-    return create_target_with_options(target_type=target_type, host=host)
+    return create_target_with_options(target_type=target_type, host=host, verbose=verbose)
 
 
 def create_target_with_options(
@@ -31,6 +33,7 @@ def create_target_with_options(
     ssh_key: str | None = None,
     use_cache: bool = False,
     force_rebuild: bool = False,
+    verbose: bool = False,
 ) -> DeploymentTarget:
     """Create a deployment target with full options."""
     if target_type == "docker":
@@ -38,6 +41,7 @@ def create_target_with_options(
             "rebuild": not use_cache,
             "use_cache": use_cache,
             "force_rebuild": force_rebuild,
+            "verbose": verbose,
         })
     if target_type == "remote":
         # Get host from args or environment

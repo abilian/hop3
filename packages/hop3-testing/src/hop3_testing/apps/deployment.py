@@ -10,15 +10,19 @@ import base64
 import os
 import shutil
 import subprocess
+import sys
 import time
 import traceback
 from http import HTTPStatus
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
 import httpx
 from hop3_cli.config import Config
 from hop3_cli.rpc import Client
+from jsonrpcclient import Error
+from loguru import logger
 
 if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
@@ -129,7 +133,8 @@ class DeploymentSession:
         if not self.temp_dir:
             self.prepare()
 
-        print(f"\nDeploying {self.app_name}...")
+        if self.verbose:
+            print(f"\nDeploying {self.app_name}...")
 
         try:
             # Create tarball
@@ -155,6 +160,11 @@ class DeploymentSession:
                 "ssh_key": target_info.ssh_key,
             }
 
+            # Suppress hop3-cli DEBUG logs unless verbose
+            if not self.verbose:
+                logger.remove()
+                logger.add(sys.stderr, level="WARNING")
+
             config = Config(data=env_config)
             client = Client(config=config, api_url_override=api_url)
 
@@ -162,10 +172,10 @@ class DeploymentSession:
                 response = client.rpc(
                     "cli", ["deploy", self.app_name], repository=repository_b64
                 )
-                print(f"Deploy response: {response}")
+                if self.verbose:
+                    print(f"Deploy response: {response}")
 
                 # Check for RPC error response and capture error message
-                from jsonrpcclient import Error
                 if isinstance(response, Error):
                     self._last_deploy_error = response.message
             finally:
@@ -177,7 +187,8 @@ class DeploymentSession:
             self.deployed = True
 
             # Wait for deployment to complete
-            print(f"Waiting {wait_time}s for deployment to complete...")
+            if self.verbose:
+                print(f"Waiting {wait_time}s for deployment to complete...")
             time.sleep(wait_time)
 
             # Cleanup tarball
@@ -215,14 +226,17 @@ class DeploymentSession:
                 check=False,
             )
 
-            print(f"check_deployed() for '{self.app_name}':")
-            print(f"  'hop3 apps' returned: {result.returncode}")
-            print(f"  stdout: {result.stdout[:500]}")
-            if result.stderr:
-                print(f"  stderr: {result.stderr[:500]}")
-            print(f"  App in list: {self.app_name in result.stdout}")
+            app_in_list = self.app_name in result.stdout
 
-            return self.app_name in result.stdout
+            if self.verbose:
+                print(f"check_deployed() for '{self.app_name}':")
+                print(f"  'hop3 apps' returned: {result.returncode}")
+                print(f"  stdout: {result.stdout[:500]}")
+                if result.stderr:
+                    print(f"  stderr: {result.stderr[:500]}")
+                print(f"  App in list: {app_in_list}")
+
+            return app_in_list
         except Exception as e:
             print(f"check_deployed() exception: {e}")
             traceback.print_exc()
@@ -396,7 +410,6 @@ class DeploymentSession:
             target_info = self.target.info
             # Parse http_base properly to get hostname and port
             http_base = target_info.http_base
-            from urllib.parse import urlparse
             parsed = urlparse(http_base)
 
             if parsed.hostname == "localhost":
@@ -456,7 +469,6 @@ class DeploymentSession:
             target_info = self.target.info
             # Parse http_base properly to get hostname and port
             http_base = target_info.http_base
-            from urllib.parse import urlparse
             parsed = urlparse(http_base)
 
             if parsed.hostname == "localhost":
@@ -506,17 +518,18 @@ class DeploymentSession:
                 env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
                 env["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"
 
-                print(f"\n[DEBUG] Destroying {self.app_name}")
+                if self.verbose:
+                    print(f"\n[DEBUG] Destroying {self.app_name}")
 
-                # List apps before destroy
-                before = subprocess.run(
-                    ["hop3", "apps"],
-                    env=env,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                print(f"[DEBUG] Apps before destroy:\n{before.stdout}")
+                    # List apps before destroy
+                    before = subprocess.run(
+                        ["hop3", "apps"],
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    print(f"[DEBUG] Apps before destroy:\n{before.stdout}")
 
                 result = subprocess.run(
                     ["hop3", "app:destroy", self.app_name, "-y"],
@@ -527,16 +540,20 @@ class DeploymentSession:
                 )
 
                 if result.returncode == 0:
-                    print(f"✓ App {self.app_name} destroy command completed")
-                    print(f"[SERVER STDOUT] (length={len(result.stdout)})")
-                    if result.stdout.strip():
-                        print(result.stdout)
-                    print(f"[SERVER STDERR] (length={len(result.stderr)})")
-                    if result.stderr.strip():
-                        # Filter out cryptography warnings
-                        stderr_lines = [l for l in result.stderr.split('\n') if 'CryptographyDeprecationWarning' not in l and 'TripleDES' not in l]
-                        if stderr_lines:
-                            print('\n'.join(stderr_lines))
+                    if self.verbose:
+                        print(f"✓ App {self.app_name} destroy command completed")
+                        if result.stdout.strip():
+                            print(f"[SERVER STDOUT] {result.stdout.strip()}")
+                        # Filter out cryptography warnings from stderr
+                        if result.stderr.strip():
+                            stderr_lines = [
+                                l for l in result.stderr.split("\n")
+                                if "CryptographyDeprecationWarning" not in l
+                                and "TripleDES" not in l
+                                and l.strip()
+                            ]
+                            if stderr_lines:
+                                print(f"[SERVER STDERR] {' '.join(stderr_lines)}")
 
                     # Wait a moment for server-side cleanup
                     time.sleep(2)
@@ -549,17 +566,16 @@ class DeploymentSession:
                         text=True,
                         check=False,
                     )
-                    print(f"[DEBUG] Apps after destroy:\n{after.stdout}")
 
                     if self.app_name in after.stdout:
                         print(f"⚠ WARNING: {self.app_name} still in database after destroy!")
                         success = False
-                    else:
+                    elif self.verbose:
                         print(f"✓ Verified {self.app_name} removed from database")
                 else:
                     print(f"❌ Failed to destroy app (exit code {result.returncode})")
                     if result.stderr:
-                        print(f"[DEBUG] Destroy stderr: {result.stderr}")
+                        print(f"  Error: {result.stderr[:200]}")
                     success = False
 
                 self.deployed = False
@@ -573,7 +589,8 @@ class DeploymentSession:
         if self.temp_dir and self.temp_dir.exists():
             try:
                 shutil.rmtree(self.temp_dir)
-                print(f"✓ Temp directory removed")
+                if self.verbose:
+                    print("✓ Temp directory removed")
             except Exception as e:
                 print(f"⚠ Error removing temp directory: {e}")
                 success = False

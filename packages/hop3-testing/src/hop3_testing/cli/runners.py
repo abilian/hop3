@@ -56,7 +56,7 @@ def run_system_tests(
 
         results = []
         for test in tests:
-            click.echo(f"\n[{test.name}] ", nl=False)
+            click.echo(f"[{test.name}] ", nl=False)
 
             result = run_single_test(test, target, cleanup=True, verbose=verbose)
             results.append(result)
@@ -115,7 +115,7 @@ def run_app_tests(
 
         results = []
         for test in tests:
-            click.echo(f"\n[{test.name}] ", nl=False)
+            click.echo(f"[{test.name}] ", nl=False)
 
             result = run_single_test(test, target, cleanup=not keep, verbose=verbose)
             results.append(result)
@@ -170,7 +170,7 @@ def run_tests(
     click.echo(f"Running {len(tests)} tests in {mode} mode")
 
     # Create target
-    target = create_target(target_type, host)
+    target = create_target(target_type, host, verbose=verbose)
 
     # Initialize result storage
     store = ResultStore()
@@ -189,7 +189,7 @@ def run_tests(
         # Run tests
         results = []
         for test in tests:
-            click.echo(f"\n[{test.name}] ", nl=False)
+            click.echo(f"[{test.name}] ", nl=False)
 
             result = run_single_test(
                 test, target, cleanup=not keep_apps, verbose=verbose
