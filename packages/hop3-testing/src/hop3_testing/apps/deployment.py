@@ -250,8 +250,17 @@ class DeploymentSession:
             hostname = f"{self.app_name}.test.local"
 
         target_info = self.target.info
-        http_port = target_info.http_base.split(":")[-1]
-        url = f"http://localhost:{http_port}{path}"
+        # Parse http_base properly - it may be "http://localhost:8080" or "http://remote.host"
+        http_base = target_info.http_base.rstrip("/")
+        if http_base.startswith("http://localhost:"):
+            # Local target with port forwarding
+            url = f"{http_base}{path}"
+        elif ":" in http_base.split("//")[-1]:
+            # Remote target with explicit port
+            url = f"{http_base}{path}"
+        else:
+            # Remote target without port (use port 80)
+            url = f"{http_base}{path}"
 
         result["details"]["url"] = url
         result["details"]["hostname"] = hostname
@@ -318,8 +327,17 @@ class DeploymentSession:
             hostname = f"{self.app_name}.test.local"
 
         target_info = self.target.info
-        http_port = target_info.http_base.split(":")[-1]
-        url = f"http://localhost:{http_port}{path}"
+        # Parse http_base properly - it may be "http://localhost:8080" or "http://remote.host"
+        http_base = target_info.http_base.rstrip("/")
+        if http_base.startswith("http://localhost:"):
+            # Local target with port forwarding
+            url = f"{http_base}{path}"
+        elif ":" in http_base.split("//")[-1]:
+            # Remote target with explicit port
+            url = f"{http_base}{path}"
+        else:
+            # Remote target without port (use port 80)
+            url = f"{http_base}{path}"
 
         print(f"\nTesting HTTP: {url} (Host: {hostname})")
 
@@ -375,9 +393,20 @@ class DeploymentSession:
             return result
 
         try:
-            hostname = f"{self.app_name}.test.local"
             target_info = self.target.info
-            http_port = int(target_info.http_base.split(":")[-1])
+            # Parse http_base properly to get hostname and port
+            http_base = target_info.http_base
+            from urllib.parse import urlparse
+            parsed = urlparse(http_base)
+
+            if parsed.hostname == "localhost":
+                # Local Docker target - use app-specific hostname
+                hostname = f"{self.app_name}.test.local"
+                http_port = parsed.port or 80
+            else:
+                # Remote target - use the actual remote hostname
+                hostname = parsed.hostname or "localhost"
+                http_port = parsed.port or 80
 
             check_script_path = self.app.path / "check.py"
             result["details"]["script"] = str(check_script_path)
@@ -424,9 +453,20 @@ class DeploymentSession:
             return False
 
         try:
-            hostname = f"{self.app_name}.test.local"
             target_info = self.target.info
-            http_port = int(target_info.http_base.split(":")[-1])
+            # Parse http_base properly to get hostname and port
+            http_base = target_info.http_base
+            from urllib.parse import urlparse
+            parsed = urlparse(http_base)
+
+            if parsed.hostname == "localhost":
+                # Local Docker target - use app-specific hostname
+                hostname = f"{self.app_name}.test.local"
+                http_port = parsed.port or 80
+            else:
+                # Remote target - use the actual remote hostname
+                hostname = parsed.hostname or "localhost"
+                http_port = parsed.port or 80
 
             check_script_path = self.app.path / "check.py"
 

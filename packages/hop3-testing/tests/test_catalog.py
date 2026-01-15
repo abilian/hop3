@@ -7,10 +7,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pytest
-
 from hop3_testing.catalog import (
     Category,
     Priority,
@@ -19,9 +17,6 @@ from hop3_testing.catalog import (
     load_test_definition,
 )
 from hop3_testing.catalog.loader import generate_test_definition_from_app
-
-if TYPE_CHECKING:
-    pass
 
 
 # Test data directory (relative to project root)

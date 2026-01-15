@@ -18,8 +18,8 @@ from typing import TYPE_CHECKING
 from .base import TestResult, ValidationResult
 
 if TYPE_CHECKING:
-    from ..catalog.models import TestDefinition
-    from ..targets.base import DeploymentTarget
+    from hop3_testing.catalog.models import TestDefinition
+    from hop3_testing.targets.base import DeploymentTarget
 
 
 class TutorialTestRunner:
@@ -103,7 +103,7 @@ class TutorialTestRunner:
                 error = result.get("error", "Tutorial execution failed")
             else:
                 # Create a validation result for the tutorial
-                from ..catalog.models import Validation, ValidationExpect
+                from hop3_testing.catalog.models import Validation, ValidationExpect
 
                 val_result = ValidationResult(
                     validation=Validation(

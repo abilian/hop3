@@ -28,7 +28,13 @@ from .catalog.models import Category
 from .results import ConsoleReporter, ResultStore
 from .runners import DemoTestRunner, DeploymentTestRunner, TutorialTestRunner
 from .selector import TestSelector, get_mode_config
-from .targets import DockerDeployTarget, DockerTarget, ReadyTarget, RemoteTarget
+from .targets import (
+    DockerDeployTarget,
+    DockerTarget,
+    ReadyTarget,
+    RemoteDeployTarget,
+    RemoteTarget,
+)
 
 if TYPE_CHECKING:
     from .catalog.models import TestDefinition
@@ -438,6 +444,9 @@ def package(
 @click.option("--clean", is_flag=True, help="Clean install (remove existing)")
 @click.option("--target", type=click.Choice(["docker", "remote"]), default="docker")
 @click.option("--host", help="Remote host (for remote target)")
+@click.option("--port", type=int, default=22, help="SSH port (for remote target)")
+@click.option("--user", default="root", help="SSH user (for remote target)")
+@click.option("--ssh-key", help="SSH key path (for remote target)")
 @click.option(
     "--mode",
     type=click.Choice(["dev", "ci"]),
@@ -461,6 +470,9 @@ def system_test(
     clean: bool,
     target: str,
     host: str | None,
+    port: int,
+    user: str,
+    ssh_key: str | None,
     mode: str,
     keep: bool,
     fail_fast: bool,
@@ -514,12 +526,32 @@ def system_test(
             "verbose": verbose,
         })
     else:
-        # Remote target (not yet implemented with hop3-deploy wrapper)
+        # Remote target
         if not host:
             click.echo("--host required for remote target", err=True)
             sys.exit(1)
-        # Fall back to legacy RemoteTarget for now
-        target_obj = RemoteTarget({"host": host})
+
+        if deploy_from == "none":
+            # Connect to existing Hop3 server (no deployment)
+            target_config = {
+                "host": host,
+                "port": port,
+                "user": user,
+            }
+            if ssh_key:
+                target_config["ssh_key"] = ssh_key
+            target_obj = RemoteTarget(target_config)
+        else:
+            # Deploy Hop3 to remote server first
+            target_obj = RemoteDeployTarget({
+                "host": host,
+                "port": port,
+                "user": user,
+                "local": deploy_from == "local",
+                "clean": clean,
+                "branch": branch,
+                "verbose": verbose,
+            })
 
     # Run tests
     _run_system_tests(ctx, tests, target_obj, keep, fail_fast, report, quiet)
@@ -537,6 +569,9 @@ def system_test(
     "--image", default="hop3-ready:latest", help="Docker image for ready target"
 )
 @click.option("--host", help="Remote host (for remote target)")
+@click.option("--port", type=int, default=22, help="SSH port (for remote target)")
+@click.option("--user", default="root", help="SSH user (for remote target)")
+@click.option("--ssh-key", help="SSH key path (for remote target)")
 @click.option("--category", "-c", help="Filter by category")
 @click.option("--keep", is_flag=True, help="Keep apps deployed after testing")
 @click.option("--fail-fast", is_flag=True, help="Stop on first failure")
@@ -554,6 +589,9 @@ def apps_test(
     target: str,
     image: str,
     host: str | None,
+    port: int,
+    user: str,
+    ssh_key: str | None,
     category: str | None,
     keep: bool,
     fail_fast: bool,
@@ -621,7 +659,14 @@ def apps_test(
         if not host:
             click.echo("--host required for remote target", err=True)
             sys.exit(1)
-        target_obj = RemoteTarget({"host": host})
+        target_config = {
+            "host": host,
+            "port": port,
+            "user": user,
+        }
+        if ssh_key:
+            target_config["ssh_key"] = ssh_key
+        target_obj = RemoteTarget(target_config)
 
     # Run tests
     _run_app_tests(ctx, tests, target_obj, keep, fail_fast, report, quiet)
@@ -865,7 +910,9 @@ def _generate_reports(
                     click.echo(target.diagnostics.dump_to_console())
 
 
-def _generate_html_report(target: DeploymentTarget, results: list, log_path: Path) -> Path:
+def _generate_html_report(
+    target: DeploymentTarget, results: list, log_path: Path
+) -> Path:
     """Generate a comprehensive HTML report with test results and diagnostics.
 
     Args:
@@ -889,7 +936,9 @@ def _generate_html_report(target: DeploymentTarget, results: list, log_path: Pat
         """Check if content is short enough to show inline (no foldable section)."""
         return len(text) < 100 and "\n" not in text
 
-    def phase_html(phase_id: str, status: str, name: str, content: str, is_success: bool) -> str:
+    def phase_html(
+        phase_id: str, status: str, name: str, content: str, is_success: bool
+    ) -> str:
         """Generate HTML for a phase, using inline or foldable based on content length."""
         status_class = "phase-success" if is_success else "phase-failure"
         escaped_content = html.escape(content)
@@ -903,9 +952,8 @@ def _generate_html_report(target: DeploymentTarget, results: list, log_path: Pat
                 <span class="phase-message">{escaped_content}</span>
             </div>
             """
-        else:
-            # Long content: foldable section
-            return f"""
+        # Long content: foldable section
+        return f"""
             <div class="phase {status_class}" onclick="togglePhase('{phase_id}')">
                 <span class="phase-icon">{status}</span>
                 <span class="phase-name">{html.escape(name)}</span>
@@ -928,12 +976,19 @@ def _generate_html_report(target: DeploymentTarget, results: list, log_path: Pat
 
         # Phase 1: Deployment (only if there are logs or it failed)
         if r.deploy_logs:
-            deploy_status = "\u2713" if not r.error or "deploy" not in r.error.lower() else "\u2717"
+            deploy_status = (
+                "\u2713" if not r.error or "deploy" not in r.error.lower() else "\u2717"
+            )
             is_success = deploy_status == "\u2713"
-            phases_html.append(phase_html(
-                f"{test_id}-deploy", deploy_status, "Deploy",
-                r.deploy_logs, is_success
-            ))
+            phases_html.append(
+                phase_html(
+                    f"{test_id}-deploy",
+                    deploy_status,
+                    "Deploy",
+                    r.deploy_logs,
+                    is_success,
+                )
+            )
 
         # Phase 2: Validations
         if r.validation_results:
@@ -952,10 +1007,9 @@ def _generate_html_report(target: DeploymentTarget, results: list, log_path: Pat
                     if detail_lines:
                         v_content += "\n" + "\n".join(detail_lines)
 
-                phases_html.append(phase_html(
-                    v_id, v_status, v.type_name,
-                    v_content, v.passed
-                ))
+                phases_html.append(
+                    phase_html(v_id, v_status, v.type_name, v_content, v.passed)
+                )
 
         # Phase 3: Error (if any, always foldable since errors tend to be long)
         if r.error:
@@ -975,7 +1029,7 @@ def _generate_html_report(target: DeploymentTarget, results: list, log_path: Pat
             <div class="test-header" onclick="toggleTest('{test_id}')">
                 <span class="test-status">{status_icon}</span>
                 <span class="test-name">{html.escape(r.test.name)}</span>
-                <span class="test-meta">{html.escape(str(r.test.category) if r.test.category else 'unknown')} | {html.escape(str(r.test.tier) if r.test.tier else 'unknown')} | {r.total_duration:.2f}s</span>
+                <span class="test-meta">{html.escape(str(r.test.category) if r.test.category else "unknown")} | {html.escape(str(r.test.tier) if r.test.tier else "unknown")} | {r.total_duration:.2f}s</span>
                 <span class="test-toggle">&#9660;</span>
             </div>
             <div id="{test_id}" class="test-details" style="display:none">
@@ -1313,7 +1367,9 @@ def build_ready_image(ctx: click.Context, tag: str, no_cache: bool) -> None:
 
     # Find project root and Dockerfile
     root = ctx.obj["root"]
-    dockerfile_path = root / "packages" / "hop3-server" / "tests" / "d_e2e" / "docker" / "Dockerfile"
+    dockerfile_path = (
+        root / "packages" / "hop3-server" / "tests" / "d_e2e" / "docker" / "Dockerfile"
+    )
 
     if not dockerfile_path.exists():
         click.echo(f"Dockerfile not found at: {dockerfile_path}", err=True)
@@ -1329,9 +1385,12 @@ def build_ready_image(ctx: click.Context, tag: str, no_cache: bool) -> None:
 
     # Build command
     cmd = [
-        "docker", "build",
-        "-f", str(dockerfile_path),
-        "-t", tag,
+        "docker",
+        "build",
+        "-f",
+        str(dockerfile_path),
+        "-t",
+        tag,
     ]
     if no_cache:
         cmd.append("--no-cache")
@@ -1345,8 +1404,8 @@ def build_ready_image(ctx: click.Context, tag: str, no_cache: bool) -> None:
         click.echo(f"Successfully built: {tag}")
         click.echo(f"{'=' * 70}")
         click.echo("\nYou can now run:")
-        click.echo(f"  hop3-test-new apps           # Test all apps")
-        click.echo(f"  hop3-test-new apps 010-flask # Test specific app")
+        click.echo("  hop3-test-new apps           # Test all apps")
+        click.echo("  hop3-test-new apps 010-flask # Test specific app")
     except subprocess.CalledProcessError as e:
         click.echo(f"\nBuild failed with exit code {e.returncode}", err=True)
         sys.exit(1)
@@ -1375,7 +1434,9 @@ def build_test_image(ctx: click.Context, no_cache: bool) -> None:
 
     # Find project root and Dockerfile
     root = ctx.obj["root"]
-    dockerfile_path = root / "packages" / "hop3-installer" / "docker" / "Dockerfile.base"
+    dockerfile_path = (
+        root / "packages" / "hop3-installer" / "docker" / "Dockerfile.base"
+    )
 
     if not dockerfile_path.exists():
         click.echo(f"Dockerfile not found at: {dockerfile_path}", err=True)
@@ -1390,9 +1451,12 @@ def build_test_image(ctx: click.Context, no_cache: bool) -> None:
 
     # Build command
     cmd = [
-        "docker", "build",
-        "-f", str(dockerfile_path),
-        "-t", "hop3-test:latest",
+        "docker",
+        "build",
+        "-f",
+        str(dockerfile_path),
+        "-t",
+        "hop3-test:latest",
     ]
     if no_cache:
         cmd.append("--no-cache")

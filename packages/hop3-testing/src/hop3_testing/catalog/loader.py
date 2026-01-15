@@ -52,7 +52,7 @@ def load_test_definition(path: Path) -> TestDefinition:
         raise TestDefinitionError("File not found", path)
 
     try:
-        with open(path, "rb") as f:
+        with Path(path).open("rb") as f:
             data = tomllib.load(f)
     except tomllib.TOMLDecodeError as e:
         raise TestDefinitionError(f"Invalid TOML: {e}", path) from e

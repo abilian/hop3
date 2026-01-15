@@ -364,11 +364,15 @@ class DiagnosticCollector:
 
                 stdout_html = ""
                 if entry.stdout:
-                    stdout_html = f"<pre class='stdout'>{html.escape(entry.stdout[:2000])}</pre>"
+                    stdout_html = (
+                        f"<pre class='stdout'>{html.escape(entry.stdout[:2000])}</pre>"
+                    )
 
                 stderr_html = ""
                 if entry.stderr:
-                    stderr_html = f"<pre class='stderr'>{html.escape(entry.stderr[:2000])}</pre>"
+                    stderr_html = (
+                        f"<pre class='stderr'>{html.escape(entry.stderr[:2000])}</pre>"
+                    )
 
                 entry_rows.append(f"""
                 <tr class="{status_class}">
@@ -406,7 +410,7 @@ class DiagnosticCollector:
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Hop3 Test Report - {html.escape(ctx.test_name if ctx else 'Unknown')}</title>
+    <title>Hop3 Test Report - {html.escape(ctx.test_name if ctx else "Unknown")}</title>
     <style>
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -482,8 +486,8 @@ class DiagnosticCollector:
     <div class="header">
         <h1>Hop3 Test Report</h1>
         <div class="meta">
-            <p>Test: <strong>{html.escape(ctx.test_name if ctx else 'Unknown')}</strong></p>
-            <p>Config: {html.escape(ctx.config if ctx else 'Unknown')} | Run ID: {html.escape(ctx.run_id if ctx else 'Unknown')}</p>
+            <p>Test: <strong>{html.escape(ctx.test_name if ctx else "Unknown")}</strong></p>
+            <p>Config: {html.escape(ctx.config if ctx else "Unknown")} | Run ID: {html.escape(ctx.run_id if ctx else "Unknown")}</p>
         </div>
         <div class="stats">
             <div class="stat passed">Passed: {passed}</div>

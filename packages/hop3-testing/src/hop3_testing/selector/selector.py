@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING
 from .modes import ModeConfig
 
 if TYPE_CHECKING:
-    from ..catalog.models import TestDefinition
-    from ..catalog.scanner import TestCatalog
+    from hop3_testing.catalog.models import TestDefinition
+    from hop3_testing.catalog.scanner import TestCatalog
 
 
 class TestSelector:
@@ -102,7 +102,7 @@ class TestSelector:
         tests = self.select(mode_config, **kwargs)
 
         # Then filter by target type
-        from ..catalog.models import TargetType
+        from hop3_testing.catalog.models import TargetType
 
         target = TargetType(target_type)
         return [t for t in tests if t.can_run_on(target)]
