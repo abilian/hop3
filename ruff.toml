@@ -30,6 +30,7 @@ lint.extend-ignore = [
     "S", # flake8-bandit
     "T20", # flake8-print
     "TD", # flake8-todos
+    "FBT",
 
     # False positive, don't remove
     "A004", # ... is shadowing a Python standard library module
