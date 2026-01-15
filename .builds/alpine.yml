@@ -43,10 +43,14 @@ tasks:
       nox -e pytest-3.12
       nox -e lint
 
-#  - buildah: |
-#      cd hop3
-#      sudo buildah build .
+  #  - buildah: |
+  #      cd hop3
+  #      sudo buildah build .
 
-#  - docker-build: |
-#      cd hop3
-#      sudo docker build .
+  #  - docker-build: |
+  #      cd hop3
+  #      sudo docker build .
+
+  - e2e-docker: |
+      cd hop3
+      hop3-test-new ci

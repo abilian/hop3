@@ -47,6 +47,10 @@ tasks:
       sudo chmod 666 /var/run/docker.sock
       uv run make test
 
+  - e2e-docker: |
+      cd hop3
+      hop3-test-new ci
+
   - e2e: |
       cd hop3
       export HOP3_DEV_HOST=ssh.hop-dev.abilian.com
