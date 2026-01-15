@@ -29,6 +29,12 @@ class SSHDeployBackend(DeployBackend):
             "-o",
             "ConnectTimeout=10",
         ]
+        # Add port option if not default
+        if config.ssh_port != 22:
+            self._ssh_opts.extend(["-p", str(config.ssh_port)])
+        self._scp_port_opts = (
+            ["-P", str(config.ssh_port)] if config.ssh_port != 22 else []
+        )
 
     def setup(self) -> bool:
         """Verify SSH connectivity to the target."""
@@ -108,6 +114,7 @@ class SSHDeployBackend(DeployBackend):
         """Upload a file via SCP."""
         scp_cmd = [
             "scp",
+            *self._scp_port_opts,
             *self._ssh_opts,
             str(local_path),
             f"{self.config.ssh_target}:{remote_path}",
@@ -124,6 +131,8 @@ class SSHDeployBackend(DeployBackend):
 
     def upload_dir(self, local_path: Path, remote_path: str) -> bool:
         """Upload a directory via rsync."""
+        # Build SSH options string for rsync -e
+        ssh_opts_str = " ".join(self._ssh_opts)
         rsync_cmd = [
             "rsync",
             "-avz",
@@ -135,7 +144,7 @@ class SSHDeployBackend(DeployBackend):
             "--exclude=.pytest_cache",
             "--exclude=dist",
             "-e",
-            f"ssh {' '.join(self._ssh_opts)}",
+            f"ssh {ssh_opts_str}",
             f"{local_path}/",
             f"{self.config.ssh_target}:{remote_path}/",
         ]
