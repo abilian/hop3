@@ -114,7 +114,7 @@ class TUIConfig:
     def _load_from_cli_config(cls, path: Path, config: TUIConfig) -> TUIConfig:
         """Load configuration from hop3-cli config file."""
         try:
-            with open(path, "rb") as f:
+            with path.open("rb") as f:
                 data = tomllib.load(f)
         except Exception:
             return config
@@ -131,7 +131,7 @@ class TUIConfig:
     def _load_from_file(cls, path: Path, config: TUIConfig) -> TUIConfig:
         """Load configuration from a TOML file."""
         try:
-            with open(path, "rb") as f:
+            with path.open("rb") as f:
                 data = tomllib.load(f)
         except Exception:
             return config

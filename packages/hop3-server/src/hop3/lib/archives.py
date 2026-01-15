@@ -50,7 +50,7 @@ def _robust_rmtree(path: Path) -> None:
         # If it's a permission error, try to fix permissions and retry
         if isinstance(exc_info[1], PermissionError):
             try:
-                Path(path).chmod(stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                path.chmod(stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
                 func(path)
                 return
             except OSError:
