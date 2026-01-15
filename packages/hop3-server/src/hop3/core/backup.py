@@ -107,7 +107,7 @@ class BackupManifest:
         Returns:
             BackupManifest instance
         """
-        with Path(path).open() as f:
+        with path.open() as f:
             data = json.load(f)
         return cls.from_json(data)
 
@@ -117,7 +117,7 @@ class BackupManifest:
         Args:
             path: Path where to write metadata.json
         """
-        with Path(path).open("w") as f:
+        with path.open("w") as f:
             json.dump(self.to_json(), f, indent=2)
 
 
