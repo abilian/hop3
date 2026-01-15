@@ -38,7 +38,11 @@ class DockerDeployBackend(DeployBackend):
         """Find the Dockerfile for building the test image."""
         # Look for Dockerfile in known locations
         possible_paths = [
-            self.config.project_root / "packages" / "hop3-installer" / "docker" / "Dockerfile.base",
+            self.config.project_root
+            / "packages"
+            / "hop3-installer"
+            / "docker"
+            / "Dockerfile.base",
             Path(__file__).parent.parent.parent.parent / "docker" / "Dockerfile.base",
         ]
         for path in possible_paths:
@@ -56,13 +60,16 @@ class DockerDeployBackend(DeployBackend):
             print("  ✗ Dockerfile not found, falling back to direct apt-get install")
             return False
 
-        print(f"  → Building Docker image (using layer cache)...")
+        print("  → Building Docker image (using layer cache)...")
         print(f"    Dockerfile: {self._dockerfile_path}")
 
         build_cmd = [
-            "docker", "build",
-            "-f", str(self._dockerfile_path),
-            "-t", self.TEST_IMAGE,
+            "docker",
+            "build",
+            "-f",
+            str(self._dockerfile_path),
+            "-t",
+            self.TEST_IMAGE,
             str(self.config.project_root),
         ]
 
@@ -193,9 +200,7 @@ class DockerDeployBackend(DeployBackend):
             print(
                 "  → Installing base packages in container (this may take a few minutes)..."
             )
-            install_cmd = (
-                "apt-get update && apt-get install -y python3 python3-venv git curl sudo"
-            )
+            install_cmd = "apt-get update && apt-get install -y python3 python3-venv git curl sudo"
             exit_code = self.run_streaming(install_cmd)
             if exit_code != 0:
                 print(f"  ✗ Failed to install base packages (exit code {exit_code})")

@@ -33,6 +33,7 @@ class DeployConfig:
 
     # SSH settings
     ssh_user: str = DEFAULT_SSH_USER
+    ssh_port: int = 22
 
     # Installation settings
     branch: str = DEFAULT_BRANCH
