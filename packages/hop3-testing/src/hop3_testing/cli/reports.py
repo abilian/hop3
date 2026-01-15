@@ -141,9 +141,7 @@ def generate_html_report(
                     # Add relevant details
                     detail_lines = []
                     for key, val in v.details.items():
-                        if key not in {
-                            "passed",
-                        }:  # Skip redundant fields
+                        if key != "passed":  # Skip redundant fields
                             detail_lines.append(f"{key}: {val}")
                     if detail_lines:
                         v_content += "\n" + "\n".join(detail_lines)
