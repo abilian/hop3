@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 import time
+import traceback
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 from hop3_testing.apps.catalog import AppSource
 from hop3_testing.apps.deployment import DeploymentSession
@@ -173,14 +175,12 @@ class DeploymentTestRunner:
                 # local/Docker targets. For remote targets, skip check scripts
                 # and rely on HTTP tests instead.
                 if app_source.has_check_script:
-                    from urllib.parse import urlparse
-
                     target_info = self.target.info
                     parsed_http = urlparse(target_info.http_base)
-                    is_remote_target = parsed_http.hostname not in (
+                    is_remote_target = parsed_http.hostname not in {
                         "localhost",
                         "127.0.0.1",
-                    )
+                    }
 
                     if is_remote_target:
                         # Skip check scripts for remote targets
@@ -241,8 +241,6 @@ class DeploymentTestRunner:
 
         except Exception as e:
             error = str(e)
-            import traceback
-
             if self.verbose:
                 traceback.print_exc()
 

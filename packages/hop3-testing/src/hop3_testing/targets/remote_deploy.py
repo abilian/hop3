@@ -13,6 +13,10 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from hop3_installer.deployer.backends.ssh import SSHDeployBackend
+from hop3_installer.deployer.config import DeployConfig
+from hop3_installer.deployer.deploy import Deployer
+
 from .base import TargetInfo
 from .constants import DEFAULT_SSH_PORT, DEFAULT_SSH_ROOT_USER
 from .deploy_base import DeployTargetBase
@@ -68,11 +72,6 @@ class RemoteDeployTarget(DeployTargetBase):
         print("=" * 70)
 
         try:
-            # Import deployer components
-            from hop3_installer.deployer.backends.ssh import SSHDeployBackend
-            from hop3_installer.deployer.config import DeployConfig
-            from hop3_installer.deployer.deploy import Deployer
-
             # Find project root
             project_root = self._find_project_root()
 
@@ -180,15 +179,6 @@ class RemoteDeployTarget(DeployTargetBase):
             print("=" * 70 + "\n")
 
             return self._info
-
-        except ImportError as e:
-            self.diagnostics.add_failure(
-                layer="testing",
-                operation="import_deployer",
-                message=f"Failed to import hop3-deploy: {e}",
-            )
-            self._save_diagnostics_on_error()
-            raise
 
         except Exception as e:
             self.diagnostics.add_failure(

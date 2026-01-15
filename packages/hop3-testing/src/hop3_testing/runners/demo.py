@@ -15,6 +15,8 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hop3_testing.catalog.models import Validation, ValidationExpect
+
 from .base import TestResult, ValidationResult
 from .validations import run_validation
 
@@ -245,8 +247,6 @@ class DemoTestRunner:
         Returns:
             ValidationResult if step produces a validation, None otherwise
         """
-        from hop3_testing.catalog.models import Validation, ValidationExpect
-
         start_time = time.time()
 
         if step.action == "deploy":

@@ -17,13 +17,19 @@ The original functionality is preserved and can be accessed via:
 
 from __future__ import annotations
 
+import html
+import json
+import os
+import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
 
 from .catalog import TestCatalog
+from .catalog.loader import generate_test_definition_from_app
 from .catalog.models import Category
 from .results import ConsoleReporter, ResultStore
 from .runners import DemoTestRunner, DeploymentTestRunner, TutorialTestRunner
@@ -90,8 +96,6 @@ def list_tests(
     )
 
     if output_format == "json":
-        import json
-
         output = [
             {
                 "name": t.name,
@@ -287,8 +291,6 @@ def run_command(
                 # Try as a path
                 app_path = Path(app_name)
                 if app_path.exists():
-                    from .catalog.loader import generate_test_definition_from_app
-
                     tests.append(generate_test_definition_from_app(app_path))
                 else:
                     click.echo(f"Warning: Test not found: {app_name}", err=True)
@@ -392,8 +394,6 @@ def package(
     This command allows package authors to test their application
     against a stable Hop3 release before publishing.
     """
-    from .catalog.loader import generate_test_definition_from_app
-
     app_path_obj = Path(app_path)
 
     # Generate test definition from app
@@ -923,9 +923,6 @@ def _generate_html_report(
     Returns:
         Path to generated HTML report
     """
-    import html
-    from datetime import datetime
-
     # Calculate summary stats
     total = len(results)
     passed = sum(1 for r in results if r.passed)
@@ -1002,7 +999,9 @@ def _generate_html_report(
                     # Add relevant details
                     detail_lines = []
                     for key, val in v.details.items():
-                        if key not in ("passed",):  # Skip redundant fields
+                        if key not in {
+                            "passed",
+                        }:  # Skip redundant fields
                             detail_lines.append(f"{key}: {val}")
                     if detail_lines:
                         v_content += "\n" + "\n".join(detail_lines)
@@ -1363,8 +1362,6 @@ def build_ready_image(ctx: click.Context, tag: str, no_cache: bool) -> None:
         hop3-test-new build-ready-image --tag my-hop3:v1   # Custom tag
         hop3-test-new build-ready-image --no-cache         # Force rebuild
     """
-    import subprocess
-
     # Find project root and Dockerfile
     root = ctx.obj["root"]
     dockerfile_path = (
@@ -1430,8 +1427,6 @@ def build_test_image(ctx: click.Context, no_cache: bool) -> None:
         hop3-test-new build-test-image              # Build with cache
         hop3-test-new build-test-image --no-cache   # Force full rebuild
     """
-    import subprocess
-
     # Find project root and Dockerfile
     root = ctx.obj["root"]
     dockerfile_path = (
@@ -1489,8 +1484,6 @@ def _create_target_with_options(
     force_rebuild: bool = False,
 ) -> DeploymentTarget:
     """Create a deployment target with full options."""
-    import os
-
     if target_type == "docker":
         return DockerTarget({
             "rebuild": not use_cache,

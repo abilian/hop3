@@ -15,7 +15,10 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hop3_testing.catalog.models import Validation, ValidationExpect
+
 from .base import TestResult, ValidationResult
+from .validations import run_validation
 
 if TYPE_CHECKING:
     from hop3_testing.catalog.models import TestDefinition
@@ -103,8 +106,6 @@ class TutorialTestRunner:
                 error = result.get("error", "Tutorial execution failed")
             else:
                 # Create a validation result for the tutorial
-                from hop3_testing.catalog.models import Validation, ValidationExpect
-
                 val_result = ValidationResult(
                     validation=Validation(
                         type="validoc",
@@ -119,8 +120,6 @@ class TutorialTestRunner:
                 # Run additional validations if defined
                 for validation in test.validations:
                     if validation.type != "validoc":
-                        from .validations import run_validation
-
                         val_result = run_validation(
                             validation=validation,
                             target=self.target,
