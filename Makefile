@@ -154,7 +154,7 @@ test-ci:
 	python demos/demo.py --host ${HOP3_DEV_HOST} --local --quiet
 	@echo ""
 	@echo "Phase 6: Run tutorials..."
-	./scripts/run-all-tutorials.sh
+	python ./scripts/run-all-tutorials.py
 	@echo ""
 	@echo "=========================================="
 	@echo "CI test suite completed!"
