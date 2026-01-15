@@ -27,7 +27,6 @@ packages:
   - buildah
   - passt-selinux
 
-
 tasks:
   - setup: |
       sudo pip3.12 install -U uv nox
@@ -43,3 +42,7 @@ tasks:
   - buildah: |
       cd hop3
       buildah build .
+
+  - e2e-docker: |
+      cd hop3
+      hop3-test-new ci
