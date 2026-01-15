@@ -101,6 +101,10 @@ class DockerDeployTarget(DeployTargetBase):
                 },
             )
 
+            # Print equivalent CLI command for reproducibility
+            cli_cmd = self._build_cli_command()
+            print(f"\nEquivalent command: {cli_cmd}\n")
+
             # Create backend and deployer
             self._deployer_backend = DockerDeployBackend(deploy_config)
             deployer = Deployer(deploy_config, self._deployer_backend)
@@ -449,6 +453,21 @@ class DockerDeployTarget(DeployTargetBase):
 
         except Exception as e:
             print(f"  Error collecting diagnostics: {e}")
+
+    def _build_cli_command(self) -> str:
+        """Build equivalent hop3-deploy CLI command for reproducibility."""
+        cmd_parts = ["hop3-deploy", "--docker"]
+
+        if self.use_local:
+            cmd_parts.append("--local")
+        if self.clean_before:
+            cmd_parts.append("--clean")
+        if self.branch and self.branch != "devel":
+            cmd_parts.extend(["--branch", self.branch])
+        if self.container_name != DEFAULT_CONTAINER_NAME:
+            cmd_parts.extend(["--container", self.container_name])
+
+        return " ".join(cmd_parts)
 
     def _build_target_info(self) -> TargetInfo:
         """Build TargetInfo from deployer backend."""

@@ -28,6 +28,13 @@ class DockerDeployBackend(DeployBackend):
     # Image name for built test image
     TEST_IMAGE = "hop3-test:latest"
 
+    # Required ports: (host_port, container_port, description)
+    REQUIRED_PORTS = [
+        (8000, 8000, "Hop3 API"),
+        (8080, 80, "HTTP"),
+        (8443, 443, "HTTPS"),
+    ]
+
     def __init__(self, config: DeployConfig):
         super().__init__(config)
         self.container_name = config.docker_container
@@ -127,6 +134,45 @@ class DockerDeployBackend(DeployBackend):
             check=False,
         )
 
+    def _check_ports_available(self) -> list[tuple[int, str, str]]:
+        """Check if required ports are available.
+
+        Returns:
+            List of (port, container_name, description) for ports in use
+        """
+        conflicts = []
+
+        # Check what's using our ports via docker ps
+        result = subprocess.run(
+            ["docker", "ps", "--format", "{{.Names}}\t{{.Ports}}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return conflicts
+
+        for line in result.stdout.strip().split("\n"):
+            if not line:
+                continue
+            parts = line.split("\t", 1)
+            if len(parts) < 2:
+                continue
+            container_name, ports_str = parts
+
+            # Skip our own container (will be removed anyway)
+            if container_name == self.container_name:
+                continue
+
+            # Check each required port
+            for host_port, _container_port, desc in self.REQUIRED_PORTS:
+                # Look for port mapping like "0.0.0.0:8080->80/tcp"
+                if f":{host_port}->" in ports_str or f":{host_port}/" in ports_str:
+                    conflicts.append((host_port, container_name, desc))
+
+        return conflicts
+
     def setup(self) -> bool:
         """Start Docker container for deployment.
 
@@ -139,6 +185,21 @@ class DockerDeployBackend(DeployBackend):
         """
         if not self._docker_available():
             print("  ✗ Docker is not available")
+            return False
+
+        # Check for port conflicts first (before building image)
+        conflicts = self._check_ports_available()
+        if conflicts:
+            print("  ✗ Port conflict detected!")
+            print()
+            print("  The following ports are already in use by other containers:")
+            for port, container, desc in conflicts:
+                print(f"    - Port {port} ({desc}): used by container '{container}'")
+            print()
+            print("  To resolve this, either:")
+            print(f"    1. Stop the conflicting container: docker stop {conflicts[0][1]}")
+            print(f"    2. Remove it entirely: docker rm -f {conflicts[0][1]}")
+            print()
             return False
 
         # Build image using Dockerfile (with layer caching)
