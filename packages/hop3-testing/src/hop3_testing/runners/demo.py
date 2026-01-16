@@ -231,6 +231,59 @@ class DemoTestRunner:
             error=error,
         )
 
+    def _run_deploy_step(
+        self, step: DemoStep, demo_dir: Path, deployed_apps: list[str], start_time: float
+    ) -> ValidationResult | None:
+        """Handle deploy action."""
+        if not step.app_path or not step.app_name:
+            return ValidationResult(
+                validation=Validation(type="command"),
+                passed=False,
+                message="Deploy step requires app_path and app_name",
+                duration=time.time() - start_time,
+            )
+
+        app_path = demo_dir / step.app_path
+        result = self.target.deploy_app(app_path, step.app_name)
+        deployed_apps.append(step.app_name)
+
+        if not result.success:
+            return ValidationResult(
+                validation=Validation(type="command"),
+                passed=False,
+                message=result.error or "Deploy failed",
+                duration=time.time() - start_time,
+            )
+
+        if not self.target.wait_for_app(step.app_name):
+            return ValidationResult(
+                validation=Validation(type="command"),
+                passed=False,
+                message="App did not start",
+                duration=time.time() - start_time,
+            )
+        return None
+
+    def _run_command_step(self, step: DemoStep, start_time: float) -> ValidationResult:
+        """Handle command action."""
+        if not step.run:
+            return ValidationResult(
+                validation=Validation(type="command"),
+                passed=False,
+                message="Command step requires 'run' field",
+                duration=time.time() - start_time,
+            )
+
+        exit_code, _stdout, _stderr = self.target.exec_run(step.run)
+        expected_exit = step.expect_exit_code if step.expect_exit_code is not None else 0
+
+        return ValidationResult(
+            validation=Validation(type="command", run=step.run),
+            passed=(exit_code == expected_exit),
+            message="OK" if exit_code == expected_exit else f"Command exited with {exit_code}, expected {expected_exit}",
+            duration=time.time() - start_time,
+        )
+
     def _run_step(
         self,
         step: DemoStep,
@@ -250,54 +303,18 @@ class DemoTestRunner:
         start_time = time.time()
 
         if step.action == "deploy":
-            # Deploy an app
-            if not step.app_path or not step.app_name:
-                return ValidationResult(
-                    validation=Validation(type="command"),
-                    passed=False,
-                    message="Deploy step requires app_path and app_name",
-                    duration=time.time() - start_time,
-                )
-
-            app_path = demo_dir / step.app_path
-            result = self.target.deploy_app(app_path, step.app_name)
-            deployed_apps.append(step.app_name)
-
-            if not result.success:
-                return ValidationResult(
-                    validation=Validation(type="command"),
-                    passed=False,
-                    message=result.error or "Deploy failed",
-                    duration=time.time() - start_time,
-                )
-
-            # Wait for app
-            if not self.target.wait_for_app(step.app_name):
-                return ValidationResult(
-                    validation=Validation(type="command"),
-                    passed=False,
-                    message="App did not start",
-                    duration=time.time() - start_time,
-                )
-
-            return None  # No validation result for deploy
+            return self._run_deploy_step(step, demo_dir, deployed_apps, start_time)
 
         if step.action == "wait":
-            # Just wait
             time.sleep(step.seconds)
             return None
 
         if step.action == "validate":
-            # Run validation
             validation = Validation(
                 type=step.validation_type or "http",
                 url=step.url,
-                expect=ValidationExpect(
-                    status=step.expect_status,
-                    contains=step.expect_contains,
-                ),
+                expect=ValidationExpect(status=step.expect_status, contains=step.expect_contains),
             )
-
             return run_validation(
                 validation=validation,
                 target=self.target,
@@ -306,7 +323,6 @@ class DemoTestRunner:
             )
 
         if step.action == "destroy":
-            # Destroy an app
             if step.app_name:
                 self.target.destroy_app(step.app_name)
                 if step.app_name in deployed_apps:
@@ -314,35 +330,7 @@ class DemoTestRunner:
             return None
 
         if step.action == "command":
-            # Run a command
-            if not step.run:
-                return ValidationResult(
-                    validation=Validation(type="command"),
-                    passed=False,
-                    message="Command step requires 'run' field",
-                    duration=time.time() - start_time,
-                )
-
-            exit_code, _stdout, _stderr = self.target.exec_run(step.run)
-
-            expected_exit = (
-                step.expect_exit_code if step.expect_exit_code is not None else 0
-            )
-
-            if exit_code != expected_exit:
-                return ValidationResult(
-                    validation=Validation(type="command", run=step.run),
-                    passed=False,
-                    message=f"Command exited with {exit_code}, expected {expected_exit}",
-                    duration=time.time() - start_time,
-                )
-
-            return ValidationResult(
-                validation=Validation(type="command", run=step.run),
-                passed=True,
-                message="OK",
-                duration=time.time() - start_time,
-            )
+            return self._run_command_step(step, start_time)
 
         return None
 

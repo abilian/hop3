@@ -52,21 +52,35 @@ class DockerTarget(DeploymentTarget):
         self.force_rebuild = config.get("force_rebuild", False) if config else False
         self.verbose = config.get("verbose", False) if config else False
 
+    def _image_exists(self) -> bool:
+        """Check if the Docker image already exists."""
+        try:
+            self.client.images.get(self.image_tag)
+            return True
+        except ImageNotFound:
+            return False
+
+    def _get_project_paths(self) -> tuple[Path, Path]:
+        """Get project root and Dockerfile path."""
+        # Path: .../hop3/packages/hop3-testing/src/hop3_testing/targets/docker.py
+        current_file = Path(__file__)
+        project_root = current_file.parent.parent.parent.parent.parent.parent
+        dockerfile_path = project_root / "packages/hop3-server/tests/d_e2e/docker/Dockerfile"
+
+        if not dockerfile_path.exists():
+            msg = f"Dockerfile not found at {dockerfile_path}"
+            raise FileNotFoundError(msg)
+
+        return project_root, dockerfile_path
+
     def _build_image(self, *, force: bool = False) -> None:
         """Build the Docker image.
 
         Args:
             force: Force rebuild without using Docker layer cache (nocache=True)
         """
-        # Check if image exists
-        image_exists = False
-        try:
-            self.client.images.get(self.image_tag)
-            image_exists = True
-        except ImageNotFound:
-            pass
+        image_exists = self._image_exists()
 
-        # Always build (with Docker layer caching unless force=True)
         print(f"Building Docker image: {self.image_tag}")
         if force:
             print("(Force rebuild - ignoring Docker layer cache)")
@@ -75,20 +89,8 @@ class DockerTarget(DeploymentTarget):
         else:
             print("(First build - this may take 5-10 minutes...)")
 
-        # Find project root (up from packages/hop3-testing)
-        # Path: .../hop3/packages/hop3-testing/src/hop3_testing/targets/docker.py
-        current_file = Path(__file__)
-        # Go up: targets/ -> hop3_testing/ -> src/ -> hop3-testing/ -> packages/ -> hop3/
-        project_root = current_file.parent.parent.parent.parent.parent.parent
-        dockerfile_path = (
-            project_root / "packages/hop3-server/tests/d_e2e/docker/Dockerfile"
-        )
+        project_root, dockerfile_path = self._get_project_paths()
 
-        if not dockerfile_path.exists():
-            msg = f"Dockerfile not found at {dockerfile_path}"
-            raise FileNotFoundError(msg)
-
-        # Build hop3-server distribution first
         print("Building hop3-server distribution...")
         subprocess.run(
             ["uv", "build", "packages/hop3-server"],
@@ -97,28 +99,20 @@ class DockerTarget(DeploymentTarget):
             capture_output=True,
         )
 
-        # Build Docker image with layer caching
         try:
             _image, logs = self.client.images.build(
                 path=str(project_root),
                 dockerfile=str(dockerfile_path),
                 tag=self.image_tag,
-                rm=True,  # Remove intermediate containers
-                forcerm=True,  # Always remove intermediate containers
-                nocache=force,  # Only disable cache when force=True
+                rm=True,
+                forcerm=True,
+                nocache=force,
             )
 
-            # Capture build logs (only print on failure or in verbose mode)
-            build_logs = []
-            for log in logs:
-                if "stream" in log:
-                    build_logs.append(log["stream"].strip())
-
-            # Only show logs in verbose mode
             if self.verbose:
-                for line in build_logs:
-                    if line:
-                        print(line)
+                for log in logs:
+                    if "stream" in log and log["stream"].strip():
+                        print(log["stream"].strip())
 
             print(f"Successfully built image: {self.image_tag}")
 

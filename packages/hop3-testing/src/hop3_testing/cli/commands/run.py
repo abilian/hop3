@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 
@@ -16,6 +17,43 @@ from hop3_testing.catalog.loader import generate_test_definition_from_app
 from hop3_testing.cli.helpers import create_target_with_options
 from hop3_testing.cli.runners import run_single_test
 from hop3_testing.results import ConsoleReporter, ResultStore
+
+if TYPE_CHECKING:
+    from hop3_testing.catalog.models import TestDefinition
+
+
+def _select_tests(
+    catalog: TestCatalog,
+    apps: tuple[str, ...],
+    category: str | None,
+) -> list[TestDefinition]:
+    """Select tests based on command arguments."""
+    if apps:
+        tests = []
+        for app_name in apps:
+            test = catalog.get_test(app_name)
+            if test:
+                tests.append(test)
+            else:
+                app_path = Path(app_name)
+                if app_path.exists():
+                    tests.append(generate_test_definition_from_app(app_path))
+                else:
+                    click.echo(f"Warning: Test not found: {app_name}", err=True)
+        return tests
+    if category:
+        return catalog.filter(categories=[category])
+    return list(catalog.all_tests())
+
+
+def _report_test_result(test, result) -> None:
+    """Report the result of a single test."""
+    if result.passed:
+        click.echo(f"\n✓ {test.name} PASSED")
+    else:
+        click.echo(f"\n❌ {test.name} FAILED")
+        if result.error:
+            click.echo(f"  Error: {result.error}")
 
 
 @click.command("run")
@@ -63,29 +101,10 @@ def run_command(
     """
     verbose = ctx.obj["verbose"]
 
-    # Load catalog
     catalog = TestCatalog(ctx.obj["root"])
     catalog.scan()
 
-    # Select tests based on arguments
-    if apps:
-        # Filter by specific app names
-        tests = []
-        for app_name in apps:
-            test = catalog.get_test(app_name)
-            if test:
-                tests.append(test)
-            else:
-                # Try as a path
-                app_path = Path(app_name)
-                if app_path.exists():
-                    tests.append(generate_test_definition_from_app(app_path))
-                else:
-                    click.echo(f"Warning: Test not found: {app_name}", err=True)
-    elif category:
-        tests = catalog.filter(categories=[category])
-    else:
-        tests = list(catalog.all_tests())
+    tests = _select_tests(catalog, apps, category)
 
     if not tests:
         click.echo("No tests found to run")
@@ -95,7 +114,6 @@ def run_command(
     for t in tests:
         click.echo(f"  - {t.name} ({t.category.value})")
 
-    # Create target
     target_obj = create_target_with_options(
         target_type=target,
         host=host,
@@ -106,7 +124,6 @@ def run_command(
         force_rebuild=force_rebuild,
     )
 
-    # Initialize result storage
     store = ResultStore()
     reporter = ConsoleReporter(verbose=verbose)
 
@@ -120,7 +137,6 @@ def run_command(
             target_name=target_obj.info.ssh_host,
         )
 
-        # Run tests
         results = []
         for test in tests:
             click.echo(f"\n{'=' * 70}")
@@ -136,22 +152,15 @@ def run_command(
             results.append(result)
             store.save(result)
 
-            if result.passed:
-                click.echo(f"\n✓ {test.name} PASSED")
-            else:
-                click.echo(f"\n❌ {test.name} FAILED")
-                if result.error:
-                    click.echo(f"  Error: {result.error}")
+            _report_test_result(test, result)
 
             if fail_fast and not result.passed:
                 click.echo("\nFail fast enabled, stopping tests")
                 break
 
-        # Summary
         store.finish_run()
         reporter.summary(results)
 
-        # Exit code
         passed = sum(1 for r in results if r.passed)
         failed = len(results) - passed
         sys.exit(0 if failed == 0 else 1)

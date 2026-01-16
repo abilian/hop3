@@ -205,6 +205,45 @@ def _parse_validation(data: dict[str, Any]) -> Validation:
     )
 
 
+def _infer_app_type(app_path: Path) -> str | None:
+    """Infer app type from files present."""
+    if (app_path / "requirements.txt").exists() or (app_path / "pyproject.toml").exists():
+        return "python"
+    if (app_path / "package.json").exists():
+        return "nodejs"
+    if (app_path / "go.mod").exists():
+        return "golang"
+    if (app_path / "Gemfile").exists():
+        return "ruby"
+    return None
+
+
+def _read_description_from_readme(app_path: Path) -> str | None:
+    """Read description from README.md first heading."""
+    readme_path = app_path / "README.md"
+    if not readme_path.exists():
+        return None
+    with readme_path.open() as f:
+        first_line = f.readline().strip()
+        if first_line.startswith("#"):
+            return first_line.lstrip("#").strip()
+    return None
+
+
+def _build_validations_from_app(app_path: Path) -> list[Validation]:
+    """Build validation list from app files."""
+    validations = []
+    if (app_path / "Procfile").exists():
+        validations.append(
+            Validation(type="http", path="/", expect=ValidationExpect(status=200))
+        )
+    if (app_path / "check.py").exists():
+        validations.append(
+            Validation(type="script", path="check.py", expect=ValidationExpect(exit_code=0))
+        )
+    return validations
+
+
 def generate_test_definition_from_app(
     app_path: Path,
     name: str | None = None,
@@ -225,58 +264,13 @@ def generate_test_definition_from_app(
     """
     app_name = name or app_path.name
 
-    # Infer tier based on naming convention
-    tier = Tier.FAST
-    if app_name.startswith("1"):
-        tier = Tier.MEDIUM  # python-advanced apps are slower
+    # Infer tier and priority based on naming convention
+    tier = Tier.MEDIUM if app_name.startswith("1") else Tier.FAST
+    priority = Priority.P0 if app_name.startswith(("01", "000")) else Priority.P1
 
-    # Infer priority
-    priority = Priority.P1
-    if app_name.startswith(("01", "000")):
-        priority = Priority.P0  # Basic apps are P0
-
-    # Read description from README
-    description = None
-    readme_path = app_path / "README.md"
-    if readme_path.exists():
-        with readme_path.open() as f:
-            first_line = f.readline().strip()
-            if first_line.startswith("#"):
-                description = first_line.lstrip("#").strip()
-
-    # Infer app type from files present
-    app_type = None
-    if (app_path / "requirements.txt").exists() or (
-        app_path / "pyproject.toml"
-    ).exists():
-        app_type = "python"
-    elif (app_path / "package.json").exists():
-        app_type = "nodejs"
-    elif (app_path / "go.mod").exists():
-        app_type = "golang"
-    elif (app_path / "Gemfile").exists():
-        app_type = "ruby"
-
-    # Build validations - check for HTTP endpoint
-    validations = []
-    if (app_path / "Procfile").exists():
-        validations.append(
-            Validation(
-                type="http",
-                path="/",
-                expect=ValidationExpect(status=200),
-            )
-        )
-
-    # Check for custom check script
-    if (app_path / "check.py").exists():
-        validations.append(
-            Validation(
-                type="script",
-                path="check.py",
-                expect=ValidationExpect(exit_code=0),
-            )
-        )
+    description = _read_description_from_readme(app_path)
+    app_type = _infer_app_type(app_path)
+    validations = _build_validations_from_app(app_path)
 
     # Build covers tags
     covers = []

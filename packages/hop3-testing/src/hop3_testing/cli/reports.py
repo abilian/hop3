@@ -52,6 +52,164 @@ def generate_reports(
                     click.echo(target.diagnostics.dump_to_console())
 
 
+def _is_short_content(text: str) -> bool:
+    """Check if content is short enough to show inline (no foldable section)."""
+    return len(text) < 100 and "\n" not in text
+
+
+def _phase_html(
+    phase_id: str, status: str, name: str, content: str, is_success: bool
+) -> str:
+    """Generate HTML for a phase, using inline or foldable based on content length."""
+    status_class = "phase-success" if is_success else "phase-failure"
+    escaped_content = html.escape(content)
+
+    if _is_short_content(content):
+        return f"""
+        <div class="phase {status_class} phase-inline">
+            <span class="phase-icon">{status}</span>
+            <span class="phase-name">{html.escape(name)}</span>
+            <span class="phase-message">{escaped_content}</span>
+        </div>
+        """
+    return f"""
+        <div class="phase {status_class}" onclick="togglePhase('{phase_id}')">
+            <span class="phase-icon">{status}</span>
+            <span class="phase-name">{html.escape(name)}</span>
+            <span class="phase-toggle">+</span>
+        </div>
+        <div id="{phase_id}" class="phase-logs" style="display:none">
+            <pre>{escaped_content}</pre>
+        </div>
+        """
+
+
+def _build_test_card(idx: int, r: TestResult) -> str:
+    """Build HTML for a single test card."""
+    status_class = "success" if r.passed else "failure"
+    status_icon = "\u2713" if r.passed else "\u2717"
+    test_id = f"test-{idx}"
+
+    phases_html = _build_phases_html(r, test_id)
+
+    return f"""
+    <div class="test-card {status_class}">
+        <div class="test-header" onclick="toggleTest('{test_id}')">
+            <span class="test-status">{status_icon}</span>
+            <span class="test-name">{html.escape(r.test.name)}</span>
+            <span class="test-meta">{html.escape(str(r.test.category) if r.test.category else "unknown")} | {html.escape(str(r.test.tier) if r.test.tier else "unknown")} | {r.total_duration:.2f}s</span>
+            <span class="test-toggle">&#9660;</span>
+        </div>
+        <div id="{test_id}" class="test-details" style="display:none">
+            <div class="phases">
+                {"".join(phases_html)}
+            </div>
+        </div>
+    </div>
+    """
+
+
+def _build_phases_html(r: TestResult, test_id: str) -> list[str]:
+    """Build HTML for all phases of a test result."""
+    phases_html = []
+
+    # Deploy phase
+    if r.deploy_logs:
+        deploy_status = (
+            "\u2713" if not r.error or "deploy" not in r.error.lower() else "\u2717"
+        )
+        is_success = deploy_status == "\u2713"
+        phases_html.append(
+            _phase_html(f"{test_id}-deploy", deploy_status, "Deploy", r.deploy_logs, is_success)
+        )
+
+    # Validation phases
+    if r.validation_results:
+        for v_idx, v in enumerate(r.validation_results):
+            v_content = _build_validation_content(v)
+            phases_html.append(
+                _phase_html(f"{test_id}-val-{v_idx}", "\u2713" if v.passed else "\u2717", v.type_name, v_content, v.passed)
+            )
+
+    # Error phase
+    if r.error:
+        phases_html.append(f"""
+        <div class="phase phase-failure" onclick="togglePhase('{test_id}-error')">
+            <span class="phase-icon">\u2717</span>
+            <span class="phase-name">Error</span>
+            <span class="phase-toggle">+</span>
+        </div>
+        <div id="{test_id}-error" class="phase-logs" style="display:none">
+            <pre class="error-log">{html.escape(r.error)}</pre>
+        </div>
+        """)
+
+    return phases_html
+
+
+def _build_validation_content(v) -> str:
+    """Build content string from a validation result."""
+    v_content = v.message or ("Passed" if v.passed else "Failed")
+    if v.details:
+        detail_lines = [f"{key}: {val}" for key, val in v.details.items() if key != "passed"]
+        if detail_lines:
+            v_content += "\n" + "\n".join(detail_lines)
+    return v_content
+
+
+def _build_diagnostic_section(target: DeploymentTarget) -> str:
+    """Build HTML for diagnostic section."""
+    if not hasattr(target, "diagnostics"):
+        return ""
+
+    diag = target.diagnostics
+    if not diag.entries:
+        return ""
+
+    diag_cards = []
+    for d_idx, e in enumerate(diag.entries):
+        d_status = "\u2713" if e.success else "\u2717"
+        d_class = "phase-success" if e.success else "phase-failure"
+        d_id = f"diag-{d_idx}"
+
+        logs = ""
+        if hasattr(e, "stdout") and e.stdout:
+            logs += f"=== stdout ===\n{e.stdout}\n"
+        if hasattr(e, "stderr") and e.stderr:
+            logs += f"=== stderr ===\n{e.stderr}\n"
+        if hasattr(e, "details") and e.details:
+            logs += f"=== details ===\n{e.details}\n"
+        if not logs:
+            logs = e.message
+
+        diag_cards.append(f"""
+        <div class="phase {d_class}" onclick="togglePhase('{d_id}')">
+            <span class="phase-icon">{d_status}</span>
+            <span class="phase-name">{html.escape(e.phase)} / {html.escape(e.layer)} / {html.escape(e.operation)}</span>
+            <span class="phase-duration">{e.duration:.2f}s</span>
+            <span class="phase-toggle">+</span>
+        </div>
+        <div id="{d_id}" class="phase-logs" style="display:none">
+            <pre>{html.escape(logs)}</pre>
+        </div>
+        """)
+
+    if not diag_cards:
+        return ""
+
+    return f"""
+    <div class="section">
+        <h2 onclick="toggleSection('diag-section')" class="section-header">
+            Infrastructure Diagnostics
+            <span class="section-toggle">&#9660;</span>
+        </h2>
+        <div id="diag-section" class="phases">
+            {"".join(diag_cards)}
+        </div>
+    </div>
+    """
+
+
 def generate_html_report(
     target: DeploymentTarget, results: list[TestResult], log_path: Path
 ) -> Path:
@@ -65,168 +223,14 @@ def generate_html_report(
     Returns:
         Path to generated HTML report
     """
-    # Calculate summary stats
     total = len(results)
     passed = sum(1 for r in results if r.passed)
     failed = total - passed
     total_duration = sum(r.total_duration for r in results)
 
-    def is_short_content(text: str) -> bool:
-        """Check if content is short enough to show inline (no foldable section)."""
-        return len(text) < 100 and "\n" not in text
+    test_cards = [_build_test_card(idx, r) for idx, r in enumerate(results)]
+    diag_section = _build_diagnostic_section(target)
 
-    def phase_html(
-        phase_id: str, status: str, name: str, content: str, is_success: bool
-    ) -> str:
-        """Generate HTML for a phase, using inline or foldable based on content length."""
-        status_class = "phase-success" if is_success else "phase-failure"
-        escaped_content = html.escape(content)
-
-        if is_short_content(content):
-            # Short content: show inline, no foldable
-            return f"""
-            <div class="phase {status_class} phase-inline">
-                <span class="phase-icon">{status}</span>
-                <span class="phase-name">{html.escape(name)}</span>
-                <span class="phase-message">{escaped_content}</span>
-            </div>
-            """
-        # Long content: foldable section
-        return f"""
-            <div class="phase {status_class}" onclick="togglePhase('{phase_id}')">
-                <span class="phase-icon">{status}</span>
-                <span class="phase-name">{html.escape(name)}</span>
-                <span class="phase-toggle">+</span>
-            </div>
-            <div id="{phase_id}" class="phase-logs" style="display:none">
-                <pre>{escaped_content}</pre>
-            </div>
-            """
-
-    # Build test results - each test is a clickable card
-    test_cards = []
-    for idx, r in enumerate(results):
-        status_class = "success" if r.passed else "failure"
-        status_icon = "\u2713" if r.passed else "\u2717"
-        test_id = f"test-{idx}"
-
-        # Build phases list
-        phases_html = []
-
-        # Phase 1: Deployment (only if there are logs or it failed)
-        if r.deploy_logs:
-            deploy_status = (
-                "\u2713" if not r.error or "deploy" not in r.error.lower() else "\u2717"
-            )
-            is_success = deploy_status == "\u2713"
-            phases_html.append(
-                phase_html(
-                    f"{test_id}-deploy",
-                    deploy_status,
-                    "Deploy",
-                    r.deploy_logs,
-                    is_success,
-                )
-            )
-
-        # Phase 2: Validations
-        if r.validation_results:
-            for v_idx, v in enumerate(r.validation_results):
-                v_status = "\u2713" if v.passed else "\u2717"
-                v_id = f"{test_id}-val-{v_idx}"
-
-                # Build content from message and details
-                v_content = v.message or f"{'Passed' if v.passed else 'Failed'}"
-                if v.details:
-                    # Add relevant details
-                    detail_lines = []
-                    for key, val in v.details.items():
-                        if key != "passed":  # Skip redundant fields
-                            detail_lines.append(f"{key}: {val}")
-                    if detail_lines:
-                        v_content += "\n" + "\n".join(detail_lines)
-
-                phases_html.append(
-                    phase_html(v_id, v_status, v.type_name, v_content, v.passed)
-                )
-
-        # Phase 3: Error (if any, always foldable since errors tend to be long)
-        if r.error:
-            phases_html.append(f"""
-            <div class="phase phase-failure" onclick="togglePhase('{test_id}-error')">
-                <span class="phase-icon">\u2717</span>
-                <span class="phase-name">Error</span>
-                <span class="phase-toggle">+</span>
-            </div>
-            <div id="{test_id}-error" class="phase-logs" style="display:none">
-                <pre class="error-log">{html.escape(r.error)}</pre>
-            </div>
-            """)
-
-        test_cards.append(f"""
-        <div class="test-card {status_class}">
-            <div class="test-header" onclick="toggleTest('{test_id}')">
-                <span class="test-status">{status_icon}</span>
-                <span class="test-name">{html.escape(r.test.name)}</span>
-                <span class="test-meta">{html.escape(str(r.test.category) if r.test.category else "unknown")} | {html.escape(str(r.test.tier) if r.test.tier else "unknown")} | {r.total_duration:.2f}s</span>
-                <span class="test-toggle">&#9660;</span>
-            </div>
-            <div id="{test_id}" class="test-details" style="display:none">
-                <div class="phases">
-                    {"".join(phases_html)}
-                </div>
-            </div>
-        </div>
-        """)
-
-    # Build diagnostic entries if available
-    diag_cards = []
-    if hasattr(target, "diagnostics"):
-        diag = target.diagnostics
-        if diag.entries:
-            for d_idx, e in enumerate(diag.entries):
-                d_status = "\u2713" if e.success else "\u2717"
-                d_class = "phase-success" if e.success else "phase-failure"
-                d_id = f"diag-{d_idx}"
-
-                # Get stdout/stderr if available
-                logs = ""
-                if hasattr(e, "stdout") and e.stdout:
-                    logs += f"=== stdout ===\n{e.stdout}\n"
-                if hasattr(e, "stderr") and e.stderr:
-                    logs += f"=== stderr ===\n{e.stderr}\n"
-                if hasattr(e, "details") and e.details:
-                    logs += f"=== details ===\n{e.details}\n"
-                if not logs:
-                    logs = e.message
-
-                diag_cards.append(f"""
-                <div class="phase {d_class}" onclick="togglePhase('{d_id}')">
-                    <span class="phase-icon">{d_status}</span>
-                    <span class="phase-name">{html.escape(e.phase)} / {html.escape(e.layer)} / {html.escape(e.operation)}</span>
-                    <span class="phase-duration">{e.duration:.2f}s</span>
-                    <span class="phase-toggle">+</span>
-                </div>
-                <div id="{d_id}" class="phase-logs" style="display:none">
-                    <pre>{html.escape(logs)}</pre>
-                </div>
-                """)
-
-    diag_section = ""
-    if diag_cards:
-        diag_section = f"""
-        <div class="section">
-            <h2 onclick="toggleSection('diag-section')" class="section-header">
-                Infrastructure Diagnostics
-                <span class="section-toggle">&#9660;</span>
-            </h2>
-            <div id="diag-section" class="phases">
-                {"".join(diag_cards)}
-            </div>
-        </div>
-        """
-
-    # Get context info
     ctx = target.diagnostics.context if hasattr(target, "diagnostics") else None
     test_name = ctx.test_name if ctx else "Unknown"
     config_name = ctx.config if ctx else "Unknown"
@@ -245,7 +249,6 @@ def generate_html_report(
         log_path=log_path,
     )
 
-    # Save HTML report
     html_path = log_path / "report.html"
     html_path.write_text(html_content)
     return html_path
