@@ -9,12 +9,16 @@ set -e  # Exit on first failure
 HOST="hop3.dev"
 BRANCH="new-test-runner"
 
+# Colors
+BLUE='\033[1;34m'
+NC='\033[0m' # No Color
+
 # Helper function to echo and run commands
 run() {
     echo ""
-    echo "=========================================="
-    echo "Running: $*"
-    echo "=========================================="
+    echo -e "${BLUE}==========================================${NC}"
+    echo -e "${BLUE}Running: $*${NC}"
+    echo -e "${BLUE}==========================================${NC}"
     "$@"
 }
 
@@ -31,13 +35,13 @@ echo "=============================================="
 echo ""
 echo ">>> SYSTEM TESTING (DOCKER) <<<"
 
-# Deploy local code to Docker and test
-run hop3-test-new system --docker
+# Deploy local code to Docker and test (keep container for reuse test)
+run hop3-test-new system --docker --keep
 
 # Reuse existing deployment (skip deploy)
 run hop3-test-new system --docker --reuse
 
-# Deploy from git branch
+# Deploy from git branch (this will replace the container)
 run hop3-test-new system --docker --deploy-from git --branch "$BRANCH"
 
 # Deploy from PyPI (not yet available)
@@ -59,14 +63,14 @@ run hop3-test-new system --docker --report html
 echo ""
 echo ">>> SYSTEM TESTING (SSH) <<<"
 
-# Remote server via SSH
-run hop3-test-new system --ssh --host "$HOST"
+# Remote server via SSH (keep for reuse test)
+run hop3-test-new system --ssh --host "$HOST" --keep
 
 # Reuse existing deployment on remote
 run hop3-test-new system --ssh --host "$HOST" --reuse
 
-# Deploy from git branch to remote
-run hop3-test-new system --ssh --host "$HOST" --deploy-from git --branch "$BRANCH"
+# Deploy from git branch to remote (needs --clean since previous was local)
+run hop3-test-new system --ssh --host "$HOST" --deploy-from git --branch "$BRANCH" --clean
 
 # Deploy from PyPI to remote (not yet available)
 # run hop3-test-new system --ssh --host "$HOST" --deploy-from pypi
