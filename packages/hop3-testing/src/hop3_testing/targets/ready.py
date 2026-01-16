@@ -98,10 +98,10 @@ class ReadyTarget(DeploymentTarget):
                     operation="check_image",
                     message=f"Image {self.image} not found",
                     details={
-                        "hint": "Build with: hop3-test-new build-ready-image",
+                        "hint": "Build with: hop3-test build-ready-image",
                     },
                 )
-                msg = f"Image {self.image} not found. Build it with: hop3-test-new build-ready-image"
+                msg = f"Image {self.image} not found. Build it with: hop3-test build-ready-image"
                 raise RuntimeError(msg) from None
 
             # Remove any existing container with the same name

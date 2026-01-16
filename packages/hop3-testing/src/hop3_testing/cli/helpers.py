@@ -22,7 +22,9 @@ def create_target(
     target_type: str, host: str | None, verbose: bool = False
 ) -> DeploymentTarget:
     """Create a deployment target (simple version)."""
-    return create_target_with_options(target_type=target_type, host=host, verbose=verbose)
+    return create_target_with_options(
+        target_type=target_type, host=host, verbose=verbose
+    )
 
 
 def create_target_with_options(

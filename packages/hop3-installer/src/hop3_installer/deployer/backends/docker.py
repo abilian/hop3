@@ -197,7 +197,9 @@ class DockerDeployBackend(DeployBackend):
                 print(f"    - Port {port} ({desc}): used by container '{container}'")
             print()
             print("  To resolve this, either:")
-            print(f"    1. Stop the conflicting container: docker stop {conflicts[0][1]}")
+            print(
+                f"    1. Stop the conflicting container: docker stop {conflicts[0][1]}"
+            )
             print(f"    2. Remove it entirely: docker rm -f {conflicts[0][1]}")
             print()
             return False

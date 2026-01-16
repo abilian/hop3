@@ -185,30 +185,30 @@ test-tutorials-ssh:
 	@echo ""
 
 #
-# New unified test runner (hop3-test-new)
+# New unified test runner (hop3-test)
 #
 
 ## Run quick tests with new runner (fast, P0 only) - LEGACY
 test-dev:
 	@echo "--> Running dev tests (fast, P0)"
-	uv run hop3-test-new dev --target docker
+	uv run hop3-test dev --target docker
 	@echo ""
 
 ## Run CI tests with new runner (fast+medium, P0)
 test-ci-new:
 	@echo "--> Running CI tests (fast+medium, P0)"
-	uv run hop3-test-new ci --target docker
+	uv run hop3-test ci --target docker
 	@echo ""
 
 ## Run nightly tests with new runner (all tiers, all priorities)
 test-nightly:
 	@echo "--> Running nightly tests (all)"
-	uv run hop3-test-new nightly --target docker
+	uv run hop3-test nightly --target docker
 	@echo ""
 
 ## List available tests
 test-list:
-	@uv run hop3-test-new list
+	@uv run hop3-test list
 
 ## Run specific tests by name
 test-run:
@@ -222,25 +222,25 @@ test-run:
 ## Test Hop3 system with hop3-deploy (local code)
 test-system:
 	@echo "--> Testing Hop3 system (via hop3-deploy)"
-	uv run hop3-test-new system --deploy-from local
+	uv run hop3-test system --deploy-from local
 	@echo ""
 
 ## Test Hop3 system with clean install
 test-system-clean:
 	@echo "--> Testing Hop3 system (clean install)"
-	uv run hop3-test-new system --deploy-from local --clean
+	uv run hop3-test system --deploy-from local --clean
 	@echo ""
 
 ## Test apps against pre-built image (fast, no deployment)
 test-apps:
 	@echo "--> Testing apps (pre-built image)"
-	uv run hop3-test-new apps
+	uv run hop3-test apps
 	@echo ""
 
 ## Test specific app
 test-app:
 	@echo "Usage: make test-app APP=010-flask-pip-wsgi"
-	@if [ -n "$(APP)" ]; then uv run hop3-test-new apps $(APP); fi
+	@if [ -n "$(APP)" ]; then uv run hop3-test apps $(APP); fi
 
 #
 # Installer Testing

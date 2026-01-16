@@ -49,7 +49,7 @@ tasks:
 
   - e2e-docker: |
       cd hop3
-      hop3-test-new ci
+      hop3-test ci
 
   - e2e: |
       cd hop3

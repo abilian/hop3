@@ -8,11 +8,11 @@ Quick reference for developers running tests.
 |------|---------|
 | **All pytest tests** | `make test` |
 | **Full CI suite** | `make test-ci` |
-| **System tests (Docker)** | `hop3-test-new system --docker` |
-| **App tests (fast)** | `hop3-test-new apps` |
+| **System tests (Docker)** | `hop3-test system --docker` |
+| **App tests (fast)** | `hop3-test apps` |
 | **Lint & type check** | `make lint` |
 
-## New Test Runner (hop3-test-new)
+## New Test Runner (hop3-test)
 
 The new unified test runner provides multiple testing modes.
 
@@ -23,34 +23,34 @@ Tests the full Hop3 system by deploying it first, then running tests.
 
 ```bash
 # Deploy local code to Docker and test
-hop3-test-new system --docker
+hop3-test system --docker
 
 # Deploy from git branch
-hop3-test-new system --docker --deploy-from git --branch main
+hop3-test system --docker --deploy-from git --branch main
 
 # Deploy from PyPI
-hop3-test-new system --docker --deploy-from pypi
+hop3-test system --docker --deploy-from pypi
 
 # Clean install (remove existing)
-hop3-test-new system --docker --clean
+hop3-test system --docker --clean
 
 # Reuse existing deployment (skip deploy)
-hop3-test-new system --docker --reuse
+hop3-test system --docker --reuse
 # Or equivalently:
-hop3-test-new system --docker --deploy-from none
+hop3-test system --docker --deploy-from none
 
 # Remote server via SSH
-hop3-test-new system --ssh --host server.example.com
+hop3-test system --ssh --host server.example.com
 
 # SSH using HOP3_TEST_HOST env var
 export HOP3_TEST_HOST=server.example.com
-hop3-test-new system --ssh
+hop3-test system --ssh
 
 # Test mode: dev (fast) or ci (more thorough)
-hop3-test-new system --docker --mode ci
+hop3-test system --docker --mode ci
 
 # Generate HTML report
-hop3-test-new system --docker --report html
+hop3-test system --docker --report html
 ```
 
 #### Deploy-from Options
@@ -69,41 +69,41 @@ Uses a pre-built Docker image with Hop3 already installed for fast app testing.
 
 ```bash
 # First, build the ready image (one-time, ~5 min)
-hop3-test-new build-ready-image
+hop3-test build-ready-image
 
 # Test all apps (~30s per app)
-hop3-test-new apps
+hop3-test apps
 
 # Test specific app
-hop3-test-new apps 010-flask-pip-wsgi
+hop3-test apps 010-flask-pip-wsgi
 
 # Test by category
-hop3-test-new apps --category python
+hop3-test apps --category python
 
 # Keep apps deployed after testing
-hop3-test-new apps --keep
+hop3-test apps --keep
 
 # Against remote server
-hop3-test-new apps --target remote --host server.example.com
+hop3-test apps --target remote --host server.example.com
 ```
 
 ### Listing and Inspecting Tests
 
 ```bash
 # List all tests
-hop3-test-new list
+hop3-test list
 
 # Filter by category
-hop3-test-new list --category deployment
+hop3-test list --category deployment
 
 # Filter by tier
-hop3-test-new list --tier fast
+hop3-test list --tier fast
 
 # Show test details
-hop3-test-new show 010-flask-pip-wsgi
+hop3-test show 010-flask-pip-wsgi
 
 # JSON output
-hop3-test-new list --format json
+hop3-test list --format json
 ```
 
 ### Package Validation
@@ -112,20 +112,20 @@ For package authors testing their apps against stable Hop3.
 
 ```bash
 # Validate an app package
-hop3-test-new package /path/to/my-app
+hop3-test package /path/to/my-app
 ```
 
 ### Building Docker Images
 
 ```bash
 # Build ready image (pre-installed Hop3)
-hop3-test-new build-ready-image
-hop3-test-new build-ready-image --tag my-hop3:v1
-hop3-test-new build-ready-image --no-cache
+hop3-test build-ready-image
+hop3-test build-ready-image --tag my-hop3:v1
+hop3-test build-ready-image --no-cache
 
 # Build test image (for system tests)
-hop3-test-new build-test-image
-hop3-test-new build-test-image --no-cache
+hop3-test build-test-image
+hop3-test build-test-image --no-cache
 ```
 
 ## Pytest Tests
@@ -200,7 +200,7 @@ make test      # Run all pytest tests
 
 ```bash
 # Fast tests against Docker
-hop3-test-new system --docker --mode dev
+hop3-test system --docker --mode dev
 ```
 
 ### Full Validation (CI)
@@ -210,7 +210,7 @@ hop3-test-new system --docker --mode dev
 make test-ci
 
 # Or manually
-hop3-test-new system --docker --mode ci --report html
+hop3-test system --docker --mode ci --report html
 ```
 
 ### Debug a Failing Test
@@ -220,16 +220,16 @@ hop3-test-new system --docker --mode ci --report html
 uv run pytest -v -s path/to/test.py::test_name
 
 # Keep target running for inspection
-hop3-test-new apps --keep 010-flask-pip-wsgi
+hop3-test apps --keep 010-flask-pip-wsgi
 
 # Run system tests and keep target
-hop3-test-new system --docker --keep
+hop3-test system --docker --keep
 
 # Reuse container for fast iteration
-hop3-test-new system --docker --reuse --keep
+hop3-test system --docker --reuse --keep
 
 # Generate HTML report for analysis
-hop3-test-new system --docker --report html
+hop3-test system --docker --report html
 ```
 
 ### Test Coverage
@@ -310,27 +310,27 @@ docker ps -a | grep hop3
 docker logs hop3-test
 
 # Rebuild test image
-hop3-test-new build-test-image --no-cache
+hop3-test build-test-image --no-cache
 ```
 
 ### App Tests Fail (Ready Image)
 
 ```bash
 # Rebuild ready image
-hop3-test-new build-ready-image --no-cache
+hop3-test build-ready-image --no-cache
 
 # Test with verbose output
-hop3-test-new apps -v 010-flask-pip-wsgi
+hop3-test apps -v 010-flask-pip-wsgi
 
 # Check HTML report
-hop3-test-new apps --report html
+hop3-test apps --report html
 ```
 
 ### System Tests Timeout
 
 ```bash
 # Reuse existing container to debug
-hop3-test-new system --docker --reuse --keep
+hop3-test system --docker --reuse --keep
 
 # View diagnostic logs
 ls test-logs/
@@ -356,7 +356,7 @@ ssh root@$HOP3_TEST_HOST "systemctl status hop3-server"
 
 ### When to Use Each
 
-- **`hop3-test-new system --docker`**: Testing Hop3 changes (deploys Hop3 first)
-- **`hop3-test-new system --docker --reuse`**: Fast iteration on existing container
-- **`hop3-test-new system --ssh --host X`**: Testing against remote servers
-- **`hop3-test-new apps`**: Testing app configurations (uses pre-built image)
+- **`hop3-test system --docker`**: Testing Hop3 changes (deploys Hop3 first)
+- **`hop3-test system --docker --reuse`**: Fast iteration on existing container
+- **`hop3-test system --ssh --host X`**: Testing against remote servers
+- **`hop3-test apps`**: Testing app configurations (uses pre-built image)
