@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from .loader import (
     TestDefinitionError,
@@ -40,14 +40,14 @@ class TestCatalog:
     """
 
     # Default scan paths relative to project root
-    DEFAULT_SCAN_PATHS = [
+    DEFAULT_SCAN_PATHS: ClassVar[list[str]] = [
         "apps/test-apps",
         "demos",
         "docs/src/tutorials",
     ]
 
     # Category detection patterns for directories without test.toml
-    LEGACY_CATEGORY_PATTERNS = {
+    LEGACY_CATEGORY_PATTERNS: ClassVar[dict[str, tuple[str, str | None]]] = {
         "000-": ("deployment", "static"),
         "01": ("deployment", "python-simple"),
         "02": ("deployment", "nodejs"),
