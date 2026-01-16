@@ -41,11 +41,13 @@ class DockerDeployTarget(DeployTargetBase):
             - verbose: Show deployment output (default: False)
             - container_name: Override container name
             - log_dir: Directory for diagnostic logs (default: test-logs)
+            - skip_deploy: Skip deployment, connect to existing container (default: False)
     """
 
     def __init__(self, config: dict[str, Any] | None = None):
         super().__init__(config)
         self.container_name = self.config.get("container_name", DEFAULT_CONTAINER_NAME)
+        self.skip_deploy = self.config.get("skip_deploy", False)
 
     def start(self) -> TargetInfo:
         """Start the Docker container using hop3-deploy.
@@ -61,6 +63,9 @@ class DockerDeployTarget(DeployTargetBase):
             config="docker",
         )
         self.diagnostics.set_phase("setup")
+
+        if self.skip_deploy:
+            return self._connect_to_existing()
 
         print("\n" + "=" * 70)
         print("Starting Hop3 Docker container via hop3-deploy")
@@ -516,11 +521,18 @@ class DockerDeployTarget(DeployTargetBase):
         return None
 
     def stop(self) -> None:
-        """Stop and remove the container."""
+        """Stop and remove the container (unless we didn't create it)."""
         if not self._started:
             return
 
         self.diagnostics.set_phase("cleanup")
+
+        # Don't teardown containers we didn't create
+        if self.skip_deploy:
+            print("\nDisconnecting (not stopping container we didn't create)...")
+            self._started = False
+            return
+
         print("\nStopping container...")
         try:
             if self._deployer_backend:
@@ -539,3 +551,108 @@ class DockerDeployTarget(DeployTargetBase):
 
         self._started = False
         print("Container stopped.")
+
+    def _connect_to_existing(self) -> TargetInfo:
+        """Connect to an existing Docker container without deploying.
+
+        Used when skip_deploy=True (--deploy-from none).
+
+        Returns:
+            TargetInfo with connection details
+
+        Raises:
+            RuntimeError: If container doesn't exist or isn't running
+        """
+        import docker
+
+        print("\n" + "=" * 70)
+        print(f"Connecting to existing container: {self.container_name}")
+        print("(No deployment - container should already be running)")
+        print("=" * 70)
+
+        try:
+            client = docker.from_env()
+
+            # Find the container
+            try:
+                container = client.containers.get(self.container_name)
+            except docker.errors.NotFound:
+                msg = (
+                    f"Container '{self.container_name}' not found. "
+                    "Start it first with: hop3-deploy --docker"
+                )
+                self.diagnostics.add_failure(
+                    layer="docker",
+                    operation="find_container",
+                    message=msg,
+                )
+                raise RuntimeError(msg) from None
+
+            # Check if it's running
+            container.reload()
+            if container.status != "running":
+                msg = (
+                    f"Container '{self.container_name}' is not running "
+                    f"(status: {container.status}). "
+                    f"Start it with: docker start {self.container_name}"
+                )
+                self.diagnostics.add_failure(
+                    layer="docker",
+                    operation="check_status",
+                    message=msg,
+                )
+                raise RuntimeError(msg)
+
+            self.diagnostics.add_success(
+                layer="docker",
+                operation="connect",
+                message=f"Connected to container {self.container_name}",
+            )
+
+            # Create a minimal backend to reuse existing methods
+            project_root = self._find_project_root()
+            deploy_config = DeployConfig(
+                use_docker=True,
+                docker_container=self.container_name,
+                docker_image=DEFAULT_DOCKER_IMAGE,
+                use_local_code=False,
+                clean_before=False,
+                project_root=project_root,
+                verbose=self.config.get("verbose", False),
+                quiet=True,
+            )
+            self._deployer_backend = DockerDeployBackend(deploy_config)
+
+            # Check if hop3-server is responding
+            self.diagnostics.set_phase("health_check")
+            if not self._wait_for_ready(max_wait=30):
+                msg = (
+                    "hop3-server is not responding. "
+                    "Make sure Hop3 is properly installed and running."
+                )
+                self.diagnostics.add_failure(
+                    layer="server",
+                    operation="health_check",
+                    message=msg,
+                )
+                self._save_diagnostics_on_error()
+                raise RuntimeError(msg)
+
+            self._info = self._build_target_info()
+            self._started = True
+
+            print("\nTarget ready:")
+            print(f"  HTTP: {self._info.http_base}")
+            print(f"  API: {self._info.api_url}")
+            print("=" * 70 + "\n")
+
+            return self._info
+
+        except Exception as e:
+            self.diagnostics.add_failure(
+                layer="testing",
+                operation="connect",
+                message=f"Failed to connect: {e}",
+            )
+            self._save_diagnostics_on_error()
+            raise
