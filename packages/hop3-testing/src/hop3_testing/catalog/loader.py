@@ -49,18 +49,21 @@ def load_test_definition(path: Path) -> TestDefinition:
         TestDefinitionError: If the file is invalid or missing required fields
     """
     if not path.exists():
-        raise TestDefinitionError("File not found", path)
+        msg = "File not found"
+        raise TestDefinitionError(msg, path)
 
     try:
         with Path(path).open("rb") as f:
             data = tomllib.load(f)
     except tomllib.TOMLDecodeError as e:
-        raise TestDefinitionError(f"Invalid TOML: {e}", path) from e
+        msg = f"Invalid TOML: {e}"
+        raise TestDefinitionError(msg, path) from e
 
     try:
         return _parse_test_definition(data, path)
     except KeyError as e:
-        raise TestDefinitionError(f"Missing required field: {e}", path) from e
+        msg = f"Missing required field: {e}"
+        raise TestDefinitionError(msg, path) from e
     except ValueError as e:
         raise TestDefinitionError(str(e), path) from e
 
@@ -229,7 +232,7 @@ def generate_test_definition_from_app(
 
     # Infer priority
     priority = Priority.P1
-    if app_name.startswith("01") or app_name.startswith("000"):
+    if app_name.startswith(("01", "000")):
         priority = Priority.P0  # Basic apps are P0
 
     # Read description from README

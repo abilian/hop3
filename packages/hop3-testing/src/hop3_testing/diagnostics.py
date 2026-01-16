@@ -216,7 +216,7 @@ class DiagnosticCollector:
             return "\n".join(lines)
 
         # Group by phase
-        phases = sorted(set(e.phase for e in entries))
+        phases = sorted({e.phase for e in entries})
         for phase in phases:
             phase_entries = [e for e in entries if e.phase == phase]
             lines.append(f"\n--- Phase: {phase} ---")
@@ -277,7 +277,7 @@ class DiagnosticCollector:
         summary_path.write_text(self.dump_to_console(include_all=True))
 
         # Per-phase files
-        phases = sorted(set(e.phase for e in self.entries))
+        phases = sorted({e.phase for e in self.entries})
         for phase in phases:
             phase_entries = self.get_entries_by_phase(phase)
             phase_path = log_dir / f"{phase}.txt"
@@ -341,7 +341,7 @@ class DiagnosticCollector:
         failed = total - passed
 
         # Group by phase
-        phases = sorted(set(e.phase for e in self.entries))
+        phases = sorted({e.phase for e in self.entries})
 
         phase_sections = []
         for phase in phases:
