@@ -8,7 +8,7 @@ Quick reference for developers running tests.
 |------|---------|
 | **All pytest tests** | `make test` |
 | **Full CI suite** | `make test-ci` |
-| **System tests (Docker)** | `hop3-test-new system` |
+| **System tests (Docker)** | `hop3-test-new system --docker` |
 | **App tests (fast)** | `hop3-test-new apps` |
 | **Lint & type check** | `make lint` |
 
@@ -16,42 +16,52 @@ Quick reference for developers running tests.
 
 The new unified test runner provides multiple testing modes.
 
-### Test Modes
-
-```bash
-# Developer mode - fast P0 tests only (~2-3 min)
-hop3-test-new dev
-
-# CI mode - fast + medium P0 tests (~5-10 min)
-hop3-test-new ci
-
-# Nightly mode - all tests (~30+ min)
-hop3-test-new nightly
-```
-
 ### System Testing (Testing Hop3 Itself)
 
 Tests the full Hop3 system by deploying it first, then running tests.
+**You must specify `--docker` or `--ssh` as the target.**
 
 ```bash
 # Deploy local code to Docker and test
-hop3-test-new system
+hop3-test-new system --docker
 
 # Deploy from git branch
-hop3-test-new system --deploy-from git --branch main
+hop3-test-new system --docker --deploy-from git --branch main
+
+# Deploy from PyPI
+hop3-test-new system --docker --deploy-from pypi
 
 # Clean install (remove existing)
-hop3-test-new system --clean
+hop3-test-new system --docker --clean
 
-# Use existing deployment (skip deploy)
-hop3-test-new system --deploy-from none
+# Reuse existing deployment (skip deploy)
+hop3-test-new system --docker --reuse
+# Or equivalently:
+hop3-test-new system --docker --deploy-from none
 
-# Remote server instead of Docker
-hop3-test-new system --target remote --host server.example.com
+# Remote server via SSH
+hop3-test-new system --ssh --host server.example.com
+
+# SSH using HOP3_TEST_HOST env var
+export HOP3_TEST_HOST=server.example.com
+hop3-test-new system --ssh
+
+# Test mode: dev (fast) or ci (more thorough)
+hop3-test-new system --docker --mode ci
 
 # Generate HTML report
-hop3-test-new system --report html
+hop3-test-new system --docker --report html
 ```
+
+#### Deploy-from Options
+
+| Option | Description |
+|--------|-------------|
+| `--deploy-from local` | Upload and install local code (default) |
+| `--deploy-from git` | Clone and install from git branch |
+| `--deploy-from pypi` | Install from PyPI |
+| `--deploy-from none` | Skip deployment, use existing |
+| `--reuse` | Alias for `--deploy-from none` |
 
 ### App Testing (Testing Apps, Not Hop3)
 
@@ -72,6 +82,9 @@ hop3-test-new apps --category python
 
 # Keep apps deployed after testing
 hop3-test-new apps --keep
+
+# Against remote server
+hop3-test-new apps --target remote --host server.example.com
 ```
 
 ### Listing and Inspecting Tests
@@ -187,7 +200,7 @@ make test      # Run all pytest tests
 
 ```bash
 # Fast tests against Docker
-hop3-test-new dev
+hop3-test-new system --docker --mode dev
 ```
 
 ### Full Validation (CI)
@@ -197,7 +210,7 @@ hop3-test-new dev
 make test-ci
 
 # Or manually
-hop3-test-new ci --report html
+hop3-test-new system --docker --mode ci --report html
 ```
 
 ### Debug a Failing Test
@@ -210,10 +223,13 @@ uv run pytest -v -s path/to/test.py::test_name
 hop3-test-new apps --keep 010-flask-pip-wsgi
 
 # Run system tests and keep target
-hop3-test-new system --keep
+hop3-test-new system --docker --keep
+
+# Reuse container for fast iteration
+hop3-test-new system --docker --reuse --keep
 
 # Generate HTML report for analysis
-hop3-test-new system --report html
+hop3-test-new system --docker --report html
 ```
 
 ### Test Coverage
@@ -278,7 +294,7 @@ expect.status = 200
 | Variable | Purpose |
 |----------|---------|
 | `HOP3_DEV_HOST` | SSH target for deployment |
-| `HOP3_TEST_HOST` | SSH target for app tests |
+| `HOP3_TEST_HOST` | SSH target for `--ssh` without `--host` |
 | `HOP3_TEST_SSH_KEY` | SSH key for remote tests |
 | `HOP3_UNSAFE=true` | Disable auth in Docker tests |
 
@@ -313,8 +329,8 @@ hop3-test-new apps --report html
 ### System Tests Timeout
 
 ```bash
-# Check deployment status
-hop3-test-new system --deploy-from none --keep
+# Reuse existing container to debug
+hop3-test-new system --docker --reuse --keep
 
 # View diagnostic logs
 ls test-logs/
@@ -334,12 +350,13 @@ ssh root@$HOP3_TEST_HOST "systemctl status hop3-server"
 
 | Target | Use Case | Speed |
 |--------|----------|-------|
-| `docker` | System tests with fresh deploy | Slow (~5 min startup) |
+| `--docker` | System tests with fresh deploy | Slow (~5 min startup) |
 | `ready` | App tests with pre-built image | Fast (~30s startup) |
-| `remote` | Tests against real servers | Variable |
+| `--ssh` | Tests against real servers | Variable |
 
 ### When to Use Each
 
-- **`hop3-test-new system`**: Testing Hop3 changes (deploys Hop3 first)
+- **`hop3-test-new system --docker`**: Testing Hop3 changes (deploys Hop3 first)
+- **`hop3-test-new system --docker --reuse`**: Fast iteration on existing container
+- **`hop3-test-new system --ssh --host X`**: Testing against remote servers
 - **`hop3-test-new apps`**: Testing app configurations (uses pre-built image)
-- **`hop3-test-new dev/ci`**: Mode-based selection for CI pipelines
