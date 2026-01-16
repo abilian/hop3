@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from .base import CommandResult, DeployBackend
 
@@ -29,7 +29,7 @@ class DockerDeployBackend(DeployBackend):
     TEST_IMAGE = "hop3-test:latest"
 
     # Required ports: (host_port, container_port, description)
-    REQUIRED_PORTS = [
+    REQUIRED_PORTS: ClassVar[list[tuple[int, int, str]]] = [
         (8000, 8000, "Hop3 API"),
         (8080, 80, "HTTP"),
         (8443, 443, "HTTPS"),

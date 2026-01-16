@@ -6,7 +6,6 @@ exclude = [
     "scripts",
     "tasks.py",
     "docs",
-    "installer/**/*.py",
 ]
 
 lint.select = [
