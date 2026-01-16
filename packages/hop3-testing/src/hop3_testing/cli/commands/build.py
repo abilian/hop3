@@ -23,9 +23,9 @@ def build_ready_image(ctx: click.Context, tag: str, no_cache: bool) -> None:
     The image is used by 'hop3-test apps' for fast app testing.
 
     Examples:
-        hop3-test-new build-ready-image                    # Build default image
-        hop3-test-new build-ready-image --tag my-hop3:v1   # Custom tag
-        hop3-test-new build-ready-image --no-cache         # Force rebuild
+        hop3-test build-ready-image                    # Build default image
+        hop3-test build-ready-image --tag my-hop3:v1   # Custom tag
+        hop3-test build-ready-image --no-cache         # Force rebuild
     """
     # Find project root and Dockerfile
     root = ctx.obj["root"]
@@ -66,8 +66,8 @@ def build_ready_image(ctx: click.Context, tag: str, no_cache: bool) -> None:
         click.echo(f"Successfully built: {tag}")
         click.echo(f"{'=' * 70}")
         click.echo("\nYou can now run:")
-        click.echo("  hop3-test-new apps           # Test all apps")
-        click.echo("  hop3-test-new apps 010-flask # Test specific app")
+        click.echo("  hop3-test apps           # Test all apps")
+        click.echo("  hop3-test apps 010-flask # Test specific app")
     except subprocess.CalledProcessError as e:
         click.echo(f"\nBuild failed with exit code {e.returncode}", err=True)
         sys.exit(1)
@@ -89,8 +89,8 @@ def build_test_image(ctx: click.Context, no_cache: bool) -> None:
     It's optional - the image is built automatically when you run tests.
 
     Examples:
-        hop3-test-new build-test-image              # Build with cache
-        hop3-test-new build-test-image --no-cache   # Force full rebuild
+        hop3-test build-test-image              # Build with cache
+        hop3-test build-test-image --no-cache   # Force full rebuild
     """
     # Find project root and Dockerfile
     root = ctx.obj["root"]
@@ -130,7 +130,7 @@ def build_test_image(ctx: click.Context, no_cache: bool) -> None:
         click.echo("\nDocker has cached the image layers.")
         click.echo("System tests will now start faster:")
         click.echo("  make test-system")
-        click.echo("  hop3-test-new system")
+        click.echo("  hop3-test system")
     except subprocess.CalledProcessError as e:
         click.echo(f"\nBuild failed with exit code {e.returncode}", err=True)
         sys.exit(1)

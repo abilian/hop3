@@ -13,9 +13,9 @@ Hop3 uses a multi-layer testing approach with two complementary systems:
 3. **System Tests** (`tests/c_system/`) - CLI ↔ Server communication
 4. **E2E Tests** (`tests/d_e2e/`) - Full deployments with Docker
 
-### Application Testing (hop3-test-new)
+### Application Testing (hop3-test)
 
-The `hop3-test-new` CLI provides deployment testing for applications:
+The `hop3-test` CLI provides deployment testing for applications:
 
 - **System Testing** - Test Hop3 itself using real `hop3-deploy`
 - **Apps Testing** - Test applications against a pre-deployed Hop3 server
@@ -39,7 +39,7 @@ pytest packages/hop3-server/tests/a_unit/ packages/hop3-server/tests/b_integrati
 make test-system
 
 # Or with more apps (CI mode)
-uv run hop3-test-new system --mode ci
+uv run hop3-test system --mode ci
 ```
 
 ### Run Application Tests
@@ -49,7 +49,7 @@ uv run hop3-test-new system --mode ci
 make test-apps
 
 # Requires building the image first
-uv run hop3-test-new build-ready-image
+uv run hop3-test build-ready-image
 ```
 
 ## Test Commands Reference
@@ -64,24 +64,24 @@ uv run hop3-test-new build-ready-image
 | `make test-with-coverage` | Tests with coverage report | ~1min |
 | `make lint` | Linting and type checking | ~30s |
 
-### hop3-test-new CLI
+### hop3-test CLI
 
 ```bash
 # System testing (deploys Hop3 via hop3-deploy)
-hop3-test-new system                    # Dev mode (5 fast tests)
-hop3-test-new system --mode ci          # CI mode (8 tests, includes medium tier)
-hop3-test-new system --deploy-from git  # Deploy from git instead of local
-hop3-test-new system --clean            # Clean install first
+hop3-test system                    # Dev mode (5 fast tests)
+hop3-test system --mode ci          # CI mode (8 tests, includes medium tier)
+hop3-test system --deploy-from git  # Deploy from git instead of local
+hop3-test system --clean            # Clean install first
 
 # Application testing (uses pre-built image)
-hop3-test-new apps                      # Test all deployment apps
-hop3-test-new apps 010-flask-pip-wsgi   # Test specific app
-hop3-test-new apps --category python    # Test by category
-hop3-test-new apps -q                   # Quiet mode (no recap)
+hop3-test apps                      # Test all deployment apps
+hop3-test apps 010-flask-pip-wsgi   # Test specific app
+hop3-test apps --category python    # Test by category
+hop3-test apps -q                   # Quiet mode (no recap)
 
 # Utilities
-hop3-test-new build-ready-image         # Build hop3-ready:latest image
-hop3-test-new catalog                   # List available tests
+hop3-test build-ready-image         # Build hop3-ready:latest image
+hop3-test catalog                   # List available tests
 ```
 
 ## Test Organization
@@ -127,7 +127,7 @@ pytest packages/hop3-server/tests/c_system/ -v
 pytest packages/hop3-server/tests/d_e2e/ -v
 ```
 
-## Application Testing with hop3-test-new
+## Application Testing with hop3-test
 
 ### Test Apps Directory
 
@@ -240,7 +240,7 @@ test-logs/
 - make test-system    # System tests (dev mode)
 
 # Nightly
-- hop3-test-new system --mode nightly
+- hop3-test system --mode nightly
 ```
 
 ### SourceHut (Current)
@@ -268,7 +268,7 @@ open htmlcov/index.html
 
 Build the ready image first:
 ```bash
-uv run hop3-test-new build-ready-image
+uv run hop3-test build-ready-image
 ```
 
 ### Tests Hang

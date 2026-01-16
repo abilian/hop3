@@ -82,8 +82,12 @@ def package(
 
 @click.command("system")
 # Target type (must specify one)
-@click.option("--docker", "target_type", flag_value="docker", help="Test using Docker container")
-@click.option("--ssh", "target_type", flag_value="remote", help="Test using SSH to remote host")
+@click.option(
+    "--docker", "target_type", flag_value="docker", help="Test using Docker container"
+)
+@click.option(
+    "--ssh", "target_type", flag_value="remote", help="Test using SSH to remote host"
+)
 # Deployment source
 @click.option(
     "--deploy-from",
@@ -91,7 +95,11 @@ def package(
     default="local",
     help="Deploy from: local code (default), git branch, pypi, or none (reuse existing)",
 )
-@click.option("--reuse", is_flag=True, help="Reuse existing deployment (alias for --deploy-from none)")
+@click.option(
+    "--reuse",
+    is_flag=True,
+    help="Reuse existing deployment (alias for --deploy-from none)",
+)
 @click.option("--branch", default="devel", help="Git branch (if --deploy-from git)")
 @click.option("--clean", is_flag=True, help="Clean install (remove existing)")
 # Connection options
@@ -140,14 +148,14 @@ def system_test(
     installation and deployment paths.
 
     Examples:
-        hop3-test-new system --docker                  # Deploy local code to Docker
-        hop3-test-new system --docker --mode ci        # Include medium-tier tests
-        hop3-test-new system --docker --deploy-from git --branch main
-        hop3-test-new system --docker --clean          # Clean install
-        hop3-test-new system --docker --reuse          # Reuse existing container
+        hop3-test system --docker                  # Deploy local code to Docker
+        hop3-test system --docker --mode ci        # Include medium-tier tests
+        hop3-test system --docker --deploy-from git --branch main
+        hop3-test system --docker --clean          # Clean install
+        hop3-test system --docker --reuse          # Reuse existing container
 
-        hop3-test-new system --ssh --host server.com   # Deploy to remote via SSH
-        hop3-test-new system --ssh                     # Uses HOP3_TEST_HOST env var
+        hop3-test system --ssh --host server.com   # Deploy to remote via SSH
+        hop3-test system --ssh                     # Uses HOP3_TEST_HOST env var
     """
     import os
 
@@ -157,8 +165,8 @@ def system_test(
     if not target_type:
         click.echo("Error: Must specify --docker or --ssh", err=True)
         click.echo("\nExamples:")
-        click.echo("  hop3-test-new system --docker")
-        click.echo("  hop3-test-new system --ssh --host server.com")
+        click.echo("  hop3-test system --docker")
+        click.echo("  hop3-test system --ssh --host server.com")
         sys.exit(1)
 
     # Handle --reuse as alias for --deploy-from none
@@ -169,7 +177,9 @@ def system_test(
     if target_type == "remote" and not host:
         host = os.environ.get("HOP3_TEST_HOST")
         if not host:
-            click.echo("Error: --host required for --ssh (or set HOP3_TEST_HOST)", err=True)
+            click.echo(
+                "Error: --host required for --ssh (or set HOP3_TEST_HOST)", err=True
+            )
             sys.exit(1)
 
     # Load catalog and select tests based on mode
@@ -208,30 +218,29 @@ def system_test(
             "skip_deploy": deploy_from == "none",
             "deploy_from": deploy_from,
         })
+    # SSH target
+    elif deploy_from == "none":
+        # Connect to existing Hop3 server (no deployment)
+        target_config = {
+            "host": host,
+            "port": port,
+            "user": user,
+        }
+        if ssh_key:
+            target_config["ssh_key"] = ssh_key
+        target_obj = RemoteTarget(target_config)
     else:
-        # SSH target
-        if deploy_from == "none":
-            # Connect to existing Hop3 server (no deployment)
-            target_config = {
-                "host": host,
-                "port": port,
-                "user": user,
-            }
-            if ssh_key:
-                target_config["ssh_key"] = ssh_key
-            target_obj = RemoteTarget(target_config)
-        else:
-            # Deploy Hop3 to remote server first
-            target_obj = RemoteDeployTarget({
-                "host": host,
-                "port": port,
-                "user": user,
-                "local": deploy_from == "local",
-                "clean": clean,
-                "branch": branch,
-                "verbose": verbose,
-                "deploy_from": deploy_from,
-            })
+        # Deploy Hop3 to remote server first
+        target_obj = RemoteDeployTarget({
+            "host": host,
+            "port": port,
+            "user": user,
+            "local": deploy_from == "local",
+            "clean": clean,
+            "branch": branch,
+            "verbose": verbose,
+            "deploy_from": deploy_from,
+        })
 
     # Run tests
     run_system_tests(ctx, tests, target_obj, keep, fail_fast, report, quiet)
@@ -290,10 +299,10 @@ def apps_test(
     - Package validation before publishing
 
     Examples:
-        hop3-test-new apps                      # Test all apps against ready image
-        hop3-test-new apps 010-flask            # Test specific app
-        hop3-test-new apps --category python    # Test by category
-        hop3-test-new apps --target remote --host X  # Against remote server
+        hop3-test apps                      # Test all apps against ready image
+        hop3-test apps 010-flask            # Test specific app
+        hop3-test apps --category python    # Test by category
+        hop3-test apps --target remote --host X  # Against remote server
     """
     verbose = ctx.obj["verbose"]
 

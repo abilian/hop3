@@ -5,7 +5,7 @@
 Hop3 uses a comprehensive testing strategy combining two complementary approaches:
 
 1. **pytest-based Test Layers** - Traditional unit, integration, system, and E2E tests
-2. **Application Deployment Testing** - Testing real app deployments via `hop3-test-new`
+2. **Application Deployment Testing** - Testing real app deployments via `hop3-test`
 
 This document describes both approaches, their purposes, and how to use them effectively.
 
@@ -16,7 +16,7 @@ This document describes both approaches, their purposes, and how to use them eff
 │                        Testing Strategy                              │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
-│  pytest Layers              │  Application Testing (hop3-test-new)  │
+│  pytest Layers              │  Application Testing (hop3-test)  │
 │  ─────────────              │  ────────────────────────────────────  │
 │                             │                                        │
 │  ┌─────────────┐            │  ┌─────────────────────────────────┐  │
@@ -199,15 +199,15 @@ pytest packages/hop3-server/tests/d_e2e/ -v
 
 ---
 
-## Part 2: Application Deployment Testing (hop3-test-new)
+## Part 2: Application Deployment Testing (hop3-test)
 
-The `hop3-test-new` CLI provides a dedicated system for testing application deployments against Hop3. This complements the pytest layers by focusing on real-world deployment scenarios.
+The `hop3-test` CLI provides a dedicated system for testing application deployments against Hop3. This complements the pytest layers by focusing on real-world deployment scenarios.
 
 ### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                       hop3-test-new                                  │
+│                       hop3-test                                  │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  ┌───────────────┐    ┌───────────────┐    ┌───────────────┐       │
@@ -308,13 +308,13 @@ Test modes define which tests to run based on tier and priority:
 
 ```bash
 # Dev mode (default) - ~90 seconds, 5 tests
-hop3-test-new system
+hop3-test system
 
 # CI mode - ~150 seconds, 8 tests
-hop3-test-new system --mode ci
+hop3-test system --mode ci
 
 # Full release validation
-hop3-test-new system --mode release
+hop3-test system --mode release
 ```
 
 ### Deployment Targets
@@ -326,9 +326,9 @@ Uses `hop3-deploy --docker` to create a fresh Hop3 installation for each test ru
 **Use case**: Testing Hop3 itself (installation, deployment pipeline)
 
 ```bash
-hop3-test-new system                    # Default: deploy local code
-hop3-test-new system --deploy-from git  # Deploy from git
-hop3-test-new system --clean            # Clean install
+hop3-test system                    # Default: deploy local code
+hop3-test system --deploy-from git  # Deploy from git
+hop3-test system --clean            # Clean install
 ```
 
 **What happens**:
@@ -347,12 +347,12 @@ Uses a pre-built Docker image (`hop3-ready:latest`) with Hop3 already installed.
 
 ```bash
 # Build the image first (one-time)
-hop3-test-new build-ready-image
+hop3-test build-ready-image
 
 # Run app tests
-hop3-test-new apps                      # All apps
-hop3-test-new apps 010-flask-pip-wsgi   # Specific app
-hop3-test-new apps --category python    # By category
+hop3-test apps                      # All apps
+hop3-test apps 010-flask-pip-wsgi   # Specific app
+hop3-test apps --category python    # By category
 ```
 
 **What happens**:
@@ -369,7 +369,7 @@ Tests against an existing Hop3 server via SSH.
 **Use case**: Testing against real servers, staging validation
 
 ```bash
-hop3-test-new apps --target remote --host server.example.com
+hop3-test apps --target remote --host server.example.com
 ```
 
 ### Test Execution Flow
@@ -517,7 +517,7 @@ Recap:
 Use `-q/--quiet` to suppress the recap:
 
 ```bash
-hop3-test-new apps -q
+hop3-test apps -q
 ```
 
 ---
@@ -627,7 +627,7 @@ uv sync
 unset HOP3_DEV_HOST
 
 # Build ready image for app testing
-uv run hop3-test-new build-ready-image
+uv run hop3-test build-ready-image
 ```
 
 ---
@@ -648,12 +648,12 @@ system-tests:
 
 # Stage 3: Full App Tests (merge to main)
 app-tests:
-  - hop3-test-new build-ready-image
+  - hop3-test build-ready-image
   - make test-apps  # 66 apps, ~14min
 
 # Stage 4: Nightly
 nightly:
-  - hop3-test-new system --mode nightly
+  - hop3-test system --mode nightly
 ```
 
 ### Current CI (SourceHut)
@@ -688,13 +688,13 @@ open htmlcov/index.html
 ### "Image hop3-ready:latest not found"
 
 ```bash
-uv run hop3-test-new build-ready-image
+uv run hop3-test build-ready-image
 ```
 
 ### Tests Hang
 
 - Check Docker daemon: `docker ps`
-- Use verbose mode: `pytest -v -s` or `hop3-test-new apps -v`
+- Use verbose mode: `pytest -v -s` or `hop3-test apps -v`
 - Check container logs: `docker logs hop3-app-test`
 - Check for zombie containers: `docker ps -a | grep hop3`
 
@@ -714,7 +714,7 @@ docker rm -f hop3-app-test hop3-system-test
 docker rmi hop3-ready:latest
 
 # Rebuild
-uv run hop3-test-new build-ready-image
+uv run hop3-test build-ready-image
 ```
 
 ### Authentication Issues

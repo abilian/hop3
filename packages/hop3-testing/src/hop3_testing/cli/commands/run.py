@@ -57,9 +57,9 @@ def run_command(
     You can specify apps by name or path, or use --category to filter.
 
     Examples:
-        hop3-test-new run --target docker
-        hop3-test-new run 010-flask-pip-wsgi 020-nodejs-express
-        hop3-test-new run --category python-simple
+        hop3-test run --target docker
+        hop3-test run 010-flask-pip-wsgi 020-nodejs-express
+        hop3-test run --category python-simple
     """
     verbose = ctx.obj["verbose"]
 

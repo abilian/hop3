@@ -28,10 +28,10 @@ dependencies = [
 ]
 
 [project.scripts]
-# Original CLI (backwards compatibility)
-hop3-test = "hop3_testing.main:main"
-# New CLI with test.toml support
-hop3-test-new = "hop3_testing.cli:main"
+# Main CLI entry point
+# hop3-test = "hop3_testing.cli:main"
+# Alias for transition period
+hop3-test = "hop3_testing.cli:main"
 
 [build-system]
 requires = ["uv-build>=0.8.4,<0.9.0"]
