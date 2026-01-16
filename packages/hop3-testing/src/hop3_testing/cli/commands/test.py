@@ -81,19 +81,25 @@ def package(
 
 
 @click.command("system")
+# Target type (must specify one)
+@click.option("--docker", "target_type", flag_value="docker", help="Test using Docker container")
+@click.option("--ssh", "target_type", flag_value="remote", help="Test using SSH to remote host")
+# Deployment source
 @click.option(
     "--deploy-from",
-    type=click.Choice(["local", "git", "none"]),
+    type=click.Choice(["local", "git", "pypi", "none"]),
     default="local",
-    help="Deploy Hop3 from: local code, git branch, or skip deployment",
+    help="Deploy from: local code (default), git branch, pypi, or none (reuse existing)",
 )
+@click.option("--reuse", is_flag=True, help="Reuse existing deployment (alias for --deploy-from none)")
 @click.option("--branch", default="devel", help="Git branch (if --deploy-from git)")
 @click.option("--clean", is_flag=True, help="Clean install (remove existing)")
-@click.option("--target", type=click.Choice(["docker", "remote"]), default="docker")
-@click.option("--host", help="Remote host (for remote target)")
-@click.option("--port", type=int, default=22, help="SSH port (for remote target)")
-@click.option("--user", default="root", help="SSH user (for remote target)")
-@click.option("--ssh-key", help="SSH key path (for remote target)")
+# Connection options
+@click.option("--host", help="Remote host (for --ssh, or remote Docker)")
+@click.option("--port", type=int, default=22, help="SSH port")
+@click.option("--user", default="root", help="SSH user")
+@click.option("--ssh-key", help="SSH key path")
+# Test options
 @click.option(
     "--mode",
     type=click.Choice(["dev", "ci"]),
@@ -112,10 +118,11 @@ def package(
 @click.pass_context
 def system_test(
     ctx: click.Context,
+    target_type: str | None,
     deploy_from: str,
+    reuse: bool,
     branch: str,
     clean: bool,
-    target: str,
     host: str | None,
     port: int,
     user: str,
@@ -133,13 +140,37 @@ def system_test(
     installation and deployment paths.
 
     Examples:
-        hop3-test-new system                    # Deploy local code to Docker (dev mode)
-        hop3-test-new system --mode ci          # Include medium-tier tests
-        hop3-test-new system --deploy-from git  # Deploy from git
-        hop3-test-new system --clean            # Clean install
-        hop3-test-new system --deploy-from none # Use existing deployment
+        hop3-test-new system --docker                  # Deploy local code to Docker
+        hop3-test-new system --docker --mode ci        # Include medium-tier tests
+        hop3-test-new system --docker --deploy-from git --branch main
+        hop3-test-new system --docker --clean          # Clean install
+        hop3-test-new system --docker --reuse          # Reuse existing container
+
+        hop3-test-new system --ssh --host server.com   # Deploy to remote via SSH
+        hop3-test-new system --ssh                     # Uses HOP3_TEST_HOST env var
     """
+    import os
+
     verbose = ctx.obj["verbose"]
+
+    # Require explicit target type
+    if not target_type:
+        click.echo("Error: Must specify --docker or --ssh", err=True)
+        click.echo("\nExamples:")
+        click.echo("  hop3-test-new system --docker")
+        click.echo("  hop3-test-new system --ssh --host server.com")
+        sys.exit(1)
+
+    # Handle --reuse as alias for --deploy-from none
+    if reuse:
+        deploy_from = "none"
+
+    # For SSH, get host from env if not provided
+    if target_type == "remote" and not host:
+        host = os.environ.get("HOP3_TEST_HOST")
+        if not host:
+            click.echo("Error: --host required for --ssh (or set HOP3_TEST_HOST)", err=True)
+            sys.exit(1)
 
     # Load catalog and select tests based on mode
     catalog = TestCatalog(ctx.obj["root"])
@@ -147,7 +178,7 @@ def system_test(
 
     mode_config = get_mode_config(mode)
     selector = TestSelector(catalog)
-    tests = selector.select_for_target(mode_config, target)
+    tests = selector.select_for_target(mode_config, target_type)
 
     if not tests:
         click.echo("No tests found")
@@ -157,27 +188,28 @@ def system_test(
     click.echo("SYSTEM TESTING MODE")
     click.echo("Testing Hop3 itself with known-good applications")
     click.echo(f"{'=' * 70}")
-    click.echo(f"\nDeploy from: {deploy_from}")
+    click.echo(f"\nTarget: {target_type}")
+    if host:
+        click.echo(f"Host: {host}")
+    click.echo(f"Deploy from: {deploy_from}")
     if deploy_from == "git":
         click.echo(f"Branch: {branch}")
     click.echo(f"Test mode: {mode} ({mode_config.description})")
     click.echo(f"Clean install: {clean}")
     click.echo(f"Tests to run: {len(tests)}")
 
-    # Create target using new hop3-deploy based targets
-    if target == "docker":
+    # Create target
+    if target_type == "docker":
         target_obj = DockerDeployTarget({
             "local": deploy_from == "local",
             "clean": clean,
             "branch": branch,
             "verbose": verbose,
+            "skip_deploy": deploy_from == "none",
+            "deploy_from": deploy_from,
         })
     else:
-        # Remote target
-        if not host:
-            click.echo("--host required for remote target", err=True)
-            sys.exit(1)
-
+        # SSH target
         if deploy_from == "none":
             # Connect to existing Hop3 server (no deployment)
             target_config = {
@@ -198,6 +230,7 @@ def system_test(
                 "clean": clean,
                 "branch": branch,
                 "verbose": verbose,
+                "deploy_from": deploy_from,
             })
 
     # Run tests
