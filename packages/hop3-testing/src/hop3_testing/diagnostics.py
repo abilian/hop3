@@ -188,6 +188,28 @@ class DiagnosticCollector:
         """Get entries for a specific layer."""
         return [e for e in self.entries if e.layer == layer]
 
+    def _format_entry(self, entry: DiagnosticEntry) -> list[str]:
+        """Format a single diagnostic entry for console output."""
+        lines = [str(entry)]
+        if entry.duration > 0:
+            lines.append(f"    duration: {entry.duration:.2f}s")
+        if entry.details:
+            for key, value in entry.details.items():
+                lines.append(f"    {key}: {value}")
+        if entry.stdout:
+            lines.append("    stdout:")
+            for line in entry.stdout.strip().split("\n")[:20]:
+                lines.append(f"      {line}")
+            if entry.stdout.count("\n") > 20:
+                lines.append("      ... (truncated)")
+        if entry.stderr:
+            lines.append("    stderr:")
+            for line in entry.stderr.strip().split("\n")[:20]:
+                lines.append(f"      {line}")
+            if entry.stderr.count("\n") > 20:
+                lines.append("      ... (truncated)")
+        return lines
+
     def dump_to_console(self, include_all: bool = False) -> str:
         """Format diagnostics for console output.
 
@@ -208,38 +230,16 @@ class DiagnosticCollector:
         entries = self.entries if include_all else self.get_failures()
 
         if not entries:
-            if include_all:
-                lines.append("No diagnostic entries recorded.")
-            else:
-                lines.append("No failures recorded.")
+            lines.append("No diagnostic entries recorded." if include_all else "No failures recorded.")
             lines.append("=" * 70)
             return "\n".join(lines)
 
         # Group by phase
-        phases = sorted({e.phase for e in entries})
-        for phase in phases:
+        for phase in sorted({e.phase for e in entries}):
             phase_entries = [e for e in entries if e.phase == phase]
             lines.append(f"\n--- Phase: {phase} ---")
-
             for entry in phase_entries:
-                lines.append(str(entry))
-                if entry.duration > 0:
-                    lines.append(f"    duration: {entry.duration:.2f}s")
-                if entry.details:
-                    for key, value in entry.details.items():
-                        lines.append(f"    {key}: {value}")
-                if entry.stdout:
-                    lines.append("    stdout:")
-                    for line in entry.stdout.strip().split("\n")[:20]:
-                        lines.append(f"      {line}")
-                    if entry.stdout.count("\n") > 20:
-                        lines.append("      ... (truncated)")
-                if entry.stderr:
-                    lines.append("    stderr:")
-                    for line in entry.stderr.strip().split("\n")[:20]:
-                        lines.append(f"      {line}")
-                    if entry.stderr.count("\n") > 20:
-                        lines.append("      ... (truncated)")
+                lines.extend(self._format_entry(entry))
 
         lines.append("")
         lines.append("=" * 70)
