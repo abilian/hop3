@@ -323,7 +323,7 @@ class DemoTestRunner:
                     duration=time.time() - start_time,
                 )
 
-            exit_code, stdout, stderr = self.target.exec_run(step.run)
+            exit_code, _stdout, _stderr = self.target.exec_run(step.run)
 
             expected_exit = (
                 step.expect_exit_code if step.expect_exit_code is not None else 0
