@@ -6,55 +6,74 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
-from hop3_testing.apps import AppSourceCatalog
+from hop3_testing.catalog import TestCatalog
+from hop3_testing.targets.helpers import find_project_root
 
 
-def test_test_app_catalog():
-    """Test that TestAppCatalog can find test apps."""
-    catalog = AppSourceCatalog()
+def get_catalog() -> TestCatalog:
+    """Create a catalog with explicit project root."""
+    try:
+        root = find_project_root()
+    except RuntimeError:
+        # Fallback: navigate from test file
+        root = Path(__file__).parent.parent.parent.parent.parent
+    catalog = TestCatalog(root)
+    catalog.scan()
+    return catalog
 
-    # Should find some apps
-    assert len(catalog) > 0, "No test apps found"
+
+def test_catalog_discovers_tests():
+    """Test that catalog can find tests."""
+    catalog = get_catalog()
+
+    # Should find some tests
+    assert len(catalog) > 0, "No tests found"
 
     # Check categories
-    categories = catalog.list_categories()
+    categories = catalog.categories()
     assert len(categories) > 0, "No categories found"
 
-    # Check we can retrieve specific apps (if they exist)
-    # Note: 000-static app may not exist in all test environments
-    flask_app = catalog.get("010-flask-pip-wsgi")
-    if flask_app:
-        assert flask_app.category == "python-simple"
+    # Check we can retrieve specific tests
+    flask_test = catalog.get_test("010-flask-pip-wsgi")
+    if flask_test:
+        assert flask_test.category.value == "deployment"
+        # Check metadata covers tags
+        assert "python" in flask_test.metadata.covers
 
 
-def test_test_app_filtering():
-    """Test filtering test apps."""
-    catalog = AppSourceCatalog()
+def test_catalog_filtering():
+    """Test filtering tests."""
+    catalog = get_catalog()
 
     # Filter by category
-    python_apps = list(catalog.filter(category="python-simple"))
-    for app in python_apps:
-        assert app.category == "python-simple"
+    deployment_tests = catalog.filter(categories=["deployment"])
+    for test in deployment_tests:
+        assert test.category.value == "deployment"
+
+    # Filter by tags
+    python_tests = catalog.filter(tags=["python"])
+    for test in python_tests:
+        assert "python" in test.metadata.covers
 
 
-def test_test_app_properties():
-    """Test TestApp properties."""
-    catalog = AppSourceCatalog()
+def test_catalog_properties():
+    """Test TestDefinition properties."""
+    catalog = get_catalog()
 
-    static_app = catalog.get("000-static")
-    if not static_app:
-        pytest.skip("Static app not found")
+    static_test = catalog.get_test("000-static")
+    if not static_test:
+        pytest.skip("Static test not found")
 
-    # Check path exists
-    assert static_app.path.exists()
-    assert static_app.path.is_dir()
+    # Check app_path exists
+    assert static_test.app_path is not None
+    assert static_test.app_path.exists()
+    assert static_test.app_path.is_dir()
 
     # Check name
-    assert static_app.name == "000-static"
+    assert static_test.name == "000-static"
 
-    # Check has_procfile
-    assert isinstance(static_app.has_procfile, bool)
-
-    # Check has_check_script
-    assert isinstance(static_app.has_check_script, bool)
+    # Check has validations
+    assert len(static_test.validations) > 0
