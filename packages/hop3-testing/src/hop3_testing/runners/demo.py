@@ -232,7 +232,11 @@ class DemoTestRunner:
         )
 
     def _run_deploy_step(
-        self, step: DemoStep, demo_dir: Path, deployed_apps: list[str], start_time: float
+        self,
+        step: DemoStep,
+        demo_dir: Path,
+        deployed_apps: list[str],
+        start_time: float,
     ) -> ValidationResult | None:
         """Handle deploy action."""
         if not step.app_path or not step.app_name:
@@ -275,12 +279,16 @@ class DemoTestRunner:
             )
 
         exit_code, _stdout, _stderr = self.target.exec_run(step.run)
-        expected_exit = step.expect_exit_code if step.expect_exit_code is not None else 0
+        expected_exit = (
+            step.expect_exit_code if step.expect_exit_code is not None else 0
+        )
 
         return ValidationResult(
             validation=Validation(type="command", run=step.run),
             passed=(exit_code == expected_exit),
-            message="OK" if exit_code == expected_exit else f"Command exited with {exit_code}, expected {expected_exit}",
+            message="OK"
+            if exit_code == expected_exit
+            else f"Command exited with {exit_code}, expected {expected_exit}",
             duration=time.time() - start_time,
         )
 
@@ -313,7 +321,9 @@ class DemoTestRunner:
             validation = Validation(
                 type=step.validation_type or "http",
                 url=step.url,
-                expect=ValidationExpect(status=step.expect_status, contains=step.expect_contains),
+                expect=ValidationExpect(
+                    status=step.expect_status, contains=step.expect_contains
+                ),
             )
             return run_validation(
                 validation=validation,

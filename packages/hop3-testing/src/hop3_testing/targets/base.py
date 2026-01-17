@@ -252,9 +252,8 @@ class DeploymentTarget(ABC):
 
             # Set environment variables if provided
             if env_vars:
-                env_content = "\n".join(f"{k}={v}" for k, v in env_vars.items())
-                # Upload ENV file
-                self._upload_env(app_name, env_content)
+                # TODO: Implement env var upload via hop3 CLI
+                pass
 
             # Deploy via hop3 CLI
             # Read tarball and pipe to hop3 deploy
@@ -293,12 +292,6 @@ class DeploymentTarget(ABC):
             # Cleanup tarball
             if tarball_path.exists():
                 tarball_path.unlink()
-
-    def _upload_env(self, app_name: str, env_content: str) -> None:
-        """Upload environment variables for an app.
-
-        Default implementation does nothing. Override in subclasses.
-        """
 
     def destroy_app(self, app_name: str) -> bool:
         """Destroy a deployed application.

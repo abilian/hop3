@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -17,13 +18,8 @@ from hop3_testing.cli.runners import run_app_tests, run_system_tests
 from hop3_testing.results import ConsoleReporter
 from hop3_testing.runners import DeploymentTestRunner
 from hop3_testing.selector import TestSelector, get_mode_config
-from hop3_testing.targets import (
-    DockerDeployTarget,
-    DockerTarget,
-    ReadyTarget,
-    RemoteDeployTarget,
-    RemoteTarget,
-)
+from hop3_testing.targets import DockerTarget, RemoteTarget
+from hop3_testing.targets.config import DeploymentConfig, DockerConfig, RemoteConfig
 
 
 @click.command("package")
@@ -54,8 +50,12 @@ def package(
     click.echo(f"Validating package: {test_def.name}")
     click.echo(f"Against Hop3: {against}")
 
-    # Create target
-    target = DockerTarget({"force_rebuild": False})
+    # Create target (pre-built image mode)
+    docker_config = DockerConfig(
+        image="hop3-ready:latest",
+        container_name="hop3-package-test",
+    )
+    target = DockerTarget(docker_config)
 
     try:
         click.echo("\nStarting test environment...")
@@ -157,8 +157,6 @@ def system_test(
         hop3-test system --ssh --host server.com   # Deploy to remote via SSH
         hop3-test system --ssh                     # Uses HOP3_TEST_HOST env var
     """
-    import os
-
     verbose = ctx.obj["verbose"]
 
     # Require explicit target type
@@ -208,39 +206,34 @@ def system_test(
     click.echo(f"Clean install: {clean}")
     click.echo(f"Tests to run: {len(tests)}")
 
-    # Create target
+    # Build deployment config (None if reusing existing)
+    deployment: DeploymentConfig | None = None
+    if deploy_from != "none":
+        deployment = DeploymentConfig(
+            source=deploy_from,  # type: ignore[arg-type]
+            branch=branch,
+            clean=clean,
+            verbose=verbose,
+        )
+
+    # Create target based on target type
+    target_obj: DockerTarget | RemoteTarget
     if target_type == "docker":
-        target_obj = DockerDeployTarget({
-            "local": deploy_from == "local",
-            "clean": clean,
-            "branch": branch,
-            "verbose": verbose,
-            "skip_deploy": deploy_from == "none",
-            "deploy_from": deploy_from,
-        })
-    # SSH target
-    elif deploy_from == "none":
-        # Connect to existing Hop3 server (no deployment)
-        target_config = {
-            "host": host,
-            "port": port,
-            "user": user,
-        }
-        if ssh_key:
-            target_config["ssh_key"] = ssh_key
-        target_obj = RemoteTarget(target_config)
+        docker_config = DockerConfig(
+            container_name="hop3-system-test",
+            reuse_container=deploy_from == "none",
+        )
+        target_obj = DockerTarget(docker_config, deployment=deployment)
     else:
-        # Deploy Hop3 to remote server first
-        target_obj = RemoteDeployTarget({
-            "host": host,
-            "port": port,
-            "user": user,
-            "local": deploy_from == "local",
-            "clean": clean,
-            "branch": branch,
-            "verbose": verbose,
-            "deploy_from": deploy_from,
-        })
+        # SSH target
+        assert host is not None  # Validated above
+        remote_config = RemoteConfig(
+            host=host,
+            port=port,
+            user=user,
+            ssh_key=ssh_key,
+        )
+        target_obj = RemoteTarget(remote_config, deployment=deployment)
 
     # Run tests
     run_system_tests(ctx, tests, target_obj, keep, fail_fast, report, quiet)
@@ -338,24 +331,27 @@ def apps_test(
         click.echo(f"Image: {image}")
     click.echo(f"Tests to run: {len(tests)}")
 
-    # Create target
-    if target == "ready":
-        target_obj = ReadyTarget({"image": image, "verbose": verbose})
-    elif target == "docker":
-        # Legacy Docker target (will be deprecated)
-        target_obj = DockerTarget({"force_rebuild": False})
+    # Create target (no deployment - app testing uses pre-deployed servers)
+    target_obj: DockerTarget | RemoteTarget
+    if target in {"ready", "docker"}:
+        # Both use DockerTarget with pre-built image (no deployment)
+        docker_config = DockerConfig(
+            image=image if target == "ready" else "hop3-ready:latest",
+            container_name="hop3-app-test",
+        )
+        target_obj = DockerTarget(docker_config)
     else:
+        # Remote target (connect-only, no deployment)
         if not host:
             click.echo("--host required for remote target", err=True)
             sys.exit(1)
-        target_config = {
-            "host": host,
-            "port": port,
-            "user": user,
-        }
-        if ssh_key:
-            target_config["ssh_key"] = ssh_key
-        target_obj = RemoteTarget(target_config)
+        remote_config = RemoteConfig(
+            host=host,
+            port=port,
+            user=user,
+            ssh_key=ssh_key,
+        )
+        target_obj = RemoteTarget(remote_config)
 
     # Run tests
     run_app_tests(ctx, tests, target_obj, keep, fail_fast, report, quiet)

@@ -207,7 +207,9 @@ def _parse_validation(data: dict[str, Any]) -> Validation:
 
 def _infer_app_type(app_path: Path) -> str | None:
     """Infer app type from files present."""
-    if (app_path / "requirements.txt").exists() or (app_path / "pyproject.toml").exists():
+    if (app_path / "requirements.txt").exists() or (
+        app_path / "pyproject.toml"
+    ).exists():
         return "python"
     if (app_path / "package.json").exists():
         return "nodejs"
@@ -239,7 +241,9 @@ def _build_validations_from_app(app_path: Path) -> list[Validation]:
         )
     if (app_path / "check.py").exists():
         validations.append(
-            Validation(type="script", path="check.py", expect=ValidationExpect(exit_code=0))
+            Validation(
+                type="script", path="check.py", expect=ValidationExpect(exit_code=0)
+            )
         )
     return validations
 

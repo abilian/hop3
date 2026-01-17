@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 import click
 
 from hop3_testing.targets import DockerTarget, RemoteTarget
+from hop3_testing.targets.config import DockerConfig, RemoteConfig
 
 if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
@@ -37,14 +38,33 @@ def create_target_with_options(
     force_rebuild: bool = False,
     verbose: bool = False,
 ) -> DeploymentTarget:
-    """Create a deployment target with full options."""
+    """Create a deployment target with full options.
+
+    This is a convenience function for simple use cases. For full control
+    over target configuration, use DockerTarget or RemoteTarget directly
+    with their respective config classes.
+
+    Args:
+        target_type: "docker" or "remote"
+        host: Remote hostname (required for remote target)
+        port: SSH port (default: 22)
+        user: SSH user (default: "hop3")
+        ssh_key: Path to SSH key
+        use_cache: Skip rebuild if image exists
+        force_rebuild: Force full rebuild (not used in new API)
+        verbose: Verbose output
+
+    Returns:
+        Configured DeploymentTarget instance
+    """
     if target_type == "docker":
-        return DockerTarget({
-            "rebuild": not use_cache,
-            "use_cache": use_cache,
-            "force_rebuild": force_rebuild,
-            "verbose": verbose,
-        })
+        # Create Docker target with pre-built image (no deployment)
+        docker_config = DockerConfig(
+            image="hop3-ready:latest",
+            container_name="hop3-test",
+        )
+        return DockerTarget(docker_config)
+
     if target_type == "remote":
         # Get host from args or environment
         actual_host = host or os.getenv("HOP3_TEST_HOST")
@@ -54,11 +74,13 @@ def create_target_with_options(
             )
             sys.exit(1)
 
-        return RemoteTarget({
-            "host": actual_host,
-            "port": port,
-            "user": user,
-            "ssh_key": ssh_key or os.getenv("HOP3_TEST_SSH_KEY"),
-        })
+        remote_config = RemoteConfig(
+            host=actual_host,
+            port=port,
+            user=user,
+            ssh_key=ssh_key or os.getenv("HOP3_TEST_SSH_KEY"),
+        )
+        return RemoteTarget(remote_config)
+
     click.echo(f"Unknown target type: {target_type}", err=True)
     sys.exit(1)

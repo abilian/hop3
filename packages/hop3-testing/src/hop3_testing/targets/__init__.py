@@ -5,15 +5,18 @@
 """Target backends for Hop3 deployment testing.
 
 Target types:
-- DockerTarget: Legacy target using custom Dockerfile (deprecated)
-- RemoteTarget: SSH-based remote server target
-- DockerDeployTarget: Uses hop3-deploy for system testing (recommended)
-- RemoteDeployTarget: Uses hop3-deploy for remote server testing (recommended)
-- ReadyTarget: Uses pre-built image for app testing (recommended)
+- DockerTarget: All Docker-based scenarios (pre-built image, Dockerfile, or deploy)
+- RemoteTarget: All SSH-based scenarios (connect-only or deploy)
+
+Configuration classes:
+- DockerConfig: Configuration for Docker targets
+- RemoteConfig: Configuration for remote targets
+- DeploymentConfig: Optional configuration for Hop3 deployment
 
 Helpers (composition over inheritance):
 - HealthChecker: Health check logic for targets
 - DiagnosticsHelper: Diagnostics save/dump operations
+- DockerContainerHelper: Docker container operations
 """
 
 from __future__ import annotations
@@ -26,11 +29,15 @@ from .base import (
     TargetCapabilities,
     TargetInfo,
 )
+from .config import DeploymentConfig, DockerConfig, RemoteConfig
 from .constants import HEALTH_CHECK_COMMAND, HEALTHY_STATUS_CODES
-from .deploy_base import DeployTargetBase
-from .deploy_targets import DockerDeployTarget, ReadyTarget, RemoteDeployTarget
 from .docker import DockerTarget
-from .helpers import DiagnosticsHelper, HealthChecker, find_project_root
+from .helpers import (
+    DiagnosticsHelper,
+    DockerContainerHelper,
+    HealthChecker,
+    find_project_root,
+)
 from .remote import RemoteTarget
 
 __all__ = [
@@ -38,15 +45,15 @@ __all__ = [
     "HEALTH_CHECK_COMMAND",
     "CommandResult",
     "DeployResult",
-    "DeployTargetBase",
+    "DeploymentConfig",
     "DeploymentTarget",
     "DiagnosticsHelper",
-    "DockerDeployTarget",
+    "DockerConfig",
+    "DockerContainerHelper",
     "DockerTarget",
     "HealthChecker",
     "HttpResponse",
-    "ReadyTarget",
-    "RemoteDeployTarget",
+    "RemoteConfig",
     "RemoteTarget",
     "TargetCapabilities",
     "TargetInfo",
