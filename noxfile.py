@@ -31,20 +31,21 @@ nox.options.sessions = [
 @nox.session
 def lint(session: nox.Session):
     """Run linters."""
+    uv_sync(session)
+    session.run("ruff", "check")
+    session.run("reuse", "lint", "-q")
+
     src_dirs = glob.glob("packages/*/src/") + glob.glob("packages/*/tests/")
-    session.run("uv", "run", "--active", "ruff", "check", *src_dirs)
-    session.run("uv", "run", "--active", "reuse", "lint", "-q")
     with session.chdir("packages/hop3-server"):
-        session.run("uv", "run", "--active", "deptry", "src")
+        session.run("deptry", "src")
 
     # session.run("vulture", "--min-confidence", "80", "packages/hop3-agent/src")
 
 
 @nox.session(python=PYTHON_VERSIONS)
 def pytest(session: nox.Session) -> None:
-    # Note: we use 'uv' instead of 'pip' to make setup quicker
-    # '--active' is needed for proper setup
-    session.run("uv", "run", "--active", "pytest")
+    uv_sync(session)
+    session.run("pytest")
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -55,15 +56,27 @@ def pytest_packages(session: nox.Session, sub_repo: str) -> None:
 
 @nox.session
 def audit(session: nox.Session) -> None:
-    session.run("uv", "pip", "install", ".")
-    session.run("uv", "pip", "install", "safety", "pip-audit")
+    uv_sync(session)
+    session.run("uv", "pip", "install", "--active", "safety", "pip-audit")
     session.run("pip-audit")
     session.run("safety", "scan")
+
+    # session.run("uv", "pip", "install", ".")
+    # session.run("uv", "pip", "install", "safety", "pip-audit")
+    # session.run("pip-audit")
+    # session.run("safety", "scan")
 
 
 @nox.session
 def doc(session: nox.Session) -> None:
     print("TODO: do something with the docs")
+
+
+#
+# Utils
+#
+def uv_sync(session: nox.Session):
+    session.run("uv", "sync", "--all-groups", "--all-extras", "--active", external=True)
 
 
 def run_subsession(session, sub_repo) -> None:
