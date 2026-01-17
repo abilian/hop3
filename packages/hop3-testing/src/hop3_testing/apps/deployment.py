@@ -2,27 +2,33 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Deployment session for test applications."""
+"""Deployment session for test applications.
+
+This module provides the main DeploymentSession class that orchestrates
+the full test lifecycle: prepare, deploy, verify, cleanup.
+"""
 
 from __future__ import annotations
 
 import base64
 import os
-import shutil
 import subprocess
 import sys
 import time
 import traceback
 from http import HTTPStatus
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlparse
 
-import httpx
 from hop3_cli.config import Config
 from hop3_cli.rpc import Client
 from jsonrpcclient import Error
 from loguru import logger
+
+from hop3_testing.util.console import Console, PrintingConsole, Verbosity
+
+from .debug import DeploymentDebugger
+from .preparation import AppPreparation
+from .verification import AppVerifier
 
 if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
@@ -33,11 +39,17 @@ if TYPE_CHECKING:
 class DeploymentSession:
     """Manages the deployment and testing of a test application.
 
-    This class handles:
+    This class orchestrates:
     - Preparing the app for deployment (git init, creating tarball)
     - Deploying to the target via hop3 CLI
-    - Testing the deployed app
+    - Testing the deployed app (HTTP, check scripts)
     - Cleanup
+
+    Example:
+        with DeploymentSession(app, target) as session:
+            session.deploy()
+            if session.test_http():
+                print("Test passed!")
     """
 
     def __init__(
@@ -67,14 +79,22 @@ class DeploymentSession:
 
         # Deployment state
         self.deployed = False
-        self.temp_dir: Path | None = None
         self._last_deploy_error: str | None = None
 
         # Debug settings
         self.verbose = self.config.get("verbose", False)
         self.debug = self.config.get("debug", False)
 
-    def prepare(self) -> Path:
+        # Delegate to specialized components
+        self._preparation = AppPreparation(app, app_name)
+        self._debugger = DeploymentDebugger(target, app_name)
+
+    @property
+    def temp_dir(self):
+        """Get the temp directory path."""
+        return self._preparation.temp_dir
+
+    def prepare(self):
         """Prepare the application for deployment.
 
         Creates a temporary copy of the app with git initialized.
@@ -82,44 +102,7 @@ class DeploymentSession:
         Returns:
             Path to the prepared app directory
         """
-        # Create temp directory
-        self.temp_dir = Path("/tmp") / f"hop3-test-{self.app_name}"
-        if self.temp_dir.exists():
-            shutil.rmtree(self.temp_dir)
-
-        # Copy app to temp directory
-        shutil.copytree(self.app.path, self.temp_dir)
-
-        # Create ENV file with nginx configuration if not present
-        # This must happen before git commit so it's included in the tarball
-        env_file = self.temp_dir / "ENV"
-        if not env_file.exists() and self.app.has_procfile:
-            hostname = f"{self.app_name}.test.local"
-            env_file.write_text(f"HOST_NAME={hostname}\n")
-
-        # Initialize git if not already initialized
-        git_dir = self.temp_dir / ".git"
-        if not git_dir.exists():
-            subprocess.run(
-                ["git", "init"],
-                cwd=self.temp_dir,
-                check=True,
-                capture_output=True,
-            )
-            subprocess.run(
-                ["git", "add", "."],
-                cwd=self.temp_dir,
-                check=True,
-                capture_output=True,
-            )
-            subprocess.run(
-                ["git", "commit", "-m", "Initial commit"],
-                cwd=self.temp_dir,
-                check=True,
-                capture_output=True,
-            )
-
-        return self.temp_dir
+        return self._preparation.prepare()
 
     def deploy(self, wait_time: int = 5) -> bool:
         """Deploy the application to the target.
@@ -130,59 +113,22 @@ class DeploymentSession:
         Returns:
             True if deployment succeeded, False otherwise
         """
-        if not self.temp_dir:
-            self.prepare()
+        if not self._preparation.temp_dir:
+            self._preparation.prepare()
 
         if self.verbose:
             print(f"\nDeploying {self.app_name}...")
 
         try:
             # Create tarball
-            tarball_path = Path("/tmp") / f"{self.app_name}.tar.gz"
-            subprocess.run(
-                ["git", "archive", "--format=tar.gz", "-o", str(tarball_path), "HEAD"],
-                cwd=self.temp_dir,
-                check=True,
-                capture_output=True,
-            )
+            tarball_path = self._preparation.create_tarball()
 
             # Read and encode tarball
             tarball_bytes = tarball_path.read_bytes()
             repository_b64 = base64.b64encode(tarball_bytes).decode("utf-8")
 
             # Deploy via RPC
-            target_info = self.target.info
-
-            # Build SSH API URL (must use api_url_override to bypass HOP3_API_URL env var)
-            api_url = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
-
-            env_config = {
-                "ssh_key": target_info.ssh_key,
-            }
-
-            # Suppress hop3-cli DEBUG logs unless verbose
-            if not self.verbose:
-                logger.remove()
-                logger.add(sys.stderr, level="WARNING")
-
-            config = Config(data=env_config)
-            client = Client(config=config, api_url_override=api_url)
-
-            try:
-                response = client.rpc(
-                    "cli", ["deploy", self.app_name], repository=repository_b64
-                )
-                if self.verbose:
-                    print(f"Deploy response: {response}")
-
-                # Check for RPC error response and capture error message
-                if isinstance(response, Error):
-                    self._last_deploy_error = response.message
-            finally:
-                # Close tunnel to prevent hanging
-                if client.tunnel:
-                    client.tunnel.stop()
-                    client.tunnel = None
+            self._deploy_via_rpc(repository_b64)
 
             self.deployed = True
 
@@ -200,6 +146,41 @@ class DeploymentSession:
             print(f"Deployment failed: {e}")
             return False
 
+    def _deploy_via_rpc(self, repository_b64: str) -> None:
+        """Deploy via hop3 RPC client."""
+        target_info = self.target.info
+
+        # Build SSH API URL
+        api_url = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
+
+        env_config = {
+            "ssh_key": target_info.ssh_key,
+        }
+
+        # Suppress hop3-cli DEBUG logs unless verbose
+        if not self.verbose:
+            logger.remove()
+            logger.add(sys.stderr, level="WARNING")
+
+        config = Config(data=env_config)
+        client = Client(config=config, api_url_override=api_url)
+
+        try:
+            response = client.rpc(
+                "cli", ["deploy", self.app_name], repository=repository_b64
+            )
+            if self.verbose:
+                print(f"Deploy response: {response}")
+
+            # Check for RPC error response
+            if isinstance(response, Error):
+                self._last_deploy_error = response.message
+        finally:
+            # Close tunnel to prevent hanging
+            if client.tunnel:
+                client.tunnel.stop()
+                client.tunnel = None
+
     def check_deployed(self) -> bool:
         """Check if the app is deployed and running.
 
@@ -210,7 +191,6 @@ class DeploymentSession:
             return False
 
         try:
-            # Use hop3 CLI to check status
             target_info = self.target.info
 
             env = os.environ.copy()
@@ -242,79 +222,6 @@ class DeploymentSession:
             traceback.print_exc()
             return False
 
-    def test_http_detailed(
-        self,
-        hostname: str | None = None,
-        path: str = "/",
-        expected_status: int = HTTPStatus.OK,
-        max_retries: int = 20,
-    ) -> dict[str, Any]:
-        """Test HTTP access and return detailed results.
-
-        Returns:
-            Dict with: passed, message, details (url, status, body preview, etc.)
-        """
-        result = {"passed": False, "message": "", "details": {}}
-
-        if not self.deployed:
-            result["message"] = "App not deployed yet"
-            return result
-
-        if hostname is None:
-            hostname = f"{self.app_name}.test.local"
-
-        target_info = self.target.info
-        # Parse http_base properly - it may be "http://localhost:8080" or "http://remote.host"
-        http_base = target_info.http_base.rstrip("/")
-        if http_base.startswith("http://localhost:"):
-            # Local target with port forwarding
-            url = f"{http_base}{path}"
-        elif ":" in http_base.split("//")[-1]:
-            # Remote target with explicit port
-            url = f"{http_base}{path}"
-        else:
-            # Remote target without port (use port 80)
-            url = f"{http_base}{path}"
-
-        result["details"]["url"] = url
-        result["details"]["hostname"] = hostname
-        result["details"]["expected_status"] = expected_status
-
-        for attempt in range(max_retries):
-            try:
-                response = httpx.get(
-                    url,
-                    headers={"Host": hostname},
-                    timeout=2.0,
-                    follow_redirects=True,
-                )
-
-                result["details"]["status_code"] = response.status_code
-                result["details"]["attempts"] = attempt + 1
-
-                # Capture body preview
-                body = response.text[:500] if response.text else ""
-                result["details"]["body_preview"] = body
-
-                if response.status_code == expected_status:
-                    result["passed"] = True
-                    result["message"] = f"HTTP {response.status_code} from {url}"
-                    return result
-
-                if response.status_code == HTTPStatus.BAD_GATEWAY:
-                    time.sleep(0.5)
-                    continue
-
-                result["message"] = f"HTTP {response.status_code} (expected {expected_status})"
-                return result
-
-            except (httpx.HTTPError, httpx.ConnectError) as e:
-                result["details"]["last_error"] = str(e)
-                time.sleep(0.5)
-
-        result["message"] = f"HTTP test failed after {max_retries} attempts"
-        return result
-
     def test_http(
         self,
         hostname: str | None = None,
@@ -337,119 +244,36 @@ class DeploymentSession:
             print("App not deployed yet")
             return False
 
-        if hostname is None:
-            hostname = f"{self.app_name}.test.local"
-
-        target_info = self.target.info
-        # Parse http_base properly - it may be "http://localhost:8080" or "http://remote.host"
-        http_base = target_info.http_base.rstrip("/")
-        if http_base.startswith("http://localhost:"):
-            # Local target with port forwarding
-            url = f"{http_base}{path}"
-        elif ":" in http_base.split("//")[-1]:
-            # Remote target with explicit port
-            url = f"{http_base}{path}"
-        else:
-            # Remote target without port (use port 80)
-            url = f"{http_base}{path}"
-
-        print(f"\nTesting HTTP: {url} (Host: {hostname})")
-
-        # If debug mode, show nginx config and logs before testing
+        # Show debug info before testing if debug mode
         if self.debug:
-            self._debug_nginx_config()
-            self._debug_app_logs()
+            self._debugger.show_all()
 
-        for attempt in range(max_retries):
-            try:
-                response = httpx.get(
-                    url,
-                    headers={"Host": hostname},
-                    timeout=2.0,
-                    follow_redirects=True,
-                )
+        verifier = self._get_verifier()
+        return verifier.verify_http(hostname, path, expected_status, max_retries)
 
-                if response.status_code == expected_status:
-                    print(f"✓ HTTP test passed (status: {response.status_code})")
-                    return True
-
-                if response.status_code == HTTPStatus.BAD_GATEWAY:
-                    # Backend not ready, retry
-                    print(f"  Attempt {attempt + 1}/{max_retries}: Backend not ready, retrying...")
-                    time.sleep(0.5)
-                    continue
-
-                print(f"  Unexpected status code: {response.status_code}")
-                return False
-
-            except (httpx.HTTPError, httpx.ConnectError) as e:
-                print(f"  Attempt {attempt + 1}/{max_retries}: {e}")
-                time.sleep(0.5)
-
-        print(f"✗ HTTP test failed after {max_retries} attempts")
-        return False
-
-    def run_check_script_detailed(self) -> dict[str, Any]:
-        """Run the app's check.py script and return detailed results.
+    def test_http_detailed(
+        self,
+        hostname: str | None = None,
+        path: str = "/",
+        expected_status: int = HTTPStatus.OK,
+        max_retries: int = 20,
+    ) -> dict[str, Any]:
+        """Test HTTP access and return detailed results.
 
         Returns:
-            Dict with: passed, message, details
+            Dict with: passed, message, details (url, status, body preview, etc.)
         """
-        result = {"passed": False, "message": "", "details": {}}
-
-        if not self.app.has_check_script:
-            result["passed"] = True
-            result["message"] = "No check script (skipped)"
-            return result
-
         if not self.deployed:
-            result["message"] = "App not deployed yet"
-            return result
+            return {
+                "passed": False,
+                "message": "App not deployed yet",
+                "details": {},
+            }
 
-        try:
-            target_info = self.target.info
-            # Parse http_base properly to get hostname and port
-            http_base = target_info.http_base
-            parsed = urlparse(http_base)
-
-            if parsed.hostname == "localhost":
-                # Local Docker target - use app-specific hostname
-                hostname = f"{self.app_name}.test.local"
-                http_port = parsed.port or 80
-            else:
-                # Remote target - use the actual remote hostname
-                hostname = parsed.hostname or "localhost"
-                http_port = parsed.port or 80
-
-            check_script_path = self.app.path / "check.py"
-            result["details"]["script"] = str(check_script_path)
-            result["details"]["hostname"] = hostname
-            result["details"]["port"] = http_port
-
-            # Execute check script
-            ctx: dict[str, Any] = {}
-            exec(check_script_path.read_text(), ctx)
-
-            if "check" not in ctx:
-                result["message"] = "check() function not found in check.py"
-                return result
-
-            ctx["check"](hostname, http_port)
-            result["passed"] = True
-            result["message"] = f"check.py passed ({check_script_path.name})"
-            return result
-
-        except AssertionError as e:
-            result["message"] = f"Assertion failed: {e}"
-            result["details"]["error_type"] = "AssertionError"
-            result["details"]["error"] = str(e)
-            return result
-
-        except Exception as e:
-            result["message"] = f"Check script error: {e}"
-            result["details"]["error_type"] = type(e).__name__
-            result["details"]["error"] = str(e)
-            return result
+        verifier = self._get_verifier()
+        return verifier.verify_http_detailed(
+            hostname, path, expected_status, max_retries
+        )
 
     def run_check_script(self) -> bool:
         """Run the app's check.py script if it exists.
@@ -457,48 +281,37 @@ class DeploymentSession:
         Returns:
             True if check passed, False otherwise
         """
-        if not self.app.has_check_script:
-            print("No check script available")
-            return True
-
         if not self.deployed:
             print("App not deployed yet")
             return False
 
-        try:
-            target_info = self.target.info
-            # Parse http_base properly to get hostname and port
-            http_base = target_info.http_base
-            parsed = urlparse(http_base)
+        verifier = self._get_verifier()
+        return verifier.run_check_script()
 
-            if parsed.hostname == "localhost":
-                # Local Docker target - use app-specific hostname
-                hostname = f"{self.app_name}.test.local"
-                http_port = parsed.port or 80
-            else:
-                # Remote target - use the actual remote hostname
-                hostname = parsed.hostname or "localhost"
-                http_port = parsed.port or 80
+    def run_check_script_detailed(self) -> dict[str, Any]:
+        """Run the app's check.py script and return detailed results.
 
-            check_script_path = self.app.path / "check.py"
+        Returns:
+            Dict with: passed, message, details
+        """
+        if not self.deployed:
+            return {
+                "passed": False,
+                "message": "App not deployed yet",
+                "details": {},
+            }
 
-            # Execute check script
-            ctx: dict[str, Any] = {}
-            exec(check_script_path.read_text(), ctx)
+        verifier = self._get_verifier()
+        return verifier.run_check_script_detailed()
 
-            if "check" not in ctx:
-                print("check() function not found in check.py")
-                return False
-
-            # Pass both hostname and port to check script
-            # Check scripts use assertions - if they complete without error, they passed
-            ctx["check"](hostname, http_port)
-            print("✓ Check script passed")
-            return True
-
-        except Exception as e:
-            print(f"✗ Check script failed: {e}")
-            return False
+    def _get_verifier(self) -> AppVerifier:
+        """Get a verifier instance for this session."""
+        return AppVerifier(
+            self.target.info,
+            self.app,
+            self.app_name,
+            self.verbose,
+        )
 
     def cleanup(self) -> bool:
         """Cleanup the deployed app and temp files.
@@ -510,92 +323,100 @@ class DeploymentSession:
 
         # Destroy app on target
         if self.deployed:
-            try:
-                target_info = self.target.info
+            success = self._destroy_app()
 
-                env = os.environ.copy()
-                env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
-                env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
-                env["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"
+        # Remove temp directory
+        self._preparation.cleanup()
 
-                if self.verbose:
-                    print(f"\n[DEBUG] Destroying {self.app_name}")
+        return success
 
-                    # List apps before destroy
-                    before = subprocess.run(
-                        ["hop3", "apps"],
-                        env=env,
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                    )
-                    print(f"[DEBUG] Apps before destroy:\n{before.stdout}")
+    def _destroy_app(self) -> bool:
+        """Destroy the deployed app on the target."""
+        success = True
 
-                result = subprocess.run(
-                    ["hop3", "app:destroy", self.app_name, "-y"],
+        try:
+            target_info = self.target.info
+
+            env = os.environ.copy()
+            env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
+            env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
+            env["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"
+
+            if self.verbose:
+                print(f"\n[DEBUG] Destroying {self.app_name}")
+
+                # List apps before destroy
+                before = subprocess.run(
+                    ["hop3", "apps"],
                     env=env,
                     capture_output=True,
                     text=True,
                     check=False,
                 )
+                print(f"[DEBUG] Apps before destroy:\n{before.stdout}")
 
-                if result.returncode == 0:
-                    if self.verbose:
-                        print(f"✓ App {self.app_name} destroy command completed")
-                        if result.stdout.strip():
-                            print(f"[SERVER STDOUT] {result.stdout.strip()}")
-                        # Filter out cryptography warnings from stderr
-                        if result.stderr.strip():
-                            stderr_lines = [
-                                l for l in result.stderr.split("\n")
-                                if "CryptographyDeprecationWarning" not in l
-                                and "TripleDES" not in l
-                                and l.strip()
-                            ]
-                            if stderr_lines:
-                                print(f"[SERVER STDERR] {' '.join(stderr_lines)}")
+            result = subprocess.run(
+                ["hop3", "app:destroy", self.app_name, "-y"],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
 
-                    # Wait a moment for server-side cleanup
-                    time.sleep(2)
-
-                    # Check if app is gone
-                    after = subprocess.run(
-                        ["hop3", "apps"],
-                        env=env,
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                    )
-
-                    if self.app_name in after.stdout:
-                        print(f"⚠ WARNING: {self.app_name} still in database after destroy!")
-                        success = False
-                    elif self.verbose:
-                        print(f"✓ Verified {self.app_name} removed from database")
-                else:
-                    print(f"❌ Failed to destroy app (exit code {result.returncode})")
-                    if result.stderr:
-                        print(f"  Error: {result.stderr[:200]}")
-                    success = False
-
-                self.deployed = False
-
-            except Exception as e:
-                print(f"❌ Exception during destroy: {e}")
-                traceback.print_exc()
-                success = False
-
-        # Remove temp directory
-        if self.temp_dir and self.temp_dir.exists():
-            try:
-                shutil.rmtree(self.temp_dir)
+            if result.returncode == 0:
                 if self.verbose:
-                    print("✓ Temp directory removed")
-            except Exception as e:
-                print(f"⚠ Error removing temp directory: {e}")
+                    print(f"✓ App {self.app_name} destroy command completed")
+                    if result.stdout.strip():
+                        print(f"[SERVER STDOUT] {result.stdout.strip()}")
+                    # Filter out cryptography warnings from stderr
+                    if result.stderr.strip():
+                        stderr_lines = [
+                            line
+                            for line in result.stderr.split("\n")
+                            if "CryptographyDeprecationWarning" not in line
+                            and "TripleDES" not in line
+                            and line.strip()
+                        ]
+                        if stderr_lines:
+                            print(f"[SERVER STDERR] {' '.join(stderr_lines)}")
+
+                # Wait a moment for server-side cleanup
+                time.sleep(2)
+
+                # Verify app is gone
+                success = self._verify_app_destroyed(env)
+            else:
+                print(f"❌ Failed to destroy app (exit code {result.returncode})")
+                if result.stderr:
+                    print(f"  Error: {result.stderr[:200]}")
                 success = False
+
+            self.deployed = False
+
+        except Exception as e:
+            print(f"❌ Exception during destroy: {e}")
+            traceback.print_exc()
+            success = False
 
         return success
+
+    def _verify_app_destroyed(self, env: dict) -> bool:
+        """Verify the app was destroyed."""
+        after = subprocess.run(
+            ["hop3", "apps"],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if self.app_name in after.stdout:
+            print(f"⚠ WARNING: {self.app_name} still in database after destroy!")
+            return False
+
+        if self.verbose:
+            print(f"✓ Verified {self.app_name} removed from database")
+        return True
 
     def run_full_test(self, cleanup: bool = True) -> bool:
         """Run a full test cycle: prepare, deploy, test, cleanup.
@@ -657,87 +478,3 @@ class DeploymentSession:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Context manager exit with cleanup."""
         self.cleanup()
-
-    def _debug_nginx_config(self) -> None:
-        """Debug helper: print nginx configuration for the app."""
-        print("\n" + "=" * 70)
-        print(f"DEBUG: Nginx config for {self.app_name}")
-        print("=" * 70)
-
-        try:
-            # Check if nginx config exists
-            exit_code, stdout, stderr = self.target.exec_run(
-                f"test -f /home/hop3/nginx/{self.app_name}.conf && echo 'exists' || echo 'missing'"
-            )
-
-            if "exists" in stdout:
-                print(f"✓ Nginx config found at /home/hop3/nginx/{self.app_name}.conf")
-
-                # Show config content
-                exit_code, stdout, stderr = self.target.exec_run(
-                    f"cat /home/hop3/nginx/{self.app_name}.conf"
-                )
-                print("\nConfig content:")
-                print(stdout)
-            else:
-                print(f"✗ Nginx config NOT found at /home/hop3/nginx/{self.app_name}.conf")
-
-            # Check nginx status
-            print("\nNginx status:")
-            exit_code, stdout, stderr = self.target.exec_run(
-                "systemctl is-active nginx 2>/dev/null || service nginx status 2>/dev/null || echo 'unknown'"
-            )
-            print(stdout)
-
-            # Check nginx error logs
-            print("\nNginx error log (last 20 lines):")
-            exit_code, stdout, stderr = self.target.exec_run(
-                "tail -n 20 /var/log/nginx/error.log 2>/dev/null || echo 'No error log'"
-            )
-            print(stdout)
-
-        except Exception as e:
-            print(f"Error getting nginx debug info: {e}")
-
-        print("=" * 70 + "\n")
-
-    def _debug_app_logs(self) -> None:
-        """Debug helper: print app logs."""
-        print("\n" + "=" * 70)
-        print(f"DEBUG: App logs for {self.app_name}")
-        print("=" * 70)
-
-        try:
-            # Check app directory structure
-            exit_code, stdout, stderr = self.target.exec_run(
-                f"ls -la /home/hop3/apps/{self.app_name}/ 2>/dev/null || echo 'App directory not found'"
-            )
-            print("App directory structure:")
-            print(stdout)
-
-            # Check if src exists
-            exit_code, stdout, stderr = self.target.exec_run(
-                f"ls -la /home/hop3/apps/{self.app_name}/src/ 2>/dev/null || echo 'Src directory not found'"
-            )
-            print("\nSrc directory:")
-            print(stdout)
-
-            # Check logs directory
-            exit_code, stdout, stderr = self.target.exec_run(
-                f"ls -la /home/hop3/apps/{self.app_name}/log/ 2>/dev/null || echo 'Log directory not found'"
-            )
-            print("\nLog directory:")
-            print(stdout)
-
-            # Show any log files
-            exit_code, stdout, stderr = self.target.exec_run(
-                f"find /home/hop3/apps/{self.app_name}/log -type f -exec tail -n 10 {{}} \\; 2>/dev/null || echo 'No log files'"
-            )
-            if stdout.strip():
-                print("\nLog contents:")
-                print(stdout)
-
-        except Exception as e:
-            print(f"Error getting app debug info: {e}")
-
-        print("=" * 70 + "\n")
