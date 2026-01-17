@@ -10,8 +10,16 @@ import json
 
 import pytest
 from filelock import FileLock
-from hop3_testing.apps import AppSourceCatalog
-from hop3_testing.targets import DeploymentTarget, DockerTarget, RemoteTarget
+from hop3_testing.catalog import TestCatalog
+from hop3_testing.targets import (
+    DeploymentConfig,
+    DeploymentTarget,
+    DockerConfig,
+    DockerTarget,
+    RemoteConfig,
+    RemoteTarget,
+)
+from hop3_testing.targets.helpers import find_project_root
 
 from hop3.orm import reset_session_factory_cache
 
@@ -63,10 +71,10 @@ def deployment_target(request, tmp_path_factory):
     target: DeploymentTarget
 
     if host:
-        remote_config = {
-            "host": host,
-            "ssh_key": request.config.getoption("--ssh-key"),
-        }
+        remote_config = RemoteConfig(
+            host=host,
+            ssh_key=request.config.getoption("--ssh-key"),
+        )
         target_name = "remote"
         target = RemoteTarget(remote_config)
         # Remote targets don't need special xdist handling
@@ -85,9 +93,16 @@ def deployment_target(request, tmp_path_factory):
         return
 
     # Docker target with xdist support
-    docker_config = {
-        "force_rebuild": request.config.getoption("--force-rebuild"),
-    }
+    # Deploy Hop3 from local code to the container
+    docker_config = DockerConfig(
+        container_name="hop3-server-test",
+    )
+    # Deploy Hop3 from local source code
+    deployment_config = DeploymentConfig(
+        source="local",
+        clean=False,
+        verbose=False,
+    )
 
     if is_xdist:
         # Running under pytest-xdist - share container across workers
@@ -101,19 +116,23 @@ def deployment_target(request, tmp_path_factory):
                 # Another worker already started the container - reuse it
                 info_data = json.loads(info_file.read_text())
                 print(f"Worker {worker_id}: Reusing shared deployment target...")
-                target = DockerTarget(docker_config)
-                target._reuse_container(info_data)
+                reuse_config = DockerConfig(
+                    container_name=info_data.get("container_name", "hop3-server-test"),
+                    reuse_container=True,
+                )
+                target = DockerTarget(reuse_config)
+                target.start()
                 yield target
                 # Don't stop - let the master worker handle cleanup
                 return
             else:
                 # First worker - start the container and share info
                 print(f"Worker {worker_id}: Starting shared deployment target...")
-                target = DockerTarget(docker_config)
+                target = DockerTarget(docker_config, deployment=deployment_config)
                 target.start()
                 # Save connection info for other workers
                 info_data = {
-                    "container_id": target.container.id,
+                    "container_name": docker_config.container_name,
                     "ssh_port": target._info.ssh_port,
                     "http_base": target._info.http_base,
                     "api_url": target._info.api_url,
@@ -129,7 +148,7 @@ def deployment_target(request, tmp_path_factory):
 
     # Not running under xdist - normal single-process behavior
     target_name = "docker"
-    target = DockerTarget(docker_config)
+    target = DockerTarget(docker_config, deployment=deployment_config)
 
     try:
         print(f"Starting deployment target '{target_name}' for test session...")
@@ -143,11 +162,17 @@ def deployment_target(request, tmp_path_factory):
             print(f"Keeping deployment target '{target_name}' running as requested.")
 
 
-# 3. Create a fixture for the test app catalog
+# 3. Create a fixture for the test catalog
 @pytest.fixture(scope="session")
-def app_catalog():
-    """Provides a TestAppCatalog instance for accessing test applications."""
-    return AppSourceCatalog()
+def test_catalog():
+    """Provides a TestCatalog instance for accessing test definitions."""
+    try:
+        root = find_project_root()
+    except RuntimeError:
+        root = None
+    catalog = TestCatalog(root)
+    catalog.scan()
+    return catalog
 
 
 # 4. Reset session factory cache before each test to ensure test isolation
