@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import html
 from datetime import datetime
+from itertools import starmap
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -120,7 +121,9 @@ def _build_phases_html(r: TestResult, test_id: str) -> list[str]:
         )
         is_success = deploy_status == "\u2713"
         phases_html.append(
-            _phase_html(f"{test_id}-deploy", deploy_status, "Deploy", r.deploy_logs, is_success)
+            _phase_html(
+                f"{test_id}-deploy", deploy_status, "Deploy", r.deploy_logs, is_success
+            )
         )
 
     # Validation phases
@@ -128,7 +131,13 @@ def _build_phases_html(r: TestResult, test_id: str) -> list[str]:
         for v_idx, v in enumerate(r.validation_results):
             v_content = _build_validation_content(v)
             phases_html.append(
-                _phase_html(f"{test_id}-val-{v_idx}", "\u2713" if v.passed else "\u2717", v.type_name, v_content, v.passed)
+                _phase_html(
+                    f"{test_id}-val-{v_idx}",
+                    "\u2713" if v.passed else "\u2717",
+                    v.type_name,
+                    v_content,
+                    v.passed,
+                )
             )
 
     # Error phase
@@ -151,7 +160,9 @@ def _build_validation_content(v) -> str:
     """Build content string from a validation result."""
     v_content = v.message or ("Passed" if v.passed else "Failed")
     if v.details:
-        detail_lines = [f"{key}: {val}" for key, val in v.details.items() if key != "passed"]
+        detail_lines = [
+            f"{key}: {val}" for key, val in v.details.items() if key != "passed"
+        ]
         if detail_lines:
             v_content += "\n" + "\n".join(detail_lines)
     return v_content
@@ -228,7 +239,7 @@ def generate_html_report(
     failed = total - passed
     total_duration = sum(r.total_duration for r in results)
 
-    test_cards = [_build_test_card(idx, r) for idx, r in enumerate(results)]
+    test_cards = list(starmap(_build_test_card, enumerate(results)))
     diag_section = _build_diagnostic_section(target)
 
     ctx = target.diagnostics.context if hasattr(target, "diagnostics") else None

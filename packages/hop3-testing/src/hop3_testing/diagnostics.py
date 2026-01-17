@@ -230,7 +230,11 @@ class DiagnosticCollector:
         entries = self.entries if include_all else self.get_failures()
 
         if not entries:
-            lines.append("No diagnostic entries recorded." if include_all else "No failures recorded.")
+            lines.append(
+                "No diagnostic entries recorded."
+                if include_all
+                else "No failures recorded."
+            )
             lines.append("=" * 70)
             return "\n".join(lines)
 

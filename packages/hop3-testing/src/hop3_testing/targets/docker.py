@@ -2,7 +2,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Docker-based deployment target."""
+"""Docker-based deployment target.
+
+This module provides a consolidated Docker target that handles all Docker-based
+testing scenarios:
+- Pre-built image (fast app testing)
+- Build from Dockerfile (custom testing)
+- Deploy via hop3-deploy (system testing)
+- Connect to existing container (reuse)
+"""
 
 from __future__ import annotations
 
@@ -14,83 +22,288 @@ from typing import TYPE_CHECKING, Any
 import docker
 from docker.errors import BuildError, ImageNotFound
 
+from hop3_testing.diagnostics import DiagnosticCollector
+
 from .base import DeploymentTarget, TargetInfo
-from .constants import HEALTH_CHECK_COMMAND, HEALTHY_STATUS_CODES
+from .config import DeploymentConfig, DockerConfig
+from .constants import (
+    DEFAULT_HEALTH_CHECK_TIMEOUT,
+    DEFAULT_READY_IMAGE_HEALTH_TIMEOUT,
+)
+from .helpers import (
+    DiagnosticsHelper,
+    DockerContainerHelper,
+    HealthChecker,
+    find_project_root,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from hop3_installer.deployer.backends.docker import DockerDeployBackend
+
 
 class DockerTarget(DeploymentTarget):
-    """Docker container-based deployment target.
+    """Docker-based target for all Docker testing scenarios.
 
-    This target creates a Docker container running Hop3 server for testing.
-    It uses the same Docker image as the E2E tests.
+    This consolidated target handles:
+    - Pre-built images (fast app testing)
+    - Build from Dockerfile (custom images)
+    - Deploy via hop3-deploy (system testing)
+    - Connect to existing containers (reuse)
+
+    Examples:
+        # Fast app testing with pre-built image
+        target = DockerTarget(DockerConfig(image="hop3-ready:latest"))
+
+        # Build from Dockerfile
+        target = DockerTarget(DockerConfig(dockerfile=Path("Dockerfile")))
+
+        # System testing: deploy Hop3 first
+        target = DockerTarget(
+            DockerConfig(),
+            deployment=DeploymentConfig(source="local")
+        )
+
+        # Reuse existing container
+        target = DockerTarget(
+            DockerConfig(container_name="hop3-test", reuse_container=True)
+        )
     """
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        config: DockerConfig | None = None,
+        deployment: DeploymentConfig | None = None,
+    ):
         """Initialize Docker target.
 
         Args:
-            config: Configuration dictionary with optional keys:
-                - image_tag: Docker image tag (default: "hop3-e2e:test")
-                - dockerfile: Path to Dockerfile (default: auto-detect)
-                - force_rebuild: Disable Docker layer cache for full rebuild (default: False)
-                - container_name: Name for the container (default: auto-generated)
-                - ports: Custom port mappings (default: auto-assign)
+            config: Docker-specific configuration
+            deployment: Optional deployment configuration (if deploying Hop3)
         """
-        super().__init__(config)
-        self.client = docker.from_env()
-        self.container = None
-        self.ssh_key_path: Path | None = None
+        # Convert to dict for parent class
+        super().__init__(self._config_to_dict(config, deployment))
 
-        # Configuration
-        self.image_tag = (
-            config.get("image_tag", "hop3-e2e:test") if config else "hop3-e2e:test"
+        self.docker_config = config or DockerConfig()
+        self.deployment = deployment
+
+        # Setup diagnostics
+        self.diagnostics = DiagnosticCollector(
+            verbose=deployment.verbose if deployment else False,
+            log_dir=self.docker_config.log_dir,
         )
-        self.container_name = config.get("container_name") if config else None
-        self.force_rebuild = config.get("force_rebuild", False) if config else False
-        self.verbose = config.get("verbose", False) if config else False
 
-    def _image_exists(self) -> bool:
-        """Check if the Docker image already exists."""
+        # Compose helpers
+        self._diagnostics_helper = DiagnosticsHelper(self.diagnostics)
+        timeout = (
+            DEFAULT_HEALTH_CHECK_TIMEOUT
+            if deployment
+            else DEFAULT_READY_IMAGE_HEALTH_TIMEOUT
+        )
+        self._health_checker = HealthChecker(self.diagnostics, timeout=timeout)
+
+        # Docker client and container
+        self._client: docker.DockerClient | None = None
+        self._container: Any = None
+        self._container_helper: DockerContainerHelper | None = None
+
+        # For hop3-deploy mode
+        self._deployer_backend: DockerDeployBackend | None = None
+
+        # State
+        self._started = False
+        self._we_created_container = False
+
+    @staticmethod
+    def _config_to_dict(
+        config: DockerConfig | None,
+        deployment: DeploymentConfig | None,
+    ) -> dict[str, Any]:
+        """Convert config objects to dict for parent class."""
+        result: dict[str, Any] = {}
+        if config:
+            result["container_name"] = config.container_name
+            result["image"] = config.image
+            result["log_dir"] = str(config.log_dir)
+        if deployment:
+            result["local"] = deployment.source == "local"
+            result["clean"] = deployment.clean
+            result["branch"] = deployment.branch
+            result["verbose"] = deployment.verbose
+        return result
+
+    def start(self) -> TargetInfo:
+        """Start the Docker target.
+
+        The behavior depends on configuration:
+        - reuse_container=True: Connect to existing container
+        - deployment is set: Deploy Hop3 first via hop3-deploy
+        - dockerfile is set: Build from Dockerfile
+        - Otherwise: Use pre-built image
+
+        Returns:
+            TargetInfo with connection details
+        """
+        # Initialize diagnostics context
+        self.diagnostics.set_context(
+            test_name=f"docker-{self.docker_config.container_name}",
+            config="docker",
+        )
+        self.diagnostics.set_phase("setup")
+
+        self._client = docker.from_env()
+
+        # Determine the mode
+        if self.docker_config.reuse_container:
+            return self._connect_existing()
+        if self.deployment:
+            return self._deploy_and_start()
+        if self.docker_config.dockerfile:
+            return self._build_and_start()
+        return self._start_prebuilt()
+
+    def _connect_existing(self) -> TargetInfo:
+        """Connect to an existing Docker container.
+
+        Returns:
+            TargetInfo with connection details
+
+        Raises:
+            RuntimeError: If container not found or not running
+        """
+        print("\n" + "=" * 70)
+        print(f"Connecting to existing container: {self.docker_config.container_name}")
+        print("=" * 70)
+
         try:
-            self.client.images.get(self.image_tag)
-            return True
-        except ImageNotFound:
-            return False
+            self._container = self._client.containers.get(
+                self.docker_config.container_name
+            )
+        except docker.errors.NotFound:
+            msg = (
+                f"Container '{self.docker_config.container_name}' not found. "
+                "Start it first or set reuse_container=False"
+            )
+            self.diagnostics.add_failure(
+                layer="docker",
+                operation="find_container",
+                message=msg,
+            )
+            raise RuntimeError(msg) from None
 
-    def _get_project_paths(self) -> tuple[Path, Path]:
-        """Get project root and Dockerfile path."""
-        # Path: .../hop3/packages/hop3-testing/src/hop3_testing/targets/docker.py
-        current_file = Path(__file__)
-        project_root = current_file.parent.parent.parent.parent.parent.parent
-        dockerfile_path = project_root / "packages/hop3-server/tests/d_e2e/docker/Dockerfile"
+        self._container.reload()
+        if self._container.status != "running":
+            msg = f"Container '{self.docker_config.container_name}' is not running"
+            self.diagnostics.add_failure(
+                layer="docker",
+                operation="check_status",
+                message=msg,
+            )
+            raise RuntimeError(msg)
+
+        self._container_helper = DockerContainerHelper(self._container)
+        self._we_created_container = False
+
+        # Wait for server to be ready
+        self.diagnostics.set_phase("health_check")
+        if not self._health_checker.wait_for_container(self._container):
+            self._save_diagnostics_on_error()
+            msg = "Server did not become ready"
+            raise RuntimeError(msg)
+
+        self._info = self._build_target_info()
+        self._started = True
+
+        self._print_ready_message()
+        return self._info
+
+    def _start_prebuilt(self) -> TargetInfo:
+        """Start a pre-built Docker image (no deployment).
+
+        Returns:
+            TargetInfo with connection details
+        """
+        print("\n" + "=" * 70)
+        print(f"Starting pre-built container: {self.docker_config.image}")
+        print("(No deployment - image should have Hop3 pre-installed)")
+        print("=" * 70)
+
+        # Check if image exists
+        try:
+            self._client.images.get(self.docker_config.image)
+            self.diagnostics.add_success(
+                layer="docker",
+                operation="check_image",
+                message=f"Image {self.docker_config.image} found",
+            )
+        except ImageNotFound:
+            self.diagnostics.add_failure(
+                layer="docker",
+                operation="check_image",
+                message=f"Image {self.docker_config.image} not found",
+                details={"hint": "Build with: hop3-test build-ready-image"},
+            )
+            msg = f"Image {self.docker_config.image} not found"
+            raise RuntimeError(msg) from None
+
+        # Remove existing container with same name
+        self._remove_existing_container()
+
+        # Start container
+        self._container = self._client.containers.run(
+            self.docker_config.image,
+            name=self.docker_config.container_name,
+            detach=True,
+            ports=self.docker_config.ports,
+            remove=False,
+        )
+        self._container_helper = DockerContainerHelper(self._container)
+        self._we_created_container = True
+
+        self.diagnostics.add_success(
+            layer="docker",
+            operation="start_container",
+            message=f"Container {self.docker_config.container_name} started",
+        )
+
+        # Wait for server to be ready
+        self.diagnostics.set_phase("health_check")
+        if not self._health_checker.wait_for_container(self._container):
+            self._save_diagnostics_on_error()
+            msg = "Server did not become ready"
+            raise RuntimeError(msg)
+
+        self._info = self._build_target_info()
+        self._started = True
+
+        self._print_ready_message()
+        return self._info
+
+    def _build_and_start(self) -> TargetInfo:
+        """Build Docker image from Dockerfile and start container.
+
+        Returns:
+            TargetInfo with connection details
+        """
+        print("\n" + "=" * 70)
+        print("Building Docker image from Dockerfile...")
+        print("=" * 70)
+
+        project_root = find_project_root()
+        dockerfile_path = self.docker_config.dockerfile
+
+        if not dockerfile_path:
+            # Use default E2E Dockerfile
+            dockerfile_path = (
+                project_root / "packages/hop3-server/tests/d_e2e/docker/Dockerfile"
+            )
 
         if not dockerfile_path.exists():
             msg = f"Dockerfile not found at {dockerfile_path}"
             raise FileNotFoundError(msg)
 
-        return project_root, dockerfile_path
-
-    def _build_image(self, *, force: bool = False) -> None:
-        """Build the Docker image.
-
-        Args:
-            force: Force rebuild without using Docker layer cache (nocache=True)
-        """
-        image_exists = self._image_exists()
-
-        print(f"Building Docker image: {self.image_tag}")
-        if force:
-            print("(Force rebuild - ignoring Docker layer cache)")
-        elif image_exists:
-            print("(Docker will use cached layers where possible)")
-        else:
-            print("(First build - this may take 5-10 minutes...)")
-
-        project_root, dockerfile_path = self._get_project_paths()
-
+        # Build distribution first
         print("Building hop3-server distribution...")
         subprocess.run(
             ["uv", "build", "packages/hop3-server"],
@@ -99,246 +312,506 @@ class DockerTarget(DeploymentTarget):
             capture_output=True,
         )
 
+        # Build image
+        image_tag = f"hop3-e2e:{self.docker_config.container_name}"
         try:
-            _image, logs = self.client.images.build(
+            _image, _logs = self._client.images.build(
                 path=str(project_root),
                 dockerfile=str(dockerfile_path),
-                tag=self.image_tag,
+                tag=image_tag,
                 rm=True,
                 forcerm=True,
-                nocache=force,
             )
-
-            if self.verbose:
-                for log in logs:
-                    if "stream" in log and log["stream"].strip():
-                        print(log["stream"].strip())
-
-            print(f"Successfully built image: {self.image_tag}")
-
+            print(f"Successfully built image: {image_tag}")
         except BuildError as e:
             print(f"Build failed: {e}")
-            for log in e.build_log:
-                if "stream" in log:
-                    print(log["stream"].strip())
             msg = f"Failed to build Docker image: {e}"
             raise RuntimeError(msg) from e
 
-    def start(self) -> TargetInfo:
-        """Start the Docker container.
-
-        Returns:
-            TargetInfo with connection details
-        """
-        # Always build image (Docker layer caching makes this fast if nothing changed)
-        self._build_image(force=self.force_rebuild)
-
-        print("\n" + "=" * 60)
-        print("Starting Hop3 Docker container...")
-        print("=" * 60)
+        # Remove existing container
+        self._remove_existing_container()
 
         # Start container
-        self.container = self.client.containers.run(
-            self.image_tag,
-            name=self.container_name,
+        self._container = self._client.containers.run(
+            image_tag,
+            name=self.docker_config.container_name,
             detach=True,
-            ports={
-                "22/tcp": None,  # SSH - random port
-                "80/tcp": None,  # HTTP - random port
-                "8000/tcp": None,  # Hop3 server - random port
-            },
-            remove=False,  # Don't auto-remove to allow inspection
+            ports=self.docker_config.ports,
+            remove=False,
         )
+        self._container_helper = DockerContainerHelper(self._container)
+        self._we_created_container = True
 
-        # Wait for services to initialize
+        # Wait for services
         print("Waiting for services to initialize...")
         time.sleep(5)
 
         # Check if container is still running
-        self.container.reload()
-        if self.container.status != "running":
-            print(f"\n❌ Container exited with status: {self.container.status}")
-            print("Container logs:")
-            print(self.container.logs().decode())
-            msg = f"Container failed to start (status: {self.container.status})"
+        self._container.reload()
+        if self._container.status != "running":
+            self._dump_container_logs()
+            msg = f"Container failed to start (status: {self._container.status})"
             raise RuntimeError(msg)
 
-        # Wait for hop3-server to be ready
-        if not self._wait_for_ready():
-            self._dump_logs()
+        # Wait for server to be ready
+        self.diagnostics.set_phase("health_check")
+        if not self._health_checker.wait_for_container(self._container):
+            self._dump_container_logs()
             msg = "hop3-server failed to start"
             raise RuntimeError(msg)
 
-        # Get connection info
-        self._info = self._get_connection_info()
+        self._info = self._build_target_info()
+        self._started = True
 
-        print("\nContainer ready:")
-        print(
-            f"  SSH: ssh -i {self._info.ssh_key} -p {self._info.ssh_port} hop3@localhost"
-        )
-        print(f"  HTTP: {self._info.http_base}")
-        print(f"  API: {self._info.api_url}")
-        print("=" * 60 + "\n")
-
+        self._print_ready_message()
         return self._info
 
-    def _wait_for_ready(self, max_wait: int = 60) -> bool:
-        """Wait for hop3-server to be ready.
-
-        Args:
-            max_wait: Maximum time to wait in seconds
-
-        Returns:
-            True if server is ready, False otherwise
-        """
-        print("Waiting for hop3-server to be ready...")
-        start_time = time.time()
-
-        while time.time() - start_time < max_wait:
-            # Check container is still running
-            self.container.reload()
-            if self.container.status != "running":
-                print(f"\n❌ Container exited during startup: {self.container.status}")
-                return False
-
-            # Check if hop3-server is responding
-            try:
-                result = self.container.exec_run(HEALTH_CHECK_COMMAND)
-                # Accept any healthy status code (server is responding)
-                if any(code.encode() in result.output for code in HEALTHY_STATUS_CODES):
-                    print("✓ hop3-server is responding")
-                    return True
-            except Exception as e:
-                print(f"Warning: Failed to check server health: {e}")
-
-            time.sleep(2)
-
-        print("\n⚠ hop3-server did not start in time")
-        return False
-
-    def _dump_logs(self) -> None:
-        """Dump container logs for debugging."""
-        print("\nSupervisor stdout logs:")
-        try:
-            result = self.container.exec_run("cat /var/log/supervisor/hop3-server.log")
-            print(result.output.decode())
-        except Exception as e:
-            print(f"Could not get hop3-server stdout logs: {e}")
-
-        print("\nSupervisor stderr logs:")
-        try:
-            result = self.container.exec_run(
-                "cat /var/log/supervisor/hop3-server_err.log"
-            )
-            print(result.output.decode())
-        except Exception as e:
-            print(f"Could not get hop3-server stderr logs: {e}")
-
-        print("\nContainer logs:")
-        print(self.container.logs().decode())
-
-    def _get_connection_info(self) -> TargetInfo:
-        """Get connection information for the container.
+    def _deploy_and_start(self) -> TargetInfo:
+        """Deploy Hop3 via hop3-deploy and start container.
 
         Returns:
             TargetInfo with connection details
         """
-        # Get port mappings
-        self.container.reload()
-        ports = self.container.attrs["NetworkSettings"]["Ports"]
+        # Lazy imports to avoid circular dependencies and heavy imports at load time
+        from hop3_installer.deployer.backends.docker import (  # noqa: PLC0415
+            DockerDeployBackend,
+        )
+        from hop3_installer.deployer.config import DeployConfig  # noqa: PLC0415
+        from hop3_installer.deployer.deploy import Deployer  # noqa: PLC0415
 
-        ssh_port = int(ports["22/tcp"][0]["HostPort"])
-        http_port = int(ports["80/tcp"][0]["HostPort"])
-        api_port = int(ports["8000/tcp"][0]["HostPort"])
+        start_time = time.time()
 
-        # Get SSH key
-        ssh_key_result = self.container.exec_run("cat /home/hop3/.ssh/id_rsa")
-        ssh_key = ssh_key_result.output.decode()
+        print("\n" + "=" * 70)
+        print("Starting Hop3 Docker container via hop3-deploy")
+        print("=" * 70)
 
-        # Save SSH key to temp file
-        self.ssh_key_path = Path("/tmp") / f"hop3-e2e-key-{self.container.short_id}"
-        self.ssh_key_path.write_text(ssh_key)
-        self.ssh_key_path.chmod(0o600)
+        try:
+            project_root = find_project_root()
+
+            # Create deployer config
+            deploy_config = DeployConfig(
+                use_docker=True,
+                docker_container=self.docker_config.container_name,
+                docker_image=self.docker_config.image,
+                use_local_code=self.deployment.source == "local",
+                clean_before=self.deployment.clean,
+                branch=self.deployment.branch,
+                project_root=project_root,
+                verbose=self.deployment.verbose,
+                quiet=False,
+            )
+
+            # Print equivalent CLI command
+            cli_cmd = self._build_cli_command()
+            print(f"\nEquivalent command: {cli_cmd}\n")
+
+            # Create backend and deployer
+            self._deployer_backend = DockerDeployBackend(deploy_config)
+            deployer = Deployer(deploy_config, self._deployer_backend)
+
+            # Run deployment
+            self.diagnostics.set_phase("deploy")
+            print("\nRunning hop3-deploy...")
+            deploy_start = time.time()
+            success = deployer.deploy()
+            deploy_duration = time.time() - deploy_start
+
+            if not success:
+                self.diagnostics.add_failure(
+                    layer="deployer",
+                    operation="deploy",
+                    message="hop3-deploy failed",
+                    duration=deploy_duration,
+                )
+                self._save_diagnostics_on_error()
+                msg = "hop3-deploy failed"
+                raise RuntimeError(msg)
+
+            self.diagnostics.add_success(
+                layer="deployer",
+                operation="deploy",
+                message=f"hop3-deploy completed in {deploy_duration:.1f}s",
+                duration=deploy_duration,
+            )
+
+            # Start services manually (Docker doesn't have systemd)
+            self.diagnostics.set_phase("service_start")
+            if not self._start_services_manually():
+                self._save_diagnostics_on_error()
+                msg = "Failed to start services"
+                raise RuntimeError(msg)
+
+            # Wait for server to be ready
+            self.diagnostics.set_phase("health_check")
+            self._health_checker.timeout = DEFAULT_HEALTH_CHECK_TIMEOUT
+            if not self._health_checker.wait_for_ready(
+                self._deployer_backend,
+                on_timeout=self._collect_deploy_diagnostics,
+            ):
+                self._save_diagnostics_on_error()
+                msg = "Server did not become ready"
+                raise RuntimeError(msg)
+
+            self._we_created_container = True
+            self._info = self._build_target_info_from_backend()
+            self._started = True
+
+            total_duration = time.time() - start_time
+            self.diagnostics.add_success(
+                layer="testing",
+                operation="start_complete",
+                message=f"Target ready in {total_duration:.1f}s",
+                duration=total_duration,
+            )
+
+            self._print_ready_message()
+            return self._info
+
+        except Exception as e:
+            self.diagnostics.add_failure(
+                layer="testing",
+                operation="start",
+                message=f"Start failed: {e}",
+            )
+            self._save_diagnostics_on_error()
+            raise
+
+    def _start_services_manually(self) -> bool:
+        """Start services manually since Docker doesn't have systemd.
+
+        Returns:
+            True if all services started successfully
+        """
+        print("Starting services manually (Docker has no systemd)...")
+
+        try:
+            # Setup SSH server
+            print("  Setting up SSH server...")
+            result = self._deployer_backend.run(
+                """
+                if ! command -v sshd &> /dev/null; then
+                    apt-get update -qq && apt-get install -y -qq openssh-server
+                fi && \
+                mkdir -p /home/hop3/.ssh && \
+                if [ ! -f /home/hop3/.ssh/id_rsa ]; then
+                    ssh-keygen -t rsa -b 2048 -f /home/hop3/.ssh/id_rsa -N ""
+                fi && \
+                cat /home/hop3/.ssh/id_rsa.pub >> /home/hop3/.ssh/authorized_keys && \
+                sort -u /home/hop3/.ssh/authorized_keys -o /home/hop3/.ssh/authorized_keys && \
+                chmod 700 /home/hop3/.ssh && \
+                chmod 600 /home/hop3/.ssh/authorized_keys /home/hop3/.ssh/id_rsa && \
+                chmod 644 /home/hop3/.ssh/id_rsa.pub && \
+                chown -R hop3:hop3 /home/hop3/.ssh && \
+                mkdir -p /var/run/sshd
+                """,
+                check=False,
+            )
+
+            # Start SSH daemon
+            print("  Starting SSH daemon...")
+            self._deployer_backend.run(
+                "/usr/sbin/sshd || echo 'sshd may already be running'",
+                check=False,
+            )
+            time.sleep(1)
+
+            # Start nginx
+            print("  Starting nginx...")
+            self._deployer_backend.run(
+                "nginx || nginx -g 'daemon off;' &",
+                check=False,
+            )
+
+            # Start PostgreSQL
+            print("  Starting PostgreSQL...")
+            self._deployer_backend.run(
+                "su - postgres -c 'pg_ctlcluster 16 main start' 2>/dev/null || "
+                "service postgresql start 2>/dev/null || true",
+                check=False,
+            )
+
+            # Start uwsgi emperor
+            print("  Starting uwsgi emperor...")
+            self._deployer_backend.run(
+                "mkdir -p /var/log/uwsgi && chown -R hop3:hop3 /var/log/uwsgi && "
+                "mkdir -p /tmp && chmod 1777 /tmp",
+                check=False,
+            )
+            self._deployer_backend.run(
+                "su - hop3 -c '"
+                "nohup /home/hop3/venv/bin/uwsgi --emperor /home/hop3/uwsgi-enabled "
+                "--stats /tmp/hop3-uwsgi-stats.sock "
+                "> /var/log/uwsgi/emperor.log 2>&1 &'",
+                check=False,
+            )
+            time.sleep(2)
+
+            # Start hop3-server
+            print("  Starting hop3-server...")
+            self._deployer_backend.run(
+                "su - hop3 -c '"
+                'export HOP3_SECRET_KEY="e2e-test-secret-key-do-not-use-in-production" && '
+                'export HOP3_UNSAFE="true" && '
+                'export HOP3_DB_URL="sqlite:////home/hop3/hop3.db" && '
+                'export ACME_ENGINE="self-signed" && '
+                "nohup /home/hop3/venv/bin/hop3-server serve "
+                "> /home/hop3/hop3-server.log 2>&1 &'",
+                check=False,
+            )
+            time.sleep(3)
+
+            # Verify hop3-server is running
+            result = self._deployer_backend.run(
+                "pgrep -f 'hop3-server serve' || echo 'NOT_RUNNING'",
+                check=False,
+            )
+            if "NOT_RUNNING" in result.stdout:
+                log_result = self._deployer_backend.run(
+                    "tail -50 /home/hop3/hop3-server.log 2>/dev/null || echo 'No log'",
+                    check=False,
+                )
+                self.diagnostics.add_failure(
+                    layer="server",
+                    operation="verify_hop3_server",
+                    message="hop3-server process not running",
+                    stdout=log_result.stdout,
+                )
+                return False
+
+            print("  Services started")
+            return True
+
+        except Exception as e:
+            self.diagnostics.add_failure(
+                layer="server",
+                operation="start_services",
+                message=f"Exception starting services: {e}",
+            )
+            return False
+
+    def _build_cli_command(self) -> str:
+        """Build equivalent hop3-deploy CLI command."""
+        cmd_parts = ["hop3-deploy", "--docker"]
+        if self.deployment.source == "local":
+            cmd_parts.append("--local")
+        if self.deployment.clean:
+            cmd_parts.append("--clean")
+        if self.deployment.branch and self.deployment.branch != "devel":
+            cmd_parts.extend(["--branch", self.deployment.branch])
+        if self.docker_config.container_name != "hop3-test":
+            cmd_parts.extend(["--container", self.docker_config.container_name])
+        return " ".join(cmd_parts)
+
+    def _build_target_info(self) -> TargetInfo:
+        """Build TargetInfo from container."""
+        ssh_port = self._container_helper.get_mapped_port(22)
+        http_port = self._container_helper.get_mapped_port(80)
+        api_port = self._container_helper.get_mapped_port(8000)
+
+        # Get container's internal IP for SSH (used when no host port mapping)
+        container_ip = self._get_container_ip()
+
+        # Determine SSH host: prefer host-mapped port, fall back to container IP
+        if ssh_port:
+            ssh_host = "hop3@localhost"
+            effective_ssh_port = ssh_port
+        elif container_ip:
+            # No SSH port mapped to host, use container's internal IP
+            ssh_host = f"hop3@{container_ip}"
+            effective_ssh_port = 22
+        else:
+            ssh_host = ""
+            effective_ssh_port = 0
+
+        # Try to extract SSH key (may fail if container doesn't have hop3 user)
+        ssh_key_path: Path | None = None
+        if effective_ssh_port:
+            try:
+                ssh_key_path = self._container_helper.extract_ssh_key()
+            except Exception:
+                pass  # SSH not available in this container
+
+        # Build URLs based on available ports
+        http_base = f"http://localhost:{http_port}" if http_port else ""
+        api_url = f"http://localhost:{api_port}" if api_port else ""
 
         return TargetInfo(
-            ssh_host="hop3@localhost",
-            ssh_port=ssh_port,
-            ssh_key=str(self.ssh_key_path),
-            http_base=f"http://localhost:{http_port}",
-            api_url=f"http://localhost:{api_port}",
+            ssh_host=ssh_host,
+            ssh_port=effective_ssh_port,
+            ssh_key=str(ssh_key_path) if ssh_key_path else None,
+            http_base=http_base,
+            api_url=api_url,
             metadata={
-                "container_id": self.container.id,
-                "container_name": self.container.name,
+                "container_id": self._container_helper.container_id,
+                "container_name": self._container_helper.name,
             },
         )
 
-    def _reuse_container(self, info_data: dict) -> None:
-        """Reuse an existing container started by another worker.
+    def _get_container_ip(self) -> str | None:
+        """Get the container's internal IP address."""
+        try:
+            self._container.reload()
+            networks = self._container.attrs["NetworkSettings"]["Networks"]
+            # Get IP from first network (usually "bridge")
+            for network_info in networks.values():
+                ip = network_info.get("IPAddress")
+                if ip:
+                    return ip
+        except Exception:
+            pass
+        return None
 
-        Args:
-            info_data: Dictionary with container_id and connection info
-        """
-        container_id = info_data["container_id"]
-        self.container = self.client.containers.get(container_id)
+    def _build_target_info_from_backend(self) -> TargetInfo:
+        """Build TargetInfo from deployer backend."""
+        server_url = self._deployer_backend.get_server_url()
+        container_ip = self._deployer_backend.get_container_ip()
 
-        # Restore SSH key
-        self.ssh_key_path = Path(info_data["ssh_key"])
+        # Extract SSH key from container
+        ssh_key_path = self._extract_ssh_key_from_backend()
 
-        # Restore target info
-        self._info = TargetInfo(
-            ssh_host="hop3@localhost",
-            ssh_port=info_data["ssh_port"],
-            ssh_key=info_data["ssh_key"],
-            http_base=info_data["http_base"],
-            api_url=info_data["api_url"],
+        return TargetInfo(
+            ssh_host=f"hop3@{container_ip}" if container_ip else "hop3@localhost",
+            ssh_port=22,
+            ssh_key=str(ssh_key_path) if ssh_key_path else None,
+            http_base="http://localhost:8080",
+            api_url=server_url,
             metadata={
-                "container_id": container_id,
-                "reused": True,
+                "container_name": self.docker_config.container_name,
+                "diagnostics": self.diagnostics,
             },
         )
+
+    def _extract_ssh_key_from_backend(self) -> Path | None:
+        """Extract SSH key from container via deployer backend."""
+        try:
+            result = self._deployer_backend.run(
+                "cat /home/hop3/.ssh/id_rsa 2>/dev/null || true",
+                check=False,
+            )
+            if result.success and result.stdout.strip():
+                key_path = (
+                    Path("/tmp") / f"hop3-key-{self.docker_config.container_name}"
+                )
+                key_path.write_text(result.stdout)
+                key_path.chmod(0o600)
+                return key_path
+        except Exception as e:
+            self.diagnostics.add_failure(
+                layer="testing",
+                operation="extract_ssh_key",
+                message=f"Failed to extract SSH key: {e}",
+            )
+        return None
+
+    def _remove_existing_container(self) -> None:
+        """Remove any existing container with the same name."""
+        try:
+            existing = self._client.containers.get(self.docker_config.container_name)
+            print(f"Removing existing container: {self.docker_config.container_name}")
+            existing.remove(force=True)
+        except docker.errors.NotFound:
+            pass
+
+    def _dump_container_logs(self) -> None:
+        """Dump container logs for debugging."""
+        if not self._container:
+            return
+
+        print("\nContainer logs:")
+        print(self._container.logs().decode())
+
+    def _collect_deploy_diagnostics(self) -> None:
+        """Collect diagnostics when health check times out."""
+        print("  Collecting diagnostics...")
+        try:
+            result = self._deployer_backend.run(
+                "ss -tlnp | grep 8000 || echo 'No listener on 8000'",
+                check=False,
+            )
+            print(f"  Port 8000: {result.stdout.strip()}")
+
+            result = self._deployer_backend.run(
+                "tail -30 /home/hop3/hop3-server.log 2>/dev/null || echo 'No log'",
+                check=False,
+            )
+            print(f"  hop3-server log:\n{result.stdout}")
+
+            result = self._deployer_backend.run(
+                "ps aux | grep -E 'hop3|nginx|uwsgi' | grep -v grep || echo 'No processes'",
+                check=False,
+            )
+            print(f"  Running processes:\n{result.stdout}")
+
+        except Exception as e:
+            print(f"  Error collecting diagnostics: {e}")
+
+    def _save_diagnostics_on_error(self) -> None:
+        """Save diagnostics on error."""
+        self._diagnostics_helper.save_on_error()
+
+    def _print_ready_message(self) -> None:
+        """Print ready message with connection info."""
+        print("\nTarget ready:")
+        print(f"  HTTP: {self._info.http_base}")
+        print(f"  API: {self._info.api_url}")
+        if self._info.ssh_key:
+            print(
+                f"  SSH: ssh -i {self._info.ssh_key} -p {self._info.ssh_port} hop3@localhost"
+            )
+        print("=" * 70 + "\n")
 
     def stop(self) -> None:
-        """Stop and remove the container."""
-        if not self.container:
+        """Stop and cleanup the Docker target."""
+        if not self._started:
+            return
+
+        self.diagnostics.set_phase("cleanup")
+
+        # Don't stop containers we didn't create
+        if not self._we_created_container:
+            print("\nDisconnecting (not stopping container we didn't create)...")
+            self._started = False
             return
 
         print("\nStopping container...")
+
         try:
-            self.container.reload()
-            if self.container.status == "running":
-                self.container.stop(timeout=10)
-            self.container.remove(force=True)
+            if self._deployer_backend:
+                # Stop via deployer backend (for deploy mode)
+                self._deployer_backend.teardown()
+            elif self._container_helper:
+                # Stop directly (for prebuilt/build modes)
+                self._container_helper.stop_and_remove()
+
+            self.diagnostics.add_success(
+                layer="docker",
+                operation="teardown",
+                message="Container stopped and removed",
+            )
         except Exception as e:
+            self.diagnostics.add_failure(
+                layer="docker",
+                operation="teardown",
+                message=f"Error stopping container: {e}",
+            )
             print(f"Warning: Error stopping container: {e}")
 
-        # Remove SSH key
-        if self.ssh_key_path and self.ssh_key_path.exists():
-            self.ssh_key_path.unlink()
-
-        print("Container stopped and removed.")
+        self._started = False
+        print("Container stopped.")
 
     def is_ready(self) -> bool:
-        """Check if the container is ready.
-
-        Returns:
-            True if container is running and hop3-server is responding
-        """
-        if not self.container:
+        """Check if the target is ready."""
+        if not self._started:
             return False
 
-        try:
-            self.container.reload()
-            if self.container.status != "running":
-                return False
-
-            # Quick health check
-            result = self.container.exec_run(HEALTH_CHECK_COMMAND)
-            return any(code.encode() in result.output for code in HEALTHY_STATUS_CODES)
-        except Exception:
-            return False
+        if self._deployer_backend:
+            return self._health_checker.is_ready(self._deployer_backend)
+        if self._container:
+            return self._health_checker.is_container_ready(self._container)
+        return False
 
     def exec_run(self, cmd: str | list[str]) -> tuple[int, str, str]:
-        """Execute a command in the container.
+        """Execute a command on the target.
 
         Args:
             cmd: Command to execute
@@ -346,21 +819,20 @@ class DockerTarget(DeploymentTarget):
         Returns:
             Tuple of (exit_code, stdout, stderr)
         """
-        if not self.container:
-            msg = "Container not started"
-            raise RuntimeError(msg)
-
         if isinstance(cmd, list):
             cmd = " ".join(cmd)
 
-        result = self.container.exec_run(cmd, demux=True)
-        exit_code = result.exit_code
-        stdout_bytes, stderr_bytes = result.output
+        if self._deployer_backend:
+            result = self._deployer_backend.run(cmd, check=False)
+            return result.returncode, result.stdout, result.stderr
+        if self._container_helper:
+            result = self._container_helper.exec_run(cmd, demux=True)
+            stdout = result.output[0].decode() if result.output[0] else ""
+            stderr = result.output[1].decode() if result.output[1] else ""
+            return result.exit_code, stdout, stderr
 
-        stdout = stdout_bytes.decode() if stdout_bytes else ""
-        stderr = stderr_bytes.decode() if stderr_bytes else ""
-
-        return exit_code, stdout, stderr
+        msg = "Target not started"
+        raise RuntimeError(msg)
 
     def get_logs(self) -> Iterator[str]:
         """Get container logs.
@@ -368,8 +840,17 @@ class DockerTarget(DeploymentTarget):
         Yields:
             Log lines
         """
-        if not self.container:
-            return
+        if self._container_helper:
+            for line in self._container_helper.get_logs(stream=True):
+                yield line.decode()
 
-        for line in self.container.logs(stream=True):
-            yield line.decode()
+    def save_diagnostics(self, generate_html: bool = False) -> Path:
+        """Save diagnostic information to files.
+
+        Args:
+            generate_html: If True, also generate HTML report
+
+        Returns:
+            Path to the log directory
+        """
+        return self._diagnostics_helper.save(generate_html)

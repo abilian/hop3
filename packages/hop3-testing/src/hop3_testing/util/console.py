@@ -35,53 +35,42 @@ from os import environ
 from attrs import field, frozen
 from termcolor import colored
 
-# TODO ?
-# "light_grey": 37,
-# "dark_grey": 90,
-# "light_red": 91,
-# "light_green": 92,
-# "light_yellow": 93,
-# "light_blue": 94,
-# "light_magenta": 95,
-# "light_cyan": 96,
-# "white": 97,
-
 
 # Color helpers
-def black(text):
+def black(text: str) -> str:
     return colored(text, "black")
 
 
-def red(text):
+def red(text: str) -> str:
     return colored(text, "red")
 
 
-def green(text):
+def green(text: str) -> str:
     return colored(text, "green")
 
 
-def yellow(text):
+def yellow(text: str) -> str:
     return colored(text, "yellow")
 
 
-def blue(text):
+def blue(text: str) -> str:
     return colored(text, "blue")
 
 
-def magenta(text):
+def magenta(text: str) -> str:
     return colored(text, "magenta")
 
 
-def cyan(text):
+def cyan(text: str) -> str:
     return colored(text, "cyan")
 
 
 # Variants
-def bold(text):
+def bold(text: str) -> str:
     return colored(text, attrs=["bold"])
 
 
-def dim(text):
+def dim(text: str) -> str:
     return colored(text, attrs=["dark"])
 
 

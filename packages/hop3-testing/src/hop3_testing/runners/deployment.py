@@ -122,38 +122,46 @@ class DeploymentTestRunner:
 
         deploy_duration = time.time() - start_time
         deploy_logs = f"Deployed {session.app_name} in {deploy_duration:.1f}s"
-        validation_results.append(ValidationResult(
-            passed=True,
-            message=f"Deployed {session.app_name} ({deploy_duration:.1f}s)",
-            duration=deploy_duration,
-            validation_type="deploy",
-            details={"app_name": session.app_name},
-        ))
+        validation_results.append(
+            ValidationResult(
+                passed=True,
+                message=f"Deployed {session.app_name} ({deploy_duration:.1f}s)",
+                duration=deploy_duration,
+                validation_type="deploy",
+                details={"app_name": session.app_name},
+            )
+        )
 
         if not session.check_deployed():
             return deploy_logs, "App not found in deployment list after deploy"
 
-        validation_results.append(ValidationResult(
-            passed=True,
-            message=f"Found {session.app_name} in app list",
-            duration=0.0,
-            validation_type="deploy_check",
-        ))
+        validation_results.append(
+            ValidationResult(
+                passed=True,
+                message=f"Found {session.app_name} in app list",
+                duration=0.0,
+                validation_type="deploy_check",
+            )
+        )
 
         return deploy_logs, None
 
-    def _validate_app_path(self, test: TestDefinition, start_time: float) -> TestResult | None:
+    def _validate_app_path(
+        self, test: TestDefinition, start_time: float
+    ) -> TestResult | None:
         """Validate app path exists. Returns TestResult on error, None if OK."""
         app_path = test.app_path
         if app_path is None:
             return TestResult(
-                test=test, passed=False,
+                test=test,
+                passed=False,
                 total_duration=time.time() - start_time,
                 error="Test has no app path",
             )
         if not app_path.exists():
             return TestResult(
-                test=test, passed=False,
+                test=test,
+                passed=False,
                 total_duration=time.time() - start_time,
                 error=f"App path does not exist: {app_path}",
             )
@@ -192,7 +200,9 @@ class DeploymentTestRunner:
             )
             if error:
                 return TestResult(
-                    test=test, passed=False, deploy_logs=deploy_logs,
+                    test=test,
+                    passed=False,
+                    deploy_logs=deploy_logs,
                     validation_results=validation_results,
                     total_duration=time.time() - start_time,
                     error=error,
@@ -201,7 +211,8 @@ class DeploymentTestRunner:
             if app_source.has_procfile:
                 if http_error := self._run_http_test(session, validation_results):
                     return TestResult(
-                        test=test, passed=False,
+                        test=test,
+                        passed=False,
                         validation_results=validation_results,
                         total_duration=time.time() - start_time,
                         error=http_error,
@@ -210,7 +221,8 @@ class DeploymentTestRunner:
             if app_source.has_check_script:
                 if check_error := self._run_check_script(session, validation_results):
                     return TestResult(
-                        test=test, passed=False,
+                        test=test,
+                        passed=False,
                         validation_results=validation_results,
                         total_duration=time.time() - start_time,
                         error=check_error,

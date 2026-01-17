@@ -343,6 +343,113 @@ class DiagnosticsHelper:
             )
 
 
+class DockerContainerHelper:
+    """Helper for common Docker container operations.
+
+    Consolidates port extraction, SSH key extraction, and container
+    lifecycle management that was previously duplicated across
+    DockerTarget, DockerDeployTarget, and ReadyTarget.
+    """
+
+    def __init__(self, container: Any):
+        """Initialize helper.
+
+        Args:
+            container: Docker container object
+        """
+        self.container = container
+        self._ssh_key_path: Path | None = None
+
+    def get_mapped_port(self, container_port: int) -> int | None:
+        """Extract host port mapping for a container port.
+
+        Args:
+            container_port: Port inside the container (e.g., 22, 80, 8000)
+
+        Returns:
+            Host port that maps to the container port, or None if not mapped
+        """
+        self.container.reload()
+        ports = self.container.attrs["NetworkSettings"]["Ports"]
+        port_key = f"{container_port}/tcp"
+        if port_key not in ports or not ports[port_key]:
+            return None
+        return int(ports[port_key][0]["HostPort"])
+
+    def extract_ssh_key(self) -> Path:
+        """Extract SSH key from container to temp file.
+
+        Returns:
+            Path to temp file containing SSH private key
+        """
+        result = self.container.exec_run("cat /home/hop3/.ssh/id_rsa")
+        ssh_key = result.output.decode()
+
+        key_path = Path("/tmp") / f"hop3-key-{self.container.short_id}"
+        key_path.write_text(ssh_key)
+        key_path.chmod(0o600)
+        self._ssh_key_path = key_path
+        return key_path
+
+    def stop_and_remove(self) -> None:
+        """Safely stop and remove the container."""
+        try:
+            self.container.reload()
+            if self.container.status == "running":
+                self.container.stop(timeout=10)
+            self.container.remove(force=True)
+        except Exception:
+            pass  # Container may already be stopped/removed
+
+        # Clean up SSH key file
+        if self._ssh_key_path and self._ssh_key_path.exists():
+            self._ssh_key_path.unlink()
+
+    def exec_run(self, cmd: str, demux: bool = False) -> Any:
+        """Execute a command in the container.
+
+        Args:
+            cmd: Command to execute
+            demux: If True, separate stdout and stderr
+
+        Returns:
+            Execution result from Docker SDK
+        """
+        return self.container.exec_run(cmd, demux=demux)
+
+    def get_logs(self, stream: bool = False) -> Any:
+        """Get container logs.
+
+        Args:
+            stream: If True, return streaming iterator
+
+        Returns:
+            Logs as bytes or iterator
+        """
+        return self.container.logs(stream=stream)
+
+    @property
+    def status(self) -> str:
+        """Get container status (running, exited, etc.)."""
+        self.container.reload()
+        return self.container.status
+
+    @property
+    def container_id(self) -> str:
+        """Get container ID."""
+        return self.container.id
+
+    @property
+    def short_id(self) -> str:
+        """Get short container ID."""
+        return self.container.short_id
+
+    @property
+    def name(self) -> str:
+        """Get container name."""
+        return self.container.name
+
+
 def find_project_root() -> Path:
     """Find the project root directory.
 
