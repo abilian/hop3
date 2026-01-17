@@ -34,9 +34,8 @@ class TestCatalog:
     - demos/: Demo scripts and applications
     - docs/src/tutorials/: Tutorial markdown files
 
-    Tests can be defined via:
-    - test.toml file in the directory (preferred)
-    - Naming conventions for legacy apps (fallback)
+    Tests should be defined via test.toml files with explicit categories.
+    Legacy apps without test.toml can still be loaded with default settings.
     """
 
     # Default scan paths relative to project root
@@ -45,17 +44,6 @@ class TestCatalog:
         "demos",
         "docs/src/tutorials",
     ]
-
-    # Category detection patterns for directories without test.toml
-    LEGACY_CATEGORY_PATTERNS: ClassVar[dict[str, tuple[str, str | None]]] = {
-        "000-": ("deployment", "static"),
-        "01": ("deployment", "python-simple"),
-        "02": ("deployment", "nodejs"),
-        "03": ("deployment", "golang"),
-        "04": ("deployment", "ruby"),
-        "1": ("deployment", "python-advanced"),
-        "demo": ("demo", None),
-    }
 
     def __init__(self, root: Path | None = None):
         """Initialize the catalog.
@@ -154,19 +142,13 @@ class TestCatalog:
             self._errors.append((path, str(e)))
 
     def _load_legacy_app(self, path: Path, rel_path: str) -> None:
-        """Load a legacy app without test.toml."""
-        try:
-            # Determine category from naming convention
-            category_hint = None
-            for prefix, (_, cat) in self.LEGACY_CATEGORY_PATTERNS.items():
-                if path.name.startswith(prefix):
-                    category_hint = cat
-                    break
+        """Load a legacy app without test.toml.
 
-            test_def = generate_test_definition_from_app(
-                path,
-                category_hint=category_hint,
-            )
+        Legacy apps are loaded with default category settings.
+        For proper categorization, add a test.toml file.
+        """
+        try:
+            test_def = generate_test_definition_from_app(path)
             self._add_test(test_def)
         except Exception as e:
             logger.warning("Failed to load legacy app %s: %s", path, e)

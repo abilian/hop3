@@ -251,43 +251,38 @@ def _build_validations_from_app(app_path: Path) -> list[Validation]:
 def generate_test_definition_from_app(
     app_path: Path,
     name: str | None = None,
-    category_hint: str | None = None,
 ) -> TestDefinition:
     """Generate a TestDefinition from an app directory without test.toml.
 
     This provides backwards compatibility with existing test apps that don't
     have a test.toml file. The definition is inferred from the app structure.
 
+    For proper test categorization, apps should have a test.toml file with
+    explicit category, tier, and priority settings.
+
     Args:
         app_path: Path to the application directory
         name: Override app name (default: directory name)
-        category_hint: Category hint from naming convention
 
     Returns:
-        Generated TestDefinition
+        Generated TestDefinition with default settings
     """
     app_name = name or app_path.name
-
-    # Infer tier and priority based on naming convention
-    tier = Tier.MEDIUM if app_name.startswith("1") else Tier.FAST
-    priority = Priority.P0 if app_name.startswith(("01", "000")) else Priority.P1
 
     description = _read_description_from_readme(app_path)
     app_type = _infer_app_type(app_path)
     validations = _build_validations_from_app(app_path)
 
-    # Build covers tags
+    # Build covers tags from inferred app type
     covers = []
     if app_type:
         covers.append(app_type)
-    if category_hint:
-        covers.append(category_hint)
 
     return TestDefinition(
         name=app_name,
         category=Category.DEPLOYMENT,
-        tier=tier,
-        priority=priority,
+        tier=Tier.FAST,
+        priority=Priority.P1,
         requirements=TestRequirements(
             targets=[TargetType.DOCKER, TargetType.REMOTE],
         ),
