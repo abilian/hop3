@@ -7,9 +7,17 @@
 from __future__ import annotations
 
 from .catalog import AppSource
+from .debug import DeploymentDebugger
 from .deployment import DeploymentSession
+from .preparation import AppPreparation
+from .verification import AppVerifier, CheckScriptRunner, HttpVerifier
 
 __all__ = [
+    "AppPreparation",
     "AppSource",
+    "AppVerifier",
+    "CheckScriptRunner",
+    "DeploymentDebugger",
     "DeploymentSession",
+    "HttpVerifier",
 ]
