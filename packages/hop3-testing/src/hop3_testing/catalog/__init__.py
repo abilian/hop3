@@ -6,7 +6,7 @@
 
 This module provides:
 - TestDefinition: Complete test definition parsed from test.toml
-- TestCatalog: Discovers and indexes all tests in the project
+- Catalog: Discovers and indexes all tests in the project
 - Loader: Parses test.toml files
 """
 
@@ -27,15 +27,15 @@ from .models import (
     Validation,
     ValidationExpect,
 )
-from .scanner import TestCatalog
+from .scanner import Catalog
 
 __all__ = [
+    "Catalog",
     "Category",
     "DemoConfig",
     "DeploymentConfig",
     "Priority",
     "TargetType",
-    "TestCatalog",
     "TestDefinition",
     "TestMetadata",
     "TestRequirements",

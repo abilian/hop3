@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class TestCatalog:
+class Catalog:
     """Discovers and indexes all tests in the project.
 
     The catalog scans multiple locations for tests:

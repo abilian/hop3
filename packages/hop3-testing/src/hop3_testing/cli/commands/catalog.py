@@ -11,7 +11,7 @@ import sys
 
 import click
 
-from hop3_testing.catalog import TestCatalog
+from hop3_testing.catalog import Catalog
 
 
 @click.command("list")
@@ -34,7 +34,7 @@ def list_tests(
     output_format: str,
 ) -> None:
     """List available tests."""
-    catalog = TestCatalog(ctx.obj["root"])
+    catalog = Catalog(ctx.obj["root"])
     catalog.scan()
 
     tests = catalog.filter(
@@ -72,7 +72,7 @@ def list_tests(
 @click.pass_context
 def show_test(ctx: click.Context, test_name: str) -> None:
     """Show details of a specific test."""
-    catalog = TestCatalog(ctx.obj["root"])
+    catalog = Catalog(ctx.obj["root"])
     catalog.scan()
 
     test = catalog.get_test(test_name)

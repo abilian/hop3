@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 import click
 
-from hop3_testing.catalog import TestCatalog
+from hop3_testing.catalog import Catalog
 from hop3_testing.catalog.loader import generate_test_definition_from_app
 from hop3_testing.cli.helpers import create_target_with_options
 from hop3_testing.cli.runners import run_single_test
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 def _select_tests(
-    catalog: TestCatalog,
+    catalog: Catalog,
     apps: tuple[str, ...],
     category: str | None,
 ) -> list[TestDefinition]:
@@ -101,7 +101,7 @@ def run_command(
     """
     verbose = ctx.obj["verbose"]
 
-    catalog = TestCatalog(ctx.obj["root"])
+    catalog = Catalog(ctx.obj["root"])
     catalog.scan()
 
     tests = _select_tests(catalog, apps, category)
