@@ -19,7 +19,7 @@ import asyncio
 from datetime import datetime, timezone
 from operator import itemgetter
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, ClassVar
+from typing import TYPE_CHECKING, Annotated
 
 import anyio
 from litestar import Controller, get, post
@@ -313,7 +313,7 @@ class DashboardController(Controller):
     """
 
     path = "/dashboard"
-    guards: ClassVar = [auth_guard]  # type: ignore[misc]
+    guards = [auth_guard]  # noqa: RUF012 - base class defines as instance var
 
     # ========================================================================
     # Main Dashboard

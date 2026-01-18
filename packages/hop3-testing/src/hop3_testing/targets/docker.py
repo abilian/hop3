@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import docker
-from docker.errors import BuildError, ImageNotFound
+from docker.errors import BuildError, ImageNotFound, NotFound
 
 from hop3_testing.diagnostics import DiagnosticCollector
 
@@ -174,6 +174,8 @@ class DockerTarget(DeploymentTarget):
         Raises:
             RuntimeError: If container not found or not running
         """
+        assert self._client is not None  # Set by start()
+
         print("\n" + "=" * 70)
         print(f"Connecting to existing container: {self.docker_config.container_name}")
         print("=" * 70)
@@ -182,7 +184,7 @@ class DockerTarget(DeploymentTarget):
             self._container = self._client.containers.get(
                 self.docker_config.container_name
             )
-        except docker.errors.NotFound:
+        except NotFound:
             msg = (
                 f"Container '{self.docker_config.container_name}' not found. "
                 "Start it first or set reuse_container=False"
@@ -226,6 +228,8 @@ class DockerTarget(DeploymentTarget):
         Returns:
             TargetInfo with connection details
         """
+        assert self._client is not None  # Set by start()
+
         print("\n" + "=" * 70)
         print(f"Starting pre-built container: {self.docker_config.image}")
         print("(No deployment - image should have Hop3 pre-installed)")
@@ -288,6 +292,8 @@ class DockerTarget(DeploymentTarget):
         Returns:
             TargetInfo with connection details
         """
+        assert self._client is not None  # Set by start()
+
         print("\n" + "=" * 70)
         print("Building Docker image from Dockerfile...")
         print("=" * 70)
@@ -374,6 +380,8 @@ class DockerTarget(DeploymentTarget):
         Returns:
             TargetInfo with connection details
         """
+        assert self.deployment is not None  # Checked by start()
+
         # Lazy imports to avoid circular dependencies and heavy imports at load time
         from hop3_installer.deployer.backends.docker import (  # noqa: PLC0415
             DockerDeployBackend,
@@ -464,6 +472,8 @@ class DockerTarget(DeploymentTarget):
 
     def _build_cli_command(self) -> str:
         """Build equivalent hop3-deploy CLI command."""
+        assert self.deployment is not None  # Called from _deploy_and_start
+
         cmd_parts = ["hop3-deploy", "--docker"]
         if self.deployment.source == "local":
             cmd_parts.append("--local")
@@ -477,6 +487,8 @@ class DockerTarget(DeploymentTarget):
 
     def _build_target_info(self) -> TargetInfo:
         """Build TargetInfo from container."""
+        assert self._container_helper is not None  # Set before calling this method
+
         ssh_port = self._container_helper.get_mapped_port(22)
         http_port = self._container_helper.get_mapped_port(80)
         api_port = self._container_helper.get_mapped_port(8000)
@@ -536,6 +548,8 @@ class DockerTarget(DeploymentTarget):
 
     def _build_target_info_from_backend(self) -> TargetInfo:
         """Build TargetInfo from deployer backend."""
+        assert self._deployer_backend is not None  # Set by _deploy_and_start
+
         server_url = self._deployer_backend.get_server_url()
         container_ip = self._deployer_backend.get_container_ip()
 
@@ -556,6 +570,8 @@ class DockerTarget(DeploymentTarget):
 
     def _extract_ssh_key_from_backend(self) -> Path | None:
         """Extract SSH key from container via deployer backend."""
+        assert self._deployer_backend is not None  # Set by _deploy_and_start
+
         try:
             result = self._deployer_backend.run(
                 "cat /home/hop3/.ssh/id_rsa 2>/dev/null || true",
@@ -578,11 +594,13 @@ class DockerTarget(DeploymentTarget):
 
     def _remove_existing_container(self) -> None:
         """Remove any existing container with the same name."""
+        assert self._client is not None  # Set by start()
+
         try:
             existing = self._client.containers.get(self.docker_config.container_name)
             print(f"Removing existing container: {self.docker_config.container_name}")
             existing.remove(force=True)
-        except docker.errors.NotFound:
+        except NotFound:
             pass
 
     def _dump_container_logs(self) -> None:
@@ -595,6 +613,8 @@ class DockerTarget(DeploymentTarget):
 
     def _collect_deploy_diagnostics(self) -> None:
         """Collect diagnostics when health check times out."""
+        assert self._deployer_backend is not None  # Set by _deploy_and_start
+
         print("  Collecting diagnostics...")
         try:
             result = self._deployer_backend.run(
@@ -624,6 +644,8 @@ class DockerTarget(DeploymentTarget):
 
     def _print_ready_message(self) -> None:
         """Print ready message with connection info."""
+        assert self._info is not None  # Set before calling this method
+
         print("\nTarget ready:")
         print(f"  HTTP: {self._info.http_base}")
         print(f"  API: {self._info.api_url}")

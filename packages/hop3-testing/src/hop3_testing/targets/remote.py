@@ -255,12 +255,13 @@ class RemoteTarget(DeploymentTarget):
             print(f"\nEquivalent command: {cli_cmd}\n")
 
             # Create backend and deployer
-            self._deployer_backend = SSHDeployBackend(deploy_config)
-            deployer = Deployer(deploy_config, self._deployer_backend)
+            backend = SSHDeployBackend(deploy_config)
+            self._deployer_backend = backend
+            deployer = Deployer(deploy_config, backend)
 
             # Create deployment runner for common deploy flow
             deploy_runner = DeploymentRunner(
-                backend=self._deployer_backend,
+                backend=backend,
                 diagnostics=self.diagnostics,
                 health_checker=self._health_checker,
             )
@@ -274,7 +275,7 @@ class RemoteTarget(DeploymentTarget):
 
             # Configure server for test mode
             self.diagnostics.set_phase("configure_test_mode")
-            if not configure_server_test_mode(self._deployer_backend, self.diagnostics):
+            if not configure_server_test_mode(backend, self.diagnostics):
                 self.diagnostics.add_failure(
                     layer="server",
                     operation="configure_test_mode",
@@ -287,7 +288,7 @@ class RemoteTarget(DeploymentTarget):
             # Wait for server to be ready
             if not deploy_runner.wait_for_ready(
                 on_timeout=lambda: self._diagnostics_helper.collect_server_diagnostics(
-                    self._deployer_backend
+                    backend
                 ),
             ):
                 self.diagnostics.add_failure(
