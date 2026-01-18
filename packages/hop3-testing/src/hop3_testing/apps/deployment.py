@@ -105,6 +105,11 @@ class DeploymentSession:
         """Get the temp directory path."""
         return self._preparation.temp_dir
 
+    @property
+    def last_deploy_error(self) -> str | None:
+        """Get the last deployment error message."""
+        return self._last_deploy_error
+
     def prepare(self):
         """Prepare the application for deployment.
 

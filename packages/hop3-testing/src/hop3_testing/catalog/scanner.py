@@ -95,7 +95,7 @@ class TestCatalog:
 
         self._build_indexes()
         logger.info(
-            f"Catalog loaded: {len(self._tests)} tests, {len(self._errors)} errors"
+            "Catalog loaded: %d tests, %d errors", len(self._tests), len(self._errors)
         )
 
     def _scan_directory(self, path: Path, rel_path: str) -> None:
@@ -128,9 +128,8 @@ class TestCatalog:
             return True
         if (path / "index.html").exists():
             return True
-        if (path / "app").is_dir():  # Common demo structure
-            return True
-        return False
+        # Common demo structure
+        return (path / "app").is_dir()
 
     def _load_test_from_toml(self, path: Path) -> None:
         """Load a test from a test.toml file."""
@@ -159,8 +158,10 @@ class TestCatalog:
         if test_def.name in self._tests:
             existing = self._tests[test_def.name]
             logger.warning(
-                f"Duplicate test name: {test_def.name} "
-                f"(existing: {existing.source_path}, new: {test_def.source_path})"
+                "Duplicate test name: %s (existing: %s, new: %s)",
+                test_def.name,
+                existing.source_path,
+                test_def.source_path,
             )
             # Keep the one with test.toml if there's a conflict
             if test_def.source_path and test_def.source_path.name == "test.toml":
