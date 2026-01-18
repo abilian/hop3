@@ -10,14 +10,14 @@ from pathlib import Path
 
 import pytest
 from hop3_testing.catalog import (
+    Catalog,
     Category,
     Priority,
-    TestCatalog,
     Tier,
     load_test_definition,
 )
 from hop3_testing.catalog.loader import generate_test_definition_from_app
-from hop3_testing.selector import TestSelector, get_mode_config
+from hop3_testing.selector import Selector, get_mode_config
 
 
 # Test data directory (relative to project root)
@@ -116,14 +116,14 @@ class TestLoader:
         assert validation.expect is not None
 
 
-class TestCatalogScanning:
-    """Tests for TestCatalog scanning."""
+class CatalogScanningTests:
+    """Tests for Catalog scanning."""
 
     def test_catalog_scan_finds_tests(self):
         """Test that catalog scanning finds test apps."""
         # Use the project root
         root = PROJECT_ROOT
-        catalog = TestCatalog(root)
+        catalog = Catalog(root)
         catalog.scan()
 
         # Should find at least some tests
@@ -133,7 +133,7 @@ class TestCatalogScanning:
     def test_catalog_filter_by_category(self):
         """Test filtering by category."""
         root = PROJECT_ROOT
-        catalog = TestCatalog(root)
+        catalog = Catalog(root)
         catalog.scan()
 
         deployment_tests = catalog.filter(categories=["deployment"])
@@ -143,7 +143,7 @@ class TestCatalogScanning:
     def test_catalog_filter_by_priority(self):
         """Test filtering by priority."""
         root = PROJECT_ROOT
-        catalog = TestCatalog(root)
+        catalog = Catalog(root)
         catalog.scan()
 
         p0_tests = catalog.filter(priorities=["P0"])
@@ -153,7 +153,7 @@ class TestCatalogScanning:
     def test_catalog_filter_by_tier(self):
         """Test filtering by tier."""
         root = PROJECT_ROOT
-        catalog = TestCatalog(root)
+        catalog = Catalog(root)
         catalog.scan()
 
         fast_tests = catalog.filter(tiers=["fast"])
@@ -163,7 +163,7 @@ class TestCatalogScanning:
     def test_catalog_get_test(self):
         """Test getting a specific test by name."""
         root = PROJECT_ROOT
-        catalog = TestCatalog(root)
+        catalog = Catalog(root)
         catalog.scan()
 
         test = catalog.get_test("010-flask-pip-wsgi")
@@ -172,17 +172,17 @@ class TestCatalogScanning:
         # If test not found, it's okay - catalog might be scanned differently
 
 
-class TestSelectorTests:
+class SelectorTests:
     """Tests for test selection."""
 
     def test_dev_mode_selection(self):
         """Test that dev mode selects appropriate tests."""
         root = PROJECT_ROOT
-        catalog = TestCatalog(root)
+        catalog = Catalog(root)
         catalog.scan()
 
         mode_config = get_mode_config("dev")
-        selector = TestSelector(catalog)
+        selector = Selector(catalog)
         tests = selector.select_for_target(mode_config, "docker")
 
         # Dev mode should only select fast P0 tests
@@ -193,11 +193,11 @@ class TestSelectorTests:
     def test_ci_mode_selection(self):
         """Test that CI mode selects appropriate tests."""
         root = PROJECT_ROOT
-        catalog = TestCatalog(root)
+        catalog = Catalog(root)
         catalog.scan()
 
         mode_config = get_mode_config("ci")
-        selector = TestSelector(catalog)
+        selector = Selector(catalog)
         tests = selector.select_for_target(mode_config, "docker")
 
         # CI mode should select fast and medium P0 tests
