@@ -20,6 +20,7 @@ from hop3_testing.runners import (
     TutorialTestRunner,
 )
 from hop3_testing.selector import TestSelector, get_mode_config
+from hop3_testing.util.console import PrintingConsole, Verbosity
 
 from .helpers import create_target
 from .reports import generate_reports
@@ -28,6 +29,17 @@ if TYPE_CHECKING:
     from hop3_testing.catalog.models import TestDefinition
     from hop3_testing.runners.base import TestResult
     from hop3_testing.targets.base import DeploymentTarget
+    from hop3_testing.util.console import Console
+
+
+def _create_console(verbose: bool, quiet: bool = False) -> Console:
+    """Create a console with appropriate verbosity level."""
+    console = PrintingConsole()
+    if quiet:
+        console.set_verbosity(Verbosity.QUIET)
+    elif verbose:
+        console.set_verbosity(Verbosity.VERBOSE)
+    return console
 
 
 def run_system_tests(
@@ -41,15 +53,16 @@ def run_system_tests(
 ) -> None:
     """Run system tests with full deployment."""
     verbose = ctx.obj["verbose"]
+    console = _create_console(verbose, quiet)
     store = ResultStore()
     reporter = ConsoleReporter(verbose=verbose, quiet=quiet)
 
     try:
-        click.echo("\nDeploying Hop3 via hop3-deploy...")
+        console.status("Deploying Hop3 via hop3-deploy...")
         target.start()
     except RuntimeError as e:
         # Clean exit for expected errors (deployment failures, port conflicts, etc.)
-        click.echo(f"\nDeployment failed: {e}", err=True)
+        console.error(f"Deployment failed: {e}")
         sys.exit(1)
 
     try:
@@ -61,16 +74,18 @@ def run_system_tests(
 
         results = []
         for test in tests:
-            click.echo(f"[{test.name}] ", nl=False)
+            console.status(f"[{test.name}] ", details=None)
 
-            result = run_single_test(test, target, cleanup=True, verbose=verbose)
+            result = run_single_test(
+                test, target, cleanup=True, verbose=verbose, console=console
+            )
             results.append(result)
             store.save(result)
 
             reporter.report_test(result)
 
             if fail_fast and not result.passed:
-                click.echo("\nFail fast enabled, stopping tests")
+                console.warning("Fail fast enabled, stopping tests")
                 break
 
         store.finish_run()
@@ -85,7 +100,7 @@ def run_system_tests(
 
     finally:
         if not keep:
-            click.echo("\nStopping target...")
+            console.status("Stopping target...")
             target.stop()
 
 
@@ -100,15 +115,16 @@ def run_app_tests(
 ) -> None:
     """Run app tests against pre-deployed server."""
     verbose = ctx.obj["verbose"]
+    console = _create_console(verbose, quiet)
     store = ResultStore()
     reporter = ConsoleReporter(verbose=verbose, quiet=quiet)
 
     try:
-        click.echo("\nStarting test environment...")
+        console.status("Starting test environment...")
         target.start()
     except RuntimeError as e:
         # Clean exit for expected errors (e.g., image not found)
-        click.echo(f"\nError: {e}", err=True)
+        console.error(f"Error: {e}")
         sys.exit(1)
 
     try:
@@ -120,16 +136,18 @@ def run_app_tests(
 
         results = []
         for test in tests:
-            click.echo(f"[{test.name}] ", nl=False)
+            console.status(f"[{test.name}] ", details=None)
 
-            result = run_single_test(test, target, cleanup=not keep, verbose=verbose)
+            result = run_single_test(
+                test, target, cleanup=not keep, verbose=verbose, console=console
+            )
             results.append(result)
             store.save(result)
 
             reporter.report_test(result)
 
             if fail_fast and not result.passed:
-                click.echo("\nFail fast enabled, stopping tests")
+                console.warning("Fail fast enabled, stopping tests")
                 break
 
         store.finish_run()
@@ -143,7 +161,7 @@ def run_app_tests(
         sys.exit(0 if failed == 0 else 1)
 
     finally:
-        click.echo("\nStopping target...")
+        console.status("Stopping target...")
         target.stop()
 
 
@@ -158,6 +176,7 @@ def run_tests(
 ) -> None:
     """Common test execution logic."""
     verbose = ctx.obj["verbose"]
+    console = _create_console(verbose)
 
     # Load catalog
     catalog = TestCatalog(ctx.obj["root"])
@@ -169,10 +188,10 @@ def run_tests(
     tests = selector.select_for_target(mode_config, target_type)
 
     if not tests:
-        click.echo("No tests to run")
+        console.warning("No tests to run")
         return
 
-    click.echo(f"Running {len(tests)} tests in {mode} mode")
+    console.status(f"Running {len(tests)} tests in {mode} mode")
 
     # Create target
     target = create_target(target_type, host, verbose=verbose)
@@ -182,11 +201,11 @@ def run_tests(
     reporter = ConsoleReporter(verbose=verbose)
 
     try:
-        click.echo("\nStarting test environment...")
+        console.status("Starting test environment...")
         target.start()
     except RuntimeError as e:
         # Clean exit for expected errors (deployment failures, port conflicts, etc.)
-        click.echo(f"\nDeployment failed: {e}", err=True)
+        console.error(f"Deployment failed: {e}")
         sys.exit(1)
 
     try:
@@ -199,10 +218,10 @@ def run_tests(
         # Run tests
         results = []
         for test in tests:
-            click.echo(f"[{test.name}] ", nl=False)
+            console.status(f"[{test.name}] ", details=None)
 
             result = run_single_test(
-                test, target, cleanup=not keep_apps, verbose=verbose
+                test, target, cleanup=not keep_apps, verbose=verbose, console=console
             )
             results.append(result)
             store.save(result)
@@ -210,7 +229,7 @@ def run_tests(
             reporter.report_test(result)
 
             if fail_fast and not result.passed:
-                click.echo("\nFail fast enabled, stopping tests")
+                console.warning("Fail fast enabled, stopping tests")
                 break
 
         # Summary
@@ -224,7 +243,7 @@ def run_tests(
 
     finally:
         if not keep_target:
-            click.echo("\nStopping test environment...")
+            console.status("Stopping test environment...")
             target.stop()
 
 
@@ -233,14 +252,21 @@ def run_single_test(
     target: DeploymentTarget,
     cleanup: bool,
     verbose: bool,
+    console: Console | None = None,
 ) -> TestResult:
     """Run a single test with the appropriate runner."""
     if test.category == Category.DEMO:
-        runner = DemoTestRunner(target, cleanup=cleanup, verbose=verbose)
+        runner = DemoTestRunner(
+            target, cleanup=cleanup, verbose=verbose, console=console
+        )
     elif test.category == Category.TUTORIAL:
-        runner = TutorialTestRunner(target, cleanup=cleanup, verbose=verbose)
+        runner = TutorialTestRunner(
+            target, cleanup=cleanup, verbose=verbose, console=console
+        )
     else:
         # Default to deployment runner for deployment category and any others
-        runner = DeploymentTestRunner(target, cleanup=cleanup, verbose=verbose)
+        runner = DeploymentTestRunner(
+            target, cleanup=cleanup, verbose=verbose, console=console
+        )
 
     return runner.run(test)

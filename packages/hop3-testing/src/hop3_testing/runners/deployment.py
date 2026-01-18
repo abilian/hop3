@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import time
 import traceback
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from hop3_testing.apps.catalog import AppSource
 from hop3_testing.apps.deployment import DeploymentSession
+from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
 from .base import TestResult, ValidationResult
 
@@ -21,6 +23,7 @@ if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
 
 
+@dataclass
 class DeploymentTestRunner:
     """Runs deployment tests using the existing DeploymentSession.
 
@@ -32,22 +35,22 @@ class DeploymentTestRunner:
     5. Cleanup (destroy the app)
     """
 
-    def __init__(
-        self,
-        target: DeploymentTarget,
-        cleanup: bool = True,
-        verbose: bool = False,
-    ):
-        """Initialize the runner.
+    target: DeploymentTarget
+    """The deployment target to run tests on."""
 
-        Args:
-            target: The deployment target to run tests on
-            cleanup: Whether to destroy apps after testing
-            verbose: Whether to print verbose output
-        """
-        self.target = target
-        self.cleanup = cleanup
-        self.verbose = verbose
+    cleanup: bool = True
+    """Whether to destroy apps after testing."""
+
+    verbose: bool = False
+    """Whether to print verbose output."""
+
+    console: Console = field(default_factory=PrintingConsole)
+    """Console for output."""
+
+    def __post_init__(self) -> None:
+        """Set verbosity after initialization."""
+        if self.verbose:
+            self.console.set_verbosity(Verbosity.VERBOSE)
 
     def _run_http_test(
         self, session: DeploymentSession, validation_results: list[ValidationResult]
@@ -185,13 +188,13 @@ class DeploymentTestRunner:
             return path_error
 
         app_source = self._create_app_source(test)
-        if self.verbose:
-            print(f"  Deploying {test.name} from {test.app_path}...")
+        self.console.info(f"Deploying {test.name} from {test.app_path}...")
 
         session = DeploymentSession(
             app=app_source,
             target=self.target,
             config={"verbose": self.verbose, "debug": self.verbose},
+            console=self.console,
         )
 
         try:
@@ -230,13 +233,11 @@ class DeploymentTestRunner:
 
         except Exception as e:
             error = str(e)
-            if self.verbose:
-                traceback.print_exc()
+            self.console.debug(traceback.format_exc())
 
         finally:
-            if self.cleanup and self.verbose:
-                print(f"  Cleaning up {test.name}...")
             if self.cleanup:
+                self.console.info(f"Cleaning up {test.name}...")
                 session.cleanup()
 
         passed = error is None and all(v.passed for v in validation_results)
