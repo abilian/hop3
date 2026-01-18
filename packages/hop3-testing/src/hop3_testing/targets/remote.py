@@ -14,7 +14,6 @@ The behavior is determined by whether a DeploymentConfig is provided.
 
 from __future__ import annotations
 
-import os
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -32,7 +31,12 @@ from .constants import (
     HEALTH_CHECK_COMMAND,
     HEALTHY_STATUS_CODES,
 )
-from .helpers import DiagnosticsHelper, HealthChecker, find_project_root
+from .helpers import (
+    DiagnosticsHelper,
+    HealthChecker,
+    configure_server_test_mode,
+    find_project_root,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -280,7 +284,7 @@ class RemoteTarget(DeploymentTarget):
 
             # Configure server for test mode
             self.diagnostics.set_phase("configure_test_mode")
-            if not self._configure_test_mode():
+            if not configure_server_test_mode(self._deployer_backend, self.diagnostics):
                 self.diagnostics.add_failure(
                     layer="server",
                     operation="configure_test_mode",
@@ -517,82 +521,6 @@ class RemoteTarget(DeploymentTarget):
 
         return " ".join(cmd_parts)
 
-    def _configure_test_mode(self) -> bool:
-        """Configure the server for test mode (disable authentication).
-
-        This sets HOP3_UNSAFE=true in the systemd service and restarts it.
-        WARNING: This should only be used for testing purposes.
-
-        Returns:
-            True if configuration was successful
-        """
-        if not self._deployer_backend:
-            return False
-
-        print("Configuring server for test mode (HOP3_UNSAFE=true)...")
-
-        try:
-            # Create systemd override directory
-            result = self._deployer_backend.run(
-                "mkdir -p /etc/systemd/system/hop3-server.service.d",
-                check=False,
-            )
-            if not result.success:
-                self.diagnostics.add_failure(
-                    layer="server",
-                    operation="create_override_dir",
-                    message=f"Failed to create override directory: {result.stderr}",
-                )
-                return False
-
-            # Create override file with HOP3_UNSAFE=true
-            override_content = """[Service]
-Environment="HOP3_UNSAFE=true"
-"""
-            result = self._deployer_backend.run(
-                f"cat > /etc/systemd/system/hop3-server.service.d/test-mode.conf << 'EOF'\n{override_content}EOF",
-                check=False,
-            )
-            if not result.success:
-                self.diagnostics.add_failure(
-                    layer="server",
-                    operation="create_override_file",
-                    message=f"Failed to create override file: {result.stderr}",
-                )
-                return False
-
-            # Reload systemd and restart hop3-server
-            result = self._deployer_backend.run(
-                "systemctl daemon-reload && systemctl restart hop3-server",
-                check=False,
-            )
-            if not result.success:
-                self.diagnostics.add_failure(
-                    layer="server",
-                    operation="restart_service",
-                    message=f"Failed to restart service: {result.stderr}",
-                )
-                return False
-
-            # Wait a moment for service to start
-            time.sleep(3)
-
-            self.diagnostics.add_success(
-                layer="server",
-                operation="configure_test_mode",
-                message="Server configured for test mode (HOP3_UNSAFE=true)",
-            )
-            print("  ✓ Test mode configured")
-            return True
-
-        except Exception as e:
-            self.diagnostics.add_failure(
-                layer="server",
-                operation="configure_test_mode",
-                message=f"Exception configuring test mode: {e}",
-            )
-            return False
-
     def _wait_for_ready(self, max_wait: int = 120) -> bool:
         """Wait for hop3-server to be ready.
 
@@ -616,55 +544,3 @@ Environment="HOP3_UNSAFE=true"
     def _save_diagnostics_on_error(self) -> None:
         """Save diagnostics to files and print to console on error."""
         self._diagnostics_helper.save_on_error()
-
-    # =========================================================================
-    # Class methods for convenience
-    # =========================================================================
-
-    @classmethod
-    def from_env(cls, env_prefix: str = "HOP3_TEST") -> RemoteTarget:
-        """Create a RemoteTarget from environment variables.
-
-        Args:
-            env_prefix: Prefix for environment variables (default: "HOP3_TEST")
-
-        Environment variables:
-            - {prefix}_HOST: Server hostname (required)
-            - {prefix}_PORT: SSH port (default: 22)
-            - {prefix}_USER: SSH username (default: "root")
-            - {prefix}_SSH_KEY: Path to SSH key
-            - {prefix}_PASSWORD: SSH password
-            - {prefix}_HTTP_BASE: Base HTTP URL
-            - {prefix}_API_URL: API URL
-
-        Returns:
-            RemoteTarget instance
-        """
-        # Required
-        host = os.getenv(f"{env_prefix}_HOST")
-        if not host:
-            msg = f"Environment variable {env_prefix}_HOST is required"
-            raise ValueError(msg)
-
-        # Build config
-        config = RemoteConfig(host=host)
-
-        if port := os.getenv(f"{env_prefix}_PORT"):
-            config.port = int(port)
-
-        if user := os.getenv(f"{env_prefix}_USER"):
-            config.user = user
-
-        if ssh_key := os.getenv(f"{env_prefix}_SSH_KEY"):
-            config.ssh_key = ssh_key
-
-        if password := os.getenv(f"{env_prefix}_PASSWORD"):
-            config.password = password
-
-        if http_base := os.getenv(f"{env_prefix}_HTTP_BASE"):
-            config.http_base = http_base
-
-        if api_url := os.getenv(f"{env_prefix}_API_URL"):
-            config.api_url = api_url
-
-        return cls(config)
