@@ -84,6 +84,7 @@ dev = [
     "pytest-xdist>=3.8.0",
     # Misc
     "uwsgi>=2.0.31",
+    "mypy>=1.19.1",
 ]
 
 doc = [
