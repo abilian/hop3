@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 import click
 
-from hop3_testing.catalog import TestCatalog
+from hop3_testing.catalog import Catalog
 from hop3_testing.catalog.models import Category
 from hop3_testing.results import ConsoleReporter, ResultStore
 from hop3_testing.runners import (
@@ -19,7 +19,7 @@ from hop3_testing.runners import (
     DeploymentTestRunner,
     TutorialTestRunner,
 )
-from hop3_testing.selector import TestSelector, get_mode_config
+from hop3_testing.selector import Selector, get_mode_config
 from hop3_testing.util.console import PrintingConsole, Verbosity
 
 from .helpers import create_target
@@ -179,12 +179,12 @@ def run_tests(
     console = _create_console(verbose)
 
     # Load catalog
-    catalog = TestCatalog(ctx.obj["root"])
+    catalog = Catalog(ctx.obj["root"])
     catalog.scan()
 
     # Get mode config and select tests
     mode_config = get_mode_config(mode)
-    selector = TestSelector(catalog)
+    selector = Selector(catalog)
     tests = selector.select_for_target(mode_config, target_type)
 
     if not tests:

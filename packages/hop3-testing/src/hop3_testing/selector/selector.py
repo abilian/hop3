@@ -15,11 +15,11 @@ from .modes import ModeConfig
 
 if TYPE_CHECKING:
     from hop3_testing.catalog.models import TestDefinition
-    from hop3_testing.catalog.scanner import TestCatalog
+    from hop3_testing.catalog.scanner import Catalog
 
 
 @dataclass(frozen=True)
-class TestSelector:
+class Selector:
     """Selects tests based on mode and additional filters.
 
     The selector works in two phases:
@@ -27,7 +27,7 @@ class TestSelector:
     2. Apply any additional filters (tags, name pattern, etc.)
     """
 
-    catalog: TestCatalog
+    catalog: Catalog
     """The test catalog to select from."""
 
     def select(

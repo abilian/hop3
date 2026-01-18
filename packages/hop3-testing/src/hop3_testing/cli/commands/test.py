@@ -12,12 +12,12 @@ from pathlib import Path
 
 import click
 
-from hop3_testing.catalog import TestCatalog
+from hop3_testing.catalog import Catalog
 from hop3_testing.catalog.loader import generate_test_definition_from_app
 from hop3_testing.cli.runners import run_app_tests, run_system_tests
 from hop3_testing.results import ConsoleReporter
 from hop3_testing.runners import DeploymentTestRunner
-from hop3_testing.selector import TestSelector, get_mode_config
+from hop3_testing.selector import Selector, get_mode_config
 from hop3_testing.targets import DockerTarget, RemoteTarget
 from hop3_testing.targets.config import DeploymentConfig, DockerConfig, RemoteConfig
 
@@ -183,11 +183,11 @@ def system_test(
             sys.exit(1)
 
     # Load catalog and select tests based on mode
-    catalog = TestCatalog(ctx.obj["root"])
+    catalog = Catalog(ctx.obj["root"])
     catalog.scan()
 
     mode_config = get_mode_config(mode)
-    selector = TestSelector(catalog)
+    selector = Selector(catalog)
     tests = selector.select_for_target(mode_config, target_type)
 
     if not tests:
@@ -302,7 +302,7 @@ def apps_test(
     verbose = ctx.obj["verbose"]
 
     # Load catalog
-    catalog = TestCatalog(ctx.obj["root"])
+    catalog = Catalog(ctx.obj["root"])
     catalog.scan()
 
     # Select tests

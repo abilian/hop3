@@ -5,17 +5,17 @@
 """Test selection logic for hop3-testing.
 
 This module provides:
-- TestSelector: Selects tests based on mode and filters
+- Selector: Selects tests based on mode and filters
 - Mode configurations for dev, ci, nightly, release, package
 """
 
 from __future__ import annotations
 
 from .modes import ModeConfig, get_mode_config
-from .selector import TestSelector
+from .selector import Selector
 
 __all__ = [
     "ModeConfig",
-    "TestSelector",
+    "Selector",
     "get_mode_config",
 ]
