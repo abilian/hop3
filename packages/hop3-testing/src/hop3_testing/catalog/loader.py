@@ -6,10 +6,14 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
-import tomllib
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib  # type: ignore[import-not-found]
 
 from .models import (
     Category,
@@ -85,11 +89,9 @@ def _parse_test_definition(data: dict[str, Any], path: Path) -> TestDefinition:
     metadata = _parse_metadata(test_section.get("metadata", {}))
 
     # Category-specific config
-    deployment = (
-        _parse_deployment(data.get("deployment")) if "deployment" in data else None
-    )
-    demo = _parse_demo(data.get("demo")) if "demo" in data else None
-    tutorial = _parse_tutorial(data.get("tutorial")) if "tutorial" in data else None
+    deployment = _parse_deployment(data["deployment"]) if "deployment" in data else None
+    demo = _parse_demo(data["demo"]) if "demo" in data else None
+    tutorial = _parse_tutorial(data["tutorial"]) if "tutorial" in data else None
 
     # Validations
     validations = [_parse_validation(v) for v in data.get("validations", [])]

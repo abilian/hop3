@@ -101,12 +101,14 @@ class HealthChecker:
         self,
         runner: CommandRunner,
         *,
+        timeout: int | None = None,
         on_timeout: Any | None = None,
     ) -> bool:
         """Wait for server to be ready using a command runner.
 
         Args:
             runner: Object with run() method (e.g., DeployBackend)
+            timeout: Override default timeout (uses self.timeout if not provided)
             on_timeout: Optional callback to run on timeout (for extra diagnostics)
 
         Returns:
@@ -115,8 +117,9 @@ class HealthChecker:
         print("Waiting for hop3-server to be ready...")
         start_time = time.time()
         last_status = "unknown"
+        max_wait = timeout or self.timeout
 
-        while time.time() - start_time < self.timeout:
+        while time.time() - start_time < max_wait:
             try:
                 result = runner.run(HEALTH_CHECK_COMMAND, check=False)
                 last_status = result.stdout.strip()
@@ -134,9 +137,7 @@ class HealthChecker:
             time.sleep(self.poll_interval)
 
         # Timeout - run callback if provided
-        print(
-            f"  Health check timed out after {self.timeout}s. Last status: {last_status}"
-        )
+        print(f"  Health check timed out after {max_wait}s. Last status: {last_status}")
         if on_timeout:
             on_timeout()
 

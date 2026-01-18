@@ -80,6 +80,7 @@ def show_test(ctx: click.Context, test_name: str) -> None:
         click.echo(f"Test not found: {test_name}", err=True)
         sys.exit(1)
 
+    assert test is not None  # Type narrowing after sys.exit
     click.echo(f"Name: {test.name}")
     click.echo(f"Category: {test.category.value}")
     click.echo(f"Tier: {test.tier.value}")

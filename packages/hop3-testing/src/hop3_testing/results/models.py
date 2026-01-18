@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean,
@@ -35,7 +35,9 @@ class TestRun(Base):
     __tablename__ = "test_runs"
 
     id = Column(Integer, primary_key=True)
-    started_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(tz=timezone.utc)
+    )
     finished_at = Column(DateTime, nullable=True)
 
     mode = Column(String(20))
@@ -111,7 +113,9 @@ class TestResultRecord(Base):
     logs = Column(Text, nullable=True)
     """Deployment/execution logs."""
 
-    executed_at = Column(DateTime, default=datetime.utcnow)
+    executed_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(tz=timezone.utc)
+    )
     """When the test was executed."""
 
     # Relationships

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -129,7 +129,7 @@ class ResultStore:
             try:
                 run = session.get(TestRun, self._current_run.id)
                 if run:
-                    run.finished_at = datetime.now(tz=UTC)
+                    run.finished_at = datetime.now(tz=timezone.utc)
                     session.commit()
             finally:
                 session.close()
