@@ -617,6 +617,128 @@ class DockerServiceManager:
         return True
 
 
+@dataclass
+class DeploymentRunner:
+    """Runs the common hop3-deploy flow with diagnostics.
+
+    This class encapsulates the deployment execution logic that is shared
+    between DockerTarget and RemoteTarget, including:
+    - Running the deployer with timing
+    - Handling success/failure diagnostics
+    - Waiting for server health check
+    - Logging completion
+
+    Usage:
+        runner = DeploymentRunner(backend, deployer, diagnostics, health_checker)
+        if not runner.run_deploy():
+            raise RuntimeError("Deploy failed")
+        if not runner.wait_for_ready(on_timeout=collect_diagnostics):
+            raise RuntimeError("Health check failed")
+        runner.log_completion(start_time)
+    """
+
+    backend: CommandRunner
+    """The deploy backend (DockerDeployBackend or SSHDeployBackend)."""
+
+    diagnostics: DiagnosticCollector | None = None
+    """Optional diagnostics collector."""
+
+    health_checker: HealthChecker | None = None
+    """Health checker for waiting on server."""
+
+    def run_deploy(self, deployer: Any) -> tuple[bool, float]:
+        """Run the deployment with timing and diagnostics.
+
+        Args:
+            deployer: The Deployer instance to run
+
+        Returns:
+            Tuple of (success, duration_seconds)
+        """
+        if self.diagnostics:
+            self.diagnostics.set_phase("deploy")
+
+        print("\nRunning hop3-deploy...")
+        deploy_start = time.time()
+        success = deployer.deploy()
+        duration = time.time() - deploy_start
+
+        if not success:
+            if self.diagnostics:
+                self.diagnostics.add_failure(
+                    layer="deployer",
+                    operation="deploy",
+                    message="hop3-deploy failed",
+                    duration=duration,
+                )
+            return False, duration
+
+        if self.diagnostics:
+            self.diagnostics.add_success(
+                layer="deployer",
+                operation="deploy",
+                message=f"hop3-deploy completed in {duration:.1f}s",
+                duration=duration,
+            )
+
+        return True, duration
+
+    def wait_for_ready(
+        self,
+        timeout: int = 120,
+        on_timeout: Any | None = None,
+    ) -> bool:
+        """Wait for server to be ready.
+
+        Args:
+            timeout: Maximum wait time in seconds
+            on_timeout: Optional callback to run on timeout
+
+        Returns:
+            True if server became ready
+        """
+        if self.diagnostics:
+            self.diagnostics.set_phase("health_check")
+
+        if not self.health_checker:
+            # No health checker, assume ready
+            return True
+
+        return self.health_checker.wait_for_ready(
+            self.backend,
+            timeout=timeout,
+            on_timeout=on_timeout,
+        )
+
+    def log_completion(self, start_time: float) -> None:
+        """Log successful completion with total duration.
+
+        Args:
+            start_time: When the deployment started (from time.time())
+        """
+        total_duration = time.time() - start_time
+        if self.diagnostics:
+            self.diagnostics.add_success(
+                layer="testing",
+                operation="start_complete",
+                message=f"Target ready in {total_duration:.1f}s",
+                duration=total_duration,
+            )
+
+    def log_failure(self, error: Exception) -> None:
+        """Log deployment failure.
+
+        Args:
+            error: The exception that caused the failure
+        """
+        if self.diagnostics:
+            self.diagnostics.add_failure(
+                layer="testing",
+                operation="start",
+                message=f"Start failed: {error}",
+            )
+
+
 def configure_server_test_mode(
     backend: CommandRunner,
     diagnostics: DiagnosticCollector | None = None,

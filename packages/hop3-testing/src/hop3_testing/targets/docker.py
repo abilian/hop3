@@ -31,6 +31,7 @@ from .constants import (
     DEFAULT_READY_IMAGE_HEALTH_TIMEOUT,
 )
 from .helpers import (
+    DeploymentRunner,
     DiagnosticsHelper,
     DockerContainerHelper,
     DockerServiceManager,
@@ -410,30 +411,19 @@ class DockerTarget(DeploymentTarget):
             self._deployer_backend = DockerDeployBackend(deploy_config)
             deployer = Deployer(deploy_config, self._deployer_backend)
 
-            # Run deployment
-            self.diagnostics.set_phase("deploy")
-            print("\nRunning hop3-deploy...")
-            deploy_start = time.time()
-            success = deployer.deploy()
-            deploy_duration = time.time() - deploy_start
+            # Create deployment runner for common flow
+            deploy_runner = DeploymentRunner(
+                backend=self._deployer_backend,
+                diagnostics=self.diagnostics,
+                health_checker=self._health_checker,
+            )
 
+            # Run deployment
+            success, _duration = deploy_runner.run_deploy(deployer)
             if not success:
-                self.diagnostics.add_failure(
-                    layer="deployer",
-                    operation="deploy",
-                    message="hop3-deploy failed",
-                    duration=deploy_duration,
-                )
                 self._save_diagnostics_on_error()
                 msg = "hop3-deploy failed"
                 raise RuntimeError(msg)
-
-            self.diagnostics.add_success(
-                layer="deployer",
-                operation="deploy",
-                message=f"hop3-deploy completed in {deploy_duration:.1f}s",
-                duration=deploy_duration,
-            )
 
             # Start services manually (Docker doesn't have systemd)
             self.diagnostics.set_phase("service_start")
@@ -446,9 +436,7 @@ class DockerTarget(DeploymentTarget):
                 raise RuntimeError(msg)
 
             # Wait for server to be ready
-            self.diagnostics.set_phase("health_check")
-            if not self._health_checker.wait_for_ready(
-                self._deployer_backend,
+            if not deploy_runner.wait_for_ready(
                 timeout=DEFAULT_HEALTH_CHECK_TIMEOUT,
                 on_timeout=self._collect_deploy_diagnostics,
             ):
@@ -460,23 +448,17 @@ class DockerTarget(DeploymentTarget):
             self._info = self._build_target_info_from_backend()
             self._started = True
 
-            total_duration = time.time() - start_time
-            self.diagnostics.add_success(
-                layer="testing",
-                operation="start_complete",
-                message=f"Target ready in {total_duration:.1f}s",
-                duration=total_duration,
-            )
-
+            deploy_runner.log_completion(start_time)
             self._print_ready_message()
             return self._info
 
         except Exception as e:
-            self.diagnostics.add_failure(
-                layer="testing",
-                operation="start",
-                message=f"Start failed: {e}",
-            )
+            if self.diagnostics:
+                self.diagnostics.add_failure(
+                    layer="testing",
+                    operation="start",
+                    message=f"Start failed: {e}",
+                )
             self._save_diagnostics_on_error()
             raise
 

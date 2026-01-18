@@ -32,6 +32,7 @@ from .constants import (
     HEALTHY_STATUS_CODES,
 )
 from .helpers import (
+    DeploymentRunner,
     DiagnosticsHelper,
     HealthChecker,
     configure_server_test_mode,
@@ -257,30 +258,19 @@ class RemoteTarget(DeploymentTarget):
             self._deployer_backend = SSHDeployBackend(deploy_config)
             deployer = Deployer(deploy_config, self._deployer_backend)
 
-            # Run deployment
-            self.diagnostics.set_phase("deploy")
-            print("\nRunning hop3-deploy...")
-            deploy_start = time.time()
-            success = deployer.deploy()
-            deploy_duration = time.time() - deploy_start
+            # Create deployment runner for common deploy flow
+            deploy_runner = DeploymentRunner(
+                backend=self._deployer_backend,
+                diagnostics=self.diagnostics,
+                health_checker=self._health_checker,
+            )
 
+            # Run deployment
+            success, _duration = deploy_runner.run_deploy(deployer)
             if not success:
-                self.diagnostics.add_failure(
-                    layer="deployer",
-                    operation="deploy",
-                    message="hop3-deploy failed",
-                    duration=deploy_duration,
-                )
                 self._save_diagnostics_on_error()
                 msg = "hop3-deploy failed - see diagnostics above"
                 raise RuntimeError(msg)
-
-            self.diagnostics.add_success(
-                layer="deployer",
-                operation="deploy",
-                message=f"hop3-deploy completed in {deploy_duration:.1f}s",
-                duration=deploy_duration,
-            )
 
             # Configure server for test mode
             self.diagnostics.set_phase("configure_test_mode")
@@ -295,8 +285,11 @@ class RemoteTarget(DeploymentTarget):
                 raise RuntimeError(msg)
 
             # Wait for server to be ready
-            self.diagnostics.set_phase("health_check")
-            if not self._wait_for_ready():
+            if not deploy_runner.wait_for_ready(
+                on_timeout=lambda: self._diagnostics_helper.collect_server_diagnostics(
+                    self._deployer_backend
+                ),
+            ):
                 self.diagnostics.add_failure(
                     layer="server",
                     operation="health_check",
@@ -310,13 +303,7 @@ class RemoteTarget(DeploymentTarget):
             self._info = self._build_target_info()
             self._started = True
 
-            total_duration = time.time() - start_time
-            self.diagnostics.add_success(
-                layer="testing",
-                operation="start_complete",
-                message=f"Target ready in {total_duration:.1f}s",
-                duration=total_duration,
-            )
+            deploy_runner.log_completion(start_time)
 
             print("\nTarget ready:")
             print(f"  SSH: ssh {config.user}@{config.host}")
@@ -520,26 +507,6 @@ class RemoteTarget(DeploymentTarget):
             cmd_parts.extend(["--branch", deployment.branch])
 
         return " ".join(cmd_parts)
-
-    def _wait_for_ready(self, max_wait: int = 120) -> bool:
-        """Wait for hop3-server to be ready.
-
-        Args:
-            max_wait: Maximum time to wait in seconds
-
-        Returns:
-            True if server is ready
-        """
-        if not self._deployer_backend:
-            return False
-
-        return self._health_checker.wait_for_ready(
-            self._deployer_backend,
-            timeout=max_wait,
-            on_timeout=lambda: self._diagnostics_helper.collect_server_diagnostics(
-                self._deployer_backend
-            ),
-        )
 
     def _save_diagnostics_on_error(self) -> None:
         """Save diagnostics to files and print to console on error."""
