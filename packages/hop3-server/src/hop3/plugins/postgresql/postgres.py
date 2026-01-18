@@ -29,7 +29,7 @@ from typing import Any
 
 import psycopg2
 from psycopg2 import sql
-from psycopg2.errors import DuplicateObject  # type: ignore[attr-defined]
+from psycopg2.errors import DuplicateObject
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 from hop3.config import HOP3_ROOT

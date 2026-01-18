@@ -15,7 +15,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, cast
 
 from hop3_testing.catalog.models import Validation, ValidationExpect
 from hop3_testing.util.console import Console, PrintingConsole, Verbosity
@@ -86,6 +86,8 @@ class DemoTestRunner:
         Returns:
             TestResult
         """
+        assert test.demo is not None  # Checked by caller (run method)
+
         start_time = time.time()
         validation_results = []
         error = None
@@ -320,8 +322,13 @@ class DemoTestRunner:
             return None
 
         if step.action == "validate":
+            # Cast to Literal type expected by Validation
+            validation_type = cast(
+                "Literal['http', 'command', 'script', 'demo-script', 'validoc']",
+                step.validation_type or "http",
+            )
             validation = Validation(
-                type=step.validation_type or "http",
+                type=validation_type,
                 url=step.url,
                 expect=ValidationExpect(
                     status=step.expect_status, contains=step.expect_contains

@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 import shutil
 from pathlib import Path
-from typing import Annotated, ClassVar
+from typing import Annotated
 
 from litestar import Controller, get, post
 from litestar.enums import RequestEncodingType
@@ -81,7 +81,7 @@ class MarketplaceController(Controller):
     """
 
     path = "/dashboard/marketplace"
-    guards: ClassVar = [auth_guard]  # type: ignore[misc]
+    guards = [auth_guard]  # noqa: RUF012 - base class defines as instance var
 
     # -------------------------------------------------------------------------
     # Marketplace Home

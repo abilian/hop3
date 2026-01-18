@@ -13,7 +13,7 @@ from typing import Any
 if sys.version_info >= (3, 11):
     import tomllib
 else:
-    import tomli as tomllib  # type: ignore[import-not-found]
+    import tomli as tomllib
 
 from .models import (
     Category,
