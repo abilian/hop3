@@ -7,34 +7,34 @@
 from __future__ import annotations
 
 import sys
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, TextIO
 
 if TYPE_CHECKING:
     from hop3_testing.runners.base import TestResult
 
 
+@dataclass
 class ConsoleReporter:
     """Reports test results to the console."""
 
-    def __init__(
-        self,
-        verbose: bool = False,
-        quiet: bool = False,
-        output: TextIO | None = None,
-        color: bool = True,
-    ):
-        """Initialize the reporter.
+    verbose: bool = False
+    """Whether to show detailed output."""
 
-        Args:
-            verbose: Whether to show detailed output
-            quiet: Whether to suppress recap (show only pass/fail summary)
-            output: Output stream (defaults to stdout)
-            color: Whether to use colored output
-        """
-        self.verbose = verbose
-        self.quiet = quiet
-        self.output = output or sys.stdout
-        self.color = color and hasattr(self.output, "isatty") and self.output.isatty()
+    quiet: bool = False
+    """Whether to suppress recap (show only pass/fail summary)."""
+
+    output: TextIO = field(default_factory=lambda: sys.stdout)
+    """Output stream."""
+
+    color: bool = True
+    """Whether to use colored output (before TTY check)."""
+
+    def __post_init__(self) -> None:
+        """Adjust color setting based on TTY detection."""
+        self.color = (
+            self.color and hasattr(self.output, "isatty") and self.output.isatty()
+        )
 
     def _colorize(self, text: str, color: str) -> str:
         """Apply ANSI color code to text."""

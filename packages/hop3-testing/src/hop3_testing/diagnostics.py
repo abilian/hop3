@@ -78,6 +78,7 @@ class TestRunContext:
         )
 
 
+@dataclass
 class DiagnosticCollector:
     """Collects diagnostic information during test execution.
 
@@ -101,16 +102,20 @@ class DiagnosticCollector:
             collector.generate_html_report()
     """
 
-    def __init__(
-        self,
-        verbose: bool = False,
-        log_dir: Path | None = None,
-    ):
-        self.verbose = verbose
-        self.log_dir = log_dir or Path("test-logs")
-        self.entries: list[DiagnosticEntry] = []
-        self.context: TestRunContext | None = None
-        self._current_phase: str = "unknown"
+    verbose: bool = False
+    """Whether to print entries as they are added."""
+
+    log_dir: Path = field(default_factory=lambda: Path("test-logs"))
+    """Directory for diagnostic logs."""
+
+    entries: list[DiagnosticEntry] = field(default_factory=list, init=False)
+    """Collected diagnostic entries."""
+
+    context: TestRunContext | None = field(default=None, init=False)
+    """Current test run context."""
+
+    _current_phase: str = field(default="unknown", init=False)
+    """Current test phase."""
 
     def set_context(self, test_name: str, config: str = "docker") -> None:
         """Set the test run context."""
