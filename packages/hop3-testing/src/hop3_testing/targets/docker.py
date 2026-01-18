@@ -33,6 +33,7 @@ from .constants import (
 from .helpers import (
     DiagnosticsHelper,
     DockerContainerHelper,
+    DockerServiceManager,
     HealthChecker,
     find_project_root,
 )
@@ -436,7 +437,10 @@ class DockerTarget(DeploymentTarget):
 
             # Start services manually (Docker doesn't have systemd)
             self.diagnostics.set_phase("service_start")
-            if not self._start_services_manually():
+            service_manager = DockerServiceManager(
+                self._deployer_backend, self.diagnostics
+            )
+            if not service_manager.start_all():
                 self._save_diagnostics_on_error()
                 msg = "Failed to start services"
                 raise RuntimeError(msg)
@@ -475,119 +479,6 @@ class DockerTarget(DeploymentTarget):
             )
             self._save_diagnostics_on_error()
             raise
-
-    def _start_services_manually(self) -> bool:
-        """Start services manually since Docker doesn't have systemd.
-
-        Returns:
-            True if all services started successfully
-        """
-        print("Starting services manually (Docker has no systemd)...")
-
-        try:
-            # Setup SSH server
-            print("  Setting up SSH server...")
-            result = self._deployer_backend.run(
-                """
-                if ! command -v sshd &> /dev/null; then
-                    apt-get update -qq && apt-get install -y -qq openssh-server
-                fi && \
-                mkdir -p /home/hop3/.ssh && \
-                if [ ! -f /home/hop3/.ssh/id_rsa ]; then
-                    ssh-keygen -t rsa -b 2048 -f /home/hop3/.ssh/id_rsa -N ""
-                fi && \
-                cat /home/hop3/.ssh/id_rsa.pub >> /home/hop3/.ssh/authorized_keys && \
-                sort -u /home/hop3/.ssh/authorized_keys -o /home/hop3/.ssh/authorized_keys && \
-                chmod 700 /home/hop3/.ssh && \
-                chmod 600 /home/hop3/.ssh/authorized_keys /home/hop3/.ssh/id_rsa && \
-                chmod 644 /home/hop3/.ssh/id_rsa.pub && \
-                chown -R hop3:hop3 /home/hop3/.ssh && \
-                mkdir -p /var/run/sshd
-                """,
-                check=False,
-            )
-
-            # Start SSH daemon
-            print("  Starting SSH daemon...")
-            self._deployer_backend.run(
-                "/usr/sbin/sshd || echo 'sshd may already be running'",
-                check=False,
-            )
-            time.sleep(1)
-
-            # Start nginx
-            print("  Starting nginx...")
-            self._deployer_backend.run(
-                "nginx || nginx -g 'daemon off;' &",
-                check=False,
-            )
-
-            # Start PostgreSQL
-            print("  Starting PostgreSQL...")
-            self._deployer_backend.run(
-                "su - postgres -c 'pg_ctlcluster 16 main start' 2>/dev/null || "
-                "service postgresql start 2>/dev/null || true",
-                check=False,
-            )
-
-            # Start uwsgi emperor
-            print("  Starting uwsgi emperor...")
-            self._deployer_backend.run(
-                "mkdir -p /var/log/uwsgi && chown -R hop3:hop3 /var/log/uwsgi && "
-                "mkdir -p /tmp && chmod 1777 /tmp",
-                check=False,
-            )
-            self._deployer_backend.run(
-                "su - hop3 -c '"
-                "nohup /home/hop3/venv/bin/uwsgi --emperor /home/hop3/uwsgi-enabled "
-                "--stats /tmp/hop3-uwsgi-stats.sock "
-                "> /var/log/uwsgi/emperor.log 2>&1 &'",
-                check=False,
-            )
-            time.sleep(2)
-
-            # Start hop3-server
-            print("  Starting hop3-server...")
-            self._deployer_backend.run(
-                "su - hop3 -c '"
-                'export HOP3_SECRET_KEY="e2e-test-secret-key-do-not-use-in-production" && '
-                'export HOP3_UNSAFE="true" && '
-                'export HOP3_DB_URL="sqlite:////home/hop3/hop3.db" && '
-                'export ACME_ENGINE="self-signed" && '
-                "nohup /home/hop3/venv/bin/hop3-server serve "
-                "> /home/hop3/hop3-server.log 2>&1 &'",
-                check=False,
-            )
-            time.sleep(3)
-
-            # Verify hop3-server is running
-            result = self._deployer_backend.run(
-                "pgrep -f 'hop3-server serve' || echo 'NOT_RUNNING'",
-                check=False,
-            )
-            if "NOT_RUNNING" in result.stdout:
-                log_result = self._deployer_backend.run(
-                    "tail -50 /home/hop3/hop3-server.log 2>/dev/null || echo 'No log'",
-                    check=False,
-                )
-                self.diagnostics.add_failure(
-                    layer="server",
-                    operation="verify_hop3_server",
-                    message="hop3-server process not running",
-                    stdout=log_result.stdout,
-                )
-                return False
-
-            print("  Services started")
-            return True
-
-        except Exception as e:
-            self.diagnostics.add_failure(
-                layer="server",
-                operation="start_services",
-                message=f"Exception starting services: {e}",
-            )
-            return False
 
     def _build_cli_command(self) -> str:
         """Build equivalent hop3-deploy CLI command."""

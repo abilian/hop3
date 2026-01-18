@@ -456,3 +456,248 @@ def find_project_root() -> Path:
 
     msg = "Could not find project root"
     raise RuntimeError(msg)
+
+
+@dataclass
+class DockerServiceManager:
+    """Manages service startup in Docker containers without systemd.
+
+    Docker containers don't have systemd, so we need to start services manually.
+    This class encapsulates all the shell commands needed to start the Hop3 stack.
+    """
+
+    backend: CommandRunner
+    """Backend to run commands on (e.g., DockerDeployBackend)."""
+
+    diagnostics: DiagnosticCollector | None = None
+    """Optional diagnostics collector for logging."""
+
+    def start_all(self) -> bool:
+        """Start all services needed for Hop3.
+
+        Returns:
+            True if all services started successfully
+        """
+        print("Starting services manually (Docker has no systemd)...")
+
+        try:
+            if not self._setup_ssh():
+                return False
+            if not self._start_ssh():
+                return False
+            if not self._start_nginx():
+                return False
+            if not self._start_postgresql():
+                return False
+            if not self._start_uwsgi():
+                return False
+            if not self._start_hop3_server():
+                return False
+            if not self._verify_hop3_server():
+                return False
+
+            print("  Services started")
+            return True
+
+        except Exception as e:
+            if self.diagnostics:
+                self.diagnostics.add_failure(
+                    layer="server",
+                    operation="start_services",
+                    message=f"Exception starting services: {e}",
+                )
+            return False
+
+    def _setup_ssh(self) -> bool:
+        """Setup SSH server and keys."""
+        print("  Setting up SSH server...")
+        self.backend.run(
+            """
+            if ! command -v sshd &> /dev/null; then
+                apt-get update -qq && apt-get install -y -qq openssh-server
+            fi && \
+            mkdir -p /home/hop3/.ssh && \
+            if [ ! -f /home/hop3/.ssh/id_rsa ]; then
+                ssh-keygen -t rsa -b 2048 -f /home/hop3/.ssh/id_rsa -N ""
+            fi && \
+            cat /home/hop3/.ssh/id_rsa.pub >> /home/hop3/.ssh/authorized_keys && \
+            sort -u /home/hop3/.ssh/authorized_keys -o /home/hop3/.ssh/authorized_keys && \
+            chmod 700 /home/hop3/.ssh && \
+            chmod 600 /home/hop3/.ssh/authorized_keys /home/hop3/.ssh/id_rsa && \
+            chmod 644 /home/hop3/.ssh/id_rsa.pub && \
+            chown -R hop3:hop3 /home/hop3/.ssh && \
+            mkdir -p /var/run/sshd
+            """,
+            check=False,
+        )
+        return True
+
+    def _start_ssh(self) -> bool:
+        """Start SSH daemon."""
+        print("  Starting SSH daemon...")
+        self.backend.run(
+            "/usr/sbin/sshd || echo 'sshd may already be running'",
+            check=False,
+        )
+        time.sleep(1)
+        return True
+
+    def _start_nginx(self) -> bool:
+        """Start nginx."""
+        print("  Starting nginx...")
+        self.backend.run(
+            "nginx || nginx -g 'daemon off;' &",
+            check=False,
+        )
+        return True
+
+    def _start_postgresql(self) -> bool:
+        """Start PostgreSQL."""
+        print("  Starting PostgreSQL...")
+        self.backend.run(
+            "su - postgres -c 'pg_ctlcluster 16 main start' 2>/dev/null || "
+            "service postgresql start 2>/dev/null || true",
+            check=False,
+        )
+        return True
+
+    def _start_uwsgi(self) -> bool:
+        """Start uwsgi emperor."""
+        print("  Starting uwsgi emperor...")
+        self.backend.run(
+            "mkdir -p /var/log/uwsgi && chown -R hop3:hop3 /var/log/uwsgi && "
+            "mkdir -p /tmp && chmod 1777 /tmp",
+            check=False,
+        )
+        self.backend.run(
+            "su - hop3 -c '"
+            "nohup /home/hop3/venv/bin/uwsgi --emperor /home/hop3/uwsgi-enabled "
+            "--stats /tmp/hop3-uwsgi-stats.sock "
+            "> /var/log/uwsgi/emperor.log 2>&1 &'",
+            check=False,
+        )
+        time.sleep(2)
+        return True
+
+    def _start_hop3_server(self) -> bool:
+        """Start hop3-server."""
+        print("  Starting hop3-server...")
+        self.backend.run(
+            "su - hop3 -c '"
+            'export HOP3_SECRET_KEY="e2e-test-secret-key-do-not-use-in-production" && '
+            'export HOP3_UNSAFE="true" && '
+            'export HOP3_DB_URL="sqlite:////home/hop3/hop3.db" && '
+            'export ACME_ENGINE="self-signed" && '
+            "nohup /home/hop3/venv/bin/hop3-server serve "
+            "> /home/hop3/hop3-server.log 2>&1 &'",
+            check=False,
+        )
+        time.sleep(3)
+        return True
+
+    def _verify_hop3_server(self) -> bool:
+        """Verify hop3-server is running."""
+        result = self.backend.run(
+            "pgrep -f 'hop3-server serve' || echo 'NOT_RUNNING'",
+            check=False,
+        )
+        if "NOT_RUNNING" in result.stdout:
+            log_result = self.backend.run(
+                "tail -50 /home/hop3/hop3-server.log 2>/dev/null || echo 'No log'",
+                check=False,
+            )
+            if self.diagnostics:
+                self.diagnostics.add_failure(
+                    layer="server",
+                    operation="verify_hop3_server",
+                    message="hop3-server process not running",
+                    stdout=log_result.stdout,
+                )
+            return False
+        return True
+
+
+def configure_server_test_mode(
+    backend: CommandRunner,
+    diagnostics: DiagnosticCollector | None = None,
+) -> bool:
+    """Configure a remote server for test mode (disable authentication).
+
+    This sets HOP3_UNSAFE=true in the systemd service and restarts it.
+    WARNING: This should only be used for testing purposes.
+
+    Args:
+        backend: Backend to run commands on (e.g., SSHDeployBackend)
+        diagnostics: Optional diagnostics collector for logging
+
+    Returns:
+        True if configuration was successful
+    """
+    print("Configuring server for test mode (HOP3_UNSAFE=true)...")
+
+    try:
+        # Create systemd override directory
+        result = backend.run(
+            "mkdir -p /etc/systemd/system/hop3-server.service.d",
+            check=False,
+        )
+        if not result.success:
+            if diagnostics:
+                diagnostics.add_failure(
+                    layer="server",
+                    operation="create_override_dir",
+                    message=f"Failed to create override directory: {result.stderr}",
+                )
+            return False
+
+        # Create override file with HOP3_UNSAFE=true
+        override_content = """[Service]
+Environment="HOP3_UNSAFE=true"
+"""
+        result = backend.run(
+            f"cat > /etc/systemd/system/hop3-server.service.d/test-mode.conf << 'EOF'\n{override_content}EOF",
+            check=False,
+        )
+        if not result.success:
+            if diagnostics:
+                diagnostics.add_failure(
+                    layer="server",
+                    operation="create_override_file",
+                    message=f"Failed to create override file: {result.stderr}",
+                )
+            return False
+
+        # Reload systemd and restart hop3-server
+        result = backend.run(
+            "systemctl daemon-reload && systemctl restart hop3-server",
+            check=False,
+        )
+        if not result.success:
+            if diagnostics:
+                diagnostics.add_failure(
+                    layer="server",
+                    operation="restart_service",
+                    message=f"Failed to restart service: {result.stderr}",
+                )
+            return False
+
+        # Wait a moment for service to start
+        time.sleep(3)
+
+        if diagnostics:
+            diagnostics.add_success(
+                layer="server",
+                operation="configure_test_mode",
+                message="Server configured for test mode (HOP3_UNSAFE=true)",
+            )
+        print("  ✓ Test mode configured")
+        return True
+
+    except Exception as e:
+        if diagnostics:
+            diagnostics.add_failure(
+                layer="server",
+                operation="configure_test_mode",
+                message=f"Exception configuring test mode: {e}",
+            )
+        return False
