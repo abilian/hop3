@@ -37,7 +37,7 @@ def generate_reports(
     # Check if target has diagnostics (new targets do)
     if hasattr(target, "diagnostics") and hasattr(target, "save_diagnostics"):
         if report == "html":
-            log_path = target.save_diagnostics(generate_html=False)
+            log_path = target.save_diagnostics(generate_html=False)  # type: ignore[operator]
             # Generate comprehensive HTML report with test results
             html_path = generate_html_report(target, results, log_path)
             click.echo(f"\nHTML report saved to: {html_path}")
@@ -46,11 +46,11 @@ def generate_reports(
             # Text report - save logs and show console output if there were failures
             has_failures = any(not r.passed for r in results)
             if has_failures:
-                log_path = target.save_diagnostics(generate_html=False)
+                log_path = target.save_diagnostics(generate_html=False)  # type: ignore[operator]
                 click.echo(f"\nDiagnostic logs saved to: {log_path}")
                 # Show diagnostics in console
                 if hasattr(target.diagnostics, "dump_to_console"):
-                    click.echo(target.diagnostics.dump_to_console())
+                    click.echo(target.diagnostics.dump_to_console())  # type: ignore[operator]
 
 
 def _is_short_content(text: str) -> bool:
@@ -174,11 +174,11 @@ def _build_diagnostic_section(target: DeploymentTarget) -> str:
         return ""
 
     diag = target.diagnostics
-    if not diag.entries:
+    if not diag.entries:  # type: ignore[union-attr]
         return ""
 
     diag_cards = []
-    for d_idx, e in enumerate(diag.entries):
+    for d_idx, e in enumerate(diag.entries):  # type: ignore[union-attr]
         d_status = "\u2713" if e.success else "\u2717"
         d_class = "phase-success" if e.success else "phase-failure"
         d_id = f"diag-{d_idx}"
@@ -242,7 +242,7 @@ def generate_html_report(
     test_cards = list(starmap(_build_test_card, enumerate(results)))
     diag_section = _build_diagnostic_section(target)
 
-    ctx = target.diagnostics.context if hasattr(target, "diagnostics") else None
+    ctx = target.diagnostics.context if hasattr(target, "diagnostics") else None  # type: ignore[union-attr]
     test_name = ctx.test_name if ctx else "Unknown"
     config_name = ctx.config if ctx else "Unknown"
     run_id = ctx.run_id if ctx else "Unknown"

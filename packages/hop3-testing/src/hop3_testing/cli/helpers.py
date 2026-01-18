@@ -74,6 +74,7 @@ def create_target_with_options(
             )
             sys.exit(1)
 
+        assert actual_host is not None  # Type narrowing after sys.exit
         remote_config = RemoteConfig(
             host=actual_host,
             port=port,

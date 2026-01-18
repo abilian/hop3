@@ -167,6 +167,8 @@ def system_test(
         click.echo("  hop3-test system --ssh --host server.com")
         sys.exit(1)
 
+    assert target_type is not None  # Type narrowing after sys.exit
+
     # Handle --reuse as alias for --deploy-from none
     if reuse:
         deploy_from = "none"
@@ -345,6 +347,7 @@ def apps_test(
         if not host:
             click.echo("--host required for remote target", err=True)
             sys.exit(1)
+        assert host is not None  # Type narrowing after sys.exit
         remote_config = RemoteConfig(
             host=host,
             port=port,

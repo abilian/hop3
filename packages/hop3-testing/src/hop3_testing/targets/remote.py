@@ -605,9 +605,9 @@ Environment="HOP3_UNSAFE=true"
         if not self._deployer_backend:
             return False
 
-        self._health_checker.timeout = max_wait
         return self._health_checker.wait_for_ready(
             self._deployer_backend,
+            timeout=max_wait,
             on_timeout=lambda: self._diagnostics_helper.collect_server_diagnostics(
                 self._deployer_backend
             ),

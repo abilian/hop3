@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import click
 
@@ -255,18 +255,17 @@ def run_single_test(
     console: Console | None = None,
 ) -> TestResult:
     """Run a single test with the appropriate runner."""
+    # Build common kwargs, only include console if provided
+    common_kwargs: dict[str, Any] = {"cleanup": cleanup, "verbose": verbose}
+    if console is not None:
+        common_kwargs["console"] = console
+
     if test.category == Category.DEMO:
-        runner = DemoTestRunner(
-            target, cleanup=cleanup, verbose=verbose, console=console
-        )
+        runner = DemoTestRunner(target, **common_kwargs)
     elif test.category == Category.TUTORIAL:
-        runner = TutorialTestRunner(
-            target, cleanup=cleanup, verbose=verbose, console=console
-        )
+        runner = TutorialTestRunner(target, **common_kwargs)
     else:
         # Default to deployment runner for deployment category and any others
-        runner = DeploymentTestRunner(
-            target, cleanup=cleanup, verbose=verbose, console=console
-        )
+        runner = DeploymentTestRunner(target, **common_kwargs)
 
     return runner.run(test)

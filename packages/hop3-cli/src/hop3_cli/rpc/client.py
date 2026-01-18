@@ -178,9 +178,7 @@ class Client:
             )
             self.stop()
 
-    def rpc(
-        self, method: str, cli_args: list[str], **extra_args: dict[str, Any]
-    ) -> Response:
+    def rpc(self, method: str, cli_args: list[str], **extra_args: Any) -> Response:
         """Call a remote method."""
         args = {
             "cli_args": cli_args,

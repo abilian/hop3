@@ -443,9 +443,9 @@ class DockerTarget(DeploymentTarget):
 
             # Wait for server to be ready
             self.diagnostics.set_phase("health_check")
-            self._health_checker.timeout = DEFAULT_HEALTH_CHECK_TIMEOUT
             if not self._health_checker.wait_for_ready(
                 self._deployer_backend,
+                timeout=DEFAULT_HEALTH_CHECK_TIMEOUT,
                 on_timeout=self._collect_deploy_diagnostics,
             ):
                 self._save_diagnostics_on_error()

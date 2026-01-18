@@ -13,6 +13,8 @@ dependencies = [
     # Testing
     "pytest>=8.0.0",
     "docker>=7.0.0",
+    # TOML parsing (Python 3.10 compat)
+    "tomli>=2.0.0; python_version < '3.11'",
     # Dev tools
     "devtools>=0.12.2",
     "python-dotenv>=1.0.1",

@@ -9,6 +9,7 @@ Runs demo scripts (demo-script.py) or declarative demos defined in test.toml.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import time
@@ -129,7 +130,7 @@ class DemoTestRunner:
                 text=True,
                 timeout=600,  # 10 minute timeout
                 env={
-                    **dict(subprocess.os.environ),
+                    **os.environ,
                     "HOP3_TEST_HOST": self.target.info.ssh_host,
                     "HOP3_TEST_PORT": str(self.target.info.ssh_port),
                     "HOP3_TEST_SSH_KEY": self.target.info.ssh_key or "",
