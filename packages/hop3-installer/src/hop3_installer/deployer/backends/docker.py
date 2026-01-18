@@ -173,49 +173,25 @@ class DockerDeployBackend(DeployBackend):
 
         return conflicts
 
-    def setup(self) -> bool:
-        """Start Docker container for deployment.
+    def _report_port_conflicts(self, conflicts: list[tuple[int, str, str]]) -> None:
+        """Report port conflict error to user."""
+        print("  ✗ Port conflict detected!")
+        print()
+        print("  The following ports are already in use by other containers:")
+        for port, container, desc in conflicts:
+            print(f"    - Port {port} ({desc}): used by container '{container}'")
+        print()
+        print("  To resolve this, either:")
+        print(f"    1. Stop the conflicting container: docker stop {conflicts[0][1]}")
+        print(f"    2. Remove it entirely: docker rm -f {conflicts[0][1]}")
+        print()
 
-        This method:
-        1. Builds the Docker image using docker build (with layer caching)
-        2. Starts a container from the built image
+    def _start_container(self) -> bool:
+        """Start a new Docker container.
 
-        Docker's layer caching means subsequent builds are fast if
-        the Dockerfile hasn't changed.
+        Returns:
+            True if container started successfully, False otherwise.
         """
-        if not self._docker_available():
-            print("  ✗ Docker is not available")
-            return False
-
-        # Check for port conflicts first (before building image)
-        conflicts = self._check_ports_available()
-        if conflicts:
-            print("  ✗ Port conflict detected!")
-            print()
-            print("  The following ports are already in use by other containers:")
-            for port, container, desc in conflicts:
-                print(f"    - Port {port} ({desc}): used by container '{container}'")
-            print()
-            print("  To resolve this, either:")
-            print(
-                f"    1. Stop the conflicting container: docker stop {conflicts[0][1]}"
-            )
-            print(f"    2. Remove it entirely: docker rm -f {conflicts[0][1]}")
-            print()
-            return False
-
-        # Build image using Dockerfile (with layer caching)
-        image_built = self._build_image()
-
-        # If build failed or no Dockerfile, fall back to ubuntu
-        if not image_built:
-            self.image = "ubuntu:24.04"
-            print(f"  → Falling back to {self.image}")
-
-        # Always remove existing container first
-        self._remove_container()
-
-        # Start container
         print(f"  → Starting container from {self.image}...")
         run_result = subprocess.run(
             [
@@ -246,32 +222,89 @@ class DockerDeployBackend(DeployBackend):
             if run_result.stderr:
                 print(f"  Error: {run_result.stderr.strip()}")
             return False
+        return True
 
-        # Wait for container to be ready
+    def _wait_for_container_ready(self, timeout_seconds: int = 15) -> bool:
+        """Wait for container to be running.
+
+        Args:
+            timeout_seconds: Maximum time to wait.
+
+        Returns:
+            True if container is ready, False if timeout.
+        """
         import time
 
-        for _ in range(30):
+        for _ in range(timeout_seconds * 2):  # Check every 0.5s
             if self._container_running():
-                break
+                return True
             time.sleep(0.5)
-        else:
-            print("  ✗ Container failed to start within timeout")
+
+        print("  ✗ Container failed to start within timeout")
+        return False
+
+    def _install_fallback_packages(self) -> bool:
+        """Install base packages when using fallback ubuntu image.
+
+        Returns:
+            True if packages installed successfully, False otherwise.
+        """
+        print(
+            "  → Installing base packages in container (this may take a few minutes)..."
+        )
+        install_cmd = (
+            "apt-get update && apt-get install -y python3 python3-venv git curl sudo"
+        )
+        exit_code = self.run_streaming(install_cmd)
+        if exit_code != 0:
+            print(f"  ✗ Failed to install base packages (exit code {exit_code})")
+            return False
+        print("  ✓ Base packages installed")
+        return True
+
+    def setup(self) -> bool:
+        """Start Docker container for deployment.
+
+        This method:
+        1. Builds the Docker image using docker build (with layer caching)
+        2. Starts a container from the built image
+
+        Docker's layer caching means subsequent builds are fast if
+        the Dockerfile hasn't changed.
+        """
+        if not self._docker_available():
+            print("  ✗ Docker is not available")
+            return False
+
+        # Check for port conflicts first (before building image)
+        conflicts = self._check_ports_available()
+        if conflicts:
+            self._report_port_conflicts(conflicts)
+            return False
+
+        # Build image using Dockerfile (with layer caching)
+        image_built = self._build_image()
+
+        # If build failed or no Dockerfile, fall back to ubuntu
+        if not image_built:
+            self.image = "ubuntu:24.04"
+            print(f"  → Falling back to {self.image}")
+
+        # Always remove existing container first
+        self._remove_container()
+
+        # Start and wait for container
+        if not self._start_container():
+            return False
+
+        if not self._wait_for_container_ready():
             return False
 
         # If we fell back to ubuntu, install packages manually
         if not image_built:
-            print(
-                "  → Installing base packages in container (this may take a few minutes)..."
-            )
-            install_cmd = "apt-get update && apt-get install -y python3 python3-venv git curl sudo"
-            exit_code = self.run_streaming(install_cmd)
-            if exit_code != 0:
-                print(f"  ✗ Failed to install base packages (exit code {exit_code})")
-                return False
-            print("  ✓ Base packages installed")
-        else:
-            print("  ✓ Container ready (packages pre-installed via cached layers)")
+            return self._install_fallback_packages()
 
+        print("  ✓ Container ready (packages pre-installed via cached layers)")
         return True
 
     def teardown(self) -> None:
