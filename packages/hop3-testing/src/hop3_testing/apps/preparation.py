@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
     from .catalog import AppSource
 
 
+@dataclass
 class AppPreparation:
     """Handles preparation of test applications for deployment.
 
@@ -32,16 +34,14 @@ class AppPreparation:
     - Creating deployment tarballs
     """
 
-    def __init__(self, app: AppSource, app_name: str):
-        """Initialize preparation.
+    app: AppSource
+    """Test application source."""
 
-        Args:
-            app: Test application source
-            app_name: Name for the deployed app
-        """
-        self.app = app
-        self.app_name = app_name
-        self.temp_dir: Path | None = None
+    app_name: str
+    """Name for the deployed app."""
+
+    temp_dir: Path | None = field(default=None, init=False)
+    """Temporary directory for prepared app."""
 
     def prepare(self) -> Path:
         """Prepare the application for deployment.

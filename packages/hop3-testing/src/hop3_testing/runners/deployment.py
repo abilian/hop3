@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
 
 
-@dataclass
+@dataclass(frozen=True)
 class DeploymentTestRunner:
     """Runs deployment tests using the existing DeploymentSession.
 

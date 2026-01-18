@@ -11,6 +11,7 @@ the principle of composition over inheritance.
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -49,6 +50,7 @@ class ContainerRunner(Protocol):
         ...
 
 
+@dataclass(frozen=True)
 class HealthChecker:
     """Handles health check logic for deployment targets.
 
@@ -61,25 +63,17 @@ class HealthChecker:
         is_ready = checker.check_container(container)
     """
 
-    def __init__(
-        self,
-        diagnostics: DiagnosticCollector | None = None,
-        timeout: int = DEFAULT_HEALTH_CHECK_TIMEOUT,
-        poll_interval: int = 2,
-        progress_interval: int = 10,
-    ):
-        """Initialize health checker.
+    diagnostics: DiagnosticCollector | None = None
+    """Optional diagnostics collector for logging."""
 
-        Args:
-            diagnostics: Optional diagnostics collector for logging
-            timeout: Maximum wait time in seconds
-            poll_interval: Time between health checks
-            progress_interval: How often to print progress (seconds)
-        """
-        self.diagnostics = diagnostics
-        self.timeout = timeout
-        self.poll_interval = poll_interval
-        self.progress_interval = progress_interval
+    timeout: int = DEFAULT_HEALTH_CHECK_TIMEOUT
+    """Maximum wait time in seconds."""
+
+    poll_interval: int = 2
+    """Time between health checks."""
+
+    progress_interval: int = 10
+    """How often to print progress (seconds)."""
 
     def check_status_code(self, output: str) -> bool:
         """Check if output contains a healthy status code.
@@ -244,6 +238,7 @@ class HealthChecker:
             )
 
 
+@dataclass(frozen=True)
 class DiagnosticsHelper:
     """Helper for common diagnostics operations.
 
@@ -251,13 +246,8 @@ class DiagnosticsHelper:
     used across multiple target types.
     """
 
-    def __init__(self, diagnostics: DiagnosticCollector):
-        """Initialize helper.
-
-        Args:
-            diagnostics: The diagnostics collector to wrap
-        """
-        self.diagnostics = diagnostics
+    diagnostics: DiagnosticCollector
+    """The diagnostics collector to wrap."""
 
     def save_on_error(self) -> Path:
         """Save diagnostics and print to console on error.
@@ -343,6 +333,7 @@ class DiagnosticsHelper:
             )
 
 
+@dataclass
 class DockerContainerHelper:
     """Helper for common Docker container operations.
 
@@ -351,14 +342,11 @@ class DockerContainerHelper:
     DockerTarget, DockerDeployTarget, and ReadyTarget.
     """
 
-    def __init__(self, container: Any):
-        """Initialize helper.
+    container: Any
+    """Docker container object."""
 
-        Args:
-            container: Docker container object
-        """
-        self.container = container
-        self._ssh_key_path: Path | None = None
+    _ssh_key_path: Path | None = field(default=None, init=False)
+    """Path to extracted SSH key (internal)."""
 
     def get_mapped_port(self, container_port: int) -> int | None:
         """Extract host port mapping for a container port.

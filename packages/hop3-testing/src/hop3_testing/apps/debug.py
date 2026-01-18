@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
 
 
-@dataclass
+@dataclass(frozen=True)
 class DeploymentDebugger:
     """Debug helper for deployed applications.
 

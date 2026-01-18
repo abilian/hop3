@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from .catalog import AppSource
 
 
-@dataclass
+@dataclass(frozen=True)
 class HttpVerifier:
     """Verifies HTTP endpoints of deployed applications."""
 
@@ -139,7 +139,7 @@ class HttpVerifier:
         return f"{http_base}{path}"
 
 
-@dataclass
+@dataclass(frozen=True)
 class CheckScriptRunner:
     """Runs check.py scripts for deployed applications."""
 

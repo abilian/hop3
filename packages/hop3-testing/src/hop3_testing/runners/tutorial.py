@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
 
 
-@dataclass
+@dataclass(frozen=True)
 class TutorialTestRunner:
     """Runs tutorial tests via validoc.
 

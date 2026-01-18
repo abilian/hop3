@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
 
 
-@dataclass
+@dataclass(frozen=True)
 class DemoTestRunner:
     """Runs demo tests.
 
@@ -346,7 +346,7 @@ class DemoTestRunner:
         return None
 
 
-@dataclass
+@dataclass(frozen=True)
 class DemoContext:
     """Context passed to demo scripts."""
 

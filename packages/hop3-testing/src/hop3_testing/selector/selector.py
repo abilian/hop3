@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from hop3_testing.catalog.models import TargetType
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
     from hop3_testing.catalog.scanner import TestCatalog
 
 
+@dataclass(frozen=True)
 class TestSelector:
     """Selects tests based on mode and additional filters.
 
@@ -25,13 +27,8 @@ class TestSelector:
     2. Apply any additional filters (tags, name pattern, etc.)
     """
 
-    def __init__(self, catalog: TestCatalog):
-        """Initialize the selector.
-
-        Args:
-            catalog: The test catalog to select from
-        """
-        self.catalog = catalog
+    catalog: TestCatalog
+    """The test catalog to select from."""
 
     def select(
         self,
