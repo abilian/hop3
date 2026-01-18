@@ -120,7 +120,7 @@ class DeploymentTestRunner:
         session.prepare()
 
         if not session.deploy():
-            deploy_logs = session._last_deploy_error or "Deployment failed"
+            deploy_logs = session.last_deploy_error or "Deployment failed"
             return deploy_logs, f"Deploy failed: {deploy_logs}"
 
         deploy_duration = time.time() - start_time

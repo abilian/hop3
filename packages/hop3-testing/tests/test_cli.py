@@ -47,7 +47,7 @@ class TestListCommand:
         result = runner.invoke(cli, ["list"])
 
         # Should either succeed or exit gracefully (no tests found)
-        assert result.exit_code in (0, 1)
+        assert result.exit_code in {0, 1}
 
 
 class TestShowCommand:

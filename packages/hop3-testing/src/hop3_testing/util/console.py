@@ -187,11 +187,11 @@ class Console(ABC):
     def separator(self, char: str = "=", width: int = 70) -> None:
         """Print a separator line."""
 
-    # Testing support
-    def reset(self) -> None:
+    # Testing support (non-abstract with default implementations)
+    def reset(self) -> None:  # noqa: B027
         """Reset any buffered state (for testing)."""
 
-    def output(self) -> str:
+    def output(self) -> str:  # noqa: B027
         """Return buffered output (for testing)."""
         return ""
 
