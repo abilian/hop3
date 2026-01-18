@@ -12,10 +12,12 @@ from __future__ import annotations
 import subprocess
 import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_testing.catalog.models import Validation, ValidationExpect
+from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
 from .base import TestResult, ValidationResult
 from .validations import run_validation
@@ -25,6 +27,7 @@ if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
 
 
+@dataclass
 class DemoTestRunner:
     """Runs demo tests.
 
@@ -36,22 +39,22 @@ class DemoTestRunner:
     receives a context object with target and configuration.
     """
 
-    def __init__(
-        self,
-        target: DeploymentTarget,
-        cleanup: bool = True,
-        verbose: bool = False,
-    ):
-        """Initialize the runner.
+    target: DeploymentTarget
+    """The deployment target."""
 
-        Args:
-            target: The deployment target
-            cleanup: Whether to cleanup after test
-            verbose: Whether to print verbose output
-        """
-        self.target = target
-        self.cleanup = cleanup
-        self.verbose = verbose
+    cleanup: bool = True
+    """Whether to cleanup after test."""
+
+    verbose: bool = False
+    """Whether to print verbose output."""
+
+    console: Console = field(default_factory=PrintingConsole)
+    """Console for output."""
+
+    def __post_init__(self) -> None:
+        """Set verbosity after initialization."""
+        if self.verbose:
+            self.console.set_verbosity(Verbosity.VERBOSE)
 
     def run(self, test: TestDefinition) -> TestResult:
         """Run a demo test.
@@ -106,8 +109,7 @@ class DemoTestRunner:
                     error=f"Demo script not found: {script_path}",
                 )
 
-            if self.verbose:
-                print(f"  Running demo script: {script_path}")
+            self.console.info(f"Running demo script: {script_path}")
 
             # Create context for the demo
             ctx = DemoContext(
@@ -138,11 +140,9 @@ class DemoTestRunner:
 
             if result.returncode != 0:
                 error = f"Demo script failed with exit code {result.returncode}"
-                if self.verbose:
-                    print(f"  Script output:\n{logs}")
+                self.console.debug(f"Script output:\n{logs}")
             else:
-                if self.verbose:
-                    print("  Demo script completed successfully")
+                self.console.success("Demo script completed successfully")
 
                 # Run validations if script passed
                 for validation in test.validations:
@@ -196,8 +196,9 @@ class DemoTestRunner:
             demo_dir = test.source_path.parent if test.source_path else Path.cwd()
 
             for i, step in enumerate(test.demo.steps):
-                if self.verbose:
-                    print(f"  Step {i + 1}: {step.action}")
+                self.console.progress(
+                    f"Step {i + 1}: {step.action}", i + 1, len(test.demo.steps)
+                )
 
                 step_result = self._run_step(step, demo_dir, deployed_apps)
 
@@ -345,18 +346,18 @@ class DemoTestRunner:
         return None
 
 
+@dataclass
 class DemoContext:
     """Context passed to demo scripts."""
 
-    def __init__(
-        self,
-        target: DeploymentTarget,
-        demo_dir: Path,
-        verbose: bool = False,
-    ):
-        self.target = target
-        self.demo_dir = demo_dir
-        self.verbose = verbose
+    target: DeploymentTarget
+    """The deployment target."""
+
+    demo_dir: Path
+    """Demo directory path."""
+
+    verbose: bool = False
+    """Whether to print verbose output."""
 
     def deploy(self, app_path: str, app_name: str) -> bool:
         """Deploy an application."""

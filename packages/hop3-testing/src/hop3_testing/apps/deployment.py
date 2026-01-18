@@ -58,6 +58,7 @@ class DeploymentSession:
         target: DeploymentTarget,
         app_name: str | None = None,
         config: dict[str, Any] | None = None,
+        console: Console | None = None,
     ):
         """Initialize deployment session.
 
@@ -66,6 +67,7 @@ class DeploymentSession:
             target: Deployment target
             app_name: Name for the deployed app (default: auto-generated)
             config: Additional configuration (debug, verbose, etc.)
+            console: Console for output (default: PrintingConsole)
         """
         self.app = app
         self.target = target
@@ -81,13 +83,22 @@ class DeploymentSession:
         self.deployed = False
         self._last_deploy_error: str | None = None
 
-        # Debug settings
-        self.verbose = self.config.get("verbose", False)
-        self.debug = self.config.get("debug", False)
+        # Console setup
+        self.console = console or PrintingConsole()
+
+        # Set verbosity from config
+        verbose = self.config.get("verbose", False)
+        debug = self.config.get("debug", False)
+        if debug or verbose:
+            self.console.set_verbosity(Verbosity.VERBOSE)
+
+        # Legacy attributes for backward compatibility
+        self.verbose = verbose
+        self.debug = debug
 
         # Delegate to specialized components
         self._preparation = AppPreparation(app, app_name)
-        self._debugger = DeploymentDebugger(target, app_name)
+        self._debugger = DeploymentDebugger(target, app_name, self.console)
 
     @property
     def temp_dir(self):
@@ -116,8 +127,7 @@ class DeploymentSession:
         if not self._preparation.temp_dir:
             self._preparation.prepare()
 
-        if self.verbose:
-            print(f"\nDeploying {self.app_name}...")
+        self.console.status(f"Deploying {self.app_name}...")
 
         try:
             # Create tarball
@@ -133,8 +143,7 @@ class DeploymentSession:
             self.deployed = True
 
             # Wait for deployment to complete
-            if self.verbose:
-                print(f"Waiting {wait_time}s for deployment to complete...")
+            self.console.info(f"Waiting {wait_time}s for deployment to complete...")
             time.sleep(wait_time)
 
             # Cleanup tarball
@@ -143,7 +152,7 @@ class DeploymentSession:
             return True
 
         except Exception as e:
-            print(f"Deployment failed: {e}")
+            self.console.error(f"Deployment failed: {e}")
             return False
 
     def _deploy_via_rpc(self, repository_b64: str) -> None:
@@ -158,7 +167,7 @@ class DeploymentSession:
         }
 
         # Suppress hop3-cli DEBUG logs unless verbose
-        if not self.verbose:
+        if self.console.verbosity != Verbosity.VERBOSE:
             logger.remove()
             logger.add(sys.stderr, level="WARNING")
 
@@ -169,8 +178,7 @@ class DeploymentSession:
             response = client.rpc(
                 "cli", ["deploy", self.app_name], repository=repository_b64
             )
-            if self.verbose:
-                print(f"Deploy response: {response}")
+            self.console.debug(f"Deploy response: {response}")
 
             # Check for RPC error response
             if isinstance(response, Error):
@@ -208,17 +216,16 @@ class DeploymentSession:
 
             app_in_list = self.app_name in result.stdout
 
-            if self.verbose:
-                print(f"check_deployed() for '{self.app_name}':")
-                print(f"  'hop3 apps' returned: {result.returncode}")
-                print(f"  stdout: {result.stdout[:500]}")
-                if result.stderr:
-                    print(f"  stderr: {result.stderr[:500]}")
-                print(f"  App in list: {app_in_list}")
+            self.console.debug(f"check_deployed() for '{self.app_name}':")
+            self.console.debug(f"  'hop3 apps' returned: {result.returncode}")
+            self.console.debug(f"  stdout: {result.stdout[:500]}")
+            if result.stderr:
+                self.console.debug(f"  stderr: {result.stderr[:500]}")
+            self.console.debug(f"  App in list: {app_in_list}")
 
             return app_in_list
         except Exception as e:
-            print(f"check_deployed() exception: {e}")
+            self.console.error(f"check_deployed() exception: {e}")
             traceback.print_exc()
             return False
 
@@ -241,7 +248,7 @@ class DeploymentSession:
             True if test passed, False otherwise
         """
         if not self.deployed:
-            print("App not deployed yet")
+            self.console.warning("App not deployed yet")
             return False
 
         # Show debug info before testing if debug mode
@@ -282,7 +289,7 @@ class DeploymentSession:
             True if check passed, False otherwise
         """
         if not self.deployed:
-            print("App not deployed yet")
+            self.console.warning("App not deployed yet")
             return False
 
         verifier = self._get_verifier()
@@ -310,7 +317,7 @@ class DeploymentSession:
             self.target.info,
             self.app,
             self.app_name,
-            self.verbose,
+            console=self.console,
         )
 
     def cleanup(self) -> bool:
@@ -342,10 +349,10 @@ class DeploymentSession:
             env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
             env["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"
 
-            if self.verbose:
-                print(f"\n[DEBUG] Destroying {self.app_name}")
+            self.console.debug(f"Destroying {self.app_name}")
 
-                # List apps before destroy
+            # List apps before destroy (verbose only)
+            if self.console.verbosity == Verbosity.VERBOSE:
                 before = subprocess.run(
                     ["hop3", "apps"],
                     env=env,
@@ -353,7 +360,7 @@ class DeploymentSession:
                     text=True,
                     check=False,
                 )
-                print(f"[DEBUG] Apps before destroy:\n{before.stdout}")
+                self.console.debug(f"Apps before destroy:\n{before.stdout}")
 
             result = subprocess.run(
                 ["hop3", "app:destroy", self.app_name, "-y"],
@@ -364,21 +371,20 @@ class DeploymentSession:
             )
 
             if result.returncode == 0:
-                if self.verbose:
-                    print(f"✓ App {self.app_name} destroy command completed")
-                    if result.stdout.strip():
-                        print(f"[SERVER STDOUT] {result.stdout.strip()}")
-                    # Filter out cryptography warnings from stderr
-                    if result.stderr.strip():
-                        stderr_lines = [
-                            line
-                            for line in result.stderr.split("\n")
-                            if "CryptographyDeprecationWarning" not in line
-                            and "TripleDES" not in line
-                            and line.strip()
-                        ]
-                        if stderr_lines:
-                            print(f"[SERVER STDERR] {' '.join(stderr_lines)}")
+                self.console.success(f"App {self.app_name} destroy command completed")
+                if result.stdout.strip():
+                    self.console.debug(f"[SERVER STDOUT] {result.stdout.strip()}")
+                # Filter out cryptography warnings from stderr
+                if result.stderr.strip():
+                    stderr_lines = [
+                        line
+                        for line in result.stderr.split("\n")
+                        if "CryptographyDeprecationWarning" not in line
+                        and "TripleDES" not in line
+                        and line.strip()
+                    ]
+                    if stderr_lines:
+                        self.console.debug(f"[SERVER STDERR] {' '.join(stderr_lines)}")
 
                 # Wait a moment for server-side cleanup
                 time.sleep(2)
@@ -386,15 +392,17 @@ class DeploymentSession:
                 # Verify app is gone
                 success = self._verify_app_destroyed(env)
             else:
-                print(f"❌ Failed to destroy app (exit code {result.returncode})")
+                self.console.error(
+                    f"Failed to destroy app (exit code {result.returncode})"
+                )
                 if result.stderr:
-                    print(f"  Error: {result.stderr[:200]}")
+                    self.console.error(f"  Error: {result.stderr[:200]}")
                 success = False
 
             self.deployed = False
 
         except Exception as e:
-            print(f"❌ Exception during destroy: {e}")
+            self.console.error(f"Exception during destroy: {e}")
             traceback.print_exc()
             success = False
 
@@ -411,11 +419,10 @@ class DeploymentSession:
         )
 
         if self.app_name in after.stdout:
-            print(f"⚠ WARNING: {self.app_name} still in database after destroy!")
+            self.console.warning(f"{self.app_name} still in database after destroy!")
             return False
 
-        if self.verbose:
-            print(f"✓ Verified {self.app_name} removed from database")
+        self.console.info(f"Verified {self.app_name} removed from database")
         return True
 
     def run_full_test(self, cleanup: bool = True) -> bool:
@@ -429,47 +436,63 @@ class DeploymentSession:
         """
         try:
             # Prepare
-            print(f"[STAGE] Preparing {self.app_name}")
+            self.console.start_phase(f"Preparing {self.app_name}")
             self.prepare()
+            self.console.end_phase(f"Preparing {self.app_name}")
 
             # Deploy
-            print(f"[STAGE] Deploying {self.app_name}")
+            self.console.start_phase(f"Deploying {self.app_name}")
             if not self.deploy():
-                print(f"❌ [FAILED AT] Deploy stage for {self.app_name}")
+                self.console.end_phase(f"Deploying {self.app_name}", success=False)
+                self.console.error(f"Deploy stage failed for {self.app_name}")
                 return False
+            self.console.end_phase(f"Deploying {self.app_name}")
 
             # Check deployment
-            print(f"[STAGE] Checking deployment for {self.app_name}")
+            self.console.start_phase(f"Checking deployment for {self.app_name}")
             if not self.check_deployed():
-                print(f"❌ [FAILED AT] Deployment check for {self.app_name}")
+                self.console.end_phase(
+                    f"Checking deployment for {self.app_name}", success=False
+                )
+                self.console.error(f"Deployment check failed for {self.app_name}")
                 return False
+            self.console.end_phase(f"Checking deployment for {self.app_name}")
 
             # Test HTTP (if app has web interface)
             if self.app.has_procfile:
-                print(f"[STAGE] Testing HTTP for {self.app_name}")
+                self.console.start_phase(f"Testing HTTP for {self.app_name}")
                 if not self.test_http():
-                    print(f"❌ [FAILED AT] HTTP test for {self.app_name}")
+                    self.console.end_phase(
+                        f"Testing HTTP for {self.app_name}", success=False
+                    )
+                    self.console.error(f"HTTP test failed for {self.app_name}")
                     return False
+                self.console.end_phase(f"Testing HTTP for {self.app_name}")
 
             # Run check script
             if self.app.has_check_script:
-                print(f"[STAGE] Running check script for {self.app_name}")
+                self.console.start_phase(f"Running check script for {self.app_name}")
                 if not self.run_check_script():
-                    print(f"❌ [FAILED AT] Check script for {self.app_name}")
+                    self.console.end_phase(
+                        f"Running check script for {self.app_name}", success=False
+                    )
+                    self.console.error(f"Check script failed for {self.app_name}")
                     return False
+                self.console.end_phase(f"Running check script for {self.app_name}")
 
-            print(f"✓ All tests passed for {self.app_name}")
+            self.console.success(f"All tests passed for {self.app_name}")
             return True
 
         except Exception as e:
-            print(f"❌ [FAILED AT] Exception for {self.app_name}: {e}")
+            self.console.error(f"Exception for {self.app_name}: {e}")
             traceback.print_exc()
             return False
 
         finally:
             if cleanup:
-                print(f"[STAGE] Cleanup for {self.app_name}")
+                self.console.start_phase(f"Cleanup for {self.app_name}")
                 self.cleanup()
+                self.console.end_phase(f"Cleanup for {self.app_name}")
 
     def __enter__(self) -> DeploymentSession:
         """Context manager entry."""

@@ -86,6 +86,8 @@ lint.extend-ignore = [
     "PLR0917", #	[ ] too-many-positional-arguments
     "TC004", #  	[ ] runtime-import-in-type-checking-block
     "TRY301", #     [ ] Abstract `raise` to an inner function
+    "RUF001",
+    "PLW1510",
 ]
 
 

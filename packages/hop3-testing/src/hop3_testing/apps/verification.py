@@ -13,12 +13,14 @@ This module handles verifying deployed applications:
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass, field
 from http import HTTPStatus
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import httpx
+
+from hop3_testing.util.console import Console, PrintingConsole
 
 if TYPE_CHECKING:
     from hop3_testing.targets.base import TargetInfo
@@ -26,25 +28,18 @@ if TYPE_CHECKING:
     from .catalog import AppSource
 
 
+@dataclass
 class HttpVerifier:
     """Verifies HTTP endpoints of deployed applications."""
 
-    def __init__(
-        self,
-        target_info: TargetInfo,
-        app_name: str,
-        verbose: bool = False,
-    ):
-        """Initialize HTTP verifier.
+    target_info: TargetInfo
+    """Target connection info."""
 
-        Args:
-            target_info: Target connection info
-            app_name: Name of the deployed app
-            verbose: Whether to print verbose output
-        """
-        self.target_info = target_info
-        self.app_name = app_name
-        self.verbose = verbose
+    app_name: str
+    """Name of the deployed app."""
+
+    console: Console = field(default_factory=PrintingConsole)
+    """Console for output."""
 
     def test(
         self,
@@ -89,8 +84,7 @@ class HttpVerifier:
         result["details"]["hostname"] = hostname
         result["details"]["expected_status"] = expected_status
 
-        if self.verbose:
-            print(f"\nTesting HTTP: {url} (Host: {hostname})")
+        self.console.info(f"Testing HTTP: {url} (Host: {hostname})")
 
         for attempt in range(max_retries):
             try:
@@ -111,35 +105,32 @@ class HttpVerifier:
                 if response.status_code == expected_status:
                     result["passed"] = True
                     result["message"] = f"HTTP {response.status_code} from {url}"
-                    if self.verbose:
-                        print(f"✓ HTTP test passed (status: {response.status_code})")
+                    self.console.success(
+                        f"HTTP test passed (status: {response.status_code})"
+                    )
                     return result
 
                 if response.status_code == HTTPStatus.BAD_GATEWAY:
-                    if self.verbose:
-                        print(
-                            f"  Attempt {attempt + 1}/{max_retries}: "
-                            "Backend not ready, retrying..."
-                        )
+                    self.console.debug(
+                        f"Attempt {attempt + 1}/{max_retries}: "
+                        "Backend not ready, retrying..."
+                    )
                     time.sleep(0.5)
                     continue
 
                 result["message"] = (
                     f"HTTP {response.status_code} (expected {expected_status})"
                 )
-                if self.verbose:
-                    print(f"  Unexpected status code: {response.status_code}")
+                self.console.debug(f"Unexpected status code: {response.status_code}")
                 return result
 
             except (httpx.HTTPError, httpx.ConnectError) as e:
                 result["details"]["last_error"] = str(e)
-                if self.verbose:
-                    print(f"  Attempt {attempt + 1}/{max_retries}: {e}")
+                self.console.debug(f"Attempt {attempt + 1}/{max_retries}: {e}")
                 time.sleep(0.5)
 
         result["message"] = f"HTTP test failed after {max_retries} attempts"
-        if self.verbose:
-            print(f"✗ HTTP test failed after {max_retries} attempts")
+        self.console.error(f"HTTP test failed after {max_retries} attempts")
         return result
 
     def _build_url(self, path: str) -> str:
@@ -148,28 +139,21 @@ class HttpVerifier:
         return f"{http_base}{path}"
 
 
+@dataclass
 class CheckScriptRunner:
     """Runs check.py scripts for deployed applications."""
 
-    def __init__(
-        self,
-        target_info: TargetInfo,
-        app: AppSource,
-        app_name: str,
-        verbose: bool = False,
-    ):
-        """Initialize check script runner.
+    target_info: TargetInfo
+    """Target connection info."""
 
-        Args:
-            target_info: Target connection info
-            app: Application source with check script
-            app_name: Name of the deployed app
-            verbose: Whether to print verbose output
-        """
-        self.target_info = target_info
-        self.app = app
-        self.app_name = app_name
-        self.verbose = verbose
+    app: AppSource
+    """Application source with check script."""
+
+    app_name: str
+    """Name of the deployed app."""
+
+    console: Console = field(default_factory=PrintingConsole)
+    """Console for output."""
 
     def run(self) -> bool:
         """Run the check script.
@@ -191,8 +175,7 @@ class CheckScriptRunner:
         if not self.app.has_check_script:
             result["passed"] = True
             result["message"] = "No check script (skipped)"
-            if self.verbose:
-                print("No check script available")
+            self.console.info("No check script available")
             return result
 
         try:
@@ -205,35 +188,31 @@ class CheckScriptRunner:
 
             # Execute check script
             ctx: dict[str, Any] = {}
-            exec(check_script_path.read_text(), ctx)
+            exec(check_script_path.read_text(), ctx)  # noqa: S102
 
             if "check" not in ctx:
                 result["message"] = "check() function not found in check.py"
-                if self.verbose:
-                    print("check() function not found in check.py")
+                self.console.warning("check() function not found in check.py")
                 return result
 
             ctx["check"](hostname, http_port)
             result["passed"] = True
             result["message"] = f"check.py passed ({check_script_path.name})"
-            if self.verbose:
-                print("✓ Check script passed")
+            self.console.success("Check script passed")
             return result
 
         except AssertionError as e:
             result["message"] = f"Assertion failed: {e}"
             result["details"]["error_type"] = "AssertionError"
             result["details"]["error"] = str(e)
-            if self.verbose:
-                print(f"✗ Check script failed: {e}")
+            self.console.error(f"Check script failed: {e}")
             return result
 
         except Exception as e:
             result["message"] = f"Check script error: {e}"
             result["details"]["error_type"] = type(e).__name__
             result["details"]["error"] = str(e)
-            if self.verbose:
-                print(f"✗ Check script failed: {e}")
+            self.console.error(f"Check script failed: {e}")
             return result
 
     def _get_connection_info(self) -> tuple[str, int]:
@@ -257,6 +236,7 @@ class CheckScriptRunner:
         return hostname, http_port
 
 
+@dataclass
 class AppVerifier:
     """Combined verifier for deployed applications.
 
@@ -264,24 +244,30 @@ class AppVerifier:
     execution for a deployed app.
     """
 
-    def __init__(
-        self,
-        target_info: TargetInfo,
-        app: AppSource,
-        app_name: str,
-        verbose: bool = False,
-    ):
-        """Initialize app verifier.
+    target_info: TargetInfo
+    """Target connection info."""
 
-        Args:
-            target_info: Target connection info
-            app: Application source
-            app_name: Name of the deployed app
-            verbose: Whether to print verbose output
-        """
-        self.http_verifier = HttpVerifier(target_info, app_name, verbose)
-        self.check_runner = CheckScriptRunner(target_info, app, app_name, verbose)
-        self.app = app
+    app: AppSource
+    """Application source."""
+
+    app_name: str
+    """Name of the deployed app."""
+
+    console: Console = field(default_factory=PrintingConsole)
+    """Console for output."""
+
+    http_verifier: HttpVerifier = field(init=False)
+    """HTTP verifier instance."""
+
+    check_runner: CheckScriptRunner = field(init=False)
+    """Check script runner instance."""
+
+    def __post_init__(self) -> None:
+        """Initialize sub-verifiers."""
+        self.http_verifier = HttpVerifier(self.target_info, self.app_name, self.console)
+        self.check_runner = CheckScriptRunner(
+            self.target_info, self.app, self.app_name, self.console
+        )
 
     def verify_http(
         self,

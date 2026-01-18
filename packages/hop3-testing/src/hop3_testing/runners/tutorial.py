@@ -12,10 +12,12 @@ from __future__ import annotations
 import subprocess
 import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_testing.catalog.models import Validation, ValidationExpect
+from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
 from .base import TestResult, ValidationResult
 from .validations import run_validation
@@ -25,6 +27,7 @@ if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
 
 
+@dataclass
 class TutorialTestRunner:
     """Runs tutorial tests via validoc.
 
@@ -32,22 +35,22 @@ class TutorialTestRunner:
     are validated using the validoc tool.
     """
 
-    def __init__(
-        self,
-        target: DeploymentTarget,
-        cleanup: bool = True,
-        verbose: bool = False,
-    ):
-        """Initialize the runner.
+    target: DeploymentTarget
+    """The deployment target."""
 
-        Args:
-            target: The deployment target
-            cleanup: Whether to cleanup after test
-            verbose: Whether to print verbose output
-        """
-        self.target = target
-        self.cleanup = cleanup
-        self.verbose = verbose
+    cleanup: bool = True
+    """Whether to cleanup after test."""
+
+    verbose: bool = False
+    """Whether to print verbose output."""
+
+    console: Console = field(default_factory=PrintingConsole)
+    """Console for output."""
+
+    def __post_init__(self) -> None:
+        """Set verbosity after initialization."""
+        if self.verbose:
+            self.console.set_verbosity(Verbosity.VERBOSE)
 
     def run(self, test: TestDefinition) -> TestResult:
         """Run a tutorial test.
@@ -88,9 +91,8 @@ class TutorialTestRunner:
                     error=f"Tutorial not found: {tutorial_path}",
                 )
 
-            if self.verbose:
-                print(f"  Running tutorial: {tutorial_path}")
-                print(f"  Runner: {test.tutorial.runner}")
+            self.console.info(f"Running tutorial: {tutorial_path}")
+            self.console.debug(f"Runner: {test.tutorial.runner}")
 
             # Run the tutorial using the specified runner
             if test.tutorial.runner == "validoc":
