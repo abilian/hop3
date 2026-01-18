@@ -10,7 +10,7 @@ import json
 
 import pytest
 from filelock import FileLock
-from hop3_testing.catalog import TestCatalog
+from hop3_testing.catalog import Catalog
 from hop3_testing.targets import (
     DeploymentConfig,
     DeploymentTarget,
@@ -165,12 +165,12 @@ def deployment_target(request, tmp_path_factory):
 # 3. Create a fixture for the test catalog
 @pytest.fixture(scope="session")
 def test_catalog():
-    """Provides a TestCatalog instance for accessing test definitions."""
+    """Provides a Catalog instance for accessing test definitions."""
     try:
         root = find_project_root()
     except RuntimeError:
         root = None
-    catalog = TestCatalog(root)
+    catalog = Catalog(root)
     catalog.scan()
     return catalog
 

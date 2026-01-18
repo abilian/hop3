@@ -9,18 +9,18 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from hop3_testing.catalog import TestCatalog
+from hop3_testing.catalog import Catalog
 from hop3_testing.targets.helpers import find_project_root
 
 
-def get_catalog() -> TestCatalog:
+def get_catalog() -> Catalog:
     """Create a catalog with explicit project root."""
     try:
         root = find_project_root()
     except RuntimeError:
         # Fallback: navigate from test file
         root = Path(__file__).parent.parent.parent.parent.parent
-    catalog = TestCatalog(root)
+    catalog = Catalog(root)
     catalog.scan()
     return catalog
 
