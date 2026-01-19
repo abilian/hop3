@@ -294,6 +294,13 @@ build:
 	@make clean
 	uv build packages/hop3-server
 	uv build packages/hop3-cli
+	uv build packages/hop3-installer
+	uv build packages/hop3-testing
+	uv build packages/hop3-tui
+
+## Publish to PyPI
+publish: clean build
+	twine upload dist/*
 
 ## Generate SBOM for CRA compliance
 generate-sbom:
