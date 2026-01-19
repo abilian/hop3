@@ -10,7 +10,7 @@ import pwd
 import subprocess  # noqa: TC003
 from pathlib import Path
 
-from hop3_installer.common import print_info, print_success, run_cmd
+from hop3_installer.common import print_info, print_success, print_warning, run_cmd
 
 from .config import HOME_DIR, HOP3_GROUP, HOP3_USER
 
@@ -74,7 +74,12 @@ def create_user_and_group() -> None:
     os.chown(HOME_DIR, hop3_uid, hop3_gid)
     Path(HOME_DIR).chmod(0o755)
 
-    # Add www-data to hop3 group
+    # Add www-data to hop3 group (needed for nginx to access app sockets)
     if user_exists("www-data"):
-        run_cmd(["usermod", "-a", "-G", HOP3_GROUP, "www-data"], check=False)
-        print_info("Added www-data to hop3 group")
+        result = run_cmd(["usermod", "-a", "-G", HOP3_GROUP, "www-data"], check=False)
+        if result.returncode == 0:
+            print_info("Added www-data to hop3 group")
+        else:
+            print_warning(
+                "Failed to add www-data to hop3 group - nginx may have permission issues"
+            )
