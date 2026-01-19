@@ -7,7 +7,7 @@ from __future__ import annotations
 import secrets
 from pathlib import Path
 
-from hop3_installer.common import print_success, run_cmd
+from hop3_installer.common import print_detail, print_success, print_warning, run_cmd
 
 from .config import SYSTEMD_UNIT, UWSGI_UNIT
 
@@ -64,9 +64,25 @@ def setup_systemd() -> str:
     run_cmd(["systemctl", "daemon-reload"])
     run_cmd(["systemctl", "enable", "hop3-server"], check=False)
     run_cmd(["systemctl", "enable", "uwsgi-hop3"], check=False)
-    run_cmd(["systemctl", "start", "hop3-server"], check=False)
-    run_cmd(["systemctl", "start", "uwsgi-hop3"], check=False)
 
-    print_success("Systemd services configured")
+    # Start services and check for errors
+    services_ok = True
+
+    result = run_cmd(["systemctl", "start", "hop3-server"], check=False)
+    if result.returncode != 0:
+        services_ok = False
+        print_warning("Failed to start hop3-server service")
+        print_detail("Check status with: journalctl -u hop3-server -n 50")
+
+    result = run_cmd(["systemctl", "start", "uwsgi-hop3"], check=False)
+    if result.returncode != 0:
+        services_ok = False
+        print_warning("Failed to start uwsgi-hop3 service")
+        print_detail("Check status with: journalctl -u uwsgi-hop3 -n 50")
+
+    if services_ok:
+        print_success("Systemd services configured and started")
+    else:
+        print_warning("Systemd services configured but some failed to start")
 
     return secret_key

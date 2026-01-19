@@ -100,6 +100,26 @@ def _find_mysql_admin_connection() -> list[str] | None:
     return None
 
 
+def _validate_mysql_password(password: str) -> bool:
+    """Validate that password contains only safe characters for SQL.
+
+    This is a defensive measure against SQL injection in case the password
+    generation method ever changes. Currently passwords are generated via
+    secrets.token_hex() which only produces hex characters (0-9, a-f).
+
+    Args:
+        password: Password to validate.
+
+    Returns:
+        True if password is safe, False otherwise.
+    """
+    # Allow alphanumeric, underscore, and hyphen (common in generated passwords)
+    allowed_chars = set(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
+    )
+    return all(c in allowed_chars for c in password)
+
+
 def _create_mysql_hop3_user(root_cmd: list[str], mysql_password: str) -> bool:
     """Create hop3 MySQL user with privileges.
 
@@ -110,6 +130,10 @@ def _create_mysql_hop3_user(root_cmd: list[str], mysql_password: str) -> bool:
     Returns:
         True if user created successfully, False otherwise.
     """
+    # Validate password to prevent SQL injection
+    if not _validate_mysql_password(mysql_password):
+        print_warning("Invalid characters in MySQL password")
+        return False
 
     def run_sql(sql: str) -> subprocess.CompletedProcess:
         return run_cmd(root_cmd + ["-e", sql], check=False)

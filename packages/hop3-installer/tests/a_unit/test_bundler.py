@@ -7,9 +7,9 @@ from __future__ import annotations
 from hop3_installer.bundler import (
     CLI_MODULES,
     SERVER_MODULES,
-    STDLIB_IMPORTS,
     extract_code_body,
     extract_imports,
+    is_stdlib_module,
     validate_bundle,
 )
 
@@ -37,12 +37,19 @@ class TestConstants:
         """SERVER_MODULES should contain the server installer."""
         assert "server_installer/installer.py" in SERVER_MODULES
 
-    def test_stdlib_imports_contains_common_modules(self):
-        """STDLIB_IMPORTS should contain commonly used stdlib modules."""
-        assert "os" in STDLIB_IMPORTS
-        assert "sys" in STDLIB_IMPORTS
-        assert "subprocess" in STDLIB_IMPORTS
-        assert "pathlib" not in STDLIB_IMPORTS  # Not in the list
+    def test_is_stdlib_module_detects_common_modules(self):
+        """is_stdlib_module should correctly identify stdlib modules."""
+        # Common stdlib modules
+        assert is_stdlib_module("os") is True
+        assert is_stdlib_module("sys") is True
+        assert is_stdlib_module("subprocess") is True
+        assert is_stdlib_module("pathlib") is True
+        assert is_stdlib_module("urllib.request") is True
+
+        # Non-stdlib modules
+        assert is_stdlib_module("requests") is False
+        assert is_stdlib_module("numpy") is False
+        assert is_stdlib_module("hop3_installer") is False
 
 
 # =============================================================================

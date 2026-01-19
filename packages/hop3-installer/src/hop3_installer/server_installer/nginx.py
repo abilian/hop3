@@ -12,6 +12,7 @@ from pathlib import Path
 
 from hop3_installer.common import (
     CommandError,
+    print_detail,
     print_error,
     print_info,
     print_success,
@@ -90,8 +91,13 @@ def setup_nginx(config: ServerInstallerConfig) -> None:
 
     # Enable and start nginx
     run_cmd(["systemctl", "enable", "nginx"], check=False)
-    run_cmd(["systemctl", "restart", "nginx"], check=False)
-    print_success("Nginx enabled and started")
+    result = run_cmd(["systemctl", "restart", "nginx"], check=False)
+    if result.returncode != 0:
+        print_warning("Failed to restart nginx")
+        print_detail("Check status with: journalctl -u nginx -n 50")
+        print_detail("Check config with: nginx -t")
+    else:
+        print_success("Nginx enabled and started")
 
 
 def _add_hop3_nginx_include() -> None:

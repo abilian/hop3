@@ -59,23 +59,23 @@ SERVER_MODULES = [
     "server_installer/installer.py",
 ]
 
-# Standard library imports that should be at the top
-STDLIB_IMPORTS = {
-    "argparse",
-    "grp",
-    "itertools",
-    "os",
-    "pwd",
-    "secrets",
-    "shlex",
-    "shutil",
-    "subprocess",
-    "sys",
-    "tempfile",
-    "threading",
-    "time",
-    "urllib.request",
-}
+
+def is_stdlib_module(module_name: str) -> bool:
+    """Check if a module is from the Python standard library.
+
+    Uses sys.stdlib_module_names (Python 3.10+) for accurate detection.
+    This eliminates the need to maintain a hardcoded list of stdlib modules.
+
+    Args:
+        module_name: Module name (e.g., "os", "urllib.request")
+
+    Returns:
+        True if the module is part of the standard library
+    """
+    # Get the top-level module name (e.g., "urllib" from "urllib.request")
+    top_level = module_name.split(".", maxsplit=1)[0]
+    return top_level in sys.stdlib_module_names
+
 
 # Header template
 HEADER_TEMPLATE = '''#!/usr/bin/env python3
@@ -345,10 +345,10 @@ def bundle_installer(installer_type: str) -> str:
         date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     )
 
-    # Generate import block
+    # Generate import block (only stdlib imports)
     import_lines = []
     for imp in sorted(all_imports):
-        if imp in STDLIB_IMPORTS:
+        if is_stdlib_module(imp):
             import_lines.append(f"import {imp}")
         # Skip non-stdlib imports (they should all be relative)
 
