@@ -158,6 +158,7 @@ markers = [
     "e2e: End-to-end tests using hop3-cli binary (auto-starts local server)",
     "docker: E2E tests using Docker containers (slow, run with make test-e2e)",
     "integration: Integration tests using real database (state-based testing)",
+    "slow: Tests that are slow to run (require substantial setup or Docker)",
 ]
 
 # ------------------------------------
