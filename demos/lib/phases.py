@@ -67,6 +67,22 @@ def run_prerequisites(ctx: DemoContext) -> bool:
     phase_start = time.time()
 
     try:
+        # For Docker backend, always set up the container first (regardless of --preflight)
+        # This is required because Docker backend needs to create/start the container
+        # before any other operations can run.
+        if ctx.backend == "docker" and not ctx.preflight:
+            from lib.commands import CommandError as CmdError
+
+            backend = ctx.get_backend()
+            print_step("Setting up Docker container...")
+            step_start = time.time()
+            if not backend.setup():
+                print_error("Failed to set up Docker container")
+                raise CmdError("Docker container setup failed")
+            record_timing("docker_setup", time.time() - step_start, category="setup")
+            print_success(f"Docker container '{ctx.docker_container}' ready")
+            pause(ctx.pause_between_steps)
+
         # Preflight checks (only with --preflight)
         if ctx.preflight:
             step_start = time.time()

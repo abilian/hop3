@@ -31,9 +31,16 @@ def _start_postgres_service(distro: str) -> bool:
     # Initialize PostgreSQL on Fedora (required before first start)
     if distro == "fedora":
         if not Path("/var/lib/pgsql/data/pg_hba.conf").exists():
-            run_cmd(["postgresql-setup", "--initdb"], check=False)
+            result = run_cmd(["postgresql-setup", "--initdb"], check=False)
+            if result.returncode != 0:
+                print_warning("PostgreSQL initialization failed")
+                if result.stderr:
+                    print_detail(result.stderr[:200])
 
-    run_cmd(["systemctl", "enable", "postgresql"], check=False)
+    result = run_cmd(["systemctl", "enable", "postgresql"], check=False)
+    if result.returncode != 0:
+        print_warning("Failed to enable PostgreSQL service")
+
     result = run_cmd(["systemctl", "start", "postgresql"], check=False)
 
     if result.returncode != 0:
@@ -139,7 +146,10 @@ def setup_postgres(config: ServerInstallerConfig, distro: str) -> str | None:
     print_success("PostgreSQL service started")
 
     # Create role and database
-    _create_postgres_role_and_db()
+    if not _create_postgres_role_and_db():
+        print_warning(
+            "PostgreSQL role/database creation had issues - continuing anyway"
+        )
 
     # Set superuser password
     pg_password = _set_postgres_password()
