@@ -177,6 +177,31 @@ class DiagnosticCollector:
             )
         )
 
+    def add_debug(
+        self,
+        layer: str,
+        operation: str,
+        message: str,
+        phase: str | None = None,
+        **kwargs,
+    ) -> None:
+        """Add debug information (always marked as success).
+
+        Use for capturing diagnostic data like logs, configs, etc.
+        that should be preserved in reports for debugging.
+        """
+        self.add(
+            DiagnosticEntry(
+                timestamp=self._now(),
+                layer=layer,
+                phase=phase or self._current_phase,
+                operation=operation,
+                success=True,
+                message=message,
+                **kwargs,
+            )
+        )
+
     def has_failures(self) -> bool:
         """Check if there are any failures."""
         return any(not e.success for e in self.entries)

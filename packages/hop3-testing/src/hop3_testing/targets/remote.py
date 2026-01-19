@@ -229,11 +229,12 @@ class RemoteTarget(DeploymentTarget):
             self._ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             connect_kwargs = self._build_ssh_connect_kwargs()
             self._ssh_client.connect(**connect_kwargs)
-            self._command_runner = SSHCommandRunner(self._ssh_client)
+            command_runner = SSHCommandRunner(self._ssh_client)
+            self._command_runner = command_runner
 
             # Configure server for test mode
             self.diagnostics.set_phase("configure_test_mode")
-            if not configure_server_test_mode(self._command_runner, self.diagnostics):
+            if not configure_server_test_mode(command_runner, self.diagnostics):
                 self.diagnostics.add_failure(
                     layer="server",
                     operation="configure_test_mode",
@@ -246,9 +247,9 @@ class RemoteTarget(DeploymentTarget):
             # Wait for server to be ready
             self.diagnostics.set_phase("health_check")
             if not self._health_checker.wait_for_ready(
-                self._command_runner,
+                command_runner,
                 on_timeout=lambda: self._diagnostics_helper.collect_server_diagnostics(
-                    self._command_runner
+                    command_runner
                 ),
             ):
                 self.diagnostics.add_failure(
