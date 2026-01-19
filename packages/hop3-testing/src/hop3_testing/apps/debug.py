@@ -8,6 +8,10 @@ This module provides debug helpers for inspecting deployed applications:
 - Nginx configuration inspection
 - App logs inspection
 - Directory structure inspection
+
+Debug output is:
+1. Printed to console for immediate feedback
+2. Added to DiagnosticCollector (if provided) for HTML/JSON reports
 """
 
 from __future__ import annotations
@@ -18,6 +22,7 @@ from typing import TYPE_CHECKING
 from hop3_testing.util.console import Console, PrintingConsole
 
 if TYPE_CHECKING:
+    from hop3_testing.diagnostics import DiagnosticCollector
     from hop3_testing.targets.base import DeploymentTarget
 
 
@@ -26,7 +31,7 @@ class DeploymentDebugger:
     """Debug helper for deployed applications.
 
     Provides utilities for inspecting the state of deployed apps
-    on the target server.
+    on the target server. Outputs to both console and diagnostics.
     """
 
     target: DeploymentTarget
@@ -37,6 +42,9 @@ class DeploymentDebugger:
 
     console: Console = field(default_factory=PrintingConsole)
     """Console for output."""
+
+    diagnostics: DiagnosticCollector | None = field(default=None)
+    """Optional diagnostics collector for persistent reports."""
 
     def show_nginx_config(self) -> None:
         """Print nginx configuration for the app."""
@@ -49,30 +57,54 @@ class DeploymentDebugger:
                 "echo 'exists' || echo 'missing'"
             )
 
+            config_content = None
             if "exists" in stdout:
                 self.console.success(
                     f"Nginx config found at /home/hop3/nginx/{self.app_name}.conf"
                 )
 
                 # Show config content
-                _exit_code, stdout, _stderr = self.target.exec_run(
+                _exit_code, config_content, _stderr = self.target.exec_run(
                     f"cat /home/hop3/nginx/{self.app_name}.conf"
                 )
                 self.console.status("Config content:")
-                self.console.echo(stdout)
+                self.console.echo(config_content)
             else:
                 self.console.error(
                     f"Nginx config NOT found at /home/hop3/nginx/{self.app_name}.conf"
                 )
 
             # Check nginx status
+            nginx_status = self._get_nginx_status()
             self._show_nginx_status()
 
             # Check nginx error logs
+            nginx_errors = self._get_nginx_errors()
             self._show_nginx_errors()
+
+            # Add to diagnostics for reports
+            if self.diagnostics:
+                self.diagnostics.add_debug(
+                    layer="app",
+                    operation="nginx_config",
+                    message=f"Nginx config for {self.app_name}",
+                    details={
+                        "config_exists": "exists" in stdout,
+                        "config_path": f"/home/hop3/nginx/{self.app_name}.conf",
+                        "nginx_status": nginx_status,
+                    },
+                    stdout=config_content or "",
+                    stderr=nginx_errors,
+                )
 
         except Exception as e:
             self.console.error(f"Error getting nginx debug info: {e}")
+            if self.diagnostics:
+                self.diagnostics.add_failure(
+                    layer="app",
+                    operation="nginx_config",
+                    message=f"Failed to get nginx config: {e}",
+                )
 
         self.console.separator()
 
@@ -82,19 +114,44 @@ class DeploymentDebugger:
 
         try:
             # Check app directory structure
+            app_structure = self._get_app_structure()
             self._show_app_structure()
 
             # Check src directory
+            src_structure = self._get_src_structure()
             self._show_src_structure()
 
             # Check logs directory
+            log_structure = self._get_log_structure()
             self._show_log_structure()
 
             # Show log contents
+            log_contents = self._get_log_contents()
             self._show_log_contents()
+
+            # Add to diagnostics for reports
+            if self.diagnostics:
+                self.diagnostics.add_debug(
+                    layer="app",
+                    operation="app_logs",
+                    message=f"App logs for {self.app_name}",
+                    details={
+                        "app_dir": f"/home/hop3/apps/{self.app_name}",
+                        "app_structure": app_structure,
+                        "src_structure": src_structure,
+                        "log_structure": log_structure,
+                    },
+                    stdout=log_contents,
+                )
 
         except Exception as e:
             self.console.error(f"Error getting app debug info: {e}")
+            if self.diagnostics:
+                self.diagnostics.add_failure(
+                    layer="app",
+                    operation="app_logs",
+                    message=f"Failed to get app logs: {e}",
+                )
 
         self.console.separator()
 
@@ -140,56 +197,81 @@ class DeploymentDebugger:
             pass
         return logs
 
-    def _show_nginx_status(self) -> None:
-        """Show nginx service status."""
-        self.console.status("Nginx status:")
+    def _get_nginx_status(self) -> str:
+        """Get nginx service status."""
         _exit_code, stdout, _stderr = self.target.exec_run(
             "systemctl is-active nginx 2>/dev/null || "
             "service nginx status 2>/dev/null || echo 'unknown'"
         )
-        self.console.echo(stdout)
+        return stdout.strip()
+
+    def _show_nginx_status(self) -> None:
+        """Show nginx service status."""
+        self.console.status("Nginx status:")
+        self.console.echo(self._get_nginx_status())
+
+    def _get_nginx_errors(self) -> str:
+        """Get nginx error log."""
+        _exit_code, stdout, _stderr = self.target.exec_run(
+            "tail -n 20 /var/log/nginx/error.log 2>/dev/null || echo 'No error log'"
+        )
+        return stdout
 
     def _show_nginx_errors(self) -> None:
         """Show nginx error log."""
         self.console.status("Nginx error log (last 20 lines):")
-        _exit_code, stdout, _stderr = self.target.exec_run(
-            "tail -n 20 /var/log/nginx/error.log 2>/dev/null || echo 'No error log'"
-        )
-        self.console.echo(stdout)
+        self.console.echo(self._get_nginx_errors())
 
-    def _show_app_structure(self) -> None:
-        """Show app directory structure."""
+    def _get_app_structure(self) -> str:
+        """Get app directory structure."""
         _exit_code, stdout, _stderr = self.target.exec_run(
             f"ls -la /home/hop3/apps/{self.app_name}/ 2>/dev/null || "
             "echo 'App directory not found'"
         )
-        self.console.status("App directory structure:")
-        self.console.echo(stdout)
+        return stdout
 
-    def _show_src_structure(self) -> None:
-        """Show src directory structure."""
+    def _show_app_structure(self) -> None:
+        """Show app directory structure."""
+        self.console.status("App directory structure:")
+        self.console.echo(self._get_app_structure())
+
+    def _get_src_structure(self) -> str:
+        """Get src directory structure."""
         _exit_code, stdout, _stderr = self.target.exec_run(
             f"ls -la /home/hop3/apps/{self.app_name}/src/ 2>/dev/null || "
             "echo 'Src directory not found'"
         )
-        self.console.status("Src directory:")
-        self.console.echo(stdout)
+        return stdout
 
-    def _show_log_structure(self) -> None:
-        """Show log directory structure."""
+    def _show_src_structure(self) -> None:
+        """Show src directory structure."""
+        self.console.status("Src directory:")
+        self.console.echo(self._get_src_structure())
+
+    def _get_log_structure(self) -> str:
+        """Get log directory structure."""
         _exit_code, stdout, _stderr = self.target.exec_run(
             f"ls -la /home/hop3/apps/{self.app_name}/log/ 2>/dev/null || "
             "echo 'Log directory not found'"
         )
-        self.console.status("Log directory:")
-        self.console.echo(stdout)
+        return stdout
 
-    def _show_log_contents(self) -> None:
-        """Show log file contents."""
+    def _show_log_structure(self) -> None:
+        """Show log directory structure."""
+        self.console.status("Log directory:")
+        self.console.echo(self._get_log_structure())
+
+    def _get_log_contents(self) -> str:
+        """Get log file contents."""
         _exit_code, stdout, _stderr = self.target.exec_run(
             f"find /home/hop3/apps/{self.app_name}/log -type f "
             "-exec tail -n 10 {} \\; 2>/dev/null || echo 'No log files'"
         )
+        return stdout
+
+    def _show_log_contents(self) -> None:
+        """Show log file contents."""
+        stdout = self._get_log_contents()
         if stdout.strip():
             self.console.status("Log contents:")
             self.console.echo(stdout)

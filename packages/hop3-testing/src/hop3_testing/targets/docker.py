@@ -518,8 +518,19 @@ class DockerTarget(DeploymentTarget):
         if not self._container:
             return
 
+        logs = self._container.logs().decode()
+
+        # Add to diagnostics for reports
+        self.diagnostics.add_debug(
+            layer="docker",
+            operation="container_logs",
+            message="Container logs captured",
+            details={"logs": logs},
+        )
+
+        # Still print for immediate feedback
         print("\nContainer logs:")
-        print(self._container.logs().decode())
+        print(logs)
 
     def _collect_deploy_diagnostics(self) -> None:
         """Collect diagnostics when health check times out."""
