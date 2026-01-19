@@ -54,7 +54,7 @@ from .verify import print_final_message, verify_installation, write_server_confi
 # =============================================================================
 
 
-def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:  # noqa: C901
+def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     """Run critical installation steps that must succeed.
 
     Args:
