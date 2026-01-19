@@ -170,9 +170,16 @@ def get_files_to_add(source_dir: Path, spec: pathspec.PathSpec | None) -> list[P
     files_to_add: list[Path] = []
     for file_path in source_dir.rglob("*"):
         relative_path = file_path.relative_to(source_dir)
+        relative_str = str(relative_path)
+
+        # Always exclude .git directory (not deployment material)
+        if relative_str.startswith(".git") and (
+            relative_str == ".git" or relative_str.startswith(".git/")
+        ):
+            continue
 
         # Let pathspec determine if the file should be ignored
-        if spec and spec.match_file(str(relative_path)):
+        if spec and spec.match_file(relative_str):
             continue
 
         # We only add files to the tar, not directories

@@ -10,6 +10,7 @@ the principle of composition over inheritance.
 
 from __future__ import annotations
 
+import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from .constants import (
     DEFAULT_HEALTH_CHECK_TIMEOUT,
+    E2E_TEST_SECRET_KEY,
     HEALTH_CHECK_COMMAND,
     HEALTHY_STATUS_CODES,
 )
@@ -31,6 +33,100 @@ class CommandRunner(Protocol):
     def run(self, command: str, *, check: bool = False) -> Any:
         """Run a command and return result with stdout attribute."""
         ...
+
+
+@dataclass
+class CommandResult:
+    """Result of a command execution, compatible with CommandRunner protocol."""
+
+    stdout: str
+    stderr: str
+    returncode: int
+
+    @property
+    def success(self) -> bool:
+        """Check if command succeeded."""
+        return self.returncode == 0
+
+
+@dataclass
+class DockerCommandRunner:
+    """Adapter that makes a Docker container conform to CommandRunner protocol.
+
+    This allows using Docker containers with helpers that expect CommandRunner,
+    without depending on hop3-installer's DockerDeployBackend.
+    """
+
+    container: Any
+    """Docker container object."""
+
+    def run(self, command: str, *, check: bool = False) -> CommandResult:
+        """Run a command in the container.
+
+        Args:
+            command: Shell command to execute
+            check: If True, raise on non-zero exit code
+
+        Returns:
+            CommandResult with stdout, stderr, returncode
+        """
+        result = self.container.exec_run(
+            ["bash", "-c", command],
+            demux=True,
+        )
+        stdout = result.output[0].decode() if result.output[0] else ""
+        stderr = result.output[1].decode() if result.output[1] else ""
+
+        cmd_result = CommandResult(
+            stdout=stdout,
+            stderr=stderr,
+            returncode=result.exit_code,
+        )
+
+        if check and result.exit_code != 0:
+            msg = f"Command failed with exit code {result.exit_code}: {stderr}"
+            raise RuntimeError(msg)
+
+        return cmd_result
+
+
+@dataclass
+class SSHCommandRunner:
+    """Adapter that makes a paramiko SSH client conform to CommandRunner protocol.
+
+    This allows using SSH connections with helpers that expect CommandRunner,
+    without depending on hop3-installer's SSHDeployBackend.
+    """
+
+    ssh_client: Any
+    """paramiko.SSHClient instance."""
+
+    def run(self, command: str, *, check: bool = False) -> CommandResult:
+        """Run a command via SSH.
+
+        Args:
+            command: Shell command to execute
+            check: If True, raise on non-zero exit code
+
+        Returns:
+            CommandResult with stdout, stderr, returncode
+        """
+        _stdin, stdout, stderr = self.ssh_client.exec_command(command)
+        exit_code = stdout.channel.recv_exit_status()
+        stdout_text = stdout.read().decode()
+        stderr_text = stderr.read().decode()
+
+        cmd_result = CommandResult(
+            stdout=stdout_text,
+            stderr=stderr_text,
+            returncode=exit_code,
+        )
+
+        if check and exit_code != 0:
+            msg = f"Command failed with exit code {exit_code}: {stderr_text}"
+            raise RuntimeError(msg)
+
+        return cmd_result
 
 
 class ContainerRunner(Protocol):
@@ -584,7 +680,7 @@ class DockerServiceManager:
         print("  Starting hop3-server...")
         self.backend.run(
             "su - hop3 -c '"
-            'export HOP3_SECRET_KEY="e2e-test-secret-key-do-not-use-in-production" && '
+            f'export HOP3_SECRET_KEY="{E2E_TEST_SECRET_KEY}" && '
             'export HOP3_UNSAFE="true" && '
             'export HOP3_DB_URL="sqlite:////home/hop3/hop3.db" && '
             'export ACME_ENGINE="self-signed" && '
@@ -615,128 +711,6 @@ class DockerServiceManager:
                 )
             return False
         return True
-
-
-@dataclass
-class DeploymentRunner:
-    """Runs the common hop3-deploy flow with diagnostics.
-
-    This class encapsulates the deployment execution logic that is shared
-    between DockerTarget and RemoteTarget, including:
-    - Running the deployer with timing
-    - Handling success/failure diagnostics
-    - Waiting for server health check
-    - Logging completion
-
-    Usage:
-        runner = DeploymentRunner(backend, deployer, diagnostics, health_checker)
-        if not runner.run_deploy():
-            raise RuntimeError("Deploy failed")
-        if not runner.wait_for_ready(on_timeout=collect_diagnostics):
-            raise RuntimeError("Health check failed")
-        runner.log_completion(start_time)
-    """
-
-    backend: CommandRunner
-    """The deploy backend (DockerDeployBackend or SSHDeployBackend)."""
-
-    diagnostics: DiagnosticCollector | None = None
-    """Optional diagnostics collector."""
-
-    health_checker: HealthChecker | None = None
-    """Health checker for waiting on server."""
-
-    def run_deploy(self, deployer: Any) -> tuple[bool, float]:
-        """Run the deployment with timing and diagnostics.
-
-        Args:
-            deployer: The Deployer instance to run
-
-        Returns:
-            Tuple of (success, duration_seconds)
-        """
-        if self.diagnostics:
-            self.diagnostics.set_phase("deploy")
-
-        print("\nRunning hop3-deploy...")
-        deploy_start = time.time()
-        success = deployer.deploy()
-        duration = time.time() - deploy_start
-
-        if not success:
-            if self.diagnostics:
-                self.diagnostics.add_failure(
-                    layer="deployer",
-                    operation="deploy",
-                    message="hop3-deploy failed",
-                    duration=duration,
-                )
-            return False, duration
-
-        if self.diagnostics:
-            self.diagnostics.add_success(
-                layer="deployer",
-                operation="deploy",
-                message=f"hop3-deploy completed in {duration:.1f}s",
-                duration=duration,
-            )
-
-        return True, duration
-
-    def wait_for_ready(
-        self,
-        timeout: int = 120,
-        on_timeout: Any | None = None,
-    ) -> bool:
-        """Wait for server to be ready.
-
-        Args:
-            timeout: Maximum wait time in seconds
-            on_timeout: Optional callback to run on timeout
-
-        Returns:
-            True if server became ready
-        """
-        if self.diagnostics:
-            self.diagnostics.set_phase("health_check")
-
-        if not self.health_checker:
-            # No health checker, assume ready
-            return True
-
-        return self.health_checker.wait_for_ready(
-            self.backend,
-            timeout=timeout,
-            on_timeout=on_timeout,
-        )
-
-    def log_completion(self, start_time: float) -> None:
-        """Log successful completion with total duration.
-
-        Args:
-            start_time: When the deployment started (from time.time())
-        """
-        total_duration = time.time() - start_time
-        if self.diagnostics:
-            self.diagnostics.add_success(
-                layer="testing",
-                operation="start_complete",
-                message=f"Target ready in {total_duration:.1f}s",
-                duration=total_duration,
-            )
-
-    def log_failure(self, error: Exception) -> None:
-        """Log deployment failure.
-
-        Args:
-            error: The exception that caused the failure
-        """
-        if self.diagnostics:
-            self.diagnostics.add_failure(
-                layer="testing",
-                operation="start",
-                message=f"Start failed: {error}",
-            )
 
 
 def configure_server_test_mode(
@@ -823,3 +797,166 @@ Environment="HOP3_UNSAFE=true"
                 message=f"Exception configuring test mode: {e}",
             )
         return False
+
+
+def _build_deploy_command(
+    *,
+    docker: bool,
+    host: str | None,
+    user: str,
+    container_name: str,
+    image: str,
+    use_local: bool,
+    clean: bool,
+    branch: str,
+    verbose: bool,
+) -> list[str]:
+    """Build hop3-deploy command arguments."""
+    cmd = ["hop3-deploy"]
+
+    if docker:
+        cmd.extend([
+            "--docker",
+            "--docker-container",
+            container_name,
+            "--docker-image",
+            image,
+        ])
+    else:
+        if not host:
+            msg = "host is required for SSH deployment"
+            raise ValueError(msg)
+        cmd.extend(["--host", host, "--ssh-user", user])
+
+    if use_local:
+        cmd.append("--local")
+    if clean:
+        cmd.append("--clean")
+    if branch != "devel":
+        cmd.extend(["--branch", branch])
+    if verbose:
+        cmd.append("--verbose")
+
+    return cmd
+
+
+def run_hop3_deploy(
+    *,
+    docker: bool = False,
+    host: str | None = None,
+    user: str = "root",
+    container_name: str = "hop3-test",
+    image: str = "debian:bookworm",
+    use_local: bool = True,
+    clean: bool = False,
+    branch: str = "devel",
+    verbose: bool = False,
+    diagnostics: DiagnosticCollector | None = None,
+) -> tuple[bool, float]:
+    """Run hop3-deploy via subprocess.
+
+    This invokes hop3-deploy as a CLI tool rather than importing its internals,
+    maintaining proper separation between hop3-testing and hop3-installer.
+
+    Args:
+        docker: If True, deploy to Docker container
+        host: Remote host (required if not docker)
+        user: SSH user for remote deployment
+        container_name: Docker container name
+        image: Docker base image
+        use_local: Use local code (--local flag)
+        clean: Clean before deploy (--clean flag)
+        branch: Git branch to deploy
+        verbose: Enable verbose output
+        diagnostics: Optional diagnostics collector
+
+    Returns:
+        Tuple of (success, duration_seconds)
+    """
+    cmd = _build_deploy_command(
+        docker=docker,
+        host=host,
+        user=user,
+        container_name=container_name,
+        image=image,
+        use_local=use_local,
+        clean=clean,
+        branch=branch,
+        verbose=verbose,
+    )
+
+    print(f"\nRunning: {' '.join(cmd)}\n")
+
+    if diagnostics:
+        diagnostics.set_phase("deploy")
+
+    start_time = time.time()
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=not verbose,
+            text=True,
+            check=False,
+        )
+        duration = time.time() - start_time
+
+        if result.returncode != 0:
+            _log_deploy_failure(diagnostics, duration, result, verbose)
+            return False, duration
+
+        _log_deploy_success(diagnostics, duration)
+        return True, duration
+
+    except FileNotFoundError:
+        duration = time.time() - start_time
+        _log_deploy_not_found(diagnostics, duration)
+        return False, duration
+
+
+def _log_deploy_failure(
+    diagnostics: DiagnosticCollector | None,
+    duration: float,
+    result: subprocess.CompletedProcess,
+    verbose: bool,
+) -> None:
+    """Log deployment failure."""
+    if diagnostics:
+        diagnostics.add_failure(
+            layer="deployer",
+            operation="deploy",
+            message="hop3-deploy failed",
+            duration=duration,
+            stdout=result.stdout if not verbose else "",
+            stderr=result.stderr if not verbose else "",
+        )
+    if not verbose and result.stderr:
+        print(f"Deploy failed:\n{result.stderr}")
+
+
+def _log_deploy_success(
+    diagnostics: DiagnosticCollector | None,
+    duration: float,
+) -> None:
+    """Log deployment success."""
+    if diagnostics:
+        diagnostics.add_success(
+            layer="deployer",
+            operation="deploy",
+            message=f"hop3-deploy completed in {duration:.1f}s",
+            duration=duration,
+        )
+
+
+def _log_deploy_not_found(
+    diagnostics: DiagnosticCollector | None,
+    duration: float,
+) -> None:
+    """Log hop3-deploy not found error."""
+    if diagnostics:
+        diagnostics.add_failure(
+            layer="deployer",
+            operation="deploy",
+            message="hop3-deploy not found - is hop3-installer installed?",
+            duration=duration,
+        )
+    print("Error: hop3-deploy command not found")

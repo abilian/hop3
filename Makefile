@@ -70,12 +70,12 @@ serve-web:
 ruff:
 	uv run ruff format --check packages/*/src packages/*/tests
 	uv run ruff check packages/*/src packages/*/tests
-	# uv run ty check packages/*/src
 
 ## Lint and type check
 lint:
 	@echo "--> Linting code"
 	@make ruff
+	uv run ty check packages/hop3-testing/src
 	uv run mypy packages/hop3-server/src
 	# cd packages/hop3-server && uv run deptry src
 	@echo ""

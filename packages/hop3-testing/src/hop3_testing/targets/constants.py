@@ -38,3 +38,6 @@ DEFAULT_READY_IMAGE = "hop3-ready:latest"
 DEFAULT_SSH_PORT = 22
 DEFAULT_SSH_USER = "hop3"
 DEFAULT_SSH_ROOT_USER = "root"
+
+# Test environment secrets (NOT for production use)
+E2E_TEST_SECRET_KEY = "e2e-test-secret-key-do-not-use-in-production"
