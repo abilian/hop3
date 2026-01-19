@@ -10,20 +10,14 @@ the full test lifecycle: prepare, deploy, verify, cleanup.
 
 from __future__ import annotations
 
-import base64
 import os
 import subprocess
-import sys
 import time
 import traceback
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
-from hop3_cli.config import Config
-from hop3_cli.rpc import Client
-from jsonrpcclient import Error
-from loguru import logger
-
+from hop3_testing.targets.constants import E2E_TEST_SECRET_KEY
 from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
 from .debug import DeploymentDebugger
@@ -92,10 +86,6 @@ class DeploymentSession:
         if debug or verbose:
             self.console.set_verbosity(Verbosity.VERBOSE)
 
-        # Legacy attributes for backward compatibility
-        self.verbose = verbose
-        self.debug = debug
-
         # Delegate to specialized components
         self._preparation = AppPreparation(app, app_name)
         self._debugger = DeploymentDebugger(target, app_name, self.console)
@@ -135,15 +125,9 @@ class DeploymentSession:
         self.console.status(f"Deploying {self.app_name}...")
 
         try:
-            # Create tarball
-            tarball_path = self._preparation.create_tarball()
-
-            # Read and encode tarball
-            tarball_bytes = tarball_path.read_bytes()
-            repository_b64 = base64.b64encode(tarball_bytes).decode("utf-8")
-
-            # Deploy via RPC
-            self._deploy_via_rpc(repository_b64)
+            # Deploy via CLI (CLI will create tarball from directory)
+            if not self._deploy_via_cli():
+                return False
 
             self.deployed = True
 
@@ -151,48 +135,57 @@ class DeploymentSession:
             self.console.info(f"Waiting {wait_time}s for deployment to complete...")
             time.sleep(wait_time)
 
-            # Cleanup tarball
-            tarball_path.unlink(missing_ok=True)
-
             return True
 
         except Exception as e:
             self.console.error(f"Deployment failed: {e}")
             return False
 
-    def _deploy_via_rpc(self, repository_b64: str) -> None:
-        """Deploy via hop3 RPC client."""
+    def _deploy_via_cli(self) -> bool:
+        """Deploy via hop3 CLI subprocess.
+
+        Returns:
+            True if deployment succeeded, False otherwise
+        """
         target_info = self.target.info
 
-        # Build SSH API URL
-        api_url = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
+        env = os.environ.copy()
+        env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
+        env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
+        env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
 
-        env_config = {
-            "ssh_key": target_info.ssh_key,
-        }
+        # Deploy from prepared temp directory
+        # The CLI will create a tarball from this directory (excluding .git)
+        result = subprocess.run(
+            ["hop3", "deploy", self.app_name, str(self._preparation.temp_dir)],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
 
-        # Suppress hop3-cli DEBUG logs unless verbose
-        if self.console.verbosity != Verbosity.VERBOSE:
-            logger.remove()
-            logger.add(sys.stderr, level="WARNING")
+        self.console.debug(f"Deploy exit code: {result.returncode}")
+        if result.stdout.strip():
+            self.console.debug(f"Deploy stdout: {result.stdout.strip()}")
 
-        config = Config(data=env_config)
-        client = Client(config=config, api_url_override=api_url)
+        # Filter cryptography warnings from stderr
+        if result.stderr.strip():
+            stderr_lines = [
+                line
+                for line in result.stderr.split("\n")
+                if "CryptographyDeprecationWarning" not in line
+                and "TripleDES" not in line
+                and line.strip()
+            ]
+            if stderr_lines:
+                self.console.debug(f"Deploy stderr: {' '.join(stderr_lines)}")
 
-        try:
-            response = client.rpc(
-                "cli", ["deploy", self.app_name], repository=repository_b64
-            )
-            self.console.debug(f"Deploy response: {response}")
+        if result.returncode != 0:
+            self._last_deploy_error = result.stderr or "Deploy command failed"
+            self.console.error(f"Deploy failed: {self._last_deploy_error}")
+            return False
 
-            # Check for RPC error response
-            if isinstance(response, Error):
-                self._last_deploy_error = response.message
-        finally:
-            # Close tunnel to prevent hanging
-            if client.tunnel:
-                client.tunnel.stop()
-                client.tunnel = None
+        return True
 
     def check_deployed(self) -> bool:
         """Check if the app is deployed and running.
@@ -209,7 +202,7 @@ class DeploymentSession:
             env = os.environ.copy()
             env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
             env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
-            env["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"
+            env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
 
             result = subprocess.run(
                 ["hop3", "apps"],
@@ -257,7 +250,7 @@ class DeploymentSession:
             return False
 
         # Show debug info before testing if debug mode
-        if self.debug:
+        if self.config.get("debug", False):
             self._debugger.show_all()
 
         verifier = self._get_verifier()
@@ -352,7 +345,7 @@ class DeploymentSession:
             env = os.environ.copy()
             env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
             env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
-            env["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"
+            env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
 
             self.console.debug(f"Destroying {self.app_name}")
 

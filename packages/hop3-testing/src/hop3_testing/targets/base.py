@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING, Any, Literal
 import httpx
 from typing_extensions import Self
 
+from .constants import E2E_TEST_SECRET_KEY
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -188,7 +190,7 @@ class DeploymentTarget(ABC):
         env = os.environ.copy()
         env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
         env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
-        env["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"
+        env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
 
         # Always add -y flag to skip confirmations in E2E tests
         cmd_args = ["hop3", *args, "-y"]

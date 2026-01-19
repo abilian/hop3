@@ -26,23 +26,19 @@ from .base import DeploymentTarget, TargetInfo
 from .config import DeploymentConfig, RemoteConfig
 from .constants import (
     DEFAULT_HEALTH_CHECK_TIMEOUT,
-    DEFAULT_SSH_PORT,
-    DEFAULT_SSH_ROOT_USER,
     HEALTH_CHECK_COMMAND,
     HEALTHY_STATUS_CODES,
 )
 from .helpers import (
-    DeploymentRunner,
     DiagnosticsHelper,
     HealthChecker,
+    SSHCommandRunner,
     configure_server_test_mode,
-    find_project_root,
+    run_hop3_deploy,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-
-    from hop3_installer.deployer.backends.base import DeployBackend
 
 
 class RemoteTarget(DeploymentTarget):
@@ -123,7 +119,7 @@ class RemoteTarget(DeploymentTarget):
 
         # State
         self._ssh_client: paramiko.SSHClient | None = None
-        self._deployer_backend: DeployBackend | None = None
+        self._command_runner: SSHCommandRunner | None = None
         self._started = False
 
     def start(self) -> TargetInfo:
@@ -167,6 +163,9 @@ class RemoteTarget(DeploymentTarget):
             msg = f"Failed to connect to remote server: {e}"
             raise RuntimeError(msg) from e
 
+        # Create command runner for SSH client
+        self._command_runner = SSHCommandRunner(self._ssh_client)
+
         # Check if server is ready
         if not self._check_server_ready_ssh():
             msg = "Remote server is not ready (hop3-server not responding)"
@@ -190,13 +189,6 @@ class RemoteTarget(DeploymentTarget):
         Returns:
             TargetInfo with connection details
         """
-        # Lazy imports to avoid circular dependencies
-        from hop3_installer.deployer.backends.ssh import (  # noqa: PLC0415
-            SSHDeployBackend,
-        )
-        from hop3_installer.deployer.config import DeployConfig  # noqa: PLC0415
-        from hop3_installer.deployer.deploy import Deployer  # noqa: PLC0415
-
         config = self.remote_config
         deployment = self.deployment
         assert deployment is not None  # Type narrowing
@@ -215,67 +207,33 @@ class RemoteTarget(DeploymentTarget):
         print("=" * 70)
 
         try:
-            # Find project root
-            project_root = find_project_root()
-
-            self.diagnostics.add_success(
-                layer="testing",
-                operation="find_project_root",
-                message=f"Found project root at {project_root}",
-            )
-
-            # Create deployer config
-            deploy_config = DeployConfig(
+            # Run hop3-deploy via subprocess (no hop3-installer imports!)
+            success, _duration = run_hop3_deploy(
+                docker=False,
                 host=config.host,
-                ssh_user=config.user,
-                ssh_port=config.port,
-                use_local_code=deployment.source == "local",
-                clean_before=deployment.clean,
+                user=config.user,
+                use_local=deployment.source == "local",
+                clean=deployment.clean,
                 branch=deployment.branch,
-                project_root=project_root,
                 verbose=deployment.verbose,
-                quiet=False,
-            )
-
-            self.diagnostics.add_success(
-                layer="deployer",
-                operation="create_config",
-                message="Created deployment configuration",
-                details={
-                    "host": config.host,
-                    "user": config.user,
-                    "source": deployment.source,
-                    "clean": deployment.clean,
-                    "branch": deployment.branch,
-                },
-            )
-
-            # Print equivalent CLI command
-            cli_cmd = self._build_cli_command()
-            print(f"\nEquivalent command: {cli_cmd}\n")
-
-            # Create backend and deployer
-            backend = SSHDeployBackend(deploy_config)
-            self._deployer_backend = backend
-            deployer = Deployer(deploy_config, backend)
-
-            # Create deployment runner for common deploy flow
-            deploy_runner = DeploymentRunner(
-                backend=backend,
                 diagnostics=self.diagnostics,
-                health_checker=self._health_checker,
             )
 
-            # Run deployment
-            success, _duration = deploy_runner.run_deploy(deployer)
             if not success:
                 self._save_diagnostics_on_error()
                 msg = "hop3-deploy failed - see diagnostics above"
                 raise RuntimeError(msg)
 
+            # Connect via SSH after deployment
+            self._ssh_client = paramiko.SSHClient()
+            self._ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            connect_kwargs = self._build_ssh_connect_kwargs()
+            self._ssh_client.connect(**connect_kwargs)
+            self._command_runner = SSHCommandRunner(self._ssh_client)
+
             # Configure server for test mode
             self.diagnostics.set_phase("configure_test_mode")
-            if not configure_server_test_mode(backend, self.diagnostics):
+            if not configure_server_test_mode(self._command_runner, self.diagnostics):
                 self.diagnostics.add_failure(
                     layer="server",
                     operation="configure_test_mode",
@@ -286,9 +244,11 @@ class RemoteTarget(DeploymentTarget):
                 raise RuntimeError(msg)
 
             # Wait for server to be ready
-            if not deploy_runner.wait_for_ready(
+            self.diagnostics.set_phase("health_check")
+            if not self._health_checker.wait_for_ready(
+                self._command_runner,
                 on_timeout=lambda: self._diagnostics_helper.collect_server_diagnostics(
-                    backend
+                    self._command_runner
                 ),
             ):
                 self.diagnostics.add_failure(
@@ -304,7 +264,14 @@ class RemoteTarget(DeploymentTarget):
             self._info = self._build_target_info()
             self._started = True
 
-            deploy_runner.log_completion(start_time)
+            # Log completion
+            total_duration = time.time() - start_time
+            self.diagnostics.add_success(
+                layer="testing",
+                operation="start_complete",
+                message=f"Target ready in {total_duration:.1f}s",
+                duration=total_duration,
+            )
 
             print("\nTarget ready:")
             print(f"  SSH: ssh {config.user}@{config.host}")
@@ -349,10 +316,10 @@ class RemoteTarget(DeploymentTarget):
         if not self._started:
             return False
 
-        # Use deployer backend if available (deploy mode)
-        if self._deployer_backend:
-            return self._health_checker.is_ready(self._deployer_backend)
-        # Use SSH client (connect-only mode)
+        # Use command runner if available
+        if self._command_runner:
+            return self._health_checker.is_ready(self._command_runner)
+        # Fallback to direct SSH check
         if self._ssh_client:
             return self._check_server_ready_ssh()
         return False
@@ -370,12 +337,12 @@ class RemoteTarget(DeploymentTarget):
             # Properly escape command arguments
             cmd = " ".join(f'"{arg}"' if " " in arg else arg for arg in cmd)
 
-        # Use deployer backend if available (deploy mode)
-        if self._deployer_backend:
-            result = self._deployer_backend.run(cmd, check=False)
+        # Use command runner if available
+        if self._command_runner:
+            result = self._command_runner.run(cmd, check=False)
             return result.returncode, result.stdout, result.stderr
 
-        # Use SSH client (connect-only mode)
+        # Fallback to direct SSH
         if self._ssh_client:
             try:
                 _stdin, stdout, stderr = self._ssh_client.exec_command(cmd)
@@ -396,7 +363,7 @@ class RemoteTarget(DeploymentTarget):
         Yields:
             Log lines
         """
-        if not self._ssh_client and not self._deployer_backend:
+        if not self._command_runner and not self._ssh_client:
             return
 
         # Try to get hop3-server logs
@@ -407,14 +374,14 @@ class RemoteTarget(DeploymentTarget):
         )
 
         try:
-            if self._ssh_client:
+            if self._command_runner:
+                result = self._command_runner.run(log_cmd, check=False)
+                for line in result.stdout.split("\n"):
+                    yield line
+            elif self._ssh_client:
                 _stdin, stdout, _stderr = self._ssh_client.exec_command(log_cmd)
                 for line in stdout:
                     yield line.rstrip("\n")
-            elif self._deployer_backend:
-                result = self._deployer_backend.run(log_cmd, check=False)
-                for line in result.stdout.split("\n"):
-                    yield line
         except Exception as e:
             yield f"Error getting logs: {e}"
 
@@ -487,27 +454,6 @@ class RemoteTarget(DeploymentTarget):
                 "diagnostics": self.diagnostics,
             },
         )
-
-    def _build_cli_command(self) -> str:
-        """Build equivalent hop3-deploy CLI command for reproducibility."""
-        config = self.remote_config
-        deployment = self.deployment
-        assert deployment is not None
-
-        cmd_parts = ["hop3-deploy", "--host", config.host]
-
-        if config.user != DEFAULT_SSH_ROOT_USER:
-            cmd_parts.extend(["--user", config.user])
-        if config.port != DEFAULT_SSH_PORT:
-            cmd_parts.extend(["--port", str(config.port)])
-        if deployment.source == "local":
-            cmd_parts.append("--local")
-        if deployment.clean:
-            cmd_parts.append("--clean")
-        if deployment.branch != "devel":
-            cmd_parts.extend(["--branch", deployment.branch])
-
-        return " ".join(cmd_parts)
 
     def _save_diagnostics_on_error(self) -> None:
         """Save diagnostics to files and print to console on error."""

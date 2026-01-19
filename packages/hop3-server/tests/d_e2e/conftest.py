@@ -540,3 +540,113 @@ def wait_for_http_ready(
     error_msg = f"Timeout after {timeout}s. Last error: {last_error}"
     print(f"✗ {error_msg}")
     return False, error_msg
+
+
+# ============================================================================
+# Test App Creation Helpers
+# ============================================================================
+
+
+def create_flask_app(
+    tmp_path: Path,
+    name: str,
+    response: str = "Hello",
+    extra_imports: str = "",
+    extra_code: str = "",
+    requirements: str = "flask==3.0.0\n",
+) -> Path:
+    """Create a minimal Flask app for testing.
+
+    Args:
+        tmp_path: Base directory for app creation
+        name: App directory name
+        response: String to return from index route
+        extra_imports: Additional import statements
+        extra_code: Additional code in index function (before return)
+        requirements: Contents of requirements.txt
+
+    Returns:
+        Path to created app directory
+    """
+    app_dir = tmp_path / name
+    app_dir.mkdir()
+
+    (app_dir / "requirements.txt").write_text(requirements)
+
+    # Build app code
+    imports = "from flask import Flask"
+    if extra_imports:
+        imports += f"\n{extra_imports}"
+
+    code_lines = []
+    if extra_code:
+        for line in extra_code.strip().split("\n"):
+            code_lines.append(f"    {line}")
+        code_lines.append(f"    return {response!r}")
+    else:
+        code_lines.append(f"    return {response!r}")
+
+    app_code = f"""{imports}
+
+app = Flask(__name__)
+
+@app.route("/")
+def index():
+{chr(10).join(code_lines)}
+"""
+    (app_dir / "app.py").write_text(app_code)
+    (app_dir / "Procfile").write_text(
+        "web: flask --app app run --host 0.0.0.0 --port $PORT\n"
+    )
+
+    return app_dir
+
+
+# ============================================================================
+# Backup Command Helpers
+# ============================================================================
+
+
+def extract_backup_id(stdout: str) -> str | None:
+    """Extract backup ID from backup:create command output.
+
+    Args:
+        stdout: Command output containing "Backup ID: <id>"
+
+    Returns:
+        Backup ID string or None if not found
+    """
+    for line in stdout.split("\n"):
+        if line.startswith("Backup ID:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
+def find_json_table(output: list[dict]) -> dict | None:
+    """Find table data in JSON command output.
+
+    Args:
+        output: Parsed JSON output (list of message objects)
+
+    Returns:
+        Table dict with "rows" key, or None if not found
+    """
+    for item in output:
+        if item.get("t") == "table":
+            return item
+    return None
+
+
+def backup_in_table(backup_id: str, table: dict | None) -> bool:
+    """Check if backup ID appears in table rows.
+
+    Args:
+        backup_id: Backup ID to search for
+        table: Table dict from find_json_table()
+
+    Returns:
+        True if backup_id found in any row
+    """
+    if not table:
+        return False
+    return any(backup_id in str(row) for row in table.get("rows", []))

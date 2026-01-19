@@ -31,18 +31,17 @@ from .constants import (
     DEFAULT_READY_IMAGE_HEALTH_TIMEOUT,
 )
 from .helpers import (
-    DeploymentRunner,
     DiagnosticsHelper,
+    DockerCommandRunner,
     DockerContainerHelper,
     DockerServiceManager,
     HealthChecker,
     find_project_root,
+    run_hop3_deploy,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-
-    from hop3_installer.deployer.backends.docker import DockerDeployBackend
 
 
 class DockerTarget(DeploymentTarget):
@@ -84,8 +83,7 @@ class DockerTarget(DeploymentTarget):
             config: Docker-specific configuration
             deployment: Optional deployment configuration (if deploying Hop3)
         """
-        # Convert to dict for parent class
-        super().__init__(self._config_to_dict(config, deployment))
+        super().__init__()
 
         self.docker_config = config or DockerConfig()
         self.deployment = deployment
@@ -110,30 +108,12 @@ class DockerTarget(DeploymentTarget):
         self._container: Any = None
         self._container_helper: DockerContainerHelper | None = None
 
-        # For hop3-deploy mode
-        self._deployer_backend: DockerDeployBackend | None = None
+        # Command runner for executing commands in container
+        self._command_runner: DockerCommandRunner | None = None
 
         # State
         self._started = False
         self._we_created_container = False
-
-    @staticmethod
-    def _config_to_dict(
-        config: DockerConfig | None,
-        deployment: DeploymentConfig | None,
-    ) -> dict[str, Any]:
-        """Convert config objects to dict for parent class."""
-        result: dict[str, Any] = {}
-        if config:
-            result["container_name"] = config.container_name
-            result["image"] = config.image
-            result["log_dir"] = str(config.log_dir)
-        if deployment:
-            result["local"] = deployment.source == "local"
-            result["clean"] = deployment.clean
-            result["branch"] = deployment.branch
-            result["verbose"] = deployment.verbose
-        return result
 
     def start(self) -> TargetInfo:
         """Start the Docker target.
@@ -380,14 +360,8 @@ class DockerTarget(DeploymentTarget):
         Returns:
             TargetInfo with connection details
         """
+        assert self._client is not None  # Set by start()
         assert self.deployment is not None  # Checked by start()
-
-        # Lazy imports to avoid circular dependencies and heavy imports at load time
-        from hop3_installer.deployer.backends.docker import (  # noqa: PLC0415
-            DockerDeployBackend,
-        )
-        from hop3_installer.deployer.config import DeployConfig  # noqa: PLC0415
-        from hop3_installer.deployer.deploy import Deployer  # noqa: PLC0415
 
         start_time = time.time()
 
@@ -396,47 +370,34 @@ class DockerTarget(DeploymentTarget):
         print("=" * 70)
 
         try:
-            project_root = find_project_root()
-
-            # Create deployer config
-            deploy_config = DeployConfig(
-                use_docker=True,
-                docker_container=self.docker_config.container_name,
-                docker_image=self.docker_config.image,
-                use_local_code=self.deployment.source == "local",
-                clean_before=self.deployment.clean,
+            # Run hop3-deploy via subprocess (no hop3-installer imports!)
+            success, _duration = run_hop3_deploy(
+                docker=True,
+                container_name=self.docker_config.container_name,
+                image=self.docker_config.image,
+                use_local=self.deployment.source == "local",
+                clean=self.deployment.clean,
                 branch=self.deployment.branch,
-                project_root=project_root,
                 verbose=self.deployment.verbose,
-                quiet=False,
-            )
-
-            # Print equivalent CLI command
-            cli_cmd = self._build_cli_command()
-            print(f"\nEquivalent command: {cli_cmd}\n")
-
-            # Create backend and deployer
-            self._deployer_backend = DockerDeployBackend(deploy_config)
-            deployer = Deployer(deploy_config, self._deployer_backend)
-
-            # Create deployment runner for common flow
-            deploy_runner = DeploymentRunner(
-                backend=self._deployer_backend,
                 diagnostics=self.diagnostics,
-                health_checker=self._health_checker,
             )
 
-            # Run deployment
-            success, _duration = deploy_runner.run_deploy(deployer)
             if not success:
                 self._save_diagnostics_on_error()
                 msg = "hop3-deploy failed"
                 raise RuntimeError(msg)
 
+            # Get container reference after deployment
+            self._container = self._client.containers.get(
+                self.docker_config.container_name
+            )
+            self._container_helper = DockerContainerHelper(self._container)
+            self._command_runner = DockerCommandRunner(self._container)
+
             # Start services manually (Docker doesn't have systemd)
             self.diagnostics.set_phase("service_start")
             service_manager = DockerServiceManager(
-                self._deployer_backend, self.diagnostics
+                self._command_runner, self.diagnostics
             )
             if not service_manager.start_all():
                 self._save_diagnostics_on_error()
@@ -444,7 +405,9 @@ class DockerTarget(DeploymentTarget):
                 raise RuntimeError(msg)
 
             # Wait for server to be ready
-            if not deploy_runner.wait_for_ready(
+            self.diagnostics.set_phase("health_check")
+            if not self._health_checker.wait_for_ready(
+                self._command_runner,
                 timeout=DEFAULT_HEALTH_CHECK_TIMEOUT,
                 on_timeout=self._collect_deploy_diagnostics,
             ):
@@ -453,10 +416,18 @@ class DockerTarget(DeploymentTarget):
                 raise RuntimeError(msg)
 
             self._we_created_container = True
-            self._info = self._build_target_info_from_backend()
+            self._info = self._build_target_info()
             self._started = True
 
-            deploy_runner.log_completion(start_time)
+            # Log completion
+            total_duration = time.time() - start_time
+            self.diagnostics.add_success(
+                layer="testing",
+                operation="start_complete",
+                message=f"Target ready in {total_duration:.1f}s",
+                duration=total_duration,
+            )
+
             self._print_ready_message()
             return self._info
 
@@ -469,21 +440,6 @@ class DockerTarget(DeploymentTarget):
                 )
             self._save_diagnostics_on_error()
             raise
-
-    def _build_cli_command(self) -> str:
-        """Build equivalent hop3-deploy CLI command."""
-        assert self.deployment is not None  # Called from _deploy_and_start
-
-        cmd_parts = ["hop3-deploy", "--docker"]
-        if self.deployment.source == "local":
-            cmd_parts.append("--local")
-        if self.deployment.clean:
-            cmd_parts.append("--clean")
-        if self.deployment.branch and self.deployment.branch != "devel":
-            cmd_parts.extend(["--branch", self.deployment.branch])
-        if self.docker_config.container_name != "hop3-test":
-            cmd_parts.extend(["--container", self.docker_config.container_name])
-        return " ".join(cmd_parts)
 
     def _build_target_info(self) -> TargetInfo:
         """Build TargetInfo from container."""
@@ -546,52 +502,6 @@ class DockerTarget(DeploymentTarget):
             pass
         return None
 
-    def _build_target_info_from_backend(self) -> TargetInfo:
-        """Build TargetInfo from deployer backend."""
-        assert self._deployer_backend is not None  # Set by _deploy_and_start
-
-        server_url = self._deployer_backend.get_server_url()
-        container_ip = self._deployer_backend.get_container_ip()
-
-        # Extract SSH key from container
-        ssh_key_path = self._extract_ssh_key_from_backend()
-
-        return TargetInfo(
-            ssh_host=f"hop3@{container_ip}" if container_ip else "hop3@localhost",
-            ssh_port=22,
-            ssh_key=str(ssh_key_path) if ssh_key_path else None,
-            http_base="http://localhost:8080",
-            api_url=server_url,
-            metadata={
-                "container_name": self.docker_config.container_name,
-                "diagnostics": self.diagnostics,
-            },
-        )
-
-    def _extract_ssh_key_from_backend(self) -> Path | None:
-        """Extract SSH key from container via deployer backend."""
-        assert self._deployer_backend is not None  # Set by _deploy_and_start
-
-        try:
-            result = self._deployer_backend.run(
-                "cat /home/hop3/.ssh/id_rsa 2>/dev/null || true",
-                check=False,
-            )
-            if result.success and result.stdout.strip():
-                key_path = (
-                    Path("/tmp") / f"hop3-key-{self.docker_config.container_name}"
-                )
-                key_path.write_text(result.stdout)
-                key_path.chmod(0o600)
-                return key_path
-        except Exception as e:
-            self.diagnostics.add_failure(
-                layer="testing",
-                operation="extract_ssh_key",
-                message=f"Failed to extract SSH key: {e}",
-            )
-        return None
-
     def _remove_existing_container(self) -> None:
         """Remove any existing container with the same name."""
         assert self._client is not None  # Set by start()
@@ -613,23 +523,25 @@ class DockerTarget(DeploymentTarget):
 
     def _collect_deploy_diagnostics(self) -> None:
         """Collect diagnostics when health check times out."""
-        assert self._deployer_backend is not None  # Set by _deploy_and_start
+        if not self._command_runner:
+            print("  Cannot collect diagnostics - no command runner")
+            return
 
         print("  Collecting diagnostics...")
         try:
-            result = self._deployer_backend.run(
+            result = self._command_runner.run(
                 "ss -tlnp | grep 8000 || echo 'No listener on 8000'",
                 check=False,
             )
             print(f"  Port 8000: {result.stdout.strip()}")
 
-            result = self._deployer_backend.run(
+            result = self._command_runner.run(
                 "tail -30 /home/hop3/hop3-server.log 2>/dev/null || echo 'No log'",
                 check=False,
             )
             print(f"  hop3-server log:\n{result.stdout}")
 
-            result = self._deployer_backend.run(
+            result = self._command_runner.run(
                 "ps aux | grep -E 'hop3|nginx|uwsgi' | grep -v grep || echo 'No processes'",
                 check=False,
             )
@@ -671,11 +583,7 @@ class DockerTarget(DeploymentTarget):
         print("\nStopping container...")
 
         try:
-            if self._deployer_backend:
-                # Stop via deployer backend (for deploy mode)
-                self._deployer_backend.teardown()
-            elif self._container_helper:
-                # Stop directly (for prebuilt/build modes)
+            if self._container_helper:
                 self._container_helper.stop_and_remove()
 
             self.diagnostics.add_success(
@@ -699,8 +607,8 @@ class DockerTarget(DeploymentTarget):
         if not self._started:
             return False
 
-        if self._deployer_backend:
-            return self._health_checker.is_ready(self._deployer_backend)
+        if self._command_runner:
+            return self._health_checker.is_ready(self._command_runner)
         if self._container:
             return self._health_checker.is_container_ready(self._container)
         return False
@@ -717,8 +625,8 @@ class DockerTarget(DeploymentTarget):
         if isinstance(cmd, list):
             cmd = " ".join(cmd)
 
-        if self._deployer_backend:
-            result = self._deployer_backend.run(cmd, check=False)
+        if self._command_runner:
+            result = self._command_runner.run(cmd, check=False)
             return result.returncode, result.stdout, result.stderr
         if self._container_helper:
             result = self._container_helper.exec_run(cmd, demux=True)

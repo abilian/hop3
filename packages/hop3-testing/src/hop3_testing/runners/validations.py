@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from .base import ValidationResult
@@ -15,6 +17,21 @@ from .base import ValidationResult
 if TYPE_CHECKING:
     from hop3_testing.catalog.models import Validation
     from hop3_testing.targets.base import DeploymentTarget
+
+
+@dataclass
+class ValidationContext:
+    """Context for running a validation."""
+
+    validation: Validation
+    target: DeploymentTarget
+    app_name: str
+    app_url: str
+    start_time: float
+
+
+# Type alias for validator functions
+ValidatorFunc = Callable[[ValidationContext], ValidationResult]
 
 
 def run_validation(
@@ -35,24 +52,24 @@ def run_validation(
         ValidationResult with pass/fail status and message
     """
     start_time = time.time()
+    ctx = ValidationContext(
+        validation=validation,
+        target=target,
+        app_name=app_name,
+        app_url=app_url,
+        start_time=start_time,
+    )
 
     try:
-        if validation.type == "http":
-            return _validate_http(validation, target, app_url, start_time)
-        if validation.type == "command":
-            return _validate_command(validation, target, app_name, start_time)
-        if validation.type == "script":
-            return _validate_script(validation, target, start_time)
-        if validation.type == "demo-script":
-            return _validate_demo_script(validation, target, start_time)
-        if validation.type == "validoc":
-            return _validate_validoc(validation, target, start_time)
-        return ValidationResult(
-            validation=validation,
-            passed=False,
-            message=f"Unknown validation type: {validation.type}",
-            duration=time.time() - start_time,
-        )
+        validator = VALIDATORS.get(validation.type)
+        if validator is None:
+            return ValidationResult(
+                validation=validation,
+                passed=False,
+                message=f"Unknown validation type: {validation.type}",
+                duration=time.time() - start_time,
+            )
+        return validator(ctx)
     except Exception as e:
         return ValidationResult(
             validation=validation,
@@ -62,15 +79,13 @@ def run_validation(
         )
 
 
-def _validate_http(
-    validation: Validation,
-    target: DeploymentTarget,
-    app_url: str,
-    start_time: float,
-) -> ValidationResult:
+def _validate_http(ctx: ValidationContext) -> ValidationResult:
     """Validate HTTP endpoint."""
+    validation = ctx.validation
+    target = ctx.target
+
     # Build URL
-    url = validation.url or app_url
+    url = validation.url or ctx.app_url
     if validation.path:
         url = f"{url.rstrip('/')}{validation.path}"
 
@@ -95,7 +110,7 @@ def _validate_http(
             validation=validation,
             passed=False,
             message=f"Connection failed: {error}",
-            duration=time.time() - start_time,
+            duration=time.time() - ctx.start_time,
             details=details,
         )
 
@@ -105,7 +120,7 @@ def _validate_http(
             validation=validation,
             passed=False,
             message=f"Expected status {expect.status}, got {response.status}",
-            duration=time.time() - start_time,
+            duration=time.time() - ctx.start_time,
             details=details,
         )
 
@@ -115,7 +130,7 @@ def _validate_http(
             validation=validation,
             passed=False,
             message=f"Response does not contain '{expect.contains}'",
-            duration=time.time() - start_time,
+            duration=time.time() - ctx.start_time,
             details=details,
         )
 
@@ -130,7 +145,7 @@ def _validate_http(
                         validation=validation,
                         passed=False,
                         message=f"JSON field '{key}': expected {expected_value!r}, got {actual_value!r}",
-                        duration=time.time() - start_time,
+                        duration=time.time() - ctx.start_time,
                         details=details,
                     )
         except json.JSONDecodeError:
@@ -138,7 +153,7 @@ def _validate_http(
                 validation=validation,
                 passed=False,
                 message="Response is not valid JSON",
-                duration=time.time() - start_time,
+                duration=time.time() - ctx.start_time,
                 details=details,
             )
 
@@ -146,29 +161,27 @@ def _validate_http(
         validation=validation,
         passed=True,
         message="OK",
-        duration=time.time() - start_time,
+        duration=time.time() - ctx.start_time,
         details=details,
     )
 
 
-def _validate_command(
-    validation: Validation,
-    target: DeploymentTarget,
-    app_name: str,
-    start_time: float,
-) -> ValidationResult:
+def _validate_command(ctx: ValidationContext) -> ValidationResult:
     """Validate command output."""
+    validation = ctx.validation
+    target = ctx.target
+
     cmd = validation.run
     if not cmd:
         return ValidationResult(
             validation=validation,
             passed=False,
             message="No command specified",
-            duration=time.time() - start_time,
+            duration=time.time() - ctx.start_time,
         )
 
     # Substitute {app_name}
-    cmd = cmd.replace("{app_name}", app_name)
+    cmd = cmd.replace("{app_name}", ctx.app_name)
 
     # Run command
     exit_code, stdout, stderr = target.exec_run(cmd)
@@ -187,7 +200,7 @@ def _validate_command(
             validation=validation,
             passed=False,
             message=f"Expected exit code {expect.exit_code}, got {exit_code}",
-            duration=time.time() - start_time,
+            duration=time.time() - ctx.start_time,
             details=details,
         )
 
@@ -197,7 +210,7 @@ def _validate_command(
             validation=validation,
             passed=False,
             message=f"Expected stdout '{expect.stdout}', got '{stdout.strip()}'",
-            duration=time.time() - start_time,
+            duration=time.time() - ctx.start_time,
             details=details,
         )
 
@@ -207,7 +220,7 @@ def _validate_command(
             validation=validation,
             passed=False,
             message=f"stdout does not contain '{expect.stdout_contains}'",
-            duration=time.time() - start_time,
+            duration=time.time() - ctx.start_time,
             details=details,
         )
 
@@ -215,23 +228,22 @@ def _validate_command(
         validation=validation,
         passed=True,
         message="OK",
-        duration=time.time() - start_time,
+        duration=time.time() - ctx.start_time,
         details=details,
     )
 
 
-def _validate_script(
-    validation: Validation,
-    target: DeploymentTarget,
-    start_time: float,
-) -> ValidationResult:
+def _validate_script(ctx: ValidationContext) -> ValidationResult:
     """Run validation script on target."""
+    validation = ctx.validation
+    target = ctx.target
+
     if not validation.path:
         return ValidationResult(
             validation=validation,
             passed=False,
             message="No script path specified",
-            duration=time.time() - start_time,
+            duration=time.time() - ctx.start_time,
         )
 
     # Run script
@@ -252,7 +264,7 @@ def _validate_script(
             validation=validation,
             passed=False,
             message=f"Script exited with {exit_code}, expected {expected_exit}",
-            duration=time.time() - start_time,
+            duration=time.time() - ctx.start_time,
             details=details,
         )
 
@@ -260,23 +272,18 @@ def _validate_script(
         validation=validation,
         passed=True,
         message="OK",
-        duration=time.time() - start_time,
+        duration=time.time() - ctx.start_time,
         details=details,
     )
 
 
-def _validate_demo_script(
-    validation: Validation,
-    target: DeploymentTarget,
-    start_time: float,
-) -> ValidationResult:
+def _validate_demo_script(ctx: ValidationContext) -> ValidationResult:
     """Validate demo script execution result.
 
     This is used for demo tests where the demo-script.py was already run.
     The validation just checks the exit code.
     """
-    expect = validation.expect
-    expected_exit = expect.exit_code if expect.exit_code is not None else 0
+    validation = ctx.validation
 
     # For demo-script validations, we assume the script was already run
     # and check was performed. Return success.
@@ -284,20 +291,17 @@ def _validate_demo_script(
         validation=validation,
         passed=True,
         message="Demo script completed",
-        duration=time.time() - start_time,
+        duration=time.time() - ctx.start_time,
     )
 
 
-def _validate_validoc(
-    validation: Validation,
-    target: DeploymentTarget,
-    start_time: float,
-) -> ValidationResult:
+def _validate_validoc(ctx: ValidationContext) -> ValidationResult:
     """Validate tutorial execution via validoc.
 
     This validation type checks that validoc executed all blocks
     successfully.
     """
+    validation = ctx.validation
     expect = validation.expect
 
     # For validoc validations, we assume validoc was already run
@@ -307,12 +311,22 @@ def _validate_validoc(
             validation=validation,
             passed=True,
             message="All validoc blocks passed",
-            duration=time.time() - start_time,
+            duration=time.time() - ctx.start_time,
         )
 
     return ValidationResult(
         validation=validation,
         passed=True,
         message="Validoc validation completed",
-        duration=time.time() - start_time,
+        duration=time.time() - ctx.start_time,
     )
+
+
+# Dispatch dict mapping validation types to handler functions
+VALIDATORS: dict[str, ValidatorFunc] = {
+    "http": _validate_http,
+    "command": _validate_command,
+    "script": _validate_script,
+    "demo-script": _validate_demo_script,
+    "validoc": _validate_validoc,
+}
