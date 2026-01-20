@@ -35,10 +35,13 @@ packages:
 
 tasks:
   - setup: |
-      # No '--break-system-packages' on 22.04
-      sudo pip install -U uv nox
       cd hop3
+      sudo pip install --break-system-packages -U uv
       uv sync
+
+  - lint: |
+      cd hop3
+      uv run make lint
 
   - test: |
       cd hop3
@@ -47,16 +50,15 @@ tasks:
       sudo chmod 666 /var/run/docker.sock
       uv run make test
 
-  - e2e-docker: |
+  - nox: |
       cd hop3
-      hop3-test ci
+      sudo chmod 666 /var/run/docker.sock
+      uv run nox -P 3.12
 
-  - e2e: |
+  - buildah: |
       cd hop3
-      export HOP3_DEV_HOST=ssh.hop-dev.abilian.com
-      export HOP3_TEST_DOMAIN=hop-dev.abilian.com
-      ssh -o StrictHostKeyChecking=accept-new root@$HOP3_DEV_HOST 'echo hello'
-      git config --global init.defaultBranch main
-      git config --global user.email "you@example.com"
-      git config --global user.name "Your Name"
-      uv run make test-e2e
+      buildah build .
+
+  - docker-build: |
+      cd hop3
+      sudo docker build .
