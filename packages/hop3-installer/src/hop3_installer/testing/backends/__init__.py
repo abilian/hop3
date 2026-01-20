@@ -6,12 +6,14 @@ from __future__ import annotations
 
 from .base import Backend
 from .docker import DockerBackend
+from .docker_systemd import DockerSystemdBackend
 from .ssh import SSHBackend
 from .vagrant import VagrantBackend
 
 __all__ = [
     "Backend",
     "DockerBackend",
+    "DockerSystemdBackend",
     "SSHBackend",
     "VagrantBackend",
 ]
