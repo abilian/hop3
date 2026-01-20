@@ -76,10 +76,10 @@ class LocalRunner:
             print(f"  {Colors.DIM}[CMD]{Colors.RESET} {command}")
 
         result = subprocess.run(
-            command,
-            shell=True,
+            ["bash", "-c", command],
             capture_output=True,
             text=True,
+            check=False,
         )
 
         return CommandResult(
