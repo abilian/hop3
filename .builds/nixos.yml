@@ -1,0 +1,54 @@
+# Copyright (c) 2023-2024, Abilian SAS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+image: nixos/latest
+
+packages:
+  # Python
+  - python312
+  - python311
+  # Build tools
+  - gnumake
+  - gcc
+  - git
+  # Libraries
+  - postgresql
+  - libffi
+  - sqlite
+  - bzip2
+  - openssl
+  # Extra tools
+  - rsync
+  # For builders
+  - nodejs
+  - ruby
+  - bundler
+  # Docker and friends
+  - buildah
+
+tasks:
+  - setup: |
+      cd hop3
+      pip install --user -U uv
+      export PATH="$HOME/.local/bin:$PATH"
+      uv sync
+
+  - lint: |
+      cd hop3
+      export PATH="$HOME/.local/bin:$PATH"
+      uv run make lint
+
+  - test: |
+      cd hop3
+      export PATH="$HOME/.local/bin:$PATH"
+      uv run make test
+
+  - nox: |
+      cd hop3
+      export PATH="$HOME/.local/bin:$PATH"
+      uv run nox -P 3.12
+
+  - buildah: |
+      cd hop3
+      buildah build .
