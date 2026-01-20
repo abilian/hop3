@@ -214,7 +214,7 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
   - Target: Submit by end of Q4 2025
 
 * **M5.4 Conference presentation or workshop:** ✅ **COMPLETED** (2025-12-16)
-  - [x] Presented at demo event (December 2025)
+  - [x] Presented at OSXP Paris (December 2025)
   - [x] Additional conference proposals planned for 2026
 
 * **M5.6 Videos/screencasts:** ⏳ **NOT STARTED**
