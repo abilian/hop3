@@ -8,15 +8,9 @@ import subprocess
 import time
 from pathlib import Path
 
-from hop3_installer.testing.common import (
-    CommandResult,
-    log_debug,
-    log_error,
-    log_info,
-    log_success,
-    log_warning,
-)
+from hop3_installer.common import CommandResult
 
+from ..common import log_debug, log_error, log_info, log_success, log_warning
 from .base import Backend
 
 # The systemd-enabled image name
@@ -45,7 +39,7 @@ class DockerSystemdBackend(Backend):
         Args:
             installer_dir: Path to installer directory (for mounting)
         """
-        self.installer_dir = installer_dir or Path(__file__).parent.parent.parent
+        self.installer_dir = installer_dir or Path(__file__).parent.parent.parent.parent
         self.container_name = CONTAINER_NAME
         self.image = SYSTEMD_IMAGE
 
@@ -74,10 +68,9 @@ class DockerSystemdBackend(Backend):
 
     def _build_image(self) -> bool:
         """Build the systemd-enabled Docker image."""
+        # Try to find Dockerfile.systemd relative to the test directory
         dockerfile = (
-            Path(__file__).parent.parent.parent.parent.parent
-            / "docker"
-            / "Dockerfile.systemd"
+            Path(__file__).parent.parent.parent.parent / "docker" / "Dockerfile.systemd"
         )
         if not dockerfile.exists():
             # Try relative to installer_dir
