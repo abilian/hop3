@@ -57,11 +57,3 @@ tasks:
       cd hop3
       sudo chmod 666 /var/run/docker.sock
       uv run nox -P 3.12
-
-  - buildah: |
-      cd hop3
-      buildah build .
-
-  - docker-build: |
-      cd hop3
-      sudo docker build .
