@@ -1,9 +1,10 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Backend utilities for E2E tests.
+"""Test backends for E2E installer testing.
 
-This module provides access to the testing backends (Docker, SSH, Vagrant)
-and utilities for discovering available backends based on environment.
+This package provides backend implementations for running installer tests
+on different targets (Docker, SSH, Vagrant) and utilities for discovering
+available backends.
 """
 
 from __future__ import annotations
@@ -12,19 +13,23 @@ import os
 import subprocess
 from typing import TYPE_CHECKING
 
-from hop3_installer.testing.backends import (
-    Backend,
-    DockerBackend,
-    DockerSystemdBackend,
-    SSHBackend,
-    VagrantBackend,
-)
+from .base import Backend
+from .docker import DockerBackend
+from .docker_systemd import DockerSystemdBackend
+from .ssh import SSHBackend
+from .vagrant import VagrantBackend
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 __all__ = [
+    # Backend classes
     "Backend",
+    "DockerBackend",
+    "DockerSystemdBackend",
+    "SSHBackend",
+    "VagrantBackend",
+    # Discovery functions
     "available_backends",
     "available_systemd_backends",
     "docker_available",
@@ -35,6 +40,11 @@ __all__ = [
     "ssh_raw_host",
     "vagrant_installed",
 ]
+
+
+# =============================================================================
+# Backend Discovery Functions
+# =============================================================================
 
 
 def docker_available() -> bool:

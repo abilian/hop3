@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from hop3_installer.testing.common import CommandResult
+    from hop3_installer.common import CommandResult
 
 
 class Backend(ABC):
