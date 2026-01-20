@@ -50,6 +50,14 @@ tasks:
       cd hop3
       uv run make lint
 
+  - buildah: |
+      cd hop3
+      buildah build .
+
+  - docker-build: |
+      cd hop3
+      sudo docker build .
+
   - test: |
       cd hop3
       # Ensure HOP3_DEV_HOST is not set for c_system tests (they use Docker)
@@ -59,14 +67,6 @@ tasks:
   - nox: |
       cd hop3
       uv run nox -P 3.12
-
-  - buildah: |
-      cd hop3
-      buildah build .
-
-  - docker-build: |
-      cd hop3
-      sudo docker build .
 
   # - e2e-docker: |
   #     cd hop3

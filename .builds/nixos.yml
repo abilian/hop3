@@ -8,7 +8,7 @@ repositories:
   nixpkgs: https://nixos.org/channels/nixpkgs-unstable
 
 packages:
-  - nixpkgs.python
+  - nixpkgs.python3
   - nixpkgs.uv
   - nixpkgs.git
   - nixpkgs.gnumake
