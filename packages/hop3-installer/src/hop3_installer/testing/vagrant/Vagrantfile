@@ -23,7 +23,8 @@
 
 # Find the project root (hop3/)
 # We're in packages/hop3-installer/src/hop3_installer/testing/vagrant/
-PROJECT_ROOT = File.expand_path('../../../../../../..', __dir__)
+# Count: vagrant(1) -> testing(2) -> hop3_installer(3) -> src(4) -> hop3-installer(5) -> packages(6) -> hop3
+PROJECT_ROOT = File.expand_path('../../../../../..', __dir__)
 
 # Detect host architecture
 def get_arch

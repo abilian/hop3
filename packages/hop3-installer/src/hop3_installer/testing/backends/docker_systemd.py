@@ -1,10 +1,11 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""Docker backend for testing in containers."""
+"""Docker backend with systemd support for full service testing."""
 
 from __future__ import annotations
 
 import subprocess
+import time
 from pathlib import Path
 
 from hop3_installer.testing.common import (
@@ -13,43 +14,40 @@ from hop3_installer.testing.common import (
     log_error,
     log_info,
     log_success,
+    log_warning,
 )
 
 from .base import Backend
 
-# Docker images for each distro
-DOCKER_IMAGES = {
-    "ubuntu": "ubuntu:24.04",
-    "debian": "debian:12",
-    "fedora": "fedora:40",
-}
-
-CONTAINER_PREFIX = "hop3-test"
+# The systemd-enabled image name
+SYSTEMD_IMAGE = "hop3-test-systemd:latest"
+CONTAINER_NAME = "hop3-test-systemd"
 
 
-class DockerBackend(Backend):
-    """Backend for testing in Docker containers.
+class DockerSystemdBackend(Backend):
+    """Backend for testing in Docker containers with systemd support.
 
-    This backend runs tests inside Docker containers, providing
-    fast iteration and isolated testing without needing a remote server.
+    This backend runs tests inside Docker containers with full systemd
+    support, enabling testing of services like nginx, postgresql, and
+    hop3-server systemd units.
 
-    Note: Server installer tests are limited (no systemd in containers).
+    Requires:
+    - Docker with --privileged support
+    - Pre-built hop3-test-systemd:latest image
     """
 
-    name = "docker"
-    supports_systemd = False  # No systemd in standard Docker containers
+    name = "docker-systemd"
+    supports_systemd = True
 
-    def __init__(self, distro: str = "ubuntu", installer_dir: Path | None = None):
-        """Initialize Docker backend.
+    def __init__(self, installer_dir: Path | None = None):
+        """Initialize Docker systemd backend.
 
         Args:
-            distro: Distribution to test on (ubuntu, debian, fedora)
             installer_dir: Path to installer directory (for mounting)
         """
-        self.distro = distro
         self.installer_dir = installer_dir or Path(__file__).parent.parent.parent
-        self.container_name = f"{CONTAINER_PREFIX}-{distro}"
-        self.image = DOCKER_IMAGES.get(distro, DOCKER_IMAGES["ubuntu"])
+        self.container_name = CONTAINER_NAME
+        self.image = SYSTEMD_IMAGE
 
     def _docker_available(self) -> bool:
         """Check if Docker is available."""
@@ -62,6 +60,51 @@ class DockerBackend(Backend):
             )
             return result.returncode == 0
         except FileNotFoundError:
+            return False
+
+    def _image_exists(self) -> bool:
+        """Check if the systemd image exists."""
+        result = subprocess.run(
+            ["docker", "images", "-q", self.image],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        return bool(result.stdout.strip())
+
+    def _build_image(self) -> bool:
+        """Build the systemd-enabled Docker image."""
+        dockerfile = Path(__file__).parent.parent.parent.parent.parent / "docker" / "Dockerfile.systemd"
+        if not dockerfile.exists():
+            # Try relative to installer_dir
+            dockerfile = self.installer_dir / "docker" / "Dockerfile.systemd"
+        if not dockerfile.exists():
+            log_error(f"Dockerfile.systemd not found at {dockerfile}")
+            return False
+
+        log_info("Building hop3-test-systemd image...")
+        try:
+            subprocess.run(
+                [
+                    "docker",
+                    "build",
+                    "-f",
+                    str(dockerfile),
+                    "-t",
+                    self.image,
+                    str(dockerfile.parent),
+                ],
+                check=True,
+                capture_output=True,
+                timeout=600,  # 10 minutes for build
+            )
+            log_success("Image built successfully")
+            return True
+        except subprocess.CalledProcessError as e:
+            log_error(f"Failed to build image: {e.stderr[:500] if e.stderr else ''}")
+            return False
+        except subprocess.TimeoutExpired:
+            log_error("Image build timed out")
             return False
 
     def _container_exists(self) -> bool:
@@ -84,34 +127,44 @@ class DockerBackend(Backend):
         )
         return bool(result.stdout.strip())
 
+    def _remove_container(self) -> bool:
+        """Remove existing container with retry."""
+        if not self._container_exists():
+            return True
+
+        log_debug(f"Removing existing container: {self.container_name}")
+        for attempt in range(10):
+            subprocess.run(
+                ["docker", "rm", "-f", self.container_name],
+                check=False,
+                capture_output=True,
+            )
+            time.sleep(1)
+            if not self._container_exists():
+                return True
+        return False
+
     def setup(self) -> bool:
-        """Start Docker container for testing."""
+        """Start Docker container with systemd for testing."""
         if not self._docker_available():
             log_error("Docker is not available or not running")
             return False
 
-        log_info(f"Starting container: {self.container_name} (image: {self.image})")
-
-        # Remove existing container if any (with retry for "removal in progress")
-        if self._container_exists():
-            log_debug(f"Removing existing container: {self.container_name}")
-            for attempt in range(10):  # Retry up to 10 times
-                subprocess.run(
-                    ["docker", "rm", "-f", self.container_name],
-                    check=False,
-                    capture_output=True,
-                )
-                # Wait for removal to complete
-                import time
-
-                time.sleep(1)
-                if not self._container_exists():
-                    break
-            else:
-                log_error(f"Could not remove container {self.container_name}")
+        # Build image if needed
+        if not self._image_exists():
+            log_warning(f"Image {self.image} not found, building...")
+            if not self._build_image():
                 return False
 
-        # Start container with installer directory mounted (just sleep, no package install yet)
+        log_info(f"Starting container: {self.container_name} (image: {self.image})")
+
+        # Remove existing container
+        if not self._remove_container():
+            log_error(f"Could not remove container {self.container_name}")
+            return False
+
+        # Start container with systemd support
+        # Requires --privileged and cgroup mount for systemd to work
         try:
             subprocess.run(
                 [
@@ -120,13 +173,15 @@ class DockerBackend(Backend):
                     "-d",
                     "--name",
                     self.container_name,
+                    "--privileged",
+                    "--cgroupns=host",
+                    "-v",
+                    "/sys/fs/cgroup:/sys/fs/cgroup:rw",
                     "-v",
                     f"{self.installer_dir}:/installer:ro",
                     "-w",
                     "/installer",
                     self.image,
-                    "sleep",
-                    "infinity",
                 ],
                 check=True,
                 capture_output=True,
@@ -135,39 +190,18 @@ class DockerBackend(Backend):
             log_error(f"Failed to start container: {e}")
             return False
 
-        # Install packages synchronously (not in background)
-        log_info("Waiting for package installation...")
-        if self.distro in {"ubuntu", "debian"}:
-            install_cmd = (
-                "apt-get update && apt-get install -y python3 python3-venv git curl"
-            )
-        else:  # fedora
-            install_cmd = "dnf install -y python3 python3-pip git curl"
+        # Wait for systemd to be ready
+        log_info("Waiting for systemd to initialize...")
+        for i in range(30):  # Wait up to 30 seconds
+            result = self.run("systemctl is-system-running 2>/dev/null || true")
+            status = result.stdout.strip()
+            if status in ("running", "degraded"):
+                break
+            time.sleep(1)
+        else:
+            log_warning("systemd may not be fully ready, continuing anyway")
 
-        try:
-            subprocess.run(
-                [
-                    "docker",
-                    "exec",
-                    self.container_name,
-                    "bash",
-                    "-c",
-                    install_cmd,
-                ],
-                check=True,
-                capture_output=True,
-                timeout=300,  # 5 minutes for package installation
-            )
-        except subprocess.CalledProcessError as e:
-            log_error(
-                f"Package installation failed: {e.stderr[:200] if e.stderr else ''}"
-            )
-            return False
-        except subprocess.TimeoutExpired:
-            log_error("Package installation timed out")
-            return False
-
-        log_success(f"Container {self.container_name} is ready")
+        log_success(f"Container {self.container_name} is ready with systemd")
         return True
 
     def teardown(self) -> None:
@@ -225,10 +259,9 @@ class DockerBackend(Backend):
 
     def upload_dir(self, local_path: Path, remote_path: str) -> bool:
         """Upload a directory to the container."""
-        # docker cp works the same for directories
         if not self.upload(local_path, remote_path):
             return False
-        # Fix permissions so all users can read (needed for pip to build wheels)
+        # Fix permissions so all users can read
         self.run(f"chmod -R a+rX {remote_path}")
         return True
 
@@ -241,8 +274,15 @@ class DockerBackend(Backend):
     def cleanup_server(self) -> None:
         """Clean up server installation from container."""
         log_info("Cleaning up server installation...")
+        # Stop services first
+        self.run("systemctl stop hop3-server uwsgi-hop3 2>/dev/null || true")
         self.run("rm -rf /home/hop3 /etc/hop3")
         self.run("userdel -r hop3 2>/dev/null || true")
+        self.run(
+            "rm -f /etc/systemd/system/hop3-server.service "
+            "/etc/systemd/system/uwsgi-hop3.service"
+        )
+        self.run("systemctl daemon-reload")
         log_success("Server cleanup complete")
 
     def get_installer_path(self, installer_type: str) -> str:
