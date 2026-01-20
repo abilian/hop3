@@ -1351,7 +1351,6 @@ dependencies = [
     { name = "bcrypt" },
     { name = "cryptography" },
     { name = "cyclonedx-bom" },
-    { name = "devtools" },
     { name = "dishka" },
     { name = "granian", extra = ["reload"] },
     { name = "itsdangerous" },
@@ -1368,7 +1367,6 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "termcolor" },
     { name = "toml" },
-    { name = "uwsgi" },
 ]
 
 [package.dev-dependencies]
@@ -1390,7 +1388,6 @@ requires-dist = [
     { name = "bcrypt", specifier = ">=4.0.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "cyclonedx-bom", specifier = ">=5.1.1" },
-    { name = "devtools" },
     { name = "dishka", specifier = ">=1.3.0" },
     { name = "granian", extras = ["reload"], specifier = ">=2.2.0" },
     { name = "itsdangerous", specifier = ">=2.0.0" },
@@ -1407,7 +1404,6 @@ requires-dist = [
     { name = "sqlalchemy", specifier = "~=2.0" },
     { name = "termcolor", specifier = ">=2.5.0" },
     { name = "toml", specifier = ">=0.10.2" },
-    { name = "uwsgi", specifier = ">=2.0.31" },
 ]
 
 [package.metadata.requires-dev]
