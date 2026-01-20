@@ -76,7 +76,8 @@ def doc(session: nox.Session) -> None:
 # Utils
 #
 def uv_sync(session: nox.Session):
-    session.run("uv", "sync", "--all-groups", "--all-extras", "--active", external=True)
+    session.run("uv", "sync", "--active", external=True)
+    # session.run("uv", "sync", "--all-groups", "--all-extras", "--active", external=True)
 
 
 def run_subsession(session, sub_repo) -> None:

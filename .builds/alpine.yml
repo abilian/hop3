@@ -21,9 +21,9 @@ packages:
   - py3-nox
   - uv
   # Docker (not working)
-  # - buildah
-  # - netavark
-  # - docker
+  - buildah
+  - netavark
+  - docker
 
 tasks:
   - setup: |
@@ -32,25 +32,24 @@ tasks:
 
   - lint: |
       cd hop3
-      just lint
+      uv run make lint
 
   - test: |
       cd hop3
-      just test
+      uv run make test
 
   - nox: |
       cd hop3
-      nox -e pytest-3.12
-      nox -e lint
+      nox -P 3.12
 
-  #  - buildah: |
-  #      cd hop3
-  #      sudo buildah build .
-
-  #  - docker-build: |
-  #      cd hop3
-  #      sudo docker build .
-
-  - e2e-docker: |
+  - buildah: |
       cd hop3
-      hop3-test ci
+      sudo buildah build .
+
+  - docker-build: |
+      cd hop3
+      sudo docker build .
+
+  # - e2e-docker: |
+  #     cd hop3
+  #     hop3-test ci

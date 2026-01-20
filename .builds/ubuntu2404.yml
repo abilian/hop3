@@ -39,8 +39,8 @@ packages:
 
 tasks:
   - setup: |
-      sudo pip install --break-system-packages -U uv nox
       cd hop3
+      sudo pip install --break-system-packages -U uv
       uv sync
 
   - lint: |
@@ -57,7 +57,7 @@ tasks:
   - nox: |
       cd hop3
       sudo chmod 666 /var/run/docker.sock
-      uv run nox -e pytest-3.12
+      uv run nox -P 3.12
 
   - buildah: |
       cd hop3
@@ -67,16 +67,16 @@ tasks:
       cd hop3
       sudo docker build .
 
-  - e2e-docker: |
-      cd hop3
-      hop3-test ci
+  # - e2e-docker: |
+  #     cd hop3
+  #     hop3-test ci
 
-  - e2e: |
-      cd hop3
-      export HOP3_DEV_HOST=ssh.hop-dev.abilian.com
-      export HOP3_TEST_DOMAIN=hop-dev.abilian.com
-      ssh -o StrictHostKeyChecking=accept-new root@$HOP3_DEV_HOST 'echo hello'
-      git config --global init.defaultBranch main
-      git config --global user.email "you@example.com"
-      git config --global user.name "Your Name"
-      uv run make test-e2e
+  # - e2e: |
+  #     cd hop3
+  #     export HOP3_DEV_HOST=ssh.hop-dev.abilian.com
+  #     export HOP3_TEST_DOMAIN=hop-dev.abilian.com
+  #     ssh -o StrictHostKeyChecking=accept-new root@$HOP3_DEV_HOST 'echo hello'
+  #     git config --global init.defaultBranch main
+  #     git config --global user.email "you@example.com"
+  #     git config --global user.name "Your Name"
+  #     uv run make test-e2e

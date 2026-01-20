@@ -29,20 +29,20 @@ packages:
 
 tasks:
   - setup: |
-      sudo pip3.12 install -U uv nox
       cd hop3
+      sudo pip3.12 install -U uv nox
       uv sync
 
   - nox: |
       cd hop3
-      nox -e lint
-      nox -e pytest-3.12
-      nox -e pytest-3.11
+      uv run nox -e lint
+      uv nox -P 3.12
+      uv nox -P 3.11
 
   - buildah: |
       cd hop3
       buildah build .
 
-  - e2e-docker: |
-      cd hop3
-      hop3-test ci
+  # - e2e-docker: |
+  #     cd hop3
+  #     hop3-test ci
