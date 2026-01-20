@@ -35,9 +35,8 @@ tasks:
 
   - nox: |
       cd hop3
-      uv run nox -e lint
-      uv nox -P 3.12
-      uv nox -P 3.11
+      uv run nox -P 3.12
+      uv run nox -P 3.11
 
   - buildah: |
       cd hop3
