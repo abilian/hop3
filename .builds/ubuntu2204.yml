@@ -15,7 +15,6 @@ packages:
   - make
   - gcc
   - g++
-  # - just (not on 22.04)
   # Python (this is Python 3.10 on 22.04)
   - python3-dev
   - python3-pip
