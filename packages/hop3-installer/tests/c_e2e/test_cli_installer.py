@@ -15,7 +15,7 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from hop3_installer.testing.backends import Backend
+    from .utils.backends import Backend
 
 
 @pytest.mark.e2e

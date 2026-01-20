@@ -7,16 +7,9 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from hop3_installer.common import find_project_root
-from hop3_installer.testing.common import (
-    VERBOSE,
-    CommandResult,
-    log_debug,
-    log_error,
-    log_info,
-    log_success,
-)
+from hop3_installer.common import CommandResult, find_project_root
 
+from ..common import VERBOSE, log_debug, log_error, log_info, log_success
 from .base import Backend
 
 
@@ -41,8 +34,24 @@ class VagrantBackend(Backend):
         if vagrant_dir:
             self.vagrant_dir = vagrant_dir
         else:
-            # Default: testing/vagrant/ subdirectory
-            self.vagrant_dir = Path(__file__).parent.parent / "vagrant"
+            # Default: look for vagrant dir in hop3-installer package
+            # tests/c_e2e/utils/backends/vagrant.py -> up to package root
+            pkg_root = Path(__file__).parent.parent.parent.parent.parent
+            self.vagrant_dir = (
+                pkg_root / "src" / "hop3_installer" / "testing" / "vagrant"
+            )
+            if not self.vagrant_dir.exists():
+                # Fallback: try to find it relative to project root
+                project_root = find_project_root(Path(__file__).parent)
+                self.vagrant_dir = (
+                    project_root
+                    / "packages"
+                    / "hop3-installer"
+                    / "src"
+                    / "hop3_installer"
+                    / "testing"
+                    / "vagrant"
+                )
 
     def _run_vagrant(
         self,

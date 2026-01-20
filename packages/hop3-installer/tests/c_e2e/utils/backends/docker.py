@@ -7,14 +7,9 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from hop3_installer.testing.common import (
-    CommandResult,
-    log_debug,
-    log_error,
-    log_info,
-    log_success,
-)
+from hop3_installer.common import CommandResult
 
+from ..common import log_debug, log_error, log_info, log_success
 from .base import Backend
 
 # Docker images for each distro
@@ -47,7 +42,7 @@ class DockerBackend(Backend):
             installer_dir: Path to installer directory (for mounting)
         """
         self.distro = distro
-        self.installer_dir = installer_dir or Path(__file__).parent.parent.parent
+        self.installer_dir = installer_dir or Path(__file__).parent.parent.parent.parent
         self.container_name = f"{CONTAINER_PREFIX}-{distro}"
         self.image = DOCKER_IMAGES.get(distro, DOCKER_IMAGES["ubuntu"])
 
