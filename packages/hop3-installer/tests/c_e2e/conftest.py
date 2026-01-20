@@ -105,10 +105,9 @@ def get_enabled_backends(config: pytest.Config) -> list[str]:
     if explicit:
         if config.getoption("--docker") and docker_available():
             backends.append("docker")
-    else:
-        # Default: enable if available
-        if docker_available():
-            backends.append("docker")
+    # Default: enable if available
+    elif docker_available():
+        backends.append("docker")
 
     # SSH
     ssh_host = _get_ssh_host(config)
@@ -117,10 +116,9 @@ def get_enabled_backends(config: pytest.Config) -> list[str]:
             # Store host in environment for backends to use
             os.environ["HOP3_TEST_HOST"] = ssh_host
             backends.append("ssh")
-    else:
-        # Default: enable if host is configured
-        if ssh_host:
-            backends.append("ssh")
+    # Default: enable if host is configured
+    elif ssh_host:
+        backends.append("ssh")
 
     # Vagrant (never default, always explicit)
     if config.getoption("--vagrant") and vagrant_installed():
@@ -139,10 +137,9 @@ def get_enabled_systemd_backends(config: pytest.Config) -> list[str]:
     if explicit:
         if config.getoption("--docker") and docker_available():
             backends.append("docker-systemd")
-    else:
-        # Default: enable if available
-        if docker_available():
-            backends.append("docker-systemd")
+    # Default: enable if available
+    elif docker_available():
+        backends.append("docker-systemd")
 
     # SSH (has systemd)
     ssh_host = _get_ssh_host(config)
@@ -150,10 +147,9 @@ def get_enabled_systemd_backends(config: pytest.Config) -> list[str]:
         if (config.getoption("--ssh") or config.getoption("--ssh-host")) and ssh_host:
             os.environ["HOP3_TEST_HOST"] = ssh_host
             backends.append("ssh")
-    else:
-        # Default: enable if host is configured
-        if ssh_host:
-            backends.append("ssh")
+    # Default: enable if host is configured
+    elif ssh_host:
+        backends.append("ssh")
 
     # Vagrant (has systemd, never default)
     if config.getoption("--vagrant") and vagrant_installed():
@@ -174,9 +170,8 @@ def get_enabled_deploy_targets(config: pytest.Config) -> list[str]:
     if explicit:
         if config.getoption("--docker") and docker_available():
             targets.append("docker")
-    else:
-        if docker_available():
-            targets.append("docker")
+    elif docker_available():
+        targets.append("docker")
 
     # SSH (check connectivity)
     ssh_host = _get_ssh_host(config)
@@ -185,9 +180,8 @@ def get_enabled_deploy_targets(config: pytest.Config) -> list[str]:
             os.environ["HOP3_TEST_HOST"] = ssh_host
             if ssh_host_connectable():
                 targets.append("ssh")
-    else:
-        if ssh_host_connectable():
-            targets.append("ssh")
+    elif ssh_host_connectable():
+        targets.append("ssh")
 
     # Vagrant not supported for hop3-deploy
 
