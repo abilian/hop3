@@ -15,7 +15,6 @@ packages:
   - make
   - gcc
   - g++
-  - just
   - git
   # Python (this is Python 3.12)
   - python3-dev
