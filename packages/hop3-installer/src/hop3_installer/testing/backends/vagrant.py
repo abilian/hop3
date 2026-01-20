@@ -159,24 +159,96 @@ class VagrantBackend(Backend):
     def upload(self, local_path: Path, remote_path: str) -> bool:
         """Upload a file to the VM.
 
-        Note: Vagrant VMs use shared folders, so this copies to /vagrant.
-        The Vagrantfile syncs the project root (hop3/) to /vagrant.
+        For files within the project root, uses the shared /vagrant folder.
+        For files outside the project, uses vagrant ssh to copy via stdin.
         """
-        # Files are already synced via rsync/shared folders
-        # Just verify the file exists
         project_root = self._find_project_root()
-        rel_path = local_path.relative_to(project_root)
-        result = self.run(f"test -f /vagrant/{rel_path}")
-        return result.success
+
+        # Check if file is within project root (use shared folder)
+        try:
+            rel_path = local_path.relative_to(project_root)
+            # File is in project - check it exists in shared folder
+            result = self.run(f"test -f /vagrant/{rel_path}")
+            if result.success:
+                # Copy from shared folder to target location
+                self.run(f"cp /vagrant/{rel_path} {remote_path}", sudo=True)
+                return True
+        except ValueError:
+            pass  # File is outside project root
+
+        # File is outside project - copy via cat/ssh
+        try:
+            content = local_path.read_bytes()
+            # Use vagrant ssh with stdin to copy file
+            result = self._run_vagrant(
+                "ssh",
+                self.vm_name,
+                "-c",
+                f"cat > {remote_path}",
+                capture_output=False,
+                check=False,
+            )
+            # Write content via a different approach - use base64
+            import base64
+
+            encoded = base64.b64encode(content).decode()
+            result = self.run(
+                f"echo '{encoded}' | base64 -d > {remote_path}", sudo=True
+            )
+            return result.success
+        except Exception as e:
+            log_debug(f"Failed to upload {local_path}: {e}")
+            return False
 
     def upload_dir(self, local_path: Path, remote_path: str) -> bool:
-        """Upload a directory to the VM."""
-        # Directories are already synced via rsync/shared folders
-        # The Vagrantfile syncs the project root (hop3/) to /vagrant.
+        """Upload a directory to the VM.
+
+        For directories within the project root, uses the shared /vagrant folder.
+        For directories outside the project, uses tar over SSH.
+        """
         project_root = self._find_project_root()
-        rel_path = local_path.relative_to(project_root)
-        result = self.run(f"test -d /vagrant/{rel_path}")
-        return result.success
+
+        # Check if directory is within project root (use shared folder)
+        try:
+            rel_path = local_path.relative_to(project_root)
+            # Directory is in project - check it exists in shared folder
+            result = self.run(f"test -d /vagrant/{rel_path}")
+            if result.success:
+                # Copy from shared folder to target location
+                self.run(f"cp -r /vagrant/{rel_path} {remote_path}", sudo=True)
+                self.run(f"chmod -R a+rX {remote_path}", sudo=True)
+                return True
+        except ValueError:
+            pass  # Directory is outside project root
+
+        # Directory is outside project - use tar over SSH
+        try:
+            import base64
+            import tarfile
+            from io import BytesIO
+
+            # Create tar archive in memory
+            tar_buffer = BytesIO()
+            with tarfile.open(fileobj=tar_buffer, mode="w:gz") as tar:
+                tar.add(local_path, arcname=local_path.name)
+            tar_data = tar_buffer.getvalue()
+
+            # Upload tar via base64 and extract
+            encoded = base64.b64encode(tar_data).decode()
+
+            # Create target directory and extract
+            self.run(f"mkdir -p {remote_path}", sudo=True)
+            parent_dir = str(Path(remote_path).parent)
+            result = self.run(
+                f"echo '{encoded}' | base64 -d | tar -xzf - -C {parent_dir}",
+                sudo=True,
+            )
+            if result.success:
+                self.run(f"chmod -R a+rX {remote_path}", sudo=True)
+            return result.success
+        except Exception as e:
+            log_debug(f"Failed to upload directory {local_path}: {e}")
+            return False
 
     def cleanup_cli(self) -> None:
         """Clean up CLI installation from VM."""

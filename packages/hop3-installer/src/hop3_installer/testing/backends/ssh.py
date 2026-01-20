@@ -149,7 +149,12 @@ class SSHBackend(Backend):
             return True
 
         result = subprocess.run(scp_cmd, check=False, capture_output=True, text=True)
-        return result.returncode == 0
+        if result.returncode != 0:
+            return False
+
+        # Fix permissions so all users can read (needed for pip to build wheels)
+        self.run(f"chmod -R a+rX {remote_path}")
+        return True
 
     def cleanup_cli(self) -> None:
         """Remove CLI installation from remote host."""

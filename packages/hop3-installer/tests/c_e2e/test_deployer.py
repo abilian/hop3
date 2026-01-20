@@ -8,9 +8,12 @@ to Docker containers and remote servers.
 
 from __future__ import annotations
 
+import os
 import subprocess
 
 import pytest
+
+from .utils.backends import ssh_host_available, ssh_raw_host
 
 # Container name used by hop3-deploy
 DEPLOY_CONTAINER = "hop3-dev"
@@ -22,7 +25,18 @@ class TestDeployer:
     """Test hop3-deploy functionality."""
 
     @pytest.fixture(autouse=True)
-    def cleanup_container(self):
+    def check_deploy_command(self):
+        """Skip if hop3-deploy is not available."""
+        result = subprocess.run(
+            ["which", "hop3-deploy"],
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            pytest.skip("hop3-deploy command not found in PATH")
+
+    @pytest.fixture(autouse=True)
+    def cleanup_docker(self):
         """Clean up Docker container before and after test."""
         # Cleanup before
         subprocess.run(
@@ -40,28 +54,28 @@ class TestDeployer:
             check=False,
         )
 
-    def test_deploy_to_docker_with_local_code(self) -> None:
-        """Test hop3-deploy --docker --local deploys successfully.
+    def test_deploy_with_local_code(self, deploy_target: str) -> None:
+        """Test hop3-deploy with local code deploys successfully.
 
         This tests the development workflow where local code is uploaded
-        and installed on a Docker container.
+        and installed on the target (Docker or SSH).
+
+        The deploy_target fixture is dynamically parametrized based on CLI options.
         """
-        # Check hop3-deploy command exists
-        result = subprocess.run(
-            ["which", "hop3-deploy"],
-            capture_output=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            pytest.skip("hop3-deploy command not found in PATH")
+        if deploy_target == "docker":
+            deploy_args = ["hop3-deploy", "--docker", "--local"]
+        else:  # ssh
+            host = ssh_raw_host()
+            deploy_args = ["hop3-deploy", "--host", host, "--local", "--clean"]
 
         # Run hop3-deploy
         result = subprocess.run(
-            ["hop3-deploy", "--docker", "--local"],
+            deploy_args,
             capture_output=True,
             text=True,
             timeout=600,  # 10 minutes max
             check=False,
+            env={**os.environ, "HOP3_NONINTERACTIVE": "1"},
         )
 
         # Check deployment succeeded
@@ -69,6 +83,14 @@ class TestDeployer:
             f"hop3-deploy failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
+        # Verify installation based on target
+        if deploy_target == "docker":
+            self._verify_docker_deployment()
+        else:
+            self._verify_ssh_deployment()
+
+    def _verify_docker_deployment(self) -> None:
+        """Verify deployment to Docker container."""
         # Verify container is running
         result = subprocess.run(
             ["docker", "ps", "--filter", f"name={DEPLOY_CONTAINER}", "-q"],
@@ -93,14 +115,25 @@ class TestDeployer:
         )
         assert result.returncode == 0, "hop3-server not installed in container"
 
-        # Note: Full HTTP server tests require systemd which is not available
-        # in basic Docker containers. The deployment test above verifies:
-        # 1. hop3-deploy runs without errors
-        # 2. Container is created and running
-        # 3. hop3-server binary is installed in the correct location
-        #
-        # For full integration testing with HTTP endpoints, use hop3-testing
-        # which has systemd-enabled containers.
+    def _verify_ssh_deployment(self) -> None:
+        """Verify deployment to SSH host."""
+        host = ssh_host_available()
+
+        # Verify hop3-server is installed on remote host
+        result = subprocess.run(
+            [
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=accept-new",
+                host,
+                "test -f /home/hop3/venv/bin/hop3-server",
+            ],
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode == 0, "hop3-server not installed on remote host"
 
 
 @pytest.mark.e2e

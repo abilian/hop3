@@ -1,0 +1,75 @@
+# Dockerfile for hop3 system testing with systemd support
+#
+# This enables full systemd support for testing services like nginx, postgresql.
+#
+# Build: docker build -f Dockerfile.systemd -t hop3-test-systemd:latest .
+# Run:   docker run -d --privileged --cgroupns=host \
+#          -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
+#          --name hop3-test-systemd hop3-test-systemd:latest
+
+FROM ubuntu:24.04
+
+# Avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install all packages in a single layer to avoid apt cache issues
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Systemd
+    systemd \
+    systemd-sysv \
+    dbus \
+    # Essential tools
+    python3 \
+    python3-venv \
+    python3-dev \
+    git \
+    curl \
+    sudo \
+    ca-certificates \
+    # Build tools
+    build-essential \
+    libffi-dev \
+    libssl-dev \
+    # Network/SSH tools
+    openssh-server \
+    openssh-client \
+    gnupg \
+    # Web and database servers
+    nginx \
+    postgresql \
+    postgresql-contrib \
+    # Utilities
+    procps \
+    net-tools \
+    iproute2 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Setup SSH
+RUN mkdir -p /run/sshd
+
+# Pre-create uwsgi log directory
+RUN mkdir -p /var/log/uwsgi
+
+# Configure systemd
+# Remove unnecessary systemd services that cause issues in containers
+RUN (cd /lib/systemd/system/sysinit.target.wants/ && \
+    ls | grep -v systemd-tmpfiles-setup | xargs rm -f) && \
+    rm -f /lib/systemd/system/multi-user.target.wants/* && \
+    rm -f /etc/systemd/system/*.wants/* && \
+    rm -f /lib/systemd/system/local-fs.target.wants/* && \
+    rm -f /lib/systemd/system/sockets.target.wants/*udev* && \
+    rm -f /lib/systemd/system/sockets.target.wants/*initctl* && \
+    rm -f /lib/systemd/system/basic.target.wants/*
+
+# Enable essential services we need
+RUN systemctl enable ssh || true
+RUN systemctl enable nginx || true
+RUN systemctl enable postgresql || true
+
+# Set up environment for systemd
+ENV container=docker
+
+# Use systemd as init
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]
