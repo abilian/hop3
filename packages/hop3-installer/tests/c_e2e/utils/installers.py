@@ -23,8 +23,7 @@ def get_packages_dir() -> Path:
     # Navigate from this file to the packages directory
     # tests/c_e2e/utils/installers.py -> packages/hop3-installer/tests/c_e2e/utils/
     this_file = Path(__file__)
-    packages_dir = this_file.parent.parent.parent.parent.parent.parent / "packages"
-    return packages_dir
+    return this_file.parent.parent.parent.parent.parent.parent / "packages"
 
 
 def bundle_installers(output_dir: Path) -> dict[str, Path]:

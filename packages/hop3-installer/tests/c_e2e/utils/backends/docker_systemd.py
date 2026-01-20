@@ -9,8 +9,8 @@ import time
 from pathlib import Path
 
 from hop3_installer.common import CommandResult
+from utils.common import log_debug, log_error, log_info, log_success, log_warning
 
-from ..common import log_debug, log_error, log_info, log_success, log_warning
 from .base import Backend
 
 # The systemd-enabled image name
@@ -130,7 +130,7 @@ class DockerSystemdBackend(Backend):
             return True
 
         log_debug(f"Removing existing container: {self.container_name}")
-        for attempt in range(10):
+        for _attempt in range(10):
             subprocess.run(
                 ["docker", "rm", "-f", self.container_name],
                 check=False,
@@ -189,10 +189,10 @@ class DockerSystemdBackend(Backend):
 
         # Wait for systemd to be ready
         log_info("Waiting for systemd to initialize...")
-        for i in range(30):  # Wait up to 30 seconds
+        for _i in range(30):  # Wait up to 30 seconds
             result = self.run("systemctl is-system-running 2>/dev/null || true")
             status = result.stdout.strip()
-            if status in ("running", "degraded"):
+            if status in {"running", "degraded"}:
                 break
             time.sleep(1)
         else:
