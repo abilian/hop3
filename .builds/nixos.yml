@@ -27,21 +27,12 @@ tasks:
       cd hop3
       nix develop
 
-  #     pip install --user -U uv
-  #     export PATH="$HOME/.local/bin:$PATH"
-  #     uv sync
+  - test: |
+      cd hop3
+      nix shell --command uv run pytest packages/hop3-server/tests/a_unit
+      nix shell --command uv run pytest packages/hop3-server/tests/b_integration
+      nix shell --command uv run pytest packages/hop3-cli/tests
 
-  # - lint: |
-  #     cd hop3
-  #     export PATH="$HOME/.local/bin:$PATH"
-  #     uv run make lint
-
-  # - test: |
-  #     cd hop3
-  #     export PATH="$HOME/.local/bin:$PATH"
-  #     uv run make test
-
-  # - nox: |
-  #     cd hop3
-  #     export PATH="$HOME/.local/bin:$PATH"
-  #     uv run nox -P 3.12
+  - check: |
+      cd hop3
+      nix shell --command uv run make check
