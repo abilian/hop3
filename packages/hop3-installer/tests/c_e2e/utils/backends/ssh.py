@@ -9,8 +9,8 @@ import subprocess
 from typing import TYPE_CHECKING
 
 from hop3_installer.common import CommandResult
+from utils.common import DRY_RUN, log_debug, log_error, log_info, log_success
 
-from ..common import DRY_RUN, log_debug, log_error, log_info, log_success
 from .base import Backend
 
 if TYPE_CHECKING:
