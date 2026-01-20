@@ -74,7 +74,11 @@ class DockerSystemdBackend(Backend):
 
     def _build_image(self) -> bool:
         """Build the systemd-enabled Docker image."""
-        dockerfile = Path(__file__).parent.parent.parent.parent.parent / "docker" / "Dockerfile.systemd"
+        dockerfile = (
+            Path(__file__).parent.parent.parent.parent.parent
+            / "docker"
+            / "Dockerfile.systemd"
+        )
         if not dockerfile.exists():
             # Try relative to installer_dir
             dockerfile = self.installer_dir / "docker" / "Dockerfile.systemd"
