@@ -4,17 +4,20 @@
 
 image: nixos/latest
 
+repositories:
+  nixpkgs: https://nixos.org/channels/nixpkgs-unstable
+
 packages:
-  - python
-  - uv
-  - git
-  - gnumake
-  - postgresql
-  - sqlite
-  - gcc
-  - openssl
-  - pcre2
-  - libxcrypt
+  - nixpkgs.python
+  - nixpkgs.uv
+  - nixpkgs.git
+  - nixpkgs.gnumake
+  - nixpkgs.postgresql
+  - nixpkgs.sqlite
+  - nixpkgs.gcc
+  - nixpkgs.openssl
+  - nixpkgs.pcre2
+  - nixpkgs.libxcrypt
 
   # - python3-3.12.12-env
   # - uv-0.9.25
