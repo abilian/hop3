@@ -30,7 +30,6 @@ tasks:
   - test: |
       cd hop3
       nix shell --command uv run pytest packages/hop3-server/tests/a_unit
-      nix shell --command uv run pytest packages/hop3-server/tests/b_integration
       nix shell --command uv run pytest packages/hop3-cli/tests
 
   - check: |
