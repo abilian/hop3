@@ -37,9 +37,9 @@ class TestCLIInstaller:
 
         # Upload installer to target
         installer_path = "/tmp/install-cli.py"
-        assert backend.upload(
-            bundled_installers["cli"], installer_path
-        ), "Failed to upload installer"
+        assert backend.upload(bundled_installers["cli"], installer_path), (
+            "Failed to upload installer"
+        )
 
         # Run installer with git method
         result = backend.run(
@@ -69,9 +69,9 @@ class TestCLIInstaller:
 
         # Upload installer to target
         installer_path = "/tmp/install-cli.py"
-        assert backend.upload(
-            bundled_installers["cli"], installer_path
-        ), "Failed to upload installer"
+        assert backend.upload(bundled_installers["cli"], installer_path), (
+            "Failed to upload installer"
+        )
 
         # Upload the hop3-cli package to target
         cli_package = hop3_packages_dir / "hop3-cli"

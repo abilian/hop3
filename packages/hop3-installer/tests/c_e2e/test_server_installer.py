@@ -37,9 +37,9 @@ class TestServerInstaller:
 
         # Upload installer to target
         installer_path = "/tmp/install-server.py"
-        assert backend.upload(
-            bundled_installers["server"], installer_path
-        ), "Failed to upload installer"
+        assert backend.upload(bundled_installers["server"], installer_path), (
+            "Failed to upload installer"
+        )
 
         # Run installer with git method
         # Note: --skip-acme to avoid Let's Encrypt in test environment
@@ -75,9 +75,9 @@ class TestServerInstaller:
 
         # Upload installer to target
         installer_path = "/tmp/install-server.py"
-        assert backend.upload(
-            bundled_installers["server"], installer_path
-        ), "Failed to upload installer"
+        assert backend.upload(bundled_installers["server"], installer_path), (
+            "Failed to upload installer"
+        )
 
         # Upload the hop3-server package to target
         server_package = hop3_packages_dir / "hop3-server"
@@ -162,9 +162,9 @@ class TestServerInstallerWithServices:
 
         # Upload installer
         installer_path = "/tmp/install-server.py"
-        assert systemd_backend.upload(
-            bundled_installers["server"], installer_path
-        ), "Failed to upload installer"
+        assert systemd_backend.upload(bundled_installers["server"], installer_path), (
+            "Failed to upload installer"
+        )
 
         # Run full installation (including PostgreSQL and nginx)
         result = systemd_backend.run(

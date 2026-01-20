@@ -5,12 +5,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from hop3_installer.bundler import bundle_installer
-
-if TYPE_CHECKING:
-    pass
 
 __all__ = [
     "bundle_installers",
