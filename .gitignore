@@ -7,6 +7,10 @@ wheels/
 *.egg-info
 .coverage
 
+# Misc cruft
+.DS_Store
+.idea
+
 # Virtual environments
 .venv
 .python-version
