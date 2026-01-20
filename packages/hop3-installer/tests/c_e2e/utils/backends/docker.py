@@ -8,8 +8,8 @@ import subprocess
 from pathlib import Path
 
 from hop3_installer.common import CommandResult
+from utils.common import log_debug, log_error, log_info, log_success
 
-from ..common import log_debug, log_error, log_info, log_success
 from .base import Backend
 
 # Docker images for each distro
@@ -90,7 +90,7 @@ class DockerBackend(Backend):
         # Remove existing container if any (with retry for "removal in progress")
         if self._container_exists():
             log_debug(f"Removing existing container: {self.container_name}")
-            for attempt in range(10):  # Retry up to 10 times
+            for _attempt in range(10):  # Retry up to 10 times
                 subprocess.run(
                     ["docker", "rm", "-f", self.container_name],
                     check=False,

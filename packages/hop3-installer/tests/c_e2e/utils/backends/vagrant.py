@@ -8,8 +8,8 @@ import subprocess
 from pathlib import Path
 
 from hop3_installer.common import CommandResult, find_project_root
+from utils.common import VERBOSE, log_debug, log_error, log_info, log_success
 
-from ..common import VERBOSE, log_debug, log_error, log_info, log_success
 from .base import Backend
 
 
