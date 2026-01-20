@@ -32,11 +32,14 @@ packages:
   - ruby-rubygems
   - bundler
   - ruby-dev
+  # Docker (for tests)
+  - docker.io
 
 tasks:
   - setup: |
       cd hop3
       sudo pip install -U uv
+      sudo chmod 666 /var/run/docker.sock
       uv sync
 
   - lint: |
@@ -47,7 +50,6 @@ tasks:
       cd hop3
       # Ensure HOP3_DEV_HOST is not set for c_system tests (they use Docker)
       unset HOP3_DEV_HOST
-      sudo chmod 666 /var/run/docker.sock
       uv run make test
 
   - nox: |
