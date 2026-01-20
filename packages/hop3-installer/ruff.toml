@@ -96,4 +96,5 @@ known-first-party = ["hop3_installer"]
     "SIM300",  #   1 [*] yoda-conditions
     "SIM117",
     "PLC2801",
+    "TID252",  # Relative imports in test utils
 ]
