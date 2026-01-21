@@ -16,47 +16,61 @@
 
         python = pkgs.python312;
 
+        # Common packages for development
+        devPackages = [
+          (python.withPackages (ps: with ps; [
+            pip
+            setuptools
+            wheel
+            build
+            hatchling
+          ]))
+          pkgs.uv
+
+          # Development tools
+          pkgs.git
+          pkgs.gnumake
+
+          # Database clients
+          pkgs.postgresql
+          pkgs.sqlite
+
+          # Build tools
+          pkgs.gcc
+          pkgs.openssl
+          pkgs.pcre2
+          pkgs.libxcrypt
+        ];
+
+        # FHS environment for running uv with dynamically linked binaries
+        fhsEnv = pkgs.buildFHSUserEnv {
+          name = "hop3-fhs";
+          targetPkgs = pkgs: devPackages ++ [
+            pkgs.stdenv.cc.cc.lib
+            pkgs.zlib
+          ];
+          runScript = "bash";
+        };
+
       in
       {
-        # Development shell
+        # Development shell (requires nix-ld on NixOS)
         devShells.default = pkgs.mkShell {
           name = "hop3-dev";
 
-          buildInputs = [
-            (python.withPackages (ps: with ps; [
-              pip
-              setuptools
-              wheel
-              build
-            ]))
-            pkgs.uv
-
-            # Development tools
-            pkgs.git
-            pkgs.gnumake
-
-            # Database clients
-            pkgs.postgresql
-            pkgs.sqlite
-
-            # Build tools
-            pkgs.gcc
-            pkgs.openssl
-            pkgs.pcre2
-            pkgs.libxcrypt
-
-            # NixOS compatibility for dynamically linked executables
+          buildInputs = devPackages ++ [
             pkgs.stdenv.cc.cc.lib
             pkgs.zlib
           ];
 
           # Set up environment for uv to work with dynamically linked binaries
+          # Requires: programs.nix-ld.enable = true; in NixOS config
           NIX_LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
             pkgs.stdenv.cc.cc.lib
             pkgs.zlib
             pkgs.openssl
           ];
-          NIX_LD = "${pkgs.stdenv.cc.libc}/lib/ld-linux-x86-64.so.2";
+          NIX_LD = pkgs.lib.fileContents "${pkgs.stdenv.cc}/nix-support/dynamic-linker";
 
           shellHook = ''
             echo "Hop3 development shell"
@@ -65,10 +79,14 @@
             echo ""
             echo "Run 'uv sync' to install dependencies"
             echo ""
-            echo "Note: If uv fails with 'dynamically linked executable' errors,"
-            echo "enable nix-ld in your NixOS config: programs.nix-ld.enable = true;"
+            echo "If uv fails with 'dynamically linked executable' errors, either:"
+            echo "  1. Enable nix-ld: programs.nix-ld.enable = true;"
+            echo "  2. Use FHS shell: nix develop .#fhs"
           '';
         };
+
+        # FHS-compatible shell (works without nix-ld)
+        devShells.fhs = fhsEnv.env;
 
         # Packages
         packages = {
