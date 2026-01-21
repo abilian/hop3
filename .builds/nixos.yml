@@ -16,20 +16,13 @@ environment:
   NIX_CONFIG: "experimental-features = nix-command flakes"
 
 tasks:
-  - setup: |
-      cd hop3
-      # Use FHS shell to avoid dynamically linked executable issues
-      nix develop .#fhs --command uv sync
-
-  - test: |
-      cd hop3
-      nix develop .#fhs --command uv run pytest packages/hop3-server/tests/a_unit
-      nix develop .#fhs --command uv run pytest packages/hop3-cli/tests
-
-  - check: |
-      cd hop3
-      nix develop .#fhs --command uv run make check
-
+  # Build packages using nix (avoids uv dynamic linker issues)
   - build: |
       cd hop3
-      nix build
+      nix build .#hop3-cli -L
+      nix build .#hop3-server -L
+
+  # Run flake checks
+  - check: |
+      cd hop3
+      nix flake check
