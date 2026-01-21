@@ -43,7 +43,7 @@
         ];
 
         # FHS environment for running uv with dynamically linked binaries
-        fhsEnv = pkgs.buildFHSUserEnv {
+        fhsEnv = pkgs.buildFHSEnv {
           name = "hop3-fhs";
           targetPkgs = pkgs: devPackages ++ [
             pkgs.stdenv.cc.cc.lib
