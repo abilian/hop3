@@ -44,7 +44,19 @@
             pkgs.openssl
             pkgs.pcre2
             pkgs.libxcrypt
+
+            # NixOS compatibility for dynamically linked executables
+            pkgs.stdenv.cc.cc.lib
+            pkgs.zlib
           ];
+
+          # Set up environment for uv to work with dynamically linked binaries
+          NIX_LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
+            pkgs.stdenv.cc.cc.lib
+            pkgs.zlib
+            pkgs.openssl
+          ];
+          NIX_LD = "${pkgs.stdenv.cc.libc}/lib/ld-linux-x86-64.so.2";
 
           shellHook = ''
             echo "Hop3 development shell"
@@ -52,6 +64,9 @@
             echo "uv: $(uv --version)"
             echo ""
             echo "Run 'uv sync' to install dependencies"
+            echo ""
+            echo "Note: If uv fails with 'dynamically linked executable' errors,"
+            echo "enable nix-ld in your NixOS config: programs.nix-ld.enable = true;"
           '';
         };
 
