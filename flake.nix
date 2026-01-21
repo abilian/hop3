@@ -198,12 +198,9 @@
                 python-prev.hatch-vcs
               ];
 
-              # Patch pyproject.toml to use hatchling instead of uv_build
-              # Also relax paramiko version constraint (nixpkgs has 4.x)
+              # Relax paramiko version constraint (nixpkgs has 4.x)
               postPatch = ''
                 substituteInPlace pyproject.toml \
-                  --replace-fail 'requires = ["uv-build>=0.8.4,<0.9.0"]' 'requires = ["hatchling"]' \
-                  --replace-fail 'build-backend = "uv_build"' 'build-backend = "hatchling.build"' \
                   --replace-fail '"paramiko>=2.11.0,<3.0.0"' '"paramiko>=2.11.0"'
               '';
 
@@ -241,12 +238,9 @@
                 python-prev.hatch-vcs
               ];
 
-              # Patch pyproject.toml to use hatchling instead of uv_build
-              # Also replace/remove deps not available in nixpkgs
+              # Replace/remove deps not available in nixpkgs
               postPatch = ''
                 substituteInPlace pyproject.toml \
-                  --replace-fail 'requires = ["uv-build>=0.8.4,<0.9.0"]' 'requires = ["hatchling"]' \
-                  --replace-fail 'build-backend = "uv_build"' 'build-backend = "hatchling.build"' \
                   --replace-fail '"granian[reload]>=2.2.0"' '"uvicorn>=0.30.0"' \
                   --replace-fail '"psycopg2-binary>=2.9.10"' '"psycopg2>=2.9.10"'
 
@@ -254,11 +248,6 @@
                 sed -i '/"cyclonedx-bom/d' pyproject.toml
                 sed -i '/"mysql-connector-python/d' pyproject.toml
                 sed -i '/"uwsgi/d' pyproject.toml
-
-                # Replace uv-specific build backend config with hatchling config
-                sed -i '/\[tool.uv.build-backend\]/,/^$/d' pyproject.toml
-                echo '[tool.hatch.build.targets.wheel]' >> pyproject.toml
-                echo 'packages = ["src/hop3"]' >> pyproject.toml
               '';
 
               propagatedBuildInputs = [
