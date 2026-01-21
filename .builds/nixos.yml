@@ -29,6 +29,38 @@ tasks:
       nix develop --command bash -c '
         set -ex
 
+        # Function to patch pyproject.toml for hatchling (uv_build not available on NixOS)
+        patch_pyproject() {
+          local pkg_dir="$1"
+          local pkg_name="$2"
+          local pyproject="$pkg_dir/pyproject.toml"
+
+          if [ ! -f "$pyproject" ]; then
+            return
+          fi
+
+          # Replace uv-build with hatchling
+          sed -i "s|requires = \[\"uv-build>=.*\"\]|requires = [\"hatchling\"]|g" "$pyproject"
+          sed -i "s|build-backend = \"uv_build\"|build-backend = \"hatchling.build\"|g" "$pyproject"
+
+          # Remove [tool.uv.build-backend] section
+          sed -i "/\[tool\.uv\.build-backend\]/,/^$/d" "$pyproject"
+
+          # Add hatchling wheel config if not present
+          if ! grep -q "\[tool.hatch.build.targets.wheel\]" "$pyproject"; then
+            echo "" >> "$pyproject"
+            echo "[tool.hatch.build.targets.wheel]" >> "$pyproject"
+            echo "packages = [\"src/$pkg_name\"]" >> "$pyproject"
+          fi
+        }
+
+        # Patch all packages
+        patch_pyproject "packages/hop3-cli" "hop3_cli"
+        patch_pyproject "packages/hop3-server" "hop3"
+        patch_pyproject "packages/hop3-installer" "hop3_installer"
+        patch_pyproject "packages/hop3-tui" "hop3_tui"
+        patch_pyproject "packages/hop3-testing" "hop3_testing"
+
         # Create venv and install
         python -m venv .venv
         source .venv/bin/activate
