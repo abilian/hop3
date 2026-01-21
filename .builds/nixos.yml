@@ -22,7 +22,29 @@ tasks:
       nix build .#hop3-cli -L
       nix build .#hop3-server -L
 
-  # Run flake checks
+  # Install and test using pip (avoids uv dynamic linker issues)
+  - setup: |
+      cd hop3
+      # Use nix develop shell with pip instead of uv
+      nix develop --command bash -c '
+        python -m venv .venv
+        source .venv/bin/activate
+        pip install -e packages/hop3-cli[dev]
+        pip install -e packages/hop3-server[dev]
+        pip install pytest ruff
+      '
+
+  - test: |
+      cd hop3
+      nix develop --command bash -c '
+        source .venv/bin/activate
+        pytest packages/hop3-cli/tests -v
+        pytest packages/hop3-server/tests/a_unit -v
+      '
+
   - check: |
       cd hop3
-      nix flake check
+      nix develop --command bash -c '
+        source .venv/bin/activate
+        ruff check packages/hop3-cli/src packages/hop3-server/src
+      '
