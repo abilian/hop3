@@ -572,9 +572,9 @@ class DockerTarget(DeploymentTarget):
         print("\nTarget ready:")
         print(f"  HTTP: {self._info.http_base}")
         print(f"  API: {self._info.api_url}")
-        if self._info.ssh_key:
+        if self._info.ssh_key and self._info.ssh_host:
             print(
-                f"  SSH: ssh -i {self._info.ssh_key} -p {self._info.ssh_port} hop3@localhost"
+                f"  SSH: ssh -i {self._info.ssh_key} -p {self._info.ssh_port} {self._info.ssh_host}"
             )
         print("=" * 70 + "\n")
 
