@@ -100,6 +100,26 @@ class DeploymentSession:
         """Get the last deployment error message."""
         return self._last_deploy_error
 
+    def _build_cli_env(self) -> dict[str, str]:
+        """Build environment variables for hop3 CLI commands.
+
+        Returns:
+            Environment dict with HOP3_API_URL, HOP3_SSH_KEY, HOP3_SECRET_KEY set.
+        """
+        target_info = self.target.info
+        env = os.environ.copy()
+
+        # Prefer direct HTTP API URL when available (Docker without SSH port mapping)
+        # Fall back to SSH tunnel for remote targets
+        if target_info.api_url:
+            env["HOP3_API_URL"] = target_info.api_url
+        else:
+            env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
+            env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
+
+        env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
+        return env
+
     def prepare(self):
         """Prepare the application for deployment.
 
@@ -147,12 +167,7 @@ class DeploymentSession:
         Returns:
             True if deployment succeeded, False otherwise
         """
-        target_info = self.target.info
-
-        env = os.environ.copy()
-        env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
-        env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
-        env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
+        env = self._build_cli_env()
 
         # Deploy from prepared temp directory
         # The CLI will create a tarball from this directory (excluding .git)
@@ -181,7 +196,23 @@ class DeploymentSession:
                 self.console.debug(f"Deploy stderr: {' '.join(stderr_lines)}")
 
         if result.returncode != 0:
-            self._last_deploy_error = result.stderr or "Deploy command failed"
+            # Build detailed error message including both stdout and stderr
+            error_parts = [f"Exit code: {result.returncode}"]
+            if result.stdout.strip():
+                error_parts.append(f"stdout: {result.stdout.strip()}")
+            if result.stderr.strip():
+                # Filter cryptography warnings from error message
+                stderr_lines = [
+                    line
+                    for line in result.stderr.split("\n")
+                    if "CryptographyDeprecationWarning" not in line
+                    and "TripleDES" not in line
+                    and line.strip()
+                ]
+                if stderr_lines:
+                    error_parts.append(f"stderr: {' '.join(stderr_lines)}")
+
+            self._last_deploy_error = " | ".join(error_parts) if len(error_parts) > 1 else "Deploy command failed (no output)"
             self.console.error(f"Deploy failed: {self._last_deploy_error}")
             return False
 
@@ -197,12 +228,7 @@ class DeploymentSession:
             return False
 
         try:
-            target_info = self.target.info
-
-            env = os.environ.copy()
-            env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
-            env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
-            env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
+            env = self._build_cli_env()
 
             result = subprocess.run(
                 ["hop3", "apps"],
@@ -340,12 +366,7 @@ class DeploymentSession:
         success = True
 
         try:
-            target_info = self.target.info
-
-            env = os.environ.copy()
-            env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
-            env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
-            env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
+            env = self._build_cli_env()
 
             self.console.debug(f"Destroying {self.app_name}")
 
