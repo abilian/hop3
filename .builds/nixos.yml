@@ -26,12 +26,13 @@ tasks:
   - setup: |
       cd hop3
       nix build
+      nix develop --command uv sync
 
   - test: |
       cd hop3
-      nix shell --command uv run pytest packages/hop3-server/tests/a_unit
-      nix shell --command uv run pytest packages/hop3-cli/tests
+      nix develop --command uv run pytest packages/hop3-server/tests/a_unit
+      nix develop --command uv run pytest packages/hop3-cli/tests
 
   - check: |
       cd hop3
-      nix shell --command uv run make check
+      nix develop --command uv run make check
