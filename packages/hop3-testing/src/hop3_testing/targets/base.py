@@ -188,8 +188,13 @@ class DeploymentTarget(ABC):
         start_time = time.time()
 
         env = os.environ.copy()
-        env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
-        env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
+        # Prefer direct HTTP API URL when available (Docker without SSH port mapping)
+        # Fall back to SSH tunnel for remote targets
+        if target_info.api_url:
+            env["HOP3_API_URL"] = target_info.api_url
+        else:
+            env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
+            env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
         env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
 
         # Always add -y flag to skip confirmations in E2E tests
