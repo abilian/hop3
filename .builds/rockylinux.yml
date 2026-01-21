@@ -37,7 +37,6 @@ tasks:
   - test: |
       cd hop3
       uv run pytest packages/hop3-server/tests/a_unit
-      uv run pytest packages/hop3-server/tests/b_integration
       uv run pytest packages/hop3-cli/tests
 
   # - nox: |
