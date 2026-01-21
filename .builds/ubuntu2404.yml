@@ -35,7 +35,6 @@ packages:
   - ruby-dev
   - golang-go
   # Docker and friends
-  - buildah
   - docker-buildx
   - docker.io
 
