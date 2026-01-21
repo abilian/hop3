@@ -11,6 +11,7 @@ packages:
   - nixpkgs.python3
   - nixpkgs.git
   - nixpkgs.gnumake
+  - nixpkgs.ruff
 
 environment:
   NIX_CONFIG: "experimental-features = nix-command flakes"
@@ -78,13 +79,7 @@ tasks:
         pytest packages/hop3-server/tests/a_unit -v
       '
 
-  # Lint check
+  # Lint check (use ruff from nixpkgs, not pip)
   - check: |
       cd hop3
-      nix develop --command bash -c '
-        set -ex
-        python -m venv .venv-lint
-        source .venv-lint/bin/activate
-        pip install --upgrade pip ruff
-        ruff check packages/hop3-cli/src packages/hop3-server/src
-      '
+      ruff check packages/hop3-cli/src packages/hop3-server/src
