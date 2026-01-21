@@ -27,12 +27,26 @@ tasks:
       cd hop3
       nix develop --command bash -c '
         set -e
+
+        # Patch pyproject.toml files to use hatchling instead of uv_build
+        # (uv_build downloads dynamically linked binaries that dont work on NixOS)
+        for pkg in packages/hop3-cli packages/hop3-server packages/hop3-installer packages/hop3-tui packages/hop3-testing; do
+          if [ -f "$pkg/pyproject.toml" ]; then
+            sed -i "s|requires = \[\"uv-build>=.*\"\]|requires = [\"hatchling\"]|g" "$pkg/pyproject.toml"
+            sed -i "s|build-backend = \"uv_build\"|build-backend = \"hatchling.build\"|g" "$pkg/pyproject.toml"
+          fi
+        done
+
         python -m venv .venv
         source .venv/bin/activate
-        pip install --upgrade pip
+        pip install --upgrade pip hatchling
+
+        # Install packages
         pip install -e "packages/hop3-cli[dev]"
         pip install -e "packages/hop3-server[dev]"
-        pip install pytest ruff filelock
+        pip install pytest filelock
+
+        # Run tests
         pytest packages/hop3-cli/tests -v
         pytest packages/hop3-server/tests/a_unit -v
       '
