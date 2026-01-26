@@ -29,7 +29,7 @@ def check(hostname: str, port: int = 443) -> None:
         follow_redirects=True,
     )
     assert response.is_success, f"Expected success, got {response.status_code}"
-    assert "Hello World" in response.text, f"Unexpected content: {response.text[:100]}"
+    assert "Welcome to demo04" in response.text, f"Unexpected content: {response.text[:100]}"
 
 
 if __name__ == "__main__":

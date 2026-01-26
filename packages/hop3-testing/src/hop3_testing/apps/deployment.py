@@ -17,7 +17,10 @@ import traceback
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
-from hop3_testing.targets.constants import E2E_TEST_SECRET_KEY
+from hop3_testing.targets.constants import (
+    E2E_TEST_SECRET_KEY,
+    create_test_token,
+)
 from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
 from .debug import DeploymentDebugger
@@ -104,7 +107,8 @@ class DeploymentSession:
         """Build environment variables for hop3 CLI commands.
 
         Returns:
-            Environment dict with HOP3_API_URL, HOP3_SSH_KEY, HOP3_SECRET_KEY set.
+            Environment dict with HOP3_API_URL, HOP3_SSH_KEY, HOP3_SECRET_KEY,
+            and HOP3_API_TOKEN set as appropriate.
         """
         target_info = self.target.info
         env = os.environ.copy()
@@ -113,7 +117,10 @@ class DeploymentSession:
         # Fall back to SSH tunnel for remote targets
         if target_info.api_url:
             env["HOP3_API_URL"] = target_info.api_url
+            # Direct HTTP requires API token for authentication
+            env["HOP3_API_TOKEN"] = create_test_token()
         else:
+            # SSH tunnel provides implicit authentication via SSH keys
             env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
             env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
 
