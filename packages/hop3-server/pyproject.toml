@@ -95,6 +95,7 @@ DEP002 = [
     "itsdangerous",
     "python-multipart",
     "sniffio",
+    "uwsgi",
 ]
 
 #DEP003 = [
