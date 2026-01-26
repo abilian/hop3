@@ -22,7 +22,7 @@ def check(hostname, port):
     url = f"http://localhost:{port}/"
     response = httpx.get(url, headers={"Host": hostname}, verify=False)
     assert response.is_success, f"HTTP request failed with status {response.status_code}"
-    assert "Hello World!" in response.text, f"Expected 'Hello World!' in response, got: {response.text}"
+    assert "Welcome to demo03" in response.text, f"Expected 'Welcome to demo03' in response, got: {response.text}"
 
 
 if __name__ == "__main__":
@@ -33,4 +33,4 @@ if __name__ == "__main__":
         url = f"https://{sys.argv[1]}/"
         response = httpx.get(url, verify=False)
         assert response.is_success
-        assert "Hello World!" in response.text
+        assert "Welcome to demo03" in response.text

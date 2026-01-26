@@ -271,9 +271,19 @@ def generate_test_definition_from_app(
     """
     app_name = name or app_path.name
 
+    # Check if actual app content is in an 'app/' subdirectory (common for demos)
+    actual_app_path = app_path
+    deployment_path = "."
+    if (app_path / "app").is_dir():
+        # Check if app/ has deployable files
+        app_subdir = app_path / "app"
+        if _is_deployable_app(app_subdir):
+            actual_app_path = app_subdir
+            deployment_path = "app"
+
     description = _read_description_from_readme(app_path)
-    app_type = _infer_app_type(app_path)
-    validations = _build_validations_from_app(app_path)
+    app_type = _infer_app_type(actual_app_path)
+    validations = _build_validations_from_app(actual_app_path)
 
     # Build covers tags from inferred app type
     covers = []
@@ -290,10 +300,28 @@ def generate_test_definition_from_app(
         ),
         validations=validations,
         deployment=DeploymentConfig(
-            path=".",
+            path=deployment_path,
             type=app_type,
         ),
         description=description,
         metadata=TestMetadata(covers=covers),
         source_path=app_path / "test.toml",  # Virtual path
     )
+
+
+def _is_deployable_app(path: Path) -> bool:
+    """Check if a directory contains deployable app files."""
+    # Check for common app markers
+    markers = [
+        "Procfile",
+        "hop3.toml",
+        "requirements.txt",
+        "pyproject.toml",
+        "package.json",
+        "go.mod",
+        "Gemfile",
+        "Cargo.toml",
+        "Dockerfile",
+        "index.html",
+    ]
+    return any((path / marker).exists() for marker in markers)

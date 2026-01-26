@@ -43,9 +43,8 @@ dependencies = [
     "anyio",
     # Needed for some reason
     "sniffio",
-    # Or maybe not
-    # "uwsgi>=2.0.31",
-    # "devtools",
+    # Process management (required for running apps)
+    "uwsgi>=2.0.31",
 ]
 
 [dependency-groups]

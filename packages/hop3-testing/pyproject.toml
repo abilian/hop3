@@ -27,6 +27,8 @@ dependencies = [
     "click>=8.0.0",
     # Result storage
     "sqlalchemy>=2.0.0",
+    # JWT token generation for E2E tests
+    "PyJWT>=2.8.0",
 ]
 
 [project.scripts]

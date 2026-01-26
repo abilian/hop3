@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import httpx
 from typing_extensions import Self
 
-from .constants import E2E_TEST_SECRET_KEY
+from .constants import E2E_TEST_SECRET_KEY, create_test_token
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -192,7 +192,10 @@ class DeploymentTarget(ABC):
         # Fall back to SSH tunnel for remote targets
         if target_info.api_url:
             env["HOP3_API_URL"] = target_info.api_url
+            # Direct HTTP requires API token for authentication
+            env["HOP3_API_TOKEN"] = create_test_token()
         else:
+            # SSH tunnel provides implicit authentication via SSH keys
             env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
             env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
         env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
