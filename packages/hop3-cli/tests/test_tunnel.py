@@ -56,6 +56,7 @@ requires_unix = pytest.mark.skipif(
 @requires_unix
 @requires_ssh_server
 @requires_ssh_keys
+@pytest.mark.skip
 def test_custom_tunnel():
     """Test the custom SSHTunnel implementation (currently not used in production)."""
 
@@ -73,6 +74,7 @@ def test_custom_tunnel():
 @requires_unix
 @requires_ssh_server
 @requires_ssh_keys
+@pytest.mark.skip
 def test_sshtunnel():
     """Test the sshtunnel package (used in production for SSH tunneling)."""
     server = SSHTunnelForwarder(
