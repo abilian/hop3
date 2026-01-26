@@ -58,3 +58,7 @@ tasks:
   - nox: |
       cd hop3
       uv run nox -P 3.12
+
+  - docker-tests: |
+      cd hop3
+      uv run hop3-test system --docker
