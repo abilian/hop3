@@ -1,3 +1,6 @@
+#
+# Original mkdocs config (for mkdocs-material)
+#
 # Project info
 site_name: Hop3 doc
 site_description: The official website and documentation site for the Hop3 self-sovereign cloud platform project
@@ -5,7 +8,7 @@ site_author: Abilian SAS
 site_url: https://hop3.cloud/
 
 # Copyright
-copyright: Copyright &copy; 2021-2026 Abilian SAS
+copyright: Copyright &copy; 2021-2025 Abilian SAS
 
 # Repository
 repo_name: "abilian/hop3"
@@ -22,7 +25,7 @@ nav:
       - "Quick Start": quickstart.md
       - FAQ: faq.md
       - Extra: extra.md
-      - Changelog: ../CHANGES.md
+      - Changelog: CHANGES.md
   - Developers:
       - "Index": dev/index.md
       - "Getting started": dev/getting-started.md
@@ -54,7 +57,7 @@ nav:
 markdown_extensions:
   - admonition
   - attr_list
-  # - callouts
+  - callouts
   - fenced_code
   - footnotes
   - meta
@@ -69,11 +72,9 @@ markdown_extensions:
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
-        # - pymdownx.snippets:
-        #     base_path: [ !relative $config_dir ]
-        #     check_paths: true
-
-
+  - pymdownx.snippets:
+      base_path: [!relative $config_dir]
+      check_paths: true
   - pymdownx.tabbed:
       alternate_style: true
       slugify: !!python/object/apply:pymdownx.slugs.slugify
@@ -96,29 +97,29 @@ plugins:
   - literate-nav:
       nav_file: SUMMARY.md
   - coverage
-  # - mkdocstrings:
-  #     handlers:
-  #       python:
-  #         import:
-  #           - https://docs.python.org/3/objects.inv
-  #         paths: [src]
-  #         options:
-  #           docstring_options:
-  #             ignore_init_summary: true
-  #           docstring_section_style: list
-  #           filters: ["!^_"]
-  #           heading_level: 1
-  #           inherited_members: true
-  #           merge_init_into_class: true
-  #           separate_signature: true
-  #           show_root_heading: true
-  #           show_root_full_path: false
-  #           show_signature_annotations: true
-  #           show_source: true
-  #           show_symbol_type_heading: true
-  #           show_symbol_type_toc: true
-  #           signature_crossrefs: true
-  #           summary: true
+  - mkdocstrings:
+      handlers:
+        python:
+          import:
+            - https://docs.python.org/3/objects.inv
+          paths: [src]
+          options:
+            docstring_options:
+              ignore_init_summary: true
+            docstring_section_style: list
+            filters: ["!^_"]
+            heading_level: 1
+            inherited_members: true
+            merge_init_into_class: true
+            separate_signature: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            show_source: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            signature_crossrefs: true
+            summary: true
 
   #  - blog:
   #      blog_dir: news
