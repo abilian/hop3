@@ -60,8 +60,8 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
         --json, -j: Machine-readable JSON output
         -y, --yes, --force: Skip confirmation prompts
         -v, --verbose: Increase verbosity (can stack: -vv, -vvv)
+        -d, --debug: Debug mode (can stack: -d, -dd, -ddd)
         -q, --quiet: Decrease verbosity (can stack: -qq)
-        --debug: Maximum verbosity (level 3)
 
     Environment variable:
         HOP3_VERBOSITY: Set default verbosity level (0-3)
@@ -79,6 +79,9 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
 
         >>> parse_flags(['destroy', 'my-app', '-y', '-vv'])
         (CliFlags(verbosity=3, skip_confirm=True, ...), ['destroy', 'my-app'])
+
+        >>> parse_flags(['deploy', 'my-app', '-d'])
+        (CliFlags(verbosity=2, ...), ['deploy', 'my-app'])
     """
     json_output = False
     skip_confirm = False
@@ -103,10 +106,15 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
             verbosity = max(verbosity, 2)
         elif arg == "--quiet":
             verbosity = 0
-        elif arg.startswith("-") and all(c == "v" for c in arg[1:]):
+        elif arg.startswith("-") and arg[1:] and all(c == "v" for c in arg[1:]):
             # Handle -v, -vv, -vvv
             verbosity = min(3, 1 + len(arg) - 1)  # -v=2, -vv=3, -vvv=3
-        elif arg.startswith("-") and all(c == "q" for c in arg[1:]):
+        elif arg.startswith("-") and arg[1:] and all(c == "d" for c in arg[1:]):
+            # Handle -d, -dd, -ddd (debug mode)
+            # -d=2, -dd=3, -ddd=3 (same as -v but starts at debug level)
+            d_count = len(arg) - 1
+            verbosity = min(3, 2 + d_count - 1)  # -d=2, -dd=3, -ddd=3
+        elif arg.startswith("-") and arg[1:] and all(c == "q" for c in arg[1:]):
             # Handle -q, -qq (but -q is enough for quiet=0)
             verbosity = 0
         else:
