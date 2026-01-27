@@ -224,6 +224,22 @@ class RichPrinter:
         panel = Panel(text, title=title, border_style=style)
         self.console.print(panel)
 
+    def print_debug(self, message: str, min_level: int = 2) -> None:
+        """Print debug message if verbosity is high enough.
+
+        Args:
+            message: Debug message to print
+            min_level: Minimum verbosity level required (2=with -d, 3=with -dd)
+        """
+        if self.verbosity < min_level:
+            return
+
+        if self.json_output:
+            self.json_buffer.append({"t": "debug", "text": message})
+            return
+
+        self.console.print(f"[dim][debug][/dim] {message}")
+
     def confirm(self, message: str, *, default: bool = False) -> bool:
         """Ask for user confirmation.
 

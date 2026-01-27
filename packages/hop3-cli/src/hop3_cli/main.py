@@ -77,12 +77,21 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     config = load_config()
 
+    # Debug: show parsed info (verbosity >= 2 means -d or -v was used)
+    if flags.verbosity >= 2:
+        printer.print_debug(f"Command: {' '.join(cli_args) if cli_args else '(none)'}")
+        printer.print_debug(f"Verbosity: {flags.verbosity}")
+        api_url = config.get("api_url", "(not configured)")
+        printer.print_debug(f"API URL: {api_url}")
+
     if not cli_args:
         cli_args = ["help"]
 
     # Handle local commands (init, config) that don't need server
     # Check BEFORE help flag conversion so "init --help" works
     if is_local_command(cli_args):
+        if flags.verbosity >= 2:
+            printer.print_debug("Handling as local command")
         handled = handle_local_command(cli_args, config, printer)
         if handled:
             return
@@ -94,8 +103,10 @@ def run_command_from_args(cli_args: list[str]) -> None:
     _check_prerequisites(cli_args, config, printer, flags)
 
     # Execute the RPC command
+    if flags.verbosity >= 2:
+        printer.print_debug("Executing RPC command...")
     extra_args = get_extra_args(cli_args, verbosity=flags.verbosity)
-    response = _execute_rpc_command(cli_args, config, extra_args)
+    response = _execute_rpc_command(cli_args, config, extra_args, printer)
 
     # Handle the response
     handle_response(response, cli_args, config, printer)
@@ -148,9 +159,22 @@ def requires_authentication(cli_args: list[str]) -> bool:
     return command not in no_auth_commands
 
 
-def _execute_rpc_command(cli_args: list[str], config: Config, extra_args: dict) -> Any:
+def _execute_rpc_command(
+    cli_args: list[str],
+    config: Config,
+    extra_args: dict,
+    printer: RichPrinter | None = None,
+) -> Any:
     """Execute RPC command and handle connection errors."""
     with Client(config=config) as client:
+        # Debug: show connection info
+        if printer and printer.verbosity >= 2:
+            if client.using_ssh_tunnel:
+                printer.print_debug(f"Using SSH tunnel to {config.get('api_url')}")
+                printer.print_debug(f"RPC endpoint: {client.rpc_url}")
+            else:
+                printer.print_debug(f"Direct connection to {client.rpc_url}")
+
         try:
             validated_extra_args: dict[str, Any] = {
                 k: v
