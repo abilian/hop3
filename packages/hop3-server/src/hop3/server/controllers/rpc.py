@@ -298,7 +298,16 @@ class RPCController(Controller):
         Returns:
             Error response if authentication failed, None if OK
         """
-        # Skip authentication check in unsafe testing mode
+        # Check session first
+        user_id = request.session.get("user_id")
+        if user_id:
+            return None
+
+        # Try Bearer token authentication (always try to extract user info)
+        # This populates the session with username even if auth is not required
+        token_valid = self._authenticate_from_bearer_token(request)
+
+        # Skip authentication enforcement in unsafe testing mode
         if config.HOP3_UNSAFE:
             return None
 
@@ -306,13 +315,8 @@ class RPCController(Controller):
         if command_class is not None and not requires_authentication(command_class):
             return None
 
-        # Check session first
-        user_id = request.session.get("user_id")
-        if user_id:
-            return None
-
-        # Try Bearer token authentication
-        if self._authenticate_from_bearer_token(request):
+        # If token was valid, we're authenticated
+        if token_valid:
             return None
 
         # Authentication failed

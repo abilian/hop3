@@ -71,18 +71,26 @@ Authentication methods:
   (default)              Username/password authentication
 
 Options:
-  --ssh <user@server>    Use SSH-based authentication
+  --ssh <user@server>    Use SSH-based authentication (uses SSH tunnel for all commands)
+  --url <url>            With --ssh: use HTTP API at this URL instead of SSH tunnel
   --token <token>        Use a pre-generated API token
   --server <url>         Server URL (for --token, prompted if not configured)
-  --username <name>      Username (for password auth, prompted if not provided)
+  --username <name>      Username (prompted if not provided)
+  -d, -dd, -ddd          Debug output (more d's = more verbose)
 
 Examples:
-  # URL with embedded token (easiest for local development)
-  hop3-server admin:create admin admin@example.com  # Get token
-  hop3 login "http://localhost:8000?token=eyJ..."
-
-  # SSH-based login (for remote servers)
+  # SSH-based login (recommended for remote servers)
+  # All subsequent commands will use SSH tunnel
   hop3 login --ssh root@my-server.com
+
+  # SSH-based login with HTTP API for subsequent commands
+  hop3 login --ssh root@my-server.com --url https://my-server.com
+
+  # Show debug info
+  hop3 login --ssh root@my-server.com -d
+
+  # URL with embedded token (easiest for local development)
+  hop3 login "http://localhost:8000?token=eyJ..."
 
   # Password-based login (server must be configured)
   hop3 login
