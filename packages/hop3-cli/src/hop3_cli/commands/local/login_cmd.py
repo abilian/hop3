@@ -21,7 +21,6 @@ from .ssh_ops import (
     BootstrapError,
     fetch_and_save_certificate,
     get_token_via_ssh,
-    infer_server_url,
 )
 
 if TYPE_CHECKING:
@@ -336,10 +335,17 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> b
     """Handle the login --ssh command for getting token via SSH.
 
     Usage:
-        hop3 login --ssh user@server
-        hop3 login --ssh user@server --username admin
+        hop3 login --ssh user@server                    # Uses SSH tunnel for all commands
+        hop3 login --ssh user@server --username admin   # Specify username
+        hop3 login --ssh user@server --url https://...  # Use HTTP API instead of SSH tunnel
+        hop3 login --ssh user@server -d                 # Show debug info
     """
-    ssh_target, username, server_url = _parse_login_ssh_args(args)
+    ssh_target, username, api_url, debug_level = _parse_login_ssh_args(args)
+
+    if debug_level >= 1:
+        print(f"[debug] SSH target: {ssh_target}")
+        print(f"[debug] Username: {username or '(will prompt)'}")
+        print(f"[debug] API URL override: {api_url or '(none, will use SSH tunnel)'}")
 
     # Prompt for username if not provided
     if not username:
@@ -357,24 +363,59 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> b
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Prepare and save config
-    config_data = {"api_url": server_url, "api_token": token}
-    _handle_ssl_certificate(ssh_target, server_url, config, config_data)
+    if debug_level >= 2:
+        print(f"[debug] Token received: {token[:20]}...{token[-10:]}")
+
+    # Determine API URL to save
+    if api_url:
+        # User explicitly provided URL - use HTTP API
+        config_data = {"api_url": api_url, "api_token": token}
+        if debug_level >= 1:
+            print(f"[debug] Will use HTTP API at: {api_url}")
+        # For HTTPS, verify the connection works with system CA bundle
+        if api_url.startswith("https://"):
+            _verify_https_connection(api_url, token, config, config_data, debug_level)
+    else:
+        # Default: use SSH tunnel for all subsequent commands
+        # This avoids SSL certificate issues and uses SSH key authentication
+        ssh_url = _build_ssh_url(ssh_target)
+        config_data = {"api_url": ssh_url, "api_token": token}
+        if debug_level >= 1:
+            print(f"[debug] Will use SSH tunnel: {ssh_url}")
+
     config.save(config_data)
+
+    if debug_level >= 1:
+        print(f"[debug] Config saved to: {config.config_file}")
 
     _print_login_success(username, config)
     return True
 
 
-def _parse_login_ssh_args(args: list[str]) -> tuple[str, str | None, str]:
+def _build_ssh_url(ssh_target: str) -> str:
+    """Build SSH URL from SSH target.
+
+    Args:
+        ssh_target: SSH target (user@host or host)
+
+    Returns:
+        SSH URL for the API (e.g., ssh://root@hop3.dev)
+    """
+    if "@" in ssh_target:
+        return f"ssh://{ssh_target}"
+    return f"ssh://root@{ssh_target}"
+
+
+def _parse_login_ssh_args(args: list[str]) -> tuple[str, str | None, str | None, int]:
     """Parse arguments for login --ssh command.
 
     Returns:
-        Tuple of (ssh_target, username, server_url)
+        Tuple of (ssh_target, username, api_url, debug_level)
     """
     ssh_target = None
     username = None
-    server_url = None
+    api_url = None
+    debug_level = 0
 
     i = 0
     while i < len(args):
@@ -385,9 +426,13 @@ def _parse_login_ssh_args(args: list[str]) -> tuple[str, str | None, str]:
         elif arg == "--username" and i + 1 < len(args):
             username = args[i + 1]
             i += 2
-        elif arg == "--server" and i + 1 < len(args):
-            server_url = args[i + 1]
+        elif arg == "--url" and i + 1 < len(args):
+            api_url = args[i + 1]
             i += 2
+        elif arg.startswith("-d"):
+            # Count consecutive 'd's: -d = 1, -dd = 2, -ddd = 3
+            debug_level += arg.count("d")
+            i += 1
         else:
             i += 1
 
@@ -401,14 +446,84 @@ def _parse_login_ssh_args(args: list[str]) -> tuple[str, str | None, str]:
     # Type narrowing: ssh_target is str after the check above
     assert ssh_target is not None
 
-    # Infer server URL from SSH target if not provided
-    if not server_url:
-        server_url = infer_server_url(ssh_target)
-        response = input(f"Server URL [{server_url}]: ").strip()
-        if response:
-            server_url = response
+    return ssh_target, username, api_url, debug_level
 
-    return ssh_target, username, server_url
+
+def _verify_https_connection(
+    api_url: str,
+    token: str,
+    config: Config,
+    config_data: dict,
+    debug_level: int = 0,
+) -> None:
+    """Verify HTTPS connection works with the system CA bundle.
+
+    If SSL verification fails, offers to disable it for self-signed certificates.
+
+    Args:
+        api_url: The HTTPS URL to verify
+        token: The API token for authentication
+        config: Config object for saving settings
+        config_data: Config data dict to update
+        debug_level: Debug verbosity level
+    """
+    import requests  # noqa: PLC0415
+
+    if debug_level >= 1:
+        print(f"[debug] Verifying HTTPS connection to {api_url}")
+
+    try:
+        # Try to connect with system CA bundle
+        response = requests.get(
+            f"{api_url.rstrip('/')}/health",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+            verify=True,  # Use system CA bundle
+        )
+        if response.ok:
+            print("HTTPS connection verified ✓")
+        else:
+            print(f"HTTPS connection works (status: {response.status_code})")
+
+    except requests.exceptions.SSLError:
+        # Self-signed or untrusted certificate
+        print()
+        print("The server uses a self-signed or untrusted SSL certificate.")
+        print()
+        print("Options:")
+        print("  1. Use SSH tunnel instead (recommended):")
+        print(f"     hop3 login --ssh {_extract_host(api_url)}")
+        print()
+        print("  2. Disable SSL verification for this server:")
+
+        # Ask user if they want to disable SSL verification (if interactive)
+        try:
+            if sys.stdin.isatty():
+                answer = input("\nDisable SSL verification? [y/N]: ").strip().lower()
+                if answer in {"y", "yes"}:
+                    config_data["verify_ssl"] = "false"
+                    print("SSL verification disabled.")
+                    return
+        except (EOFError, KeyboardInterrupt):
+            pass
+
+        print()
+        print("To disable SSL verification later, run:")
+        print("  hop3 settings set verify_ssl false")
+
+    except requests.exceptions.RequestException as e:
+        if debug_level >= 1:
+            print(f"[debug] Connection error: {e}")
+        print(f"Warning: Could not verify connection to {api_url}")
+
+
+def _extract_host(url: str) -> str:
+    """Extract user@host from URL for display."""
+    from urllib.parse import urlparse  # noqa: PLC0415
+
+    parsed = urlparse(url)
+    host = parsed.hostname or url
+    return f"root@{host}"
 
 
 def _handle_ssl_certificate(
@@ -416,7 +531,9 @@ def _handle_ssl_certificate(
 ) -> None:
     """Handle SSL certificate fetching for HTTPS connections.
 
-    Updates config_data with ssl_cert path if successful.
+    Note: This function is currently unused. For most HTTPS connections,
+    the system CA bundle works. For self-signed certs, users should set
+    verify_ssl=false.
     """
     existing_cert = config.get("ssl_cert", None)
     existing_verify = config.get("verify_ssl", None)
