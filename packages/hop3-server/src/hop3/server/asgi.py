@@ -28,6 +28,7 @@ from .controllers import (
     MarketplaceController,
     RootController,
     RPCController,
+    StreamController,
 )
 from .state_sync import start_state_sync_service, stop_state_sync_service
 
@@ -108,6 +109,7 @@ def create_app():
     route_handlers: list[ControllerRouterHandler] = [
         RootController,  # Root redirect (/)
         RPCController,  # JSON-RPC endpoint (/rpc)
+        StreamController,  # SSE streaming (/api/stream/*)
         AuthController,  # Web authentication (/auth/*)
         DashboardController,  # Dashboard UI (/dashboard/*)
         MarketplaceController,  # Marketplace UI (/dashboard/marketplace/*)

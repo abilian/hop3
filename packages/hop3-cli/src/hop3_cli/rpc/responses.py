@@ -49,8 +49,77 @@ def handle_ok_response(
     elif is_help_command(cli_args) and not printer.json_output:
         result = inject_local_commands_into_help(result)
         printer.print(result)
+    elif _is_streaming_response(result):
+        # Handle streaming response (real-time deployment logs)
+        _handle_streaming_response(result, config, printer)
     else:
         printer.print(result)
+
+
+def _is_streaming_response(result: list[dict]) -> bool:
+    """Check if the response is a streaming response."""
+    return (
+        result
+        and len(result) == 1
+        and result[0].get("t") == "stream"
+        and "stream_id" in result[0]
+    )
+
+
+def _handle_streaming_response(
+    result: list[dict], config: Config, printer: RichPrinter
+) -> None:
+    """Handle streaming response by connecting to SSE endpoint.
+
+    Args:
+        result: RPC response containing stream_id
+        config: CLI configuration
+        printer: Printer for output
+    """
+    from hop3_cli.rpc.streaming import stream_deployment_logs  # noqa: PLC0415
+
+    stream_id = result[0].get("stream_id")
+    if not stream_id:
+        printer.print([{"t": "error", "text": "Invalid streaming response: no stream_id"}])
+        sys.exit(1)
+
+    # Get API URL from config
+    api_url = config.get("api_url", "")
+    if not api_url:
+        printer.print([{"t": "error", "text": "No API URL configured"}])
+        sys.exit(1)
+
+    # Handle SSH tunnel URLs - need to use the forwarded HTTP URL
+    if api_url.startswith("ssh://"):
+        # When using SSH tunnel, the actual HTTP connection goes to localhost
+        # The tunnel is already established by the RPC client
+        # We need to get the local forwarded port
+        # For now, fall back to non-streaming behavior
+        printer.print([{
+            "t": "warning",
+            "text": "Streaming not yet supported over SSH tunnel. Waiting for deployment to complete...",
+        }])
+        # TODO: Implement SSH tunnel support for streaming
+        # The RPC client establishes the tunnel, we need to reuse it
+        return
+
+    # Get token for authentication
+    token = config.get("api_token")
+
+    # Check SSL verification setting
+    verify_ssl = config.get("verify_ssl", True)
+
+    # Connect to stream and display logs
+    success = stream_deployment_logs(
+        base_url=api_url,
+        stream_id=stream_id,
+        printer=printer,
+        token=token,
+        verify_ssl=verify_ssl,
+    )
+
+    if not success:
+        sys.exit(1)
 
 
 def handle_error_response(
@@ -64,6 +133,18 @@ def handle_error_response(
         printer: Optional RichPrinter for JSON output mode
     """
     clean_message = message
+    logs_to_display = None
+
+    # Check for embedded logs in error message (format: LOGS:<json>|||<error>)
+    if clean_message.startswith("LOGS:") and "|||" in clean_message:
+        try:
+            logs_part, error_part = clean_message[5:].split("|||", 1)
+            logs_to_display = json.loads(logs_part)
+            clean_message = error_part
+        except (json.JSONDecodeError, ValueError):
+            # If parsing fails, treat as normal error message
+            pass
+
     prefixes_to_strip = [
         "Command execution failed: ",
         "Deployment failed: ",
@@ -80,6 +161,10 @@ def handle_error_response(
     if exit_code == ExitCode.GENERAL_ERROR:
         # Try to infer from message content
         exit_code = map_message_to_exit(clean_message)
+
+    # Display logs first if we have them (so user sees deployment progress)
+    if logs_to_display and printer:
+        printer.print(logs_to_display)
 
     # Output error in appropriate format
     if printer and printer.json_output:

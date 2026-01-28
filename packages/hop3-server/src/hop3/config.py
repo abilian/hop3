@@ -116,6 +116,13 @@ class HopConfig:
         """Log level: DEBUG, INFO (default), WARNING, ERROR."""
         return self._config_loader.get_str("HOP3_LOG_LEVEL", "INFO").upper()
 
+    # Deployment Configuration
+
+    @property
+    def APP_START_TIMEOUT(self) -> float:
+        """Default timeout in seconds for apps to start (default: 600 = 10 minutes)."""
+        return self._config_loader.get_float("APP_START_TIMEOUT", 600.0)
+
     # Proxy Configuration
 
     @property
@@ -295,6 +302,7 @@ HOP3_UNSAFE: bool = config.HOP3_UNSAFE
 HOP3_LOG_LEVEL: str = config.HOP3_LOG_LEVEL
 HOP3_PROXY_TYPE: str = config.HOP3_PROXY_TYPE
 MODE: str = config.MODE
+APP_START_TIMEOUT: float = config.APP_START_TIMEOUT
 
 # Paths
 APP_ROOT: Path = config.APP_ROOT
@@ -336,6 +344,7 @@ __all__ = [  # noqa: RUF022
     "HOP3_LOG_LEVEL",
     "HOP3_PROXY_TYPE",
     "MODE",
+    "APP_START_TIMEOUT",
     # Paths
     "APP_ROOT",
     "BACKUP_ROOT",

@@ -112,16 +112,31 @@ before-run = ["python manage.py migrate", "python manage.py collectstatic --noin
 
 # System packages needed at runtime
 packages = ["postgresql", "redis"]
+
+# Startup timeout in seconds (default: 600 = 10 minutes)
+start-timeout = 900
 ```
 
 **Fields:**
 - `start` (string | array): Main application start command (maps to Procfile `web`)
 - `before-run` (string | array): Pre-run commands (maps to Procfile `prerun`)
 - `packages` (array): System packages required at runtime
+- `start-timeout` (number): Maximum time in seconds to wait for the app to start (default: 600)
 
 **Procfile Mapping:**
 - `run.start` → Procfile `web`
 - `run.before-run` → Procfile `prerun`
+
+**Startup Timeout:**
+
+The `start-timeout` option controls how long Hop3 waits for your application to start before marking the deployment as failed. This is useful for applications with slow startup times (e.g., Java apps, apps with large dependency trees).
+
+```toml
+[run]
+start-timeout = 900  # Wait up to 15 minutes for app to start
+```
+
+The server-wide default is 600 seconds (10 minutes), configurable via the `APP_START_TIMEOUT` environment variable on the server.
 
 ### [env] - Environment Variables
 

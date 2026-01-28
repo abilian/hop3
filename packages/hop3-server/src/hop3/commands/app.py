@@ -6,9 +6,11 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -25,6 +27,7 @@ from hop3.lib.console import capture_logs
 from hop3.lib.logging import server_log
 from hop3.lib.registry import register
 from hop3.orm import AddonCredential, App, AppRepository, AppStateEnum, EnvVar
+from hop3.server.streaming import create_stream, stream_context
 
 from ._base import Command
 from ._errors import command_context
@@ -163,19 +166,60 @@ class DeployCmd(Command):
         archives_bytes = b64decode(kwargs["repository"])
         extract_archive_to_dir(archives_bytes, app.src_path)
 
+        # Check if client requests streaming (real-time logs via SSE)
+        streaming = kwargs.get("streaming", False)
+
+        if streaming:
+            return self._deploy_streaming(app, app_name)
+        return self._deploy_sync(app, app_name)
+
+    def _deploy_streaming(self, app: App, app_name: str) -> list[dict]:
+        """Deploy with real-time log streaming via SSE.
+
+        Returns stream_id immediately, runs deployment in background thread.
+        """
+        # Create stream for real-time logs
+        stream = create_stream(app_name)
+
+        def run_deployment():
+            """Run deployment in background thread."""
+            try:
+                with stream_context(stream):
+                    with command_context("deploying app", app_name=app_name):
+                        do_deploy(app)
+                        app.last_deployed_at = datetime.now(UTC)
+                        self.db_session.commit()
+                stream.finish(success=True)
+            except Exception as e:
+                stream.finish(success=False, error_message=str(e))
+
+        # Start deployment in background thread
+        thread = threading.Thread(target=run_deployment, daemon=True)
+        thread.start()
+
+        # Return stream_id immediately so CLI can connect to SSE endpoint
+        return [{"t": "stream", "stream_id": stream.stream_id}]
+
+    def _deploy_sync(self, app: App, app_name: str) -> list[dict]:
+        """Deploy synchronously, collecting logs for response."""
         # Capture logs during deployment (uses global verbosity context)
         with capture_logs() as captured:
-            # Use command_context for consistent error handling:
-            # - Logs full traceback to stderr for debugging
-            # - Converts subprocess errors to user-friendly messages
-            # - Re-raises as ValueError for JSON-RPC error response
-            with command_context("deploying app", app_name=app_name):
-                do_deploy(app)
-                # Record deployment timestamp and commit state changes
-                app.last_deployed_at = datetime.now(UTC)
-                self.db_session.commit()
+            deploy_error = None
+            try:
+                # Use command_context for consistent error handling:
+                # - Logs full traceback to stderr for debugging
+                # - Converts subprocess errors to user-friendly messages
+                # - Re-raises as ValueError for JSON-RPC error response
+                with command_context("deploying app", app_name=app_name):
+                    do_deploy(app)
+                    # Record deployment timestamp and commit state changes
+                    app.last_deployed_at = datetime.now(UTC)
+                    self.db_session.commit()
+            except ValueError as e:
+                # Capture the error but continue to collect logs
+                deploy_error = str(e)
 
-        # Build response with logs
+        # Build response with logs (always include logs, even on error)
         logs = captured.get_logs()
         response = []
 
@@ -187,6 +231,18 @@ class DeployCmd(Command):
                 "fg": entry.get("fg", ""),
                 "level": entry.get("level", 0),
             })
+
+        # If there was an error, add error message and raise
+        if deploy_error:
+            response.append({
+                "t": "error",
+                "text": deploy_error,
+            })
+            # Raise with logs prefix so CLI can parse and display them
+            # Format: JSON array of log entries, then "|||" separator, then error message
+            logs_json = json.dumps(response)
+            error_with_logs = f"LOGS:{logs_json}|||{deploy_error}"
+            raise ValueError(error_with_logs)
 
         # Add final success message
         response.append({

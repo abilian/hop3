@@ -306,8 +306,20 @@ def log(msg: str, level: int = 0, fg: str = "green") -> None:
 
     The message is only displayed if level <= current verbosity.
     Verbosity can be set via set_verbosity() or capture_logs() context.
+
+    If a streaming context is active (via stream_context()), the message
+    is also sent to the SSE stream for real-time delivery to CLI clients.
     """
     formatted = f"{'-' * level}> {msg}" if level > 0 else f"> {msg}"
+
+    # Send to SSE stream if one is active (for real-time streaming)
+    # Import here to avoid circular dependency
+    from hop3.server.streaming import get_current_stream  # noqa: PLC0415
+
+    stream = get_current_stream()
+    if stream is not None:
+        stream.write(formatted, level=level, fg=fg)
+
     # If using CapturingConsole, it handles verbosity filtering itself
     if isinstance(_console, CapturingConsole):
         _console.echo(formatted, fg=fg, level=level)
