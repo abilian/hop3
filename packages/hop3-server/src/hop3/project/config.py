@@ -114,6 +114,24 @@ class AppConfig:
         return self.workers.get("prerun", "")
 
     @property
+    def start_timeout(self) -> float:
+        """Get start timeout with precedence: hop3.toml > server default.
+
+        Returns:
+            Timeout in seconds for the app to start
+        """
+        # Check hop3.toml first
+        if self.has_hop3_toml:
+            timeout = self.hop3_config.start_timeout
+            if timeout is not None:
+                return timeout
+
+        # Fall back to server default (deferred import to avoid circular dependency)
+        from hop3.config import config  # noqa: PLC0415
+
+        return config.APP_START_TIMEOUT
+
+    @property
     def src_dir(self):
         return self.app_dir / "src"
 

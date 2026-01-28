@@ -1,8 +1,9 @@
 # ADR 034: Streaming Deployment Logs
 
-**Status**: Accepted
+**Status**: Implemented
 **Type**: Feature
 **Created**: 2025-12-15
+**Updated**: 2025-01-28
 **Related-ADRs**: 018, 022, 025
 
 ## Context
@@ -221,10 +222,43 @@ SSH tunneling is deprecated. The CLI now communicates with the server over HTTP.
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Phase 1: Log capture | ✅ Implemented | `shell()` routes output through `log()` |
-| Phase 1: CLI display | ✅ Existing | `print_log()` handles `t: "log"` entries |
-| Phase 1: Deploy command | ✅ Existing | Uses `capture_logs()` context manager |
-| Phase 2: SSE streaming | ❌ Not implemented | Future enhancement |
+| Phase 1: CLI display | ✅ Implemented | `print_log()` handles `t: "log"` entries |
+| Phase 1: Deploy command | ✅ Implemented | Uses `capture_logs()` context manager |
+| Phase 1: Error logs | ✅ Implemented | Logs embedded in error responses (2025-01) |
+| Phase 2: SSE streaming | ✅ Implemented | Real-time log streaming via SSE (2025-01) |
+| Phase 2: Stream infrastructure | ✅ Implemented | `hop3/server/streaming.py` |
+| Phase 2: SSE endpoint | ✅ Implemented | `GET /api/stream/{stream_id}` |
+| Phase 2: CLI SSE client | ✅ Implemented | `hop3_cli/rpc/streaming.py` |
+| SSH tunnel streaming | ⏳ Deferred | Falls back to batch mode |
 | Build cancellation | ❌ Not implemented | Future enhancement |
+
+### Current Behavior (Phase 2 Implemented)
+
+With Phase 2 SSE streaming implemented, deployment logs are now displayed in **real-time** as they happen:
+
+1. CLI sends deploy request with `streaming=True`
+2. Server creates a stream, starts deployment in background thread
+3. Server returns `stream_id` immediately
+4. CLI connects to SSE endpoint (`GET /api/stream/{stream_id}`)
+5. Logs are streamed to CLI as they happen
+6. CLI displays `complete` event when done
+
+**SSH Tunnel Limitation:** When using `ssh://` URLs, streaming is not yet supported and falls back to batch mode (logs shown at end). Direct HTTP connections support full streaming.
+
+### Alternative Real-Time Monitoring
+
+If streaming is unavailable, users can monitor deployment progress by SSHing to the server:
+
+```bash
+# Watch server logs during deployment
+journalctl -u hop3-server -f
+
+# Watch app-specific logs
+tail -f /home/hop3/apps/<app_name>/log/*.log
+
+# Watch uWSGI emperor logs
+journalctl -u uwsgi-emperor -f
+```
 
 ## Implementation Plan
 
@@ -235,32 +269,48 @@ SSH tunneling is deprecated. The CLI now communicates with the server over HTTP.
    - All subprocess output now gets captured by `capture_logs()` context manager
    - Error output includes both stdout and stderr at appropriate log levels
 
-2. **Deploy command already captures logs** ✅
+2. **Deploy command captures logs** ✅
    - `DeployCmd.call()` uses `capture_logs()` context manager
    - Returns logs as `t: "log"` entries in response
 
-3. **CLI already displays logs** ✅
+3. **CLI displays logs** ✅
    - `RichPrinter.print_log()` handles `t: "log"` entries
    - Filters by verbosity level (0-3)
    - Applies color styling from server
 
-### Phase 2 Tasks
+4. **Logs included in error responses** ✅ (2025-01)
+   - When deployment fails, logs are embedded in the error message
+   - CLI parses and displays logs before showing error
+   - Format: `LOGS:<json>|||<error_message>`
 
-1. **Add streaming infrastructure**
-   - `BuildOutputStream` class for log capture
-   - Stream registry with cleanup
-   - SSE endpoint implementation
+### Phase 2 Tasks (Priority: High)
 
-2. **Modify deploy command**
-   - Return `stream_id` in response
-   - Start build in background task
-   - Connect output to stream
+Phase 2 is **required** to provide real-time deployment feedback. Without it, users experience a "black box" during long deployments.
 
-3. **Update CLI**
-   - Detect streaming support
-   - Connect to SSE endpoint
-   - Display logs in real-time
-   - Handle reconnection
+**Estimated effort:** 2-3 days
+
+1. **Add streaming infrastructure** (Server)
+   - `BuildOutputStream` class for log capture with pub/sub pattern
+   - Stream registry with automatic cleanup (TTL-based)
+   - SSE endpoint: `GET /api/stream/{stream_id}`
+   - Litestar's `StreamingResponse` with `text/event-stream` media type
+
+2. **Modify deploy command** (Server)
+   - Generate unique `stream_id` at deploy start
+   - Return `stream_id` immediately in JSON-RPC response
+   - Run deployment in background asyncio task
+   - Pipe all `log()` output to the stream
+
+3. **Update CLI** (Client)
+   - Detect streaming support from response (presence of `stream_id`)
+   - Use `httpx` async client to connect to SSE endpoint
+   - Display log lines as they arrive
+   - Handle connection drops with reconnection logic
+   - Graceful fallback to Phase 1 behavior if streaming unavailable
+
+4. **SSH tunnel compatibility**
+   - SSE must work through SSH tunnels (localhost forwarding)
+   - Test with both direct HTTP and SSH-tunneled connections
 
 ## Consequences
 

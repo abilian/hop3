@@ -1,7 +1,7 @@
 # Hop3 CLI Reference
 
 **Version:** 0.4.0
-**Last Updated:** 2025-12-14
+**Last Updated:** 2025-01-28
 
 This document provides a complete reference for all Hop3 CLI commands.
 
@@ -297,21 +297,54 @@ Deploy an application from uploaded source or configured repository.
 
 **Usage:**
 ```bash
-hop3 deploy <app_name>
+hop3 deploy <app_name> [options] [directory]
 ```
 
 **Arguments:**
 - `app_name` - Name of application to deploy
+- `directory` - Source directory (default: current directory)
 
-**Example:**
+**Options:**
+- `--env KEY=VALUE` or `-e KEY=VALUE` - Set environment variable (can be repeated)
+- `--no-stream` - Disable real-time log streaming (use batch output)
+- `--stream` - Enable real-time log streaming (default)
+
+**Examples:**
 ```bash
 # Deploy from current directory
 cd myapp/
 hop3 deploy myapp
 
-# Or specify app name if in different directory
-hop3 deploy myapp
+# Deploy with environment variables
+hop3 deploy myapp --env DEBUG=true --env LOG_LEVEL=info
+
+# Deploy from specific directory
+hop3 deploy myapp ./src
+
+# Disable streaming (batch output at end)
+hop3 deploy myapp --no-stream
 ```
+
+**Real-time Log Streaming:**
+
+By default, `hop3 deploy` streams deployment logs in real-time via Server-Sent Events (SSE). You'll see build output as it happens:
+
+```
+> Starting deployment for app 'myapp'
+-> Using builder: 'LocalBuilder'
+--> Creating virtualenv...
+--> Installing from requirements.txt
+    Collecting Flask==3.0.0
+    Successfully installed Flask-3.0.0
+-> Build successful
+-> Using deployment strategy: 'uwsgi'
+> Waiting for app 'myapp' to start (timeout: 600s)...
+> App 'myapp' is now running.
+
+✓ Deployment completed successfully in 45.2s
+```
+
+Use `--no-stream` to fall back to batch output (all logs shown at end).
 
 **Process:**
 1. Uploads source code as tarball
@@ -321,11 +354,23 @@ hop3 deploy myapp
 5. Configures reverse proxy (nginx, Caddy, or Traefik)
 6. Starts application processes
 
+**Startup Timeout:**
+
+Apps must start within a configurable timeout (default: 10 minutes). Configure per-app in `hop3.toml`:
+
+```toml
+[run]
+start-timeout = 900  # 15 minutes
+```
+
+Or set server-wide default via `APP_START_TIMEOUT` environment variable.
+
 **Notes:**
 - Requires `Procfile` or `hop3.toml` for process configuration
 - Automatically detects buildpack based on files present
-- Use `-v` or `-vv` to see Docker build output for troubleshooting (see [Global Flags](#global-flags))
+- Use `-v` or `-vv` for more verbose output (see [Global Flags](#global-flags))
 - Build logs are also saved and can be retrieved with `app:build-logs`
+- Streaming requires direct HTTP connection (SSH tunnel falls back to batch mode)
 - See [Deployment Guide](./deployment.md) for details
 
 ---
@@ -1397,6 +1442,6 @@ hop3 <command> --help
 
 ---
 
-**Last Updated:** 2025-12-14
+**Last Updated:** 2025-01-28
 **CLI Version:** 0.4.0
 **Server Version:** 0.4.0

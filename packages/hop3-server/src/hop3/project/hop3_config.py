@@ -187,6 +187,19 @@ class Hop3Config:
         """
         return self.run.get("start")
 
+    @property
+    def start_timeout(self) -> float | None:
+        """Get run.start-timeout in seconds.
+
+        This is the maximum time to wait for the app to start.
+        If not specified, the server default (APP_START_TIMEOUT) is used.
+
+        Returns:
+            Timeout in seconds, or None to use server default
+        """
+        timeout = self.run.get("start-timeout")
+        return float(timeout) if timeout is not None else None
+
     def get_workers_from_run_section(self) -> dict[str, str]:
         """Extract worker definitions from [run] section.
 

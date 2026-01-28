@@ -41,7 +41,7 @@ def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
         case "deploy":
             # Parse deploy-specific flags
             # args[0]="deploy", args[1]=app_name, remaining args may include --env and directory
-            env_vars, remaining_args = _parse_deploy_args(args[1:])
+            env_vars, remaining_args, streaming = _parse_deploy_args(args[1:])
 
             # Directory is the last non-flag argument (if any)
             directory = Path(remaining_args[-1]) if len(remaining_args) > 1 else Path()
@@ -51,24 +51,30 @@ def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
             if env_vars:
                 extra_args["env_vars"] = env_vars
 
+            # Enable streaming by default for real-time log output
+            extra_args["streaming"] = streaming
+
     return extra_args
 
 
-def _parse_deploy_args(args: list[str]) -> tuple[dict[str, str], list[str]]:
-    """Parse deploy command arguments, extracting --env flags.
+def _parse_deploy_args(args: list[str]) -> tuple[dict[str, str], list[str], bool]:
+    """Parse deploy command arguments, extracting --env and --no-stream flags.
 
     Args:
         args: Arguments after 'deploy' command (app_name, --env flags, directory)
 
     Returns:
-        Tuple of (env_vars dict, remaining args without --env flags)
+        Tuple of (env_vars dict, remaining args, streaming enabled)
 
     Example:
         >>> _parse_deploy_args(['myapp', '--env', 'FOO=bar', '--env', 'BAZ=qux', '.'])
-        ({'FOO': 'bar', 'BAZ': 'qux'}, ['myapp', '.'])
+        ({'FOO': 'bar', 'BAZ': 'qux'}, ['myapp', '.'], True)
+        >>> _parse_deploy_args(['myapp', '--no-stream'])
+        ({}, ['myapp'], False)
     """
     env_vars: dict[str, str] = {}
     remaining: list[str] = []
+    streaming = True  # Enabled by default
     i = 0
 
     while i < len(args):
@@ -91,11 +97,19 @@ def _parse_deploy_args(args: list[str]) -> tuple[dict[str, str], list[str]]:
                 key, _, value = env_spec.partition("=")
                 env_vars[key] = value
             i += 1
+        elif arg == "--no-stream":
+            # Disable real-time streaming (fallback to batch output)
+            streaming = False
+            i += 1
+        elif arg == "--stream":
+            # Explicitly enable streaming (default, but allow explicit)
+            streaming = True
+            i += 1
         else:
             remaining.append(arg)
             i += 1
 
-    return env_vars, remaining
+    return env_vars, remaining, streaming
 
 
 def pack_repository(directory: Path = Path()) -> str:

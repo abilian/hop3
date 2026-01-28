@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -143,29 +144,119 @@ def _update_app_model(
     # The deployer has set the state to RUNNING, but for uWSGI the process
     # starts asynchronously via the emperor. Wait for it to actually be running.
     # This ensures deploy doesn't return until the app is confirmed running.
-    timeout = 30.0  # 30 seconds should be enough for most apps
+    # Timeout is configurable via hop3.toml [run.start-timeout] or server's APP_START_TIMEOUT
+    timeout = app_config.start_timeout
     log(
         f"Waiting for app '{app.name}' to start (timeout: {timeout}s)...",
         level=1,
         fg="blue",
     )
 
-    if app.wait_for_actual_state(
-        AppStateEnum.RUNNING, timeout=timeout, poll_interval=0.5
-    ):
+    if _wait_for_app_start(app, timeout):
         log(f"App '{app.name}' is now running.", level=1, fg="green")
     else:
-        # App didn't start within timeout - mark as failed
-        app.run_state = AppStateEnum.FAILED
-        error_msg = f"App failed to start within {timeout}s timeout"
-        app.error_message = error_msg
+        # App didn't start within timeout - gather diagnostics and fail
+        _handle_startup_timeout(app, timeout)
+
+
+def _wait_for_app_start(app: App, timeout: float) -> bool:
+    """Wait for app to start with progress feedback.
+
+    Polls the app status and logs progress every 30 seconds.
+
+    Args:
+        app: The App model instance
+        timeout: Maximum seconds to wait
+
+    Returns:
+        True if app started successfully, False if timed out
+    """
+    poll_interval = 0.5
+    progress_interval = 30.0  # Log progress every 30 seconds
+    deadline = time.time() + timeout
+    last_progress = time.time()
+    checks = 0
+
+    while time.time() < deadline:
+        actual_state = app.check_actual_status()
+        checks += 1
+
+        if actual_state == AppStateEnum.RUNNING:
+            return True
+
+        # Log progress periodically
+        elapsed = time.time() - (deadline - timeout)
+        if time.time() - last_progress >= progress_interval:
+            remaining = deadline - time.time()
+            log(
+                f"Still waiting for '{app.name}' to start... "
+                f"({elapsed:.0f}s elapsed, {remaining:.0f}s remaining)",
+                level=1,
+                fg="yellow",
+            )
+            last_progress = time.time()
+
+        time.sleep(poll_interval)
+
+    return False
+
+
+def _handle_startup_timeout(app: App, timeout: float) -> None:
+    """Handle app startup timeout with diagnostics.
+
+    Gathers diagnostic information and raises an Abort with helpful details.
+
+    Args:
+        app: The App model instance
+        timeout: The timeout that was exceeded
+    """
+    # Mark app as failed
+    app.run_state = AppStateEnum.FAILED
+    app.error_message = f"App failed to start within {timeout}s timeout"
+
+    # Gather diagnostic information
+    log(f"App '{app.name}' failed to start within {timeout}s.", level=0, fg="red")
+    log("Gathering diagnostic information...", level=1, fg="yellow")
+
+    # Get actual status
+    actual_state = app.check_actual_status()
+    log(f"  Current actual state: {actual_state.name}", level=0)
+
+    # Get recent logs
+    try:
+        recent_logs = app.get_logs(lines=20)
+        if recent_logs:
+            log("  Recent log output:", level=0)
+            for line in recent_logs[-10:]:  # Last 10 lines
+                log(f"    {line}", level=0)
+        else:
+            log("  No log output available.", level=0)
+    except Exception as e:
+        log(f"  Could not retrieve logs: {e}", level=0)
+
+    # Provide hints based on runtime
+    log("", level=0)
+    log("Troubleshooting hints:", level=0, fg="yellow")
+    if app.runtime == "uwsgi":
+        log("  - Check uWSGI emperor logs: journalctl -u uwsgi-emperor -n 50", level=0)
         log(
-            f"App '{app.name}' failed to start within {timeout}s. "
-            "Check logs with 'hop3 app:logs' for details.",
+            f"  - Check app uWSGI config: cat /home/hop3/uwsgi-enabled/{app.name}.ini",
             level=0,
-            fg="red",
         )
-        raise Abort(error_msg)
+    elif app.runtime == "docker-compose":
+        log(
+            f"  - Check Docker logs: docker compose -f {app.src_path}/.hop3-compose.yml logs",
+            level=0,
+        )
+        log("  - Check container status: docker ps -a", level=0)
+    log(f"  - View full logs: hop3 app:logs {app.name}", level=0)
+    log(
+        f"  - Increase timeout in hop3.toml: [run] start-timeout = {int(timeout * 2)}",
+        level=0,
+    )
+
+    msg = f"App failed to start within {timeout}s timeout. See diagnostics above."
+    raise Abort(msg)
 
 
 def _run_hook(hook_name: str, command: str, cwd: Path) -> None:
