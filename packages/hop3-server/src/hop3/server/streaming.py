@@ -138,9 +138,7 @@ class DeploymentStream:
             # Stream new logs as they arrive
             while True:
                 try:
-                    event_type, data = await asyncio.wait_for(
-                        queue.get(), timeout=30.0
-                    )
+                    event_type, data = await asyncio.wait_for(queue.get(), timeout=30.0)
                 except asyncio.TimeoutError:
                     # Send keepalive comment to prevent connection timeout
                     yield ": keepalive\n\n"

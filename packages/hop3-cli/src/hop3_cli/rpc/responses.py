@@ -23,13 +23,27 @@ if TYPE_CHECKING:
 
 
 def handle_response(
-    response: Any, cli_args: list[str], config: Config, printer: RichPrinter
+    response: Any,
+    cli_args: list[str],
+    config: Config,
+    printer: RichPrinter,
+    *,
+    tunnel_port: int | None = None,
 ) -> None:
-    """Handle the RPC response."""
+    """Handle the RPC response.
 
+    Args:
+        response: The JSON-RPC response
+        cli_args: Original CLI arguments
+        config: CLI configuration
+        printer: Output printer
+        tunnel_port: Local SSH tunnel port if using SSH tunnel (for streaming)
+    """
     match response:
         case Ok(result=result):
-            handle_ok_response(result, cli_args, config, printer)
+            handle_ok_response(
+                result, cli_args, config, printer, tunnel_port=tunnel_port
+            )
         case Error(code=code, message=message):
             handle_error_response(code, message, printer)
         case None:
@@ -41,9 +55,22 @@ def handle_response(
 
 
 def handle_ok_response(
-    result: list[dict], cli_args: list[str], config: Config, printer: RichPrinter
+    result: list[dict],
+    cli_args: list[str],
+    config: Config,
+    printer: RichPrinter,
+    *,
+    tunnel_port: int | None = None,
 ) -> None:
-    """Handle successful RPC response."""
+    """Handle successful RPC response.
+
+    Args:
+        result: The result payload
+        cli_args: Original CLI arguments
+        config: CLI configuration
+        printer: Output printer
+        tunnel_port: Local SSH tunnel port if using SSH tunnel (for streaming)
+    """
     if cli_args and cli_args[0] == "auth:login":
         handle_login_response(result, config, printer)
     elif is_help_command(cli_args) and not printer.json_output:
@@ -51,7 +78,7 @@ def handle_ok_response(
         printer.print(result)
     elif _is_streaming_response(result):
         # Handle streaming response (real-time deployment logs)
-        _handle_streaming_response(result, config, printer)
+        _handle_streaming_response(result, config, printer, tunnel_port=tunnel_port)
     else:
         printer.print(result)
 
@@ -67,7 +94,11 @@ def _is_streaming_response(result: list[dict]) -> bool:
 
 
 def _handle_streaming_response(
-    result: list[dict], config: Config, printer: RichPrinter
+    result: list[dict],
+    config: Config,
+    printer: RichPrinter,
+    *,
+    tunnel_port: int | None = None,
 ) -> None:
     """Handle streaming response by connecting to SSE endpoint.
 
@@ -75,12 +106,15 @@ def _handle_streaming_response(
         result: RPC response containing stream_id
         config: CLI configuration
         printer: Printer for output
+        tunnel_port: Local SSH tunnel port if using SSH tunnel
     """
     from hop3_cli.rpc.streaming import stream_deployment_logs  # noqa: PLC0415
 
     stream_id = result[0].get("stream_id")
     if not stream_id:
-        printer.print([{"t": "error", "text": "Invalid streaming response: no stream_id"}])
+        printer.print([
+            {"t": "error", "text": "Invalid streaming response: no stream_id"}
+        ])
         sys.exit(1)
 
     # Get API URL from config
@@ -89,29 +123,33 @@ def _handle_streaming_response(
         printer.print([{"t": "error", "text": "No API URL configured"}])
         sys.exit(1)
 
-    # Handle SSH tunnel URLs - need to use the forwarded HTTP URL
-    if api_url.startswith("ssh://"):
-        # When using SSH tunnel, the actual HTTP connection goes to localhost
-        # The tunnel is already established by the RPC client
-        # We need to get the local forwarded port
-        # For now, fall back to non-streaming behavior
-        printer.print([{
-            "t": "warning",
-            "text": "Streaming not yet supported over SSH tunnel. Waiting for deployment to complete...",
-        }])
-        # TODO: Implement SSH tunnel support for streaming
-        # The RPC client establishes the tunnel, we need to reuse it
+    # Determine the base URL for streaming
+    if tunnel_port is not None:
+        # SSH tunnel mode: use localhost with the forwarded port
+        base_url = f"http://localhost:{tunnel_port}"
+        # No SSL verification needed for localhost tunnel
+        verify_ssl = False
+    elif api_url.startswith("ssh://"):
+        # SSH URL but no tunnel port passed - this shouldn't happen
+        # Fall back to warning (defensive coding)
+        printer.print([
+            {
+                "t": "warning",
+                "text": "SSH tunnel port not available for streaming. Waiting for deployment to complete...",
+            }
+        ])
         return
+    else:
+        # Direct HTTP/HTTPS connection
+        base_url = api_url
+        verify_ssl = config.get("verify_ssl", True)
 
     # Get token for authentication
     token = config.get("api_token")
 
-    # Check SSL verification setting
-    verify_ssl = config.get("verify_ssl", True)
-
     # Connect to stream and display logs
     success = stream_deployment_logs(
-        base_url=api_url,
+        base_url=base_url,
         stream_id=stream_id,
         printer=printer,
         token=token,

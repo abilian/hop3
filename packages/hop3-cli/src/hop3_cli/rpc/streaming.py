@@ -67,32 +67,40 @@ def stream_deployment_logs(
             verify=verify_ssl,
         ) as response:
             if response.status_code == 404:
-                printer.print([{
-                    "t": "error",
-                    "text": f"Stream '{stream_id}' not found. The deployment may have already completed.",
-                }])
+                printer.print([
+                    {
+                        "t": "error",
+                        "text": f"Stream '{stream_id}' not found. The deployment may have already completed.",
+                    }
+                ])
                 return False
 
             if response.status_code != 200:
-                printer.print([{
-                    "t": "error",
-                    "text": f"Failed to connect to stream: HTTP {response.status_code}",
-                }])
+                printer.print([
+                    {
+                        "t": "error",
+                        "text": f"Failed to connect to stream: HTTP {response.status_code}",
+                    }
+                ])
                 return False
 
             return _process_sse_stream(response, printer)
 
     except requests.exceptions.ConnectionError as e:
-        printer.print([{
-            "t": "error",
-            "text": f"Connection error: {e}",
-        }])
+        printer.print([
+            {
+                "t": "error",
+                "text": f"Connection error: {e}",
+            }
+        ])
         return False
     except KeyboardInterrupt:
-        printer.print([{
-            "t": "warning",
-            "text": "\nStreaming interrupted. Deployment continues on server.",
-        }])
+        printer.print([
+            {
+                "t": "warning",
+                "text": "\nStreaming interrupted. Deployment continues on server.",
+            }
+        ])
         # Return True since deployment is still running
         return True
 
@@ -140,12 +148,14 @@ def _process_sse_stream(response: requests.Response, printer: RichPrinter) -> bo
 
             if event_type == "log":
                 # Display log entry
-                printer.print([{
-                    "t": "log",
-                    "msg": data.get("msg", ""),
-                    "level": data.get("level", 0),
-                    "fg": data.get("fg", ""),
-                }])
+                printer.print([
+                    {
+                        "t": "log",
+                        "msg": data.get("msg", ""),
+                        "level": data.get("level", 0),
+                        "fg": data.get("fg", ""),
+                    }
+                ])
 
             elif event_type == "complete":
                 # Deployment completed
@@ -154,22 +164,28 @@ def _process_sse_stream(response: requests.Response, printer: RichPrinter) -> bo
                 duration = data.get("duration", 0)
 
                 if success:
-                    printer.print([{
-                        "t": "success",
-                        "text": f"Deployment completed successfully in {duration:.1f}s",
-                    }])
+                    printer.print([
+                        {
+                            "t": "success",
+                            "text": f"Deployment completed successfully in {duration:.1f}s",
+                        }
+                    ])
                     return True
-                printer.print([{
-                    "t": "error",
-                    "text": error or "Deployment failed",
-                }])
+                printer.print([
+                    {
+                        "t": "error",
+                        "text": error or "Deployment failed",
+                    }
+                ])
                 return False
 
     # Stream ended without completion event
-    printer.print([{
-        "t": "warning",
-        "text": "Stream ended unexpectedly. Check server logs.",
-    }])
+    printer.print([
+        {
+            "t": "warning",
+            "text": "Stream ended unexpectedly. Check server logs.",
+        }
+    ])
     return False
 
 

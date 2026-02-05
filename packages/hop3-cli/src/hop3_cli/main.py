@@ -102,14 +102,11 @@ def run_command_from_args(cli_args: list[str]) -> None:
     # Check prerequisites (config, auth, destructive confirmation)
     _check_prerequisites(cli_args, config, printer, flags)
 
-    # Execute the RPC command
+    # Execute the RPC command (handles response internally to keep tunnel alive)
     if flags.verbosity >= 2:
         printer.print_debug("Executing RPC command...")
     extra_args = get_extra_args(cli_args, verbosity=flags.verbosity)
-    response = _execute_rpc_command(cli_args, config, extra_args, printer)
-
-    # Handle the response
-    handle_response(response, cli_args, config, printer)
+    _execute_rpc_command(cli_args, config, extra_args, printer)
 
 
 def _check_prerequisites(
@@ -163,12 +160,16 @@ def _execute_rpc_command(
     cli_args: list[str],
     config: Config,
     extra_args: dict,
-    printer: RichPrinter | None = None,
-) -> Any:
-    """Execute RPC command and handle connection errors."""
+    printer: RichPrinter,
+) -> None:
+    """Execute RPC command, handle response, and manage connection lifecycle.
+
+    The response handling is done inside the Client context to keep SSH tunnels
+    alive for streaming responses.
+    """
     with Client(config=config) as client:
         # Debug: show connection info
-        if printer and printer.verbosity >= 2:
+        if printer.verbosity >= 2:
             if client.using_ssh_tunnel:
                 printer.print_debug(f"Using SSH tunnel to {config.get('api_url')}")
                 printer.print_debug(f"RPC endpoint: {client.rpc_url}")
@@ -181,7 +182,18 @@ def _execute_rpc_command(
                 for k, v in extra_args.items()
                 if isinstance(k, str) and v is not None
             }
-            return client.rpc("cli", cli_args, **validated_extra_args)
+            response = client.rpc("cli", cli_args, **validated_extra_args)
+
+            # Get tunnel port if using SSH tunnel (for streaming support)
+            tunnel_port = None
+            if client.tunnel:
+                tunnel_port = client.tunnel.local_bind_port
+
+            # Handle response INSIDE the context to keep tunnel alive for streaming
+            handle_response(
+                response, cli_args, config, printer, tunnel_port=tunnel_port
+            )
+
         except requests.exceptions.SSLError:
             _handle_ssl_error(client.rpc_url)
         except requests.exceptions.ConnectionError as e:
