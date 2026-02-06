@@ -159,33 +159,95 @@ def _update_app_model(
         _handle_startup_timeout(app, timeout)
 
 
-def _wait_for_app_start(app: App, timeout: float) -> bool:
-    """Wait for app to start with progress feedback.
+def _is_crash_indicator(line: str) -> bool:
+    """Check if a log line indicates a crash or error."""
+    line_lower = line.lower()
+    crash_patterns = [
+        "throttling",  # uWSGI throttling respawns
+        "respawning",  # uWSGI respawning crashed worker
+        "error:",  # Application error
+        "fatal:",  # Fatal error
+        "exception:",  # Unhandled exception
+    ]
+    return any(pattern in line_lower for pattern in crash_patterns)
 
-    Polls the app status and logs progress every 30 seconds.
+
+def _process_new_logs(app: App, last_log_lines: int) -> tuple[int, int]:
+    """Process new log lines, display them, and count crash indicators.
+
+    Returns:
+        Tuple of (new_last_log_lines, crash_indicator_count)
+    """
+    crash_count = 0
+    try:
+        logs = app.get_logs(lines=50)
+        if not logs or len(logs) <= last_log_lines:
+            return last_log_lines, 0
+
+        new_lines = logs[last_log_lines:]
+        for line in new_lines[-10:]:  # Show at most 10 new lines per check
+            line_stripped = line.rstrip()
+            log(f"  {line_stripped}", level=1)
+            if _is_crash_indicator(line_stripped):
+                crash_count += 1
+
+        return len(logs), crash_count
+    except Exception:
+        return last_log_lines, 0  # Ignore log reading errors
+
+
+def _wait_for_app_start(app: App, timeout: float) -> bool:
+    """Wait for app to start with fail-fast on repeated crashes.
+
+    Monitors the app status and logs, failing immediately if:
+    - uWSGI is throttling respawns (app keeps crashing)
+    - Multiple crash/respawn cycles detected
+    - Clear error messages in logs (missing config, etc.)
+
+    Philosophy: The app is responsible for waiting on dependencies.
+    The PaaS should fail fast on unrecoverable errors, not retry blindly.
 
     Args:
         app: The App model instance
         timeout: Maximum seconds to wait
 
     Returns:
-        True if app started successfully, False if timed out
+        True if app started successfully, False if timed out or crashed
     """
     poll_interval = 0.5
-    progress_interval = 30.0  # Log progress every 30 seconds
+    progress_interval = 10.0  # Log progress every 10 seconds
+    log_check_interval = 2.0  # Check for new logs every 2 seconds
     deadline = time.time() + timeout
     last_progress = time.time()
-    checks = 0
+    last_log_check = time.time()
+    last_log_lines = 0
+    crash_indicators = 0
+    max_crash_indicators = 3  # Fail fast after this many crash signals
 
     while time.time() < deadline:
         actual_state = app.check_actual_status()
-        checks += 1
-
         if actual_state == AppStateEnum.RUNNING:
             return True
 
-        # Log progress periodically
         elapsed = time.time() - (deadline - timeout)
+
+        # Stream new log lines and detect crashes
+        if time.time() - last_log_check >= log_check_interval:
+            last_log_lines, new_crashes = _process_new_logs(app, last_log_lines)
+            crash_indicators += new_crashes
+
+            if crash_indicators >= max_crash_indicators:
+                log(
+                    f"App '{app.name}' is crashing repeatedly. "
+                    "Failing fast instead of waiting for timeout.",
+                    level=0,
+                    fg="red",
+                )
+                return False
+
+            last_log_check = time.time()
+
+        # Log progress periodically
         if time.time() - last_progress >= progress_interval:
             remaining = deadline - time.time()
             log(

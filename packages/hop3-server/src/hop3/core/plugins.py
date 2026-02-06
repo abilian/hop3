@@ -160,7 +160,9 @@ def get_builder(context: DeploymentContext) -> Builder:
 
     # Check app_config for explicit builder selection
     # Users can set [build] builder = "docker" in hop3.toml
-    build_config = context.app_config.get("build", {})
+    # The hop3.toml config is nested under "hop3_config" key
+    hop3_config = context.app_config.get("hop3_config", {})
+    build_config = hop3_config.get("build", {}) if isinstance(hop3_config, dict) else {}
     if isinstance(build_config, dict):
         builder_name_from_config = build_config.get("builder", "auto")
     else:
