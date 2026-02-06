@@ -120,8 +120,8 @@ class HopConfig:
 
     @property
     def APP_START_TIMEOUT(self) -> float:
-        """Default timeout in seconds for apps to start (default: 600 = 10 minutes)."""
-        return self._config_loader.get_float("APP_START_TIMEOUT", 600.0)
+        """Default timeout in seconds for apps to start (default: 60 = 1 minute)."""
+        return self._config_loader.get_float("APP_START_TIMEOUT", 60.0)
 
     # Proxy Configuration
 

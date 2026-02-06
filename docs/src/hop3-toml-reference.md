@@ -72,6 +72,9 @@ Controls how your application is built and prepared for deployment.
 
 ```toml
 [build]
+# Builder to use: "auto", "local", or "docker"
+builder = "local"
+
 # Commands to run during build
 build = ["npm run build", "make"]
 
@@ -89,6 +92,10 @@ pip-install = ["setuptools", "wheel"]
 ```
 
 **Fields:**
+- `builder` (string): Which builder to use for deployment:
+  - `"auto"` (default): Auto-detect based on project files (Dockerfile → docker, otherwise local)
+  - `"local"`: Use native language toolchains (Python, Node, Ruby, etc.) directly on host
+  - `"docker"`: Build and run using Docker (requires Dockerfile)
 - `build` (string | array): Main build commands
 - `before-build` (string | array): Pre-build commands (maps to Procfile `prebuild`)
 - `test` (string | array): Test commands to run after build
@@ -113,15 +120,15 @@ before-run = ["python manage.py migrate", "python manage.py collectstatic --noin
 # System packages needed at runtime
 packages = ["postgresql", "redis"]
 
-# Startup timeout in seconds (default: 600 = 10 minutes)
-start-timeout = 900
+# Startup timeout in seconds (default: 60 = 1 minute)
+start-timeout = 120
 ```
 
 **Fields:**
 - `start` (string | array): Main application start command (maps to Procfile `web`)
 - `before-run` (string | array): Pre-run commands (maps to Procfile `prerun`)
 - `packages` (array): System packages required at runtime
-- `start-timeout` (number): Maximum time in seconds to wait for the app to start (default: 600)
+- `start-timeout` (number): Maximum time in seconds to wait for the app to start (default: 60)
 
 **Procfile Mapping:**
 - `run.start` → Procfile `web`
@@ -133,10 +140,10 @@ The `start-timeout` option controls how long Hop3 waits for your application to 
 
 ```toml
 [run]
-start-timeout = 900  # Wait up to 15 minutes for app to start
+start-timeout = 120  # Wait up to 2 minutes for app to start
 ```
 
-The server-wide default is 600 seconds (10 minutes), configurable via the `APP_START_TIMEOUT` environment variable on the server.
+The server-wide default is 60 seconds (1 minute), configurable via the `APP_START_TIMEOUT` environment variable on the server. During the wait, Hop3 streams log output so you can see what's happening.
 
 ### [env] - Environment Variables
 
