@@ -8,7 +8,8 @@ author = "Hop3 Demo"
 description = "A simple Flask application deployed natively (without Docker)."
 
 [build]
-builder = "python-3.12"
+# Use native builder - Python toolchain is auto-detected from requirements.txt
+builder = "local"
 pip-install = ["-r", "requirements.txt"]
 
 [run]
