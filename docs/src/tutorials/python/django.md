@@ -368,7 +368,8 @@ version = "1.0.0"
 title = "My Django Application"
 
 [build]
-builder = "python-3.11"
+# Use the local builder - Python toolchain is auto-detected
+builder = "local"
 packages = ["postgresql-dev", "gcc", "python3-dev"]
 
 [run]
@@ -1098,7 +1099,8 @@ title = "My Django Application"
 author = "Your Name <you@example.com>"
 
 [build]
-builder = "python-3.11"
+# Use the local builder - Python toolchain is auto-detected
+builder = "local"
 packages = ["postgresql-dev", "gcc", "python3-dev", "libffi-dev"]
 
 [run]
