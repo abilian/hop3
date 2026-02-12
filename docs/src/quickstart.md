@@ -74,9 +74,8 @@ description = "A simple Flask application to demonstrate Hop3 deployment."
 
 # The [build] section tells Hop3 how to prepare your application.
 [build]
-# We specify the Python builder and tell it to install packages from requirements.txt
-builder = "python-3.10"
-pip-install = ["-r", "requirements.txt"]
+# Use the local builder - Python toolchain is auto-detected from requirements.txt
+builder = "local"
 
 # The [run] section specifies the command to start your application.
 [run]
@@ -120,7 +119,7 @@ With your application code and configuration ready, you can now deploy it.
     From inside your `hello-hop3` project directory, run the deploy command:
 
     ```bash
-    hop3 deploy
+    hop3 deploy hello-hop3
     ```
 
     You will see output from Hop3 as it:
@@ -208,7 +207,7 @@ hop3 app:destroy hello-hop3 -y
 !!! tip "Quiet Output for Scripts"
     When writing automation scripts, use `--quiet` to suppress unnecessary output:
     ```bash
-    hop3 deploy --quiet
+    hop3 deploy myapp --quiet
     hop3 app:status myapp --json --quiet
     ```
 
@@ -307,7 +306,7 @@ This restores:
     hop3 backup:create hello-hop3
 
     # Deploy new version
-    hop3 deploy
+    hop3 deploy hello-hop3
 
     # If something goes wrong, restore
     hop3 backup:restore <backup-id>
@@ -409,7 +408,7 @@ Use `--quiet` to suppress progress messages and only show essential output:
 
 ```bash
 # Silent deployment (only errors shown)
-hop3 deploy --quiet
+hop3 deploy myapp --quiet
 
 # Combine with JSON for clean machine-readable output
 hop3 app:list --json --quiet
@@ -432,7 +431,7 @@ hop3 backup:delete old-backup-id -y
 Get detailed output with `-v` or `--verbose`:
 
 ```bash
-hop3 deploy -v
+hop3 deploy myapp -v
 hop3 app:status myapp --verbose
 ```
 

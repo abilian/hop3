@@ -129,11 +129,8 @@ title = "My Application"
 description = "A sample application"
 
 [build]
-builder = "python-3.11"
-pip-install = ["-r", "requirements.txt"]
-# Or for Node.js:
-# builder = "node-20"
-# npm-install = true
+# Use the local builder - language toolchain is auto-detected
+builder = "local"
 
 [run]
 start = "gunicorn app:app --workers 4 -b 0.0.0.0:$PORT"
