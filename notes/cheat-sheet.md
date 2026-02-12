@@ -48,7 +48,10 @@ hop3 version
 hop3 app:launch <git-url> <app-name>
 
 # Deploy (from project directory)
-hop3 deploy
+hop3 deploy <app-name>
+
+# Deploy from a specific directory
+hop3 deploy <app-name> /path/to/app
 
 # Check status
 hop3 app:status <app>
@@ -295,8 +298,8 @@ cd myapp
 # 2. Initialize hop3 (first time)
 hop3 init --ssh root@hop3.example.com
 
-# 3. Deploy
-hop3 deploy
+# 3. Deploy (app-name is required)
+hop3 deploy myapp
 
 # 4. Check status
 hop3 app:status myapp
@@ -310,7 +313,7 @@ hop3 app:status myapp
 hop3 backup:create myapp
 
 # 3. Deploy
-hop3 deploy
+hop3 deploy myapp
 
 # 4. If something breaks, restore
 hop3 backup:restore <backup-id>
