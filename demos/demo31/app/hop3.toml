@@ -7,7 +7,8 @@ title = "Native PostgreSQL Demo"
 description = "Demonstrates native Python deployment with PostgreSQL addon"
 
 [build]
-builder = "python-3.12"
+# Use native builder - Python toolchain is auto-detected from requirements.txt
+builder = "local"
 pip-install = ["-r", "requirements.txt"]
 
 [run]

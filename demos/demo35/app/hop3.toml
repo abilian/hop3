@@ -11,7 +11,8 @@ description = "Demonstrates declarative addon provisioning with [[provider]] sec
 tags = ["python", "redis", "provider", "cache"]
 
 [build]
-builder = "python-3.12"
+# Use native builder - Python toolchain is auto-detected from requirements.txt
+builder = "local"
 pip-install = ["-r", "requirements.txt"]
 
 [run]

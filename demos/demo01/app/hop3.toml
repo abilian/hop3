@@ -10,9 +10,8 @@ description = "A simple Flask application to demonstrate Hop3 deployment."
 
 # The [build] section tells Hop3 how to prepare your application.
 [build]
-# We specify the Python builder and tell it to install packages from requirements.txt
-builder = "python-3.10"
-pip-install = ["-r", "requirements.txt"]
+# Use the local builder - Python toolchain is auto-detected from requirements.txt
+builder = "local"
 
 # The [run] section specifies the command to start your application.
 [run]
