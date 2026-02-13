@@ -91,9 +91,11 @@ class PythonToolchain(LanguageToolchain):
             msg = f"Virtual environment Python is not working: {python_path}"
             raise RuntimeError(msg)
 
-        # Upgrade pip to ensure proper PEP 517 build support
-        # This is necessary for Poetry and other modern build backends
-        self.shell(f"{python_path} -m pip install --upgrade pip")
+        # Upgrade pip and install setuptools
+        # - pip upgrade ensures proper PEP 517 build support for Poetry etc.
+        # - setuptools is needed because Python 3.12+ doesn't include it by default,
+        #   but many packages (e.g., older gunicorn) still depend on pkg_resources
+        self.shell(f"{python_path} -m pip install --upgrade pip setuptools")
 
     def _is_python_executable(self, python_path: Path) -> bool:
         """Check if Python binary at path is valid and executable."""
@@ -121,6 +123,12 @@ class PythonToolchain(LanguageToolchain):
         assert self.virtual_env.exists()
         assert python.exists()
 
+        # Ensure pip and setuptools are up to date before installing dependencies
+        # This is essential for existing virtualenvs that may lack setuptools
+        # (Python 3.12+ doesn't include setuptools by default, but many packages
+        # like older gunicorn versions still depend on pkg_resources)
+        self.shell(f"{python} -m pip install --upgrade pip setuptools")
+
         # Install dependencies from requirements.txt if it exists
         # Use absolute paths based on self.src_path to avoid directory confusion
         requirements_file = self.src_path / "requirements.txt"
@@ -132,13 +140,14 @@ class PythonToolchain(LanguageToolchain):
 
         # Always use requirements.txt if it exists, even if pyproject.toml also exists
         # This prevents pip from using a stray/unwanted pyproject.toml
+        # Use --upgrade to ensure dependencies are updated to latest compatible versions
         match requirements_file.exists(), pyproject_file.exists():
             case True, _:
                 log("Installing from requirements.txt", level=2, fg="green")
-                self.shell(f"{python} -m pip install -r {requirements_file}")
+                self.shell(f"{python} -m pip install --upgrade -r {requirements_file}")
             case False, True:
                 log("Installing from pyproject.toml", level=2, fg="green")
-                self.shell(f"{python} -m pip install .")
+                self.shell(f"{python} -m pip install --upgrade .")
             case False, False:
                 # This should never happen as `accept` checks for the presence of
                 # requirements.txt or pyproject.toml
