@@ -76,10 +76,10 @@ class AppLauncher:
     def _setup_proxy(self, host_name: str) -> None:
         """Setup proxy configuration.
 
-        Note: host_name="_" is a valid nginx catch-all server_name that
-        matches any hostname. We only skip setup if host_name is completely empty.
+        Apps without a configured hostname don't get proxy configuration.
+        They remain accessible only via direct port access until a hostname is set.
         """
-        if not host_name:
+        if not host_name or host_name == "_":
             log(
                 f"Skipping proxy setup for '{self.app_name}' (no HOST_NAME configured)",
                 level=2,
@@ -232,7 +232,7 @@ class AppLauncher:
             "NGINX_IPV4_ADDRESS": "0.0.0.0",
             "NGINX_IPV6_ADDRESS": "[::]",
             "BIND_ADDRESS": "127.0.0.1",
-            "HOST_NAME": "_",  # Catch-all server name for development
+            # No default HOST_NAME - apps without hostname don't get proxy config
         }
 
         # add node path if present
