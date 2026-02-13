@@ -121,6 +121,8 @@ def install_optional_packages(
     """Install optional packages based on config."""
     if config.with_docker:
         install_feature_packages("Docker", spec.docker_packages, spec)
+        # Start Docker daemon so docker0 interface exists for database binding
+        _start_docker_daemon()
 
     if config.with_mysql:
         if not cmd_exists("mysql"):
@@ -134,6 +136,34 @@ def install_optional_packages(
         else:
             print_success("Redis already installed")
         configure_redis_func()
+
+
+def _start_docker_daemon() -> None:
+    """Start Docker daemon and wait for it to be ready.
+
+    This ensures the docker0 bridge interface exists before configuring
+    databases to listen on it.
+    """
+    import time
+
+    # Enable and start Docker
+    run_cmd(["systemctl", "enable", "docker"], check=False)
+    result = run_cmd(["systemctl", "start", "docker"], check=False)
+
+    if result.returncode != 0:
+        print_warning("Failed to start Docker daemon")
+        return
+
+    # Wait for Docker to be ready (docker0 interface to appear)
+    # This typically takes 1-3 seconds
+    for _i in range(10):
+        result = run_cmd(["ip", "addr", "show", "docker0"], check=False)
+        if result.returncode == 0:
+            print_success("Docker daemon started")
+            return
+        time.sleep(1)
+
+    print_warning("Docker started but docker0 interface not found")
 
 
 def install_feature_packages(name: str, packages: list[str], spec: PackageSpec) -> None:

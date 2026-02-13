@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import re
 import secrets
 import subprocess  # noqa: TC003
 from pathlib import Path
@@ -17,6 +18,14 @@ from hop3_installer.common import (
 )
 
 from .config import ServerInstallerConfig  # noqa: TC001
+
+# Common MySQL config file locations
+MYSQL_CONF_PATHS = [
+    Path("/etc/mysql/mysql.conf.d/mysqld.cnf"),  # Ubuntu/Debian
+    Path("/etc/mysql/mariadb.conf.d/50-server.cnf"),  # MariaDB on Debian
+    Path("/etc/my.cnf"),  # RHEL/Fedora
+    Path("/etc/mysql/my.cnf"),  # Some Debian variants
+]
 
 
 def _get_debian_mysql_credentials() -> tuple[str, str] | None:
@@ -218,6 +227,166 @@ def _verify_mysql_hop3_connection(mysql_password: str) -> bool:
     return True
 
 
+def _get_docker_bridge_ip() -> str | None:
+    """Get the Docker bridge network IP (usually 172.17.0.1).
+
+    Returns:
+        Docker bridge IP if available, None otherwise.
+    """
+    result = run_cmd(
+        ["ip", "addr", "show", "docker0"],
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+
+    # Parse output for inet address: "inet 172.17.0.1/16 ..."
+    match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)/", result.stdout)
+    if match:
+        return match.group(1)
+    return None
+
+
+def _configure_mysql_bind_address(docker_ip: str) -> bool:
+    """Configure MySQL to bind to Docker bridge address.
+
+    Args:
+        docker_ip: Docker bridge IP address.
+
+    Returns:
+        True if configuration was updated.
+    """
+    # Find MySQL config file
+    mysql_conf = None
+    for path in MYSQL_CONF_PATHS:
+        if path.exists():
+            mysql_conf = path
+            break
+
+    if not mysql_conf:
+        print_warning("MySQL config file not found, skipping bind configuration")
+        return False
+
+    content = mysql_conf.read_text()
+
+    # Check if already configured for Docker
+    if docker_ip in content:
+        print_detail(f"MySQL already configured for Docker bridge ({docker_ip})")
+        return False
+
+    # MySQL bind-address only accepts a single address, so we need to use 0.0.0.0
+    # to listen on all interfaces, then rely on firewall/iptables for security
+    # Alternatively, we can bind to a specific interface
+    # For simplicity, we'll bind to 0.0.0.0 but this is controlled by user permissions
+    new_bind = "bind-address = 0.0.0.0"
+
+    if re.search(r"^#?\s*bind-address\s*=", content, re.MULTILINE):
+        content = re.sub(
+            r"^#?\s*bind-address\s*=.*$",
+            new_bind,
+            content,
+            flags=re.MULTILINE,
+        )
+        print_detail("Updated MySQL bind-address to 0.0.0.0 (for Docker access)")
+    else:
+        # Add under [mysqld] section if it exists
+        if "[mysqld]" in content:
+            content = content.replace(
+                "[mysqld]",
+                f"[mysqld]\n{new_bind}",
+            )
+        else:
+            content = f"[mysqld]\n{new_bind}\n{content}"
+        print_detail("Added MySQL bind-address: 0.0.0.0 (for Docker access)")
+
+    mysql_conf.write_text(content)
+    return True
+
+
+def _create_mysql_docker_user(
+    root_cmd: list[str], mysql_password: str, docker_ip: str
+) -> bool:
+    """Create hop3 MySQL user for Docker network access.
+
+    Args:
+        root_cmd: Working MySQL admin command.
+        mysql_password: Password for hop3 user.
+        docker_ip: Docker bridge IP address.
+
+    Returns:
+        True if user created successfully, False otherwise.
+    """
+    if not _validate_mysql_password(mysql_password):
+        return False
+
+    def run_sql(sql: str) -> subprocess.CompletedProcess:
+        return run_cmd(root_cmd + ["-e", sql], check=False)
+
+    # Docker bridge network is typically 172.17.0.0/16
+    # Extract network pattern (e.g., 172.17.%)
+    parts = docker_ip.split(".")
+    docker_network_pattern = f"{parts[0]}.{parts[1]}.%"
+
+    # Drop existing Docker network user if exists
+    run_sql(f"DROP USER IF EXISTS 'hop3'@'{docker_network_pattern}';")
+
+    # Create hop3 user for Docker network
+    result = run_sql(
+        f"CREATE USER 'hop3'@'{docker_network_pattern}' "
+        f"IDENTIFIED WITH mysql_native_password BY '{mysql_password}';"
+    )
+    if result.returncode != 0:
+        print_warning(f"Failed to create MySQL user 'hop3'@'{docker_network_pattern}'")
+        if result.stderr:
+            print_detail(result.stderr[:200])
+        return False
+
+    # Grant privileges
+    result = run_sql(
+        f"GRANT ALL PRIVILEGES ON *.* TO 'hop3'@'{docker_network_pattern}' "
+        "WITH GRANT OPTION;"
+    )
+    if result.returncode != 0:
+        print_warning(f"Failed to grant privileges to hop3@{docker_network_pattern}")
+        if result.stderr:
+            print_detail(result.stderr[:200])
+        return False
+
+    run_sql("FLUSH PRIVILEGES;")
+    print_detail(
+        f"MySQL user 'hop3' configured for Docker network ({docker_network_pattern})"
+    )
+    return True
+
+
+def _configure_mysql_for_docker(root_cmd: list[str], mysql_password: str) -> None:
+    """Configure MySQL for Docker container access.
+
+    Args:
+        root_cmd: Working MySQL admin command.
+        mysql_password: Password for hop3 user.
+    """
+    docker_ip = _get_docker_bridge_ip()
+    if not docker_ip:
+        print_detail(
+            "Docker bridge not found, MySQL will only accept local connections"
+        )
+        return
+
+    # Configure bind address
+    bind_changed = _configure_mysql_bind_address(docker_ip)
+
+    # Create user for Docker network
+    _create_mysql_docker_user(root_cmd, mysql_password, docker_ip)
+
+    if bind_changed:
+        # Restart MySQL to apply bind-address change
+        result = run_cmd(["systemctl", "restart", "mysql"], check=False)
+        if result.returncode != 0:
+            run_cmd(["systemctl", "restart", "mariadb"], check=False)
+        print_detail("MySQL configured to accept connections from Docker containers")
+
+
 def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
     """Configure MySQL.
 
@@ -251,6 +420,9 @@ def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
     if not _create_mysql_hop3_user(mysql_root_cmd, mysql_password):
         return None
     print_success("MySQL user 'hop3' created with privileges")
+
+    # Configure for Docker container access
+    _configure_mysql_for_docker(mysql_root_cmd, mysql_password)
 
     # Verify the connection works
     if not _verify_mysql_hop3_connection(mysql_password):
