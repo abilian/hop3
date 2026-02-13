@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import contextmanager
@@ -33,8 +34,9 @@ from typing import Any
 _streams: dict[str, DeploymentStream] = {}
 STREAM_TTL_SECONDS = 3600  # 1 hour
 
-# Current stream context (thread-local would be better for production)
-_current_stream: DeploymentStream | None = None
+# Thread-local storage for current stream context
+# This ensures concurrent deployments don't interleave logs
+_local = threading.local()
 
 
 @dataclass
@@ -223,8 +225,8 @@ def cleanup_old_streams() -> None:
 
 
 def get_current_stream() -> DeploymentStream | None:
-    """Get the current stream context."""
-    return _current_stream
+    """Get the current stream context for this thread."""
+    return getattr(_local, "current_stream", None)
 
 
 @contextmanager
@@ -232,6 +234,7 @@ def stream_context(stream: DeploymentStream):
     """Context manager to set the current stream for logging.
 
     All log() calls within this context will be routed to the stream.
+    Uses thread-local storage so concurrent deployments don't interleave logs.
 
     Args:
         stream: The stream to route logs to
@@ -243,10 +246,9 @@ def stream_context(stream: DeploymentStream):
             do_deploy(app)
         stream.finish(success=True)
     """
-    global _current_stream
-    old_stream = _current_stream
-    _current_stream = stream
+    old_stream = getattr(_local, "current_stream", None)
+    _local.current_stream = stream
     try:
         yield stream
     finally:
-        _current_stream = old_stream
+        _local.current_stream = old_stream
