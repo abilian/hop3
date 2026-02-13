@@ -790,7 +790,7 @@ services:
             "NGINX_IPV6_ADDRESS": "[::]",
             "BIND_ADDRESS": "127.0.0.1",
             "PORT": str(port),
-            "HOST_NAME": "_",  # Default: catch-all, skips proxy setup
+            # No default HOST_NAME - apps without hostname don't get proxy config
         }
 
         # Load environment variables from the ORM
