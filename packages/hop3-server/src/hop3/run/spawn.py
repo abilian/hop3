@@ -337,6 +337,18 @@ class AppLauncher:
             if gem_bin.exists() and str(gem_bin) not in env["PATH"]:
                 env["PATH"] = f"{gem_bin}:{env['PATH']}"
 
+        # Add src/ directory to PYTHONPATH for Python apps with src layout
+        # This is a common pattern where packages live in src/package_name/
+        # (e.g., Poetry projects with packages = [{ include = "app", from = "src" }])
+        src_dir = self.app.src_path / "src"
+        if src_dir.is_dir():
+            existing_pythonpath = env.get("PYTHONPATH", "")
+            if existing_pythonpath:
+                env["PYTHONPATH"] = f"{src_dir}:{existing_pythonpath}"
+            else:
+                env["PYTHONPATH"] = str(src_dir)
+            log(f"Added src/ to PYTHONPATH for src-layout app", level=3)
+
         # Load environment variables from the ORM
         runtime_env = self.app.get_runtime_env()
         env.update(runtime_env)

@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hop3 import config as c
 from hop3.deployers import do_deploy
 from hop3.lib.registry import lookup, register
+from hop3.lib.util import CommandError, CommandFailedError, run_command
 from hop3.orm import App, AppRepository
 from hop3.project.procfile import parse_procfile
 
@@ -247,36 +248,28 @@ class RunCmd(Command):
             ]
 
         app_name = args[0]
-        cmd_to_run = args[1:]
+        cmd_to_run = list(args[1:])
         app = _get_app(self.db_session, app_name)
 
         try:
-            result = subprocess.run(
+            result = run_command(
                 cmd_to_run,
                 cwd=app.src_path,
                 env=app.get_runtime_env(),
-                check=True,
-                capture_output=True,
                 text=True,
+                timeout=300,  # 5 minute timeout for user commands
             )
             output = result.stdout
             if result.stderr:
                 output += f"\n--- stderr ---\n{result.stderr}"
             return [{"t": "text", "text": output}]
-        except FileNotFoundError:
-            return [
-                {"t": "text", "text": f"Error: command not found: '{cmd_to_run[0]}'"}
-            ]
-        except subprocess.CalledProcessError as e:
-            output = e.stdout
+        except CommandFailedError as e:
+            output = f"Command failed with exit code {e.returncode}"
             if e.stderr:
-                output += f"\n--- stderr ---\n{e.stderr}"
-            return [
-                {
-                    "t": "text",
-                    "text": f"Command failed with exit code {e.returncode}:\n{output}",
-                }
-            ]
+                output += f":\n{e.stderr}"
+            return [{"t": "text", "text": output}]
+        except CommandError as e:
+            return [{"t": "text", "text": f"Error: {e.message}"}]
 
 
 # --- SBOM Command ---

@@ -236,8 +236,11 @@ class TestDockerComposeDeployerLifecycle:
 
             deployer.destroy()
 
-            call_args = mock_run.call_args
-            cmd = call_args[0][0]
+            # destroy() makes multiple calls: compose down + network cleanup
+            # Check that compose down was called
+            all_calls = mock_run.call_args_list
+            compose_down_call = all_calls[0]  # First call is compose down
+            cmd = compose_down_call[0][0]
             assert "down" in cmd
             assert "--volumes" in cmd
 
@@ -390,7 +393,9 @@ class TestDockerComposeDeployerProxyIntegration:
         assert env["APP"] == "test-app"
         assert env["PORT"] == "8080"
         assert env["BIND_ADDRESS"] == "127.0.0.1"
-        assert env["HOST_NAME"] == "_"  # Default when not configured
+        # HOST_NAME is intentionally not set by default - apps without hostname
+        # don't get proxy config (see _setup_proxy which checks for this)
+        assert "HOST_NAME" not in env
         assert "NGINX_IPV4_ADDRESS" in env
 
     def test_make_proxy_env_ignores_env_file(
@@ -410,8 +415,9 @@ class TestDockerComposeDeployerProxyIntegration:
 
         env = deployer._make_proxy_env(8080)
 
-        # ENV file is ignored, so HOST_NAME should be default "_"
-        assert env["HOST_NAME"] == "_"
+        # ENV file is ignored and HOST_NAME is intentionally not set by default
+        # Apps without hostname don't get proxy config
+        assert "HOST_NAME" not in env
 
     def test_make_proxy_env_with_app_runtime_env(
         self, tmp_path: Path, docker_artifact: BuildArtifact

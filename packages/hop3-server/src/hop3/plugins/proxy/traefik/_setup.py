@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -16,6 +15,7 @@ from hop3.config import ACME_EMAIL, ACME_WWW, TRAEFIK_ROOT
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
 from hop3.lib import command_output, expand_vars, log
+from hop3.lib.util import CommandError, try_commands
 from hop3.platform.certificates import CertificatesManager
 
 from ._templates import (
@@ -275,48 +275,22 @@ class TraefikVirtualHost(BaseProxy):
         if os.environ.get("PYTEST_CURRENT_TEST"):
             return
 
-        timeout = 5  # 5 second timeout to prevent hanging
+        # Try reload methods in order of preference
+        reload_methods = [
+            (["sudo", "-n", "supervisorctl", "restart", "traefik"], "supervisorctl"),
+            (["sudo", "-n", "systemctl", "reload", "traefik"], "systemctl"),
+        ]
 
         try:
-            # Try supervisorctl with sudo (for containerized/supervised environments)
-            subprocess.run(
-                ["sudo", "-n", "supervisorctl", "restart", "traefik"],
-                check=True,
-                capture_output=True,
-                timeout=timeout,
+            method = try_commands(reload_methods, timeout=5)
+            log(f"traefik reloaded via {method}", level=2)
+        except CommandError:
+            # Traefik typically watches config files and reloads automatically
+            # So if the above methods fail, it's likely running in file-watch mode
+            log(
+                "Note: Traefik may auto-reload config files if file watching is enabled",
+                level=2,
             )
-            log("traefik reloaded via supervisorctl", level=2)
-            return
-        except (
-            subprocess.CalledProcessError,
-            FileNotFoundError,
-            subprocess.TimeoutExpired,
-        ):
-            pass  # Try next method
-
-        try:
-            # Fall back to systemctl (for systemd environments)
-            subprocess.run(
-                ["sudo", "-n", "systemctl", "reload", "traefik"],
-                check=True,
-                capture_output=True,
-                timeout=timeout,
-            )
-            log("traefik reloaded via systemctl", level=2)
-            return
-        except (
-            subprocess.CalledProcessError,
-            FileNotFoundError,
-            subprocess.TimeoutExpired,
-        ):
-            pass  # Try next method
-
-        # Traefik typically watches config files and reloads automatically
-        # So if the above methods fail, it's likely running in file-watch mode
-        log(
-            "Note: Traefik may auto-reload config files if file watching is enabled",
-            level=2,
-        )
 
     def setup_cache(self) -> None:
         """Configure Traefik caching for the application.

@@ -56,6 +56,12 @@ def test_app_deployment(app_dir: Path, deployment_target):
                     f"Skipping due to network error: {session._last_deploy_error[:100]}"
                 )
 
-        assert deploy_result
-        assert session.check_deployed()
-        assert session.test_http()
+        assert deploy_result, f"Deploy failed: {session.last_deploy_error}"
+        assert session.check_deployed(), f"App {app_name} not found in deployed apps list"
+
+        # Use detailed HTTP test for better error messages
+        http_result = session.test_http_detailed()
+        assert http_result["passed"], (
+            f"HTTP test failed for {app_name}: {http_result['message']}\n"
+            f"Details: {http_result.get('details', {})}"
+        )

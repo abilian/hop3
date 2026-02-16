@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -15,6 +14,7 @@ from hop3.config import ACME_WWW, CACHE_ROOT, NGINX_ROOT
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
 from hop3.lib import command_output, expand_vars, log
+from hop3.lib.util import CommandError, run_command, try_commands
 from hop3.platform.certificates import CertificatesManager
 
 from ._templates import (
@@ -229,6 +229,22 @@ class NginxVirtualHost(BaseProxy):
         #     # self.nginx_conf_path.unlink()
         #     sys.exit(1)
 
+    def _validate_nginx_config(self) -> bool:
+        """Validate nginx configuration before reload.
+
+        Returns:
+            True if config is valid (or validation couldn't be performed),
+            False if config is invalid.
+        """
+        try:
+            run_command(["sudo", "-n", "/usr/sbin/nginx", "-t"], timeout=10)
+            return True
+        except CommandError as e:
+            if "not found" not in e.message:
+                log(f"nginx config validation failed: {e.message}", level=0, fg="red")
+                return False
+            return True  # Can't validate, assume it's OK
+
     def reload_proxy(self) -> None:
         """Reload nginx to apply configuration changes.
 
@@ -237,7 +253,6 @@ class NginxVirtualHost(BaseProxy):
         - No reload mechanism is available
         - Commands fail (logs warning instead of raising)
         """
-
         # Skip reload in unit/integration tests, but NOT in E2E tests
         # E2E tests run in Docker containers and need nginx to actually reload
         if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
@@ -245,93 +260,32 @@ class NginxVirtualHost(BaseProxy):
         ):
             return
 
-        # First validate the nginx config
-        try:
-            result = subprocess.run(
-                ["sudo", "-n", "/usr/sbin/nginx", "-t"],
-                capture_output=True,
-                timeout=10,
-            )
-            if result.returncode != 0:
-                log(
-                    f"nginx config validation failed: {result.stderr.decode()}",
-                    level=0,
-                    fg="red",
-                )
-                return
-        except Exception as e:
-            log(f"Could not validate nginx config: {e}", level=2, fg="yellow")
-
-        timeout = 10  # 10 second timeout to prevent hanging
-        errors = []
-
-        try:
-            # Try supervisorctl with sudo (for containerized/supervised environments)
-            result = subprocess.run(
-                ["sudo", "-n", "supervisorctl", "restart", "nginx"],
-                check=True,
-                capture_output=True,
-                timeout=timeout,
-            )
-            log("nginx reloaded via supervisorctl", level=2)
+        if not self._validate_nginx_config():
             return
-        except subprocess.CalledProcessError as e:
-            errors.append(f"supervisorctl: {e.stderr.decode().strip() or 'failed'}")
-        except FileNotFoundError:
-            errors.append("supervisorctl: command not found")
-        except subprocess.TimeoutExpired:
-            errors.append("supervisorctl: timeout")
+
+        # Try reload methods in order of preference
+        reload_methods = [
+            (["sudo", "-n", "supervisorctl", "restart", "nginx"], "supervisorctl"),
+            (["sudo", "-n", "/usr/bin/systemctl", "reload", "nginx"], "systemctl"),
+            (["sudo", "-n", "/usr/sbin/nginx", "-s", "reload"], "nginx -s reload"),
+        ]
 
         try:
-            # Fall back to systemctl (for systemd environments)
-            # Use full path to match sudoers configuration
-            subprocess.run(
-                ["sudo", "-n", "/usr/bin/systemctl", "reload", "nginx"],
-                check=True,
-                capture_output=True,
-                timeout=timeout,
+            method = try_commands(reload_methods, timeout=10)
+            log(f"nginx reloaded via {method}", level=2)
+        except CommandError as e:
+            log(
+                f"Warning: could not reload nginx automatically. {e.message}",
+                level=2,
+                fg="yellow",
             )
-            log("nginx reloaded via systemctl", level=2)
-            return
-        except subprocess.CalledProcessError as e:
-            errors.append(f"systemctl: {e.stderr.decode().strip() or 'failed'}")
-        except FileNotFoundError:
-            errors.append("systemctl: command not found")
-        except subprocess.TimeoutExpired:
-            errors.append("systemctl: timeout")
-
-        try:
-            # Fall back to nginx -s reload (direct nginx command)
-            # Use full path to match sudoers configuration
-            subprocess.run(
-                ["sudo", "-n", "/usr/sbin/nginx", "-s", "reload"],
-                check=True,
-                capture_output=True,
-                timeout=timeout,
+            log(
+                "Hint: Ensure hop3 user has sudoers permission for nginx reload. "
+                "Run: echo 'hop3 ALL=(ALL) NOPASSWD: /usr/bin/systemctl reload nginx' | "
+                "sudo tee /etc/sudoers.d/hop3 && sudo chmod 0440 /etc/sudoers.d/hop3",
+                level=2,
+                fg="yellow",
             )
-            log("nginx reloaded via nginx -s reload", level=2)
-            return
-        except subprocess.CalledProcessError as e:
-            errors.append(f"nginx -s reload: {e.stderr.decode().strip() or 'failed'}")
-        except FileNotFoundError:
-            errors.append("nginx: command not found")
-        except subprocess.TimeoutExpired:
-            errors.append("nginx -s reload: timeout")
-
-        # Log detailed warning if all methods failed
-        error_details = "; ".join(errors) if errors else "unknown"
-        log(
-            f"Warning: could not reload nginx automatically. Errors: {error_details}",
-            level=2,
-            fg="yellow",
-        )
-        log(
-            "Hint: Ensure hop3 user has sudoers permission for nginx reload. "
-            "Run: echo 'hop3 ALL=(ALL) NOPASSWD: /usr/bin/systemctl reload nginx' | "
-            "sudo tee /etc/sudoers.d/hop3 && sudo chmod 0440 /etc/sudoers.d/hop3",
-            level=2,
-            fg="yellow",
-        )
 
     def setup_cache(self) -> None:
         """Configure Nginx caching for the application.

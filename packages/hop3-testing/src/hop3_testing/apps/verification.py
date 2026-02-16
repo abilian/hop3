@@ -129,8 +129,21 @@ class HttpVerifier:
                 self.console.debug(f"Attempt {attempt + 1}/{max_retries}: {e}")
                 time.sleep(0.5)
 
-        result["message"] = f"HTTP test failed after {max_retries} attempts"
-        self.console.error(f"HTTP test failed after {max_retries} attempts")
+        # Build detailed error message
+        details = result["details"]
+        error_parts = [f"HTTP test failed after {max_retries} attempts"]
+        error_parts.append(f"URL: {details.get('url', 'unknown')}")
+        error_parts.append(f"Host header: {details.get('hostname', 'unknown')}")
+        if "status_code" in details:
+            error_parts.append(f"Last status: {details['status_code']}")
+        if "last_error" in details:
+            error_parts.append(f"Last error: {details['last_error']}")
+        if "body_preview" in details and details["body_preview"]:
+            body = details["body_preview"][:200]
+            error_parts.append(f"Response body: {body}")
+
+        result["message"] = " | ".join(error_parts)
+        self.console.error("\n".join(error_parts))
         return result
 
     def _build_url(self, path: str) -> str:
