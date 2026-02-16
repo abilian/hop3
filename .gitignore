@@ -23,5 +23,6 @@ apps/sandbox/
 data/
 demos/logs/
 demos/sandbox/
+demos/.demo-results.db
 docs/Vocab/
 test-logs/
