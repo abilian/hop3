@@ -49,6 +49,7 @@ def run(ctx: DemoContext) -> None:
         show_app_structure,
         test_app_via_curl,
         wait_for_app,
+        wait_for_app_ready,
     )
     from lib.commands import run_hop3
 
@@ -75,7 +76,10 @@ def run(ctx: DemoContext) -> None:
     deploy_app(ctx, APP_NAME, APP_DIR)
     set_hostname(ctx, APP_NAME, app_hostname)
     redeploy_app(ctx, APP_NAME, APP_DIR)
-    wait_for_app(seconds=5)
+    # Use smart polling instead of fixed wait
+    wait_for_app_ready(APP_NAME, timeout=30.0)
+    # Give nginx extra time to reload after config change
+    wait_for_app(seconds=2, message="Waiting for nginx to reload...")
     check_app_status(ctx, APP_NAME)
 
     # Test basic endpoint
@@ -178,10 +182,8 @@ def run(ctx: DemoContext) -> None:
             print_success("Restore completed.")
         pause(ctx.pause_between_steps)
 
-        # Restart app to pick up restored data
-        print_step("Restarting application to load restored data...")
-        restart_app(ctx, APP_NAME)
-        wait_for_app(seconds=3)
+        # Note: No restart needed - the app reads from the JSON file on each request
+        # The restored data will be visible immediately
 
         # Verify data is restored
         print_header("Step 7: Verify Restored Data")

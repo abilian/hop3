@@ -45,6 +45,7 @@ def run(ctx: DemoContext) -> None:
         test_app_via_curl,
         test_app_via_hop3,
         wait_for_app,
+        wait_for_app_ready,
     )
 
     # Use unique hostname per app to avoid nginx routing conflicts
@@ -77,8 +78,10 @@ def run(ctx: DemoContext) -> None:
     # Redeploy to apply hostname
     redeploy_app(ctx, APP_NAME, APP_DIR)
 
-    # Wait for app to start
-    wait_for_app(seconds=3)
+    # Wait for app to be ready (smart polling instead of fixed sleep)
+    wait_for_app_ready(APP_NAME, timeout=30.0)
+    # Give nginx extra time to reload after config change
+    wait_for_app(seconds=2, message="Waiting for nginx to reload...")
 
     # Verify deployment
     check_app_status(ctx, APP_NAME)
