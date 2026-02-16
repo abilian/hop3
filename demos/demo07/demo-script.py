@@ -45,6 +45,7 @@ def run(ctx: DemoContext) -> None:
         test_app_via_curl,
         test_app_via_hop3,
         wait_for_app,
+        wait_for_app_ready,
     )
 
     app_hostname = ctx.get_app_hostname(APP_NAME)
@@ -82,8 +83,10 @@ def run(ctx: DemoContext) -> None:
     # Redeploy to apply hostname
     redeploy_app(ctx, APP_NAME, APP_DIR)
 
-    # Wait for app
-    wait_for_app(seconds=3)
+    # Wait for app (smart polling)
+    wait_for_app_ready(APP_NAME, timeout=30.0)
+    # Give nginx extra time to reload after config change
+    wait_for_app(seconds=2, message="Waiting for nginx to reload...")
 
     # Check status
     check_app_status(ctx, APP_NAME)

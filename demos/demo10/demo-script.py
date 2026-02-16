@@ -46,6 +46,7 @@ def run(ctx: DemoContext) -> None:
         show_file_content,
         test_app_via_curl,
         wait_for_app,
+        wait_for_app_ready,
     )
     from lib.commands import run_hop3
 
@@ -78,7 +79,10 @@ def run(ctx: DemoContext) -> None:
     deploy_app(ctx, APP_NAME, APP_DIR)
     set_hostname(ctx, APP_NAME, app_hostname)
     redeploy_app(ctx, APP_NAME, APP_DIR)
-    wait_for_app(seconds=5)
+    # Wait for app to be ready (tests direct connection)
+    wait_for_app_ready(APP_NAME, timeout=30.0)
+    # Give nginx extra time to reload after config change
+    wait_for_app(seconds=2, message="Waiting for nginx to reload...")
     check_app_status(ctx, APP_NAME)
 
     # Test main endpoint
@@ -154,10 +158,27 @@ def run(ctx: DemoContext) -> None:
         print_header("Step 6: Redeploy Application")
         print_step("Redeploying app to apply DATABASE_URL...")
         redeploy_app(ctx, APP_NAME, APP_DIR)
-        wait_for_app(seconds=3)
+        # Use smart polling instead of fixed wait - app needs to restart with new env
+        wait_for_app_ready(APP_NAME, timeout=30.0)
+        # Give nginx extra time to reload
+        wait_for_app(seconds=2, message="Waiting for nginx to reload...")
 
         # Test database connection
         print_header("Step 7: Verify Database Connection")
+
+        # Debug: Test direct connection (bypass nginx) to confirm app is running
+        print_step("Testing direct connection to app (bypassing nginx)...")
+        result = run_hop3(f"app:ping {APP_NAME} /db-status", check=False)
+        if result.returncode != 0:
+            print_warning(f"Direct ping failed: {result.stderr or result.stdout}")
+        else:
+            print_success("Direct connection successful")
+
+        # Debug: Check nginx config to verify port
+        print_step("Checking nginx config port...")
+        from lib.commands import run_ssh
+        result = run_ssh(ctx, f"grep -E 'server 127|upstream' /home/hop3/nginx/{APP_NAME}.conf 2>/dev/null || echo 'No config found'", check=False, show=True)
+
         print_step("Testing /db-status endpoint with database attached...")
         test_app_via_curl(
             ctx, f"{app_url}/db-status",

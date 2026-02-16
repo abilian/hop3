@@ -50,6 +50,7 @@ def run(ctx: DemoContext) -> None:
         show_file_content,
         test_app_via_curl,
         wait_for_app,
+        wait_for_app_ready,
     )
     from lib.commands import run_hop3
     from lib.server import ensure_redis
@@ -89,7 +90,10 @@ def run(ctx: DemoContext) -> None:
     deploy_app(ctx, APP_NAME, APP_DIR)
     set_hostname(ctx, APP_NAME, app_hostname)
     redeploy_app(ctx, APP_NAME, APP_DIR)
-    wait_for_app(seconds=5)
+    # Wait for app to be ready (smart polling)
+    wait_for_app_ready(APP_NAME, timeout=30.0)
+    # Give nginx extra time to reload after config change
+    wait_for_app(seconds=2, message="Waiting for nginx to reload...")
     check_app_status(ctx, APP_NAME)
 
     # Test main endpoint
@@ -165,7 +169,11 @@ def run(ctx: DemoContext) -> None:
         print_header("Step 6: Redeploy Application")
         print_step("Redeploying app to apply REDIS_URL...")
         redeploy_app(ctx, APP_NAME, APP_DIR)
-        wait_for_app(seconds=3)
+        # Use smart polling instead of fixed wait - app needs to restart
+        # after getting new env vars
+        wait_for_app_ready(APP_NAME, timeout=30.0)
+        # Give nginx extra time to reload
+        wait_for_app(seconds=2, message="Waiting for nginx to reload...")
 
         # Test Redis connection
         print_header("Step 7: Verify Redis Connection")
