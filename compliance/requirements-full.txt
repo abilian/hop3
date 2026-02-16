@@ -43,7 +43,7 @@ executing==2.2.1
 faker==40.4.0
 fastapi==0.129.0
 fastjsonschema==2.21.2
-filelock==3.21.0
+filelock==3.24.2
 fqdn==1.5.1
 gevent==25.9.1
 granian==2.7.1
@@ -82,7 +82,7 @@ lib4sbom==0.9.4
 librt==0.8.0
 license-expression==30.4.4
 linkify-it-py==2.0.3
-litestar==2.20.0
+litestar==2.21.0
 litestar-htmx==0.5.0
 loguru==0.7.3
 lxml==6.0.2
@@ -105,7 +105,7 @@ packaging==25.0
 paramiko==2.12.0
 pathspec==1.0.4
 pip-requirements-parser==32.0.1
-platformdirs==4.6.0
+platformdirs==4.9.2
 pluggy==1.6.0
 ply==3.11
 polyfactory==3.2.0
@@ -119,7 +119,7 @@ pydantic-core==2.41.5
 pygments==2.19.2
 pyinfra==3.6.1
 pyjwt==2.11.0
-pymdown-extensions==10.20.1
+pymdown-extensions==10.21
 pynacl==1.6.2
 pyparsing==3.3.2
 pyrefly==0.52.0
@@ -135,7 +135,7 @@ python-dotenv==1.2.1
 python-magic==0.4.27
 python-multipart==0.0.22
 pyyaml==6.0.3
-rdflib==7.5.0
+rdflib==7.6.0
 referencing==0.37.0
 requests==2.32.5
 requirements-parser==0.13.0
@@ -146,7 +146,7 @@ rfc3987-syntax==1.1.0
 rich==14.3.2
 rich-click==1.9.7
 rpds-py==0.30.0
-ruff==0.15.0
+ruff==0.15.1
 sbom2dot==0.3.2
 sbom4files==0.4.5
 sbom4python==0.12.4
@@ -164,8 +164,8 @@ termcolor==3.3.0
 textual==7.5.0
 toml==0.10.2
 tomlkit==0.14.0
-ty==0.0.16
-typeguard==4.4.4
+ty==0.0.17
+typeguard==4.5.0
 types-markdown==3.10.2.20260211
 types-paramiko==4.0.0.20250822
 types-pytz==2025.2.0.20251108
@@ -193,7 +193,7 @@ watchfiles==1.1.1
 webcolors==25.10.0
 websockets==16.0
 xmlschema==4.3.1
-xmltodict==1.0.2
+xmltodict==1.0.3
 zensical==0.0.23
 zope-event==6.1
 zope-interface==8.2

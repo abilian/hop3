@@ -118,6 +118,7 @@ known-first-party = ["hop3"]
     "C901",    #	complex-structure
     "PLC2701", # Private name import
     "PLR0912", # too-many-branches
+    "RUF069", # Unreliable floating point equality comparison
 ]
 "**/noxfile.py" = [
     "INP001", # implicit namespace package
