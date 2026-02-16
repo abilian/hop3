@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 import subprocess
 import time
 from datetime import UTC, datetime
@@ -22,7 +21,7 @@ from sqlalchemy.types import Integer as SQLInteger
 from hop3.config import HopConfig
 from hop3.core.env import Env
 from hop3.core.plugins import get_deployer_by_name
-from hop3.lib import Abort, get_free_port, log
+from hop3.lib import Abort, get_free_port, log, robust_rmtree
 from hop3.run.spawn import spawn_app
 
 if TYPE_CHECKING:
@@ -344,13 +343,19 @@ class App(BigIntAuditBase):
         # First, clean up runtime resources (Docker containers, etc.)
         if self.runtime == "docker-compose":
             self._destroy_docker_compose()
+        else:
+            # Even if runtime isn't docker-compose, try to clean up any orphan
+            # Docker resources that might exist for this app name
+            self._cleanup_orphan_docker_resources()
 
         def remove_file(p: Path) -> None:
             # Remove the file or directory at the given path if it exists.
             if p.exists():
                 if p.is_dir():
                     log(f"Removing directory '{p}'", level=2, fg="blue")
-                    shutil.rmtree(p)  # Recursively remove a directory tree
+                    # Use robust removal for directories - handles read-only files
+                    # (common in site-packages, node_modules) and race conditions
+                    robust_rmtree(p)
                 else:
                     log(f"Removing file '{p}'", level=2, fg="blue")
                     p.unlink()  # Remove a file
@@ -571,18 +576,21 @@ class App(BigIntAuditBase):
         """Destroy Docker Compose app - remove containers, networks, and volumes."""
         log(f"Destroying Docker Compose app '{self.name}'...", level=2, fg="yellow")
 
+        # Build the docker compose command
+        # Include -f to specify compose file if it exists, otherwise Docker Compose
+        # won't know which networks/volumes to clean up
+        compose_file = self.src_path / ".hop3-compose.yml"
+        cmd = ["docker", "compose"]
+
+        if compose_file.exists():
+            cmd.extend(["-f", str(compose_file)])
+
+        cmd.extend(["-p", self.name, "down", "--volumes", "--remove-orphans"])
+
         try:
             # Use 'down --volumes --remove-orphans' to fully clean up
             result = subprocess.run(
-                [
-                    "docker",
-                    "compose",
-                    "-p",
-                    self.name,
-                    "down",
-                    "--volumes",
-                    "--remove-orphans",
-                ],
+                cmd,
                 cwd=self.src_path if self.src_path.exists() else None,
                 check=False,  # Don't fail if containers don't exist
                 capture_output=True,
@@ -601,6 +609,72 @@ class App(BigIntAuditBase):
             log("Docker Compose destroy timed out", level=2, fg="yellow")
         except Exception as e:
             log(f"Error destroying Docker Compose app: {e}", level=2, fg="yellow")
+
+        # Always try to force cleanup the network as a safety measure
+        # docker compose down should remove it, but sometimes networks are left behind
+        self._force_cleanup_docker_network()
+
+    def _force_cleanup_docker_network(self) -> None:
+        """Force cleanup of Docker network when compose file is missing."""
+        network_name = f"{self.name}_default"
+        log(
+            f"Attempting to force remove network '{network_name}'...",
+            level=2,
+            fg="yellow",
+        )
+        try:
+            result = subprocess.run(
+                ["docker", "network", "rm", network_name],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                log(f"Removed orphan network '{network_name}'", level=2, fg="green")
+            # Don't log error if network doesn't exist - that's fine
+        except Exception:
+            pass  # Best effort cleanup
+
+    def _cleanup_orphan_docker_resources(self) -> None:
+        """Clean up any orphan Docker resources for this app.
+
+        This is called when destroying apps that aren't marked as docker-compose
+        but might have orphan Docker containers/networks from previous deployments
+        or failed cleanups.
+        """
+        try:
+            # Check if any containers exist for this app
+            result = subprocess.run(
+                ["docker", "ps", "-aq", "--filter", f"name={self.name}-"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                # Containers exist - stop and remove them
+                container_ids = result.stdout.strip().split("\n")
+                log(
+                    f"Found {len(container_ids)} orphan container(s) for '{self.name}'",
+                    level=2,
+                    fg="yellow",
+                )
+                for container_id in container_ids:
+                    subprocess.run(
+                        ["docker", "rm", "-f", container_id],
+                        capture_output=True,
+                        check=False,
+                        timeout=30,
+                    )
+
+            # Try to remove the network
+            self._force_cleanup_docker_network()
+
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass  # Docker not available or timed out
+        except Exception:
+            pass  # Best effort cleanup
 
     def restart(self) -> None:
         """Restart (or just start) a deployed app (non-blocking).

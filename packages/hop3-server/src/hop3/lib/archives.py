@@ -2,80 +2,60 @@
 from __future__ import annotations
 
 import io
-import shutil
+import os
 import stat
 import tarfile
-import time
 from pathlib import Path
 
-# Security limits for archive extraction
-MAX_ARCHIVE_SIZE_BYTES = 500 * 1024 * 1024  # 500 MB
-MAX_EXTRACTED_SIZE_BYTES = (
-    2 * 1024 * 1024 * 1024
-)  # 2 GB (decompression bomb protection)
-MAX_FILE_COUNT = 10000  # Maximum number of files in archive
+from hop3.lib.util import robust_rmtree
 
-# Retry settings for robust deletion
-RMTREE_MAX_RETRIES = 3
-RMTREE_RETRY_DELAY = 0.1  # seconds
+
+def _get_size_limit(env_var: str, default: int) -> int:
+    """Get a size limit from environment variable or use default.
+
+    Supports suffixes: K, M, G (case-insensitive).
+    Examples: "100M", "1G", "500000000"
+    """
+    value = os.environ.get(env_var, "").strip()
+    if not value:
+        return default
+
+    try:
+        # Check for suffix
+        suffix = value[-1].upper()
+        if suffix == "K":
+            return int(value[:-1]) * 1024
+        if suffix == "M":
+            return int(value[:-1]) * 1024 * 1024
+        if suffix == "G":
+            return int(value[:-1]) * 1024 * 1024 * 1024
+        return int(value)
+    except (ValueError, IndexError):
+        return default
+
+
+# Security limits for archive extraction (configurable via environment)
+# HOP3_MAX_ARCHIVE_SIZE: Maximum compressed archive size (default: 1 GB)
+# HOP3_MAX_EXTRACTED_SIZE: Maximum extracted size / decompression bomb protection (default: 5 GB)
+DEFAULT_MAX_ARCHIVE_SIZE = 1024 * 1024 * 1024  # 1 GB
+DEFAULT_MAX_EXTRACTED_SIZE = 5 * 1024 * 1024 * 1024  # 5 GB
 
 
 def _validate_archive_size(archive_bytes: bytes) -> None:
-    """Validate that archive size doesn't exceed limits."""
-    if len(archive_bytes) > MAX_ARCHIVE_SIZE_BYTES:
+    """Validate that archive size doesn't exceed limits.
+
+    Limit is configurable via HOP3_MAX_ARCHIVE_SIZE environment variable.
+    """
+    max_size = _get_size_limit("HOP3_MAX_ARCHIVE_SIZE", DEFAULT_MAX_ARCHIVE_SIZE)
+    if len(archive_bytes) > max_size:
+        size_mb = len(archive_bytes) / (1024 * 1024)
+        limit_mb = max_size / (1024 * 1024)
         msg = (
-            f"Archive size ({len(archive_bytes)} bytes) exceeds maximum "
-            f"allowed size ({MAX_ARCHIVE_SIZE_BYTES} bytes)"
+            f"Archive size ({size_mb:.1f} MB) exceeds maximum "
+            f"allowed size ({limit_mb:.0f} MB). "
+            f"Set HOP3_MAX_ARCHIVE_SIZE to increase the limit."
         )
         raise ValueError(msg)
-
-
-def _robust_rmtree(path: Path) -> None:
-    """Remove a directory tree robustly, handling permission and race condition issues.
-
-    This handles common issues with npm's node_modules and similar complex structures:
-    - Read-only files (common in npm packages)
-    - Race conditions when files are still being accessed
-    - Deep nesting
-
-    Args:
-        path: Directory to remove
-
-    Raises:
-        OSError: If deletion fails after all retries
-    """
-
-    def handle_remove_readonly(func, path, exc_info):
-        """Error handler that fixes read-only permissions and retries."""
-        # If it's a permission error, try to fix permissions and retry
-        if isinstance(exc_info[1], PermissionError):
-            try:
-                path.chmod(stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
-                func(path)
-                return
-            except OSError:
-                pass
-        # Re-raise the original exception
-        raise exc_info[1]
-
-    last_error = None
-    for attempt in range(RMTREE_MAX_RETRIES):
-        try:
-            shutil.rmtree(path, onerror=handle_remove_readonly)
-            return  # Success
-        except OSError as e:
-            last_error = e
-            if attempt < RMTREE_MAX_RETRIES - 1:
-                # Wait a bit before retrying (handles race conditions)
-                time.sleep(RMTREE_RETRY_DELAY * (attempt + 1))
-            continue
-
-    # All retries failed - try one last time with ignore_errors as fallback
-    shutil.rmtree(path, ignore_errors=True)
-
-    # Check if it's really gone
-    if path.exists():
-        raise last_error or OSError(f"Failed to remove directory: {path}")
 
 
 def _prepare_target_directory(target_dir: Path) -> None:
@@ -90,13 +70,13 @@ def _prepare_target_directory(target_dir: Path) -> None:
         # Clear the directory to ensure we start fresh.
         for item in target_dir.iterdir():
             if item.is_dir():
-                _robust_rmtree(item)
+                robust_rmtree(item)
             else:
                 try:
                     item.unlink()
                 except PermissionError:
                     # Try fixing permissions and retry
-                    Path(item).chmod(stat.S_IRWXU)
+                    os.chmod(item, stat.S_IRWXU)
                     item.unlink()
     else:
         # Create the directory if it doesn't exist
@@ -104,21 +84,24 @@ def _prepare_target_directory(target_dir: Path) -> None:
 
 
 def _validate_archive_members(members: list) -> None:
-    """Validate archive member count and total size."""
-    # File count limit
-    if len(members) > MAX_FILE_COUNT:
-        msg = (
-            f"Archive contains {len(members)} files, which exceeds "
-            f"the maximum allowed ({MAX_FILE_COUNT})"
-        )
-        raise ValueError(msg)
+    """Validate archive members for security.
+
+    Checks for decompression bomb attacks by validating total extracted size.
+    Limit is configurable via HOP3_MAX_EXTRACTED_SIZE environment variable.
+    """
+    max_extracted = _get_size_limit(
+        "HOP3_MAX_EXTRACTED_SIZE", DEFAULT_MAX_EXTRACTED_SIZE
+    )
 
     # Decompression bomb protection
     total_size = sum(member.size for member in members if member.isfile())
-    if total_size > MAX_EXTRACTED_SIZE_BYTES:
+    if total_size > max_extracted:
+        size_mb = total_size / (1024 * 1024)
+        limit_mb = max_extracted / (1024 * 1024)
         msg = (
-            f"Archive would extract to {total_size} bytes, which exceeds "
-            f"the maximum allowed ({MAX_EXTRACTED_SIZE_BYTES})"
+            f"Archive would extract to {size_mb:.1f} MB, which exceeds "
+            f"the maximum allowed ({limit_mb:.0f} MB). "
+            f"Set HOP3_MAX_EXTRACTED_SIZE to increase the limit."
         )
         raise ValueError(msg)
 
@@ -157,10 +140,13 @@ def extract_archive_to_dir(archive_bytes: bytes, target_dir: Path) -> None:
 
     Security measures:
     - Path traversal prevention (tar slip protection)
-    - Archive size limits (500 MB)
-    - Decompression bomb protection (max 2 GB extracted)
-    - File count limits (max 10,000 files)
+    - Archive size limits (configurable, default 1 GB)
+    - Decompression bomb protection (configurable, default 5 GB extracted)
     - Malicious filename detection
+
+    Environment variables for configuration:
+    - HOP3_MAX_ARCHIVE_SIZE: Max compressed archive size (e.g., "1G", "500M")
+    - HOP3_MAX_EXTRACTED_SIZE: Max extracted size (e.g., "5G", "2G")
 
     Args:
         archive_bytes (bytes): The content of the .tar.gz archive as a bytes object.

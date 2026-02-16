@@ -174,6 +174,8 @@ class SSHDeployBackend(DeployBackend):
             "systemctl stop uwsgi-hop3 2>/dev/null || true",
             "docker ps -q | xargs -r docker stop 2>/dev/null || true",
             "docker ps -aq | xargs -r docker rm 2>/dev/null || true",
+            # Prune Docker networks to prevent "address pools fully subnetted" errors
+            "docker network prune -f 2>/dev/null || true",
             "rm -f /etc/nginx/sites-enabled/hop3-* 2>/dev/null || true",
             "rm -f /etc/nginx/sites-available/hop3-* 2>/dev/null || true",
             "systemctl reload nginx 2>/dev/null || true",
