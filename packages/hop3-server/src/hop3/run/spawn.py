@@ -347,7 +347,7 @@ class AppLauncher:
                 env["PYTHONPATH"] = f"{src_dir}:{existing_pythonpath}"
             else:
                 env["PYTHONPATH"] = str(src_dir)
-            log(f"Added src/ to PYTHONPATH for src-layout app", level=3)
+            log("Added src/ to PYTHONPATH for src-layout app", level=3)
 
         # Load environment variables from the ORM
         runtime_env = self.app.get_runtime_env()

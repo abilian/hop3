@@ -6,7 +6,7 @@ authors = ["Jerome Dumonteil <jd@abilian.com>"]
 license = "MIT"
 
 packages = [
-    { include = "app" }
+    { include = "app", from = "src" }
 ]
 
 [tool.poetry.dependencies]
