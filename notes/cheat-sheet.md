@@ -41,6 +41,42 @@ hop3 auth:whoami
 hop3 version
 ```
 
+### Context Management (Multiple Servers)
+
+```bash
+# Add server contexts
+hop3 context add staging --server ssh://root@staging.example.com
+hop3 context add production --server ssh://root@prod.example.com --protected
+
+# List contexts (* = current)
+hop3 context list
+
+# Show current context and source
+hop3 context current
+
+# Switch context (safe - prints export command)
+hop3 context use production
+# Output: export HOP3_CONTEXT=production
+
+# Switch context for this directory
+hop3 context use staging --local
+
+# Switch context globally (affects all terminals - use with caution!)
+hop3 context use production --global
+
+# Use context for single command
+hop3 --context production apps
+
+# Remove context
+hop3 context remove old-staging
+```
+
+**Context priority (highest to lowest):**
+1. `--context` flag
+2. `HOP3_CONTEXT` environment variable
+3. `.hop3-context` file in current directory
+4. Global config
+
 ### Application Lifecycle
 
 ```bash
@@ -189,6 +225,7 @@ hop3 <command> --help
 | `--quiet` / `-q` | Suppress output |
 | `--verbose` / `-v` | More detail |
 | `-y` / `--yes` | Skip confirmations |
+| `--context <name>` | Use specific server context |
 | `--help` / `-h` | Show help |
 
 **Scripting example:**
@@ -396,6 +433,18 @@ hop3 ps:scale myapp worker=2
 - Restart after changing config: `hop3 app:restart <app>`
 - Use consistent naming: `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`
 - Keep production and development configs separate
+
+### Working with Multiple Servers
+
+- **Mark production as protected:** `hop3 context add production --server ... --protected`
+- **Use environment variable for safety:** `export HOP3_CONTEXT=staging` in your shell
+- **Per-project contexts:** Use `hop3 context use <name> --local` for project directories
+- **Avoid global context switches:** Don't use `--global` for production contexts
+- **Create shell aliases:**
+  ```bash
+  alias hop3-prod='HOP3_CONTEXT=production hop3'
+  alias hop3-staging='HOP3_CONTEXT=staging hop3'
+  ```
 
 ### Process Management
 

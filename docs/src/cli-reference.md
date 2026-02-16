@@ -1,7 +1,7 @@
 # Hop3 CLI Reference
 
 **Version:** 0.4.0
-**Last Updated:** 2025-01-28
+**Last Updated:** 2026-02-13
 
 This document provides a complete reference for all Hop3 CLI commands.
 
@@ -11,6 +11,7 @@ This document provides a complete reference for all Hop3 CLI commands.
 
 - [Getting Started](#getting-started)
 - [Global Flags](#global-flags)
+- [Context Management](#context-management)
 - [Authentication Commands](#authentication-commands)
 - [Application Management](#application-management)
 - [Configuration Management](#configuration-management)
@@ -81,6 +82,10 @@ All commands support these global flags:
 
 - **`-y, --yes`** - Skip confirmation prompts (auto-confirm destructive operations)
 
+### Context Selection
+
+- **`--context <name>`** - Use a specific server context for this command only
+
 ### Verbosity
 
 Verbosity controls how much output is displayed. The verbosity level is passed to the server and affects all command output.
@@ -129,6 +134,297 @@ hop3 app:destroy oldapp --yes --quiet
 
 # Set default verbosity via environment
 HOP3_VERBOSITY=0 hop3 deploy myapp  # Quiet mode
+```
+
+---
+
+## Context Management
+
+Contexts allow you to manage multiple Hop3 servers (e.g., production, staging, development) safely. Similar to `kubectl` contexts, you can switch between servers without accidentally running commands against the wrong environment.
+
+### Why Use Contexts?
+
+- **Safety**: Prevent accidental production deployments from your development terminal
+- **Convenience**: Quickly switch between servers without changing environment variables
+- **Protection**: Mark production contexts as "protected" for extra confirmation on destructive operations
+
+### Context Priority
+
+When determining which server to use, the CLI checks these sources in order:
+
+| Priority | Source | Scope |
+|----------|--------|-------|
+| 1 (highest) | `--context` flag | Single command |
+| 2 | `HOP3_CONTEXT` environment variable | Current shell |
+| 3 | `.hop3-context` file | Current directory |
+| 4 (lowest) | Global config file | All terminals |
+
+### `hop3 context add`
+
+Add a new server context.
+
+**Usage:**
+```bash
+hop3 context add <name> --server <url> [options]
+```
+
+**Arguments:**
+- `name` - Context name (e.g., "production", "staging", "dev")
+- `--server <url>` - Server URL (required)
+
+**Options:**
+- `--token <token>` - API authentication token
+- `--protected` - Mark as protected (requires extra confirmation for destructive operations)
+- `--ssh-user <user>` - SSH username (default: root)
+- `--ssh-port <port>` - SSH port (default: 22)
+
+**Examples:**
+```bash
+# Add a development context
+hop3 context add dev --server ssh://root@dev.example.com
+
+# Add a protected production context
+hop3 context add production --server ssh://root@prod.example.com --protected
+
+# Add with token
+hop3 context add staging --server https://staging.example.com --token eyJ...
+```
+
+**Notes:**
+- The first context added automatically becomes the current context
+- Protected contexts require typing `context/resource` instead of just `resource` for destructive operations
+
+---
+
+### `hop3 context list`
+
+List all configured contexts.
+
+**Usage:**
+```bash
+hop3 context list
+```
+
+**Example Output:**
+```
+Configured contexts:
+
+    production [protected]
+      Server: ssh://root@prod.example.com
+  * staging
+      Server: ssh://root@staging.example.com
+    dev
+      Server: ssh://root@dev.example.com
+
+Current context: staging
+```
+
+**Notes:**
+- `*` indicates the current context
+- `[protected]` indicates contexts that require extra confirmation
+
+---
+
+### `hop3 context current`
+
+Show the current context and where it's configured.
+
+**Usage:**
+```bash
+hop3 context current
+```
+
+**Example Output:**
+```
+Current context: production
+  Source: HOP3_CONTEXT environment variable
+  Server: ssh://root@prod.example.com
+  Protected: yes (requires confirmation for destructive operations)
+```
+
+**Possible sources:**
+- `--context flag` - Set via command line
+- `HOP3_CONTEXT environment variable` - Set in current shell
+- `local file (/path/to/.hop3-context)` - Set for current directory
+- `global config` - Set as global default
+
+---
+
+### `hop3 context use`
+
+Switch to a different context. **Safe by default** - does not modify global config.
+
+**Usage:**
+```bash
+hop3 context use [--local | --global] <name>
+```
+
+**Arguments:**
+- `name` - Context name to switch to
+
+**Options:**
+- (default) - Print `export` command for this shell only (safest)
+- `--local` - Write to `.hop3-context` file in current directory
+- `--global` - Set as global default (**affects all terminals** - use with caution)
+
+**Examples:**
+```bash
+# Print export command (recommended - only affects current shell after you run it)
+hop3 context use production
+# Output:
+# To use context 'production' in this shell, run:
+#   export HOP3_CONTEXT=production
+
+# Save to local .hop3-context file (per-project)
+hop3 context use staging --local
+
+# Set as global default (dangerous - affects ALL terminals)
+hop3 context use production --global
+```
+
+**Best Practice:**
+
+For production servers, use the environment variable approach:
+```bash
+# In your .bashrc or .zshrc for production work:
+alias hop3-prod='HOP3_CONTEXT=production hop3'
+
+# Or set for current terminal session:
+export HOP3_CONTEXT=production
+```
+
+---
+
+### `hop3 context remove`
+
+Remove a context.
+
+**Usage:**
+```bash
+hop3 context remove <name>
+```
+
+**Example:**
+```bash
+hop3 context remove old-staging
+```
+
+**Notes:**
+- If you remove the current context, another context becomes current (if any exist)
+- Does not affect the actual server, only removes the local configuration
+
+---
+
+### Using Contexts
+
+#### Per-Command Context
+
+Use `--context` flag for one-off commands:
+```bash
+# Deploy to production without changing your current context
+hop3 --context production deploy myapp
+
+# Check staging logs while working on dev
+hop3 --context staging app:logs myapp
+```
+
+#### Per-Shell Context
+
+Set environment variable for your terminal session:
+```bash
+# This terminal is now "production mode"
+export HOP3_CONTEXT=production
+
+# All commands use production
+hop3 apps
+hop3 app:status myapp
+```
+
+#### Per-Project Context
+
+Create `.hop3-context` file in your project directory:
+```bash
+cd my-staging-project/
+hop3 context use staging --local
+# Creates .hop3-context containing "staging"
+
+# Now any hop3 command in this directory uses staging
+hop3 deploy myapp
+```
+
+**Tip:** Add `.hop3-context` to your `.gitignore` if you don't want to commit it.
+
+---
+
+### Protected Contexts
+
+Protected contexts provide an extra safety layer for production environments.
+
+**Setting up a protected context:**
+```bash
+hop3 context add production --server ssh://root@prod.example.com --protected
+```
+
+**What changes with protected contexts:**
+
+1. **Extra confirmation prompt** before any destructive operation
+2. **Stricter type-to-confirm** - Must type `context/resource` instead of just `resource`
+
+**Example:**
+```bash
+$ hop3 --context production app:destroy myapp
+
+  WARNING: You are operating on protected context 'production'
+  This context is marked as protected to prevent accidental changes.
+
+Are you sure you want to continue with this destructive action? [y/N]: y
+
+WARNING: This will permanently destroy the app 'myapp'.
+Type 'production/myapp' to confirm (context/app): production/myapp
+✓ App 'myapp' destroyed.
+```
+
+---
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `HOP3_CONTEXT` | Override the current context for this shell |
+
+**Example `.bashrc` setup:**
+```bash
+# Production alias with explicit context
+alias hop3-prod='HOP3_CONTEXT=production hop3'
+alias hop3-staging='HOP3_CONTEXT=staging hop3'
+
+# Or set default for specific terminal profiles
+# In your "Production Terminal" profile:
+export HOP3_CONTEXT=production
+```
+
+---
+
+### Configuration File
+
+Contexts are stored in `~/.config/hop3-cli/config.toml`:
+
+```toml
+current_context = "staging"
+
+[contexts.staging]
+api_url = "ssh://root@staging.example.com"
+api_token = "eyJ..."
+protected = false
+ssh_user = "root"
+ssh_port = 22
+
+[contexts.production]
+api_url = "ssh://root@prod.example.com"
+api_token = "eyJ..."
+protected = true
+ssh_user = "root"
+ssh_port = 22
 ```
 
 ---
@@ -1350,6 +1646,7 @@ The Hop3 CLI uses standard exit codes:
 
 - **`HOP3_API_URL`** - Server URL (http://server or ssh://user@server)
 - **`HOP3_API_TOKEN`** - API authentication token (overrides ~/.hop3/token)
+- **`HOP3_CONTEXT`** - Use a specific server context (see [Context Management](#context-management))
 - **`HOP3_CONFIG_DIR`** - Config directory (default: ~/.hop3)
 - **`HOP3_VERBOSITY`** - Default verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
 
@@ -1442,6 +1739,6 @@ hop3 <command> --help
 
 ---
 
-**Last Updated:** 2025-01-28
+**Last Updated:** 2026-02-13
 **CLI Version:** 0.4.0
 **Server Version:** 0.4.0
