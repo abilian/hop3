@@ -147,6 +147,17 @@ Examples:
     # Demo execution
     execution = parser.add_argument_group("Demo Execution")
     execution.add_argument(
+        "-Q",
+        "--quick",
+        action="store_true",
+        help="Only run demos that failed in the previous run (plus any new demos)",
+    )
+    execution.add_argument(
+        "--clear-results",
+        action="store_true",
+        help="Clear stored test results for this host before running",
+    )
+    execution.add_argument(
         "-k",
         "--keep",
         action="store_true",

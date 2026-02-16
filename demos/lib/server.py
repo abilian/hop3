@@ -178,6 +178,16 @@ def clean_server(ctx: DemoContext) -> None:
         check=False,
     )
 
+    # Prune Docker networks to prevent "all predefined address pools have been
+    # fully subnetted" errors during demo runs
+    print_info("Pruning unused Docker networks...")
+    run_ssh(
+        ctx,
+        "docker network prune -f 2>/dev/null || true",
+        show=False,
+        check=False,
+    )
+
     # Remove app nginx configurations
     print_info("Removing nginx app configurations...")
     run_ssh(
