@@ -14,6 +14,7 @@ from hop3.config import ACME_EMAIL, ACME_WWW, CADDY_ROOT
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
 from hop3.lib import command_output, expand_vars, log
+from hop3.lib.util import CommandError, try_commands
 from hop3.platform.certificates import CertificatesManager
 
 from ._templates import (
@@ -235,67 +236,22 @@ class CaddyVirtualHost(BaseProxy):
         if os.environ.get("PYTEST_CURRENT_TEST"):
             return
 
-        timeout = 5  # 5 second timeout to prevent hanging
+        # Try reload methods in order of preference
+        reload_methods = [
+            (["sudo", "-n", "supervisorctl", "restart", "caddy"], "supervisorctl"),
+            (["sudo", "-n", "systemctl", "reload", "caddy"], "systemctl"),
+            (["sudo", "-n", "caddy", "reload"], "caddy reload"),
+        ]
 
         try:
-            # Try supervisorctl with sudo (for containerized/supervised environments)
-            result = subprocess.run(
-                ["sudo", "-n", "supervisorctl", "restart", "caddy"],
-                check=True,
-                capture_output=True,
-                timeout=timeout,
+            method = try_commands(reload_methods, timeout=5)
+            log(f"caddy reloaded via {method}", level=2)
+        except CommandError as e:
+            log(
+                f"Warning: could not reload caddy automatically. {e.message}",
+                level=2,
+                fg="yellow",
             )
-            log("caddy reloaded via supervisorctl", level=2)
-            return
-        except (
-            subprocess.CalledProcessError,
-            FileNotFoundError,
-            subprocess.TimeoutExpired,
-        ):
-            pass  # Try next method
-
-        try:
-            # Fall back to systemctl (for systemd environments)
-            subprocess.run(
-                ["sudo", "-n", "systemctl", "reload", "caddy"],
-                check=True,
-                capture_output=True,
-                timeout=timeout,
-            )
-            log("caddy reloaded via systemctl", level=2)
-            return
-        except (
-            subprocess.CalledProcessError,
-            FileNotFoundError,
-            subprocess.TimeoutExpired,
-        ):
-            pass  # Try next method
-
-        try:
-            # Fall back to caddy reload (direct caddy command)
-            # Note: This requires the Caddy config to be in a specific location
-            # or using the admin API
-            subprocess.run(
-                ["sudo", "-n", "caddy", "reload"],
-                check=True,
-                capture_output=True,
-                timeout=timeout,
-            )
-            log("caddy reloaded via caddy reload command", level=2)
-            return
-        except (
-            subprocess.CalledProcessError,
-            FileNotFoundError,
-            subprocess.TimeoutExpired,
-        ):
-            pass  # All methods failed
-
-        # Log warning if all methods failed
-        log(
-            "Warning: could not reload caddy automatically (all methods failed or timed out)",
-            level=2,
-            fg="yellow",
-        )
 
     def setup_cache(self) -> None:
         """Configure Caddy caching for the application.

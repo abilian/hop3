@@ -28,6 +28,151 @@ RMTREE_MAX_RETRIES = 3
 RMTREE_RETRY_DELAY = 0.1  # seconds
 
 
+# =============================================================================
+# Command execution with proper exceptions
+# =============================================================================
+
+
+class CommandError(Exception):
+    """Base exception for command execution failures."""
+
+    def __init__(self, cmd: list[str], message: str) -> None:
+        self.cmd = cmd
+        self.cmd_str = shlex.join(cmd)
+        self.message = message
+        super().__init__(f"{self.cmd_str}: {message}")
+
+
+class CommandNotFoundError(CommandError):
+    """Raised when the command executable is not found."""
+
+    def __init__(self, cmd: list[str]) -> None:
+        super().__init__(cmd, f"command '{cmd[0]}' not found")
+
+
+class CommandTimeoutError(CommandError):
+    """Raised when the command times out."""
+
+    def __init__(self, cmd: list[str], timeout: int) -> None:
+        self.timeout = timeout
+        super().__init__(cmd, f"timed out after {timeout}s")
+
+
+class CommandFailedError(CommandError):
+    """Raised when the command returns non-zero exit code."""
+
+    def __init__(self, cmd: list[str], returncode: int, stderr: str = "") -> None:
+        self.returncode = returncode
+        self.stderr = stderr
+        message = f"exited with code {returncode}"
+        if stderr:
+            message += f" ({stderr})"
+        super().__init__(cmd, message)
+
+
+def run_command(
+    cmd: list[str],
+    *,
+    timeout: int = 10,
+    cwd: Path | str | None = None,
+    env: dict[str, str] | None = None,
+    text: bool = False,
+) -> subprocess.CompletedProcess:
+    """Run a command and return the result, raising on failure.
+
+    Args:
+        cmd: Command to execute as a list of strings
+        timeout: Timeout in seconds (default: 10)
+        cwd: Working directory for the command (default: current directory)
+        env: Environment variables for the command (default: inherit from parent)
+        text: If True, decode stdout/stderr as text (default: False, returns bytes)
+
+    Returns:
+        CompletedProcess on success
+
+    Raises:
+        CommandNotFoundError: If the command executable is not found
+        CommandTimeoutError: If the command times out
+        CommandFailedError: If the command returns non-zero exit code
+
+    Example:
+        try:
+            result = run_command(["ls", "-la"], cwd="/tmp", text=True)
+            print(result.stdout)
+        except CommandError as e:
+            log(f"Failed: {e}")
+    """
+    try:
+        result = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            timeout=timeout,
+            cwd=cwd,
+            env=env,
+            text=text,
+        )
+        return result
+    except subprocess.CalledProcessError as e:
+        if text:
+            stderr = e.stderr.strip() if e.stderr else ""
+        else:
+            stderr = e.stderr.decode().strip() if e.stderr else ""
+        raise CommandFailedError(cmd, e.returncode, stderr) from None
+    except FileNotFoundError:
+        raise CommandNotFoundError(cmd) from None
+    except subprocess.TimeoutExpired:
+        raise CommandTimeoutError(cmd, timeout) from None
+
+
+def try_commands(
+    commands: list[tuple[list[str], str]],
+    *,
+    timeout: int = 10,
+) -> str | None:
+    """Try multiple commands in sequence until one succeeds.
+
+    This is useful for fallback scenarios where you want to try several
+    methods to accomplish the same task (e.g., reloading a service via
+    supervisorctl, systemctl, or direct command).
+
+    Args:
+        commands: List of (cmd, name) tuples. Each cmd is a list of strings,
+                  name is a human-readable description for logging.
+        timeout: Timeout in seconds for each command (default: 10)
+
+    Returns:
+        The name of the successful command, or None if all failed.
+
+    Raises:
+        CommandError: If all commands fail, raises with combined error message.
+
+    Example:
+        reload_methods = [
+            (["sudo", "-n", "supervisorctl", "restart", "nginx"], "supervisorctl"),
+            (["sudo", "-n", "systemctl", "reload", "nginx"], "systemctl"),
+            (["sudo", "-n", "nginx", "-s", "reload"], "nginx -s reload"),
+        ]
+        try:
+            method = try_commands(reload_methods)
+            log(f"nginx reloaded via {method}")
+        except CommandError as e:
+            log(f"All reload methods failed: {e}")
+    """
+    errors = []
+
+    for cmd, name in commands:
+        try:
+            run_command(cmd, timeout=timeout)
+            return name
+        except CommandError as e:
+            errors.append(f"{name}: {e.message}")
+
+    # All commands failed - raise with combined error message
+    error_details = "; ".join(errors)
+    raise CommandError([], f"all methods failed: {error_details}")
+
+
 def shell(
     command: str | list[str], cwd: Path | str = "", **kwargs
 ) -> subprocess.CompletedProcess:

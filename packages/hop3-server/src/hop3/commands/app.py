@@ -26,6 +26,7 @@ from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.console import capture_logs
 from hop3.lib.logging import server_log
 from hop3.lib.registry import register
+from hop3.lib.settings import parse_settings
 from hop3.orm import AddonCredential, App, AppRepository, AppStateEnum, EnvVar
 from hop3.server.streaming import create_stream, stream_context
 
@@ -141,19 +142,24 @@ class DeployCmd(Command):
             self.db_session.commit()
             server_log.info("Deploy: created new app", app_name=app_name, app_id=app.id)
 
-        # Handle --env flags: merge new env vars with existing ones
+        archives_bytes = b64decode(kwargs["repository"])
+        extract_archive_to_dir(archives_bytes, app.src_path)
+
+        # Load ENV file from deployed source (provides defaults for HOST_NAME, etc.)
+        env_file = app.src_path / "ENV"
+        env_from_file = parse_settings(env_file) if env_file.exists() else {}
+
+        # Get existing env vars from ORM
+        existing_env = {ev.name: ev.value for ev in app.env_vars}
+
+        # Merge: ENV file (base) <- existing ORM <- CLI flags (highest priority)
+        merged_env = env_from_file.copy()
+        merged_env.update(existing_env)
+
+        # Handle --env flags from CLI (highest priority)
         env_vars_from_cli = kwargs.get("env_vars", {})
         if env_vars_from_cli:
-            # Get existing env as dict
-            existing_env = {ev.name: ev.value for ev in app.env_vars}
-            # Merge with CLI env vars (CLI takes precedence)
-            existing_env.update(env_vars_from_cli)
-            # Update the app
-            app.env_vars.clear()
-            for key, value in existing_env.items():
-                app.env_vars.append(EnvVar(name=key, value=value, app=app))
-            self.db_session.commit()
-
+            merged_env.update(env_vars_from_cli)
             server_log.info(
                 "Deploy: set env vars from --env",
                 app_name=app_name,
@@ -163,8 +169,21 @@ class DeployCmd(Command):
                 f"Set {len(env_vars_from_cli)} env var(s) from --env: {', '.join(env_vars_from_cli.keys())}"
             )
 
-        archives_bytes = b64decode(kwargs["repository"])
-        extract_archive_to_dir(archives_bytes, app.src_path)
+        # Update ORM if anything changed
+        if merged_env != existing_env:
+            app.env_vars.clear()
+            for key, value in merged_env.items():
+                app.env_vars.append(EnvVar(name=key, value=value, app=app))
+            self.db_session.commit()
+            # Refresh to keep app attached to session for lazy loading in do_deploy()
+            self.db_session.refresh(app)
+
+            if env_from_file:
+                server_log.info(
+                    "Deploy: loaded env vars from ENV file",
+                    app_name=app_name,
+                    env_vars_from_file=list(env_from_file.keys()),
+                )
 
         # Check if client requests streaming (real-time logs via SSE)
         streaming = kwargs.get("streaming", False)
