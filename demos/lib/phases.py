@@ -329,6 +329,35 @@ def configure_cli(ctx: DemoContext) -> bool:
     return True
 
 
+def _extract_demo_title(demo_dir: Path) -> str | None:
+    """Extract TITLE from demo-script.py without fully loading the module.
+
+    Args:
+        demo_dir: Path to demo directory
+
+    Returns:
+        Title string if found, None otherwise
+    """
+    import re
+
+    script_path = demo_dir / "demo-script.py"
+    if not script_path.exists():
+        return None
+
+    try:
+        content = script_path.read_text()
+        # Match TITLE = "..." or TITLE = '...'
+        match = re.search(r'^TITLE\s*=\s*["\'](.+?)["\']', content, re.MULTILINE)
+        if match:
+            title = match.group(1)
+            # Remove "Demo N: " prefix to get just the description
+            title = re.sub(r'^Demo\s+\d+:\s*', '', title)
+            return title
+    except Exception:
+        pass
+    return None
+
+
 def run_demo(
     ctx: DemoContext,
     demo_name: str,
@@ -352,6 +381,9 @@ def run_demo(
     error_msg = None
     app_name = demo_name  # Default app name for failure capture
 
+    # Extract short description for quiet mode output
+    short_desc = _extract_demo_title(demo_dir)
+
     # Start logging for this demo
     start_demo_logging(demo_name)
     log_section(
@@ -360,9 +392,12 @@ def run_demo(
         f"Demo directory: {demo_dir}\nGeneric: {is_generic}",
     )
 
-    # Show demo start - in quiet mode just "demo1...", in normal mode full header
+    # Show demo start - in quiet mode show "demo01 (description)...", in normal mode full header
     if ctx.output_level == OutputLevel.QUIET:
-        print(f"{demo_name}... ", end="", flush=True)
+        if short_desc:
+            print(f"{demo_name} ({short_desc})... ", end="", flush=True)
+        else:
+            print(f"{demo_name}... ", end="", flush=True)
 
     try:
         if is_generic:

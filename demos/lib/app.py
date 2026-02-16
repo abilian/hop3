@@ -39,6 +39,9 @@ def ensure_app_removed(app_name: str) -> None:
     """
     # Try to destroy the app, ignoring errors if it doesn't exist
     run_hop3(f"app:destroy {app_name} -y", check=False, show=False, quiet=True)
+    # Wait for uwsgi emperor to fully clean up the process
+    # Longer delay helps prevent race conditions with gunicorn workers
+    time.sleep(5)
 
 
 def deploy_app(ctx: DemoContext, app_name: str, app_dir: Path) -> None:
@@ -87,6 +90,9 @@ def redeploy_app(ctx: DemoContext, app_name: str, app_dir: Path) -> None:
         app_dir: Path to the application directory
     """
     print_step("Redeploying to apply configuration...")
+
+    # Wait a moment before redeploy to avoid race conditions with uwsgi emperor
+    time.sleep(2)
 
     # Simply redeploy - the app already exists with its config
     # DeployCmd handles existing apps by retrieving them, preserving env_vars
@@ -285,8 +291,9 @@ def test_app_via_curl(
 
     # Build curl command with --resolve to map hostname to server IP
     # -L follows redirects (important for apps that redirect to /login, /install, etc.)
+    # --max-time 10 prevents hanging on unresponsive backends
     resolve_opt = f"--resolve {hostname}:{port}:{server_ip}" if hostname else ""
-    curl_cmd = f"curl -skL {resolve_opt} {app_url}"
+    curl_cmd = f"curl -skL --max-time 10 {resolve_opt} {app_url}"
 
     last_result = None
     for attempt in range(max_retries):
@@ -328,24 +335,44 @@ def test_app_via_curl(
     if last_result and last_result.returncode == 0 and last_result.stdout:
         # Got a response but content didn't match
         print_error(f"Content validation failed for {app_url}")
-        print_info(f"  Expected: '{expected_content}'")
-        print_info(f"  Got: {last_result.stdout[:200].strip()}")
+        print(f"  {yellow('Expected:')} '{expected_content}'")
+        print(f"  {yellow('Actual response:')} ({len(last_result.stdout)} bytes)")
+        # Show more of the response for debugging
+        print(f"  {last_result.stdout[:500].strip()}")
         error_type = "content_mismatch"
     else:
         # Connection or other error
         print_error(f"Failed to access application at {app_url}")
-        print_info(f"  Expected content: '{expected_content}'")
+        print(f"  {yellow('Expected:')} '{expected_content}'")
         error_type = "connection_error"
-
-    print_info(f"  Curl command: {curl_cmd}")
-    if last_result:
-        print_info(f"  Exit code: {last_result.returncode}")
-        if last_result.stdout and error_type != "content_mismatch":
+        if last_result and last_result.stdout:
             print(f"  {yellow('Got response:')} ({len(last_result.stdout)} bytes)")
             print(f"  {last_result.stdout[:500].strip()}")
+
+    print(f"  {yellow('Curl command:')} {curl_cmd}")
+    if last_result:
+        print(f"  {yellow('Exit code:')} {last_result.returncode}")
         if last_result.stderr:
             print(f"  {yellow('Stderr:')}")
             print(f"  {last_result.stderr[:200].strip()}")
+
+    # Try to get app logs for debugging
+    # Extract app name from URL (e.g., demo13.hop3.dev -> demo13)
+    app_name_from_url = hostname.split(".")[0] if hostname else None
+    if app_name_from_url:
+        print_info(f"  Fetching logs for '{app_name_from_url}'...")
+        logs_result = run_hop3(
+            f"app:logs {app_name_from_url} --lines 50",
+            check=False,
+            show=False,
+            quiet=True,
+        )
+        if logs_result.returncode == 0 and logs_result.stdout:
+            print(f"  {yellow('Recent app logs:')}")
+            for line in logs_result.stdout.strip().split("\n")[-30:]:
+                print(f"    {line}")
+        else:
+            print_info("  (No logs available or app not found)")
 
     # Log curl details to file for debugging
     from lib.logging import log_section
@@ -415,8 +442,9 @@ def curl_request(ctx: DemoContext, url: str) -> subprocess.CompletedProcess:
             pass
 
     # Build curl command with --resolve
+    # --max-time 10 prevents hanging on unresponsive backends
     resolve_opt = f"--resolve {hostname}:{port}:{server_ip}" if hostname else ""
-    curl_cmd = f"curl -sk {resolve_opt} {url}"
+    curl_cmd = f"curl -sk --max-time 10 {resolve_opt} {url}"
 
     return subprocess.run(
         curl_cmd, shell=True, capture_output=True, text=True, check=False
@@ -513,6 +541,8 @@ def cleanup_app(ctx: DemoContext, app_name: str, app_url: str) -> None:
         with timed(f"destroy {app_name}", category="cleanup"):
             run_hop3(f"app:destroy {app_name} -y")
         print_success("Application destroyed")
+        # Wait briefly to ensure uwsgi emperor has fully cleaned up the process
+        time.sleep(1)
     else:
         print_info(f"Skipping cleanup. App running at {app_url}")
 

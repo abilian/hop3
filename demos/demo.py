@@ -53,9 +53,12 @@ from lib.output import (
     print_header,
     print_info,
     print_summary_stats,
+    print_success,
+    print_warning,
     set_output_level,
 )
 from lib.phases import configure_cli, run_demo, run_prerequisites
+from lib.results_db import get_results_db, record_demo_result
 
 
 def main() -> int:
@@ -109,11 +112,24 @@ def main() -> int:
     # Initialize timing instrumentation
     init_timing()
 
+    # Determine host for results tracking
+    results_host = getattr(args, "host", None) or "docker"
+
+    # Handle --clear-results
+    if getattr(args, "clear_results", False):
+        db = get_results_db()
+        cleared = db.clear_host(results_host)
+        print_info(f"Cleared {cleared} stored results for host '{results_host}'")
+
     # Discover and resolve demos
     available_demos = discover_demos(args.demo_dirs)
-    demos_to_run = _resolve_demos(args, available_demos)
+    demos_to_run = _resolve_demos(args, available_demos, results_host)
     if demos_to_run is None:
         return 2
+
+    # Handle quick mode with all tests passing (empty list, not an error)
+    if not demos_to_run:
+        return 0
 
     # Enforce single demo with --keep (since all demos share the same hostname)
     if args.no_cleanup and len(demos_to_run) > 1:
@@ -130,7 +146,7 @@ def main() -> int:
     print_config(ctx, demo_names)
 
     # Run phases
-    return _run_all_phases(ctx, demos_to_run)
+    return _run_all_phases(ctx, demos_to_run, results_host)
 
 
 def _extract_demo_dirs() -> list[Path]:
@@ -155,8 +171,15 @@ def _get_output_level(args) -> OutputLevel:
     return OutputLevel.NORMAL
 
 
-def _resolve_demos(args, available_demos) -> list[tuple[str, Path, bool]] | None:
+def _resolve_demos(
+    args, available_demos, results_host: str
+) -> list[tuple[str, Path, bool]] | None:
     """Resolve demo arguments to paths.
+
+    Args:
+        args: Parsed command-line arguments
+        available_demos: Dict of discovered demos
+        results_host: Host identifier for results database
 
     Returns:
         List of (name, path, is_generic) tuples, or None on error.
@@ -169,6 +192,38 @@ def _resolve_demos(args, available_demos) -> list[tuple[str, Path, bool]] | None
         if not demo_args:
             print_error("No built-in demos found in demos/ directory")
             return None
+
+    # Handle --quick flag: filter to only failing/untested demos
+    if getattr(args, "quick", False):
+        db = get_results_db()
+        demos_to_rerun = db.get_demos_to_rerun(demo_args, results_host)
+
+        if not demos_to_rerun:
+            print_success("All demos passed in previous run. Nothing to re-run.")
+            summary = db.get_summary(results_host)
+            print_info(
+                f"  Previous results: {summary['pass']} passed, "
+                f"{summary['fail']} failed, {summary['skip']} skipped"
+            )
+            return []
+
+        skipped_count = len(demo_args) - len(demos_to_rerun)
+        if skipped_count > 0:
+            print_info(
+                f"Quick mode: running {len(demos_to_rerun)} demos "
+                f"(skipping {skipped_count} that passed previously)"
+            )
+
+        # Show which demos will be run
+        failing = set(db.get_failing_demos(results_host))
+        untested = set(db.get_untested_demos(demo_args, results_host))
+        for name in demos_to_rerun:
+            if name in failing:
+                print_info(f"  - {name} (failed)")
+            elif name in untested:
+                print_info(f"  - {name} (new)")
+
+        demo_args = demos_to_rerun
 
     # Resolve all demo arguments
     demos_to_run: list[tuple[str, Path, bool]] = []
@@ -186,6 +241,9 @@ def _resolve_demos(args, available_demos) -> list[tuple[str, Path, bool]] | None
         demos_to_run.append((name, demo_dir, is_generic))
 
     if not demos_to_run:
+        # This is OK in quick mode - all tests passed
+        if getattr(args, "quick", False):
+            return []
         print_error("No valid demos specified")
         return None
 
@@ -229,9 +287,14 @@ def _create_context(args, output_level: OutputLevel) -> DemoContext:
 
 
 def _run_all_phases(
-    ctx: DemoContext, demos_to_run: list[tuple[str, Path, bool]]
+    ctx: DemoContext, demos_to_run: list[tuple[str, Path, bool]], results_host: str
 ) -> int:
     """Run all demo phases.
+
+    Args:
+        ctx: Demo context
+        demos_to_run: List of (name, path, is_generic) tuples
+        results_host: Host identifier for storing results
 
     Returns:
         Exit code (0 for success, 1 for failure).
@@ -258,6 +321,9 @@ def _run_all_phases(
             result = run_demo(ctx, name, demo_dir, is_generic=is_generic)
             results.append(result)
 
+            # Record result to database immediately
+            record_demo_result(result, results_host)
+
             # End timing and get summary
             timing_summary = end_demo_timing()
             if timing_summary and ctx.output_level >= OutputLevel.NORMAL:
@@ -271,7 +337,7 @@ def _run_all_phases(
             pause(ctx.pause_between_steps)
 
         # Phase 4: Summary
-        return _show_summary(ctx, results, overall_start)
+        return _show_summary(ctx, results, overall_start, results_host)
 
     except KeyboardInterrupt:
         print()
@@ -279,7 +345,9 @@ def _run_all_phases(
         return 130
 
 
-def _show_summary(ctx: DemoContext, results: list, overall_start: float) -> int:
+def _show_summary(
+    ctx: DemoContext, results: list, overall_start: float, results_host: str
+) -> int:
     """Show demo summary and return exit code."""
     overall_duration = time.time() - overall_start
     passed = sum(1 for r in results if r.status == "pass")
@@ -334,6 +402,13 @@ def _show_summary(ctx: DemoContext, results: list, overall_start: float) -> int:
         else:
             print(f"    http://{ctx.server_ip}:8000/  (direct, unsecured)")
             print("    Tip: Use --admin-domain to enable secure HTTPS access")
+
+    # Show quick mode hint if there were failures
+    if failed > 0 and ctx.output_level >= OutputLevel.QUIET:
+        print()
+        print_info(
+            f"Tip: Re-run with --quick to only retry the {failed} failed demo(s)"
+        )
 
     return 1 if failed > 0 else 0
 
