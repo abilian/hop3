@@ -365,6 +365,10 @@ services:
         ]
         self._run_compose_command(cmd, check=False)
 
+        # Explicitly remove the Docker network to prevent network pool exhaustion
+        # docker compose down should do this, but sometimes networks are left behind
+        self._cleanup_docker_network()
+
         # Clean up generated compose file if it exists
         generated_file = self.source_path / GENERATED_COMPOSE_FILE
         if generated_file.exists():
@@ -372,6 +376,21 @@ services:
             log(f"Removed generated compose file: {GENERATED_COMPOSE_FILE}", level=2)
 
         log(f"App '{self.app_name}' destroyed.", level=2, fg="green")
+
+    def _cleanup_docker_network(self) -> None:
+        """Remove the Docker network created for this app."""
+        network_name = f"{self.app_name}_default"
+        try:
+            result = subprocess.run(
+                ["docker", "network", "rm", network_name],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                log(f"Removed Docker network: {network_name}", level=3)
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass  # Network might not exist or docker not available
 
     def scale(self, deltas: dict[str, int] | None = None) -> None:
         """Scale services up or down.

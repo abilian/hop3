@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .auth_cmd import handle_auth
+from .context_cmd import handle_context
 from .init_cmd import handle_init
 from .login_cmd import handle_login, handle_login_token
 from .settings_cmd import handle_settings, settings_get, settings_set, settings_show
@@ -33,6 +34,7 @@ __all__ = [
     "BootstrapError",
     "extract_token",
     "handle_auth",
+    "handle_context",
     "handle_init",
     "handle_local_command",
     "handle_login",
@@ -49,6 +51,7 @@ __all__ = [
 # Commands that are handled locally (not sent to server via RPC)
 # Format: command_name -> description
 LOCAL_COMMANDS_INFO = {
+    "context": "Manage multiple server contexts.",
     "init": "Initialize connection to a Hop3 server via SSH.",
     "login": "Authenticate to a server.",
     "settings": "Manage local CLI settings (server URL, token, SSL).",
@@ -85,6 +88,8 @@ def handle_local_command(args: list[str], config: Config, printer: RichPrinter) 
     command = args[0]
     cmd_args = args[1:]
 
+    if command == "context":
+        return handle_context(cmd_args, config, printer)
     if command == "init":
         return handle_init(cmd_args, config, printer)
     if command == "login":

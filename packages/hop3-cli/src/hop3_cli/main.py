@@ -64,7 +64,7 @@ def main():
 
 def run_command_from_args(cli_args: list[str]) -> None:
     """Run a CLI command from the given arguments."""
-    # Parse CLI flags (--json, --quiet, -y, etc.)
+    # Parse CLI flags (--json, --quiet, -y, --context, etc.)
     flags, cli_args = parse_flags(cli_args)
 
     # Create printer with appropriate output mode
@@ -77,11 +77,23 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     config = load_config()
 
+    # Apply context override if --context flag was provided
+    if flags.context:
+        config.set_context_override(flags.context)
+
     # Debug: show parsed info (verbosity >= 2 means -d or -v was used)
     if flags.verbosity >= 2:
         printer.print_debug(f"Command: {' '.join(cli_args) if cli_args else '(none)'}")
         printer.print_debug(f"Verbosity: {flags.verbosity}")
-        api_url = config.get("api_url", "(not configured)")
+
+        # Show current context info
+        context_name = config.get_current_context_name()
+        if context_name:
+            context = config.get_current_context()
+            protected_marker = " [protected]" if context and context.protected else ""
+            printer.print_debug(f"Context: {context_name}{protected_marker}")
+
+        api_url = config.get_api_url() or "(not configured)"
         printer.print_debug(f"API URL: {api_url}")
 
     if not cli_args:
@@ -135,7 +147,7 @@ def _check_prerequisites(
 
     # Prompt for confirmation on destructive commands
     if not flags.skip_confirm and is_destructive_command(cli_args):
-        if not confirm_destructive_action(cli_args, printer):
+        if not confirm_destructive_action(cli_args, printer, config):
             sys.exit(ExitCode.SUCCESS)  # User cancelled
 
 

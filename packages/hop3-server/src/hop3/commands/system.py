@@ -338,26 +338,263 @@ class SystemLogsCmd(Command):
         return result
 
 
-#
-#
-# class SettingsSubcommand(Command):
-#     """Show server settings."""
-#
-#     name = "server settings"
-#
-#     def run(self):
-#         result = client.call("settings")
-#         pp(result)
-#
-#
-# class CleanupSubcommand(Command):
-#     """Cleanup server (remove inactive docker images and containers)."""
-#
-#     name = "server cleanup"
-#
-#     # TODO: ask for confirmation
-#
-#     def run(self):
-#         result = client.ssh("docker system prune -af")
-#         result = client.ssh("docker volume prune -f")
-#         print(result.stdout)
+@register
+class CleanupCmd(Command):
+    """Clean up unused Docker resources (networks, images, containers, volumes).
+
+    Usage: hop3 system:cleanup [options]
+
+    Options:
+        --dry-run       Show what would be cleaned up without actually doing it
+        --all           Also remove unused images (not just dangling ones)
+        --volumes       Also prune unused volumes (data loss warning!)
+
+    This command removes:
+        - Stopped containers
+        - Unused networks (not used by any container)
+        - Dangling images (untagged)
+        - Build cache
+
+    With --all:
+        - All unused images (not just dangling)
+
+    With --volumes:
+        - Unused volumes (WARNING: may cause data loss!)
+
+    Examples:
+        hop3 system:cleanup                # Safe cleanup
+        hop3 system:cleanup --dry-run      # Preview what would be cleaned
+        hop3 system:cleanup --all          # Include unused images
+        hop3 system:cleanup --volumes      # Include volumes (careful!)
+    """
+
+    name: ClassVar[str] = "system:cleanup"
+
+    def call(self, *args, **kwargs):
+        dry_run = "--dry-run" in args
+        include_all = "--all" in args
+        include_volumes = "--volumes" in args
+
+        results = []
+
+        if dry_run:
+            results.append("=== DRY RUN - No changes will be made ===\n")
+
+        # 1. Network cleanup (most important for the network exhaustion issue)
+        results.append(self._cleanup_networks(dry_run))
+
+        # 2. Container cleanup
+        results.append(self._cleanup_containers(dry_run))
+
+        # 3. Image cleanup
+        results.append(self._cleanup_images(dry_run, include_all))
+
+        # 4. Volume cleanup (only if explicitly requested)
+        if include_volumes:
+            results.append(self._cleanup_volumes(dry_run))
+
+        # 5. Build cache cleanup
+        results.append(self._cleanup_build_cache(dry_run))
+
+        return [{"t": "text", "text": "\n".join(results)}]
+
+    def _cleanup_networks(self, dry_run: bool) -> str:
+        """Clean up unused Docker networks."""
+        lines = ["Docker Networks:"]
+
+        if dry_run:
+            # List networks that would be removed
+            result = subprocess.run(
+                ["docker", "network", "ls", "--filter", "dangling=true", "-q"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            network_ids = result.stdout.strip().split("\n")
+            network_ids = [n for n in network_ids if n]
+
+            if network_ids:
+                lines.append(f"  Would remove {len(network_ids)} unused network(s)")
+            else:
+                lines.append("  No unused networks to remove")
+        else:
+            result = subprocess.run(
+                ["docker", "network", "prune", "-f"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                # Parse output for deleted networks
+                output = result.stdout.strip()
+                if "Deleted Networks:" in output:
+                    lines.append(f"  {output}")
+                else:
+                    lines.append("  No unused networks removed")
+            else:
+                lines.append(f"  Error: {result.stderr.strip()}")
+
+        return "\n".join(lines)
+
+    def _cleanup_containers(self, dry_run: bool) -> str:
+        """Clean up stopped containers."""
+        lines = ["Docker Containers:"]
+
+        if dry_run:
+            result = subprocess.run(
+                ["docker", "ps", "-aq", "--filter", "status=exited"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            container_ids = result.stdout.strip().split("\n")
+            container_ids = [c for c in container_ids if c]
+
+            if container_ids:
+                lines.append(
+                    f"  Would remove {len(container_ids)} stopped container(s)"
+                )
+            else:
+                lines.append("  No stopped containers to remove")
+        else:
+            result = subprocess.run(
+                ["docker", "container", "prune", "-f"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                output = result.stdout.strip()
+                if output:
+                    # Count deleted containers
+                    deleted = output.count("Deleted Containers:")
+                    lines.append("  Cleaned up stopped containers")
+                else:
+                    lines.append("  No stopped containers removed")
+            else:
+                lines.append(f"  Error: {result.stderr.strip()}")
+
+        return "\n".join(lines)
+
+    def _cleanup_images(self, dry_run: bool, include_all: bool) -> str:
+        """Clean up unused Docker images."""
+        lines = ["Docker Images:"]
+
+        prune_args = ["docker", "image", "prune", "-f"]
+        if include_all:
+            prune_args.append("-a")
+
+        if dry_run:
+            # List dangling images
+            filter_arg = "dangling=true" if not include_all else "dangling=false"
+            result = subprocess.run(
+                ["docker", "images", "-q", "--filter", "dangling=true"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            image_ids = result.stdout.strip().split("\n")
+            image_ids = [i for i in image_ids if i]
+
+            if include_all:
+                lines.append("  Would remove dangling images + all unused images")
+            elif image_ids:
+                lines.append(f"  Would remove {len(image_ids)} dangling image(s)")
+            else:
+                lines.append("  No dangling images to remove")
+        else:
+            result = subprocess.run(
+                prune_args,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                output = result.stdout.strip()
+                if "Total reclaimed space" in output:
+                    # Extract space reclaimed
+                    for line in output.split("\n"):
+                        if "Total reclaimed space" in line:
+                            lines.append(f"  {line}")
+                            break
+                else:
+                    lines.append("  No images removed")
+            else:
+                lines.append(f"  Error: {result.stderr.strip()}")
+
+        return "\n".join(lines)
+
+    def _cleanup_volumes(self, dry_run: bool) -> str:
+        """Clean up unused Docker volumes."""
+        lines = ["Docker Volumes (WARNING: may cause data loss!):"]
+
+        if dry_run:
+            result = subprocess.run(
+                ["docker", "volume", "ls", "-q", "--filter", "dangling=true"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            volume_ids = result.stdout.strip().split("\n")
+            volume_ids = [v for v in volume_ids if v]
+
+            if volume_ids:
+                lines.append(f"  Would remove {len(volume_ids)} unused volume(s)")
+            else:
+                lines.append("  No unused volumes to remove")
+        else:
+            result = subprocess.run(
+                ["docker", "volume", "prune", "-f"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                output = result.stdout.strip()
+                if "Total reclaimed space" in output:
+                    for line in output.split("\n"):
+                        if "Total reclaimed space" in line:
+                            lines.append(f"  {line}")
+                            break
+                else:
+                    lines.append("  No volumes removed")
+            else:
+                lines.append(f"  Error: {result.stderr.strip()}")
+
+        return "\n".join(lines)
+
+    def _cleanup_build_cache(self, dry_run: bool) -> str:
+        """Clean up Docker build cache."""
+        lines = ["Docker Build Cache:"]
+
+        if dry_run:
+            result = subprocess.run(
+                ["docker", "builder", "du"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                lines.append("  Would clear build cache")
+            else:
+                lines.append("  Build cache info unavailable")
+        else:
+            result = subprocess.run(
+                ["docker", "builder", "prune", "-f"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                output = result.stdout.strip()
+                if "Total reclaimed space" in output:
+                    for line in output.split("\n"):
+                        if "Total reclaimed space" in line:
+                            lines.append(f"  {line}")
+                            break
+                else:
+                    lines.append("  Build cache cleared")
+            else:
+                lines.append(f"  Error: {result.stderr.strip()}")
+
+        return "\n".join(lines)

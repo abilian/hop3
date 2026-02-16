@@ -37,6 +37,9 @@ class CliFlags:
     # This allows -vv, -vvv, -qq, etc.
     verbosity: int = field(default_factory=lambda: _get_env_verbosity() or 1)
 
+    # Context override for multi-server support
+    context: str | None = None  # --context <name>: Use a specific context
+
     @property
     def quiet(self) -> bool:
         """True if verbosity is 0 (quiet mode)."""
@@ -62,6 +65,7 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
         -v, --verbose: Increase verbosity (can stack: -vv, -vvv)
         -d, --debug: Debug mode (can stack: -d, -dd, -ddd)
         -q, --quiet: Decrease verbosity (can stack: -qq)
+        --context <name>: Use a specific server context
 
     Environment variable:
         HOP3_VERBOSITY: Set default verbosity level (0-3)
@@ -82,9 +86,13 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
 
         >>> parse_flags(['deploy', 'my-app', '-d'])
         (CliFlags(verbosity=2, ...), ['deploy', 'my-app'])
+
+        >>> parse_flags(['apps', '--context', 'production'])
+        (CliFlags(context='production', ...), ['apps'])
     """
     json_output = False
     skip_confirm = False
+    context = None
 
     # Start with environment default or normal (1)
     verbosity = _get_env_verbosity() or 1
@@ -95,11 +103,16 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
 
     # Filter out flags from args
     remaining_args = []
-    for arg in args:
+    i = 0
+    while i < len(args):
+        arg = args[i]
         if arg in json_flags:
             json_output = True
         elif arg in yes_flags:
             skip_confirm = True
+        elif arg == "--context" and i + 1 < len(args):
+            context = args[i + 1]
+            i += 1  # Skip the next arg (context name)
         elif arg == "--debug":
             verbosity = 3
         elif arg == "--verbose":
@@ -120,11 +133,13 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
         else:
             # Not a flag, keep it
             remaining_args.append(arg)
+        i += 1
 
     flags = CliFlags(
         json_output=json_output,
         skip_confirm=skip_confirm,
         verbosity=verbosity,
+        context=context,
     )
 
     return flags, remaining_args

@@ -8,7 +8,9 @@ from __future__ import annotations
 import os
 import shlex
 import shutil
+import stat
 import subprocess
+import time
 from pathlib import Path
 from socket import AF_INET, SOCK_STREAM, socket
 from subprocess import STDOUT, check_output
@@ -20,6 +22,10 @@ from .console import log
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+# Retry settings for robust deletion
+RMTREE_MAX_RETRIES = 3
+RMTREE_RETRY_DELAY = 0.1  # seconds
 
 
 def shell(
@@ -197,3 +203,55 @@ def multi_tail(filenames, catch_up=20) -> Iterator:
 
     # Calls the tail method on the MultiTail instance to start yielding lines
     return tailer.tail()
+
+
+def robust_rmtree(path: Path | str) -> None:
+    """Remove a directory tree robustly, handling permission and race condition issues.
+
+    This handles common issues with npm's node_modules, pip's site-packages,
+    and similar complex directory structures:
+    - Read-only files (common in npm packages and pip packages)
+    - Race conditions when files are still being accessed
+    - Deep nesting
+
+    Args:
+        path: Directory to remove
+
+    Raises:
+        OSError: If deletion fails after all retries
+    """
+    path = Path(path)
+    if not path.exists():
+        return
+
+    def handle_remove_readonly(func, filepath, exc_info):
+        """Error handler that fixes read-only permissions and retries."""
+        # If it's a permission error, try to fix permissions and retry
+        if isinstance(exc_info[1], PermissionError):
+            try:
+                os.chmod(filepath, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                func(filepath)
+                return
+            except OSError:
+                pass
+        # Re-raise the original exception
+        raise exc_info[1]
+
+    last_error = None
+    for attempt in range(RMTREE_MAX_RETRIES):
+        try:
+            shutil.rmtree(path, onerror=handle_remove_readonly)
+            return  # Success
+        except OSError as e:
+            last_error = e
+            if attempt < RMTREE_MAX_RETRIES - 1:
+                # Wait a bit before retrying (handles race conditions)
+                time.sleep(RMTREE_RETRY_DELAY * (attempt + 1))
+            continue
+
+    # All retries failed - try one last time with ignore_errors as fallback
+    shutil.rmtree(path, ignore_errors=True)
+
+    # Check if it's really gone
+    if path.exists():
+        raise last_error or OSError(f"Failed to remove directory: {path}")

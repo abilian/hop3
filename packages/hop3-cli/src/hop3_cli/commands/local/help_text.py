@@ -98,3 +98,64 @@ Examples:
 Note: For first-time setup (creating a new admin user), use:
   hop3 init --ssh root@my-server.com
 """)
+
+
+def print_context_help():
+    """Print help for the context command."""
+    print("""Usage: hop3 context <subcommand> [args]
+
+Manage multiple server contexts (similar to kubectl contexts).
+
+Subcommands:
+  list              List all configured contexts
+  current           Show the current context and its source
+  use <name>        Switch to a different context (see options below)
+  add <name> [opts] Add a new context
+  remove <name>     Remove a context
+
+Use options (safe by default):
+  (default)         Print 'export HOP3_CONTEXT=...' for this shell only
+  --local           Write to .hop3-context file in current directory
+  --global          Set as global default (affects ALL terminals - use with caution)
+
+Add options:
+  --server <url>    Server URL (required)
+  --token <token>   API authentication token
+  --protected       Mark as protected (requires confirmation for destructive ops)
+  --ssh-user <user> SSH username (default: root)
+  --ssh-port <port> SSH port (default: 22)
+
+Examples:
+  # List all contexts
+  hop3 context list
+
+  # Add a staging context
+  hop3 context add staging --server ssh://root@staging.example.com
+
+  # Add a protected production context
+  hop3 context add production --server ssh://root@prod.example.com --protected
+
+  # Switch to production (prints export command - safest)
+  hop3 context use production
+
+  # Switch to production for this project directory
+  hop3 context use production --local
+
+  # Switch to production globally (all terminals - dangerous!)
+  hop3 context use production --global
+
+  # Show current context and where it's set
+  hop3 context current
+
+  # Use a context for a single command
+  hop3 --context production apps
+
+Context priority (highest to lowest):
+  1. --context flag
+  2. HOP3_CONTEXT environment variable
+  3. .hop3-context file in current directory
+  4. Global config file (~/.config/hop3-cli/config.toml)
+
+Protected contexts require extra confirmation before destructive operations
+like 'app:destroy' or 'services:destroy'.
+""")

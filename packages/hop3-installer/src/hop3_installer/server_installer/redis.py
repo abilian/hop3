@@ -49,12 +49,7 @@ def _configure_redis_bind() -> None:
     while keeping Redis inaccessible from external networks.
     """
     # Find Redis config file
-    redis_conf = None
-    for path in REDIS_CONF_PATHS:
-        if path.exists():
-            redis_conf = path
-            break
-
+    redis_conf = next((p for p in REDIS_CONF_PATHS if p.exists()), None)
     if not redis_conf:
         print_warning("Redis config file not found, skipping bind configuration")
         return
@@ -65,36 +60,51 @@ def _configure_redis_bind() -> None:
         print_detail("Docker bridge not found, Redis will bind to localhost only")
         return
 
-    # Read current config
     content = redis_conf.read_text()
+    content, modified = _update_redis_bind(content, docker_ip)
+    content, protected_modified = _update_redis_protected_mode(content)
+    modified = modified or protected_modified
 
-    # Check if already configured for Docker
-    if docker_ip in content:
-        print_detail(f"Redis already configured for Docker bridge ({docker_ip})")
-        return
+    if modified:
+        redis_conf.write_text(content)
+        print_detail("Redis configured to accept connections from Docker containers")
 
-    # Update bind directive to include Docker bridge
-    # Match lines like: bind 127.0.0.1 ::1
-    # or: bind 127.0.0.1
+
+def _update_redis_bind(content: str, docker_ip: str) -> tuple[str, bool]:
+    """Update Redis bind directive to include Docker bridge IP."""
     new_bind = f"bind 127.0.0.1 {docker_ip}"
 
+    if docker_ip in content:
+        print_detail(f"Redis already configured for Docker bridge ({docker_ip})")
+        return content, False
+
     if re.search(r"^bind\s+", content, re.MULTILINE):
-        # Replace existing bind directive
+        content = re.sub(r"^bind\s+.*$", new_bind, content, flags=re.MULTILINE)
+        print_detail(f"Updated Redis bind to: {new_bind}")
+    else:
+        content = f"{new_bind}\n{content}"
+        print_detail(f"Added Redis bind: {new_bind}")
+    return content, True
+
+
+def _update_redis_protected_mode(content: str) -> tuple[str, bool]:
+    """Ensure Redis protected-mode is disabled for Docker access."""
+    if "protected-mode no" in content:
+        print_detail("Redis protected-mode already disabled")
+        return content, False
+
+    # Disable protected-mode for Docker bridge connections
+    if re.search(r"^#?\s*protected-mode\s+", content, re.MULTILINE):
         content = re.sub(
-            r"^bind\s+.*$",
-            new_bind,
+            r"^#?\s*protected-mode\s+.*$",
+            "protected-mode no",
             content,
             flags=re.MULTILINE,
         )
-        print_detail(f"Updated Redis bind to: {new_bind}")
     else:
-        # Add bind directive if not present
-        content = f"{new_bind}\n{content}"
-        print_detail(f"Added Redis bind: {new_bind}")
-
-    # Write updated config
-    redis_conf.write_text(content)
-    print_detail("Redis configured to accept connections from Docker containers")
+        content = f"protected-mode no\n{content}"
+    print_detail("Disabled Redis protected-mode for Docker access")
+    return content, True
 
 
 def configure_redis() -> None:

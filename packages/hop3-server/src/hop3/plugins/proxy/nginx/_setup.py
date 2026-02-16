@@ -245,6 +245,23 @@ class NginxVirtualHost(BaseProxy):
         ):
             return
 
+        # First validate the nginx config
+        try:
+            result = subprocess.run(
+                ["sudo", "-n", "/usr/sbin/nginx", "-t"],
+                capture_output=True,
+                timeout=10,
+            )
+            if result.returncode != 0:
+                log(
+                    f"nginx config validation failed: {result.stderr.decode()}",
+                    level=0,
+                    fg="red",
+                )
+                return
+        except Exception as e:
+            log(f"Could not validate nginx config: {e}", level=2, fg="yellow")
+
         timeout = 10  # 10 second timeout to prevent hanging
         errors = []
 
@@ -267,8 +284,9 @@ class NginxVirtualHost(BaseProxy):
 
         try:
             # Fall back to systemctl (for systemd environments)
+            # Use full path to match sudoers configuration
             subprocess.run(
-                ["sudo", "-n", "systemctl", "reload", "nginx"],
+                ["sudo", "-n", "/usr/bin/systemctl", "reload", "nginx"],
                 check=True,
                 capture_output=True,
                 timeout=timeout,
@@ -284,8 +302,9 @@ class NginxVirtualHost(BaseProxy):
 
         try:
             # Fall back to nginx -s reload (direct nginx command)
+            # Use full path to match sudoers configuration
             subprocess.run(
-                ["sudo", "-n", "nginx", "-s", "reload"],
+                ["sudo", "-n", "/usr/sbin/nginx", "-s", "reload"],
                 check=True,
                 capture_output=True,
                 timeout=timeout,

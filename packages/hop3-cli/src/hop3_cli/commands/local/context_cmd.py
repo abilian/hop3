@@ -1,0 +1,339 @@
+# Copyright (c) 2023-2025, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Context command - manage multiple server contexts."""
+
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from hop3_cli.commands.local.help_text import print_context_help
+from hop3_cli.config import LOCAL_CONTEXT_FILE
+
+if TYPE_CHECKING:
+    from hop3_cli.config import Config
+    from hop3_cli.ui.rich_printer import RichPrinter
+
+
+def handle_context(args: list[str], config: Config, printer: RichPrinter) -> bool:
+    """Handle the context command for managing server contexts.
+
+    Usage:
+        hop3 context list
+        hop3 context current
+        hop3 context use <name>
+        hop3 context add <name> --server <url> [--protected] [--token <token>]
+        hop3 context remove <name>
+    """
+    if not args or args[0] in {"--help", "-h"}:
+        print_context_help()
+        return True
+
+    subcommand = args[0]
+    sub_args = args[1:]
+
+    if subcommand == "list":
+        return context_list(config, printer)
+    if subcommand == "current":
+        return context_current(config, printer)
+    if subcommand == "use":
+        return context_use(sub_args, config, printer)
+    if subcommand == "add":
+        return context_add(sub_args, config, printer)
+    if subcommand == "remove":
+        return context_remove(sub_args, config, printer)
+
+    print(f"Unknown context subcommand: {subcommand}", file=sys.stderr)
+    print_context_help()
+    sys.exit(1)
+
+
+def context_list(config: Config, printer: RichPrinter) -> bool:
+    """List all configured contexts."""
+    contexts = config.get_contexts()
+    current = config.get_current_context_name()
+
+    if not contexts:
+        print("No contexts configured.")
+        print("\nTo add a context:")
+        print("  hop3 context add staging --server ssh://root@staging.example.com")
+        return True
+
+    print("Configured contexts:\n")
+    for name, ctx in sorted(contexts.items()):
+        marker = "*" if name == current else " "
+        protected = " [protected]" if ctx.protected else ""
+        print(f"  {marker} {name}{protected}")
+        print(f"      Server: {ctx.api_url}")
+        if ctx.api_token:
+            token_display = (
+                ctx.api_token[:20] + "..." if len(ctx.api_token) > 20 else ctx.api_token
+            )
+            print(f"      Token: {token_display}")
+
+    print(f"\nCurrent context: {current or '(none)'}")
+    return True
+
+
+def context_current(config: Config, printer: RichPrinter) -> bool:
+    """Show the current context and its source."""
+    current = config.get_current_context_name()
+    context = config.get_current_context()
+
+    if not current:
+        print("No current context set.")
+        if config.has_contexts():
+            print("\nUse 'hop3 context use <name>' to select a context.")
+        else:
+            print("\nUse 'hop3 context add <name> --server <url>' to add a context.")
+        return True
+
+    # Determine source of current context
+    source = _get_context_source(config, current)
+
+    print(f"Current context: {current}")
+    print(f"  Source: {source}")
+    if context:
+        print(f"  Server: {context.api_url}")
+        if context.protected:
+            print("  Protected: yes (requires confirmation for destructive operations)")
+        if context.api_token:
+            token_display = (
+                context.api_token[:20] + "..."
+                if len(context.api_token) > 20
+                else context.api_token
+            )
+            print(f"  Token: {token_display}")
+
+    return True
+
+
+def _get_context_source(config: Config, context_name: str) -> str:
+    """Determine where the current context setting came from."""
+    # Check in priority order
+    if config.has_context_override():
+        return "--context flag"
+
+    env_context = os.environ.get("HOP3_CONTEXT")
+    if env_context:
+        return "HOP3_CONTEXT environment variable"
+
+    local_file = Path.cwd() / LOCAL_CONTEXT_FILE
+    if local_file.exists():
+        try:
+            content = local_file.read_text().strip()
+            if content == context_name:
+                return f"local file ({local_file})"
+        except OSError:
+            pass
+
+    return "global config"
+
+
+def _parse_context_use_args(args: list[str]) -> tuple[str | None, bool, bool]:
+    """Parse context use arguments.
+
+    Returns:
+        Tuple of (context_name, use_local, use_global)
+    """
+    use_local = "--local" in args
+    use_global = "--global" in args
+
+    # Get the context name (first non-flag argument)
+    name = None
+    for arg in args:
+        if not arg.startswith("--"):
+            name = arg
+            break
+
+    return name, use_local, use_global
+
+
+def _context_use_global(name: str, config: Config, context) -> None:
+    """Handle --global flag for context use."""
+    config.set_global_context(name)
+    print(f"Set global default context to '{name}'")
+    print("  Warning: This affects ALL terminals and shells.")
+    if context and context.protected:
+        print("  Warning: This is a protected context.")
+
+
+def _context_use_local(name: str, config: Config, context) -> None:
+    """Handle --local flag for context use."""
+    local_path = config.write_local_context(name)
+    print(f"Wrote context '{name}' to {local_path}")
+    print("  This context will be used when running hop3 from this directory.")
+    if context and context.protected:
+        print("  Warning: This is a protected context.")
+    print("\n  Tip: Add .hop3-context to .gitignore if you don't want to commit it.")
+
+
+def _context_use_default(name: str, context) -> None:
+    """Handle default behavior for context use (print export command)."""
+    print(f"To use context '{name}' in this shell, run:\n")
+    print(f"  export HOP3_CONTEXT={name}\n")
+    if context:
+        print(f"Server: {context.api_url}")
+        if context.protected:
+            print("Warning: This is a protected context.")
+    print("\nOther options:")
+    print(f"  hop3 context use {name} --local   # Save to .hop3-context file")
+    print(
+        f"  hop3 context use {name} --global  # Set as global default (all terminals)"
+    )
+
+
+def context_use(args: list[str], config: Config, printer: RichPrinter) -> bool:
+    """Switch to a different context.
+
+    By default, prints instructions to set the environment variable (safest).
+    Use --local to write to .hop3-context file in current directory.
+    Use --global to persist to global config (affects all terminals).
+    """
+    if not args:
+        print("Usage: hop3 context use [--local | --global] <name>", file=sys.stderr)
+        print("\nOptions:")
+        print("  (default)   Print export command for this shell only")
+        print("  --local     Write to .hop3-context in current directory")
+        print("  --global    Set as global default (affects all terminals)")
+        sys.exit(1)
+
+    name, use_local, use_global = _parse_context_use_args(args)
+
+    if not name:
+        print("Usage: hop3 context use [--local | --global] <name>", file=sys.stderr)
+        sys.exit(1)
+
+    # Validate context exists
+    if not config.use_context(name):
+        print(f"Context '{name}' not found.", file=sys.stderr)
+        contexts = config.get_contexts()
+        if contexts:
+            print(f"\nAvailable contexts: {', '.join(sorted(contexts.keys()))}")
+        sys.exit(1)
+
+    # Get context details for display
+    context = config.get_contexts().get(name)
+
+    if use_global:
+        _context_use_global(name, config, context)
+    elif use_local:
+        _context_use_local(name, config, context)
+    else:
+        _context_use_default(name, context)
+
+    return True
+
+
+def context_add(args: list[str], config: Config, printer: RichPrinter) -> bool:
+    """Add a new context."""
+    if not args:
+        print(
+            "Usage: hop3 context add <name> --server <url> [options]", file=sys.stderr
+        )
+        print("\nOptions:")
+        print("  --server <url>     Server URL (required)")
+        print("  --token <token>    API authentication token")
+        print("  --protected        Mark as protected (requires confirmation)")
+        print("  --ssh-user <user>  SSH username (default: root)")
+        print("  --ssh-port <port>  SSH port (default: 22)")
+        sys.exit(1)
+
+    name = args[0]
+    remaining = args[1:]
+
+    # Parse options
+    server = None
+    token = ""
+    protected = False
+    ssh_user = "root"
+    ssh_port = 22
+
+    i = 0
+    while i < len(remaining):
+        arg = remaining[i]
+        if arg == "--server" and i + 1 < len(remaining):
+            server = remaining[i + 1]
+            i += 2
+        elif arg == "--token" and i + 1 < len(remaining):
+            token = remaining[i + 1]
+            i += 2
+        elif arg == "--protected":
+            protected = True
+            i += 1
+        elif arg == "--ssh-user" and i + 1 < len(remaining):
+            ssh_user = remaining[i + 1]
+            i += 2
+        elif arg == "--ssh-port" and i + 1 < len(remaining):
+            ssh_port = int(remaining[i + 1])
+            i += 2
+        else:
+            print(f"Unknown option: {arg}", file=sys.stderr)
+            sys.exit(1)
+
+    if not server:
+        print("Error: --server is required", file=sys.stderr)
+        sys.exit(1)
+
+    # Check if context already exists
+    contexts = config.get_contexts()
+    if name in contexts:
+        print(
+            f"Context '{name}' already exists. Use 'hop3 context remove {name}' first.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Add the context
+    config.add_context(
+        name=name,
+        api_url=server,
+        api_token=token,
+        protected=protected,
+        ssh_user=ssh_user,
+        ssh_port=ssh_port,
+    )
+
+    print(f"Added context '{name}'")
+    print(f"  Server: {server}")
+    if protected:
+        print("  Protected: yes")
+
+    # If this is the first context, it's automatically current
+    if len(config.get_contexts()) == 1:
+        print(f"\nContext '{name}' is now current.")
+
+    return True
+
+
+def context_remove(args: list[str], config: Config, printer: RichPrinter) -> bool:
+    """Remove a context."""
+    if not args:
+        print("Usage: hop3 context remove <name>", file=sys.stderr)
+        sys.exit(1)
+
+    name = args[0]
+
+    # Check if it's the current context
+    current = config.get_current_context_name()
+    if name == current:
+        print(f"Warning: '{name}' is the current context.")
+
+    if not config.remove_context(name):
+        print(f"Context '{name}' not found.", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Removed context '{name}'")
+
+    # If we removed the current context, show the new current
+    new_current = config.get_current_context_name()
+    if new_current:
+        print(f"Current context is now '{new_current}'")
+    else:
+        print("No current context set.")
+
+    return True

@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import time
 import traceback
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -172,6 +174,89 @@ class AppLauncher:
                 echo("-----> Removing uwsgi configs to trigger auto-restart.")
                 for config in configs:
                     config.unlink()
+                # Wait for uwsgi emperor to fully terminate old processes
+                # before creating new configs. Without this wait, old gunicorn
+                # workers may still be running and holding resources when new
+                # workers are spawned, causing the new workers to deadlock.
+                self._wait_for_old_processes_to_terminate()
+                # Clean up stale socket files that may have been left behind
+                self._cleanup_stale_sockets()
+
+    def _wait_for_old_processes_to_terminate(self, timeout: float = 10.0) -> None:
+        """Wait for old app processes to terminate after config removal.
+
+        The uwsgi emperor monitors config files and sends SIGTERM to vassals
+        when their configs are removed. We need to wait for the old processes
+        to fully terminate before creating new configs, otherwise the new
+        gunicorn workers may deadlock.
+        """
+        start_time = time.time()
+        check_interval = 0.5
+        processes_found = False
+
+        while time.time() - start_time < timeout:
+            # Check if any gunicorn or uwsgi processes for this app are still running
+            try:
+                result = subprocess.run(
+                    ["pgrep", "-f", f"apps/{self.app_name}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if result.returncode != 0:
+                    # No processes found
+                    if processes_found:
+                        # Processes were found earlier, now they're gone
+                        log(f"Old processes for '{self.app_name}' terminated", level=3)
+                        # Add a small grace period for file descriptors to close
+                        time.sleep(1)
+                    return
+                processes_found = True
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                # pgrep not available or timed out, fall back to fixed delay
+                break
+
+            time.sleep(check_interval)
+
+        # Timeout reached or pgrep unavailable - use a fixed delay as fallback
+        remaining = timeout - (time.time() - start_time)
+        if remaining > 0:
+            log(
+                f"Waiting {remaining:.1f}s for old processes to terminate",
+                level=3,
+                fg="yellow",
+            )
+            time.sleep(remaining)
+
+    def _cleanup_stale_sockets(self) -> None:
+        """Clean up stale socket files left behind by previous processes.
+
+        Gunicorn creates a control socket (gunicorn.ctl) in the working directory.
+        When the process is killed, this socket file may persist and cause the
+        new gunicorn process to hang during startup.
+        """
+
+        src_path = self.app_path / "src"
+        if not src_path.exists():
+            return
+
+        # Clean up gunicorn control sockets
+        for socket_file in src_path.glob("*.ctl"):
+            try:
+                if socket_file.is_socket():
+                    socket_file.unlink()
+                    log(f"Removed stale socket: {socket_file.name}", level=3)
+            except OSError:
+                pass  # Socket might be in use or already gone
+
+        # Also clean up any .sock files
+        for socket_file in src_path.glob("*.sock"):
+            try:
+                if socket_file.is_socket():
+                    socket_file.unlink()
+                    log(f"Removed stale socket: {socket_file.name}", level=3)
+            except OSError:
+                pass
 
     def spawn_app(self) -> None:
         """Create the app's workers by setting up web worker configurations and
@@ -262,7 +347,9 @@ class AppLauncher:
             env_vars_keys=list(runtime_env.keys()),
         )
 
-        # Pick a port if none defined
+        # Always pick a fresh port for each deployment
+        # The uwsgi configs are removed by _handle_auto_restart and recreated,
+        # so nginx and uwsgi will always be in sync with the same port
         if "PORT" not in env:
             port = env["PORT"] = str(get_free_port())
             log(f"Picked free port: {port}", level=3)

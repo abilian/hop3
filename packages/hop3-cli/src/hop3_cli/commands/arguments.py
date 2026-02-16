@@ -10,6 +10,7 @@ import base64
 import io
 import sys
 import tarfile
+from collections import Counter
 from pathlib import Path
 
 import pathspec
@@ -18,8 +19,11 @@ from hop3_cli.types import JsonDict
 
 __all__ = ["generate_archive", "get_extra_args", "pack_repository"]
 
-# Maximum number of files allowed in archive (matches server limit)
-MAX_FILE_COUNT = 10000
+# Archive size limits (in bytes)
+# Soft limit: warn the user but proceed
+# Hard limit: refuse to upload (can be overridden on server)
+SOFT_SIZE_LIMIT = 100 * 1024 * 1024  # 100 MB
+HARD_SIZE_LIMIT = 1024 * 1024 * 1024  # 1 GB
 
 # Ignore files in priority order (first found is used)
 IGNORE_FILES = [".hop3ignore", ".dockerignore", ".gitignore"]
@@ -180,23 +184,10 @@ def generate_archive(source_dir: Path, verbosity: int = 1) -> bytes:
         print("Scanning files...", file=sys.stderr)
     files_to_add = get_files_to_add(source_dir, spec)
 
-    # --- 3. Validate file count ---
+    # --- 3. Log file count ---
     file_count = len(files_to_add)
     if verbose:
         print(f"Found {file_count} files to archive", file=sys.stderr)
-
-    if file_count > MAX_FILE_COUNT:
-        msg = (
-            f"Too many files to deploy: {file_count} files found, maximum is {MAX_FILE_COUNT}.\n"
-            f"Create a .hop3ignore file to exclude files/directories from deployment.\n"
-            f"Common patterns to add:\n"
-            f"  node_modules/\n"
-            f"  __pycache__/\n"
-            f"  .venv/\n"
-            f"  data/\n"
-            f"  *.log"
-        )
-        raise ValueError(msg)
 
     # --- 4. Create the tar.gz archive in memory ---
     if verbose:
@@ -213,11 +204,54 @@ def generate_archive(source_dir: Path, verbosity: int = 1) -> bytes:
             tar.add(file_path, arcname=str(arcname))
 
     archive_bytes = fileobj.getvalue()
-    if verbose:
-        size_mb = len(archive_bytes) / (1024 * 1024)
-        print(f"Archive created: {size_mb:.2f} MB", file=sys.stderr)
+    _check_archive_size(archive_bytes, files_to_add, source_dir, verbose)
 
     return archive_bytes
+
+
+def _check_archive_size(
+    archive_bytes: bytes,
+    files: list[Path],
+    source_dir: Path,
+    verbose: bool,
+) -> None:
+    """Check archive size against soft and hard limits.
+
+    Args:
+        archive_bytes: The archive content
+        files: List of files in the archive (for diagnostics)
+        source_dir: Source directory (for computing relative paths)
+        verbose: Whether to print verbose output
+    """
+    archive_size = len(archive_bytes)
+    size_mb = archive_size / (1024 * 1024)
+
+    if verbose:
+        print(f"Archive created: {size_mb:.2f} MB", file=sys.stderr)
+
+    if archive_size > HARD_SIZE_LIMIT:
+        top_dirs = _get_top_directories_by_file_count(files, source_dir)
+        dir_summary = "\n".join(f"  {d}: {c} files" for d, c in top_dirs[:5])
+        hard_limit_mb = HARD_SIZE_LIMIT / (1024 * 1024)
+
+        msg = (
+            f"Archive too large: {size_mb:.1f} MB exceeds the {hard_limit_mb:.0f} MB limit.\n"
+            f"\n"
+            f"Directories with most files:\n"
+            f"{dir_summary}\n"
+            f"\n"
+            f"Add directories to .hop3ignore to exclude them from deployment.\n"
+            f"The server may also have configurable size limits."
+        )
+        raise ValueError(msg)
+
+    if archive_size > SOFT_SIZE_LIMIT:
+        soft_limit_mb = SOFT_SIZE_LIMIT / (1024 * 1024)
+        print(
+            f"Warning: Large archive ({size_mb:.1f} MB). "
+            f"Uploads over {soft_limit_mb:.0f} MB may be slow.",
+            file=sys.stderr,
+        )
 
 
 def get_ignored_spec(source_dir: Path) -> tuple[pathspec.PathSpec | None, str | None]:
@@ -236,6 +270,28 @@ def get_ignored_spec(source_dir: Path) -> tuple[pathspec.PathSpec | None, str | 
                 spec = pathspec.PathSpec.from_lines("gitignore", f)
             return spec, ignore_file
     return None, None
+
+
+def _get_top_directories_by_file_count(
+    files: list[Path], source_dir: Path
+) -> list[tuple[str, int]]:
+    """Get the top-level directories sorted by file count.
+
+    Args:
+        files: List of file paths
+        source_dir: The source directory (for computing relative paths)
+
+    Returns:
+        List of (directory_name, file_count) tuples, sorted by count descending
+    """
+    dir_counts: Counter[str] = Counter()
+    for f in files:
+        rel = f.relative_to(source_dir)
+        # Get top-level directory, or "(root)" for files in root
+        top_dir = rel.parts[0] if len(rel.parts) > 1 else "(root)"
+        dir_counts[top_dir] += 1
+
+    return dir_counts.most_common()
 
 
 def get_files_to_add(source_dir: Path, spec: pathspec.PathSpec | None) -> list[Path]:
