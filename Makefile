@@ -165,12 +165,18 @@ test-demos: test-demos-docker test-demos-ssh
 
 ## Run demos on Docker backend
 test-demos-docker:
+	@echo "--> Resetting test server (docker)"
+	hop3-deploy --docker --local --with all --clean
 	@echo "--> Running demos on Docker backend"
 	python demos/demo.py --backend docker --local --quiet
 	@echo ""
 
 ## Run demos on SSH backend (requires HOP3_DEV_HOST)
 test-demos-ssh:
+	@echo "--> Resetting test server (${HOP3_DEV_HOST})"
+	hop3-deploy --local --with all --clean
+	@echo "--> Performing additional system cleanup"
+	hop3 system:cleanup
 	@echo "--> Running demos on SSH backend (${HOP3_DEV_HOST})"
 	python demos/demo.py --host ${HOP3_DEV_HOST} --local --quiet
 	@echo ""
