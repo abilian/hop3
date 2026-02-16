@@ -63,7 +63,9 @@ def test_app_deployment(app_dir: Path, deployment_target):
                 )
 
         assert deploy_result, f"Deploy failed: {session.last_deploy_error}"
-        assert session.check_deployed(), f"App {app_name} not found in deployed apps list"
+        assert session.check_deployed(), (
+            f"App {app_name} not found in deployed apps list"
+        )
 
         # Use detailed HTTP test for better error messages
         http_result = session.test_http_detailed()

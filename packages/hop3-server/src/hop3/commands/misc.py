@@ -255,7 +255,7 @@ class RunCmd(Command):
             result = run_command(
                 cmd_to_run,
                 cwd=app.src_path,
-                env=app.get_runtime_env(),
+                env=dict(app.get_runtime_env()),
                 text=True,
                 timeout=300,  # 5 minute timeout for user commands
             )
