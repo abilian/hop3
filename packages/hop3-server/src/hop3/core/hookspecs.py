@@ -6,7 +6,15 @@ from __future__ import annotations
 
 from dishka import Provider
 
-from hop3.core.protocols import OS, Addon, Builder, Deployer, LanguageToolchain, Proxy
+from hop3.core.protocols import (
+    OS,
+    Addon,
+    Builder,
+    Deployer,
+    HealthCheck,
+    LanguageToolchain,
+    Proxy,
+)
 
 from .hooks import hookspec
 
@@ -100,5 +108,39 @@ def get_di_providers() -> list[Provider]:  # type: ignore[empty-body]
         @hop3_hook_impl
         def get_di_providers() -> list:
             return [MyPluginProvider()]
+        ```
+    """
+
+
+@hookspec
+def get_health_checks() -> list[HealthCheck]:  # type: ignore[empty-body]
+    """Get health checks provided by this plugin.
+
+    Health checks verify that services (databases, caches, etc.) are
+    properly configured and accessible. They are run:
+    - During server startup (warnings logged for failures)
+    - Via the `system:check` command
+
+    Returns:
+        List of HealthCheck instances that can verify service health.
+
+    Example:
+        ```python
+        from hop3.core.protocols import HealthCheck, HealthCheckResult
+
+        class MySQLHealthCheck:
+            name = "mysql"
+
+            def is_configured(self) -> bool:
+                admin = MySQLAdmin.from_config()
+                return admin.superuser_password is not None
+
+            def check(self) -> HealthCheckResult:
+                # ... perform check ...
+                return HealthCheckResult(name="MySQL", passed=True, message="OK")
+
+        @hookimpl
+        def get_health_checks() -> list:
+            return [MySQLHealthCheck()]
         ```
     """

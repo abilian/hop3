@@ -436,6 +436,77 @@ class BaseProxy(ABC):
         return result
 
 
+@dataclass
+class HealthCheckResult:
+    """Result of a health check.
+
+    Attributes:
+        name: Display name for this check (e.g., "MySQL", "PostgreSQL")
+        passed: Whether the check passed
+        message: Human-readable status message
+        details: Optional dict with additional diagnostic info
+    """
+
+    name: str
+    passed: bool
+    message: str
+    details: dict[str, Any] = field(default_factory=dict)
+
+
+class HealthCheck(Protocol):
+    """Interface for health checks contributed by plugins.
+
+    Health checks verify that a service or resource is properly configured
+    and accessible. They are run during server startup and via the
+    `system:check` command.
+
+    Attributes:
+        name: Unique identifier for this health check (e.g., 'mysql', 'postgresql')
+
+    Example implementation:
+        ```python
+        class MySQLHealthCheck:
+            name = "mysql"
+
+            def check(self) -> HealthCheckResult:
+                try:
+                    # Test MySQL connection
+                    connection = mysql.connector.connect(...)
+                    connection.close()
+                    return HealthCheckResult(
+                        name="MySQL",
+                        passed=True,
+                        message="Connection successful"
+                    )
+                except Exception as e:
+                    return HealthCheckResult(
+                        name="MySQL",
+                        passed=False,
+                        message=f"Connection failed: {e}"
+                    )
+        ```
+    """
+
+    name: str
+
+    def is_configured(self) -> bool:
+        """Check if this service is configured and should be checked.
+
+        Returns:
+            True if the service is configured (e.g., password set in config),
+            False if it should be skipped.
+        """
+        ...
+
+    def check(self) -> HealthCheckResult:
+        """Perform the health check.
+
+        Returns:
+            HealthCheckResult with pass/fail status and message.
+        """
+        ...
+
+
 class OS(Protocol):
     """Interface for OS-specific server setup and configuration.
 

@@ -4,183 +4,103 @@
 
 """Addon health checks for server startup.
 
-This module verifies that configured database addons (MySQL, PostgreSQL)
-are accessible when the server starts. This provides early detection of
-configuration issues rather than failing during app deployment.
+This module discovers and runs health checks from plugins to verify that
+configured services (MySQL, PostgreSQL, Redis, etc.) are accessible.
+Health checks are run:
+- During server startup (warnings logged for failures)
+- Via the `system:check` command
+
+Health checks are contributed by plugins via the `get_health_checks()` hook.
 """
 
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
-from hop3.plugins.mysql.admin import MySQLAdmin
-from hop3.plugins.postgresql.admin import PostgresAdmin
+from hop3.core.plugins import get_plugin_manager
+from hop3.core.protocols import HealthCheckResult
+
+if TYPE_CHECKING:
+    from hop3.core.protocols import HealthCheck
 
 logger = logging.getLogger(__name__)
 
-# Optional dependency availability flags
-_MYSQL_AVAILABLE = False
-_PSYCOPG2_AVAILABLE = False
-_REDIS_AVAILABLE = False
 
-try:
-    import mysql.connector
-
-    _MYSQL_AVAILABLE = True
-except ImportError:
-    mysql = None  # type: ignore[assignment]
-
-try:
-    import psycopg2
-
-    _PSYCOPG2_AVAILABLE = True
-except ImportError:
-    psycopg2 = None  # type: ignore[assignment]
-
-try:
-    import redis
-
-    _REDIS_AVAILABLE = True
-except ImportError:
-    redis = None  # type: ignore[assignment]
-
-
-def check_mysql_health() -> bool:
-    """Check MySQL connectivity if configured.
+def get_all_health_checks() -> list[HealthCheck]:
+    """Discover all health checks from plugins.
 
     Returns:
-        True if MySQL is accessible or not configured, False if configured but failing.
+        List of HealthCheck instances from all registered plugins.
     """
-    if not _MYSQL_AVAILABLE:
-        logger.debug("MySQL connector not installed, skipping health check")
-        return True
+    pm = get_plugin_manager()
+    health_checks: list[HealthCheck] = []
 
-    try:
-        admin = MySQLAdmin.from_config()
+    for check_list in pm.hook.get_health_checks():
+        health_checks.extend(check_list)
 
-        # If no password configured, MySQL addon is not enabled
-        if not admin.superuser_password:
-            logger.debug("MySQL not configured (no superuser password)")
-            return True
-
-        # Try to connect
-        connection = None
-        try:
-            connection = mysql.connector.connect(**admin.get_connection_params())
-            cursor = connection.cursor()
-            cursor.execute("SELECT 1")
-            cursor.fetchone()
-            cursor.close()
-            logger.info("MySQL health check passed")
-            return True
-        except mysql.connector.Error as e:
-            logger.warning(
-                "MySQL configured but connection failed: %s. "
-                "Apps using MySQL addons will fail to deploy.",
-                e,
-            )
-            return False
-        finally:
-            if connection:
-                connection.close()
-
-    except Exception as e:
-        logger.warning("MySQL health check error: %s", e)
-        return False
+    return health_checks
 
 
-def check_postgres_health() -> bool:
-    """Check PostgreSQL connectivity if configured.
+def run_health_check(check: HealthCheck) -> HealthCheckResult:
+    """Run a single health check safely.
+
+    Args:
+        check: The health check to run.
 
     Returns:
-        True if PostgreSQL is accessible or not configured, False if configured but failing.
+        HealthCheckResult from the check, or a failure result if check raises.
     """
-    if not _PSYCOPG2_AVAILABLE:
-        logger.debug("psycopg2 not installed, skipping health check")
-        return True
-
     try:
-        admin = PostgresAdmin.from_config()
-
-        # If no password configured, PostgreSQL addon is not enabled
-        if not admin.superuser_password:
-            logger.debug("PostgreSQL not configured (no superuser password)")
-            return True
-
-        # Try to connect
-        connection = None
-        try:
-            connection = psycopg2.connect(**admin.get_connection_params())
-            cursor = connection.cursor()
-            cursor.execute("SELECT 1")
-            cursor.fetchone()
-            cursor.close()
-            logger.info("PostgreSQL health check passed")
-            return True
-        except psycopg2.Error as e:
-            logger.warning(
-                "PostgreSQL configured but connection failed: %s. "
-                "Apps using PostgreSQL addons will fail to deploy.",
-                e,
-            )
-            return False
-        finally:
-            if connection:
-                connection.close()
-
+        return check.check()
     except Exception as e:
-        logger.warning("PostgreSQL health check error: %s", e)
-        return False
+        logger.exception("Health check %s raised exception", check.name)
+        return HealthCheckResult(
+            name=check.name,
+            passed=False,
+            message=f"Health check raised exception: {e}",
+        )
 
 
-def check_redis_health() -> bool:
-    """Check Redis connectivity.
-
-    Redis doesn't require explicit configuration in hop3-server.toml,
-    but if redis package is installed, we verify it's accessible.
-
-    Returns:
-        True if Redis is accessible or not installed, False if installed but failing.
-    """
-    if not _REDIS_AVAILABLE:
-        logger.debug("Redis package not installed, skipping health check")
-        return True
-
-    try:
-        client = redis.Redis(host="localhost", port=6379, socket_timeout=2)
-        client.ping()
-        logger.info("Redis health check passed")
-        return True
-    except Exception as e:
-        # Redis not running or not accessible - this is OK if no apps use it
-        logger.debug("Redis not accessible: %s", e)
-        return True
-
-
-def verify_addon_health() -> dict[str, bool]:
+def verify_addon_health() -> dict[str, HealthCheckResult]:
     """Verify all configured addon services are accessible.
 
+    Discovers health checks from plugins and runs each one.
     Called during server startup to provide early detection of
     configuration issues.
 
     Returns:
-        Dictionary mapping addon name to health status.
+        Dictionary mapping check name to HealthCheckResult.
     """
-    results = {
-        "mysql": check_mysql_health(),
-        "postgresql": check_postgres_health(),
-        "redis": check_redis_health(),
-    }
+    results: dict[str, HealthCheckResult] = {}
+
+    health_checks = get_all_health_checks()
+
+    for check in health_checks:
+        result = run_health_check(check)
+        results[check.name] = result
+
+        # Log result
+        if result.passed:
+            logger.info("%s health check passed: %s", result.name, result.message)
+        else:
+            logger.warning(
+                "%s health check failed: %s. Apps using this service will fail to deploy.",
+                result.name,
+                result.message,
+            )
 
     # Log summary
-    failed = [name for name, ok in results.items() if not ok]
+    failed = [name for name, result in results.items() if not result.passed]
     if failed:
         logger.warning(
             "Addon health check failed for: %s. "
             "Check hop3-server.toml configuration and service status.",
             ", ".join(failed),
         )
-    else:
+    elif results:
         logger.info("All addon health checks passed")
+    else:
+        logger.debug("No addon health checks registered")
 
     return results
