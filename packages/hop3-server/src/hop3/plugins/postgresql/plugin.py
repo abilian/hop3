@@ -6,15 +6,92 @@
 
 from __future__ import annotations
 
+import logging
+
 from dishka import Provider, Scope, provide
 
 from hop3.core.hooks import hookimpl
+from hop3.core.protocols import HealthCheckResult
 
 from . import cli
 from .admin import PostgresAdmin
 from .postgres import PostgresqlAddon
 
 assert cli
+
+logger = logging.getLogger(__name__)
+
+# Check if psycopg2 is available
+_PSYCOPG2_AVAILABLE = False
+try:
+    import psycopg2
+
+    _PSYCOPG2_AVAILABLE = True
+except ImportError:
+    psycopg2 = None  # type: ignore[assignment]
+
+
+class PostgresHealthCheck:
+    """Health check for PostgreSQL connectivity."""
+
+    name = "postgresql"
+
+    def is_configured(self) -> bool:
+        """Check if PostgreSQL is configured with admin credentials."""
+        if not _PSYCOPG2_AVAILABLE:
+            return False
+        try:
+            admin = PostgresAdmin.from_config()
+            return admin.superuser_password is not None
+        except Exception:
+            return False
+
+    def check(self) -> HealthCheckResult:
+        """Test PostgreSQL connectivity."""
+        if not _PSYCOPG2_AVAILABLE:
+            return HealthCheckResult(
+                name="PostgreSQL",
+                passed=True,
+                message="psycopg2 not installed (skipped)",
+            )
+
+        try:
+            admin = PostgresAdmin.from_config()
+
+            if not admin.superuser_password:
+                return HealthCheckResult(
+                    name="PostgreSQL",
+                    passed=True,
+                    message="Not configured (no superuser password)",
+                )
+
+            # Try to connect
+            connection = psycopg2.connect(**admin.get_connection_params())
+            cursor = connection.cursor()
+            cursor.execute("SELECT version()")
+            version = cursor.fetchone()
+            cursor.close()
+            connection.close()
+
+            return HealthCheckResult(
+                name="PostgreSQL",
+                passed=True,
+                message="Connection successful",
+                details={"version": version[0] if version else "unknown"},
+            )
+
+        except psycopg2.Error as e:
+            return HealthCheckResult(
+                name="PostgreSQL",
+                passed=False,
+                message=f"Connection failed: {e}",
+            )
+        except Exception as e:
+            return HealthCheckResult(
+                name="PostgreSQL",
+                passed=False,
+                message=f"Health check error: {e}",
+            )
 
 
 class PostgresqlPlugin:
@@ -26,6 +103,11 @@ class PostgresqlPlugin:
     def get_addons(self) -> list:
         """Return PostgreSQL addon implementation."""
         return [PostgresqlAddon]
+
+    @hookimpl
+    def get_health_checks(self) -> list:
+        """Return PostgreSQL health check."""
+        return [PostgresHealthCheck()]
 
 
 class PostgresPluginProvider(Provider):

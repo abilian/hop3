@@ -22,11 +22,7 @@ from hop3.config import HOP3_ROOT
 from hop3.core.plugins import get_plugin_manager
 from hop3.lib.logging import DEFAULT_LOG_FILE
 from hop3.lib.registry import register
-from hop3.server.health import (
-    check_mysql_health,
-    check_postgres_health,
-    check_redis_health,
-)
+from hop3.server.health import get_all_health_checks, run_health_check
 
 from ._base import Command
 
@@ -164,41 +160,34 @@ class CheckCmd(Command):
         return all_ok, lines
 
     def _check_databases(self, verbose: bool) -> tuple[bool, list[str]]:
-        """Check database addon connectivity."""
-        lines = ["Database Addons", "-" * 30]
+        """Check database addon connectivity via plugin health checks."""
+        lines = ["Database Addons (via plugins)", "-" * 30]
         all_ok = True
 
-        # PostgreSQL
-        pg_ok = check_postgres_health()
-        if pg_ok:
-            lines.append("  ✓ PostgreSQL: OK")
-        else:
-            lines.append("  ✗ PostgreSQL: connection failed")
-            all_ok = False
-            if verbose:
-                lines.append("      Check POSTGRES_SUPERUSER_PASSWORD in hop3-server.toml")
-                lines.append("      Verify PostgreSQL service: systemctl status postgresql")
+        # Get all health checks from plugins
+        health_checks = get_all_health_checks()
 
-        # MySQL
-        mysql_ok = check_mysql_health()
-        if mysql_ok:
-            lines.append("  ✓ MySQL: OK")
-        else:
-            lines.append("  ✗ MySQL: connection failed")
-            all_ok = False
-            if verbose:
-                lines.append("      Check MYSQL_SUPERUSER_PASSWORD in hop3-server.toml")
-                lines.append("      Verify MySQL service: systemctl status mysql")
+        if not health_checks:
+            lines.append("  (no health checks registered)")
+            lines.append("")
+            return True, lines
 
-        # Redis
-        redis_ok = check_redis_health()
-        if redis_ok:
-            lines.append("  ✓ Redis: OK")
-        else:
-            lines.append("  ✗ Redis: not accessible")
-            # Redis is optional, don't fail overall check
-            if verbose:
-                lines.append("      Verify Redis service: systemctl status redis-server")
+        for check in health_checks:
+            result = run_health_check(check)
+
+            if result.passed:
+                lines.append(f"  ✓ {result.name}: {result.message}")
+                if verbose and result.details:
+                    for key, value in result.details.items():
+                        lines.append(f"      {key}: {value}")
+            else:
+                lines.append(f"  ✗ {result.name}: {result.message}")
+                all_ok = False
+                if verbose:
+                    lines.append("      Check configuration in hop3-server.toml")
+                    if result.details:
+                        for key, value in result.details.items():
+                            lines.append(f"      {key}: {value}")
 
         lines.append("")
         return all_ok, lines
@@ -263,8 +252,12 @@ class CheckCmd(Command):
                 if verbose:
                     has_pg = "POSTGRES_SUPERUSER_PASSWORD" in content
                     has_mysql = "MYSQL_SUPERUSER_PASSWORD" in content
-                    lines.append(f"      PostgreSQL addon: {'configured' if has_pg else 'not configured'}")
-                    lines.append(f"      MySQL addon: {'configured' if has_mysql else 'not configured'}")
+                    lines.append(
+                        f"      PostgreSQL addon: {'configured' if has_pg else 'not configured'}"
+                    )
+                    lines.append(
+                        f"      MySQL addon: {'configured' if has_mysql else 'not configured'}"
+                    )
 
             except Exception as e:
                 lines.append(f"  ✗ Config file read error: {e}")
@@ -301,7 +294,9 @@ class CheckCmd(Command):
             lines.append("  ⚠ SSL certificate: not configured (using self-signed)")
             # This is a warning, not a failure
             if verbose:
-                lines.append("      Apps will work but browsers will show security warnings")
+                lines.append(
+                    "      Apps will work but browsers will show security warnings"
+                )
 
         lines.append("")
         return all_ok, lines
