@@ -32,6 +32,7 @@
   * [Litestar Phase 2 Migration ✅ COMPLETED (2025-11-24)](#litestar-phase-2-migration-%E2%9C%85-completed-2025-11-24)
   * [Critical Technical Debt Resolved ✅ COMPLETED (2025-11-13)](#critical-technical-debt-resolved-%E2%9C%85-completed-2025-11-13)
   * [DI Integration ✅ COMPLETED (2025-11-22)](#di-integration-%E2%9C%85-completed-2025-11-22)
+  * [Health Check System ✅ COMPLETED (2026-02-17)](#health-check-system-%E2%9C%85-completed-2026-02-17)
 - [Success Metrics](#success-metrics)
   * [Phase 2 Metrics (Complete)](#phase-2-metrics-complete)
   * [Phase 3 Metrics (In Progress)](#phase-3-metrics-in-progress)
@@ -40,14 +41,14 @@
 
 ## Current Status
 
-**Updated: 2026-01-04**
+**Updated: 2026-02-17**
 
-- **Development Status**: Phase 2 Complete (100%) - Phase 3 Ready to Start
+- **Development Status**: Phase 2 Complete (100%) - Phase 3 In Progress
 - **Version**: 0.4.0 development branch
 - **Architecture**: Monorepo with Pluggy+Dishka DI, Pure Litestar stack
 - **Production Readiness**: ~80% (all core PaaS features implemented)
-- **Test Coverage**: 435 tests passing across 4 layers (232 unit, 128 integration, 14 system, 21 E2E, 40 dashboard)
-- **Demo Testing**: 25 passed, 7 failed, 32 skipped (Docker backend)
+- **Test Coverage**: 638 tests passing across 4 layers (361 unit, 247 integration, 13 system, 17 E2E)
+- **E2E Tests**: 7 passed, 1 skipped (poetry test under investigation)
 
 ## High Priority Tasks (Phase 3 - Immediate)
 
@@ -63,7 +64,7 @@
 - **Impact**: Complete read-write dashboard for full management
 
 ### 2. Maintain Test Excellence
-- **Status**: All 435 tests passing (2 integration tests skipped due to known Starlette test client limitations)
+- **Status**: All 638 tests passing (1 E2E test skipped - poetry/pyproject investigation)
 - **Files**: `packages/hop3-server/tests/`
 - **Action**: Continue comprehensive testing before major changes
 - **Impact**: Ensures production readiness and code quality
@@ -86,7 +87,7 @@
   - [ ] Centralized log aggregation (beyond SSE streaming)
   - [ ] Metrics collection (resource usage, app performance)
   - [ ] Alerting system (email, webhooks)
-  - [ ] Health check monitoring
+  - [x] Health check monitoring (via `hop3 system:check`)
   - [ ] Dashboard for metrics visualization
 - **Impact**: Production observability and incident response
 
@@ -128,21 +129,23 @@
   - [x] TailwindCSS + HTMX + Alpine.js stack
   - [x] Full authentication integration with `@require_auth` decorator
 - **Architecture**: Multi-Page Application (MPA) with server-side rendering
-- **Test Coverage**: 128 integration tests passing
+- **Test Coverage**: 247 integration tests passing
 - **Files**: `packages/hop3-server/src/hop3/server/views/dashboard/*`
 
 ### 9. Database Service Plugins ✅ COMPLETED (2025-11-12)
-- **Goal**: PostgreSQL, Redis lifecycle management
-- **Status**: PostgreSQL service fully implemented with encrypted credentials
+- **Goal**: PostgreSQL, Redis, MySQL lifecycle management
+- **Status**: All three services fully implemented with encrypted credentials
 - **Completed Features**:
   - [x] Service creation and destruction
   - [x] Credential persistence with Fernet AEAD encryption
   - [x] Connection details management
   - [x] Service backup and restore
   - [x] Service info and statistics
+  - [x] Plugin-based health checks (2026-02-17)
 - **Files**:
-  - `packages/hop3-server/src/hop3/plugins/postgresql/postgres.py`
-  - `packages/hop3-server/src/hop3/orm/service_credential.py`
+  - `packages/hop3-server/src/hop3/plugins/postgresql/`
+  - `packages/hop3-server/src/hop3/plugins/mysql/`
+  - `packages/hop3-server/src/hop3/plugins/redis/`
 
 ### 10. Backup/Restore Enhancement ✅ COMPLETED (2025-11-13)
 - **Status**: Full backup/restore system implemented with 46 tests
@@ -162,19 +165,18 @@
 ## Quality & Infrastructure Tasks
 
 ### 11. Test Coverage Expansion
-- **Current**: Basic unit tests passing
-- **Need**: More end-to-end tests
-- **Action**: Expand test suite coverage
+- **Current**: 638 tests passing
+- **Need**: More E2E tests for complex deployments
+- **Action**: Add tests for multi-service apps, deployment lifecycle
 
 ### 12. Docker Runtime Fixes
 - **Status**: Complete ✅ (2026-01-04)
 - **Progress**:
-  - [x] Docker-in-Docker demos skip cleanly in Docker backend (32 demos)
+  - [x] Docker-in-Docker demos skip cleanly in Docker backend
   - [x] Database services (PostgreSQL, MySQL, Redis) working in Docker backend
   - [x] Fixed prebuild worker bug causing Elixir build failures
-  - [x] Demo12 and Demo59 now passing
   - [x] Changed Python toolchain to use built-in `venv` instead of external `virtualenv`
-- **Result**: All 32+ non-Docker demos pass when run in batches
+- **Result**: All non-Docker demos pass when run in batches
 
 ### 13. Multi-OS Support
 - **Status**: Basic support exists
@@ -230,7 +232,7 @@
   - [x] Native session management (ServerSideSessionConfig)
   - [x] Clean 404 logging (no tracebacks)
   - [x] Favicon serving via static files
-  - [x] 128/130 integration tests passing (98.5%, 2 skipped)
+  - [x] All integration tests passing (100%)
   - [x] Zero Starlette dependencies remaining
 
 ### Critical Technical Debt Resolved ✅ COMPLETED (2025-11-13)
@@ -251,10 +253,24 @@
   - [x] Clean testing patterns established
   - [x] Documentation in docs/src/dev/di-testing-guide.md
 
+### Health Check System ✅ COMPLETED (2026-02-17)
+- **Status**: Plugin-based health check architecture implemented
+- **Completed Features**:
+  - [x] `HealthCheck` protocol and `HealthCheckResult` dataclass
+  - [x] `get_health_checks()` hookspec for plugins
+  - [x] MySQL, PostgreSQL, Redis health check implementations
+  - [x] Server startup health verification (`verify_addon_health()`)
+  - [x] `hop3 system:check` command for comprehensive health checks
+  - [x] Disk space, SSL certificates, service status checks
+- **Files**:
+  - `packages/hop3-server/src/hop3/server/health.py`
+  - `packages/hop3-server/src/hop3/core/protocols.py`
+  - `packages/hop3-server/src/hop3/commands/system.py`
+
 ## Success Metrics
 
 ### Phase 2 Metrics (Complete)
-- [x] Plugin architecture fully functional (PostgreSQL + Redis plugins)
+- [x] Plugin architecture fully functional (PostgreSQL + Redis + MySQL plugins)
 - [x] Web UI dashboard operational (read-only with SSE log streaming)
 - [x] Backup/restore system production-ready (46 tests)
 - [x] Service credential encryption implemented (Fernet AEAD)
@@ -263,16 +279,17 @@
 - [x] JWT token revocation
 - [x] DI integration patterns established
 - [x] Pure Litestar stack (zero Starlette dependencies)
+- [x] Plugin-based health checks
 
 ### Phase 3 Metrics (In Progress)
 - [ ] Full-featured web UI (CRUD operations for apps/services)
 - [ ] RBAC system implemented
 - [ ] Audit logging operational
 - [ ] Centralized monitoring and alerting
-- [x] All tests passing (435 tests, 2 skipped)
+- [x] All tests passing (638 tests, 1 skipped)
 - [ ] Multi-process app support
 - [ ] Zero-downtime deployments
 
 ---
 
-*Last updated: 2026-01-04*
+*Last updated: 2026-02-17*

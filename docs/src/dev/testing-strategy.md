@@ -30,7 +30,7 @@ This document describes both approaches, their purposes, and how to use them eff
 │  │(b_integr./) │            │  │  Apps Testing                   │  │
 │  ├─────────────┤            │  │  - Uses pre-built image         │  │
 │  │   Unit      │ Fast       │  │  - Tests app deployments        │  │
-│  │  (a_unit/)  │            │  │  - 66+ test applications        │  │
+│  │  (a_unit/)  │            │  │  - Multiple test applications   │  │
 │  └─────────────┘            │  └─────────────────────────────────┘  │
 │                             │                                        │
 └─────────────────────────────────────────────────────────────────────┘
@@ -109,7 +109,7 @@ pytest packages/hop3-server/tests/a_unit/ -v
 **Characteristics**:
 - Fast execution (~10 seconds)
 - Uses real database (in-memory SQLite)
-- Uses Starlette TestClient for HTTP
+- Uses Litestar TestClient for HTTP
 - No external network dependencies
 - Tests component interactions
 
@@ -595,7 +595,7 @@ make test
 # System tests (Hop3 deployment testing)
 make test-system
 
-# App tests (all 66 apps)
+# App tests
 make test-apps
 
 # Specific pytest layer
@@ -762,6 +762,6 @@ def test_non_admin_cannot_create_users():
 
 - [Testing Quick Start](testing.md) - Quick reference guide
 - [DI Testing Guide](di-testing-guide.md) - Dependency injection testing patterns
-- [Test Status](/notes/test-status.md) - Current test status
 - [pytest documentation](https://docs.pytest.org/)
+- [Litestar Testing](https://docs.litestar.dev/latest/usage/testing.html) - Litestar test client
 - [Dishka documentation](https://dishka.readthedocs.io/)

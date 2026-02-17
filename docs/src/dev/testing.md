@@ -60,7 +60,7 @@ uv run hop3-test build-ready-image
 |---------|-------------|----------|
 | `make test` | Unit + integration tests | ~30s |
 | `make test-system` | System tests (5 fast apps) | ~2min |
-| `make test-apps` | All app tests (66 apps) | ~14min |
+| `make test-apps` | All app tests | ~5min |
 | `make test-with-coverage` | Tests with coverage report | ~1min |
 | `make lint` | Linting and type checking | ~30s |
 
