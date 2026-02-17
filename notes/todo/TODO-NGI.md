@@ -2,17 +2,19 @@
 
 Detailed breakdown of the work items and deliverables, based on the MOU for the "Nix Integration for Hop3" project.
 
+**Last Updated:** 2026-02-17
+
 ## Timeline Summary
 
-| Task | Target | Status |
-|------|--------|--------|
-| **T1: Nix Build Plugins** | Q1 2026 | Not Started |
-| **T2: Nix Runtime** | Q1 2026 | Not Started |
-| **T3: Security & Resilience** | **Q4 2025** | 6/8 Complete (75%) |
-| **T4: Packaged Applications** | **Q4 2025** | 0/20 Complete (0%) |
-| **T5: Dissemination & Engagement** | **Q4 2025** | 2/5 Complete (40%) |
+| Task | Original Target | Revised Target | Status |
+|------|-----------------|----------------|--------|
+| **T1: Nix Build Plugins** | Q1 2026 | Q1 2026 | Not Started |
+| **T2: Nix Runtime** | Q1 2026 | Q1 2026 | Not Started |
+| **T3: Security & Resilience** | Q4 2025 | Q1 2026 | 6/8 Complete (75%) |
+| **T4: Packaged Applications** | Q4 2025 | Q1 2026 | 0/20 Complete (0%) |
+| **T5: Dissemination & Engagement** | Q4 2025 | Q1 2026 | 2/5 Complete (40%) |
 
-**Note (2025-12-16):** All non-Nix items (T3, T4, T5) must be completed and **tested in production** by end of Q4 2025. Nix-related work (T1, T2) deferred to Q1 2026.
+**Note:** Non-Nix items (T3, T4, T5) were not completed in Q4 2025 and are now being completed in Q1 2026. See `local-notes/PLAN-2026-Q1.md` for detailed schedule.
 
 ## TOC
 
@@ -60,7 +62,7 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
 
 ## T3: Security & Resilience
 
-**Target:** Q4 2025 (MUST COMPLETE)
+**Target:** Q1 2026 (carried from Q4 2025)
 **Status:** 6/8 milestones complete (75%)
 
 **Objective:** To improve the security and resilience of Hop3 by adding robust features and tools.
@@ -69,6 +71,7 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
 * **M3.1 Backing services:** ✅ **COMPLETED** (2025-11-12)
   - [x] PostgreSQL service plugin with encrypted credentials (Fernet AEAD)
   - [x] Redis service plugin with connection management
+  - [x] MySQL service plugin (added 2025-12-16)
   - [x] Service credential persistence in database
   - [x] Backup/restore integration for services
 
@@ -84,17 +87,18 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
   - [x] Fail-fast behavior (backup fails if services cannot be backed up)
   - [x] 46 tests (18 unit + 9 E2E + 19 integration)
 
-* **M3.4 Testing framework and infrastructure:** ✅ **COMPLETED** (2025-11-24)
-  - [x] 435 tests across 4 layers (232 unit, 128 integration, 14 system, 21 E2E, 40 dashboard)
-  - [x] 98.5% integration test pass rate (2 skipped due to test client limitations)
-  - [x] 100% pass rate for all other test types
+* **M3.4 Testing framework and infrastructure:** ✅ **COMPLETED** (2025-11-24, updated 2026-02-17)
+  - [x] 638 tests across 4 layers (361 unit, 247 integration, 13 system, 17 E2E)
+  - [x] 100% pass rate for unit/integration/system tests
   - [x] CI automation with GitHub Actions
   - [x] Docker-based E2E test infrastructure
   - [x] Pluggy+Dishka DI testing patterns
+  - [x] Unified test runner (`hop3-test` CLI)
+  - [x] Plugin-based health checks (2026-02-17)
 
-* **M3.5 Firewalls:** ⚠️ **IN PROGRESS** - MUST COMPLETE Q4 2025
-  - [ ] Network-level firewalls configuration
-  - [ ] Web Application Firewall (WAF) integration
+* **M3.5 Firewalls:** ⚠️ **IN PROGRESS**
+  - [ ] Network-level firewalls configuration (nftables)
+  - [ ] Web Application Firewall (WAF) integration (ModSecurity)
   - [ ] Production testing and verification
 
 * **M3.6 CLI (basic):** ✅ **COMPLETED** (2025-11-08)
@@ -108,21 +112,23 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
   - [x] Server-Sent Events (SSE) log streaming
   - [x] Service management pages
   - [x] Backup UI (list, restore, delete)
-  - [x] 40/40 dashboard view tests passing (100%)
+  - [x] Dashboard view tests passing (100%)
   - [x] Guard-based authentication
 
-* **M3.8 Process outcomes of security audit:** ⚠️ **IN PROGRESS** - MUST COMPLETE Q4 2025
+* **M3.8 Process outcomes of security audit:** ⚠️ **IN PROGRESS**
   - [x] JWT token revocation implemented (2025-11-13)
   - [x] Token tampering protection
   - [x] SQL injection prevention
   - [x] Hardcoded password removal
+  - [x] Plugin-based health checks for addons (2026-02-17)
+  - [x] `hop3 system:check` command (2026-02-17)
   - [ ] Formal security audit
   - [ ] Accessibility scan
   - [ ] Production verification of all security measures
 
 ## T4: Packaged Applications
 
-**Target:** Q4 2025 (MUST COMPLETE)
+**Target:** Q1 2026 (carried from Q4 2025)
 **Status:** 0/20 applications complete (0%)
 
 **Objective:** To package 20 popular open-source applications to run on Hop3, demonstrating the platform's capabilities.
@@ -179,11 +185,11 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
 | 19. Monica CRM | ❌ | ❌ | ❌ | ❌ |
 | 20. Cal.com | ❌ | ❌ | ❌ | ❌ |
 
-**Note:** Application list may be adjusted based on complexity and dependencies. See `local-notes/DEMO-PORTING-PLAN.md` for porting strategy.
+**Note:** Application list may be adjusted based on complexity and dependencies. See `local-notes/PLAN-2026-Q1.md` for detailed schedule.
 
 ## T5: Dissemination & Engagement
 
-**Target:** Q4 2025 (MUST COMPLETE)
+**Target:** Q1 2026 (carried from Q4 2025)
 **Status:** 2/5 complete (40%)
 
 **Objective:** To promote the Hop3 open-source platform to ensure its adoption and build a community around it.
@@ -201,6 +207,7 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
   - [x] Basic developer documentation (docs/src/dev/)
   - [x] Installation guide
   - [x] Quickstart guide
+  - [x] Testing documentation (docs/src/dev/testing*.md)
   - [ ] Administrator manual (complete)
   - [ ] End-user tutorials
   - [ ] hop3.toml reference (complete with all sections)
@@ -211,15 +218,14 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
   - [ ] Draft technical report
   - [ ] Peer review
   - [ ] Final publication
-  - Target: Submit by end of Q4 2025
 
 * **M5.4 Conference presentation or workshop:** ✅ **COMPLETED** (2025-12-16)
-  - [x] Presented at OSXP Paris (December 2025)
-  - [x] Additional conference proposals planned for 2026
+  - [x] Presented at OW2Con in Paris (Junue 2025)
+  - [x] Presented at OSXP in Paris (December 2025)
+  - [ ] Additional conference proposals planned for 2026
 
 * **M5.6 Videos/screencasts:** ⏳ **NOT STARTED**
   - [ ] Getting started screencast
   - [ ] Deployment tutorial video
   - [ ] Feature showcase videos (3-5 videos)
   - [ ] Production deployment demo
-  - Target: Complete by end of Q4 2025
