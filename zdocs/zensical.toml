@@ -1,0 +1,263 @@
+# Hop3 Documentation - Zensical Configuration
+# ============================================================================
+
+[project]
+
+site_name = "Hop3 Documentation"
+site_description = "The official documentation for the Hop3 self-sovereign cloud platform"
+site_author = "Abilian SAS"
+site_url = "https://hop3.cloud/"
+
+# Source and output directories
+docs_dir = "docs"
+site_dir = "site"
+
+# Repository information
+repo_url = "https://github.com/abilian/hop3"
+edit_uri = "edit/main/zdocs/docs"
+
+copyright = """
+Copyright &copy; 2021-2026 Abilian SAS
+"""
+
+# =============================================================================
+# Navigation Structure (7 Tabs)
+# =============================================================================
+nav = [
+    # -------------------------------------------------------------------------
+    # Tab 1: Home
+    # -------------------------------------------------------------------------
+    { "Home" = [
+        { "Overview" = "index.md" },
+        { "Features" = "features.md" },
+    ]},
+
+    # -------------------------------------------------------------------------
+    # Tab 2: Get Started
+    # -------------------------------------------------------------------------
+    { "Get Started" = [
+        { "Installation" = "installation.md" },
+        { "Quick Start" = "quickstart.md" },
+        { "Installer Options" = "installer.md" },
+    ]},
+
+    # -------------------------------------------------------------------------
+    # Tab 3: Guides (User-facing documentation)
+    # -------------------------------------------------------------------------
+    { "Guides" = [
+        { "User Guide" = "guide.md" },
+        { "Backup & Restore" = "backup-restore.md" },
+        { "Migration" = [
+            { "Migration Guide" = "migration-guide.md" },
+            { "CLI Migration" = "cli-migration.md" },
+        ]},
+        { "FAQ" = "faq.md" },
+    ]},
+
+    # -------------------------------------------------------------------------
+    # Tab 4: Tutorials (By language/framework)
+    # -------------------------------------------------------------------------
+    { "Tutorials" = [
+        { "Python" = [
+            { "Flask" = "tutorials/python/flask.md" },
+            { "Django" = "tutorials/python/django.md" },
+            { "FastAPI" = "tutorials/python/fastapi.md" },
+            { "Litestar" = "tutorials/python/litestar.md" },
+            { "Starlette" = "tutorials/python/starlette.md" },
+            { "Bottle" = "tutorials/python/bottle.md" },
+            { "Falcon" = "tutorials/python/falcon.md" },
+            { "Eve" = "tutorials/python/eve.md" },
+            { "DRF" = "tutorials/python/drf.md" },
+            { "Pyramid" = "tutorials/python/pyramid.md" },
+            { "Sanic" = "tutorials/python/sanic.md" },
+            { "Robyn" = "tutorials/python/robyn.md" },
+        ]},
+        { "JavaScript" = [
+            { "Express" = "tutorials/javascript/express.md" },
+            { "Fastify" = "tutorials/javascript/fastify.md" },
+            { "Next.js" = "tutorials/javascript/nextjs.md" },
+            { "Nuxt.js" = "tutorials/javascript/nuxtjs.md" },
+            { "Astro" = "tutorials/javascript/astro.md" },
+            { "Eleventy" = "tutorials/javascript/eleventy.md" },
+            { "NestJS" = "tutorials/javascript/nestjs.md" },
+        ]},
+        { "Go" = [
+            { "Gin" = "tutorials/go/gin.md" },
+            { "Fiber" = "tutorials/go/fiber.md" },
+            { "Hugo" = "tutorials/go/hugo.md" },
+        ]},
+        { "Ruby" = [
+            { "Rails" = "tutorials/ruby/rails.md" },
+            { "Sinatra" = "tutorials/ruby/sinatra.md" },
+            { "Jekyll" = "tutorials/ruby/jekyll.md" },
+        ]},
+        { "Rust" = [
+            { "Axum" = "tutorials/rust/axum.md" },
+            { "Actix-web" = "tutorials/rust/actix-web.md" },
+        ]},
+        { "Java" = [
+            { "Spring Boot" = "tutorials/java/spring-boot.md" },
+            { "Quarkus" = "tutorials/java/quarkus.md" },
+        ]},
+        { "PHP" = [
+            { "Laravel" = "tutorials/php/laravel.md" },
+            { "Symfony" = "tutorials/php/symfony.md" },
+        ]},
+        { "Elixir" = [
+            { "Phoenix" = "tutorials/elixir/phoenix.md" },
+        ]},
+        { ".NET" = [
+            { "ASP.NET Core" = "tutorials/dotnet/aspnet-core.md" },
+        ]},
+    ]},
+
+    # -------------------------------------------------------------------------
+    # Tab 5: Developers (For Hop3 contributors)
+    # -------------------------------------------------------------------------
+    { "Developers" = [
+        { "Overview" = "dev/index.md" },
+        { "Getting Started" = "dev/getting-started.md" },
+        { "Contributing" = "dev/contributing.md" },
+        { "Core Values" = "dev/core-values.md" },
+        { "Architecture" = [
+            { "Overview" = "dev/architecture.md" },
+            { "Orchestration" = "dev/orchestration.md" },
+            { "Protocol Reference" = "dev/protocol-reference.md" },
+        ]},
+        { "Testing" = [
+            { "Testing Guide" = "dev/testing.md" },
+            { "Testing Strategy" = "dev/testing-strategy.md" },
+            { "DI Testing" = "dev/di-testing-guide.md" },
+            { "Installer Testing" = "dev/installer-testing.md" },
+        ]},
+        { "Plugins" = [
+            { "Plugin Development" = "dev/plugin-development.md" },
+            { "Hook Specifications" = "dev/hook-specifications.md" },
+            { "External Plugins" = "dev/external-plugins.md" },
+        ]},
+        { "Packages" = [
+            { "Overview" = "dev/packages/index.md" },
+            { "hop3-server" = "dev/packages/hop3-server.md" },
+            { "hop3-cli" = "dev/packages/hop3-cli.md" },
+            { "hop3-installer" = "dev/packages/hop3-installer.md" },
+            { "hop3-tui" = "dev/packages/hop3-tui.md" },
+            { "hop3-testing" = "dev/packages/hop3-testing.md" },
+        ]},
+        { "Operations" = [
+            { "Branching Strategy" = "dev/branching-strategy.md" },
+            { "DNS Configuration" = "dev/dns-configuration.md" },
+            { "Governance" = "dev/governance.md" },
+        ]},
+    ]},
+
+    # -------------------------------------------------------------------------
+    # Tab 6: Blog
+    # -------------------------------------------------------------------------
+    { "Blog" = [
+        { "News" = "news/index.md" },
+        { "Posts" = [
+            { "Project Started" = "news/posts/project-started.md" },
+            { "Documentation Work" = "news/posts/started-work-on-doc.md" },
+            { "Nua 0.5.17" = "news/posts/nua-0.5.17.md" },
+            { "PyConFR 2023" = "news/posts/pyconfr-2023-presentation.md" },
+        ]},
+    ]},
+
+    # -------------------------------------------------------------------------
+    # Tab 7: Reference (Lookup / specifications)
+    # -------------------------------------------------------------------------
+    { "Reference" = [
+        { "CLI Reference" = "cli-reference.md" },
+        { "Configuration" = "hop3-toml-reference.md" },
+        { "Examples" = [
+            { "Plugin Examples" = "examples/plugins/README.md" },
+        ]},
+        { "Policies" = [
+            { "Overview" = "policies/index.md" },
+            { "Security Policy" = "policies/security-policy.md" },
+            { "Privacy Policy" = "policies/privacy-policy.md" },
+            { "Code of Conduct" = "policies/code-of-conduct.md" },
+            { "Evangelism" = "policies/evangelism.md" },
+            { "Open Source Compliance" = "policies/open-source-compliance.md" },
+        ]},
+        { "Changelog" = "changelog.md" },
+        { "Extra" = "extra.md" },
+    ]},
+]
+
+# Custom CSS
+extra_css = ["stylesheets/theme.css"]
+
+# =============================================================================
+# Theme Configuration
+# =============================================================================
+[project.theme]
+
+variant = "modern"
+language = "en"
+
+features = [
+    "announce.dismiss",
+    "content.action.edit",
+    "content.action.view",
+    "content.code.annotate",
+    "content.code.copy",
+    "content.code.select",
+    "content.footnote.tooltips",
+    "content.tabs.link",
+    "content.tooltips",
+    "navigation.footer",
+    "navigation.indexes",
+    "navigation.instant",
+    "navigation.instant.prefetch",
+    "navigation.path",
+    "navigation.sections",
+    "navigation.tabs",
+    "navigation.tabs.sticky",
+    "navigation.top",
+    "navigation.tracking",
+    "search.highlight",
+    "toc.follow",
+]
+
+# Color schemes
+[[project.theme.palette]]
+scheme = "default"
+primary = "indigo"
+accent = "purple"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+primary = "indigo"
+accent = "purple"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+# Fonts
+[project.theme.font]
+text = "Roboto"
+code = "Roboto Mono"
+
+# Icons
+[project.theme.icon]
+logo = "lucide/cloud"
+repo = "lucide/github"
+
+# =============================================================================
+# Social links
+# =============================================================================
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/abilian/hop3"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/mastodon"
+link = "https://fosstodon.org/@hop3"
+
+# =============================================================================
+# Plugins
+# =============================================================================
+[project.plugins]
+search = { enabled = true }

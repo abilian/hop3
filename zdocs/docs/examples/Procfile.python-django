@@ -1,0 +1,17 @@
+# Procfile - Python/Django Application Example
+# Simple convention-based configuration
+
+# Pre-build hooks (runs before building the application)
+prebuild: pip install -r requirements.txt && python manage.py collectstatic --noinput
+
+# Pre-run hooks (runs before starting the application)
+prerun: python manage.py migrate --noinput
+
+# Main web process
+web: gunicorn myapp.wsgi:application --workers 4 --bind 0.0.0.0:8000
+
+# Background worker (optional)
+worker: celery -A myapp worker --loglevel=info
+
+# Scheduled tasks (optional)
+beat: celery -A myapp beat --loglevel=info

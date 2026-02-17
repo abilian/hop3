@@ -1,0 +1,256 @@
+# Hop3 Installer Guide
+
+This guide provides instructions on how to use the Hop3 installer script to set up the Hop3 environment on a server. The installer is a standalone Python script that automates the installation and configuration process.
+
+## Prerequisites
+
+- A server running Ubuntu 22.04 or 24.04 LTS (Debian-based distributions also supported)
+- Root access to the server via SSH
+- Python 3.10+ on the server
+- A domain name pointing to your server (recommended for secure admin UI access)
+
+## Quick Install
+
+### One-liner (from PyPI)
+
+```bash
+curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
+```
+
+### With Admin Domain (Recommended)
+
+For secure HTTPS access to the admin UI, specify a domain:
+
+```bash
+curl -LsSf https://hop3.cloud/install-server.py | sudo python3 - --domain hop3.example.com
+```
+
+This will:
+- Configure nginx to serve the admin UI at `https://hop3.example.com/`
+- Request a Let's Encrypt SSL certificate automatically
+- Store the admin domain in the server configuration
+
+## Installation Options
+
+### From Git (Development)
+
+Install from a specific git branch:
+
+```bash
+sudo python3 install-server.py --git --branch main
+```
+
+### From Local Path
+
+For development or testing with local code:
+
+```bash
+sudo python3 install-server.py --local-path /path/to/hop3-server
+```
+
+### All Options
+
+| Option | Description |
+|--------|-------------|
+| `--domain DOMAIN` | Domain for admin UI (enables Let's Encrypt SSL) |
+| `--version VERSION` | Install specific version from PyPI |
+| `--git` | Install from git repository |
+| `--branch BRANCH` | Git branch to install (default: main) |
+| `--local-path PATH` | Install from local directory |
+| `--skip-deps` | Skip system dependency installation |
+| `--skip-nginx` | Skip nginx configuration |
+| `--skip-postgres` | Skip PostgreSQL setup |
+| `--skip-acme` | Skip ACME/Let's Encrypt setup |
+| `--verbose` | Show detailed output |
+
+## What the Installer Does
+
+1. **System Dependencies**: Installs required packages (nginx, PostgreSQL, Python dev tools, etc.)
+2. **User Setup**: Creates `hop3` user and group
+3. **Virtual Environment**: Creates Python venv at `/home/hop3/venv`
+4. **Package Installation**: Installs hop3-server
+5. **Initial Setup**: Runs `hop3-server setup` to create directories and config
+6. **SSH Keys**: Copies root's SSH keys to hop3 user
+7. **Systemd Services**: Configures hop3-server and uwsgi-hop3 services
+8. **SSL Certificates**: Generates self-signed cert (or Let's Encrypt if domain provided)
+9. **Nginx**: Configures reverse proxy for the admin UI and API
+10. **PostgreSQL**: Creates hop3 database and user, configures for Docker access
+11. **Server Config**: Writes `/home/hop3/hop3-server.toml` with settings
+
+## Admin UI Access
+
+### With Domain (Recommended)
+
+When you install with `--domain hop3.example.com`:
+
+- **Admin UI**: `https://hop3.example.com/`
+- **API (RPC)**: `https://hop3.example.com/rpc`
+- **SSL**: Let's Encrypt certificate (auto-renewed)
+
+Deployed applications use their own hostnames (e.g., `myapp.example.com`).
+
+### Without Domain
+
+Without `--domain`, the admin UI is only accessible directly on port 8000:
+
+- **Admin UI**: `http://<server-ip>:8000/` (unsecured)
+- **API (RPC)**: `https://<server-ip>/rpc` (self-signed cert)
+
+> **Warning**: Port 8000 access is unencrypted. Use `--domain` for production deployments.
+
+For development/testing, you can use SSH tunneling:
+
+```bash
+ssh -L 8000:127.0.0.1:8000 root@your-server
+# Then access: http://localhost:8000/
+```
+
+## Post-Installation Steps
+
+### Create Admin User
+
+Before using Hop3, create an admin user. The easiest way is SSH-assisted bootstrap from your workstation:
+
+```bash
+hop3 init --ssh root@your-server.com
+```
+
+This will:
+1. Connect to your server via SSH
+2. Prompt for admin username, email, and password
+3. Create the admin user on the server
+4. Save the API token to `~/.config/hop3-cli/config.toml`
+
+Example session:
+```
+$ hop3 init --ssh root@my-server.com
+
+Connecting to my-server.com...
+Server URL [https://my-server.com]:
+Admin username: admin
+Admin email: admin@company.com
+Admin password: ********
+Confirm password: ********
+
+Admin user 'admin' created successfully.
+Configuration saved to ~/.config/hop3-cli/config.toml
+
+You're all set! Try:
+  hop3 apps           # List applications
+  hop3 auth:whoami    # Check current user
+```
+
+### Alternative: Manual Setup
+
+SSH into your server and run:
+
+```bash
+ssh root@your-server.com
+hop3-server admin:create admin admin@example.com
+# Enter password when prompted
+# Copy the displayed token
+```
+
+Then configure your local CLI:
+
+```bash
+hop3 settings set server https://your-server.com
+hop3 settings set token <paste-token-here>
+```
+
+### For Automation (CI/CD)
+
+Use non-interactive mode:
+
+```bash
+echo "$ADMIN_PASSWORD" | hop3 init \
+  --ssh deploy@my-server.com \
+  --username admin \
+  --email admin@company.com \
+  --server https://my-server.com \
+  --password-stdin \
+  --yes
+```
+
+## Using the Demo Launcher
+
+For testing and demonstrations, use the demo launcher:
+
+```bash
+# Basic demo (apps cleaned up after)
+python demos/demo.py --host 46.62.169.221 demo1
+
+# Keep apps running with admin domain
+python demos/demo.py --host 46.62.169.221 --admin-domain hop3.example.com --keep demo1
+
+# Use local code (development)
+python demos/demo.py --host 46.62.169.221 --local --keep demo1
+```
+
+The demo launcher will:
+- Install/update Hop3 on the target server
+- Configure the admin domain (if specified)
+- Create an admin user
+- Deploy demo applications
+- Show admin credentials and UI URL at the end
+
+## Verification
+
+After installation, verify services are running:
+
+```bash
+sudo systemctl status hop3-server
+sudo systemctl status nginx
+sudo systemctl status postgresql
+```
+
+Check logs:
+
+```bash
+sudo journalctl -u hop3-server -f
+```
+
+## Troubleshooting
+
+### Services Not Starting
+
+Check service status and logs:
+
+```bash
+sudo systemctl status hop3-server
+sudo journalctl -u hop3-server --no-pager -n 50
+```
+
+### SSL Certificate Issues
+
+For Let's Encrypt, ensure:
+- Domain DNS points to your server's IP
+- Ports 80 and 443 are open
+- No other service is using port 80
+
+To manually request a certificate:
+
+```bash
+sudo -u hop3 /home/hop3/.acme.sh/acme.sh --issue -d your-domain.com -w /var/www/html
+```
+
+### PostgreSQL Connection Issues
+
+Verify PostgreSQL is configured for the hop3 user:
+
+```bash
+sudo -u hop3 psql -d hop3 -c "SELECT 1"
+```
+
+### Admin UI Shows 404
+
+If using a domain and getting 404:
+1. Verify nginx config: `sudo nginx -t`
+2. Check nginx is proxying to hop3-server: `cat /etc/nginx/sites-available/hop3`
+3. Ensure hop3-server is running on port 8000
+
+## Support
+
+For additional help or to report issues:
+- GitHub: [https://github.com/abilian/hop3/issues](https://github.com/abilian/hop3/issues)
+- Documentation: [https://hop3.cloud/docs](https://hop3.cloud/docs)
