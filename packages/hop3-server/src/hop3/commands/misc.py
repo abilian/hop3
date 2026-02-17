@@ -226,6 +226,8 @@ class PsScaleCmd(Command):
 
         with command_context("scaling app", app_name=app_name):
             do_deploy(app, deltas=deltas)
+            # Persist changes to database (run_state, port, etc.)
+            self.db_session.commit()
 
         return [{"t": "text", "text": f"Scaling app '{app_name}'..."}]
 

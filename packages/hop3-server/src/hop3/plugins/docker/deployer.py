@@ -31,6 +31,7 @@ from hop3.core.protocols import (
 )
 from hop3.lib import Abort, get_free_port, log
 from hop3.lib.logging import server_log
+from hop3.orm.app import AppStateEnum
 
 # Default timeout for Docker commands (seconds)
 DOCKER_COMMAND_TIMEOUT = 60
@@ -210,6 +211,25 @@ services:
         """
         deltas = deltas or {}
 
+        # Get current state for state machine transitions
+        current_state = None
+        if self.context.app:
+            current_state = self.context.app.run_state
+
+            # Handle redeployment: stop first if already running
+            if current_state == AppStateEnum.RUNNING:
+                log(
+                    f"App '{self.app_name}' is running, redeploying...",
+                    level=1,
+                    fg="blue",
+                )
+                self.stop()
+                current_state = self.context.app.run_state
+
+            # Transition to STARTING
+            if current_state in {AppStateEnum.STOPPED, AppStateEnum.FAILED, None}:
+                self.context.app._transition_state(AppStateEnum.STARTING)  # noqa: SLF001
+
         log(f"Deploying '{self.app_name}' with Docker Compose...", level=2, fg="blue")
 
         # Get or generate the compose file
@@ -246,10 +266,15 @@ services:
 
         log(f"App '{self.app_name}' deployed successfully.", level=2, fg="green")
 
-        # Save the image tag to the app for restart operations
-        if self.context.app and self.artifact.location:
-            self.context.app.image_tag = self.artifact.location
-            log(f"Saved image tag: {self.artifact.location}", level=3)
+        # Update app model: mark as RUNNING and save image tag
+        if self.context.app:
+            # Transition to RUNNING (STARTING -> RUNNING)
+            self.context.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
+
+            # Save the image tag for restart operations
+            if self.artifact.location:
+                self.context.app.image_tag = self.artifact.location
+                log(f"Saved image tag: {self.artifact.location}", level=3)
 
         # Discover the actual port (should match allocated_port)
         port = self._discover_port(allocated_port, compose_file)
@@ -335,8 +360,16 @@ services:
         """Stop the application."""
         log(f"Stopping '{self.app_name}'...", level=2, fg="yellow")
 
+        # Transition to STOPPING state
+        if self.context.app and self.context.app.run_state == AppStateEnum.RUNNING:
+            self.context.app._transition_state(AppStateEnum.STOPPING)  # noqa: SLF001
+
         cmd = self._get_compose_cmd_base() + ["stop"]
         self._run_compose_command(cmd, check=False)
+
+        # Transition to STOPPED state
+        if self.context.app and self.context.app.run_state == AppStateEnum.STOPPING:
+            self.context.app._transition_state(AppStateEnum.STOPPED)  # noqa: SLF001
 
         log(f"App '{self.app_name}' stopped.", level=2, fg="green")
 

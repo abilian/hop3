@@ -11,7 +11,7 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
 | **T1: Nix Build Plugins** | Q1 2026 | Q1 2026 | Not Started |
 | **T2: Nix Runtime** | Q1 2026 | Q1 2026 | Not Started |
 | **T3: Security & Resilience** | Q4 2025 | Q1 2026 | 6/8 Complete (75%) |
-| **T4: Packaged Applications** | Q4 2025 | Q1 2026 | 0/20 Complete (0%) |
+| **T4: Packaged Applications** | Q4 2025 | Q1 2026 | 5/20 Configs (25%) |
 | **T5: Dissemination & Engagement** | Q4 2025 | Q1 2026 | 3/5 Complete (60%) |
 
 **Note:** Non-Nix items (T3, T4, T5) were not completed in Q4 2025 and are now being completed in Q1 2026. See `local-notes/PLAN-2026-Q1.md` for detailed schedule.
@@ -129,7 +129,7 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
 ## T4: Packaged Applications
 
 **Target:** Q1 2026 (carried from Q4 2025)
-**Status:** 0/20 applications complete (0%)
+**Status:** 5/20 configurations created (25%), pending deployment and testing
 
 **Objective:** To package 20 popular open-source applications to run on Hop3, demonstrating the platform's capabilities.
 
@@ -142,15 +142,17 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
 **Deliverables:**
 
 ### M4.1 - First 5 Applications
-**Status:** ⚠️ IN PROGRESS
+**Status:** ⚠️ IN PROGRESS (hop3.toml created, pending deployment/testing)
 
 | App | hop3.toml | Deployed | Tested in Prod | Experience Report |
 |-----|-----------|----------|----------------|-------------------|
-| 1. WordPress | ⏳ | ❌ | ❌ | ❌ |
-| 2. NextCloud | ⏳ | ❌ | ❌ | ❌ |
-| 3. Ghost | ⏳ | ❌ | ❌ | ❌ |
-| 4. HedgeDoc | ⏳ | ❌ | ❌ | ❌ |
-| 5. Gitea | ⏳ | ❌ | ❌ | ❌ |
+| 1. WordPress | ✅ | ⏳ | ❌ | ❌ |
+| 2. NextCloud | ✅ | ⏳ | ❌ | ❌ |
+| 3. Ghost | ✅ | ⏳ | ❌ | ❌ |
+| 4. HedgeDoc | ✅ | ⏳ | ❌ | ❌ |
+| 5. Gitea | ✅ | ⏳ | ❌ | ❌ |
+
+**Package Location:** `apps/ngi-apps/`
 
 ### M4.2 - Next 5 Applications
 **Status:** ⏳ NOT STARTED

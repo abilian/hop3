@@ -91,6 +91,9 @@ class GitHookCmd(Command):
             # Trigger deployment using the unified deployment engine
             do_deploy(app)
 
+            # Persist changes to database (run_state, image_tag, port, etc.)
+            self.db_session.commit()
+
             log(
                 f"Deployment from git push completed for '{app_name}'",
                 level=0,
