@@ -1,1 +1,0 @@
-../../../../packages/hop3-tui/docs/internals.md

@@ -1,1 +1,0 @@
-../../../../packages/hop3-cli/docs/internals.md
