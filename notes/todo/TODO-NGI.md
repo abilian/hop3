@@ -218,9 +218,12 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
   - [x] Tutorial conversion pipeline (test syntax → standard markdown)
   - [ ] Deploy to hop3.cloud (pending)
 
-* **M5.3 Technical report and/or research paper:** ⏳ **NOT STARTED**
-  - [ ] Draft technical report
-  - [ ] Peer review
+* **M5.3 Technical report and/or research paper:** ⚠️ **IN PROGRESS**
+  - [x] Draft technical report (TR-01, 2026-02-17)
+    - Architecture overview
+    - Security features documentation
+    - Project status summary
+  - [ ] Internal review
   - [ ] Final publication
 
 * **M5.4 Conference presentation or workshop:** ✅ **COMPLETED** (2025-12-16)
