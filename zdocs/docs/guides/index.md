@@ -2,6 +2,10 @@
 
 Comprehensive guides for using Hop3 effectively.
 
+## Quick Reference
+
+- [Cheat Sheet](cheat-sheet.md) - Quick command reference for common tasks
+
 ## User Guide
 
 The [User Guide](user-guide.md) covers the core concepts and daily operations:

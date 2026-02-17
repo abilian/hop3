@@ -48,6 +48,7 @@ nav = [
     { "Guides" = [
         { "Overview" = "guides/index.md" },
         { "User Guide" = "guides/user-guide.md" },
+        { "Cheat Sheet" = "guides/cheat-sheet.md" },
         { "Backup & Restore" = "guides/backup-restore.md" },
         { "Migration" = [
             { "Migration Guide" = "guides/migration-guide.md" },
@@ -128,6 +129,7 @@ nav = [
         ]},
         { "Testing" = [
             { "Testing Guide" = "developers/testing.md" },
+            { "Testing Cheat Sheet" = "developers/testing-cheat-sheet.md" },
             { "Testing Strategy" = "developers/testing-strategy.md" },
             { "DI Testing" = "developers/di-testing-guide.md" },
             { "Installer Testing" = "developers/installer-testing.md" },
