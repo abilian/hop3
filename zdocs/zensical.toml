@@ -36,22 +36,24 @@ nav = [
     # Tab 2: Get Started
     # -------------------------------------------------------------------------
     { "Get Started" = [
-        { "Installation" = "installation.md" },
-        { "Quick Start" = "quickstart.md" },
-        { "Installer Options" = "installer.md" },
+        { "Overview" = "get-started/index.md" },
+        { "Installation" = "get-started/installation.md" },
+        { "Quick Start" = "get-started/quickstart.md" },
+        { "Installer Options" = "get-started/installer.md" },
     ]},
 
     # -------------------------------------------------------------------------
     # Tab 3: Guides (User-facing documentation)
     # -------------------------------------------------------------------------
     { "Guides" = [
-        { "User Guide" = "guide.md" },
-        { "Backup & Restore" = "backup-restore.md" },
+        { "Overview" = "guides/index.md" },
+        { "User Guide" = "guides/user-guide.md" },
+        { "Backup & Restore" = "guides/backup-restore.md" },
         { "Migration" = [
-            { "Migration Guide" = "migration-guide.md" },
-            { "CLI Migration" = "cli-migration.md" },
+            { "Migration Guide" = "guides/migration-guide.md" },
+            { "CLI Migration" = "guides/cli-migration.md" },
         ]},
-        { "FAQ" = "faq.md" },
+        { "FAQ" = "guides/faq.md" },
     ]},
 
     # -------------------------------------------------------------------------
@@ -115,38 +117,39 @@ nav = [
     # Tab 5: Developers (For Hop3 contributors)
     # -------------------------------------------------------------------------
     { "Developers" = [
-        { "Overview" = "dev/index.md" },
-        { "Getting Started" = "dev/getting-started.md" },
-        { "Contributing" = "dev/contributing.md" },
-        { "Core Values" = "dev/core-values.md" },
+        { "Overview" = "developers/index.md" },
+        { "Getting Started" = "developers/getting-started.md" },
+        { "Contributing" = "developers/contributing.md" },
+        { "Core Values" = "developers/core-values.md" },
         { "Architecture" = [
-            { "Overview" = "dev/architecture.md" },
-            { "Orchestration" = "dev/orchestration.md" },
-            { "Protocol Reference" = "dev/protocol-reference.md" },
+            { "Overview" = "developers/architecture.md" },
+            { "Orchestration" = "developers/orchestration.md" },
+            { "Protocol Reference" = "developers/protocol-reference.md" },
         ]},
         { "Testing" = [
-            { "Testing Guide" = "dev/testing.md" },
-            { "Testing Strategy" = "dev/testing-strategy.md" },
-            { "DI Testing" = "dev/di-testing-guide.md" },
-            { "Installer Testing" = "dev/installer-testing.md" },
+            { "Testing Guide" = "developers/testing.md" },
+            { "Testing Strategy" = "developers/testing-strategy.md" },
+            { "DI Testing" = "developers/di-testing-guide.md" },
+            { "Installer Testing" = "developers/installer-testing.md" },
         ]},
         { "Plugins" = [
-            { "Plugin Development" = "dev/plugin-development.md" },
-            { "Hook Specifications" = "dev/hook-specifications.md" },
-            { "External Plugins" = "dev/external-plugins.md" },
+            { "Plugin Development" = "developers/plugin-development.md" },
+            { "Hook Specifications" = "developers/hook-specifications.md" },
+            { "External Plugins" = "developers/external-plugins.md" },
+            { "Example Plugins" = "developers/examples/plugins/README.md" },
         ]},
         { "Packages" = [
-            { "Overview" = "dev/packages/index.md" },
-            { "hop3-server" = "dev/packages/hop3-server.md" },
-            { "hop3-cli" = "dev/packages/hop3-cli.md" },
-            { "hop3-installer" = "dev/packages/hop3-installer.md" },
-            { "hop3-tui" = "dev/packages/hop3-tui.md" },
-            { "hop3-testing" = "dev/packages/hop3-testing.md" },
+            { "Overview" = "developers/packages/index.md" },
+            { "hop3-server" = "developers/packages/hop3-server.md" },
+            { "hop3-cli" = "developers/packages/hop3-cli.md" },
+            { "hop3-installer" = "developers/packages/hop3-installer.md" },
+            { "hop3-tui" = "developers/packages/hop3-tui.md" },
+            { "hop3-testing" = "developers/packages/hop3-testing.md" },
         ]},
         { "Operations" = [
-            { "Branching Strategy" = "dev/branching-strategy.md" },
-            { "DNS Configuration" = "dev/dns-configuration.md" },
-            { "Governance" = "dev/governance.md" },
+            { "Branching Strategy" = "developers/branching-strategy.md" },
+            { "DNS Configuration" = "developers/dns-configuration.md" },
+            { "Governance" = "developers/governance.md" },
         ]},
     ]},
 
@@ -154,12 +157,13 @@ nav = [
     # Tab 6: Blog
     # -------------------------------------------------------------------------
     { "Blog" = [
-        { "News" = "news/index.md" },
+        { "News" = "blog/index.md" },
         { "Posts" = [
-            { "Project Started" = "news/posts/project-started.md" },
-            { "Documentation Work" = "news/posts/started-work-on-doc.md" },
-            { "Nua 0.5.17" = "news/posts/nua-0.5.17.md" },
-            { "PyConFR 2023" = "news/posts/pyconfr-2023-presentation.md" },
+            { "OW2Con 2025" = "blog/posts/ow2con-2025.md" },
+            { "Project Started" = "blog/posts/project-started.md" },
+            { "Documentation Work" = "blog/posts/started-work-on-doc.md" },
+            { "Nua 0.5.17" = "blog/posts/nua-0.5.17.md" },
+            { "PyConFR 2023" = "blog/posts/pyconfr-2023-presentation.md" },
         ]},
     ]},
 
@@ -167,21 +171,18 @@ nav = [
     # Tab 7: Reference (Lookup / specifications)
     # -------------------------------------------------------------------------
     { "Reference" = [
-        { "CLI Reference" = "cli-reference.md" },
-        { "Configuration" = "hop3-toml-reference.md" },
-        { "Examples" = [
-            { "Plugin Examples" = "examples/plugins/README.md" },
-        ]},
+        { "Overview" = "reference/index.md" },
+        { "CLI Reference" = "reference/cli.md" },
+        { "Configuration" = "reference/config.md" },
         { "Policies" = [
-            { "Overview" = "policies/index.md" },
-            { "Security Policy" = "policies/security-policy.md" },
-            { "Privacy Policy" = "policies/privacy-policy.md" },
-            { "Code of Conduct" = "policies/code-of-conduct.md" },
-            { "Evangelism" = "policies/evangelism.md" },
-            { "Open Source Compliance" = "policies/open-source-compliance.md" },
+            { "Overview" = "reference/policies/index.md" },
+            { "Security Policy" = "reference/policies/security-policy.md" },
+            { "Privacy Policy" = "reference/policies/privacy-policy.md" },
+            { "Code of Conduct" = "reference/policies/code-of-conduct.md" },
+            { "Evangelism" = "reference/policies/evangelism.md" },
+            { "Open Source Compliance" = "reference/policies/open-source-compliance.md" },
         ]},
-        { "Changelog" = "changelog.md" },
-        { "Extra" = "extra.md" },
+        { "Changelog" = "reference/changelog.md" },
     ]},
 ]
 
