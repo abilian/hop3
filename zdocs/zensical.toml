@@ -157,13 +157,19 @@ nav = [
     # Tab 6: Blog
     # -------------------------------------------------------------------------
     { "Blog" = [
-        { "News" = "blog/index.md" },
-        { "Posts" = [
+        { "All Posts" = "blog/index.md" },
+        { "2026" = [
+            { "Hop3 0.4 Released" = "blog/posts/release-0.4.md" },
             { "OW2Con 2025" = "blog/posts/ow2con-2025.md" },
-            { "Project Started" = "blog/posts/project-started.md" },
-            { "Documentation Work" = "blog/posts/started-work-on-doc.md" },
+        ]},
+        { "2025" = [
+            { "OSXP 2025" = "blog/posts/osxp-2025.md" },
             { "Nua 0.5.17" = "blog/posts/nua-0.5.17.md" },
             { "PyConFR 2023" = "blog/posts/pyconfr-2023-presentation.md" },
+        ]},
+        { "Archive" = [
+            { "Documentation Work" = "blog/posts/started-work-on-doc.md" },
+            { "Project Started" = "blog/posts/project-started.md" },
         ]},
     ]},
 
