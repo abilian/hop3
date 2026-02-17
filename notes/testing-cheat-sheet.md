@@ -12,14 +12,13 @@ Quick reference for developers running tests.
 | **App tests (fast)** | `hop3-test apps` |
 | **Lint & type check** | `make lint` |
 
-## New Test Runner (hop3-test)
+## hop3-test CLI
 
-The new unified test runner provides multiple testing modes.
+The unified test runner for Hop3 deployment testing.
 
 ### System Testing (Testing Hop3 Itself)
 
-Tests the full Hop3 system by deploying it first, then running tests.
-**You must specify `--docker` or `--ssh` as the target.**
+Deploys Hop3 using `hop3-deploy`, then runs tests against it.
 
 ```bash
 # Deploy local code to Docker and test
@@ -49,6 +48,9 @@ hop3-test system --ssh
 # Test mode: dev (fast) or ci (more thorough)
 hop3-test system --docker --mode ci
 
+# Keep target running after tests
+hop3-test system --docker --keep
+
 # Generate HTML report
 hop3-test system --docker --report html
 ```
@@ -65,13 +67,13 @@ hop3-test system --docker --report html
 
 ### App Testing (Testing Apps, Not Hop3)
 
-Uses a pre-built Docker image with Hop3 already installed for fast app testing.
+Uses a pre-built Docker image with Hop3 already installed.
 
 ```bash
-# First, build the ready image (one-time, ~5 min)
+# First, build the ready image (one-time)
 hop3-test build-ready-image
 
-# Test all apps (~30s per app)
+# Test all apps
 hop3-test apps
 
 # Test specific app
@@ -101,9 +103,6 @@ hop3-test list --tier fast
 
 # Show test details
 hop3-test show 010-flask-pip-wsgi
-
-# JSON output
-hop3-test list --format json
 ```
 
 ### Package Validation
@@ -128,21 +127,34 @@ hop3-test build-test-image
 hop3-test build-test-image --no-cache
 ```
 
+### Quick Modes
+
+```bash
+# Developer mode (fast P0 tests only)
+hop3-test dev
+
+# CI mode (fast + medium P0 tests)
+hop3-test ci
+
+# Nightly mode (all tiers, all priorities)
+hop3-test nightly
+```
+
 ## Pytest Tests
 
 ### Run by Layer
 
 ```bash
-# Unit tests only (~330 tests, fast)
+# Unit tests (~361 tests, fast)
 uv run pytest packages/hop3-server/tests/a_unit
 
-# Integration tests (~240 tests, medium)
+# Integration tests (~247 tests, medium)
 uv run pytest packages/hop3-server/tests/b_integration
 
-# System tests (~15 tests, needs Docker)
+# System tests (~13 tests, needs Docker)
 uv run pytest packages/hop3-server/tests/c_system
 
-# E2E tests (~15 tests, slow, needs Docker)
+# E2E tests (~17 tests, slow, needs Docker)
 uv run pytest packages/hop3-server/tests/d_e2e
 
 # CLI tests
@@ -246,10 +258,10 @@ open htmlcov/index.html
 
 ```
 packages/hop3-server/tests/
-├── a_unit/          # Fast, isolated tests
-├── b_integration/   # Component interaction tests
-├── c_system/        # Docker-based system tests
-└── d_e2e/           # Full deployment tests (legacy)
+├── a_unit/          # Fast, isolated tests (~361)
+├── b_integration/   # Component interaction tests (~247)
+├── c_system/        # Docker-based system tests (~13)
+└── d_e2e/           # Full deployment tests (~17)
 
 packages/hop3-testing/    # Test framework
 ├── src/hop3_testing/
@@ -264,7 +276,11 @@ apps/test-apps/          # Test applications
 ├── 000-static/
 ├── 010-flask-pip-wsgi/
 ├── 020-nodejs-express/
-└── ...
+├── 030-golang-gin/
+├── 040-sinatra/
+├── 100-flask-gunicorn-pip/
+├── 110-flask-gunicorn-poetry/
+└── 130-golang-minimal/
 ```
 
 ## Test Configuration (test.toml)

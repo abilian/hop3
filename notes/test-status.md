@@ -1,217 +1,131 @@
-# Hop3 - Test Hierarchy & Strategy
+# Hop3 Test Status
 
-**Date**: 2025-11-24
+**Last Updated**: 2026-02-17
 
-## TOC
+## Test Counts
 
-<!-- toc -->
+| Layer | Tests | Status |
+|-------|-------|--------|
+| Unit (`a_unit/`) | 361 | Passing |
+| Integration (`b_integration/`) | 247 | Passing |
+| System (`c_system/`) | 13 | Passing |
+| E2E (`d_e2e/`) | 17 | 7 passing, 1 skipped |
+| **Total** | **638** | |
 
-- [Current Test Structure](#current-test-structure)
-- [Test Pyramid (Bottom to Top)](#test-pyramid-bottom-to-top)
-  * [Layer 1: Unit Tests (`a_unit/`)](#layer-1-unit-tests-a_unit)
-  * [Layer 2: Integration Tests (`b_integration/`)](#layer-2-integration-tests-b_integration)
-  * [Layer 3: System Tests (`c_system/`)](#layer-3-system-tests-c_system)
-  * [Layer 4: E2E Tests (`d_e2e/`)](#layer-4-e2e-tests-d_e2e)
-- [Test Execution Times](#test-execution-times)
-- [What's Needed](#whats-needed)
-- [Recent Improvements](#recent-improvements)
-- [Next Steps (Testing)](#next-steps-testing)
-
-<!-- tocstop -->
-
-## Current Test Structure
+## Test Structure
 
 ```
 packages/hop3-server/tests/
-├── a_unit/              # Layer 1: Unit Tests
-├── b_integration/       # Layer 2: Integration Tests
-├── c_system/            # Layer 3: System Tests
-└── d_e2e/               # Layer 4: End-to-End Tests
+├── a_unit/              # Layer 1: Unit Tests (~361 tests)
+├── b_integration/       # Layer 2: Integration Tests (~247 tests)
+├── c_system/            # Layer 3: System Tests (~13 tests)
+└── d_e2e/               # Layer 4: End-to-End Tests (~17 tests)
 ```
 
-## Test Pyramid (Bottom to Top)
+## Test Pyramid
 
 ### Layer 1: Unit Tests (`a_unit/`)
+
 **Purpose**: Test individual functions and classes in isolation
 
-**Current Status**: ✅ Working
-- Fast execution (< 1 second)
+**Status**: Passing (361 tests)
+- Fast execution (< 1 second total)
 - No external dependencies
-- Mock databases, file systems, external services
-- Test business logic in isolation
+- Good coverage of commands, ORM, plugins
 
 **Coverage**:
-- Commands (admin, auth, config, help, git hooks, services)
+- Commands (admin, auth, config, services, git hooks)
 - Core functionality (app config, hop3 config)
-- Individual components
-
-**What's Working**:
-- All unit tests pass
-- Good coverage of command logic
-- Proper mocking and isolation
-
-**What's Missing**:
-- Some newer features may lack unit test coverage
-- Could expand coverage of utility modules
+- ORM models
+- Plugin implementations
+- uWSGI settings
 
 ### Layer 2: Integration Tests (`b_integration/`)
-**Purpose**: Test multiple components working together within subsystems
 
-**Current Status**: ✅ Working
+**Purpose**: Test multiple components working together
+
+**Status**: Passing (247 tests)
 - Medium execution time (~10 seconds)
 - Uses real database (in-memory SQLite)
-- No external network dependencies
-- Tests component interactions
+- Uses Litestar TestClient
 
 **Coverage**:
-- Auth commands end-to-end (register, login, whoami, logout)
+- Auth commands (register, login, whoami, logout)
 - RPC endpoint security (token validation, tampering, injection)
 - Command authentication and authorization
-- Database operations
-
-**What's Working**:
-- 121+ tests passing (94.5% pass rate)
-- Comprehensive auth command testing
-- Excellent security testing (token tampering, injection attacks)
-- RPC authentication flow
-- Dashboard views testing (40/40 tests passing)
-
-**What's Missing**:
-- Deployment command integration tests
-- Full app lifecycle integration tests
-- Database migration testing
-
-**Known Limitations**:
-- None (previously 2 tests were skipped due to Starlette limitations, now fixed with Litestar migration)
+- Dashboard views (app management, service management)
+- Service credential management
 
 ### Layer 3: System Tests (`c_system/`)
-**Purpose**: Test the full application with real dependencies in Docker
 
-**Current Status**: ✅ Working
-- Medium execution time (~20 seconds after image build)
-- Uses Docker containers (hop3-e2e:test image)
-- Real hop3-server running in container
-- HTTP-based CLI communication
-- **HOP3_UNSAFE=true** bypasses authentication in Docker (test-only, never use in production)
+**Purpose**: Test full CLI-server communication in Docker
+
+**Status**: Passing (13 tests)
+- Requires Docker
+- Uses `HOP3_UNSAFE=true` for auth bypass in tests
+- Tests real HTTP communication
 
 **Coverage**:
 - CLI availability and basic functionality
-- Authentication commands (register, login)
-- App deployment via tarball
-- App lifecycle (deploy, list, destroy)
-- Git hook deployment
-
-**What's Working**:
-- 14 tests passing with Docker
-- Isolated test environment
-- Consistent with d_e2e infrastructure
-- No dependency on remote servers
-- Authentication bypass for simplified testing
-
-**What's Missing**:
-- Full deployment workflow tests
-- Process management tests
-- Environment variable management tests
-- Service attachment tests (PostgreSQL, Redis)
-
-**Note**: 5 tests are "remote server diagnostics" that only run when `HOP3_DEV_HOST` is set - these are for testing actual remote deployments, not part of standard test suite.
+- Dashboard app creation/management
+- Authentication flows
 
 ### Layer 4: E2E Tests (`d_e2e/`)
-**Purpose**: Test complete workflows in production-like Docker environment
 
-**Current Status**: ⚠️ Partially Working
-- Slow execution time (2-10 minutes, includes image build)
-- Docker containers with supervisor (not systemd)
-- Full hop3 stack (server, SSH, HTTP, apps)
-- Real deployment workflows
-- **HOP3_UNSAFE=true** configured in Dockerfile for authentication-free testing
+**Purpose**: Test complete deployment workflows
 
-**Coverage**:
-- Python Flask app deployment
-- Full deployment lifecycle
-- HTTP endpoint verification
-- Git hook deployment
-- Security tests
+**Status**: 7 passing, 1 skipped
+- Slow execution (10-20 minutes)
+- Full Hop3 stack in Docker
+- Real application deployments
 
-**What's Working**:
-- Docker infrastructure (image builds, containers start)
-- Basic Flask app deployment
-- Container lifecycle management
-
-**What's NOT Working** (from background processes):
-- Test `test_deploy_simple_flask_app` appears to be hanging/failing
-- Need to investigate background bash outputs to see what's failing
-
-**What's Missing**:
-- Multi-process app tests (web + worker)
-- Different app types (Node.js, Go, etc.)
-- Environment variable injection tests
-- Domain/routing tests
-- SSL/HTTPS tests
-- Performance/load tests
+**Test Apps**:
+| App | Status |
+|-----|--------|
+| 000-static | Passing |
+| 010-flask-pip-wsgi | Passing |
+| 020-nodejs-express | Passing |
+| 030-golang-gin | Passing |
+| 040-sinatra | Passing |
+| 100-flask-gunicorn-pip | Passing |
+| 110-flask-gunicorn-poetry | Skipped (under investigation) |
+| 130-golang-minimal | Passing |
 
 ## Test Execution Times
 
-| Layer | Time | Use Case |
-|-------|------|----------|
-| Unit | < 1s | During development (every save) |
+| Layer | Time | When to Run |
+|-------|------|-------------|
+| Unit | < 5s | During development |
 | Integration | ~10s | Before commits |
-| System | ~20s | Before push |
-| E2E | 2-10min | CI/CD, before release |
+| System | ~30s | Before push |
+| E2E | 10-20 min | CI/CD, before release |
 
-## What's Needed
+## Quick Commands
 
-1. **Expand c_system coverage**:
-   - Add tests for all deployment scenarios
-   - Test process management (start/stop/restart)
-   - Test config management (set/unset env vars)
-   - Test service integration (PostgreSQL, Redis)
+```bash
+# All fast tests
+make test
 
-2. **Fix and expand d_e2e tests**:
-   - Debug failing Flask deployment test
-   - Add multi-process app tests
-   - Add different runtime tests (Node.js, etc.)
-   - Add scaling tests
+# Full CI suite
+make test-ci
 
-3. **Add missing test types**:
-   - Performance tests (load testing, resource usage)
-   - Chaos tests (process crashes, network failures)
-   - Security tests (privilege escalation, container escape)
-   - Upgrade/migration tests
+# Individual layers
+uv run pytest packages/hop3-server/tests/a_unit
+uv run pytest packages/hop3-server/tests/b_integration
+uv run pytest packages/hop3-server/tests/c_system
+uv run pytest packages/hop3-server/tests/d_e2e
+```
 
-4. **CI/CD Integration**:
-   - Ensure tests run in correct order (fast → slow)
-   - Fail fast on unit/integration failures
-   - Parallel test execution where possible
-   - Test result reporting and coverage tracking
+## Known Issues
 
-## Recent Improvements
+1. **Poetry test app** (`110-flask-gunicorn-poetry`): 502 Bad Gateway with `pip install .`. Gunicorn starts but fails to find app module. Under investigation.
 
-✅ **Completed** (November 2025):
-1. **Litestar Phase 2 Migration** (2025-11-24): Complete migration from Starlette to pure Litestar
-   - Guard-based authentication (replaced Starlette middleware)
-   - Native session management (ServerSideSessionConfig)
-   - Clean 404 logging (no tracebacks)
-   - Favicon serving via static files
-   - Fixed previously skipped integration tests
-2. **HOP3_UNSAFE Mode** (October 2025): Added test-only authentication bypass for Docker environments with clear security warnings
-3. **System Test Updates** (October 2025): Updated fixtures to handle authentication bypass and new CLI token auto-save format
-4. **Test Counts**: 193 unit tests, 121/128 integration tests (94.5%), 14 system tests, 40/40 dashboard tests passing
+2. **MySQL SSL with Rails**: Deferred. Demo44 (Rails) switched to PostgreSQL.
 
-## Next Steps (Testing)
+## Recent Improvements (2026)
 
-**Immediate**:
-1. 🔄 Debug d_e2e Flask deployment test (check background processes)
-2. Add more c_system tests for deployment scenarios
-
-**Short Term**:
-1. Expand c_system test coverage (process management, config, services)
-2. Fix all d_e2e tests
-3. Add multi-process app e2e tests
-4. Document testing strategy in docs/
-
-**Medium Term**:
-1. Add performance tests
-2. Add chaos engineering tests
-3. Improve test execution speed
-4. Set up proper CI/CD with test stages
+- **Health check system** (2026-02-17): Plugin-based health checks for MySQL, PostgreSQL, Redis
+- **`hop3 system:check` command** (2026-02-17): Comprehensive server health validation
+- **ENV file ORM storage** (2026-02-16): Fixed HOST_NAME not stored during deployment
+- **PYTHONPATH for src-layout** (2026-02-16): Auto-detect src/ directory for Python apps
+- **Improved error messages** (2026-02-16): HTTP test failures now include response details
