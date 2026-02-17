@@ -12,7 +12,7 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
 | **T2: Nix Runtime** | Q1 2026 | Q1 2026 | Not Started |
 | **T3: Security & Resilience** | Q4 2025 | Q1 2026 | 6/8 Complete (75%) |
 | **T4: Packaged Applications** | Q4 2025 | Q1 2026 | 0/20 Complete (0%) |
-| **T5: Dissemination & Engagement** | Q4 2025 | Q1 2026 | 2/5 Complete (40%) |
+| **T5: Dissemination & Engagement** | Q4 2025 | Q1 2026 | 3/5 Complete (60%) |
 
 **Note:** Non-Nix items (T3, T4, T5) were not completed in Q4 2025 and are now being completed in Q1 2026. See `local-notes/PLAN-2026-Q1.md` for detailed schedule.
 
@@ -190,7 +190,7 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
 ## T5: Dissemination & Engagement
 
 **Target:** Q1 2026 (carried from Q4 2025)
-**Status:** 2/5 complete (40%)
+**Status:** 3/5 complete (60%)
 
 **Objective:** To promote the Hop3 open-source platform to ensure its adoption and build a community around it.
 
@@ -198,21 +198,25 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
 
 * **M5.1 Website, blog:** ⚠️ **IN PROGRESS**
   - [x] Basic website exists (hop3.cloud)
+  - [x] Blog with release announcements and conference talks (2026-02-17)
+    - Release 0.4 announcement
+    - OW2Con 2025 (video + slides)
+    - OSXP 2025 (video + slides)
   - [ ] Enriched website with feature showcase
-  - [ ] Regular blog posts (at least 2-3 posts)
   - [ ] Application showcase gallery
-  - [ ] Production deployment verified
+  - [ ] Production deployment of new site
 
-* **M5.2 Documentation:** ⚠️ **IN PROGRESS**
-  - [x] Basic developer documentation (docs/src/dev/)
-  - [x] Installation guide
-  - [x] Quickstart guide
-  - [x] Testing documentation (docs/src/dev/testing*.md)
-  - [ ] Administrator manual (complete)
-  - [ ] End-user tutorials
-  - [ ] hop3.toml reference (complete with all sections)
-  - [ ] Troubleshooting guide
-  - [ ] Production verification
+* **M5.2 Documentation:** ✅ **COMPLETED** (2026-02-17)
+  - [x] New documentation site with Zensical (`zdocs/`)
+  - [x] 7-tab navigation: Home, Get Started, Guides, Tutorials, Developers, Blog, Reference
+  - [x] 33 end-user tutorials across 9 languages (Python, JS, Go, Ruby, Rust, Java, PHP, Elixir, .NET)
+  - [x] Developer documentation (architecture, testing, plugins, packages)
+  - [x] CLI cheat sheet and testing cheat sheet
+  - [x] Installation guide, quickstart guide
+  - [x] hop3.toml configuration reference
+  - [x] Index pages for all major sections
+  - [x] Tutorial conversion pipeline (test syntax → standard markdown)
+  - [ ] Deploy to hop3.cloud (pending)
 
 * **M5.3 Technical report and/or research paper:** ⏳ **NOT STARTED**
   - [ ] Draft technical report
