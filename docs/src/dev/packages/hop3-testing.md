@@ -1,1 +1,0 @@
-../../../../packages/hop3-testing/docs/internals.md

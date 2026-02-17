@@ -1,42 +1,28 @@
-# Copyright (c) 2025, Abilian SAS
-#
-# SPDX-License-Identifier: Apache-2.0
+# Hop3 Documentation - Zensical Build
 
-.PHONY: serve build deploy clean
+ZENSICAL := ../sandbox/zensical/.venv/bin/zensical
+PYTHON := python3
 
-# Detect Material Insiders and export env var if available
-MATERIAL_INSIDERS := $(shell python3 -c "from importlib.metadata import version; v=version('mkdocs-material'); exit(0 if '+insiders' in v else 1)" 2>/dev/null && echo "true" || echo "false")
+.PHONY: help build serve clean convert-tutorials
 
-export MATERIAL_INSIDERS
+help:
+	@echo "Hop3 Documentation (Zensical)"
+	@echo ""
+	@echo "Commands:"
+	@echo "  make build             - Build the documentation site"
+	@echo "  make serve             - Start local development server"
+	@echo "  make clean             - Remove generated files"
+	@echo "  make convert-tutorials - Convert tutorials from source format"
+	@echo ""
 
-## Serve documentation (localhost:8000)
-serve:
-	@echo "--> Serving documentation on http://127.0.0.1:8000"
-ifeq ($(MATERIAL_INSIDERS),true)
-	@echo "Using Material for MkDocs Insiders"
-endif
-	mkdocs serve -f mkdocs.yml
+convert-tutorials:
+	$(PYTHON) scripts/convert_tutorials.py
 
-## Build documentation
-build:
-	@echo "--> Building documentation"
-ifeq ($(MATERIAL_INSIDERS),true)
-	@echo "Using Material for MkDocs Insiders"
-endif
-	mkdocs build -f mkdocs.yml
+build: convert-tutorials
+	$(ZENSICAL) build
 
-## Deploy documentation to GitHub Pages
-deploy:
-	@echo "--> Deploying documentation to GitHub Pages"
-ifeq ($(MATERIAL_INSIDERS),true)
-	@echo "Using Material for MkDocs Insiders"
-	DEPLOY=true mkdocs gh-deploy -f mkdocs.yml
-else
-	@echo "ERROR: Not deploying docs without Material for MkDocs Insiders!"
-	@exit 1
-endif
+serve: convert-tutorials
+	$(ZENSICAL) serve --open
 
-## Clean built documentation
 clean:
-	@echo "--> Cleaning built documentation"
-	rm -rf site
+	rm -rf site/ docs/tutorials/

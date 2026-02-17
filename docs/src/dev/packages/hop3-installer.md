@@ -1,1 +1,0 @@
-../../../../packages/hop3-installer/docs/internals.md
