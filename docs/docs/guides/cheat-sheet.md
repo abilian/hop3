@@ -142,13 +142,13 @@ hop3 addons:list
 hop3 addons:create postgres my-db
 
 # Attach to app (injects DATABASE_URL, etc.)
-hop3 addons:attach <app> my-db
+hop3 addons:attach my-db --app <app>
 
 # Detach from app
-hop3 addons:detach <app> my-db
+hop3 addons:detach my-db --app <app>
 
-# Check addon status
-hop3 addons:status my-db
+# Check addon info
+hop3 addons:info my-db
 
 # Destroy addon
 hop3 addons:destroy my-db
@@ -364,7 +364,7 @@ hop3 app:restart myapp
 hop3 addons:create postgres myapp-db
 
 # 2. Attach to app (sets DATABASE_URL)
-hop3 addons:attach myapp myapp-db
+hop3 addons:attach myapp-db --app myapp
 
 # 3. Restart to pick up new env var
 hop3 app:restart myapp
