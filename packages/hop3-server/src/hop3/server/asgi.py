@@ -30,6 +30,7 @@ from .controllers import (
     RPCController,
     StreamController,
 )
+from .health import verify_addon_health
 from .state_sync import start_state_sync_service, stop_state_sync_service
 
 DEBUG = True
@@ -70,6 +71,10 @@ def handle_401(request: Request, exc: NotAuthorizedException) -> Redirect:
 
 def on_startup() -> None:
     """Start background services when server starts."""
+    # Verify addon health (MySQL, PostgreSQL, Redis)
+    # Logs warnings if configured services are not accessible
+    verify_addon_health()
+
     session_factory = get_session_factory()
     start_state_sync_service(session_factory)
 

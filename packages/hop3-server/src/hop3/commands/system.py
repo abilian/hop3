@@ -7,9 +7,12 @@
 from __future__ import annotations
 
 import importlib.metadata
+import os
 import pathlib
 import platform
+import pwd
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -19,6 +22,11 @@ from hop3.config import HOP3_ROOT
 from hop3.core.plugins import get_plugin_manager
 from hop3.lib.logging import DEFAULT_LOG_FILE
 from hop3.lib.registry import register
+from hop3.server.health import (
+    check_mysql_health,
+    check_postgres_health,
+    check_redis_health,
+)
 
 from ._base import Command
 
@@ -28,6 +36,352 @@ class SystemCmd(Command):
     """Manage the hop3 system."""
 
     name: ClassVar[str] = "system"
+
+
+@register
+class CheckCmd(Command):
+    """Run comprehensive health checks on the Hop3 server.
+
+    This command verifies that all server components are properly configured
+    and operational. Use this to diagnose issues before deploying applications.
+
+    Checks performed:
+        - Core services (hop3-server, nginx, uwsgi-hop3)
+        - Database addons (PostgreSQL, MySQL) if configured
+        - Redis connectivity if installed
+        - Filesystem permissions and directories
+        - Configuration file validity
+        - SSL certificates
+        - Disk space
+
+    Usage: hop3 system:check [options]
+
+    Options:
+        --verbose, -v    Show detailed output for each check
+
+    Examples:
+        hop3 system:check              # Run all health checks
+        hop3 system:check --verbose    # Detailed output
+    """
+
+    name: ClassVar[str] = "system:check"
+
+    def call(self, *args, **kwargs):
+        verbose = "--verbose" in args or "-v" in args
+
+        results = []
+        all_passed = True
+
+        # Header
+        results.append("Hop3 System Health Check")
+        results.append("=" * 50)
+        results.append("")
+
+        # 1. Core services
+        services_ok, services_output = self._check_services(verbose)
+        results.extend(services_output)
+        all_passed = all_passed and services_ok
+
+        # 2. Database addons
+        db_ok, db_output = self._check_databases(verbose)
+        results.extend(db_output)
+        all_passed = all_passed and db_ok
+
+        # 3. Filesystem
+        fs_ok, fs_output = self._check_filesystem(verbose)
+        results.extend(fs_output)
+        all_passed = all_passed and fs_ok
+
+        # 4. Configuration
+        config_ok, config_output = self._check_configuration(verbose)
+        results.extend(config_output)
+        all_passed = all_passed and config_ok
+
+        # 5. SSL certificates
+        ssl_ok, ssl_output = self._check_ssl(verbose)
+        results.extend(ssl_output)
+        all_passed = all_passed and ssl_ok
+
+        # 6. Disk space
+        disk_ok, disk_output = self._check_disk_space(verbose)
+        results.extend(disk_output)
+        all_passed = all_passed and disk_ok
+
+        # 7. Docker (if available)
+        _docker_ok, docker_output = self._check_docker(verbose)
+        results.extend(docker_output)
+        # Docker is optional, don't affect overall status
+
+        # Summary
+        results.append("")
+        results.append("=" * 50)
+        if all_passed:
+            results.append("✓ All checks passed")
+        else:
+            results.append("✗ Some checks failed - review output above")
+
+        return [{"t": "text", "text": "\n".join(results)}]
+
+    def _check_services(self, verbose: bool) -> tuple[bool, list[str]]:
+        """Check core system services."""
+        lines = ["Services", "-" * 30]
+        all_ok = True
+
+        services = [
+            ("hop3-server", "Hop3 Server"),
+            ("nginx", "Nginx"),
+            ("uwsgi-hop3", "uWSGI Emperor"),
+        ]
+
+        for service_name, display_name in services:
+            result = subprocess.run(
+                ["systemctl", "is-active", service_name],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            is_active = result.stdout.strip() == "active"
+
+            if is_active:
+                lines.append(f"  ✓ {display_name}: running")
+            else:
+                lines.append(f"  ✗ {display_name}: not running")
+                all_ok = False
+                if verbose:
+                    # Get more details
+                    status_result = subprocess.run(
+                        ["systemctl", "status", service_name, "--no-pager", "-l"],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    # Show last few lines
+                    status_lines = status_result.stdout.strip().split("\n")[-5:]
+                    for sl in status_lines:
+                        lines.append(f"      {sl}")
+
+        lines.append("")
+        return all_ok, lines
+
+    def _check_databases(self, verbose: bool) -> tuple[bool, list[str]]:
+        """Check database addon connectivity."""
+        lines = ["Database Addons", "-" * 30]
+        all_ok = True
+
+        # PostgreSQL
+        pg_ok = check_postgres_health()
+        if pg_ok:
+            lines.append("  ✓ PostgreSQL: OK")
+        else:
+            lines.append("  ✗ PostgreSQL: connection failed")
+            all_ok = False
+            if verbose:
+                lines.append("      Check POSTGRES_SUPERUSER_PASSWORD in hop3-server.toml")
+                lines.append("      Verify PostgreSQL service: systemctl status postgresql")
+
+        # MySQL
+        mysql_ok = check_mysql_health()
+        if mysql_ok:
+            lines.append("  ✓ MySQL: OK")
+        else:
+            lines.append("  ✗ MySQL: connection failed")
+            all_ok = False
+            if verbose:
+                lines.append("      Check MYSQL_SUPERUSER_PASSWORD in hop3-server.toml")
+                lines.append("      Verify MySQL service: systemctl status mysql")
+
+        # Redis
+        redis_ok = check_redis_health()
+        if redis_ok:
+            lines.append("  ✓ Redis: OK")
+        else:
+            lines.append("  ✗ Redis: not accessible")
+            # Redis is optional, don't fail overall check
+            if verbose:
+                lines.append("      Verify Redis service: systemctl status redis-server")
+
+        lines.append("")
+        return all_ok, lines
+
+    def _check_filesystem(self, verbose: bool) -> tuple[bool, list[str]]:
+        """Check filesystem permissions and directories."""
+        lines = ["Filesystem", "-" * 30]
+        all_ok = True
+
+        required_dirs = [
+            (HOP3_ROOT, "HOP3_ROOT"),
+            (HOP3_ROOT / "apps", "Apps directory"),
+            (HOP3_ROOT / "nginx", "Nginx config"),
+            (HOP3_ROOT / "uwsgi-available", "uWSGI available"),
+            (HOP3_ROOT / "uwsgi-enabled", "uWSGI enabled"),
+        ]
+
+        for path, name in required_dirs:
+            if path.exists():
+                # Check if writable
+                if os.access(path, os.W_OK):
+                    lines.append(f"  ✓ {name}: exists, writable")
+                else:
+                    lines.append(f"  ✗ {name}: exists but not writable")
+                    all_ok = False
+            else:
+                lines.append(f"  ✗ {name}: missing ({path})")
+                all_ok = False
+
+        # Check hop3 user exists
+        try:
+            pwd.getpwnam("hop3")
+            lines.append("  ✓ hop3 user: exists")
+        except KeyError:
+            lines.append("  ✗ hop3 user: not found")
+            all_ok = False
+
+        lines.append("")
+        return all_ok, lines
+
+    def _check_configuration(self, verbose: bool) -> tuple[bool, list[str]]:
+        """Check configuration file validity."""
+        lines = ["Configuration", "-" * 30]
+        all_ok = True
+
+        config_file = HOP3_ROOT / "hop3-server.toml"
+
+        if config_file.exists():
+            lines.append(f"  ✓ Config file: {config_file}")
+
+            # Check for required settings
+            try:
+                content = config_file.read_text()
+
+                if "HOP3_SECRET_KEY" in content:
+                    lines.append("  ✓ HOP3_SECRET_KEY: configured")
+                else:
+                    lines.append("  ✗ HOP3_SECRET_KEY: missing (required for auth)")
+                    all_ok = False
+
+                # Check database configs (informational)
+                if verbose:
+                    has_pg = "POSTGRES_SUPERUSER_PASSWORD" in content
+                    has_mysql = "MYSQL_SUPERUSER_PASSWORD" in content
+                    lines.append(f"      PostgreSQL addon: {'configured' if has_pg else 'not configured'}")
+                    lines.append(f"      MySQL addon: {'configured' if has_mysql else 'not configured'}")
+
+            except Exception as e:
+                lines.append(f"  ✗ Config file read error: {e}")
+                all_ok = False
+        else:
+            lines.append(f"  ✗ Config file: missing ({config_file})")
+            all_ok = False
+
+        lines.append("")
+        return all_ok, lines
+
+    def _check_ssl(self, verbose: bool) -> tuple[bool, list[str]]:
+        """Check SSL certificate configuration."""
+        lines = ["SSL Certificates", "-" * 30]
+        all_ok = True
+
+        ssl_cert = HOP3_ROOT / "nginx" / "ssl" / "hop3.crt"
+        ssl_key = HOP3_ROOT / "nginx" / "ssl" / "hop3.key"
+
+        if ssl_cert.exists() and ssl_key.exists():
+            lines.append("  ✓ SSL certificate: configured")
+
+            if verbose:
+                # Check certificate expiry using openssl
+                result = subprocess.run(
+                    ["openssl", "x509", "-in", str(ssl_cert), "-noout", "-enddate"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if result.returncode == 0:
+                    lines.append(f"      {result.stdout.strip()}")
+        else:
+            lines.append("  ⚠ SSL certificate: not configured (using self-signed)")
+            # This is a warning, not a failure
+            if verbose:
+                lines.append("      Apps will work but browsers will show security warnings")
+
+        lines.append("")
+        return all_ok, lines
+
+    def _check_disk_space(self, verbose: bool) -> tuple[bool, list[str]]:
+        """Check available disk space."""
+        lines = ["Disk Space", "-" * 30]
+        all_ok = True
+
+        try:
+            usage = shutil.disk_usage(HOP3_ROOT)
+            total_gb = usage.total / (1024**3)
+            used_gb = usage.used / (1024**3)
+            free_gb = usage.free / (1024**3)
+            percent_used = (usage.used / usage.total) * 100
+
+            if percent_used > 90:
+                lines.append(f"  ✗ Disk usage: {percent_used:.1f}% (critical)")
+                all_ok = False
+            elif percent_used > 80:
+                lines.append(f"  ⚠ Disk usage: {percent_used:.1f}% (warning)")
+            else:
+                lines.append(f"  ✓ Disk usage: {percent_used:.1f}%")
+
+            if verbose:
+                lines.append(f"      Total: {total_gb:.1f} GB")
+                lines.append(f"      Used: {used_gb:.1f} GB")
+                lines.append(f"      Free: {free_gb:.1f} GB")
+
+        except Exception as e:
+            lines.append(f"  ✗ Disk check failed: {e}")
+            all_ok = False
+
+        lines.append("")
+        return all_ok, lines
+
+    def _check_docker(self, verbose: bool) -> tuple[bool, list[str]]:
+        """Check Docker availability (optional)."""
+        lines = ["Docker (optional)", "-" * 30]
+
+        try:
+            result = subprocess.run(
+                ["docker", "version", "--format", "{{.Server.Version}}"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                version = result.stdout.strip()
+                lines.append(f"  ✓ Docker: {version}")
+
+                if verbose:
+                    # Check Docker networks
+                    net_result = subprocess.run(
+                        ["docker", "network", "ls", "-q"],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    net_count = len(net_result.stdout.strip().split("\n"))
+                    lines.append(f"      Networks: {net_count}")
+
+                    # Check running containers
+                    cont_result = subprocess.run(
+                        ["docker", "ps", "-q"],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    containers = cont_result.stdout.strip().split("\n")
+                    cont_count = len([c for c in containers if c])
+                    lines.append(f"      Running containers: {cont_count}")
+            else:
+                lines.append("  - Docker: not available")
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            lines.append("  - Docker: not installed")
+
+        lines.append("")
+        return True, lines  # Docker is optional, always return True
 
 
 @register
