@@ -89,7 +89,7 @@ class GitHookCmd(Command):
             self._extract_commit_to_source(app, new_sha)
 
             # Trigger deployment using the unified deployment engine
-            do_deploy(app)
+            do_deploy(app, db_session=self.db_session)
 
             # Persist changes to database (run_state, image_tag, port, etc.)
             self.db_session.commit()

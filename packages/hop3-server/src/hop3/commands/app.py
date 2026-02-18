@@ -205,7 +205,7 @@ class DeployCmd(Command):
             try:
                 with stream_context(stream):
                     with command_context("deploying app", app_name=app_name):
-                        do_deploy(app)
+                        do_deploy(app, db_session=self.db_session)
                         app.last_deployed_at = datetime.now(UTC)
                         self.db_session.commit()
                 stream.finish(success=True)
@@ -230,7 +230,7 @@ class DeployCmd(Command):
                 # - Converts subprocess errors to user-friendly messages
                 # - Re-raises as ValueError for JSON-RPC error response
                 with command_context("deploying app", app_name=app_name):
-                    do_deploy(app)
+                    do_deploy(app, db_session=self.db_session)
                     # Record deployment timestamp and commit state changes
                     app.last_deployed_at = datetime.now(UTC)
                     self.db_session.commit()

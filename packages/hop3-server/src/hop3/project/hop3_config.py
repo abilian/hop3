@@ -273,12 +273,42 @@ class Hop3Config:
         return int(port) if port is not None else None
 
     # =========================================================================
-    # [[provider]] section
+    # [[addons]] section (backing services)
+    # =========================================================================
+
+    @property
+    def addons(self) -> list[dict[str, Any]]:
+        """Get the [[addons]] sections (backing service dependencies).
+
+        Also checks [[provider]] for backwards compatibility.
+
+        Returns:
+            List of addon definitions, each with at least a 'type' key
+        """
+        # Check both names for backwards compatibility
+        addons = self._data.get("addons", [])
+        if not addons:
+            addons = self._data.get("provider", [])
+        return addons
+
+    def get_addon_types(self) -> list[str]:
+        """Get list of addon types required by this app.
+
+        Returns:
+            List of addon type names (e.g., ['postgres', 'redis'])
+        """
+        return [addon.get("type") for addon in self.addons if addon.get("type")]
+
+    # =========================================================================
+    # [[provider]] section (deprecated, use [[addons]])
     # =========================================================================
 
     @property
     def providers(self) -> list[dict[str, Any]]:
-        """Get the [[provider]] sections (list of service providers)."""
+        """Get the [[provider]] sections (list of service providers).
+
+        Deprecated: Use `addons` property instead.
+        """
         return self._data.get("provider", [])
 
     # =========================================================================
@@ -310,7 +340,8 @@ class Hop3Config:
             "env": self.env,
             "port": self.port,
             "docker": self.docker,
-            "providers": self.providers,
+            "addons": self.addons,
+            "providers": self.providers,  # Deprecated, kept for compatibility
             "workers": self.get_workers_from_run_section(),
         }
 
