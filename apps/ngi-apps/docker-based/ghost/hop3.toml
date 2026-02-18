@@ -1,0 +1,22 @@
+# Hop3 Configuration for Ghost (Docker-based)
+# Dockerfile handles build and runtime; hop3.toml defines metadata and dependencies
+
+[metadata]
+id = "ghost"
+version = "5.x"
+title = "Ghost"
+description = "Professional publishing platform for modern media creators"
+homepage = "https://ghost.org/"
+license = "MIT"
+categories = ["blog", "cms", "publishing"]
+
+# Database addon - automatically provisioned by hop3 deploy
+[[addons]]
+type = "mysql"
+
+# Environment variables injected at deploy time
+[env]
+NODE_ENV = "production"
+
+[healthcheck]
+path = "/ghost/api/admin/site/"

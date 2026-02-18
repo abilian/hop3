@@ -1,0 +1,17 @@
+#!/bin/bash
+# Ghost setup script for Hop3
+set -e
+
+# Generate config from template
+if [ -f config.production.json.template ]; then
+    envsubst < config.production.json.template > config.production.json
+fi
+
+# Run database migrations
+if [ -f current/index.js ]; then
+    cd current
+    NODE_ENV=production node index.js --migrate
+    cd ..
+fi
+
+echo "Ghost setup complete"

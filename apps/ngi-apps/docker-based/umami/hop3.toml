@@ -1,0 +1,20 @@
+# Hop3 Configuration for Umami (Docker-based)
+# Simple, fast, privacy-focused web analytics
+
+[metadata]
+id = "umami"
+version = "2.x"
+title = "Umami"
+description = "Simple, fast, privacy-focused web analytics"
+homepage = "https://umami.is/"
+license = "MIT"
+categories = ["analytics", "privacy", "web"]
+
+[[addons]]
+type = "postgres"
+
+[env]
+DISABLE_TELEMETRY = "1"
+
+[healthcheck]
+path = "/api/heartbeat"

@@ -1,0 +1,20 @@
+# Hop3 Configuration for Kanboard (Docker-based)
+# Kanban project management software
+
+[metadata]
+id = "kanboard"
+version = "1.2"
+title = "Kanboard"
+description = "Kanban project management software"
+homepage = "https://kanboard.org/"
+license = "MIT"
+categories = ["project-management", "kanban", "productivity"]
+
+[[addons]]
+type = "mysql"
+
+[env]
+DEBUG = "false"
+
+[healthcheck]
+path = "/"

@@ -1,0 +1,20 @@
+# Hop3 Configuration for Focalboard (Docker-based)
+# Open source project management for technical teams
+
+[metadata]
+id = "focalboard"
+version = "7.x"
+title = "Focalboard"
+description = "Open source project management for technical teams"
+homepage = "https://www.focalboard.com/"
+license = "MIT"
+categories = ["project-management", "kanban", "productivity"]
+
+[[addons]]
+type = "postgres"
+
+[env]
+FOCALBOARD_SINGLE_USER = "true"
+
+[healthcheck]
+path = "/api/v2/health"

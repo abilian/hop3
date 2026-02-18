@@ -1,0 +1,22 @@
+# Hop3 Configuration for Gitea (Docker-based)
+# Dockerfile handles build and runtime; hop3.toml defines metadata and dependencies
+
+[metadata]
+id = "gitea"
+version = "1.21"
+title = "Gitea"
+description = "A painless self-hosted Git service"
+homepage = "https://gitea.io/"
+license = "MIT"
+categories = ["git", "devops", "collaboration"]
+
+# Database addon - automatically provisioned by hop3 deploy
+[[addons]]
+type = "postgres"
+
+# Environment variables injected at deploy time
+[env]
+GITEA__log__LEVEL = "Info"
+
+[healthcheck]
+path = "/api/healthz"

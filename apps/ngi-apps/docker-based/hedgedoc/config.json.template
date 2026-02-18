@@ -1,0 +1,7 @@
+{
+  "production": {
+    "db": {
+      "dialect": "postgres"
+    }
+  }
+}
