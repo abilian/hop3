@@ -1,0 +1,21 @@
+# Hop3 Configuration for Etherpad (Docker-based)
+# Real-time collaborative document editing
+
+[metadata]
+id = "etherpad"
+version = "2.x"
+title = "Etherpad"
+description = "Real-time collaborative document editing"
+homepage = "https://etherpad.org/"
+license = "Apache-2.0"
+categories = ["collaboration", "editor", "real-time"]
+
+# Etherpad can use SQLite by default, but optionally PostgreSQL
+# [[addons]]
+# type = "postgres"
+
+[env]
+TRUST_PROXY = "true"
+
+[healthcheck]
+path = "/health"

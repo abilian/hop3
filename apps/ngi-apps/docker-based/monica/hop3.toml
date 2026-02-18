@@ -1,0 +1,20 @@
+# Hop3 Configuration for Monica (Docker-based)
+# Personal CRM - Manage your friends and family
+
+[metadata]
+id = "monica"
+version = "4.x"
+title = "Monica"
+description = "Personal CRM - Manage relationships with friends and family"
+homepage = "https://www.monicahq.com/"
+license = "AGPL-3.0"
+categories = ["crm", "personal", "contacts"]
+
+[[addons]]
+type = "mysql"
+
+[env]
+APP_DEBUG = "false"
+
+[healthcheck]
+path = "/login"

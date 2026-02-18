@@ -1,37 +1,39 @@
 #!/usr/bin/env python3
-"""Simple test script for NGI apps.
+"""Test script for NGI apps.
 
-Deploys each app to a Hop3 server and verifies it's running.
+Deploys apps to a Hop3 server and verifies they're running.
 
 Usage:
-    # Test all apps
-    python test-script.py
-
     # Test specific app
-    python test-script.py wordpress
+    python test-script.py docker-based/wordpress
+
+    # Test all apps in a directory
+    python test-script.py "docker-based/*"
+
+    # Test multiple apps
+    python test-script.py docker-based/wordpress docker-based/ghost
 
     # Test with cleanup
-    python test-script.py --cleanup
+    python test-script.py --cleanup docker-based/wordpress
 
     # Enable debug output
-    python test-script.py --debug wordpress
+    python test-script.py --debug docker-based/wordpress
 """
 
 from __future__ import annotations
 
+import glob
+import os
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
-# App definitions: name -> (addons, expected_text_in_response)
-APPS = {
-    "wordpress": (["mysql"], "WordPress"),
-    "nextcloud": (["postgres", "redis"], "Nextcloud"),
-    "ghost": (["mysql"], "Ghost"),
-    "gitea": (["postgres"], "Gitea"),
-    "hedgedoc": (["postgres"], "HedgeDoc"),
-}
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib  # type: ignore
 
 SCRIPT_DIR = Path(__file__).parent
 
@@ -41,6 +43,56 @@ HTTP_TIMEOUT = 10  # seconds for HTTP requests
 
 # Global debug flag
 DEBUG = False
+
+
+@dataclass
+class AppConfig:
+    """App configuration parsed from hop3.toml."""
+
+    name: str
+    path: Path
+    addons: list[str]
+    env_vars: dict[str, str]
+    title: str = ""
+    healthcheck_path: str = "/"
+
+    @classmethod
+    def from_path(cls, app_path: Path) -> "AppConfig":
+        """Parse app configuration from hop3.toml."""
+        toml_path = app_path / "hop3.toml"
+        if not toml_path.exists():
+            raise ValueError(f"No hop3.toml found in {app_path}")
+
+        with open(toml_path, "rb") as f:
+            config = tomllib.load(f)
+
+        # Extract metadata
+        metadata = config.get("metadata", {})
+        name = metadata.get("id", app_path.name)
+        title = metadata.get("title", name)
+
+        # Extract addons
+        addons = []
+        for addon in config.get("addons", []):
+            addon_type = addon.get("type")
+            if addon_type:
+                addons.append(addon_type)
+
+        # Extract env vars
+        env_vars = config.get("env", {})
+
+        # Extract healthcheck
+        healthcheck = config.get("healthcheck", {})
+        healthcheck_path = healthcheck.get("path", "/")
+
+        return cls(
+            name=name,
+            path=app_path,
+            addons=addons,
+            env_vars=env_vars,
+            title=title,
+            healthcheck_path=healthcheck_path,
+        )
 
 
 def run(cmd: str, check: bool = True, capture: bool = True) -> subprocess.CompletedProcess:
@@ -57,10 +109,27 @@ def run(cmd: str, check: bool = True, capture: bool = True) -> subprocess.Comple
     return result
 
 
+def run_streaming(cmd: str, check: bool = True) -> int:
+    """Run a shell command with streaming output (for long-running commands)."""
+    print(f"  $ {cmd}")
+    process = subprocess.Popen(
+        cmd,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    for line in process.stdout:
+        print(f"    {line.rstrip()}")
+    process.wait()
+    if process.returncode != 0 and check:
+        raise RuntimeError(f"Command failed: {cmd}")
+    return process.returncode
+
+
 def run_on_server(cmd: str, check: bool = False) -> subprocess.CompletedProcess:
     """Run a command on the Hop3 server via SSH."""
-    # Use the HOP3_DEV_HOST or default to hop3.dev
-    import os
     host = os.environ.get("HOP3_DEV_HOST", "hop3.dev")
     ssh_cmd = f'ssh root@{host} "{cmd}"'
     return run(ssh_cmd, check=check)
@@ -79,7 +148,10 @@ def collect_debug_info(name: str) -> None:
     # Check if our container exists
     container_name = f"{name}-web-1"
     print(f"\n--- Container {container_name} status ---")
-    result = run_on_server(f"docker inspect {container_name} --format '{{{{.State.Status}}}} exit={{{{.State.ExitCode}}}} error={{{{.State.Error}}}}'")
+    run_on_server(
+        f"docker inspect {container_name} --format "
+        "'{{{{.State.Status}}}} exit={{{{.State.ExitCode}}}} error={{{{.State.Error}}}}'"
+    )
 
     # Get container logs
     print(f"\n--- Container logs (last 30 lines) ---")
@@ -87,33 +159,41 @@ def collect_debug_info(name: str) -> None:
 
     # Check the generated compose file
     print(f"\n--- Generated compose file ---")
-    run_on_server(f"cat /home/hop3/apps/{name}/src/.hop3-compose.yml 2>/dev/null || echo 'Compose file not found'")
+    run_on_server(
+        f"cat /home/hop3/apps/{name}/src/.hop3-compose.yml 2>/dev/null || echo 'Compose file not found'"
+    )
 
     # Check if app port is accessible
     print(f"\n--- Checking app connectivity ---")
     result = run_on_server(f"docker port {container_name} 2>/dev/null | head -1")
     if result.stdout.strip():
         port_mapping = result.stdout.strip()
-        # Extract port from output like "8080/tcp -> 127.0.0.1:48619"
         if "->" in port_mapping:
             host_port = port_mapping.split("->")[1].strip()
             print(f"  Port mapping: {port_mapping}")
 
-            # Try to curl the app
             print(f"\n--- HTTP response from {host_port} ---")
-            run_on_server(f"curl -s -o /dev/null -w 'HTTP Status: %{{http_code}}\\n' http://{host_port}/ || echo 'Connection failed'")
+            run_on_server(
+                f"curl -s -o /dev/null -w 'HTTP Status: %{{http_code}}\\n' "
+                f"http://{host_port}/ || echo 'Connection failed'"
+            )
 
-            # Get response body preview
             print(f"\n--- Response body preview ---")
             run_on_server(f"curl -s http://{host_port}/ 2>/dev/null | head -20 || echo 'No response'")
 
     # Check Apache/app error logs inside container
     print(f"\n--- Application logs inside container ---")
-    run_on_server(f"docker exec {container_name} cat /var/log/apache2/error.log 2>/dev/null | tail -20 || echo 'No Apache logs'")
+    run_on_server(
+        f"docker exec {container_name} cat /var/log/apache2/error.log 2>/dev/null | tail -20 "
+        "|| echo 'No Apache logs'"
+    )
 
     # Check database connectivity from container
     print(f"\n--- Database environment in container ---")
-    run_on_server(f"docker exec {container_name} env 2>/dev/null | grep -E '(DATABASE|MYSQL|POSTGRES|REDIS)' || echo 'No DB env vars'")
+    run_on_server(
+        f"docker exec {container_name} env 2>/dev/null | "
+        "grep -E '(DATABASE|MYSQL|POSTGRES|REDIS|PG)' || echo 'No DB env vars'"
+    )
 
     print(f"\n{'='*60}")
     print("END DEBUG INFO")
@@ -143,7 +223,6 @@ def check_container_running(name: str) -> tuple[bool, str | None]:
     port_mapping = result.stdout.strip()
     if "->" in port_mapping:
         host_port = port_mapping.split("->")[1].strip()
-        # Extract just the port number from "127.0.0.1:50683"
         if ":" in host_port:
             port = host_port.split(":")[1]
             return True, port
@@ -161,7 +240,6 @@ def check_http_from_server(name: str, port: str) -> bool:
 
     http_code = result.stdout.strip()
     # Accept any response code that indicates the app is responding
-    # 200=OK, 302=redirect (e.g., WordPress setup), 401/403=auth required
     if http_code in ("200", "301", "302", "401", "403"):
         print(f"  Container responding with HTTP {http_code}")
         return True
@@ -184,19 +262,15 @@ def wait_for_running(name: str, timeout: int = STARTUP_TIMEOUT) -> bool:
             return True
 
         if "stopped" in output or "failed" in output or "error" in output:
-            # hop3 reports stopped/failed, but let's verify with Docker directly
-            # (there's a bug in hop3 health check that sometimes reports STOPPED
-            # even when the container is running)
+            # Verify with Docker directly (workaround for hop3 status bug)
             print(f"  hop3 reports {name} as stopped/failed, checking Docker directly...")
             container_running, port = check_container_running(name)
 
             if container_running and port:
-                # Container is running, check HTTP
                 if check_http_from_server(name, port):
                     print(f"  App {name} is RUNNING (verified via Docker/HTTP)")
                     return True
 
-            # Container really isn't running
             print(f"  App {name} failed to start (confirmed)")
             return False
 
@@ -214,12 +288,11 @@ def wait_for_running(name: str, timeout: int = STARTUP_TIMEOUT) -> bool:
     return False
 
 
-def check_http(name: str, expected_text: str) -> bool:
-    """Check that the app responds to HTTP and contains expected text.
+def check_http(name: str) -> bool:
+    """Check that the app responds to HTTP.
 
     Runs the check from the server since apps bind to localhost there.
     """
-    # Get port from Docker
     _, port = check_container_running(name)
 
     if not port:
@@ -228,105 +301,102 @@ def check_http(name: str, expected_text: str) -> bool:
 
     print(f"  Checking HTTP at 127.0.0.1:{port} on server...")
 
-    # Check HTTP status code
     result = run_on_server(
         f"curl -s -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/"
     )
     http_code = result.stdout.strip()
     print(f"  HTTP Status: {http_code}")
 
-    # Accept redirects and auth-required as success (app is responding)
-    if http_code in ("301", "302", "401", "403"):
-        print(f"  HTTP OK - app is responding (redirect/auth)")
+    # Accept redirects and auth-required as success
+    if http_code in ("200", "301", "302", "401", "403"):
+        print(f"  HTTP OK - app is responding")
         return True
 
-    if http_code != "200":
-        print(f"  HTTP failed with status {http_code}")
-        return False
-
-    # For 200 responses, check for expected text
-    result = run_on_server(
-        f"curl -s http://127.0.0.1:{port}/ 2>/dev/null | head -100"
-    )
-    content = result.stdout
-
-    if expected_text.lower() in content.lower():
-        print(f"  HTTP OK - found '{expected_text}' in response")
-        return True
-    else:
-        print(f"  HTTP response received but '{expected_text}' not found")
-        print(f"  Response preview: {content[:200]}...")
-        # Still consider it success if we got a 200
-        return True
+    print(f"  HTTP failed with status {http_code}")
+    return False
 
 
-def deploy_app(name: str) -> bool:
-    """Deploy an app and its addons."""
+def deploy_app(app: AppConfig) -> bool:
+    """Deploy an app.
+
+    Addons and env vars are now handled automatically by hop3 deploy
+    based on the [[addons]] and [env] sections in hop3.toml.
+    """
     print(f"\n{'='*60}")
-    print(f"Deploying: {name}")
+    print(f"Deploying: {app.title} ({app.name})")
+    print(f"  Path: {app.path}")
+    print(f"  Addons (from config): {app.addons}")
+    if app.env_vars:
+        print(f"  Env vars (from config): {list(app.env_vars.keys())}")
     print(f"{'='*60}")
 
-    app_dir = SCRIPT_DIR / name
-    if not app_dir.exists():
-        print(f"  App directory not found: {app_dir}")
+    if not app.path.exists():
+        print(f"  App directory not found: {app.path}")
         return False
 
-    addons, expected_text = APPS.get(name, ([], ""))
-
-    # Create addons first
-    for addon_type in addons:
-        addon_name = f"{name}-{addon_type}"
-        run(f"hop3 addons:create {addon_type} {addon_name}")
-
-    # First deploy creates the app (without env vars yet)
-    run(f"hop3 deploy {name} {app_dir}")
-
-    # Now attach addons (app exists, so this works)
-    for addon_type in addons:
-        addon_name = f"{name}-{addon_type}"
-        run(f"hop3 addons:attach {addon_name} --app {name} --service-type {addon_type}")
-
-    # Second deploy regenerates compose file WITH env vars
-    run(f"hop3 deploy {name} {app_dir}")
+    # Single deploy - addons and env vars are processed automatically from hop3.toml
+    # Use streaming output so user can see progress during long builds
+    run_streaming(f"hop3 deploy {app.name} {app.path}")
 
     # Wait for app to be fully running
-    if not wait_for_running(name):
-        print(f"  FAILED: {name} did not start properly")
+    if not wait_for_running(app.name):
+        print(f"  FAILED: {app.name} did not start properly")
         if DEBUG:
-            collect_debug_info(name)
+            collect_debug_info(app.name)
         return False
 
     # Give it a moment to settle
     time.sleep(5)
 
     # Verify HTTP response
-    if not check_http(name, expected_text):
-        print(f"  FAILED: {name} HTTP check failed")
+    if not check_http(app.name):
+        print(f"  FAILED: {app.name} HTTP check failed")
         if DEBUG:
-            collect_debug_info(name)
+            collect_debug_info(app.name)
         return False
 
-    print(f"  SUCCESS: {name} is running and responding")
+    print(f"  SUCCESS: {app.name} is running and responding")
     return True
 
 
-def cleanup_app(name: str) -> None:
+def cleanup_app(app: AppConfig) -> None:
     """Remove an app and its addons."""
-    print(f"\nCleaning up: {name}")
-
-    addons, _ = APPS.get(name, ([], ""))
+    print(f"\nCleaning up: {app.name}")
 
     # Stop and remove Docker container first
-    container_name = f"{name}-web-1"
+    container_name = f"{app.name}-web-1"
     run_on_server(f"docker stop {container_name} 2>/dev/null; docker rm {container_name} 2>/dev/null")
 
     # Destroy app
-    run(f"hop3 app:destroy {name} -y", check=False)
+    run(f"hop3 app:destroy {app.name} -y", check=False)
 
     # Destroy addons
-    for addon_type in addons:
-        addon_name = f"{name}-{addon_type}"
+    for addon_type in app.addons:
+        addon_name = f"{app.name}-{addon_type}"
         run(f"hop3 addons:destroy {addon_name} --service-type {addon_type} -y", check=False)
+
+
+def expand_app_paths(patterns: list[str]) -> list[Path]:
+    """Expand glob patterns to app paths."""
+    paths = []
+    for pattern in patterns:
+        # Handle glob patterns
+        if "*" in pattern:
+            full_pattern = str(SCRIPT_DIR / pattern)
+            matches = glob.glob(full_pattern)
+            for match in sorted(matches):
+                match_path = Path(match)
+                # Only include directories with hop3.toml
+                if match_path.is_dir() and (match_path / "hop3.toml").exists():
+                    paths.append(match_path)
+        else:
+            # Direct path
+            app_path = SCRIPT_DIR / pattern
+            if app_path.is_dir():
+                paths.append(app_path)
+            else:
+                print(f"Warning: {pattern} is not a valid directory")
+    return paths
 
 
 def main():
@@ -338,43 +408,59 @@ def main():
     DEBUG = "--debug" in args
     args = [a for a in args if not a.startswith("--")]
 
-    # Determine which apps to test
-    if args:
-        apps_to_test = [a for a in args if a in APPS]
-        if not apps_to_test:
-            print(f"Unknown app(s): {args}")
-            print(f"Available: {', '.join(APPS.keys())}")
-            sys.exit(1)
-    else:
-        apps_to_test = list(APPS.keys())
+    # Default to docker-based/* if no args
+    if not args:
+        args = ["docker-based/*"]
 
-    print(f"Testing apps: {', '.join(apps_to_test)}")
+    # Expand paths
+    app_paths = expand_app_paths(args)
+
+    if not app_paths:
+        print(f"No apps found matching: {args}")
+        print(f"Available apps in docker-based/:")
+        for p in sorted((SCRIPT_DIR / "docker-based").glob("*")):
+            if p.is_dir() and (p / "hop3.toml").exists():
+                print(f"  docker-based/{p.name}")
+        sys.exit(1)
+
+    # Parse app configs
+    apps: list[AppConfig] = []
+    for path in app_paths:
+        try:
+            app = AppConfig.from_path(path)
+            apps.append(app)
+        except Exception as e:
+            print(f"Error parsing {path}: {e}")
+            sys.exit(1)
+
+    print(f"Testing {len(apps)} app(s): {', '.join(a.name for a in apps)}")
     if DEBUG:
         print("Debug mode: ON")
 
     results = {}
 
-    for name in apps_to_test:
+    for app in apps:
         try:
-            success = deploy_app(name)
-            results[name] = "OK" if success else "FAILED"
+            success = deploy_app(app)
+            results[app.name] = "OK" if success else "FAILED"
         except Exception as e:
             print(f"  Exception: {e}")
-            results[name] = "ERROR"
-            # Always collect debug info on exception
-            collect_debug_info(name)
+            results[app.name] = "ERROR"
+            collect_debug_info(app.name)
 
         if do_cleanup:
-            cleanup_app(name)
+            cleanup_app(app)
 
     # Summary
     print(f"\n{'='*60}")
     print("Results:")
     print(f"{'='*60}")
     for name, status in results.items():
-        print(f"  {name}: {status}")
+        symbol = "+" if status == "OK" else "-"
+        print(f"  [{symbol}] {name}: {status}")
 
     failed = sum(1 for s in results.values() if s != "OK")
+    print(f"\nTotal: {len(results) - failed}/{len(results)} passed")
     sys.exit(failed)
 
 

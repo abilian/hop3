@@ -1,0 +1,20 @@
+# Hop3 Configuration for BookStack (Docker-based)
+# Simple, self-hosted wiki platform
+
+[metadata]
+id = "bookstack"
+version = "24.x"
+title = "BookStack"
+description = "Simple, self-hosted, easy-to-use wiki platform"
+homepage = "https://www.bookstackapp.com/"
+license = "MIT"
+categories = ["wiki", "documentation", "knowledge-base"]
+
+[[addons]]
+type = "mysql"
+
+[env]
+APP_DEBUG = "false"
+
+[healthcheck]
+path = "/status"

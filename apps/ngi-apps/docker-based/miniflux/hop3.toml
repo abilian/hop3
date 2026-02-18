@@ -1,0 +1,23 @@
+# Hop3 Configuration for Miniflux (Docker-based)
+# Minimalist and opinionated feed reader
+
+[metadata]
+id = "miniflux"
+version = "2.x"
+title = "Miniflux"
+description = "Minimalist and opinionated feed reader"
+homepage = "https://miniflux.app/"
+license = "Apache-2.0"
+categories = ["rss", "feed-reader", "news"]
+
+[[addons]]
+type = "postgres"
+
+[env]
+RUN_MIGRATIONS = "1"
+CREATE_ADMIN = "1"
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "changeme"
+
+[healthcheck]
+path = "/healthcheck"

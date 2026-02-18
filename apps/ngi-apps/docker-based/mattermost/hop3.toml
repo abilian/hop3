@@ -1,0 +1,20 @@
+# Hop3 Configuration for Mattermost (Docker-based)
+# Open source platform for secure collaboration
+
+[metadata]
+id = "mattermost"
+version = "9.x"
+title = "Mattermost"
+description = "Open source platform for secure collaboration"
+homepage = "https://mattermost.com/"
+license = "MIT"
+categories = ["collaboration", "chat", "team"]
+
+[[addons]]
+type = "postgres"
+
+[env]
+MM_SERVICESETTINGS_SITEURL = "http://localhost:8065"
+
+[healthcheck]
+path = "/api/v4/system/ping"
