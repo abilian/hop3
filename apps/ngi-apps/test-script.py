@@ -95,44 +95,128 @@ class AppConfig:
         )
 
 
-def run(cmd: str, check: bool = True, capture: bool = True) -> subprocess.CompletedProcess:
-    """Run a shell command."""
-    print(f"  $ {cmd}")
-    result = subprocess.run(cmd, shell=True, capture_output=capture, text=True)
-    if result.stdout:
-        for line in result.stdout.strip().split("\n"):
-            print(f"    {line}")
-    if result.returncode != 0 and check:
-        if result.stderr:
+def run(cmd: str, check: bool = True, capture: bool = True, quiet: bool = False) -> subprocess.CompletedProcess:
+    """Run a shell command.
+
+    Args:
+        cmd: Command to run
+        check: Raise exception on failure
+        capture: Capture output (vs letting it go to terminal)
+        quiet: Only show output on failure
+    """
+    if not quiet:
+        print(f"  $ {cmd}")
+
+    if capture:
+        # Use Popen with communicate() to safely handle large outputs
+        process = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        stdout, stderr = process.communicate()
+        result = subprocess.CompletedProcess(cmd, process.returncode, stdout, stderr)
+    else:
+        result = subprocess.run(cmd, shell=True, text=True)
+
+    # Only show output on failure or if not quiet
+    if result.returncode != 0 or not quiet:
+        if result.stdout:
+            for line in result.stdout.strip().split("\n"):
+                print(f"    {line}")
+        if result.stderr and result.returncode != 0:
             print(f"  ERROR: {result.stderr}")
+
+    if result.returncode != 0 and check:
         raise RuntimeError(f"Command failed: {cmd}")
+
     return result
 
 
-def run_streaming(cmd: str, check: bool = True) -> int:
-    """Run a shell command with streaming output (for long-running commands)."""
+def run_streaming(cmd: str, check: bool = True, timeout: int = 600) -> int:
+    """Run a shell command with streaming output (for long-running commands).
+
+    Uses a thread to read output, avoiding blocking issues.
+    """
+    import threading
+    import queue
+
     print(f"  $ {cmd}")
+
     process = subprocess.Popen(
         cmd,
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
     )
-    for line in process.stdout:
-        print(f"    {line.rstrip()}")
+
+    output_queue: queue.Queue = queue.Queue()
+
+    def reader_thread():
+        """Read lines from process stdout and put them in queue."""
+        try:
+            while True:
+                line = process.stdout.readline()
+                if not line:
+                    break
+                output_queue.put(line)
+        except Exception:
+            pass
+        finally:
+            output_queue.put(None)  # Signal EOF
+
+    thread = threading.Thread(target=reader_thread, daemon=True)
+    thread.start()
+
+    start_time = time.time()
+
+    while True:
+        # Check timeout
+        if time.time() - start_time > timeout:
+            process.kill()
+            print(f"    [TIMEOUT after {timeout}s]")
+            break
+
+        try:
+            line = output_queue.get(timeout=1.0)
+            if line is None:
+                # EOF reached
+                break
+            decoded = line.decode("utf-8", errors="replace").rstrip()
+            if decoded:
+                print(f"    {decoded}")
+        except queue.Empty:
+            # No output available, check if process is still running
+            if process.poll() is not None:
+                # Process finished, drain any remaining output
+                time.sleep(0.1)  # Give thread time to finish
+                while True:
+                    try:
+                        line = output_queue.get_nowait()
+                        if line is None:
+                            break
+                        decoded = line.decode("utf-8", errors="replace").rstrip()
+                        if decoded:
+                            print(f"    {decoded}")
+                    except queue.Empty:
+                        break
+                break
+
+    thread.join(timeout=2.0)
     process.wait()
+
     if process.returncode != 0 and check:
         raise RuntimeError(f"Command failed: {cmd}")
     return process.returncode
 
 
-def run_on_server(cmd: str, check: bool = False) -> subprocess.CompletedProcess:
+def run_on_server(cmd: str, check: bool = False, quiet: bool = False) -> subprocess.CompletedProcess:
     """Run a command on the Hop3 server via SSH."""
     host = os.environ.get("HOP3_DEV_HOST", "hop3.dev")
     ssh_cmd = f'ssh root@{host} "{cmd}"'
-    return run(ssh_cmd, check=check)
+    return run(ssh_cmd, check=check, quiet=quiet)
 
 
 def collect_debug_info(name: str) -> None:
