@@ -7,23 +7,32 @@ from typing import TYPE_CHECKING
 
 from hop3.core.plugins import get_builder, get_deployment_strategy
 from hop3.core.protocols import DeploymentContext
+from hop3.deployers.addon_provisioning import inject_config_env_vars, provision_addons
 from hop3.lib import Abort, log, shell
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
 from hop3.project.config import AppConfig
 
 if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
     from hop3.orm.app import App
 
 __all__ = ["do_deploy"]
 
 
-def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
+def do_deploy(
+    app: App,
+    *,
+    deltas: dict[str, int] | None = None,
+    db_session: Session | None = None,
+) -> None:
     """
     Deploys an application using a pluggable builder and deployer.
 
     This function orchestrates the deployment process:
     1. Parses application configuration (Procfile/hop3.toml).
+    1.5. Provisions addons and injects env vars from hop3.toml.
     2. Runs prebuild hook (may fetch source code, prepare environment).
     3. Selects and runs a suitable Builder.
     4. Runs postbuild hook (migrations, asset compilation, etc.).
@@ -32,6 +41,11 @@ def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
 
     The prebuild hook runs BEFORE builder selection because it may fetch
     or generate the source code that the builder needs to detect.
+
+    Args:
+        app: The application to deploy
+        deltas: Optional scaling deltas for workers
+        db_session: Database session for addon provisioning (required for auto-provisioning)
     """
     deltas = deltas or {}
 
@@ -54,6 +68,11 @@ def do_deploy(app: App, *, deltas: dict[str, int] | None = None) -> None:
         log(f"  pre_build: {app_config.pre_build}", level=2)
     if app_config.post_build:
         log(f"  post_build: {app_config.post_build}", level=2)
+
+    # --- 1.5. Process Config-Based Addons and Env Vars ---
+    # This runs BEFORE build because some builds need database URLs etc.
+    if app_config.has_hop3_toml:
+        _process_config_dependencies(app, app_config, db_session)
 
     # --- 2. Run Prebuild Hook ---
     # This runs BEFORE builder selection because prebuild may fetch source code
@@ -319,6 +338,63 @@ def _handle_startup_timeout(app: App, timeout: float) -> None:
 
     msg = f"App failed to start within {timeout}s timeout. See diagnostics above."
     raise Abort(msg)
+
+
+def _process_config_dependencies(
+    app: App, app_config: AppConfig, db_session: Session | None
+) -> None:
+    """Process addons and env vars from hop3.toml.
+
+    This provisions any required backing services and injects
+    environment variables before the build phase.
+
+    Args:
+        app: The application model
+        app_config: Parsed application configuration
+        db_session: Database session for persistence (required for addon provisioning)
+    """
+    hop3_config = app_config.hop3_config
+
+    if db_session is None:
+        log(
+            "  Warning: No db_session provided - skipping addon provisioning",
+            level=0,
+            fg="yellow",
+        )
+        server_log.warning(
+            "No db_session provided for addon provisioning", app_name=app.name
+        )
+        return
+
+    # Provision addons from [[addons]] sections
+    addon_configs = hop3_config.addons
+    if addon_configs:
+        log(
+            f"Processing {len(addon_configs)} addon(s) from hop3.toml...",
+            level=1,
+            fg="blue",
+        )
+        provision_addons(app, addon_configs, db_session)
+
+    # Inject env vars from [env] section
+    env_config = hop3_config.env
+    if env_config:
+        log(
+            f"Processing {len(env_config)} env var(s) from hop3.toml...",
+            level=1,
+            fg="blue",
+        )
+        inject_config_env_vars(app, env_config, db_session)
+
+    # Commit changes before continuing with build
+    if addon_configs or env_config:
+        db_session.commit()
+        server_log.info(
+            "Config dependencies processed",
+            app_name=app.name,
+            addon_count=len(addon_configs),
+            env_var_count=len(env_config),
+        )
 
 
 def _run_hook(hook_name: str, command: str, cwd: Path) -> None:

@@ -225,7 +225,7 @@ class PsScaleCmd(Command):
             deltas[key] = count - int(worker_count[key])
 
         with command_context("scaling app", app_name=app_name):
-            do_deploy(app, deltas=deltas)
+            do_deploy(app, deltas=deltas, db_session=self.db_session)
             # Persist changes to database (run_state, port, etc.)
             self.db_session.commit()
 

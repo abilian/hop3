@@ -174,6 +174,98 @@ plan = "basic"
     assert config.providers[1]["plan"] == "basic"
 
 
+def test_addons_section():
+    """Test [[addons]] section parsing."""
+    content = """
+[[addons]]
+type = "postgres"
+
+[[addons]]
+type = "redis"
+
+[[addons]]
+type = "mysql"
+name = "custom-mysql"
+"""
+    config = Hop3Config.from_str(content)
+
+    assert len(config.addons) == 3
+    assert config.addons[0]["type"] == "postgres"
+    assert config.addons[1]["type"] == "redis"
+    assert config.addons[2]["type"] == "mysql"
+    assert config.addons[2]["name"] == "custom-mysql"
+
+
+def test_addons_fallback_to_provider():
+    """Test that addons falls back to [[provider]] for backwards compatibility."""
+    content = """
+[[provider]]
+type = "postgres"
+"""
+    config = Hop3Config.from_str(content)
+
+    # Should use providers as fallback when addons is empty
+    assert len(config.addons) == 1
+    assert config.addons[0]["type"] == "postgres"
+
+
+def test_addons_prefers_addons_over_provider():
+    """Test that [[addons]] takes precedence over [[provider]]."""
+    content = """
+[[addons]]
+type = "mysql"
+
+[[provider]]
+type = "postgres"
+"""
+    config = Hop3Config.from_str(content)
+
+    # Should use addons, not providers
+    assert len(config.addons) == 1
+    assert config.addons[0]["type"] == "mysql"
+
+
+def test_get_addon_types():
+    """Test get_addon_types() returns list of addon type names."""
+    content = """
+[[addons]]
+type = "postgres"
+
+[[addons]]
+type = "redis"
+
+[[addons]]
+type = "mysql"
+"""
+    config = Hop3Config.from_str(content)
+
+    addon_types = config.get_addon_types()
+    assert addon_types == ["postgres", "redis", "mysql"]
+
+
+def test_get_addon_types_empty():
+    """Test get_addon_types() returns empty list when no addons."""
+    content = ""
+    config = Hop3Config.from_str(content)
+
+    assert config.get_addon_types() == []
+
+
+def test_get_addon_types_skips_missing_type():
+    """Test get_addon_types() skips addons without type key."""
+    content = """
+[[addons]]
+type = "postgres"
+
+[[addons]]
+name = "no-type-addon"
+"""
+    config = Hop3Config.from_str(content)
+
+    addon_types = config.get_addon_types()
+    assert addon_types == ["postgres"]
+
+
 def test_empty_config():
     """Test parsing empty configuration (all defaults)."""
     content = ""
@@ -184,7 +276,9 @@ def test_empty_config():
     assert config.run == {}
     assert config.env == {}
     assert config.port == {}
+    assert config.addons == []
     assert config.providers == []
+    assert config.get_addon_types() == []
     assert config.get_workers_from_run_section() == {}
 
 
@@ -213,6 +307,9 @@ id = "my-app"
 
 [run]
 start = "python app.py"
+
+[[addons]]
+type = "postgres"
 """
     config = Hop3Config.from_str(content)
     config_dict = config.to_dict()
@@ -220,8 +317,11 @@ start = "python app.py"
     assert "metadata" in config_dict
     assert "run" in config_dict
     assert "workers" in config_dict
+    assert "addons" in config_dict
     assert config_dict["metadata"]["id"] == "my-app"
     assert config_dict["workers"]["web"] == "python app.py"
+    assert len(config_dict["addons"]) == 1
+    assert config_dict["addons"][0]["type"] == "postgres"
 
 
 def test_file_not_found():
