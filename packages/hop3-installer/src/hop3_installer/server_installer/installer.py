@@ -34,7 +34,7 @@ from .acme import setup_acme
 from .cli import TOTAL_STEPS, config_from_args, create_parser
 from .config import ServerInstallerConfig  # noqa: TC001
 from .deps import install_system_deps
-from .deps_common import install_rust_toolchain
+from .deps_common import install_node_global_packages, install_rust_toolchain
 from .mysql import setup_mysql
 from .nginx import setup_nginx
 from .postgres import setup_postgres
@@ -85,6 +85,12 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
         install_rust_toolchain()
     except CommandError as e:
         print_warning(f"Rust toolchain installation failed: {e.stderr[:100]}")
+
+    # Install Node.js global packages (pnpm, nodeenv)
+    try:
+        install_node_global_packages()
+    except CommandError as e:
+        print_warning(f"Node global packages installation failed: {e.stderr[:100]}")
 
     # Step 3: Virtual environment
     print_step(3, TOTAL_STEPS, "Creating virtual environment...")

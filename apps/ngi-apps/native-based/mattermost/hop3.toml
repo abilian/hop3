@@ -1,0 +1,31 @@
+# Hop3 Configuration for Mattermost (Native build)
+# Team collaboration platform
+
+[metadata]
+id = "mattermost"
+version = "9.4.2"
+title = "Mattermost"
+description = "Open source team collaboration platform"
+homepage = "https://mattermost.com/"
+license = "MIT"
+categories = ["collaboration", "chat", "team-communication"]
+
+[build]
+# Force local builder (source code may include Dockerfile)
+builder = "local"
+
+before-build = "bash scripts/download.sh"
+build = "make build-linux"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "./bin/mattermost"
+
+[[addons]]
+type = "postgres"
+
+[env]
+MM_SERVICESETTINGS_SITEURL = "http://localhost:8080"
+
+[healthcheck]
+path = "/api/v4/system/ping"

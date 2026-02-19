@@ -1,0 +1,34 @@
+# Hop3 Configuration for Kanboard (Native build)
+# Kanban project management software
+
+[metadata]
+id = "kanboard"
+version = "1.2.37"
+title = "Kanboard"
+description = "Kanban project management software"
+homepage = "https://kanboard.org/"
+license = "MIT"
+categories = ["project-management", "kanban", "productivity"]
+
+[build]
+# Download and extract Kanboard source
+before-build = "bash scripts/download.sh"
+
+# Kanboard doesn't use composer by default, but we need to ensure proper permissions
+build = "chmod -R 755 . && chmod -R 777 data plugins"
+
+[run]
+# Create config before starting
+before-run = "bash scripts/setup-config.sh"
+
+# Run with PHP built-in server
+start = "php -S 0.0.0.0:${PORT:-8080} -t ."
+
+[[addons]]
+type = "mysql"
+
+[env]
+DEBUG = "false"
+
+[healthcheck]
+path = "/"

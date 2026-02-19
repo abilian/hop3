@@ -129,15 +129,25 @@ class NodeToolchain(LanguageToolchain):
                 log(f"Node is installed at {version}.", level=3, fg="green")
 
     def install_modules(self, env: Env) -> None:
-        """Install necessary modules for the application using npm.
+        """Install necessary modules for the application.
 
-        This uses npm to install the dependencies listed in the
-        'package.json' file located at the specified source path. It
-        ensures that npm is available and executes the installation
-        command while passing the provided environment variables.
+        If a custom build command is specified in hop3.toml [build] section,
+        that command is run instead of the default npm install. This allows
+        projects using pnpm, yarn workspaces, or custom build scripts to work.
+
+        Otherwise, this uses npm to install the dependencies listed in the
+        'package.json' file located at the specified source path.
         """
         emit(InstallingVirtualEnv(self.app_name))
 
+        # Check if custom build command is specified in hop3.toml
+        custom_build = self._get_custom_build_command()
+        if custom_build:
+            log(f"Running custom build command: {custom_build}", level=2, fg="cyan")
+            self.shell(custom_build, env=env)
+            return
+
+        # Default: npm install
         npm_prefix = self.src_path
         package_json = self.src_path / "package.json"
 
@@ -146,3 +156,21 @@ class NodeToolchain(LanguageToolchain):
 
         cmd = f"npm install --prefix {npm_prefix} --package-lock=false"
         self.shell(cmd, env=env)
+
+    def _get_custom_build_command(self) -> str | None:
+        """Get custom build command from hop3.toml if specified.
+
+        Returns the build command string if [build] build is set in hop3.toml,
+        otherwise None.
+        """
+        if self.context is None:
+            return None
+
+        app_config = self.context.app_config
+        hop3_config = app_config.get("hop3_config", {})
+        build_section = hop3_config.get("build", {})
+        build_cmd = build_section.get("build")
+
+        if isinstance(build_cmd, list):
+            return " && ".join(build_cmd) if build_cmd else None
+        return build_cmd if build_cmd else None

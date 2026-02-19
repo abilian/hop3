@@ -184,6 +184,47 @@ def install_feature_packages(name: str, packages: list[str], spec: PackageSpec) 
 
 
 # =============================================================================
+# Node.js Global Packages
+# =============================================================================
+
+
+def install_node_global_packages() -> None:
+    """Install global npm packages needed for various apps.
+
+    pnpm is a fast, disk space efficient package manager that is required
+    by some apps (Etherpad, HedgeDoc, etc.) that use pnpm workspaces.
+    """
+    # Check if npm is available
+    if not cmd_exists("npm"):
+        print_warning("npm not found, skipping global npm packages")
+        return
+
+    # Install pnpm if not already installed
+    if cmd_exists("pnpm"):
+        print_info("pnpm already installed")
+    else:
+        print_info("Installing pnpm...")
+        with Spinner("Installing pnpm globally..."):
+            result = run_cmd(["npm", "install", "-g", "pnpm"], check=False)
+        if result.returncode == 0:
+            print_success("pnpm installed")
+        else:
+            print_warning("pnpm installation failed")
+
+    # Install nodeenv for managing Node versions per-app
+    if cmd_exists("nodeenv"):
+        print_info("nodeenv already installed")
+    else:
+        print_info("Installing nodeenv...")
+        with Spinner("Installing nodeenv globally..."):
+            result = run_cmd(["npm", "install", "-g", "nodeenv"], check=False)
+        if result.returncode == 0:
+            print_success("nodeenv installed")
+        else:
+            print_warning("nodeenv installation failed")
+
+
+# =============================================================================
 # Rust Toolchain
 # =============================================================================
 

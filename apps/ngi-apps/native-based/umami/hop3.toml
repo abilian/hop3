@@ -1,0 +1,31 @@
+# Hop3 Configuration for Umami (Native build)
+# Simple, privacy-focused web analytics
+
+[metadata]
+id = "umami"
+version = "2.9.0"
+title = "Umami"
+description = "Simple, privacy-focused web analytics"
+homepage = "https://umami.is/"
+license = "MIT"
+categories = ["analytics", "web-analytics", "privacy"]
+
+[build]
+# Force local builder (source code may include Dockerfile)
+builder = "local"
+
+before-build = "bash scripts/download.sh"
+build = "npm install && npm run build"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "npm start"
+
+[[addons]]
+type = "postgres"
+
+[env]
+NODE_ENV = "production"
+
+[healthcheck]
+path = "/api/heartbeat"

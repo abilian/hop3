@@ -358,6 +358,7 @@ def robust_rmtree(path: Path | str) -> None:
     - Read-only files (common in npm packages and pip packages)
     - Race conditions when files are still being accessed
     - Deep nesting
+    - Symbolic links (which shutil.rmtree cannot handle)
 
     Args:
         path: Directory to remove
@@ -366,7 +367,12 @@ def robust_rmtree(path: Path | str) -> None:
         OSError: If deletion fails after all retries
     """
     path = Path(path)
-    if not path.exists():
+    if not path.exists() and not path.is_symlink():
+        return
+
+    # Handle symlinks - shutil.rmtree raises "Cannot call rmtree on a symbolic link"
+    if path.is_symlink():
+        path.unlink()
         return
 
     def handle_remove_readonly(func, filepath, exc_info):

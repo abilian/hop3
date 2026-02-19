@@ -19,20 +19,43 @@ if TYPE_CHECKING:
 
 
 class PHPToolchain(LanguageToolchain):
-    """Language toolchain for PHP projects using composer.
+    """Language toolchain for PHP projects.
 
     This provides methods to check for PHP project configurations,
     prepare the environment, and install necessary project dependencies
-    using composer. It requires 'composer' to be available in the
-    system.
+    using composer (if composer.json exists).
+
+    Accepts projects with:
+    - composer.json (Composer-based projects)
+    - index.php (standard PHP entry point)
+    - Any .php files in root (PHP applications with vendored dependencies)
     """
 
     name = "PHP"
-    requirements = ["composer"]  # noqa: RUF012
+    requirements = []  # Composer only required if composer.json exists  # noqa: RUF012
 
     def accept(self) -> bool:
-        """Check if the application directory contains a composer.json file,
-        indicating it is a PHP project."""
+        """Check if this is a PHP project.
+
+        Accepts if any of these conditions are met:
+        - composer.json exists (Composer-based project)
+        - index.php exists (standard PHP entry point)
+        - Any .php file exists in root directory
+        """
+        # Composer-based project
+        if self.check_exists("composer.json"):
+            return True
+
+        # Standard PHP entry point
+        if self.check_exists("index.php"):
+            return True
+
+        # Any PHP file in root
+        php_files = list(self.src_path.glob("*.php"))
+        return len(php_files) > 0
+
+    def _has_composer(self) -> bool:
+        """Check if this is a Composer-based project."""
         return self.check_exists("composer.json")
 
     def build(self) -> BuildArtifact:
@@ -43,7 +66,7 @@ class PHPToolchain(LanguageToolchain):
         with chdir(self.src_path):
             env = self.get_env()
             self.prepare_build_env(env)
-            self.install_dependencies()
+            self.install_dependencies(env)
 
         return BuildArtifact(
             kind="php",
@@ -60,13 +83,25 @@ class PHPToolchain(LanguageToolchain):
         emit(PreparingBuildEnv(self.app_name))
         log("Preparing PHP build environment...", level=2, fg="cyan")
 
-    def install_dependencies(self) -> None:
-        """Install the PHP project's dependencies using composer."""
+    def install_dependencies(self, env: Env) -> None:
+        """Install the PHP project's dependencies using composer (if applicable)."""
+        if not self._has_composer():
+            log(
+                "No composer.json found - assuming vendored dependencies",
+                level=2,
+                fg="cyan",
+            )
+            return
+
         emit(InstallingDependencies(self.app_name))
 
         log("Installing PHP dependencies with composer...", level=2, fg="cyan")
         try:
-            self.shell("composer install --no-interaction --optimize-autoloader")
+            # Composer requires HOME to be set for cache directory
+            self.shell(
+                "composer install --no-interaction --optimize-autoloader",
+                env=env.environ(),
+            )
             log("PHP dependencies installed successfully", level=2, fg="green")
         except CalledProcessError as e:
             msg = (

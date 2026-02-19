@@ -65,11 +65,16 @@ def _prepare_target_directory(target_dir: Path) -> None:
     - Read-only files (common in npm packages)
     - Race conditions when processes are still accessing files
     - Complex nested structures
+    - Symbolic links (must be unlinked, not rmtree'd)
     """
     if target_dir.exists():
         # Clear the directory to ensure we start fresh.
         for item in target_dir.iterdir():
-            if item.is_dir():
+            # Handle symlinks first - is_dir() returns True for symlinks to directories
+            # but shutil.rmtree fails on symlinks, so we must unlink them instead
+            if item.is_symlink():
+                item.unlink()
+            elif item.is_dir():
                 robust_rmtree(item)
             else:
                 try:

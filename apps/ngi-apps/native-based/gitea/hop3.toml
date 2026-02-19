@@ -1,0 +1,37 @@
+# Hop3 Configuration for Gitea (Native build)
+# Self-hosted Git service
+
+[metadata]
+id = "gitea"
+version = "1.21.4"
+title = "Gitea"
+description = "Self-hosted Git service"
+homepage = "https://gitea.io/"
+license = "MIT"
+categories = ["git", "version-control", "development"]
+
+[build]
+# Force local builder (source code may include Dockerfile)
+builder = "local"
+# Use generic toolchain since this downloads a pre-built binary
+toolchain = "generic"
+
+# Download pre-built binary
+before-build = "bash scripts/download.sh"
+
+[run]
+# Setup config before starting
+before-run = "bash scripts/setup-config.sh"
+
+# Run the binary
+start = "./gitea web"
+
+[[addons]]
+type = "postgres"
+
+[env]
+# Gitea requires absolute path for work directory
+GITEA_WORK_DIR = "/home/hop3/apps/gitea/src"
+
+[healthcheck]
+path = "/"

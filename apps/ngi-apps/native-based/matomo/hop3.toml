@@ -1,0 +1,28 @@
+# Hop3 Configuration for Matomo (Native build)
+# Web analytics platform
+
+[metadata]
+id = "matomo"
+version = "5.0.1"
+title = "Matomo"
+description = "Open source web analytics platform"
+homepage = "https://matomo.org/"
+license = "GPL-3.0"
+categories = ["analytics", "web-analytics", "privacy"]
+
+[build]
+before-build = "bash scripts/download.sh"
+# Matomo doesn't require composer for basic install
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "php -S 0.0.0.0:${PORT:-8080}"
+
+[[addons]]
+type = "mysql"
+
+[env]
+MATOMO_DATABASE_HOST = "${MYSQL_HOST}"
+
+[healthcheck]
+path = "/"

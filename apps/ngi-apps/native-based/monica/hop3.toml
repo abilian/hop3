@@ -1,0 +1,28 @@
+# Hop3 Configuration for Monica (Native build)
+# Personal CRM
+
+[metadata]
+id = "monica"
+version = "4.0.0"
+title = "Monica"
+description = "Personal relationship management system"
+homepage = "https://www.monicahq.com/"
+license = "AGPL-3.0"
+categories = ["crm", "personal", "contacts"]
+
+[build]
+before-build = "bash scripts/download.sh"
+build = "composer install --no-dev --optimize-autoloader && npm install && npm run production"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "php artisan serve --host=0.0.0.0 --port=${PORT:-8080}"
+
+[[addons]]
+type = "mysql"
+
+[env]
+APP_ENV = "production"
+
+[healthcheck]
+path = "/"

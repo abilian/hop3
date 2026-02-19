@@ -1,0 +1,33 @@
+# Hop3 Configuration for WordPress (Native build)
+# Popular content management system
+
+[metadata]
+id = "wordpress"
+version = "6.4.2"
+title = "WordPress"
+description = "Popular open source content management system"
+homepage = "https://wordpress.org/"
+license = "GPL-2.0"
+categories = ["cms", "blog", "content-management"]
+
+[build]
+# Download WordPress
+before-build = "bash scripts/download.sh"
+
+# No build step needed for WordPress (pure PHP)
+
+[run]
+# Create wp-config.php before starting
+before-run = "bash scripts/setup-config.sh"
+
+# Run with PHP built-in server
+start = "php -S 0.0.0.0:${PORT:-8080}"
+
+[[addons]]
+type = "mysql"
+
+[env]
+WP_DEBUG = "false"
+
+[healthcheck]
+path = "/"

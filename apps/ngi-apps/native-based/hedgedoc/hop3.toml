@@ -1,0 +1,31 @@
+# Hop3 Configuration for HedgeDoc (Native build)
+# Collaborative markdown editor
+
+[metadata]
+id = "hedgedoc"
+version = "1.9.9"
+title = "HedgeDoc"
+description = "Real-time collaborative markdown editor"
+homepage = "https://hedgedoc.org/"
+license = "AGPL-3.0"
+categories = ["collaboration", "markdown", "editor"]
+
+[build]
+# Force local builder (source code may include Dockerfile)
+builder = "local"
+
+before-build = "bash scripts/download.sh"
+build = "npm install && npm run build"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "node app.js"
+
+[[addons]]
+type = "postgres"
+
+[env]
+NODE_ENV = "production"
+
+[healthcheck]
+path = "/status"
