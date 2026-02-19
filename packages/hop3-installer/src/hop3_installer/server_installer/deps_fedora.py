@@ -63,6 +63,9 @@ FEDORA_SPEC = PackageSpec(
         "php-pgsql",
         "php-mysqlnd",
         "php-intl",
+        "php-gd",       # Image processing (BookStack, Nextcloud, etc.)
+        "php-ldap",     # LDAP authentication (Nextcloud)
+        "php-bcmath",   # Arbitrary precision math (Invoice Ninja)
         "composer",
         # Java toolchain
         "java-17-openjdk-devel",

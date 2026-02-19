@@ -1,0 +1,37 @@
+# Hop3 Configuration for Ghost (Native build)
+# Professional publishing platform
+
+[metadata]
+id = "ghost"
+version = "5.74.5"
+title = "Ghost"
+description = "Professional publishing platform"
+homepage = "https://ghost.org/"
+license = "MIT"
+categories = ["cms", "blog", "publishing"]
+
+[build]
+# Force local builder (source code may include Dockerfile)
+builder = "local"
+
+# Download and install Ghost using ghost-cli
+before-build = "bash scripts/download.sh"
+
+# Install dependencies
+build = "npm install --production"
+
+[run]
+# Setup config before starting
+before-run = "bash scripts/setup-config.sh"
+
+# Run Ghost
+start = "node current/index.js"
+
+[[addons]]
+type = "mysql"
+
+[env]
+NODE_ENV = "production"
+
+[healthcheck]
+path = "/ghost/api/v4/admin/site/"

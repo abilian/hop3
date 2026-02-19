@@ -284,6 +284,38 @@ def collect_debug_info(name: str) -> None:
     print(f"{'='*60}\n")
 
 
+def check_uwsgi_running(name: str) -> tuple[bool, str | None]:
+    """Check if the app is running via uWSGI and get its port.
+
+    Returns (is_running, port) tuple.
+    """
+    # Check if uWSGI config exists
+    config_path = f"/home/hop3/uwsgi-enabled/{name}_web.1.ini"
+    result = run_on_server(f"grep 'env = PORT=' {config_path} 2>/dev/null", quiet=True)
+    if result.returncode != 0:
+        return False, None
+
+    # Extract port from "env = PORT=44057"
+    port = None
+    for line in result.stdout.strip().split("\n"):
+        if "PORT=" in line:
+            port = line.split("PORT=")[1].strip()
+            break
+
+    if not port:
+        return False, None
+
+    # Check if process is running on that port
+    result = run_on_server(
+        f"curl -s -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/ 2>/dev/null",
+        quiet=True
+    )
+    if result.returncode == 0 and result.stdout.strip() not in ("000", ""):
+        return True, port
+
+    return False, port
+
+
 def check_container_running(name: str) -> tuple[bool, str | None]:
     """Check if the Docker container is actually running and get its port.
 
@@ -293,13 +325,14 @@ def check_container_running(name: str) -> tuple[bool, str | None]:
 
     # Check container status
     result = run_on_server(
-        f"docker inspect {container_name} --format '{{{{.State.Status}}}}' 2>/dev/null"
+        f"docker inspect {container_name} --format '{{{{.State.Status}}}}' 2>/dev/null",
+        quiet=True
     )
     if result.returncode != 0 or "running" not in result.stdout.lower():
         return False, None
 
     # Get port mapping
-    result = run_on_server(f"docker port {container_name} 2>/dev/null | head -1")
+    result = run_on_server(f"docker port {container_name} 2>/dev/null | head -1", quiet=True)
     if result.returncode != 0 or "->" not in result.stdout:
         return True, None
 
@@ -312,6 +345,20 @@ def check_container_running(name: str) -> tuple[bool, str | None]:
             return True, port
 
     return True, None
+
+
+def check_app_running(name: str) -> tuple[bool, str | None]:
+    """Check if the app is running via Docker or uWSGI.
+
+    Returns (is_running, port) tuple.
+    """
+    # First try Docker
+    is_running, port = check_container_running(name)
+    if is_running:
+        return is_running, port
+
+    # Fall back to uWSGI
+    return check_uwsgi_running(name)
 
 
 def check_http_from_server(name: str, port: str) -> bool:
@@ -346,13 +393,13 @@ def wait_for_running(name: str, timeout: int = STARTUP_TIMEOUT) -> bool:
             return True
 
         if "stopped" in output or "failed" in output or "error" in output:
-            # Verify with Docker directly (workaround for hop3 status bug)
-            print(f"  hop3 reports {name} as stopped/failed, checking Docker directly...")
-            container_running, port = check_container_running(name)
+            # Verify directly (workaround for hop3 status bug)
+            print(f"  hop3 reports {name} as stopped/failed, checking directly...")
+            is_running, port = check_app_running(name)
 
-            if container_running and port:
+            if is_running and port:
                 if check_http_from_server(name, port):
-                    print(f"  App {name} is RUNNING (verified via Docker/HTTP)")
+                    print(f"  App {name} is RUNNING (verified via HTTP)")
                     return True
 
             print(f"  App {name} failed to start (confirmed)")
@@ -360,12 +407,12 @@ def wait_for_running(name: str, timeout: int = STARTUP_TIMEOUT) -> bool:
 
         time.sleep(5)
 
-    # Timeout - do one final Docker check
-    print(f"  Timeout, checking Docker directly...")
-    container_running, port = check_container_running(name)
-    if container_running and port:
+    # Timeout - do one final check
+    print(f"  Timeout, checking directly...")
+    is_running, port = check_app_running(name)
+    if is_running and port:
         if check_http_from_server(name, port):
-            print(f"  App {name} is RUNNING (verified via Docker/HTTP)")
+            print(f"  App {name} is RUNNING (verified via HTTP)")
             return True
 
     print(f"  Timeout waiting for {name} to start")
@@ -377,7 +424,7 @@ def check_http(name: str) -> bool:
 
     Runs the check from the server since apps bind to localhost there.
     """
-    _, port = check_container_running(name)
+    _, port = check_app_running(name)
 
     if not port:
         print(f"  Could not determine port for {name}")

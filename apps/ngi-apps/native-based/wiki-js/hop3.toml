@@ -1,0 +1,34 @@
+# Hop3 Configuration for Wiki.js (Native build)
+# Modern wiki platform
+
+[metadata]
+id = "wiki-js"
+version = "2.5.303"
+title = "Wiki.js"
+description = "Modern and powerful wiki platform"
+homepage = "https://js.wiki/"
+license = "AGPL-3.0"
+categories = ["wiki", "documentation", "knowledge-base"]
+
+[build]
+# Force local builder (source code may include Dockerfile)
+builder = "local"
+
+# Download Wiki.js pre-built release
+before-build = "bash scripts/download.sh"
+
+[run]
+# Setup config before starting
+before-run = "bash scripts/setup-config.sh"
+
+# Run Wiki.js
+start = "node server/index.js"
+
+[[addons]]
+type = "postgres"
+
+[env]
+NODE_ENV = "production"
+
+[healthcheck]
+path = "/healthz"

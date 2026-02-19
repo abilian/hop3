@@ -1,0 +1,29 @@
+# Hop3 Configuration for BookStack (Native build)
+# Documentation/wiki platform
+
+[metadata]
+id = "bookstack"
+version = "24.02"
+title = "BookStack"
+description = "Simple, self-hosted documentation platform"
+homepage = "https://www.bookstackapp.com/"
+license = "MIT"
+categories = ["wiki", "documentation", "knowledge-base"]
+
+[build]
+before-build = "bash scripts/download.sh"
+build = "composer install --no-dev --optimize-autoloader"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "php artisan serve --host=0.0.0.0 --port=${PORT:-8080}"
+
+[[addons]]
+type = "mysql"
+
+[env]
+APP_ENV = "production"
+APP_DEBUG = "false"
+
+[healthcheck]
+path = "/"

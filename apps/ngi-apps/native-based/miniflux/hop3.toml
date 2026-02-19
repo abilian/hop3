@@ -1,0 +1,39 @@
+# Hop3 Configuration for Miniflux (Native build)
+# Minimalist RSS reader
+
+[metadata]
+id = "miniflux"
+version = "2.1.1"
+title = "Miniflux"
+description = "Minimalist and opinionated RSS reader"
+homepage = "https://miniflux.app/"
+license = "Apache-2.0"
+categories = ["rss", "news", "feed-reader"]
+
+[build]
+# Force local builder (source code may include Dockerfile)
+builder = "local"
+
+# Download source code
+before-build = "bash scripts/download.sh"
+
+# Go toolchain will detect go.mod and build automatically
+# The build command creates the binary
+build = "make miniflux"
+
+[run]
+# Run the compiled binary
+start = "./miniflux"
+
+[[addons]]
+type = "postgres"
+
+[env]
+# Miniflux configuration
+RUN_MIGRATIONS = "1"
+CREATE_ADMIN = "1"
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "changeme"
+
+[healthcheck]
+path = "/healthcheck"

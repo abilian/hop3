@@ -1,0 +1,22 @@
+# Hop3 Configuration for Adminer (Native build)
+# Single-file database management tool
+
+[metadata]
+id = "adminer"
+version = "4.8.1"
+title = "Adminer"
+description = "Database management in a single PHP file"
+homepage = "https://www.adminer.org/"
+license = "Apache-2.0"
+categories = ["database", "admin", "mysql", "postgres"]
+
+[build]
+# Download single PHP file
+before-build = "bash scripts/download.sh"
+
+[run]
+# Run with PHP built-in server
+start = "php -S 0.0.0.0:${PORT:-8080}"
+
+[healthcheck]
+path = "/"

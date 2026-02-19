@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from .clojure import ClojureToolchain
 from .dotnet import DotNetToolchain
 from .elixir import ElixirToolchain
+from .generic import GenericToolchain
 from .go import GoToolchain
 from .java import JavaToolchain
 from .node import NodeToolchain
@@ -24,7 +25,8 @@ if TYPE_CHECKING:
     from ._base import LanguageToolchain
 
 TOOLCHAIN_CLASSES: list[type[LanguageToolchain]] = [
-    StaticToolchain,  # Try static first (fastest detection)
+    GenericToolchain,  # Try generic first (only accepts when explicitly specified)
+    StaticToolchain,  # Try static next (fastest auto-detection)
     PythonToolchain,
     RubyToolchain,
     NodeToolchain,

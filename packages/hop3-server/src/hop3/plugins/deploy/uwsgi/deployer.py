@@ -49,6 +49,7 @@ class UWSGIDeployer(Deployer):
             "java",
             "dotnet",
             "elixir",
+            "generic",  # Pre-built binaries or custom build apps
         }
 
     def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:

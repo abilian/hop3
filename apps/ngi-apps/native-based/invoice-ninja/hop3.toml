@@ -1,0 +1,29 @@
+# Hop3 Configuration for Invoice Ninja (Native build)
+# Invoicing and billing platform
+
+[metadata]
+id = "invoice-ninja"
+version = "5.8.37"
+title = "Invoice Ninja"
+description = "Free open-source invoicing platform"
+homepage = "https://invoiceninja.com/"
+license = "Elastic-2.0"
+categories = ["invoicing", "billing", "finance"]
+
+[build]
+before-build = "bash scripts/download.sh"
+build = "composer install --no-dev --optimize-autoloader && npm install && npm run production"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "php artisan serve --host=0.0.0.0 --port=${PORT:-8080}"
+
+[[addons]]
+type = "mysql"
+
+[env]
+APP_ENV = "production"
+APP_DEBUG = "false"
+
+[healthcheck]
+path = "/"

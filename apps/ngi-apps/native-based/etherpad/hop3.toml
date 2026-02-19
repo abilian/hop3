@@ -1,0 +1,34 @@
+# Hop3 Configuration for Etherpad (Native build)
+# Real-time collaborative editor
+
+[metadata]
+id = "etherpad"
+version = "2.0.3"
+title = "Etherpad"
+description = "Real-time collaborative document editor"
+homepage = "https://etherpad.org/"
+license = "Apache-2.0"
+categories = ["collaboration", "editor", "real-time"]
+
+[build]
+# Force local builder (source code includes a Dockerfile but we want native build)
+builder = "local"
+
+# Download source code
+before-build = "bash scripts/download.sh"
+
+# Install dependencies using Etherpad's script
+build = "CI=true bin/installDeps.sh"
+
+[run]
+# Create settings before starting
+before-run = "bash scripts/setup-settings.sh"
+
+# Run Etherpad using tsx
+start = "cd src && ../node_modules/.pnpm/node_modules/.bin/tsx node/server.ts"
+
+[env]
+NODE_ENV = "production"
+
+[healthcheck]
+path = "/"
