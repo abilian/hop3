@@ -11,6 +11,10 @@ license = "MIT"
 categories = ["project-management", "kanban", "productivity"]
 
 [build]
+# Force local builder for native PHP deployment
+builder = "local"
+toolchain = "php"
+
 # Download and extract Kanboard source
 before-build = "bash scripts/download.sh"
 
