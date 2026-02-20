@@ -27,7 +27,14 @@ from hop3.lib.console import capture_logs
 from hop3.lib.logging import server_log
 from hop3.lib.registry import register
 from hop3.lib.settings import parse_settings
-from hop3.orm import AddonCredential, App, AppRepository, AppStateEnum, EnvVar
+from hop3.orm import (
+    AddonCredential,
+    App,
+    AppRepository,
+    AppStateEnum,
+    EnvVar,
+    get_session_factory,
+)
 from hop3.server.streaming import create_stream, stream_context
 
 from ._base import Command
@@ -200,17 +207,35 @@ class DeployCmd(Command):
         # Create stream for real-time logs
         stream = create_stream(app_name)
 
+        # Capture app_id for the background thread (don't pass the session across threads)
+        app_id = app.id
+
         def run_deployment():
-            """Run deployment in background thread."""
-            try:
-                with stream_context(stream):
-                    with command_context("deploying app", app_name=app_name):
-                        do_deploy(app, db_session=self.db_session)
-                        app.last_deployed_at = datetime.now(UTC)
-                        self.db_session.commit()
-                stream.finish(success=True)
-            except Exception as e:
-                stream.finish(success=False, error_message=str(e))
+            """Run deployment in background thread with its own session."""
+            # Create a new session for this thread - sessions are not thread-safe
+            session_factory = get_session_factory()
+            with session_factory() as thread_session:
+                try:
+                    # Re-fetch the app in this thread's session
+                    app_repo = AppRepository(session=thread_session)
+                    thread_app = app_repo.get_one_or_none(id=app_id)
+                    if not thread_app:
+                        msg = f"App with id {app_id} not found"
+                        raise ValueError(msg)
+
+                    with stream_context(stream):
+                        with command_context("deploying app", app_name=app_name):
+                            do_deploy(thread_app, db_session=thread_session)
+                            thread_app.last_deployed_at = datetime.now(UTC)
+                            thread_session.commit()
+                    stream.finish(success=True)
+                except Exception as e:
+                    # Ensure rollback on error
+                    try:
+                        thread_session.rollback()
+                    except Exception:
+                        pass
+                    stream.finish(success=False, error_message=str(e))
 
         # Start deployment in background thread
         thread = threading.Thread(target=run_deployment, daemon=True)
@@ -235,7 +260,19 @@ class DeployCmd(Command):
                     app.last_deployed_at = datetime.now(UTC)
                     self.db_session.commit()
             except ValueError as e:
+                # Rollback any uncommitted changes on error
+                try:
+                    self.db_session.rollback()
+                except Exception:
+                    pass
                 # Capture the error but continue to collect logs
+                deploy_error = str(e)
+            except Exception as e:
+                # Handle unexpected errors with proper rollback
+                try:
+                    self.db_session.rollback()
+                except Exception:
+                    pass
                 deploy_error = str(e)
 
         # Build response with logs (always include logs, even on error)

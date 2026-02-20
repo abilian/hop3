@@ -104,7 +104,8 @@ def call(command_name: str, args: list[str], extra_args: JsonDict):
     command_kwargs = extra_args.copy()
 
     session_factory = get_session_factory()
-    with session_factory() as db_session:
+    db_session = session_factory()
+    try:
         class_args = {}
 
         if "db_session" in command_class.__annotations__:
@@ -138,7 +139,14 @@ def call(command_name: str, args: list[str], extra_args: JsonDict):
                 command=command_name,
                 result_type=type(result).__name__,
             )
+            # Commit any pending changes (if not already committed by command)
+            db_session.commit()
         except Exception as e:
+            # Rollback on any error to clean up transaction state
+            try:
+                db_session.rollback()
+            except Exception:
+                pass
             error_msg = f"Command execution failed: {e}"
             server_log.error(
                 "Command.call() raised exception",
@@ -149,6 +157,16 @@ def call(command_name: str, args: list[str], extra_args: JsonDict):
             raise ValueError(error_msg) from e
 
         return result
+    finally:
+        # Always close the session, but handle any state errors gracefully
+        try:
+            db_session.close()
+        except Exception as e:
+            server_log.warning(
+                "Error closing database session",
+                command=command_name,
+                error=str(e),
+            )
 
 
 class RPCController(Controller):
