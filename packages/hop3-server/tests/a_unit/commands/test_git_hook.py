@@ -86,7 +86,7 @@ def test_git_hook_invalid_push_data_format(git_hook_cmd, mock_app):
         assert "Invalid push data" in result[0]["text"]
 
 
-def test_git_hook_successful_deployment(git_hook_cmd, mock_app):
+def test_git_hook_successful_deployment(git_hook_cmd, mock_app, mock_db_session):
     """Test successful deployment from git push."""
     push_data = "aa453216d1b3e49e7f6f98441fa56946ddcd6a20 68f7abf4e6f922807889f52bc043ecd31b79f814 refs/heads/master"
 
@@ -104,8 +104,8 @@ def test_git_hook_successful_deployment(git_hook_cmd, mock_app):
             mock_app, "68f7abf4e6f922807889f52bc043ecd31b79f814"
         )
 
-        # Verify deployment was triggered
-        mock_deploy.assert_called_once_with(mock_app)
+        # Verify deployment was triggered with app and db_session
+        mock_deploy.assert_called_once_with(mock_app, db_session=mock_db_session)
 
         # Verify success response
         assert len(result) == 2

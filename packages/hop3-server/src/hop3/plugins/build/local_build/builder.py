@@ -30,8 +30,18 @@ class LocalBuilder:
         self.rejection_reason = ""  # Set by accept() if rejected
 
     def accept(self) -> bool:
-        """Accept if at least one language toolchain can handle this project."""
+        """Accept if at least one language toolchain can handle this project.
+
+        When an explicit toolchain is specified in hop3.toml, we accept immediately
+        without checking source files (which might not exist until before-build runs).
+        """
         src_path = self.context.source_path
+
+        # Check if explicit toolchain is specified - trust user's config
+        explicit_toolchain = self._get_explicit_toolchain()
+        if explicit_toolchain:
+            log(f"Explicit toolchain specified: {explicit_toolchain}", level=2, fg="cyan")
+            return True
 
         if not src_path.exists():
             self.rejection_reason = f"source path does not exist: {src_path}"
@@ -85,6 +95,9 @@ class LocalBuilder:
     ) -> list[type[LanguageToolchain]]:
         """Auto-detect which toolchains apply to this project.
 
+        If an explicit toolchain is specified in hop3.toml (e.g., toolchain = "generic"),
+        only that toolchain is used. Otherwise, auto-detect all applicable toolchains.
+
         Example: A Python backend + Node frontend would return both
         PythonToolchain and NodeToolchain.
         """
@@ -97,7 +110,30 @@ class LocalBuilder:
             cls for sublist in toolchain_classes_list for cls in sublist
         ]
 
-        # Check which toolchains accept this project
+        # Check if explicit toolchain is specified in hop3.toml
+        explicit_toolchain = self._get_explicit_toolchain()
+        if explicit_toolchain:
+            # Only use the explicitly specified toolchain
+            # Don't call accept() - trust the user's configuration
+            # (source files might not exist until before-build runs)
+            for toolchain_class in toolchain_classes:
+                name = getattr(toolchain_class, "name", "").lower()
+                if name == explicit_toolchain.lower():
+                    log(
+                        f"Using explicit toolchain: {explicit_toolchain}",
+                        level=2,
+                        fg="cyan",
+                    )
+                    return [toolchain_class]
+            # Toolchain not found
+            log(
+                f"Warning: Explicit toolchain '{explicit_toolchain}' not found",
+                level=1,
+                fg="yellow",
+            )
+            return []
+
+        # Auto-detect: check which toolchains accept this project
         applicable = []
         for toolchain_class in toolchain_classes:
             # Create temporary instance to check acceptance
@@ -105,6 +141,20 @@ class LocalBuilder:
             if toolchain.accept():
                 applicable.append(toolchain_class)
         return applicable
+
+    def _get_explicit_toolchain(self) -> str | None:
+        """Get explicitly specified toolchain from hop3.toml if present.
+
+        Returns the toolchain name if [build] toolchain is set, otherwise None.
+        """
+        app_config = self.context.app_config
+        hop3_config = app_config.get("hop3_config", {})
+        if not isinstance(hop3_config, dict):
+            return None
+        build_section = hop3_config.get("build", {})
+        if not isinstance(build_section, dict):
+            return None
+        return build_section.get("toolchain")
 
     def _combine_artifacts(self, artifacts: list[BuildArtifact]) -> BuildArtifact:
         """Combine multiple artifacts for multi-language apps."""

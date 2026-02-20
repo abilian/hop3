@@ -11,8 +11,9 @@ license = "AGPL-3.0"
 categories = ["wiki", "documentation", "knowledge-base"]
 
 [build]
-# Force local builder (source code may include Dockerfile)
+# Force local builder and use generic toolchain (Wiki.js is pre-built)
 builder = "local"
+toolchain = "generic"
 
 # Download Wiki.js pre-built release
 before-build = "bash scripts/download.sh"

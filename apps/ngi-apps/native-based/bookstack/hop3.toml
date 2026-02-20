@@ -11,6 +11,10 @@ license = "MIT"
 categories = ["wiki", "documentation", "knowledge-base"]
 
 [build]
+# Force local builder and explicit PHP toolchain to avoid multi-language artifact
+builder = "local"
+toolchain = "php"
+
 before-build = "bash scripts/download.sh"
 build = "composer install --no-dev --optimize-autoloader"
 

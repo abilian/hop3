@@ -13,6 +13,8 @@ categories = ["project-management", "kanban", "productivity"]
 [build]
 # Force local builder (source code may include Dockerfile)
 builder = "local"
+# Explicit toolchain since go.mod doesn't exist until before-build downloads source
+toolchain = "go"
 
 before-build = "bash scripts/download.sh"
 build = "make prebuild && make server && cd webapp && npm install && npm run pack"

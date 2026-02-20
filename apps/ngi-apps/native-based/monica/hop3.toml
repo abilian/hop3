@@ -11,8 +11,13 @@ license = "AGPL-3.0"
 categories = ["crm", "personal", "contacts"]
 
 [build]
+# Force local builder and explicit PHP toolchain
+builder = "local"
+toolchain = "php"
+
 before-build = "bash scripts/download.sh"
-build = "composer install --no-dev --optimize-autoloader && npm install && npm run production"
+# Use --ignore-platform-reqs for PHP 8.3, --ignore-scripts to skip yarn-dependent scripts
+build = "composer install --no-dev --optimize-autoloader --ignore-platform-reqs && npm install --legacy-peer-deps --ignore-scripts && npm run production"
 
 [run]
 before-run = "bash scripts/setup-config.sh"

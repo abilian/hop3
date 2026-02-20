@@ -383,15 +383,25 @@ class WebWorker(UwsgiWorker):
 
         app = App(name=self.app_name)
 
-        # Build PATH with virtualenv bin directory first
+        # Build PATH with virtualenv and node_modules bin directories
         venv_bin = app.virtualenv_path / "bin"
-        path_dirs = [
-            str(venv_bin),
+        src_node_bin = app.src_path / "node_modules" / ".bin"
+        venv_node_bin = app.virtualenv_path / "node_modules" / ".bin"
+
+        path_dirs = [str(venv_bin)]
+
+        # Add node_modules/.bin if present (check both src and venv locations)
+        if src_node_bin.exists():
+            path_dirs.append(str(src_node_bin))
+        if venv_node_bin.exists():
+            path_dirs.append(str(venv_node_bin))
+
+        path_dirs.extend([
             "/usr/local/sbin",
             "/usr/local/bin",
             "/usr/sbin",
             "/usr/bin",
-        ]
+        ])
         path_value = ":".join(path_dirs)
 
         # Build exports for ALL environment variables
@@ -421,15 +431,25 @@ class GenericWorker(UwsgiWorker):
 
         app = App(name=self.app_name)
 
-        # Build PATH with virtualenv bin directory first
+        # Build PATH with virtualenv and node_modules bin directories
         venv_bin = app.virtualenv_path / "bin"
-        path_dirs = [
-            str(venv_bin),
+        src_node_bin = app.src_path / "node_modules" / ".bin"
+        venv_node_bin = app.virtualenv_path / "node_modules" / ".bin"
+
+        path_dirs = [str(venv_bin)]
+
+        # Add node_modules/.bin if present (check both src and venv locations)
+        if src_node_bin.exists():
+            path_dirs.append(str(src_node_bin))
+        if venv_node_bin.exists():
+            path_dirs.append(str(venv_node_bin))
+
+        path_dirs.extend([
             "/usr/local/sbin",
             "/usr/local/bin",
             "/usr/sbin",
             "/usr/bin",
-        ]
+        ])
         path_value = ":".join(path_dirs)
 
         # Build exports for ALL environment variables

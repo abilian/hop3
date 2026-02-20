@@ -4,7 +4,11 @@
 set -e
 
 PORT="${PORT:-8080}"
+# Use 127.0.0.1 instead of localhost to avoid IPv6 resolution issues
 DB_HOST="${MYSQL_HOST:-localhost}"
+if [ "$DB_HOST" = "localhost" ]; then
+    DB_HOST="127.0.0.1"
+fi
 DB_PORT="${MYSQL_PORT:-3306}"
 DB_NAME="${MYSQL_DATABASE:-ghost}"
 DB_USER="${MYSQL_USER:-ghost}"
@@ -35,7 +39,7 @@ cat > config.production.json << EOF
     "transports": ["stdout"]
   },
   "paths": {
-    "contentPath": "content"
+    "contentPath": "$(pwd)/content"
   }
 }
 EOF

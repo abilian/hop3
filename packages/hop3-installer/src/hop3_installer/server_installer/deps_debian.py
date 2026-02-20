@@ -9,6 +9,7 @@ from .deps_common import (
     PackageSpec,
     install_base_packages,
     install_dotnet_sdk_debian,
+    install_node_global_packages,
     install_optional_packages,
 )
 from .redis import configure_redis
@@ -62,9 +63,11 @@ DEBIAN_SPEC = PackageSpec(
         "php-pgsql",
         "php-mysql",
         "php-intl",
-        "php-gd",      # Image processing (BookStack, Nextcloud, etc.)
-        "php-ldap",    # LDAP authentication (Nextcloud)
+        "php-gd",  # Image processing (BookStack, Nextcloud, etc.)
+        "php-ldap",  # LDAP authentication (Nextcloud)
         "php-bcmath",  # Arbitrary precision math (Invoice Ninja)
+        "php-gmp",  # GNU Multiple Precision (Monica, some crypto)
+        "php-redis",  # Redis extension (Monica, caching)
         "composer",
         # Java toolchain
         "default-jdk",
@@ -74,6 +77,7 @@ DEBIAN_SPEC = PackageSpec(
         "wget",
         "rsync",
         "socat",
+        "unzip",
         # Development libraries
         "libjpeg-dev",
         "libpng-dev",
@@ -99,3 +103,4 @@ def install_debian_deps(config: ServerInstallerConfig) -> None:
     install_base_packages(DEBIAN_SPEC)
     install_optional_packages(config, DEBIAN_SPEC, configure_redis)
     install_dotnet_sdk_debian()
+    install_node_global_packages()

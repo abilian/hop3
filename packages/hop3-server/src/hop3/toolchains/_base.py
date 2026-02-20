@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import os
+import pwd
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar
 
@@ -144,11 +146,57 @@ class LanguageToolchain(ABC):
             cwd (str or Path, optional): The working directory where the command will be executed.
                 Defaults to the application path if not provided.
             **kwargs: Additional keyword arguments to be passed to the shell function.
+
+        The env is automatically merged with os.environ to ensure all system
+        variables are available. This is important because subprocess.run with
+        a custom env parameter replaces the entire environment.
         """
         if not cwd:
             # Build in the source directory
             cwd = str(self.src_path)
+
+        # Always merge env with os.environ to get system variables
+        # subprocess.run replaces the entire environment when env is passed,
+        # so we need to include system vars like HOME, USER, LANG, etc.
+        if "env" in kwargs:
+            caller_env = kwargs["env"]
+            # Convert Env to dict if needed
+            if isinstance(caller_env, Env):
+                caller_env = dict(caller_env)
+            else:
+                caller_env = dict(caller_env)
+
+            # Start with os.environ and overlay caller's env
+            merged_env = dict(os.environ)
+            merged_env.update(caller_env)
+
+            # Ensure HOME is set (required by npm, composer, pnpm, etc.)
+            if "HOME" not in merged_env or not merged_env["HOME"]:
+                merged_env["HOME"] = self._get_home_dir()
+
+            kwargs["env"] = merged_env
+
         return shell(command, cwd=str(cwd), **kwargs)
+
+    def _get_home_dir(self) -> str:
+        """Get the home directory, handling systemd/service environments.
+
+        In systemd services or restricted environments, HOME may not be set,
+        so we use pwd module or fall back to hop3 user's home.
+        """
+        # Try environment first
+        home = os.environ.get("HOME")
+        if home:
+            return home
+
+        # Try passwd database
+        try:
+            return pwd.getpwuid(os.getuid()).pw_dir
+        except (KeyError, OSError):
+            pass
+
+        # Fallback to hop3's default home
+        return "/home/hop3"
 
     def get_env(self) -> Env:
         """Get the environment for this app instance as an Env object."""

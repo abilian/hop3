@@ -35,11 +35,26 @@ class GoToolchain(LanguageToolchain):
     def build(self) -> BuildArtifact:
         """Build the Go application.
 
-        This downloads dependencies and optionally compiles the application.
+        If a custom build command is specified in hop3.toml [build] section,
+        that command is run instead of the default go build. This allows
+        projects using Makefiles (like Focalboard, Mattermost) to work.
+
+        Otherwise, downloads dependencies and optionally compiles the application.
         For apps using 'go run' in their Procfile, we just download deps.
         For apps with a main package, we compile to a binary.
         """
         log(f"Building Go application '{self.app_name}'", level=1, fg="blue")
+
+        # Check if custom build command is specified in hop3.toml
+        custom_build = self._get_custom_build_command()
+        if custom_build:
+            log(f"Running custom build command: {custom_build}", level=2, fg="cyan")
+            self.shell(custom_build)
+            return BuildArtifact(
+                kind="go",
+                location=str(self.src_path),
+                metadata={"app_name": self.app_name, "custom_build": True},
+            )
 
         # Download dependencies if go.mod exists
         if (self.src_path / "go.mod").exists():
@@ -73,3 +88,21 @@ class GoToolchain(LanguageToolchain):
             location=str(self.src_path),
             metadata={"app_name": self.app_name},
         )
+
+    def _get_custom_build_command(self) -> str | None:
+        """Get custom build command from hop3.toml if specified.
+
+        Returns the build command string if [build] build is set in hop3.toml,
+        otherwise None.
+        """
+        if self.context is None:
+            return None
+
+        app_config = self.context.app_config
+        hop3_config = app_config.get("hop3_config", {})
+        build_section = hop3_config.get("build", {})
+        build_cmd = build_section.get("build")
+
+        if isinstance(build_cmd, list):
+            return " && ".join(build_cmd) if build_cmd else None
+        return build_cmd or None
