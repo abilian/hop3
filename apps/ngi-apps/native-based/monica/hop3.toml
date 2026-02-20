@@ -21,7 +21,8 @@ build = "composer install --no-dev --optimize-autoloader --ignore-platform-reqs 
 
 [run]
 before-run = "bash scripts/setup-config.sh"
-start = "php artisan serve --host=0.0.0.0 --port=${PORT:-8080}"
+# Use --no-reload to disable Laravel's file watcher (causes 503 during restarts)
+start = "php artisan serve --host=0.0.0.0 --port=${PORT:-8080} --no-reload"
 
 [[addons]]
 type = "mysql"

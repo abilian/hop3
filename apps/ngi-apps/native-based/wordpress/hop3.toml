@@ -11,6 +11,10 @@ license = "GPL-2.0"
 categories = ["cms", "blog", "content-management"]
 
 [build]
+# Force local builder for native PHP deployment
+builder = "local"
+toolchain = "php"
+
 # Download WordPress
 before-build = "bash scripts/download.sh"
 

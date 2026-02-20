@@ -11,6 +11,10 @@ license = "GPL-3.0"
 categories = ["analytics", "web-analytics", "privacy"]
 
 [build]
+# Force local builder for native PHP deployment
+builder = "local"
+toolchain = "php"
+
 before-build = "bash scripts/download.sh"
 # Matomo doesn't require composer for basic install
 

@@ -11,6 +11,10 @@ license = "Apache-2.0"
 categories = ["database", "admin", "mysql", "postgres"]
 
 [build]
+# Force local builder for native PHP deployment
+builder = "local"
+toolchain = "php"
+
 # Download single PHP file
 before-build = "bash scripts/download.sh"
 

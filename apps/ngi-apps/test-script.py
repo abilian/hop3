@@ -23,11 +23,12 @@ Usage:
 from __future__ import annotations
 
 import glob
+import io
 import os
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 try:
@@ -36,6 +37,7 @@ except ImportError:
     import tomli as tomllib  # type: ignore
 
 SCRIPT_DIR = Path(__file__).parent
+LOGS_DIR = SCRIPT_DIR / "logs"
 
 # Timeouts
 STARTUP_TIMEOUT = 120  # seconds to wait for app to start
@@ -43,6 +45,20 @@ HTTP_TIMEOUT = 10  # seconds for HTTP requests
 
 # Global debug flag
 DEBUG = False
+
+# Current log file (set per-app)
+CURRENT_LOG_FILE: io.TextIOWrapper | None = None
+
+
+def log_print(*args, **kwargs):
+    """Print to both console and current log file if set."""
+    print(*args, **kwargs)
+    if CURRENT_LOG_FILE:
+        # Also write to log file
+        output = io.StringIO()
+        print(*args, **kwargs, file=output)
+        CURRENT_LOG_FILE.write(output.getvalue())
+        CURRENT_LOG_FILE.flush()
 
 
 @dataclass
@@ -114,7 +130,7 @@ def run(cmd: str, check: bool = True, capture: bool = True, quiet: bool = False)
         quiet: Only show output on failure
     """
     if not quiet:
-        print(f"  $ {cmd}")
+        log_print(f"  $ {cmd}")
 
     if capture:
         # Use Popen with communicate() to safely handle large outputs
@@ -134,9 +150,9 @@ def run(cmd: str, check: bool = True, capture: bool = True, quiet: bool = False)
     if result.returncode != 0 or not quiet:
         if result.stdout:
             for line in result.stdout.strip().split("\n"):
-                print(f"    {line}")
+                log_print(f"    {line}")
         if result.stderr and result.returncode != 0:
-            print(f"  ERROR: {result.stderr}")
+            log_print(f"  ERROR: {result.stderr}")
 
     if result.returncode != 0 and check:
         raise RuntimeError(f"Command failed: {cmd}")
@@ -152,7 +168,7 @@ def run_streaming(cmd: str, check: bool = True, timeout: int = 600) -> int:
     import threading
     import queue
 
-    print(f"  $ {cmd}")
+    log_print(f"  $ {cmd}")
 
     process = subprocess.Popen(
         cmd,
@@ -185,7 +201,7 @@ def run_streaming(cmd: str, check: bool = True, timeout: int = 600) -> int:
         # Check timeout
         if time.time() - start_time > timeout:
             process.kill()
-            print(f"    [TIMEOUT after {timeout}s]")
+            log_print(f"    [TIMEOUT after {timeout}s]")
             break
 
         try:
@@ -195,7 +211,7 @@ def run_streaming(cmd: str, check: bool = True, timeout: int = 600) -> int:
                 break
             decoded = line.decode("utf-8", errors="replace").rstrip()
             if decoded:
-                print(f"    {decoded}")
+                log_print(f"    {decoded}")
         except queue.Empty:
             # No output available, check if process is still running
             if process.poll() is not None:
@@ -208,7 +224,7 @@ def run_streaming(cmd: str, check: bool = True, timeout: int = 600) -> int:
                             break
                         decoded = line.decode("utf-8", errors="replace").rstrip()
                         if decoded:
-                            print(f"    {decoded}")
+                            log_print(f"    {decoded}")
                     except queue.Empty:
                         break
                 break
@@ -232,113 +248,113 @@ def run_on_server(cmd: str, check: bool = False, quiet: bool = False) -> subproc
 
 def collect_debug_info_native(name: str) -> None:
     """Collect debug information for a native/uWSGI app."""
-    print(f"\n{'='*60}")
-    print(f"DEBUG INFO for: {name} (native/uWSGI)")
-    print(f"{'='*60}")
+    log_print(f"\n{'='*60}")
+    log_print(f"DEBUG INFO for: {name} (native/uWSGI)")
+    log_print(f"{'='*60}")
 
     # Check uWSGI config
-    print("\n--- uWSGI config ---")
+    log_print("\n--- uWSGI config ---")
     run_on_server(f"cat /home/hop3/uwsgi-enabled/{name}_web.1.ini 2>/dev/null | head -30 || echo 'Config not found'")
 
     # Check uWSGI logs
-    print(f"\n--- uWSGI logs (last 30 lines) ---")
+    log_print(f"\n--- uWSGI logs (last 30 lines) ---")
     run_on_server(f"tail -30 /home/hop3/apps/{name}/log/web.1.log 2>/dev/null || echo 'Log not found'")
 
     # Check app port from config
-    print(f"\n--- App port configuration ---")
+    log_print(f"\n--- App port configuration ---")
     result = run_on_server(f"grep 'env = PORT=' /home/hop3/uwsgi-enabled/{name}_web.1.ini 2>/dev/null", quiet=True)
     port = None
     if result.returncode == 0 and "PORT=" in result.stdout:
         port = result.stdout.split("PORT=")[1].strip()
-        print(f"  Configured PORT: {port}")
+        log_print(f"  Configured PORT: {port}")
 
         # Check HTTP connectivity
-        print(f"\n--- HTTP connectivity test ---")
+        log_print(f"\n--- HTTP connectivity test ---")
         run_on_server(
             f"curl -s -o /dev/null -w 'HTTP Status: %{{http_code}}\\n' "
             f"http://127.0.0.1:{port}/ 2>/dev/null || echo 'Connection failed'"
         )
 
     # Check if process is running
-    print(f"\n--- Process status ---")
+    log_print(f"\n--- Process status ---")
     run_on_server(f"pgrep -f 'apps/{name}' && echo 'Process found' || echo 'No process running'")
 
     # Check LIVE_ENV
-    print(f"\n--- Environment variables (LIVE_ENV) ---")
+    log_print(f"\n--- Environment variables (LIVE_ENV) ---")
     run_on_server(f"cat /home/hop3/apps/{name}/venv/LIVE_ENV 2>/dev/null | head -20 || echo 'LIVE_ENV not found'")
 
     # Check source directory
-    print(f"\n--- Source directory contents ---")
+    log_print(f"\n--- Source directory contents ---")
     run_on_server(f"ls -la /home/hop3/apps/{name}/src/ 2>/dev/null | head -20 || echo 'Source dir not found'")
 
-    print(f"\n{'='*60}")
-    print("END DEBUG INFO")
-    print(f"{'='*60}\n")
+    log_print(f"\n{'='*60}")
+    log_print("END DEBUG INFO")
+    log_print(f"{'='*60}\n")
 
 
 def collect_debug_info_docker(name: str) -> None:
     """Collect debug information for a Docker app."""
-    print(f"\n{'='*60}")
-    print(f"DEBUG INFO for: {name} (Docker)")
-    print(f"{'='*60}")
+    log_print(f"\n{'='*60}")
+    log_print(f"DEBUG INFO for: {name} (Docker)")
+    log_print(f"{'='*60}")
 
     # Check Docker containers
-    print("\n--- Docker containers ---")
+    log_print("\n--- Docker containers ---")
     run_on_server("docker ps -a | head -20")
 
     # Check if our container exists
     container_name = f"{name}-web-1"
-    print(f"\n--- Container {container_name} status ---")
+    log_print(f"\n--- Container {container_name} status ---")
     run_on_server(
         f"docker inspect {container_name} --format "
         "'{{.State.Status}} exit={{.State.ExitCode}} error={{.State.Error}}' 2>/dev/null || echo 'Container not found'"
     )
 
     # Get container logs
-    print(f"\n--- Container logs (last 30 lines) ---")
+    log_print(f"\n--- Container logs (last 30 lines) ---")
     run_on_server(f"docker logs {container_name} 2>&1 | tail -30")
 
     # Check the generated compose file
-    print(f"\n--- Generated compose file ---")
+    log_print(f"\n--- Generated compose file ---")
     run_on_server(
         f"cat /home/hop3/apps/{name}/src/.hop3-compose.yml 2>/dev/null || echo 'Compose file not found'"
     )
 
     # Check if app port is accessible
-    print(f"\n--- Checking app connectivity ---")
+    log_print(f"\n--- Checking app connectivity ---")
     result = run_on_server(f"docker port {container_name} 2>/dev/null | head -1")
     if result.stdout.strip():
         port_mapping = result.stdout.strip()
         if "->" in port_mapping:
             host_port = port_mapping.split("->")[1].strip()
-            print(f"  Port mapping: {port_mapping}")
+            log_print(f"  Port mapping: {port_mapping}")
 
-            print(f"\n--- HTTP response from {host_port} ---")
+            log_print(f"\n--- HTTP response from {host_port} ---")
             run_on_server(
                 f"curl -s -o /dev/null -w 'HTTP Status: %{{http_code}}\\n' "
                 f"http://{host_port}/ || echo 'Connection failed'"
             )
 
-            print(f"\n--- Response body preview ---")
+            log_print(f"\n--- Response body preview ---")
             run_on_server(f"curl -s http://{host_port}/ 2>/dev/null | head -20 || echo 'No response'")
 
     # Check Apache/app error logs inside container
-    print(f"\n--- Application logs inside container ---")
+    log_print(f"\n--- Application logs inside container ---")
     run_on_server(
         f"docker exec {container_name} cat /var/log/apache2/error.log 2>/dev/null | tail -20 "
         "|| echo 'No Apache logs'"
     )
 
     # Check database connectivity from container
-    print(f"\n--- Database environment in container ---")
+    log_print(f"\n--- Database environment in container ---")
     run_on_server(
         f"docker exec {container_name} env 2>/dev/null | "
         "grep -E '(DATABASE|MYSQL|POSTGRES|REDIS|PG)' || echo 'No DB env vars'"
     )
 
-    print(f"\n{'='*60}")
-    print("END DEBUG INFO")
-    print(f"{'='*60}\n")
+    log_print(f"\n{'='*60}")
+    log_print("END DEBUG INFO")
+    log_print(f"{'='*60}\n")
 
 
 def collect_debug_info(name: str, deployment_type: str = "docker") -> None:
@@ -433,21 +449,57 @@ def check_app_running(name: str, deployment_type: str = "docker") -> tuple[bool,
         return check_uwsgi_running(name)
 
 
-def check_http_from_server(name: str, port: str) -> bool:
-    """Check HTTP connectivity from the server itself."""
+def check_http_from_server(name: str, port: str, quiet: bool = False) -> tuple[bool, str]:
+    """Check HTTP connectivity from the server itself.
+
+    Returns (success, http_code) tuple.
+    """
     result = run_on_server(
-        f"curl -s -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/ 2>/dev/null"
+        f"curl -s -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/ 2>/dev/null",
+        quiet=True
     )
     if result.returncode != 0:
-        return False
+        return False, "000"
 
     http_code = result.stdout.strip()
     # Accept any response code that indicates the app is responding
     if http_code in ("200", "301", "302", "401", "403"):
-        print(f"  Container responding with HTTP {http_code}")
-        return True
+        if not quiet:
+            log_print(f"  App responding with HTTP {http_code}")
+        return True, http_code
 
-    print(f"  Container returned HTTP {http_code}")
+    if not quiet:
+        log_print(f"  App returned HTTP {http_code}")
+    return False, http_code
+
+
+def wait_for_http_ready(name: str, port: str, timeout: int = 30) -> bool:
+    """Wait for app to respond with a healthy HTTP status.
+
+    Some apps (like Laravel) may temporarily return 500/503 during startup
+    or when restarting after config changes.
+    """
+    start = time.time()
+    last_code = "000"
+
+    while time.time() - start < timeout:
+        success, http_code = check_http_from_server(name, port, quiet=True)
+        last_code = http_code
+
+        if success:
+            log_print(f"  App responding with HTTP {http_code}")
+            return True
+
+        # 500/502/503 means app is starting or restarting - keep waiting
+        if http_code in ("500", "502", "503"):
+            log_print(f"  App returned HTTP {http_code}, waiting for startup...")
+            time.sleep(3)
+            continue
+
+        # Other errors (000, 404, etc.) - keep trying but less frequently
+        time.sleep(2)
+
+    log_print(f"  HTTP check timed out (last status: {last_code})")
     return False
 
 
@@ -459,7 +511,7 @@ def wait_for_running(name: str, deployment_type: str = "docker", timeout: int = 
         deployment_type: "docker" or "native" (from AppConfig.deployment_type)
         timeout: Max seconds to wait
     """
-    print(f"  Waiting for {name} to be RUNNING (timeout: {timeout}s)...")
+    log_print(f"  Waiting for {name} to be RUNNING (timeout: {timeout}s)...")
     start = time.time()
 
     while time.time() - start < timeout:
@@ -467,33 +519,35 @@ def wait_for_running(name: str, deployment_type: str = "docker", timeout: int = 
         output = result.stdout.lower()
 
         if "running" in output and "starting" not in output:
-            print(f"  App {name} is RUNNING (per hop3)")
+            log_print(f"  App {name} is RUNNING (per hop3)")
             return True
 
         if "stopped" in output or "failed" in output or "error" in output:
             # Verify directly (workaround for hop3 status bug)
-            print(f"  hop3 reports {name} as stopped/failed, checking directly...")
+            log_print(f"  hop3 reports {name} as stopped/failed, checking directly...")
             is_running, port = check_app_running(name, deployment_type)
 
             if is_running and port:
-                if check_http_from_server(name, port):
-                    print(f"  App {name} is RUNNING (verified via HTTP)")
+                # Give the app time to fully start - some apps restart during init
+                remaining_time = max(10, int(timeout - (time.time() - start)))
+                if wait_for_http_ready(name, port, timeout=remaining_time):
+                    log_print(f"  App {name} is RUNNING (verified via HTTP)")
                     return True
 
-            print(f"  App {name} failed to start (confirmed)")
+            log_print(f"  App {name} failed to start (confirmed)")
             return False
 
         time.sleep(5)
 
     # Timeout - do one final check
-    print(f"  Timeout, checking directly...")
+    log_print(f"  Timeout, checking directly...")
     is_running, port = check_app_running(name, deployment_type)
     if is_running and port:
-        if check_http_from_server(name, port):
-            print(f"  App {name} is RUNNING (verified via HTTP)")
+        if wait_for_http_ready(name, port, timeout=10):
+            log_print(f"  App {name} is RUNNING (verified via HTTP)")
             return True
 
-    print(f"  Timeout waiting for {name} to start")
+    log_print(f"  Timeout waiting for {name} to start")
     return False
 
 
@@ -501,6 +555,7 @@ def check_http(name: str, deployment_type: str = "docker") -> bool:
     """Check that the app responds to HTTP.
 
     Runs the check from the server since apps bind to localhost there.
+    Uses retry logic to handle apps that may be restarting.
 
     Args:
         name: App name
@@ -509,23 +564,17 @@ def check_http(name: str, deployment_type: str = "docker") -> bool:
     _, port = check_app_running(name, deployment_type)
 
     if not port:
-        print(f"  Could not determine port for {name}")
+        log_print(f"  Could not determine port for {name}")
         return False
 
-    print(f"  Checking HTTP at 127.0.0.1:{port} on server...")
+    log_print(f"  Checking HTTP at 127.0.0.1:{port} on server...")
 
-    result = run_on_server(
-        f"curl -s -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/"
-    )
-    http_code = result.stdout.strip()
-    print(f"  HTTP Status: {http_code}")
-
-    # Accept redirects and auth-required as success
-    if http_code in ("200", "301", "302", "401", "403"):
-        print(f"  HTTP OK - app is responding")
+    # Use retry logic - some apps may be restarting
+    if wait_for_http_ready(name, port, timeout=15):
+        log_print(f"  HTTP OK - app is responding")
         return True
 
-    print(f"  HTTP failed with status {http_code}")
+    log_print(f"  HTTP check failed")
     return False
 
 
@@ -535,17 +584,17 @@ def deploy_app(app: AppConfig) -> bool:
     Addons and env vars are now handled automatically by hop3 deploy
     based on the [[addons]] and [env] sections in hop3.toml.
     """
-    print(f"\n{'='*60}")
-    print(f"Deploying: {app.title} ({app.name})")
-    print(f"  Path: {app.path}")
-    print(f"  Type: {app.deployment_type}")
-    print(f"  Addons (from config): {app.addons}")
+    log_print(f"\n{'='*60}")
+    log_print(f"Deploying: {app.title} ({app.name})")
+    log_print(f"  Path: {app.path}")
+    log_print(f"  Type: {app.deployment_type}")
+    log_print(f"  Addons (from config): {app.addons}")
     if app.env_vars:
-        print(f"  Env vars (from config): {list(app.env_vars.keys())}")
-    print(f"{'='*60}")
+        log_print(f"  Env vars (from config): {list(app.env_vars.keys())}")
+    log_print(f"{'='*60}")
 
     if not app.path.exists():
-        print(f"  App directory not found: {app.path}")
+        log_print(f"  App directory not found: {app.path}")
         return False
 
     # Single deploy - addons and env vars are processed automatically from hop3.toml
@@ -554,7 +603,7 @@ def deploy_app(app: AppConfig) -> bool:
 
     # Wait for app to be fully running
     if not wait_for_running(app.name, app.deployment_type):
-        print(f"  FAILED: {app.name} did not start properly")
+        log_print(f"  FAILED: {app.name} did not start properly")
         if DEBUG:
             collect_debug_info(app.name, app.deployment_type)
         return False
@@ -564,18 +613,18 @@ def deploy_app(app: AppConfig) -> bool:
 
     # Verify HTTP response
     if not check_http(app.name, app.deployment_type):
-        print(f"  FAILED: {app.name} HTTP check failed")
+        log_print(f"  FAILED: {app.name} HTTP check failed")
         if DEBUG:
             collect_debug_info(app.name, app.deployment_type)
         return False
 
-    print(f"  SUCCESS: {app.name} is running and responding")
+    log_print(f"  SUCCESS: {app.name} is running and responding")
     return True
 
 
 def cleanup_app(app: AppConfig) -> None:
     """Remove an app and its addons."""
-    print(f"\nCleaning up: {app.name}")
+    log_print(f"\nCleaning up: {app.name}")
 
     if app.deployment_type == "docker":
         # Stop and remove Docker container
@@ -610,12 +659,12 @@ def expand_app_paths(patterns: list[str]) -> list[Path]:
             if app_path.is_dir():
                 paths.append(app_path)
             else:
-                print(f"Warning: {pattern} is not a valid directory")
+                log_print(f"Warning: {pattern} is not a valid directory")
     return paths
 
 
 def main():
-    global DEBUG
+    global DEBUG, CURRENT_LOG_FILE
 
     args = sys.argv[1:]
 
@@ -626,6 +675,9 @@ def main():
     # Default to docker-based/* if no args
     if not args:
         args = ["docker-based/*"]
+
+    # Create logs directory
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
     # Expand paths
     app_paths = expand_app_paths(args)
@@ -649,24 +701,43 @@ def main():
             sys.exit(1)
 
     print(f"Testing {len(apps)} app(s): {', '.join(a.name for a in apps)}")
+    print(f"Logs will be saved to: {LOGS_DIR}/")
     if DEBUG:
         print("Debug mode: ON")
 
     results = {}
 
     for app in apps:
+        # Open log file for this app
+        log_file_path = LOGS_DIR / f"{app.name}.log"
+        try:
+            CURRENT_LOG_FILE = open(log_file_path, "w", encoding="utf-8")
+            CURRENT_LOG_FILE.write(f"=== Log for {app.name} ===\n")
+            CURRENT_LOG_FILE.write(f"Started at: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+        except OSError as e:
+            print(f"Warning: Could not create log file {log_file_path}: {e}")
+            CURRENT_LOG_FILE = None
+
         try:
             success = deploy_app(app)
             results[app.name] = "OK" if success else "FAILED"
         except Exception as e:
-            print(f"  Exception: {e}")
+            log_print(f"  Exception: {e}")
             results[app.name] = "ERROR"
             collect_debug_info(app.name, app.deployment_type)
 
         if do_cleanup:
             cleanup_app(app)
 
-    # Summary
+        # Close log file
+        if CURRENT_LOG_FILE:
+            CURRENT_LOG_FILE.write(f"\n=== End of log for {app.name} ===\n")
+            CURRENT_LOG_FILE.write(f"Result: {results[app.name]}\n")
+            CURRENT_LOG_FILE.write(f"Ended at: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            CURRENT_LOG_FILE.close()
+            CURRENT_LOG_FILE = None
+
+    # Summary (to console only)
     print(f"\n{'='*60}")
     print("Results:")
     print(f"{'='*60}")
@@ -676,6 +747,7 @@ def main():
 
     failed = sum(1 for s in results.values() if s != "OK")
     print(f"\nTotal: {len(results) - failed}/{len(results)} passed")
+    print(f"\nLogs saved to: {LOGS_DIR}/")
     sys.exit(failed)
 
 
