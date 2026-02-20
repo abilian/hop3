@@ -11,11 +11,12 @@ license = "MIT"
 categories = ["collaboration", "chat", "team-communication"]
 
 [build]
-# Force local builder (source code may include Dockerfile)
+# Force local builder with generic toolchain (using pre-built release)
 builder = "local"
+toolchain = "generic"
 
+# Download pre-built release (no build step needed)
 before-build = "bash scripts/download.sh"
-build = "make build-linux"
 
 [run]
 before-run = "bash scripts/setup-config.sh"

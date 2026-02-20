@@ -320,12 +320,21 @@ class AppLauncher:
             # No default HOST_NAME - apps without hostname don't get proxy config
         }
 
-        # add node path if present
-        node_path = self.virtualenv_path / "node_modules"
-        if node_path.exists():
-            env["NODE_PATH"] = str(node_path)
-            # Prepend node_modules/.bin to existing PATH (not os.environ)
-            env["PATH"] = f"{node_path / '.bin'}:{env['PATH']}"
+        # add node path if present (check both venv and src directories)
+        # For Node apps built from source, node_modules is in src/
+        # For apps using nodeenv, node_modules might be in venv/
+        for node_path in [
+            self.app.src_path / "node_modules",
+            self.virtualenv_path / "node_modules",
+        ]:
+            if node_path.exists():
+                if "NODE_PATH" not in env:
+                    env["NODE_PATH"] = str(node_path)
+                # Prepend node_modules/.bin to existing PATH (not os.environ)
+                node_bin = str(node_path / ".bin")
+                if node_bin not in env["PATH"]:
+                    env["PATH"] = f"{node_bin}:{env['PATH']}"
+                break  # Use the first node_modules found
 
         # add Ruby gem paths if this is a Ruby app
         gemfile = self.app.src_path / "Gemfile"

@@ -9,6 +9,7 @@ from .deps_common import (
     PackageSpec,
     install_base_packages,
     install_dotnet_sdk_fedora,
+    install_node_global_packages,
     install_optional_packages,
 )
 from .redis import configure_redis
@@ -63,9 +64,11 @@ FEDORA_SPEC = PackageSpec(
         "php-pgsql",
         "php-mysqlnd",
         "php-intl",
-        "php-gd",       # Image processing (BookStack, Nextcloud, etc.)
-        "php-ldap",     # LDAP authentication (Nextcloud)
-        "php-bcmath",   # Arbitrary precision math (Invoice Ninja)
+        "php-gd",  # Image processing (BookStack, Nextcloud, etc.)
+        "php-ldap",  # LDAP authentication (Nextcloud)
+        "php-bcmath",  # Arbitrary precision math (Invoice Ninja)
+        "php-gmp",  # GNU Multiple Precision (Monica, some crypto)
+        "php-pecl-redis",  # Redis extension (Monica, caching)
         "composer",
         # Java toolchain
         "java-17-openjdk-devel",
@@ -75,6 +78,7 @@ FEDORA_SPEC = PackageSpec(
         "wget",
         "rsync",
         "socat",
+        "unzip",
         "openssl",
         # Development libraries
         "libjpeg-devel",
@@ -101,3 +105,4 @@ def install_fedora_deps(config: ServerInstallerConfig) -> None:
     install_base_packages(FEDORA_SPEC)
     install_optional_packages(config, FEDORA_SPEC, configure_redis)
     install_dotnet_sdk_fedora()
+    install_node_global_packages()

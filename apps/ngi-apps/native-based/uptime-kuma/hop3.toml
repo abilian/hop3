@@ -17,11 +17,11 @@ builder = "local"
 # Download source
 before-build = "bash scripts/download.sh"
 
-# Install dependencies
-build = "npm ci --production"
+# Install dependencies and build frontend (need devDeps for vite build)
+build = "npm ci && npm run build"
 
 [run]
-# Run server
+# Run server (uWSGI already sets chdir to src/)
 start = "node server/server.js"
 
 [env]

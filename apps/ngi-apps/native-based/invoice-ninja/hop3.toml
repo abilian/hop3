@@ -11,8 +11,13 @@ license = "Elastic-2.0"
 categories = ["invoicing", "billing", "finance"]
 
 [build]
+# Force local builder and explicit PHP toolchain
+builder = "local"
+toolchain = "php"
+
 before-build = "bash scripts/download.sh"
-build = "composer install --no-dev --optimize-autoloader && npm install && npm run production"
+# Use --ignore-platform-reqs to handle PHP 8.3 compatibility with older lock file
+build = "composer install --no-dev --optimize-autoloader --ignore-platform-reqs && npm install --legacy-peer-deps && npm run production"
 
 [run]
 before-run = "bash scripts/setup-config.sh"

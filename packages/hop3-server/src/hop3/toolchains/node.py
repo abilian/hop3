@@ -154,7 +154,11 @@ class NodeToolchain(LanguageToolchain):
         assert package_json.exists()
         assert check_binaries(["npm"])
 
-        cmd = f"npm install --prefix {npm_prefix} --package-lock=false"
+        # Use --legacy-peer-deps to handle projects with peer dependency conflicts
+        # (common with older projects or complex dependency trees like HedgeDoc, Umami)
+        cmd = (
+            f"npm install --prefix {npm_prefix} --package-lock=false --legacy-peer-deps"
+        )
         self.shell(cmd, env=env)
 
     def _get_custom_build_command(self) -> str | None:
@@ -173,4 +177,4 @@ class NodeToolchain(LanguageToolchain):
 
         if isinstance(build_cmd, list):
             return " && ".join(build_cmd) if build_cmd else None
-        return build_cmd if build_cmd else None
+        return build_cmd or None

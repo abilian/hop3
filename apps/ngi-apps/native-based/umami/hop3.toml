@@ -13,9 +13,13 @@ categories = ["analytics", "web-analytics", "privacy"]
 [build]
 # Force local builder (source code may include Dockerfile)
 builder = "local"
+# Explicit toolchain since package.json doesn't exist until before-build downloads source
+toolchain = "node"
 
 before-build = "bash scripts/download.sh"
-build = "npm install && npm run build"
+# Use --legacy-peer-deps and skip check-db (which requires real database connection)
+# Run individual build steps: check-env, build-db, build-tracker, build-geo, build-app (skip check-db)
+build = "npm install --legacy-peer-deps && DATABASE_URL=postgresql://placeholder npm-run-all check-env build-db build-tracker build-geo build-app"
 
 [run]
 before-run = "bash scripts/setup-config.sh"

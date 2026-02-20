@@ -11,8 +11,12 @@ license = "AGPL-3.0"
 categories = ["file-sharing", "collaboration", "cloud-storage"]
 
 [build]
+# Force local builder
+builder = "local"
+# Generic toolchain since Nextcloud is pre-built - no npm/composer installation needed
+toolchain = "generic"
+
 before-build = "bash scripts/download.sh"
-# Nextcloud is pre-built, no composer needed
 
 [run]
 before-run = "bash scripts/setup-config.sh"

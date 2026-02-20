@@ -295,9 +295,7 @@ class TestHandleLogin:
                 "hop3_cli.commands.local.ssh_ops.subprocess.run",
                 return_value=mock_result,
             ),
-            patch(
-                "builtins.input", side_effect=["", "testuser"]
-            ),  # Server URL default, username
+            patch("builtins.input", return_value="testuser"),  # username
         ):
             result = handle_login(
                 ["--ssh", "root@test.com"],

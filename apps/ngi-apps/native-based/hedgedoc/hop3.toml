@@ -13,9 +13,12 @@ categories = ["collaboration", "markdown", "editor"]
 [build]
 # Force local builder (source code may include Dockerfile)
 builder = "local"
+# Explicit toolchain since package.json doesn't exist until before-build downloads source
+toolchain = "node"
 
 before-build = "bash scripts/download.sh"
-build = "npm install && npm run build"
+# Use --legacy-peer-deps to handle peer dependency conflicts in older dependencies
+build = "npm install --legacy-peer-deps && npm run build"
 
 [run]
 before-run = "bash scripts/setup-config.sh"

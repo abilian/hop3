@@ -55,6 +55,7 @@ class AppConfig:
     env_vars: dict[str, str]
     title: str = ""
     healthcheck_path: str = "/"
+    deployment_type: str = "docker"  # "docker" or "native"
 
     @classmethod
     def from_path(cls, app_path: Path) -> "AppConfig":
@@ -85,6 +86,13 @@ class AppConfig:
         healthcheck = config.get("healthcheck", {})
         healthcheck_path = healthcheck.get("path", "/")
 
+        # Determine deployment type from [build] section
+        # builder = "local" means native/uWSGI deployment
+        # Otherwise (no builder or builder = "docker") means Docker deployment
+        build_config = config.get("build", {})
+        builder = build_config.get("builder", "")
+        deployment_type = "native" if builder == "local" else "docker"
+
         return cls(
             name=name,
             path=app_path,
@@ -92,6 +100,7 @@ class AppConfig:
             env_vars=env_vars,
             title=title,
             healthcheck_path=healthcheck_path,
+            deployment_type=deployment_type,
         )
 
 
@@ -219,10 +228,58 @@ def run_on_server(cmd: str, check: bool = False, quiet: bool = False) -> subproc
     return run(ssh_cmd, check=check, quiet=quiet)
 
 
-def collect_debug_info(name: str) -> None:
-    """Collect and display debug information for a failed app."""
+
+
+def collect_debug_info_native(name: str) -> None:
+    """Collect debug information for a native/uWSGI app."""
     print(f"\n{'='*60}")
-    print(f"DEBUG INFO for: {name}")
+    print(f"DEBUG INFO for: {name} (native/uWSGI)")
+    print(f"{'='*60}")
+
+    # Check uWSGI config
+    print("\n--- uWSGI config ---")
+    run_on_server(f"cat /home/hop3/uwsgi-enabled/{name}_web.1.ini 2>/dev/null | head -30 || echo 'Config not found'")
+
+    # Check uWSGI logs
+    print(f"\n--- uWSGI logs (last 30 lines) ---")
+    run_on_server(f"tail -30 /home/hop3/apps/{name}/log/web.1.log 2>/dev/null || echo 'Log not found'")
+
+    # Check app port from config
+    print(f"\n--- App port configuration ---")
+    result = run_on_server(f"grep 'env = PORT=' /home/hop3/uwsgi-enabled/{name}_web.1.ini 2>/dev/null", quiet=True)
+    port = None
+    if result.returncode == 0 and "PORT=" in result.stdout:
+        port = result.stdout.split("PORT=")[1].strip()
+        print(f"  Configured PORT: {port}")
+
+        # Check HTTP connectivity
+        print(f"\n--- HTTP connectivity test ---")
+        run_on_server(
+            f"curl -s -o /dev/null -w 'HTTP Status: %{{http_code}}\\n' "
+            f"http://127.0.0.1:{port}/ 2>/dev/null || echo 'Connection failed'"
+        )
+
+    # Check if process is running
+    print(f"\n--- Process status ---")
+    run_on_server(f"pgrep -f 'apps/{name}' && echo 'Process found' || echo 'No process running'")
+
+    # Check LIVE_ENV
+    print(f"\n--- Environment variables (LIVE_ENV) ---")
+    run_on_server(f"cat /home/hop3/apps/{name}/venv/LIVE_ENV 2>/dev/null | head -20 || echo 'LIVE_ENV not found'")
+
+    # Check source directory
+    print(f"\n--- Source directory contents ---")
+    run_on_server(f"ls -la /home/hop3/apps/{name}/src/ 2>/dev/null | head -20 || echo 'Source dir not found'")
+
+    print(f"\n{'='*60}")
+    print("END DEBUG INFO")
+    print(f"{'='*60}\n")
+
+
+def collect_debug_info_docker(name: str) -> None:
+    """Collect debug information for a Docker app."""
+    print(f"\n{'='*60}")
+    print(f"DEBUG INFO for: {name} (Docker)")
     print(f"{'='*60}")
 
     # Check Docker containers
@@ -234,7 +291,7 @@ def collect_debug_info(name: str) -> None:
     print(f"\n--- Container {container_name} status ---")
     run_on_server(
         f"docker inspect {container_name} --format "
-        "'{{{{.State.Status}}}} exit={{{{.State.ExitCode}}}} error={{{{.State.Error}}}}'"
+        "'{{.State.Status}} exit={{.State.ExitCode}} error={{.State.Error}}' 2>/dev/null || echo 'Container not found'"
     )
 
     # Get container logs
@@ -282,6 +339,19 @@ def collect_debug_info(name: str) -> None:
     print(f"\n{'='*60}")
     print("END DEBUG INFO")
     print(f"{'='*60}\n")
+
+
+def collect_debug_info(name: str, deployment_type: str = "docker") -> None:
+    """Collect and display debug information for a failed app.
+
+    Args:
+        name: App name
+        deployment_type: "docker" or "native" (from AppConfig.deployment_type)
+    """
+    if deployment_type == "docker":
+        collect_debug_info_docker(name)
+    else:
+        collect_debug_info_native(name)
 
 
 def check_uwsgi_running(name: str) -> tuple[bool, str | None]:
@@ -347,18 +417,20 @@ def check_container_running(name: str) -> tuple[bool, str | None]:
     return True, None
 
 
-def check_app_running(name: str) -> tuple[bool, str | None]:
+def check_app_running(name: str, deployment_type: str = "docker") -> tuple[bool, str | None]:
     """Check if the app is running via Docker or uWSGI.
+
+    Args:
+        name: App name
+        deployment_type: "docker" or "native" (from AppConfig.deployment_type)
 
     Returns (is_running, port) tuple.
     """
-    # First try Docker
-    is_running, port = check_container_running(name)
-    if is_running:
-        return is_running, port
-
-    # Fall back to uWSGI
-    return check_uwsgi_running(name)
+    if deployment_type == "docker":
+        return check_container_running(name)
+    else:
+        # Native/uWSGI deployment
+        return check_uwsgi_running(name)
 
 
 def check_http_from_server(name: str, port: str) -> bool:
@@ -379,8 +451,14 @@ def check_http_from_server(name: str, port: str) -> bool:
     return False
 
 
-def wait_for_running(name: str, timeout: int = STARTUP_TIMEOUT) -> bool:
-    """Wait for app status to be RUNNING."""
+def wait_for_running(name: str, deployment_type: str = "docker", timeout: int = STARTUP_TIMEOUT) -> bool:
+    """Wait for app status to be RUNNING.
+
+    Args:
+        name: App name
+        deployment_type: "docker" or "native" (from AppConfig.deployment_type)
+        timeout: Max seconds to wait
+    """
     print(f"  Waiting for {name} to be RUNNING (timeout: {timeout}s)...")
     start = time.time()
 
@@ -395,7 +473,7 @@ def wait_for_running(name: str, timeout: int = STARTUP_TIMEOUT) -> bool:
         if "stopped" in output or "failed" in output or "error" in output:
             # Verify directly (workaround for hop3 status bug)
             print(f"  hop3 reports {name} as stopped/failed, checking directly...")
-            is_running, port = check_app_running(name)
+            is_running, port = check_app_running(name, deployment_type)
 
             if is_running and port:
                 if check_http_from_server(name, port):
@@ -409,7 +487,7 @@ def wait_for_running(name: str, timeout: int = STARTUP_TIMEOUT) -> bool:
 
     # Timeout - do one final check
     print(f"  Timeout, checking directly...")
-    is_running, port = check_app_running(name)
+    is_running, port = check_app_running(name, deployment_type)
     if is_running and port:
         if check_http_from_server(name, port):
             print(f"  App {name} is RUNNING (verified via HTTP)")
@@ -419,12 +497,16 @@ def wait_for_running(name: str, timeout: int = STARTUP_TIMEOUT) -> bool:
     return False
 
 
-def check_http(name: str) -> bool:
+def check_http(name: str, deployment_type: str = "docker") -> bool:
     """Check that the app responds to HTTP.
 
     Runs the check from the server since apps bind to localhost there.
+
+    Args:
+        name: App name
+        deployment_type: "docker" or "native" (from AppConfig.deployment_type)
     """
-    _, port = check_app_running(name)
+    _, port = check_app_running(name, deployment_type)
 
     if not port:
         print(f"  Could not determine port for {name}")
@@ -456,6 +538,7 @@ def deploy_app(app: AppConfig) -> bool:
     print(f"\n{'='*60}")
     print(f"Deploying: {app.title} ({app.name})")
     print(f"  Path: {app.path}")
+    print(f"  Type: {app.deployment_type}")
     print(f"  Addons (from config): {app.addons}")
     if app.env_vars:
         print(f"  Env vars (from config): {list(app.env_vars.keys())}")
@@ -470,20 +553,20 @@ def deploy_app(app: AppConfig) -> bool:
     run_streaming(f"hop3 deploy {app.name} {app.path}")
 
     # Wait for app to be fully running
-    if not wait_for_running(app.name):
+    if not wait_for_running(app.name, app.deployment_type):
         print(f"  FAILED: {app.name} did not start properly")
         if DEBUG:
-            collect_debug_info(app.name)
+            collect_debug_info(app.name, app.deployment_type)
         return False
 
     # Give it a moment to settle
     time.sleep(5)
 
     # Verify HTTP response
-    if not check_http(app.name):
+    if not check_http(app.name, app.deployment_type):
         print(f"  FAILED: {app.name} HTTP check failed")
         if DEBUG:
-            collect_debug_info(app.name)
+            collect_debug_info(app.name, app.deployment_type)
         return False
 
     print(f"  SUCCESS: {app.name} is running and responding")
@@ -494,11 +577,12 @@ def cleanup_app(app: AppConfig) -> None:
     """Remove an app and its addons."""
     print(f"\nCleaning up: {app.name}")
 
-    # Stop and remove Docker container first
-    container_name = f"{app.name}-web-1"
-    run_on_server(f"docker stop {container_name} 2>/dev/null; docker rm {container_name} 2>/dev/null")
+    if app.deployment_type == "docker":
+        # Stop and remove Docker container
+        container_name = f"{app.name}-web-1"
+        run_on_server(f"docker stop {container_name} 2>/dev/null; docker rm {container_name} 2>/dev/null")
 
-    # Destroy app
+    # Destroy app (works for both Docker and native)
     run(f"hop3 app:destroy {app.name} -y", check=False)
 
     # Destroy addons
@@ -577,7 +661,7 @@ def main():
         except Exception as e:
             print(f"  Exception: {e}")
             results[app.name] = "ERROR"
-            collect_debug_info(app.name)
+            collect_debug_info(app.name, app.deployment_type)
 
         if do_cleanup:
             cleanup_app(app)

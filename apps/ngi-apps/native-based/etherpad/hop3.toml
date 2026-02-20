@@ -13,19 +13,21 @@ categories = ["collaboration", "editor", "real-time"]
 [build]
 # Force local builder (source code includes a Dockerfile but we want native build)
 builder = "local"
+# Explicit toolchain since package.json doesn't exist until before-build downloads source
+toolchain = "node"
 
 # Download source code
 before-build = "bash scripts/download.sh"
 
-# Install dependencies using Etherpad's script
+# Install dependencies using Etherpad's script (uses pnpm internally)
 build = "CI=true bin/installDeps.sh"
 
 [run]
 # Create settings before starting
 before-run = "bash scripts/setup-settings.sh"
 
-# Run Etherpad using tsx
-start = "cd src && ../node_modules/.pnpm/node_modules/.bin/tsx node/server.ts"
+# Run Etherpad using pnpm (which manages tsx internally)
+start = "pnpm run prod"
 
 [env]
 NODE_ENV = "production"

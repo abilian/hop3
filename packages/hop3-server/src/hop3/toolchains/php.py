@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 from subprocess import CalledProcessError
 from typing import TYPE_CHECKING
 
@@ -84,7 +85,23 @@ class PHPToolchain(LanguageToolchain):
         log("Preparing PHP build environment...", level=2, fg="cyan")
 
     def install_dependencies(self, env: Env) -> None:
-        """Install the PHP project's dependencies using composer (if applicable)."""
+        """Install the PHP project's dependencies.
+
+        If a custom build command is specified in hop3.toml [build] section,
+        that command is run instead of the default composer install. This allows
+        projects to run npm builds, use specific composer flags, etc.
+
+        Otherwise, runs composer install if composer.json exists.
+        """
+        emit(InstallingDependencies(self.app_name))
+
+        # Check if custom build command is specified in hop3.toml
+        custom_build = self._get_custom_build_command()
+        if custom_build:
+            log(f"Running custom build command: {custom_build}", level=2, fg="cyan")
+            self.shell(custom_build, env=self._get_env_dict(env))
+            return
+
         if not self._has_composer():
             log(
                 "No composer.json found - assuming vendored dependencies",
@@ -93,14 +110,12 @@ class PHPToolchain(LanguageToolchain):
             )
             return
 
-        emit(InstallingDependencies(self.app_name))
-
         log("Installing PHP dependencies with composer...", level=2, fg="cyan")
         try:
             # Composer requires HOME to be set for cache directory
             self.shell(
                 "composer install --no-interaction --optimize-autoloader",
-                env=env.environ(),
+                env=self._get_env_dict(env),
             )
             log("PHP dependencies installed successfully", level=2, fg="green")
         except CalledProcessError as e:
@@ -108,3 +123,41 @@ class PHPToolchain(LanguageToolchain):
                 f"Failed to install dependencies for PHP project '{self.app_name}': {e}"
             )
             raise RuntimeError(msg) from e
+
+    def _get_env_dict(self, env: Env) -> dict[str, str]:
+        """Get environment dict with required variables like HOME.
+
+        Composer and npm require HOME to be set for their cache directories.
+        In systemd services or restricted environments, HOME may not be set,
+        so we fall back to pwd module or the hop3 user's home directory.
+        """
+        import pwd
+
+        env_dict = dict(os.environ)
+        env_dict.update(env)
+        # Ensure HOME is set (required by composer and npm)
+        if "HOME" not in env_dict or not env_dict["HOME"]:
+            try:
+                env_dict["HOME"] = pwd.getpwuid(os.getuid()).pw_dir
+            except (KeyError, OSError):
+                # Fallback to hop3 user's home directory
+                env_dict["HOME"] = "/home/hop3"
+        return env_dict
+
+    def _get_custom_build_command(self) -> str | None:
+        """Get custom build command from hop3.toml if specified.
+
+        Returns the build command string if [build] build is set in hop3.toml,
+        otherwise None.
+        """
+        if self.context is None:
+            return None
+
+        app_config = self.context.app_config
+        hop3_config = app_config.get("hop3_config", {})
+        build_section = hop3_config.get("build", {})
+        build_cmd = build_section.get("build")
+
+        if isinstance(build_cmd, list):
+            return " && ".join(build_cmd) if build_cmd else None
+        return build_cmd or None
