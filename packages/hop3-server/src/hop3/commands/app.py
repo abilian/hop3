@@ -55,6 +55,68 @@ def _get_app(db_session: Session, app_name: str) -> App:
     return app
 
 
+def _build_log_response(captured, final_messages: list[str]) -> list[dict]:
+    """Build response from captured logs and final status messages.
+
+    Args:
+        captured: CapturedLogs context manager result
+        final_messages: List of final text messages to append
+
+    Returns:
+        Response list with log entries and text messages
+    """
+    response = []
+    for entry in captured.get_logs():
+        response.append({
+            "t": "log",
+            "msg": entry["msg"],
+            "fg": entry.get("fg", ""),
+            "level": entry.get("level", 0),
+        })
+    for msg in final_messages:
+        response.append({"t": "text", "text": msg})
+    return response
+
+
+def _run_lifecycle_action(
+    db_session: Session,
+    app_name: str,
+    action_name: str,
+    action_method: str,
+    final_messages: list[str],
+    state_checks: dict[str, list[str]] | None = None,
+) -> list[dict]:
+    """Run a lifecycle action (start/stop/restart) on an app.
+
+    Args:
+        db_session: Database session
+        app_name: Name of the app
+        action_name: Human-readable action (e.g., "starting app")
+        action_method: Method name on App to call (e.g., "start")
+        final_messages: Messages to show after action completes
+        state_checks: Optional dict mapping state names to error messages.
+            If current state matches, returns the messages immediately.
+
+    Returns:
+        Response list with logs and status messages
+    """
+    app = _get_app(db_session, app_name)
+
+    # Check current state if checks are provided
+    if state_checks:
+        state = app.run_state.name
+        if state in state_checks:
+            return [{"t": "text", "text": msg} for msg in state_checks[state]]
+
+    # Capture logs during operation
+    with capture_logs() as captured:
+        with command_context(action_name, app_name=app_name):
+            getattr(app, action_method)()
+            db_session.commit()
+
+    return _build_log_response(captured, final_messages)
+
+
 @register
 @dataclass(frozen=True)
 class AppCmd(Command):
@@ -644,45 +706,27 @@ class StartCmd(Command):
             msg = "Usage: hop start <app_name>"
             raise ValueError(msg)
         app_name = args[0]
-        app = _get_app(self.db_session, app_name)
-
-        # Check current state (background service keeps this fresh)
-        state = app.run_state.name
-        if state == "RUNNING":
-            return [{"t": "text", "text": f"App '{app_name}' is already running."}]
-        if state == "STARTING":
-            return [
-                {"t": "text", "text": f"App '{app_name}' is already starting..."},
-                {"t": "text", "text": "Use 'hop3 app:status' to check progress."},
-            ]
-        if state == "STOPPING":
-            return [
-                {"t": "text", "text": f"App '{app_name}' is currently stopping."},
-                {"t": "text", "text": "Wait for it to stop, then start it again."},
-            ]
-
-        # Capture logs during start operation (uses global verbosity context)
-        with capture_logs() as captured:
-            with command_context("starting app", app_name=app_name):
-                app.start()
-                self.db_session.commit()
-
-        # Build response with captured logs
-        response = []
-        for entry in captured.get_logs():
-            response.append({
-                "t": "log",
-                "msg": entry["msg"],
-                "fg": entry.get("fg", ""),
-                "level": entry.get("level", 0),
-            })
-
-        response.extend([
-            {"t": "text", "text": f"App '{app_name}' is starting..."},
-            {"t": "text", "text": "Use 'hop3 app:status' to check when it's running."},
-        ])
-
-        return response
+        return _run_lifecycle_action(
+            self.db_session,
+            app_name,
+            action_name="starting app",
+            action_method="start",
+            final_messages=[
+                f"App '{app_name}' is starting...",
+                "Use 'hop3 app:status' to check when it's running.",
+            ],
+            state_checks={
+                "RUNNING": [f"App '{app_name}' is already running."],
+                "STARTING": [
+                    f"App '{app_name}' is already starting...",
+                    "Use 'hop3 app:status' to check progress.",
+                ],
+                "STOPPING": [
+                    f"App '{app_name}' is currently stopping.",
+                    "Wait for it to stop, then start it again.",
+                ],
+            },
+        )
 
 
 @register
@@ -697,47 +741,28 @@ class StopCmd(Command):
         if not args:
             msg = "Usage: hop stop <app_name>"
             raise ValueError(msg)
-
         app_name = args[0]
-        app = _get_app(self.db_session, app_name)
-
-        # Check current state (background service keeps this fresh)
-        state = app.run_state.name
-        if state == "STOPPED":
-            return [{"t": "text", "text": f"App '{app_name}' is already stopped."}]
-        if state == "STOPPING":
-            return [
-                {"t": "text", "text": f"App '{app_name}' is already stopping..."},
-                {"t": "text", "text": "Use 'hop3 app:status' to check progress."},
-            ]
-        if state == "STARTING":
-            return [
-                {"t": "text", "text": f"App '{app_name}' is currently starting."},
-                {"t": "text", "text": "Wait for it to start, then stop it."},
-            ]
-
-        # Capture logs during stop operation (uses global verbosity context)
-        with capture_logs() as captured:
-            with command_context("stopping app", app_name=app_name):
-                app.stop()
-                self.db_session.commit()
-
-        # Build response with captured logs
-        response = []
-        for entry in captured.get_logs():
-            response.append({
-                "t": "log",
-                "msg": entry["msg"],
-                "fg": entry.get("fg", ""),
-                "level": entry.get("level", 0),
-            })
-
-        response.extend([
-            {"t": "text", "text": f"App '{app_name}' is stopping..."},
-            {"t": "text", "text": "Use 'hop3 app:status' to check when it's stopped."},
-        ])
-
-        return response
+        return _run_lifecycle_action(
+            self.db_session,
+            app_name,
+            action_name="stopping app",
+            action_method="stop",
+            final_messages=[
+                f"App '{app_name}' is stopping...",
+                "Use 'hop3 app:status' to check when it's stopped.",
+            ],
+            state_checks={
+                "STOPPED": [f"App '{app_name}' is already stopped."],
+                "STOPPING": [
+                    f"App '{app_name}' is already stopping...",
+                    "Use 'hop3 app:status' to check progress.",
+                ],
+                "STARTING": [
+                    f"App '{app_name}' is currently starting.",
+                    "Wait for it to start, then stop it.",
+                ],
+            },
+        )
 
 
 @register
@@ -753,30 +778,16 @@ class RestartCmd(Command):
             msg = "Usage: hop restart <app_name>"
             raise ValueError(msg)
         app_name = args[0]
-        app = _get_app(self.db_session, app_name)
-
-        # Capture logs during restart operation (uses global verbosity context)
-        with capture_logs() as captured:
-            with command_context("restarting app", app_name=app_name):
-                app.restart()
-                self.db_session.commit()
-
-        # Build response with captured logs
-        response = []
-        for entry in captured.get_logs():
-            response.append({
-                "t": "log",
-                "msg": entry["msg"],
-                "fg": entry.get("fg", ""),
-                "level": entry.get("level", 0),
-            })
-
-        response.extend([
-            {"t": "text", "text": f"App '{app_name}' restart triggered."},
-            {"t": "text", "text": "Use 'hop3 app:status' to check status."},
-        ])
-
-        return response
+        return _run_lifecycle_action(
+            self.db_session,
+            app_name,
+            action_name="restarting app",
+            action_method="restart",
+            final_messages=[
+                f"App '{app_name}' restart triggered.",
+                "Use 'hop3 app:status' to check status.",
+            ],
+        )
 
 
 @register
