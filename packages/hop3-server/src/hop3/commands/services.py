@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.plugins import get_addon, get_plugin_manager
+from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 from hop3.lib.logging import server_log
 from hop3.orm import AddonCredential, EnvVar
@@ -706,12 +707,21 @@ class AddonsStatusCmd(Command):
     db_session: Session
     name: ClassVar[str] = "addons:status"
 
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "service_type": {"type": str, "default": "postgres"},
+    }
+
     def call(self, *args):
         """Get detailed addon status with health check."""
-        if len(args) < 1:
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+
+        if not addon_name:
             return self._usage_message()
 
-        addon_name, service_type = self._parse_args(args)
+        service_type = parsed["service_type"]
 
         with command_context(
             "getting addon status", addon_name=addon_name, service_type=service_type
@@ -742,21 +752,6 @@ class AddonsStatusCmd(Command):
                 ),
             }
         ]
-
-    def _parse_args(self, args: tuple) -> tuple[str, str]:
-        """Parse command arguments."""
-        addon_name = args[0]
-        service_type = "postgres"  # Default
-
-        i = 1
-        while i < len(args):
-            if args[i] == "--service-type" and i + 1 < len(args):
-                service_type = args[i + 1]
-                i += 2
-            else:
-                i += 1
-
-        return addon_name, service_type
 
     def _check_addon_health(self, addon) -> tuple[str, str | None]:
         """Perform health check on addon."""

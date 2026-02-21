@@ -20,6 +20,7 @@ from typing import ClassVar
 
 from hop3.config import HOP3_ROOT
 from hop3.core.plugins import get_plugin_manager
+from hop3.lib.args import parse_cli_args
 from hop3.lib.logging import DEFAULT_LOG_FILE
 from hop3.lib.registry import register
 from hop3.server.health import get_all_health_checks, run_health_check
@@ -560,13 +561,20 @@ class SystemLogsCmd(Command):
 
     name: ClassVar[str] = "system:logs"
 
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "lines": {"short": "-n", "type": int, "default": 100},
+        "since": {"type": str, "default": ""},
+        "level": {"type": str, "default": ""},
+        "grep": {"type": str, "default": ""},
+    }
+
     def call(self, *args, **kwargs):
-        # Parse options from args (CLI passes them as positional strings)
-        parsed = self._parse_args(args)
-        lines = parsed.get("lines", 100)
-        since = parsed.get("since")
-        level = parsed.get("level", "").upper()
-        grep = parsed.get("grep", "")
+        parsed = parse_cli_args(args, self._arg_spec)
+        lines = parsed["lines"]
+        since = parsed["since"] or None
+        level = parsed["level"].upper()
+        grep = parsed["grep"]
 
         # Check if log file exists
         if not DEFAULT_LOG_FILE.exists():
@@ -637,53 +645,6 @@ class SystemLogsCmd(Command):
                     # (could be continuation of previous log entry)
                     if result:  # Only if we've started collecting
                         result.append(line)
-        return result
-
-    def _parse_args(self, args: tuple) -> dict:
-        """Parse CLI arguments into a dictionary.
-
-        Handles:
-            -n 50, --lines 50, --lines=50
-            --since 1h, --since=1h
-            --level ERROR, --level=ERROR
-            --grep pattern, --grep=pattern
-        """
-        result = {}
-        args_list = list(args)
-        i = 0
-
-        while i < len(args_list):
-            arg = args_list[i]
-
-            # Handle -n shorthand
-            if arg == "-n" and i + 1 < len(args_list):
-                result["lines"] = int(args_list[i + 1])
-                i += 2
-                continue
-
-            # Handle --key=value format
-            if arg.startswith("--") and "=" in arg:
-                key, value = arg[2:].split("=", 1)
-                if key == "lines":
-                    result[key] = int(value)
-                else:
-                    result[key] = value
-                i += 1
-                continue
-
-            # Handle --key value format
-            if arg.startswith("--") and i + 1 < len(args_list):
-                key = arg[2:]
-                value = args_list[i + 1]
-                if key == "lines":
-                    result[key] = int(value)
-                else:
-                    result[key] = value
-                i += 2
-                continue
-
-            i += 1
-
         return result
 
 
