@@ -113,9 +113,7 @@ audit:
 ## Run all pytest tests (unit, integration, e2e)
 test:
 	@echo "--> Running Python tests"
-	uv run pytest packages/hop3-server/tests/a_unit
-	uv run pytest -n 4 packages/hop3-server/tests/b_integration
-	uv run pytest packages/hop3-server/tests/d_e2e
+	uv run pytest packages/hop3-server/tests
 	uv run pytest packages/hop3-cli/tests
 	@echo ""
 
