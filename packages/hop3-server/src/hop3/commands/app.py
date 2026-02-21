@@ -55,6 +55,26 @@ def _get_app(db_session: Session, app_name: str) -> App:
     return app
 
 
+def _logs_to_response(logs: list[dict]) -> list[dict]:
+    """Convert captured log entries to response format.
+
+    Args:
+        logs: List of log entries from captured.get_logs()
+
+    Returns:
+        Response list with log entries in RPC response format
+    """
+    return [
+        {
+            "t": "log",
+            "msg": entry["msg"],
+            "fg": entry.get("fg", ""),
+            "level": entry.get("level", 0),
+        }
+        for entry in logs
+    ]
+
+
 def _build_log_response(captured, final_messages: list[str]) -> list[dict]:
     """Build response from captured logs and final status messages.
 
@@ -65,14 +85,7 @@ def _build_log_response(captured, final_messages: list[str]) -> list[dict]:
     Returns:
         Response list with log entries and text messages
     """
-    response = []
-    for entry in captured.get_logs():
-        response.append({
-            "t": "log",
-            "msg": entry["msg"],
-            "fg": entry.get("fg", ""),
-            "level": entry.get("level", 0),
-        })
+    response = _logs_to_response(captured.get_logs())
     for msg in final_messages:
         response.append({"t": "text", "text": msg})
     return response
@@ -321,16 +334,8 @@ class DeployCmd(Command):
                     # Record deployment timestamp and commit state changes
                     app.last_deployed_at = datetime.now(UTC)
                     self.db_session.commit()
-            except ValueError as e:
-                # Rollback any uncommitted changes on error
-                try:
-                    self.db_session.rollback()
-                except Exception:
-                    pass
-                # Capture the error but continue to collect logs
-                deploy_error = str(e)
             except Exception as e:
-                # Handle unexpected errors with proper rollback
+                # Rollback any uncommitted changes on error
                 try:
                     self.db_session.rollback()
                 except Exception:
@@ -338,36 +343,19 @@ class DeployCmd(Command):
                 deploy_error = str(e)
 
         # Build response with logs (always include logs, even on error)
-        logs = captured.get_logs()
-        response = []
+        response = _logs_to_response(captured.get_logs())
 
-        # Add deployment logs
-        for entry in logs:
-            response.append({
-                "t": "log",
-                "msg": entry["msg"],
-                "fg": entry.get("fg", ""),
-                "level": entry.get("level", 0),
-            })
-
-        # If there was an error, add error message and raise
         if deploy_error:
-            response.append({
-                "t": "error",
-                "text": deploy_error,
-            })
-            # Raise with logs prefix so CLI can parse and display them
-            # Format: JSON array of log entries, then "|||" separator, then error message
+            # Add error entry and raise with logs so CLI can display them
+            response.append({"t": "error", "text": deploy_error})
             logs_json = json.dumps(response)
             error_with_logs = f"LOGS:{logs_json}|||{deploy_error}"
             raise ValueError(error_with_logs)
 
-        # Add final success message
         response.append({
             "t": "text",
             "text": f"App '{app_name}' deployed successfully.",
         })
-
         return response
 
 
@@ -832,19 +820,7 @@ class DestroyCmd(Command):
                 # Reload nginx to remove the app's routing configuration
                 self._reload_nginx()
 
-        # Build response with captured logs
-        response = []
-        for entry in captured.get_logs():
-            response.append({
-                "t": "log",
-                "msg": entry["msg"],
-                "fg": entry.get("fg", ""),
-                "level": entry.get("level", 0),
-            })
-
-        response.append({"t": "text", "text": f"App '{app_name}' has been destroyed."})
-
-        return response
+        return _build_log_response(captured, [f"App '{app_name}' has been destroyed."])
 
     # TODO: this should use a signal/event bus system instead
     def _reload_nginx(self) -> None:
