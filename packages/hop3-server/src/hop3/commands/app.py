@@ -23,6 +23,7 @@ from hop3.core.credentials import get_credential_encryptor
 from hop3.deployers import do_deploy
 from hop3.lib import log
 from hop3.lib.archives import extract_archive_to_dir
+from hop3.lib.args import parse_cli_args
 from hop3.lib.console import capture_logs
 from hop3.lib.logging import server_log
 from hop3.lib.registry import register
@@ -539,24 +540,27 @@ class LogsCmd(Command):
     db_session: Session
     name: ClassVar[str] = "app:logs"
 
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "app_name": {"positional": True},
+        "lines": {"short": "-n", "type": int, "default": 100},
+        "grep": {"type": str, "default": ""},
+        "since_deploy": {"flag": True, "default": False},
+    }
+
     def call(self, *args):
-        # Parse args: first positional is app_name, rest are options
-        parsed = self._parse_args(args)
+        parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app_name")
 
         if not app_name:
             msg = "Usage: hop3 app:logs <app_name> [options]"
             raise ValueError(msg)
 
-        lines = parsed.get("lines", 100)
-        grep = parsed.get("grep", "")
-        since_deploy = parsed.get("since_deploy", False)
-
         app = _get_app(self.db_session, app_name)
 
         # Determine since timestamp if --since-deploy is used
         since = None
-        if since_deploy:
+        if parsed["since_deploy"]:
             if app.last_deployed_at:
                 since = app.last_deployed_at.isoformat()
             else:
@@ -567,74 +571,20 @@ class LogsCmd(Command):
                     }
                 ]
 
-        log_lines = app.get_logs(lines=lines, since=since)
+        log_lines = app.get_logs(lines=parsed["lines"], since=since)
 
         # Apply grep filter if specified
-        if grep:
-            pattern = re.compile(grep, re.IGNORECASE)
+        if parsed["grep"]:
+            pattern = re.compile(parsed["grep"], re.IGNORECASE)
             log_lines = [ln for ln in log_lines if pattern.search(ln)]
 
         if not log_lines:
             msg = "No log entries found"
-            if since_deploy:
+            if parsed["since_deploy"]:
                 msg += " since last deployment"
             return [{"t": "text", "text": f"{msg}."}]
 
         return [{"t": "text", "text": "\n".join(log_lines)}]
-
-    def _parse_args(self, args: tuple) -> dict:
-        """Parse CLI arguments: <app_name> [-n N] [--grep PATTERN] [--since-deploy]."""
-        result = {}
-        args_list = list(args)
-        i = 0
-
-        while i < len(args_list):
-            arg = args_list[i]
-
-            # Handle -n shorthand
-            if arg == "-n" and i + 1 < len(args_list):
-                result["lines"] = int(args_list[i + 1])
-                i += 2
-                continue
-
-            # Handle --since-deploy flag (no value)
-            if arg == "--since-deploy":
-                result["since_deploy"] = True
-                i += 1
-                continue
-
-            # Handle --key=value format
-            if arg.startswith("--") and "=" in arg:
-                key, value = arg[2:].split("=", 1)
-                if key == "lines":
-                    result[key] = int(value)
-                else:
-                    result[key] = value
-                i += 1
-                continue
-
-            # Handle --key value format (for options that take values)
-            if arg.startswith("--") and i + 1 < len(args_list):
-                key = arg[2:]
-                # Check if next arg looks like a value (not another flag)
-                next_arg = args_list[i + 1]
-                if not next_arg.startswith("-"):
-                    if key == "lines":
-                        result[key] = int(next_arg)
-                    else:
-                        result[key] = next_arg
-                    i += 2
-                    continue
-
-            # First non-option argument is app_name
-            if not arg.startswith("-") and "app_name" not in result:
-                result["app_name"] = arg
-                i += 1
-                continue
-
-            i += 1
-
-        return result
 
 
 @register
@@ -880,6 +830,12 @@ class EnvCmd(Command):
     db_session: Session
     name: ClassVar[str] = "app:env"
 
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "app_name": {"positional": True},
+        "show_secrets": {"flag": True, "default": False},
+    }
+
     # Patterns that indicate sensitive values
     SENSITIVE_PATTERNS: ClassVar[list[str]] = [
         "PASSWORD",
@@ -891,7 +847,7 @@ class EnvCmd(Command):
     ]
 
     def call(self, *args):
-        parsed = self._parse_args(args)
+        parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app_name")
 
         if not app_name:
@@ -907,7 +863,7 @@ class EnvCmd(Command):
                 }
             ]
 
-        show_secrets = parsed.get("show_secrets", False)
+        show_secrets = parsed["show_secrets"]
         app = _get_app(self.db_session, app_name)
 
         # Get addon-injected variable names
@@ -936,30 +892,6 @@ class EnvCmd(Command):
                 "rows": rows,
             }
         ]
-
-    def _parse_args(self, args: tuple) -> dict:
-        """Parse CLI arguments."""
-        result = {}
-        args_list = list(args)
-        i = 0
-
-        while i < len(args_list):
-            arg = args_list[i]
-
-            if arg == "--show-secrets":
-                result["show_secrets"] = True
-                i += 1
-                continue
-
-            # First non-option argument is app_name
-            if not arg.startswith("-") and "app_name" not in result:
-                result["app_name"] = arg
-                i += 1
-                continue
-
-            i += 1
-
-        return result
 
     def _get_addon_var_names(self, app) -> set[str]:
         """Get the names of environment variables injected by addons.
