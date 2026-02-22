@@ -6,7 +6,8 @@
 
 This module provides a simple, declarative way to parse command-line arguments
 passed through the RPC interface. It supports positional arguments, short/long
-options, boolean flags, type conversion, and default values.
+options, boolean flags, type conversion, default values, and collecting
+remaining arguments.
 
 Example usage:
     from hop3.lib.args import parse_cli_args
@@ -22,6 +23,14 @@ Example usage:
     # Parse arguments
     parsed = parse_cli_args(("myapp", "-n", "50", "--verbose"), ARG_SPEC)
     # Result: {"app_name": "myapp", "lines": 50, "grep": "", "verbose": True}
+
+    # With remaining args (for commands that take multiple values):
+    ARG_SPEC = {
+        "app_name": {"positional": True},
+        "keys": {"remaining": True},  # Collects all remaining non-option args
+    }
+    parsed = parse_cli_args(("myapp", "KEY1", "KEY2", "KEY3"), ARG_SPEC)
+    # Result: {"app_name": "myapp", "keys": ["KEY1", "KEY2", "KEY3"]}
 """
 
 from __future__ import annotations
@@ -40,6 +49,7 @@ def parse_cli_args(
         spec: Argument specification dict. Each key is the argument name, and the value
               is a dict with options:
               - "positional": True if this is a positional arg (first non-flag argument)
+              - "remaining": True to collect all remaining non-option args as a list
               - "short": Short option form (e.g., "-n")
               - "flag": True if this is a boolean flag (no value)
               - "type": Type converter (e.g., int, str). Default is str.
@@ -66,6 +76,11 @@ def parse_cli_args(
     short_opts = {v["short"]: k for k, v in spec.items() if "short" in v}
     flags = {k for k, v in spec.items() if v.get("flag")}
     positional = next((k for k, v in spec.items() if v.get("positional")), None)
+    remaining_key = next((k for k, v in spec.items() if v.get("remaining")), None)
+
+    # Initialize remaining list if specified
+    if remaining_key:
+        result[remaining_key] = []
 
     while i < len(args_list):
         arg = args_list[i]
@@ -78,9 +93,11 @@ def parse_cli_args(
             i += 2
             continue
 
-        # Handle flags: --since-deploy
+        # Handle flags and long options
         if arg.startswith("--"):
             key = arg[2:].replace("-", "_")
+
+            # Handle flags: --verbose
             if key in flags:
                 result[key] = True
                 i += 1
@@ -105,11 +122,22 @@ def parse_cli_args(
                     i += 2
                     continue
 
-        # Handle positional argument
-        if positional and not arg.startswith("-") and positional not in result:
-            result[positional] = arg
             i += 1
             continue
+
+        # Handle non-option arguments (positional or remaining)
+        if not arg.startswith("-"):
+            # First, fill the positional argument
+            if positional and positional not in result:
+                result[positional] = arg
+                i += 1
+                continue
+
+            # Then, collect into remaining if specified
+            if remaining_key:
+                result[remaining_key].append(arg)
+                i += 1
+                continue
 
         i += 1
 

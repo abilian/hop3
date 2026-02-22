@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
 from hop3.core.backup import BackupManager, format_size
+from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 from hop3.orm.repositories import AppRepository
 
@@ -125,26 +126,17 @@ class BackupListCmd(Command):
     db_session: Session
     name: ClassVar[str] = "backup:list"
 
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "app_name": {"positional": True},
+        "limit": {"type": int, "default": 20},  # --limit N
+    }
+
     def call(self, *args):
         """List available backups."""
-        app_name = None
-        limit = 20
-
-        # Parse arguments
-        i = 0
-        while i < len(args):
-            arg = args[i]
-            if arg == "--limit" and i + 1 < len(args):
-                try:
-                    limit = int(args[i + 1])
-                    i += 2
-                except ValueError:
-                    return [{"t": "error", "text": "Invalid limit value"}]
-            elif not arg.startswith("--"):
-                app_name = arg
-                i += 1
-            else:
-                i += 1
+        parsed = parse_cli_args(args, self._arg_spec)
+        app_name = parsed.get("app_name")
+        limit = parsed.get("limit", 20)
 
         with command_context("listing backups", app_name=app_name or "all"):
             manager = BackupManager(self.db_session)
@@ -295,9 +287,19 @@ class BackupRestoreCmd(Command):
     db_session: Session
     name: ClassVar[str] = "backup:restore"
 
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "backup_id": {"positional": True},
+        "target_app": {"type": str},  # --target-app NAME
+    }
+
     def call(self, *args):
         """Restore an application from backup."""
-        if len(args) < 1:
+        parsed = parse_cli_args(args, self._arg_spec)
+        backup_id = parsed.get("backup_id")
+        target_app_name = parsed.get("target_app")
+
+        if not backup_id:
             return [
                 {
                     "t": "text",
@@ -309,18 +311,6 @@ class BackupRestoreCmd(Command):
                     ),
                 }
             ]
-
-        backup_id = args[0]
-        target_app_name = None
-
-        # Parse optional arguments
-        i = 1
-        while i < len(args):
-            if args[i] == "--target-app" and i + 1 < len(args):
-                target_app_name = args[i + 1]
-                i += 2
-            else:
-                i += 1
 
         with command_context("restoring backup", backup_id=backup_id):
             manager = BackupManager(self.db_session)
