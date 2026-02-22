@@ -10,24 +10,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from hop3.lib.args import parse_cli_args
 from hop3.lib.registry import register
 from hop3.orm import App, AppRepository, EnvVar
 from hop3.project.procfile import Procfile
 
 from ._base import Command
+from ._helpers import get_app
+from ._response import code, error, table, text
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-
-
-def _get_app(db_session: Session, app_name: str) -> App:
-    """Helper to retrieve an app or raise a consistent error."""
-    app_repo = AppRepository(session=db_session)
-    app = app_repo.get_one_or_none(name=app_name)
-    if not app:
-        msg = f"App '{app_name}' not found."
-        raise ValueError(msg)
-    return app
 
 
 @register
@@ -89,8 +82,21 @@ class ShowCmd(Command):
     db_session: Session
     name: ClassVar[str] = "config:show"
 
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "app": {"type": str},  # --app <name>
+        "show_compose": {"flag": True, "default": False},
+        "_args": {"remaining": True},  # Catches positional args
+    }
+
     def call(self, *args):
-        app_name, show_compose = self._parse_args(args)
+        parsed = parse_cli_args(args, self._arg_spec)
+        # Support both: config:show myapp OR config:show --app myapp
+        app_name = parsed.get("app") or (
+            parsed["_args"][0] if parsed["_args"] else None
+        )
+        show_compose = parsed["show_compose"]
+
         if not app_name:
             return [
                 {
@@ -107,22 +113,15 @@ class ShowCmd(Command):
                 }
             ]
 
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
 
         # If --show-compose flag is set, show the Docker Compose file
         if show_compose:
             return self._show_compose_file(app)
 
         env = app.get_runtime_env()
-
         rows = [[k, v] for k, v in env.items()]
-        return [
-            {
-                "t": "table",
-                "headers": ["Key", "Value"],
-                "rows": rows,
-            }
-        ]
+        return [table(headers=["Key", "Value"], rows=rows)]
 
     def _show_compose_file(self, app: App) -> list[dict]:
         """Show the generated Docker Compose file for the app.
@@ -147,58 +146,18 @@ class ShowCmd(Command):
                     compose_file = user_compose_yaml
                 else:
                     return [
-                        {
-                            "t": "text",
-                            "text": f"No Docker Compose file found for app '{app.name}'.",
-                        },
-                        {
-                            "t": "text",
-                            "text": "This app may not use container-based deployment.",
-                        },
+                        text(f"No Docker Compose file found for app '{app.name}'."),
+                        text("This app may not use container-based deployment."),
                     ]
 
         try:
             content = compose_file.read_text()
             return [
-                {
-                    "t": "text",
-                    "text": f"==> {compose_file.name} <==",
-                },
-                {"t": "code", "lang": "yaml", "text": content},
+                text(f"==> {compose_file.name} <=="),
+                code(content, lang="yaml"),
             ]
         except Exception as e:
-            return [{"t": "error", "text": f"Error reading compose file: {e}"}]
-
-    def _parse_args(self, args) -> tuple[str | None, bool]:
-        """Parse app name and flags from arguments.
-
-        Returns:
-            Tuple of (app_name, show_compose_flag)
-        """
-        if not args:
-            return None, False
-
-        app_name = None
-        show_compose = False
-        remaining_args = []
-
-        i = 0
-        while i < len(args):
-            if args[i] == "--app" and i + 1 < len(args):
-                app_name = args[i + 1]
-                i += 2
-            elif args[i] == "--show-compose":
-                show_compose = True
-                i += 1
-            else:
-                remaining_args.append(args[i])
-                i += 1
-
-        # If --app was not used, first remaining arg is app name
-        if not app_name and remaining_args:
-            app_name = remaining_args[0]
-
-        return app_name, show_compose
+            return [error(f"Error reading compose file: {e}")]
 
 
 @register
@@ -209,55 +168,39 @@ class GetCmd(Command):
     db_session: Session
     name: ClassVar[str] = "config:get"
 
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "app": {"type": str},  # --app <name>
+        "_args": {"remaining": True},  # Catches positional args
+    }
+
     def call(self, *args):
-        app_name, setting = self._parse_args(args)
+        parsed = parse_cli_args(args, self._arg_spec)
+        remaining = parsed["_args"]
+
+        # Support both: config:get myapp KEY OR config:get --app myapp KEY
+        if parsed.get("app"):
+            app_name = parsed["app"]
+            setting = remaining[0] if remaining else None
+        else:
+            app_name = remaining[0] if len(remaining) > 0 else None
+            setting = remaining[1] if len(remaining) > 1 else None
+
         if not app_name or not setting:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 config:get <app-name> <key>\n"
-                        "   or: hop3 config:get --app <app-name> <key>\n\n"
-                        "Example:\n"
-                        "  hop3 config:get myapp DATABASE_URL"
-                    ),
-                }
+                text(
+                    "Usage: hop3 config:get <app-name> <key>\n"
+                    "   or: hop3 config:get --app <app-name> <key>\n\n"
+                    "Example:\n"
+                    "  hop3 config:get myapp DATABASE_URL"
+                )
             ]
 
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
         env = app.get_runtime_env()
         if setting in env:
-            return [{"t": "text", "text": env[setting]}]
-        return [{"t": "text", "text": f"Setting '{setting}' not found."}]
-
-    def _parse_args(self, args):
-        """Parse app name and setting from positional or --app flag."""
-        if not args:
-            return None, None
-
-        app_name = None
-        setting = None
-
-        # Check for --app flag
-        remaining_args = []
-        i = 0
-        while i < len(args):
-            if args[i] == "--app" and i + 1 < len(args):
-                app_name = args[i + 1]
-                i += 2
-            else:
-                remaining_args.append(args[i])
-                i += 1
-
-        # If --app was used, first remaining arg is the setting
-        if app_name:
-            setting = remaining_args[0] if remaining_args else None
-        else:
-            # Otherwise, first arg is app, second is setting
-            app_name = remaining_args[0] if len(remaining_args) > 0 else None
-            setting = remaining_args[1] if len(remaining_args) > 1 else None
-
-        return app_name, setting
+            return [text(env[setting])]
+        return [text(f"Setting '{setting}' not found.")]
 
 
 @register
@@ -268,55 +211,37 @@ class LiveCmd(Command):
     db_session: Session
     name: ClassVar[str] = "config:live"
 
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "app": {"type": str},  # --app <name>
+        "_args": {"remaining": True},  # Catches positional args
+    }
+
     def call(self, *args):
-        app_name = self._parse_app_name(args)
+        parsed = parse_cli_args(args, self._arg_spec)
+        # Support both: config:live myapp OR config:live --app myapp
+        app_name = parsed.get("app") or (
+            parsed["_args"][0] if parsed["_args"] else None
+        )
+
         if not app_name:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 config:live <app-name>\n"
-                        "   or: hop3 config:live --app <app-name>\n\n"
-                        "Example:\n"
-                        "  hop3 config:live myapp"
-                    ),
-                }
+                text(
+                    "Usage: hop3 config:live <app-name>\n"
+                    "   or: hop3 config:live --app <app-name>\n\n"
+                    "Example:\n"
+                    "  hop3 config:live myapp"
+                )
             ]
 
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
         env = app.get_runtime_env()
 
         if not env:
-            return [
-                {
-                    "t": "text",
-                    "text": f"Warning: app '{app_name}' not deployed, no config found.",
-                }
-            ]
+            return [text(f"Warning: app '{app_name}' not deployed, no config found.")]
 
         rows = [[k, v] for k, v in env.items()]
-        return [
-            {
-                "t": "table",
-                "headers": ["Key", "Value"],
-                "rows": rows,
-            }
-        ]
-
-    def _parse_app_name(self, args):
-        """Parse app name from positional or --app flag."""
-        if not args:
-            return None
-
-        # Check for --app flag
-        i = 0
-        while i < len(args):
-            if args[i] == "--app" and i + 1 < len(args):
-                return args[i + 1]
-            i += 1
-
-        # Default to first positional argument
-        return args[0] if args else None
+        return [table(headers=["Key", "Value"], rows=rows)]
 
 
 @register
@@ -335,21 +260,34 @@ class SetCmd(Command):
     db_session: Session
     name: ClassVar[str] = "config:set"
 
-    def call(self, *args):
-        app_name, settings = self._parse_args(args)
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "app": {"type": str},  # --app <name>
+        "_args": {"remaining": True},  # Catches positional args
+    }
+
+    def call(self, *args):  # noqa: C901, PLR0912
+        parsed = parse_cli_args(args, self._arg_spec)
+        remaining = parsed["_args"]
+
+        # Support both: config:set myapp K=V OR config:set --app myapp K=V
+        if parsed.get("app"):
+            app_name = parsed["app"]
+            settings = remaining
+        else:
+            app_name = remaining[0] if remaining else None
+            settings = remaining[1:] if len(remaining) > 1 else []
+
         if not app_name or not settings:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop config:set <app> KEY=VALUE [KEY2=VALUE2 ...]\n"
-                        "   or: hop config:set --app <app> KEY=VALUE [KEY2=VALUE2 ...]\n\n"
-                        "Example: hop config:set myapp DEBUG=true"
-                    ),
-                }
+                text(
+                    "Usage: hop config:set <app> KEY=VALUE [KEY2=VALUE2 ...]\n"
+                    "   or: hop config:set --app <app> KEY=VALUE [KEY2=VALUE2 ...]\n\n"
+                    "Example: hop config:set myapp DEBUG=true"
+                )
             ]
 
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
 
         # Parse settings
         changes = []
@@ -395,51 +333,20 @@ class SetCmd(Command):
                 changes.append(f"Set {key}={value}")
 
         if errors:
-            return [{"t": "error", "text": "\n".join(errors)}]
+            return [error("\n".join(errors))]
 
         # Commit changes to database
         self.db_session.commit()
 
-        result = [
-            {"t": "text", "text": f"Updated configuration for '{app_name}':"},
-        ]
+        result = [text(f"Updated configuration for '{app_name}':")]
         for change in changes:
-            result.append({"t": "text", "text": f"  • {change}"})
+            result.append(text(f"  • {change}"))
 
-        result.append({
-            "t": "text",
-            "text": "\nNote: Run 'hop app:restart <app>' to apply changes to running app.",
-        })
+        result.append(
+            text("\nNote: Run 'hop app:restart <app>' to apply changes to running app.")
+        )
 
         return result
-
-    def _parse_args(self, args):
-        """Parse app name and settings from positional or --app flag."""
-        if not args:
-            return None, []
-
-        app_name = None
-        remaining_args = []
-
-        # Check for --app flag
-        i = 0
-        while i < len(args):
-            if args[i] == "--app" and i + 1 < len(args):
-                app_name = args[i + 1]
-                i += 2
-            else:
-                remaining_args.append(args[i])
-                i += 1
-
-        # If --app was used, all remaining args are settings
-        if app_name:
-            settings = remaining_args
-        else:
-            # Otherwise, first arg is app, rest are settings
-            app_name = remaining_args[0] if remaining_args else None
-            settings = remaining_args[1:] if len(remaining_args) > 1 else []
-
-        return app_name, settings
 
     def _check_hostname_conflict(self, current_app: str, hostname: str) -> str | None:
         """Check if a hostname is already used by another app.
@@ -491,21 +398,34 @@ class UnsetCmd(Command):
     db_session: Session
     name: ClassVar[str] = "config:unset"
 
-    def call(self, *args):
-        app_name, keys = self._parse_args(args)
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "app": {"type": str},  # --app <name>
+        "_args": {"remaining": True},  # Catches positional args
+    }
+
+    def call(self, *args):  # noqa: C901, PLR0912
+        parsed = parse_cli_args(args, self._arg_spec)
+        remaining = parsed["_args"]
+
+        # Support both: config:unset myapp KEY OR config:unset --app myapp KEY
+        if parsed.get("app"):
+            app_name = parsed["app"]
+            keys = remaining
+        else:
+            app_name = remaining[0] if remaining else None
+            keys = remaining[1:] if len(remaining) > 1 else []
+
         if not app_name or not keys:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop config:unset <app> KEY [KEY2 ...]\n"
-                        "   or: hop config:unset --app <app> KEY [KEY2 ...]\n\n"
-                        "Example: hop config:unset myapp DEBUG"
-                    ),
-                }
+                text(
+                    "Usage: hop config:unset <app> KEY [KEY2 ...]\n"
+                    "   or: hop config:unset --app <app> KEY [KEY2 ...]\n\n"
+                    "Example: hop config:unset myapp DEBUG"
+                )
             ]
 
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
 
         # Remove specified variables
         removed = []
@@ -531,53 +451,23 @@ class UnsetCmd(Command):
 
         result = []
         if removed:
-            result.append({
-                "t": "text",
-                "text": f"Removed configuration from '{app_name}':",
-            })
+            result.append(text(f"Removed configuration from '{app_name}':"))
             for key in removed:
-                result.append({"t": "text", "text": f"  • {key}"})
+                result.append(text(f"  • {key}"))
 
         if not_found:
-            result.append({"t": "text", "text": "\nNot found:"})
+            result.append(text("\nNot found:"))
             for key in not_found:
-                result.append({"t": "text", "text": f"  • {key}"})
+                result.append(text(f"  • {key}"))
 
         if removed:
-            result.append({
-                "t": "text",
-                "text": "\nNote: Run 'hop app:restart <app>' to apply changes to running app.",
-            })
+            result.append(
+                text(
+                    "\nNote: Run 'hop app:restart <app>' to apply changes to running app."
+                )
+            )
 
         return result
-
-    def _parse_args(self, args):
-        """Parse app name and keys from positional or --app flag."""
-        if not args:
-            return None, []
-
-        app_name = None
-        remaining_args = []
-
-        # Check for --app flag
-        i = 0
-        while i < len(args):
-            if args[i] == "--app" and i + 1 < len(args):
-                app_name = args[i + 1]
-                i += 2
-            else:
-                remaining_args.append(args[i])
-                i += 1
-
-        # If --app was used, all remaining args are keys
-        if app_name:
-            keys = remaining_args
-        else:
-            # Otherwise, first arg is app, rest are keys
-            app_name = remaining_args[0] if remaining_args else None
-            keys = remaining_args[1:] if len(remaining_args) > 1 else []
-
-        return app_name, keys
 
 
 @register

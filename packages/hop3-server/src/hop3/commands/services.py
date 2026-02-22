@@ -18,6 +18,7 @@ from hop3.orm import AddonCredential, EnvVar
 
 from ._base import Command
 from ._errors import command_context
+from ._response import error, text
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -155,32 +156,12 @@ class AddonsAttachCmd(Command):
     db_session: Session
     name: ClassVar[str] = "addons:attach"
 
-    def _parse_attach_args(self, args) -> tuple[str, str | None, str] | None:
-        """Parse command arguments.
-
-        Returns:
-            Tuple of (addon_name, app_name, service_type) or None if invalid
-        """
-        if len(args) < 1:
-            return None
-
-        addon_name = args[0]
-        app_name = None
-        service_type = "postgres"  # Default
-
-        # Parse optional arguments
-        i = 1
-        while i < len(args):
-            if args[i] == "--app" and i + 1 < len(args):
-                app_name = args[i + 1]
-                i += 2
-            elif args[i] == "--service-type" and i + 1 < len(args):
-                service_type = args[i + 1]
-                i += 2
-            else:
-                i += 1
-
-        return addon_name, app_name, service_type
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "app": {"type": str},  # --app <name>
+        "service_type": {"type": str, "default": "postgres"},  # --service-type <type>
+    }
 
     def _store_or_update_credential(
         self,
@@ -277,20 +258,20 @@ class AddonsAttachCmd(Command):
         """Attach a service to an application."""
         server_log.info("addons:attach called", args=args)
 
-        parsed = self._parse_attach_args(args)
-        if not parsed:
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        app_name = parsed.get("app")
+        service_type = parsed.get("service_type", "postgres")
+
+        if not addon_name:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 addons:attach <service-name> --app <app-name> [--service-type <type>]\n\n"
-                        "Example:\n"
-                        "  hop3 addons:attach my-database --app my-app --service-type postgres"
-                    ),
-                }
+                text(
+                    "Usage: hop3 addons:attach <service-name> --app <app-name> [--service-type <type>]\n\n"
+                    "Example:\n"
+                    "  hop3 addons:attach my-database --app my-app --service-type postgres"
+                )
             ]
 
-        addon_name, app_name, service_type = parsed
         server_log.info(
             "addons:attach parsed args",
             addon_name=addon_name,
@@ -300,10 +281,10 @@ class AddonsAttachCmd(Command):
 
         if not app_name:
             return [
-                {
-                    "t": "error",
-                    "text": "Error: --app parameter is required\n\nUsage: hop3 addons:attach <service-name> --app <app-name>",
-                }
+                error(
+                    "Error: --app parameter is required\n\n"
+                    "Usage: hop3 addons:attach <service-name> --app <app-name>"
+                )
             ]
 
         with command_context(
@@ -425,32 +406,12 @@ class AddonsDetachCmd(Command):
     db_session: Session
     name: ClassVar[str] = "addons:detach"
 
-    def _parse_detach_args(self, args) -> tuple[str, str | None, str] | None:
-        """Parse command arguments.
-
-        Returns:
-            Tuple of (addon_name, app_name, service_type) or None if invalid
-        """
-        if len(args) < 1:
-            return None
-
-        addon_name = args[0]
-        app_name = None
-        service_type = "postgres"  # Default
-
-        # Parse optional arguments
-        i = 1
-        while i < len(args):
-            if args[i] == "--app" and i + 1 < len(args):
-                app_name = args[i + 1]
-                i += 2
-            elif args[i] == "--service-type" and i + 1 < len(args):
-                service_type = args[i + 1]
-                i += 2
-            else:
-                i += 1
-
-        return addon_name, app_name, service_type
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "app": {"type": str},  # --app <name>
+        "service_type": {"type": str, "default": "postgres"},  # --service-type <type>
+    }
 
     def _get_connection_details(
         self, app_id: int, service_type: str, addon_name: str
@@ -502,8 +463,12 @@ class AddonsDetachCmd(Command):
 
     def call(self, *args):
         """Detach a service from an application."""
-        parsed = self._parse_detach_args(args)
-        if not parsed:
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        app_name = parsed.get("app")
+        service_type = parsed.get("service_type", "postgres")
+
+        if not addon_name:
             return [
                 {
                     "t": "text",
@@ -514,8 +479,6 @@ class AddonsDetachCmd(Command):
                     ),
                 }
             ]
-
-        addon_name, app_name, service_type = parsed
 
         if not app_name:
             return [
@@ -578,9 +541,19 @@ class AddonsDestroyCmd(Command):
     name: ClassVar[str] = "addons:destroy"
     destructive: ClassVar[bool] = True
 
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "service_type": {"type": str, "default": "postgres"},  # --service-type <type>
+    }
+
     def call(self, *args):
         """Destroy a service instance."""
-        if len(args) < 1:
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        service_type = parsed.get("service_type", "postgres")
+
+        if not addon_name:
             return [
                 {
                     "t": "text",
@@ -592,18 +565,6 @@ class AddonsDestroyCmd(Command):
                     ),
                 }
             ]
-
-        addon_name = args[0]
-        service_type = "postgres"  # Default
-
-        # Parse optional arguments
-        i = 1
-        while i < len(args):
-            if args[i] == "--service-type" and i + 1 < len(args):
-                service_type = args[i + 1]
-                i += 2
-            else:
-                i += 1
 
         with command_context(
             "destroying addon", addon_name=addon_name, service_type=service_type
@@ -646,9 +607,19 @@ class AddonsInfoCmd(Command):
     db_session: Session
     name: ClassVar[str] = "addons:info"
 
+    # Argument specification for declarative parsing
+    _arg_spec: ClassVar[dict] = {
+        "addon_name": {"positional": True},
+        "service_type": {"type": str, "default": "postgres"},  # --service-type <type>
+    }
+
     def call(self, *args):
         """Get service information."""
-        if len(args) < 1:
+        parsed = parse_cli_args(args, self._arg_spec)
+        addon_name = parsed.get("addon_name")
+        service_type = parsed.get("service_type", "postgres")
+
+        if not addon_name:
             return [
                 {
                     "t": "text",
@@ -659,18 +630,6 @@ class AddonsInfoCmd(Command):
                     ),
                 }
             ]
-
-        addon_name = args[0]
-        service_type = "postgres"  # Default
-
-        # Parse optional arguments
-        i = 1
-        while i < len(args):
-            if args[i] == "--service-type" and i + 1 < len(args):
-                service_type = args[i + 1]
-                i += 2
-            else:
-                i += 1
 
         with command_context(
             "getting addon info", addon_name=addon_name, service_type=service_type

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Tests for the declarative CLI argument parser."""
+
 from __future__ import annotations
 
 from hop3.lib.args import parse_cli_args
@@ -219,3 +220,117 @@ class TestParseCliArgs:
             "app_name": "myapp",
             "show_secrets": True,
         }
+
+    # Tests for remaining args feature
+
+    def test_remaining_args_basic(self):
+        """Test collecting remaining args into a list."""
+        spec = {
+            "app_name": {"positional": True},
+            "keys": {"remaining": True},
+        }
+        result = parse_cli_args(("myapp", "KEY1", "KEY2", "KEY3"), spec)
+        assert result == {"app_name": "myapp", "keys": ["KEY1", "KEY2", "KEY3"]}
+
+    def test_remaining_args_empty(self):
+        """Test remaining args is empty list when no extra args."""
+        spec = {
+            "app_name": {"positional": True},
+            "keys": {"remaining": True},
+        }
+        result = parse_cli_args(("myapp",), spec)
+        assert result == {"app_name": "myapp", "keys": []}
+
+    def test_remaining_args_with_options(self):
+        """Test remaining args works with options interspersed."""
+        spec = {
+            "app_name": {"positional": True},
+            "verbose": {"flag": True},
+            "keys": {"remaining": True},
+        }
+        result = parse_cli_args(("myapp", "--verbose", "KEY1", "KEY2"), spec)
+        assert result == {
+            "app_name": "myapp",
+            "verbose": True,
+            "keys": ["KEY1", "KEY2"],
+        }
+
+    def test_remaining_args_options_after(self):
+        """Test that options after positional still work."""
+        spec = {
+            "app_name": {"positional": True},
+            "force": {"flag": True},
+            "settings": {"remaining": True},
+        }
+        result = parse_cli_args(("myapp", "FOO=bar", "--force", "BAZ=qux"), spec)
+        assert result == {
+            "app_name": "myapp",
+            "force": True,
+            "settings": ["FOO=bar", "BAZ=qux"],
+        }
+
+    def test_remaining_only_no_positional(self):
+        """Test remaining works without a positional arg."""
+        spec = {"keys": {"remaining": True}}
+        result = parse_cli_args(("KEY1", "KEY2"), spec)
+        assert result == {"keys": ["KEY1", "KEY2"]}
+
+    def test_remaining_with_default(self):
+        """Test remaining with default value (not typical but should work)."""
+        spec = {
+            "app_name": {"positional": True},
+            "keys": {"remaining": True, "default": ["default_key"]},
+        }
+        # When args provided, remaining is populated (not default)
+        result = parse_cli_args(("myapp",), spec)
+        # remaining is always initialized to [], default not applied since key exists
+        assert result == {"app_name": "myapp", "keys": []}
+
+    def test_real_world_config_unset(self):
+        """Test realistic config:unset command."""
+        spec = {
+            "app_name": {"positional": True},
+            "keys": {"remaining": True},
+        }
+
+        # Unset single key
+        assert parse_cli_args(("myapp", "DATABASE_URL"), spec) == {
+            "app_name": "myapp",
+            "keys": ["DATABASE_URL"],
+        }
+
+        # Unset multiple keys
+        assert parse_cli_args(("myapp", "KEY1", "KEY2", "KEY3"), spec) == {
+            "app_name": "myapp",
+            "keys": ["KEY1", "KEY2", "KEY3"],
+        }
+
+    def test_real_world_config_set(self):
+        """Test realistic config:set command with KEY=VALUE pairs."""
+        spec = {
+            "app_name": {"positional": True},
+            "settings": {"remaining": True},
+        }
+
+        # Set single var
+        assert parse_cli_args(("myapp", "DATABASE_URL=postgres://..."), spec) == {
+            "app_name": "myapp",
+            "settings": ["DATABASE_URL=postgres://..."],
+        }
+
+        # Set multiple vars
+        assert parse_cli_args(("myapp", "FOO=bar", "BAZ=qux", "DEBUG=true"), spec) == {
+            "app_name": "myapp",
+            "settings": ["FOO=bar", "BAZ=qux", "DEBUG=true"],
+        }
+
+    def test_real_world_config_get(self):
+        """Test realistic config:get command (positional + single remaining)."""
+        spec = {
+            "app_name": {"positional": True},
+            "keys": {"remaining": True},
+        }
+
+        result = parse_cli_args(("myapp", "DATABASE_URL"), spec)
+        assert result == {"app_name": "myapp", "keys": ["DATABASE_URL"]}
+        # For config:get, we'd use keys[0] if available
