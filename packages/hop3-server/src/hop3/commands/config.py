@@ -12,11 +12,11 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hop3.lib.args import parse_cli_args
 from hop3.lib.registry import register
-from hop3.orm import App, AppRepository, EnvVar
+from hop3.orm import App, AppRepository
 from hop3.project.procfile import Procfile
 
 from ._base import Command
-from ._helpers import get_app
+from ._helpers import get_app, parse_key_value_settings, set_env_var, unset_env_var
 from ._response import code, error, table, text
 
 if TYPE_CHECKING:
@@ -266,7 +266,7 @@ class SetCmd(Command):
         "_args": {"remaining": True},  # Catches positional args
     }
 
-    def call(self, *args):  # noqa: C901, PLR0912
+    def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
         remaining = parsed["_args"]
 
@@ -289,51 +289,25 @@ class SetCmd(Command):
 
         app = get_app(self.db_session, app_name)
 
-        # Parse settings
-        changes = []
-        errors = []
-        for setting in settings:
-            if "=" not in setting:
-                errors.append(
-                    f"Invalid setting format: '{setting}' (expected KEY=VALUE)"
-                )
-                continue
+        # Parse and validate settings
+        key_values, errors = parse_key_value_settings(settings)
 
-            key, value = setting.split("=", 1)
-            key = key.strip()
-            value = value.strip()
-
-            if not key:
-                errors.append(f"Empty key in setting: '{setting}'")
-                continue
-
-            # Validate HOST_NAME uniqueness
-            if key == "HOST_NAME" and value and value != "_":
-                conflict = self._check_hostname_conflict(app_name, value)
+        # Validate HOST_NAME uniqueness
+        if "HOST_NAME" in key_values:
+            hostname = key_values["HOST_NAME"]
+            if hostname and hostname != "_":
+                conflict = self._check_hostname_conflict(app_name, hostname)
                 if conflict:
                     errors.append(
-                        f"Hostname '{value}' is already used by app '{conflict}'"
+                        f"Hostname '{hostname}' is already used by app '{conflict}'"
                     )
-                    continue
-
-            # Check if variable already exists
-            existing = None
-            for env_var in app.env_vars:
-                if env_var.name == key:
-                    existing = env_var
-                    break
-
-            if existing:
-                old_value = existing.value
-                existing.value = value
-                changes.append(f"Updated {key}={value} (was: {old_value})")
-            else:
-                new_var = EnvVar(name=key, value=value, app=app)
-                app.env_vars.append(new_var)
-                changes.append(f"Set {key}={value}")
+                    del key_values["HOST_NAME"]
 
         if errors:
             return [error("\n".join(errors))]
+
+        # Apply changes
+        changes = [set_env_var(app, key, value) for key, value in key_values.items()]
 
         # Commit changes to database
         self.db_session.commit()
@@ -404,7 +378,7 @@ class UnsetCmd(Command):
         "_args": {"remaining": True},  # Catches positional args
     }
 
-    def call(self, *args):  # noqa: C901, PLR0912
+    def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
         remaining = parsed["_args"]
 
@@ -435,15 +409,9 @@ class UnsetCmd(Command):
             if not key:
                 continue
 
-            found = False
-            for env_var in app.env_vars:
-                if env_var.name == key:
-                    app.env_vars.remove(env_var)
-                    removed.append(key)
-                    found = True
-                    break
-
-            if not found:
+            if unset_env_var(app, key):
+                removed.append(key)
+            else:
                 not_found.append(key)
 
         # Commit changes to database
