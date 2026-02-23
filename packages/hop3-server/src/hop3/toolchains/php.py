@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import pwd
 from subprocess import CalledProcessError
 from typing import TYPE_CHECKING
 
@@ -131,8 +132,6 @@ class PHPToolchain(LanguageToolchain):
         In systemd services or restricted environments, HOME may not be set,
         so we fall back to pwd module or the hop3 user's home directory.
         """
-        import pwd
-
         env_dict = dict(os.environ)
         env_dict.update(env)
         # Ensure HOME is set (required by composer and npm)
