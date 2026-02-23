@@ -289,6 +289,50 @@ class AppLauncher:
         self.create_new_workers(to_create, env)
         self.remove_unnecessary_workers(to_destroy)
 
+    def _setup_node_paths(self, env: Env) -> None:
+        """Add Node.js paths to environment if node_modules exists."""
+        # Check both venv and src directories
+        # For Node apps built from source, node_modules is in src/
+        # For apps using nodeenv, node_modules might be in venv/
+        for node_path in [
+            self.app.src_path / "node_modules",
+            self.virtualenv_path / "node_modules",
+        ]:
+            if node_path.exists():
+                if "NODE_PATH" not in env:
+                    env["NODE_PATH"] = str(node_path)
+                # Prepend node_modules/.bin to existing PATH (not os.environ)
+                node_bin = str(node_path / ".bin")
+                if node_bin not in env["PATH"]:
+                    env["PATH"] = f"{node_bin}:{env['PATH']}"
+                break  # Use the first node_modules found
+
+    def _setup_ruby_paths(self, env: Env) -> None:
+        """Add Ruby gem paths to environment if Gemfile exists."""
+        gemfile = self.app.src_path / "Gemfile"
+        if gemfile.exists():
+            env["BUNDLE_PATH"] = str(self.virtualenv_path)
+            env["GEM_HOME"] = str(self.virtualenv_path)
+            # Add gem bin directory to PATH for gem executables (bundle, puma, etc.)
+            gem_bin = self.virtualenv_path / "bin"
+            if gem_bin.exists() and str(gem_bin) not in env["PATH"]:
+                env["PATH"] = f"{gem_bin}:{env['PATH']}"
+
+    def _setup_python_paths(self, env: Env) -> None:
+        """Add src/ to PYTHONPATH for Python apps with src layout.
+
+        This is a common pattern where packages live in src/package_name/
+        (e.g., Poetry projects with packages = [{ include = "app", from = "src" }])
+        """
+        src_dir = self.app.src_path / "src"
+        if src_dir.is_dir():
+            existing_pythonpath = env.get("PYTHONPATH", "")
+            if existing_pythonpath:
+                env["PYTHONPATH"] = f"{src_dir}:{existing_pythonpath}"
+            else:
+                env["PYTHONPATH"] = str(src_dir)
+            log("Added src/ to PYTHONPATH for src-layout app", level=3)
+
     def make_env(self) -> Env:
         """Set up and configure the environment for the application.
 
@@ -320,43 +364,10 @@ class AppLauncher:
             # No default HOST_NAME - apps without hostname don't get proxy config
         }
 
-        # add node path if present (check both venv and src directories)
-        # For Node apps built from source, node_modules is in src/
-        # For apps using nodeenv, node_modules might be in venv/
-        for node_path in [
-            self.app.src_path / "node_modules",
-            self.virtualenv_path / "node_modules",
-        ]:
-            if node_path.exists():
-                if "NODE_PATH" not in env:
-                    env["NODE_PATH"] = str(node_path)
-                # Prepend node_modules/.bin to existing PATH (not os.environ)
-                node_bin = str(node_path / ".bin")
-                if node_bin not in env["PATH"]:
-                    env["PATH"] = f"{node_bin}:{env['PATH']}"
-                break  # Use the first node_modules found
-
-        # add Ruby gem paths if this is a Ruby app
-        gemfile = self.app.src_path / "Gemfile"
-        if gemfile.exists():
-            env["BUNDLE_PATH"] = str(self.virtualenv_path)
-            env["GEM_HOME"] = str(self.virtualenv_path)
-            # Add gem bin directory to PATH for gem executables (bundle, puma, etc.)
-            gem_bin = self.virtualenv_path / "bin"
-            if gem_bin.exists() and str(gem_bin) not in env["PATH"]:
-                env["PATH"] = f"{gem_bin}:{env['PATH']}"
-
-        # Add src/ directory to PYTHONPATH for Python apps with src layout
-        # This is a common pattern where packages live in src/package_name/
-        # (e.g., Poetry projects with packages = [{ include = "app", from = "src" }])
-        src_dir = self.app.src_path / "src"
-        if src_dir.is_dir():
-            existing_pythonpath = env.get("PYTHONPATH", "")
-            if existing_pythonpath:
-                env["PYTHONPATH"] = f"{src_dir}:{existing_pythonpath}"
-            else:
-                env["PYTHONPATH"] = str(src_dir)
-            log("Added src/ to PYTHONPATH for src-layout app", level=3)
+        # Add language-specific paths
+        self._setup_node_paths(env)
+        self._setup_ruby_paths(env)
+        self._setup_python_paths(env)
 
         # Load environment variables from the ORM
         runtime_env = self.app.get_runtime_env()
