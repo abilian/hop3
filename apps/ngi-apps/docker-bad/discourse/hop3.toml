@@ -1,0 +1,23 @@
+# Hop3 Configuration for Discourse (Docker-based)
+# Open source discussion platform
+
+[metadata]
+id = "discourse"
+version = "2026.x"
+title = "Discourse"
+description = "Open source discussion platform"
+homepage = "https://www.discourse.org/"
+license = "GPL-2.0"
+categories = ["forum", "discussion", "community"]
+
+[[addons]]
+type = "postgres"
+
+[[addons]]
+type = "redis"
+
+[env]
+DISCOURSE_HOSTNAME = "localhost"
+
+[healthcheck]
+path = "/"

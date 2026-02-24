@@ -1,0 +1,20 @@
+# Hop3 Configuration for Dolibarr (Docker-based)
+# Open source ERP and CRM
+
+[metadata]
+id = "dolibarr"
+version = "19.0"
+title = "Dolibarr"
+description = "Open source ERP and CRM for small and medium businesses"
+homepage = "https://www.dolibarr.org/"
+license = "GPL-3.0"
+categories = ["erp", "crm", "invoicing", "business"]
+
+[[addons]]
+type = "postgres"
+
+[env]
+DOLI_ADMIN_LOGIN = "admin"
+
+[healthcheck]
+path = "/"

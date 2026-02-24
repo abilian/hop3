@@ -1,0 +1,25 @@
+# Hop3 Configuration for Mastodon (Docker-based)
+# Open source social network
+# Note: Also requires Sidekiq for background jobs
+
+[metadata]
+id = "mastodon"
+version = "4.x"
+title = "Mastodon"
+description = "Open source social network"
+homepage = "https://joinmastodon.org/"
+license = "AGPLv3"
+categories = ["social", "fediverse", "microblogging"]
+
+[[addons]]
+type = "postgres"
+
+[[addons]]
+type = "redis"
+
+[env]
+LOCAL_DOMAIN = "localhost"
+SINGLE_USER_MODE = "false"
+
+[healthcheck]
+path = "/health"

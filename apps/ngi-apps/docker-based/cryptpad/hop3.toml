@@ -1,0 +1,19 @@
+# Hop3 Configuration for CryptPad (Docker-based)
+# End-to-end encrypted collaboration suite
+
+[metadata]
+id = "cryptpad"
+version = "2024.6"
+title = "CryptPad"
+description = "End-to-end encrypted collaboration suite"
+homepage = "https://cryptpad.org/"
+license = "AGPL-3.0"
+categories = ["collaboration", "encryption", "documents", "privacy"]
+
+# CryptPad uses file-based storage
+
+[env]
+CPAD_MAIN_DOMAIN = "http://localhost:8080"
+
+[healthcheck]
+path = "/api/config"

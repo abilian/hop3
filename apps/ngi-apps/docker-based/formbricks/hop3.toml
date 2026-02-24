@@ -1,0 +1,21 @@
+# Hop3 Configuration for Formbricks (Docker-based)
+# Open source survey and experience management
+
+[metadata]
+id = "formbricks"
+version = "2.0"
+title = "Formbricks"
+description = "Open source survey and experience management platform"
+homepage = "https://formbricks.com/"
+license = "AGPL-3.0"
+categories = ["forms", "surveys", "feedback", "analytics"]
+
+[[addons]]
+type = "postgres"
+
+[env]
+NEXTAUTH_SECRET = "change-me-to-a-random-string"
+ENCRYPTION_KEY = "change-me-to-32-char-random-key"
+
+[healthcheck]
+path = "/api/health"

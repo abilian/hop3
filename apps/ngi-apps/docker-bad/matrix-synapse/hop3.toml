@@ -1,0 +1,20 @@
+# Hop3 Configuration for Matrix Synapse (Docker-based)
+# Matrix homeserver implementation
+
+[metadata]
+id = "matrix-synapse"
+version = "1.x"
+title = "Matrix Synapse"
+description = "Matrix homeserver implementation"
+homepage = "https://matrix.org/"
+license = "Apache-2.0"
+categories = ["chat", "messaging", "matrix"]
+
+[[addons]]
+type = "postgres"
+
+[env]
+SERVER_NAME = "localhost"
+
+[healthcheck]
+path = "/_matrix/client/versions"

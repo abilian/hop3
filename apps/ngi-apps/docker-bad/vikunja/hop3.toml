@@ -1,0 +1,20 @@
+# Hop3 Configuration for Vikunja (Docker-based)
+# Open source task/project management
+
+[metadata]
+id = "vikunja"
+version = "0.x"
+title = "Vikunja"
+description = "Open source task and project management"
+homepage = "https://vikunja.io/"
+license = "AGPL-3.0"
+categories = ["project-management", "task-management", "kanban"]
+
+[[addons]]
+type = "postgres"
+
+[env]
+VIKUNJA_FRONTEND_URL = "http://localhost:8080/"
+
+[healthcheck]
+path = "/api/v1/info"

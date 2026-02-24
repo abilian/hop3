@@ -37,6 +37,10 @@ COPY --chown=gitea:gitea app.ini.template /home/gitea/custom/conf/app.ini.templa
 RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
+# Force correct paths (override Hop3-injected values from host system)\n\
+export GITEA_WORK_DIR=/home/gitea\n\
+export GITEA_CUSTOM=/home/gitea/custom\n\
+\n\
 # Set defaults for config vars (Hop3 injects PG* vars)\n\
 export PGHOST="${PGHOST:-localhost}"\n\
 export PGPORT="${PGPORT:-5432}"\n\
