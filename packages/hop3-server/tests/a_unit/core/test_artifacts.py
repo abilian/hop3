@@ -21,6 +21,11 @@ class TestRuntimeConfig:
         assert config.path_prepend == []
         assert config.working_dir == ""
         assert config.workers == {}
+        # New fields should also have defaults
+        assert config.before_run == []
+        assert config.static_paths == {}
+        assert config.healthcheck_path == ""
+        assert config.healthcheck_timeout == 30
 
     def test_with_values(self):
         """RuntimeConfig should accept values."""
@@ -34,6 +39,51 @@ class TestRuntimeConfig:
         assert "/app/venv/bin" in config.path_prepend
         assert config.working_dir == "/app"
         assert config.workers["web"] == "gunicorn app:app"
+
+    def test_with_lifecycle_hooks(self):
+        """RuntimeConfig should accept before_run commands."""
+        config = RuntimeConfig(
+            before_run=["python manage.py migrate", "python manage.py collectstatic"],
+        )
+        assert len(config.before_run) == 2
+        assert "migrate" in config.before_run[0]
+        assert "collectstatic" in config.before_run[1]
+
+    def test_with_static_paths(self):
+        """RuntimeConfig should accept static file path mappings."""
+        config = RuntimeConfig(
+            static_paths={"/static": "static/", "/media": "media/"},
+        )
+        assert config.static_paths["/static"] == "static/"
+        assert config.static_paths["/media"] == "media/"
+
+    def test_with_healthcheck(self):
+        """RuntimeConfig should accept healthcheck configuration."""
+        config = RuntimeConfig(
+            healthcheck_path="/health",
+            healthcheck_timeout=60,
+        )
+        assert config.healthcheck_path == "/health"
+        assert config.healthcheck_timeout == 60
+
+    def test_complete_config_with_all_fields(self):
+        """RuntimeConfig should work with all fields set."""
+        config = RuntimeConfig(
+            env_vars={"PYTHONPATH": "/app/src"},
+            path_prepend=["/app/venv/bin"],
+            working_dir="/app",
+            workers={"web": "gunicorn app:app", "worker": "celery -A tasks worker"},
+            before_run=["python manage.py migrate"],
+            static_paths={"/static": "static/"},
+            healthcheck_path="/health",
+            healthcheck_timeout=120,
+        )
+        assert config.env_vars["PYTHONPATH"] == "/app/src"
+        assert config.workers["worker"] == "celery -A tasks worker"
+        assert config.before_run[0] == "python manage.py migrate"
+        assert config.static_paths["/static"] == "static/"
+        assert config.healthcheck_path == "/health"
+        assert config.healthcheck_timeout == 120
 
 
 class TestBuildArtifact:
@@ -169,6 +219,89 @@ class TestBuildArtifactSerialization:
         assert loaded.runtime.working_dir == original.runtime.working_dir
         assert loaded.runtime.workers == original.runtime.workers
         assert loaded.metadata == original.metadata
+
+    def test_roundtrip_with_lifecycle_hooks(self):
+        """BuildArtifact should serialize/deserialize before_run commands."""
+        original = BuildArtifact(
+            kind="python",
+            app_name="myapp",
+            runtime=RuntimeConfig(
+                before_run=[
+                    "python manage.py migrate",
+                    "python manage.py collectstatic",
+                ],
+            ),
+        )
+        json_str = original.to_json()
+        loaded = BuildArtifact.from_json(json_str)
+
+        assert loaded.runtime.before_run == original.runtime.before_run
+        assert len(loaded.runtime.before_run) == 2
+
+    def test_roundtrip_with_static_paths(self):
+        """BuildArtifact should serialize/deserialize static_paths."""
+        original = BuildArtifact(
+            kind="node",
+            app_name="myapp",
+            runtime=RuntimeConfig(
+                static_paths={"/static": "dist/static/", "/assets": "public/"},
+            ),
+        )
+        json_str = original.to_json()
+        loaded = BuildArtifact.from_json(json_str)
+
+        assert loaded.runtime.static_paths == original.runtime.static_paths
+        assert loaded.runtime.static_paths["/static"] == "dist/static/"
+
+    def test_roundtrip_with_healthcheck(self):
+        """BuildArtifact should serialize/deserialize healthcheck config."""
+        original = BuildArtifact(
+            kind="python",
+            app_name="myapp",
+            runtime=RuntimeConfig(
+                healthcheck_path="/health",
+                healthcheck_timeout=60,
+            ),
+        )
+        json_str = original.to_json()
+        loaded = BuildArtifact.from_json(json_str)
+
+        assert loaded.runtime.healthcheck_path == "/health"
+        assert loaded.runtime.healthcheck_timeout == 60
+
+    def test_roundtrip_complete_runtime_config(self):
+        """BuildArtifact should serialize/deserialize complete RuntimeConfig."""
+        original = BuildArtifact(
+            kind="python",
+            builder="local",
+            app_name="django-app",
+            built_at="2026-02-24T10:00:00Z",
+            build_id="xyz789",
+            location="/home/hop3/apps/django-app/venv",
+            runtime=RuntimeConfig(
+                env_vars={"DJANGO_SETTINGS_MODULE": "config.settings"},
+                path_prepend=["/home/hop3/apps/django-app/venv/bin"],
+                working_dir="/home/hop3/apps/django-app/src",
+                workers={"web": "gunicorn config.wsgi:application"},
+                before_run=["python manage.py migrate --noinput"],
+                static_paths={"/static": "staticfiles/"},
+                healthcheck_path="/health/",
+                healthcheck_timeout=30,
+            ),
+        )
+        json_str = original.to_json()
+        loaded = BuildArtifact.from_json(json_str)
+
+        assert loaded.runtime.env_vars == original.runtime.env_vars
+        assert loaded.runtime.path_prepend == original.runtime.path_prepend
+        assert loaded.runtime.working_dir == original.runtime.working_dir
+        assert loaded.runtime.workers == original.runtime.workers
+        assert loaded.runtime.before_run == original.runtime.before_run
+        assert loaded.runtime.static_paths == original.runtime.static_paths
+        assert loaded.runtime.healthcheck_path == original.runtime.healthcheck_path
+        assert (
+            loaded.runtime.healthcheck_timeout == original.runtime.healthcheck_timeout
+        )
 
 
 class TestBuildArtifactFileIO:
