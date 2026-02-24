@@ -298,6 +298,25 @@ def sanitize_app_name(app) -> str:
     return app
 
 
+def is_port_free(port: int, address: str = "127.0.0.1") -> bool:
+    """Check if a TCP port is free (not in use).
+
+    Args:
+        port: The port number to check.
+        address: The IP address to check on. Defaults to localhost.
+
+    Returns:
+        True if the port is free, False if it's in use.
+    """
+    s = socket(AF_INET, SOCK_STREAM)
+    try:
+        s.bind((address, port))
+        s.close()
+        return True
+    except OSError:
+        return False
+
+
 def get_free_port(address="") -> int:
     """Find a free TCP port on the host system, selected at random.
 

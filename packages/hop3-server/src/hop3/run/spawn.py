@@ -18,7 +18,7 @@ from hop3.config import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
 from hop3.core.artifacts import BuildArtifact
 from hop3.core.env import Env
 from hop3.core.plugins import get_proxy_strategy
-from hop3.lib import echo, get_free_port, log
+from hop3.lib import echo, get_free_port, log, shell
 from hop3.lib.logging import server_log
 from hop3.lib.settings import write_settings
 from hop3.project.config import AppConfig
@@ -321,25 +321,15 @@ class AppLauncher:
         for i, cmd in enumerate(before_run, 1):
             log(f"  [{i}/{len(before_run)}] {cmd}", level=1)
             try:
-                result = subprocess.run(
+                # shell() handles logging and error reporting
+                result = shell(
                     cmd,
-                    shell=True,
                     cwd=working_dir,
                     env=dict(env),
-                    capture_output=True,
-                    text=True,
                     timeout=300,  # 5 minute timeout per command
+                    check=False,  # Handle errors ourselves for structured logging
                 )
                 if result.returncode != 0:
-                    log(
-                        f"  Command failed with exit code {result.returncode}",
-                        level=0,
-                        fg="red",
-                    )
-                    if result.stdout:
-                        log(f"  stdout: {result.stdout[:500]}", level=0)
-                    if result.stderr:
-                        log(f"  stderr: {result.stderr[:500]}", level=0, fg="red")
                     server_log.error(
                         "Before-run command failed",
                         app_name=self.app_name,

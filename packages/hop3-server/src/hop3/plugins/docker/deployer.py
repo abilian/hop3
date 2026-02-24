@@ -29,7 +29,7 @@ from hop3.core.protocols import (
     DeploymentContext,
     DeploymentInfo,
 )
-from hop3.lib import Abort, get_free_port, log
+from hop3.lib import Abort, get_free_port, is_port_free, log
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
 
@@ -292,7 +292,7 @@ services:
         """Allocate a unique port for this app.
 
         If the app already has a port assigned (from previous deployment),
-        try to reuse it. Otherwise, allocate a new free port.
+        try to reuse it if it's still free. Otherwise, allocate a new free port.
 
         Returns:
             Allocated port number
@@ -301,8 +301,14 @@ services:
         if self.context.app and self.context.app.port:
             existing_port = self.context.app.port
             if existing_port > 0:
-                log(f"Reusing existing port {existing_port}", level=2)
-                return existing_port
+                if is_port_free(existing_port):
+                    log(f"Reusing existing port {existing_port}", level=2)
+                    return existing_port
+                else:
+                    log(
+                        f"Existing port {existing_port} is in use, allocating new port",
+                        level=2,
+                    )
 
         # Allocate a new free port
         port = get_free_port()

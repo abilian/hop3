@@ -90,6 +90,76 @@ packages = ["postgresql", "redis"]
     assert config.run_packages == ["postgresql", "redis"]
 
 
+def test_run_section_static_paths():
+    """Test [run] static path parsing."""
+    content = """
+[run]
+start = "gunicorn app:app"
+static = {"/static" = "static/", "/media" = "media/"}
+"""
+    config = Hop3Config.from_str(content)
+
+    assert config.static_paths == {"/static": "static/", "/media": "media/"}
+
+
+def test_run_section_healthcheck():
+    """Test [run] healthcheck parsing."""
+    content = """
+[run]
+start = "gunicorn app:app"
+healthcheck = "/health"
+healthcheck-timeout = 60
+"""
+    config = Hop3Config.from_str(content)
+
+    assert config.healthcheck_path == "/health"
+    assert config.healthcheck_timeout == 60
+
+
+def test_run_section_healthcheck_defaults():
+    """Test [run] healthcheck defaults when not specified."""
+    content = """
+[run]
+start = "gunicorn app:app"
+"""
+    config = Hop3Config.from_str(content)
+
+    assert config.healthcheck_path == ""
+    assert config.healthcheck_timeout == 30  # default
+
+
+def test_run_section_static_empty():
+    """Test static_paths returns empty dict when not specified."""
+    content = """
+[run]
+start = "gunicorn app:app"
+"""
+    config = Hop3Config.from_str(content)
+
+    assert config.static_paths == {}
+
+
+def test_run_section_complete():
+    """Test complete [run] section with all fields."""
+    content = """
+[run]
+start = "gunicorn config.wsgi:application"
+before-run = ["python manage.py migrate"]
+static = {"/static" = "staticfiles/", "/media" = "media/"}
+healthcheck = "/health/"
+healthcheck-timeout = 120
+packages = ["postgresql"]
+"""
+    config = Hop3Config.from_str(content)
+
+    assert config.start_command == "gunicorn config.wsgi:application"
+    assert config.before_run_commands == ["python manage.py migrate"]
+    assert config.static_paths == {"/static": "staticfiles/", "/media": "media/"}
+    assert config.healthcheck_path == "/health/"
+    assert config.healthcheck_timeout == 120
+    assert config.run_packages == ["postgresql"]
+
+
 def test_get_workers_from_run_section():
     """Test conversion of [run] section to Procfile-style workers."""
     content = """
