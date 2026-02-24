@@ -38,8 +38,8 @@ class UWSGIDeployer(Deployer):
         # Accept common artifact kinds from language toolchains
         # Note: "static" is NOT included - static files are handled by StaticDeployer
         return self.artifact.kind in {
-            "buildpack",
-            "virtualenv",
+            # Language toolchains
+            "python",
             "node",
             "ruby",
             "php",
@@ -50,6 +50,9 @@ class UWSGIDeployer(Deployer):
             "dotnet",
             "elixir",
             "generic",  # Pre-built binaries or custom build apps
+            # Legacy/compatibility
+            "buildpack",
+            "virtualenv",  # Legacy Python artifact kind
         }
 
     def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:

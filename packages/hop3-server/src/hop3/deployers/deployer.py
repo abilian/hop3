@@ -99,6 +99,11 @@ def do_deploy(
         fg="green",
     )
 
+    # Persist build artifact for run phase
+    artifact_path = app.app_path / "BUILD_ARTIFACT.json"
+    build_artifact.save(artifact_path)
+    log(f"Build artifact saved to: {artifact_path}", level=2)
+
     # --- 4. Run Postbuild Hook ---
     _run_hook("postbuild", app_config.post_build, app.src_path)
 

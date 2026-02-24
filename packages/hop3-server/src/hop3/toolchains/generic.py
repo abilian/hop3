@@ -71,13 +71,10 @@ class GenericToolchain(LanguageToolchain):
         else:
             log("No build command specified - assuming pre-built", level=2, fg="cyan")
 
-        return BuildArtifact(
+        # Generic toolchain - minimal runtime config (just workers)
+        return self._make_build_artifact(
             kind="generic",
-            location=str(self.src_path),
-            metadata={
-                "app_name": self.app_name,
-                "toolchain": "generic",
-            },
+            metadata={"toolchain": "generic"},
         )
 
     def _get_custom_build_command(self) -> str | None:

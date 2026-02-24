@@ -70,11 +70,8 @@ class PHPToolchain(LanguageToolchain):
             self.prepare_build_env(env)
             self.install_dependencies(env)
 
-        return BuildArtifact(
-            kind="php",
-            location=str(self.src_path),
-            metadata={"app_name": self.app_name},
-        )
+        # PHP needs no special runtime config - just workers
+        return self._make_build_artifact(kind="php")
 
     def prepare_build_env(self, env: Env) -> None:
         """Prepare the environment for building the project, if necessary.

@@ -8,15 +8,19 @@ from __future__ import annotations
 
 import os
 import pwd
+import subprocess
+import uuid
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, ClassVar
 
+from hop3.core.artifacts import BuildArtifact, RuntimeConfig
 from hop3.core.env import Env
-from hop3.core.protocols import BuildArtifact, BuildContext
+from hop3.core.protocols import BuildContext
 from hop3.lib import shell
+from hop3.project.procfile import parse_procfile
 
 if TYPE_CHECKING:
-    import subprocess
     from pathlib import Path
 
 
@@ -204,3 +208,91 @@ class LanguageToolchain(ABC):
         # Parse settings from the environment file
         env.parse_settings(self.env_file)
         return env
+
+    #
+    # BuildArtifact helpers
+    #
+    def _get_workers(self) -> dict[str, str]:
+        """Parse Procfile and return worker commands.
+
+        Returns:
+            Dict mapping worker names to commands, e.g. {"web": "gunicorn app:app"}
+        """
+        procfile = self.src_path / "Procfile"
+        if procfile.exists():
+            return dict(parse_procfile(procfile))
+        return {}
+
+    def _get_build_id(self) -> str:
+        """Get build ID from git SHA or generate UUID.
+
+        Returns:
+            A short identifier for this build (12 chars)
+        """
+        git_dir = self.src_path / ".git"
+        if git_dir.exists():
+            try:
+                result = subprocess.run(
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=self.src_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if result.returncode == 0:
+                    return result.stdout.strip()[:12]
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                pass
+        return str(uuid.uuid4())[:12]
+
+    def _get_build_timestamp(self) -> str:
+        """Get current timestamp in ISO 8601 format."""
+        return datetime.now(timezone.utc).isoformat()
+
+    def _make_runtime_config(
+        self,
+        env_vars: dict[str, str] | None = None,
+        path_prepend: list[str] | None = None,
+    ) -> RuntimeConfig:
+        """Create a RuntimeConfig with common defaults.
+
+        Args:
+            env_vars: Additional environment variables to set
+            path_prepend: Paths to prepend to PATH
+
+        Returns:
+            RuntimeConfig with workers from Procfile and provided settings
+        """
+        return RuntimeConfig(
+            env_vars=env_vars or {},
+            path_prepend=path_prepend or [],
+            working_dir=str(self.src_path),
+            workers=self._get_workers(),
+        )
+
+    def _make_build_artifact(
+        self,
+        kind: str,
+        runtime: RuntimeConfig | None = None,
+        metadata: dict | None = None,
+    ) -> BuildArtifact:
+        """Create a complete BuildArtifact.
+
+        Args:
+            kind: Artifact kind (e.g., "python", "node", "ruby")
+            runtime: RuntimeConfig (created with defaults if not provided)
+            metadata: Additional metadata
+
+        Returns:
+            Complete BuildArtifact ready for serialization
+        """
+        return BuildArtifact(
+            kind=kind,
+            builder="local",
+            app_name=self.app_name,
+            built_at=self._get_build_timestamp(),
+            build_id=self._get_build_id(),
+            location=str(self.src_path),
+            runtime=runtime or self._make_runtime_config(),
+            metadata=metadata or {},
+        )

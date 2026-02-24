@@ -51,15 +51,11 @@ class DeploymentContext:
     # log_callback: Callable[[str], None]  # To stream logs back
 
 
-@dataclass
-class BuildArtifact:
-    """
-    Represents a build artifact produced by a Builder.
-    """
+# BuildArtifact is imported from artifacts.py - see ADR 035
+# It includes RuntimeConfig for build/run separation
+from hop3.core.artifacts import BuildArtifact, RuntimeConfig
 
-    kind: str  # e.g., "buildpack", "docker-image"
-    location: str  # e.g., "/path/to/app/venv", "my-app:latest"
-    metadata: dict[str, Any] = field(default_factory=dict)
+__all__ = ["BuildArtifact", "RuntimeConfig"]  # Re-export for backwards compatibility
 
 
 @dataclass

@@ -43,10 +43,31 @@ class RubyToolchain(LanguageToolchain):
             self.shell("bundle install", env=env)
             log("Ruby gems installed successfully", level=2, fg="green")
 
-        return BuildArtifact(
+        # Compute environment variables for runtime
+        env_vars = {
+            "BUNDLE_PATH": str(self.virtual_env),
+            "BUNDLE_USER_HOME": str(self.virtual_env / ".bundle"),
+            "BUNDLE_USER_CACHE": str(self.virtual_env / ".bundle/cache"),
+            "GEM_HOME": str(self.virtual_env),
+            "GEM_PATH": str(self.virtual_env),
+        }
+
+        # Paths to prepend to PATH
+        path_prepend = [
+            str(self.virtual_env / "bin"),
+            str(self.src_path / ".bin"),
+        ]
+
+        # Create runtime configuration
+        runtime = self._make_runtime_config(
+            env_vars=env_vars,
+            path_prepend=path_prepend,
+        )
+
+        # Return complete BuildArtifact with runtime config
+        return self._make_build_artifact(
             kind="ruby",
-            location=str(self.virtual_env),
-            metadata={"app_name": self.app_name},
+            runtime=runtime,
         )
 
     def get_env(self) -> Env:

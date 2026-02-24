@@ -46,14 +46,10 @@ class StaticToolchain(LanguageToolchain):
             msg = f"Static directory '{static_dir}' not found at {static_path}"
             raise FileNotFoundError(msg)
 
-        # Return a BuildArtifact describing the static files location
-        return BuildArtifact(
+        # Static files - no runtime config needed
+        return self._make_build_artifact(
             kind="static",
-            location=str(static_path),
-            metadata={
-                "app_name": self.app_name,
-                "static_dir": static_dir,
-            },
+            metadata={"static_dir": static_dir},
         )
 
     def _get_static_dir(self) -> str:

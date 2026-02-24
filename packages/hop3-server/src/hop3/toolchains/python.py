@@ -36,20 +36,40 @@ class PythonToolchain(LanguageToolchain):
         """Build the Python application by creating a virtualenv and installing dependencies.
 
         Returns:
-            BuildArtifact containing the virtualenv location
+            BuildArtifact containing the virtualenv location and runtime configuration
         """
         # Change the directory to the source path and proceed with building the project
         with chdir(self.src_path):
             self.make_virtual_env()
             self.install_virtualenv()
 
-        # Return a BuildArtifact describing what we built
-        return BuildArtifact(
-            kind="virtualenv",
-            location=str(self.virtual_env),
+        # Compute environment variables for runtime
+        env_vars = {
+            "PYTHONUNBUFFERED": "1",
+            "PYTHONIOENCODING": "UTF_8:replace",
+        }
+
+        # Add src/ to PYTHONPATH for src-layout projects
+        src_dir = self.src_path / "src"
+        if src_dir.is_dir():
+            env_vars["PYTHONPATH"] = str(src_dir)
+
+        # Paths to prepend to PATH
+        venv_bin = self.virtual_env / "bin"
+        path_prepend = [str(venv_bin)] if venv_bin.exists() else []
+
+        # Create runtime configuration
+        runtime = self._make_runtime_config(
+            env_vars=env_vars,
+            path_prepend=path_prepend,
+        )
+
+        # Return complete BuildArtifact with runtime config
+        return self._make_build_artifact(
+            kind="python",
+            runtime=runtime,
             metadata={
                 "python_path": str(self.virtual_env / "bin" / "python"),
-                "app_name": self.app_name,
             },
         )
 

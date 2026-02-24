@@ -50,10 +50,10 @@ class GoToolchain(LanguageToolchain):
         if custom_build:
             log(f"Running custom build command: {custom_build}", level=2, fg="cyan")
             self.shell(custom_build)
-            return BuildArtifact(
+            # Compiled binary - minimal runtime config (just workers)
+            return self._make_build_artifact(
                 kind="go",
-                location=str(self.src_path),
-                metadata={"app_name": self.app_name, "custom_build": True},
+                metadata={"custom_build": True},
             )
 
         # Download dependencies if go.mod exists
@@ -83,11 +83,8 @@ class GoToolchain(LanguageToolchain):
                     fg="yellow",
                 )
 
-        return BuildArtifact(
-            kind="go",
-            location=str(self.src_path),
-            metadata={"app_name": self.app_name},
-        )
+        # Compiled binary - minimal runtime config (just workers)
+        return self._make_build_artifact(kind="go")
 
     def _get_custom_build_command(self) -> str | None:
         """Get custom build command from hop3.toml if specified.

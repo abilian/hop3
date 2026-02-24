@@ -55,11 +55,8 @@ class JavaToolchain(LanguageToolchain):
                 result = self.shell("gradle build -x test", check=False)
         else:
             log("No recognized build tool found", level=1, fg="red")
-            return BuildArtifact(
-                kind="java",
-                location=str(self.src_path),
-                metadata={"app_name": self.app_name},
-            )
+            # Compiled binary - minimal runtime config
+            return self._make_build_artifact(kind="java")
 
         if result.returncode == 0:
             log("Java build successful", level=2, fg="green")
@@ -70,8 +67,5 @@ class JavaToolchain(LanguageToolchain):
                 fg="red",
             )
 
-        return BuildArtifact(
-            kind="java",
-            location=str(self.src_path),
-            metadata={"app_name": self.app_name},
-        )
+        # Compiled JVM app - minimal runtime config (just workers)
+        return self._make_build_artifact(kind="java")

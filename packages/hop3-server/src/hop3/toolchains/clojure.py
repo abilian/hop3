@@ -67,13 +67,34 @@ class ClojureToolchain(LanguageToolchain):
         target_path.mkdir(parents=True, exist_ok=True)
         self._build(self.get_env())
 
-        return BuildArtifact(
+        # Compute environment variables for runtime
+        env_vars = {}
+        if self.is_leiningen_app:
+            env_vars["LEIN_HOME"] = os.environ.get(
+                "LEIN_HOME", str(Path.home() / ".lein")
+            )
+        else:
+            env_vars["CLJ_CONFIG"] = os.environ.get(
+                "CLJ_CONFIG", str(Path.home() / ".clojure")
+            )
+
+        # Paths to prepend to PATH
+        path_prepend = [
+            str(self.virtual_env / "bin"),
+            str(self.src_path / ".bin"),
+        ]
+
+        # Create runtime configuration
+        runtime = self._make_runtime_config(
+            env_vars=env_vars,
+            path_prepend=path_prepend,
+        )
+
+        # Return complete BuildArtifact with runtime config
+        return self._make_build_artifact(
             kind="clojure",
-            location=str(target_path),
-            metadata={
-                "app_name": self.app_name,
-                "is_leiningen": self.is_leiningen_app,
-            },
+            runtime=runtime,
+            metadata={"is_leiningen": self.is_leiningen_app},
         )
 
     def get_env(self) -> Env:
