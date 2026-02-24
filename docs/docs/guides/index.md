@@ -5,6 +5,7 @@ Comprehensive guides for using Hop3 effectively.
 ## Quick Reference
 
 - [Cheat Sheet](cheat-sheet.md) - Quick command reference for common tasks
+- [Application Gallery](application-gallery.md) - Ready-to-deploy open source applications
 
 ## User Guide
 
@@ -15,6 +16,10 @@ The [User Guide](user-guide.md) covers the core concepts and daily operations:
 - Process management
 - Domain and SSL setup
 
+## Administration
+
+- [Administrator Manual](administration.md) - Server setup, security, monitoring, and maintenance
+
 ## Operations
 
 - [Backup & Restore](backup-restore.md) - Protect your data and recover from failures
@@ -23,4 +28,5 @@ The [User Guide](user-guide.md) covers the core concepts and daily operations:
 
 ## Help
 
-- [FAQ](faq.md) - Frequently asked questions and troubleshooting tips
+- [FAQ](faq.md) - Frequently asked questions
+- [Troubleshooting](troubleshooting.md) - Diagnose and fix common issues
