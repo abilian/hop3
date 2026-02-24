@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Test Docker builds for NGI apps locally."""
 
+import argparse
 import subprocess
 import sys
 from pathlib import Path
 
 
-def test_app(app_path: str) -> bool:
+def test_app(app_path: str, logs_dir: Path, no_cache: bool) -> bool:
     """Build a Docker app and return True if successful."""
     full_path = Path(app_path).resolve()
 
@@ -19,34 +20,42 @@ def test_app(app_path: str) -> bool:
         print(f"{app_path}: FAILURE (no Dockerfile)")
         return False
 
+    cmd = ["docker", "build", "."]
+    if no_cache:
+        cmd.insert(2, "--no-cache")
+
     result = subprocess.run(
-        ["docker", "build", "."],
+        cmd,
         cwd=full_path,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
     )
 
     if result.returncode == 0:
         print(f"{app_path}: SUCCESS")
         return True
     else:
-        print(f"{app_path}: FAILURE")
+        app_name = full_path.name
+        log_file = logs_dir / f"{app_name}.log"
+        log_file.write_text(result.stdout + result.stderr)
+        print(f"{app_path}: FAILURE (see {log_file})")
         return False
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: test-docker-local.py <path1> [path2] ...")
-        print("Example: test-docker-local.py docker-based/umami docker-based/ghost")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Test Docker builds for NGI apps")
+    parser.add_argument("paths", nargs="+", help="Paths to app directories")
+    parser.add_argument("--no-cache", action="store_true", help="Build without cache")
+    args = parser.parse_args()
 
-    apps = sys.argv[1:]
+    logs_dir = Path(__file__).parent / "logs" / "docker-builds"
+    logs_dir.mkdir(parents=True, exist_ok=True)
 
     successes = 0
     failures = 0
 
-    for app in apps:
-        if test_app(app):
+    for app in args.paths:
+        if test_app(app, logs_dir, args.no_cache):
             successes += 1
         else:
             failures += 1

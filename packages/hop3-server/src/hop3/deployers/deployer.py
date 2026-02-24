@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hop3.core.manifest import RuntimeManifestBuilder
 from hop3.core.plugins import get_builder, get_deployment_strategy
 from hop3.core.protocols import DeploymentContext
 from hop3.deployers.addon_provisioning import inject_config_env_vars, provision_addons
@@ -97,6 +98,26 @@ def do_deploy(
         f"Build successful. Artifact: {build_artifact.location} (kind: {build_artifact.kind})",
         level=1,
         fg="green",
+    )
+
+    # --- 3.5. Enhance Artifact with Merged Runtime Config ---
+    # RuntimeManifestBuilder merges Procfile and hop3.toml into RuntimeConfig.
+    # The toolchain provides env_vars, path_prepend, working_dir; we add:
+    # - workers (from Procfile/hop3.toml merged)
+    # - before_run (from hop3.toml [run] before-run)
+    # - static_paths (from hop3.toml [run] static)
+    # - healthcheck_path/timeout (from hop3.toml [run] healthcheck)
+    manifest_builder = RuntimeManifestBuilder(app_config)
+    enhanced_runtime = manifest_builder.build(
+        env_vars=build_artifact.runtime.env_vars,
+        path_prepend=build_artifact.runtime.path_prepend,
+        working_dir=build_artifact.runtime.working_dir,
+    )
+    build_artifact.runtime = enhanced_runtime
+    log(
+        f"Runtime manifest built: {len(enhanced_runtime.workers)} workers, "
+        f"{len(enhanced_runtime.before_run)} before-run commands",
+        level=2,
     )
 
     # Persist build artifact for run phase

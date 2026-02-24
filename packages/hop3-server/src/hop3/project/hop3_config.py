@@ -165,6 +165,37 @@ class Hop3Config:
         return self.run.get("packages", [])
 
     @property
+    def static_paths(self) -> dict[str, str]:
+        """Get run.static (static file path mappings for reverse proxy).
+
+        Returns:
+            Dictionary mapping URL paths to filesystem paths
+            e.g., {"/static": "static", "/media": "media"}
+        """
+        static = self.run.get("static", {})
+        if isinstance(static, dict):
+            return static
+        return {}
+
+    @property
+    def healthcheck_path(self) -> str:
+        """Get run.healthcheck (HTTP path for health checks).
+
+        Returns:
+            Health check path, e.g., "/health"
+        """
+        return self.run.get("healthcheck", "")
+
+    @property
+    def healthcheck_timeout(self) -> int:
+        """Get run.healthcheck-timeout in seconds.
+
+        Returns:
+            Timeout in seconds for health checks
+        """
+        return int(self.run.get("healthcheck-timeout", 30))
+
+    @property
     def before_run_commands(self) -> list[str]:
         """Get run.before-run commands.
 
