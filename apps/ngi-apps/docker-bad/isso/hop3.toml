@@ -1,0 +1,20 @@
+# Hop3 Configuration for Isso (Docker-based)
+# Lightweight commenting system
+
+[metadata]
+id = "isso"
+version = "0.13"
+title = "Isso"
+description = "A lightweight commenting system, Disqus alternative"
+homepage = "https://isso-comments.de/"
+license = "MIT"
+categories = ["comments", "blog", "community"]
+
+# Isso uses SQLite by default
+
+[env]
+ISSO_HOST = "http://localhost:8080"
+
+[healthcheck]
+# Root path returns basic info, /info requires uri parameter
+path = "/"

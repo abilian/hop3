@@ -1,0 +1,98 @@
+# SearXNG Dockerfile for Hop3
+# Privacy-respecting metasearch engine
+
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies (including all build deps for Python packages)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+    build-essential \
+    libxslt1-dev \
+    libxml2-dev \
+    libffi-dev \
+    libssl-dev \
+    libyaml-dev \
+    zlib1g-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libbrotli-dev \
+    git \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create searxng user
+RUN useradd -m -d /usr/local/searxng -s /bin/bash searxng
+
+# Create directories
+RUN mkdir -p /usr/local/searxng /etc/searxng \
+    && chown -R searxng:searxng /usr/local/searxng /etc/searxng
+
+WORKDIR /usr/local/searxng
+
+# Clone SearXNG
+RUN git clone --depth 1 https://github.com/searxng/searxng.git /usr/local/searxng/searxng-src \
+    && chown -R searxng:searxng /usr/local/searxng
+
+# Create venv and install (use requirements.txt instead of editable install)
+RUN python3 -m venv /usr/local/searxng/venv \
+    && /usr/local/searxng/venv/bin/pip install --no-cache-dir -U pip setuptools wheel \
+    && /usr/local/searxng/venv/bin/pip install --no-cache-dir -r /usr/local/searxng/searxng-src/requirements.txt \
+    && /usr/local/searxng/venv/bin/pip install --no-cache-dir /usr/local/searxng/searxng-src
+
+# Create default settings
+RUN echo 'use_default_settings: true\n\
+\n\
+general:\n\
+  instance_name: "SearXNG"\n\
+  debug: false\n\
+\n\
+search:\n\
+  safe_search: 0\n\
+  autocomplete: "google"\n\
+\n\
+server:\n\
+  port: 8080\n\
+  bind_address: "0.0.0.0"\n\
+  secret_key: "change-me-to-a-random-string"\n\
+  limiter: false\n\
+  image_proxy: true\n\
+\n\
+ui:\n\
+  static_use_hash: true\n\
+  default_theme: simple\n\
+' > /etc/searxng/settings.yml \
+    && chown searxng:searxng /etc/searxng/settings.yml
+
+# Create startup script
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+# Configuration\n\
+export SEARXNG_PORT="${PORT:-8080}"\n\
+export SEARXNG_SECRET="${SEARXNG_SECRET:-$(head -c 32 /dev/urandom | base64)}"\n\
+export SEARXNG_SETTINGS_PATH="/etc/searxng/settings.yml"\n\
+\n\
+# Update settings with port and secret\n\
+sed -i "s/port: 8080/port: ${SEARXNG_PORT}/" /etc/searxng/settings.yml\n\
+sed -i "s/secret_key: .*/secret_key: \"${SEARXNG_SECRET}\"/" /etc/searxng/settings.yml\n\
+\n\
+# Run SearXNG as searxng user\n\
+exec su searxng -c "cd /usr/local/searxng/searxng-src && \\\n\
+    /usr/local/searxng/venv/bin/python -m searx.webapp"\n\
+' > /usr/local/bin/start-searxng.sh \
+    && chmod +x /usr/local/bin/start-searxng.sh
+
+# Environment
+ENV PORT=8080
+ENV SEARXNG_SETTINGS_PATH=/etc/searxng/settings.yml
+
+EXPOSE 8080
+
+USER root
+CMD ["/usr/local/bin/start-searxng.sh"]

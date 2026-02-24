@@ -1,0 +1,21 @@
+# Hop3 Configuration for Wekan (Docker-based)
+# Open source Kanban board (Trello alternative)
+
+[metadata]
+id = "wekan"
+version = "7.x"
+title = "Wekan"
+description = "Open source Kanban board, Trello alternative"
+homepage = "https://wekan.github.io/"
+license = "MIT"
+categories = ["project-management", "kanban", "collaboration", "trello"]
+
+# NOTE: Wekan requires MongoDB. This app bundles MongoDB in the container.
+# Future: Replace with [[addons]] type = "mongodb" when supported.
+
+[env]
+ROOT_URL = "http://localhost:8080"
+MAIL_URL = ""
+
+[healthcheck]
+path = "/"

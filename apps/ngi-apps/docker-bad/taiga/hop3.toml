@@ -1,0 +1,21 @@
+# Hop3 Configuration for Taiga (Docker-based)
+# Open source agile project management
+
+[metadata]
+id = "taiga"
+version = "6.8"
+title = "Taiga"
+description = "Open source project management for agile teams (Scrum/Kanban)"
+homepage = "https://taiga.io/"
+license = "MPL-2.0"
+categories = ["project-management", "agile", "scrum", "kanban"]
+
+[[addons]]
+type = "postgres"
+
+[env]
+TAIGA_SECRET_KEY = "change-me-to-random-string"
+ENABLE_TELEMETRY = "False"
+
+[healthcheck]
+path = "/api/v1/"

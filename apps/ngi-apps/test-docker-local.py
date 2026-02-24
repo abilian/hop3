@@ -6,16 +6,9 @@ import sys
 from pathlib import Path
 
 
-def test_app(app_path: str, base_dir: Path) -> bool:
+def test_app(app_path: str) -> bool:
     """Build a Docker app and return True if successful."""
-    # Handle both "docker/app" and "docker-based/app" formats
-    if app_path.startswith("docker/"):
-        app_name = app_path[7:]  # Remove "docker/" prefix
-        full_path = base_dir / "docker-based" / app_name
-    elif app_path.startswith("docker-based/"):
-        full_path = base_dir / app_path
-    else:
-        full_path = base_dir / "docker-based" / app_path
+    full_path = Path(app_path).resolve()
 
     if not full_path.exists():
         print(f"{app_path}: FAILURE (directory not found)")
@@ -43,18 +36,17 @@ def test_app(app_path: str, base_dir: Path) -> bool:
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: test-docker-local.py <app1> [app2] ...")
-        print("Example: test-docker-local.py docker/umami docker/ghost")
+        print("Usage: test-docker-local.py <path1> [path2] ...")
+        print("Example: test-docker-local.py docker-based/umami docker-based/ghost")
         sys.exit(1)
 
-    base_dir = Path(__file__).parent.resolve()
     apps = sys.argv[1:]
 
     successes = 0
     failures = 0
 
     for app in apps:
-        if test_app(app, base_dir):
+        if test_app(app):
             successes += 1
         else:
             failures += 1

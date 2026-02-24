@@ -1,0 +1,24 @@
+# Hop3 Configuration for SonarQube (Docker-based)
+# Code quality and security analysis platform
+
+[metadata]
+id = "sonarqube"
+version = "10.4"
+title = "SonarQube"
+description = "Continuous inspection of code quality and security"
+homepage = "https://www.sonarsource.com/products/sonarqube/"
+license = "LGPL-3.0"
+categories = ["devops", "code-quality", "security", "ci-cd"]
+
+# SonarQube requires PostgreSQL
+[[addons]]
+type = "postgres"
+
+[env]
+SONAR_SEARCH_JAVAADDITIONALOPTS = "-Dnode.store.allow_mmap=false"
+
+[healthcheck]
+path = "/api/system/status"
+
+# Note: SonarQube requires vm.max_map_count >= 524288
+# Run: sudo sysctl -w vm.max_map_count=524288
