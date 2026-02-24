@@ -3,7 +3,8 @@
 **Status**: Deferred
 **Type**: Feature
 **Created**: 2024-07-17
-**Related-ADRs**: 007, 008, 009
+**Updated**: 2026-02-23
+**Related-ADRs**: 007, 008, 009, 030, 032, 035
 
 ## Revisions
 
@@ -16,7 +17,33 @@ Hop3 is a self-hosted platform designed to streamline the deployment, management
 
 To ensure deterministic, reproducible deployments and system configurations, integrating Nix as a core component is essential. Nix offers a declarative package management system and build environment, ensuring consistency and reliability across diverse deployment scenarios. This integration aligns with Hop3's goals and the broader NGI initiative while leveraging Nix’s strengths in reproducibility, resource efficiency, and security.
 
-Integrating Nix into Hop3 will bridge the gap between reproducible builds and practical deployment needs. Hop3 will generate Nix configurations automatically when they don’t exist, convert Heroku-like config files (e.g., Procfile, app.json), and enable easy contribution to the Nix ecosystem.
+Integrating Nix into Hop3 will bridge the gap between reproducible builds and practical deployment needs. Hop3 will generate Nix configurations automatically when they don't exist, convert Heroku-like config files (e.g., Procfile, app.json), and enable easy contribution to the Nix ecosystem.
+
+### Architectural Context (Updated 2026-02)
+
+Since this ADR was written, Hop3 has adopted a **two-level build architecture** (ADR 030):
+
+- **Level 1 - Builders**: Orchestrate HOW to build (LocalBuilder, DockerBuilder, NixBuilder)
+- **Level 2 - LanguageToolchains**: Execute WHAT to build (PythonToolchain, NodeToolchain, etc.)
+
+**NixBuilder is a Level 1 Builder** that replaces native toolchains with Nix expressions. Unlike LocalBuilder (which delegates to LanguageToolchains), NixBuilder handles all languages through Nix's unified build system.
+
+Additionally, Hop3 now uses **BuildArtifact with RuntimeConfig** (ADR 035) as the contract between build and run phases. This model aligns perfectly with Nix:
+
+- Nix computes all runtime paths (PATH, PYTHONPATH, etc.) at build time
+- These are stored in the BuildArtifact's `RuntimeConfig`
+- The run phase simply applies the artifact - no detection needed
+
+```
+NixBuilder.build() → BuildArtifact {
+    kind: "nix",
+    location: "/nix/store/abc123-myapp",
+    runtime: {
+        env_vars: { PATH, PYTHONPATH, ... },  // Fully resolved Nix store paths
+        workers: { "web": "/nix/store/.../bin/gunicorn" }
+    }
+}
+```
 
 ## Decision
 

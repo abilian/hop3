@@ -3,7 +3,8 @@
 **Status**: Deferred
 **Type**: Feature
 **Created**: 2024-07-17
-**Related-ADRs**: 006, 007, 008
+**Updated**: 2026-02-23
+**Related-ADRs**: 006, 007, 008, 032, 035
 
 ## Revisions
 
@@ -14,7 +15,47 @@
 
 To enable the security, reliability, and operational efficiency of the Hop3 platform, it is critical to provide robust runtime isolation for the applications it hosts. While traditional containerization tools like Docker offer runtime isolation, they can introduce complexity and security vulnerabilities. Nix, with its purely functional package management system, is traditionally known for its build-time guarantees (reproducibility, determinism). However, Nix also has potential as a runtime tool, particularly in providing isolation between applications and managing services.
 
-The goal of this ADR is to evaluate and leverage Nix’s capabilities to ensure isolation between running applications and to manage applications along with their backing services (such as databases, email servers, certificates, etc.) in a controlled and consistent environment. This aligns with Hop3’s objective of offering a secure, reliable, and user-friendly platform.
+The goal of this ADR is to evaluate and leverage Nix's capabilities to ensure isolation between running applications and to manage applications along with their backing services (such as databases, email servers, certificates, etc.) in a controlled and consistent environment. This aligns with Hop3's objective of offering a secure, reliable, and user-friendly platform.
+
+### Architectural Context (Updated 2026-02)
+
+**Connection to BuildArtifact/RuntimeConfig (ADR 035)**:
+
+Hop3's build/run separation model (ADR 035) aligns perfectly with Nix's philosophy:
+
+1. **Build phase** produces a `BuildArtifact` with `RuntimeConfig` containing:
+   - `env_vars`: Environment variables (PATH, PYTHONPATH, etc.)
+   - `path_prepend`: Paths to add to PATH
+   - `workers`: Process commands to run
+
+2. **Run phase** reads the artifact and applies the configuration - no detection or inference needed.
+
+Nix naturally produces this model:
+- All paths are absolute (`/nix/store/...`)
+- All dependencies are explicit and immutable
+- Runtime environment is fully determined at build time
+
+```
+NixBuilder produces:
+BuildArtifact {
+    runtime: {
+        env_vars: {
+            "PATH": "/nix/store/abc-python/bin:/nix/store/def-app/bin",
+            "PYTHONPATH": "/nix/store/ghi-deps/lib/python3.11/site-packages"
+        },
+        workers: {
+            "web": "/nix/store/def-app/bin/gunicorn app:app"
+        }
+    }
+}
+```
+
+**Connection to Deployment Strategies (ADR 032)**:
+
+Nix's immutable store paths enable clean versioning and rollback:
+- Each build produces a unique `/nix/store/<hash>-app` path
+- Rolling back = switching symlinks to previous store path
+- Blue-green deployments are natural with Nix's atomic symlink switches
 
 ## Decision
 

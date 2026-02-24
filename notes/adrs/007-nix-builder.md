@@ -3,7 +3,8 @@
 **Status**: Deferred
 **Type**: Feature
 **Created**: 2024-07-17
-**Related-ADRs**: 006, 008, 009
+**Updated**: 2026-02-23
+**Related-ADRs**: 006, 008, 009, 030, 035
 
 ## Revisions
 
@@ -18,9 +19,21 @@ The integration of Nix builders for existing packages is critical to enhancing H
 
 The goal is to integrate applications into the Hop3 platform, streamline updates, and ensure compatibility with the nixpkgs repository, reducing the effort required to deploy and maintain these applications.
 
+### Architectural Context (Updated 2026-02)
+
+In Hop3's two-level build architecture (ADR 030):
+
+- **NixBuilder** is a **Level 1 Builder** - it orchestrates the build process
+- Unlike LocalBuilder, NixBuilder does **not** use Level 2 LanguageToolchains
+- Instead, it leverages Nix expressions (from nixpkgs or generated) to handle all languages uniformly
+
+This ADR focuses on **reusing existing nixpkgs packages** - applications already packaged in the Nix ecosystem (Nextcloud, Jitsi, etc.). ADR 008 covers generating Nix expressions for applications without existing Nix support.
+
+**BuildArtifact Integration (ADR 035)**: NixBuilder produces a `BuildArtifact` with fully-resolved Nix store paths in the `RuntimeConfig`. This is a natural fit since Nix computes all paths at build time.
+
 ## Decision
 
-Hop3 will develop a builder plugin that supports applications available in the nixpkgs repository or those that can be converted into Nix configurations using existing tools such as dream2nix, Poetry2nix, or Nixpacks. This builder will automate the integration of Nix-built applications within the Hop3 platform, providing a seamless experience for both developers and non-technical users.
+Hop3 will develop NixBuilder (a Level 1 Builder per ADR 030) that supports applications available in the nixpkgs repository or those that can be converted into Nix configurations using existing tools such as dream2nix, Poetry2nix, or Nixpacks. This builder will automate the integration of Nix-built applications within the Hop3 platform, providing a seamless experience for both developers and non-technical users.
 
 ## Key Components
 

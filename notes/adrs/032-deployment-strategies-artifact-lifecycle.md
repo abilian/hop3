@@ -3,7 +3,7 @@
 **Status**: Accepted
 **Type**: Feature
 **Created**: 2025-12-03
-**Related-ADRs**: 022, 030, 031
+**Related-ADRs**: 022, 030, 031, 035
 
 ## Context
 
@@ -79,17 +79,30 @@ Build artifacts become versioned, immutable entities stored separately from the 
 
 #### Artifact Manifest
 
-Each artifact includes metadata for lifecycle management:
+Each artifact includes metadata for lifecycle management. The manifest extends `BuildArtifact` (see ADR 035) with deployment-specific fields:
 
 ```json
 {
-  "version": "v1.2.5",
-  "build_id": "abc123",
-  "git_sha": "f8a9c3d",
-  "built_at": "2025-12-03T10:30:00Z",
+  // Core BuildArtifact fields (ADR 035)
+  "kind": "python",
   "builder": "local",
-  "toolchains": ["python"],
-  "artifact_type": "virtualenv",
+  "app_name": "myapp",
+  "built_at": "2025-12-03T10:30:00Z",
+  "build_id": "abc123",
+  "location": "/apps/myapp/artifacts/v1.2.5",
+  "runtime": {
+    "env_vars": {"PYTHONPATH": "/apps/myapp/artifacts/v1.2.5/src"},
+    "path_prepend": ["/apps/myapp/artifacts/v1.2.5/venv/bin"],
+    "working_dir": "/apps/myapp/artifacts/v1.2.5",
+    "workers": {"web": "gunicorn app:app"}
+  },
+  "metadata": {
+    "git_sha": "f8a9c3d",
+    "toolchains": ["python"]
+  },
+
+  // Deployment-specific fields (this ADR)
+  "version": "v1.2.5",
   "health_check": {
     "type": "http",
     "path": "/health",
@@ -99,6 +112,8 @@ Each artifact includes metadata for lifecycle management:
   "migration_status": "pending"
 }
 ```
+
+> **Note**: The core `BuildArtifact` fields (`kind`, `builder`, `runtime`, etc.) are produced during the build phase (ADR 035). The deployment-specific fields (`version`, `health_check`, `rollback_safe`, `migration_status`) are added during deployment to support lifecycle management.
 
 ### 2. Deployment Strategies
 

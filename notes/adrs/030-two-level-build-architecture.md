@@ -4,7 +4,7 @@
 **Type**: Feature
 **Created**: 2025-11-28
 **Implemented-In**: v0.5.0
-**Related-ADRs**: 020, 022
+**Related-ADRs**: 020, 022, 035
 
 ## Context
 
@@ -318,7 +318,7 @@ artifact = builder.build()
 - `Builder` - Level 1 protocol (orchestration)
 - `LanguageToolchain` - Level 2 protocol (language-specific)
 - `BuildContext` - Context for build operations
-- `BuildArtifact` - Describes built output
+- `BuildArtifact` - Describes built output (extended with `RuntimeConfig` in ADR 035)
 
 **LocalBuilder** (`packages/hop3-server/src/hop3/plugins/build/local_build/builder.py`):
 - Orchestrates toolchains for local builds
