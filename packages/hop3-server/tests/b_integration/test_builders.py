@@ -66,7 +66,10 @@ def test_builder_returns_build_artifact(tmp_path: Path, monkeypatch):
 
     # Verify build() returns a BuildArtifact
     assert isinstance(artifact, BuildArtifact)
-    assert artifact.kind == "virtualenv"
-    assert artifact.location == str(tmp_path / "venv")
-    assert artifact.metadata["app_name"] == "test-app"
+    assert artifact.kind == "python"
+    assert artifact.app_name == "test-app"
+    assert artifact.location == str(src_dir)
     assert "python_path" in artifact.metadata
+    # Verify runtime config is populated
+    assert artifact.runtime is not None
+    assert "PYTHONUNBUFFERED" in artifact.runtime.env_vars

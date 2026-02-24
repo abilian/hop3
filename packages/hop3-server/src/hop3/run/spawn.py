@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy.orm import object_session
 
 from hop3.config import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
+from hop3.core.artifacts import BuildArtifact
 from hop3.core.env import Env
 from hop3.core.plugins import get_proxy_strategy
 from hop3.lib import echo, get_free_port, log
@@ -53,7 +54,57 @@ class AppLauncher:
         self.app_path = self.app.app_path
         self.virtualenv_path = self.app.virtualenv_path
         self.config = AppConfig.from_dir(self.app_path)
+        self.artifact = self._load_artifact()
         self.env = self.make_env()
+
+    def _load_artifact(self) -> BuildArtifact | None:
+        """Load build artifact from disk if available.
+
+        Returns:
+            BuildArtifact if found and valid, None otherwise
+        """
+        artifact_path = self.app_path / "BUILD_ARTIFACT.json"
+        artifact = BuildArtifact.load(artifact_path)
+        if artifact:
+            server_log.info(
+                "Loaded build artifact",
+                app_name=self.app_name,
+                kind=artifact.kind,
+                build_id=artifact.build_id,
+            )
+        else:
+            server_log.debug(
+                "No build artifact found, using legacy detection",
+                app_name=self.app_name,
+            )
+        return artifact
+
+    def _apply_artifact_runtime(self, env: Env) -> bool:
+        """Apply runtime configuration from build artifact.
+
+        Args:
+            env: Environment to update
+
+        Returns:
+            True if artifact was applied, False otherwise
+        """
+        if not self.artifact or not self.artifact.runtime:
+            return False
+
+        runtime = self.artifact.runtime
+
+        # Apply environment variables from artifact
+        for key, value in runtime.env_vars.items():
+            if key not in env:  # Don't override explicit user config
+                env[key] = value
+
+        # Prepend paths to PATH
+        current_path = env.get("PATH", "")
+        for path in runtime.path_prepend:
+            if path and path not in current_path:
+                env["PATH"] = f"{path}:{env.get('PATH', '')}"
+
+        return True
 
     @property
     def workers(self) -> dict:
@@ -364,10 +415,13 @@ class AppLauncher:
             # No default HOST_NAME - apps without hostname don't get proxy config
         }
 
-        # Add language-specific paths
-        self._setup_node_paths(env)
-        self._setup_ruby_paths(env)
-        self._setup_python_paths(env)
+        # Apply runtime config from build artifact (preferred)
+        # Falls back to legacy detection if no artifact exists
+        if not self._apply_artifact_runtime(env):
+            # Legacy: detect language-specific paths at runtime
+            self._setup_node_paths(env)
+            self._setup_ruby_paths(env)
+            self._setup_python_paths(env)
 
         # Load environment variables from the ORM
         runtime_env = self.app.get_runtime_env()

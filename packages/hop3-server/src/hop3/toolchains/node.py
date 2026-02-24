@@ -43,12 +43,33 @@ class NodeToolchain(LanguageToolchain):
             self.install_node(env)
             self.install_modules(env)
 
-        return BuildArtifact(
+        # Compute environment variables for runtime
+        node_modules = self.src_path / "node_modules"
+        npm_prefix = node_modules.parent.absolute()
+
+        env_vars = {
+            "NODE_PATH": str(node_modules),
+            "NPM_CONFIG_PREFIX": str(npm_prefix),
+        }
+
+        # Paths to prepend to PATH
+        path_prepend = [
+            str(self.virtual_env / "bin"),
+            str(node_modules / ".bin"),
+        ]
+
+        # Create runtime configuration
+        runtime = self._make_runtime_config(
+            env_vars=env_vars,
+            path_prepend=path_prepend,
+        )
+
+        # Return complete BuildArtifact with runtime config
+        return self._make_build_artifact(
             kind="node",
-            location=str(self.virtual_env),
+            runtime=runtime,
             metadata={
-                "node_modules": str(self.src_path / "node_modules"),
-                "app_name": self.app_name,
+                "node_modules": str(node_modules),
             },
         )
 

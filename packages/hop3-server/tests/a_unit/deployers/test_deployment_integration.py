@@ -35,6 +35,10 @@ def test_uwsgi_deployer_selected_for_virtualenv(tmp_path: Path):
     # Create a virtualenv artifact
     artifact = BuildArtifact(
         kind="virtualenv",
+        builder="local",
+        app_name="test-app",
+        built_at="2025-02-23T10:00:00Z",
+        build_id="abc123",
         location=str(tmp_path / "venv"),
         metadata={"python_path": str(tmp_path / "venv" / "bin" / "python")},
     )
@@ -67,6 +71,10 @@ def test_uwsgi_deployer_has_app_access(tmp_path: Path):
     # Create artifact
     artifact = BuildArtifact(
         kind="virtualenv",
+        builder="local",
+        app_name="test-app",
+        built_at="2025-02-23T10:00:00Z",
+        build_id="abc123",
         location=str(tmp_path / "venv"),
         metadata={},
     )
@@ -96,16 +104,40 @@ def test_deployment_strategy_priority(tmp_path: Path):
     )
 
     # Test with virtualenv artifact
-    artifact = BuildArtifact(kind="virtualenv", location="/tmp/venv", metadata={})
+    artifact = BuildArtifact(
+        kind="virtualenv",
+        builder="local",
+        app_name="test-app",
+        built_at="2025-02-23T10:00:00Z",
+        build_id="abc123",
+        location="/tmp/venv",
+        metadata={},
+    )
     deployer = get_deployment_strategy(context, artifact)
     assert deployer.name == "uwsgi", "UWSGIDeployer should be selected for virtualenv"
 
     # Test with node artifact
-    artifact = BuildArtifact(kind="node", location="/tmp/node", metadata={})
+    artifact = BuildArtifact(
+        kind="node",
+        builder="local",
+        app_name="test-app",
+        built_at="2025-02-23T10:00:00Z",
+        build_id="abc123",
+        location="/tmp/node",
+        metadata={},
+    )
     deployer = get_deployment_strategy(context, artifact)
     assert deployer.name == "uwsgi", "UWSGIDeployer should be selected for node"
 
     # Test with buildpack artifact
-    artifact = BuildArtifact(kind="buildpack", location="/tmp/bp", metadata={})
+    artifact = BuildArtifact(
+        kind="buildpack",
+        builder="local",
+        app_name="test-app",
+        built_at="2025-02-23T10:00:00Z",
+        build_id="abc123",
+        location="/tmp/bp",
+        metadata={},
+    )
     deployer = get_deployment_strategy(context, artifact)
     assert deployer.name == "uwsgi", "UWSGIDeployer should be selected for buildpack"

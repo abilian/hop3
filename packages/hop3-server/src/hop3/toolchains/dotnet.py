@@ -47,8 +47,5 @@ class DotNetToolchain(LanguageToolchain):
                 fg="red",
             )
 
-        return BuildArtifact(
-            kind="dotnet",
-            location=str(self.src_path),
-            metadata={"app_name": self.app_name},
-        )
+        # Compiled .NET app - minimal runtime config (just workers)
+        return self._make_build_artifact(kind="dotnet")

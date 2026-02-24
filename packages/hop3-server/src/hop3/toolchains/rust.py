@@ -90,8 +90,5 @@ class RustToolchain(LanguageToolchain):
             # Don't raise - let deployment continue and fail at runtime
             # This allows debugging via logs
 
-        return BuildArtifact(
-            kind="rust",
-            location=str(self.src_path),
-            metadata={"app_name": self.app_name},
-        )
+        # Compiled binary - minimal runtime config (just workers)
+        return self._make_build_artifact(kind="rust")

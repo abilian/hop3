@@ -62,8 +62,5 @@ class ElixirToolchain(LanguageToolchain):
                 fg="red",
             )
 
-        return BuildArtifact(
-            kind="elixir",
-            location=str(self.src_path),
-            metadata={"app_name": self.app_name},
-        )
+        # Elixir BEAM apps - minimal runtime config (just workers)
+        return self._make_build_artifact(kind="elixir")
