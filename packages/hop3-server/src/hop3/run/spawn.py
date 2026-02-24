@@ -108,11 +108,20 @@ class AppLauncher:
 
     @property
     def workers(self) -> dict:
+        """Get worker definitions, preferring artifact over AppConfig.
+
+        If a build artifact exists with runtime.workers, use those.
+        Otherwise fall back to AppConfig.workers (legacy behavior).
+        """
+        if self.artifact and self.artifact.runtime.workers:
+            return self.artifact.runtime.workers
         return self.config.workers
 
     @property
     def web_workers(self):
-        return self.config.web_workers
+        """Get web workers, preferring artifact over AppConfig."""
+        web_worker_names = {"wsgi", "jwsgi", "rwsgi", "web"}
+        return {k: v for k, v in self.workers.items() if k in web_worker_names}
 
     def _update_app_metadata(self, host_name: str) -> None:
         """Update app model with port and hostname, persisting to database."""
@@ -279,6 +288,80 @@ class AppLauncher:
             )
             time.sleep(remaining)
 
+    def _run_before_run_commands(self, env: Env) -> None:
+        """Execute before-run commands from the artifact.
+
+        These commands run once before workers start, with the full runtime
+        environment. Common uses: database migrations, cache warmup, etc.
+
+        Args:
+            env: Runtime environment for command execution
+
+        Raises:
+            RuntimeError: If any command fails
+        """
+        if not self.artifact or not self.artifact.runtime.before_run:
+            # No artifact or no before-run commands
+            return
+
+        before_run = self.artifact.runtime.before_run
+        if not before_run:
+            return
+
+        log(f"Running {len(before_run)} before-run command(s)...", level=1, fg="blue")
+        server_log.info(
+            "Executing before-run commands",
+            app_name=self.app_name,
+            command_count=len(before_run),
+        )
+
+        # Determine working directory
+        working_dir = self.artifact.runtime.working_dir or str(self.app.src_path)
+
+        for i, cmd in enumerate(before_run, 1):
+            log(f"  [{i}/{len(before_run)}] {cmd}", level=1)
+            try:
+                result = subprocess.run(
+                    cmd,
+                    shell=True,
+                    cwd=working_dir,
+                    env=dict(env),
+                    capture_output=True,
+                    text=True,
+                    timeout=300,  # 5 minute timeout per command
+                )
+                if result.returncode != 0:
+                    log(
+                        f"  Command failed with exit code {result.returncode}",
+                        level=0,
+                        fg="red",
+                    )
+                    if result.stdout:
+                        log(f"  stdout: {result.stdout[:500]}", level=0)
+                    if result.stderr:
+                        log(f"  stderr: {result.stderr[:500]}", level=0, fg="red")
+                    server_log.error(
+                        "Before-run command failed",
+                        app_name=self.app_name,
+                        command=cmd,
+                        exit_code=result.returncode,
+                        stderr=result.stderr[:500] if result.stderr else None,
+                    )
+                    msg = f"Before-run command failed: {cmd}"
+                    raise RuntimeError(msg)
+                log("  Command completed successfully", level=2, fg="green")
+            except subprocess.TimeoutExpired:
+                log("  Command timed out after 5 minutes", level=0, fg="red")
+                server_log.error(
+                    "Before-run command timed out",
+                    app_name=self.app_name,
+                    command=cmd,
+                )
+                msg = f"Before-run command timed out: {cmd}"
+                raise RuntimeError(msg)
+
+        log("All before-run commands completed", level=1, fg="green")
+
     def _cleanup_stale_sockets(self) -> None:
         """Clean up stale socket files left behind by previous processes.
 
@@ -313,11 +396,19 @@ class AppLauncher:
         """Create the app's workers by setting up web worker configurations and
         handling environment-specific setups, including nginx and uwsgi
         configurations."""
+        # Determine worker source for logging
+        if self.artifact and self.artifact.runtime.workers:
+            worker_source = "artifact"
+        else:
+            worker_source = "legacy (AppConfig)"
+
         server_log.info(
             "Spawning app workers",
             app_name=self.app_name,
             workers=list(self.workers.keys()),
+            worker_source=worker_source,
         )
+        log(f"Workers ({worker_source}): {list(self.workers.keys())}", level=2)
 
         host_name = self.env.get("HOST_NAME", "")
         self._update_app_metadata(host_name)
@@ -335,6 +426,9 @@ class AppLauncher:
         write_settings(scaling, worker_count, ":")
 
         self._handle_auto_restart(env)
+
+        # Execute before-run commands from artifact
+        self._run_before_run_commands(env)
 
         # Create new workers and remove unnecessary ones
         self.create_new_workers(to_create, env)

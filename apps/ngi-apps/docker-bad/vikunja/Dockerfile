@@ -36,8 +36,8 @@ RUN curl -sL "https://github.com/go-vikunja/vikunja/archive/refs/tags/v${VIKUNJA
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 RUN cd frontend && pnpm install && pnpm run build
 
-# Build backend
-RUN go build -o vikunja ./cmd/vikunja
+# Build backend (main package is at root in v0.22+)
+RUN go build -o vikunja .
 
 # Runtime image
 FROM debian:bookworm-slim

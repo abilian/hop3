@@ -63,9 +63,22 @@ class RuntimeConfig:
     # Working directory for processes (absolute path)
     working_dir: str = ""
 
-    # Workers from Procfile, commands fully resolved
+    # Workers from Procfile/hop3.toml, commands fully resolved
     # e.g., {"web": "gunicorn app:app", "worker": "celery -A tasks worker"}
     workers: dict[str, str] = field(default_factory=dict)
+
+    # Commands to run before starting workers (from hop3.toml [run] before-run)
+    # Executed in order, failure stops deployment
+    before_run: list[str] = field(default_factory=list)
+
+    # Static file paths for reverse proxy (from hop3.toml [run] static)
+    # Maps URL path to filesystem path relative to app root
+    # e.g., {"/static": "static", "/media": "media"}
+    static_paths: dict[str, str] = field(default_factory=dict)
+
+    # Health check configuration
+    healthcheck_path: str = ""  # HTTP path, e.g., "/health"
+    healthcheck_timeout: int = 30  # Seconds to wait for healthy response
 
 
 @dataclass

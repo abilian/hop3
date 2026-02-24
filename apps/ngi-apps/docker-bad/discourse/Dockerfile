@@ -29,10 +29,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     jhead \
     jpegoptim \
     gifsicle \
-    nodejs \
-    npm \
     git \
     postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 18 and yarn
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g yarn \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Ruby 3.3 from source
@@ -59,11 +63,11 @@ RUN curl -sL "https://github.com/discourse/discourse/archive/refs/tags/v${DISCOU
 ENV RAILS_ENV=production
 ENV DISCOURSE_HOSTNAME=localhost
 
-# Install dependencies
+# Install dependencies (quietly) - uses yarn, not npm
 RUN bundle config set --local deployment 'true' \
     && bundle config set --local without 'test development' \
-    && bundle install \
-    && npm install --production \
+    && bundle install --quiet \
+    && yarn install --production --silent \
     && chown -R discourse:discourse /home/discourse
 
 # Create startup script

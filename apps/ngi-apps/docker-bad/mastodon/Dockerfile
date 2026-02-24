@@ -28,12 +28,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     imagemagick \
     ffmpeg \
     libjemalloc2 \
-    nodejs \
-    npm \
     git \
     postgresql-client \
-    && rm -rf /var/lib/apt/lists/* \
-    && npm install -g yarn
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 20 and enable corepack for Yarn 4
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && corepack enable \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Ruby 3.3 from source
 ARG RUBY_VERSION=3.3.0
@@ -59,11 +62,11 @@ RUN curl -sL "https://github.com/mastodon/mastodon/archive/refs/tags/${MASTODON_
 ENV RAILS_ENV=production
 ENV NODE_ENV=production
 
-# Install dependencies
+# Install dependencies (quietly)
 RUN bundle config set --local deployment 'true' \
     && bundle config set --local without 'test development' \
-    && bundle install \
-    && yarn install --production \
+    && bundle install --quiet \
+    && yarn install --immutable \
     && chown -R mastodon:mastodon /home/mastodon
 
 # Create startup script
