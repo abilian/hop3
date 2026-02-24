@@ -3,7 +3,7 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-12-04
-**Related-ADRs**: 022, 030, 032
+**Related-ADRs**: 022, 030, 032, 035
 
 ## Context
 
@@ -55,6 +55,8 @@ Source Code                DockerBuilder              DockerComposeDeployer
                          kind="docker-image"         protocol="http"
                          location="hop3/app:latest"  port=8080
 ```
+
+> **Note**: Docker images manage their own runtime environment internally (PATH, env vars, etc. are baked into the image layers). Unlike native builds (ADR 035), DockerBuilder does not need to produce a `RuntimeConfig` - the container runtime handles this.
 
 ### Builder Selection
 

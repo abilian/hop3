@@ -3,7 +3,8 @@
 **Status**: Deferred
 **Type**: Feature
 **Created**: 2024-07-17
-**Related-ADRs**: 006, 007, 009
+**Updated**: 2026-02-23
+**Related-ADRs**: 006, 007, 009, 030, 035
 
 ## Revisions
 
@@ -15,6 +16,20 @@
 Hop3 aims to streamline application deployment and management by leveraging Nix to provide deterministic and reproducible builds. In order to achieve a uniform and isolated build process across diverse applications and environments, creating Nix-based alternatives to native build systems (e.g., pip, make, maven, npm) is essential. This ensures that applications built on Hop3 follow the same reproducible and isolated environment, reducing the complexity of managing multiple build tools and preventing conflicts in dependencies.
 
 Hop3 will reuse existing Nix expressions from the nixpkgs repository where available, and where such expressions do not exist, will generate Nix configurations for applications automatically, including converting from Dockerfiles, Heroku config files, or Hop3-native formats. The use of Nix will guarantee that builds are reproducible across environments, enhancing the stability and maintainability of deployed applications.
+
+### Architectural Context (Updated 2026-02)
+
+**Relationship to ADR 007**: While ADR 007 focuses on reusing **existing nixpkgs packages** (pre-packaged applications like Nextcloud), this ADR focuses on **generating Nix expressions** for applications that don't have existing Nix support.
+
+In Hop3's two-level build architecture (ADR 030):
+
+- **NixBuilder** (Level 1) can operate in two modes:
+  1. **Nixpkgs mode** (ADR 007): Use existing package from nixpkgs
+  2. **Generation mode** (this ADR): Generate Nix expressions using dream2nix, poetry2nix, nixpacks, etc.
+
+Both modes produce the same output: a `BuildArtifact` with `RuntimeConfig` (ADR 035) containing fully-resolved Nix store paths. The run phase is identical regardless of how the Nix expression was obtained.
+
+**Key insight**: This ADR describes how NixBuilder can **replace native LanguageToolchains** (Level 2) with Nix-based equivalents. Instead of PythonToolchain calling pip, NixBuilder uses poetry2nix or pip2nix to achieve the same result with Nix's reproducibility guarantees.
 
 ## Decision
 
