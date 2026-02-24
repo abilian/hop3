@@ -28,7 +28,7 @@ try:
 
     _PSYCOPG2_AVAILABLE = True
 except ImportError:
-    psycopg2 = None  # type: ignore[assignment]
+    psycopg2 = None  # type: ignore[assignment,unused-ignore]
 
 
 class PostgresHealthCheck:

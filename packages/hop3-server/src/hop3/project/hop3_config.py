@@ -297,7 +297,11 @@ class Hop3Config:
         Returns:
             List of addon type names (e.g., ['postgres', 'redis'])
         """
-        return [addon.get("type") for addon in self.addons if addon.get("type")]
+        return [
+            addon_type
+            for addon in self.addons
+            if (addon_type := addon.get("type")) is not None
+        ]
 
     # =========================================================================
     # [[provider]] section (deprecated, use [[addons]])

@@ -28,7 +28,7 @@ try:
 
     _REDIS_AVAILABLE = True
 except ImportError:
-    redis = None  # type: ignore[assignment]
+    redis = None  # type: ignore[assignment,unused-ignore]
 
 
 class RedisHealthCheck:
@@ -54,7 +54,7 @@ class RedisHealthCheck:
 
         try:
             factory = RedisClientFactory.from_config()
-            client = factory.get_client()
+            client = redis.Redis(**factory.get_connection_params())
             info = client.info()
 
             return HealthCheckResult(

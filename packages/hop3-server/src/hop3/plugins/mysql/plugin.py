@@ -69,15 +69,17 @@ class MySQLHealthCheck:
             connection = mysql.connector.connect(**admin.get_connection_params())
             cursor = connection.cursor()
             cursor.execute("SELECT VERSION()")
-            version = cursor.fetchone()
+            row = cursor.fetchone()
             cursor.close()
             connection.close()
 
+            # fetchone() returns a tuple for standard cursor
+            version_str = str(row[0]) if row else "unknown"  # type: ignore[index]
             return HealthCheckResult(
                 name="MySQL",
                 passed=True,
                 message="Connection successful",
-                details={"version": version[0] if version else "unknown"},
+                details={"version": version_str},
             )
 
         except mysql.connector.Error as e:
