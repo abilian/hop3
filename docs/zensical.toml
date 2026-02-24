@@ -49,12 +49,14 @@ nav = [
         { "Overview" = "guides/index.md" },
         { "User Guide" = "guides/user-guide.md" },
         { "Cheat Sheet" = "guides/cheat-sheet.md" },
+        { "Administration" = "guides/administration.md" },
         { "Backup & Restore" = "guides/backup-restore.md" },
         { "Migration" = [
             { "Migration Guide" = "guides/migration-guide.md" },
             { "CLI Migration" = "guides/cli-migration.md" },
         ]},
         { "FAQ" = "guides/faq.md" },
+        { "Troubleshooting" = "guides/troubleshooting.md" },
     ]},
 
     # -------------------------------------------------------------------------
