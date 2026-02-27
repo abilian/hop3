@@ -27,3 +27,4 @@ demos/.demo-results.db
 docs/Vocab/
 test-logs/
 apps/ngi-apps/logs/
+logs

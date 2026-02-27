@@ -480,6 +480,57 @@ effective_cache_size = 1GB
 maintenance_work_mem = 64MB
 ```
 
+### Docker Network Configuration
+
+When running many Docker-based applications (20+), you may encounter the error:
+
+```
+failed to create network: all predefined address pools have been fully subnetted
+```
+
+**Cause:** Docker's default configuration allocates /16 subnets for bridge networks, limiting you to approximately 16 networks from the default 172.17.0.0/12 pool.
+
+**Solution:** Configure Docker to use smaller /24 subnets, allowing up to 4096 networks:
+
+```bash
+# Create or edit /etc/docker/daemon.json
+sudo tee /etc/docker/daemon.json << EOF
+{
+  "default-address-pools": [
+    {"base": "172.17.0.0/12", "size": 24}
+  ]
+}
+EOF
+
+# Restart Docker to apply changes
+sudo systemctl restart docker
+```
+
+**Note:** Restarting Docker will stop all running containers. They will need to be restarted or redeployed.
+
+**Important:** After changing Docker's network configuration, you must also update PostgreSQL to listen on the new network range:
+
+```bash
+# Update PostgreSQL to listen on all interfaces
+sudo sed -i "s/listen_addresses = .*/listen_addresses = '*'/" /etc/postgresql/*/main/postgresql.conf
+
+# Update pg_hba.conf to allow connections from Docker networks
+# Add this line if not present:
+echo "host    all    all    172.16.0.0/12    scram-sha-256" | sudo tee -a /etc/postgresql/*/main/pg_hba.conf
+
+# Restart PostgreSQL
+sudo systemctl restart postgresql
+```
+
+**Verification:**
+```bash
+# Check current networks
+docker network ls
+
+# After deploying many apps, verify no pool exhaustion
+docker network create test-network && docker network rm test-network
+```
+
 ---
 
 ## Troubleshooting
