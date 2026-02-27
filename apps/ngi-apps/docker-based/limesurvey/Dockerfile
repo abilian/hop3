@@ -35,13 +35,13 @@ RUN mkdir -p /var/www/limesurvey /var/lib/limesurvey/upload \
 
 WORKDIR /var/www/limesurvey
 
-# Download LimeSurvey from GitHub releases (official releases have changed URL format)
-ARG LIMESURVEY_VERSION=6.4.5+240408
-RUN curl -fsSL "https://github.com/LimeSurvey/LimeSurvey/archive/refs/tags/${LIMESURVEY_VERSION}.tar.gz" \
-    -o /tmp/limesurvey.tar.gz \
-    && tar -xzf /tmp/limesurvey.tar.gz -C /tmp \
-    && mv /tmp/LimeSurvey-*/* /var/www/limesurvey/ \
-    && rm -rf /tmp/limesurvey.tar.gz /tmp/LimeSurvey-* \
+# Download LimeSurvey from official download server
+ARG LIMESURVEY_VERSION=6.16.10+260223
+RUN curl -fsSL "https://download.limesurvey.org/latest-master/limesurvey${LIMESURVEY_VERSION}.zip" \
+    -o /tmp/limesurvey.zip \
+    && unzip -q /tmp/limesurvey.zip -d /tmp \
+    && mv /tmp/limesurvey/* /var/www/limesurvey/ \
+    && rm -rf /tmp/limesurvey.zip /tmp/limesurvey \
     && chown -R www-data:www-data /var/www/limesurvey
 
 # Configure Apache virtual host
@@ -103,6 +103,16 @@ RUN printf '%s\n' '#!/bin/bash' \
     'chown -R www-data:www-data /var/www/limesurvey /var/lib/limesurvey' \
     'chmod -R 755 /var/www/limesurvey/tmp 2>/dev/null || true' \
     'chmod -R 755 /var/lib/limesurvey/upload' \
+    '' \
+    '# Initialize database if not done (check for settings_global table)' \
+    'ADMIN_USER="${ADMIN_USER:-admin}"' \
+    'ADMIN_NAME="${ADMIN_NAME:-Administrator}"' \
+    'ADMIN_EMAIL="${ADMIN_EMAIL:-admin@example.com}"' \
+    'ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin123}"' \
+    '' \
+    '# Run LimeSurvey CLI installer if database is empty' \
+    'cd /var/www/limesurvey' \
+    'php application/commands/console.php install "$ADMIN_USER" "$ADMIN_PASSWORD" "$ADMIN_NAME" "$ADMIN_EMAIL" 2>/dev/null || true' \
     '' \
     '# Start Apache in foreground' \
     'exec apache2ctl -D FOREGROUND' \

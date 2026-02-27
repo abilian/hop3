@@ -463,7 +463,8 @@ def check_http_from_server(name: str, port: str, quiet: bool = False) -> tuple[b
 
     http_code = result.stdout.strip()
     # Accept any response code that indicates the app is responding
-    if http_code in ("200", "301", "302", "401", "403"):
+    # 2xx = success, 3xx = redirect, 401/403 = auth required, 400 = API services
+    if http_code in ("200", "301", "302", "307", "308", "401", "403", "400"):
         if not quiet:
             log_print(f"  App responding with HTTP {http_code}")
         return True, http_code
