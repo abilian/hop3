@@ -1,5 +1,10 @@
 #!/bin/bash
 set -e
+
+# Ensure we're in the HedgeDoc directory
+cd "$(dirname "$0")/.."
+
+echo "Creating HedgeDoc configuration..."
 cat > config.json << EOF
 {
   "production": {
@@ -20,5 +25,6 @@ cat > config.json << EOF
   }
 }
 EOF
-npx sequelize db:migrate
-echo "HedgeDoc configuration created"
+
+# Note: HedgeDoc uses Umzug and runs database migrations automatically on startup
+echo "HedgeDoc configuration created successfully"
