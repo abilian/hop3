@@ -304,11 +304,10 @@ services:
                 if is_port_free(existing_port):
                     log(f"Reusing existing port {existing_port}", level=2)
                     return existing_port
-                else:
-                    log(
-                        f"Existing port {existing_port} is in use, allocating new port",
-                        level=2,
-                    )
+                log(
+                    f"Existing port {existing_port} is in use, allocating new port",
+                    level=2,
+                )
 
         # Allocate a new free port
         port = get_free_port()

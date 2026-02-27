@@ -12,9 +12,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js 20.x
+# Install Node.js 20.x and pnpm
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
+    && npm install -g pnpm \
     && rm -rf /var/lib/apt/lists/*
 
 # Create formbricks user (home at /home/formbricks, not /app)
@@ -32,9 +33,20 @@ RUN git clone --depth 1 --branch ${FORMBRICKS_VERSION} https://github.com/formbr
     && chown -R formbricks:formbricks /app
 
 # Install dependencies and build as formbricks user
+# Note: Formbricks uses @t3-oss/env which validates env vars at build time
 USER formbricks
-RUN npm install --legacy-peer-deps \
-    && npm run build --filter=@formbricks/web
+
+# Create .env file FIRST (required before install and build)
+RUN echo "CRON_SECRET=build_placeholder_secret" > /app/apps/web/.env \
+    && echo "DATABASE_URL=postgresql://build:build@localhost:5432/build" >> /app/apps/web/.env \
+    && echo "ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" >> /app/apps/web/.env \
+    && echo "NEXTAUTH_SECRET=build_placeholder_nextauth_secret" >> /app/apps/web/.env \
+    && echo "NEXTAUTH_URL=http://localhost:8080" >> /app/apps/web/.env
+
+# Install and build (increase heap for large Next.js build)
+RUN pnpm install \
+    && NODE_OPTIONS="--max-old-space-size=4096" pnpm build --filter=@formbricks/web \
+    && test -f /app/apps/web/.next/BUILD_ID || (echo "ERROR: Build failed - no BUILD_ID" && exit 1)
 
 USER root
 
@@ -54,14 +66,15 @@ export DATABASE_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${
 export PORT="${PORT:-8080}"\n\
 export NEXTAUTH_URL="${NEXTAUTH_URL:-http://localhost:${PORT}}"\n\
 export NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-$(head -c 32 /dev/urandom | base64)}"\n\
-export ENCRYPTION_KEY="${ENCRYPTION_KEY:-$(head -c 24 /dev/urandom | base64 | tr -dc a-zA-Z0-9 | head -c 32)}"\n\
+export ENCRYPTION_KEY="${ENCRYPTION_KEY:-$(head -c 48 /dev/urandom | base64 | tr -dc a-zA-Z0-9 | head -c 64)}"\n\
+export CRON_SECRET="${CRON_SECRET:-$(head -c 32 /dev/urandom | base64)}"\n\
 \n\
-# Run database migrations\n\
-cd /app/apps/web\n\
-npx prisma migrate deploy || true\n\
+# Run database migrations (schema is in packages/database)\n\
+cd /app/packages/database\n\
+npx prisma migrate deploy --schema=schema.prisma\n\
 \n\
 # Run Formbricks\n\
-exec su formbricks -c "cd /app/apps/web && npm start"\n\
+exec su formbricks -c "cd /app/apps/web && pnpm start"\n\
 ' > /usr/local/bin/start-formbricks.sh \
     && chmod +x /usr/local/bin/start-formbricks.sh
 

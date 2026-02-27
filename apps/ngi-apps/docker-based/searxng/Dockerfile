@@ -39,11 +39,12 @@ WORKDIR /usr/local/searxng
 RUN git clone --depth 1 https://github.com/searxng/searxng.git /usr/local/searxng/searxng-src \
     && chown -R searxng:searxng /usr/local/searxng
 
-# Create venv and install (use requirements.txt instead of editable install)
+# Create venv and install
+# Note: --no-build-isolation needed because searx/__init__.py imports msgspec at setup time
 RUN python3 -m venv /usr/local/searxng/venv \
     && /usr/local/searxng/venv/bin/pip install --no-cache-dir -U pip setuptools wheel \
-    && /usr/local/searxng/venv/bin/pip install --no-cache-dir -r /usr/local/searxng/searxng-src/requirements.txt \
-    && /usr/local/searxng/venv/bin/pip install --no-cache-dir /usr/local/searxng/searxng-src
+    && /usr/local/searxng/venv/bin/pip install --no-cache-dir -q -r /usr/local/searxng/searxng-src/requirements.txt \
+    && /usr/local/searxng/venv/bin/pip install --no-cache-dir -q --no-build-isolation /usr/local/searxng/searxng-src
 
 # Create default settings
 RUN echo 'use_default_settings: true\n\

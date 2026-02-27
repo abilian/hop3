@@ -63,39 +63,31 @@ RUN mkdir -p /app/files /app/db \
     && chown -R vikunja:vikunja /app
 
 # Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Create config file\n\
-mkdir -p /app/config\n\
-cat > /app/config/config.yaml << EOF\n\
-service:\n\
-  interface: ":${PORT:-8080}"\n\
-  frontendurl: "${VIKUNJA_FRONTEND_URL:-http://localhost:8080/}"\n\
-\n\
-database:\n\
-  type: "${VIKUNJA_DATABASE_TYPE:-postgres}"\n\
-  host: "${PGHOST:-localhost}"\n\
-  port: ${PGPORT:-5432}\n\
-  database: "${PGDATABASE:-vikunja}"\n\
-  user: "${PGUSER:-vikunja}"\n\
-  password: "${PGPASSWORD}"\n\
-\n\
-files:\n\
-  basepath: /app/files\n\
-\n\
-mailer:\n\
-  enabled: false\n\
-\n\
-log:\n\
-  level: info\n\
-EOF\n\
-\n\
-chown -R vikunja:vikunja /app\n\
-\n\
-# Start Vikunja\n\
-exec su vikunja -c "/app/vikunja"\n\
-' > /usr/local/bin/start-vikunja.sh \
+RUN printf '%s\n' '#!/bin/bash' \
+    'set -e' \
+    '' \
+    '# Fail if required env vars are not set' \
+    'if [ -z "$PORT" ]; then echo "ERROR: PORT not set" >&2; exit 1; fi' \
+    'if [ -z "$PGHOST" ]; then echo "ERROR: PGHOST not set" >&2; exit 1; fi' \
+    '' \
+    '# Vikunja uses env vars directly with VIKUNJA_ prefix' \
+    'export VIKUNJA_SERVICE_INTERFACE=":$PORT"' \
+    'export VIKUNJA_SERVICE_FRONTENDURL="${VIKUNJA_FRONTEND_URL:-http://localhost:$PORT/}"' \
+    'export VIKUNJA_DATABASE_TYPE="postgres"' \
+    'export VIKUNJA_DATABASE_HOST="$PGHOST"' \
+    'export VIKUNJA_DATABASE_PORT="${PGPORT:-5432}"' \
+    'export VIKUNJA_DATABASE_DATABASE="$PGDATABASE"' \
+    'export VIKUNJA_DATABASE_USER="$PGUSER"' \
+    'export VIKUNJA_DATABASE_PASSWORD="$PGPASSWORD"' \
+    'export VIKUNJA_FILES_BASEPATH="/app/files"' \
+    'export VIKUNJA_MAILER_ENABLED="false"' \
+    'export VIKUNJA_LOG_LEVEL="info"' \
+    '' \
+    'chown -R vikunja:vikunja /app' \
+    '' \
+    '# Start Vikunja' \
+    'exec su vikunja -c "/app/vikunja"' \
+    > /usr/local/bin/start-vikunja.sh \
     && chmod +x /usr/local/bin/start-vikunja.sh
 
 ENV PORT=8080

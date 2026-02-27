@@ -15,7 +15,8 @@ type = "postgres"
 
 [env]
 NEXTAUTH_SECRET = "change-me-to-a-random-string"
-ENCRYPTION_KEY = "change-me-to-32-char-random-key"
+ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+CRON_SECRET = "change-me-to-a-cron-secret"
 
 [healthcheck]
 path = "/api/health"

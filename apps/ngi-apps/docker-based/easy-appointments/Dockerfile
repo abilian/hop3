@@ -32,39 +32,39 @@ RUN rm -rf /var/www/html/* \
     && chown -R www-data:www-data /var/www/html
 
 # Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-cd /var/www/html\n\
-\n\
-# Create config.php from environment variables\n\
-cat > config.php << EOF\n\
-<?php\n\
-class Config {\n\
-    const BASE_URL = getenv("APP_URL") ?: "http://localhost:8080";\n\
-    const LANGUAGE = "english";\n\
-    const DEBUG_MODE = false;\n\
-\n\
-    const DB_HOST = getenv("MYSQL_HOST") ?: "localhost";\n\
-    const DB_NAME = getenv("MYSQL_DATABASE") ?: "easyappointments";\n\
-    const DB_USERNAME = getenv("MYSQL_USER") ?: "easyappointments";\n\
-    const DB_PASSWORD = getenv("MYSQL_PASSWORD") ?: "";\n\
-\n\
-    const GOOGLE_SYNC_FEATURE = false;\n\
-    const GOOGLE_CLIENT_ID = "";\n\
-    const GOOGLE_CLIENT_SECRET = "";\n\
-}\n\
-EOF\n\
-\n\
-chown www-data:www-data config.php\n\
-\n\
-# Ensure storage is writable\n\
-chown -R www-data:www-data storage\n\
-chmod -R 755 storage\n\
-\n\
-# Start Apache\n\
-exec apache2ctl -D FOREGROUND\n\
-' > /usr/local/bin/start-easyappointments.sh \
+RUN printf '%s\n' '#!/bin/bash' \
+    'set -e' \
+    '' \
+    'cd /var/www/html' \
+    '' \
+    '# Create config.php from environment variables (shell expands vars)' \
+    'cat > config.php << EOFPHP' \
+    '<?php' \
+    'class Config {' \
+    '    const BASE_URL = "${APP_URL:-http://localhost:8080}";' \
+    '    const LANGUAGE = "english";' \
+    '    const DEBUG_MODE = false;' \
+    '' \
+    '    const DB_HOST = "${MYSQL_HOST:-localhost}";' \
+    '    const DB_NAME = "${MYSQL_DATABASE:-easyappointments}";' \
+    '    const DB_USERNAME = "${MYSQL_USER:-easyappointments}";' \
+    '    const DB_PASSWORD = "${MYSQL_PASSWORD:-}";' \
+    '' \
+    '    const GOOGLE_SYNC_FEATURE = false;' \
+    '    const GOOGLE_CLIENT_ID = "";' \
+    '    const GOOGLE_CLIENT_SECRET = "";' \
+    '}' \
+    'EOFPHP' \
+    '' \
+    'chown www-data:www-data config.php' \
+    '' \
+    '# Ensure storage is writable' \
+    'chown -R www-data:www-data storage' \
+    'chmod -R 755 storage' \
+    '' \
+    '# Start Apache' \
+    'exec apache2ctl -D FOREGROUND' \
+    > /usr/local/bin/start-easyappointments.sh \
     && chmod +x /usr/local/bin/start-easyappointments.sh
 
 # Configure Apache

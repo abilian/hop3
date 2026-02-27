@@ -6,13 +6,15 @@ FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dependencies
+# Install dependencies (build-essential needed for node-fibers compilation)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     gnupg \
     gosu \
     unzip \
+    build-essential \
+    python3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install MongoDB 7.0
@@ -24,8 +26,8 @@ RUN curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
     && apt-get install -y mongodb-org \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js 18.x (Wekan bundled apps work with Node 18)
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+# Install Node.js 14.x (Wekan requires Node 14 for fibers compatibility)
+RUN curl -fsSL https://deb.nodesource.com/setup_14.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
@@ -39,16 +41,17 @@ RUN mkdir -p /data/db /home/wekan/app /var/log/mongodb \
 
 WORKDIR /home/wekan/app
 
-# Download Wekan from GitHub releases (releases.wekan.team has DNS issues)
-ARG WEKAN_VERSION=v7.56
-RUN curl -fsSL -L "https://github.com/wekan/wekan/releases/download/${WEKAN_VERSION}/wekan-${WEKAN_VERSION#v}.zip" -o /tmp/wekan.zip \
+# Download Wekan from GitHub releases (detect architecture at build time)
+ARG WEKAN_VERSION=v8.34
+RUN ARCH=$(dpkg --print-architecture) && \
+    curl -fsSL -L "https://github.com/wekan/wekan/releases/download/${WEKAN_VERSION}/wekan-${WEKAN_VERSION#v}-${ARCH}.zip" -o /tmp/wekan.zip \
     && unzip -q /tmp/wekan.zip -d /home/wekan/app \
     && rm /tmp/wekan.zip \
     && chown -R wekan:wekan /home/wekan/app
 
-# Install Node dependencies if needed
+# Install Node dependencies (fibers pre-built for Node 14)
 WORKDIR /home/wekan/app/bundle/programs/server
-RUN npm install --production --unsafe-perm || true
+RUN npm install --production --unsafe-perm
 
 WORKDIR /home/wekan/app
 
