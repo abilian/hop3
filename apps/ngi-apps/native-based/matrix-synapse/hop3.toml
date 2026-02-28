@@ -1,0 +1,31 @@
+# Hop3 Configuration for Matrix Synapse (Native build)
+# Matrix homeserver implementation
+
+[metadata]
+id = "matrix-synapse"
+version = "1.x"
+title = "Matrix Synapse"
+description = "Matrix homeserver implementation"
+homepage = "https://matrix.org/"
+license = "Apache-2.0"
+categories = ["chat", "messaging", "matrix"]
+
+[build]
+builder = "local"
+toolchain = "python"
+
+before-build = "bash scripts/download.sh"
+build = "pip install -r requirements.txt"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "synctl start"
+
+[[addons]]
+type = "postgres"
+
+[env]
+SERVER_NAME = "localhost"
+
+[healthcheck]
+path = "/_matrix/client/versions"

@@ -1,0 +1,30 @@
+# Hop3 Configuration for Radicale (Native build)
+# Simple CalDAV and CardDAV server
+
+[metadata]
+id = "radicale"
+version = "3.2"
+title = "Radicale"
+description = "A simple CalDAV and CardDAV server"
+homepage = "https://radicale.org/"
+license = "GPL-3.0"
+categories = ["calendar", "contacts", "caldav", "carddav"]
+
+[build]
+builder = "local"
+toolchain = "python"
+
+before-build = "bash scripts/download.sh"
+build = "pip install -r requirements.txt"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "python -m radicale --config config"
+
+# Radicale uses file-based storage by default
+
+[env]
+RADICALE_AUTH_TYPE = "none"
+
+[healthcheck]
+path = "/.web/"

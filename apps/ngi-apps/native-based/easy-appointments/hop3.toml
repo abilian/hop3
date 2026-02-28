@@ -1,0 +1,31 @@
+# Hop3 Configuration for Easy!Appointments (Native build)
+# Open source appointment scheduling
+
+[metadata]
+id = "easy-appointments"
+version = "1.5"
+title = "Easy!Appointments"
+description = "Open source appointment scheduling"
+homepage = "https://easyappointments.org/"
+license = "GPL-3.0"
+categories = ["scheduling", "appointments", "calendar"]
+
+[build]
+builder = "local"
+toolchain = "php"
+
+before-build = "bash scripts/download.sh"
+build = "composer install --no-dev --optimize-autoloader || true"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "php -S 0.0.0.0:${PORT:-8080}"
+
+[[addons]]
+type = "mysql"
+
+[env]
+APP_URL = "http://localhost:8080"
+
+[healthcheck]
+path = "/"

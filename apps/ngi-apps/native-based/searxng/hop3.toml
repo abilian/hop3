@@ -1,0 +1,32 @@
+# Hop3 Configuration for SearXNG (Native build)
+# Privacy-respecting metasearch engine
+
+[metadata]
+id = "searxng"
+version = "2024"
+title = "SearXNG"
+description = "Privacy-respecting, hackable metasearch engine"
+homepage = "https://docs.searxng.org/"
+license = "AGPL-3.0"
+categories = ["search", "privacy", "metasearch"]
+
+[build]
+builder = "local"
+toolchain = "python"
+
+before-build = "bash scripts/download.sh"
+build = "pip install -r requirements.txt && pip install --no-build-isolation ."
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "python -m searx.webapp"
+
+# SearXNG uses file-based configuration, no database needed
+
+[env]
+SEARXNG_BASE_URL = "http://localhost:8080"
+SEARXNG_SECRET = "change-me-to-random-string"
+SEARXNG_SETTINGS_PATH = "searxng/settings.yml"
+
+[healthcheck]
+path = "/healthz"

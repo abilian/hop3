@@ -1,0 +1,32 @@
+# Hop3 Configuration for Dolibarr (Native build)
+# Open source ERP and CRM
+
+[metadata]
+id = "dolibarr"
+version = "19.0"
+title = "Dolibarr"
+description = "Open source ERP and CRM for small and medium businesses"
+homepage = "https://www.dolibarr.org/"
+license = "GPL-3.0"
+categories = ["erp", "crm", "invoicing", "business"]
+
+[build]
+builder = "local"
+toolchain = "php"
+
+before-build = "bash scripts/download.sh"
+build = "composer install --no-dev --optimize-autoloader || true"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+# PHP built-in server for development
+start = "php -S 0.0.0.0:${PORT:-8080} -t htdocs"
+
+[[addons]]
+type = "postgres"
+
+[env]
+DOLI_ADMIN_LOGIN = "admin"
+
+[healthcheck]
+path = "/"

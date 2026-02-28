@@ -1,0 +1,34 @@
+# Hop3 Configuration for LimeSurvey (Native build)
+# Professional online survey tool
+
+[metadata]
+id = "limesurvey"
+version = "6.4"
+title = "LimeSurvey"
+description = "Professional online survey and data collection tool"
+homepage = "https://www.limesurvey.org/"
+license = "GPL-2.0"
+categories = ["surveys", "forms", "research", "data-collection"]
+
+[build]
+builder = "local"
+toolchain = "php"
+
+before-build = "bash scripts/download.sh"
+build = "composer install --no-dev --optimize-autoloader || true"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "php -S 0.0.0.0:${PORT:-8080}"
+
+[[addons]]
+type = "postgres"
+
+[env]
+ADMIN_USER = "admin"
+ADMIN_NAME = "Administrator"
+ADMIN_EMAIL = "admin@example.com"
+ADMIN_PASSWORD = "change-me-admin-password"
+
+[healthcheck]
+path = "/"
