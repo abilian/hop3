@@ -1,0 +1,33 @@
+# Hop3 Configuration for Grafana (Native build)
+# The open observability platform
+
+[metadata]
+id = "grafana"
+version = "11.0"
+title = "Grafana"
+description = "The open and composable observability and data visualization platform"
+homepage = "https://grafana.com/"
+license = "AGPL-3.0"
+categories = ["monitoring", "visualization", "observability", "devops"]
+
+[build]
+builder = "local"
+toolchain = "generic"
+
+# Download pre-built binary
+before-build = "bash scripts/download.sh"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "./bin/grafana-server"
+
+# Grafana uses SQLite by default, no database needed
+
+[env]
+GF_SERVER_HTTP_PORT = "${PORT:-8080}"
+GF_SECURITY_ADMIN_USER = "admin"
+GF_PATHS_DATA = "./data"
+GF_PATHS_LOGS = "./logs"
+
+[healthcheck]
+path = "/api/health"

@@ -1,0 +1,30 @@
+# Hop3 Configuration for Isso (Native build)
+# Lightweight commenting system
+
+[metadata]
+id = "isso"
+version = "0.13"
+title = "Isso"
+description = "A lightweight commenting system, Disqus alternative"
+homepage = "https://isso-comments.de/"
+license = "MIT"
+categories = ["comments", "blog", "community"]
+
+[build]
+builder = "local"
+toolchain = "python"
+
+before-build = "bash scripts/download.sh"
+build = "pip install ."
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "isso -c isso.cfg"
+
+# Isso uses SQLite by default
+
+[env]
+ISSO_HOST = "http://localhost:8080"
+
+[healthcheck]
+path = "/"
