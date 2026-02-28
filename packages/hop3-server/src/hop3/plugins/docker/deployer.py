@@ -269,7 +269,10 @@ services:
         # Update app model: mark as RUNNING and save image tag
         if self.context.app:
             # Transition to RUNNING (STARTING -> RUNNING)
-            self.context.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
+            # Note: The background state sync service may have already transitioned
+            # the app to RUNNING if it detected processes started. Handle gracefully.
+            if self.context.app.run_state != AppStateEnum.RUNNING:
+                self.context.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
 
             # Save the image tag for restart operations
             if self.artifact.location:

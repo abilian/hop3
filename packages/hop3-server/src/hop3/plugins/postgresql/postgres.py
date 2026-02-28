@@ -228,6 +228,29 @@ class PostgresAddon:
             if connection:
                 connection.close()
 
+    def exists(self) -> bool:
+        """Check if this PostgreSQL database exists.
+
+        Returns:
+            True if the database exists, False otherwise.
+        """
+        admin = self._get_admin()
+
+        connection = None
+        try:
+            connection = psycopg2.connect(**admin.get_connection_params())
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT 1 FROM pg_database WHERE datname = %s",
+                    (self.db_name,),
+                )
+                return cursor.fetchone() is not None
+        except Exception:
+            return False
+        finally:
+            if connection:
+                connection.close()
+
     def destroy(self) -> None:
         """Destroy the PostgreSQL database and user.
 

@@ -114,7 +114,9 @@ class StaticDeployer(Deployer):
             # STOPPED -> STARTING -> RUNNING
             if current_state == AppStateEnum.STOPPED:
                 self.app._transition_state(AppStateEnum.STARTING)  # noqa: SLF001
-            self.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
+            # Note: Handle case where state sync already transitioned to RUNNING
+            if self.app.run_state != AppStateEnum.RUNNING:
+                self.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
 
         # Set up nginx configuration for static file serving
         env = self._make_env()

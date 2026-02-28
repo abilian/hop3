@@ -1,13 +1,15 @@
 # SonarQube Dockerfile for Hop3
 # Code quality and security analysis platform
 
-FROM debian:bookworm-slim
+# Use Debian Trixie (13) which has Java 21 in repositories
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies (procps needed for ps command used by SonarQube startup)
+# SonarQube 26.x requires Java 21
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openjdk-17-jre-headless \
+    openjdk-21-jre-headless \
     curl \
     ca-certificates \
     unzip \
@@ -27,7 +29,7 @@ RUN mkdir -p /opt/sonarqube /var/lib/sonarqube/data /var/lib/sonarqube/extension
 WORKDIR /opt/sonarqube
 
 # Download SonarQube Community Edition
-ARG SONARQUBE_VERSION=10.4.1.88267
+ARG SONARQUBE_VERSION=26.2.0.119303
 RUN curl -fsSL "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-${SONARQUBE_VERSION}.zip" \
     -o /tmp/sonarqube.zip \
     && unzip -q /tmp/sonarqube.zip -d /opt \
@@ -39,6 +41,7 @@ RUN curl -fsSL "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqub
 RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
+# Startup script v2 - PORT from docker-compose environment\n\
 # Database configuration (Hop3 injects PG* vars)\n\
 export PGHOST="${PGHOST:-localhost}"\n\
 export PGPORT="${PGPORT:-5432}"\n\
@@ -82,8 +85,7 @@ exec su sonarqube -c "/opt/sonarqube/bin/linux-x86-64/sonar.sh console"\n\
 ' > /usr/local/bin/start-sonarqube.sh \
     && chmod +x /usr/local/bin/start-sonarqube.sh
 
-# Environment
-ENV PORT=8080
+# Environment (PORT is injected by Hop3, default 8080 is in startup script)
 ENV SONAR_DATA_DIR=/var/lib/sonarqube/data
 ENV SONAR_EXTENSIONS_DIR=/var/lib/sonarqube/extensions
 ENV SONAR_LOGS_DIR=/var/lib/sonarqube/logs
