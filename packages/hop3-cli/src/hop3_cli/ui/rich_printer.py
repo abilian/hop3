@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from rich.console import Console
+from rich.markup import escape as rich_escape
 from rich.panel import Panel
 from rich.table import Table
 
@@ -203,10 +204,14 @@ class RichPrinter:
         }
         style = style_map.get(fg, "")
 
+        # Escape Rich markup in log messages to prevent parsing errors
+        # (app logs often contain brackets like [2025-01-15] or [database])
+        escaped_msg = rich_escape(msg)
+
         if style:
-            self.console.print(f"[{style}]{msg}[/{style}]")
+            self.console.print(f"[{style}]{escaped_msg}[/{style}]")
         else:
-            self.console.print(msg)
+            self.console.print(escaped_msg)
 
     def print_panel(self, obj: dict) -> None:
         """Print text in a panel/box."""

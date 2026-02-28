@@ -205,14 +205,20 @@ def _update_app_model(
 
 
 def _is_crash_indicator(line: str) -> bool:
-    """Check if a log line indicates a crash or error."""
+    """Check if a log line indicates a crash or error.
+
+    Only matches uWSGI-specific crash indicators, not general application logs.
+    Apps often log ERROR messages during normal startup (e.g., "ERROR:app: ..."),
+    so we avoid matching generic "error:" patterns which cause false positives.
+    """
     line_lower = line.lower()
+    # uWSGI-specific crash indicators - these mean the process is actually crashing
     crash_patterns = [
-        "throttling",  # uWSGI throttling respawns
+        "throttling",  # uWSGI throttling respawns (app keeps crashing)
         "respawning",  # uWSGI respawning crashed worker
-        "error:",  # Application error
-        "fatal:",  # Fatal error
-        "exception:",  # Unhandled exception
+        "fatal error",  # Fatal error (with space to avoid "fatal:" in normal logs)
+        "segmentation fault",  # Crash
+        "killed",  # Process killed (OOM, etc.)
     ]
     return any(pattern in line_lower for pattern in crash_patterns)
 
