@@ -1,4 +1,4 @@
-# Hop3 Configuration for SonarQube (Docker-based)
+# Hop3 Configuration for SonarQube (Native build)
 # Code quality and security analysis platform
 
 [metadata]
@@ -10,19 +10,22 @@ homepage = "https://www.sonarsource.com/products/sonarqube/"
 license = "LGPL-3.0"
 categories = ["devops", "code-quality", "security", "ci-cd"]
 
-# SonarQube requires PostgreSQL
-[[addons]]
-type = "postgres"
+[build]
+builder = "local"
+toolchain = "generic"
+
+before-build = "bash scripts/download.sh"
 
 [run]
-# SonarQube needs time to start Elasticsearch + Web Server + Compute Engine
+before-run = "bash scripts/setup-config.sh"
+start = "./bin/linux-x86-64/sonar.sh console"
 start-timeout = 180
+
+[[addons]]
+type = "postgres"
 
 [env]
 SONAR_SEARCH_JAVAADDITIONALOPTS = "-Dnode.store.allow_mmap=false"
 
 [healthcheck]
 path = "/api/system/status"
-
-# Note: SonarQube requires vm.max_map_count >= 524288
-# Run: sudo sysctl -w vm.max_map_count=524288

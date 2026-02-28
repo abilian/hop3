@@ -81,7 +81,10 @@ class UWSGIDeployer(Deployer):
         spawn_app(self.app, deltas)
 
         # Mark the app as RUNNING (STARTING -> RUNNING)
-        self.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
+        # Note: The background state sync service may have already transitioned
+        # the app to RUNNING if it detected processes started. Handle gracefully.
+        if self.app.run_state != AppStateEnum.RUNNING:
+            self.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
 
         # Return HTTP socket info (apps now listen on HTTP ports)
         bind_address = "127.0.0.1"

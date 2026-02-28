@@ -4,10 +4,11 @@ This document analyzes applications that cannot currently be deployed using Hop3
 
 ## Executive Summary
 
-Out of 37 applications tested, 4 cannot be deployed natively due to runtime version requirements or build tooling constraints. These applications require either:
+Out of 37 applications tested, 3 cannot be deployed natively due to runtime version requirements or build tooling constraints. These applications require either:
 - Node.js >= 20 (server has 18.19.1)
-- Java 17 (server has Java 21)
 - Specialized build tools (pnpm for monorepos)
+
+Note: SonarQube was previously blocked due to Java 21 incompatibility, but this has been resolved with version 26.x.
 
 ## Blocked Applications
 
@@ -66,29 +67,22 @@ not supported.
 
 ---
 
-### 3. SonarQube (Code Quality)
+### 3. SonarQube (Code Quality) - RESOLVED
 
-**Version:** 10.4.1
+**Version:** 26.2.0.119303 (previously tested with 10.4.1)
 **Category:** DevOps / Code Analysis
-**Blocking Issue:** Java 21 removed the Security Manager API
+**Status:** Now works - requires Java 21
 
-**Technical Details:**
-- SonarQube 10.x uses `java.lang.System.setSecurityManager()` for plugin sandboxing
-- Java 21 removed the Security Manager (deprecated since Java 17)
-- SonarQube requires Java 17 for versions 10.x
+**Previous Issue (v10.x):**
+- SonarQube 10.x used `java.lang.System.setSecurityManager()` for plugin sandboxing
+- Java 21 removed the Security Manager API
+- SonarQube 10.x required Java 17
 
-**Error Message:**
-```
-Exception in thread "main" java.lang.UnsupportedOperationException:
-The Security Manager is deprecated and will be removed in a future release
-    at java.base/java.lang.System.setSecurityManager(System.java:430)
-    at org.sonar.process.PluginSecurityManager.restrictPlugins(PluginSecurityManager.java:42)
-```
-
-**Solutions:**
-1. **Install Java 17 alongside Java 21** - Use alternatives system or JAVA_HOME override
-2. **Use Docker deployment** - Docker-based config already exists
-3. **Wait for SonarQube 11+** - Future versions may support Java 21
+**Resolution:**
+- Updated to SonarQube 26.2.0.119303 which **requires** Java 21
+- Docker Dockerfile updated to use `openjdk-21-jre-headless`
+- Native deployment works since server already has Java 21
+- Both native-based and docker-based configurations updated
 
 ---
 
@@ -123,7 +117,7 @@ Error: Cannot find module '/home/hop3/apps/formbricks/src/apps/web/server.js'
 |---------------|---------------------|-----------------|------------------------|
 | Umami 3.x     | Node.js >= 20.9.0   | Node.js 18.19.1 | Need Node.js upgrade   |
 | Uptime Kuma 2.x| Node.js >= 20      | Node.js 18.19.1 | Need Node.js upgrade   |
-| SonarQube 10.x| Java 17             | Java 21         | Need Java 17 available |
+| SonarQube 26.x| Java 21 (required)  | Java 21         | **RESOLVED** - v26.x requires Java 21 |
 | Formbricks    | pnpm                | npm only        | Need pnpm support      |
 
 ## Recommended Actions
@@ -169,12 +163,10 @@ For immediate deployment needs, use the Docker-based configurations:
 ## Appendix: Test Results
 
 **Native Deployment Results (as of 2026-02-28):**
-- Total apps tested: 29 (after removing 4 incompatible apps)
-- Passed: 28
-- Failed: 1 (xwiki - configuration issue, not runtime)
+- Total apps tested: 30 (after removing 3 incompatible apps)
+- SonarQube 26.x now included (supports Java 21)
 
 **Apps removed from native-based:**
-- umami → use docker-based
-- uptime-kuma → needs docker-based config
-- sonarqube → use docker-based
-- formbricks → use docker-based
+- umami → use docker-based (requires Node.js >= 20.9.0)
+- uptime-kuma → needs docker-based config (requires Node.js >= 20)
+- formbricks → use docker-based (requires pnpm)

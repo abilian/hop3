@@ -572,6 +572,15 @@ class AddonsDestroyCmd(Command):
             # Get the service strategy
             addon = get_addon(service_type, addon_name)
 
+            # Check if the addon actually exists
+            if hasattr(addon, "exists") and not addon.exists():
+                return [
+                    {
+                        "t": "text",
+                        "text": f"Addon '{addon_name}' of type '{service_type}' does not exist.",
+                    }
+                ]
+
             # Clean up all stored credentials for this service
             credentials = (
                 self.db_session
