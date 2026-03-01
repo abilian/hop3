@@ -58,30 +58,11 @@ algorithm = pbkdf2\n\
 ' > /etc/isso/isso.cfg \
     && chown isso:isso /etc/isso/isso.cfg
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Configuration\n\
-export ISSO_PORT="${PORT:-8080}"\n\
-export ISSO_HOST="${ISSO_HOST:-http://localhost:${ISSO_PORT}}"\n\
-export ISSO_SALT="${ISSO_SALT:-$(head -c 16 /dev/urandom | base64)}"\n\
-\n\
-# Update config\n\
-sed -i "s|host = .*|host = ${ISSO_HOST}|" /etc/isso/isso.cfg\n\
-sed -i "s|listen = .*|listen = http://0.0.0.0:${ISSO_PORT}|" /etc/isso/isso.cfg\n\
-sed -i "s|salt = .*|salt = ${ISSO_SALT}|" /etc/isso/isso.cfg\n\
-\n\
-# Ensure proper ownership\n\
-chown -R isso:isso /var/lib/isso\n\
-\n\
-# Run Isso as isso user\n\
-exec su isso -c "/opt/isso/bin/isso -c /etc/isso/isso.cfg run"\n\
-' > /usr/local/bin/start-isso.sh \
-    && chmod +x /usr/local/bin/start-isso.sh
+# Copy startup script
+COPY start-isso.sh /usr/local/bin/start-isso.sh
+RUN chmod +x /usr/local/bin/start-isso.sh
 
-# Environment
-ENV PORT=8080
+# Environment (PORT is required, no default)
 
 # Data volume
 VOLUME /var/lib/isso/db

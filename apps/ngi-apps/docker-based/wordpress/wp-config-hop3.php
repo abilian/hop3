@@ -9,11 +9,11 @@
  */
 
 // ** Database settings - provided by Hop3 MySQL addon ** //
-// Hop3 provides MYSQL_* env vars, but also support WORDPRESS_DB_* for compatibility
-define( 'DB_NAME', getenv('MYSQL_DATABASE') ?: getenv('WORDPRESS_DB_NAME') ?: 'wordpress' );
-define( 'DB_USER', getenv('MYSQL_USER') ?: getenv('WORDPRESS_DB_USER') ?: 'wordpress' );
-define( 'DB_PASSWORD', getenv('MYSQL_PASSWORD') ?: getenv('WORDPRESS_DB_PASSWORD') ?: '' );
-define( 'DB_HOST', getenv('MYSQL_HOST') ?: getenv('WORDPRESS_DB_HOST') ?: 'localhost' );
+// Required: MYSQL_* env vars are validated by startup script before Apache starts
+define( 'DB_NAME', getenv('MYSQL_DATABASE') );
+define( 'DB_USER', getenv('MYSQL_USER') );
+define( 'DB_PASSWORD', getenv('MYSQL_PASSWORD') );
+define( 'DB_HOST', getenv('MYSQL_HOST') );
 define( 'DB_CHARSET', 'utf8mb4' );
 define( 'DB_COLLATE', '' );
 

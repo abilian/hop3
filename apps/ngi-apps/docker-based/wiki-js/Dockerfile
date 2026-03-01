@@ -24,33 +24,11 @@ ARG WIKIJS_VERSION=2.5.303
 RUN curl -sL "https://github.com/Requarks/wiki/releases/download/v${WIKIJS_VERSION}/wiki-js.tar.gz" | tar xz \
     && chown -R wiki:wiki /home/wiki
 
-# Create startup script that generates config.yml
-RUN echo '#!/bin/bash\n\
-set -e\n\
-cd /home/wiki/app\n\
-\n\
-# Generate config.yml from environment variables\n\
-cat > config.yml << EOF\n\
-port: ${PORT:-8080}\n\
-db:\n\
-  type: postgres\n\
-  host: ${PGHOST:-localhost}\n\
-  port: ${PGPORT:-5432}\n\
-  user: ${PGUSER:-wiki}\n\
-  pass: ${PGPASSWORD}\n\
-  db: ${PGDATABASE:-wiki}\n\
-bindIP: 0.0.0.0\n\
-logLevel: info\n\
-EOF\n\
-\n\
-chown wiki:wiki config.yml\n\
-\n\
-# Run as wiki user\n\
-exec su wiki -c "cd /home/wiki/app && node server"\n\
-' > /usr/local/bin/start-wiki.sh \
-    && chmod +x /usr/local/bin/start-wiki.sh
+# Copy startup script
+COPY start-wiki.sh /usr/local/bin/start-wiki.sh
+RUN chmod +x /usr/local/bin/start-wiki.sh
 
-ENV PORT=8080
+# Environment (PORT is required, no default)
 EXPOSE 8080
 
 CMD ["/usr/local/bin/start-wiki.sh"]

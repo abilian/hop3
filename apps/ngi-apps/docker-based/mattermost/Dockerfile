@@ -22,24 +22,11 @@ RUN curl -sL "https://releases.mattermost.com/${MM_VERSION}/mattermost-${MM_VERS
     && mkdir -p data logs config plugins client/plugins \
     && chown -R mattermost:mattermost /opt/mattermost
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-cd /opt/mattermost\n\
-\n\
-# Configure database from Hop3 env vars\n\
-export MM_SQLSETTINGS_DRIVERNAME="postgres"\n\
-export MM_SQLSETTINGS_DATASOURCE="${DATABASE_URL}"\n\
-\n\
-# Listen on PORT\n\
-export MM_SERVICESETTINGS_LISTENADDRESS=":${PORT:-8080}"\n\
-\n\
-# Run as mattermost user\n\
-exec su mattermost -c "cd /opt/mattermost && ./bin/mattermost"\n\
-' > /usr/local/bin/start-mattermost.sh \
-    && chmod +x /usr/local/bin/start-mattermost.sh
+# Copy startup script
+COPY start-mattermost.sh /usr/local/bin/start-mattermost.sh
+RUN chmod +x /usr/local/bin/start-mattermost.sh
 
-ENV PORT=8080
+# Environment (PORT and DATABASE_URL are required, no defaults)
 EXPOSE 8080
 
 CMD ["/usr/local/bin/start-mattermost.sh"]

@@ -70,27 +70,11 @@ ui:\n\
 ' > /etc/searxng/settings.yml \
     && chown searxng:searxng /etc/searxng/settings.yml
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Configuration\n\
-export SEARXNG_PORT="${PORT:-8080}"\n\
-export SEARXNG_SECRET="${SEARXNG_SECRET:-$(head -c 32 /dev/urandom | base64)}"\n\
-export SEARXNG_SETTINGS_PATH="/etc/searxng/settings.yml"\n\
-\n\
-# Update settings with port and secret\n\
-sed -i "s/port: 8080/port: ${SEARXNG_PORT}/" /etc/searxng/settings.yml\n\
-sed -i "s/secret_key: .*/secret_key: \"${SEARXNG_SECRET}\"/" /etc/searxng/settings.yml\n\
-\n\
-# Run SearXNG as searxng user\n\
-exec su searxng -c "cd /usr/local/searxng/searxng-src && \\\n\
-    /usr/local/searxng/venv/bin/python -m searx.webapp"\n\
-' > /usr/local/bin/start-searxng.sh \
-    && chmod +x /usr/local/bin/start-searxng.sh
+# Copy startup script
+COPY start-searxng.sh /usr/local/bin/start-searxng.sh
+RUN chmod +x /usr/local/bin/start-searxng.sh
 
-# Environment
-ENV PORT=8080
+# Environment (PORT is required, no default)
 ENV SEARXNG_SETTINGS_PATH=/etc/searxng/settings.yml
 
 EXPOSE 8080

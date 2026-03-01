@@ -47,8 +47,10 @@ RUN echo 'Listen 8080' > /etc/apache2/ports.conf \
 # Enable .htaccess
 RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
 
-# Expose default port
+# Copy startup script
+COPY start-wordpress.sh /usr/local/bin/start-wordpress.sh
+RUN chmod +x /usr/local/bin/start-wordpress.sh
+
 EXPOSE 8080
 
-# Start Apache in foreground
-CMD ["apache2ctl", "-D", "FOREGROUND"]
+CMD ["/usr/local/bin/start-wordpress.sh"]

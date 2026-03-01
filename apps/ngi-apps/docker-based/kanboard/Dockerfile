@@ -32,17 +32,17 @@ RUN rm -f index.html \
     && curl -sL "https://github.com/kanboard/kanboard/archive/refs/tags/v${KANBOARD_VERSION}.tar.gz" | tar xz --strip-components=1 \
     && chown -R www-data:www-data /var/www/html
 
-# Create config file
+# Create config file (env vars validated by startup script)
 RUN echo '<?php\n\
 // Kanboard configuration for Hop3\n\
+// Required: MYSQL_* env vars are validated by startup script before Apache starts\n\
 \n\
-// Database configuration from environment\n\
 define("DB_DRIVER", "mysql");\n\
-define("DB_HOST", getenv("MYSQL_HOST") ?: "localhost");\n\
-define("DB_PORT", getenv("MYSQL_PORT") ?: "3306");\n\
-define("DB_USERNAME", getenv("MYSQL_USER") ?: "kanboard");\n\
-define("DB_PASSWORD", getenv("MYSQL_PASSWORD") ?: "");\n\
-define("DB_NAME", getenv("MYSQL_DATABASE") ?: "kanboard");\n\
+define("DB_HOST", getenv("MYSQL_HOST"));\n\
+define("DB_PORT", getenv("MYSQL_PORT"));\n\
+define("DB_USERNAME", getenv("MYSQL_USER"));\n\
+define("DB_PASSWORD", getenv("MYSQL_PASSWORD"));\n\
+define("DB_NAME", getenv("MYSQL_DATABASE"));\n\
 \n\
 // Enable plugins\n\
 define("PLUGIN_INSTALLER", true);\n\
@@ -56,6 +56,10 @@ RUN echo 'Listen 8080' > /etc/apache2/ports.conf \
 # Enable .htaccess
 RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
 
+# Copy startup script
+COPY start-kanboard.sh /usr/local/bin/start-kanboard.sh
+RUN chmod +x /usr/local/bin/start-kanboard.sh
+
 EXPOSE 8080
 
-CMD ["apache2ctl", "-D", "FOREGROUND"]
+CMD ["/usr/local/bin/start-kanboard.sh"]

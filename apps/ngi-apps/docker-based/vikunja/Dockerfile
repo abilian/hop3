@@ -62,35 +62,11 @@ COPY --from=builder /build/frontend/dist /app/frontend/dist
 RUN mkdir -p /app/files /app/db \
     && chown -R vikunja:vikunja /app
 
-# Create startup script
-RUN printf '%s\n' '#!/bin/bash' \
-    'set -e' \
-    '' \
-    '# Fail if required env vars are not set' \
-    'if [ -z "$PORT" ]; then echo "ERROR: PORT not set" >&2; exit 1; fi' \
-    'if [ -z "$PGHOST" ]; then echo "ERROR: PGHOST not set" >&2; exit 1; fi' \
-    '' \
-    '# Vikunja uses env vars directly with VIKUNJA_ prefix' \
-    'export VIKUNJA_SERVICE_INTERFACE=":$PORT"' \
-    'export VIKUNJA_SERVICE_FRONTENDURL="${VIKUNJA_FRONTEND_URL:-http://localhost:$PORT/}"' \
-    'export VIKUNJA_DATABASE_TYPE="postgres"' \
-    'export VIKUNJA_DATABASE_HOST="$PGHOST"' \
-    'export VIKUNJA_DATABASE_PORT="${PGPORT:-5432}"' \
-    'export VIKUNJA_DATABASE_DATABASE="$PGDATABASE"' \
-    'export VIKUNJA_DATABASE_USER="$PGUSER"' \
-    'export VIKUNJA_DATABASE_PASSWORD="$PGPASSWORD"' \
-    'export VIKUNJA_FILES_BASEPATH="/app/files"' \
-    'export VIKUNJA_MAILER_ENABLED="false"' \
-    'export VIKUNJA_LOG_LEVEL="info"' \
-    '' \
-    'chown -R vikunja:vikunja /app' \
-    '' \
-    '# Start Vikunja' \
-    'exec su vikunja -c "/app/vikunja"' \
-    > /usr/local/bin/start-vikunja.sh \
-    && chmod +x /usr/local/bin/start-vikunja.sh
+# Copy startup script
+COPY start-vikunja.sh /usr/local/bin/start-vikunja.sh
+RUN chmod +x /usr/local/bin/start-vikunja.sh
 
-ENV PORT=8080
+# Environment (PORT and PG* are required, no defaults)
 EXPOSE 8080
 
 CMD ["/usr/local/bin/start-vikunja.sh"]

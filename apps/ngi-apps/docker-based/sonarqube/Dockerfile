@@ -37,59 +37,11 @@ RUN curl -fsSL "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqub
     && rm /tmp/sonarqube.zip \
     && chown -R sonarqube:sonarqube /opt/sonarqube
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Startup script v2 - PORT from docker-compose environment\n\
-# Database configuration (Hop3 injects PG* vars)\n\
-export PGHOST="${PGHOST:-localhost}"\n\
-export PGPORT="${PGPORT:-5432}"\n\
-export PGDATABASE="${PGDATABASE:-sonarqube}"\n\
-export PGUSER="${PGUSER:-sonarqube}"\n\
-export PGPASSWORD="${PGPASSWORD:-}"\n\
-\n\
-# SonarQube configuration\n\
-export SONAR_WEB_PORT="${PORT:-8080}"\n\
-export SONAR_DATA_DIR="${SONAR_DATA_DIR:-/var/lib/sonarqube/data}"\n\
-export SONAR_EXTENSIONS_DIR="${SONAR_EXTENSIONS_DIR:-/var/lib/sonarqube/extensions}"\n\
-export SONAR_LOGS_DIR="${SONAR_LOGS_DIR:-/var/lib/sonarqube/logs}"\n\
-export SONAR_TEMP_DIR="${SONAR_TEMP_DIR:-/var/lib/sonarqube/temp}"\n\
-\n\
-# Write sonar.properties\n\
-cat > /opt/sonarqube/conf/sonar.properties << EOF\n\
-# Database\n\
-sonar.jdbc.url=jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}\n\
-sonar.jdbc.username=${PGUSER}\n\
-sonar.jdbc.password=${PGPASSWORD}\n\
-\n\
-# Web Server\n\
-sonar.web.host=0.0.0.0\n\
-sonar.web.port=${SONAR_WEB_PORT}\n\
-\n\
-# Paths\n\
-sonar.path.data=${SONAR_DATA_DIR}\n\
-sonar.path.logs=${SONAR_LOGS_DIR}\n\
-sonar.path.temp=${SONAR_TEMP_DIR}\n\
-\n\
-# Elasticsearch (embedded)\n\
-sonar.search.javaAdditionalOpts=${SONAR_SEARCH_JAVAADDITIONALOPTS:--Dnode.store.allow_mmap=false}\n\
-EOF\n\
-\n\
-# Ensure proper ownership\n\
-chown -R sonarqube:sonarqube /var/lib/sonarqube /opt/sonarqube/conf\n\
-\n\
-# Run SonarQube as sonarqube user\n\
-cd /opt/sonarqube\n\
-exec su sonarqube -c "/opt/sonarqube/bin/linux-x86-64/sonar.sh console"\n\
-' > /usr/local/bin/start-sonarqube.sh \
-    && chmod +x /usr/local/bin/start-sonarqube.sh
+# Copy startup script
+COPY start-sonarqube.sh /usr/local/bin/start-sonarqube.sh
+RUN chmod +x /usr/local/bin/start-sonarqube.sh
 
-# Environment (PORT is injected by Hop3, default 8080 is in startup script)
-ENV SONAR_DATA_DIR=/var/lib/sonarqube/data
-ENV SONAR_EXTENSIONS_DIR=/var/lib/sonarqube/extensions
-ENV SONAR_LOGS_DIR=/var/lib/sonarqube/logs
-ENV SONAR_TEMP_DIR=/var/lib/sonarqube/temp
+# Environment (PORT and PG* are required, no defaults)
 
 # Data volumes
 VOLUME /var/lib/sonarqube/data

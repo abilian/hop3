@@ -36,32 +36,9 @@ RUN rm -rf /var/www/html/* \
     && composer install --no-dev --no-interaction --prefer-dist \
     && chown -R www-data:www-data /var/www/html
 
-# Create .env file from environment
-RUN echo '#!/bin/bash\n\
-# Generate .env file from environment variables\n\
-cat > /var/www/html/.env << EOF\n\
-APP_KEY=${APP_KEY:-base64:$(head -c 32 /dev/urandom | base64)}\n\
-APP_URL=${APP_URL:-http://localhost:8080}\n\
-APP_DEBUG=${APP_DEBUG:-false}\n\
-\n\
-DB_HOST=${MYSQL_HOST:-localhost}\n\
-DB_PORT=${MYSQL_PORT:-3306}\n\
-DB_DATABASE=${MYSQL_DATABASE:-bookstack}\n\
-DB_USERNAME=${MYSQL_USER:-bookstack}\n\
-DB_PASSWORD=${MYSQL_PASSWORD}\n\
-\n\
-CACHE_DRIVER=file\n\
-SESSION_DRIVER=file\n\
-QUEUE_CONNECTION=sync\n\
-EOF\n\
-\n\
-# Run migrations\n\
-cd /var/www/html && php artisan migrate --force\n\
-\n\
-# Start Apache\n\
-exec apache2ctl -D FOREGROUND\n\
-' > /usr/local/bin/start-bookstack.sh \
-    && chmod +x /usr/local/bin/start-bookstack.sh
+# Copy startup script
+COPY start-bookstack.sh /usr/local/bin/start-bookstack.sh
+RUN chmod +x /usr/local/bin/start-bookstack.sh
 
 # Configure Apache
 RUN echo 'Listen 8080' > /etc/apache2/ports.conf \
