@@ -1,7 +1,7 @@
 # Matrix Synapse Dockerfile for Hop3
 # Matrix homeserver implementation
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 

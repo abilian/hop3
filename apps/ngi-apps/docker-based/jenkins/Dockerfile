@@ -1,18 +1,20 @@
 # Jenkins Dockerfile for Hop3
 # The leading open source automation server
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openjdk-17-jre-headless \
+    openjdk-21-jre-headless \
     curl \
     ca-certificates \
     git \
     openssh-client \
     fontconfig \
+    libharfbuzz0b \
+    libfreetype6 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create jenkins user

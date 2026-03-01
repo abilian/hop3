@@ -1,24 +1,23 @@
 # BookStack Dockerfile for Hop3
 # Self-hosted wiki platform
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Apache, PHP, and required extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
     apache2 \
-    libapache2-mod-php8.2 \
-    php8.2 \
-    php8.2-mysql \
-    php8.2-gd \
-    php8.2-mbstring \
-    php8.2-xml \
-    php8.2-curl \
-    php8.2-zip \
-    php8.2-ldap \
-    php8.2-intl \
-    php8.2-tokenizer \
+    libapache2-mod-php \
+    php \
+    php-mysql \
+    php-gd \
+    php-mbstring \
+    php-xml \
+    php-curl \
+    php-zip \
+    php-ldap \
+    php-intl \
     curl \
     ca-certificates \
     unzip \

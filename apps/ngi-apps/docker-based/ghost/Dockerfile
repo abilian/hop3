@@ -1,24 +1,22 @@
 # Ghost Dockerfile for Hop3
 # Node.js publishing platform
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NODE_ENV=production
 
-# Install Node.js 18 LTS, build tools, and envsubst
+# Install build tools, envsubst, and Node.js 18 LTS (Ghost 5.74.x requires Node 18.x)
+ARG NODE_VERSION=18.20.5
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
-    gnupg \
     gettext-base \
     build-essential \
     python3 \
-    && mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update \
-    && apt-get install -y nodejs \
+    xz-utils \
+    && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+       | tar -xJ -C /usr/local --strip-components=1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create ghost user and app directory

@@ -1,33 +1,29 @@
 # Monica Dockerfile for Hop3
 # Personal CRM
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Apache, PHP, Node.js and required extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
     apache2 \
-    libapache2-mod-php8.2 \
-    php8.2 \
-    php8.2-mysql \
-    php8.2-gd \
-    php8.2-mbstring \
-    php8.2-xml \
-    php8.2-curl \
-    php8.2-zip \
-    php8.2-bcmath \
-    php8.2-intl \
-    php8.2-redis \
+    libapache2-mod-php \
+    php \
+    php-mysql \
+    php-gd \
+    php-mbstring \
+    php-xml \
+    php-curl \
+    php-zip \
+    php-bcmath \
+    php-intl \
+    php-redis \
+    nodejs \
+    npm \
     curl \
     ca-certificates \
-    gnupg \
     unzip \
-    && mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update \
-    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/* \
     && a2enmod rewrite
 

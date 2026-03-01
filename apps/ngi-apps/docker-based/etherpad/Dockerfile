@@ -1,22 +1,19 @@
 # Etherpad Dockerfile for Hop3
 # Real-time collaborative editor
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NODE_ENV=production
 
-# Install Node.js 18 LTS and dependencies
+# Install Node.js and dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    nodejs \
+    npm \
     curl \
     ca-certificates \
-    gnupg \
     python3 \
-    && mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update \
-    && apt-get install -y nodejs \
+    && corepack enable \
     && rm -rf /var/lib/apt/lists/*
 
 # Create etherpad user

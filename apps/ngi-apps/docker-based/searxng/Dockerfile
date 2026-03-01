@@ -1,7 +1,7 @@
 # SearXNG Dockerfile for Hop3
 # Privacy-respecting metasearch engine
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 

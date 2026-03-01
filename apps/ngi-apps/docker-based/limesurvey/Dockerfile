@@ -1,7 +1,7 @@
 # LimeSurvey Dockerfile for Hop3
 # Professional online survey tool
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     php-xml \
     php-zip \
     php-ldap \
-    php-imap \
     php-curl \
     php-intl \
     curl \

@@ -1,7 +1,7 @@
 # Radicale Dockerfile for Hop3
 # Simple CalDAV and CardDAV server
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 

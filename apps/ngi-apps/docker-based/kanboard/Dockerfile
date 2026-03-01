@@ -1,23 +1,23 @@
 # Kanboard Dockerfile for Hop3
 # Kanban project management
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Apache, PHP, and MySQL extension
 RUN apt-get update && apt-get install -y --no-install-recommends \
     apache2 \
-    libapache2-mod-php8.2 \
-    php8.2 \
-    php8.2-mysql \
-    php8.2-pgsql \
-    php8.2-gd \
-    php8.2-mbstring \
-    php8.2-xml \
-    php8.2-zip \
-    php8.2-curl \
-    php8.2-ldap \
+    libapache2-mod-php \
+    php \
+    php-mysql \
+    php-pgsql \
+    php-gd \
+    php-mbstring \
+    php-xml \
+    php-zip \
+    php-curl \
+    php-ldap \
     curl \
     ca-certificates \
     unzip \

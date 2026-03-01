@@ -1,23 +1,23 @@
 # WordPress Dockerfile for Hop3
 # Uses Apache + mod_php for simplicity (single process web server)
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Apache, PHP, and required extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
     apache2 \
-    libapache2-mod-php8.2 \
-    php8.2 \
-    php8.2-mysql \
-    php8.2-curl \
-    php8.2-gd \
-    php8.2-intl \
-    php8.2-mbstring \
-    php8.2-xml \
-    php8.2-zip \
-    php8.2-imagick \
+    libapache2-mod-php \
+    php \
+    php-mysql \
+    php-curl \
+    php-gd \
+    php-intl \
+    php-mbstring \
+    php-xml \
+    php-zip \
+    php-imagick \
     unzip \
     curl \
     ca-certificates \
