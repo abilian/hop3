@@ -1,20 +1,20 @@
 # Easy!Appointments Dockerfile for Hop3
 # Open source appointment scheduling
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Apache, PHP, and required extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
     apache2 \
-    libapache2-mod-php8.2 \
-    php8.2 \
-    php8.2-mysql \
-    php8.2-mbstring \
-    php8.2-curl \
-    php8.2-xml \
-    php8.2-gd \
+    libapache2-mod-php \
+    php \
+    php-mysql \
+    php-mbstring \
+    php-curl \
+    php-xml \
+    php-gd \
     curl \
     ca-certificates \
     unzip \

@@ -1,7 +1,7 @@
 # Grafana Dockerfile for Hop3
 # The open observability platform
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 

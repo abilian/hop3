@@ -1,7 +1,7 @@
 # Gitea Dockerfile for Hop3
 # Self-hosted Git service
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 

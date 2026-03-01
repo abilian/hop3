@@ -1,7 +1,7 @@
 # Vikunja Dockerfile for Hop3
 # Open source task/project management
 
-FROM debian:bookworm-slim AS builder
+FROM debian:trixie-slim AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -40,7 +40,7 @@ RUN cd frontend && pnpm install && pnpm run build
 RUN go build -o vikunja .
 
 # Runtime image
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 

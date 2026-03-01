@@ -1,7 +1,7 @@
 # Mattermost Dockerfile for Hop3
 # Open source collaboration platform
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 

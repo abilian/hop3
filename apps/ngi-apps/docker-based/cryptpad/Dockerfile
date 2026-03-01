@@ -1,20 +1,17 @@
 # CryptPad Dockerfile for Hop3
 # End-to-end encrypted collaboration suite
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dependencies
+# Install Node.js and dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    nodejs \
+    npm \
     curl \
     ca-certificates \
     git \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Node.js 20.x
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Bower globally

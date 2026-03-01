@@ -1,7 +1,7 @@
 # Mastodon Dockerfile for Hop3
 # Open source social network
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -32,9 +32,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js 20 and enable corepack for Yarn 4
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
+# Install Node.js and enable corepack for Yarn 4
+RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm \
     && corepack enable \
     && rm -rf /var/lib/apt/lists/*
 

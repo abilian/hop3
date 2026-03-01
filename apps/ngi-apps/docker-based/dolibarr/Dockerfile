@@ -1,7 +1,7 @@
 # Dolibarr Dockerfile for Hop3
 # Open source ERP and CRM
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -19,8 +19,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     php-curl \
     php-intl \
     php-soap \
-    php-calendar \
-    php-imap \
     php-ldap \
     curl \
     ca-certificates \

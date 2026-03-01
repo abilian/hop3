@@ -1,7 +1,7 @@
 # Miniflux Dockerfile for Hop3
 # Minimalist RSS reader
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 

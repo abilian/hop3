@@ -1,13 +1,13 @@
 # XWiki Dockerfile for Hop3
 # Advanced enterprise wiki
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openjdk-17-jre-headless \
+    openjdk-21-jre-headless \
     curl \
     ca-certificates \
     unzip \
@@ -91,9 +91,10 @@ sed -i "s/jetty.http.port=8080/jetty.http.port=${XWIKI_PORT}/" /opt/xwiki/start_
 # Ensure proper ownership\n\
 chown -R xwiki:xwiki /var/lib/xwiki /opt/xwiki\n\
 \n\
-# Run XWiki as xwiki user\n\
+# Run XWiki as xwiki user (XWIKI_NONINTERACTIVE skips Java version prompts)\n\
 cd /opt/xwiki\n\
-exec su xwiki -c "JAVA_OPTS=\"${JAVA_OPTS}\" ./start_xwiki.sh"\n\
+export XWIKI_NONINTERACTIVE=true\n\
+exec su xwiki -c "XWIKI_NONINTERACTIVE=true JAVA_OPTS=\"${JAVA_OPTS}\" ./start_xwiki.sh"\n\
 ' > /usr/local/bin/start-xwiki.sh \
     && chmod +x /usr/local/bin/start-xwiki.sh
 
