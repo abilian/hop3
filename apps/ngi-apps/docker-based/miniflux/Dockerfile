@@ -19,18 +19,11 @@ ARG MINIFLUX_VERSION=2.1.1
 RUN curl -sL "https://github.com/miniflux/v2/releases/download/${MINIFLUX_VERSION}/miniflux-linux-amd64" -o /usr/local/bin/miniflux \
     && chmod +x /usr/local/bin/miniflux
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Miniflux uses DATABASE_URL directly from environment\n\
-export LISTEN_ADDR="0.0.0.0:${PORT:-8080}"\n\
-\n\
-exec /usr/local/bin/miniflux\n\
-' > /usr/local/bin/start-miniflux.sh \
-    && chmod +x /usr/local/bin/start-miniflux.sh
+# Copy startup script
+COPY start-miniflux.sh /usr/local/bin/start-miniflux.sh
+RUN chmod +x /usr/local/bin/start-miniflux.sh
 
-ENV PORT=8080
+# Environment (PORT and DATABASE_URL are required, no defaults)
 EXPOSE 8080
 
 CMD ["/usr/local/bin/start-miniflux.sh"]

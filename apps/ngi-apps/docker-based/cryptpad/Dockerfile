@@ -42,53 +42,11 @@ USER root
 # Create config template
 RUN cp /cryptpad/app/config/config.example.js /cryptpad/app/config/config.js
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Configuration\n\
-export CPAD_PORT="${PORT:-8080}"\n\
-export CPAD_MAIN_DOMAIN="${CPAD_MAIN_DOMAIN:-http://localhost:${CPAD_PORT}}"\n\
-\n\
-# Update config.js\n\
-cat > /cryptpad/app/config/config.js << EOF\n\
-module.exports = {\n\
-    httpUnsafeOrigin: "${CPAD_MAIN_DOMAIN}",\n\
-    httpSafeOrigin: "${CPAD_SANDBOX_DOMAIN:-${CPAD_MAIN_DOMAIN}}",\n\
-    httpPort: ${CPAD_PORT},\n\
-    httpAddress: "0.0.0.0",\n\
-    \n\
-    filePath: "/cryptpad/datastore",\n\
-    archivePath: "/cryptpad/data/archive",\n\
-    pinPath: "/cryptpad/data/pins",\n\
-    taskPath: "/cryptpad/data/tasks",\n\
-    blockPath: "/cryptpad/block",\n\
-    blobPath: "/cryptpad/blob",\n\
-    blobStagingPath: "/cryptpad/blobstage",\n\
-    decreePath: "/cryptpad/data/decrees",\n\
-    \n\
-    logPath: false,\n\
-    logToStdout: true,\n\
-    logLevel: "info",\n\
-    \n\
-    adminKeys: [],\n\
-    \n\
-    defaultStorageLimit: 50 * 1024 * 1024,\n\
-    \n\
-    installMethod: "hop3",\n\
-};\n\
-EOF\n\
-\n\
-# Ensure proper ownership\n\
-chown -R cryptpad:cryptpad /cryptpad\n\
-\n\
-# Run CryptPad as cryptpad user\n\
-exec su cryptpad -c "cd /cryptpad/app && node server.js"\n\
-' > /usr/local/bin/start-cryptpad.sh \
-    && chmod +x /usr/local/bin/start-cryptpad.sh
+# Copy startup script
+COPY start-cryptpad.sh /usr/local/bin/start-cryptpad.sh
+RUN chmod +x /usr/local/bin/start-cryptpad.sh
 
-# Environment
-ENV PORT=8080
+# Environment (PORT is required, no default)
 ENV NODE_ENV=production
 
 # Data volumes

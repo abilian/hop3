@@ -59,49 +59,9 @@ RUN printf '%s\n' \
     && a2ensite dolibarr \
     && sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf
 
-# Create startup script
-RUN printf '%s\n' '#!/bin/bash' \
-    'set -e' \
-    '' \
-    '# Database configuration (Hop3 injects PG* vars)' \
-    'PGHOST="${PGHOST:-localhost}"' \
-    'PGPORT="${PGPORT:-5432}"' \
-    'PGDATABASE="${PGDATABASE:-dolibarr}"' \
-    'PGUSER="${PGUSER:-dolibarr}"' \
-    'PGPASSWORD="${PGPASSWORD:-}"' \
-    '' \
-    '# Generate conf.php' \
-    'cat > /var/www/dolibarr/htdocs/conf/conf.php << CONFEOF' \
-    '<?php' \
-    '\$dolibarr_main_url_root = '"'"'${DOLI_URL_ROOT:-http://localhost:8080}'"'"';' \
-    '\$dolibarr_main_document_root = '"'"'/var/www/dolibarr/htdocs'"'"';' \
-    '\$dolibarr_main_url_root_alt = '"'"'/custom'"'"';' \
-    '\$dolibarr_main_document_root_alt = '"'"'/var/www/dolibarr/htdocs/custom'"'"';' \
-    '\$dolibarr_main_data_root = '"'"'/var/lib/dolibarr/documents'"'"';' \
-    '\$dolibarr_main_db_host = '"'"'${PGHOST}'"'"';' \
-    '\$dolibarr_main_db_port = '"'"'${PGPORT}'"'"';' \
-    '\$dolibarr_main_db_name = '"'"'${PGDATABASE}'"'"';' \
-    '\$dolibarr_main_db_user = '"'"'${PGUSER}'"'"';' \
-    '\$dolibarr_main_db_pass = '"'"'${PGPASSWORD}'"'"';' \
-    '\$dolibarr_main_db_type = '"'"'pgsql'"'"';' \
-    '\$dolibarr_main_db_character_set = '"'"'utf8'"'"';' \
-    '\$dolibarr_main_db_collation = '"'"'utf8_general_ci'"'"';' \
-    '\$dolibarr_main_authentication = '"'"'dolibarr'"'"';' \
-    '\$dolibarr_main_prod = 1;' \
-    '\$dolibarr_main_force_https = 0;' \
-    '\$dolibarr_main_restrict_os_commands = '"'"'mysqldump, mysql, pg_dump, psql'"'"';' \
-    '\$dolibarr_nocsrfcheck = 0;' \
-    '\$dolibarr_main_instance_unique_id = '"'"'${DOLI_INSTANCE_ID:-hop3_dolibarr}'"'"';' \
-    'CONFEOF' \
-    '' \
-    '# Set permissions' \
-    'chown -R www-data:www-data /var/www/dolibarr /var/lib/dolibarr' \
-    'chmod 644 /var/www/dolibarr/htdocs/conf/conf.php' \
-    '' \
-    '# Start Apache in foreground' \
-    'exec apache2ctl -D FOREGROUND' \
-    > /usr/local/bin/start-dolibarr.sh \
-    && chmod +x /usr/local/bin/start-dolibarr.sh
+# Copy startup script
+COPY start-dolibarr.sh /usr/local/bin/start-dolibarr.sh
+RUN chmod +x /usr/local/bin/start-dolibarr.sh
 
 # Environment
 ENV APACHE_RUN_USER=www-data

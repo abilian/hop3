@@ -37,17 +37,11 @@ RUN curl -sL "https://github.com/umami-software/umami/archive/refs/tags/${UMAMI_
     && npm prune --production --legacy-peer-deps \
     && chown -R umami:umami /home/umami
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-cd /home/umami/app\n\
-\n\
-# Umami uses DATABASE_URL directly\n\
-exec su umami -c "cd /home/umami/app && npm start"\n\
-' > /usr/local/bin/start-umami.sh \
-    && chmod +x /usr/local/bin/start-umami.sh
+# Copy startup script
+COPY start-umami.sh /usr/local/bin/start-umami.sh
+RUN chmod +x /usr/local/bin/start-umami.sh
 
-ENV PORT=8080
+# Environment (PORT and DATABASE_URL are required, no defaults)
 EXPOSE 8080
 
 CMD ["/usr/local/bin/start-umami.sh"]

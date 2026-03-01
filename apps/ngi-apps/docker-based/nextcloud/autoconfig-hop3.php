@@ -8,18 +8,18 @@
 
 $AUTOCONFIG = array(
     // Database configuration (PostgreSQL)
-    // Hop3 PostgreSQL addon provides PG* env vars, but also support POSTGRES_* for compatibility
+    // Required: PG* env vars are validated by startup script before Apache starts
     'dbtype' => 'pgsql',
-    'dbname' => getenv('PGDATABASE') ?: getenv('POSTGRES_DB') ?: 'nextcloud',
-    'dbuser' => getenv('PGUSER') ?: getenv('POSTGRES_USER') ?: 'nextcloud',
-    'dbpass' => getenv('PGPASSWORD') ?: getenv('POSTGRES_PASSWORD') ?: '',
-    'dbhost' => getenv('PGHOST') ?: getenv('POSTGRES_HOST') ?: 'localhost',
+    'dbname' => getenv('PGDATABASE'),
+    'dbuser' => getenv('PGUSER'),
+    'dbpass' => getenv('PGPASSWORD'),
+    'dbhost' => getenv('PGHOST'),
     'dbtableprefix' => 'oc_',
 
-    // Admin account
+    // Admin account (optional - defaults provided)
     'adminlogin' => getenv('NEXTCLOUD_ADMIN_USER') ?: 'admin',
     'adminpass' => getenv('NEXTCLOUD_ADMIN_PASSWORD') ?: '',
 
-    // Data directory
+    // Data directory (optional - default provided)
     'directory' => getenv('NEXTCLOUD_DATA_DIR') ?: './data',
 );

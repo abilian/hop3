@@ -59,48 +59,12 @@ RUN echo '<?xml version="1.0" encoding="UTF-8"?>\n\
 </hibernate-configuration>\n\
 ' > /opt/xwiki/webapps/xwiki/WEB-INF/hibernate.cfg.xml.template
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Database configuration (Hop3 injects PG* vars)\n\
-export PGHOST="${PGHOST:-localhost}"\n\
-export PGPORT="${PGPORT:-5432}"\n\
-export PGDATABASE="${PGDATABASE:-xwiki}"\n\
-export PGUSER="${PGUSER:-xwiki}"\n\
-export PGPASSWORD="${PGPASSWORD:-}"\n\
-\n\
-# XWiki configuration\n\
-export XWIKI_DATA_DIR="${XWIKI_DATA_DIR:-/var/lib/xwiki/data}"\n\
-export XWIKI_PORT="${PORT:-8080}"\n\
-export JAVA_OPTS="${JAVA_OPTS:--Xmx1024m}"\n\
-\n\
-# Generate hibernate config from template\n\
-envsubst < /opt/xwiki/webapps/xwiki/WEB-INF/hibernate.cfg.xml.template \\\n\
-    > /opt/xwiki/webapps/xwiki/WEB-INF/hibernate.cfg.xml\n\
-\n\
-# Configure permanent directory\n\
-mkdir -p "${XWIKI_DATA_DIR}"\n\
-cat > /opt/xwiki/webapps/xwiki/WEB-INF/xwiki.properties << EOF\n\
-environment.permanentDirectory=${XWIKI_DATA_DIR}\n\
-EOF\n\
-\n\
-# Set Jetty port\n\
-sed -i "s/jetty.http.port=8080/jetty.http.port=${XWIKI_PORT}/" /opt/xwiki/start_xwiki.sh\n\
-\n\
-# Ensure proper ownership\n\
-chown -R xwiki:xwiki /var/lib/xwiki /opt/xwiki\n\
-\n\
-# Run XWiki as xwiki user (XWIKI_NONINTERACTIVE skips Java version prompts)\n\
-cd /opt/xwiki\n\
-export XWIKI_NONINTERACTIVE=true\n\
-exec su xwiki -c "XWIKI_NONINTERACTIVE=true JAVA_OPTS=\"${JAVA_OPTS}\" ./start_xwiki.sh"\n\
-' > /usr/local/bin/start-xwiki.sh \
-    && chmod +x /usr/local/bin/start-xwiki.sh
+# Copy startup script
+COPY start-xwiki.sh /usr/local/bin/start-xwiki.sh
+RUN chmod +x /usr/local/bin/start-xwiki.sh
 
-# Environment
+# Environment (PORT and PG* are required, no defaults)
 ENV XWIKI_DATA_DIR=/var/lib/xwiki/data
-ENV PORT=8080
 
 # Data volume
 VOLUME /var/lib/xwiki/data

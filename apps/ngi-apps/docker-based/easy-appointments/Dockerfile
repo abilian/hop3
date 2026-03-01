@@ -31,41 +31,9 @@ RUN rm -rf /var/www/html/* \
     && rm ea.zip \
     && chown -R www-data:www-data /var/www/html
 
-# Create startup script
-RUN printf '%s\n' '#!/bin/bash' \
-    'set -e' \
-    '' \
-    'cd /var/www/html' \
-    '' \
-    '# Create config.php from environment variables (shell expands vars)' \
-    'cat > config.php << EOFPHP' \
-    '<?php' \
-    'class Config {' \
-    '    const BASE_URL = "${APP_URL:-http://localhost:8080}";' \
-    '    const LANGUAGE = "english";' \
-    '    const DEBUG_MODE = false;' \
-    '' \
-    '    const DB_HOST = "${MYSQL_HOST:-localhost}";' \
-    '    const DB_NAME = "${MYSQL_DATABASE:-easyappointments}";' \
-    '    const DB_USERNAME = "${MYSQL_USER:-easyappointments}";' \
-    '    const DB_PASSWORD = "${MYSQL_PASSWORD:-}";' \
-    '' \
-    '    const GOOGLE_SYNC_FEATURE = false;' \
-    '    const GOOGLE_CLIENT_ID = "";' \
-    '    const GOOGLE_CLIENT_SECRET = "";' \
-    '}' \
-    'EOFPHP' \
-    '' \
-    'chown www-data:www-data config.php' \
-    '' \
-    '# Ensure storage is writable' \
-    'chown -R www-data:www-data storage' \
-    'chmod -R 755 storage' \
-    '' \
-    '# Start Apache' \
-    'exec apache2ctl -D FOREGROUND' \
-    > /usr/local/bin/start-easyappointments.sh \
-    && chmod +x /usr/local/bin/start-easyappointments.sh
+# Copy startup script
+COPY start-easyappointments.sh /usr/local/bin/start-easyappointments.sh
+RUN chmod +x /usr/local/bin/start-easyappointments.sh
 
 # Configure Apache
 RUN echo 'Listen 8080' > /etc/apache2/ports.conf \

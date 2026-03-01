@@ -77,43 +77,11 @@ RUN SECRET_KEY_BASE=precompile_placeholder \
     bundle exec rails assets:precompile \
     && chown -R mastodon:mastodon /home/mastodon
 
-# Create startup script
-RUN printf '%s\n' '#!/bin/bash' \
-    'set -e' \
-    'cd /home/mastodon/app' \
-    '' \
-    '# Fail if required env vars are not set' \
-    'if [ -z "$PORT" ]; then echo "ERROR: PORT not set" >&2; exit 1; fi' \
-    'if [ -z "$PGHOST" ]; then echo "ERROR: PGHOST not set" >&2; exit 1; fi' \
-    '' \
-    '# Set environment variables' \
-    'export RAILS_ENV=production' \
-    'export LOCAL_DOMAIN="${LOCAL_DOMAIN:-localhost}"' \
-    'export DB_HOST="$PGHOST"' \
-    'export DB_PORT="${PGPORT:-5432}"' \
-    'export DB_NAME="$PGDATABASE"' \
-    'export DB_USER="$PGUSER"' \
-    'export DB_PASS="$PGPASSWORD"' \
-    'export REDIS_HOST="${REDIS_HOST:-localhost}"' \
-    'export REDIS_PORT="${REDIS_PORT:-6379}"' \
-    '' \
-    '# Generate secrets if not provided (persist these in production!)' \
-    'export SECRET_KEY_BASE="${SECRET_KEY_BASE:-$(head -c 64 /dev/urandom | base64)}"' \
-    'export OTP_SECRET="${OTP_SECRET:-$(head -c 64 /dev/urandom | base64)}"' \
-    '# Rails 7 encryption keys (required by Mastodon 4.x)' \
-    'export ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY="${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY:-$(head -c 32 /dev/urandom | base64)}"' \
-    'export ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY="${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY:-$(head -c 32 /dev/urandom | base64)}"' \
-    'export ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT="${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT:-$(head -c 32 /dev/urandom | base64)}"' \
-    '' \
-    '# Run migrations (assets precompiled at build time)' \
-    'bundle exec rails db:migrate' \
-    '' \
-    '# Start Mastodon web' \
-    'exec su mastodon -c "cd /home/mastodon/app && bundle exec puma -C config/puma.rb -b tcp://0.0.0.0:$PORT"' \
-    > /usr/local/bin/start-mastodon.sh \
-    && chmod +x /usr/local/bin/start-mastodon.sh
+# Copy startup script
+COPY start-mastodon.sh /usr/local/bin/start-mastodon.sh
+RUN chmod +x /usr/local/bin/start-mastodon.sh
 
-ENV PORT=8080
+# Environment (PORT, PG*, and REDIS* are required, no defaults)
 EXPOSE 8080
 
 CMD ["/usr/local/bin/start-mastodon.sh"]

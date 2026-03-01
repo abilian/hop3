@@ -40,33 +40,11 @@ RUN mkdir -p content/data content/images content/logs content/themes content/ada
 
 USER root
 
-# Create startup script that configures Ghost from environment
-RUN echo '#!/bin/bash\n\
-set -e\n\
-cd /home/ghost/app\n\
-\n\
-# Set defaults for config vars (Hop3 injects MYSQL_* vars)\n\
-export MYSQL_HOST="${MYSQL_HOST:-localhost}"\n\
-export MYSQL_PORT="${MYSQL_PORT:-3306}"\n\
-export MYSQL_USER="${MYSQL_USER:-ghost}"\n\
-export MYSQL_PASSWORD="${MYSQL_PASSWORD:-}"\n\
-export MYSQL_DATABASE="${MYSQL_DATABASE:-ghost}"\n\
-export GHOST_PORT="${PORT:-8080}"\n\
-export GHOST_URL="${GHOST_URL:-http://localhost:${GHOST_PORT}}"\n\
-export GHOST_LOG_LEVEL="${GHOST_LOG_LEVEL:-info}"\n\
-export GHOST_CONTENT_PATH="${GHOST_CONTENT_PATH:-./content}"\n\
-\n\
-# Process config template with envsubst\n\
-envsubst < config.production.json.template > config.production.json\n\
-chown ghost:ghost config.production.json\n\
-\n\
-# Run Ghost as ghost user\n\
-exec su ghost -c "cd /home/ghost/app && node current/index.js"\n\
-' > /usr/local/bin/start-ghost.sh \
-    && chmod +x /usr/local/bin/start-ghost.sh
+# Copy startup script
+COPY start-ghost.sh /usr/local/bin/start-ghost.sh
+RUN chmod +x /usr/local/bin/start-ghost.sh
 
-# Default port (Hop3 uses 8080 as standard container port)
-ENV PORT=8080
+# Environment (PORT is required, no default)
 EXPOSE 8080
 
 CMD ["/usr/local/bin/start-ghost.sh"]

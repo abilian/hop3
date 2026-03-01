@@ -33,47 +33,13 @@ RUN mkdir -p /home/gitea/custom/conf /home/gitea/data /home/gitea/repos /home/gi
 # Copy config template
 COPY --chown=gitea:gitea app.ini.template /home/gitea/custom/conf/app.ini.template
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Force correct paths (override Hop3-injected values from host system)\n\
-export GITEA_WORK_DIR=/home/gitea\n\
-export GITEA_CUSTOM=/home/gitea/custom\n\
-\n\
-# Set defaults for config vars (Hop3 injects PG* vars)\n\
-export PGHOST="${PGHOST:-localhost}"\n\
-export PGPORT="${PGPORT:-5432}"\n\
-export PGDATABASE="${PGDATABASE:-gitea}"\n\
-export PGUSER="${PGUSER:-gitea}"\n\
-export PGPASSWORD="${PGPASSWORD:-}"\n\
-\n\
-# Gitea config defaults\n\
-export GITEA_APP_NAME="${GITEA_APP_NAME:-Gitea: Git with a cup of tea}"\n\
-export GITEA_RUN_MODE="${GITEA_RUN_MODE:-prod}"\n\
-export GITEA_REPO_ROOT="${GITEA_REPO_ROOT:-./repos}"\n\
-export GITEA_DOMAIN="${GITEA_DOMAIN:-localhost}"\n\
-export GITEA_HTTP_PORT="${PORT:-8080}"\n\
-export GITEA_ROOT_URL="${GITEA_ROOT_URL:-http://localhost:${GITEA_HTTP_PORT}/}"\n\
-export GITEA_LOG_LEVEL="${GITEA__log__LEVEL:-Info}"\n\
-\n\
-# Generate secrets if not provided\n\
-export GITEA_SECRET_KEY="${GITEA_SECRET_KEY:-$(head -c 32 /dev/urandom | base64)}"\n\
-export GITEA_INTERNAL_TOKEN="${GITEA_INTERNAL_TOKEN:-$(head -c 64 /dev/urandom | base64)}"\n\
-\n\
-# Substitute environment variables in config\n\
-envsubst < /home/gitea/custom/conf/app.ini.template > /home/gitea/custom/conf/app.ini\n\
-chown gitea:gitea /home/gitea/custom/conf/app.ini\n\
-\n\
-# Run Gitea as gitea user\n\
-exec su gitea -c "cd /home/gitea && /usr/local/bin/gitea web --config /home/gitea/custom/conf/app.ini"\n\
-' > /usr/local/bin/start-gitea.sh \
-    && chmod +x /usr/local/bin/start-gitea.sh
+# Copy startup script
+COPY start-gitea.sh /usr/local/bin/start-gitea.sh
+RUN chmod +x /usr/local/bin/start-gitea.sh
 
-# Environment (Hop3 uses 8080 as standard container port)
+# Environment (PORT and PG* are required, no defaults)
 ENV GITEA_WORK_DIR=/home/gitea
 ENV GITEA_CUSTOM=/home/gitea/custom
-ENV PORT=8080
 
 EXPOSE 8080
 

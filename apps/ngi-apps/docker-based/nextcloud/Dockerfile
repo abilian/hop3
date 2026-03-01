@@ -62,8 +62,10 @@ RUN echo 'memory_limit = 512M' > /etc/php/8.4/apache2/conf.d/99-nextcloud.ini \
     && echo 'max_execution_time = 3600' >> /etc/php/8.4/apache2/conf.d/99-nextcloud.ini \
     && echo 'max_input_time = 3600' >> /etc/php/8.4/apache2/conf.d/99-nextcloud.ini
 
-# Expose default port
+# Copy startup script
+COPY start-nextcloud.sh /usr/local/bin/start-nextcloud.sh
+RUN chmod +x /usr/local/bin/start-nextcloud.sh
+
 EXPOSE 8080
 
-# Start Apache in foreground
-CMD ["apache2ctl", "-D", "FOREGROUND"]
+CMD ["/usr/local/bin/start-nextcloud.sh"]

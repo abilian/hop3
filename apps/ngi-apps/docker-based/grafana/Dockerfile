@@ -31,33 +31,11 @@ RUN curl -fsSL "https://dl.grafana.com/oss/release/grafana-${GRAFANA_VERSION}.li
     && rm /tmp/grafana.tar.gz \
     && chown -R grafana:grafana /usr/share/grafana
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Grafana configuration\n\
-export GF_SERVER_HTTP_PORT="${PORT:-8080}"\n\
-export GF_PATHS_DATA="${GF_PATHS_DATA:-/var/lib/grafana}"\n\
-export GF_PATHS_LOGS="${GF_PATHS_LOGS:-/var/log/grafana}"\n\
-export GF_PATHS_PROVISIONING="${GF_PATHS_PROVISIONING:-/etc/grafana/provisioning}"\n\
-export GF_SECURITY_ADMIN_USER="${GF_SECURITY_ADMIN_USER:-admin}"\n\
-export GF_SECURITY_ADMIN_PASSWORD="${GF_SECURITY_ADMIN_PASSWORD:-admin}"\n\
-\n\
-# Ensure proper ownership\n\
-chown -R grafana:grafana /var/lib/grafana /var/log/grafana\n\
-\n\
-# Run Grafana as grafana user\n\
-exec su grafana -s /bin/bash -c "/usr/share/grafana/bin/grafana-server \\\n\
-    --homepath=/usr/share/grafana \\\n\
-    --config=/usr/share/grafana/conf/defaults.ini \\\n\
-    cfg:default.paths.data=${GF_PATHS_DATA} \\\n\
-    cfg:default.paths.logs=${GF_PATHS_LOGS} \\\n\
-    cfg:default.paths.provisioning=${GF_PATHS_PROVISIONING}"\n\
-' > /usr/local/bin/start-grafana.sh \
-    && chmod +x /usr/local/bin/start-grafana.sh
+# Copy startup script
+COPY start-grafana.sh /usr/local/bin/start-grafana.sh
+RUN chmod +x /usr/local/bin/start-grafana.sh
 
-# Environment
-ENV PORT=8080
+# Environment (PORT is required, no default)
 ENV GF_PATHS_DATA=/var/lib/grafana
 ENV GF_PATHS_LOGS=/var/log/grafana
 

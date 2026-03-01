@@ -43,34 +43,11 @@ type = internal\n\
 level = info\n\
 ' > /etc/radicale/config
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Configuration\n\
-export RADICALE_PORT="${PORT:-8080}"\n\
-export RADICALE_DATA_DIR="${RADICALE_DATA_DIR:-/var/lib/radicale/collections}"\n\
-\n\
-# Create default admin user if users file does not exist\n\
-if [ ! -f /etc/radicale/users ]; then\n\
-    ADMIN_PASSWORD="${RADICALE_ADMIN_PASSWORD:-admin}"\n\
-    htpasswd -bcB /etc/radicale/users admin "${ADMIN_PASSWORD}"\n\
-    chown radicale:radicale /etc/radicale/users\n\
-fi\n\
-\n\
-# Update config with correct port\n\
-sed -i "s/hosts = 0.0.0.0:8080/hosts = 0.0.0.0:${RADICALE_PORT}/" /etc/radicale/config\n\
-\n\
-# Ensure proper ownership\n\
-chown -R radicale:radicale /var/lib/radicale\n\
-\n\
-# Run Radicale as radicale user\n\
-exec su radicale -c "/opt/radicale/bin/radicale --config /etc/radicale/config"\n\
-' > /usr/local/bin/start-radicale.sh \
-    && chmod +x /usr/local/bin/start-radicale.sh
+# Copy startup script
+COPY start-radicale.sh /usr/local/bin/start-radicale.sh
+RUN chmod +x /usr/local/bin/start-radicale.sh
 
-# Environment
-ENV PORT=8080
+# Environment (PORT is required, no default)
 
 # Data volume
 VOLUME /var/lib/radicale/collections
