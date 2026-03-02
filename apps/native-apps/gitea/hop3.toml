@@ -29,9 +29,9 @@ start = "./gitea web"
 [[addons]]
 type = "postgres"
 
-[env]
-# Gitea requires absolute path for work directory
-GITEA_WORK_DIR = "/home/hop3/apps/gitea/src"
+# Note: GITEA_WORK_DIR is not set - Gitea uses current directory
+# This allows the app name to be dynamic (e.g., gitea-123456)
+# The working directory is set to src/ by the deployment system
 
 [healthcheck]
 path = "/"
