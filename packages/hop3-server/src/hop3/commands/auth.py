@@ -15,6 +15,7 @@ from hop3.orm import User
 from hop3.server.security.tokens import create_token
 
 from ._base import Command
+from ._response import error, success, text, warning
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -49,25 +50,20 @@ class AuthLoginCmd(Command):
             Response with token or error message
         """
         if not username or not password:
-            return [
-                {
-                    "t": "error",
-                    "text": "Usage: hop3 auth:login <username> <password>",
-                }
-            ]
+            return [error("Usage: hop3 auth:login <username> <password>")]
 
         # Look up the user
         user = self.db_session.query(User).filter_by(username=username).first()
         if not user:
-            return [{"t": "error", "text": "Invalid username or password"}]
+            return [error("Invalid username or password")]
 
         # Check if user is active
         if not user.active:
-            return [{"t": "error", "text": "Account is disabled"}]
+            return [error("Account is disabled")]
 
         # Verify password
         if not user.check_password(password):
-            return [{"t": "error", "text": "Invalid username or password"}]
+            return [error("Invalid username or password")]
 
         # Update login tracking
         user.last_login_at = user.current_login_at
@@ -83,19 +79,18 @@ class AuthLoginCmd(Command):
         token = create_token(username, scopes=scopes)
 
         return [
-            {"t": "text", "text": f"Login successful for user: {username}"},
-            {"t": "text", "text": ""},
-            {"t": "text", "text": "Your API token:"},
-            {"t": "text", "text": token},
-            {"t": "text", "text": ""},
-            {
-                "t": "text",
-                "text": "Save this token to your config file (~/.config/hop3-cli/config.toml):",
-            },
-            {"t": "text", "text": f'api_token = "{token}"'},
-            {"t": "text", "text": ""},
-            {"t": "text", "text": "Or set the environment variable:"},
-            {"t": "text", "text": f"export HOP3_API_TOKEN={token}"},
+            text(f"Login successful for user: {username}"),
+            text(""),
+            text("Your API token:"),
+            text(token),
+            text(""),
+            text(
+                "Save this token to your config file (~/.config/hop3-cli/config.toml):"
+            ),
+            text(f'api_token = "{token}"'),
+            text(""),
+            text("Or set the environment variable:"),
+            text(f"export HOP3_API_TOKEN={token}"),
         ]
 
 
@@ -121,31 +116,23 @@ class AuthWhoamiCmd(Command):
             User information or error message
         """
         if not username:
-            return [
-                {
-                    "t": "error",
-                    "text": "Not authenticated. Use 'hop3 auth:login' to authenticate.",
-                }
-            ]
+            return [error("Not authenticated. Use 'hop3 auth:login' to authenticate.")]
 
         user = self.db_session.query(User).filter_by(username=username).first()
         if not user:
-            return [{"t": "error", "text": "User not found"}]
+            return [error("User not found")]
 
         roles = ", ".join(role.name for role in user.roles) if user.roles else "None"
 
         return [
-            {"t": "text", "text": "Authenticated User Information"},
-            {"t": "text", "text": "=" * 40},
-            {"t": "text", "text": f"Username: {user.username}"},
-            {"t": "text", "text": f"Email: {user.email}"},
-            {"t": "text", "text": f"Active: {user.active}"},
-            {"t": "text", "text": f"Roles: {roles}"},
-            {"t": "text", "text": f"Login count: {user.login_count}"},
-            {
-                "t": "text",
-                "text": f"Last login: {user.last_login_at or 'Never'}",
-            },
+            text("Authenticated User Information"),
+            text("=" * 40),
+            text(f"Username: {user.username}"),
+            text(f"Email: {user.email}"),
+            text(f"Active: {user.active}"),
+            text(f"Roles: {roles}"),
+            text(f"Login count: {user.login_count}"),
+            text(f"Last login: {user.last_login_at or 'Never'}"),
         ]
 
 
@@ -170,22 +157,17 @@ class AuthRegisterCmd(Command):
             Success message or error
         """
         if not username or not email or not password:
-            return [
-                {
-                    "t": "error",
-                    "text": "Usage: hop3 auth:register <username> <email> <password>",
-                }
-            ]
+            return [error("Usage: hop3 auth:register <username> <email> <password>")]
 
         # Check if username already exists
         existing_user = self.db_session.query(User).filter_by(username=username).first()
         if existing_user:
-            return [{"t": "error", "text": f"Username '{username}' already exists"}]
+            return [error(f"Username '{username}' already exists")]
 
         # Check if email already exists
         existing_email = self.db_session.query(User).filter_by(email=email).first()
         if existing_email:
-            return [{"t": "error", "text": f"Email '{email}' already registered"}]
+            return [error(f"Email '{email}' already registered")]
 
         # Create new user
         user = User(username=username, email=email, password_hash="")
@@ -197,10 +179,10 @@ class AuthRegisterCmd(Command):
         self.db_session.commit()
 
         return [
-            {"t": "text", "text": f"User '{username}' registered successfully!"},
-            {"t": "text", "text": ""},
-            {"t": "text", "text": "You can now login with:"},
-            {"t": "text", "text": f"hop3 auth:login {username} <password>"},
+            text(f"User '{username}' registered successfully!"),
+            text(""),
+            text("You can now login with:"),
+            text(f"hop3 auth:login {username} <password>"),
         ]
 
 
@@ -259,45 +241,26 @@ class AuthLogoutCmd(Command):
                     revoke_token(jti, expires_at, reason="user_logout")
 
                     return [
-                        {"t": "success", "text": f"Logged out user: {username}"},
-                        {"t": "text", "text": ""},
-                        {
-                            "t": "text",
-                            "text": "Your token has been revoked and is no longer valid.",
-                        },
-                        {"t": "text", "text": ""},
-                        {
-                            "t": "text",
-                            "text": "Remove the token from your config file or environment:",
-                        },
-                        {
-                            "t": "text",
-                            "text": "  - Delete 'api_token' from ~/.config/hop3-cli/config.toml",
-                        },
-                        {
-                            "t": "text",
-                            "text": "  - Or unset HOP3_API_TOKEN environment variable",
-                        },
+                        success(f"Logged out user: {username}"),
+                        text(""),
+                        text("Your token has been revoked and is no longer valid."),
+                        text(""),
+                        text("Remove the token from your config file or environment:"),
+                        text(
+                            "  - Delete 'api_token' from ~/.config/hop3-cli/config.toml"
+                        ),
+                        text("  - Or unset HOP3_API_TOKEN environment variable"),
                     ]
             except Exception:
                 pass  # Fall through to generic message
 
         # Fallback if token couldn't be revoked
         return [
-            {"t": "text", "text": f"Logged out user: {username}"},
-            {"t": "text", "text": ""},
-            {
-                "t": "text",
-                "text": "Remove the token from your config file or environment:",
-            },
-            {
-                "t": "text",
-                "text": "  - Delete 'api_token' from ~/.config/hop3-cli/config.toml",
-            },
-            {"t": "text", "text": "  - Or unset HOP3_API_TOKEN environment variable"},
-            {"t": "text", "text": ""},
-            {
-                "t": "warning",
-                "text": "Note: Token revocation requires a valid JWT with jti claim.",
-            },
+            text(f"Logged out user: {username}"),
+            text(""),
+            text("Remove the token from your config file or environment:"),
+            text("  - Delete 'api_token' from ~/.config/hop3-cli/config.toml"),
+            text("  - Or unset HOP3_API_TOKEN environment variable"),
+            text(""),
+            warning("Note: Token revocation requires a valid JWT with jti claim."),
         ]

@@ -58,6 +58,11 @@ def log_entry(msg: str, fg: str = "", level: int = 0) -> dict[str, Any]:
     return {"t": "log", "msg": msg, "fg": fg, "level": level}
 
 
+def stream(stream_id: str) -> dict[str, Any]:
+    """Create a stream response item for SSE streaming."""
+    return {"t": "stream", "stream_id": stream_id}
+
+
 def logs_to_response(logs: list[dict]) -> list[dict[str, Any]]:
     """Convert captured log entries to response format.
 

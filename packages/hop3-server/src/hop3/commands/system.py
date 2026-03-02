@@ -26,6 +26,7 @@ from hop3.lib.registry import register
 from hop3.server.health import get_all_health_checks, run_health_check
 
 from ._base import Command
+from ._response import text
 
 
 @register
@@ -117,7 +118,7 @@ class CheckCmd(Command):
         else:
             results.append("✗ Some checks failed - review output above")
 
-        return [{"t": "text", "text": "\n".join(results)}]
+        return [text("\n".join(results))]
 
     def _check_services(self, verbose: bool) -> tuple[bool, list[str]]:
         """Check core system services."""
@@ -390,7 +391,7 @@ class UptimeCmd(Command):
         result = subprocess.run(
             ["uptime"], capture_output=True, text=True, check=False
         ).stdout
-        return [{"t": "text", "text": result}]
+        return [text(result)]
 
 
 @register
@@ -403,7 +404,7 @@ class PSCmd(Command):
         result = subprocess.run(
             ["ps", "aux"], capture_output=True, text=True, check=False
         ).stdout
-        return [{"t": "text", "text": result}]
+        return [text(result)]
 
 
 @register
@@ -415,9 +416,7 @@ class StatusCmd(Command):
     def call(self, *args):
         version = importlib.metadata.version("hop3_server")
 
-        return [
-            {"t": "text", "text": f"Hop3 version: {version}"},
-        ]
+        return [text(f"Hop3 version: {version}")]
 
 
 @register
@@ -454,7 +453,7 @@ class InfoCmd(Command):
         if verbose:
             lines.extend(self._get_verbose_info())
 
-        return [{"t": "text", "text": "\n".join(lines)}]
+        return [text("\n".join(lines))]
 
     def _check_docker(self) -> bool:
         """Check if Docker is available."""
@@ -578,7 +577,7 @@ class SystemLogsCmd(Command):
 
         # Check if log file exists
         if not DEFAULT_LOG_FILE.exists():
-            return [{"t": "text", "text": f"No log file found at {DEFAULT_LOG_FILE}"}]
+            return [text(f"No log file found at {DEFAULT_LOG_FILE}")]
 
         # Read log file
         with pathlib.Path(DEFAULT_LOG_FILE).open(encoding="utf-8") as f:
@@ -603,9 +602,9 @@ class SystemLogsCmd(Command):
         result_lines = all_lines[-lines:]
 
         if not result_lines:
-            return [{"t": "text", "text": "No log entries found matching criteria."}]
+            return [text("No log entries found matching criteria.")]
 
-        return [{"t": "text", "text": "".join(result_lines)}]
+        return [text("".join(result_lines))]
 
     def _parse_since(self, since: str):
         """Parse duration string like '1h', '30m', '1d' into a cutoff datetime."""
@@ -706,7 +705,7 @@ class CleanupCmd(Command):
         # 5. Build cache cleanup
         results.append(self._cleanup_build_cache(dry_run))
 
-        return [{"t": "text", "text": "\n".join(results)}]
+        return [text("\n".join(results))]
 
     def _cleanup_networks(self, dry_run: bool) -> str:
         """Clean up unused Docker networks."""

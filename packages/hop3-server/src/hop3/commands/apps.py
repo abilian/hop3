@@ -15,6 +15,7 @@ from hop3.orm import AppRepository
 from hop3.project.procfile import parse_procfile
 
 from ._base import Command
+from ._response import table, text
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -92,17 +93,11 @@ class AppsCmd(Command):
         app_repo = AppRepository(session=self.db_session)
         apps = app_repo.list()
         if not apps:
-            return [{"t": "text", "text": "There are no applications deployed."}]
+            return [text("There are no applications deployed.")]
 
         rows = []
         for app in apps:
             instance_count = _get_instance_count(app)
             rows.append([app.name, app.run_state.name, instance_count])
 
-        return [
-            {
-                "t": "table",
-                "headers": ["Name", "Status", "Instances"],
-                "rows": rows,
-            }
-        ]
+        return [table(headers=["Name", "Status", "Instances"], rows=rows)]

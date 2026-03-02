@@ -46,6 +46,7 @@ from ._response import (
     code,
     error,
     logs_to_response,
+    stream,
     success,
     table,
     text,
@@ -245,7 +246,7 @@ class DeployCmd(Command):
         Returns stream_id immediately, runs deployment in background thread.
         """
         # Create stream for real-time logs
-        stream = create_stream(app_name)
+        log_stream = create_stream(app_name)
 
         # Capture app_id for the background thread (don't pass the session across threads)
         app_id = app.id
@@ -263,26 +264,26 @@ class DeployCmd(Command):
                         msg = f"App with id {app_id} not found"
                         raise ValueError(msg)
 
-                    with stream_context(stream):
+                    with stream_context(log_stream):
                         with command_context("deploying app", app_name=app_name):
                             do_deploy(thread_app, db_session=thread_session)
                             thread_app.last_deployed_at = datetime.now(UTC)
                             thread_session.commit()
-                    stream.finish(success=True)
+                    log_stream.finish(success=True)
                 except Exception as e:
                     # Ensure rollback on error
                     try:
                         thread_session.rollback()
                     except Exception:
                         pass
-                    stream.finish(success=False, error_message=str(e))
+                    log_stream.finish(success=False, error_message=str(e))
 
         # Start deployment in background thread
         thread = threading.Thread(target=run_deployment, daemon=True)
         thread.start()
 
         # Return stream_id immediately so CLI can connect to SSE endpoint
-        return [{"t": "stream", "stream_id": stream.stream_id}]
+        return [stream(log_stream.stream_id)]
 
     def _deploy_sync(self, app: App, app_name: str) -> list[dict]:
         """Deploy synchronously, collecting logs for response."""

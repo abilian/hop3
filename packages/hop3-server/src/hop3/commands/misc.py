@@ -18,24 +18,15 @@ from hop3 import config as c
 from hop3.deployers import do_deploy
 from hop3.lib.registry import lookup, register
 from hop3.lib.util import CommandError, CommandFailedError, run_command
-from hop3.orm import App, AppRepository
 from hop3.project.procfile import parse_procfile
 
 from ._base import Command
 from ._errors import command_context
+from ._helpers import get_app
+from ._response import error, table, text
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-
-
-def _get_app(db_session: Session, app_name: str) -> App:
-    """Helper to retrieve an app or raise a consistent error."""
-    app_repo = AppRepository(session=db_session)
-    app = app_repo.get_one_or_none(name=app_name)
-    if not app:
-        msg = f"App '{app_name}' not found."
-        raise ValueError(msg)
-    return app
 
 
 # --- Version Command ---
@@ -55,9 +46,7 @@ class VersionCmd(Command):
         except Exception:
             server_version = "unknown"
 
-        return [
-            {"t": "text", "text": f"hop3-server {server_version}"},
-        ]
+        return [text(f"hop3-server {server_version}")]
 
 
 # --- Backup Command ---
@@ -76,7 +65,7 @@ class BackupCmd(Command):
             msg = "Usage: hop backup <app_name>"
             raise ValueError(msg)
         app_name = args[0]
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
 
         # POC implementation
         path_to_backup = app.app_path
@@ -99,8 +88,8 @@ class BackupCmd(Command):
             subprocess.run(cmd, check=True, capture_output=True, text=True)
 
         return [
-            {"t": "text", "text": f"Backup for {app.name} created successfully."},
-            {"t": "text", "text": f"Location: {backup_file_path}"},
+            text(f"Backup for {app.name} created successfully."),
+            text(f"Location: {backup_file_path}"),
         ]
 
 
@@ -127,15 +116,13 @@ class PluginsCmd(Command):
                 command_groups[plugin_name].append(cmd_class.name)
 
         if not command_groups:
-            return [{"t": "text", "text": "No external plugins with commands found."}]
+            return [text("No external plugins with commands found.")]
 
         rows = []
         for plugin, cmds in command_groups.items():
             rows.append([plugin, ", ".join(sorted(cmds))])
 
-        return [
-            {"t": "table", "headers": ["Plugin", "Provided Commands"], "rows": rows}
-        ]
+        return [table(headers=["Plugin", "Provided Commands"], rows=rows)]
 
 
 # --- Process Status & Scaling (ps, ps:scale) ---
@@ -154,20 +141,19 @@ class PSCmd(Command):
             msg = "Usage: hop ps <app_name>"
             raise ValueError(msg)
         app_name = args[0]
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
         scaling_file = app.virtualenv_path / "SCALING"
 
         if not scaling_file.exists():
             return [
-                {
-                    "t": "text",
-                    "text": f"No process information found for app '{app_name}'. Has it been deployed?",
-                }
+                text(
+                    f"No process information found for app '{app_name}'. Has it been deployed?"
+                )
             ]
 
         worker_map = parse_procfile(scaling_file)
         rows = [[proc_type, count] for proc_type, count in worker_map.items()]
-        return [{"t": "table", "headers": ["Process Type", "Count"], "rows": rows}]
+        return [table(headers=["Process Type", "Count"], rows=rows)]
 
 
 # The subcommand ps:scale will be handled by the main `ps` command group.
@@ -181,25 +167,15 @@ class PsScaleCmd(Command):
 
     def call(self, *args):
         if len(args) < 2:
-            return [
-                {
-                    "t": "text",
-                    "text": "Usage: hop ps:scale <app_name> <type>=<count>...",
-                }
-            ]
+            return [text("Usage: hop ps:scale <app_name> <type>=<count>...")]
 
         app_name = args[0]
         settings = args[1:]
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
 
         scaling_file = app.virtualenv_path / "SCALING"
         if not scaling_file.exists():
-            return [
-                {
-                    "t": "text",
-                    "text": f"Cannot scale app '{app_name}'. Has it been deployed?",
-                }
-            ]
+            return [text(f"Cannot scale app '{app_name}'. Has it been deployed?")]
 
         worker_count = parse_procfile(scaling_file)
         deltas: dict[str, int] = {}
@@ -210,17 +186,12 @@ class PsScaleCmd(Command):
                 key = key.strip()
                 count = int(value.strip())
             except ValueError:
-                return [{"t": "text", "text": f"Error: malformed setting '{s}'"}]
+                return [error(f"Malformed setting '{s}'")]
 
             if count < 0:
-                return [{"t": "text", "text": f"Error: cannot scale '{key}' below 0"}]
+                return [error(f"Cannot scale '{key}' below 0")]
             if key not in worker_count:
-                return [
-                    {
-                        "t": "text",
-                        "text": f"Error: process type '{key}' not found for app '{app_name}'",
-                    }
-                ]
+                return [error(f"Process type '{key}' not found for app '{app_name}'")]
 
             deltas[key] = count - int(worker_count[key])
 
@@ -229,7 +200,7 @@ class PsScaleCmd(Command):
             # Persist changes to database (run_state, port, etc.)
             self.db_session.commit()
 
-        return [{"t": "text", "text": f"Scaling app '{app_name}'..."}]
+        return [text(f"Scaling app '{app_name}'...")]
 
 
 # --- Run Command ---
@@ -245,13 +216,11 @@ class RunCmd(Command):
 
     def call(self, *args):
         if len(args) < 2:
-            return [
-                {"t": "text", "text": "Usage: hop run <app_name> <command> [args...]"}
-            ]
+            return [text("Usage: hop run <app_name> <command> [args...]")]
 
         app_name = args[0]
         cmd_to_run = list(args[1:])
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
 
         try:
             result = run_command(
@@ -264,14 +233,14 @@ class RunCmd(Command):
             output = result.stdout
             if result.stderr:
                 output += f"\n--- stderr ---\n{result.stderr}"
-            return [{"t": "text", "text": output}]
+            return [text(output)]
         except CommandFailedError as e:
             output = f"Command failed with exit code {e.returncode}"
             if e.stderr:
                 output += f":\n{e.stderr}"
-            return [{"t": "text", "text": output}]
+            return [error(output)]
         except CommandError as e:
-            return [{"t": "text", "text": f"Error: {e.message}"}]
+            return [error(e.message)]
 
 
 # --- SBOM Command ---
@@ -290,26 +259,21 @@ class SbomCmd(Command):
             msg = "Usage: hop sbom <app_name>"
             raise ValueError(msg)
         app_name = args[0]
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
 
         # This is a Python-specific POC. A real implementation would be pluggable.
         venv = app.virtualenv_path
         if not (venv / "bin" / "pip").exists():
             return [
-                {
-                    "t": "text",
-                    "text": "SBOM generation for Python requires a pip virtualenv. App may not be a Python app or may not be deployed.",
-                }
+                text(
+                    "SBOM generation for Python requires a pip virtualenv. "
+                    "App may not be a Python app or may not be deployed."
+                )
             ]
 
         cyclonedx_path = c.HOP3_ROOT / "venv/bin/cyclonedx-py"
         if not cyclonedx_path.exists():
-            return [
-                {
-                    "t": "text",
-                    "text": f"Error: cyclonedx-py not found at {cyclonedx_path}",
-                }
-            ]
+            return [error(f"cyclonedx-py not found at {cyclonedx_path}")]
 
         with tempfile.TemporaryDirectory() as tmpdir:
             req_file = Path(tmpdir) / "requirements.txt"
@@ -330,7 +294,7 @@ class SbomCmd(Command):
             subprocess.run(sbom_cmd, check=True)
 
             sbom_content = sbom_file.read_text()
-            return [{"t": "text", "text": sbom_content}]
+            return [text(sbom_content)]
 
 
 # --- Addon Command Aliases ---
@@ -356,19 +320,16 @@ class PgCmd(Command):
 
     def call(self, *args):
         return [
-            {
-                "t": "text",
-                "text": (
-                    "PostgreSQL databases are managed via the addons:* commands.\n\n"
-                    "Examples:\n"
-                    "  hop3 addons:create postgres my-database\n"
-                    "  hop3 addons:attach my-database --app my-app --service-type postgres\n"
-                    "  hop3 addons:info my-database --service-type postgres\n"
-                    "  hop3 addons:detach my-database --app my-app --service-type postgres\n"
-                    "  hop3 addons:destroy my-database --service-type postgres\n\n"
-                    "Run 'hop3 help --all' to see all addons:* commands."
-                ),
-            }
+            text(
+                "PostgreSQL databases are managed via the addons:* commands.\n\n"
+                "Examples:\n"
+                "  hop3 addons:create postgres my-database\n"
+                "  hop3 addons:attach my-database --app my-app --service-type postgres\n"
+                "  hop3 addons:info my-database --service-type postgres\n"
+                "  hop3 addons:detach my-database --app my-app --service-type postgres\n"
+                "  hop3 addons:destroy my-database --service-type postgres\n\n"
+                "Run 'hop3 help --all' to see all addons:* commands."
+            )
         ]
 
 
@@ -390,16 +351,13 @@ class RedisCmd(Command):
 
     def call(self, *args):
         return [
-            {
-                "t": "text",
-                "text": (
-                    "Redis instances are managed via the addons:* commands.\n\n"
-                    "Examples:\n"
-                    "  hop3 addons:create redis my-cache\n"
-                    "  hop3 addons:attach my-cache --app my-app --service-type redis\n"
-                    "  hop3 addons:info my-cache --service-type redis\n"
-                    "  hop3 addons:destroy my-cache --service-type redis\n\n"
-                    "Run 'hop3 help --all' to see all addons:* commands."
-                ),
-            }
+            text(
+                "Redis instances are managed via the addons:* commands.\n\n"
+                "Examples:\n"
+                "  hop3 addons:create redis my-cache\n"
+                "  hop3 addons:attach my-cache --app my-app --service-type redis\n"
+                "  hop3 addons:info my-cache --service-type redis\n"
+                "  hop3 addons:destroy my-cache --service-type redis\n\n"
+                "Run 'hop3 help --all' to see all addons:* commands."
+            )
         ]

@@ -18,7 +18,7 @@ from hop3.orm import AddonCredential, EnvVar
 
 from ._base import Command
 from ._errors import command_context
-from ._response import error, text
+from ._response import error, table, text, warning
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -53,11 +53,8 @@ class AddonsListCmd(Command):
 
         if not addon_classes:
             return [
-                {"t": "warning", "text": "No addon types registered."},
-                {
-                    "t": "text",
-                    "text": "Check that addon plugins are properly installed.",
-                },
+                warning("No addon types registered."),
+                text("Check that addon plugins are properly installed."),
             ]
 
         rows = []
@@ -67,12 +64,8 @@ class AddonsListCmd(Command):
             rows.append([addon_name, addon_module])
 
         return [
-            {"t": "text", "text": "Available addon types:"},
-            {
-                "t": "table",
-                "headers": ["Type", "Module"],
-                "rows": rows,
-            },
+            text("Available addon types:"),
+            table(headers=["Type", "Module"], rows=rows),
         ]
 
 
@@ -97,14 +90,11 @@ class AddonsCreateCmd(Command):
 
         if len(args) < 2:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 addons:create <service-type> <service-name>\n\n"
-                        "Example:\n"
-                        "  hop3 addons:create postgres my-database"
-                    ),
-                }
+                text(
+                    "Usage: hop3 addons:create <service-type> <service-name>\n\n"
+                    "Example:\n"
+                    "  hop3 addons:create postgres my-database"
+                )
             ]
 
         service_type = args[0]
@@ -127,14 +117,12 @@ class AddonsCreateCmd(Command):
             server_log.info("addons:create addon.create() completed successfully")
 
         return [
-            {
-                "t": "text",
-                "text": f"Addon '{addon_name}' of type '{service_type}' created successfully.",
-            },
-            {
-                "t": "text",
-                "text": f"\nTo attach this service to an app, run:\n  hop3 addons:attach {addon_name} --app <app-name>",
-            },
+            text(
+                f"Addon '{addon_name}' of type '{service_type}' created successfully."
+            ),
+            text(
+                f"\nTo attach this service to an app, run:\n  hop3 addons:attach {addon_name} --app <app-name>"
+            ),
         ]
 
 
@@ -368,27 +356,21 @@ class AddonsAttachCmd(Command):
 
         # Build response with details about what was added
         response = [
-            {
-                "t": "text",
-                "text": f"Addon '{addon_name}' attached to app '{app_name}' successfully.",
-            },
+            text(f"Addon '{addon_name}' attached to app '{app_name}' successfully."),
         ]
 
         if added_vars:
-            response.append({
-                "t": "text",
-                "text": "\nEnvironment variables:\n  " + "\n  ".join(added_vars),
-            })
+            response.append(
+                text("\nEnvironment variables:\n  " + "\n  ".join(added_vars))
+            )
         else:
-            response.append({
-                "t": "warning",
-                "text": "\nWARNING: No environment variables were added!",
-            })
+            response.append(warning("\nWARNING: No environment variables were added!"))
 
-        response.append({
-            "t": "text",
-            "text": f"\nRedeploy your app for changes to take effect:\n  hop3 deploy {app_name}",
-        })
+        response.append(
+            text(
+                f"\nRedeploy your app for changes to take effect:\n  hop3 deploy {app_name}"
+            )
+        )
 
         return response
 
@@ -470,23 +452,15 @@ class AddonsDetachCmd(Command):
 
         if not addon_name:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 addons:detach <service-name> --app <app-name> [--service-type <type>]\n\n"
-                        "Example:\n"
-                        "  hop3 addons:detach my-database --app my-app"
-                    ),
-                }
+                text(
+                    "Usage: hop3 addons:detach <service-name> --app <app-name> [--service-type <type>]\n\n"
+                    "Example:\n"
+                    "  hop3 addons:detach my-database --app my-app"
+                )
             ]
 
         if not app_name:
-            return [
-                {
-                    "t": "error",
-                    "text": "Error: --app parameter is required",
-                }
-            ]
+            return [error("Error: --app parameter is required")]
 
         with command_context(
             "detaching addon", addon_name=addon_name, app_name=app_name
@@ -513,18 +487,10 @@ class AddonsDetachCmd(Command):
 
         if removed_vars:
             return [
-                {
-                    "t": "text",
-                    "text": f"Addon '{addon_name}' detached from app '{app_name}'.",
-                },
-                {"t": "text", "text": f"\nRemoved: {', '.join(removed_vars)}"},
+                text(f"Addon '{addon_name}' detached from app '{app_name}'."),
+                text(f"\nRemoved: {', '.join(removed_vars)}"),
             ]
-        return [
-            {
-                "t": "text",
-                "text": f"Addon '{addon_name}' was not attached to app '{app_name}'.",
-            }
-        ]
+        return [text(f"Addon '{addon_name}' was not attached to app '{app_name}'.")]
 
 
 @register
@@ -555,15 +521,12 @@ class AddonsDestroyCmd(Command):
 
         if not addon_name:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 addons:destroy <service-name> [--service-type <type>]\n\n"
-                        "WARNING: This will permanently delete all data!\n\n"
-                        "Example:\n"
-                        "  hop3 addons:destroy my-database --service-type postgres"
-                    ),
-                }
+                text(
+                    "Usage: hop3 addons:destroy <service-name> [--service-type <type>]\n\n"
+                    "WARNING: This will permanently delete all data!\n\n"
+                    "Example:\n"
+                    "  hop3 addons:destroy my-database --service-type postgres"
+                )
             ]
 
         with command_context(
@@ -575,10 +538,9 @@ class AddonsDestroyCmd(Command):
             # Check if the addon actually exists
             if hasattr(addon, "exists") and not addon.exists():
                 return [
-                    {
-                        "t": "text",
-                        "text": f"Addon '{addon_name}' of type '{service_type}' does not exist.",
-                    }
+                    text(
+                        f"Addon '{addon_name}' of type '{service_type}' does not exist."
+                    )
                 ]
 
             # Clean up all stored credentials for this service
@@ -598,10 +560,9 @@ class AddonsDestroyCmd(Command):
             addon.destroy()
 
         return [
-            {
-                "t": "text",
-                "text": f"Addon '{addon_name}' of type '{service_type}' destroyed successfully.",
-            }
+            text(
+                f"Addon '{addon_name}' of type '{service_type}' destroyed successfully."
+            )
         ]
 
 
@@ -630,14 +591,11 @@ class AddonsInfoCmd(Command):
 
         if not addon_name:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 addons:info <service-name> [--service-type <type>]\n\n"
-                        "Example:\n"
-                        "  hop3 addons:info my-database --service-type postgres"
-                    ),
-                }
+                text(
+                    "Usage: hop3 addons:info <service-name> [--service-type <type>]\n\n"
+                    "Example:\n"
+                    "  hop3 addons:info my-database --service-type postgres"
+                )
             ]
 
         with command_context(
@@ -655,7 +613,7 @@ class AddonsInfoCmd(Command):
             if key not in {"addon_name", "type"}:
                 lines.append(f"{key}: {value}")
 
-        return [{"t": "text", "text": "\n".join(lines)}]
+        return [text("\n".join(lines))]
 
 
 @register
@@ -706,19 +664,16 @@ class AddonsStatusCmd(Command):
                 attached_apps,
             )
 
-        return [{"t": "table", "headers": ["Property", "Value"], "rows": rows}]
+        return [table(headers=["Property", "Value"], rows=rows)]
 
     def _usage_message(self) -> list[dict]:
         """Return usage message."""
         return [
-            {
-                "t": "text",
-                "text": (
-                    "Usage: hop3 addons:status <service-name> [--service-type <type>]\n\n"
-                    "Example:\n"
-                    "  hop3 addons:status my-database --service-type postgres"
-                ),
-            }
+            text(
+                "Usage: hop3 addons:status <service-name> [--service-type <type>]\n\n"
+                "Example:\n"
+                "  hop3 addons:status my-database --service-type postgres"
+            )
         ]
 
     def _check_addon_health(self, addon) -> tuple[str, str | None]:
