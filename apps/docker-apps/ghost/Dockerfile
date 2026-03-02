@@ -6,17 +6,16 @@ FROM debian:trixie-slim
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NODE_ENV=production
 
-# Install build tools, envsubst, and Node.js 18 LTS (Ghost 5.74.x requires Node 18.x)
-ARG NODE_VERSION=18.20.5
+# Install build tools, envsubst, and Node.js from Debian repos
+# Debian trixie has Node.js 18+ which Ghost supports
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     gettext-base \
     build-essential \
     python3 \
-    xz-utils \
-    && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
-       | tar -xJ -C /usr/local --strip-components=1 \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
 
 # Create ghost user and app directory
