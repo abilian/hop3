@@ -9,7 +9,6 @@ from .deps_common import (
     PackageSpec,
     install_base_packages,
     install_dotnet_sdk_debian,
-    install_leiningen,
     install_node_global_packages,
     install_optional_packages,
 )
@@ -100,9 +99,8 @@ DEBIAN_SPEC = PackageSpec(
 
 
 def install_debian_deps(config: ServerInstallerConfig) -> None:
-    """Install all Debian/Ubuntu dependencies (except Rust, which needs hop3 user)."""
+    """Install all Debian/Ubuntu dependencies (except Rust/Leiningen which need hop3 user)."""
     install_base_packages(DEBIAN_SPEC)
     install_optional_packages(config, DEBIAN_SPEC, configure_redis)
     install_dotnet_sdk_debian()
     install_node_global_packages()
-    install_leiningen()
