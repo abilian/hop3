@@ -348,6 +348,9 @@ doc-deploy:
 ## Clean build artifacts
 clean:
 	bash -c "shopt -s globstar && rm -f **/*.pyc"
+	bash -c "shopt -s globstar && rm -rf **/.ruff_cache"
+	bash -c "shopt -s globstar && rm -rf **/.pytest_cache"
+	bash -c "shopt -s globstar && rm -rf **/.mypy_cache"
 	find . -type d -empty -delete
 	rm -rf *.egg-info *.egg .coverage .eggs .cache .mypy_cache .pyre \
 		.pytest_cache .pytest .DS_Store  docs/_build docs/cache docs/tmp \
@@ -356,5 +359,6 @@ clean:
 	rm -rf packages/*/dist packages/*/.pdm-build
 	rm -rf .nox
 	rm -rf docs/site
+	rm -rf docs/.cache
 	rm -rf test-logs/
 	adt clean
