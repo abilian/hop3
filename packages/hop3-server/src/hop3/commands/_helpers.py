@@ -14,6 +14,33 @@ from hop3.orm.repositories import AppRepository
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+# Patterns that indicate sensitive environment variable values
+SENSITIVE_PATTERNS: list[str] = [
+    "PASSWORD",
+    "SECRET",
+    "KEY",
+    "TOKEN",
+    "CREDENTIAL",
+    "API_KEY",
+]
+
+
+def redact_sensitive_value(name: str, value: str) -> str:
+    """Redact sensitive values, showing only first 4 characters.
+
+    Args:
+        name: Environment variable name
+        value: Environment variable value
+
+    Returns:
+        Redacted value if name matches sensitive patterns, original otherwise
+    """
+    if any(pattern in name.upper() for pattern in SENSITIVE_PATTERNS):
+        if len(value) > 4:
+            return value[:4] + "***"
+        return "***"
+    return value
+
 
 def get_app(db_session: Session, app_name: str) -> App:
     """Retrieve an app by name or raise a consistent error.

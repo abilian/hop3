@@ -321,7 +321,8 @@ def _select_tests_for_apps(
                 elif error:
                     click.echo(f"Warning: {error}", err=True)
         else:
-            # category is set
+            # category is set (type narrowing for the type checker)
+            assert category is not None
             tests = catalog.filter(categories=[category])
     else:
         # No args - scan catalog and get all deployment tests
