@@ -9,7 +9,6 @@ from .deps_common import (
     PackageSpec,
     install_base_packages,
     install_dotnet_sdk_fedora,
-    install_leiningen,
     install_node_global_packages,
     install_optional_packages,
 )
@@ -102,9 +101,8 @@ FEDORA_SPEC = PackageSpec(
 
 
 def install_fedora_deps(config: ServerInstallerConfig) -> None:
-    """Install all Fedora/RHEL dependencies (except Rust, which needs hop3 user)."""
+    """Install all Fedora/RHEL dependencies (except Rust/Leiningen which need hop3 user)."""
     install_base_packages(FEDORA_SPEC)
     install_optional_packages(config, FEDORA_SPEC, configure_redis)
     install_dotnet_sdk_fedora()
     install_node_global_packages()
-    install_leiningen()

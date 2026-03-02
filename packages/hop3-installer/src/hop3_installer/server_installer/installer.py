@@ -34,7 +34,11 @@ from .acme import setup_acme
 from .cli import TOTAL_STEPS, config_from_args, create_parser
 from .config import ServerInstallerConfig  # noqa: TC001
 from .deps import install_system_deps
-from .deps_common import install_node_global_packages, install_rust_toolchain
+from .deps_common import (
+    install_leiningen,
+    install_node_global_packages,
+    install_rust_toolchain,
+)
 from .mysql import setup_mysql
 from .nginx import setup_nginx
 from .postgres import setup_postgres
@@ -52,6 +56,30 @@ from .verify import print_final_message, verify_installation, write_server_confi
 # =============================================================================
 # Main
 # =============================================================================
+
+
+def _install_optional_toolchains() -> None:
+    """Install optional toolchains that need hop3 user to exist.
+
+    These are non-critical - failures are warnings, not errors.
+    """
+    # Install Rust toolchain
+    try:
+        install_rust_toolchain()
+    except CommandError as e:
+        print_warning(f"Rust toolchain installation failed: {e.stderr[:100]}")
+
+    # Install Node.js global packages (pnpm, nodeenv)
+    try:
+        install_node_global_packages()
+    except CommandError as e:
+        print_warning(f"Node global packages installation failed: {e.stderr[:100]}")
+
+    # Install Leiningen (Clojure build tool)
+    try:
+        install_leiningen()
+    except CommandError as e:
+        print_warning(f"Leiningen installation failed: {e.stderr[:100]}")
 
 
 def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
@@ -80,17 +108,8 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
         print_error(f"Failed to create user: {e.stderr}")
         return False
 
-    # Install Rust toolchain (needs hop3 user to exist)
-    try:
-        install_rust_toolchain()
-    except CommandError as e:
-        print_warning(f"Rust toolchain installation failed: {e.stderr[:100]}")
-
-    # Install Node.js global packages (pnpm, nodeenv)
-    try:
-        install_node_global_packages()
-    except CommandError as e:
-        print_warning(f"Node global packages installation failed: {e.stderr[:100]}")
+    # Install optional toolchains (needs hop3 user to exist)
+    _install_optional_toolchains()
 
     # Step 3: Virtual environment
     print_step(3, TOTAL_STEPS, "Creating virtual environment...")
