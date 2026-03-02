@@ -17,6 +17,7 @@ from .loader import (
     TestDefinitionError,
     generate_test_definition_from_app,
     load_test_definition,
+    load_test_definition_smart,
 )
 from .models import Category, Priority, TargetType, TestDefinition, Tier
 
@@ -100,12 +101,31 @@ class Catalog:
         )
 
     def _scan_directory(self, path: Path, rel_path: str) -> None:
-        """Scan a single directory for tests."""
+        """Scan a single directory for tests.
+
+        Scans for:
+        1. test.toml files (explicit test definitions)
+        2. hop3.toml files (app definitions that can be used for testing)
+        3. Legacy apps (directories with Procfile but no config files)
+        """
+        # Track which directories we've already processed
+        processed_dirs: set[Path] = set()
+
         # Check for test.toml files recursively
         for test_toml in path.rglob("test.toml"):
-            self._load_test_from_toml(test_toml)
+            app_dir = test_toml.parent
+            if app_dir not in processed_dirs:
+                self._load_test_smart(app_dir)
+                processed_dirs.add(app_dir)
 
-        # Also scan for legacy apps (directories with Procfile but no test.toml)
+        # Check for hop3.toml files recursively (that don't have test.toml)
+        for hop3_toml in path.rglob("hop3.toml"):
+            app_dir = hop3_toml.parent
+            if app_dir not in processed_dirs:
+                self._load_test_smart(app_dir)
+                processed_dirs.add(app_dir)
+
+        # Also scan for legacy apps (directories with Procfile but no config files)
         for item in path.iterdir():
             if not item.is_dir():
                 continue
@@ -114,8 +134,8 @@ class Catalog:
             if item.name.startswith(".") or item.name.startswith("xxx-"):
                 continue
 
-            # Skip if already has test.toml
-            if (item / "test.toml").exists():
+            # Skip if already processed
+            if item in processed_dirs:
                 continue
 
             # Check if it looks like a test app
@@ -140,6 +160,22 @@ class Catalog:
         except TestDefinitionError as e:
             logger.warning("Failed to load %s: %s", path, e)
             self._errors.append((path, str(e)))
+
+    def _load_test_smart(self, app_dir: Path) -> None:
+        """Load a test using smart loading (hop3.toml + test.toml).
+
+        This method tries to load from hop3.toml first, falling back to
+        test.toml, and finally generating from app structure.
+        """
+        try:
+            test_def = load_test_definition_smart(app_dir)
+            self._add_test(test_def)
+        except TestDefinitionError as e:
+            logger.warning("Failed to load %s: %s", app_dir, e)
+            self._errors.append((app_dir, str(e)))
+        except Exception as e:
+            logger.warning("Failed to load app %s: %s", app_dir, e)
+            self._errors.append((app_dir, str(e)))
 
     def _load_legacy_app(self, path: Path, rel_path: str) -> None:
         """Load a legacy app without test.toml.

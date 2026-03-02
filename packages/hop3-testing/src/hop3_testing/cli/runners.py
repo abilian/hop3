@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import click
 
+from hop3_testing.apps.debug import DeploymentDebugger
 from hop3_testing.catalog import Catalog
 from hop3_testing.catalog.models import Category
 from hop3_testing.results import ConsoleReporter, ResultStore
@@ -23,6 +25,7 @@ from hop3_testing.selector import Selector, get_mode_config
 from hop3_testing.util.console import PrintingConsole, Verbosity
 
 from .helpers import create_target
+from .logging import TestLogWriter
 from .reports import generate_reports
 
 if TYPE_CHECKING:
@@ -50,12 +53,18 @@ def run_system_tests(
     fail_fast: bool,
     report: str = "text",
     quiet: bool = False,
+    debug: bool = False,
+    logs_dir: str | None = None,
 ) -> None:
     """Run system tests with full deployment."""
     verbose = ctx.obj["verbose"]
     console = _create_console(verbose, quiet)
     store = ResultStore()
     reporter = ConsoleReporter(verbose=verbose, quiet=quiet)
+    log_writer = TestLogWriter(Path(logs_dir) if logs_dir else None)
+
+    if log_writer.enabled:
+        console.status(f"Logs will be saved to: {logs_dir}/")
 
     try:
         console.status("Deploying Hop3 via hop3-deploy...")
@@ -77,10 +86,14 @@ def run_system_tests(
             console.status(f"[{test.name}] ", details=None)
 
             result = run_single_test(
-                test, target, cleanup=True, verbose=verbose, console=console
+                test, target, cleanup=True, verbose=verbose, console=console,
+                debug=debug,
             )
             results.append(result)
             store.save(result)
+
+            # Write per-app log file
+            log_writer.write_test_log(result)
 
             reporter.report_test(result)
 
@@ -112,12 +125,18 @@ def run_app_tests(
     fail_fast: bool,
     report: str = "text",
     quiet: bool = False,
+    debug: bool = False,
+    logs_dir: str | None = None,
 ) -> None:
     """Run app tests against pre-deployed server."""
     verbose = ctx.obj["verbose"]
     console = _create_console(verbose, quiet)
     store = ResultStore()
     reporter = ConsoleReporter(verbose=verbose, quiet=quiet)
+    log_writer = TestLogWriter(Path(logs_dir) if logs_dir else None)
+
+    if log_writer.enabled:
+        console.status(f"Logs will be saved to: {logs_dir}/")
 
     try:
         console.status("Starting test environment...")
@@ -139,10 +158,14 @@ def run_app_tests(
             console.status(f"[{test.name}] ", details=None)
 
             result = run_single_test(
-                test, target, cleanup=not keep, verbose=verbose, console=console
+                test, target, cleanup=not keep, verbose=verbose, console=console,
+                debug=debug,
             )
             results.append(result)
             store.save(result)
+
+            # Write per-app log file
+            log_writer.write_test_log(result)
 
             reporter.report_test(result)
 
@@ -253,8 +276,18 @@ def run_single_test(
     cleanup: bool,
     verbose: bool,
     console: Console | None = None,
+    debug: bool = False,
 ) -> TestResult:
-    """Run a single test with the appropriate runner."""
+    """Run a single test with the appropriate runner.
+
+    Args:
+        test: Test definition to run
+        target: Deployment target
+        cleanup: Whether to cleanup after test
+        verbose: Verbose output
+        console: Console for output
+        debug: Show detailed debug info on failure
+    """
     # Build common kwargs, only include console if provided
     common_kwargs: dict[str, Any] = {"cleanup": cleanup, "verbose": verbose}
     if console is not None:
@@ -268,4 +301,20 @@ def run_single_test(
         # Default to deployment runner for deployment category and any others
         runner = DeploymentTestRunner(target, **common_kwargs)
 
-    return runner.run(test)
+    result = runner.run(test)
+
+    # Show debug info on failure if requested
+    if debug and not result.passed:
+        actual_console = console or PrintingConsole()
+        debugger = DeploymentDebugger(
+            target=target,
+            app_name=test.name,
+            console=actual_console,
+        )
+        # Determine deployment type from test config
+        deployment_type = "auto"
+        if test.deployment and test.deployment.type:
+            deployment_type = test.deployment.type
+        debugger.show_all_rich(deployment_type)
+
+    return result

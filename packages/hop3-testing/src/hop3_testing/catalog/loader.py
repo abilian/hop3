@@ -264,12 +264,12 @@ def generate_test_definition_from_app(
 
     Args:
         app_path: Path to the application directory
-        name: Override app name (default: directory name)
+        name: Override app name (default: derived from path)
 
     Returns:
         Generated TestDefinition with default settings
     """
-    app_name = name or app_path.name
+    app_name = name or _derive_unique_name(app_path)
 
     # Check if actual app content is in an 'app/' subdirectory (common for demos)
     actual_app_path = app_path
@@ -325,3 +325,212 @@ def _is_deployable_app(path: Path) -> bool:
         "index.html",
     ]
     return any((path / marker).exists() for marker in markers)
+
+
+def load_hop3_toml(app_path: Path) -> dict[str, Any] | None:
+    """Load and parse hop3.toml from an app directory.
+
+    Args:
+        app_path: Path to the application directory
+
+    Returns:
+        Parsed hop3.toml data, or None if not found
+    """
+    hop3_toml = app_path / "hop3.toml"
+    if not hop3_toml.exists():
+        return None
+
+    try:
+        with hop3_toml.open("rb") as f:
+            return tomllib.load(f)
+    except tomllib.TOMLDecodeError:
+        return None
+
+
+def _extract_services_from_hop3_toml(data: dict[str, Any]) -> list[str]:
+    """Extract required services from hop3.toml addons section."""
+    services = []
+    for addon in data.get("addons", []):
+        addon_type = addon.get("type")
+        if addon_type:
+            services.append(addon_type)
+    return services
+
+
+def _extract_env_vars_from_hop3_toml(data: dict[str, Any]) -> dict[str, str]:
+    """Extract environment variables from hop3.toml."""
+    return data.get("env", {})
+
+
+def _extract_healthcheck_from_hop3_toml(data: dict[str, Any]) -> str:
+    """Extract healthcheck path from hop3.toml."""
+    healthcheck = data.get("healthcheck", {})
+    return healthcheck.get("path", "/")
+
+
+def _get_deployment_type_from_hop3_toml(data: dict[str, Any]) -> str:
+    """Determine deployment type from hop3.toml build section.
+
+    builder = "local" means native/uWSGI deployment
+    Otherwise (no builder or builder = "docker") means Docker deployment
+    """
+    build_config = data.get("build", {})
+    builder = build_config.get("builder", "")
+    return "native" if builder == "local" else "docker"
+
+
+def _derive_unique_name(app_path: Path) -> str:
+    """Derive a unique name from the app path.
+
+    For generic directory names like 'app', include parent directory.
+    Examples:
+        demos/demo20/app -> demo20-app
+        apps/docker-apps/wordpress -> wordpress
+        demos/demo20 -> demo20
+    """
+    dir_name = app_path.name
+
+    # Generic names that need parent context
+    generic_names = {"app", "src", "web", "server", "application"}
+
+    if dir_name.lower() in generic_names:
+        parent_name = app_path.parent.name
+        # Avoid generic parent names too
+        if parent_name.lower() not in generic_names:
+            return f"{parent_name}-{dir_name}"
+        # Try grandparent
+        grandparent_name = app_path.parent.parent.name
+        return f"{grandparent_name}-{parent_name}-{dir_name}"
+
+    return dir_name
+
+
+def generate_test_definition_from_hop3_toml(
+    app_path: Path,
+    hop3_data: dict[str, Any],
+    test_toml_data: dict[str, Any] | None = None,
+) -> TestDefinition:
+    """Generate a TestDefinition from hop3.toml, optionally merging test.toml metadata.
+
+    Args:
+        app_path: Path to the application directory
+        hop3_data: Parsed hop3.toml data
+        test_toml_data: Optional parsed test.toml data for test-specific metadata
+
+    Returns:
+        Generated TestDefinition
+    """
+    # Get app name from hop3.toml metadata or derive from path
+    metadata_section = hop3_data.get("metadata", {})
+    app_name = metadata_section.get("id") or _derive_unique_name(app_path)
+    app_title = metadata_section.get("title", app_name)
+
+    # Extract deployment info from hop3.toml
+    services = _extract_services_from_hop3_toml(hop3_data)
+    env_vars = _extract_env_vars_from_hop3_toml(hop3_data)
+    healthcheck_path = _extract_healthcheck_from_hop3_toml(hop3_data)
+    deployment_type = _get_deployment_type_from_hop3_toml(hop3_data)
+
+    # Build covers tags
+    covers = []
+    if deployment_type == "docker":
+        covers.append("docker")
+    else:
+        covers.append("native")
+
+    # Add service tags
+    covers.extend(services)
+
+    # Default test-specific values (can be overridden by test.toml)
+    tier = Tier.MEDIUM  # Docker apps typically take longer
+    priority = Priority.P1
+    category = Category.DEPLOYMENT
+    description = app_title
+    validations = []
+
+    # Override with test.toml if available
+    if test_toml_data:
+        test_section = test_toml_data.get("test", {})
+        if "tier" in test_section:
+            tier = Tier(test_section["tier"])
+        if "priority" in test_section:
+            priority = Priority(test_section["priority"])
+        if "category" in test_section:
+            category = Category(test_section["category"])
+        if "description" in test_section:
+            description = test_section["description"]
+
+        # Get validations from test.toml
+        validations = [_parse_validation(v) for v in test_toml_data.get("validations", [])]
+
+        # Merge metadata
+        test_metadata = test_section.get("metadata", {})
+        if "covers" in test_metadata:
+            covers = test_metadata["covers"] + covers
+
+    # Build default HTTP validation if none specified
+    if not validations:
+        validations.append(
+            Validation(
+                type="http",
+                path=healthcheck_path,
+                expect=ValidationExpect(status=200),
+            )
+        )
+
+    return TestDefinition(
+        name=app_name,
+        category=category,
+        tier=tier,
+        priority=priority,
+        requirements=TestRequirements(
+            targets=[TargetType.DOCKER, TargetType.REMOTE],
+            services=services,
+        ),
+        validations=validations,
+        deployment=DeploymentConfig(
+            path=".",
+            type=deployment_type,
+            env_vars=env_vars,
+        ),
+        description=description,
+        metadata=TestMetadata(covers=covers),
+        source_path=app_path / "hop3.toml",
+    )
+
+
+def load_test_definition_smart(app_path: Path) -> TestDefinition:
+    """Load test definition from an app directory, trying multiple sources.
+
+    Priority:
+    1. hop3.toml + test.toml (hop3.toml for deployment, test.toml for test metadata)
+    2. test.toml only
+    3. Generate from app structure
+
+    Args:
+        app_path: Path to the application directory
+
+    Returns:
+        TestDefinition from best available source
+    """
+    hop3_data = load_hop3_toml(app_path)
+    test_toml_path = app_path / "test.toml"
+    test_toml_data = None
+
+    if test_toml_path.exists():
+        try:
+            with test_toml_path.open("rb") as f:
+                test_toml_data = tomllib.load(f)
+        except tomllib.TOMLDecodeError:
+            test_toml_data = None
+
+    # Case 1: hop3.toml exists - use it as primary source
+    if hop3_data:
+        return generate_test_definition_from_hop3_toml(app_path, hop3_data, test_toml_data)
+
+    # Case 2: test.toml only
+    if test_toml_data:
+        return _parse_test_definition(test_toml_data, test_toml_path)
+
+    # Case 3: Generate from structure
+    return generate_test_definition_from_app(app_path)
