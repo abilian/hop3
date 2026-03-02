@@ -55,6 +55,7 @@ class Catalog:
             root = self._find_project_root()
         self.root = root
         self._tests: dict[str, TestDefinition] = {}
+        self._by_path: dict[Path, TestDefinition] = {}  # Index by app directory path
         self._by_category: dict[str, list[TestDefinition]] = {}
         self._by_tier: dict[str, list[TestDefinition]] = {}
         self._by_priority: dict[str, list[TestDefinition]] = {}
@@ -166,8 +167,14 @@ class Catalog:
             # Keep the one with test.toml if there's a conflict
             if test_def.source_path and test_def.source_path.name == "test.toml":
                 self._tests[test_def.name] = test_def
+                # Also update path index
+                if test_def.app_path:
+                    self._by_path[test_def.app_path.resolve()] = test_def
         else:
             self._tests[test_def.name] = test_def
+            # Index by app directory path for path-based lookups
+            if test_def.app_path:
+                self._by_path[test_def.app_path.resolve()] = test_def
 
     def _build_indexes(self) -> None:
         """Build category, tier, and priority indexes."""
@@ -201,6 +208,30 @@ class Catalog:
     def get_test(self, name: str) -> TestDefinition | None:
         """Get a specific test by name."""
         return self._tests.get(name)
+
+    def get_test_by_path(self, path: Path) -> TestDefinition | None:
+        """Get a test by its directory path.
+
+        Args:
+            path: Path to the test directory (can be relative or absolute)
+
+        Returns:
+            TestDefinition if found, None otherwise
+        """
+        # Resolve to absolute path for comparison
+        resolved = path.resolve()
+
+        # Try direct lookup first
+        if resolved in self._by_path:
+            return self._by_path[resolved]
+
+        # Try with root prefix if path is relative
+        if not path.is_absolute():
+            with_root = (self.root / path).resolve()
+            if with_root in self._by_path:
+                return self._by_path[with_root]
+
+        return None
 
     def by_category(self, category: str | Category) -> list[TestDefinition]:
         """Get tests by category."""

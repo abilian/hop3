@@ -9,6 +9,7 @@ from .deps_common import (
     PackageSpec,
     install_base_packages,
     install_dotnet_sdk_fedora,
+    install_leiningen,
     install_node_global_packages,
     install_optional_packages,
 )
@@ -106,3 +107,4 @@ def install_fedora_deps(config: ServerInstallerConfig) -> None:
     install_optional_packages(config, FEDORA_SPEC, configure_redis)
     install_dotnet_sdk_fedora()
     install_node_global_packages()
+    install_leiningen()

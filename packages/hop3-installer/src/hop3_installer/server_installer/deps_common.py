@@ -318,6 +318,56 @@ def _create_rust_symlinks(
 
 
 # =============================================================================
+# Clojure/Leiningen
+# =============================================================================
+
+
+def install_leiningen() -> None:
+    """Install Leiningen (Clojure build tool).
+
+    Leiningen is installed system-wide in /usr/local/bin.
+    The actual JAR is downloaded on first run by the hop3 user.
+    """
+    lein_path = Path("/usr/local/bin/lein")
+
+    # Check if lein is already installed and working
+    if lein_path.exists():
+        result = run_cmd(["lein", "version"], check=False)
+        if result.returncode == 0:
+            print_info(f"Leiningen already installed: {result.stdout.strip()}")
+            return
+
+    print_info("Installing Leiningen (Clojure build tool)...")
+
+    # Download lein script
+    lein_url = "https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein"
+    with Spinner("Downloading Leiningen..."):
+        result = run_cmd(
+            ["curl", "-fsSL", "-o", str(lein_path), lein_url],
+            check=False,
+        )
+
+    if result.returncode != 0:
+        print_warning("Failed to download Leiningen")
+        return
+
+    # Make executable
+    lein_path.chmod(0o755)
+
+    # Run lein once as hop3 user to download the JAR
+    # This sets up ~/.lein for the hop3 user
+    with Spinner("Initializing Leiningen (downloading JAR)..."):
+        result = run_as_hop3("lein version")
+
+    if result.returncode == 0:
+        print_success(f"Leiningen installed: {result.stdout.strip()}")
+    else:
+        print_warning("Leiningen script installed but initialization failed")
+        if result.stderr:
+            print_detail(result.stderr[:200])
+
+
+# =============================================================================
 # .NET SDK
 # =============================================================================
 

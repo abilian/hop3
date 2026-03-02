@@ -6,8 +6,8 @@ Sample applications used to test, validate, and demonstrate the Hop3 platform.
 
 | Directory | Purpose | Count |
 |-----------|---------|-------|
-| `test-apps/` | Minimal "Hello World" apps for CI and development testing | 8 |
-| `test-apps-fail/` | Apps that need fixes (toolchain gaps) | 3 |
+| `test-apps/` | Minimal "Hello World" apps for CI and development testing | 11 |
+| `test-apps-fail/` | Apps that need fixes (currently empty) | 0 |
 | `real-apps/` | Real-world apps for manual testing | 3 |
 | `sandbox/` | Experimental configurations | 2 |
 | `marketplace/` | Community app catalog (future marketplace) | 32 |
@@ -19,24 +19,17 @@ Minimal applications covering core language toolchains. Used in E2E tests.
 
 | App | Stack | Description |
 |-----|-------|-------------|
-| `000-static` | Static | HTML/CSS only |
+| `000-static` | Static | HTML/CSS served by nginx |
 | `010-flask-pip-wsgi` | Python | Flask with pip, uWSGI |
 | `020-nodejs-express` | Node.js | Express.js |
 | `030-golang-gin` | Go | Gin framework |
-| `040-sinatra` | Ruby | Sinatra |
+| `030-rack` | Ruby | Rack with Puma server |
+| `040-sinatra` | Ruby | Sinatra with Puma |
+| `050-clojure` | Clojure | Aleph server via Leiningen uberjar |
 | `100-flask-gunicorn-pip` | Python | Flask with Gunicorn |
 | `110-flask-gunicorn-poetry` | Python | Flask with Poetry |
-| `130-golang-minimal` | Go | Minimal Go server |
-
-## test-apps-fail/
-
-Apps that currently fail and need fixes (in Hop3 or the app config).
-
-| App | Stack | Issue | Fix Required |
-|-----|-------|-------|--------------|
-| `030-rack` | Ruby | Uses `rackup` command | Add Rack/rackup support to Ruby toolchain |
-| `120-flask-pip-alt` | Python | Procfile in `hop3/` subdir | Support alternate config paths |
-| `clojure` | Clojure | Uses Leiningen (`lein`) | Add Clojure/Leiningen toolchain |
+| `120-flask-pip-alt` | Python | Flask with config in hop3/ subdir |
+| `130-golang-minimal` | Go | Minimal Go HTTP server |
 
 ## real-apps/
 

@@ -1,0 +1,27 @@
+# Test definition for Flask app with alternate config path
+
+[test]
+name = "120-flask-pip-alt"
+category = "deployment"
+tier = "fast"
+priority = "P1"
+description = "Flask app with Procfile in hop3/ subdirectory"
+
+[test.requirements]
+targets = ["docker", "remote"]
+services = []
+
+[test.metadata]
+author = "hop3-team"
+covers = ["python", "flask", "pip", "alternate-config"]
+
+[deployment]
+path = "."
+type = "python"
+
+[[validations]]
+type = "http"
+path = "/"
+[validations.expect]
+status = 200
+contains = "Hello World!"

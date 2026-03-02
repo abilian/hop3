@@ -13,7 +13,10 @@ from pathlib import Path
 import click
 
 from hop3_testing.catalog import Catalog
-from hop3_testing.catalog.loader import generate_test_definition_from_app
+from hop3_testing.catalog.loader import (
+    generate_test_definition_from_app,
+    load_test_definition,
+)
 from hop3_testing.cli.runners import run_app_tests, run_system_tests
 from hop3_testing.results import ConsoleReporter
 from hop3_testing.runners import DeploymentTestRunner
@@ -115,7 +118,7 @@ def package(
     help="Test mode: dev (fast P0 only) or ci (fast+medium P0)",
 )
 @click.option("--keep", is_flag=True, help="Keep target after tests")
-@click.option("--fail-fast", is_flag=True, help="Stop on first failure")
+@click.option("-x", "--fail-fast", is_flag=True, help="Stop on first failure")
 @click.option(
     "--report",
     type=click.Choice(["none", "text", "html"]),
@@ -258,7 +261,7 @@ def system_test(
 @click.option("--ssh-key", help="SSH key path (for remote target)")
 @click.option("--category", "-c", help="Filter by category")
 @click.option("--keep", is_flag=True, help="Keep apps deployed after testing")
-@click.option("--fail-fast", is_flag=True, help="Stop on first failure")
+@click.option("-x", "--fail-fast", is_flag=True, help="Stop on first failure")
 @click.option(
     "--report",
     type=click.Choice(["none", "text", "html"]),
@@ -309,7 +312,37 @@ def apps_test(
     if app_names:
         tests = []
         for name in app_names:
-            test = catalog.get_test(name)
+            test = None
+
+            # Check if it looks like a path (contains / or is a valid directory)
+            if "/" in name or Path(name).is_dir():
+                # Try path-based lookup
+                path = Path(name)
+                # Remove trailing slash if present
+                if name.endswith("/"):
+                    path = Path(name.rstrip("/"))
+                test = catalog.get_test_by_path(path)
+
+                # If path lookup failed but it's a valid directory with test.toml,
+                # try to load it directly
+                if test is None and path.is_dir():
+                    test_toml = path / "test.toml"
+                    if test_toml.exists():
+                        try:
+                            test = load_test_definition(test_toml)
+                        except Exception as e:
+                            click.echo(
+                                f"Warning: Failed to load {test_toml}: {e}", err=True
+                            )
+
+            # Fall back to name-based lookup
+            if test is None:
+                test = catalog.get_test(name)
+                # Also try just the directory name if full path was given
+                if test is None and "/" in name:
+                    dir_name = Path(name).name
+                    test = catalog.get_test(dir_name)
+
             if test:
                 tests.append(test)
             else:

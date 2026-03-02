@@ -9,6 +9,7 @@ from .deps_common import (
     PackageSpec,
     install_base_packages,
     install_dotnet_sdk_debian,
+    install_leiningen,
     install_node_global_packages,
     install_optional_packages,
 )
@@ -104,3 +105,4 @@ def install_debian_deps(config: ServerInstallerConfig) -> None:
     install_optional_packages(config, DEBIAN_SPEC, configure_redis)
     install_dotnet_sdk_debian()
     install_node_global_packages()
+    install_leiningen()
