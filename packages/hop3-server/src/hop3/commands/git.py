@@ -21,6 +21,7 @@ from hop3.orm import App, AppRepository
 
 from ._base import Command
 from ._errors import command_context
+from ._response import error, text
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -54,22 +55,22 @@ class GitHookCmd(Command):
         app_repo = AppRepository(session=self.db_session)
         app = app_repo.get_one_or_none(name=app_name)
         if not app:
-            return [{"t": "error", "text": f"App '{app_name}' not found."}]
+            return [error(f"App '{app_name}' not found.")]
 
         # Read push data from stdin (sent by git hook)
         push_data = sys.stdin.read().strip()
         if not push_data:
-            return [{"t": "error", "text": "No push data received from git hook"}]
+            return [error("No push data received from git hook")]
 
         # Parse the push data: <old-sha> <new-sha> <ref-name>
         lines = push_data.split("\n")
         if not lines:
-            return [{"t": "error", "text": "Invalid push data format"}]
+            return [error("Invalid push data format")]
 
         # Process the first ref (usually master/main)
         parts = lines[0].split()
         if len(parts) != 3:
-            return [{"t": "error", "text": f"Invalid push data format: {push_data}"}]
+            return [error(f"Invalid push data format: {push_data}")]
 
         _old_sha, new_sha, ref_name = parts
 
@@ -101,11 +102,8 @@ class GitHookCmd(Command):
             )
 
         return [
-            {"t": "text", "text": "-----> Deployment successful"},
-            {
-                "t": "text",
-                "text": f"-----> {app_name} deployed from git push ({new_sha[:8]})",
-            },
+            text("-----> Deployment successful"),
+            text(f"-----> {app_name} deployed from git push ({new_sha[:8]})"),
         ]
 
     def _extract_commit_to_source(self, app: App, commit_sha: str) -> None:

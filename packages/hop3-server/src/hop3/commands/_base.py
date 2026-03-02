@@ -34,6 +34,8 @@ from typing import ClassVar
 
 from hop3.lib.registry import lookup
 
+from ._response import text
+
 
 class Command:
     name: ClassVar[str] = ""
@@ -72,9 +74,7 @@ class Command:
         output.append("")
         output.append(f"Use 'hop {self.name}:<subcommand> --help' for details.")
 
-        return [
-            {"t": "text", "text": "\n".join(output)},
-        ]
+        return [text("\n".join(output))]
 
     def subcommands(self):
         return []

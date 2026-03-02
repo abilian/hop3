@@ -17,7 +17,7 @@ from hop3.project.procfile import Procfile
 
 from ._base import Command
 from ._helpers import get_app, parse_key_value_settings, set_env_var, unset_env_var
-from ._response import code, error, table, text
+from ._response import code, error, success, table, text
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -32,41 +32,23 @@ class ConfigCmd(Command):
     def call(self, *args):
         """Show usage help for config commands."""
         return [
-            {
-                "t": "text",
-                "text": "Manage application configuration and environment variables",
-            },
-            {"t": "text", "text": ""},
-            {"t": "text", "text": "Usage:"},
-            {
-                "t": "text",
-                "text": "  hop3 config:show <app-name>         Show all config variables",
-            },
-            {
-                "t": "text",
-                "text": "  hop3 config:get <app-name> <key>    Get a specific variable",
-            },
-            {
-                "t": "text",
-                "text": "  hop3 config:set <app-name> KEY=VAL  Set variables",
-            },
-            {
-                "t": "text",
-                "text": "  hop3 config:unset <app-name> KEY    Remove variables",
-            },
-            {
-                "t": "text",
-                "text": "  hop3 config:live <app-name>         Show live runtime config",
-            },
-            {"t": "text", "text": ""},
-            {"t": "text", "text": "All commands also support --app flag:"},
-            {"t": "text", "text": "  hop3 config:show --app <app-name>"},
-            {"t": "text", "text": ""},
-            {"t": "text", "text": "Examples:"},
-            {"t": "text", "text": "  hop3 config:show myapp"},
-            {"t": "text", "text": "  hop3 config:get myapp DATABASE_URL"},
-            {"t": "text", "text": "  hop3 config:set myapp DEBUG=true WORKERS=4"},
-            {"t": "text", "text": "  hop3 config:unset myapp DEBUG"},
+            text("Manage application configuration and environment variables"),
+            text(""),
+            text("Usage:"),
+            text("  hop3 config:show <app-name>         Show all config variables"),
+            text("  hop3 config:get <app-name> <key>    Get a specific variable"),
+            text("  hop3 config:set <app-name> KEY=VAL  Set variables"),
+            text("  hop3 config:unset <app-name> KEY    Remove variables"),
+            text("  hop3 config:live <app-name>         Show live runtime config"),
+            text(""),
+            text("All commands also support --app flag:"),
+            text("  hop3 config:show --app <app-name>"),
+            text(""),
+            text("Examples:"),
+            text("  hop3 config:show myapp"),
+            text("  hop3 config:get myapp DATABASE_URL"),
+            text("  hop3 config:set myapp DEBUG=true WORKERS=4"),
+            text("  hop3 config:unset myapp DEBUG"),
         ]
 
 
@@ -99,18 +81,15 @@ class ShowCmd(Command):
 
         if not app_name:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 config:show <app-name> [--show-compose]\n"
-                        "   or: hop3 config:show --app <app-name> [--show-compose]\n\n"
-                        "Flags:\n"
-                        "  --show-compose  Show the generated Docker Compose file\n\n"
-                        "Example:\n"
-                        "  hop3 config:show myapp\n"
-                        "  hop3 config:show myapp --show-compose"
-                    ),
-                }
+                text(
+                    "Usage: hop3 config:show <app-name> [--show-compose]\n"
+                    "   or: hop3 config:show --app <app-name> [--show-compose]\n\n"
+                    "Flags:\n"
+                    "  --show-compose  Show the generated Docker Compose file\n\n"
+                    "Example:\n"
+                    "  hop3 config:show myapp\n"
+                    "  hop3 config:show myapp --show-compose"
+                )
             ]
 
         app = get_app(self.db_session, app_name)
@@ -461,29 +440,25 @@ class MigrateCmd(Command):
         """
         if not from_format or not app_dir:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop config:migrate <from-format> <app-dir> [--dry-run] [--backup]\n\n"
-                        "Supported formats:\n"
-                        "  procfile    Convert Procfile to hop3.toml\n\n"
-                        "Example:\n"
-                        "  hop config:migrate procfile /path/to/app"
-                    ),
-                }
+                text(
+                    "Usage: hop config:migrate <from-format> <app-dir> [--dry-run] [--backup]\n\n"
+                    "Supported formats:\n"
+                    "  procfile    Convert Procfile to hop3.toml\n\n"
+                    "Example:\n"
+                    "  hop config:migrate procfile /path/to/app"
+                )
             ]
 
         if from_format.lower() != "procfile":
             return [
-                {
-                    "t": "error",
-                    "text": f"Unsupported format: {from_format}. Currently only 'procfile' is supported.",
-                }
+                error(
+                    f"Unsupported format: {from_format}. Currently only 'procfile' is supported."
+                )
             ]
 
         app_path = Path(app_dir)
         if not app_path.exists():
-            return [{"t": "error", "text": f"Directory not found: {app_dir}"}]
+            return [error(f"Directory not found: {app_dir}")]
 
         # Look for Procfile in standard locations
         procfile_path = None
@@ -497,22 +472,22 @@ class MigrateCmd(Command):
                 break
 
         if not procfile_path:
-            return [{"t": "error", "text": f"Procfile not found in {app_dir}"}]
+            return [error(f"Procfile not found in {app_dir}")]
 
         # Parse the Procfile
         try:
             procfile = Procfile.from_file(procfile_path)
         except Exception as e:
-            return [{"t": "error", "text": f"Failed to parse Procfile: {e}"}]
+            return [error(f"Failed to parse Procfile: {e}")]
 
         # Generate hop3.toml content
         toml_content = self._generate_hop3_toml(procfile)
 
         if dry_run:
             return [
-                {"t": "text", "text": "Generated hop3.toml content (dry-run):"},
-                {"t": "text", "text": ""},
-                {"t": "text", "text": toml_content},
+                text("Generated hop3.toml content (dry-run):"),
+                text(""),
+                text(toml_content),
             ]
 
         # Create backup if requested
@@ -525,21 +500,17 @@ class MigrateCmd(Command):
         output_path = procfile_path.parent / "hop3.toml"
         if output_path.exists():
             return [
-                {
-                    "t": "error",
-                    "text": f"hop3.toml already exists at {output_path}. Remove it first or use --force.",
-                }
+                error(
+                    f"hop3.toml already exists at {output_path}. Remove it first or use --force."
+                )
             ]
 
         output_path.write_text(toml_content)
 
         return [
-            {"t": "success", "text": "Successfully converted Procfile to hop3.toml"},
-            {"t": "text", "text": f"Created: {output_path}"},
-            {
-                "t": "text",
-                "text": f"Backup: {backup_path}" if backup else "",
-            },
+            success("Successfully converted Procfile to hop3.toml"),
+            text(f"Created: {output_path}"),
+            text(f"Backup: {backup_path}" if backup else ""),
         ]
 
     def _generate_hop3_toml(self, procfile: Procfile) -> str:

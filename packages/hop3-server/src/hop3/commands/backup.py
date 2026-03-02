@@ -16,6 +16,7 @@ from hop3.orm.repositories import AppRepository
 
 from ._base import Command
 from ._errors import command_context
+from ._response import success, table, text
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -40,14 +41,11 @@ class BackupCreateCmd(Command):
         """Create a backup of an application."""
         if len(args) < 1:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 backup:create <app> [--no-addons]\n\n"
-                        "Example:\n"
-                        "  hop3 backup:create my-app"
-                    ),
-                }
+                text(
+                    "Usage: hop3 backup:create <app> [--no-addons]\n\n"
+                    "Example:\n"
+                    "  hop3 backup:create my-app"
+                )
             ]
 
         app_name = args[0]
@@ -64,9 +62,7 @@ class BackupCreateCmd(Command):
         with command_context("creating backup", app_name=app_name):
             manager = BackupManager(self.db_session)
 
-            output = [
-                {"t": "text", "text": f"Creating backup for app '{app_name}'...\n"}
-            ]
+            output = [text(f"Creating backup for app '{app_name}'...\n")]
 
             backup_id, backup_path = manager.create_backup(
                 app, include_addons=include_addons
@@ -75,10 +71,7 @@ class BackupCreateCmd(Command):
             # Get backup info for display
             manifest = manager.get_backup_info(backup_id)
 
-            output.append({
-                "t": "success",
-                "text": "Backup created successfully!\n",
-            })
+            output.append(success("Backup created successfully!\n"))
 
             info_lines = [
                 f"Backup ID: {backup_id}",
@@ -105,7 +98,7 @@ class BackupCreateCmd(Command):
                 f"  hop3 backup:restore {backup_id}",
             ])
 
-            output.append({"t": "text", "text": "\n".join(info_lines)})
+            output.append(text("\n".join(info_lines)))
 
         return output
 
@@ -144,8 +137,8 @@ class BackupListCmd(Command):
 
         if not backups:
             if app_name:
-                return [{"t": "text", "text": f"No backups found for app '{app_name}'"}]
-            return [{"t": "text", "text": "No backups found"}]
+                return [text(f"No backups found for app '{app_name}'")]
+            return [text("No backups found")]
 
         # Format as table
         headers = [
@@ -180,7 +173,7 @@ class BackupListCmd(Command):
                 addons_str,
             ])
 
-        return [{"t": "table", "headers": headers, "rows": rows}]
+        return [table(headers=headers, rows=rows)]
 
 
 @register
@@ -201,14 +194,11 @@ class BackupInfoCmd(Command):
         """Get backup information."""
         if len(args) < 1:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 backup:info <backup-id>\n\n"
-                        "Example:\n"
-                        "  hop3 backup:info 20251030_143022_a8f3d9"
-                    ),
-                }
+                text(
+                    "Usage: hop3 backup:info <backup-id>\n\n"
+                    "Example:\n"
+                    "  hop3 backup:info 20251030_143022_a8f3d9"
+                )
             ]
 
         backup_id = args[0]
@@ -269,7 +259,7 @@ class BackupInfoCmd(Command):
             else:
                 lines.append("Integrity: ✗ Some files failed checksum verification")
 
-        return [{"t": "text", "text": "\n".join(lines)}]
+        return [text("\n".join(lines))]
 
 
 @register
@@ -301,15 +291,12 @@ class BackupRestoreCmd(Command):
 
         if not backup_id:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 backup:restore <backup-id> [--target-app NAME]\n\n"
-                        "Examples:\n"
-                        "  hop3 backup:restore 20251030_143022_a8f3d9\n"
-                        "  hop3 backup:restore 20251030_143022_a8f3d9 --target-app new-app"
-                    ),
-                }
+                text(
+                    "Usage: hop3 backup:restore <backup-id> [--target-app NAME]\n\n"
+                    "Examples:\n"
+                    "  hop3 backup:restore 20251030_143022_a8f3d9\n"
+                    "  hop3 backup:restore 20251030_143022_a8f3d9 --target-app new-app"
+                )
             ]
 
         with command_context("restoring backup", backup_id=backup_id):
@@ -319,7 +306,7 @@ class BackupRestoreCmd(Command):
             manifest = manager.get_backup_info(backup_id)
             app_name = target_app_name or manifest.app_name
 
-            output = [{"t": "text", "text": f"Restoring backup {backup_id}...\n"}]
+            output = [text(f"Restoring backup {backup_id}...\n")]
 
             # Verify backup integrity
             verification = manager.verify_backup(backup_id)
@@ -332,10 +319,7 @@ class BackupRestoreCmd(Command):
             # Perform restore
             manager.restore_backup(backup_id, target_app_name)
 
-            output.append({
-                "t": "success",
-                "text": "Restore completed successfully!\n",
-            })
+            output.append(success("Restore completed successfully!\n"))
 
             info_lines = [
                 f"Application: {app_name}",
@@ -346,7 +330,7 @@ class BackupRestoreCmd(Command):
                 f"  hop3 restart {app_name}",
             ]
 
-            output.append({"t": "text", "text": "\n".join(info_lines)})
+            output.append(text("\n".join(info_lines)))
 
         return output
 
@@ -372,15 +356,12 @@ class BackupDeleteCmd(Command):
         """Delete a backup."""
         if len(args) < 1:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 backup:delete <backup-id>\n\n"
-                        "WARNING: This action cannot be undone!\n\n"
-                        "Example:\n"
-                        "  hop3 backup:delete 20251030_143022_a8f3d9"
-                    ),
-                }
+                text(
+                    "Usage: hop3 backup:delete <backup-id>\n\n"
+                    "WARNING: This action cannot be undone!\n\n"
+                    "Example:\n"
+                    "  hop3 backup:delete 20251030_143022_a8f3d9"
+                )
             ]
 
         backup_id = args[0]
@@ -394,24 +375,18 @@ class BackupDeleteCmd(Command):
             # In a real implementation, we would prompt for confirmation here
             # For now, we'll just show a warning
             output = [
-                {
-                    "t": "text",
-                    "text": (
-                        f"Deleting backup {backup_id}\n\n"
-                        f"Application: {manifest.app_name}\n"
-                        f"Size: {format_size(manifest.size_bytes)}\n"
-                        f"Created: {manifest.created_at}\n"
-                    ),
-                }
+                text(
+                    f"Deleting backup {backup_id}\n\n"
+                    f"Application: {manifest.app_name}\n"
+                    f"Size: {format_size(manifest.size_bytes)}\n"
+                    f"Created: {manifest.created_at}\n"
+                )
             ]
 
             # Delete the backup
             manager.delete_backup(backup_id)
 
-            output.append({
-                "t": "success",
-                "text": "Backup deleted successfully",
-            })
+            output.append(success("Backup deleted successfully"))
 
         return output
 

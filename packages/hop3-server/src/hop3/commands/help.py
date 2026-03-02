@@ -7,6 +7,7 @@ from typing import ClassVar
 from hop3.lib.registry import lookup, register
 
 from ._base import Command
+from ._response import error, text
 
 
 @register
@@ -85,9 +86,7 @@ class HelpCmd(Command):
         output.append("")
         output.append("Use 'hop help <command>' to see subcommands and detailed help.")
 
-        return [
-            {"t": "text", "text": "\n".join(output)},
-        ]
+        return [text("\n".join(output))]
 
     def _show_all_commands(self):
         """Show all commands including subcommands (full listing)."""
@@ -106,9 +105,7 @@ class HelpCmd(Command):
             help_text = self._get_short_help(cmd.__doc__)
             output.append(f"  {cmd_name:<24} {help_text}")
 
-        return [
-            {"t": "text", "text": "\n".join(output)},
-        ]
+        return [text("\n".join(output))]
 
     def _detailed_help(self, command_name: str):
         """Show detailed help for a specific command.
@@ -126,11 +123,8 @@ class HelpCmd(Command):
 
         if command_name not in commands:
             return [
-                {"t": "error", "text": f"Unknown command: {command_name}"},
-                {
-                    "t": "text",
-                    "text": "\nRun 'hop help' to see all available commands.",
-                },
+                error(f"Unknown command: {command_name}"),
+                text("\nRun 'hop help' to see all available commands."),
             ]
 
         cmd = commands[command_name]
@@ -154,9 +148,7 @@ class HelpCmd(Command):
                 help_text = self._get_short_help(sub.__doc__)
                 output.append(f"  {sub.name:<28} {help_text}")
 
-        return [
-            {"t": "text", "text": "\n".join(output)},
-        ]
+        return [text("\n".join(output))]
 
     @staticmethod
     def _get_short_help(docstring: str | None) -> str:
