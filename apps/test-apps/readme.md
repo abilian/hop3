@@ -10,9 +10,12 @@ Minimal "Hello World" applications covering core language toolchains. Used for a
 | `010-flask-pip-wsgi` | Python | Flask with pip, uWSGI |
 | `020-nodejs-express` | Node.js | Express.js |
 | `030-golang-gin` | Go | Gin framework |
+| `030-rack` | Ruby | Rack with Puma server |
 | `040-sinatra` | Ruby | Sinatra with Puma |
+| `050-clojure` | Clojure | Aleph server via Leiningen uberjar |
 | `100-flask-gunicorn-pip` | Python | Flask with Gunicorn |
 | `110-flask-gunicorn-poetry` | Python | Flask with Poetry |
+| `120-flask-pip-alt` | Python | Flask with config in hop3/ subdir |
 | `130-golang-minimal` | Go | Minimal Go HTTP server |
 
 ## Running Tests

@@ -4,7 +4,10 @@
 
 from __future__ import annotations
 
+import base64
 import subprocess
+import tarfile
+from io import BytesIO
 from pathlib import Path
 
 from hop3_installer.common import CommandResult, find_project_root
@@ -198,8 +201,6 @@ class VagrantBackend(Backend):
                 check=False,
             )
             # Write content via a different approach - use base64
-            import base64
-
             encoded = base64.b64encode(content).decode()
             result = self.run(
                 f"echo '{encoded}' | base64 -d > {remote_path}", sudo=True
@@ -232,10 +233,6 @@ class VagrantBackend(Backend):
 
         # Directory is outside project - use tar over SSH
         try:
-            import base64
-            import tarfile
-            from io import BytesIO
-
             # Create tar archive in memory
             tar_buffer = BytesIO()
             with tarfile.open(fileobj=tar_buffer, mode="w:gz") as tar:

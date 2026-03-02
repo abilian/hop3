@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import subprocess
+import time
 from pathlib import Path
 
 from hop3_installer.common import CommandResult
@@ -97,8 +98,6 @@ class DockerBackend(Backend):
                     capture_output=True,
                 )
                 # Wait for removal to complete
-                import time
-
                 time.sleep(1)
                 if not self._container_exists():
                     break

@@ -25,7 +25,12 @@ from typing import TYPE_CHECKING
 import pytest
 
 from .utils import bundle_installers, get_backend
-from .utils.backends import docker_available, ssh_host_available, vagrant_installed
+from .utils.backends import (
+    docker_available,
+    ssh_host_available,
+    ssh_host_connectable,
+    vagrant_installed,
+)
 from .utils.installers import get_packages_dir
 
 if TYPE_CHECKING:
@@ -160,8 +165,6 @@ def get_enabled_systemd_backends(config: pytest.Config) -> list[str]:
 
 def get_enabled_deploy_targets(config: pytest.Config) -> list[str]:
     """Get list of enabled deployment targets based on CLI options."""
-    from .utils.backends import ssh_host_connectable
-
     explicit = _explicit_backends_requested(config)
 
     targets = []
