@@ -86,7 +86,11 @@ def run_system_tests(
             console.status(f"[{test.name}] ", details=None)
 
             result = run_single_test(
-                test, target, cleanup=True, verbose=verbose, console=console,
+                test,
+                target,
+                cleanup=True,
+                verbose=verbose,
+                console=console,
                 debug=debug,
             )
             results.append(result)
@@ -158,7 +162,11 @@ def run_app_tests(
             console.status(f"[{test.name}] ", details=None)
 
             result = run_single_test(
-                test, target, cleanup=not keep, verbose=verbose, console=console,
+                test,
+                target,
+                cleanup=not keep,
+                verbose=verbose,
+                console=console,
                 debug=debug,
             )
             results.append(result)

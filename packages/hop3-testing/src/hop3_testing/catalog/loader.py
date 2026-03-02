@@ -461,7 +461,9 @@ def generate_test_definition_from_hop3_toml(
             description = test_section["description"]
 
         # Get validations from test.toml
-        validations = [_parse_validation(v) for v in test_toml_data.get("validations", [])]
+        validations = [
+            _parse_validation(v) for v in test_toml_data.get("validations", [])
+        ]
 
         # Merge metadata
         test_metadata = test_section.get("metadata", {})
@@ -526,7 +528,9 @@ def load_test_definition_smart(app_path: Path) -> TestDefinition:
 
     # Case 1: hop3.toml exists - use it as primary source
     if hop3_data:
-        return generate_test_definition_from_hop3_toml(app_path, hop3_data, test_toml_data)
+        return generate_test_definition_from_hop3_toml(
+            app_path, hop3_data, test_toml_data
+        )
 
     # Case 2: test.toml only
     if test_toml_data:
