@@ -41,7 +41,7 @@ class Backup(BigIntAuditBase):
 
     __tablename__ = "backup"
 
-    app_id: Mapped[int] = mapped_column(ForeignKey(App.id))
+    app_id: Mapped[int] = mapped_column(ForeignKey(App.id, ondelete="CASCADE"))
 
     state: Mapped[BackupStateEnum] = mapped_column(default=BackupStateEnum.SCHEDULED)
     format: Mapped[str] = mapped_column(default="tgz")

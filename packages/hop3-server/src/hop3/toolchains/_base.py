@@ -215,12 +215,25 @@ class LanguageToolchain(ABC):
     def _get_workers(self) -> dict[str, str]:
         """Parse Procfile and return worker commands.
 
+        Checks for Procfile in:
+        1. src_path/hop3/Procfile (alternate config path)
+        2. src_path/Procfile (standard location)
+
+        This matches the behavior of AppConfig.get_file().
+
         Returns:
             Dict mapping worker names to commands, e.g. {"web": "gunicorn app:app"}
         """
+        # Check hop3/ subdirectory first (alternate config path)
+        procfile = self.src_path / "hop3" / "Procfile"
+        if procfile.exists():
+            return dict(parse_procfile(procfile))
+
+        # Check standard location
         procfile = self.src_path / "Procfile"
         if procfile.exists():
             return dict(parse_procfile(procfile))
+
         return {}
 
     def _get_build_id(self) -> str:
