@@ -40,56 +40,21 @@ from hop3.server.streaming import create_stream, stream_context
 
 from ._base import Command
 from ._errors import command_context
+from ._helpers import get_app, redact_sensitive_value
+from ._response import (
+    build_log_response,
+    code,
+    error,
+    logs_to_response,
+    success,
+    table,
+    text,
+    warning,
+)
 from .apps import _get_instance_count
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-
-
-def _get_app(db_session: Session, app_name: str) -> App:
-    """Helper to retrieve an app or raise a consistent error."""
-    app_repo = AppRepository(session=db_session)
-    app = app_repo.get_one_or_none(name=app_name)
-    if not app:
-        msg = f"App '{app_name}' not found."
-        raise ValueError(msg)
-    return app
-
-
-def _logs_to_response(logs: list[dict]) -> list[dict]:
-    """Convert captured log entries to response format.
-
-    Args:
-        logs: List of log entries from captured.get_logs()
-
-    Returns:
-        Response list with log entries in RPC response format
-    """
-    return [
-        {
-            "t": "log",
-            "msg": entry["msg"],
-            "fg": entry.get("fg", ""),
-            "level": entry.get("level", 0),
-        }
-        for entry in logs
-    ]
-
-
-def _build_log_response(captured, final_messages: list[str]) -> list[dict]:
-    """Build response from captured logs and final status messages.
-
-    Args:
-        captured: CapturedLogs context manager result
-        final_messages: List of final text messages to append
-
-    Returns:
-        Response list with log entries and text messages
-    """
-    response = _logs_to_response(captured.get_logs())
-    for msg in final_messages:
-        response.append({"t": "text", "text": msg})
-    return response
 
 
 def _run_lifecycle_action(
@@ -114,13 +79,13 @@ def _run_lifecycle_action(
     Returns:
         Response list with logs and status messages
     """
-    app = _get_app(db_session, app_name)
+    app = get_app(db_session, app_name)
 
     # Check current state if checks are provided
     if state_checks:
         state = app.run_state.name
         if state in state_checks:
-            return [{"t": "text", "text": msg} for msg in state_checks[state]]
+            return [text(msg) for msg in state_checks[state]]
 
     # Capture logs during operation
     with capture_logs() as captured:
@@ -128,7 +93,7 @@ def _run_lifecycle_action(
             getattr(app, action_method)()
             db_session.commit()
 
-    return _build_log_response(captured, final_messages)
+    return build_log_response(captured, final_messages)
 
 
 @register
@@ -156,7 +121,7 @@ class LaunchCmd(Command):
         app_repo = AppRepository(session=self.db_session)
 
         if app_repo.exists(name=app_name):
-            return [{"t": "text", "text": f"Error: App '{app_name}' already exists."}]
+            return [error(f"App '{app_name}' already exists.")]
 
         app = App(name=app_name)
         app.create()
@@ -180,11 +145,10 @@ class LaunchCmd(Command):
             raise
 
         return [
-            {
-                "t": "text",
-                "text": f"App '{app_name}' launched successfully from {repo_url}.\n"
-                f"Run 'hop deploy {app_name}' to build and run it.",
-            }
+            text(
+                f"App '{app_name}' launched successfully from {repo_url}.\n"
+                f"Run 'hop deploy {app_name}' to build and run it."
+            )
         ]
 
 
@@ -204,7 +168,7 @@ class DeployCmd(Command):
         app_name = args[0]
 
         try:
-            app = _get_app(self.db_session, app_name)
+            app = get_app(self.db_session, app_name)
             env_var_names = [ev.name for ev in app.env_vars]
             server_log.info(
                 "Deploy: retrieved existing app",
@@ -344,19 +308,16 @@ class DeployCmd(Command):
                 deploy_error = str(e)
 
         # Build response with logs (always include logs, even on error)
-        response = _logs_to_response(captured.get_logs())
+        response = logs_to_response(captured.get_logs())
 
         if deploy_error:
             # Add error entry and raise with logs so CLI can display them
-            response.append({"t": "error", "text": deploy_error})
+            response.append(error(deploy_error))
             logs_json = json.dumps(response)
             error_with_logs = f"LOGS:{logs_json}|||{deploy_error}"
             raise ValueError(error_with_logs)
 
-        response.append({
-            "t": "text",
-            "text": f"App '{app_name}' deployed successfully.",
-        })
+        response.append(text(f"App '{app_name}' deployed successfully."))
         return response
 
 
@@ -373,7 +334,7 @@ class StatusCmd(Command):
             msg = "Usage: hop app:status <app_name>"
             raise ValueError(msg)
         app_name = args[0]
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
 
         # Sync state with reality for transitional states (STARTING/STOPPING)
         # This verifies actual process status and updates accordingly
@@ -384,21 +345,21 @@ class StatusCmd(Command):
         # Check for state mismatch (DB says RUNNING but no processes found)
         db_state = app.run_state
         effective_state = db_state.name
-        warning = None
+        state_warning = None
 
         if db_state == AppStateEnum.RUNNING:
             actual_state = app.check_actual_status()
             if actual_state == AppStateEnum.STOPPED:
                 effective_state = "CRASHED"
-                warning = "No running processes found (DB state: RUNNING)"
+                state_warning = "No running processes found (DB state: RUNNING)"
 
         rows = [
             ["Name", app.name],
             ["Status", effective_state],
         ]
 
-        if warning:
-            rows.append(["Warning", warning])
+        if state_warning:
+            rows.append(["Warning", state_warning])
 
         # Show helpful message for STARTING state
         if db_state == AppStateEnum.STARTING:
@@ -419,7 +380,7 @@ class StatusCmd(Command):
         if db_state == AppStateEnum.FAILED and app.error_message:
             rows.append(["Error", app.error_message])
 
-        return [{"t": "table", "headers": ["Property", "Value"], "rows": rows}]
+        return [table(["Property", "Value"], rows)]
 
 
 @register
@@ -444,13 +405,13 @@ class PingCmd(Command):
 
         app_name = args[0]
         path = args[1] if len(args) > 1 else "/"
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
 
         if app.run_state.name == "STOPPED":
-            return [{"t": "text", "text": f"App '{app_name}' is stopped."}]
+            return [text(f"App '{app_name}' is stopped.")]
 
         if not app.port:
-            return [{"t": "text", "text": f"App '{app_name}' has no port assigned."}]
+            return [text(f"App '{app_name}' has no port assigned.")]
 
         url = f"http://127.0.0.1:{app.port}{path}"
         timeout = 10  # seconds
@@ -474,48 +435,41 @@ class PingCmd(Command):
                     ["Content-Length", f"{content_length} bytes"],
                 ]
                 return [
-                    {"t": "success", "text": f"App '{app_name}' is responding"},
-                    {"t": "table", "headers": ["Property", "Value"], "rows": rows},
+                    success(f"App '{app_name}' is responding"),
+                    table(["Property", "Value"], rows),
                 ]
 
         except urllib.error.HTTPError as e:
             elapsed = (time.time() - start_time) * 1000
             return [
-                {"t": "warning", "text": f"App '{app_name}' returned HTTP {e.code}"},
-                {
-                    "t": "table",
-                    "headers": ["Property", "Value"],
-                    "rows": [
+                warning(f"App '{app_name}' returned HTTP {e.code}"),
+                table(
+                    ["Property", "Value"],
+                    [
                         ["URL", url],
                         ["Status", f"{e.code} {e.reason}"],
                         ["Response Time", f"{elapsed:.0f}ms"],
                     ],
-                },
+                ),
             ]
 
         except urllib.error.URLError as e:
             reason = str(e.reason)
             if "Connection refused" in reason:
                 return [
-                    {
-                        "t": "error",
-                        "text": f"App '{app_name}' is not listening on port {app.port}",
-                    },
-                    {
-                        "t": "text",
-                        "text": "The app may not be running or may have crashed.",
-                    },
+                    error(f"App '{app_name}' is not listening on port {app.port}"),
+                    text("The app may not be running or may have crashed."),
                 ]
-            return [{"t": "error", "text": f"Connection failed: {reason}"}]
+            return [error(f"Connection failed: {reason}")]
 
         except TimeoutError:
             return [
-                {"t": "error", "text": f"App '{app_name}' timed out after {timeout}s"},
-                {"t": "text", "text": "The app may be overloaded or hung."},
+                error(f"App '{app_name}' timed out after {timeout}s"),
+                text("The app may be overloaded or hung."),
             ]
 
         except Exception as e:
-            return [{"t": "error", "text": f"Error pinging app: {e}"}]
+            return [error(f"Error pinging app: {e}")]
 
 
 @register
@@ -556,7 +510,7 @@ class LogsCmd(Command):
             msg = "Usage: hop3 app:logs <app_name> [options]"
             raise ValueError(msg)
 
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
 
         # Determine since timestamp if --since-deploy is used
         since = None
@@ -564,12 +518,7 @@ class LogsCmd(Command):
             if app.last_deployed_at:
                 since = app.last_deployed_at.isoformat()
             else:
-                return [
-                    {
-                        "t": "warning",
-                        "text": "No deployment timestamp found. Showing all logs.",
-                    }
-                ]
+                return [warning("No deployment timestamp found. Showing all logs.")]
 
         log_lines = app.get_logs(lines=parsed["lines"], since=since)
 
@@ -582,9 +531,9 @@ class LogsCmd(Command):
             msg = "No log entries found"
             if parsed["since_deploy"]:
                 msg += " since last deployment"
-            return [{"t": "text", "text": f"{msg}."}]
+            return [text(f"{msg}.")]
 
-        return [{"t": "text", "text": "\n".join(log_lines)}]
+        return [text("\n".join(log_lines))]
 
 
 @register
@@ -610,25 +559,24 @@ class BuildLogsCmd(Command):
             raise ValueError(msg)
 
         app_name = args[0]
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
 
         # Look for build.log in app's log directory
         build_log_path = app.app_path / "log" / "build.log"
 
         if not build_log_path.exists():
             return [
-                {
-                    "t": "text",
-                    "text": f"No build logs found for '{app_name}'.\n"
-                    "Build logs are created after the first Docker deployment.",
-                }
+                text(
+                    f"No build logs found for '{app_name}'.\n"
+                    "Build logs are created after the first Docker deployment."
+                )
             ]
 
         try:
             content = build_log_path.read_text()
-            return [{"t": "text", "text": content}]
+            return [text(content)]
         except Exception as e:
-            return [{"t": "error", "text": f"Error reading build logs: {e}"}]
+            return [error(f"Error reading build logs: {e}")]
 
 
 @register
@@ -745,12 +693,10 @@ class DestroyCmd(Command):
 
     def call(self, *args):
         if not args:
-            return [
-                {"t": "text", "text": "Usage: hop3 app:destroy <app_name> [--force]"}
-            ]
+            return [text("Usage: hop3 app:destroy <app_name> [--force]")]
         app_name = args[0]
 
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
 
         # Capture logs during destroy operation (uses global verbosity context)
         with capture_logs() as captured:
@@ -770,7 +716,7 @@ class DestroyCmd(Command):
                 # Reload nginx to remove the app's routing configuration
                 self._reload_nginx()
 
-        return _build_log_response(captured, [f"App '{app_name}' has been destroyed."])
+        return build_log_response(captured, [f"App '{app_name}' has been destroyed."])
 
     # TODO: this should use a signal/event bus system instead
     def _reload_nginx(self) -> None:
@@ -836,35 +782,22 @@ class EnvCmd(Command):
         "show_secrets": {"flag": True, "default": False},
     }
 
-    # Patterns that indicate sensitive values
-    SENSITIVE_PATTERNS: ClassVar[list[str]] = [
-        "PASSWORD",
-        "SECRET",
-        "KEY",
-        "TOKEN",
-        "CREDENTIAL",
-        "API_KEY",
-    ]
-
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
         app_name = parsed.get("app_name")
 
         if not app_name:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 app:env <app_name> [--show-secrets]\n\n"
-                        "Examples:\n"
-                        "  hop3 app:env myapp\n"
-                        "  hop3 app:env myapp --show-secrets"
-                    ),
-                }
+                text(
+                    "Usage: hop3 app:env <app_name> [--show-secrets]\n\n"
+                    "Examples:\n"
+                    "  hop3 app:env myapp\n"
+                    "  hop3 app:env myapp --show-secrets"
+                )
             ]
 
         show_secrets = parsed["show_secrets"]
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
 
         # Get addon-injected variable names
         addon_vars = self._get_addon_var_names(app)
@@ -876,22 +809,14 @@ class EnvCmd(Command):
             value = (
                 env_var.value
                 if show_secrets
-                else self._redact_if_sensitive(env_var.name, env_var.value)
+                else redact_sensitive_value(env_var.name, env_var.value)
             )
             rows.append([source, env_var.name, value])
 
         if not rows:
-            return [
-                {"t": "text", "text": f"No environment variables set for '{app_name}'."}
-            ]
+            return [text(f"No environment variables set for '{app_name}'.")]
 
-        return [
-            {
-                "t": "table",
-                "headers": ["Source", "Name", "Value"],
-                "rows": rows,
-            }
-        ]
+        return [table(["Source", "Name", "Value"], rows)]
 
     def _get_addon_var_names(self, app) -> set[str]:
         """Get the names of environment variables injected by addons.
@@ -918,22 +843,6 @@ class EnvCmd(Command):
 
         return addon_vars
 
-    def _redact_if_sensitive(self, name: str, value: str) -> str:
-        """Redact sensitive values, showing only first 4 characters.
-
-        Args:
-            name: Environment variable name
-            value: Environment variable value
-
-        Returns:
-            Redacted value if sensitive, original value otherwise
-        """
-        if any(pattern in name.upper() for pattern in self.SENSITIVE_PATTERNS):
-            if len(value) > 4:
-                return value[:4] + "***"
-            return "***"
-        return value
-
 
 @register
 @dataclass(frozen=True)
@@ -959,35 +868,22 @@ class DebugCmd(Command):
     db_session: Session
     name: ClassVar[str] = "app:debug"
 
-    # Patterns that indicate sensitive values
-    SENSITIVE_PATTERNS: ClassVar[list[str]] = [
-        "PASSWORD",
-        "SECRET",
-        "KEY",
-        "TOKEN",
-        "CREDENTIAL",
-        "API_KEY",
-    ]
-
     def call(self, *args):
         if not args:
             return [
-                {
-                    "t": "text",
-                    "text": (
-                        "Usage: hop3 app:debug <app_name>\n\n"
-                        "Shows comprehensive debug information including:\n"
-                        "  - App status and state\n"
-                        "  - Container info (Docker apps)\n"
-                        "  - Recent logs\n"
-                        "  - Environment variables\n"
-                        "  - Generated compose file"
-                    ),
-                }
+                text(
+                    "Usage: hop3 app:debug <app_name>\n\n"
+                    "Shows comprehensive debug information including:\n"
+                    "  - App status and state\n"
+                    "  - Container info (Docker apps)\n"
+                    "  - Recent logs\n"
+                    "  - Environment variables\n"
+                    "  - Generated compose file"
+                )
             ]
 
         app_name = args[0]
-        app = _get_app(self.db_session, app_name)
+        app = get_app(self.db_session, app_name)
 
         sections = []
 
@@ -1047,21 +943,22 @@ class DebugCmd(Command):
             rows.append(["Error", app.error_message])
 
         result: list[dict[str, Any]] = [
-            {"t": "text", "text": "=== APP STATUS ==="},
-            {"t": "table", "headers": ["Property", "Value"], "rows": rows},
+            text("=== APP STATUS ==="),
+            table(["Property", "Value"], rows),
         ]
 
         if state_mismatch:
-            result.append({
-                "t": "warning",
-                "text": "⚠ State mismatch detected! DB says RUNNING but no processes found.",
-            })
+            result.append(
+                warning(
+                    "State mismatch detected! DB says RUNNING but no processes found."
+                )
+            )
 
         return result
 
     def _get_container_section(self, app) -> list[dict[str, Any]]:
         """Get Docker container information."""
-        result = [{"t": "text", "text": "\n=== CONTAINER INFO ==="}]
+        result: list[dict[str, Any]] = [text("\n=== CONTAINER INFO ===")]
 
         try:
             container_info = subprocess.run(
@@ -1082,65 +979,60 @@ class DebugCmd(Command):
             )
 
             if container_info.stdout.strip():
-                result.append({"t": "text", "text": container_info.stdout.strip()})
+                result.append(text(container_info.stdout.strip()))
             else:
-                result.append({"t": "text", "text": "No containers found."})
+                result.append(text("No containers found."))
 
             if container_info.stderr.strip():
-                result.append({
-                    "t": "text",
-                    "text": f"stderr: {container_info.stderr.strip()}",
-                })
+                result.append(text(f"stderr: {container_info.stderr.strip()}"))
 
         except subprocess.TimeoutExpired:
-            result.append({"t": "text", "text": "Timeout getting container info"})
+            result.append(text("Timeout getting container info"))
         except FileNotFoundError:
-            result.append({"t": "text", "text": "Docker command not available"})
+            result.append(text("Docker command not available"))
         except Exception as e:
-            result.append({"t": "text", "text": f"Error: {e}"})
+            result.append(text(f"Error: {e}"))
 
         return result
 
     def _get_logs_section(self, app) -> list[dict[str, Any]]:
         """Get recent logs."""
-        result = [{"t": "text", "text": "\n=== RECENT LOGS (last 20 lines) ==="}]
+        result: list[dict[str, Any]] = [text("\n=== RECENT LOGS (last 20 lines) ===")]
 
         try:
             logs = app.get_logs(lines=20)
             if logs:
-                result.append({"t": "text", "text": "\n".join(logs[-20:])})
+                result.append(text("\n".join(logs[-20:])))
             else:
-                result.append({"t": "text", "text": "No logs available."})
+                result.append(text("No logs available."))
         except Exception as e:
-            result.append({"t": "text", "text": f"Error getting logs: {e}"})
+            result.append(text(f"Error getting logs: {e}"))
 
         return result
 
     def _get_env_section(self, app) -> list[dict[str, Any]]:
         """Get environment variables (redacted)."""
-        result: list[dict[str, Any]] = [
-            {"t": "text", "text": "\n=== ENVIRONMENT VARIABLES ==="}
-        ]
+        result: list[dict[str, Any]] = [text("\n=== ENVIRONMENT VARIABLES ===")]
 
         if not app.env_vars:
-            result.append({"t": "text", "text": "No environment variables set."})
+            result.append(text("No environment variables set."))
             return result
 
         rows = []
         for env_var in sorted(app.env_vars, key=lambda x: x.name)[:15]:  # Limit to 15
-            value = self._redact(env_var.name, env_var.value)
+            value = redact_sensitive_value(env_var.name, env_var.value)
             rows.append([env_var.name, value])
 
         if len(app.env_vars) > 15:
             rows.append(["...", f"({len(app.env_vars) - 15} more)"])
 
-        result.append({"t": "table", "headers": ["Name", "Value"], "rows": rows})
+        result.append(table(["Name", "Value"], rows))
 
         return result
 
     def _get_compose_section(self, app) -> list[dict[str, Any]]:
         """Get generated compose file content."""
-        result = [{"t": "text", "text": "\n=== GENERATED COMPOSE FILE ==="}]
+        result: list[dict[str, Any]] = [text("\n=== GENERATED COMPOSE FILE ===")]
 
         compose_path = app.src_path / ".hop3-compose.yml"
         if compose_path.exists():
@@ -1149,28 +1041,17 @@ class DebugCmd(Command):
                 # Truncate if too long
                 if len(content) > 2000:
                     content = content[:2000] + "\n... (truncated)"
-                result.append({"t": "code", "lang": "yaml", "text": content})
+                result.append(code(content, "yaml"))
             except Exception as e:
-                result.append({"t": "text", "text": f"Error reading compose file: {e}"})
+                result.append(text(f"Error reading compose file: {e}"))
         else:
             # Check for user-provided compose file
             for filename in ["docker-compose.yml", "docker-compose.yaml"]:
                 user_compose = app.src_path / filename
                 if user_compose.exists():
-                    result.append({
-                        "t": "text",
-                        "text": f"Using user-provided {filename}",
-                    })
+                    result.append(text(f"Using user-provided {filename}"))
                     break
             else:
-                result.append({"t": "text", "text": "No compose file found."})
+                result.append(text("No compose file found."))
 
         return result
-
-    def _redact(self, name: str, value: str) -> str:
-        """Redact sensitive values."""
-        if any(pattern in name.upper() for pattern in self.SENSITIVE_PATTERNS):
-            if len(value) > 4:
-                return value[:4] + "***"
-            return "***"
-        return value
