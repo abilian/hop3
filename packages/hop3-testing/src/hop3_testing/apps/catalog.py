@@ -30,5 +30,12 @@ class AppSource:
 
     @property
     def has_procfile(self) -> bool:
-        """Check if app has a Procfile."""
-        return (self.path / "Procfile").exists()
+        """Check if app has a Procfile.
+
+        Checks for Procfile in:
+        1. Root directory (standard location)
+        2. hop3/ subdirectory (alternate config path)
+        """
+        return (self.path / "Procfile").exists() or (
+            self.path / "hop3" / "Procfile"
+        ).exists()
