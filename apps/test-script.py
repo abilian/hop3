@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
-"""Test script for NGI apps.
+"""Test script for packaged apps.
 
 Deploys apps to a Hop3 server and verifies they're running.
 
 Usage:
     # Test specific app
-    python test-script.py docker-based/wordpress
+    python test-script.py docker-apps/wordpress
 
     # Test all apps in a directory
-    python test-script.py "docker-based/*"
+    python test-script.py "docker-apps/*"
 
     # Test multiple apps
-    python test-script.py docker-based/wordpress docker-based/ghost
+    python test-script.py docker-apps/wordpress docker-apps/ghost
+
+    # Test native apps
+    python test-script.py "native-apps/*"
 
     # Test with cleanup
-    python test-script.py --cleanup docker-based/wordpress
+    python test-script.py --cleanup docker-apps/wordpress
 
     # Enable debug output
-    python test-script.py --debug docker-based/wordpress
+    python test-script.py --debug docker-apps/wordpress
 """
 
 from __future__ import annotations
@@ -673,9 +676,9 @@ def main():
     DEBUG = "--debug" in args
     args = [a for a in args if not a.startswith("--")]
 
-    # Default to docker-based/* if no args
+    # Default to docker-apps/* if no args
     if not args:
-        args = ["docker-based/*"]
+        args = ["docker-apps/*"]
 
     # Create logs directory
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -685,10 +688,10 @@ def main():
 
     if not app_paths:
         print(f"No apps found matching: {args}")
-        print(f"Available apps in docker-based/:")
-        for p in sorted((SCRIPT_DIR / "docker-based").glob("*")):
+        print(f"Available apps in docker-apps/:")
+        for p in sorted((SCRIPT_DIR / "docker-apps").glob("*")):
             if p.is_dir() and (p / "hop3.toml").exists():
-                print(f"  docker-based/{p.name}")
+                print(f"  docker-apps/{p.name}")
         sys.exit(1)
 
     # Parse app configs

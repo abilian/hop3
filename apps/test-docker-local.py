@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""Test Docker builds for NGI apps locally."""
+"""Test Docker builds for packaged apps locally.
+
+Usage:
+    # Build all Docker apps
+    python test-docker-local.py docker-apps/*
+
+    # Build specific app
+    python test-docker-local.py docker-apps/wordpress
+
+    # Build without cache
+    python test-docker-local.py --no-cache docker-apps/wordpress
+"""
 
 import argparse
 import subprocess

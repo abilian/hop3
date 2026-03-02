@@ -22,6 +22,7 @@ from hop3_testing.targets.constants import (
     create_test_token,
 )
 from hop3_testing.util.console import Console, PrintingConsole, Verbosity
+from hop3_testing.util.streaming import run_streaming
 
 from .debug import DeploymentDebugger
 from .preparation import AppPreparation
@@ -171,53 +172,71 @@ class DeploymentSession:
     def _deploy_via_cli(self) -> bool:
         """Deploy via hop3 CLI subprocess.
 
+        Uses streaming output in verbose mode to show progress during
+        long-running deployments (e.g., Docker builds).
+
         Returns:
             True if deployment succeeded, False otherwise
         """
         env = self._build_cli_env()
+        cmd = ["hop3", "deploy", self.app_name, str(self._preparation.temp_dir)]
 
-        # Deploy from prepared temp directory
-        # The CLI will create a tarball from this directory (excluding .git)
-        result = subprocess.run(
-            ["hop3", "deploy", self.app_name, str(self._preparation.temp_dir)],
-            env=env,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        # Use streaming in verbose mode to show real-time progress
+        verbose = self.config.get("verbose", False)
+        debug = self.config.get("debug", False)
 
-        self.console.debug(f"Deploy exit code: {result.returncode}")
-        if result.stdout.strip():
-            self.console.debug(f"Deploy stdout: {result.stdout.strip()}")
+        if verbose or debug:
+            # Stream output line by line
+            def on_output(line: str):
+                # Filter cryptography warnings
+                if "CryptographyDeprecationWarning" not in line and "TripleDES" not in line:
+                    self.console.info(f"  {line}")
 
-        # Filter cryptography warnings from stderr
-        if result.stderr.strip():
-            stderr_lines = [
-                line
-                for line in result.stderr.split("\n")
-                if "CryptographyDeprecationWarning" not in line
-                and "TripleDES" not in line
-                and line.strip()
-            ]
-            if stderr_lines:
-                self.console.debug(f"Deploy stderr: {' '.join(stderr_lines)}")
+            result = run_streaming(cmd, on_output=on_output, env=env, timeout=600)
+            stdout = result.stdout
+            returncode = result.returncode
 
-        if result.returncode != 0:
-            # Build detailed error message including both stdout and stderr
-            error_parts = [f"Exit code: {result.returncode}"]
-            if result.stdout.strip():
-                error_parts.append(f"stdout: {result.stdout.strip()}")
-            if result.stderr.strip():
-                # Filter cryptography warnings from error message
+            if result.timed_out:
+                self._last_deploy_error = "Deploy timed out after 10 minutes"
+                self.console.error(self._last_deploy_error)
+                return False
+        else:
+            # Non-streaming mode for quiet operation
+            proc_result = subprocess.run(
+                cmd,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            stdout = proc_result.stdout
+            returncode = proc_result.returncode
+
+            self.console.debug(f"Deploy exit code: {returncode}")
+            if stdout.strip():
+                self.console.debug(f"Deploy stdout: {stdout.strip()}")
+
+            # Filter cryptography warnings from stderr
+            if proc_result.stderr.strip():
                 stderr_lines = [
                     line
-                    for line in result.stderr.split("\n")
+                    for line in proc_result.stderr.split("\n")
                     if "CryptographyDeprecationWarning" not in line
                     and "TripleDES" not in line
                     and line.strip()
                 ]
                 if stderr_lines:
-                    error_parts.append(f"stderr: {' '.join(stderr_lines)}")
+                    self.console.debug(f"Deploy stderr: {' '.join(stderr_lines)}")
+
+        if returncode != 0:
+            # Build detailed error message
+            error_parts = [f"Exit code: {returncode}"]
+            if stdout.strip():
+                # Truncate long output
+                stdout_preview = stdout.strip()[:500]
+                if len(stdout.strip()) > 500:
+                    stdout_preview += "..."
+                error_parts.append(f"stdout: {stdout_preview}")
 
             self._last_deploy_error = " | ".join(error_parts) if len(error_parts) > 1 else "Deploy command failed (no output)"
             self.console.error(f"Deploy failed: {self._last_deploy_error}")

@@ -15,7 +15,7 @@ import click
 from hop3_testing.catalog import Catalog
 from hop3_testing.catalog.loader import (
     generate_test_definition_from_app,
-    load_test_definition,
+    load_test_definition_smart,
 )
 from hop3_testing.catalog.models import TestDefinition
 from hop3_testing.cli.runners import run_app_tests, run_system_tests
@@ -127,6 +127,12 @@ def package(
     help="Report format: none, text (console), or html",
 )
 @click.option("-q", "--quiet", is_flag=True, help="Quiet mode (suppress recap)")
+@click.option("--debug", is_flag=True, help="Show detailed debug info on failure")
+@click.option(
+    "--logs-dir",
+    type=click.Path(),
+    help="Directory to save per-app log files",
+)
 @click.pass_context
 def system_test(
     ctx: click.Context,
@@ -144,6 +150,8 @@ def system_test(
     fail_fast: bool,
     report: str,
     quiet: bool,
+    debug: bool,
+    logs_dir: str | None,
 ) -> None:
     """Test Hop3 system using real hop3-deploy.
 
@@ -242,7 +250,116 @@ def system_test(
         target_obj = RemoteTarget(remote_config, deployment=deployment)
 
     # Run tests
-    run_system_tests(ctx, tests, target_obj, keep, fail_fast, report, quiet)
+    run_system_tests(
+        ctx, tests, target_obj, keep, fail_fast, report, quiet, debug, logs_dir
+    )
+
+
+def _load_test_from_path(path_str: str) -> tuple[TestDefinition | None, str | None]:
+    """Load a test directly from a path without catalog lookup.
+
+    Args:
+        path_str: Path to the test directory
+
+    Returns:
+        Tuple of (test_definition, error_message). One will be None.
+    """
+    path = Path(path_str.rstrip("/"))
+
+    if not path.is_dir():
+        return None, f"Not a directory: {path}"
+
+    # Check for hop3.toml or test.toml
+    if not (path / "hop3.toml").exists() and not (path / "test.toml").exists():
+        # Check if it looks like a legacy app
+        if not (path / "Procfile").exists() and not (path / "index.html").exists():
+            return None, f"No hop3.toml, test.toml, or Procfile found in {path}"
+
+    try:
+        test = load_test_definition_smart(path)
+        return test, None
+    except Exception as e:
+        return None, f"Failed to load {path}: {e}"
+
+
+def _all_args_are_paths(app_names: tuple[str, ...]) -> bool:
+    """Check if all arguments look like paths (contain / or are directories)."""
+    if not app_names:
+        return False
+    return all("/" in name or Path(name).is_dir() for name in app_names)
+
+
+def _select_tests_for_apps(
+    app_names: tuple[str, ...],
+    category: str | None,
+    root: Path,
+) -> list[TestDefinition]:
+    """Select tests based on app names or category.
+
+    Bypasses catalog scan when all arguments are paths for efficiency.
+    """
+    tests: list[TestDefinition] = []
+
+    if app_names and _all_args_are_paths(app_names):
+        # Direct path loading - no catalog scan needed
+        for path_str in app_names:
+            test, error = _load_test_from_path(path_str)
+            if test:
+                tests.append(test)
+            elif error:
+                click.echo(f"Warning: {error}", err=True)
+    elif app_names or category:
+        # Need catalog for name-based lookup or category filtering
+        catalog = Catalog(root)
+        catalog.scan()
+
+        if app_names:
+            for name in app_names:
+                test, error = _lookup_test_by_name_or_path(name, catalog)
+                if test:
+                    tests.append(test)
+                elif error:
+                    click.echo(f"Warning: {error}", err=True)
+        else:
+            # category is set
+            tests = catalog.filter(categories=[category])
+    else:
+        # No args - scan catalog and get all deployment tests
+        catalog = Catalog(root)
+        catalog.scan()
+        tests = catalog.filter(categories=["deployment"])
+
+    return tests
+
+
+def _create_app_test_target(
+    target: str,
+    image: str,
+    host: str | None,
+    port: int,
+    user: str,
+    ssh_key: str | None,
+) -> DockerTarget | RemoteTarget:
+    """Create target for app testing."""
+    if target in {"ready", "docker"}:
+        docker_config = DockerConfig(
+            image=image if target == "ready" else "hop3-ready:latest",
+            container_name="hop3-app-test",
+        )
+        return DockerTarget(docker_config)
+
+    # Remote target
+    if not host:
+        click.echo("--host required for remote target", err=True)
+        sys.exit(1)
+    assert host is not None
+    remote_config = RemoteConfig(
+        host=host,
+        port=port,
+        user=user,
+        ssh_key=ssh_key,
+    )
+    return RemoteTarget(remote_config)
 
 
 def _lookup_test_by_name_or_path(name: str, catalog: Catalog) -> tuple:
@@ -258,15 +375,15 @@ def _lookup_test_by_name_or_path(name: str, catalog: Catalog) -> tuple:
         path = Path(name.rstrip("/"))
         test = catalog.get_test_by_path(path)
 
-        # If path lookup failed but it's a valid directory with test.toml,
-        # try to load it directly
+        # If path lookup failed but it's a valid directory,
+        # try to load it directly using smart loading (hop3.toml + test.toml)
         if test is None and path.is_dir():
-            test_toml = path / "test.toml"
-            if test_toml.exists():
+            # Try smart loading which handles hop3.toml, test.toml, or auto-generation
+            if (path / "hop3.toml").exists() or (path / "test.toml").exists():
                 try:
-                    test = load_test_definition(test_toml)
+                    test = load_test_definition_smart(path)
                 except Exception as e:
-                    return None, f"Failed to load {test_toml}: {e}"
+                    return None, f"Failed to load {path}: {e}"
 
     # Fall back to name-based lookup
     if test is None:
@@ -307,6 +424,12 @@ def _lookup_test_by_name_or_path(name: str, catalog: Catalog) -> tuple:
     help="Report format: none, text (console), or html",
 )
 @click.option("-q", "--quiet", is_flag=True, help="Quiet mode (suppress recap)")
+@click.option("--debug", is_flag=True, help="Show detailed debug info on failure")
+@click.option(
+    "--logs-dir",
+    type=click.Path(),
+    help="Directory to save per-app log files",
+)
 @click.pass_context
 def apps_test(
     ctx: click.Context,
@@ -322,6 +445,8 @@ def apps_test(
     fail_fast: bool,
     report: str,
     quiet: bool,
+    debug: bool,
+    logs_dir: str | None,
 ) -> None:
     """Test applications against a pre-deployed Hop3 server.
 
@@ -337,29 +462,12 @@ def apps_test(
     Examples:
         hop3-test apps                      # Test all apps against ready image
         hop3-test apps 010-flask            # Test specific app
+        hop3-test apps apps/docker-apps/*   # Test specific paths (no catalog scan)
         hop3-test apps --category python    # Test by category
         hop3-test apps --target remote --host X  # Against remote server
     """
-    verbose = ctx.obj["verbose"]
-
-    # Load catalog
-    catalog = Catalog(ctx.obj["root"])
-    catalog.scan()
-
-    # Select tests
-    if app_names:
-        tests = []
-        for name in app_names:
-            test, error = _lookup_test_by_name_or_path(name, catalog)
-            if test:
-                tests.append(test)
-            elif error:
-                click.echo(f"Warning: {error}", err=True)
-    elif category:
-        tests = catalog.filter(categories=[category])
-    else:
-        # All deployment tests (not demos/tutorials)
-        tests = catalog.filter(categories=["deployment"])
+    # Select tests - bypass catalog scan when all args are paths
+    tests = _select_tests_for_apps(app_names, category, ctx.obj["root"])
 
     if not tests:
         click.echo("No tests found")
@@ -374,28 +482,8 @@ def apps_test(
         click.echo(f"Image: {image}")
     click.echo(f"Tests to run: {len(tests)}")
 
-    # Create target (no deployment - app testing uses pre-deployed servers)
-    target_obj: DockerTarget | RemoteTarget
-    if target in {"ready", "docker"}:
-        # Both use DockerTarget with pre-built image (no deployment)
-        docker_config = DockerConfig(
-            image=image if target == "ready" else "hop3-ready:latest",
-            container_name="hop3-app-test",
-        )
-        target_obj = DockerTarget(docker_config)
-    else:
-        # Remote target (connect-only, no deployment)
-        if not host:
-            click.echo("--host required for remote target", err=True)
-            sys.exit(1)
-        assert host is not None  # Type narrowing after sys.exit
-        remote_config = RemoteConfig(
-            host=host,
-            port=port,
-            user=user,
-            ssh_key=ssh_key,
-        )
-        target_obj = RemoteTarget(remote_config)
-
-    # Run tests
-    run_app_tests(ctx, tests, target_obj, keep, fail_fast, report, quiet)
+    # Create target and run tests
+    target_obj = _create_app_test_target(target, image, host, port, user, ssh_key)
+    run_app_tests(
+        ctx, tests, target_obj, keep, fail_fast, report, quiet, debug, logs_dir
+    )
