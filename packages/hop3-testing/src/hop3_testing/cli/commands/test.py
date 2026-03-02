@@ -17,6 +17,7 @@ from hop3_testing.catalog.loader import (
     generate_test_definition_from_app,
     load_test_definition,
 )
+from hop3_testing.catalog.models import TestDefinition
 from hop3_testing.cli.runners import run_app_tests, run_system_tests
 from hop3_testing.results import ConsoleReporter
 from hop3_testing.runners import DeploymentTestRunner
@@ -244,6 +245,43 @@ def system_test(
     run_system_tests(ctx, tests, target_obj, keep, fail_fast, report, quiet)
 
 
+def _lookup_test_by_name_or_path(name: str, catalog: Catalog) -> tuple:
+    """Look up a test by name or path.
+
+    Returns:
+        Tuple of (test_definition, error_message). One will be None.
+    """
+    test: TestDefinition | None = None
+
+    # Check if it looks like a path (contains / or is a valid directory)
+    if "/" in name or Path(name).is_dir():
+        path = Path(name.rstrip("/"))
+        test = catalog.get_test_by_path(path)
+
+        # If path lookup failed but it's a valid directory with test.toml,
+        # try to load it directly
+        if test is None and path.is_dir():
+            test_toml = path / "test.toml"
+            if test_toml.exists():
+                try:
+                    test = load_test_definition(test_toml)
+                except Exception as e:
+                    return None, f"Failed to load {test_toml}: {e}"
+
+    # Fall back to name-based lookup
+    if test is None:
+        test = catalog.get_test(name)
+        # Also try just the directory name if full path was given
+        if test is None and "/" in name:
+            dir_name = Path(name).name
+            test = catalog.get_test(dir_name)
+
+    if test is None:
+        return None, f"Test not found: {name}"
+
+    return test, None
+
+
 @click.command("apps")
 @click.argument("app_names", nargs=-1)
 @click.option(
@@ -312,41 +350,11 @@ def apps_test(
     if app_names:
         tests = []
         for name in app_names:
-            test = None
-
-            # Check if it looks like a path (contains / or is a valid directory)
-            if "/" in name or Path(name).is_dir():
-                # Try path-based lookup
-                path = Path(name)
-                # Remove trailing slash if present
-                if name.endswith("/"):
-                    path = Path(name.rstrip("/"))
-                test = catalog.get_test_by_path(path)
-
-                # If path lookup failed but it's a valid directory with test.toml,
-                # try to load it directly
-                if test is None and path.is_dir():
-                    test_toml = path / "test.toml"
-                    if test_toml.exists():
-                        try:
-                            test = load_test_definition(test_toml)
-                        except Exception as e:
-                            click.echo(
-                                f"Warning: Failed to load {test_toml}: {e}", err=True
-                            )
-
-            # Fall back to name-based lookup
-            if test is None:
-                test = catalog.get_test(name)
-                # Also try just the directory name if full path was given
-                if test is None and "/" in name:
-                    dir_name = Path(name).name
-                    test = catalog.get_test(dir_name)
-
+            test, error = _lookup_test_by_name_or_path(name, catalog)
             if test:
                 tests.append(test)
-            else:
-                click.echo(f"Warning: Test not found: {name}", err=True)
+            elif error:
+                click.echo(f"Warning: {error}", err=True)
     elif category:
         tests = catalog.filter(categories=[category])
     else:
