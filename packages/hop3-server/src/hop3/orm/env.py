@@ -21,7 +21,7 @@ class EnvVar(BigIntBase):
 
     __tablename__ = "env_var"
 
-    app_id: Mapped[int] = mapped_column(ForeignKey(App.id))
+    app_id: Mapped[int] = mapped_column(ForeignKey(App.id, ondelete="CASCADE"))
     # Foreign key referencing an app instance in another table
 
     app: Mapped[App] = relationship(back_populates="env_vars")
