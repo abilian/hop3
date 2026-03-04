@@ -157,9 +157,13 @@ def _handle_login_response(
         case Ok(result=result):
             token = _extract_token_from_login_response(result)
             if token:
-                config.save({"api_token": token})
+                saved_to_context = config.update_context_token(token)
                 print(f"Logged in as {username}")
-                print(f"Token saved to {config.config_file}")
+                if saved_to_context:
+                    context_name = config.get_current_context_name()
+                    print(f"Token saved to context '{context_name}'")
+                else:
+                    print(f"Token saved to {config.config_file}")
             else:
                 printer.print(result)
         case Error(message=message):
@@ -204,10 +208,16 @@ def handle_login_token(args: list[str], config: Config, printer: RichPrinter) ->
         sys.exit(1)
 
     # Save configuration only after successful verification
-    config.save({"api_url": server_url, "api_token": token})
+    saved_to_context = config.update_context_credentials(
+        api_url=server_url, api_token=token
+    )
 
     print(f"\nLogged in as {username}")
-    print(f"Configuration saved to {config.config_file}")
+    if saved_to_context:
+        context_name = config.get_current_context_name()
+        print(f"Credentials saved to context '{context_name}'")
+    else:
+        print(f"Configuration saved to {config.config_file}")
 
     return True
 
@@ -331,6 +341,39 @@ def _extract_username_from_whoami(result: list[dict]) -> str | None:
     return "user"  # Default if we can't extract
 
 
+def _determine_save_url(
+    api_url: str | None,
+    ssh_target: str,
+    token: str,
+    config: Config,
+    debug_level: int,
+) -> tuple[str, dict]:
+    """Determine the API URL to save and any extra config kwargs.
+
+    Returns:
+        Tuple of (save_url, extra_kwargs)
+    """
+    extra_kwargs = {}
+    if api_url:
+        # User explicitly provided URL - use HTTP API
+        save_url = api_url
+        if debug_level >= 1:
+            print(f"[debug] Will use HTTP API at: {api_url}")
+        # For HTTPS, verify the connection works with system CA bundle
+        if api_url.startswith("https://"):
+            config_data = {"api_url": api_url, "api_token": token}
+            _verify_https_connection(api_url, token, config, config_data, debug_level)
+            if "verify_ssl" in config_data:
+                extra_kwargs["verify_ssl"] = config_data["verify_ssl"]
+    else:
+        # Default: use SSH tunnel for all subsequent commands
+        save_url = _build_ssh_url(ssh_target)
+        if debug_level >= 1:
+            print(f"[debug] Will use SSH tunnel: {save_url}")
+
+    return save_url, extra_kwargs
+
+
 def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> bool:
     """Handle the login --ssh command for getting token via SSH.
 
@@ -367,28 +410,22 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> b
         print(f"[debug] Token received: {token[:20]}...{token[-10:]}")
 
     # Determine API URL to save
-    if api_url:
-        # User explicitly provided URL - use HTTP API
-        config_data = {"api_url": api_url, "api_token": token}
-        if debug_level >= 1:
-            print(f"[debug] Will use HTTP API at: {api_url}")
-        # For HTTPS, verify the connection works with system CA bundle
-        if api_url.startswith("https://"):
-            _verify_https_connection(api_url, token, config, config_data, debug_level)
-    else:
-        # Default: use SSH tunnel for all subsequent commands
-        # This avoids SSL certificate issues and uses SSH key authentication
-        ssh_url = _build_ssh_url(ssh_target)
-        config_data = {"api_url": ssh_url, "api_token": token}
-        if debug_level >= 1:
-            print(f"[debug] Will use SSH tunnel: {ssh_url}")
+    save_url, extra_kwargs = _determine_save_url(
+        api_url, ssh_target, token, config, debug_level
+    )
 
-    config.save(config_data)
+    saved_to_context = config.update_context_credentials(
+        api_url=save_url, api_token=token, **extra_kwargs
+    )
 
     if debug_level >= 1:
-        print(f"[debug] Config saved to: {config.config_file}")
+        if saved_to_context:
+            context_name = config.get_current_context_name()
+            print(f"[debug] Credentials saved to context: {context_name}")
+        else:
+            print(f"[debug] Config saved to: {config.config_file}")
 
-    _print_login_success(username, config)
+    _print_login_success(username, config, saved_to_context)
     return True
 
 
@@ -568,10 +605,16 @@ def _handle_ssl_certificate(
         print("    hop3 settings set verify_ssl false")
 
 
-def _print_login_success(username: str, config: Config) -> None:
+def _print_login_success(
+    username: str, config: Config, saved_to_context: bool = False
+) -> None:
     """Print success message after login."""
     print(f"\nToken generated for user '{username}'")
-    print(f"Configuration saved to {config.config_file}")
+    if saved_to_context:
+        context_name = config.get_current_context_name()
+        print(f"Credentials saved to context '{context_name}'")
+    else:
+        print(f"Configuration saved to {config.config_file}")
     print("\nWelcome back! Try:")
     print("  hop3 apps           # List applications")
     print("  hop3 auth:whoami    # Check current user")

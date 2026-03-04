@@ -229,27 +229,21 @@ def context_use(args: list[str], config: Config, printer: RichPrinter) -> bool:
     return True
 
 
-def context_add(args: list[str], config: Config, printer: RichPrinter) -> bool:
-    """Add a new context."""
-    if not args:
-        print(
-            "Usage: hop3 context add <name> --server <url> [options]", file=sys.stderr
-        )
-        print("\nOptions:")
-        print("  --server <url>     Server URL (required)")
-        print("  --token <token>    API authentication token")
-        print("  --protected        Mark as protected (requires confirmation)")
-        print("  --ssh-user <user>  SSH username (default: root)")
-        print("  --ssh-port <port>  SSH port (default: 22)")
-        sys.exit(1)
+def _parse_context_add_args(
+    args: list[str],
+) -> tuple[str, str | None, str, bool, bool, str, int]:
+    """Parse arguments for context add command.
 
+    Returns:
+        Tuple of (name, server, token, protected, set_default, ssh_user, ssh_port)
+    """
     name = args[0]
     remaining = args[1:]
 
-    # Parse options
     server = None
     token = ""
     protected = False
+    set_default = False
     ssh_user = "root"
     ssh_port = 22
 
@@ -265,6 +259,9 @@ def context_add(args: list[str], config: Config, printer: RichPrinter) -> bool:
         elif arg == "--protected":
             protected = True
             i += 1
+        elif arg == "--default":
+            set_default = True
+            i += 1
         elif arg == "--ssh-user" and i + 1 < len(remaining):
             ssh_user = remaining[i + 1]
             i += 2
@@ -274,6 +271,28 @@ def context_add(args: list[str], config: Config, printer: RichPrinter) -> bool:
         else:
             print(f"Unknown option: {arg}", file=sys.stderr)
             sys.exit(1)
+
+    return name, server, token, protected, set_default, ssh_user, ssh_port
+
+
+def context_add(args: list[str], config: Config, printer: RichPrinter) -> bool:
+    """Add a new context."""
+    if not args:
+        print(
+            "Usage: hop3 context add <name> --server <url> [options]", file=sys.stderr
+        )
+        print("\nOptions:")
+        print("  --server <url>     Server URL (required)")
+        print("  --token <token>    API authentication token")
+        print("  --protected        Mark as protected (requires confirmation)")
+        print("  --default          Set as the default context")
+        print("  --ssh-user <user>  SSH username (default: root)")
+        print("  --ssh-port <port>  SSH port (default: 22)")
+        sys.exit(1)
+
+    name, server, token, protected, set_default, ssh_user, ssh_port = (
+        _parse_context_add_args(args)
+    )
 
     if not server:
         print("Error: --server is required", file=sys.stderr)
@@ -303,9 +322,14 @@ def context_add(args: list[str], config: Config, printer: RichPrinter) -> bool:
     if protected:
         print("  Protected: yes")
 
-    # If this is the first context, it's automatically current
-    if len(config.get_contexts()) == 1:
-        print(f"\nContext '{name}' is now current.")
+    # Set as default if requested or if it's the first context
+    is_first_context = len(config.get_contexts()) == 1
+    if set_default or is_first_context:
+        config.set_global_context(name)
+        if set_default:
+            print(f"\nContext '{name}' is now the default.")
+        else:
+            print(f"\nContext '{name}' is now current (first context).")
 
     return True
 

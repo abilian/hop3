@@ -15,6 +15,7 @@ Bootstrap a new Hop3 server connection by creating an admin user.
 
 Options:
   --ssh <user@server>    SSH target for the server (required)
+  --context <name>       Create a named context for this server
   --username <name>      Admin username (prompted if not provided)
   --email <email>        Admin email (prompted if not provided)
   --server <url>         Server URL (inferred from SSH target if not provided)
@@ -25,9 +26,12 @@ Examples:
   # Interactive setup
   hop3 init --ssh root@my-server.com
 
-  # Non-interactive setup
+  # Create a named context during setup
+  hop3 init --ssh root@my-server.com --context dev
+
+  # Non-interactive setup with context
   echo "secretpass" | hop3 init --ssh root@my-server.com \\
-    --username admin --email admin@example.com --password-stdin -y
+    --context prod --username admin --email admin@example.com --password-stdin -y
 """)
 
 
@@ -122,6 +126,7 @@ Add options:
   --server <url>    Server URL (required)
   --token <token>   API authentication token
   --protected       Mark as protected (requires confirmation for destructive ops)
+  --default         Set as the default context
   --ssh-user <user> SSH username (default: root)
   --ssh-port <port> SSH port (default: 22)
 
