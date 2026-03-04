@@ -11,7 +11,16 @@ def print_init_help():
     """Print help for the init command."""
     print("""Usage: hop3 init --ssh <user@server> [options]
 
-Bootstrap a new Hop3 server connection by creating an admin user.
+Bootstrap a new Hop3 server with a custom admin user.
+
+NOTE: For most cases, you don't need this command anymore!
+Simply use 'hop3 context add' and authentication happens automatically:
+
+  hop3 context add dev --server ssh://root@my-server.com --default
+  hop3 apps  # Auto-authenticates via SSH
+
+Use 'init' only if you want to create a specific admin user with
+a custom username, email, and password.
 
 Options:
   --ssh <user@server>    SSH target for the server (required)
@@ -23,15 +32,9 @@ Options:
   -y, --yes              Skip confirmation prompts
 
 Examples:
-  # Interactive setup
-  hop3 init --ssh root@my-server.com
-
-  # Create a named context during setup
-  hop3 init --ssh root@my-server.com --context dev
-
-  # Non-interactive setup with context
-  echo "secretpass" | hop3 init --ssh root@my-server.com \\
-    --context prod --username admin --email admin@example.com --password-stdin -y
+  # Create admin with custom credentials
+  hop3 init --ssh root@my-server.com --context prod \\
+    --username myadmin --email admin@company.com
 """)
 
 
@@ -68,39 +71,37 @@ def print_login_help():
 
 Authenticate to a Hop3 server.
 
-Authentication methods:
-  <url>?token=<token>    URL with embedded token (easiest for local dev)
-  --ssh <user@server>    SSH-based authentication (for remote servers)
-  --token <token>        Use a pre-generated token (with --server)
+SSH-based login (recommended):
+  hop3 login --ssh root@my-server.com
+
+  SSH access IS authentication - no username or password needed.
+  The server automatically creates or selects an admin user.
+
+Other authentication methods:
+  <url>?token=<token>    URL with embedded token (for local dev)
+  --token <token>        Use a pre-generated token
   (default)              Username/password authentication
 
 Options:
-  --ssh <user@server>    Use SSH-based authentication (uses SSH tunnel for all commands)
-  --url <url>            With --ssh: use HTTP API at this URL instead of SSH tunnel
+  --ssh <user@server>    SSH-based authentication (recommended)
+  --username <name>      Specific user (optional, defaults to auto-select)
+  --url <url>            Use HTTP API instead of SSH tunnel
   --token <token>        Use a pre-generated API token
-  --server <url>         Server URL (for --token, prompted if not configured)
-  --username <name>      Username (prompted if not provided)
+  --server <url>         Server URL (for --token)
   -d, -dd, -ddd          Debug output (more d's = more verbose)
 
 Examples:
-  # SSH-based login (recommended for remote servers)
-  # All subsequent commands will use SSH tunnel
+  # SSH-based login (simplest - just works)
   hop3 login --ssh root@my-server.com
 
-  # SSH-based login with HTTP API for subsequent commands
-  hop3 login --ssh root@my-server.com --url https://my-server.com
-
-  # Show debug info
-  hop3 login --ssh root@my-server.com -d
-
-  # URL with embedded token (easiest for local development)
+  # URL with embedded token (for local development)
   hop3 login "http://localhost:8000?token=eyJ..."
 
-  # Password-based login (server must be configured)
+  # Password-based login (for users without SSH access)
   hop3 login
 
-Note: For first-time setup (creating a new admin user), use:
-  hop3 init --ssh root@my-server.com
+Note: With contexts, login is often not needed - auto-auth happens
+automatically when you run commands. See 'hop3 context --help'.
 """)
 
 
@@ -110,57 +111,53 @@ def print_context_help():
 
 Manage multiple server contexts (similar to kubectl contexts).
 
+Quick start (SSH-based servers):
+  hop3 context add dev --server ssh://root@dev.example.com --default
+  hop3 context add prod --server ssh://root@prod.example.com --protected
+  hop3 apps  # Just works - auto-authenticates via SSH!
+
 Subcommands:
   list              List all configured contexts
   current           Show the current context and its source
-  use <name>        Switch to a different context (see options below)
+  use <name>        Switch to a different context
   add <name> [opts] Add a new context
   remove <name>     Remove a context
 
-Use options (safe by default):
-  (default)         Print 'export HOP3_CONTEXT=...' for this shell only
-  --local           Write to .hop3-context file in current directory
-  --global          Set as global default (affects ALL terminals - use with caution)
-
 Add options:
-  --server <url>    Server URL (required)
-  --token <token>   API authentication token
-  --protected       Mark as protected (requires confirmation for destructive ops)
+  --server <url>    Server URL (required, e.g., ssh://root@server.com)
+  --protected       Mark as protected (extra confirmation for destructive ops)
   --default         Set as the default context
+  --token <token>   API token (optional - auto-fetched via SSH if not provided)
   --ssh-user <user> SSH username (default: root)
   --ssh-port <port> SSH port (default: 22)
 
+Use options:
+  (default)         Print 'export HOP3_CONTEXT=...' for this shell only
+  --local           Write to .hop3-context file in current directory
+  --global          Set as global default (affects ALL terminals)
+
 Examples:
-  # List all contexts
-  hop3 context list
+  # Setup for development and production
+  hop3 context add dev --server ssh://root@dev.example.com --default
+  hop3 context add prod --server ssh://root@prod.example.com --protected
 
-  # Add a staging context
-  hop3 context add staging --server ssh://root@staging.example.com
+  # Commands use dev by default
+  hop3 apps
+  hop3 deploy myapp
 
-  # Add a protected production context
-  hop3 context add production --server ssh://root@prod.example.com --protected
+  # Use production explicitly
+  hop3 --context prod apps
+  hop3 --context prod deploy myapp
 
-  # Switch to production (prints export command - safest)
-  hop3 context use production
-
-  # Switch to production for this project directory
-  hop3 context use production --local
-
-  # Switch to production globally (all terminals - dangerous!)
-  hop3 context use production --global
-
-  # Show current context and where it's set
-  hop3 context current
-
-  # Use a context for a single command
-  hop3 --context production apps
+  # Per-project context (creates .hop3-context file)
+  hop3 context use prod --local
 
 Context priority (highest to lowest):
   1. --context flag
   2. HOP3_CONTEXT environment variable
   3. .hop3-context file in current directory
-  4. Global config file (~/.config/hop3-cli/config.toml)
+  4. Global config file
 
-Protected contexts require extra confirmation before destructive operations
-like 'app:destroy' or 'services:destroy'.
+Protected contexts require extra confirmation for destructive operations.
+SSH-based contexts auto-authenticate - no login needed!
 """)

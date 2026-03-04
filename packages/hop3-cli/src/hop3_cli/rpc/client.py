@@ -179,7 +179,25 @@ class Client:
             self.stop()
 
     def rpc(self, method: str, cli_args: list[str], **extra_args: Any) -> Response:
-        """Call a remote method."""
+        """Call a remote method with automatic SSH-based authentication.
+
+        If the request returns 401 and we have SSH access configured,
+        automatically authenticate via SSH and retry the request.
+        """
+        response = self._do_rpc(method, cli_args, **extra_args)
+
+        # If 401 and we can auto-auth via SSH, try it
+        if isinstance(response, Error) and response.code == 401:
+            if self._can_auto_auth():
+                logger.debug("Got 401, attempting auto-auth via SSH")
+                if self._auto_authenticate():
+                    logger.debug("Auto-auth successful, retrying request")
+                    response = self._do_rpc(method, cli_args, **extra_args)
+
+        return response
+
+    def _do_rpc(self, method: str, cli_args: list[str], **extra_args: Any) -> Response:
+        """Execute the actual RPC call."""
         args = {
             "cli_args": cli_args,
             "extra_args": extra_args,
@@ -197,6 +215,47 @@ class Client:
         )
 
         return self._parse_response(response, json_request)
+
+    def _can_auto_auth(self) -> bool:
+        """Check if we can auto-authenticate via SSH."""
+        parsed = urlparse(self.api_url)
+        return parsed.scheme in {"ssh", "ssh+http"}
+
+    def _auto_authenticate(self) -> bool:
+        """Get a new token via SSH and save it to config.
+
+        Returns:
+            True if authentication succeeded, False otherwise
+        """
+        from hop3_cli.commands.local.ssh_ops import (  # noqa: PLC0415
+            BootstrapError,
+            get_ssh_token,
+        )
+
+        try:
+            parsed = urlparse(self.api_url)
+            ssh_user = parsed.username or self.config.get("ssh_user", "root")
+            ssh_host = parsed.hostname
+            ssh_target = f"{ssh_user}@{ssh_host}"
+
+            logger.debug(f"Auto-authenticating via SSH to {ssh_target}")
+            token = get_ssh_token(ssh_target)
+
+            # Save token to current context (or legacy config)
+            self.config.update_context_token(token)
+
+            # Clear cached headers so next request uses new token
+            if hasattr(self, "_headers_cache"):
+                delattr(self, "_headers_cache")
+
+            return True
+
+        except BootstrapError as e:
+            logger.warning(f"Auto-auth failed: {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"Auto-auth error: {e}")
+            return False
 
     def _get_ssl_verification(self) -> bool | str:
         """Determine SSL verification mode based on config."""
@@ -237,7 +296,7 @@ class Client:
     def _build_headers(self) -> dict[str, str]:
         """Build request headers with authentication."""
         headers = {"Content-Type": "application/json"}
-        api_token = self.config.get("api_token", "")
+        api_token = self.config.get_api_token()
         if api_token:
             headers["Authorization"] = f"Bearer {api_token}"
         return headers

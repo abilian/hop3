@@ -488,7 +488,11 @@ class InfoCmd(Command):
                 for item in addr_info:
                     ip = item[4][0]
                     # Skip loopback and link-local addresses
-                    if not ip.startswith("127.") and not ip.startswith("::1") and not ip.startswith("fe80"):
+                    if (
+                        not ip.startswith("127.")
+                        and not ip.startswith("::1")
+                        and not ip.startswith("fe80")
+                    ):
                         if ip not in ip_addresses:
                             ip_addresses.append(ip)
             except socket.gaierror:

@@ -20,6 +20,7 @@ from .help_text import print_login_help
 from .ssh_ops import (
     BootstrapError,
     fetch_and_save_certificate,
+    get_ssh_token,
     get_token_via_ssh,
 )
 
@@ -377,31 +378,33 @@ def _determine_save_url(
 def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> bool:
     """Handle the login --ssh command for getting token via SSH.
 
+    SSH access is the authentication - no username/password needed by default.
+    If --username is provided, uses the legacy flow for that specific user.
+
     Usage:
-        hop3 login --ssh user@server                    # Uses SSH tunnel for all commands
-        hop3 login --ssh user@server --username admin   # Specify username
-        hop3 login --ssh user@server --url https://...  # Use HTTP API instead of SSH tunnel
+        hop3 login --ssh user@server                    # Auto-auth (recommended)
+        hop3 login --ssh user@server --username admin   # Specific user (legacy)
+        hop3 login --ssh user@server --url https://...  # Use HTTP API instead
         hop3 login --ssh user@server -d                 # Show debug info
     """
     ssh_target, username, api_url, debug_level = _parse_login_ssh_args(args)
 
     if debug_level >= 1:
         print(f"[debug] SSH target: {ssh_target}")
-        print(f"[debug] Username: {username or '(will prompt)'}")
+        print(f"[debug] Username: {username or '(auto)'}")
         print(f"[debug] API URL override: {api_url or '(none, will use SSH tunnel)'}")
 
-    # Prompt for username if not provided
-    if not username:
-        username = input("Username: ").strip()
-        if not username:
-            print("Error: Username cannot be empty", file=sys.stderr)
-            sys.exit(1)
-
-    # Execute via SSH
     print(f"\nConnecting to {ssh_target}...")
 
     try:
-        token = get_token_via_ssh(ssh_target, username)
+        if username:
+            # Legacy flow: get token for specific user
+            token = get_token_via_ssh(ssh_target, username)
+            display_username = username
+        else:
+            # New simplified flow: SSH access = admin access
+            token = get_ssh_token(ssh_target)
+            display_username = "admin"  # Default user created/used by admin:ssh-token
     except BootstrapError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
@@ -425,7 +428,7 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> b
         else:
             print(f"[debug] Config saved to: {config.config_file}")
 
-    _print_login_success(username, config, saved_to_context)
+    _print_login_success(display_username, config, saved_to_context)
     return True
 
 

@@ -106,6 +106,47 @@ def get_token_via_ssh(ssh_target: str, username: str) -> str:
     return token
 
 
+def get_ssh_token(ssh_target: str) -> str:
+    """Get a token via SSH without needing a username.
+
+    This uses the admin:ssh-token command which:
+    - If no users exist: auto-creates a default admin
+    - If users exist: returns token for an existing admin
+
+    SSH access is the authentication - no username/password needed.
+
+    Args:
+        ssh_target: SSH target (user@host)
+
+    Returns:
+        The API token
+
+    Raises:
+        BootstrapError: If the command fails
+    """
+    hop3_cmd = f"{HOP_SERVER_PATH} admin:ssh-token"
+    remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
+
+    result = subprocess.run(
+        ["ssh", ssh_target, remote_cmd],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
+        msg = f"Failed to get SSH token: {error_msg}"
+        raise BootstrapError(msg)
+
+    token = extract_token(result.stdout)
+    if not token:
+        msg = f"Could not extract token from server response:\n{result.stdout}"
+        raise BootstrapError(msg)
+
+    return token
+
+
 def fetch_and_save_certificate(
     ssh_target: str, server_url: str, config: Config
 ) -> str | None:

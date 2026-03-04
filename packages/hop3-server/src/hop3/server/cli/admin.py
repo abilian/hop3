@@ -243,6 +243,100 @@ class AdminList(Command):
 
 
 @register
+class AdminSshToken(Command):
+    """Generate a token for SSH-based authentication.
+
+    Usage:
+        hop3-server admin:ssh-token
+
+    This command is designed for automated SSH-based authentication.
+    It requires no arguments - SSH access is the authentication.
+
+    Behavior:
+    - If no users exist: Creates a default admin user and returns token
+    - If users exist: Returns a token for the first admin user
+
+    This enables a simplified workflow where SSH access = admin access:
+        ssh root@server hop3-server admin:ssh-token
+
+    The CLI uses this internally for transparent authentication.
+    """
+
+    name = "admin:ssh-token"
+
+    def run(self) -> None:
+        import secrets  # noqa: PLC0415
+
+        with get_session() as db_session:
+            # Try to find an existing admin user
+            admin_user = self._find_admin_user(db_session)
+
+            if admin_user:
+                # Generate token for existing admin
+                scopes = ["authenticated", "admin"]
+                token = create_token(admin_user.username, scopes=scopes)
+                print(token)
+                return
+
+            # No admin exists - create default admin
+            admin_user = self._create_default_admin(
+                db_session, secrets.token_urlsafe(32)
+            )
+            token = create_token(admin_user.username, scopes=["authenticated", "admin"])
+            print(token)
+
+    def _find_admin_user(self, db_session) -> User | None:
+        """Find an admin user, preferring one named 'admin'."""
+        # First try to find user named "admin"
+        admin_by_name = (
+            db_session.query(User).filter_by(username="admin", active=True).first()
+        )
+        if admin_by_name and admin_by_name.is_admin:
+            return admin_by_name
+
+        # Otherwise find any active admin
+        admin_role = db_session.query(Role).filter_by(name="admin").first()
+        if not admin_role:
+            return None
+
+        for user in db_session.query(User).filter_by(active=True).all():
+            if admin_role in user.roles:
+                return user
+
+        return None
+
+    def _create_default_admin(self, db_session, password: str) -> User:
+        """Create a default admin user."""
+        # Get or create admin role
+        admin_role = db_session.query(Role).filter_by(name="admin").first()
+        if not admin_role:
+            admin_role = Role(name="admin", description="Administrator role")
+            db_session.add(admin_role)
+            db_session.flush()
+
+        # Create default admin user
+        user = User(
+            username="admin",
+            email="admin@localhost",
+            password_hash="",
+            active=True,
+            confirmed_at=datetime.now(timezone.utc),
+        )
+        user.set_password(password)
+        user.roles.append(admin_role)
+
+        db_session.add(user)
+        db_session.commit()
+
+        # Log to stderr so it doesn't interfere with token output
+        import sys  # noqa: PLC0415
+
+        print("Created default admin user 'admin'", file=sys.stderr)
+
+        return user
+
+
+@register
 class AdminResetPassword(Command):
     """Reset a user's password.
 
