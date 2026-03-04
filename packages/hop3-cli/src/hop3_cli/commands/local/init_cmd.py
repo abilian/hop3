@@ -24,6 +24,7 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
 
     Usage:
         hop3 init --ssh user@server
+        hop3 init --ssh user@server --context dev
         hop3 init --ssh user@server --username admin --email admin@example.com
         echo "password" | hop3 init --ssh user@server --username admin \
             --email admin@example.com --password-stdin
@@ -32,7 +33,9 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
     if parsed is None:
         return True  # Help was shown
 
-    ssh_target, username, email, server_url, password_stdin, auto_yes = parsed
+    ssh_target, username, email, server_url, password_stdin, auto_yes, context_name = (
+        parsed
+    )
 
     # Infer server URL from SSH target if not provided
     if not server_url:
@@ -56,22 +59,38 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Prepare and save config
-    config_data = {"api_url": server_url, "api_token": token}
-    _handle_ssl_certificate(ssh_target, server_url, config, config_data)
-    config.save(config_data)
+    # Save to context if specified, otherwise to current context or legacy format
+    if context_name:
+        # Create a new context with the credentials
+        config.add_context(
+            name=context_name,
+            api_url=server_url,
+            api_token=token,
+        )
+        config.set_global_context(context_name)
+        saved_to_context = True
+    else:
+        # Try to save to current context, fall back to legacy format
+        saved_to_context = config.update_context_credentials(
+            api_url=server_url, api_token=token
+        )
+        if not saved_to_context:
+            # Also handle SSL certificate for legacy format
+            config_data = {"api_url": server_url, "api_token": token}
+            _handle_ssl_certificate(ssh_target, server_url, config, config_data)
+            config.save(config_data)
 
-    _print_init_success(username, config)
+    _print_init_success(username, config, context_name, saved_to_context)
     return True
 
 
 def _parse_init_args(
     args: list[str],
-) -> tuple[str, str | None, str | None, str | None, bool, bool] | None:
+) -> tuple[str, str | None, str | None, str | None, bool, bool, str | None] | None:
     """Parse arguments for init command.
 
     Returns:
-        Tuple of (ssh_target, username, email, server_url, password_stdin, auto_yes)
+        Tuple of (ssh_target, username, email, server_url, password_stdin, auto_yes, context_name)
         or None if help was shown
     """
     ssh_target = None
@@ -80,6 +99,7 @@ def _parse_init_args(
     server_url = None
     password_stdin = False
     auto_yes = False
+    context_name = None
 
     i = 0
     while i < len(args):
@@ -95,6 +115,9 @@ def _parse_init_args(
             i += 2
         elif arg == "--server" and i + 1 < len(args):
             server_url = args[i + 1]
+            i += 2
+        elif arg == "--context" and i + 1 < len(args):
+            context_name = args[i + 1]
             i += 2
         elif arg == "--password-stdin":
             password_stdin = True
@@ -116,7 +139,7 @@ def _parse_init_args(
     # Type narrowing: ssh_target is str after the check above
     assert ssh_target is not None
 
-    return ssh_target, username, email, server_url, password_stdin, auto_yes
+    return ssh_target, username, email, server_url, password_stdin, auto_yes, context_name
 
 
 def _gather_init_credentials(
@@ -155,10 +178,21 @@ def _gather_init_credentials(
     return username, email, password
 
 
-def _print_init_success(username: str, config: Config) -> None:
+def _print_init_success(
+    username: str,
+    config: Config,
+    context_name: str | None = None,
+    saved_to_context: bool = False,
+) -> None:
     """Print success message after init."""
     print(f"\nAdmin user '{username}' created successfully.")
-    print(f"Configuration saved to {config.config_file}")
+    if context_name:
+        print(f"Created and switched to context '{context_name}'")
+    elif saved_to_context:
+        current_context = config.get_current_context_name()
+        print(f"Credentials saved to context '{current_context}'")
+    else:
+        print(f"Configuration saved to {config.config_file}")
     print("\nYou're all set! Try:")
     print("  hop3 apps           # List applications")
     print("  hop3 auth:whoami    # Check current user")

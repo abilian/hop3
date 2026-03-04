@@ -436,6 +436,77 @@ class Config:
         """Check if any contexts are configured."""
         return bool(self.data.get("contexts"))
 
+    def update_context_token(self, token: str, context_name: str | None = None) -> bool:
+        """Update the API token for a context.
+
+        If context_name is None, updates the current context.
+        If no contexts exist, falls back to legacy top-level api_token.
+
+        Args:
+            token: The new API token
+            context_name: Context to update (default: current context)
+
+        Returns:
+            True if token was saved to a context, False if saved to legacy format
+        """
+        name = context_name or self.get_current_context_name()
+
+        if name and name in self.data.get("contexts", {}):
+            # Save to context
+            self.data["contexts"][name]["api_token"] = token
+            self.save()
+            return True
+
+        # Fallback to legacy format
+        self.data["api_token"] = token
+        self.save()
+        return False
+
+    def update_context_credentials(
+        self,
+        api_url: str | None = None,
+        api_token: str | None = None,
+        context_name: str | None = None,
+        **kwargs,
+    ) -> bool:
+        """Update credentials for a context.
+
+        If context_name is None, updates the current context.
+        If no contexts exist, falls back to legacy top-level config.
+
+        Args:
+            api_url: Server URL (optional)
+            api_token: API token (optional)
+            context_name: Context to update (default: current context)
+            **kwargs: Additional context options (verify_ssl, etc.)
+
+        Returns:
+            True if saved to a context, False if saved to legacy format
+        """
+        name = context_name or self.get_current_context_name()
+
+        if name and name in self.data.get("contexts", {}):
+            # Save to context
+            ctx = self.data["contexts"][name]
+            if api_url is not None:
+                ctx["api_url"] = api_url
+            if api_token is not None:
+                ctx["api_token"] = api_token
+            for key, value in kwargs.items():
+                ctx[key] = value
+            self.save()
+            return True
+
+        # Fallback to legacy format
+        updates = {}
+        if api_url is not None:
+            updates["api_url"] = api_url
+        if api_token is not None:
+            updates["api_token"] = api_token
+        updates.update(kwargs)
+        self.save(updates)
+        return False
+
     def migrate_legacy_config(self) -> bool:
         """Migrate legacy single-server config to context format.
 
