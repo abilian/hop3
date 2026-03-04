@@ -13,6 +13,7 @@ import platform
 import pwd
 import re
 import shutil
+import socket
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -436,12 +437,18 @@ class InfoCmd(Command):
         python_version = sys.version.split()[0]
         os_info = f"{platform.system()} {platform.release()}"
 
+        # Get hostname and IP addresses
+        hostname = socket.gethostname()
+        ip_addresses = self._get_ip_addresses()
+
         lines = [
             "Hop3 System Information",
             "=" * 40,
             f"Version:        {version}",
             f"Python:         {python_version}",
             f"Platform:       {os_info}",
+            f"Hostname:       {hostname}",
+            f"IP Addresses:   {', '.join(ip_addresses) if ip_addresses else 'unknown'}",
         ]
 
         # Check Docker availability
@@ -468,6 +475,41 @@ class InfoCmd(Command):
             return result.returncode == 0
         except (FileNotFoundError, subprocess.TimeoutExpired):
             return False
+
+    def _get_ip_addresses(self) -> list[str]:
+        """Get non-loopback IP addresses of the host."""
+        ip_addresses = []
+        try:
+            # Get all IPs associated with the hostname
+            hostname = socket.gethostname()
+            # Try to get all addresses
+            try:
+                addr_info = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC)
+                for item in addr_info:
+                    ip = item[4][0]
+                    # Skip loopback and link-local addresses
+                    if not ip.startswith("127.") and not ip.startswith("::1") and not ip.startswith("fe80"):
+                        if ip not in ip_addresses:
+                            ip_addresses.append(ip)
+            except socket.gaierror:
+                pass
+
+            # Fallback: try to get the primary IP by connecting to external address
+            if not ip_addresses:
+                try:
+                    # This doesn't actually connect, just determines routing
+                    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                        s.connect(("8.8.8.8", 80))
+                        ip = s.getsockname()[0]
+                        if ip not in ip_addresses:
+                            ip_addresses.append(ip)
+                except OSError:
+                    pass
+
+        except Exception:
+            pass
+
+        return ip_addresses
 
     def _get_verbose_info(self) -> list[str]:
         """Get verbose information including plugins."""
