@@ -159,11 +159,19 @@ def generate_archive(source_dir: Path, verbosity: int = 1) -> bytes:
     verbose = verbosity >= 2
 
     if not source_dir.exists():
-        msg = f"Source directory not found: {source_dir}"
+        msg = (
+            f"Directory not found: {source_dir}\n\n"
+            f"Make sure you are in the directory containing your application code,\n"
+            f"or specify the path as the last argument:\n"
+            f"  hop3 deploy <app_name> /path/to/app"
+        )
         raise FileNotFoundError(msg)
     if not source_dir.is_dir():
-        msg = f"Source path is not a directory: {source_dir}"
+        msg = f"Path is not a directory: {source_dir}"
         raise ValueError(msg)
+
+    # Check if directory looks like an application
+    _check_directory_is_app(source_dir, verbose)
 
     if verbose:
         print(f"Creating archive from: {source_dir}", file=sys.stderr)
@@ -292,6 +300,57 @@ def _get_top_directories_by_file_count(
         dir_counts[top_dir] += 1
 
     return dir_counts.most_common()
+
+
+def _check_directory_is_app(source_dir: Path, verbose: bool) -> None:
+    """Check if the directory looks like an application and warn if not.
+
+    Args:
+        source_dir: The directory to check
+        verbose: Whether to print verbose output
+    """
+    # Common app indicators
+    app_indicators = [
+        "Procfile",
+        "hop3.toml",
+        "package.json",
+        "requirements.txt",
+        "pyproject.toml",
+        "Cargo.toml",
+        "go.mod",
+        "Gemfile",
+        "composer.json",
+        "pom.xml",
+        "build.gradle",
+        "Makefile",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "index.html",
+        "index.php",
+    ]
+
+    has_indicator = any((source_dir / f).exists() for f in app_indicators)
+
+    if not has_indicator:
+        # Check if directory has any files at all
+        files = list(source_dir.iterdir())
+        if not files:
+            msg = (
+                f"Directory is empty: {source_dir}\n\n"
+                f"The deploy command expects a directory containing your application code.\n"
+                f"Make sure you are in the correct directory."
+            )
+            raise ValueError(msg)
+
+        # Directory has files but no recognizable app structure
+        if verbose:
+            print(
+                f"Warning: No recognized application files found in {source_dir}\n"
+                f"Expected one of: {', '.join(app_indicators[:5])}...\n"
+                f"Proceeding anyway - the server will attempt to deploy.",
+                file=sys.stderr,
+            )
 
 
 def get_files_to_add(source_dir: Path, spec: pathspec.PathSpec | None) -> list[Path]:

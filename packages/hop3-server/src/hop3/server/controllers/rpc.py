@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import traceback
 
+from advanced_alchemy.exceptions import RepositoryError
 from litestar import Controller, Request, post
 from litestar.params import Body
 from litestar.response import Response
@@ -422,6 +423,21 @@ class RPCController(Controller):
                 message=str(e),
                 request_id=request_id,
             )
+        except RepositoryError as e:
+            # Extract original exception details from advanced_alchemy wrapper
+            error_msg = _extract_repository_error_message(e)
+            server_log.error(
+                "Command failed with RepositoryError",
+                command=command_name,
+                error=error_msg,
+                original_error=str(e.__cause__) if e.__cause__ else None,
+            )
+            traceback.print_exc()
+            return self._build_error_response(
+                code=-32603,  # Internal error
+                message=error_msg,
+                request_id=request_id,
+            )
         except Exception as e:
             server_log.error(
                 "Command failed with exception",
@@ -435,3 +451,49 @@ class RPCController(Controller):
                 message=f"{type(e).__name__}: {e!s}",
                 request_id=request_id,
             )
+
+
+def _extract_repository_error_message(exc: RepositoryError) -> str:
+    """Extract a meaningful error message from a RepositoryError.
+
+    Advanced_alchemy wraps SQLAlchemy exceptions with generic messages like
+    "There was an error during data processing". This function extracts the
+    original exception details to provide better error messages.
+
+    Args:
+        exc: The RepositoryError exception
+
+    Returns:
+        A meaningful error message including original exception details
+    """
+    parts = []
+
+    # Add the exception type
+    parts.append(f"{type(exc).__name__}")
+
+    # Try to get details from the wrapped exception's __cause__
+    if exc.__cause__:
+        cause = exc.__cause__
+        cause_msg = str(cause)
+        if cause_msg:
+            parts.append(cause_msg)
+    elif exc.detail and exc.detail not in {
+        "There was an error during data processing",
+        "An exception occurred",
+    }:
+        # Use the detail if it's not a generic message
+        parts.append(exc.detail)
+    else:
+        # Fall back to str(exc) but skip generic messages
+        exc_str = str(exc)
+        if exc_str and exc_str not in {
+            "There was an error during data processing",
+            "An exception occurred",
+        }:
+            parts.append(exc_str)
+
+    if len(parts) == 1:
+        # Only have type name, add a generic but honest message
+        parts.append("Database operation failed (no additional details available)")
+
+    return ": ".join(parts)

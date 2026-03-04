@@ -1,6 +1,6 @@
 [project]
 name = "hop3"
-version = "0.4.0b1"
+version = "0.4.0b2"
 description = "Simple PaaS - Deploy and manage web applications on a single server"
 authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" },
@@ -162,13 +162,13 @@ markers = [
     "slow: Tests that are slow to run (require substantial setup or Docker)",
 ]
 
-# ------------------------------------
-
 [tool.coverage.report]
 exclude_also = [
     "if typing.TYPE_CHECKING:",
     "if TYPE_CHECKING:",
 ]
+skip_covered = true
+skip_empty = true
 
 # ------------------------------------
 

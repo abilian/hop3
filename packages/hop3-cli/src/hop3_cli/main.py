@@ -117,7 +117,21 @@ def run_command_from_args(cli_args: list[str]) -> None:
     # Execute the RPC command (handles response internally to keep tunnel alive)
     if flags.verbosity >= 2:
         printer.print_debug("Executing RPC command...")
-    extra_args = get_extra_args(cli_args, verbosity=flags.verbosity)
+
+    # Generate extra args (e.g., archive for deploy command)
+    # Handle errors gracefully with informative messages
+    try:
+        extra_args = get_extra_args(cli_args, verbosity=flags.verbosity)
+    except FileNotFoundError as e:
+        err(f"File or directory not found: {e}")
+        sys.exit(ExitCode.GENERAL_ERROR)
+    except ValueError as e:
+        err(f"Invalid input: {e}")
+        sys.exit(ExitCode.GENERAL_ERROR)
+    except PermissionError as e:
+        err(f"Permission denied: {e}")
+        sys.exit(ExitCode.GENERAL_ERROR)
+
     _execute_rpc_command(cli_args, config, extra_args, printer)
 
 
@@ -134,21 +148,69 @@ def _check_prerequisites(
         show_unconfigured_message(cli_args)
         sys.exit(ExitCode.AUTH_ERROR)
 
-    # Check authentication
+    # Check authentication - try auto-auth via SSH if not authenticated
     if not config.is_authenticated():
-        show_unauthenticated_message()
-        sys.exit(ExitCode.AUTH_ERROR)
+        if not _try_auto_authenticate(config, printer):
+            show_unauthenticated_message()
+            sys.exit(ExitCode.AUTH_ERROR)
 
     # For destructive commands, verify token is valid BEFORE asking for confirmation
     if is_destructive_command(cli_args):
         if not verify_authentication(config):
-            show_unauthenticated_message()
-            sys.exit(ExitCode.AUTH_ERROR)
+            # Token might be expired - try auto-auth via SSH
+            if not _try_auto_authenticate(config, printer):
+                show_unauthenticated_message()
+                sys.exit(ExitCode.AUTH_ERROR)
 
     # Prompt for confirmation on destructive commands
     if not flags.skip_confirm and is_destructive_command(cli_args):
         if not confirm_destructive_action(cli_args, printer, config):
             sys.exit(ExitCode.SUCCESS)  # User cancelled
+
+
+def _try_auto_authenticate(config: Config, printer: RichPrinter) -> bool:
+    """Try to authenticate automatically via SSH if available.
+
+    Returns:
+        True if authentication succeeded, False otherwise
+    """
+    from urllib.parse import urlparse  # noqa: PLC0415
+
+    from hop3_cli.commands.local.ssh_ops import (  # noqa: PLC0415
+        BootstrapError,
+        get_ssh_token,
+    )
+
+    api_url = config.get_api_url()
+    if not api_url:
+        return False
+
+    parsed = urlparse(api_url)
+    if parsed.scheme not in {"ssh", "ssh+http"}:
+        return False
+
+    # We have SSH access - try auto-auth
+    ssh_user = parsed.username or config.get("ssh_user", "root")
+    ssh_host = parsed.hostname
+    ssh_target = f"{ssh_user}@{ssh_host}"
+
+    if printer.verbosity >= 1:
+        printer.print_debug(f"Auto-authenticating via SSH to {ssh_target}...")
+
+    try:
+        token = get_ssh_token(ssh_target)
+        config.update_context_token(token)
+        if printer.verbosity >= 1:
+            printer.print_debug("Auto-authentication successful")
+        return True
+    except BootstrapError as e:
+        if printer.verbosity >= 1:
+            printer.print_debug(f"Auto-auth failed: {e}")
+        return False
+    except Exception as e:
+        if printer.verbosity >= 1:
+            printer.print_debug(f"Auto-auth error: {e}")
+        return False
 
 
 def requires_authentication(cli_args: list[str]) -> bool:

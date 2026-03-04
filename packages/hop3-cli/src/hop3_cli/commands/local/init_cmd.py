@@ -139,7 +139,15 @@ def _parse_init_args(
     # Type narrowing: ssh_target is str after the check above
     assert ssh_target is not None
 
-    return ssh_target, username, email, server_url, password_stdin, auto_yes, context_name
+    return (
+        ssh_target,
+        username,
+        email,
+        server_url,
+        password_stdin,
+        auto_yes,
+        context_name,
+    )
 
 
 def _gather_init_credentials(

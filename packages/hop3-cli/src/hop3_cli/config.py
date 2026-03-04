@@ -162,6 +162,29 @@ class Config:
 
         return None
 
+    def get_api_token(self) -> str | None:
+        """Get the API token if configured, None otherwise.
+
+        Priority:
+        1. HOP3_API_TOKEN environment variable
+        2. Current context's api_token
+        3. Legacy api_token in config file
+        """
+        # Check environment variable
+        if "HOP3_API_TOKEN" in os.environ:
+            return os.environ["HOP3_API_TOKEN"]
+
+        # Check current context
+        context = self.get_current_context()
+        if context and context.api_token:
+            return context.api_token
+
+        # Check legacy config file
+        if "api_token" in self.data:
+            return self.data["api_token"]
+
+        return None
+
     @staticmethod
     def from_dict(data: dict) -> Config:
         return Config(data=data)
