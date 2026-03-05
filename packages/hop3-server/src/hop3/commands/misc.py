@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Miscellaneous and addon-related CLI commands."""
+"""Miscellaneous CLI commands."""
 
 from __future__ import annotations
 
@@ -250,54 +250,3 @@ class SbomCmd(Command):
 
             sbom_content = sbom_file.read_text()
             return [text(sbom_content)]
-
-
-# --- Addon Command Aliases ---
-# These provide user-friendly shortcuts to the addons:* commands
-
-
-@register
-@dataclass(frozen=True)
-class PgCmd(Command):
-    """Manage PostgreSQL databases.
-
-    PostgreSQL databases are managed via the addons:* commands.
-
-    Examples:
-        hop3 addons:create postgres my-database
-        hop3 addons:attach my-database --app my-app --service-type postgres
-        hop3 addons:info my-database --service-type postgres
-        hop3 addons:detach my-database --app my-app --service-type postgres
-        hop3 addons:destroy my-database --service-type postgres
-
-    Run 'hop3 help addons' or 'hop3 help --all' to see all addons:* commands.
-    """
-
-    name: ClassVar[str] = "pg"
-
-    def call(self, *args):
-        # Return the docstring as help text
-        return [text((self.__doc__ or "").strip())]
-
-
-@register
-@dataclass(frozen=True)
-class RedisCmd(Command):
-    """Manage Redis instances.
-
-    Redis instances are managed via the addons:* commands.
-
-    Examples:
-        hop3 addons:create redis my-cache
-        hop3 addons:attach my-cache --app my-app --service-type redis
-        hop3 addons:info my-cache --service-type redis
-        hop3 addons:destroy my-cache --service-type redis
-
-    Run 'hop3 help addons' or 'hop3 help --all' to see all addons:* commands.
-    """
-
-    name: ClassVar[str] = "redis"
-
-    def call(self, *args):
-        # Return the docstring as help text
-        return [text((self.__doc__ or "").strip())]
