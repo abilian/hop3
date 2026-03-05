@@ -293,23 +293,23 @@ Checks performed:
 
 ```bash
 # List all applications with status
-hop3 apps:list
+hop3 apps
 
 # Detailed app info
-hop3 apps:info myapp
+hop3 app:status myapp
 ```
 
 ### Log Monitoring
 
 ```bash
 # View application logs
-hop3 logs myapp
+hop3 app:logs myapp
 
 # Follow logs in real-time
-hop3 logs myapp --follow
+hop3 app:logs myapp --follow
 
 # View last N lines
-hop3 logs myapp --lines 100
+hop3 app:logs myapp --lines 100
 
 # System-wide logs
 hop3 system:logs
@@ -541,7 +541,7 @@ docker network create test-network && docker network rm test-network
 
 ```bash
 # Check application logs
-hop3 logs myapp --lines 50
+hop3 app:logs myapp --lines 50
 
 # Check uWSGI status
 systemctl status uwsgi-hop3
@@ -552,8 +552,8 @@ hop3 config:show myapp
 
 #### 502 Bad Gateway
 
-1. Check if application is running: `hop3 apps:list`
-2. Check application logs: `hop3 logs myapp`
+1. Check if application is running: `hop3 apps`
+2. Check application logs: `hop3 app:logs myapp`
 3. Verify Nginx config: `sudo nginx -t`
 4. Check uWSGI socket: `ls -la /tmp/uwsgi-*.sock`
 

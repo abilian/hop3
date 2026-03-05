@@ -11,10 +11,10 @@ Before diving into specific issues, run these commands to gather information:
 hop3 system:check --verbose
 
 # Application status
-hop3 apps:list
+hop3 apps
 
 # Recent logs
-hop3 logs myapp --lines 50
+hop3 app:logs myapp --lines 50
 
 # System info
 hop3 system:info
@@ -31,7 +31,7 @@ Deployment fails during the build phase with dependency or compilation errors.
 
 #### Diagnosis
 ```bash
-hop3 logs myapp --lines 100
+hop3 app:logs myapp --lines 100
 ```
 
 #### Common Causes & Solutions
@@ -90,10 +90,10 @@ Build succeeds but application shows as "stopped" or returns 502 errors.
 #### Diagnosis
 ```bash
 # Check application state
-hop3 apps:info myapp
+hop3 app:status myapp
 
 # Check process logs
-hop3 logs myapp --lines 50
+hop3 app:logs myapp --lines 50
 
 # Check uWSGI status
 systemctl status uwsgi-hop3
@@ -160,10 +160,10 @@ sudo nginx -t
 **Application not running:**
 ```bash
 # Restart application
-hop3 apps:restart myapp
+hop3 app:restart myapp
 
 # Check if it started
-hop3 apps:info myapp
+hop3 app:status myapp
 ```
 
 **Socket permission issues:**
@@ -388,7 +388,7 @@ htop
 iostat -x 1
 
 # Check application logs for slow queries
-hop3 logs myapp | grep -i slow
+hop3 app:logs myapp | grep -i slow
 ```
 
 #### Solutions
@@ -396,7 +396,7 @@ hop3 logs myapp | grep -i slow
 **Increase workers:**
 ```bash
 hop3 config:set myapp UWSGI_WORKERS=4
-hop3 apps:restart myapp
+hop3 app:restart myapp
 ```
 
 **Enable caching:**
@@ -598,10 +598,10 @@ cat /etc/uwsgi-hop3/*.ini
 # Full diagnostic dump
 hop3 system:info > diagnostic.txt
 hop3 system:check --verbose >> diagnostic.txt
-hop3 apps:list >> diagnostic.txt
+hop3 apps >> diagnostic.txt
 
 # Include logs for specific app
-hop3 logs myapp --lines 200 >> diagnostic.txt
+hop3 app:logs myapp --lines 200 >> diagnostic.txt
 ```
 
 ### Where to Get Help

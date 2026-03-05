@@ -817,6 +817,51 @@ hop3 app:stop <app_name>
 
 ---
 
+### `hop3 app:debug`
+
+Show comprehensive debug information for an application.
+
+**Usage:**
+```bash
+hop3 app:debug <app_name>
+```
+
+**Notes:**
+- Collects environment, logs, process status, and configuration
+- Useful for troubleshooting deployment issues
+
+---
+
+### `hop3 app:env`
+
+Show environment variables with their sources.
+
+**Usage:**
+```bash
+hop3 app:env <app_name>
+```
+
+**Notes:**
+- Shows where each variable comes from (hop3.toml, config:set, addon, etc.)
+- Useful for debugging configuration issues
+
+---
+
+### `hop3 app:ping`
+
+Check if an application is responding to HTTP requests.
+
+**Usage:**
+```bash
+hop3 app:ping <app_name>
+```
+
+**Notes:**
+- Performs HTTP health check on the application
+- Returns response status and time
+
+---
+
 ### `hop3 app:destroy` ⚠️
 
 **DESTRUCTIVE** - Destroy an app, removing all files and configuration.
@@ -1313,6 +1358,44 @@ Connections: 3 active
 
 ---
 
+### `hop3 addons:list`
+
+List available addon types.
+
+**Usage:**
+```bash
+hop3 addons:list [--type <type>]
+```
+
+**Options:**
+- `--type` - Filter by addon type (postgres, mysql, redis)
+
+**Example:**
+```bash
+# List all addon types
+hop3 addons:list
+
+# List PostgreSQL addons
+hop3 addons:list --type postgres
+```
+
+---
+
+### `hop3 addons:status`
+
+Show detailed status and health of an addon.
+
+**Usage:**
+```bash
+hop3 addons:status <service_name> [--type <type>]
+```
+
+**Notes:**
+- Shows connection status, health checks, and resource usage
+- More detailed than `addons:info`
+
+---
+
 ## Admin Commands
 
 Admin commands require admin role. First user registered automatically gets admin role.
@@ -1510,6 +1593,91 @@ hop3 system:ps
 
 ---
 
+### `hop3 system:check`
+
+Run comprehensive health checks on the Hop3 server.
+
+**Usage:**
+```bash
+hop3 system:check [--verbose]
+```
+
+**Options:**
+- `--verbose` - Show detailed check results
+
+**What Gets Checked:**
+- Core services (hop3-server, nginx, uwsgi)
+- Database addons (PostgreSQL, MySQL, Redis)
+- Filesystem permissions
+- Disk space
+- SSL certificates
+
+---
+
+### `hop3 system:cleanup`
+
+Clean up unused Docker resources (networks, images, containers, volumes).
+
+**Usage:**
+```bash
+hop3 system:cleanup [--dry-run]
+```
+
+**Options:**
+- `--dry-run` - Show what would be cleaned without removing anything
+
+**Notes:**
+- Removes dangling images and unused networks
+- Does not remove volumes by default (use `--volumes` flag)
+
+---
+
+### `hop3 system:info`
+
+Show detailed Hop3 system information.
+
+**Usage:**
+```bash
+hop3 system:info
+```
+
+**Example Output:**
+```
+Hop3 System Information
+
+Version: 0.4.0
+Python: 3.12.1
+OS: Debian GNU/Linux 12 (bookworm)
+Architecture: x86_64
+
+Paths:
+  HOP3_ROOT: /home/hop3
+  Config: /home/hop3/.config/hop3
+  Apps: /home/hop3/apps
+
+Services:
+  hop3-server: running (pid 1234)
+  nginx: running
+  uwsgi-hop3: running
+```
+
+---
+
+### `hop3 system:logs`
+
+Show Hop3 server logs.
+
+**Usage:**
+```bash
+hop3 system:logs [--lines N] [--follow]
+```
+
+**Options:**
+- `--lines N` - Number of lines to show (default: 100)
+- `--follow` - Follow log output in real-time
+
+---
+
 ## Miscellaneous Commands
 
 ### `hop3 help`
@@ -1530,6 +1698,54 @@ hop3 help
 hop3 help deploy
 hop3 help backup:create
 ```
+
+---
+
+### `hop3 help:commands`
+
+Return list of available command names for shell completion.
+
+**Usage:**
+```bash
+hop3 help:commands
+```
+
+**Notes:**
+- Returns plain text list of command names
+- Used internally by shell completion scripts
+
+---
+
+### `hop3 completion`
+
+Generate shell completion scripts.
+
+**Usage:**
+```bash
+hop3 completion <shell>
+```
+
+**Arguments:**
+- `shell` - Shell type: `bash`, `zsh`, or `fish`
+
+**Installation Examples:**
+```bash
+# Bash (current session)
+eval "$(hop3 completion bash)"
+
+# Bash (permanent)
+hop3 completion bash > /etc/bash_completion.d/hop3
+
+# Zsh
+hop3 completion zsh > ~/.zsh/completions/_hop3
+
+# Fish
+hop3 completion fish > ~/.config/fish/completions/hop3.fish
+```
+
+**Options:**
+- `--refresh` - Update cached command list from server
+- `--status` - Show cache status
 
 ---
 
@@ -1608,22 +1824,6 @@ hop3 sbom <app_name>
 - CycloneDX format JSON
 - Lists all dependencies with versions
 - Security scanning metadata
-
----
-
-### `hop3 git-hook`
-
-Handle git post-receive hook to trigger deployment (internal command).
-
-**Usage:**
-```bash
-hop3 git-hook <app_name> <old_ref> <new_ref> <ref_name>
-```
-
-**Notes:**
-- Automatically called by git post-receive hook
-- Not intended for manual use
-- Triggers deployment from git push
 
 ---
 
