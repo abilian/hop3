@@ -53,6 +53,7 @@ def install_package(config: ServerInstallerConfig) -> None:
 
     # Determine what to install
     # Note: All user-controlled package specs are quoted to prevent command injection
+    pre_flag = ""
     if config.local_path:
         package_spec = config.local_path
         source_desc = f"local path ({config.local_path})"
@@ -66,11 +67,15 @@ def install_package(config: ServerInstallerConfig) -> None:
         source_desc = f"PyPI (version {config.version})"
     else:
         package_spec = PACKAGE_NAME
-        source_desc = "PyPI (latest)"
+        if config.pre_release:
+            pre_flag = "--pre "
+            source_desc = "PyPI (latest including pre-releases)"
+        else:
+            source_desc = "PyPI (latest stable)"
 
     # Install - use shlex.quote to prevent command injection from user-provided values
     with Spinner(f"Installing hop3-server from {source_desc}..."):
-        run_as_hop3(f"{pip} install {shlex.quote(package_spec)}")
+        run_as_hop3(f"{pip} install {pre_flag}{shlex.quote(package_spec)}")
 
     print_success("hop3-server installed successfully")
 

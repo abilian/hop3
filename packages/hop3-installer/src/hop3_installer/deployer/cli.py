@@ -32,14 +32,26 @@ Environment Variables:
   HOP3_SSH_USER      SSH user (default: root)
   HOP3_BRANCH        Git branch (default: devel)
   HOP3_LOCAL         Use local code (1 or true)
+  HOP3_PYPI          Install from PyPI (1 or true)
+  HOP3_PYPI_VERSION  Specific PyPI version to install
+  HOP3_PYPI_PRE      Allow pre-release versions (1 or true)
   HOP3_CLEAN         Clean before deploy (1 or true)
   HOP3_WITH          Features to install (comma-separated)
   HOP3_DOCKER        Use Docker instead of SSH (1 or true)
   HOP3_QUIET         Quiet mode - minimal output (1 or true)
 
 Examples:
-  # Deploy to remote server
+  # Deploy to remote server (from git)
   hop3-deploy --host 192.168.1.100
+
+  # Deploy from PyPI (latest stable)
+  hop3-deploy --host server.example.com --pypi
+
+  # Deploy specific version from PyPI
+  hop3-deploy --host server.example.com --version 0.4.0
+
+  # Deploy latest including pre-releases
+  hop3-deploy --host server.example.com --pypi --pre
 
   # Deploy to Docker container
   hop3-deploy --docker
@@ -49,10 +61,6 @@ Examples:
 
   # Clean install with admin setup
   hop3-deploy --host server.example.com --clean --admin-domain admin.example.com
-
-  # Using environment variables
-  export HOP3_DEV_HOST=192.168.1.100
-  hop3-deploy --local
 """,
     )
 
@@ -100,6 +108,25 @@ Examples:
         action="store_true",
         dest="use_local",
         help="Upload and use local code instead of git",
+    )
+    install.add_argument(
+        "--pypi",
+        "-p",
+        action="store_true",
+        help="Install from PyPI instead of git (latest stable version)",
+    )
+    install.add_argument(
+        "--version",
+        "-V",
+        metavar="VERSION",
+        dest="pypi_version",
+        help="Install specific version from PyPI (e.g., 0.4.0, implies --pypi)",
+    )
+    install.add_argument(
+        "--pre",
+        action="store_true",
+        dest="pypi_pre",
+        help="Allow pre-release versions when installing from PyPI",
     )
     install.add_argument(
         "--skip-install",
@@ -211,6 +238,14 @@ def _apply_install_overrides(config: DeployConfig, args: argparse.Namespace) -> 
         config.branch = args.branch
     if args.use_local:
         config.use_local_code = True
+    if args.pypi:
+        config.use_pypi = True
+    if args.pypi_version:
+        config.pypi_version = args.pypi_version
+        config.use_pypi = True  # --version implies --pypi
+    if args.pypi_pre:
+        config.pypi_pre = True
+        config.use_pypi = True  # --pre implies --pypi
     if args.skip_install:
         config.skip_install = True
     if args.clean:
@@ -326,8 +361,7 @@ def _print_deployment_banner(config: DeployConfig) -> None:
         print(f"Target: Docker container ({config.docker_container})")
     else:
         print(f"Target: {config.ssh_target}")
-    print(f"Branch: {config.branch}")
-    print(f"Local code: {'yes' if config.use_local_code else 'no'}")
+    print(f"Source: {config.install_source}")
     print(f"Clean install: {'yes' if config.clean_before else 'no'}")
     print(f"Features: {', '.join(config.with_features)}")
     if config.admin_domain:
