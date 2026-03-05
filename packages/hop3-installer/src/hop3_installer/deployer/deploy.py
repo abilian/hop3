@@ -233,6 +233,29 @@ class Deployer:
                 traceback.print_exc()
             return False
 
+    def _build_source_args(self, local_path: str | None) -> str:
+        """Build installer arguments for the installation source.
+
+        Args:
+            local_path: Path on the server where local code was uploaded (if any)
+
+        Returns:
+            String of command-line arguments for the installer
+        """
+        if local_path:
+            return f" --local-path {shlex.quote(local_path)}"
+
+        if self.config.use_pypi or self.config.pypi_version:
+            args = ""
+            if self.config.pypi_version:
+                args += f" --version {shlex.quote(self.config.pypi_version)}"
+            if self.config.pypi_pre:
+                args += " --pre"
+            return args
+
+        # Default: install from git
+        return f" --git --branch {shlex.quote(self.config.branch)}"
+
     def _install(self, *, local_path: str | None = None) -> bool:
         """Install Hop3 on the target.
 
@@ -251,39 +274,28 @@ class Deployer:
             return False
 
         # Build install command
-        # Use -u for unbuffered output so we can stream progress
         install_cmd = "python3 -u /tmp/install-server.py"
-
-        # Use local path if provided (for --local flag)
-        if local_path:
-            install_cmd += f" --local-path {shlex.quote(local_path)}"
-        elif self.config.branch != "devel":
-            # Quote branch name to prevent command injection
-            install_cmd += f" --git --branch {shlex.quote(self.config.branch)}"
+        install_cmd += self._build_source_args(local_path)
 
         if self.config.with_features:
             install_cmd += f" --with {','.join(self.config.with_features)}"
 
-        # Add ACME email for Let's Encrypt if provided
         if self.config.acme_email:
             install_cmd += f" --acme-email {shlex.quote(self.config.acme_email)}"
 
-        # Always use verbose for better error output
         install_cmd += " --verbose"
 
         self.log(f"Running: {install_cmd}")
         if not self.quiet:
-            print()  # Blank line before streaming output
+            print()
 
-        # Use streaming to show real-time progress
         exit_code = self.backend.run_streaming(
             install_cmd, quiet=self.quiet, log_file=self.log_file
         )
 
         if not self.quiet:
-            print()  # Blank line after streaming output
+            print()
         else:
-            # In quiet mode, log_step left cursor waiting - print result
             print("done" if exit_code == 0 else "FAILED")
 
         if exit_code != 0:
@@ -298,6 +310,10 @@ class Deployer:
         # If using local code, use that instead of git
         if self.config.use_local_code:
             return self._update_local_code()
+
+        # If using PyPI, update from PyPI
+        if self.config.use_pypi or self.config.pypi_version:
+            return self._update_from_pypi()
 
         self.log("Pulling latest code from git")
 
@@ -323,6 +339,40 @@ class Deployer:
                 return False
 
         self.log("Update complete", "success")
+        return True
+
+    def _update_from_pypi(self) -> bool:
+        """Update existing installation from PyPI."""
+        pip = "/home/hop3/venv/bin/pip"
+
+        # Build package spec
+        if self.config.pypi_version:
+            package_spec = f"hop3-server=={shlex.quote(self.config.pypi_version)}"
+            self.log(f"Upgrading to version {self.config.pypi_version} from PyPI")
+        else:
+            package_spec = "hop3-server"
+            if self.config.pypi_pre:
+                self.log("Upgrading to latest (including pre-releases) from PyPI")
+            else:
+                self.log("Upgrading to latest stable from PyPI")
+
+        # Build pip command
+        pre_flag = (
+            "--pre " if self.config.pypi_pre and not self.config.pypi_version else ""
+        )
+        pip_cmd = f"{pip} install --upgrade {pre_flag}{package_spec}"
+
+        result = self.backend.run(pip_cmd, check=False)
+        if not result.success:
+            self.log("Failed to upgrade package", "error")
+            self.log_output(result)
+            return False
+
+        # Restart server
+        self.log("Restarting server")
+        self.backend.run("systemctl restart hop3-server", check=False)
+
+        self.log("Update from PyPI complete", "success")
         return True
 
     def _upload_local_code_for_install(self) -> str | None:

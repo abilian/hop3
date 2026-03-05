@@ -60,6 +60,12 @@ Optional Features (--with):
         help="Install from a local directory",
     )
     parser.add_argument(
+        "--pre",
+        action="store_true",
+        default=env_config.pre_release,
+        help="Allow pre-release versions when installing from PyPI",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         default=env_config.force,
@@ -126,6 +132,7 @@ def config_from_args(args: argparse.Namespace) -> ServerInstallerConfig:
         use_git=args.git,
         branch=args.branch,
         local_path=args.local_path,
+        pre_release=args.pre,
         force=args.force,
         skip_deps=args.skip_deps,
         skip_nginx=args.skip_nginx,

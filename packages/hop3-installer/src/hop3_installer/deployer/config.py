@@ -38,6 +38,9 @@ class DeployConfig:
     # Installation settings
     branch: str = DEFAULT_BRANCH
     use_local_code: bool = False
+    use_pypi: bool = False  # Install from PyPI instead of git
+    pypi_version: str | None = None  # Specific PyPI version (implies use_pypi)
+    pypi_pre: bool = False  # Allow pre-release versions from PyPI
     skip_install: bool = False
     clean_before: bool = False
     with_features: list[str] = field(default_factory=list)
@@ -79,6 +82,19 @@ class DeployConfig:
         if not self.host:
             raise ValueError("Host not set")
         return f"{self.ssh_user}@{self.host}"
+
+    @property
+    def install_source(self) -> str:
+        """Get description of the installation source."""
+        if self.use_local_code:
+            return "local code"
+        if self.pypi_version:
+            return f"PyPI (version {self.pypi_version})"
+        if self.use_pypi:
+            if self.pypi_pre:
+                return "PyPI (latest including pre-releases)"
+            return "PyPI (latest stable)"
+        return f"git ({self.branch})"
 
     @property
     def installer_path(self) -> Path:
@@ -154,6 +170,9 @@ class DeployConfig:
             HOP3_SSH_USER - SSH user (default: root)
             HOP3_BRANCH - Git branch (default: devel)
             HOP3_LOCAL - Use local code (1 or true)
+            HOP3_PYPI - Install from PyPI (1 or true)
+            HOP3_PYPI_VERSION - Specific PyPI version
+            HOP3_PYPI_PRE - Allow pre-release versions (1 or true)
             HOP3_CLEAN - Clean before deploy (1 or true)
             HOP3_WITH - Features to install (comma-separated)
             HOP3_ADMIN_DOMAIN - Admin domain
@@ -174,6 +193,9 @@ class DeployConfig:
             ssh_user=env_str("HOP3_SSH_USER", DEFAULT_SSH_USER),
             branch=env_str("HOP3_BRANCH", DEFAULT_BRANCH),
             use_local_code=env_bool("HOP3_LOCAL"),
+            use_pypi=env_bool("HOP3_PYPI"),
+            pypi_version=env_str("HOP3_PYPI_VERSION"),
+            pypi_pre=env_bool("HOP3_PYPI_PRE"),
             clean_before=env_bool("HOP3_CLEAN"),
             with_features=features or ["docker"],
             admin_domain=env_str("HOP3_ADMIN_DOMAIN"),

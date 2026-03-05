@@ -141,6 +141,7 @@ class ServerInstallerConfig:
     use_git: bool = False
     branch: str = DEFAULT_BRANCH
     local_path: str | None = None
+    pre_release: bool = False  # Allow pre-release versions from PyPI
 
     # Installation options
     force: bool = False
@@ -177,6 +178,7 @@ class ServerInstallerConfig:
             use_git=env_bool("HOP3_GIT"),
             branch=env_str("HOP3_BRANCH", DEFAULT_BRANCH),
             local_path=env_str("HOP3_LOCAL_PACKAGE"),
+            pre_release=env_bool("HOP3_PRE"),
             force=env_bool("HOP3_FORCE"),
             skip_deps=env_bool("HOP3_SKIP_DEPS"),
             skip_nginx=env_bool("HOP3_SKIP_NGINX"),
