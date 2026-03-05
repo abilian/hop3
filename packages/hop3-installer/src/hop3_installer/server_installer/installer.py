@@ -166,7 +166,7 @@ def _run_service_setup_steps(
     print_step(7, TOTAL_STEPS, "Setting up systemd services...")
     secret_key = None
     try:
-        secret_key = setup_systemd()
+        secret_key = setup_systemd(config)
     except CommandError as e:
         print_warning(f"Systemd setup issue: {e.stderr[:100]}")
 

@@ -48,6 +48,9 @@ class DeployConfig:
     admin_email: str = DEFAULT_ADMIN_EMAIL
     admin_password: str = ""
 
+    # ACME/Let's Encrypt settings
+    acme_email: str | None = None
+
     # Output settings
     verbose: bool = False
     quiet: bool = False
@@ -157,6 +160,7 @@ class DeployConfig:
             HOP3_ADMIN_USER - Admin username
             HOP3_ADMIN_EMAIL - Admin email
             HOP3_ADMIN_PASSWORD - Admin password
+            HOP3_ACME_EMAIL - Email for Let's Encrypt registration
             HOP3_VERBOSE - Verbose output (1 or true)
             HOP3_QUIET - Quiet mode (1 or true)
             HOP3_DOCKER - Use Docker instead of SSH (1 or true)
@@ -176,6 +180,7 @@ class DeployConfig:
             admin_user=env_str("HOP3_ADMIN_USER", DEFAULT_ADMIN_USER),
             admin_email=env_str("HOP3_ADMIN_EMAIL", DEFAULT_ADMIN_EMAIL),
             admin_password=env_str("HOP3_ADMIN_PASSWORD", ""),
+            acme_email=env_str("HOP3_ACME_EMAIL"),
             verbose=env_bool("HOP3_VERBOSE"),
             quiet=env_bool("HOP3_QUIET"),
         )

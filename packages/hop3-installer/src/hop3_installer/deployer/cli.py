@@ -139,6 +139,10 @@ Examples:
         "--admin-password",
         help="Admin password (auto-generated if not provided)",
     )
+    admin.add_argument(
+        "--acme-email",
+        help="Email address for Let's Encrypt certificate registration",
+    )
 
     # Output options
     output = parser.add_argument_group("Output")
@@ -225,6 +229,8 @@ def _apply_admin_overrides(config: DeployConfig, args: argparse.Namespace) -> No
         config.admin_email = args.admin_email
     if args.admin_password:
         config.admin_password = args.admin_password
+    if args.acme_email:
+        config.acme_email = args.acme_email
 
 
 def _apply_output_overrides(config: DeployConfig, args: argparse.Namespace) -> None:

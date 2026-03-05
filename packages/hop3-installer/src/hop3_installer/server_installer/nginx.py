@@ -32,11 +32,47 @@ from .config import (
 )
 
 
+def _disable_conflicting_webservers() -> None:
+    """Disable Apache and other webservers that conflict with Nginx.
+
+    Apache is often installed as a dependency of PHP packages (libapache2-mod-php).
+    We need to stop and disable it to prevent port 80/443 conflicts with Nginx.
+    """
+    # List of services to disable (covers both Debian and RHEL naming)
+    conflicting_services = ["apache2", "httpd"]
+
+    for service in conflicting_services:
+        # Check if service exists
+        result = run_cmd(
+            ["systemctl", "list-unit-files", f"{service}.service"], check=False
+        )
+        if result.returncode != 0 or service not in result.stdout:
+            continue
+
+        # Stop the service
+        result = run_cmd(["systemctl", "stop", service], check=False)
+        if result.returncode == 0:
+            print_info(f"Stopped {service}")
+
+        # Disable the service from starting on boot
+        result = run_cmd(["systemctl", "disable", service], check=False)
+        if result.returncode == 0:
+            print_info(f"Disabled {service}")
+
+        # Mask the service to prevent accidental re-enabling
+        result = run_cmd(["systemctl", "mask", service], check=False)
+        if result.returncode == 0:
+            print_success(f"Masked {service} to prevent conflicts with Nginx")
+
+
 def setup_nginx(config: ServerInstallerConfig) -> None:
     """Configure nginx as reverse proxy."""
     if config.skip_nginx:
         print_info("Skipping nginx setup (--skip-nginx)")
         return
+
+    # Disable conflicting webservers (Apache) before configuring Nginx
+    _disable_conflicting_webservers()
 
     # Determine server name
     server_name = config.domain if config.domain else "_"

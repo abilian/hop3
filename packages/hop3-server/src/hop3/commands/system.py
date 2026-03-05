@@ -486,7 +486,7 @@ class InfoCmd(Command):
             try:
                 addr_info = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC)
                 for item in addr_info:
-                    ip = item[4][0]
+                    ip = str(item[4][0])
                     # Skip loopback and link-local addresses
                     if (
                         not ip.startswith("127.")

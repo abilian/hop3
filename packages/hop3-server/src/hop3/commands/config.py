@@ -6,10 +6,12 @@
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from hop3.config import HopConfig
 from hop3.lib.args import parse_cli_args
 from hop3.lib.registry import register
 from hop3.orm import App, AppRepository
@@ -99,8 +101,17 @@ class ShowCmd(Command):
             return self._show_compose_file(app)
 
         env = app.get_runtime_env()
+        if not env:
+            return [text(f"No configuration set for '{app_name}'.")]
+
         rows = [[k, v] for k, v in env.items()]
-        return [table(headers=["Key", "Value"], rows=rows)]
+        return [
+            text(f"Configured environment for '{app_name}':"),
+            table(headers=["Key", "Value"], rows=rows),
+            text(
+                "\nNote: These are configured values. Use 'config:live' to see actual running values."
+            ),
+        ]
 
     def _show_compose_file(self, app: App) -> list[dict]:
         """Show the generated Docker Compose file for the app.
@@ -185,7 +196,13 @@ class GetCmd(Command):
 @register
 @dataclass(frozen=True)
 class LiveCmd(Command):
-    """e.g.: hop config:live <app> or hop config:live --app <app>."""
+    """Show actual live environment from running app.
+
+    Unlike config:show which shows database values, this inspects
+    the running process/container to show what's actually in effect.
+
+    Usage: hop config:live <app> or hop config:live --app <app>
+    """
 
     db_session: Session
     name: ClassVar[str] = "config:live"
@@ -208,19 +225,97 @@ class LiveCmd(Command):
                 text(
                     "Usage: hop3 config:live <app-name>\n"
                     "   or: hop3 config:live --app <app-name>\n\n"
-                    "Example:\n"
-                    "  hop3 config:live myapp"
+                    "Shows the actual environment variables from the running app.\n"
+                    "Use 'config:show' to see configured (pending) values."
                 )
             ]
 
         app = get_app(self.db_session, app_name)
-        env = app.get_runtime_env()
 
-        if not env:
-            return [text(f"Warning: app '{app_name}' not deployed, no config found.")]
+        # Try to get live environment based on runtime type
+        if app.runtime == "docker-compose":
+            live_env = self._get_docker_env(app_name)
+        elif app.runtime == "uwsgi":
+            live_env = self._get_uwsgi_env(app)
+        else:
+            live_env = None
 
-        rows = [[k, v] for k, v in env.items()]
-        return [table(headers=["Key", "Value"], rows=rows)]
+        if live_env:
+            rows = [[k, v] for k, v in sorted(live_env.items())]
+            return [
+                text(f"Live environment for '{app_name}' (runtime: {app.runtime}):"),
+                table(headers=["Key", "Value"], rows=rows),
+            ]
+
+        # Fallback: show database values with warning
+        db_env = app.get_runtime_env()
+        if not db_env:
+            return [text(f"App '{app_name}' is not deployed or has no configuration.")]
+
+        return [
+            text(f"Could not inspect running {app.runtime} app '{app_name}'."),
+            text("Showing configured values (may not match live environment):"),
+            table(headers=["Key", "Value"], rows=[[k, v] for k, v in db_env.items()]),
+            text("\nTip: Run 'hop deploy' to ensure live environment matches config."),
+        ]
+
+    def _get_docker_env(self, app_name: str) -> dict | None:
+        """Get environment from running Docker container."""
+        container_name = f"hop3-{app_name}"
+        try:
+            result = subprocess.run(
+                [
+                    "docker",
+                    "inspect",
+                    "--format",
+                    "{{range .Config.Env}}{{println .}}{{end}}",
+                    container_name,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                live_env = {}
+                for line in result.stdout.strip().split("\n"):
+                    if "=" in line:
+                        key, value = line.split("=", 1)
+                        live_env[key] = value
+                return live_env or None
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        return None
+
+    def _get_uwsgi_env(self, app) -> dict | None:
+        """Get environment from running uWSGI process."""
+        cfg = HopConfig.get_instance()
+        pid_file = Path(cfg.UWSGI_ENABLED) / f"{app.name}.pid"
+
+        if not pid_file.exists():
+            return None
+
+        try:
+            pid = int(pid_file.read_text().strip())
+            # Read environment from /proc/<pid>/environ
+            environ_path = f"/proc/{pid}/environ"
+            result = subprocess.run(
+                ["cat", environ_path],
+                capture_output=True,
+                timeout=5,
+            )
+            if result.returncode == 0 and result.stdout:
+                live_env = {}
+                # /proc/pid/environ uses null bytes as separators
+                for entry in result.stdout.split(b"\x00"):
+                    if b"=" in entry:
+                        key, value = entry.decode("utf-8", errors="replace").split(
+                            "=", 1
+                        )
+                        live_env[key] = value
+                return live_env or None
+        except (FileNotFoundError, ValueError, subprocess.TimeoutExpired, OSError):
+            pass
+        return None
 
 
 @register
@@ -295,9 +390,22 @@ class SetCmd(Command):
         for change in changes:
             result.append(text(f"  • {change}"))
 
-        result.append(
-            text("\nNote: Run 'hop app:restart <app>' to apply changes to running app.")
-        )
+        # Determine appropriate action message based on what was changed
+        # Infrastructure variables require full redeploy (affects nginx/proxy config)
+        infra_vars = {"HOST_NAME", "HTTPS_ONLY", "AUTO_RESTART", "NGINX_SERVER_NAME"}
+        changed_infra = set(key_values.keys()) & infra_vars
+
+        if changed_infra:
+            result.append(
+                text(
+                    f"\nNote: {', '.join(sorted(changed_infra))} changed. "
+                    f"Run 'hop deploy {app_name}' to apply (affects proxy config)."
+                )
+            )
+        else:
+            result.append(
+                text(f"\nNote: Run 'hop app:restart {app_name}' to apply changes.")
+            )
 
         return result
 

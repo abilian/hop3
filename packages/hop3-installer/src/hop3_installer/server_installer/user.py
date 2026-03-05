@@ -83,3 +83,11 @@ def create_user_and_group() -> None:
             print_warning(
                 "Failed to add www-data to hop3 group - nginx may have permission issues"
             )
+
+    # Add hop3 to docker group (needed for Docker builds)
+    if group_exists("docker"):
+        result = run_cmd(["usermod", "-a", "-G", "docker", HOP3_USER], check=False)
+        if result.returncode == 0:
+            print_info("Added hop3 to docker group")
+        else:
+            print_warning("Failed to add hop3 to docker group - Docker builds may fail")

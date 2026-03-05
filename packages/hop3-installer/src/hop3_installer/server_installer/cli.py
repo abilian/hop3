@@ -103,6 +103,12 @@ Optional Features (--with):
         help="Domain name for Let's Encrypt certificate",
     )
     parser.add_argument(
+        "--acme-email",
+        metavar="EMAIL",
+        default=env_config.acme_email,
+        help="Email address for Let's Encrypt registration (required for ACME)",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         default=env_config.verbose,
@@ -126,6 +132,7 @@ def config_from_args(args: argparse.Namespace) -> ServerInstallerConfig:
         skip_postgres=args.skip_postgres,
         skip_acme=args.skip_acme,
         domain=args.domain,
+        acme_email=args.acme_email,
         verbose=args.verbose,
         features=features,
     )

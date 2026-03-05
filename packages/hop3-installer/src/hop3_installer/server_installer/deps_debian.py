@@ -22,6 +22,8 @@ DEBIAN_SPEC = PackageSpec(
     pkg_manager="apt-get",
     update_cmd=["apt-get", "update", "-q"],
     env_vars={"DEBIAN_FRONTEND": "noninteractive"},
+    # Prevent Apache from being installed as a recommended dependency of PHP
+    install_flags=["--no-install-recommends"],
     base_packages=[
         # Core utilities
         "bc",
@@ -53,8 +55,9 @@ DEBIAN_SPEC = PackageSpec(
         # Elixir toolchain
         "elixir",
         "erlang",
-        # PHP toolchain
+        # PHP toolchain (using php-fpm for Nginx, not mod_php for Apache)
         "php",
+        "php-fpm",  # FastCGI Process Manager for Nginx
         "php-cli",
         "php-mbstring",
         "php-xml",
@@ -78,6 +81,8 @@ DEBIAN_SPEC = PackageSpec(
         "rsync",
         "socat",
         "unzip",
+        # SSL/TLS certificates
+        "certbot",  # Let's Encrypt ACME client
         # Development libraries
         "libjpeg-dev",
         "libpng-dev",
