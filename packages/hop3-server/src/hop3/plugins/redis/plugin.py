@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any, cast
 
 from dishka import Provider, Scope, provide
 
@@ -55,7 +56,7 @@ class RedisHealthCheck:
         try:
             factory = RedisClientFactory.from_config()
             client = redis.Redis(**factory.get_connection_params())
-            info = client.info()
+            info = cast("dict[str, Any]", client.info())
 
             return HealthCheckResult(
                 name="Redis",
