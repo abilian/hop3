@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from hop3_cli.ui.rich_printer import RichPrinter
 
 
-def handle_version(args: list[str], config: Config, printer: RichPrinter) -> bool:
+def handle_version(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Handle the version command - show CLI version locally."""
     try:
         cli_version = get_version("hop3-cli")
@@ -22,4 +22,3 @@ def handle_version(args: list[str], config: Config, printer: RichPrinter) -> boo
         cli_version = "unknown"
 
     print(f"hop3-cli {cli_version}")
-    return True

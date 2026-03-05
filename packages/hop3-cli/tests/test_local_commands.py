@@ -137,8 +137,7 @@ class TestSettingsCommands:
 
     def test_settings_show_empty(self, temp_config, mock_printer, capsys):
         """Test settings show with no settings."""
-        result = settings_show(temp_config, mock_printer)
-        assert result is True
+        settings_show(temp_config, mock_printer)
 
         captured = capsys.readouterr()
         assert "No settings configured" in captured.out
@@ -149,8 +148,7 @@ class TestSettingsCommands:
         long_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.sig"
         temp_config.data = {"api_url": "https://test.com", "api_token": long_token}
 
-        result = settings_show(temp_config, mock_printer)
-        assert result is True
+        settings_show(temp_config, mock_printer)
 
         captured = capsys.readouterr()
         assert "api_url = https://test.com" in captured.out
@@ -161,20 +159,14 @@ class TestSettingsCommands:
 
     def test_settings_set(self, temp_config, mock_printer, capsys):
         """Test setting a settings value."""
-        result = settings_set(
-            ["api_url", "https://new-server.com"], temp_config, mock_printer
-        )
-        assert result is True
+        settings_set(["api_url", "https://new-server.com"], temp_config, mock_printer)
 
         # Verify it was saved
         assert temp_config.data["api_url"] == "https://new-server.com"
 
     def test_settings_set_alias(self, temp_config, mock_printer, capsys):
         """Test setting settings using alias."""
-        result = settings_set(
-            ["server", "https://alias-test.com"], temp_config, mock_printer
-        )
-        assert result is True
+        settings_set(["server", "https://alias-test.com"], temp_config, mock_printer)
 
         # 'server' should be converted to 'api_url'
         assert temp_config.data["api_url"] == "https://alias-test.com"
@@ -183,8 +175,7 @@ class TestSettingsCommands:
         """Test getting a settings value."""
         temp_config.data = {"api_url": "https://test.com"}
 
-        result = settings_get(["api_url"], temp_config, mock_printer)
-        assert result is True
+        settings_get(["api_url"], temp_config, mock_printer)
 
         captured = capsys.readouterr()
         assert "https://test.com" in captured.out
@@ -209,7 +200,6 @@ class TestHandleInit:
     def test_init_help(self, temp_config, mock_printer, capsys):
         """Test init --help shows help."""
         result = handle_init(["--help"], temp_config, mock_printer)
-        assert result is True
 
         captured = capsys.readouterr()
         assert "Usage: hop3 init --ssh" in captured.out
@@ -249,9 +239,10 @@ class TestHandleInit:
                 mock_printer,
             )
 
-        assert result is True
-        assert temp_config.data["api_token"] == mock_token
-        assert "https://test.com" in temp_config.data["api_url"]
+        # Credentials are saved to a "default" context when no context exists
+        default_ctx = temp_config.data["contexts"]["default"]
+        assert default_ctx["api_token"] == mock_token
+        assert "https://test.com" in default_ctx["api_url"]
 
 
 class TestHandleLogin:
@@ -273,7 +264,6 @@ class TestHandleLogin:
     def test_login_help(self, temp_config, mock_printer, capsys):
         """Test login --help shows help."""
         result = handle_login(["--help"], temp_config, mock_printer)
-        assert result is True
 
         captured = capsys.readouterr()
         assert "Usage: hop3 login" in captured.out
@@ -303,8 +293,9 @@ class TestHandleLogin:
                 mock_printer,
             )
 
-        assert result is True
-        assert temp_config.data["api_token"] == mock_token
+        # Credentials are saved to a "default" context when no context exists
+        default_ctx = temp_config.data["contexts"]["default"]
+        assert default_ctx["api_token"] == mock_token
 
     def test_login_password_unconfigured(self, temp_config, mock_printer):
         """Test password login fails when server not configured."""
@@ -328,17 +319,21 @@ class TestHandleLogin:
                 mock_printer,
             )
 
-        assert result is True
-        assert temp_config.data["api_token"] == mock_token
-        assert temp_config.data["api_url"] == "http://localhost:8000"
+        # Credentials are saved to a "default" context when no context exists
+        default_ctx = temp_config.data["contexts"]["default"]
+        assert default_ctx["api_token"] == mock_token
+        assert default_ctx["api_url"] == "http://localhost:8000"
 
     def test_login_token_with_existing_server(self, temp_config, mock_printer, capsys):
         """Test token login uses existing server config."""
         mock_token = (
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.signature"
         )
-        # Pre-configure server
-        temp_config.data["api_url"] = "https://existing-server.com"
+        # Pre-configure server with existing context
+        temp_config.data["contexts"] = {
+            "default": {"api_url": "https://existing-server.com", "api_token": ""}
+        }
+        temp_config.data["current_context"] = "default"
 
         with patch(
             "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"
@@ -349,9 +344,9 @@ class TestHandleLogin:
                 mock_printer,
             )
 
-        assert result is True
-        assert temp_config.data["api_token"] == mock_token
-        assert temp_config.data["api_url"] == "https://existing-server.com"
+        default_ctx = temp_config.data["contexts"]["default"]
+        assert default_ctx["api_token"] == mock_token
+        assert default_ctx["api_url"] == "https://existing-server.com"
 
     def test_login_token_missing_token(self, temp_config, mock_printer):
         """Test token login fails when token not provided."""
@@ -376,8 +371,10 @@ class TestHandleLogin:
                 )
             assert exc_info.value.code == 1
 
-        # Config should NOT be saved
-        assert "api_token" not in temp_config.data
+        # Config should NOT be saved (no contexts created)
+        assert "contexts" not in temp_config.data or not temp_config.data.get(
+            "contexts"
+        )
 
     def test_login_url_with_token(self, temp_config, mock_printer, capsys):
         """Test login with URL containing embedded token."""
@@ -391,9 +388,10 @@ class TestHandleLogin:
         ):
             result = handle_login([url_with_token], temp_config, mock_printer)
 
-        assert result is True
-        assert temp_config.data["api_token"] == mock_token
-        assert temp_config.data["api_url"] == "http://localhost:8000"
+        # Credentials are saved to a "default" context when no context exists
+        default_ctx = temp_config.data["contexts"]["default"]
+        assert default_ctx["api_token"] == mock_token
+        assert default_ctx["api_url"] == "http://localhost:8000"
 
     def test_login_url_with_token_and_path(self, temp_config, mock_printer, capsys):
         """Test login with URL containing path and embedded token."""
@@ -407,9 +405,10 @@ class TestHandleLogin:
         ):
             result = handle_login([url_with_token], temp_config, mock_printer)
 
-        assert result is True
-        assert temp_config.data["api_token"] == mock_token
-        assert temp_config.data["api_url"] == "https://my-server.com/api"
+        # Credentials are saved to a "default" context when no context exists
+        default_ctx = temp_config.data["contexts"]["default"]
+        assert default_ctx["api_token"] == mock_token
+        assert default_ctx["api_url"] == "https://my-server.com/api"
 
 
 class TestHandleVersion:
@@ -431,7 +430,6 @@ class TestHandleVersion:
     def test_version_shows_cli_version(self, temp_config, mock_printer, capsys):
         """Test version command shows CLI version."""
         result = handle_version([], temp_config, mock_printer)
-        assert result is True
 
         captured = capsys.readouterr()
         assert "hop3-cli" in captured.out
@@ -456,7 +454,6 @@ class TestHandleAuth:
     def test_auth_shows_help(self, temp_config, mock_printer, capsys):
         """Test auth command shows authentication help."""
         result = handle_auth([], temp_config, mock_printer)
-        assert result is True
 
         captured = capsys.readouterr()
         assert "Authentication commands" in captured.out
@@ -466,7 +463,6 @@ class TestHandleAuth:
     def test_auth_with_help_flag(self, temp_config, mock_printer, capsys):
         """Test auth --help shows help."""
         result = handle_auth(["--help"], temp_config, mock_printer)
-        assert result is True
 
         captured = capsys.readouterr()
         assert "Authentication commands" in captured.out

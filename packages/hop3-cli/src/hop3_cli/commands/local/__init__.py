@@ -92,18 +92,25 @@ def handle_local_command(args: list[str], config: Config, printer: RichPrinter) 
     cmd_args = args[1:]
 
     if command == "completion":
-        return handle_completion(cmd_args, config, printer)
+        handle_completion(cmd_args, config, printer)
+        return True
     if command == "context":
-        return handle_context(cmd_args, config, printer)
+        handle_context(cmd_args, config, printer)
+        return True
     if command == "init":
-        return handle_init(cmd_args, config, printer)
+        handle_init(cmd_args, config, printer)
+        return True
     if command == "login":
-        return handle_login(cmd_args, config, printer)
+        handle_login(cmd_args, config, printer)
+        return True
     if command == "settings":
-        return handle_settings(cmd_args, config, printer)
+        handle_settings(cmd_args, config, printer)
+        return True
     if command in {"version", "--version", "-V"}:
-        return handle_version(cmd_args, config, printer)
+        handle_version(cmd_args, config, printer)
+        return True
     if command == "auth":
+        # handle_auth returns False if command should go to server
         return handle_auth(cmd_args, config, printer)
 
     return False

@@ -294,19 +294,21 @@ complete -c hop -n '__fish_use_subcommand' -a '(__hop3_commands)' -d 'hop3 comma
 """
 
 
-def handle_completion(args: list[str], config: Config, printer: RichPrinter) -> bool:
+def handle_completion(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Handle the completion command - output shell completion scripts."""
     if not args or args[0] in {"--help", "-h"}:
         print_completion_help()
-        return True
+        return
 
     # Handle --refresh flag
     if args[0] == "--refresh":
-        return refresh_commands_cache(config, printer)
+        refresh_commands_cache(config, printer)
+        return
 
     # Handle --status flag
     if args[0] == "--status":
-        return show_cache_status()
+        show_cache_status()
+        return
 
     shell = args[0].lower()
 
@@ -320,8 +322,6 @@ def handle_completion(args: list[str], config: Config, printer: RichPrinter) -> 
         print(f"Unknown shell: {shell}", file=sys.stderr)
         print("Supported shells: bash, zsh, fish", file=sys.stderr)
         sys.exit(1)
-
-    return True
 
 
 def print_completion_help():
@@ -439,15 +439,12 @@ def write_commands_cache(commands: list[str]) -> None:
     COMMANDS_CACHE_TXT.write_text("\n".join(sorted_commands) + "\n")
 
 
-def refresh_commands_cache(config: Config, printer: RichPrinter) -> bool:
+def refresh_commands_cache(config: Config, printer: RichPrinter) -> None:
     """Fetch commands from server and update the cache.
 
     Args:
         config: CLI configuration
         printer: Output printer
-
-    Returns:
-        True if successful, exits on error
     """
     # Import here to avoid circular import
     from jsonrpcclient import Ok  # noqa: PLC0415
@@ -507,21 +504,15 @@ def refresh_commands_cache(config: Config, printer: RichPrinter) -> bool:
         print(f"Error connecting to server: {e}", file=sys.stderr)
         sys.exit(1)
 
-    return True
 
-
-def show_cache_status() -> bool:
-    """Show the status of the commands cache.
-
-    Returns:
-        True always
-    """
+def show_cache_status() -> None:
+    """Show the status of the commands cache."""
     if not COMMANDS_CACHE_TXT.exists():
         print("Cache status: Not found")
         print(f"Cache location: {COMMANDS_CACHE_TXT}")
         print(f"Using: Static fallback list ({len(FALLBACK_COMMANDS)} commands)")
         print("\nTo create cache, run: hop3 completion --refresh")
-        return True
+        return
 
     try:
         data = json.loads(COMMANDS_CACHE_FILE.read_text())
@@ -547,8 +538,6 @@ def show_cache_status() -> bool:
     except Exception as e:
         print(f"Cache status: Error reading cache ({e})")
         print(f"Cache location: {COMMANDS_CACHE_TXT}")
-
-    return True
 
 
 def _format_age(age) -> str:
