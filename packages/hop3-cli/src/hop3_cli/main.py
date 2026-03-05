@@ -139,6 +139,8 @@ def _check_prerequisites(
     cli_args: list[str], config: Config, printer: RichPrinter, flags
 ) -> None:
     """Check all prerequisites before executing a command."""
+    from hop3_cli.exceptions import AuthenticationError  # noqa: PLC0415
+
     # Skip all checks for commands that don't require authentication
     if not requires_authentication(cli_args):
         return
@@ -150,15 +152,21 @@ def _check_prerequisites(
 
     # Check authentication - try auto-auth via SSH if not authenticated
     if not config.is_authenticated():
-        if not _try_auto_authenticate(config, printer):
+        try:
+            _try_auto_authenticate(config, printer)
+        except AuthenticationError:
             show_unauthenticated_message()
             sys.exit(ExitCode.AUTH_ERROR)
 
     # For destructive commands, verify token is valid BEFORE asking for confirmation
     if is_destructive_command(cli_args):
-        if not verify_authentication(config):
+        try:
+            verify_authentication(config)
+        except AuthenticationError:
             # Token might be expired - try auto-auth via SSH
-            if not _try_auto_authenticate(config, printer):
+            try:
+                _try_auto_authenticate(config, printer)
+            except AuthenticationError:
                 show_unauthenticated_message()
                 sys.exit(ExitCode.AUTH_ERROR)
 
@@ -168,11 +176,11 @@ def _check_prerequisites(
             sys.exit(ExitCode.SUCCESS)  # User cancelled
 
 
-def _try_auto_authenticate(config: Config, printer: RichPrinter) -> bool:
+def _try_auto_authenticate(config: Config, printer: RichPrinter) -> None:
     """Try to authenticate automatically via SSH if available.
 
-    Returns:
-        True if authentication succeeded, False otherwise
+    Raises:
+        AuthenticationError: If auto-auth is not available or fails.
     """
     from urllib.parse import urlparse  # noqa: PLC0415
 
@@ -180,14 +188,17 @@ def _try_auto_authenticate(config: Config, printer: RichPrinter) -> bool:
         BootstrapError,
         get_ssh_token,
     )
+    from hop3_cli.exceptions import AuthenticationError  # noqa: PLC0415
 
     api_url = config.get_api_url()
     if not api_url:
-        return False
+        msg = "No API URL configured"
+        raise AuthenticationError(msg)
 
     parsed = urlparse(api_url)
     if parsed.scheme not in {"ssh", "ssh+http"}:
-        return False
+        msg = f"Auto-auth requires SSH URL (got {parsed.scheme}://)"
+        raise AuthenticationError(msg)
 
     # We have SSH access - try auto-auth
     ssh_user = parsed.username or config.get("ssh_user", "root")
@@ -199,18 +210,15 @@ def _try_auto_authenticate(config: Config, printer: RichPrinter) -> bool:
 
     try:
         token = get_ssh_token(ssh_target)
-        config.update_context_token(token)
-        if printer.verbosity >= 1:
-            printer.print_debug("Auto-authentication successful")
-        return True
     except BootstrapError as e:
         if printer.verbosity >= 1:
             printer.print_debug(f"Auto-auth failed: {e}")
-        return False
-    except Exception as e:
-        if printer.verbosity >= 1:
-            printer.print_debug(f"Auto-auth error: {e}")
-        return False
+        msg = f"SSH authentication to {ssh_target} failed: {e}"
+        raise AuthenticationError(msg) from e
+
+    config.update_context_token(token)
+    if printer.verbosity >= 1:
+        printer.print_debug("Auto-authentication successful")
 
 
 def requires_authentication(cli_args: list[str]) -> bool:
@@ -311,7 +319,7 @@ def load_config() -> Config:
     return get_config()
 
 
-def verify_authentication(config: Config) -> bool:
+def verify_authentication(config: Config) -> None:
     """Verify that the current authentication token is valid.
 
     Makes a lightweight auth:whoami call to check if the token works.
@@ -319,18 +327,25 @@ def verify_authentication(config: Config) -> bool:
     Args:
         config: The CLI configuration
 
-    Returns:
-        True if authenticated, False otherwise
+    Raises:
+        AuthenticationError: If authentication is invalid or verification fails.
     """
+    from hop3_cli.exceptions import AuthenticationError  # noqa: PLC0415
+
     try:
         with Client(config=config) as client:
             response = client.rpc("cli", ["auth:whoami"])
             match response:
                 case Ok():
-                    return True
-                case Error():
-                    return False
+                    return
+                case Error(message=message):
+                    msg = f"Authentication failed: {message}"
+                    raise AuthenticationError(msg)
                 case _:
-                    return False
-    except Exception:
-        return False
+                    msg = "Authentication verification failed: unexpected response"
+                    raise AuthenticationError(msg)
+    except AuthenticationError:
+        raise
+    except Exception as e:
+        msg = f"Authentication verification failed: {e}"
+        raise AuthenticationError(msg) from e

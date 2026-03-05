@@ -347,7 +347,9 @@ def context_remove(args: list[str], config: Config, printer: RichPrinter) -> boo
     if name == current:
         print(f"Warning: '{name}' is the current context.")
 
-    if not config.remove_context(name):
+    try:
+        config.remove_context(name)
+    except KeyError:
         print(f"Context '{name}' not found.", file=sys.stderr)
         sys.exit(1)
 

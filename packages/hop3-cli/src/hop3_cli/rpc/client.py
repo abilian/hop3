@@ -24,7 +24,7 @@ from loguru import logger
 # which is simpler and avoids Python crypto library deprecation issues.
 from sshtunnel import SSHTunnelForwarder
 
-from hop3_cli.exceptions import CliError
+from hop3_cli.exceptions import AuthenticationError, CliError
 
 if TYPE_CHECKING:
     from hop3_cli.config import Config
@@ -190,9 +190,12 @@ class Client:
         if isinstance(response, Error) and response.code == 401:
             if self._can_auto_auth():
                 logger.debug("Got 401, attempting auto-auth via SSH")
-                if self._auto_authenticate():
+                try:
+                    self._auto_authenticate()
                     logger.debug("Auto-auth successful, retrying request")
                     response = self._do_rpc(method, cli_args, **extra_args)
+                except AuthenticationError:
+                    logger.debug("Auto-auth failed, returning original 401 response")
 
         return response
 
@@ -221,41 +224,36 @@ class Client:
         parsed = urlparse(self.api_url)
         return parsed.scheme in {"ssh", "ssh+http"}
 
-    def _auto_authenticate(self) -> bool:
+    def _auto_authenticate(self) -> None:
         """Get a new token via SSH and save it to config.
 
-        Returns:
-            True if authentication succeeded, False otherwise
+        Raises:
+            AuthenticationError: If authentication fails.
         """
         from hop3_cli.commands.local.ssh_ops import (  # noqa: PLC0415
             BootstrapError,
             get_ssh_token,
         )
 
+        parsed = urlparse(self.api_url)
+        ssh_user = parsed.username or self.config.get("ssh_user", "root")
+        ssh_host = parsed.hostname
+        ssh_target = f"{ssh_user}@{ssh_host}"
+
+        logger.debug(f"Auto-authenticating via SSH to {ssh_target}")
+
         try:
-            parsed = urlparse(self.api_url)
-            ssh_user = parsed.username or self.config.get("ssh_user", "root")
-            ssh_host = parsed.hostname
-            ssh_target = f"{ssh_user}@{ssh_host}"
-
-            logger.debug(f"Auto-authenticating via SSH to {ssh_target}")
             token = get_ssh_token(ssh_target)
-
-            # Save token to current context (or legacy config)
-            self.config.update_context_token(token)
-
-            # Clear cached headers so next request uses new token
-            if hasattr(self, "_headers_cache"):
-                delattr(self, "_headers_cache")
-
-            return True
-
         except BootstrapError as e:
-            logger.warning(f"Auto-auth failed: {e}")
-            return False
-        except Exception as e:
-            logger.warning(f"Auto-auth error: {e}")
-            return False
+            msg = f"SSH authentication to {ssh_target} failed: {e}"
+            raise AuthenticationError(msg) from e
+
+        # Save token to current context (or legacy config)
+        self.config.update_context_token(token)
+
+        # Clear cached headers so next request uses new token
+        if hasattr(self, "_headers_cache"):
+            delattr(self, "_headers_cache")
 
     def _get_ssl_verification(self) -> bool | str:
         """Determine SSL verification mode based on config."""
