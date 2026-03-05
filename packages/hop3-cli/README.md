@@ -34,7 +34,7 @@ export HOP3_API_URL="ssh://user@hop3.example.com"
 hop3 apps
 
 # View application logs
-hop3 logs myapp
+hop3 app:logs myapp
 
 # Set environment variables
 hop3 config:set myapp KEY=value

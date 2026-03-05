@@ -86,10 +86,10 @@ hop3 config:show myapp
 Full-featured command-line interface:
 
 ```bash
-hop3 apps:list          # List applications
-hop3 apps:info myapp    # Application details
-hop3 logs myapp         # View logs
-hop3 apps:restart myapp # Restart application
+hop3 apps               # List applications
+hop3 app:status myapp   # Application details
+hop3 app:logs myapp     # View logs
+hop3 app:restart myapp  # Restart application
 ```
 
 ### Web Dashboard
@@ -209,7 +209,7 @@ hop3 backup:restore mydb --backup <file>
 ### Logging
 
 ```bash
-hop3 logs myapp --follow
+hop3 app:logs myapp --follow
 hop3 system:logs
 ```
 

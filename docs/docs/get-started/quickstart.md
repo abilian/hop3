@@ -395,7 +395,7 @@ Almost all Hop3 commands support `--json` output for scripting and automation:
 hop3 app:status myapp --json | jq '.data.state'
 
 # List all apps and filter by status
-hop3 app:list --json | jq '.data[] | select(.state == "RUNNING")'
+hop3 apps --json | jq '.data[] | select(.state == "RUNNING")'
 
 # Create backup and capture backup ID
 BACKUP_ID=$(hop3 backup:create myapp --json | jq -r '.data.backup_id')
@@ -411,7 +411,7 @@ Use `--quiet` to suppress progress messages and only show essential output:
 hop3 deploy myapp --quiet
 
 # Combine with JSON for clean machine-readable output
-hop3 app:list --json --quiet
+hop3 apps --json --quiet
 ```
 
 ### Skipping Confirmations
