@@ -302,9 +302,17 @@ build:
 	uv build packages/hop3-testing
 	uv build packages/hop3-tui
 
-## Publish to PyPI
+## Publish to PyPI (legacy, use 'make release' instead)
 publish: clean build
 	twine upload dist/*
+
+## Release all packages to PyPI (checks versions, builds, uploads)
+release:
+	python scripts/release.py
+
+## Dry-run release (build but don't upload)
+release-dry-run:
+	python scripts/release.py --dry-run
 
 ## Generate SBOM for CRA compliance
 generate-sbom:
