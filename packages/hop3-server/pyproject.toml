@@ -2,6 +2,7 @@
 name = "hop3-server"
 version = "0.4.0b3"
 description = "Simple PaaS - Deploy and manage web applications on a single server"
+license = "Apache-2.0"
 authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" },
 ]
@@ -32,10 +33,10 @@ dependencies = [
     "cryptography>=42.0.0",
     # ASGI server
     "granian[reload]>=2.2.0",
-    # PostgreSQL
+    # Database connectors
     "psycopg2-binary>=2.9.10",
-    # MySQL
     "mysql-connector-python>=9.0.0",
+    "redis",
     # Config
     "pyyaml>=6.0.3",
     "python-multipart>=0.0.20",
