@@ -256,16 +256,21 @@ class TestBackupManager:
         assert isinstance(version, str)
 
     def test_get_attached_addons_postgres(self):
-        """Test service discovery for PostgreSQL."""
+        """Test service discovery for PostgreSQL via AddonCredential."""
         mock_session = MagicMock()
         manager = BackupManager(mock_session)
 
-        # Create mock app with DATABASE_URL
+        # Create mock app
         mock_app = MagicMock()
-        mock_env_var = MagicMock()
-        mock_env_var.name = "DATABASE_URL"
-        mock_env_var.value = "postgresql://user:pass@localhost/mydb"
-        mock_app.env_vars = [mock_env_var]
+        mock_app.id = 1
+
+        # Mock AddonCredential query result
+        mock_credential = MagicMock()
+        mock_credential.addon_type = "postgres"
+        mock_credential.addon_name = "mydb"
+        mock_session.query.return_value.filter_by.return_value.all.return_value = [
+            mock_credential
+        ]
 
         services = manager._get_attached_addons(mock_app)
 
@@ -277,9 +282,10 @@ class TestBackupManager:
         mock_session = MagicMock()
         manager = BackupManager(mock_session)
 
-        # Create mock app with no services
+        # Create mock app with no attached addons
         mock_app = MagicMock()
-        mock_app.env_vars = []
+        mock_app.id = 1
+        mock_session.query.return_value.filter_by.return_value.all.return_value = []
 
         services = manager._get_attached_addons(mock_app)
 
