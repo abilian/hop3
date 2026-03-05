@@ -5,26 +5,23 @@ Installation toolkit for deploying Hop3 to servers and containers.
 ## Overview
 
 hop3-installer provides two main tools:
-- **hop3-install** - Production installer for end users and sysadmins
-- **hop3-deploy** - Developer tool for deploying during development
+
+- **hop3-install**: Production installer for end users and sysadmins
+- **hop3-deploy**: Developer tool for deploying during development
 
 The installers use only Python standard library, making them easy to distribute as single-file scripts.
 
 ## Features
 
-- **Single-file distribution** - Bundle into standalone Python scripts
-- **No dependencies** - Uses only Python stdlib for maximum portability
-- **Multiple backends** - Test on Docker, SSH, or Vagrant
-- **Developer workflow** - Deploy local code changes for testing
+- **Single-file distribution**: Bundle into standalone Python scripts
+- **No dependencies**: Uses only Python stdlib for maximum portability
+- **Multiple backends**: Deploy to Docker containers or remote servers via SSH
+- **Developer workflow**: Deploy local code changes for testing
 
 ## Installation
 
-### For development
-
 ```bash
-# From workspace root
-cd packages/hop3-installer
-uv pip install -e ".[dev]"
+pip install hop3-installer
 ```
 
 ## Quick Start
@@ -59,30 +56,6 @@ hop3-deploy --docker
 hop3-deploy --clean
 ```
 
-## Architecture
-
-```
-hop3-installer/
-├── src/hop3_installer/
-│   ├── cli/                 # CLI installer
-│   │   ├── config.py        # Configuration
-│   │   └── installer.py     # Installation logic
-│   ├── server/              # Server installer
-│   │   ├── config.py        # Configuration
-│   │   └── installer.py     # Installation logic
-│   ├── deployer/            # Developer deployment tool
-│   │   ├── cli.py           # CLI interface
-│   │   ├── deploy.py        # Deployment logic
-│   │   └── backends/        # SSH, Docker backends
-│   ├── testing/             # Test framework
-│   │   ├── runner.py        # Test execution
-│   │   ├── validators.py    # Installation checks
-│   │   └── backends/        # Docker, SSH, Vagrant
-│   ├── bundler.py           # Single-file bundler
-│   └── common.py            # Shared utilities
-└── tests/
-```
-
 ## Commands
 
 ### hop3-install
@@ -92,6 +65,7 @@ hop3-installer/
 | `cli` | Install hop3-cli on local machine |
 | `server` | Install hop3-server (requires root) |
 | `bundle` | Generate single-file installers |
+| `test` | Test installers on Docker or SSH targets |
 
 ### hop3-deploy
 
@@ -101,46 +75,50 @@ hop3-installer/
 | `--docker` | Deploy to Docker container |
 | `--local` | Upload and use local code |
 | `--clean` | Clean existing installation |
-| `--admin-domain` | Set up admin interface |
+| `--teardown` | Remove Docker container |
+
+## Architecture
+
+```
+hop3-installer/
+├── src/hop3_installer/
+│   ├── main.py           # Entry point for hop3-install
+│   ├── common.py         # Shared utilities (Colors, Spinner)
+│   ├── bundler.py        # Single-file bundler
+│   ├── cli/              # CLI installer
+│   │   └── installer.py
+│   ├── server/           # Server installer
+│   │   └── installer.py
+│   ├── deployer/         # Developer deployment (hop3-deploy)
+│   │   ├── cli.py
+│   │   ├── deploy.py
+│   │   └── backends/     # SSH, Docker backends
+│   └── testing/          # Installer validation
+│       ├── runner.py
+│       └── backends/
+└── tests/
+```
 
 ## Development
 
-### Generate single-file installers
-
 ```bash
-# Generate both installers
+# Generate single-file installers
 hop3-install bundle --all --output-dir dist/
 
-# Generate specific installer
-hop3-install bundle --type server --output install-server.py
-```
+# Test installers on Docker
+hop3-install test docker --distro ubuntu
 
-### Running tests
-
-```bash
-# From package directory
+# Run tests
 uv run pytest tests/ -v
 
-# Test installers on Docker
-hop3-test-installers docker --distro ubuntu
-
-# Test on remote server
-hop3-test-installers ssh --host user@server.example.com
-```
-
-### Code quality
-
-```bash
+# Lint and format
 uv run ruff check src/
 uv run ruff format src/
 ```
 
 ## Documentation
 
-- **Installation Guide**: [Main documentation](../../docs/src/installation.md)
-- **Installer Details**: [Installer documentation](../../docs/src/installer.md)
-- **Installer Testing**: [Testing guide](../../docs/src/dev/installer-testing.md)
-- **Package Internals**: [Deep-dive documentation](./docs/internals.md)
+- [Installation Guide](../../docs/src/installation.md)
 
 ## Related Packages
 

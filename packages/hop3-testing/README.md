@@ -8,145 +8,104 @@ hop3-testing provides utilities and fixtures for testing Hop3 deployments. It su
 
 ## Features
 
-- **Multiple targets** - Test against Docker containers or remote SSH servers
-- **App catalog** - Pre-built test applications for various languages
-- **Deployment sessions** - Automated deploy/verify/cleanup workflow
-- **pytest fixtures** - Integration with pytest for E2E testing
-- **Category filtering** - Run tests by language or framework
+- **Multiple targets**: Test against Docker containers or remote SSH servers
+- **App catalog**: Pre-built test applications for various languages
+- **Deployment sessions**: Automated deploy/verify/cleanup workflow
+- **pytest fixtures**: Integration with pytest for E2E testing
+- **Category filtering**: Run tests by language or framework
 
 ## Installation
 
-### For development
-
 ```bash
-# From workspace root
-cd packages/hop3-testing
-uv pip install -e ".[dev]"
+pip install hop3-testing
 ```
 
 ## Quick Start
 
 ```bash
-# Test all apps on Docker
-hop3-test --target docker
+# List available tests
+hop3-test list
 
-# Test specific app
-hop3-test --target docker 010-flask-pip-wsgi
+# Run system tests on Docker
+hop3-test system --docker
+
+# Test specific apps
+hop3-test apps 010-flask-pip-wsgi
 
 # Test against remote server
-hop3-test --target remote --host server.example.com
+hop3-test apps --host server.example.com
 
-# Test specific category
-hop3-test --target docker --category python-simple
-
-# List available apps
-hop3-test --list-apps
+# Run CI tests
+hop3-test ci
 ```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `hop3-test system` | Deploy Hop3 and run system tests |
+| `hop3-test apps` | Test apps against pre-deployed Hop3 |
+| `hop3-test list` | List available tests |
+| `hop3-test show <name>` | Show test details |
+| `hop3-test ci` | Run CI tests (fast+medium, P0) |
+| `hop3-test dev` | Run developer tests (fast, P0 only) |
+
+### Common Options
+
+| Option | Description |
+|--------|-------------|
+| `-v, --verbose` | Verbose output |
+| `--fail-fast` | Stop on first failure |
+| `--keep` | Keep apps deployed after testing |
+| `--docker` | Use Docker target |
+| `--host HOST` | Remote server hostname |
 
 ## Architecture
 
 ```
 hop3-testing/
 ├── src/hop3_testing/
-│   ├── main.py              # CLI entry point
-│   ├── base.py              # Base test fixtures
-│   ├── common.py            # Shared utilities
+│   ├── cli/              # CLI commands
+│   │   └── commands/     # Click command implementations
+│   ├── catalog/          # Test discovery
+│   │   ├── scanner.py    # Discovers test.toml files
+│   │   └── models.py     # TestDefinition, Category
 │   ├── apps/
-│   │   ├── catalog.py       # App catalog management
-│   │   └── deployment.py    # Deployment session handling
+│   │   ├── catalog.py    # AppSource dataclass
+│   │   └── deployment.py # DeploymentSession
 │   ├── targets/
-│   │   ├── base.py          # Abstract target interface
-│   │   ├── docker.py        # Docker container target
-│   │   └── remote.py        # Remote SSH target
-│   └── util/
-│       ├── console.py       # Output formatting
-│       └── backports.py     # Python compatibility
+│   │   ├── base.py       # DeploymentTarget ABC
+│   │   ├── docker.py     # DockerTarget
+│   │   └── remote.py     # RemoteTarget
+│   └── results/          # Result storage and reporting
 └── tests/
 ```
 
-## Test Targets
-
-### Docker Target
-
-Runs tests in isolated Docker containers:
-
-```bash
-hop3-test --target docker --image ubuntu:24.04
-```
-
-### Remote Target
-
-Runs tests against a remote Hop3 server:
-
-```bash
-hop3-test --target remote --host server.example.com --ssh-key ~/.ssh/id_rsa
-```
-
-## App Categories
-
-Test applications are organized by category:
+## Test Categories
 
 | Category | Languages/Frameworks |
 |----------|---------------------|
-| `python-simple` | Flask, FastAPI, Django |
-| `python-complex` | Multi-process, workers |
+| `python` | Flask, FastAPI, Django |
 | `nodejs` | Express, Fastify |
 | `ruby` | Sinatra, Rails |
 | `go` | Fiber, Gin |
 | `rust` | Actix-web, Axum |
 | `static` | HTML, Hugo, Jekyll |
 
-## Using with pytest
-
-```python
-# conftest.py
-from hop3_testing import DeploymentTarget, AppCatalog
-
-@pytest.fixture(scope="session")
-def deployment_target():
-    """Provide a deployment target for tests."""
-    return DockerTarget()
-
-@pytest.fixture
-def app_catalog():
-    """Provide the test app catalog."""
-    return AppCatalog()
-
-# test_deployment.py
-def test_flask_app(deployment_target, app_catalog):
-    """Test Flask application deployment."""
-    app = app_catalog.get("010-flask-pip-wsgi")
-
-    with DeploymentSession(deployment_target, app) as session:
-        session.deploy()
-        assert session.verify_running()
-        assert session.verify_http_response()
-```
-
 ## Development
 
-### Running tests
-
 ```bash
-# From package directory
+# Run tests
 uv run pytest tests/ -v
 
-# With coverage
-uv run pytest tests/ --cov=hop3_testing
-```
-
-### Code quality
-
-```bash
+# Lint and format
 uv run ruff check src/
 uv run ruff format src/
 ```
 
 ## Documentation
 
-- **Testing Strategy**: [Testing guide](../../docs/src/dev/testing-strategy.md)
-- **System Architecture**: [Architecture overview](../../docs/src/dev/architecture.md)
-- **Package Internals**: [Deep-dive documentation](./docs/internals.md)
+- [Testing Strategy](../../docs/src/dev/testing-strategy.md)
 
 ## Related Packages
 
@@ -155,4 +114,4 @@ uv run ruff format src/
 
 ## License
 
-Apache-2.0 - Copyright (c) 2024-2025, Abilian SAS
+Apache-2.0 - Copyright (c) 2024-2026, Abilian SAS

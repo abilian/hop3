@@ -8,117 +8,81 @@ hop3-cli is a thin client that communicates with hop3-server via JSON-RPC over H
 
 ## Features
 
-- **Application management** - Deploy, start, stop, restart, and scale applications
-- **Environment variables** - Securely manage app configuration
-- **Log streaming** - View real-time application logs
-- **Addon management** - Provision and manage backing services (PostgreSQL, Redis, MySQL)
-- **SSH tunneling** - Secure communication with remote servers
-- **Multiple output formats** - Human-readable, JSON, or quiet mode
+- **Application management**: Deploy, start, stop, restart, and scale applications
+- **Environment variables**: Securely manage app configuration
+- **Log streaming**: View real-time application logs
+- **Addon management**: Provision and manage backing services (PostgreSQL, Redis, MySQL)
+- **SSH tunneling**: Secure communication with remote servers
+- **Multiple output formats**: Human-readable, JSON, or quiet mode
 
 ## Installation
-
-### From PyPI (end users)
 
 ```bash
 pip install hop3-cli
 ```
 
-### For development
-
-```bash
-# From workspace root
-cd packages/hop3-cli
-uv pip install -e ".[dev]"
-```
-
 ## Quick Start
 
 ```bash
-# Configure server connection
-export HOP3_SERVER_URL="https://hop3.example.com"
-# Or use SSH tunneling
-export HOP3_SERVER="user@hop3.example.com"
+# Initialize connection to a Hop3 server
+hop3 init user@hop3.example.com
 
-# Authenticate
-hop3 auth login
-
-# Deploy an application
-cd my-app
-hop3 deploy
-
-# View logs
-hop3 logs my-app
+# Or configure via environment
+export HOP3_API_URL="ssh://user@hop3.example.com"
 
 # List applications
 hop3 apps
+
+# View application logs
+hop3 logs myapp
+
+# Set environment variables
+hop3 config:set myapp KEY=value
 ```
 
 ## Configuration
 
-Configuration can be set via environment variables or config file (`~/.config/hop3/config.toml`).
+Configuration can be set via environment variables or config file (`~/.config/hop3-cli/config.toml`).
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `HOP3_SERVER_URL` | Server URL (HTTP mode) | - |
-| `HOP3_SERVER` | Server hostname (SSH mode) | - |
-| `HOP3_AUTH_TOKEN` | Authentication token | - |
-| `HOP3_CONFIG_DIR` | Config directory | `~/.config/hop3` |
+| `HOP3_API_URL` | Server URL (HTTP or SSH) | - |
+| `HOP3_API_TOKEN` | Authentication token | - |
+| `HOP3_DEV_MODE` | Enable development mode | `false` |
 
 ## Architecture
 
 ```
 hop3-cli/
 ├── src/hop3_cli/
-│   ├── main.py          # Entry point, argument parsing
-│   ├── config.py        # Configuration management
-│   ├── tunnel.py        # SSH tunnel management
+│   ├── main.py           # Entry point, argument parsing
+│   ├── config.py         # Configuration management
 │   ├── rpc/
-│   │   └── client.py    # JSON-RPC client
+│   │   └── client.py     # JSON-RPC client with SSH tunnel
 │   ├── commands/
-│   │   ├── local.py     # Local commands (init, config)
-│   │   └── help.py      # Help system
+│   │   ├── local.py      # Local commands (init, login, settings)
+│   │   ├── flags.py      # CLI flag parsing
+│   │   └── destructive.py # Confirmation prompts
 │   └── ui/
-│       ├── console.py   # Output formatting
-│       └── prompts.py   # Interactive prompts
+│       └── rich_printer.py # Output formatting
 └── tests/
-```
-
-**Communication flow:**
-```
-User → CLI → [SSH Tunnel] → HTTP → hop3-server → JSON-RPC response → CLI → User
 ```
 
 ## Development
 
-### Running tests
-
 ```bash
-# From package directory
+# Run tests
 uv run pytest tests/ -v
 
-# With coverage
-uv run pytest tests/ --cov=hop3_cli
-```
-
-### Code quality
-
-```bash
-# Lint
+# Lint and format
 uv run ruff check src/
-
-# Format
 uv run ruff format src/
-
-# Type check
-uv run pyright src/
 ```
 
 ## Documentation
 
-- **User Guide**: [Main documentation](../../docs/src/guide.md)
-- **CLI Reference**: [Command reference](../../docs/src/cli-reference.md)
-- **System Architecture**: [Architecture overview](../../docs/src/dev/architecture.md)
-- **Package Internals**: [Deep-dive documentation](./docs/internals.md)
+- [User Guide](../../docs/src/guide.md)
+- [CLI Reference](../../docs/src/cli-reference.md)
 
 ## Related Packages
 
@@ -127,4 +91,4 @@ uv run pyright src/
 
 ## License
 
-Apache-2.0 - Copyright (c) 2024-2025, Abilian SAS
+Apache-2.0 - Copyright (c) 2024-2026, Abilian SAS
