@@ -89,26 +89,16 @@ class Config:
         Returns True if api_url is set via:
         1. Environment variable (HOP3_API_URL)
         2. Current context
-        3. Legacy config file (api_url at top level)
-        4. Developer mode (HOP3_DEV_MODE=true enables localhost:8000)
-
-        Returns False if no server has been configured.
+        3. Developer mode (HOP3_DEV_MODE=true enables localhost:8000)
         """
-        # Check for developer mode
         if os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}:
             return True
 
-        # Check environment variable
         if "HOP3_API_URL" in os.environ:
             return True
 
-        # Check current context
         context = self.get_current_context()
-        if context and context.api_url:
-            return True
-
-        # Check legacy config file (for backwards compatibility)
-        return "api_url" in self.data
+        return bool(context and context.api_url)
 
     def is_authenticated(self) -> bool:
         """Check if the CLI has authentication credentials.
@@ -116,22 +106,12 @@ class Config:
         Returns True if api_token is set via:
         1. Environment variable (HOP3_API_TOKEN)
         2. Current context
-        3. Legacy config file
-
-        Returns False if no authentication token is available.
         """
-        # Check environment variable
         if os.environ.get("HOP3_API_TOKEN"):
             return True
 
-        # Check current context
         context = self.get_current_context()
-        if context and context.api_token:
-            return True
-
-        # Check legacy config file
-        token = self.data.get("api_token", "")
-        return bool(token)
+        return bool(context and context.api_token)
 
     def get_api_url(self) -> str | None:
         """Get the API URL if configured, None otherwise.
@@ -139,26 +119,17 @@ class Config:
         Priority:
         1. HOP3_API_URL environment variable
         2. Current context's api_url
-        3. Legacy api_url in config file
-        4. Developer mode default (localhost:8000)
+        3. Developer mode default (localhost:8000)
         """
-        # Check for developer mode first
         if os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}:
-            # In dev mode, default to localhost but allow override
             return self.get("api_url", "http://localhost:8000")
 
-        # Check environment variable
         if "HOP3_API_URL" in os.environ:
             return os.environ["HOP3_API_URL"]
 
-        # Check current context
         context = self.get_current_context()
         if context and context.api_url:
             return context.api_url
-
-        # Check legacy config file
-        if "api_url" in self.data:
-            return self.data["api_url"]
 
         return None
 
@@ -168,20 +139,13 @@ class Config:
         Priority:
         1. HOP3_API_TOKEN environment variable
         2. Current context's api_token
-        3. Legacy api_token in config file
         """
-        # Check environment variable
         if "HOP3_API_TOKEN" in os.environ:
             return os.environ["HOP3_API_TOKEN"]
 
-        # Check current context
         context = self.get_current_context()
         if context and context.api_token:
             return context.api_token
-
-        # Check legacy config file
-        if "api_token" in self.data:
-            return self.data["api_token"]
 
         return None
 
@@ -457,31 +421,23 @@ class Config:
         """Check if any contexts are configured."""
         return bool(self.data.get("contexts"))
 
-    def update_context_token(self, token: str, context_name: str | None = None) -> bool:
+    def update_context_token(self, token: str, context_name: str | None = None) -> None:
         """Update the API token for a context.
-
-        If context_name is None, updates the current context.
-        If no contexts exist, falls back to legacy top-level api_token.
 
         Args:
             token: The new API token
             context_name: Context to update (default: current context)
 
-        Returns:
-            True if token was saved to a context, False if saved to legacy format
+        Raises:
+            KeyError: If context does not exist.
         """
         name = context_name or self.get_current_context_name()
 
-        if name and name in self.data.get("contexts", {}):
-            # Save to context
-            self.data["contexts"][name]["api_token"] = token
-            self.save()
-            return True
+        if not name or name not in self.data.get("contexts", {}):
+            raise KeyError(name or "(no current context)")
 
-        # Fallback to legacy format
-        self.data["api_token"] = token
+        self.data["contexts"][name]["api_token"] = token
         self.save()
-        return False
 
     def update_context_credentials(
         self,
@@ -489,11 +445,8 @@ class Config:
         api_token: str | None = None,
         context_name: str | None = None,
         **kwargs,
-    ) -> bool:
+    ) -> None:
         """Update credentials for a context.
-
-        If context_name is None, updates the current context.
-        If no contexts exist, falls back to legacy top-level config.
 
         Args:
             api_url: Server URL (optional)
@@ -501,62 +454,22 @@ class Config:
             context_name: Context to update (default: current context)
             **kwargs: Additional context options (verify_ssl, etc.)
 
-        Returns:
-            True if saved to a context, False if saved to legacy format
+        Raises:
+            KeyError: If context does not exist.
         """
         name = context_name or self.get_current_context_name()
 
-        if name and name in self.data.get("contexts", {}):
-            # Save to context
-            ctx = self.data["contexts"][name]
-            if api_url is not None:
-                ctx["api_url"] = api_url
-            if api_token is not None:
-                ctx["api_token"] = api_token
-            for key, value in kwargs.items():
-                ctx[key] = value
-            self.save()
-            return True
+        if not name or name not in self.data.get("contexts", {}):
+            raise KeyError(name or "(no current context)")
 
-        # Fallback to legacy format
-        updates = {}
+        ctx = self.data["contexts"][name]
         if api_url is not None:
-            updates["api_url"] = api_url
+            ctx["api_url"] = api_url
         if api_token is not None:
-            updates["api_token"] = api_token
-        updates.update(kwargs)
-        self.save(updates)
-        return False
-
-    def migrate_legacy_config(self) -> bool:
-        """Migrate legacy single-server config to context format.
-
-        If api_url is set at the top level (old format), migrate it
-        to a "default" context.
-
-        Returns:
-            True if migration was performed, False otherwise
-        """
-        # Skip if already using contexts
-        if self.data.get("contexts"):
-            return False
-
-        # Skip if no legacy config
-        if "api_url" not in self.data:
-            return False
-
-        # Migrate to default context
-        self.add_context(
-            name="default",
-            api_url=self.data.pop("api_url"),
-            api_token=self.data.pop("api_token", ""),
-            ssh_user=self.data.pop("ssh_user", "root"),
-            ssh_port=self.data.pop("ssh_port", 22),
-            ssh_key=self.data.pop("ssh_key", ""),
-            ssl_cert=self.data.pop("ssl_cert", ""),
-            verify_ssl=self.data.pop("verify_ssl", True),
-        )
-        return True
+            ctx["api_token"] = api_token
+        for key, value in kwargs.items():
+            ctx[key] = value
+        self.save()
 
 
 def get_config(config_file: Path | str | None = None) -> Config:

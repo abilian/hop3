@@ -8,7 +8,7 @@ This module provides a client for consuming Server-Sent Events (SSE) from
 the Hop3 server's streaming endpoint. Used for real-time deployment log display.
 
 Usage:
-    success = stream_deployment_logs(
+    stream_deployment_logs(
         base_url="http://localhost:8000",
         stream_id="abc123",
         printer=printer,
@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING
 
 import requests
 
+from hop3_cli.exceptions import DeploymentError
+
 if TYPE_CHECKING:
     from hop3_cli.ui.rich_printer import RichPrinter
 
@@ -33,7 +35,7 @@ def stream_deployment_logs(
     printer: RichPrinter,
     token: str | None = None,
     verify_ssl: bool = True,
-) -> bool:
+) -> None:
     """Connect to SSE stream and display logs in real-time.
 
     Args:
@@ -43,8 +45,8 @@ def stream_deployment_logs(
         token: Optional JWT token for authentication
         verify_ssl: Whether to verify SSL certificates
 
-    Returns:
-        True if deployment succeeded, False otherwise
+    Raises:
+        DeploymentError: If the deployment fails or stream cannot be connected.
     """
     # Build stream URL
     stream_url = f"{base_url.rstrip('/')}/api/stream/{stream_id}"
@@ -73,7 +75,8 @@ def stream_deployment_logs(
                         "text": f"Stream '{stream_id}' not found. The deployment may have already completed.",
                     }
                 ])
-                return False
+                msg = f"Stream '{stream_id}' not found"
+                raise DeploymentError(msg)
 
             if response.status_code != 200:
                 printer.print([
@@ -82,9 +85,10 @@ def stream_deployment_logs(
                         "text": f"Failed to connect to stream: HTTP {response.status_code}",
                     }
                 ])
-                return False
+                msg = f"Failed to connect to stream: HTTP {response.status_code}"
+                raise DeploymentError(msg)
 
-            return _process_sse_stream(response, printer)
+            _process_sse_stream(response, printer)
 
     except requests.exceptions.ConnectionError as e:
         printer.print([
@@ -93,7 +97,8 @@ def stream_deployment_logs(
                 "text": f"Connection error: {e}",
             }
         ])
-        return False
+        msg = f"Connection error: {e}"
+        raise DeploymentError(msg) from e
     except KeyboardInterrupt:
         printer.print([
             {
@@ -101,19 +106,18 @@ def stream_deployment_logs(
                 "text": "\nStreaming interrupted. Deployment continues on server.",
             }
         ])
-        # Return True since deployment is still running
-        return True
+        # Don't raise - deployment is still running on server
 
 
-def _process_sse_stream(response: requests.Response, printer: RichPrinter) -> bool:
+def _process_sse_stream(response: requests.Response, printer: RichPrinter) -> None:
     """Process SSE stream and display logs.
 
     Args:
         response: Streaming HTTP response
         printer: RichPrinter for displaying output
 
-    Returns:
-        True if deployment succeeded, False otherwise
+    Raises:
+        DeploymentError: If the deployment fails.
     """
     event_type = "log"  # Default event type
 
@@ -170,14 +174,14 @@ def _process_sse_stream(response: requests.Response, printer: RichPrinter) -> bo
                             "text": f"Deployment completed successfully in {duration:.1f}s",
                         }
                     ])
-                    return True
+                    return
                 printer.print([
                     {
                         "t": "error",
                         "text": error or "Deployment failed",
                     }
                 ])
-                return False
+                raise DeploymentError(error or "Deployment failed")
 
     # Stream ended without completion event
     printer.print([
@@ -186,7 +190,8 @@ def _process_sse_stream(response: requests.Response, printer: RichPrinter) -> bo
             "text": "Stream ended unexpectedly. Check server logs.",
         }
     ])
-    return False
+    msg = "Stream ended unexpectedly"
+    raise DeploymentError(msg)
 
 
 def check_streaming_support(base_url: str, token: str | None = None) -> bool:

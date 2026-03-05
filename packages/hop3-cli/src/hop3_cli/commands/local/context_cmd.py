@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from hop3_cli.ui.rich_printer import RichPrinter
 
 
-def handle_context(args: list[str], config: Config, printer: RichPrinter) -> bool:
+def handle_context(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Handle the context command for managing server contexts.
 
     Usage:
@@ -31,28 +31,28 @@ def handle_context(args: list[str], config: Config, printer: RichPrinter) -> boo
     """
     if not args or args[0] in {"--help", "-h"}:
         print_context_help()
-        return True
+        return
 
     subcommand = args[0]
     sub_args = args[1:]
 
     if subcommand == "list":
-        return context_list(config, printer)
-    if subcommand == "current":
-        return context_current(config, printer)
-    if subcommand == "use":
-        return context_use(sub_args, config, printer)
-    if subcommand == "add":
-        return context_add(sub_args, config, printer)
-    if subcommand == "remove":
-        return context_remove(sub_args, config, printer)
+        context_list(config, printer)
+    elif subcommand == "current":
+        context_current(config, printer)
+    elif subcommand == "use":
+        context_use(sub_args, config, printer)
+    elif subcommand == "add":
+        context_add(sub_args, config, printer)
+    elif subcommand == "remove":
+        context_remove(sub_args, config, printer)
+    else:
+        print(f"Unknown context subcommand: {subcommand}", file=sys.stderr)
+        print_context_help()
+        sys.exit(1)
 
-    print(f"Unknown context subcommand: {subcommand}", file=sys.stderr)
-    print_context_help()
-    sys.exit(1)
 
-
-def context_list(config: Config, printer: RichPrinter) -> bool:
+def context_list(config: Config, printer: RichPrinter) -> None:
     """List all configured contexts."""
     contexts = config.get_contexts()
     current = config.get_current_context_name()
@@ -61,7 +61,7 @@ def context_list(config: Config, printer: RichPrinter) -> bool:
         print("No contexts configured.")
         print("\nTo add a context:")
         print("  hop3 context add staging --server ssh://root@staging.example.com")
-        return True
+        return
 
     print("Configured contexts:\n")
     for name, ctx in sorted(contexts.items()):
@@ -76,10 +76,9 @@ def context_list(config: Config, printer: RichPrinter) -> bool:
             print(f"      Token: {token_display}")
 
     print(f"\nCurrent context: {current or '(none)'}")
-    return True
 
 
-def context_current(config: Config, printer: RichPrinter) -> bool:
+def context_current(config: Config, printer: RichPrinter) -> None:
     """Show the current context and its source."""
     current = config.get_current_context_name()
     context = config.get_current_context()
@@ -90,7 +89,7 @@ def context_current(config: Config, printer: RichPrinter) -> bool:
             print("\nUse 'hop3 context use <name>' to select a context.")
         else:
             print("\nUse 'hop3 context add <name> --server <url>' to add a context.")
-        return True
+        return
 
     # Determine source of current context
     source = _get_context_source(config, current)
@@ -108,8 +107,6 @@ def context_current(config: Config, printer: RichPrinter) -> bool:
                 else context.api_token
             )
             print(f"  Token: {token_display}")
-
-    return True
 
 
 def _get_context_source(config: Config, context_name: str) -> str:
@@ -187,7 +184,7 @@ def _context_use_default(name: str, context) -> None:
     )
 
 
-def context_use(args: list[str], config: Config, printer: RichPrinter) -> bool:
+def context_use(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Switch to a different context.
 
     By default, prints instructions to set the environment variable (safest).
@@ -225,8 +222,6 @@ def context_use(args: list[str], config: Config, printer: RichPrinter) -> bool:
         _context_use_local(name, config, context)
     else:
         _context_use_default(name, context)
-
-    return True
 
 
 def _parse_context_add_args(
@@ -275,7 +270,7 @@ def _parse_context_add_args(
     return name, server, token, protected, set_default, ssh_user, ssh_port
 
 
-def context_add(args: list[str], config: Config, printer: RichPrinter) -> bool:
+def context_add(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Add a new context."""
     if not args:
         print(
@@ -331,10 +326,8 @@ def context_add(args: list[str], config: Config, printer: RichPrinter) -> bool:
         else:
             print(f"\nContext '{name}' is now current (first context).")
 
-    return True
 
-
-def context_remove(args: list[str], config: Config, printer: RichPrinter) -> bool:
+def context_remove(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Remove a context."""
     if not args:
         print("Usage: hop3 context remove <name>", file=sys.stderr)
@@ -361,5 +354,3 @@ def context_remove(args: list[str], config: Config, printer: RichPrinter) -> boo
         print(f"Current context is now '{new_current}'")
     else:
         print("No current context set.")
-
-    return True

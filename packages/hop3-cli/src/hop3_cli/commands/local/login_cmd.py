@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from hop3_cli.ui.rich_printer import RichPrinter
 
 
-def handle_login(args: list[str], config: Config, printer: RichPrinter) -> bool:
+def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Handle the login command.
 
     Supports multiple authentication methods:
@@ -47,7 +47,7 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> bool:
     # Check for help first
     if "--help" in args or "-h" in args:
         print_login_help()
-        return True
+        return
 
     # Check for URL with embedded token (e.g., http://localhost:8000?token=eyJ...)
     if args and not args[0].startswith("-"):
@@ -59,24 +59,24 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> bool:
                 token = query_params["token"][0]
                 # Reconstruct server URL without the token parameter
                 server_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-                return handle_login_token(
+                handle_login_token(
                     ["--token", token, "--server", server_url], config, printer
                 )
+                return
 
     # Dispatch based on authentication method
     if "--ssh" in args:
-        return handle_login_ssh(args, config, printer)
-
-    if "--token" in args:
-        return handle_login_token(args, config, printer)
-
-    # Default: password-based authentication
-    return handle_login_password(args, config, printer)
+        handle_login_ssh(args, config, printer)
+    elif "--token" in args:
+        handle_login_token(args, config, printer)
+    else:
+        # Default: password-based authentication
+        handle_login_password(args, config, printer)
 
 
 def handle_login_password(
     args: list[str], config: Config, printer: RichPrinter
-) -> bool:
+) -> None:
     """Handle password-based login via the server API.
 
     Usage:
@@ -101,8 +101,6 @@ def handle_login_password(
         except Exception as e:
             print(f"Error during login: {e}", file=sys.stderr)
             sys.exit(1)
-
-    return True
 
 
 def _ensure_server_configured(config: Config) -> None:
@@ -158,13 +156,18 @@ def _handle_login_response(
         case Ok(result=result):
             token = _extract_token_from_login_response(result)
             if token:
-                saved_to_context = config.update_context_token(token)
-                print(f"Logged in as {username}")
-                if saved_to_context:
-                    context_name = config.get_current_context_name()
-                    print(f"Token saved to context '{context_name}'")
+                context_name = config.get_current_context_name()
+                if context_name:
+                    config.update_context_token(token)
                 else:
-                    print(f"Token saved to {config.config_file}")
+                    # No context exists - must have one to do password login
+                    print(
+                        "Error: No context configured. Use 'hop3 init' or 'hop3 login --ssh' first.",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+                print(f"Logged in as {username}")
+                print(f"Token saved to context '{context_name}'")
             else:
                 printer.print(result)
         case Error(message=message):
@@ -193,7 +196,7 @@ def _extract_token_from_login_response(result: list[dict]) -> str | None:
     return None
 
 
-def handle_login_token(args: list[str], config: Config, printer: RichPrinter) -> bool:
+def handle_login_token(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Handle token-based login for local development or automation.
 
     Usage:
@@ -209,18 +212,16 @@ def handle_login_token(args: list[str], config: Config, printer: RichPrinter) ->
         sys.exit(1)
 
     # Save configuration only after successful verification
-    saved_to_context = config.update_context_credentials(
-        api_url=server_url, api_token=token
-    )
+    context_name = config.get_current_context_name()
+    if context_name:
+        config.update_context_credentials(api_url=server_url, api_token=token)
+    else:
+        # No context exists - create a "default" context
+        context_name = "default"
+        config.add_context(name=context_name, api_url=server_url, api_token=token)
 
     print(f"\nLogged in as {username}")
-    if saved_to_context:
-        context_name = config.get_current_context_name()
-        print(f"Credentials saved to context '{context_name}'")
-    else:
-        print(f"Configuration saved to {config.config_file}")
-
-    return True
+    print(f"Credentials saved to context '{context_name}'")
 
 
 def _parse_token_args(args: list[str]) -> tuple[str, str | None]:
@@ -259,7 +260,8 @@ def _resolve_server_url(server_url: str | None, config) -> str:
     if server_url:
         return server_url
 
-    existing_url = config.get("api_url", None)
+    # Try to get URL from current context
+    existing_url = config.get_api_url()
     if existing_url:
         print(f"Using existing server: {existing_url}")
         return existing_url
@@ -375,7 +377,7 @@ def _determine_save_url(
     return save_url, extra_kwargs
 
 
-def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> bool:
+def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Handle the login --ssh command for getting token via SSH.
 
     SSH access is the authentication - no username/password needed by default.
@@ -417,19 +419,25 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> b
         api_url, ssh_target, token, config, debug_level
     )
 
-    saved_to_context = config.update_context_credentials(
-        api_url=save_url, api_token=token, **extra_kwargs
-    )
+    context_name = config.get_current_context_name()
+    if context_name:
+        config.update_context_credentials(
+            api_url=save_url, api_token=token, **extra_kwargs
+        )
+    else:
+        # No context exists - create a "default" context
+        context_name = "default"
+        config.add_context(
+            name=context_name,
+            api_url=save_url,
+            api_token=token,
+            **extra_kwargs,
+        )
 
     if debug_level >= 1:
-        if saved_to_context:
-            context_name = config.get_current_context_name()
-            print(f"[debug] Credentials saved to context: {context_name}")
-        else:
-            print(f"[debug] Config saved to: {config.config_file}")
+        print(f"[debug] Credentials saved to context: {context_name}")
 
-    _print_login_success(display_username, config, saved_to_context)
-    return True
+    _print_login_success(display_username, config, context_name)
 
 
 def _build_ssh_url(ssh_target: str) -> str:
@@ -608,16 +616,10 @@ def _handle_ssl_certificate(
         print("    hop3 settings set verify_ssl false")
 
 
-def _print_login_success(
-    username: str, config: Config, saved_to_context: bool = False
-) -> None:
+def _print_login_success(username: str, config: Config, context_name: str) -> None:
     """Print success message after login."""
     print(f"\nToken generated for user '{username}'")
-    if saved_to_context:
-        context_name = config.get_current_context_name()
-        print(f"Credentials saved to context '{context_name}'")
-    else:
-        print(f"Configuration saved to {config.config_file}")
+    print(f"Credentials saved to context '{context_name}'")
     print("\nWelcome back! Try:")
     print("  hop3 apps           # List applications")
     print("  hop3 auth:whoami    # Check current user")

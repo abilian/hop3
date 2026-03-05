@@ -13,9 +13,19 @@ from hop3_cli.rpc import Client
 from jsonrpcclient import Error
 
 
+def _make_config(api_url: str = "http://localhost:8000") -> Config:
+    """Create a Config with context-based configuration."""
+    return Config(
+        data={
+            "contexts": {"default": {"api_url": api_url, "api_token": ""}},
+            "current_context": "default",
+        }
+    )
+
+
 def test_401_error_message():
     """Test that 401 errors return a helpful message."""
-    config = Config(data={"api_url": "http://localhost:8000"})
+    config = _make_config()
     client = Client(config=config)
 
     # Mock the requests.post to return a 401 response
@@ -39,7 +49,7 @@ def test_401_error_message():
 
 def test_other_http_errors():
     """Test that other HTTP errors are handled properly."""
-    config = Config(data={"api_url": "http://localhost:8000"})
+    config = _make_config()
     client = Client(config=config)
 
     # Mock the requests.post to return a 500 response
@@ -62,7 +72,7 @@ def test_jsonrpc_error_with_http_404():
     The server returns HTTP 404 with a JSON-RPC error body for "command not found".
     The client should extract the clean error message, not show the HTTP error.
     """
-    config = Config(data={"api_url": "http://localhost:8000"})
+    config = _make_config()
     client = Client(config=config)
 
     # Mock the requests.post to return a 404 with JSON-RPC error body
@@ -92,7 +102,7 @@ def test_jsonrpc_error_with_http_404():
 
 def test_jsonrpc_error_with_data_field():
     """Test that JSON-RPC error data field is preserved."""
-    config = Config(data={"api_url": "http://localhost:8000"})
+    config = _make_config()
     client = Client(config=config)
 
     mock_response = Mock()

@@ -108,6 +108,7 @@ def _handle_streaming_response(
         printer: Printer for output
         tunnel_port: Local SSH tunnel port if using SSH tunnel
     """
+    from hop3_cli.exceptions import DeploymentError  # noqa: PLC0415
     from hop3_cli.rpc.streaming import stream_deployment_logs  # noqa: PLC0415
 
     stream_id = result[0].get("stream_id")
@@ -148,15 +149,15 @@ def _handle_streaming_response(
     token = config.get("api_token")
 
     # Connect to stream and display logs
-    success = stream_deployment_logs(
-        base_url=base_url,
-        stream_id=stream_id,
-        printer=printer,
-        token=token,
-        verify_ssl=verify_ssl,
-    )
-
-    if not success:
+    try:
+        stream_deployment_logs(
+            base_url=base_url,
+            stream_id=stream_id,
+            printer=printer,
+            token=token,
+            verify_ssl=verify_ssl,
+        )
+    except DeploymentError:
         sys.exit(1)
 
 

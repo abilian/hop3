@@ -11,7 +11,6 @@ import sys
 from typing import TYPE_CHECKING
 
 from .help_text import print_init_help
-from .login_cmd import _handle_ssl_certificate
 from .ssh_ops import BootstrapError, create_admin_via_ssh, infer_server_url
 
 if TYPE_CHECKING:
@@ -19,7 +18,7 @@ if TYPE_CHECKING:
     from hop3_cli.ui.rich_printer import RichPrinter
 
 
-def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
+def handle_init(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Handle the init command for bootstrapping server connection.
 
     Usage:
@@ -31,7 +30,7 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
     """
     parsed = _parse_init_args(args)
     if parsed is None:
-        return True  # Help was shown
+        return  # Help was shown
 
     ssh_target, username, email, server_url, password_stdin, auto_yes, context_name = (
         parsed
@@ -59,29 +58,32 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> bool:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Save to context if specified, otherwise to current context or legacy format
-    if context_name:
-        # Create a new context with the credentials
+    # Determine target context name
+    target_context = context_name
+    if not target_context:
+        target_context = config.get_current_context_name()
+
+    if target_context:
+        # Update existing context or create specified context
+        if context_name:
+            config.add_context(
+                name=context_name,
+                api_url=server_url,
+                api_token=token,
+            )
+            config.set_global_context(context_name)
+        else:
+            config.update_context_credentials(api_url=server_url, api_token=token)
+    else:
+        # No context exists - create a "default" context
+        target_context = "default"
         config.add_context(
-            name=context_name,
+            name=target_context,
             api_url=server_url,
             api_token=token,
         )
-        config.set_global_context(context_name)
-        saved_to_context = True
-    else:
-        # Try to save to current context, fall back to legacy format
-        saved_to_context = config.update_context_credentials(
-            api_url=server_url, api_token=token
-        )
-        if not saved_to_context:
-            # Also handle SSL certificate for legacy format
-            config_data = {"api_url": server_url, "api_token": token}
-            _handle_ssl_certificate(ssh_target, server_url, config, config_data)
-            config.save(config_data)
 
-    _print_init_success(username, config, context_name, saved_to_context)
-    return True
+    _print_init_success(username, config, target_context)
 
 
 def _parse_init_args(
@@ -189,18 +191,11 @@ def _gather_init_credentials(
 def _print_init_success(
     username: str,
     config: Config,
-    context_name: str | None = None,
-    saved_to_context: bool = False,
+    context_name: str,
 ) -> None:
     """Print success message after init."""
     print(f"\nAdmin user '{username}' created successfully.")
-    if context_name:
-        print(f"Created and switched to context '{context_name}'")
-    elif saved_to_context:
-        current_context = config.get_current_context_name()
-        print(f"Credentials saved to context '{current_context}'")
-    else:
-        print(f"Configuration saved to {config.config_file}")
+    print(f"Credentials saved to context '{context_name}'")
     print("\nYou're all set! Try:")
     print("  hop3 apps           # List applications")
     print("  hop3 auth:whoami    # Check current user")

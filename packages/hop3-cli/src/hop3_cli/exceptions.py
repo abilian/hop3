@@ -13,3 +13,7 @@ class CliError(Exception):
 
 class AuthenticationError(CliError):
     """Raised when authentication fails."""
+
+
+class DeploymentError(CliError):
+    """Raised when a deployment fails."""

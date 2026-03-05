@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from hop3_cli.ui.rich_printer import RichPrinter
 
 
-def handle_settings(args: list[str], config: Config, printer: RichPrinter) -> bool:
+def handle_settings(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Handle the settings command for managing local CLI settings.
 
     Usage:
@@ -27,25 +27,24 @@ def handle_settings(args: list[str], config: Config, printer: RichPrinter) -> bo
     """
     if not args or args[0] in {"--help", "-h"}:
         print_settings_help()
-        return True
+        return
 
     subcommand = args[0]
     sub_args = args[1:]
 
     if subcommand == "show":
-        return settings_show(config, printer)
-    if subcommand == "set":
-        return settings_set(sub_args, config, printer)
-    if subcommand == "get":
-        return settings_get(sub_args, config, printer)
-    print(f"Unknown settings subcommand: {subcommand}", file=sys.stderr)
-    print_settings_help()
-    sys.exit(1)
+        settings_show(config, printer)
+    elif subcommand == "set":
+        settings_set(sub_args, config, printer)
+    elif subcommand == "get":
+        settings_get(sub_args, config, printer)
+    else:
+        print(f"Unknown settings subcommand: {subcommand}", file=sys.stderr)
+        print_settings_help()
+        sys.exit(1)
 
-    return True
 
-
-def settings_show(config: Config, printer: RichPrinter) -> bool:
+def settings_show(config: Config, printer: RichPrinter) -> None:
     """Show current CLI settings."""
     print(f"Config file: {config.config_file}\n")
 
@@ -78,10 +77,8 @@ def settings_show(config: Config, printer: RichPrinter) -> bool:
         print("\nTo configure, run:")
         print("  hop3 init --ssh root@your-server.com")
 
-    return True
 
-
-def settings_set(args: list[str], config: Config, printer: RichPrinter) -> bool:
+def settings_set(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Set a CLI settings value."""
     if len(args) < 2:
         print("Usage: hop3 settings set <key> <value>", file=sys.stderr)
@@ -106,10 +103,8 @@ def settings_set(args: list[str], config: Config, printer: RichPrinter) -> bool:
     )
     print(f"Saved to {config.config_file}")
 
-    return True
 
-
-def settings_get(args: list[str], config: Config, printer: RichPrinter) -> bool:
+def settings_get(args: list[str], config: Config, printer: RichPrinter) -> None:
     """Get a CLI settings value."""
     if not args:
         print("Usage: hop3 settings get <key>", file=sys.stderr)
@@ -128,5 +123,3 @@ def settings_get(args: list[str], config: Config, printer: RichPrinter) -> bool:
     except KeyError:
         print(f"Key not found: {key}", file=sys.stderr)
         sys.exit(1)
-
-    return True
