@@ -213,6 +213,20 @@ class RichPrinter:
         else:
             self.console.print(escaped_msg)
 
+    def print_data(self, obj: dict) -> None:
+        """Print structured data (typically for JSON output mode or programmatic use).
+
+        In normal mode, data is displayed as formatted JSON.
+        In JSON output mode, it's added to the buffer as-is.
+        """
+        if self.json_output:
+            self.json_buffer.append(obj)
+            return
+
+        # In normal mode, pretty-print the data payload
+        data = obj.get("data", {})
+        self.console.print(json.dumps(data, indent=2))
+
     def print_panel(self, obj: dict) -> None:
         """Print text in a panel/box."""
         if self.quiet:
