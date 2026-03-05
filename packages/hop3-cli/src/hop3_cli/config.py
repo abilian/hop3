@@ -389,18 +389,18 @@ class Config:
 
         self.save()
 
-    def remove_context(self, name: str) -> bool:
+    def remove_context(self, name: str) -> None:
         """Remove a context by name.
 
         Args:
             name: Context name to remove
 
-        Returns:
-            True if removed, False if not found
+        Raises:
+            KeyError: If context does not exist
         """
         contexts = self.data.get("contexts", {})
         if name not in contexts:
-            return False
+            raise KeyError(name)
 
         del contexts[name]
 
@@ -413,7 +413,6 @@ class Config:
                 self.data.pop("current_context", None)
 
         self.save()
-        return True
 
     def use_context(self, name: str) -> bool:
         """Check if a context exists (for validation).
@@ -430,7 +429,7 @@ class Config:
         contexts = self.data.get("contexts", {})
         return name in contexts
 
-    def set_global_context(self, name: str) -> bool:
+    def set_global_context(self, name: str) -> None:
         """Set the global default context (persists to config file).
 
         This affects ALL terminals/shells. Use with caution.
@@ -439,16 +438,15 @@ class Config:
         Args:
             name: Context name to set as global default
 
-        Returns:
-            True if set, False if context not found
+        Raises:
+            KeyError: If context does not exist
         """
         contexts = self.data.get("contexts", {})
         if name not in contexts:
-            return False
+            raise KeyError(name)
 
         self.data["current_context"] = name
         self.save()
-        return True
 
     def is_protected_context(self) -> bool:
         """Check if the current context is marked as protected."""
