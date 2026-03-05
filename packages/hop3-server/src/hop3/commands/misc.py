@@ -9,7 +9,6 @@ from __future__ import annotations
 import subprocess
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from importlib.metadata import version as get_version
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
@@ -47,50 +46,6 @@ class VersionCmd(Command):
             server_version = "unknown"
 
         return [text(f"hop3-server {server_version}")]
-
-
-# --- Backup Command ---
-
-
-@register
-@dataclass(frozen=True)
-class BackupCmd(Command):
-    """Run a backup for an app's source code and virtual environment."""
-
-    db_session: Session
-    name: ClassVar[str] = "backup"
-
-    def call(self, *args):
-        if not args:
-            msg = "Usage: hop backup <app_name>"
-            raise ValueError(msg)
-        app_name = args[0]
-        app = get_app(self.db_session, app_name)
-
-        # POC implementation
-        path_to_backup = app.app_path
-        now = datetime.now(timezone.utc)
-        timestamp = now.strftime("%Y%m%d-%H%M%S")
-        backup_name = f"{app.name}-{timestamp}.tar.gz"
-        backup_dir = c.HOP3_ROOT / "backup"
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        backup_file_path = backup_dir / backup_name
-
-        cmd = [
-            "tar",
-            "-zcf",
-            str(backup_file_path),
-            "-C",
-            str(path_to_backup.parent),
-            path_to_backup.name,
-        ]
-        with command_context("creating backup", app_name=app_name):
-            subprocess.run(cmd, check=True, capture_output=True, text=True)
-
-        return [
-            text(f"Backup for {app.name} created successfully."),
-            text(f"Location: {backup_file_path}"),
-        ]
 
 
 # --- Plugins Command ---
