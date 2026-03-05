@@ -27,37 +27,15 @@ if TYPE_CHECKING:
 
 @register
 class ConfigCmd(Command):
-    """Manage an application config / env."""
+    """Manage application configuration and environment variables."""
 
     name: ClassVar[str] = "config"
-
-    def call(self, *args):
-        """Show usage help for config commands."""
-        return [
-            text("Manage application configuration and environment variables"),
-            text(""),
-            text("Usage:"),
-            text("  hop3 config:show <app-name>         Show all config variables"),
-            text("  hop3 config:get <app-name> <key>    Get a specific variable"),
-            text("  hop3 config:set <app-name> KEY=VAL  Set variables"),
-            text("  hop3 config:unset <app-name> KEY    Remove variables"),
-            text("  hop3 config:live <app-name>         Show live runtime config"),
-            text(""),
-            text("All commands also support --app flag:"),
-            text("  hop3 config:show --app <app-name>"),
-            text(""),
-            text("Examples:"),
-            text("  hop3 config:show myapp"),
-            text("  hop3 config:get myapp DATABASE_URL"),
-            text("  hop3 config:set myapp DEBUG=true WORKERS=4"),
-            text("  hop3 config:unset myapp DEBUG"),
-        ]
 
 
 @register
 @dataclass(frozen=True)
 class ShowCmd(Command):
-    """Show config, e.g.: hop config:show <app> or hop config:show --app <app>.
+    """Show all configuration variables for an app.
 
     Flags:
         --show-compose  Show the generated Docker Compose file (for container apps)
@@ -153,7 +131,7 @@ class ShowCmd(Command):
 @register
 @dataclass(frozen=True)
 class GetCmd(Command):
-    """e.g.: hop config:get <app> KEY or hop config:get --app <app> KEY."""
+    """Get a specific configuration variable."""
 
     db_session: Session
     name: ClassVar[str] = "config:get"

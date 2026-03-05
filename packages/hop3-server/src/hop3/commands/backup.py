@@ -394,9 +394,6 @@ class BackupDeleteCmd(Command):
 @register
 @dataclass(frozen=True)
 class BackupCmd(Command):
-    """Manage application backups.
-
-    Use 'hop help backup' to see available subcommands.
-    """
+    """Manage application backups."""
 
     name: ClassVar[str] = "backup"

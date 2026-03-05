@@ -94,6 +94,7 @@ class HelpCmd(Command):
             "USAGE",
             "  $ hop <command> <args>",
             "  $ hop help <command>    # Show help for a command",
+            "  $ hop help --all        # Show all commands including subcommands",
             "",
             "ALL COMMANDS",
         ]

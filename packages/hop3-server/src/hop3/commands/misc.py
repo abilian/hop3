@@ -269,23 +269,15 @@ class PgCmd(Command):
         hop3 addons:info my-database --service-type postgres
         hop3 addons:detach my-database --app my-app --service-type postgres
         hop3 addons:destroy my-database --service-type postgres
+
+    Run 'hop3 help addons' or 'hop3 help --all' to see all addons:* commands.
     """
 
     name: ClassVar[str] = "pg"
 
     def call(self, *args):
-        return [
-            text(
-                "PostgreSQL databases are managed via the addons:* commands.\n\n"
-                "Examples:\n"
-                "  hop3 addons:create postgres my-database\n"
-                "  hop3 addons:attach my-database --app my-app --service-type postgres\n"
-                "  hop3 addons:info my-database --service-type postgres\n"
-                "  hop3 addons:detach my-database --app my-app --service-type postgres\n"
-                "  hop3 addons:destroy my-database --service-type postgres\n\n"
-                "Run 'hop3 help --all' to see all addons:* commands."
-            )
-        ]
+        # Return the docstring as help text
+        return [text((self.__doc__ or "").strip())]
 
 
 @register
@@ -300,19 +292,12 @@ class RedisCmd(Command):
         hop3 addons:attach my-cache --app my-app --service-type redis
         hop3 addons:info my-cache --service-type redis
         hop3 addons:destroy my-cache --service-type redis
+
+    Run 'hop3 help addons' or 'hop3 help --all' to see all addons:* commands.
     """
 
     name: ClassVar[str] = "redis"
 
     def call(self, *args):
-        return [
-            text(
-                "Redis instances are managed via the addons:* commands.\n\n"
-                "Examples:\n"
-                "  hop3 addons:create redis my-cache\n"
-                "  hop3 addons:attach my-cache --app my-app --service-type redis\n"
-                "  hop3 addons:info my-cache --service-type redis\n"
-                "  hop3 addons:destroy my-cache --service-type redis\n\n"
-                "Run 'hop3 help --all' to see all addons:* commands."
-            )
-        ]
+        # Return the docstring as help text
+        return [text((self.__doc__ or "").strip())]
