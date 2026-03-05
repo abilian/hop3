@@ -22,6 +22,8 @@ FEDORA_SPEC = PackageSpec(
     pkg_manager="dnf",
     update_cmd=None,  # dnf doesn't need explicit update
     env_vars={},
+    # Prevent weak dependencies (similar to apt's --no-install-recommends)
+    install_flags=["--setopt=install_weak_deps=False"],
     base_packages=[
         # Core utilities
         "bc",
@@ -54,8 +56,9 @@ FEDORA_SPEC = PackageSpec(
         # Elixir toolchain
         "elixir",
         "erlang",
-        # PHP toolchain
+        # PHP toolchain (using php-fpm for Nginx, not mod_php for httpd)
         "php",
+        "php-fpm",  # FastCGI Process Manager for Nginx
         "php-cli",
         "php-mbstring",
         "php-xml",
@@ -80,6 +83,8 @@ FEDORA_SPEC = PackageSpec(
         "socat",
         "unzip",
         "openssl",
+        # SSL/TLS certificates
+        "certbot",  # Let's Encrypt ACME client
         # Development libraries
         "libjpeg-devel",
         "libpng-devel",

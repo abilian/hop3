@@ -41,6 +41,11 @@ class PackageSpec:
     update_cmd: list[str] | None = None  # Command to update package lists
     env_vars: dict[str, str] = field(default_factory=dict)
 
+    # Extra flags for install command (e.g., ["--no-install-recommends"] for apt)
+    # This prevents unwanted packages like Apache from being pulled in as
+    # recommended dependencies of PHP packages
+    install_flags: list[str] = field(default_factory=list)
+
     # Package lists
     base_packages: list[str] = field(default_factory=list)
     docker_packages: list[str] = field(default_factory=list)
@@ -64,10 +69,16 @@ def install_base_packages(spec: PackageSpec) -> None:
         with Spinner("Updating package lists..."):
             run_cmd(spec.update_cmd)
 
+    # Build install command with optional flags
+    install_cmd = [spec.pkg_manager, "install", "-y"]
+    if spec.install_flags:
+        install_cmd.extend(spec.install_flags)
+    install_cmd.extend(spec.base_packages)
+
     # Install base packages
     with Spinner("Installing base packages (this may take a while)..."):
         result = run_cmd(
-            [spec.pkg_manager, "install", "-y"] + spec.base_packages,
+            install_cmd,
             env=spec.env_vars if spec.env_vars else None,
             check=False,
         )
@@ -98,10 +109,16 @@ def install_conditional_package(
         print_success(f"{cmd_name} already available")
         return
 
+    # Build install command with optional flags
+    install_cmd = [spec.pkg_manager, "install", "-y"]
+    if spec.install_flags:
+        install_cmd.extend(spec.install_flags)
+    install_cmd.append(pkg_name)
+
     print_info(f"{cmd_name} not found, installing {pkg_name}...")
     with Spinner(f"Installing {pkg_name}..."):
         result = run_cmd(
-            [spec.pkg_manager, "install", "-y", pkg_name],
+            install_cmd,
             env=spec.env_vars if spec.env_vars else None,
             check=False,
         )
@@ -168,9 +185,15 @@ def _start_docker_daemon() -> None:
 
 def install_feature_packages(name: str, packages: list[str], spec: PackageSpec) -> None:
     """Install a set of feature packages."""
+    # Build install command with optional flags
+    install_cmd = [spec.pkg_manager, "install", "-y"]
+    if spec.install_flags:
+        install_cmd.extend(spec.install_flags)
+    install_cmd.extend(packages)
+
     with Spinner(f"Installing {name} packages..."):
         result = run_cmd(
-            [spec.pkg_manager, "install", "-y"] + packages,
+            install_cmd,
             env=spec.env_vars if spec.env_vars else None,
             check=False,
         )

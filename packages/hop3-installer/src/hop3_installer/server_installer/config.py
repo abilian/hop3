@@ -149,6 +149,7 @@ class ServerInstallerConfig:
     skip_postgres: bool = False
     skip_acme: bool = False
     domain: str | None = None
+    acme_email: str | None = None  # Email for Let's Encrypt registration
     verbose: bool = False
 
     # Optional features
@@ -182,6 +183,7 @@ class ServerInstallerConfig:
             skip_postgres=env_bool("HOP3_SKIP_POSTGRES"),
             skip_acme=env_bool("HOP3_SKIP_ACME"),
             domain=env_str("HOP3_DOMAIN"),
+            acme_email=env_str("HOP3_ACME_EMAIL"),
             verbose=env_bool("HOP3_VERBOSE"),
             features=features,
         )

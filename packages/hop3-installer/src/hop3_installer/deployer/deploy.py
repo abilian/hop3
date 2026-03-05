@@ -264,6 +264,10 @@ class Deployer:
         if self.config.with_features:
             install_cmd += f" --with {','.join(self.config.with_features)}"
 
+        # Add ACME email for Let's Encrypt if provided
+        if self.config.acme_email:
+            install_cmd += f" --acme-email {shlex.quote(self.config.acme_email)}"
+
         # Always use verbose for better error output
         install_cmd += " --verbose"
 
