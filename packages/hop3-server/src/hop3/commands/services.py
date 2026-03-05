@@ -26,6 +26,17 @@ if TYPE_CHECKING:
 
 @register
 @dataclass(frozen=True)
+class AddonsCmd(Command):
+    """Manage backing services (databases, caches, etc.).
+
+    Use 'hop help addons' to see available subcommands.
+    """
+
+    name: ClassVar[str] = "addons"
+
+
+@register
+@dataclass(frozen=True)
 class AddonsListCmd(Command):
     """List available addon types.
 

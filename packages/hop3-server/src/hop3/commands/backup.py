@@ -396,12 +396,7 @@ class BackupDeleteCmd(Command):
 class BackupCmd(Command):
     """Manage application backups.
 
-    Commands:
-      backup:create   Create a backup of an application
-      backup:list     List all backups
-      backup:info     Show detailed backup information
-      backup:restore  Restore an application from backup
-      backup:delete   Delete a backup
+    Use 'hop help backup' to see available subcommands.
     """
 
     name: ClassVar[str] = "backup"
