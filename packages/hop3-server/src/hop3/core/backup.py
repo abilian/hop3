@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 from hop3.config import HopConfig
 from hop3.core.plugins import get_addon
 from hop3.lib import log
-from hop3.orm import App, Backup, BackupStateEnum, EnvVar
+from hop3.orm import AddonCredential, App, Backup, BackupStateEnum, EnvVar
 from hop3.orm.repositories import AppRepository
 
 
@@ -707,7 +707,7 @@ class BackupManager:
     def _get_attached_addons(self, app: App) -> list[tuple[str, str]]:
         """Get list of attached addons for an app.
 
-        This examines environment variables to discover attached addons.
+        Queries AddonCredential records to find attached addons.
 
         Args:
             app: Application to check
@@ -715,22 +715,11 @@ class BackupManager:
         Returns:
             List of (service_type, addon_name) tuples
         """
-        services = []
+        credentials = (
+            self.db_session.query(AddonCredential).filter_by(app_id=app.id).all()
+        )
 
-        # Look for DATABASE_URL (PostgreSQL)
-        for env_var in app.env_vars:
-            if env_var.name == "DATABASE_URL":
-                # Extract database name from URL
-                # postgresql://user:pass@localhost/dbname
-                url = env_var.value
-                if "postgresql://" in url:
-                    db_name = url.split("/")[-1].split("?")[0]
-                    # Addon name is typically the database name
-                    services.append(("postgres", db_name))
-
-            # TODO: Add detection for Redis, MySQL, etc.
-
-        return services
+        return [(cred.addon_type, cred.addon_name) for cred in credentials]
 
     def _generate_backup_id(self) -> str:
         """Generate unique backup ID.

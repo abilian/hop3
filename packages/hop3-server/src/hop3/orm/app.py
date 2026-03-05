@@ -801,6 +801,16 @@ class App(BigIntAuditBase):
         """
         all_logs = []
 
+        # Build environment with image tag for compose file substitution
+        # This prevents "HOP3_IMAGE_TAG not set" warnings when parsing compose file
+        env = {
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": os.environ.get("HOME", ""),
+            "PORT": str(self.port) if self.port else "8080",
+            "HOP3_IMAGE_TAG": self.image_tag or f"hop3/{self.name.lower()}:latest",
+            "HOP3_APP_NAME": self.name,
+        }
+
         try:
             # Use docker compose logs to get logs from all containers
             compose_file = self.src_path / ".hop3-compose.yml"
@@ -840,6 +850,7 @@ class App(BigIntAuditBase):
                 capture_output=True,
                 text=True,
                 timeout=30,
+                env=env,
             )
 
             if result.stdout:

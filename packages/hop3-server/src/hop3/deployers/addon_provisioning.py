@@ -154,7 +154,7 @@ def _provision_single_addon(
         )
         db_session.add(credential)
 
-    # Add env vars to app
+    # Add env vars to app (addons can update existing values, e.g., when password changes)
     _inject_env_vars(app, connection_details, db_session)
 
     log(f"  Attached addon {addon_name} to {app.name}", level=1, fg="green")
@@ -174,6 +174,10 @@ def inject_config_env_vars(
 ) -> None:
     """Inject environment variables from hop3.toml [env] section.
 
+    These are treated as defaults: they will only be set if the variable
+    doesn't exist or was previously set from hop3.toml. User-set values
+    (via config:set) and addon values are preserved.
+
     Args:
         app: The application model
         env_config: Dict of env var name -> value from hop3.toml
@@ -188,20 +192,35 @@ def inject_config_env_vars(
         env_var_count=len(env_config),
     )
 
-    _inject_env_vars(app, env_config, db_session)
+    injected_count = _inject_env_vars(app, env_config, db_session, defaults_only=True)
 
-    log(f"  Injected {len(env_config)} env var(s) from hop3.toml", level=1, fg="green")
+    log(
+        f"  Injected {injected_count} env var(s) from hop3.toml",
+        level=1,
+        fg="green",
+    )
 
 
 def _inject_env_vars(
     app: App,
     env_vars: dict[str, str],
     db_session: Session,
-) -> None:
+    *,
+    defaults_only: bool = False,
+) -> int:
     """Inject environment variables into an app.
 
-    Updates existing vars, adds new ones.
+    Args:
+        app: The application model
+        env_vars: Dict of env var name -> value
+        db_session: Database session for persistence
+        defaults_only: If True, only create new vars, never overwrite existing ones
+
+    Returns:
+        Number of env vars actually injected/updated
     """
+    injected = 0
+
     for key, value in env_vars.items():
         # Check if variable already exists
         existing = None
@@ -211,8 +230,15 @@ def _inject_env_vars(
                 break
 
         if existing:
+            if defaults_only:
+                # hop3.toml provides defaults only - don't overwrite
+                continue
             existing.value = str(value)
+            injected += 1
         else:
             new_var = EnvVar(app_id=app.id, name=key, value=str(value))
             db_session.add(new_var)
             app.env_vars.append(new_var)
+            injected += 1
+
+    return injected

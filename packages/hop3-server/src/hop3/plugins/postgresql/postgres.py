@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import secrets
 import subprocess
 from dataclasses import dataclass
@@ -33,6 +34,7 @@ from psycopg2.errors import DuplicateObject
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 from hop3.config import HOP3_ROOT
+from hop3.lib.logging import server_log
 
 from .admin import PostgresAdmin
 
@@ -72,6 +74,127 @@ def _delete_addon_secrets(addon_name: str) -> None:
     secrets_file = _get_addon_secrets_file(addon_name)
     if secrets_file.exists():
         secrets_file.unlink()
+
+
+def _find_pg_hba() -> Path | None:
+    """Find pg_hba.conf across different Linux distributions.
+
+    Returns:
+        Path to pg_hba.conf, or None if not found.
+    """
+    # Debian/Ubuntu: /etc/postgresql/<version>/main/pg_hba.conf
+    debian_base = Path("/etc/postgresql")
+    if debian_base.exists():
+        for version_dir in sorted(debian_base.iterdir(), reverse=True):
+            candidate = version_dir / "main" / "pg_hba.conf"
+            if candidate.exists():
+                return candidate
+
+    # Fedora/RHEL: /var/lib/pgsql/data/pg_hba.conf
+    fedora_conf = Path("/var/lib/pgsql/data/pg_hba.conf")
+    if fedora_conf.exists():
+        return fedora_conf
+
+    return None
+
+
+def _ensure_pg_hba_docker_access() -> None:
+    """Ensure pg_hba.conf allows connections from Docker networks.
+
+    This is called when provisioning a PostgreSQL addon to ensure Docker
+    containers can connect. The configuration is idempotent.
+
+    Raises:
+        FileNotFoundError: If pg_hba.conf cannot be found.
+        PermissionError: If pg_hba.conf cannot be modified.
+    """
+    pg_hba = _find_pg_hba()
+    if not pg_hba:
+        msg = "pg_hba.conf not found"
+        raise FileNotFoundError(msg)
+
+    content = pg_hba.read_text()
+
+    # Docker network range covering all typical Docker networks
+    docker_network = "172.16.0.0/12"
+
+    if docker_network in content:
+        return  # Already configured
+
+    # Add entry for Docker networks (allow all users with md5 auth)
+    hba_entry = f"\n# Allow Docker containers to connect (Hop3)\nhost    all    all    {docker_network}    md5\n"
+    content += hba_entry
+
+    pg_hba.write_text(content)
+    server_log.info(f"Added pg_hba.conf entry for Docker networks: {docker_network}")
+
+    # Reload PostgreSQL to apply changes
+    subprocess.run(
+        ["sudo", "-n", "systemctl", "reload", "postgresql"],
+        check=False,
+        capture_output=True,
+    )
+
+
+def _find_pg_conf() -> Path | None:
+    """Find postgresql.conf across different Linux distributions.
+
+    Returns:
+        Path to postgresql.conf, or None if not found.
+    """
+    # Debian/Ubuntu: /etc/postgresql/<version>/main/postgresql.conf
+    debian_base = Path("/etc/postgresql")
+    if debian_base.exists():
+        for version_dir in sorted(debian_base.iterdir(), reverse=True):
+            candidate = version_dir / "main" / "postgresql.conf"
+            if candidate.exists():
+                return candidate
+
+    # Fedora/RHEL: /var/lib/pgsql/data/postgresql.conf
+    fedora_conf = Path("/var/lib/pgsql/data/postgresql.conf")
+    if fedora_conf.exists():
+        return fedora_conf
+
+    return None
+
+
+def _ensure_pg_listen_addresses() -> None:
+    """Ensure PostgreSQL listens on all interfaces for Docker access.
+
+    Raises:
+        FileNotFoundError: If postgresql.conf cannot be found.
+        PermissionError: If postgresql.conf cannot be modified.
+    """
+    pg_conf = _find_pg_conf()
+    if not pg_conf:
+        msg = "postgresql.conf not found"
+        raise FileNotFoundError(msg)
+
+    content = pg_conf.read_text()
+
+    if "listen_addresses = '*'" in content:
+        return  # Already configured
+
+    # Update listen_addresses
+    if re.search(r"^#?\s*listen_addresses\s*=", content, re.MULTILINE):
+        content = re.sub(
+            r"^#?\s*listen_addresses\s*=\s*'[^']*'",
+            "listen_addresses = '*'",
+            content,
+            flags=re.MULTILINE,
+        )
+    else:
+        content = f"listen_addresses = '*'\n{content}"
+
+    pg_conf.write_text(content)
+    server_log.info("Updated PostgreSQL listen_addresses to '*'")
+
+    # Restart PostgreSQL (listen_addresses requires restart, not reload)
+    subprocess.run(
+        ["sudo", "-n", "systemctl", "restart", "postgresql"],
+        check=False,
+        capture_output=True,
+    )
 
 
 @dataclass(frozen=True)
@@ -135,14 +258,24 @@ class PostgresAddon:
         """Create a new PostgreSQL database if it does not already exist.
 
         This method:
-        1. Connects to PostgreSQL as admin user
-        2. Creates a new database user with a secure password
-        3. Creates a new database owned by that user
-        4. Stores the password for future use
+        1. Ensures PostgreSQL is configured for Docker access
+        2. Connects to PostgreSQL as admin user
+        3. Creates a new database user with a secure password
+        4. Creates a new database owned by that user
+        5. Stores the password for future use
 
         If the database already exists but secrets are missing (e.g., after
         server reinstall), the password is regenerated and saved.
         """
+        # Ensure PostgreSQL is configured for Docker container access
+        # This is idempotent and only makes changes if needed
+        # These may fail if PostgreSQL is remote or we lack permissions - that's OK
+        try:
+            _ensure_pg_hba_docker_access()
+            _ensure_pg_listen_addresses()
+        except (FileNotFoundError, PermissionError) as e:
+            server_log.debug(f"Skipping local PostgreSQL configuration: {e}")
+
         admin = self._get_admin()
 
         # Generate new password

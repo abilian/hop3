@@ -22,7 +22,7 @@ from sqlalchemy.orm import sessionmaker
 
 from hop3.config import HopConfig
 from hop3.core.backup import BackupManager, BackupManifest
-from hop3.orm import App, Backup, BackupStateEnum, EnvVar
+from hop3.orm import AddonCredential, App, Backup, BackupStateEnum, EnvVar
 from hop3.orm.session import BigIntAuditBase
 
 
@@ -441,25 +441,26 @@ class TestBackupManagerPathOperations:
 class TestBackupManagerServiceDetection:
     """Integration tests for attached addon/service detection."""
 
-    def test_detect_attached_postgres_from_database_url(
+    def test_detect_attached_postgres_from_addon_credential(
         self, backup_db_session, sample_app
     ):
-        """Test PostgreSQL detection from DATABASE_URL env var.
+        """Test PostgreSQL detection from AddonCredential record.
 
-        ARRANGE: Create app with PostgreSQL environment variable
+        ARRANGE: Create app with attached PostgreSQL addon
         ACT: Get attached addons
         ASSERT: Should detect postgres service
 
         Tests that backup system discovers attached services correctly.
         """
         manager = BackupManager(backup_db_session)
-        # sample_app already has env vars, but we need to add DATABASE_URL
-        db_env = EnvVar(
-            name="DATABASE_URL",
-            value="postgresql://user:pass@localhost/mydb",
-            app=sample_app,
+        # Create an AddonCredential record for the postgres addon
+        credential = AddonCredential(
+            app_id=sample_app.id,
+            addon_type="postgres",
+            addon_name="mydb",
+            encrypted_data="dummy_encrypted_data",
         )
-        backup_db_session.add(db_env)
+        backup_db_session.add(credential)
         backup_db_session.commit()
 
         services = manager._get_attached_addons(sample_app)
