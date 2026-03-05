@@ -69,9 +69,7 @@ class TestServicesAttachWithCredentials:
         """Test that attaching a service stores encrypted credentials."""
         with patch("hop3.commands.services.get_addon", return_value=mock_service):
             cmd = AddonsAttachCmd(db_session=test_db)
-            result = cmd.call(
-                "test-db", "--app", "test-app", "--service-type", "postgres"
-            )
+            result = cmd.call("test-db", "--app", "test-app", "--type", "postgres")
 
             # Command should succeed
             assert result[0]["t"] == "text"
@@ -100,7 +98,7 @@ class TestServicesAttachWithCredentials:
         """Test that attaching a service creates environment variables."""
         with patch("hop3.commands.services.get_addon", return_value=mock_service):
             cmd = AddonsAttachCmd(db_session=test_db)
-            cmd.call("test-db", "--app", "test-app", "--service-type", "postgres")
+            cmd.call("test-db", "--app", "test-app", "--type", "postgres")
 
             # Environment variables should be created
             env_vars = test_db.query(EnvVar).filter_by(app_id=test_app.id).all()
@@ -116,13 +114,13 @@ class TestServicesAttachWithCredentials:
             cmd = AddonsAttachCmd(db_session=test_db)
 
             # First attach
-            cmd.call("test-db", "--app", "test-app", "--service-type", "postgres")
+            cmd.call("test-db", "--app", "test-app", "--type", "postgres")
 
             # Change the password
             mock_service.get_connection_details.return_value["DB_PASSWORD"] = "newpass"
 
             # Second attach
-            cmd.call("test-db", "--app", "test-app", "--service-type", "postgres")
+            cmd.call("test-db", "--app", "test-app", "--type", "postgres")
 
             # Should still have only one credential
             credentials = (
@@ -149,9 +147,7 @@ class TestServicesDetachWithCredentials:
         with patch("hop3.commands.services.get_addon", return_value=mock_service):
             # First attach
             attach_cmd = AddonsAttachCmd(db_session=test_db)
-            attach_cmd.call(
-                "test-db", "--app", "test-app", "--service-type", "postgres"
-            )
+            attach_cmd.call("test-db", "--app", "test-app", "--type", "postgres")
 
             # Verify credential exists
             assert test_db.query(AddonCredential).count() == 1
@@ -159,7 +155,7 @@ class TestServicesDetachWithCredentials:
             # Detach
             detach_cmd = AddonsDetachCmd(db_session=test_db)
             result = detach_cmd.call(
-                "test-db", "--app", "test-app", "--service-type", "postgres"
+                "test-db", "--app", "test-app", "--type", "postgres"
             )
 
             # Command should succeed
@@ -174,18 +170,14 @@ class TestServicesDetachWithCredentials:
         with patch("hop3.commands.services.get_addon", return_value=mock_service):
             # First attach
             attach_cmd = AddonsAttachCmd(db_session=test_db)
-            attach_cmd.call(
-                "test-db", "--app", "test-app", "--service-type", "postgres"
-            )
+            attach_cmd.call("test-db", "--app", "test-app", "--type", "postgres")
 
             # Verify env vars exist
             assert test_db.query(EnvVar).filter_by(app_id=test_app.id).count() == 4
 
             # Detach
             detach_cmd = AddonsDetachCmd(db_session=test_db)
-            detach_cmd.call(
-                "test-db", "--app", "test-app", "--service-type", "postgres"
-            )
+            detach_cmd.call("test-db", "--app", "test-app", "--type", "postgres")
 
             # Env vars should be removed
             assert test_db.query(EnvVar).filter_by(app_id=test_app.id).count() == 0
@@ -206,8 +198,8 @@ class TestServicesDestroyWithCredentials:
 
             # Attach service to both apps
             attach_cmd = AddonsAttachCmd(db_session=test_db)
-            attach_cmd.call("shared-db", "--app", "app1", "--service-type", "postgres")
-            attach_cmd.call("shared-db", "--app", "app2", "--service-type", "postgres")
+            attach_cmd.call("shared-db", "--app", "app1", "--type", "postgres")
+            attach_cmd.call("shared-db", "--app", "app2", "--type", "postgres")
 
             # Verify credentials exist
             credentials = (
@@ -220,7 +212,7 @@ class TestServicesDestroyWithCredentials:
 
             # Destroy the service
             destroy_cmd = AddonsDestroyCmd(db_session=test_db)
-            result = destroy_cmd.call("shared-db", "--service-type", "postgres")
+            result = destroy_cmd.call("shared-db", "--type", "postgres")
 
             # Command should succeed
             assert result[0]["t"] == "text"
@@ -256,9 +248,7 @@ class TestCredentialPersistence:
 
             with patch("hop3.commands.services.get_addon", return_value=mock_service):
                 cmd = AddonsAttachCmd(db_session=session1)
-                cmd.call(
-                    "persist-db", "--app", "persist-app", "--service-type", "postgres"
-                )
+                cmd.call("persist-db", "--app", "persist-app", "--type", "postgres")
 
             app_id = app.id
             session1.close()

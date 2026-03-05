@@ -236,7 +236,7 @@ def test_services_destroy_success(mock_db_session):
         mock_db_session.query.return_value = mock_query
 
         cmd = AddonsDestroyCmd(db_session=mock_db_session)
-        result = cmd.call("my-database", "--service-type", "postgres")
+        result = cmd.call("my-database", "--type", "postgres")
 
         mock_service.destroy.assert_called_once()
         assert "destroyed successfully" in result[0]["text"]

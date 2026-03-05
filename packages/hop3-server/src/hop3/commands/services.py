@@ -82,7 +82,7 @@ class AddonsListCmd(Command):
 class AddonsCreateCmd(Command):
     """Create a new backing service instance.
 
-    Usage: hop3 addons:create <service-type> <service-name>
+    Usage: hop3 addons:create <type> <name>
 
     Examples:
         hop3 addons:create postgres my-database
@@ -99,7 +99,7 @@ class AddonsCreateCmd(Command):
         if len(args) < 2:
             return [
                 text(
-                    "Usage: hop3 addons:create <service-type> <service-name>\n\n"
+                    "Usage: hop3 addons:create <type> <name>\n\n"
                     "Example:\n"
                     "  hop3 addons:create postgres my-database"
                 )
@@ -142,11 +142,11 @@ class AddonsAttachCmd(Command):
     This command injects the service's connection details as environment
     variables into the specified application.
 
-    Usage: hop3 addons:attach <service-name> --app <app-name> [--service-type <type>]
+    Usage: hop3 addons:attach <name> --app <app-name> [--type <type>]
 
     Examples:
-        hop3 addons:attach my-database --app my-app --service-type postgres
-        hop3 addons:attach my-cache --app my-app --service-type redis
+        hop3 addons:attach my-database --app my-app --type postgres
+        hop3 addons:attach my-cache --app my-app --type redis
     """
 
     db_session: Session
@@ -156,7 +156,7 @@ class AddonsAttachCmd(Command):
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
         "app": {"type": str},  # --app <name>
-        "service_type": {"type": str, "default": "postgres"},  # --service-type <type>
+        "type": {"type": str, "default": "postgres"},  # --type <type>
     }
 
     def _store_or_update_credential(
@@ -257,14 +257,14 @@ class AddonsAttachCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         app_name = parsed.get("app")
-        service_type = parsed.get("service_type", "postgres")
+        service_type = parsed.get("type", "postgres")
 
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addons:attach <service-name> --app <app-name> [--service-type <type>]\n\n"
+                    "Usage: hop3 addons:attach <name> --app <app-name> [--type <type>]\n\n"
                     "Example:\n"
-                    "  hop3 addons:attach my-database --app my-app --service-type postgres"
+                    "  hop3 addons:attach my-database --app my-app --type postgres"
                 )
             ]
 
@@ -279,7 +279,7 @@ class AddonsAttachCmd(Command):
             return [
                 error(
                     "Error: --app parameter is required\n\n"
-                    "Usage: hop3 addons:attach <service-name> --app <app-name>"
+                    "Usage: hop3 addons:attach <name> --app <app-name>"
                 )
             ]
 
@@ -390,7 +390,7 @@ class AddonsDetachCmd(Command):
 
     This removes the service's environment variables from the application.
 
-    Usage: hop3 addons:detach <service-name> --app <app-name> [--service-type <type>]
+    Usage: hop3 addons:detach <name> --app <app-name> [--type <type>]
     """
 
     db_session: Session
@@ -400,7 +400,7 @@ class AddonsDetachCmd(Command):
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
         "app": {"type": str},  # --app <name>
-        "service_type": {"type": str, "default": "postgres"},  # --service-type <type>
+        "type": {"type": str, "default": "postgres"},  # --type <type>
     }
 
     def _get_connection_details(
@@ -456,12 +456,12 @@ class AddonsDetachCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         app_name = parsed.get("app")
-        service_type = parsed.get("service_type", "postgres")
+        service_type = parsed.get("type", "postgres")
 
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addons:detach <service-name> --app <app-name> [--service-type <type>]\n\n"
+                    "Usage: hop3 addons:detach <name> --app <app-name> [--type <type>]\n\n"
                     "Example:\n"
                     "  hop3 addons:detach my-database --app my-app"
                 )
@@ -508,7 +508,7 @@ class AddonsDestroyCmd(Command):
 
     WARNING: This will permanently delete all data in the service!
 
-    Usage: hop3 addons:destroy <service-name> [--service-type <type>]
+    Usage: hop3 addons:destroy <name> [--type <type>]
     """
 
     db_session: Session
@@ -518,22 +518,22 @@ class AddonsDestroyCmd(Command):
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
-        "service_type": {"type": str, "default": "postgres"},  # --service-type <type>
+        "type": {"type": str, "default": "postgres"},  # --type <type>
     }
 
     def call(self, *args):
         """Destroy a service instance."""
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
-        service_type = parsed.get("service_type", "postgres")
+        service_type = parsed.get("type", "postgres")
 
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addons:destroy <service-name> [--service-type <type>]\n\n"
+                    "Usage: hop3 addons:destroy <name> [--type <type>]\n\n"
                     "WARNING: This will permanently delete all data!\n\n"
                     "Example:\n"
-                    "  hop3 addons:destroy my-database --service-type postgres"
+                    "  hop3 addons:destroy my-database --type postgres"
                 )
             ]
 
@@ -579,7 +579,7 @@ class AddonsDestroyCmd(Command):
 class AddonsInfoCmd(Command):
     """Get information about a service instance.
 
-    Usage: hop3 addons:info <service-name> [--service-type <type>]
+    Usage: hop3 addons:info <name> [--type <type>]
     """
 
     db_session: Session
@@ -588,21 +588,21 @@ class AddonsInfoCmd(Command):
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
-        "service_type": {"type": str, "default": "postgres"},  # --service-type <type>
+        "type": {"type": str, "default": "postgres"},  # --type <type>
     }
 
     def call(self, *args):
         """Get service information."""
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
-        service_type = parsed.get("service_type", "postgres")
+        service_type = parsed.get("type", "postgres")
 
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addons:info <service-name> [--service-type <type>]\n\n"
+                    "Usage: hop3 addons:info <name> [--type <type>]\n\n"
                     "Example:\n"
-                    "  hop3 addons:info my-database --service-type postgres"
+                    "  hop3 addons:info my-database --type postgres"
                 )
             ]
 
@@ -631,11 +631,11 @@ class AddonsStatusCmd(Command):
 
     Performs a health check on the addon and shows all attached applications.
 
-    Usage: hop3 addons:status <service-name> [--service-type <type>]
+    Usage: hop3 addons:status <name> [--type <type>]
 
     Examples:
-        hop3 addons:status my-database --service-type postgres
-        hop3 addons:status my-cache --service-type redis
+        hop3 addons:status my-database --type postgres
+        hop3 addons:status my-cache --type redis
     """
 
     db_session: Session
@@ -655,7 +655,7 @@ class AddonsStatusCmd(Command):
         if not addon_name:
             return self._usage_message()
 
-        service_type = parsed["service_type"]
+        service_type = parsed["type"]
 
         with command_context(
             "getting addon status", addon_name=addon_name, service_type=service_type
@@ -678,9 +678,9 @@ class AddonsStatusCmd(Command):
         """Return usage message."""
         return [
             text(
-                "Usage: hop3 addons:status <service-name> [--service-type <type>]\n\n"
+                "Usage: hop3 addons:status <name> [--type <type>]\n\n"
                 "Example:\n"
-                "  hop3 addons:status my-database --service-type postgres"
+                "  hop3 addons:status my-database --type postgres"
             )
         ]
 

@@ -355,9 +355,7 @@ class TestAddonsAttachCmdIntegration:
 
             cmd = AddonsAttachCmd(db_session=db_session)
 
-            result = cmd.call(
-                "my-database", "--app", "test-app", "--service-type", "postgres"
-            )
+            result = cmd.call("my-database", "--app", "test-app", "--type", "postgres")
 
         db_session.expire_all()
 
@@ -391,7 +389,7 @@ class TestAddonsAttachCmdIntegration:
             - Mock addon plugin for redis type
 
         ACT:
-            - Attach redis addon with --service-type flag
+            - Attach redis addon with --type flag
 
         ASSERT:
             - Verify credential was created with redis type
@@ -409,9 +407,7 @@ class TestAddonsAttachCmdIntegration:
 
             cmd = AddonsAttachCmd(db_session=db_session)
 
-            result = cmd.call(
-                "my-cache", "--app", "test-app", "--service-type", "redis"
-            )
+            result = cmd.call("my-cache", "--app", "test-app", "--type", "redis")
 
         mock_get_addon.assert_called_once_with("redis", "my-cache")
 
@@ -449,14 +445,14 @@ class TestAddonsAttachCmdIntegration:
             mock_addon.get_connection_details.return_value = pg_details
             mock_get_addon.return_value = mock_addon
 
-            cmd.call("my-db", "--app", "test-app", "--service-type", "postgres")
+            cmd.call("my-db", "--app", "test-app", "--type", "postgres")
 
         with patch("hop3.commands.services.get_addon") as mock_get_addon:
             mock_addon = Mock()
             mock_addon.get_connection_details.return_value = redis_details
             mock_get_addon.return_value = mock_addon
 
-            cmd.call("my-cache", "--app", "test-app", "--service-type", "redis")
+            cmd.call("my-cache", "--app", "test-app", "--type", "redis")
 
         db_session.expire_all()
 
@@ -670,7 +666,7 @@ class TestAddonsDetachCmdIntegration:
 
         cmd = AddonsDetachCmd(db_session=db_session)
 
-        result = cmd.call("my-db", "--app", "test-app", "--service-type", "postgres")
+        result = cmd.call("my-db", "--app", "test-app", "--type", "postgres")
 
         db_session.expire_all()
 
@@ -787,7 +783,7 @@ class TestAddonsDestroyCmdIntegration:
 
             cmd = AddonsDestroyCmd(db_session=db_session)
 
-            result = cmd.call("shared-db", "--service-type", "postgres")
+            result = cmd.call("shared-db", "--type", "postgres")
 
         mock_get_addon.assert_called_once_with("postgres", "shared-db")
         mock_addon.destroy.assert_called_once()
@@ -828,7 +824,7 @@ class TestAddonsDestroyCmdIntegration:
 
             cmd = AddonsDestroyCmd(db_session=db_session)
 
-            result = cmd.call("orphan-db", "--service-type", "postgres")
+            result = cmd.call("orphan-db", "--type", "postgres")
 
         mock_addon.destroy.assert_called_once()
 
@@ -874,7 +870,7 @@ class TestAddonsDestroyCmdIntegration:
 
             # command_context raises ValueError for JSON-RPC error handling
             with pytest.raises(ValueError) as exc_info:
-                cmd.call("error-db", "--service-type", "postgres")
+                cmd.call("error-db", "--type", "postgres")
 
             assert "Cannot destroy addon" in str(exc_info.value)
 
@@ -937,7 +933,7 @@ class TestAddonsInfoCmdIntegration:
 
             cmd = AddonsInfoCmd(db_session=db_session)
 
-            result = cmd.call("my-database", "--service-type", "postgres")
+            result = cmd.call("my-database", "--type", "postgres")
 
         mock_get_addon.assert_called_once_with("postgres", "my-database")
         mock_addon.info.assert_called_once()
@@ -959,7 +955,7 @@ class TestAddonsInfoCmdIntegration:
             - Mock addon plugin for postgres
 
         ACT:
-            - Get addon info without specifying --service-type
+            - Get addon info without specifying --type
 
         ASSERT:
             - Verify postgres was used as default
@@ -987,7 +983,7 @@ class TestAddonsInfoCmdIntegration:
             - Mock addon plugin for redis
 
         ACT:
-            - Get addon info with --service-type redis
+            - Get addon info with --type redis
 
         ASSERT:
             - Verify redis type was used
@@ -1007,7 +1003,7 @@ class TestAddonsInfoCmdIntegration:
 
             cmd = AddonsInfoCmd(db_session=db_session)
 
-            result = cmd.call("my-cache", "--service-type", "redis")
+            result = cmd.call("my-cache", "--type", "redis")
 
         mock_get_addon.assert_called_once_with("redis", "my-cache")
         mock_addon.info.assert_called_once()
