@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 from hop3.core.manifest import RuntimeManifestBuilder
 from hop3.core.plugins import get_builder, get_deployment_strategy
 from hop3.core.protocols import DeploymentContext
-from hop3.deployers.addon_provisioning import inject_config_env_vars, provision_addons
+from hop3.deployers.addon_provisioning import provision_addons
+from hop3.deployers.env_provisioning import set_default_env_vars
 from hop3.lib import Abort, log, shell
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
@@ -416,7 +417,7 @@ def _process_config_dependencies(
             level=1,
             fg="blue",
         )
-        inject_config_env_vars(app, env_config, db_session)
+        set_default_env_vars(app, env_config, db_session)
 
     # Commit changes before continuing with build
     if addon_configs or env_config:
