@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from hop3.commands.help import HelpCmd
+from hop3.commands.help import HelpCmd, HelpCommandsCmd
 from hop3.lib.scanner import scan_package
 
 
@@ -220,3 +220,32 @@ def test_help_shows_subcommands_for_namespace():
 
     # Should list auth subcommands
     assert "auth:" in text
+
+
+def test_help_commands_returns_command_list():
+    """Test that help:commands returns a list of all command names."""
+    cmd = HelpCommandsCmd()
+    result = cmd.call()
+
+    assert len(result) == 1
+    assert result[0]["t"] == "data"
+    assert "data" in result[0]
+
+    data = result[0]["data"]
+    assert "commands" in data
+    commands = data["commands"]
+
+    # Should be a non-empty list of strings
+    assert isinstance(commands, list)
+    assert len(commands) > 0
+    assert all(isinstance(c, str) for c in commands)
+
+    # Should include some known commands
+    assert "help" in commands
+    assert "apps" in commands
+
+    # Should be sorted
+    assert commands == sorted(commands)
+
+    # Should not include hidden commands (e.g., git-hook)
+    assert "git-hook" not in commands

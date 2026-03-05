@@ -45,6 +45,8 @@ class Command:
     # Destructive action metadata (default: not destructive)
     # Set to True for commands that delete/destroy data (requires confirmation)
     destructive: ClassVar[bool] = False
+    # Hidden commands are not shown in help output (for internal/technical commands)
+    hidden: ClassVar[bool] = False
 
     def call(self, *args, **kwargs):
         return self.get_help()

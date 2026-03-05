@@ -7,7 +7,7 @@ from typing import ClassVar
 from hop3.lib.registry import lookup, register
 
 from ._base import Command
-from ._response import error, text
+from ._response import data, error, text
 
 
 @register
@@ -62,6 +62,9 @@ class HelpCmd(Command):
         subcommand_counts: dict[str, int] = {}
 
         for cmd in commands:
+            # Skip hidden commands (internal/technical)
+            if getattr(cmd, "hidden", False):
+                continue
             name = cmd.name
             if ":" in name:
                 # This is a subcommand - count it under its prefix
@@ -102,6 +105,9 @@ class HelpCmd(Command):
         commands = lookup(Command)
         commands.sort(key=lambda cmd: cmd.name)
         for cmd in commands:
+            # Skip hidden commands (internal/technical)
+            if getattr(cmd, "hidden", False):
+                continue
             cmd_name = cmd.name
             help_text = self._get_short_help(cmd.__doc__)
             output.append(f"  {cmd_name:<24} {help_text}")
@@ -138,8 +144,13 @@ class HelpCmd(Command):
         ]
 
         # Find subcommands (commands that start with this command name followed by :)
+        # Exclude hidden subcommands
         prefix = command_name + ":"
-        subcommands = [c for c in all_commands if c.name.startswith(prefix)]
+        subcommands = [
+            c
+            for c in all_commands
+            if c.name.startswith(prefix) and not getattr(c, "hidden", False)
+        ]
 
         if subcommands:
             subcommands.sort(key=lambda c: c.name)
@@ -177,3 +188,30 @@ class HelpCmd(Command):
                 return stripped
 
         return ""
+
+
+@register
+class HelpCommandsCmd(Command):
+    """Return list of available command names for shell completion.
+
+    Returns a JSON-serializable list of all non-hidden command names.
+    Used by the CLI to generate and cache shell completion scripts.
+
+    Usage:
+        hop help:commands
+
+    Output:
+        {"commands": ["addons", "addons:attach", "app", "app:logs", ...]}
+    """
+
+    name: ClassVar[str] = "help:commands"
+    requires_auth: ClassVar[bool] = False  # Public command
+
+    def call(self, *args):
+        """Return list of command names as structured data."""
+        commands = lookup(Command)
+        command_names = sorted(
+            cmd.name for cmd in commands if not getattr(cmd, "hidden", False)
+        )
+
+        return [data({"commands": command_names})]

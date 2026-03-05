@@ -34,6 +34,7 @@ class GitHookCmd(Command):
 
     db_session: Session
     name: ClassVar[str] = "git-hook"
+    hidden: ClassVar[bool] = True  # Internal command, called by git hook
 
     def call(self, *args):
         """Process git post-receive hook data and trigger deployment.

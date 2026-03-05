@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .auth_cmd import handle_auth
+from .completion_cmd import handle_completion
 from .context_cmd import handle_context
 from .init_cmd import handle_init
 from .login_cmd import handle_login, handle_login_token
@@ -34,6 +35,7 @@ __all__ = [
     "BootstrapError",
     "extract_token",
     "handle_auth",
+    "handle_completion",
     "handle_context",
     "handle_init",
     "handle_local_command",
@@ -51,6 +53,7 @@ __all__ = [
 # Commands that are handled locally (not sent to server via RPC)
 # Format: command_name -> description
 LOCAL_COMMANDS_INFO = {
+    "completion": "Generate shell completion scripts.",
     "context": "Manage multiple server contexts.",
     "init": "Initialize connection to a Hop3 server via SSH.",
     "login": "Authenticate to a server.",
@@ -88,6 +91,8 @@ def handle_local_command(args: list[str], config: Config, printer: RichPrinter) 
     command = args[0]
     cmd_args = args[1:]
 
+    if command == "completion":
+        return handle_completion(cmd_args, config, printer)
     if command == "context":
         return handle_context(cmd_args, config, printer)
     if command == "init":

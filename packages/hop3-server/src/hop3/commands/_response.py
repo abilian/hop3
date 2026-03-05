@@ -53,6 +53,15 @@ def code(content: str, lang: str = "") -> dict[str, Any]:
     return {"t": "code", "lang": lang, "text": content}
 
 
+def data(payload: dict[str, Any]) -> dict[str, Any]:
+    """Create a structured data response item.
+
+    Used for returning JSON-serializable data that the CLI can process
+    programmatically (e.g., for shell completion, JSON output mode).
+    """
+    return {"t": "data", "data": payload}
+
+
 def log_entry(msg: str, fg: str = "", level: int = 0) -> dict[str, Any]:
     """Create a log entry response item."""
     return {"t": "log", "msg": msg, "fg": fg, "level": level}
