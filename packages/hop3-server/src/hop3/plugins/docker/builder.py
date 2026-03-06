@@ -14,12 +14,15 @@ import os
 import subprocess
 import time
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hop3.config import HOP3_ROOT
 from hop3.core.protocols import BuildArtifact, BuildContext
 from hop3.lib import Abort, log
 from hop3.lib.logging import server_log
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @dataclass(frozen=True)

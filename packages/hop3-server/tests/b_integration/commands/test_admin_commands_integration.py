@@ -33,10 +33,11 @@ from hop3.commands.admin import (
     AdminUserSetPasswordCmd,
 )
 from hop3.orm import User
-from hop3.orm.security import Role
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
+    from hop3.orm.security import Role
 
 
 @pytest.mark.integration

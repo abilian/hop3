@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import traceback
+from typing import TYPE_CHECKING
 
 from advanced_alchemy.exceptions import RepositoryError
 from litestar import Controller, Request, post
@@ -20,9 +21,11 @@ from hop3.lib.console import verbosity_context
 from hop3.lib.logging import server_log
 from hop3.lib.registry import lookup
 from hop3.lib.scanner import scan_package
-from hop3.lib.types import JsonDict
 from hop3.orm import get_session_factory
 from hop3.server.security.tokens import validate_token
+
+if TYPE_CHECKING:
+    from hop3.lib.types import JsonDict
 
 # Scan and register all CLI commands
 scan_package("hop3.commands")

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,6 +13,9 @@ import pytest
 from hop3.core.protocols import BuildArtifact, DeploymentContext
 from hop3.lib import Abort
 from hop3.plugins.docker.deployer import DockerComposeDeployer
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture

@@ -16,12 +16,13 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hop3.core.artifacts import BuildArtifact, RuntimeConfig
 from hop3.core.env import Env
-from hop3.core.protocols import BuildContext
 from hop3.lib import shell
 from hop3.project.procfile import parse_procfile
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from hop3.core.protocols import BuildContext
 
 
 class LanguageToolchain(ABC):

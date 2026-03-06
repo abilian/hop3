@@ -8,10 +8,13 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from hop3_tui.config import TUIConfig, get_config, reset_config
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestTUIConfig:

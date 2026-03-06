@@ -18,13 +18,16 @@ Key Design:
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from hop3.core.plugins import get_deployment_strategy
 from hop3.core.protocols import BuildArtifact, DeploymentContext
 from hop3.orm import App
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.mark.integration

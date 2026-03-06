@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,6 +14,9 @@ import pytest
 from hop3.core.protocols import BuildContext
 from hop3.lib import Abort
 from hop3.plugins.docker.builder import DockerBuilder
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestDockerBuilderAccept:

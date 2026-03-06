@@ -17,7 +17,6 @@ See local-notes/test-mock-migration-plan.md for migration strategy.
 from __future__ import annotations
 
 import shutil
-from pathlib import Path
 from subprocess import CalledProcessError
 from typing import TYPE_CHECKING
 from unittest.mock import Mock, patch
@@ -29,6 +28,8 @@ from hop3.config import HopConfig
 from hop3.orm import App
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from sqlalchemy.orm import Session
 
 

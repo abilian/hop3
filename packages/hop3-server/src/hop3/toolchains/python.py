@@ -8,13 +8,16 @@ from __future__ import annotations
 import shutil
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hop3.core.env import Env
 from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
-from hop3.core.protocols import BuildArtifact
 from hop3.lib import chdir, log
 
 from ._base import LanguageToolchain
+
+if TYPE_CHECKING:
+    from hop3.core.protocols import BuildArtifact
 
 
 class PythonToolchain(LanguageToolchain):

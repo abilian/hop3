@@ -10,8 +10,6 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import click
-
 from hop3_testing.apps.debug import DeploymentDebugger
 from hop3_testing.catalog import Catalog
 from hop3_testing.catalog.models import Category
@@ -29,6 +27,8 @@ from .logging import TestLogWriter
 from .reports import generate_reports
 
 if TYPE_CHECKING:
+    import click
+
     from hop3_testing.catalog.models import TestDefinition
     from hop3_testing.runners.base import TestResult
     from hop3_testing.targets.base import DeploymentTarget

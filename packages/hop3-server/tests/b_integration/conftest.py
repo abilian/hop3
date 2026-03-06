@@ -12,13 +12,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
 
 from hop3.orm import Role, User, get_session_factory, reset_session_factory_cache
 from hop3.orm.session import BigIntAuditBase
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
+    from sqlalchemy.orm import Session
 
 
 @pytest.fixture

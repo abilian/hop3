@@ -6,13 +6,16 @@
 
 from __future__ import annotations
 
-import click
+from typing import TYPE_CHECKING
 
 from .build import build_ready_image, build_test_image
 from .catalog import list_tests, show_test
 from .modes import ci, dev, nightly
 from .run import run_command
 from .test import apps_test, package, system_test
+
+if TYPE_CHECKING:
+    import click
 
 __all__ = [
     "apps_test",

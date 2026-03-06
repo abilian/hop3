@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.message import Message
@@ -20,6 +19,8 @@ from hop3_tui.api.models import App, AppState
 from hop3_tui.widgets.confirmation import ConfirmationDialog
 
 if TYPE_CHECKING:
+    from textual.app import ComposeResult
+
     from hop3_tui.app import Hop3TUI
 
 

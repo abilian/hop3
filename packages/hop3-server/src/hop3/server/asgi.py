@@ -6,6 +6,7 @@ import os
 import secrets
 import warnings
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from dishka.integrations.litestar import setup_dishka
 from litestar import Litestar, Request
@@ -17,7 +18,6 @@ from litestar.response import Redirect
 from litestar.static_files import create_static_files_router
 from litestar.stores.memory import MemoryStore
 from litestar.template.config import TemplateConfig
-from litestar.types import ControllerRouterHandler
 
 from hop3.di import create_async_container
 from hop3.orm import get_session_factory
@@ -32,6 +32,9 @@ from .controllers import (
 )
 from .health import verify_addon_health
 from .state_sync import start_state_sync_service, stop_state_sync_service
+
+if TYPE_CHECKING:
+    from litestar.types import ControllerRouterHandler
 
 DEBUG = True
 

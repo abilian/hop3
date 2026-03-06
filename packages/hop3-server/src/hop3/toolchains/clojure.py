@@ -8,13 +8,16 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hop3.core.env import Env
 from hop3.core.events import BuildEvent, CreatingVirtualEnv, emit
-from hop3.core.protocols import BuildArtifact
 from hop3.lib import log, prepend_to_path
 
 from ._base import LanguageToolchain
+
+if TYPE_CHECKING:
+    from hop3.core.protocols import BuildArtifact
 
 
 class ClojureToolchain(LanguageToolchain):

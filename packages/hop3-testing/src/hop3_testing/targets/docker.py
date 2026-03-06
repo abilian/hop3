@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import subprocess
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import docker
@@ -42,6 +41,7 @@ from .helpers import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from pathlib import Path
 
 
 class DockerTarget(DeploymentTarget):

@@ -9,15 +9,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import VerticalScroll
-from textual.events import Key
 from textual.screen import Screen
 from textual.suggester import Suggester
 from textual.widgets import Footer, Header, Input, Static
 
 if TYPE_CHECKING:
+    from textual.app import ComposeResult
+    from textual.events import Key
+
     from hop3_tui.app import Hop3TUI
 
 

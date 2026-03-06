@@ -5,10 +5,13 @@
 
 from __future__ import annotations
 
-from argparse import ArgumentParser
+from typing import TYPE_CHECKING
 
 from hop3.lib import echo
 from hop3.lib.decorators import command
+
+if TYPE_CHECKING:
+    from argparse import ArgumentParser
 
 
 @command

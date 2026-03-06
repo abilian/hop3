@@ -10,14 +10,16 @@ from __future__ import annotations
 import random
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
-from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import VerticalScroll
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Footer, Header, Input, Static
+
+if TYPE_CHECKING:
+    from textual.app import ComposeResult
 
 
 class LogsScreen(Screen):

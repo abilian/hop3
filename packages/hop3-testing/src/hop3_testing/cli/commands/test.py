@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 
@@ -17,13 +18,15 @@ from hop3_testing.catalog.loader import (
     generate_test_definition_from_app,
     load_test_definition_smart,
 )
-from hop3_testing.catalog.models import TestDefinition
 from hop3_testing.cli.runners import run_app_tests, run_system_tests
 from hop3_testing.results import ConsoleReporter
 from hop3_testing.runners import DeploymentTestRunner
 from hop3_testing.selector import Selector, get_mode_config
 from hop3_testing.targets import DockerTarget, RemoteTarget
 from hop3_testing.targets.config import DeploymentConfig, DockerConfig, RemoteConfig
+
+if TYPE_CHECKING:
+    from hop3_testing.catalog.models import TestDefinition
 
 
 @click.command("package")

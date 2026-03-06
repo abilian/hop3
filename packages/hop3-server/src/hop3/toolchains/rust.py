@@ -7,11 +7,14 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from hop3.core.protocols import BuildArtifact
 from hop3.lib import log
 
 from ._base import LanguageToolchain
+
+if TYPE_CHECKING:
+    from hop3.core.protocols import BuildArtifact
 
 # Common locations for cargo binary
 CARGO_PATHS = [

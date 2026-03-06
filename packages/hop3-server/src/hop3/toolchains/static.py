@@ -5,9 +5,12 @@
 
 from __future__ import annotations
 
-from hop3.core.protocols import BuildArtifact
+from typing import TYPE_CHECKING
 
 from ._base import LanguageToolchain
+
+if TYPE_CHECKING:
+    from hop3.core.protocols import BuildArtifact
 
 
 class StaticToolchain(LanguageToolchain):
