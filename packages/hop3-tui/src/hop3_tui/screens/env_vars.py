@@ -15,6 +15,7 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
 
+from hop3_tui.api.client import Hop3ClientError
 from hop3_tui.api.models import EnvVar
 from hop3_tui.widgets.confirmation import ConfirmationDialog
 
@@ -246,7 +247,11 @@ class EnvVarsScreen(Screen):
 
         try:
             self._env_vars = await self.hop3_app.api_client.get_env_vars(self.app_name)
+            self.hop3_app.mark_api_success()
             self._update_table()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error", timeout=5)
         except Exception as e:
             self.notify(f"Failed to fetch env vars: {e}", severity="error", timeout=5)
 
@@ -405,8 +410,12 @@ class EnvVarsScreen(Screen):
 
         try:
             await self.hop3_app.api_client.set_env_var(self.app_name, name, value)
+            self.hop3_app.mark_api_success()
             self.notify(f"[green]Saved {name}[/]")
             self._refresh_data()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to save {name}: {e}", severity="error")
 
@@ -448,8 +457,12 @@ class EnvVarsScreen(Screen):
 
         try:
             await self.hop3_app.api_client.delete_env_var(self.app_name, name)
+            self.hop3_app.mark_api_success()
             self.notify(f"[yellow]Deleted {name}[/]")
             self._refresh_data()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to delete {name}: {e}", severity="error")
 

@@ -16,6 +16,7 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
 
+from hop3_tui.api.client import Hop3ClientError
 from hop3_tui.api.models import Backup
 from hop3_tui.widgets.confirmation import ConfirmationDialog
 
@@ -227,7 +228,11 @@ class BackupsScreen(Screen):
 
         try:
             self._backups = await self.hop3_app.api_client.list_backups()
+            self.hop3_app.mark_api_success()
             self._update_table()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error", timeout=5)
         except Exception as e:
             self.notify(f"Failed to fetch backups: {e}", severity="error", timeout=5)
 
@@ -370,8 +375,12 @@ class BackupsScreen(Screen):
 
         try:
             backup_id = await self.hop3_app.api_client.create_backup(app_name)
+            self.hop3_app.mark_api_success()
             self.notify(f"[green]Created backup {backup_id}[/]")
             self._refresh_data()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to create backup: {e}", severity="error")
 
@@ -412,7 +421,11 @@ class BackupsScreen(Screen):
 
         try:
             await self.hop3_app.api_client.restore_backup(backup_id)
+            self.hop3_app.mark_api_success()
             self.notify(f"[green]Restored {app_name} from {backup_id}[/]")
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to restore backup: {e}", severity="error")
 
@@ -427,8 +440,12 @@ class BackupsScreen(Screen):
 
         try:
             await self.hop3_app.api_client.delete_backup(backup_id)
+            self.hop3_app.mark_api_success()
             self.notify(f"[red]Deleted {backup_id}[/]")
             self._refresh_data()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to delete backup: {e}", severity="error")
 

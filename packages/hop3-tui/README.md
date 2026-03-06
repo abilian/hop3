@@ -14,6 +14,9 @@ A modern, keyboard-driven terminal interface for managing Hop3 applications, bui
 - **Real-time log streaming**: Filter logs, pause/resume, auto-scroll
 - **Chat interface**: Interactive command line with tab completion
 - **System monitoring**: CPU, memory, disk usage and service status
+- **Addon management**: Create, attach, detach PostgreSQL, Redis, MySQL
+- **Backup management**: Create, restore, delete app backups
+- **Connection status indicator**: Visual feedback for server connectivity
 
 ## Installation
 
@@ -63,6 +66,8 @@ refresh_interval = 5
 | `d` | Dashboard |
 | `a` | Apps list |
 | `s` | System status |
+| `o` | Addons |
+| `b` | Backups |
 | `c` | Chat interface |
 | `?` | Help |
 | `q` | Quit |
@@ -94,19 +99,37 @@ refresh_interval = 5
 hop3-tui/
 ├── src/hop3_tui/
 │   ├── __main__.py       # Entry point
-│   ├── app.py            # Main Hop3TUI class
-│   ├── config.py         # Configuration
+│   ├── app.py            # Main Hop3TUI class with connection state
+│   ├── config.py         # Configuration loading (env vars + TOML)
 │   ├── api/
-│   │   ├── client.py     # JSON-RPC client
-│   │   └── models.py     # Data models
+│   │   ├── client.py     # JSON-RPC client with error handling
+│   │   └── models.py     # Pydantic data models
 │   ├── screens/
-│   │   ├── dashboard.py
-│   │   ├── apps.py
-│   │   ├── logs.py
-│   │   └── chat.py
+│   │   ├── dashboard.py  # Overview with app counts
+│   │   ├── apps.py       # App list and management
+│   │   ├── app_detail.py # Single app view
+│   │   ├── logs.py       # Real-time log streaming
+│   │   ├── env_vars.py   # Environment variable editor
+│   │   ├── system.py     # System status
+│   │   ├── addons.py     # Addon management
+│   │   ├── backups.py    # Backup management
+│   │   └── chat.py       # Command interface
 │   └── widgets/
-└── tests/
+│       ├── confirmation.py  # Confirmation dialogs
+│       ├── status_panel.py  # Resource meters
+│       └── status_badge.py  # Status indicators
+└── tests/                # pytest test suite (167 tests)
 ```
+
+### Connection Handling
+
+The TUI tracks connection state to the Hop3 server:
+
+- **Connected** (green indicator): Server is reachable
+- **Disconnected** (red indicator): Connection lost, will retry
+- **Connecting** (yellow indicator): Attempting to connect
+
+Connection failures are tracked and the state updates automatically. The UI continues to show cached data while disconnected.
 
 ## Development
 

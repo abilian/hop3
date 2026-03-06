@@ -14,6 +14,7 @@ from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Footer, Header, Static
 
+from hop3_tui.api.client import Hop3ClientError
 from hop3_tui.api.models import AppState
 from hop3_tui.widgets.status_panel import StatusPanel
 
@@ -172,6 +173,7 @@ class DashboardScreen(Screen):
 
         try:
             apps = await self.hop3_app.api_client.list_apps()
+            self.hop3_app.mark_api_success()
 
             # Count apps by state
             running = sum(1 for app in apps if app.state == AppState.RUNNING)
@@ -184,9 +186,13 @@ class DashboardScreen(Screen):
             apps_summary.stopped = stopped
             apps_summary.failed = failed
 
+        except Hop3ClientError as e:
+            # Connection/API error - mark failure and notify
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error", timeout=5)
         except Exception as e:
-            # On error, show notification but don't crash
-            self.notify(f"Failed to fetch apps: {e}", severity="error", timeout=5)
+            # Unexpected error - still notify but don't affect connection state
+            self.notify(f"Unexpected error: {e}", severity="error", timeout=5)
 
     def action_refresh(self) -> None:
         """Manual refresh action."""

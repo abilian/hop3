@@ -19,7 +19,7 @@ class TestHop3TUIApp:
         """Test that the app initializes correctly."""
         app = Hop3TUI()
         assert app.TITLE == "Hop3"
-        assert app.SUB_TITLE == "Platform as a Service"
+        # SUB_TITLE is dynamically set based on connection state
         assert app.dark is True
 
     @pytest.mark.asyncio

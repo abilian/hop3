@@ -16,6 +16,7 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
 
+from hop3_tui.api.client import Hop3ClientError
 from hop3_tui.api.models import App, AppState
 from hop3_tui.widgets.confirmation import ConfirmationDialog
 
@@ -220,7 +221,11 @@ class AppsScreen(Screen):
 
         try:
             self._apps = await self.hop3_app.api_client.list_apps()
+            self.hop3_app.mark_api_success()
             self._update_table()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error", timeout=5)
         except Exception as e:
             self.notify(f"Failed to fetch apps: {e}", severity="error", timeout=5)
 
