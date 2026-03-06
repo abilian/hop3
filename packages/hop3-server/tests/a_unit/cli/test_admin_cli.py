@@ -1,7 +1,6 @@
 # Copyright (c) 2025, Abilian SAS
 #
 # SPDX-License-Identifier: Apache-2.0
-# ruff: noqa: PT012
 
 """Tests for server-side CLI admin commands (hop3-server admin:*)."""
 
@@ -139,7 +138,7 @@ class TestAdminCreate:
             ),
             pytest.raises(SystemExit) as exc_info,
         ):
-            cmd = AdminCreate()  # noqa: PT012
+            cmd = AdminCreate()
             cmd.run(username="testuser", email="new@example.com", password_stdin=False)
 
         assert exc_info.value.code == 1
@@ -160,7 +159,7 @@ class TestAdminCreate:
             ),
             pytest.raises(SystemExit) as exc_info,
         ):
-            cmd = AdminCreate()  # noqa: PT012
+            cmd = AdminCreate()
             cmd.run(
                 username="newadmin", email="admin@example.com", password_stdin=False
             )
@@ -208,7 +207,7 @@ class TestAdminToken:
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
             pytest.raises(SystemExit) as exc_info,
         ):
-            cmd = AdminToken()  # noqa: PT012
+            cmd = AdminToken()
             cmd.run(username="nonexistent")
 
         assert exc_info.value.code == 1
@@ -229,7 +228,7 @@ class TestAdminToken:
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
             pytest.raises(SystemExit) as exc_info,
         ):
-            cmd = AdminToken()  # noqa: PT012
+            cmd = AdminToken()
             cmd.run(username="testuser")
 
         assert exc_info.value.code == 1
@@ -357,7 +356,7 @@ class TestAdminResetPassword:
             ),
             pytest.raises(SystemExit) as exc_info,
         ):
-            cmd = AdminResetPassword()  # noqa: PT012
+            cmd = AdminResetPassword()
             cmd.run(username="nonexistent", password_stdin=False)
 
         assert exc_info.value.code == 1

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hop3.config import HopConfig
 from hop3.lib.config import Config
 
 
@@ -20,8 +21,6 @@ def test_default(monkeypatch):
     Note: This test ensures HOP3_ROOT is set to the expected test default
     regardless of environment variables.
     """
-    from hop3.config import HopConfig  # noqa: PLC0415
-
     # Ensure HOP3_ROOT environment variable is set to test default
     monkeypatch.setenv("HOP3_ROOT", "/tmp/hop3")
 

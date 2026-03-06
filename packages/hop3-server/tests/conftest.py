@@ -23,6 +23,7 @@ from hop3_testing.targets.helpers import find_project_root
 
 from hop3.orm import reset_session_factory_cache
 
+# Import fixtures from di_fixtures.py to make them available to all tests
 from .di_fixtures import di_container  # noqa: F401
 
 

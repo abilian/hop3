@@ -407,7 +407,7 @@ class TestAddonsAttachCmdIntegration:
 
             cmd = AddonsAttachCmd(db_session=db_session)
 
-            result = cmd.call("my-cache", "--app", "test-app", "--type", "redis")
+            cmd.call("my-cache", "--app", "test-app", "--type", "redis")
 
         mock_get_addon.assert_called_once_with("redis", "my-cache")
 
@@ -666,7 +666,7 @@ class TestAddonsDetachCmdIntegration:
 
         cmd = AddonsDetachCmd(db_session=db_session)
 
-        result = cmd.call("my-db", "--app", "test-app", "--type", "postgres")
+        cmd.call("my-db", "--app", "test-app", "--type", "postgres")
 
         db_session.expire_all()
 
@@ -971,7 +971,7 @@ class TestAddonsInfoCmdIntegration:
 
             cmd = AddonsInfoCmd(db_session=db_session)
 
-            result = cmd.call("default-db")
+            cmd.call("default-db")
 
         # Should default to postgres
         mock_get_addon.assert_called_once_with("postgres", "default-db")

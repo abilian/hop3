@@ -60,7 +60,7 @@ def isolated_database(monkeypatch, worker_id):
     reset_session_factory_cache()
 
     # Create the database schema
-    session_factory = get_session_factory()
+    get_session_factory()
 
     yield db_uri
 

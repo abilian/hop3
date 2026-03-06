@@ -61,41 +61,35 @@ lint.extend-ignore = [
     # Fix this (later)
     #
     "E501", #   	[ ] line-too-long
-    "F841", #   	[ ] unused-variable
-    "PLR0915", #	[ ] too-many-statements
-    "B904", #   	[ ] raise-without-from-inside-except
-    "PLW0603", #	[ ] global-statement
-    "E402", #   	[ ] module-import-not-at-top-of-file
-    "EXE001", # 	[ ] shebang-not-executable
-    "PLR0911", #	[ ] too-many-return-statements
-    "PLW1508", #	[ ] invalid-envvar-default
     "TC001", #  	[ ] typing-only-first-party-import
-    "RUF005", # 	[ ] collection-literal-concatenation
-    "DTZ005", # 	[ ] call-datetime-now-without-tzinfo
-    "PERF203", #	[ ] try-except-in-loop
-    "PT012", #  	[ ] pytest-raises-with-multiple-statements
-    "RUF100", # 	[*] unused-noqa
-    "SIM105", # 	[ ] suppressible-exception
-    "SIM117", # 	[ ] multiple-with-statements
     "PLR0913", #	[ ] too-many-arguments
-    "PLW2901", #	[ ] redefined-loop-name
-    "PT028", #  	[ ] pytest-parameter-with-default-argument
+    "PLR0917", #	[ ] too-many-positional-arguments
+    "RUF100", # 	[*] unused-noqa
+    "C901", #   	[ ] complex-structure
+    "F841", #   	[ ] unused-variable
+    "SIM105", # 	[ ] suppressible-exception
+    "B904", #   	[ ] raise-without-from-inside-except
+    "PERF203", #	[ ] try-except-in-loop
+    "PLW1510", #	[ ] subprocess-run-without-check
+    "TRY301", # 	[ ] raise-within-try
+    "PLW0603", #	[ ] global-statement
+    "RUF005", # 	[ ] collection-literal-concatenation
+    "PLR0911", #	[ ] too-many-return-statements
     "PLR0914", #	[ ] too-many-locals
+    "PLW2901", #	[ ] redefined-loop-name
+    "SIM117", # 	[ ] multiple-with-statements
+    "RUF001", # 	[ ] ambiguous-unicode-character-string
     "B008", #   	[ ] function-call-in-default-argument
     "B909", #   	[ ] loop-iterator-mutation
-    "F403", #   	[ ] undefined-local-with-import-star
+    "DTZ005", # 	[ ] call-datetime-now-without-tzinfo
+    "E402", #   	[ ] module-import-not-at-top-of-file
     "PLC0206", #	[ ] dict-index-missing-items
-    "PLR0917", #	[ ] too-many-positional-arguments
-    "TC004", #  	[ ] runtime-import-in-type-checking-block
-    "TRY301", #     [ ] Abstract `raise` to an inner function
-    "RUF001",
-    "PLW1510",
 ]
 
 
 [lint.mccabe]
 # TODO: Set max-complexity = 10
-max-complexity = 12
+# max-complexity = 12
 
 [lint.isort]
 combine-as-imports = true
@@ -109,6 +103,9 @@ known-first-party = ["hop3"]
 "packages/hop3-server/src/hop3/orm/**/*.py" = [
     "TC",
 ]
+"packages/hop3-tui/**/*.py" = [
+    "FBT003",
+]
 "**/tests/**/*.py" = [
     "INP001", # implicit namespace package
     "B017", #  	assert-raises-exception
@@ -120,6 +117,7 @@ known-first-party = ["hop3"]
     "PLC2701", # Private name import
     "PLR0912", # too-many-branches
     "RUF069", # Unreliable floating point equality comparison
+    "PT012",
 ]
 "**/noxfile.py" = [
     "INP001", # implicit namespace package

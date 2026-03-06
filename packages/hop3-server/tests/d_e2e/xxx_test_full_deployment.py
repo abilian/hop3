@@ -260,7 +260,7 @@ class TestGitHookDeployment:
         self, hop3_container: dict[str, Any], hop3_command, test_app_dir: Path
     ):
         """Test deploying via git-hook command (simulating git push)."""
-        app_name = f"githook-test-{int(time.time())}"
+        f"githook-test-{int(time.time())}"
 
         # Create Flask app
         (test_app_dir / "app.py").write_text("""
@@ -301,7 +301,7 @@ def index():
             text=True,
             check=True,
         )
-        commit_sha = result.stdout.strip()
+        result.stdout.strip()
 
         # Check if git-hook command exists
         result = hop3_command("help")

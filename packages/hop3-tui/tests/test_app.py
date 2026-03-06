@@ -47,7 +47,7 @@ class TestHop3TUIApp:
     async def test_app_starts_on_dashboard(self):
         """Test that app starts on dashboard screen."""
         app = Hop3TUI()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             # App should start and be running
             assert app.is_running
             # Should be on dashboard mode

@@ -41,7 +41,7 @@ class TestDashboardScreen:
                 yield DashboardScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             # Dashboard should have mounted
             assert app.query_one(DashboardScreen)
 
@@ -54,7 +54,7 @@ class TestDashboardScreen:
                 yield AppsSummary()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             summary = app.query_one(AppsSummary)
             # Set values and check they're stored
             summary.running = 5
@@ -82,7 +82,7 @@ class TestAppsScreen:
                 yield AppsScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             # Screen should have mounted
             screen = app.query_one(AppsScreen)
             assert screen is not None
@@ -102,7 +102,7 @@ class TestAppsScreen:
                 yield AppsScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(AppsScreen)
             table = screen.query_one(DataTable)
             # Table should have 5 columns: NAME, STATUS, PORT, RUNTIME, UPDATED
@@ -128,7 +128,7 @@ class TestChatScreen:
                 yield ChatScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(ChatScreen)
             assert screen is not None
             # Command input should exist
@@ -147,7 +147,7 @@ class TestChatScreen:
                 yield ChatScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(ChatScreen)
             # After mount, should have welcome message
             assert "Welcome" in screen._chat_content
@@ -173,7 +173,7 @@ class TestSystemScreen:
                 yield SystemScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(SystemScreen)
             assert screen is not None
             # Should have resources panel
@@ -192,7 +192,7 @@ class TestSystemScreen:
                 yield ResourcesPanel()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             panel = app.query_one(ResourcesPanel)
             panel.cpu = 50.0
             panel.memory = 60.0
@@ -291,7 +291,7 @@ class TestAppDetailScreen:
                 yield AppDetailScreen(app_name="testapp")
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(AppDetailScreen)
             assert screen is not None
             # Should have info panel
@@ -341,7 +341,7 @@ class TestAppInfoPanel:
                 yield AppInfoPanel(app_model)
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             panel = app.query_one(AppInfoPanel)
             assert panel._app.name == "testapp"
             assert panel._app.port == 8000
@@ -360,7 +360,7 @@ class TestAppActionsPanel:
                 yield AppActionsPanel(app_model)
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             panel = app.query_one(AppActionsPanel)
             # Running app should have stop and restart buttons
             stop_btn = panel.query_one("#btn-stop", Button)
@@ -378,7 +378,7 @@ class TestAppActionsPanel:
                 yield AppActionsPanel(app_model)
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             panel = app.query_one(AppActionsPanel)
             # Stopped app should have start button
             start_btn = panel.query_one("#btn-start", Button)
@@ -397,7 +397,7 @@ class TestAppLogsPreview:
                 yield AppLogsPreview()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             preview = app.query_one(AppLogsPreview)
             assert preview is not None
 
@@ -410,7 +410,7 @@ class TestAppLogsPreview:
                 yield AppLogsPreview()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             preview = app.query_one(AppLogsPreview)
             # Update with some logs
             preview.update_logs(["Log line 1", "Log line 2", "Log line 3"])
@@ -427,7 +427,7 @@ class TestAppLogsPreview:
                 yield AppLogsPreview()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             preview = app.query_one(AppLogsPreview)
             preview.update_logs([])
             # Should show "No logs available"
@@ -529,7 +529,7 @@ class TestChatScreenExtended:
                 yield ChatScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(ChatScreen)
             screen._process_command("apps")
             assert "Applications" in screen._chat_content
@@ -543,7 +543,7 @@ class TestChatScreenExtended:
                 yield ChatScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(ChatScreen)
             screen._process_command("status")
             assert "System Status" in screen._chat_content
@@ -557,7 +557,7 @@ class TestChatScreenExtended:
                 yield ChatScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(ChatScreen)
             # Add some content first
             screen._chat_content = "some content"
@@ -573,7 +573,7 @@ class TestChatScreenExtended:
                 yield ChatScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(ChatScreen)
             screen._process_command("unknowncommand")
             assert "Unknown command" in screen._chat_content
@@ -587,7 +587,7 @@ class TestChatScreenExtended:
                 yield ChatScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(ChatScreen)
             screen._process_command("app")
             assert "Usage:" in screen._chat_content
@@ -601,7 +601,7 @@ class TestChatScreenExtended:
                 yield ChatScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(ChatScreen)
             screen._process_command("start myapp")
             assert "myapp" in screen._chat_content
@@ -616,7 +616,7 @@ class TestChatScreenExtended:
                 yield ChatScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(ChatScreen)
             screen._process_command("stop myapp")
             assert "myapp" in screen._chat_content
@@ -631,7 +631,7 @@ class TestChatScreenExtended:
                 yield ChatScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(ChatScreen)
             screen._process_command("restart myapp")
             assert "myapp" in screen._chat_content
@@ -646,7 +646,7 @@ class TestChatScreenExtended:
                 yield ChatScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(ChatScreen)
             screen._process_command("logs myapp")
             assert "myapp" in screen._chat_content
@@ -661,7 +661,7 @@ class TestChatScreenExtended:
                 yield ChatScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(ChatScreen)
             # Manually process commands to track history
             screen._history.append("apps")
@@ -775,7 +775,7 @@ class TestLogsScreenExtended:
                 yield LogsScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(LogsScreen)
             assert screen.paused is False
             screen.paused = True
@@ -790,7 +790,7 @@ class TestLogsScreenExtended:
                 yield LogsScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(LogsScreen)
             assert screen.auto_scroll is True
             screen.auto_scroll = False
@@ -805,7 +805,7 @@ class TestLogsScreenExtended:
                 yield LogsScreen(app_name="testapp")
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(LogsScreen)
             assert screen is not None
             assert screen.app_name == "testapp"
@@ -841,7 +841,7 @@ class TestEnvVarsScreen:
                 yield EnvVarsScreen(app_name="testapp")
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(EnvVarsScreen)
             assert screen is not None
             assert screen.app_name == "testapp"
@@ -858,7 +858,7 @@ class TestEnvVarsScreen:
                 yield EnvVarsScreen(app_name="testapp")
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(EnvVarsScreen)
             table = screen.query_one("#env-table", DataTable)
             # Table should have 3 columns: NAME, VALUE, TYPE
@@ -905,7 +905,7 @@ class TestEnvVarsScreen:
                 yield EnvVarsScreen(app_name="testapp")
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(EnvVarsScreen)
             assert screen._show_hidden is False
             screen.action_toggle_visibility()
@@ -935,7 +935,7 @@ class TestEnvVarsScreen:
 
     def test_env_vars_get_selected_var_empty(self):
         """Test getting selected var when table is empty."""
-        screen = EnvVarsScreen()
+        EnvVarsScreen()
         # Without mounting, _get_selected_var should handle gracefully
         # This tests the logic path, not the actual UI interaction
 
@@ -958,7 +958,7 @@ class TestAddonsScreen:
                 yield AddonsScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(AddonsScreen)
             assert screen is not None
             # Should have data table
@@ -974,7 +974,7 @@ class TestAddonsScreen:
                 yield AddonsScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(AddonsScreen)
             table = screen.query_one("#addons-table", DataTable)
             # Table should have 4 columns: NAME, TYPE, APP, STATUS
@@ -1015,7 +1015,7 @@ class TestBackupsScreen:
                 yield BackupsScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(BackupsScreen)
             assert screen is not None
             # Should have data table
@@ -1031,7 +1031,7 @@ class TestBackupsScreen:
                 yield BackupsScreen()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             screen = app.query_one(BackupsScreen)
             table = screen.query_one("#backups-table", DataTable)
             # Table should have 5 columns: ID, APP, SIZE, CREATED, ADDONS
