@@ -276,7 +276,10 @@ def _parse_login_web_args(args: list[str], config: Config) -> tuple[str, str]:
         print("Error: No server configured.", file=sys.stderr)
         print("\nUse one of:", file=sys.stderr)
         print("  hop3 login --web root@server.com  # Specify server", file=sys.stderr)
-        print("  hop3 login --ssh root@server.com  # Configure context first", file=sys.stderr)
+        print(
+            "  hop3 login --ssh root@server.com  # Configure context first",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # Ensure SSH target has user@ prefix (default to root)
