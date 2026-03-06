@@ -14,6 +14,7 @@ from litestar.response import Redirect, Template
 from hop3.orm import User
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
+from hop3.server.security.tokens import validate_magic_token
 
 
 class AuthController(Controller):
@@ -145,3 +146,58 @@ class AuthController(Controller):
             }
 
         return Template(template_name="auth/profile.html", context=ctx)
+
+    @get("/magic/{token:str}", sync_to_thread=False)
+    def magic_login(self, request: Request, token: str) -> Redirect:
+        """Handle magic link login.
+
+        Magic links are single-use, short-lived tokens that allow passwordless
+        login. They are generated via the auth:magic-link command (typically
+        accessed via SSH).
+
+        Args:
+            request: HTTP request
+            token: Magic link token from URL
+
+        Returns:
+            Redirect to dashboard on success, or to login page with error
+        """
+        # Validate the magic token (also marks it as used)
+        token_info = validate_magic_token(token)
+
+        if not token_info:
+            return Redirect(
+                path="/auth/login?error=Invalid or expired magic link. Please generate a new one."
+            )
+
+        username = token_info.get("username")
+        if not username:
+            return Redirect(
+                path="/auth/login?error=Invalid magic link token."
+            )
+
+        # Get user from database and create session
+        with get_session() as db_session:
+            user = db_session.query(User).filter_by(username=username).first()
+
+            if not user:
+                return Redirect(
+                    path="/auth/login?error=User not found."
+                )
+
+            if not user.active:
+                return Redirect(
+                    path="/auth/login?error=User account is disabled."
+                )
+
+            # Store user ID in session
+            request.set_session({"user_id": user.id, "username": user.username})
+
+            # Update login tracking
+            user.last_login_at = user.current_login_at
+            user.current_login_at = datetime.now(timezone.utc)
+            user.login_count += 1
+            db_session.commit()
+
+        # Redirect to dashboard
+        return Redirect(path="/dashboard")

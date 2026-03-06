@@ -223,6 +223,46 @@ def extract_token(output: str) -> str | None:
     return extract_jwt(output)
 
 
+def get_magic_link_via_ssh(ssh_target: str, username: str = "admin") -> str:
+    """Get a magic link token via SSH for passwordless web login.
+
+    This calls auth:magic-link on the server which generates a short-lived,
+    single-use token that can be used to log into the web dashboard.
+
+    Args:
+        ssh_target: SSH target (user@host)
+        username: Username to generate the magic link for (default: admin)
+
+    Returns:
+        The magic link token
+
+    Raises:
+        BootstrapError: If the command fails
+    """
+    hop3_cmd = f"{HOP_SERVER_PATH} auth:magic-link {shlex.quote(username)}"
+    remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
+
+    result = subprocess.run(
+        ["ssh", ssh_target, remote_cmd],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
+        msg = f"Failed to generate magic link: {error_msg}"
+        raise BootstrapError(msg)
+
+    # The token is returned directly (just the JWT, no extra formatting)
+    token = result.stdout.strip()
+    if not token:
+        msg = "Server returned empty response for magic link"
+        raise BootstrapError(msg)
+
+    return token
+
+
 def infer_server_url(ssh_target: str) -> str:
     """Infer HTTPS URL from SSH target.
 

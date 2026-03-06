@@ -20,8 +20,10 @@ from .help_text import print_login_help
 from .ssh_ops import (
     BootstrapError,
     fetch_and_save_certificate,
+    get_magic_link_via_ssh,
     get_ssh_token,
     get_token_via_ssh,
+    infer_server_url,
 )
 
 if TYPE_CHECKING:
@@ -65,7 +67,9 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
                 return
 
     # Dispatch based on authentication method
-    if "--ssh" in args:
+    if "--web" in args:
+        handle_login_web(args, config, printer)
+    elif "--ssh" in args:
         handle_login_ssh(args, config, printer)
     elif "--token" in args:
         handle_login_token(args, config, printer)
@@ -194,6 +198,81 @@ def _extract_token_from_login_response(result: list[dict]) -> str | None:
             if token:
                 return token
     return None
+
+
+def handle_login_web(args: list[str], config: Config, printer: RichPrinter) -> None:
+    """Handle --web flag to generate a magic link for browser login.
+
+    This generates a short-lived, single-use URL that can be used to log into
+    the web dashboard without entering a password. Requires SSH access.
+
+    Usage:
+        hop3 login --web user@server
+        hop3 login --web user@server --username admin
+    """
+    ssh_target, username = _parse_login_web_args(args)
+
+    print(f"\nConnecting to {ssh_target}...")
+
+    try:
+        token = get_magic_link_via_ssh(ssh_target, username)
+    except BootstrapError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Construct the magic link URL
+    server_url = infer_server_url(ssh_target)
+    magic_link = f"{server_url}/auth/magic/{token}"
+
+    print()
+    print("Magic link generated!")
+    print()
+    print("Open this URL in your browser to log in:")
+    print()
+    print(f"  {magic_link}")
+    print()
+    print("Note: This link expires in 5 minutes and can only be used once.")
+
+
+def _parse_login_web_args(args: list[str]) -> tuple[str, str]:
+    """Parse arguments for login --web command.
+
+    Returns:
+        Tuple of (ssh_target, username)
+    """
+    ssh_target = None
+    username = "admin"  # Default to admin user
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--web" and i + 1 < len(args):
+            # Next argument should be the SSH target
+            next_arg = args[i + 1]
+            if not next_arg.startswith("-"):
+                ssh_target = next_arg
+                i += 2
+            else:
+                i += 1
+        elif arg == "--username" and i + 1 < len(args):
+            username = args[i + 1]
+            i += 2
+        elif not arg.startswith("-") and not ssh_target:
+            # Positional argument could be SSH target
+            ssh_target = arg
+            i += 1
+        else:
+            i += 1
+
+    if not ssh_target:
+        print_login_help()
+        print(
+            "\nError: --web requires an SSH target (e.g., hop3 login --web root@server.com)",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    return ssh_target, username
 
 
 def handle_login_token(args: list[str], config: Config, printer: RichPrinter) -> None:

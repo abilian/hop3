@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hop3.lib.registry import register
 from hop3.orm import User
-from hop3.server.security.tokens import create_token
+from hop3.server.security.tokens import create_magic_token, create_token
 
 from ._base import Command
 from ._response import error, success, text, warning
@@ -263,4 +263,51 @@ class AuthLogoutCmd(Command):
             text("  - Or unset HOP3_API_TOKEN environment variable"),
             text(""),
             warning("Note: Token revocation requires a valid JWT with jti claim."),
+        ]
+
+
+@register
+@dataclass(frozen=True)
+class AuthMagicLinkCmd(Command):
+    """Generate a magic link for passwordless web login.
+
+    This command generates a short-lived token that can be used to log into
+    the web dashboard without entering a password. The token expires after
+    5 minutes and can only be used once.
+
+    This is typically called via SSH from the command line:
+        ssh user@server hop3-server auth:magic-link
+
+    Or via the CLI:
+        hop3 login --web
+    """
+
+    db_session: Session
+    name: ClassVar[str] = "auth:magic-link"
+    requires_auth: ClassVar[bool] = False  # Called via SSH, not authenticated RPC
+
+    def call(self, username: str = "admin", *args):
+        """Generate a magic link token for web login.
+
+        Args:
+            username: The username to generate the link for (default: admin)
+
+        Returns:
+            Response with magic token or error message
+        """
+        # Look up the user
+        user = self.db_session.query(User).filter_by(username=username).first()
+        if not user:
+            return [error(f"User '{username}' not found")]
+
+        # Check if user is active
+        if not user.active:
+            return [error(f"User '{username}' is disabled")]
+
+        # Generate magic link token
+        token = create_magic_token(username)
+
+        # Return just the token - the CLI or caller will construct the full URL
+        return [
+            text(token),
         ]
