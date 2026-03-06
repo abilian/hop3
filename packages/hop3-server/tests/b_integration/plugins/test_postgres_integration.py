@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import shutil
 import uuid
+from contextlib import suppress
 
 import psycopg2
 import pytest
@@ -69,10 +70,9 @@ def postgres_addon(unique_addon_name):
     addon = PostgresAddon(addon_name=unique_addon_name)
     yield addon
     # Cleanup: try to destroy even if test failed
-    try:
+    # Already destroyed or never created
+    with suppress(RuntimeError, psycopg2.Error):
         addon.destroy()
-    except (RuntimeError, psycopg2.Error):
-        pass  # Already destroyed or never created
 
 
 def _database_exists(admin: PostgresAdmin, db_name: str) -> bool:

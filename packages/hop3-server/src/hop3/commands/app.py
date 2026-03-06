@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -272,10 +273,8 @@ class DeployCmd(Command):
                     log_stream.finish(success=True)
                 except Exception as e:
                     # Ensure rollback on error
-                    try:
+                    with contextlib.suppress(Exception):
                         thread_session.rollback()
-                    except Exception:
-                        pass
                     log_stream.finish(success=False, error_message=str(e))
 
         # Start deployment in background thread
@@ -302,10 +301,8 @@ class DeployCmd(Command):
                     self.db_session.commit()
             except Exception as e:
                 # Rollback any uncommitted changes on error
-                try:
+                with contextlib.suppress(Exception):
                     self.db_session.rollback()
-                except Exception:
-                    pass
                 deploy_error = str(e)
 
         # Build response with logs (always include logs, even on error)

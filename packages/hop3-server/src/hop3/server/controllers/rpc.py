@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import traceback
 from typing import TYPE_CHECKING
@@ -147,10 +148,8 @@ def call(command_name: str, args: list[str], extra_args: JsonDict):
             db_session.commit()
         except Exception as e:
             # Rollback on any error to clean up transaction state
-            try:
+            with contextlib.suppress(Exception):
                 db_session.rollback()
-            except Exception:
-                pass
             error_msg = f"Command execution failed: {e}"
             server_log.error(
                 "Command.call() raised exception",

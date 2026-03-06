@@ -24,7 +24,7 @@ import asyncio
 import json
 import threading
 import uuid
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -97,10 +97,9 @@ class DeploymentStream:
 
         # Notify all subscribers
         for queue in self.subscribers:
-            try:
+            # Skip slow consumers
+            with suppress(asyncio.QueueFull):
                 queue.put_nowait(("log", entry))
-            except asyncio.QueueFull:
-                pass  # Skip slow consumers
 
     def finish(self, success: bool, error_message: str = "") -> None:
         """Mark stream as complete.
@@ -115,10 +114,8 @@ class DeploymentStream:
 
         # Notify subscribers of completion
         for queue in self.subscribers:
-            try:
+            with suppress(asyncio.QueueFull):
                 queue.put_nowait(("complete", None))
-            except asyncio.QueueFull:
-                pass
 
     async def subscribe(self) -> AsyncIterator[str]:
         """Subscribe to this stream and yield SSE-formatted events.

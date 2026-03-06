@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 from dataclasses import dataclass
@@ -185,10 +186,8 @@ class TUIConfig:
 
         # Refresh interval
         if interval := os.environ.get("HOP3_TUI_REFRESH"):
-            try:
+            with contextlib.suppress(ValueError):
                 config.refresh_interval = int(interval)
-            except ValueError:
-                pass
 
         return config
 
