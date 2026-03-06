@@ -44,6 +44,7 @@ import pytest
 from hop3_testing.apps import DeploymentSession
 from hop3_testing.apps.catalog import AppSource
 
+
 @pytest.mark.e2e
 def test_my_app(deployment_target, tmp_path):
     app = AppSource(name="my-app", path=tmp_path / "my-app")
