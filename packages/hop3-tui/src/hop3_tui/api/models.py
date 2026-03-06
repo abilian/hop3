@@ -7,13 +7,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime  # noqa: TC003 - Pydantic needs this at runtime
 from enum import Enum
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class AppState(str, Enum):
