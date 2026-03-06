@@ -15,10 +15,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import hop3.config
-from hop3.orm import get_session_factory
+from hop3.orm import AddonCredential, App, get_session_factory
 from hop3.orm.security import AuditBase
 from hop3.orm.session import reset_session_factory_cache
 from hop3.server.asgi import create_app
+from hop3.server.lib.database import get_session
 
 
 @pytest.fixture
@@ -533,15 +534,14 @@ def test_env_page_service_variable_detection(authenticated_client: TestClient):
 # App Detail with Addons Tests
 
 
-def test_app_detail_with_addons_renders(authenticated_client: TestClient, isolated_database):
+def test_app_detail_with_addons_renders(
+    authenticated_client: TestClient, isolated_database
+):
     """Test that app detail page renders correctly with addons.
 
     This is a regression test for template variable mismatches like
     using 'addon' instead of 'service' in {% for service in addons %}.
     """
-    from hop3.orm import App, AddonCredential
-    from hop3.server.lib.database import get_session
-
     # Create a test app with an addon credential
     with get_session() as session:
         app = App(name="test-app-with-addon", hostname="test.example.com")
@@ -575,11 +575,10 @@ def test_app_detail_with_addons_renders(authenticated_client: TestClient, isolat
     assert "'service' is undefined" not in content
 
 
-def test_app_detail_with_multiple_addons(authenticated_client: TestClient, isolated_database):
+def test_app_detail_with_multiple_addons(
+    authenticated_client: TestClient, isolated_database
+):
     """Test app detail page with multiple addons of different types."""
-    from hop3.orm import App, AddonCredential
-    from hop3.server.lib.database import get_session
-
     with get_session() as session:
         app = App(name="multi-addon-app", hostname="multi.example.com")
         session.add(app)

@@ -172,23 +172,17 @@ class AuthController(Controller):
 
         username = token_info.get("username")
         if not username:
-            return Redirect(
-                path="/auth/login?error=Invalid magic link token."
-            )
+            return Redirect(path="/auth/login?error=Invalid magic link token.")
 
         # Get user from database and create session
         with get_session() as db_session:
             user = db_session.query(User).filter_by(username=username).first()
 
             if not user:
-                return Redirect(
-                    path="/auth/login?error=User not found."
-                )
+                return Redirect(path="/auth/login?error=User not found.")
 
             if not user.active:
-                return Redirect(
-                    path="/auth/login?error=User account is disabled."
-                )
+                return Redirect(path="/auth/login?error=User account is disabled.")
 
             # Store user ID in session
             request.set_session({"user_id": user.id, "username": user.username})
