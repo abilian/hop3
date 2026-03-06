@@ -80,8 +80,7 @@ lint.extend-ignore = [
     "SIM117", # 	[ ] multiple-with-statements
     "RUF001", # 	[ ] ambiguous-unicode-character-string
     "B008", #   	[ ] function-call-in-default-argument
-    "B909", #   	[ ] loop-iterator-mutation
-    # "DTZ005", # 	[ ] call-datetime-now-without-tzinfo
+    # "B909", #   	[ ] loop-iterator-mutation
 ]
 
 
@@ -101,8 +100,16 @@ known-first-party = ["hop3"]
 "packages/hop3-server/src/hop3/orm/**/*.py" = [
     "TC",
 ]
+"packages/hop3-server/src/hop3/server/cli/**/*.py" = [
+    "T20", # flake8-print
+]
+"packages/hop3-testing/**/*.py" = [
+    "FBT",
+    "T20", # flake8-print
+]
 "packages/hop3-tui/**/*.py" = [
-    "FBT003",
+    "FBT",
+    "T20", # flake8-print
 ]
 "**/tests/**/*.py" = [
     "INP001", # implicit namespace package
@@ -116,6 +123,7 @@ known-first-party = ["hop3"]
     "PLR0912", # too-many-branches
     "RUF069", # Unreliable floating point equality comparison
     "PT012",
+    "T20", # flake8-print
 ]
 "**/noxfile.py" = [
     "INP001", # implicit namespace package

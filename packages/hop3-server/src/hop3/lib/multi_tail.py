@@ -124,7 +124,7 @@ class MultiTail:
         If the path no longer exists, it removes the path from the list
         of monitored paths.
         """
-        for path in self.paths:
+        for path in list(self.paths):
             if path.exists():
                 # Check if the inode of the path has changed
                 if path.stat().st_ino != self.inodes[path]:
