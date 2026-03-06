@@ -30,9 +30,10 @@ Environment Variables:
   HOP3_DEV_HOST      Target server hostname (alternative to --host)
   HOP3_TEST_SERVER   Alias for HOP3_DEV_HOST
   HOP3_SSH_USER      SSH user (default: root)
-  HOP3_BRANCH        Git branch (default: devel)
+  HOP3_GIT           Install from git (1 or true)
+  HOP3_BRANCH        Git branch (implies HOP3_GIT, default: devel)
   HOP3_LOCAL         Use local code (1 or true)
-  HOP3_PYPI          Install from PyPI (1 or true)
+  HOP3_PYPI          Install from PyPI (1 or true, this is the default)
   HOP3_PYPI_VERSION  Specific PyPI version to install
   HOP3_PYPI_PRE      Allow pre-release versions (1 or true)
   HOP3_CLEAN         Clean before deploy (1 or true)
@@ -41,17 +42,20 @@ Environment Variables:
   HOP3_QUIET         Quiet mode - minimal output (1 or true)
 
 Examples:
-  # Deploy to remote server (from git)
+  # Deploy to remote server (from PyPI, the default)
   hop3-deploy --host 192.168.1.100
-
-  # Deploy from PyPI (latest stable)
-  hop3-deploy --host server.example.com --pypi
 
   # Deploy specific version from PyPI
   hop3-deploy --host server.example.com --version 0.4.0
 
   # Deploy latest including pre-releases
-  hop3-deploy --host server.example.com --pypi --pre
+  hop3-deploy --host server.example.com --pre
+
+  # Deploy from git (devel branch)
+  hop3-deploy --host server.example.com --git
+
+  # Deploy from specific git branch
+  hop3-deploy --host server.example.com --branch main
 
   # Deploy to Docker container
   hop3-deploy --docker
@@ -97,23 +101,29 @@ Examples:
     # Installation options
     install = parser.add_argument_group("Installation")
     install.add_argument(
+        "--git",
+        "-g",
+        action="store_true",
+        help="Install from git instead of PyPI",
+    )
+    install.add_argument(
         "--branch",
         "-b",
         default=DEFAULT_BRANCH,
-        help=f"Git branch to deploy (default: {DEFAULT_BRANCH})",
+        help=f"Git branch to deploy (implies --git, default: {DEFAULT_BRANCH})",
     )
     install.add_argument(
         "--local",
         "-l",
         action="store_true",
         dest="use_local",
-        help="Upload and use local code instead of git",
+        help="Upload and use local code instead of PyPI",
     )
     install.add_argument(
         "--pypi",
         "-p",
         action="store_true",
-        help="Install from PyPI instead of git (latest stable version)",
+        help="Install from PyPI (this is the default)",
     )
     install.add_argument(
         "--version",
@@ -234,18 +244,19 @@ def _apply_target_overrides(config: DeployConfig, args: argparse.Namespace) -> N
 
 def _apply_install_overrides(config: DeployConfig, args: argparse.Namespace) -> None:
     """Apply installation-related CLI overrides to config."""
+    if args.git:
+        config.use_git = True
     if args.branch != DEFAULT_BRANCH:
         config.branch = args.branch
+        config.use_git = True  # --branch implies --git
     if args.use_local:
         config.use_local_code = True
     if args.pypi:
         config.use_pypi = True
     if args.pypi_version:
         config.pypi_version = args.pypi_version
-        config.use_pypi = True  # --version implies --pypi
     if args.pypi_pre:
         config.pypi_pre = True
-        config.use_pypi = True  # --pre implies --pypi
     if args.skip_install:
         config.skip_install = True
     if args.clean:

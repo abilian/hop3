@@ -38,8 +38,9 @@ class DeployConfig:
     # Installation settings
     branch: str = DEFAULT_BRANCH
     use_local_code: bool = False
-    use_pypi: bool = False  # Install from PyPI instead of git
-    pypi_version: str | None = None  # Specific PyPI version (implies use_pypi)
+    use_git: bool = False  # Install from git (default is PyPI)
+    use_pypi: bool = False  # Explicitly request PyPI (mostly for clarity)
+    pypi_version: str | None = None  # Specific PyPI version
     pypi_pre: bool = False  # Allow pre-release versions from PyPI
     skip_install: bool = False
     clean_before: bool = False
@@ -88,13 +89,14 @@ class DeployConfig:
         """Get description of the installation source."""
         if self.use_local_code:
             return "local code"
+        if self.use_git:
+            return f"git ({self.branch})"
+        # Default is PyPI
         if self.pypi_version:
             return f"PyPI (version {self.pypi_version})"
-        if self.use_pypi:
-            if self.pypi_pre:
-                return "PyPI (latest including pre-releases)"
-            return "PyPI (latest stable)"
-        return f"git ({self.branch})"
+        if self.pypi_pre:
+            return "PyPI (latest including pre-releases)"
+        return "PyPI (latest stable)"
 
     @property
     def installer_path(self) -> Path:
@@ -168,9 +170,10 @@ class DeployConfig:
         Supported environment variables:
             HOP3_DEV_HOST / HOP3_TEST_SERVER - Target server
             HOP3_SSH_USER - SSH user (default: root)
-            HOP3_BRANCH - Git branch (default: devel)
+            HOP3_GIT - Install from git (1 or true)
+            HOP3_BRANCH - Git branch (implies HOP3_GIT if not default)
             HOP3_LOCAL - Use local code (1 or true)
-            HOP3_PYPI - Install from PyPI (1 or true)
+            HOP3_PYPI - Install from PyPI (1 or true, this is the default)
             HOP3_PYPI_VERSION - Specific PyPI version
             HOP3_PYPI_PRE - Allow pre-release versions (1 or true)
             HOP3_CLEAN - Clean before deploy (1 or true)
@@ -186,13 +189,18 @@ class DeployConfig:
         """
         host = env_str("HOP3_DEV_HOST") or env_str("HOP3_TEST_SERVER")
         features = env_list("HOP3_WITH")
+        branch = env_str("HOP3_BRANCH", DEFAULT_BRANCH)
+
+        # --branch implies --git if a non-default branch is specified
+        use_git = env_bool("HOP3_GIT") or (branch != DEFAULT_BRANCH)
 
         return cls(
             host=host,
             use_docker=env_bool("HOP3_DOCKER"),
             ssh_user=env_str("HOP3_SSH_USER", DEFAULT_SSH_USER),
-            branch=env_str("HOP3_BRANCH", DEFAULT_BRANCH),
+            branch=branch,
             use_local_code=env_bool("HOP3_LOCAL"),
+            use_git=use_git,
             use_pypi=env_bool("HOP3_PYPI"),
             pypi_version=env_str("HOP3_PYPI_VERSION"),
             pypi_pre=env_bool("HOP3_PYPI_PRE"),
