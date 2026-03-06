@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
+from hop3_testing.exceptions import ConfigurationError, ServiceStartError
+
 from .constants import (
     DEFAULT_HEALTH_CHECK_TIMEOUT,
     E2E_TEST_SECRET_KEY,
@@ -568,33 +570,26 @@ class DockerServiceManager:
     diagnostics: DiagnosticCollector | None = None
     """Optional diagnostics collector for logging."""
 
-    def start_all(self) -> bool:
+    def start_all(self) -> None:
         """Start all services needed for Hop3.
 
-        Returns:
-            True if all services started successfully
+        Raises:
+            ServiceStartError: If any service fails to start.
         """
         print("Starting services manually (Docker has no systemd)...")
 
         try:
-            if not self._setup_ssh():
-                return False
-            if not self._start_ssh():
-                return False
-            if not self._start_nginx():
-                return False
-            if not self._start_postgresql():
-                return False
-            if not self._start_uwsgi():
-                return False
-            if not self._start_hop3_server():
-                return False
-            if not self._verify_hop3_server():
-                return False
-
+            self._setup_ssh()
+            self._start_ssh()
+            self._start_nginx()
+            self._start_postgresql()
+            self._start_uwsgi()
+            self._start_hop3_server()
+            self._verify_hop3_server()
             print("  Services started")
-            return True
 
+        except ServiceStartError:
+            raise
         except Exception as e:
             if self.diagnostics:
                 self.diagnostics.add_failure(
@@ -602,9 +597,10 @@ class DockerServiceManager:
                     operation="start_services",
                     message=f"Exception starting services: {e}",
                 )
-            return False
+            msg = f"Failed to start services: {e}"
+            raise ServiceStartError(msg) from e
 
-    def _setup_ssh(self) -> bool:
+    def _setup_ssh(self) -> None:
         """Setup SSH server and keys."""
         print("  Setting up SSH server...")
         self.backend.run(
@@ -626,9 +622,8 @@ class DockerServiceManager:
             """,
             check=False,
         )
-        return True
 
-    def _start_ssh(self) -> bool:
+    def _start_ssh(self) -> None:
         """Start SSH daemon."""
         print("  Starting SSH daemon...")
         self.backend.run(
@@ -636,18 +631,16 @@ class DockerServiceManager:
             check=False,
         )
         time.sleep(1)
-        return True
 
-    def _start_nginx(self) -> bool:
+    def _start_nginx(self) -> None:
         """Start nginx."""
         print("  Starting nginx...")
         self.backend.run(
             "nginx || nginx -g 'daemon off;' &",
             check=False,
         )
-        return True
 
-    def _start_postgresql(self) -> bool:
+    def _start_postgresql(self) -> None:
         """Start PostgreSQL."""
         print("  Starting PostgreSQL...")
         self.backend.run(
@@ -655,9 +648,8 @@ class DockerServiceManager:
             "service postgresql start 2>/dev/null || true",
             check=False,
         )
-        return True
 
-    def _start_uwsgi(self) -> bool:
+    def _start_uwsgi(self) -> None:
         """Start uwsgi emperor."""
         print("  Starting uwsgi emperor...")
         self.backend.run(
@@ -673,9 +665,8 @@ class DockerServiceManager:
             check=False,
         )
         time.sleep(2)
-        return True
 
-    def _start_hop3_server(self) -> bool:
+    def _start_hop3_server(self) -> None:
         """Start hop3-server."""
         print("  Starting hop3-server...")
         self.backend.run(
@@ -689,10 +680,13 @@ class DockerServiceManager:
             check=False,
         )
         time.sleep(3)
-        return True
 
-    def _verify_hop3_server(self) -> bool:
-        """Verify hop3-server is running."""
+    def _verify_hop3_server(self) -> None:
+        """Verify hop3-server is running.
+
+        Raises:
+            ServiceStartError: If hop3-server is not running.
+        """
         result = self.backend.run(
             "pgrep -f 'hop3-server serve' || echo 'NOT_RUNNING'",
             check=False,
@@ -709,14 +703,14 @@ class DockerServiceManager:
                     message="hop3-server process not running",
                     stdout=log_result.stdout,
                 )
-            return False
-        return True
+            msg = f"hop3-server process not running. Log: {log_result.stdout[:500]}"
+            raise ServiceStartError(msg)
 
 
 def configure_server_test_mode(
     backend: CommandRunner,
     diagnostics: DiagnosticCollector | None = None,
-) -> bool:
+) -> None:
     """Configure a remote server for test mode (disable authentication).
 
     This sets HOP3_UNSAFE=true in the systemd service and restarts it.
@@ -726,8 +720,8 @@ def configure_server_test_mode(
         backend: Backend to run commands on (e.g., SSHDeployBackend)
         diagnostics: Optional diagnostics collector for logging
 
-    Returns:
-        True if configuration was successful
+    Raises:
+        ConfigurationError: If configuration fails.
     """
     print("Configuring server for test mode (HOP3_UNSAFE=true)...")
 
@@ -744,7 +738,8 @@ def configure_server_test_mode(
                     operation="create_override_dir",
                     message=f"Failed to create override directory: {result.stderr}",
                 )
-            return False
+            msg = f"Failed to create override directory: {result.stderr}"
+            raise ConfigurationError(msg)
 
         # Create override file with HOP3_UNSAFE=true
         override_content = """[Service]
@@ -761,7 +756,8 @@ Environment="HOP3_UNSAFE=true"
                     operation="create_override_file",
                     message=f"Failed to create override file: {result.stderr}",
                 )
-            return False
+            msg = f"Failed to create override file: {result.stderr}"
+            raise ConfigurationError(msg)
 
         # Reload systemd and restart hop3-server
         result = backend.run(
@@ -775,7 +771,8 @@ Environment="HOP3_UNSAFE=true"
                     operation="restart_service",
                     message=f"Failed to restart service: {result.stderr}",
                 )
-            return False
+            msg = f"Failed to restart service: {result.stderr}"
+            raise ConfigurationError(msg)
 
         # Wait a moment for service to start
         time.sleep(3)
@@ -787,8 +784,9 @@ Environment="HOP3_UNSAFE=true"
                 message="Server configured for test mode (HOP3_UNSAFE=true)",
             )
         print("  ✓ Test mode configured")
-        return True
 
+    except ConfigurationError:
+        raise
     except Exception as e:
         if diagnostics:
             diagnostics.add_failure(
@@ -796,7 +794,8 @@ Environment="HOP3_UNSAFE=true"
                 operation="configure_test_mode",
                 message=f"Exception configuring test mode: {e}",
             )
-        return False
+        msg = f"Exception configuring test mode: {e}"
+        raise ConfigurationError(msg) from e
 
 
 def _build_deploy_command(

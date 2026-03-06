@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 
 from hop3_testing.apps.catalog import AppSource
 from hop3_testing.apps.deployment import DeploymentSession
+from hop3_testing.exceptions import DeploymentError
 from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
 from .base import TestResult, ValidationResult
@@ -119,8 +120,10 @@ class DeploymentTestRunner:
         """Run deployment and verification, return (deploy_logs, error or None)."""
         session.prepare()
 
-        if not session.deploy():
-            deploy_logs = session.last_deploy_error or "Deployment failed"
+        try:
+            session.deploy()
+        except DeploymentError as e:
+            deploy_logs = session.last_deploy_error or str(e)
             return deploy_logs, f"Deploy failed: {deploy_logs}"
 
         deploy_duration = time.time() - start_time

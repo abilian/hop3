@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
 
 from hop3_testing.catalog.models import Validation, ValidationExpect
+from hop3_testing.exceptions import DeploymentError
 from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
 from .base import TestResult, ValidationResult
@@ -343,7 +344,10 @@ class DemoTestRunner:
 
         if step.action == "destroy":
             if step.app_name:
-                self.target.destroy_app(step.app_name)
+                try:
+                    self.target.destroy_app(step.app_name)
+                except Exception:
+                    pass  # Best effort cleanup
                 if step.app_name in deployed_apps:
                     deployed_apps.remove(step.app_name)
             return None
@@ -367,17 +371,27 @@ class DemoContext:
     verbose: bool = False
     """Whether to print verbose output."""
 
-    def deploy(self, app_path: str, app_name: str) -> bool:
-        """Deploy an application."""
+    def deploy(self, app_path: str, app_name: str) -> None:
+        """Deploy an application.
+
+        Raises:
+            DeploymentError: If deployment fails.
+        """
         result = self.target.deploy_app(
             self.demo_dir / app_path,
             app_name,
         )
-        return result.success
+        if not result.success:
+            msg = f"Failed to deploy '{app_name}': {result.error or result.logs}"
+            raise DeploymentError(msg)
 
-    def destroy(self, app_name: str) -> bool:
-        """Destroy an application."""
-        return self.target.destroy_app(app_name)
+    def destroy(self, app_name: str) -> None:
+        """Destroy an application.
+
+        Raises:
+            DeploymentError: If destruction fails.
+        """
+        self.target.destroy_app(app_name)
 
     def run_command(self, *args: str):
         """Run a hop3 command."""

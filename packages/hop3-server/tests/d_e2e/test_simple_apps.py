@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from hop3_testing.apps import DeploymentSession
 from hop3_testing.apps.catalog import AppSource
+from hop3_testing.exceptions import DeploymentError
 
 # Get all test apps from apps/test-apps/
 APPS_DIR = Path(__file__).parents[4] / "apps" / "test-apps"
@@ -53,16 +54,15 @@ def test_app_deployment(app_dir: Path, deployment_target):
 
     app = AppSource(name=app_name, path=app_dir)
     with DeploymentSession(app, deployment_target) as session:
-        deploy_result = session.deploy()
+        try:
+            session.deploy()  # Raises DeploymentError on failure
+        except DeploymentError as e:
+            # Check for network errors in deployment and skip if found
+            error_msg = str(e)
+            if _is_network_error(error_msg):
+                pytest.skip(f"Skipping due to network error: {error_msg[:100]}")
+            pytest.fail(f"Deploy failed: {e}")
 
-        # Check for network errors in deployment and skip if found
-        if hasattr(session, "_last_deploy_error") and session._last_deploy_error:
-            if _is_network_error(session._last_deploy_error):
-                pytest.skip(
-                    f"Skipping due to network error: {session._last_deploy_error[:100]}"
-                )
-
-        assert deploy_result, f"Deploy failed: {session.last_deploy_error}"
         assert session.check_deployed(), (
             f"App {app_name} not found in deployed apps list"
         )

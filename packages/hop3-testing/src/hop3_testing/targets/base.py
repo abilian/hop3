@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING, Any, Literal
 import httpx
 from typing_extensions import Self
 
+from hop3_testing.exceptions import DeploymentError
+
 from .constants import E2E_TEST_SECRET_KEY, create_test_token
 
 if TYPE_CHECKING:
@@ -303,17 +305,19 @@ class DeploymentTarget(ABC):
             if tarball_path.exists():
                 tarball_path.unlink()
 
-    def destroy_app(self, app_name: str) -> bool:
+    def destroy_app(self, app_name: str) -> None:
         """Destroy a deployed application.
 
         Args:
             app_name: Name of the app to destroy
 
-        Returns:
-            True if successful, False otherwise
+        Raises:
+            DeploymentError: If destruction fails.
         """
         result = self.run_command("destroy", app_name)
-        return result.success
+        if not result.success:
+            msg = f"Failed to destroy app '{app_name}': {result.stderr}"
+            raise DeploymentError(msg)
 
     def get_app_url(self, app_name: str) -> str:
         """Get the URL for an application.
@@ -422,7 +426,10 @@ class DeploymentTarget(ABC):
                     parts = line.split()
                     if parts:
                         app_name = parts[0]
-                        self.destroy_app(app_name)
+                        try:
+                            self.destroy_app(app_name)
+                        except DeploymentError:
+                            pass  # Continue cleaning up other apps
 
     def __enter__(self) -> Self:
         """Context manager entry."""

@@ -234,15 +234,12 @@ class RemoteTarget(DeploymentTarget):
 
             # Configure server for test mode
             self.diagnostics.set_phase("configure_test_mode")
-            if not configure_server_test_mode(command_runner, self.diagnostics):
-                self.diagnostics.add_failure(
-                    layer="server",
-                    operation="configure_test_mode",
-                    message="Failed to configure test mode",
-                )
+            try:
+                configure_server_test_mode(command_runner, self.diagnostics)
+            except Exception as e:
                 self._save_diagnostics_on_error()
-                msg = "Failed to configure test mode - see diagnostics above"
-                raise RuntimeError(msg)
+                msg = f"Failed to configure test mode: {e}"
+                raise RuntimeError(msg) from e
 
             # Wait for server to be ready
             self.diagnostics.set_phase("health_check")

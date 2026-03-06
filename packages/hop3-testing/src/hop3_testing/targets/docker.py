@@ -399,10 +399,12 @@ class DockerTarget(DeploymentTarget):
             service_manager = DockerServiceManager(
                 self._command_runner, self.diagnostics
             )
-            if not service_manager.start_all():
+            try:
+                service_manager.start_all()
+            except Exception as e:
                 self._save_diagnostics_on_error()
-                msg = "Failed to start services"
-                raise RuntimeError(msg)
+                msg = f"Failed to start services: {e}"
+                raise RuntimeError(msg) from e
 
             # Wait for server to be ready
             self.diagnostics.set_phase("health_check")
