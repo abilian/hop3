@@ -62,7 +62,6 @@ lint.extend-ignore = [
     "PLR0917", #	[ ] too-many-positional-arguments
     "C901", #   	[ ] complex-structure
     "F841", #   	[ ] unused-variable
-    "SIM105", # 	[ ] suppressible-exception
     "B904", #   	[ ] raise-without-from-inside-except
     "PERF203", #	[ ] try-except-in-loop
     "PLW1510", #	[ ] subprocess-run-without-check

@@ -12,6 +12,7 @@ import tarfile
 import tempfile
 import time
 from abc import ABC, abstractmethod
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -426,10 +427,9 @@ class DeploymentTarget(ABC):
                     parts = line.split()
                     if parts:
                         app_name = parts[0]
-                        try:
+                        # Continue cleaning up other apps
+                        with suppress(DeploymentError):
                             self.destroy_app(app_name)
-                        except DeploymentError:
-                            pass  # Continue cleaning up other apps
 
     def __enter__(self) -> Self:
         """Context manager entry."""

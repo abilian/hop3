@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import subprocess
+from contextlib import suppress
 
 import pytest
 
@@ -297,7 +298,6 @@ class TestCommandErrorInheritance:
         assert issubclass(CommandError, Exception)
 
         # Can be caught with bare except (not recommended but should work)
-        try:
+        # Should not raise
+        with suppress(Exception):
             run_command(["nonexistent_xyz"])
-        except Exception:
-            pass  # Should not raise

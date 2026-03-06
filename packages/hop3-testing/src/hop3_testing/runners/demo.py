@@ -9,6 +9,7 @@ Runs demo scripts (demo-script.py) or declarative demos defined in test.toml.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import subprocess
 import sys
@@ -220,10 +221,8 @@ class DemoTestRunner:
             # Cleanup deployed apps
             if self.cleanup:
                 for app_name in deployed_apps:
-                    try:
+                    with contextlib.suppress(Exception):
                         self.target.destroy_app(app_name)
-                    except Exception:
-                        pass
 
         passed = error is None and all(v.passed for v in validation_results)
 
@@ -344,10 +343,9 @@ class DemoTestRunner:
 
         if step.action == "destroy":
             if step.app_name:
-                try:
+                # Best effort cleanup
+                with contextlib.suppress(Exception):
                     self.target.destroy_app(step.app_name)
-                except Exception:
-                    pass  # Best effort cleanup
                 if step.app_name in deployed_apps:
                     deployed_apps.remove(step.app_name)
             return None

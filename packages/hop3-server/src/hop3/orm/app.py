@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import time
+from contextlib import suppress
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
@@ -896,10 +897,9 @@ class App(BigIntAuditBase):
         # Parse the 'since' timestamp if provided
         since_dt: datetime | None = None
         if since:
-            try:
+            # Invalid timestamp, ignore filter
+            with suppress(ValueError):
                 since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
-            except ValueError:
-                pass  # Invalid timestamp, ignore filter
 
         # Collect logs from all workers
         all_logs = []

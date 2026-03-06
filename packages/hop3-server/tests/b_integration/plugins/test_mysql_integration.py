@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import shutil
 import uuid
+from contextlib import suppress
 
 import mysql.connector
 import pytest
@@ -69,10 +70,9 @@ def mysql_addon(unique_addon_name):
     addon = MySQLAddon(addon_name=unique_addon_name)
     yield addon
     # Cleanup: try to destroy even if test failed
-    try:
+    # Already destroyed or never created
+    with suppress(RuntimeError, mysql.connector.Error):
         addon.destroy()
-    except (RuntimeError, mysql.connector.Error):
-        pass  # Already destroyed or never created
 
 
 def _database_exists(admin: MySQLAdmin, db_name: str) -> bool:

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import subprocess
 import time
+from contextlib import suppress
 from typing import TYPE_CHECKING, Any
 
 import docker
@@ -469,10 +470,9 @@ class DockerTarget(DeploymentTarget):
         # Try to extract SSH key (may fail if container doesn't have hop3 user)
         ssh_key_path: Path | None = None
         if effective_ssh_port:
-            try:
+            # SSH not available in this container
+            with suppress(Exception):
                 ssh_key_path = self._container_helper.extract_ssh_key()
-            except Exception:
-                pass  # SSH not available in this container
 
         # Build URLs based on available ports
         http_base = f"http://localhost:{http_port}" if http_port else ""
