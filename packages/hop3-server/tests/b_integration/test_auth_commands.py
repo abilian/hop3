@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 
+import jwt
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -304,8 +305,6 @@ def test_auth_magic_link_for_regular_user(db_session: Session, test_user: User):
 
 def test_auth_magic_link_token_has_correct_scope(db_session: Session, admin_user: User):
     """Test that magic link token has the magic_link scope."""
-    import jwt
-
     cmd = AuthMagicLinkCmd(db_session=db_session)
     result = cmd.call("admin")
 

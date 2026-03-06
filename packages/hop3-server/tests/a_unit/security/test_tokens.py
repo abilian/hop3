@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, timedelta, timezone
 
+import jwt
 import pytest
 
 from hop3.server.security.tokens import (
@@ -17,6 +18,7 @@ from hop3.server.security.tokens import (
     create_magic_token,
     create_token,
     generate_api_key,
+    get_secret_key,
     validate_magic_token,
     validate_token,
 )
@@ -152,10 +154,6 @@ def test_create_magic_token_basic():
 
 def test_create_magic_token_has_magic_link_scope():
     """Test that magic tokens have the magic_link scope."""
-    import jwt
-
-    from hop3.server.security.tokens import get_secret_key
-
     token = create_magic_token("testuser")
     secret_key = get_secret_key()
 
@@ -167,10 +165,6 @@ def test_create_magic_token_has_magic_link_scope():
 
 def test_create_magic_token_short_expiry():
     """Test that magic tokens have a short expiry (5 minutes)."""
-    import jwt
-
-    from hop3.server.security.tokens import get_secret_key
-
     token = create_magic_token("testuser")
     secret_key = get_secret_key()
 
@@ -225,10 +219,6 @@ def test_validate_magic_token_wrong_scope(monkeypatch):
 
 def test_validate_magic_token_expired():
     """Test validation of expired magic token."""
-    import jwt
-
-    from hop3.server.security.tokens import get_secret_key
-
     # Create an already-expired magic token
     now = datetime.now(timezone.utc)
     expired_payload = {
@@ -261,10 +251,6 @@ def test_validate_magic_token_revoked(monkeypatch):
 
 def test_magic_token_unique_jti():
     """Test that magic tokens have unique JTI values."""
-    import jwt
-
-    from hop3.server.security.tokens import get_secret_key
-
     token1 = create_magic_token("admin")
     token2 = create_magic_token("admin")
 

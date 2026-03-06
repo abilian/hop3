@@ -468,9 +468,7 @@ class Deployer:
         # Determine which nginx config path to use
         # Debian-based: /etc/nginx/sites-available/hop3
         # RHEL-based: /etc/nginx/conf.d/hop3.conf
-        result = self.backend.run(
-            "test -d /etc/nginx/sites-available", check=False
-        )
+        result = self.backend.run("test -d /etc/nginx/sites-available", check=False)
         if result.success:
             config_path = "/etc/nginx/sites-available/hop3"
         else:
@@ -676,9 +674,7 @@ server {{
 }}
 """
         # Use the same config path as _setup_admin_nginx
-        result = self.backend.run(
-            "test -d /etc/nginx/sites-available", check=False
-        )
+        result = self.backend.run("test -d /etc/nginx/sites-available", check=False)
         if result.success:
             config_path = "/etc/nginx/sites-available/hop3"
         else:
