@@ -190,7 +190,7 @@ class Console(ABC):
     def reset(self) -> None:  # noqa: B027
         """Reset any buffered state (for testing)."""
 
-    def output(self) -> str:  # noqa: B027
+    def output(self) -> str:
         """Return buffered output (for testing)."""
         return ""
 

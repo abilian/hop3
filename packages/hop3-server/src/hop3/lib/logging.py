@@ -168,7 +168,7 @@ class ServerLogger:
     def exception(self, msg: str, **kwargs: Any) -> None:
         """Log error with exception traceback (call from within except block)."""
         self._ensure_configured()
-        # noqa: LOG014 - this method is designed to be called from within except blocks
+        # this method is designed to be called from within except blocks
         self.logger.error(self._format_message(msg, **kwargs), exc_info=True)  # noqa: LOG014
 
     def _ensure_configured(self) -> None:

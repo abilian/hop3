@@ -513,8 +513,8 @@ class MigrateCmd(Command):
         self,
         from_format: str = "",
         app_dir: str = "",
-        dry_run: bool = False,  # noqa: FBT001, FBT002
-        backup: bool = True,  # noqa: FBT001, FBT002
+        dry_run: bool = False,
+        backup: bool = True,
     ):
         """Migrate configuration from other PaaS formats to hop3.toml.
 
