@@ -250,14 +250,15 @@ import re
 from pathlib import Path
 
 DANGEROUS_PATTERNS = [
-    (r'__impure\s*=\s*true', "Impure derivations not allowed"),
-    (r'builtins\.exec\b', "builtins.exec not allowed"),
-    (r'builtins\.readFile\s+/', "Reading absolute paths not allowed"),
-    (r'builtins\.getEnv\b', "builtins.getEnv not allowed in pure mode"),
-    (r'substituters\s*=', "Custom substituters not allowed"),
-    (r'trusted-public-keys\s*=', "Custom cache keys not allowed"),
-    (r'trusted-substituters\s*=', "Custom trusted substituters not allowed"),
+    (r"__impure\s*=\s*true", "Impure derivations not allowed"),
+    (r"builtins\.exec\b", "builtins.exec not allowed"),
+    (r"builtins\.readFile\s+/", "Reading absolute paths not allowed"),
+    (r"builtins\.getEnv\b", "builtins.getEnv not allowed in pure mode"),
+    (r"substituters\s*=", "Custom substituters not allowed"),
+    (r"trusted-public-keys\s*=", "Custom cache keys not allowed"),
+    (r"trusted-substituters\s*=", "Custom trusted substituters not allowed"),
 ]
+
 
 def validate_flake(flake_dir: Path) -> list[str]:
     """Check flake for security issues before building."""
@@ -271,6 +272,7 @@ def validate_flake(flake_dir: Path) -> list[str]:
                 issues.append(f"{nix_file.name}: {message}")
 
     return issues
+
 
 def is_flake_safe(flake_dir: Path) -> bool:
     """Return True if flake passes security checks."""
