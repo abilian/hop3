@@ -29,7 +29,7 @@ Each test class:
 
 Each proxy type gets its own container with:
 ```python
-environment={
+environment = {
     "HOP3_PROXY_TYPE": "nginx"  # or "caddy" or "traefik"
 }
 ```

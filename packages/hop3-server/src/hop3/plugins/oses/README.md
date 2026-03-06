@@ -112,6 +112,7 @@ PACKAGES = [
     # ... more packages
 ]
 
+
 class AlpineStrategy(BaseOSStrategy):
     """OS setup strategy for Alpine Linux."""
 
@@ -218,19 +219,28 @@ def test_detect_debian(monkeypatch):
     from hop3.plugins.oses.debian_family import DebianFamilyStrategy
 
     def mock_read():
-        return {"ID": "debian", "VERSION_ID": "12", "PRETTY_NAME": "Debian GNU/Linux 12 (bookworm)"}
+        return {
+            "ID": "debian",
+            "VERSION_ID": "12",
+            "PRETTY_NAME": "Debian GNU/Linux 12 (bookworm)",
+        }
 
     strategy = DebianFamilyStrategy()
     monkeypatch.setattr(strategy, "read_os_release", mock_read)
     assert strategy.detect() is True
     assert "Debian" in strategy.display_name
 
+
 def test_detect_ubuntu(monkeypatch):
     """Test detection of Ubuntu."""
     from hop3.plugins.oses.debian_family import DebianFamilyStrategy
 
     def mock_read():
-        return {"ID": "ubuntu", "VERSION_ID": "22.04", "PRETTY_NAME": "Ubuntu 22.04.3 LTS"}
+        return {
+            "ID": "ubuntu",
+            "VERSION_ID": "22.04",
+            "PRETTY_NAME": "Ubuntu 22.04.3 LTS",
+        }
 
     strategy = DebianFamilyStrategy()
     monkeypatch.setattr(strategy, "read_os_release", mock_read)
