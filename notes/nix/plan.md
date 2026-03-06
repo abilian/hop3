@@ -196,6 +196,7 @@ Location: `packages/hop3-server/src/hop3/plugins/oses/nixos.py`
 ```python
 from hop3.core.protocols import OS
 
+
 class NixOS(OS):
     name = "nixos"
 

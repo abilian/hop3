@@ -60,10 +60,12 @@ tests/a_unit/
 ```python
 # tests/a_unit/test_archives.py
 
+
 def test_is_safe_filename_rejects_path_traversal():
     """Test that path traversal attempts are rejected."""
     assert not is_safe_filename("../etc/passwd")
     assert not is_safe_filename("foo/../../etc/passwd")
+
 
 def test_is_safe_filename_accepts_normal_paths():
     """Test that normal filenames are accepted."""
@@ -110,6 +112,7 @@ tests/b_integration/
 ```python
 # tests/b_integration/test_rpc_security.py
 
+
 def test_authenticated_command_requires_token(client: TestClient):
     """Test that authenticated commands reject requests without tokens."""
     response = client.post(
@@ -119,7 +122,7 @@ def test_authenticated_command_requires_token(client: TestClient):
             "method": "cli",
             "params": {"cli_args": ["apps"], "extra_args": {}},
             "id": 1,
-        }
+        },
     )
 
     assert response.status_code == 401
@@ -374,14 +377,17 @@ def temp_app_dir(tmp_path):
     yield app_dir
     # Cleanup automatic with tmp_path
 
+
 def test_something(temp_app_dir):
     # Use fixture
     pass
+
 
 # Avoid
 def setup_method():
     self.app_dir = Path("/tmp/myapp")
     self.app_dir.mkdir()
+
 
 def teardown_method():
     shutil.rmtree(self.app_dir)
@@ -389,12 +395,15 @@ def teardown_method():
 
 ### Parametrized Tests
 ```python
-@pytest.mark.parametrize("filename,expected", [
-    ("foo.txt", True),
-    ("../etc/passwd", False),
-    ("dir/foo.txt", True),
-    ("foo/../../etc/passwd", False),
-])
+@pytest.mark.parametrize(
+    "filename,expected",
+    [
+        ("foo.txt", True),
+        ("../etc/passwd", False),
+        ("dir/foo.txt", True),
+        ("foo/../../etc/passwd", False),
+    ],
+)
 def test_is_safe_filename(filename, expected):
     assert is_safe_filename(filename) == expected
 ```

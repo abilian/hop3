@@ -32,6 +32,7 @@ All services must implement the `Addon` protocol defined in `hop3/core/protocols
 from pathlib import Path
 from typing import Protocol
 
+
 class Addon(Protocol):
     """Protocol that all service strategies must implement."""
 
@@ -115,18 +116,18 @@ def backup(self) -> Path:
     # 3. Run service-specific backup command
     cmd = [
         "pg_dump",
-        "-h", "localhost",
-        "-U", self.db_user,
-        "-d", self.db_name,
-        "-f", str(backup_file),
+        "-h",
+        "localhost",
+        "-U",
+        self.db_user,
+        "-d",
+        self.db_name,
+        "-f",
+        str(backup_file),
     ]
 
     # 4. Execute with appropriate environment/credentials
-    subprocess.run(
-        cmd,
-        check=True,
-        env={"PGPASSWORD": self.db_password}
-    )
+    subprocess.run(cmd, check=True, env={"PGPASSWORD": self.db_password})
 
     # 5. Return absolute path to backup file
     return backup_file
@@ -169,6 +170,7 @@ def restore(self, backup_path: Path) -> None:
 from pathlib import Path
 import subprocess
 
+
 def restore(self, backup_path: Path) -> None:
     """Restore PostgreSQL database from a backup file."""
     # 1. Validate backup file exists
@@ -181,18 +183,18 @@ def restore(self, backup_path: Path) -> None:
     # 3. Run service-specific restore command
     cmd = [
         "psql",
-        "-h", "localhost",
-        "-U", self.db_user,
-        "-d", self.db_name,
-        "-f", str(backup_path),
+        "-h",
+        "localhost",
+        "-U",
+        self.db_user,
+        "-d",
+        self.db_name,
+        "-f",
+        str(backup_path),
     ]
 
     # 4. Execute with appropriate environment/credentials
-    subprocess.run(
-        cmd,
-        check=True,
-        env={"PGPASSWORD": self.db_password}
-    )
+    subprocess.run(cmd, check=True, env={"PGPASSWORD": self.db_password})
 
     # 5. No return value needed - raise exception on error
 ```
@@ -276,8 +278,10 @@ For large datasets:
 ```python
 # ✅ Good: Stream to disk
 subprocess.run([
-    "pg_dump", "-Fc",  # Custom format, compressed
-    "-f", str(backup_file)
+    "pg_dump",
+    "-Fc",  # Custom format, compressed
+    "-f",
+    str(backup_file),
 ])
 
 # ❌ Bad: Load into memory
@@ -338,7 +342,7 @@ def test_postgres_backup_restore_roundtrip(postgres_container):
     # Verify data is restored
     cursor.execute("SELECT * FROM test ORDER BY id")
     rows = cursor.fetchall()
-    assert rows == [(1, 'Alice'), (2, 'Bob')]
+    assert rows == [(1, "Alice"), (2, "Bob")]
 ```
 
 ### E2E Tests
@@ -367,6 +371,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
 
+
 class PostgresService:
     name: str = "postgres"
     service_name: str
@@ -381,10 +386,14 @@ class PostgresService:
 
         cmd = [
             "pg_dump",
-            "-h", "localhost",
-            "-U", self.db_user,
-            "-d", self.db_name,
-            "-f", str(backup_file),
+            "-h",
+            "localhost",
+            "-U",
+            self.db_user,
+            "-d",
+            self.db_name,
+            "-f",
+            str(backup_file),
         ]
 
         subprocess.run(cmd, check=True, env={"PGPASSWORD": self.db_password})
@@ -397,10 +406,14 @@ class PostgresService:
 
         cmd = [
             "psql",
-            "-h", "localhost",
-            "-U", self.db_user,
-            "-d", self.db_name,
-            "-f", str(backup_path),
+            "-h",
+            "localhost",
+            "-U",
+            self.db_user,
+            "-d",
+            self.db_name,
+            "-f",
+            str(backup_path),
         ]
 
         subprocess.run(cmd, check=True, env={"PGPASSWORD": self.db_password})
@@ -414,6 +427,7 @@ from pathlib import Path
 import subprocess
 import shutil
 
+
 class RedisService:
     name: str = "redis"
     service_name: str
@@ -424,10 +438,7 @@ class RedisService:
         backup_dir.mkdir(parents=True, exist_ok=True)
 
         # Trigger Redis save
-        subprocess.run(
-            ["redis-cli", "-p", str(self.port), "SAVE"],
-            check=True
-        )
+        subprocess.run(["redis-cli", "-p", str(self.port), "SAVE"], check=True)
 
         # Copy RDB file
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -461,6 +472,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
 
+
 class MySQLService:
     name: str = "mysql"
     service_name: str
@@ -475,8 +487,10 @@ class MySQLService:
 
         cmd = [
             "mysqldump",
-            "-h", "localhost",
-            "-u", self.db_user,
+            "-h",
+            "localhost",
+            "-u",
+            self.db_user,
             f"--password={self.db_password}",
             "--single-transaction",  # Consistent snapshot
             "--routines",  # Include stored procedures
@@ -495,8 +509,10 @@ class MySQLService:
 
         cmd = [
             "mysql",
-            "-h", "localhost",
-            "-u", self.db_user,
+            "-h",
+            "localhost",
+            "-u",
+            self.db_user,
             f"--password={self.db_password}",
             self.db_name,
         ]
