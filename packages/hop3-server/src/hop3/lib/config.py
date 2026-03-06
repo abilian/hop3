@@ -157,7 +157,7 @@ class Config:
         except (TypeError, ValueError):
             cast_name = getattr(cast, "__name__", repr(cast))
             msg = f"Config '{key}' has value '{value}'. Not a valid {cast_name}."
-            raise ValueError(msg)
+            raise ValueError(msg) from None
 
     def _parse_file(self, file: Path) -> None:
         assert file.suffix == ".toml"

@@ -128,13 +128,13 @@ class DockerBuilder:
 
         except FileNotFoundError:
             msg = "Docker command not found. Is Docker installed and in your PATH?"
-            raise Abort(msg)
+            raise Abort(msg) from None
 
         except subprocess.TimeoutExpired:
             elapsed = time.time() - start_time
             self._save_build_log("", "Build timed out after 10 minutes", elapsed)
             msg = "Docker build timed out after 10 minutes."
-            raise Abort(msg)
+            raise Abort(msg) from None
 
         except subprocess.CalledProcessError as e:
             self._handle_build_failure(e, image_tag, start_time)

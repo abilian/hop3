@@ -60,7 +60,7 @@ def do_deploy(
         app_config = AppConfig.from_dir(app.app_path)
     except ValueError as e:
         # Raised if Procfile is missing, etc.
-        raise Abort(str(e))
+        raise Abort(str(e)) from e
 
     # Log parsed configuration for debugging
     log(f"Config parsed from: {app_config.app_dir}", level=2)

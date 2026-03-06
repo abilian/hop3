@@ -86,7 +86,7 @@ class MacOSStrategy(BaseOSStrategy):
             )
         except subprocess.CalledProcessError:
             msg = "Homebrew is not installed. Please install from https://brew.sh"
-            raise RuntimeError(msg)
+            raise RuntimeError(msg) from None
 
         if update:
             subprocess.run(["brew", "update"], check=True, capture_output=True)

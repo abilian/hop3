@@ -656,11 +656,11 @@ services:
 
         except FileNotFoundError:
             msg = "Docker Compose not found. Is Docker installed?"
-            raise Abort(msg)
+            raise Abort(msg) from None
 
         except subprocess.TimeoutExpired:
             msg = f"Docker Compose command timed out: {cmd_str}"
-            raise Abort(msg)
+            raise Abort(msg) from None
 
         except subprocess.CalledProcessError as e:
             self._handle_compose_error(e, cmd_str)
