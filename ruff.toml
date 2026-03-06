@@ -81,9 +81,7 @@ lint.extend-ignore = [
     "RUF001", # 	[ ] ambiguous-unicode-character-string
     "B008", #   	[ ] function-call-in-default-argument
     "B909", #   	[ ] loop-iterator-mutation
-    "DTZ005", # 	[ ] call-datetime-now-without-tzinfo
-    "E402", #   	[ ] module-import-not-at-top-of-file
-    "PLC0206", #	[ ] dict-index-missing-items
+    # "DTZ005", # 	[ ] call-datetime-now-without-tzinfo
 ]
 
 

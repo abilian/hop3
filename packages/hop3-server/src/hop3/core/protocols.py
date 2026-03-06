@@ -6,6 +6,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
+# BuildArtifact is imported from artifacts.py - see ADR 035
+# It includes RuntimeConfig for build/run separation
+from hop3.core.artifacts import BuildArtifact, RuntimeConfig
+
+__all__ = ["BuildArtifact", "RuntimeConfig"]  # Re-export for backwards compatibility
+
+
 if TYPE_CHECKING:
     from hop3.orm import App
 
@@ -49,13 +56,6 @@ class DeploymentContext:
     # app_config: AppConfig
     # new_rev: str
     # log_callback: Callable[[str], None]  # To stream logs back
-
-
-# BuildArtifact is imported from artifacts.py - see ADR 035
-# It includes RuntimeConfig for build/run separation
-from hop3.core.artifacts import BuildArtifact, RuntimeConfig
-
-__all__ = ["BuildArtifact", "RuntimeConfig"]  # Re-export for backwards compatibility
 
 
 @dataclass

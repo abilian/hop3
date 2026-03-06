@@ -182,17 +182,17 @@ class AppLauncher:
         to_create = {}
         to_destroy = {}
 
-        for env_key in worker_count:
-            to_create[env_key] = range(1, worker_count[env_key] + 1)
+        for env_key, count in worker_count.items():
+            to_create[env_key] = range(1, count + 1)
             if self.deltas.get(env_key):
                 to_create[env_key] = range(
                     1,
-                    worker_count[env_key] + self.deltas[env_key] + 1,
+                    count + self.deltas[env_key] + 1,
                 )
                 if self.deltas[env_key] < 0:
                     to_destroy[env_key] = range(
-                        worker_count[env_key],
-                        worker_count[env_key] + self.deltas[env_key],
+                        count,
+                        count + self.deltas[env_key],
                         -1,
                     )
                 worker_count[env_key] += self.deltas[env_key]
