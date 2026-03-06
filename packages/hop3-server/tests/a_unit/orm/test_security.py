@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from hop3.orm.security import AuditBase, Role, User
@@ -161,7 +162,7 @@ def test_user_unique_username(db_session: Session):
 
     db_session.add(user2)
 
-    with pytest.raises(Exception):  # Should raise IntegrityError
+    with pytest.raises(IntegrityError):
         db_session.commit()
 
 
@@ -175,7 +176,7 @@ def test_user_unique_email(db_session: Session):
 
     db_session.add(user2)
 
-    with pytest.raises(Exception):  # Should raise IntegrityError
+    with pytest.raises(IntegrityError):
         db_session.commit()
 
 
@@ -189,7 +190,7 @@ def test_role_unique_name(db_session: Session):
 
     db_session.add(role2)
 
-    with pytest.raises(Exception):  # Should raise IntegrityError
+    with pytest.raises(IntegrityError):
         db_session.commit()
 
 

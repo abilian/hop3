@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from advanced_alchemy.base import BigIntAuditBase
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from hop3.core.credentials import get_credential_encryptor
@@ -131,7 +132,7 @@ class TestAddonCredentialModel:
         test_db.add(cred2)
 
         # Should raise integrity error
-        with pytest.raises(Exception):  # SQLAlchemy IntegrityError
+        with pytest.raises(IntegrityError):
             test_db.commit()
 
         test_db.rollback()
