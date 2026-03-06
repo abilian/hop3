@@ -219,7 +219,7 @@ class Deployer:
                     return False
 
             # Setup SSL certificate
-            if self.config.admin_domain and self.config.acme_email:
+            if self.config.admin_domain:
                 step += 1
                 self.log_step(step, "Setting up SSL certificate")
                 self._setup_admin_ssl(self.config.admin_domain)
@@ -533,19 +533,14 @@ server {{
         return True
 
     def _setup_admin_ssl(self, domain: str) -> None:
-        """Setup SSL certificate using acme.sh."""
-        safe_domain = shlex.quote(domain)
-        safe_email = shlex.quote(self.config.acme_email)
-        acme_sh = "/home/hop3/.acme.sh/acme.sh"
+        """Setup SSL certificate for the admin domain.
 
-        # Check if acme.sh is installed
-        result = self.backend.run(f"test -f {acme_sh}", check=False)
-        if not result.success:
-            self.log("acme.sh not installed, skipping SSL setup", "warning")
-            return
+        Uses Let's Encrypt if a valid ACME email is provided,
+        otherwise falls back to a self-signed certificate.
+        """
+        cert_dir = f"/home/hop3/ssl/{domain}"
 
         # Check if certificate already exists and is installed
-        cert_dir = f"/home/hop3/ssl/{domain}"
         result = self.backend.run(
             f"test -f {shlex.quote(cert_dir)}/fullchain.pem", check=False
         )
@@ -555,6 +550,40 @@ server {{
             self._update_nginx_for_ssl(domain, cert_dir)
             return
 
+        # Determine if we should use Let's Encrypt or self-signed
+        use_letsencrypt = self._should_use_letsencrypt()
+
+        if use_letsencrypt:
+            success = self._request_letsencrypt_cert(domain, cert_dir)
+            if success:
+                return
+            # Fall back to self-signed if Let's Encrypt fails
+            self.log("Falling back to self-signed certificate")
+
+        # Generate self-signed certificate
+        self._generate_self_signed_cert(domain, cert_dir)
+
+    def _should_use_letsencrypt(self) -> bool:
+        """Check if we should try Let's Encrypt."""
+        # Don't use Let's Encrypt if email is the default placeholder
+        if not self.config.acme_email:
+            return False
+        if self.config.acme_email == "admin@example.com":
+            return False
+        if "@example.com" in self.config.acme_email:
+            return False
+
+        # Check if acme.sh is installed
+        acme_sh = "/home/hop3/.acme.sh/acme.sh"
+        result = self.backend.run(f"test -f {acme_sh}", check=False)
+        return result.success
+
+    def _request_letsencrypt_cert(self, domain: str, cert_dir: str) -> bool:
+        """Request a Let's Encrypt certificate. Returns True on success."""
+        safe_domain = shlex.quote(domain)
+        safe_email = shlex.quote(self.config.acme_email)
+        acme_sh = "/home/hop3/.acme.sh/acme.sh"
+
         # Check if certificate exists in acme.sh but not installed
         acme_cert_dir = f"/home/hop3/.acme.sh/{domain}_ecc"
         result = self.backend.run(
@@ -562,12 +591,11 @@ server {{
         )
         if result.success:
             self.log(f"SSL certificate exists, installing for {domain}")
-            # Just install, don't request new cert
             self._install_ssl_cert(domain, cert_dir)
-            return
+            return True
 
         # No certificate exists, request a new one
-        self.log(f"Requesting new SSL certificate for {domain}")
+        self.log(f"Requesting Let's Encrypt certificate for {domain}")
 
         # Ensure the ACME challenge directory exists and is writable by hop3
         acme_webroot = "/var/www/html"
@@ -586,12 +614,47 @@ server {{
         )
         result = self.backend.run(issue_cmd, check=False)
         if not result.success:
-            self.log("Failed to issue SSL certificate", "warning")
+            self.log("Failed to issue Let's Encrypt certificate", "warning")
             self.log_output(result)
-            return
+            return False
 
         # Install the certificate
         self._install_ssl_cert(domain, cert_dir)
+        return True
+
+    def _generate_self_signed_cert(self, domain: str, cert_dir: str) -> None:
+        """Generate a self-signed SSL certificate."""
+        safe_cert_dir = shlex.quote(cert_dir)
+
+        self.log(f"Generating self-signed certificate for {domain}")
+
+        # Create cert directory
+        self.backend.run(f"mkdir -p {safe_cert_dir}", check=False)
+        self.backend.run("chown -R hop3:hop3 /home/hop3/ssl", check=False)
+
+        # Generate self-signed certificate valid for 365 days
+        # Note: domain is used in -subj which is already quoted by the shell
+        openssl_cmd = (
+            f"openssl req -x509 -nodes -days 365 -newkey rsa:2048 "
+            f"-keyout {safe_cert_dir}/key.pem "
+            f"-out {safe_cert_dir}/fullchain.pem "
+            f"-subj '/CN={domain}/O=Hop3/C=US'"
+        )
+        result = self.backend.run(openssl_cmd, check=False)
+        if not result.success:
+            self.log("Failed to generate self-signed certificate", "error")
+            self.log_output(result)
+            return
+
+        # Set proper permissions
+        self.backend.run(f"chmod 600 {safe_cert_dir}/key.pem", check=False)
+        self.backend.run(f"chmod 644 {safe_cert_dir}/fullchain.pem", check=False)
+        self.backend.run(f"chown -R hop3:hop3 {safe_cert_dir}", check=False)
+
+        # Update nginx config to use SSL
+        self._update_nginx_for_ssl(domain, cert_dir)
+
+        self.log(f"Self-signed certificate installed for {domain}", "success")
 
     def _install_ssl_cert(self, domain: str, cert_dir: str) -> None:
         """Install SSL certificate from acme.sh to the target directory."""

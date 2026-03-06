@@ -77,10 +77,6 @@ class DeployConfig:
         if not self.with_features:
             self.with_features = ["docker"]
 
-        # Default ACME email to admin_email when admin_domain is set
-        if self.admin_domain and not self.acme_email:
-            self.acme_email = self.admin_email
-
     @property
     def ssh_target(self) -> str:
         """Get SSH target string (user@host)."""

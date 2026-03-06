@@ -207,10 +207,11 @@ def handle_login_web(args: list[str], config: Config, printer: RichPrinter) -> N
     the web dashboard without entering a password. Requires SSH access.
 
     Usage:
-        hop3 login --web user@server
-        hop3 login --web user@server --username admin
+        hop3 login --web                    # Uses current context
+        hop3 login --web server.com         # SSH as root@server.com
+        hop3 login --web user@server.com    # SSH as user@server.com
     """
-    ssh_target, username = _parse_login_web_args(args)
+    ssh_target, username = _parse_login_web_args(args, config)
 
     print(f"\nConnecting to {ssh_target}...")
 
@@ -234,7 +235,7 @@ def handle_login_web(args: list[str], config: Config, printer: RichPrinter) -> N
     print("Note: This link expires in 5 minutes and can only be used once.")
 
 
-def _parse_login_web_args(args: list[str]) -> tuple[str, str]:
+def _parse_login_web_args(args: list[str], config: Config) -> tuple[str, str]:
     """Parse arguments for login --web command.
 
     Returns:
@@ -254,6 +255,9 @@ def _parse_login_web_args(args: list[str]) -> tuple[str, str]:
                 i += 2
             else:
                 i += 1
+        elif arg == "--web":
+            # --web without argument - will use context
+            i += 1
         elif arg == "--username" and i + 1 < len(args):
             username = args[i + 1]
             i += 2
@@ -264,15 +268,46 @@ def _parse_login_web_args(args: list[str]) -> tuple[str, str]:
         else:
             i += 1
 
+    # If no SSH target provided, try to get it from the current context
     if not ssh_target:
-        print_login_help()
-        print(
-            "\nError: --web requires an SSH target (e.g., hop3 login --web root@server.com)",
-            file=sys.stderr,
-        )
+        ssh_target = _get_ssh_target_from_config(config)
+
+    if not ssh_target:
+        print("Error: No server configured.", file=sys.stderr)
+        print("\nUse one of:", file=sys.stderr)
+        print("  hop3 login --web root@server.com  # Specify server", file=sys.stderr)
+        print("  hop3 login --ssh root@server.com  # Configure context first", file=sys.stderr)
         sys.exit(1)
 
+    # Ensure SSH target has user@ prefix (default to root)
+    if "@" not in ssh_target:
+        ssh_target = f"root@{ssh_target}"
+
     return ssh_target, username
+
+
+def _get_ssh_target_from_config(config: Config) -> str | None:
+    """Extract SSH target from the current context's API URL.
+
+    Handles both SSH URLs (ssh://root@host) and HTTP URLs (https://host).
+    """
+    api_url = config.get_api_url()
+    if not api_url:
+        return None
+
+    parsed = urlparse(api_url)
+
+    if parsed.scheme == "ssh":
+        # ssh://root@host -> root@host
+        if parsed.username:
+            return f"{parsed.username}@{parsed.hostname}"
+        return f"root@{parsed.hostname}"
+
+    if parsed.scheme in {"http", "https"}:
+        # https://host -> root@host
+        return f"root@{parsed.hostname}"
+
+    return None
 
 
 def handle_login_token(args: list[str], config: Config, printer: RichPrinter) -> None:

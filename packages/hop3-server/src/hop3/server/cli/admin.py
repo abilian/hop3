@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from hop3.lib.registry import register
 from hop3.orm import Role, User
 from hop3.server.lib.database import get_session
-from hop3.server.security.tokens import create_token
+from hop3.server.security.tokens import create_magic_token, create_token
 
 from ._base import Command
 
@@ -393,3 +393,53 @@ class AdminResetPassword(Command):
             db_session.commit()
 
             print(f"Password reset successfully for user '{username}'")
+
+
+@register
+class AuthMagicLink(Command):
+    """Generate a magic link for passwordless web login.
+
+    Usage:
+        hop3-server auth:magic-link [username]
+
+    This command generates a short-lived, single-use token that can be used
+    to log into the web dashboard without entering a password.
+
+    The token:
+    - Expires in 5 minutes
+    - Can only be used once
+    - Logs in as the specified user (default: admin)
+
+    This is designed for SSH-based authentication workflows:
+        ssh root@server hop3-server auth:magic-link
+
+    The CLI uses this internally for 'hop3 login --web'.
+    """
+
+    name = "auth:magic-link"
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "username",
+            type=str,
+            nargs="?",
+            default="admin",
+            help="Username to generate magic link for (default: admin)",
+        )
+
+    def run(self, username: str = "admin") -> None:
+        with get_session() as db_session:
+            user = db_session.query(User).filter_by(username=username).first()
+            if not user:
+                print(f"Error: User '{username}' not found", file=sys.stderr)
+                sys.exit(1)
+
+            if not user.active:
+                print(f"Error: User '{username}' is disabled", file=sys.stderr)
+                sys.exit(1)
+
+            # Generate magic link token
+            token = create_magic_token(username)
+
+            # Output just the token (for CLI consumption)
+            print(token)
