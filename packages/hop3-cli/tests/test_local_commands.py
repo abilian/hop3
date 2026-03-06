@@ -199,7 +199,7 @@ class TestHandleInit:
 
     def test_init_help(self, temp_config, mock_printer, capsys):
         """Test init --help shows help."""
-        result = handle_init(["--help"], temp_config, mock_printer)
+        handle_init(["--help"], temp_config, mock_printer)
 
         captured = capsys.readouterr()
         assert "Usage: hop3 init --ssh" in captured.out
@@ -233,7 +233,7 @@ class TestHandleInit:
             ),
             patch("builtins.input", side_effect=["admin", "admin@example.com", ""]),
         ):
-            result = handle_init(
+            handle_init(
                 ["--ssh", "root@test.com", "-y"],
                 temp_config,
                 mock_printer,
@@ -263,7 +263,7 @@ class TestHandleLogin:
 
     def test_login_help(self, temp_config, mock_printer, capsys):
         """Test login --help shows help."""
-        result = handle_login(["--help"], temp_config, mock_printer)
+        handle_login(["--help"], temp_config, mock_printer)
 
         captured = capsys.readouterr()
         assert "Usage: hop3 login" in captured.out
@@ -287,7 +287,7 @@ class TestHandleLogin:
             ),
             patch("builtins.input", return_value="testuser"),  # username
         ):
-            result = handle_login(
+            handle_login(
                 ["--ssh", "root@test.com"],
                 temp_config,
                 mock_printer,
@@ -313,7 +313,7 @@ class TestHandleLogin:
         with patch(
             "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"
         ):
-            result = handle_login_token(
+            handle_login_token(
                 ["--token", mock_token, "--server", "http://localhost:8000"],
                 temp_config,
                 mock_printer,
@@ -338,7 +338,7 @@ class TestHandleLogin:
         with patch(
             "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"
         ):
-            result = handle_login_token(
+            handle_login_token(
                 ["--token", mock_token],
                 temp_config,
                 mock_printer,
@@ -386,7 +386,7 @@ class TestHandleLogin:
         with patch(
             "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"
         ):
-            result = handle_login([url_with_token], temp_config, mock_printer)
+            handle_login([url_with_token], temp_config, mock_printer)
 
         # Credentials are saved to a "default" context when no context exists
         default_ctx = temp_config.data["contexts"]["default"]
@@ -403,7 +403,7 @@ class TestHandleLogin:
         with patch(
             "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"
         ):
-            result = handle_login([url_with_token], temp_config, mock_printer)
+            handle_login([url_with_token], temp_config, mock_printer)
 
         # Credentials are saved to a "default" context when no context exists
         default_ctx = temp_config.data["contexts"]["default"]
@@ -429,7 +429,7 @@ class TestHandleVersion:
 
     def test_version_shows_cli_version(self, temp_config, mock_printer, capsys):
         """Test version command shows CLI version."""
-        result = handle_version([], temp_config, mock_printer)
+        handle_version([], temp_config, mock_printer)
 
         captured = capsys.readouterr()
         assert "hop3-cli" in captured.out
@@ -453,7 +453,7 @@ class TestHandleAuth:
 
     def test_auth_shows_help(self, temp_config, mock_printer, capsys):
         """Test auth command shows authentication help."""
-        result = handle_auth([], temp_config, mock_printer)
+        handle_auth([], temp_config, mock_printer)
 
         captured = capsys.readouterr()
         assert "Authentication commands" in captured.out
@@ -462,7 +462,7 @@ class TestHandleAuth:
 
     def test_auth_with_help_flag(self, temp_config, mock_printer, capsys):
         """Test auth --help shows help."""
-        result = handle_auth(["--help"], temp_config, mock_printer)
+        handle_auth(["--help"], temp_config, mock_printer)
 
         captured = capsys.readouterr()
         assert "Authentication commands" in captured.out

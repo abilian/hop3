@@ -38,7 +38,7 @@ class TestStatusBadge:
                 yield StatusBadge(state=AppState.STOPPED)
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             badge = app.query_one(StatusBadge)
             assert badge.state == AppState.STOPPED
 
@@ -58,7 +58,7 @@ class TestStatusPanel:
                 yield StatusPanel()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             panel = app.query_one(StatusPanel)
             assert panel is not None
 
@@ -71,7 +71,7 @@ class TestStatusPanel:
                 yield StatusPanel()
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             panel = app.query_one(StatusPanel)
             panel.cpu = 50.0
             panel.memory = 60.0
@@ -146,7 +146,7 @@ class TestConfirmationDialog:
                     callback=self.handle_result,
                 )
 
-            def handle_result(self, result: bool) -> None:  # noqa: FBT001
+            def handle_result(self, result: bool) -> None:
                 nonlocal confirmed
                 confirmed = result
 

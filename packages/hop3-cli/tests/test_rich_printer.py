@@ -261,7 +261,7 @@ def test_rich_printer_unknown_message_type():
         printer.print([{"t": "unknown", "data": "something"}])
 
     # Should produce some output or handle gracefully
-    output = stdout_capture.getvalue()
+    stdout_capture.getvalue()
     # Unknown types might be printed as-is or ignored
     # Implementation-specific behavior
 

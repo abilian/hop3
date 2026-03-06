@@ -187,7 +187,7 @@ def test_migrate_procfile_with_backup(tmp_path):
     procfile_path.write_text(procfile_content)
 
     cmd = MigrateCmd()
-    result = cmd.call("procfile", str(tmp_path), dry_run=False, backup=True)
+    cmd.call("procfile", str(tmp_path), dry_run=False, backup=True)
 
     # Check backup was created
     backup = tmp_path / "Procfile.bak"
@@ -208,7 +208,7 @@ def test_migrate_procfile_no_backup(tmp_path):
     procfile_path.write_text(procfile_content)
 
     cmd = MigrateCmd()
-    result = cmd.call("procfile", str(tmp_path), dry_run=False, backup=False)
+    cmd.call("procfile", str(tmp_path), dry_run=False, backup=False)
 
     # Backup should not exist
     backup = tmp_path / "Procfile.bak"
@@ -279,7 +279,7 @@ def test_migrate_procfile_hop3_subdirectory(tmp_path):
     procfile_path.write_text("web: python app.py")
 
     cmd = MigrateCmd()
-    result = cmd.call("procfile", str(tmp_path), dry_run=False, backup=False)
+    cmd.call("procfile", str(tmp_path), dry_run=False, backup=False)
 
     # Should find and convert the Procfile in src/hop3/
     hop3_toml = hop3_dir / "hop3.toml"

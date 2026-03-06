@@ -132,9 +132,7 @@ class TestDockerComposeDeployerDeploy:
 
         with (
             patch("subprocess.run") as mock_run,
-            patch(
-                "hop3.plugins.docker.deployer.get_free_port", return_value=9999
-            ) as mock_port,
+            patch("hop3.plugins.docker.deployer.get_free_port", return_value=9999),
         ):
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 

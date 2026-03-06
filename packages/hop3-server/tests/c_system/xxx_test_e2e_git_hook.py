@@ -97,7 +97,7 @@ class TestGitHookSecurity:
         self, deployed_app: dict, e2e_auth_token: str
     ):
         """Test that git-hook prevents path traversal in filenames."""
-        app_name = deployed_app["name"]
+        deployed_app["name"]
         app_dir = deployed_app["dir"]
 
         original_dir = Path.cwd()
@@ -109,7 +109,6 @@ class TestGitHookSecurity:
 
             # Try to create a file with path traversal (this will fail in git)
             # Git doesn't allow ../../ in filenames, so this is mainly a documentation test
-            malicious_name = "../../etc/passwd"
 
             # Create normal file
             (app_dir / "app.py").write_text("# test")
