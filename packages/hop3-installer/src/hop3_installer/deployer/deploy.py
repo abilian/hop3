@@ -245,16 +245,16 @@ class Deployer:
         if local_path:
             return f" --local-path {shlex.quote(local_path)}"
 
-        if self.config.use_pypi or self.config.pypi_version:
-            args = ""
-            if self.config.pypi_version:
-                args += f" --version {shlex.quote(self.config.pypi_version)}"
-            if self.config.pypi_pre:
-                args += " --pre"
-            return args
+        if self.config.use_git:
+            return f" --git --branch {shlex.quote(self.config.branch)}"
 
-        # Default: install from git
-        return f" --git --branch {shlex.quote(self.config.branch)}"
+        # Default: install from PyPI
+        args = ""
+        if self.config.pypi_version:
+            args += f" --version {shlex.quote(self.config.pypi_version)}"
+        if self.config.pypi_pre:
+            args += " --pre"
+        return args
 
     def _install(self, *, local_path: str | None = None) -> bool:
         """Install Hop3 on the target.
@@ -307,14 +307,19 @@ class Deployer:
 
     def _update(self) -> bool:
         """Update existing Hop3 installation."""
-        # If using local code, use that instead of git
+        # If using local code, use that instead of PyPI
         if self.config.use_local_code:
             return self._update_local_code()
 
-        # If using PyPI, update from PyPI
-        if self.config.use_pypi or self.config.pypi_version:
-            return self._update_from_pypi()
+        # If using git, update from git
+        if self.config.use_git:
+            return self._update_from_git()
 
+        # Default: update from PyPI
+        return self._update_from_pypi()
+
+    def _update_from_git(self) -> bool:
+        """Update existing installation from git."""
         self.log("Pulling latest code from git")
 
         # Quote branch name to prevent command injection
