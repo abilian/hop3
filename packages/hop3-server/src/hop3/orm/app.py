@@ -552,15 +552,28 @@ class App(BigIntAuditBase):
         # Find the compose file
         compose_file = self._find_compose_file()
 
+        # Build environment with image tag for compose file substitution
+        # This fixes the "HOP3_IMAGE_TAG not set" issue during stop
+        env = {
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": os.environ.get("HOME", ""),
+            "PORT": str(self.port) if self.port else "8080",
+            "HOP3_IMAGE_TAG": self.image_tag or f"hop3/{self.name.lower()}:latest",
+            "HOP3_APP_NAME": self.name,
+        }
+
         try:
-            subprocess.run(
+            result = subprocess.run(
                 ["docker", "compose", "-f", str(compose_file), "-p", self.name, "stop"],
                 cwd=self.src_path,
+                env=env,
                 check=False,  # Don't fail if already stopped
                 capture_output=True,
                 text=True,
                 timeout=60,
             )
+            if result.returncode != 0:
+                log(f"Docker Compose stop warning: {result.stderr}", level=2, fg="yellow")
             # Transition directly to STOPPED since docker compose stop is synchronous
             self._transition_state(AppStateEnum.STOPPED)
             log(f"Docker Compose app '{self.name}' stopped.", level=2, fg="green")
@@ -588,11 +601,22 @@ class App(BigIntAuditBase):
 
         cmd.extend(["-p", self.name, "down", "--volumes", "--remove-orphans"])
 
+        # Build environment with image tag for compose file substitution
+        # This fixes the "HOP3_IMAGE_TAG not set" issue during destroy
+        env = {
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": os.environ.get("HOME", ""),
+            "PORT": str(self.port) if self.port else "8080",
+            "HOP3_IMAGE_TAG": self.image_tag or f"hop3/{self.name.lower()}:latest",
+            "HOP3_APP_NAME": self.name,
+        }
+
         try:
             # Use 'down --volumes --remove-orphans' to fully clean up
             result = subprocess.run(
                 cmd,
                 cwd=self.src_path if self.src_path.exists() else None,
+                env=env,
                 check=False,  # Don't fail if containers don't exist
                 capture_output=True,
                 text=True,
