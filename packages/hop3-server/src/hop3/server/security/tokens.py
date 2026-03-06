@@ -25,7 +25,11 @@ def _get_config():
 
 
 # Valid scopes that can be assigned to tokens
-VALID_SCOPES = {"authenticated", "admin", "user"}
+VALID_SCOPES = {"authenticated", "admin", "user", "magic_link"}
+
+# Magic link configuration
+MAGIC_LINK_SCOPE = "magic_link"
+MAGIC_LINK_EXPIRY_MINUTES = 5
 
 
 def get_secret_key() -> str:
@@ -210,3 +214,77 @@ def generate_api_key() -> str:
         A URL-safe random API key
     """
     return secrets.token_urlsafe(32)
+
+
+def create_magic_token(username: str) -> str:
+    """Create a short-lived magic link token for web login.
+
+    Magic tokens:
+    - Expire in 5 minutes
+    - Have the special "magic_link" scope
+    - Are single-use (validated once, then revoked)
+
+    Args:
+        username: The username to create the token for
+
+    Returns:
+        The JWT token string
+    """
+    now = datetime.now(timezone.utc)
+    expiry = now + timedelta(minutes=MAGIC_LINK_EXPIRY_MINUTES)
+
+    payload = {
+        "sub": username,
+        "scopes": [MAGIC_LINK_SCOPE],
+        "iat": now,
+        "exp": expiry,
+        "jti": secrets.token_urlsafe(16),
+    }
+
+    secret_key = get_secret_key()
+    return jwt.encode(payload, secret_key, algorithm="HS256")
+
+
+def validate_magic_token(token: str) -> dict[str, Any] | None:
+    """Validate a magic link token and mark it as used.
+
+    This function validates the token and immediately revokes it to ensure
+    single-use behavior.
+
+    Args:
+        token: The JWT token string to validate
+
+    Returns:
+        Dict with "username" if valid, None otherwise
+    """
+    try:
+        secret_key = get_secret_key()
+
+        payload = jwt.decode(
+            token,
+            secret_key,
+            algorithms=["HS256"],
+            options={"require": ["exp", "sub"]},
+        )
+
+        # Check if token is revoked
+        jti = payload.get("jti")
+        if jti and is_token_revoked(jti):
+            return None
+
+        # Validate that this is a magic link token
+        scopes = payload.get("scopes", [])
+        if MAGIC_LINK_SCOPE not in scopes:
+            return None
+
+        # Immediately revoke the token (single-use)
+        if jti:
+            expires_at = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+            revoke_token(jti, expires_at, reason="magic_link_used")
+
+        return {"username": payload.get("sub")}
+
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
+        return None
+    except Exception:
+        return None

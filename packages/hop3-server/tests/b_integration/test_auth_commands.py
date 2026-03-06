@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from hop3.commands.auth import (
     AuthLoginCmd,
     AuthLogoutCmd,
+    AuthMagicLinkCmd,
     AuthRegisterCmd,
     AuthWhoamiCmd,
 )
@@ -236,3 +237,83 @@ def test_auth_login_increments_login_count(db_session: Session, test_user: User)
     cmd.call("testuser", "testpass123")
     db_session.refresh(test_user)
     assert test_user.login_count == 2
+
+
+# Magic Link Tests
+
+
+def test_auth_magic_link_success(db_session: Session, admin_user: User):
+    """Test successful magic link generation."""
+    cmd = AuthMagicLinkCmd(db_session=db_session)
+    result = cmd.call("admin")
+
+    assert isinstance(result, list)
+    # Should return a single text item with the token
+    assert len(result) == 1
+    assert result[0].get("t") == "text"
+
+    # Token should be a JWT (starts with eyJ)
+    token = result[0].get("text", "")
+    assert token.startswith("eyJ")
+
+
+def test_auth_magic_link_default_admin(db_session: Session, admin_user: User):
+    """Test that magic link defaults to admin user when no username provided."""
+    cmd = AuthMagicLinkCmd(db_session=db_session)
+    result = cmd.call()  # No username - defaults to "admin"
+
+    assert isinstance(result, list)
+    assert len(result) == 1
+    token = result[0].get("text", "")
+    assert token.startswith("eyJ")
+
+
+def test_auth_magic_link_nonexistent_user(db_session: Session):
+    """Test magic link for nonexistent user."""
+    cmd = AuthMagicLinkCmd(db_session=db_session)
+    result = cmd.call("nosuchuser")
+
+    assert isinstance(result, list)
+    assert any("error" in r.get("t", "") for r in result)
+    assert any("not found" in str(r.get("text", "")) for r in result)
+
+
+def test_auth_magic_link_inactive_user(db_session: Session, admin_user: User):
+    """Test magic link for inactive user."""
+    admin_user.active = False
+    db_session.commit()
+
+    cmd = AuthMagicLinkCmd(db_session=db_session)
+    result = cmd.call("admin")
+
+    assert isinstance(result, list)
+    assert any("error" in r.get("t", "") for r in result)
+    assert any("disabled" in str(r.get("text", "")) for r in result)
+
+
+def test_auth_magic_link_for_regular_user(db_session: Session, test_user: User):
+    """Test magic link can be generated for any user, not just admin."""
+    cmd = AuthMagicLinkCmd(db_session=db_session)
+    result = cmd.call("testuser")
+
+    assert isinstance(result, list)
+    assert len(result) == 1
+    token = result[0].get("text", "")
+    assert token.startswith("eyJ")
+
+
+def test_auth_magic_link_token_has_correct_scope(db_session: Session, admin_user: User):
+    """Test that magic link token has the magic_link scope."""
+    import jwt
+
+    cmd = AuthMagicLinkCmd(db_session=db_session)
+    result = cmd.call("admin")
+
+    token = result[0].get("text", "")
+
+    # Decode the token to verify scope
+    secret_key = os.environ["HOP3_SECRET_KEY"]
+    payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+
+    assert payload["sub"] == "admin"
+    assert "magic_link" in payload["scopes"]
