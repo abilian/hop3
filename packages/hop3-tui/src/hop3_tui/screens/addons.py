@@ -24,6 +24,7 @@ from textual.widgets import (
     Static,
 )
 
+from hop3_tui.api.client import Hop3ClientError
 from hop3_tui.widgets.confirmation import ConfirmationDialog
 
 if TYPE_CHECKING:
@@ -321,7 +322,11 @@ class AddonsScreen(Screen):
 
         try:
             self._addons = await self.hop3_app.api_client.list_addons()
+            self.hop3_app.mark_api_success()
             self._update_table()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error", timeout=5)
         except Exception as e:
             self.notify(f"Failed to fetch addons: {e}", severity="error", timeout=5)
 
@@ -450,8 +455,12 @@ class AddonsScreen(Screen):
 
         try:
             await self.hop3_app.api_client.create_addon(addon_type, addon_name)
+            self.hop3_app.mark_api_success()
             self.notify(f"[green]Created {addon_name}[/]")
             self._refresh_data()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to create addon: {e}", severity="error")
 
@@ -474,8 +483,12 @@ class AddonsScreen(Screen):
 
         try:
             await self.hop3_app.api_client.attach_addon(addon_name, app_name)
+            self.hop3_app.mark_api_success()
             self.notify(f"[green]Attached {addon_name} to {app_name}[/]")
             self._refresh_data()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to attach addon: {e}", severity="error")
 
@@ -521,8 +534,12 @@ class AddonsScreen(Screen):
 
         try:
             await self.hop3_app.api_client.detach_addon(addon_name, app_name)
+            self.hop3_app.mark_api_success()
             self.notify(f"[yellow]Detached {addon_name}[/]")
             self._refresh_data()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to detach addon: {e}", severity="error")
 
@@ -537,8 +554,12 @@ class AddonsScreen(Screen):
 
         try:
             await self.hop3_app.api_client.delete_addon(addon_name)
+            self.hop3_app.mark_api_success()
             self.notify(f"[red]Deleted {addon_name}[/]")
             self._refresh_data()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to delete addon: {e}", severity="error")
 

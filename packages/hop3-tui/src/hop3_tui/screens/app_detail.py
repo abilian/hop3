@@ -15,6 +15,7 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Input, Label, Static
 
+from hop3_tui.api.client import Hop3ClientError
 from hop3_tui.api.models import App, AppState
 from hop3_tui.widgets.confirmation import ConfirmationDialog
 
@@ -396,8 +397,12 @@ class AppDetailScreen(Screen):
             return
         try:
             await self.hop3_app.api_client.start_app(self.app_name)
+            self.hop3_app.mark_api_success()
             self.notify(f"[green]Started {self.app_name}[/]")
             self._refresh_data()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to start: {e}", severity="error")
 
@@ -418,8 +423,12 @@ class AppDetailScreen(Screen):
             return
         try:
             await self.hop3_app.api_client.stop_app(self.app_name)
+            self.hop3_app.mark_api_success()
             self.notify(f"[yellow]Stopped {self.app_name}[/]")
             self._refresh_data()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to stop: {e}", severity="error")
 
@@ -434,8 +443,12 @@ class AppDetailScreen(Screen):
             return
         try:
             await self.hop3_app.api_client.restart_app(self.app_name)
+            self.hop3_app.mark_api_success()
             self.notify(f"[green]Restarted {self.app_name}[/]")
             self._refresh_data()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to restart: {e}", severity="error")
 
@@ -460,8 +473,12 @@ class AppDetailScreen(Screen):
             return
         try:
             await self.hop3_app.api_client.deploy_app(self.app_name, git_url)
+            self.hop3_app.mark_api_success()
             self.notify(f"[green]Deployed {self.app_name}[/]")
             self._refresh_data()
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to deploy: {e}", severity="error")
 
@@ -481,7 +498,11 @@ class AppDetailScreen(Screen):
             return
         try:
             backup_id = await self.hop3_app.api_client.create_backup(self.app_name)
+            self.hop3_app.mark_api_success()
             self.notify(f"[green]Backup created: {backup_id}[/]")
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to create backup: {e}", severity="error")
 
@@ -526,9 +547,13 @@ class AppDetailScreen(Screen):
             return
         try:
             await self.hop3_app.api_client.delete_app(self.app_name)
+            self.hop3_app.mark_api_success()
             self.notify(f"[red]Destroyed {self.app_name}[/]")
             # Go back to apps list
             self.app.switch_mode("apps")
+        except Hop3ClientError as e:
+            self.hop3_app.mark_api_failure()
+            self.notify(f"Server error: {e}", severity="error")
         except Exception as e:
             self.notify(f"Failed to destroy: {e}", severity="error")
 
