@@ -12,10 +12,12 @@ import sys
 import tarfile
 from collections import Counter
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pathspec
 
-from hop3_cli.types import JsonDict
+if TYPE_CHECKING:
+    from hop3_cli.types import JsonDict
 
 __all__ = ["generate_archive", "get_extra_args", "pack_repository"]
 

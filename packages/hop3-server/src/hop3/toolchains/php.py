@@ -11,13 +11,13 @@ from subprocess import CalledProcessError
 from typing import TYPE_CHECKING
 
 from hop3.core.events import InstallingDependencies, PreparingBuildEnv, emit
-from hop3.core.protocols import BuildArtifact
 from hop3.lib import chdir, log
 
 from ._base import LanguageToolchain
 
 if TYPE_CHECKING:
     from hop3.core.env import Env
+    from hop3.core.protocols import BuildArtifact
 
 
 class PHPToolchain(LanguageToolchain):

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3.core.manifest import RuntimeManifestBuilder
@@ -16,6 +15,8 @@ from hop3.orm.app import AppStateEnum
 from hop3.project.config import AppConfig
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from sqlalchemy.orm import Session
 
     from hop3.orm.app import App

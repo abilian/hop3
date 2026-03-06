@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING
 
 from hop3_testing.catalog.models import TargetType
 
-from .modes import ModeConfig
-
 if TYPE_CHECKING:
     from hop3_testing.catalog.models import TestDefinition
     from hop3_testing.catalog.scanner import Catalog
+
+    from .modes import ModeConfig
 
 
 @dataclass(frozen=True)

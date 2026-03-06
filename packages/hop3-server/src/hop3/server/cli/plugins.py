@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import types
-from argparse import ArgumentParser
+from typing import TYPE_CHECKING
 
 from hop3.config import HOP3_PROXY_TYPE
 from hop3.core.plugins import get_plugin_manager
@@ -14,6 +14,9 @@ from hop3.lib.registry import register
 from hop3.server.asgi import create_app
 
 from . import Command
+
+if TYPE_CHECKING:
+    from argparse import ArgumentParser
 
 # Strategy hooks that provide lists of strategies
 STRATEGY_HOOKS = {

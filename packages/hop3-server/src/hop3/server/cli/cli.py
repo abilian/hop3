@@ -10,13 +10,16 @@ import inspect
 import re
 import sys
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from hop3.lib.registry import lookup
 from hop3.lib.scanner import scan_package
 
 from . import Command
 from .help import Help, print_help
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 scan_package("hop3.server.cli")
 

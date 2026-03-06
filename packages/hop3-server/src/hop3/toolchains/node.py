@@ -6,13 +6,17 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from hop3 import config as c
 from hop3.core.env import Env
 from hop3.core.events import InstallingVirtualEnv, emit
-from hop3.core.protocols import BuildArtifact
 from hop3.lib import Abort, chdir, check_binaries, log, prepend_to_path
 
 from ._base import LanguageToolchain
+
+if TYPE_CHECKING:
+    from hop3.core.protocols import BuildArtifact
 
 
 class NodeToolchain(LanguageToolchain):

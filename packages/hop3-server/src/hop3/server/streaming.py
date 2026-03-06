@@ -24,11 +24,13 @@ import asyncio
 import json
 import threading
 import uuid
-from collections.abc import AsyncIterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 # Stream registry
 _streams: dict[str, DeploymentStream] = {}

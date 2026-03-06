@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# ruff: noqa: TC002, TC003
+
 """Dishka providers for Hop3 services."""
 
 from __future__ import annotations

@@ -4,19 +4,22 @@
 
 from __future__ import annotations
 
-from dishka import Provider
-
-from hop3.core.protocols import (
-    OS,
-    Addon,
-    Builder,
-    Deployer,
-    HealthCheck,
-    LanguageToolchain,
-    Proxy,
-)
+from typing import TYPE_CHECKING
 
 from .hooks import hookspec
+
+if TYPE_CHECKING:
+    from dishka import Provider
+
+    from hop3.core.protocols import (
+        OS,
+        Addon,
+        Builder,
+        Deployer,
+        HealthCheck,
+        LanguageToolchain,
+        Proxy,
+    )
 
 
 @hookspec

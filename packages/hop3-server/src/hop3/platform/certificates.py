@@ -7,13 +7,16 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
-from pathlib import Path
 from textwrap import dedent
+from typing import TYPE_CHECKING
 
 from attrs import frozen
 
 from hop3.config import ACME_EMAIL, ACME_ENGINE, HOP3_ROOT, NGINX_ROOT
 from hop3.lib import log
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 KEY_STORE = HOP3_ROOT / "certificates"
 KEY_STORE.mkdir(parents=True, exist_ok=True)

@@ -17,8 +17,7 @@ import os
 import subprocess
 import traceback
 from dataclasses import dataclass
-from pathlib import Path
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 from hop3.config import HOP3_ROOT, HOP3_USER
 from hop3.core.env import Env
@@ -32,6 +31,9 @@ from hop3.core.protocols import (
 from hop3.lib import Abort, get_free_port, is_port_free, log
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # Default timeout for Docker commands (seconds)
 DOCKER_COMMAND_TIMEOUT = 60

@@ -6,9 +6,12 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hop3.core.artifacts import BuildArtifact, RuntimeConfig
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestRuntimeConfig:

@@ -6,12 +6,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from hop3.core.manifest import RuntimeManifestBuilder
 from hop3.project.config import AppConfig
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture

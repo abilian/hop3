@@ -15,7 +15,6 @@ import requests
 import urllib3
 import urllib3.exceptions
 from jsonrpcclient import Error, Ok, parse, request
-from jsonrpcclient.responses import Response
 from loguru import logger
 
 # sshtunnel uses paramiko which has deprecated TripleDES warnings
@@ -27,6 +26,8 @@ from sshtunnel import SSHTunnelForwarder
 from hop3_cli.exceptions import AuthenticationError, CliError
 
 if TYPE_CHECKING:
+    from jsonrpcclient.responses import Response
+
     from hop3_cli.config import Config
 
 # Suppress InsecureRequestWarning when SSL verification is disabled

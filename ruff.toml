@@ -54,14 +54,10 @@ lint.extend-ignore = [
     "PERF401", #  7 - PERF401	manual-list-comprehension
     "RUF067", # `__init__` module should only contain docstrings and re-exports
     "RUF070", # ...
-    # Needed by the DI and SQLA frameworks
-    "TC003", #  	[ ] typing-only-standard-library-import
-    "TC002", #  	[ ] typing-only-third-party-import
     #
     # Fix this (later)
     #
     "E501", #   	[ ] line-too-long
-    "TC001", #  	[ ] typing-only-first-party-import
     "PLR0913", #	[ ] too-many-arguments
     "PLR0917", #	[ ] too-many-positional-arguments
     "C901", #   	[ ] complex-structure

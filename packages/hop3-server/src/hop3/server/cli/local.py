@@ -18,13 +18,16 @@ from __future__ import annotations
 import json
 import sys
 import traceback
-from argparse import ArgumentParser
+from typing import TYPE_CHECKING
 
 from hop3.commands import Command as RpcCommand
 from hop3.lib.registry import lookup, register
 from hop3.lib.scanner import scan_package
 from hop3.orm import get_session_factory
 from hop3.server.cli import Command
+
+if TYPE_CHECKING:
+    from argparse import ArgumentParser
 
 # Scan and load all RPC commands
 scan_package("hop3.commands")

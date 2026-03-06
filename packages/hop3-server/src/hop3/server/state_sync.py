@@ -12,7 +12,6 @@ actual process status.
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -20,6 +19,8 @@ from hop3.lib import log
 from hop3.orm import App, AppStateEnum
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.orm import Session
 
 

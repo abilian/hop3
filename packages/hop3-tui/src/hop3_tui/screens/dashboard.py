@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from textual.app import ComposeResult
 from textual.containers import Container
 from textual.reactive import reactive
 from textual.screen import Screen
@@ -19,6 +18,8 @@ from hop3_tui.api.models import AppState
 from hop3_tui.widgets.status_panel import StatusPanel
 
 if TYPE_CHECKING:
+    from textual.app import ComposeResult
+
     from hop3_tui.app import Hop3TUI
 
 

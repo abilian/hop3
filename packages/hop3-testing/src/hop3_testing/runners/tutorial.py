@@ -14,7 +14,6 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_testing.catalog.models import Validation, ValidationExpect
@@ -24,6 +23,8 @@ from .base import TestResult, ValidationResult
 from .validations import run_validation
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from hop3_testing.catalog.models import TestDefinition
     from hop3_testing.targets.base import DeploymentTarget
 

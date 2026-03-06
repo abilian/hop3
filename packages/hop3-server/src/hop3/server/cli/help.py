@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from argparse import ArgumentParser
 from importlib.metadata import version
+from typing import TYPE_CHECKING
 
 from attrs import frozen
 
@@ -11,6 +11,9 @@ from hop3.lib.console import bold
 from hop3.lib.registry import lookup, register
 
 from ._base import Command
+
+if TYPE_CHECKING:
+    from argparse import ArgumentParser
 
 
 def print_help():

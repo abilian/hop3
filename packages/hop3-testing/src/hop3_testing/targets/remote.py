@@ -15,7 +15,6 @@ The behavior is determined by whether a DeploymentConfig is provided.
 from __future__ import annotations
 
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import paramiko
@@ -23,7 +22,6 @@ import paramiko
 from hop3_testing.diagnostics import DiagnosticCollector
 
 from .base import DeploymentTarget, TargetInfo
-from .config import DeploymentConfig, RemoteConfig
 from .constants import (
     DEFAULT_HEALTH_CHECK_TIMEOUT,
     HEALTH_CHECK_COMMAND,
@@ -39,6 +37,9 @@ from .helpers import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from pathlib import Path
+
+    from .config import DeploymentConfig, RemoteConfig
 
 
 class RemoteTarget(DeploymentTarget):

@@ -9,12 +9,13 @@ from __future__ import annotations
 import html
 from datetime import UTC, datetime
 from itertools import starmap
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from hop3_testing.runners.base import TestResult
     from hop3_testing.targets.base import DeploymentTarget
 

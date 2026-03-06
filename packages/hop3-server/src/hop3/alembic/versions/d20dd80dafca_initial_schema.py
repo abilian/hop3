@@ -9,7 +9,10 @@ Create Date: 2025-11-13 19:00:17.208093
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 # revision identifiers, used by Alembic.
 revision: str = "d20dd80dafca"
