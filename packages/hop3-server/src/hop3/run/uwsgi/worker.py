@@ -226,7 +226,7 @@ class UwsgiWorker:
                 )
             except Exception:
                 msg = "Error: malformed setting 'UWSGI_IDLE', ignoring it."
-                raise Abort(msg)
+                raise Abort(msg) from None
 
     @abstractmethod
     def update_settings(self) -> None:
@@ -348,7 +348,7 @@ class WsgiWorker(UwsgiWorker):
                 self.log(f"uwsgi will support {tasks} async tasks")
             except ValueError:
                 msg = "Error: malformed setting 'UWSGI_ASYNCIO'."
-                raise Abort(msg)
+                raise Abort(msg) from None
 
         # Always use HTTP socket for direct access and nginx proxying
         # This simplifies local development and testing

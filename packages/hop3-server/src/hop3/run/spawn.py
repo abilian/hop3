@@ -348,7 +348,7 @@ class AppLauncher:
                     command=cmd,
                 )
                 msg = f"Before-run command timed out: {cmd}"
-                raise RuntimeError(msg)
+                raise RuntimeError(msg) from None
 
         log("All before-run commands completed", level=1, fg="green")
 
