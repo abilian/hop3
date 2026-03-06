@@ -60,9 +60,7 @@ lint.extend-ignore = [
     "E501", #   	[ ] line-too-long
     "PLR0913", #	[ ] too-many-arguments
     "PLR0917", #	[ ] too-many-positional-arguments
-    "C901", #   	[ ] complex-structure
     "F841", #   	[ ] unused-variable
-    "B904", #   	[ ] raise-without-from-inside-except
     "PERF203", #	[ ] try-except-in-loop
     "PLW1510", #	[ ] subprocess-run-without-check
     "TRY301", # 	[ ] raise-within-try
@@ -79,7 +77,7 @@ lint.extend-ignore = [
 
 [lint.mccabe]
 # TODO: Set max-complexity = 10
-# max-complexity = 12
+max-complexity = 12
 
 [lint.isort]
 combine-as-imports = true
@@ -105,6 +103,7 @@ known-first-party = ["hop3"]
     "T20", # flake8-print
 ]
 "**/tests/**/*.py" = [
+    "C901", #   	[ ] complex-structure
     "INP001", # implicit namespace package
     "PT011", # 	pytest-raises-too-broad
     "N806", #  	non-lowercase-variable-in-function
@@ -115,6 +114,7 @@ known-first-party = ["hop3"]
     "RUF069", # Unreliable floating point equality comparison
     "PT012",
     "T20", # flake8-print
+    "B904"
 ]
 "**/noxfile.py" = [
     "INP001", # implicit namespace package
