@@ -64,7 +64,6 @@ lint.extend-ignore = [
     "TC001", #  	[ ] typing-only-first-party-import
     "PLR0913", #	[ ] too-many-arguments
     "PLR0917", #	[ ] too-many-positional-arguments
-    "RUF100", # 	[*] unused-noqa
     "C901", #   	[ ] complex-structure
     "F841", #   	[ ] unused-variable
     "SIM105", # 	[ ] suppressible-exception
@@ -80,7 +79,6 @@ lint.extend-ignore = [
     "SIM117", # 	[ ] multiple-with-statements
     "RUF001", # 	[ ] ambiguous-unicode-character-string
     "B008", #   	[ ] function-call-in-default-argument
-    # "B909", #   	[ ] loop-iterator-mutation
 ]
 
 

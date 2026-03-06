@@ -282,7 +282,7 @@ class Client:
 
     def _is_verify_ssl_disabled(
         self,
-        verify_ssl_config: str | bool | None,  # noqa: FBT001
+        verify_ssl_config: str | bool | None,
     ) -> bool:
         """Check if SSL verification is explicitly disabled in config."""
         if verify_ssl_config is None:
