@@ -267,7 +267,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
-                        {% for service in addons %}
+                        {% for addon in addons %}
                         <tr>
                             <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
                                 <a href="/dashboard/addons/{{ addon.addon_name }}" class="text-blue-600 hover:text-blue-900">
@@ -276,21 +276,21 @@
                             </td>
                             <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                                 <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset
-                                    {% if service.service_type == 'postgres' or service.service_type == 'postgresql' %}
+                                    {% if addon.addon_type == 'postgres' or addon.addon_type == 'postgresql' %}
                                         bg-blue-50 text-blue-700 ring-blue-600/20
-                                    {% elif service.service_type == 'redis' %}
+                                    {% elif addon.addon_type == 'redis' %}
                                         bg-red-50 text-red-700 ring-red-600/20
-                                    {% elif service.service_type == 'mysql' %}
+                                    {% elif addon.addon_type == 'mysql' %}
                                         bg-orange-50 text-orange-700 ring-orange-600/20
                                     {% else %}
                                         bg-gray-50 text-gray-700 ring-gray-600/20
                                     {% endif %}
                                 ">
-                                    {{ service.service_type }}
+                                    {{ addon.addon_type }}
                                 </span>
                             </td>
                             <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                {{ service.created_at }}
+                                {{ addon.created_at }}
                             </td>
                             <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
                                 <a href="/dashboard/addons/{{ addon.addon_name }}"
