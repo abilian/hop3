@@ -17,6 +17,7 @@ import traceback
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
+from hop3_testing.exceptions import CleanupError, DeploymentError
 from hop3_testing.targets.constants import (
     E2E_TEST_SECRET_KEY,
     create_test_token,
@@ -138,14 +139,14 @@ class DeploymentSession:
         """
         return self._preparation.prepare()
 
-    def deploy(self, wait_time: int = 5) -> bool:
+    def deploy(self, wait_time: int = 5) -> None:
         """Deploy the application to the target.
 
         Args:
             wait_time: Time to wait after deployment (seconds)
 
-        Returns:
-            True if deployment succeeded, False otherwise
+        Raises:
+            DeploymentError: If deployment fails.
         """
         if not self._preparation.temp_dir:
             self._preparation.prepare()
@@ -154,8 +155,7 @@ class DeploymentSession:
 
         try:
             # Deploy via CLI (CLI will create tarball from directory)
-            if not self._deploy_via_cli():
-                return False
+            self._deploy_via_cli()
 
             self.deployed = True
 
@@ -163,20 +163,20 @@ class DeploymentSession:
             self.console.info(f"Waiting {wait_time}s for deployment to complete...")
             time.sleep(wait_time)
 
-            return True
-
+        except DeploymentError:
+            raise
         except Exception as e:
             self.console.error(f"Deployment failed: {e}")
-            return False
+            raise DeploymentError(f"Deployment failed: {e}") from e
 
-    def _deploy_via_cli(self) -> bool:
+    def _deploy_via_cli(self) -> None:
         """Deploy via hop3 CLI subprocess.
 
         Uses streaming output in verbose mode to show progress during
         long-running deployments (e.g., Docker builds).
 
-        Returns:
-            True if deployment succeeded, False otherwise
+        Raises:
+            DeploymentError: If deployment fails.
         """
         env = self._build_cli_env()
         cmd = ["hop3", "deploy", self.app_name, str(self._preparation.temp_dir)]
@@ -199,7 +199,7 @@ class DeploymentSession:
             if result.timed_out:
                 self._last_deploy_error = "Deploy timed out after 10 minutes"
                 self.console.error(self._last_deploy_error)
-                return False
+                raise DeploymentError(self._last_deploy_error)
         else:
             # Non-streaming mode for quiet operation
             proc_result = subprocess.run(
@@ -240,9 +240,7 @@ class DeploymentSession:
 
             self._last_deploy_error = " | ".join(error_parts) if len(error_parts) > 1 else "Deploy command failed (no output)"
             self.console.error(f"Deploy failed: {self._last_deploy_error}")
-            return False
-
-        return True
+            raise DeploymentError(self._last_deploy_error)
 
     def check_deployed(self) -> bool:
         """Check if the app is deployed and running.
@@ -370,27 +368,28 @@ class DeploymentSession:
             console=self.console,
         )
 
-    def cleanup(self) -> bool:
+    def cleanup(self) -> None:
         """Cleanup the deployed app and temp files.
 
-        Returns:
-            True if cleanup succeeded, False otherwise
+        Note: This method catches exceptions internally to ensure
+        temp directory cleanup always happens.
         """
-        success = True
-
         # Destroy app on target
         if self.deployed:
-            success = self._destroy_app()
+            try:
+                self._destroy_app()
+            except CleanupError as e:
+                self.console.warning(f"Cleanup warning: {e}")
 
         # Remove temp directory
         self._preparation.cleanup()
 
-        return success
+    def _destroy_app(self) -> None:
+        """Destroy the deployed app on the target.
 
-    def _destroy_app(self) -> bool:
-        """Destroy the deployed app on the target."""
-        success = True
-
+        Raises:
+            CleanupError: If destruction fails.
+        """
         try:
             env = self._build_cli_env()
 
@@ -435,26 +434,32 @@ class DeploymentSession:
                 time.sleep(2)
 
                 # Verify app is gone
-                success = self._verify_app_destroyed(env)
+                self._verify_app_destroyed(env)
             else:
                 self.console.error(
                     f"Failed to destroy app (exit code {result.returncode})"
                 )
-                if result.stderr:
-                    self.console.error(f"  Error: {result.stderr[:200]}")
-                success = False
+                error_msg = result.stderr[:200] if result.stderr else "Unknown error"
+                self.deployed = False
+                raise CleanupError(
+                    f"Failed to destroy app '{self.app_name}': {error_msg}"
+                )
 
             self.deployed = False
 
+        except CleanupError:
+            raise
         except Exception as e:
             self.console.error(f"Exception during destroy: {e}")
             traceback.print_exc()
-            success = False
+            raise CleanupError(f"Exception during destroy: {e}") from e
 
-        return success
+    def _verify_app_destroyed(self, env: dict) -> None:
+        """Verify the app was destroyed.
 
-    def _verify_app_destroyed(self, env: dict) -> bool:
-        """Verify the app was destroyed."""
+        Raises:
+            CleanupError: If app is still present after destroy.
+        """
         after = subprocess.run(
             ["hop3", "apps"],
             env=env,
@@ -465,10 +470,11 @@ class DeploymentSession:
 
         if self.app_name in after.stdout:
             self.console.warning(f"{self.app_name} still in database after destroy!")
-            return False
+            raise CleanupError(
+                f"App '{self.app_name}' still present in database after destroy"
+            )
 
         self.console.info(f"Verified {self.app_name} removed from database")
-        return True
 
     def run_full_test(self, cleanup: bool = True) -> bool:
         """Run a full test cycle: prepare, deploy, test, cleanup.
@@ -487,9 +493,11 @@ class DeploymentSession:
 
             # Deploy
             self.console.start_phase(f"Deploying {self.app_name}")
-            if not self.deploy():
+            try:
+                self.deploy()
+            except DeploymentError as e:
                 self.console.end_phase(f"Deploying {self.app_name}", success=False)
-                self.console.error(f"Deploy stage failed for {self.app_name}")
+                self.console.error(f"Deploy stage failed for {self.app_name}: {e}")
                 return False
             self.console.end_phase(f"Deploying {self.app_name}")
 

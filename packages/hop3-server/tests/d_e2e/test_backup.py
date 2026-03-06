@@ -34,7 +34,7 @@ class TestBackupRestoreE2E:
 
         app = AppSource(name="simple-app", path=app_dir)
         with DeploymentSession(app, deployment_target) as session:
-            assert session.deploy(), "Failed to deploy app"
+            session.deploy()  # Raises DeploymentError on failure
             assert session.check_deployed(), "App not properly deployed"
 
             # Create backup
@@ -74,7 +74,7 @@ class TestBackupRestoreE2E:
 
         app = AppSource(name="env-app", path=app_dir)
         with DeploymentSession(app, deployment_target) as session:
-            assert session.deploy()
+            session.deploy()  # Raises DeploymentError on failure
 
             # Set environment variable
             result = deployment_target.run_command(
@@ -99,7 +99,7 @@ class TestBackupRestoreE2E:
 
         app = AppSource(name="restore-app", path=app_dir)
         with DeploymentSession(app, deployment_target) as session:
-            assert session.deploy()
+            session.deploy()  # Raises DeploymentError on failure
 
             # Create backup
             result = deployment_target.run_command("backup:create", session.app_name)
@@ -119,7 +119,7 @@ def index():
 """)
 
             # Redeploy with changes
-            assert session.deploy()
+            session.deploy()  # Raises DeploymentError on failure
 
             # Restore from backup
             result = deployment_target.run_command("backup:restore", backup_id)
@@ -132,7 +132,7 @@ def index():
 
         app = AppSource(name="original-app", path=app_dir)
         with DeploymentSession(app, deployment_target) as session:
-            assert session.deploy()
+            session.deploy()  # Raises DeploymentError on failure
 
             # Create backup
             result = deployment_target.run_command("backup:create", session.app_name)
@@ -162,7 +162,7 @@ def index():
 
             app = AppSource(name=app_name, path=app_dir)
             with DeploymentSession(app, deployment_target) as session:
-                assert session.deploy()
+                session.deploy()  # Raises DeploymentError on failure
 
                 result = deployment_target.run_command(
                     "backup:create", session.app_name
@@ -192,7 +192,7 @@ def index():
 
         app = AppSource(name="delete-test-app", path=app_dir)
         with DeploymentSession(app, deployment_target) as session:
-            assert session.deploy()
+            session.deploy()  # Raises DeploymentError on failure
 
             # Create backup
             result = deployment_target.run_command("backup:create", session.app_name)
@@ -243,7 +243,7 @@ conn.close()""",
 
         app = AppSource(name="postgres-app", path=app_dir)
         with DeploymentSession(app, deployment_target) as session:
-            assert session.deploy()
+            session.deploy()  # Raises DeploymentError on failure
 
             # Create PostgreSQL service
             result = deployment_target.run_command("postgres:create", "test-db")
