@@ -573,7 +573,11 @@ class App(BigIntAuditBase):
                 timeout=60,
             )
             if result.returncode != 0:
-                log(f"Docker Compose stop warning: {result.stderr}", level=2, fg="yellow")
+                log(
+                    f"Docker Compose stop warning: {result.stderr}",
+                    level=2,
+                    fg="yellow",
+                )
             # Transition directly to STOPPED since docker compose stop is synchronous
             self._transition_state(AppStateEnum.STOPPED)
             log(f"Docker Compose app '{self.name}' stopped.", level=2, fg="green")
