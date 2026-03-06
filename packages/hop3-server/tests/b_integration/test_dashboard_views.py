@@ -530,6 +530,93 @@ def test_env_page_service_variable_detection(authenticated_client: TestClient):
         assert response.status_code == 302
 
 
+# App Detail with Addons Tests
+
+
+def test_app_detail_with_addons_renders(authenticated_client: TestClient, isolated_database):
+    """Test that app detail page renders correctly with addons.
+
+    This is a regression test for template variable mismatches like
+    using 'addon' instead of 'service' in {% for service in addons %}.
+    """
+    from hop3.orm import App, AddonCredential
+    from hop3.server.lib.database import get_session
+
+    # Create a test app with an addon credential
+    with get_session() as session:
+        app = App(name="test-app-with-addon", hostname="test.example.com")
+        session.add(app)
+        session.flush()
+
+        # Add an addon credential
+        credential = AddonCredential(
+            app_id=app.id,
+            addon_name="test-postgres",
+            addon_type="postgresql",
+            encrypted_data="encrypted-placeholder",
+        )
+        session.add(credential)
+        session.commit()
+
+    # Request the app detail page
+    response = authenticated_client.get("/dashboard/apps/test-app-with-addon")
+    assert response.status_code == 200
+
+    # The page should render without Jinja2 UndefinedError
+    content = response.content.decode("utf-8", errors="ignore")
+
+    # Check that addon info is displayed
+    assert "test-postgres" in content
+    assert "postgresql" in content
+
+    # Should NOT have undefined variable errors
+    assert "UndefinedError" not in content
+    assert "'addon' is undefined" not in content
+    assert "'service' is undefined" not in content
+
+
+def test_app_detail_with_multiple_addons(authenticated_client: TestClient, isolated_database):
+    """Test app detail page with multiple addons of different types."""
+    from hop3.orm import App, AddonCredential
+    from hop3.server.lib.database import get_session
+
+    with get_session() as session:
+        app = App(name="multi-addon-app", hostname="multi.example.com")
+        session.add(app)
+        session.flush()
+
+        # Add multiple addon credentials
+        addons = [
+            ("my-postgres", "postgresql"),
+            ("my-redis", "redis"),
+            ("my-mysql", "mysql"),
+        ]
+        for addon_name, addon_type in addons:
+            credential = AddonCredential(
+                app_id=app.id,
+                addon_name=addon_name,
+                addon_type=addon_type,
+                encrypted_data="encrypted-placeholder",
+            )
+            session.add(credential)
+        session.commit()
+
+    response = authenticated_client.get("/dashboard/apps/multi-addon-app")
+    assert response.status_code == 200
+
+    content = response.content.decode("utf-8", errors="ignore")
+
+    # All addons should be displayed
+    assert "my-postgres" in content
+    assert "my-redis" in content
+    assert "my-mysql" in content
+
+    # Types should be displayed with correct styling
+    assert "postgresql" in content
+    assert "redis" in content
+    assert "mysql" in content
+
+
 # JSON Serialization Tests
 
 
