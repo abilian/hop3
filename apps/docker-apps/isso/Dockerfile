@@ -15,6 +15,7 @@ RUN apt-get update -q && apt-get install -q -y --no-install-recommends \
     build-essential \
     libffi-dev \
     sqlite3 \
+    gettext-base \
     && rm -rf /var/lib/apt/lists/*
 
 # Create isso user
@@ -28,35 +29,9 @@ RUN mkdir -p /var/lib/isso/db /etc/isso \
 RUN python3 -m venv --system-site-packages /opt/isso \
     && /opt/isso/bin/pip install --no-cache-dir isso gunicorn
 
-# Create default config
-RUN echo '[general]\n\
-dbpath = /var/lib/isso/db/comments.db\n\
-host = http://localhost:8080\n\
-\n\
-[server]\n\
-listen = http://0.0.0.0:8080\n\
-\n\
-[moderation]\n\
-enabled = false\n\
-\n\
-[guard]\n\
-enabled = true\n\
-ratelimit = 2\n\
-direct-reply = 3\n\
-reply-to-self = false\n\
-require-author = false\n\
-require-email = false\n\
-\n\
-[markup]\n\
-options = strikethrough, superscript, autolink\n\
-allowed-elements = \n\
-allowed-attributes = \n\
-\n\
-[hash]\n\
-salt = change-me-to-random-string\n\
-algorithm = pbkdf2\n\
-' > /etc/isso/isso.cfg \
-    && chown isso:isso /etc/isso/isso.cfg
+# Copy config template (envsubst generates final config at runtime)
+COPY isso.cfg.template /etc/isso/isso.cfg.template
+RUN chown isso:isso /etc/isso/isso.cfg.template
 
 # Copy startup script
 COPY start.sh /usr/local/bin/start.sh

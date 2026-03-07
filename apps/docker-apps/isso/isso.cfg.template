@@ -1,0 +1,26 @@
+[general]
+dbpath = /var/lib/isso/db/comments.db
+host = ${ISSO_HOST}
+
+[server]
+listen = http://0.0.0.0:${PORT}
+
+[moderation]
+enabled = false
+
+[guard]
+enabled = true
+ratelimit = 2
+direct-reply = 3
+reply-to-self = false
+require-author = false
+require-email = false
+
+[markup]
+options = strikethrough, superscript, autolink
+allowed-elements =
+allowed-attributes =
+
+[hash]
+salt = ${ISSO_SALT}
+algorithm = pbkdf2

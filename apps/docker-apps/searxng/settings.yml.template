@@ -1,0 +1,20 @@
+use_default_settings: true
+
+general:
+  instance_name: "SearXNG"
+  debug: false
+
+search:
+  safe_search: 0
+  autocomplete: "google"
+
+server:
+  port: ${PORT}
+  bind_address: "0.0.0.0"
+  secret_key: "${SEARXNG_SECRET_KEY}"
+  limiter: false
+  image_proxy: true
+
+ui:
+  static_use_hash: true
+  default_theme: simple

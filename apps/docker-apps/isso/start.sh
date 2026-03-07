@@ -4,14 +4,13 @@ set -e
 # Required environment variables - fail fast if not set
 : "${PORT:?ERROR: PORT is required}"
 
-# Optional with defaults (non-critical)
+# Optional with defaults
 export ISSO_HOST="${ISSO_HOST:-http://localhost:${PORT}}"
 export ISSO_SALT="${ISSO_SALT:-$(head -c 16 /dev/urandom | base64)}"
 
-# Update config
-sed -i "s|host = .*|host = ${ISSO_HOST}|" /etc/isso/isso.cfg
-sed -i "s|listen = .*|listen = http://0.0.0.0:${PORT}|" /etc/isso/isso.cfg
-sed -i "s|salt = .*|salt = ${ISSO_SALT}|" /etc/isso/isso.cfg
+# Generate config from template
+envsubst < /etc/isso/isso.cfg.template > /etc/isso/isso.cfg
+chown isso:isso /etc/isso/isso.cfg
 
 # Ensure proper ownership
 chown -R isso:isso /var/lib/isso
