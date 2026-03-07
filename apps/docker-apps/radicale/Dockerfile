@@ -44,8 +44,8 @@ level = info\n\
 ' > /etc/radicale/config
 
 # Copy startup script
-COPY start-radicale.sh /usr/local/bin/start-radicale.sh
-RUN chmod +x /usr/local/bin/start-radicale.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT is required, no default)
 
@@ -55,4 +55,4 @@ VOLUME /var/lib/radicale/collections
 EXPOSE 8080
 
 USER root
-CMD ["/usr/local/bin/start-radicale.sh"]
+CMD ["/usr/local/bin/start.sh"]

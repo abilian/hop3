@@ -37,8 +37,8 @@ RUN rm -rf /var/www/html/* \
     && chown -R www-data:www-data /var/www/html
 
 # Copy startup script
-COPY start-matomo.sh /usr/local/bin/start-matomo.sh
-RUN chmod +x /usr/local/bin/start-matomo.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Configure Apache
 RUN echo 'Listen 8080' > /etc/apache2/ports.conf \
@@ -47,4 +47,4 @@ RUN echo 'ServerName localhost' >> /etc/apache2/apache2.conf
 
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-matomo.sh"]
+CMD ["/usr/local/bin/start.sh"]

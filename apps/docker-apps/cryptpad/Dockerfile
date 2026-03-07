@@ -43,8 +43,8 @@ USER root
 RUN cp /cryptpad/app/config/config.example.js /cryptpad/app/config/config.js
 
 # Copy startup script
-COPY start-cryptpad.sh /usr/local/bin/start-cryptpad.sh
-RUN chmod +x /usr/local/bin/start-cryptpad.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT is required, no default)
 ENV NODE_ENV=production
@@ -58,4 +58,4 @@ VOLUME /cryptpad/blob
 EXPOSE 8080
 
 USER root
-CMD ["/usr/local/bin/start-cryptpad.sh"]
+CMD ["/usr/local/bin/start.sh"]

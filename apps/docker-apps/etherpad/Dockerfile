@@ -29,10 +29,10 @@ RUN curl -sL "https://github.com/ether/etherpad-lite/archive/refs/tags/v${ETHERP
     && chown -R etherpad:etherpad /home/etherpad
 
 # Copy startup script
-COPY start-etherpad.sh /usr/local/bin/start-etherpad.sh
-RUN chmod +x /usr/local/bin/start-etherpad.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT is required, no default)
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-etherpad.sh"]
+CMD ["/usr/local/bin/start.sh"]

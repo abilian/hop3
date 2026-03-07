@@ -22,10 +22,10 @@ RUN curl -sL "https://github.com/mattermost-community/focalboard/releases/downlo
     && chown -R focalboard:focalboard /opt/focalboard
 
 # Copy startup script
-COPY start-focalboard.sh /usr/local/bin/start-focalboard.sh
-RUN chmod +x /usr/local/bin/start-focalboard.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT and DATABASE_URL are required, no defaults)
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-focalboard.sh"]
+CMD ["/usr/local/bin/start.sh"]

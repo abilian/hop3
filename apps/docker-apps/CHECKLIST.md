@@ -54,9 +54,9 @@ All apps use port 8080 internally. Docker/Hop3 handles external port mapping.
 
 ### Startup Script
 ```dockerfile
-COPY start.sh /usr/local/bin/start-appname.sh
-RUN chmod +x /usr/local/bin/start-appname.sh
-CMD ["/usr/local/bin/start-appname.sh"]
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
+CMD ["/usr/local/bin/start.sh"]
 ```
 
 ---

@@ -38,10 +38,10 @@ RUN mkdir -p /home/synapse/data \
     && chown -R synapse:synapse /home/synapse
 
 # Copy startup script
-COPY start-synapse.sh /usr/local/bin/start-synapse.sh
-RUN chmod +x /usr/local/bin/start-synapse.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT is required, no default)
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-synapse.sh"]
+CMD ["/usr/local/bin/start.sh"]

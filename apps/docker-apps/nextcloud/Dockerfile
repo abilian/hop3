@@ -63,9 +63,9 @@ RUN echo 'memory_limit = 512M' > /etc/php/8.4/apache2/conf.d/99-nextcloud.ini \
     && echo 'max_input_time = 3600' >> /etc/php/8.4/apache2/conf.d/99-nextcloud.ini
 
 # Copy startup script
-COPY start-nextcloud.sh /usr/local/bin/start-nextcloud.sh
-RUN chmod +x /usr/local/bin/start-nextcloud.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-nextcloud.sh"]
+CMD ["/usr/local/bin/start.sh"]

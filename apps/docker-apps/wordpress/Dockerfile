@@ -48,9 +48,9 @@ RUN echo 'Listen 8080' > /etc/apache2/ports.conf \
 RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
 
 # Copy startup script
-COPY start-wordpress.sh /usr/local/bin/start-wordpress.sh
-RUN chmod +x /usr/local/bin/start-wordpress.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-wordpress.sh"]
+CMD ["/usr/local/bin/start.sh"]

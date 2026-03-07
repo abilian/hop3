@@ -34,8 +34,8 @@ RUN mkdir -p /home/gitea/custom/conf /home/gitea/data /home/gitea/repos /home/gi
 COPY --chown=gitea:gitea app.ini.template /home/gitea/custom/conf/app.ini.template
 
 # Copy startup script
-COPY start-gitea.sh /usr/local/bin/start-gitea.sh
-RUN chmod +x /usr/local/bin/start-gitea.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT and PG* are required, no defaults)
 ENV GITEA_WORK_DIR=/home/gitea
@@ -44,4 +44,4 @@ ENV GITEA_CUSTOM=/home/gitea/custom
 EXPOSE 8080
 
 USER root
-CMD ["/usr/local/bin/start-gitea.sh"]
+CMD ["/usr/local/bin/start.sh"]

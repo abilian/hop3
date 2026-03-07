@@ -40,10 +40,10 @@ RUN mkdir -p content/data content/images content/logs content/themes content/ada
 USER root
 
 # Copy startup script
-COPY start-ghost.sh /usr/local/bin/start-ghost.sh
-RUN chmod +x /usr/local/bin/start-ghost.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT is required, no default)
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-ghost.sh"]
+CMD ["/usr/local/bin/start.sh"]

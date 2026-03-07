@@ -60,8 +60,8 @@ RUN echo '<?xml version="1.0" encoding="UTF-8"?>\n\
 ' > /opt/xwiki/webapps/xwiki/WEB-INF/hibernate.cfg.xml.template
 
 # Copy startup script
-COPY start-xwiki.sh /usr/local/bin/start-xwiki.sh
-RUN chmod +x /usr/local/bin/start-xwiki.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT and PG* are required, no defaults)
 ENV XWIKI_DATA_DIR=/var/lib/xwiki/data
@@ -72,4 +72,4 @@ VOLUME /var/lib/xwiki/data
 EXPOSE 8080
 
 USER root
-CMD ["/usr/local/bin/start-xwiki.sh"]
+CMD ["/usr/local/bin/start.sh"]

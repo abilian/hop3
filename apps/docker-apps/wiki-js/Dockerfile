@@ -25,10 +25,10 @@ RUN curl -sL "https://github.com/Requarks/wiki/releases/download/v${WIKIJS_VERSI
     && chown -R wiki:wiki /home/wiki
 
 # Copy startup script
-COPY start-wiki.sh /usr/local/bin/start-wiki.sh
-RUN chmod +x /usr/local/bin/start-wiki.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT is required, no default)
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-wiki.sh"]
+CMD ["/usr/local/bin/start.sh"]

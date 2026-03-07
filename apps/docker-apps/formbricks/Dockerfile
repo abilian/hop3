@@ -49,8 +49,8 @@ RUN pnpm install \
 USER root
 
 # Copy startup script
-COPY start-formbricks.sh /usr/local/bin/start-formbricks.sh
-RUN chmod +x /usr/local/bin/start-formbricks.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT and database vars are required, no defaults)
 ENV NODE_ENV=production
@@ -58,4 +58,4 @@ ENV NODE_ENV=production
 EXPOSE 8080
 
 USER root
-CMD ["/usr/local/bin/start-formbricks.sh"]
+CMD ["/usr/local/bin/start.sh"]
