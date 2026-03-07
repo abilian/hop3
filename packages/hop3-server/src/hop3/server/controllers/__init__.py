@@ -7,15 +7,27 @@
 from __future__ import annotations
 
 from .auth import AuthController
-from .dashboard import DashboardController
+from .dashboard import (
+    AddonsController,
+    AppsController,
+    BackupsController,
+    DashboardIndexController,
+    EnvVarsController,
+    LogsController,
+)
 from .marketplace import MarketplaceController
 from .root import RootController
 from .rpc import RPCController
 from .stream import StreamController
 
 __all__ = [
+    "AddonsController",
+    "AppsController",
     "AuthController",
-    "DashboardController",
+    "BackupsController",
+    "DashboardIndexController",
+    "EnvVarsController",
+    "LogsController",
     "MarketplaceController",
     "RPCController",
     "RootController",
