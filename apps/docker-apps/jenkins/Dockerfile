@@ -30,8 +30,8 @@ RUN curl -fsSL "https://get.jenkins.io/war-stable/${JENKINS_VERSION}/jenkins.war
     -o /usr/share/jenkins/jenkins.war
 
 # Copy startup script
-COPY start-jenkins.sh /usr/local/bin/start-jenkins.sh
-RUN chmod +x /usr/local/bin/start-jenkins.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT is required, no default)
 ENV JENKINS_HOME=/var/jenkins_home
@@ -42,4 +42,4 @@ VOLUME /var/jenkins_home
 EXPOSE 8080
 
 USER root
-CMD ["/usr/local/bin/start-jenkins.sh"]
+CMD ["/usr/local/bin/start.sh"]

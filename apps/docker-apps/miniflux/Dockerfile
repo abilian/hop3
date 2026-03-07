@@ -20,10 +20,10 @@ RUN curl -sL "https://github.com/miniflux/v2/releases/download/${MINIFLUX_VERSIO
     && chmod +x /usr/local/bin/miniflux
 
 # Copy startup script
-COPY start-miniflux.sh /usr/local/bin/start-miniflux.sh
-RUN chmod +x /usr/local/bin/start-miniflux.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT and DATABASE_URL are required, no defaults)
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-miniflux.sh"]
+CMD ["/usr/local/bin/start.sh"]

@@ -23,10 +23,10 @@ RUN curl -sL "https://releases.mattermost.com/${MM_VERSION}/mattermost-${MM_VERS
     && chown -R mattermost:mattermost /opt/mattermost
 
 # Copy startup script
-COPY start-mattermost.sh /usr/local/bin/start-mattermost.sh
-RUN chmod +x /usr/local/bin/start-mattermost.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT and DATABASE_URL are required, no defaults)
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-mattermost.sh"]
+CMD ["/usr/local/bin/start.sh"]

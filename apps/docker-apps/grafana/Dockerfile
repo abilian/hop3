@@ -32,8 +32,8 @@ RUN curl -fsSL "https://dl.grafana.com/oss/release/grafana-${GRAFANA_VERSION}.li
     && chown -R grafana:grafana /usr/share/grafana
 
 # Copy startup script
-COPY start-grafana.sh /usr/local/bin/start-grafana.sh
-RUN chmod +x /usr/local/bin/start-grafana.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT is required, no default)
 ENV GF_PATHS_DATA=/var/lib/grafana
@@ -45,4 +45,4 @@ VOLUME /var/lib/grafana
 EXPOSE 8080
 
 USER root
-CMD ["/usr/local/bin/start-grafana.sh"]
+CMD ["/usr/local/bin/start.sh"]

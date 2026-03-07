@@ -60,8 +60,8 @@ RUN printf '%s\n' \
     && sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf
 
 # Copy startup script
-COPY start-dolibarr.sh /usr/local/bin/start-dolibarr.sh
-RUN chmod +x /usr/local/bin/start-dolibarr.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment
 ENV APACHE_RUN_USER=www-data
@@ -73,4 +73,4 @@ VOLUME /var/lib/dolibarr/documents
 
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-dolibarr.sh"]
+CMD ["/usr/local/bin/start.sh"]

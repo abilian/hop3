@@ -37,8 +37,8 @@ RUN rm -rf /var/www/html/* \
     && chown -R www-data:www-data /var/www/html
 
 # Copy startup script
-COPY start-bookstack.sh /usr/local/bin/start-bookstack.sh
-RUN chmod +x /usr/local/bin/start-bookstack.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Configure Apache
 RUN echo 'Listen 8080' > /etc/apache2/ports.conf \
@@ -47,4 +47,4 @@ RUN echo 'Listen 8080' > /etc/apache2/ports.conf \
 
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-bookstack.sh"]
+CMD ["/usr/local/bin/start.sh"]

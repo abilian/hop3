@@ -38,8 +38,8 @@ RUN curl -fsSL "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqub
     && chown -R sonarqube:sonarqube /opt/sonarqube
 
 # Copy startup script
-COPY start-sonarqube.sh /usr/local/bin/start-sonarqube.sh
-RUN chmod +x /usr/local/bin/start-sonarqube.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT and PG* are required, no defaults)
 
@@ -51,4 +51,4 @@ VOLUME /var/lib/sonarqube/logs
 EXPOSE 8080
 
 USER root
-CMD ["/usr/local/bin/start-sonarqube.sh"]
+CMD ["/usr/local/bin/start.sh"]

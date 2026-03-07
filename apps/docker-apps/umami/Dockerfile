@@ -38,10 +38,10 @@ RUN curl -sL "https://github.com/umami-software/umami/archive/refs/tags/${UMAMI_
     && chown -R umami:umami /home/umami
 
 # Copy startup script
-COPY start-umami.sh /usr/local/bin/start-umami.sh
-RUN chmod +x /usr/local/bin/start-umami.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT and DATABASE_URL are required, no defaults)
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-umami.sh"]
+CMD ["/usr/local/bin/start.sh"]

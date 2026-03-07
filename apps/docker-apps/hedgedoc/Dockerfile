@@ -51,9 +51,9 @@ ENV CMD_UPLOADS_PATH=./public/uploads
 
 # Copy startup script
 USER root
-COPY start-hedgedoc.sh /usr/local/bin/start-hedgedoc.sh
-RUN chmod +x /usr/local/bin/start-hedgedoc.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-hedgedoc.sh"]
+CMD ["/usr/local/bin/start.sh"]

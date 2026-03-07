@@ -63,10 +63,10 @@ RUN mkdir -p /app/files /app/db \
     && chown -R vikunja:vikunja /app
 
 # Copy startup script
-COPY start-vikunja.sh /usr/local/bin/start-vikunja.sh
-RUN chmod +x /usr/local/bin/start-vikunja.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT and PG* are required, no defaults)
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-vikunja.sh"]
+CMD ["/usr/local/bin/start.sh"]

@@ -71,8 +71,8 @@ ui:\n\
     && chown searxng:searxng /etc/searxng/settings.yml
 
 # Copy startup script
-COPY start-searxng.sh /usr/local/bin/start-searxng.sh
-RUN chmod +x /usr/local/bin/start-searxng.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT is required, no default)
 ENV SEARXNG_SETTINGS_PATH=/etc/searxng/settings.yml
@@ -80,4 +80,4 @@ ENV SEARXNG_SETTINGS_PATH=/etc/searxng/settings.yml
 EXPOSE 8080
 
 USER root
-CMD ["/usr/local/bin/start-searxng.sh"]
+CMD ["/usr/local/bin/start.sh"]

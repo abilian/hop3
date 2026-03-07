@@ -78,10 +78,10 @@ RUN SECRET_KEY_BASE=precompile_placeholder \
     && chown -R mastodon:mastodon /home/mastodon
 
 # Copy startup script
-COPY start-mastodon.sh /usr/local/bin/start-mastodon.sh
-RUN chmod +x /usr/local/bin/start-mastodon.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT, PG*, and REDIS* are required, no defaults)
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start-mastodon.sh"]
+CMD ["/usr/local/bin/start.sh"]

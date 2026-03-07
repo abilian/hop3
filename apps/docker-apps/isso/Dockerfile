@@ -59,8 +59,8 @@ algorithm = pbkdf2\n\
     && chown isso:isso /etc/isso/isso.cfg
 
 # Copy startup script
-COPY start-isso.sh /usr/local/bin/start-isso.sh
-RUN chmod +x /usr/local/bin/start-isso.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Environment (PORT is required, no default)
 
@@ -70,4 +70,4 @@ VOLUME /var/lib/isso/db
 EXPOSE 8080
 
 USER root
-CMD ["/usr/local/bin/start-isso.sh"]
+CMD ["/usr/local/bin/start.sh"]
