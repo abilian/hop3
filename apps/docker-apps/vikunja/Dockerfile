@@ -6,7 +6,7 @@ FROM debian:trixie-slim AS builder
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Go and build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update -q && apt-get install -q -y --no-install-recommends \
     curl \
     ca-certificates \
     git \
@@ -44,7 +44,7 @@ FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update -q && apt-get install -q -y --no-install-recommends \
     ca-certificates \
     tzdata \
     && rm -rf /var/lib/apt/lists/*

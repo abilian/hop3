@@ -8,7 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies (procps needed for ps command used by SonarQube startup)
 # SonarQube 26.x requires Java 21
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update -q && apt-get install -q -y --no-install-recommends \
     openjdk-21-jre-headless \
     curl \
     ca-certificates \
