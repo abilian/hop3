@@ -158,12 +158,14 @@ COPY config.template /etc/app/config.template
 envsubst < /etc/app/config.template > /etc/app/config
 ```
 
+Reference: <https://blog.stephane-robert.info/docs/outils/projets/envsubst/>
+
 **Option B: Environment-aware app (no config file)**
 ```bash
 # App reads from environment directly - just validate vars
 ```
 
-**Option C: Inline creation (simple configs only)**
+**Option C: Inline creation (very simple configs only)**
 ```bash
 cat > /etc/app/config <<EOF
 setting1 = ${VAR1}

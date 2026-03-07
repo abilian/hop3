@@ -20,28 +20,16 @@ RUN useradd -m -d /var/lib/radicale -s /bin/bash radicale
 RUN mkdir -p /var/lib/radicale/collections /etc/radicale \
     && chown -R radicale:radicale /var/lib/radicale /etc/radicale
 
-# Install Radicale
+# Install Radicale and gettext-base for envsubst
+RUN apt-get update -q && apt-get install -q -y --no-install-recommends gettext-base \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN python3 -m venv /opt/radicale \
     && /opt/radicale/bin/pip install --no-cache-dir radicale passlib[bcrypt]
 
-# Create default config
-RUN echo '[server]\n\
-hosts = 0.0.0.0:8080\n\
-\n\
-[auth]\n\
-type = htpasswd\n\
-htpasswd_filename = /etc/radicale/users\n\
-htpasswd_encryption = bcrypt\n\
-\n\
-[storage]\n\
-filesystem_folder = /var/lib/radicale/collections\n\
-\n\
-[web]\n\
-type = internal\n\
-\n\
-[logging]\n\
-level = info\n\
-' > /etc/radicale/config
+# Copy config template (envsubst generates final config at runtime)
+COPY radicale.cfg.template /etc/radicale/config.template
+RUN chown radicale:radicale /etc/radicale/config.template
 
 # Copy startup script
 COPY start.sh /usr/local/bin/start.sh

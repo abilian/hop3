@@ -32,21 +32,8 @@ RUN rm -f index.html \
     && curl -sL "https://github.com/kanboard/kanboard/archive/refs/tags/v${KANBOARD_VERSION}.tar.gz" | tar xz --strip-components=1 \
     && chown -R www-data:www-data /var/www/html
 
-# Create config file (env vars validated by startup script)
-RUN echo '<?php\n\
-// Kanboard configuration for Hop3\n\
-// Required: MYSQL_* env vars are validated by startup script before Apache starts\n\
-\n\
-define("DB_DRIVER", "mysql");\n\
-define("DB_HOST", getenv("MYSQL_HOST"));\n\
-define("DB_PORT", getenv("MYSQL_PORT"));\n\
-define("DB_USERNAME", getenv("MYSQL_USER"));\n\
-define("DB_PASSWORD", getenv("MYSQL_PASSWORD"));\n\
-define("DB_NAME", getenv("MYSQL_DATABASE"));\n\
-\n\
-// Enable plugins\n\
-define("PLUGIN_INSTALLER", true);\n\
-' > /var/www/html/config.php
+# Copy config file (uses getenv() to read env vars at runtime)
+COPY config.php.template /var/www/html/config.php
 
 # Configure Apache
 RUN echo 'Listen 8080' > /etc/apache2/ports.conf \

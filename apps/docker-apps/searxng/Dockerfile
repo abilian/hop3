@@ -46,29 +46,13 @@ RUN python3 -m venv /usr/local/searxng/venv \
     && /usr/local/searxng/venv/bin/pip install --no-cache-dir -q -r /usr/local/searxng/searxng-src/requirements.txt \
     && /usr/local/searxng/venv/bin/pip install --no-cache-dir -q --no-build-isolation /usr/local/searxng/searxng-src
 
-# Create default settings
-RUN echo 'use_default_settings: true\n\
-\n\
-general:\n\
-  instance_name: "SearXNG"\n\
-  debug: false\n\
-\n\
-search:\n\
-  safe_search: 0\n\
-  autocomplete: "google"\n\
-\n\
-server:\n\
-  port: 8080\n\
-  bind_address: "0.0.0.0"\n\
-  secret_key: "change-me-to-a-random-string"\n\
-  limiter: false\n\
-  image_proxy: true\n\
-\n\
-ui:\n\
-  static_use_hash: true\n\
-  default_theme: simple\n\
-' > /etc/searxng/settings.yml \
-    && chown searxng:searxng /etc/searxng/settings.yml
+# Install gettext-base for envsubst
+RUN apt-get update -q && apt-get install -q -y --no-install-recommends gettext-base \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy settings template (envsubst generates final config at runtime)
+COPY settings.yml.template /etc/searxng/settings.yml.template
+RUN chown searxng:searxng /etc/searxng/settings.yml.template
 
 # Copy startup script
 COPY start.sh /usr/local/bin/start.sh

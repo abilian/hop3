@@ -4,15 +4,15 @@ set -e
 # Required environment variables - fail fast if not set
 : "${PORT:?ERROR: PORT is required}"
 
-# Optional with defaults (non-critical)
-export SEARXNG_SECRET="${SEARXNG_SECRET:-$(head -c 32 /dev/urandom | base64)}"
+# Optional with defaults
+export SEARXNG_SECRET_KEY="${SEARXNG_SECRET_KEY:-$(head -c 32 /dev/urandom | base64)}"
 
-# Configuration
+# Generate settings from template
+envsubst < /etc/searxng/settings.yml.template > /etc/searxng/settings.yml
+chown searxng:searxng /etc/searxng/settings.yml
+
+# Configuration path
 export SEARXNG_SETTINGS_PATH="/etc/searxng/settings.yml"
-
-# Update settings with port and secret
-sed -i "s/port: 8080/port: ${PORT}/" /etc/searxng/settings.yml
-sed -i "s/secret_key: .*/secret_key: \"${SEARXNG_SECRET}\"/" /etc/searxng/settings.yml
 
 # Run SearXNG as searxng user
 exec su searxng -c "cd /usr/local/searxng/searxng-src && \
