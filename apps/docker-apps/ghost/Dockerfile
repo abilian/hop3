@@ -8,7 +8,7 @@ ENV NODE_ENV=production
 
 # Install build tools, envsubst, and Node.js from Debian repos
 # Debian trixie has Node.js 18+ which Ghost supports
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update -q && apt-get install -q -y --no-install-recommends \
     curl \
     ca-certificates \
     gettext-base \

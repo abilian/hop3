@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV NODE_ENV=production
 
 # Install Node.js and build tools for native modules
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update -q && apt-get install -q -y --no-install-recommends \
     nodejs \
     npm \
     curl \

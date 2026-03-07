@@ -6,7 +6,7 @@ FROM debian:trixie-slim
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install build dependencies for Ruby and Mastodon
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update -q && apt-get install -q -y --no-install-recommends \
     curl \
     ca-certificates \
     gnupg \
@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js and enable corepack for Yarn 4
-RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm \
+RUN apt-get update -q && apt-get install -q -y --no-install-recommends nodejs npm \
     && corepack enable \
     && rm -rf /var/lib/apt/lists/*
 

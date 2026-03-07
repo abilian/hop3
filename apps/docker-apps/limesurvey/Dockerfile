@@ -6,7 +6,7 @@ FROM debian:trixie-slim
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Apache, PHP, and dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update -q && apt-get install -q -y --no-install-recommends \
     apache2 \
     libapache2-mod-php \
     php \
