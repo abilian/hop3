@@ -91,7 +91,7 @@ DEBIAN_SPEC = PackageSpec(
         "libffi-dev",
         "libssl-dev",
     ],
-    docker_packages=["docker.io", "docker-buildx", "docker-compose-v2"],
+    docker_packages=["docker.io", "docker-compose"],
     mysql_packages=["mysql-server", "mysql-client", "libmysqlclient-dev"],
     redis_packages=["redis-server"],
     conditional_packages={"npm": "npm"},

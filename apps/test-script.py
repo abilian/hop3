@@ -123,7 +123,9 @@ class AppConfig:
         )
 
 
-def run(cmd: str, check: bool = True, capture: bool = True, quiet: bool = False) -> subprocess.CompletedProcess:
+def run(
+    cmd: str, check: bool = True, capture: bool = True, quiet: bool = False
+) -> subprocess.CompletedProcess:
     """Run a shell command.
 
     Args:
@@ -240,32 +242,39 @@ def run_streaming(cmd: str, check: bool = True, timeout: int = 600) -> int:
     return process.returncode
 
 
-def run_on_server(cmd: str, check: bool = False, quiet: bool = False) -> subprocess.CompletedProcess:
+def run_on_server(
+    cmd: str, check: bool = False, quiet: bool = False
+) -> subprocess.CompletedProcess:
     """Run a command on the Hop3 server via SSH."""
-    host = os.environ.get("HOP3_DEV_HOST", "hop3.dev")
+    host = os.environ.get("HOP3_TEST_HOST", "hop3.test")
     ssh_cmd = f'ssh root@{host} "{cmd}"'
     return run(ssh_cmd, check=check, quiet=quiet)
 
 
-
-
 def collect_debug_info_native(name: str) -> None:
     """Collect debug information for a native/uWSGI app."""
-    log_print(f"\n{'='*60}")
+    log_print(f"\n{'=' * 60}")
     log_print(f"DEBUG INFO for: {name} (native/uWSGI)")
-    log_print(f"{'='*60}")
+    log_print(f"{'=' * 60}")
 
     # Check uWSGI config
     log_print("\n--- uWSGI config ---")
-    run_on_server(f"cat /home/hop3/uwsgi-enabled/{name}_web.1.ini 2>/dev/null | head -30 || echo 'Config not found'")
+    run_on_server(
+        f"cat /home/hop3/uwsgi-enabled/{name}_web.1.ini 2>/dev/null | head -30 || echo 'Config not found'"
+    )
 
     # Check uWSGI logs
     log_print(f"\n--- uWSGI logs (last 30 lines) ---")
-    run_on_server(f"tail -30 /home/hop3/apps/{name}/log/web.1.log 2>/dev/null || echo 'Log not found'")
+    run_on_server(
+        f"tail -30 /home/hop3/apps/{name}/log/web.1.log 2>/dev/null || echo 'Log not found'"
+    )
 
     # Check app port from config
     log_print(f"\n--- App port configuration ---")
-    result = run_on_server(f"grep 'env = PORT=' /home/hop3/uwsgi-enabled/{name}_web.1.ini 2>/dev/null", quiet=True)
+    result = run_on_server(
+        f"grep 'env = PORT=' /home/hop3/uwsgi-enabled/{name}_web.1.ini 2>/dev/null",
+        quiet=True,
+    )
     port = None
     if result.returncode == 0 and "PORT=" in result.stdout:
         port = result.stdout.split("PORT=")[1].strip()
@@ -280,26 +289,32 @@ def collect_debug_info_native(name: str) -> None:
 
     # Check if process is running
     log_print(f"\n--- Process status ---")
-    run_on_server(f"pgrep -f 'apps/{name}' && echo 'Process found' || echo 'No process running'")
+    run_on_server(
+        f"pgrep -f 'apps/{name}' && echo 'Process found' || echo 'No process running'"
+    )
 
     # Check LIVE_ENV
     log_print(f"\n--- Environment variables (LIVE_ENV) ---")
-    run_on_server(f"cat /home/hop3/apps/{name}/venv/LIVE_ENV 2>/dev/null | head -20 || echo 'LIVE_ENV not found'")
+    run_on_server(
+        f"cat /home/hop3/apps/{name}/venv/LIVE_ENV 2>/dev/null | head -20 || echo 'LIVE_ENV not found'"
+    )
 
     # Check source directory
     log_print(f"\n--- Source directory contents ---")
-    run_on_server(f"ls -la /home/hop3/apps/{name}/src/ 2>/dev/null | head -20 || echo 'Source dir not found'")
+    run_on_server(
+        f"ls -la /home/hop3/apps/{name}/src/ 2>/dev/null | head -20 || echo 'Source dir not found'"
+    )
 
-    log_print(f"\n{'='*60}")
+    log_print(f"\n{'=' * 60}")
     log_print("END DEBUG INFO")
-    log_print(f"{'='*60}\n")
+    log_print(f"{'=' * 60}\n")
 
 
 def collect_debug_info_docker(name: str) -> None:
     """Collect debug information for a Docker app."""
-    log_print(f"\n{'='*60}")
+    log_print(f"\n{'=' * 60}")
     log_print(f"DEBUG INFO for: {name} (Docker)")
-    log_print(f"{'='*60}")
+    log_print(f"{'=' * 60}")
 
     # Check Docker containers
     log_print("\n--- Docker containers ---")
@@ -339,7 +354,9 @@ def collect_debug_info_docker(name: str) -> None:
             )
 
             log_print(f"\n--- Response body preview ---")
-            run_on_server(f"curl -s http://{host_port}/ 2>/dev/null | head -20 || echo 'No response'")
+            run_on_server(
+                f"curl -s http://{host_port}/ 2>/dev/null | head -20 || echo 'No response'"
+            )
 
     # Check Apache/app error logs inside container
     log_print(f"\n--- Application logs inside container ---")
@@ -355,9 +372,9 @@ def collect_debug_info_docker(name: str) -> None:
         "grep -E '(DATABASE|MYSQL|POSTGRES|REDIS|PG)' || echo 'No DB env vars'"
     )
 
-    log_print(f"\n{'='*60}")
+    log_print(f"\n{'=' * 60}")
     log_print("END DEBUG INFO")
-    log_print(f"{'='*60}\n")
+    log_print(f"{'=' * 60}\n")
 
 
 def collect_debug_info(name: str, deployment_type: str = "docker") -> None:
@@ -397,7 +414,7 @@ def check_uwsgi_running(name: str) -> tuple[bool, str | None]:
     # Check if process is running on that port
     result = run_on_server(
         f"curl -s -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/ 2>/dev/null",
-        quiet=True
+        quiet=True,
     )
     if result.returncode == 0 and result.stdout.strip() not in ("000", ""):
         return True, port
@@ -415,13 +432,15 @@ def check_container_running(name: str) -> tuple[bool, str | None]:
     # Check container status
     result = run_on_server(
         f"docker inspect {container_name} --format '{{{{.State.Status}}}}' 2>/dev/null",
-        quiet=True
+        quiet=True,
     )
     if result.returncode != 0 or "running" not in result.stdout.lower():
         return False, None
 
     # Get port mapping
-    result = run_on_server(f"docker port {container_name} 2>/dev/null | head -1", quiet=True)
+    result = run_on_server(
+        f"docker port {container_name} 2>/dev/null | head -1", quiet=True
+    )
     if result.returncode != 0 or "->" not in result.stdout:
         return True, None
 
@@ -436,7 +455,9 @@ def check_container_running(name: str) -> tuple[bool, str | None]:
     return True, None
 
 
-def check_app_running(name: str, deployment_type: str = "docker") -> tuple[bool, str | None]:
+def check_app_running(
+    name: str, deployment_type: str = "docker"
+) -> tuple[bool, str | None]:
     """Check if the app is running via Docker or uWSGI.
 
     Args:
@@ -452,14 +473,16 @@ def check_app_running(name: str, deployment_type: str = "docker") -> tuple[bool,
         return check_uwsgi_running(name)
 
 
-def check_http_from_server(name: str, port: str, quiet: bool = False) -> tuple[bool, str]:
+def check_http_from_server(
+    name: str, port: str, quiet: bool = False
+) -> tuple[bool, str]:
     """Check HTTP connectivity from the server itself.
 
     Returns (success, http_code) tuple.
     """
     result = run_on_server(
         f"curl -s -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/ 2>/dev/null",
-        quiet=True
+        quiet=True,
     )
     if result.returncode != 0:
         return False, "000"
@@ -507,7 +530,9 @@ def wait_for_http_ready(name: str, port: str, timeout: int = 30) -> bool:
     return False
 
 
-def wait_for_running(name: str, deployment_type: str = "docker", timeout: int = STARTUP_TIMEOUT) -> bool:
+def wait_for_running(
+    name: str, deployment_type: str = "docker", timeout: int = STARTUP_TIMEOUT
+) -> bool:
     """Wait for app status to be RUNNING.
 
     Args:
@@ -588,14 +613,14 @@ def deploy_app(app: AppConfig) -> bool:
     Addons and env vars are now handled automatically by hop3 deploy
     based on the [[addons]] and [env] sections in hop3.toml.
     """
-    log_print(f"\n{'='*60}")
+    log_print(f"\n{'=' * 60}")
     log_print(f"Deploying: {app.title} ({app.name})")
     log_print(f"  Path: {app.path}")
     log_print(f"  Type: {app.deployment_type}")
     log_print(f"  Addons (from config): {app.addons}")
     if app.env_vars:
         log_print(f"  Env vars (from config): {list(app.env_vars.keys())}")
-    log_print(f"{'='*60}")
+    log_print(f"{'=' * 60}")
 
     if not app.path.exists():
         log_print(f"  App directory not found: {app.path}")
@@ -633,7 +658,9 @@ def cleanup_app(app: AppConfig) -> None:
     if app.deployment_type == "docker":
         # Stop and remove Docker container
         container_name = f"{app.name}-web-1"
-        run_on_server(f"docker stop {container_name} 2>/dev/null; docker rm {container_name} 2>/dev/null")
+        run_on_server(
+            f"docker stop {container_name} 2>/dev/null; docker rm {container_name} 2>/dev/null"
+        )
 
     # Destroy app (works for both Docker and native)
     run(f"hop3 app:destroy {app.name} -y", check=False)
@@ -641,7 +668,10 @@ def cleanup_app(app: AppConfig) -> None:
     # Destroy addons
     for addon_type in app.addons:
         addon_name = f"{app.name}-{addon_type}"
-        run(f"hop3 addons:destroy {addon_name} --service-type {addon_type} -y", check=False)
+        run(
+            f"hop3 addons:destroy {addon_name} --service-type {addon_type} -y",
+            check=False,
+        )
 
 
 def expand_app_paths(patterns: list[str]) -> list[Path]:
@@ -717,7 +747,9 @@ def main():
         try:
             CURRENT_LOG_FILE = open(log_file_path, "w", encoding="utf-8")
             CURRENT_LOG_FILE.write(f"=== Log for {app.name} ===\n")
-            CURRENT_LOG_FILE.write(f"Started at: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+            CURRENT_LOG_FILE.write(
+                f"Started at: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+            )
         except OSError as e:
             print(f"Warning: Could not create log file {log_file_path}: {e}")
             CURRENT_LOG_FILE = None
@@ -742,9 +774,9 @@ def main():
             CURRENT_LOG_FILE = None
 
     # Summary (to console only)
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Results:")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     for name, status in results.items():
         symbol = "+" if status == "OK" else "-"
         print(f"  [{symbol}] {name}: {status}")

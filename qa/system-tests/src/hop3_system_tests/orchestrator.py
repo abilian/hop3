@@ -17,9 +17,10 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from .deployment import DeploymentManager, DeploymentResult, DeploymentVerifier
+from .diagnostics import DiagnosticCollector, DiagnosticResult
 from .hetzner import HetznerError, HetznerManager, ServerInfo
 from .runner import AllSuitesResult, TestRunnerManager
-from .ssh import verify_ssh_connectivity
+from .ssh import SSHConnection, SSHConnectionInfo, verify_ssh_connectivity
 
 if TYPE_CHECKING:
     from .config import Config
@@ -56,6 +57,7 @@ class DailyTestResult:
     phase_results: list[PhaseResult] = field(default_factory=list)
     deployment_result: DeploymentResult | None = None
     test_results: AllSuitesResult | None = None
+    diagnostics: DiagnosticResult | None = None
 
     @property
     def success(self) -> bool:
@@ -501,8 +503,59 @@ class DailyTestOrchestrator:
 
     def _finalize(self) -> DailyTestResult:
         """Finalize the test run and print summary."""
+        # Collect diagnostics if there were failures
+        if not self._result.success and self._result.server_info:
+            self._collect_diagnostics()
+
         self._print_summary()
         return self._result
+
+    def _collect_diagnostics(self) -> None:
+        """Collect diagnostic information from the server after failures."""
+        if not self._result.server_info:
+            return
+
+        server_ip = self._result.server_info.ipv4
+        self._log_phase("Diagnostic Collection")
+
+        # Get list of failed tests
+        failed_tests: list[str] = []
+        if self._result.test_results:
+            failed_tests = [r.test.name for r in self._result.test_results.get_failed_tests()]
+
+        # Create output directory
+        logs_dir = Path("./logs")
+
+        self.console.print(f"  Collecting diagnostics from {server_ip}...")
+        self.console.print(f"  Failed tests: {len(failed_tests)}")
+
+        info = SSHConnectionInfo(host=server_ip, user="root")
+        conn = SSHConnection(info)
+
+        try:
+            if not conn.connect(timeout=30):
+                self.console.print("  [red]Failed to connect for diagnostics[/red]")
+                return
+
+            collector = DiagnosticCollector(conn, logs_dir, self.console)
+            diagnostics = collector.collect(failed_tests)
+            self._result.diagnostics = diagnostics
+
+            if diagnostics.success:
+                self.console.print(
+                    f"  [green]Diagnostics saved to: {diagnostics.output_dir}[/green]"
+                )
+            else:
+                self.console.print(
+                    f"  [yellow]Diagnostics collected with {len(diagnostics.errors)} errors[/yellow]"
+                )
+                self.console.print(f"  Output: {diagnostics.output_dir}")
+
+        except Exception as e:
+            self.console.print(f"  [red]Error collecting diagnostics: {e}[/red]")
+
+        finally:
+            conn.close()
 
     def _print_header(self) -> None:
         """Print test run header."""
@@ -567,6 +620,20 @@ class DailyTestOrchestrator:
                 error = result.error or "unknown error"
                 self.console.print(f"  [red]✗[/red] {result.test.name}: {error}")
 
+        # Print diagnostics location if available
+        if self._result.diagnostics:
+            self.console.print()
+            self.console.print(
+                f"[bold cyan]Diagnostics:[/bold cyan] {self._result.diagnostics.output_dir}"
+            )
+            self.console.print(
+                f"  Files collected: {len(self._result.diagnostics.collected_files)}"
+            )
+            if self._result.diagnostics.errors:
+                self.console.print(
+                    f"  [yellow]Collection errors: {len(self._result.diagnostics.errors)}[/yellow]"
+                )
+
     def _log_phase(self, name: str) -> None:
         """Log start of a phase."""
         self.console.print()
@@ -586,8 +653,6 @@ class DailyTestOrchestrator:
         Returns:
             True if Docker is installed and working.
         """
-        from .ssh import SSHConnection, SSHConnectionInfo
-
         self.console.print("  Checking Docker installation...")
 
         info = SSHConnectionInfo(host=server_ip, user="root")
@@ -692,8 +757,6 @@ class DailyTestOrchestrator:
         # Try to get remote diagnostics via SSH
         self.console.print()
         self.console.print("[bold]Remote server diagnostics:[/bold]")
-
-        from .ssh import SSHConnection, SSHConnectionInfo
 
         info = SSHConnectionInfo(host=server_ip, user="root")
         conn = SSHConnection(info)

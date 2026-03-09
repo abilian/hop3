@@ -33,6 +33,11 @@ dependencies = [
     "hop3-installer",
 ]
 
+[tool.uv.sources]
+# Use local workspace packages for development
+hop3-testing = { path = "../../packages/hop3-testing", editable = true }
+hop3-installer = { path = "../../packages/hop3-installer", editable = true }
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",

@@ -67,7 +67,7 @@ def cli() -> None:
 @click.option(
     "--suites",
     multiple=True,
-    help="Test suites to run (can be specified multiple times).",
+    help="Test suites to run: test-apps, docker-apps, native-apps, demos, tutorials.",
 )
 @click.option(
     "--use-local-repo",
@@ -379,7 +379,7 @@ def deploy(server_id: int, branch: str, clean: bool) -> None:
     "--suites",
     multiple=True,
     default=["test-apps"],
-    help="Test suites to run (can be specified multiple times).",
+    help="Test suites to run: test-apps, docker-apps, native-apps, demos, tutorials.",
 )
 @click.option(
     "--fail-fast",

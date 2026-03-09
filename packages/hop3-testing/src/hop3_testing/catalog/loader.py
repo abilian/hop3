@@ -379,6 +379,59 @@ def _get_deployment_type_from_hop3_toml(data: dict[str, Any]) -> str:
     return "native" if builder == "local" else "docker"
 
 
+def _infer_category_from_path_and_type(app_path: Path, deployment_type: str) -> Category:
+    """Infer test category based on directory path and deployment type.
+
+    Priority:
+    1. Apps in demos/ -> DEMO (regardless of deployment type)
+    2. Apps in test-apps/ -> DEPLOYMENT (regardless of deployment type)
+    3. Apps in docker-apps/ -> DOCKER_APP
+    4. Apps in native-apps/ -> NATIVE_APP
+    5. Fallback: use deployment type
+    """
+    # Convert to string for easy checking
+    path_str = str(app_path)
+
+    # Check demos first - demos keep DEMO category regardless of deployment type
+    if "/demos/" in path_str:
+        return Category.DEMO
+
+    # Check test-apps - these stay as DEPLOYMENT
+    if "/test-apps/" in path_str:
+        return Category.DEPLOYMENT
+
+    # Check docker-apps and native-apps directories
+    if "/docker-apps/" in path_str or path_str.endswith("/docker-apps"):
+        return Category.DOCKER_APP
+    if "/native-apps/" in path_str or path_str.endswith("/native-apps"):
+        return Category.NATIVE_APP
+
+    # Fallback: use deployment type if not in special directories
+    if deployment_type == "docker":
+        return Category.DOCKER_APP
+    if deployment_type == "native":
+        return Category.NATIVE_APP
+
+    return Category.DEPLOYMENT
+
+
+def _get_name_prefix_from_path(app_path: Path) -> str:
+    """Get a name prefix based on source directory.
+
+    Apps in apps/docker-apps get "docker:" prefix
+    Apps in apps/native-apps get "native:" prefix
+    Other apps get no prefix
+    """
+    path_str = str(app_path)
+
+    if "/docker-apps/" in path_str or path_str.endswith("/docker-apps"):
+        return "docker:"
+    if "/native-apps/" in path_str or path_str.endswith("/native-apps"):
+        return "native:"
+
+    return ""
+
+
 def _derive_unique_name(app_path: Path) -> str:
     """Derive a unique name from the app path.
 
@@ -422,8 +475,12 @@ def generate_test_definition_from_hop3_toml(
     """
     # Get app name from hop3.toml metadata or derive from path
     metadata_section = hop3_data.get("metadata", {})
-    app_name = metadata_section.get("id") or _derive_unique_name(app_path)
-    app_title = metadata_section.get("title", app_name)
+    base_name = metadata_section.get("id") or _derive_unique_name(app_path)
+
+    # Add prefix to make names unique between docker-apps and native-apps
+    name_prefix = _get_name_prefix_from_path(app_path)
+    app_name = f"{name_prefix}{base_name}"
+    app_title = metadata_section.get("title", base_name)
 
     # Extract deployment info from hop3.toml
     services = _extract_services_from_hop3_toml(hop3_data)
@@ -441,10 +498,12 @@ def generate_test_definition_from_hop3_toml(
     # Add service tags
     covers.extend(services)
 
+    # Determine category based on source path and deployment type
+    category = _infer_category_from_path_and_type(app_path, deployment_type)
+
     # Default test-specific values (can be overridden by test.toml)
     tier = Tier.MEDIUM  # Docker apps typically take longer
     priority = Priority.P1
-    category = Category.DEPLOYMENT
     description = app_title
     validations = []
 

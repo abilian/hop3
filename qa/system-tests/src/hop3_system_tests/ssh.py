@@ -93,18 +93,17 @@ class SSHKeyManager:
         Returns:
             True if key was added successfully.
         """
-        key = self.get_host_key(host, port)
-        if not key:
-            return False
-
         # Ensure .ssh directory exists
         self.known_hosts_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
 
-        # Append key to known_hosts
-        with self.known_hosts_path.open("a") as f:
-            f.write(key + "\n")
-
-        return True
+        # Use ssh-keyscan with shell redirection to properly append keys
+        # This handles multi-line output correctly
+        result = subprocess.run(
+            f'ssh-keyscan -p {port} -t ed25519,rsa {host} >> {self.known_hosts_path} 2>/dev/null',
+            shell=True,
+            check=False,
+        )
+        return result.returncode == 0
 
     def update_host_key(
         self,
@@ -130,34 +129,13 @@ class SSHKeyManager:
         # Add new key for primary host
         success = self.add_host_key(host, port)
 
-        # Also add for aliases (they share the same key)
+        # For aliases, we need to scan them separately since they may resolve
+        # to the same IP but need their own entries
         if success and additional_hosts:
-            key = self.get_host_key(host, port)
-            if key:
-                for alias in additional_hosts:
-                    # Replace the hostname in the key line
-                    alias_key = self._replace_host_in_key(key, alias)
-                    if alias_key:
-                        with self.known_hosts_path.open("a") as f:
-                            f.write(alias_key + "\n")
+            for alias in additional_hosts:
+                self.add_host_key(alias, port)
 
         return success
-
-    def _replace_host_in_key(self, key_line: str, new_host: str) -> str | None:
-        """Replace the hostname in a known_hosts key line.
-
-        Args:
-            key_line: Original key line from ssh-keyscan.
-            new_host: New hostname to use.
-
-        Returns:
-            Modified key line or None if parsing fails.
-        """
-        # Key format: "hostname keytype base64key"
-        parts = key_line.split(None, 2)
-        if len(parts) >= 3:
-            return f"{new_host} {parts[1]} {parts[2]}"
-        return None
 
     def find_hostnames_for_ip(self, ip_address: str) -> list[str]:
         """Find all hostnames in known_hosts that have the same IP.

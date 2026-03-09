@@ -484,7 +484,7 @@ wheels = [
 [[package]]
 name = "hop3-cli"
 version = "0.4.0b5"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "../../packages/hop3-cli" }
 dependencies = [
     { name = "jsonrpcclient" },
     { name = "loguru" },
@@ -497,18 +497,33 @@ dependencies = [
     { name = "tabulate" },
     { name = "toml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1c/c7/7f2be3d42a1ee0a599bee65559b57d8bf8ebde2f488617e314fe3916dd1e/hop3_cli-0.4.0b5.tar.gz", hash = "sha256:7702c3331074074c56bfb07f49c76f597cd4a2d733e65c8875d7676fbbb94882", size = 50092, upload-time = "2026-03-06T19:52:44.634Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e2/10/5c98df3aabf759f4156c91a93682ee10a29fe26aa77f321db0210b7b4c43/hop3_cli-0.4.0b5-py3-none-any.whl", hash = "sha256:b0a84ea64b0f5e282bb91442372eecffdbdd317aa455b6fc74e88abccb800c44", size = 67855, upload-time = "2026-03-06T19:52:38.518Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "jsonrpcclient", specifier = ">=4.0.3,<5.0.0" },
+    { name = "loguru", specifier = ">=0.7.3" },
+    { name = "paramiko", specifier = ">=2.11.0,<3.0.0" },
+    { name = "pathspec", specifier = ">=0.12.1" },
+    { name = "platformdirs", specifier = ">=4.3.8" },
+    { name = "requests", specifier = ">=2.32.3,<3.0.0" },
+    { name = "rich", specifier = ">=13.0.0" },
+    { name = "sshtunnel", specifier = ">=0.4.0" },
+    { name = "tabulate", specifier = ">=0.9.0,<1.0.0" },
+    { name = "toml", specifier = ">=0.10.2,<1.0.0" },
 ]
 
 [[package]]
 name = "hop3-installer"
 version = "0.4.0b5"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/26/ab/3e1a01a7e763259c05df8439c27f76bacb7f90e130d2d72d8b14962c502e/hop3_installer-0.4.0b5.tar.gz", hash = "sha256:4a8dba18d7b5215ddceb161da4eccc7df602ada4257a66f39e2eed93f27a4403", size = 97960, upload-time = "2026-03-06T19:52:45.361Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/69/81/5ce17d7a6c519bfb54eb236eba38856e2094a539f534c302a55b4c3516e5/hop3_installer-0.4.0b5-py3-none-any.whl", hash = "sha256:3926e2458141e4923f2ad0954ab8c81dc2ac92cab6005b0d9944b1ac8c00ca49", size = 79684, upload-time = "2026-03-06T19:52:39.614Z" },
+source = { editable = "../../packages/hop3-installer" }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=7.0" },
+    { name = "ruff", specifier = ">=0.1.0" },
+    { name = "ty" },
 ]
 
 [[package]]
@@ -540,8 +555,8 @@ requires-dist = [
     { name = "attrs", specifier = ">=23.0" },
     { name = "click", specifier = ">=8.0" },
     { name = "hcloud", specifier = ">=2.0" },
-    { name = "hop3-installer" },
-    { name = "hop3-testing" },
+    { name = "hop3-installer", editable = "../../packages/hop3-installer" },
+    { name = "hop3-testing", editable = "../../packages/hop3-testing" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "jinja2", specifier = ">=3.0" },
     { name = "paramiko", specifier = ">=2.11.0,<3.0.0" },
@@ -557,7 +572,7 @@ provides-extras = ["dev"]
 [[package]]
 name = "hop3-testing"
 version = "0.4.0b5"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "../../packages/hop3-testing" }
 dependencies = [
     { name = "click" },
     { name = "devtools" },
@@ -571,9 +586,21 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "sqlalchemy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/52/aa/936bf573606857ab32d545d106013c560d96fc270295215ff77c2a6ff105/hop3_testing-0.4.0b5.tar.gz", hash = "sha256:5ec3960748d649d52f5fb1de4a01a2834872b872413e3c46f452d0780e8f762e", size = 76605, upload-time = "2026-03-06T19:52:47.239Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/aa/31/9e56e69cb56e6457db6e1df3d0950cf9d1f3d35d1e5c0989bc37220ec8cd/hop3_testing-0.4.0b5-py3-none-any.whl", hash = "sha256:0e7d61d7fc8868eca5fbf2cdf8485864604ee20256b92e08ff543401f3f2478b", size = 105401, upload-time = "2026-03-06T19:52:41.744Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "click", specifier = ">=8.0.0" },
+    { name = "devtools", specifier = ">=0.12.2" },
+    { name = "docker", specifier = ">=7.0.0" },
+    { name = "hop3-cli", editable = "../../packages/hop3-cli" },
+    { name = "httpcore", specifier = ">=1.0.6" },
+    { name = "httpx", specifier = ">=0.27.2" },
+    { name = "paramiko", specifier = ">=2.11.0,<3.0.0" },
+    { name = "pyjwt", specifier = ">=2.8.0" },
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "sqlalchemy", specifier = ">=2.0.0" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.0" },
 ]
 
 [[package]]
