@@ -15,6 +15,8 @@ from .dashboard import (
     EnvVarsController,
     LogsController,
 )
+
+# Alias for backward compatibility
 from .marketplace import MarketplaceController
 from .root import RootController
 from .rpc import RPCController

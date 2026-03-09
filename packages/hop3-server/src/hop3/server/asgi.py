@@ -24,7 +24,7 @@ from hop3.orm import get_session_factory
 
 from .controllers import (
     AuthController,
-    DashboardController,
+    DashboardIndexController,
     MarketplaceController,
     RootController,
     RPCController,
@@ -119,7 +119,7 @@ def create_app():
         RPCController,  # JSON-RPC endpoint (/rpc)
         StreamController,  # SSE streaming (/api/stream/*)
         AuthController,  # Web authentication (/auth/*)
-        DashboardController,  # Dashboard UI (/dashboard/*)
+        DashboardIndexController,  # Dashboard UI (/dashboard/*)
         MarketplaceController,  # Marketplace UI (/dashboard/marketplace/*)
         static_handler,  # Static files (/static/*)
     ]
