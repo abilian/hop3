@@ -225,7 +225,9 @@ def _apply_overrides(config: Config, overrides: dict) -> Config:
             clean_before=deployment.clean_before,
             verbose=deployment.verbose,
             use_local_repo=overrides.get("use_local_repo", deployment.use_local_repo),
-            local_repo_path=overrides.get("local_repo_path", deployment.local_repo_path),
+            local_repo_path=overrides.get(
+                "local_repo_path", deployment.local_repo_path
+            ),
         )
 
     if "suites" in overrides and overrides["suites"]:

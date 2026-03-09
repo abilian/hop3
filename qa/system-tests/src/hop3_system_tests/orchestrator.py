@@ -18,7 +18,8 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from .deployment import DeploymentManager, DeploymentResult, DeploymentVerifier
 from .hetzner import HetznerError, HetznerManager, ServerInfo
-from .ssh import SSHKeyManager, verify_ssh_connectivity
+from .runner import AllSuitesResult, TestRunnerManager
+from .ssh import verify_ssh_connectivity
 
 if TYPE_CHECKING:
     from .config import Config
@@ -54,6 +55,7 @@ class DailyTestResult:
     server_info: ServerInfo | None
     phase_results: list[PhaseResult] = field(default_factory=list)
     deployment_result: DeploymentResult | None = None
+    test_results: AllSuitesResult | None = None
 
     @property
     def success(self) -> bool:
@@ -250,7 +252,7 @@ class DailyTestOrchestrator:
                     )
 
             self._result.server_info = server_info
-            self.console.print(f"  [green]Server reset complete[/green]")
+            self.console.print("  [green]Server reset complete[/green]")
             self.console.print(f"  Image: {server_info.image}")
 
             return PhaseResult(
@@ -344,7 +346,7 @@ class DailyTestOrchestrator:
                     details={"checks": checks},
                 )
 
-            self.console.print(f"  [green]Deployment complete[/green]")
+            self.console.print("  [green]Deployment complete[/green]")
             self.console.print(f"  Server URL: {result.server_url}")
             self.console.print(f"  Duration: {result.duration:.1f}s")
 
@@ -373,23 +375,122 @@ class DailyTestOrchestrator:
                 self._deployment.cleanup()
 
     def _run_test_phase(self) -> PhaseResult:
-        """Run test suites.
-
-        Note: This is a placeholder for Phase 2 implementation.
-        """
+        """Run test suites using hop3-testing framework."""
         start_time = time.time()
         self._log_phase("Test Execution")
 
-        self.console.print("  [yellow]Test execution not yet implemented[/yellow]")
-        self.console.print("  (Will be implemented in Phase 2)")
+        if not self._result.server_info:
+            return PhaseResult(
+                phase=Phase.TEST,
+                success=False,
+                duration=0,
+                message="Server info not available",
+            )
 
-        return PhaseResult(
-            phase=Phase.TEST,
-            success=True,
-            duration=time.time() - start_time,
-            message="Test phase placeholder",
-            details={"note": "To be implemented in Phase 2"},
-        )
+        try:
+            server_ip = self._result.server_info.ipv4
+
+            # Verify hop3-server is running before attempting tests
+            self.console.print("Checking hop3-server is ready...")
+            verifier = DeploymentVerifier(server_ip)
+            checks = verifier.run_all_checks()
+
+            if not checks.get("rpc", False):
+                self.console.print(
+                    "  [red]hop3-server is not responding[/red]"
+                )
+                self.console.print(
+                    "  [yellow]Hint: Did you skip deployment? "
+                    "Run without --skip-deploy to install hop3-server first.[/yellow]"
+                )
+                return PhaseResult(
+                    phase=Phase.TEST,
+                    success=False,
+                    duration=time.time() - start_time,
+                    message="hop3-server is not running - cannot run tests",
+                    details={"checks": checks},
+                )
+
+            self.console.print("  [green]hop3-server is ready[/green]")
+
+            # Determine project root for catalog - find the hop3 monorepo root
+            project_root = self._find_hop3_project_root()
+            if project_root:
+                self.console.print(f"  Project root: {project_root}")
+            else:
+                self.console.print(
+                    "  [yellow]Warning: Could not find hop3 project root[/yellow]"
+                )
+                self.console.print(
+                    "  [yellow]Set HOP3_PROJECT_ROOT or use --use-local-repo[/yellow]"
+                )
+
+            # Create test runner
+            runner = TestRunnerManager(
+                host=server_ip,
+                config=self.config.tests,
+                project_root=project_root,
+                console=self.console,
+                verbose=False,
+            )
+
+            # Run all configured test suites
+            test_results = runner.run_all_suites()
+            self._result.test_results = test_results
+
+            # Print summary
+            self.console.print()
+            self.console.print("[bold]Test Results:[/bold]")
+            for suite_result in test_results.suite_results:
+                icon = "[green]✓[/green]" if suite_result.success else "[red]✗[/red]"
+                self.console.print(f"  {icon} {suite_result.summary}")
+
+            # Overall summary
+            self.console.print()
+            self.console.print(
+                f"  Total: {test_results.total_tests} tests, "
+                f"{test_results.total_passed} passed, "
+                f"{test_results.total_failed} failed, "
+                f"{test_results.total_skipped} skipped"
+            )
+
+            if test_results.success:
+                return PhaseResult(
+                    phase=Phase.TEST,
+                    success=True,
+                    duration=time.time() - start_time,
+                    message=f"All tests passed ({test_results.total_passed}/{test_results.total_tests})",
+                    details={
+                        "total": test_results.total_tests,
+                        "passed": test_results.total_passed,
+                        "failed": test_results.total_failed,
+                        "skipped": test_results.total_skipped,
+                    },
+                )
+            else:
+                # Get failed test names
+                failed_tests = [r.test.name for r in test_results.get_failed_tests()]
+                return PhaseResult(
+                    phase=Phase.TEST,
+                    success=False,
+                    duration=time.time() - start_time,
+                    message=f"{test_results.total_failed} test(s) failed",
+                    details={
+                        "total": test_results.total_tests,
+                        "passed": test_results.total_passed,
+                        "failed": test_results.total_failed,
+                        "skipped": test_results.total_skipped,
+                        "failed_tests": failed_tests[:10],  # First 10 failures
+                    },
+                )
+
+        except Exception as e:
+            return PhaseResult(
+                phase=Phase.TEST,
+                success=False,
+                duration=time.time() - start_time,
+                message=f"Test execution error: {e}",
+            )
 
     def _finalize(self) -> DailyTestResult:
         """Finalize the test run and print summary."""
@@ -418,11 +519,25 @@ class DailyTestOrchestrator:
         else:
             status = f"[bold red]FAILED[/bold red] at {self._result.failed_phase.value}"
 
+        # Build summary text
+        summary_lines = [
+            f"Status: {status}",
+            f"Total Duration: {self._result.total_duration:.1f}s",
+            f"Phases: {len(self._result.phase_results)}",
+        ]
+
+        # Add test results summary if available
+        if self._result.test_results:
+            tr = self._result.test_results
+            summary_lines.extend([
+                "",
+                f"Tests: {tr.total_passed}/{tr.total_tests} passed",
+                f"Failed: {tr.total_failed}, Skipped: {tr.total_skipped}",
+            ])
+
         self.console.print(
             Panel.fit(
-                f"Status: {status}\n"
-                f"Total Duration: {self._result.total_duration:.1f}s\n"
-                f"Phases: {len(self._result.phase_results)}",
+                "\n".join(summary_lines),
                 title="Summary",
             )
         )
@@ -431,7 +546,20 @@ class DailyTestOrchestrator:
         self.console.print()
         for pr in self._result.phase_results:
             icon = "[green]✓[/green]" if pr.success else "[red]✗[/red]"
-            self.console.print(f"  {icon} {pr.phase.value}: {pr.message} ({pr.duration:.1f}s)")
+            self.console.print(
+                f"  {icon} {pr.phase.value}: {pr.message} ({pr.duration:.1f}s)"
+            )
+
+        # Print failed tests if any
+        if (
+            self._result.test_results
+            and self._result.test_results.total_failed > 0
+        ):
+            self.console.print()
+            self.console.print("[bold red]Failed Tests:[/bold red]")
+            for result in self._result.test_results.get_failed_tests()[:10]:
+                error = result.error or "validation failed"
+                self.console.print(f"  [red]✗[/red] {result.test.name}: {error}")
 
     def _log_phase(self, name: str) -> None:
         """Log start of a phase."""
@@ -442,6 +570,47 @@ class DailyTestOrchestrator:
         """Log a skipped phase."""
         self.console.print()
         self.console.print(f"[dim]Skipping: {what}[/dim]")
+
+    def _find_hop3_project_root(self) -> Path | None:
+        """Find the Hop3 monorepo root directory.
+
+        Returns:
+            Path to project root, or None if not found.
+        """
+        import os
+
+        # Check explicit config first
+        if self.config.deployment.use_local_repo:
+            if self.config.deployment.local_repo_path:
+                return self.config.deployment.local_repo_path
+
+        # Check environment variable
+        if hop3_root := os.environ.get("HOP3_PROJECT_ROOT"):
+            return Path(hop3_root)
+
+        # Try to find by looking for the hop3 monorepo structure
+        # Start from current directory and go up
+        current = Path.cwd()
+        for _ in range(10):
+            # Look for the monorepo markers: apps/test-apps and packages/hop3-server
+            if (current / "apps" / "test-apps").exists() and (
+                current / "packages" / "hop3-server"
+            ).exists():
+                return current
+
+            # Also check for pyproject.toml with hop3 workspace
+            pyproject = current / "pyproject.toml"
+            if pyproject.exists():
+                content = pyproject.read_text()
+                if "hop3-server" in content and "hop3-cli" in content:
+                    return current
+
+            parent = current.parent
+            if parent == current:
+                break
+            current = parent
+
+        return None
 
     def _print_deployment_diagnostics(
         self,
@@ -515,7 +684,9 @@ class DailyTestOrchestrator:
                     "ls -la /home/hop3/venv/bin/hop3-server 2>&1 || echo 'hop3-server not found'",
                     timeout=10,
                 )
-                self.console.print(f"  [bold]hop3-server binary:[/bold] {stdout.strip()}")
+                self.console.print(
+                    f"  [bold]hop3-server binary:[/bold] {stdout.strip()}"
+                )
 
                 # Try to import hop3-server to see full error
                 exit_code, stdout, stderr = conn.run(
@@ -524,15 +695,21 @@ class DailyTestOrchestrator:
                 )
                 if exit_code != 0 or "Import OK" not in stdout:
                     self.console.print()
-                    self.console.print("  [bold red]hop3-server import error:[/bold red]")
+                    self.console.print(
+                        "  [bold red]hop3-server import error:[/bold red]"
+                    )
                     for line in (stdout + stderr).strip().split("\n")[-25:]:
                         self.console.print(f"    {line}")
 
             else:
-                self.console.print("  [yellow]Could not connect via SSH for diagnostics[/yellow]")
+                self.console.print(
+                    "  [yellow]Could not connect via SSH for diagnostics[/yellow]"
+                )
 
         except Exception as e:
-            self.console.print(f"  [yellow]Error getting remote diagnostics: {e}[/yellow]")
+            self.console.print(
+                f"  [yellow]Error getting remote diagnostics: {e}[/yellow]"
+            )
 
         finally:
             conn.close()

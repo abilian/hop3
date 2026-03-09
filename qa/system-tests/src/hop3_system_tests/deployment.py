@@ -279,7 +279,9 @@ class DeploymentManager:
 
                 # 500 with response body also means server is running (just erroring)
                 if response.status_code == 500 and response.text:
-                    self._log(f"RPC endpoint responding with error (HTTP 500) - server is running")
+                    self._log(
+                        "RPC endpoint responding with error (HTTP 500) - server is running"
+                    )
                     return True, ""
 
                 last_error = f"RPC check returned HTTP {response.status_code}: {response.text[:200]}"

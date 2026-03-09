@@ -25,6 +25,9 @@ dependencies = [
     "httpx>=0.27",
     # Rich terminal output
     "rich>=13.0",
+    # Additional deps (required by hop3-testing but not declared)
+    "attrs>=23.0",
+    "termcolor>=2.0",
     # Hop3 packages (for integration)
     "hop3-testing",
     "hop3-installer",

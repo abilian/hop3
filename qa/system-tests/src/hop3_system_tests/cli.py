@@ -11,7 +11,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from .config import Config, load_config
+from .config import load_config
 from .orchestrator import DailyTestOrchestrator
 
 
@@ -169,9 +169,10 @@ def status(server_id: int) -> None:
 
     Displays current server state and connectivity information.
     """
-    from .hetzner import HetznerManager
-    from .config import HetznerConfig
     import os
+
+    from .config import HetznerConfig
+    from .hetzner import HetznerManager
 
     console = Console()
 
@@ -190,7 +191,7 @@ def status(server_id: int) -> None:
         info = manager.get_server_info()
 
         console.print()
-        console.print(f"[bold]Server Status[/bold]")
+        console.print("[bold]Server Status[/bold]")
         console.print(f"  ID:         {info.id}")
         console.print(f"  Name:       {info.name}")
         console.print(f"  Status:     {info.status.value}")
@@ -206,13 +207,13 @@ def status(server_id: int) -> None:
         console.print("[bold]Connectivity[/bold]")
 
         if is_port_open(info.ipv4, 22):
-            console.print(f"  SSH Port:   [green]open[/green]")
+            console.print("  SSH Port:   [green]open[/green]")
             if verify_ssh_connectivity(info.ipv4):
-                console.print(f"  SSH Auth:   [green]ok[/green]")
+                console.print("  SSH Auth:   [green]ok[/green]")
             else:
-                console.print(f"  SSH Auth:   [yellow]failed[/yellow]")
+                console.print("  SSH Auth:   [yellow]failed[/yellow]")
         else:
-            console.print(f"  SSH Port:   [red]closed[/red]")
+            console.print("  SSH Port:   [red]closed[/red]")
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -243,9 +244,10 @@ def reset(server_id: int, image: str) -> None:
     2. Wait for SSH to become available
     3. Update SSH known_hosts with the new host key
     """
-    from .hetzner import HetznerManager
-    from .config import HetznerConfig
     import os
+
+    from .config import HetznerConfig
+    from .hetzner import HetznerManager
 
     console = Console()
 
@@ -266,14 +268,14 @@ def reset(server_id: int, image: str) -> None:
         console.print(f"Rebuilding server {server_id} with image '{image}'...")
 
         info = manager.rebuild_server(image=image)
-        console.print(f"[green]Server rebuilt successfully[/green]")
+        console.print("[green]Server rebuilt successfully[/green]")
 
         console.print("Waiting for SSH...")
         if manager.wait_for_ssh_ready():
-            console.print(f"[green]SSH is ready[/green]")
+            console.print("[green]SSH is ready[/green]")
             console.print(f"  Connect with: ssh root@{info.ipv4}")
         else:
-            console.print(f"[yellow]SSH not ready within timeout[/yellow]")
+            console.print("[yellow]SSH not ready within timeout[/yellow]")
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -304,10 +306,11 @@ def deploy(server_id: int, branch: str, clean: bool) -> None:
 
     Clones the repository and runs hop3-deploy.
     """
-    from .hetzner import HetznerManager
-    from .deployment import DeploymentManager
-    from .config import HetznerConfig, DeploymentConfig
     import os
+
+    from .config import DeploymentConfig, HetznerConfig
+    from .deployment import DeploymentManager
+    from .hetzner import HetznerManager
 
     console = Console()
 
@@ -349,7 +352,7 @@ def deploy(server_id: int, branch: str, clean: bool) -> None:
             result = deployer.deploy()
 
             if result.success:
-                console.print(f"[green]Deployment successful![/green]")
+                console.print("[green]Deployment successful![/green]")
                 console.print(f"  Server URL: {result.server_url}")
                 console.print(f"  Duration: {result.duration:.1f}s")
             else:
@@ -361,6 +364,119 @@ def deploy(server_id: int, branch: str, clean: bool) -> None:
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option(
+    "--server-id",
+    type=int,
+    envvar="HETZNER_SERVER_ID",
+    required=True,
+    help="Hetzner server ID.",
+)
+@click.option(
+    "--suites",
+    multiple=True,
+    default=["test-apps"],
+    help="Test suites to run (can be specified multiple times).",
+)
+@click.option(
+    "--fail-fast",
+    is_flag=True,
+    help="Stop on first failure.",
+)
+@click.option(
+    "--project-root",
+    type=click.Path(exists=True, path_type=Path),
+    help="Path to Hop3 project root (for test catalog).",
+)
+@click.option(
+    "-v",
+    "--verbose",
+    is_flag=True,
+    help="Enable verbose output.",
+)
+def test(
+    server_id: int,
+    suites: tuple[str, ...],
+    fail_fast: bool,
+    project_root: Path | None,
+    verbose: bool,
+) -> None:
+    """Run tests against an already-deployed Hop3 server.
+
+    This command runs test suites without resetting or redeploying.
+    Useful for re-running tests after fixing issues.
+
+    Example:
+        hop3-daily-test test --server-id 12345 --suites test-apps
+    """
+    import os
+
+    from .config import HetznerConfig, TestConfig
+    from .hetzner import HetznerManager
+    from .runner import TestRunnerManager
+
+    console = Console()
+
+    api_token = os.environ.get("HETZNER_API_TOKEN")
+    if not api_token:
+        console.print("[red]HETZNER_API_TOKEN environment variable not set[/red]")
+        sys.exit(1)
+
+    hetzner_config = HetznerConfig(
+        api_token=api_token,
+        server_id=server_id,
+    )
+
+    try:
+        # Get server IP
+        manager = HetznerManager(hetzner_config)
+        info = manager.get_server_info()
+        server_ip = info.ipv4
+
+        console.print(f"Running tests on {info.name} ({server_ip})")
+
+        # Create test config
+        test_config = TestConfig(
+            suites=list(suites),
+            fail_fast=fail_fast,
+        )
+
+        # Run tests
+        runner = TestRunnerManager(
+            host=server_ip,
+            config=test_config,
+            project_root=project_root,
+            console=console,
+            verbose=verbose,
+        )
+
+        result = runner.run_all_suites()
+
+        # Print summary
+        console.print()
+        console.print("[bold]Test Results:[/bold]")
+        for suite_result in result.suite_results:
+            icon = "[green]✓[/green]" if suite_result.success else "[red]✗[/red]"
+            console.print(f"  {icon} {suite_result.summary}")
+
+        console.print()
+        console.print(
+            f"Total: {result.total_tests} tests, "
+            f"{result.total_passed} passed, "
+            f"{result.total_failed} failed"
+        )
+
+        sys.exit(0 if result.success else 1)
+
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        if verbose:
+            import traceback
+
+            traceback.print_exc()
         sys.exit(1)
 
 
