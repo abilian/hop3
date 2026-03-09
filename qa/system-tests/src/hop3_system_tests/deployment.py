@@ -210,6 +210,10 @@ class DeploymentManager:
         if self.config.acme_email:
             cmd.extend(["--acme-email", self.config.acme_email])
 
+        # Add features (docker, mysql, redis, etc.)
+        if self.config.features:
+            cmd.extend(["--with", ",".join(self.config.features)])
+
         return cmd
 
     def _verify_installation(

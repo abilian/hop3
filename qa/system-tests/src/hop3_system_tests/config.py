@@ -65,6 +65,8 @@ class DeploymentConfig:
     """Use local working directory instead of cloning from git."""
     local_repo_path: Path | None = None
     """Path to local repo (defaults to current working directory)."""
+    features: list[str] = field(default_factory=lambda: ["docker"])
+    """Features to install (e.g., docker, mysql, redis)."""
 
 
 @dataclass(frozen=True)
@@ -109,6 +111,7 @@ class Config:
                 use_local_code=deployment_data.get("use_local_code", True),
                 clean_before=deployment_data.get("clean_before", True),
                 verbose=deployment_data.get("verbose", False),
+                features=deployment_data.get("features", ["docker"]),
             ),
             tests=TestConfig(
                 suites=tests_data.get("suites", ["test-apps"]),
