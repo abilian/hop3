@@ -23,8 +23,13 @@ from hop3.di import create_async_container
 from hop3.orm import get_session_factory
 
 from .controllers import (
+    AddonsController,
+    AppsController,
     AuthController,
+    BackupsController,
     DashboardIndexController,
+    EnvVarsController,
+    LogsController,
     MarketplaceController,
     RootController,
     RPCController,
@@ -119,7 +124,12 @@ def create_app():
         RPCController,  # JSON-RPC endpoint (/rpc)
         StreamController,  # SSE streaming (/api/stream/*)
         AuthController,  # Web authentication (/auth/*)
-        DashboardIndexController,  # Dashboard UI (/dashboard/*)
+        DashboardIndexController,  # Dashboard index (/dashboard/)
+        AppsController,  # App management (/dashboard/apps/*)
+        LogsController,  # Log viewing (/dashboard/apps/*/logs/*)
+        EnvVarsController,  # Environment variables (/dashboard/apps/*/env)
+        AddonsController,  # Addon management (/dashboard/addons/*)
+        BackupsController,  # Backup management (/dashboard/backups/*)
         MarketplaceController,  # Marketplace UI (/dashboard/marketplace/*)
         static_handler,  # Static files (/static/*)
     ]
