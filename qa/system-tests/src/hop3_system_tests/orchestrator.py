@@ -1,0 +1,568 @@
+# Copyright (c) 2025-2026, Abilian SAS
+# SPDX-License-Identifier: Apache-2.0
+
+"""Main orchestrator for daily system tests."""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
+
+from .deployment import DeploymentManager, DeploymentResult, DeploymentVerifier
+from .hetzner import HetznerError, HetznerManager, ServerInfo
+from .ssh import SSHKeyManager, verify_ssh_connectivity
+
+if TYPE_CHECKING:
+    from .config import Config
+
+
+class Phase(Enum):
+    """Test run phases."""
+
+    INIT = "init"
+    RESET = "reset"
+    DEPLOY = "deploy"
+    TEST = "test"
+    REPORT = "report"
+
+
+@dataclass
+class PhaseResult:
+    """Result of a single phase."""
+
+    phase: Phase
+    success: bool
+    duration: float
+    message: str
+    details: dict = field(default_factory=dict)
+
+
+@dataclass
+class DailyTestResult:
+    """Complete result of a daily test run."""
+
+    timestamp: datetime
+    branch: str
+    server_info: ServerInfo | None
+    phase_results: list[PhaseResult] = field(default_factory=list)
+    deployment_result: DeploymentResult | None = None
+
+    @property
+    def success(self) -> bool:
+        """Check if all phases succeeded."""
+        return all(p.success for p in self.phase_results)
+
+    @property
+    def total_duration(self) -> float:
+        """Total duration of all phases."""
+        return sum(p.duration for p in self.phase_results)
+
+    @property
+    def failed_phase(self) -> Phase | None:
+        """Get the first failed phase, if any."""
+        for p in self.phase_results:
+            if not p.success:
+                return p.phase
+        return None
+
+
+class DailyTestOrchestrator:
+    """Orchestrates the daily system test workflow."""
+
+    def __init__(
+        self,
+        config: Config,
+        console: Console | None = None,
+    ):
+        """Initialize orchestrator.
+
+        Args:
+            config: Test configuration.
+            console: Rich console for output. Creates one if None.
+        """
+        self.config = config
+        self.console = console or Console()
+        self._result = DailyTestResult(
+            timestamp=datetime.now(),
+            branch=config.deployment.branch,
+            server_info=None,
+        )
+        self._hetzner: HetznerManager | None = None
+        self._deployment: DeploymentManager | None = None
+
+    def run(
+        self,
+        skip_reset: bool = False,
+        skip_deploy: bool = False,
+        skip_tests: bool = False,
+    ) -> DailyTestResult:
+        """Run the complete daily test workflow.
+
+        Args:
+            skip_reset: Skip server reset phase.
+            skip_deploy: Skip deployment phase.
+            skip_tests: Skip test execution phase.
+
+        Returns:
+            DailyTestResult with all phase outcomes.
+        """
+        self._print_header()
+
+        # Phase 1: Initialize
+        phase_result = self._run_init_phase()
+        self._result.phase_results.append(phase_result)
+        if not phase_result.success:
+            return self._finalize()
+
+        # Phase 2: Reset server
+        if not skip_reset:
+            phase_result = self._run_reset_phase()
+            self._result.phase_results.append(phase_result)
+            if not phase_result.success:
+                return self._finalize()
+        else:
+            self._log_skip("Server reset (--skip-reset)")
+
+        # Phase 3: Deploy Hop3
+        if not skip_deploy:
+            phase_result = self._run_deploy_phase()
+            self._result.phase_results.append(phase_result)
+            if not phase_result.success:
+                return self._finalize()
+        else:
+            self._log_skip("Deployment (--skip-deploy)")
+
+        # Phase 4: Run tests (placeholder for Phase 2 implementation)
+        if not skip_tests:
+            phase_result = self._run_test_phase()
+            self._result.phase_results.append(phase_result)
+
+        return self._finalize()
+
+    def _run_init_phase(self) -> PhaseResult:
+        """Initialize managers and validate configuration."""
+        start_time = time.time()
+        self._log_phase("Initialization")
+
+        try:
+            # Validate configuration
+            errors = self.config.validate()
+            if errors:
+                return PhaseResult(
+                    phase=Phase.INIT,
+                    success=False,
+                    duration=time.time() - start_time,
+                    message="Configuration validation failed",
+                    details={"errors": errors},
+                )
+
+            # Initialize Hetzner manager
+            self._hetzner = HetznerManager(self.config.hetzner)
+
+            # Get server info
+            server_info = self._hetzner.get_server_info()
+            self._result.server_info = server_info
+
+            self.console.print(f"  Server: {server_info.name} ({server_info.ipv4})")
+            self.console.print(f"  Status: {server_info.status.value}")
+            self.console.print(f"  Datacenter: {server_info.datacenter}")
+
+            return PhaseResult(
+                phase=Phase.INIT,
+                success=True,
+                duration=time.time() - start_time,
+                message="Initialization complete",
+                details={"server_id": server_info.id},
+            )
+
+        except HetznerError as e:
+            return PhaseResult(
+                phase=Phase.INIT,
+                success=False,
+                duration=time.time() - start_time,
+                message=f"Hetzner API error: {e}",
+            )
+
+        except Exception as e:
+            return PhaseResult(
+                phase=Phase.INIT,
+                success=False,
+                duration=time.time() - start_time,
+                message=f"Unexpected error: {e}",
+            )
+
+    def _run_reset_phase(self) -> PhaseResult:
+        """Reset server to clean state."""
+        start_time = time.time()
+        self._log_phase("Server Reset")
+
+        if not self._hetzner:
+            return PhaseResult(
+                phase=Phase.RESET,
+                success=False,
+                duration=0,
+                message="Hetzner manager not initialized",
+            )
+
+        try:
+            server_ip = self._hetzner.get_server_ip()
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=self.console,
+            ) as progress:
+                # Rebuild server
+                task = progress.add_task("Rebuilding server...", total=None)
+                server_info = self._hetzner.rebuild_server(
+                    image=self.config.hetzner.image,
+                    timeout=600,
+                )
+                progress.update(task, description="Server rebuilt")
+
+                # Wait for SSH
+                progress.update(task, description="Waiting for SSH...")
+                if not self._hetzner.wait_for_ssh_ready(timeout=300):
+                    return PhaseResult(
+                        phase=Phase.RESET,
+                        success=False,
+                        duration=time.time() - start_time,
+                        message="SSH did not become available",
+                    )
+                progress.update(task, description="SSH ready")
+
+                # Verify SSH connectivity
+                progress.update(task, description="Verifying SSH connectivity...")
+                if not verify_ssh_connectivity(server_ip):
+                    return PhaseResult(
+                        phase=Phase.RESET,
+                        success=False,
+                        duration=time.time() - start_time,
+                        message="SSH connectivity verification failed",
+                    )
+
+            self._result.server_info = server_info
+            self.console.print(f"  [green]Server reset complete[/green]")
+            self.console.print(f"  Image: {server_info.image}")
+
+            return PhaseResult(
+                phase=Phase.RESET,
+                success=True,
+                duration=time.time() - start_time,
+                message="Server reset complete",
+                details={"image": server_info.image},
+            )
+
+        except HetznerError as e:
+            return PhaseResult(
+                phase=Phase.RESET,
+                success=False,
+                duration=time.time() - start_time,
+                message=f"Server reset failed: {e}",
+            )
+
+        except Exception as e:
+            return PhaseResult(
+                phase=Phase.RESET,
+                success=False,
+                duration=time.time() - start_time,
+                message=f"Unexpected error: {e}",
+            )
+
+    def _run_deploy_phase(self) -> PhaseResult:
+        """Deploy Hop3 to the server."""
+        start_time = time.time()
+        self._log_phase("Hop3 Deployment")
+
+        if not self._result.server_info:
+            return PhaseResult(
+                phase=Phase.DEPLOY,
+                success=False,
+                duration=0,
+                message="Server info not available",
+            )
+
+        try:
+            server_ip = self._result.server_info.ipv4
+
+            self._deployment = DeploymentManager(
+                host=server_ip,
+                config=self.config.deployment,
+            )
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=self.console,
+            ) as progress:
+                # Clone repository or use local
+                if self.config.deployment.use_local_repo:
+                    task = progress.add_task("Using local repository...", total=None)
+                    repo_path = self.config.deployment.local_repo_path or Path.cwd()
+                    self._deployment.repo_path = repo_path
+                    progress.update(task, description=f"Using {repo_path}")
+                else:
+                    task = progress.add_task("Cloning repository...", total=None)
+                    repo_path = self._deployment.clone_repo()
+                    progress.update(task, description=f"Cloned to {repo_path}")
+
+                # Run deployment
+                progress.update(task, description="Deploying Hop3...")
+                result = self._deployment.deploy()
+                self._result.deployment_result = result
+
+            if not result.success:
+                self.console.print(f"  [red]Deployment failed: {result.error}[/red]")
+                self._print_deployment_diagnostics(server_ip, result)
+                return PhaseResult(
+                    phase=Phase.DEPLOY,
+                    success=False,
+                    duration=time.time() - start_time,
+                    message=f"Deployment failed: {result.error}",
+                    details={"log": result.log_output},
+                )
+
+            # Verify deployment
+            verifier = DeploymentVerifier(server_ip)
+            checks = verifier.run_all_checks()
+
+            if not all(checks.values()):
+                failed = [k for k, v in checks.items() if not v]
+                return PhaseResult(
+                    phase=Phase.DEPLOY,
+                    success=False,
+                    duration=time.time() - start_time,
+                    message=f"Verification failed: {', '.join(failed)}",
+                    details={"checks": checks},
+                )
+
+            self.console.print(f"  [green]Deployment complete[/green]")
+            self.console.print(f"  Server URL: {result.server_url}")
+            self.console.print(f"  Duration: {result.duration:.1f}s")
+
+            return PhaseResult(
+                phase=Phase.DEPLOY,
+                success=True,
+                duration=time.time() - start_time,
+                message="Deployment complete",
+                details={
+                    "server_url": result.server_url,
+                    "deploy_duration": result.duration,
+                },
+            )
+
+        except Exception as e:
+            return PhaseResult(
+                phase=Phase.DEPLOY,
+                success=False,
+                duration=time.time() - start_time,
+                message=f"Deployment error: {e}",
+            )
+
+        finally:
+            # Cleanup temp directory
+            if self._deployment:
+                self._deployment.cleanup()
+
+    def _run_test_phase(self) -> PhaseResult:
+        """Run test suites.
+
+        Note: This is a placeholder for Phase 2 implementation.
+        """
+        start_time = time.time()
+        self._log_phase("Test Execution")
+
+        self.console.print("  [yellow]Test execution not yet implemented[/yellow]")
+        self.console.print("  (Will be implemented in Phase 2)")
+
+        return PhaseResult(
+            phase=Phase.TEST,
+            success=True,
+            duration=time.time() - start_time,
+            message="Test phase placeholder",
+            details={"note": "To be implemented in Phase 2"},
+        )
+
+    def _finalize(self) -> DailyTestResult:
+        """Finalize the test run and print summary."""
+        self._print_summary()
+        return self._result
+
+    def _print_header(self) -> None:
+        """Print test run header."""
+        self.console.print()
+        self.console.print(
+            Panel.fit(
+                f"[bold]Hop3 Daily System Test[/bold]\n"
+                f"Branch: {self.config.deployment.branch}\n"
+                f"Started: {self._result.timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+                title="Daily Test",
+            )
+        )
+        self.console.print()
+
+    def _print_summary(self) -> None:
+        """Print test run summary."""
+        self.console.print()
+
+        if self._result.success:
+            status = "[bold green]PASSED[/bold green]"
+        else:
+            status = f"[bold red]FAILED[/bold red] at {self._result.failed_phase.value}"
+
+        self.console.print(
+            Panel.fit(
+                f"Status: {status}\n"
+                f"Total Duration: {self._result.total_duration:.1f}s\n"
+                f"Phases: {len(self._result.phase_results)}",
+                title="Summary",
+            )
+        )
+
+        # Print phase details
+        self.console.print()
+        for pr in self._result.phase_results:
+            icon = "[green]✓[/green]" if pr.success else "[red]✗[/red]"
+            self.console.print(f"  {icon} {pr.phase.value}: {pr.message} ({pr.duration:.1f}s)")
+
+    def _log_phase(self, name: str) -> None:
+        """Log start of a phase."""
+        self.console.print()
+        self.console.rule(f"[bold]{name}[/bold]")
+
+    def _log_skip(self, what: str) -> None:
+        """Log a skipped phase."""
+        self.console.print()
+        self.console.print(f"[dim]Skipping: {what}[/dim]")
+
+    def _print_deployment_diagnostics(
+        self,
+        server_ip: str,
+        result: DeploymentResult,
+    ) -> None:
+        """Print detailed diagnostics when deployment fails."""
+        self.console.print()
+        self.console.print("[bold red]Deployment Diagnostics[/bold red]")
+        self.console.print("=" * 60)
+
+        # Show last part of deployment log
+        if result.log_output:
+            log_lines = result.log_output.strip().split("\n")
+            # Show last 30 lines
+            recent_lines = log_lines[-30:] if len(log_lines) > 30 else log_lines
+            self.console.print()
+            self.console.print("[bold]Recent deployment log:[/bold]")
+            for line in recent_lines:
+                self.console.print(f"  {line}")
+
+        # Try to get remote diagnostics via SSH
+        self.console.print()
+        self.console.print("[bold]Remote server diagnostics:[/bold]")
+
+        from .ssh import SSHConnection, SSHConnectionInfo
+
+        info = SSHConnectionInfo(host=server_ip, user="root")
+        conn = SSHConnection(info)
+
+        try:
+            if conn.connect(timeout=10):
+                # Check if hop3-server service exists and its status
+                exit_code, stdout, stderr = conn.run(
+                    "systemctl status hop3-server 2>&1 | head -20",
+                    timeout=10,
+                )
+                self.console.print()
+                self.console.print("  [bold]hop3-server service status:[/bold]")
+                for line in stdout.strip().split("\n")[:15]:
+                    self.console.print(f"    {line}")
+
+                # Check recent journal logs
+                exit_code, stdout, stderr = conn.run(
+                    "journalctl -u hop3-server -n 20 --no-pager 2>&1",
+                    timeout=10,
+                )
+                if stdout.strip():
+                    self.console.print()
+                    self.console.print("  [bold]Recent hop3-server logs:[/bold]")
+                    for line in stdout.strip().split("\n")[-15:]:
+                        self.console.print(f"    {line}")
+
+                # Check if port 8000 is listening
+                exit_code, stdout, stderr = conn.run(
+                    "ss -tlnp | grep :8000 || echo 'Port 8000 not listening'",
+                    timeout=10,
+                )
+                self.console.print()
+                self.console.print(f"  [bold]Port 8000 status:[/bold] {stdout.strip()}")
+
+                # Check if nginx is running
+                exit_code, stdout, stderr = conn.run(
+                    "systemctl is-active nginx 2>&1",
+                    timeout=10,
+                )
+                self.console.print(f"  [bold]Nginx status:[/bold] {stdout.strip()}")
+
+                # Check hop3 installation
+                exit_code, stdout, stderr = conn.run(
+                    "ls -la /home/hop3/venv/bin/hop3-server 2>&1 || echo 'hop3-server not found'",
+                    timeout=10,
+                )
+                self.console.print(f"  [bold]hop3-server binary:[/bold] {stdout.strip()}")
+
+                # Try to import hop3-server to see full error
+                exit_code, stdout, stderr = conn.run(
+                    "/home/hop3/venv/bin/python3 -c 'from hop3.server.cli import main; print(\"Import OK\")' 2>&1",
+                    timeout=30,
+                )
+                if exit_code != 0 or "Import OK" not in stdout:
+                    self.console.print()
+                    self.console.print("  [bold red]hop3-server import error:[/bold red]")
+                    for line in (stdout + stderr).strip().split("\n")[-25:]:
+                        self.console.print(f"    {line}")
+
+            else:
+                self.console.print("  [yellow]Could not connect via SSH for diagnostics[/yellow]")
+
+        except Exception as e:
+            self.console.print(f"  [yellow]Error getting remote diagnostics: {e}[/yellow]")
+
+        finally:
+            conn.close()
+
+        self.console.print()
+        self.console.print("=" * 60)
+
+
+def run_daily_test(
+    config: Config,
+    skip_reset: bool = False,
+    skip_deploy: bool = False,
+    skip_tests: bool = False,
+) -> DailyTestResult:
+    """Run the daily system test.
+
+    Convenience function that creates an orchestrator and runs the test.
+
+    Args:
+        config: Test configuration.
+        skip_reset: Skip server reset.
+        skip_deploy: Skip deployment.
+        skip_tests: Skip test execution.
+
+    Returns:
+        DailyTestResult with outcomes.
+    """
+    orchestrator = DailyTestOrchestrator(config)
+    return orchestrator.run(
+        skip_reset=skip_reset,
+        skip_deploy=skip_deploy,
+        skip_tests=skip_tests,
+    )

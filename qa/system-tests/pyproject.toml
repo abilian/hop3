@@ -1,0 +1,55 @@
+# Copyright (c) 2025-2026, Abilian SAS
+# SPDX-License-Identifier: Apache-2.0
+
+[project]
+name = "hop3-system-tests"
+version = "0.1.0"
+description = "Daily system test framework for Hop3 - runs full E2E tests on Hetzner infrastructure"
+readme = "README.md"
+authors = [
+    { name = "Stefane Fermigier", email = "sf@abilian.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    # Hetzner Cloud API
+    "hcloud>=2.0",
+    # SSH operations (constrained by hop3-testing)
+    "paramiko>=2.11.0,<3.0.0",
+    # CLI interface
+    "click>=8.0",
+    # Configuration
+    "tomli>=2.0;python_version<'3.11'",
+    # HTML templating for reports
+    "jinja2>=3.0",
+    # HTTP requests for health checks
+    "httpx>=0.27",
+    # Rich terminal output
+    "rich>=13.0",
+    # Hop3 packages (for integration)
+    "hop3-testing",
+    "hop3-installer",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.4",
+]
+
+[project.scripts]
+hop3-daily-test = "hop3_system_tests.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hop3_system_tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM"]

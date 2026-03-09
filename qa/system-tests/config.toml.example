@@ -1,0 +1,66 @@
+# Hop3 Daily System Test Configuration
+#
+# Copy this file to config.toml and customize for your environment.
+# Environment variables can be referenced with $VAR or ${VAR} syntax.
+
+[hetzner]
+# Hetzner Cloud API token (required)
+# Get from: https://console.hetzner.cloud/projects/*/security/tokens
+api_token = "$HETZNER_API_TOKEN"
+
+# Server ID to use for testing (required)
+# Find in Hetzner Cloud Console or via: hcloud server list
+server_id = "$HETZNER_SERVER_ID"
+
+# OS image for server rebuild
+image = "debian-12"
+
+# SSH key name registered with Hetzner (optional, for authorized_keys)
+# ssh_key_name = "hop3-ci"
+
+
+[deployment]
+# Git branch to test
+branch = "devel"
+
+# Admin domain for Hop3 server (optional)
+# domain = "test.hop3.dev"
+
+# ACME email for Let's Encrypt (optional)
+# acme_email = "admin@hop3.dev"
+
+# Use local code instead of git clone
+use_local_code = true
+
+# Clean existing installation before deploying
+clean_before = true
+
+# Enable verbose deployment output
+verbose = false
+
+
+[tests]
+# Test suites to run
+# Options: test-apps, docker-apps, demos, tutorials
+suites = ["test-apps"]
+
+# Timeout per test in seconds
+timeout_per_test = 300
+
+# Stop on first failure
+fail_fast = false
+
+
+[tests.docker_apps_subset]
+# For daily runs, only test a subset of Docker apps
+# Full list is used for weekly runs
+include = [
+    "isso",
+    "kanboard",
+    "radicale",
+    "searxng",
+]
+
+
+# Report output directory
+report_dir = "./reports"
