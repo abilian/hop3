@@ -50,7 +50,9 @@ class ServerInfo:
         return cls(
             id=server.id,
             name=server.name,
-            status=ServerStatus(server.status) if server.status else ServerStatus.UNKNOWN,
+            status=ServerStatus(server.status)
+            if server.status
+            else ServerStatus.UNKNOWN,
             ipv4=server.public_net.ipv4.ip if server.public_net.ipv4 else "",
             ipv6=server.public_net.ipv6.ip if server.public_net.ipv6 else None,
             datacenter=server.datacenter.name if server.datacenter else "",
