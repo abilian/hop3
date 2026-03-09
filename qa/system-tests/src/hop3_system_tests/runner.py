@@ -17,14 +17,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn
-
 from hop3_testing.catalog import Catalog
 from hop3_testing.catalog.models import Category, TargetType
 from hop3_testing.cli.runners import run_single_test
 from hop3_testing.targets import RemoteConfig, RemoteTarget
 from hop3_testing.util.console import PrintingConsole, Verbosity
+from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 if TYPE_CHECKING:
     from hop3_testing.catalog.models import TestDefinition
@@ -270,7 +269,9 @@ class TestRunnerManager:
         # Get tests for this category
         tests = self._get_tests_for_suite(category, suite_name)
         if not tests:
-            self.console.print(f"  [yellow]No tests found for suite: {suite_name}[/yellow]")
+            self.console.print(
+                f"  [yellow]No tests found for suite: {suite_name}[/yellow]"
+            )
             return TestSuiteResult(
                 suite_name=suite_name,
                 total=0,
@@ -419,7 +420,11 @@ class TestRunnerManager:
             self.console.print(f"  Loaded {total_tests} tests")
 
     def _create_target(self) -> None:
-        """Create and start the remote target."""
+        """Create and start the remote target.
+
+        Uses SSH tunnel authentication - exactly like a real user would.
+        No server modifications, no shortcuts.
+        """
         if self._target is not None:
             return
 
@@ -435,7 +440,18 @@ class TestRunnerManager:
         self._target = RemoteTarget(remote_config)
         try:
             self._target.start()
-            self.console.print("  [green]Connected[/green]")
+
+            # Force SSH tunnel mode by clearing api_url from target info
+            # This makes the hop3 CLI use ssh:// URL instead of http:// with JWT
+            # SSH tunnel provides implicit authentication via SSH keys
+            # This is exactly how a real user would interact with hop3
+            if self._target._info:
+                from dataclasses import replace
+
+                self._target._info = replace(self._target._info, api_url="")
+
+            self.console.print("  [green]Connected (SSH authentication)[/green]")
+
         except Exception as e:
             self.console.print(f"  [red]Connection failed: {e}[/red]")
             self._target = None

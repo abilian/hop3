@@ -346,6 +346,22 @@ class DailyTestOrchestrator:
                     details={"checks": checks},
                 )
 
+            # Verify Docker is installed (required for Docker-based apps)
+            docker_installed = self._verify_docker_installed(server_ip)
+            if not docker_installed:
+                self.console.print("  [red]Docker is NOT installed on the server[/red]")
+                self.console.print(
+                    "  [yellow]Hint: Ensure deployment config has features=['docker'][/yellow]"
+                )
+                return PhaseResult(
+                    phase=Phase.DEPLOY,
+                    success=False,
+                    duration=time.time() - start_time,
+                    message="Docker not installed - required for Docker-based apps",
+                    details={"checks": checks, "docker": False},
+                )
+            self.console.print("  [green]Docker is installed[/green]")
+
             self.console.print("  [green]Deployment complete[/green]")
             self.console.print(f"  Server URL: {result.server_url}")
             self.console.print(f"  Duration: {result.duration:.1f}s")
@@ -375,7 +391,11 @@ class DailyTestOrchestrator:
                 self._deployment.cleanup()
 
     def _run_test_phase(self) -> PhaseResult:
-        """Run test suites using hop3-testing framework."""
+        """Run test suites using hop3-testing framework.
+
+        The hop3 CLI runs locally, connects to the server via SSH tunnel,
+        and deploys apps. The server handles builds (including Docker).
+        """
         start_time = time.time()
         self._log_phase("Test Execution")
 
@@ -396,9 +416,7 @@ class DailyTestOrchestrator:
             checks = verifier.run_all_checks()
 
             if not checks.get("rpc", False):
-                self.console.print(
-                    "  [red]hop3-server is not responding[/red]"
-                )
+                self.console.print("  [red]hop3-server is not responding[/red]")
                 self.console.print(
                     "  [yellow]Hint: Did you skip deployment? "
                     "Run without --skip-deploy to install hop3-server first.[/yellow]"
@@ -413,45 +431,37 @@ class DailyTestOrchestrator:
 
             self.console.print("  [green]hop3-server is ready[/green]")
 
-            # Determine project root for catalog - find the hop3 monorepo root
+            # Find project root for test apps
             project_root = self._find_hop3_project_root()
-            if project_root:
-                self.console.print(f"  Project root: {project_root}")
-            else:
-                self.console.print(
-                    "  [yellow]Warning: Could not find hop3 project root[/yellow]"
+            if not project_root:
+                return PhaseResult(
+                    phase=Phase.TEST,
+                    success=False,
+                    duration=time.time() - start_time,
+                    message="Could not find hop3 project root",
                 )
-                self.console.print(
-                    "  [yellow]Set HOP3_PROJECT_ROOT or use --use-local-repo[/yellow]"
-                )
+            self.console.print(f"  Project root: {project_root}")
 
-            # Create test runner
+            # Create test runner using hop3-testing framework
+            # The hop3 CLI runs locally and connects via SSH tunnel
             runner = TestRunnerManager(
                 host=server_ip,
                 config=self.config.tests,
                 project_root=project_root,
                 console=self.console,
-                verbose=False,
             )
 
-            # Run all configured test suites
+            # Run all test suites
             test_results = runner.run_all_suites()
             self._result.test_results = test_results
 
             # Print summary
             self.console.print()
             self.console.print("[bold]Test Results:[/bold]")
-            for suite_result in test_results.suite_results:
-                icon = "[green]✓[/green]" if suite_result.success else "[red]✗[/red]"
-                self.console.print(f"  {icon} {suite_result.summary}")
-
-            # Overall summary
-            self.console.print()
             self.console.print(
                 f"  Total: {test_results.total_tests} tests, "
                 f"{test_results.total_passed} passed, "
-                f"{test_results.total_failed} failed, "
-                f"{test_results.total_skipped} skipped"
+                f"{test_results.total_failed} failed"
             )
 
             if test_results.success:
@@ -464,11 +474,9 @@ class DailyTestOrchestrator:
                         "total": test_results.total_tests,
                         "passed": test_results.total_passed,
                         "failed": test_results.total_failed,
-                        "skipped": test_results.total_skipped,
                     },
                 )
             else:
-                # Get failed test names
                 failed_tests = [r.test.name for r in test_results.get_failed_tests()]
                 return PhaseResult(
                     phase=Phase.TEST,
@@ -479,7 +487,6 @@ class DailyTestOrchestrator:
                         "total": test_results.total_tests,
                         "passed": test_results.total_passed,
                         "failed": test_results.total_failed,
-                        "skipped": test_results.total_skipped,
                         "failed_tests": failed_tests[:10],  # First 10 failures
                     },
                 )
@@ -529,11 +536,13 @@ class DailyTestOrchestrator:
         # Add test results summary if available
         if self._result.test_results:
             tr = self._result.test_results
-            summary_lines.extend([
-                "",
-                f"Tests: {tr.total_passed}/{tr.total_tests} passed",
-                f"Failed: {tr.total_failed}, Skipped: {tr.total_skipped}",
-            ])
+            summary_lines.extend(
+                [
+                    "",
+                    f"Tests: {tr.total_passed}/{tr.total_tests} passed",
+                    f"Failed: {tr.total_failed}, Skipped: {tr.total_skipped}",
+                ]
+            )
 
         self.console.print(
             Panel.fit(
@@ -551,14 +560,11 @@ class DailyTestOrchestrator:
             )
 
         # Print failed tests if any
-        if (
-            self._result.test_results
-            and self._result.test_results.total_failed > 0
-        ):
+        if self._result.test_results and self._result.test_results.total_failed > 0:
             self.console.print()
             self.console.print("[bold red]Failed Tests:[/bold red]")
-            for result in self._result.test_results.get_failed_tests()[:10]:
-                error = result.error or "validation failed"
+            for result in self._result.test_results.get_failed_tests():
+                error = result.error or "unknown error"
                 self.console.print(f"  [red]✗[/red] {result.test.name}: {error}")
 
     def _log_phase(self, name: str) -> None:
@@ -570,6 +576,57 @@ class DailyTestOrchestrator:
         """Log a skipped phase."""
         self.console.print()
         self.console.print(f"[dim]Skipping: {what}[/dim]")
+
+    def _verify_docker_installed(self, server_ip: str) -> bool:
+        """Verify Docker is installed on the server.
+
+        Args:
+            server_ip: Server IP address.
+
+        Returns:
+            True if Docker is installed and working.
+        """
+        from .ssh import SSHConnection, SSHConnectionInfo
+
+        self.console.print("  Checking Docker installation...")
+
+        info = SSHConnectionInfo(host=server_ip, user="root")
+        conn = SSHConnection(info)
+
+        try:
+            if not conn.connect(timeout=30):
+                self.console.print("    [red]SSH connection failed[/red]")
+                return False
+
+            # Check if docker command exists
+            exit_code, stdout, stderr = conn.run("which docker", timeout=10)
+            if exit_code != 0:
+                self.console.print("    [red]docker command not found[/red]")
+                return False
+
+            # Check if docker daemon is running
+            exit_code, stdout, stderr = conn.run(
+                "docker info 2>&1 | head -5", timeout=30
+            )
+            if exit_code != 0:
+                self.console.print("    [red]Docker daemon not running[/red]")
+                self.console.print(f"    {stderr.strip()[:100]}")
+                return False
+
+            # Get Docker version
+            exit_code, stdout, stderr = conn.run("docker --version", timeout=10)
+            if exit_code == 0:
+                version = stdout.strip()
+                self.console.print(f"    Docker: {version}")
+
+            return True
+
+        except Exception as e:
+            self.console.print(f"    [red]Error checking Docker: {e}[/red]")
+            return False
+
+        finally:
+            conn.close()
 
     def _find_hop3_project_root(self) -> Path | None:
         """Find the Hop3 monorepo root directory.
