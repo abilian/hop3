@@ -192,9 +192,16 @@ class DockerBuilder:
             stderr=build_output[:1000] if build_output else "",
         )
 
-        # Extract the last meaningful error line for the summary message
-        error_summary = self._extract_error_summary(build_output)
-        msg = f"Docker build failed: {error_summary}"
+        # Include full build output in the error message (up to 8000 chars)
+        # This is critical for debugging Docker build failures remotely
+        if build_output:
+            # Take last 8000 chars to capture the actual error (which is usually at the end)
+            output_preview = build_output[-8000:] if len(build_output) > 8000 else build_output
+            if len(build_output) > 8000:
+                output_preview = f"...(truncated {len(build_output) - 8000} chars)...\n" + output_preview
+            msg = f"Docker build failed with exit code {e.returncode}:\n{output_preview}"
+        else:
+            msg = f"Docker build failed with exit code {e.returncode} (no output captured)"
         raise Abort(msg)
 
     def _extract_error_summary(self, output: str) -> str:

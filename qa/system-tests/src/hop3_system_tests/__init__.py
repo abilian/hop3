@@ -21,6 +21,7 @@ Example usage:
 from .cli import main
 from .config import Config, DeploymentConfig, HetznerConfig, TestConfig, load_config
 from .deployment import DeploymentManager, DeploymentResult
+from .diagnostics import DiagnosticCollector, DiagnosticResult, collect_diagnostics
 from .hetzner import HetznerManager, ServerInfo
 from .orchestrator import DailyTestOrchestrator, DailyTestResult, run_daily_test
 from .runner import AllSuitesResult, TestRunnerManager, TestSuiteResult
@@ -40,6 +41,10 @@ __all__ = [
     # Deployment
     "DeploymentManager",
     "DeploymentResult",
+    # Diagnostics
+    "DiagnosticCollector",
+    "DiagnosticResult",
+    "collect_diagnostics",
     # Orchestrator
     "DailyTestOrchestrator",
     "DailyTestResult",

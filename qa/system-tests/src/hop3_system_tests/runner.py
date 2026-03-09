@@ -143,6 +143,8 @@ class TestRunnerManager:
     # Map suite names to categories
     SUITE_CATEGORIES = {
         "test-apps": Category.DEPLOYMENT,
+        "docker-apps": Category.DOCKER_APP,
+        "native-apps": Category.NATIVE_APP,
         "demos": Category.DEMO,
         "tutorials": Category.TUTORIAL,
     }
@@ -195,29 +197,59 @@ class TestRunnerManager:
 
             # Run each configured suite
             for suite_name in self.config.suites:
-                suite_result = self._run_suite(suite_name)
-                result.suite_results.append(suite_result)
+                try:
+                    suite_result = self._run_suite(suite_name)
+                    result.suite_results.append(suite_result)
 
-                # Fail fast if configured
-                if self.config.fail_fast and not suite_result.success:
+                    # Fail fast if configured
+                    if self.config.fail_fast and not suite_result.success:
+                        self.console.print(
+                            f"  [yellow]Fail fast enabled, stopping after {suite_name}[/yellow]"
+                        )
+                        break
+
+                except Exception as e:
+                    # Handle suite-level exceptions
                     self.console.print(
-                        f"  [yellow]Fail fast enabled, stopping after {suite_name}[/yellow]"
+                        f"  [red]Suite {suite_name} failed with exception: {e}[/red]"
                     )
-                    break
+                    result.suite_results.append(
+                        TestSuiteResult(
+                            suite_name=suite_name,
+                            total=0,
+                            passed=0,
+                            failed=1,
+                            skipped=0,
+                            duration=0,
+                            errors=[f"Suite exception: {e}"],
+                        )
+                    )
+                    # Continue with next suite unless fail_fast is enabled
+                    if self.config.fail_fast:
+                        break
 
         except Exception as e:
-            # Create an error result for catastrophic failures
-            result.suite_results.append(
-                TestSuiteResult(
-                    suite_name="setup",
-                    total=0,
-                    passed=0,
-                    failed=0,
-                    skipped=0,
-                    duration=0,
-                    errors=[f"Setup failed: {e}"],
+            # Log the error but preserve any results we've collected
+            import traceback
+
+            error_msg = f"Suite execution error: {e}"
+            self.console.print(f"  [red]{error_msg}[/red]")
+            if self.verbose:
+                self.console.print(traceback.format_exc())
+
+            # Create an error result only if we have no results yet
+            if not result.suite_results:
+                result.suite_results.append(
+                    TestSuiteResult(
+                        suite_name="setup",
+                        total=0,
+                        passed=0,
+                        failed=0,
+                        skipped=0,
+                        duration=0,
+                        errors=[error_msg],
+                    )
                 )
-            )
 
         finally:
             self._cleanup_target()
@@ -305,17 +337,37 @@ class TestRunnerManager:
                     progress.advance(task)
                     continue
 
-                # Run the test
-                result = self._run_single_test(test)
-                test_results.append(result)
+                # Run the test with exception handling
+                try:
+                    result = self._run_single_test(test)
+                    test_results.append(result)
 
-                if result.passed:
-                    passed += 1
-                    self.console.print(f"  [green]✓[/green] {test.name}")
-                else:
+                    if result.passed:
+                        passed += 1
+                        self.console.print(f"  [green]✓[/green] {test.name}")
+                    else:
+                        failed += 1
+                        # Truncate very long error messages for display
+                        error_msg = result.error or "validation failed"
+                        if len(error_msg) > 200:
+                            error_msg = error_msg[:200] + "..."
+                        self.console.print(f"  [red]✗[/red] {test.name}: {error_msg}")
+
+                except Exception as e:
+                    # Handle unexpected exceptions during test execution
                     failed += 1
-                    error_msg = result.error or "validation failed"
-                    self.console.print(f"  [red]✗[/red] {test.name}: {error_msg}")
+                    error_msg = str(e)
+                    if len(error_msg) > 200:
+                        error_msg = error_msg[:200] + "..."
+                    self.console.print(
+                        f"  [red]✗[/red] {test.name}: Exception: {error_msg}"
+                    )
+                    # Create a failed result for this test
+                    from hop3_testing.runners.base import TestResult
+
+                    test_results.append(
+                        TestResult(test=test, passed=False, error=str(e))
+                    )
 
                 progress.advance(task)
 

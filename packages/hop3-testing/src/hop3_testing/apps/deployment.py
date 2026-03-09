@@ -229,13 +229,26 @@ class DeploymentSession:
                     self.console.debug(f"Deploy stderr: {' '.join(stderr_lines)}")
 
         if returncode != 0:
-            # Build detailed error message
+            # Build detailed error message - show full output for debugging
             error_parts = [f"Exit code: {returncode}"]
-            if stdout.strip():
-                # Truncate long output
-                stdout_preview = stdout.strip()[:500]
-                if len(stdout.strip()) > 500:
-                    stdout_preview += "..."
+            full_stdout = stdout.strip()
+
+            if full_stdout:
+                # For Docker build failures, we need the full output to diagnose
+                # Check if this is a Docker build failure
+                is_docker_build = "Docker build failed" in full_stdout or "docker build" in full_stdout.lower()
+
+                if is_docker_build:
+                    # Show full Docker build output (up to 5000 chars)
+                    stdout_preview = full_stdout[:5000]
+                    if len(full_stdout) > 5000:
+                        stdout_preview += f"\n... (truncated, {len(full_stdout)} total chars)"
+                else:
+                    # For other failures, show up to 2000 chars
+                    stdout_preview = full_stdout[:2000]
+                    if len(full_stdout) > 2000:
+                        stdout_preview += "..."
+
                 error_parts.append(f"stdout: {stdout_preview}")
 
             self._last_deploy_error = " | ".join(error_parts) if len(error_parts) > 1 else "Deploy command failed (no output)"

@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "flask-app"
 version = "0.1.0"
-description = "Nua test flask two"
+description = "Flask test app with Poetry and Gunicorn"
 authors = ["Jerome Dumonteil <jd@abilian.com>"]
 license = "MIT"
 

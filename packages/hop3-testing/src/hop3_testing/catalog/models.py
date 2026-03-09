@@ -52,12 +52,16 @@ class Category(str, Enum):
     """Test category.
 
     Determines how the test is executed:
-    - deployment: Deploy an app and validate it works
+    - deployment: Deploy an app and validate it works (test-apps)
+    - docker_app: Deploy a Docker-based real app (apps/docker-apps)
+    - native_app: Deploy a native uWSGI-based real app (apps/native-apps)
     - demo: Run a demo script or declarative demo
     - tutorial: Execute tutorial via validoc
     """
 
     DEPLOYMENT = "deployment"
+    DOCKER_APP = "docker-app"
+    NATIVE_APP = "native-app"
     DEMO = "demo"
     TUTORIAL = "tutorial"
 

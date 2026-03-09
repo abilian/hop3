@@ -88,6 +88,34 @@ class HttpVerifier:
 
         for attempt in range(max_retries):
             try:
+                # First check for redirects without following them
+                initial_response = httpx.get(
+                    url,
+                    headers={"Host": hostname},
+                    timeout=2.0,
+                    follow_redirects=False,
+                )
+
+                # Log redirect info if we got a 3xx
+                if 300 <= initial_response.status_code < 400:
+                    location = initial_response.headers.get("location", "")
+                    self.console.debug(
+                        f"Redirect detected: {initial_response.status_code} -> {location}"
+                    )
+                    result["details"]["redirect_status"] = initial_response.status_code
+                    result["details"]["redirect_location"] = location
+
+                    # If redirect is to a hostname we can't resolve, fail early
+                    if ".test.local" in location or ".local" in location:
+                        result["message"] = (
+                            f"Redirect to unresolvable hostname: {location}"
+                        )
+                        self.console.error(
+                            f"Server returned redirect to unresolvable URL: {location}"
+                        )
+                        return result
+
+                # Now make the actual request following redirects
                 response = httpx.get(
                     url,
                     headers={"Host": hostname},
