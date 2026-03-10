@@ -290,9 +290,12 @@ def generate_test_definition_from_app(
     if app_type:
         covers.append(app_type)
 
+    # Infer category from directory path (demos/, test-apps/, etc.)
+    category = _infer_category_from_path_and_type(app_path, "native")
+
     return TestDefinition(
         name=app_name,
-        category=Category.DEPLOYMENT,
+        category=category,
         tier=Tier.FAST,
         priority=Priority.P1,
         requirements=TestRequirements(
