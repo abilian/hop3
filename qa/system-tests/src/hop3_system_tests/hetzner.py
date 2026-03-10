@@ -11,13 +11,14 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from hcloud import Client
-from hcloud.images import Image
-from hcloud.servers import Server
-from rich.console import Console
 
 from .ssh import SSHKeyManager, wait_for_ssh
 
 if TYPE_CHECKING:
+    from hcloud.images import Image
+    from hcloud.servers import Server
+    from rich.console import Console
+
     from .config import HetznerConfig
 
 

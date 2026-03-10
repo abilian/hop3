@@ -12,6 +12,7 @@ and the hop3-testing framework, enabling execution of:
 
 from __future__ import annotations
 
+import contextlib
 import random
 import time
 from dataclasses import dataclass, field
@@ -519,10 +520,8 @@ class TestRunnerManager:
     def _cleanup_target(self) -> None:
         """Cleanup the remote target connection."""
         if self._target:
-            try:
+            with contextlib.suppress(Exception):
                 self._target.stop()
-            except Exception:
-                pass
             self._target = None
 
     def _find_project_root(self) -> Path:

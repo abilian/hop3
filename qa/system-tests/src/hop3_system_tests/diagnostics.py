@@ -135,7 +135,7 @@ class DiagnosticCollector:
     ) -> None:
         """Run a command and save output to file."""
         try:
-            exit_code, stdout, stderr = self.conn.run(command, timeout=30)
+            _exit_code, stdout, stderr = self.conn.run(command, timeout=30)
 
             content = stdout
             if stderr and stderr.strip():
@@ -184,7 +184,7 @@ class DiagnosticCollector:
 
             for filename, cmd in log_commands.items():
                 try:
-                    exit_code, stdout, stderr = self.conn.run(cmd, timeout=10)
+                    _exit_code, stdout, _stderr = self.conn.run(cmd, timeout=10)
                     if stdout.strip() and "No " not in stdout[:20]:
                         (app_log_dir / filename).write_text(stdout)
                         result.collected_files.append(

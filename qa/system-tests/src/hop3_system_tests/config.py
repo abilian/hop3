@@ -201,7 +201,7 @@ def _apply_overrides(config: Config, overrides: dict) -> Config:
     tests = config.tests
     report_dir = config.report_dir
 
-    if "server_id" in overrides and overrides["server_id"]:
+    if overrides.get("server_id"):
         hetzner = HetznerConfig(
             api_token=hetzner.api_token,
             server_id=overrides["server_id"],
@@ -209,7 +209,7 @@ def _apply_overrides(config: Config, overrides: dict) -> Config:
             ssh_key_name=hetzner.ssh_key_name,
         )
 
-    if "branch" in overrides and overrides["branch"]:
+    if overrides.get("branch"):
         deployment = DeploymentConfig(
             branch=overrides["branch"],
             domain=deployment.domain,
@@ -244,7 +244,7 @@ def _apply_overrides(config: Config, overrides: dict) -> Config:
             docker_apps_subset=tests.docker_apps_subset,
         )
 
-    if "report_dir" in overrides and overrides["report_dir"]:
+    if overrides.get("report_dir"):
         report_dir = Path(overrides["report_dir"])
 
     return Config(

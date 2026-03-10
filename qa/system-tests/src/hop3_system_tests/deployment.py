@@ -15,9 +15,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import httpx
-from rich.console import Console
 
 if TYPE_CHECKING:
+    from rich.console import Console
+
     from .config import Config, DeploymentConfig
 
 
@@ -280,7 +281,7 @@ class DeploymentManager:
                     timeout=timeout,
                     follow_redirects=False,
                 )
-                if response.status_code in (302, 303, 307, 308):
+                if response.status_code in {302, 303, 307, 308}:
                     self._log(f"Root redirect working (HTTP {response.status_code})")
                 elif response.status_code == 200:
                     self._log("Root returned 200 OK")
@@ -310,7 +311,7 @@ class DeploymentManager:
                 # Any response from the RPC endpoint means the server is running
                 # 200 = success, 401/403 = auth required, 404 = command not found
                 # Even 500 with a response body means the server is processing requests
-                if response.status_code in (200, 401, 403, 404):
+                if response.status_code in {200, 401, 403, 404}:
                     self._log(f"RPC endpoint responding (HTTP {response.status_code})")
                     return True, ""
 
@@ -528,7 +529,7 @@ class DeploymentVerifier:
                 follow_redirects=False,
             )
             # Accept redirects (302, 303) or 200
-            return response.status_code in (200, 302, 303, 307, 308)
+            return response.status_code in {200, 302, 303, 307, 308}
         except httpx.RequestError:
             return False
 
@@ -558,11 +559,9 @@ class DeploymentVerifier:
             # Any HTTP response means server is running
             # 200 = success, 401/403 = auth, 404 = command not found
             # 500 with body = server error but still running
-            if response.status_code in (200, 401, 403, 404):
+            if response.status_code in {200, 401, 403, 404}:
                 return True
-            if response.status_code == 500 and response.text:
-                return True
-            return False
+            return bool(response.status_code == 500 and response.text)
 
         except (httpx.RequestError, ValueError):
             return False

@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 
 import paramiko
 from rich.console import Console
+from typing_extensions import Self
 
 if TYPE_CHECKING:
     from .config import TestConfig
@@ -94,7 +95,8 @@ class SSHConnection:
             Tuple of (exit_code, stdout, stderr)
         """
         if not self._client:
-            raise RuntimeError("Not connected")
+            msg = "Not connected"
+            raise RuntimeError(msg)
 
         _stdin, stdout, stderr = self._client.exec_command(cmd, timeout=timeout)
         exit_code = stdout.channel.recv_exit_status()
@@ -103,7 +105,8 @@ class SSHConnection:
     def upload_directory(self, local_path: Path, remote_path: str) -> None:
         """Upload a directory to the server via tarball."""
         if not self._client or not self._sftp:
-            raise RuntimeError("Not connected")
+            msg = "Not connected"
+            raise RuntimeError(msg)
 
         # Create tarball locally
         with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
@@ -125,7 +128,7 @@ class SSHConnection:
         finally:
             tarball_path.unlink(missing_ok=True)
 
-    def __enter__(self) -> SSHConnection:
+    def __enter__(self) -> Self:
         self.connect()
         return self
 
@@ -373,7 +376,7 @@ class ServerTestRunner:
 
         # Try to get HTTP status via curl on server
         # Apps are accessible via {app_name}.localhost or through nginx
-        exit_code, stdout, stderr = self._ssh.run(
+        _exit_code, stdout, _stderr = self._ssh.run(
             f"curl -s -o /dev/null -w '%{{http_code}}' -H 'Host: {app_name}.localhost' http://localhost:80/ 2>/dev/null || echo '000'",
             timeout=30,
         )
