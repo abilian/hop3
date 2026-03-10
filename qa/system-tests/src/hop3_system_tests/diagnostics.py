@@ -187,7 +187,9 @@ class DiagnosticCollector:
                     exit_code, stdout, stderr = self.conn.run(cmd, timeout=10)
                     if stdout.strip() and "No " not in stdout[:20]:
                         (app_log_dir / filename).write_text(stdout)
-                        result.collected_files.append(f"failed-apps/{app_name}/{filename}")
+                        result.collected_files.append(
+                            f"failed-apps/{app_name}/{filename}"
+                        )
                 except Exception:
                     pass
 
@@ -233,20 +235,20 @@ class DiagnosticCollector:
         # Also write a human-readable summary
         readme = f"""# Diagnostic Collection Summary
 
-**Timestamp:** {result.timestamp.strftime('%Y-%m-%d %H:%M:%S')}
+**Timestamp:** {result.timestamp.strftime("%Y-%m-%d %H:%M:%S")}
 **Server:** {result.server_ip}
 
 ## Failed Tests
 
-{chr(10).join(f'- {t}' for t in (failed_tests or [])) or 'None specified'}
+{chr(10).join(f"- {t}" for t in (failed_tests or [])) or "None specified"}
 
 ## Collected Files
 
-{chr(10).join(f'- {f}' for f in result.collected_files)}
+{chr(10).join(f"- {f}" for f in result.collected_files)}
 
 ## Collection Errors
 
-{chr(10).join(f'- {e}' for e in result.errors) or 'None'}
+{chr(10).join(f"- {e}" for e in result.errors) or "None"}
 
 ## Quick Debugging
 

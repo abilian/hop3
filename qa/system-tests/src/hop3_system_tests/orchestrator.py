@@ -238,10 +238,14 @@ class DailyTestOrchestrator:
 
             if not self.verbose:
                 self.console.print(" done")
-            self.console.print(f"  Server rebuilt with image: {self.config.hetzner.image}")
+            self.console.print(
+                f"  Server rebuilt with image: {self.config.hetzner.image}"
+            )
 
             # Wait for SSH with progress
-            self.console.print("  Waiting for SSH...", end="" if not self.verbose else "\n")
+            self.console.print(
+                "  Waiting for SSH...", end="" if not self.verbose else "\n"
+            )
             ssh_ready = self._wait_for_ssh_with_progress(server_ip, timeout=300)
 
             if not ssh_ready:
@@ -535,7 +539,9 @@ class DailyTestOrchestrator:
         # Get list of failed tests
         failed_tests: list[str] = []
         if self._result.test_results:
-            failed_tests = [r.test.name for r in self._result.test_results.get_failed_tests()]
+            failed_tests = [
+                r.test.name for r in self._result.test_results.get_failed_tests()
+            ]
 
         # Create output directory
         logs_dir = Path("./logs")
@@ -668,9 +674,9 @@ class DailyTestOrchestrator:
         Returns:
             True if SSH became available.
         """
-        from .ssh import is_port_open
-
         import paramiko
+
+        from .ssh import is_port_open
 
         start_time = time.time()
         interval = 10
@@ -693,11 +699,15 @@ class DailyTestOrchestrator:
                     transport.connect()
                     transport.close()
                     if self.verbose:
-                        self.console.print(f"    [{elapsed}s] SSH connection successful")
+                        self.console.print(
+                            f"    [{elapsed}s] SSH connection successful"
+                        )
                     return True
                 except Exception as e:
                     if self.verbose:
-                        self.console.print(f"    [{elapsed}s] SSH handshake failed: {e}")
+                        self.console.print(
+                            f"    [{elapsed}s] SSH handshake failed: {e}"
+                        )
             else:
                 new_status = "port closed"
                 if self.verbose and new_status != last_status:

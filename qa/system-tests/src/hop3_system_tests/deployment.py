@@ -54,7 +54,7 @@ class DeploymentManager:
         config: DeploymentConfig,
         repo_path: Path | None = None,
         verbose: bool = False,
-        console: "Console | None" = None,
+        console: Console | None = None,
     ):
         """Initialize deployment manager.
 
@@ -101,7 +101,9 @@ class DeploymentManager:
 
         if self.verbose and self.console:
             # Stream git clone output
-            self.console.print(f"    Running: git clone --branch {self.config.branch} ...")
+            self.console.print(
+                f"    Running: git clone --branch {self.config.branch} ..."
+            )
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -356,7 +358,6 @@ class DeploymentManager:
             Tuple of (returncode, stdout, stderr).
         """
         import select
-        import sys
 
         stdout_lines: list[str] = []
         stderr_lines: list[str] = []
