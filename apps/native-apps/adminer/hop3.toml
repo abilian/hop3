@@ -21,6 +21,7 @@ before-build = "bash scripts/download.sh"
 [run]
 # Run with PHP built-in server
 start = "php -S 0.0.0.0:${PORT:-8080}"
+start-timeout = 180
 
 [healthcheck]
 path = "/"
