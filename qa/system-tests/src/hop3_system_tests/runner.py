@@ -13,15 +13,18 @@ and the hop3-testing framework, enabling execution of:
 from __future__ import annotations
 
 import contextlib
+import os
 import random
 import time
-from dataclasses import dataclass, field
+import traceback
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_testing.catalog import Catalog
 from hop3_testing.catalog.models import Category, TargetType
 from hop3_testing.cli.runners import run_single_test
+from hop3_testing.runners.base import TestResult
 from hop3_testing.targets import RemoteConfig, RemoteTarget
 from hop3_testing.util.console import PrintingConsole, Verbosity
 from rich.console import Console
@@ -29,7 +32,6 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 if TYPE_CHECKING:
     from hop3_testing.catalog.models import TestDefinition
-    from hop3_testing.runners.base import TestResult
 
     from .config import Config, TestConfig
 
@@ -232,8 +234,6 @@ class TestRunnerManager:
 
         except Exception as e:
             # Log the error but preserve any results we've collected
-            import traceback
-
             error_msg = f"Suite execution error: {e}"
             self.console.print(f"  [red]{error_msg}[/red]")
             if self.verbose:
@@ -371,8 +371,6 @@ class TestRunnerManager:
                         f"  [red]✗[/red] {test.name}: Exception: {error_msg}"
                     )
                     # Create a failed result for this test
-                    from hop3_testing.runners.base import TestResult
-
                     test_results.append(
                         TestResult(test=test, passed=False, error=str(e))
                     )
@@ -435,8 +433,6 @@ class TestRunnerManager:
             TestResult from the test execution.
         """
         if not self._target:
-            from hop3_testing.runners.base import TestResult
-
             return TestResult(
                 test=test,
                 passed=False,
@@ -453,8 +449,6 @@ class TestRunnerManager:
                 debug=self.verbose,
             )
         except Exception as e:
-            from hop3_testing.runners.base import TestResult
-
             return TestResult(
                 test=test,
                 passed=False,
@@ -506,8 +500,6 @@ class TestRunnerManager:
             # SSH tunnel provides implicit authentication via SSH keys
             # This is exactly how a real user would interact with hop3
             if self._target._info:
-                from dataclasses import replace
-
                 self._target._info = replace(self._target._info, api_url="")
 
             self.console.print("  [green]Connected (SSH authentication)[/green]")
@@ -530,8 +522,6 @@ class TestRunnerManager:
         Returns:
             Path to the project root.
         """
-        import os
-
         # Try environment variable first
         if hop3_root := os.environ.get("HOP3_PROJECT_ROOT"):
             return Path(hop3_root)

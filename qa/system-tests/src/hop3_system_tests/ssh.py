@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import socket
 import subprocess
@@ -160,8 +161,6 @@ class SSHKeyManager:
 
         hostnames = []
         try:
-            import socket
-
             with self.known_hosts_path.open() as f:
                 for line in f:
                     line = line.strip()
@@ -211,8 +210,6 @@ class SSHKeyManager:
 
         # The second part is the base64-encoded key
         try:
-            import base64
-
             key_data = base64.b64decode(parts[1])
             digest = hashlib.sha256(key_data).digest()
             fingerprint = base64.b64encode(digest).decode().rstrip("=")

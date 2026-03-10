@@ -15,10 +15,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .ssh import SSHConnection, SSHConnectionInfo
+
 if TYPE_CHECKING:
     from rich.console import Console
-
-    from .ssh import SSHConnection
 
 
 @dataclass
@@ -160,7 +160,7 @@ class DiagnosticCollector:
         for test_name in failed_tests:
             # Try to find the app directory (might have timestamp suffix)
             find_cmd = f"find /home/hop3/apps -maxdepth 1 -name '{test_name}*' -type d 2>/dev/null | head -1"
-            exit_code, stdout, _ = self.conn.run(find_cmd, timeout=10)
+            _exit_code, stdout, _ = self.conn.run(find_cmd, timeout=10)
 
             app_path = stdout.strip()
             if not app_path:
@@ -284,8 +284,6 @@ def collect_diagnostics(
     Returns:
         DiagnosticResult with collected files.
     """
-    from .ssh import SSHConnection, SSHConnectionInfo
-
     output_base = Path(output_base)
     info = SSHConnectionInfo(host=server_ip, user="root")
     conn = SSHConnection(info)

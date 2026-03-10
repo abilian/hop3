@@ -532,7 +532,6 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "attrs" },
-    { name = "click" },
     { name = "hcloud" },
     { name = "hop3-installer" },
     { name = "hop3-testing" },
@@ -553,7 +552,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "attrs", specifier = ">=23.0" },
-    { name = "click", specifier = ">=8.0" },
     { name = "hcloud", specifier = ">=2.0" },
     { name = "hop3-installer", editable = "../../packages/hop3-installer" },
     { name = "hop3-testing", editable = "../../packages/hop3-testing" },

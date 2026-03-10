@@ -15,8 +15,6 @@ dependencies = [
     "hcloud>=2.0",
     # SSH operations (constrained by hop3-testing)
     "paramiko>=2.11.0,<3.0.0",
-    # CLI interface
-    "click>=8.0",
     # Configuration
     "tomli>=2.0;python_version<'3.11'",
     # HTML templating for reports

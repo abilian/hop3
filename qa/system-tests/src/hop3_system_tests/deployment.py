@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import select
 import shutil
 import subprocess
 import tempfile
@@ -358,8 +359,6 @@ class DeploymentManager:
         Returns:
             Tuple of (returncode, stdout, stderr).
         """
-        import select
-
         stdout_lines: list[str] = []
         stderr_lines: list[str] = []
 
