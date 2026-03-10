@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -12,6 +13,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import paramiko
 from rich.console import Console
 from rich.panel import Panel
 
@@ -19,7 +21,7 @@ from .deployment import DeploymentManager, DeploymentResult, DeploymentVerifier
 from .diagnostics import DiagnosticCollector, DiagnosticResult
 from .hetzner import HetznerError, HetznerManager, ServerInfo
 from .runner import AllSuitesResult, TestRunnerManager
-from .ssh import SSHConnection, SSHConnectionInfo, verify_ssh_connectivity
+from .ssh import SSHConnection, SSHConnectionInfo, is_port_open, verify_ssh_connectivity
 
 if TYPE_CHECKING:
     from .config import Config
@@ -673,10 +675,6 @@ class DailyTestOrchestrator:
         Returns:
             True if SSH became available.
         """
-        import paramiko
-
-        from .ssh import is_port_open
-
         start_time = time.time()
         interval = 10
         last_status = ""
@@ -780,8 +778,6 @@ class DailyTestOrchestrator:
         Returns:
             Path to project root, or None if not found.
         """
-        import os
-
         # Check explicit config first
         if self.config.deployment.use_local_repo:
             if self.config.deployment.local_repo_path:

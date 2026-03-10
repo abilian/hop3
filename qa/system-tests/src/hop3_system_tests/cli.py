@@ -8,11 +8,22 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import traceback
 from pathlib import Path
 
 from rich.console import Console
 
-from .config import load_config
+from .config import (
+    DeploymentConfig,
+    HetznerConfig,
+    TestConfig,
+    load_config,
+)
+from .deployment import DeploymentManager
+from .hetzner import HetznerManager
+from .orchestrator import DailyTestOrchestrator
+from .runner import TestRunnerManager
+from .ssh import is_port_open, verify_ssh_connectivity
 
 VERSION = "0.1.0"
 
@@ -199,8 +210,6 @@ Example:
 
 def cmd_run(args: argparse.Namespace) -> None:
     """Execute the 'run' command."""
-    from .orchestrator import DailyTestOrchestrator
-
     console = Console()
 
     # Build CLI overrides
@@ -256,10 +265,6 @@ def cmd_run(args: argparse.Namespace) -> None:
 
 def cmd_status(args: argparse.Namespace) -> None:
     """Execute the 'status' command."""
-    from .config import HetznerConfig
-    from .hetzner import HetznerManager
-    from .ssh import is_port_open, verify_ssh_connectivity
-
     console = Console()
 
     api_token = os.environ.get("HETZNER_API_TOKEN")
@@ -307,9 +312,6 @@ def cmd_status(args: argparse.Namespace) -> None:
 
 def cmd_reset(args: argparse.Namespace) -> None:
     """Execute the 'reset' command."""
-    from .config import HetznerConfig
-    from .hetzner import HetznerManager
-
     console = Console()
 
     api_token = os.environ.get("HETZNER_API_TOKEN")
@@ -350,10 +352,6 @@ def cmd_reset(args: argparse.Namespace) -> None:
 
 def cmd_deploy(args: argparse.Namespace) -> None:
     """Execute the 'deploy' command."""
-    from .config import DeploymentConfig, HetznerConfig
-    from .deployment import DeploymentManager
-    from .hetzner import HetznerManager
-
     console = Console()
 
     api_token = os.environ.get("HETZNER_API_TOKEN")
@@ -412,10 +410,6 @@ def cmd_deploy(args: argparse.Namespace) -> None:
 
 def cmd_test(args: argparse.Namespace) -> None:
     """Execute the 'test' command."""
-    from .config import HetznerConfig, TestConfig
-    from .hetzner import HetznerManager
-    from .runner import TestRunnerManager
-
     console = Console()
 
     api_token = os.environ.get("HETZNER_API_TOKEN")
@@ -474,8 +468,6 @@ def cmd_test(args: argparse.Namespace) -> None:
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         if args.verbose:
-            import traceback
-
             traceback.print_exc()
         sys.exit(1)
 
