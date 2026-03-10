@@ -143,7 +143,7 @@ class HetznerManager:
         completely, removing all data and resetting SSH host keys.
 
         Args:
-            image: OS image name (e.g., "debian-12"). Uses config default if None.
+            image: OS image name (e.g., "debian-13"). Uses config default if None.
             timeout: Maximum time to wait for rebuild in seconds.
 
         Returns:
@@ -321,7 +321,7 @@ class HetznerManager:
         """Find an image by name.
 
         Args:
-            name: Image name (e.g., "debian-12").
+            name: Image name (e.g., "debian-13").
 
         Returns:
             Image object or None if not found.
