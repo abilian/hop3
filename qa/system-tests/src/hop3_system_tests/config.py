@@ -23,7 +23,7 @@ class HetznerConfig:
 
     api_token: str
     server_id: int
-    image: str = "debian-12"
+    image: str
     ssh_key_name: str | None = None
 
     @classmethod
@@ -46,7 +46,7 @@ class HetznerConfig:
         return cls(
             api_token=api_token,
             server_id=server_id,
-            image=data.get("image", "debian-12"),
+            image=data.get("image", "debian-1"),
             ssh_key_name=data.get("ssh_key_name"),
         )
 

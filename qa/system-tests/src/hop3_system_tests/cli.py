@@ -252,7 +252,7 @@ def status(server_id: int) -> None:
 )
 @click.option(
     "--image",
-    default="debian-12",
+    default="debian-13",
     help="OS image to install.",
 )
 @click.confirmation_option(
@@ -284,14 +284,12 @@ def reset(server_id: int, image: str) -> None:
         image=image,
     )
 
+    manager = HetznerManager(config)
+    console.print(f"Rebuilding server {server_id} with image '{image}'...")
+
     try:
-        manager = HetznerManager(config)
-
-        console.print(f"Rebuilding server {server_id} with image '{image}'...")
-
         info = manager.rebuild_server(image=image)
         console.print("[green]Server rebuilt successfully[/green]")
-
         console.print("Waiting for SSH...")
         if manager.wait_for_ssh_ready():
             console.print("[green]SSH is ready[/green]")
