@@ -246,25 +246,143 @@ def cmd_exists(cmd: str) -> bool:
 # =============================================================================
 
 
+@dataclass
+class DistroInfo:
+    """Detailed Linux distribution information.
+
+    Attributes:
+        family: Distribution family ("debian", "fedora", "arch", "unknown")
+        distro: Specific distribution ID (e.g., "debian", "ubuntu", "fedora")
+        version: Version number (e.g., "12", "24.04", "41")
+        codename: Version codename (e.g., "bookworm", "noble", "trixie")
+    """
+
+    family: str
+    distro: str
+    version: str
+    codename: str
+
+    def __str__(self) -> str:
+        """Return human-readable string."""
+        if self.codename:
+            return f"{self.distro} {self.version} ({self.codename})"
+        return f"{self.distro} {self.version}"
+
+    @property
+    def is_debian(self) -> bool:
+        """Check if this is Debian (not Ubuntu or other derivatives)."""
+        return self.distro == "debian"
+
+    @property
+    def is_ubuntu(self) -> bool:
+        """Check if this is Ubuntu."""
+        return self.distro == "ubuntu"
+
+    @property
+    def version_major(self) -> int:
+        """Get major version number (e.g., 12 for Debian 12, 24 for Ubuntu 24.04)."""
+        try:
+            return int(self.version.split(".")[0])
+        except (ValueError, IndexError):
+            return 0
+
+
+def _parse_os_release() -> dict[str, str]:
+    """Parse /etc/os-release file into a dictionary."""
+    result: dict[str, str] = {}
+    os_release = Path("/etc/os-release")
+    if not os_release.exists():
+        return result
+
+    for line in os_release.read_text().splitlines():
+        line = line.strip()
+        if "=" in line:
+            key, value = line.split("=", 1)
+            result[key] = value.strip('"').lower()
+    return result
+
+
+def _parse_lsb_release() -> dict[str, str]:
+    """Parse lsb_release command output as fallback."""
+    result: dict[str, str] = {}
+    try:
+        proc = subprocess.run(
+            ["lsb_release", "-a"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            return result
+        for line in proc.stdout.splitlines():
+            if ":" in line:
+                key, value = line.split(":", 1)
+                result[key.strip()] = value.strip().lower()
+    except FileNotFoundError:
+        pass
+    return result
+
+
+def _determine_family(distro: str, id_like: str) -> str:
+    """Determine distribution family from distro ID and ID_LIKE."""
+    debian_distros = {"debian", "ubuntu", "mint", "pop", "linuxmint"}
+    fedora_distros = {"fedora", "rhel", "centos", "rocky", "almalinux"}
+
+    if distro in debian_distros or "debian" in id_like or "ubuntu" in id_like:
+        return "debian"
+    if distro in fedora_distros or "fedora" in id_like or "rhel" in id_like:
+        return "fedora"
+    if distro == "arch" or "arch" in id_like:
+        return "arch"
+    return "unknown"
+
+
+def detect_distro_info() -> DistroInfo:
+    """Detect detailed Linux distribution information.
+
+    Parses /etc/os-release to get distribution ID, version, and codename.
+    Falls back to lsb_release command if /etc/os-release is incomplete.
+
+    Returns:
+        DistroInfo with family, distro, version, and codename.
+    """
+    # Parse /etc/os-release (standard on modern Linux)
+    os_info = _parse_os_release()
+    distro = os_info.get("ID", "")
+    version = os_info.get("VERSION_ID", "")
+    codename = os_info.get("VERSION_CODENAME", "")
+    id_like = os_info.get("ID_LIKE", "")
+
+    # Fallback to lsb_release if needed
+    if not distro or not version:
+        lsb_info = _parse_lsb_release()
+        distro = distro or lsb_info.get("Distributor ID", "")
+        version = version or lsb_info.get("Release", "")
+        codename = codename or lsb_info.get("Codename", "")
+
+    family = _determine_family(distro, id_like)
+
+    return DistroInfo(
+        family=family,
+        distro=distro,
+        version=version,
+        codename=codename,
+    )
+
+
 def detect_distro() -> str:
-    """Detect the Linux distribution.
+    """Detect the Linux distribution family.
 
     Returns:
         'debian' for Debian-based distros (Ubuntu, Mint, Pop!_OS)
         'fedora' for Red Hat-based distros (Fedora, RHEL, CentOS, Rocky, Alma)
         'arch' for Arch Linux
         'unknown' for unrecognized distributions
+
+    Note:
+        For detailed information, use detect_distro_info() instead.
     """
-    os_release = Path("/etc/os-release")
-    if os_release.exists():
-        content = os_release.read_text().lower()
-        if any(d in content for d in ["ubuntu", "debian", "mint", "pop"]):
-            return "debian"
-        if any(d in content for d in ["fedora", "rhel", "centos", "rocky", "alma"]):
-            return "fedora"
-        if "arch" in content:
-            return "arch"
-    return "unknown"
+    return detect_distro_info().family
 
 
 def get_current_shell() -> str | None:
