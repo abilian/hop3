@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import paramiko
+from typing_extensions import Self
 
 
 @dataclass
@@ -277,13 +278,14 @@ class SSHConnection:
             Tuple of (exit_code, stdout, stderr).
         """
         if not self._client:
-            raise RuntimeError("Not connected")
+            msg = "Not connected"
+            raise RuntimeError(msg)
 
-        stdin, stdout, stderr = self._client.exec_command(command, timeout=timeout)
+        _stdin, stdout, stderr = self._client.exec_command(command, timeout=timeout)
         exit_code = stdout.channel.recv_exit_status()
         return exit_code, stdout.read().decode(), stderr.read().decode()
 
-    def __enter__(self) -> SSHConnection:
+    def __enter__(self) -> Self:
         """Context manager entry."""
         self.connect()
         return self

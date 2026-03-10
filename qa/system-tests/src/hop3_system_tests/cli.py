@@ -5,151 +5,226 @@
 
 from __future__ import annotations
 
+import argparse
+import os
 import sys
 from pathlib import Path
 
-import click
 from rich.console import Console
 
 from .config import load_config
-from .orchestrator import DailyTestOrchestrator
+
+VERSION = "0.1.0"
 
 
-@click.group()
-@click.version_option(version="0.1.0", prog_name="hop3-daily-test")
-def cli() -> None:
-    """Hop3 Daily System Test Framework.
+def create_parser() -> argparse.ArgumentParser:
+    """Create the argument parser with all subcommands."""
+    parser = argparse.ArgumentParser(
+        prog="hop3-daily-test",
+        description="Hop3 Daily System Test Framework. Runs comprehensive end-to-end tests on Hetzner infrastructure.",
+    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
 
-    Runs comprehensive end-to-end tests on Hetzner infrastructure.
-    """
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # --- run command ---
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run the daily system test",
+        description="""Run the daily system test.
+
+This command orchestrates a complete end-to-end test:
+  1. Reset the Hetzner server to a clean state
+  2. Deploy Hop3 from the specified branch
+  3. Run all configured test suites
+  4. Generate an HTML report
+
+Environment variables:
+  HETZNER_API_TOKEN  Hetzner Cloud API token (required)
+  HETZNER_SERVER_ID  Server ID to use for testing
+  HOP3_BRANCH        Git branch to test (default: devel)
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    run_parser.add_argument(
+        "--server-id", type=int, help="Hetzner server ID to test on."
+    )
+    run_parser.add_argument("--branch", default="devel", help="Git branch to test.")
+    run_parser.add_argument(
+        "--config", dest="config_file", type=Path, help="Path to configuration file."
+    )
+    run_parser.add_argument(
+        "--report-dir",
+        type=Path,
+        default=Path("./reports"),
+        help="Directory for test reports.",
+    )
+    run_parser.add_argument(
+        "--skip-reset",
+        action="store_true",
+        help="Skip server reset (use existing state).",
+    )
+    run_parser.add_argument(
+        "--skip-deploy",
+        action="store_true",
+        help="Skip Hop3 deployment (use existing installation).",
+    )
+    run_parser.add_argument(
+        "--skip-tests",
+        action="store_true",
+        help="Skip test execution (only reset and deploy).",
+    )
+    run_parser.add_argument(
+        "--suites",
+        nargs="+",
+        help="Test suites to run: test-apps, docker-apps, native-apps, demos, tutorials.",
+    )
+    run_parser.add_argument(
+        "-x", "--fail-fast", action="store_true", help="Stop on first test failure."
+    )
+    run_parser.add_argument(
+        "--random",
+        dest="random_order",
+        action="store_true",
+        help="Run tests in random order.",
+    )
+    run_parser.add_argument(
+        "--use-local-repo",
+        action="store_true",
+        help="Use local working directory instead of cloning from git.",
+    )
+    run_parser.add_argument(
+        "--local-repo-path",
+        type=Path,
+        help="Path to local Hop3 repo (defaults to current directory).",
+    )
+    run_parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose output."
+    )
+
+    # --- status command ---
+    status_parser = subparsers.add_parser(
+        "status",
+        help="Check the status of the test server",
+        description="Check the status of the test server. Displays current server state and connectivity information.",
+    )
+    status_parser.add_argument(
+        "--server-id", type=int, required=True, help="Hetzner server ID."
+    )
+
+    # --- reset command ---
+    reset_parser = subparsers.add_parser(
+        "reset",
+        help="Reset the test server to a clean state",
+        description="""Reset the test server to a clean state.
+
+This will:
+  1. Rebuild the server with the specified OS image
+  2. Wait for SSH to become available
+  3. Update SSH known_hosts with the new host key
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    reset_parser.add_argument(
+        "--server-id", type=int, required=True, help="Hetzner server ID."
+    )
+    reset_parser.add_argument(
+        "--image", default="debian-13", help="OS image to install."
+    )
+    reset_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip confirmation prompt."
+    )
+
+    # --- deploy command ---
+    deploy_parser = subparsers.add_parser(
+        "deploy",
+        help="Deploy Hop3 to the test server",
+        description="Deploy Hop3 to the test server. Clones the repository and runs hop3-deploy.",
+    )
+    deploy_parser.add_argument(
+        "--server-id", type=int, required=True, help="Hetzner server ID."
+    )
+    deploy_parser.add_argument(
+        "--branch", default="devel", help="Git branch to deploy."
+    )
+    deploy_parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Clean existing installation before deploying.",
+    )
+
+    # --- test command ---
+    test_parser = subparsers.add_parser(
+        "test",
+        help="Run tests against an already-deployed Hop3 server",
+        description="""Run tests against an already-deployed Hop3 server.
+
+This command runs test suites without resetting or redeploying.
+Useful for re-running tests after fixing issues.
+
+Example:
+    hop3-daily-test test --server-id 12345 --suites test-apps
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    test_parser.add_argument(
+        "--server-id", type=int, required=True, help="Hetzner server ID."
+    )
+    test_parser.add_argument(
+        "--suites",
+        nargs="+",
+        default=["test-apps"],
+        help="Test suites to run: test-apps, docker-apps, native-apps, demos, tutorials.",
+    )
+    test_parser.add_argument(
+        "-x", "--fail-fast", action="store_true", help="Stop on first failure."
+    )
+    test_parser.add_argument(
+        "--random",
+        dest="random_order",
+        action="store_true",
+        help="Run tests in random order.",
+    )
+    test_parser.add_argument(
+        "--project-root",
+        type=Path,
+        help="Path to Hop3 project root (for test catalog).",
+    )
+    test_parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose output."
+    )
+
+    return parser
 
 
-@cli.command()
-@click.option(
-    "--server-id",
-    type=int,
-    envvar="HETZNER_SERVER_ID",
-    help="Hetzner server ID to test on.",
-)
-@click.option(
-    "--branch",
-    default="devel",
-    envvar="HOP3_BRANCH",
-    help="Git branch to test.",
-)
-@click.option(
-    "--config",
-    "config_file",
-    type=click.Path(exists=True, path_type=Path),
-    help="Path to configuration file.",
-)
-@click.option(
-    "--report-dir",
-    type=click.Path(path_type=Path),
-    default="./reports",
-    help="Directory for test reports.",
-)
-@click.option(
-    "--skip-reset",
-    is_flag=True,
-    help="Skip server reset (use existing state).",
-)
-@click.option(
-    "--skip-deploy",
-    is_flag=True,
-    help="Skip Hop3 deployment (use existing installation).",
-)
-@click.option(
-    "--skip-tests",
-    is_flag=True,
-    help="Skip test execution (only reset and deploy).",
-)
-@click.option(
-    "--suites",
-    multiple=True,
-    help="Test suites to run: test-apps, docker-apps, native-apps, demos, tutorials.",
-)
-@click.option(
-    "-x",
-    "--fail-fast",
-    is_flag=True,
-    help="Stop on first test failure.",
-)
-@click.option(
-    "--random",
-    "random_order",
-    is_flag=True,
-    help="Run tests in random order.",
-)
-@click.option(
-    "--use-local-repo",
-    is_flag=True,
-    help="Use local working directory instead of cloning from git.",
-)
-@click.option(
-    "--local-repo-path",
-    type=click.Path(exists=True, path_type=Path),
-    help="Path to local Hop3 repo (defaults to current directory).",
-)
-@click.option(
-    "-v",
-    "--verbose",
-    is_flag=True,
-    help="Enable verbose output.",
-)
-def run(
-    server_id: int | None,
-    branch: str,
-    config_file: Path | None,
-    report_dir: Path,
-    skip_reset: bool,
-    skip_deploy: bool,
-    skip_tests: bool,
-    suites: tuple[str, ...],
-    fail_fast: bool,
-    random_order: bool,
-    use_local_repo: bool,
-    local_repo_path: Path | None,
-    verbose: bool,
-) -> None:
-    """Run the daily system test.
+def cmd_run(args: argparse.Namespace) -> None:
+    """Execute the 'run' command."""
+    from .orchestrator import DailyTestOrchestrator
 
-    This command orchestrates a complete end-to-end test:
-
-    1. Reset the Hetzner server to a clean state
-    2. Deploy Hop3 from the specified branch
-    3. Run all configured test suites
-    4. Generate an HTML report
-
-    Environment variables:
-      HETZNER_API_TOKEN  Hetzner Cloud API token (required)
-      HETZNER_SERVER_ID  Server ID to use for testing
-      HOP3_BRANCH        Git branch to test (default: devel)
-    """
     console = Console()
 
     # Build CLI overrides
-    overrides = {}
-    if server_id:
-        overrides["server_id"] = server_id
-    if branch != "devel":
-        overrides["branch"] = branch
-    if suites:
-        overrides["suites"] = list(suites)
-    if fail_fast:
+    overrides: dict = {}
+    if args.server_id:
+        overrides["server_id"] = args.server_id
+    if args.branch != "devel":
+        overrides["branch"] = args.branch
+    if args.suites:
+        overrides["suites"] = list(args.suites)
+    if args.fail_fast:
         overrides["fail_fast"] = True
-    if random_order:
+    if args.random_order:
         overrides["random_order"] = True
-    if report_dir:
-        overrides["report_dir"] = report_dir
-    if use_local_repo:
+    if args.report_dir:
+        overrides["report_dir"] = args.report_dir
+    if args.use_local_repo:
         overrides["use_local_repo"] = True
-    if local_repo_path:
-        overrides["local_repo_path"] = local_repo_path
+    if args.local_repo_path:
+        overrides["local_repo_path"] = args.local_repo_path
 
     # Load configuration
     try:
-        config = load_config(config_file, overrides)
+        config = load_config(args.config_file, overrides)
     except Exception as e:
         console.print(f"[red]Error loading configuration: {e}[/red]")
         sys.exit(1)
@@ -163,38 +238,27 @@ def run(
         sys.exit(1)
 
     # If skipping deploy, must also skip reset (no point resetting then not deploying)
-    if skip_deploy and not skip_reset:
+    skip_reset = args.skip_reset
+    if args.skip_deploy and not skip_reset:
         skip_reset = True
 
     # Run the test
-    orchestrator = DailyTestOrchestrator(config, console, verbose=verbose)
+    orchestrator = DailyTestOrchestrator(config, console, verbose=args.verbose)
     result = orchestrator.run(
         skip_reset=skip_reset,
-        skip_deploy=skip_deploy,
-        skip_tests=skip_tests,
+        skip_deploy=args.skip_deploy,
+        skip_tests=args.skip_tests,
     )
 
     # Exit with appropriate code
     sys.exit(0 if result.success else 1)
 
 
-@cli.command()
-@click.option(
-    "--server-id",
-    type=int,
-    envvar="HETZNER_SERVER_ID",
-    required=True,
-    help="Hetzner server ID.",
-)
-def status(server_id: int) -> None:
-    """Check the status of the test server.
-
-    Displays current server state and connectivity information.
-    """
-    import os
-
+def cmd_status(args: argparse.Namespace) -> None:
+    """Execute the 'status' command."""
     from .config import HetznerConfig
     from .hetzner import HetznerManager
+    from .ssh import is_port_open, verify_ssh_connectivity
 
     console = Console()
 
@@ -205,7 +269,8 @@ def status(server_id: int) -> None:
 
     config = HetznerConfig(
         api_token=api_token,
-        server_id=server_id,
+        server_id=args.server_id,
+        image="debian-12",
     )
 
     try:
@@ -223,8 +288,6 @@ def status(server_id: int) -> None:
         console.print(f"  Image:      {info.image or 'N/A'}")
 
         # Check SSH connectivity
-        from .ssh import is_port_open, verify_ssh_connectivity
-
         console.print()
         console.print("[bold]Connectivity[/bold]")
 
@@ -242,32 +305,8 @@ def status(server_id: int) -> None:
         sys.exit(1)
 
 
-@cli.command()
-@click.option(
-    "--server-id",
-    type=int,
-    envvar="HETZNER_SERVER_ID",
-    required=True,
-    help="Hetzner server ID.",
-)
-@click.option(
-    "--image",
-    default="debian-13",
-    help="OS image to install.",
-)
-@click.confirmation_option(
-    prompt="This will wipe all data on the server. Continue?",
-)
-def reset(server_id: int, image: str) -> None:
-    """Reset the test server to a clean state.
-
-    This will:
-    1. Rebuild the server with the specified OS image
-    2. Wait for SSH to become available
-    3. Update SSH known_hosts with the new host key
-    """
-    import os
-
+def cmd_reset(args: argparse.Namespace) -> None:
+    """Execute the 'reset' command."""
     from .config import HetznerConfig
     from .hetzner import HetznerManager
 
@@ -278,17 +317,24 @@ def reset(server_id: int, image: str) -> None:
         console.print("[red]HETZNER_API_TOKEN environment variable not set[/red]")
         sys.exit(1)
 
+    # Confirmation prompt
+    if not args.yes:
+        response = input("This will wipe all data on the server. Continue? [y/N] ")
+        if response.lower() not in {"y", "yes"}:
+            console.print("Aborted.")
+            sys.exit(0)
+
     config = HetznerConfig(
         api_token=api_token,
-        server_id=server_id,
-        image=image,
+        server_id=args.server_id,
+        image=args.image,
     )
 
     manager = HetznerManager(config)
-    console.print(f"Rebuilding server {server_id} with image '{image}'...")
+    console.print(f"Rebuilding server {args.server_id} with image '{args.image}'...")
 
     try:
-        info = manager.rebuild_server(image=image)
+        info = manager.rebuild_server(image=args.image)
         console.print("[green]Server rebuilt successfully[/green]")
         console.print("Waiting for SSH...")
         if manager.wait_for_ssh_ready():
@@ -302,32 +348,8 @@ def reset(server_id: int, image: str) -> None:
         sys.exit(1)
 
 
-@cli.command()
-@click.option(
-    "--server-id",
-    type=int,
-    envvar="HETZNER_SERVER_ID",
-    required=True,
-    help="Hetzner server ID.",
-)
-@click.option(
-    "--branch",
-    default="devel",
-    envvar="HOP3_BRANCH",
-    help="Git branch to deploy.",
-)
-@click.option(
-    "--clean",
-    is_flag=True,
-    help="Clean existing installation before deploying.",
-)
-def deploy(server_id: int, branch: str, clean: bool) -> None:
-    """Deploy Hop3 to the test server.
-
-    Clones the repository and runs hop3-deploy.
-    """
-    import os
-
+def cmd_deploy(args: argparse.Namespace) -> None:
+    """Execute the 'deploy' command."""
     from .config import DeploymentConfig, HetznerConfig
     from .deployment import DeploymentManager
     from .hetzner import HetznerManager
@@ -341,7 +363,8 @@ def deploy(server_id: int, branch: str, clean: bool) -> None:
 
     hetzner_config = HetznerConfig(
         api_token=api_token,
-        server_id=server_id,
+        server_id=args.server_id,
+        image="debian-12",
     )
 
     try:
@@ -353,9 +376,9 @@ def deploy(server_id: int, branch: str, clean: bool) -> None:
         console.print(f"Deploying to {info.name} ({server_ip})")
 
         deploy_config = DeploymentConfig(
-            branch=branch,
+            branch=args.branch,
             use_local_code=True,
-            clean_before=clean,
+            clean_before=args.clean,
             verbose=True,
         )
 
@@ -365,7 +388,7 @@ def deploy(server_id: int, branch: str, clean: bool) -> None:
         )
 
         try:
-            console.print(f"Cloning branch '{branch}'...")
+            console.print(f"Cloning branch '{args.branch}'...")
             deployer.clone_repo()
 
             console.print("Running deployment...")
@@ -387,61 +410,8 @@ def deploy(server_id: int, branch: str, clean: bool) -> None:
         sys.exit(1)
 
 
-@cli.command()
-@click.option(
-    "--server-id",
-    type=int,
-    envvar="HETZNER_SERVER_ID",
-    required=True,
-    help="Hetzner server ID.",
-)
-@click.option(
-    "--suites",
-    multiple=True,
-    default=["test-apps"],
-    help="Test suites to run: test-apps, docker-apps, native-apps, demos, tutorials.",
-)
-@click.option(
-    "-x",
-    "--fail-fast",
-    is_flag=True,
-    help="Stop on first failure.",
-)
-@click.option(
-    "--random",
-    "random_order",
-    is_flag=True,
-    help="Run tests in random order.",
-)
-@click.option(
-    "--project-root",
-    type=click.Path(exists=True, path_type=Path),
-    help="Path to Hop3 project root (for test catalog).",
-)
-@click.option(
-    "-v",
-    "--verbose",
-    is_flag=True,
-    help="Enable verbose output.",
-)
-def test(
-    server_id: int,
-    suites: tuple[str, ...],
-    fail_fast: bool,
-    random_order: bool,
-    project_root: Path | None,
-    verbose: bool,
-) -> None:
-    """Run tests against an already-deployed Hop3 server.
-
-    This command runs test suites without resetting or redeploying.
-    Useful for re-running tests after fixing issues.
-
-    Example:
-        hop3-daily-test test --server-id 12345 --suites test-apps
-    """
-    import os
-
+def cmd_test(args: argparse.Namespace) -> None:
+    """Execute the 'test' command."""
     from .config import HetznerConfig, TestConfig
     from .hetzner import HetznerManager
     from .runner import TestRunnerManager
@@ -455,7 +425,8 @@ def test(
 
     hetzner_config = HetznerConfig(
         api_token=api_token,
-        server_id=server_id,
+        server_id=args.server_id,
+        image="debian-12",
     )
 
     try:
@@ -468,18 +439,18 @@ def test(
 
         # Create test config
         test_config = TestConfig(
-            suites=list(suites),
-            fail_fast=fail_fast,
-            random_order=random_order,
+            suites=list(args.suites),
+            fail_fast=args.fail_fast,
+            random_order=args.random_order,
         )
 
         # Run tests
         runner = TestRunnerManager(
             host=server_ip,
             config=test_config,
-            project_root=project_root,
+            project_root=args.project_root,
             console=console,
-            verbose=verbose,
+            verbose=args.verbose,
         )
 
         result = runner.run_all_suites()
@@ -502,7 +473,7 @@ def test(
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
-        if verbose:
+        if args.verbose:
             import traceback
 
             traceback.print_exc()
@@ -511,7 +482,28 @@ def test(
 
 def main() -> None:
     """Main entry point."""
-    cli()
+    parser = create_parser()
+    args = parser.parse_args()
+
+    if args.command is None:
+        parser.print_help()
+        sys.exit(0)
+
+    # Dispatch to command handler
+    commands = {
+        "run": cmd_run,
+        "status": cmd_status,
+        "reset": cmd_reset,
+        "deploy": cmd_deploy,
+        "test": cmd_test,
+    }
+
+    handler = commands.get(args.command)
+    if handler:
+        handler(args)
+    else:
+        parser.print_help()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

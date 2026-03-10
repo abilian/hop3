@@ -496,20 +496,19 @@ class DailyTestOrchestrator:
                         "failed": test_results.total_failed,
                     },
                 )
-            else:
-                failed_tests = [r.test.name for r in test_results.get_failed_tests()]
-                return PhaseResult(
-                    phase=Phase.TEST,
-                    success=False,
-                    duration=time.time() - start_time,
-                    message=f"{test_results.total_failed} test(s) failed",
-                    details={
-                        "total": test_results.total_tests,
-                        "passed": test_results.total_passed,
-                        "failed": test_results.total_failed,
-                        "failed_tests": failed_tests[:10],  # First 10 failures
-                    },
-                )
+            failed_tests = [r.test.name for r in test_results.get_failed_tests()]
+            return PhaseResult(
+                phase=Phase.TEST,
+                success=False,
+                duration=time.time() - start_time,
+                message=f"{test_results.total_failed} test(s) failed",
+                details={
+                    "total": test_results.total_tests,
+                    "passed": test_results.total_passed,
+                    "failed": test_results.total_failed,
+                    "failed_tests": failed_tests[:10],  # First 10 failures
+                },
+            )
 
         except Exception as e:
             return PhaseResult(
@@ -740,15 +739,18 @@ class DailyTestOrchestrator:
                 self.console.print("    [red]SSH connection failed[/red]")
                 return False
 
-            # Check if docker command exists
-            exit_code, stdout, stderr = conn.run("which docker", timeout=10)
+            # Check if docker command exists (use common paths since SSH may have limited PATH)
+            exit_code, stdout, stderr = conn.run(
+                "command -v docker || test -x /usr/bin/docker || test -x /usr/local/bin/docker",
+                timeout=10,
+            )
             if exit_code != 0:
                 self.console.print("    [red]docker command not found[/red]")
                 return False
 
             # Check if docker daemon is running
             exit_code, stdout, stderr = conn.run(
-                "docker info 2>&1 | head -5", timeout=30
+                "/usr/bin/docker info 2>&1 | head -5", timeout=30
             )
             if exit_code != 0:
                 self.console.print("    [red]Docker daemon not running[/red]")
@@ -756,7 +758,9 @@ class DailyTestOrchestrator:
                 return False
 
             # Get Docker version
-            exit_code, stdout, stderr = conn.run("docker --version", timeout=10)
+            exit_code, stdout, stderr = conn.run(
+                "/usr/bin/docker --version", timeout=10
+            )
             if exit_code == 0:
                 version = stdout.strip()
                 self.console.print(f"    Docker: {version}")
