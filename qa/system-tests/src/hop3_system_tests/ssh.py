@@ -104,7 +104,7 @@ class SSHKeyManager:
         # Use ssh-keyscan with shell redirection to properly append keys
         # This handles multi-line output correctly
         result = subprocess.run(
-            f'ssh-keyscan -p {port} -t ed25519,rsa {host} >> {self.known_hosts_path} 2>/dev/null',
+            f"ssh-keyscan -p {port} -t ed25519,rsa {host} >> {self.known_hosts_path} 2>/dev/null",
             shell=True,
             check=False,
         )

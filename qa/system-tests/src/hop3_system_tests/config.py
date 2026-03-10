@@ -235,11 +235,7 @@ def _apply_overrides(config: Config, overrides: dict) -> Config:
             ),
         )
 
-    if (
-        "suites" in overrides
-        or "fail_fast" in overrides
-        or "random_order" in overrides
-    ):
+    if "suites" in overrides or "fail_fast" in overrides or "random_order" in overrides:
         tests = TestConfig(
             suites=overrides.get("suites") or tests.suites,
             timeout_per_test=tests.timeout_per_test,

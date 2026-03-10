@@ -81,7 +81,7 @@ class HetznerManager:
         self,
         config: HetznerConfig,
         verbose: bool = False,
-        console: "Console | None" = None,
+        console: Console | None = None,
     ):
         """Initialize Hetzner manager.
 
@@ -379,13 +379,15 @@ class HetznerManager:
 
             # Show progress in verbose mode
             elapsed = int(time.time() - start_time)
-            progress = action.progress if hasattr(action, 'progress') else 0
+            progress = action.progress if hasattr(action, "progress") else 0
             if self.verbose and self.console and progress != last_progress:
                 self.console.print(
                     f"    [{elapsed}s] {action_name}: {action.status} ({progress}%)"
                 )
                 last_progress = progress
-            elif not self.verbose and self.console and elapsed % 30 == 0 and elapsed > 0:
+            elif (
+                not self.verbose and self.console and elapsed % 30 == 0 and elapsed > 0
+            ):
                 # Brief update every 30s in non-verbose mode
                 self.console.print(f" ({elapsed}s)", end="")
 
