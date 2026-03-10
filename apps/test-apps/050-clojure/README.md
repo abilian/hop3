@@ -1,24 +1,42 @@
-# Clojure Web Server on Hop3
+# 050-clojure
 
-Illustrates how to create an uberjar for clojure projects using `lein`.
+## Purpose
 
-## Usage
+Tests Hop3's **Clojure/JVM deployment** with Leiningen.
 
-To run the uberjar:
+## What It Validates
 
-    $ lein run
+- Clojure toolchain detection via `project.clj`
+- Leiningen build process (`lein uberjar`)
+- JVM application execution
+- Pre-built JAR deployment
+
+## Structure
+
+```
+Procfile       # web: java -jar target/uberjar/...standalone.jar
+project.clj    # Leiningen project definition
+src/           # Clojure source files
+```
+
+## Technical Details
+
+- **Toolchain**: Clojure (detected via project.clj)
+- **Build**: Leiningen uberjar (creates standalone JAR)
+- **Runtime**: JVM
+- **Procfile syntax**: `web: java -jar <path-to-jar>`
+
+## Local Testing
+
+```bash
+lein uberjar
+java -jar target/uberjar/sample-clojure-app-0.1.0-SNAPSHOT-standalone.jar
+```
+
+## Why This Test Matters
+
+Clojure represents JVM-based deployments. This tests that Hop3 can handle the Leiningen build process and execute JVM applications, which also validates Java runtime availability.
 
 ## License
 
-Copyright © 2019 John Simiyu
-
-This program and the accompanying materials are made available under the
-terms of the Eclipse Public License 2.0 which is available at
-http://www.eclipse.org/legal/epl-2.0.
-
-This Source Code may also be made available under the following Secondary
-Licenses when the conditions for such availability set forth in the Eclipse
-Public License, v. 2.0 are satisfied: GNU General Public License as published by
-the Free Software Foundation, either version 2 of the License, or (at your
-option) any later version, with the GNU Classpath Exception which is available
-at https://www.gnu.org/software/classpath/license.html.
+Copyright (c) 2019 John Simiyu. EPL-2.0.
