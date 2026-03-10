@@ -86,6 +86,8 @@ class SSHKeyManager:
     def add_host_key(self, host: str, port: int = 22) -> bool:
         """Scan and add a host's key to known_hosts.
 
+        Removes any existing key for this host first to avoid duplicates.
+
         Args:
             host: Hostname or IP address.
             port: SSH port number.
@@ -95,6 +97,9 @@ class SSHKeyManager:
         """
         # Ensure .ssh directory exists
         self.known_hosts_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+
+        # Remove existing key first to avoid duplicates
+        self.remove_host_key(host)
 
         # Use ssh-keyscan with shell redirection to properly append keys
         # This handles multi-line output correctly

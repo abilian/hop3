@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from .deployment import DeploymentManager, DeploymentResult, DeploymentVerifier
 from .diagnostics import DiagnosticCollector, DiagnosticResult
@@ -85,15 +84,18 @@ class DailyTestOrchestrator:
         self,
         config: Config,
         console: Console | None = None,
+        verbose: bool = False,
     ):
         """Initialize orchestrator.
 
         Args:
             config: Test configuration.
             console: Rich console for output. Creates one if None.
+            verbose: Enable verbose output with streaming logs.
         """
         self.config = config
         self.console = console or Console()
+        self.verbose = verbose
         self._result = DailyTestResult(
             timestamp=datetime.now(),
             branch=config.deployment.branch,
@@ -169,7 +171,11 @@ class DailyTestOrchestrator:
                 )
 
             # Initialize Hetzner manager
-            self._hetzner = HetznerManager(self.config.hetzner)
+            self._hetzner = HetznerManager(
+                self.config.hetzner,
+                verbose=self.verbose,
+                console=self.console,
+            )
 
             # Get server info
             server_info = self._hetzner.get_server_info()
@@ -219,39 +225,46 @@ class DailyTestOrchestrator:
         try:
             server_ip = self._hetzner.get_server_ip()
 
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                console=self.console,
-            ) as progress:
-                # Rebuild server
-                task = progress.add_task("Rebuilding server...", total=None)
-                server_info = self._hetzner.rebuild_server(
-                    image=self.config.hetzner.image,
-                    timeout=600,
+            # Rebuild server
+            if self.verbose:
+                self.console.print("  Rebuilding server...")
+            else:
+                self.console.print("  Rebuilding server...", end="")
+
+            server_info = self._hetzner.rebuild_server(
+                image=self.config.hetzner.image,
+                timeout=600,
+            )
+
+            if not self.verbose:
+                self.console.print(" done")
+            self.console.print(f"  Server rebuilt with image: {self.config.hetzner.image}")
+
+            # Wait for SSH with progress
+            self.console.print("  Waiting for SSH...", end="" if not self.verbose else "\n")
+            ssh_ready = self._wait_for_ssh_with_progress(server_ip, timeout=300)
+
+            if not ssh_ready:
+                return PhaseResult(
+                    phase=Phase.RESET,
+                    success=False,
+                    duration=time.time() - start_time,
+                    message="SSH did not become available within 5 minutes",
                 )
-                progress.update(task, description="Server rebuilt")
 
-                # Wait for SSH
-                progress.update(task, description="Waiting for SSH...")
-                if not self._hetzner.wait_for_ssh_ready(timeout=300):
-                    return PhaseResult(
-                        phase=Phase.RESET,
-                        success=False,
-                        duration=time.time() - start_time,
-                        message="SSH did not become available",
-                    )
-                progress.update(task, description="SSH ready")
+            if not self.verbose:
+                self.console.print(" ready")
 
-                # Verify SSH connectivity
-                progress.update(task, description="Verifying SSH connectivity...")
-                if not verify_ssh_connectivity(server_ip):
-                    return PhaseResult(
-                        phase=Phase.RESET,
-                        success=False,
-                        duration=time.time() - start_time,
-                        message="SSH connectivity verification failed",
-                    )
+            # Verify SSH connectivity
+            if self.verbose:
+                self.console.print("  Verifying SSH connectivity...")
+            if not verify_ssh_connectivity(server_ip):
+                return PhaseResult(
+                    phase=Phase.RESET,
+                    success=False,
+                    duration=time.time() - start_time,
+                    message="SSH connectivity verification failed",
+                )
 
             self._result.server_info = server_info
             self.console.print("  [green]Server reset complete[/green]")
@@ -300,28 +313,28 @@ class DailyTestOrchestrator:
             self._deployment = DeploymentManager(
                 host=server_ip,
                 config=self.config.deployment,
+                verbose=self.verbose,
+                console=self.console,
             )
 
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                console=self.console,
-            ) as progress:
-                # Clone repository or use local
-                if self.config.deployment.use_local_repo:
-                    task = progress.add_task("Using local repository...", total=None)
-                    repo_path = self.config.deployment.local_repo_path or Path.cwd()
-                    self._deployment.repo_path = repo_path
-                    progress.update(task, description=f"Using {repo_path}")
-                else:
-                    task = progress.add_task("Cloning repository...", total=None)
-                    repo_path = self._deployment.clone_repo()
-                    progress.update(task, description=f"Cloned to {repo_path}")
+            # Clone repository or use local
+            if self.config.deployment.use_local_repo:
+                repo_path = self.config.deployment.local_repo_path or Path.cwd()
+                self._deployment.repo_path = repo_path
+                self.console.print(f"  Using local repository: {repo_path}")
+            else:
+                self.console.print("  Cloning repository...")
+                repo_path = self._deployment.clone_repo()
+                self.console.print(f"  Cloned to {repo_path}")
 
-                # Run deployment
-                progress.update(task, description="Deploying Hop3...")
-                result = self._deployment.deploy()
-                self._result.deployment_result = result
+            # Run deployment
+            self.console.print("  Deploying Hop3...")
+            if self.verbose:
+                self.console.print("  [dim]--- hop3-deploy output ---[/dim]")
+            result = self._deployment.deploy()
+            self._result.deployment_result = result
+            if self.verbose:
+                self.console.print("  [dim]--- end hop3-deploy output ---[/dim]")
 
             if not result.success:
                 self.console.print(f"  [red]Deployment failed: {result.error}[/red]")
@@ -451,6 +464,7 @@ class DailyTestOrchestrator:
                 config=self.config.tests,
                 project_root=project_root,
                 console=self.console,
+                verbose=self.verbose,
             )
 
             # Run all test suites
@@ -643,6 +657,59 @@ class DailyTestOrchestrator:
         """Log a skipped phase."""
         self.console.print()
         self.console.print(f"[dim]Skipping: {what}[/dim]")
+
+    def _wait_for_ssh_with_progress(self, host: str, timeout: int = 300) -> bool:
+        """Wait for SSH with progress feedback.
+
+        Args:
+            host: Server hostname or IP.
+            timeout: Maximum wait time in seconds.
+
+        Returns:
+            True if SSH became available.
+        """
+        from .ssh import is_port_open
+
+        import paramiko
+
+        start_time = time.time()
+        interval = 10
+        last_status = ""
+
+        while time.time() - start_time < timeout:
+            elapsed = int(time.time() - start_time)
+            remaining = timeout - elapsed
+
+            # Check port first
+            if is_port_open(host, 22, timeout=5):
+                new_status = "port open, verifying connection"
+                if self.verbose and new_status != last_status:
+                    self.console.print(f"    [{elapsed}s] SSH {new_status}...")
+                    last_status = new_status
+
+                # Try SSH handshake
+                try:
+                    transport = paramiko.Transport((host, 22))
+                    transport.connect()
+                    transport.close()
+                    if self.verbose:
+                        self.console.print(f"    [{elapsed}s] SSH connection successful")
+                    return True
+                except Exception as e:
+                    if self.verbose:
+                        self.console.print(f"    [{elapsed}s] SSH handshake failed: {e}")
+            else:
+                new_status = "port closed"
+                if self.verbose and new_status != last_status:
+                    self.console.print(f"    [{elapsed}s] SSH {new_status}, waiting...")
+                    last_status = new_status
+                elif not self.verbose and elapsed % 30 == 0 and elapsed > 0:
+                    # Show brief progress every 30s in non-verbose mode
+                    self.console.print(f" ({elapsed}s)", end="")
+
+            time.sleep(interval)
+
+        return False
 
     def _verify_docker_installed(self, server_ip: str) -> bool:
         """Verify Docker is installed on the server.

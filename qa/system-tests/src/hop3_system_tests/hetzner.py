@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from hcloud import Client
 from hcloud.images import Image
 from hcloud.servers import Server
+from rich.console import Console
 
 from .ssh import SSHKeyManager, wait_for_ssh
 
@@ -76,13 +77,22 @@ class ServerResetError(HetznerError):
 class HetznerManager:
     """Manages Hetzner Cloud servers for testing."""
 
-    def __init__(self, config: HetznerConfig):
+    def __init__(
+        self,
+        config: HetznerConfig,
+        verbose: bool = False,
+        console: "Console | None" = None,
+    ):
         """Initialize Hetzner manager.
 
         Args:
             config: Hetzner configuration.
+            verbose: Enable verbose output.
+            console: Rich console for output.
         """
         self.config = config
+        self.verbose = verbose
+        self.console = console
         self._client = Client(token=config.api_token)
         self._ssh_key_manager = SSHKeyManager()
 
@@ -170,13 +180,21 @@ class HetznerManager:
             raise ServerResetError(msg)
 
         # Wait for action to complete
-        self._wait_for_action(response.action.id, timeout=timeout)
+        if self.verbose and self.console:
+            self.console.print(f"    Rebuild started (action {response.action.id})")
+        self._wait_for_action(
+            response.action.id, timeout=timeout, action_name="rebuild"
+        )
 
         # Update SSH known_hosts with new host key
         server_ip = self.get_server_ip()
+        if self.verbose and self.console:
+            self.console.print(f"    Updating SSH known_hosts for {server_ip}")
 
         # Find any hostname aliases that resolve to this IP
         aliases = self._ssh_key_manager.find_hostnames_for_ip(server_ip)
+        if self.verbose and self.console and aliases:
+            self.console.print(f"    Found aliases: {', '.join(aliases)}")
 
         # Update known_hosts for IP and all aliases
         self._ssh_key_manager.update_host_key(server_ip, additional_hosts=aliases)
@@ -325,6 +343,7 @@ class HetznerManager:
         action_id: int,
         timeout: int = 300,
         interval: int = 5,
+        action_name: str = "action",
     ) -> None:
         """Wait for an action to complete.
 
@@ -332,11 +351,14 @@ class HetznerManager:
             action_id: Action ID to wait for.
             timeout: Maximum time to wait in seconds.
             interval: Time between status checks.
+            action_name: Name of action for progress messages.
 
         Raises:
             ServerResetError: If action fails or times out.
         """
         deadline = time.time() + timeout
+        start_time = time.time()
+        last_progress = -1
 
         while time.time() < deadline:
             action = self._client.actions.get_by_id(action_id)
@@ -346,11 +368,26 @@ class HetznerManager:
                 raise ServerResetError(msg)
 
             if action.status == "success":
+                if self.verbose and self.console:
+                    elapsed = int(time.time() - start_time)
+                    self.console.print(f"    [{elapsed}s] {action_name} completed")
                 return
 
             if action.status == "error":
                 msg = f"Action {action_id} failed: {action.error}"
                 raise ServerResetError(msg)
+
+            # Show progress in verbose mode
+            elapsed = int(time.time() - start_time)
+            progress = action.progress if hasattr(action, 'progress') else 0
+            if self.verbose and self.console and progress != last_progress:
+                self.console.print(
+                    f"    [{elapsed}s] {action_name}: {action.status} ({progress}%)"
+                )
+                last_progress = progress
+            elif not self.verbose and self.console and elapsed % 30 == 0 and elapsed > 0:
+                # Brief update every 30s in non-verbose mode
+                self.console.print(f" ({elapsed}s)", end="")
 
             time.sleep(interval)
 

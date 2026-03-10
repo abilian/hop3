@@ -76,6 +76,7 @@ class TestConfig:
     suites: list[str] = field(default_factory=lambda: ["test-apps"])
     timeout_per_test: int = 300
     fail_fast: bool = False
+    random_order: bool = False
     docker_apps_subset: list[str] = field(default_factory=list)
 
 
@@ -117,6 +118,7 @@ class Config:
                 suites=tests_data.get("suites", ["test-apps"]),
                 timeout_per_test=tests_data.get("timeout_per_test", 300),
                 fail_fast=tests_data.get("fail_fast", False),
+                random_order=tests_data.get("random_order", False),
                 docker_apps_subset=tests_data.get("docker_apps_subset", []),
             ),
             report_dir=Path(data.get("report_dir", "./reports")),
@@ -233,11 +235,16 @@ def _apply_overrides(config: Config, overrides: dict) -> Config:
             ),
         )
 
-    if "suites" in overrides and overrides["suites"]:
+    if (
+        "suites" in overrides
+        or "fail_fast" in overrides
+        or "random_order" in overrides
+    ):
         tests = TestConfig(
-            suites=overrides["suites"],
+            suites=overrides.get("suites") or tests.suites,
             timeout_per_test=tests.timeout_per_test,
-            fail_fast=tests.fail_fast,
+            fail_fast=overrides.get("fail_fast", tests.fail_fast),
+            random_order=overrides.get("random_order", tests.random_order),
             docker_apps_subset=tests.docker_apps_subset,
         )
 

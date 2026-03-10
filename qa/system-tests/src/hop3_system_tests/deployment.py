@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import httpx
+from rich.console import Console
 
 if TYPE_CHECKING:
     from .config import Config, DeploymentConfig
@@ -52,6 +53,8 @@ class DeploymentManager:
         host: str,
         config: DeploymentConfig,
         repo_path: Path | None = None,
+        verbose: bool = False,
+        console: "Console | None" = None,
     ):
         """Initialize deployment manager.
 
@@ -59,10 +62,14 @@ class DeploymentManager:
             host: Target server hostname or IP.
             config: Deployment configuration.
             repo_path: Path to existing Hop3 repo. If None, will clone fresh.
+            verbose: Enable verbose output with streaming logs.
+            console: Rich console for output.
         """
         self.host = host
         self.config = config
         self.repo_path = repo_path
+        self.verbose = verbose
+        self.console = console
         self._temp_dir: Path | None = None
         self._log_buffer: list[str] = []
 
@@ -81,25 +88,43 @@ class DeploymentManager:
 
         self._log(f"Cloning Hop3 repository to {target_dir}")
 
-        result = subprocess.run(
-            [
-                "git",
-                "clone",
-                "--depth",
-                "1",
-                "--branch",
-                self.config.branch,
-                self.REPO_URL,
-                str(target_dir),
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        cmd = [
+            "git",
+            "clone",
+            "--depth",
+            "1",
+            "--branch",
+            self.config.branch,
+            self.REPO_URL,
+            str(target_dir),
+        ]
 
-        if result.returncode != 0:
-            self._log(f"Clone failed: {result.stderr}")
-            msg = f"Failed to clone repository: {result.stderr}"
+        if self.verbose and self.console:
+            # Stream git clone output
+            self.console.print(f"    Running: git clone --branch {self.config.branch} ...")
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            stdout_lines = []
+            if process.stdout:
+                for line in process.stdout:
+                    line = line.rstrip()
+                    stdout_lines.append(line)
+                    self.console.print(f"    {line}")
+            process.wait()
+            returncode = process.returncode
+            stderr = ""
+        else:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            returncode = result.returncode
+            stderr = result.stderr
+
+        if returncode != 0:
+            self._log(f"Clone failed: {stderr}")
+            msg = f"Failed to clone repository: {stderr}"
             raise DeploymentError(msg)
 
         self._log(f"Cloned branch '{self.config.branch}' successfully")
@@ -123,23 +148,29 @@ class DeploymentManager:
             cmd = self._build_deploy_command()
             self._log(f"Running: {' '.join(cmd)}")
 
-            # Run deployment
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=self.repo_path,
-                check=False,
-                timeout=1800,  # 30 minute timeout
-            )
+            # Run deployment - use streaming output in verbose mode
+            if self.verbose and self.console:
+                returncode, stdout, stderr = self._run_with_streaming(cmd)
+            else:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    cwd=self.repo_path,
+                    check=False,
+                    timeout=1800,  # 30 minute timeout
+                )
+                returncode = result.returncode
+                stdout = result.stdout
+                stderr = result.stderr
 
             duration = time.time() - start_time
-            self._log(result.stdout)
+            self._log(stdout)
 
-            if result.returncode != 0:
-                self._log(f"Deployment failed: {result.stderr}")
+            if returncode != 0:
+                self._log(f"Deployment failed: {stderr}")
                 # Extract meaningful error from stderr
-                error_msg = self._extract_error_message(result.stderr, result.stdout)
+                error_msg = self._extract_error_message(stderr, stdout)
                 return DeploymentResult(
                     success=False,
                     duration=duration,
@@ -314,6 +345,81 @@ class DeploymentManager:
         if self._temp_dir and self._temp_dir.exists():
             shutil.rmtree(self._temp_dir)
             self._temp_dir = None
+
+    def _run_with_streaming(self, cmd: list[str]) -> tuple[int, str, str]:
+        """Run command with streaming output to console.
+
+        Args:
+            cmd: Command to run.
+
+        Returns:
+            Tuple of (returncode, stdout, stderr).
+        """
+        import select
+        import sys
+
+        stdout_lines: list[str] = []
+        stderr_lines: list[str] = []
+
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=self.repo_path,
+            bufsize=1,  # Line buffered
+        )
+
+        # Use select to read from both stdout and stderr
+        while True:
+            # Check if process has finished
+            if process.poll() is not None:
+                # Read any remaining output
+                if process.stdout:
+                    for line in process.stdout:
+                        line = line.rstrip()
+                        stdout_lines.append(line)
+                        if self.console:
+                            self.console.print(f"    {line}")
+                if process.stderr:
+                    for line in process.stderr:
+                        line = line.rstrip()
+                        stderr_lines.append(line)
+                        if self.console:
+                            self.console.print(f"    [dim]{line}[/dim]")
+                break
+
+            # Read available output
+            readable = []
+            if process.stdout:
+                readable.append(process.stdout)
+            if process.stderr:
+                readable.append(process.stderr)
+
+            if not readable:
+                break
+
+            # Use select on Unix, fallback to simple read on Windows
+            try:
+                ready, _, _ = select.select(readable, [], [], 0.1)
+            except (ValueError, OSError):
+                # Fallback for Windows or closed pipes
+                ready = readable
+
+            for stream in ready:
+                line = stream.readline()
+                if line:
+                    line = line.rstrip()
+                    if stream == process.stdout:
+                        stdout_lines.append(line)
+                        if self.console:
+                            self.console.print(f"    {line}")
+                    else:
+                        stderr_lines.append(line)
+                        if self.console:
+                            self.console.print(f"    [dim]{line}[/dim]")
+
+        return process.returncode or 0, "\n".join(stdout_lines), "\n".join(stderr_lines)
 
     def _log(self, message: str) -> None:
         """Add message to log buffer."""

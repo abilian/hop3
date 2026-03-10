@@ -70,6 +70,18 @@ def cli() -> None:
     help="Test suites to run: test-apps, docker-apps, native-apps, demos, tutorials.",
 )
 @click.option(
+    "-x",
+    "--fail-fast",
+    is_flag=True,
+    help="Stop on first test failure.",
+)
+@click.option(
+    "--random",
+    "random_order",
+    is_flag=True,
+    help="Run tests in random order.",
+)
+@click.option(
     "--use-local-repo",
     is_flag=True,
     help="Use local working directory instead of cloning from git.",
@@ -94,6 +106,8 @@ def run(
     skip_deploy: bool,
     skip_tests: bool,
     suites: tuple[str, ...],
+    fail_fast: bool,
+    random_order: bool,
     use_local_repo: bool,
     local_repo_path: Path | None,
     verbose: bool,
@@ -122,6 +136,10 @@ def run(
         overrides["branch"] = branch
     if suites:
         overrides["suites"] = list(suites)
+    if fail_fast:
+        overrides["fail_fast"] = True
+    if random_order:
+        overrides["random_order"] = True
     if report_dir:
         overrides["report_dir"] = report_dir
     if use_local_repo:
@@ -144,8 +162,12 @@ def run(
             console.print(f"  - {error}")
         sys.exit(1)
 
+    # If skipping deploy, must also skip reset (no point resetting then not deploying)
+    if skip_deploy and not skip_reset:
+        skip_reset = True
+
     # Run the test
-    orchestrator = DailyTestOrchestrator(config, console)
+    orchestrator = DailyTestOrchestrator(config, console, verbose=verbose)
     result = orchestrator.run(
         skip_reset=skip_reset,
         skip_deploy=skip_deploy,
@@ -382,9 +404,16 @@ def deploy(server_id: int, branch: str, clean: bool) -> None:
     help="Test suites to run: test-apps, docker-apps, native-apps, demos, tutorials.",
 )
 @click.option(
+    "-x",
     "--fail-fast",
     is_flag=True,
     help="Stop on first failure.",
+)
+@click.option(
+    "--random",
+    "random_order",
+    is_flag=True,
+    help="Run tests in random order.",
 )
 @click.option(
     "--project-root",
@@ -401,6 +430,7 @@ def test(
     server_id: int,
     suites: tuple[str, ...],
     fail_fast: bool,
+    random_order: bool,
     project_root: Path | None,
     verbose: bool,
 ) -> None:
@@ -442,6 +472,7 @@ def test(
         test_config = TestConfig(
             suites=list(suites),
             fail_fast=fail_fast,
+            random_order=random_order,
         )
 
         # Run tests

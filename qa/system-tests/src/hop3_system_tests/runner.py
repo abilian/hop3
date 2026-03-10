@@ -12,6 +12,7 @@ and the hop3-testing framework, enabling execution of:
 
 from __future__ import annotations
 
+import random
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -313,7 +314,13 @@ class TestRunnerManager:
                 duration=time.time() - start_time,
             )
 
-        self.console.print(f"  Found {len(tests)} tests")
+        # Randomize order if requested
+        if self.config.random_order:
+            tests = list(tests)  # Make a copy to avoid mutating original
+            random.shuffle(tests)
+            self.console.print(f"  Found {len(tests)} tests (randomized)")
+        else:
+            self.console.print(f"  Found {len(tests)} tests")
 
         # Run tests
         test_results = []
