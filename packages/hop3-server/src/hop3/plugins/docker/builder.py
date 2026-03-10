@@ -196,10 +196,17 @@ class DockerBuilder:
         # This is critical for debugging Docker build failures remotely
         if build_output:
             # Take last 8000 chars to capture the actual error (which is usually at the end)
-            output_preview = build_output[-8000:] if len(build_output) > 8000 else build_output
+            output_preview = (
+                build_output[-8000:] if len(build_output) > 8000 else build_output
+            )
             if len(build_output) > 8000:
-                output_preview = f"...(truncated {len(build_output) - 8000} chars)...\n" + output_preview
-            msg = f"Docker build failed with exit code {e.returncode}:\n{output_preview}"
+                output_preview = (
+                    f"...(truncated {len(build_output) - 8000} chars)...\n"
+                    + output_preview
+                )
+            msg = (
+                f"Docker build failed with exit code {e.returncode}:\n{output_preview}"
+            )
         else:
             msg = f"Docker build failed with exit code {e.returncode} (no output captured)"
         raise Abort(msg)

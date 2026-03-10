@@ -379,7 +379,9 @@ def _get_deployment_type_from_hop3_toml(data: dict[str, Any]) -> str:
     return "native" if builder == "local" else "docker"
 
 
-def _infer_category_from_path_and_type(app_path: Path, deployment_type: str) -> Category:
+def _infer_category_from_path_and_type(
+    app_path: Path, deployment_type: str
+) -> Category:
     """Infer test category based on directory path and deployment type.
 
     Priority:

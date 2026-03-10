@@ -2,294 +2,116 @@
 
 End-to-end system test framework for Hop3, running comprehensive tests on real Hetzner Cloud infrastructure.
 
-## Overview
-
-This framework orchestrates the complete testing lifecycle:
-
-1. **Server Reset**: Rebuilds a Hetzner server with a fresh OS image
-2. **Deployment**: Runs `hop3-deploy` to install Hop3 with Docker support
-3. **Test Execution**: Runs all test suites via hop3-testing framework
-4. **Reporting**: Generates results summary (HTML reports planned)
-
-## Architecture
-
-### Key Principle: Client-Side CLI, Server-Side Builds
-
-The test framework runs the `hop3` CLI **locally** on your machine, which connects to the remote server via SSH tunnel. All builds (including Docker) happen **on the server**, not locally.
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                  LOCAL MACHINE (Mac/Linux)                       │
-│                                                                  │
-│  hop3-daily-test  ──▶  hop3 CLI  ──▶  hop3-testing framework    │
-│                            │                                     │
-│                            │ SSH Tunnel (implicit auth)          │
-│                            ▼                                     │
-└─────────────────────────────────────────────────────────────────┘
-                             │
-                             │ Source code sent as tarball
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                  REMOTE SERVER (Hetzner)                         │
-│                                                                  │
-│  hop3-server  ──▶  Builders (Docker/Local)  ──▶  Deployers      │
-│                                                                  │
-│  All builds happen HERE, where Docker is installed               │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-This is exactly how a real user would deploy applications to Hop3.
-
-## Prerequisites
-
-- Python 3.12+
-- Hetzner Cloud account with API token
-- A Hetzner server dedicated for testing
-- SSH key registered with Hetzner (for authentication)
-
-## Installation
-
-```bash
-# From the repository root
-cd qa/system-tests
-uv sync
-
-# Or install directly
-uv pip install -e .
-```
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `HETZNER_API_TOKEN` | Yes | Hetzner Cloud API token |
-| `HETZNER_SERVER_ID` | Yes | Server ID to use for testing |
-| `HOP3_BRANCH` | No | Git branch to test (default: `devel`) |
-| `HOP3_REPORT_DIR` | No | Report output directory (default: `./reports`) |
-
-### Configuration File (optional)
-
-Create `config.toml`:
-
-```toml
-[hetzner]
-api_token = "$HETZNER_API_TOKEN"
-server_id = "$HETZNER_SERVER_ID"
-image = "debian-12"
-
-[deployment]
-branch = "devel"
-use_local_code = true
-clean_before = true
-features = ["docker"]  # Install Docker on server for containerized apps
-
-[tests]
-suites = ["test-apps", "demos"]
-timeout_per_test = 300
-fail_fast = false
-```
-
-## Usage
-
-### Run Full Daily Test
+## Quick Start
 
 ```bash
 # Set required environment variables
 export HETZNER_API_TOKEN="your-token"
 export HETZNER_SERVER_ID="12345678"
 
-# Run full test cycle: reset server → deploy Hop3 → run tests
-hop3-daily-test run
+cd qa/system-tests
+uv sync
 
-# Use local repository instead of cloning from git
-hop3-daily-test run --use-local-repo
+# Full test cycle: reset server → deploy Hop3 → run tests
+uv run hop3-daily-test run --suites test-apps -v
 ```
 
-### Partial Runs
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `run` | Full pipeline: reset server, deploy Hop3, run tests |
+| `test` | Run tests only (requires Hop3 already deployed) |
+| `deploy` | Deploy Hop3 only (no tests) |
+| `reset` | Reset server to fresh OS only |
+| `status` | Check server status and connectivity |
+
+### Common Workflows
 
 ```bash
-# Skip server reset (re-use existing server state)
-hop3-daily-test run --skip-reset
+# Full run with specific suites
+uv run hop3-daily-test run --suites test-apps --suites demos -v
 
-# Skip reset and deployment (just run tests on already-deployed server)
-hop3-daily-test run --skip-reset --skip-deploy
+# Re-run tests after fixing a bug (skip reset, skip deploy)
+uv run hop3-daily-test run --skip-reset --skip-deploy --suites test-apps
 
-# Skip tests (only reset and deploy)
-hop3-daily-test run --skip-tests
+# Deploy Hop3 then run tests separately
+uv run hop3-daily-test deploy
+uv run hop3-daily-test test --suites test-apps
 ```
 
-### Individual Commands
+### Run vs Test
 
+- **`run`**: The main command. Does everything: reset → deploy → test. Use `--skip-*` flags to skip phases.
+- **`test`**: Runs tests only. **Requires Hop3 to be already deployed.** Use after `deploy` or `run --skip-tests`.
+
+If you get "hop3-server not responding", you need to deploy first:
 ```bash
-# Check server status
-hop3-daily-test status
-
-# Run tests only (assumes Hop3 already deployed)
-hop3-daily-test test
+uv run hop3-daily-test run --skip-reset --suites test-apps
 ```
 
-### Select Specific Test Suites
+## Test Suites
 
-```bash
-# Run only test-apps suite
-hop3-daily-test run --suites test-apps
+| Suite | Source | Description |
+|-------|--------|-------------|
+| `test-apps` | `apps/test-apps/` | Lightweight test apps (Python, Node, Go, etc.) |
+| `docker-apps` | `apps/docker-apps/` | Containerized applications |
+| `native-apps` | `apps/native-apps/` | System-level applications |
+| `demos` | `demos/` | Integration demos |
+| `tutorials` | `docs/src/tutorials/` | Step-by-step tutorials |
 
-# Run multiple suites
-hop3-daily-test run --suites test-apps --suites demos
-```
+## Environment Variables
 
-## Test Execution Flow
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `HETZNER_API_TOKEN` | Yes | Hetzner Cloud API token |
+| `HETZNER_SERVER_ID` | Yes | Server ID to use for testing |
+| `HOP3_BRANCH` | No | Git branch to test (default: `devel`) |
 
-When tests run, the following happens for each app:
+## Architecture
 
-1. **Local**: `hop3` CLI packages app source into tarball
-2. **Local**: CLI connects to server via SSH tunnel
-3. **Local→Server**: Tarball sent to server
-4. **Server**: hop3-server receives code, builds (Docker if needed), deploys
-5. **Local**: Test framework verifies app responds to HTTP
-6. **Server**: App destroyed via `hop3 app:destroy`
-
-This ensures tests run exactly as a real deployment would work.
-
-## Programmatic Usage
-
-```python
-from hop3_system_tests import Config, run_daily_test
-
-# Load configuration from environment
-config = Config.from_env()
-
-# Run the daily test
-result = run_daily_test(config)
-
-# Check results
-if result.success:
-    print("All tests passed!")
-else:
-    print(f"Failed at phase: {result.failed_phase}")
-    for phase in result.phase_results:
-        print(f"  {phase.phase.value}: {phase.message}")
-```
-
-## Module Structure
+Tests run the `hop3` CLI **locally**, which connects to the remote server via SSH tunnel. All builds happen **on the server**.
 
 ```
-src/hop3_system_tests/
-├── __init__.py       # Public API exports
-├── cli.py            # Click CLI commands
-├── config.py         # Configuration management
-├── hetzner.py        # Hetzner Cloud API integration
-├── ssh.py            # SSH key management
-├── deployment.py     # Hop3 deployment orchestration
-├── orchestrator.py   # Main test orchestrator
-└── runner.py         # Test runner (uses hop3-testing)
+LOCAL (Mac/Linux)                    REMOTE (Hetzner)
+┌─────────────────┐                  ┌─────────────────┐
+│ hop3-daily-test │                  │ hop3-server     │
+│       ↓         │                  │       ↓         │
+│   hop3 CLI      │ ──SSH tunnel──▶  │ Builders        │
+│       ↓         │   (tarball)      │       ↓         │
+│ hop3-testing    │ ◀──HTTP verify── │ Deployed app    │
+└─────────────────┘                  └─────────────────┘
 ```
-
-| Module | Purpose |
-|--------|---------|
-| `config` | Load and validate configuration from files/environment |
-| `hetzner` | Manage Hetzner server lifecycle (rebuild, status) |
-| `ssh` | SSH known_hosts management and connectivity testing |
-| `deployment` | Run hop3-deploy with features (--with docker) |
-| `runner` | Execute tests via hop3-testing framework |
-| `orchestrator` | Coordinate all phases of the daily test |
-| `cli` | Command-line interface |
-
-## Development
-
-```bash
-# Install with dev dependencies
-uv sync --dev
-
-# Run linting
-uv run ruff check src/
-
-# Run tests
-uv run pytest tests/
-
-# Format code
-uv run ruff format src/
-```
-
-## CI Integration
-
-For GitHub Actions:
-
-```yaml
-name: Daily System Test
-
-on:
-  schedule:
-    - cron: '0 4 * * *'  # 4 AM daily
-  workflow_dispatch:
-
-jobs:
-  daily-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Run Daily Test
-        env:
-          HETZNER_API_TOKEN: ${{ secrets.HETZNER_API_TOKEN }}
-          HETZNER_SERVER_ID: ${{ secrets.HETZNER_SERVER_ID }}
-        run: |
-          cd qa/system-tests
-          uv sync
-          uv run hop3-daily-test run --use-local-repo
-
-      - name: Upload Report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: daily-report
-          path: qa/system-tests/reports/
-```
-
-## Implementation Status
-
-### Complete
-- [x] Hetzner API integration (rebuild, status)
-- [x] SSH connectivity management
-- [x] Deployment orchestration via hop3-deploy
-- [x] Docker feature installation (`--with docker`)
-- [x] Test runner integration with hop3-testing
-- [x] CLI interface
-
-### Planned
-- [ ] HTML report generation
-- [ ] Log archiving
-- [ ] Historical tracking
-- [ ] Notification hooks (Slack, email)
 
 ## Troubleshooting
 
-### "Docker command not found" during tests
-
-This means Docker wasn't installed on the server. Ensure:
-1. Your deployment config includes `features = ["docker"]`
-2. Or run with a fresh deployment: `hop3-daily-test run` (without `--skip-deploy`)
-
-### Tests fail with SSH connection errors
-
-1. Check your SSH key is registered with Hetzner
-2. Verify the server is running: `hop3-daily-test status`
-3. Try a fresh server: `hop3-daily-test run` (without `--skip-reset`)
-
 ### "hop3-server is not responding"
 
-The server might not have Hop3 installed. Run without `--skip-deploy`:
+Hop3 isn't installed on the server. Deploy it first:
 ```bash
-hop3-daily-test run --skip-reset  # Keeps server, redeploys Hop3
+uv run hop3-daily-test run --skip-reset --suites test-apps
+```
+
+### Stuck on "Waiting for SSH..."
+
+The server rebuild is taking time. Wait up to 5 minutes, or Ctrl+C and check:
+```bash
+uv run hop3-daily-test status
+```
+
+### "Duplicate test name" warnings
+
+Some tests have both `hop3.toml` and `test.toml` files. This is a known issue being fixed.
+
+### Test fails with HTTPS redirect
+
+Some apps incorrectly redirect to HTTPS. Check the nginx config on the server:
+```bash
+ssh root@<IP> cat /home/hop3/nginx/<app-name>.conf
 ```
 
 ## See Also
 
-- [VISION.md](local-notes/VISION.md) - Detailed design document
+- [local-notes/VISION.md](local-notes/VISION.md) - Design document
+- [local-notes/PLAN.md](local-notes/PLAN.md) - Current development plan
 - [hop3-testing](../../packages/hop3-testing/) - Test framework
-- [hop3-installer](../../packages/hop3-installer/) - Deployment tools
