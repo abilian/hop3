@@ -89,6 +89,11 @@ def confirm_destructive_action(
     command = cli_args[0]
     args = cli_args[1:]
 
+    # Check if required arguments are present BEFORE any confirmation prompts
+    # If missing, let the server handle the error message
+    if not _has_required_args(command, args):
+        return True
+
     # Check if this is a protected context
     is_protected, context_name = _confirm_protected_context(config)
     if is_protected and context_name is None:
@@ -111,14 +116,34 @@ def confirm_destructive_action(
     return confirm("This action cannot be undone. Continue?")
 
 
+def _has_required_args(command: str, args: list[str]) -> bool:
+    """Check if a destructive command has its required arguments.
+
+    Args:
+        command: The command name
+        args: The arguments (excluding the command itself)
+
+    Returns:
+        True if required args are present, False otherwise
+    """
+    # Commands that require at least one argument (the target name)
+    commands_requiring_target = {
+        "app:destroy",
+        "destroy",
+        "backup:delete",
+        "services:destroy",
+    }
+
+    if command in commands_requiring_target:
+        return len(args) >= 1
+
+    return True
+
+
 def _confirm_app_destroy(
     args: list[str], is_protected: bool, context_name: str | None
 ) -> bool:
     """Confirm app:destroy command."""
-    if not args:
-        # No app name provided, let server handle error
-        return True
-
     app_name = args[0]
     show_destructive_warning(
         "destroy",
@@ -137,9 +162,6 @@ def _confirm_app_destroy(
 
 def _confirm_backup_delete(args: list[str]) -> bool:
     """Confirm backup:delete command."""
-    if not args:
-        return True
-
     backup_id = args[0]
     show_destructive_warning(
         "delete",
@@ -153,9 +175,6 @@ def _confirm_service_destroy(
     args: list[str], is_protected: bool, context_name: str | None
 ) -> bool:
     """Confirm services:destroy command."""
-    if not args:
-        return True
-
     addon_name = args[0]
     show_destructive_warning(
         "destroy",
