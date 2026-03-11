@@ -24,5 +24,9 @@ build: convert-tutorials
 serve: convert-tutorials
 	$(ZENSICAL) serve --open
 
+deploy:
+	@make build
+	hop3 --context prod deploy hop3-docs
+
 clean:
 	rm -rf site/ docs/tutorials/
