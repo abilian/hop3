@@ -80,17 +80,28 @@ class DiagnosticCollector:
         self.output_base = output_base
         self.console = console
 
-    def collect(self, failed_tests: list[str] | None = None) -> DiagnosticResult:
+    def collect(
+        self,
+        failed_tests: list[str] | None = None,
+        existing_output_dir: Path | None = None,
+    ) -> DiagnosticResult:
         """Collect all diagnostics from the server.
 
         Args:
             failed_tests: Optional list of failed test names for targeted collection.
+            existing_output_dir: If provided, use this directory instead of creating
+                               a new timestamped one. Useful when per-test diagnostics
+                               were already collected to this directory.
 
         Returns:
             DiagnosticResult with collected files and any errors.
         """
         timestamp = datetime.now()
-        output_dir = self._create_output_dir(timestamp)
+        if existing_output_dir:
+            output_dir = existing_output_dir
+            output_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            output_dir = self._create_output_dir(timestamp)
 
         result = DiagnosticResult(
             timestamp=timestamp,
@@ -170,26 +181,54 @@ class DiagnosticCollector:
             app_log_dir = apps_dir / app_name
             app_log_dir.mkdir(exist_ok=True)
 
-            # Collect app logs
+            # Collect app logs and diagnostic info
             log_commands = {
+                # App-specific files
                 "build.log": f"cat {app_path}/log/build.log 2>&1 || echo 'No build log'",
                 "app.log": f"cat {app_path}/log/*.log 2>&1 || echo 'No app logs'",
                 "env": f"cat {app_path}/ENV 2>&1 || echo 'No ENV file'",
                 "hop3.toml": f"cat {app_path}/src/hop3.toml 2>&1 || echo 'No hop3.toml'",
+                "Procfile": f"cat {app_path}/src/Procfile 2>&1 || echo 'No Procfile'",
                 "Dockerfile": f"cat {app_path}/src/Dockerfile 2>&1 || echo 'No Dockerfile'",
                 "docker-compose.yml": f"cat {app_path}/src/docker-compose.yml 2>&1 || cat {app_path}/src/docker-compose.yaml 2>&1 || echo 'No docker-compose'",
-                "nginx.conf": f"cat /etc/nginx/sites-enabled/{app_name}* 2>&1 || echo 'No nginx config'",
-                "uwsgi.ini": f"cat /home/hop3/uwsgi-enabled/{app_name}* 2>&1 || echo 'No uwsgi config'",
+                # Server configs
+                "nginx.conf": f"cat /home/hop3/nginx/{app_name}.conf 2>&1 || cat /etc/nginx/sites-enabled/{app_name}* 2>&1 || echo 'No nginx config'",
+                "uwsgi.ini": f"cat /home/hop3/uwsgi-enabled/{app_name}.ini 2>&1 || echo 'No uwsgi config'",
+                # Systemd/journal logs - these are the most useful for debugging
+                "journal-hop3-server.log": "journalctl -u hop3-server -n 100 --no-pager 2>&1",
+                "journal-uwsgi.log": "journalctl -u uwsgi-hop3 -n 100 --no-pager 2>&1",
+                # Process and port info
+                "process-info.txt": f"ps aux | grep -E '{app_name}|uwsgi' | grep -v grep 2>&1 || echo 'No processes'",
+                "port-info.txt": f"cat {app_path}/PORT 2>&1 && ss -tlnp | grep $(cat {app_path}/PORT 2>/dev/null) 2>&1 || echo 'No port info'",
+                # Directory structure for debugging
+                "directory-tree.txt": f"find {app_path} -type f 2>&1 | head -50",
             }
 
             for filename, cmd in log_commands.items():
                 try:
                     _exit_code, stdout, _stderr = self.conn.run(cmd, timeout=10)
-                    if stdout.strip() and "No " not in stdout[:20]:
-                        (app_log_dir / filename).write_text(stdout)
-                        result.collected_files.append(
-                            f"failed-apps/{app_name}/{filename}"
-                        )
+                    content = stdout.strip()
+                    # Skip if empty or contains only error messages
+                    if not content:
+                        continue
+                    # Skip placeholder responses
+                    if content in {
+                        "No build log", "No app logs", "No ENV file",
+                        "No hop3.toml", "No Dockerfile", "No docker-compose",
+                        "No nginx config", "No uwsgi config",
+                    }:
+                        continue
+                    # Skip if it's just a cat error followed by placeholder
+                    if content.startswith("cat:") and content.endswith(
+                        ("No build log", "No app logs", "No ENV file",
+                         "No hop3.toml", "No Dockerfile", "No docker-compose",
+                         "No nginx config", "No uwsgi config")
+                    ):
+                        continue
+                    (app_log_dir / filename).write_text(stdout)
+                    result.collected_files.append(
+                        f"failed-apps/{app_name}/{filename}"
+                    )
                 except Exception:
                     pass
 

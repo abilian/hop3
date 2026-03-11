@@ -244,6 +244,7 @@ services:
         # Build the docker compose command with project name for isolation
         # Using -p ensures each app has unique container names
         # Using -f specifies the compose file (user-supplied or generated)
+        # Note: Use "docker compose" (V2 plugin) not "docker-compose" (V1 Python)
         cmd = [
             "docker",
             "compose",

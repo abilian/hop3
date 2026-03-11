@@ -124,7 +124,11 @@ def _create_package_spec(distro_info: DistroInfo) -> PackageSpec:
         env_vars={"DEBIAN_FRONTEND": "noninteractive"},
         install_flags=["--no-install-recommends"],
         base_packages=packages,
-        docker_packages=["docker.io", "docker-cli", "docker-compose"],
+        docker_packages=[
+            "docker.io",
+            "docker-compose-v2",
+            "docker-buildx",
+        ],
         mysql_packages=["mysql-server", "mysql-client", "libmysqlclient-dev"],
         redis_packages=["redis-server"],
         conditional_packages={"npm": "npm"},
@@ -153,7 +157,9 @@ def _setup_package_sources(distro_info: DistroInfo) -> None:
     # Ubuntu versions before 24.04 might need PPAs for newer Go
     # (Currently Ubuntu 24.04+ has Go 1.22+ which is sufficient)
     elif distro_info.is_ubuntu and distro_info.version_major < 24:
-        print_info(f"Ubuntu {distro_info.version} detected: older Go version may be used")
+        print_info(
+            f"Ubuntu {distro_info.version} detected: older Go version may be used"
+        )
         print_detail("Consider upgrading to Ubuntu 24.04+ for best compatibility")
 
     # Debian 11 (bullseye) is quite old - warn user

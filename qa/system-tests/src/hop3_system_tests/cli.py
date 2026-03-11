@@ -140,7 +140,7 @@ This will:
         "--server-id", type=int, required=True, help="Hetzner server ID."
     )
     reset_parser.add_argument(
-        "--image", default="debian-13", help="OS image to install."
+        "--image", default="ubuntu-24.04", help="OS image to install."
     )
     reset_parser.add_argument(
         "-y", "--yes", action="store_true", help="Skip confirmation prompt."
@@ -275,7 +275,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     config = HetznerConfig(
         api_token=api_token,
         server_id=args.server_id,
-        image="debian-12",
+        image="ubuntu-24.04",
     )
 
     try:
@@ -362,7 +362,7 @@ def cmd_deploy(args: argparse.Namespace) -> None:
     hetzner_config = HetznerConfig(
         api_token=api_token,
         server_id=args.server_id,
-        image="debian-12",
+        image="ubuntu-24.04",
     )
 
     try:
@@ -420,7 +420,7 @@ def cmd_test(args: argparse.Namespace) -> None:
     hetzner_config = HetznerConfig(
         api_token=api_token,
         server_id=args.server_id,
-        image="debian-12",
+        image="ubuntu-24.04",
     )
 
     try:

@@ -15,17 +15,61 @@ from hop3.toolchains import (
     RubyToolchain,
 )
 
-APPS = [
-    # ("000-static", PythonToolchain),
-    ("010-flask-pip-wsgi", PythonToolchain),
-    ("020-nodejs-express", NodeToolchain),
-    ("030-golang-gin", GoToolchain),
-    ("040-sinatra", RubyToolchain),
-    ("100-flask-gunicorn-pip", PythonToolchain),
-    ("110-flask-gunicorn-poetry", PythonToolchain),
-    # ("120-flask-pip-alt", PythonToolchain),
-    ("130-golang-minimal", GoToolchain),
-]
+# Directory containing test apps
+TEST_APPS_DIR = Path("apps/test-apps")
+
+
+def _detect_toolchain(app_path: Path) -> type | None:
+    """Detect which toolchain to use based on files in the app directory.
+
+    Returns None if no supported toolchain is detected.
+    """
+    # Check for Python indicators
+    if (app_path / "requirements.txt").exists() or (
+        app_path / "pyproject.toml"
+    ).exists():
+        return PythonToolchain
+
+    # Check for Node.js indicators
+    if (app_path / "package.json").exists():
+        return NodeToolchain
+
+    # Check for Go indicators
+    if (app_path / "go.mod").exists():
+        return GoToolchain
+
+    # Check for Ruby indicators
+    if (app_path / "Gemfile").exists():
+        return RubyToolchain
+
+    return None
+
+
+def _discover_test_apps() -> list[tuple[str, type]]:
+    """Discover test apps and their toolchains dynamically.
+
+    Returns list of (app_name, toolchain_class) tuples.
+    """
+    if not TEST_APPS_DIR.exists():
+        return []
+
+    apps = []
+    for app_dir in sorted(TEST_APPS_DIR.iterdir()):
+        if not app_dir.is_dir():
+            continue
+        # Skip hidden directories and special directories
+        if app_dir.name.startswith(".") or app_dir.name.startswith("_"):
+            continue
+
+        toolchain = _detect_toolchain(app_dir)
+        if toolchain:
+            apps.append((app_dir.name, toolchain))
+
+    return apps
+
+
+# Dynamically discover apps
+APPS = _discover_test_apps()
 
 
 @pytest.mark.parametrize(("app_name", "toolchain_cls"), APPS)

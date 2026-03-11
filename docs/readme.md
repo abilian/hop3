@@ -1,6 +1,6 @@
 # Hop3 Documentation (Zensical)
 
-This directory contains the Hop3 documentation built with [Zensical](https://github.com/anthropics/zensical), a modern static site generator.
+This directory contains the Hop3 documentation built with [Zensical](https://github.com/zensical/zensical), a modern static site generator.
 
 ## Directory Structure
 

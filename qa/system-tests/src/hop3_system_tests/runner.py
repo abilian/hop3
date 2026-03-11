@@ -30,6 +30,8 @@ from hop3_testing.util.console import PrintingConsole, Verbosity
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
+from .ssh import SSHConnection, SSHConnectionInfo
+
 if TYPE_CHECKING:
     from hop3_testing.catalog.models import TestDefinition
 
@@ -153,13 +155,14 @@ class TestRunnerManager:
         "tutorials": Category.TUTORIAL,
     }
 
-    def __init__(
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         host: str,
         config: TestConfig,
         project_root: Path | None = None,
         console: Console | None = None,
         verbose: bool = False,
+        logs_dir: Path | None = None,
     ):
         """Initialize the test runner manager.
 
@@ -170,15 +173,19 @@ class TestRunnerManager:
                          If None, attempts to auto-detect.
             console: Rich console for output.
             verbose: Enable verbose output.
+            logs_dir: Directory for diagnostic logs. If set, logs are collected
+                     immediately when tests fail (before cleanup).
         """
         self.host = host
         self.config = config
         self.project_root = project_root or self._find_project_root()
         self.console = console or Console()
         self.verbose = verbose
+        self.logs_dir = logs_dir
 
         self._catalog: Catalog | None = None
         self._target: RemoteTarget | None = None
+        self._ssh_conn: SSHConnection | None = None
         self._printing_console = PrintingConsole()
         if verbose:
             self._printing_console.set_verbosity(Verbosity.VERBOSE)
@@ -275,7 +282,7 @@ class TestRunnerManager:
         finally:
             self._cleanup_target()
 
-    def _run_suite(self, suite_name: str) -> TestSuiteResult:
+    def _run_suite(self, suite_name: str) -> TestSuiteResult:  # noqa: PLR0915
         """Execute a single test suite.
 
         Args:
@@ -360,6 +367,8 @@ class TestRunnerManager:
                         if len(error_msg) > 200:
                             error_msg = error_msg[:200] + "..."
                         self.console.print(f"  [red]✗[/red] {test.name}: {error_msg}")
+                        # Collect diagnostics IMMEDIATELY before cleanup happens
+                        self._collect_failed_test_diagnostics(test.name)
 
                 except Exception as e:
                     # Handle unexpected exceptions during test execution
@@ -374,6 +383,8 @@ class TestRunnerManager:
                     test_results.append(
                         TestResult(test=test, passed=False, error=str(e))
                     )
+                    # Collect diagnostics for exception failures too
+                    self._collect_failed_test_diagnostics(test.name)
 
                 progress.advance(task)
 
@@ -511,10 +522,103 @@ class TestRunnerManager:
 
     def _cleanup_target(self) -> None:
         """Cleanup the remote target connection."""
+        if self._ssh_conn:
+            with contextlib.suppress(Exception):
+                self._ssh_conn.close()
+            self._ssh_conn = None
         if self._target:
             with contextlib.suppress(Exception):
                 self._target.stop()
             self._target = None
+
+    def _collect_failed_test_diagnostics(self, test_name: str) -> None:
+        """Collect diagnostics for a failed test immediately.
+
+        This runs BEFORE the app is cleaned up, so we can capture logs.
+
+        Args:
+            test_name: Name of the failed test (used as app name).
+        """
+        if not self.logs_dir:
+            return
+
+        try:
+            # Ensure SSH connection
+            if not self._ssh_conn:
+                info = SSHConnectionInfo(host=self.host, user="root")
+                self._ssh_conn = SSHConnection(info)
+                if not self._ssh_conn.connect(timeout=30):
+                    self.console.print(
+                        "  [yellow]Could not connect for diagnostics[/yellow]"
+                    )
+                    return
+
+            # Create output directory for this test
+            failed_apps_dir = self.logs_dir / "failed-apps"
+            failed_apps_dir.mkdir(parents=True, exist_ok=True)
+
+            # Find the app directory on the server (might have timestamp suffix)
+            find_cmd = f"find /home/hop3/apps -maxdepth 1 -name '{test_name}*' -type d 2>/dev/null | head -1"
+            _exit_code, stdout, _ = self._ssh_conn.run(find_cmd, timeout=10)
+            app_path = stdout.strip()
+
+            if not app_path:
+                # No app directory found - create a minimal log with test name
+                app_log_dir = failed_apps_dir / test_name
+                app_log_dir.mkdir(exist_ok=True)
+                (app_log_dir / "NOT_FOUND.txt").write_text(
+                    f"App directory not found on server for {test_name}\n"
+                    f"Searched for: {test_name}* in /home/hop3/apps/\n"
+                )
+                return
+
+            # Use the actual app directory name (with timestamp suffix)
+            app_name = Path(app_path).name
+            app_log_dir = failed_apps_dir / app_name
+            app_log_dir.mkdir(exist_ok=True)
+
+            # Collect diagnostic files
+            log_commands = {
+                "build.log": f"cat {app_path}/log/build.log 2>&1",
+                "app.log": f"cat {app_path}/log/*.log 2>&1",
+                "env": f"cat {app_path}/ENV 2>&1",
+                "hop3.toml": f"cat {app_path}/src/hop3.toml 2>&1",
+                "Procfile": f"cat {app_path}/src/Procfile 2>&1",
+                "Dockerfile": f"cat {app_path}/src/Dockerfile 2>&1",
+                "docker-compose.yml": f"cat {app_path}/src/docker-compose.yml 2>&1 || cat {app_path}/src/docker-compose.yaml 2>&1",
+                "nginx.conf": f"cat /home/hop3/nginx/{app_name}.conf 2>&1 || cat /etc/nginx/sites-enabled/{app_name}* 2>&1",
+                "uwsgi.ini": f"cat /home/hop3/uwsgi-enabled/{app_name}.ini 2>&1",
+                "journal-hop3-server.log": "journalctl -u hop3-server -n 100 --no-pager 2>&1",
+                "journal-uwsgi.log": "journalctl -u uwsgi-hop3 -n 100 --no-pager 2>&1",
+                "process-info.txt": f"ps aux | grep -E '{app_name}|uwsgi' | grep -v grep 2>&1",
+                "port-info.txt": f"cat {app_path}/PORT 2>&1 && ss -tlnp | grep $(cat {app_path}/PORT 2>/dev/null) 2>&1",
+                "directory-tree.txt": f"find {app_path} -type f 2>&1 | head -100",
+            }
+
+            collected = []
+            for filename, cmd in log_commands.items():
+                try:
+                    _exit_code, stdout, _stderr = self._ssh_conn.run(cmd, timeout=10)
+                    content = stdout.strip()
+                    # Skip empty or error-only content
+                    if not content or content.startswith("cat:"):
+                        continue
+                    if "No such file or directory" in content and len(content) < 100:
+                        continue
+                    (app_log_dir / filename).write_text(stdout)
+                    collected.append(filename)
+                except Exception:
+                    pass
+
+            if collected:
+                self.console.print(
+                    f"  [dim]Collected {len(collected)} diagnostic files for {test_name}[/dim]"
+                )
+
+        except Exception as e:
+            self.console.print(
+                f"  [yellow]Error collecting diagnostics for {test_name}: {e}[/yellow]"
+            )
 
     def _find_project_root(self) -> Path:
         """Find the Hop3 monorepo root directory.
@@ -557,6 +661,7 @@ def run_tests(
     config: Config,
     console: Console | None = None,
     verbose: bool = False,
+    logs_dir: Path | None = None,
 ) -> AllSuitesResult:
     """Run all tests against a deployed Hop3 server.
 
@@ -567,6 +672,7 @@ def run_tests(
         config: Full configuration.
         console: Rich console for output.
         verbose: Enable verbose output.
+        logs_dir: Directory for diagnostic logs (collected on test failures).
 
     Returns:
         AllSuitesResult with results from all suites.
@@ -582,5 +688,6 @@ def run_tests(
         project_root=project_root,
         console=console,
         verbose=verbose,
+        logs_dir=logs_dir,
     )
     return runner.run_all_suites()
