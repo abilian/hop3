@@ -687,6 +687,7 @@ class DestroyCmd(Command):
 
     db_session: Session
     name: ClassVar[str] = "app:destroy"
+    aliases: ClassVar[list[str]] = ["destroy"]
     destructive: ClassVar[bool] = True
 
     def call(self, *args):

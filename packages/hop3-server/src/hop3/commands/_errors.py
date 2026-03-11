@@ -91,7 +91,10 @@ class ErrorContext:
             return _format_subprocess_error(exc)
 
         if isinstance(exc, FileNotFoundError):
-            return f"File not found: {exc.filename}"
+            # Use filename if set, otherwise fall back to the exception message
+            if exc.filename:
+                return f"File not found: {exc.filename}"
+            return f"File not found: {exc}"
 
         if isinstance(exc, PermissionError):
             return f"Permission denied: {exc.filename if hasattr(exc, 'filename') else exc}"

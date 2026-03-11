@@ -15,8 +15,19 @@ def test_extra_args():
     assert extra_args == {"verbosity": 1}
 
 
-def test_extra_args_deploy():
+def test_extra_args_deploy_without_app_name():
+    """Deploy without app name should not generate archive."""
     args = ["deploy"]
+    extra_args = get_extra_args(args)
+    # No repository since no app name - let server return usage error
+    assert "repository" not in extra_args
+    assert "verbosity" in extra_args
+
+
+def test_extra_args_deploy_with_app_name():
+    """Deploy with app name should generate archive."""
+    args = ["deploy", "myapp"]
     extra_args = get_extra_args(args)
     assert "repository" in extra_args
     assert "verbosity" in extra_args
+    assert "streaming" in extra_args

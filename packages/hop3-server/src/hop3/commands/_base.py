@@ -39,6 +39,9 @@ from ._response import text
 
 class Command:
     name: ClassVar[str] = ""
+    # Command aliases (alternative names for this command)
+    # E.g., aliases = ["destroy"] allows "hop destroy" to invoke "hop app:destroy"
+    aliases: ClassVar[list[str]] = []
     # Authentication metadata (default: requires auth, doesn't need username)
     requires_auth: ClassVar[bool] = True
     pass_username: ClassVar[bool] = False

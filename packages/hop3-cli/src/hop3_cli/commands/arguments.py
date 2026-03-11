@@ -56,6 +56,11 @@ def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
             # args[0]="deploy", args[1]=app_name, remaining args may include --env and directory
             env_vars, remaining_args, streaming = _parse_deploy_args(args[1:])
 
+            # Skip expensive archive generation if no app name provided
+            # Let the server return a proper usage error instead
+            if not remaining_args:
+                return extra_args
+
             # Directory is the last non-flag argument (if any)
             directory = Path(remaining_args[-1]) if len(remaining_args) > 1 else Path()
             extra_args["repository"] = pack_repository(directory, verbosity=verbosity)

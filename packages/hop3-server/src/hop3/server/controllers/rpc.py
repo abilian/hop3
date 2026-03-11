@@ -28,9 +28,16 @@ from hop3.server.security.tokens import validate_token
 if TYPE_CHECKING:
     from hop3.lib.types import JsonDict
 
-# Scan and register all CLI commands
+# Scan and register all CLI commands (including aliases)
 scan_package("hop3.commands")
-commands = {command.name: command for command in lookup(Command)}
+_commands: dict[str, type[Command]] = {}
+for command in lookup(Command):
+    # Register primary name
+    _commands[command.name] = command
+    # Register aliases
+    for alias in getattr(command, "aliases", []):
+        _commands[alias] = command
+commands = _commands
 
 
 def requires_authentication(command_class: type[Command]) -> bool:
