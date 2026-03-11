@@ -15,7 +15,7 @@ from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
 from hop3.lib import command_output, expand_vars, log
 from hop3.lib.util import CommandError, run_command, try_commands
-from hop3.platform.certificates import CertificatesManager
+from hop3.platform.certificates import Certificate, CertificatesManager
 
 from ._templates import (
     HOP3_INTERNAL_NGINX_CACHE_MAPPING,
@@ -92,6 +92,17 @@ class NginxVirtualHost(BaseProxy):
 
     def setup_certificates(self) -> None:
         domain_name = self.env["HOST_NAME"].split()[0]
+
+        # For catch-all server name, generate self-signed certificate directly
+        # (no point attempting certbot for "_")
+        if domain_name == "_":
+            log(
+                "Using self-signed certificate for catch-all server name '_'",
+                level=2,
+            )
+            self._generate_self_signed_certificate(domain_name)
+            return
+
         # Create container for this CLI/deployment context
         container = create_container()
         try:
@@ -101,6 +112,14 @@ class NginxVirtualHost(BaseProxy):
             (NGINX_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
         finally:
             container.close()
+
+    def _generate_self_signed_certificate(self, domain_name: str) -> None:
+        """Generate a self-signed certificate and copy to nginx directory."""
+        certificate = Certificate(domain_name=domain_name)
+        if not certificate.crt_file.exists():
+            certificate.generate_self_signed()
+        (NGINX_ROOT / f"{self.app_name}.key").write_text(certificate.get_key())
+        (NGINX_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
 
     def extra_setup(self):
         # Conditionally block .git folders from being served

@@ -88,6 +88,15 @@ class Certificate:
         shell(cmd)
 
     def generate_with_certbot(self):
+        # Validate domain name before attempting certbot
+        if not RE_DOMAIN_VALIDATOR.match(self.domain_name.lower()):
+            msg = (
+                f"Invalid domain name for certbot: '{self.domain_name}'. "
+                "Certbot requires a valid FQDN (e.g., 'example.com'). "
+                "Use ACME_ENGINE=self-signed for development or catch-all domains."
+            )
+            raise ValueError(msg)
+
         # Check if certbot is installed
         if not shutil.which("certbot"):
             log(
