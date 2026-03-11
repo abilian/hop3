@@ -162,6 +162,7 @@ class TutorialTestRunner:
                 [sys.executable, "-m", "validoc", "--help"],
                 capture_output=True,
                 timeout=10,
+                check=False,
             )
             if result.returncode != 0:
                 # Try as a command
@@ -169,6 +170,7 @@ class TutorialTestRunner:
                     ["validoc", "--help"],
                     capture_output=True,
                     timeout=10,
+                    check=False,
                 )
                 if result.returncode != 0:
                     return {
@@ -200,6 +202,7 @@ class TutorialTestRunner:
                     "HOP3_TEST_PORT": str(self.target.info.ssh_port),
                     "HOP3_TEST_SSH_KEY": self.target.info.ssh_key or "",
                 },
+                check=False,
             )
 
             logs = result.stdout + result.stderr
@@ -247,6 +250,7 @@ class TutorialTestRunner:
                 capture_output=True,
                 text=True,
                 timeout=600,
+                check=False,
             )
 
             logs = result.stdout + result.stderr

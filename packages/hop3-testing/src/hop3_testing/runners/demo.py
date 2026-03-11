@@ -139,6 +139,7 @@ class DemoTestRunner:
                     "HOP3_TEST_PORT": str(self.target.info.ssh_port),
                     "HOP3_TEST_SSH_KEY": self.target.info.ssh_key or "",
                 },
+                check=False,
             )
 
             logs = result.stdout + result.stderr

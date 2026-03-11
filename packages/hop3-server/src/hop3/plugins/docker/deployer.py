@@ -375,7 +375,7 @@ services:
         if self.context.app and self.context.app.run_state == AppStateEnum.RUNNING:
             self.context.app._transition_state(AppStateEnum.STOPPING)  # noqa: SLF001
 
-        cmd = self._get_compose_cmd_base() + ["stop"]
+        cmd = [*self._get_compose_cmd_base(), "stop"]
         self._run_compose_command(cmd, check=False)
 
         # Transition to STOPPED state
@@ -388,7 +388,7 @@ services:
         """Restart the application."""
         log(f"Restarting '{self.app_name}'...", level=2, fg="blue")
 
-        cmd = self._get_compose_cmd_base() + ["restart"]
+        cmd = [*self._get_compose_cmd_base(), "restart"]
         try:
             self._run_compose_command(cmd)
             log(f"App '{self.app_name}' restarted.", level=2, fg="green")
@@ -402,11 +402,7 @@ services:
         """Destroy the application and clean up resources."""
         log(f"Destroying '{self.app_name}'...", level=2, fg="yellow")
 
-        cmd = self._get_compose_cmd_base() + [
-            "down",
-            "--volumes",
-            "--remove-orphans",
-        ]
+        cmd = [*self._get_compose_cmd_base(), "down", "--volumes", "--remove-orphans"]
         self._run_compose_command(cmd, check=False)
 
         # Explicitly remove the Docker network to prevent network pool exhaustion
@@ -430,6 +426,7 @@ services:
                 capture_output=True,
                 text=True,
                 timeout=30,
+                check=False,
             )
             if result.returncode == 0:
                 log(f"Removed Docker network: {network_name}", level=3)
@@ -452,7 +449,7 @@ services:
         # Get port from app or allocate new one
         port = self._allocate_port()
 
-        cmd = self._get_compose_cmd_base() + ["up", "-d", "--no-recreate"]
+        cmd = [*self._get_compose_cmd_base(), "up", "-d", "--no-recreate"]
         for service, count in deltas.items():
             cmd.extend(["--scale", f"{service}={count}"])
 
@@ -468,7 +465,7 @@ services:
             True if at least one container is running
         """
         try:
-            cmd = self._get_compose_cmd_base() + ["ps", "--format", "{{.State}}"]
+            cmd = [*self._get_compose_cmd_base(), "ps", "--format", "{{.State}}"]
 
             # Get environment for docker compose (needed to resolve ${HOP3_IMAGE_TAG})
             env = self._get_status_check_env()
@@ -531,7 +528,8 @@ services:
         }
 
         try:
-            cmd = self._get_compose_cmd_base() + [
+            cmd = [
+                *self._get_compose_cmd_base(),
                 "ps",
                 "--format",
                 "{{.Name}}\t{{.State}}\t{{.Status}}",
