@@ -5,9 +5,13 @@
 
 from __future__ import annotations
 
+import time
+
+from hop3.config import HOP3_ROOT
 from hop3.core.plugins import get_plugin_manager
 from hop3.core.protocols import BuildArtifact, BuildContext, LanguageToolchain
 from hop3.lib import log
+from hop3.lib.logging import server_log
 
 
 class LocalBuilder:
@@ -63,32 +67,57 @@ class LocalBuilder:
 
     def build(self) -> BuildArtifact:
         """Build using local toolchains."""
-        # 1. Discover applicable toolchains
-        toolchains = self._discover_toolchains(self.context)
+        start_time = time.time()
+        build_output: list[str] = []
+        success = False
 
-        if not toolchains:
-            msg = "No language toolchain detected for this project"
-            raise RuntimeError(msg)
+        try:
+            # 1. Discover applicable toolchains
+            toolchains = self._discover_toolchains(self.context)
 
-        # Log detected toolchains
-        toolchain_names = [getattr(tc, "name", tc.__name__) for tc in toolchains]
-        log(f"Detected toolchains: {', '.join(toolchain_names)}", level=2, fg="cyan")
+            if not toolchains:
+                msg = "No language toolchain detected for this project"
+                build_output.append(f"ERROR: {msg}")
+                raise RuntimeError(msg)
 
-        # 2. Build with each toolchain (supports multi-language apps)
-        artifacts = []
-        for toolchain_class in toolchains:
-            toolchain_name = getattr(toolchain_class, "name", toolchain_class.__name__)
-            log(f"Building with {toolchain_name} toolchain...", level=2, fg="blue")
-            toolchain = toolchain_class(self.context)
-            artifact = toolchain.build()
-            artifacts.append(artifact)
+            # Log detected toolchains
+            toolchain_names = [getattr(tc, "name", tc.__name__) for tc in toolchains]
+            msg = f"Detected toolchains: {', '.join(toolchain_names)}"
+            log(msg, level=2, fg="cyan")
+            build_output.append(msg)
 
-        # 3. Single toolchain case
-        if len(artifacts) == 1:
-            return artifacts[0]
+            # 2. Build with each toolchain (supports multi-language apps)
+            artifacts = []
+            for toolchain_class in toolchains:
+                toolchain_name = getattr(toolchain_class, "name", toolchain_class.__name__)
+                msg = f"Building with {toolchain_name} toolchain..."
+                log(msg, level=2, fg="blue")
+                build_output.append(msg)
 
-        # 4. Multi-toolchain case (e.g., Python + Node)
-        return self._combine_artifacts(artifacts)
+                toolchain = toolchain_class(self.context)
+                artifact = toolchain.build()
+                artifacts.append(artifact)
+
+                msg = f"Build with {toolchain_name} completed: {artifact.kind} at {artifact.location}"
+                build_output.append(msg)
+
+            success = True
+
+            # 3. Single toolchain case
+            if len(artifacts) == 1:
+                return artifacts[0]
+
+            # 4. Multi-toolchain case (e.g., Python + Node)
+            return self._combine_artifacts(artifacts)
+
+        except Exception as e:
+            build_output.append(f"BUILD FAILED: {e}")
+            raise
+
+        finally:
+            # Always save build log
+            duration = time.time() - start_time
+            self._save_build_log(build_output, duration, success=success)
 
     def _discover_toolchains(
         self, context: BuildContext
@@ -164,3 +193,48 @@ class LocalBuilder:
             location=str(self.context.source_path.parent),
             metadata={"artifacts": [a.__dict__ for a in artifacts]},
         )
+
+    def _save_build_log(
+        self, output: list[str], duration: float, *, success: bool = True
+    ) -> None:
+        """Save build log to app's log directory.
+
+        Args:
+            output: Build output messages
+            duration: Build duration in seconds
+            success: Whether build succeeded
+        """
+        try:
+            # Get app name from context
+            app_name = self.context.app_config.get("app_name", "unknown")
+
+            # Determine log directory
+            app_log_dir = HOP3_ROOT / app_name / "log"
+            app_log_dir.mkdir(parents=True, exist_ok=True)
+
+            build_log_path = app_log_dir / "build.log"
+
+            # Format log content
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            status = "SUCCESS" if success else "FAILED"
+            output_text = "\n".join(output)
+            content = f"""=== Local Build Log ===
+Timestamp: {timestamp}
+App: {app_name}
+Status: {status}
+Duration: {duration:.1f}s
+Builder: local
+
+=== BUILD OUTPUT ===
+{output_text}
+"""
+            build_log_path.write_text(content)
+            log(f"Build log saved to: {build_log_path}", level=2)
+
+        except Exception as e:
+            # Don't fail the build if log saving fails
+            server_log.warning(
+                "Failed to save build log",
+                app_name=self.context.app_config.get("app_name", "unknown"),
+                error=str(e),
+            )

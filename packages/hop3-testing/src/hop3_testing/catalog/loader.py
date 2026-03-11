@@ -423,16 +423,19 @@ def _infer_category_from_path_and_type(
 def _get_name_prefix_from_path(app_path: Path) -> str:
     """Get a name prefix based on source directory.
 
-    Apps in apps/docker-apps get "docker:" prefix
-    Apps in apps/native-apps get "native:" prefix
+    Apps in apps/docker-apps get "docker-" prefix
+    Apps in apps/native-apps get "native-" prefix
     Other apps get no prefix
+
+    Note: Using hyphen instead of colon as separator because colons
+    cause issues with file paths, shell commands, and uWSGI.
     """
     path_str = str(app_path)
 
     if "/docker-apps/" in path_str or path_str.endswith("/docker-apps"):
-        return "docker:"
+        return "docker-"
     if "/native-apps/" in path_str or path_str.endswith("/native-apps"):
-        return "native:"
+        return "native-"
 
     return ""
 

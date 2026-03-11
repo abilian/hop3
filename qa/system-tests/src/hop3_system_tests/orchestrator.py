@@ -105,6 +105,7 @@ class DailyTestOrchestrator:
         )
         self._hetzner: HetznerManager | None = None
         self._deployment: DeploymentManager | None = None
+        self._test_logs_dir: Path | None = None
 
     def run(
         self,
@@ -463,6 +464,14 @@ class DailyTestOrchestrator:
                 )
             self.console.print(f"  Project root: {project_root}")
 
+            # Create logs directory for diagnostics
+            # Must be created BEFORE running tests so immediate diagnostics work
+            logs_dir = Path("./logs")
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            test_logs_dir = logs_dir / f"daily-test-{timestamp}"
+            test_logs_dir.mkdir(parents=True, exist_ok=True)
+            self._test_logs_dir = test_logs_dir  # Store for _collect_diagnostics
+
             # Create test runner using hop3-testing framework
             # The hop3 CLI runs locally and connects via SSH tunnel
             runner = TestRunnerManager(
@@ -471,6 +480,7 @@ class DailyTestOrchestrator:
                 project_root=project_root,
                 console=self.console,
                 verbose=self.verbose,
+                logs_dir=test_logs_dir,
             )
 
             # Run all test suites
@@ -530,7 +540,12 @@ class DailyTestOrchestrator:
         return self._result
 
     def _collect_diagnostics(self) -> None:
-        """Collect diagnostic information from the server after failures."""
+        """Collect diagnostic information from the server after failures.
+
+        Note: Per-test diagnostics are already collected by TestRunnerManager
+        immediately when tests fail (before cleanup). This method collects
+        general server diagnostics and any remaining app logs.
+        """
         if not self._result.server_info:
             return
 
@@ -544,8 +559,9 @@ class DailyTestOrchestrator:
                 r.test.name for r in self._result.test_results.get_failed_tests()
             ]
 
-        # Create output directory
-        logs_dir = Path("./logs")
+        # Use existing logs directory if available (from test phase)
+        # This ensures diagnostics go to the same place as per-test logs
+        logs_dir = self._test_logs_dir.parent if self._test_logs_dir else Path("./logs")
 
         self.console.print(f"  Collecting diagnostics from {server_ip}...")
         self.console.print(f"  Failed tests: {len(failed_tests)}")
@@ -559,7 +575,11 @@ class DailyTestOrchestrator:
                 return
 
             collector = DiagnosticCollector(conn, logs_dir, self.console)
-            diagnostics = collector.collect(failed_tests)
+            # Use existing test logs directory if available (per-test diagnostics
+            # were already collected there by TestRunnerManager)
+            diagnostics = collector.collect(
+                failed_tests, existing_output_dir=self._test_logs_dir
+            )
             self._result.diagnostics = diagnostics
 
             if diagnostics.success:

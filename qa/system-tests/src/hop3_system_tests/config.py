@@ -46,7 +46,7 @@ class HetznerConfig:
         return cls(
             api_token=api_token,
             server_id=server_id,
-            image=data.get("image", "debian-1"),
+            image=data.get("image", "ubuntu-24.04"),
             ssh_key_name=data.get("ssh_key_name"),
         )
 
@@ -65,8 +65,8 @@ class DeploymentConfig:
     """Use local working directory instead of cloning from git."""
     local_repo_path: Path | None = None
     """Path to local repo (defaults to current working directory)."""
-    features: list[str] = field(default_factory=lambda: ["docker"])
-    """Features to install (e.g., docker, mysql, redis)."""
+    features: list[str] = field(default_factory=lambda: ["docker", "mysql", "postgresql"])
+    """Features to install (e.g., docker, mysql, postgresql, redis)."""
 
 
 @dataclass(frozen=True)
@@ -112,7 +112,7 @@ class Config:
                 use_local_code=deployment_data.get("use_local_code", True),
                 clean_before=deployment_data.get("clean_before", True),
                 verbose=deployment_data.get("verbose", False),
-                features=deployment_data.get("features", ["docker"]),
+                features=deployment_data.get("features", ["docker", "mysql", "postgresql"]),
             ),
             tests=TestConfig(
                 suites=tests_data.get("suites", ["test-apps"]),
@@ -133,7 +133,7 @@ class Config:
             hetzner=HetznerConfig(
                 api_token=env.get("HETZNER_API_TOKEN", ""),
                 server_id=int(env.get("HETZNER_SERVER_ID", "0")),
-                image=env.get("HETZNER_IMAGE", "debian-12"),
+                image=env.get("HETZNER_IMAGE", "ubuntu-24.04"),
             ),
             deployment=DeploymentConfig(
                 branch=env.get("HOP3_BRANCH", "devel"),
