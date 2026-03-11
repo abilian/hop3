@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -135,6 +136,9 @@ class Certificate:
 
             (NGINX_ROOT / "__certbot_webroot.conf").write_text(nginx_webroot_conf)
 
+            # Reload nginx so it picks up the webroot config for ACME challenge
+            _reload_nginx()
+
             cmd = (
                 f"certbot certonly --webroot -w {webroot} -d {self.domain_name} -n "
                 f"--config-dir {certbot_root}/config "
@@ -146,15 +150,40 @@ class Certificate:
             try:
                 shell(cmd)
             except subprocess.CalledProcessError as e:
-                log(
-                    f"certbot failed (exit code {e.returncode}), "
-                    "falling back to self-signed certificate.",
-                    level=1,
-                    fg="yellow",
-                )
+                # Clean up temporary nginx config
                 (NGINX_ROOT / "__certbot_webroot.conf").unlink(missing_ok=True)
-                self.generate_self_signed()
-                return
+
+                # Build detailed error message
+                error_details = [
+                    f"certbot failed for domain '{self.domain_name}' (exit code {e.returncode})"
+                ]
+                if e.stderr:
+                    error_details.append(f"stderr: {e.stderr}")
+                if e.stdout:
+                    error_details.append(f"stdout: {e.stdout}")
+
+                # Check certbot logs for more details
+                certbot_log = certbot_root / "logs" / "letsencrypt.log"
+                if certbot_log.exists():
+                    try:
+                        # Get last 20 lines of log
+                        log_tail = certbot_log.read_text().strip().split("\n")[-20:]
+                        error_details.append(
+                            f"certbot log ({certbot_log}):\n" + "\n".join(log_tail)
+                        )
+                    except Exception:
+                        pass
+
+                error_msg = "\n".join(error_details)
+                msg = (
+                    f"Certificate generation failed:\n{error_msg}\n\n"
+                    "Common causes:\n"
+                    "  - Domain DNS not pointing to this server\n"
+                    "  - Port 80 not accessible from the internet\n"
+                    "  - Rate limit exceeded (check https://letsencrypt.org/docs/rate-limits/)\n\n"
+                    "To use self-signed certificates instead, set ACME_ENGINE=self-signed"
+                )
+                raise RuntimeError(msg) from e
 
             (NGINX_ROOT / "__certbot_webroot.conf").unlink(missing_ok=True)
 
@@ -165,6 +194,62 @@ class Certificate:
         self.key_file.write_text(key)
 
 
+def _reload_nginx() -> None:
+    """Reload nginx to apply configuration changes.
+
+    Tries supervisorctl first (Docker/E2E), then systemctl (systemd).
+    Raises RuntimeError if nginx cannot be reloaded.
+    """
+    # Skip reload in test environments
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return
+
+    # Try supervisorctl restart (for Docker/E2E environments)
+    try:
+        subprocess.run(
+            ["sudo", "-n", "supervisorctl", "restart", "nginx"],
+            check=True,
+            capture_output=True,
+            timeout=10,
+        )
+        log("nginx reloaded for ACME challenge", level=2)
+        return
+    except Exception:
+        pass
+
+    # Try systemctl reload (for systemd)
+    try:
+        subprocess.run(
+            ["sudo", "-n", "systemctl", "reload", "nginx"],
+            check=True,
+            capture_output=True,
+            timeout=10,
+        )
+        log("nginx reloaded for ACME challenge", level=2)
+        return
+    except Exception:
+        pass
+
+    # If we can't reload nginx, the ACME challenge will fail
+    msg = (
+        "Cannot reload nginx to serve ACME challenge. "
+        "Ensure sudo is configured for passwordless nginx reload."
+    )
+    raise RuntimeError(msg)
+
+
 def shell(cmd):
-    print(f"Running command: {cmd}")
-    subprocess.run(cmd, shell=True, check=True)
+    log(f"Running command: {cmd}", level=2)
+    result = subprocess.run(
+        cmd,
+        shell=True,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        # Re-raise with captured output available
+        error = subprocess.CalledProcessError(result.returncode, cmd)
+        error.stdout = result.stdout
+        error.stderr = result.stderr
+        raise error

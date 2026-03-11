@@ -54,24 +54,21 @@ lint.extend-ignore = [
     "PERF401", #  7 - PERF401	manual-list-comprehension
     "RUF067", # `__init__` module should only contain docstrings and re-exports
     "RUF070", # ...
+    "E501", #   	[ ] line-too-long
     #
     # Fix this (later)
     #
-    "E501", #   	[ ] line-too-long
     "PLR0913", #	[ ] too-many-arguments
     "PLR0917", #	[ ] too-many-positional-arguments
     "F841", #   	[ ] unused-variable
     "PERF203", #	[ ] try-except-in-loop
-    "PLW1510", #	[ ] subprocess-run-without-check
     "TRY301", # 	[ ] raise-within-try
     "PLW0603", #	[ ] global-statement
-    "RUF005", # 	[ ] collection-literal-concatenation
     "PLR0911", #	[ ] too-many-return-statements
     "PLR0914", #	[ ] too-many-locals
     "PLW2901", #	[ ] redefined-loop-name
     "SIM117", # 	[ ] multiple-with-statements
     "RUF001", # 	[ ] ambiguous-unicode-character-string
-    "B008", #   	[ ] function-call-in-default-argument
 ]
 
 

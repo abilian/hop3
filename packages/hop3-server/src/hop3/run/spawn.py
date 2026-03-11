@@ -262,6 +262,7 @@ class AppLauncher:
                     capture_output=True,
                     text=True,
                     timeout=5,
+                    check=False,
                 )
                 if result.returncode != 0:
                     # No processes found

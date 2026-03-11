@@ -252,6 +252,7 @@ class LiveCmd(Command):
                 capture_output=True,
                 text=True,
                 timeout=10,
+                check=False,
             )
             if result.returncode == 0 and result.stdout.strip():
                 live_env = {}
@@ -280,6 +281,7 @@ class LiveCmd(Command):
                 ["cat", environ_path],
                 capture_output=True,
                 timeout=5,
+                check=False,
             )
             if result.returncode == 0 and result.stdout:
                 live_env = {}

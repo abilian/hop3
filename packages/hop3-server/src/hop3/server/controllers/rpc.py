@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING
 
 from advanced_alchemy.exceptions import RepositoryError
 from litestar import Controller, Request, post
-from litestar.params import Body
 from litestar.response import Response
 
 from hop3 import config
@@ -189,7 +188,7 @@ class RPCController(Controller):
     path = "/rpc"
 
     @post("/", status_code=200)
-    async def handle_rpc(self, request: Request, data: dict = Body()) -> Response:
+    async def handle_rpc(self, request: Request, data: dict) -> Response:
         """Handle JSON-RPC request.
 
         Args:

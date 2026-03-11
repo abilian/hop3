@@ -64,7 +64,7 @@ def format_table(headers: list[str], rows: list[list]) -> str:
         )
         row_lines.append(row_line)
 
-    return "\n".join([header_line, separator] + row_lines)
+    return "\n".join([header_line, separator, *row_lines])
 
 
 def _format_dict_item(item: dict) -> str:
