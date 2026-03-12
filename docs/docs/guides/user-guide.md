@@ -1,6 +1,6 @@
 # Hop3 Guide
 
-This guide provides a comprehensive overview of Hop3: the vision, deployment methods, and essential commands. For step-by-step tutorials, see [Quickstart](quickstart.md). For exhaustive command documentation, see [CLI Reference](cli-reference.md).
+This guide provides a comprehensive overview of Hop3: the vision, deployment methods, and essential commands. For step-by-step tutorials, see [Quickstart](../get-started/quickstart.md). For exhaustive command documentation, see [CLI Reference](../reference/cli.md).
 
 ---
 
@@ -533,10 +533,10 @@ export HOP3_DEBUG=1
 
 ## Next Steps
 
-- **[Quickstart](quickstart.md)** - Step-by-step first deployment tutorial
-- **[CLI Reference](cli-reference.md)** - Complete command documentation
+- **[Quickstart](../get-started/quickstart.md)** - Step-by-step first deployment tutorial
+- **[CLI Reference](../reference/cli.md)** - Complete command documentation
 - **[Migration Guide](migration-guide.md)** - Detailed platform migration guides
-- **[hop3.toml Reference](hop3-toml-reference.md)** - Full configuration file reference
+- **[hop3.toml Reference](../reference/config.md)** - Full configuration file reference
 - **[FAQ](faq.md)** - Frequently asked questions
 
 For help at any time:

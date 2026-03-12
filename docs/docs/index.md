@@ -17,19 +17,19 @@ icon: lucide/cloud
 
 <div class="grid cards" markdown>
 
--   :material-rocket-launch: **[Quick Start](quickstart.md)**
+-   :material-rocket-launch: **[Quick Start](get-started/quickstart.md)**
 
     Deploy your first application in minutes
 
--   :material-book-open-variant: **[User Guide](guide.md)**
+-   :material-book-open-variant: **[User Guide](guides/user-guide.md)**
 
     Complete guide to using Hop3
 
--   :material-console: **[CLI Reference](cli-reference.md)**
+-   :material-console: **[CLI Reference](reference/cli.md)**
 
     Full command reference
 
--   :material-cog: **[Configuration](hop3-toml-reference.md)**
+-   :material-cog: **[Configuration](reference/config.md)**
 
     hop3.toml configuration reference
 
@@ -100,7 +100,7 @@ Lightweight architecture optimized for efficiency. Run multiple applications on 
     hop3 deploy ./myapp
     ```
 
-See the [Installation Guide](installation.md) for detailed instructions.
+See the [Installation Guide](get-started/installation.md) for detailed instructions.
 
 ## Supported Platforms
 

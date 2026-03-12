@@ -14,7 +14,7 @@ site_dir = "site"
 
 # Repository information
 repo_url = "https://github.com/abilian/hop3"
-edit_uri = "edit/main/zdocs/docs"
+edit_uri = "edit/main/docs/docs"
 
 copyright = """
 Copyright &copy; 2021-2026 Abilian SAS
@@ -164,16 +164,10 @@ nav = [
         { "All Posts" = "blog/index.md" },
         { "2026" = [
             { "Hop3 0.4 Released" = "blog/posts/release-0.4.md" },
-            { "OW2Con 2025" = "blog/posts/ow2con-2025.md" },
         ]},
         { "2025" = [
             { "OSXP 2025" = "blog/posts/osxp-2025.md" },
-            { "Nua 0.5.17" = "blog/posts/nua-0.5.17.md" },
-            { "PyConFR 2023" = "blog/posts/pyconfr-2023-presentation.md" },
-        ]},
-        { "Archive" = [
-            { "Documentation Work" = "blog/posts/started-work-on-doc.md" },
-            { "Project Started" = "blog/posts/project-started.md" },
+            { "OW2Con 2025" = "blog/posts/ow2con-2025.md" },
         ]},
     ]},
 
@@ -263,9 +257,10 @@ repo = "lucide/github"
 icon = "fontawesome/brands/github"
 link = "https://github.com/abilian/hop3"
 
-[[project.extra.social]]
-icon = "fontawesome/brands/mastodon"
-link = "https://fosstodon.org/@hop3"
+# Mastodon account to be created
+# [[project.extra.social]]
+# icon = "fontawesome/brands/mastodon"
+# link = "https://fosstodon.org/@hop3"
 
 # =============================================================================
 # Plugins

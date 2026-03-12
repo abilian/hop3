@@ -340,7 +340,7 @@ hop3 deploy myapp --dry-run
 
 ## Need Help?
 
-- [hop3.toml Reference](hop3-toml-reference.md)
-- [Configuration Examples](examples/)
+- [hop3.toml Reference](../reference/config.md)
+- [Configuration Examples](../developers/examples/)
 - [FAQ](faq.md)
 - [GitHub Issues](https://github.com/abilian/hop3/issues)
