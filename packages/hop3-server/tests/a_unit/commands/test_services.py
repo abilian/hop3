@@ -230,10 +230,8 @@ def test_services_destroy_success(mock_db_session):
         mock_service = Mock()
         mock_get_service.return_value = mock_service
 
-        # Mock query to return empty list of credentials
-        mock_query = Mock()
-        mock_query.filter_by.return_value.all.return_value = []
-        mock_db_session.query.return_value = mock_query
+        # Mock scalars to return empty list of credentials
+        mock_db_session.scalars.return_value.all.return_value = []
 
         cmd = AddonsDestroyCmd(db_session=mock_db_session)
         result = cmd.call("my-database", "--type", "postgres")

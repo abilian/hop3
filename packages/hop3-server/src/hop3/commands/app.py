@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from sqlalchemy import select
+
 from hop3.core.credentials import get_credential_encryptor
 from hop3.deployers import do_deploy
 from hop3.lib import log
@@ -826,9 +828,9 @@ class EnvCmd(Command):
         addon_vars: set[str] = set()
 
         # Query addon credentials for this app
-        credentials = (
-            self.db_session.query(AddonCredential).filter_by(app_id=app.id).all()
-        )
+        credentials = self.db_session.scalars(
+            select(AddonCredential).filter_by(app_id=app.id)
+        ).all()
 
         encryptor = get_credential_encryptor()
         for credential in credentials:

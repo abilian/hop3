@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
+from sqlalchemy import select
+
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.plugins import get_addon, get_plugin_manager
 from hop3.lib.args import parse_cli_args
@@ -169,12 +171,11 @@ class AddonsAttachCmd(Command):
         """Store or update encrypted service credentials."""
         encryptor = get_credential_encryptor()
 
-        existing_credential = (
-            self.db_session
-            .query(AddonCredential)
-            .filter_by(app_id=app_id, addon_type=service_type, addon_name=addon_name)
-            .first()
-        )
+        existing_credential = self.db_session.scalars(
+            select(AddonCredential).filter_by(
+                app_id=app_id, addon_type=service_type, addon_name=addon_name
+            )
+        ).first()
 
         if existing_credential:
             existing_credential.encrypted_data = encryptor.encrypt(connection_details)
@@ -411,12 +412,11 @@ class AddonsDetachCmd(Command):
         Returns:
             Dictionary of connection details (may be empty if not found)
         """
-        credential = (
-            self.db_session
-            .query(AddonCredential)
-            .filter_by(app_id=app_id, addon_type=service_type, addon_name=addon_name)
-            .first()
-        )
+        credential = self.db_session.scalars(
+            select(AddonCredential).filter_by(
+                app_id=app_id, addon_type=service_type, addon_name=addon_name
+            )
+        ).first()
 
         if credential:
             encryptor = get_credential_encryptor()
@@ -441,9 +441,9 @@ class AddonsDetachCmd(Command):
         """
         removed_vars = []
         for key in connection_details:
-            env_var = (
-                self.db_session.query(EnvVar).filter_by(app_id=app_id, name=key).first()
-            )
+            env_var = self.db_session.scalars(
+                select(EnvVar).filter_by(app_id=app_id, name=key)
+            ).first()
 
             if env_var:
                 self.db_session.delete(env_var)
@@ -552,12 +552,11 @@ class AddonsDestroyCmd(Command):
                 ]
 
             # Clean up all stored credentials for this service
-            credentials = (
-                self.db_session
-                .query(AddonCredential)
-                .filter_by(addon_type=service_type, addon_name=addon_name)
-                .all()
-            )
+            credentials = self.db_session.scalars(
+                select(AddonCredential).filter_by(
+                    addon_type=service_type, addon_name=addon_name
+                )
+            ).all()
 
             for credential in credentials:
                 self.db_session.delete(credential)
@@ -702,12 +701,11 @@ class AddonsStatusCmd(Command):
 
     def _get_attached_apps(self, service_type: str, addon_name: str) -> list[str]:
         """Get list of apps attached to this addon."""
-        credentials = (
-            self.db_session
-            .query(AddonCredential)
-            .filter_by(addon_type=service_type, addon_name=addon_name)
-            .all()
-        )
+        credentials = self.db_session.scalars(
+            select(AddonCredential).filter_by(
+                addon_type=service_type, addon_name=addon_name
+            )
+        ).all()
         return [cred.app.name for cred in credentials if cred.app]
 
     def _build_status_rows(

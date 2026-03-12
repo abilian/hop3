@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from litestar import Controller, Request, get, post
 from litestar.response import Redirect, Template
+from sqlalchemy import select
 
 from hop3.orm import User
 from hop3.server.guards import auth_guard
@@ -71,7 +72,7 @@ class AuthController(Controller):
         # Get database session
         with get_session() as db_session:
             # Look up the user
-            user = db_session.query(User).filter_by(username=username).first()
+            user = db_session.scalars(select(User).filter_by(username=username)).first()
 
             if not user or not user.active or not user.check_password(password):
                 return Redirect(
@@ -125,7 +126,7 @@ class AuthController(Controller):
 
         # Get user from database
         with get_session() as db_session:
-            user = db_session.query(User).filter_by(username=username).first()
+            user = db_session.scalars(select(User).filter_by(username=username)).first()
 
             if not user:
                 # Session is invalid, clear it
@@ -176,7 +177,7 @@ class AuthController(Controller):
 
         # Get user from database and create session
         with get_session() as db_session:
-            user = db_session.query(User).filter_by(username=username).first()
+            user = db_session.scalars(select(User).filter_by(username=username)).first()
 
             if not user:
                 return Redirect(path="/auth/login?error=User not found.")

@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, ClassVar
 
+from sqlalchemy import select
+
 from hop3.lib.registry import register
 from hop3.orm import User
 from hop3.server.security.tokens import create_magic_token, create_token
@@ -53,7 +55,9 @@ class AuthLoginCmd(Command):
             return [error("Usage: hop3 auth:login <username> <password>")]
 
         # Look up the user
-        user = self.db_session.query(User).filter_by(username=username).first()
+        user = self.db_session.scalars(
+            select(User).filter_by(username=username)
+        ).first()
         if not user:
             return [error("Invalid username or password")]
 
@@ -118,7 +122,9 @@ class AuthWhoamiCmd(Command):
         if not username:
             return [error("Not authenticated. Use 'hop3 auth:login' to authenticate.")]
 
-        user = self.db_session.query(User).filter_by(username=username).first()
+        user = self.db_session.scalars(
+            select(User).filter_by(username=username)
+        ).first()
         if not user:
             return [error("User not found")]
 
@@ -160,12 +166,16 @@ class AuthRegisterCmd(Command):
             return [error("Usage: hop3 auth:register <username> <email> <password>")]
 
         # Check if username already exists
-        existing_user = self.db_session.query(User).filter_by(username=username).first()
+        existing_user = self.db_session.scalars(
+            select(User).filter_by(username=username)
+        ).first()
         if existing_user:
             return [error(f"Username '{username}' already exists")]
 
         # Check if email already exists
-        existing_email = self.db_session.query(User).filter_by(email=email).first()
+        existing_email = self.db_session.scalars(
+            select(User).filter_by(email=email)
+        ).first()
         if existing_email:
             return [error(f"Email '{email}' already registered")]
 
@@ -296,7 +306,9 @@ class AuthMagicLinkCmd(Command):
             Response with magic token or error message
         """
         # Look up the user
-        user = self.db_session.query(User).filter_by(username=username).first()
+        user = self.db_session.scalars(
+            select(User).filter_by(username=username)
+        ).first()
         if not user:
             return [error(f"User '{username}' not found")]
 

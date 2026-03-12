@@ -264,13 +264,11 @@ class TestBackupManager:
         mock_app = MagicMock()
         mock_app.id = 1
 
-        # Mock AddonCredential query result
+        # Mock AddonCredential scalars result
         mock_credential = MagicMock()
         mock_credential.addon_type = "postgres"
         mock_credential.addon_name = "mydb"
-        mock_session.query.return_value.filter_by.return_value.all.return_value = [
-            mock_credential
-        ]
+        mock_session.scalars.return_value.all.return_value = [mock_credential]
 
         services = manager._get_attached_addons(mock_app)
 
@@ -285,7 +283,7 @@ class TestBackupManager:
         # Create mock app with no attached addons
         mock_app = MagicMock()
         mock_app.id = 1
-        mock_session.query.return_value.filter_by.return_value.all.return_value = []
+        mock_session.scalars.return_value.all.return_value = []
 
         services = manager._get_attached_addons(mock_app)
 

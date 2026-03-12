@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from sqlalchemy import select
+
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.plugins import get_addon
 from hop3.deployers.env_provisioning import set_env_vars
@@ -113,12 +115,11 @@ def _provision_single_addon(
         return
 
     # Check if already attached to this app
-    existing_credential = (
-        db_session
-        .query(AddonCredential)
-        .filter_by(app_id=app.id, addon_type=addon_type, addon_name=addon_name)
-        .first()
-    )
+    existing_credential = db_session.scalars(
+        select(AddonCredential).filter_by(
+            app_id=app.id, addon_type=addon_type, addon_name=addon_name
+        )
+    ).first()
 
     # Get connection details and attach
     try:

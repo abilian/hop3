@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from litestar import Controller, get
 from litestar.response import Template
+from sqlalchemy import select
 
 from hop3.orm import App
 from hop3.server.guards import auth_guard
@@ -26,7 +27,7 @@ class DashboardIndexController(Controller):
     def dashboard_index(self) -> Template:
         """Display the main dashboard with application list."""
         with get_session() as db_session:
-            apps_list = db_session.query(App).order_by(App.name).all()
+            apps_list = db_session.scalars(select(App).order_by(App.name)).all()
 
             app_list = [
                 {

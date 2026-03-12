@@ -16,6 +16,8 @@ import getpass
 import sys
 from datetime import datetime, timezone
 
+from sqlalchemy import select
+
 from hop3.lib.registry import register
 from hop3.orm import Role, User
 from hop3.server.lib.database import get_session
@@ -97,19 +99,25 @@ class AdminCreate(Command):
 
         with get_session() as db_session:
             # Check if username already exists
-            existing_user = db_session.query(User).filter_by(username=username).first()
+            existing_user = db_session.scalars(
+                select(User).filter_by(username=username)
+            ).first()
             if existing_user:
                 print(f"Error: Username '{username}' already exists", file=sys.stderr)
                 sys.exit(1)
 
             # Check if email already exists
-            existing_email = db_session.query(User).filter_by(email=email).first()
+            existing_email = db_session.scalars(
+                select(User).filter_by(email=email)
+            ).first()
             if existing_email:
                 print(f"Error: Email '{email}' already registered", file=sys.stderr)
                 sys.exit(1)
 
             # Get or create admin role
-            admin_role = db_session.query(Role).filter_by(name="admin").first()
+            admin_role = db_session.scalars(
+                select(Role).filter_by(name="admin")
+            ).first()
             if not admin_role:
                 admin_role = Role(name="admin", description="Administrator role")
                 db_session.add(admin_role)
@@ -169,7 +177,7 @@ class AdminToken(Command):
 
     def run(self, username: str) -> None:
         with get_session() as db_session:
-            user = db_session.query(User).filter_by(username=username).first()
+            user = db_session.scalars(select(User).filter_by(username=username)).first()
             if not user:
                 print(f"Error: User '{username}' not found", file=sys.stderr)
                 sys.exit(1)
@@ -219,7 +227,7 @@ class AdminList(Command):
 
     def run(self) -> None:
         with get_session() as db_session:
-            users = db_session.query(User).order_by(User.username).all()
+            users = db_session.scalars(select(User).order_by(User.username)).all()
 
             if not users:
                 print("No users found.")
@@ -288,18 +296,18 @@ class AdminSshToken(Command):
     def _find_admin_user(self, db_session) -> User | None:
         """Find an admin user, preferring one named 'admin'."""
         # First try to find user named "admin"
-        admin_by_name = (
-            db_session.query(User).filter_by(username="admin", active=True).first()
-        )
+        admin_by_name = db_session.scalars(
+            select(User).filter_by(username="admin", active=True)
+        ).first()
         if admin_by_name and admin_by_name.is_admin:
             return admin_by_name
 
         # Otherwise find any active admin
-        admin_role = db_session.query(Role).filter_by(name="admin").first()
+        admin_role = db_session.scalars(select(Role).filter_by(name="admin")).first()
         if not admin_role:
             return None
 
-        for user in db_session.query(User).filter_by(active=True).all():
+        for user in db_session.scalars(select(User).filter_by(active=True)).all():
             if admin_role in user.roles:
                 return user
 
@@ -308,7 +316,7 @@ class AdminSshToken(Command):
     def _create_default_admin(self, db_session, password: str) -> User:
         """Create a default admin user."""
         # Get or create admin role
-        admin_role = db_session.query(Role).filter_by(name="admin").first()
+        admin_role = db_session.scalars(select(Role).filter_by(name="admin")).first()
         if not admin_role:
             admin_role = Role(name="admin", description="Administrator role")
             db_session.add(admin_role)
@@ -384,7 +392,7 @@ class AdminResetPassword(Command):
             sys.exit(1)
 
         with get_session() as db_session:
-            user = db_session.query(User).filter_by(username=username).first()
+            user = db_session.scalars(select(User).filter_by(username=username)).first()
             if not user:
                 print(f"Error: User '{username}' not found", file=sys.stderr)
                 sys.exit(1)
@@ -429,7 +437,7 @@ class AuthMagicLink(Command):
 
     def run(self, username: str = "admin") -> None:
         with get_session() as db_session:
-            user = db_session.query(User).filter_by(username=username).first()
+            user = db_session.scalars(select(User).filter_by(username=username)).first()
             if not user:
                 print(f"Error: User '{username}' not found", file=sys.stderr)
                 sys.exit(1)

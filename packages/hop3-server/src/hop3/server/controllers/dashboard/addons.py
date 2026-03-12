@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from litestar import Controller, get
 from litestar.response import Redirect, Template
+from sqlalchemy import select
 
 from hop3.core.plugins import get_addon
 from hop3.orm import App
@@ -26,7 +27,7 @@ class AddonsController(Controller):
     def dashboard_addons(self) -> Template | Redirect:
         """Display addons page."""
         with get_session() as db_session:
-            credentials = db_session.query(AddonCredential).join(App).all()
+            credentials = db_session.scalars(select(AddonCredential).join(App)).all()
 
             addons = []
             for cred in credentials:
@@ -47,12 +48,9 @@ class AddonsController(Controller):
     def addon_detail(self, addon_name: str) -> Template:
         """Display addon detail page."""
         with get_session() as db_session:
-            credential = (
-                db_session
-                .query(AddonCredential)
-                .filter(AddonCredential.addon_name == addon_name)
-                .first()
-            )
+            credential = db_session.scalars(
+                select(AddonCredential).where(AddonCredential.addon_name == addon_name)
+            ).first()
 
             if not credential:
                 return Template(

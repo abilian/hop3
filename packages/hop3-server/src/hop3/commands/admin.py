@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, ClassVar
 
+from sqlalchemy import select
+
 from hop3.lib.registry import register
 from hop3.orm import User
 from hop3.orm.security import Role
@@ -37,7 +39,7 @@ def require_admin(username: str, db_session: Session) -> list[dict] | None:
             error("Authentication required. Use 'hop3 auth:login' to authenticate.")
         ]
 
-    user = db_session.query(User).filter_by(username=username).first()
+    user = db_session.scalars(select(User).filter_by(username=username)).first()
     if not user or not user.is_admin:
         return [error("Admin privileges required")]
 
@@ -104,12 +106,16 @@ class AdminUserAddCmd(Command):
             ]
 
         # Check if username already exists
-        existing_user = self.db_session.query(User).filter_by(username=username).first()
+        existing_user = self.db_session.scalars(
+            select(User).filter_by(username=username)
+        ).first()
         if existing_user:
             return [error(f"Username '{username}' already exists")]
 
         # Check if email already exists
-        existing_email = self.db_session.query(User).filter_by(email=email).first()
+        existing_email = self.db_session.scalars(
+            select(User).filter_by(email=email)
+        ).first()
         if existing_email:
             return [error(f"Email '{email}' already registered")]
 
@@ -124,7 +130,9 @@ class AdminUserAddCmd(Command):
 
         # Grant admin role if requested
         if is_admin:
-            admin_role = self.db_session.query(Role).filter_by(name="admin").first()
+            admin_role = self.db_session.scalars(
+                select(Role).filter_by(name="admin")
+            ).first()
             if not admin_role:
                 # Create admin role if it doesn't exist
                 admin_role = Role(name="admin", description="Administrator role")
@@ -187,7 +195,9 @@ class AdminUserRemoveCmd(Command):
             return [error("Cannot remove your own account")]
 
         # Find the user
-        user = self.db_session.query(User).filter_by(username=username).first()
+        user = self.db_session.scalars(
+            select(User).filter_by(username=username)
+        ).first()
         if not user:
             return [error(f"User '{username}' not found")]
 
@@ -228,7 +238,7 @@ class AdminUserListCmd(Command):
             return admin_error
 
         # Get all users
-        users = self.db_session.query(User).order_by(User.username).all()
+        users = self.db_session.scalars(select(User).order_by(User.username)).all()
 
         if not users:
             return [text("No users found")]
@@ -291,7 +301,9 @@ class AdminUserEnableCmd(Command):
             return [error("Usage: hop3 admin:user:enable <username>")]
 
         # Find the user
-        user = self.db_session.query(User).filter_by(username=username).first()
+        user = self.db_session.scalars(
+            select(User).filter_by(username=username)
+        ).first()
         if not user:
             return [error(f"User '{username}' not found")]
 
@@ -343,7 +355,9 @@ class AdminUserDisableCmd(Command):
             return [error("Cannot disable your own account")]
 
         # Find the user
-        user = self.db_session.query(User).filter_by(username=username).first()
+        user = self.db_session.scalars(
+            select(User).filter_by(username=username)
+        ).first()
         if not user:
             return [error(f"User '{username}' not found")]
 
@@ -391,7 +405,9 @@ class AdminUserGrantAdminCmd(Command):
             return [error("Usage: hop3 admin:user:grant-admin <username>")]
 
         # Find the user
-        user = self.db_session.query(User).filter_by(username=username).first()
+        user = self.db_session.scalars(
+            select(User).filter_by(username=username)
+        ).first()
         if not user:
             return [error(f"User '{username}' not found")]
 
@@ -399,7 +415,9 @@ class AdminUserGrantAdminCmd(Command):
             return [text(f"User '{username}' already has admin privileges")]
 
         # Get or create admin role
-        admin_role = self.db_session.query(Role).filter_by(name="admin").first()
+        admin_role = self.db_session.scalars(
+            select(Role).filter_by(name="admin")
+        ).first()
         if not admin_role:
             admin_role = Role(name="admin", description="Administrator role")
             self.db_session.add(admin_role)
@@ -450,7 +468,9 @@ class AdminUserRevokeAdminCmd(Command):
             return [error("Cannot revoke admin privileges from yourself")]
 
         # Find the user
-        user = self.db_session.query(User).filter_by(username=username).first()
+        user = self.db_session.scalars(
+            select(User).filter_by(username=username)
+        ).first()
         if not user:
             return [error(f"User '{username}' not found")]
 
@@ -458,7 +478,9 @@ class AdminUserRevokeAdminCmd(Command):
             return [text(f"User '{username}' does not have admin privileges")]
 
         # Get admin role
-        admin_role = self.db_session.query(Role).filter_by(name="admin").first()
+        admin_role = self.db_session.scalars(
+            select(Role).filter_by(name="admin")
+        ).first()
         if admin_role and admin_role in user.roles:
             user.roles.remove(admin_role)
             self.db_session.commit()
@@ -509,7 +531,9 @@ class AdminUserSetPasswordCmd(Command):
             ]
 
         # Find the user
-        user = self.db_session.query(User).filter_by(username=username).first()
+        user = self.db_session.scalars(
+            select(User).filter_by(username=username)
+        ).first()
         if not user:
             return [error(f"User '{username}' not found")]
 
@@ -554,7 +578,9 @@ class AdminUserInfoCmd(Command):
             return [error("Usage: hop3 admin:user:info <username>")]
 
         # Find the user
-        user = self.db_session.query(User).filter_by(username=username).first()
+        user = self.db_session.scalars(
+            select(User).filter_by(username=username)
+        ).first()
         if not user:
             return [error(f"User '{username}' not found")]
 
@@ -613,7 +639,9 @@ class AdminUserGenerateTokenCmd(Command):
             return [error("Usage: hop3 admin:user:generate-token <username>")]
 
         # Find the user
-        user = self.db_session.query(User).filter_by(username=username).first()
+        user = self.db_session.scalars(
+            select(User).filter_by(username=username)
+        ).first()
         if not user:
             return [error(f"User '{username}' not found")]
 
