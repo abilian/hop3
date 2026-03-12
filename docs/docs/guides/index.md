@@ -14,7 +14,10 @@ The [User Guide](user-guide.md) covers the core concepts and daily operations:
 - Application deployment and management
 - Environment configuration
 - Process management
-- Domain and SSL setup
+
+## Networking
+
+- [Domains and Hostnames](domains.md) - Configure custom domains, SSL certificates, and virtual hosts
 
 ## Administration
 
