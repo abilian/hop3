@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import select
+
 from hop3.config import HopConfig
 from hop3.core.plugins import get_addon
 from hop3.lib import log
@@ -263,13 +265,9 @@ class BackupManager:
             FileNotFoundError: If backup not found
         """
         # Find backup in database
-        backup_record = (
-            self.db_session
-            .query(Backup)
-            .join(App)
-            .filter(Backup.remote_path.contains(backup_id))
-            .first()
-        )
+        backup_record = self.db_session.scalars(
+            select(Backup).join(App).where(Backup.remote_path.contains(backup_id))
+        ).first()
 
         if not backup_record:
             msg = f"Backup not found: {backup_id}"
@@ -338,14 +336,14 @@ class BackupManager:
         Returns:
             List of BackupManifest objects
         """
-        query = self.db_session.query(Backup).join(App)
+        stmt = select(Backup).join(App)
 
         if app_name:
-            query = query.filter(App.name == app_name)
+            stmt = stmt.where(App.name == app_name)
 
-        query = query.order_by(Backup.created_at.desc()).limit(limit)
+        stmt = stmt.order_by(Backup.created_at.desc()).limit(limit)
 
-        backups = query.all()
+        backups = self.db_session.scalars(stmt).all()
 
         manifests = []
         for backup in backups:
@@ -373,12 +371,9 @@ class BackupManager:
         Raises:
             FileNotFoundError: If backup not found
         """
-        backup_record = (
-            self.db_session
-            .query(Backup)
-            .filter(Backup.remote_path.contains(backup_id))
-            .first()
-        )
+        backup_record = self.db_session.scalars(
+            select(Backup).where(Backup.remote_path.contains(backup_id))
+        ).first()
 
         if not backup_record:
             msg = f"Backup not found: {backup_id}"
@@ -402,12 +397,9 @@ class BackupManager:
         Raises:
             FileNotFoundError: If backup not found
         """
-        backup_record = (
-            self.db_session
-            .query(Backup)
-            .filter(Backup.remote_path.contains(backup_id))
-            .first()
-        )
+        backup_record = self.db_session.scalars(
+            select(Backup).where(Backup.remote_path.contains(backup_id))
+        ).first()
 
         if not backup_record:
             msg = f"Backup not found: {backup_id}"
@@ -439,12 +431,9 @@ class BackupManager:
         """
         manifest = self.get_backup_info(backup_id)
 
-        backup_record = (
-            self.db_session
-            .query(Backup)
-            .filter(Backup.remote_path.contains(backup_id))
-            .first()
-        )
+        backup_record = self.db_session.scalars(
+            select(Backup).where(Backup.remote_path.contains(backup_id))
+        ).first()
 
         if not backup_record:
             msg = f"Backup not found: {backup_id}"
@@ -715,9 +704,9 @@ class BackupManager:
         Returns:
             List of (service_type, addon_name) tuples
         """
-        credentials = (
-            self.db_session.query(AddonCredential).filter_by(app_id=app.id).all()
-        )
+        credentials = self.db_session.scalars(
+            select(AddonCredential).filter_by(app_id=app.id)
+        ).all()
 
         return [(cred.addon_type, cred.addon_name) for cred in credentials]
 

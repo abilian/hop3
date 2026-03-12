@@ -15,6 +15,8 @@ import threading
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from sqlalchemy import select
+
 from hop3.lib import log
 from hop3.orm import App, AppStateEnum
 
@@ -115,12 +117,11 @@ class StateSyncService:
         Returns:
             Number of apps whose state was updated
         """
-        apps = (
-            session
-            .query(App)
-            .filter(App.run_state.in_([AppStateEnum.STARTING, AppStateEnum.STOPPING]))
-            .all()
-        )
+        apps = session.scalars(
+            select(App).where(
+                App.run_state.in_([AppStateEnum.STARTING, AppStateEnum.STOPPING])
+            )
+        ).all()
 
         synced_count = 0
         for app in apps:

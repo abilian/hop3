@@ -49,10 +49,8 @@ class MockSession:
         self.apps = apps or []
         self._committed = False
 
-    def query(self, model):
-        return self
-
-    def filter(self, condition):
+    def scalars(self, statement):
+        """Mock scalars method for SQLAlchemy 2.0 select() API."""
         return self
 
     def all(self):

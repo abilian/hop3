@@ -165,13 +165,16 @@ def is_token_revoked(jti: str) -> bool:
     Returns:
         True if the token is revoked, False otherwise
     """
+    from sqlalchemy import select  # noqa: PLC0415
+
     from hop3.orm import RevokedToken  # noqa: PLC0415
     from hop3.server.lib.database import get_session  # noqa: PLC0415
 
     try:
         with get_session() as db_session:
             revoked = (
-                db_session.query(RevokedToken).filter_by(jti=jti).first() is not None
+                db_session.scalars(select(RevokedToken).filter_by(jti=jti)).first()
+                is not None
             )
             return revoked
     except Exception:
@@ -188,12 +191,14 @@ def revoke_token(jti: str, expires_at: datetime, reason: str | None = None) -> N
         expires_at: When the token expires (for cleanup)
         reason: Optional reason for revocation (e.g., "user_logout")
     """
+    from sqlalchemy import select  # noqa: PLC0415
+
     from hop3.orm import RevokedToken  # noqa: PLC0415
     from hop3.server.lib.database import get_session  # noqa: PLC0415
 
     with get_session() as db_session:
         # Check if already revoked
-        existing = db_session.query(RevokedToken).filter_by(jti=jti).first()
+        existing = db_session.scalars(select(RevokedToken).filter_by(jti=jti)).first()
         if existing:
             return  # Already revoked
 

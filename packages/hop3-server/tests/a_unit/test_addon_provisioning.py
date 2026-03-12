@@ -28,7 +28,7 @@ def mock_app():
 def mock_db_session():
     """Create a mock database session."""
     session = MagicMock()
-    session.query.return_value.filter_by.return_value.first.return_value = None
+    session.scalars.return_value.first.return_value = None
     return session
 
 
@@ -166,9 +166,7 @@ class TestProvisionAddons:
 
         # Simulate addon already attached
         existing_credential = MagicMock()
-        mock_db_session.query.return_value.filter_by.return_value.first.return_value = (
-            existing_credential
-        )
+        mock_db_session.scalars.return_value.first.return_value = existing_credential
 
         addon_configs = [{"type": "postgres"}]
 

@@ -8,13 +8,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from sqlalchemy import select
+
 from hop3.orm import App
 from hop3.project.config import AppConfig
 
 
 def get_app_or_none(db_session, app_name: str) -> App | None:
     """Get app from database by name."""
-    return db_session.query(App).filter_by(name=app_name).first()
+    return db_session.scalars(select(App).filter_by(name=app_name)).first()
 
 
 def get_worker_count(app: App) -> int:
