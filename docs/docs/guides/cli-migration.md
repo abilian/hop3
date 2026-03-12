@@ -533,7 +533,7 @@ Use this checklist to ensure your scripts are fully migrated:
 
 If you encounter issues migrating your scripts:
 
-1. **Check the CLI Reference**: See [cli-reference.md](cli-reference.md) for complete command documentation
+1. **Check the CLI Reference**: See [CLI Reference](../reference/cli.md) for complete command documentation
 2. **Test with --json**: Always test JSON output structure with `| jq .`
 3. **Use --verbose**: Debug issues with verbose output
 4. **Check exit codes**: All commands return proper exit codes (0 = success, non-zero = error)

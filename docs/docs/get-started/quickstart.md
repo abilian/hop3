@@ -441,10 +441,10 @@ You have successfully deployed and managed your first application on Hop3. You c
 
 ## Next Steps
 
-- **[CLI Reference](cli-reference.md)** - Complete reference for all 62 Hop3 commands
-- **[Backup and Restore Guide](backup-restore.md)** - Comprehensive backup documentation
-- **[hop3.toml Reference](hop3-toml-reference.md)** - Complete configuration file reference
-- **[Migration Guide](migration-guide.md)** - Migrate from Heroku, Fly.io, or other platforms
+- **[CLI Reference](../reference/cli.md)** - Complete reference for all 62 Hop3 commands
+- **[Backup and Restore Guide](../guides/backup-restore.md)** - Comprehensive backup documentation
+- **[hop3.toml Reference](../reference/config.md)** - Complete configuration file reference
+- **[Migration Guide](../guides/migration-guide.md)** - Migrate from Heroku, Fly.io, or other platforms
 
 For help at any time, run:
 ```bash

@@ -731,10 +731,10 @@ If you encounter issues:
 
 ## Related Documentation
 
-- [Quickstart Guide](quickstart.md) - Getting started with Hop3
+- [Quickstart Guide](../get-started/quickstart.md) - Getting started with Hop3
 - [FAQ](faq.md) - Frequently asked questions
-- [Configuration Reference](hop3-toml-reference.md) - Application configuration
-- [CLI Reference](cli-reference.md) - Complete command reference
+- [Configuration Reference](../reference/config.md) - Application configuration
+- [CLI Reference](../reference/cli.md) - Complete command reference
 
 ---
 

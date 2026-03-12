@@ -5,7 +5,7 @@ This directory contains the Hop3 documentation built with [Zensical](https://git
 ## Directory Structure
 
 ```
-zdocs/
+docs/
 ├── docs/              # Documentation source files (markdown)
 │   └── tutorials/     # Generated from tutorials/ (do not edit directly)
 ├── tutorials/         # Tutorial source files (with test syntax)
