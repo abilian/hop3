@@ -7,7 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - TBD
+## [0.4.0b6] - 2025-03-12
+
+### Added
+
+- **Debian Variants Support**: Installer now properly handles multiple Debian-based distributions (Debian, Ubuntu, and derivatives)
+- **Debian 13 Testing**: Added testing support for Debian 13 "Trixie"
+- **Domain Documentation**: Comprehensive guide for virtual hostname and domain configuration
+- **System Tests**: New system test infrastructure for testing full deployment workflows
+
+### Changed
+
+- **SQLAlchemy 2.0 Migration**: Migrated all database queries from legacy `session.query()` API to modern `select()` API
+- **Controller Refactoring**: Split large controller modules for better maintainability
+
+### Fixed
+
+- **Destructive Commands**: Added confirmation prompts for destructive commands (destroy, etc.)
+- **SSL Certificates**: Multiple fixes for certificate handling and ACME configuration
+- **Dashboard**: Fixed dashboard rendering issues
+
+## [0.4.0b5] - 2025-02-28
+
+### Added
+
+- **Magic Link Login**: Installer now supports magic link authentication for initial setup
+- **TUI Development**: Initial Terminal UI interface (work in progress)
+
+### Changed
+
+- **Installer Defaults**: Changed installer default behavior for better user experience
+
+### Fixed
+
+- **Web Login**: Fixed login sequence in web interface
+- **WebUI Templates**: Fixed template rendering errors
+- **Pydantic Imports**: Fixed import issues with Pydantic models
+
+## [0.4.0b4] - 2025-02-21
+
+### Added
+
+- **Shell Completion**: Dynamic shell completion with command caching for CLI
+- **PyPI Deployment**: Added PyPI deployment support to hop3-deploy installer tool
+
+### Changed
+
+- **CQS Cleanup**: Refactored commands following Command-Query Separation principles
+- **Code Quality**: Extensive ruff fixes and code cleanup
+
+### Fixed
+
+- **Environment Variables**: Fixed environment variable handling issues
+
+## [0.4.0b3] - 2025-02-14
+
+### Added
+
+- **SSH Auto-Auth**: Automatic SSH authentication with improved error messages
+- **Multi-Server Support**: Improved CLI context support for managing multiple servers
+- **System Info**: Added hostname and IP addresses to `system:info` command
+
+### Changed
+
+- **CLI Help**: Significantly improved CLI help messages and documentation
+- **Command Simplification**: Refactored and simplified all command implementations
+
+### Fixed
+
+- **ACME Support**: Fixed server configuration and ACME/Let's Encrypt certificate support
+- **ORM Cascade**: Fixed cascade issues in ORM relationships
+- **Procfile Location**: Fixed Procfile detection in subdirectories
+
+## [0.4.0b1] - TBD
 
 This is a major architectural release that restructures Hop3 into a modern client-server architecture with extensive new features.
 
@@ -160,8 +232,12 @@ Initial release establishing Hop3's core architecture.
 - Established core class-based architecture
 - Major refactoring for better structure and typing
 
-[Unreleased]: https://github.com/abilian/hop3/compare/v0.3.0...HEAD
-[0.4.0]: https://github.com/abilian/hop3/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/abilian/hop3/compare/v0.4.0b6...HEAD
+[0.4.0b6]: https://github.com/abilian/hop3/compare/v0.4.0b5...v0.4.0b6
+[0.4.0b5]: https://github.com/abilian/hop3/compare/v0.4.0b4...v0.4.0b5
+[0.4.0b4]: https://github.com/abilian/hop3/compare/v0.4.0b3...v0.4.0b4
+[0.4.0b3]: https://github.com/abilian/hop3/compare/v0.3.0...v0.4.0b3
+[0.4.0]: https://github.com/abilian/hop3/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/abilian/hop3/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/abilian/hop3/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/abilian/hop3/compare/v0.2.0...v0.2.1
