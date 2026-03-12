@@ -134,10 +134,22 @@ class HopConfig:
 
     @property
     def ACME_ENGINE(self) -> str:
-        """ACME client engine: certbot, self-signed."""
-        testing = "PYTEST_VERSION" in os.environ
-        default = "self-signed" if testing else "certbot"
-        return self._config_loader.get_str("ACME_ENGINE", default)
+        """ACME client engine: certbot, self-signed.
+
+        Defaults to 'self-signed' for safety. To use Let's Encrypt certificates,
+        you must explicitly set both:
+          - ACME_ENGINE=certbot
+          - ACME_EMAIL=your-real-email@example.com
+        """
+        configured_engine = self._config_loader.get_str("ACME_ENGINE", "")
+
+        # If explicitly configured, use that value
+        if configured_engine:
+            return configured_engine
+
+        # Default to self-signed - it's the safe choice for dev/test
+        # Production should explicitly set ACME_ENGINE=certbot
+        return "self-signed"
 
     @property
     def ACME_ROOT_CA(self) -> str:
@@ -146,10 +158,8 @@ class HopConfig:
 
     @property
     def ACME_EMAIL(self) -> str:
-        """Email for ACME registration."""
-        testing = "PYTEST_VERSION" in os.environ
-        default = "test@example.com" if testing else "fixme@example.com"
-        return self._config_loader.get_str("ACME_EMAIL", default)
+        """Email for ACME registration (required for certbot)."""
+        return self._config_loader.get_str("ACME_EMAIL", "")
 
     # Derived Paths (Lazy Evaluation)
 
