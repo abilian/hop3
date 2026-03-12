@@ -14,6 +14,9 @@ uv sync
 
 # Full test cycle: reset server → deploy Hop3 → run tests
 uv run hop3-daily-test run --suites test-apps -v
+
+# Other example:
+uv run hop3-daily-test run --use-local-repo -x -v --random --suites native-apps
 ```
 
 ## Commands
