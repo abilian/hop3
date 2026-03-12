@@ -35,10 +35,8 @@ def setup_environment_file(config: ServerInstallerConfig | None = None) -> str:
     # Use existing or generate a new secret key
     secret_key = existing_secret_key or secrets.token_urlsafe(32)
 
-    # Determine ACME email (use provided or a placeholder that will fail gracefully)
-    acme_email = ""
-    if config and config.acme_email:
-        acme_email = config.acme_email
+    # Determine ACME configuration based on whether email is provided
+    acme_email = config.acme_email if config and config.acme_email else ""
 
     # Write the environment file
     env_content = f"""# Hop3 Server Environment Variables
@@ -48,18 +46,19 @@ def setup_environment_file(config: ServerInstallerConfig | None = None) -> str:
 HOP3_SECRET_KEY={secret_key}
 
 # ACME/Let's Encrypt Configuration
-# Set to 'certbot' to use Let's Encrypt (requires valid email)
-# Set to 'self-signed' for self-signed certificates
-ACME_ENGINE=certbot
+# Set to 'certbot' to use Let's Encrypt (requires valid ACME_EMAIL)
+# Set to 'self-signed' for self-signed certificates (default)
 """
 
-    # Only add ACME_EMAIL if provided
+    # Only enable certbot if email is provided
     if acme_email:
+        env_content += "ACME_ENGINE=certbot\n"
         env_content += f"ACME_EMAIL={acme_email}\n"
     else:
-        env_content += """# ACME_EMAIL not configured - certificates will fall back to self-signed
-# To enable Let's Encrypt, set: ACME_EMAIL=your@email.com
-# ACME_EMAIL=
+        env_content += """ACME_ENGINE=self-signed
+# To enable Let's Encrypt certificates, set both:
+#   ACME_ENGINE=certbot
+#   ACME_EMAIL=your@email.com
 """
 
     env_file.write_text(env_content)

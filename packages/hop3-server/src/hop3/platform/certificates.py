@@ -22,8 +22,15 @@ if TYPE_CHECKING:
 KEY_STORE = HOP3_ROOT / "certificates"
 KEY_STORE.mkdir(parents=True, exist_ok=True)
 
+# Domain validation for certbot - must be a valid FQDN
+# Allows multi-level subdomains like "app.subdomain.example.com"
+# Rejects: localhost, .local, .test, IP addresses, wildcards
 RE_DOMAIN_VALIDATOR = re.compile(
-    r"^((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61}[a-z0-9]{0,1}\.(xn--)?([a-z0-9\-]{1,61}|[a-z0-9-]{1,30}\.[a-z]{2,})$"
+    r"^(?!.*\.\.)(?!-)"  # No consecutive dots, no leading hyphen
+    r"[a-z0-9]"  # Must start with alphanumeric
+    r"(?:[a-z0-9-]*[a-z0-9])?"  # Middle chars (optional, ends alphanumeric)
+    r"(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*"  # Additional labels
+    r"\.[a-z]{2,}$"  # TLD (at least 2 chars)
 )
 
 
@@ -89,12 +96,33 @@ class Certificate:
         shell(cmd)
 
     def generate_with_certbot(self):
+        # Validate email is configured
+        if not ACME_EMAIL:
+            msg = (
+                "ACME_EMAIL is required for Let's Encrypt certificates. "
+                "Either set ACME_EMAIL to a valid email address, or use "
+                "ACME_ENGINE=self-signed for development/testing."
+            )
+            raise ValueError(msg)
+
         # Validate domain name before attempting certbot
-        if not RE_DOMAIN_VALIDATOR.match(self.domain_name.lower()):
+        domain_lower = self.domain_name.lower()
+        if not RE_DOMAIN_VALIDATOR.match(domain_lower):
             msg = (
                 f"Invalid domain name for certbot: '{self.domain_name}'. "
                 "Certbot requires a valid FQDN (e.g., 'example.com'). "
                 "Use ACME_ENGINE=self-signed for development or catch-all domains."
+            )
+            raise ValueError(msg)
+
+        # Reject reserved TLDs that Let's Encrypt cannot issue certs for
+        reserved_tlds = {".local", ".test", ".localhost", ".invalid", ".example"}
+        if any(domain_lower.endswith(tld) for tld in reserved_tlds):
+            msg = (
+                f"Cannot use certbot for reserved domain: '{self.domain_name}'. "
+                "Domains ending in .local, .test, .localhost, .invalid, or .example "
+                "cannot get Let's Encrypt certificates. "
+                "Use ACME_ENGINE=self-signed for these domains."
             )
             raise ValueError(msg)
 
