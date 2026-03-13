@@ -10,10 +10,24 @@ from litestar import Controller, get, post
 from litestar.response import Redirect, Template
 
 from hop3.core.backup import BackupManager
+from hop3.orm.repositories import (
+    AddonCredentialRepository,
+    AppRepository,
+    BackupRepository,
+)
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
 
 from .helpers import format_size
+
+
+def _get_backup_manager(db_session):
+    """Create a BackupManager with repositories from the session."""
+    return BackupManager(
+        backup_repo=BackupRepository(session=db_session),
+        app_repo=AppRepository(session=db_session),
+        addon_credential_repo=AddonCredentialRepository(session=db_session),
+    )
 
 
 def _format_backup_datetime(backup_id: str, created_at: str) -> str:
@@ -36,7 +50,7 @@ class BackupsController(Controller):
     def dashboard_backups(self) -> Template | Redirect:
         """Display backups page."""
         with get_session() as db_session:
-            manager = BackupManager(db_session)
+            manager = _get_backup_manager(db_session)
             backup_manifests = manager.list_backups(app_name=None, limit=100)
 
             backups = []
@@ -62,7 +76,7 @@ class BackupsController(Controller):
     def backup_info(self, backup_id: str) -> Template | Redirect:
         """Display detailed backup information."""
         with get_session() as db_session:
-            manager = BackupManager(db_session)
+            manager = _get_backup_manager(db_session)
 
             try:
                 manifest = manager.get_backup_info(backup_id)
@@ -105,7 +119,7 @@ class BackupsController(Controller):
     def backup_restore(self, backup_id: str) -> Redirect:
         """Restore a backup."""
         with get_session() as db_session:
-            manager = BackupManager(db_session)
+            manager = _get_backup_manager(db_session)
 
             try:
                 manifest = manager.get_backup_info(backup_id)
@@ -122,7 +136,7 @@ class BackupsController(Controller):
     def backup_delete(self, backup_id: str) -> Redirect:
         """Delete a backup."""
         with get_session() as db_session:
-            manager = BackupManager(db_session)
+            manager = _get_backup_manager(db_session)
 
             try:
                 manager.delete_backup(backup_id)

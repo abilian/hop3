@@ -150,10 +150,11 @@ class TestProvisionAddons:
         # Should have stored credential
         assert mock_db_session.add.call_count >= 1
 
+    @patch("hop3.deployers.addon_provisioning.AddonCredentialRepository")
     @patch("hop3.deployers.addon_provisioning.get_addon")
     @patch("hop3.deployers.addon_provisioning.get_credential_encryptor")
     def test_provision_updates_existing_credential(
-        self, mock_encryptor, mock_get_addon, mock_app, mock_db_session
+        self, mock_encryptor, mock_get_addon, mock_repo_class, mock_app, mock_db_session
     ):
         """Test that existing credential is updated with new connection details."""
         # Setup mocks
@@ -164,9 +165,11 @@ class TestProvisionAddons:
         mock_get_addon.return_value = mock_addon
         mock_encryptor.return_value.encrypt.return_value = b"encrypted"
 
-        # Simulate addon already attached
+        # Simulate addon already attached - mock the repository
         existing_credential = MagicMock()
-        mock_db_session.scalars.return_value.first.return_value = existing_credential
+        mock_repo = MagicMock()
+        mock_repo.get_by_app_addon.return_value = existing_credential
+        mock_repo_class.return_value = mock_repo
 
         addon_configs = [{"type": "postgres"}]
 

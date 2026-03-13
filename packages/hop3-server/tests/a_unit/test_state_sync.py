@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock, patch
 
 from hop3.orm import AppStateEnum
 from hop3.server.state_sync import StateSyncService
@@ -106,11 +107,17 @@ class TestStateSyncService:
 
         service.stop()
 
-    def test_sync_transitional_apps_starting(self):
+    @patch("hop3.server.state_sync.AppRepository")
+    def test_sync_transitional_apps_starting(self, mock_repo_class):
         """Test syncing an app in STARTING state."""
         app = MockApp("test-app", AppStateEnum.STARTING)
         app._sync_state_returns = True  # Simulate sync updating state
 
+        # Mock the repository
+        mock_repo = MagicMock()
+        mock_repo.list_transitional.return_value = [app]
+        mock_repo_class.return_value = mock_repo
+
         session = MockSession([app])
         service = StateSyncService(lambda: session)
 
@@ -119,11 +126,17 @@ class TestStateSyncService:
         assert count == 1
         assert app._sync_state_called
 
-    def test_sync_transitional_apps_stopping(self):
+    @patch("hop3.server.state_sync.AppRepository")
+    def test_sync_transitional_apps_stopping(self, mock_repo_class):
         """Test syncing an app in STOPPING state."""
         app = MockApp("test-app", AppStateEnum.STOPPING)
         app._sync_state_returns = True
 
+        # Mock the repository
+        mock_repo = MagicMock()
+        mock_repo.list_transitional.return_value = [app]
+        mock_repo_class.return_value = mock_repo
+
         session = MockSession([app])
         service = StateSyncService(lambda: session)
 
@@ -132,8 +145,14 @@ class TestStateSyncService:
         assert count == 1
         assert app._sync_state_called
 
-    def test_sync_no_transitional_apps(self):
+    @patch("hop3.server.state_sync.AppRepository")
+    def test_sync_no_transitional_apps(self, mock_repo_class):
         """Test syncing when no apps are in transitional states."""
+        # Mock the repository
+        mock_repo = MagicMock()
+        mock_repo.list_transitional.return_value = []
+        mock_repo_class.return_value = mock_repo
+
         session = MockSession([])
         service = StateSyncService(lambda: session)
 
@@ -141,10 +160,16 @@ class TestStateSyncService:
 
         assert count == 0
 
-    def test_sync_app_not_changed(self):
+    @patch("hop3.server.state_sync.AppRepository")
+    def test_sync_app_not_changed(self, mock_repo_class):
         """Test syncing an app where state doesn't change."""
         app = MockApp("test-app", AppStateEnum.STARTING)
         app._sync_state_returns = False  # Sync doesn't change state
+
+        # Mock the repository
+        mock_repo = MagicMock()
+        mock_repo.list_transitional.return_value = [app]
+        mock_repo_class.return_value = mock_repo
 
         session = MockSession([app])
         service = StateSyncService(lambda: session)
@@ -154,11 +179,17 @@ class TestStateSyncService:
         assert count == 0
         assert app._sync_state_called
 
-    def test_timeout_starting_to_failed(self):
+    @patch("hop3.server.state_sync.AppRepository")
+    def test_timeout_starting_to_failed(self, mock_repo_class):
         """Test that STARTING apps time out to FAILED state."""
         # App has been in STARTING for 2 minutes
         old_time = datetime.now(UTC) - timedelta(minutes=2)
         app = MockApp("test-app", AppStateEnum.STARTING, state_changed_at=old_time)
+
+        # Mock the repository
+        mock_repo = MagicMock()
+        mock_repo.list_transitional.return_value = [app]
+        mock_repo_class.return_value = mock_repo
 
         session = MockSession([app])
         service = StateSyncService(lambda: session, timeout=60.0)
@@ -168,11 +199,17 @@ class TestStateSyncService:
         assert app.run_state == AppStateEnum.FAILED
         assert "Failed to start" in app.error_message
 
-    def test_timeout_stopping_to_stopped(self):
+    @patch("hop3.server.state_sync.AppRepository")
+    def test_timeout_stopping_to_stopped(self, mock_repo_class):
         """Test that STOPPING apps time out to STOPPED state."""
         # App has been in STOPPING for 2 minutes
         old_time = datetime.now(UTC) - timedelta(minutes=2)
         app = MockApp("test-app", AppStateEnum.STOPPING, state_changed_at=old_time)
+
+        # Mock the repository
+        mock_repo = MagicMock()
+        mock_repo.list_transitional.return_value = [app]
+        mock_repo_class.return_value = mock_repo
 
         session = MockSession([app])
         service = StateSyncService(lambda: session, timeout=60.0)
@@ -181,12 +218,18 @@ class TestStateSyncService:
 
         assert app.run_state == AppStateEnum.STOPPED
 
-    def test_no_timeout_within_limit(self):
+    @patch("hop3.server.state_sync.AppRepository")
+    def test_no_timeout_within_limit(self, mock_repo_class):
         """Test that apps within timeout limit are not timed out."""
         # App has been in STARTING for 30 seconds (under 60s timeout)
         recent_time = datetime.now(UTC) - timedelta(seconds=30)
         app = MockApp("test-app", AppStateEnum.STARTING, state_changed_at=recent_time)
         app._sync_state_returns = False
+
+        # Mock the repository
+        mock_repo = MagicMock()
+        mock_repo.list_transitional.return_value = [app]
+        mock_repo_class.return_value = mock_repo
 
         session = MockSession([app])
         service = StateSyncService(lambda: session, timeout=60.0)
@@ -197,10 +240,16 @@ class TestStateSyncService:
         assert app.run_state == AppStateEnum.STARTING
         assert app._sync_state_called
 
-    def test_no_timeout_without_timestamp(self):
+    @patch("hop3.server.state_sync.AppRepository")
+    def test_no_timeout_without_timestamp(self, mock_repo_class):
         """Test that apps without state_changed_at are not timed out."""
         app = MockApp("test-app", AppStateEnum.STARTING, state_changed_at=None)
         app._sync_state_returns = False
+
+        # Mock the repository
+        mock_repo = MagicMock()
+        mock_repo.list_transitional.return_value = [app]
+        mock_repo_class.return_value = mock_repo
 
         session = MockSession([app])
         service = StateSyncService(lambda: session, timeout=60.0)
@@ -215,10 +264,16 @@ class TestStateSyncService:
 class TestStateSyncServiceIntegration:
     """Integration-style tests for the background loop."""
 
-    def test_sync_cycle_commits_on_change(self):
+    @patch("hop3.server.state_sync.AppRepository")
+    def test_sync_cycle_commits_on_change(self, mock_repo_class):
         """Test that sync cycle commits when state changes."""
         app = MockApp("test-app", AppStateEnum.STARTING)
         app._sync_state_returns = True
+
+        # Mock the repository
+        mock_repo = MagicMock()
+        mock_repo.list_transitional.return_value = [app]
+        mock_repo_class.return_value = mock_repo
 
         session = MockSession([app])
         service = StateSyncService(lambda: session)
@@ -227,8 +282,14 @@ class TestStateSyncServiceIntegration:
 
         assert session._committed
 
-    def test_sync_cycle_no_commit_on_no_change(self):
+    @patch("hop3.server.state_sync.AppRepository")
+    def test_sync_cycle_no_commit_on_no_change(self, mock_repo_class):
         """Test that sync cycle doesn't commit when no state changes."""
+        # Mock the repository
+        mock_repo = MagicMock()
+        mock_repo.list_transitional.return_value = []
+        mock_repo_class.return_value = mock_repo
+
         session = MockSession([])  # No apps
         service = StateSyncService(lambda: session)
 

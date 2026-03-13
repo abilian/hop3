@@ -8,28 +8,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, ClassVar
-
-from sqlalchemy import select
+from typing import ClassVar
 
 from hop3.lib.registry import register
 from hop3.orm import User
+from hop3.orm.repositories import RoleRepository, UserRepository
 from hop3.orm.security import Role
 from hop3.server.security.tokens import create_token
 
 from ._base import Command
 from ._response import error, text
 
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
-
-def require_admin(username: str, db_session: Session) -> list[dict] | None:
+def require_admin(username: str, user_repo: UserRepository) -> list[dict] | None:
     """Check if the authenticated user is an admin.
 
     Args:
         username: The authenticated username
-        db_session: Database session
+        user_repo: User repository
 
     Returns:
         Error response if not admin, None if admin
@@ -39,7 +35,7 @@ def require_admin(username: str, db_session: Session) -> list[dict] | None:
             error("Authentication required. Use 'hop3 auth:login' to authenticate.")
         ]
 
-    user = db_session.scalars(select(User).filter_by(username=username)).first()
+    user = user_repo.get_by_username(username)
     if not user or not user.is_admin:
         return [error("Admin privileges required")]
 
@@ -69,7 +65,8 @@ class AdminUserAddCmd(Command):
         hop3 admin:user:add admin admin@example.com admin123 --admin
     """
 
-    db_session: Session
+    user_repo: UserRepository
+    role_repo: RoleRepository
     name: ClassVar[str] = "admin:user:add"
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
@@ -95,7 +92,7 @@ class AdminUserAddCmd(Command):
             Success message or error
         """
         # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.db_session):
+        if admin_error := require_admin(authenticated_username, self.user_repo):
             return admin_error
 
         if not username or not email or not password:
@@ -106,17 +103,11 @@ class AdminUserAddCmd(Command):
             ]
 
         # Check if username already exists
-        existing_user = self.db_session.scalars(
-            select(User).filter_by(username=username)
-        ).first()
-        if existing_user:
+        if self.user_repo.username_exists(username):
             return [error(f"Username '{username}' already exists")]
 
         # Check if email already exists
-        existing_email = self.db_session.scalars(
-            select(User).filter_by(email=email)
-        ).first()
-        if existing_email:
+        if self.user_repo.email_exists(email):
             return [error(f"Email '{email}' already registered")]
 
         # Check for --admin flag
@@ -130,18 +121,14 @@ class AdminUserAddCmd(Command):
 
         # Grant admin role if requested
         if is_admin:
-            admin_role = self.db_session.scalars(
-                select(Role).filter_by(name="admin")
-            ).first()
+            admin_role = self.role_repo.get_admin_role()
             if not admin_role:
                 # Create admin role if it doesn't exist
                 admin_role = Role(name="admin", description="Administrator role")
-                self.db_session.add(admin_role)
-                self.db_session.flush()
+                self.role_repo.add(admin_role)
             user.roles.append(admin_role)
 
-        self.db_session.add(user)
-        self.db_session.commit()
+        self.user_repo.add(user, auto_commit=True)
 
         response = [
             text(f"User '{username}' created successfully!"),
@@ -168,7 +155,7 @@ class AdminUserRemoveCmd(Command):
         hop3 admin:user:remove john
     """
 
-    db_session: Session
+    user_repo: UserRepository
     name: ClassVar[str] = "admin:user:remove"
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
@@ -184,7 +171,7 @@ class AdminUserRemoveCmd(Command):
             Success message or error
         """
         # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.db_session):
+        if admin_error := require_admin(authenticated_username, self.user_repo):
             return admin_error
 
         if not username:
@@ -195,15 +182,12 @@ class AdminUserRemoveCmd(Command):
             return [error("Cannot remove your own account")]
 
         # Find the user
-        user = self.db_session.scalars(
-            select(User).filter_by(username=username)
-        ).first()
+        user = self.user_repo.get_by_username(username)
         if not user:
             return [error(f"User '{username}' not found")]
 
-        # Delete the user
-        self.db_session.delete(user)
-        self.db_session.commit()
+        # Delete the user (pass id, not the object)
+        self.user_repo.delete(user.id, auto_commit=True)
 
         return [text(f"User '{username}' removed successfully")]
 
@@ -219,7 +203,7 @@ class AdminUserListCmd(Command):
         hop3 admin:user:list
     """
 
-    db_session: Session
+    user_repo: UserRepository
     name: ClassVar[str] = "admin:user:list"
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
@@ -234,11 +218,11 @@ class AdminUserListCmd(Command):
             List of users or error
         """
         # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.db_session):
+        if admin_error := require_admin(authenticated_username, self.user_repo):
             return admin_error
 
         # Get all users
-        users = self.db_session.scalars(select(User).order_by(User.username)).all()
+        users = self.user_repo.list_all_ordered()
 
         if not users:
             return [text("No users found")]
@@ -278,7 +262,7 @@ class AdminUserEnableCmd(Command):
         hop3 admin:user:enable john
     """
 
-    db_session: Session
+    user_repo: UserRepository
     name: ClassVar[str] = "admin:user:enable"
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
@@ -294,16 +278,14 @@ class AdminUserEnableCmd(Command):
             Success message or error
         """
         # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.db_session):
+        if admin_error := require_admin(authenticated_username, self.user_repo):
             return admin_error
 
         if not username:
             return [error("Usage: hop3 admin:user:enable <username>")]
 
         # Find the user
-        user = self.db_session.scalars(
-            select(User).filter_by(username=username)
-        ).first()
+        user = self.user_repo.get_by_username(username)
         if not user:
             return [error(f"User '{username}' not found")]
 
@@ -312,7 +294,7 @@ class AdminUserEnableCmd(Command):
 
         # Enable the user
         user.active = True
-        self.db_session.commit()
+        self.user_repo.update(user, auto_commit=True)
 
         return [text(f"User '{username}' enabled successfully")]
 
@@ -328,7 +310,7 @@ class AdminUserDisableCmd(Command):
         hop3 admin:user:disable john
     """
 
-    db_session: Session
+    user_repo: UserRepository
     name: ClassVar[str] = "admin:user:disable"
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
@@ -344,7 +326,7 @@ class AdminUserDisableCmd(Command):
             Success message or error
         """
         # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.db_session):
+        if admin_error := require_admin(authenticated_username, self.user_repo):
             return admin_error
 
         if not username:
@@ -355,9 +337,7 @@ class AdminUserDisableCmd(Command):
             return [error("Cannot disable your own account")]
 
         # Find the user
-        user = self.db_session.scalars(
-            select(User).filter_by(username=username)
-        ).first()
+        user = self.user_repo.get_by_username(username)
         if not user:
             return [error(f"User '{username}' not found")]
 
@@ -366,7 +346,7 @@ class AdminUserDisableCmd(Command):
 
         # Disable the user
         user.active = False
-        self.db_session.commit()
+        self.user_repo.update(user, auto_commit=True)
 
         return [text(f"User '{username}' disabled successfully")]
 
@@ -382,7 +362,8 @@ class AdminUserGrantAdminCmd(Command):
         hop3 admin:user:grant-admin john
     """
 
-    db_session: Session
+    user_repo: UserRepository
+    role_repo: RoleRepository
     name: ClassVar[str] = "admin:user:grant-admin"
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
@@ -398,16 +379,14 @@ class AdminUserGrantAdminCmd(Command):
             Success message or error
         """
         # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.db_session):
+        if admin_error := require_admin(authenticated_username, self.user_repo):
             return admin_error
 
         if not username:
             return [error("Usage: hop3 admin:user:grant-admin <username>")]
 
         # Find the user
-        user = self.db_session.scalars(
-            select(User).filter_by(username=username)
-        ).first()
+        user = self.user_repo.get_by_username(username)
         if not user:
             return [error(f"User '{username}' not found")]
 
@@ -415,17 +394,14 @@ class AdminUserGrantAdminCmd(Command):
             return [text(f"User '{username}' already has admin privileges")]
 
         # Get or create admin role
-        admin_role = self.db_session.scalars(
-            select(Role).filter_by(name="admin")
-        ).first()
+        admin_role = self.role_repo.get_admin_role()
         if not admin_role:
             admin_role = Role(name="admin", description="Administrator role")
-            self.db_session.add(admin_role)
-            self.db_session.flush()
+            self.role_repo.add(admin_role)
 
         # Grant admin role
         user.roles.append(admin_role)
-        self.db_session.commit()
+        self.user_repo.update(user, auto_commit=True)
 
         return [text(f"Admin privileges granted to user '{username}' successfully")]
 
@@ -441,7 +417,8 @@ class AdminUserRevokeAdminCmd(Command):
         hop3 admin:user:revoke-admin john
     """
 
-    db_session: Session
+    user_repo: UserRepository
+    role_repo: RoleRepository
     name: ClassVar[str] = "admin:user:revoke-admin"
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
@@ -457,7 +434,7 @@ class AdminUserRevokeAdminCmd(Command):
             Success message or error
         """
         # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.db_session):
+        if admin_error := require_admin(authenticated_username, self.user_repo):
             return admin_error
 
         if not username:
@@ -468,9 +445,7 @@ class AdminUserRevokeAdminCmd(Command):
             return [error("Cannot revoke admin privileges from yourself")]
 
         # Find the user
-        user = self.db_session.scalars(
-            select(User).filter_by(username=username)
-        ).first()
+        user = self.user_repo.get_by_username(username)
         if not user:
             return [error(f"User '{username}' not found")]
 
@@ -478,12 +453,10 @@ class AdminUserRevokeAdminCmd(Command):
             return [text(f"User '{username}' does not have admin privileges")]
 
         # Get admin role
-        admin_role = self.db_session.scalars(
-            select(Role).filter_by(name="admin")
-        ).first()
+        admin_role = self.role_repo.get_admin_role()
         if admin_role and admin_role in user.roles:
             user.roles.remove(admin_role)
-            self.db_session.commit()
+            self.user_repo.update(user, auto_commit=True)
 
         return [text(f"Admin privileges revoked from user '{username}' successfully")]
 
@@ -499,7 +472,7 @@ class AdminUserSetPasswordCmd(Command):
         hop3 admin:user:set-password john newpassword123
     """
 
-    db_session: Session
+    user_repo: UserRepository
     name: ClassVar[str] = "admin:user:set-password"
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
@@ -522,7 +495,7 @@ class AdminUserSetPasswordCmd(Command):
             Success message or error
         """
         # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.db_session):
+        if admin_error := require_admin(authenticated_username, self.user_repo):
             return admin_error
 
         if not username or not new_password:
@@ -531,15 +504,13 @@ class AdminUserSetPasswordCmd(Command):
             ]
 
         # Find the user
-        user = self.db_session.scalars(
-            select(User).filter_by(username=username)
-        ).first()
+        user = self.user_repo.get_by_username(username)
         if not user:
             return [error(f"User '{username}' not found")]
 
         # Set new password
         user.set_password(new_password)
-        self.db_session.commit()
+        self.user_repo.update(user, auto_commit=True)
 
         return [text(f"Password reset successfully for user '{username}'")]
 
@@ -555,7 +526,7 @@ class AdminUserInfoCmd(Command):
         hop3 admin:user:info john
     """
 
-    db_session: Session
+    user_repo: UserRepository
     name: ClassVar[str] = "admin:user:info"
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
@@ -571,16 +542,14 @@ class AdminUserInfoCmd(Command):
             User information or error
         """
         # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.db_session):
+        if admin_error := require_admin(authenticated_username, self.user_repo):
             return admin_error
 
         if not username:
             return [error("Usage: hop3 admin:user:info <username>")]
 
         # Find the user
-        user = self.db_session.scalars(
-            select(User).filter_by(username=username)
-        ).first()
+        user = self.user_repo.get_by_username(username)
         if not user:
             return [error(f"User '{username}' not found")]
 
@@ -616,7 +585,7 @@ class AdminUserGenerateTokenCmd(Command):
         hop3 admin:user:generate-token john
     """
 
-    db_session: Session
+    user_repo: UserRepository
     name: ClassVar[str] = "admin:user:generate-token"
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
@@ -632,16 +601,14 @@ class AdminUserGenerateTokenCmd(Command):
             Token or error
         """
         # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.db_session):
+        if admin_error := require_admin(authenticated_username, self.user_repo):
             return admin_error
 
         if not username:
             return [error("Usage: hop3 admin:user:generate-token <username>")]
 
         # Find the user
-        user = self.db_session.scalars(
-            select(User).filter_by(username=username)
-        ).first()
+        user = self.user_repo.get_by_username(username)
         if not user:
             return [error(f"User '{username}' not found")]
 

@@ -13,6 +13,18 @@ from unittest.mock import MagicMock
 from hop3.core.backup import BackupManager, BackupManifest, format_size
 
 
+def create_backup_manager_with_mocks():
+    """Create a BackupManager with mocked repositories."""
+    mock_backup_repo = MagicMock()
+    mock_app_repo = MagicMock()
+    mock_addon_credential_repo = MagicMock()
+    return BackupManager(
+        backup_repo=mock_backup_repo,
+        app_repo=mock_app_repo,
+        addon_credential_repo=mock_addon_credential_repo,
+    )
+
+
 class TestBackupManifest:
     """Test BackupManifest dataclass."""
 
@@ -119,15 +131,22 @@ class TestBackupManager:
 
     def test_init(self):
         """Test BackupManager initialization."""
-        mock_session = MagicMock()
-        manager = BackupManager(mock_session)
+        mock_backup_repo = MagicMock()
+        mock_app_repo = MagicMock()
+        mock_addon_credential_repo = MagicMock()
+        manager = BackupManager(
+            backup_repo=mock_backup_repo,
+            app_repo=mock_app_repo,
+            addon_credential_repo=mock_addon_credential_repo,
+        )
 
-        assert manager.db_session == mock_session
+        assert manager.backup_repo == mock_backup_repo
+        assert manager.app_repo == mock_app_repo
+        assert manager.addon_credential_repo == mock_addon_credential_repo
 
     def test_generate_backup_id(self):
         """Test backup ID generation."""
-        mock_session = MagicMock()
-        manager = BackupManager(mock_session)
+        manager = create_backup_manager_with_mocks()
 
         backup_id = manager._generate_backup_id()
 
@@ -140,8 +159,7 @@ class TestBackupManager:
 
     def test_generate_unique_backup_ids(self):
         """Test that backup IDs are unique."""
-        mock_session = MagicMock()
-        manager = BackupManager(mock_session)
+        manager = create_backup_manager_with_mocks()
 
         ids = {manager._generate_backup_id() for _ in range(10)}
 
@@ -150,8 +168,7 @@ class TestBackupManager:
 
     def test_calculate_checksum(self, tmp_path):
         """Test checksum calculation."""
-        mock_session = MagicMock()
-        manager = BackupManager(mock_session)
+        manager = create_backup_manager_with_mocks()
 
         # Create a test file
         test_file = tmp_path / "test.txt"
@@ -169,8 +186,7 @@ class TestBackupManager:
 
     def test_calculate_checksum_different_content(self, tmp_path):
         """Test that different content gives different checksums."""
-        mock_session = MagicMock()
-        manager = BackupManager(mock_session)
+        manager = create_backup_manager_with_mocks()
 
         file1 = tmp_path / "test1.txt"
         file2 = tmp_path / "test2.txt"
@@ -185,8 +201,7 @@ class TestBackupManager:
 
     def test_verify_checksums(self, tmp_path):
         """Test checksum verification."""
-        mock_session = MagicMock()
-        manager = BackupManager(mock_session)
+        manager = create_backup_manager_with_mocks()
 
         # Create test files
         file1 = tmp_path / "file1.txt"
@@ -206,8 +221,7 @@ class TestBackupManager:
 
     def test_verify_checksums_fails_on_mismatch(self, tmp_path):
         """Test that verification fails on checksum mismatch."""
-        mock_session = MagicMock()
-        manager = BackupManager(mock_session)
+        manager = create_backup_manager_with_mocks()
 
         # Create test file
         test_file = tmp_path / "test.txt"
@@ -225,8 +239,7 @@ class TestBackupManager:
 
     def test_verify_checksums_fails_on_missing_file(self, tmp_path):
         """Test that verification fails if file is missing."""
-        mock_session = MagicMock()
-        manager = BackupManager(mock_session)
+        manager = create_backup_manager_with_mocks()
 
         # Create checksums for non-existent file
         checksums = {"missing.txt": "sha256:abc123"}
@@ -236,8 +249,7 @@ class TestBackupManager:
 
     def test_get_backup_dir(self):
         """Test backup directory path generation."""
-        mock_session = MagicMock()
-        manager = BackupManager(mock_session)
+        manager = create_backup_manager_with_mocks()
 
         backup_dir = manager._get_backup_dir("my-app", "20251030_143022_a8f3d9")
 
@@ -247,8 +259,7 @@ class TestBackupManager:
 
     def test_get_hop3_version(self):
         """Test getting Hop3 version."""
-        mock_session = MagicMock()
-        manager = BackupManager(mock_session)
+        manager = create_backup_manager_with_mocks()
 
         version = manager._get_hop3_version()
 
@@ -257,18 +268,25 @@ class TestBackupManager:
 
     def test_get_attached_addons_postgres(self):
         """Test service discovery for PostgreSQL via AddonCredential."""
-        mock_session = MagicMock()
-        manager = BackupManager(mock_session)
+        mock_backup_repo = MagicMock()
+        mock_app_repo = MagicMock()
+        mock_addon_credential_repo = MagicMock()
 
         # Create mock app
         mock_app = MagicMock()
         mock_app.id = 1
 
-        # Mock AddonCredential scalars result
+        # Mock AddonCredential get_by_app_id result
         mock_credential = MagicMock()
         mock_credential.addon_type = "postgres"
         mock_credential.addon_name = "mydb"
-        mock_session.scalars.return_value.all.return_value = [mock_credential]
+        mock_addon_credential_repo.get_by_app_id.return_value = [mock_credential]
+
+        manager = BackupManager(
+            backup_repo=mock_backup_repo,
+            app_repo=mock_app_repo,
+            addon_credential_repo=mock_addon_credential_repo,
+        )
 
         services = manager._get_attached_addons(mock_app)
 
@@ -277,13 +295,20 @@ class TestBackupManager:
 
     def test_get_attached_addons_none(self):
         """Test service discovery with no services."""
-        mock_session = MagicMock()
-        manager = BackupManager(mock_session)
+        mock_backup_repo = MagicMock()
+        mock_app_repo = MagicMock()
+        mock_addon_credential_repo = MagicMock()
 
         # Create mock app with no attached addons
         mock_app = MagicMock()
         mock_app.id = 1
-        mock_session.scalars.return_value.all.return_value = []
+        mock_addon_credential_repo.get_by_app_id.return_value = []
+
+        manager = BackupManager(
+            backup_repo=mock_backup_repo,
+            app_repo=mock_app_repo,
+            addon_credential_repo=mock_addon_credential_repo,
+        )
 
         services = manager._get_attached_addons(mock_app)
 

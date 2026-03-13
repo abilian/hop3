@@ -16,10 +16,9 @@ import getpass
 import sys
 from datetime import datetime, timezone
 
-from sqlalchemy import select
-
 from hop3.lib.registry import register
 from hop3.orm import Role, User
+from hop3.orm.repositories import RoleRepository, UserRepository
 from hop3.server.lib.database import get_session
 from hop3.server.security.tokens import create_magic_token, create_token
 
@@ -98,29 +97,24 @@ class AdminCreate(Command):
             sys.exit(1)
 
         with get_session() as db_session:
+            user_repo = UserRepository(session=db_session)
+            role_repo = RoleRepository(session=db_session)
+
             # Check if username already exists
-            existing_user = db_session.scalars(
-                select(User).filter_by(username=username)
-            ).first()
-            if existing_user:
+            if user_repo.username_exists(username):
                 print(f"Error: Username '{username}' already exists", file=sys.stderr)
                 sys.exit(1)
 
             # Check if email already exists
-            existing_email = db_session.scalars(
-                select(User).filter_by(email=email)
-            ).first()
-            if existing_email:
+            if user_repo.email_exists(email):
                 print(f"Error: Email '{email}' already registered", file=sys.stderr)
                 sys.exit(1)
 
             # Get or create admin role
-            admin_role = db_session.scalars(
-                select(Role).filter_by(name="admin")
-            ).first()
+            admin_role = role_repo.get_admin_role()
             if not admin_role:
                 admin_role = Role(name="admin", description="Administrator role")
-                db_session.add(admin_role)
+                role_repo.add(admin_role)
                 db_session.flush()
 
             # Generate token BEFORE creating user - if this fails, we don't want
@@ -138,8 +132,7 @@ class AdminCreate(Command):
             user.set_password(password)
             user.roles.append(admin_role)
 
-            db_session.add(user)
-            db_session.commit()
+            user_repo.add(user, auto_commit=True)
 
             print(f"Admin user '{username}' created successfully.")
             print()
@@ -177,7 +170,9 @@ class AdminToken(Command):
 
     def run(self, username: str) -> None:
         with get_session() as db_session:
-            user = db_session.scalars(select(User).filter_by(username=username)).first()
+            user_repo = UserRepository(session=db_session)
+
+            user = user_repo.get_by_username(username)
             if not user:
                 print(f"Error: User '{username}' not found", file=sys.stderr)
                 sys.exit(1)
@@ -227,7 +222,9 @@ class AdminList(Command):
 
     def run(self) -> None:
         with get_session() as db_session:
-            users = db_session.scalars(select(User).order_by(User.username)).all()
+            user_repo = UserRepository(session=db_session)
+
+            users = user_repo.list_all_ordered()
 
             if not users:
                 print("No users found.")
@@ -276,8 +273,11 @@ class AdminSshToken(Command):
         import secrets  # noqa: PLC0415
 
         with get_session() as db_session:
+            user_repo = UserRepository(session=db_session)
+            role_repo = RoleRepository(session=db_session)
+
             # Try to find an existing admin user
-            admin_user = self._find_admin_user(db_session)
+            admin_user = self._find_admin_user(user_repo, role_repo)
 
             if admin_user:
                 # Generate token for existing admin
@@ -288,39 +288,41 @@ class AdminSshToken(Command):
 
             # No admin exists - create default admin
             admin_user = self._create_default_admin(
-                db_session, secrets.token_urlsafe(32)
+                user_repo, role_repo, secrets.token_urlsafe(32)
             )
             token = create_token(admin_user.username, scopes=["authenticated", "admin"])
             print(token)
 
-    def _find_admin_user(self, db_session) -> User | None:
+    def _find_admin_user(
+        self, user_repo: UserRepository, role_repo: RoleRepository
+    ) -> User | None:
         """Find an admin user, preferring one named 'admin'."""
         # First try to find user named "admin"
-        admin_by_name = db_session.scalars(
-            select(User).filter_by(username="admin", active=True)
-        ).first()
-        if admin_by_name and admin_by_name.is_admin:
+        admin_by_name = user_repo.get_by_username("admin")
+        if admin_by_name and admin_by_name.active and admin_by_name.is_admin:
             return admin_by_name
 
         # Otherwise find any active admin
-        admin_role = db_session.scalars(select(Role).filter_by(name="admin")).first()
+        admin_role = role_repo.get_admin_role()
         if not admin_role:
             return None
 
-        for user in db_session.scalars(select(User).filter_by(active=True)).all():
-            if admin_role in user.roles:
+        # Get all users and find one with admin role
+        for user in user_repo.list_all_ordered():
+            if user.active and admin_role in user.roles:
                 return user
 
         return None
 
-    def _create_default_admin(self, db_session, password: str) -> User:
+    def _create_default_admin(
+        self, user_repo: UserRepository, role_repo: RoleRepository, password: str
+    ) -> User:
         """Create a default admin user."""
         # Get or create admin role
-        admin_role = db_session.scalars(select(Role).filter_by(name="admin")).first()
+        admin_role = role_repo.get_admin_role()
         if not admin_role:
             admin_role = Role(name="admin", description="Administrator role")
-            db_session.add(admin_role)
-            db_session.flush()
+            role_repo.add(admin_role)
 
         # Create default admin user
         user = User(
@@ -333,8 +335,7 @@ class AdminSshToken(Command):
         user.set_password(password)
         user.roles.append(admin_role)
 
-        db_session.add(user)
-        db_session.commit()
+        user_repo.add(user, auto_commit=True)
 
         # Log to stderr so it doesn't interfere with token output
         import sys  # noqa: PLC0415
@@ -392,13 +393,15 @@ class AdminResetPassword(Command):
             sys.exit(1)
 
         with get_session() as db_session:
-            user = db_session.scalars(select(User).filter_by(username=username)).first()
+            user_repo = UserRepository(session=db_session)
+
+            user = user_repo.get_by_username(username)
             if not user:
                 print(f"Error: User '{username}' not found", file=sys.stderr)
                 sys.exit(1)
 
             user.set_password(password)
-            db_session.commit()
+            user_repo.update(user, auto_commit=True)
 
             print(f"Password reset successfully for user '{username}'")
 
@@ -437,7 +440,9 @@ class AuthMagicLink(Command):
 
     def run(self, username: str = "admin") -> None:
         with get_session() as db_session:
-            user = db_session.scalars(select(User).filter_by(username=username)).first()
+            user_repo = UserRepository(session=db_session)
+
+            user = user_repo.get_by_username(username)
             if not user:
                 print(f"Error: User '{username}' not found", file=sys.stderr)
                 sys.exit(1)

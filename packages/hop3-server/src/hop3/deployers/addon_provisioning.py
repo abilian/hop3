@@ -17,14 +17,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import select
-
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.plugins import get_addon
 from hop3.deployers.env_provisioning import set_env_vars
 from hop3.lib import log
 from hop3.lib.logging import server_log
 from hop3.orm import AddonCredential
+from hop3.orm.repositories import AddonCredentialRepository
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -115,11 +114,10 @@ def _provision_single_addon(
         return
 
     # Check if already attached to this app
-    existing_credential = db_session.scalars(
-        select(AddonCredential).filter_by(
-            app_id=app.id, addon_type=addon_type, addon_name=addon_name
-        )
-    ).first()
+    addon_credential_repo = AddonCredentialRepository(session=db_session)
+    existing_credential = addon_credential_repo.get_by_app_addon(
+        app_id=app.id, addon_type=addon_type, addon_name=addon_name
+    )
 
     # Get connection details and attach
     try:
@@ -146,6 +144,7 @@ def _provision_single_addon(
     if existing_credential:
         # Update existing credential
         existing_credential.encrypted_data = encryptor.encrypt(connection_details)
+        addon_credential_repo.update(existing_credential)
     else:
         # Create new credential
         credential = AddonCredential(
@@ -154,7 +153,7 @@ def _provision_single_addon(
             addon_name=addon_name,
             encrypted_data=encryptor.encrypt(connection_details),
         )
-        db_session.add(credential)
+        addon_credential_repo.add(credential)
 
     # Add env vars to app (addons can update existing values, e.g., when password changes)
     set_env_vars(app, connection_details, db_session)

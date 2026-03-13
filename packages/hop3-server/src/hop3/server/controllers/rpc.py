@@ -22,7 +22,27 @@ from hop3.lib.logging import server_log
 from hop3.lib.registry import lookup
 from hop3.lib.scanner import scan_package
 from hop3.orm import get_session_factory
+from hop3.orm.repositories import (
+    AddonCredentialRepository,
+    AppRepository,
+    BackupRepository,
+    EnvVarRepository,
+    RevokedTokenRepository,
+    RoleRepository,
+    UserRepository,
+)
 from hop3.server.security.tokens import validate_token
+
+# Mapping of repository types to their classes for dependency injection
+REPOSITORY_TYPES: dict[str, type] = {
+    "user_repo": UserRepository,
+    "role_repo": RoleRepository,
+    "app_repo": AppRepository,
+    "addon_credential_repo": AddonCredentialRepository,
+    "backup_repo": BackupRepository,
+    "env_var_repo": EnvVarRepository,
+    "revoked_token_repo": RevokedTokenRepository,
+}
 
 if TYPE_CHECKING:
     from hop3.lib.types import JsonDict
@@ -117,11 +137,23 @@ def call(command_name: str, args: list[str], extra_args: JsonDict):
     session_factory = get_session_factory()
     db_session = session_factory()
     try:
-        class_args = {}
+        class_args: dict = {}
 
+        # Inject db_session if needed (legacy pattern)
         if "db_session" in command_class.__annotations__:
-            class_args = {"db_session": db_session}
+            class_args["db_session"] = db_session
             server_log.debug("Command uses db_session", command=command_name)
+
+        # Inject repositories if needed (new pattern)
+        annotations = command_class.__annotations__
+        for attr_name, repo_class in REPOSITORY_TYPES.items():
+            if attr_name in annotations:
+                class_args[attr_name] = repo_class(session=db_session)
+                server_log.debug(
+                    f"Command uses {attr_name}",
+                    command=command_name,
+                    repo_type=repo_class.__name__,
+                )
 
         try:
             command = command_class(**class_args)

@@ -9,22 +9,36 @@ from .addon_credential import AddonCredential
 from .app import App, AppStateEnum
 from .backup import Backup, BackupStateEnum
 from .env import EnvVar
-from .repositories import AppRepository
+from .repositories import (
+    AddonCredentialRepository,
+    AppRepository,
+    BackupRepository,
+    EnvVarRepository,
+    RevokedTokenRepository,
+    RoleRepository,
+    UserRepository,
+)
 from .revoked_token import RevokedToken
 from .security import Role, User
 from .session import get_session_factory, reset_session_factory_cache
 
 __all__ = [
     "AddonCredential",
+    "AddonCredentialRepository",
     "App",
     "AppRepository",
     "AppStateEnum",
     "Backup",
+    "BackupRepository",
     "BackupStateEnum",
     "EnvVar",
+    "EnvVarRepository",
     "RevokedToken",
+    "RevokedTokenRepository",
     "Role",
+    "RoleRepository",
     "User",
+    "UserRepository",
     "get_session_factory",
     "reset_session_factory_cache",
 ]

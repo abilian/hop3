@@ -20,15 +20,17 @@ import tarfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-from sqlalchemy import select
+from typing import Any
 
 from hop3.config import HopConfig
 from hop3.core.plugins import get_addon
 from hop3.lib import log
-from hop3.orm import AddonCredential, App, Backup, BackupStateEnum, EnvVar
-from hop3.orm.repositories import AppRepository
+from hop3.orm import App, Backup, BackupStateEnum, EnvVar
+from hop3.orm.repositories import (
+    AddonCredentialRepository,
+    AppRepository,
+    BackupRepository,
+)
 
 
 def format_size(size_bytes: float) -> str:
@@ -53,10 +55,6 @@ def format_size(size_bytes: float) -> str:
             return f"{size_bytes:.1f} {unit}"
         size_bytes /= 1024
     return f"{size_bytes:.1f} TB"
-
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
 
 @dataclass
@@ -135,13 +133,22 @@ class BackupManager:
     All backups are stored in /var/hop3/backups/apps/<app-name>/<backup-id>/
     """
 
-    def __init__(self, db_session: Session):
+    def __init__(
+        self,
+        backup_repo: BackupRepository,
+        app_repo: AppRepository,
+        addon_credential_repo: AddonCredentialRepository,
+    ):
         """Initialize the backup manager.
 
         Args:
-            db_session: SQLAlchemy database session
+            backup_repo: Repository for backup operations
+            app_repo: Repository for app operations
+            addon_credential_repo: Repository for addon credential operations
         """
-        self.db_session = db_session
+        self.backup_repo = backup_repo
+        self.app_repo = app_repo
+        self.addon_credential_repo = addon_credential_repo
 
     def create_backup(
         self, app: App, *, include_addons: bool = True
@@ -173,8 +180,7 @@ class BackupManager:
             size=0,
             expires_after=0,
         )
-        self.db_session.add(backup_record)
-        self.db_session.commit()
+        self.backup_repo.add(backup_record, auto_commit=True)
 
         try:
             # Backup components
@@ -233,7 +239,7 @@ class BackupManager:
             # Update database record
             backup_record.state = BackupStateEnum.COMPLETED
             backup_record.size = total_size
-            self.db_session.commit()
+            self.backup_repo.update(backup_record, auto_commit=True)
 
             log(f"Backup created successfully: {backup_id}")
 
@@ -242,7 +248,7 @@ class BackupManager:
         except Exception as e:
             # Mark as failed and clean up
             backup_record.state = BackupStateEnum.FAILED
-            self.db_session.commit()
+            self.backup_repo.update(backup_record, auto_commit=True)
 
             # Try to remove partial backup
             if backup_dir.exists():
@@ -265,9 +271,7 @@ class BackupManager:
             FileNotFoundError: If backup not found
         """
         # Find backup in database
-        backup_record = self.db_session.scalars(
-            select(Backup).join(App).where(Backup.remote_path.contains(backup_id))
-        ).first()
+        backup_record = self.backup_repo.get_by_backup_id_with_app(backup_id)
 
         if not backup_record:
             msg = f"Backup not found: {backup_id}"
@@ -290,14 +294,12 @@ class BackupManager:
         app_name = target_app_name or manifest.app_name
 
         # Get or create app
-        app_repo = AppRepository(session=self.db_session)
-        app = app_repo.get_one_or_none(name=app_name)
+        app = self.app_repo.get_by_name(app_name)
 
         if not app:
             # Create new app
             app = App(name=app_name)
-            self.db_session.add(app)
-            self.db_session.commit()
+            self.app_repo.add(app, auto_commit=True)
             app.create()  # Create directories
 
         # Stop app if running
@@ -316,7 +318,7 @@ class BackupManager:
             app.hostname = manifest.app_metadata.get("hostname", "")
             app.port = manifest.app_metadata.get("port", 0)
 
-            self.db_session.commit()
+            self.app_repo.update(app, auto_commit=True)
 
             log(f"Restore completed: {backup_id} -> {app_name}")
 
@@ -336,14 +338,7 @@ class BackupManager:
         Returns:
             List of BackupManifest objects
         """
-        stmt = select(Backup).join(App)
-
-        if app_name:
-            stmt = stmt.where(App.name == app_name)
-
-        stmt = stmt.order_by(Backup.created_at.desc()).limit(limit)
-
-        backups = self.db_session.scalars(stmt).all()
+        backups = self.backup_repo.list_by_app_name(app_name, limit)
 
         manifests = []
         for backup in backups:
@@ -371,9 +366,7 @@ class BackupManager:
         Raises:
             FileNotFoundError: If backup not found
         """
-        backup_record = self.db_session.scalars(
-            select(Backup).where(Backup.remote_path.contains(backup_id))
-        ).first()
+        backup_record = self.backup_repo.get_by_backup_id(backup_id)
 
         if not backup_record:
             msg = f"Backup not found: {backup_id}"
@@ -397,9 +390,7 @@ class BackupManager:
         Raises:
             FileNotFoundError: If backup not found
         """
-        backup_record = self.db_session.scalars(
-            select(Backup).where(Backup.remote_path.contains(backup_id))
-        ).first()
+        backup_record = self.backup_repo.get_by_backup_id(backup_id)
 
         if not backup_record:
             msg = f"Backup not found: {backup_id}"
@@ -412,8 +403,7 @@ class BackupManager:
             shutil.rmtree(backup_dir)
 
         # Remove database record
-        self.db_session.delete(backup_record)
-        self.db_session.commit()
+        self.backup_repo.delete(backup_record.id, auto_commit=True)
 
         log(f"Backup deleted: {backup_id}")
 
@@ -431,9 +421,7 @@ class BackupManager:
         """
         manifest = self.get_backup_info(backup_id)
 
-        backup_record = self.db_session.scalars(
-            select(Backup).where(Backup.remote_path.contains(backup_id))
-        ).first()
+        backup_record = self.backup_repo.get_by_backup_id(backup_id)
 
         if not backup_record:
             msg = f"Backup not found: {backup_id}"
@@ -704,9 +692,7 @@ class BackupManager:
         Returns:
             List of (service_type, addon_name) tuples
         """
-        credentials = self.db_session.scalars(
-            select(AddonCredential).filter_by(app_id=app.id)
-        ).all()
+        credentials = self.addon_credential_repo.get_by_app_id(app.id)
 
         return [(cred.addon_type, cred.addon_name) for cred in credentials]
 

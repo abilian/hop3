@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from advanced_alchemy.base import BigIntAuditBase
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from hop3.commands.services import (
     AddonsAttachCmd,
@@ -21,6 +21,11 @@ from hop3.commands.services import (
 )
 from hop3.core.credentials import get_credential_encryptor
 from hop3.orm import AddonCredential, App, EnvVar
+from hop3.orm.repositories import (
+    AddonCredentialRepository,
+    AppRepository,
+    EnvVarRepository,
+)
 
 
 @pytest.fixture
@@ -38,6 +43,24 @@ def test_db():
 
     session.close()
     engine.dispose()
+
+
+@pytest.fixture
+def app_repo(test_db: Session) -> AppRepository:
+    """Create an app repository for testing."""
+    return AppRepository(session=test_db)
+
+
+@pytest.fixture
+def addon_credential_repo(test_db: Session) -> AddonCredentialRepository:
+    """Create an addon credential repository for testing."""
+    return AddonCredentialRepository(session=test_db)
+
+
+@pytest.fixture
+def env_var_repo(test_db: Session) -> EnvVarRepository:
+    """Create an env var repository for testing."""
+    return EnvVarRepository(session=test_db)
 
 
 @pytest.fixture
@@ -65,10 +88,22 @@ def mock_service():
 class TestServicesAttachWithCredentials:
     """Test services:attach command stores credentials."""
 
-    def test_attach_stores_credential(self, test_db, test_app, mock_service):
+    def test_attach_stores_credential(
+        self,
+        test_db,
+        test_app,
+        mock_service,
+        app_repo: AppRepository,
+        addon_credential_repo: AddonCredentialRepository,
+        env_var_repo: EnvVarRepository,
+    ):
         """Test that attaching a service stores encrypted credentials."""
         with patch("hop3.commands.services.get_addon", return_value=mock_service):
-            cmd = AddonsAttachCmd(db_session=test_db)
+            cmd = AddonsAttachCmd(
+                app_repo=app_repo,
+                addon_credential_repo=addon_credential_repo,
+                env_var_repo=env_var_repo,
+            )
             result = cmd.call("test-db", "--app", "test-app", "--type", "postgres")
 
             # Command should succeed
@@ -94,10 +129,22 @@ class TestServicesAttachWithCredentials:
             decrypted = encryptor.decrypt(credential.encrypted_data)
             assert decrypted["DB_PASSWORD"] == "pass"
 
-    def test_attach_creates_env_vars(self, test_db, test_app, mock_service):
+    def test_attach_creates_env_vars(
+        self,
+        test_db,
+        test_app,
+        mock_service,
+        app_repo: AppRepository,
+        addon_credential_repo: AddonCredentialRepository,
+        env_var_repo: EnvVarRepository,
+    ):
         """Test that attaching a service creates environment variables."""
         with patch("hop3.commands.services.get_addon", return_value=mock_service):
-            cmd = AddonsAttachCmd(db_session=test_db)
+            cmd = AddonsAttachCmd(
+                app_repo=app_repo,
+                addon_credential_repo=addon_credential_repo,
+                env_var_repo=env_var_repo,
+            )
             cmd.call("test-db", "--app", "test-app", "--type", "postgres")
 
             # Environment variables should be created
@@ -108,10 +155,22 @@ class TestServicesAttachWithCredentials:
             assert env_var_dict["DB_PASSWORD"] == "pass"
             assert env_var_dict["DB_NAME"] == "testdb"
 
-    def test_attach_twice_updates_credential(self, test_db, test_app, mock_service):
+    def test_attach_twice_updates_credential(
+        self,
+        test_db,
+        test_app,
+        mock_service,
+        app_repo: AppRepository,
+        addon_credential_repo: AddonCredentialRepository,
+        env_var_repo: EnvVarRepository,
+    ):
         """Test that attaching the same service twice updates the credential."""
         with patch("hop3.commands.services.get_addon", return_value=mock_service):
-            cmd = AddonsAttachCmd(db_session=test_db)
+            cmd = AddonsAttachCmd(
+                app_repo=app_repo,
+                addon_credential_repo=addon_credential_repo,
+                env_var_repo=env_var_repo,
+            )
 
             # First attach
             cmd.call("test-db", "--app", "test-app", "--type", "postgres")
@@ -142,18 +201,34 @@ class TestServicesAttachWithCredentials:
 class TestServicesDetachWithCredentials:
     """Test services:detach command removes credentials."""
 
-    def test_detach_removes_credential(self, test_db, test_app, mock_service):
+    def test_detach_removes_credential(
+        self,
+        test_db,
+        test_app,
+        mock_service,
+        app_repo: AppRepository,
+        addon_credential_repo: AddonCredentialRepository,
+        env_var_repo: EnvVarRepository,
+    ):
         """Test that detaching a service removes the stored credential."""
         with patch("hop3.commands.services.get_addon", return_value=mock_service):
             # First attach
-            attach_cmd = AddonsAttachCmd(db_session=test_db)
+            attach_cmd = AddonsAttachCmd(
+                app_repo=app_repo,
+                addon_credential_repo=addon_credential_repo,
+                env_var_repo=env_var_repo,
+            )
             attach_cmd.call("test-db", "--app", "test-app", "--type", "postgres")
 
             # Verify credential exists
             assert test_db.query(AddonCredential).count() == 1
 
             # Detach
-            detach_cmd = AddonsDetachCmd(db_session=test_db)
+            detach_cmd = AddonsDetachCmd(
+                app_repo=app_repo,
+                addon_credential_repo=addon_credential_repo,
+                env_var_repo=env_var_repo,
+            )
             result = detach_cmd.call(
                 "test-db", "--app", "test-app", "--type", "postgres"
             )
@@ -165,18 +240,34 @@ class TestServicesDetachWithCredentials:
             # Credential should be removed
             assert test_db.query(AddonCredential).count() == 0
 
-    def test_detach_removes_env_vars(self, test_db, test_app, mock_service):
+    def test_detach_removes_env_vars(
+        self,
+        test_db,
+        test_app,
+        mock_service,
+        app_repo: AppRepository,
+        addon_credential_repo: AddonCredentialRepository,
+        env_var_repo: EnvVarRepository,
+    ):
         """Test that detaching a service removes environment variables."""
         with patch("hop3.commands.services.get_addon", return_value=mock_service):
             # First attach
-            attach_cmd = AddonsAttachCmd(db_session=test_db)
+            attach_cmd = AddonsAttachCmd(
+                app_repo=app_repo,
+                addon_credential_repo=addon_credential_repo,
+                env_var_repo=env_var_repo,
+            )
             attach_cmd.call("test-db", "--app", "test-app", "--type", "postgres")
 
             # Verify env vars exist
             assert test_db.query(EnvVar).filter_by(app_id=test_app.id).count() == 4
 
             # Detach
-            detach_cmd = AddonsDetachCmd(db_session=test_db)
+            detach_cmd = AddonsDetachCmd(
+                app_repo=app_repo,
+                addon_credential_repo=addon_credential_repo,
+                env_var_repo=env_var_repo,
+            )
             detach_cmd.call("test-db", "--app", "test-app", "--type", "postgres")
 
             # Env vars should be removed
@@ -186,7 +277,14 @@ class TestServicesDetachWithCredentials:
 class TestServicesDestroyWithCredentials:
     """Test services:destroy command cleans up credentials."""
 
-    def test_destroy_removes_all_credentials(self, test_db, mock_service):
+    def test_destroy_removes_all_credentials(
+        self,
+        test_db,
+        mock_service,
+        app_repo: AppRepository,
+        addon_credential_repo: AddonCredentialRepository,
+        env_var_repo: EnvVarRepository,
+    ):
         """Test that destroying a service removes credentials from all apps."""
         with patch("hop3.commands.services.get_addon", return_value=mock_service):
             # Create two apps
@@ -197,7 +295,11 @@ class TestServicesDestroyWithCredentials:
             test_db.commit()
 
             # Attach service to both apps
-            attach_cmd = AddonsAttachCmd(db_session=test_db)
+            attach_cmd = AddonsAttachCmd(
+                app_repo=app_repo,
+                addon_credential_repo=addon_credential_repo,
+                env_var_repo=env_var_repo,
+            )
             attach_cmd.call("shared-db", "--app", "app1", "--type", "postgres")
             attach_cmd.call("shared-db", "--app", "app2", "--type", "postgres")
 
@@ -211,7 +313,7 @@ class TestServicesDestroyWithCredentials:
             assert len(credentials) == 2
 
             # Destroy the service
-            destroy_cmd = AddonsDestroyCmd(db_session=test_db)
+            destroy_cmd = AddonsDestroyCmd(addon_credential_repo=addon_credential_repo)
             result = destroy_cmd.call("shared-db", "--type", "postgres")
 
             # Command should succeed
@@ -246,8 +348,17 @@ class TestCredentialPersistence:
             session1.add(app)
             session1.commit()
 
+            # Create repositories for session1
+            app_repo1 = AppRepository(session=session1)
+            addon_credential_repo1 = AddonCredentialRepository(session=session1)
+            env_var_repo1 = EnvVarRepository(session=session1)
+
             with patch("hop3.commands.services.get_addon", return_value=mock_service):
-                cmd = AddonsAttachCmd(db_session=session1)
+                cmd = AddonsAttachCmd(
+                    app_repo=app_repo1,
+                    addon_credential_repo=addon_credential_repo1,
+                    env_var_repo=env_var_repo1,
+                )
                 cmd.call("persist-db", "--app", "persist-app", "--type", "postgres")
 
             app_id = app.id

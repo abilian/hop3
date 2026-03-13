@@ -8,11 +8,9 @@ from __future__ import annotations
 
 from litestar import Controller, get
 from litestar.response import Redirect, Template
-from sqlalchemy import select
 
 from hop3.core.plugins import get_addon
-from hop3.orm import App
-from hop3.orm.addon_credential import AddonCredential
+from hop3.orm import AddonCredentialRepository
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
 
@@ -27,7 +25,8 @@ class AddonsController(Controller):
     def dashboard_addons(self) -> Template | Redirect:
         """Display addons page."""
         with get_session() as db_session:
-            credentials = db_session.scalars(select(AddonCredential).join(App)).all()
+            addon_credential_repo = AddonCredentialRepository(session=db_session)
+            credentials = addon_credential_repo.list_all_with_apps()
 
             addons = []
             for cred in credentials:
@@ -48,9 +47,8 @@ class AddonsController(Controller):
     def addon_detail(self, addon_name: str) -> Template:
         """Display addon detail page."""
         with get_session() as db_session:
-            credential = db_session.scalars(
-                select(AddonCredential).where(AddonCredential.addon_name == addon_name)
-            ).first()
+            addon_credential_repo = AddonCredentialRepository(session=db_session)
+            credential = addon_credential_repo.get_by_addon_name(addon_name)
 
             if not credential:
                 return Template(
