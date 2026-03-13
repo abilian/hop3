@@ -12,7 +12,12 @@ from typing import TYPE_CHECKING
 import pytest
 from dishka import make_container
 
-from hop3.di.providers import ConfigProvider, DatabaseProvider, HopCoreProvider
+from hop3.di.providers import (
+    ConfigProvider,
+    DatabaseProvider,
+    HopCoreProvider,
+    RepositoryProvider,
+)
 
 if TYPE_CHECKING:
     from dishka import Container
@@ -42,6 +47,7 @@ def di_container() -> Container:
         container = make_container(
             ConfigProvider(),
             DatabaseProvider(),
+            RepositoryProvider(),
             HopCoreProvider(),
         )
 

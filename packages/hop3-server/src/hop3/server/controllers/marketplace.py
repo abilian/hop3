@@ -22,9 +22,8 @@ from litestar import Controller, get, post
 from litestar.enums import RequestEncodingType
 from litestar.params import Body
 from litestar.response import File, Redirect, Template
-from sqlalchemy import select
 
-from hop3.orm import App, EnvVar
+from hop3.orm import App, AppRepository, EnvVar
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
 from hop3.server.marketplace import MarketplaceService
@@ -65,8 +64,8 @@ def _validate_app_name(app_name: str) -> list[str]:
 def _check_app_exists(app_name: str) -> bool:
     """Check if an app with this name already exists."""
     with get_session() as db_session:
-        existing = db_session.scalars(select(App).filter_by(name=app_name)).first()
-        return existing is not None
+        app_repo = AppRepository(session=db_session)
+        return app_repo.app_exists(app_name)
 
 
 # ============================================================================

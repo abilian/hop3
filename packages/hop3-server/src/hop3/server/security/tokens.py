@@ -165,18 +165,13 @@ def is_token_revoked(jti: str) -> bool:
     Returns:
         True if the token is revoked, False otherwise
     """
-    from sqlalchemy import select  # noqa: PLC0415
-
-    from hop3.orm import RevokedToken  # noqa: PLC0415
+    from hop3.orm.repositories import RevokedTokenRepository  # noqa: PLC0415
     from hop3.server.lib.database import get_session  # noqa: PLC0415
 
     try:
         with get_session() as db_session:
-            revoked = (
-                db_session.scalars(select(RevokedToken).filter_by(jti=jti)).first()
-                is not None
-            )
-            return revoked
+            repo = RevokedTokenRepository(session=db_session)
+            return repo.is_revoked(jti)
     except Exception:
         # If there's a database error, fail open (allow the token)
         # This prevents a database outage from locking out all users
@@ -191,15 +186,15 @@ def revoke_token(jti: str, expires_at: datetime, reason: str | None = None) -> N
         expires_at: When the token expires (for cleanup)
         reason: Optional reason for revocation (e.g., "user_logout")
     """
-    from sqlalchemy import select  # noqa: PLC0415
-
     from hop3.orm import RevokedToken  # noqa: PLC0415
+    from hop3.orm.repositories import RevokedTokenRepository  # noqa: PLC0415
     from hop3.server.lib.database import get_session  # noqa: PLC0415
 
     with get_session() as db_session:
+        repo = RevokedTokenRepository(session=db_session)
+
         # Check if already revoked
-        existing = db_session.scalars(select(RevokedToken).filter_by(jti=jti)).first()
-        if existing:
+        if repo.is_revoked(jti):
             return  # Already revoked
 
         # Add to revocation list
@@ -208,8 +203,7 @@ def revoke_token(jti: str, expires_at: datetime, reason: str | None = None) -> N
             expires_at=expires_at,
             reason=reason,
         )
-        db_session.add(revoked_token)
-        db_session.commit()
+        repo.add(revoked_token, auto_commit=True)
 
 
 def generate_api_key() -> str:

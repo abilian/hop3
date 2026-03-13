@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from hop3.orm import Role, User
+from hop3.orm.repositories import RoleRepository, UserRepository
 from hop3.server.cli.admin import AdminCreate, AdminList, AdminResetPassword, AdminToken
 
 
@@ -44,6 +45,18 @@ def mock_admin_role():
     return role
 
 
+@pytest.fixture
+def mock_user_repo():
+    """Create a mock user repository."""
+    return Mock(spec=UserRepository)
+
+
+@pytest.fixture
+def mock_role_repo():
+    """Create a mock role repository."""
+    return Mock(spec=RoleRepository)
+
+
 class TestAdminCreate:
     """Tests for admin:create command."""
 
@@ -58,24 +71,27 @@ class TestAdminCreate:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        # Mock the new scalars().first() pattern
-        mock_session.scalars.return_value.first.side_effect = [
-            None,  # Check username exists
-            None,  # Check email exists
-            mock_admin_role,  # Get admin role
-        ]
 
         # Capture stdout
         captured_output = io.StringIO()
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
+            patch("hop3.server.cli.admin.UserRepository") as mock_user_repo_class,
+            patch("hop3.server.cli.admin.RoleRepository") as mock_role_repo_class,
             patch(
                 "hop3.server.cli.admin.getpass.getpass",
                 side_effect=["password123", "password123"],
             ),
             patch("sys.stdout", captured_output),
         ):
+            mock_user_repo = mock_user_repo_class.return_value
+            mock_user_repo.username_exists.return_value = False
+            mock_user_repo.email_exists.return_value = False
+
+            mock_role_repo = mock_role_repo_class.return_value
+            mock_role_repo.get_admin_role.return_value = mock_admin_role
+
             cmd = AdminCreate()
             cmd.run(
                 username="newadmin", email="admin@example.com", password_stdin=False
@@ -97,20 +113,23 @@ class TestAdminCreate:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        # Mock the new scalars().first() pattern
-        mock_session.scalars.return_value.first.side_effect = [
-            None,
-            None,
-            mock_admin_role,
-        ]
 
         captured_output = io.StringIO()
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
+            patch("hop3.server.cli.admin.UserRepository") as mock_user_repo_class,
+            patch("hop3.server.cli.admin.RoleRepository") as mock_role_repo_class,
             patch("sys.stdin", io.StringIO("password123\n")),
             patch("sys.stdout", captured_output),
         ):
+            mock_user_repo = mock_user_repo_class.return_value
+            mock_user_repo.username_exists.return_value = False
+            mock_user_repo.email_exists.return_value = False
+
+            mock_role_repo = mock_role_repo_class.return_value
+            mock_role_repo.get_admin_role.return_value = mock_admin_role
+
             cmd = AdminCreate()
             cmd.run(username="newadmin", email="admin@example.com", password_stdin=True)
 
@@ -124,17 +143,20 @@ class TestAdminCreate:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        # Mock the new scalars().first() pattern
-        mock_session.scalars.return_value.first.return_value = mock_user
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
+            patch("hop3.server.cli.admin.UserRepository") as mock_user_repo_class,
+            patch("hop3.server.cli.admin.RoleRepository"),
             patch(
                 "hop3.server.cli.admin.getpass.getpass",
                 side_effect=["password123", "password123"],
             ),
             pytest.raises(SystemExit) as exc_info,
         ):
+            mock_user_repo = mock_user_repo_class.return_value
+            mock_user_repo.username_exists.return_value = True
+
             cmd = AdminCreate()
             cmd.run(username="testuser", email="new@example.com", password_stdin=False)
 
@@ -174,15 +196,17 @@ class TestAdminToken:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        # Mock the new scalars().first() pattern
-        mock_session.scalars.return_value.first.return_value = mock_user
 
         captured_output = io.StringIO()
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
+            patch("hop3.server.cli.admin.UserRepository") as mock_user_repo_class,
             patch("sys.stdout", captured_output),
         ):
+            mock_user_repo = mock_user_repo_class.return_value
+            mock_user_repo.get_by_username.return_value = mock_user
+
             cmd = AdminToken()
             cmd.run(username="testuser")
 
@@ -197,13 +221,15 @@ class TestAdminToken:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        # Mock the new scalars().first() pattern
-        mock_session.scalars.return_value.first.return_value = None
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
+            patch("hop3.server.cli.admin.UserRepository") as mock_user_repo_class,
             pytest.raises(SystemExit) as exc_info,
         ):
+            mock_user_repo = mock_user_repo_class.return_value
+            mock_user_repo.get_by_username.return_value = None
+
             cmd = AdminToken()
             cmd.run(username="nonexistent")
 
@@ -217,13 +243,15 @@ class TestAdminToken:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        # Mock the new scalars().first() pattern
-        mock_session.scalars.return_value.first.return_value = mock_user
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
+            patch("hop3.server.cli.admin.UserRepository") as mock_user_repo_class,
             pytest.raises(SystemExit) as exc_info,
         ):
+            mock_user_repo = mock_user_repo_class.return_value
+            mock_user_repo.get_by_username.return_value = mock_user
+
             cmd = AdminToken()
             cmd.run(username="testuser")
 
@@ -240,15 +268,17 @@ class TestAdminList:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        # Mock the new scalars().all() pattern
-        mock_session.scalars.return_value.all.return_value = [mock_user]
 
         captured_output = io.StringIO()
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
+            patch("hop3.server.cli.admin.UserRepository") as mock_user_repo_class,
             patch("sys.stdout", captured_output),
         ):
+            mock_user_repo = mock_user_repo_class.return_value
+            mock_user_repo.list_all_ordered.return_value = [mock_user]
+
             cmd = AdminList()
             cmd.run()
 
@@ -264,15 +294,17 @@ class TestAdminList:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        # Mock the new scalars().all() pattern
-        mock_session.scalars.return_value.all.return_value = []
 
         captured_output = io.StringIO()
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
+            patch("hop3.server.cli.admin.UserRepository") as mock_user_repo_class,
             patch("sys.stdout", captured_output),
         ):
+            mock_user_repo = mock_user_repo_class.return_value
+            mock_user_repo.list_all_ordered.return_value = []
+
             cmd = AdminList()
             cmd.run()
 
@@ -290,19 +322,21 @@ class TestAdminResetPassword:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        # Mock the new scalars().first() pattern
-        mock_session.scalars.return_value.first.return_value = mock_user
 
         captured_output = io.StringIO()
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
+            patch("hop3.server.cli.admin.UserRepository") as mock_user_repo_class,
             patch(
                 "hop3.server.cli.admin.getpass.getpass",
                 side_effect=["newpass123", "newpass123"],
             ),
             patch("sys.stdout", captured_output),
         ):
+            mock_user_repo = mock_user_repo_class.return_value
+            mock_user_repo.get_by_username.return_value = mock_user
+
             cmd = AdminResetPassword()
             cmd.run(username="testuser", password_stdin=False)
 
@@ -317,16 +351,18 @@ class TestAdminResetPassword:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        # Mock the new scalars().first() pattern
-        mock_session.scalars.return_value.first.return_value = mock_user
 
         captured_output = io.StringIO()
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
+            patch("hop3.server.cli.admin.UserRepository") as mock_user_repo_class,
             patch("sys.stdin", io.StringIO("newpass123\n")),
             patch("sys.stdout", captured_output),
         ):
+            mock_user_repo = mock_user_repo_class.return_value
+            mock_user_repo.get_by_username.return_value = mock_user
+
             cmd = AdminResetPassword()
             cmd.run(username="testuser", password_stdin=True)
 
@@ -340,17 +376,19 @@ class TestAdminResetPassword:
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
-        # Mock the new scalars().first() pattern
-        mock_session.scalars.return_value.first.return_value = None
 
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
+            patch("hop3.server.cli.admin.UserRepository") as mock_user_repo_class,
             patch(
                 "hop3.server.cli.admin.getpass.getpass",
                 side_effect=["newpass123", "newpass123"],
             ),
             pytest.raises(SystemExit) as exc_info,
         ):
+            mock_user_repo = mock_user_repo_class.return_value
+            mock_user_repo.get_by_username.return_value = None
+
             cmd = AdminResetPassword()
             cmd.run(username="nonexistent", password_stdin=False)
 

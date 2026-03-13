@@ -7,9 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
-
-from sqlalchemy import select
+from typing import ClassVar
 
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.plugins import get_addon, get_plugin_manager
@@ -17,13 +15,15 @@ from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 from hop3.lib.logging import server_log
 from hop3.orm import AddonCredential, EnvVar
+from hop3.orm.repositories import (
+    AddonCredentialRepository,
+    AppRepository,
+    EnvVarRepository,
+)
 
 from ._base import Command
 from ._errors import command_context
 from ._response import error, table, text, warning
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
 
 @register
@@ -44,8 +44,8 @@ class AddonsListCmd(Command):
     Shows all registered addon types that can be created.
     """
 
-    db_session: Session
     name: ClassVar[str] = "addons:list"
+    requires_auth: ClassVar[bool] = True
 
     def call(self, *args):
         """List available addon types."""
@@ -91,8 +91,8 @@ class AddonsCreateCmd(Command):
         hop3 addons:create redis my-cache
     """
 
-    db_session: Session
     name: ClassVar[str] = "addons:create"
+    requires_auth: ClassVar[bool] = True
 
     def call(self, *args):
         """Create a new service instance."""
@@ -151,7 +151,9 @@ class AddonsAttachCmd(Command):
         hop3 addons:attach my-cache --app my-app --type redis
     """
 
-    db_session: Session
+    app_repo: AppRepository
+    addon_credential_repo: AddonCredentialRepository
+    env_var_repo: EnvVarRepository
     name: ClassVar[str] = "addons:attach"
 
     # Argument specification for declarative parsing
@@ -171,14 +173,13 @@ class AddonsAttachCmd(Command):
         """Store or update encrypted service credentials."""
         encryptor = get_credential_encryptor()
 
-        existing_credential = self.db_session.scalars(
-            select(AddonCredential).filter_by(
-                app_id=app_id, addon_type=service_type, addon_name=addon_name
-            )
-        ).first()
+        existing_credential = self.addon_credential_repo.get_by_app_addon(
+            app_id, service_type, addon_name
+        )
 
         if existing_credential:
             existing_credential.encrypted_data = encryptor.encrypt(connection_details)
+            self.addon_credential_repo.update(existing_credential)
         else:
             credential = AddonCredential(
                 app_id=app_id,
@@ -186,7 +187,7 @@ class AddonsAttachCmd(Command):
                 addon_name=addon_name,
                 encrypted_data=encryptor.encrypt(connection_details),
             )
-            self.db_session.add(credential)
+            self.addon_credential_repo.add(credential)
 
     def _add_env_vars(self, app, connection_details: dict) -> list[str]:
         """Add or update environment variables for the app.
@@ -221,22 +222,19 @@ class AddonsAttachCmd(Command):
             )
 
             # Check if variable already exists (same pattern as config:set)
-            existing = None
-            for env_var in app.env_vars:
-                if env_var.name == key:
-                    existing = env_var
-                    break
+            existing = self.env_var_repo.get_by_app_and_name(app.id, key)
 
             if existing:
                 existing.value = value
+                self.env_var_repo.update(existing)
                 added_vars.append(f"Updated {key}")
                 server_log.info("Updated existing env var", app_id=app.id, key=key)
             else:
-                # Create EnvVar with app_id and add to session
+                # Create EnvVar with app_id and add via repository
                 # Then append to app.env_vars for immediate visibility
                 # This pattern works with both real SQLAlchemy apps and mocks
                 new_var = EnvVar(app_id=app.id, name=key, value=value)
-                self.db_session.add(new_var)
+                self.env_var_repo.add(new_var)
                 # Also append to collection for immediate visibility
                 # (this is what config:set does via relationship assignment)
                 app.env_vars.append(new_var)
@@ -288,10 +286,7 @@ class AddonsAttachCmd(Command):
             "attaching addon", addon_name=addon_name, app_name=app_name
         ):
             # Check if app exists
-            from hop3.orm.repositories import AppRepository  # noqa: PLC0415
-
-            app_repo = AppRepository(session=self.db_session)
-            app = app_repo.get_one_or_none(name=app_name)
+            app = self.app_repo.get_one_or_none(name=app_name)
 
             if not app:
                 server_log.warning("addons:attach app not found", app_name=app_name)
@@ -334,7 +329,8 @@ class AddonsAttachCmd(Command):
             # Pass the app object (not just app.id) to properly track relationships
             added_vars = self._add_env_vars(app, connection_details)
 
-            self.db_session.commit()
+            # Commit all changes via repository
+            self.addon_credential_repo.session.commit()
             server_log.info(
                 "addons:attach committed",
                 app_id=app.id,
@@ -342,11 +338,10 @@ class AddonsAttachCmd(Command):
             )
 
             # Expire all objects to ensure fresh data is loaded for verification
-            self.db_session.expire_all()
+            self.addon_credential_repo.session.expire_all()
 
             # Verify env vars were stored by loading app fresh
-            app_repo2 = AppRepository(session=self.db_session)
-            app_after = app_repo2.get_one_or_none(name=app_name)
+            app_after = self.app_repo.get_one_or_none(name=app_name)
             if app_after:
                 env_var_names = [ev.name for ev in app_after.env_vars]
                 server_log.info(
@@ -394,7 +389,9 @@ class AddonsDetachCmd(Command):
     Usage: hop3 addons:detach <name> --app <app-name> [--type <type>]
     """
 
-    db_session: Session
+    app_repo: AppRepository
+    addon_credential_repo: AddonCredentialRepository
+    env_var_repo: EnvVarRepository
     name: ClassVar[str] = "addons:detach"
 
     # Argument specification for declarative parsing
@@ -412,17 +409,15 @@ class AddonsDetachCmd(Command):
         Returns:
             Dictionary of connection details (may be empty if not found)
         """
-        credential = self.db_session.scalars(
-            select(AddonCredential).filter_by(
-                app_id=app_id, addon_type=service_type, addon_name=addon_name
-            )
-        ).first()
+        credential = self.addon_credential_repo.get_by_app_addon(
+            app_id, service_type, addon_name
+        )
 
         if credential:
             encryptor = get_credential_encryptor()
             connection_details = encryptor.decrypt(credential.encrypted_data)
-            # Remove the credential
-            self.db_session.delete(credential)
+            # Remove the credential (pass id, not the object)
+            self.addon_credential_repo.delete(credential.id)
             return connection_details
 
         # Fallback: Try to get connection details from service
@@ -441,12 +436,10 @@ class AddonsDetachCmd(Command):
         """
         removed_vars = []
         for key in connection_details:
-            env_var = self.db_session.scalars(
-                select(EnvVar).filter_by(app_id=app_id, name=key)
-            ).first()
+            env_var = self.env_var_repo.get_by_app_and_name(app_id, key)
 
             if env_var:
-                self.db_session.delete(env_var)
+                self.env_var_repo.delete(env_var.id)
                 removed_vars.append(key)
 
         return removed_vars
@@ -474,10 +467,7 @@ class AddonsDetachCmd(Command):
             "detaching addon", addon_name=addon_name, app_name=app_name
         ):
             # Check if app exists
-            from hop3.orm.repositories import AppRepository  # noqa: PLC0415
-
-            app_repo = AppRepository(session=self.db_session)
-            app = app_repo.get_one_or_none(name=app_name)
+            app = self.app_repo.get_one_or_none(name=app_name)
 
             if not app:
                 msg = f"App '{app_name}' not found"
@@ -491,7 +481,7 @@ class AddonsDetachCmd(Command):
             # Remove environment variables
             removed_vars = self._remove_env_vars(app.id, connection_details)
 
-            self.db_session.commit()
+            self.addon_credential_repo.session.commit()
 
         if removed_vars:
             return [
@@ -511,7 +501,7 @@ class AddonsDestroyCmd(Command):
     Usage: hop3 addons:destroy <name> [--type <type>]
     """
 
-    db_session: Session
+    addon_credential_repo: AddonCredentialRepository
     name: ClassVar[str] = "addons:destroy"
     destructive: ClassVar[bool] = True
 
@@ -552,16 +542,14 @@ class AddonsDestroyCmd(Command):
                 ]
 
             # Clean up all stored credentials for this service
-            credentials = self.db_session.scalars(
-                select(AddonCredential).filter_by(
-                    addon_type=service_type, addon_name=addon_name
-                )
-            ).all()
+            credentials = self.addon_credential_repo.list_by_addon(
+                service_type, addon_name
+            )
 
             for credential in credentials:
-                self.db_session.delete(credential)
+                self.addon_credential_repo.delete(credential.id)
 
-            self.db_session.commit()
+            self.addon_credential_repo.session.commit()
 
             # Destroy the service
             addon.destroy()
@@ -581,8 +569,8 @@ class AddonsInfoCmd(Command):
     Usage: hop3 addons:info <name> [--type <type>]
     """
 
-    db_session: Session
     name: ClassVar[str] = "addons:info"
+    requires_auth: ClassVar[bool] = True
 
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
@@ -637,7 +625,7 @@ class AddonsStatusCmd(Command):
         hop3 addons:status my-cache --type redis
     """
 
-    db_session: Session
+    addon_credential_repo: AddonCredentialRepository
     name: ClassVar[str] = "addons:status"
 
     # Argument specification for declarative parsing
@@ -701,11 +689,7 @@ class AddonsStatusCmd(Command):
 
     def _get_attached_apps(self, service_type: str, addon_name: str) -> list[str]:
         """Get list of apps attached to this addon."""
-        credentials = self.db_session.scalars(
-            select(AddonCredential).filter_by(
-                addon_type=service_type, addon_name=addon_name
-            )
-        ).all()
+        credentials = self.addon_credential_repo.list_by_addon(service_type, addon_name)
         return [cred.app.name for cred in credentials if cred.app]
 
     def _build_status_rows(

@@ -25,6 +25,11 @@ from hop3.commands.backup import (
 )
 from hop3.config import HopConfig
 from hop3.orm import App, EnvVar
+from hop3.orm.repositories import (
+    AddonCredentialRepository,
+    AppRepository,
+    BackupRepository,
+)
 
 
 @pytest.fixture
@@ -44,6 +49,24 @@ def test_db():
 
     session.close()
     engine.dispose()
+
+
+@pytest.fixture
+def app_repo(test_db):
+    """Create an AppRepository for testing."""
+    return AppRepository(session=test_db)
+
+
+@pytest.fixture
+def backup_repo(test_db):
+    """Create a BackupRepository for testing."""
+    return BackupRepository(session=test_db)
+
+
+@pytest.fixture
+def addon_credential_repo(test_db):
+    """Create an AddonCredentialRepository for testing."""
+    return AddonCredentialRepository(session=test_db)
 
 
 @pytest.fixture
@@ -96,9 +119,15 @@ def test_app(test_db, tmp_path):
 class TestBackupCreateCommand:
     """Test backup:create command."""
 
-    def test_create_backup_simple(self, test_db, test_app):
+    def test_create_backup_simple(
+        self, app_repo, backup_repo, addon_credential_repo, test_app
+    ):
         """Test creating a simple backup without services."""
-        cmd = BackupCreateCmd(db_session=test_db)
+        cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
 
         result = cmd.call("test-app", "--no-addons")
 
@@ -121,9 +150,15 @@ class TestBackupCreateCommand:
         assert (backup_path / "data.tar.gz").exists()
         assert (backup_path / "env.json").exists()
 
-    def test_create_backup_includes_env_vars(self, test_db, test_app):
+    def test_create_backup_includes_env_vars(
+        self, app_repo, backup_repo, addon_credential_repo, test_app
+    ):
         """Test that backup includes environment variables."""
-        cmd = BackupCreateCmd(db_session=test_db)
+        cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
 
         cmd.call("test-app", "--no-addons")
 
@@ -142,9 +177,15 @@ class TestBackupCreateCommand:
         assert env_data["DEBUG"] == "true"
         assert env_data["SECRET"] == "s3cr3t"
 
-    def test_create_backup_includes_source(self, test_db, test_app):
+    def test_create_backup_includes_source(
+        self, app_repo, backup_repo, addon_credential_repo, test_app
+    ):
         """Test that backup includes source code."""
-        cmd = BackupCreateCmd(db_session=test_db)
+        cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
 
         cmd.call("test-app", "--no-addons")
 
@@ -161,9 +202,15 @@ class TestBackupCreateCommand:
             members = tar.getnames()
             assert "git/README.md" in members
 
-    def test_create_backup_includes_data(self, test_db, test_app):
+    def test_create_backup_includes_data(
+        self, app_repo, backup_repo, addon_credential_repo, test_app
+    ):
         """Test that backup includes application data."""
-        cmd = BackupCreateCmd(db_session=test_db)
+        cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
 
         cmd.call("test-app", "--no-addons")
 
@@ -180,9 +227,15 @@ class TestBackupCreateCommand:
             members = tar.getnames()
             assert "data/data.txt" in members
 
-    def test_create_backup_generates_metadata(self, test_db, test_app):
+    def test_create_backup_generates_metadata(
+        self, app_repo, backup_repo, addon_credential_repo, test_app
+    ):
         """Test that backup generates correct metadata."""
-        cmd = BackupCreateCmd(db_session=test_db)
+        cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
 
         cmd.call("test-app", "--no-addons")
 
@@ -205,9 +258,15 @@ class TestBackupCreateCommand:
         assert "data.tar.gz" in metadata["checksums"]
         assert "env.json" in metadata["checksums"]
 
-    def test_create_backup_nonexistent_app(self, test_db):
+    def test_create_backup_nonexistent_app(
+        self, app_repo, backup_repo, addon_credential_repo
+    ):
         """Test creating backup for non-existent app."""
-        cmd = BackupCreateCmd(db_session=test_db)
+        cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
 
         # App not found raises ValueError for JSON-RPC error handling
         with pytest.raises(ValueError) as exc_info:
@@ -215,9 +274,13 @@ class TestBackupCreateCommand:
 
         assert "not found" in str(exc_info.value)
 
-    def test_create_backup_no_args(self, test_db):
+    def test_create_backup_no_args(self, app_repo, backup_repo, addon_credential_repo):
         """Test backup:create with no arguments."""
-        cmd = BackupCreateCmd(db_session=test_db)
+        cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
 
         result = cmd.call()
 
@@ -229,9 +292,13 @@ class TestBackupCreateCommand:
 class TestBackupListCommand:
     """Test backup:list command."""
 
-    def test_list_empty(self, test_db):
+    def test_list_empty(self, app_repo, backup_repo, addon_credential_repo):
         """Test listing when no backups exist."""
-        cmd = BackupListCmd(db_session=test_db)
+        cmd = BackupListCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
 
         result = cmd.call()
 
@@ -239,14 +306,22 @@ class TestBackupListCommand:
         assert result[0]["t"] == "text"
         assert "No backups found" in result[0]["text"]
 
-    def test_list_backups(self, test_db, test_app):
+    def test_list_backups(self, app_repo, backup_repo, addon_credential_repo, test_app):
         """Test listing backups."""
         # Create a backup first
-        create_cmd = BackupCreateCmd(db_session=test_db)
+        create_cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         create_cmd.call("test-app", "--no-addons")
 
         # List backups
-        list_cmd = BackupListCmd(db_session=test_db)
+        list_cmd = BackupListCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         result = list_cmd.call()
 
         assert len(result) == 1
@@ -257,28 +332,48 @@ class TestBackupListCommand:
         row = result[0]["rows"][0]
         assert row[1] == "test-app"  # App name
 
-    def test_list_filter_by_app(self, test_db, test_app):
+    def test_list_filter_by_app(
+        self, app_repo, backup_repo, addon_credential_repo, test_app
+    ):
         """Test filtering backups by app."""
         # Create a backup
-        create_cmd = BackupCreateCmd(db_session=test_db)
+        create_cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         create_cmd.call("test-app", "--no-addons")
 
         # List backups for this app
-        list_cmd = BackupListCmd(db_session=test_db)
+        list_cmd = BackupListCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         result = list_cmd.call("test-app")
 
         assert len(result) == 1
         assert result[0]["t"] == "table"
         assert len(result[0]["rows"]) == 1
 
-    def test_list_filter_by_nonexistent_app(self, test_db, test_app):
+    def test_list_filter_by_nonexistent_app(
+        self, app_repo, backup_repo, addon_credential_repo, test_app
+    ):
         """Test filtering by non-existent app."""
         # Create a backup
-        create_cmd = BackupCreateCmd(db_session=test_db)
+        create_cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         create_cmd.call("test-app", "--no-addons")
 
         # List backups for different app
-        list_cmd = BackupListCmd(db_session=test_db)
+        list_cmd = BackupListCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         result = list_cmd.call("other-app")
 
         assert len(result) == 1
@@ -288,10 +383,14 @@ class TestBackupListCommand:
 class TestBackupInfoCommand:
     """Test backup:info command."""
 
-    def test_info_backup(self, test_db, test_app):
+    def test_info_backup(self, app_repo, backup_repo, addon_credential_repo, test_app):
         """Test getting backup info."""
         # Create a backup
-        create_cmd = BackupCreateCmd(db_session=test_db)
+        create_cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         create_cmd.call("test-app", "--no-addons")
 
         # Extract backup ID from result
@@ -299,7 +398,11 @@ class TestBackupInfoCommand:
         backup_id = next(iter(backup_dir.iterdir())).name
 
         # Get backup info
-        info_cmd = BackupInfoCmd(db_session=test_db)
+        info_cmd = BackupInfoCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         result = info_cmd.call(backup_id)
 
         assert len(result) == 1
@@ -311,9 +414,15 @@ class TestBackupInfoCommand:
         assert "test-app" in text
         assert "Environment: 3 variables" in text
 
-    def test_info_nonexistent_backup(self, test_db):
+    def test_info_nonexistent_backup(
+        self, app_repo, backup_repo, addon_credential_repo
+    ):
         """Test getting info for non-existent backup."""
-        info_cmd = BackupInfoCmd(db_session=test_db)
+        info_cmd = BackupInfoCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
 
         # Backup not found raises ValueError for JSON-RPC error handling
         with pytest.raises(ValueError) as exc_info:
@@ -321,9 +430,13 @@ class TestBackupInfoCommand:
 
         assert "not found" in str(exc_info.value).lower()
 
-    def test_info_no_args(self, test_db):
+    def test_info_no_args(self, app_repo, backup_repo, addon_credential_repo):
         """Test backup:info with no arguments."""
-        info_cmd = BackupInfoCmd(db_session=test_db)
+        info_cmd = BackupInfoCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         result = info_cmd.call()
 
         assert len(result) == 1
@@ -334,10 +447,16 @@ class TestBackupInfoCommand:
 class TestBackupRestoreCommand:
     """Test backup:restore command."""
 
-    def test_restore_backup(self, test_db, test_app):
+    def test_restore_backup(
+        self, test_db, app_repo, backup_repo, addon_credential_repo, test_app
+    ):
         """Test restoring a backup."""
         # Create a backup
-        create_cmd = BackupCreateCmd(db_session=test_db)
+        create_cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         create_cmd.call("test-app", "--no-addons")
 
         # Get backup ID
@@ -348,7 +467,11 @@ class TestBackupRestoreCommand:
         (test_app.data_path / "data.txt").write_text("Modified data")
 
         # Restore backup
-        restore_cmd = BackupRestoreCmd(db_session=test_db)
+        restore_cmd = BackupRestoreCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         result = restore_cmd.call(backup_id)
 
         assert len(result) >= 2
@@ -358,10 +481,16 @@ class TestBackupRestoreCommand:
         data_content = (test_app.data_path / "data.txt").read_text()
         assert data_content == "Important data"
 
-    def test_restore_to_different_app(self, test_db, test_app, tmp_path):
+    def test_restore_to_different_app(
+        self, app_repo, backup_repo, addon_credential_repo, test_app, tmp_path
+    ):
         """Test restoring backup to different app name."""
         # Create a backup
-        create_cmd = BackupCreateCmd(db_session=test_db)
+        create_cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         create_cmd.call("test-app", "--no-addons")
 
         # Get backup ID
@@ -369,7 +498,11 @@ class TestBackupRestoreCommand:
         backup_id = next(iter(backup_dir.iterdir())).name
 
         # Restore to different app
-        restore_cmd = BackupRestoreCmd(db_session=test_db)
+        restore_cmd = BackupRestoreCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         result = restore_cmd.call(backup_id, "--target-app", "restored-app")
 
         assert len(result) >= 2
@@ -380,10 +513,16 @@ class TestBackupRestoreCommand:
         assert restored_app_path.exists()
         assert (restored_app_path / "data" / "data.txt").exists()
 
-    def test_restore_restores_env_vars(self, test_db, test_app):
+    def test_restore_restores_env_vars(
+        self, test_db, app_repo, backup_repo, addon_credential_repo, test_app
+    ):
         """Test that restore includes environment variables."""
         # Create a backup
-        create_cmd = BackupCreateCmd(db_session=test_db)
+        create_cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         create_cmd.call("test-app", "--no-addons")
 
         # Get backup ID
@@ -395,7 +534,11 @@ class TestBackupRestoreCommand:
         test_db.commit()
 
         # Restore backup
-        restore_cmd = BackupRestoreCmd(db_session=test_db)
+        restore_cmd = BackupRestoreCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         restore_cmd.call(backup_id)
 
         # Refresh app
@@ -407,9 +550,15 @@ class TestBackupRestoreCommand:
         assert env_dict["FOO"] == "bar"
         assert env_dict["DEBUG"] == "true"
 
-    def test_restore_nonexistent_backup(self, test_db):
+    def test_restore_nonexistent_backup(
+        self, app_repo, backup_repo, addon_credential_repo
+    ):
         """Test restoring non-existent backup."""
-        restore_cmd = BackupRestoreCmd(db_session=test_db)
+        restore_cmd = BackupRestoreCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
 
         # Backup not found raises ValueError for JSON-RPC error handling
         with pytest.raises(ValueError) as exc_info:
@@ -417,9 +566,13 @@ class TestBackupRestoreCommand:
 
         assert "not found" in str(exc_info.value).lower()
 
-    def test_restore_no_args(self, test_db):
+    def test_restore_no_args(self, app_repo, backup_repo, addon_credential_repo):
         """Test backup:restore with no arguments."""
-        restore_cmd = BackupRestoreCmd(db_session=test_db)
+        restore_cmd = BackupRestoreCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         result = restore_cmd.call()
 
         assert len(result) == 1
@@ -430,10 +583,16 @@ class TestBackupRestoreCommand:
 class TestBackupDeleteCommand:
     """Test backup:delete command."""
 
-    def test_delete_backup(self, test_db, test_app):
+    def test_delete_backup(
+        self, app_repo, backup_repo, addon_credential_repo, test_app
+    ):
         """Test deleting a backup."""
         # Create a backup
-        create_cmd = BackupCreateCmd(db_session=test_db)
+        create_cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         create_cmd.call("test-app", "--no-addons")
 
         # Get backup ID
@@ -442,7 +601,11 @@ class TestBackupDeleteCommand:
         backup_id = backup_path.name
 
         # Delete backup
-        delete_cmd = BackupDeleteCmd(db_session=test_db)
+        delete_cmd = BackupDeleteCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         result = delete_cmd.call(backup_id)
 
         assert len(result) >= 2
@@ -451,9 +614,15 @@ class TestBackupDeleteCommand:
         # Check that backup was deleted
         assert not backup_path.exists()
 
-    def test_delete_nonexistent_backup(self, test_db):
+    def test_delete_nonexistent_backup(
+        self, app_repo, backup_repo, addon_credential_repo
+    ):
         """Test deleting non-existent backup."""
-        delete_cmd = BackupDeleteCmd(db_session=test_db)
+        delete_cmd = BackupDeleteCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
 
         # Backup not found raises ValueError for JSON-RPC error handling
         with pytest.raises(ValueError) as exc_info:
@@ -461,9 +630,13 @@ class TestBackupDeleteCommand:
 
         assert "not found" in str(exc_info.value).lower()
 
-    def test_delete_no_args(self, test_db):
+    def test_delete_no_args(self, app_repo, backup_repo, addon_credential_repo):
         """Test backup:delete with no arguments."""
-        delete_cmd = BackupDeleteCmd(db_session=test_db)
+        delete_cmd = BackupDeleteCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
         result = delete_cmd.call()
 
         assert len(result) == 1

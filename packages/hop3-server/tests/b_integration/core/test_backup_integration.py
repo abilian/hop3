@@ -23,6 +23,11 @@ from sqlalchemy.orm import sessionmaker
 from hop3.config import HopConfig
 from hop3.core.backup import BackupManager, BackupManifest
 from hop3.orm import AddonCredential, App, Backup, BackupStateEnum, EnvVar
+from hop3.orm.repositories import (
+    AddonCredentialRepository,
+    AppRepository,
+    BackupRepository,
+)
 from hop3.orm.session import BigIntAuditBase
 
 
@@ -66,6 +71,34 @@ def backup_db_session(backup_db_engine):
     yield session
 
     session.close()
+
+
+@pytest.fixture
+def backup_repo(backup_db_session):
+    """Create a BackupRepository for testing."""
+    return BackupRepository(session=backup_db_session)
+
+
+@pytest.fixture
+def app_repo(backup_db_session):
+    """Create an AppRepository for testing."""
+    return AppRepository(session=backup_db_session)
+
+
+@pytest.fixture
+def addon_credential_repo(backup_db_session):
+    """Create an AddonCredentialRepository for testing."""
+    return AddonCredentialRepository(session=backup_db_session)
+
+
+@pytest.fixture
+def backup_manager(backup_repo, app_repo, addon_credential_repo):
+    """Create a BackupManager with repositories for testing."""
+    return BackupManager(
+        backup_repo=backup_repo,
+        app_repo=app_repo,
+        addon_credential_repo=addon_credential_repo,
+    )
 
 
 @pytest.fixture
@@ -227,21 +260,29 @@ class TestBackupManifestIntegration:
 class TestBackupManagerBasicOperations:
     """Integration tests for BackupManager basic operations with real database."""
 
-    def test_manager_initialization_stores_session(self, backup_db_session):
-        """Test BackupManager initializes with database session.
+    def test_manager_initialization_stores_session(
+        self, backup_repo, app_repo, addon_credential_repo
+    ):
+        """Test BackupManager initializes with repositories.
 
-        ARRANGE: Create manager with session
-        ACT: Access session
-        ASSERT: Verify session is stored
+        ARRANGE: Create manager with repositories
+        ACT: Access repositories
+        ASSERT: Verify repositories are stored
 
-        Tests that manager correctly stores database reference.
+        Tests that manager correctly stores repository references.
         """
-        manager = BackupManager(backup_db_session)
+        manager = BackupManager(
+            backup_repo=backup_repo,
+            app_repo=app_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
 
         # ACT & ASSERT
-        assert manager.db_session == backup_db_session
+        assert manager.backup_repo == backup_repo
+        assert manager.app_repo == app_repo
+        assert manager.addon_credential_repo == addon_credential_repo
 
-    def test_generate_backup_id_creates_valid_format(self, backup_db_session):
+    def test_generate_backup_id_creates_valid_format(self, backup_manager):
         """Test backup ID generation follows correct format.
 
         ARRANGE: Create manager and generate ID
@@ -250,9 +291,7 @@ class TestBackupManagerBasicOperations:
 
         Tests that backup IDs are properly formatted for parsing.
         """
-        manager = BackupManager(backup_db_session)
-
-        backup_id = manager._generate_backup_id()
+        backup_id = backup_manager._generate_backup_id()
 
         parts = backup_id.split("_")
         assert len(parts) == 3, f"Expected 3 parts, got {len(parts)}"
@@ -260,7 +299,7 @@ class TestBackupManagerBasicOperations:
         assert len(parts[1]) == 6, "Time should be HHMMSS (6 chars)"
         assert len(parts[2]) == 6, "Random suffix should be 6 hex chars"
 
-    def test_generate_backup_ids_are_unique(self, backup_db_session):
+    def test_generate_backup_ids_are_unique(self, backup_manager):
         """Test that multiple backup IDs are unique.
 
         ARRANGE: Generate multiple IDs
@@ -269,15 +308,11 @@ class TestBackupManagerBasicOperations:
 
         Tests that randomness ensures unique IDs even in rapid succession.
         """
-        manager = BackupManager(backup_db_session)
-
-        ids = {manager._generate_backup_id() for _ in range(10)}
+        ids = {backup_manager._generate_backup_id() for _ in range(10)}
 
         assert len(ids) == 10, "Not all backup IDs were unique"
 
-    def test_calculate_checksum_produces_sha256_format(
-        self, backup_db_session, tmp_path
-    ):
+    def test_calculate_checksum_produces_sha256_format(self, backup_manager, tmp_path):
         """Test checksum calculation produces valid SHA256 format.
 
         ARRANGE: Create test file with content
@@ -286,16 +321,15 @@ class TestBackupManagerBasicOperations:
 
         Tests that checksums are properly formatted and deterministic.
         """
-        manager = BackupManager(backup_db_session)
         test_file = tmp_path / "test.txt"
         test_file.write_text("Hello, World!")
 
-        checksum = manager._calculate_checksum(test_file)
+        checksum = backup_manager._calculate_checksum(test_file)
 
         assert checksum.startswith("sha256:")
         assert len(checksum) == 71  # "sha256:" (7) + 64 hex chars
 
-    def test_calculate_checksum_is_deterministic(self, backup_db_session, tmp_path):
+    def test_calculate_checksum_is_deterministic(self, backup_manager, tmp_path):
         """Test that same file content produces same checksum.
 
         ARRANGE: Create test file
@@ -304,17 +338,16 @@ class TestBackupManagerBasicOperations:
 
         Tests that checksum calculation is deterministic.
         """
-        manager = BackupManager(backup_db_session)
         test_file = tmp_path / "test.txt"
         test_file.write_text("Hello, World!")
 
-        checksum1 = manager._calculate_checksum(test_file)
-        checksum2 = manager._calculate_checksum(test_file)
+        checksum1 = backup_manager._calculate_checksum(test_file)
+        checksum2 = backup_manager._calculate_checksum(test_file)
 
         assert checksum1 == checksum2
 
     def test_calculate_checksum_differs_for_different_content(
-        self, backup_db_session, tmp_path
+        self, backup_manager, tmp_path
     ):
         """Test different file content produces different checksums.
 
@@ -324,20 +357,17 @@ class TestBackupManagerBasicOperations:
 
         Tests checksum correctness for different content.
         """
-        manager = BackupManager(backup_db_session)
         file1 = tmp_path / "test1.txt"
         file2 = tmp_path / "test2.txt"
         file1.write_text("Content 1")
         file2.write_text("Content 2")
 
-        checksum1 = manager._calculate_checksum(file1)
-        checksum2 = manager._calculate_checksum(file2)
+        checksum1 = backup_manager._calculate_checksum(file1)
+        checksum2 = backup_manager._calculate_checksum(file2)
 
         assert checksum1 != checksum2
 
-    def test_verify_checksums_succeeds_for_valid_files(
-        self, backup_db_session, tmp_path
-    ):
+    def test_verify_checksums_succeeds_for_valid_files(self, backup_manager, tmp_path):
         """Test checksum verification passes for valid backup files.
 
         ARRANGE: Create files and calculate their checksums
@@ -346,23 +376,20 @@ class TestBackupManagerBasicOperations:
 
         Tests that verification correctly validates backup integrity.
         """
-        manager = BackupManager(backup_db_session)
         file1 = tmp_path / "file1.txt"
         file2 = tmp_path / "file2.txt"
         file1.write_text("Content 1")
         file2.write_text("Content 2")
 
         checksums = {
-            "file1.txt": manager._calculate_checksum(file1),
-            "file2.txt": manager._calculate_checksum(file2),
+            "file1.txt": backup_manager._calculate_checksum(file1),
+            "file2.txt": backup_manager._calculate_checksum(file2),
         }
 
         # ACT & ASSERT
-        assert manager._verify_checksums(tmp_path, checksums) is True
+        assert backup_manager._verify_checksums(tmp_path, checksums) is True
 
-    def test_verify_checksums_fails_on_corrupted_file(
-        self, backup_db_session, tmp_path
-    ):
+    def test_verify_checksums_fails_on_corrupted_file(self, backup_manager, tmp_path):
         """Test checksum verification fails when file is modified.
 
         ARRANGE: Create file, calculate checksum, then modify it
@@ -371,18 +398,17 @@ class TestBackupManagerBasicOperations:
 
         Tests that verification detects file corruption.
         """
-        manager = BackupManager(backup_db_session)
         test_file = tmp_path / "test.txt"
         test_file.write_text("Original content")
 
-        checksum = manager._calculate_checksum(test_file)
+        checksum = backup_manager._calculate_checksum(test_file)
 
         test_file.write_text("Modified content")
 
         checksums = {"test.txt": checksum}
-        assert manager._verify_checksums(tmp_path, checksums) is False
+        assert backup_manager._verify_checksums(tmp_path, checksums) is False
 
-    def test_verify_checksums_fails_on_missing_file(self, backup_db_session, tmp_path):
+    def test_verify_checksums_fails_on_missing_file(self, backup_manager, tmp_path):
         """Test checksum verification fails if expected file is missing.
 
         ARRANGE: Create checksums for non-existent file
@@ -391,11 +417,9 @@ class TestBackupManagerBasicOperations:
 
         Tests that verification detects missing files.
         """
-        manager = BackupManager(backup_db_session)
-
         # ACT & ASSERT
         checksums = {"missing.txt": "sha256:abc123"}
-        assert manager._verify_checksums(tmp_path, checksums) is False
+        assert backup_manager._verify_checksums(tmp_path, checksums) is False
 
 
 @pytest.mark.integration
@@ -403,7 +427,7 @@ class TestBackupManagerPathOperations:
     """Integration tests for backup path operations."""
 
     def test_get_backup_dir_returns_correct_path_structure(
-        self, backup_db_session, backup_test_config
+        self, backup_manager, backup_test_config
     ):
         """Test backup directory path generation follows app structure.
 
@@ -413,14 +437,12 @@ class TestBackupManagerPathOperations:
 
         Tests that backup paths are organized correctly.
         """
-        manager = BackupManager(backup_db_session)
-
-        backup_dir = manager._get_backup_dir("my-app", "20251030_143022_a8f3d9")
+        backup_dir = backup_manager._get_backup_dir("my-app", "20251030_143022_a8f3d9")
 
         assert backup_dir.parts[-3:] == ("apps", "my-app", "20251030_143022_a8f3d9")
         assert "backups" in str(backup_dir)
 
-    def test_get_hop3_version_returns_string(self, backup_db_session):
+    def test_get_hop3_version_returns_string(self, backup_manager):
         """Test version retrieval returns valid string.
 
         ARRANGE: Create manager
@@ -429,9 +451,7 @@ class TestBackupManagerPathOperations:
 
         Tests that version can be retrieved.
         """
-        manager = BackupManager(backup_db_session)
-
-        version = manager._get_hop3_version()
+        version = backup_manager._get_hop3_version()
 
         assert isinstance(version, str)
         assert len(version) > 0
@@ -442,7 +462,7 @@ class TestBackupManagerServiceDetection:
     """Integration tests for attached addon/service detection."""
 
     def test_detect_attached_postgres_from_addon_credential(
-        self, backup_db_session, sample_app
+        self, backup_db_session, backup_manager, sample_app
     ):
         """Test PostgreSQL detection from AddonCredential record.
 
@@ -452,7 +472,6 @@ class TestBackupManagerServiceDetection:
 
         Tests that backup system discovers attached services correctly.
         """
-        manager = BackupManager(backup_db_session)
         # Create an AddonCredential record for the postgres addon
         credential = AddonCredential(
             app_id=sample_app.id,
@@ -463,14 +482,12 @@ class TestBackupManagerServiceDetection:
         backup_db_session.add(credential)
         backup_db_session.commit()
 
-        services = manager._get_attached_addons(sample_app)
+        services = backup_manager._get_attached_addons(sample_app)
 
         assert len(services) == 1
         assert services[0] == ("postgres", "mydb")
 
-    def test_detect_no_services_when_no_database_url(
-        self, backup_db_session, sample_app
-    ):
+    def test_detect_no_services_when_no_database_url(self, backup_manager, sample_app):
         """Test that services list is empty when no services attached.
 
         ARRANGE: Create app with standard env vars (no database)
@@ -479,9 +496,7 @@ class TestBackupManagerServiceDetection:
 
         Tests that detection doesn't produce false positives.
         """
-        manager = BackupManager(backup_db_session)
-
-        services = manager._get_attached_addons(sample_app)
+        services = backup_manager._get_attached_addons(sample_app)
 
         assert len(services) == 0
 
@@ -491,7 +506,7 @@ class TestBackupManagerDatabaseStateChanges:
     """Integration tests verifying actual database state changes."""
 
     def test_create_backup_creates_database_record(
-        self, backup_db_session, sample_app, backup_test_config
+        self, backup_db_session, backup_manager, sample_app, backup_test_config
     ):
         """Test backup creation persists backup record to database.
 
@@ -501,11 +516,9 @@ class TestBackupManagerDatabaseStateChanges:
 
         Tests that backups are properly tracked in database.
         """
-        manager = BackupManager(backup_db_session)
-
         # (we mock only the addon backup to avoid external service dependencies)
         with patch("hop3.core.backup.get_addon"):
-            _backup_id, _backup_dir = manager.create_backup(
+            _backup_id, _backup_dir = backup_manager.create_backup(
                 sample_app, include_addons=False
             )
 
@@ -520,7 +533,7 @@ class TestBackupManagerDatabaseStateChanges:
         assert backup.size > 0
 
     def test_backup_record_state_transitions(
-        self, backup_db_session, sample_app, backup_test_config
+        self, backup_db_session, backup_manager, sample_app, backup_test_config
     ):
         """Test backup record transitions through correct states.
 
@@ -530,18 +543,18 @@ class TestBackupManagerDatabaseStateChanges:
 
         Tests state machine correctness for backups.
         """
-        manager = BackupManager(backup_db_session)
-
         # (we mock only addon backup to avoid external service dependencies)
         with patch("hop3.core.backup.get_addon"):
-            _backup_id, _ = manager.create_backup(sample_app, include_addons=False)
+            _backup_id, _ = backup_manager.create_backup(
+                sample_app, include_addons=False
+            )
 
         backup = backup_db_session.query(Backup).filter_by(app_id=sample_app.id).first()
         assert backup is not None
         assert backup.state == BackupStateEnum.COMPLETED
 
     def test_backup_record_failure_state(
-        self, backup_db_session, sample_app, backup_test_config
+        self, backup_db_session, backup_manager, sample_app, backup_test_config
     ):
         """Test backup record transitions to FAILED on error.
 
@@ -551,13 +564,11 @@ class TestBackupManagerDatabaseStateChanges:
 
         Tests error handling and state rollback.
         """
-        manager = BackupManager(backup_db_session)
-
         with (
             patch("hop3.core.backup.tarfile.open", side_effect=Exception("Mock error")),
             pytest.raises(RuntimeError),
         ):
-            manager.create_backup(sample_app, include_addons=False)
+            backup_manager.create_backup(sample_app, include_addons=False)
 
         backup = backup_db_session.query(Backup).filter_by(app_id=sample_app.id).first()
         assert backup is not None

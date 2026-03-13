@@ -8,19 +8,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, ClassVar
-
-from sqlalchemy import select
+from typing import ClassVar
 
 from hop3.lib.registry import register
 from hop3.orm import User
+from hop3.orm.repositories import UserRepository
 from hop3.server.security.tokens import create_magic_token, create_token
 
 from ._base import Command
 from ._response import error, success, text, warning
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
 
 @register
@@ -37,7 +33,7 @@ class AuthCmd(Command):
 class AuthLoginCmd(Command):
     """Authenticate and receive an API token."""
 
-    db_session: Session
+    user_repo: UserRepository
     name: ClassVar[str] = "auth:login"
     requires_auth: ClassVar[bool] = False  # Public command
 
@@ -55,9 +51,7 @@ class AuthLoginCmd(Command):
             return [error("Usage: hop3 auth:login <username> <password>")]
 
         # Look up the user
-        user = self.db_session.scalars(
-            select(User).filter_by(username=username)
-        ).first()
+        user = self.user_repo.get_by_username(username)
         if not user:
             return [error("Invalid username or password")]
 
@@ -73,7 +67,7 @@ class AuthLoginCmd(Command):
         user.last_login_at = user.current_login_at
         user.current_login_at = datetime.now(timezone.utc)
         user.login_count += 1
-        self.db_session.commit()
+        self.user_repo.update(user, auto_commit=True)
 
         # Generate token
         scopes = ["authenticated"]
@@ -103,7 +97,7 @@ class AuthLoginCmd(Command):
 class AuthWhoamiCmd(Command):
     """Display current authenticated user information."""
 
-    db_session: Session
+    user_repo: UserRepository
     name: ClassVar[str] = "auth:whoami"
     pass_username: ClassVar[bool] = True  # Needs authenticated username
 
@@ -122,9 +116,7 @@ class AuthWhoamiCmd(Command):
         if not username:
             return [error("Not authenticated. Use 'hop3 auth:login' to authenticate.")]
 
-        user = self.db_session.scalars(
-            select(User).filter_by(username=username)
-        ).first()
+        user = self.user_repo.get_by_username(username)
         if not user:
             return [error("User not found")]
 
@@ -147,7 +139,7 @@ class AuthWhoamiCmd(Command):
 class AuthRegisterCmd(Command):
     """Register a new user account."""
 
-    db_session: Session
+    user_repo: UserRepository
     name: ClassVar[str] = "auth:register"
     requires_auth: ClassVar[bool] = False  # Public command
 
@@ -166,17 +158,11 @@ class AuthRegisterCmd(Command):
             return [error("Usage: hop3 auth:register <username> <email> <password>")]
 
         # Check if username already exists
-        existing_user = self.db_session.scalars(
-            select(User).filter_by(username=username)
-        ).first()
-        if existing_user:
+        if self.user_repo.username_exists(username):
             return [error(f"Username '{username}' already exists")]
 
         # Check if email already exists
-        existing_email = self.db_session.scalars(
-            select(User).filter_by(email=email)
-        ).first()
-        if existing_email:
+        if self.user_repo.email_exists(email):
             return [error(f"Email '{email}' already registered")]
 
         # Create new user
@@ -185,8 +171,7 @@ class AuthRegisterCmd(Command):
         user.active = True
         user.confirmed_at = datetime.now(timezone.utc)
 
-        self.db_session.add(user)
-        self.db_session.commit()
+        self.user_repo.add(user, auto_commit=True)
 
         return [
             text(f"User '{username}' registered successfully!"),
@@ -292,7 +277,7 @@ class AuthMagicLinkCmd(Command):
         hop3 login --web
     """
 
-    db_session: Session
+    user_repo: UserRepository
     name: ClassVar[str] = "auth:magic-link"
     requires_auth: ClassVar[bool] = False  # Called via SSH, not authenticated RPC
 
@@ -306,9 +291,7 @@ class AuthMagicLinkCmd(Command):
             Response with magic token or error message
         """
         # Look up the user
-        user = self.db_session.scalars(
-            select(User).filter_by(username=username)
-        ).first()
+        user = self.user_repo.get_by_username(username)
         if not user:
             return [error(f"User '{username}' not found")]
 

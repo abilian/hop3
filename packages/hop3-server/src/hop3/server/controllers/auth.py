@@ -10,9 +10,8 @@ from datetime import datetime, timezone
 
 from litestar import Controller, Request, get, post
 from litestar.response import Redirect, Template
-from sqlalchemy import select
 
-from hop3.orm import User
+from hop3.orm.repositories import UserRepository
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
 from hop3.server.security.tokens import validate_magic_token
@@ -71,8 +70,10 @@ class AuthController(Controller):
 
         # Get database session
         with get_session() as db_session:
+            user_repo = UserRepository(session=db_session)
+
             # Look up the user
-            user = db_session.scalars(select(User).filter_by(username=username)).first()
+            user = user_repo.get_by_username(username)
 
             if not user or not user.active or not user.check_password(password):
                 return Redirect(
@@ -86,7 +87,7 @@ class AuthController(Controller):
             user.last_login_at = user.current_login_at
             user.current_login_at = datetime.now(timezone.utc)
             user.login_count += 1
-            db_session.commit()
+            user_repo.update(user, auto_commit=True)
 
         # Redirect to dashboard
         return Redirect(path="/dashboard")
@@ -126,7 +127,9 @@ class AuthController(Controller):
 
         # Get user from database
         with get_session() as db_session:
-            user = db_session.scalars(select(User).filter_by(username=username)).first()
+            user_repo = UserRepository(session=db_session)
+
+            user = user_repo.get_by_username(username)
 
             if not user:
                 # Session is invalid, clear it
@@ -177,7 +180,9 @@ class AuthController(Controller):
 
         # Get user from database and create session
         with get_session() as db_session:
-            user = db_session.scalars(select(User).filter_by(username=username)).first()
+            user_repo = UserRepository(session=db_session)
+
+            user = user_repo.get_by_username(username)
 
             if not user:
                 return Redirect(path="/auth/login?error=User not found.")
@@ -192,7 +197,7 @@ class AuthController(Controller):
             user.last_login_at = user.current_login_at
             user.current_login_at = datetime.now(timezone.utc)
             user.login_count += 1
-            db_session.commit()
+            user_repo.update(user, auto_commit=True)
 
         # Redirect to dashboard
         return Redirect(path="/dashboard")
