@@ -90,11 +90,18 @@ class AppConfig:
 
     @property
     def post_build(self):
-        """Get postbuild command.
+        """Get postbuild command with precedence: hop3.toml > Procfile.
 
         Returns:
             Postbuild command string, empty if not defined
         """
+        # Check hop3.toml first
+        if self.has_hop3_toml:
+            after_build = self.hop3_config.after_build_commands
+            if after_build:
+                return " && ".join(after_build)
+
+        # Fall back to Procfile
         return self.workers.get("postbuild", "")
 
     @property
@@ -112,6 +119,30 @@ class AppConfig:
 
         # Fall back to Procfile
         return self.workers.get("prerun", "")
+
+    @property
+    def explicit_builder(self) -> str | None:
+        """Get explicit builder name from hop3.toml.
+
+        Returns:
+            Builder name ('local', 'docker') or None for auto-detection
+        """
+        if self.has_hop3_toml:
+            builder = self.hop3_config.builder_name
+            if builder and builder != "auto":
+                return builder
+        return None
+
+    @property
+    def explicit_toolchain(self) -> str | None:
+        """Get explicit toolchain name from hop3.toml.
+
+        Returns:
+            Toolchain name ('python', 'node', etc.) or None for auto-detection
+        """
+        if self.has_hop3_toml:
+            return self.hop3_config.toolchain_name
+        return None
 
     @property
     def start_timeout(self) -> float:
@@ -227,6 +258,8 @@ class AppConfig:
             "src_dir": str(self.src_dir),
             "has_procfile": self.has_procfile,
             "has_hop3_toml": self.has_hop3_toml,
+            "explicit_builder": self.explicit_builder,
+            "explicit_toolchain": self.explicit_toolchain,
             "procfile": {
                 "workers": self.workers,
                 "web_workers": self.web_workers,

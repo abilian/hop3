@@ -7,15 +7,21 @@
 This module implements parsing for the hop3.toml configuration format as defined
 in ADR-001 and ADR-002. It supports the "Convention over Configuration" principle
 by making hop3.toml optional and providing sensible defaults.
+
+Validation is performed using Pydantic models defined in schema.py. Unknown
+fields are rejected to catch typos early.
 """
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import tomllib  # Python 3.11+
+
+from hop3.lib import log
 
 
 @dataclass
@@ -34,11 +40,12 @@ class Hop3Config:
     config_path: Path | None = None
 
     @classmethod
-    def from_file(cls, filename: str | Path) -> Hop3Config:
+    def from_file(cls, filename: str | Path, *, validate: bool = True) -> Hop3Config:
         """Load and parse a hop3.toml file.
 
         Args:
             filename: Path to the hop3.toml file
+            validate: If True, validate against schema (default: True)
 
         Returns:
             Hop3Config instance with parsed data
@@ -46,6 +53,7 @@ class Hop3Config:
         Raises:
             FileNotFoundError: If the file doesn't exist
             TOMLDecodeError: If the file is not valid TOML
+            Hop3TomlValidationError: If validation fails
         """
         path = Path(filename)
         if not path.exists():
@@ -55,19 +63,61 @@ class Hop3Config:
         with path.open("rb") as f:
             data = tomllib.load(f)
 
+        # Validate against schema unless disabled
+        # Can be disabled via environment variable for backwards compatibility
+        should_validate = validate and not os.environ.get("HOP3_SKIP_CONFIG_VALIDATION")
+        if should_validate:
+            cls._validate_config(data, path)
+
         return cls(_data=data, config_path=path)
 
     @classmethod
-    def from_str(cls, content: str) -> Hop3Config:
+    def _validate_config(cls, data: dict[str, Any], path: Path) -> None:
+        """Validate configuration data against schema.
+
+        Args:
+            data: Parsed TOML data
+            path: Path to the config file (for error messages)
+
+        Raises:
+            Hop3TomlValidationError: If validation fails
+        """
+        from hop3.project.schema import (  # noqa: PLC0415
+            Hop3TomlValidationError,
+            validate_hop3_toml,
+        )
+
+        try:
+            validate_hop3_toml(data)
+            log(f"hop3.toml validated successfully: {path}", level=2, fg="green")
+        except Hop3TomlValidationError as e:
+            # Log the error before re-raising
+            log(f"hop3.toml validation failed: {path}", level=0, fg="red")
+            for line in e.message.split("\n"):
+                log(f"  {line}", level=0, fg="red")
+            raise
+
+    @classmethod
+    def from_str(cls, content: str, *, validate: bool = True) -> Hop3Config:
         """Parse hop3.toml content from a string.
 
         Args:
             content: TOML content as string
+            validate: If True, validate against schema (default: True)
 
         Returns:
             Hop3Config instance with parsed data
+
+        Raises:
+            Hop3TomlValidationError: If validation fails
         """
         data = tomllib.loads(content)
+
+        # Validate against schema unless disabled
+        should_validate = validate and not os.environ.get("HOP3_SKIP_CONFIG_VALIDATION")
+        if should_validate:
+            cls._validate_config(data, Path("<string>"))
+
         return cls(_data=data)
 
     # =========================================================================
@@ -141,9 +191,60 @@ class Hop3Config:
         return test_cmds if isinstance(test_cmds, list) else []
 
     @property
+    def after_build_commands(self) -> list[str]:
+        """Get build.after-build commands.
+
+        Returns:
+            List of commands to run after build (post-build)
+        """
+        cmds = self.build.get("after-build", [])
+        if isinstance(cmds, str):
+            return [cmds]
+        return cmds if isinstance(cmds, list) else []
+
+    @property
+    def builder_name(self) -> str | None:
+        """Get build.builder (explicit builder selection).
+
+        Returns:
+            Builder name ('local', 'docker', 'auto') or None for auto-detection
+        """
+        return self.build.get("builder")
+
+    @property
+    def toolchain_name(self) -> str | None:
+        """Get build.toolchain (explicit toolchain selection).
+
+        Returns:
+            Toolchain name ('python', 'node', etc.) or None for auto-detection
+        """
+        return self.build.get("toolchain")
+
+    @property
     def build_packages(self) -> list[str]:
         """Get build.packages (system packages for build)."""
         return self.build.get("packages", [])
+
+    @property
+    def ignore_patterns(self) -> list[str]:
+        """Get build.ignore (patterns to exclude from deployment).
+
+        Returns:
+            List of glob patterns to ignore, empty list if not specified
+        """
+        patterns = self.build.get("ignore", [])
+        if isinstance(patterns, list):
+            return patterns
+        return []
+
+    @property
+    def ignore_file(self) -> str | None:
+        """Get build.ignore-file (file containing ignore patterns).
+
+        Returns:
+            Path to ignore file, or None if not specified
+        """
+        return self.build.get("ignore-file")
 
     @property
     def pip_install(self) -> list[str]:
@@ -231,14 +332,28 @@ class Hop3Config:
         timeout = self.run.get("start-timeout")
         return float(timeout) if timeout is not None else None
 
+    @property
+    def named_workers(self) -> dict[str, str]:
+        """Get run.workers.* (named worker definitions).
+
+        Returns:
+            Dictionary mapping worker names to commands
+            e.g., {"worker": "celery -A app worker", "scheduler": "celery -A app beat"}
+        """
+        workers_section = self.run.get("workers", {})
+        if isinstance(workers_section, dict):
+            # Ensure all values are strings
+            return {k: str(v) for k, v in workers_section.items()}
+        return {}
+
     def get_workers_from_run_section(self) -> dict[str, str]:
         """Extract worker definitions from [run] section.
 
         This provides Procfile-compatible worker definitions from hop3.toml.
-        Currently supports:
+        Supports:
         - run.start -> 'web' worker
         - run.before-run -> 'prerun' worker
-        - Future: run.workers.* -> named workers
+        - run.workers.* -> named workers (worker, scheduler, cron, etc.)
 
         Returns:
             Dictionary mapping worker names to commands
@@ -258,6 +373,10 @@ class Hop3Config:
         before_run = self.before_run_commands
         if before_run:
             workers["prerun"] = " && ".join(before_run)
+
+        # Add named workers from [run.workers] section
+        # These can define worker, scheduler, cron, or any custom process type
+        workers.update(self.named_workers)
 
         # NOTE: build.before-build is NOT added as a worker here because:
         # 1. It's already handled by deployer.py._run_hook() during deployment

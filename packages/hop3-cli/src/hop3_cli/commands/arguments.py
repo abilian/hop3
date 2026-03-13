@@ -21,6 +21,12 @@ if TYPE_CHECKING:
 
 __all__ = ["generate_archive", "get_extra_args", "pack_repository"]
 
+# Try to import tomllib (Python 3.11+) or fall back to toml
+try:
+    import tomllib
+except ImportError:
+    import toml as tomllib  # type: ignore[import-not-found,no-redef]
+
 # Archive size limits (in bytes)
 # Soft limit: warn the user but proceed
 # Hard limit: refuse to upload (can be overridden on server)
@@ -272,18 +278,82 @@ def _check_archive_size(
 def get_ignored_spec(source_dir: Path) -> tuple[pathspec.PathSpec | None, str | None]:
     """Load ignore rules from a directory.
 
-    Checks for ignore files in priority order: .hop3ignore, .dockerignore, .gitignore
-    The first one found is used.
+    Checks sources in priority order:
+    1. [build].ignore patterns in hop3.toml
+    2. [build].ignore-file reference in hop3.toml
+    3. .hop3ignore file
+    4. .dockerignore file
+    5. .gitignore file
+
+    The first source found with patterns is used.
 
     Returns:
-        Tuple of (PathSpec or None, filename used or None)
+        Tuple of (PathSpec or None, source description or None)
     """
+    # 1. Check hop3.toml for inline ignore patterns or ignore-file reference
+    hop3_toml_spec, hop3_toml_source = _get_hop3_toml_ignore_spec(source_dir)
+    if hop3_toml_spec is not None:
+        return hop3_toml_spec, hop3_toml_source
+
+    # 2. Fall back to ignore files in priority order
     for ignore_file in IGNORE_FILES:
         ignore_path = source_dir / ignore_file
         if ignore_path.is_file():
             with ignore_path.open(encoding="utf-8") as f:
                 spec = pathspec.PathSpec.from_lines("gitignore", f)
             return spec, ignore_file
+
+    return None, None
+
+
+def _get_hop3_toml_ignore_spec(
+    source_dir: Path,
+) -> tuple[pathspec.PathSpec | None, str | None]:
+    """Extract ignore patterns from hop3.toml if present.
+
+    Checks for:
+    1. [build].ignore - inline list of patterns
+    2. [build].ignore-file - reference to an ignore file
+
+    Returns:
+        Tuple of (PathSpec or None, source description or None)
+    """
+    # Check for hop3.toml in standard locations
+    hop3_toml_paths = [
+        source_dir / "hop3" / "hop3.toml",
+        source_dir / "hop3.toml",
+    ]
+
+    for hop3_toml_path in hop3_toml_paths:
+        if not hop3_toml_path.is_file():
+            continue
+
+        try:
+            with hop3_toml_path.open("rb") as f:
+                data = tomllib.load(f)
+        except Exception:
+            # If TOML parsing fails, skip and try next location
+            continue
+
+        build_section = data.get("build", {})
+        if not isinstance(build_section, dict):
+            continue
+
+        # Check for inline ignore patterns
+        ignore_patterns = build_section.get("ignore")
+        if ignore_patterns and isinstance(ignore_patterns, list):
+            spec = pathspec.PathSpec.from_lines("gitignore", ignore_patterns)
+            return spec, f"hop3.toml [build].ignore ({len(ignore_patterns)} patterns)"
+
+        # Check for ignore-file reference
+        ignore_file_ref = build_section.get("ignore-file")
+        if ignore_file_ref and isinstance(ignore_file_ref, str):
+            ignore_file_path = source_dir / ignore_file_ref
+            if ignore_file_path.is_file():
+                with ignore_file_path.open(encoding="utf-8") as f:
+                    spec = pathspec.PathSpec.from_lines("gitignore", f)
+                return spec, f"hop3.toml [build].ignore-file -> {ignore_file_ref}"
+
     return None, None
 
 

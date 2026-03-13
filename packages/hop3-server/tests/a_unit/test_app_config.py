@@ -34,6 +34,8 @@ def test_config_1(tmp_path) -> None:
         "app_json": {},
         "has_procfile": True,
         "has_hop3_toml": False,
+        "explicit_builder": None,
+        "explicit_toolchain": None,
         "hop3_config": {},
         "procfile": {
             "post_build": "",
@@ -70,6 +72,8 @@ def test_config_2(tmp_path) -> None:
         "app_json": {},
         "has_procfile": True,
         "has_hop3_toml": False,
+        "explicit_builder": None,
+        "explicit_toolchain": None,
         "hop3_config": {},
         "procfile": {
             "post_build": 'echo "goodbye"',

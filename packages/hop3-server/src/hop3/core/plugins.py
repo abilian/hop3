@@ -168,14 +168,32 @@ def get_builder(context: DeploymentContext) -> Builder:
     else:
         builder_name_from_config = "auto"
 
+    # Import decision logger
+    from hop3.lib.decision_log import get_decision_logger  # noqa: PLC0415
+
+    decision_logger = get_decision_logger()
+
     # Auto-detect by finding the first one that "accepts" the context.
     if builder_name_from_config == "auto":
         rejection_reasons = []
+        available_builders = [
+            getattr(cls, "name", cls.__name__) for cls in builder_classes
+        ]
         for builder_class in builder_classes:
             builder_name = getattr(builder_class, "name", builder_class.__name__)
             try:
                 builder = builder_class(context)
                 if builder.accept():
+                    # Log the auto-detection decision
+                    reason = getattr(
+                        builder, "acceptance_reason", "matched project files"
+                    )
+                    decision_logger.log_builder_decision(
+                        builder_name,
+                        f"auto-detected ({reason})",
+                        explicit=False,
+                        alternatives=available_builders,
+                    )
                     return builder
                 # Builder didn't accept - record reason if available
                 reason = getattr(builder, "rejection_reason", "no matching files")
@@ -201,6 +219,12 @@ def get_builder(context: DeploymentContext) -> Builder:
     for builder_class in builder_classes:
         # We assume the name is a class attribute
         if getattr(builder_class, "name", None) == builder_name_from_config:
+            # Log the explicit selection
+            decision_logger.log_builder_decision(
+                builder_name_from_config,
+                "explicitly set in hop3.toml [build].builder",
+                explicit=True,
+            )
             return builder_class(context)
     msg = f"Configured builder '{builder_name_from_config}' not found."
     raise RuntimeError(msg)
@@ -229,11 +253,22 @@ def get_deployment_strategy(
     strategy_classes_list = pm.hook.get_deployers()
     strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
 
+    # Import decision logger
+    from hop3.lib.decision_log import get_decision_logger  # noqa: PLC0415
+
+    decision_logger = get_decision_logger()
+
     # TODO: Add logic to check context.app_config for an explicit strategy name.
 
     for strategy_class in strategy_classes:
         strategy: Deployer = strategy_class(context, artifact)
         if strategy.accept():
+            deployer_name = getattr(strategy_class, "name", strategy_class.__name__)
+            decision_logger.log_deployer_decision(
+                deployer_name,
+                f"matched artifact kind '{artifact.kind}'",
+                artifact_kind=artifact.kind,
+            )
             return strategy
 
     # No strategy accepted - build error message
