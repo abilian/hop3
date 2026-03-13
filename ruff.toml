@@ -69,6 +69,7 @@ lint.extend-ignore = [
     "PLW2901", #	[ ] redefined-loop-name
     "SIM117", # 	[ ] multiple-with-statements
     "RUF001", # 	[ ] ambiguous-unicode-character-string
+    "A002",
 ]
 
 

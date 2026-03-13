@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from hop3 import config as c
+from hop3.config import HOP3_ROOT, HOP3_USER
 from hop3.deployers import do_deploy
 from hop3.lib.registry import lookup, register
 from hop3.lib.util import CommandError, CommandFailedError, run_command
@@ -164,26 +166,58 @@ class PsScaleCmd(Command):
 @register
 @dataclass(frozen=True)
 class RunCmd(Command):
-    """Run a command in the context of an app."""
+    """Run a command in the context of an app.
+
+    Usage: hop run <app_name> <command> [args...] [--input <data>]
+
+    Options:
+        --input <data>: Data to send to command's stdin (for non-interactive input)
+
+    Examples:
+        hop run myapp flask db upgrade
+        hop run myapp python manage.py migrate
+        hop run myapp flask users change_password user@example.com --input "newpassword"
+    """
 
     db_session: Session
     name: ClassVar[str] = "run"
 
     def call(self, *args):
         if len(args) < 2:
-            return [text("Usage: hop run <app_name> <command> [args...]")]
+            return [
+                text(
+                    "Usage: hop run <app_name> <command> [args...] [--input <data>]\n\n"
+                    "Options:\n"
+                    "  --input <data>  Data to send to stdin (for password prompts, etc.)"
+                )
+            ]
 
-        app_name = args[0]
-        cmd_to_run = list(args[1:])
+        # Parse --input option
+        args_list = list(args)
+        stdin_data = None
+        if "--input" in args_list:
+            idx = args_list.index("--input")
+            if idx + 1 < len(args_list):
+                stdin_data = args_list[idx + 1] + "\n"  # Add newline for input
+                args_list = args_list[:idx] + args_list[idx + 2 :]
+            else:
+                return [error("--input requires a value")]
+
+        app_name = args_list[0]
+        cmd_to_run = args_list[1:]
         app = get_app(self.db_session, app_name)
+
+        # Build complete environment with PATH including virtualenv
+        env = self._build_app_env(app)
 
         try:
             result = run_command(
                 cmd_to_run,
                 cwd=app.src_path,
-                env=dict(app.get_runtime_env()),
+                env=env,
                 text=True,
                 timeout=300,  # 5 minute timeout for user commands
+                input=stdin_data,
             )
             output = result.stdout
             if result.stderr:
@@ -196,6 +230,32 @@ class RunCmd(Command):
             return [error(output)]
         except CommandError as e:
             return [error(e.message)]
+
+    def _build_app_env(self, app) -> dict[str, str]:
+        """Build complete environment for running commands in app context.
+
+        This mirrors the environment setup in spawn.py make_env() to ensure
+        commands have access to the virtualenv, proper PATH, etc.
+        """
+        virtualenv_path = app.virtualenv_path
+
+        # Start with system PATH, prepend virtualenv bin
+        system_path = os.environ.get("PATH", "/usr/bin:/bin")
+        venv_bin = virtualenv_path / "bin"
+
+        env = {
+            "APP": app.name,
+            "HOME": str(HOP3_ROOT),
+            "USER": HOP3_USER,
+            "PATH": f"{venv_bin}:{system_path}",
+            "PWD": str(app.src_path),
+            "VIRTUAL_ENV": str(virtualenv_path),
+        }
+
+        # Add app's stored environment variables
+        env.update(dict(app.get_runtime_env().items()))
+
+        return env
 
 
 # --- SBOM Command ---
