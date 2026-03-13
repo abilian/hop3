@@ -254,7 +254,7 @@ class Client:
 
         # Clear cached headers so next request uses new token
         if hasattr(self, "_headers_cache"):
-            delattr(self, "_headers_cache")
+            del self._headers_cache
 
     def _get_ssl_verification(self) -> bool | str:
         """Determine SSL verification mode based on config."""

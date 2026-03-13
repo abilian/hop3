@@ -52,6 +52,14 @@ def do_deploy(
     """
     deltas = deltas or {}
 
+    # Reset decision logger for this deployment
+    from hop3.lib.decision_log import (  # noqa: PLC0415
+        flush_decision_logger,
+        reset_decision_logger,
+    )
+
+    reset_decision_logger()
+
     # --- 1. Parse Application Configuration ---
     log(f"Starting deployment for app '{app.name}'", level=0, fg="green")
     server_log.info("Starting deployment", app_name=app.name, app_id=app.id)
@@ -145,6 +153,9 @@ def do_deploy(
     # --- 6. Update App Model ---
     # Store runtime info so start/stop/status commands know how to handle this app
     _update_app_model(app, deployer.name, deployment_info, app_config)
+
+    # Flush decision log summary
+    flush_decision_logger()
 
     log(f"Deployment for '{app.name}' finished successfully.", level=0, fg="green")
     server_log.info(

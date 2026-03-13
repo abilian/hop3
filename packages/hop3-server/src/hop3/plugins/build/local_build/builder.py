@@ -139,6 +139,11 @@ class LocalBuilder:
             cls for sublist in toolchain_classes_list for cls in sublist
         ]
 
+        # Import decision logger
+        from hop3.lib.decision_log import get_decision_logger  # noqa: PLC0415
+
+        decision_logger = get_decision_logger()
+
         # Check if explicit toolchain is specified in hop3.toml
         explicit_toolchain = self._get_explicit_toolchain()
         if explicit_toolchain:
@@ -148,10 +153,10 @@ class LocalBuilder:
             for toolchain_class in toolchain_classes:
                 name = getattr(toolchain_class, "name", "").lower()
                 if name == explicit_toolchain.lower():
-                    log(
-                        f"Using explicit toolchain: {explicit_toolchain}",
-                        level=2,
-                        fg="cyan",
+                    decision_logger.log_toolchain_decision(
+                        explicit_toolchain,
+                        "explicitly set in hop3.toml [build].toolchain",
+                        explicit=True,
                     )
                     return [toolchain_class]
             # Toolchain not found
@@ -169,6 +174,19 @@ class LocalBuilder:
             toolchain = toolchain_class(context)
             if toolchain.accept():
                 applicable.append(toolchain_class)
+
+        # Log auto-detection decisions
+        for toolchain_class in applicable:
+            toolchain_name = getattr(toolchain_class, "name", toolchain_class.__name__)
+            # Get detection info if available
+            detected_files = getattr(toolchain_class, "detection_files", None)
+            decision_logger.log_toolchain_decision(
+                toolchain_name,
+                "auto-detected from project files",
+                explicit=False,
+                detected_files=detected_files,
+            )
+
         return applicable
 
     def _get_explicit_toolchain(self) -> str | None:
