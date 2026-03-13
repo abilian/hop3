@@ -77,6 +77,7 @@ def run_command(
     cwd: Path | str | None = None,
     env: dict[str, str] | None = None,
     text: bool = False,
+    input: str | bytes | None = None,
 ) -> subprocess.CompletedProcess:
     """Run a command and return the result, raising on failure.
 
@@ -86,6 +87,7 @@ def run_command(
         cwd: Working directory for the command (default: current directory)
         env: Environment variables for the command (default: inherit from parent)
         text: If True, decode stdout/stderr as text (default: False, returns bytes)
+        input: Data to send to command's stdin (default: None)
 
     Returns:
         CompletedProcess on success
@@ -111,6 +113,7 @@ def run_command(
             cwd=cwd,
             env=env,
             text=text,
+            input=input,
         )
         return result
     except subprocess.CalledProcessError as e:
