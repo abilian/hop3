@@ -5,12 +5,10 @@
 
 from __future__ import annotations
 
-import functools
 import grp
 import os
 import pwd
 import shutil
-import subprocess
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -26,65 +24,6 @@ if TYPE_CHECKING:
     from hop3.core.env import Env
 
 __all__ = ["spawn_uwsgi_worker"]
-
-
-@functools.cache
-def _needs_python_plugin() -> bool:
-    """Check if uWSGI needs the python3 plugin to be loaded explicitly.
-
-    System-packaged uWSGI (apt/yum) uses modular plugins and needs this.
-    Pip-installed uWSGI has Python built-in and doesn't need it.
-
-    Returns:
-        True if plugin directive is needed, False otherwise.
-    """
-    try:
-        # Check if python3 plugin file exists (system uWSGI)
-        # Different distros put it in different places
-        plugin_paths = [
-            # Debian/Ubuntu
-            Path("/usr/lib/uwsgi/plugins/python3_plugin.so"),
-            Path("/usr/lib/uwsgi/plugins/python312_plugin.so"),
-            Path("/usr/lib/uwsgi/plugins/python311_plugin.so"),
-            Path("/usr/lib/uwsgi/plugins/python310_plugin.so"),
-            # Ubuntu with arch-specific paths
-            Path("/usr/lib/x86_64-linux-gnu/uwsgi/plugins/python3_plugin.so"),
-            Path("/usr/lib/aarch64-linux-gnu/uwsgi/plugins/python3_plugin.so"),
-            # RHEL/Fedora
-            Path("/usr/lib64/uwsgi/python3_plugin.so"),
-        ]
-        for path in plugin_paths:
-            if path.exists():
-                return True
-
-        # Also check by globbing the plugin directory
-        plugin_dirs = [
-            Path("/usr/lib/uwsgi/plugins"),
-            Path("/usr/lib64/uwsgi"),
-        ]
-        for plugin_dir in plugin_dirs:
-            if plugin_dir.is_dir():
-                # If there are any python*_plugin.so files, we need plugins
-                if list(plugin_dir.glob("python*_plugin.so")):
-                    return True
-
-        # Alternative: check if uWSGI binary is in /usr/bin (system) vs venv
-        result = subprocess.run(
-            ["which", "uwsgi"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode == 0:
-            uwsgi_path = result.stdout.strip()
-            # System uWSGI is typically in /usr/bin
-            if uwsgi_path.startswith("/usr/bin"):
-                return True
-
-        return False
-    except Exception:
-        # If detection fails, assume pip-installed (no plugin needed)
-        return False
 
 
 def spawn_uwsgi_worker(
@@ -185,7 +124,8 @@ class UwsgiWorker:
             ("uid", pw_name),
             ("gid", gr_name),
             ("master", "true"),
-            ("project", app_name),
+            # Note: "project" directive is not supported by all uWSGI versions
+            # (e.g., RHEL 9's uWSGI rejects it in strict mode)
             ("max-requests", env.get("UWSGI_MAX_REQUESTS", "1024")),
             ("listen", env.get("UWSGI_LISTEN", "16")),
             ("processes", env.get("UWSGI_PROCESSES", "1")),
@@ -329,15 +269,22 @@ class WsgiWorker(UwsgiWorker):
     )
 
     def update_settings(self) -> None:
+        from hop3.orm import App  # noqa: PLC0415 - Avoid circular import
+
+        app = App(name=self.app_name)
+
         self.settings += [
             ("module", self.command),
             ("threads", self.env.get("UWSGI_THREADS", "4")),
+            # Strict mode catches config errors early
+            ("need-app", "true"),
+            ("strict", "true"),
+            ("catch-exceptions", "true"),
+            ("pythonpath", str(app.src_path)),
         ]
 
-        # Only add plugin directive for system-packaged uWSGI (apt/yum)
-        # pip-installed uWSGI has Python built-in and doesn't need it
-        if _needs_python_plugin():
-            self.settings.add("plugin", "python3")
+        # Note: No plugin directive needed - uWSGI is installed via pip
+        # with Python support built-in (not system-packaged with plugins)
 
         if "UWSGI_ASYNCIO" in self.env:
             try:

@@ -23,8 +23,8 @@ PACKAGES = [
     "python@3.11",
     # Nginx
     "nginx",
-    # uwsgi
-    "uwsgi",
+    # Note: uWSGI is installed via pip in hop3's venv, not as a system package.
+    # This ensures consistent behavior across distros without plugin complications.
     # Let's Encrypt
     "certbot",
     # For builders

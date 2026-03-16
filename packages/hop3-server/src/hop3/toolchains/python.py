@@ -16,6 +16,45 @@ from hop3.lib import chdir, log
 
 from ._base import LanguageToolchain
 
+
+def _find_best_python() -> str:
+    """Find the best available Python interpreter (3.12, 3.11, 3.10, or fallback).
+
+    On RHEL 9 clones, /usr/bin/python3 is Python 3.9 which is too old.
+    We prefer Python 3.12 > 3.11 > 3.10 > python3.
+
+    Returns:
+        Path to the best Python interpreter.
+    """
+    candidates = [
+        "/usr/bin/python3.12",
+        "/usr/bin/python3.11",
+        "/usr/bin/python3.10",
+        "/usr/bin/python3",
+    ]
+    for python in candidates:
+        if Path(python).exists():
+            # Verify it actually works
+            try:
+                result = subprocess.run(
+                    [python, "--version"],
+                    check=False,
+                    capture_output=True,
+                    timeout=5,
+                )
+                if result.returncode == 0:
+                    log(
+                        f"Using Python: {python} ({result.stdout.decode().strip()})",
+                        level=2,
+                        fg="green",
+                    )
+                    return python
+            except (subprocess.SubprocessError, OSError):
+                continue
+    # Last resort fallback
+    return "/usr/bin/python3"
+
+
 if TYPE_CHECKING:
     from hop3.core.protocols import BuildArtifact
 
@@ -100,10 +139,11 @@ class PythonToolchain(LanguageToolchain):
             shutil.rmtree(self.virtual_env, ignore_errors=True)
 
         emit(CreatingVirtualEnv(self.app_name))
-        # Use /usr/bin/python3 with the built-in venv module.
+        # Use the best available Python with the built-in venv module.
+        # On RHEL 9 clones, /usr/bin/python3 is Python 3.9, but Python 3.12 is installed.
         # venv is part of Python's standard library (3.3+), no external package needed.
-        # This works on all platforms (Linux, macOS) without additional dependencies.
-        self.shell(f"/usr/bin/python3 -m venv {self.virtual_env}")
+        python = _find_best_python()
+        self.shell(f"{python} -m venv {self.virtual_env}")
 
         # Verify the virtualenv was created successfully
         if not python_path.exists():

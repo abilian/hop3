@@ -270,12 +270,71 @@ class Deployer:
             args += " --pre"
         return args
 
+    def _ensure_python310_plus(self) -> str:
+        """Ensure Python 3.10+ is available on the remote system.
+
+        RHEL 9 clones (Rocky, AlmaLinux) ship with Python 3.9 by default,
+        but Python 3.11/3.12 are available in the appstream repository.
+
+        Returns:
+            The python command to use (e.g., "python3" or "python3.11")
+        """
+        # Check current Python version
+        result = self.backend.run(
+            "python3 -c \"import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')\"",
+            check=False,
+        )
+
+        if result.returncode == 0:
+            version = result.stdout.strip()
+            major, minor = map(int, version.split(".")[:2])
+            if major >= 3 and minor >= 10:
+                return "python3"
+
+        # Check if python3.12 is available
+        result = self.backend.run("command -v python3.12", check=False)
+        if result.returncode == 0:
+            return "python3.12"
+
+        # Check if python3.11 is available
+        result = self.backend.run("command -v python3.11", check=False)
+        if result.returncode == 0:
+            return "python3.11"
+
+        # Need to install Python 3.11 or 3.12
+        # Check if we're on RHEL/Rocky/AlmaLinux (dnf-based)
+        result = self.backend.run("command -v dnf", check=False)
+        if result.returncode == 0:
+            self.log("Installing Python 3.12 (RHEL/Rocky/AlmaLinux)...")
+            # Try Python 3.12 first, fall back to 3.11
+            result = self.backend.run(
+                "dnf install -y python3.12 python3.12-pip python3.12-devel 2>&1",
+                check=False,
+            )
+            if result.returncode == 0:
+                return "python3.12"
+
+            result = self.backend.run(
+                "dnf install -y python3.11 python3.11-pip python3.11-devel 2>&1",
+                check=False,
+            )
+            if result.returncode == 0:
+                return "python3.11"
+
+        # Default fallback
+        return "python3"
+
     def _install(self, *, local_path: str | None = None) -> bool:
         """Install Hop3 on the target.
 
         Args:
             local_path: Path on the server where local code was uploaded (if any)
         """
+        # Ensure Python 3.10+ is available
+        python_cmd = self._ensure_python310_plus()
+        if python_cmd != "python3":
+            self.log(f"Using {python_cmd} for installation")
+
         # Upload installer script
         installer_path = self.config.installer_path
         if not installer_path.exists():
@@ -288,7 +347,7 @@ class Deployer:
             return False
 
         # Build install command
-        install_cmd = "python3 -u /tmp/install-server.py"
+        install_cmd = f"{python_cmd} -u /tmp/install-server.py"
         install_cmd += self._build_source_args(local_path)
 
         if self.config.with_features:
