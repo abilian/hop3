@@ -102,10 +102,11 @@ def _format_list_result(result: list) -> str:
     """
     output_parts = []
     for item in result:
-        if isinstance(item, dict):
-            output_parts.append(_format_dict_item(item))
-        else:
-            output_parts.append(str(item))
+        match item:
+            case dict():
+                output_parts.append(_format_dict_item(item))
+            case _:
+                output_parts.append(str(item))
     return "\n".join(output_parts)
 
 
@@ -121,14 +122,16 @@ def format_output(result):
     Returns:
         Formatted string for console output
     """
-    if isinstance(result, list):
-        return _format_list_result(result)
-    if isinstance(result, dict):
-        return _format_dict_item(result)
-    if isinstance(result, str):
-        return result
-    # Fallback: JSON representation
-    return json.dumps(result, indent=2)
+    match result:
+        case list():
+            return _format_list_result(result)
+        case dict():
+            return _format_dict_item(result)
+        case str():
+            return result
+        case _:
+            # Fallback: JSON representation
+            return json.dumps(result, indent=2)
 
 
 def execute_rpc_command(command_name: str, args: list[str]) -> int:

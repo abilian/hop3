@@ -135,9 +135,9 @@ class AlpineStrategy(BaseOSStrategy):
         if update:
             subprocess.run(["apk", "update"], check=True, capture_output=True)
 
-        packages_str = " ".join(packages)
-        cmd = f"apk add {packages_str}"
-        subprocess.run(cmd, shell=True, check=True, capture_output=True)
+        # Use list-based command to avoid shell injection
+        cmd = ["apk", "add", *packages]
+        subprocess.run(cmd, check=True, capture_output=True)
 
     def setup_server(self) -> None:
         """Install dependencies and configure Alpine for hop3."""

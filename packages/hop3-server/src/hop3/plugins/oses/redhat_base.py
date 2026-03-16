@@ -38,6 +38,5 @@ class RedHatBase(BaseOSStrategy):
                 text=True,
             )
 
-        packages_str = " ".join(packages)
-        cmd = f"{pkg_manager} install -y {packages_str}"
-        subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+        cmd = [pkg_manager, "install", "-y", *packages]
+        subprocess.run(cmd, check=True, capture_output=True, text=True)

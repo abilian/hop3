@@ -91,6 +91,10 @@ class GenericToolchain(LanguageToolchain):
         build_section = hop3_config.get("build", {})
         build_cmd = build_section.get("build")
 
-        if isinstance(build_cmd, list):
-            return " && ".join(build_cmd) if build_cmd else None
-        return build_cmd or None
+        match build_cmd:
+            case list() if build_cmd:
+                return " && ".join(build_cmd)
+            case str() if build_cmd:
+                return build_cmd
+            case _:
+                return None

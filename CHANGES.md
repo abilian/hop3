@@ -34,8 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **uWSGI `project` Directive**: Removed invalid directive that was silently ignored (inherited from piku)
 - **RHEL 9 Python**: Fixed virtualenv creation using Python 3.9 instead of 3.12 on Rocky/AlmaLinux
 - **`hop run` PATH**: Command PATH now includes virtualenv bin directory
-- **Mypy Errors**: Fixed type errors in schema.py, apps.py, and auth.py
-- **Lint Errors**: Fixed TC001 imports with proper noqa comments for Dishka DI runtime requirements
 
 ### Removed
 

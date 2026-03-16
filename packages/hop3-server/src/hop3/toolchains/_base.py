@@ -72,17 +72,18 @@ class LanguageToolchain(ABC):
             context_or_app_name: Either a BuildContext object (preferred) or app_name string (legacy)
             app_path: Legacy parameter - application path (only used with string app_name)
         """
-        if isinstance(context_or_app_name, str):
-            # Legacy style: string app_name + app_path
-            # TODO: Remove in Phase 3 when LocalBuilder is implemented
-            self.context = None  # type: ignore[assignment]
-            self.app_name = context_or_app_name
-            self.app_path = app_path  # type: ignore[assignment]
-        else:
-            # New style: BuildContext or DeploymentContext
-            self.context = context_or_app_name
-            self.app_name = context_or_app_name.app_name
-            self.app_path = context_or_app_name.source_path.parent
+        match context_or_app_name:
+            case str():
+                # Legacy style: string app_name + app_path
+                # TODO: Remove in Phase 3 when LocalBuilder is implemented
+                self.context = None  # type: ignore[assignment]
+                self.app_name = context_or_app_name
+                self.app_path = app_path  # type: ignore[assignment]
+            case _:
+                # New style: BuildContext or DeploymentContext
+                self.context = context_or_app_name
+                self.app_name = context_or_app_name.app_name
+                self.app_path = context_or_app_name.source_path.parent
 
     @abstractmethod
     def accept(self) -> bool:
@@ -105,10 +106,13 @@ class LanguageToolchain(ABC):
         -------
             bool: True if the file or files exist, False otherwise.
         """
-        if isinstance(file_or_files, str):
-            file_or_files = [file_or_files]
+        match file_or_files:
+            case str():
+                files = [file_or_files]
+            case list():
+                files = file_or_files
         # Check if any of the files exist in the source path
-        return any((self.src_path / file).exists() for file in file_or_files)
+        return any((self.src_path / file).exists() for file in files)
 
     @abstractmethod
     def build(self) -> BuildArtifact:

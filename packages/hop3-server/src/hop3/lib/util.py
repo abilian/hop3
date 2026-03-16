@@ -179,12 +179,14 @@ def try_commands(
 def shell(
     command: str | list[str], cwd: Path | str = "", **kwargs
 ) -> subprocess.CompletedProcess:
-    """Run a shell command with detailed error reporting.
+    """Run a command with detailed error reporting.
 
     All output is routed through log() so it gets captured during deployments.
+    Commands are executed safely without shell=True to prevent injection attacks.
 
     Args:
-        command: Command to execute (string or list of strings)
+        command: Command to execute (string or list of strings).
+                 Strings are safely parsed with shlex.split().
         cwd: Working directory for the command
         **kwargs: Additional arguments passed to subprocess.run
 
@@ -194,11 +196,14 @@ def shell(
     Raises:
         subprocess.CalledProcessError: If command fails, with stdout/stderr included
     """
+    # Parse command safely - no shell=True needed
     match command:
         case str():
-            command = command.strip()
+            command_display = command.strip()
+            command_list = shlex.split(command_display)
         case list():
-            command = shlex.join(command)
+            command_display = shlex.join(command)
+            command_list = command
         case _:
             msg = "command must be a string or a list of strings"
             raise TypeError(msg)
@@ -209,9 +214,9 @@ def shell(
         cwd = Path.cwd()
 
     # Log the command (level 2 = verbose)
-    log(f"Calling: '{command}' in directory: '{cwd}'", level=2, fg="blue")
+    log(f"Calling: '{command_display}' in directory: '{cwd}'", level=2, fg="blue")
 
-    kwargs["shell"] = True
+    # Don't use shell=True - run command list directly
     if cwd:
         kwargs["cwd"] = str(cwd)
 
@@ -224,7 +229,7 @@ def shell(
     check = kwargs.pop("check", True)
 
     try:
-        result = subprocess.run(command, **kwargs, check=check)
+        result = subprocess.run(command_list, **kwargs, check=check)
         # Log captured output (level 2 = verbose, shows with -v flag)
         if result.stdout:
             _log_output(result.stdout, level=2)
@@ -232,7 +237,7 @@ def shell(
     except subprocess.CalledProcessError as e:
         # Log error information
         log(
-            f"Command failed with exit code {e.returncode}: {command}",
+            f"Command failed with exit code {e.returncode}: {command_display}",
             level=0,
             fg="red",
         )
@@ -337,21 +342,28 @@ def get_free_port(address="") -> int:
     return port
 
 
-def command_output(cmd) -> str:
-    """Execute a shell command and retrieve its output as a string.
+def command_output(cmd: str | list[str]) -> str:
+    """Execute a command and retrieve its output as a string.
 
-    Input:
-        cmd: A string representing the shell command to execute.
+    Args:
+        cmd: Command to execute (string or list of strings).
+             Strings are safely parsed with shlex.split().
 
     Returns:
         A string containing the output from the executed command.
         If the command fails or there is no output, an empty string is returned.
     """
     try:
-        # Capture the current environment variables
+        # Parse string commands safely without shell=True
+        match cmd:
+            case str():
+                cmd_list = shlex.split(cmd)
+            case list():
+                cmd_list = cmd
         env = os.environ
-        return str(check_output(cmd, stderr=STDOUT, env=env, shell=True))
-    except subprocess.CalledProcessError:
+        result = check_output(cmd_list, stderr=STDOUT, env=env)
+        return result.decode("utf-8", errors="replace")
+    except (subprocess.CalledProcessError, FileNotFoundError):
         return ""
 
 

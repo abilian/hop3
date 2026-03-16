@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 import shutil
 import subprocess
 from textwrap import dedent
@@ -266,18 +267,35 @@ def _reload_nginx() -> None:
     raise RuntimeError(msg)
 
 
-def shell(cmd):
-    log(f"Running command: {cmd}", level=2)
+def shell(cmd: str | list[str]) -> None:
+    """Execute a command safely without shell=True.
+
+    Args:
+        cmd: Command to execute (string or list).
+             Strings are parsed with shlex.split().
+
+    Raises:
+        subprocess.CalledProcessError: If command fails.
+    """
+    # Parse string commands safely
+    match cmd:
+        case str():
+            cmd_list = shlex.split(cmd)
+            cmd_display = cmd
+        case list():
+            cmd_list = cmd
+            cmd_display = shlex.join(cmd)
+
+    log(f"Running command: {cmd_display}", level=2)
     result = subprocess.run(
-        cmd,
-        shell=True,
+        cmd_list,
         capture_output=True,
         text=True,
         check=False,
     )
     if result.returncode != 0:
         # Re-raise with captured output available
-        error = subprocess.CalledProcessError(result.returncode, cmd)
+        error = subprocess.CalledProcessError(result.returncode, cmd_display)
         error.stdout = result.stdout
         error.stderr = result.stderr
         raise error
