@@ -125,9 +125,8 @@ class ArchStrategy(BaseOSStrategy):
                 text=True,
             )
 
-        packages_str = " ".join(packages)
-        cmd = f"pacman -S --noconfirm {packages_str}"
-        subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+        cmd = ["pacman", "-S", "--noconfirm", *packages]
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
 
     def setup_server(self) -> None:
         """Install dependencies and configure system for hop3.

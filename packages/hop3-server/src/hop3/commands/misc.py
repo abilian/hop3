@@ -295,8 +295,9 @@ class SbomCmd(Command):
             sbom_file = Path(tmpdir) / "sbom.json"
 
             # Generate requirements.txt from pip
-            pip_cmd = f"{venv}/bin/pip list --format=freeze > {req_file}"
-            subprocess.run(pip_cmd, shell=True, check=True)
+            pip_cmd = [str(venv / "bin" / "pip"), "list", "--format=freeze"]
+            result = subprocess.run(pip_cmd, check=True, capture_output=True, text=True)
+            req_file.write_text(result.stdout)
 
             # Generate SBOM from requirements.txt
             sbom_cmd = [

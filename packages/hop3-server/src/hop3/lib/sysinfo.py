@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import platform
+import shlex
 import shutil
 import subprocess
 import time
@@ -240,21 +241,24 @@ class SysInfo:
         # Executes the 'lsb_release' command with specified key and returns its output
         return self._run_command(f"lsb_release -s{key}")
 
-    def _run_command(self, cmd) -> str:
-        """Executes a shell command and returns its standard output.
+    def _run_command(self, cmd: str | list[str]) -> str:
+        """Execute a command and return its standard output.
 
-        Input:
-        - cmd: A string representing the command to be executed in the shell.
+        Args:
+            cmd: Command to execute (string or list of strings).
+                 Strings are safely parsed with shlex.split().
 
         Returns:
-        - A string containing the standard output of the executed command, stripped of leading and trailing whitespace.
-
-        Raises:
-        - Does not raise an exception but returns an empty string if the command fails to execute successfully.
+            Command output stripped of whitespace, or empty string on failure.
         """
         try:
-            # Run the command with output capture and shell execution
-            result = subprocess.run(cmd, check=True, capture_output=True, shell=True)
+            # Parse string commands safely without shell=True
+            match cmd:
+                case str():
+                    cmd_list = shlex.split(cmd)
+                case list():
+                    cmd_list = cmd
+            result = subprocess.run(cmd_list, check=True, capture_output=True)
             return result.stdout.decode().strip()
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, FileNotFoundError):
             return ""

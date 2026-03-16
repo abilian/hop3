@@ -87,23 +87,21 @@ class ErrorContext:
                 return handler(exc)
 
         # Default formatting by exception type
-        if isinstance(exc, subprocess.CalledProcessError):
-            return _format_subprocess_error(exc)
-
-        if isinstance(exc, FileNotFoundError):
-            # Use filename if set, otherwise fall back to the exception message
-            if exc.filename:
-                return f"File not found: {exc.filename}"
-            return f"File not found: {exc}"
-
-        if isinstance(exc, PermissionError):
-            return f"Permission denied: {exc.filename if hasattr(exc, 'filename') else exc}"
-
-        if isinstance(exc, TimeoutError):
-            return "Operation timed out"
-
-        # Generic fallback
-        return f"{self.operation} failed: {exc}"
+        match exc:
+            case subprocess.CalledProcessError():
+                return _format_subprocess_error(exc)
+            case FileNotFoundError(filename=filename) if filename:
+                return f"File not found: {filename}"
+            case FileNotFoundError():
+                return f"File not found: {exc}"
+            case PermissionError(filename=filename) if filename:
+                return f"Permission denied: {filename}"
+            case PermissionError():
+                return f"Permission denied: {exc}"
+            case TimeoutError():
+                return "Operation timed out"
+            case _:
+                return f"{self.operation} failed: {exc}"
 
 
 def _format_subprocess_error(exc: subprocess.CalledProcessError) -> str:
@@ -119,12 +117,16 @@ def _format_subprocess_error(exc: subprocess.CalledProcessError) -> str:
         f"Command exited with code {exc.returncode}",
         f"Command: {exc.cmd}",
     ]
-    if exc.stdout:
-        stdout = exc.stdout if isinstance(exc.stdout, str) else exc.stdout.decode()
-        parts.append(f"\nStdout:\n{stdout}")
-    if exc.stderr:
-        stderr = exc.stderr if isinstance(exc.stderr, str) else exc.stderr.decode()
-        parts.append(f"\nStderr:\n{stderr}")
+    match exc.stdout:
+        case str() as stdout:
+            parts.append(f"\nStdout:\n{stdout}")
+        case bytes() as stdout_bytes:
+            parts.append(f"\nStdout:\n{stdout_bytes.decode()}")
+    match exc.stderr:
+        case str() as stderr:
+            parts.append(f"\nStderr:\n{stderr}")
+        case bytes() as stderr_bytes:
+            parts.append(f"\nStderr:\n{stderr_bytes.decode()}")
 
     return "\n".join(parts)
 

@@ -33,12 +33,5 @@ class DebianBase(BaseOSStrategy):
             )
 
         # Install packages
-        packages_str = " ".join(packages)
-        cmd = f"apt-get install -y {packages_str}"
-        subprocess.run(
-            cmd,
-            shell=True,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        cmd = ["apt-get", "install", "-y", *packages]
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
