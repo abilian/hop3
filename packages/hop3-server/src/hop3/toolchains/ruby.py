@@ -47,12 +47,16 @@ class RubyToolchain(LanguageToolchain):
             log("Ruby gems installed successfully", level=2, fg="green")
 
         # Compute environment variables for runtime
+        # Include system gem path for access to system gems like bundler
+        system_gem_path = os.environ.get(
+            "GEM_PATH", "/usr/share/gems:/usr/local/share/gems"
+        )
         env_vars = {
             "BUNDLE_PATH": str(self.virtual_env),
             "BUNDLE_USER_HOME": str(self.virtual_env / ".bundle"),
             "BUNDLE_USER_CACHE": str(self.virtual_env / ".bundle/cache"),
             "GEM_HOME": str(self.virtual_env),
-            "GEM_PATH": str(self.virtual_env),
+            "GEM_PATH": f"{self.virtual_env}:{system_gem_path}",
         }
 
         # Paths to prepend to PATH
@@ -81,6 +85,12 @@ class RubyToolchain(LanguageToolchain):
             ],
         )
 
+        # Get system GEM_PATH to ensure system gems (like bundler) are available
+        # This is critical on Fedora 42+ where bundler is installed as a system gem
+        system_gem_path = os.environ.get(
+            "GEM_PATH", "/usr/share/gems:/usr/local/share/gems"
+        )
+
         # Start with system environment (needed for HOME, USER, LANG, etc.)
         # then override with our Ruby-specific settings
         env = Env(os.environ)
@@ -94,7 +104,8 @@ class RubyToolchain(LanguageToolchain):
                 "BUNDLE_USER_HOME": str(self.virtual_env / ".bundle"),
                 "BUNDLE_USER_CACHE": str(self.virtual_env / ".bundle/cache"),
                 "GEM_HOME": str(self.virtual_env),
-                "GEM_PATH": str(self.virtual_env),
+                # Prepend app gem path but keep system paths for bundler access
+                "GEM_PATH": f"{self.virtual_env}:{system_gem_path}",
             },
         )
         env.parse_settings(self.env_file)

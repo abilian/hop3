@@ -44,9 +44,8 @@ PACKAGES = [
     # Nginx
     "nginx",
     "acl",
-    # uwsgi (Runtime)
-    "uwsgi",
-    "uwsgi-plugin-python3",
+    # Note: uWSGI is installed via pip in hop3's venv, not as a system package.
+    # This ensures consistent behavior across distros without plugin complications.
     # Let's Encrypt
     "certbot",
     "python3-certbot-nginx",

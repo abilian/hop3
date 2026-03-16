@@ -9,6 +9,7 @@ import os
 import pwd
 import shlex
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 
@@ -32,13 +33,23 @@ from .config import (
 from .user import run_as_hop3
 
 
+def _get_python_executable() -> str:
+    """Get the Python executable to use for creating the venv.
+
+    Uses the same Python that's running this installer, which ensures
+    we use Python 3.10+ even on systems where `python3` is older.
+    """
+    return sys.executable
+
+
 def create_virtual_environment() -> None:
     """Create Python virtual environment."""
     if VENV_DIR.exists():
         shutil.rmtree(VENV_DIR)
 
-    with Spinner("Creating virtual environment..."):
-        run_as_hop3(f"python3 -m venv {VENV_DIR}")
+    python_exe = _get_python_executable()
+    with Spinner(f"Creating virtual environment (using {python_exe})..."):
+        run_as_hop3(f"{python_exe} -m venv {VENV_DIR}")
 
     print_success(f"Virtual environment created at {VENV_DIR}")
 

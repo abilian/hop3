@@ -82,7 +82,7 @@ class ShowCmd(Command):
         if not env:
             return [text(f"No configuration set for '{app_name}'.")]
 
-        rows = [[k, v] for k, v in env.items()]
+        rows = [[k, v] for k, v in sorted(env.items())]
         return [
             text(f"Configured environment for '{app_name}':"),
             table(headers=["Key", "Value"], rows=rows),
@@ -233,7 +233,7 @@ class LiveCmd(Command):
         return [
             text(f"Could not inspect running {app.runtime} app '{app_name}'."),
             text("Showing configured values (may not match live environment):"),
-            table(headers=["Key", "Value"], rows=[[k, v] for k, v in db_env.items()]),
+            table(headers=["Key", "Value"], rows=[[k, v] for k, v in sorted(db_env.items())]),
             text("\nTip: Run 'hop deploy' to ensure live environment matches config."),
         ]
 

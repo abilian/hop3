@@ -29,9 +29,8 @@ FREEBSD_PACKAGES = [
     "py39-setuptools",
     # Nginx
     "nginx",
-    # uwsgi
-    "uwsgi",
-    "uwsgi-python39",
+    # Note: uWSGI is installed via pip in hop3's venv, not as a system package.
+    # This ensures consistent behavior across distros without plugin complications.
     # Let's Encrypt
     "py39-certbot",
     "py39-certbot-nginx",

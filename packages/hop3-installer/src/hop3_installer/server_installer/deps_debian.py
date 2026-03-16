@@ -3,7 +3,7 @@
 """Debian/Ubuntu dependency installation.
 
 Handles version-specific package differences:
-- Debian 12 (bookworm): Uses trixie repo for newer Go
+- Debian 12 (bookworm): Uses backports for newer Go (1.23)
 - Debian 13 (trixie): Uses native packages
 - Ubuntu 24.04+: Uses native packages
 - Older versions: May need PPAs or backports
@@ -15,9 +15,13 @@ from pathlib import Path
 
 from hop3_installer.common import (
     DistroInfo,
+    Spinner,
     detect_distro_info,
     print_detail,
     print_info,
+    print_success,
+    print_warning,
+    run_cmd,
 )
 
 from .config import ServerInstallerConfig  # noqa: TC001
@@ -35,14 +39,15 @@ from .redis import configure_redis
 # =============================================================================
 
 # Base packages common to all Debian/Ubuntu versions
-BASE_PACKAGES = [
+# Note: libpcre3-dev vs libpcre2-dev handled in _create_debian_package_spec
+DEBIAN_BASE_PACKAGES = [
     # Core utilities
     "bc",
     "git",
     "sudo",
     "cron",
     "build-essential",
-    "libpcre3-dev",
+    # libpcre handled separately - Debian 13+ uses libpcre2-dev
     "zlib1g-dev",
     # Web server and database
     "nginx",
@@ -61,8 +66,8 @@ BASE_PACKAGES = [
     "ruby-bundler",
     "libyaml-dev",
     "libgmp-dev",
-    # Go toolchain (version handled separately for older distros)
-    "golang-go",
+    # Go toolchain - installed separately for backports handling
+    # "golang-go" removed from here, handled in _install_go_toolchain()
     # Elixir toolchain
     "elixir",
     "erlang",
@@ -104,7 +109,54 @@ BASE_PACKAGES = [
 ]
 
 
-def _create_package_spec(distro_info: DistroInfo) -> PackageSpec:
+def _get_debian_docker_packages(distro_info: DistroInfo) -> list[str]:
+    """Get Docker packages appropriate for the distro version.
+
+    Package availability varies significantly across distributions:
+
+    - Debian 12 (bookworm): docker.io includes everything
+    - Debian 13 (trixie)+: docker.io (daemon only), docker-cli, docker-compose, docker-buildx
+    - Ubuntu 24.04 (noble)+: docker.io, docker-compose-v2, docker-buildx
+    - Ubuntu <24.04: docker.io, docker-compose (v1) only
+
+    Args:
+        distro_info: Detected distribution information.
+
+    Returns:
+        List of Docker package names for this distro.
+    """
+    # Base package - always available
+    packages = ["docker.io"]
+
+    if distro_info.is_ubuntu:
+        if distro_info.version_major >= 24:
+            # Ubuntu 24.04+ has docker-compose-v2 and docker-buildx
+            packages.extend(["docker-compose-v2", "docker-buildx"])
+        else:
+            # Older Ubuntu only has docker-compose v1
+            packages.append("docker-compose")
+
+    elif distro_info.is_debian:
+        # Debian 13+ (trixie): docker.io is daemon only, docker-cli is separate
+        is_debian_13_plus = (
+            distro_info.codename in {"trixie", "forky", "sid"}
+            or distro_info.version_major >= 13
+        )
+        if is_debian_13_plus:
+            packages.extend(["docker-cli", "docker-compose", "docker-buildx"])
+        else:
+            # Debian 12 (bookworm): docker.io includes CLI, docker-compose v1 only
+            # Note: docker-buildx not available in bookworm repos
+            packages.append("docker-compose")
+
+    else:
+        # Other Debian-based distros (Mint, Pop!_OS, etc.) - use safe defaults
+        packages.append("docker-compose")
+
+    return packages
+
+
+def _create_debian_package_spec(distro_info: DistroInfo) -> PackageSpec:
     """Create a PackageSpec appropriate for the detected distro version.
 
     Args:
@@ -113,10 +165,22 @@ def _create_package_spec(distro_info: DistroInfo) -> PackageSpec:
     Returns:
         PackageSpec configured for the specific distro/version.
     """
-    packages = list(BASE_PACKAGES)
+    packages = list(DEBIAN_BASE_PACKAGES)
 
-    # Version-specific adjustments are handled in _setup_package_sources()
-    # This function just returns the base spec
+    # Handle PCRE library transition
+    # Debian 13 (trixie)+ moved to PCRE2, older versions use PCRE3
+    is_debian_13_plus = distro_info.is_debian and (
+        distro_info.codename in {"trixie", "forky", "sid"}
+        or distro_info.version_major >= 13
+    )
+    if is_debian_13_plus:
+        packages.append("libpcre2-dev")
+    else:
+        # Ubuntu and older Debian use libpcre3-dev
+        packages.append("libpcre3-dev")
+
+    # Get version-appropriate Docker packages
+    docker_packages = _get_debian_docker_packages(distro_info)
 
     return PackageSpec(
         pkg_manager="apt-get",
@@ -124,11 +188,7 @@ def _create_package_spec(distro_info: DistroInfo) -> PackageSpec:
         env_vars={"DEBIAN_FRONTEND": "noninteractive"},
         install_flags=["--no-install-recommends"],
         base_packages=packages,
-        docker_packages=[
-            "docker.io",
-            "docker-compose-v2",
-            "docker-buildx",
-        ],
+        docker_packages=docker_packages,
         mysql_packages=["mysql-server", "mysql-client", "libmysqlclient-dev"],
         redis_packages=["redis-server"],
         conditional_packages={"npm": "npm"},
@@ -139,20 +199,20 @@ def _setup_package_sources(distro_info: DistroInfo) -> None:
     """Configure additional package sources based on distro version.
 
     For older distributions that lack recent package versions, this adds
-    appropriate additional repositories.
+    appropriate additional repositories (backports, not mixing releases).
 
     Args:
         distro_info: Detected distribution information.
     """
-    # Debian 12 (bookworm): Add trixie repo for newer packages (Go 1.23, etc.)
+    # Debian 12 (bookworm): Add backports for newer Go (1.23)
     if distro_info.is_debian and distro_info.codename == "bookworm":
-        print_info("Debian 12 detected: adding trixie repository for newer packages")
-        trixie_list = Path("/etc/apt/sources.list.d/trixie.list")
-        trixie_content = "deb http://deb.debian.org/debian trixie main\n"
+        print_info("Debian 12 detected: adding bookworm-backports for newer Go")
+        backports_list = Path("/etc/apt/sources.list.d/bookworm-backports.list")
+        backports_content = "deb http://deb.debian.org/debian bookworm-backports main\n"
 
-        if not trixie_list.exists():
-            trixie_list.write_text(trixie_content)
-            print_detail(f"Created {trixie_list}")
+        if not backports_list.exists():
+            backports_list.write_text(backports_content)
+            print_detail(f"Created {backports_list}")
 
     # Ubuntu versions before 24.04 might need PPAs for newer Go
     # (Currently Ubuntu 24.04+ has Go 1.22+ which is sufficient)
@@ -162,15 +222,49 @@ def _setup_package_sources(distro_info: DistroInfo) -> None:
         )
         print_detail("Consider upgrading to Ubuntu 24.04+ for best compatibility")
 
-    # Debian 11 (bullseye) is quite old - warn user
+    # Debian 11 (bullseye): Add backports for newer packages
     elif distro_info.is_debian and distro_info.codename == "bullseye":
-        print_info("Debian 11 detected: adding trixie repository for newer packages")
-        trixie_list = Path("/etc/apt/sources.list.d/trixie.list")
-        trixie_content = "deb http://deb.debian.org/debian trixie main\n"
+        print_info("Debian 11 detected: adding bullseye-backports for newer packages")
+        backports_list = Path("/etc/apt/sources.list.d/bullseye-backports.list")
+        backports_content = "deb http://deb.debian.org/debian bullseye-backports main\n"
 
-        if not trixie_list.exists():
-            trixie_list.write_text(trixie_content)
-            print_detail(f"Created {trixie_list}")
+        if not backports_list.exists():
+            backports_list.write_text(backports_content)
+            print_detail(f"Created {backports_list}")
+
+
+def _install_go_toolchain(distro_info: DistroInfo) -> None:
+    """Install Go toolchain from appropriate source.
+
+    On Debian 12 (bookworm), installs from backports to get Go 1.23.
+    On other distros, installs from main repos.
+
+    Args:
+        distro_info: Detected distribution information.
+    """
+    # Determine if we need backports
+    use_backports = distro_info.is_debian and distro_info.codename in {
+        "bookworm",
+        "bullseye",
+    }
+
+    if use_backports:
+        target = f"{distro_info.codename}-backports"
+        print_info(f"Installing Go from {target}")
+        cmd = ["apt-get", "install", "-y", "-t", target, "golang-go"]
+    else:
+        print_info("Installing Go from main repository")
+        cmd = ["apt-get", "install", "-y", "golang-go"]
+
+    with Spinner("Installing Go toolchain..."):
+        result = run_cmd(cmd, env={"DEBIAN_FRONTEND": "noninteractive"}, check=False)
+
+    if result.returncode != 0:
+        print_warning("Go installation failed - Go apps may not work")
+        if result.stderr:
+            print_detail(result.stderr.strip().split("\n")[-1])
+    else:
+        print_success("Go toolchain installed")
 
 
 # =============================================================================
@@ -191,14 +285,21 @@ def install_debian_deps(config: ServerInstallerConfig) -> None:
     distro_info = detect_distro_info()
     print_info(f"Detected: {distro_info}")
 
-    # Setup additional package sources if needed (e.g., trixie for Debian 12)
+    # Setup additional package sources if needed (e.g., backports for Debian 12)
     _setup_package_sources(distro_info)
 
     # Create version-appropriate package spec
-    spec = _create_package_spec(distro_info)
+    spec = _create_debian_package_spec(distro_info)
+
+    # Log Docker packages being installed
+    print_detail(f"Docker packages: {', '.join(spec.docker_packages)}")
 
     # Install packages
     install_base_packages(spec)
+
+    # Install Go separately (may need backports on older Debian)
+    _install_go_toolchain(distro_info)
+
     install_optional_packages(config, spec, configure_redis)
     install_dotnet_sdk_debian()
     install_node_global_packages()
