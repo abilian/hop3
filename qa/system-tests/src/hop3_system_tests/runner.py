@@ -587,12 +587,20 @@ class TestRunnerManager:
                 "Dockerfile": f"cat {app_path}/src/Dockerfile 2>&1",
                 "docker-compose.yml": f"cat {app_path}/src/docker-compose.yml 2>&1 || cat {app_path}/src/docker-compose.yaml 2>&1",
                 "nginx.conf": f"cat /home/hop3/nginx/{app_name}.conf 2>&1 || cat /etc/nginx/sites-enabled/{app_name}* 2>&1",
-                "uwsgi.ini": f"cat /home/hop3/uwsgi-enabled/{app_name}.ini 2>&1",
+                # uWSGI configs use pattern: {app_name}_{kind}.{ordinal}.ini
+                "uwsgi.ini": f"cat /home/hop3/uwsgi-enabled/{app_name}*.ini 2>&1 || cat /home/hop3/uwsgi-available/{app_name}*.ini 2>&1",
+                "uwsgi-all.log": f"cat /home/hop3/apps/{app_name}/log/*.log 2>&1 | tail -200",
                 "journal-hop3-server.log": "journalctl -u hop3-server -n 100 --no-pager 2>&1",
                 "journal-uwsgi.log": "journalctl -u uwsgi-hop3 -n 100 --no-pager 2>&1",
                 "process-info.txt": f"ps aux | grep -E '{app_name}|uwsgi' | grep -v grep 2>&1",
                 "port-info.txt": f"cat {app_path}/PORT 2>&1 && ss -tlnp | grep $(cat {app_path}/PORT 2>/dev/null) 2>&1",
                 "directory-tree.txt": f"find {app_path} -type f 2>&1 | head -100",
+                # Debug: Check Python environment on the server
+                "python-debug.txt": f"echo '=== Python versions ==='; which python3 python3.11 python3.12 2>&1; python3 --version 2>&1; echo '=== Hop3 venv ==='; /home/hop3/venv/bin/python3 --version 2>&1; echo '=== App venv ==='; {app_path}/venv/bin/python3 --version 2>&1; echo '=== uWSGI info ==='; /home/hop3/venv/bin/uwsgi --python-version 2>&1",
+                # Debug: Check if Flask can be imported in app venv
+                "flask-import-test.txt": f"{app_path}/venv/bin/python3 -c 'import flask; print(flask.__version__)' 2>&1 || echo 'Flask import failed'",
+                # Debug: List app venv packages
+                "venv-packages.txt": f"{app_path}/venv/bin/pip list 2>&1 || echo 'pip list failed'",
             }
 
             collected = []

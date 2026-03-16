@@ -133,6 +133,23 @@ class HetznerManager:
         """
         return self.get_server_info().ipv4
 
+    def list_images(self) -> list[dict]:
+        """List available OS images.
+
+        Returns:
+            List of image dictionaries with 'name' and 'description' keys.
+        """
+        images = self._client.images.get_all()
+        return [
+            {
+                "name": img.name,
+                "description": img.description or "",
+                "type": img.type,
+            }
+            for img in images
+            if img.type == "system"  # Only show system images, not snapshots/backups
+        ]
+
     def rebuild_server(
         self,
         image: str | None = None,
