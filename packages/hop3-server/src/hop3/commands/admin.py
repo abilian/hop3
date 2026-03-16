@@ -12,7 +12,9 @@ from typing import ClassVar
 
 from hop3.lib.registry import register
 from hop3.orm import User
-from hop3.orm.repositories import RoleRepository, UserRepository
+
+# Repositories are runtime imports for Dishka DI (not just type hints)
+from hop3.orm.repositories import RoleRepository, UserRepository  # noqa: TC001
 from hop3.orm.security import Role
 from hop3.server.security.tokens import create_token
 

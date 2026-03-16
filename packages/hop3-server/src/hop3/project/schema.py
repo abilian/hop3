@@ -16,7 +16,7 @@ fix their configuration.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -330,7 +330,9 @@ def validate_hop3_toml(data: dict[str, Any]) -> Hop3TomlSchema:
     try:
         return Hop3TomlSchema.model_validate(data)
     except ValidationError as e:
-        raise Hop3TomlValidationError(e.errors(), data) from None
+        # Cast ErrorDetails to dict[str, Any] for our error handler
+        errors = cast("list[dict[str, Any]]", e.errors())
+        raise Hop3TomlValidationError(errors, data) from None
 
 
 def get_json_schema() -> dict[str, Any]:

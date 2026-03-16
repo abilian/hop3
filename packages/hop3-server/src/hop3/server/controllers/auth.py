@@ -139,7 +139,7 @@ class AuthController(Controller):
             ctx = {
                 "user": {
                     "username": user.username,
-                    "display_name": user.display_name,
+                    "display_name": user.username,  # Use username as display name
                     "email": user.email or "Not set",
                     "is_admin": user.is_admin,
                     "active": user.active,

@@ -26,7 +26,9 @@ from hop3.config import HopConfig
 from hop3.core.plugins import get_addon
 from hop3.lib import log
 from hop3.orm import App, Backup, BackupStateEnum, EnvVar
-from hop3.orm.repositories import (
+
+# Runtime imports for Dishka DI (not just type hints)
+from hop3.orm.repositories import (  # noqa: TC001
     AddonCredentialRepository,
     AppRepository,
     BackupRepository,
