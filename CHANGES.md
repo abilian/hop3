@@ -7,7 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0b6] - 2025-03-12
+## [0.4.0b7] - 2026-03-16
+
+### Added
+
+- **Multi-Distribution Support**: Fully tested and working on Ubuntu 24.04, Debian 12/13, Fedora 42, Rocky Linux 9, and AlmaLinux 9
+- **Repository Pattern**: Migrated database access to Advanced Alchemy repository pattern for better testability and maintainability
+- **Configuration Validation**: JSON Schema validation for hop3.toml with Pydantic models using `extra="forbid"` to catch typos
+- **Decision Logging**: New DecisionLogger tracks implicit choices (builder, toolchain, deployer) for debugging
+- **Procfile Optional**: New `[run.workers]` section in hop3.toml allows defining workers without a Procfile
+- **Explicit Toolchain Override**: New `[build].toolchain` directive to force a specific toolchain
+- **Inline Ignore Patterns**: New `[build].ignore` and `[build].ignore-file` in hop3.toml for deployment filtering
+- **stdin Support for `hop run`**: New `--input` option to pass stdin data to commands
+- **Lessons Learned Document**: New `notes/lessons-learned.md` capturing development insights
+
+### Changed
+
+- **uWSGI Installation**: Now installed via pip instead of distro packages for cross-platform consistency. Eliminates 70+ lines of plugin detection code
+- **Debian 12 Backports**: Uses official bookworm-backports instead of mixing trixie packages
+- **Python Version Detection**: Automatically selects best available Python (3.12 > 3.11 > 3.10) on RHEL 9 clones
+- **Config Output**: `hop config:show` and `hop config:live` now output sorted alphabetically by key
+- **uWSGI Strict Mode**: Enabled `strict = true` to catch invalid configuration directives early
+
+### Fixed
+
+- **uWSGI `project` Directive**: Removed invalid directive that was silently ignored (inherited from piku)
+- **RHEL 9 Python**: Fixed virtualenv creation using Python 3.9 instead of 3.12 on Rocky/AlmaLinux
+- **`hop run` PATH**: Command PATH now includes virtualenv bin directory
+- **Mypy Errors**: Fixed type errors in schema.py, apps.py, and auth.py
+- **Lint Errors**: Fixed TC001 imports with proper noqa comments for Dishka DI runtime requirements
+
+### Removed
+
+- **uWSGI Distro Packages**: Removed uwsgi and uwsgi-plugin-* from all distribution package lists
+- **Plugin Detection Code**: Removed `_needs_python_plugin()` function and related complexity
+
+## [0.4.0b6] - 2026-03-12
 
 ### Added
 
@@ -232,7 +267,8 @@ Initial release establishing Hop3's core architecture.
 - Established core class-based architecture
 - Major refactoring for better structure and typing
 
-[Unreleased]: https://github.com/abilian/hop3/compare/v0.4.0b6...HEAD
+[Unreleased]: https://github.com/abilian/hop3/compare/v0.4.0b7...HEAD
+[0.4.0b7]: https://github.com/abilian/hop3/compare/v0.4.0b6...v0.4.0b7
 [0.4.0b6]: https://github.com/abilian/hop3/compare/v0.4.0b5...v0.4.0b6
 [0.4.0b5]: https://github.com/abilian/hop3/compare/v0.4.0b4...v0.4.0b5
 [0.4.0b4]: https://github.com/abilian/hop3/compare/v0.4.0b3...v0.4.0b4
