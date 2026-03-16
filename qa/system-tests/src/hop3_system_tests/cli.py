@@ -62,6 +62,11 @@ Environment variables:
     )
     run_parser.add_argument("--branch", default="devel", help="Git branch to test.")
     run_parser.add_argument(
+        "--image",
+        default=None,
+        help="OS image to use (e.g., ubuntu-24.04, debian-13, fedora-41, rocky-9).",
+    )
+    run_parser.add_argument(
         "--config", dest="config_file", type=Path, help="Path to configuration file."
     )
     run_parser.add_argument(
@@ -121,6 +126,18 @@ Environment variables:
     )
     status_parser.add_argument(
         "--server-id", type=int, required=True, help="Hetzner server ID."
+    )
+
+    # --- list-images command ---
+    list_images_parser = subparsers.add_parser(
+        "list-images",
+        help="List available OS images for testing",
+        description="List available OS images that can be used with --image option.",
+    )
+    list_images_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Show all Hetzner images (not just recommended ones).",
     )
 
     # --- reset command ---
@@ -218,6 +235,8 @@ def cmd_run(args: argparse.Namespace) -> None:
         overrides["server_id"] = args.server_id
     if args.branch != "devel":
         overrides["branch"] = args.branch
+    if args.image:
+        overrides["image"] = args.image
     if args.suites:
         overrides["suites"] = list(args.suites)
     if args.fail_fast:
@@ -261,6 +280,57 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     # Exit with appropriate code
     sys.exit(0 if result.success else 1)
+
+
+def cmd_list_images(args: argparse.Namespace) -> None:
+    """Execute the 'list-images' command."""
+    console = Console()
+
+    # Recommended images for Hop3 testing
+    # Note: Image names must match what's available on Hetzner Cloud
+    recommended = [
+        ("ubuntu-24.04", "Ubuntu 24.04 LTS", "Default, well-tested"),
+        ("debian-13", "Debian 13 (trixie)", "Stable, supported"),
+        ("debian-12", "Debian 12 (bookworm)", "Older stable"),
+        ("fedora-42", "Fedora 42", "Latest Fedora"),
+        ("rocky-9", "Rocky Linux 9", "RHEL-compatible"),
+        ("alma-9", "AlmaLinux 9", "RHEL-compatible"),
+    ]
+
+    console.print()
+    console.print("[bold]Recommended Images for Hop3 Testing[/bold]")
+    console.print()
+    console.print("  [bold]Image Name[/bold]         [bold]Description[/bold]              [bold]Notes[/bold]")
+    console.print("  " + "-" * 60)
+    for name, desc, notes in recommended:
+        console.print(f"  {name:<18} {desc:<24} {notes}")
+    console.print()
+    console.print("[dim]Usage: hop3-daily-test run --image debian-13[/dim]")
+    console.print()
+
+    if args.all:
+        # Try to fetch all images from Hetzner API
+        api_token = os.environ.get("HETZNER_API_TOKEN")
+        if api_token:
+            try:
+                config = HetznerConfig(
+                    api_token=api_token,
+                    server_id=0,  # Not needed for listing images
+                    image="ubuntu-24.04",
+                )
+                manager = HetznerManager(config)
+                images = manager.list_images()
+
+                console.print("[bold]All Available Hetzner Images[/bold]")
+                console.print()
+                for img in sorted(images, key=lambda x: x.get("name", "")):
+                    name = img.get("name", "unknown")
+                    desc = img.get("description", "")
+                    console.print(f"  {name:<25} {desc}")
+            except Exception as e:
+                console.print(f"[yellow]Could not fetch images from Hetzner: {e}[/yellow]")
+        else:
+            console.print("[yellow]Set HETZNER_API_TOKEN to list all Hetzner images[/yellow]")
 
 
 def cmd_status(args: argparse.Namespace) -> None:
@@ -484,6 +554,7 @@ def main() -> None:
     # Dispatch to command handler
     commands = {
         "run": cmd_run,
+        "list-images": cmd_list_images,
         "status": cmd_status,
         "reset": cmd_reset,
         "deploy": cmd_deploy,

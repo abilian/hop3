@@ -45,6 +45,7 @@ dev = [
 
 [project.scripts]
 hop3-daily-test = "hop3_system_tests.cli:main"
+hop3-multi-distro-test = "hop3_system_tests.multi_distro:main"
 
 [build-system]
 requires = ["hatchling"]

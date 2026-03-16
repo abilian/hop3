@@ -27,6 +27,34 @@ if TYPE_CHECKING:
     from .config import Config
 
 
+def _find_project_root(start_path: Path | None = None) -> Path:
+    """Find the Hop3 project root directory.
+
+    Walks up from the starting path looking for pyproject.toml and packages/ directory.
+    This is necessary because when running from qa/system-tests/, we need to find
+    the actual project root, not the current working directory.
+
+    Args:
+        start_path: Path to start searching from. If None, uses current working directory.
+
+    Returns:
+        Path to project root, or current working directory if not found.
+    """
+    current = start_path or Path.cwd()
+
+    for parent in [current, *current.parents]:
+        # Check for hop3 project markers
+        if (
+            (parent / "pyproject.toml").exists()
+            and (parent / "packages").exists()
+            and (parent / "packages" / "hop3-server").exists()
+        ):
+            return parent
+
+    # Fallback to cwd if we can't find the project root
+    return Path.cwd()
+
+
 class Phase(Enum):
     """Test run phases."""
 
@@ -326,7 +354,10 @@ class DailyTestOrchestrator:
 
             # Clone repository or use local
             if self.config.deployment.use_local_repo:
-                repo_path = self.config.deployment.local_repo_path or Path.cwd()
+                repo_path = (
+                    self.config.deployment.local_repo_path
+                    or _find_project_root()
+                )
                 self._deployment.repo_path = repo_path
                 self.console.print(f"  Using local repository: {repo_path}")
             else:

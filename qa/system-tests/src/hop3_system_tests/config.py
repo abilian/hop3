@@ -201,11 +201,11 @@ def _apply_overrides(config: Config, overrides: dict) -> Config:
     tests = config.tests
     report_dir = config.report_dir
 
-    if overrides.get("server_id"):
+    if overrides.get("server_id") or overrides.get("image"):
         hetzner = HetznerConfig(
             api_token=hetzner.api_token,
-            server_id=overrides["server_id"],
-            image=hetzner.image,
+            server_id=overrides.get("server_id", hetzner.server_id),
+            image=overrides.get("image", hetzner.image),
             ssh_key_name=hetzner.ssh_key_name,
         )
 
