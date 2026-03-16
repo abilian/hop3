@@ -17,6 +17,11 @@ from litestar.response import Redirect, Template
 
 from hop3.core.backup import BackupManager
 from hop3.orm import App, EnvVar
+from hop3.orm.repositories import (
+    AddonCredentialRepository,
+    AppRepository,
+    BackupRepository,
+)
 from hop3.project.config import AppConfig
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
@@ -311,7 +316,12 @@ class AppsController(Controller):
                 return Redirect(path="/dashboard")
 
             try:
-                manager = BackupManager(db_session)
+                # Create repositories for BackupManager
+                backup_repo = BackupRepository(session=db_session)
+                app_repo = AppRepository(session=db_session)
+                addon_credential_repo = AddonCredentialRepository(session=db_session)
+
+                manager = BackupManager(backup_repo, app_repo, addon_credential_repo)
                 backup_id, backup_path = manager.create_backup(app, include_addons=True)
                 print(f"Backup created successfully: {backup_id} at {backup_path}")
             except Exception as e:

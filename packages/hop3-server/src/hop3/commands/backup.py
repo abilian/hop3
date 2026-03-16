@@ -12,7 +12,9 @@ from typing import ClassVar
 from hop3.core.backup import BackupManager, format_size
 from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
-from hop3.orm.repositories import (
+
+# Runtime imports for Dishka DI (not just type hints)
+from hop3.orm.repositories import (  # noqa: TC001
     AddonCredentialRepository,
     AppRepository,
     BackupRepository,

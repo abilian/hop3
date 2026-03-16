@@ -233,7 +233,10 @@ class LiveCmd(Command):
         return [
             text(f"Could not inspect running {app.runtime} app '{app_name}'."),
             text("Showing configured values (may not match live environment):"),
-            table(headers=["Key", "Value"], rows=[[k, v] for k, v in sorted(db_env.items())]),
+            table(
+                headers=["Key", "Value"],
+                rows=[[k, v] for k, v in sorted(db_env.items())],
+            ),
             text("\nTip: Run 'hop deploy' to ensure live environment matches config."),
         ]
 
