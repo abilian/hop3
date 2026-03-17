@@ -64,64 +64,59 @@ def main():
 
 def run_command_from_args(cli_args: list[str]) -> None:
     """Run a CLI command from the given arguments."""
-    # Parse CLI flags (--json, --quiet, -y, --context, etc.)
     flags, cli_args = parse_flags(cli_args)
-
-    # Create printer with appropriate output mode
     printer = RichPrinter(
         verbose=flags.verbose,
         quiet=flags.quiet,
         json_output=flags.json_output,
         debug=flags.debug,
     )
-
     config = load_config()
 
-    # Apply context override if --context flag was provided
     if flags.context:
         config.set_context_override(flags.context)
 
-    # Debug: show parsed info (verbosity >= 2 means -d or -v was used)
     if flags.verbosity >= 2:
-        printer.print_debug(f"Command: {' '.join(cli_args) if cli_args else '(none)'}")
-        printer.print_debug(f"Verbosity: {flags.verbosity}")
+        _print_debug_info(printer, cli_args, config, flags)
 
-        # Show current context info
-        context_name = config.get_current_context_name()
-        if context_name:
-            context = config.get_current_context()
-            protected_marker = " [protected]" if context and context.protected else ""
-            printer.print_debug(f"Context: {context_name}{protected_marker}")
-
-        api_url = config.get_api_url() or "(not configured)"
-        printer.print_debug(f"API URL: {api_url}")
-
-    if not cli_args:
-        cli_args = ["help"]
+    cli_args = cli_args or ["help"]
 
     # Handle local commands (init, config) that don't need server
-    # Check BEFORE help flag conversion so "init --help" works
     if is_local_command(cli_args):
         if flags.verbosity >= 2:
             printer.print_debug("Handling as local command")
-        handled = handle_local_command(cli_args, config, printer)
-        if handled:
+        if handle_local_command(cli_args, config, printer):
             return
 
-    # Handle --help and -h flags
     cli_args = handle_help_flags(cli_args)
-
-    # Check prerequisites (config, auth, destructive confirmation)
     _check_prerequisites(cli_args, config, printer, flags)
 
-    # Execute the RPC command (handles response internally to keep tunnel alive)
     if flags.verbosity >= 2:
         printer.print_debug("Executing RPC command...")
 
-    # Generate extra args (e.g., archive for deploy command)
-    # Handle errors gracefully with informative messages
+    extra_args = _get_extra_args_safe(cli_args, flags.verbosity)
+    _execute_rpc_command(cli_args, config, extra_args, printer)
+
+
+def _print_debug_info(printer: RichPrinter, cli_args: list[str], config, flags) -> None:
+    """Print debug information about the current command."""
+    printer.print_debug(f"Command: {' '.join(cli_args) if cli_args else '(none)'}")
+    printer.print_debug(f"Verbosity: {flags.verbosity}")
+
+    context_name = config.get_current_context_name()
+    if context_name:
+        context = config.get_current_context()
+        protected_marker = " [protected]" if context and context.protected else ""
+        printer.print_debug(f"Context: {context_name}{protected_marker}")
+
+    api_url = config.get_api_url() or "(not configured)"
+    printer.print_debug(f"API URL: {api_url}")
+
+
+def _get_extra_args_safe(cli_args: list[str], verbosity: int) -> dict:
+    """Get extra args with error handling."""
     try:
-        extra_args = get_extra_args(cli_args, verbosity=flags.verbosity)
+        return get_extra_args(cli_args, verbosity=verbosity)
     except FileNotFoundError as e:
         err(f"File or directory not found: {e}")
         sys.exit(ExitCode.GENERAL_ERROR)
@@ -131,8 +126,6 @@ def run_command_from_args(cli_args: list[str]) -> None:
     except PermissionError as e:
         err(f"Permission denied: {e}")
         sys.exit(ExitCode.GENERAL_ERROR)
-
-    _execute_rpc_command(cli_args, config, extra_args, printer)
 
 
 def _check_prerequisites(

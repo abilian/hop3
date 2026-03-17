@@ -137,33 +137,39 @@ class TUIConfig:
         except Exception:
             return config
 
-        # Server settings
-        if "server" in data:
-            server = data["server"]
-            if "url" in server:
-                config.server_url = server["url"]
-            if "token" in server:
-                config.auth_token = server["token"]
-
-        # Display settings
-        if "display" in data:
-            display = data["display"]
-            if "theme" in display:
-                config.theme = display["theme"]
-            if "refresh_interval" in display:
-                config.refresh_interval = display["refresh_interval"]
-            if "show_clock" in display:
-                config.show_clock = display["show_clock"]
-
-        # Behavior settings
-        if "behavior" in data:
-            behavior = data["behavior"]
-            if "auto_refresh" in behavior:
-                config.auto_refresh = behavior["auto_refresh"]
-            if "confirm_destructive" in behavior:
-                config.confirm_destructive = behavior["confirm_destructive"]
-
+        cls._load_server_settings(data, config)
+        cls._load_display_settings(data, config)
+        cls._load_behavior_settings(data, config)
         return config
+
+    @classmethod
+    def _load_server_settings(cls, data: dict, config: TUIConfig) -> None:
+        """Load server settings from config data."""
+        server = data.get("server", {})
+        if url := server.get("url"):
+            config.server_url = url
+        if token := server.get("token"):
+            config.auth_token = token
+
+    @classmethod
+    def _load_display_settings(cls, data: dict, config: TUIConfig) -> None:
+        """Load display settings from config data."""
+        display = data.get("display", {})
+        if theme := display.get("theme"):
+            config.theme = theme
+        if (interval := display.get("refresh_interval")) is not None:
+            config.refresh_interval = interval
+        if (show_clock := display.get("show_clock")) is not None:
+            config.show_clock = show_clock
+
+    @classmethod
+    def _load_behavior_settings(cls, data: dict, config: TUIConfig) -> None:
+        """Load behavior settings from config data."""
+        behavior = data.get("behavior", {})
+        if (auto_refresh := behavior.get("auto_refresh")) is not None:
+            config.auto_refresh = auto_refresh
+        if (confirm := behavior.get("confirm_destructive")) is not None:
+            config.confirm_destructive = confirm
 
     @classmethod
     def _load_from_env(cls, config: TUIConfig) -> TUIConfig:

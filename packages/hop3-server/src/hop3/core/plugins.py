@@ -13,6 +13,10 @@ from pluggy import PluginManager
 from hop3.lib.decision_log import get_decision_logger
 
 from . import hookspecs
+from .protocols import (
+    BuildArtifact,
+    DeploymentContext,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -20,10 +24,8 @@ if TYPE_CHECKING:
     from .protocols import (
         OS,
         Addon,
-        BuildArtifact,
         Builder,
         Deployer,
-        DeploymentContext,
         Proxy,
     )
 
@@ -374,7 +376,6 @@ def get_deployer_by_name(app, runtime_name: str) -> Deployer:
         >>> strategy = get_deployer_by_name(app, 'uwsgi')
         >>> is_running = strategy.check_status()
     """
-    from hop3.core.protocols import BuildArtifact, DeploymentContext  # noqa: PLC0415
 
     pm = get_plugin_manager()
 

@@ -75,7 +75,7 @@ lint.extend-ignore = [
 
 [lint.mccabe]
 # TODO: Set max-complexity = 10
-max-complexity = 12
+max-complexity = 11
 
 [lint.isort]
 combine-as-imports = true
