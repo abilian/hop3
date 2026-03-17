@@ -1,4 +1,3 @@
-
 # Deploying Django REST Framework on Hop3
 
 This guide walks you through deploying a Django REST Framework (DRF) API on Hop3. DRF is the most popular toolkit for building Web APIs with Django.
@@ -18,10 +17,6 @@ Verify your local setup:
 python3 --version
 ```
 
-```text
-Python 3\.[0-9]+\.
-```
-
 ## Step 1: Create a New DRF Application
 
 ```bash
@@ -34,7 +29,7 @@ Install Django and DRF:
 . venv/bin/activate && pip install django djangorestframework gunicorn
 ```
 
-```text
+```console
 Successfully installed
 ```
 
@@ -221,7 +216,7 @@ urlpatterns = [
 . venv/bin/activate && python manage.py migrate
 ```
 
-```text
+```console
 Applying
 ```
 
@@ -235,7 +230,7 @@ Applying
 cat requirements.txt | grep -i djangorestframework
 ```
 
-```text
+```console
 djangorestframework
 ```
 
@@ -255,7 +250,7 @@ Verify the project structure:
 ls -la manage.py requirements.txt config/
 ```
 
-```text
+```console
 manage.py
 ```
 
@@ -345,7 +340,7 @@ Redeploy to apply the configuration:
 hop3 deploy hop3-tuto-drf
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -355,7 +350,7 @@ deployed successfully
 hop3 app:status hop3-tuto-drf
 ```
 
-```text
+```console
 hop3-tuto-drf
 ```
 
@@ -363,7 +358,7 @@ hop3-tuto-drf
 curl -s http://hop3-tuto-drf.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

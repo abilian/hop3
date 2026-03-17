@@ -1,4 +1,3 @@
-
 # Deploying ASP.NET Core on Hop3
 
 This guide walks you through deploying an ASP.NET Core application on Hop3. By the end, you'll have a production-ready .NET application running on your own infrastructure.
@@ -18,16 +17,8 @@ Verify your local setup:
 dotnet --version
 ```
 
-```text
-[0-9]+\.[0-9]+\.[0-9]+
-```
-
 ```bash
 dotnet --list-sdks | head -1
-```
-
-```text
-[0-9]+\.[0-9]+
 ```
 
 ## Step 1: Create a New ASP.NET Core Application
@@ -38,7 +29,7 @@ Create a new web API project:
 dotnet new webapi -n hop3-tuto-aspnet-core --no-https --framework net8.0
 ```
 
-```text
+```console
 The template "ASP.NET Core Web API" was created successfully
 ```
 
@@ -48,11 +39,11 @@ Verify the project structure:
 ls -la
 ```
 
-```text
+```console
 hop3-tuto-aspnet-core.csproj
 ```
 
-```text
+```console
 Program.cs
 ```
 
@@ -62,7 +53,7 @@ Install required packages (Swagger support was removed from .NET 9 templates):
 dotnet add package Swashbuckle.AspNetCore
 ```
 
-```text
+```console
 PackageReference for package 'Swashbuckle.AspNetCore'
 ```
 
@@ -217,7 +208,7 @@ Build the application:
 dotnet build
 ```
 
-```text
+```console
 Build succeeded
 ```
 
@@ -231,7 +222,7 @@ curl -s http://localhost:5000/up || echo "Server not responding"
 kill $APP_PID 2>/dev/null || true
 ```
 
-```text
+```console
 OK
 ```
 
@@ -243,7 +234,7 @@ Publish a self-contained deployment:
 dotnet publish -c Release -o publish
 ```
 
-```text
+```console
 hop3-tuto-aspnet-core ->
 ```
 
@@ -253,7 +244,7 @@ Verify the publish output:
 ls -la publish/
 ```
 
-```text
+```console
 hop3-tuto-aspnet-core.dll
 ```
 
@@ -303,11 +294,11 @@ Verify the deployment files:
 ls -la Procfile hop3.toml
 ```
 
-```text
+```console
 Procfile
 ```
 
-```text
+```console
 hop3.toml
 ```
 
@@ -343,7 +334,7 @@ logs/
 git init
 ```
 
-```text
+```console
 Initialized empty Git repository
 ```
 
@@ -355,7 +346,7 @@ git add .
 git commit -m "Initial ASP.NET Core application"
 ```
 
-```text
+```console
 Initial ASP.NET Core application
 ```
 
@@ -411,7 +402,7 @@ sleep 5
 hop3 app:status hop3-tuto-aspnet-core
 ```
 
-```text
+```console
 hop3-tuto-aspnet-core
 ```
 
@@ -419,7 +410,7 @@ hop3-tuto-aspnet-core
 curl -s http://hop3-tuto-aspnet-core.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

@@ -14,7 +14,7 @@ This guide walks you through deploying a Jekyll static site on Hop3. Jekyll is a
 
 Before you begin, ensure you have:
 
-1. **A Hop3 server** - Follow the [Installation Guide](../installation.md)
+1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/installation.md)
 2. **The Hop3 CLI** - Installed on your local machine
 3. **Ruby 3.0+** - Install via your package manager
 4. **Jekyll** - Install with `gem install jekyll bundler`

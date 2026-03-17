@@ -1,4 +1,3 @@
-
 # Deploying Django on Hop3
 
 This guide walks you through deploying a Django application on Hop3. By the end, you'll have a production-ready Django application running on your own infrastructure.
@@ -19,7 +18,7 @@ Verify your local setup:
 python3 --version
 ```
 
-```text
+```console
 Python 3.
 ```
 
@@ -27,7 +26,7 @@ Python 3.
 pip3 --version
 ```
 
-```text
+```console
 pip
 ```
 
@@ -49,7 +48,7 @@ Install Django and create the project:
 source venv/bin/activate && pip install django gunicorn psycopg2-binary whitenoise dj-database-url python-decouple
 ```
 
-```text
+```console
 Successfully installed
 ```
 
@@ -406,7 +405,7 @@ Run migrations and verify the setup:
 source venv/bin/activate && python manage.py migrate --noinput
 ```
 
-```text
+```console
 Operations to perform
 ```
 
@@ -416,7 +415,7 @@ Collect static files:
 source venv/bin/activate && python manage.py collectstatic --noinput
 ```
 
-```text
+```console
 static files
 ```
 
@@ -426,7 +425,7 @@ Run Django's system checks:
 source venv/bin/activate && python manage.py check
 ```
 
-```text
+```console
 System check identified no issues
 ```
 
@@ -436,19 +435,19 @@ Verify the project structure is complete:
 ls -la
 ```
 
-```text
+```console
 manage.py
 ```
 
-```text
+```console
 Procfile
 ```
 
-```text
+```console
 hop3.toml
 ```
 
-```text
+```console
 requirements.txt
 ```
 
@@ -497,7 +496,7 @@ Initialize the repository:
 git init
 ```
 
-```text
+```console
 Initialized empty Git repository
 ```
 
@@ -509,7 +508,7 @@ git add .
 git commit -m "Initial Django application"
 ```
 
-```text
+```console
 Initial Django application
 ```
 
@@ -552,7 +551,7 @@ Deploy the application (first deployment creates the app):
 hop3 deploy hop3-tuto-django
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -594,7 +593,7 @@ Check your application status:
 hop3 app:status hop3-tuto-django
 ```
 
-```text
+```console
 hop3-tuto-django
 ```
 
@@ -602,7 +601,7 @@ hop3-tuto-django
 curl -s http://hop3-tuto-django.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

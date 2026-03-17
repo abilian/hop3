@@ -9,12 +9,12 @@ site_author = "Abilian SAS"
 site_url = "https://hop3.cloud/"
 
 # Source and output directories
-docs_dir = "docs"
+docs_dir = "src"
 site_dir = "site"
 
 # Repository information
 repo_url = "https://github.com/abilian/hop3"
-edit_uri = "edit/main/docs/docs"
+edit_uri = "edit/main/docs/src"
 
 copyright = """
 Copyright &copy; 2021-2026 Abilian SAS

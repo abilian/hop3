@@ -1,4 +1,3 @@
-
 # Deploying Quarkus on Hop3
 
 This guide walks you through deploying a Quarkus application on Hop3. Quarkus is a Kubernetes-native Java framework optimized for fast startup and low memory usage.
@@ -19,16 +18,8 @@ Verify your local setup:
 java -version 2>&1 | head -1
 ```
 
-```text
-(openjdk|java) version "[0-9]+
-```
-
 ```bash
 mvn -version | head -1
-```
-
-```text
-Apache Maven [0-9]+\.
 ```
 
 ## Step 1: Create a New Quarkus Application
@@ -43,7 +34,7 @@ mvn io.quarkus.platform:quarkus-maven-plugin:3.6.0:create \
     -DnoCode
 ```
 
-```text
+```console
 BUILD SUCCESS
 ```
 
@@ -168,7 +159,7 @@ Build the application:
 ./mvnw package -DskipTests
 ```
 
-```text
+```console
 BUILD SUCCESS
 ```
 
@@ -178,7 +169,7 @@ Verify the JAR:
 ls -la target/quarkus-app/
 ```
 
-```text
+```console
 quarkus-run.jar
 ```
 
@@ -192,7 +183,7 @@ curl -s http://localhost:8080/up || echo "Test completed"
 kill $APP_PID 2>/dev/null || true
 ```
 
-```text
+```console
 OK
 ```
 
@@ -252,7 +243,7 @@ Deploy the application (first deployment creates the app):
 hop3 deploy hop3-tuto-quarkus
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -272,7 +263,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-quarkus
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -282,7 +273,7 @@ deployed successfully
 hop3 app:status hop3-tuto-quarkus
 ```
 
-```text
+```console
 hop3-tuto-quarkus
 ```
 
@@ -290,7 +281,7 @@ hop3-tuto-quarkus
 curl -s http://hop3-tuto-quarkus.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

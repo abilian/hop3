@@ -1,4 +1,3 @@
-
 # Deploying Actix Web on Hop3
 
 This guide walks you through deploying an Actix Web application on Hop3. Actix Web is a powerful, pragmatic, and extremely fast web framework for Rust.
@@ -18,16 +17,8 @@ Verify your local setup:
 rustc --version
 ```
 
-```text
-rustc [0-9]+\.[0-9]+
-```
-
 ```bash
 cargo --version
-```
-
-```text
-cargo [0-9]+\.[0-9]+
 ```
 
 ## Step 1: Create a New Actix Web Application
@@ -253,7 +244,7 @@ async fn main() -> std::io::Result<()> {
 cargo build --release 2>&1
 ```
 
-```text
+```console
 Finished
 ```
 
@@ -264,7 +255,7 @@ curl -s http://localhost:8080/health || echo "Test completed"
 pkill -f "hop3-tuto-actix-web" 2>/dev/null || true
 ```
 
-```text
+```console
 status
 ```
 
@@ -319,10 +310,6 @@ Initialize the repository:
 git init
 ```
 
-```text
-(Initialized|Reinitialized).*Git repository
-```
-
 ```bash
 git add .
 ```
@@ -331,7 +318,7 @@ git add .
 git commit -m "Initial Actix Web application"
 ```
 
-```text
+```console
 Initial Actix Web application
 ```
 
@@ -360,7 +347,7 @@ Deploy the application (first deployment creates the app):
 hop3 deploy hop3-tuto-actix-web
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -388,7 +375,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-actix-web
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -398,7 +385,7 @@ deployed successfully
 hop3 app:status hop3-tuto-actix-web
 ```
 
-```text
+```console
 hop3-tuto-actix-web
 ```
 
@@ -406,7 +393,7 @@ hop3-tuto-actix-web
 curl -s http://hop3-tuto-actix-web.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

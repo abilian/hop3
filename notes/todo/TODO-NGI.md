@@ -2,15 +2,15 @@
 
 Detailed breakdown of the work items and deliverables, based on the MOU for the "Nix Integration for Hop3" project.
 
-**Last Updated:** 2026-02-17
+**Last Updated:** 2026-03-17
 
 ## Timeline Summary
 
 | Task | Original Target | Revised Target | Status |
 |------|-----------------|----------------|--------|
-| **T1: Nix Build Plugins** | Q1 2026 | Q1 2026 | Not Started |
-| **T2: Nix Runtime** | Q1 2026 | Q1 2026 | Not Started |
-| **T3: Security & Resilience** | Q4 2025 | Q1 2026 | 6/8 Complete (75%) |
+| **T1: Nix Build Plugins** | Q1 2026 | Q2 2026 | Not Started |
+| **T2: Nix Runtime** | Q1 2026 | Q2 2026 | Not Started |
+| **T3: Security & Resilience** | Q4 2025 | Q1 2026 | 7/8 Complete (88%) |
 | **T4: Packaged Applications** | Q4 2025 | Q1 2026 | 5/20 Configs (25%) |
 | **T5: Dissemination & Engagement** | Q4 2025 | Q1 2026 | 3/5 Complete (60%) |
 
@@ -63,7 +63,7 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
 ## T3: Security & Resilience
 
 **Target:** Q1 2026 (carried from Q4 2025)
-**Status:** 6/8 milestones complete (75%)
+**Status:** 7/8 milestones complete (88%) - M3.8 substantially complete
 
 **Objective:** To improve the security and resilience of Hop3 by adding robust features and tools.
 
@@ -115,16 +115,17 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
   - [x] Dashboard view tests passing (100%)
   - [x] Guard-based authentication
 
-* **M3.8 Process outcomes of security audit:** ⚠️ **IN PROGRESS**
+* **M3.8 Process outcomes of security audit:** ⚠️ **IN PROGRESS** (95%)
   - [x] JWT token revocation implemented (2025-11-13)
   - [x] Token tampering protection
   - [x] SQL injection prevention
   - [x] Hardcoded password removal
   - [x] Plugin-based health checks for addons (2026-02-17)
   - [x] `hop3 system:check` command (2026-02-17)
-  - [ ] Formal security audit
-  - [ ] Accessibility scan
-  - [ ] Production verification of all security measures
+  - [x] Internal security audit completed (2026-03-16) - See `notes/security-audit-2026-03.md`
+  - [x] Command injection fix (shell=True → list-based) (2026-03-17)
+  - [ ] Remaining: magic link default, rate limiting, session lifetime
+  - [ ] Accessibility scan (optional)
 
 ## T4: Packaged Applications
 
@@ -204,6 +205,8 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
     - Release 0.4 announcement
     - OW2Con 2025 (video + slides)
     - OSXP 2025 (video + slides)
+  - [ ] Additional blog posts
+    - Release 0.4 announcement
   - [ ] Enriched website with feature showcase
   - [ ] Application showcase gallery
   - [ ] Production deployment of new site
@@ -218,18 +221,16 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
   - [x] hop3.toml configuration reference
   - [x] Index pages for all major sections
   - [x] Tutorial conversion pipeline (test syntax → standard markdown)
-  - [ ] Deploy to hop3.cloud (pending)
+  - [x] Deploy to hop3.cloud
+  - [ ] Review and revise as needed
 
-* **M5.3 Technical report and/or research paper:** ⚠️ **IN PROGRESS**
-  - [x] Draft technical report (TR-01, 2026-02-17)
-    - Architecture overview
-    - Security features documentation
-    - Project status summary
-  - [ ] Internal review
-  - [ ] Final publication
+* **M5.3 Final technical report:** ⏳ **PENDING** (end-of-project deliverable)
+  - [x] Draft interim report (TR-01, 2026-02-17) - internal use only
+  - [ ] Final report - to be written at project completion
+  - [ ] Publication
 
 * **M5.4 Conference presentation or workshop:** ✅ **COMPLETED** (2025-12-16)
-  - [x] Presented at OW2Con in Paris (Junue 2025)
+  - [x] Presented at OW2Con in Paris (June 2025)
   - [x] Presented at OSXP in Paris (December 2025)
   - [ ] Additional conference proposals planned for 2026
 

@@ -1,4 +1,3 @@
-
 # Deploying Nuxt.js on Hop3
 
 This guide walks you through deploying a Nuxt.js application on Hop3. By the end, you'll have a production-ready Vue.js application with server-side rendering running on your own infrastructure.
@@ -19,16 +18,8 @@ Verify your local setup:
 node -v
 ```
 
-```text
-v[0-9]+\.
-```
-
 ```bash
 npm -v
-```
-
-```text
-[0-9]+\.
 ```
 
 ## Step 1: Create a New Nuxt Application
@@ -39,7 +30,7 @@ Create the project directory and initialize:
 mkdir -p hop3-tuto-nuxtjs && cd hop3-tuto-nuxtjs && npm init -y
 ```
 
-```text
+```console
 package.json
 ```
 
@@ -49,7 +40,7 @@ Install Nuxt:
 npm install nuxt@latest
 ```
 
-```text
+```console
 added
 ```
 
@@ -77,11 +68,11 @@ Verify the project structure:
 ls -la
 ```
 
-```text
+```console
 nuxt.config.ts
 ```
 
-```text
+```console
 package.json
 ```
 
@@ -275,7 +266,7 @@ Build the application:
 npm run build && echo "Build completed successfully"
 ```
 
-```text
+```console
 Build completed successfully
 ```
 
@@ -285,7 +276,7 @@ Verify the build output:
 ls -la .output/
 ```
 
-```text
+```console
 server
 ```
 
@@ -335,11 +326,11 @@ Verify the deployment files:
 ls -la Procfile hop3.toml
 ```
 
-```text
+```console
 Procfile
 ```
 
-```text
+```console
 hop3.toml
 ```
 
@@ -375,7 +366,7 @@ dist/
 git init
 ```
 
-```text
+```console
 Initialized empty Git repository
 ```
 
@@ -387,7 +378,7 @@ git add .
 git commit -m "Initial Nuxt.js application"
 ```
 
-```text
+```console
 Initial Nuxt.js application
 ```
 
@@ -433,7 +424,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-nuxtjs
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -443,7 +434,7 @@ deployed successfully
 hop3 app:status hop3-tuto-nuxtjs
 ```
 
-```text
+```console
 hop3-tuto-nuxtjs
 ```
 
@@ -451,7 +442,7 @@ hop3-tuto-nuxtjs
 curl -s http://hop3-tuto-nuxtjs.$HOP3_TEST_DOMAIN/api/up
 ```
 
-```text
+```console
 OK
 ```
 

@@ -1,4 +1,3 @@
-
 # Deploying Fiber on Hop3
 
 This guide walks you through deploying a Fiber application on Hop3. Fiber is an Express-inspired web framework built on Fasthttp, the fastest HTTP engine for Go.
@@ -16,10 +15,6 @@ Verify your local setup:
 
 ```bash
 go version
-```
-
-```text
-go version go[0-9]+\.[0-9]+
 ```
 
 ## Step 1: Create a New Fiber Application
@@ -188,7 +183,7 @@ curl -s http://localhost:3000/health || echo "Test completed"
 pkill -f "./hop3-tuto-fiber" 2>/dev/null || true
 ```
 
-```text
+```console
 status
 ```
 
@@ -239,7 +234,7 @@ Deploy the application (first deployment creates the app):
 hop3 deploy hop3-tuto-fiber
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -259,7 +254,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-fiber
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -269,7 +264,7 @@ deployed successfully
 hop3 app:status hop3-tuto-fiber
 ```
 
-```text
+```console
 hop3-tuto-fiber
 ```
 
@@ -277,7 +272,7 @@ hop3-tuto-fiber
 curl -s http://hop3-tuto-fiber.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

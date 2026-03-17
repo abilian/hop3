@@ -29,4 +29,4 @@ deploy:
 	hop3 --context prod deploy hop3-docs
 
 clean:
-	rm -rf site/ docs/tutorials/
+	rm -rf site/ src/tutorials/

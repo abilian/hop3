@@ -1,4 +1,3 @@
-
 # Deploying Falcon on Hop3
 
 This guide walks you through deploying a Falcon application on Hop3. Falcon is a minimalist, high-performance framework for building REST APIs.
@@ -18,10 +17,6 @@ Verify your local setup:
 python3 --version
 ```
 
-```text
-Python 3\.[0-9]+\.
-```
-
 ## Step 1: Create a New Falcon Application
 
 ```bash
@@ -34,7 +29,7 @@ Install Falcon:
 . venv/bin/activate && pip install falcon uvicorn
 ```
 
-```text
+```console
 Successfully installed
 ```
 
@@ -168,7 +163,7 @@ if __name__ == '__main__':
 cat requirements.txt | grep -i falcon
 ```
 
-```text
+```console
 falcon
 ```
 
@@ -188,7 +183,7 @@ Verify the project structure:
 ls -la app.py requirements.txt
 ```
 
-```text
+```console
 app.py
 ```
 
@@ -253,7 +248,7 @@ Deploy the application (first deployment creates the app):
 hop3 deploy hop3-tuto-falcon
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -273,7 +268,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-falcon
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -283,7 +278,7 @@ deployed successfully
 hop3 app:status hop3-tuto-falcon
 ```
 
-```text
+```console
 hop3-tuto-falcon
 ```
 
@@ -291,7 +286,7 @@ hop3-tuto-falcon
 curl -s http://hop3-tuto-falcon.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

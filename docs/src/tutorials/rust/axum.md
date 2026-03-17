@@ -1,4 +1,3 @@
-
 # Deploying Axum on Hop3
 
 This guide walks you through deploying an Axum application on Hop3. Axum is a modern, ergonomic web framework built on Tokio, Tower, and Hyper.
@@ -16,10 +15,6 @@ Verify your local setup:
 
 ```bash
 rustc --version
-```
-
-```text
-rustc [0-9]+\.[0-9]+
 ```
 
 ## Step 1: Create a New Axum Application
@@ -245,7 +240,7 @@ async fn main() {
 cargo build --release 2>&1
 ```
 
-```text
+```console
 Finished
 ```
 
@@ -256,7 +251,7 @@ curl -s http://localhost:3000/health || echo "Test completed"
 pkill -f "hop3-tuto-axum" 2>/dev/null || true
 ```
 
-```text
+```console
 status
 ```
 
@@ -311,10 +306,6 @@ Initialize the repository:
 git init
 ```
 
-```text
-(Initialized|Reinitialized).*Git repository
-```
-
 ```bash
 git add .
 ```
@@ -323,7 +314,7 @@ git add .
 git commit -m "Initial Axum application"
 ```
 
-```text
+```console
 Initial Axum application
 ```
 
@@ -351,7 +342,7 @@ Deploy the application (first deployment creates the app):
 hop3 deploy hop3-tuto-axum
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -379,7 +370,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-axum
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -389,7 +380,7 @@ deployed successfully
 hop3 app:status hop3-tuto-axum
 ```
 
-```text
+```console
 hop3-tuto-axum
 ```
 
@@ -397,7 +388,7 @@ hop3-tuto-axum
 curl -s http://hop3-tuto-axum.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

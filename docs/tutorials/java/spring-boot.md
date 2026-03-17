@@ -14,7 +14,7 @@ This guide walks you through deploying a Spring Boot application on Hop3. By the
 
 Before you begin, ensure you have:
 
-1. **A Hop3 server** - Follow the [Installation Guide](../installation.md) if you haven't set one up yet
+1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/installation.md) if you haven't set one up yet
 2. **The Hop3 CLI** - Installed on your local machine
 3. **Java 17+** - Install from [Adoptium](https://adoptium.net/) or your package manager
 4. **Maven 3.8+** - Install from [maven.apache.org](https://maven.apache.org/)
@@ -834,9 +834,9 @@ mvn clean package -X  # verbose output
 
 ## Next Steps
 
-- **[CLI Reference](../cli-reference.md)** - Complete command reference
-- **[hop3.toml Reference](../hop3-toml-reference.md)** - Full configuration options
-- **[Backup and Restore Guide](../backup-restore.md)** - Protect your data
+- **[CLI Reference](../../reference/cli.md)** - Complete command reference
+- **[hop3.toml Reference](../../reference/config.md)** - Full configuration options
+- **[Backup and Restore Guide](../../guides/backup-restore.md)** - Protect your data
 
 ## Example Files
 

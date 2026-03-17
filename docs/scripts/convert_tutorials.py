@@ -4,11 +4,12 @@
 The source tutorials use custom code block syntax for automated testing:
 - ```bash exec id=... dir=... timeout=...  -> executable bash commands
 - ```bash skip                              -> skipped commands
-- ```output contains/regex                  -> output assertions
-- ```assert file-exists path=...            -> file assertions
+- ```output contains                        -> expected output (keep as example)
+- ```output regex                           -> regex assertion (remove - not user-friendly)
+- ```assert file-exists path=...            -> file assertions (remove)
 - ```file path=foo.py                       -> file content to write
 
-This script converts them to standard markdown acceptable by Zensical.
+This script converts them to clean markdown for Zensical rendering.
 """
 
 import re
@@ -93,7 +94,7 @@ def strip_tutorial_frontmatter(content: str) -> str:
     # If frontmatter starts with 'tutorial:', remove it entirely
     # (tutorial metadata is only for testing, not documentation)
     if frontmatter.startswith("tutorial:"):
-        return content[frontmatter_match.end():]
+        return content[frontmatter_match.end() :]
 
     # Otherwise, try to remove just the tutorial: block
     # Parse line by line to handle nested YAML properly
@@ -119,7 +120,7 @@ def strip_tutorial_frontmatter(content: str) -> str:
 
     # If frontmatter is now empty, remove it entirely
     if not cleaned_frontmatter:
-        return content[frontmatter_match.end():]
+        return content[frontmatter_match.end() :]
 
     return f"---\n{cleaned_frontmatter}\n---\n{content[frontmatter_match.end():]}"
 
@@ -127,33 +128,24 @@ def strip_tutorial_frontmatter(content: str) -> str:
 def convert_code_blocks(content: str) -> str:
     """Convert custom code block syntax to standard markdown."""
 
-    # Remove ```assert ... blocks entirely (they're test-only)
-    content = re.sub(
-        r"```assert[^\n]*\n```\n*",
-        "",
-        content
-    )
+    # Remove ```assert ... ``` blocks entirely (they're test-only)
+    content = re.sub(r"```assert[^\n]*\n```\n*", "", content)
+
+    # Remove ```output regex ... ``` blocks entirely
+    # (regex patterns are not user-friendly documentation)
+    content = re.sub(r"```output regex[^\n]*\n.*?\n```\n*", "", content, flags=re.DOTALL)
 
     # ```bash exec id=... dir=... timeout=... -> ```bash
-    content = re.sub(
-        r"```bash exec[^\n]*",
-        "```bash",
-        content
-    )
+    content = re.sub(r"```bash exec[^\n]*", "```bash", content)
 
     # ```bash skip -> ```bash
-    content = re.sub(
-        r"```bash skip[^\n]*",
-        "```bash",
-        content
-    )
+    content = re.sub(r"```bash skip[^\n]*", "```bash", content)
 
-    # ```output contains/regex -> ```text
-    content = re.sub(
-        r"```output[^\n]*",
-        "```text",
-        content
-    )
+    # ```output contains -> ```console (keep the content as example output)
+    content = re.sub(r"```output contains[^\n]*", "```console", content)
+
+    # ```output (plain) -> ```console
+    content = re.sub(r"```output\s*$", "```console", content, flags=re.MULTILINE)
 
     # ```file path=foo.py -> ```python (infer from extension)
     def replace_file_block(match):
@@ -161,11 +153,7 @@ def convert_code_blocks(content: str) -> str:
         lang = get_lang_from_path(path)
         return f"```{lang}"
 
-    content = re.sub(
-        r"```file path=([^\n]+)",
-        replace_file_block,
-        content
-    )
+    content = re.sub(r"```file path=([^\n]+)", replace_file_block, content)
 
     return content
 
@@ -181,6 +169,9 @@ def convert_tutorial(source_path: Path, dest_path: Path) -> None:
     # Clean up multiple blank lines
     content = re.sub(r"\n{3,}", "\n\n", content)
 
+    # Remove leading whitespace/newlines
+    content = content.lstrip()
+
     # Ensure destination directory exists
     dest_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -194,7 +185,7 @@ def main():
     zdocs_dir = script_dir.parent
 
     source_dir = zdocs_dir / "tutorials"
-    dest_dir = zdocs_dir / "docs" / "tutorials"
+    dest_dir = zdocs_dir / "src" / "tutorials"
 
     if not source_dir.exists():
         print(f"Error: Source directory not found: {source_dir}")

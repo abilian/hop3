@@ -1,4 +1,3 @@
-
 # Deploying Litestar on Hop3
 
 This guide walks you through deploying a Litestar application on Hop3. Litestar (formerly Starlite) is a powerful, flexible, and performant ASGI framework.
@@ -18,10 +17,6 @@ Verify your local setup:
 python3 --version
 ```
 
-```text
-Python 3\.[0-9]+\.
-```
-
 ## Step 1: Create a New Litestar Application
 
 ```bash
@@ -34,7 +29,7 @@ Install Litestar:
 . venv/bin/activate && pip install litestar uvicorn python-dotenv
 ```
 
-```text
+```console
 Successfully installed
 ```
 
@@ -172,7 +167,7 @@ if __name__ == "__main__":
 cat requirements.txt | grep -i litestar
 ```
 
-```text
+```console
 litestar
 ```
 
@@ -192,7 +187,7 @@ Verify the project structure:
 ls -la app.py requirements.txt
 ```
 
-```text
+```console
 app.py
 ```
 

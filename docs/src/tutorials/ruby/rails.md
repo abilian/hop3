@@ -1,4 +1,3 @@
-
 # Deploying Ruby on Rails on Hop3
 
 This guide walks you through deploying a Ruby on Rails 8 application on Hop3. By the end, you'll have a live, production-ready Rails application running on your own infrastructure.
@@ -36,16 +35,12 @@ Verify your local setup:
 ruby -v
 ```
 
-```text
+```console
 ruby 3.
 ```
 
 ```bash
 rails -v 2>&1 || echo "Rails not installed - will install"
-```
-
-```text
-Rails [0-9]+\.|Rails not installed|not currently installed
 ```
 
 ## Step 1: Install Rails and Create Application
@@ -56,18 +51,10 @@ Install Rails if not already installed:
 gem install rails --no-document 2>&1 | tail -5 || echo "Rails installation completed"
 ```
 
-```text
-rails|Successfully installed|already activated
-```
-
 Verify Rails is available:
 
 ```bash
 rails -v
-```
-
-```text
-Rails [0-9]+\.
 ```
 
 Create a new Rails application. For production deployment, you should use PostgreSQL (`--database=postgresql`), but for this tutorial we'll use SQLite locally and configure PostgreSQL for production:
@@ -76,7 +63,7 @@ Create a new Rails application. For production deployment, you should use Postgr
 rails new hop3-tuto-rails --skip-git --skip-docker --skip-action-mailer --skip-action-mailbox --skip-action-text --skip-active-job --skip-active-storage --skip-action-cable --skip-hotwire --skip-jbuilder --skip-test --skip-system-test --skip-thruster --skip-rubocop --skip-brakeman --skip-ci --skip-kamal
 ```
 
-```text
+```console
 create
 ```
 
@@ -86,7 +73,7 @@ Install the dependencies:
 bundle install
 ```
 
-```text
+```console
 Bundle complete!
 ```
 
@@ -96,15 +83,15 @@ Move into the application directory and verify the structure:
 ls -la
 ```
 
-```text
+```console
 Gemfile
 ```
 
-```text
+```console
 config
 ```
 
-```text
+```console
 app
 ```
 
@@ -116,7 +103,7 @@ Rails 8 doesn't include a default welcome page in production. Let's create one:
 bin/rails generate controller welcome index
 ```
 
-```text
+```console
 create  app/controllers/welcome_controller.rb
 ```
 
@@ -310,7 +297,7 @@ Run Rails system checks:
 bin/rails runner "puts 'Rails is working!'"
 ```
 
-```text
+```console
 Rails is working!
 ```
 
@@ -320,15 +307,15 @@ Verify the project structure is complete:
 ls -la
 ```
 
-```text
+```console
 Procfile
 ```
 
-```text
+```console
 hop3.toml
 ```
 
-```text
+```console
 Gemfile
 ```
 
@@ -373,7 +360,7 @@ Initialize the repository:
 git init
 ```
 
-```text
+```console
 Initialized empty Git repository
 ```
 
@@ -385,7 +372,7 @@ git add .
 git commit -m "Initial Rails 8 application"
 ```
 
-```text
+```console
 Initial Rails 8 application
 ```
 
@@ -465,7 +452,7 @@ Check your application status:
 hop3 app:status hop3-tuto-rails
 ```
 
-```text
+```console
 hop3-tuto-rails
 ```
 
@@ -473,7 +460,7 @@ hop3-tuto-rails
 curl -s http://hop3-tuto-rails.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

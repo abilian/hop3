@@ -1,4 +1,3 @@
-
 # Deploying Phoenix on Hop3
 
 This guide walks you through deploying a Phoenix (Elixir) application on Hop3. By the end, you'll have a production-ready real-time web application running on your own infrastructure.
@@ -40,16 +39,8 @@ Verify your local setup:
 elixir --version 2>&1 | head -2 || echo "Elixir version check"
 ```
 
-```text
-Elixir|elixir|version
-```
-
 ```bash
 mix --version 2>&1 || echo "Mix version check"
-```
-
-```text
-Mix [0-9]+\.[0-9]+|Mix version check
 ```
 
 ## Step 1: Create a New Phoenix Application
@@ -60,17 +51,13 @@ Check that Mix is available (required for this tutorial):
 which mix || (echo "ERROR: Mix is not installed. Please install Elixir first." && exit 1)
 ```
 
-```text
-mix|/usr
-```
-
 Install the Phoenix project generator:
 
 ```bash
 mix local.hex --force --if-missing && mix archive.install hex phx_new --force
 ```
 
-```text
+```console
 phx_new
 ```
 
@@ -80,7 +67,7 @@ Create a new Phoenix application (without Ecto for simplicity):
 mix phx.new hop3-tuto-phoenix --no-ecto --no-mailer --no-dashboard --no-gettext --install
 ```
 
-```text
+```console
 Fetch and install dependencies
 ```
 
@@ -90,11 +77,11 @@ Verify the project structure:
 ls -la
 ```
 
-```text
+```console
 mix.exs
 ```
 
-```text
+```console
 lib
 ```
 
@@ -290,7 +277,7 @@ Build assets and create release:
 mix assets.deploy
 ```
 
-```text
+```console
 assets
 ```
 
@@ -298,7 +285,7 @@ assets
 MIX_ENV=prod mix compile
 ```
 
-```text
+```console
 Compiled
 ```
 
@@ -308,7 +295,7 @@ Verify the application compiles:
 ls -la _build/prod/lib/hop3-tuto-phoenix/
 ```
 
-```text
+```console
 ebin
 ```
 
@@ -366,11 +353,11 @@ Verify the deployment files:
 ls -la Procfile hop3.toml
 ```
 
-```text
+```console
 Procfile
 ```
 
-```text
+```console
 hop3.toml
 ```
 
@@ -404,7 +391,7 @@ erl_crash.dump
 git init
 ```
 
-```text
+```console
 Initialized empty Git repository
 ```
 
@@ -416,7 +403,7 @@ git add .
 git commit -m "Initial Phoenix application"
 ```
 
-```text
+```console
 Initial Phoenix application
 ```
 
@@ -474,7 +461,7 @@ sleep 5
 hop3 app:status hop3-tuto-phoenix
 ```
 
-```text
+```console
 hop3-tuto-phoenix
 ```
 
@@ -482,7 +469,7 @@ hop3-tuto-phoenix
 curl -s http://hop3-tuto-phoenix.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

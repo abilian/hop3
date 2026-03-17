@@ -1,4 +1,3 @@
-
 # Deploying Sanic on Hop3
 
 This guide walks you through deploying a Sanic application on Hop3. Sanic is a Python async web server and framework designed for fast HTTP responses.
@@ -18,10 +17,6 @@ Verify your local setup:
 python3 --version
 ```
 
-```text
-Python 3\.[0-9]+\.
-```
-
 ## Step 1: Create a New Sanic Application
 
 ```bash
@@ -34,7 +29,7 @@ Install Sanic:
 . venv/bin/activate && pip install sanic
 ```
 
-```text
+```console
 Successfully installed
 ```
 
@@ -153,7 +148,7 @@ if __name__ == "__main__":
 cat requirements.txt | grep -i sanic
 ```
 
-```text
+```console
 sanic
 ```
 
@@ -173,7 +168,7 @@ Verify the project structure:
 ls -la app.py requirements.txt
 ```
 
-```text
+```console
 app.py
 ```
 
@@ -239,7 +234,7 @@ Deploy the application (first deployment creates the app):
 hop3 deploy hop3-tuto-sanic
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -259,7 +254,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-sanic
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -269,7 +264,7 @@ deployed successfully
 hop3 app:status hop3-tuto-sanic
 ```
 
-```text
+```console
 hop3-tuto-sanic
 ```
 
@@ -277,7 +272,7 @@ hop3-tuto-sanic
 curl -s http://hop3-tuto-sanic.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

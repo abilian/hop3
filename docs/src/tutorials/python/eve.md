@@ -1,4 +1,3 @@
-
 # Deploying Eve on Hop3
 
 This guide walks you through deploying an Eve application on Hop3. Eve is a Python REST API framework built on Flask that makes building and deploying highly customizable, fully-featured RESTful Web Services easy.
@@ -18,10 +17,6 @@ Verify your local setup:
 python3 --version
 ```
 
-```text
-Python 3\.[0-9]+\.
-```
-
 ## Step 1: Create a New Eve Application
 
 ```bash
@@ -34,7 +29,7 @@ Install Eve:
 . venv/bin/activate && pip install eve gunicorn
 ```
 
-```text
+```console
 Successfully installed
 ```
 
@@ -221,7 +216,7 @@ if __name__ == '__main__':
 cat requirements.txt | grep -i eve
 ```
 
-```text
+```console
 Eve
 ```
 
@@ -241,7 +236,7 @@ Verify the project structure:
 ls -la app.py requirements.txt
 ```
 
-```text
+```console
 app.py
 ```
 

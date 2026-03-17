@@ -1,4 +1,3 @@
-
 # Deploying Hugo on Hop3
 
 This guide walks you through deploying a Hugo static site on Hop3. Hugo is the world's fastest static site generator, written in Go.
@@ -31,10 +30,6 @@ Verify your local setup:
 hugo version || (echo "SKIP: Hugo is not installed locally. Install from https://gohugo.io/installation/" && exit 1)
 ```
 
-```text
-hugo v[0-9]+\.[0-9]+|SKIP: Hugo
-```
-
 !!! note "Local Prerequisite"
     Hugo must be installed on your local machine to build the site before deployment.
     Unlike frameworks (Rails, Django), Hugo is a standalone binary.
@@ -46,7 +41,7 @@ hugo v[0-9]+\.[0-9]+|SKIP: Hugo
 hugo new site hop3-tuto-hugo
 ```
 
-```text
+```console
 Congratulations
 ```
 
@@ -58,16 +53,12 @@ Download a simple theme:
 git init
 ```
 
-```text
+```console
 Initialized
 ```
 
 ```bash
 git submodule add https://github.com/theNewDynamic/gohugo-theme-ananke.git themes/ananke 2>&1 && echo "Theme added successfully" || echo "Theme already exists"
-```
-
-```text
-Theme added|Theme already|Cloning
 ```
 
 Configure the theme:
@@ -105,7 +96,7 @@ Create an about page:
 hugo new content about.md
 ```
 
-```text
+```console
 Content
 ```
 
@@ -162,7 +153,7 @@ Build the site:
 hugo 2>&1; echo "Build completed with exit code $?"
 ```
 
-```text
+```console
 Build completed
 ```
 
@@ -172,7 +163,7 @@ Verify the build output:
 ls -la public/
 ```
 
-```text
+```console
 index.html
 ```
 
@@ -185,7 +176,7 @@ curl -s http://localhost:1313/ | head -5 || echo "Test completed"
 pkill -f "hugo server" 2>/dev/null || true
 ```
 
-```text
+```console
 html
 ```
 
@@ -257,7 +248,7 @@ resources/_gen/
 git add . && git commit -m "Initial Hugo site"
 ```
 
-```text
+```console
 Initial Hugo site
 ```
 
@@ -307,7 +298,7 @@ sleep 5
 hop3 app:status hop3-tuto-hugo
 ```
 
-```text
+```console
 hop3-tuto-hugo
 ```
 
@@ -315,7 +306,7 @@ hop3-tuto-hugo
 curl -s http://hop3-tuto-hugo.$HOP3_TEST_DOMAIN/ | head -5
 ```
 
-```text
+```console
 html
 ```
 

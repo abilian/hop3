@@ -1,4 +1,3 @@
-
 # Deploying Flask on Hop3
 
 This guide walks you through deploying a Flask application on Hop3. By the end, you'll have a production-ready Python web application running on your own infrastructure.
@@ -19,16 +18,8 @@ Verify your local setup:
 python3 --version
 ```
 
-```text
-Python 3\.[0-9]+\.
-```
-
 ```bash
 pip3 --version
-```
-
-```text
-pip [0-9]+\.
 ```
 
 ## Step 1: Create a New Flask Application
@@ -45,7 +36,7 @@ Activate the virtual environment and install Flask:
 . venv/bin/activate && pip install flask gunicorn python-dotenv
 ```
 
-```text
+```console
 Successfully installed
 ```
 
@@ -147,11 +138,11 @@ Verify the requirements:
 cat requirements.txt | grep -E "^(Flask|gunicorn)" | head -2
 ```
 
-```text
+```console
 Flask
 ```
 
-```text
+```console
 gunicorn
 ```
 
@@ -228,11 +219,11 @@ Verify the project structure:
 ls -la *.py requirements.txt
 ```
 
-```text
+```console
 app.py
 ```
 
-```text
+```console
 requirements.txt
 ```
 
@@ -282,11 +273,11 @@ Verify the deployment files exist:
 ls -la Procfile hop3.toml
 ```
 
-```text
+```console
 Procfile
 ```
 
-```text
+```console
 hop3.toml
 ```
 
@@ -344,7 +335,7 @@ Initialize the repository:
 git init
 ```
 
-```text
+```console
 Initialized empty Git repository
 ```
 
@@ -356,7 +347,7 @@ git add .
 git commit -m "Initial Flask application"
 ```
 
-```text
+```console
 Initial Flask application
 ```
 
@@ -417,7 +408,7 @@ Check your application status:
 hop3 app:status hop3-tuto-flask
 ```
 
-```text
+```console
 hop3-tuto-flask
 ```
 
@@ -425,7 +416,7 @@ hop3-tuto-flask
 curl -s http://hop3-tuto-flask.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 
