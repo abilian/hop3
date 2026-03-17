@@ -61,24 +61,33 @@ class SetupCmd(Command):
             echo(f"HOP3_ROOT: {c.HOP3_ROOT}", fg="blue")
             echo("")
 
-        # Create required paths
+        self._create_directories(verbose=verbose_setup)
+        self._configure_uwsgi(verbose=verbose_setup)
+        self.setup_secret_key(verbose=verbose_setup)
+
         if verbose_setup:
+            echo("")
+            echo("Setup completed successfully!", fg="green")
+
+    def _create_directories(self, *, verbose: bool) -> None:
+        """Create required directories."""
+        if verbose:
             echo("Creating required directories:", fg="yellow")
 
         created_count = 0
         existing_count = 0
         for p in c.ROOT_DIRS:
             path = Path(p)
-            if not path.exists():
+            if path.exists():
+                if verbose:
+                    echo(f"  Directory '{p}' already exists.", fg="blue")
+                existing_count += 1
+            else:
                 echo(f"  Creating '{p}'.", fg="green")
                 path.mkdir(parents=True)
                 created_count += 1
-            else:
-                if verbose_setup:
-                    echo(f"  Directory '{p}' already exists.", fg="blue")
-                existing_count += 1
 
-        if verbose_setup:
+        if verbose:
             echo("")
             echo(
                 f"Directories: {created_count} created, {existing_count} already existed",
@@ -86,12 +95,13 @@ class SetupCmd(Command):
             )
             echo("")
 
-        # Set up the uWSGI emperor config
+    def _configure_uwsgi(self, *, verbose: bool) -> None:
+        """Configure uWSGI emperor."""
         cpu_count = os.cpu_count() or 1
         pw_name = pwd.getpwuid(os.getuid()).pw_name
         gr_name = grp.getgrgid(os.getgid()).gr_name
 
-        if verbose_setup:
+        if verbose:
             echo("Configuring uWSGI emperor:", fg="yellow")
             echo(f"  CPU count: {cpu_count}", fg="blue")
             echo(f"  User: {pw_name} (UID: {os.getuid()})", fg="blue")
@@ -118,20 +128,13 @@ class SetupCmd(Command):
             for k, v in settings:
                 h.write(f"{k:s} = {v}\n")
 
-        if verbose_setup:
+        if verbose:
             echo(f"Created uWSGI config: {uwsgi_config_path}", fg="green")
             echo("")
             echo("Configuration settings:", fg="yellow")
             for k, v in settings:
                 echo(f"  {k}: {v}", fg="blue")
             echo("")
-
-        # Set up HOP3_SECRET_KEY
-        self.setup_secret_key(verbose=verbose_setup)
-
-        if verbose_setup:
-            echo("")
-            echo("Setup completed successfully!", fg="green")
 
     def setup_secret_key(self, *, verbose: bool = False) -> None:
         """Generate and configure HOP3_SECRET_KEY if not already set.
