@@ -18,7 +18,6 @@ Addon passwords are stored persistently in HOP3_ROOT/addons/postgres/
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import secrets
@@ -35,45 +34,16 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 from hop3.config import HOP3_ROOT
 from hop3.lib.logging import server_log
+from hop3.plugins.addons import (
+    delete_addon_secrets,
+    load_addon_secrets,
+    save_addon_secrets,
+)
 
 from .admin import PostgresAdmin
 
-
-def _get_addon_secrets_dir() -> Path:
-    """Get the directory for storing addon secrets."""
-    secrets_dir = HOP3_ROOT / "addons" / "postgres"
-    secrets_dir.mkdir(parents=True, exist_ok=True)
-    return secrets_dir
-
-
-def _get_addon_secrets_file(addon_name: str) -> Path:
-    """Get the secrets file path for an addon."""
-    return _get_addon_secrets_dir() / f"{addon_name}.json"
-
-
-def _load_addon_secrets(addon_name: str) -> dict[str, Any] | None:
-    """Load stored secrets for an addon."""
-    secrets_file = _get_addon_secrets_file(addon_name)
-    if secrets_file.exists():
-        with Path(secrets_file).open() as f:
-            return json.load(f)
-    return None
-
-
-def _save_addon_secrets(addon_name: str, secrets_data: dict[str, Any]) -> None:
-    """Save secrets for an addon."""
-    secrets_file = _get_addon_secrets_file(addon_name)
-    with Path(secrets_file).open("w") as f:
-        json.dump(secrets_data, f, indent=2)
-    # Secure the file
-    secrets_file.chmod(0o600)
-
-
-def _delete_addon_secrets(addon_name: str) -> None:
-    """Delete stored secrets for an addon."""
-    secrets_file = _get_addon_secrets_file(addon_name)
-    if secrets_file.exists():
-        secrets_file.unlink()
+# Addon type identifier for secrets storage
+ADDON_TYPE = "postgres"
 
 
 def _find_pg_hba() -> Path | None:
@@ -237,7 +207,7 @@ class PostgresAddon:
 
         Returns the stored password if available, or generates a new one.
         """
-        stored_secrets = _load_addon_secrets(self.addon_name)
+        stored_secrets = load_addon_secrets(ADDON_TYPE, self.addon_name)
         if stored_secrets and "password" in stored_secrets:
             return stored_secrets["password"]
         # Generate new password (will be stored during create())
@@ -249,7 +219,7 @@ class PostgresAddon:
 
     def _get_stored_password(self) -> str | None:
         """Get the stored password for this addon, if any."""
-        secrets = _load_addon_secrets(self.addon_name)
+        secrets = load_addon_secrets(ADDON_TYPE, self.addon_name)
         if secrets:
             return secrets.get("password")
         return None
@@ -295,7 +265,7 @@ class PostgresAddon:
                 db_exists = cursor.fetchone() is not None
 
                 # Check if we have stored secrets
-                existing_secrets = _load_addon_secrets(self.addon_name)
+                existing_secrets = load_addon_secrets(ADDON_TYPE, self.addon_name)
 
                 if db_exists and existing_secrets:
                     # Database and secrets both exist - nothing to do
@@ -347,7 +317,8 @@ class PostgresAddon:
                     )
 
             # Store the password (always when we reach here)
-            _save_addon_secrets(
+            save_addon_secrets(
+                ADDON_TYPE,
                 self.addon_name,
                 {
                     "password": password,
@@ -411,7 +382,7 @@ class PostgresAddon:
                 )
 
             # Delete stored secrets
-            _delete_addon_secrets(self.addon_name)
+            delete_addon_secrets(ADDON_TYPE, self.addon_name)
 
         finally:
             if connection:

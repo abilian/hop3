@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from hop3.core.plugins import get_addon
 from hop3.lib import echo
 from hop3.lib.decorators import command
+from hop3.plugins.addons import display_credentials
 
 if TYPE_CHECKING:
     from argparse import ArgumentParser
@@ -176,24 +177,8 @@ class PgCredentialsCmd:
 
     def run(self, name: str) -> None:
         echo(f"Fetching credentials for database '{name}'...")
-
-        try:
-            # Use the service strategy to get connection details
-            service = get_addon("postgres", name)
-            details = service.get_connection_details()
-
-            # Display the credentials
-            for key, value in details.items():
-                # Mask password in display
-                if "PASSWORD" in key.upper():
-                    echo(f"{key}: {'*' * 8}")
-                else:
-                    echo(f"{key}: {value}")
-
-        except RuntimeError as e:
-            echo(f"Error: {e}")
-        except Exception as e:
-            echo(f"Unexpected error: {e}")
+        service = get_addon("postgres", name)
+        display_credentials(service)
 
 
 @command

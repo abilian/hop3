@@ -71,7 +71,7 @@ def test_info_handles_connection_errors(postgres_service):
     # Mock the password loading so we can test connection error handling
     with (
         patch(
-            "hop3.plugins.postgresql.postgres._load_addon_secrets",
+            "hop3.plugins.postgresql.postgres.load_addon_secrets",
             return_value={"password": "test-password"},
         ),
         patch("psycopg2.connect") as mock_connect,

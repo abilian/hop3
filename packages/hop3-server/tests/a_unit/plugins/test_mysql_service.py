@@ -80,7 +80,7 @@ def test_info_handles_connection_errors(mysql_service):
     # Mock the password loading so we can test connection error handling
     with (
         patch(
-            "hop3.plugins.mysql.mysql._load_addon_secrets",
+            "hop3.plugins.mysql.mysql.load_addon_secrets",
             return_value={"password": "test-password"},
         ),
         patch("mysql.connector.connect") as mock_connect,
@@ -97,9 +97,9 @@ def test_info_handles_connection_errors(mysql_service):
 
 def test_info_returns_not_created_without_password(mysql_service):
     """Test that info returns not_created status when no password exists."""
-    # Without mocking, _load_addon_secrets returns None (no secrets file)
+    # Without mocking, load_addon_secrets returns None (no secrets file)
     with patch(
-        "hop3.plugins.mysql.mysql._load_addon_secrets",
+        "hop3.plugins.mysql.mysql.load_addon_secrets",
         return_value=None,
     ):
         info = mysql_service.info()
@@ -113,7 +113,7 @@ def test_get_connection_details_requires_password(mysql_service):
     """Test that get_connection_details fails without stored password."""
     with (
         patch(
-            "hop3.plugins.mysql.mysql._load_addon_secrets",
+            "hop3.plugins.mysql.mysql.load_addon_secrets",
             return_value=None,
         ),
         pytest.raises(RuntimeError, match="No stored password"),
