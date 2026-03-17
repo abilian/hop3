@@ -89,25 +89,3 @@ class GoToolchain(LanguageToolchain):
 
         # Compiled binary - minimal runtime config (just workers)
         return self._make_build_artifact(kind="go")
-
-    def _get_custom_build_command(self) -> str | None:
-        """Get custom build command from hop3.toml if specified.
-
-        Returns the build command string if [build] build is set in hop3.toml,
-        otherwise None.
-        """
-        if self.context is None:
-            return None
-
-        app_config = self.context.app_config
-        hop3_config = app_config.get("hop3_config", {})
-        build_section = hop3_config.get("build", {})
-        build_cmd = build_section.get("build")
-
-        match build_cmd:
-            case list() if build_cmd:
-                return " && ".join(build_cmd)
-            case str() if build_cmd:
-                return build_cmd
-            case _:
-                return None
