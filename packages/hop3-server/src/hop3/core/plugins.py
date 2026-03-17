@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 import pluggy
 from pluggy import PluginManager
 
+from hop3.lib.decision_log import get_decision_logger
+
 from . import hookspecs
 
 if TYPE_CHECKING:
@@ -167,9 +169,6 @@ def get_builder(context: DeploymentContext) -> Builder:
         builder_name_from_config = build_config.get("builder", "auto")
     else:
         builder_name_from_config = "auto"
-
-    # Import decision logger
-    from hop3.lib.decision_log import get_decision_logger  # noqa: PLC0415
 
     decision_logger = get_decision_logger()
 
