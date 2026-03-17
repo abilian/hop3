@@ -14,7 +14,7 @@ This guide walks you through deploying a Fiber application on Hop3. Fiber is an 
 
 Before you begin, ensure you have:
 
-1. **A Hop3 server** - Follow the [Installation Guide](../installation.md)
+1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/installation.md)
 2. **The Hop3 CLI** - Installed on your local machine
 3. **Go 1.21+** - Install from [go.dev](https://go.dev/)
 4. **Git** - For version control and deployment

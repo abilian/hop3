@@ -17,7 +17,7 @@ This guide walks you through deploying a Symfony application on Hop3. By the end
 
 Before you begin, ensure you have:
 
-1. **A Hop3 server** - Follow the [Installation Guide](../installation.md) if you haven't set one up yet
+1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/installation.md) if you haven't set one up yet
 2. **The Hop3 CLI** - Installed on your local machine
 3. **PHP 8.2+** - Install via your package manager
 4. **Composer** - PHP dependency manager

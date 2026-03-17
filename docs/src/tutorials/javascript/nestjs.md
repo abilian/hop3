@@ -1,4 +1,3 @@
-
 # Deploying Nest.js on Hop3
 
 This guide walks you through deploying a Nest.js application on Hop3. By the end, you'll have a production-ready enterprise TypeScript API running on your own infrastructure.
@@ -19,16 +18,8 @@ Verify your local setup:
 node -v
 ```
 
-```text
-v[0-9]+\.
-```
-
 ```bash
 npm -v
-```
-
-```text
-[0-9]+\.
 ```
 
 ## Step 1: Create a New Nest.js Application
@@ -45,7 +36,7 @@ Install dependencies:
 npm install
 ```
 
-```text
+```console
 added
 ```
 
@@ -55,11 +46,11 @@ Verify the project structure:
 ls -la src/
 ```
 
-```text
+```console
 main.ts
 ```
 
-```text
+```console
 app.module.ts
 ```
 
@@ -226,7 +217,7 @@ Build the application:
 npm run build && echo "Build completed"
 ```
 
-```text
+```console
 Build completed
 ```
 
@@ -236,7 +227,7 @@ Verify the build output:
 ls -la dist/
 ```
 
-```text
+```console
 main.js
 ```
 
@@ -254,7 +245,7 @@ Verify the build output:
 ls dist/main.js dist/app.module.js 2>/dev/null && echo "Build verified"
 ```
 
-```text
+```console
 Build verified
 ```
 
@@ -303,11 +294,11 @@ Verify the deployment files:
 ls -la Procfile hop3.toml
 ```
 
-```text
+```console
 Procfile
 ```
 
-```text
+```console
 hop3.toml
 ```
 
@@ -342,7 +333,7 @@ coverage/
 git init
 ```
 
-```text
+```console
 Initialized empty Git repository
 ```
 
@@ -354,7 +345,7 @@ git add .
 git commit -m "Initial Nest.js application"
 ```
 
-```text
+```console
 Initial Nest.js application
 ```
 
@@ -412,7 +403,7 @@ sleep 5
 hop3 app:status hop3-tuto-nestjs
 ```
 
-```text
+```console
 hop3-tuto-nestjs
 ```
 
@@ -420,7 +411,7 @@ hop3-tuto-nestjs
 curl -s http://hop3-tuto-nestjs.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

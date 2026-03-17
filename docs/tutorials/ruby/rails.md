@@ -16,7 +16,7 @@ This guide walks you through deploying a Ruby on Rails 8 application on Hop3. By
 
 Before you begin, ensure you have:
 
-1. **A Hop3 server** - Follow the [Installation Guide](../installation.md) if you haven't set one up yet
+1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/installation.md) if you haven't set one up yet
 2. **The Hop3 CLI** - Installed on your local machine
 3. **Ruby 3.2+** and **Rails 8+** - Install with `gem install rails`
 4. **PostgreSQL** - Installed locally for development
@@ -793,9 +793,9 @@ If your existing Rails app uses SQLite:
 
 ## Next Steps
 
-- **[CLI Reference](../cli-reference.md)** - Complete command reference
-- **[hop3.toml Reference](../hop3-toml-reference.md)** - Full configuration options
-- **[Backup and Restore Guide](../backup-restore.md)** - Protect your data
+- **[CLI Reference](../../reference/cli.md)** - Complete command reference
+- **[hop3.toml Reference](../../reference/config.md)** - Full configuration options
+- **[Backup and Restore Guide](../../guides/backup-restore.md)** - Protect your data
 - **[Migration Guide](../migration-guide.md)** - Migrate from Heroku or other platforms
 
 ## Example Files

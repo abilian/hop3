@@ -1,4 +1,3 @@
-
 # Deploying Sinatra on Hop3
 
 This guide walks you through deploying a Sinatra application on Hop3. Sinatra is a lightweight Ruby web framework perfect for small applications and APIs.
@@ -19,16 +18,8 @@ Verify your local setup:
 ruby -v
 ```
 
-```text
-ruby 3\.
-```
-
 ```bash
 bundle -v
-```
-
-```text
-[0-9]+\.[0-9]+
 ```
 
 ## Step 1: Create a New Sinatra Application
@@ -55,7 +46,7 @@ Install dependencies:
 bundle install
 ```
 
-```text
+```console
 Bundle complete!
 ```
 
@@ -184,7 +175,7 @@ Verify the project structure:
 ls -la app.rb Gemfile config.ru
 ```
 
-```text
+```console
 app.rb
 ```
 
@@ -259,7 +250,7 @@ Deploy the application (first deployment creates the app):
 hop3 deploy hop3-tuto-sinatra
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -287,7 +278,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-sinatra
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -297,7 +288,7 @@ deployed successfully
 hop3 app:status hop3-tuto-sinatra
 ```
 
-```text
+```console
 hop3-tuto-sinatra
 ```
 
@@ -305,7 +296,7 @@ hop3-tuto-sinatra
 curl -s http://hop3-tuto-sinatra.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

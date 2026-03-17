@@ -1,4 +1,3 @@
-
 # Deploying Fastify on Hop3
 
 This guide walks you through deploying a Fastify application on Hop3. Fastify is a high-performance Node.js web framework focused on developer experience and speed.
@@ -18,17 +17,13 @@ Verify your local setup:
 node -v
 ```
 
-```text
-v[0-9]+\.
-```
-
 ## Step 1: Create a New Fastify Application
 
 ```bash
 mkdir hop3-tuto-fastify && cd hop3-tuto-fastify && npm init -y
 ```
 
-```text
+```console
 package.json
 ```
 
@@ -38,7 +33,7 @@ Install Fastify:
 npm install fastify @fastify/cors @fastify/swagger @fastify/swagger-ui
 ```
 
-```text
+```console
 added
 ```
 
@@ -234,7 +229,7 @@ Deploy the application (first deployment creates the app):
 hop3 deploy hop3-tuto-fastify
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -262,7 +257,7 @@ Redeploy to apply the hostname and environment configuration:
 hop3 deploy hop3-tuto-fastify
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -272,7 +267,7 @@ deployed successfully
 hop3 app:status hop3-tuto-fastify
 ```
 
-```text
+```console
 hop3-tuto-fastify
 ```
 
@@ -280,7 +275,7 @@ hop3-tuto-fastify
 curl -s http://hop3-tuto-fastify.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

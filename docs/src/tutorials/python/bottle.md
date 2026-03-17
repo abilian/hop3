@@ -1,4 +1,3 @@
-
 # Deploying Bottle on Hop3
 
 This guide walks you through deploying a Bottle application on Hop3. Bottle is a fast, simple micro-framework for small web applications.
@@ -18,10 +17,6 @@ Verify your local setup:
 python3 --version
 ```
 
-```text
-Python 3\.[0-9]+\.
-```
-
 ## Step 1: Create a New Bottle Application
 
 ```bash
@@ -34,7 +29,7 @@ Install Bottle:
 . venv/bin/activate && pip install bottle gunicorn
 ```
 
-```text
+```console
 Successfully installed
 ```
 
@@ -161,7 +156,7 @@ if __name__ == '__main__':
 cat requirements.txt | grep -i bottle
 ```
 
-```text
+```console
 bottle
 ```
 
@@ -180,7 +175,7 @@ curl -s http://localhost:$PORT/health || echo "Server not responding"
 kill $PID 2>/dev/null || true
 ```
 
-```text
+```console
 status
 ```
 
@@ -237,7 +232,7 @@ Deploy the application (first deployment creates the app):
 hop3 deploy hop3-tuto-bottle
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -257,7 +252,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-bottle
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -267,7 +262,7 @@ deployed successfully
 hop3 app:status hop3-tuto-bottle
 ```
 
-```text
+```console
 hop3-tuto-bottle
 ```
 
@@ -275,7 +270,7 @@ hop3-tuto-bottle
 curl -s http://hop3-tuto-bottle.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

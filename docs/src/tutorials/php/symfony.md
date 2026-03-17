@@ -1,4 +1,3 @@
-
 # Deploying Symfony on Hop3
 
 This guide walks you through deploying a Symfony application on Hop3. By the end, you'll have a production-ready enterprise PHP application running on your own infrastructure.
@@ -20,16 +19,8 @@ Verify your local setup:
 php -v
 ```
 
-```text
-PHP 8\.[0-9]+\.
-```
-
 ```bash
 composer --version
-```
-
-```text
-Composer version [0-9]+\.
 ```
 
 ## Step 1: Create a New Symfony Application
@@ -46,7 +37,7 @@ Install the web application bundle:
 composer require webapp --no-interaction
 ```
 
-```text
+```console
 What's next
 ```
 
@@ -56,11 +47,11 @@ Verify the project structure:
 ls -la
 ```
 
-```text
+```console
 composer.json
 ```
 
-```text
+```console
 src
 ```
 
@@ -224,7 +215,7 @@ Clear cache:
 php bin/console cache:clear --env=dev 2>&1 || echo "Cache operation completed"
 ```
 
-```text
+```console
 cache
 ```
 
@@ -232,10 +223,6 @@ Verify routes are registered:
 
 ```bash
 php bin/console debug:router 2>&1 | grep -E "(welcome|up|health)" || echo "Routes configured"
-```
-
-```text
-welcome|up|Routes configured
 ```
 
 ## Step 5: Create Deployment Configuration
@@ -293,11 +280,11 @@ Verify the deployment files:
 ls -la Procfile hop3.toml
 ```
 
-```text
+```console
 Procfile
 ```
 
-```text
+```console
 hop3.toml
 ```
 
@@ -329,7 +316,7 @@ Update `.gitignore`:
 git init
 ```
 
-```text
+```console
 Initialized empty Git repository
 ```
 
@@ -341,7 +328,7 @@ git add .
 git commit -m "Initial Symfony application"
 ```
 
-```text
+```console
 Initial Symfony application
 ```
 
@@ -410,7 +397,7 @@ sleep 5
 hop3 app:status hop3-tuto-symfony
 ```
 
-```text
+```console
 hop3-tuto-symfony
 ```
 
@@ -418,7 +405,7 @@ hop3-tuto-symfony
 curl -s http://hop3-tuto-symfony.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

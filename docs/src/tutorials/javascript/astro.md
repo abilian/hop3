@@ -1,4 +1,3 @@
-
 # Deploying Astro on Hop3
 
 This guide walks you through deploying an Astro site on Hop3. Astro is a modern static site builder that ships zero JavaScript by default and supports partial hydration.
@@ -18,10 +17,6 @@ Verify your local setup:
 node -v
 ```
 
-```text
-v[0-9]+\.
-```
-
 ## Step 1: Create a New Astro Site
 
 ```bash
@@ -34,7 +29,7 @@ Install dependencies:
 npm install
 ```
 
-```text
+```console
 added
 ```
 
@@ -222,7 +217,7 @@ Build the site:
 npm run build
 ```
 
-```text
+```console
 Complete!
 ```
 
@@ -232,7 +227,7 @@ Verify the build:
 ls -la dist/
 ```
 
-```text
+```console
 index.html
 ```
 
@@ -242,7 +237,7 @@ Test the build:
 cat dist/index.html | grep "Hello from Hop3" | head -1
 ```
 
-```text
+```console
 Hello from Hop3
 ```
 
@@ -306,7 +301,7 @@ Deploy the application (first deployment creates the app):
 hop3 deploy hop3-tuto-astro
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -334,7 +329,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-astro
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -344,7 +339,7 @@ deployed successfully
 hop3 app:status hop3-tuto-astro
 ```
 
-```text
+```console
 hop3-tuto-astro
 ```
 
@@ -352,7 +347,7 @@ hop3-tuto-astro
 curl -s http://hop3-tuto-astro.$HOP3_TEST_DOMAIN/
 ```
 
-```text
+```console
 Hello from Hop3
 ```
 

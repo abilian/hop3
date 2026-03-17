@@ -1,4 +1,3 @@
-
 # Deploying Spring Boot on Hop3
 
 This guide walks you through deploying a Spring Boot application on Hop3. By the end, you'll have a production-ready Java application running on your own infrastructure.
@@ -19,16 +18,8 @@ Verify your local setup:
 java -version 2>&1 | head -1
 ```
 
-```text
-(openjdk|java) version "[0-9]+
-```
-
 ```bash
 mvn -version | head -1
-```
-
-```text
-Apache Maven [0-9]+\.
 ```
 
 ## Step 1: Create a New Spring Boot Application
@@ -266,7 +257,7 @@ Build the application:
 mvn clean package -DskipTests
 ```
 
-```text
+```console
 BUILD SUCCESS
 ```
 
@@ -274,10 +265,6 @@ Verify the JAR was created:
 
 ```bash
 ls -la target/*.jar
-```
-
-```text
-hop3-tuto-spring-boot-[0-9]+\.[0-9]+\.[0-9]+\.jar
 ```
 
 Test the application starts correctly:
@@ -290,7 +277,7 @@ curl -s http://localhost:8080/health | head -1 || echo "Server test completed"
 kill $APP_PID 2>/dev/null || true
 ```
 
-```text
+```console
 status
 ```
 
@@ -344,11 +331,11 @@ Verify the deployment files exist:
 ls -la Procfile hop3.toml
 ```
 
-```text
+```console
 Procfile
 ```
 
-```text
+```console
 hop3.toml
 ```
 
@@ -401,7 +388,7 @@ Initialize the repository:
 git init
 ```
 
-```text
+```console
 Initialized empty Git repository
 ```
 
@@ -413,7 +400,7 @@ git add .
 git commit -m "Initial Spring Boot application"
 ```
 
-```text
+```console
 Initial Spring Boot application
 ```
 
@@ -482,7 +469,7 @@ Check your application status:
 hop3 app:status hop3-tuto-spring-boot
 ```
 
-```text
+```console
 hop3-tuto-spring-boot
 ```
 
@@ -490,7 +477,7 @@ hop3-tuto-spring-boot
 curl -s http://hop3-tuto-spring-boot.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

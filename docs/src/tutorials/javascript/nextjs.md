@@ -1,4 +1,3 @@
-
 # Deploying Next.js on Hop3
 
 This guide walks you through deploying a Next.js application on Hop3. By the end, you'll have a production-ready React application with server-side rendering running on your own infrastructure.
@@ -19,16 +18,8 @@ Verify your local setup:
 node -v
 ```
 
-```text
-v[0-9]+\.
-```
-
 ```bash
 npm -v
-```
-
-```text
-[0-9]+\.
 ```
 
 ## Step 1: Create a New Next.js Application
@@ -45,11 +36,11 @@ Verify the project structure:
 ls -la
 ```
 
-```text
+```console
 package.json
 ```
 
-```text
+```console
 src
 ```
 
@@ -82,7 +73,7 @@ Verify the config file was created:
 cat next.config.mjs | head -5
 ```
 
-```text
+```console
 standalone
 ```
 
@@ -155,17 +146,13 @@ Build the application to ensure it compiles correctly:
 npm run build && echo "Build completed" || echo "Build step (may have warnings)"
 ```
 
-```text
-Build completed|Build step|static pages
-```
-
 Verify the standalone output was created:
 
 ```bash
 ls -la .next/standalone/
 ```
 
-```text
+```console
 server.js
 ```
 
@@ -226,11 +213,11 @@ Verify the deployment files exist:
 ls -la Procfile hop3.toml
 ```
 
-```text
+```console
 Procfile
 ```
 
-```text
+```console
 hop3.toml
 ```
 
@@ -285,10 +272,6 @@ Initialize the repository:
 git init
 ```
 
-```text
-(Initialized|Reinitialized).*Git repository
-```
-
 ```bash
 git add .
 ```
@@ -297,7 +280,7 @@ git add .
 git commit -m "Initial Next.js application"
 ```
 
-```text
+```console
 Initial Next.js application
 ```
 
@@ -345,7 +328,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-nextjs
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -364,7 +347,7 @@ Check your application status:
 hop3 app:status hop3-tuto-nextjs
 ```
 
-```text
+```console
 hop3-tuto-nextjs
 ```
 
@@ -372,7 +355,7 @@ hop3-tuto-nextjs
 curl -s http://hop3-tuto-nextjs.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

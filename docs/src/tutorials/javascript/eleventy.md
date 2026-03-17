@@ -1,4 +1,3 @@
-
 # Deploying Eleventy on Hop3
 
 This guide walks you through deploying an Eleventy (11ty) static site on Hop3. Eleventy is a simpler static site generator with zero-config by default.
@@ -18,17 +17,13 @@ Verify your local setup:
 node -v
 ```
 
-```text
-v[0-9]+\.
-```
-
 ## Step 1: Create a New Eleventy Site
 
 ```bash
 mkdir hop3-tuto-eleventy && cd hop3-tuto-eleventy && npm init -y
 ```
 
-```text
+```console
 package.json
 ```
 
@@ -38,7 +33,7 @@ Install Eleventy:
 npm install @11ty/eleventy
 ```
 
-```text
+```console
 added
 ```
 
@@ -257,7 +252,7 @@ Build the site:
 npm run build
 ```
 
-```text
+```console
 Wrote
 ```
 
@@ -267,7 +262,7 @@ Verify the build:
 ls -la _site/
 ```
 
-```text
+```console
 index.html
 ```
 
@@ -277,7 +272,7 @@ Test the build:
 grep -o "Hello from Hop3" _site/index.html || cat _site/index.html | head -50
 ```
 
-```text
+```console
 Hello from Hop3
 ```
 
@@ -328,7 +323,7 @@ Deploy the application (first deployment creates the app):
 hop3 deploy hop3-tuto-eleventy
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -356,7 +351,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-eleventy
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -366,7 +361,7 @@ deployed successfully
 hop3 app:status hop3-tuto-eleventy
 ```
 
-```text
+```console
 hop3-tuto-eleventy
 ```
 
@@ -374,7 +369,7 @@ hop3-tuto-eleventy
 curl -s http://hop3-tuto-eleventy.$HOP3_TEST_DOMAIN/
 ```
 
-```text
+```console
 Hello from Hop3
 ```
 

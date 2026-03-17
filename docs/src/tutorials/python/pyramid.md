@@ -1,4 +1,3 @@
-
 # Deploying Pyramid on Hop3
 
 This guide walks you through deploying a Pyramid application on Hop3. Pyramid is a flexible, enterprise-grade Python web framework.
@@ -18,10 +17,6 @@ Verify your local setup:
 python3 --version
 ```
 
-```text
-Python 3\.[0-9]+\.
-```
-
 ## Step 1: Create a New Pyramid Application
 
 ```bash
@@ -34,7 +29,7 @@ Install Pyramid:
 . venv/bin/activate && pip install pyramid pyramid_jinja2 waitress
 ```
 
-```text
+```console
 Successfully installed
 ```
 
@@ -179,7 +174,7 @@ if __name__ == '__main__':
 cat requirements.txt | grep -i pyramid | head -1
 ```
 
-```text
+```console
 pyramid
 ```
 
@@ -254,7 +249,7 @@ Deploy the application (first deployment creates the app):
 hop3 deploy hop3-tuto-pyramid
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -274,7 +269,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-pyramid
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -284,7 +279,7 @@ deployed successfully
 hop3 app:status hop3-tuto-pyramid
 ```
 
-```text
+```console
 hop3-tuto-pyramid
 ```
 
@@ -292,7 +287,7 @@ hop3-tuto-pyramid
 curl -s http://hop3-tuto-pyramid.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

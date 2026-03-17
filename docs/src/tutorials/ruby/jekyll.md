@@ -1,4 +1,3 @@
-
 # Deploying Jekyll on Hop3
 
 This guide walks you through deploying a Jekyll static site on Hop3. Jekyll is a simple, blog-aware static site generator, powering GitHub Pages.
@@ -36,16 +35,8 @@ Verify your local setup:
 ruby -v
 ```
 
-```text
-ruby 3\.
-```
-
 ```bash
 jekyll -v 2>&1 || echo "Jekyll version check"
-```
-
-```text
-jekyll [0-9]+\.[0-9]+|Jekyll version check
 ```
 
 ## Step 1: Install Jekyll and Create Site
@@ -56,18 +47,10 @@ Install Jekyll and Bundler if not already installed:
 gem install jekyll bundler --no-document 2>&1 | tail -5 || echo "Jekyll installation completed"
 ```
 
-```text
-jekyll|Successfully installed|already activated|gems installed
-```
-
 Add gem binary path to PATH and verify Jekyll is available:
 
 ```bash
 export PATH="$(ruby -e 'puts Gem.user_dir')/bin:$PATH" && jekyll -v
-```
-
-```text
-jekyll [0-9]+\.
 ```
 
 Create a new Jekyll site:
@@ -76,7 +59,7 @@ Create a new Jekyll site:
 export PATH="$(ruby -e 'puts Gem.user_dir')/bin:$PATH" && jekyll new hop3-tuto-jekyll
 ```
 
-```text
+```console
 New jekyll site installed
 ```
 
@@ -86,7 +69,7 @@ Install dependencies:
 bundle install
 ```
 
-```text
+```console
 Bundle complete!
 ```
 
@@ -183,7 +166,7 @@ Build the site:
 bundle exec jekyll build
 ```
 
-```text
+```console
 done in
 ```
 
@@ -193,7 +176,7 @@ Verify the build:
 ls -la _site/
 ```
 
-```text
+```console
 index.html
 ```
 
@@ -206,7 +189,7 @@ curl -s http://localhost:4000/ | head -5 || echo "Test completed"
 pkill -f "jekyll serve" 2>/dev/null || true
 ```
 
-```text
+```console
 html
 ```
 
@@ -260,7 +243,7 @@ Deploy the application (first deployment creates the app):
 hop3 deploy hop3-tuto-jekyll
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -280,7 +263,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-jekyll
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -290,7 +273,7 @@ deployed successfully
 hop3 app:status hop3-tuto-jekyll
 ```
 
-```text
+```console
 hop3-tuto-jekyll
 ```
 
@@ -298,7 +281,7 @@ hop3-tuto-jekyll
 curl -s http://hop3-tuto-jekyll.$HOP3_TEST_DOMAIN/ | head -10
 ```
 
-```text
+```console
 html
 ```
 

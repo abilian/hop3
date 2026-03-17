@@ -1,4 +1,3 @@
-
 # Deploying Express.js on Hop3
 
 This guide walks you through deploying an Express.js application on Hop3. By the end, you'll have a production-ready Node.js application running on your own infrastructure.
@@ -19,16 +18,8 @@ Verify your local setup:
 node -v
 ```
 
-```text
-v[0-9]+\.
-```
-
 ```bash
 npm -v
-```
-
-```text
-[0-9]+\.
 ```
 
 ## Step 1: Create a New Express Application
@@ -39,7 +30,7 @@ Create the project directory and initialize it:
 mkdir hop3-tuto-express && cd hop3-tuto-express && npm init -y
 ```
 
-```text
+```console
 package.json
 ```
 
@@ -49,7 +40,7 @@ Install Express and production dependencies:
 npm install express
 ```
 
-```text
+```console
 added
 ```
 
@@ -152,15 +143,15 @@ Check the package structure:
 ls -la
 ```
 
-```text
+```console
 app.js
 ```
 
-```text
+```console
 package.json
 ```
 
-```text
+```console
 node_modules
 ```
 
@@ -213,11 +204,11 @@ Verify the deployment files exist:
 ls -la
 ```
 
-```text
+```console
 Procfile
 ```
 
-```text
+```console
 hop3.toml
 ```
 
@@ -260,7 +251,7 @@ Initialize the repository:
 git init
 ```
 
-```text
+```console
 Initialized empty Git repository
 ```
 
@@ -272,7 +263,7 @@ git add .
 git commit -m "Initial Express.js application"
 ```
 
-```text
+```console
 Initial Express.js application
 ```
 
@@ -320,7 +311,7 @@ Redeploy to apply the hostname configuration:
 hop3 deploy hop3-tuto-express
 ```
 
-```text
+```console
 deployed successfully
 ```
 
@@ -332,7 +323,7 @@ Check your application status:
 hop3 app:status hop3-tuto-express
 ```
 
-```text
+```console
 hop3-tuto-express
 ```
 
@@ -340,7 +331,7 @@ hop3-tuto-express
 curl -s http://hop3-tuto-express.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 

@@ -1,4 +1,3 @@
-
 # Deploying Laravel on Hop3
 
 This guide walks you through deploying a Laravel application on Hop3. By the end, you'll have a production-ready PHP application running on your own infrastructure.
@@ -19,16 +18,8 @@ Verify your local setup:
 php -v
 ```
 
-```text
-PHP 8\.[0-9]+\.
-```
-
 ```bash
 composer --version
-```
-
-```text
-Composer version [0-9]+\.
 ```
 
 ## Step 1: Create a New Laravel Application
@@ -45,15 +36,15 @@ Verify the project structure:
 ls -la
 ```
 
-```text
+```console
 artisan
 ```
 
-```text
+```console
 composer.json
 ```
 
-```text
+```console
 app
 ```
 
@@ -67,7 +58,7 @@ Generate the application encryption key:
 php artisan key:generate
 ```
 
-```text
+```console
 Application key set successfully
 ```
 
@@ -313,7 +304,7 @@ Run Laravel's built-in checks:
 php artisan about | head -20
 ```
 
-```text
+```console
 Laravel
 ```
 
@@ -323,7 +314,7 @@ Verify routes are registered:
 grep -c "Route::get" routes/web.php
 ```
 
-```text
+```console
 3
 ```
 
@@ -391,11 +382,11 @@ Verify the deployment files exist:
 ls -la Procfile hop3.toml
 ```
 
-```text
+```console
 Procfile
 ```
 
-```text
+```console
 hop3.toml
 ```
 
@@ -432,7 +423,7 @@ Initialize the repository:
 git init
 ```
 
-```text
+```console
 Initialized empty Git repository
 ```
 
@@ -444,7 +435,7 @@ git add .
 git commit -m "Initial Laravel application"
 ```
 
-```text
+```console
 Initial Laravel application
 ```
 
@@ -535,14 +526,14 @@ Check your application status:
 hop3 app:status hop3-tuto-laravel
 ```
 
-```text
+```console
 hop3-tuto-laravel
 
 ```bash
 curl -s http://hop3-tuto-laravel.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ``````
 

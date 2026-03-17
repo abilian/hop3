@@ -16,7 +16,7 @@ This guide walks you through deploying a Laravel application on Hop3. By the end
 
 Before you begin, ensure you have:
 
-1. **A Hop3 server** - Follow the [Installation Guide](../installation.md) if you haven't set one up yet
+1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/installation.md) if you haven't set one up yet
 2. **The Hop3 CLI** - Installed on your local machine
 3. **PHP 8.2+** - Install via your package manager or [php.net](https://www.php.net/)
 4. **Composer** - PHP dependency manager from [getcomposer.org](https://getcomposer.org/)
@@ -782,9 +782,9 @@ packages = ["php", "nodejs", "npm"]
 
 ## Next Steps
 
-- **[CLI Reference](../cli-reference.md)** - Complete command reference
-- **[hop3.toml Reference](../hop3-toml-reference.md)** - Full configuration options
-- **[Backup and Restore Guide](../backup-restore.md)** - Protect your data
+- **[CLI Reference](../../reference/cli.md)** - Complete command reference
+- **[hop3.toml Reference](../../reference/config.md)** - Full configuration options
+- **[Backup and Restore Guide](../../guides/backup-restore.md)** - Protect your data
 
 ## Example Files
 

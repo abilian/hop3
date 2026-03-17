@@ -1,4 +1,3 @@
-
 # Deploying Gin (Go) on Hop3
 
 This guide walks you through deploying a Gin web application on Hop3. By the end, you'll have a production-ready, high-performance Go API running on your own infrastructure.
@@ -16,10 +15,6 @@ Verify your local setup:
 
 ```bash
 go version
-```
-
-```text
-go version go[0-9]+\.[0-9]+
 ```
 
 ## Step 1: Create a New Gin Application
@@ -232,7 +227,7 @@ go mod tidy
 cat go.mod
 ```
 
-```text
+```console
 github.com/gin-gonic/gin
 ```
 
@@ -254,7 +249,7 @@ curl -s http://localhost:8080/health | head -1 || echo "Test completed"
 kill $APP_PID 2>/dev/null || true
 ```
 
-```text
+```console
 status
 ```
 
@@ -303,11 +298,11 @@ Verify the deployment files:
 ls -la Procfile hop3.toml
 ```
 
-```text
+```console
 Procfile
 ```
 
-```text
+```console
 hop3.toml
 ```
 
@@ -336,7 +331,7 @@ vendor/
 git init
 ```
 
-```text
+```console
 Initialized empty Git repository
 ```
 
@@ -348,7 +343,7 @@ git add .
 git commit -m "Initial Gin application"
 ```
 
-```text
+```console
 Initial Gin application
 ```
 
@@ -402,7 +397,7 @@ sleep 5
 hop3 app:status hop3-tuto-gin
 ```
 
-```text
+```console
 hop3-tuto-gin
 ```
 
@@ -410,7 +405,7 @@ hop3-tuto-gin
 curl -s http://hop3-tuto-gin.$HOP3_TEST_DOMAIN/up
 ```
 
-```text
+```console
 OK
 ```
 
