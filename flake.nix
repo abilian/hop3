@@ -250,7 +250,8 @@
                   --replace-fail 'requires = ["uv-build>=0.8.4,<0.9.0"]' 'requires = ["hatchling"]' \
                   --replace-fail 'build-backend = "uv_build"' 'build-backend = "hatchling.build"' \
                   --replace-fail '"granian[reload]>=2.2.0"' '"uvicorn>=0.30.0"' \
-                  --replace-fail '"psycopg2-binary>=2.9.10"' '"psycopg2>=2.9.10"'
+                  --replace-fail '"psycopg2-binary>=2.9.10"' '"psycopg2>=2.9.10"' \
+                  --replace-fail '"pydantic>=2.12.5"' '"pydantic>=2.12.0"'
 
                 # Remove deps not in nixpkgs (these are optional at runtime anyway)
                 sed -i '/"cyclonedx-bom/d' pyproject.toml
@@ -289,6 +290,10 @@
                 python-prev.uvicorn
                 # PostgreSQL
                 python-prev.psycopg2
+                # Redis
+                python-prev.redis
+                # Validation
+                python-prev.pydantic
                 # Config
                 python-prev.pyyaml
                 python-prev.python-multipart
