@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import socket
 import subprocess
+from dataclasses import dataclass
 
 from hop3.config import UWSGI_ENABLED, HopConfig
 from hop3.core.protocols import (
     BuildArtifact,
-    Deployer,
     DeploymentContext,
     DeploymentInfo,
 )
@@ -17,14 +17,13 @@ from hop3.project.procfile import parse_procfile
 from hop3.run.spawn import spawn_app
 
 
-class UWSGIDeployer(Deployer):
+@dataclass(frozen=True)
+class UWSGIDeployer:
     """The default deployment strategy, using uWSGI."""
 
-    name = "uwsgi"
-
-    def __init__(self, context: DeploymentContext, artifact: BuildArtifact):
-        self.context = context
-        self.artifact = artifact
+    context: DeploymentContext
+    artifact: BuildArtifact
+    name: str = "uwsgi"
 
     @property
     def app(self) -> App:
