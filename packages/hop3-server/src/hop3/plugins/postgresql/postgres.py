@@ -529,23 +529,23 @@ class PostgresAddon:
             )
 
             with connection.cursor() as cursor:
-                # Get database size
+                # Get database size (aggregate always returns one row)
                 cursor.execute(
                     "SELECT pg_database_size(%s);",
                     (self.db_name,),
                 )
-                size_bytes = cursor.fetchone()[0]
+                size_bytes = cursor.fetchone()[0]  # pyright: ignore[index]
 
-                # Get table count
+                # Get table count (aggregate always returns one row)
                 cursor.execute(
                     "SELECT count(*) FROM information_schema.tables "
                     "WHERE table_schema = 'public';"
                 )
-                table_count = cursor.fetchone()[0]
+                table_count = cursor.fetchone()[0]  # pyright: ignore[index]
 
-                # Get PostgreSQL version
+                # Get PostgreSQL version (always returns one row)
                 cursor.execute("SELECT version();")
-                version = cursor.fetchone()[0]
+                version = cursor.fetchone()[0]  # pyright: ignore[index]
 
             return {
                 "addon_name": self.addon_name,

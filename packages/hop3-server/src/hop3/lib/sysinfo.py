@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, assert_never
 
 import attr
 
@@ -258,6 +258,8 @@ class SysInfo:
                     cmd_list = shlex.split(cmd)
                 case list():
                     cmd_list = cmd
+                case _ as unreachable:
+                    assert_never(unreachable)
             result = subprocess.run(cmd_list, check=True, capture_output=True)
             return result.stdout.decode().strip()
         except (subprocess.CalledProcessError, FileNotFoundError):

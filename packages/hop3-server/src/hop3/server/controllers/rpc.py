@@ -45,7 +45,7 @@ REPOSITORY_TYPES: dict[str, type] = {
 }
 
 if TYPE_CHECKING:
-    from hop3.lib.types import JsonDict
+    from hop3.lib.types import Json, JsonDict
 
 # Scan and register all CLI commands (including aliases)
 scan_package("hop3.commands")
@@ -301,11 +301,11 @@ class RPCController(Controller):
             status_code=status_code,
         )
 
-    def _build_success_response(self, result: JsonDict, request_id: int) -> Response:
+    def _build_success_response(self, result: Json, request_id: int) -> Response:
         """Build a JSON-RPC success response.
 
         Args:
-            result: Command execution result
+            result: Command execution result (can be dict, list, or primitive)
             request_id: Request ID from the original request
 
         Returns:

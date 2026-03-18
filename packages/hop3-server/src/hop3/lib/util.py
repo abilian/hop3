@@ -14,9 +14,26 @@ import time
 from pathlib import Path
 from socket import AF_INET, SOCK_STREAM, socket
 from subprocess import STDOUT, check_output
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 from hop3.lib.multi_tail import MultiTail
+
+__all__ = [
+    "CommandError",
+    "CommandFailedError",
+    "CommandNotFoundError",
+    "CommandTimeoutError",
+    "check_binaries",
+    "command_output",
+    "get_free_port",
+    "is_port_free",
+    "multi_tail",
+    "robust_rmtree",
+    "run_command",
+    "sanitize_app_name",
+    "shell",
+    "try_commands",
+]
 
 from .console import log
 
@@ -360,6 +377,8 @@ def command_output(cmd: str | list[str]) -> str:
                 cmd_list = shlex.split(cmd)
             case list():
                 cmd_list = cmd
+            case _ as unreachable:
+                assert_never(unreachable)
         env = os.environ
         result = check_output(cmd_list, stderr=STDOUT, env=env)
         return result.decode("utf-8", errors="replace")
@@ -409,10 +428,10 @@ def robust_rmtree(path: Path | str) -> None:
         path.unlink()
         return
 
-    def handle_remove_readonly(func, filepath, exc_info):
+    def handle_remove_readonly(func, filepath, exc):
         """Error handler that fixes read-only permissions and retries."""
         # If it's a permission error, try to fix permissions and retry
-        if isinstance(exc_info[1], PermissionError):
+        if isinstance(exc, PermissionError):
             try:
                 os.chmod(filepath, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
                 func(filepath)
@@ -420,12 +439,12 @@ def robust_rmtree(path: Path | str) -> None:
             except OSError:
                 pass
         # Re-raise the original exception
-        raise exc_info[1]
+        raise exc
 
     last_error = None
     for attempt in range(RMTREE_MAX_RETRIES):
         try:
-            shutil.rmtree(path, onerror=handle_remove_readonly)
+            shutil.rmtree(path, onexc=handle_remove_readonly)
             return  # Success
         except OSError as e:
             last_error = e

@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
+__all__ = ["expand_vars"]
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
 

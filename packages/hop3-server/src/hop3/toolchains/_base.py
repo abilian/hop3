@@ -12,7 +12,7 @@ import subprocess
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, assert_never
 
 from hop3.core.artifacts import BuildArtifact, RuntimeConfig
 from hop3.core.env import Env
@@ -111,6 +111,8 @@ class LanguageToolchain(ABC):
                 files = [file_or_files]
             case list():
                 files = file_or_files
+            case _ as unreachable:
+                assert_never(unreachable)
         # Check if any of the files exist in the source path
         return any((self.src_path / file).exists() for file in files)
 

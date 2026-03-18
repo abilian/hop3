@@ -10,7 +10,7 @@ import shlex
 import shutil
 import subprocess
 from textwrap import dedent
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 from attrs import frozen
 
@@ -285,6 +285,8 @@ def shell(cmd: str | list[str]) -> None:
         case list():
             cmd_list = cmd
             cmd_display = shlex.join(cmd)
+        case _ as unreachable:
+            assert_never(unreachable)
 
     log(f"Running command: {cmd_display}", level=2)
     result = subprocess.run(
