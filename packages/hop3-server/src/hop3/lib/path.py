@@ -7,6 +7,8 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
+__all__ = ["prepend_to_path"]
+
 if TYPE_CHECKING:
     from pathlib import Path
 
