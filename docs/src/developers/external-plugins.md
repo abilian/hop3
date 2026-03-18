@@ -488,11 +488,6 @@ If Hop3 deprecates an API you use:
 Example:
 
 ```python
-# Old (deprecated)
-from hop3.core.runtime_registry import get_deployment_strategy
-strategy = get_deployment_strategy(app)
-
-# New
 from hop3.core.plugins import get_deployer_by_name
 strategy = get_deployer_by_name(app, app.runtime)
 ```

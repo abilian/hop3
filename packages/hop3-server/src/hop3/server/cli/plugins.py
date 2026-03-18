@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import types
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from hop3.config import HOP3_PROXY_TYPE
 from hop3.core.plugins import get_plugin_manager
@@ -17,6 +17,13 @@ from . import Command
 
 if TYPE_CHECKING:
     from argparse import ArgumentParser
+
+
+class _Named(Protocol):
+    """Protocol for objects with a name attribute."""
+
+    name: str
+
 
 # Strategy hooks that provide lists of strategies
 STRATEGY_HOOKS = {
@@ -303,7 +310,7 @@ class Plugins(Command):
         name = self._get_plugin_name(plugin)
         return name == "core"
 
-    def _get_plugin_name(self, plugin) -> str:
+    def _get_plugin_name(self, plugin: types.ModuleType | _Named) -> str:
         """Get the display name for a plugin."""
         if isinstance(plugin, types.ModuleType):
             parts = plugin.__name__.split(".")
@@ -312,7 +319,8 @@ class Plugins(Command):
                 if idx + 1 < len(parts):
                     return parts[idx + 1]
             return parts[-1]
-        return getattr(plugin, "name", plugin.__class__.__name__.lower())
+        # All plugin classes implement a Protocol with name: str
+        return plugin.name
 
     def _filter_redundant_plugins(self, plugins: list) -> list:
         """Filter out module-level plugins when a class-based plugin exists."""
