@@ -136,8 +136,8 @@ class LanguageToolchain(Protocol):
 class Deployer(Protocol):
     """Interface for running a build artifact."""
 
+    # These are set at construction and should not be mutated afterward
     name: str
-
     context: DeploymentContext
     artifact: BuildArtifact
 

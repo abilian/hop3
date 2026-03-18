@@ -24,7 +24,6 @@ from hop3.core.env import Env
 from hop3.core.plugins import get_proxy_strategy
 from hop3.core.protocols import (
     BuildArtifact,
-    Deployer,
     DeploymentContext,
     DeploymentInfo,
 )
@@ -51,7 +50,7 @@ GENERATED_COMPOSE_FILE = ".hop3-compose.yml"
 
 
 @dataclass(frozen=True)
-class DockerComposeDeployer(Deployer):
+class DockerComposeDeployer:
     """Deployment strategy using Docker Compose.
 
     This deployer:

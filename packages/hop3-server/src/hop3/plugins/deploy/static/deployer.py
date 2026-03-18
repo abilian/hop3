@@ -6,13 +6,13 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 
 from hop3.config import HOP3_ROOT, HOP3_USER
 from hop3.core.env import Env
 from hop3.core.plugins import get_proxy_strategy
 from hop3.core.protocols import (
     BuildArtifact,
-    Deployer,
     DeploymentContext,
     DeploymentInfo,
 )
@@ -21,17 +21,16 @@ from hop3.orm import App, AppStateEnum
 from hop3.project.config import AppConfig
 
 
-class StaticDeployer(Deployer):
+@dataclass(frozen=True)
+class StaticDeployer:
     """Deployment strategy for static file applications.
 
     Static apps don't require any runtime process - they're served directly by nginx.
     """
 
-    name = "static"
-
-    def __init__(self, context: DeploymentContext, artifact: BuildArtifact):
-        self.context = context
-        self.artifact = artifact
+    context: DeploymentContext
+    artifact: BuildArtifact
+    name: str = "static"
 
     @property
     def app(self) -> App:
