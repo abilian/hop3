@@ -442,22 +442,24 @@ def _process_config_dependencies(
         )
 
 
-def _run_hook(hook_name: str, command: str, cwd: Path) -> None:
+def _run_hook(hook_name: str, commands: list[str], cwd: Path) -> None:
     """Run a deployment hook (prebuild/postbuild).
 
     Args:
         hook_name: Name of the hook for logging (e.g., "prebuild", "postbuild")
-        command: Shell command to execute
-        cwd: Working directory for the command
+        commands: List of shell commands to execute sequentially
+        cwd: Working directory for the commands
 
     Raises:
-        Abort: If the command fails with non-zero exit code
+        Abort: If any command fails with non-zero exit code
     """
-    if not command:
+    if not commands:
         return
 
     log(f"Running {hook_name}...", level=1, fg="blue")
-    result = shell(command, cwd=cwd)
-    if result.returncode:
-        msg = f"{hook_name} failed with exit code {result.returncode}"
-        raise Abort(msg, result.returncode)
+    for command in commands:
+        log(f"  {command}", level=2)
+        result = shell(command, cwd=cwd)
+        if result.returncode:
+            msg = f"{hook_name} failed with exit code {result.returncode}: {command}"
+            raise Abort(msg, result.returncode)

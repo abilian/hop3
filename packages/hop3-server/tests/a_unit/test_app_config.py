@@ -38,9 +38,9 @@ def test_config_1(tmp_path) -> None:
         "explicit_toolchain": None,
         "hop3_config": {},
         "procfile": {
-            "post_build": "",
-            "pre_build": "",
-            "pre_run": "",
+            "post_build": [],
+            "pre_build": [],
+            "pre_run": [],
             "web_workers": {"web": "gunicorn -w 4 -b"},
             "workers": {"web": "gunicorn -w 4 -b"},
         },
@@ -62,9 +62,9 @@ def test_config_2(tmp_path) -> None:
     }
 
     assert config.web_workers == {"web": "gunicorn -w 4 -b"}
-    assert config.pre_build == 'echo "hello"'
-    assert config.post_build == 'echo "goodbye"'
-    assert config.pre_run == 'echo "prerun"'
+    assert config.pre_build == ['echo "hello"']
+    assert config.post_build == ['echo "goodbye"']
+    assert config.pre_run == ['echo "prerun"']
 
     config_dict = config.to_dict()
     expected = {
@@ -76,9 +76,9 @@ def test_config_2(tmp_path) -> None:
         "explicit_toolchain": None,
         "hop3_config": {},
         "procfile": {
-            "post_build": 'echo "goodbye"',
-            "pre_build": 'echo "hello"',
-            "pre_run": 'echo "prerun"',
+            "post_build": ['echo "goodbye"'],
+            "pre_build": ['echo "hello"'],
+            "pre_run": ['echo "prerun"'],
             "web_workers": {"web": "gunicorn -w 4 -b"},
             "workers": {
                 "cron": '* * * * * echo "hello"',
@@ -122,8 +122,8 @@ before-run = "python manage.py migrate"
         "prerun": "python manage.py migrate",
     }
     assert config.web_workers == {"web": "npm start"}
-    assert config.pre_build == "npm install && npm run build"
-    assert config.pre_run == "python manage.py migrate"
+    assert config.pre_build == ["npm install", "npm run build"]
+    assert config.pre_run == ["python manage.py migrate"]
 
 
 def test_both_procfile_and_hop3_toml_precedence(tmp_path) -> None:
@@ -167,8 +167,8 @@ before-run = "alembic upgrade head"
     )
     assert config.web_workers == {"web": "uvicorn app:app"}
     # pre_build comes from hop3.toml's build.before-build (for hook execution)
-    assert config.pre_build == "echo 'hop3 prebuild'"
-    assert config.pre_run == "alembic upgrade head"
+    assert config.pre_build == ["echo 'hop3 prebuild'"]
+    assert config.pre_run == ["alembic upgrade head"]
 
 
 def test_no_config_files(tmp_path) -> None:
@@ -182,9 +182,9 @@ def test_no_config_files(tmp_path) -> None:
     # Should have empty defaults
     assert config.workers == {}
     assert config.web_workers == {}
-    assert config.pre_build == ""
-    assert config.post_build == ""
-    assert config.pre_run == ""
+    assert config.pre_build == []
+    assert config.post_build == []
+    assert config.pre_run == []
 
     # to_dict should work without errors
     config_dict = config.to_dict()
@@ -207,8 +207,10 @@ start = ["gunicorn app:app", "--bind 0.0.0.0:8000"]
 
     config = AppConfig.from_dir(tmp_path)
 
-    # List commands should be joined with &&
-    assert (
-        config.pre_build == "pip install -r requirements.txt && python setup.py build"
-    )
+    # List commands are now returned as lists (each executed separately)
+    assert config.pre_build == [
+        "pip install -r requirements.txt",
+        "python setup.py build",
+    ]
+    # Note: workers["web"] still uses the old behavior for now (it's a runtime command)
     assert config.workers["web"] == "gunicorn app:app && --bind 0.0.0.0:8000"

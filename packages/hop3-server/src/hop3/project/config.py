@@ -73,52 +73,55 @@ class AppConfig:
         return {k: v for k, v in self.workers.items() if k in web_worker_names}
 
     @property
-    def pre_build(self):
-        """Get prebuild command with precedence: hop3.toml > Procfile.
+    def pre_build(self) -> list[str]:
+        """Get prebuild commands with precedence: hop3.toml > Procfile.
 
         Returns:
-            Prebuild command string, empty if not defined
+            List of prebuild commands, empty list if not defined
         """
         # Check hop3.toml first
         if self.has_hop3_toml:
             before_build = self.hop3_config.before_build_commands
             if before_build:
-                return " && ".join(before_build)
+                return list(before_build)
 
-        # Fall back to Procfile
-        return self.workers.get("prebuild", "")
+        # Fall back to Procfile (single command)
+        cmd = self.workers.get("prebuild", "")
+        return [cmd] if cmd else []
 
     @property
-    def post_build(self):
-        """Get postbuild command with precedence: hop3.toml > Procfile.
+    def post_build(self) -> list[str]:
+        """Get postbuild commands with precedence: hop3.toml > Procfile.
 
         Returns:
-            Postbuild command string, empty if not defined
+            List of postbuild commands, empty list if not defined
         """
         # Check hop3.toml first
         if self.has_hop3_toml:
             after_build = self.hop3_config.after_build_commands
             if after_build:
-                return " && ".join(after_build)
+                return list(after_build)
 
-        # Fall back to Procfile
-        return self.workers.get("postbuild", "")
+        # Fall back to Procfile (single command)
+        cmd = self.workers.get("postbuild", "")
+        return [cmd] if cmd else []
 
     @property
-    def pre_run(self):
-        """Get prerun command with precedence: hop3.toml > Procfile.
+    def pre_run(self) -> list[str]:
+        """Get prerun commands with precedence: hop3.toml > Procfile.
 
         Returns:
-            Prerun command string, empty if not defined
+            List of prerun commands, empty list if not defined
         """
         # Check hop3.toml first
         if self.has_hop3_toml:
             before_run = self.hop3_config.before_run_commands
             if before_run:
-                return " && ".join(before_run)
+                return list(before_run)
 
-        # Fall back to Procfile
-        return self.workers.get("prerun", "")
+        # Fall back to Procfile (single command)
+        cmd = self.workers.get("prerun", "")
+        return [cmd] if cmd else []
 
     @property
     def explicit_builder(self) -> str | None:
