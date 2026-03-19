@@ -252,10 +252,6 @@ class Client:
         # Save token to current context (or legacy config)
         self.config.update_context_token(token)
 
-        # Clear cached headers so next request uses new token
-        if hasattr(self, "_headers_cache"):
-            del self._headers_cache
-
     def _get_ssl_verification(self) -> bool | str:
         """Determine SSL verification mode based on config."""
         parsed_url = urlparse(self.api_url)
@@ -263,7 +259,8 @@ class Client:
         if parsed_url.scheme != "https":
             return False
 
-        ssl_cert = self.config.get("ssl_cert", None)
+        ssl_cert_value = self.config.get("ssl_cert", None)
+        ssl_cert: str | None = str(ssl_cert_value) if ssl_cert_value else None
         verify_ssl_config = self.config.get("verify_ssl", None)
         hostname = parsed_url.hostname or ""
 
