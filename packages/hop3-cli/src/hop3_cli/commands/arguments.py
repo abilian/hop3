@@ -73,7 +73,7 @@ def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
 
             # Include env vars if any were specified
             if env_vars:
-                extra_args["env_vars"] = env_vars
+                extra_args["env_vars"] = env_vars  # type: ignore[assignment]
 
             # Enable streaming by default for real-time log output
             extra_args["streaming"] = streaming
@@ -299,8 +299,8 @@ def get_ignored_spec(source_dir: Path) -> tuple[pathspec.PathSpec | None, str | 
     for ignore_file in IGNORE_FILES:
         ignore_path = source_dir / ignore_file
         if ignore_path.is_file():
-            with ignore_path.open(encoding="utf-8") as f:
-                spec = pathspec.PathSpec.from_lines("gitignore", f)
+            lines = ignore_path.read_text(encoding="utf-8").splitlines()
+            spec = pathspec.PathSpec.from_lines("gitignore", lines)  # type: ignore[arg-type]
             return spec, ignore_file
 
     return None, None
@@ -329,8 +329,8 @@ def _get_hop3_toml_ignore_spec(
             continue
 
         try:
-            with hop3_toml_path.open("rb") as f:
-                data = tomllib.load(f)
+            content = hop3_toml_path.read_text(encoding="utf-8")
+            data = tomllib.loads(content)  # type: ignore[union-attr]
         except Exception:
             # If TOML parsing fails, skip and try next location
             continue
@@ -350,8 +350,8 @@ def _get_hop3_toml_ignore_spec(
         if ignore_file_ref and isinstance(ignore_file_ref, str):
             ignore_file_path = source_dir / ignore_file_ref
             if ignore_file_path.is_file():
-                with ignore_file_path.open(encoding="utf-8") as f:
-                    spec = pathspec.PathSpec.from_lines("gitignore", f)
+                lines = ignore_file_path.read_text(encoding="utf-8").splitlines()
+                spec = pathspec.PathSpec.from_lines("gitignore", lines)  # type: ignore[arg-type]
                 return spec, f"hop3.toml [build].ignore-file -> {ignore_file_ref}"
 
     return None, None

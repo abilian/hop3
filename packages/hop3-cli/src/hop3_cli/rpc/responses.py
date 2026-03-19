@@ -86,8 +86,7 @@ def handle_ok_response(
 def _is_streaming_response(result: list[dict]) -> bool:
     """Check if the response is a streaming response."""
     return (
-        result
-        and len(result) == 1
+        len(result) == 1
         and result[0].get("t") == "stream"
         and "stream_id" in result[0]
     )
@@ -111,7 +110,7 @@ def _handle_streaming_response(
     from hop3_cli.exceptions import DeploymentError  # noqa: PLC0415
     from hop3_cli.rpc.streaming import stream_deployment_logs  # noqa: PLC0415
 
-    stream_id = result[0].get("stream_id")
+    stream_id: str | None = result[0].get("stream_id")
     if not stream_id:
         printer.print([
             {"t": "error", "text": "Invalid streaming response: no stream_id"}
@@ -119,12 +118,14 @@ def _handle_streaming_response(
         sys.exit(1)
 
     # Get API URL from config
-    api_url = config.get("api_url", "")
+    api_url: str = config.get("api_url", "")
     if not api_url:
         printer.print([{"t": "error", "text": "No API URL configured"}])
         sys.exit(1)
 
     # Determine the base URL for streaming
+    base_url: str
+    verify_ssl: bool
     if tunnel_port is not None:
         # SSH tunnel mode: use localhost with the forwarded port
         base_url = f"http://localhost:{tunnel_port}"
@@ -146,7 +147,7 @@ def _handle_streaming_response(
         verify_ssl = config.get("verify_ssl", True)
 
     # Get token for authentication
-    token = config.get("api_token")
+    token: str | None = config.get_api_token()
 
     # Connect to stream and display logs
     try:
