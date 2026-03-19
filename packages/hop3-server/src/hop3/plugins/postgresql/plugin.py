@@ -66,6 +66,7 @@ class PostgresHealthCheck:
                 )
 
             # Try to connect
+            assert psycopg2 is not None  # checked by _PSYCOPG2_AVAILABLE above
             connection = psycopg2.connect(**admin.get_connection_params())
             cursor = connection.cursor()
             cursor.execute("SELECT version()")
@@ -80,17 +81,12 @@ class PostgresHealthCheck:
                 details={"version": version[0] if version else "unknown"},
             )
 
-        except psycopg2.Error as e:
+        except Exception as e:
+            # Catch all errors including psycopg2.Error
             return HealthCheckResult(
                 name="PostgreSQL",
                 passed=False,
                 message=f"Connection failed: {e}",
-            )
-        except Exception as e:
-            return HealthCheckResult(
-                name="PostgreSQL",
-                passed=False,
-                message=f"Health check error: {e}",
             )
 
 

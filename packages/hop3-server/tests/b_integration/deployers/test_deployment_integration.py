@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from hop3.core.plugins import get_deployment_strategy
+from hop3.core.plugins import get_deployer
 from hop3.core.protocols import BuildArtifact, DeploymentContext
 from hop3.orm import App
 
@@ -44,7 +44,7 @@ class TestDeploymentStrategySelection:
 
         ACT:
             - Create virtualenv BuildArtifact
-            - Call get_deployment_strategy()
+            - Call get_deployer()
 
         ASSERT:
             - Verify selected deployer has name 'uwsgi'
@@ -67,7 +67,7 @@ class TestDeploymentStrategySelection:
             location=str(tmp_path / "venv"),
             metadata={"python_path": str(tmp_path / "venv" / "bin" / "python")},
         )
-        deployer = get_deployment_strategy(context, artifact)
+        deployer = get_deployer(context, artifact)
 
         assert deployer.name == "uwsgi"
         assert deployer.accept() is True
@@ -82,7 +82,7 @@ class TestDeploymentStrategySelection:
 
         ACT:
             - Create virtualenv BuildArtifact
-            - Call get_deployment_strategy()
+            - Call get_deployer()
             - Access deployer.app property
 
         ASSERT:
@@ -106,7 +106,7 @@ class TestDeploymentStrategySelection:
             metadata={},
         )
 
-        deployer = get_deployment_strategy(context, artifact)
+        deployer = get_deployer(context, artifact)
 
         assert deployer.app == app
         assert deployer.app.name == "test-app"
@@ -141,19 +141,19 @@ class TestDeploymentStrategySelection:
 
         # ACT & ASSERT: virtualenv artifact
         artifact = BuildArtifact(kind="virtualenv", location="/tmp/venv", metadata={})
-        deployer = get_deployment_strategy(context, artifact)
+        deployer = get_deployer(context, artifact)
         assert deployer.name == "uwsgi", (
             "UWSGIDeployer should be selected for virtualenv"
         )
 
         # ACT & ASSERT: node artifact
         artifact = BuildArtifact(kind="node", location="/tmp/node", metadata={})
-        deployer = get_deployment_strategy(context, artifact)
+        deployer = get_deployer(context, artifact)
         assert deployer.name == "uwsgi", "UWSGIDeployer should be selected for node"
 
         # ACT & ASSERT: buildpack artifact
         artifact = BuildArtifact(kind="buildpack", location="/tmp/bp", metadata={})
-        deployer = get_deployment_strategy(context, artifact)
+        deployer = get_deployer(context, artifact)
         assert deployer.name == "uwsgi", (
             "UWSGIDeployer should be selected for buildpack"
         )
@@ -168,7 +168,7 @@ class TestDeploymentStrategySelection:
 
         ACT:
             - Create BuildArtifact with metadata
-            - Call get_deployment_strategy()
+            - Call get_deployer()
             - Access context from deployer
 
         ASSERT:
@@ -194,7 +194,7 @@ class TestDeploymentStrategySelection:
             location=str(tmp_path / "venv"),
             metadata={"python_path": "/path/to/python"},
         )
-        deployer = get_deployment_strategy(context, artifact)
+        deployer = get_deployer(context, artifact)
 
         assert deployer.context.app_name == "myapp"
         assert deployer.context.source_path == source_path
@@ -210,7 +210,7 @@ class TestDeploymentStrategySelection:
             - Create BuildArtifact with metadata
 
         ACT:
-            - Call get_deployment_strategy()
+            - Call get_deployer()
             - Access artifact from deployer
 
         ASSERT:
@@ -239,7 +239,7 @@ class TestDeploymentStrategySelection:
             },
         )
 
-        deployer = get_deployment_strategy(context, artifact)
+        deployer = get_deployer(context, artifact)
 
         assert deployer.artifact.kind == "virtualenv"
         assert deployer.artifact.location == str(venv_path)

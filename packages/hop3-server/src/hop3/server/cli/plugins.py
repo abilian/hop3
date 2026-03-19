@@ -136,7 +136,7 @@ class Plugins(Command):
         try:
             for builder_list in pm.hook.get_builders():
                 for builder in builder_list:
-                    name = getattr(builder, "name", builder.__name__)
+                    name: str = getattr(builder, "name", None) or builder.__name__
                     if name != "dummy":
                         capabilities["builders"].add(name)
         except Exception:
@@ -147,7 +147,7 @@ class Plugins(Command):
         try:
             for deployer_list in pm.hook.get_deployers():
                 for deployer in deployer_list:
-                    name = getattr(deployer, "name", deployer.__name__)
+                    name: str = getattr(deployer, "name", None) or deployer.__name__
                     if name != "dummy":
                         capabilities["deployers"].add(name)
         except Exception:
@@ -158,7 +158,7 @@ class Plugins(Command):
         try:
             for toolchain_list in pm.hook.get_language_toolchains():
                 for toolchain in toolchain_list:
-                    name = getattr(toolchain, "name", toolchain.__name__)
+                    name: str = getattr(toolchain, "name", None) or toolchain.__name__
                     lang_name = self._toolchain_to_language(name)
                     if lang_name:
                         capabilities["toolchains"].add(lang_name)
@@ -180,7 +180,9 @@ class Plugins(Command):
         try:
             for os_list in pm.hook.get_os_implementations():
                 for os_impl in os_list:
-                    name = getattr(os_impl, "name", os_impl.__name__.lower())
+                    name: str = (
+                        getattr(os_impl, "name", None) or os_impl.__name__.lower()
+                    )
                     capabilities["os_support"].add(name)
         except Exception:
             pass
@@ -190,7 +192,7 @@ class Plugins(Command):
         try:
             for addon_list in pm.hook.get_addons():
                 for addon in addon_list:
-                    name = getattr(addon, "name", addon.__name__.lower())
+                    name: str = getattr(addon, "name", None) or addon.__name__.lower()
                     capabilities["addons"].add(name)
         except Exception:
             pass
@@ -367,7 +369,9 @@ class Plugins(Command):
                     if method:
                         items = method()
                         if items:
-                            item_names = [getattr(s, "name", s.__name__) for s in items]
+                            item_names: list[str] = [
+                                getattr(s, "name", None) or s.__name__ for s in items
+                            ]
                             label = self._get_hook_label(hook_name)
                             print(f"  {label}: {', '.join(item_names)}")
 

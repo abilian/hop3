@@ -413,9 +413,9 @@ class PingCmd(Command):
 
         url = f"http://127.0.0.1:{app.port}{path}"
         timeout = 10  # seconds
+        start_time = time.time()
 
         try:
-            start_time = time.time()
             req = urllib.request.Request(url, method="GET")
             req.add_header("User-Agent", "hop3-ping/1.0")
 
