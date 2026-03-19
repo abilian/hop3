@@ -174,9 +174,14 @@ skip_empty = true
 ignore_missing_imports = true
 strict_optional = true
 warn_no_return = true
-warn_unused_ignores = true
+warn_unused_ignores = false
 check_untyped_defs = true
 
 exclude = [
   "^packages/hop3-server/src/hop3/builders/java\\.py$",
 ]
+
+[tool.ty.rules]
+# Suppress warnings about mypy-style type: ignore comments
+# (these are needed for mypy but ty doesn't recognize them)
+unused-type-ignore-comment = "ignore"
