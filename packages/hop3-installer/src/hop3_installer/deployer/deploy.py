@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import pathlib
 import shlex
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -27,7 +28,6 @@ class Deployer:
         # Generate default log file for quiet mode
         if self.quiet and not self.log_file:
             from datetime import datetime
-            from pathlib import Path
 
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             self.log_file = Path(f"deploy-{timestamp}.log")
@@ -639,6 +639,8 @@ server {{
 
     def _request_letsencrypt_cert(self, domain: str, cert_dir: str) -> bool:
         """Request a Let's Encrypt certificate. Returns True on success."""
+        # acme_email is guaranteed non-None by _should_use_letsencrypt() check
+        assert self.config.acme_email is not None
         safe_domain = shlex.quote(domain)
         safe_email = shlex.quote(self.config.acme_email)
         acme_sh = "/home/hop3/.acme.sh/acme.sh"
