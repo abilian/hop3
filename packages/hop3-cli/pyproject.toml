@@ -42,6 +42,7 @@ filterwarnings = [
     "ignore:TripleDES has been moved:cryptography.utils.CryptographyDeprecationWarning",
 ]
 
+# Keep!
 [tool.pyrefly]
 project-includes = [
     "**/*.py*",

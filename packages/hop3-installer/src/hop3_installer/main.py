@@ -6,13 +6,11 @@ Provides a single entry point for all installer operations:
 - hop3-install cli      - Install Hop3 CLI locally
 - hop3-install server   - Install Hop3 server on remote machine
 - hop3-install bundle   - Bundle installers into single files
-- hop3-install test     - Test installers in Docker/SSH/Vagrant
 
 Usage:
     hop3-install cli [options]
     hop3-install server [options]
     hop3-install bundle [options]
-    hop3-install test [options]
     hop3-install --help
 """
 
@@ -45,10 +43,6 @@ def main() -> int:
             from .bundler import main as bundler_main
 
             return bundler_main()
-        case "test":
-            from .testing import main as testing_main
-
-            return testing_main()
         case _:
             print(f"Unknown subcommand: {subcommand}")
             print_help()
@@ -66,7 +60,6 @@ Commands:
     cli       Install Hop3 CLI tool locally
     server    Install Hop3 server (run as root on target server)
     bundle    Bundle installers into single-file scripts
-    test      Test installers (Docker, SSH, or Vagrant backends)
 
 Examples:
     # Install CLI locally (from PyPI)
@@ -80,9 +73,6 @@ Examples:
 
     # Bundle all installers
     hop3-install bundle --all --output-dir dist/
-
-    # Test installers in Docker
-    hop3-install test docker --distro ubuntu
 
 Run 'hop3-install <command> --help' for more information on a command.
 """)
