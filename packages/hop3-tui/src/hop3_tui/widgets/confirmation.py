@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from textual.containers import Horizontal, Vertical
+from textual.message import Message
 from textual.screen import ModalScreen
 from textual.widgets import Button, Static
 
@@ -21,6 +22,12 @@ if TYPE_CHECKING:
 
 class ConfirmationDialog(ModalScreen[bool]):
     """A modal dialog for confirming destructive actions."""
+
+    class Confirmed(Message):
+        """Message sent when the user confirms the action."""
+
+    class Cancelled(Message):
+        """Message sent when the user cancels the action."""
 
     DEFAULT_CSS = """
     ConfirmationDialog {
@@ -83,13 +90,16 @@ class ConfirmationDialog(ModalScreen[bool]):
         if event.button.id == "btn-confirm":
             if self.on_confirm:
                 self.on_confirm()
+            self.post_message(self.Confirmed())
             self.dismiss(True)
         else:
+            self.post_message(self.Cancelled())
             self.dismiss(False)
 
     def on_key(self, event) -> None:
         """Handle key presses."""
         if event.key == "escape":
+            self.post_message(self.Cancelled())
             self.dismiss(False)
         elif event.key == "enter":
             # Don't auto-confirm, require explicit button press

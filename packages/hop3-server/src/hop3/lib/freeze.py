@@ -35,6 +35,6 @@ def freeze(obj) -> None:
     cls = obj.__class__
     if cls.__setattr__ is not setattr_frozen:
         # Only override __setattr__ if it hasn't been done already
-        cls.__setattr__ = setattr_frozen
+        cls.__setattr__ = setattr_frozen  # type: ignore[method-assign]
     # Set an internal flag to indicate the object is frozen
     object.__setattr__(obj, "__frozen__", True)

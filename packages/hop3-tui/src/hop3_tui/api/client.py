@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -146,7 +147,7 @@ class Hop3Client:
     async def list_backups(self) -> list[Backup]:
         """Get list of all backups."""
         result = await self._rpc_call(["backup:list"])
-        backups = []
+        backups: list[Backup] = []
         # Parse result into Backup models
         return backups
 
@@ -255,9 +256,17 @@ class Hop3Client:
         """Get backup details."""
         result = await self._rpc_call(["backup:info", backup_id])
         if result:
+            # Parse created_at from result or use current time as fallback
+            created_at_str = result.get("created_at")
+            if created_at_str:
+                created_at = datetime.fromisoformat(created_at_str)
+            else:
+                created_at = datetime.now(timezone.utc)
+
             return Backup(
                 id=backup_id,
                 app_name=result.get("app_name", ""),
+                created_at=created_at,
                 size_bytes=result.get("size_bytes", 0),
                 addons=result.get("addons", []),
             )

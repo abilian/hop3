@@ -81,7 +81,7 @@ class LogsScreen(Screen):
     }
     """
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar = [
         Binding("escape", "go_back", "Back"),
         Binding("space", "toggle_pause", "Pause/Resume"),
         Binding("/", "focus_filter", "Filter"),

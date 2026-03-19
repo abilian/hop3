@@ -171,10 +171,10 @@ def create_app():
         route_handlers=route_handlers,
         debug=DEBUG,
         middleware=[session_config.middleware],
-        template_config=template_config,
+        template_config=template_config,  # type: ignore[arg-type]
         logging_config=logging_config,
         stores={"sessions": MemoryStore()},
-        exception_handlers={
+        exception_handlers={  # type: ignore[arg-type]
             NotAuthorizedException: handle_401,
         },
         on_startup=[on_startup],

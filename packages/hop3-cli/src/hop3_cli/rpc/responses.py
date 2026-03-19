@@ -86,9 +86,7 @@ def handle_ok_response(
 def _is_streaming_response(result: list[dict]) -> bool:
     """Check if the response is a streaming response."""
     return (
-        len(result) == 1
-        and result[0].get("t") == "stream"
-        and "stream_id" in result[0]
+        len(result) == 1 and result[0].get("t") == "stream" and "stream_id" in result[0]
     )
 
 

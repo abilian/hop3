@@ -535,8 +535,8 @@ class AddonsDestroyCmd(Command):
             # Get the service strategy
             addon = get_addon(service_type, addon_name)
 
-            # Check if the addon actually exists
-            if hasattr(addon, "exists") and not addon.exists():
+            # Check if the addon actually exists (hasattr check doesn't narrow type for ty)
+            if hasattr(addon, "exists") and not addon.exists():  # type: ignore[call-non-callable]
                 return [
                     text(
                         f"Addon '{addon_name}' of type '{service_type}' does not exist."

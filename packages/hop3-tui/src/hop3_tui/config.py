@@ -13,10 +13,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib  # type: ignore[import-not-found]
+import tomllib
 
 
 @dataclass

@@ -65,7 +65,7 @@ class TestAdminCreate:
     )
     def test_create_admin_success(self, mock_db_session, mock_admin_role, monkeypatch):
         """Test successful admin user creation."""
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         # Mock get_session context manager
         mock_session = MagicMock()
@@ -108,7 +108,7 @@ class TestAdminCreate:
         self, mock_db_session, mock_admin_role, monkeypatch
     ):
         """Test admin creation with password from stdin."""
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
@@ -138,7 +138,7 @@ class TestAdminCreate:
 
     def test_create_admin_username_exists(self, mock_user, monkeypatch):
         """Test error when username already exists."""
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
@@ -164,7 +164,7 @@ class TestAdminCreate:
 
     def test_create_admin_password_mismatch(self, monkeypatch):
         """Test error when passwords don't match."""
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
@@ -191,7 +191,7 @@ class TestAdminToken:
 
     def test_generate_token_success(self, mock_user, monkeypatch):
         """Test successful token generation."""
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
@@ -216,7 +216,7 @@ class TestAdminToken:
 
     def test_generate_token_user_not_found(self, monkeypatch):
         """Test error when user doesn't exist."""
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
@@ -237,7 +237,7 @@ class TestAdminToken:
 
     def test_generate_token_disabled_user(self, mock_user, monkeypatch):
         """Test error when user is disabled."""
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
         mock_user.active = False
 
         mock_session = MagicMock()
@@ -263,7 +263,7 @@ class TestAdminList:
 
     def test_list_users_success(self, mock_user, monkeypatch):
         """Test listing users."""
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
@@ -289,7 +289,7 @@ class TestAdminList:
 
     def test_list_users_empty(self, monkeypatch):
         """Test listing when no users exist."""
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
@@ -317,7 +317,7 @@ class TestAdminResetPassword:
 
     def test_reset_password_success(self, mock_user, monkeypatch):
         """Test successful password reset."""
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
@@ -346,7 +346,7 @@ class TestAdminResetPassword:
 
     def test_reset_password_stdin(self, mock_user, monkeypatch):
         """Test password reset with stdin."""
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)
@@ -371,7 +371,7 @@ class TestAdminResetPassword:
 
     def test_reset_password_user_not_found(self, monkeypatch):
         """Test error when user doesn't exist."""
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         mock_session = MagicMock()
         mock_session.__enter__ = Mock(return_value=mock_session)

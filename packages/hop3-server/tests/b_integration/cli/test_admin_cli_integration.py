@@ -50,7 +50,9 @@ class TestAdminCreateIntegration:
             - Verify output message
         """
         # ARRANGE: Set up test environment
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-token-generation")
+        monkeypatch.setenv(
+            "HOP3_SECRET_KEY", "test-secret-key-for-unit-testing-for-token-generation"
+        )
 
         # Capture stdout for output verification
         captured_output = io.StringIO()
@@ -111,7 +113,7 @@ class TestAdminCreateIntegration:
         This tests automation scenario where password is piped in.
         """
         # ARRANGE
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
         captured_output = io.StringIO()
 
         # ACT
@@ -139,7 +141,7 @@ class TestAdminCreateIntegration:
         db_session.add(existing_user)
         db_session.commit()
 
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         # ACT + ASSERT: Should raise SystemExit
         with (
@@ -167,7 +169,7 @@ class TestAdminCreateIntegration:
         db_session.add(existing_user)
         db_session.commit()
 
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         # ACT + ASSERT
         with (
@@ -192,7 +194,7 @@ class TestAdminCreateIntegration:
     def test_create_admin_password_mismatch(self, db_session: Session, monkeypatch):
         """Test error when passwords don't match."""
         # ARRANGE
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         # ACT + ASSERT
         with (
@@ -235,7 +237,7 @@ class TestAdminTokenIntegration:
             - Verify output contains token and success message
         """
         # ARRANGE
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
         captured_output = io.StringIO()
 
         # ACT
@@ -251,7 +253,7 @@ class TestAdminTokenIntegration:
     def test_generate_token_user_not_found(self, db_session: Session, monkeypatch):
         """Test error when user doesn't exist."""
         # ARRANGE
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         # ACT + ASSERT
         with pytest.raises(SystemExit) as exc_info:
@@ -265,7 +267,7 @@ class TestAdminTokenIntegration:
     ):
         """Test error when user is disabled."""
         # ARRANGE
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         # Mark user as inactive
         sample_user.active = False
@@ -300,7 +302,7 @@ class TestAdminListIntegration:
             - Verify total user count
         """
         # ARRANGE
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
         captured_output = io.StringIO()
 
         # ACT
@@ -317,7 +319,7 @@ class TestAdminListIntegration:
     def test_list_users_empty(self, db_session: Session, monkeypatch):
         """Test listing when no users exist."""
         # ARRANGE
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
         captured_output = io.StringIO()
 
         # ACT
@@ -353,7 +355,7 @@ class TestAdminResetPasswordIntegration:
             - Verify success output
         """
         # ARRANGE
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
         captured_output = io.StringIO()
 
         # Store original password for comparison
@@ -395,7 +397,7 @@ class TestAdminResetPasswordIntegration:
         This tests automation scenario where password is piped in.
         """
         # ARRANGE
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
         captured_output = io.StringIO()
         new_password = "stdin_newpass123"
 
@@ -418,7 +420,7 @@ class TestAdminResetPasswordIntegration:
     def test_reset_password_user_not_found(self, db_session: Session, monkeypatch):
         """Test error when user doesn't exist."""
         # ARRANGE
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         # ACT + ASSERT
         with (

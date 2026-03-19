@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from textual.containers import Container
 from textual.reactive import reactive
@@ -127,7 +127,7 @@ class DashboardScreen(Screen):
     }
     """
 
-    BINDINGS: ClassVar[list[tuple[str, str, str]]] = [
+    BINDINGS: ClassVar = [
         ("a", "switch_mode('apps')", "Apps"),
         ("s", "switch_mode('system')", "System"),
         ("c", "switch_mode('chat')", "Chat"),
@@ -150,7 +150,7 @@ class DashboardScreen(Screen):
     def hop3_app(self) -> Hop3TUI | None:
         """Get the Hop3TUI app instance if available."""
         if hasattr(self.app, "api_client"):
-            return self.app  # type: ignore[return-value]
+            return cast("Hop3TUI", self.app)
         return None
 
     def on_mount(self) -> None:

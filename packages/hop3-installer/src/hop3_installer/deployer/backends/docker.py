@@ -140,7 +140,7 @@ class DockerDeployBackend(DeployBackend):
         Returns:
             List of (port, container_name, description) for ports in use
         """
-        conflicts = []
+        conflicts: list[tuple[int, str, str]] = []
 
         # Check what's using our ports via docker ps
         result = subprocess.run(
@@ -381,7 +381,7 @@ class DockerDeployBackend(DeployBackend):
             return result.returncode
 
         # Stream directly to terminal
-        result = subprocess.run(docker_cmd, check=False)
+        result = subprocess.run(docker_cmd, check=False)  # type: ignore[assignment]
         return result.returncode
 
     def upload_file(self, local_path: Path, remote_path: str) -> bool:

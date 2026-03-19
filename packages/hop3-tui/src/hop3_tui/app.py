@@ -42,7 +42,7 @@ class Hop3TUI(App[str]):
 
     CSS_PATH = "styles/base.tcss"
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar = [
         Binding("q", "quit", "Quit", show=True),
         Binding("?", "help", "Help", show=True),
         Binding("d", "switch_mode('dashboard')", "Dashboard", show=True),
@@ -53,7 +53,7 @@ class Hop3TUI(App[str]):
         Binding("c", "switch_mode('chat')", "Chat", show=True),
     ]
 
-    MODES: ClassVar[dict[str, type]] = {
+    MODES: ClassVar = {
         "dashboard": DashboardScreen,
         "apps": AppsScreen,
         "system": SystemScreen,
@@ -63,7 +63,7 @@ class Hop3TUI(App[str]):
     }
 
     # Screens that can be pushed onto the stack
-    SCREENS: ClassVar[dict[str, type]] = {
+    SCREENS: ClassVar = {
         "app_detail": AppDetailScreen,
         "logs": LogsScreen,
     }

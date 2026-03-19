@@ -190,7 +190,7 @@ class TutorialTestRunner:
 
         # Run validoc on the tutorial
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # type: ignore[assignment]
                 [*validoc_cmd, "run", str(tutorial_path)],
                 cwd=cwd,
                 capture_output=True,

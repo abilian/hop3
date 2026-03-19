@@ -159,7 +159,7 @@ class SystemScreen(Screen):
     }
     """
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar = [
         Binding("escape", "switch_mode('dashboard')", "Back"),
         Binding("l", "view_system_logs", "Logs"),
         Binding("p", "view_processes", "Processes"),

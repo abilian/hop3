@@ -8,10 +8,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from textual.binding import Binding
 from textual.containers import Horizontal
+from textual.coordinate import Coordinate
 from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
@@ -22,6 +23,7 @@ from hop3_tui.widgets.confirmation import ConfirmationDialog
 
 if TYPE_CHECKING:
     from textual.app import ComposeResult
+    from textual.widget import Widget
 
     from hop3_tui.app import Hop3TUI
 
@@ -164,7 +166,7 @@ class AppsScreen(Screen):
     }
     """
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar = [
         Binding("escape", "go_back", "Back"),
         Binding("enter", "view_app", "View"),
         Binding("s", "start_app", "Start"),
@@ -186,7 +188,7 @@ class AppsScreen(Screen):
     def hop3_app(self) -> Hop3TUI | None:
         """Get the Hop3TUI app instance if available."""
         if hasattr(self.app, "api_client"):
-            return self.app  # type: ignore[return-value]
+            return cast("Hop3TUI", self.app)
         return None
 
     def compose(self) -> ComposeResult:
@@ -292,8 +294,9 @@ class AppsScreen(Screen):
     def _get_selected_app_name(self) -> str | None:
         """Get the name of the currently selected app."""
         table = self.query_one("#apps-table", DataTable)
-        if table.row_count > 0 and table.cursor_row is not None:
-            return str(table.get_cell_at((table.cursor_row, 0)))
+        cursor_row = table.cursor_row
+        if table.row_count > 0 and cursor_row is not None:
+            return str(table.get_cell_at(Coordinate(cursor_row, 0)))
         return None
 
     def on_input_changed(self, event: Input.Changed) -> None:
@@ -332,7 +335,7 @@ class AppsScreen(Screen):
     def action_view_app(self) -> None:
         """View the selected application."""
         app_name = self._get_selected_app_name()
-        if app_name:
+        if app_name and self.hop3_app:
             self.hop3_app.push_app_detail(app_name)
 
     def action_start_app(self) -> None:
@@ -344,6 +347,9 @@ class AppsScreen(Screen):
 
     async def _start_app(self, app_name: str) -> None:
         """Start an app asynchronously."""
+        if not self.hop3_app:
+            self.notify("[yellow]API not available[/]")
+            return
         try:
             await self.hop3_app.api_client.start_app(app_name)
             self.notify(f"[green]Started {app_name}[/]")
@@ -366,6 +372,9 @@ class AppsScreen(Screen):
 
     async def _stop_app(self, app_name: str) -> None:
         """Stop an app asynchronously."""
+        if not self.hop3_app:
+            self.notify("[yellow]API not available[/]")
+            return
         try:
             await self.hop3_app.api_client.stop_app(app_name)
             self.notify(f"[yellow]Stopped {app_name}[/]")
@@ -382,6 +391,9 @@ class AppsScreen(Screen):
 
     async def _restart_app(self, app_name: str) -> None:
         """Restart an app asynchronously."""
+        if not self.hop3_app:
+            self.notify("[yellow]API not available[/]")
+            return
         try:
             await self.hop3_app.api_client.restart_app(app_name)
             self.notify(f"[green]Restarted {app_name}[/]")
@@ -445,6 +457,9 @@ class AppsScreen(Screen):
 
     async def _delete_app(self, app_name: str) -> None:
         """Delete an app asynchronously."""
+        if not self.hop3_app:
+            self.notify("[yellow]API not available[/]")
+            return
         try:
             await self.hop3_app.api_client.delete_app(app_name)
             self.notify(f"[red]Deleted {app_name}[/]")
@@ -476,6 +491,9 @@ class AppsScreen(Screen):
 
     async def _deploy_app(self, app_name: str, git_url: str) -> None:
         """Deploy a new app from git URL."""
+        if not self.hop3_app:
+            self.notify("[yellow]API not available[/]")
+            return
         try:
             await self.hop3_app.api_client.deploy_app(app_name, git_url)
             self.notify(f"[green]Deployed {app_name}[/]")
@@ -487,7 +505,7 @@ class AppsScreen(Screen):
         """Handle new app dialog cancellation."""
         self._close_dialog(NewAppDialog)
 
-    def _close_dialog(self, dialog_type: type) -> None:
+    def _close_dialog(self, dialog_type: type[Widget]) -> None:
         """Close dialogs of a given type."""
         dialogs = self.query(dialog_type)
         for dialog in dialogs:

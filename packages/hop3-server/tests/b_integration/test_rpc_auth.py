@@ -19,7 +19,7 @@ from hop3.server.security.tokens import create_token
 def setup_test_env(monkeypatch):
     """Set up test environment."""
     # Set required secrets without needing to reload config
-    monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-for-rpc-testing")
+    monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-rpc-auth-testing")
     monkeypatch.setenv("HOP3_ENABLE_AUTH", "true")
 
 
