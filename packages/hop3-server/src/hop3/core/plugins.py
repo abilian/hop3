@@ -231,13 +231,11 @@ def get_builder(context: DeploymentContext) -> Builder:
     raise RuntimeError(msg)
 
 
-def get_deployment_strategy(
-    context: DeploymentContext, artifact: BuildArtifact
-) -> Deployer:
-    """Finds and instantiates the appropriate deployment strategy.
+def get_deployer(context: DeploymentContext, artifact: BuildArtifact) -> Deployer:
+    """Find and instantiate the appropriate deployer for an artifact.
 
     This function is used during the build-deploy pipeline to auto-select
-    a deployment strategy based on the artifact type.
+    a deployer based on the artifact type.
 
     Args:
         context: Deployment context with app information
@@ -247,38 +245,36 @@ def get_deployment_strategy(
         Deployer instance that accepts the artifact
 
     Raises:
-        RuntimeError: If no compatible strategy is found
+        RuntimeError: If no compatible deployer is found
     """
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.get_deployers()
-    strategy_classes = [cls for sublist in strategy_classes_list for cls in sublist]
+    deployer_classes: list[type[Deployer]] = [
+        cls for sublist in pm.hook.get_deployers() for cls in sublist
+    ]
 
     # Import decision logger
     from hop3.lib.decision_log import get_decision_logger  # noqa: PLC0415
 
     decision_logger = get_decision_logger()
 
-    # TODO: Add logic to check context.app_config for an explicit strategy name.
+    # TODO: Add logic to check context.app_config for an explicit deployer name.
 
-    for strategy_class in strategy_classes:
-        strategy: Deployer = strategy_class(context, artifact)
-        if strategy.accept():
-            deployer_name = getattr(strategy_class, "name", strategy_class.__name__)
+    for deployer_class in deployer_classes:
+        deployer: Deployer = deployer_class(context, artifact)
+        if deployer.accept():
             decision_logger.log_deployer_decision(
-                deployer_name,
+                deployer_class.name,  # Required by Deployer protocol
                 f"matched artifact kind '{artifact.kind}'",
                 artifact_kind=artifact.kind,
             )
-            return strategy
+            return deployer
 
-    # No strategy accepted - build error message
-    available_deployers = [
-        getattr(cls, "name", cls.__name__) for cls in strategy_classes
-    ]
-    hints = _build_deployment_hints(artifact.kind, available_deployers)
+    # No deployer accepted - build error message
+    available = [cls.name for cls in deployer_classes]
+    hints = _build_deployment_hints(artifact.kind, available)
 
-    msg = f"Could not find a deployment strategy for artifact kind '{artifact.kind}'."
+    msg = f"No deployer found for artifact kind '{artifact.kind}'."
     if hints:
         msg += "\n\n" + "\n".join(hints)
     raise RuntimeError(msg)
@@ -287,7 +283,7 @@ def get_deployment_strategy(
 def _build_deployment_hints(
     artifact_kind: str, available_deployers: list[str]
 ) -> list[str]:
-    """Build helpful hints for deployment strategy errors."""
+    """Build helpful hints when no deployer accepts an artifact."""
     hints: list[str] = []
 
     hint_builders = {
@@ -357,36 +353,34 @@ def _hints_for_unknown_artifact(artifact_kind: str) -> list[str]:
 
 
 def get_deployer_by_name(app, runtime_name: str) -> Deployer:
-    """Get a deployment strategy by name for lifecycle operations.
+    """Get a deployer by name for lifecycle operations.
 
     This function is used for lifecycle management (start, stop, restart, status)
-    where we need to look up a strategy by name rather than auto-detecting.
+    where we need to look up a deployer by name rather than auto-detecting.
 
     Args:
         app: App instance (for creating deployment context)
-        runtime_name: Name of the runtime (e.g., 'uwsgi', 'docker-compose')
+        runtime_name: Name of the deployer (e.g., 'uwsgi', 'docker-compose')
 
     Returns:
         Deployer instance for the named runtime
 
     Raises:
-        RuntimeError: If the runtime name is not found
+        RuntimeError: If the deployer name is not found
 
     Example:
-        >>> strategy = get_deployer_by_name(app, 'uwsgi')
-        >>> is_running = strategy.check_status()
+        >>> deployer = get_deployer_by_name(app, 'uwsgi')
+        >>> is_running = deployer.check_status()
     """
-
     pm = get_plugin_manager()
 
-    strategy_classes_list = pm.hook.get_deployers()
-    strategy_classes: list[type[Deployer]] = [
-        cls for sublist in strategy_classes_list for cls in sublist
+    deployer_classes: list[type[Deployer]] = [
+        cls for sublist in pm.hook.get_deployers() for cls in sublist
     ]
 
-    # Find strategy by name
-    for strategy_class in strategy_classes:
-        if getattr(strategy_class, "name", None) == runtime_name:
+    # Find deployer by name
+    for deployer_class in deployer_classes:
+        if deployer_class.name == runtime_name:
             # Create deployment context for lifecycle operations
             context = DeploymentContext(
                 app_name=app.name,
@@ -401,13 +395,11 @@ def get_deployer_by_name(app, runtime_name: str) -> Deployer:
                 if hasattr(app, "virtualenv_path")
                 else "",
             )
-            return strategy_class(context, artifact)
+            return deployer_class(context, artifact)
 
-    # Provide helpful error message with available runtimes
-    available_runtimes = [getattr(cls, "name", "?") for cls in strategy_classes]
-    msg = (
-        f"Runtime '{runtime_name}' not found. Available runtimes: {available_runtimes}"
-    )
+    # Provide helpful error message with available deployers
+    available = [cls.name for cls in deployer_classes]
+    msg = f"Deployer '{runtime_name}' not found. Available: {available}"
     raise RuntimeError(msg)
 
 

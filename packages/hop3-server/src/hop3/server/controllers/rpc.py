@@ -301,7 +301,9 @@ class RPCController(Controller):
             status_code=status_code,
         )
 
-    def _build_success_response(self, result: Json, request_id: int) -> Response:
+    def _build_success_response(
+        self, result: Json | list[dict], request_id: int
+    ) -> Response:
         """Build a JSON-RPC success response.
 
         Args:
@@ -311,7 +313,7 @@ class RPCController(Controller):
         Returns:
             JSON-RPC success response
         """
-        result_rpc = {"jsonrpc": "2.0", "result": result, "id": request_id}
+        result_rpc: dict = {"jsonrpc": "2.0", "result": result, "id": request_id}
         return Response(
             content=json.dumps(result_rpc),
             media_type="application/json",

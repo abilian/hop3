@@ -54,6 +54,7 @@ class RedisHealthCheck:
             )
 
         try:
+            assert redis is not None  # checked by _REDIS_AVAILABLE above
             factory = RedisClientFactory.from_config()
             client = redis.Redis(**factory.get_connection_params())
             info = cast("dict[str, Any]", client.info())
@@ -68,17 +69,13 @@ class RedisHealthCheck:
                 },
             )
 
-        except redis.ConnectionError as e:
-            return HealthCheckResult(
-                name="Redis",
-                passed=True,  # Redis is optional, connection failure is OK
-                message=f"Not accessible: {e}",
-            )
         except Exception as e:
+            # Catch all errors including redis.ConnectionError
+            # Redis is optional, so failures are OK
             return HealthCheckResult(
                 name="Redis",
-                passed=True,  # Redis is optional
-                message=f"Health check error: {e}",
+                passed=True,
+                message=f"Not accessible: {e}",
             )
 
 

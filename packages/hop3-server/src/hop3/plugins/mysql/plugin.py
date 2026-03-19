@@ -66,6 +66,7 @@ class MySQLHealthCheck:
                 )
 
             # Try to connect
+            assert mysql is not None  # checked by _MYSQL_AVAILABLE above
             connection = mysql.connector.connect(**admin.get_connection_params())
             cursor = connection.cursor()
             cursor.execute("SELECT VERSION()")
@@ -82,18 +83,14 @@ class MySQLHealthCheck:
                 details={"version": version_str},
             )
 
-        except mysql.connector.Error as e:
+        except Exception as e:
+            # Catch all errors including mysql.connector.Error
+            error_code = getattr(e, "errno", None)
             return HealthCheckResult(
                 name="MySQL",
                 passed=False,
                 message=f"Connection failed: {e}",
-                details={"error_code": e.errno if hasattr(e, "errno") else None},
-            )
-        except Exception as e:
-            return HealthCheckResult(
-                name="MySQL",
-                passed=False,
-                message=f"Health check error: {e}",
+                details={"error_code": error_code},
             )
 
 

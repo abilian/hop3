@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
-from hop3.core.plugins import get_deployment_strategy
+from hop3.core.plugins import get_deployer
 from hop3.core.protocols import BuildArtifact, DeploymentContext
 from hop3.orm import App
 
@@ -44,7 +44,7 @@ def test_uwsgi_deployer_selected_for_virtualenv(tmp_path: Path):
     )
 
     # Get deployment strategy
-    deployer = get_deployment_strategy(context, artifact)
+    deployer = get_deployer(context, artifact)
 
     # Verify it's the UWSGIDeployer
     assert deployer.name == "uwsgi"
@@ -80,7 +80,7 @@ def test_uwsgi_deployer_has_app_access(tmp_path: Path):
     )
 
     # Get deployment strategy
-    deployer = get_deployment_strategy(context, artifact)
+    deployer = get_deployer(context, artifact)
 
     # Verify the deployer can access the app
     assert deployer.app == app
@@ -113,7 +113,7 @@ def test_deployment_strategy_priority(tmp_path: Path):
         location="/tmp/venv",
         metadata={},
     )
-    deployer = get_deployment_strategy(context, artifact)
+    deployer = get_deployer(context, artifact)
     assert deployer.name == "uwsgi", "UWSGIDeployer should be selected for virtualenv"
 
     # Test with node artifact
@@ -126,7 +126,7 @@ def test_deployment_strategy_priority(tmp_path: Path):
         location="/tmp/node",
         metadata={},
     )
-    deployer = get_deployment_strategy(context, artifact)
+    deployer = get_deployer(context, artifact)
     assert deployer.name == "uwsgi", "UWSGIDeployer should be selected for node"
 
     # Test with buildpack artifact
@@ -139,5 +139,5 @@ def test_deployment_strategy_priority(tmp_path: Path):
         location="/tmp/bp",
         metadata={},
     )
-    deployer = get_deployment_strategy(context, artifact)
+    deployer = get_deployer(context, artifact)
     assert deployer.name == "uwsgi", "UWSGIDeployer should be selected for buildpack"

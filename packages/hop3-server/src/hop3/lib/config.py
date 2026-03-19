@@ -75,31 +75,23 @@ class Config:
             self._parse_file(file)
 
     @overload
+    def __call__(self, key: str) -> str: ...
+
+    @overload
     def __call__(self, key: str, *, default: None) -> str | None: ...
 
     @overload
-    def __call__(self, key: str, cast: type[T], default: T = ...) -> T: ...
-
-    @overload
-    def __call__(self, key: str, cast: type[str] = ..., default: str = ...) -> str: ...
+    def __call__(self, key: str, cast: type[T] | Callable[[Any], T]) -> T: ...
 
     @overload
     def __call__(
-        self,
-        key: str,
-        cast: Callable[[Any], T] = ...,
-        default: Any = ...,
+        self, key: str, cast: type[T] | Callable[[Any], T], default: T
     ) -> T: ...
 
-    @overload
-    def __call__(
-        self, key: str, cast: type[str] = ..., default: T = ...
-    ) -> T | str: ...
-
     def __call__(
         self,
         key: str,
-        cast: Callable[[Any], Any] | None = None,
+        cast: type[T] | Callable[[Any], T] | None = None,
         default: Any = Undefined,
     ) -> Any:
         return self.get(key, cast, default)

@@ -5,7 +5,7 @@ import time
 from typing import TYPE_CHECKING
 
 from hop3.core.manifest import RuntimeManifestBuilder
-from hop3.core.plugins import get_builder, get_deployment_strategy
+from hop3.core.plugins import get_builder, get_deployer
 from hop3.core.protocols import DeploymentContext
 from hop3.deployers.addon_provisioning import provision_addons
 from hop3.deployers.env_provisioning import set_default_env_vars
@@ -138,9 +138,9 @@ def do_deploy(
     # --- 4. Run Postbuild Hook ---
     _run_hook("postbuild", app_config.post_build, app.src_path)
 
-    # --- 5. Select and Run Deployment Strategy ---
-    deployer = get_deployment_strategy(context, build_artifact)
-    log(f"Using deployment strategy: '{deployer.name}'", level=1, fg="blue")
+    # --- 5. Select and Run Deployer ---
+    deployer = get_deployer(context, build_artifact)
+    log(f"Using deployer: '{deployer.name}'", level=1, fg="blue")
 
     # The deploy method is now part of the strategy instance
     deployment_info = deployer.deploy(deltas)

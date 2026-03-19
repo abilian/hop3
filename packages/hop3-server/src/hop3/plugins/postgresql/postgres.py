@@ -534,18 +534,24 @@ class PostgresAddon:
                     "SELECT pg_database_size(%s);",
                     (self.db_name,),
                 )
-                size_bytes = cursor.fetchone()[0]  # pyright: ignore[index]
+                row = cursor.fetchone()
+                assert row is not None  # aggregate always returns one row
+                size_bytes = row[0]
 
                 # Get table count (aggregate always returns one row)
                 cursor.execute(
                     "SELECT count(*) FROM information_schema.tables "
                     "WHERE table_schema = 'public';"
                 )
-                table_count = cursor.fetchone()[0]  # pyright: ignore[index]
+                row = cursor.fetchone()
+                assert row is not None  # aggregate always returns one row
+                table_count = row[0]
 
                 # Get PostgreSQL version (always returns one row)
                 cursor.execute("SELECT version();")
-                version = cursor.fetchone()[0]  # pyright: ignore[index]
+                row = cursor.fetchone()
+                assert row is not None  # version() always returns one row
+                version = row[0]
 
             return {
                 "addon_name": self.addon_name,
