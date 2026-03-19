@@ -134,7 +134,7 @@ class SSHCommandRunner:
 class ContainerRunner(Protocol):
     """Protocol for Docker container-like objects."""
 
-    def exec_run(self, command: str) -> Any:
+    def exec_run(self, cmd: list[str] | str, **kwargs: Any) -> Any:
         """Execute command in container, return result with output attribute."""
         ...
 

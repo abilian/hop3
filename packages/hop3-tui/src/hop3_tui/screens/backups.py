@@ -8,10 +8,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.coordinate import Coordinate
 from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
@@ -22,6 +23,7 @@ from hop3_tui.widgets.confirmation import ConfirmationDialog
 
 if TYPE_CHECKING:
     from textual.app import ComposeResult
+    from textual.widget import Widget
 
     from hop3_tui.app import Hop3TUI
 
@@ -144,7 +146,7 @@ class BackupsScreen(Screen):
     }
     """
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar = [
         Binding("escape", "go_back", "Back"),
         Binding("n", "new_backup", "New"),
         Binding("r", "restore_backup", "Restore"),
@@ -161,7 +163,7 @@ class BackupsScreen(Screen):
     def hop3_app(self) -> Hop3TUI | None:
         """Get the Hop3TUI app instance if available."""
         if hasattr(self.app, "api_client"):
-            return self.app  # type: ignore[return-value]
+            return cast("Hop3TUI", self.app)
         return None
 
     def compose(self) -> ComposeResult:
@@ -274,8 +276,9 @@ class BackupsScreen(Screen):
     def _get_selected_backup(self) -> Backup | None:
         """Get the currently selected backup."""
         table = self.query_one("#backups-table", DataTable)
-        if table.row_count > 0 and table.cursor_row is not None:
-            backup_id = str(table.get_cell_at((table.cursor_row, 0)))
+        cursor_row = table.cursor_row
+        if table.row_count > 0 and cursor_row is not None:
+            backup_id = str(table.get_cell_at(Coordinate(cursor_row, 0)))
             for backup in self._backups:
                 if backup.id == backup_id:
                     return backup
@@ -449,7 +452,7 @@ class BackupsScreen(Screen):
         except Exception as e:
             self.notify(f"Failed to delete backup: {e}", severity="error")
 
-    def _close_dialog(self, dialog_type: type) -> None:
+    def _close_dialog(self, dialog_type: type[Widget]) -> None:
         """Close dialogs of a given type."""
         dialogs = self.query(dialog_type)
         for dialog in dialogs:

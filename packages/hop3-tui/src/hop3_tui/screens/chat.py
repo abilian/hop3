@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from textual.binding import Binding
 from textual.containers import VerticalScroll
@@ -155,7 +155,7 @@ class ChatScreen(Screen):
     }
     """
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar = [
         Binding("escape", "go_back", "Back"),
     ]
 
@@ -173,7 +173,7 @@ class ChatScreen(Screen):
     def hop3_app(self) -> Hop3TUI | None:
         """Get the Hop3TUI app instance if available."""
         if hasattr(self.app, "api_client"):
-            return self.app  # type: ignore[return-value]
+            return cast("Hop3TUI", self.app)
         return None
 
     def compose(self) -> ComposeResult:

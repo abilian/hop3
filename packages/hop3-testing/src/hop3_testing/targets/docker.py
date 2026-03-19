@@ -192,7 +192,9 @@ class DockerTarget(DeploymentTarget):
 
         # Wait for server to be ready
         self.diagnostics.set_phase("health_check")
-        if not self._health_checker.wait_for_container(self._container):
+        if not self._health_checker.wait_for_container(
+            self._container,  # pyrefly: ignore
+        ):
             self._save_diagnostics_on_error()
             msg = "Server did not become ready"
             raise RuntimeError(msg)
@@ -256,7 +258,9 @@ class DockerTarget(DeploymentTarget):
 
         # Wait for server to be ready
         self.diagnostics.set_phase("health_check")
-        if not self._health_checker.wait_for_container(self._container):
+        if not self._health_checker.wait_for_container(
+            self._container,  # pyrefly: ignore
+        ):
             self._save_diagnostics_on_error()
             msg = "Server did not become ready"
             raise RuntimeError(msg)
@@ -344,7 +348,9 @@ class DockerTarget(DeploymentTarget):
 
         # Wait for server to be ready
         self.diagnostics.set_phase("health_check")
-        if not self._health_checker.wait_for_container(self._container):
+        if not self._health_checker.wait_for_container(
+            self._container,  # pyrefly: ignore
+        ):
             self._dump_container_logs()
             msg = "hop3-server failed to start"
             raise RuntimeError(msg)

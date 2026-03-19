@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
@@ -21,6 +21,7 @@ from hop3_tui.widgets.confirmation import ConfirmationDialog
 
 if TYPE_CHECKING:
     from textual.app import ComposeResult
+    from textual.widget import Widget
 
     from hop3_tui.app import Hop3TUI
 
@@ -261,7 +262,7 @@ class AppDetailScreen(Screen):
     }
     """
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar = [
         Binding("escape", "go_back", "Back"),
         Binding("l", "view_logs", "Logs"),
         Binding("e", "view_env", "Env Vars"),
@@ -280,7 +281,7 @@ class AppDetailScreen(Screen):
     def hop3_app(self) -> Hop3TUI | None:
         """Get the Hop3TUI app instance if available."""
         if hasattr(self.app, "api_client"):
-            return self.app  # type: ignore[return-value]
+            return cast("Hop3TUI", self.app)
         return None
 
     def compose(self) -> ComposeResult:
@@ -377,12 +378,15 @@ class AppDetailScreen(Screen):
 
     def action_view_logs(self) -> None:
         """View full logs."""
-        self.app.push_screen("logs", {"app_name": self.app_name})
+        if hasattr(self.app, "push_logs"):
+            self.app.push_logs(self.app_name)  # type: ignore[attr-defined]
+        else:
+            self.notify("Logs screen not available")
 
     def action_view_env(self) -> None:
         """View environment variables."""
         if hasattr(self.app, "push_env_vars"):
-            self.app.push_env_vars(self.app_name)
+            self.app.push_env_vars(self.app_name)  # type: ignore[attr-defined]
         else:
             self.notify("Env vars screen not available")
 
@@ -557,7 +561,7 @@ class AppDetailScreen(Screen):
         except Exception as e:
             self.notify(f"Failed to destroy: {e}", severity="error")
 
-    def _close_dialog(self, dialog_type: type) -> None:
+    def _close_dialog(self, dialog_type: type[Widget]) -> None:
         """Close dialogs of a given type."""
         dialogs = self.query(dialog_type)
         for dialog in dialogs:

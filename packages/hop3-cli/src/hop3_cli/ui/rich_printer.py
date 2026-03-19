@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from rich.console import Console
@@ -26,8 +26,12 @@ class RichPrinter:
     quiet: bool = False
     json_output: bool = False
     debug: bool = False
+    # Internal fields initialized in __post_init__
+    _console: Console = field(init=False, repr=False, compare=False)
+    _console_err: Console = field(init=False, repr=False, compare=False)
+    _json_buffer: list[dict[str, Any]] = field(init=False, repr=False, compare=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize console after dataclass creation."""
         object.__setattr__(self, "_console", Console(stderr=False))
         object.__setattr__(self, "_console_err", Console(stderr=True))
@@ -47,17 +51,17 @@ class RichPrinter:
     @property
     def console(self) -> Console:
         """Get the Rich console instance."""
-        return self._console  # type: ignore
+        return self._console
 
     @property
     def console_err(self) -> Console:
         """Get the Rich stderr console instance."""
-        return self._console_err  # type: ignore
+        return self._console_err
 
     @property
-    def json_buffer(self) -> list[dict]:
+    def json_buffer(self) -> list[dict[str, Any]]:
         """Get the JSON output buffer."""
-        return self._json_buffer  # type: ignore
+        return self._json_buffer
 
     def print(self, msg: Message) -> None:
         """Print a message using appropriate formatting."""

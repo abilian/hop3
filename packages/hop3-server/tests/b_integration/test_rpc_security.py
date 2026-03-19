@@ -33,7 +33,7 @@ from hop3.server.security.tokens import create_token
 def setup_security_test_env(monkeypatch):
     """Set up test environment with authentication enabled."""
     # Set required secrets without needing to reload config
-    monkeypatch.setenv("HOP3_SECRET_KEY", "test-security-secret-key")
+    monkeypatch.setenv("HOP3_SECRET_KEY", "test-security-secret-key-for-tests")
     monkeypatch.setenv("HOP3_ENABLE_AUTH", "true")
 
 
@@ -101,7 +101,7 @@ def test_tampered_token_payload(client: TestClient, valid_token: str, secret_key
 def test_token_signed_with_wrong_key(client: TestClient):
     """Test that tokens signed with a different key are rejected."""
     # Create a token with a different secret key
-    wrong_secret = "wrong-secret-key-12345"
+    wrong_secret = "wrong-secret-key-for-testing-12345"
     payload = {
         "sub": "attacker",
         "exp": datetime.now(UTC) + timedelta(hours=1),

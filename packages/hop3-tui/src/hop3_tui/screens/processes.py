@@ -7,9 +7,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from textual.binding import Binding
+from textual.coordinate import Coordinate
 from textual.screen import Screen
 from textual.widgets import DataTable, Footer, Header, Static
 
@@ -48,7 +49,7 @@ class ProcessesScreen(Screen):
     }
     """
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar = [
         Binding("escape", "go_back", "Back"),
         Binding("r", "refresh", "Refresh"),
         Binding("k", "kill_process", "Kill"),
@@ -62,7 +63,7 @@ class ProcessesScreen(Screen):
     def hop3_app(self) -> Hop3TUI | None:
         """Get the Hop3TUI app instance if available."""
         if hasattr(self.app, "api_client"):
-            return self.app  # type: ignore[return-value]
+            return cast("Hop3TUI", self.app)
         return None
 
     def compose(self) -> ComposeResult:
@@ -185,8 +186,9 @@ class ProcessesScreen(Screen):
     def _get_selected_process(self) -> dict[str, Any] | None:
         """Get the currently selected process."""
         table = self.query_one("#processes-table", DataTable)
-        if table.row_count > 0 and table.cursor_row is not None:
-            pid = str(table.get_cell_at((table.cursor_row, 1)))
+        cursor_row = table.cursor_row
+        if table.row_count > 0 and cursor_row is not None:
+            pid = str(table.get_cell_at(Coordinate(cursor_row, 1)))
             for proc in self._processes:
                 if str(proc.get("pid", "")) == pid:
                     return proc

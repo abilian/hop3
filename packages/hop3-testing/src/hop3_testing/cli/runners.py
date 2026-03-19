@@ -301,6 +301,7 @@ def run_single_test(
     if console is not None:
         common_kwargs["console"] = console
 
+    runner: DemoTestRunner | TutorialTestRunner | DeploymentTestRunner
     if test.category == Category.DEMO:
         runner = DemoTestRunner(target, **common_kwargs)
     elif test.category == Category.TUTORIAL:

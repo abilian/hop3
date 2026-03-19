@@ -1149,7 +1149,9 @@ class TestAdminUserGenerateTokenCmdIntegration:
             - Verify token is in output
             - Verify success message
         """
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-testing-only")
+        monkeypatch.setenv(
+            "HOP3_SECRET_KEY", "test-secret-key-for-unit-testing-for-testing-only"
+        )
 
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
@@ -1186,7 +1188,7 @@ class TestAdminUserGenerateTokenCmdIntegration:
         ASSERT:
             - Verify error message about disabled user
         """
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
@@ -1225,7 +1227,7 @@ class TestAdminUserGenerateTokenCmdIntegration:
         ASSERT:
             - Verify error message about user not found
         """
-        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key")
+        monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
         sample_user.roles.append(admin_role)
         db_session.commit()

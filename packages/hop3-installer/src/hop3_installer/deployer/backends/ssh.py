@@ -107,7 +107,7 @@ class SSHDeployBackend(DeployBackend):
             return result.returncode
 
         # Stream directly to terminal
-        result = subprocess.run(ssh_cmd, check=False)
+        result = subprocess.run(ssh_cmd, check=False)  # type: ignore[assignment]
         return result.returncode
 
     def upload_file(self, local_path: Path, remote_path: str) -> bool:

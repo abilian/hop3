@@ -7,10 +7,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.coordinate import Coordinate
 from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
@@ -175,7 +176,7 @@ class EnvVarsScreen(Screen):
     }
     """
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar = [
         Binding("escape", "go_back", "Back"),
         Binding("a", "add_var", "Add"),
         Binding("e", "edit_var", "Edit"),
@@ -195,7 +196,7 @@ class EnvVarsScreen(Screen):
     def hop3_app(self) -> Hop3TUI | None:
         """Get the Hop3TUI app instance if available."""
         if hasattr(self.app, "api_client"):
-            return self.app  # type: ignore[return-value]
+            return cast("Hop3TUI", self.app)
         return None
 
     def compose(self) -> ComposeResult:
@@ -309,8 +310,9 @@ class EnvVarsScreen(Screen):
     def _get_selected_var(self) -> EnvVar | None:
         """Get the currently selected env var."""
         table = self.query_one("#env-table", DataTable)
-        if table.row_count > 0 and table.cursor_row is not None:
-            var_name = str(table.get_cell_at((table.cursor_row, 0)))
+        cursor_row = table.cursor_row
+        if table.row_count > 0 and cursor_row is not None:
+            var_name = str(table.get_cell_at(Coordinate(cursor_row, 0)))
             # Remove dim formatting if present
             var_name = var_name.replace("[dim]", "").replace("[/]", "")
             for var in self._env_vars:

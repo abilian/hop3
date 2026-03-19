@@ -7,10 +7,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.coordinate import Coordinate
 from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import (
@@ -29,6 +30,7 @@ from hop3_tui.widgets.confirmation import ConfirmationDialog
 
 if TYPE_CHECKING:
     from textual.app import ComposeResult
+    from textual.widget import Widget
 
     from hop3_tui.app import Hop3TUI
 
@@ -243,7 +245,7 @@ class AddonsScreen(Screen):
     }
     """
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar = [
         Binding("escape", "go_back", "Back"),
         Binding("n", "new_addon", "New"),
         Binding("a", "attach_addon", "Attach"),
@@ -261,7 +263,7 @@ class AddonsScreen(Screen):
     def hop3_app(self) -> Hop3TUI | None:
         """Get the Hop3TUI app instance if available."""
         if hasattr(self.app, "api_client"):
-            return self.app  # type: ignore[return-value]
+            return cast("Hop3TUI", self.app)
         return None
 
     def compose(self) -> ComposeResult:
@@ -351,8 +353,9 @@ class AddonsScreen(Screen):
     def _get_selected_addon(self) -> dict[str, Any] | None:
         """Get the currently selected addon."""
         table = self.query_one("#addons-table", DataTable)
-        if table.row_count > 0 and table.cursor_row is not None:
-            addon_name = str(table.get_cell_at((table.cursor_row, 0)))
+        cursor_row = table.cursor_row
+        if table.row_count > 0 and cursor_row is not None:
+            addon_name = str(table.get_cell_at(Coordinate(cursor_row, 0)))
             for addon in self._addons:
                 if addon["name"] == addon_name:
                     return addon
@@ -563,7 +566,7 @@ class AddonsScreen(Screen):
         except Exception as e:
             self.notify(f"Failed to delete addon: {e}", severity="error")
 
-    def _close_dialog(self, dialog_type: type) -> None:
+    def _close_dialog(self, dialog_type: type[Widget]) -> None:
         """Close dialogs of a given type."""
         dialogs = self.query(dialog_type)
         for dialog in dialogs:

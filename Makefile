@@ -75,9 +75,10 @@ ruff:
 lint:
 	@echo "--> Linting code"
 	@make ruff
-	uv run ty check packages/hop3-testing/src
-	uv run mypy packages/hop3-server/src
-	# cd packages/hop3-server && uv run deptry src
+	uv run pyrefly check packages/hop3-*/src
+	uv run ty check packages/hop3-*/src
+	uv run mypy packages/hop3-*/src
+	cd packages/hop3-server && uv run deptry src
 	@echo ""
 
 ## Alias for lint (used by CI)

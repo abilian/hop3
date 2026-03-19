@@ -21,11 +21,11 @@ if TYPE_CHECKING:
 
 __all__ = ["generate_archive", "get_extra_args", "pack_repository"]
 
-# Try to import tomllib (Python 3.11+) or fall back to toml
-try:
+# tomllib is stdlib in Python 3.11+, use toml package for 3.10
+if sys.version_info >= (3, 11):
     import tomllib
-except ImportError:
-    import toml as tomllib  # type: ignore[import-not-found,no-redef]
+else:
+    import toml as tomllib
 
 # Archive size limits (in bytes)
 # Soft limit: warn the user but proceed
@@ -73,7 +73,7 @@ def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
 
             # Include env vars if any were specified
             if env_vars:
-                extra_args["env_vars"] = env_vars  # type: ignore[assignment]
+                extra_args["env_vars"] = env_vars  # type: ignore[assignment]  # pyrefly: ignore
 
             # Enable streaming by default for real-time log output
             extra_args["streaming"] = streaming
@@ -300,7 +300,7 @@ def get_ignored_spec(source_dir: Path) -> tuple[pathspec.PathSpec | None, str | 
         ignore_path = source_dir / ignore_file
         if ignore_path.is_file():
             lines = ignore_path.read_text(encoding="utf-8").splitlines()
-            spec = pathspec.PathSpec.from_lines("gitignore", lines)  # type: ignore[arg-type]
+            spec = pathspec.PathSpec.from_lines("gitignore", lines)  # pyrefly: ignore
             return spec, ignore_file
 
     return None, None
@@ -330,7 +330,7 @@ def _get_hop3_toml_ignore_spec(
 
         try:
             content = hop3_toml_path.read_text(encoding="utf-8")
-            data = tomllib.loads(content)  # type: ignore[union-attr]
+            data = tomllib.loads(content)
         except Exception:
             # If TOML parsing fails, skip and try next location
             continue
@@ -351,7 +351,7 @@ def _get_hop3_toml_ignore_spec(
             ignore_file_path = source_dir / ignore_file_ref
             if ignore_file_path.is_file():
                 lines = ignore_file_path.read_text(encoding="utf-8").splitlines()
-                spec = pathspec.PathSpec.from_lines("gitignore", lines)  # type: ignore[arg-type]
+                spec = pathspec.PathSpec.from_lines("gitignore", lines)  # pyrefly: ignore
                 return spec, f"hop3.toml [build].ignore-file -> {ignore_file_ref}"
 
     return None, None

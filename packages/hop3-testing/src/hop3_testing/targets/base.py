@@ -254,6 +254,7 @@ class DeploymentTarget(ABC):
             DeployResult with deployment status
         """
         start_time = time.time()
+        tarball_path: Path | None = None
 
         try:
             # Create tarball
@@ -303,7 +304,7 @@ class DeploymentTarget(ABC):
             )
         finally:
             # Cleanup tarball
-            if tarball_path.exists():
+            if tarball_path and tarball_path.exists():
                 tarball_path.unlink()
 
     def destroy_app(self, app_name: str) -> None:

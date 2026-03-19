@@ -90,7 +90,7 @@ def test_validate_token_wrong_secret():
     token = create_token("testuser")
 
     # Try to validate with different secret
-    os.environ["HOP3_SECRET_KEY"] = "different-secret-key"
+    os.environ["HOP3_SECRET_KEY"] = "different-secret-key-for-testing"
     user_info = validate_token(token)
 
     assert user_info is None

@@ -112,11 +112,11 @@ class ResultStore:
                 # Refetch the run in this session
                 run = session.get(TestRun, self._current_run.id)
                 if run:
-                    run.total_tests += 1
+                    run.total_tests = int(run.total_tests or 0) + 1  # type: ignore[assignment]
                     if result.passed:
-                        run.passed_tests += 1
+                        run.passed_tests = int(run.passed_tests or 0) + 1  # type: ignore[assignment]
                     else:
-                        run.failed_tests += 1
+                        run.failed_tests = int(run.failed_tests or 0) + 1  # type: ignore[assignment]
                     session.commit()
 
         finally:
@@ -129,7 +129,7 @@ class ResultStore:
             try:
                 run = session.get(TestRun, self._current_run.id)
                 if run:
-                    run.finished_at = datetime.now(tz=timezone.utc)
+                    run.finished_at = datetime.now(tz=timezone.utc)  # type: ignore[assignment]  # pyrefly: ignore
                     session.commit()
             finally:
                 session.close()
