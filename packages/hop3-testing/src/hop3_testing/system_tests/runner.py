@@ -122,7 +122,7 @@ class AllSuitesResult:
 
     def get_failed_tests(self) -> list[TestResult]:
         """Get all failed tests across all suites."""
-        failed = []
+        failed: list[TestResult] = []
         for suite in self.suite_results:
             failed.extend(r for r in suite.test_results if not r.passed)
         return failed

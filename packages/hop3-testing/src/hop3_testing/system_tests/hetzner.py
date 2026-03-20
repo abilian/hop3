@@ -405,7 +405,7 @@ class HetznerManager:
 
             # Show progress in verbose mode
             elapsed = int(time.time() - start_time)
-            progress = action.progress if hasattr(action, "progress") else 0
+            progress = (action.progress or 0) if hasattr(action, "progress") else 0
             if self.verbose and self.console and progress != last_progress:
                 self.console.print(
                     f"    [{elapsed}s] {action_name}: {action.status} ({progress}%)"
