@@ -36,7 +36,7 @@ DEFAULT_COMMAND_TIMEOUT = 300
 
 # Docker-related defaults
 DEFAULT_CONTAINER_NAME = "hop3-test"
-DEFAULT_DOCKER_IMAGE = "ubuntu:24.04"
+DEFAULT_DOCKER_IMAGE = "debian:bookworm"
 DEFAULT_READY_IMAGE = "hop3-ready:latest"
 
 # SSH-related defaults

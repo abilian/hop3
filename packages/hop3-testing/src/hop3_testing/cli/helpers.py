@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING
 import click
 
 from hop3_testing.targets import DockerTarget, RemoteTarget
-from hop3_testing.targets.config import DockerConfig, RemoteConfig
+from hop3_testing.targets.config import DeploymentConfig, DockerConfig, RemoteConfig
+from hop3_testing.targets.constants import DEFAULT_DOCKER_IMAGE
 
 if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
@@ -58,12 +59,17 @@ def create_target_with_options(
         Configured DeploymentTarget instance
     """
     if target_type == "docker":
-        # Create Docker target with pre-built image (no deployment)
+        # Deploy from local code using hop3-deploy
         docker_config = DockerConfig(
-            image="hop3-ready:latest",
+            image=DEFAULT_DOCKER_IMAGE,
             container_name="hop3-test",
         )
-        return DockerTarget(docker_config)
+        deployment = DeploymentConfig(
+            source="local",
+            clean=False,
+            verbose=verbose,
+        )
+        return DockerTarget(docker_config, deployment=deployment)
 
     if target_type == "remote":
         # Get host from args or environment
