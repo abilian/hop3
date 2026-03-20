@@ -21,8 +21,8 @@ from hop3_installer.constants import (
     HOME_DIR,
     HOP3_GROUP,
     HOP3_USER,
-    SYSTEM_SSL_CERT as SSL_CERT,
-    SYSTEM_SSL_KEY as SSL_KEY,
+    SYSTEM_SSL_CERT,
+    SYSTEM_SSL_KEY,
     VENV_DIR,
 )
 
@@ -208,7 +208,7 @@ def verify_installation(config: ServerInstallerConfig) -> bool:
     _verify_services()
 
     # Check SSL
-    if SSL_CERT.exists() and SSL_KEY.exists():
+    if SYSTEM_SSL_CERT.exists() and SYSTEM_SSL_KEY.exists():
         print_success("SSL certificate is configured")
     else:
         print_warning("SSL certificate not found")

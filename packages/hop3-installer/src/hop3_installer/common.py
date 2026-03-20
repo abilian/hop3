@@ -531,3 +531,32 @@ def env_list(name: str, separator: str = ",") -> list[str]:
     """
     value = os.environ.get(name, "")
     return [item.strip() for item in value.split(separator) if item.strip()]
+
+
+# =============================================================================
+# File System Helpers
+# =============================================================================
+
+
+def create_symlink(source: Path, target: Path) -> bool:
+    """Create a symlink from target to source, replacing existing.
+
+    Args:
+        source: Path that the symlink should point to
+        target: Path where the symlink will be created
+
+    Returns:
+        True if symlink created successfully, False otherwise
+    """
+    if not source.exists():
+        return False
+
+    # Remove existing symlink or file
+    if target.exists() or target.is_symlink():
+        target.unlink()
+
+    try:
+        target.symlink_to(source)
+        return True
+    except OSError:
+        return False
