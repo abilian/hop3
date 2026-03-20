@@ -22,7 +22,7 @@ from .config import CLIInstallerConfig
 def check_venv() -> bool:
     """Check if venv module is available."""
     try:
-        import venv  # noqa: F401
+        import venv  # noqa: F401, PLC0415
 
         return True
     except ImportError:

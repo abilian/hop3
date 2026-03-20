@@ -10,7 +10,8 @@ from pathlib import Path
 
 from hop3_installer.common import CommandResult
 
-from ..common import log_debug, log_error, log_info, log_success, log_warning
+from utils.common import log_debug, log_error, log_info, log_success, log_warning
+
 from .base import Backend
 
 # The systemd-enabled image name

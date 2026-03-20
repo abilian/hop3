@@ -12,10 +12,10 @@ import sys
 from hop3_installer.common import Colors, CommandResult
 
 __all__ = [
-    "Colors",
-    "CommandResult",
     "DRY_RUN",
     "VERBOSE",
+    "Colors",
+    "CommandResult",
     "log_debug",
     "log_error",
     "log_header",

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable  # noqa: TC003
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -81,7 +82,7 @@ def install_base_packages(spec: PackageSpec) -> None:
     with Spinner("Installing base packages (this may take a while)..."):
         result = run_cmd(
             install_cmd,
-            env=spec.env_vars if spec.env_vars else None,
+            env=spec.env_vars or None,
             check=False,
         )
 
@@ -121,7 +122,7 @@ def install_conditional_package(
     with Spinner(f"Installing {pkg_name}..."):
         result = run_cmd(
             install_cmd,
-            env=spec.env_vars if spec.env_vars else None,
+            env=spec.env_vars or None,
             check=False,
         )
     if result.returncode == 0:
@@ -163,8 +164,6 @@ def _start_docker_daemon() -> None:
     This ensures the docker0 bridge interface exists before configuring
     databases to listen on it.
     """
-    import time
-
     # Enable and start Docker
     run_cmd(["systemctl", "enable", "docker"], check=False)
     result = run_cmd(["systemctl", "start", "docker"], check=False)
@@ -196,7 +195,7 @@ def install_feature_packages(name: str, packages: list[str], spec: PackageSpec) 
     with Spinner(f"Installing {name} packages..."):
         result = run_cmd(
             install_cmd,
-            env=spec.env_vars if spec.env_vars else None,
+            env=spec.env_vars or None,
             check=False,
         )
     if result.returncode == 0:

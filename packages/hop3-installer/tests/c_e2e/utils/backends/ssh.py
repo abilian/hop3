@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING
 
 from hop3_installer.common import CommandResult
 
-from ..common import DRY_RUN, log_debug, log_error, log_info, log_success
+from utils.common import DRY_RUN, log_debug, log_error, log_info, log_success
+
 from .base import Backend
 
 if TYPE_CHECKING:

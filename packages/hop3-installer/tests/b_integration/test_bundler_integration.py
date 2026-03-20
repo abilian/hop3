@@ -111,6 +111,7 @@ class TestBundleExecution:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
 
         assert result.returncode == 0
@@ -128,6 +129,7 @@ class TestBundleExecution:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
 
         assert result.returncode == 0
@@ -144,6 +146,7 @@ class TestBundleExecution:
             [sys.executable, "-m", "py_compile", str(script)],
             capture_output=True,
             text=True,
+            check=False,
         )
 
         assert result.returncode == 0, f"Syntax error: {result.stderr}"
@@ -158,6 +161,7 @@ class TestBundleExecution:
             [sys.executable, "-m", "py_compile", str(script)],
             capture_output=True,
             text=True,
+            check=False,
         )
 
         assert result.returncode == 0, f"Syntax error: {result.stderr}"

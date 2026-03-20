@@ -32,7 +32,7 @@ from hop3_installer.common import (
 
 from .acme import setup_acme
 from .cli import TOTAL_STEPS, config_from_args, create_parser
-from .config import ServerInstallerConfig  # noqa: TC001
+from .config import ServerInstallerConfig
 from .deps import install_system_deps
 from .deps_common import (
     install_leiningen,

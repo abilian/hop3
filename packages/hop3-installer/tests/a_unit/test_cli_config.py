@@ -28,7 +28,7 @@ class TestConstants:
 
     def test_default_bin_dir_is_local_bin(self):
         """CLI_DEFAULT_BIN_DIR should be ~/.local/bin."""
-        assert CLI_DEFAULT_BIN_DIR == Path.home() / ".local" / "bin"
+        assert Path.home() / ".local" / "bin" == CLI_DEFAULT_BIN_DIR
 
     def test_default_branch(self):
         """DEFAULT_BRANCH_PRODUCTION should be main."""

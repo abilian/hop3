@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from .config import (
     DEFAULT_ADMIN_EMAIL,
@@ -286,8 +287,6 @@ def _apply_output_overrides(config: DeployConfig, args: argparse.Namespace) -> N
     if args.quiet:
         config.quiet = True
     if args.log_file:
-        from pathlib import Path
-
         config.log_file = Path(args.log_file)
     if args.dry_run:
         config.dry_run = True
@@ -346,7 +345,7 @@ def do_teardown(config: DeployConfig) -> int:
         print("Teardown only applies to Docker targets")
         return 1
 
-    from .backends.docker import DockerDeployBackend
+    from .backends.docker import DockerDeployBackend  # noqa: PLC0415
 
     backend = DockerDeployBackend(config)
     print(f"Removing container: {config.docker_container}")
