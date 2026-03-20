@@ -217,7 +217,7 @@ class ServerTestRunner:
 
     def _run_test_apps(self) -> list[AppTestResult]:
         """Run test apps from apps/test-apps/."""
-        results = []
+        results: list[AppTestResult] = []
         test_apps_dir = self.project_root / "apps" / "test-apps"
 
         if not test_apps_dir.exists():
@@ -247,7 +247,7 @@ class ServerTestRunner:
 
     def _run_demos(self) -> list[AppTestResult]:
         """Run demos from demos/."""
-        results = []
+        results: list[AppTestResult] = []
         demos_dir = self.project_root / "demos"
 
         if not demos_dir.exists():
