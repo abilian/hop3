@@ -49,6 +49,7 @@ SERVER_MODULES = [
     "server_installer/cli.py",
     "server_installer/user.py",
     "server_installer/deps_common.py",
+    "server_installer/docker_utils.py",
     "server_installer/redis.py",
     "server_installer/deps_debian.py",
     "server_installer/deps_fedora.py",

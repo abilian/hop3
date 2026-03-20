@@ -1,7 +1,6 @@
 repos:
 
-- repo: https://github.com/charliermarsh/ruff-pre-commit
-  # Ruff version.
+- repo: https://github.com/astral-sh/ruff-pre-commit
   rev: 'v0.15.7'
   hooks:
     - id: ruff
@@ -10,6 +9,7 @@ repos:
       # args: ["--force-exclude"]
       # Using this instead:
       exclude: (apps|demo|nua)
+    - id: ruff-format
 
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v6.0.0
