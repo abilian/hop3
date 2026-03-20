@@ -16,9 +16,9 @@ from dataclasses import dataclass
 from rich.console import Console
 from rich.table import Table
 
-# Recommended images for Hop3 testing
-# Note: Image names must match what's available on Hetzner Cloud
-RECOMMENDED_IMAGES = [
+# Hetzner Cloud images supported for Hop3 testing
+# Image names must match Hetzner Cloud image identifiers
+HETZNER_IMAGES = [
     ("ubuntu-24.04", "Ubuntu 24.04 LTS", "Default, well-tested"),
     ("debian-13", "Debian 13 (trixie)", "Stable, supported"),
     ("debian-12", "Debian 12 (bookworm)", "Older stable"),
@@ -60,7 +60,7 @@ def run_test_for_image(
     cmd = [
         sys.executable,
         "-m",
-        "hop3_testing.system_tests.daily_cli",
+        "hop3_testing.system_tests.hetzner_cli",
         "run",
         "--image",
         image,
@@ -160,7 +160,7 @@ def run_multi_distro_tests(
     """Run tests across multiple distributions.
 
     Args:
-        images: List of images to test. Uses RECOMMENDED_IMAGES if None.
+        images: List of images to test. Uses HETZNER_IMAGES if None.
         use_local_repo: Whether to use local repository.
         suites: Test suites to run.
         stop_on_failure: Stop on first failure.
@@ -172,7 +172,7 @@ def run_multi_distro_tests(
     console = Console()
 
     if images is None:
-        images = [img[0] for img in RECOMMENDED_IMAGES]
+        images = [img[0] for img in HETZNER_IMAGES]
 
     results: list[TestResult] = []
     total_start = time.time()
@@ -267,7 +267,7 @@ def main() -> int:
         table.add_column("Image Name", style="cyan")
         table.add_column("Description")
         table.add_column("Notes")
-        for image, desc, notes in RECOMMENDED_IMAGES:
+        for image, desc, notes in HETZNER_IMAGES:
             table.add_row(image, desc, notes)
         console.print(table)
         return 0

@@ -10,7 +10,6 @@ Runs demo scripts (demo-script.py) or declarative demos defined in test.toml.
 from __future__ import annotations
 
 import contextlib
-import os
 import subprocess
 import sys
 import time
@@ -20,6 +19,7 @@ from typing import TYPE_CHECKING, Literal, cast
 
 from hop3_testing.catalog.models import Validation, ValidationExpect
 from hop3_testing.exceptions import DeploymentError
+from hop3_testing.util import build_test_env
 from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
 from .base import TestResult, ValidationResult
@@ -133,12 +133,7 @@ class DemoTestRunner:
                 capture_output=True,
                 text=True,
                 timeout=600,  # 10 minute timeout
-                env={
-                    **os.environ,
-                    "HOP3_TEST_HOST": self.target.info.ssh_host,
-                    "HOP3_TEST_PORT": str(self.target.info.ssh_port),
-                    "HOP3_TEST_SSH_KEY": self.target.info.ssh_key or "",
-                },
+                env=build_test_env(self.target.info),
                 check=False,
             )
 
