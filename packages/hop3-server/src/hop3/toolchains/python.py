@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -186,6 +187,12 @@ class PythonToolchain(LanguageToolchain):
         assert self.virtual_env.exists()
         assert python.exists()
 
+        # Check for uv.lock first - if present, use uv for exact locked versions
+        uv_lock_file = self.src_path / "uv.lock"
+        if uv_lock_file.exists() and self._has_uv():
+            self._install_with_uv()
+            return
+
         # Ensure pip and setuptools are up to date before installing dependencies
         # This is essential for existing virtualenvs that may lack setuptools
         # (Python 3.12+ doesn't include setuptools by default, but many packages
@@ -216,3 +223,22 @@ class PythonToolchain(LanguageToolchain):
                 # requirements.txt or pyproject.toml
                 msg = f"requirements.txt or pyproject.toml not found for '{self.app_name}'"
                 raise FileNotFoundError(msg)
+
+    def _has_uv(self) -> bool:
+        """Check if uv is available on the system."""
+        return shutil.which("uv") is not None
+
+    def _install_with_uv(self) -> None:
+        """Install dependencies using uv sync for exact locked versions."""
+        log("Installing from uv.lock using uv sync", level=2, fg="green")
+        # uv sync installs exact versions from uv.lock into the virtualenv
+        # --frozen ensures it uses lockfile exactly without updating it
+        # UV_PROJECT_ENVIRONMENT tells uv to use our existing virtualenv
+        env = os.environ.copy()
+        env["UV_PROJECT_ENVIRONMENT"] = str(self.virtual_env)
+        subprocess.run(
+            ["uv", "sync", "--frozen"],
+            cwd=self.src_path,
+            env=env,
+            check=True,
+        )

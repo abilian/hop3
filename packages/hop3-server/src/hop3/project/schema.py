@@ -274,6 +274,10 @@ class Hop3TomlSchema(BaseModel):
     docker: DockerSection | None = None
     healthcheck: HealthcheckSection | None = None
     backup: BackupSection | None = None
+    static: dict[str, str] | None = Field(
+        default=None,
+        description="Static file path mappings (URL path -> filesystem path)",
+    )
     addons: list[AddonConfig] | None = None
     provider: list[AddonConfig] | None = Field(
         default=None,
