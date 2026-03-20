@@ -5,16 +5,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_installer.common import CommandResult
 
 if TYPE_CHECKING:
-    from hop3_installer.deployer.config import DeployConfig
+    from pathlib import Path
 
-# Re-export for backwards compatibility
-__all__ = ["CommandResult", "DeployBackend"]
+    from hop3_installer.deployer.config import DeployConfig
 
 
 class DeployBackend(ABC):
@@ -29,6 +27,33 @@ class DeployBackend(ABC):
             config: Deployment configuration
         """
         self.config = config
+
+    def _write_log_output(
+        self,
+        log_file: Path,
+        command: str,
+        returncode: int,
+        stdout: str | None,
+        stderr: str | None,
+    ) -> None:
+        """Write command output to a log file.
+
+        This is a shared helper for run_streaming() implementations.
+
+        Args:
+            log_file: Path to log file
+            command: Command that was executed
+            returncode: Exit code of the command
+            stdout: Standard output (may be None)
+            stderr: Standard error (may be None)
+        """
+        with log_file.open("a") as f:
+            f.write(f"\n=== Command: {command} ===\n")
+            if stdout:
+                f.write(stdout)
+            if stderr:
+                f.write(f"\n--- stderr ---\n{stderr}")
+            f.write(f"\n=== Exit code: {returncode} ===\n")
 
     @abstractmethod
     def setup(self) -> bool:
@@ -78,13 +103,9 @@ class DeployBackend(ABC):
         result = self.run(command, check=False)
 
         if quiet and log_file:
-            with Path(log_file).open("a") as f:
-                f.write(f"\n=== Command: {command} ===\n")
-                if result.stdout:
-                    f.write(result.stdout)
-                if result.stderr:
-                    f.write(f"\n--- stderr ---\n{result.stderr}")
-                f.write(f"\n=== Exit code: {result.returncode} ===\n")
+            self._write_log_output(
+                log_file, command, result.returncode, result.stdout, result.stderr
+            )
         else:
             if result.stdout:
                 print(result.stdout)

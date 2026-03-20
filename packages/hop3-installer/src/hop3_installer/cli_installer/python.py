@@ -9,35 +9,35 @@ import sys
 import urllib.request
 
 from hop3_installer.common import Spinner, print_info, print_success, run_cmd
-
-from .config import (
+from hop3_installer.constants import (
+    CLI_INSTALL_DIR,
+    CLI_PACKAGE_NAME,
+    CLI_PACKAGE_SUBDIR,
+    CLI_VENV_DIR,
     GIT_REPO,
-    GIT_SUBDIR,
-    INSTALL_DIR,
-    PACKAGE_NAME,
-    VENV_DIR,
-    CLIInstallerConfig,
 )
+
+from .config import CLIInstallerConfig
 
 
 def create_virtual_environment() -> None:
     """Create a Python virtual environment."""
     # Create install directory
-    INSTALL_DIR.mkdir(parents=True, exist_ok=True)
+    CLI_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
 
     # Remove existing venv if present
-    if VENV_DIR.exists():
-        shutil.rmtree(VENV_DIR)
+    if CLI_VENV_DIR.exists():
+        shutil.rmtree(CLI_VENV_DIR)
 
     # Try creating venv with pip first (faster if ensurepip is available)
     with Spinner("Creating virtual environment..."):
         result = run_cmd(
-            [sys.executable, "-m", "venv", str(VENV_DIR)],
+            [sys.executable, "-m", "venv", str(CLI_VENV_DIR)],
             check=False,
         )
 
     if result.returncode == 0:
-        print_success(f"Virtual environment created at {VENV_DIR}")
+        print_success(f"Virtual environment created at {CLI_VENV_DIR}")
         return
 
     # Fallback: create venv without pip, then bootstrap pip manually
@@ -45,32 +45,32 @@ def create_virtual_environment() -> None:
     print_info("ensurepip not available, bootstrapping pip manually...")
 
     # Remove failed venv attempt
-    if VENV_DIR.exists():
-        shutil.rmtree(VENV_DIR)
+    if CLI_VENV_DIR.exists():
+        shutil.rmtree(CLI_VENV_DIR)
 
     with Spinner("Creating virtual environment (without pip)..."):
-        run_cmd([sys.executable, "-m", "venv", "--without-pip", str(VENV_DIR)])
+        run_cmd([sys.executable, "-m", "venv", "--without-pip", str(CLI_VENV_DIR)])
 
     # Download and run get-pip.py
     get_pip_url = "https://bootstrap.pypa.io/get-pip.py"
-    get_pip_path = INSTALL_DIR / "get-pip.py"
+    get_pip_path = CLI_INSTALL_DIR / "get-pip.py"
 
     with Spinner("Downloading pip installer..."):
         urllib.request.urlretrieve(get_pip_url, get_pip_path)
 
-    venv_python = VENV_DIR / "bin" / "python"
+    venv_python = CLI_VENV_DIR / "bin" / "python"
     with Spinner("Installing pip..."):
         run_cmd([str(venv_python), str(get_pip_path), "--quiet"])
 
     # Clean up
     get_pip_path.unlink(missing_ok=True)
 
-    print_success(f"Virtual environment created at {VENV_DIR}")
+    print_success(f"Virtual environment created at {CLI_VENV_DIR}")
 
 
 def install_package(config: CLIInstallerConfig) -> None:
     """Install the hop3-cli package."""
-    pip = str(VENV_DIR / "bin" / "pip")
+    pip = str(CLI_VENV_DIR / "bin" / "pip")
 
     # Upgrade pip first
     with Spinner("Upgrading pip..."):
@@ -84,13 +84,15 @@ def install_package(config: CLIInstallerConfig) -> None:
         # Install uv for build backend
         with Spinner("Installing build tools..."):
             run_cmd([pip, "install", "uv"])
-        package_spec = f"git+{GIT_REPO}@{config.branch}#subdirectory={GIT_SUBDIR}"
+        package_spec = (
+            f"git+{GIT_REPO}@{config.branch}#subdirectory={CLI_PACKAGE_SUBDIR}"
+        )
         source_desc = f"git ({config.branch} branch)"
     elif config.version:
-        package_spec = f"{PACKAGE_NAME}=={config.version}"
+        package_spec = f"{CLI_PACKAGE_NAME}=={config.version}"
         source_desc = f"PyPI (version {config.version})"
     else:
-        package_spec = PACKAGE_NAME
+        package_spec = CLI_PACKAGE_NAME
         source_desc = "PyPI (latest)"
 
     # Install the package

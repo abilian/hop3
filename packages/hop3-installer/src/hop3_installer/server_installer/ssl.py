@@ -13,8 +13,12 @@ from hop3_installer.common import (
     print_success,
     run_cmd,
 )
-
-from .config import SSL_CERT, SSL_CERT_VALIDITY_DAYS, SSL_DIR, SSL_KEY
+from hop3_installer.constants import (
+    SSL_CERT_VALIDITY_DAYS,
+    SYSTEM_SSL_CERT as SSL_CERT,
+    SYSTEM_SSL_DIR as SSL_DIR,
+    SYSTEM_SSL_KEY as SSL_KEY,
+)
 
 
 def setup_ssl_selfsigned() -> None:

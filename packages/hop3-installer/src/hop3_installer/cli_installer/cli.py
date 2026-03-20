@@ -7,7 +7,9 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .config import DEFAULT_BIN_DIR, DEFAULT_BRANCH, CLIInstallerConfig
+from hop3_installer.constants import CLI_DEFAULT_BIN_DIR, DEFAULT_BRANCH_PRODUCTION
+
+from .config import CLIInstallerConfig
 
 TOTAL_STEPS = 5
 
@@ -57,7 +59,7 @@ Environment Variables:
         "--branch",
         metavar="BRANCH",
         default=env_config.branch,
-        help=f"Git branch to install from (default: {DEFAULT_BRANCH})",
+        help=f"Git branch to install from (default: {DEFAULT_BRANCH_PRODUCTION})",
     )
 
     parser.add_argument(
@@ -72,7 +74,7 @@ Environment Variables:
         metavar="PATH",
         type=Path,
         default=env_config.bin_dir,
-        help=f"Directory for command symlinks (default: {DEFAULT_BIN_DIR})",
+        help=f"Directory for command symlinks (default: {CLI_DEFAULT_BIN_DIR})",
     )
 
     parser.add_argument(

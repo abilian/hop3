@@ -19,8 +19,9 @@ from hop3_installer.common import (
     print_warning,
     run_cmd,
 )
+from hop3_installer.constants import HOME_DIR
 
-from .config import HOME_DIR, ServerInstallerConfig
+from .config import ServerInstallerConfig
 from .user import run_as_hop3
 
 # =============================================================================

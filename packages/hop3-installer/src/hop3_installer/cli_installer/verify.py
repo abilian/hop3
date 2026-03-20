@@ -13,15 +13,14 @@ from hop3_installer.common import (
     print_warning,
     run_cmd,
 )
-
-from .config import INSTALL_DIR, VENV_DIR
+from hop3_installer.constants import CLI_INSTALL_DIR, CLI_VENV_DIR
 
 
 def verify_installation() -> bool:
     """Verify the installation works."""
-    hop3 = VENV_DIR / "bin" / "hop3"
+    hop3 = CLI_VENV_DIR / "bin" / "hop3"
     if not hop3.exists():
-        hop3 = VENV_DIR / "bin" / "hop"
+        hop3 = CLI_VENV_DIR / "bin" / "hop"
 
     if not hop3.exists():
         print_error("Command not found in virtual environment")
@@ -45,7 +44,7 @@ def print_final_message(bin_dir: Path, *, path_is_active: bool) -> None:
     print(f"{Colors.GREEN}{Colors.BOLD}Installation complete!{Colors.RESET}")
     print()
     print(f"  {Colors.BOLD}Commands:{Colors.RESET}  hop3, hop")
-    print(f"  {Colors.BOLD}Location:{Colors.RESET}  {INSTALL_DIR}")
+    print(f"  {Colors.BOLD}Location:{Colors.RESET}  {CLI_INSTALL_DIR}")
     print()
     print(f"  {Colors.BOLD}Get started:{Colors.RESET}")
     if path_is_active:
@@ -59,6 +58,6 @@ def print_final_message(bin_dir: Path, *, path_is_active: bool) -> None:
         print("    source ~/.bashrc      (then use 'hop3' directly)")
     print()
     print(f"  {Colors.BOLD}To uninstall:{Colors.RESET}")
-    print(f"    rm -rf {INSTALL_DIR}")
+    print(f"    rm -rf {CLI_INSTALL_DIR}")
     print(f"    rm -f {bin_dir}/hop3 {bin_dir}/hop")
     print()

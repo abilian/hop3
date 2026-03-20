@@ -5,12 +5,15 @@
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .base import CommandResult, DeployBackend
+from hop3_installer.common import CommandResult
+
+from .base import DeployBackend
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from hop3_installer.deployer.config import DeployConfig
 
 
@@ -65,11 +68,7 @@ class SSHDeployBackend(DeployBackend):
             check=False,
         )
 
-        cmd_result = CommandResult(
-            returncode=result.returncode,
-            stdout=result.stdout,
-            stderr=result.stderr,
-        )
+        cmd_result = CommandResult.from_subprocess(result)
 
         if check and not cmd_result.success:
             raise RuntimeError(
@@ -97,13 +96,9 @@ class SSHDeployBackend(DeployBackend):
                 ssh_cmd, capture_output=True, text=True, check=False
             )
             if log_file:
-                with Path(log_file).open("a") as f:
-                    f.write(f"\n=== Command: {command} ===\n")
-                    if result.stdout:
-                        f.write(result.stdout)
-                    if result.stderr:
-                        f.write(f"\n--- stderr ---\n{result.stderr}")
-                    f.write(f"\n=== Exit code: {result.returncode} ===\n")
+                self._write_log_output(
+                    log_file, command, result.returncode, result.stdout, result.stderr
+                )
             return result.returncode
 
         # Stream directly to terminal

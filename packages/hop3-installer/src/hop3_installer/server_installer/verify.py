@@ -17,16 +17,16 @@ from hop3_installer.common import (
     print_warning,
     run_cmd,
 )
-
-from .config import (
+from hop3_installer.constants import (
     HOME_DIR,
     HOP3_GROUP,
     HOP3_USER,
-    SSL_CERT,
-    SSL_KEY,
+    SYSTEM_SSL_CERT as SSL_CERT,
+    SYSTEM_SSL_KEY as SSL_KEY,
     VENV_DIR,
-    ServerInstallerConfig,
 )
+
+from .config import ServerInstallerConfig
 
 
 def write_server_config(

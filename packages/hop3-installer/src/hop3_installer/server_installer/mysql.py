@@ -18,6 +18,7 @@ from hop3_installer.common import (
 )
 
 from .config import ServerInstallerConfig  # noqa: TC001
+from .docker_utils import get_docker_bridge_ip
 
 # Common MySQL config file locations
 MYSQL_CONF_PATHS = [
@@ -227,26 +228,6 @@ def _verify_mysql_hop3_connection(mysql_password: str) -> bool:
     return True
 
 
-def _get_docker_bridge_ip() -> str | None:
-    """Get the Docker bridge network IP (usually 172.17.0.1).
-
-    Returns:
-        Docker bridge IP if available, None otherwise.
-    """
-    result = run_cmd(
-        ["ip", "addr", "show", "docker0"],
-        check=False,
-    )
-    if result.returncode != 0:
-        return None
-
-    # Parse output for inet address: "inet 172.17.0.1/16 ..."
-    match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)/", result.stdout)
-    if match:
-        return match.group(1)
-    return None
-
-
 def _configure_mysql_bind_address(docker_ip: str) -> bool:
     """Configure MySQL to bind to Docker bridge address.
 
@@ -366,7 +347,7 @@ def _configure_mysql_for_docker(root_cmd: list[str], mysql_password: str) -> Non
         root_cmd: Working MySQL admin command.
         mysql_password: Password for hop3 user.
     """
-    docker_ip = _get_docker_bridge_ip()
+    docker_ip = get_docker_bridge_ip()
     if not docker_ip:
         print_detail(
             "Docker bridge not found, MySQL will only accept local connections"

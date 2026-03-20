@@ -27,8 +27,11 @@ from pathlib import Path
 SRC_DIR = Path(__file__).parent
 
 # Files to include in each installer, in order
+# Note: constants.py must come before modules that use it (config.py)
+# Note: nginx_templates.py must come before modules that use it (nginx.py)
 CLI_MODULES = [
     "common.py",
+    "constants.py",
     "cli_installer/config.py",
     "cli_installer/cli.py",
     "cli_installer/checks.py",
@@ -40,6 +43,8 @@ CLI_MODULES = [
 
 SERVER_MODULES = [
     "common.py",
+    "constants.py",
+    "nginx_templates.py",
     "server_installer/config.py",
     "server_installer/cli.py",
     "server_installer/user.py",

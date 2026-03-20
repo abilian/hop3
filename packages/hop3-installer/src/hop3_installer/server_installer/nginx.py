@@ -19,17 +19,16 @@ from hop3_installer.common import (
     print_warning,
     run_cmd,
 )
-
-from .config import (
+from hop3_installer.constants import (
     HOME_DIR,
     HOP3_GROUP,
     HOP3_USER,
-    NGINX_CONFIG,
-    SSL_CERT,
-    SSL_KEY,
-    SUDOERS_CONTENT,
-    ServerInstallerConfig,
+    SYSTEM_SSL_CERT as SSL_CERT,
+    SYSTEM_SSL_KEY as SSL_KEY,
 )
+from hop3_installer.nginx_templates import SUDOERS_CONTENT, generate_full_ssl_config
+
+from .config import ServerInstallerConfig
 
 
 def _disable_conflicting_webservers() -> None:
@@ -78,7 +77,7 @@ def setup_nginx(config: ServerInstallerConfig) -> None:
     server_name = config.domain if config.domain else "_"
 
     # Generate nginx config
-    nginx_config = NGINX_CONFIG.format(
+    nginx_config = generate_full_ssl_config(
         server_name=server_name,
         ssl_cert=str(SSL_CERT),
         ssl_key=str(SSL_KEY),
