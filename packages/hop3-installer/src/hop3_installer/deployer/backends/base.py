@@ -48,9 +48,7 @@ class DeployBackend(ABC):
                 f"Exit code: {result.returncode}\n"
                 f"stderr: {result.stderr}"
             )
-            raise RuntimeError(
-                msg
-            )
+            raise RuntimeError(msg)
 
     def _write_log_output(
         self,
