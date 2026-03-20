@@ -758,6 +758,70 @@ def test_non_admin_cannot_create_users():
 
 ---
 
+## Part 9: Hetzner Cloud Testing
+
+For comprehensive E2E testing on real cloud infrastructure, Hop3 supports testing on Hetzner Cloud servers.
+
+### Commands
+
+```bash
+# Single distribution test
+hop3-test hetzner --image ubuntu-24.04 --suites test-apps
+
+# Multi-distribution test (all recommended distros)
+hop3-test multi-distro
+
+# List available images
+hop3-test multi-distro --list-images
+```
+
+### Supported Distributions
+
+| Image | Description |
+|-------|-------------|
+| `ubuntu-24.04` | Ubuntu 24.04 LTS (default, well-tested) |
+| `debian-13` | Debian 13 (trixie) |
+| `debian-12` | Debian 12 (bookworm) |
+| `fedora-42` | Fedora 42 |
+| `rocky-9` | Rocky Linux 9 (RHEL-compatible) |
+| `alma-9` | AlmaLinux 9 (RHEL-compatible) |
+
+### Hetzner Test Options
+
+| Option | Description |
+|--------|-------------|
+| `--server-id ID` | Use specific Hetzner server |
+| `--image IMAGE` | OS image to test |
+| `--branch BRANCH` | Git branch (default: devel) |
+| `--use-local-repo` | Deploy from local code |
+| `--skip-reset` | Skip server reset |
+| `--skip-deploy` | Skip Hop3 deployment |
+| `--skip-tests` | Only reset and deploy |
+| `--suites SUITE` | Test suites to run |
+| `--continue-on-failure` | Don't stop on first failure (multi-distro) |
+
+### Environment Setup
+
+```bash
+export HETZNER_API_TOKEN=your_token_here
+
+# Run tests
+hop3-test hetzner --image ubuntu-24.04
+```
+
+### Test Phases
+
+The Hetzner test orchestrates these phases:
+
+1. **Reset** - Reset server to clean OS state
+2. **Deploy** - Install Hop3 from git or local code
+3. **Test** - Run configured test suites
+4. **Report** - Generate HTML test report
+
+Skip phases with `--skip-reset`, `--skip-deploy`, or `--skip-tests` for debugging.
+
+---
+
 ## References
 
 - [Testing Quick Start](testing.md) - Quick reference guide

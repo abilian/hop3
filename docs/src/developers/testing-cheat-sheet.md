@@ -11,6 +11,8 @@ Quick reference for developers running tests.
 | **System tests (Docker)** | `hop3-test system --docker` |
 | **App tests (fast)** | `hop3-test apps` |
 | **Lint & type check** | `make lint` |
+| **Hetzner Cloud test** | `hop3-test hetzner --image ubuntu-24.04` |
+| **Multi-distro test** | `hop3-test multi-distro` |
 
 ## hop3-test CLI
 
@@ -138,6 +140,28 @@ hop3-test ci
 
 # Nightly mode (all tiers, all priorities)
 hop3-test nightly
+```
+
+### Hetzner Cloud Testing
+
+Run E2E tests on real Hetzner Cloud infrastructure. Requires `HETZNER_API_TOKEN`.
+
+```bash
+# List available images
+hop3-test multi-distro --list-images
+
+# Single distribution test
+hop3-test hetzner --image ubuntu-24.04 --suites test-apps
+
+# Multi-distribution test
+hop3-test multi-distro --images ubuntu-24.04 debian-13 fedora-42
+
+# Use local code instead of git
+hop3-test hetzner --use-local-repo
+
+# Skip phases for debugging
+hop3-test hetzner --skip-reset    # Keep existing server state
+hop3-test hetzner --skip-deploy   # Use existing Hop3 installation
 ```
 
 ## Pytest Tests
@@ -313,6 +337,7 @@ expect.status = 200
 | `HOP3_TEST_HOST` | SSH target for `--ssh` without `--host` |
 | `HOP3_TEST_SSH_KEY` | SSH key for remote tests |
 | `HOP3_UNSAFE=true` | Disable auth in Docker tests |
+| `HETZNER_API_TOKEN` | Hetzner Cloud API token (for hetzner/multi-distro) |
 
 ## Troubleshooting
 

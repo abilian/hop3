@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from .build import build_ready_image, build_test_image
 from .catalog import list_tests, show_test
+from .hetzner import hetzner_test, multi_distro_test
 from .modes import ci, dev, nightly
 from .run import run_command
 from .test import apps_test, package, system_test
@@ -23,7 +24,9 @@ __all__ = [
     "build_test_image",
     "ci",
     "dev",
+    "hetzner_test",
     "list_tests",
+    "multi_distro_test",
     "nightly",
     "package",
     "register_commands",
@@ -46,3 +49,5 @@ def register_commands(cli: click.Group) -> None:
     cli.add_command(apps_test)
     cli.add_command(build_ready_image)
     cli.add_command(build_test_image)
+    cli.add_command(hetzner_test)
+    cli.add_command(multi_distro_test)

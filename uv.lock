@@ -1023,6 +1023,19 @@ wheels = [
 ]
 
 [[package]]
+name = "hcloud"
+version = "2.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-dateutil" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/47/46/0f97c3ca36e909488e028b6fef80f3fdff158fa0daa6e6ab7629f2c5327b/hcloud-2.17.0.tar.gz", hash = "sha256:3996adef6bc0f5755650bb8b8b024acebab2c29e217dac579c303722fc37ae85", size = 154427, upload-time = "2026-03-05T18:15:02.766Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/fe/5a4c4f0f484eafb081066fb2bb63650ae55409297d6ce44f566074663d13/hcloud-2.17.0-py3-none-any.whl", hash = "sha256:b72096f5a6cd91a962cc1a26d76e4575e25fc337a5b589336f62a7f3b1b7b0b6", size = 111524, upload-time = "2026-03-05T18:15:01.184Z" },
+]
+
+[[package]]
 name = "honcho"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1277,32 +1290,44 @@ name = "hop3-testing"
 version = "0.4.0b7"
 source = { editable = "packages/hop3-testing" }
 dependencies = [
+    { name = "attrs" },
     { name = "click" },
     { name = "devtools" },
     { name = "docker" },
+    { name = "hcloud" },
     { name = "hop3-cli" },
+    { name = "hop3-installer" },
     { name = "httpcore" },
     { name = "httpx" },
+    { name = "jinja2" },
     { name = "paramiko" },
     { name = "pyjwt" },
     { name = "pytest" },
     { name = "python-dotenv" },
+    { name = "rich" },
     { name = "sqlalchemy" },
+    { name = "termcolor" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "attrs", specifier = ">=23.0" },
     { name = "click", specifier = ">=8.0.0" },
     { name = "devtools", specifier = ">=0.12.2" },
     { name = "docker", specifier = ">=7.0.0" },
+    { name = "hcloud", specifier = ">=2.0" },
     { name = "hop3-cli", editable = "packages/hop3-cli" },
+    { name = "hop3-installer", editable = "packages/hop3-installer" },
     { name = "httpcore", specifier = ">=1.0.6" },
     { name = "httpx", specifier = ">=0.27.2" },
+    { name = "jinja2", specifier = ">=3.0" },
     { name = "paramiko", specifier = ">=2.11.0,<3.0.0" },
     { name = "pyjwt", specifier = ">=2.8.0" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "rich", specifier = ">=13.0" },
     { name = "sqlalchemy", specifier = ">=2.0.0" },
+    { name = "termcolor", specifier = ">=2.0" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.0" },
 ]
 

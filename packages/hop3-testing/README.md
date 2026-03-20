@@ -49,6 +49,8 @@ hop3-test ci
 | `hop3-test show <name>` | Show test details |
 | `hop3-test ci` | Run CI tests (fast+medium, P0) |
 | `hop3-test dev` | Run developer tests (fast, P0 only) |
+| `hop3-test hetzner` | Run E2E tests on Hetzner Cloud |
+| `hop3-test multi-distro` | Test across multiple Linux distributions |
 
 ### Common Options
 
@@ -91,6 +93,42 @@ hop3-testing/
 | `go` | Fiber, Gin |
 | `rust` | Actix-web, Axum |
 | `static` | HTML, Hugo, Jekyll |
+
+## Hetzner Cloud Testing
+
+Run full E2E tests on real Hetzner Cloud servers. Requires `HETZNER_API_TOKEN` environment variable.
+
+```bash
+# List available images
+hop3-test multi-distro --list-images
+
+# Run tests on a single distribution
+hop3-test hetzner --image ubuntu-24.04 --suites test-apps
+
+# Run tests across multiple distributions
+hop3-test multi-distro --images ubuntu-24.04 debian-13 fedora-42
+
+# Use local code instead of git
+hop3-test hetzner --use-local-repo
+
+# Skip phases for debugging
+hop3-test hetzner --skip-reset    # Keep existing server state
+hop3-test hetzner --skip-deploy   # Use existing Hop3 installation
+hop3-test hetzner --skip-tests    # Only reset and deploy
+```
+
+### Hetzner Options
+
+| Option | Description |
+|--------|-------------|
+| `--server-id ID` | Use specific Hetzner server |
+| `--image IMAGE` | OS image (e.g., ubuntu-24.04) |
+| `--branch BRANCH` | Git branch to test (default: devel) |
+| `--use-local-repo` | Deploy from local code |
+| `--skip-reset` | Skip server reset |
+| `--skip-deploy` | Skip Hop3 deployment |
+| `--suites SUITE` | Test suites to run |
+| `--continue-on-failure` | Don't stop on first failure (multi-distro) |
 
 ## Development
 

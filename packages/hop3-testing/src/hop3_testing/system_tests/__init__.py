@@ -1,0 +1,60 @@
+# Copyright (c) 2025-2026, Abilian SAS
+# SPDX-License-Identifier: Apache-2.0
+
+"""Hop3 Daily System Test Framework.
+
+This subpackage provides end-to-end testing infrastructure for Hop3,
+running tests on real Hetzner Cloud servers.
+
+Example usage:
+    from hop3_testing.system_tests import Config, run_daily_test
+
+    config = Config.from_env()
+    result = run_daily_test(config)
+
+    if result.success:
+        print("All tests passed!")
+    else:
+        print(f"Failed at phase: {result.failed_phase}")
+"""
+
+from __future__ import annotations
+
+from .config import Config, DeploymentConfig, HetznerConfig, TestConfig, load_config
+from .daily_cli import main
+from .deployment import DeploymentManager, DeploymentResult
+from .diagnostics import DiagnosticCollector, DiagnosticResult, collect_diagnostics
+from .hetzner import HetznerManager, ServerInfo
+from .orchestrator import DailyTestOrchestrator, DailyTestResult, run_daily_test
+from .runner import AllSuitesResult, TestRunnerManager, TestSuiteResult
+
+__all__ = [
+    # Test Runner
+    "AllSuitesResult",
+    # Config
+    "Config",
+    # Orchestrator
+    "DailyTestOrchestrator",
+    "DailyTestResult",
+    "DeploymentConfig",
+    # Deployment
+    "DeploymentManager",
+    "DeploymentResult",
+    # Diagnostics
+    "DiagnosticCollector",
+    "DiagnosticResult",
+    "HetznerConfig",
+    # Hetzner
+    "HetznerManager",
+    "ServerInfo",
+    "TestConfig",
+    "TestRunnerManager",
+    "TestSuiteResult",
+    "collect_diagnostics",
+    "load_config",
+    # CLI
+    "main",
+    "run_daily_test",
+]
+
+__version__ = "0.1.0"
