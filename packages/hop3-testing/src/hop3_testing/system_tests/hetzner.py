@@ -49,16 +49,24 @@ class ServerInfo:
     @classmethod
     def from_server(cls, server: Server) -> ServerInfo:
         """Create from hcloud Server object."""
+        # Extract IPv4/IPv6 with proper null checks
+        ipv4 = ""
+        ipv6 = None
+        if server.public_net and server.public_net.ipv4:
+            ipv4 = server.public_net.ipv4.ip or ""
+        if server.public_net and server.public_net.ipv6:
+            ipv6 = server.public_net.ipv6.ip
+
         return cls(
-            id=server.id,
-            name=server.name,
+            id=server.id or 0,
+            name=server.name or "",
             status=ServerStatus(server.status)
             if server.status
             else ServerStatus.UNKNOWN,
-            ipv4=server.public_net.ipv4.ip if server.public_net.ipv4 else "",
-            ipv6=server.public_net.ipv6.ip if server.public_net.ipv6 else None,
-            datacenter=server.datacenter.name if server.datacenter else "",
-            server_type=server.server_type.name if server.server_type else "",
+            ipv4=ipv4,
+            ipv6=ipv6,
+            datacenter=(server.datacenter.name or "") if server.datacenter else "",
+            server_type=(server.server_type.name or "") if server.server_type else "",
             image=server.image.name if server.image else None,
         )
 
