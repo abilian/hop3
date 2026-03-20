@@ -21,10 +21,10 @@ Example usage:
 from __future__ import annotations
 
 from .config import Config, DeploymentConfig, HetznerConfig, TestConfig, load_config
-from .daily_cli import main
 from .deployment import DeploymentManager, DeploymentResult
 from .diagnostics import DiagnosticCollector, DiagnosticResult, collect_diagnostics
 from .hetzner import HetznerManager, ServerInfo
+from .hetzner_cli import main
 from .orchestrator import DailyTestOrchestrator, DailyTestResult, run_daily_test
 from .runner import AllSuitesResult, TestRunnerManager, TestSuiteResult
 

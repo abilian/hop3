@@ -21,6 +21,7 @@ from .config import (
 )
 from .deployment import DeploymentManager
 from .hetzner import HetznerManager
+from .multi_distro import HETZNER_IMAGES
 from .orchestrator import DailyTestOrchestrator
 from .runner import TestRunnerManager
 from .ssh import is_port_open, verify_ssh_connectivity
@@ -291,17 +292,6 @@ def cmd_list_images(args: argparse.Namespace) -> None:
     """Execute the 'list-images' command."""
     console = Console()
 
-    # Recommended images for Hop3 testing
-    # Note: Image names must match what's available on Hetzner Cloud
-    recommended = [
-        ("ubuntu-24.04", "Ubuntu 24.04 LTS", "Default, well-tested"),
-        ("debian-13", "Debian 13 (trixie)", "Stable, supported"),
-        ("debian-12", "Debian 12 (bookworm)", "Older stable"),
-        ("fedora-42", "Fedora 42", "Latest Fedora"),
-        ("rocky-9", "Rocky Linux 9", "RHEL-compatible"),
-        ("alma-9", "AlmaLinux 9", "RHEL-compatible"),
-    ]
-
     console.print()
     console.print("[bold]Recommended Images for Hop3 Testing[/bold]")
     console.print()
@@ -309,7 +299,7 @@ def cmd_list_images(args: argparse.Namespace) -> None:
         "  [bold]Image Name[/bold]         [bold]Description[/bold]              [bold]Notes[/bold]"
     )
     console.print("  " + "-" * 60)
-    for name, desc, notes in recommended:
+    for name, desc, notes in HETZNER_IMAGES:
         console.print(f"  {name:<18} {desc:<24} {notes}")
     console.print()
     console.print("[dim]Usage: hop3-daily-test run --image debian-13[/dim]")

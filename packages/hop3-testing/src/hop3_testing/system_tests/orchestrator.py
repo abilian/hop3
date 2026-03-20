@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import os
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -17,6 +16,8 @@ import paramiko
 from rich.console import Console
 from rich.panel import Panel
 
+from hop3_testing.util import find_project_root, find_project_root_optional
+
 from .deployment import DeploymentManager, DeploymentResult, DeploymentVerifier
 from .diagnostics import DiagnosticCollector, DiagnosticResult
 from .hetzner import HetznerError, HetznerManager, ServerInfo
@@ -25,34 +26,6 @@ from .ssh import SSHConnection, SSHConnectionInfo, is_port_open, verify_ssh_conn
 
 if TYPE_CHECKING:
     from .config import Config
-
-
-def _find_project_root(start_path: Path | None = None) -> Path:
-    """Find the Hop3 project root directory.
-
-    Walks up from the starting path looking for pyproject.toml and packages/ directory.
-    This is necessary because when running from qa/system-tests/, we need to find
-    the actual project root, not the current working directory.
-
-    Args:
-        start_path: Path to start searching from. If None, uses current working directory.
-
-    Returns:
-        Path to project root, or current working directory if not found.
-    """
-    current = start_path or Path.cwd()
-
-    for parent in [current, *current.parents]:
-        # Check for hop3 project markers
-        if (
-            (parent / "pyproject.toml").exists()
-            and (parent / "packages").exists()
-            and (parent / "packages" / "hop3-server").exists()
-        ):
-            return parent
-
-    # Fallback to cwd if we can't find the project root
-    return Path.cwd()
 
 
 class Phase(Enum):
@@ -355,7 +328,7 @@ class DailyTestOrchestrator:
             # Clone repository or use local
             if self.config.deployment.use_local_repo:
                 repo_path = (
-                    self.config.deployment.local_repo_path or _find_project_root()
+                    self.config.deployment.local_repo_path or find_project_root()
                 )
                 self._deployment.repo_path = repo_path
                 self.console.print(f"  Using local repository: {repo_path}")
@@ -831,33 +804,7 @@ class DailyTestOrchestrator:
             if self.config.deployment.local_repo_path:
                 return self.config.deployment.local_repo_path
 
-        # Check environment variable
-        if hop3_root := os.environ.get("HOP3_PROJECT_ROOT"):
-            return Path(hop3_root)
-
-        # Try to find by looking for the hop3 monorepo structure
-        # Start from current directory and go up
-        current = Path.cwd()
-        for _ in range(10):
-            # Look for the monorepo markers: apps/test-apps and packages/hop3-server
-            if (current / "apps" / "test-apps").exists() and (
-                current / "packages" / "hop3-server"
-            ).exists():
-                return current
-
-            # Also check for pyproject.toml with hop3 workspace
-            pyproject = current / "pyproject.toml"
-            if pyproject.exists():
-                content = pyproject.read_text()
-                if "hop3-server" in content and "hop3-cli" in content:
-                    return current
-
-            parent = current.parent
-            if parent == current:
-                break
-            current = parent
-
-        return None
+        return find_project_root_optional()
 
     def _print_deployment_diagnostics(
         self,

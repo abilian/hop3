@@ -138,7 +138,7 @@ def hetzner_test(
     )
 
     # Import and run the daily CLI
-    from hop3_testing.system_tests.daily_cli import main  # noqa: PLC0415
+    from hop3_testing.system_tests.hetzner_cli import main  # noqa: PLC0415
 
     old_argv = sys.argv
     try:
@@ -177,19 +177,19 @@ def multi_distro_test(
     from rich.table import Table  # noqa: PLC0415
 
     from hop3_testing.system_tests.multi_distro import (  # noqa: PLC0415
-        RECOMMENDED_IMAGES,
+        HETZNER_IMAGES,
         run_multi_distro_tests,
     )
 
     console = Console()
 
     if list_images:
-        console.print("\n[bold]Recommended Images for Hop3 Testing[/]\n")
+        console.print("\n[bold]Hetzner Cloud Images for Hop3 Testing[/]\n")
         table = Table()
         table.add_column("Image Name", style="cyan")
         table.add_column("Description")
         table.add_column("Notes")
-        for image, desc, notes in RECOMMENDED_IMAGES:
+        for image, desc, notes in HETZNER_IMAGES:
             table.add_row(image, desc, notes)
         console.print(table)
         return

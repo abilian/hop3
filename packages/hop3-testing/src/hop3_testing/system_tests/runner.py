@@ -13,7 +13,6 @@ and the hop3-testing framework, enabling execution of:
 from __future__ import annotations
 
 import contextlib
-import os
 import random
 import time
 import traceback
@@ -29,6 +28,7 @@ from hop3_testing.catalog.models import Category, TargetType
 from hop3_testing.cli.runners import run_single_test
 from hop3_testing.runners.base import TestResult
 from hop3_testing.targets import RemoteConfig, RemoteTarget
+from hop3_testing.util import find_project_root
 from hop3_testing.util.console import PrintingConsole, Verbosity
 
 from .ssh import SSHConnection, SSHConnectionInfo
@@ -179,7 +179,7 @@ class TestRunnerManager:
         """
         self.host = host
         self.config = config
-        self.project_root = project_root or self._find_project_root()
+        self.project_root = project_root or find_project_root()
         self.console = console or Console()
         self.verbose = verbose
         self.logs_dir = logs_dir
@@ -628,41 +628,6 @@ class TestRunnerManager:
             self.console.print(
                 f"  [yellow]Error collecting diagnostics for {test_name}: {e}[/yellow]"
             )
-
-    def _find_project_root(self) -> Path:
-        """Find the Hop3 monorepo root directory.
-
-        Returns:
-            Path to the project root.
-        """
-        # Try environment variable first
-        if hop3_root := os.environ.get("HOP3_PROJECT_ROOT"):
-            return Path(hop3_root)
-
-        # Try to find by looking for the hop3 monorepo structure
-        # Start from current directory and go up
-        current = Path.cwd()
-        for _ in range(10):
-            # Look for the monorepo markers: apps/test-apps and packages/hop3-server
-            if (current / "apps" / "test-apps").exists() and (
-                current / "packages" / "hop3-server"
-            ).exists():
-                return current
-
-            # Also check for pyproject.toml with hop3 workspace
-            pyproject = current / "pyproject.toml"
-            if pyproject.exists():
-                content = pyproject.read_text()
-                if "hop3-server" in content and "hop3-cli" in content:
-                    return current
-
-            parent = current.parent
-            if parent == current:
-                break
-            current = parent
-
-        # Fallback to current directory
-        return Path.cwd()
 
 
 def run_tests(
