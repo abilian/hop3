@@ -69,14 +69,7 @@ class SSHDeployBackend(DeployBackend):
         )
 
         cmd_result = CommandResult.from_subprocess(result)
-
-        if check and not cmd_result.success:
-            raise RuntimeError(
-                f"SSH command failed: {command}\n"
-                f"Exit code: {result.returncode}\n"
-                f"stderr: {result.stderr}"
-            )
-
+        self._raise_if_failed(cmd_result, command, check=check)
         return cmd_result
 
     def run_streaming(
@@ -156,11 +149,6 @@ class SSHDeployBackend(DeployBackend):
             self.run(f"chmod -R a+rX {remote_path}", check=False)
 
         return result.returncode == 0
-
-    def is_hop3_installed(self) -> bool:
-        """Check if Hop3 is installed."""
-        result = self.run("test -f /home/hop3/venv/bin/hop3-server", check=False)
-        return result.success
 
     def clean(self) -> None:
         """Clean the server for fresh installation."""

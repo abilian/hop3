@@ -23,8 +23,8 @@ from hop3_installer.constants import (
     HOME_DIR,
     HOP3_GROUP,
     HOP3_USER,
-    SYSTEM_SSL_CERT as SSL_CERT,
-    SYSTEM_SSL_KEY as SSL_KEY,
+    SYSTEM_SSL_CERT,
+    SYSTEM_SSL_KEY,
 )
 from hop3_installer.nginx_templates import SUDOERS_CONTENT, generate_full_ssl_config
 
@@ -79,8 +79,8 @@ def setup_nginx(config: ServerInstallerConfig) -> None:
     # Generate nginx config
     nginx_config = generate_full_ssl_config(
         server_name=server_name,
-        ssl_cert=str(SSL_CERT),
-        ssl_key=str(SSL_KEY),
+        ssl_cert=str(SYSTEM_SSL_CERT),
+        ssl_key=str(SYSTEM_SSL_KEY),
     )
 
     # Write config file

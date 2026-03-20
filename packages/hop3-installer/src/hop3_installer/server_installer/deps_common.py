@@ -12,6 +12,7 @@ from hop3_installer.common import (
     CommandError,
     Spinner,
     cmd_exists,
+    create_symlink,
     print_detail,
     print_error,
     print_info,
@@ -327,18 +328,10 @@ def _create_rust_symlinks(
     ]
 
     for source, target in symlinks:
-        if not source.exists():
-            continue
-
-        # Remove existing symlink or file
-        if target.exists() or target.is_symlink():
-            target.unlink()
-
-        try:
-            target.symlink_to(source)
+        if create_symlink(source, target):
             print_detail(f"Created symlink: {target} -> {source}")
-        except OSError as e:
-            print_warning(f"Could not create symlink {target}: {e}")
+        elif source.exists():
+            print_warning(f"Could not create symlink {target}")
 
 
 # =============================================================================

@@ -28,6 +28,27 @@ class DeployBackend(ABC):
         """
         self.config = config
 
+    def _raise_if_failed(
+        self,
+        result: CommandResult,
+        command: str,
+        *,
+        check: bool,
+    ) -> None:
+        """Raise RuntimeError if command failed and check is True.
+
+        Args:
+            result: Command result to check
+            command: Command that was executed (for error message)
+            check: Whether to raise on failure
+        """
+        if check and not result.success:
+            raise RuntimeError(
+                f"{self.name.upper()} command failed: {command}\n"
+                f"Exit code: {result.returncode}\n"
+                f"stderr: {result.stderr}"
+            )
+
     def _write_log_output(
         self,
         log_file: Path,
@@ -138,13 +159,14 @@ class DeployBackend(ABC):
             True if upload succeeded
         """
 
-    @abstractmethod
     def is_hop3_installed(self) -> bool:
         """Check if Hop3 is installed on the target.
 
         Returns:
             True if Hop3 is installed
         """
+        result = self.run("test -f /home/hop3/venv/bin/hop3-server", check=False)
+        return result.success
 
     @abstractmethod
     def clean(self) -> None:

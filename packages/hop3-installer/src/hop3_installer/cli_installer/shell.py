@@ -9,6 +9,7 @@ import shutil
 from pathlib import Path
 
 from hop3_installer.common import (
+    create_symlink,
     get_current_shell,
     print_detail,
     print_info,
@@ -34,16 +35,10 @@ def create_command_symlinks(bin_dir: Path) -> int:
         if not source.exists():
             continue
 
-        # Remove existing
-        if target.exists() or target.is_symlink():
-            target.unlink()
-
-        # Create symlink
-        try:
-            target.symlink_to(source)
+        if create_symlink(source, target):
             print_success(f"Created symlink: {target}")
             count += 1
-        except OSError:
+        else:
             # Fallback to copy
             shutil.copy2(source, target)
             print_info(f"Copied command (symlink failed): {target}")
