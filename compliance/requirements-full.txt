@@ -8,7 +8,7 @@ arrow==1.4.0
 astroid==4.0.4
 asttokens==2.4.1
 astypes==0.2.6
-attrs==25.4.0
+attrs==26.1.0
 bcrypt==5.0.0
 beartype==0.22.9
 boolean-py==5.0
@@ -24,11 +24,11 @@ colorlog==6.10.1
 coverage==7.13.5
 cryptography==46.0.5
 cyclonedx-bom==7.2.2
-cyclonedx-python-lib==11.6.0
+cyclonedx-python-lib==11.7.0
 deepmerge==2.0
 defusedxml==0.7.1
 dependency-groups==1.3.1
-deptry==0.24.0
+deptry==0.25.1
 devtools==0.12.2
 dill==0.4.1
 dishka==1.9.1
@@ -43,7 +43,6 @@ executing==2.2.1
 faker==40.11.0
 fastjsonschema==2.21.2
 filelock==3.25.2
-flask-app==0.1.0
 fqdn==1.5.1
 gevent==25.9.1
 granian==2.7.2
@@ -125,7 +124,7 @@ pylint==4.0.5
 pymdown-extensions==10.21
 pynacl==1.6.2
 pyparsing==3.3.2
-pyrefly==0.56.0
+pyrefly==0.57.1
 pytest==9.0.2
 pytest-asyncio==1.3.0
 pytest-beartype==0.2.0
@@ -134,7 +133,7 @@ pytest-random-order==1.2.0
 pytest-xdist==3.8.0
 python-dateutil==2.9.0.post0
 python-debian==1.1.0
-python-discovery==1.1.3
+python-discovery==1.2.0
 python-dotenv==1.2.2
 python-magic==0.4.27
 python-multipart==0.0.22
@@ -151,7 +150,7 @@ rfc3987-syntax==1.1.0
 rich==14.3.3
 rich-click==1.9.7
 rpds-py==0.30.0
-ruff==0.15.6
+ruff==0.15.7
 sbom2dot==0.3.2
 sbom4files==0.4.5
 sbom4python==0.12.5
@@ -167,8 +166,9 @@ tabulate==0.10.0
 termcolor==3.3.0
 textual==8.1.1
 toml==0.10.2
+tomli==2.4.0
 tomlkit==0.14.0
-ty==0.0.23
+ty==0.0.24
 typeguard==4.5.1
 types-markdown==3.10.2.20260211
 types-paramiko==4.0.0.20250822
@@ -198,6 +198,6 @@ webcolors==25.10.0
 websockets==16.0
 xmlschema==4.3.1
 xmltodict==1.0.4
-zensical==0.0.27
+zensical==0.0.28
 zope-event==6.1
 zope-interface==8.2
