@@ -19,7 +19,7 @@ import time
 import traceback
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -148,7 +148,7 @@ class TestRunnerManager:
     """
 
     # Map suite names to categories
-    SUITE_CATEGORIES = {
+    SUITE_CATEGORIES: ClassVar[dict[str, Category]] = {
         "test-apps": Category.DEPLOYMENT,
         "docker-apps": Category.DOCKER_APP,
         "native-apps": Category.NATIVE_APP,
@@ -511,8 +511,8 @@ class TestRunnerManager:
             # This makes the hop3 CLI use ssh:// URL instead of http:// with JWT
             # SSH tunnel provides implicit authentication via SSH keys
             # This is exactly how a real user would interact with hop3
-            if self._target._info:
-                self._target._info = replace(self._target._info, api_url="")
+            if self._target._info:  # noqa: SLF001
+                self._target._info = replace(self._target._info, api_url="")  # noqa: SLF001
 
             self.console.print("  [green]Connected (SSH authentication)[/green]")
 

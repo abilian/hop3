@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -127,7 +127,7 @@ class DailyTestOrchestrator:
         self.console = console or Console()
         self.verbose = verbose
         self._result = DailyTestResult(
-            timestamp=datetime.now(),
+            timestamp=datetime.now(tz=UTC),
             branch=config.deployment.branch,
             server_info=None,
         )
@@ -497,7 +497,7 @@ class DailyTestOrchestrator:
             # Create logs directory for diagnostics
             # Must be created BEFORE running tests so immediate diagnostics work
             logs_dir = Path("./logs")
-            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            timestamp = datetime.now(tz=UTC).strftime("%Y-%m-%d_%H-%M-%S")
             test_logs_dir = logs_dir / f"daily-test-{timestamp}"
             test_logs_dir.mkdir(parents=True, exist_ok=True)
             self._test_logs_dir = test_logs_dir  # Store for _collect_diagnostics

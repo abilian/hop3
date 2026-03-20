@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -32,7 +32,7 @@ class DeploymentResult:
     log_output: str
     error: str | None = None
     server_url: str | None = None
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
 
     @property
     def summary(self) -> str:
@@ -373,58 +373,81 @@ class DeploymentManager:
 
         # Use select to read from both stdout and stderr
         while True:
-            # Check if process has finished
             if process.poll() is not None:
-                # Read any remaining output
-                if process.stdout:
-                    for line in process.stdout:
-                        line = line.rstrip()
-                        stdout_lines.append(line)
-                        if self.console:
-                            self.console.print(f"    {line}")
-                if process.stderr:
-                    for line in process.stderr:
-                        line = line.rstrip()
-                        stderr_lines.append(line)
-                        if self.console:
-                            self.console.print(f"    [dim]{line}[/dim]")
+                self._read_remaining_output(process, stdout_lines, stderr_lines)
                 break
 
-            # Read available output
-            readable = []
-            if process.stdout:
-                readable.append(process.stdout)
-            if process.stderr:
-                readable.append(process.stderr)
-
+            readable = self._get_readable_streams(process)
             if not readable:
                 break
 
-            # Use select on Unix, fallback to simple read on Windows
-            try:
-                ready, _, _ = select.select(readable, [], [], 0.1)
-            except (ValueError, OSError):
-                # Fallback for Windows or closed pipes
-                ready = readable
-
-            for stream in ready:
-                line = stream.readline()
-                if line:
-                    line = line.rstrip()
-                    if stream == process.stdout:
-                        stdout_lines.append(line)
-                        if self.console:
-                            self.console.print(f"    {line}")
-                    else:
-                        stderr_lines.append(line)
-                        if self.console:
-                            self.console.print(f"    [dim]{line}[/dim]")
+            ready = self._select_ready_streams(readable)
+            self._process_ready_streams(ready, process, stdout_lines, stderr_lines)
 
         return process.returncode or 0, "\n".join(stdout_lines), "\n".join(stderr_lines)
 
+    def _read_remaining_output(
+        self,
+        process: subprocess.Popen,
+        stdout_lines: list[str],
+        stderr_lines: list[str],
+    ) -> None:
+        """Read any remaining output after process finishes."""
+        if process.stdout:
+            for line in process.stdout:
+                line = line.rstrip()
+                stdout_lines.append(line)
+                if self.console:
+                    self.console.print(f"    {line}")
+        if process.stderr:
+            for line in process.stderr:
+                line = line.rstrip()
+                stderr_lines.append(line)
+                if self.console:
+                    self.console.print(f"    [dim]{line}[/dim]")
+
+    def _get_readable_streams(self, process: subprocess.Popen) -> list:
+        """Get list of readable streams from process."""
+        readable = []
+        if process.stdout:
+            readable.append(process.stdout)
+        if process.stderr:
+            readable.append(process.stderr)
+        return readable
+
+    def _select_ready_streams(self, readable: list) -> list:
+        """Select streams ready for reading."""
+        try:
+            ready, _, _ = select.select(readable, [], [], 0.1)
+        except (ValueError, OSError):
+            # Fallback for Windows or closed pipes
+            ready = readable
+        return ready
+
+    def _process_ready_streams(
+        self,
+        ready: list,
+        process: subprocess.Popen,
+        stdout_lines: list[str],
+        stderr_lines: list[str],
+    ) -> None:
+        """Process lines from ready streams."""
+        for stream in ready:
+            line = stream.readline()
+            if line:
+                line = line.rstrip()
+                if stream == process.stdout:
+                    stdout_lines.append(line)
+                    if self.console:
+                        self.console.print(f"    {line}")
+                else:
+                    stderr_lines.append(line)
+                    if self.console:
+                        self.console.print(f"    [dim]{line}[/dim]")
+
     def _log(self, message: str) -> None:
         """Add message to log buffer."""
-        timestamp = datetime.now().strftime("%H:%M:%S")
+        timestamp = datetime.now(tz=UTC).strftime("%H:%M:%S")
         self._log_buffer.append(f"[{timestamp}] {message}")
 
     def _get_log(self) -> str:
@@ -484,18 +507,21 @@ class DeploymentManager:
         # Fallback: return last meaningful line
         for line in reversed(lines[-20:]):
             line = line.strip()
-            if (
-                line
-                and not line.startswith("warning:")
-                and "VIRTUAL_ENV" not in line
-                and not line.startswith("Building ")
-                and not line.startswith("Built ")
-                and not line.startswith("Installed ")
-                and "✓" not in line
-            ):
+            if self._is_meaningful_error_line(line):
                 return line
 
         return "Deployment failed (see diagnostics above)"
+
+    def _is_meaningful_error_line(self, line: str) -> bool:
+        """Check if a line is meaningful for error reporting."""
+        if not line:
+            return False
+        # Skip noise lines from build output
+        noise_prefixes = ("warning:", "Building ", "Built ", "Installed ")
+        noise_substrings = ("VIRTUAL_ENV", "✓")
+        if any(line.startswith(p) for p in noise_prefixes):
+            return False
+        return not any(s in line for s in noise_substrings)
 
 
 class DeploymentVerifier:

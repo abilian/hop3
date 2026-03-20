@@ -225,11 +225,8 @@ Example:
     return parser
 
 
-def cmd_run(args: argparse.Namespace) -> None:
-    """Execute the 'run' command."""
-    console = Console()
-
-    # Build CLI overrides
+def _build_overrides(args: argparse.Namespace) -> dict:
+    """Build configuration overrides from CLI arguments."""
     overrides: dict = {}
     if args.server_id:
         overrides["server_id"] = args.server_id
@@ -249,6 +246,14 @@ def cmd_run(args: argparse.Namespace) -> None:
         overrides["use_local_repo"] = True
     if args.local_repo_path:
         overrides["local_repo_path"] = args.local_repo_path
+    return overrides
+
+
+def cmd_run(args: argparse.Namespace) -> None:
+    """Execute the 'run' command."""
+    console = Console()
+
+    overrides = _build_overrides(args)
 
     # Load configuration
     try:
