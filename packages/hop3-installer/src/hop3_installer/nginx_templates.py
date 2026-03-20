@@ -55,9 +55,9 @@ PROXY_HEADERS = f"""        proxy_pass http://{HOP3_SERVER_BIND};
 # ACME Challenge Location (shared across all configs)
 # =============================================================================
 
-ACME_LOCATION = f"""    location /.well-known/acme-challenge/ {{{{
+ACME_LOCATION = f"""    location /.well-known/acme-challenge/ {{
         root {ACME_WEBROOT};
-    }}}}"""
+    }}"""
 
 
 # =============================================================================
