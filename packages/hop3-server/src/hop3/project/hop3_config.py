@@ -267,12 +267,22 @@ class Hop3Config:
 
     @property
     def static_paths(self) -> dict[str, str]:
-        """Get run.static (static file path mappings for reverse proxy).
+        """Get static file path mappings for reverse proxy.
+
+        Looks in two places (in order of precedence):
+        1. Top-level [static] section
+        2. [run].static field
 
         Returns:
             Dictionary mapping URL paths to filesystem paths
             e.g., {"/static": "static", "/media": "media"}
         """
+        # Check top-level [static] first
+        static = self._data.get("static", {})
+        if isinstance(static, dict) and static:
+            return static
+
+        # Fall back to [run].static
         static = self.run.get("static", {})
         if isinstance(static, dict):
             return static

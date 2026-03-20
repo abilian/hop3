@@ -57,6 +57,9 @@ NGINX_COMMON_FRAGMENT = r"""
   # access_log        $LOG_ROOT/$APP/access.log;
   # error_log         $LOG_ROOT/$APP/error.log;
 
+  # Allow large request bodies (file uploads, form submissions)
+  client_max_body_size 50m;
+
   # Enable gzip compression
   gzip on;
   gzip_proxied any;
