@@ -11,6 +11,7 @@ requires-python = ">=3.10, <4"
 dependencies = [
     # Hop3 packages
     "hop3-cli",
+    "hop3-installer",
     # Testing
     "pytest>=8.0.0",
     "docker>=7.0.0",
@@ -30,12 +31,15 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     # JWT token generation for E2E tests
     "PyJWT>=2.8.0",
+    # Hetzner system tests
+    "hcloud>=2.0",
+    "jinja2>=3.0",
+    "rich>=13.0",
+    "attrs>=23.0",
+    "termcolor>=2.0",
 ]
 
 [project.scripts]
-# Main CLI entry point
-# hop3-test = "hop3_testing.cli:main"
-# Alias for transition period
 hop3-test = "hop3_testing.cli:main"
 
 [build-system]

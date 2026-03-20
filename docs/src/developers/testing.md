@@ -64,6 +64,13 @@ uv run hop3-test build-ready-image
 | `make test-with-coverage` | Tests with coverage report | ~1min |
 | `make lint` | Linting and type checking | ~30s |
 
+### Hetzner Cloud Testing
+
+| Command | Description |
+|---------|-------------|
+| `hop3-test hetzner` | Run E2E tests on Hetzner Cloud |
+| `hop3-test multi-distro` | Test across multiple Linux distributions |
+
 ### hop3-test CLI
 
 ```bash
@@ -261,6 +268,36 @@ pytest --cov=hop3 --cov-report=html
 # Open report
 open htmlcov/index.html
 ```
+
+## Hetzner Cloud Testing
+
+For E2E testing on real cloud infrastructure, use the Hetzner commands. Requires `HETZNER_API_TOKEN` environment variable.
+
+```bash
+# List available images
+hop3-test multi-distro --list-images
+
+# Test on a single distribution
+hop3-test hetzner --image ubuntu-24.04 --suites test-apps
+
+# Test across multiple distributions
+hop3-test multi-distro --images ubuntu-24.04 debian-13
+
+# Use local code
+hop3-test hetzner --use-local-repo
+
+# Skip phases for debugging
+hop3-test hetzner --skip-reset --skip-deploy  # Only run tests
+```
+
+### Supported Images
+
+- `ubuntu-24.04` - Ubuntu 24.04 LTS (default)
+- `debian-13` - Debian 13 (trixie)
+- `debian-12` - Debian 12 (bookworm)
+- `fedora-42` - Fedora 42
+- `rocky-9` - Rocky Linux 9
+- `alma-9` - AlmaLinux 9
 
 ## Troubleshooting
 

@@ -4,7 +4,7 @@
 [project]
 name = "hop3-system-tests"
 version = "0.1.0"
-description = "Daily system test framework for Hop3 - runs full E2E tests on Hetzner infrastructure"
+description = "Full-blown system test framework for Hop3 - runs full E2E tests on Hetzner infrastructure"
 readme = "README.md"
 authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" }
