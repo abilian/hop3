@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from .ssh import SSHConnection, SSHConnectionInfo
 
@@ -48,7 +48,7 @@ class DiagnosticCollector:
     """
 
     # Commands to run for collecting diagnostics
-    DIAGNOSTIC_COMMANDS = {
+    DIAGNOSTIC_COMMANDS: ClassVar[dict[str, str]] = {
         "hop3-server.log": "journalctl -u hop3-server --no-pager -n 500 2>&1 || echo 'No hop3-server logs'",
         "nginx-error.log": "tail -500 /var/log/nginx/error.log 2>&1 || echo 'No nginx error log'",
         "nginx-access.log": "tail -200 /var/log/nginx/access.log 2>&1 || echo 'No nginx access log'",
@@ -96,7 +96,7 @@ class DiagnosticCollector:
         Returns:
             DiagnosticResult with collected files and any errors.
         """
-        timestamp = datetime.now()
+        timestamp = datetime.now(tz=UTC)
         if existing_output_dir:
             output_dir = existing_output_dir
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -338,7 +338,7 @@ def collect_diagnostics(
     try:
         if not conn.connect(timeout=30):
             return DiagnosticResult(
-                timestamp=datetime.now(),
+                timestamp=datetime.now(tz=UTC),
                 server_ip=server_ip,
                 output_dir=output_base,
                 errors=["Failed to connect to server"],
