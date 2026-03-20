@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from hop3_testing.targets.constants import DEFAULT_DOCKER_IMAGE
+
 
 @dataclass
 class DeploymentConfig:
@@ -50,7 +52,7 @@ class DockerConfig:
         DockerConfig(container_name="hop3-test", reuse_container=True)
     """
 
-    image: str = "debian:bookworm"
+    image: str = DEFAULT_DOCKER_IMAGE
     """Base Docker image to use."""
 
     container_name: str = "hop3-test"

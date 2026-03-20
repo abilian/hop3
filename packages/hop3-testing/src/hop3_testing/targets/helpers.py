@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 from hop3_testing.exceptions import ConfigurationError, ServiceStartError
 
 from .constants import (
+    DEFAULT_DOCKER_IMAGE,
     DEFAULT_HEALTH_CHECK_TIMEOUT,
     E2E_TEST_SECRET_KEY,
     HEALTH_CHECK_COMMAND,
@@ -845,7 +846,7 @@ def run_hop3_deploy(
     host: str | None = None,
     user: str = "root",
     container_name: str = "hop3-test",
-    image: str = "debian:bookworm",
+    image: str = DEFAULT_DOCKER_IMAGE,
     use_local: bool = True,
     clean: bool = False,
     branch: str = "devel",
