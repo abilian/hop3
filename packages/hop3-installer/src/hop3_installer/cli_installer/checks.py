@@ -14,8 +14,9 @@ from hop3_installer.common import (
     print_success,
     print_warning,
 )
+from hop3_installer.constants import CLI_INSTALL_DIR, CLI_VENV_DIR
 
-from .config import INSTALL_DIR, VENV_DIR, CLIInstallerConfig
+from .config import CLIInstallerConfig
 
 
 def check_venv() -> bool:
@@ -39,12 +40,12 @@ def check_existing_installation(*, force: bool) -> bool:
     Returns:
         True if should proceed with installation, False if already installed
     """
-    if VENV_DIR.exists():
+    if CLI_VENV_DIR.exists():
         if force:
             print_info("Existing installation found, will reinstall (--force)")
             return True
         print_warning("Hop3 CLI is already installed")
-        print_detail(f"Location: {INSTALL_DIR}")
+        print_detail(f"Location: {CLI_INSTALL_DIR}")
         print_detail("Use --force to reinstall")
         return False
     return True

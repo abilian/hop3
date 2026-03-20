@@ -6,11 +6,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hop3_installer.cli_installer.config import (
+from hop3_installer.cli_installer.config import CLIInstallerConfig
+from hop3_installer.constants import (
     CLI_COMMANDS,
-    DEFAULT_BIN_DIR,
-    DEFAULT_BRANCH,
-    CLIInstallerConfig,
+    CLI_DEFAULT_BIN_DIR,
+    DEFAULT_BRANCH_PRODUCTION,
 )
 
 # =============================================================================
@@ -27,12 +27,12 @@ class TestConstants:
         assert "hop" in CLI_COMMANDS
 
     def test_default_bin_dir_is_local_bin(self):
-        """DEFAULT_BIN_DIR should be ~/.local/bin."""
-        assert DEFAULT_BIN_DIR == Path.home() / ".local" / "bin"
+        """CLI_DEFAULT_BIN_DIR should be ~/.local/bin."""
+        assert CLI_DEFAULT_BIN_DIR == Path.home() / ".local" / "bin"
 
     def test_default_branch(self):
-        """DEFAULT_BRANCH should be main."""
-        assert DEFAULT_BRANCH == "main"
+        """DEFAULT_BRANCH_PRODUCTION should be main."""
+        assert DEFAULT_BRANCH_PRODUCTION == "main"
 
 
 # =============================================================================
@@ -49,9 +49,9 @@ class TestCLIInstallerConfig:
 
         assert config.version is None
         assert config.use_git is False
-        assert config.branch == DEFAULT_BRANCH
+        assert config.branch == DEFAULT_BRANCH_PRODUCTION
         assert config.local_path is None
-        assert config.bin_dir == DEFAULT_BIN_DIR
+        assert config.bin_dir == CLI_DEFAULT_BIN_DIR
         assert config.force is False
         assert config.no_modify_path is False
         assert config.verbose is False
@@ -88,7 +88,7 @@ class TestCLIInstallerConfigFromEnv:
 
         assert config.version is None
         assert config.use_git is False
-        assert config.branch == DEFAULT_BRANCH
+        assert config.branch == DEFAULT_BRANCH_PRODUCTION
         assert config.force is False
 
     def test_from_env_version(self, clean_env):

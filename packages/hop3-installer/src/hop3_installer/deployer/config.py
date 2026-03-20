@@ -10,15 +10,15 @@ from pathlib import Path
 
 from hop3_installer.common import env_bool, env_list, env_str, find_project_root
 
-# Default values
-DEFAULT_BRANCH = "devel"
-DEFAULT_SSH_USER = "root"
-DEFAULT_ADMIN_USER = "admin"
-DEFAULT_ADMIN_EMAIL = "admin@example.com"
-
-# Docker configuration
-DOCKER_IMAGE = "ubuntu:24.04"
-DOCKER_CONTAINER_NAME = "hop3-dev"
+# Import shared constants
+from hop3_installer.constants import (
+    DEFAULT_ADMIN_EMAIL,
+    DEFAULT_ADMIN_USER,
+    DEFAULT_BRANCH_DEVELOPMENT as DEFAULT_BRANCH,
+    DEFAULT_SSH_USER,
+    DOCKER_CONTAINER_NAME,
+    DOCKER_IMAGE,
+)
 
 
 @dataclass

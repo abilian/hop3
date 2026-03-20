@@ -20,16 +20,16 @@ from hop3_installer.common import (
     print_success,
     print_warning,
 )
-
-from .config import (
+from hop3_installer.constants import (
     GIT_REPO,
-    GIT_SUBDIR,
     HOP3_GROUP,
     HOP3_USER,
-    PACKAGE_NAME,
+    SERVER_PACKAGE_NAME as PACKAGE_NAME,
+    SERVER_PACKAGE_SUBDIR as GIT_SUBDIR,
     VENV_DIR,
-    ServerInstallerConfig,
 )
+
+from .config import ServerInstallerConfig
 from .user import run_as_hop3
 
 

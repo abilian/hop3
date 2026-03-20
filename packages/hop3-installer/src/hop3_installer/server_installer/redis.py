@@ -15,31 +15,13 @@ from hop3_installer.common import (
     run_cmd,
 )
 
+from .docker_utils import get_docker_bridge_ip
+
 # Common Redis config file locations
 REDIS_CONF_PATHS = [
     Path("/etc/redis/redis.conf"),
     Path("/etc/redis.conf"),
 ]
-
-
-def _get_docker_bridge_ip() -> str | None:
-    """Get the Docker bridge network IP (usually 172.17.0.1).
-
-    Returns:
-        Docker bridge IP if available, None otherwise.
-    """
-    result = run_cmd(
-        ["ip", "addr", "show", "docker0"],
-        check=False,
-    )
-    if result.returncode != 0:
-        return None
-
-    # Parse output for inet address: "inet 172.17.0.1/16 ..."
-    match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)/", result.stdout)
-    if match:
-        return match.group(1)
-    return None
 
 
 def _configure_redis_bind() -> None:
@@ -55,7 +37,7 @@ def _configure_redis_bind() -> None:
         return
 
     # Get Docker bridge IP
-    docker_ip = _get_docker_bridge_ip()
+    docker_ip = get_docker_bridge_ip()
     if not docker_ip:
         print_detail("Docker bridge not found, Redis will bind to localhost only")
         return

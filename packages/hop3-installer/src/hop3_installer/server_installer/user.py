@@ -11,8 +11,7 @@ import subprocess  # noqa: TC003
 from pathlib import Path
 
 from hop3_installer.common import print_info, print_success, print_warning, run_cmd
-
-from .config import HOME_DIR, HOP3_GROUP, HOP3_USER
+from hop3_installer.constants import HOME_DIR, HOP3_GROUP, HOP3_USER
 
 
 def user_exists(username: str) -> bool:

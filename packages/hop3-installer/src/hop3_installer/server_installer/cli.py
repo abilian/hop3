@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import argparse
 
-from .config import DEFAULT_BRANCH, ServerInstallerConfig, parse_features
+from hop3_installer.constants import DEFAULT_BRANCH_PRODUCTION
+
+from .config import ServerInstallerConfig, parse_features
 
 TOTAL_STEPS = 11
 
@@ -51,7 +53,7 @@ Optional Features (--with):
         "--branch",
         metavar="BRANCH",
         default=env_config.branch,
-        help=f"Git branch to install from (default: {DEFAULT_BRANCH})",
+        help=f"Git branch to install from (default: {DEFAULT_BRANCH_PRODUCTION})",
     )
     parser.add_argument(
         "--local-path",

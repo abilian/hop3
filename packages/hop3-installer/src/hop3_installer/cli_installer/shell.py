@@ -15,8 +15,7 @@ from hop3_installer.common import (
     print_success,
     print_warning,
 )
-
-from .config import CLI_COMMANDS, SHELL_CONFIGS, VENV_DIR
+from hop3_installer.constants import CLI_COMMANDS, CLI_VENV_DIR, SHELL_CONFIGS
 
 
 def create_command_symlinks(bin_dir: Path) -> int:
@@ -29,7 +28,7 @@ def create_command_symlinks(bin_dir: Path) -> int:
     count = 0
 
     for cmd in CLI_COMMANDS:
-        source = VENV_DIR / "bin" / cmd
+        source = CLI_VENV_DIR / "bin" / cmd
         target = bin_dir / cmd
 
         if not source.exists():

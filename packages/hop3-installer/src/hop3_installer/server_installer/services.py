@@ -8,8 +8,9 @@ import secrets
 from pathlib import Path
 
 from hop3_installer.common import print_detail, print_success, print_warning, run_cmd
+from hop3_installer.nginx_templates import SYSTEMD_UNIT, UWSGI_UNIT
 
-from .config import SYSTEMD_UNIT, UWSGI_UNIT, ServerInstallerConfig
+from .config import ServerInstallerConfig
 
 
 def setup_environment_file(config: ServerInstallerConfig | None = None) -> str:

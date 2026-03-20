@@ -166,6 +166,22 @@ class CommandResult:
         """Check if the command succeeded."""
         return self.returncode == 0
 
+    @classmethod
+    def from_subprocess(cls, result: subprocess.CompletedProcess) -> CommandResult:
+        """Create CommandResult from subprocess.CompletedProcess.
+
+        Args:
+            result: Completed subprocess result
+
+        Returns:
+            CommandResult instance
+        """
+        return cls(
+            returncode=result.returncode,
+            stdout=result.stdout or "",
+            stderr=result.stderr or "",
+        )
+
 
 @dataclass
 class CommandError(Exception):
