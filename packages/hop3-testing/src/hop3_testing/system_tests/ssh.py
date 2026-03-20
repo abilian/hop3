@@ -243,16 +243,14 @@ class SSHConnection:
         self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         try:
-            kwargs = {
-                "hostname": self.info.host,
-                "port": self.info.port,
-                "username": self.info.user,
-                "timeout": timeout,
-            }
-            if self.info.key_path:
-                kwargs["key_filename"] = str(self.info.key_path)
-
-            self._client.connect(**kwargs)
+            key_filename = str(self.info.key_path) if self.info.key_path else None
+            self._client.connect(
+                hostname=self.info.host,
+                port=self.info.port,
+                username=self.info.user,
+                timeout=timeout,
+                key_filename=key_filename,
+            )
             return True
         except Exception:
             self._client = None
