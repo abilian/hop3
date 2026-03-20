@@ -7,7 +7,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-
 from hop3_installer.deployer.config import (
     DEFAULT_ADMIN_EMAIL,
     DEFAULT_ADMIN_USER,

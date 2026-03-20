@@ -10,7 +10,8 @@ from pathlib import Path
 
 from hop3_installer.common import CommandResult
 
-from ..common import log_debug, log_error, log_info, log_success
+from utils.common import log_debug, log_error, log_info, log_success
+
 from .base import Backend
 
 # Docker images for each distro

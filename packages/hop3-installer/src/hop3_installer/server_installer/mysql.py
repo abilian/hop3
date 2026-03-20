@@ -17,7 +17,7 @@ from hop3_installer.common import (
     run_cmd,
 )
 
-from .config import ServerInstallerConfig  # noqa: TC001
+from .config import ServerInstallerConfig
 from .docker_utils import get_docker_bridge_ip
 
 # Common MySQL config file locations

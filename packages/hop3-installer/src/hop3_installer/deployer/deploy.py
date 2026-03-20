@@ -6,6 +6,9 @@ from __future__ import annotations
 
 import pathlib
 import shlex
+import subprocess
+import traceback
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -36,15 +39,11 @@ class Deployer:
 
         # Generate default log file for quiet mode
         if self.quiet and not self.log_file:
-            from datetime import datetime
-
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             self.log_file = Path(f"deploy-{timestamp}.log")
 
         # Initialize log file
         if self.log_file:
-            from datetime import datetime
-
             with Path(self.log_file).open("w") as f:
                 f.write(f"Hop3 Deployment Log - {datetime.now().isoformat()}\n")
                 f.write("=" * 60 + "\n\n")
@@ -251,8 +250,6 @@ class Deployer:
         except Exception as e:
             self.log(f"Deployment failed: {e}", "error")
             if self.verbose:
-                import traceback
-
                 traceback.print_exc()
             return False
 
@@ -787,8 +784,6 @@ class Deployer:
     def _setup_cli(self) -> None:
         """Configure local CLI to connect to the deployed server."""
         try:
-            import subprocess
-
             # Try to configure hop3 CLI
             host = self.config.host or "localhost"
             # Build the full API URL
@@ -855,11 +850,11 @@ class Deployer:
 def create_backend(config: DeployConfig) -> DeployBackend:
     """Create appropriate backend based on config."""
     if config.use_docker:
-        from .backends.docker import DockerDeployBackend
+        from .backends.docker import DockerDeployBackend  # noqa: PLC0415
 
         return DockerDeployBackend(config)
 
-    from .backends.ssh import SSHDeployBackend
+    from .backends.ssh import SSHDeployBackend  # noqa: PLC0415
 
     return SSHDeployBackend(config)
 

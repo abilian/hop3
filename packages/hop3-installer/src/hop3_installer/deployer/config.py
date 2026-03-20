@@ -81,7 +81,8 @@ class DeployConfig:
     def ssh_target(self) -> str:
         """Get SSH target string (user@host)."""
         if not self.host:
-            raise ValueError("Host not set")
+            msg = "Host not set"
+            raise ValueError(msg)
         return f"{self.ssh_user}@{self.host}"
 
     @property
@@ -124,7 +125,7 @@ class DeployConfig:
         Returns:
             True if any source module is newer than the bundle.
         """
-        from hop3_installer.bundler import SERVER_MODULES, SRC_DIR
+        from hop3_installer.bundler import SERVER_MODULES, SRC_DIR  # noqa: PLC0415
 
         bundle_mtime = bundle_path.stat().st_mtime
 
@@ -138,7 +139,7 @@ class DeployConfig:
 
     def _generate_bundled_installer(self, output_path: Path) -> None:
         """Generate the bundled installer using the bundler."""
-        from hop3_installer.bundler import bundle_installer
+        from hop3_installer.bundler import bundle_installer  # noqa: PLC0415
 
         # Ensure dist directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)

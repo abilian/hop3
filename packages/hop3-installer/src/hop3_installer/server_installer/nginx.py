@@ -74,7 +74,7 @@ def setup_nginx(config: ServerInstallerConfig) -> None:
     _disable_conflicting_webservers()
 
     # Determine server name
-    server_name = config.domain if config.domain else "_"
+    server_name = config.domain or "_"
 
     # Generate nginx config
     nginx_config = generate_full_ssl_config(
@@ -186,7 +186,7 @@ def setup_sudoers() -> None:
         Path(sudoers_file).chmod(0o440)
 
         # Validate with visudo
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: PLW1510
             ["visudo", "-c", "-f", str(sudoers_file)],
             capture_output=True,
             text=True,

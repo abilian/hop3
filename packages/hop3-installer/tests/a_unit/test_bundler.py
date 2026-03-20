@@ -83,7 +83,7 @@ from typing import Optional
 def main():
     pass
 """
-        imports, remaining = extract_imports(source)
+        imports, _remaining = extract_imports(source)
         assert "pathlib" in imports
         assert "typing" in imports
 
@@ -115,7 +115,7 @@ def hello():
 class MyClass:
     pass
 """
-        imports, remaining = extract_imports(source)
+        _imports, remaining = extract_imports(source)
         assert "def hello():" in remaining
         assert 'print("hello")' in remaining
         assert "class MyClass:" in remaining

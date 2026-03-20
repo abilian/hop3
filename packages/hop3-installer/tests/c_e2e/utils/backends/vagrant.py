@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import subprocess
 import tarfile
 from io import BytesIO
@@ -12,7 +13,8 @@ from pathlib import Path
 
 from hop3_installer.common import CommandResult, find_project_root
 
-from ..common import VERBOSE, log_debug, log_error, log_info, log_success
+from utils.common import VERBOSE, log_debug, log_error, log_info, log_success
+
 from .base import Backend
 
 
@@ -121,28 +123,22 @@ class VagrantBackend(Backend):
     def _sync_files(self) -> None:
         """Sync files to the VM."""
         log_info("Syncing files to VM...")
-        try:
+        with contextlib.suppress(Exception):
             self._run_vagrant("rsync", self.vm_name, capture_output=True, check=False)
-        except Exception:
-            pass
 
     def teardown(self) -> None:
         """Destroy the Vagrant VM."""
         log_info(f"Destroying VM: {self.vm_name}")
-        try:
+        with contextlib.suppress(Exception):
             self._run_vagrant(
                 "destroy", "-f", self.vm_name, capture_output=True, check=False
             )
-        except Exception:
-            pass
 
     def stop(self) -> None:
         """Stop the VM without destroying it."""
         log_info(f"Stopping VM: {self.vm_name}")
-        try:
+        with contextlib.suppress(Exception):
             self._run_vagrant("halt", self.vm_name, capture_output=True, check=False)
-        except Exception:
-            pass
 
     def run(self, command: str, *, sudo: bool = False) -> CommandResult:
         """Run a command inside the Vagrant VM."""

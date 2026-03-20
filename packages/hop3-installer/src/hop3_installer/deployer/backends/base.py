@@ -43,10 +43,13 @@ class DeployBackend(ABC):
             check: Whether to raise on failure
         """
         if check and not result.success:
-            raise RuntimeError(
+            msg = (
                 f"{self.name.upper()} command failed: {command}\n"
                 f"Exit code: {result.returncode}\n"
                 f"stderr: {result.stderr}"
+            )
+            raise RuntimeError(
+                msg
             )
 
     def _write_log_output(

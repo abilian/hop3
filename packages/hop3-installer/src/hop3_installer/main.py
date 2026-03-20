@@ -32,15 +32,15 @@ def main() -> int:
 
     match subcommand:
         case "cli":
-            from .cli_installer.installer import main as cli_main
+            from .cli_installer.installer import main as cli_main  # noqa: PLC0415
 
             return cli_main()
         case "server":
-            from .server_installer.installer import main as server_main
+            from .server_installer.installer import main as server_main  # noqa: PLC0415
 
             return server_main()
         case "bundle":
-            from .bundler import main as bundler_main
+            from .bundler import main as bundler_main  # noqa: PLC0415
 
             return bundler_main()
         case _:

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import subprocess
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -235,8 +236,6 @@ class DockerDeployBackend(DeployBackend):
         Returns:
             True if container is ready, False if timeout.
         """
-        import time
-
         for _ in range(timeout_seconds * 2):  # Check every 0.5s
             if self._container_running():
                 return True

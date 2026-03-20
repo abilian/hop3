@@ -100,19 +100,34 @@ known-first-party = ["hop3"]
     "FBT",
     "T20", # flake8-print
 ]
+"packages/hop3-installer/src/**/*.py" = [
+    # Real imports are needed by the bundler
+    "TC001",
+    "RUF005", #  collection-literal-concatenation
+    "DTZ005", #  call-datetime-now-without-tzinfo
+    "TRY003", #  raise-vanilla-args
+]
+"packages/hop3-installer/src/hop3_installer/cli_installer/*.py" = [
+    # Real imports are needed by the bundler
+    "TC001"
+]
+"packages/hop3-installer/src/hop3_installer/server_installer/*.py" = [
+    # Real imports are needed by the bundler
+    "TC001"
+]
+
+
 "**/tests/**/*.py" = [
-    "C901", #   	[ ] complex-structure
-    "INP001", # implicit namespace package
-    "PT011", # 	pytest-raises-too-broad
-    "N806", #  	non-lowercase-variable-in-function
-    "SLF001", #	private-member-access
-    "PLR0915", #	too-many-statements
-    "PLC2701", # Private name import
+    "SLF001", #  private-member-access
+    "RUF069", #  float-equality-comparison
+    "PT011", #   pytest-raises-too-broad
+    "N806", #    non-lowercase-variable-in-function
+    "PT012", #   pytest-raises-with-multiple-statements
+    "PLR0915", # too-many-statements
+    "B904", #    raise-without-from-inside-except
+    "PLC2701", # import-private-name
+    "C901", #    complex-structure
     "PLR0912", # too-many-branches
-    "RUF069", # Unreliable floating point equality comparison
-    "PT012",
-    "T20", # flake8-print
-    "B904"
 ]
 "**/noxfile.py" = [
     "INP001", # implicit namespace package

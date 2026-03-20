@@ -24,7 +24,7 @@ from hop3_installer.common import (
     run_cmd,
 )
 
-from .config import ServerInstallerConfig  # noqa: TC001
+from .config import ServerInstallerConfig
 from .deps_common import (
     PackageSpec,
     install_base_packages,

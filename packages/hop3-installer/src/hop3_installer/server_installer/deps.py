@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from hop3_installer.common import print_detail, print_info, print_warning
 
-from .config import ServerInstallerConfig  # noqa: TC001
+from .config import ServerInstallerConfig
 from .deps_debian import install_debian_deps
 from .deps_fedora import install_fedora_deps
 

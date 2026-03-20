@@ -9,7 +9,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 from hop3_installer.common import (
     MIN_PYTHON,
     Colors,
@@ -387,11 +386,9 @@ class TestSpinner:
 
     def test_spinner_enter_exit(self):
         """Spinner should work as context manager."""
-        spinner = Spinner("Test")
         with patch("sys.stdout.isatty", return_value=False):
-            result = spinner.__enter__()
-            assert result is spinner
-            spinner.__exit__(None, None, None)
+            with Spinner("Test") as spinner:
+                assert isinstance(spinner, Spinner)
 
 
 # =============================================================================

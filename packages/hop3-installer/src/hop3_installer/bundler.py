@@ -236,7 +236,7 @@ def _skip_module_docstring(lines: list[str], start: int) -> int:
         return start
 
     stripped = lines[start].strip()
-    if not (stripped.startswith('"""') or stripped.startswith("'''")):
+    if not (stripped.startswith(('"""', "'''"))):
         return start
 
     quote = stripped[:3]
@@ -331,7 +331,8 @@ def bundle_installer(installer_type: str) -> str:
     for module_path in modules:
         filepath = SRC_DIR / module_path
         if not filepath.exists():
-            raise FileNotFoundError(f"Module not found: {filepath}")
+            msg = f"Module not found: {filepath}"
+            raise FileNotFoundError(msg)
 
         imports, code = process_module(filepath)
         all_imports.update(imports)

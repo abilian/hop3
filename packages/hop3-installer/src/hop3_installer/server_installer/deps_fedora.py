@@ -18,7 +18,7 @@ from hop3_installer.common import (
     run_cmd,
 )
 
-from .config import ServerInstallerConfig  # noqa: TC001
+from .config import ServerInstallerConfig
 from .deps_common import (
     PackageSpec,
     install_base_packages,
@@ -230,9 +230,8 @@ def _setup_docker_repo_for_rhel() -> bool:
     if result.returncode == 0:
         print_detail("Docker repository added successfully")
         return True
-    else:
-        print_detail(f"Failed to add Docker repo: {result.stderr}")
-        return False
+    print_detail(f"Failed to add Docker repo: {result.stderr}")
+    return False
 
 
 def _get_fedora_docker_packages(distro_info: DistroInfo) -> list[str]:
@@ -250,13 +249,12 @@ def _get_fedora_docker_packages(distro_info: DistroInfo) -> list[str]:
             "docker-buildx-plugin",
             "docker-compose-plugin",
         ]
-    else:
-        # Fedora: Use moby-engine from native repos
-        # moby-engine is the open-source Docker engine maintained by Fedora
-        return [
-            "moby-engine",
-            "docker-compose",
-        ]
+    # Fedora: Use moby-engine from native repos
+    # moby-engine is the open-source Docker engine maintained by Fedora
+    return [
+        "moby-engine",
+        "docker-compose",
+    ]
 
 
 def _get_fedora_base_packages(distro_info: DistroInfo) -> list[str]:
