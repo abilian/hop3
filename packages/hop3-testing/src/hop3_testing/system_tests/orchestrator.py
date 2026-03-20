@@ -620,8 +620,10 @@ class DailyTestOrchestrator:
 
         if self._result.success:
             status = "[bold green]PASSED[/bold green]"
-        else:
+        elif self._result.failed_phase:
             status = f"[bold red]FAILED[/bold red] at {self._result.failed_phase.value}"
+        else:
+            status = "[bold red]FAILED[/bold red]"
 
         # Build summary text
         summary_lines = [
