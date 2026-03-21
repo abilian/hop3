@@ -331,6 +331,20 @@ class AppLauncher:
                     check=False,  # Handle errors ourselves for structured logging
                 )
                 if result.returncode != 0:
+                    # Show error output to user
+                    log(
+                        f"  Command failed with exit code {result.returncode}",
+                        level=0,
+                        fg="red",
+                    )
+                    if result.stdout:
+                        log("  stdout:", level=0, fg="red")
+                        for line in result.stdout.strip().split("\n")[-20:]:
+                            log(f"    {line}", level=0)
+                    if result.stderr:
+                        log("  stderr:", level=0, fg="red")
+                        for line in result.stderr.strip().split("\n")[-20:]:
+                            log(f"    {line}", level=0)
                     server_log.error(
                         "Before-run command failed",
                         app_name=self.app_name,
