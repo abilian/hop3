@@ -19,13 +19,12 @@ wheels/
 .envrc
 /sandbox/
 OLD/
-apps/sandbox/
 data/
 demos/logs/
 demos/sandbox/
 demos/.demo-results.db
-docs/Vocab/
-test-logs/
-apps/ngi-apps/logs/
 logs
+test-logs/
 /notes/adrs
+/apps/internal-apps
+/apps/sandbox/
