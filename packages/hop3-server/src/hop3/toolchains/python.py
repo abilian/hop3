@@ -189,9 +189,15 @@ class PythonToolchain(LanguageToolchain):
 
         # Check for uv.lock first - if present, use uv for exact locked versions
         uv_lock_file = self.src_path / "uv.lock"
-        if uv_lock_file.exists() and self._has_uv():
-            self._install_with_uv()
-            return
+        if uv_lock_file.exists():
+            if self._ensure_uv_installed():
+                self._install_with_uv()
+                return
+            log(
+                "uv.lock found but uv installation failed, falling back to pip",
+                level=2,
+                fg="yellow",
+            )
 
         # Ensure pip and setuptools are up to date before installing dependencies
         # This is essential for existing virtualenvs that may lack setuptools
@@ -228,17 +234,92 @@ class PythonToolchain(LanguageToolchain):
         """Check if uv is available on the system."""
         return shutil.which("uv") is not None
 
+    def _ensure_uv_installed(self) -> bool:
+        """Ensure uv is installed, installing it if necessary.
+
+        Returns:
+            True if uv is available (was already installed or installation succeeded)
+            False if installation failed
+        """
+        if self._has_uv():
+            return True
+
+        log("Installing uv package manager...", level=2, fg="yellow")
+        try:
+            # Install uv using the official installer
+            result = subprocess.run(
+                ["sh", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh"],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                log(f"Failed to install uv: {result.stderr}", level=1, fg="red")
+                return False
+
+            # Verify installation - uv installs to ~/.local/bin by default
+            # We need to check common locations
+            uv_paths = [
+                Path.home() / ".local" / "bin" / "uv",
+                Path("/usr/local/bin/uv"),
+                Path.home() / ".cargo" / "bin" / "uv",
+            ]
+            for uv_path in uv_paths:
+                if uv_path.exists():
+                    log(f"uv installed successfully at {uv_path}", level=2, fg="green")
+                    return True
+
+            # Check if it's now in PATH
+            if self._has_uv():
+                log("uv installed successfully", level=2, fg="green")
+                return True
+
+            log("uv installation completed but binary not found", level=1, fg="red")
+            return False
+        except Exception as e:
+            log(f"Error installing uv: {e}", level=1, fg="red")
+            return False
+
+    def _find_uv_binary(self) -> str:
+        """Find the uv binary, checking common installation locations."""
+        # Check PATH first
+        uv_in_path = shutil.which("uv")
+        if uv_in_path:
+            return uv_in_path
+
+        # Check common installation locations
+        candidates = [
+            Path.home() / ".local" / "bin" / "uv",
+            Path.home() / ".cargo" / "bin" / "uv",
+            Path("/usr/local/bin/uv"),
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return str(candidate)
+
+        # Fallback - assume it's in PATH
+        return "uv"
+
     def _install_with_uv(self) -> None:
         """Install dependencies using uv sync for exact locked versions."""
-        log("Installing from uv.lock using uv sync", level=2, fg="green")
+        uv_bin = self._find_uv_binary()
+        log(f"Installing from uv.lock using {uv_bin} sync", level=2, fg="green")
         # uv sync installs exact versions from uv.lock into the virtualenv
         # --frozen ensures it uses lockfile exactly without updating it
+        # --reinstall forces reinstallation to ensure we get the locked versions
         # UV_PROJECT_ENVIRONMENT tells uv to use our existing virtualenv
         env = os.environ.copy()
         env["UV_PROJECT_ENVIRONMENT"] = str(self.virtual_env)
-        subprocess.run(
-            ["uv", "sync", "--frozen"],
+        result = subprocess.run(
+            [uv_bin, "sync", "--frozen", "--reinstall"],
             cwd=self.src_path,
             env=env,
-            check=True,
+            check=False,
+            capture_output=True,
+            text=True,
         )
+        if result.returncode != 0:
+            log(f"uv sync failed: {result.stderr}", level=1, fg="red")
+            raise subprocess.CalledProcessError(result.returncode, "uv sync")
+        if result.stdout:
+            log(result.stdout.strip(), level=2)
