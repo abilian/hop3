@@ -6,8 +6,8 @@ id = "hop3-docs"
 title = "Hop3 Documentation"
 description = "Official documentation for Hop3 PaaS"
 
-[deploy]
-strategy = "static"
+[build]
+toolchain = "static"
 
 [env]
 HOST_NAME = "hop3.cloud"
