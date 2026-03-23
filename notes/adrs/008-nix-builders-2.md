@@ -1,15 +1,27 @@
-# ADR 008: Creation of Nix Alternatives to Native Builders
+# ADR 008: Nix Expression Generation (Generation Mode)
 
-**Status**: Deferred
+**Status**: Deferred (Phase 3)
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-02-23
-**Related-ADRs**: 006, 007, 009, 030, 035
+**Updated**: 2026-03-23
+**Related-ADRs**: 006, 007, 009, 020, 022, 030, 031, 035
+**Depends-On**: ADR 006 Phase 1, ADR 007 Phase 2
 
 ## Revisions
 
 - v0.1: Initial draft (2024-07-17)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)
+- v0.3: Mark as Phase 3, pending earlier phases (2026-03-23)
+
+## Phase Status
+
+This ADR describes **Phase 3** of Nix integration. It is deferred until:
+- Phase 1 (hop3.nix support, ADR 006) is complete
+- Phase 2 (nixpkgs mode, ADR 007) is validated
+
+**Goal**: Auto-generate Nix expressions from project files (requirements.txt, package.json, etc.) using tools like dream2nix, poetry2nix, or nixpacks.
+
+**Pending Questions**: See `local-notes/nix-pending-questions.md` (Q4, Q5).
 
 ## Context & Goals
 

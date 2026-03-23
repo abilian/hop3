@@ -1,15 +1,16 @@
 # ADR 006: Nix Integration with Hop3
 
-**Status**: Deferred
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-02-23
-**Related-ADRs**: 007, 008, 009, 030, 032, 035
+**Updated**: 2026-03-23
+**Related-ADRs**: 007, 008, 009, 020, 022, 030, 031, 032, 035
 
 ## Revisions
 
 - v0.1: Initial draft (2024-07-17)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)
+- v0.3: Phased approach starting with hop3.nix; align with plugin architecture (2026-03-23)
 
 ## Context
 
@@ -19,30 +20,58 @@ To ensure deterministic, reproducible deployments and system configurations, int
 
 Integrating Nix into Hop3 will bridge the gap between reproducible builds and practical deployment needs. Hop3 will generate Nix configurations automatically when they don't exist, convert Heroku-like config files (e.g., Procfile, app.json), and enable easy contribution to the Nix ecosystem.
 
-### Architectural Context (Updated 2026-02)
+### Phased Implementation Approach (Updated 2026-03)
+
+We adopt an incremental approach, starting with the simplest case:
+
+| Phase | Scope | Status |
+|-------|-------|--------|
+| **Phase 1** | Projects with explicit `hop3.nix` file | Active |
+| **Phase 2** | Nixpkgs packages as Blueprints (ADR 007) | Deferred |
+| **Phase 3** | Auto-generation via dream2nix/nixpacks (ADR 008) | Deferred |
+| **Phase 4** | Full NixOS runtime integration (ADR 009) | Deferred |
+
+**Phase 1 Goal**: Support applications that provide their own `hop3.nix` file, proving the integration before expanding scope.
+
+### Architectural Context (Updated 2026-03)
 
 Since this ADR was written, Hop3 has adopted a **two-level build architecture** (ADR 030):
 
 - **Level 1 - Builders**: Orchestrate HOW to build (LocalBuilder, DockerBuilder, NixBuilder)
 - **Level 2 - LanguageToolchains**: Execute WHAT to build (PythonToolchain, NodeToolchain, etc.)
 
-**NixBuilder is a Level 1 Builder** that replaces native toolchains with Nix expressions. Unlike LocalBuilder (which delegates to LanguageToolchains), NixBuilder handles all languages through Nix's unified build system.
+**NixBuilder is a Level 1 Builder** that does NOT delegate to LanguageToolchains. Instead, all build logic is encapsulated in the Nix expression (`hop3.nix`).
 
-Additionally, Hop3 now uses **BuildArtifact with RuntimeConfig** (ADR 035) as the contract between build and run phases. This model aligns perfectly with Nix:
+```
+LocalBuilder                    NixBuilder
+    │                               │
+    ▼                               ▼
+┌─────────────────┐          ┌─────────────────┐
+│ PythonToolchain │          │ hop3.nix        │
+│ NodeToolchain   │          │ (user-provided) │
+│ RubyToolchain   │          │                 │
+└─────────────────┘          └─────────────────┘
+```
+
+Additionally, Hop3 uses **BuildArtifact with RuntimeConfig** (ADR 035) as the contract between build and run phases. This model aligns perfectly with Nix:
 
 - Nix computes all runtime paths (PATH, PYTHONPATH, etc.) at build time
 - These are stored in the BuildArtifact's `RuntimeConfig`
 - The run phase simply applies the artifact - no detection needed
 
-```
-NixBuilder.build() → BuildArtifact {
-    kind: "nix",
-    location: "/nix/store/abc123-myapp",
-    runtime: {
-        env_vars: { PATH, PYTHONPATH, ... },  // Fully resolved Nix store paths
-        workers: { "web": "/nix/store/.../bin/gunicorn" }
-    }
-}
+```python
+# NixBuilder.build() returns:
+BuildArtifact(
+    kind="nix",
+    builder="nix",
+    location="/nix/store/abc123-myapp",
+    runtime=RuntimeConfig(
+        env_vars={"PATH": "/nix/store/.../bin", "PYTHONPATH": "..."},
+        path_prepend=[],
+        working_dir="/nix/store/abc123-myapp",
+        workers={"web": "/nix/store/.../bin/gunicorn app:app"},
+    ),
+)
 ```
 
 ## Decision
@@ -51,24 +80,102 @@ Hop3 will integrate Nix to take advantage of its strengths in reproducible build
 
 ## Key Components
 
-1. **Nix Package for Hop3**:
+### Phase 1: hop3.nix Support (Current Focus)
 
-   - **Development**: Create a Nix package for Hop3 to ensure easy installation and management within the Nix ecosystem.
-   - **Distribution**: Support distribution across Unix and Unix-like systems and ensure generated configurations can be contributed back to the Nixpkgs repository.
+1. **hop3.nix File Format**:
 
-1. **Nix Builders for Existing Packages**:
+   A `hop3.nix` file in the application root defines how to build and run the app:
 
-   - **Compatibility**: Develop builder plugins for applications available in the nixpkgs repository, integrating these with Hop3's build process.
-   - **Automation**: Automatically generate Nix configurations for unsupported applications, leveraging existing configurations such as Heroku config files (Procfile, app.json) or Dockerfiles.
+   ```nix
+   # hop3.nix - minimal example
+   { pkgs ? import <nixpkgs> {} }:
+   {
+     # Required: the built package
+     package = pkgs.python3Packages.buildPythonApplication {
+       pname = "myapp";
+       version = "1.0.0";
+       src = ./.;
+       propagatedBuildInputs = with pkgs.python3Packages; [
+         flask
+         gunicorn
+       ];
+     };
 
-1. **Nix Alternatives to Native Builders**:
+     # Required: worker commands
+     workers = {
+       web = "gunicorn app:app --bind unix:$HOP3_SOCKET";
+     };
 
-   - **Uniform Build Environment**: Develop Nix-based alternatives to native build systems (e.g., pip, npm, Maven), ensuring uniformity in Hop3’s build and runtime environments.
-   - **Leverage Existing Tools**: Utilize and contribute to projects like dream2nix, Poetry2nix, or Nixpacks to streamline the process.
+     # Optional: additional environment variables
+     env = {
+       FLASK_ENV = "production";
+     };
+   }
+   ```
 
-1. **Optimization**:
+2. **NixBuilder Implementation**:
 
-   - **Performance**: Optimize Nix expressions for performance and resource usage (CPU, storage, network). Explore caching mechanisms to reduce build times and resource consumption.
+   ```python
+   # packages/hop3-server/src/hop3/plugins/build/nix/builder.py
+
+   @dataclass
+   class NixBuilder:
+       """Build applications with user-provided hop3.nix."""
+
+       name: str = "nix"
+       context: BuildContext
+
+       def accept(self) -> bool:
+           """Accept if hop3.nix exists."""
+           return (self.context.source_path / "hop3.nix").exists()
+
+       def build(self) -> BuildArtifact:
+           """Build using hop3.nix and extract RuntimeConfig."""
+           # 1. Run nix-build on hop3.nix
+           result = self._run_nix_build()
+
+           # 2. Extract runtime config from Nix output
+           runtime = self._extract_runtime_config(result)
+
+           # 3. Return BuildArtifact
+           return BuildArtifact(
+               kind="nix",
+               builder="nix",
+               app_name=self.context.app_name,
+               built_at=datetime.now().isoformat(),
+               build_id=result.nix_hash,
+               location=result.store_path,
+               runtime=runtime,
+               metadata={"nix_file": "hop3.nix"},
+           )
+   ```
+
+3. **Configuration**:
+
+   ```toml
+   # hop3.toml
+   [build]
+   method = "nix"
+
+   [build.nix]
+   file = "hop3.nix"  # Default, can override
+   pure = true        # Pure evaluation (recommended)
+   ```
+
+### Future Phases (Deferred)
+
+4. **Nixpkgs Integration** (Phase 2, ADR 007):
+   - Deploy pre-packaged applications from nixpkgs (Nextcloud, etc.)
+   - Map nixpkgs packages to Hop3 Blueprints
+
+5. **Auto-Generation** (Phase 3, ADR 008):
+   - Generate Nix expressions from requirements.txt, package.json, etc.
+   - Leverage dream2nix, poetry2nix, or nixpacks
+
+6. **Optimization** (Phase 4):
+   - Binary cache integration
+   - Closure size optimization
+   - Build parallelization
 
 ## Consequences
 
@@ -91,17 +198,42 @@ Hop3 will integrate Nix to take advantage of its strengths in reproducible build
 
 ## Action Items
 
-1. **Development**:
+### Phase 1: hop3.nix Support (M1.1)
 
-   - Create the initial Nix package for Hop3.
-   - Build and integrate Nix builders for existing packages, starting with low-complexity applications.
+1. **NixBuilder Plugin**:
+   - [ ] Create `NixBuilder` class implementing `Builder` protocol
+   - [ ] Implement `accept()` - check for `hop3.nix` existence
+   - [ ] Implement `build()` - run `nix-build` and extract RuntimeConfig
+   - [ ] Register via `NixBuildPlugin` with `get_builders()` hook
 
-1. **Optimization**:
+2. **hop3.nix Evaluation**:
+   - [ ] Define expected attributes (`package`, `workers`, `env`)
+   - [ ] Parse Nix output to extract store paths
+   - [ ] Map to `RuntimeConfig` structure
 
-   - Continuously refine Nix expressions for optimal performance.
-   - Develop Nix-based alternatives to native build tools and ensure seamless integration with Hop3's workflow.
+3. **Integration Testing**:
+   - [ ] Create sample Python app with hop3.nix
+   - [ ] Verify build produces correct BuildArtifact
+   - [ ] Test deployment via standard deployers (uWSGI, etc.)
 
-1. **Community Engagement**:
+4. **Documentation**:
+   - [ ] Document hop3.nix file format
+   - [ ] Create tutorial for Nix-based deployment
+   - [ ] Add troubleshooting guide
 
-   - Collaborate with the Nix community for feedback and support.
-   - Provide documentation and tutorials for both developers and users to adopt Nix effectively.
+### Future Phases (Deferred)
+
+5. **Phase 2** (ADR 007): Nixpkgs/Blueprint integration
+6. **Phase 3** (ADR 008): Auto-generation via dream2nix/nixpacks
+7. **Phase 4** (ADR 009): NixOS runtime integration
+
+See `local-notes/nix-pending-questions.md` for deferred decisions.
+
+## File Locations
+
+| Component | Path |
+|-----------|------|
+| NixBuilder | `packages/hop3-server/src/hop3/plugins/build/nix/builder.py` |
+| NixBuildPlugin | `packages/hop3-server/src/hop3/plugins/build/nix/plugin.py` |
+| Builder Protocol | `packages/hop3-server/src/hop3/core/protocols.py` |
+| LocalBuilder (reference) | `packages/hop3-server/src/hop3/plugins/build/local_build/builder.py` |
