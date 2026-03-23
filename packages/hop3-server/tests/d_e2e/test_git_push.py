@@ -227,7 +227,7 @@ class TestGitPushDeployment:
         # Verify source file content matches what we pushed
         result = container.exec_run(f"cat /home/hop3/apps/{app_name}/src/app.py")
         assert "Hello from git push" in result.output.decode(), (
-            f"Expected app code not found in deployed source"
+            "Expected app code not found in deployed source"
         )
 
     def test_git_push_updates_existing_app(
@@ -282,9 +282,7 @@ def index():
         )
 
         # Verify initial source was extracted
-        result = container.exec_run(
-            f"cat /home/hop3/apps/{app_name}/src/app.py"
-        )
+        result = container.exec_run(f"cat /home/hop3/apps/{app_name}/src/app.py")
         assert "Version 1" in result.output.decode(), (
             "Initial version not found in deployed source"
         )
@@ -334,9 +332,7 @@ def index():
         )
 
         # Verify updated source was extracted
-        result = container.exec_run(
-            f"cat /home/hop3/apps/{app_name}/src/app.py"
-        )
+        result = container.exec_run(f"cat /home/hop3/apps/{app_name}/src/app.py")
         assert "Version 2" in result.output.decode(), (
             "Updated version not found in deployed source"
         )
