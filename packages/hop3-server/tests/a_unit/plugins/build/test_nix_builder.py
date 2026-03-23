@@ -5,13 +5,16 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
 
 from hop3.core.protocols import BuildContext
 from hop3.plugins.build.nix.builder import NixBuilder
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture
@@ -94,7 +97,9 @@ class TestNixBuilderBuild:
         assert "web" in artifact.runtime.workers
         assert artifact.runtime.env_vars["FLASK_ENV"] == "production"
 
-    def test_build_missing_runtime_json(self, source_path: Path, tmp_path: Path) -> None:
+    def test_build_missing_runtime_json(
+        self, source_path: Path, tmp_path: Path
+    ) -> None:
         """Build fails if runtime.json is missing."""
         (source_path / "hop3.nix").write_text("{ pkgs }: {}")
 
@@ -106,7 +111,7 @@ class TestNixBuilderBuild:
         builder = NixBuilder(context)
 
         with patch.object(builder, "_nix_build", return_value=str(store_path)):
-            with pytest.raises(RuntimeError, match="runtime.json"):
+            with pytest.raises(RuntimeError, match=r"runtime\.json"):
                 builder.build()
 
 

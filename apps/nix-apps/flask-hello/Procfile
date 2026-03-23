@@ -1,1 +1,1 @@
-web: gunicorn app:app --bind unix:$HOP3_SOCKET
+web: gunicorn app:app --bind $BIND_ADDRESS:$PORT

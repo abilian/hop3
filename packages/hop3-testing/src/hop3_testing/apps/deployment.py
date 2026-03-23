@@ -169,6 +169,50 @@ class DeploymentSession:
             self.console.error(f"Deployment failed: {e}")
             raise DeploymentError(f"Deployment failed: {e}") from e
 
+    def _build_deploy_error_message(
+        self, returncode: int, stdout: str, stderr: str | None = None
+    ) -> str:
+        """Build detailed error message from deploy failure.
+
+        Args:
+            returncode: Exit code from the command
+            stdout: Standard output from the command
+            stderr: Standard error from the command (optional)
+
+        Returns:
+            Formatted error message string
+        """
+        error_parts = [f"Exit code: {returncode}"]
+        full_stdout = stdout.strip()
+
+        if full_stdout:
+            # For Docker build failures, show more output
+            is_docker_build = (
+                "Docker build failed" in full_stdout
+                or "docker build" in full_stdout.lower()
+            )
+            limit = 5000 if is_docker_build else 2000
+            stdout_preview = full_stdout[:limit]
+            if len(full_stdout) > limit:
+                stdout_preview += f"\n... (truncated, {len(full_stdout)} total chars)"
+            error_parts.append(f"stdout: {stdout_preview}")
+
+        if stderr:
+            full_stderr = stderr.strip()
+            if full_stderr:
+                # Filter out cryptography warnings
+                stderr_lines = [
+                    line for line in full_stderr.split("\n")
+                    if "CryptographyDeprecationWarning" not in line
+                    and "TripleDES" not in line
+                    and line.strip()
+                ]
+                if stderr_lines:
+                    stderr_preview = "\n".join(stderr_lines)[:2000]
+                    error_parts.append(f"stderr: {stderr_preview}")
+
+        return " | ".join(error_parts)
+
     def _deploy_via_cli(self) -> None:
         """Deploy via hop3 CLI subprocess.
 
@@ -229,29 +273,11 @@ class DeploymentSession:
                     self.console.debug(f"Deploy stderr: {' '.join(stderr_lines)}")
 
         if returncode != 0:
-            # Build detailed error message - show full output for debugging
-            error_parts = [f"Exit code: {returncode}"]
-            full_stdout = stdout.strip()
-
-            if full_stdout:
-                # For Docker build failures, we need the full output to diagnose
-                # Check if this is a Docker build failure
-                is_docker_build = "Docker build failed" in full_stdout or "docker build" in full_stdout.lower()
-
-                if is_docker_build:
-                    # Show full Docker build output (up to 5000 chars)
-                    stdout_preview = full_stdout[:5000]
-                    if len(full_stdout) > 5000:
-                        stdout_preview += f"\n... (truncated, {len(full_stdout)} total chars)"
-                else:
-                    # For other failures, show up to 2000 chars
-                    stdout_preview = full_stdout[:2000]
-                    if len(full_stdout) > 2000:
-                        stdout_preview += "..."
-
-                error_parts.append(f"stdout: {stdout_preview}")
-
-            self._last_deploy_error = " | ".join(error_parts) if len(error_parts) > 1 else "Deploy command failed (no output)"
+            # Get stderr for non-streaming mode
+            stderr = proc_result.stderr if not (verbose or debug) else None
+            self._last_deploy_error = self._build_deploy_error_message(
+                returncode, stdout, stderr
+            )
             self.console.error(f"Deploy failed: {self._last_deploy_error}")
             raise DeploymentError(self._last_deploy_error)
 

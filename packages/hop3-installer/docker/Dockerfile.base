@@ -6,6 +6,9 @@
 #
 # Build: docker build -f Dockerfile.base -t hop3-test:latest .
 # Run:   docker run -d --name hop3-test hop3-test:latest
+#
+# After hop3 installation, the container can be switched to supervisor mode
+# to manage services (nginx, uwsgi, hop3-server) like a real server.
 
 FROM ubuntu:24.04
 
@@ -43,8 +46,9 @@ RUN apt-get install -q -y --no-install-recommends \
     postgresql \
     postgresql-contrib
 
-# Layer 6: Utilities (cleanup)
+# Layer 6: Process management and utilities
 RUN apt-get install -q -y --no-install-recommends \
+    supervisor \
     procps \
     net-tools \
     iproute2 \
@@ -57,9 +61,17 @@ RUN mkdir -p /run/sshd
 # Note: hop3 user creation is handled by hop3-install server
 # The installer creates the user with proper UID/GID for the target system
 
-# Layer 8: Pre-create uwsgi log directory (owned by root initially,
-# installer will fix ownership after creating hop3 user)
-RUN mkdir -p /var/log/uwsgi
+# Layer 8: Pre-create directories for services
+RUN mkdir -p /var/log/uwsgi /var/log/supervisor
 
-# Keep container running
-CMD ["sleep", "infinity"]
+# Copy entrypoint script that handles both modes:
+# - "sleep" mode: for installer testing (default)
+# - "supervisor" mode: for running services after installation
+# Note: Path is relative to build context (project root)
+COPY packages/hop3-installer/docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Default to sleep mode for backwards compatibility
+ENV HOP3_DOCKER_MODE=sleep
+
+CMD ["/entrypoint.sh"]

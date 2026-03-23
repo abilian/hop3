@@ -180,3 +180,18 @@ class DeployBackend(ABC):
         Returns:
             URL string (e.g., http://192.168.1.100:8000)
         """
+
+    def start_services(self) -> None:
+        """Start services after installation.
+
+        For SSH targets, systemd handles services automatically.
+        For Docker targets, this starts supervisor to manage services.
+
+        The default implementation is a no-op since systemd handles services
+        on real servers. Docker backend overrides this to use supervisor.
+
+        Raises:
+            ServiceStartError: If services fail to start.
+        """
+        # No-op: systemd handles services on real servers
+        return
