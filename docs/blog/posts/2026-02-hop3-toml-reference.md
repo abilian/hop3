@@ -339,4 +339,4 @@ We generate a JSON Schema from our Pydantic models. VS Code with the "Even Bette
 
 Configuration is boring until it isn't. A well-designed config file saves hours of debugging. We've tried to make `hop3.toml` something you can read six months later and immediately understand.
 
-*See also: [Configuration Validation](2026-02-configuration-validation.md) explains how we catch typos and provide helpful error messages. For a practical walkthrough, check out [Your First Hop3 Deployment](2026-01-deploying-first-app.md).*
+*See also: [Configuration Validation](2026-03-configuration-validation.md) explains how we catch typos and provide helpful error messages. For a practical walkthrough, check out [Your First Hop3 Deployment](2026-02-deploying-first-app.md).*
