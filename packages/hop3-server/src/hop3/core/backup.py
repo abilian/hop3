@@ -302,7 +302,7 @@ class BackupManager:
             # Create new app
             app = App(name=app_name)
             self.app_repo.add(app, auto_commit=True)
-            app.create()  # Create directories
+            app.create(setup_git=True)  # Create directories and set up git
 
         # Stop app if running
         if app.is_running:

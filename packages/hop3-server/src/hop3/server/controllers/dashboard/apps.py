@@ -129,7 +129,7 @@ def _create_app(app_name: str, builder: str, env_vars: dict[str, str]) -> Redire
     """Create app and return redirect to detail page."""
     with get_session() as db_session:
         app = App(name=app_name)
-        app.create()
+        app.create(setup_git=True)
 
         for key, value in env_vars.items():
             env_var = EnvVar(name=key, value=value)

@@ -111,13 +111,12 @@ RUN useradd -m -s /bin/bash hop3 && \
     echo "hop3 ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
     usermod -a -G hop3 www-data
 
-# Setup SSH
+# Setup SSH - generate keys but don't add to authorized_keys yet
+# The authorized_keys will be set up by hop3-server setup:ssh with forced commands
 RUN mkdir -p /var/run/sshd && \
     mkdir -p /home/hop3/.ssh && \
     ssh-keygen -t rsa -b 2048 -f /home/hop3/.ssh/id_rsa -N "" && \
-    cat /home/hop3/.ssh/id_rsa.pub >> /home/hop3/.ssh/authorized_keys && \
     chmod 700 /home/hop3/.ssh && \
-    chmod 600 /home/hop3/.ssh/authorized_keys && \
     chown -R hop3:hop3 /home/hop3/.ssh
 
 # Configure SSH
@@ -172,6 +171,12 @@ RUN su - hop3 -c "export HOP3_SECRET_KEY='e2e-test-secret-key-do-not-use-in-prod
     export HOP3_DB_URL='sqlite:////home/hop3/hop3.db' && \
     export ACME_ENGINE='self-signed' && \
     ~/venv/bin/hop3-server setup"
+
+# Setup SSH authorized_keys with forced command for git push support
+# This creates the authorized_keys file with the forced command that routes
+# all SSH commands through hop3-server (including git-receive-pack)
+RUN su - hop3 -c "export HOP3_SECRET_KEY='e2e-test-secret-key-do-not-use-in-production' && \
+    ~/venv/bin/hop3-server setup:ssh ~/.ssh/id_rsa.pub"
 
 # Configure nginx to include hop3 configs
 RUN echo 'include /home/hop3/nginx/*.conf;' > /etc/nginx/sites-enabled/hop3 && \
