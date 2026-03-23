@@ -53,6 +53,7 @@ class Category(str, Enum):
 
     Determines how the test is executed:
     - deployment: Deploy an app and validate it works (test-apps)
+    - nix_app: Deploy a Nix-built app (apps/nix-apps)
     - docker_app: Deploy a Docker-based real app (apps/docker-apps)
     - native_app: Deploy a native uWSGI-based real app (apps/native-apps)
     - demo: Run a demo script or declarative demo
@@ -60,6 +61,7 @@ class Category(str, Enum):
     """
 
     DEPLOYMENT = "deployment"
+    NIX_APP = "nix-app"
     DOCKER_APP = "docker-app"
     NATIVE_APP = "native-app"
     DEMO = "demo"

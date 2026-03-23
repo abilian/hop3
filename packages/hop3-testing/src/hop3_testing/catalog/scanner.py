@@ -42,6 +42,7 @@ class Catalog:
     # Default scan paths relative to project root
     DEFAULT_SCAN_PATHS: ClassVar[list[str]] = [
         "apps/test-apps",
+        "apps/nix-apps",
         "apps/docker-apps",
         "apps/native-apps",
         "demos",

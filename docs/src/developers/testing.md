@@ -138,7 +138,7 @@ pytest packages/hop3-server/tests/d_e2e/ -v
 
 ### Test Apps Directory
 
-Test applications are located in `apps/test-apps/`:
+Test applications are located in `apps/test-apps/` and `apps/nix-apps/`:
 
 ```
 apps/test-apps/
@@ -150,6 +150,9 @@ apps/test-apps/
 ├── 100-flask-gunicorn-pip/    # Flask with Gunicorn
 ├── 110-flask-gunicorn-poetry/ # Flask with Poetry
 └── 130-golang-minimal/   # Minimal Go app
+
+apps/nix-apps/
+└── flask-hello/          # Flask app built with Nix
 ```
 
 ### Test Configuration (test.toml)
