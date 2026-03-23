@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import stat
 import subprocess
+from pathlib import Path
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
@@ -18,9 +19,48 @@ from hop3 import config as c
 from hop3.lib import log
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from hop3.orm import App
+
+
+def extract_app_name_from_repo_path(repo_path: str) -> str:
+    """Extract app name from git repository path.
+
+    This function handles various path formats that git may use when
+    running git-receive-pack or git-upload-pack via SSH.
+
+    Examples:
+        /home/hop3/apps/myapp/git → myapp
+        /home/hop3/apps/myapp/git/ → myapp
+        myapp.git → myapp
+        myapp → myapp
+        'myapp' → myapp (with quotes stripped)
+
+    Args:
+        repo_path: The repository path from SSH_ORIGINAL_COMMAND
+
+    Returns:
+        The extracted app name
+    """
+    # Strip quotes that git sometimes adds
+    repo_path = repo_path.strip().strip("'\"")
+
+    path = Path(repo_path)
+
+    # Handle /home/hop3/apps/<app>/git format
+    # The path might end with a trailing slash
+    if path.name == "git" and path.parent.parent.name == "apps":
+        return path.parent.name
+
+    # Handle empty path.name due to trailing slash
+    if not path.name and path.parent.name == "git":
+        return path.parent.parent.name
+
+    # Handle <app>.git format
+    if path.suffix == ".git":
+        return path.stem
+
+    # Handle plain <app> format
+    return path.name
 
 
 @frozen
@@ -42,7 +82,15 @@ class GitManager:
         path and runs the 'git-receive-pack' command with the repository
         path as an argument. It ensures that any incoming git pushes are
         processed appropriately.
+
+        If the bare repository doesn't exist yet, it will be initialized
+        automatically with the post-receive hook configured.
         """
+        # Lazy initialization: set up bare repo if it doesn't exist
+        if not (self.repo_path / "HEAD").exists():
+            log(f"Initializing bare repository for '{self.app_name}'", level=2)
+            self.setup_hook()
+
         cwd = self.app.repo_path
         cmd = ["git-receive-pack", str(self.repo_path)]
         subprocess.run(cmd, cwd=cwd, check=True)

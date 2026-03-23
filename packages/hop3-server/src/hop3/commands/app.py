@@ -126,7 +126,7 @@ class LaunchCmd(Command):
             return [error(f"App '{app_name}' already exists.")]
 
         app = App(name=app_name)
-        app.create()
+        app.create(setup_git=True)
         self.db_session.add(app)
         self.db_session.commit()
 
@@ -186,7 +186,7 @@ class DeployCmd(Command):
                 )
         except ValueError:
             app = App(name=app_name)
-            app.create()
+            app.create(setup_git=True)
             self.db_session.add(app)
             self.db_session.commit()
             server_log.info("Deploy: created new app", app_name=app_name, app_id=app.id)

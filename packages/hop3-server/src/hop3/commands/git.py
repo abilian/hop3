@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -14,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from hop3.core.git import GitManager
 from hop3.deployers import do_deploy
 from hop3.lib import log
 from hop3.lib.registry import register
@@ -21,7 +23,8 @@ from hop3.orm import App, AppRepository
 
 from ._base import Command
 from ._errors import command_context
-from ._response import error, text
+from ._helpers import get_app
+from ._response import error, success, text
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -170,3 +173,57 @@ class GitHookCmd(Command):
             level=2,
             fg="green",
         )
+
+
+@register
+@dataclass(frozen=True)
+class GitSetupCmd(Command):
+    """Set up git push deployment for an app.
+
+    This command initializes a bare git repository for the app and configures
+    the post-receive hook for automatic deployment. After running this, you can
+    deploy using `git push`.
+
+    Usage:
+        hop3 git:setup <app_name>
+
+    Example:
+        hop3 git:setup myapp
+        # Then on your local machine:
+        git remote add hop3 hop3@your-server:myapp
+        git push hop3 main
+    """
+
+    db_session: Session
+    name: ClassVar[str] = "git:setup"
+
+    def call(self, *args):
+        if not args:
+            msg = "Usage: hop3 git:setup <app_name>"
+            raise ValueError(msg)
+
+        app_name = args[0]
+
+        # Get the app from database
+        app = get_app(self.db_session, app_name)
+
+        # Set up git repository with hook
+        git_manager = GitManager(app)
+        git_manager.setup_hook()
+
+        # Get the hostname for the git URL
+        # Try to get the configured hostname first, fall back to socket hostname
+        hostname = app.hostname or socket.gethostname()
+
+        # Build the git remote URL
+        git_url = f"hop3@{hostname}:{app_name}"
+
+        return [
+            success(f"Git deployment enabled for '{app_name}'"),
+            text(""),
+            text("Add the remote to your local repository:"),
+            text(f"  git remote add hop3 {git_url}"),
+            text(""),
+            text("Then deploy with:"),
+            text("  git push hop3 main"),
+        ]

@@ -253,7 +253,7 @@ class MarketplaceController(Controller):
         # Create the app
         with get_session() as db_session:
             app = App(name=app_name)
-            app.create()  # Creates directories
+            app.create(setup_git=True)  # Creates directories and sets up git
 
             _copy_marketplace_source(marketplace_app, app)
             _parse_and_add_env_vars(app, data.get("env_vars", ""))

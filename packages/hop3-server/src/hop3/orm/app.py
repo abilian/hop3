@@ -130,7 +130,13 @@ class App(BigIntAuditBase):
             msg = f"Error: app '{self.name}' not found."
             raise Abort(msg)
 
-    def create(self) -> None:
+    def create(self, setup_git: bool = False) -> None:
+        """Create app directories and optionally set up git repository.
+
+        Args:
+            setup_git: If True, also initialize a bare git repository with
+                      post-receive hook for git push deployment.
+        """
         self.app_path.mkdir(exist_ok=True)
         # The data directory may already exist, since this may be
         # a full redeployment
@@ -138,9 +144,10 @@ class App(BigIntAuditBase):
         for path in [self.repo_path, self.src_path, self.data_path, self.log_path]:
             path.mkdir(exist_ok=True)
 
-        # log_path = LOG_ROOT / self.app_name
-        # if not log_path.exists():
-        #     os.makedirs(log_path)
+        if setup_git:
+            from hop3.core.git import GitManager  # noqa: PLC0415
+
+            GitManager(app=self).setup_hook()
 
     @property
     def is_running(self) -> bool:
