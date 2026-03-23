@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hop3_installer.common import ServiceStartError
 from hop3_installer.constants import (
     DEFAULT_ADMIN_EMAIL,
     HOP3_SERVER_BIN,
@@ -202,6 +203,52 @@ class Deployer:
 
         return True, step, local_path_on_server
 
+    def _start_docker_services(self, step: int) -> tuple[bool, int]:
+        """Start services in Docker via supervisor.
+
+        Returns:
+            Tuple of (success, updated_step_count).
+        """
+        if not self.config.use_docker:
+            return True, step
+
+        step += 1
+        self.log_step(step, "Starting services (supervisor)")
+        try:
+            self.backend.start_services()
+            self.log("Services started", "success")
+            return True, step
+        except ServiceStartError as e:
+            self.log(f"Failed to start services: {e}", "error")
+            return False, step
+
+    def _configure_admin_domain(self, step: int) -> tuple[bool, int]:
+        """Configure admin domain with nginx, SSL, and user.
+
+        Returns:
+            Tuple of (success, updated_step_count).
+        """
+        if not self.config.admin_domain:
+            return True, step
+
+        # Configure nginx
+        step += 1
+        self.log_step(step, "Configuring nginx for domain")
+        if not self._setup_admin_nginx(self.config.admin_domain):
+            return False, step
+
+        # Setup SSL certificate
+        step += 1
+        self.log_step(step, "Setting up SSL certificate")
+        self._setup_admin_ssl(self.config.admin_domain)
+
+        # Create admin user
+        step += 1
+        self.log_step(step, "Creating admin user")
+        self._create_admin_user()
+
+        return True, step
+
     def deploy(self) -> bool:
         """Run full deployment.
 
@@ -219,24 +266,15 @@ class Deployer:
             if not success:
                 return False
 
-            # Configure nginx for admin domain
-            if self.config.admin_domain:
-                step += 1
-                self.log_step(step, "Configuring nginx for domain")
-                if not self._setup_admin_nginx(self.config.admin_domain):
-                    return False
+            # Start services (supervisor in Docker, no-op for SSH/systemd)
+            success, step = self._start_docker_services(step)
+            if not success:
+                return False
 
-            # Setup SSL certificate
-            if self.config.admin_domain:
-                step += 1
-                self.log_step(step, "Setting up SSL certificate")
-                self._setup_admin_ssl(self.config.admin_domain)
-
-            # Create admin user
-            if self.config.admin_domain:
-                step += 1
-                self.log_step(step, "Creating admin user")
-                self._create_admin_user()
+            # Configure admin domain (nginx, SSL, user)
+            success, step = self._configure_admin_domain(step)
+            if not success:
+                return False
 
             # Setup CLI
             if not self.config.no_cli_setup:

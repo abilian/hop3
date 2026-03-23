@@ -49,6 +49,8 @@ class UWSGIDeployer:
             "dotnet",
             "elixir",
             "generic",  # Pre-built binaries or custom build apps
+            # Nix builder
+            "nix",
             # Legacy/compatibility
             "buildpack",
             "virtualenv",  # Legacy Python artifact kind

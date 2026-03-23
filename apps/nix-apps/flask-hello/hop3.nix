@@ -47,7 +47,7 @@ EOF
       cat > $out/hop3/runtime.json << EOF
 {
   "workers": {
-    "web": "$out/bin/flask-hello --bind unix:\$HOP3_SOCKET --chdir $out/app"
+    "web": "$out/bin/flask-hello --bind \$BIND_ADDRESS:\$PORT --chdir $out/app"
   },
   "env": {
     "FLASK_ENV": "production",
