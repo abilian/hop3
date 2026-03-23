@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-23
+
+This is a major release that transforms Hop3 from a deployment script into a complete self-hosted PaaS. It includes all changes from the 0.4.0 beta series.
+
+### Highlights
+
+- **Client-Server Architecture**: Manage servers remotely from your laptop or CI
+- **Multi-Language Support**: Python, Node.js, Ruby, Go, Rust, PHP, Java, Clojure, static sites
+- **Database Addons**: PostgreSQL, MySQL, Redis with encrypted credentials
+- **Automatic SSL**: Let's Encrypt integration with auto-renewal
+- **Multi-Distribution**: Ubuntu, Debian, Fedora, Rocky Linux, AlmaLinux
+- **Configuration Validation**: Catch typos in hop3.toml with helpful suggestions
+- **Security Audit**: Command injection fixes, session hardening, token validation
+
+See beta release notes below for the complete changelog.
+
+---
+
+## [0.4.0b8] - 2026-03-23
+
+### Added
+
+- **Git Push Deployment (Preview)**: Initial support for `git push hop3 main` deployment workflow
+- **Internal Security Audit**: Comprehensive audit with public report in `notes/security-audit-2026-03.md`
+
+### Changed
+
+- **Shell Command Execution**: Replaced `shell=True` with list-based subprocess calls for security
+- **Session Lifetime**: Reduced default from 14 days to 24 hours
+- **JWT Secrets**: Enforced minimum 32-byte key length per RFC 7518
+- **Bearer Token**: Fixed case-sensitivity per RFC 7235
+
+### Fixed
+
+- **Command Injection**: Fixed critical vulnerability in OS plugins and platform utilities
+- **Before-Build Parsing**: Commands with `&&` are now properly executed sequentially
+- **Type Checker Compatibility**: Fixed errors across pyrefly, mypy, and ruff
+
 ## [0.4.0b7] - 2026-03-16
 
 ### Added
@@ -265,13 +303,14 @@ Initial release establishing Hop3's core architecture.
 - Established core class-based architecture
 - Major refactoring for better structure and typing
 
-[Unreleased]: https://github.com/abilian/hop3/compare/v0.4.0b7...HEAD
+[Unreleased]: https://github.com/abilian/hop3/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/abilian/hop3/compare/v0.4.0b8...v0.4.0
+[0.4.0b8]: https://github.com/abilian/hop3/compare/v0.4.0b7...v0.4.0b8
 [0.4.0b7]: https://github.com/abilian/hop3/compare/v0.4.0b6...v0.4.0b7
 [0.4.0b6]: https://github.com/abilian/hop3/compare/v0.4.0b5...v0.4.0b6
 [0.4.0b5]: https://github.com/abilian/hop3/compare/v0.4.0b4...v0.4.0b5
 [0.4.0b4]: https://github.com/abilian/hop3/compare/v0.4.0b3...v0.4.0b4
 [0.4.0b3]: https://github.com/abilian/hop3/compare/v0.3.0...v0.4.0b3
-[0.4.0]: https://github.com/abilian/hop3/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/abilian/hop3/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/abilian/hop3/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/abilian/hop3/compare/v0.2.0...v0.2.1

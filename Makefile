@@ -348,7 +348,7 @@ doc-serve:
 doc-deploy:
 	@echo "--> Deploying documentation"
 	make doc
-	rsync -e ssh -avz docs/site/ root@hop3.cloud:/var/www/hop3.cloud/
+	cd docs && hop3 deploy hop3-doc
 
 #
 # Cleanup
