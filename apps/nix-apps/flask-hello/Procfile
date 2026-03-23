@@ -1,0 +1,1 @@
+web: gunicorn app:app --bind unix:$HOP3_SOCKET
