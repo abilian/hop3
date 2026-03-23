@@ -169,4 +169,4 @@ Hop3 development is supported by [NGI Zero](https://nlnet.nl/NGI0/) through the 
 
 ---
 
-*Ready to try Hop3? Check out our [first deployment tutorial](2026-01-deploying-first-app.md) or jump straight to the [Installation instructions](/get-started/installation/). To understand our motivation, read [Why We're Building Hop3](2026-01-why-hop3.md).*
+*Ready to try Hop3? Check out our [first deployment tutorial](2026-02-deploying-first-app.md) or jump straight to the [Installation instructions](/get-started/installation/). To understand our motivation, read [Why We're Building Hop3](2026-01-why-hop3.md).*

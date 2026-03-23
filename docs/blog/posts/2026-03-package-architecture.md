@@ -260,4 +260,4 @@ Each package has its own README explaining its purpose.
 
 ---
 
-*Related: [Hop3's Plugin Architecture](2026-01-plugin-architecture.md) explains how we use Pluggy for extensibility. For more documentation, see the [Architecture Guide](/developers/architecture/).*
+*Related: [Hop3's Plugin Architecture](2026-03-plugin-architecture.md) explains how we use Pluggy for extensibility. For more documentation, see the [Architecture Guide](/developers/architecture/).*

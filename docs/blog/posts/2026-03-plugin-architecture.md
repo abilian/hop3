@@ -270,4 +270,4 @@ class MyPlugin:
 
 ---
 
-*Related posts: [Package Architecture](2026-01-package-architecture.md) explains how we split Hop3 into focused packages. [The BuildArtifact Pattern](2026-02-build-artifact-pattern.md) shows how plugins produce portable build artifacts. For plugin development, see the [Plugin Development Guide](/developers/plugin-development/).*
+*Related posts: [Package Architecture](2026-03-package-architecture.md) explains how we split Hop3 into focused packages. [The BuildArtifact Pattern](2026-03-build-artifact-pattern.md) shows how plugins produce portable build artifacts. For plugin development, see the [Plugin Development Guide](/developers/plugin-development/).*

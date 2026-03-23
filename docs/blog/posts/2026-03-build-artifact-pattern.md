@@ -325,4 +325,4 @@ This lets existing deployments continue working while new deployments use proper
 
 ---
 
-*Related: [Plugin Architecture](2026-01-plugin-architecture.md) explains how toolchains and deployers are structured. For the full details, see [ADR 035: Build Artifacts](/adrs/035-build-artifacts/) and the [Build System documentation](/developers/build-system/).*
+*Related: [Plugin Architecture](2026-03-plugin-architecture.md) explains how toolchains and deployers are structured. For the full details, see [ADR 035: Build Artifacts](/adrs/035-build-artifacts/) and the [Build System documentation](/developers/build-system/).*
