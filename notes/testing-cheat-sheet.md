@@ -281,6 +281,9 @@ apps/test-apps/          # Test applications
 ├── 100-flask-gunicorn-pip/
 ├── 110-flask-gunicorn-poetry/
 └── 130-golang-minimal/
+
+apps/nix-apps/           # Nix-based test applications
+└── flask-hello/
 ```
 
 ## Test Configuration (test.toml)

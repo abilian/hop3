@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -13,13 +14,29 @@ from hop3_testing.apps import DeploymentSession
 from hop3_testing.apps.catalog import AppSource
 from hop3_testing.exceptions import DeploymentError
 
-# Get all test apps from apps/test-apps/
-APPS_DIR = Path(__file__).parents[4] / "apps" / "test-apps"
-TEST_APPS = [
-    pytest.param(app_dir, id=app_dir.name)
-    for app_dir in sorted(APPS_DIR.iterdir())
-    if app_dir.is_dir() and not app_dir.name.startswith(".")
-]
+# Get all test apps from apps/test-apps/ and apps/nix-apps/
+APPS_ROOT = Path(__file__).parents[4] / "apps"
+TEST_APPS_DIR = APPS_ROOT / "test-apps"
+NIX_APPS_DIR = APPS_ROOT / "nix-apps"
+
+# Apps that require nix (from nix-apps directory)
+NIX_APP_NAMES: set[str] = set()
+
+
+def _collect_apps(app_dir: Path, is_nix: bool = False) -> list:
+    """Collect test apps from a directory."""
+    if not app_dir.exists():
+        return []
+    apps = []
+    for d in sorted(app_dir.iterdir()):
+        if d.is_dir() and not d.name.startswith("."):
+            if is_nix:
+                NIX_APP_NAMES.add(d.name)
+            apps.append(pytest.param(d, id=d.name))
+    return apps
+
+
+TEST_APPS = _collect_apps(TEST_APPS_DIR) + _collect_apps(NIX_APPS_DIR, is_nix=True)
 
 # Network error patterns that indicate infrastructure issues, not code bugs
 NETWORK_ERROR_PATTERNS = [
@@ -38,8 +55,8 @@ def _is_network_error(error_message: str) -> bool:
 
 @pytest.mark.e2e
 @pytest.mark.parametrize("app_dir", TEST_APPS)
-def test_app_deployment(app_dir: Path, deployment_target):
-    """Test deployment of an application from apps/test-apps/."""
+def test_app_deployment(app_dir: Path, deployment_target, request):
+    """Test deployment of an application from apps/test-apps/ or apps/nix-apps/."""
     app_name = app_dir.name
 
     # FIXME later
@@ -51,6 +68,12 @@ def test_app_deployment(app_dir: Path, deployment_target):
     # Needs investigation - might be related to working directory or PYTHONPATH
     if app_name == "110-flask-gunicorn-poetry":
         pytest.skip("pyproject.toml deployment needs investigation")
+
+    # Nix apps require --run-nix flag or NIX_TESTS=1 environment variable
+    if app_name in NIX_APP_NAMES:
+        run_nix = request.config.getoption("--run-nix", default=False)
+        if not run_nix and os.environ.get("NIX_TESTS") != "1":
+            pytest.skip("Nix app - use --run-nix or NIX_TESTS=1 to enable")
 
     app = AppSource(name=app_name, path=app_dir)
     with DeploymentSession(app, deployment_target) as session:
