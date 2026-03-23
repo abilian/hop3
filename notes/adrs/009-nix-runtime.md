@@ -1,15 +1,36 @@
-# ADR 009: Using Nix as a Runtime Isolation Mechanism
+# ADR 009: Nix Runtime Integration
 
-**Status**: Deferred
+**Status**: Deferred (Phase 4)
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-02-23
-**Related-ADRs**: 006, 007, 008, 032, 035
+**Updated**: 2026-03-23
+**Related-ADRs**: 006, 007, 008, 020, 022, 023, 030, 031, 032, 035
+**Depends-On**: ADR 006 Phases 1-3
 
 ## Revisions
 
 - v0.1: Initial draft (2024-07-17)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)
+- v0.3: Mark as Phase 4; note interaction with ADR 023 runtime stack (2026-03-23)
+
+## Phase Status
+
+This ADR describes **Phase 4** of Nix integration (advanced runtime features). It is deferred until earlier phases are complete.
+
+**Note**: Basic runtime support (running Nix-built apps via standard ProcessManager) is included in Phase 1 (ADR 006). This ADR covers advanced topics:
+- Full NixOS module generation
+- Nix-managed backing services
+- NixOS-native systemd integration
+
+**Pending Questions**: See `local-notes/nix-pending-questions.md` (Q6, Q7).
+
+### Interaction with ADR 023 (Runtime Stack Replacement)
+
+Phase 1 Nix support must work with both:
+- **Current stack**: uWSGI + nginx + supervisor
+- **Proposed stack** (ADR 023): Granian + Caddy + ProcessManager
+
+The `BuildArtifact.runtime` field provides this abstraction - the run phase reads the artifact and starts the app without knowing how it was built.
 
 ## Context and Goals
 
