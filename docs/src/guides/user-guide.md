@@ -498,9 +498,10 @@ export HOP3_DEBUG=1
 
 - **[Quickstart](../get-started/quickstart.md)** - Step-by-step first deployment tutorial
 - **[Domains and Hostnames](domains.md)** - Configure custom domains and SSL certificates
+- **[Backup and Restore](backup-restore.md)** - Comprehensive backup documentation
 - **[CLI Reference](../reference/cli.md)** - Complete command documentation
-- **[Migration Guide](migration-guide.md)** - Detailed platform migration guides
 - **[hop3.toml Reference](../reference/config.md)** - Full configuration file reference
+- **[Troubleshooting](troubleshooting.md)** - Diagnose and fix common issues
 - **[FAQ](faq.md)** - Frequently asked questions
 
 For help at any time:

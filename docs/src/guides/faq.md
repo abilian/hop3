@@ -68,105 +68,38 @@ While uWSGI has served Hop3 well, future versions of Hop3 will propose alternati
 
 More notes about uWSGI: <https://github.com/abilian/books/blob/main/uwsgi/README.md>
 
-## Backup and Restore
-
-For comprehensive backup documentation, see the **[Backup and Restore Guide](backup-restore.md)**.
-
-**Q: How do I backup and restore my applications?**
-
-**A:** Use the backup commands:
-
-```bash
-# Create backup
-hop3 backup:create <app-name>
-
-# List backups
-hop3 backup:list <app-name>
-
-# Restore from backup
-hop3 backup:restore <backup-id>
-hop3 app:restart <app-name>
-```
-
-Backups include source code, data, environment variables, and attached services. See the [Backup and Restore Guide](backup-restore.md) for complete details.
-
-**Q: Can I clone an application using backups?**
-
-**A:** Yes, restore to a different app name:
-
-```bash
-hop3 backup:restore <backup-id> --target-app <new-app-name>
-```
-
-**Q: Is remote storage or encryption supported?**
-
-**A:** Currently backups are stored locally in `/var/hop3/backups/` without encryption. Remote storage (S3, B2) and encryption are planned for future releases. For now, use tools like `rsync` or `rclone` for off-server copies.
-
 ## Troubleshooting
+
+For comprehensive troubleshooting, see the **[Troubleshooting Guide](troubleshooting.md)**.
 
 **Q: My deployment failed. How do I see what went wrong?**
 
-**A:** Hop3 provides several ways to debug deployment issues:
-
-1. **View build logs during deployment** - Use the `-v` (verbose) or `--debug` flag:
-   ```bash
-   hop3 deploy myapp -v       # Show Docker build output
-   hop3 deploy myapp --debug  # Maximum verbosity
-   ```
-
-2. **View stored build logs after deployment** - Build logs are saved automatically:
-   ```bash
-   hop3 app:build-logs myapp
-   ```
-
-3. **Check application logs** - For runtime errors after successful builds:
-   ```bash
-   hop3 app:logs myapp
-   ```
-
-4. **Check server logs** - For persistent debugging information, check `/home/hop3/log/server.log` on the server.
-
-**Q: My Docker-based app returns 502 Bad Gateway. How do I debug this?**
-
-**A:** A 502 error typically means nginx can't connect to your application. Here's how to diagnose:
-
-1. **Check the build succeeded** - View build logs to ensure the image was created:
-   ```bash
-   hop3 app:build-logs myapp
-   ```
-
-2. **Check the container is running** - Verify the container started:
-   ```bash
-   hop3 app:status myapp
-   ```
-
-3. **Check application logs** - Look for startup errors:
-   ```bash
-   hop3 app:logs myapp
-   ```
-
-4. **Verify the port** - Ensure your app listens on the correct port (usually 8080 for Docker apps).
-
-5. **Test locally first** - Build and run your Docker image locally to verify it works:
-   ```bash
-   docker build -t myapp .
-   docker run -p 8080:8080 myapp
-   curl http://localhost:8080
-   ```
-
-**Q: How do I see detailed output when running demos?**
-
-**A:** The demo launcher supports verbose and debug modes:
+**A:** Use verbose mode and check logs:
 
 ```bash
-# Normal mode - standard output
-python demos/demo.py --host HOST demo1
-
-# Verbose mode - shows Docker build output
-python demos/demo.py --host HOST -v demo1
-
-# Debug mode - maximum verbosity
-python demos/demo.py --host HOST --debug demo1
+hop3 deploy myapp -v          # Verbose output during deploy
+hop3 app:build-logs myapp     # View build logs after deploy
+hop3 app:logs myapp           # View runtime logs
 ```
 
-In verbose/debug mode, hop3 commands will show Docker build progress, container logs, and detailed error messages.
+See [Deployment Issues](troubleshooting.md#deployment-issues) for detailed diagnosis steps.
+
+**Q: My app returns 502 Bad Gateway. How do I debug this?**
+
+**A:** Check that your app is running and listening on the correct port:
+
+```bash
+hop3 app:status myapp         # Check app state
+hop3 app:logs myapp           # Look for startup errors
+```
+
+See [502 Bad Gateway](troubleshooting.md#502-bad-gateway) in the Troubleshooting Guide for common causes and solutions.
+
+**Q: How do I see detailed output when deploying?**
+
+**A:** Use the `-v` (verbose) or `--debug` flags:
+
+```bash
+hop3 deploy myapp -v          # Verbose mode
+hop3 deploy myapp --debug     # Maximum verbosity
+```
