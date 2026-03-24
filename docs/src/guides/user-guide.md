@@ -125,11 +125,8 @@ Optional configuration file for advanced settings. Provides more control than Pr
 [metadata]
 id = "myapp"
 version = "1.0.0"
-title = "My Application"
-description = "A sample application"
 
 [build]
-# Use the local builder - language toolchain is auto-detected
 builder = "local"
 
 [run]
@@ -138,43 +135,18 @@ before-run = "python manage.py migrate"
 
 [env]
 DEBUG = "false"
-LOG_LEVEL = "info"
-
-[port.web]
-container = 8000
-public = true
-
-[static]
-"/static" = "static/"
-"/media" = "media/"
 
 [healthcheck]
 path = "/health/"
-interval = 60
 ```
+
+**Key sections:** `[metadata]`, `[build]`, `[run]`, `[env]`, `[port]`, `[healthcheck]`, `[backup]`, `[[provider]]`
+
+For complete documentation of all options, see the **[hop3.toml Reference](../reference/config.md)**.
 
 ### Using Both Together
 
-You can use both Procfile and hop3.toml. Hop3 merges them with `hop3.toml` taking precedence:
-
-```procfile
-# Procfile - process definitions
-web: gunicorn app:app
-worker: celery worker
-```
-
-```toml
-# hop3.toml - advanced configuration
-[metadata]
-id = "myapp"
-
-[build]
-before-build = "pip install -r requirements.txt"
-
-[healthcheck]
-path = "/health/"
-interval = 60
-```
+You can use both Procfile and hop3.toml. Hop3 merges them with `hop3.toml` taking precedence for conflicting values.
 
 ---
 
@@ -289,22 +261,13 @@ hop3 addons:destroy myapp-db
 ### Backups
 
 ```bash
-# Create a backup
-hop3 backup:create myapp --description "Before upgrade"
-
-# List backups
-hop3 backup:list myapp
-
-# Get backup details
-hop3 backup:info backup-myapp-20251112-143022
-
-# Restore from backup
-hop3 backup:restore backup-myapp-20251112-143022
-hop3 app:restart myapp
-
-# Delete a backup
-hop3 backup:delete backup-myapp-20251112-143022
+hop3 backup:create myapp     # Create backup
+hop3 backup:list myapp       # List backups
+hop3 backup:restore <id>     # Restore from backup
+hop3 app:restart myapp       # Restart after restore
 ```
+
+For complete backup documentation, see the **[Backup and Restore Guide](backup-restore.md)**.
 
 ### System Administration
 
