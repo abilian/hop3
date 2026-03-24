@@ -6,7 +6,7 @@ This guide walks you through deploying a Pyramid application on Hop3. Pyramid is
 
 Before you begin, ensure you have:
 
-1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/server-setup.md)
+1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/installation.md)
 2. **The Hop3 CLI** - Installed on your local machine
 3. **Python 3.10+** - Install from [python.org](https://www.python.org/)
 4. **Git** - For version control and deployment

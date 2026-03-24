@@ -291,6 +291,7 @@ def main() -> None:
 
     print("\nGenerating index.md...")
     index_content = generate_index_md(posts)
+    INDEX_FILE.parent.mkdir(parents=True, exist_ok=True)
     INDEX_FILE.write_text(index_content)
     print(f"Written to {INDEX_FILE}")
 
