@@ -2,24 +2,23 @@
 
 **Last Updated**: 2026-02-17
 
-## Test Counts
+## Test Summary
 
-| Layer | Tests | Status |
-|-------|-------|--------|
-| Unit (`a_unit/`) | 361 | Passing |
-| Integration (`b_integration/`) | 247 | Passing |
-| System (`c_system/`) | 13 | Passing |
-| E2E (`d_e2e/`) | 17 | 7 passing, 1 skipped |
-| **Total** | **638** | |
+| Layer | Status |
+|-------|--------|
+| Unit (`a_unit/`) | Passing |
+| Integration (`b_integration/`) | Passing |
+| System (`c_system/`) | Passing |
+| E2E (`d_e2e/`) | 9 apps passing, 1 skipped |
 
 ## Test Structure
 
 ```
 packages/hop3-server/tests/
-├── a_unit/              # Layer 1: Unit Tests (~361 tests)
-├── b_integration/       # Layer 2: Integration Tests (~247 tests)
-├── c_system/            # Layer 3: System Tests (~13 tests)
-└── d_e2e/               # Layer 4: End-to-End Tests (~17 tests)
+├── a_unit/              # Layer 1: Unit Tests
+├── b_integration/       # Layer 2: Integration Tests
+├── c_system/            # Layer 3: System Tests
+└── d_e2e/               # Layer 4: End-to-End Tests
 ```
 
 ## Test Pyramid
@@ -28,7 +27,7 @@ packages/hop3-server/tests/
 
 **Purpose**: Test individual functions and classes in isolation
 
-**Status**: Passing (361 tests)
+**Status**: Passing
 - Fast execution (< 1 second total)
 - No external dependencies
 - Good coverage of commands, ORM, plugins
@@ -44,7 +43,7 @@ packages/hop3-server/tests/
 
 **Purpose**: Test multiple components working together
 
-**Status**: Passing (247 tests)
+**Status**: Passing
 - Medium execution time (~10 seconds)
 - Uses real database (in-memory SQLite)
 - Uses Litestar TestClient
@@ -60,7 +59,7 @@ packages/hop3-server/tests/
 
 **Purpose**: Test full CLI-server communication in Docker
 
-**Status**: Passing (13 tests)
+**Status**: Passing
 - Requires Docker
 - Uses `HOP3_UNSAFE=true` for auth bypass in tests
 - Tests real HTTP communication
@@ -85,10 +84,12 @@ packages/hop3-server/tests/
 | 000-static | Passing |
 | 010-flask-pip-wsgi | Passing |
 | 020-nodejs-express | Passing |
-| 030-golang-gin | Passing |
+| 030-golang-gin | Skipped (under investigation) |
+| 030-rack | Passing |
 | 040-sinatra | Passing |
+| 050-clojure | Passing |
 | 100-flask-gunicorn-pip | Passing |
-| 110-flask-gunicorn-poetry | Skipped (under investigation) |
+| 120-flask-pip-alt | Passing |
 | 130-golang-minimal | Passing |
 
 ## Test Execution Times
@@ -118,7 +119,7 @@ uv run pytest packages/hop3-server/tests/d_e2e
 
 ## Known Issues
 
-1. **Poetry test app** (`110-flask-gunicorn-poetry`): 502 Bad Gateway with `pip install .`. Gunicorn starts but fails to find app module. Under investigation.
+1. **Go Gin app** (`030-golang-gin`): Skipped, under investigation.
 
 2. **MySQL SSL with Rails**: Deferred. Demo44 (Rails) switched to PostgreSQL.
 

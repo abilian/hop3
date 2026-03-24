@@ -258,10 +258,10 @@ open htmlcov/index.html
 
 ```
 packages/hop3-server/tests/
-├── a_unit/          # Fast, isolated tests (~361)
-├── b_integration/   # Component interaction tests (~247)
-├── c_system/        # Docker-based system tests (~13)
-└── d_e2e/           # Full deployment tests (~17)
+├── a_unit/          # Fast, isolated tests
+├── b_integration/   # Component interaction tests
+├── c_system/        # Docker-based system tests
+└── d_e2e/           # Full deployment tests
 
 packages/hop3-testing/    # Test framework
 ├── src/hop3_testing/
@@ -276,10 +276,12 @@ apps/test-apps/          # Test applications
 ├── 000-static/
 ├── 010-flask-pip-wsgi/
 ├── 020-nodejs-express/
-├── 030-golang-gin/
+├── 030-golang-gin/       # Skipped
+├── 030-rack/
 ├── 040-sinatra/
+├── 050-clojure/
 ├── 100-flask-gunicorn-pip/
-├── 110-flask-gunicorn-poetry/
+├── 120-flask-pip-alt/
 └── 130-golang-minimal/
 ```
 
