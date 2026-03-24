@@ -46,15 +46,17 @@ sudo python3 install-server.py
 ### Installation Options
 
 ```bash
-# Install with optional services
+# Install with optional services (mysql, redis, docker, or all)
 sudo python3 install-server.py --with mysql,redis
 
-# Install all optional services
+# Install all optional features
 sudo python3 install-server.py --with all
 
-# Specify admin domain for web UI
-sudo python3 install-server.py --admin-domain admin.example.com
+# Specify domain for Let's Encrypt certificate
+sudo python3 install-server.py --domain hop3.example.com
 ```
+
+See the [Server Setup Guide](../get-started/server-setup.md) for complete installation options.
 
 ### Post-Installation Verification
 
