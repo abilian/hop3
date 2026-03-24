@@ -438,7 +438,7 @@ show_clock = true
 | Command interface | Done | 13 commands implemented with tab completion |
 | System status | Done | CPU, memory, disk with progress bars |
 | Configuration | Done | TOML file + environment variables + CLI config fallback |
-| Tests | Done | 167 tests passing |
+| Tests | Done | Tests passing |
 
 ### Phase 2 Features - IMPLEMENTED
 

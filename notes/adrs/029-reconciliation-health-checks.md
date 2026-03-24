@@ -1175,7 +1175,6 @@ Run watchdog as separate systemd service instead of in-process.
 - **ADR 017**: Agent-Based Architecture (future distributed version)
 - **ADR 020**: Pluggable Architecture (strategy patterns used here)
 - **ADR 027**: Config System Refactoring (Dishka DI integration)
-- `local-notes/orchestrator-comparison.md`: Analysis that motivated this ADR
 
 ## References
 
