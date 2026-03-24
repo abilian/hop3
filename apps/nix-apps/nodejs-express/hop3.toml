@@ -1,0 +1,4 @@
+# hop3.toml - Hop3 configuration for Nix-based Node.js app
+
+[build]
+builder = "nix"

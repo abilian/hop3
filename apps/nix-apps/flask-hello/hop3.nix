@@ -20,6 +20,9 @@ let
   app = pkgs.stdenv.mkDerivation {
     pname = "flask-hello";
     version = "0.1.0";
+    meta = {
+      description = "Simple Flask hello world for Hop3 Nix integration";
+    };
 
     src = ./.;
 
@@ -61,9 +64,6 @@ EOF
 EOF
     '';
 
-    meta = {
-      description = "Simple Flask hello world for Hop3 Nix integration";
-    };
   };
 
 in
