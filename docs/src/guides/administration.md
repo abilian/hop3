@@ -144,31 +144,44 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ### Creating Admin Users
 
+The recommended way to create an admin user is from your workstation:
+
 ```bash
-# Create admin user interactively
-hop3 admin:create
+hop3 init --ssh root@your-server.com
+```
 
-# Create admin with specified username
-hop3 admin:create --username admin
+This connects via SSH, prompts for admin credentials, and saves your API token locally.
 
-# Create with password from stdin (for scripts)
-echo "password123" | hop3 admin:create --username admin --password-stdin
+**Alternative: Server-side creation**
+
+If you need to create users directly on the server:
+
+```bash
+ssh root@your-server.com
+hop3-server admin:create admin admin@example.com
+# Enter password when prompted
+```
+
+Then configure your local CLI:
+```bash
+hop3 settings set server https://your-server.com
+hop3 settings set token <paste-token-here>
 ```
 
 ### Generating API Tokens
 
 ```bash
-# Generate token for automation
-hop3 admin:token --username admin
+# Generate token for automation (run on server)
+hop3-server admin:token --username admin
 
 # Token with custom expiry (hours)
-hop3 admin:token --username admin --expiry 168
+hop3-server admin:token --username admin --expiry 168
 ```
 
 ### Listing Users
 
 ```bash
-hop3 admin:list
+hop3 admin:user:list
 ```
 
 ---
