@@ -321,7 +321,7 @@ curl http://localhost:$(hop3 config:get internal-api PORT)
 
 5. **Monitor certificate expiry**: While Hop3 handles renewal, monitor for failures in production.
 
-## See Also
+## Related Guides
 
 - [User Guide](user-guide.md) - General application deployment
 - [Configuration Reference](../reference/config.md) - hop3.toml options

@@ -240,9 +240,6 @@ hop3 init --ssh root@your-server.example.com
 
 ### Deploy
 
-<!-- TODO: Litestar deployment needs investigation - app fails to start.
-     Skipping deployment steps for now. -->
-
 Deploy the application:
 
 ```bash

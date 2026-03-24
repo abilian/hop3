@@ -367,7 +367,7 @@ You have successfully deployed and managed your first application on Hop3. You c
 
 ## Next Steps
 
-- **[CLI Reference](../reference/cli.md)** - Complete reference for all 62 Hop3 commands
+- **[CLI Reference](../reference/cli.md)** - Complete reference for all Hop3 commands
 - **[Backup and Restore Guide](../guides/backup-restore.md)** - Comprehensive backup documentation
 - **[hop3.toml Reference](../reference/config.md)** - Complete configuration file reference
 - **[Migration Guide](../guides/migration-guide.md)** - Migrate from Heroku, Fly.io, or other platforms

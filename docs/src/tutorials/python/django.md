@@ -328,9 +328,6 @@ web: gunicorn myproject.wsgi:application --bind 0.0.0.0:$PORT --workers 4
 
 Create a `hop3.toml` in your project root:
 
-<!-- FIXME: SECRET_KEY should use random generation: SECRET_KEY = { random='true', length=50 }
-     This is supported per ADR 002 but needs testing. For now, hardcoded value is used. -->
-
 ```toml
 [metadata]
 id = "hop3-tuto-django"
@@ -351,7 +348,7 @@ before-run = [
 
 [env]
 DJANGO_SETTINGS_MODULE = "myproject.settings"
-SECRET_KEY = "CHANGEME-generate-a-secure-random-key-for-production"
+# Note: Set SECRET_KEY via CLI for production: hop3 config:set myapp SECRET_KEY=your-secure-key
 
 [port]
 web = 8000

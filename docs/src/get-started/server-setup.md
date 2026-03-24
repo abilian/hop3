@@ -53,10 +53,13 @@ sudo python3 install-server.py --local-path /path/to/hop3-server
 | Option | Description |
 |--------|-------------|
 | `--domain DOMAIN` | Domain for admin UI (enables Let's Encrypt SSL) |
+| `--with FEATURES` | Install optional features: `mysql`, `redis`, `docker`, or `all` |
 | `--version VERSION` | Install specific version from PyPI |
+| `--pre` | Allow pre-release versions from PyPI |
 | `--git` | Install from git repository |
 | `--branch BRANCH` | Git branch to install (default: main) |
 | `--local-path PATH` | Install from local directory |
+| `--force` | Force reinstall |
 | `--skip-deps` | Skip system dependency installation |
 | `--skip-nginx` | Skip nginx configuration |
 | `--skip-postgres` | Skip PostgreSQL setup |
@@ -178,13 +181,13 @@ For testing and demonstrations, use the demo launcher:
 
 ```bash
 # Basic demo (apps cleaned up after)
-python demos/demo.py --host 46.62.169.221 demo1
+python demos/demo.py --host <your-server-ip> demo1
 
 # Keep apps running with admin domain
-python demos/demo.py --host 46.62.169.221 --admin-domain hop3.example.com --keep demo1
+python demos/demo.py --host <your-server-ip> --admin-domain hop3.example.com --keep demo1
 
 # Use local code (development)
-python demos/demo.py --host 46.62.169.221 --local --keep demo1
+python demos/demo.py --host <your-server-ip> --local --keep demo1
 ```
 
 The demo launcher will:
