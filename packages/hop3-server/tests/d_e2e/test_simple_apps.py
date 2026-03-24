@@ -42,16 +42,6 @@ def test_app_deployment(app_dir: Path, deployment_target):
     """Test deployment of an application from apps/test-apps/."""
     app_name = app_dir.name
 
-    # FIXME later
-    if app_name == "030-golang-gin":
-        return
-
-    # FIXME: pyproject.toml apps fail with 502 when pip install . is used
-    # The pip install succeeds locally but gunicorn fails to start in container
-    # Needs investigation - might be related to working directory or PYTHONPATH
-    if app_name == "110-flask-gunicorn-poetry":
-        pytest.skip("pyproject.toml deployment needs investigation")
-
     app = AppSource(name=app_name, path=app_dir)
     with DeploymentSession(app, deployment_target) as session:
         try:
