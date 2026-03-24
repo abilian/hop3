@@ -1,13 +1,13 @@
-# Hop3 Installer Guide
+# Server Setup Guide
 
-This guide provides instructions on how to use the Hop3 installer script to set up the Hop3 environment on a server. The installer is a standalone Python script that automates the installation and configuration process.
+This guide explains how to set up Hop3 on a server using the installer script. The installer is a standalone Python script that automates the installation and configuration process.
 
 ## Prerequisites
 
 - A server running Ubuntu 22.04 or 24.04 LTS (Debian-based distributions also supported)
 - Root access to the server via SSH
 - Python 3.10+ on the server
-- A domain name pointing to your server (recommended for secure admin UI access)
+- A domain name pointing to your server (required for secure HTTPS; without it, admin UI uses unencrypted HTTP on port 8000)
 
 ## Quick Install
 

@@ -269,7 +269,6 @@ before-run = "python manage.py migrate"
 packages = ["postgresql-client"]
 
 [env]
-DEBUG = "false"
 LOG_LEVEL = "info"
 
 [port]

@@ -307,7 +307,6 @@ start = "flask run --reload"
 ```toml
 # hop3.toml
 [env]
-DEBUG = "false"
 LOG_LEVEL = "info"
 
 [run]

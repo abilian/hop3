@@ -134,7 +134,7 @@ start = "gunicorn app:app --workers 4 -b 0.0.0.0:$PORT"
 before-run = "python manage.py migrate"
 
 [env]
-DEBUG = "false"
+LOG_LEVEL = "info"
 
 [healthcheck]
 path = "/health/"
@@ -206,7 +206,7 @@ hop3 app:destroy myapp
 hop3 config:show myapp
 
 # Set variables (restart required to take effect)
-hop3 config:set myapp DEBUG=false LOG_LEVEL=info
+hop3 config:set myapp LOG_LEVEL=info MAX_WORKERS=4
 hop3 app:restart myapp
 
 # Get a specific variable

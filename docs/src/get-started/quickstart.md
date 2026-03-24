@@ -8,7 +8,7 @@ By the end of this tutorial, you will have a live, running web application manag
 
 Before you begin, you must have the following:
 
-1.  **A Server with Hop3 Installed:** You need a server (or VM) with a fresh installation of Hop3. If you haven't done this yet, follow the [**Hop3 Installer Guide**](./installation.md) first.
+1.  **A Server with Hop3 Installed:** You need a server (or VM) with a fresh installation of Hop3. If you haven't done this yet, follow the [**Hop3 Installer Guide**](./server-setup.md) first.
 2.  **The Hop3 CLI on Your Local Machine:** The `hop3` command-line tool should be installed locally. The installation guide covers setting up the development environment, which includes the CLI.
 
 ## Step 1: Create a Sample Python Application
@@ -113,7 +113,7 @@ With your application code and configuration ready, you can now deploy it.
     hop3 login --ssh root@hop3.example.com
     ```
 
-    See the [Installation Guide](./installation.md) for detailed setup instructions.
+    See the [Installation Guide](./server-setup.md) for detailed setup instructions.
 
 2.  **Deploy the Application:**
     From inside your `hello-hop3` project directory, run the deploy command:
@@ -246,13 +246,16 @@ Applications often need configuration through environment variables. Hop3 makes 
 
 Set a single environment variable:
 ```bash
-hop3 config:set hello-hop3 DEBUG=true
+hop3 config:set hello-hop3 LOG_LEVEL=info
 ```
 
 Set multiple variables at once:
 ```bash
-hop3 config:set hello-hop3 DEBUG=true LOG_LEVEL=info MAX_WORKERS=4
+hop3 config:set hello-hop3 LOG_LEVEL=info MAX_WORKERS=4 SECRET_KEY=your-secret
 ```
+
+!!! note "About DEBUG mode"
+    Only set `DEBUG=true` in development environments for troubleshooting. Never enable DEBUG in production as it may expose sensitive information.
 
 #### Viewing Environment Variables
 

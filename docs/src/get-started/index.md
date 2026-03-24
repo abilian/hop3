@@ -6,7 +6,7 @@ Welcome to Hop3! This section will help you get up and running quickly.
 
 Learn how to install Hop3 on your server and set up the CLI on your local machine.
 
-- [Installation Guide](installation.md) - Complete installation instructions
+- [Installation Guide](server-setup.md) - Complete installation instructions
 - [Installer Options](installer.md) - Advanced installer configuration
 
 ## Quick Start

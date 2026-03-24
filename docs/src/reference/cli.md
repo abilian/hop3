@@ -612,7 +612,7 @@ cd myapp/
 hop3 deploy myapp
 
 # Deploy with environment variables
-hop3 deploy myapp --env DEBUG=true --env LOG_LEVEL=info
+hop3 deploy myapp --env LOG_LEVEL=info --env MAX_WORKERS=4
 
 # Deploy from specific directory
 hop3 deploy myapp ./src
@@ -912,7 +912,7 @@ Environment Variables for myapp:
 DATABASE_URL=postgresql://user:pass@localhost/db
 REDIS_URL=redis://localhost:6379
 SECRET_KEY=***hidden***
-DEBUG=false
+LOG_LEVEL=info
 ```
 
 **Notes:**
@@ -954,7 +954,7 @@ hop3 config:set <app_name> KEY1=value1 [KEY2=value2 ...]
 **Examples:**
 ```bash
 # Set single variable
-hop3 config:set myapp DEBUG=true
+hop3 config:set myapp LOG_LEVEL=info
 
 # Set multiple variables
 hop3 config:set myapp \
