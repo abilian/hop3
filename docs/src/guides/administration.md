@@ -657,3 +657,13 @@ sudo systemctl restart systemd-journald
 | `HOP3_CONFIG` | Config file path |
 | `HOP3_UNSAFE` | Disable auth (testing only) |
 | `HOP3_DEBUG` | Enable debug logging |
+
+---
+
+## Related Guides
+
+- **[Server Setup](../get-started/server-setup.md)** - Initial server installation
+- **[User Guide](user-guide.md)** - Core concepts and daily operations
+- **[Backup and Restore](backup-restore.md)** - Data protection and recovery
+- **[Troubleshooting](troubleshooting.md)** - Diagnose and fix common issues
+- **[CLI Reference](../reference/cli.md)** - Complete command documentation

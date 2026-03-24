@@ -461,14 +461,15 @@ hop3 ps:scale myapp worker=2
 ## Getting Help
 
 ```bash
-# Built-in help
-hop3 help
-hop3 help --all
-hop3 <command> --help
-
-# Documentation
-# https://github.com/abilian/hop3
-
-# Issues
-# https://github.com/abilian/hop3/issues
+hop3 help              # General help
+hop3 help --all        # All commands
+hop3 <command> --help  # Help for specific command
 ```
+
+## Related Guides
+
+- **[User Guide](user-guide.md)** - Core concepts and daily operations
+- **[CLI Reference](../reference/cli.md)** - Complete command documentation
+- **[hop3.toml Reference](../reference/config.md)** - Full configuration file reference
+- **[Backup and Restore](backup-restore.md)** - Comprehensive backup documentation
+- **[Troubleshooting](troubleshooting.md)** - Diagnose and fix common issues
