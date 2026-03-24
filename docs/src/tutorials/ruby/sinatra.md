@@ -6,7 +6,7 @@ This guide walks you through deploying a Sinatra application on Hop3. Sinatra is
 
 Before you begin, ensure you have:
 
-1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/server-setup.md)
+1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/installation.md)
 2. **The Hop3 CLI** - Installed on your local machine
 3. **Ruby 3.2+** - Install via your package manager or [ruby-lang.org](https://www.ruby-lang.org/)
 4. **Bundler** - Install with `gem install bundler`
