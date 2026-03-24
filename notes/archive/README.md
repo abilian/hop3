@@ -6,6 +6,8 @@ This directory contains historical documents that have been superseded by newer 
 
 - `roadmap.md` - Old P0-P4 roadmap format from 2024-2025. Superseded by `../todo/TODO-next.md`
 - `current-status.md` - Status snapshot from 2025-11-24. Superseded by `../todo/TODO-next.md`
+- `documentation.md` - Old notes on documentation tooling. Docs now use zensical in `docs/`
+- `config.md` - Draft config format. Superseded by `docs/src/reference/config.md`
 
 ## Current Planning Documents
 
