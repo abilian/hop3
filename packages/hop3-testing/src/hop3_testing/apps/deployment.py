@@ -229,6 +229,9 @@ class DeploymentSession:
         verbose = self.config.get("verbose", False)
         debug = self.config.get("debug", False)
 
+        # Initialize proc_result for non-streaming mode
+        proc_result: subprocess.CompletedProcess[str] | None = None
+
         if verbose or debug:
             # Stream output line by line
             def on_output(line: str):
@@ -274,7 +277,7 @@ class DeploymentSession:
 
         if returncode != 0:
             # Get stderr for non-streaming mode
-            stderr = proc_result.stderr if not (verbose or debug) else None
+            stderr = proc_result.stderr if proc_result else None
             self._last_deploy_error = self._build_deploy_error_message(
                 returncode, stdout, stderr
             )

@@ -41,6 +41,7 @@ from .deps_common import (
 )
 from .mysql import setup_mysql
 from .nginx import setup_nginx
+from .nix import install_nix
 from .postgres import setup_postgres
 from .python import (
     create_virtual_environment,
@@ -58,10 +59,13 @@ from .verify import print_final_message, verify_installation, write_server_confi
 # =============================================================================
 
 
-def _install_optional_toolchains() -> None:
+def _install_optional_toolchains(config: ServerInstallerConfig) -> None:
     """Install optional toolchains that need hop3 user to exist.
 
     These are non-critical - failures are warnings, not errors.
+
+    Args:
+        config: Installation configuration.
     """
     # Install Rust toolchain
     try:
@@ -80,6 +84,13 @@ def _install_optional_toolchains() -> None:
         install_leiningen()
     except CommandError as e:
         print_warning(f"Leiningen installation failed: {e.stderr[:100]}")
+
+    # Install Nix package manager (single-user mode needs hop3 user)
+    if config.with_nix:
+        try:
+            install_nix()
+        except Exception as e:
+            print_warning(f"Nix installation failed: {e}")
 
 
 def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
@@ -109,7 +120,8 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
         return False
 
     # Install optional toolchains (needs hop3 user to exist)
-    _install_optional_toolchains()
+    print_info("Installing optional toolchains...")
+    _install_optional_toolchains(config)
 
     # Step 3: Virtual environment
     print_step(3, TOTAL_STEPS, "Creating virtual environment...")

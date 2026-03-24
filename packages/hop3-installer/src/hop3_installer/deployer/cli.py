@@ -154,7 +154,7 @@ Examples:
         "--with",
         "-w",
         dest="features",
-        help="Features to install (comma-separated, e.g., docker,podman)",
+        help="Features to install (comma-separated: docker,mysql,redis,nix)",
     )
 
     # Admin options
