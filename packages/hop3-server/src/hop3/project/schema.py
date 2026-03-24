@@ -88,7 +88,7 @@ class BuildSection(BaseModel):
     @classmethod
     def validate_builder(cls, v: str | None) -> str | None:
         if v is not None:
-            valid_builders = {"auto", "local", "docker"}
+            valid_builders = {"auto", "local", "docker", "nix"}
             if v.lower() not in valid_builders:
                 msg = f"Invalid builder '{v}'. Must be one of: {', '.join(valid_builders)}"
                 raise ValueError(msg)

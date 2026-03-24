@@ -32,9 +32,27 @@ def group_exists(groupname: str) -> bool:
         return False
 
 
-def run_as_hop3(cmd: str) -> subprocess.CompletedProcess:
-    """Run a command as the hop3 user."""
-    return run_cmd(["su", "-", HOP3_USER, "-c", cmd])
+def run_as_hop3(
+    cmd: str,
+    *,
+    check: bool = False,
+    timeout: float | None = None,
+) -> subprocess.CompletedProcess:
+    """Run a command as the hop3 user.
+
+    Args:
+        cmd: Shell command to run as hop3 user.
+        check: Whether to raise on non-zero exit (default: False).
+        timeout: Timeout in seconds (default: None).
+
+    Returns:
+        CompletedProcess with stdout/stderr.
+    """
+    return run_cmd(
+        ["su", "-", HOP3_USER, "-c", cmd],
+        check=check,
+        timeout=timeout,
+    )
 
 
 def create_user_and_group() -> None:
