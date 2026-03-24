@@ -242,8 +242,6 @@ Accept that only ~5 languages need runtime setup and keep them hardcoded.
 - Unit tests for artifact serialization
 - Integration tests for build → persist → load → run flow
 
-See `local-notes/buildartifact-refactoring.md` for detailed implementation plan.
-
 ---
 
 ## References
