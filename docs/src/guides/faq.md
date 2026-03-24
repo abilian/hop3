@@ -70,115 +70,37 @@ More notes about uWSGI: <https://github.com/abilian/books/blob/main/uwsgi/README
 
 ## Backup and Restore
 
-**Q: How do I backup my applications?**
+For comprehensive backup documentation, see the **[Backup and Restore Guide](backup-restore.md)**.
 
-**A:** Hop3 provides a comprehensive backup system accessible via the CLI. To create a backup of an application, simply run:
+**Q: How do I backup and restore my applications?**
+
+**A:** Use the backup commands:
 
 ```bash
+# Create backup
 hop3 backup:create <app-name>
-```
 
-This creates a complete backup including your source code, application data, environment variables, and any attached services (like PostgreSQL databases). Each backup is assigned a unique ID that you can use to restore later. For detailed information, see the [Backup and Restore Guide](backup-restore.md).
+# List backups
+hop3 backup:list <app-name>
 
-**Q: What is included in a Hop3 backup?**
-
-**A:** A Hop3 backup includes everything needed to fully restore your application:
-
-- **Source Code**: Complete git repository with all commits and history
-- **Data Directory**: All application data files and user-uploaded content
-- **Environment Variables**: All configuration settings (including secrets like API keys)
-- **Attached Services**: Database dumps (PostgreSQL, etc.) and service configurations
-- **Application Metadata**: Hostname, port settings, and deployment configuration
-
-Each backup is verified with SHA256 checksums to ensure data integrity.
-
-**Q: How do I restore from a backup?**
-
-**A:** Restoring an application is straightforward:
-
-```bash
+# Restore from backup
 hop3 backup:restore <backup-id>
 hop3 app:restart <app-name>
 ```
 
-Replace `<backup-id>` with the ID from your backup (e.g., `20251108_143022_a8f3d9`). You can find backup IDs by running `hop3 backup:list`. The restore process verifies checksums to ensure data integrity before restoring.
+Backups include source code, data, environment variables, and attached services. See the [Backup and Restore Guide](backup-restore.md) for complete details.
 
-**Q: Can I backup to remote storage (S3, etc.)?**
+**Q: Can I clone an application using backups?**
 
-**A:** Currently, Hop3 stores backups locally on the server in `/var/hop3/backups/`. Remote storage support (S3, Backblaze B2, etc.) is planned for a future release. In the meantime, you can manually copy backups to remote storage using standard tools like `rsync`, `s3cmd`, or `rclone`.
-
-**Q: Are backups encrypted?**
-
-**A:** Currently, backups are stored unencrypted on the server with restricted file permissions (600/700) to prevent unauthorized access. Backup files contain environment variables which may include sensitive data like API keys and passwords, so access to the Hop3 server should be carefully controlled.
-
-Backup encryption is planned for a future release and will use modern encryption tools like `age` or GPG. Until then, ensure your server has appropriate access controls and consider encrypting backup copies manually if you need to store them off-server.
-
-**Q: How often should I backup my applications?**
-
-**A:** The backup frequency depends on how critical your application is and how frequently it changes:
-
-- **Before every deployment**: Always create a backup before deploying new code
-- **Production apps**: Daily backups recommended
-- **Development/staging apps**: Weekly backups are usually sufficient
-- **Before major changes**: Always backup before database migrations, configuration changes, or system updates
-
-You can automate backups using cron jobs or CI/CD pipelines. Scheduled backups with retention policies will be built into Hop3 in a future release.
-
-**Q: How long are backups retained?**
-
-**A:** Currently, backups are retained indefinitely until you manually delete them with `hop3 backup:delete <backup-id>`. You should establish a retention policy based on your needs:
-
-- Critical applications: Keep 30+ days of backups
-- Standard applications: Keep 7-14 days
-- Development: Keep 3-7 days
-
-Automatic retention policies will be available in a future release, allowing you to configure automatic cleanup of old backups.
-
-**Q: Can I use backups to clone an application?**
-
-**A:** Yes! Backups can be restored to a different application name, effectively cloning your application:
+**A:** Yes, restore to a different app name:
 
 ```bash
 hop3 backup:restore <backup-id> --target-app <new-app-name>
 ```
 
-This creates a completely independent copy of the application, which is useful for creating staging environments, testing changes, or migrating applications.
+**Q: Is remote storage or encryption supported?**
 
-**Q: What happens if a backup becomes corrupted?**
-
-**A:** Hop3 backups use SHA256 checksums to detect corruption. When you try to restore a corrupted backup, Hop3 will:
-
-1. Verify all checksums before starting the restore
-2. If any checksum doesn't match, the restore will fail with a clear error message
-3. No partial restore will occur - your application remains unchanged
-
-If a backup is corrupted:
-- Use a different, uncorrupted backup
-- Investigate how the corruption occurred (disk failure, etc.)
-- Create a new backup from the current application state
-
-You can manually verify backup integrity at any time with `hop3 backup:info <backup-id>`, which checks all checksums.
-
-**Q: How much disk space do backups use?**
-
-**A:** Backup size depends on your application:
-
-- Compressed source code: Usually 10-50% of the git repository size
-- Compressed data files: Usually 30-70% of the original size (varies by file type)
-- Database dumps: Similar size to the database (text format SQL)
-- Env variables: Negligible (a few KB)
-
-As a rule of thumb, plan for backups to use 50-80% of your total application size. Monitor `/var/hop3/backups/` disk usage and delete old backups when needed.
-
-**Q: Can I restore a backup from an older version of Hop3?**
-
-**A:** Backups include the Hop3 version that created them. Generally:
-
-- **Same version**: Fully compatible
-- **Newer Hop3 version**: Usually compatible (backward compatibility maintained)
-- **Older Hop3 version**: May require manual intervention
-
-Hop3 will warn you if there are compatibility concerns during restore. Always test restores in a non-production environment first if you're concerned about version differences.
+**A:** Currently backups are stored locally in `/var/hop3/backups/` without encryption. Remote storage (S3, B2) and encryption are planned for future releases. For now, use tools like `rsync` or `rclone` for off-server copies.
 
 ## Troubleshooting
 

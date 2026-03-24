@@ -175,54 +175,35 @@ hop3 admin:list
 
 ## Database Addon Management
 
-### PostgreSQL
+Hop3 supports PostgreSQL, MySQL, and Redis as backing services. For complete addon command documentation, see the **[CLI Reference: Services (Addons)](../reference/cli.md#services-addons)**.
+
+### Quick Reference
 
 ```bash
-# Create a database
-hop3 addons:create postgres mydb
-
-# List databases
-hop3 addons:list --type postgres
-
-# Get connection info
-hop3 addons:info mydb
-
-# Delete database
-hop3 addons:destroy mydb
+hop3 addons:create postgres mydb        # Create PostgreSQL database
+hop3 addons:create mysql mydb           # Create MySQL database
+hop3 addons:create redis mycache        # Create Redis instance
+hop3 addons:attach mydb --app myapp     # Attach to app (sets DATABASE_URL)
+hop3 addons:info mydb                   # Get connection info
+hop3 addons:destroy mydb                # Delete (requires confirmation)
 ```
 
-**Configuration:** Set `superuser_password` in `server.toml`:
+### Server Configuration
+
+Configure addon credentials in `/home/hop3/.config/hop3/server.toml`:
+
 ```toml
 [addons.postgres]
 superuser = "postgres"
 superuser_password = "secure-password"
-```
 
-### MySQL
-
-```bash
-# Create a database
-hop3 addons:create mysql mydb
-
-# Attach to application
-hop3 addons:attach mydb --app myapp
-```
-
-**Configuration:**
-```toml
 [addons.mysql]
 superuser = "root"
 superuser_password = "secure-password"
-```
 
-### Redis
-
-```bash
-# Create Redis instance
-hop3 addons:create redis mycache
-
-# Attach to application (provides REDIS_URL)
-hop3 addons:attach mycache --app myapp
+[addons.redis]
+host = "localhost"
+port = 6379
 ```
 
 ---
@@ -330,62 +311,43 @@ ps aux | grep uwsgi
 
 ## Backup & Restore
 
-### Database Backups
+For application-level backups, see the **[Backup and Restore Guide](backup-restore.md)**.
+
+### Application Backups
 
 ```bash
-# Backup a database
-hop3 backup:create mydb
-
-# List backups
-hop3 backup:list
-
-# Restore from backup
-hop3 backup:restore mydb --backup backup-2026-02-24.sql.gz
+hop3 backup:create myapp     # Create app backup
+hop3 backup:list myapp       # List backups
+hop3 backup:restore <id>     # Restore from backup
 ```
 
 ### Full Server Backup
 
-Recommended backup targets:
-```bash
-# Application data
-/home/hop3/apps/
+For disaster recovery, backup these directories:
 
-# Configuration
-/home/hop3/.config/hop3/
+| Path | Contents |
+|------|----------|
+| `/home/hop3/apps/` | Application deployments |
+| `/home/hop3/.config/hop3/` | Configuration and database |
+| `/home/hop3/repos/` | Git repositories |
 
-# Database files (if using SQLite)
-/home/hop3/.config/hop3/hop3.db
-
-# Git repositories
-/home/hop3/repos/
-```
-
-Example backup script:
+Example server backup script:
 ```bash
 #!/bin/bash
 BACKUP_DIR="/backups/hop3/$(date +%Y-%m-%d)"
 mkdir -p "$BACKUP_DIR"
 
-# Backup applications
 tar -czf "$BACKUP_DIR/apps.tar.gz" /home/hop3/apps/
-
-# Backup configuration
 tar -czf "$BACKUP_DIR/config.tar.gz" /home/hop3/.config/hop3/
-
-# Backup PostgreSQL databases
 sudo -u postgres pg_dumpall | gzip > "$BACKUP_DIR/postgres.sql.gz"
-
-# Backup MySQL databases
-mysqldump --all-databases | gzip > "$BACKUP_DIR/mysql.sql.gz"
 ```
 
 ### Disaster Recovery
 
 1. Install Hop3 on new server
-2. Restore configuration files
-3. Restore database dumps
-4. Restore application directories
-5. Redeploy applications: `hop3 deploy myapp`
+2. Restore configuration and database files
+3. Restore application directories
+4. Redeploy applications: `hop3 deploy myapp`
 
 ---
 
