@@ -386,6 +386,7 @@ class DockerTarget(DeploymentTarget):
                 clean=self.deployment.clean,
                 branch=self.deployment.branch,
                 verbose=self.deployment.verbose,
+                features=self.deployment.features,
                 diagnostics=self.diagnostics,
             )
 

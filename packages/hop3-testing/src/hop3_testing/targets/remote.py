@@ -217,6 +217,7 @@ class RemoteTarget(DeploymentTarget):
                 clean=deployment.clean,
                 branch=deployment.branch,
                 verbose=deployment.verbose,
+                features=deployment.features,
                 diagnostics=self.diagnostics,
             )
 

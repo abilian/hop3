@@ -810,6 +810,7 @@ def _build_deploy_command(
     clean: bool,
     branch: str,
     verbose: bool,
+    features: list[str] | None = None,
 ) -> list[str]:
     """Build hop3-deploy command arguments."""
     cmd = ["hop3-deploy"]
@@ -836,6 +837,8 @@ def _build_deploy_command(
         cmd.extend(["--branch", branch])
     if verbose:
         cmd.append("--verbose")
+    if features:
+        cmd.extend(["--with", ",".join(features)])
 
     return cmd
 
@@ -851,6 +854,7 @@ def run_hop3_deploy(
     clean: bool = False,
     branch: str = "devel",
     verbose: bool = False,
+    features: list[str] | None = None,
     diagnostics: DiagnosticCollector | None = None,
 ) -> tuple[bool, float]:
     """Run hop3-deploy via subprocess.
@@ -868,6 +872,7 @@ def run_hop3_deploy(
         clean: Clean before deploy (--clean flag)
         branch: Git branch to deploy
         verbose: Enable verbose output
+        features: Features to install (docker, mysql, redis, nix, etc.)
         diagnostics: Optional diagnostics collector
 
     Returns:
@@ -883,6 +888,7 @@ def run_hop3_deploy(
         clean=clean,
         branch=branch,
         verbose=verbose,
+        features=features,
     )
 
     print(f"\nRunning: {' '.join(cmd)}\n")
