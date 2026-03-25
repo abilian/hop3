@@ -6,11 +6,17 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
 from hop3.core.protocols import BuildArtifact, BuildContext, RuntimeConfig
+
+# Nix profile scripts to try (single-user and multi-user modes)
+# Note: Single-user path is evaluated at runtime via _get_nix_profile_paths()
+# to ensure we use the correct HOME for the current process
+NIX_DAEMON_PROFILE = Path("/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh")
 
 
 class NixBuilder:
@@ -89,16 +95,24 @@ class NixBuilder:
         runtime_data = json.loads(runtime_json.read_text())
 
         # 3. Build RuntimeConfig
+        workers = runtime_data.get("workers", {})
         runtime = RuntimeConfig(
             env_vars=runtime_data.get("env", {}),
             path_prepend=runtime_data.get("path", []),
             working_dir=store_path,
-            workers=runtime_data.get("workers", {}),
+            workers=workers,
         )
 
-        # 4. Return BuildArtifact
+        # 4. Determine artifact kind based on workers
+        # Static sites have only a "static" worker pointing to a directory
+        if list(workers.keys()) == ["static"]:
+            artifact_kind = "static"
+        else:
+            artifact_kind = "nix"
+
+        # 5. Return BuildArtifact
         return BuildArtifact(
-            kind="nix",
+            kind=artifact_kind,
             builder="nix",
             app_name=self.context.app_name,
             built_at=datetime.now(timezone.utc).isoformat(),
@@ -113,15 +127,8 @@ class NixBuilder:
 
     def _nix_available(self) -> bool:
         """Check if nix command is available on the system."""
-        try:
-            subprocess.run(
-                ["nix", "--version"],
-                capture_output=True,
-                check=True,
-            )
-            return True
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            return False
+        result = self._run_nix_command("nix --version")
+        return result.returncode == 0
 
     def _nix_build(self, nix_file: Path) -> str:
         """Run nix-build and return the store path.
@@ -135,24 +142,105 @@ class NixBuilder:
         Raises:
             RuntimeError: If nix-build fails.
         """
-        try:
-            result = subprocess.run(
-                [
-                    "nix-build",
-                    str(nix_file),
-                    "-A",
-                    "package",
-                    "--no-out-link",
-                ],
-                capture_output=True,
-                text=True,
-                check=True,
-                cwd=nix_file.parent,
-            )
-            return result.stdout.strip()
-        except subprocess.CalledProcessError as e:
-            msg = f"nix-build failed: {e.stderr}"
-            raise RuntimeError(msg) from e
+        cmd = f"nix-build {nix_file} -A package --no-out-link"
+        result = self._run_nix_command(cmd, cwd=nix_file.parent)
+
+        if result.returncode != 0:
+            msg = f"nix-build failed: {result.stderr}"
+            raise RuntimeError(msg)
+
+        return result.stdout.strip()
+
+    def _run_nix_command(
+        self,
+        cmd: str,
+        cwd: Path | None = None,
+    ) -> subprocess.CompletedProcess:
+        """Run a Nix command with the Nix profile sourced.
+
+        Nix commands require the profile to be sourced to set PATH correctly.
+        This handles both single-user (~/.nix-profile) and multi-user
+        (/nix/var/nix/profiles/default) installations.
+
+        Args:
+            cmd: The Nix command to run.
+            cwd: Working directory for the command.
+
+        Returns:
+            CompletedProcess with stdout, stderr, and returncode.
+        """
+        # Find available Nix profile script
+        profile_script = self._find_nix_profile()
+
+        if profile_script:
+            # Source the profile and run the command
+            shell_cmd = f'. "{profile_script}" && {cmd}'
+        else:
+            # No profile found, try running directly (might work if in PATH)
+            shell_cmd = cmd
+
+        return subprocess.run(
+            ["bash", "-c", shell_cmd],
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+            env=self._get_nix_env(),
+        )
+
+    def _get_nix_profile_paths(self) -> list[Path]:
+        """Get potential Nix profile script paths.
+
+        Evaluates paths at runtime to ensure HOME is correct for the
+        current process context (important when running as hop3 user).
+
+        Returns:
+            List of profile script paths to try.
+        """
+        return [
+            Path.home() / ".nix-profile/etc/profile.d/nix.sh",
+            NIX_DAEMON_PROFILE,
+        ]
+
+    def _find_nix_profile(self) -> Path | None:
+        """Find the Nix profile script.
+
+        Returns:
+            Path to the profile script, or None if not found.
+        """
+        for script in self._get_nix_profile_paths():
+            if script.exists():
+                return script
+        return None
+
+    def _get_nix_env(self) -> dict[str, str]:
+        """Get environment variables for Nix commands.
+
+        The Nix profile script requires HOME and USER to be set.
+        Supervisor may not set PATH, so we provide a minimal one.
+
+        Returns:
+            Environment dict with HOME, USER, and PATH set correctly.
+        """
+        env = os.environ.copy()
+
+        # Ensure HOME is set for profile sourcing
+        if "HOME" not in env:
+            env["HOME"] = str(Path.home())
+
+        # Ensure USER is set - required by Nix profile script
+        if "USER" not in env:
+            import pwd
+            try:
+                env["USER"] = pwd.getpwuid(os.getuid()).pw_name
+            except (KeyError, OSError):
+                env["USER"] = "hop3"  # Fallback
+
+        # Ensure PATH includes essential directories
+        # Supervisor may not set PATH, so we need to provide a minimal one
+        if "PATH" not in env:
+            env["PATH"] = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+        return env
 
     def _get_build_id(self, store_path: str) -> str:
         """Extract Nix hash from store path.

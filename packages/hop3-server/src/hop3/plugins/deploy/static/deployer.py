@@ -117,12 +117,19 @@ class StaticDeployer:
             if self.app.run_state != AppStateEnum.RUNNING:
                 self.app._transition_state(AppStateEnum.RUNNING)  # noqa: SLF001
 
-        # Set up nginx configuration for static file serving
-        env = self._make_env()
-        if "HOST_NAME" in env:
+        # Get workers from artifact runtime (for nix builds) or app config
+        if self.artifact.runtime and self.artifact.runtime.workers:
+            workers = self.artifact.runtime.workers
+        else:
             app_config = AppConfig.from_dir(self.app.app_path)
             workers = app_config.workers
 
+        # Get the static path from workers, falling back to artifact location
+        static_path = workers.get("static", self.artifact.location)
+
+        # Set up nginx configuration for static file serving
+        env = self._make_env()
+        if "HOST_NAME" in env:
             log(
                 f"Setting up proxy for static app '{self.app.name}'...",
                 level=2,
@@ -132,7 +139,6 @@ class StaticDeployer:
             proxy.setup()
 
         # Return deployment info (nginx will serve from static_path)
-        static_path = self.artifact.location
         return DeploymentInfo(
             protocol="static",
             address=static_path,
