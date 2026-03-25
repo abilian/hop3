@@ -9,8 +9,8 @@ let
   # Node.js environment
   nodejs = pkgs.nodejs_20;
 
-  # The application package
-  app = pkgs.stdenv.mkDerivation {
+  # The application package using buildNpmPackage for proper dependency handling
+  app = pkgs.buildNpmPackage {
     pname = "nodejs-express";
     version = "0.1.0";
     meta = {
@@ -19,29 +19,21 @@ let
 
     src = ./.;
 
-    buildInputs = [ nodejs ];
+    # Hash of npm dependencies (computed from package-lock.json)
+    npmDepsHash = "sha256-p2oD6vN2wAAj7nHFBHl4KRUG+YlW2Nj4oLUDnZgSfrM=";
 
-    # No build phase needed - dependencies handled at runtime
-    dontBuild = true;
+    # Don't run npm build (no build script in package.json)
+    dontNpmBuild = true;
 
     installPhase = ''
+      runHook preInstall
+
       # Create output directories
       mkdir -p $out/app $out/bin
 
-      # Copy application code
-      cp -r *.js $out/app/
-
-      # Create package.json for runtime
-      cat > $out/app/package.json << 'PACKAGE'
-{
-  "name": "nodejs-express-nix",
-  "version": "0.1.0",
-  "main": "app.js",
-  "dependencies": {
-    "express": "^4.18.2"
-  }
-}
-PACKAGE
+      # Copy application code and node_modules
+      cp -r *.js package.json $out/app/
+      cp -r node_modules $out/app/
 
       # Create wrapper script
       cat > $out/bin/nodejs-express << EOF
@@ -64,10 +56,11 @@ EOF
   "path": [
     "$out/bin",
     "${nodejs}/bin"
-  ],
-  "setup": "cd $out/app && ${nodejs}/bin/npm install --production"
+  ]
 }
 EOF
+
+      runHook postInstall
     '';
   };
 

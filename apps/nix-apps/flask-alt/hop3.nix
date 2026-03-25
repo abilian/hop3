@@ -1,6 +1,6 @@
-# hop3.nix - Nix expression for Flask/uWSGI deployment
+# hop3.nix - Nix expression for Flask/Gunicorn deployment
 #
-# This file defines how to build and run this Flask application with uWSGI.
+# This file defines how to build and run this Flask application with Gunicorn.
 # Hop3's NixBuilder will evaluate this to produce a BuildArtifact.
 
 { pkgs ? import <nixpkgs> {} }:
@@ -8,14 +8,14 @@
 let
   pythonEnv = pkgs.python3.withPackages (ps: with ps; [
     flask
-    uwsgi
+    gunicorn
   ]);
 
   app = pkgs.stdenv.mkDerivation {
     pname = "flask-alt";
     version = "0.1.0";
     meta = {
-      description = "Flask with uWSGI for Hop3 Nix integration";
+      description = "Flask with Gunicorn for Hop3 Nix integration";
     };
 
     src = ./.;
@@ -29,9 +29,9 @@ let
 
       cp *.py $out/app/
 
-      cat > $out/bin/flask-alt << 'EOF'
+      cat > $out/bin/flask-alt << EOF
 #!/bin/sh
-exec ${pythonEnv}/bin/uwsgi --http "$BIND_ADDRESS:$PORT" --wsgi-file $out/app/app.py --callable app "$@"
+exec ${pythonEnv}/bin/gunicorn -b "\''${BIND_ADDRESS:-127.0.0.1}:\''${PORT:-8000}" app:app
 EOF
       chmod +x $out/bin/flask-alt
 

@@ -6,13 +6,15 @@
 { pkgs ? import <nixpkgs> {} }:
 
 let
-  # Ruby environment with dependencies
-  ruby = pkgs.ruby_3_2;
+  ruby = pkgs.ruby_3_3;
 
-  # Bundler for dependency management
-  bundler = pkgs.bundler;
+  # Create a bundler environment with all gems from Gemfile.lock
+  gems = pkgs.bundlerEnv {
+    name = "sinatra-hello-gems";
+    inherit ruby;
+    gemdir = ./.;
+  };
 
-  # The application package
   app = pkgs.stdenv.mkDerivation {
     pname = "sinatra-hello";
     version = "0.1.0";
@@ -22,26 +24,21 @@ let
 
     src = ./.;
 
-    buildInputs = [ ruby bundler ];
+    buildInputs = [ ruby gems ];
 
-    # No build phase needed
     dontBuild = true;
 
     installPhase = ''
-      # Create output directories
       mkdir -p $out/app $out/bin
 
-      # Copy application code
-      cp -r *.rb *.ru Gemfile* $out/app/ 2>/dev/null || true
-      cp *.rb $out/app/
-      cp config.ru $out/app/
-      cp Gemfile $out/app/
+      # Copy application files
+      cp *.rb config.ru Gemfile Gemfile.lock $out/app/
 
-      # Create wrapper script that runs puma
+      # Create wrapper script that uses the bundled puma
       cat > $out/bin/sinatra-hello << EOF
 #!/bin/sh
 cd $out/app
-exec ${ruby}/bin/ruby -S puma -b "tcp://\''${BIND_ADDRESS:-127.0.0.1}:\''${PORT:-4567}" config.ru
+exec ${gems}/bin/puma -b "tcp://\''${BIND_ADDRESS:-127.0.0.1}:\''${PORT:-4567}" config.ru
 EOF
       chmod +x $out/bin/sinatra-hello
 
@@ -57,10 +54,9 @@ EOF
   },
   "path": [
     "$out/bin",
-    "${ruby}/bin",
-    "${bundler}/bin"
-  ],
-  "setup": "cd $out/app && ${bundler}/bin/bundle install --deployment --without development test"
+    "${gems}/bin",
+    "${ruby}/bin"
+  ]
 }
 EOF
     '';
@@ -68,10 +64,7 @@ EOF
 
 in
 {
-  # Required: the package derivation
   package = app;
-
-  # Environment variables
   env = {
     RACK_ENV = "production";
   };

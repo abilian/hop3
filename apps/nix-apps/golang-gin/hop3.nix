@@ -16,13 +16,8 @@ let
 
     src = ./.;
 
-    # Use vendorHash = null for simple cases, or compute the hash
-    # For a real app, run: nix-prefetch-url --unpack <url>
-    vendorHash = null;
-
-    # Allow network access during build for dependency fetching
-    # In production, you'd use a proper vendorHash
-    proxyVendor = true;
+    # Vendor hash computed from go.sum dependencies
+    vendorHash = "sha256-NpJifMll5/SDvSkJNiJFBVXMWvhJQjKOw8h/x/pKudI=";
 
     postInstall = ''
       # Rename binary to match app name
