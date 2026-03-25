@@ -6,8 +6,14 @@
 { pkgs ? import <nixpkgs> {} }:
 
 let
-  ruby = pkgs.ruby_3_2;
-  bundler = pkgs.bundler;
+  ruby = pkgs.ruby_3_3;
+
+  # Create a bundler environment with all gems from Gemfile.lock
+  gems = pkgs.bundlerEnv {
+    name = "rack-hello-gems";
+    inherit ruby;
+    gemdir = ./.;
+  };
 
   app = pkgs.stdenv.mkDerivation {
     pname = "rack-hello";
@@ -18,23 +24,25 @@ let
 
     src = ./.;
 
-    buildInputs = [ ruby bundler ];
+    buildInputs = [ ruby gems ];
 
     dontBuild = true;
 
     installPhase = ''
       mkdir -p $out/app $out/bin
 
-      cp *.rb *.ru Gemfile* $out/app/ 2>/dev/null || true
-      cp hello.rb config.ru Gemfile $out/app/
+      # Copy application files
+      cp hello.rb config.ru Gemfile Gemfile.lock $out/app/
 
+      # Create wrapper script that uses the bundled gems
       cat > $out/bin/rack-hello << EOF
 #!/bin/sh
 cd $out/app
-exec ${ruby}/bin/ruby -S rackup -o "\''${BIND_ADDRESS:-127.0.0.1}" -p "\''${PORT:-9292}" config.ru
+exec ${gems}/bin/rackup -o "\''${BIND_ADDRESS:-127.0.0.1}" -p "\''${PORT:-9292}" config.ru
 EOF
       chmod +x $out/bin/rack-hello
 
+      # Write runtime metadata for Hop3
       mkdir -p $out/hop3
       cat > $out/hop3/runtime.json << EOF
 {
@@ -46,10 +54,9 @@ EOF
   },
   "path": [
     "$out/bin",
-    "${ruby}/bin",
-    "${bundler}/bin"
-  ],
-  "setup": "cd $out/app && ${bundler}/bin/bundle install --deployment --without development test"
+    "${gems}/bin",
+    "${ruby}/bin"
+  ]
 }
 EOF
     '';

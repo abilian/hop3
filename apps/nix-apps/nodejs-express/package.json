@@ -1,0 +1,12 @@
+{
+  "name": "nodejs-express-nix",
+  "version": "0.1.0",
+  "description": "Simple Express hello world for Hop3 Nix integration",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
