@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import pwd
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -185,6 +186,7 @@ class NixBuilder:
             text=True,
             cwd=cwd,
             env=self._get_nix_env(),
+            check=False,
         )
 
     def _get_nix_profile_paths(self) -> list[Path]:
@@ -229,7 +231,6 @@ class NixBuilder:
 
         # Ensure USER is set - required by Nix profile script
         if "USER" not in env:
-            import pwd
             try:
                 env["USER"] = pwd.getpwuid(os.getuid()).pw_name
             except (KeyError, OSError):
