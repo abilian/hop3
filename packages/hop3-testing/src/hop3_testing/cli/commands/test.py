@@ -136,6 +136,18 @@ def package(
     type=click.Path(),
     help="Directory to save per-app log files",
 )
+@click.option(
+    "--with",
+    "features",
+    multiple=True,
+    help="Optional features to install (e.g., nix, mysql, redis)",
+)
+@click.option(
+    "--category",
+    "-c",
+    multiple=True,
+    help="Filter tests by category (e.g., nix-app, deployment)",
+)
 @click.pass_context
 def system_test(
     ctx: click.Context,
@@ -155,6 +167,8 @@ def system_test(
     quiet: bool,
     debug: bool,
     logs_dir: str | None,
+    features: tuple[str, ...],
+    category: tuple[str, ...],
 ) -> None:
     """Test Hop3 system using real hop3-deploy.
 
@@ -163,14 +177,21 @@ def system_test(
     installation and deployment paths.
 
     Examples:
-        hop3-test system --docker                  # Deploy local code to Docker
+        hop3-test system --docker                  # Deploy and run default tests
         hop3-test system --docker --mode ci        # Include medium-tier tests
-        hop3-test system --docker --deploy-from git --branch main
         hop3-test system --docker --clean          # Clean install
-        hop3-test system --docker --reuse          # Reuse existing container
 
+        # Filter by category
+        hop3-test system --docker -c nix-app       # Run only nix-app tests
+        hop3-test system --docker -c deployment    # Run only deployment tests
+
+        # Install optional features (for tests that need them)
+        hop3-test system --docker --with nix -c nix-app  # Install Nix + run nix-apps
+        hop3-test system --docker --with redis           # Install with Redis support
+
+        # Remote testing
         hop3-test system --ssh --host server.com   # Deploy to remote via SSH
-        hop3-test system --ssh                     # Uses HOP3_TEST_HOST env var
+        hop3-test system --ssh --host X --with nix -c nix-app  # Remote nix testing
     """
     verbose = ctx.obj["verbose"]
 
@@ -197,18 +218,29 @@ def system_test(
             )
             sys.exit(1)
 
-    # Load catalog and select tests based on mode
+    # Load catalog and select tests
     catalog = Catalog(ctx.obj["root"])
     catalog.scan()
 
+    # Select tests based on category or mode
+    categories = list(category)
     mode_config = get_mode_config(mode)
-    selector = Selector(catalog)
-    tests = selector.select_for_target(mode_config, target_type)
+
+    if categories:
+        # Explicit category filtering
+        tests = catalog.filter(categories=categories)
+    else:
+        # Use mode-based selection (default)
+        selector = Selector(catalog)
+        tests = selector.select_for_target(mode_config, target_type)
 
     if not tests:
         click.echo("No tests found")
+        if categories:
+            click.echo(f"Categories searched: {', '.join(categories)}")
         return
 
+    # Show test list BEFORE deployment (immediate feedback)
     click.echo(f"\n{'=' * 70}")
     click.echo("SYSTEM TESTING MODE")
     click.echo("Testing Hop3 itself with known-good applications")
@@ -219,18 +251,35 @@ def system_test(
     click.echo(f"Deploy from: {deploy_from}")
     if deploy_from == "git":
         click.echo(f"Branch: {branch}")
-    click.echo(f"Test mode: {mode} ({mode_config.description})")
+    if categories:
+        click.echo(f"Categories: {', '.join(categories)}")
+    else:
+        click.echo(f"Test mode: {mode} ({mode_config.description})")
     click.echo(f"Clean install: {clean}")
-    click.echo(f"Tests to run: {len(tests)}")
+    if features:
+        click.echo(f"Features: docker, {', '.join(features)}")
+    else:
+        click.echo("Features: docker")
+    click.echo(f"\nTests to run ({len(tests)}):")
+    for t in tests:
+        click.echo(f"  - {t.name}")
+    click.echo("")  # Blank line before deployment starts
 
     # Build deployment config (None if reusing existing)
     deployment: DeploymentConfig | None = None
     if deploy_from != "none":
+        # Build features list: start with default "docker" and add user-specified
+        features_list = ["docker"]
+        for f in features:
+            if f not in features_list:
+                features_list.append(f)
+
         deployment = DeploymentConfig(
             source=deploy_from,  # type: ignore[arg-type]
             branch=branch,
             clean=clean,
             verbose=verbose,
+            features=features_list,
         )
 
     # Create target based on target type

@@ -141,6 +141,10 @@ class Catalog:
             if item in processed_dirs:
                 continue
 
+            # Skip if any subdirectory was already processed (e.g., demo57/app/)
+            if any(p.is_relative_to(item) for p in processed_dirs):
+                continue
+
             # Check if it looks like a test app
             if self._is_legacy_app(item):
                 self._load_legacy_app(item, rel_path)
