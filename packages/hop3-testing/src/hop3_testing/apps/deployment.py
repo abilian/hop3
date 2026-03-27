@@ -290,7 +290,10 @@ class DeploymentSession:
         Returns:
             True if app is deployed and running, False otherwise
         """
+        self.last_check_output = ""
+
         if not self.deployed:
+            self.last_check_output = "(not deployed)"
             return False
 
         try:
@@ -304,6 +307,12 @@ class DeploymentSession:
                 check=False,
             )
 
+            self.last_check_output = (
+                f"exit={result.returncode} "
+                f"stdout={result.stdout[:500]} "
+                f"stderr={result.stderr[:500]}"
+            )
+
             app_in_list = self.app_name in result.stdout
 
             self.console.debug(f"check_deployed() for '{self.app_name}':")
@@ -315,6 +324,7 @@ class DeploymentSession:
 
             return app_in_list
         except Exception as e:
+            self.last_check_output = f"exception: {e}"
             self.console.error(f"check_deployed() exception: {e}")
             traceback.print_exc()
             return False
