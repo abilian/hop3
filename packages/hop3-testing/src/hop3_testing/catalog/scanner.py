@@ -103,6 +103,35 @@ class Catalog:
             "Catalog loaded: %d tests, %d errors", len(self._tests), len(self._errors)
         )
 
+    def _find_demo_internal_dirs(self, path: Path, rel_path: str) -> set[Path]:
+        """Find subdirectories that are internal to demo directories.
+
+        For demos/, demo directories often contain app/ subdirectories with
+        hop3.toml files. These should NOT be treated as separate tests.
+
+        Args:
+            path: Directory to scan
+            rel_path: Relative path for context
+
+        Returns:
+            Set of paths that are internal to demos (should be skipped)
+        """
+        demo_internal_dirs: set[Path] = set()
+        is_demos_dir = "demos" in rel_path or rel_path == "demos"
+
+        if not is_demos_dir:
+            return demo_internal_dirs
+
+        # Find all demo directories and their subdirectories
+        for item in path.iterdir():
+            if item.is_dir() and (item / "demo-script.py").exists():
+                # This is a demo directory - mark all its subdirs as internal
+                for subdir in item.rglob("*"):
+                    if subdir.is_dir():
+                        demo_internal_dirs.add(subdir)
+
+        return demo_internal_dirs
+
     def _scan_directory(self, path: Path, rel_path: str) -> None:
         """Scan a single directory for tests.
 
@@ -111,24 +140,34 @@ class Catalog:
         2. hop3.toml files (app definitions that can be used for testing)
         3. Legacy apps (directories with Procfile but no config files)
         """
-        # Track which directories we've already processed
         processed_dirs: set[Path] = set()
+        demo_internal_dirs = self._find_demo_internal_dirs(path, rel_path)
 
         # Check for test.toml files recursively
         for test_toml in path.rglob("test.toml"):
             app_dir = test_toml.parent
-            if app_dir not in processed_dirs:
+            if app_dir not in processed_dirs and app_dir not in demo_internal_dirs:
                 self._load_test_smart(app_dir)
                 processed_dirs.add(app_dir)
 
         # Check for hop3.toml files recursively (that don't have test.toml)
         for hop3_toml in path.rglob("hop3.toml"):
             app_dir = hop3_toml.parent
+            # Skip internal demo subdirectories (e.g., demos/demo38/app/)
+            if app_dir in demo_internal_dirs:
+                logger.debug("Skipping internal demo directory: %s", app_dir)
+                continue
             if app_dir not in processed_dirs:
                 self._load_test_smart(app_dir)
                 processed_dirs.add(app_dir)
 
-        # Also scan for legacy apps (directories with Procfile but no config files)
+        # Scan for legacy apps
+        self._scan_legacy_apps(path, rel_path, processed_dirs)
+
+    def _scan_legacy_apps(
+        self, path: Path, rel_path: str, processed_dirs: set[Path]
+    ) -> None:
+        """Scan for legacy apps (directories with Procfile but no config files)."""
         for item in path.iterdir():
             if not item.is_dir():
                 continue

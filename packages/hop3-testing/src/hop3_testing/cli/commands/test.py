@@ -18,6 +18,7 @@ from hop3_testing.catalog.loader import (
     generate_test_definition_from_app,
     load_test_definition_smart,
 )
+from hop3_testing.catalog.models import Category
 from hop3_testing.cli.runners import run_app_tests, run_system_tests
 from hop3_testing.results import ConsoleReporter
 from hop3_testing.runners import DeploymentTestRunner
@@ -88,6 +89,7 @@ def package(
 
 
 @click.command("system")
+@click.argument("app_names", nargs=-1)
 # Target type (must specify one)
 @click.option(
     "--docker", "target_type", flag_value="docker", help="Test using Docker container"
@@ -146,11 +148,12 @@ def package(
     "--category",
     "-c",
     multiple=True,
-    help="Filter tests by category (e.g., nix-app, deployment)",
+    help="Filter tests by category (e.g., nix-app, deployment, or 'all' for all categories)",
 )
 @click.pass_context
-def system_test(
+def system_test(  # noqa: C901, PLR0912, PLR0915
     ctx: click.Context,
+    app_names: tuple[str, ...],
     target_type: str | None,
     deploy_from: str,
     reuse: bool,
@@ -172,26 +175,19 @@ def system_test(
 ) -> None:
     """Test Hop3 system using real hop3-deploy.
 
-    This command deploys Hop3 using the actual hop3-deploy infrastructure,
-    then runs tests against it. This ensures tests exercise the real
-    installation and deployment paths.
+    Deploys Hop3 via hop3-deploy, then runs tests against it.
+    Optionally pass app names or paths to test specific apps.
 
+    \b
     Examples:
-        hop3-test system --docker                  # Deploy and run default tests
-        hop3-test system --docker --mode ci        # Include medium-tier tests
-        hop3-test system --docker --clean          # Clean install
-
-        # Filter by category
-        hop3-test system --docker -c nix-app       # Run only nix-app tests
-        hop3-test system --docker -c deployment    # Run only deployment tests
-
-        # Install optional features (for tests that need them)
-        hop3-test system --docker --with nix -c nix-app  # Install Nix + run nix-apps
-        hop3-test system --docker --with redis           # Install with Redis support
-
-        # Remote testing
-        hop3-test system --ssh --host server.com   # Deploy to remote via SSH
-        hop3-test system --ssh --host X --with nix -c nix-app  # Remote nix testing
+      hop3-test system --docker              # Deploy + test
+      hop3-test system --docker --clean      # Clean install
+      hop3-test system --docker -c nix-app   # Filter by category
+      hop3-test system --docker -c all       # All categories
+      hop3-test system --docker --with all   # All features
+      hop3-test system --ssh --host X        # Remote via SSH
+      hop3-test system --ssh -c demo demo03  # Run specific demo
+      hop3-test system --ssh demos/demo03 apps/test-apps/010-flask-pip-wsgi
     """
     verbose = ctx.obj["verbose"]
 
@@ -222,11 +218,24 @@ def system_test(
     catalog = Catalog(ctx.obj["root"])
     catalog.scan()
 
-    # Select tests based on category or mode
-    categories = list(category)
+    # Select tests based on app names, category, or mode
+    # Handle "-c all" to include all categories
+    if "all" in category:
+        categories = [c.value for c in Category]
+    else:
+        categories = list(category)
     mode_config = get_mode_config(mode)
 
-    if categories:
+    tests: list[TestDefinition] = []
+    if app_names:
+        # Specific apps requested - look up by name or path
+        for name in app_names:
+            test, error = _lookup_test_by_name_or_path(name, catalog)
+            if test:
+                tests.append(test)
+            elif error:
+                click.echo(f"Warning: {error}", err=True)
+    elif categories:
         # Explicit category filtering
         tests = catalog.filter(categories=categories)
     else:
@@ -236,7 +245,9 @@ def system_test(
 
     if not tests:
         click.echo("No tests found")
-        if categories:
+        if app_names:
+            click.echo(f"Apps searched: {', '.join(app_names)}")
+        elif categories:
             click.echo(f"Categories searched: {', '.join(categories)}")
         return
 
@@ -256,10 +267,7 @@ def system_test(
     else:
         click.echo(f"Test mode: {mode} ({mode_config.description})")
     click.echo(f"Clean install: {clean}")
-    if features:
-        click.echo(f"Features: docker, {', '.join(features)}")
-    else:
-        click.echo("Features: docker")
+    click.echo(f"Features: {', '.join(features) if features else '(default)'}")
     click.echo(f"\nTests to run ({len(tests)}):")
     for t in tests:
         click.echo(f"  - {t.name}")
@@ -268,18 +276,13 @@ def system_test(
     # Build deployment config (None if reusing existing)
     deployment: DeploymentConfig | None = None
     if deploy_from != "none":
-        # Build features list: start with default "docker" and add user-specified
-        features_list = ["docker"]
-        for f in features:
-            if f not in features_list:
-                features_list.append(f)
-
+        # Pass features through as-is - "all" is expanded by the installer
         deployment = DeploymentConfig(
             source=deploy_from,  # type: ignore[arg-type]
             branch=branch,
             clean=clean,
             verbose=verbose,
-            features=features_list,
+            features=list(features),  # Convert tuple to list
         )
 
     # Create target based on target type

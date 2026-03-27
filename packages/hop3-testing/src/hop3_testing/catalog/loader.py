@@ -283,7 +283,6 @@ def generate_test_definition_from_app(
 
     description = _read_description_from_readme(app_path)
     app_type = _infer_app_type(actual_app_path)
-    validations = _build_validations_from_app(actual_app_path)
 
     # Build covers tags from inferred app type
     covers = []
@@ -292,6 +291,27 @@ def generate_test_definition_from_app(
 
     # Infer category from directory path (demos/, test-apps/, etc.)
     category = _infer_category_from_path_and_type(app_path, "native")
+
+    # For demos, set demo config; for deployments, set deployment config
+    # Demos handle their own validation internally via the demo script,
+    # so we don't add automatic HTTP validations for them
+    demo_config = None
+    deployment_config = None
+    validations: list[Validation] = []
+    if category == Category.DEMO:
+        # Check for demo-script.py
+        demo_script = (
+            "demo-script.py" if (app_path / "demo-script.py").exists() else None
+        )
+        demo_config = DemoConfig(script=demo_script, type="script")
+        # No automatic validations for demos - they handle their own testing
+    else:
+        deployment_config = DeploymentConfig(
+            path=deployment_path,
+            type=app_type,
+        )
+        # Build validations from app files (Procfile -> HTTP check, check.py -> script)
+        validations = _build_validations_from_app(actual_app_path)
 
     return TestDefinition(
         name=app_name,
@@ -302,10 +322,8 @@ def generate_test_definition_from_app(
             targets=[TargetType.DOCKER, TargetType.REMOTE],
         ),
         validations=validations,
-        deployment=DeploymentConfig(
-            path=deployment_path,
-            type=app_type,
-        ),
+        deployment=deployment_config,
+        demo=demo_config,
         description=description,
         metadata=TestMetadata(covers=covers),
         source_path=app_path / "test.toml",  # Virtual path
@@ -405,11 +423,13 @@ def _infer_category_from_path_and_type(
     if "/test-apps/" in path_str:
         return Category.DEPLOYMENT
 
-    # Check docker-apps and native-apps directories
+    # Check docker-apps, native-apps, and nix-apps directories
     if "/docker-apps/" in path_str or path_str.endswith("/docker-apps"):
         return Category.DOCKER_APP
     if "/native-apps/" in path_str or path_str.endswith("/native-apps"):
         return Category.NATIVE_APP
+    if "/nix-apps/" in path_str or path_str.endswith("/nix-apps"):
+        return Category.NIX_APP
 
     # Fallback: use deployment type if not in special directories
     if deployment_type == "docker":
@@ -436,6 +456,8 @@ def _get_name_prefix_from_path(app_path: Path) -> str:
         return "docker-"
     if "/native-apps/" in path_str or path_str.endswith("/native-apps"):
         return "native-"
+    if "/nix-apps/" in path_str or path_str.endswith("/nix-apps"):
+        return "nix-"
 
     return ""
 
@@ -538,7 +560,8 @@ def generate_test_definition_from_hop3_toml(
             covers = test_metadata["covers"] + covers
 
     # Build default HTTP validation if none specified
-    if not validations:
+    # Skip for demos - they handle their own validation internally
+    if not validations and category != Category.DEMO:
         validations.append(
             Validation(
                 type="http",

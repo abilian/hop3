@@ -442,8 +442,9 @@ class RemoteTarget(DeploymentTarget):
         """Build TargetInfo from configuration."""
         config = self.remote_config
         return TargetInfo(
-            ssh_host=f"{config.user}@{config.host}",
+            ssh_host=config.host,
             ssh_port=config.port,
+            ssh_user=config.user,
             ssh_key=config.ssh_key,
             ssh_password=config.password,
             http_base=config.http_base or f"http://{config.host}",
