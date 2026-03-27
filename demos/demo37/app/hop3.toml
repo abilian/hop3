@@ -18,6 +18,5 @@ port = 80
 # WordPress will be configured via DATABASE_URL parsing in start.sh
 WORDPRESS_DEBUG = "0"
 
-[[provider]]
-name = "mysql"
-plan = "standard"
+[[addons]]
+type = "mysql"

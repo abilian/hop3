@@ -8,5 +8,5 @@ description = "Piwigo photo gallery"
 [docker]
 port = 80
 
-[[provider]]
-name = "mysql"
+[[addons]]
+type = "mysql"

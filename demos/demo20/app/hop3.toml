@@ -1,12 +1,8 @@
 # Umami Analytics - Self-hosted web analytics
 # https://umami.is/
 
-[app]
-name = "umami"
+[build]
 builder = "docker"
-
-[web]
-port = 3000
 
 [env]
 DISABLE_TELEMETRY = "1"

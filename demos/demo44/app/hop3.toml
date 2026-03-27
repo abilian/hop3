@@ -17,6 +17,5 @@ port = 3000
 [env]
 # Redmine configuration set via start.sh mapping
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"

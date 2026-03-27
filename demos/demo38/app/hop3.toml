@@ -20,6 +20,5 @@ port = 80
 APP_DEBUG = "false"
 APP_ENV = "production"
 
-[[provider]]
-name = "mysql"
-plan = "standard"
+[[addons]]
+type = "mysql"
