@@ -46,15 +46,17 @@ sudo python3 install-server.py
 ### Installation Options
 
 ```bash
-# Install with optional services
+# Install with optional services (mysql, redis, docker, or all)
 sudo python3 install-server.py --with mysql,redis
 
-# Install all optional services
+# Install all optional features
 sudo python3 install-server.py --with all
 
-# Specify admin domain for web UI
-sudo python3 install-server.py --admin-domain admin.example.com
+# Specify domain for Let's Encrypt certificate
+sudo python3 install-server.py --domain hop3.example.com
 ```
+
+See the [Server Setup Guide](../get-started/server-setup.md) for complete installation options.
 
 ### Post-Installation Verification
 
@@ -144,85 +146,79 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ### Creating Admin Users
 
+The recommended way to create an admin user is from your workstation:
+
 ```bash
-# Create admin user interactively
-hop3 admin:create
+hop3 init --ssh root@your-server.com
+```
 
-# Create admin with specified username
-hop3 admin:create --username admin
+This connects via SSH, prompts for admin credentials, and saves your API token locally.
 
-# Create with password from stdin (for scripts)
-echo "password123" | hop3 admin:create --username admin --password-stdin
+**Alternative: Server-side creation**
+
+If you need to create users directly on the server:
+
+```bash
+ssh root@your-server.com
+hop3-server admin:create admin admin@example.com
+# Enter password when prompted
+```
+
+Then configure your local CLI:
+```bash
+hop3 settings set server https://your-server.com
+hop3 settings set token <paste-token-here>
 ```
 
 ### Generating API Tokens
 
 ```bash
-# Generate token for automation
-hop3 admin:token --username admin
+# Generate token for automation (run on server)
+hop3-server admin:token --username admin
 
 # Token with custom expiry (hours)
-hop3 admin:token --username admin --expiry 168
+hop3-server admin:token --username admin --expiry 168
 ```
 
 ### Listing Users
 
 ```bash
-hop3 admin:list
+hop3 admin:user:list
 ```
 
 ---
 
 ## Database Addon Management
 
-### PostgreSQL
+Hop3 supports PostgreSQL, MySQL, and Redis as backing services. For complete addon command documentation, see the **[CLI Reference: Services (Addons)](../reference/cli.md#services-addons)**.
+
+### Quick Reference
 
 ```bash
-# Create a database
-hop3 addons:create postgres mydb
-
-# List databases
-hop3 addons:list --type postgres
-
-# Get connection info
-hop3 addons:info mydb
-
-# Delete database
-hop3 addons:destroy mydb
+hop3 addons:create postgres mydb        # Create PostgreSQL database
+hop3 addons:create mysql mydb           # Create MySQL database
+hop3 addons:create redis mycache        # Create Redis instance
+hop3 addons:attach mydb --app myapp     # Attach to app (sets DATABASE_URL)
+hop3 addons:info mydb                   # Get connection info
+hop3 addons:destroy mydb                # Delete (requires confirmation)
 ```
 
-**Configuration:** Set `superuser_password` in `server.toml`:
+### Server Configuration
+
+Configure addon credentials in `/home/hop3/.config/hop3/server.toml`:
+
 ```toml
 [addons.postgres]
 superuser = "postgres"
 superuser_password = "secure-password"
-```
 
-### MySQL
-
-```bash
-# Create a database
-hop3 addons:create mysql mydb
-
-# Attach to application
-hop3 addons:attach mydb --app myapp
-```
-
-**Configuration:**
-```toml
 [addons.mysql]
 superuser = "root"
 superuser_password = "secure-password"
-```
 
-### Redis
-
-```bash
-# Create Redis instance
-hop3 addons:create redis mycache
-
-# Attach to application (provides REDIS_URL)
-hop3 addons:attach mycache --app myapp
+[addons.redis]
+host = "localhost"
+port = 6379
 ```
 
 ---
@@ -330,62 +326,43 @@ ps aux | grep uwsgi
 
 ## Backup & Restore
 
-### Database Backups
+For application-level backups, see the **[Backup and Restore Guide](backup-restore.md)**.
+
+### Application Backups
 
 ```bash
-# Backup a database
-hop3 backup:create mydb
-
-# List backups
-hop3 backup:list
-
-# Restore from backup
-hop3 backup:restore mydb --backup backup-2026-02-24.sql.gz
+hop3 backup:create myapp     # Create app backup
+hop3 backup:list myapp       # List backups
+hop3 backup:restore <id>     # Restore from backup
 ```
 
 ### Full Server Backup
 
-Recommended backup targets:
-```bash
-# Application data
-/home/hop3/apps/
+For disaster recovery, backup these directories:
 
-# Configuration
-/home/hop3/.config/hop3/
+| Path | Contents |
+|------|----------|
+| `/home/hop3/apps/` | Application deployments |
+| `/home/hop3/.config/hop3/` | Configuration and database |
+| `/home/hop3/repos/` | Git repositories |
 
-# Database files (if using SQLite)
-/home/hop3/.config/hop3/hop3.db
-
-# Git repositories
-/home/hop3/repos/
-```
-
-Example backup script:
+Example server backup script:
 ```bash
 #!/bin/bash
 BACKUP_DIR="/backups/hop3/$(date +%Y-%m-%d)"
 mkdir -p "$BACKUP_DIR"
 
-# Backup applications
 tar -czf "$BACKUP_DIR/apps.tar.gz" /home/hop3/apps/
-
-# Backup configuration
 tar -czf "$BACKUP_DIR/config.tar.gz" /home/hop3/.config/hop3/
-
-# Backup PostgreSQL databases
 sudo -u postgres pg_dumpall | gzip > "$BACKUP_DIR/postgres.sql.gz"
-
-# Backup MySQL databases
-mysqldump --all-databases | gzip > "$BACKUP_DIR/mysql.sql.gz"
 ```
 
 ### Disaster Recovery
 
 1. Install Hop3 on new server
-2. Restore configuration files
-3. Restore database dumps
-4. Restore application directories
-5. Redeploy applications: `hop3 deploy myapp`
+2. Restore configuration and database files
+3. Restore application directories
+4. Redeploy applications: `hop3 deploy myapp`
 
 ---
 
@@ -682,3 +659,13 @@ sudo systemctl restart systemd-journald
 | `HOP3_CONFIG` | Config file path |
 | `HOP3_UNSAFE` | Disable auth (testing only) |
 | `HOP3_DEBUG` | Enable debug logging |
+
+---
+
+## Related Guides
+
+- **[Server Setup](../get-started/server-setup.md)** - Initial server installation
+- **[User Guide](user-guide.md)** - Core concepts and daily operations
+- **[Backup and Restore](backup-restore.md)** - Data protection and recovery
+- **[Troubleshooting](troubleshooting.md)** - Diagnose and fix common issues
+- **[CLI Reference](../reference/cli.md)** - Complete command documentation

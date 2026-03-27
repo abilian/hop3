@@ -1,13 +1,13 @@
-# Hop3 Installer Guide
+# Server Setup Guide
 
-This guide provides instructions on how to use the Hop3 installer script to set up the Hop3 environment on a server. The installer is a standalone Python script that automates the installation and configuration process.
+This guide explains how to set up Hop3 on a server using the installer script. The installer is a standalone Python script that automates the installation and configuration process.
 
 ## Prerequisites
 
 - A server running Ubuntu 22.04 or 24.04 LTS (Debian-based distributions also supported)
 - Root access to the server via SSH
 - Python 3.10+ on the server
-- A domain name pointing to your server (recommended for secure admin UI access)
+- A domain name pointing to your server (required for secure HTTPS; without it, admin UI uses unencrypted HTTP on port 8000)
 
 ## Quick Install
 
@@ -53,10 +53,13 @@ sudo python3 install-server.py --local-path /path/to/hop3-server
 | Option | Description |
 |--------|-------------|
 | `--domain DOMAIN` | Domain for admin UI (enables Let's Encrypt SSL) |
+| `--with FEATURES` | Install optional features: `mysql`, `redis`, `docker`, or `all` |
 | `--version VERSION` | Install specific version from PyPI |
+| `--pre` | Allow pre-release versions from PyPI |
 | `--git` | Install from git repository |
 | `--branch BRANCH` | Git branch to install (default: main) |
 | `--local-path PATH` | Install from local directory |
+| `--force` | Force reinstall |
 | `--skip-deps` | Skip system dependency installation |
 | `--skip-nginx` | Skip nginx configuration |
 | `--skip-postgres` | Skip PostgreSQL setup |
@@ -178,13 +181,13 @@ For testing and demonstrations, use the demo launcher:
 
 ```bash
 # Basic demo (apps cleaned up after)
-python demos/demo.py --host 46.62.169.221 demo1
+python demos/demo.py --host <your-server-ip> demo1
 
 # Keep apps running with admin domain
-python demos/demo.py --host 46.62.169.221 --admin-domain hop3.example.com --keep demo1
+python demos/demo.py --host <your-server-ip> --admin-domain hop3.example.com --keep demo1
 
 # Use local code (development)
-python demos/demo.py --host 46.62.169.221 --local --keep demo1
+python demos/demo.py --host <your-server-ip> --local --keep demo1
 ```
 
 The demo launcher will:

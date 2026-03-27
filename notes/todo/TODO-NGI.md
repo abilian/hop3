@@ -14,7 +14,7 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
 | **T4: Packaged Applications** | Q4 2025 | Q1 2026 | 5/20 Configs (25%) |
 | **T5: Dissemination & Engagement** | Q4 2025 | Q1 2026 | 3/5 Complete (60%) |
 
-**Note:** Non-Nix items (T3, T4, T5) were not completed in Q4 2025 and are now being completed in Q1 2026. See `local-notes/PLAN-2026-Q1.md` for detailed schedule.
+**Note:** Non-Nix items (T3, T4, T5) were not completed in Q4 2025 and are now being completed in Q1 2026.
 
 ## TOC
 
@@ -85,10 +85,10 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
   - [x] Full backup/restore system with service data
   - [x] SHA256 checksums for verification
   - [x] Fail-fast behavior (backup fails if services cannot be backed up)
-  - [x] 46 tests (18 unit + 9 E2E + 19 integration)
+  - [x] Comprehensive test coverage (unit + E2E + integration)
 
 * **M3.4 Testing framework and infrastructure:** ✅ **COMPLETED** (2025-11-24, updated 2026-02-17)
-  - [x] 638 tests across 4 layers (361 unit, 247 integration, 13 system, 17 E2E)
+  - [x] Tests across 4 layers (unit, integration, system, E2E)
   - [x] 100% pass rate for unit/integration/system tests
   - [x] CI automation with GitHub Actions
   - [x] Docker-based E2E test infrastructure
@@ -188,7 +188,7 @@ Detailed breakdown of the work items and deliverables, based on the MOU for the 
 | 19. Monica CRM | ❌ | ❌ | ❌ | ❌ |
 | 20. Cal.com | ❌ | ❌ | ❌ | ❌ |
 
-**Note:** Application list may be adjusted based on complexity and dependencies. See `local-notes/PLAN-2026-Q1.md` for detailed schedule.
+**Note:** Application list may be adjusted based on complexity and dependencies.
 
 ## T5: Dissemination & Engagement
 

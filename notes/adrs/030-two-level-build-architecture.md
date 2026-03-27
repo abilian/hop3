@@ -440,7 +440,6 @@ This architecture is successful when:
 
 - **Current Builder Implementation**: `packages/hop3-server/src/hop3/builders/_base.py`
 - **Current Plugin System**: `packages/hop3-server/src/hop3/core/plugins.py`
-- **Terminology Decision**: `local-notes/TERMINOLOGY-DECISION.md`
 - **Related ADRs**:
   - ADR 020: Pluggable Architecture
   - ADR 022: Build/Deploy Plugin System

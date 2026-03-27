@@ -290,25 +290,14 @@ Hop3 will merge these configurations with `hop3.toml` taking precedence.
 
 ## Environment-Specific Configuration
 
-### Development
+Hop3 uses a single `hop3.toml` configuration file. Environment-specific settings are handled through environment variables, which you can set differently per deployment.
+
+### Production Configuration (hop3.toml)
 
 ```toml
-# hop3.dev.toml
-[env]
-DEBUG = "true"
-LOG_LEVEL = "debug"
-
-[run]
-start = "flask run --reload"
-```
-
-### Production
-
-```toml
-# hop3.toml
-[env]
-DEBUG = "false"
-LOG_LEVEL = "info"
+# hop3.toml - used for all environments
+[metadata]
+id = "myapp"
 
 [run]
 start = "gunicorn app:app --workers 4"
@@ -316,11 +305,19 @@ start = "gunicorn app:app --workers 4"
 [healthcheck]
 enabled = true
 path = "/health/"
-
-[backup]
-enabled = true
-schedule = "0 2 * * *"
 ```
+
+### Environment Variables for Different Environments
+
+```bash
+# Production
+hop3 config:set myapp LOG_LEVEL=info
+
+# Development/staging (local testing)
+LOG_LEVEL=debug flask run --reload
+```
+
+For local development, run your app directly without Hop3. For deployed environments, use `hop3 config:set` to configure environment-specific variables.
 
 ---
 
@@ -332,8 +329,10 @@ After migration, validate your configuration:
 # Check app configuration
 hop3 config:show myapp
 
-# Test deployment
-hop3 deploy myapp --dry-run
+# Deploy and verify
+hop3 deploy myapp
+hop3 app:status myapp
+hop3 app:logs myapp
 ```
 
 ---

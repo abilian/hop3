@@ -151,13 +151,16 @@ Define environment variables for your application.
 
 ```toml
 [env]
-DEBUG = "false"
 DATABASE_URL = "postgresql://localhost/mydb"
 SECRET_KEY = "your-secret-key"
 ALLOWED_HOSTS = "myapp.example.com"
+LOG_LEVEL = "info"
 ```
 
-**Note:** Sensitive values should be injected through actual environment variables, not hardcoded in hop3.toml.
+**Notes:**
+
+- Sensitive values should be injected through `hop3 config:set`, not hardcoded in hop3.toml.
+- The `DEBUG` environment variable defaults to `false`. Only set `DEBUG = "true"` in development environments for troubleshooting—never in production.
 
 ### [port] - Port Configuration
 

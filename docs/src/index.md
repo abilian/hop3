@@ -100,7 +100,7 @@ Lightweight architecture optimized for efficiency. Run multiple applications on 
     hop3 deploy ./myapp
     ```
 
-See the [Installation Guide](get-started/installation.md) for detailed instructions.
+See the [Installation Guide](get-started/server-setup.md) for detailed instructions.
 
 ## Supported Platforms
 

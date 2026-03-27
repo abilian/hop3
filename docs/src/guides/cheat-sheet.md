@@ -135,41 +135,28 @@ hop3 config:migrate procfile /path/to/app --dry-run
 ### Addons (Backing Services)
 
 ```bash
-# List available addon types
-hop3 addons:list
-
-# Create addon
-hop3 addons:create postgres my-db
-
-# Attach to app (injects DATABASE_URL, etc.)
-hop3 addons:attach my-db --app <app>
-
-# Detach from app
-hop3 addons:detach my-db --app <app>
-
-# Check addon info
-hop3 addons:info my-db
-
-# Destroy addon
-hop3 addons:destroy my-db
+hop3 addons:list                      # List addon types
+hop3 addons:create postgres my-db     # Create addon
+hop3 addons:attach my-db --app <app>  # Attach (sets DATABASE_URL)
+hop3 addons:detach my-db --app <app>  # Detach from app
+hop3 addons:info my-db                # Addon info
+hop3 addons:destroy my-db             # Destroy addon
 ```
+
+See [CLI Reference: Services](../reference/cli.md#services-addons) for complete documentation.
 
 ### Backups
 
 ```bash
-# Create backup
-hop3 backup:create <app>
-
-# List backups
-hop3 backup:list <app>
-
-# Restore
-hop3 backup:restore <backup-id>
-hop3 app:restart <app>
-
-# Delete backup
-hop3 backup:delete <backup-id>
+hop3 backup:create <app>           # Create backup
+hop3 backup:list <app>             # List backups
+hop3 backup:info <backup-id>       # Backup details
+hop3 backup:restore <backup-id>    # Restore
+hop3 app:restart <app>             # Restart after restore
+hop3 backup:delete <backup-id>     # Delete backup
 ```
+
+See [Backup and Restore Guide](backup-restore.md) for complete documentation.
 
 ### Process Scaling
 
@@ -282,7 +269,6 @@ before-run = "python manage.py migrate"
 packages = ["postgresql-client"]
 
 [env]
-DEBUG = "false"
 LOG_LEVEL = "info"
 
 [port]
@@ -315,6 +301,8 @@ plan = "standard"
 | `[healthcheck]` | Health monitoring |
 | `[backup]` | Automated backup config |
 | `[[provider]]` | Required services (postgres, redis) |
+
+See [hop3.toml Reference](../reference/config.md) for complete documentation.
 
 ### Precedence
 
@@ -419,14 +407,15 @@ hop3 ps:scale myapp worker=2
 
 ### Backups
 
-- Enable automated backups for production:
+- **Back up before deploying** to production: `hop3 backup:create <app>`
+- Enable automated backups in `hop3.toml`:
   ```toml
   [backup]
   enabled = true
   schedule = "0 2 * * *"  # Daily at 2 AM
-  retention = 7           # Keep 7 days
   ```
 - Test restore procedures periodically
+- See [Backup and Restore Guide](backup-restore.md) for retention policies
 
 ### Environment Variables
 
@@ -472,14 +461,15 @@ hop3 ps:scale myapp worker=2
 ## Getting Help
 
 ```bash
-# Built-in help
-hop3 help
-hop3 help --all
-hop3 <command> --help
-
-# Documentation
-# https://github.com/abilian/hop3
-
-# Issues
-# https://github.com/abilian/hop3/issues
+hop3 help              # General help
+hop3 help --all        # All commands
+hop3 <command> --help  # Help for specific command
 ```
+
+## Related Guides
+
+- **[User Guide](user-guide.md)** - Core concepts and daily operations
+- **[CLI Reference](../reference/cli.md)** - Complete command documentation
+- **[hop3.toml Reference](../reference/config.md)** - Full configuration file reference
+- **[Backup and Restore](backup-restore.md)** - Comprehensive backup documentation
+- **[Troubleshooting](troubleshooting.md)** - Diagnose and fix common issues
