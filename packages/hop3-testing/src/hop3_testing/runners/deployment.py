@@ -139,7 +139,8 @@ class DeploymentTestRunner:
         )
 
         if not session.check_deployed():
-            return deploy_logs, "App not found in deployment list after deploy"
+            check_output = session.last_check_output or "(no output captured)"
+            return deploy_logs, f"App not found in deployment list after deploy.\nhop3 apps output: {check_output}"
 
         validation_results.append(
             ValidationResult(
