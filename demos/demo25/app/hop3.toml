@@ -1,7 +1,6 @@
 # Demo 25: Filebrowser
-[app]
+[metadata]
 name = "demo25"
-builder = "docker"
 
-[web]
-port = 8080
+[build]
+builder = "docker"

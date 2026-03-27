@@ -1,12 +1,11 @@
 # HedgeDoc - Collaborative Markdown Editor
 # https://hedgedoc.org/
 
-[app]
+[metadata]
 name = "hedgedoc"
-builder = "docker"
 
-[web]
-port = 3000
+[build]
+builder = "docker"
 
 [env]
 NODE_ENV = "production"

@@ -8,5 +8,5 @@ description = "Ghost blogging platform"
 [docker]
 port = 2368
 
-[[provider]]
-name = "mysql"
+[[addons]]
+type = "mysql"

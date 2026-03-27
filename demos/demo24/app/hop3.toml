@@ -1,7 +1,6 @@
 # Demo 24: Listmonk
-[app]
+[metadata]
 name = "demo24"
-builder = "docker"
 
-[web]
-port = 9000
+[build]
+builder = "docker"

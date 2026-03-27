@@ -19,6 +19,5 @@ port = 80
 # Database settings are injected via DATABASE_URL from MySQL addon
 LOG_DRIVER = "stdout"
 
-[[provider]]
-name = "mysql"
-plan = "standard"
+[[addons]]
+type = "mysql"
