@@ -5,7 +5,6 @@ Comprehensive guides for using Hop3 effectively.
 ## Quick Reference
 
 - [Cheat Sheet](cheat-sheet.md) - Quick command reference for common tasks
-- [Application Gallery](application-gallery.md) - Ready-to-deploy open source applications
 
 ## User Guide
 

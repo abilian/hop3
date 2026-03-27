@@ -8,7 +8,7 @@ By the end of this tutorial, you will have a live, running web application manag
 
 Before you begin, you must have the following:
 
-1.  **A Server with Hop3 Installed:** You need a server (or VM) with a fresh installation of Hop3. If you haven't done this yet, follow the [**Hop3 Installer Guide**](./installation.md) first.
+1.  **A Server with Hop3 Installed:** You need a server (or VM) with a fresh installation of Hop3. If you haven't done this yet, follow the [**Hop3 Installer Guide**](./server-setup.md) first.
 2.  **The Hop3 CLI on Your Local Machine:** The `hop3` command-line tool should be installed locally. The installation guide covers setting up the development environment, which includes the CLI.
 
 ## Step 1: Create a Sample Python Application
@@ -113,7 +113,7 @@ With your application code and configuration ready, you can now deploy it.
     hop3 login --ssh root@hop3.example.com
     ```
 
-    See the [Installation Guide](./installation.md) for detailed setup instructions.
+    See the [Installation Guide](./server-setup.md) for detailed setup instructions.
 
 2.  **Deploy the Application:**
     From inside your `hello-hop3` project directory, run the deploy command:
@@ -213,107 +213,30 @@ hop3 app:destroy hello-hop3 -y
 
 ## Step 6: Backup and Restore
 
-Hop3 provides a powerful backup and restore system to protect your applications and data. This is essential for production deployments.
-
-### Create a Backup
-
-Before making changes to your application, it's always a good idea to create a backup:
+Hop3 includes a backup system to protect your applications. Always backup before making significant changes.
 
 ```bash
+# Create a backup (includes code, data, env vars, and attached services)
 hop3 backup:create hello-hop3
-```
 
-This creates a complete backup including:
-- Source code (git repository)
-- Application data
-- Environment variables
-- Any attached services (databases, etc.)
-
-You'll see rich formatted output like:
-
-```
-╭──────────────────────────────────────────────────────────────╮
-│                Creating Backup for 'hello-hop3'              │
-╰──────────────────────────────────────────────────────────────╯
-
-✓ Backing up source code (git repository)
-✓ Backing up application data
-✓ Backing up environment variables
-✓ Backing up service configurations
-
-╭──────────────────────────────────────────────────────────────╮
-│                   Backup Created Successfully                │
-╰──────────────────────────────────────────────────────────────╯
-
-Backup ID:  20251108_143022_a8f3d9
-Location:   /var/hop3/backups/apps/hello-hop3/20251108_143022_a8f3d9
-Total size: 2.3 MB
-Duration:   1.2s
-
-To restore this backup:
-  hop3 backup:restore 20251108_143022_a8f3d9
-```
-
-### List Your Backups
-
-To see all backups for your application:
-
-```bash
+# List your backups
 hop3 backup:list hello-hop3
-```
 
-You'll see a table with all available backups:
-```
-┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
-┃ Backup ID             ┃ Application ┃ Size    ┃ Created             ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
-│ 20251108_143022_a8f3d9│ hello-hop3  │ 2.3 MB  │ 2025-11-08 14:30:22 │
-│ 20251107_091534_f2e1b7│ hello-hop3  │ 2.1 MB  │ 2025-11-07 09:15:34 │
-│ 20251106_183245_d9c4a2│ hello-hop3  │ 2.0 MB  │ 2025-11-06 18:32:45 │
-└───────────────────────┴─────────────┴─────────┴─────────────────────┘
-```
-
-Or list all backups across all applications:
-
-```bash
-hop3 backup:list
-```
-
-**For scripting**, use JSON output:
-```bash
-hop3 backup:list hello-hop3 --json
-```
-
-### Restore from Backup
-
-If something goes wrong, you can restore your application to a previous state:
-
-```bash
-hop3 backup:restore 20251108_143022_a8f3d9
+# Restore if needed
+hop3 backup:restore <backup-id>
 hop3 app:restart hello-hop3
 ```
 
-This restores:
-- All source code to the exact state at backup time
-- Application data files
-- Environment variables
-- Service configurations
-
 !!! tip "Best Practice: Backup Before Deployment"
-    Get in the habit of creating a backup before each deployment:
     ```bash
-    # Create backup
-    hop3 backup:create hello-hop3
-
-    # Deploy new version
-    hop3 deploy hello-hop3
-
-    # If something goes wrong, restore
+    hop3 backup:create hello-hop3  # Create backup
+    hop3 deploy hello-hop3         # Deploy new version
+    # If something goes wrong:
     hop3 backup:restore <backup-id>
     hop3 app:restart hello-hop3
     ```
 
-For complete backup documentation, see the [**Backup and Restore Guide**](backup-restore.md).
+For complete backup documentation including what's backed up, retention policies, and troubleshooting, see the **[Backup and Restore Guide](../guides/backup-restore.md)**.
 
 ## Step 7: Working with Environment Variables
 
@@ -323,13 +246,16 @@ Applications often need configuration through environment variables. Hop3 makes 
 
 Set a single environment variable:
 ```bash
-hop3 config:set hello-hop3 DEBUG=true
+hop3 config:set hello-hop3 LOG_LEVEL=info
 ```
 
 Set multiple variables at once:
 ```bash
-hop3 config:set hello-hop3 DEBUG=true LOG_LEVEL=info MAX_WORKERS=4
+hop3 config:set hello-hop3 LOG_LEVEL=info MAX_WORKERS=4 SECRET_KEY=your-secret
 ```
+
+!!! note "About DEBUG mode"
+    Only set `DEBUG=true` in development environments for troubleshooting. Never enable DEBUG in production as it may expose sensitive information.
 
 #### Viewing Environment Variables
 
@@ -441,7 +367,7 @@ You have successfully deployed and managed your first application on Hop3. You c
 
 ## Next Steps
 
-- **[CLI Reference](../reference/cli.md)** - Complete reference for all 62 Hop3 commands
+- **[CLI Reference](../reference/cli.md)** - Complete reference for all Hop3 commands
 - **[Backup and Restore Guide](../guides/backup-restore.md)** - Comprehensive backup documentation
 - **[hop3.toml Reference](../reference/config.md)** - Complete configuration file reference
 - **[Migration Guide](../guides/migration-guide.md)** - Migrate from Heroku, Fly.io, or other platforms

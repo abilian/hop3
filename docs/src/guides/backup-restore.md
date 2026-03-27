@@ -729,7 +729,7 @@ If you encounter issues:
 4. Report bugs at [GitHub Issues](https://github.com/abilian/hop3/issues)
 5. Ask in [Matrix Chat](https://matrix.to/#/#hop3:matrix.org)
 
-## Related Documentation
+## Related Guides
 
 - [Quickstart Guide](../get-started/quickstart.md) - Getting started with Hop3
 - [FAQ](faq.md) - Frequently asked questions
