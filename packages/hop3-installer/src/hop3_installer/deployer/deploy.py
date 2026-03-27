@@ -131,6 +131,12 @@ class Deployer:
             self.log_step(step, "Updating existing installation")
             if not self._update():
                 return False, step
+            # Install any requested features not yet present
+            if self.config.with_features:
+                step += 1
+                self.log_step(step, "Installing requested features")
+                if not self._install_features():
+                    return False, step
         else:
             step += 1
             self.log_step(step, "Installing Hop3")
@@ -434,6 +440,56 @@ class Deployer:
 
         # Default: update from PyPI
         return self._update_from_pypi()
+
+    def _install_features(self) -> bool:
+        """Install additional features on an existing Hop3 installation.
+
+        Re-runs the installer with --with flags, skipping steps unrelated
+        to feature installation (nginx, postgres, acme are already configured).
+        The installer is idempotent so already-installed features are skipped.
+        """
+        if not self.config.with_features:
+            return True
+
+        self.log(f"Installing features: {', '.join(self.config.with_features)}")
+
+        python_cmd = self._ensure_python310_plus()
+
+        # Upload installer script
+        installer_path = self.config.installer_path
+        if not installer_path.exists():
+            self.log(f"Installer not found: {installer_path}", "error")
+            return False
+
+        if not self.backend.upload_file(installer_path, "/tmp/install-server.py"):
+            self.log("Failed to upload installer", "error")
+            return False
+
+        # Run installer with feature flags, skipping unrelated steps
+        install_cmd = f"{python_cmd} -u /tmp/install-server.py"
+        install_cmd += f" --with {','.join(self.config.with_features)}"
+        install_cmd += " --skip-nginx --skip-postgres --skip-acme"
+        install_cmd += " --verbose"
+
+        self.log(f"Running: {install_cmd}")
+        if not self.quiet:
+            print()
+
+        exit_code = self.backend.run_streaming(
+            install_cmd, quiet=self.quiet, log_file=self.log_file
+        )
+
+        if not self.quiet:
+            print()
+        else:
+            print("done" if exit_code == 0 else "FAILED")
+
+        if exit_code != 0:
+            self.log(f"Feature installation failed (exit code {exit_code})", "error")
+            return False
+
+        self.log("Features installed", "success")
+        return True
 
     def _update_from_git(self) -> bool:
         """Update existing installation from git."""
