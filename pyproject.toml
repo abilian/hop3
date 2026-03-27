@@ -84,6 +84,7 @@ dev = [
     "sbom4python>=0.11.3",
     "spdx-tools>=0.8.3",
     "pytest-xdist>=3.8.0",
+    "twine>=6.2.0",
 ]
 
 doc = [
