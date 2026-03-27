@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, cast
 
 import click
 
@@ -278,7 +278,7 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
     if deploy_from != "none":
         # Pass features through as-is - "all" is expanded by the installer
         deployment = DeploymentConfig(
-            source=deploy_from,  # type: ignore[arg-type]
+            source=cast("Literal['local', 'git', 'pypi']", deploy_from),
             branch=branch,
             clean=clean,
             verbose=verbose,
