@@ -9,9 +9,8 @@ description = "Self-hosted bookmark manager - minimal, fast, easy to set up"
 [build]
 builder = "docker"
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 
 [env]
 LD_SUPERUSER_NAME = "admin"

@@ -50,6 +50,13 @@ def pytest_addoption(parser):
         default=False,
         help="Force rebuild of Docker image without layer cache",
     )
+    # Options for nix tests
+    parser.addoption(
+        "--run-nix",
+        action="store_true",
+        default=False,
+        help="Run tests for Nix-based apps (requires Nix installed on target)",
+    )
 
 
 # 2. Create a session-scoped fixture for the deployment target

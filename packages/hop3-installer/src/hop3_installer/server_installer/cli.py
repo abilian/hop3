@@ -32,6 +32,7 @@ Examples:
 Optional Features (--with):
   docker      Docker container runtime
   mysql       MySQL database
+  nix         Nix package manager (multi-user daemon mode)
   redis       Redis cache/store
   all         Install all optional features
 """,
@@ -96,7 +97,7 @@ Optional Features (--with):
         dest="with_features",
         metavar="FEATURES",
         default=",".join(env_config.features) if env_config.features else "",
-        help="Comma-separated list of features (mysql,redis,docker,all)",
+        help="Comma-separated list of features (mysql,redis,docker,nix,all)",
     )
     parser.add_argument(
         "--skip-acme",

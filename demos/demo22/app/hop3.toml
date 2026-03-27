@@ -1,7 +1,6 @@
 # Demo 22: Radicale CalDAV/CardDAV Server
-[app]
+[metadata]
 name = "demo22"
-builder = "docker"
 
-[web]
-port = 5232
+[build]
+builder = "docker"

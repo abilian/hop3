@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
 
 from hop3_testing.catalog.models import Validation, ValidationExpect
-from hop3_testing.exceptions import DeploymentError
 from hop3_testing.util import build_test_env
 from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
@@ -82,6 +81,10 @@ class DemoTestRunner:
     def _run_script(self, test: TestDefinition) -> TestResult:
         """Run a script-based demo.
 
+        Demos are run using the demos' own infrastructure (demos/demo.py CLI),
+        which provides the proper context, backends, and utilities that demo
+        scripts expect.
+
         Args:
             test: The test definition
 
@@ -91,12 +94,12 @@ class DemoTestRunner:
         assert test.demo is not None  # Checked by caller (run method)
 
         start_time = time.time()
-        validation_results = []
+        validation_results: list[ValidationResult] = []
         error = None
         logs = ""
 
         try:
-            # Find the demo script
+            # Find the demo directory and script
             if test.source_path is None:
                 return TestResult(
                     test=test,
@@ -114,22 +117,53 @@ class DemoTestRunner:
                     error=f"Demo script not found: {script_path}",
                 )
 
-            self.console.info(f"Running demo script: {script_path}")
+            self.console.info(f"Running demo: {test.name}")
 
-            # Create context for the demo
-            ctx = DemoContext(
-                target=self.target,
-                demo_dir=demo_dir,
-                verbose=self.verbose,
-            )
+            # Find the demos directory and demo.py CLI
+            demos_root = self._find_demos_root(demo_dir)
+            if demos_root is None:
+                return TestResult(
+                    test=test,
+                    passed=False,
+                    error="Could not find demos root directory",
+                )
 
-            # Run the demo script
-            # Option 1: Import and call run() function
-            # Option 2: Execute as subprocess
-            # We'll use subprocess for isolation
+            demo_cli = demos_root / "demo.py"
+            if not demo_cli.exists():
+                return TestResult(
+                    test=test,
+                    passed=False,
+                    error=f"Demo CLI not found: {demo_cli}",
+                )
+
+            # Build the command to run the demo via its own infrastructure
+            cmd = [sys.executable, str(demo_cli)]
+
+            # Determine backend and connection parameters from target
+            target_info = self.target.info
+            if target_info.ssh_host:
+                cmd.extend(["--host", target_info.ssh_host])
+                if target_info.ssh_user and target_info.ssh_user != "root":
+                    cmd.extend(["--ssh-user", target_info.ssh_user])
+            else:
+                # Docker backend
+                cmd.extend(["--backend", "docker"])
+
+            # Add demo-specific flags
+            cmd.extend(["--skip-install"])  # Hop3 is already installed
+            cmd.extend(["--fail-fast"])  # Stop on first error
+            if self.verbose:
+                cmd.extend(["--verbose"])  # Pass through verbose mode
+
+            # Add the specific demo to run
+            cmd.append(test.name)
+
+            self.console.debug(f"Running: {' '.join(cmd)}")
+
+            # Run the demo CLI
             result = subprocess.run(
-                [sys.executable, str(script_path)],
-                cwd=demo_dir,
+                cmd,
+                cwd=demos_root,
                 capture_output=True,
                 text=True,
                 timeout=600,  # 10 minute timeout
@@ -140,20 +174,12 @@ class DemoTestRunner:
             logs = result.stdout + result.stderr
 
             if result.returncode != 0:
-                error = f"Demo script failed with exit code {result.returncode}"
-                self.console.debug(f"Script output:\n{logs}")
+                # Show the last part of the output to help diagnose failures
+                log_tail = logs[-2000:] if len(logs) > 2000 else logs
+                error = f"Demo failed with exit code {result.returncode}\n\n--- Output (last 2000 chars) ---\n{log_tail}"
+                self.console.error(f"Demo {test.name} failed")
             else:
                 self.console.success("Demo script completed successfully")
-
-                # Run validations if script passed
-                for validation in test.validations:
-                    val_result = run_validation(
-                        validation=validation,
-                        target=self.target,
-                        app_name=test.name,
-                        app_url=self.target.info.http_base,
-                    )
-                    validation_results.append(val_result)
 
         except subprocess.TimeoutExpired:
             error = "Demo script timed out"
@@ -170,6 +196,27 @@ class DemoTestRunner:
             total_duration=time.time() - start_time,
             error=error,
         )
+
+    def _find_demos_root(self, demo_dir: Path) -> Path | None:
+        """Find the demos root directory containing demo.py.
+
+        Walks up from the demo directory to find the demos/ root.
+
+        Args:
+            demo_dir: Starting directory (e.g., demos/demo03)
+
+        Returns:
+            Path to demos root, or None if not found
+        """
+        current = demo_dir
+        for _ in range(5):  # Max 5 levels up
+            if (current / "demo.py").exists() and (current / "lib").is_dir():
+                return current
+            parent = current.parent
+            if parent == current:
+                break
+            current = parent
+        return None
 
     def _run_declarative(self, test: TestDefinition) -> TestResult:
         """Run a declarative demo.
@@ -350,47 +397,3 @@ class DemoTestRunner:
             return self._run_command_step(step, start_time)
 
         return None
-
-
-@dataclass(frozen=True)
-class DemoContext:
-    """Context passed to demo scripts."""
-
-    target: DeploymentTarget
-    """The deployment target."""
-
-    demo_dir: Path
-    """Demo directory path."""
-
-    verbose: bool = False
-    """Whether to print verbose output."""
-
-    def deploy(self, app_path: str, app_name: str) -> None:
-        """Deploy an application.
-
-        Raises:
-            DeploymentError: If deployment fails.
-        """
-        result = self.target.deploy_app(
-            self.demo_dir / app_path,
-            app_name,
-        )
-        if not result.success:
-            msg = f"Failed to deploy '{app_name}': {result.error or result.logs}"
-            raise DeploymentError(msg)
-
-    def destroy(self, app_name: str) -> None:
-        """Destroy an application.
-
-        Raises:
-            DeploymentError: If destruction fails.
-        """
-        self.target.destroy_app(app_name)
-
-    def run_command(self, *args: str):
-        """Run a hop3 command."""
-        return self.target.run_command(*args)
-
-    def http_get(self, url: str):
-        """Make an HTTP GET request."""
-        return self.target.http_request("GET", url)

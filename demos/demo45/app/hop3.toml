@@ -14,5 +14,5 @@ builder = "docker"
 [docker]
 port = 4567
 
-[[provider]]
-name = "postgres"
+[[addons]]
+type = "postgres"

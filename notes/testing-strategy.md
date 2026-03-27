@@ -197,7 +197,7 @@ tests/d_e2e/
 ```
 
 ### Test Applications
-E2E tests use sample applications from `apps/test-apps/`:
+E2E tests use sample applications from `apps/test-apps/` and `apps/nix-apps/`:
 
 | App | Type | Status |
 |-----|------|--------|
@@ -209,6 +209,12 @@ E2E tests use sample applications from `apps/test-apps/`:
 | 100-flask-gunicorn-pip | Python + Gunicorn | Passing |
 | 110-flask-gunicorn-poetry | Python + Poetry | Skipped |
 | 130-golang-minimal | Go minimal | Passing |
+
+**Nix-based Apps** (from `apps/nix-apps/`):
+
+| App | Type | Status |
+|-----|------|--------|
+| flask-hello | Flask + Nix | Requires Nix |
 
 Each test app includes:
 - Application source code

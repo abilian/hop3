@@ -19,6 +19,5 @@ pip-install = ["-r", "requirements.txt"]
 start = "gunicorn --workers 2 --bind 0.0.0.0:$PORT app:app"
 
 # Declarative provider section - this declares that the app needs MySQL
-[[provider]]
-name = "mysql"
-plan = "standard"
+[[addons]]
+type = "mysql"

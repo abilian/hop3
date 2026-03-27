@@ -1,15 +1,23 @@
-# ADR 007: Development of Nix Builders for Existing Packages
+# ADR 007: Nix Builders for Existing Packages (Nixpkgs Mode)
 
-**Status**: Deferred
+**Status**: Deferred (Phase 2)
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-02-23
-**Related-ADRs**: 006, 008, 009, 030, 035
+**Updated**: 2026-03-23
+**Related-ADRs**: 006, 008, 009, 020, 022, 030, 031, 035
+**Depends-On**: ADR 006 Phase 1
 
 ## Revisions
 
 - v0.1: Initial draft (2024-07-17)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)
+- v0.3: Mark as Phase 2, pending hop3.nix support (2026-03-23)
+
+## Phase Status
+
+This ADR describes **Phase 2** of Nix integration. It is deferred until Phase 1 (hop3.nix support, ADR 006) is complete and validated.
+
+**Prerequisite**: Working NixBuilder with hop3.nix files.
 
 ## Context & Goals
 
