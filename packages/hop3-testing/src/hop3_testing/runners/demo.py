@@ -94,7 +94,7 @@ class DemoTestRunner:
         assert test.demo is not None  # Checked by caller (run method)
 
         start_time = time.time()
-        validation_results = []
+        validation_results: list[ValidationResult] = []
         error = None
         logs = ""
 
