@@ -75,6 +75,17 @@ class ConsoleReporter:
             for v in result.failed_validations:
                 print(f"  - {v.type_name}: {v.message}", file=self.output)
 
+            # Show deploy logs on failure for diagnosis
+            if result.deploy_logs:
+                log_tail = result.deploy_logs.strip()
+                if log_tail:
+                    if len(log_tail) > 1500:
+                        log_tail = log_tail[-1500:]
+                    print("\n  --- Deploy output ---", file=self.output)
+                    for line in log_tail.splitlines():
+                        print(f"  {line}", file=self.output)
+                    print("  ---", file=self.output)
+
     def summary(self, results: list[TestResult]) -> None:
         """Print summary of all results.
 

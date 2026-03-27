@@ -12,11 +12,12 @@ import sys
 import click
 
 from hop3_testing.catalog import Catalog
+from hop3_testing.catalog.models import Category
 
 
 @click.command("list")
 @click.option(
-    "--category", "-c", help="Filter by category (deployment, demo, tutorial)"
+    "--category", "-c", help="Filter by category (deployment, demo, tutorial, or 'all')"
 )
 @click.option("--tier", "-t", help="Filter by tier (fast, medium, slow, very-slow)")
 @click.option("--priority", "-p", help="Filter by priority (P0, P1, P2)")
@@ -37,8 +38,16 @@ def list_tests(
     catalog = Catalog(ctx.obj["root"])
     catalog.scan()
 
+    # Handle "all" to include all categories
+    if category == "all":
+        categories = [c.value for c in Category]
+    elif category:
+        categories = [category]
+    else:
+        categories = None
+
     tests = catalog.filter(
-        categories=[category] if category else None,
+        categories=categories,
         tiers=[tier] if tier else None,
         priorities=[priority] if priority else None,
         tags=list(tag) if tag else None,

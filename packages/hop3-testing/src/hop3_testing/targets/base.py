@@ -97,6 +97,7 @@ class TargetInfo:
 
     ssh_host: str
     ssh_port: int
+    ssh_user: str = "root"
     ssh_key: str | None = None
     ssh_password: str | None = None
     http_base: str = ""

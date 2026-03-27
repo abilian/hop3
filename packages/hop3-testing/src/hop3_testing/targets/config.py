@@ -33,8 +33,8 @@ class DeploymentConfig:
     verbose: bool = False
     """Whether to show verbose deployment output."""
 
-    features: list[str] = field(default_factory=lambda: ["docker"])
-    """Features to install (e.g., docker, mysql, redis, nix)."""
+    features: list[str] = field(default_factory=list)
+    """Features to install (e.g., docker, mysql, redis, nix, or 'all')."""
 
 
 @dataclass

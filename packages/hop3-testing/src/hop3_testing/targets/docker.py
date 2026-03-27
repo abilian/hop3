@@ -498,6 +498,7 @@ class DockerTarget(DeploymentTarget):
         return TargetInfo(
             ssh_host=ssh_host,
             ssh_port=effective_ssh_port,
+            ssh_user="root",
             ssh_key=str(ssh_key_path) if ssh_key_path else None,
             http_base=http_base,
             api_url=api_url,
