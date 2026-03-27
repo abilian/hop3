@@ -24,8 +24,8 @@ from hop3_installer.constants import (
     GIT_REPO,
     HOP3_GROUP,
     HOP3_USER,
-    SERVER_PACKAGE_NAME as PACKAGE_NAME,
-    SERVER_PACKAGE_SUBDIR as GIT_SUBDIR,
+    SERVER_PACKAGE_NAME,
+    SERVER_PACKAGE_SUBDIR,
     VENV_DIR,
 )
 
@@ -71,13 +71,15 @@ def install_package(config: ServerInstallerConfig) -> None:
     elif config.use_git:
         with Spinner("Installing build tools..."):
             run_as_hop3(f"{pip} install uv")
-        package_spec = f"git+{GIT_REPO}@{config.branch}#subdirectory={GIT_SUBDIR}"
+        package_spec = (
+            f"git+{GIT_REPO}@{config.branch}#subdirectory={SERVER_PACKAGE_SUBDIR}"
+        )
         source_desc = f"git ({config.branch} branch)"
     elif config.version:
-        package_spec = f"{PACKAGE_NAME}=={config.version}"
+        package_spec = f"{SERVER_PACKAGE_NAME}=={config.version}"
         source_desc = f"PyPI (version {config.version})"
     else:
-        package_spec = PACKAGE_NAME
+        package_spec = SERVER_PACKAGE_NAME
         if config.pre_release:
             pre_flag = "--pre "
             source_desc = "PyPI (latest including pre-releases)"
