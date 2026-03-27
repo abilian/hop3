@@ -8,5 +8,5 @@ description = "Matomo web analytics platform"
 [docker]
 port = 80
 
-[[provider]]
-name = "mysql"
+[[addons]]
+type = "mysql"

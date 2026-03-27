@@ -44,7 +44,11 @@ class LocalBuilder:
         # Check if explicit toolchain is specified - trust user's config
         explicit_toolchain = self._get_explicit_toolchain()
         if explicit_toolchain:
-            log(f"Explicit toolchain specified: {explicit_toolchain}", level=2, fg="cyan")
+            log(
+                f"Explicit toolchain specified: {explicit_toolchain}",
+                level=2,
+                fg="cyan",
+            )
             return True
 
         if not src_path.exists():
@@ -89,7 +93,9 @@ class LocalBuilder:
             # 2. Build with each toolchain (supports multi-language apps)
             artifacts = []
             for toolchain_class in toolchains:
-                toolchain_name = getattr(toolchain_class, "name", toolchain_class.__name__)
+                toolchain_name = getattr(
+                    toolchain_class, "name", toolchain_class.__name__
+                )
                 msg = f"Building with {toolchain_name} toolchain..."
                 log(msg, level=2, fg="blue")
                 build_output.append(msg)

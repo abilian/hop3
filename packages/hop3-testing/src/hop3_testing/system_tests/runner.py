@@ -150,6 +150,7 @@ class TestRunnerManager:
     # Map suite names to categories
     SUITE_CATEGORIES: ClassVar[dict[str, Category]] = {
         "test-apps": Category.DEPLOYMENT,
+        "nix-apps": Category.NIX_APP,
         "docker-apps": Category.DOCKER_APP,
         "native-apps": Category.NATIVE_APP,
         "demos": Category.DEMO,

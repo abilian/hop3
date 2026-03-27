@@ -54,6 +54,7 @@ class RuntimeManifestBuilder:
         env_vars: dict[str, str] | None = None,
         path_prepend: list[str] | None = None,
         working_dir: str = "",
+        workers: dict[str, str] | None = None,
     ) -> RuntimeConfig:
         """Build RuntimeConfig by merging all configuration sources.
 
@@ -61,6 +62,7 @@ class RuntimeManifestBuilder:
             env_vars: Environment variables from toolchain (absolute paths)
             path_prepend: Paths to prepend to PATH from toolchain
             working_dir: Working directory for processes
+            workers: Worker definitions from builder (takes precedence over Procfile)
 
         Returns:
             Complete RuntimeConfig with all fields populated
@@ -77,8 +79,12 @@ class RuntimeManifestBuilder:
                 if key not in merged_env:
                     merged_env[key] = str(value)
 
-        # Get workers from merged AppConfig (already handles precedence)
-        workers = self._get_workers()
+        # Use workers from builder if provided, otherwise from AppConfig
+        # This allows builders like NixBuilder to provide their own workers
+        if workers:
+            merged_workers = workers
+        else:
+            merged_workers = self._get_workers()
 
         # Get before-run commands
         before_run = self._get_before_run()
@@ -97,7 +103,7 @@ class RuntimeManifestBuilder:
             env_vars=merged_env,
             path_prepend=merged_paths,
             working_dir=working_dir,
-            workers=workers,
+            workers=merged_workers,
             before_run=before_run,
             static_paths=static_paths,
             healthcheck_path=healthcheck_path,

@@ -15,5 +15,5 @@ builder = "docker"
 [docker]
 port = 80
 
-[[provider]]
-name = "mysql"
+[[addons]]
+type = "mysql"

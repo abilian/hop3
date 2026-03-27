@@ -1,7 +1,6 @@
 # Demo 23: DokuWiki
-[app]
+[metadata]
 name = "demo23"
-builder = "docker"
 
-[web]
-port = 80
+[build]
+builder = "docker"

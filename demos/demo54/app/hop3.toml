@@ -9,6 +9,5 @@ description = "Minimalist and opinionated feed reader"
 [build]
 builder = "docker"
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"

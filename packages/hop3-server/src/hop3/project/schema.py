@@ -22,7 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 
 class MetadataSection(BaseModel):
-    """[metadata] section - Application identity."""
+    """[metadata] section - Application identity and catalog info."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -32,6 +32,10 @@ class MetadataSection(BaseModel):
     description: str | None = None
     author: str | None = None
     license: str | None = None
+    name: str | None = None
+    homepage: str | None = None
+    categories: list[str] | None = None
+    tags: list[str] | None = None
 
 
 class BuildSection(BaseModel):
@@ -88,7 +92,7 @@ class BuildSection(BaseModel):
     @classmethod
     def validate_builder(cls, v: str | None) -> str | None:
         if v is not None:
-            valid_builders = {"auto", "local", "docker"}
+            valid_builders = {"auto", "local", "docker", "nix"}
             if v.lower() not in valid_builders:
                 msg = f"Invalid builder '{v}'. Must be one of: {', '.join(valid_builders)}"
                 raise ValueError(msg)
@@ -174,6 +178,10 @@ class DockerSection(BaseModel):
     port: int | None = Field(
         default=None,
         description="Container port for Docker deployments",
+    )
+    runtime: str | None = Field(
+        default=None,
+        description="Docker runtime: 'docker' (default) or 'docker-compose'",
     )
     build_args: dict[str, str] | None = Field(
         default=None,

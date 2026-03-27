@@ -196,6 +196,10 @@ class CommandError(Exception):
         return f"Command failed: {' '.join(self.cmd)}"
 
 
+class ServiceStartError(Exception):
+    """Raised when a service fails to start."""
+
+
 def run_cmd(
     cmd: list[str],
     *,

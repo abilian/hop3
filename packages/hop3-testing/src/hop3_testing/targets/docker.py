@@ -386,6 +386,7 @@ class DockerTarget(DeploymentTarget):
                 clean=self.deployment.clean,
                 branch=self.deployment.branch,
                 verbose=self.deployment.verbose,
+                features=self.deployment.features,
                 diagnostics=self.diagnostics,
             )
 
@@ -401,17 +402,27 @@ class DockerTarget(DeploymentTarget):
             self._container_helper = DockerContainerHelper(self._container)
             self._command_runner = DockerCommandRunner(self._container)
 
-            # Start services manually (Docker doesn't have systemd)
+            # Check if supervisor is already managing services (hop3-deploy now starts
+            # supervisor automatically). If so, skip manual service start.
             self.diagnostics.set_phase("service_start")
-            service_manager = DockerServiceManager(
-                self._command_runner, self.diagnostics
-            )
-            try:
-                service_manager.start_all()
-            except Exception as e:
-                self._save_diagnostics_on_error()
-                msg = f"Failed to start services: {e}"
-                raise RuntimeError(msg) from e
+            if self._is_supervisor_running():
+                print("  Supervisor already running - skipping manual service start")
+                self.diagnostics.add_success(
+                    layer="server",
+                    operation="service_check",
+                    message="Services already managed by supervisor",
+                )
+            else:
+                # Fall back to manual service start for older deployments
+                service_manager = DockerServiceManager(
+                    self._command_runner, self.diagnostics
+                )
+                try:
+                    service_manager.start_all()
+                except Exception as e:
+                    self._save_diagnostics_on_error()
+                    msg = f"Failed to start services: {e}"
+                    raise RuntimeError(msg) from e
 
             # Wait for server to be ready
             self.diagnostics.set_phase("health_check")
@@ -487,6 +498,7 @@ class DockerTarget(DeploymentTarget):
         return TargetInfo(
             ssh_host=ssh_host,
             ssh_port=effective_ssh_port,
+            ssh_user="root",
             ssh_key=str(ssh_key_path) if ssh_key_path else None,
             http_base=http_base,
             api_url=api_url,
@@ -509,6 +521,33 @@ class DockerTarget(DeploymentTarget):
         except Exception:
             pass
         return None
+
+    def _is_supervisor_running(self) -> bool:
+        """Check if supervisor is running and managing hop3-server.
+
+        Returns:
+            True if supervisord is running and hop3-server is managed by it.
+        """
+        if not self._command_runner:
+            return False
+
+        try:
+            # Check if supervisord process is running
+            result = self._command_runner.run(
+                "pgrep -x supervisord",
+                check=False,
+            )
+            if result.returncode != 0:
+                return False
+
+            # Check if hop3-server is managed by supervisor and running
+            result = self._command_runner.run(
+                "supervisorctl status hop3-server 2>/dev/null | grep -q RUNNING",
+                check=False,
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
 
     def _remove_existing_container(self) -> None:
         """Remove any existing container with the same name."""

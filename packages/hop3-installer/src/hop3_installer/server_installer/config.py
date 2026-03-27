@@ -46,6 +46,10 @@ class ServerInstallerConfig:
     def with_docker(self) -> bool:
         return "docker" in self.features
 
+    @property
+    def with_nix(self) -> bool:
+        return "nix" in self.features
+
     @classmethod
     def from_env(cls) -> ServerInstallerConfig:
         """Create config from environment variables."""

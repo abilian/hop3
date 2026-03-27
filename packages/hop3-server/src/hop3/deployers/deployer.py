@@ -122,6 +122,7 @@ def do_deploy(
         env_vars=build_artifact.runtime.env_vars,
         path_prepend=build_artifact.runtime.path_prepend,
         working_dir=build_artifact.runtime.working_dir,
+        workers=build_artifact.runtime.workers or None,
     )
     build_artifact.runtime = enhanced_runtime
     log(
