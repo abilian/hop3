@@ -1,5 +1,5 @@
 abilian-devtools==0.9.3
-advanced-alchemy==1.9.0
+advanced-alchemy==1.9.1
 alembic==1.18.4
 annotated-types==0.7.0
 anyio==4.13.0
@@ -22,7 +22,7 @@ cleez==0.1.14
 click==8.3.1
 colorlog==6.10.1
 coverage==7.13.5
-cryptography==46.0.5
+cryptography==46.0.6
 cyclonedx-bom==7.2.2
 cyclonedx-python-lib==11.7.0
 deepmerge==2.0
@@ -135,7 +135,7 @@ pytest-random-order==1.2.0
 pytest-xdist==3.8.0
 python-dateutil==2.9.0.post0
 python-debian==1.1.0
-python-discovery==1.2.0
+python-discovery==1.2.1
 python-dotenv==1.2.2
 python-magic==0.4.27
 python-multipart==0.0.22
@@ -152,7 +152,7 @@ rfc3987-syntax==1.1.0
 rich==14.3.3
 rich-click==1.9.7
 rpds-py==0.30.0
-ruff==0.15.7
+ruff==0.15.8
 sbom2dot==0.3.2
 sbom4files==0.4.5
 sbom4python==0.12.5
@@ -168,15 +168,15 @@ tabulate==0.10.0
 termcolor==3.3.0
 textual==8.1.1
 toml==0.10.2
-tomli==2.4.0
+tomli==2.4.1
 tomlkit==0.14.0
-ty==0.0.25
+ty==0.0.26
 typeguard==4.5.1
 types-markdown==3.10.2.20260211
 types-paramiko==4.0.0.20260322
 types-pytz==2026.1.1.20260304
 types-pyyaml==6.0.12.20250915
-types-requests==2.32.4.20260324
+types-requests==2.33.0.20260327
 types-tabulate==0.10.0.20260308
 types-toml==0.10.8.20240310
 types-urllib3==1.26.25.14
