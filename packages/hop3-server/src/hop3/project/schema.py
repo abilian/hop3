@@ -22,7 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 
 class MetadataSection(BaseModel):
-    """[metadata] section - Application identity."""
+    """[metadata] section - Application identity and catalog info."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -32,6 +32,10 @@ class MetadataSection(BaseModel):
     description: str | None = None
     author: str | None = None
     license: str | None = None
+    name: str | None = None
+    homepage: str | None = None
+    categories: list[str] | None = None
+    tags: list[str] | None = None
 
 
 class BuildSection(BaseModel):
@@ -174,6 +178,10 @@ class DockerSection(BaseModel):
     port: int | None = Field(
         default=None,
         description="Container port for Docker deployments",
+    )
+    runtime: str | None = Field(
+        default=None,
+        description="Docker runtime: 'docker' (default) or 'docker-compose'",
     )
     build_args: dict[str, str] | None = Field(
         default=None,
