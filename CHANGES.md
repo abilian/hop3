@@ -7,19 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-03-23
+## [0.4.0] - 2026-03-27
 
-This is a major release that transforms Hop3 from a deployment script into a complete self-hosted PaaS. It includes all changes from the 0.4.0 beta series.
+This is a major release that transforms Hop3 from a deployment script into a complete self-hosted PaaS. It includes all changes from the 0.4.0 beta series plus significant testing and reliability improvements.
 
 ### Highlights
 
 - **Client-Server Architecture**: Manage servers remotely from your laptop or CI
-- **Multi-Language Support**: Python, Node.js, Ruby, Go, Rust, PHP, Java, Clojure, static sites
+- **Multi-Language Support**: Python, Node.js, Ruby, Go, Rust, PHP, Java, Clojure, Elixir, static sites
 - **Database Addons**: PostgreSQL, MySQL, Redis with encrypted credentials
 - **Automatic SSL**: Let's Encrypt integration with auto-renewal
 - **Multi-Distribution**: Ubuntu, Debian, Fedora, Rocky Linux, AlmaLinux
 - **Configuration Validation**: Catch typos in hop3.toml with helpful suggestions
 - **Security Audit**: Command injection fixes, session hardening, token validation
+- **Comprehensive Test Suite**: Unit tests, integration tests, e2e tests, 58 testable demos, deployment tests, docker-app tests
 
 See beta release notes below for the complete changelog.
 
