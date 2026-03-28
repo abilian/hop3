@@ -30,8 +30,7 @@ from hop3_testing.runners.base import TestResult
 from hop3_testing.targets import RemoteConfig, RemoteTarget
 from hop3_testing.util import find_project_root
 from hop3_testing.util.console import PrintingConsole, Verbosity
-
-from .ssh import SSHConnection, SSHConnectionInfo
+from hop3_testing.util.ssh import SSHConnection, SSHConnectionInfo
 
 if TYPE_CHECKING:
     from hop3_testing.catalog.models import TestDefinition
@@ -202,7 +201,7 @@ class TestRunnerManager:
         result = AllSuitesResult()
 
         try:
-            # Load catalog
+            # Load catalog for all configured suites
             self._load_catalog()
 
             # Create remote target
@@ -278,7 +277,7 @@ class TestRunnerManager:
             TestSuiteResult with the suite results.
         """
         try:
-            self._load_catalog()
+            self._load_catalog(suite_name)
             self._create_target()
             return self._run_suite(suite_name)
         finally:
@@ -468,14 +467,32 @@ class TestRunnerManager:
                 error=f"Test execution error: {e}",
             )
 
-    def _load_catalog(self) -> None:
-        """Load the test catalog."""
-        if self._catalog is not None:
-            return
+    # Map suite names to scan paths relative to project root
+    SUITE_SCAN_PATHS: ClassVar[dict[str, str]] = {
+        "test-apps": "apps/test-apps",
+        "nix-apps": "apps/nix-apps",
+        "docker-apps": "apps/docker-apps",
+        "native-apps": "apps/native-apps",
+        "demos": "demos",
+        "tutorials": "docs/src/tutorials",
+    }
 
+    def _load_catalog(self, suite_name: str | None = None) -> None:
+        """Load the test catalog for a specific suite.
+
+        Args:
+            suite_name: Suite name to scan for. If None, scans all known paths.
+        """
         self.console.print("Loading test catalog...")
         self._catalog = Catalog(self.project_root)
-        self._catalog.scan()
+
+        if suite_name and suite_name in self.SUITE_SCAN_PATHS:
+            scan_paths = [self.SUITE_SCAN_PATHS[suite_name]]
+        else:
+            # Scan all known suite paths
+            scan_paths = list(self.SUITE_SCAN_PATHS.values())
+
+        self._catalog.scan(paths=scan_paths)
 
         total_tests = len(self._catalog)
         errors = self._catalog.errors()

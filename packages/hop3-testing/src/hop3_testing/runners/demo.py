@@ -155,8 +155,8 @@ class DemoTestRunner:
             if self.verbose:
                 cmd.extend(["--verbose"])  # Pass through verbose mode
 
-            # Add the specific demo to run
-            cmd.append(test.name)
+            # Add the specific demo to run (demo CLI expects basename, e.g., "demo03")
+            cmd.append(test.deploy_name)
 
             self.console.debug(f"Running: {' '.join(cmd)}")
 

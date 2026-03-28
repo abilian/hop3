@@ -50,20 +50,13 @@ class TestListCommand:
         assert result.exit_code in {0, 1}
 
 
-class TestShowCommand:
-    """Tests for the show command."""
+class TestListShowOption:
+    """Tests for the list --show option (replaces show command)."""
 
-    def test_show_help(self):
-        """Test show command help."""
+    def test_list_show_missing_test(self):
+        """Test list --show with non-existent test."""
         runner = CliRunner()
-        result = runner.invoke(cli, ["show", "--help"])
-
-        assert result.exit_code == 0
-
-    def test_show_missing_test(self):
-        """Test show with non-existent test."""
-        runner = CliRunner()
-        result = runner.invoke(cli, ["show", "nonexistent-test-name"])
+        result = runner.invoke(cli, ["list", "--show", "nonexistent-test-name"])
 
         # Should exit with error or report not found
         assert result.exit_code != 0 or "not found" in result.output.lower()
@@ -92,57 +85,13 @@ class TestSystemCommand:
         assert "Must specify --docker or --ssh" in result.output
 
 
-class TestAppsCommand:
-    """Tests for the apps command."""
+class TestSystemReuse:
+    """Test that --reuse replaces the old 'apps' command."""
 
-    def test_apps_help(self):
-        """Test apps command help."""
+    def test_reuse_requires_target(self):
+        """Test system --reuse still requires --docker or --ssh."""
         runner = CliRunner()
-        result = runner.invoke(cli, ["apps", "--help"])
+        result = runner.invoke(cli, ["system", "--reuse"])
 
-        assert result.exit_code == 0
-        assert "--target" in result.output or "--keep" in result.output
-
-
-class TestBuildCommands:
-    """Tests for build-related commands."""
-
-    def test_build_ready_image_help(self):
-        """Test build-ready-image command help."""
-        runner = CliRunner()
-        result = runner.invoke(cli, ["build-ready-image", "--help"])
-
-        assert result.exit_code == 0
-        assert "--tag" in result.output or "--no-cache" in result.output
-
-    def test_build_test_image_help(self):
-        """Test build-test-image command help."""
-        runner = CliRunner()
-        result = runner.invoke(cli, ["build-test-image", "--help"])
-
-        assert result.exit_code == 0
-
-
-class TestModeCommands:
-    """Tests for mode-based commands (dev, ci, nightly)."""
-
-    def test_dev_help(self):
-        """Test dev command help."""
-        runner = CliRunner()
-        result = runner.invoke(cli, ["dev", "--help"])
-
-        assert result.exit_code == 0
-
-    def test_ci_help(self):
-        """Test ci command help."""
-        runner = CliRunner()
-        result = runner.invoke(cli, ["ci", "--help"])
-
-        assert result.exit_code == 0
-
-    def test_nightly_help(self):
-        """Test nightly command help."""
-        runner = CliRunner()
-        result = runner.invoke(cli, ["nightly", "--help"])
-
-        assert result.exit_code == 0
+        assert result.exit_code != 0
+        assert "Must specify --docker or --ssh" in result.output

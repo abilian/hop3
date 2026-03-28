@@ -70,14 +70,6 @@ MODES: dict[str, ModeConfig] = {
         description="Full release validation (everything)",
         max_duration_minutes=480,
     ),
-    "package": ModeConfig(
-        name="package",
-        tiers=["fast", "medium", "slow"],
-        priorities=["P0", "P1", "P2"],
-        targets=["docker", "remote"],
-        description="Package validation (single package against stable Hop3)",
-        max_duration_minutes=30,
-    ),
 }
 
 

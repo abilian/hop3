@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from hcloud import Client
 
-from .ssh import SSHKeyManager, wait_for_ssh
+from hop3_testing.util.ssh import SSHKeyManager, wait_for_ssh
 
 if TYPE_CHECKING:
     from hcloud.images import Image

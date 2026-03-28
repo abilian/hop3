@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
-from .ssh import SSHConnection, SSHConnectionInfo
+from hop3_testing.util.ssh import SSHConnection, SSHConnectionInfo
 
 if TYPE_CHECKING:
     from rich.console import Console

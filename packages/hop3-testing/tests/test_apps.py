@@ -33,7 +33,7 @@ def test_catalog_discovers_tests():
     assert len(catalog) > 0, "No tests found"
 
     # Check we can retrieve specific tests
-    flask_test = catalog.get_test("010-flask-pip-wsgi")
+    flask_test = catalog.get_test("apps/test-apps/010-flask-pip-wsgi")
     if flask_test:
         assert flask_test.runner_type == "deployment"
         assert "python" in flask_test.metadata.covers
@@ -53,7 +53,7 @@ def test_catalog_properties():
     """Test TestDefinition properties."""
     catalog = get_catalog()
 
-    static_test = catalog.get_test("000-static")
+    static_test = catalog.get_test("apps/test-apps/000-static")
     if not static_test:
         pytest.skip("Static test not found")
 
@@ -63,7 +63,7 @@ def test_catalog_properties():
     assert static_test.app_path.is_dir()
 
     # Check name
-    assert static_test.name == "000-static"
+    assert static_test.name == "apps/test-apps/000-static"
 
     # Check has validations
     assert len(static_test.validations) > 0

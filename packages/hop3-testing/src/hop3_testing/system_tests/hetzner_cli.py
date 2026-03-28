@@ -13,6 +13,8 @@ from pathlib import Path
 
 from rich.console import Console
 
+from hop3_testing.util.ssh import is_port_open, verify_ssh_connectivity
+
 from .config import (
     DeploymentConfig,
     HetznerConfig,
@@ -24,7 +26,6 @@ from .hetzner import HetznerManager
 from .multi_distro import HETZNER_IMAGES
 from .orchestrator import DailyTestOrchestrator
 from .runner import TestRunnerManager
-from .ssh import is_port_open, verify_ssh_connectivity
 
 VERSION = "0.1.0"
 

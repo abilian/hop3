@@ -138,9 +138,9 @@ class CatalogScanningTests:
         catalog = Catalog(PROJECT_ROOT)
         catalog.scan(paths=["apps/test-apps"])
 
-        test = catalog.get_test("010-flask-pip-wsgi")
+        test = catalog.get_test("apps/test-apps/010-flask-pip-wsgi")
         if test:
-            assert test.name == "010-flask-pip-wsgi"
+            assert test.name == "apps/test-apps/010-flask-pip-wsgi"
 
     def test_catalog_scan_demos(self):
         """Test that demos are discovered."""

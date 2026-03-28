@@ -109,7 +109,7 @@ class TestGetModeConfig:
 
     def test_get_all_valid_modes(self):
         """Test getting all valid modes."""
-        for mode_name in ["dev", "ci", "nightly", "release", "package"]:
+        for mode_name in ["dev", "ci", "nightly", "release"]:
             config = get_mode_config(mode_name)
             assert config.name == mode_name
 
@@ -130,5 +130,4 @@ class TestListModes:
         assert "ci" in modes
         assert "nightly" in modes
         assert "release" in modes
-        assert "package" in modes
-        assert len(modes) == 5
+        assert len(modes) == 4

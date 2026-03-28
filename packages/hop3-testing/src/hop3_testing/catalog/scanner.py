@@ -219,26 +219,29 @@ class Catalog:
             self._errors.append((app_dir, str(e)))
 
     def _add_test(self, test_def: TestDefinition) -> None:
-        """Add a test to the catalog."""
+        """Add a test to the catalog.
+
+        The test name is derived from its path relative to the project root,
+        ensuring uniqueness even when apps in different directories share
+        the same directory name (e.g., docker-apps/wordpress vs native-apps/wordpress).
+        """
+        # Use relative path as the canonical name
+        if test_def.app_path:
+            try:
+                rel = test_def.app_path.resolve().relative_to(self.root.resolve())
+                test_def.name = str(rel)
+            except ValueError:
+                pass  # Outside project root, keep original name
+
         if test_def.name in self._tests:
-            existing = self._tests[test_def.name]
             logger.warning(
-                "Duplicate test name: %s (existing: %s, new: %s)",
-                test_def.name,
-                existing.source_path,
-                test_def.source_path,
+                "Duplicate test: %s (keeping first)", test_def.name
             )
-            # Keep the one with test.toml if there's a conflict
-            if test_def.source_path and test_def.source_path.name == "test.toml":
-                self._tests[test_def.name] = test_def
-                # Also update path index
-                if test_def.app_path:
-                    self._by_path[test_def.app_path.resolve()] = test_def
-        else:
-            self._tests[test_def.name] = test_def
-            # Index by app directory path for path-based lookups
-            if test_def.app_path:
-                self._by_path[test_def.app_path.resolve()] = test_def
+            return
+
+        self._tests[test_def.name] = test_def
+        if test_def.app_path:
+            self._by_path[test_def.app_path.resolve()] = test_def
 
     def _build_indexes(self) -> None:
         """Build tier and priority indexes."""
@@ -259,8 +262,8 @@ class Catalog:
             self._by_priority[prio].append(test)
 
     def all_tests(self) -> list[TestDefinition]:
-        """Return all discovered tests."""
-        return list(self._tests.values())
+        """Return all discovered tests, sorted by name."""
+        return sorted(self._tests.values(), key=lambda t: t.name)
 
     def get_test(self, name: str) -> TestDefinition | None:
         """Get a specific test by name."""
