@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from .loader import load_test_definition
 from .models import (
-    Category,
     DemoConfig,
     DeploymentConfig,
     Priority,
@@ -31,7 +30,6 @@ from .scanner import Catalog
 
 __all__ = [
     "Catalog",
-    "Category",
     "DemoConfig",
     "DeploymentConfig",
     "Priority",

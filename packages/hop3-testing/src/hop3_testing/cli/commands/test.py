@@ -18,7 +18,6 @@ from hop3_testing.catalog.loader import (
     generate_test_definition_from_app,
     load_test_definition_smart,
 )
-from hop3_testing.catalog.models import Category
 from hop3_testing.cli.runners import run_app_tests, run_system_tests
 from hop3_testing.results import ConsoleReporter
 from hop3_testing.runners import DeploymentTestRunner
@@ -144,12 +143,6 @@ def package(
     multiple=True,
     help="Optional features to install (e.g., nix, mysql, redis)",
 )
-@click.option(
-    "--category",
-    "-c",
-    multiple=True,
-    help="Filter tests by category (e.g., nix-app, deployment, or 'all' for all categories)",
-)
 @click.pass_context
 def system_test(  # noqa: C901, PLR0912, PLR0915
     ctx: click.Context,
@@ -171,23 +164,20 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
     debug: bool,
     logs_dir: str | None,
     features: tuple[str, ...],
-    category: tuple[str, ...],
 ) -> None:
     """Test Hop3 system using real hop3-deploy.
 
     Deploys Hop3 via hop3-deploy, then runs tests against it.
-    Optionally pass app names or paths to test specific apps.
+    Optionally pass app names, paths, or scan directories.
 
     \b
     Examples:
-      hop3-test system --docker              # Deploy + test
+      hop3-test system --docker              # Deploy + test all
       hop3-test system --docker --clean      # Clean install
-      hop3-test system --docker -c nix-app   # Filter by category
-      hop3-test system --docker -c all       # All categories
       hop3-test system --docker --with all   # All features
       hop3-test system --ssh --host X        # Remote via SSH
-      hop3-test system --ssh -c demo demo03  # Run specific demo
       hop3-test system --ssh demos/demo03 apps/test-apps/010-flask-pip-wsgi
+      hop3-test system --docker apps/docker-apps  # Scan a directory
     """
     verbose = ctx.obj["verbose"]
 
@@ -215,31 +205,51 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
             sys.exit(1)
 
     # Load catalog and select tests
-    catalog = Catalog(ctx.obj["root"])
-    catalog.scan()
-
-    # Select tests based on app names, category, or mode
-    # Handle "-c all" to include all categories
-    if "all" in category:
-        categories = [c.value for c in Category]
-    else:
-        categories = list(category)
+    root = ctx.obj["root"]
     mode_config = get_mode_config(mode)
 
     tests: list[TestDefinition] = []
     if app_names:
-        # Specific apps requested - look up by name or path
+        # Args serve double duty: directories to scan, or specific app paths
+        scan_paths: list[str] = []
+        direct_apps: list[str] = []
         for name in app_names:
-            test, error = _lookup_test_by_name_or_path(name, catalog)
-            if test:
-                tests.append(test)
-            elif error:
-                click.echo(f"Warning: {error}", err=True)
-    elif categories:
-        # Explicit category filtering
-        tests = catalog.filter(categories=categories)
+            path = Path(name)
+            if path.is_dir() and not (path / "hop3.toml").exists():
+                # It's a directory to scan (e.g., apps/docker-apps)
+                scan_paths.append(name)
+            else:
+                # It's a specific app path or name
+                direct_apps.append(name)
+
+        if scan_paths:
+            catalog = Catalog(root)
+            catalog.scan(paths=scan_paths)
+            tests.extend(catalog.filter())
+
+        if direct_apps:
+            # Need catalog for name-based lookups
+            if not scan_paths:
+                # Build scan paths from direct app parents
+                catalog = Catalog(root)
+                parent_paths = list({
+                    str(Path(a).parent) for a in direct_apps if "/" in a
+                })
+                if parent_paths:
+                    catalog.scan(paths=parent_paths)
+
+            for name in direct_apps:
+                test, error = _lookup_test_by_name_or_path(name, catalog)
+                if test:
+                    tests.append(test)
+                elif error:
+                    click.echo(f"Warning: {error}", err=True)
     else:
-        # Use mode-based selection (default)
+        # No args - scan default directories and use mode-based selection
+        default_paths = _get_default_scan_paths(root)
+        catalog = Catalog(root)
+        catalog.scan(paths=default_paths)
+
         selector = Selector(catalog)
         tests = selector.select_for_target(mode_config, target_type)
 
@@ -247,8 +257,6 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
         click.echo("No tests found")
         if app_names:
             click.echo(f"Apps searched: {', '.join(app_names)}")
-        elif categories:
-            click.echo(f"Categories searched: {', '.join(categories)}")
         return
 
     # Show test list BEFORE deployment (immediate feedback)
@@ -262,10 +270,7 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
     click.echo(f"Deploy from: {deploy_from}")
     if deploy_from == "git":
         click.echo(f"Branch: {branch}")
-    if categories:
-        click.echo(f"Categories: {', '.join(categories)}")
-    else:
-        click.echo(f"Test mode: {mode} ({mode_config.description})")
+    click.echo(f"Test mode: {mode} ({mode_config.description})")
     click.echo(f"Clean install: {clean}")
     click.echo(f"Features: {', '.join(features) if features else '(default)'}")
     click.echo(f"\nTests to run ({len(tests)}):")
@@ -310,6 +315,23 @@ def system_test(  # noqa: C901, PLR0912, PLR0915
     )
 
 
+def _get_default_scan_paths(root: Path) -> list[str]:
+    """Get default scan paths for the 'run everything' case.
+
+    Scans all subdirectories of apps/ that exist, plus demos/.
+    """
+    paths: list[str] = []
+    apps_dir = root / "apps"
+    if apps_dir.is_dir():
+        for child in sorted(apps_dir.iterdir()):
+            if child.is_dir():
+                paths.append(str(child.relative_to(root)))
+    demos_dir = root / "demos"
+    if demos_dir.is_dir():
+        paths.append("demos")
+    return paths
+
+
 def _load_test_from_path(path_str: str) -> tuple[TestDefinition | None, str | None]:
     """Load a test directly from a path without catalog lookup.
 
@@ -344,12 +366,11 @@ def _all_args_are_paths(app_names: tuple[str, ...]) -> bool:
     return all("/" in name or Path(name).is_dir() for name in app_names)
 
 
-def _select_tests_for_apps(
+def _select_tests_for_apps(  # noqa: C901, PLR0912
     app_names: tuple[str, ...],
-    category: str | None,
     root: Path,
 ) -> list[TestDefinition]:
-    """Select tests based on app names or category.
+    """Select tests based on app names or paths.
 
     Bypasses catalog scan when all arguments are paths for efficiency.
     """
@@ -363,27 +384,36 @@ def _select_tests_for_apps(
                 tests.append(test)
             elif error:
                 click.echo(f"Warning: {error}", err=True)
-    elif app_names or category:
-        # Need catalog for name-based lookup or category filtering
-        catalog = Catalog(root)
-        catalog.scan()
+    elif app_names:
+        # Need catalog for name-based lookup
+        scan_paths: list[str] = []
+        for name in app_names:
+            path = Path(name)
+            if path.is_dir() and not (path / "hop3.toml").exists():
+                scan_paths.append(name)
+            elif "/" in name:
+                parent = str(Path(name).parent)
+                if parent not in scan_paths:
+                    scan_paths.append(parent)
 
-        if app_names:
-            for name in app_names:
-                test, error = _lookup_test_by_name_or_path(name, catalog)
-                if test:
-                    tests.append(test)
-                elif error:
-                    click.echo(f"Warning: {error}", err=True)
-        else:
-            # category is set (type narrowing for the type checker)
-            assert category is not None
-            tests = catalog.filter(categories=[category])
-    else:
-        # No args - scan catalog and get all deployment tests
         catalog = Catalog(root)
-        catalog.scan()
-        tests = catalog.filter(categories=["deployment"])
+        if scan_paths:
+            catalog.scan(paths=scan_paths)
+        else:
+            # Fall back to default scan paths
+            catalog.scan(paths=_get_default_scan_paths(root))
+
+        for name in app_names:
+            test, error = _lookup_test_by_name_or_path(name, catalog)
+            if test:
+                tests.append(test)
+            elif error:
+                click.echo(f"Warning: {error}", err=True)
+    else:
+        # No args - scan default paths and get all tests
+        catalog = Catalog(root)
+        catalog.scan(paths=_get_default_scan_paths(root))
+        tests = catalog.filter()
 
     return tests
 
@@ -470,7 +500,6 @@ def _lookup_test_by_name_or_path(name: str, catalog: Catalog) -> tuple:
 @click.option("--port", type=int, default=22, help="SSH port (for remote target)")
 @click.option("--user", default="root", help="SSH user (for remote target)")
 @click.option("--ssh-key", help="SSH key path (for remote target)")
-@click.option("--category", "-c", help="Filter by category")
 @click.option("--keep", is_flag=True, help="Keep apps deployed after testing")
 @click.option("-x", "--fail-fast", is_flag=True, help="Stop on first failure")
 @click.option(
@@ -496,7 +525,6 @@ def apps_test(
     port: int,
     user: str,
     ssh_key: str | None,
-    category: str | None,
     keep: bool,
     fail_fast: bool,
     report: str,
@@ -519,11 +547,11 @@ def apps_test(
         hop3-test apps                      # Test all apps against ready image
         hop3-test apps 010-flask            # Test specific app
         hop3-test apps apps/docker-apps/*   # Test specific paths (no catalog scan)
-        hop3-test apps --category python    # Test by category
+        hop3-test apps apps/docker-apps     # Scan a directory
         hop3-test apps --target remote --host X  # Against remote server
     """
     # Select tests - bypass catalog scan when all args are paths
-    tests = _select_tests_for_apps(app_names, category, ctx.obj["root"])
+    tests = _select_tests_for_apps(app_names, ctx.obj["root"])
 
     if not tests:
         click.echo("No tests found")

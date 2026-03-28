@@ -55,7 +55,6 @@ class Selector:
 
         # Apply mode-based filtering
         tests = self.catalog.filter(
-            categories=mode_config.categories,
             tiers=mode_config.tiers,
             priorities=mode_config.priorities,
             targets=mode_config.targets,
@@ -126,28 +125,6 @@ class Selector:
             total += tier_durations.get(test.tier.value, 60)
 
         return total
-
-    def group_by_category(
-        self,
-        tests: list[TestDefinition],
-    ) -> dict[str, list[TestDefinition]]:
-        """Group tests by category.
-
-        Args:
-            tests: List of tests
-
-        Returns:
-            Dictionary mapping category to tests
-        """
-        groups: dict[str, list[TestDefinition]] = {}
-
-        for test in tests:
-            category = test.category.value
-            if category not in groups:
-                groups[category] = []
-            groups[category].append(test)
-
-        return groups
 
     def group_by_tier(
         self,

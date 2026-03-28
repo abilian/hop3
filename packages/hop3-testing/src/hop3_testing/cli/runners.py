@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any
 
 from hop3_testing.apps.debug import DeploymentDebugger
 from hop3_testing.catalog import Catalog
-from hop3_testing.catalog.models import Category
 from hop3_testing.results import ConsoleReporter, ResultStore
 from hop3_testing.runners import (
     DemoTestRunner,
@@ -302,12 +301,11 @@ def run_single_test(
         common_kwargs["console"] = console
 
     runner: DemoTestRunner | TutorialTestRunner | DeploymentTestRunner
-    if test.category == Category.DEMO:
+    if test.demo is not None:
         runner = DemoTestRunner(target, **common_kwargs)
-    elif test.category == Category.TUTORIAL:
+    elif test.tutorial is not None:
         runner = TutorialTestRunner(target, **common_kwargs)
     else:
-        # Default to deployment runner for deployment category and any others
         runner = DeploymentTestRunner(target, **common_kwargs)
 
     result = runner.run(test)

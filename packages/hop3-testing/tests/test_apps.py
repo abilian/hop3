@@ -21,7 +21,7 @@ def get_catalog() -> Catalog:
         # Fallback: navigate from test file
         root = Path(__file__).parent.parent.parent.parent.parent
     catalog = Catalog(root)
-    catalog.scan()
+    catalog.scan(paths=["apps/test-apps"])
     return catalog
 
 
@@ -32,26 +32,16 @@ def test_catalog_discovers_tests():
     # Should find some tests
     assert len(catalog) > 0, "No tests found"
 
-    # Check categories
-    categories = catalog.categories()
-    assert len(categories) > 0, "No categories found"
-
     # Check we can retrieve specific tests
     flask_test = catalog.get_test("010-flask-pip-wsgi")
     if flask_test:
-        assert flask_test.category.value == "deployment"
-        # Check metadata covers tags
+        assert flask_test.runner_type == "deployment"
         assert "python" in flask_test.metadata.covers
 
 
 def test_catalog_filtering():
     """Test filtering tests."""
     catalog = get_catalog()
-
-    # Filter by category
-    deployment_tests = catalog.filter(categories=["deployment"])
-    for test in deployment_tests:
-        assert test.category.value == "deployment"
 
     # Filter by tags
     python_tests = catalog.filter(tags=["python"])

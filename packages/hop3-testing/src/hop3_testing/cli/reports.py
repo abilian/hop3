@@ -99,7 +99,7 @@ def _build_test_card(idx: int, r: TestResult) -> str:
         <div class="test-header" onclick="toggleTest('{test_id}')">
             <span class="test-status">{status_icon}</span>
             <span class="test-name">{html.escape(r.test.name)}</span>
-            <span class="test-meta">{html.escape(str(r.test.category) if r.test.category else "unknown")} | {html.escape(str(r.test.tier) if r.test.tier else "unknown")} | {r.total_duration:.2f}s</span>
+            <span class="test-meta">{html.escape(r.test.runner_type)} | {html.escape(str(r.test.tier) if r.test.tier else "unknown")} | {r.total_duration:.2f}s</span>
             <span class="test-toggle">&#9660;</span>
         </div>
         <div id="{test_id}" class="test-details" style="display:none">

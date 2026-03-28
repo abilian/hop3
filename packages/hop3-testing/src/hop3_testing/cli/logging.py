@@ -65,7 +65,7 @@ class TestLogWriter:
             f"Started at: {time.strftime('%Y-%m-%d %H:%M:%S')}",
             "",
             f"Test: {test.name}",
-            f"Category: {test.category.value}",
+            f"Type: {test.runner_type}",
             f"Tier: {test.tier.value}",
             f"Priority: {test.priority.value}",
             f"Duration: {result.total_duration:.2f}s",

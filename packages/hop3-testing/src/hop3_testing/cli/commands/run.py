@@ -113,7 +113,7 @@ def run_command(
     if not quiet:
         click.echo(f"\nFound {len(tests)} test(s) to run")
         for t in tests:
-            click.echo(f"  - {t.name} ({t.category.value})")
+            click.echo(f"  - {t.name} ({t.runner_type})")
 
     target_obj = create_target_with_options(
         target_type=target,

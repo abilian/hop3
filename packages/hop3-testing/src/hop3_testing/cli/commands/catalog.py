@@ -12,13 +12,11 @@ import sys
 import click
 
 from hop3_testing.catalog import Catalog
-from hop3_testing.catalog.models import Category
+from hop3_testing.cli.commands.test import _get_default_scan_paths
 
 
 @click.command("list")
-@click.option(
-    "--category", "-c", help="Filter by category (deployment, demo, tutorial, or 'all')"
-)
+@click.argument("scan_paths", nargs=-1)
 @click.option("--tier", "-t", help="Filter by tier (fast, medium, slow, very-slow)")
 @click.option("--priority", "-p", help="Filter by priority (P0, P1, P2)")
 @click.option("--tag", multiple=True, help="Filter by tag")
@@ -28,26 +26,23 @@ from hop3_testing.catalog.models import Category
 @click.pass_context
 def list_tests(
     ctx: click.Context,
-    category: str | None,
+    scan_paths: tuple[str, ...],
     tier: str | None,
     priority: str | None,
     tag: tuple[str, ...],
     output_format: str,
 ) -> None:
-    """List available tests."""
-    catalog = Catalog(ctx.obj["root"])
-    catalog.scan()
+    """List available tests.
 
-    # Handle "all" to include all categories
-    if category == "all":
-        categories = [c.value for c in Category]
-    elif category:
-        categories = [category]
-    else:
-        categories = None
+    Optionally pass scan paths (directories to scan for tests).
+    If none given, scans all subdirectories of apps/ and demos/.
+    """
+    root = ctx.obj["root"]
+    catalog = Catalog(root)
+    paths = list(scan_paths) if scan_paths else _get_default_scan_paths(root)
+    catalog.scan(paths=paths)
 
     tests = catalog.filter(
-        categories=categories,
         tiers=[tier] if tier else None,
         priorities=[priority] if priority else None,
         tags=list(tag) if tag else None,
@@ -57,7 +52,7 @@ def list_tests(
         output = [
             {
                 "name": t.name,
-                "category": t.category.value,
+                "type": t.runner_type,
                 "tier": t.tier.value,
                 "priority": t.priority.value,
                 "description": t.description,
@@ -67,22 +62,29 @@ def list_tests(
         click.echo(json.dumps(output, indent=2))
     else:
         # Table output
-        click.echo(f"{'Name':<40} {'Category':<12} {'Tier':<10} {'Priority':<8}")
+        click.echo(f"{'Name':<40} {'Type':<12} {'Tier':<10} {'Priority':<8}")
         click.echo("-" * 72)
         for t in tests:
             click.echo(
-                f"{t.name:<40} {t.category.value:<12} {t.tier.value:<10} {t.priority.value:<8}"
+                f"{t.name:<40} {t.runner_type:<12} {t.tier.value:<10} {t.priority.value:<8}"
             )
         click.echo(f"\nTotal: {len(tests)} tests")
 
 
 @click.command("show")
 @click.argument("test_name")
+@click.argument("scan_paths", nargs=-1)
 @click.pass_context
-def show_test(ctx: click.Context, test_name: str) -> None:
-    """Show details of a specific test."""
-    catalog = Catalog(ctx.obj["root"])
-    catalog.scan()
+def show_test(ctx: click.Context, test_name: str, scan_paths: tuple[str, ...]) -> None:
+    """Show details of a specific test.
+
+    Optionally pass scan paths (directories to scan for tests).
+    If none given, scans all subdirectories of apps/ and demos/.
+    """
+    root = ctx.obj["root"]
+    catalog = Catalog(root)
+    paths = list(scan_paths) if scan_paths else _get_default_scan_paths(root)
+    catalog.scan(paths=paths)
 
     test = catalog.get_test(test_name)
     if not test:
@@ -91,7 +93,7 @@ def show_test(ctx: click.Context, test_name: str) -> None:
 
     assert test is not None  # Type narrowing after sys.exit
     click.echo(f"Name: {test.name}")
-    click.echo(f"Category: {test.category.value}")
+    click.echo(f"Type: {test.runner_type}")
     click.echo(f"Tier: {test.tier.value}")
     click.echo(f"Priority: {test.priority.value}")
     if test.description:
