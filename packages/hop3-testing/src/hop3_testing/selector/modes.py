@@ -26,9 +26,6 @@ class ModeConfig:
     priorities: list[str]
     """Allowed priorities (P0, P1, P2)."""
 
-    categories: list[str]
-    """Allowed categories (deployment, demo, tutorial)."""
-
     targets: list[str]
     """Allowed target types (docker, remote, local)."""
 
@@ -45,7 +42,6 @@ MODES: dict[str, ModeConfig] = {
         name="dev",
         tiers=["fast"],
         priorities=["P0"],
-        categories=["deployment"],
         targets=["docker"],
         description="Quick developer tests (fast + P0 + deployment only)",
         max_duration_minutes=5,
@@ -54,7 +50,6 @@ MODES: dict[str, ModeConfig] = {
         name="ci",
         tiers=["fast", "medium"],
         priorities=["P0"],
-        categories=["deployment", "demo"],
         targets=["docker"],
         description="CI tests (fast+medium + P0 + deployment/demo)",
         max_duration_minutes=15,
@@ -63,7 +58,6 @@ MODES: dict[str, ModeConfig] = {
         name="nightly",
         tiers=["fast", "medium", "slow"],
         priorities=["P0", "P1"],
-        categories=["deployment", "demo", "tutorial"],
         targets=["docker", "remote"],
         description="Nightly tests (all tiers except very-slow, P0+P1)",
         max_duration_minutes=120,
@@ -72,7 +66,6 @@ MODES: dict[str, ModeConfig] = {
         name="release",
         tiers=["fast", "medium", "slow", "very-slow"],
         priorities=["P0", "P1", "P2"],
-        categories=["deployment", "demo", "tutorial"],
         targets=["docker", "remote"],
         description="Full release validation (everything)",
         max_duration_minutes=480,
@@ -81,7 +74,6 @@ MODES: dict[str, ModeConfig] = {
         name="package",
         tiers=["fast", "medium", "slow"],
         priorities=["P0", "P1", "P2"],
-        categories=["deployment"],
         targets=["docker", "remote"],
         description="Package validation (single package against stable Hop3)",
         max_duration_minutes=30,

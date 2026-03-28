@@ -24,7 +24,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from hop3_testing.catalog import Catalog
-from hop3_testing.catalog.models import Category, TargetType
+from hop3_testing.catalog.models import TargetType
 from hop3_testing.cli.runners import run_single_test
 from hop3_testing.runners.base import TestResult
 from hop3_testing.targets import RemoteConfig, RemoteTarget
@@ -147,14 +147,14 @@ class TestRunnerManager:
         result = runner.run_all_suites()
     """
 
-    # Map suite names to categories
-    SUITE_CATEGORIES: ClassVar[dict[str, Category]] = {
-        "test-apps": Category.DEPLOYMENT,
-        "nix-apps": Category.NIX_APP,
-        "docker-apps": Category.DOCKER_APP,
-        "native-apps": Category.NATIVE_APP,
-        "demos": Category.DEMO,
-        "tutorials": Category.TUTORIAL,
+    # Map suite names to runner types
+    SUITE_RUNNER_TYPES: ClassVar[dict[str, str]] = {
+        "test-apps": "deployment",
+        "nix-apps": "deployment",
+        "docker-apps": "deployment",
+        "native-apps": "deployment",
+        "demos": "demo",
+        "tutorials": "tutorial",
     }
 
     def __init__(
@@ -296,9 +296,9 @@ class TestRunnerManager:
         start_time = time.time()
         self.console.print(f"\n[bold]Running suite: {suite_name}[/bold]")
 
-        # Get category for this suite
-        category = self.SUITE_CATEGORIES.get(suite_name)
-        if not category:
+        # Get runner type for this suite
+        runner_type = self.SUITE_RUNNER_TYPES.get(suite_name)
+        if not runner_type:
             return TestSuiteResult(
                 suite_name=suite_name,
                 total=0,
@@ -309,8 +309,8 @@ class TestRunnerManager:
                 errors=[f"Unknown suite: {suite_name}"],
             )
 
-        # Get tests for this category
-        tests = self._get_tests_for_suite(category, suite_name)
+        # Get tests for this runner type
+        tests = self._get_tests_for_suite(runner_type, suite_name)
         if not tests:
             self.console.print(
                 f"  [yellow]No tests found for suite: {suite_name}[/yellow]"
@@ -408,13 +408,13 @@ class TestRunnerManager:
 
     def _get_tests_for_suite(
         self,
-        category: Category,
+        runner_type: str,
         suite_name: str,
     ) -> list[TestDefinition]:
         """Get tests for a specific suite, with optional filtering.
 
         Args:
-            category: Test category to filter by.
+            runner_type: Runner type to filter by (deployment, demo, tutorial).
             suite_name: Suite name for additional filtering.
 
         Returns:
@@ -423,11 +423,11 @@ class TestRunnerManager:
         if not self._catalog:
             return []
 
-        # Get tests by category
+        # Get tests by target, then filter by runner type
         tests = self._catalog.filter(
-            categories=[category.value],
             targets=[TargetType.REMOTE.value],
         )
+        tests = [t for t in tests if t.runner_type == runner_type]
 
         # Apply docker_apps_subset filter for test-apps suite
         if suite_name == "test-apps" and self.config.docker_apps_subset:

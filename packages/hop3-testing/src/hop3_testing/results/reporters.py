@@ -138,13 +138,13 @@ class ConsoleReporter:
         print(file=self.output)
         print(self._colorize("Recap:", "bold"), file=self.output)
 
-        # Group by category
-        by_category: dict[str, list[TestResult]] = {}
+        # Group by runner type
+        by_runner_type: dict[str, list[TestResult]] = {}
         for r in results:
-            cat = r.test.category or "uncategorized"
-            if cat not in by_category:
-                by_category[cat] = []
-            by_category[cat].append(r)
+            rt = r.test.runner_type
+            if rt not in by_runner_type:
+                by_runner_type[rt] = []
+            by_runner_type[rt].append(r)
 
         # Group by tier
         by_tier: dict[str, int] = {}
@@ -159,8 +159,8 @@ class ConsoleReporter:
                 covers = getattr(r.test.metadata, "covers", []) or []
                 technologies.update(covers)
 
-        # Print category breakdown
-        for cat, cat_results in sorted(by_category.items()):
+        # Print runner type breakdown
+        for cat, cat_results in sorted(by_runner_type.items()):
             passed = sum(1 for r in cat_results if r.passed)
             total = len(cat_results)
             status = (

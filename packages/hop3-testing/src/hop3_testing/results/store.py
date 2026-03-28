@@ -84,7 +84,7 @@ class ResultStore:
             record = TestResultRecord(
                 run_id=self._current_run.id if self._current_run else None,
                 test_name=result.test.name,
-                category=result.test.category.value,
+                category=result.test.runner_type,
                 tier=result.test.tier.value,
                 priority=result.test.priority.value,
                 passed=result.passed,

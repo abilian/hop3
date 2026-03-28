@@ -4,14 +4,14 @@
 
 """Test catalog scanner.
 
-Discovers test.toml files and legacy test apps to build a unified catalog.
+Discovers test.toml files and hop3.toml-based test apps to build a unified catalog.
 """
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 from .loader import (
     TestDefinitionError,
@@ -19,35 +19,23 @@ from .loader import (
     load_test_definition,
     load_test_definition_smart,
 )
-from .models import Category, Priority, TargetType, TestDefinition, Tier
+from .models import Priority, TargetType, TestDefinition, Tier
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
 
+IGNORE_FILE = "HOP3_TEST_IGNORE"
+
 
 class Catalog:
     """Discovers and indexes all tests in the project.
 
-    The catalog scans multiple locations for tests:
-    - apps/test-apps/: Deployment test applications
-    - demos/: Demo scripts and applications
-    - docs/src/tutorials/: Tutorial markdown files
-
-    Tests should be defined via test.toml files with explicit categories.
-    Legacy apps without test.toml can still be loaded with default settings.
+    The catalog discovers test apps by scanning explicitly provided paths.
+    Any subdirectory containing hop3.toml or test.toml files is included.
+    Directories containing a HOP3_TEST_IGNORE file are excluded.
     """
-
-    # Default scan paths relative to project root
-    DEFAULT_SCAN_PATHS: ClassVar[list[str]] = [
-        "apps/test-apps",
-        "apps/nix-apps",
-        "apps/docker-apps",
-        "apps/native-apps",
-        "demos",
-        "docs/src/tutorials",
-    ]
 
     def __init__(self, root: Path | None = None):
         """Initialize the catalog.
@@ -60,7 +48,6 @@ class Catalog:
         self.root = root
         self._tests: dict[str, TestDefinition] = {}
         self._by_path: dict[Path, TestDefinition] = {}  # Index by app directory path
-        self._by_category: dict[str, list[TestDefinition]] = {}
         self._by_tier: dict[str, list[TestDefinition]] = {}
         self._by_priority: dict[str, list[TestDefinition]] = {}
         self._errors: list[tuple[Path, str]] = []
@@ -84,18 +71,27 @@ class Catalog:
         """Scan directories for test definitions.
 
         Args:
-            paths: Paths to scan (relative to root). If None, use defaults.
+            paths: Explicit paths to scan (relative to root). Required.
+
+        Raises:
+            ValueError: If paths is None or empty.
         """
-        scan_paths = paths or self.DEFAULT_SCAN_PATHS
+        if not paths:
+            msg = "scan() requires explicit paths to scan"
+            raise ValueError(msg)
+
         self._tests.clear()
         self._errors.clear()
 
-        for rel_path in scan_paths:
+        scan_targets = []
+        for rel_path in paths:
             full_path = self.root / rel_path
-            if not full_path.exists():
+            if full_path.exists():
+                scan_targets.append((full_path, rel_path))
+            else:
                 logger.debug("Scan path does not exist: %s", full_path)
-                continue
 
+        for full_path, rel_path in scan_targets:
             self._scan_directory(full_path, rel_path)
 
         self._build_indexes()
@@ -132,20 +128,37 @@ class Catalog:
 
         return demo_internal_dirs
 
-    def _scan_directory(self, path: Path, rel_path: str) -> None:
+    def _has_ignore_ancestor(self, path: Path, root: Path) -> bool:
+        """Check if any ancestor of path (up to root) contains HOP3_TEST_IGNORE."""
+        current = path.parent
+        while current not in {root, current.parent}:
+            if (current / IGNORE_FILE).exists():
+                return True
+            current = current.parent
+        return False
+
+    def _scan_directory(self, path: Path, rel_path: str) -> None:  # noqa: C901
         """Scan a single directory for tests.
 
         Scans for:
         1. test.toml files (explicit test definitions)
         2. hop3.toml files (app definitions that can be used for testing)
-        3. Legacy apps (directories with Procfile but no config files)
+
+        Directories containing a HOP3_TEST_IGNORE file are skipped entirely.
         """
+        # Skip directory if it has an ignore marker
+        if (path / IGNORE_FILE).exists():
+            logger.debug("Skipping ignored directory: %s", path)
+            return
+
         processed_dirs: set[Path] = set()
         demo_internal_dirs = self._find_demo_internal_dirs(path, rel_path)
 
         # Check for test.toml files recursively
         for test_toml in path.rglob("test.toml"):
             app_dir = test_toml.parent
+            if self._has_ignore_ancestor(app_dir, path):
+                continue
             if app_dir not in processed_dirs and app_dir not in demo_internal_dirs:
                 self._load_test_smart(app_dir)
                 processed_dirs.add(app_dir)
@@ -153,6 +166,8 @@ class Catalog:
         # Check for hop3.toml files recursively (that don't have test.toml)
         for hop3_toml in path.rglob("hop3.toml"):
             app_dir = hop3_toml.parent
+            if self._has_ignore_ancestor(app_dir, path):
+                continue
             # Skip internal demo subdirectories (e.g., demos/demo38/app/)
             if app_dir in demo_internal_dirs:
                 logger.debug("Skipping internal demo directory: %s", app_dir)
@@ -161,42 +176,22 @@ class Catalog:
                 self._load_test_smart(app_dir)
                 processed_dirs.add(app_dir)
 
-        # Scan for legacy apps
-        self._scan_legacy_apps(path, rel_path, processed_dirs)
-
-    def _scan_legacy_apps(
-        self, path: Path, rel_path: str, processed_dirs: set[Path]
-    ) -> None:
-        """Scan for legacy apps (directories with Procfile but no config files)."""
-        for item in path.iterdir():
-            if not item.is_dir():
+        # Check for demo-script.py files (demos without hop3.toml at top level)
+        for demo_script in path.rglob("demo-script.py"):
+            demo_dir = demo_script.parent
+            if self._has_ignore_ancestor(demo_dir, path):
                 continue
+            if demo_dir not in processed_dirs:
+                self._load_demo(demo_dir)
 
-            # Skip hidden and disabled directories
-            if item.name.startswith(".") or item.name.startswith("xxx-"):
-                continue
-
-            # Skip if already processed
-            if item in processed_dirs:
-                continue
-
-            # Skip if any subdirectory was already processed (e.g., demo57/app/)
-            if any(p.is_relative_to(item) for p in processed_dirs):
-                continue
-
-            # Check if it looks like a test app
-            if self._is_legacy_app(item):
-                self._load_legacy_app(item, rel_path)
-
-    def _is_legacy_app(self, path: Path) -> bool:
-        """Check if a directory looks like a legacy test app."""
-        # Must have Procfile or be a static site
-        if (path / "Procfile").exists():
-            return True
-        if (path / "index.html").exists():
-            return True
-        # Common demo structure
-        return (path / "app").is_dir()
+    def _load_demo(self, demo_dir: Path) -> None:
+        """Load a demo directory (has demo-script.py)."""
+        try:
+            test_def = generate_test_definition_from_app(demo_dir)
+            self._add_test(test_def)
+        except Exception as e:
+            logger.warning("Failed to load demo %s: %s", demo_dir, e)
+            self._errors.append((demo_dir, str(e)))
 
     def _load_test_from_toml(self, path: Path) -> None:
         """Load a test from a test.toml file."""
@@ -223,19 +218,6 @@ class Catalog:
             logger.warning("Failed to load app %s: %s", app_dir, e)
             self._errors.append((app_dir, str(e)))
 
-    def _load_legacy_app(self, path: Path, rel_path: str) -> None:
-        """Load a legacy app without test.toml.
-
-        Legacy apps are loaded with default category settings.
-        For proper categorization, add a test.toml file.
-        """
-        try:
-            test_def = generate_test_definition_from_app(path)
-            self._add_test(test_def)
-        except Exception as e:
-            logger.warning("Failed to load legacy app %s: %s", path, e)
-            self._errors.append((path, str(e)))
-
     def _add_test(self, test_def: TestDefinition) -> None:
         """Add a test to the catalog."""
         if test_def.name in self._tests:
@@ -259,18 +241,11 @@ class Catalog:
                 self._by_path[test_def.app_path.resolve()] = test_def
 
     def _build_indexes(self) -> None:
-        """Build category, tier, and priority indexes."""
-        self._by_category = {}
+        """Build tier and priority indexes."""
         self._by_tier = {}
         self._by_priority = {}
 
         for test in self._tests.values():
-            # Index by category
-            cat = test.category.value
-            if cat not in self._by_category:
-                self._by_category[cat] = []
-            self._by_category[cat].append(test)
-
             # Index by tier
             tier = test.tier.value
             if tier not in self._by_tier:
@@ -315,12 +290,6 @@ class Catalog:
 
         return None
 
-    def by_category(self, category: str | Category) -> list[TestDefinition]:
-        """Get tests by category."""
-        if isinstance(category, Category):
-            category = category.value
-        return self._by_category.get(category, [])
-
     def by_tier(self, tier: str | Tier) -> list[TestDefinition]:
         """Get tests by tier."""
         if isinstance(tier, Tier):
@@ -335,7 +304,6 @@ class Catalog:
 
     def filter(
         self,
-        categories: list[str] | None = None,
         tiers: list[str] | None = None,
         priorities: list[str] | None = None,
         targets: list[str] | None = None,
@@ -345,7 +313,6 @@ class Catalog:
         """Filter tests by multiple criteria.
 
         Args:
-            categories: Filter by category (deployment, demo, tutorial)
             tiers: Filter by tier (fast, medium, slow, very-slow)
             priorities: Filter by priority (P0, P1, P2)
             targets: Filter by supported target type (docker, remote, local)
@@ -358,10 +325,6 @@ class Catalog:
         result = []
 
         for test in self._tests.values():
-            # Category filter
-            if categories and test.category.value not in categories:
-                continue
-
             # Tier filter
             if tiers and test.tier.value not in tiers:
                 continue
@@ -400,10 +363,6 @@ class Catalog:
         )
 
         return result
-
-    def categories(self) -> list[str]:
-        """Get list of unique categories."""
-        return sorted(self._by_category.keys())
 
     def tiers(self) -> list[str]:
         """Get list of unique tiers."""

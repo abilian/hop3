@@ -16,7 +16,6 @@ else:
     import tomli as tomllib
 
 from .models import (
-    Category,
     DemoConfig,
     DemoStep,
     DeploymentConfig,
@@ -78,7 +77,6 @@ def _parse_test_definition(data: dict[str, Any], path: Path) -> TestDefinition:
 
     # Required fields
     name = test_section["name"]
-    category = Category(test_section["category"])
     tier = Tier(test_section["tier"])
     priority = Priority(test_section["priority"])
 
@@ -98,7 +96,6 @@ def _parse_test_definition(data: dict[str, Any], path: Path) -> TestDefinition:
 
     return TestDefinition(
         name=name,
-        category=category,
         tier=tier,
         priority=priority,
         requirements=requirements,
@@ -289,22 +286,12 @@ def generate_test_definition_from_app(
     if app_type:
         covers.append(app_type)
 
-    # Infer category from directory path (demos/, test-apps/, etc.)
-    category = _infer_category_from_path_and_type(app_path, "native")
-
-    # For demos, set demo config; for deployments, set deployment config
-    # Demos handle their own validation internally via the demo script,
-    # so we don't add automatic HTTP validations for them
+    # Determine demo vs deployment by checking for demo-script.py
     demo_config = None
     deployment_config = None
     validations: list[Validation] = []
-    if category == Category.DEMO:
-        # Check for demo-script.py
-        demo_script = (
-            "demo-script.py" if (app_path / "demo-script.py").exists() else None
-        )
-        demo_config = DemoConfig(script=demo_script, type="script")
-        # No automatic validations for demos - they handle their own testing
+    if (app_path / "demo-script.py").exists():
+        demo_config = DemoConfig(script="demo-script.py", type="script")
     else:
         deployment_config = DeploymentConfig(
             path=deployment_path,
@@ -315,7 +302,6 @@ def generate_test_definition_from_app(
 
     return TestDefinition(
         name=app_name,
-        category=category,
         tier=Tier.FAST,
         priority=Priority.P1,
         requirements=TestRequirements(
@@ -400,68 +386,6 @@ def _get_deployment_type_from_hop3_toml(data: dict[str, Any]) -> str:
     return "native" if builder == "local" else "docker"
 
 
-def _infer_category_from_path_and_type(
-    app_path: Path, deployment_type: str
-) -> Category:
-    """Infer test category based on directory path and deployment type.
-
-    Priority:
-    1. Apps in demos/ -> DEMO (regardless of deployment type)
-    2. Apps in test-apps/ -> DEPLOYMENT (regardless of deployment type)
-    3. Apps in docker-apps/ -> DOCKER_APP
-    4. Apps in native-apps/ -> NATIVE_APP
-    5. Fallback: use deployment type
-    """
-    # Convert to string for easy checking
-    path_str = str(app_path)
-
-    # Check demos first - demos keep DEMO category regardless of deployment type
-    if "/demos/" in path_str:
-        return Category.DEMO
-
-    # Check test-apps - these stay as DEPLOYMENT
-    if "/test-apps/" in path_str:
-        return Category.DEPLOYMENT
-
-    # Check docker-apps, native-apps, and nix-apps directories
-    if "/docker-apps/" in path_str or path_str.endswith("/docker-apps"):
-        return Category.DOCKER_APP
-    if "/native-apps/" in path_str or path_str.endswith("/native-apps"):
-        return Category.NATIVE_APP
-    if "/nix-apps/" in path_str or path_str.endswith("/nix-apps"):
-        return Category.NIX_APP
-
-    # Fallback: use deployment type if not in special directories
-    if deployment_type == "docker":
-        return Category.DOCKER_APP
-    if deployment_type == "native":
-        return Category.NATIVE_APP
-
-    return Category.DEPLOYMENT
-
-
-def _get_name_prefix_from_path(app_path: Path) -> str:
-    """Get a name prefix based on source directory.
-
-    Apps in apps/docker-apps get "docker-" prefix
-    Apps in apps/native-apps get "native-" prefix
-    Other apps get no prefix
-
-    Note: Using hyphen instead of colon as separator because colons
-    cause issues with file paths, shell commands, and uWSGI.
-    """
-    path_str = str(app_path)
-
-    if "/docker-apps/" in path_str or path_str.endswith("/docker-apps"):
-        return "docker-"
-    if "/native-apps/" in path_str or path_str.endswith("/native-apps"):
-        return "native-"
-    if "/nix-apps/" in path_str or path_str.endswith("/nix-apps"):
-        return "nix-"
-
-    return ""
-
-
 def _derive_unique_name(app_path: Path) -> str:
     """Derive a unique name from the app path.
 
@@ -506,10 +430,7 @@ def generate_test_definition_from_hop3_toml(
     # Get app name from hop3.toml metadata or derive from path
     metadata_section = hop3_data.get("metadata", {})
     base_name = metadata_section.get("id") or _derive_unique_name(app_path)
-
-    # Add prefix to make names unique between docker-apps and native-apps
-    name_prefix = _get_name_prefix_from_path(app_path)
-    app_name = f"{name_prefix}{base_name}"
+    app_name = base_name
     app_title = metadata_section.get("title", base_name)
 
     # Extract deployment info from hop3.toml
@@ -528,9 +449,6 @@ def generate_test_definition_from_hop3_toml(
     # Add service tags
     covers.extend(services)
 
-    # Determine category based on source path and deployment type
-    category = _infer_category_from_path_and_type(app_path, deployment_type)
-
     # Default test-specific values (can be overridden by test.toml)
     tier = Tier.MEDIUM  # Docker apps typically take longer
     priority = Priority.P1
@@ -544,8 +462,6 @@ def generate_test_definition_from_hop3_toml(
             tier = Tier(test_section["tier"])
         if "priority" in test_section:
             priority = Priority(test_section["priority"])
-        if "category" in test_section:
-            category = Category(test_section["category"])
         if "description" in test_section:
             description = test_section["description"]
 
@@ -560,8 +476,7 @@ def generate_test_definition_from_hop3_toml(
             covers = test_metadata["covers"] + covers
 
     # Build default HTTP validation if none specified
-    # Skip for demos - they handle their own validation internally
-    if not validations and category != Category.DEMO:
+    if not validations:
         validations.append(
             Validation(
                 type="http",
@@ -572,7 +487,6 @@ def generate_test_definition_from_hop3_toml(
 
     return TestDefinition(
         name=app_name,
-        category=category,
         tier=tier,
         priority=priority,
         requirements=TestRequirements(

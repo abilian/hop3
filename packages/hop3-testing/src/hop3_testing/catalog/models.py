@@ -48,26 +48,6 @@ class Priority(str, Enum):
     P2 = "P2"
 
 
-class Category(str, Enum):
-    """Test category.
-
-    Determines how the test is executed:
-    - deployment: Deploy an app and validate it works (test-apps)
-    - nix_app: Deploy a Nix-built app (apps/nix-apps)
-    - docker_app: Deploy a Docker-based real app (apps/docker-apps)
-    - native_app: Deploy a native uWSGI-based real app (apps/native-apps)
-    - demo: Run a demo script or declarative demo
-    - tutorial: Execute tutorial via validoc
-    """
-
-    DEPLOYMENT = "deployment"
-    NIX_APP = "nix-app"
-    DOCKER_APP = "docker-app"
-    NATIVE_APP = "native-app"
-    DEMO = "demo"
-    TUTORIAL = "tutorial"
-
-
 class TargetType(str, Enum):
     """Where a test can run.
 
@@ -249,9 +229,6 @@ class TestDefinition:
     name: str
     """Unique test identifier."""
 
-    category: Category
-    """Test category (deployment, demo, tutorial)."""
-
     tier: Tier
     """Execution time tier."""
 
@@ -303,10 +280,18 @@ class TestDefinition:
                     return self.source_path.parent / step.app_path
         return self.source_path.parent
 
+    @property
+    def runner_type(self) -> str:
+        """Return the runner type based on which config is set."""
+        if self.demo is not None:
+            return "demo"
+        if self.tutorial is not None:
+            return "tutorial"
+        return "deployment"
+
     def __repr__(self) -> str:
         return (
             f"TestDefinition(name={self.name!r}, "
-            f"category={self.category.value}, "
             f"tier={self.tier.value}, "
             f"priority={self.priority.value})"
         )
