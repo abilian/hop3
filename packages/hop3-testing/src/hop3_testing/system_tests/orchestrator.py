@@ -17,12 +17,17 @@ from rich.console import Console
 from rich.panel import Panel
 
 from hop3_testing.util import find_project_root, find_project_root_optional
+from hop3_testing.util.ssh import (
+    SSHConnection,
+    SSHConnectionInfo,
+    is_port_open,
+    verify_ssh_connectivity,
+)
 
 from .deployment import DeploymentManager, DeploymentResult, DeploymentVerifier
 from .diagnostics import DiagnosticCollector, DiagnosticResult
 from .hetzner import HetznerError, HetznerManager, ServerInfo
 from .runner import AllSuitesResult, TestRunnerManager
-from .ssh import SSHConnection, SSHConnectionInfo, is_port_open, verify_ssh_connectivity
 
 if TYPE_CHECKING:
     from .config import Config
@@ -132,6 +137,9 @@ class DailyTestOrchestrator:
         if not phase_result.success:
             return self._finalize()
 
+        # Show test plan before doing anything expensive
+        self._show_test_plan()
+
         # Phase 2: Reset server
         if not skip_reset:
             phase_result = self._run_reset_phase()
@@ -156,6 +164,40 @@ class DailyTestOrchestrator:
             self._result.phase_results.append(phase_result)
 
         return self._finalize()
+
+    def _show_test_plan(self) -> None:
+        """Load and display the test plan before running expensive operations."""
+        from hop3_testing.catalog import Catalog  # noqa: PLC0415
+
+        from .runner import TestRunnerManager  # noqa: PLC0415
+
+        project_root = find_project_root_optional()
+        if not project_root:
+            return
+
+        try:
+            catalog = Catalog(project_root)
+            # Scan paths for all configured suites
+            scan_paths = [
+                TestRunnerManager.SUITE_SCAN_PATHS[s]
+                for s in self.config.tests.suites
+                if s in TestRunnerManager.SUITE_SCAN_PATHS
+            ]
+            if not scan_paths:
+                return
+
+            catalog.scan(paths=scan_paths)
+            tests = sorted(catalog.all_tests(), key=lambda t: t.name)
+
+            self._log_phase("Test Plan")
+            self.console.print(f"  Suites: {', '.join(self.config.tests.suites)}")
+            self.console.print(f"  Tests to run: {len(tests)}")
+            for t in tests:
+                self.console.print(f"    - {t.name}")
+            self.console.print("")
+        except Exception:
+            # Non-fatal: if catalog loading fails, tests will fail later with details
+            pass
 
     def _run_init_phase(self) -> PhaseResult:
         """Initialize managers and validate configuration."""

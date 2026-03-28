@@ -4,15 +4,13 @@
 
 """CLI for hop3-testing.
 
-This module provides the new CLI commands:
+Commands:
+- hop3-test system: Deploy Hop3 and run tests
+- hop3-test apps: Test apps against pre-deployed Hop3
 - hop3-test list: List available tests
 - hop3-test show: Show test details
-- hop3-test dev: Run developer tests
-- hop3-test ci: Run CI tests
-- hop3-test package: Validate a package
-
-The original functionality is preserved and can be accessed via:
-- hop3-test run: Run tests (original behavior)
+- hop3-test hetzner: Test on Hetzner Cloud
+- hop3-test multi-distro: Test across Linux distributions
 """
 
 from __future__ import annotations

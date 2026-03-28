@@ -281,6 +281,13 @@ class TestDefinition:
         return self.source_path.parent
 
     @property
+    def deploy_name(self) -> str:
+        """Short name for deployment (directory basename, safe for server paths)."""
+        if self.app_path:
+            return self.app_path.name
+        return self.name.rsplit("/", 1)[-1]
+
+    @property
     def runner_type(self) -> str:
         """Return the runner type based on which config is set."""
         if self.demo is not None:

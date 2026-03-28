@@ -287,7 +287,7 @@ class DeploymentTestRunner:
                 category = "ruby"
 
         return AppSource(
-            name=test.name,
+            name=test.deploy_name,
             path=app_path,
             category=category,
             description=test.description or "",
