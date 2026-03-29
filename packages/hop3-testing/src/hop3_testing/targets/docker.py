@@ -41,7 +41,6 @@ from .helpers import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
     from pathlib import Path
 
 
@@ -660,17 +659,6 @@ class DockerTarget(DeploymentTarget):
         self._started = False
         print("Container stopped.")
 
-    def is_ready(self) -> bool:
-        """Check if the target is ready."""
-        if not self._started:
-            return False
-
-        if self._command_runner:
-            return self._health_checker.is_ready(self._command_runner)
-        if self._container:
-            return self._health_checker.is_container_ready(self._container)
-        return False
-
     def exec_run(self, cmd: str | list[str]) -> tuple[int, str, str]:
         """Execute a command on the target.
 
@@ -694,16 +682,6 @@ class DockerTarget(DeploymentTarget):
 
         msg = "Target not started"
         raise RuntimeError(msg)
-
-    def get_logs(self) -> Iterator[str]:
-        """Get container logs.
-
-        Yields:
-            Log lines
-        """
-        if self._container_helper:
-            for line in self._container_helper.get_logs(stream=True):
-                yield line.decode()
 
     def save_diagnostics(self, generate_html: bool = False) -> Path:
         """Save diagnostic information to files.

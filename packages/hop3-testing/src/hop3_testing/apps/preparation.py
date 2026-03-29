@@ -67,24 +67,6 @@ class AppPreparation:
 
         return self.temp_dir
 
-    def create_tarball(self) -> Path:
-        """Create a git archive tarball for deployment.
-
-        Returns:
-            Path to the created tarball
-        """
-        if not self.temp_dir:
-            self.prepare()
-
-        tarball_path = Path("/tmp") / f"{self.app_name}.tar.gz"
-        subprocess.run(
-            ["git", "archive", "--format=tar.gz", "-o", str(tarball_path), "HEAD"],
-            cwd=self.temp_dir,
-            check=True,
-            capture_output=True,
-        )
-        return tarball_path
-
     def cleanup(self) -> None:
         """Remove temp directory and any created files."""
         if self.temp_dir and self.temp_dir.exists():
@@ -130,12 +112,3 @@ class AppPreparation:
                 check=True,
                 capture_output=True,
             )
-
-    def __enter__(self) -> AppPreparation:
-        """Context manager entry."""
-        self.prepare()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Context manager exit with cleanup."""
-        self.cleanup()

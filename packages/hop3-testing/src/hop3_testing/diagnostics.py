@@ -214,10 +214,6 @@ class DiagnosticCollector:
         """Get entries for a specific phase."""
         return [e for e in self.entries if e.phase == phase]
 
-    def get_entries_by_layer(self, layer: str) -> list[DiagnosticEntry]:
-        """Get entries for a specific layer."""
-        return [e for e in self.entries if e.layer == layer]
-
     def _format_entry(self, entry: DiagnosticEntry) -> list[str]:
         """Format a single diagnostic entry for console output."""
         lines = [str(entry)]

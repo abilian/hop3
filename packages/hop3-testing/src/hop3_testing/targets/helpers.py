@@ -278,39 +278,6 @@ class HealthChecker:
 
         return False
 
-    def is_ready(self, runner: CommandRunner) -> bool:
-        """Quick check if server is ready (no waiting).
-
-        Args:
-            runner: Object with run() method
-
-        Returns:
-            True if server is responding
-        """
-        try:
-            result = runner.run(HEALTH_CHECK_COMMAND, check=False)
-            return self.check_status_code(result.stdout)
-        except Exception:
-            return False
-
-    def is_container_ready(self, container: ContainerRunner) -> bool:
-        """Quick check if container's server is ready.
-
-        Args:
-            container: Docker container object
-
-        Returns:
-            True if server is responding
-        """
-        try:
-            container.reload()
-            if container.status != "running":
-                return False
-            result = container.exec_run(HEALTH_CHECK_COMMAND)
-            return self.check_status_code_bytes(result.output)
-        except Exception:
-            return False
-
     def _log_success(self, start_time: float, status: str) -> None:
         """Log successful health check."""
         if self.diagnostics:
@@ -504,17 +471,6 @@ class DockerContainerHelper:
             Execution result from Docker SDK
         """
         return self.container.exec_run(cmd, demux=demux)
-
-    def get_logs(self, stream: bool = False) -> Any:
-        """Get container logs.
-
-        Args:
-            stream: If True, return streaming iterator
-
-        Returns:
-            Logs as bytes or iterator
-        """
-        return self.container.logs(stream=stream)
 
     @property
     def status(self) -> str:

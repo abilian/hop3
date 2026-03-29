@@ -47,7 +47,8 @@ class DeploymentSession:
     Example:
         with DeploymentSession(app, target) as session:
             session.deploy()
-            if session.test_http():
+            result = session.test_http_detailed()
+            if result["passed"]:
                 print("Test passed!")
     """
 
@@ -329,35 +330,6 @@ class DeploymentSession:
             traceback.print_exc()
             return False
 
-    def test_http(
-        self,
-        hostname: str | None = None,
-        path: str = "/",
-        expected_status: int = HTTPStatus.OK,
-        max_retries: int = 20,
-    ) -> bool:
-        """Test HTTP access to the deployed app.
-
-        Args:
-            hostname: Virtual host name (default: {app_name}.test.local)
-            path: URL path to test
-            expected_status: Expected HTTP status code
-            max_retries: Maximum number of retry attempts
-
-        Returns:
-            True if test passed, False otherwise
-        """
-        if not self.deployed:
-            self.console.warning("App not deployed yet")
-            return False
-
-        # Show debug info before testing if debug mode
-        if self.config.get("debug", False):
-            self._debugger.show_all()
-
-        verifier = self._get_verifier()
-        return verifier.verify_http(hostname, path, expected_status, max_retries)
-
     def test_http_detailed(
         self,
         hostname: str | None = None,
@@ -381,19 +353,6 @@ class DeploymentSession:
         return verifier.verify_http_detailed(
             hostname, path, expected_status, max_retries
         )
-
-    def run_check_script(self) -> bool:
-        """Run the app's check.py script if it exists.
-
-        Returns:
-            True if check passed, False otherwise
-        """
-        if not self.deployed:
-            self.console.warning("App not deployed yet")
-            return False
-
-        verifier = self._get_verifier()
-        return verifier.run_check_script()
 
     def run_check_script_detailed(self) -> dict[str, Any]:
         """Run the app's check.py script and return detailed results.
@@ -527,77 +486,6 @@ class DeploymentSession:
             )
 
         self.console.info(f"Verified {self.app_name} removed from database")
-
-    def run_full_test(self, cleanup: bool = True) -> bool:
-        """Run a full test cycle: prepare, deploy, test, cleanup.
-
-        Args:
-            cleanup: Whether to cleanup after testing
-
-        Returns:
-            True if all tests passed, False otherwise
-        """
-        try:
-            # Prepare
-            self.console.start_phase(f"Preparing {self.app_name}")
-            self.prepare()
-            self.console.end_phase(f"Preparing {self.app_name}")
-
-            # Deploy
-            self.console.start_phase(f"Deploying {self.app_name}")
-            try:
-                self.deploy()
-            except DeploymentError as e:
-                self.console.end_phase(f"Deploying {self.app_name}", success=False)
-                self.console.error(f"Deploy stage failed for {self.app_name}: {e}")
-                return False
-            self.console.end_phase(f"Deploying {self.app_name}")
-
-            # Check deployment
-            self.console.start_phase(f"Checking deployment for {self.app_name}")
-            if not self.check_deployed():
-                self.console.end_phase(
-                    f"Checking deployment for {self.app_name}", success=False
-                )
-                self.console.error(f"Deployment check failed for {self.app_name}")
-                return False
-            self.console.end_phase(f"Checking deployment for {self.app_name}")
-
-            # Test HTTP (if app has web interface)
-            if self.app.has_procfile:
-                self.console.start_phase(f"Testing HTTP for {self.app_name}")
-                if not self.test_http():
-                    self.console.end_phase(
-                        f"Testing HTTP for {self.app_name}", success=False
-                    )
-                    self.console.error(f"HTTP test failed for {self.app_name}")
-                    return False
-                self.console.end_phase(f"Testing HTTP for {self.app_name}")
-
-            # Run check script
-            if self.app.has_check_script:
-                self.console.start_phase(f"Running check script for {self.app_name}")
-                if not self.run_check_script():
-                    self.console.end_phase(
-                        f"Running check script for {self.app_name}", success=False
-                    )
-                    self.console.error(f"Check script failed for {self.app_name}")
-                    return False
-                self.console.end_phase(f"Running check script for {self.app_name}")
-
-            self.console.success(f"All tests passed for {self.app_name}")
-            return True
-
-        except Exception as e:
-            self.console.error(f"Exception for {self.app_name}: {e}")
-            traceback.print_exc()
-            return False
-
-        finally:
-            if cleanup:
-                self.console.start_phase(f"Cleanup for {self.app_name}")
-                self.cleanup()
-                self.console.end_phase(f"Cleanup for {self.app_name}")
 
     def __enter__(self) -> DeploymentSession:
         """Context manager entry."""

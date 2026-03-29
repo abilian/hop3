@@ -81,10 +81,6 @@ class TestRequirements:
         """Check if test can run on given target type."""
         return target_type in self.targets
 
-    def needs_service(self, service: str) -> bool:
-        """Check if test requires a specific service."""
-        return service in self.services
-
 
 @dataclass
 class ValidationExpect:
@@ -260,10 +256,6 @@ class TestDefinition:
     def can_run_on(self, target_type: TargetType) -> bool:
         """Check if this test can run on given target type."""
         return self.requirements.can_run_on(target_type)
-
-    def needs_service(self, service: str) -> bool:
-        """Check if this test needs a specific service."""
-        return self.requirements.needs_service(service)
 
     @property
     def app_path(self) -> Path | None:

@@ -110,16 +110,3 @@ class TestLogWriter:
 
         log_file.write_text("\n".join(lines))
         return log_file
-
-    def get_log_path(self, test_name: str) -> Path | None:
-        """Get the log file path for a test.
-
-        Args:
-            test_name: Name of the test
-
-        Returns:
-            Path to the log file, or None if logging disabled
-        """
-        if not self.enabled or self.logs_dir is None:
-            return None
-        return self.logs_dir / f"{test_name}.log"

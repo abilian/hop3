@@ -16,10 +16,9 @@ from typing import TYPE_CHECKING
 from .loader import (
     TestDefinitionError,
     generate_test_definition_from_app,
-    load_test_definition,
     load_test_definition_smart,
 )
-from .models import Priority, TargetType, TestDefinition, Tier
+from .models import TargetType, TestDefinition, Tier
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -193,15 +192,6 @@ class Catalog:
             logger.warning("Failed to load demo %s: %s", demo_dir, e)
             self._errors.append((demo_dir, str(e)))
 
-    def _load_test_from_toml(self, path: Path) -> None:
-        """Load a test from a test.toml file."""
-        try:
-            test_def = load_test_definition(path)
-            self._add_test(test_def)
-        except TestDefinitionError as e:
-            logger.warning("Failed to load %s: %s", path, e)
-            self._errors.append((path, str(e)))
-
     def _load_test_smart(self, app_dir: Path) -> None:
         """Load a test using smart loading (hop3.toml + test.toml).
 
@@ -234,9 +224,7 @@ class Catalog:
                 pass  # Outside project root, keep original name
 
         if test_def.name in self._tests:
-            logger.warning(
-                "Duplicate test: %s (keeping first)", test_def.name
-            )
+            logger.warning("Duplicate test: %s (keeping first)", test_def.name)
             return
 
         self._tests[test_def.name] = test_def
@@ -298,12 +286,6 @@ class Catalog:
         if isinstance(tier, Tier):
             tier = tier.value
         return self._by_tier.get(tier, [])
-
-    def by_priority(self, priority: str | Priority) -> list[TestDefinition]:
-        """Get tests by priority."""
-        if isinstance(priority, Priority):
-            priority = priority.value
-        return self._by_priority.get(priority, [])
 
     def filter(
         self,

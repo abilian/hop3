@@ -73,16 +73,6 @@ class TestRun(Base):
             return (self.finished_at - self.started_at).total_seconds()
         return None
 
-    @property
-    def success_rate(self) -> float:
-        """Get success rate as percentage."""
-        # SQLAlchemy Column values are integers at runtime
-        total: int = self.total_tests or 0  # type: ignore[assignment]  # pyrefly: ignore
-        if total == 0:
-            return 0.0
-        passed: int = self.passed_tests or 0  # type: ignore[assignment]  # pyrefly: ignore
-        return (passed / total) * 100
-
 
 class TestResultRecord(Base):
     """Individual test result."""

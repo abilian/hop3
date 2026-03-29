@@ -155,48 +155,6 @@ class DeploymentDebugger:
 
         self.console.separator()
 
-    def show_all(self) -> None:
-        """Show all debug information."""
-        self.show_nginx_config()
-        self.show_app_logs()
-
-    def get_nginx_config(self) -> str | None:
-        """Get nginx config content.
-
-        Returns:
-            Config content or None if not found
-        """
-        try:
-            exit_code, stdout, _stderr = self.target.exec_run(
-                f"cat /home/hop3/nginx/{self.app_name}.conf 2>/dev/null"
-            )
-            if exit_code == 0:
-                return stdout
-        except Exception:
-            pass
-        return None
-
-    def get_app_logs(self) -> dict[str, str]:
-        """Get all app log file contents.
-
-        Returns:
-            Dict mapping log filename to content
-        """
-        logs = {}
-        try:
-            # List log files
-            exit_code, stdout, _stderr = self.target.exec_run(
-                f"find /home/hop3/apps/{self.app_name}/log -type f 2>/dev/null"
-            )
-            if exit_code == 0 and stdout.strip():
-                for log_path in stdout.strip().split("\n"):
-                    if log_path:
-                        _, content, _ = self.target.exec_run(f"cat {log_path}")
-                        logs[log_path] = content
-        except Exception:
-            pass
-        return logs
-
     def _get_nginx_status(self) -> str:
         """Get nginx service status."""
         _exit_code, stdout, _stderr = self.target.exec_run(

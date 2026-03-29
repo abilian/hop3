@@ -36,7 +36,6 @@ from .helpers import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
     from pathlib import Path
 
     from .config import DeploymentConfig, RemoteConfig
@@ -307,23 +306,6 @@ class RemoteTarget(DeploymentTarget):
         print("Remote target cleanup complete (server keeps running).")
         self._started = False
 
-    def is_ready(self) -> bool:
-        """Check if the target is ready.
-
-        Returns:
-            True if server is responding
-        """
-        if not self._started:
-            return False
-
-        # Use command runner if available
-        if self._command_runner:
-            return self._health_checker.is_ready(self._command_runner)
-        # Fallback to direct SSH check
-        if self._ssh_client:
-            return self._check_server_ready_ssh()
-        return False
-
     def exec_run(self, cmd: str | list[str]) -> tuple[int, str, str]:
         """Execute a command on the remote server.
 
@@ -356,34 +338,6 @@ class RemoteTarget(DeploymentTarget):
 
         msg = "Target not started"
         raise RuntimeError(msg)
-
-    def get_logs(self) -> Iterator[str]:
-        """Get logs from the remote server.
-
-        Yields:
-            Log lines
-        """
-        if not self._command_runner and not self._ssh_client:
-            return
-
-        # Try to get hop3-server logs
-        log_cmd = (
-            "tail -n 100 /var/log/hop3-server.log 2>/dev/null || "
-            "journalctl -u hop3-server -n 100 --no-pager 2>/dev/null || "
-            "echo 'No logs available'"
-        )
-
-        try:
-            if self._command_runner:
-                result = self._command_runner.run(log_cmd, check=False)
-                for line in result.stdout.split("\n"):
-                    yield line
-            elif self._ssh_client:
-                _stdin, stdout, _stderr = self._ssh_client.exec_command(log_cmd)
-                for line in stdout:
-                    yield line.rstrip("\n")
-        except Exception as e:
-            yield f"Error getting logs: {e}"
 
     def save_diagnostics(self, generate_html: bool = False) -> Path:
         """Save all diagnostic information to files.
