@@ -292,28 +292,3 @@ class DeploymentTestRunner:
             category=category,
             description=test.description or "",
         )
-
-    def run_multiple(
-        self,
-        tests: list[TestDefinition],
-        fail_fast: bool = False,
-    ) -> list[TestResult]:
-        """Run multiple tests.
-
-        Args:
-            tests: List of test definitions to run
-            fail_fast: Stop on first failure
-
-        Returns:
-            List of test results
-        """
-        results = []
-
-        for test in tests:
-            result = self.run(test)
-            results.append(result)
-
-            if fail_fast and not result.passed:
-                break
-
-        return results

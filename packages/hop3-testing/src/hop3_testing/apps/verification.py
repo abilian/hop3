@@ -310,16 +310,6 @@ class AppVerifier:
             self.target_info, self.app, self.app_name, self.console
         )
 
-    def verify_http(
-        self,
-        hostname: str | None = None,
-        path: str = "/",
-        expected_status: int = HTTPStatus.OK,
-        max_retries: int = 20,
-    ) -> bool:
-        """Verify HTTP endpoint."""
-        return self.http_verifier.test(hostname, path, expected_status, max_retries)
-
     def verify_http_detailed(
         self,
         hostname: str | None = None,
@@ -332,32 +322,7 @@ class AppVerifier:
             hostname, path, expected_status, max_retries
         )
 
-    def run_check_script(self) -> bool:
-        """Run check script if present."""
-        return self.check_runner.run()
-
     def run_check_script_detailed(self) -> dict[str, Any]:
         """Run check script with detailed results."""
         return self.check_runner.run_detailed()
 
-    def verify_all(
-        self,
-        http_path: str = "/",
-        expected_status: int = HTTPStatus.OK,
-    ) -> tuple[bool, str]:
-        """Run all verifications.
-
-        Returns:
-            Tuple of (all_passed, failure_message)
-        """
-        # HTTP test (if app has web interface)
-        if self.app.has_procfile:
-            if not self.verify_http(path=http_path, expected_status=expected_status):
-                return False, "HTTP verification failed"
-
-        # Check script
-        if self.app.has_check_script:
-            if not self.run_check_script():
-                return False, "Check script failed"
-
-        return True, ""

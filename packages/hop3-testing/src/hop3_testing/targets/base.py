@@ -12,10 +12,9 @@ import tarfile
 import tempfile
 import time
 from abc import ABC, abstractmethod
-from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 import httpx
 from typing_extensions import Self
@@ -23,9 +22,6 @@ from typing_extensions import Self
 from hop3_testing.exceptions import DeploymentError
 
 from .constants import E2E_TEST_SECRET_KEY, create_test_token
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
 
 
 @dataclass
@@ -134,14 +130,6 @@ class DeploymentTarget(ABC):
     def stop(self) -> None:
         """Stop and cleanup the deployment target."""
 
-    @abstractmethod
-    def is_ready(self) -> bool:
-        """Check if the target is ready to accept deployments.
-
-        Returns:
-            True if the target is ready, False otherwise
-        """
-
     @property
     def info(self) -> TargetInfo:
         """Get target information.
@@ -167,15 +155,6 @@ class DeploymentTarget(ABC):
             Tuple of (exit_code, stdout, stderr)
         """
         msg = "exec_run not implemented for this target"
-        raise NotImplementedError(msg)
-
-    def get_logs(self) -> Iterator[str]:
-        """Get logs from the target.
-
-        Yields:
-            Log lines
-        """
-        msg = "get_logs not implemented for this target"
         raise NotImplementedError(msg)
 
     def run_command(self, *args: str, timeout: int = 300) -> CommandResult:
@@ -412,26 +391,6 @@ class DeploymentTarget(ABC):
             time.sleep(poll_interval)
 
         return False
-
-    def reset(self) -> None:
-        """Reset target to clean state.
-
-        Destroys all deployed apps but keeps the target running.
-        Override for more specific cleanup.
-        """
-        # Get list of apps and destroy each
-        result = self.run_command("apps")
-        if result.success:
-            # Parse app names from output (format varies)
-            for line in result.stdout.strip().split("\n"):
-                if line and not line.startswith("-") and not line.startswith("Name"):
-                    # Try to extract app name (first word)
-                    parts = line.split()
-                    if parts:
-                        app_name = parts[0]
-                        # Continue cleaning up other apps
-                        with suppress(DeploymentError):
-                            self.destroy_app(app_name)
 
     def __enter__(self) -> Self:
         """Context manager entry."""
