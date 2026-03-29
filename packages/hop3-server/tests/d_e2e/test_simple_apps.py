@@ -57,6 +57,13 @@ def _is_network_error(error_message: str) -> bool:
 def test_app_deployment(app_dir: Path, deployment_target, request):
     """Test deployment of an application from apps/test-apps/ or apps/nix-apps/."""
     app_name = app_dir.name
+
+    # Skip nix apps when nix-build is not available on the target
+    if app_name in NIX_APP_NAMES:
+        exit_code, stdout, _ = deployment_target.exec_run("which nix-build")
+        if exit_code != 0:
+            pytest.skip("nix-build not available on target")
+
     app = AppSource(name=app_name, path=app_dir)
     with DeploymentSession(app, deployment_target) as session:
         try:
