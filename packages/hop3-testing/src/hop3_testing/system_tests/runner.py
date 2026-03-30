@@ -201,8 +201,8 @@ class TestRunnerManager:
         result = AllSuitesResult()
 
         try:
-            # Load catalog for all configured suites
-            self._load_catalog()
+            # Load catalog only for the configured suites
+            self._load_catalog(suites=self.config.suites)
 
             # Create remote target
             self._create_target()
@@ -277,7 +277,7 @@ class TestRunnerManager:
             TestSuiteResult with the suite results.
         """
         try:
-            self._load_catalog(suite_name)
+            self._load_catalog(suites=[suite_name])
             self._create_target()
             return self._run_suite(suite_name)
         finally:
@@ -428,6 +428,11 @@ class TestRunnerManager:
         )
         tests = [t for t in tests if t.runner_type == runner_type]
 
+        # Filter tests to those belonging to this suite's scan path
+        suite_path = self.SUITE_SCAN_PATHS.get(suite_name, "")
+        if suite_path:
+            tests = [t for t in tests if suite_path in str(t.source_path)]
+
         # Apply docker_apps_subset filter for test-apps suite
         if suite_name == "test-apps" and self.config.docker_apps_subset:
             subset = set(self.config.docker_apps_subset)
@@ -477,19 +482,22 @@ class TestRunnerManager:
         "tutorials": "docs/src/tutorials",
     }
 
-    def _load_catalog(self, suite_name: str | None = None) -> None:
-        """Load the test catalog for a specific suite.
+    def _load_catalog(self, suites: list[str] | None = None) -> None:
+        """Load the test catalog for the specified suites.
 
         Args:
-            suite_name: Suite name to scan for. If None, scans all known paths.
+            suites: Suite names to scan for. If None or empty, scans all known paths.
         """
         self.console.print("Loading test catalog...")
         self._catalog = Catalog(self.project_root)
 
-        if suite_name and suite_name in self.SUITE_SCAN_PATHS:
-            scan_paths = [self.SUITE_SCAN_PATHS[suite_name]]
-        else:
-            # Scan all known suite paths
+        scan_paths: list[str] = []
+        if suites:
+            scan_paths = [
+                self.SUITE_SCAN_PATHS[s] for s in suites if s in self.SUITE_SCAN_PATHS
+            ]
+        if not scan_paths:
+            # Fallback: scan all known suite paths
             scan_paths = list(self.SUITE_SCAN_PATHS.values())
 
         self._catalog.scan(paths=scan_paths)

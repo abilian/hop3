@@ -415,6 +415,28 @@ class AppLauncher:
         )
         log(f"Workers ({worker_source}): {list(self.workers.keys())}", level=2)
 
+        # Early detection: Python app with no web-facing workers
+        if not self.web_workers and self.artifact:
+            kind = self.artifact.kind
+            if kind in {"python", "buildpack", "virtualenv"}:
+                log(
+                    "WARNING: Python app has no web-facing workers configured. "
+                    "uWSGI will start with no workers (the app won't serve requests).",
+                    level=0,
+                    fg="red",
+                )
+                log(
+                    "  Fix: Add a worker to hop3.toml or Procfile. Examples:",
+                    level=0,
+                )
+                log("    [run.workers]", level=0)
+                log('    wsgi = "app:application"  # For WSGI apps', level=0)
+                log("  Or in Procfile:", level=0)
+                log(
+                    "    web: gunicorn app:application -b 0.0.0.0:$PORT",
+                    level=0,
+                )
+
         host_name = self.env.get("HOST_NAME", "")
         self._update_app_metadata(host_name)
         self._setup_proxy(host_name)

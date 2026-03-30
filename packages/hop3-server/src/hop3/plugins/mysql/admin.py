@@ -19,6 +19,24 @@ from urllib.parse import urlparse
 from hop3.lib.config import Config
 
 
+def _find_mysql_socket() -> str | None:
+    """Auto-detect MySQL/MariaDB unix socket path.
+
+    Checks common socket locations across macOS and Linux.
+    Returns the first existing socket path, or None.
+    """
+    common_paths = [
+        "/tmp/mysql.sock",  # macOS (Homebrew MariaDB/MySQL)
+        "/var/run/mysqld/mysqld.sock",  # Debian/Ubuntu
+        "/var/lib/mysql/mysql.sock",  # RHEL/CentOS
+        "/run/mysqld/mysqld.sock",  # Newer systemd-based distros
+    ]
+    for path in common_paths:
+        if Path(path).exists():
+            return path
+    return None
+
+
 def _get_hop3_config() -> Config:
     """Get the global hop3 configuration.
 
@@ -49,10 +67,11 @@ class MySQLAdmin:
        - MYSQL_ADMIN_URL=mysql://user:password@host:port/dbname
 
     2. Individual settings (with MYSQL_ prefix):
-       - MYSQL_HOST (default: localhost)
+       - MYSQL_HOST (default: 127.0.0.1)
        - MYSQL_PORT (default: 3306)
        - MYSQL_SUPERUSER (default: root)
        - MYSQL_SUPERUSER_PASSWORD (optional)
+       - MYSQL_UNIX_SOCKET (optional, for local socket connections)
 
     Configuration is read from:
     - HOP3_ROOT/hop3-server.toml (if exists)
@@ -63,12 +82,14 @@ class MySQLAdmin:
         port: MySQL server port
         superuser: MySQL superuser name
         superuser_password: MySQL superuser password (optional)
+        unix_socket: Path to unix socket (optional, for local connections)
     """
 
     host: str
     port: int
     superuser: str
     superuser_password: str | None = None
+    unix_socket: str | None = None
 
     @classmethod
     def from_config(cls, config: Config | None = None) -> MySQLAdmin:
@@ -113,12 +134,31 @@ class MySQLAdmin:
         password = prefix_config.get_str("SUPERUSER_PASSWORD", None) or config.get_str(
             "MYSQL_SUPERUSER_PASSWORD", None
         )
+        unix_socket: str | None = (
+            prefix_config.get_str("UNIX_SOCKET", None)
+            or config.get_str("MYSQL_UNIX_SOCKET", None)
+            or None
+        )
+
+        # Auto-detect unix socket on macOS/Linux if not explicitly set
+        if not unix_socket:
+            unix_socket = _find_mysql_socket()
+
+        # When using unix socket auth and no explicit superuser was configured,
+        # default to the current OS user (common on macOS with Homebrew MariaDB)
+        if unix_socket and superuser == "root" and not password:
+            env_user = prefix_config.get_str("SUPERUSER", None) or config.get_str(
+                "MYSQL_SUPERUSER", None
+            )
+            if not env_user:
+                superuser = os.getenv("USER", "root")
 
         return cls(
             host=host,
             port=int(port_str),
             superuser=superuser,
             superuser_password=password,
+            unix_socket=unix_socket,
         )
 
     @classmethod
@@ -158,6 +198,9 @@ class MySQLAdmin:
     def get_connection_params(self, database: str = "") -> dict[str, Any]:
         """Get connection parameters for mysql-connector-python.
 
+        If a unix_socket is configured, uses socket connection instead of TCP.
+        This is needed for macOS/Linux where MariaDB uses unix_socket auth.
+
         Args:
             database: Database name to connect to (defaults to empty for admin)
 
@@ -165,10 +208,14 @@ class MySQLAdmin:
             Dictionary with connection parameters for mysql.connector.connect()
         """
         params: dict[str, Any] = {
-            "host": self.host,
-            "port": self.port,
             "user": self.superuser,
         }
+
+        if self.unix_socket:
+            params["unix_socket"] = self.unix_socket
+        else:
+            params["host"] = self.host
+            params["port"] = self.port
 
         if database:
             params["database"] = database

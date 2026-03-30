@@ -401,8 +401,35 @@ class Hop3Config:
 
     @property
     def env(self) -> dict[str, Any]:
-        """Get the [env] section (environment variables)."""
-        return self._data.get("env", {})
+        """Get the [env] section (environment variables).
+
+        Excludes internal keys (_policy) and nested sections (computed).
+        """
+        raw = self._data.get("env", {})
+        return {
+            k: v
+            for k, v in raw.items()
+            if not k.startswith("_") and not isinstance(v, dict)
+        }
+
+    @property
+    def env_policy(self) -> str:
+        """Get the env merge policy from [env]._policy.
+
+        Returns "keep-existing" (default) or "override".
+        """
+        raw = self._data.get("env", {})
+        return raw.get("_policy", "keep-existing")
+
+    @property
+    def env_computed(self) -> dict[str, str]:
+        """Get the [env.computed] section (computed environment variables).
+
+        These use ${VAR} interpolation, resolved after addon and
+        default env vars are injected.
+        """
+        env_section = self._data.get("env", {})
+        return env_section.get("computed", {})
 
     # =========================================================================
     # [port] section

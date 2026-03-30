@@ -143,14 +143,14 @@ class MySQLAddon:
                 # User may or may not exist, so try CREATE first, fall back to ALTER
                 try:
                     cursor.execute(
-                        "CREATE USER %s@'%%' IDENTIFIED BY %s",
+                        "CREATE USER %s@'localhost' IDENTIFIED BY %s",
                         (self.db_user, password),
                     )
                 except mysql.connector.Error as err:
                     if err.errno == errorcode.ER_CANNOT_USER:
                         # User exists, update password
                         cursor.execute(
-                            "ALTER USER %s@'%%' IDENTIFIED BY %s",
+                            "ALTER USER %s@'localhost' IDENTIFIED BY %s",
                             (self.db_user, password),
                         )
                     else:
@@ -159,14 +159,14 @@ class MySQLAddon:
                 # Create user (ignore if already exists)
                 try:
                     cursor.execute(
-                        "CREATE USER %s@'%%' IDENTIFIED BY %s",
+                        "CREATE USER %s@'localhost' IDENTIFIED BY %s",
                         (self.db_user, password),
                     )
                 except mysql.connector.Error as err:
                     if err.errno == errorcode.ER_CANNOT_USER:
                         # User already exists, update password
                         cursor.execute(
-                            "ALTER USER %s@'%%' IDENTIFIED BY %s",
+                            "ALTER USER %s@'localhost' IDENTIFIED BY %s",
                             (self.db_user, password),
                         )
                     else:
@@ -178,7 +178,9 @@ class MySQLAddon:
                 )
 
                 # Grant privileges to user on the database
-                grant_sql = f"GRANT ALL PRIVILEGES ON `{self.db_name}`.* TO %s@'%%'"
+                grant_sql = (
+                    f"GRANT ALL PRIVILEGES ON `{self.db_name}`.* TO %s@'localhost'"
+                )
                 cursor.execute(grant_sql, (self.db_user,))
                 cursor.execute("FLUSH PRIVILEGES")
 
@@ -220,7 +222,7 @@ class MySQLAddon:
 
             # Drop user
             try:
-                drop_user_sql = "DROP USER IF EXISTS %s@'%%'"
+                drop_user_sql = "DROP USER IF EXISTS %s@'localhost'"
                 cursor.execute(drop_user_sql, (self.db_user,))
             except mysql.connector.Error:
                 # User might not exist, that's okay
