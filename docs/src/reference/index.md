@@ -9,6 +9,7 @@ Technical reference documentation for Hop3.
 ## Configuration
 
 - [hop3.toml Reference](config.md) - Application configuration file format and options
+- [Nix Integration Reference](nix.md) - hop3.nix format, runtime.json contract, build process
 
 ## Policies
 

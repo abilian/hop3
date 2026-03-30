@@ -18,6 +18,10 @@ The [User Guide](user-guide.md) covers the core concepts and daily operations:
 
 - [Domains and Hostnames](domains.md) - Configure custom domains, SSL certificates, and virtual hosts
 
+## Deployment Strategies
+
+- [Deploying with Nix](nix-deployment.md) - Deterministic, reproducible builds using Nix
+
 ## Administration
 
 - [Administrator Manual](administration.md) - Server setup, security, monitoring, and maintenance
