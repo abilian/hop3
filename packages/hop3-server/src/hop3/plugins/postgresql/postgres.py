@@ -394,10 +394,10 @@ class PostgresAddon:
         Returns:
             Dictionary with DATABASE_URL and other connection parameters
 
-        Note: This always returns localhost as the host. For Docker deployments,
-        the Docker deployer transforms localhost → host.docker.internal when
-        generating docker-compose.yml. This ensures native apps work correctly
-        while Docker apps get the right host after transformation.
+        Note: This always returns 127.0.0.1 as the host (not "localhost") to
+        avoid IPv6 resolution issues. For Docker deployments, the Docker deployer
+        transforms 127.0.0.1 → host.docker.internal when generating
+        docker-compose.yml.
         """
         admin = self._get_admin()
         password = self._get_stored_password()
@@ -409,8 +409,11 @@ class PostgresAddon:
             )
             raise RuntimeError(msg)
 
-        # Always use localhost - Docker deployer transforms this for containers
-        app_host = "localhost"
+        # Always use 127.0.0.1 instead of "localhost" to avoid IPv6 resolution
+        # issues (some runtimes resolve localhost to ::1 first, but PostgreSQL
+        # may only listen on 127.0.0.1).
+        # Docker deployer transforms 127.0.0.1 → host.docker.internal for containers.
+        app_host = "127.0.0.1"
 
         return {
             "DATABASE_URL": (

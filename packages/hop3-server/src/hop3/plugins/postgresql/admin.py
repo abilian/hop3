@@ -102,7 +102,7 @@ class PostgresAdmin:
 
         # Also check the main config file for POSTGRES_* keys
         host = prefix_config.get_str("HOST", None) or config.get_str(
-            "POSTGRES_HOST", "localhost"
+            "POSTGRES_HOST", "127.0.0.1"
         )
         port_str = prefix_config.get_str("PORT", None) or config.get_str(
             "POSTGRES_PORT", "5432"

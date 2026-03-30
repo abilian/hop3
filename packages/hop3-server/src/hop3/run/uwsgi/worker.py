@@ -363,9 +363,11 @@ class WebWorker(UwsgiWorker):
             safe_value = str(value).replace("'", "'\\''")
             exports.append(f"export {key}='{safe_value}'")
 
-        # Wrap command in shell with all exports
+        # Wrap command in shell with all exports and explicit cd to src/
+        # Note: uWSGI's chdir directive may not apply to attach-daemon processes,
+        # so we explicitly cd to the source directory.
         exports_str = "; ".join(exports)
-        shell_cmd = f'sh -c "{exports_str}; {self.command}"'
+        shell_cmd = f'sh -c "cd {app.src_path} && {exports_str}; {self.command}"'
         self.settings.add("attach-daemon", shell_cmd)
 
 
@@ -411,7 +413,9 @@ class GenericWorker(UwsgiWorker):
             safe_value = str(value).replace("'", "'\\''")
             exports.append(f"export {key}='{safe_value}'")
 
-        # Wrap command in shell with all exports
+        # Wrap command in shell with all exports and explicit cd to src/
+        # Note: uWSGI's chdir directive may not apply to attach-daemon processes,
+        # so we explicitly cd to the source directory.
         exports_str = "; ".join(exports)
-        shell_cmd = f'sh -c "{exports_str}; {self.command}"'
+        shell_cmd = f'sh -c "cd {app.src_path} && {exports_str}; {self.command}"'
         self.settings.add("attach-daemon", shell_cmd)
