@@ -603,6 +603,18 @@ validation = [
 ]
 
 [[package]]
+name = "dead-code-detector"
+version = "0.4.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "rich" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8e/85/54b3f847d389a1d13dbd48c9241bfbd64b57fc4c1fcad0b8a3451ebdba49/dead_code_detector-0.4.2.tar.gz", hash = "sha256:bf53c6296439d4e885ab6732060c94a1663a0fd49d717cc7572f3341024b6a21", size = 16011, upload-time = "2026-03-30T12:31:30.157Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/37/f6/699370dc866d99fcec403328707b968b2461701d1128d20624a3585a3826/dead_code_detector-0.4.2-py3-none-any.whl", hash = "sha256:9454d8d8c458227ac594c6e247ead56fe65c26ef665ebc8b7850b35eefbe2a18", size = 20367, upload-time = "2026-03-30T12:31:31.301Z" },
+]
+
+[[package]]
 name = "deepmerge"
 version = "2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1058,7 +1070,7 @@ wheels = [
 
 [[package]]
 name = "hop3"
-version = "0.4.0"
+version = "0.5.0.dev0"
 source = { virtual = "." }
 dependencies = [
     { name = "hop3-cli" },
@@ -1074,6 +1086,7 @@ dev = [
     { name = "abilian-devtools" },
     { name = "beartype" },
     { name = "cyclonedx-bom" },
+    { name = "dead-code-detector" },
     { name = "docker" },
     { name = "honcho" },
     { name = "httpx" },
@@ -1127,6 +1140,7 @@ dev = [
     { name = "abilian-devtools", specifier = ">=0.7" },
     { name = "beartype", specifier = ">=0.19.0" },
     { name = "cyclonedx-bom", specifier = ">=5.1.1" },
+    { name = "dead-code-detector", specifier = ">=0.4.2" },
     { name = "docker", specifier = ">=7.1.0" },
     { name = "honcho", specifier = ">=1.1.0" },
     { name = "httpx", specifier = ">=0.27.0" },
