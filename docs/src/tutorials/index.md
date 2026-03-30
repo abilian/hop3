@@ -91,6 +91,14 @@ Every tutorial follows a consistent pattern:
 |-----------|-------------|
 | [ASP.NET Core](dotnet/aspnet-core.md) | Cross-platform web framework |
 
+### Nix (Cross-Language)
+
+| Tutorial | Description |
+|----------|-------------|
+| [Flask with Nix](nix-flask.md) | Reproducible Flask deployment using Nix |
+
+See also the [Nix Deployment Guide](../guides/nix-deployment.md) for Go, Node.js, Ruby, and static site patterns.
+
 ## Prerequisites
 
 Before starting any tutorial, ensure you have:
