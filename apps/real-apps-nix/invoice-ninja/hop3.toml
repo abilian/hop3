@@ -1,0 +1,12 @@
+# Hop3 Configuration for Invoice Ninja (Nix build)
+# Invoicing and billing platform
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "mysql"
+
+[env]
+APP_ENV = "production"
+APP_DEBUG = "false"

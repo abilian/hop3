@@ -1,0 +1,8 @@
+# hop3.toml - Hop3 configuration for Nix-based Gitea
+# Self-hosted Git service
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"

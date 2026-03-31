@@ -1,0 +1,5 @@
+# Hop3 Configuration for Adminer (Nix build)
+# Single-file database management tool
+
+[build]
+builder = "nix"

@@ -1,0 +1,8 @@
+# hop3.toml - Hop3 configuration for Nix-based Vikunja
+# Open source task and project management
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"

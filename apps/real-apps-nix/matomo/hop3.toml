@@ -1,0 +1,11 @@
+# Hop3 Configuration for Matomo (Nix build)
+# Web analytics platform
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "mysql"
+
+[env]
+MATOMO_DATABASE_HOST = "${MYSQL_HOST}"

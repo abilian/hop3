@@ -1,0 +1,11 @@
+# Hop3 Configuration for HedgeDoc (Nix build)
+# Collaborative markdown editor
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
+
+[env]
+NODE_ENV = "production"

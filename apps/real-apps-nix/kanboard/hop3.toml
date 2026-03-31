@@ -1,0 +1,11 @@
+# Hop3 Configuration for Kanboard (Nix build)
+# Kanban project management software
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "mysql"
+
+[env]
+DEBUG = "false"

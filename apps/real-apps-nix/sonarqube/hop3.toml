@@ -1,0 +1,11 @@
+# Hop3 Configuration for SonarQube (Nix build)
+# Code quality and security analysis platform
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
+
+[env]
+SONAR_SEARCH_JAVAADDITIONALOPTS = "-Dnode.store.allow_mmap=false"

@@ -1,0 +1,12 @@
+# Hop3 Configuration for BookStack (Nix build)
+# Documentation/wiki platform
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "mysql"
+
+[env]
+APP_ENV = "production"
+APP_DEBUG = "false"

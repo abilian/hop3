@@ -1,0 +1,9 @@
+# Hop3 Configuration for Jenkins (Nix build)
+# The leading open source automation server
+
+[build]
+builder = "nix"
+
+[env]
+JENKINS_HOME = "./jenkins_home"
+JAVA_OPTS = "-Djava.awt.headless=true -Djenkins.install.runSetupWizard=false"

@@ -1,0 +1,11 @@
+# Hop3 Configuration for Dolibarr (Nix build)
+# Open source ERP and CRM
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
+
+[env]
+DOLI_ADMIN_LOGIN = "admin"

@@ -1,0 +1,11 @@
+# Hop3 Configuration for Wiki.js (Nix build)
+# Modern wiki platform
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
+
+[env]
+NODE_ENV = "production"
