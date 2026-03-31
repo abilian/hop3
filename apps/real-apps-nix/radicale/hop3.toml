@@ -1,0 +1,8 @@
+# Hop3 Configuration for Radicale (Nix build)
+# Simple CalDAV and CardDAV server
+
+[build]
+builder = "nix"
+
+[env]
+RADICALE_AUTH_TYPE = "none"

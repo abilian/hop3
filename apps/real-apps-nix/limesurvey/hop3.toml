@@ -1,0 +1,14 @@
+# Hop3 Configuration for LimeSurvey (Nix build)
+# Professional online survey tool
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
+
+[env]
+ADMIN_USER = "admin"
+ADMIN_NAME = "Administrator"
+ADMIN_EMAIL = "admin@example.com"
+ADMIN_PASSWORD = "change-me-admin-password"

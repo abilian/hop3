@@ -1,0 +1,9 @@
+# Hop3 Configuration for SearXNG (Nix build)
+# Privacy-respecting metasearch engine
+
+[build]
+builder = "nix"
+
+[env]
+SEARXNG_BASE_URL = "http://localhost:8080"
+SEARXNG_SECRET = "change-me-to-random-string"

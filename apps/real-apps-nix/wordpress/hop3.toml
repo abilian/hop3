@@ -1,0 +1,11 @@
+# Hop3 Configuration for WordPress (Nix build)
+# Popular content management system
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "mysql"
+
+[env]
+WP_DEBUG = "false"

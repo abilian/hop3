@@ -1,0 +1,8 @@
+# hop3.toml - Hop3 configuration for Nix-based Focalboard
+# Project management and organization tool
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"

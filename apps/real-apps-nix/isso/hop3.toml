@@ -1,0 +1,8 @@
+# Hop3 Configuration for Isso (Nix build)
+# Lightweight commenting system
+
+[build]
+builder = "nix"
+
+[env]
+ISSO_HOST = "http://localhost:8080"

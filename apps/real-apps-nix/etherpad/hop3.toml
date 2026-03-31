@@ -1,0 +1,8 @@
+# Hop3 Configuration for Etherpad (Nix build)
+# Real-time collaborative editor
+
+[build]
+builder = "nix"
+
+[env]
+NODE_ENV = "production"

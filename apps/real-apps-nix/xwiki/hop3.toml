@@ -1,0 +1,12 @@
+# Hop3 Configuration for XWiki (Nix build)
+# Advanced enterprise wiki with structured data
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
+
+[env]
+JAVA_OPTS = "-Xmx1024m"
+XWIKI_NONINTERACTIVE = "true"

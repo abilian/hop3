@@ -1,0 +1,11 @@
+# Hop3 Configuration for Easy!Appointments (Nix build)
+# Open source appointment scheduling
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "mysql"
+
+[env]
+APP_URL = "http://localhost:8080"

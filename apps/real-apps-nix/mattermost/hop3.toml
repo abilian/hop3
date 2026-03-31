@@ -1,0 +1,8 @@
+# hop3.toml - Hop3 configuration for Nix-based Mattermost
+# Team collaboration platform
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
