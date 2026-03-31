@@ -565,7 +565,7 @@ wheels = [
 
 [[package]]
 name = "cyclonedx-bom"
-version = "7.2.2"
+version = "7.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "chardet" },
@@ -574,9 +574,9 @@ dependencies = [
     { name = "packaging" },
     { name = "pip-requirements-parser" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/09/95/02b4e9e13a0b2b2eb36c618520df6772217ae5cd5058f3ca0aa97aae6002/cyclonedx_bom-7.2.2.tar.gz", hash = "sha256:dc7b994d41a83dc24caa511462dbf9fa6ede51b962f42533a58d0a8261d98e56", size = 4417157, upload-time = "2026-02-19T14:18:58.532Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6c/e1/700aea05811f8988a60636e045914ffb155ce5318879f14b5c9016a12da5/cyclonedx_bom-7.3.0.tar.gz", hash = "sha256:d54080d65731980945de38e52009a5e5711f4a3c31377a3d13af96eaca5fcf3d", size = 4420319, upload-time = "2026-03-30T12:30:08.438Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5d/d1/38a1987ee5704c85551141f41c57ed4a8edd488188697b88991cd38f296e/cyclonedx_bom-7.2.2-py3-none-any.whl", hash = "sha256:c3cfb62762090c73dbc6937a6da8847de99e949097bc32362a33c55a3a6e5589", size = 60695, upload-time = "2026-02-19T14:18:56.43Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/f8/285a990b17b44dac4899b14fbeab81a28f3bb828621d4a6c449631249136/cyclonedx_bom-7.3.0-py3-none-any.whl", hash = "sha256:73d7d76b3a28ebadc50eabf424cbcf128785a74b8a59ce7893da2e29cfaab585", size = 60924, upload-time = "2026-03-30T12:30:06.943Z" },
 ]
 
 [[package]]
@@ -600,6 +600,18 @@ validation = [
     { name = "jsonschema", extra = ["format-nongpl"] },
     { name = "lxml" },
     { name = "referencing" },
+]
+
+[[package]]
+name = "dead-code-detector"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "rich" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/17/c9/e297c28a065c2645d595ab6c5ffbd399525b7980cfa950d869c09cdff4b9/dead_code_detector-0.5.0.tar.gz", hash = "sha256:48f631e37c3d1fb8a04e09c3b7fd957a7fa8165b364346e3d2475522f62c3d9e", size = 16669, upload-time = "2026-03-31T06:09:45.725Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b0/cc/a44ee1a05ca797e6f464d44ef5bc69e84247c72cb4c1e451bff49c494f1d/dead_code_detector-0.5.0-py3-none-any.whl", hash = "sha256:b14be0afce68e59d383084ed411ab6f30a398e51a50cc9e2c78858b9422fb2a5", size = 20995, upload-time = "2026-03-31T06:09:44.475Z" },
 ]
 
 [[package]]
@@ -779,14 +791,14 @@ wheels = [
 
 [[package]]
 name = "faker"
-version = "40.11.1"
+version = "40.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fa/e5/b16bf568a2f20fe7423282db4a4059dbcadef70e9029c1c106836f8edd84/faker-40.11.1.tar.gz", hash = "sha256:61965046e79e8cfde4337d243eac04c0d31481a7c010033141103b43f603100c", size = 1957415, upload-time = "2026-03-23T14:05:50.233Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/66/c1/f8224fe97fea2f98d455c22438c1b09b10e14ef2cb95ae4f7cec9aa59659/faker-40.12.0.tar.gz", hash = "sha256:58b5a9054c367bd5fb2e948634105364cc570e78a98a8e5161a74691c45f158f", size = 1962003, upload-time = "2026-03-30T18:00:56.596Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fc/ec/3c4b78eb0d2f6a81fb8cc9286745845bff661e6815741eff7a6ac5fcc9ea/faker-40.11.1-py3-none-any.whl", hash = "sha256:3af3a213ba8fb33ce6ba2af7aef2ac91363dae35d0cec0b2b0337d189e5bee2a", size = 1989484, upload-time = "2026-03-23T14:05:48.793Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/5c/39452a6b6aa76ffa518fa7308e1975b37e9ba77caa6172a69d61e7180221/faker-40.12.0-py3-none-any.whl", hash = "sha256:6238a4058a8b581892e3d78fe5fdfa7568739e1c8283e4ede83f1dde0bfc1a3b", size = 1994601, upload-time = "2026-03-30T18:00:54.804Z" },
 ]
 
 [[package]]
@@ -1074,6 +1086,7 @@ dev = [
     { name = "abilian-devtools" },
     { name = "beartype" },
     { name = "cyclonedx-bom" },
+    { name = "dead-code-detector" },
     { name = "docker" },
     { name = "honcho" },
     { name = "httpx" },
@@ -1127,6 +1140,7 @@ dev = [
     { name = "abilian-devtools", specifier = ">=0.7" },
     { name = "beartype", specifier = ">=0.19.0" },
     { name = "cyclonedx-bom", specifier = ">=5.1.1" },
+    { name = "dead-code-detector", specifier = ">=0.5.0" },
     { name = "docker", specifier = ">=7.1.0" },
     { name = "honcho", specifier = ">=1.1.0" },
     { name = "httpx", specifier = ">=0.27.0" },
@@ -2908,7 +2922,7 @@ wheels = [
 
 [[package]]
 name = "requests"
-version = "2.33.0"
+version = "2.33.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -2916,9 +2930,9 @@ dependencies = [
     { name = "idna" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/34/64/8860370b167a9721e8956ae116825caff829224fbca0ca6e7bf8ddef8430/requests-2.33.0.tar.gz", hash = "sha256:c7ebc5e8b0f21837386ad0e1c8fe8b829fa5f544d8df3b2253bff14ef29d7652", size = 134232, upload-time = "2026-03-25T15:10:41.586Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5f/a4/98b9c7c6428a668bf7e42ebb7c79d576a1c3c1e3ae2d47e674b468388871/requests-2.33.1.tar.gz", hash = "sha256:18817f8c57c6263968bc123d237e3b8b08ac046f5456bd1e307ee8f4250d3517", size = 134120, upload-time = "2026-03-30T16:09:15.531Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/56/5d/c814546c2333ceea4ba42262d8c4d55763003e767fa169adc693bd524478/requests-2.33.0-py3-none-any.whl", hash = "sha256:3324635456fa185245e24865e810cecec7b4caf933d7eb133dcde67d48cee69b", size = 65017, upload-time = "2026-03-25T15:10:40.382Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/8e/7540e8a2036f79a125c1d2ebadf69ed7901608859186c856fa0388ef4197/requests-2.33.1-py3-none-any.whl", hash = "sha256:4e6d1ef462f3626a1f0a0a9c42dd93c63bad33f9f1c1937509b8c5c8718ab56a", size = 64947, upload-time = "2026-03-30T16:09:13.83Z" },
 ]
 
 [[package]]

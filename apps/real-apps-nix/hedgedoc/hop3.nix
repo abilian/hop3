@@ -7,7 +7,7 @@
 
 let
   version = "1.9.9";
-  nodejs = pkgs.nodejs_20;
+  nodejs = pkgs.nodejs;
 
   src = pkgs.fetchurl {
     url = "https://github.com/hedgedoc/hedgedoc/releases/download/${version}/hedgedoc-${version}.tar.gz";

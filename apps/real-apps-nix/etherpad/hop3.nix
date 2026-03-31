@@ -6,7 +6,7 @@
 
 let
   version = "2.0.3";
-  nodejs = pkgs.nodejs_20;
+  nodejs = pkgs.nodejs;
   pnpm = pkgs.nodePackages.pnpm;
 
   src = pkgs.fetchurl {

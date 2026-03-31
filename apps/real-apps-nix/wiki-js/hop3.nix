@@ -6,7 +6,7 @@
 
 let
   version = "2.5.303";
-  nodejs = pkgs.nodejs_20;
+  nodejs = pkgs.nodejs;
 
   src = pkgs.fetchurl {
     url = "https://github.com/Requarks/wiki/releases/download/v${version}/wiki-js.tar.gz";
