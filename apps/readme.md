@@ -4,17 +4,19 @@ Sample applications used to test, validate, and demonstrate the Hop3 platform.
 
 ## Directory Structure
 
-| Directory | Purpose | Count |
-|-----------|---------|-------|
-| `test-apps/` | Minimal "Hello World" apps for CI and development testing | 11 |
-| `docker-apps/` | Production-ready Docker Compose deployments | 31 |
-| `native-apps/` | Native uWSGI deployments using Hop3 toolchains | 30 |
-| `docker-bad/` | Apps that cannot be supported (documented blockers) | 3 |
-| `marketplace/` | Community app catalog (future marketplace) | 32 |
-| `real-apps/` | Real-world apps for manual testing | 3 |
-| `sandbox/` | Experimental configurations | 2 |
+| Directory | Purpose | Deployment Method |
+|-----------|---------|-------------------|
+| `test-apps-procfile/` | Minimal "Hello World" apps for CI testing | Procfile / hop3.toml (native) |
+| `test-apps-nix/` | Same minimal apps, built with Nix | hop3.nix |
+| `real-apps/` | Real-world apps (manual testing) | Various |
+| `real-apps-docker/` | Production apps via Docker Compose | Dockerfile |
+| `real-apps-native/` | Production apps via Hop3 toolchains | download scripts + hop3.toml |
+| `real-apps-nix/` | Production apps built with Nix | hop3.nix |
+| `internal-apps/` | Hop3 internal apps (admin UI, etc.) | — |
+| `bad/` | Apps that cannot be supported (documented blockers) | — |
+| `sandbox/` | Experimental configurations | — |
 
-## test-apps/
+## test-apps-procfile/
 
 Minimal applications covering core language toolchains. Used in E2E tests.
 
@@ -32,19 +34,27 @@ Minimal applications covering core language toolchains. Used in E2E tests.
 | `120-flask-pip-alt` | Python | Flask with config in hop3/ subdir |
 | `130-golang-minimal` | Go | Minimal Go HTTP server |
 
-## docker-apps/ (31 apps)
+## test-apps-nix/
+
+The same minimal apps, but built using Nix instead of native toolchains. Each app has a `hop3.nix` file that defines the build derivation and a `hop3.toml` with `builder = "nix"`.
+
+Apps: clojure-hello, flask-alt, flask-gunicorn, flask-hello, golang-gin, golang-minimal, nodejs-express, rack-hello, sinatra-hello, static-hello
+
+## real-apps-nix/
+
+Production-ready applications built with Nix. Each has a `hop3.nix` that downloads and packages the application using `fetchurl`, `buildGoModule`, or similar Nix builders.
+
+Apps: adminer, bookstack, cryptpad, dolibarr, easy-appointments, etherpad, focalboard, gitea, grafana, hedgedoc, invoice-ninja, isso, jenkins, kanboard, limesurvey, listmonk, matomo, matrix-synapse, mattermost, miniflux, nextcloud, radicale, searxng, sonarqube, vikunja, wiki-js, wordpress, xwiki
+
+## real-apps-docker/
 
 Production-ready Docker Compose configurations using `debian:trixie-slim` base images.
 
-Applications: adminer, bookstack, cryptpad, dolibarr, easy-appointments, etherpad, focalboard, formbricks, ghost, gitea, grafana, hedgedoc, invoice-ninja, isso, jenkins, kanboard, limesurvey, mastodon, matomo, matrix-synapse, mattermost, miniflux, monica, nextcloud, radicale, searxng, sonarqube, umami, vikunja, wiki-js, wordpress, xwiki
+## real-apps-native/
 
-## native-apps/ (30 apps)
+Native deployments using Hop3's toolchain system (Python, Node.js, PHP, Java, Go). Each app has a download script and hop3.toml configuration.
 
-Native deployments using Hop3's toolchain system (Python, Node.js, PHP, Java, Go).
-
-Applications: adminer, bookstack, cryptpad, dolibarr, easy-appointments, etherpad, focalboard, ghost, gitea, grafana, hedgedoc, invoice-ninja, isso, jenkins, kanboard, limesurvey, listmonk, matomo, matrix-synapse, mattermost, miniflux, monica, nextcloud, radicale, searxng, sonarqube, vikunja, wiki-js, wordpress, xwiki
-
-## docker-bad/ (3 apps - Unsupported)
+## bad/
 
 Applications that cannot be supported due to technical constraints:
 
@@ -54,32 +64,56 @@ Applications that cannot be supported due to technical constraints:
 | `taiga` | Multi-container architecture |
 | `wekan` | Node.js 14 EOL + MongoDB requirement |
 
-## marketplace/
+## Scripts
 
-Future marketplace catalog with 32 applications across categories:
+### build-nix-apps.py
 
-**CMS/Blogs:** Ghost, DokuWiki, Moodle, Piwigo
-**Collaboration:** Hedgedoc, Mattermost, OpenProject, Taiga, Weblate
-**Analytics:** Ackee, Matomo, Umami
-**Business:** Abilian SBE, Baserow, Cal.com, Dolibarr, Pretix
-**DevOps:** Gitea, Redash, Redmine
-**Media:** PeerTube, Penpot
-**Other:** Filebrowser, Kanboard, LimeSurvey, Listmonk, Miniflux, MoinMoin, Nextcloud, OpenCloud, Radicale, RocketChat, VPN
+Builds Nix apps locally by running `nix-build` on each `hop3.nix` file. Supports auto-fixing SHA256 hash mismatches.
 
-## real-apps/
+```bash
+# Build all nix apps (test + real)
+./build-nix-apps.py
 
-Real-world applications for manual integration testing.
+# Build only test apps
+./build-nix-apps.py test-apps-nix
 
-- `ghost` - Ghost blogging platform
-- `matomo` - Web analytics
-- `moinmoin` - Wiki engine
+# Build only real apps
+./build-nix-apps.py real-apps-nix
 
-## sandbox/
+# Build a single app (searched in all dirs)
+./build-nix-apps.py --app adminer
 
-Experimental or work-in-progress configurations.
+# Auto-fix placeholder SHA256 hashes
+./build-nix-apps.py --fix-hashes
 
-- `docker-flask-example` - Docker deployment example
-- `mattermost` - Team collaboration (experimental)
+# Verbose output with build progress
+./build-nix-apps.py -v --fix-hashes
+
+# Debug failed builds (shows full nix stderr)
+./build-nix-apps.py --debug
+
+# Custom timeout per app (default: 300s)
+./build-nix-apps.py --timeout 600
+```
+
+### test-script.py
+
+Deploys and tests apps against a running Hop3 server.
+
+```bash
+python test-script.py "real-apps-docker/*"
+python test-script.py real-apps-native/wordpress
+python test-script.py --cleanup --debug real-apps-docker/ghost
+```
+
+### test-docker-local.py
+
+Tests Docker image builds locally (no deployment).
+
+```bash
+python test-docker-local.py real-apps-docker/*
+python test-docker-local.py --no-cache real-apps-docker/wordpress
+```
 
 ## Running Tests
 
@@ -90,36 +124,13 @@ Experimental or work-in-progress configurations.
 uv run hop3-test apps
 
 # Test specific app by path
-uv run hop3-test apps apps/test-apps/010-flask-pip-wsgi
+uv run hop3-test apps apps/test-apps-procfile/010-flask-pip-wsgi
 
 # Test against remote server
 uv run hop3-test apps --target remote --host hop3.dev
-```
 
-### Using test-script.py (for docker-apps/native-apps)
-
-```bash
-# Test all Docker apps
-python apps/test-script.py "docker-apps/*"
-
-# Test specific app
-python apps/test-script.py docker-apps/wordpress
-
-# Test native apps
-python apps/test-script.py "native-apps/*"
-
-# Test with cleanup and debug
-python apps/test-script.py --cleanup --debug docker-apps/ghost
-```
-
-### Using test-docker-local.py (local Docker builds only)
-
-```bash
-# Test Docker image builds locally (no deployment)
-python apps/test-docker-local.py docker-apps/*
-
-# Build without cache
-python apps/test-docker-local.py --no-cache docker-apps/wordpress
+# Test nix apps on remote server
+uv run hop3-test cloud --suites nix-apps
 ```
 
 ### Using pytest
