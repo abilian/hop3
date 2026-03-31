@@ -8,7 +8,7 @@
 
 let
   version = "5.7.0";
-  nodejs = pkgs.nodejs_20;
+  nodejs = pkgs.nodejs;
 
   # Use the GitHub source archive (no pre-built release tarball available)
   src = pkgs.fetchurl {
