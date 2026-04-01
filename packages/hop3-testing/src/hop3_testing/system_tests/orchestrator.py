@@ -169,20 +169,14 @@ class DailyTestOrchestrator:
         """Load and display the test plan before running expensive operations."""
         from hop3_testing.catalog import Catalog  # noqa: PLC0415
 
-        from .runner import TestRunnerManager  # noqa: PLC0415
-
         project_root = find_project_root_optional()
         if not project_root:
             return
 
         try:
             catalog = Catalog(project_root)
-            # Scan paths for all configured suites
-            scan_paths = [
-                TestRunnerManager.SUITE_SCAN_PATHS[s]
-                for s in self.config.tests.suites
-                if s in TestRunnerManager.SUITE_SCAN_PATHS
-            ]
+            # Suites are paths — scan them directly
+            scan_paths = self.config.tests.suites
             if not scan_paths:
                 return
 
@@ -344,7 +338,7 @@ class DailyTestOrchestrator:
                 message=f"Unexpected error: {e}",
             )
 
-    def _run_deploy_phase(self) -> PhaseResult:
+    def _run_deploy_phase(self) -> PhaseResult:  # noqa: C901, PLR0912
         """Deploy Hop3 to the server."""
         start_time = time.time()
         self._log_phase("Hop3 Deployment")
@@ -360,9 +354,28 @@ class DailyTestOrchestrator:
         try:
             server_ip = self._result.server_info.ipv4
 
+            # Auto-detect nix feature from suites
+            from .config import DeploymentConfig  # noqa: PLC0415
+
+            deploy_config = self.config.deployment
+            if any("nix" in s for s in self.config.tests.suites):
+                if "nix" not in deploy_config.features:
+                    deploy_config = DeploymentConfig(
+                        branch=deploy_config.branch,
+                        domain=deploy_config.domain,
+                        acme_email=deploy_config.acme_email,
+                        use_local_repo=deploy_config.use_local_repo,
+                        use_local_code=deploy_config.use_local_code,
+                        clean_before=deploy_config.clean_before,
+                        verbose=deploy_config.verbose,
+                        features=[*deploy_config.features, "nix"],
+                        local_repo_path=deploy_config.local_repo_path,
+                    )
+                    self.console.print("  Auto-enabled 'nix' feature for nix app suites")
+
             self._deployment = DeploymentManager(
                 host=server_ip,
-                config=self.config.deployment,
+                config=deploy_config,
                 verbose=self.verbose,
                 console=self.console,
             )
@@ -513,7 +526,7 @@ class DailyTestOrchestrator:
             # Must be created BEFORE running tests so immediate diagnostics work
             logs_dir = Path("./logs")
             timestamp = datetime.now(tz=UTC).strftime("%Y-%m-%d_%H-%M-%S")
-            test_logs_dir = logs_dir / f"daily-test-{timestamp}"
+            test_logs_dir = logs_dir / f"cloud-test-{timestamp}"
             test_logs_dir.mkdir(parents=True, exist_ok=True)
             self._test_logs_dir = test_logs_dir  # Store for _collect_diagnostics
 

@@ -153,13 +153,16 @@ class RedisAddon:
         Returns:
             Dictionary with REDIS_URL and other connection parameters
 
-        Note: This always returns localhost as the host. For Docker deployments,
-        the Docker deployer transforms localhost → host.docker.internal when
-        generating docker-compose.yml. This ensures native apps work correctly
-        while Docker apps get the right host after transformation.
+        Note: This always returns 127.0.0.1 as the host (not "localhost") to
+        avoid IPv6 resolution issues. For Docker deployments, the Docker deployer
+        transforms 127.0.0.1 → host.docker.internal when generating
+        docker-compose.yml.
         """
-        # Always use localhost - Docker deployer transforms this for containers
-        host = "localhost"
+        # Always use 127.0.0.1 instead of "localhost" to avoid IPv6 resolution
+        # issues (some runtimes resolve localhost to ::1 first, but Redis
+        # typically only listens on 127.0.0.1).
+        # Docker deployer transforms 127.0.0.1 → host.docker.internal for containers.
+        host = "127.0.0.1"
         port = "6379"
 
         return {
@@ -389,7 +392,7 @@ class RedisAddon:
         return {
             "addon_name": self.addon_name,
             "type": "redis",
-            "host": "localhost",
+            "host": "127.0.0.1",
             "port": 6379,
             "database": self.db_number,
             "key_count": key_count,

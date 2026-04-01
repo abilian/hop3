@@ -169,8 +169,10 @@ class DiagnosticCollector:
         apps_dir.mkdir(exist_ok=True)
 
         for test_name in failed_tests:
+            # Extract basename from path-style test names (e.g., "apps/real-apps-nix/cryptpad" -> "cryptpad")
+            base_name = Path(test_name).name
             # Try to find the app directory (might have timestamp suffix)
-            find_cmd = f"find /home/hop3/apps -maxdepth 1 -name '{test_name}*' -type d 2>/dev/null | head -1"
+            find_cmd = f"find /home/hop3/apps -maxdepth 1 -name '{base_name}*' -type d 2>/dev/null | head -1"
             _exit_code, stdout, _ = self.conn.run(find_cmd, timeout=10)
 
             app_path = stdout.strip()

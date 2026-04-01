@@ -60,7 +60,7 @@ def test_app_deployment(app_dir: Path, deployment_target, request):
 
     # Skip nix apps when nix-build is not available on the target
     if app_name in NIX_APP_NAMES:
-        exit_code, stdout, _ = deployment_target.exec_run("which nix-build")
+        exit_code, _stdout, _ = deployment_target.exec_run("which nix-build")
         if exit_code != 0:
             pytest.skip("nix-build not available on target")
 

@@ -18,7 +18,7 @@ def test_postgres_admin_from_config():
     config = Config(env_prefix="POSTGRES_")
     admin = PostgresAdmin.from_config(config)
 
-    assert admin.host == "localhost"
+    assert admin.host == "127.0.0.1"
     assert admin.port == 5432
     assert admin.superuser == "postgres"
 
@@ -84,7 +84,7 @@ def test_postgres_admin_provided_by_plugin(container):
     admin = container.get(PostgresAdmin)
 
     assert isinstance(admin, PostgresAdmin)
-    assert admin.host == "localhost"
+    assert admin.host == "127.0.0.1"
     assert admin.port == 5432
 
 

@@ -95,7 +95,7 @@ Environment variables:
     run_parser.add_argument(
         "--suites",
         nargs="+",
-        help="Test suites to run: test-apps, docker-apps, native-apps, demos, tutorials.",
+        help="Paths to test (e.g., apps/test-apps-procfile, apps/real-apps-nix, demos).",
     )
     run_parser.add_argument(
         "-x", "--fail-fast", action="store_true", help="Stop on first test failure."
@@ -203,8 +203,8 @@ Example:
     test_parser.add_argument(
         "--suites",
         nargs="+",
-        default=["test-apps"],
-        help="Test suites to run: test-apps, docker-apps, native-apps, demos, tutorials.",
+        default=["apps/test-apps-procfile"],
+        help="Paths to test (e.g., apps/test-apps-procfile, apps/real-apps-nix, demos).",
     )
     test_parser.add_argument(
         "-x", "--fail-fast", action="store_true", help="Stop on first failure."

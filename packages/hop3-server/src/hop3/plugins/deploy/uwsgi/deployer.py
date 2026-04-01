@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import socket
 import subprocess
+import time
 from dataclasses import dataclass
 
 from hop3.config import UWSGI_ENABLED, HopConfig
@@ -99,7 +100,12 @@ class UWSGIDeployer:
         self.deploy({})
 
     def stop(self) -> None:
-        """Stops the app by removing its uWSGI .ini files from the enabled directory."""
+        """Stops the app by removing its uWSGI .ini files from the enabled directory.
+
+        After removing config files, waits for old processes to terminate.
+        This ensures the uWSGI Emperor fully cleans up the old vassal,
+        including resetting any throttle state from crashed daemons.
+        """
         log(f"Stopping '{self.app.name}'...", level=2, fg="yellow")
 
         # Use state machine transition: RUNNING -> STOPPING
@@ -117,9 +123,45 @@ class UWSGIDeployer:
         for config_file in config_files:
             config_file.unlink()
 
+        # Wait for the Emperor to fully terminate the old vassal processes.
+        # This is critical: without this wait, the Emperor may still have
+        # throttle state from a previously crashing daemon, causing the new
+        # vassal to start with accumulated respawn delays.
+        self._wait_for_processes_to_stop()
+
         # Complete transition: STOPPING -> STOPPED
         self.app._transition_state(AppStateEnum.STOPPED)  # noqa: SLF001
         log(f"App '{self.app.name}' stopped.", level=2, fg="green")
+
+    def _wait_for_processes_to_stop(self, timeout: float = 10.0) -> None:
+        """Wait for old app processes to terminate after config removal."""
+        start = time.time()
+        while time.time() - start < timeout:
+            try:
+                result = subprocess.run(
+                    ["pgrep", "-f", f"apps/{self.app.name}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False,
+                )
+                if result.returncode != 0:
+                    # No matching processes found — old vassal is gone
+                    time.sleep(0.5)  # Brief grace period for fd cleanup
+                    return
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                break
+            time.sleep(0.5)
+
+        # Fallback: if we couldn't confirm termination, wait a fixed period
+        remaining = timeout - (time.time() - start)
+        if remaining > 0:
+            log(
+                f"Waiting {remaining:.0f}s for old processes to terminate",
+                level=3,
+                fg="yellow",
+            )
+            time.sleep(remaining)
 
     def restart(self) -> None:
         """For uWSGI, touching the .ini files is the most efficient way to restart."""

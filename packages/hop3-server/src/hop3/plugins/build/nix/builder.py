@@ -81,10 +81,13 @@ class NixBuilder:
         source = self.context.source_path
         nix_file = source / "hop3.nix"
 
-        # 1. Build the package
+        # 1. Kill any stale nix-build for this app (e.g., from a previous killed deploy)
+        self._kill_stale_nix_builds(nix_file)
+
+        # 2. Build the package
         store_path = self._nix_build(nix_file)
 
-        # 2. Read runtime config from built package
+        # 3. Read runtime config from built package
         runtime_json = Path(store_path) / "hop3" / "runtime.json"
         if not runtime_json.exists():
             msg = (
@@ -95,7 +98,7 @@ class NixBuilder:
 
         runtime_data = json.loads(runtime_json.read_text())
 
-        # 3. Build RuntimeConfig
+        # 4. Build RuntimeConfig
         workers = runtime_data.get("workers", {})
         runtime = RuntimeConfig(
             env_vars=runtime_data.get("env", {}),
@@ -131,6 +134,41 @@ class NixBuilder:
         result = self._run_nix_command("nix --version")
         return result.returncode == 0
 
+    def _kill_stale_nix_builds(self, nix_file: Path) -> None:
+        """Kill any stale nix-build processes for the same nix file.
+
+        When a previous deploy is killed mid-build, nix-build may leave
+        a lock on the store path. A new nix-build for the same derivation
+        will silently wait for the lock forever. Kill stale processes first.
+        """
+        from hop3.lib import log  # noqa: PLC0415
+
+        try:
+            result = subprocess.run(
+                ["pgrep", "-f", f"nix-build.*{nix_file.name}"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                pids = result.stdout.strip().split("\n")
+                log(
+                    f"  Killing {len(pids)} stale nix-build process(es)",
+                    level=1,
+                    fg="yellow",
+                )
+                for pid in pids:
+                    if pid.strip():
+                        subprocess.run(
+                            ["kill", "-9", pid.strip()], check=False
+                        )
+                # Brief wait for locks to release
+                import time  # noqa: PLC0415
+
+                time.sleep(2)
+        except Exception:
+            pass  # Best effort — don't fail the build if cleanup fails
+
     def _nix_build(self, nix_file: Path) -> str:
         """Run nix-build and return the store path.
 
@@ -143,7 +181,14 @@ class NixBuilder:
         Raises:
             RuntimeError: If nix-build fails.
         """
-        cmd = f"nix-build {nix_file} -A package --no-out-link"
+        # --option build-timeout: kill build after 10 minutes total
+        # --option build-max-silent-time: kill if no output for 5 minutes
+        #   (detects lock waits and stalled downloads)
+        cmd = (
+            f"nix-build {nix_file} -A package --no-out-link"
+            " --option build-timeout 600"
+            " --option build-max-silent-time 300"
+        )
         result = self._run_nix_command(cmd, cwd=nix_file.parent)
 
         if result.returncode != 0:
@@ -180,13 +225,35 @@ class NixBuilder:
             # No profile found, try running directly (might work if in PATH)
             shell_cmd = cmd
 
-        return subprocess.run(
+        from hop3.lib import log  # noqa: PLC0415
+
+        # Stream stderr for real-time build progress while capturing stdout
+        proc = subprocess.Popen(
             ["bash", "-c", shell_cmd],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             cwd=cwd,
             env=self._get_nix_env(),
-            check=False,
+        )
+        assert proc.stderr is not None
+        assert proc.stdout is not None
+
+        stderr_lines: list[str] = []
+        for line in proc.stderr:
+            stripped = line.rstrip()
+            stderr_lines.append(line)
+            if stripped:
+                log(f"  [nix] {stripped}", level=1)
+
+        proc.wait()
+        stdout = proc.stdout.read()
+
+        return subprocess.CompletedProcess(
+            ["bash", "-c", shell_cmd],
+            proc.returncode,
+            stdout,
+            "".join(stderr_lines),
         )
 
     def _get_nix_profile_paths(self) -> list[Path]:
