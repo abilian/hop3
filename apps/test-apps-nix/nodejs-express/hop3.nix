@@ -7,7 +7,7 @@
 
 let
   # Node.js environment
-  nodejs = pkgs.nodejs;
+  nodejs = pkgs.nodejs_22;
 
   # The application package using buildNpmPackage for proper dependency handling
   app = pkgs.buildNpmPackage {
