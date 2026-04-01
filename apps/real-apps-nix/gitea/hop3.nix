@@ -40,6 +40,9 @@ DB_NAME="''${PGDATABASE:-gitea}"
 DB_USER="''${PGUSER:-gitea}"
 DB_PASS="''${PGPASSWORD:-}"
 
+# Set work dir to current directory (writable), not binary's parent
+export GITEA_WORK_DIR="$PWD"
+
 # Setup working directory structure
 mkdir -p custom/conf data
 

@@ -6,3 +6,6 @@ builder = "nix"
 
 [env]
 NODE_ENV = "production"
+
+[run]
+start-timeout = 120

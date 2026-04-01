@@ -3,7 +3,7 @@
 [test]
 name = "nix-hedgedoc"
 category = "nix-app"
-tier = "heavy"
+tier = "slow"
 priority = "P2"
 description = "HedgeDoc collaborative markdown editor deployed via Nix"
 

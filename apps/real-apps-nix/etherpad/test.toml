@@ -3,7 +3,7 @@
 [test]
 name = "nix-etherpad"
 category = "nix-app"
-tier = "heavy"
+tier = "slow"
 priority = "P2"
 description = "Etherpad collaborative editor deployed via Nix"
 

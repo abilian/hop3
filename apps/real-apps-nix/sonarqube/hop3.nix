@@ -6,7 +6,7 @@
 
 let
   version = "26.2.0.119303";
-  jdk = pkgs.jdk17;
+  jdk = pkgs.jdk21;
 
   src = pkgs.fetchurl {
     url = "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-${version}.zip";
@@ -38,13 +38,33 @@ let
 
       cp -r . $out/app/
 
-      cat > $out/bin/sonarqube << 'EOF'
+      cat > $out/bin/sonarqube << 'WRAPPER'
 #!/bin/sh
-export JAVA_HOME=${jdk}
-export SONAR_JAVA_PATH=${jdk}/bin/java
-cd $out/app
+export JAVA_HOME=JDKPATH
+export SONAR_JAVA_PATH=JDKPATH/bin/java
+PORT="''${PORT:-9000}"
+
+# Create writable directories that SonarQube needs
+mkdir -p data logs temp extensions conf
+
+# Write sonar.properties configuration
+cat > conf/sonar.properties << CONFEOF
+sonar.jdbc.url=jdbc:postgresql://''${PGHOST:-localhost}:''${PGPORT:-5432}/''${PGDATABASE:-sonarqube}
+sonar.jdbc.username=''${PGUSER:-sonarqube}
+sonar.jdbc.password=''${PGPASSWORD:-}
+sonar.web.host=''${BIND_ADDRESS:-0.0.0.0}
+sonar.web.port=''${PORT}
+sonar.path.data=$PWD/data
+sonar.path.logs=$PWD/logs
+sonar.path.temp=$PWD/temp
+sonar.search.javaAdditionalOpts=''${SONAR_SEARCH_JAVAADDITIONALOPTS:--Dnode.store.allow_mmap=false}
+CONFEOF
+
+cd SONARDIR
 exec ./bin/linux-x86-64/sonar.sh console "$@"
-EOF
+WRAPPER
+      sed -i "s|JDKPATH|${jdk}|g" $out/bin/sonarqube
+      sed -i "s|SONARDIR|$out/app|g" $out/bin/sonarqube
       chmod +x $out/bin/sonarqube
 
       mkdir -p $out/hop3

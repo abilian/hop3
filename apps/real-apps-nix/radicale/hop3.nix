@@ -20,8 +20,25 @@ let
 
       cat > $out/bin/radicale-start << 'WRAPPER'
 #!/bin/sh
+PORT="''${PORT:-8080}"
+
 mkdir -p collections
-exec RADICALE_BIN --server-hosts "0.0.0.0:''${PORT:-8080}" "$@"
+
+# Generate config file
+if [ ! -f config ]; then
+  cat > config << EOF
+[server]
+hosts = 0.0.0.0:''${PORT}
+
+[auth]
+type = ''${RADICALE_AUTH_TYPE:-none}
+
+[storage]
+filesystem_folder = collections
+EOF
+fi
+
+exec RADICALE_BIN --config config "$@"
 WRAPPER
       sed -i "s|RADICALE_BIN|${radicale}/bin/radicale|g" $out/bin/radicale-start
       chmod +x $out/bin/radicale-start

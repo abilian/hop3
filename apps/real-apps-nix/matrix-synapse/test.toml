@@ -3,7 +3,7 @@
 [test]
 name = "nix-matrix-synapse"
 category = "nix-app"
-tier = "heavy"
+tier = "slow"
 priority = "P2"
 description = "Matrix Synapse homeserver deployed via Nix"
 

@@ -3,3 +3,6 @@
 
 [build]
 builder = "nix"
+
+[run]
+start-timeout = 120
