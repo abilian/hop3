@@ -75,7 +75,7 @@ class DeploymentConfig:
 class TestConfig:
     """Test execution configuration."""
 
-    suites: list[str] = field(default_factory=lambda: ["test-apps"])
+    suites: list[str] = field(default_factory=lambda: ["apps/test-apps-procfile"])
     timeout_per_test: int = 300
     fail_fast: bool = False
     random_order: bool = False
@@ -119,7 +119,7 @@ class Config:
                 ),
             ),
             tests=TestConfig(
-                suites=tests_data.get("suites", ["test-apps"]),
+                suites=tests_data.get("suites", ["apps/test-apps-procfile"]),
                 timeout_per_test=tests_data.get("timeout_per_test", 300),
                 fail_fast=tests_data.get("fail_fast", False),
                 random_order=tests_data.get("random_order", False),
@@ -145,7 +145,7 @@ class Config:
                 acme_email=env.get("HOP3_ACME_EMAIL"),
             ),
             tests=TestConfig(
-                suites=env.get("HOP3_TEST_SUITES", "test-apps").split(","),
+                suites=env.get("HOP3_TEST_SUITES", "apps/test-apps-procfile").split(","),
             ),
             report_dir=Path(env.get("HOP3_REPORT_DIR", "./reports")),
         )

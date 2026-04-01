@@ -380,7 +380,7 @@ class DeploymentDebugger:
         """Show all debug information including type-specific debugging.
 
         Args:
-            deployment_type: "docker", "native", or "auto" (auto-detect)
+            deployment_type: "docker", "native", "nix", or "auto" (auto-detect)
         """
         # Basic debugging
         self.show_nginx_config()
@@ -393,6 +393,7 @@ class DeploymentDebugger:
         if deployment_type == "docker":
             self.show_docker_debug()
         else:
+            # native, nix, and anything else uses uWSGI
             self.show_uwsgi_debug()
 
     def _detect_deployment_type(self) -> str:

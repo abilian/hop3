@@ -29,7 +29,7 @@ class RedisClientFactory:
     which can use this factory for connection details.
 
     Configuration is read from environment variables with REDIS_ prefix:
-    - REDIS_HOST (default: localhost)
+    - REDIS_HOST (default: 127.0.0.1)
     - REDIS_PORT (default: 6379)
     - REDIS_PASSWORD (optional)
     - REDIS_MAX_CONNECTIONS (default: 50)
@@ -60,7 +60,7 @@ class RedisClientFactory:
             config = Config(env_prefix="REDIS_")
 
         return cls(
-            host=config.get_str("HOST", "localhost"),
+            host=config.get_str("HOST", "127.0.0.1"),
             port=config.get_int("PORT", 6379),
             password=config.get_str("PASSWORD", None),
             max_connections=config.get_int("MAX_CONNECTIONS", 50),

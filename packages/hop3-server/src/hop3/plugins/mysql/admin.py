@@ -102,7 +102,7 @@ class MySQLAdmin:
 
         # Also check the main config file for MYSQL_* keys
         host = prefix_config.get_str("HOST", None) or config.get_str(
-            "MYSQL_HOST", "localhost"
+            "MYSQL_HOST", "127.0.0.1"
         )
         port_str = prefix_config.get_str("PORT", None) or config.get_str(
             "MYSQL_PORT", "3306"

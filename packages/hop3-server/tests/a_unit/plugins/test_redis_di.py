@@ -18,7 +18,7 @@ def test_redis_factory_from_config():
     config = Config(env_prefix="REDIS_")
     factory = RedisClientFactory.from_config(config)
 
-    assert factory.host == "localhost"
+    assert factory.host == "127.0.0.1"
     assert factory.port == 6379
     assert factory.max_connections == 50
 
@@ -80,7 +80,7 @@ def test_redis_factory_provided_by_plugin(container):
     factory = container.get(RedisClientFactory)
 
     assert isinstance(factory, RedisClientFactory)
-    assert factory.host == "localhost"
+    assert factory.host == "127.0.0.1"
     assert factory.port == 6379
     assert factory.max_connections == 50
 

@@ -30,7 +30,7 @@ def find_project_root() -> Path:
     current = Path.cwd()
     for _ in range(10):
         # Look for the monorepo markers: apps/test-apps and packages/hop3-server
-        if (current / "apps" / "test-apps").exists() and (
+        if (current / "apps" / "test-apps-procfile").exists() and (
             current / "packages" / "hop3-server"
         ).exists():
             return current
@@ -67,7 +67,7 @@ def find_project_root_optional() -> Path | None:
     # Try to find by looking for the hop3 monorepo structure
     current = Path.cwd()
     for _ in range(10):
-        if (current / "apps" / "test-apps").exists() and (
+        if (current / "apps" / "test-apps-procfile").exists() and (
             current / "packages" / "hop3-server"
         ).exists():
             return current

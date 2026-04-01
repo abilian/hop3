@@ -146,15 +146,12 @@ class TestRunnerManager:
         result = runner.run_all_suites()
     """
 
-    # Map suite names to runner types
-    SUITE_RUNNER_TYPES: ClassVar[dict[str, str]] = {
-        "test-apps": "deployment",
-        "nix-apps": "deployment",
-        "docker-apps": "deployment",
-        "native-apps": "deployment",
+    # Infer runner type from the suite path
+    _RUNNER_TYPE_KEYWORDS: ClassVar[dict[str, str]] = {
         "demos": "demo",
         "tutorials": "tutorial",
     }
+    _DEFAULT_RUNNER_TYPE = "deployment"
 
     def __init__(
         self,
@@ -201,8 +198,18 @@ class TestRunnerManager:
         result = AllSuitesResult()
 
         try:
-            # Load catalog for all configured suites
-            self._load_catalog()
+            # Load catalog only for the configured suites
+            self._load_catalog(self.config.suites)
+
+            if self._catalog is not None and len(self._catalog) == 0:
+                self.console.print(
+                    "[red]Error: No tests found for suites: "
+                    f"{', '.join(self.config.suites)}[/red]"
+                )
+                self.console.print(
+                    f"  Configured suites: {', '.join(self.config.suites)}"
+                )
+                return result
 
             # Create remote target
             self._create_target()
@@ -277,13 +284,13 @@ class TestRunnerManager:
             TestSuiteResult with the suite results.
         """
         try:
-            self._load_catalog(suite_name)
+            self._load_catalog([suite_name])
             self._create_target()
             return self._run_suite(suite_name)
         finally:
             self._cleanup_target()
 
-    def _run_suite(self, suite_name: str) -> TestSuiteResult:  # noqa: PLR0915
+    def _run_suite(self, suite_name: str) -> TestSuiteResult:  # noqa: PLR0915, C901, PLR0912
         """Execute a single test suite.
 
         Args:
@@ -295,18 +302,12 @@ class TestRunnerManager:
         start_time = time.time()
         self.console.print(f"\n[bold]Running suite: {suite_name}[/bold]")
 
-        # Get runner type for this suite
-        runner_type = self.SUITE_RUNNER_TYPES.get(suite_name)
-        if not runner_type:
-            return TestSuiteResult(
-                suite_name=suite_name,
-                total=0,
-                passed=0,
-                failed=0,
-                skipped=0,
-                duration=0,
-                errors=[f"Unknown suite: {suite_name}"],
-            )
+        # Infer runner type from the suite path
+        runner_type = self._DEFAULT_RUNNER_TYPE
+        for keyword, rtype in self._RUNNER_TYPE_KEYWORDS.items():
+            if keyword in suite_name:
+                runner_type = rtype
+                break
 
         # Get tests for this runner type
         tests = self._get_tests_for_suite(runner_type, suite_name)
@@ -428,12 +429,18 @@ class TestRunnerManager:
         )
         tests = [t for t in tests if t.runner_type == runner_type]
 
-        # Apply docker_apps_subset filter for test-apps suite
-        if suite_name == "test-apps" and self.config.docker_apps_subset:
+        # Filter tests to those belonging to this suite's path
+        if suite_name:
+            tests = [
+                t for t in tests if t.source_path and suite_name in str(t.source_path)
+            ]
+
+        # Apply docker_apps_subset filter
+        if self.config.docker_apps_subset:
             subset = set(self.config.docker_apps_subset)
             tests = [t for t in tests if t.name in subset]
 
-        return tests
+        return sorted(tests, key=lambda t: t.name)
 
     def _run_single_test(self, test: TestDefinition) -> TestResult:
         """Run a single test using hop3-testing framework.
@@ -467,31 +474,14 @@ class TestRunnerManager:
                 error=f"Test execution error: {e}",
             )
 
-    # Map suite names to scan paths relative to project root
-    SUITE_SCAN_PATHS: ClassVar[dict[str, str]] = {
-        "test-apps": "apps/test-apps",
-        "nix-apps": "apps/nix-apps",
-        "docker-apps": "apps/docker-apps",
-        "native-apps": "apps/native-apps",
-        "demos": "demos",
-        "tutorials": "docs/src/tutorials",
-    }
-
-    def _load_catalog(self, suite_name: str | None = None) -> None:
-        """Load the test catalog for a specific suite.
+    def _load_catalog(self, scan_paths: list[str]) -> None:
+        """Load the test catalog for the given paths.
 
         Args:
-            suite_name: Suite name to scan for. If None, scans all known paths.
+            scan_paths: Paths relative to project root to scan for test.toml files.
         """
         self.console.print("Loading test catalog...")
         self._catalog = Catalog(self.project_root)
-
-        if suite_name and suite_name in self.SUITE_SCAN_PATHS:
-            scan_paths = [self.SUITE_SCAN_PATHS[suite_name]]
-        else:
-            # Scan all known suite paths
-            scan_paths = list(self.SUITE_SCAN_PATHS.values())
-
         self._catalog.scan(paths=scan_paths)
 
         total_tests = len(self._catalog)
@@ -576,14 +566,18 @@ class TestRunnerManager:
             failed_apps_dir = self.logs_dir / "failed-apps"
             failed_apps_dir.mkdir(parents=True, exist_ok=True)
 
+            # Extract basename from path-style test names
+            # e.g., "apps/real-apps-nix/cryptpad" -> "cryptpad"
+            base_name = Path(test_name).name
+
             # Find the app directory on the server (might have timestamp suffix)
-            find_cmd = f"find /home/hop3/apps -maxdepth 1 -name '{test_name}*' -type d 2>/dev/null | head -1"
+            find_cmd = f"find /home/hop3/apps -maxdepth 1 -name '{base_name}*' -type d 2>/dev/null | head -1"
             _exit_code, stdout, _ = self._ssh_conn.run(find_cmd, timeout=10)
             app_path = stdout.strip()
 
             if not app_path:
                 # No app directory found - create a minimal log with test name
-                app_log_dir = failed_apps_dir / test_name
+                app_log_dir = failed_apps_dir / base_name
                 app_log_dir.mkdir(exist_ok=True)
                 (app_log_dir / "NOT_FOUND.txt").write_text(
                     f"App directory not found on server for {test_name}\n"
@@ -638,8 +632,9 @@ class TestRunnerManager:
                     pass
 
             if collected:
+                abs_path = app_log_dir.resolve()
                 self.console.print(
-                    f"  [dim]Collected {len(collected)} diagnostic files for {test_name}[/dim]"
+                    f"  [dim]Diagnostics ({len(collected)} files): {abs_path}[/dim]"
                 )
 
         except Exception as e:

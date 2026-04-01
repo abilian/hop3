@@ -42,7 +42,7 @@ def run_test_for_image(
     image: str,
     console: Console,
     use_local_repo: bool = True,
-    suites: str = "test-apps",
+    suites: str = "apps/test-apps-procfile",
     extra_args: list[str] | None = None,
 ) -> TestResult:
     """Run test suite for a specific image.
@@ -153,7 +153,7 @@ def _print_summary(
 def run_multi_distro_tests(
     images: list[str] | None = None,
     use_local_repo: bool = True,
-    suites: str = "test-apps",
+    suites: str = "apps/test-apps-procfile",
     stop_on_failure: bool = True,
     extra_args: list[str] | None = None,
 ) -> list[TestResult]:
@@ -226,7 +226,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--suites",
-        default="test-apps",
+        default="apps/test-apps-procfile",
         help="Test suites to run (default: test-apps).",
     )
     parser.add_argument(

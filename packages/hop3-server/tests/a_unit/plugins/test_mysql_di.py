@@ -18,7 +18,7 @@ def test_mysql_admin_from_config():
     config = Config(env_prefix="MYSQL_")
     admin = MySQLAdmin.from_config(config)
 
-    assert admin.host == "localhost"
+    assert admin.host == "127.0.0.1"
     assert admin.port == 3306
     assert admin.superuser == "root"
 
@@ -110,7 +110,7 @@ def test_mysql_admin_provided_by_plugin(container):
     admin = container.get(MySQLAdmin)
 
     assert isinstance(admin, MySQLAdmin)
-    assert admin.host == "localhost"
+    assert admin.host == "127.0.0.1"
     assert admin.port == 3306
 
 

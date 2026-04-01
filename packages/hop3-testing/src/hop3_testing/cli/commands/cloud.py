@@ -64,34 +64,11 @@ def _build_daily_argv(
     return argv
 
 
-# Map user-facing paths to internal suite names
-_PATH_TO_SUITE = {
-    "apps/test-apps": "test-apps",
-    "apps/nix-apps": "nix-apps",
-    "apps/docker-apps": "docker-apps",
-    "apps/native-apps": "native-apps",
-    "demos": "demos",
-    "docs/src/tutorials": "tutorials",
-}
-
-
-def _paths_to_suites(paths: tuple[str, ...]) -> tuple[str, ...]:
-    """Convert app directory paths to suite names.
-
-    Accepts both path form ("apps/test-apps") and short form ("test-apps").
-    """
+def _normalize_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
+    """Normalize app directory paths (strip trailing slashes)."""
     if not paths:
         return ()
-    suites = []
-    for p in paths:
-        p = p.rstrip("/")
-        if p in _PATH_TO_SUITE:
-            suites.append(_PATH_TO_SUITE[p])
-        elif p in _PATH_TO_SUITE.values():
-            suites.append(p)  # Already a suite name
-        else:
-            suites.append(p)  # Pass through unknown values
-    return tuple(suites)
+    return tuple(p.rstrip("/") for p in paths)
 
 
 @click.command("cloud")
@@ -173,8 +150,8 @@ def cloud_test(
     Requires HETZNER_API_TOKEN environment variable (for Hetzner provider).
     """
     # Convert --apps paths to suite names for the underlying system
-    # e.g., "apps/test-apps" -> "test-apps", "demos" -> "demos"
-    suites = _paths_to_suites(apps)
+    # e.g., "apps/test-apps" -> "apps/test-apps-procfile", "demos" -> "demos"
+    suites = _normalize_paths(apps)
 
     # List images mode
     if list_images:
@@ -186,7 +163,7 @@ def cloud_test(
         _run_multi_distro(
             provider=provider,
             images_str=images,
-            suites=suites[0] if suites else "test-apps",
+            suites=suites[0] if suites else "apps/test-apps-procfile",
             use_local_repo=use_local_repo,
             fail_fast=fail_fast,
             verbose=verbose,

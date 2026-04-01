@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Abilian SAS
 from __future__ import annotations
 
+import os
 import time
 from typing import TYPE_CHECKING
 
@@ -137,7 +138,14 @@ def do_deploy(
     log(f"Build artifact saved to: {artifact_path}", level=2)
 
     # --- 4. Run Postbuild Hook ---
-    _run_hook("postbuild", app_config.post_build, app.src_path)
+    # Pass path_prepend from the build artifact so postbuild commands can
+    # find binaries from the virtualenv (e.g., "python manage.py collectstatic")
+    _run_hook(
+        "postbuild",
+        app_config.post_build,
+        app.src_path,
+        path_prepend=build_artifact.runtime.path_prepend,
+    )
 
     # --- 5. Select and Run Deployer ---
     deployer = get_deployer(context, build_artifact)
@@ -331,7 +339,8 @@ def _wait_for_app_start(app: App, timeout: float) -> bool:
 def _handle_startup_timeout(app: App, timeout: float) -> None:
     """Handle app startup timeout with diagnostics.
 
-    Gathers diagnostic information and raises an Abort with helpful details.
+    Gathers diagnostic information, analyzes logs for common failure patterns,
+    and raises an Abort with helpful details.
 
     Args:
         app: The App model instance
@@ -349,20 +358,24 @@ def _handle_startup_timeout(app: App, timeout: float) -> None:
     actual_state = app.check_actual_status()
     log(f"  Current actual state: {actual_state.name}", level=0)
 
-    # Get recent logs
+    # Get recent logs and analyze for common failure patterns
+    recent_logs: list[str] = []
     try:
-        recent_logs = app.get_logs(lines=20)
+        recent_logs = app.get_logs(lines=30) or []
         if recent_logs:
             log("  Recent log output:", level=0)
-            for line in recent_logs[-10:]:  # Last 10 lines
+            for line in recent_logs[-20:]:  # Show last 20 lines (was 10)
                 log(f"    {line}", level=0)
         else:
             log("  No log output available.", level=0)
     except Exception as e:
         log(f"  Could not retrieve logs: {e}", level=0)
 
-    # Provide hints based on runtime
+    # Analyze logs for specific failure patterns and provide targeted advice
     log("", level=0)
+    _diagnose_failure(app, recent_logs)
+
+    # Provide general hints based on runtime
     log("Troubleshooting hints:", level=0, fg="yellow")
     if app.runtime == "uwsgi":
         log("  - Check uWSGI emperor logs: journalctl -u uwsgi-emperor -n 50", level=0)
@@ -384,6 +397,79 @@ def _handle_startup_timeout(app: App, timeout: float) -> None:
 
     msg = f"App failed to start within {timeout}s timeout. See diagnostics above."
     raise Abort(msg)
+
+
+def _diagnose_failure(app: App, log_lines: list[str]) -> None:
+    """Analyze log lines for common failure patterns and log specific diagnoses.
+
+    This helps users understand *why* the app failed to start, rather than
+    just seeing a generic timeout message.
+    """
+    log_text = "\n".join(log_lines).lower()
+
+    # Check for uWSGI "no workers" mode (WSGI module not configured)
+    if "operational mode: no-workers" in log_text or (
+        "no app loaded" in log_text and "loading" not in log_text
+    ):
+        log(
+            "Diagnosis: uWSGI started with no workers configured.",
+            level=0,
+            fg="red",
+        )
+        log(
+            "  Fix: Add a WSGI worker to hop3.toml, e.g.:",
+            level=0,
+        )
+        log("    [run.workers]", level=0)
+        log('    wsgi = "app:application"', level=0)
+        log("", level=0)
+        return
+
+    # Check for daemon throttling (repeated crashes)
+    if "throttling" in log_text:
+        log(
+            "Diagnosis: A daemon process is crashing repeatedly. "
+            "uWSGI is throttling respawns.",
+            level=0,
+            fg="red",
+        )
+        log(
+            "  The daemon's error output may be above. Look for lines "
+            "containing 'Error', 'Traceback', or 'Cannot find'.",
+            level=0,
+        )
+        log("", level=0)
+        return
+
+    # Check for connection refused (common with database/service issues)
+    if "econnrefused" in log_text or "connection refused" in log_text:
+        log(
+            "Diagnosis: The app could not connect to a required service.",
+            level=0,
+            fg="red",
+        )
+        log(
+            "  Check that all addon services (PostgreSQL, MySQL, Redis) "
+            "are running and accessible.",
+            level=0,
+        )
+        log("", level=0)
+        return
+
+    # Check for missing module/file errors
+    if "modulenotfounderror" in log_text or "no such file or directory" in log_text:
+        log(
+            "Diagnosis: A required file or module was not found.",
+            level=0,
+            fg="red",
+        )
+        log(
+            "  Check that all dependencies are installed and file paths "
+            "in hop3.toml are correct.",
+            level=0,
+        )
+        log("", level=0)
+        return
 
 
 def _process_config_dependencies(
@@ -443,13 +529,19 @@ def _process_config_dependencies(
         )
 
 
-def _run_hook(hook_name: str, commands: list[str], cwd: Path) -> None:
+def _run_hook(
+    hook_name: str,
+    commands: list[str],
+    cwd: Path,
+    path_prepend: list[str] | None = None,
+) -> None:
     """Run a deployment hook (prebuild/postbuild).
 
     Args:
         hook_name: Name of the hook for logging (e.g., "prebuild", "postbuild")
         commands: List of shell commands to execute sequentially
         cwd: Working directory for the commands
+        path_prepend: Paths to prepend to PATH (e.g., virtualenv bin directory)
 
     Raises:
         Abort: If any command fails with non-zero exit code
@@ -457,10 +549,18 @@ def _run_hook(hook_name: str, commands: list[str], cwd: Path) -> None:
     if not commands:
         return
 
+    # Build environment with prepended paths (e.g., virtualenv bin)
+    env = dict(os.environ)
+    if path_prepend:
+        extra = ":".join(p for p in path_prepend if p)
+        if extra:
+            env["PATH"] = f"{extra}:{env.get('PATH', '')}"
+            log(f"  PATH prepended with: {extra}", level=2)
+
     log(f"Running {hook_name}...", level=1, fg="blue")
     for command in commands:
         log(f"  {command}", level=2)
-        result = shell(command, cwd=cwd)
+        result = shell(command, cwd=cwd, env=env)
         if result.returncode:
             msg = f"{hook_name} failed with exit code {result.returncode}: {command}"
             raise Abort(msg, result.returncode)

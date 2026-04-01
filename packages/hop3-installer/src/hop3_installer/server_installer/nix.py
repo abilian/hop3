@@ -255,6 +255,38 @@ def _configure_hop3_nix_access(*, daemon_mode: bool) -> None:
     with bashrc_path.open("a") as f:
         f.write(f"\n# Nix package manager\n{source_line}\n")
 
+    # Configure Nix for Hop3 usage
+    nix_conf = Path("/etc/nix/nix.conf")
+    if nix_conf.exists():
+        content = nix_conf.read_text()
+        additions = []
+
+        # Allow derivations to opt out of sandbox with __noChroot
+        # (needed for apps that run npm/pip/composer install)
+        if "sandbox = relaxed" not in content:
+            additions.append("# Allow __noChroot builds for apps needing network")
+            additions.append("sandbox = relaxed")
+
+        if additions:
+            print_detail("Updating Nix configuration")
+            with nix_conf.open("a") as f:
+                f.write("\n" + "\n".join(additions) + "\n")
+            with contextlib.suppress(Exception):
+                run_cmd(["systemctl", "restart", "nix-daemon"])
+
+    # Pin the nixpkgs channel to nixos-24.11 (stable, packages are cached)
+    # Without this, Nix may use a rolling channel where packages like
+    # nodejs aren't in the binary cache yet, causing hours-long builds.
+    for profile in [NIX_DAEMON_PROFILE, NIX_SINGLE_USER_PROFILE]:
+        if profile.exists():
+            print_detail("Setting nixpkgs channel to nixos-24.11 (stable)")
+            run_as_hop3(
+                f'. "{profile}" && '
+                "nix-channel --add https://nixos.org/channels/nixos-24.11 nixpkgs"
+                " && nix-channel --update"
+            )
+            break
+
 
 def _verify_nix_installation() -> bool:
     """Verify Nix installation works for hop3 user.
