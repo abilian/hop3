@@ -26,8 +26,8 @@ let
     installPhase = ''
       mkdir -p $out/bin $out/hop3 $out/share/grafana
 
-      # Install the server binary and default config
-      cp bin/grafana-server $out/bin/
+      # Install all binaries and default config
+      cp -r bin/* $out/bin/
       cp -r conf public $out/share/grafana/
 
       # Create wrapper script that generates config and starts grafana
@@ -53,13 +53,13 @@ EOF
 fi
 
 export GF_SERVER_HTTP_PORT="''${PORT}"
-export GF_PATHS_DATA="./data"
-export GF_PATHS_LOGS="./logs"
-export GF_PATHS_PROVISIONING="./conf/provisioning"
+export GF_PATHS_DATA="$PWD/data"
+export GF_PATHS_LOGS="$PWD/logs"
+export GF_PATHS_PROVISIONING="$PWD/conf/provisioning"
 
-exec BINDIR/grafana-server \
+exec BINDIR/grafana server \
   --homepath SHAREDIR \
-  --config ./conf/custom.ini
+  --config "$PWD/conf/custom.ini"
 WRAPPER
       sed -i "s|BINDIR|$out/bin|g" $out/bin/grafana-wrapper
       sed -i "s|SHAREDIR|$out/share/grafana|g" $out/bin/grafana-wrapper

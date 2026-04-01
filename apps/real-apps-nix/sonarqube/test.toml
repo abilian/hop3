@@ -3,7 +3,7 @@
 [test]
 name = "nix-sonarqube"
 category = "nix-app"
-tier = "heavy"
+tier = "slow"
 priority = "P2"
 description = "SonarQube code quality platform deployed via Nix"
 

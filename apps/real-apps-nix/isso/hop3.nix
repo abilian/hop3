@@ -39,7 +39,16 @@ ISSOEOF
       cat > $out/bin/isso-start << 'EOF'
 #!/bin/sh
 mkdir -p data
-exec VENV/bin/isso -c isso.cfg "$@"
+# Generate config with the correct port at runtime
+cat > isso-runtime.cfg << CFGEOF
+[general]
+dbpath = data/comments.db
+host = http://localhost:''${PORT:-8080}
+
+[server]
+listen = http://''${BIND_ADDRESS:-0.0.0.0}:''${PORT:-8080}
+CFGEOF
+exec VENV/bin/isso -c isso-runtime.cfg "$@"
 EOF
       sed -i "s|VENV|$out/venv|g" $out/bin/isso-start
       chmod +x $out/bin/isso-start

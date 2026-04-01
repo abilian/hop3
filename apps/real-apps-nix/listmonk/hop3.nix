@@ -28,18 +28,35 @@ let
     '';
 
     installPhase = ''
-      mkdir -p $out/bin $out/hop3
+      mkdir -p $out/bin $out/hop3 $out/share/listmonk
 
       # Install the binary
       cp listmonk $out/bin/listmonk
       chmod +x $out/bin/listmonk
+
+      # Install static assets that listmonk expects in working directory
+      for item in static i18n config.toml.sample; do
+        if [ -e "$item" ]; then
+          cp -r "$item" $out/share/listmonk/
+        fi
+      done
 
       # Create wrapper script that generates config and starts listmonk
       cat > $out/bin/listmonk-wrapper << 'WRAPPER'
 #!/bin/sh
 PORT="''${PORT:-8080}"
 
-cat > config.toml << EOF
+# Symlink ALL contents from the Nix store share directory into working directory.
+# Listmonk expects static/, i18n/, and config.toml.sample in the same directory
+# as the binary's working directory.
+for item in SHAREDIR/*; do
+  base="$(basename "$item")"
+  if [ ! -e "$base" ]; then
+    ln -sf "$item" "$base"
+  fi
+done
+
+cat > config.toml << CONFEOF
 [app]
 address = "0.0.0.0:''${PORT}"
 admin_username = "admin"
@@ -55,14 +72,15 @@ ssl_mode = "disable"
 max_open = 25
 max_idle = 25
 max_lifetime = "300s"
-EOF
+CONFEOF
 
 # Initialize database if needed
-BINDIR/listmonk --install --yes 2>/dev/null || true
+BINDIR/listmonk --install --yes --config config.toml 2>/dev/null || true
 
-exec BINDIR/listmonk
+exec BINDIR/listmonk --config config.toml
 WRAPPER
       sed -i "s|BINDIR|$out/bin|g" $out/bin/listmonk-wrapper
+      sed -i "s|SHAREDIR|$out/share/listmonk|g" $out/bin/listmonk-wrapper
       chmod +x $out/bin/listmonk-wrapper
 
       # Write runtime metadata for Hop3

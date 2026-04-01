@@ -6,7 +6,7 @@
 
 let
   version = "2.5.303";
-  nodejs = pkgs.nodejs;
+  nodejs = pkgs.nodejs_22;
 
   src = pkgs.fetchurl {
     url = "https://github.com/Requarks/wiki/releases/download/v${version}/wiki-js.tar.gz";
@@ -39,12 +39,56 @@ let
 
       cp -r . $out/app/
 
-      cat > $out/bin/wiki-js << EOF
+      # Create wrapper that generates config.yml and starts Wiki.js
+      cat > $out/bin/wiki-js << 'WRAPPER'
 #!/bin/sh
 export NODE_ENV=production
-cd $out/app
-exec ${nodejs}/bin/node server/index.js "\$@"
+
+PORT="''${PORT:-8080}"
+DB_HOST="''${PGHOST:-localhost}"
+DB_PORT="''${PGPORT:-5432}"
+DB_NAME="''${PGDATABASE:-wikijs}"
+DB_USER="''${PGUSER:-wikijs}"
+DB_PASS="''${PGPASSWORD:-}"
+
+# Wiki.js reads config.yml from the directory containing server/.
+# The Nix store is read-only, so we create a writable working directory
+# with symlinks to the Nix store app and a local config.yml.
+mkdir -p data
+
+# Symlink server and other app directories from Nix store if not present
+for item in server node_modules assets package.json; do
+  if [ -e APPDIR/$item ] && [ ! -e $item ]; then
+    ln -sf APPDIR/$item $item
+  fi
+done
+
+# Generate config.yml in the working directory
+cat > config.yml << EOF
+port: ''${PORT}
+bindIP: 0.0.0.0
+
+db:
+  type: postgres
+  host: ''${DB_HOST}
+  port: ''${DB_PORT}
+  user: ''${DB_USER}
+  pass: ''${DB_PASS}
+  db: ''${DB_NAME}
+  ssl: false
+
+logLevel: info
+
+offline: false
+ha: false
+
+dataPath: ./data
 EOF
+
+exec NODEPATH/node server/index.js
+WRAPPER
+      sed -i "s|APPDIR|$out/app|g" $out/bin/wiki-js
+      sed -i "s|NODEPATH|${nodejs}/bin|g" $out/bin/wiki-js
       chmod +x $out/bin/wiki-js
 
       mkdir -p $out/hop3

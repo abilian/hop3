@@ -25,6 +25,7 @@ let
       pkgs.pkg-config
       pkgs.openssl
       pkgs.libffi
+      pkgs.zstd
     ];
 
     installPhase = ''
@@ -43,12 +44,22 @@ let
       cat > $out/bin/synapse-start << 'WRAPPER'
 #!/bin/sh
 mkdir -p data media_store
+
+# Set LD_LIBRARY_PATH to find bundled .so files (e.g., libzstd from pip wheels)
+VENV_LIB=$(find VENV/lib -name "site-packages" -type d 2>/dev/null | head -1)
+if [ -n "$VENV_LIB" ]; then
+  export LD_LIBRARY_PATH="$VENV_LIB:ZSTDLIB:''${LD_LIBRARY_PATH:-}"
+else
+  export LD_LIBRARY_PATH="ZSTDLIB:''${LD_LIBRARY_PATH:-}"
+fi
+
 exec VENV/bin/synapse_homeserver \
   --server-name "''${SERVER_NAME:-localhost}" \
   --config-path homeserver.yaml \
   "$@"
 WRAPPER
       sed -i "s|VENV|$out/venv|g" $out/bin/synapse-start
+      sed -i "s|ZSTDLIB|${pkgs.zstd.out}/lib|g" $out/bin/synapse-start
       chmod +x $out/bin/synapse-start
 
       cat > $out/hop3/runtime.json << EOF

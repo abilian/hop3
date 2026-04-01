@@ -3,7 +3,7 @@
 [test]
 name = "nix-searxng"
 category = "nix-app"
-tier = "heavy"
+tier = "slow"
 priority = "P2"
 description = "SearXNG privacy metasearch engine deployed via Nix"
 

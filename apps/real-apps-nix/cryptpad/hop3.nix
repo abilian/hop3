@@ -8,7 +8,7 @@
 
 let
   version = "5.7.0";
-  nodejs = pkgs.nodejs;
+  nodejs = pkgs.nodejs_22;
 
   # Use the GitHub source archive (no pre-built release tarball available)
   src = pkgs.fetchurl {
@@ -26,20 +26,20 @@ let
     inherit src;
     sourceRoot = "cryptpad-${version}";
 
-    nativeBuildInputs = [ nodejs ];
+    nativeBuildInputs = [ nodejs pkgs.python3 pkgs.pkg-config ];
 
-    # Pre-built release — no build needed
-    dontBuild = true;
+    # npm install needs writable home and network
+    dontFixup = true;
+
+    buildPhase = ''
+      export HOME=$TMPDIR
+      ${nodejs}/bin/npm install --production --legacy-peer-deps
+    '';
 
     installPhase = ''
       mkdir -p $out/app $out/bin
 
       cp -r . $out/app/
-
-      # Install production dependencies only
-      cd $out/app
-      export HOME=$TMPDIR
-      ${nodejs}/bin/npm install --production --legacy-peer-deps 2>/dev/null || true
 
       cat > $out/bin/cryptpad << EOF
 #!/bin/sh

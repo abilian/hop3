@@ -30,15 +30,18 @@ let
 
       cp ${jenkinsWar} $out/app/jenkins.war
 
-      cat > $out/bin/jenkins << 'EOF'
+      cat > $out/bin/jenkins << 'WRAPPER'
 #!/bin/sh
-export JENKINS_HOME=''${JENKINS_HOME:-./jenkins_home}
-exec ${jdk}/bin/java \
+export JENKINS_HOME="''${JENKINS_HOME:-./jenkins_home}"
+mkdir -p "$JENKINS_HOME"
+exec JAVAPATH/java \
   $JAVA_OPTS \
-  -jar $out/app/jenkins.war \
-  --httpPort=''${PORT:-8080} \
+  -jar WARPATH \
+  --httpPort="''${PORT:-8080}" \
   "$@"
-EOF
+WRAPPER
+      sed -i "s|JAVAPATH|${jdk}/bin|g" $out/bin/jenkins
+      sed -i "s|WARPATH|$out/app/jenkins.war|g" $out/bin/jenkins
       chmod +x $out/bin/jenkins
 
       mkdir -p $out/hop3

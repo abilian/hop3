@@ -3,7 +3,7 @@
 [test]
 name = "nix-jenkins"
 category = "nix-app"
-tier = "heavy"
+tier = "slow"
 priority = "P2"
 description = "Jenkins CI/CD server deployed via Nix"
 

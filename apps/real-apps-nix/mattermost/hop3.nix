@@ -38,8 +38,17 @@ PORT="''${PORT:-8080}"
 
 mkdir -p data logs config plugins client/plugins
 
+# Symlink Mattermost assets from Nix store into working directory
+# Mattermost expects i18n/, templates/, fonts/, client/ in cwd
+for item in SHAREDIR/*; do
+  base="$(basename "$item")"
+  if [ ! -e "$base" ]; then
+    ln -sf "$item" "$base"
+  fi
+done
+
 # Generate configuration
-cat > config/config.json << EOF
+cat > config/config.json << CONFEOF
 {
   "ServiceSettings": {
     "SiteURL": "''${MM_SERVICESETTINGS_SITEURL:-http://localhost:''${PORT}}",
@@ -77,11 +86,12 @@ cat > config/config.json << EOF
     "ClientDirectory": "./client/plugins"
   }
 }
-EOF
+CONFEOF
 
 exec BINDIR/mattermost
 WRAPPER
       sed -i "s|BINDIR|$out/bin|g" $out/bin/mattermost-wrapper
+      sed -i "s|SHAREDIR|$out/share/mattermost|g" $out/bin/mattermost-wrapper
       chmod +x $out/bin/mattermost-wrapper
 
       # Write runtime metadata for Hop3

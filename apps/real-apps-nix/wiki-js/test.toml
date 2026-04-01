@@ -3,7 +3,7 @@
 [test]
 name = "nix-wiki-js"
 category = "nix-app"
-tier = "heavy"
+tier = "slow"
 priority = "P2"
 description = "Wiki.js wiki platform deployed via Nix"
 
