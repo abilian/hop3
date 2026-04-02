@@ -371,7 +371,9 @@ class DailyTestOrchestrator:
                         features=[*deploy_config.features, "nix"],
                         local_repo_path=deploy_config.local_repo_path,
                     )
-                    self.console.print("  Auto-enabled 'nix' feature for nix app suites")
+                    self.console.print(
+                        "  Auto-enabled 'nix' feature for nix app suites"
+                    )
 
             self._deployment = DeploymentManager(
                 host=server_ip,

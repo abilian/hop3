@@ -18,13 +18,14 @@ wheels/
 # Local / secrets / tmp
 .envrc
 /sandbox/
-OLD/
-data/
-demos/logs/
-demos/sandbox/
-demos/.demo-results.db
-logs
-test-logs/
-/notes/adrs
+/OLD/
+/data/
+/demos/logs/
+/demos/sandbox/
+/demos/.demo-results.db
+/logs
+/apps/logs/
+/test-logs/
+/notes/
 /apps/internal-apps
 /apps/sandbox/
