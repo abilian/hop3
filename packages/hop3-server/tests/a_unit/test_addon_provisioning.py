@@ -81,10 +81,14 @@ class TestSetEnvVars:
 
         env_vars = {"SECRET_KEY": "default-value"}
 
-        set_env_vars(mock_app, env_vars, mock_db_session, defaults_only=True)
+        count, skipped = set_env_vars(
+            mock_app, env_vars, mock_db_session, defaults_only=True
+        )
 
         # Should NOT have updated the existing var
         assert existing_var.value == "user-set-value"
+        assert count == 0
+        assert skipped == ["SECRET_KEY"]
 
 
 class TestSetDefaultEnvVars:

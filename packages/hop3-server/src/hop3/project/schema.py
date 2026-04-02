@@ -277,7 +277,13 @@ class Hop3TomlSchema(BaseModel):
     metadata: MetadataSection | None = None
     build: BuildSection | None = None
     run: RunSection | None = None
-    env: dict[str, Any] | None = None
+    env: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Environment variables. "
+            "Set _policy = 'override' to update existing values on redeploy."
+        ),
+    )
     port: dict[str, PortValue] | None = None
     docker: DockerSection | None = None
     healthcheck: HealthcheckSection | None = None

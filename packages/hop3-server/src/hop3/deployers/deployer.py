@@ -9,7 +9,7 @@ from hop3.core.manifest import RuntimeManifestBuilder
 from hop3.core.plugins import get_builder, get_deployer
 from hop3.core.protocols import DeploymentContext
 from hop3.deployers.addon_provisioning import provision_addons
-from hop3.deployers.env_provisioning import set_default_env_vars
+from hop3.deployers.env_provisioning import set_computed_env_vars, set_default_env_vars
 from hop3.lib import Abort, log, shell
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
+    from hop3.core.artifacts import BuildArtifact
     from hop3.orm.app import App
 
 __all__ = ["do_deploy"]
@@ -126,6 +127,11 @@ def do_deploy(
         workers=build_artifact.runtime.workers or None,
     )
     build_artifact.runtime = enhanced_runtime
+
+    # --- 3.6. Auto-discover WSGI module for Python apps ---
+    if build_artifact.kind in {"python", "buildpack", "virtualenv"}:
+        _auto_discover_wsgi(build_artifact, app.src_path)
+
     log(
         f"Runtime manifest built: {len(enhanced_runtime.workers)} workers, "
         f"{len(enhanced_runtime.before_run)} before-run commands",
@@ -511,12 +517,24 @@ def _process_config_dependencies(
     # Inject env vars from [env] section
     env_config = hop3_config.env
     if env_config:
+        env_policy = hop3_config.env_policy
         log(
-            f"Processing {len(env_config)} env var(s) from hop3.toml...",
+            f"Processing {len(env_config)} env var(s) from hop3.toml "
+            f"(policy: {env_policy})...",
             level=1,
             fg="blue",
         )
-        set_default_env_vars(app, env_config, db_session)
+        set_default_env_vars(app, env_config, db_session, env_policy=env_policy)
+
+    # Resolve computed env vars from [env.computed] section
+    computed_config = hop3_config.env_computed
+    if computed_config:
+        log(
+            f"Resolving {len(computed_config)} computed env var(s)...",
+            level=1,
+            fg="blue",
+        )
+        set_computed_env_vars(app, computed_config, db_session)
 
     # Commit changes before continuing with build
     if addon_configs or env_config:
@@ -564,3 +582,46 @@ def _run_hook(
         if result.returncode:
             msg = f"{hook_name} failed with exit code {result.returncode}: {command}"
             raise Abort(msg, result.returncode)
+
+
+def _auto_discover_wsgi(artifact: BuildArtifact, src_path: Path) -> None:
+    """Auto-discover WSGI module for Python apps that have no web workers.
+
+    Probes for common WSGI entry points and adds a 'wsgi' worker to the
+    artifact's runtime config if found.
+
+    Args:
+        artifact: The build artifact to potentially modify
+        src_path: Path to the application source code
+    """
+    web_worker_names = {"wsgi", "jwsgi", "rwsgi", "web"}
+    if any(w in web_worker_names for w in artifact.runtime.workers):
+        return  # Already has a web-facing worker
+
+    # Probe for common WSGI entry points (ordered by convention)
+    probes = [
+        # (file_to_check, wsgi_module_string, description)
+        ("wsgi.py", "wsgi:application", "wsgi.py"),
+        ("app.py", "app:app", "app.py"),
+    ]
+
+    # Django convention: <project>/wsgi.py
+    for child in sorted(src_path.iterdir()):
+        if child.is_dir() and (child / "wsgi.py").exists():
+            module = f"{child.name}.wsgi:application"
+            probes.append((
+                str(child / "wsgi.py"),
+                module,
+                f"{child.name}/wsgi.py (Django)",
+            ))
+            break
+
+    for file_check, module, description in probes:
+        if (src_path / file_check).exists():
+            log(
+                f"  Auto-detected WSGI module: {module} (from {description})",
+                level=1,
+                fg="green",
+            )
+            artifact.runtime.workers["wsgi"] = module
+            return

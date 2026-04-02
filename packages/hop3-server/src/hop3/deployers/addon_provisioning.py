@@ -156,7 +156,7 @@ def _provision_single_addon(
         addon_credential_repo.add(credential)
 
     # Add env vars to app (addons can update existing values, e.g., when password changes)
-    set_env_vars(app, connection_details, db_session)
+    set_env_vars(app, connection_details, db_session)  # Return value unused here
 
     log(f"  Attached addon {addon_name} to {app.name}", level=1, fg="green")
     server_log.info(

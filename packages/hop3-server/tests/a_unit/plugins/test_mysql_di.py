@@ -13,8 +13,9 @@ from hop3.lib.config import Config
 from hop3.plugins.mysql.admin import MySQLAdmin
 
 
-def test_mysql_admin_from_config():
-    """Test creating MySQLAdmin from Config."""
+def test_mysql_admin_from_config(monkeypatch):
+    """Test creating MySQLAdmin from Config with explicit settings."""
+    monkeypatch.setenv("MYSQL_SUPERUSER", "root")
     config = Config(env_prefix="MYSQL_")
     admin = MySQLAdmin.from_config(config)
 
