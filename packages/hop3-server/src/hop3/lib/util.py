@@ -213,11 +213,24 @@ def shell(
     Raises:
         subprocess.CalledProcessError: If command fails, with stdout/stderr included
     """
-    # Parse command safely - no shell=True needed
+    # Parse command — use sh -c for commands with shell operators
     match command:
         case str():
             command_display = command.strip()
-            command_list = shlex.split(command_display)
+            # Detect shell features that require a shell interpreter:
+            # - operators: &&, ||, ;, |, >, >>
+            # - subshells: $( )
+            # - env var assignments: VAR=value command
+            shell_operators = {"&&", "||", ";", "|", ">", ">>", "<", "$("}
+            needs_shell = any(op in command_display for op in shell_operators)
+            # Check for env var assignment pattern (e.g., "CI=true bin/script.sh")
+            if not needs_shell and "=" in command_display.split()[0]:
+                needs_shell = True
+            if needs_shell:
+                # Wrap in sh -c to handle shell operators safely
+                command_list = ["sh", "-c", command_display]
+            else:
+                command_list = shlex.split(command_display)
         case list():
             command_display = shlex.join(command)
             command_list = command

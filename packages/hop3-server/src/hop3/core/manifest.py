@@ -79,12 +79,27 @@ class RuntimeManifestBuilder:
                 if key not in merged_env:
                     merged_env[key] = str(value)
 
-        # Use workers from builder if provided, otherwise from AppConfig
-        # This allows builders like NixBuilder to provide their own workers
+        # Determine workers with precedence:
+        # 1. Procfile (base — convention/auto-detected)
+        # 2. Builder-provided workers (override — e.g., NixBuilder's runtime.json)
+        # 3. hop3.toml [run] section (highest — explicit user config)
+        #
+        # Each layer overrides matching keys from the previous layer,
+        # but non-conflicting workers are preserved (e.g., Procfile's
+        # "worker" is kept even when hop3.toml overrides "web").
+        merged_workers = self._get_workers()  # Start with Procfile
+
         if workers:
-            merged_workers = workers
-        else:
-            merged_workers = self._get_workers()
+            merged_workers.update(workers)  # Builder overrides
+
+        if self.app_config.has_hop3_toml:
+            hop3_workers = self.app_config.hop3_config.get_workers_from_run_section()
+            lifecycle_hooks = {"prebuild", "postbuild", "prerun"}
+            hop3_workers = {
+                k: v for k, v in hop3_workers.items() if k not in lifecycle_hooks
+            }
+            if hop3_workers:
+                merged_workers.update(hop3_workers)  # hop3.toml overrides
 
         # Get before-run commands
         before_run = self._get_before_run()
