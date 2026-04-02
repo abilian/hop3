@@ -159,9 +159,7 @@ class NixBuilder:
                 )
                 for pid in pids:
                     if pid.strip():
-                        subprocess.run(
-                            ["kill", "-9", pid.strip()], check=False
-                        )
+                        subprocess.run(["kill", "-9", pid.strip()], check=False)
                 # Brief wait for locks to release
                 import time  # noqa: PLC0415
 

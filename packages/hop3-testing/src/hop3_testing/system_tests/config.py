@@ -145,7 +145,9 @@ class Config:
                 acme_email=env.get("HOP3_ACME_EMAIL"),
             ),
             tests=TestConfig(
-                suites=env.get("HOP3_TEST_SUITES", "apps/test-apps-procfile").split(","),
+                suites=env.get("HOP3_TEST_SUITES", "apps/test-apps-procfile").split(
+                    ","
+                ),
             ),
             report_dir=Path(env.get("HOP3_REPORT_DIR", "./reports")),
         )
