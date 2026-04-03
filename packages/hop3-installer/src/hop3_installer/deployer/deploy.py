@@ -468,7 +468,7 @@ class Deployer:
         # Run installer with feature flags, skipping unrelated steps
         install_cmd = f"{python_cmd} -u /tmp/install-server.py"
         install_cmd += f" --with {','.join(self.config.with_features)}"
-        install_cmd += " --skip-nginx --skip-postgres --skip-acme"
+        install_cmd += " --skip-nginx --skip-acme"
         install_cmd += " --verbose"
 
         self.log(f"Running: {install_cmd}")
