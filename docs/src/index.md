@@ -11,7 +11,7 @@ icon: lucide/cloud
 **Hop3** is an open-source Platform as a Service (PaaS) that enables you to deploy and manage your applications seamlessly. It is designed to be **simple**, **secure**, and **sovereignty-focused**.
 
 !!! warning "Development Status"
-    Hop3 is actively developed. Version 0.4.x (devel branch) is undergoing significant improvements. For production use, consider the stable branch.
+    Hop3 is actively developed and still undergoing active architecture and API changes. Version 0.4.x is considered alpha quality. For bleeding-edge features, consider the `devel` branch on git.
 
 ## Quick Links
 
