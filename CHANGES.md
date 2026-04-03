@@ -5,7 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] (0.5.0dev)
+
+### Added
+
+- **Nix Integration (Phase 1-2)**: NixBuilder plugin for hermetic, reproducible builds via `hop3.nix` files. 38 Nix-based application packages (22 production-grade, 8 test apps, 8 under investigation). Installer support for Nix on all supported distributions.
+- **`[env.computed]` Section**: Variable interpolation in hop3.toml using `${VAR}` syntax, resolved after addon vars are injected. Enables mapping platform variables (e.g., `PGHOST`) to application-expected names (e.g., `DATABASE_URL`).
+- **WSGI Auto-Discovery**: Automatically detects WSGI entry points (`wsgi.py`, `app.py`, Django `<project>/wsgi.py`) when no explicit worker is configured. Logs what was detected.
+- **No-Workers Early Warning**: Immediate diagnostic when a Python app has no web-facing workers, instead of waiting for the health check timeout.
+- **Env Var Policy Override**: New `_policy = "override"` option in `[env]` section forces hop3.toml values to overwrite existing env vars on every deploy.
+- **Failure Diagnosis Engine**: `_diagnose_failure()` analyzes logs on health check timeout and detects specific patterns: no-workers mode, daemon throttling, connection refused, missing modules. Provides targeted fix suggestions.
+- **10 Nix Demo Apps**: flask-hello, flask-gunicorn, flask-alt, nodejs-express, golang-gin, golang-minimal, clojure-hello, static-hello, rack-hello, sinatra-hello.
+
+### Changed
+
+- **Env Var Messaging**: Deploy output now shows `Skipped N env var(s) already set: VAR1, VAR2` instead of opaque `Set 0 env var(s)`.
+- **Addon Host Variables**: MySQL, PostgreSQL, and Redis addons now inject `127.0.0.1` instead of `localhost`, fixing IPv6 resolution issues where runtimes try `::1` first.
+- **Daemon Working Directory**: uWSGI attach-daemon processes now explicitly `cd` to `src/` directory, fixing "No such file or directory" errors for relative paths.
+- **After-Build Virtualenv**: Post-build hooks now run with the Python virtualenv in PATH, so `python manage.py collectstatic` works without absolute paths.
+- **uWSGI Throttle Reset**: `stop()` now waits for old processes to terminate before starting new ones, preventing inherited respawn throttle delays after redeploy.
+- **Health Check Diagnostics**: Timeout output now shows last 20 log lines (was 10) with pattern-based failure analysis.
+- **Shell Command Handling**: `shell()` function now detects shell operators (`&&`, `||`, `;`, `|`) and environment variable assignments, wrapping in `sh -c` instead of incorrectly tokenizing with `shlex.split()`. Fixes 9 native app build failures.
+- **Worker Precedence**: RuntimeManifestBuilder now applies correct layering: Procfile (base) → Builder workers (override) → hop3.toml `[run]` (highest). Fixes cases where downloaded source Procfiles overrode hop3.toml configuration.
+- **Test Runner**: Suite filtering fixed — `_load_catalog()` now only scans paths for configured suites.
+- **Toolchain Count**: Now 12 language toolchains (added .NET, Static, Generic to existing Python, Node.js, Go, Ruby, Rust, Java, PHP, Clojure, Elixir).
+- **App Directory Structure**: Reorganized apps into `real-apps-native/`, `real-apps-nix/`, `test-apps-nix/`, `test-apps-procfile/`, `internal-apps/`.
+
+### Fixed
+
+- **MySQL User Creation**: Changed from `@'%'` to `@'localhost'` to fix anonymous user shadowing on MariaDB.
+- **MySQL Socket Detection**: Auto-detects unix socket path and falls back to OS user authentication for local development.
+- **Miniflux Deployment**: Fixed worker command resolution in manifest builder (downloaded Procfile was overriding hop3.toml).
+- **Elixir Toolchain**: Fixed detection and build issues.
+- **hop3.toml Schema**: Added missing fields, fixed validation errors across demo apps.
 
 ## [0.4.0] - 2026-03-27
 
