@@ -1,0 +1,31 @@
+[project]
+name = "hop3-nix-gen"
+version = "0.1.0"
+description = "Spike: template-based hop3.nix generator for Hop3"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+hop3-nix-gen = "hop3_nix_gen.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hop3_nix_gen"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
