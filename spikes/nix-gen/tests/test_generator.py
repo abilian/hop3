@@ -67,10 +67,8 @@ def test_output_uses_nix_escaped_vars(app_name: str):
     if spec.local_vars or spec.env_exports:
         # Check that at least one escaped ${...} appears
         # (assuming the spec uses shell variable defaults)
-        has_shell_vars = any(
-            "${" in v for v in spec.local_vars.values()
-        ) or any("${" in v for v in spec.env_exports.values())
+        has_shell_vars = any("${" in v for v in spec.local_vars.values()) or any(
+            "${" in v for v in spec.env_exports.values()
+        )
         if has_shell_vars:
-            assert "''${" in output, (
-                f"Expected escaped ${{ in output for {app_name}"
-            )
+            assert "''${" in output, f"Expected escaped ${{ in output for {app_name}"

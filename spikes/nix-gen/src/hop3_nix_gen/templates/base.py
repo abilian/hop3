@@ -58,9 +58,7 @@ def format_config_file(cf: ConfigFile) -> str:
     """
     if cf.format == "raw":
         if cf.raw_content is None:
-            raise ValueError(
-                f"ConfigFile {cf.path}: raw format requires raw_content"
-            )
+            raise ValueError(f"ConfigFile {cf.path}: raw format requires raw_content")
         body = nix_escape(cf.raw_content.rstrip("\n") + "\n")
     elif cf.format == "ini":
         body = nix_escape(_format_ini(cf.sections or {}))
@@ -119,9 +117,7 @@ def format_wrapper_body(
         sections.append(exports)
 
     if spec.pre_exec_commands:
-        sections.append(
-            "\n".join(nix_escape(cmd) for cmd in spec.pre_exec_commands)
-        )
+        sections.append("\n".join(nix_escape(cmd) for cmd in spec.pre_exec_commands))
 
     for cf in spec.config_files:
         sections.append(format_config_file(cf))
@@ -147,9 +143,7 @@ def format_nix_env_attrs(runtime_env: dict[str, str]) -> str:
     """Emit the top-level ``env = { ... }`` attribute set."""
     if not runtime_env:
         return ""
-    attrs = "\n".join(
-        f'    {key} = "{value}";' for key, value in runtime_env.items()
-    )
+    attrs = "\n".join(f'    {key} = "{value}";' for key, value in runtime_env.items())
     return "\n" + attrs + "\n  "
 
 

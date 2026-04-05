@@ -139,7 +139,9 @@ def print_report(results: list[Result]) -> None:
     generated = sum(1 for r in results if r.generated)
     parsed = sum(1 for r in results if r.parsed)
     built = sum(1 for r in results if r.built)
-    print(f"Total: {total} | Generated: {generated} | Parsed: {parsed} | Built: {built}")
+    print(
+        f"Total: {total} | Generated: {generated} | Parsed: {parsed} | Built: {built}"
+    )
 
 
 def main() -> int:

@@ -32,11 +32,13 @@ class PrebuiltArchiveTemplate:
 
         native_build_inputs = ""
         if spec.source.unpacker:
-            native_build_inputs = f"    nativeBuildInputs = [ pkgs.{spec.source.unpacker} ];\n"
+            native_build_inputs = (
+                f"    nativeBuildInputs = [ pkgs.{spec.source.unpacker} ];\n"
+            )
 
         # Unpack phase
         if spec.source.unpacker == "unzip":
-            unpack_phase = f"""    unpackPhase = ''
+            unpack_phase = """    unpackPhase = ''
       unzip $src
     '';
 """

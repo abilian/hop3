@@ -70,9 +70,7 @@ SPEC = AppSpec(
             destination="share/mattermost/",
             recursive=True,
         ),
-        FileMapping(
-            source="client", destination="share/mattermost/", recursive=True
-        ),
+        FileMapping(source="client", destination="share/mattermost/", recursive=True),
     ],
     exec_target="mattermost",
     local_vars={
