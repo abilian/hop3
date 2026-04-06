@@ -1,12 +1,14 @@
 # ADR 017: Distributed, Agent-Based Architecture
 
-**Status**: Deferred
+**Status**: Active (Phase 1 in progress, Phases 2-4 planned)
 **Type**: Feature
 **Created**: 2024-07-17
 **Related-ADRs**: 029
+**Related**: Hop3 paper (Section 7.4: Agent Model), `local-notes/jumpgate/hop3-paper.md`
 
 ## Revisions
 
+- v0.3: Status changed to Active. Added decentralized federation track (Phase 4) with CRDT/gossip model from Hop3 paper. Updated Promise Theory references. (2026-04-03)
 - v0.2: Revised to align with phased implementation plan and ADR 029 (2025-11-25)
 - v0.1: Initial draft
 
@@ -273,14 +275,28 @@ Key deliverables:
 - `AgentConnection`: Agent communication protocol
 - `PromiseRegistry`: Track and verify promises
 
-### Phase 4: Advanced Orchestration
+### Phase 4: Advanced Orchestration and Federation
 
-Phase 4 adds advanced features:
+Phase 4 adds advanced features and explores two complementary coordination models:
+
+**Engineering track (coordinator-based):**
 
 1. **Placement Constraints**: Affinity/anti-affinity rules
 2. **Rolling Updates**: Zero-downtime deployments across nodes
 3. **Resource Quotas**: Per-tenant resource limits
-4. **Federation**: Multi-coordinator for geographic distribution
+
+**Research track (fully decentralized):**
+
+For edge and fog computing scenarios where a central coordinator is unavailable or undesirable (network partitions, multi-operator federation), an alternative coordination model based on CRDTs and gossip-based dissemination can replace the central coordinator:
+
+- Each node maintains a local CRDT replica of the deployment state
+- Nodes synchronise via gossip protocols rather than reporting to a coordinator
+- Scheduling emerges from local evaluation of capability promises against workload requirements
+- Conflict resolution uses CRDT merge semantics (see the Hop3 paper, Section 7.4)
+
+This decentralized model is the natural end-state for edge deployments where nodes must operate autonomously under partition. The coordinator-based Phase 3 serves as a pragmatic intermediate step that validates the agent/promise model before removing the central authority.
+
+The Hop3 paper develops the formal argument for this trajectory, grounding it in Promise Theory [PT1] and showing how Nix content-addressed closures enable bandwidth-efficient store-carry-forward updates between disconnected nodes.
 
 ### Theory of Promises Integration
 
@@ -418,8 +434,11 @@ See ADR 029 for detailed action items. Summary:
 
 ## References
 
-- Burgess, Mark. "Promise Theory: Principles and Applications" (2015)
-- Burgess, Mark. "In Search of Certainty" (2013)
+- Burgess, M. "An Approach to Computer System Configuration Based on Promise Theory," *Science of Computer Programming*, vol. 71, no. 3, pp. 243–265, 2008.
+- Burgess, M. and Bergstra, J.A. *Promise Theory: Principles and Applications*. Xtaxis Press, 2014.
+- Burgess, M. "Testable System Administration," *Communications of the ACM*, vol. 54, no. 3, pp. 44–49, 2011.
+- Burgess, M. "In Search of Certainty" (2013)
 - Kubernetes Documentation: [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/)
 - Nomad Documentation: [Scheduling](https://developer.hashicorp.com/nomad/docs/concepts/scheduling)
 - "Build an Orchestrator in Go (From Scratch)" by Tim Boring
+- Hop3 paper, Section 7.4: "From Single Node to Distributed Edge: The Hop3 Agent Model"
