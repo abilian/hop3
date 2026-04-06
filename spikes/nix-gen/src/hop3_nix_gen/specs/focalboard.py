@@ -27,7 +27,7 @@ SPEC = AppSpec(
     source=Source(
         url="https://github.com/mattermost-community/focalboard/releases/download/v${version}/focalboard-server-linux-amd64.tar.gz",
         sha256="VZFQqC5QwR/gy6/RKtA55kuIUMer8hGYdZi9otDxiAQ=",
-        unpack=True,
+        archive="tar-gz",
     ),
     source_root=".",
     file_mappings=[

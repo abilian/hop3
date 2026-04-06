@@ -12,7 +12,7 @@ SPEC = AppSpec(
     source=Source(
         url="https://dl.grafana.com/oss/release/grafana-${version}.linux-amd64.tar.gz",
         sha256="+q0bQKTrx8q+pHmxVSqB894QwD2lsoGTz6QaeT52FVc=",
-        unpack=True,
+        archive="tar-gz",
     ),
     source_root="grafana-v${version}",
     file_mappings=[

@@ -4,12 +4,22 @@ from __future__ import annotations
 
 from hop3_nix_gen.spec import AppSpec
 from hop3_nix_gen.templates.base import Template
+from hop3_nix_gen.templates.java_war import JavaWarTemplate
+from hop3_nix_gen.templates.nixpkgs_wrapper import NixpkgsWrapperTemplate
+from hop3_nix_gen.templates.node_prebuilt import NodePrebuiltTemplate
+from hop3_nix_gen.templates.php_app import PhpAppTemplate
 from hop3_nix_gen.templates.prebuilt_archive import PrebuiltArchiveTemplate
 from hop3_nix_gen.templates.prebuilt_binary import PrebuiltBinaryTemplate
+from hop3_nix_gen.templates.python_venv import PythonVenvTemplate
 
 _TEMPLATES: dict[str, Template] = {
     "prebuilt-binary": PrebuiltBinaryTemplate(),
     "prebuilt-archive": PrebuiltArchiveTemplate(),
+    "php-app": PhpAppTemplate(),
+    "node-prebuilt": NodePrebuiltTemplate(),
+    "java-war": JavaWarTemplate(),
+    "python-venv": PythonVenvTemplate(),
+    "nixpkgs-wrapper": NixpkgsWrapperTemplate(),
 }
 
 

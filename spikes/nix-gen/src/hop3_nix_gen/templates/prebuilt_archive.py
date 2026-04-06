@@ -31,21 +31,19 @@ class PrebuiltArchiveTemplate:
         source_nix = spec.source.as_nix(binding)
 
         native_build_inputs = ""
-        if spec.source.unpacker:
-            native_build_inputs = (
-                f"    nativeBuildInputs = [ pkgs.{spec.source.unpacker} ];\n"
-            )
+        if spec.source.needs_unzip:
+            native_build_inputs = "    nativeBuildInputs = [ pkgs.unzip ];\n"
 
-        # Unpack phase
-        if spec.source.unpacker == "unzip":
+        # Unpack phase. For tar archives, stdenv handles extraction
+        # automatically when sourceRoot is set. For zip, we need to unzip
+        # explicitly.
+        if spec.source.needs_unzip:
             unpack_phase = """    unpackPhase = ''
       unzip $src
     '';
 """
-        elif spec.source.unpack:
-            # Default: tar (handled by stdenv automatically if sourceRoot matches)
-            unpack_phase = ""  # stdenv handles tar extraction
         else:
+            # stdenv handles tar extraction automatically
             unpack_phase = ""
 
         source_root_line = ""

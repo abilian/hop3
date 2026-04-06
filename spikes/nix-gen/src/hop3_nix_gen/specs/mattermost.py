@@ -60,7 +60,7 @@ SPEC = AppSpec(
     source=Source(
         url="https://releases.mattermost.com/${version}/mattermost-${version}-linux-amd64.tar.gz",
         sha256="e/1ZaogKFir/NR5Eel35es+CZAWp2YM1pByldNtjJuc=",
-        unpack=True,
+        archive="tar-gz",
     ),
     source_root="mattermost",
     file_mappings=[

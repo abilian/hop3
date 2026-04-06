@@ -62,12 +62,40 @@ uv run pytest
 
 ## Currently Supported
 
-| Template | Apps |
-|----------|------|
-| `prebuilt-binary` | miniflux, gitea |
-| `prebuilt-archive` | focalboard, grafana, mattermost, vikunja |
+| Template | Count | Apps |
+|----------|-------|------|
+| `prebuilt-binary` | 2 | miniflux, gitea |
+| `prebuilt-archive` | 4 | focalboard, grafana, mattermost, vikunja |
+| `php-app` | 10 | adminer, bookstack, dolibarr, easy-appointments, invoice-ninja, kanboard, limesurvey, matomo, nextcloud, wordpress |
+| `node-prebuilt` | 1 | wiki-js |
+| `java-war` | 1 | jenkins |
+| `python-venv` | 1 | isso |
+| `nixpkgs-wrapper` | 1 | radicale |
+| **Total** | **20** | |
 
-6 apps covered, matching the `prebuilt-*` pattern in `apps/real-apps-nix/`.
+**All 20 apps build successfully** with `nix-build` (out of 22 apps
+in `apps/real-apps-nix/`). The remaining 2 apps (sinatra-hello,
+rack-hello) are Ruby/bundlerEnv test apps — a `ruby-bundler` template
+would cover them.
+
+### PHP template variations validated
+
+The `php-app` template covers a wide range of PHP app patterns:
+- **Single file** (`adminer.php`)
+- **Tarball with composer build** (bookstack, dolibarr, easy-appointments, invoice-ninja)
+- **Tarball without build** (kanboard, matomo, wordpress)
+- **tar.bz2 archive** (nextcloud)
+- **Zip archive with wrapper directory** (limesurvey, via `source_root`)
+- **Custom web root** (dolibarr serves from `htdocs` subdirectory)
+- **Laravel artisan serve** (bookstack, invoice-ninja)
+- **Composer with platform-reqs override** (invoice-ninja)
+- **Extra native build inputs** (invoice-ninja needs nodejs)
+
+### Currently in `apps/real-apps-nix-bad/` (not covered)
+
+cryptpad, etherpad, hedgedoc, listmonk, matrix-synapse, searxng,
+sonarqube, xwiki — these have known upstream packaging issues and
+are stashed until fixed.
 
 ## Validation Methodology
 

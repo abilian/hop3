@@ -74,9 +74,11 @@ def format_config_file(cf: ConfigFile) -> str:
     heredoc = f"{mkdir_prefix}cat > {cf.path} << EOF\n{body}EOF"
 
     if cf.create_if_missing:
-        # Wrap in an if-guard (only create if file doesn't exist)
-        indented = "\n".join("  " + line for line in heredoc.split("\n"))
-        return f"if [ ! -f {cf.path} ]; then\n{indented}\nfi"
+        # Wrap in an if-guard (only create if file doesn't exist).
+        # Do NOT indent the heredoc body — that would add leading whitespace
+        # to every line of the generated config file. Shell heredocs with
+        # <<EOF (unquoted) don't care about surrounding indentation.
+        return f"if [ ! -f {cf.path} ]; then\n{heredoc}\nfi"
 
     return heredoc
 
@@ -122,7 +124,10 @@ def format_wrapper_body(
     for cf in spec.config_files:
         sections.append(format_config_file(cf))
 
-    sections.append(f"exec {exec_line}")
+    # Escape shell var references in the exec line. Templates that need Nix
+    # variables in the exec line (e.g., ${php}/bin/php) must use placeholders
+    # like PHPBIN and sed-replace them during the install phase.
+    sections.append(f"exec {nix_escape(exec_line)}")
 
     return "\n\n".join(sections)
 

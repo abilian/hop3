@@ -39,8 +39,12 @@ def test_output_contains_required_elements(app_name: str):
     # Should have a `let` block
     assert "\nlet\n" in output
 
-    # Should have a version binding
-    assert f'version = "{spec.version}"' in output
+    # Should have a version binding (either hardcoded or inherited from pkg)
+    if spec.version:
+        assert f'version = "{spec.version}"' in output
+    else:
+        # Templates like nixpkgs-wrapper can inherit version from the package
+        assert "version =" in output
 
     # Should have the pname
     assert f'pname = "{spec.pname}"' in output

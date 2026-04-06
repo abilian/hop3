@@ -15,13 +15,23 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class Source:
-    """A source archive or binary to fetch via ``pkgs.fetchurl``."""
+    """A source archive or binary to fetch via ``pkgs.fetchurl``.
+
+    The ``archive`` field describes what kind of archive (if any) needs
+    to be unpacked. Templates use it to generate the correct unpackPhase.
+
+    Archive types:
+        None       — single file (binary, .php, .war, etc.), no unpack
+        "tar-gz"   — .tar.gz / .tgz
+        "tar-bz2"  — .tar.bz2 / .tbz2
+        "tar-xz"   — .tar.xz
+        "zip"      — .zip (needs unzip in nativeBuildInputs)
+    """
 
     url: str
     sha256: str
     executable: bool = False  # True for single-binary downloads
-    unpack: bool = False  # True for tar/zip archives
-    unpacker: str | None = None  # e.g., "unzip" for zip archives; None for tar
+    archive: str | None = None  # None, "tar-gz", "tar-bz2", "tar-xz", "zip"
 
     def as_nix(self, binding_name: str) -> str:
         """Emit the Nix ``let`` binding for this source."""
@@ -34,6 +44,26 @@ class Source:
         if joined:
             body += "\n" + joined
         return f"  {binding_name} = pkgs.fetchurl {{\n{body}\n  }};"
+
+    @property
+    def needs_unzip(self) -> bool:
+        return self.archive == "zip"
+
+    @property
+    def is_archive(self) -> bool:
+        return self.archive is not None
+
+    def unpack_command(self, strip_components: int = 1) -> str:
+        """Return the shell command to unpack this archive."""
+        if self.archive == "tar-gz":
+            return f"tar xzf $src --strip-components={strip_components}"
+        if self.archive == "tar-bz2":
+            return f"tar xjf $src --strip-components={strip_components}"
+        if self.archive == "tar-xz":
+            return f"tar xJf $src --strip-components={strip_components}"
+        if self.archive == "zip":
+            return "unzip -q $src"  # zip has no strip-components
+        raise ValueError(f"Cannot unpack archive type: {self.archive!r}")
 
 
 @dataclass(frozen=True)
@@ -108,6 +138,49 @@ class AppSpec:
     source_root: str | None = None  # The directory inside the archive
     file_mappings: list[FileMapping] = field(default_factory=list)
 
+    # --- php-app fields ---
+    # PHP package attribute name in nixpkgs, e.g., "php82", "php83"
+    php_version: str = "php82"
+    # PHP extensions to enable (from the `all` set in withExtensions)
+    php_extensions: list[str] = field(default_factory=list)
+    # Whether the app needs `composer install` in the build phase
+    needs_composer: bool = False
+    # Extra flags to pass to composer install (e.g., "--ignore-platform-reqs")
+    composer_extra_flags: list[str] = field(default_factory=list)
+    # Number of leading path components to strip when extracting tarball
+    strip_components: int = 1
+    # Serving mode: "builtin" (php -S), "artisan" (php artisan serve), "custom"
+    serve_mode: str = "builtin"
+    # Web document root, relative to $out/app. Used by php -S -t <root>.
+    # Example: "htdocs" for Dolibarr, "" for most apps.
+    web_root: str = ""
+    # Directories to create under $out/app after copying source (e.g., "storage")
+    post_install_dirs: list[str] = field(default_factory=list)
+    # Treat source as a single file (like adminer.php), not a tarball
+    single_file: bool = False
+    # If True, app doesn't need `cp -r . $out/app/` (e.g., single file case)
+    skip_source_copy: bool = False
+    # Extra nativeBuildInputs (beyond php and composer). Strings are taken
+    # as-is and placed into the Nix attrset, so use full attr paths like
+    # "pkgs.nodejs" or "pkgs.unzip".
+    extra_native_build_inputs: list[str] = field(default_factory=list)
+
+    # --- nixpkgs-wrapper fields ---
+    # Name of the nixpkgs attribute to wrap, e.g., "radicale" for pkgs.radicale
+    nixpkgs_package: str | None = None
+
+    # --- node-prebuilt / java-war / python-venv fields ---
+    # Nix package attribute for the runtime, e.g., "nodejs_22", "jdk17", "python3"
+    runtime_package: str | None = None
+    # For node-prebuilt: unpack the tarball without a top-level dir?
+    unpack_without_top_level: bool = False
+    # For java-war: relative path to the WAR file under $out/app
+    war_file: str | None = None
+    # For java-war: extra JVM args (go in JAVA_OPTS)
+    jvm_default_opts: str | None = None
+    # For python-venv: packages to pip install
+    pip_packages: list[str] = field(default_factory=list)
+
     # --- wrapper script fields (used by all templates) ---
     exec_target: str | None = None  # What to exec (relative to $out/bin)
     exec_args: list[str] = field(default_factory=list)
@@ -126,5 +199,6 @@ class AppSpec:
     # --- runtime metadata fields ---
     # Runtime env (goes into hop3.runtime.json and top-level `env` attr)
     runtime_env: dict[str, str] = field(default_factory=dict)
-    # Additional path entries (beyond $out/bin)
+    # Additional path entries (beyond $out/bin). Can reference Nix let-bindings
+    # like "${php}/bin" — they will be interpolated by Nix at build time.
     extra_paths: list[str] = field(default_factory=list)

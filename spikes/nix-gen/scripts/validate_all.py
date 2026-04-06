@@ -104,12 +104,15 @@ def cmd_build(output_dir: Path) -> list[Result]:
                 ],
                 capture_output=True,
                 check=True,
-                text=True,
-                timeout=600,
+                # 30 min — some builds (invoice-ninja composer install) take
+                # several minutes on first build before Nix caches them.
+                timeout=1800,
+                # Don't use text=True — some app builds emit non-UTF-8 bytes.
+                # Decode manually with errors="replace".
             )
             result.built = True
-            # Extract the store path from stdout
-            store_path = proc.stdout.strip().split("\n")[-1]
+            stdout = proc.stdout.decode("utf-8", errors="replace")
+            store_path = stdout.strip().split("\n")[-1]
             print(f"OK ({store_path})")
         except FileNotFoundError:
             result.error = "build: nix-build not found in PATH"
@@ -118,7 +121,8 @@ def cmd_build(output_dir: Path) -> list[Result]:
             result.error = "build: timeout after 600s"
             print("FAIL (timeout)")
         except subprocess.CalledProcessError as e:
-            stderr_tail = (e.stderr or "").strip().split("\n")[-5:]
+            stderr = (e.stderr or b"").decode("utf-8", errors="replace")
+            stderr_tail = stderr.strip().split("\n")[-5:]
             result.error = "build: " + " | ".join(stderr_tail)[:400]
             print("FAIL")
             print(f"    {result.error}")

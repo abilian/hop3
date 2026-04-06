@@ -26,8 +26,7 @@ SPEC = AppSpec(
     source=Source(
         url="https://dl.vikunja.io/vikunja/${version}/vikunja-v${version}-linux-amd64-full.zip",
         sha256="AAfg+56IAhs5DYmK2IpE2JgdUv7lfsGeBYZwOvso8Bo=",
-        unpack=True,
-        unpacker="unzip",
+        archive="zip",
     ),
     source_root=".",
     file_mappings=[
