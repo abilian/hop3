@@ -116,6 +116,37 @@ class PhpAppTemplate:
 
         install_lines.append("")
 
+        # When needs_writable_dir is set, inject symlink-from-store commands
+        # into pre_exec so the app can generate config files at runtime.
+        # The Nix store is read-only, so apps that need .env, config.php,
+        # or writable storage/ must operate from a cwd-based copy.
+        extra_pre_exec: list[str] = []
+        if spec.needs_writable_dir:
+            # Create writable directories FIRST, before symlinking.
+            # This prevents the symlink loop from symlinking read-only
+            # store directories (like storage/) over writable ones.
+            # The symlink loop's `[ ! -e "$base" ]` then skips them.
+            if spec.post_install_dirs:
+                dirs = " ".join(spec.post_install_dirs)
+                extra_pre_exec.append(f"mkdir -p {dirs}")
+            symlink_loop = (
+                "# Symlink remaining app files from read-only Nix store\n"
+                "# (skips dirs already created above)\n"
+                "for item in APPDIR/*; do\n"
+                '  base="$(basename "$item")"\n'
+                '  [ ! -e "$base" ] && ln -sf "$item" "$base"\n'
+                "done"
+            )
+            extra_pre_exec.append(symlink_loop)
+
+        # Build a modified spec with extra pre_exec commands if needed
+        if extra_pre_exec:
+            merged_pre_exec = list(extra_pre_exec) + list(spec.pre_exec_commands)
+            # Create a new spec-like object with merged pre_exec (can't modify frozen)
+            from dataclasses import replace  # noqa: PLC0415
+
+            spec = replace(spec, pre_exec_commands=merged_pre_exec)
+
         # Wrapper script. Uses APPDIR and PHPBIN placeholders which are
         # sed-replaced during the install phase — APPDIR → $out/app,
         # PHPBIN → ${{php}}/bin (the latter is Nix-interpolated to the
@@ -210,8 +241,11 @@ def _php_exec_line(spec: AppSpec) -> str:
     formatter, so they reach the wrapper as ${PORT:-8080} and are
     expanded by the shell at startup.
     """
-    # Web root: $out/app or $out/app/<web_root> (e.g., dolibarr's htdocs)
-    if spec.web_root:
+    # When needs_writable_dir, serve from cwd (.) instead of APPDIR (Nix store).
+    # The wrapper's pre_exec commands symlink app files to cwd first.
+    if spec.needs_writable_dir:
+        doc_root = f"./{spec.web_root}" if spec.web_root else "."
+    elif spec.web_root:
         doc_root = f"APPDIR/{spec.web_root}"
     else:
         doc_root = "APPDIR"
@@ -219,7 +253,8 @@ def _php_exec_line(spec: AppSpec) -> str:
     if spec.serve_mode == "builtin":
         return f"PHPBIN/php -S 0.0.0.0:${{PORT:-8080}} -t {doc_root}"
     if spec.serve_mode == "artisan":
-        return "PHPBIN/php APPDIR/artisan serve --host=0.0.0.0 --port=${PORT:-8080}"
+        artisan = "./artisan" if spec.needs_writable_dir else "APPDIR/artisan"
+        return f"PHPBIN/php {artisan} serve --host=0.0.0.0 --port=${{PORT:-8080}}"
     if spec.serve_mode == "custom":
         if spec.exec_target is None:
             raise ValueError("serve_mode='custom' requires exec_target")

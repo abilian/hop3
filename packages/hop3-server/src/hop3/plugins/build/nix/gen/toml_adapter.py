@@ -84,6 +84,7 @@ def app_spec_from_config(
         post_install_dirs=nix_config.get("post-install-dirs", []),
         single_file=nix_config.get("single-file", False),
         skip_source_copy=nix_config.get("skip-source-copy", False),
+        needs_writable_dir=nix_config.get("needs-writable-dir", False),
         extra_native_build_inputs=nix_config.get("extra-native-build-inputs", []),
         # nixpkgs-wrapper fields
         nixpkgs_package=nix_config.get("nixpkgs-package"),

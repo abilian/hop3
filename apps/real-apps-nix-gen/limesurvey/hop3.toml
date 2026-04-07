@@ -5,6 +5,7 @@ description = "Professional online survey and data collection tool"
 
 [nix]
 template = "php-app"
+needs-writable-dir = true
 url = "https://download.limesurvey.org/latest-master/limesurvey${version}+260223.zip"
 sha256 = "jXRc89eWmPd354Zk2peRJR7v4G9ePwTJT9BS2es3tnk="
 archive = "zip"
@@ -33,3 +34,29 @@ ADMIN_USER = "admin"
 ADMIN_NAME = "Administrator"
 ADMIN_EMAIL = "admin@example.com"
 ADMIN_PASSWORD = "change-me-admin-password"
+
+[[nix.config-files]]
+path = "application/config/config.php"
+format = "raw"
+create-if-missing = true
+raw-content = """<?php if (!defined("BASEPATH")) exit("No direct script access allowed");
+return array(
+  "components" => array(
+    "db" => array(
+      "connectionString" => "pgsql:host=" . getenv("PGHOST") . ";port=" . getenv("PGPORT") . ";dbname=" . getenv("PGDATABASE"),
+      "username" => getenv("PGUSER"),
+      "password" => getenv("PGPASSWORD"),
+      "charset" => "utf8",
+      "tablePrefix" => "lime_",
+    ),
+    "urlManager" => array(
+      "urlFormat" => "path",
+      "showScriptName" => true,
+    ),
+  ),
+  "config" => array(
+    "debug" => 0,
+    "debugsql" => 0,
+  ),
+);
+"""

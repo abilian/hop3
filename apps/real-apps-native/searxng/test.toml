@@ -1,0 +1,23 @@
+[test]
+name = "searxng"
+category = "native-app"
+tier = "slow"
+priority = "P2"
+description = "SearXNG metasearch engine"
+
+[test.requirements]
+targets = ["docker", "remote"]
+services = []
+
+[test.metadata]
+author = "hop3-team"
+covers = ["python", "searxng"]
+
+[deployment]
+path = "."
+
+[[validations]]
+type = "http"
+path = "/healthz"
+[validations.expect]
+status = 200

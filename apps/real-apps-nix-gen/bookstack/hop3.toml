@@ -5,11 +5,12 @@ description = "Simple, self-hosted documentation platform"
 
 [nix]
 template = "php-app"
+needs-writable-dir = true
+serve-mode = "artisan"
 url = "https://github.com/BookStackApp/BookStack/archive/refs/tags/v${version}.tar.gz"
 sha256 = "CDJ0X2x274ohrevyH+9w4J/wY9SEpdJTNO2MA0resLI="
 archive = "tar-gz"
 php-version = "php82"
-serve-mode = "artisan"
 php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'tokenizer', 'bcmath', 'intl', 'ldap']
 needs-composer = true
 post-install-dirs = ['storage/app', 'storage/framework/cache', 'storage/framework/sessions', 'storage/framework/views', 'storage/logs', 'bootstrap/cache']
@@ -29,5 +30,30 @@ builder = "nix"
 type = "mysql"
 
 [env]
+APP_KEY = "base64:dGhpc2lzYXRlc3RrZXlmb3Job3AzZGV2c2VydmVyMQ=="
 APP_ENV = "production"
 APP_DEBUG = "false"
+
+[env.computed]
+DB_CONNECTION = "mysql"
+DB_HOST = "${MYSQL_HOST}"
+DB_PORT = "${MYSQL_PORT}"
+DB_DATABASE = "${MYSQL_DATABASE}"
+DB_USERNAME = "${MYSQL_USER}"
+DB_PASSWORD = "${MYSQL_PASSWORD}"
+
+[[nix.config-files]]
+path = ".env"
+format = "raw"
+raw-content = """
+APP_ENV=${APP_ENV:-production}
+APP_DEBUG=${APP_DEBUG:-false}
+APP_KEY=${APP_KEY}
+APP_URL=http://localhost:${PORT:-8080}
+DB_CONNECTION=mysql
+DB_HOST=${DB_HOST:-127.0.0.1}
+DB_PORT=${DB_PORT:-3306}
+DB_DATABASE=${DB_DATABASE:-bookstack}
+DB_USERNAME=${DB_USERNAME:-bookstack}
+DB_PASSWORD=${DB_PASSWORD:-}
+"""

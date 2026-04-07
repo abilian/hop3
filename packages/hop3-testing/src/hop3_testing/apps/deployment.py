@@ -374,7 +374,7 @@ class DeploymentSession:
         hostname: str | None = None,
         path: str = "/",
         expected_status: int = HTTPStatus.OK,
-        max_retries: int = 20,
+        max_retries: int = 40,
     ) -> dict[str, Any]:
         """Test HTTP access and return detailed results.
 
@@ -413,35 +413,61 @@ class DeploymentSession:
     ) -> dict[str, Any]:
         """Test HTTP via the app's direct port, bypassing nginx.
 
-        This avoids hostname resolution and SSL redirect issues that
-        occur when nginx routes by Host header in test environments.
+        For Docker targets: connects from the test client to the container's
+        internal IP (reachable via Docker network).
+
+        For SSH targets: runs curl on the server itself (via SSH exec),
+        because the app's direct port is typically blocked by the server
+        firewall and not reachable from the test client.
         """
-        from urllib.parse import urlparse  # noqa: PLC0415
-
-        import httpx  # noqa: PLC0415
-
-        # Use ssh_host for direct port access. For Docker targets, this is
-        # the container's internal IP (e.g., 192.168.215.2) which is reachable
-        # from the host. For SSH targets, this is the server's hostname.
-        # We can't use http_base hostname because Docker only maps specific
-        # ports (80, 443, 8000) to localhost, not the app's direct port.
-        server_host = self.target.info.ssh_host
-        url = f"http://{server_host}:{port}{path}"
-
+        url = f"http://127.0.0.1:{port}{path}"
         result: dict[str, Any] = {
             "passed": False,
             "message": "",
             "details": {"url": url, "direct_port": port},
         }
 
-        self.console.info(f"Testing HTTP (direct port): {url}")
+        self.console.info(f"Testing HTTP (direct port {port}): {path}")
+
+        # Determine if we can connect directly or need to go via SSH
+        is_docker = hasattr(self.target, "container_name") or (
+            self.target.info.ssh_host not in {"localhost", "127.0.0.1"}
+            and "192.168." in self.target.info.ssh_host
+        )
+
+        if is_docker:
+            return self._test_http_local(
+                self.target.info.ssh_host, port, path,
+                expected_status, max_retries, result,
+            )
+        # SSH target: run curl on the server
+        return self._test_http_via_ssh(
+            port, path, expected_status, max_retries, result,
+        )
+
+    def _test_http_local(
+        self,
+        host: str,
+        port: int,
+        path: str,
+        expected_status: int,
+        max_retries: int,
+        result: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Test HTTP by connecting directly from the test client."""
+        import httpx  # noqa: PLC0415
+
+        url = f"http://{host}:{port}{path}"
+        result["details"]["url"] = url
 
         for attempt in range(max_retries):
             try:
                 response = httpx.get(url, timeout=5.0, follow_redirects=True)
                 result["details"]["status_code"] = response.status_code
                 result["details"]["attempts"] = attempt + 1
-                result["details"]["body_preview"] = response.text[:500] if response.text else ""
+                result["details"]["body_preview"] = (
+                    response.text[:500] if response.text else ""
+                )
 
                 if response.status_code == expected_status:
                     result["passed"] = True
@@ -451,12 +477,8 @@ class DeploymentSession:
                     )
                     return result
 
-                if response.status_code == HTTPStatus.BAD_GATEWAY:
-                    self.console.debug(
-                        f"Attempt {attempt + 1}/{max_retries}: "
-                        "Backend not ready, retrying..."
-                    )
-                    time.sleep(0.5)
+                if response.status_code in {502, 503, 504}:
+                    time.sleep(1)
                     continue
 
                 result["message"] = (
@@ -467,7 +489,67 @@ class DeploymentSession:
             except (httpx.HTTPError, httpx.ConnectError) as e:
                 result["details"]["last_error"] = str(e)
                 self.console.debug(f"Attempt {attempt + 1}/{max_retries}: {e}")
-                time.sleep(0.5)
+                time.sleep(1)
+
+        result["message"] = f"HTTP test failed after {max_retries} attempts on {url}"
+        return result
+
+    def _test_http_via_ssh(
+        self,
+        port: int,
+        path: str,
+        expected_status: int,
+        max_retries: int,
+        result: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Test HTTP by running curl on the remote server via SSH."""
+        url = f"http://127.0.0.1:{port}{path}"
+        result["details"]["url"] = url
+        result["details"]["method"] = "ssh-curl"
+
+        for attempt in range(max_retries):
+            try:
+                # exec_run returns (exit_code, stdout, stderr)
+                _exit_code, stdout, _stderr = self.target.exec_run(
+                    f"curl -s -o /dev/null -w '%{{http_code}}' "
+                    f"--connect-timeout 3 --max-time 5 '{url}'"
+                )
+                status_str = stdout.strip() if stdout else ""
+
+                if status_str.isdigit():
+                    status_code = int(status_str)
+                    result["details"]["status_code"] = status_code
+                    result["details"]["attempts"] = attempt + 1
+
+                    if status_code == expected_status:
+                        result["passed"] = True
+                        result["message"] = f"HTTP {status_code} from {url}"
+                        self.console.success(
+                            f"HTTP test passed (direct port {port}, status: {status_code})"
+                        )
+                        return result
+
+                    if status_code in {0, 502, 503, 504}:
+                        time.sleep(1)
+                        continue
+
+                    # Get body preview for non-matching status
+                    _, body, _ = self.target.exec_run(
+                        f"curl -s --max-time 3 '{url}' | head -c 500"
+                    )
+                    result["details"]["body_preview"] = body.strip() if body else ""
+                    result["message"] = (
+                        f"HTTP {status_code} (expected {expected_status}) from {url}"
+                    )
+                    return result
+
+                # curl failed (connection refused, etc.) — app still starting
+                time.sleep(1)
+
+            except Exception as e:
+                result["details"]["last_error"] = str(e)
+                self.console.debug(f"Attempt {attempt + 1}/{max_retries}: {e}")
+                time.sleep(1)
 
         result["message"] = f"HTTP test failed after {max_retries} attempts on {url}"
         return result

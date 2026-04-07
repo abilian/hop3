@@ -5,6 +5,7 @@ description = "Self-hosted productivity platform"
 
 [nix]
 template = "php-app"
+needs-writable-dir = true
 url = "https://download.nextcloud.com/server/releases/nextcloud-${version}.tar.bz2"
 sha256 = "3jTWuvPszqz90TjoVSDNheHSzmeY2f+keKwX6x76HQg="
 archive = "tar-bz2"
@@ -25,3 +26,20 @@ type = "mysql"
 [env]
 NEXTCLOUD_ADMIN_USER = "admin"
 NEXTCLOUD_ADMIN_PASSWORD = "changeme"
+
+[[nix.config-files]]
+path = "config/autoconfig.php"
+format = "raw"
+create-if-missing = true
+raw-content = """<?php
+$AUTOCONFIG = array(
+  "dbtype" => "mysql",
+  "dbname" => getenv("MYSQL_DATABASE") ?: "nextcloud",
+  "dbuser" => getenv("MYSQL_USER") ?: "nextcloud",
+  "dbpass" => getenv("MYSQL_PASSWORD") ?: "",
+  "dbhost" => getenv("MYSQL_HOST") ?: "127.0.0.1",
+  "directory" => "./data",
+  "adminlogin" => "admin",
+  "adminpass" => "admin123",
+);
+"""

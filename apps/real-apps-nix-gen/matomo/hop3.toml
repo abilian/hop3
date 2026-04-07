@@ -5,6 +5,7 @@ description = "Open source web analytics platform"
 
 [nix]
 template = "php-app"
+needs-writable-dir = true
 url = "https://builds.matomo.org/matomo-${version}.tar.gz"
 sha256 = "4dtIUinaEPtuEaangdlaIsw0xduG4AeUEaIUJ0IJ8Dw="
 archive = "tar-gz"
@@ -24,3 +25,20 @@ type = "mysql"
 
 [env]
 MATOMO_DATABASE_HOST = "${MYSQL_HOST}"
+
+[[nix.config-files]]
+path = "config/config.ini.php"
+format = "raw"
+create-if-missing = true
+raw-content = """; <?php exit; ?> DO NOT REMOVE THIS LINE
+[database]
+host = "${MYSQL_HOST:-127.0.0.1}"
+username = "${MYSQL_USER:-matomo}"
+password = "${MYSQL_PASSWORD:-}"
+dbname = "${MYSQL_DATABASE:-matomo}"
+port = ${MYSQL_PORT:-3306}
+tables_prefix = "matomo_"
+
+[General]
+trusted_hosts[] = "localhost:${PORT:-8080}"
+"""

@@ -60,6 +60,9 @@ def run_tests(
     This is the single test execution function used by all CLI commands.
     The target is started, tests are executed, results are collected and reported.
     """
+    # Sort tests by name for deterministic, alphabetical execution order
+    tests = sorted(tests, key=lambda t: t.name)
+
     verbose = ctx.obj["verbose"]
     console = _create_console(verbose, quiet)
     store = ResultStore()

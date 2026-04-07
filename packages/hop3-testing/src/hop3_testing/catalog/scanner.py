@@ -153,8 +153,8 @@ class Catalog:
         processed_dirs: set[Path] = set()
         demo_internal_dirs = self._find_demo_internal_dirs(path, rel_path)
 
-        # Check for test.toml files recursively
-        for test_toml in path.rglob("test.toml"):
+        # Check for test.toml files recursively (sorted for deterministic order)
+        for test_toml in sorted(path.rglob("test.toml")):
             app_dir = test_toml.parent
             if self._has_ignore_ancestor(app_dir, path):
                 continue
@@ -163,7 +163,7 @@ class Catalog:
                 processed_dirs.add(app_dir)
 
         # Check for hop3.toml files recursively (that don't have test.toml)
-        for hop3_toml in path.rglob("hop3.toml"):
+        for hop3_toml in sorted(path.rglob("hop3.toml")):
             app_dir = hop3_toml.parent
             if self._has_ignore_ancestor(app_dir, path):
                 continue

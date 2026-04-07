@@ -166,6 +166,10 @@ class AppSpec:
     single_file: bool = False
     # If True, app doesn't need `cp -r . $out/app/` (e.g., single file case)
     skip_source_copy: bool = False
+    # If True, wrapper creates symlinks from Nix store to writable cwd before
+    # serving. Required for apps that need runtime-generated config files
+    # (Laravel .env, Nextcloud config.php, etc.) since the Nix store is read-only.
+    needs_writable_dir: bool = False
     # Extra nativeBuildInputs (beyond php and composer). Strings are taken
     # as-is and placed into the Nix attrset, so use full attr paths like
     # "pkgs.nodejs" or "pkgs.unzip".

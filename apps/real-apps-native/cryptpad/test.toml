@@ -1,0 +1,23 @@
+[test]
+name = "cryptpad"
+category = "native-app"
+tier = "slow"
+priority = "P2"
+description = "CryptPad collaborative editor"
+
+[test.requirements]
+targets = ["docker", "remote"]
+services = []
+
+[test.metadata]
+author = "hop3-team"
+covers = ["nodejs", "cryptpad"]
+
+[deployment]
+path = "."
+
+[[validations]]
+type = "http"
+path = "/"
+[validations.expect]
+status = 200
