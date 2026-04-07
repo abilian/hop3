@@ -1,0 +1,61 @@
+[metadata]
+id = "grafana"
+version = "11.3.2"
+description = "The open and composable observability and data visualization platform"
+
+[nix]
+template = "prebuilt-archive"
+url = "https://dl.grafana.com/oss/release/grafana-${version}.linux-amd64.tar.gz"
+sha256 = "+q0bQKTrx8q+pHmxVSqB894QwD2lsoGTz6QaeT52FVc="
+archive = "tar-gz"
+exec-target = "grafana"
+source-root = "grafana-v${version}"
+exec-args = ['server', '--homepath', 'SHAREDIR', '--config', '"$PWD/conf/custom.ini"']
+pre-exec = ['mkdir -p data logs conf/provisioning/datasources conf/provisioning/dashboards']
+
+[nix.local-vars]
+PORT = "${PORT:-8080}"
+
+[nix.env-exports]
+GF_SERVER_HTTP_PORT = "${PORT}"
+GF_PATHS_DATA = "$PWD/data"
+GF_PATHS_LOGS = "$PWD/logs"
+GF_PATHS_PROVISIONING = "$PWD/conf/provisioning"
+
+[nix.runtime-env]
+GF_SECURITY_ADMIN_USER = "admin"
+GF_PATHS_DATA = "./data"
+GF_PATHS_LOGS = "./logs"
+
+[[nix.config-files]]
+path = "conf/custom.ini"
+format = "ini"
+create-if-missing = true
+[nix.config-files.sections.server]
+http_port = "${PORT}"
+[nix.config-files.sections.paths]
+data = "data"
+logs = "logs"
+[nix.config-files.sections.security]
+admin_user = "${GF_SECURITY_ADMIN_USER:-admin}"
+
+[[nix.file-mappings]]
+source = "bin/*"
+destination = "bin/"
+
+[[nix.file-mappings]]
+source = "conf"
+destination = "share/grafana/"
+
+[[nix.file-mappings]]
+source = "public"
+destination = "share/grafana/"
+
+# hop3.toml - Hop3 configuration for Nix-based Grafana
+# The open observability platform (uses SQLite by default, no database addon)
+
+[build]
+builder = "nix"
+
+[run]
+start-timeout = 120

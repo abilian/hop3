@@ -145,13 +145,17 @@ class MySQLAdmin:
             unix_socket = _find_mysql_socket()
 
         # When using unix socket auth and no explicit superuser was configured,
-        # default to the current OS user (common on macOS with Homebrew MariaDB)
+        # default to the current OS user ONLY on macOS (Homebrew MariaDB pattern).
+        # On Linux servers, MySQL root typically has socket peer auth, so keep "root".
         if unix_socket and superuser == "root" and not password:
-            env_user = prefix_config.get_str("SUPERUSER", None) or config.get_str(
-                "MYSQL_SUPERUSER", None
-            )
-            if not env_user:
-                superuser = os.getenv("USER", "root")
+            import sys  # noqa: PLC0415
+
+            if sys.platform == "darwin":
+                env_user = prefix_config.get_str("SUPERUSER", None) or config.get_str(
+                    "MYSQL_SUPERUSER", None
+                )
+                if not env_user:
+                    superuser = os.getenv("USER", "root")
 
         return cls(
             host=host,

@@ -1,0 +1,29 @@
+[metadata]
+id = "wordpress"
+version = "6.4.2"
+description = "Popular open source content management system"
+
+[nix]
+template = "php-app"
+url = "https://wordpress.org/wordpress-${version}.tar.gz"
+sha256 = "m4KJELf5zs3gwAQPmAhoPe2rhopZFsYN6OzAv6Wzo6c="
+archive = "tar-gz"
+php-version = "php82"
+php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'zip', 'curl', 'mbstring', 'xml', 'intl', 'exif']
+post-install-dirs = ['wp-content/uploads', 'wp-content/plugins', 'wp-content/themes']
+extra-paths = ['${php}/bin']
+
+[nix.runtime-env]
+WP_DEBUG = "false"
+
+# Hop3 Configuration for WordPress (Nix build)
+# Popular content management system
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "mysql"
+
+[env]
+WP_DEBUG = "false"

@@ -1,0 +1,74 @@
+[metadata]
+id = "wiki-js"
+version = "2.5.303"
+description = "Modern and powerful wiki platform"
+
+[nix]
+template = "node-prebuilt"
+url = "https://github.com/Requarks/wiki/releases/download/v${version}/wiki-js.tar.gz"
+sha256 = "Jpv4D+ldGPvJz+8cwNhrmC+Ii5dG0UOTC5JIWPwUzvk="
+archive = "tar-gz"
+exec-target = "server/index.js"
+runtime-package = "nodejs_22"
+unpack-without-top-level = true
+extra-paths = ['${nodejs}/bin']
+pre-exec = [
+  "mkdir -p data",
+  """# Symlink Wiki.js assets from the read-only Nix store to the writable cwd
+for item in server node_modules assets package.json; do
+  if [ -e APPDIR/$item ] && [ ! -e $item ]; then
+    ln -sf APPDIR/$item $item
+  fi
+done"""
+,
+]
+
+[nix.local-vars]
+PORT = "${PORT:-8080}"
+DB_HOST = "${PGHOST:-localhost}"
+DB_PORT = "${PGPORT:-5432}"
+DB_NAME = "${PGDATABASE:-wikijs}"
+DB_USER = "${PGUSER:-wikijs}"
+DB_PASS = "${PGPASSWORD:-}"
+
+[nix.env-exports]
+NODE_ENV = "production"
+
+[nix.runtime-env]
+NODE_ENV = "production"
+
+[[nix.config-files]]
+path = "config.yml"
+format = "raw"
+raw-content = """
+port: ${PORT}
+bindIP: 0.0.0.0
+
+db:
+  type: postgres
+  host: ${DB_HOST}
+  port: ${DB_PORT}
+  user: ${DB_USER}
+  pass: ${DB_PASS}
+  db: ${DB_NAME}
+  ssl: false
+
+logLevel: info
+
+offline: false
+ha: false
+
+dataPath: ./data
+"""
+
+# Hop3 Configuration for Wiki.js (Nix build)
+# Modern wiki platform
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
+
+[env]
+NODE_ENV = "production"

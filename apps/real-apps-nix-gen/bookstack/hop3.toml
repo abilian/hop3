@@ -1,0 +1,33 @@
+[metadata]
+id = "bookstack"
+version = "24.02"
+description = "Simple, self-hosted documentation platform"
+
+[nix]
+template = "php-app"
+url = "https://github.com/BookStackApp/BookStack/archive/refs/tags/v${version}.tar.gz"
+sha256 = "CDJ0X2x274ohrevyH+9w4J/wY9SEpdJTNO2MA0resLI="
+archive = "tar-gz"
+php-version = "php82"
+serve-mode = "artisan"
+php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'tokenizer', 'bcmath', 'intl', 'ldap']
+needs-composer = true
+post-install-dirs = ['storage/app', 'storage/framework/cache', 'storage/framework/sessions', 'storage/framework/views', 'storage/logs', 'bootstrap/cache']
+extra-paths = ['${php}/bin']
+
+[nix.runtime-env]
+APP_ENV = "production"
+APP_DEBUG = "false"
+
+# Hop3 Configuration for BookStack (Nix build)
+# Documentation/wiki platform
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "mysql"
+
+[env]
+APP_ENV = "production"
+APP_DEBUG = "false"

@@ -297,6 +297,13 @@ class Hop3TomlSchema(BaseModel):
         default=None,
         description="Deprecated: use [[addons]] instead",
     )
+    nix: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Nix template configuration for auto-generating hop3.nix. "
+            "Requires [nix].template to be set. See ADR 008."
+        ),
+    )
 
 
 class Hop3TomlValidationError(Exception):

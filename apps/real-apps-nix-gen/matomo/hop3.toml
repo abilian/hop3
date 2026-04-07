@@ -1,0 +1,26 @@
+[metadata]
+id = "matomo"
+version = "5.0.1"
+description = "Open source web analytics platform"
+
+[nix]
+template = "php-app"
+url = "https://builds.matomo.org/matomo-${version}.tar.gz"
+sha256 = "4dtIUinaEPtuEaangdlaIsw0xduG4AeUEaIUJ0IJ8Dw="
+archive = "tar-gz"
+php-version = "php82"
+php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'zlib', 'intl']
+post-install-dirs = ['tmp']
+extra-paths = ['${php}/bin']
+
+# Hop3 Configuration for Matomo (Nix build)
+# Web analytics platform
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "mysql"
+
+[env]
+MATOMO_DATABASE_HOST = "${MYSQL_HOST}"

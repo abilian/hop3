@@ -1,0 +1,35 @@
+[metadata]
+id = "invoice-ninja"
+version = "5.8.37"
+description = "Free open-source invoicing platform"
+
+[nix]
+template = "php-app"
+url = "https://github.com/invoiceninja/invoiceninja/archive/refs/tags/v${version}.tar.gz"
+sha256 = "7NZs3hAxH3awKMeIlwqem6gnVCRGdpDvZZ+7SW033qY="
+archive = "tar-gz"
+php-version = "php82"
+serve-mode = "artisan"
+php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'bcmath', 'intl', 'soap', 'fileinfo', 'tokenizer']
+needs-composer = true
+composer-extra-flags = ['--ignore-platform-reqs']
+post-install-dirs = ['storage/app', 'storage/framework/cache', 'storage/framework/sessions', 'storage/framework/views', 'storage/logs', 'bootstrap/cache', 'public/storage']
+extra-native-build-inputs = ['pkgs.nodejs']
+extra-paths = ['${php}/bin']
+
+[nix.runtime-env]
+APP_ENV = "production"
+APP_DEBUG = "false"
+
+# Hop3 Configuration for Invoice Ninja (Nix build)
+# Invoicing and billing platform
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "mysql"
+
+[env]
+APP_ENV = "production"
+APP_DEBUG = "false"

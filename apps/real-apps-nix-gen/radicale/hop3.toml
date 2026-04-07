@@ -1,0 +1,41 @@
+[metadata]
+id = "radicale"
+description = "A simple CalDAV and CardDAV server"
+
+[nix]
+template = "nixpkgs-wrapper"
+exec-target = "radicale"
+nixpkgs-package = "radicale"
+exec-args = ['--config', 'config', '"$@"']
+extra-paths = ['${radicale}/bin']
+pre-exec = ['mkdir -p collections']
+
+[nix.local-vars]
+PORT = "${PORT:-8080}"
+
+[nix.runtime-env]
+RADICALE_AUTH_TYPE = "none"
+
+[[nix.config-files]]
+path = "config"
+format = "raw"
+create-if-missing = true
+raw-content = """
+[server]
+hosts = 0.0.0.0:${PORT}
+
+[auth]
+type = ${RADICALE_AUTH_TYPE:-none}
+
+[storage]
+filesystem_folder = collections
+"""
+
+# Hop3 Configuration for Radicale (Nix build)
+# Simple CalDAV and CardDAV server
+
+[build]
+builder = "nix"
+
+[env]
+RADICALE_AUTH_TYPE = "none"

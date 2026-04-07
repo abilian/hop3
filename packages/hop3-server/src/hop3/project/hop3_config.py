@@ -534,6 +534,7 @@ class Hop3Config:
             "addons": self.addons,
             "providers": self.providers,  # Deprecated, kept for compatibility
             "workers": self.get_workers_from_run_section(),
+            "nix": self._data.get("nix", {}),
         }
 
     def __repr__(self) -> str:

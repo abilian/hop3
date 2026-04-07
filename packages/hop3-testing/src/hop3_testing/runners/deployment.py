@@ -72,6 +72,74 @@ class DeploymentTestRunner:
             return http_result["message"]
         return None
 
+    def _run_http_validations(
+        self,
+        test: TestDefinition,
+        session: DeploymentSession,
+        app_source: AppSource,
+        validation_results: list[ValidationResult],
+    ) -> str | None:
+        """Run HTTP validations from test.toml, or default for Procfile apps."""
+        http_validations = [v for v in test.validations if v.type == "http"]
+
+        if http_validations:
+            for v in http_validations:
+                path = v.path or "/"
+                expected_status = v.expect.status or 200
+                contains = v.expect.contains
+                if error := self._run_http_validation(
+                    session,
+                    path,
+                    expected_status,
+                    contains,
+                    validation_results,
+                ):
+                    return error
+        elif app_source.has_procfile:
+            # Legacy: no [[validations]] in test.toml, default check
+            return self._run_http_test(session, validation_results)
+
+        return None
+
+    def _run_http_validation(
+        self,
+        session: DeploymentSession,
+        path: str,
+        expected_status: int,
+        contains: str | None,
+        validation_results: list[ValidationResult],
+    ) -> str | None:
+        """Run an HTTP validation from test.toml and return error or None."""
+        http_start = time.time()
+        http_result = session.test_http_detailed(
+            path=path,
+            expected_status=expected_status,
+        )
+        duration = time.time() - http_start
+
+        # Check contains if specified and HTTP status matched
+        if http_result["passed"] and contains:
+            body = http_result.get("details", {}).get("body_preview", "")
+            if contains not in body:
+                http_result["passed"] = False
+                http_result["message"] = (
+                    f"HTTP {expected_status} OK but body does not contain "
+                    f"'{contains}'. Got: {body[:200]}"
+                )
+
+        validation_results.append(
+            ValidationResult(
+                passed=http_result["passed"],
+                message=http_result["message"],
+                duration=duration,
+                validation_type="http",
+                details=http_result.get("details"),
+            )
+        )
+        if not http_result["passed"]:
+            return http_result["message"]
+        return None
+
     def _run_check_script(
         self, session: DeploymentSession, validation_results: list[ValidationResult]
     ) -> str | None:
@@ -218,15 +286,16 @@ class DeploymentTestRunner:
                     error=error,
                 )
 
-            if app_source.has_procfile:
-                if http_error := self._run_http_test(session, validation_results):
-                    return TestResult(
-                        test=test,
-                        passed=False,
-                        validation_results=validation_results,
-                        total_duration=time.time() - start_time,
-                        error=http_error,
-                    )
+            if http_error := self._run_http_validations(
+                test, session, app_source, validation_results
+            ):
+                return TestResult(
+                    test=test,
+                    passed=False,
+                    validation_results=validation_results,
+                    total_duration=time.time() - start_time,
+                    error=http_error,
+                )
 
             if app_source.has_check_script:
                 if check_error := self._run_check_script(session, validation_results):

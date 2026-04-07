@@ -1,0 +1,57 @@
+[metadata]
+id = "focalboard"
+version = "7.10.5"
+description = "Open source project management tool"
+
+[nix]
+template = "prebuilt-archive"
+url = "https://github.com/mattermost-community/focalboard/releases/download/v${version}/focalboard-server-linux-amd64.tar.gz"
+sha256 = "VZFQqC5QwR/gy6/RKtA55kuIUMer8hGYdZi9otDxiAQ="
+archive = "tar-gz"
+exec-target = "focalboard-server"
+source-root = "."
+pre-exec = ['mkdir -p files']
+
+[nix.local-vars]
+PORT = "${PORT:-8080}"
+
+[nix.runtime-env]
+FOCALBOARD_EDITION = "personal"
+
+[[nix.config-files]]
+path = "config.json"
+format = "raw"
+raw-content = """
+{
+  "serverRoot": "http://localhost:${PORT}",
+  "port": ${PORT},
+  "dbtype": "postgres",
+  "dbconfig": "postgres://${PGUSER:-focalboard}:${PGPASSWORD:-}@${PGHOST:-localhost}:${PGPORT:-5432}/${PGDATABASE:-focalboard}?sslmode=disable",
+  "postgres_dbconfig": "postgres://${PGUSER:-focalboard}:${PGPASSWORD:-}@${PGHOST:-localhost}:${PGPORT:-5432}/${PGDATABASE:-focalboard}?sslmode=disable",
+  "webpath": "SHAREDIR/webapp-pack",
+  "filespath": "./files",
+  "telemetry": false,
+  "session_expire_time": 2592000,
+  "session_refresh_time": 18000,
+  "localOnly": false,
+  "enableLocalMode": true,
+  "localModeSocketLocation": "/var/tmp/focalboard_local.socket"
+}
+"""
+
+[[nix.file-mappings]]
+source = "focalboard/bin/focalboard-server"
+destination = "bin/"
+
+[[nix.file-mappings]]
+source = "focalboard/pack"
+destination = "share/focalboard/webapp-pack"
+
+# hop3.toml - Hop3 configuration for Nix-based Focalboard
+# Project management and organization tool
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"

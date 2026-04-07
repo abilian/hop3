@@ -1,0 +1,31 @@
+[metadata]
+id = "dolibarr"
+version = "19.0.3"
+description = "Open source ERP and CRM for small and medium businesses"
+
+[nix]
+template = "php-app"
+url = "https://github.com/Dolibarr/dolibarr/archive/refs/tags/${version}.tar.gz"
+sha256 = "UvzqWjVPhoj6Moq/+qGWv5BW9UUWTNf+iC0bt95lQWM="
+archive = "tar-gz"
+php-version = "php82"
+web-root = "htdocs"
+php-extensions = ['pgsql', 'pdo_pgsql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'intl', 'calendar', 'imap', 'ldap']
+needs-composer = true
+post-install-dirs = ['documents']
+extra-paths = ['${php}/bin']
+
+[nix.runtime-env]
+DOLI_ADMIN_LOGIN = "admin"
+
+# Hop3 Configuration for Dolibarr (Nix build)
+# Open source ERP and CRM
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
+
+[env]
+DOLI_ADMIN_LOGIN = "admin"

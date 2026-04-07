@@ -299,6 +299,161 @@ name = "postgres"
 plan = "standard"
 ```
 
+## `[nix]` — Template-Based Nix Builds
+
+When `builder = "nix"` is set in `[build]`, Hop3 can generate a Nix expression automatically from a `[nix]` section instead of requiring a hand-crafted `hop3.nix` file. This removes the Nix learning curve for most deployments.
+
+### How It Works
+
+1. If a `hop3.nix` file exists in the source directory, it is used directly (hand-crafted mode).
+2. If no `hop3.nix` exists but `[nix].template` is set, Hop3 generates one at build time from the template.
+3. Run `hop3 nix:eject <app>` to materialize the generated file for manual customization.
+
+### Template Types
+
+| Template | Use case |
+|----------|----------|
+| `prebuilt-binary` | Pre-compiled single binary (Gitea, Miniflux) |
+| `prebuilt-archive` | Pre-compiled archive with multiple files (Grafana, Mattermost) |
+| `php-app` | PHP apps served with `php -S` or `artisan serve` |
+| `node-prebuilt` | Node.js apps with pre-built assets |
+| `java-war` | Java WAR files served with JDK |
+| `python-venv` | Python apps installed via pip into a virtualenv |
+| `nixpkgs-wrapper` | Apps already packaged in nixpkgs |
+
+### Common Fields
+
+```toml
+[nix]
+template = "prebuilt-binary"   # Required: template type
+url = "https://..."            # Source URL (supports ${version} interpolation)
+sha256 = "abc123..."           # SHA-256 hash for source verification
+executable = false             # true for single-binary downloads
+archive = "tar-gz"             # "tar-gz", "tar-bz2", "tar-xz", "zip", or omit
+binary-name = "myapp"          # Name of the binary (prebuilt-binary)
+exec-target = "myapp"          # What to exec in the wrapper
+exec-args = ["serve"]          # Arguments appended to exec
+extra-paths = ["${php}/bin"]   # PATH entries for runtime.json
+```
+
+### Wrapper Script Fields
+
+These configure the shell wrapper that runs at application startup:
+
+```toml
+[nix.local-vars]               # Shell variables (not exported)
+PORT = "${PORT:-8080}"
+
+[nix.env-exports]              # Exported environment variables
+NODE_ENV = "production"
+
+[nix.runtime-env]              # Default env vars in runtime.json
+APP_ENV = "production"
+
+[[nix.conditional-env]]        # Set only if not already defined
+name = "DATABASE_URL"
+condition-var = "DATABASE_URL"
+value = "postgres://${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+```
+
+### Config File Generation
+
+Generate config files at startup with runtime variable substitution:
+
+```toml
+[[nix.config-files]]
+path = "custom/conf/app.ini"
+format = "ini"                  # "ini" or "raw"
+create-if-missing = false       # Only create if file doesn't exist
+
+[nix.config-files.sections.server]
+HTTP_PORT = "${PORT}"
+
+[nix.config-files.sections.database]
+HOST = "${PGHOST}:${PGPORT}"
+```
+
+For JSON, YAML, or complex configs, use `format = "raw"`:
+
+```toml
+[[nix.config-files]]
+path = "config.json"
+format = "raw"
+raw-content = """
+{
+  "port": ${PORT},
+  "db": "postgres://${PGUSER}@${PGHOST}/${PGDATABASE}"
+}
+"""
+```
+
+### PHP-Specific Fields
+
+```toml
+[nix]
+template = "php-app"
+php-version = "php82"
+php-extensions = ["mysqli", "gd", "mbstring", "xml"]
+needs-composer = true
+composer-extra-flags = ["--ignore-platform-reqs"]
+serve-mode = "builtin"         # "builtin" (php -S) or "artisan"
+web-root = "htdocs"            # Subdirectory for document root
+post-install-dirs = ["storage/logs", "bootstrap/cache"]
+```
+
+### Complete Example (Gitea)
+
+```toml
+[metadata]
+id = "gitea"
+version = "1.21.4"
+description = "Self-hosted Git service"
+
+[build]
+builder = "nix"
+
+[nix]
+template = "prebuilt-binary"
+url = "https://dl.gitea.io/gitea/${version}/gitea-${version}-linux-amd64"
+sha256 = "WKxZM2BGLQAAHisMlMhDoXF6pTFW8Pt30y5+V57jv6s="
+executable = true
+binary-name = "gitea"
+exec-args = ["web"]
+
+[nix.local-vars]
+PORT = "${PORT:-8080}"
+DB_HOST = "${PGHOST:-localhost}"
+DB_PORT = "${PGPORT:-5432}"
+DB_NAME = "${PGDATABASE:-gitea}"
+DB_USER = "${PGUSER:-gitea}"
+DB_PASS = "${PGPASSWORD:-}"
+
+[nix.env-exports]
+GITEA_WORK_DIR = "$PWD"
+
+[[nix.config-files]]
+path = "custom/conf/app.ini"
+format = "ini"
+
+[nix.config-files.sections.server]
+HTTP_PORT = "${PORT}"
+ROOT_URL = "http://localhost:${PORT}/"
+
+[nix.config-files.sections.database]
+DB_TYPE = "postgres"
+HOST = "${DB_HOST}:${DB_PORT}"
+NAME = "${DB_NAME}"
+USER = "${DB_USER}"
+PASSWD = "${DB_PASS}"
+
+[nix.config-files.sections.security]
+INSTALL_LOCK = "true"
+SECRET_KEY = "$(head -c 32 /dev/urandom | base64)"
+
+[[addons]]
+type = "postgres"
+```
+
 ## Migration from Procfile
 
 Use the migration command to convert an existing Procfile:

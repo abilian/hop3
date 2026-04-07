@@ -21,14 +21,16 @@ NIX_DAEMON_PROFILE = Path("/nix/var/nix/profiles/default/etc/profile.d/nix-daemo
 
 
 class NixBuilder:
-    """Build applications using user-provided hop3.nix.
+    """Build applications using Nix.
 
-    This builder handles applications that include a hop3.nix file,
-    which defines how to build the application using Nix. The hop3.nix
-    must produce a package containing $out/hop3/runtime.json with
-    resolved store paths.
+    Supports two modes:
+    - **Explicit**: Application provides a hand-crafted ``hop3.nix`` file.
+    - **Generated**: Application provides a ``[nix]`` section in ``hop3.toml``
+      with a template name; the builder generates ``hop3.nix`` on the fly
+      using the template-based generator (ADR 008).
 
-    Phase 1 of Nix integration - supports explicit hop3.nix files only.
+    In both modes, the built package must contain ``$out/hop3/runtime.json``
+    with resolved Nix store paths for workers, env vars, and PATH entries.
     """
 
     name: str = "nix"
@@ -41,35 +43,52 @@ class NixBuilder:
         """
         self.context = context
         self.rejection_reason: str = ""
+        self._mode: str = ""  # "explicit" or "generated"
 
     def accept(self) -> bool:
         """Check if this builder can handle the application.
 
-        Returns True if:
-        - hop3.nix file exists in the source directory
-        - nix command is available on the system
+        Returns True if either:
+        - A hop3.nix file exists in the source directory (explicit mode), or
+        - The hop3.toml has a [nix] section with a template name (generated mode)
+
+        In both cases, the nix command must be available on the system.
 
         Returns:
             True if builder can handle this application.
         """
         source = self.context.source_path
 
-        # Check for hop3.nix
-        if not (source / "hop3.nix").exists():
-            self.rejection_reason = "no hop3.nix file found"
-            return False
+        # Phase 1: Explicit hop3.nix file takes precedence
+        if (source / "hop3.nix").exists():
+            if not self._nix_available():
+                self.rejection_reason = "nix command not found"
+                return False
+            self._mode = "explicit"
+            return True
 
-        # Check nix is available
-        if not self._nix_available():
-            self.rejection_reason = "nix command not found"
-            return False
+        # Phase 2: [nix] section with template in hop3.toml
+        app_config = self.context.app_config or {}
+        hop3_config = app_config.get("hop3_config", {})
+        nix_section = hop3_config.get("nix", {})
+        if nix_section.get("template"):
+            if not self._nix_available():
+                self.rejection_reason = "nix command not found"
+                return False
+            self._mode = "generated"
+            return True
 
-        return True
+        self.rejection_reason = "no hop3.nix and no [nix].template in hop3.toml"
+        return False
 
     def build(self) -> BuildArtifact:
         """Build the application with nix-build.
 
-        Runs nix-build on hop3.nix, then reads the runtime configuration
+        In explicit mode, uses the existing hop3.nix file.
+        In generated mode, generates hop3.nix from the [nix] template spec
+        and writes it to a temporary file before building.
+
+        Runs nix-build on the nix file, then reads the runtime configuration
         from $out/hop3/runtime.json in the built package.
 
         Returns:
@@ -79,7 +98,17 @@ class NixBuilder:
             RuntimeError: If nix-build fails or runtime.json is missing.
         """
         source = self.context.source_path
+
+        # 0. Resolve the nix file (explicit or generated).
+        # Determine mode here (not only in accept()) because the builder
+        # may be force-selected via [build].builder = "nix" without
+        # accept() being called.
         nix_file = source / "hop3.nix"
+        if nix_file.exists():
+            self._mode = "explicit"
+        else:
+            # No hop3.nix — try to generate from [nix] template
+            nix_file = self._generate_nix_file()
 
         # 1. Kill any stale nix-build for this app (e.g., from a previous killed deploy)
         self._kill_stale_nix_builds(nix_file)
@@ -128,6 +157,59 @@ class NixBuilder:
                 "store_path": store_path,
             },
         )
+
+    def _generate_nix_file(self) -> Path:
+        """Generate a hop3.nix from the [nix] section in hop3.toml.
+
+        Creates a temporary file containing the generated Nix expression
+        and returns its path. The file is written alongside the source
+        (in a temp dir, not inside the source tree which may be read-only).
+
+        Returns:
+            Path to the generated hop3.nix file.
+
+        Raises:
+            RuntimeError: If the [nix] section is missing or invalid.
+        """
+        from hop3.lib import log  # noqa: PLC0415
+        from hop3.plugins.build.nix.gen import generate  # noqa: PLC0415
+        from hop3.plugins.build.nix.gen.toml_adapter import (  # noqa: PLC0415
+            app_spec_from_config,
+        )
+
+        app_config = self.context.app_config or {}
+        hop3_config = app_config.get("hop3_config", {})
+        nix_config = hop3_config.get("nix", {})
+        metadata = hop3_config.get("metadata", {})
+
+        if not nix_config.get("template"):
+            msg = (
+                "No hop3.nix file found and no [nix].template in hop3.toml. "
+                "Either provide a hop3.nix file or add a [nix] section with "
+                'template = "prebuilt-binary" (or another template name).'
+            )
+            raise RuntimeError(msg)
+
+        spec = app_spec_from_config(
+            nix_config=nix_config,
+            metadata=metadata,
+            app_name=self.context.app_name,
+        )
+        nix_text = generate(spec)
+
+        # Write into the source directory so that relative Nix paths
+        # (e.g., bundlerEnv { gemdir = ./.; }) resolve correctly against
+        # the app's source tree. Always writable during deployment.
+        nix_file = self.context.source_path / "hop3.nix"
+        nix_file.write_text(nix_text)
+
+        log(
+            f"  [nix] Generated hop3.nix from template '{spec.template}' "
+            f"({len(nix_text)} chars)",
+            level=1,
+            fg="blue",
+        )
+        return nix_file
 
     def _nix_available(self) -> bool:
         """Check if nix command is available on the system."""

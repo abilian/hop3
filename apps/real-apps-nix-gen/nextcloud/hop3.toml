@@ -1,0 +1,27 @@
+[metadata]
+id = "nextcloud"
+version = "28.0.2"
+description = "Self-hosted productivity platform"
+
+[nix]
+template = "php-app"
+url = "https://download.nextcloud.com/server/releases/nextcloud-${version}.tar.bz2"
+sha256 = "3jTWuvPszqz90TjoVSDNheHSzmeY2f+keKwX6x76HQg="
+archive = "tar-bz2"
+php-version = "php82"
+php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'intl', 'bcmath', 'gmp', 'exif', 'apcu', 'opcache', 'fileinfo']
+post-install-dirs = ['data', 'config']
+extra-paths = ['${php}/bin']
+
+# Hop3 Configuration for Nextcloud (Nix build)
+# File hosting and collaboration platform
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "mysql"
+
+[env]
+NEXTCLOUD_ADMIN_USER = "admin"
+NEXTCLOUD_ADMIN_PASSWORD = "changeme"

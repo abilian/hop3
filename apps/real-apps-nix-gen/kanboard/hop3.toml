@@ -1,0 +1,26 @@
+[metadata]
+id = "kanboard"
+version = "1.2.37"
+description = "Kanban project management platform"
+
+[nix]
+template = "php-app"
+url = "https://github.com/kanboard/kanboard/archive/refs/tags/v${version}.tar.gz"
+sha256 = "TVOLDXS3rX4n4cMQiztpkwmkYAbkTDhagD2+wZ+Erv8="
+archive = "tar-gz"
+php-version = "php82"
+php-extensions = ['mysqli', 'pdo_mysql', 'pdo_sqlite', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'ldap']
+post-install-dirs = ['data']
+extra-paths = ['${php}/bin']
+
+# Hop3 Configuration for Kanboard (Nix build)
+# Kanban project management software
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "mysql"
+
+[env]
+DEBUG = "false"

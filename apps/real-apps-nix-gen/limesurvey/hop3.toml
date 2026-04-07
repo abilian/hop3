@@ -1,0 +1,35 @@
+[metadata]
+id = "limesurvey"
+version = "6.16.10"
+description = "Professional online survey and data collection tool"
+
+[nix]
+template = "php-app"
+url = "https://download.limesurvey.org/latest-master/limesurvey${version}+260223.zip"
+sha256 = "jXRc89eWmPd354Zk2peRJR7v4G9ePwTJT9BS2es3tnk="
+archive = "zip"
+source-root = "limesurvey"
+php-version = "php82"
+php-extensions = ['pgsql', 'pdo_pgsql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'intl', 'ldap', 'imap']
+post-install-dirs = ['tmp', 'upload']
+extra-paths = ['${php}/bin']
+
+[nix.runtime-env]
+ADMIN_USER = "admin"
+ADMIN_NAME = "Administrator"
+ADMIN_EMAIL = "admin@example.com"
+
+# Hop3 Configuration for LimeSurvey (Nix build)
+# Professional online survey tool
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
+
+[env]
+ADMIN_USER = "admin"
+ADMIN_NAME = "Administrator"
+ADMIN_EMAIL = "admin@example.com"
+ADMIN_PASSWORD = "change-me-admin-password"

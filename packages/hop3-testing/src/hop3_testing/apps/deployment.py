@@ -82,6 +82,7 @@ class DeploymentSession:
         # Deployment state
         self.deployed = False
         self._last_deploy_error: str | None = None
+        self._app_port: int | None = None
 
         # Console setup
         self.console = console or PrintingConsole()
@@ -285,6 +286,33 @@ class DeploymentSession:
             self.console.error(f"Deploy failed: {self._last_deploy_error}")
             raise DeploymentError(self._last_deploy_error)
 
+        # Extract the app's direct port from deploy output.
+        # The output contains: "port=XXXXX" in the DeploymentInfo line.
+        self._extract_port_from_output(stdout)
+
+    def _extract_port_from_output(self, stdout: str) -> None:
+        """Extract the app's direct port from deploy output.
+
+        Parses lines like:
+            App running at: DeploymentInfo(protocol='http', address='127.0.0.1', port=55489)
+        or:
+            export PORT='55489'
+        """
+        import re  # noqa: PLC0415
+
+        # Try DeploymentInfo pattern
+        match = re.search(r"port=(\d+)", stdout)
+        if match:
+            self._app_port = int(match.group(1))
+            self.console.debug(f"Extracted app port: {self._app_port}")
+            return
+
+        # Try export PORT pattern
+        match = re.search(r"PORT='?(\d+)'?", stdout)
+        if match:
+            self._app_port = int(match.group(1))
+            self.console.debug(f"Extracted app port from PORT: {self._app_port}")
+
     def check_deployed(self) -> bool:
         """Check if the app is deployed and running.
 
@@ -330,6 +358,17 @@ class DeploymentSession:
             traceback.print_exc()
             return False
 
+    def get_app_port(self) -> int | None:
+        """Get the app's direct HTTP port from deploy output.
+
+        Parses the port from the deployment log which contains a line like:
+        ``Deployment successful. App running at: DeploymentInfo(..., port=XXXXX)``
+
+        Returns:
+            The app's PORT number, or None if it can't be determined.
+        """
+        return self._app_port
+
     def test_http_detailed(
         self,
         hostname: str | None = None,
@@ -338,6 +377,11 @@ class DeploymentSession:
         max_retries: int = 20,
     ) -> dict[str, Any]:
         """Test HTTP access and return detailed results.
+
+        Prefers testing via the app's direct port (bypassing nginx) to
+        avoid hostname resolution and SSL redirect issues in test
+        environments. Falls back to nginx-based testing if the port
+        can't be determined.
 
         Returns:
             Dict with: passed, message, details (url, status, body preview, etc.)
@@ -349,10 +393,84 @@ class DeploymentSession:
                 "details": {},
             }
 
+        # Try to get the app's direct port and test without nginx
+        app_port = self.get_app_port()
+        if app_port:
+            return self._test_http_direct(app_port, path, expected_status, max_retries)
+
+        # Fall back to nginx-based testing
         verifier = self._get_verifier()
         return verifier.verify_http_detailed(
             hostname, path, expected_status, max_retries
         )
+
+    def _test_http_direct(
+        self,
+        port: int,
+        path: str,
+        expected_status: int,
+        max_retries: int,
+    ) -> dict[str, Any]:
+        """Test HTTP via the app's direct port, bypassing nginx.
+
+        This avoids hostname resolution and SSL redirect issues that
+        occur when nginx routes by Host header in test environments.
+        """
+        from urllib.parse import urlparse  # noqa: PLC0415
+
+        import httpx  # noqa: PLC0415
+
+        # Use ssh_host for direct port access. For Docker targets, this is
+        # the container's internal IP (e.g., 192.168.215.2) which is reachable
+        # from the host. For SSH targets, this is the server's hostname.
+        # We can't use http_base hostname because Docker only maps specific
+        # ports (80, 443, 8000) to localhost, not the app's direct port.
+        server_host = self.target.info.ssh_host
+        url = f"http://{server_host}:{port}{path}"
+
+        result: dict[str, Any] = {
+            "passed": False,
+            "message": "",
+            "details": {"url": url, "direct_port": port},
+        }
+
+        self.console.info(f"Testing HTTP (direct port): {url}")
+
+        for attempt in range(max_retries):
+            try:
+                response = httpx.get(url, timeout=5.0, follow_redirects=True)
+                result["details"]["status_code"] = response.status_code
+                result["details"]["attempts"] = attempt + 1
+                result["details"]["body_preview"] = response.text[:500] if response.text else ""
+
+                if response.status_code == expected_status:
+                    result["passed"] = True
+                    result["message"] = f"HTTP {response.status_code} from {url}"
+                    self.console.success(
+                        f"HTTP test passed (direct port {port}, status: {response.status_code})"
+                    )
+                    return result
+
+                if response.status_code == HTTPStatus.BAD_GATEWAY:
+                    self.console.debug(
+                        f"Attempt {attempt + 1}/{max_retries}: "
+                        "Backend not ready, retrying..."
+                    )
+                    time.sleep(0.5)
+                    continue
+
+                result["message"] = (
+                    f"HTTP {response.status_code} (expected {expected_status}) from {url}"
+                )
+                return result
+
+            except (httpx.HTTPError, httpx.ConnectError) as e:
+                result["details"]["last_error"] = str(e)
+                self.console.debug(f"Attempt {attempt + 1}/{max_retries}: {e}")
+                time.sleep(0.5)
+
+        result["message"] = f"HTTP test failed after {max_retries} attempts on {url}"
+        return result
 
     def run_check_script_detailed(self) -> dict[str, Any]:
         """Run the app's check.py script and return detailed results.

@@ -1,0 +1,34 @@
+[metadata]
+id = "isso"
+version = "0.13.1"
+description = "A lightweight commenting system, Disqus alternative"
+
+[nix]
+template = "python-venv"
+exec-target = "isso"
+runtime-package = "python3"
+exec-args = ['-c', 'isso-runtime.cfg']
+pip-packages = ['isso', 'gunicorn']
+extra-paths = ['$out/venv/bin']
+pre-exec = ['mkdir -p data']
+
+[[nix.config-files]]
+path = "isso-runtime.cfg"
+format = "raw"
+raw-content = """
+[general]
+dbpath = data/comments.db
+host = http://localhost:${PORT:-8080}
+
+[server]
+listen = http://${BIND_ADDRESS:-0.0.0.0}:${PORT:-8080}
+"""
+
+# Hop3 Configuration for Isso (Nix build)
+# Lightweight commenting system
+
+[build]
+builder = "nix"
+
+[env]
+ISSO_HOST = "http://localhost:8080"

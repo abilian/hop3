@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2024-2026 Abilian SAS <https://abilian.com>
+# SPDX-License-Identifier: MIT
+
+[test]
+name = "nix-mattermost"
+category = "nix-app"
+tier = "slow"
+priority = "P2"
+description = "Mattermost collaboration platform deployed via Nix"
+
+[test.requirements]
+targets = ["docker", "remote"]
+services = ["nix", "postgresql"]
+
+[test.metadata]
+author = "hop3-team"
+covers = ["golang", "nix", "postgres"]
+
+[deployment]
+path = "."
+type = "nix"
+
+[[validations]]
+type = "http"
+path = "/api/v4/system/ping"
+[validations.expect]
+status = 200

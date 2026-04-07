@@ -145,27 +145,23 @@ Inside a Nix `''...''` multi-line string, only `${VAR}` needs escaping (becomes 
 
 ## Implementation Plan
 
-### Phase 3a: Ruby template + test apps
-
-- Add `ruby-bundler` template (uses existing `pkgs.bundlerEnv`)
-- Add specs for `sinatra-hello`, `rack-hello`
-- Reach 22/22 coverage in the spike
-
-### Phase 3b: Productionize into hop3-server
+### Phase 3a: Productionize into hop3-server
 
 - Move `spikes/nix-gen/src/hop3_nix_gen/` into `packages/hop3-server/src/hop3/plugins/build/nix/gen/`
 - Adapt to Hop3's logging and error handling conventions
 - Port the 70 unit tests into the hop3-server test suite
 - Run the spike's validate_all.py against the migrated code
 
-### Phase 3c: TOML integration
+### Phase 3b: TOML integration
 
 - Define the `[nix]` section schema in `hop3.toml` (Pydantic model in `project/schema.py`)
 - Implement TOML → `AppSpec` deserialization
 - Move the 20 Python specs from the spike to `[nix]` sections in the corresponding `apps/real-apps-nix/*/hop3.toml` files
 - Verify that the generated `.nix` still builds for each app
 
-### Phase 3d: NixBuilder integration
+### Phase 3c: NixBuilder integration
+
+**Prerequisite:** `Hop3Config.to_dict()` must be updated to include the `[nix]` section in the config dict passed to builders. Currently (`hop3_config.py:520-537`) it explicitly enumerates known sections and omits `nix`.
 
 - `NixBuilder.accept()` now also accepts apps with `[nix].template` set in `hop3.toml`
 - `NixBuilder.build()` generates the `.nix` at build time when no `hop3.nix` exists
@@ -173,19 +169,24 @@ Inside a Nix `''...''` multi-line string, only `${VAR}` needs escaping (becomes 
 - Pass it to `nix-build` via the existing infrastructure
 - Verify the end-to-end deploy path works for a few apps
 
-### Phase 3e: `hop3 nix:eject` command
+### Phase 3d: `hop3 nix:eject` command
 
 - New CLI command that writes the generated `hop3.nix` to the app source directory
 - After ejection, the generator is skipped and the hand-crafted file is used
 - Add tests for the ejection flow
 
-### Phase 3f: Documentation and CI
+### Phase 3e: Documentation and CI
 
 - Document the `[nix]` section in `docs/src/hop3-toml-reference.md`
 - Add the validate_all.py script (renamed) to CI
 - Write a tutorial: "Deploy a reproducible app with Hop3 + Nix, zero Nix expertise needed"
 
-**Total effort: ~10 days of focused work** (about half of what the v0.4 ecosystem-tools plan estimated, because the spike removes most implementation uncertainty).
+### Phase 3f: Ruby template and additional coverage (optional)
+
+- Add `ruby-bundler` template for the 2 Ruby test apps (`sinatra-hello`, `rack-hello`)
+- Not blocking — deprioritised since only test apps are affected
+
+**Total effort: ~18 hours of focused work** (detailed breakdown in `local-notes/plans/nix-gen-implementation.md`). The Ruby template adds ~2 more hours if desired.
 
 ## Consequences
 

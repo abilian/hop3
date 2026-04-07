@@ -1,0 +1,29 @@
+[metadata]
+id = "easy-appointments"
+version = "1.5.0"
+description = "Open source appointment scheduling"
+
+[nix]
+template = "php-app"
+url = "https://github.com/alextselegidis/easyappointments/archive/refs/tags/${version}.tar.gz"
+sha256 = "Skz6uMjvtiXaw34st/FxtTljycI4yAyYiqa6qr0Av3I="
+archive = "tar-gz"
+php-version = "php82"
+php-extensions = ['mysqli', 'pdo_mysql', 'gd', 'mbstring', 'xml', 'curl', 'zip', 'intl']
+needs-composer = true
+extra-paths = ['${php}/bin']
+
+[nix.runtime-env]
+APP_URL = "http://localhost:8080"
+
+# Hop3 Configuration for Easy!Appointments (Nix build)
+# Open source appointment scheduling
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "mysql"
+
+[env]
+APP_URL = "http://localhost:8080"

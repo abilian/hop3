@@ -1,0 +1,38 @@
+# hop3.toml - Hop3 configuration for Nix-based Miniflux
+# Minimalist RSS reader
+
+[metadata]
+id = "miniflux"
+version = "2.1.1"
+description = "Minimalist and opinionated RSS reader"
+
+[build]
+builder = "nix"
+
+[nix]
+template = "prebuilt-binary"
+url = "https://github.com/miniflux/v2/releases/download/${version}/miniflux-linux-amd64"
+sha256 = "ydbOKn/voD05Hvl1wAU2GUcCccHimmB/2b0q+4RrKcU="
+executable = true
+binary-name = "miniflux"
+
+[nix.env-exports]
+LISTEN_ADDR = "0.0.0.0:${PORT:-8080}"
+RUN_MIGRATIONS = "1"
+CREATE_ADMIN = "1"
+ADMIN_USERNAME = "${ADMIN_USERNAME:-admin}"
+ADMIN_PASSWORD = "${ADMIN_PASSWORD:-changeme}"
+
+[[nix.conditional-env]]
+name = "DATABASE_URL"
+condition-var = "DATABASE_URL"
+value = "postgres://${PGUSER:-miniflux}:${PGPASSWORD:-}@${PGHOST:-localhost}:${PGPORT:-5432}/${PGDATABASE:-miniflux}?sslmode=disable"
+
+[nix.runtime-env]
+RUN_MIGRATIONS = "1"
+CREATE_ADMIN = "1"
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "changeme"
+
+[[addons]]
+type = "postgres"
