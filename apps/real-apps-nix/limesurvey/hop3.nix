@@ -54,7 +54,36 @@ let
 
       cat > $out/bin/limesurvey << 'WRAPPER'
 #!/bin/sh
-exec ${php}/bin/php -S 0.0.0.0:''${PORT:-8080} -t $out/app
+
+# Copy app from read-only Nix store to writable cwd
+cp -a $out/app/. .
+chmod -R u+w .
+mkdir -p tmp upload
+
+# Generate config.php if not present
+if [ ! -f application/config/config.php ]; then
+  mkdir -p application/config
+  cat > application/config/config.php << 'CFGEOF'
+<?php if (!defined("BASEPATH")) exit("No direct script access allowed");
+return array(
+  "components" => array(
+    "db" => array(
+      "connectionString" => "pgsql:host=" . getenv("PGHOST") . ";port=" . getenv("PGPORT") . ";dbname=" . getenv("PGDATABASE"),
+      "username" => getenv("PGUSER"),
+      "password" => getenv("PGPASSWORD"),
+      "charset" => "utf8",
+      "tablePrefix" => "lime_",
+    ),
+  ),
+  "config" => array("debug" => 0, "debugsql" => 0),
+);
+CFGEOF
+fi
+
+# Install database tables on first run
+${php}/bin/php application/commands/console.php install admin password123 Admin admin@example.com 2>/dev/null || true
+
+exec ${php}/bin/php -S 0.0.0.0:''${PORT:-8080} -t .
 WRAPPER
       sed -i "s|\$out|$out|g" $out/bin/limesurvey
       chmod +x $out/bin/limesurvey

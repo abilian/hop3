@@ -55,7 +55,12 @@ let
 
       cat > $out/bin/easy-appointments << 'WRAPPER'
 #!/bin/sh
-exec ${php}/bin/php -S 0.0.0.0:''${PORT:-8080} -t $out/app
+
+# Copy app from read-only Nix store to writable cwd
+cp -a $out/app/. .
+chmod -R u+w .
+
+exec ${php}/bin/php -S 0.0.0.0:''${PORT:-8080} -t .
 WRAPPER
       sed -i "s|\$out|$out|g" $out/bin/easy-appointments
       chmod +x $out/bin/easy-appointments

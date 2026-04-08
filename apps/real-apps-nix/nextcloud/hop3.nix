@@ -53,7 +53,30 @@ let
 
       cat > $out/bin/nextcloud << 'WRAPPER'
 #!/bin/sh
-exec ${php}/bin/php -S 0.0.0.0:''${PORT:-8080} -t $out/app
+
+# Copy app from read-only Nix store to writable cwd
+cp -a $out/app/. .
+chmod -R u+w .
+mkdir -p data config
+
+# Generate autoconfig if not present
+if [ ! -f config/autoconfig.php ]; then
+  cat > config/autoconfig.php << 'CFGEOF'
+<?php
+$AUTOCONFIG = array(
+  "dbtype" => "mysql",
+  "dbname" => getenv("MYSQL_DATABASE") ?: "nextcloud",
+  "dbuser" => getenv("MYSQL_USER") ?: "nextcloud",
+  "dbpass" => getenv("MYSQL_PASSWORD") ?: "",
+  "dbhost" => getenv("MYSQL_HOST") ?: "127.0.0.1",
+  "directory" => "./data",
+  "adminlogin" => "admin",
+  "adminpass" => "admin123",
+);
+CFGEOF
+fi
+
+exec ${php}/bin/php -S 0.0.0.0:''${PORT:-8080} -t .
 WRAPPER
       sed -i "s|\$out|$out|g" $out/bin/nextcloud
       chmod +x $out/bin/nextcloud

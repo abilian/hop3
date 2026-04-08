@@ -59,7 +59,30 @@ let
 
       cat > $out/bin/bookstack << 'WRAPPER'
 #!/bin/sh
-exec ${php}/bin/php $out/app/artisan serve --host=0.0.0.0 --port=''${PORT:-8080}
+
+# Generate .env for Laravel
+cat > .env << ENVEOF
+APP_ENV=''${APP_ENV:-production}
+APP_DEBUG=''${APP_DEBUG:-false}
+APP_KEY=''${APP_KEY}
+APP_URL=http://localhost:''${PORT:-8080}
+DB_CONNECTION=mysql
+DB_HOST=''${DB_HOST:-127.0.0.1}
+DB_PORT=''${DB_PORT:-3306}
+DB_DATABASE=''${DB_DATABASE:-bookstack}
+DB_USERNAME=''${DB_USERNAME:-bookstack}
+DB_PASSWORD=''${DB_PASSWORD:-}
+ENVEOF
+
+# Copy app from read-only Nix store to writable cwd
+cp -a $out/app/. .
+chmod -R u+w .
+mkdir -p storage/app storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+
+# Run database migration
+${php}/bin/php artisan migrate --force 2>/dev/null || true
+
+exec ${php}/bin/php ./artisan serve --host=0.0.0.0 --port=''${PORT:-8080}
 WRAPPER
       sed -i "s|\$out|$out|g" $out/bin/bookstack
       chmod +x $out/bin/bookstack

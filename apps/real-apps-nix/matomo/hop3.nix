@@ -48,7 +48,31 @@ let
 
       cat > $out/bin/matomo << 'WRAPPER'
 #!/bin/sh
-exec ${php}/bin/php -S 0.0.0.0:''${PORT:-8080} -t $out/app
+
+# Copy app from read-only Nix store to writable cwd
+cp -a $out/app/. .
+chmod -R u+w .
+mkdir -p tmp
+
+# Generate config if not present
+if [ ! -f config/config.ini.php ]; then
+  mkdir -p config
+  cat > config/config.ini.php << CFGEOF
+; <?php exit; ?> DO NOT REMOVE THIS LINE
+[database]
+host = "''${MYSQL_HOST:-127.0.0.1}"
+username = "''${MYSQL_USER:-matomo}"
+password = "''${MYSQL_PASSWORD:-}"
+dbname = "''${MYSQL_DATABASE:-matomo}"
+port = ''${MYSQL_PORT:-3306}
+tables_prefix = "matomo_"
+
+[General]
+trusted_hosts[] = "localhost:''${PORT:-8080}"
+CFGEOF
+fi
+
+exec ${php}/bin/php -S 0.0.0.0:''${PORT:-8080} -t .
 WRAPPER
       sed -i "s|\$out|$out|g" $out/bin/matomo
       chmod +x $out/bin/matomo
