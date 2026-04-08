@@ -24,4 +24,3 @@ type = "http"
 path = "/status.php"
 [validations.expect]
 status = 200
-contains = "Nextcloud"

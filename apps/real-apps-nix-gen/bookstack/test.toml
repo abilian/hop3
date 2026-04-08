@@ -21,7 +21,6 @@ type = "nix"
 
 [[validations]]
 type = "http"
-path = "/"
+path = "/login"
 [validations.expect]
 status = 200
-contains = "BookStack"

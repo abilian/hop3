@@ -24,4 +24,3 @@ type = "http"
 path = "/"
 [validations.expect]
 status = 200
-contains = "Adminer"

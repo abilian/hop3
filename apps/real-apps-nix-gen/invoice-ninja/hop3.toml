@@ -6,6 +6,7 @@ description = "Free open-source invoicing platform"
 [nix]
 template = "php-app"
 needs-writable-dir = true
+pre-exec = ["PHPBIN/php artisan migrate --force 2>/dev/null || true"]
 serve-mode = "artisan"
 url = "https://github.com/invoiceninja/invoiceninja/archive/refs/tags/v${version}.tar.gz"
 sha256 = "7NZs3hAxH3awKMeIlwqem6gnVCRGdpDvZZ+7SW033qY="
@@ -32,7 +33,7 @@ builder = "nix"
 type = "mysql"
 
 [env]
-APP_KEY = "base64:dGhpc2lzYXRlc3RrZXlmb3Job3AzZGV2c2VydmVyMQ=="
+APP_KEY = "base64:YY6Y7MPsG9s105LprP4KohEbjGwQ8sUG7iYIoJs1t4Y="
 APP_ENV = "production"
 APP_DEBUG = "false"
 

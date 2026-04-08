@@ -256,7 +256,11 @@ def test_wrapper_exec_line_preserves_dollar_commands():
 
 
 def test_wrapper_section_order():
-    """Verify the order: shebang, local vars, exports, pre-exec, config, exec."""
+    """Verify the order: shebang, local vars, exports, config, pre-exec, exec.
+
+    Config files come before pre-exec because pre-exec commands may depend
+    on generated config files (e.g., LimeSurvey's install needs config.php).
+    """
     spec = _make_spec(
         local_vars={"X": "1"},
         env_exports={"Y": "2"},
@@ -267,10 +271,10 @@ def test_wrapper_section_order():
     shebang_pos = result.index("#!/bin/sh")
     local_pos = result.index('X="1"')
     export_pos = result.index('export Y="2"')
-    mkdir_pos = result.index("mkdir -p data")
     config_pos = result.index("cat > c")
+    mkdir_pos = result.index("mkdir -p data")
     exec_pos = result.index("exec BINDIR/test")
-    assert shebang_pos < local_pos < export_pos < mkdir_pos < config_pos < exec_pos
+    assert shebang_pos < local_pos < export_pos < config_pos < mkdir_pos < exec_pos
 
 
 # --- format_runtime_env_json ---

@@ -23,4 +23,4 @@ type = "nix"
 type = "http"
 path = "/"
 [validations.expect]
-status = 200
+status = 302

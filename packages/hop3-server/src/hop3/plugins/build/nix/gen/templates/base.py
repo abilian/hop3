@@ -123,11 +123,14 @@ def format_wrapper_body(
     if exports:
         sections.append(exports)
 
-    if spec.pre_exec_commands:
-        sections.append("\n".join(nix_escape(cmd) for cmd in spec.pre_exec_commands))
-
+    # Config files are generated BEFORE pre-exec commands because
+    # pre-exec may depend on config files (e.g., LimeSurvey's install
+    # command needs config.php to know the database connection).
     for cf in spec.config_files:
         sections.append(format_config_file(cf))
+
+    if spec.pre_exec_commands:
+        sections.append("\n".join(nix_escape(cmd) for cmd in spec.pre_exec_commands))
 
     # Escape shell var references in the exec line. Templates that need Nix
     # variables in the exec line (e.g., ${php}/bin/php) must use placeholders

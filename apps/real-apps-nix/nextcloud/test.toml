@@ -4,7 +4,7 @@
 name = "nix-nextcloud"
 category = "nix-app"
 tier = "medium"
-priority = "P2"
+priority = "P2"  # Known: hand-crafted hop3.nix lacks runtime config. Use real-apps-nix-gen/ instead.
 description = "Nextcloud file hosting platform built and deployed using Nix"
 
 [test.requirements]

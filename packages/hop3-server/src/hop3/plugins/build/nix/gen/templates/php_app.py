@@ -122,22 +122,19 @@ class PhpAppTemplate:
         # or writable storage/ must operate from a cwd-based copy.
         extra_pre_exec: list[str] = []
         if spec.needs_writable_dir:
-            # Create writable directories FIRST, before symlinking.
-            # This prevents the symlink loop from symlinking read-only
-            # store directories (like storage/) over writable ones.
-            # The symlink loop's `[ ! -e "$base" ]` then skips them.
+            # Copy ALL files from the Nix store to the writable cwd.
+            # We use cp -a (not symlinks) because PHP's __DIR__ resolves
+            # symlinks, and when it resolves to the read-only Nix store,
+            # Laravel/PHP can't find .env, write to storage/, etc.
+            # The disk cost is acceptable (~50-200 MB per app).
+            extra_pre_exec.append(
+                "# Copy app from read-only Nix store to writable cwd\n"
+                "cp -a APPDIR/. .\n"
+                "chmod -R u+w ."
+            )
             if spec.post_install_dirs:
                 dirs = " ".join(spec.post_install_dirs)
                 extra_pre_exec.append(f"mkdir -p {dirs}")
-            symlink_loop = (
-                "# Symlink remaining app files from read-only Nix store\n"
-                "# (skips dirs already created above)\n"
-                "for item in APPDIR/*; do\n"
-                '  base="$(basename "$item")"\n'
-                '  [ ! -e "$base" ] && ln -sf "$item" "$base"\n'
-                "done"
-            )
-            extra_pre_exec.append(symlink_loop)
 
         # Build a modified spec with extra pre_exec commands if needed
         if extra_pre_exec:

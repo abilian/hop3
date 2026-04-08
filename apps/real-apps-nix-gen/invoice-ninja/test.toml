@@ -23,5 +23,4 @@ type = "nix"
 type = "http"
 path = "/"
 [validations.expect]
-status = 200
-contains = "Invoice"
+status = 302

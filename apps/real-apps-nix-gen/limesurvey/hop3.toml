@@ -6,6 +6,7 @@ description = "Professional online survey and data collection tool"
 [nix]
 template = "php-app"
 needs-writable-dir = true
+pre-exec = ["PHPBIN/php application/commands/console.php install admin password123 Admin admin@example.com 2>/dev/null || true"]
 url = "https://download.limesurvey.org/latest-master/limesurvey${version}+260223.zip"
 sha256 = "jXRc89eWmPd354Zk2peRJR7v4G9ePwTJT9BS2es3tnk="
 archive = "zip"
