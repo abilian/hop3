@@ -372,7 +372,7 @@ class StatusCmd(Command):
                 rows.append(["Local URL", f"http://127.0.0.1:{app.port}"])
 
         if app.hostname:
-            rows.append(["Hostname", app.hostname])
+            rows.append(["URL", f"https://{app.hostname}"])
 
         # Show error message if in FAILED state
         if db_state == AppStateEnum.FAILED and app.error_message:
