@@ -5,7 +5,7 @@ FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Apache, PHP, and required extensions
+# Install Apache, PHP, Node.js and required extensions
 RUN apt-get update -q && apt-get install -q -y --no-install-recommends \
     apache2 \
     libapache2-mod-php \
@@ -19,17 +19,13 @@ RUN apt-get update -q && apt-get install -q -y --no-install-recommends \
     php-bcmath \
     php-intl \
     php-redis \
+    nodejs \
+    npm \
     curl \
     ca-certificates \
     unzip \
-    gnupg \
     && rm -rf /var/lib/apt/lists/* \
     && a2enmod rewrite
-
-# Install Node.js 18 (Monica v4 requires Node 18.x, not 20.x)
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
@@ -41,7 +37,7 @@ ARG MONICA_VERSION=v4.0.0
 RUN rm -rf /var/www/html/* \
     && curl -sL "https://github.com/monicahq/monica/archive/refs/tags/${MONICA_VERSION}.tar.gz" | tar xz --strip-components=1 \
     && composer install --no-dev --no-interaction --prefer-dist --ignore-platform-reqs \
-    && npm install \
+    && npm install --ignore-scripts \
     && NODE_OPTIONS=--openssl-legacy-provider npm run production \
     && mkdir -p storage/framework/{sessions,views,cache} \
     && mkdir -p storage/logs \

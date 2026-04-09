@@ -528,9 +528,12 @@ class DeploymentSession:
                     _, body, _ = self.target.exec_run(
                         f"curl -s --max-time 3 '{url}' | head -c 500"
                     )
-                    result["details"]["body_preview"] = body.strip() if body else ""
+                    body_text = body.strip() if body else ""
+                    result["details"]["body_preview"] = body_text
+                    body_hint = f"\n  Body: {body_text[:300]}" if body_text else ""
                     result["message"] = (
-                        f"HTTP {status_code} (expected {expected_status}) from {url}"
+                        f"HTTP {status_code} (expected {expected_status}) "
+                        f"from {url}{body_hint}"
                     )
                     return result
 
@@ -605,9 +608,12 @@ class DeploymentSession:
                     _, body, _ = self.target.exec_run(
                         f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 500"
                     )
-                    result["details"]["body_preview"] = body.strip() if body else ""
+                    body_text = body.strip() if body else ""
+                    result["details"]["body_preview"] = body_text
+                    body_hint = f"\n  Body: {body_text[:300]}" if body_text else ""
                     result["message"] = (
-                        f"HTTP {status_code} (expected {expected_status}) from {url}"
+                        f"HTTP {status_code} (expected {expected_status}) "
+                        f"from {url}{body_hint}"
                     )
                     return result
 

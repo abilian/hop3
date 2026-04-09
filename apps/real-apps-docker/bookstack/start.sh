@@ -12,9 +12,14 @@ set -e
 APP_DEBUG="${APP_DEBUG:-false}"
 APP_URL="${APP_URL:-http://localhost:8080}"
 
+# Generate APP_KEY if not set (Laravel needs exactly 32 bytes, base64-encoded)
+if [ -z "${APP_KEY}" ]; then
+    APP_KEY="base64:$(head -c 32 /dev/urandom | base64 -w 0)"
+fi
+
 # Generate .env file
 cat > /var/www/html/.env << EOF
-APP_KEY=${APP_KEY:-base64:$(head -c 32 /dev/urandom | base64)}
+APP_KEY=${APP_KEY}
 APP_URL=${APP_URL}
 APP_DEBUG=${APP_DEBUG}
 

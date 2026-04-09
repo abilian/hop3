@@ -32,7 +32,7 @@ done
 # Generate .env file
 cat > .env << EOF
 APP_NAME="Invoice Ninja"
-APP_KEY=${APP_KEY:-base64:$(head -c 32 /dev/urandom | base64)}
+APP_KEY=${APP_KEY:-base64:$(head -c 32 /dev/urandom | base64 -w 0)}
 APP_URL=${APP_URL}
 APP_DEBUG=${APP_DEBUG}
 APP_ENV=production
@@ -68,12 +68,14 @@ if [ ! -L public/storage ]; then
     php artisan storage:link
 fi
 
-# Clear and cache config
-php artisan config:clear
-php artisan cache:clear
+# Clear and cache config (non-fatal)
+php artisan config:clear 2>/dev/null || true
+php artisan cache:clear 2>/dev/null || true
 
-# Run migrations
-php artisan migrate --force
+# Run migrations (non-fatal so Apache can still start)
+if ! php artisan migrate --force 2>&1; then
+    echo "WARNING: Migration failed, starting Apache anyway."
+fi
 
 # Start Apache
 exec apache2ctl -D FOREGROUND

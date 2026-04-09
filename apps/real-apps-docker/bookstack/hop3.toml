@@ -14,7 +14,7 @@ categories = ["wiki", "documentation", "knowledge-base"]
 type = "mysql"
 
 [env]
-APP_DEBUG = "false"
+APP_DEBUG = "true"
 
 [healthcheck]
 path = "/status"
