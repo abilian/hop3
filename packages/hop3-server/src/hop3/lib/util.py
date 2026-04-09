@@ -36,6 +36,7 @@ __all__ = [
 ]
 
 from .console import log
+from .shell import shell
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -191,109 +192,6 @@ def try_commands(
     # All commands failed - raise with combined error message
     error_details = "; ".join(errors)
     raise CommandError([], f"all methods failed: {error_details}")
-
-
-def shell(
-    command: str | list[str], cwd: Path | str = "", **kwargs
-) -> subprocess.CompletedProcess:
-    """Run a command with detailed error reporting.
-
-    All output is routed through log() so it gets captured during deployments.
-    Commands are executed safely without shell=True to prevent injection attacks.
-
-    Args:
-        command: Command to execute (string or list of strings).
-                 Strings are safely parsed with shlex.split().
-        cwd: Working directory for the command
-        **kwargs: Additional arguments passed to subprocess.run
-
-    Returns:
-        CompletedProcess object
-
-    Raises:
-        subprocess.CalledProcessError: If command fails, with stdout/stderr included
-    """
-    # Parse command — use sh -c for commands with shell operators
-    match command:
-        case str():
-            command_display = command.strip()
-            # Detect shell features that require a shell interpreter:
-            # - operators: &&, ||, ;, |, >, >>
-            # - subshells: $( )
-            # - env var assignments: VAR=value command
-            shell_operators = {"&&", "||", ";", "|", ">", ">>", "<", "$("}
-            needs_shell = any(op in command_display for op in shell_operators)
-            # Check for env var assignment pattern (e.g., "CI=true bin/script.sh")
-            if not needs_shell and "=" in command_display.split()[0]:
-                needs_shell = True
-            if needs_shell:
-                # Wrap in sh -c to handle shell operators safely
-                command_list = ["sh", "-c", command_display]
-            else:
-                command_list = shlex.split(command_display)
-        case list():
-            command_display = shlex.join(command)
-            command_list = command
-        case _:
-            msg = "command must be a string or a list of strings"
-            raise TypeError(msg)
-
-    if cwd:
-        cwd = Path(cwd).resolve()
-    else:
-        cwd = Path.cwd()
-
-    # Log the command (level 2 = verbose)
-    log(f"Calling: '{command_display}' in directory: '{cwd}'", level=2, fg="blue")
-
-    # Don't use shell=True - run command list directly
-    if cwd:
-        kwargs["cwd"] = str(cwd)
-
-    # Capture output for better error messages, but still show it
-    if "capture_output" not in kwargs and "stdout" not in kwargs:
-        kwargs["capture_output"] = True
-        kwargs["text"] = True
-
-    # Allow caller to override check behavior (default: True)
-    check = kwargs.pop("check", True)
-
-    try:
-        result = subprocess.run(command_list, **kwargs, check=check)
-        # Log captured output (level 2 = verbose, shows with -v flag)
-        if result.stdout:
-            _log_output(result.stdout, level=2)
-        return result
-    except subprocess.CalledProcessError as e:
-        # Log error information
-        log(
-            f"Command failed with exit code {e.returncode}: {command_display}",
-            level=0,
-            fg="red",
-        )
-        if e.stdout:
-            log("Stdout:", level=1, fg="yellow")
-            _log_output(e.stdout, level=1, fg="yellow")
-        if e.stderr:
-            log("Stderr:", level=1, fg="red")
-            _log_output(e.stderr, level=1, fg="red")
-
-        # Re-raise with enhanced message
-        raise subprocess.CalledProcessError(
-            e.returncode, e.cmd, output=e.stdout, stderr=e.stderr
-        ) from e
-
-
-def _log_output(output: str, level: int = 2, fg: str = "") -> None:
-    """Log multi-line output, handling each line separately.
-
-    Args:
-        output: The output string to log
-        level: Log level (0=important, 1=normal, 2=verbose, 3=debug)
-        fg: Foreground color
-    """
-    for line in output.rstrip().split("\n"):
-        log(line, level=level, fg=fg)
 
 
 def check_binaries(binaries) -> bool:
