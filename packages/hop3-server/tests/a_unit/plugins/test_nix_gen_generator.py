@@ -5,12 +5,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from hop3.plugins.build.nix.gen.registry import generate, list_templates
-from hop3.plugins.build.nix.gen.spec import AppSpec
 
 from .conftest import ALL_FIXTURE_NAMES
+
+if TYPE_CHECKING:
+    from hop3.plugins.build.nix.gen.spec import AppSpec
 
 
 def test_templates_registered():

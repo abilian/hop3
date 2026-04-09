@@ -101,9 +101,7 @@ def _resolve_cwd(cwd: Path | str) -> Path:
     return Path.cwd()
 
 
-def _log_error(
-    command_display: str, e: subprocess.CalledProcessError
-) -> None:
+def _log_error(command_display: str, e: subprocess.CalledProcessError) -> None:
     """Log details of a failed command."""
     log(
         f"Command failed with exit code {e.returncode}: {command_display}",

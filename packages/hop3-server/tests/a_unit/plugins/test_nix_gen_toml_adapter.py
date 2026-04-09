@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pytest
 
+from hop3.plugins.build.nix.gen import generate
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
 
@@ -165,8 +166,6 @@ def test_wrapper_fields():
 
 def test_end_to_end_generate_from_toml():
     """Full round trip: TOML dict → AppSpec → generate → valid Nix string."""
-    from hop3.plugins.build.nix.gen import generate
-
     nix_config = {
         "template": "prebuilt-binary",
         "url": "https://example.com/miniflux-linux-amd64",

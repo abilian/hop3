@@ -64,7 +64,7 @@ def app_spec_from_config(
     return AppSpec(
         # Identity — from [metadata] with fallbacks
         pname=metadata.get("id", app_name),
-        version=metadata.get("version", nix_config.get("version", "")),
+        version=str(metadata.get("version", nix_config.get("version", ""))),
         description=metadata.get("description", ""),
         template=template,
         source=source,
@@ -146,7 +146,7 @@ def _parse_conditional_env(raw: list[dict[str, Any]]) -> list[ConditionalEnvVar]
         result.append(
             ConditionalEnvVar(
                 name=entry["name"],
-                condition_var=entry.get("condition-var", entry["name"]),
+                condition_var=str(entry.get("condition-var", entry["name"])),
                 value=entry["value"],
             )
         )

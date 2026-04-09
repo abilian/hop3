@@ -39,8 +39,8 @@ class NixEjectCmd(Command):
     db_session: Session
 
     def run(self, app_name: str) -> list:
-        with command_context(self.name, app_name):
-            app = get_app(app_name, self.db_session)
+        with command_context(self.name, app_name=app_name):
+            app = get_app(self.db_session, app_name)
             return self._eject(app)
 
     def _eject(self, app: App) -> list:

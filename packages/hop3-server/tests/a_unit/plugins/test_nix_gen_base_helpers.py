@@ -212,7 +212,7 @@ def test_config_create_if_missing_no_indentation():
     result = format_config_file(cf)
     # The heredoc content line should start at column 0, not indented
     lines = result.split("\n")
-    content_line = [l for l in lines if "key = value" in l][0]
+    content_line = next(line for line in lines if "key = value" in line)
     assert not content_line.startswith(" ")
 
 
