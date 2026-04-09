@@ -3,7 +3,6 @@
 Template-based `hop3.nix` generator for Hop3.
 
 **Status:** Spike / proof-of-concept, isolated from the main Hop3 codebase.
-**Context:** See `local-notes/alternative-nix-expr-gen.md`.
 
 ## Why a Spike?
 
