@@ -13,6 +13,19 @@ APP_URL="${APP_URL:-localhost}"
 
 cd /var/www/html
 
+# Wait for MySQL to be ready
+echo "Waiting for MySQL at ${MYSQL_HOST}:${MYSQL_PORT}..."
+for i in $(seq 1 30); do
+    if php -r "new PDO('mysql:host=${MYSQL_HOST};port=${MYSQL_PORT};dbname=${MYSQL_DATABASE}', '${MYSQL_USER}', '${MYSQL_PASSWORD}');" 2>/dev/null; then
+        echo "MySQL is ready."
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "WARNING: MySQL not ready after 30 attempts."
+    fi
+    sleep 2
+done
+
 # Create config.ini.php if not exists
 if [ ! -f config/config.ini.php ]; then
     cat > config/config.ini.php << EOF
@@ -27,6 +40,7 @@ tables_prefix = matomo_
 [General]
 salt = "$(head -c 32 /dev/urandom | base64 | tr -d /=+ | head -c 32)"
 trusted_hosts[] = "${APP_URL}"
+installation_in_progress = 1
 force_ssl = 0
 proxy_client_headers[] = HTTP_X_FORWARDED_FOR
 proxy_host_headers[] = HTTP_X_FORWARDED_HOST

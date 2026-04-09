@@ -176,28 +176,28 @@ class DeploymentSession:
     ) -> str:
         """Build detailed error message from deploy failure.
 
-        Args:
-            returncode: Exit code from the command
-            stdout: Standard output from the command
-            stderr: Standard error from the command (optional)
-
-        Returns:
-            Formatted error message string
+        Shows the TAIL of long output (the error is at the end, not the
+        beginning). For Docker builds, also extracts the first few lines
+        (which have the hop3 context) and the last lines (the actual error).
         """
         error_parts = [f"Exit code: {returncode}"]
         full_stdout = stdout.strip()
 
         if full_stdout:
-            # For Docker build failures, show more output
-            is_docker_build = (
-                "Docker build failed" in full_stdout
-                or "docker build" in full_stdout.lower()
-            )
-            limit = 5000 if is_docker_build else 2000
-            stdout_preview = full_stdout[:limit]
-            if len(full_stdout) > limit:
-                stdout_preview += f"\n... (truncated, {len(full_stdout)} total chars)"
-            error_parts.append(f"stdout: {stdout_preview}")
+            limit = 3000
+            if len(full_stdout) <= limit:
+                error_parts.append(f"stdout: {full_stdout}")
+            else:
+                # Show head (hop3 context) + tail (actual error)
+                lines = full_stdout.split("\n")
+                # First 5 lines for context, last lines for the error
+                head = "\n".join(lines[:5])
+                tail = full_stdout[-2000:]
+                error_parts.append(
+                    f"stdout (head): {head}\n"
+                    f"... ({len(full_stdout)} chars total, showing last 2000) ...\n"
+                    f"stdout (tail): {tail}"
+                )
 
         if stderr:
             full_stderr = stderr.strip()
@@ -210,7 +210,7 @@ class DeploymentSession:
                     and line.strip()
                 ]
                 if stderr_lines:
-                    stderr_preview = "\n".join(stderr_lines)[:2000]
+                    stderr_preview = "\n".join(stderr_lines)[-2000:]
                     error_parts.append(f"stderr: {stderr_preview}")
 
         return " | ".join(error_parts)
@@ -218,8 +218,8 @@ class DeploymentSession:
     def _deploy_via_cli(self) -> None:
         """Deploy via hop3 CLI subprocess.
 
-        Uses streaming output in verbose mode to show progress during
-        long-running deployments (e.g., Docker builds).
+        Always uses streaming output to show real-time progress and
+        prevent silent hangs. Has a 10-minute timeout.
 
         Raises:
             DeploymentError: If deployment fails.
@@ -227,61 +227,37 @@ class DeploymentSession:
         env = self._build_cli_env()
         cmd = ["hop3", "deploy", self.app_name, str(self._preparation.temp_dir)]
 
-        # Use streaming in verbose mode to show real-time progress
         verbose = self.config.get("verbose", False)
         debug = self.config.get("debug", False)
 
-        # Initialize proc_result for non-streaming mode
-        proc_result: subprocess.CompletedProcess[str] | None = None
+        # Key progress indicators that should always be shown
+        _PROGRESS_PREFIXES = (">", "->", "!", "✓", "✗", "ERROR", "WARNING")
 
-        if verbose or debug:
-            # Stream output line by line
-            def on_output(line: str):
-                # Filter cryptography warnings
-                if "CryptographyDeprecationWarning" not in line and "TripleDES" not in line:
-                    self.console.info(f"  {line}")
+        def on_output(line: str):
+            # Filter cryptography warnings
+            if "CryptographyDeprecationWarning" in line or "TripleDES" in line:
+                return
+            if verbose or debug:
+                self.console.info(f"  {line}")
+            elif any(line.lstrip().startswith(p) for p in _PROGRESS_PREFIXES):
+                # Always show key progress/error lines
+                self.console.info(f"  {line}")
+            else:
+                self.console.debug(f"  {line}")
 
-            result = run_streaming(cmd, on_output=on_output, env=env, timeout=600)
-            stdout = result.stdout
-            returncode = result.returncode
+        # Always use streaming with timeout to prevent silent hangs
+        result = run_streaming(cmd, on_output=on_output, env=env, timeout=600)
+        stdout = result.stdout
+        returncode = result.returncode
 
-            if result.timed_out:
-                self._last_deploy_error = "Deploy timed out after 10 minutes"
-                self.console.error(self._last_deploy_error)
-                raise DeploymentError(self._last_deploy_error)
-        else:
-            # Non-streaming mode for quiet operation
-            proc_result = subprocess.run(
-                cmd,
-                env=env,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            stdout = proc_result.stdout
-            returncode = proc_result.returncode
-
-            self.console.debug(f"Deploy exit code: {returncode}")
-            if stdout.strip():
-                self.console.debug(f"Deploy stdout: {stdout.strip()}")
-
-            # Filter cryptography warnings from stderr
-            if proc_result.stderr.strip():
-                stderr_lines = [
-                    line
-                    for line in proc_result.stderr.split("\n")
-                    if "CryptographyDeprecationWarning" not in line
-                    and "TripleDES" not in line
-                    and line.strip()
-                ]
-                if stderr_lines:
-                    self.console.debug(f"Deploy stderr: {' '.join(stderr_lines)}")
+        if result.timed_out:
+            self._last_deploy_error = "Deploy timed out after 10 minutes"
+            self.console.error(self._last_deploy_error)
+            raise DeploymentError(self._last_deploy_error)
 
         if returncode != 0:
-            # Get stderr for non-streaming mode
-            stderr = proc_result.stderr if proc_result else None
             self._last_deploy_error = self._build_deploy_error_message(
-                returncode, stdout, stderr
+                returncode, stdout
             )
             self.console.error(f"Deploy failed: {self._last_deploy_error}")
             raise DeploymentError(self._last_deploy_error)
@@ -398,7 +374,15 @@ class DeploymentSession:
         if app_port:
             return self._test_http_direct(app_port, path, expected_status, max_retries)
 
-        # Fall back to nginx-based testing
+        # No direct port (e.g., static apps served by nginx only).
+        # For SSH targets, test via curl on the server with Host header.
+        is_remote = self.target.info.ssh_host not in {"localhost", "127.0.0.1", None}
+        if is_remote:
+            return self._test_http_via_nginx_ssh(
+                path, expected_status, max_retries,
+            )
+
+        # Fall back to local nginx-based testing
         verifier = self._get_verifier()
         return verifier.verify_http_detailed(
             hostname, path, expected_status, max_retries
@@ -522,6 +506,13 @@ class DeploymentSession:
                     result["details"]["attempts"] = attempt + 1
 
                     if status_code == expected_status:
+                        # Fetch body for contains checks
+                        _, body, _ = self.target.exec_run(
+                            f"curl -s --max-time 3 '{url}' | head -c 500"
+                        )
+                        result["details"]["body_preview"] = (
+                            body.strip() if body else ""
+                        )
                         result["passed"] = True
                         result["message"] = f"HTTP {status_code} from {url}"
                         self.console.success(
@@ -544,6 +535,82 @@ class DeploymentSession:
                     return result
 
                 # curl failed (connection refused, etc.) — app still starting
+                time.sleep(1)
+
+            except Exception as e:
+                result["details"]["last_error"] = str(e)
+                self.console.debug(f"Attempt {attempt + 1}/{max_retries}: {e}")
+                time.sleep(1)
+
+        result["message"] = f"HTTP test failed after {max_retries} attempts on {url}"
+        return result
+
+    def _test_http_via_nginx_ssh(
+        self,
+        path: str,
+        expected_status: int,
+        max_retries: int,
+    ) -> dict[str, Any]:
+        """Test HTTP via nginx on the remote server (for static/no-port apps).
+
+        Runs curl on the server targeting localhost:80 with the app's
+        hostname as Host header. Uses the app name as hostname since
+        nginx is configured with HOST_NAME (or catch-all '_').
+        """
+        # Use the app name as hostname for the Host header
+        host = self.app_name
+        url = f"http://127.0.0.1{path}"
+        result: dict[str, Any] = {
+            "passed": False,
+            "message": "",
+            "details": {"url": url, "method": "nginx-ssh", "host": host},
+        }
+
+        self.console.info(f"Testing HTTP via nginx (Host: {host}): {path}")
+
+        for attempt in range(max_retries):
+            try:
+                _exit_code, stdout, _stderr = self.target.exec_run(
+                    f"curl -s -o /dev/null -w '%{{http_code}}' "
+                    f"-H 'Host: {host}' "
+                    f"--connect-timeout 3 --max-time 5 '{url}'"
+                )
+                status_str = stdout.strip() if stdout else ""
+
+                if status_str.isdigit():
+                    status_code = int(status_str)
+                    result["details"]["status_code"] = status_code
+                    result["details"]["attempts"] = attempt + 1
+
+                    if status_code == expected_status:
+                        # Fetch body for contains checks
+                        _, body, _ = self.target.exec_run(
+                            f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 500"
+                        )
+                        result["details"]["body_preview"] = (
+                            body.strip() if body else ""
+                        )
+                        result["passed"] = True
+                        result["message"] = f"HTTP {status_code} from {url}"
+                        self.console.success(
+                            f"HTTP test passed (nginx, Host: {host}, status: {status_code})"
+                        )
+                        return result
+
+                    if status_code in {0, 502, 503, 504}:
+                        time.sleep(1)
+                        continue
+
+                    # Non-matching status — get body for diagnostics
+                    _, body, _ = self.target.exec_run(
+                        f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 500"
+                    )
+                    result["details"]["body_preview"] = body.strip() if body else ""
+                    result["message"] = (
+                        f"HTTP {status_code} (expected {expected_status}) from {url}"
+                    )
+                    return result
+
                 time.sleep(1)
 
             except Exception as e:

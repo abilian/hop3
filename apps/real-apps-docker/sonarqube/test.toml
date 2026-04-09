@@ -1,0 +1,15 @@
+[test]
+name = "sonarqube"
+category = "docker-app"
+tier = "slow"
+priority = "P1"
+
+[test.requirements]
+services = ["docker", "postgresql"]
+
+[[validations]]
+type = "http"
+path = "/api/system/status"
+
+[validations.expect]
+status = 200

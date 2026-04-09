@@ -29,8 +29,25 @@ SESSION_DRIVER=file
 QUEUE_CONNECTION=sync
 EOF
 
-# Run migrations
-cd /var/www/html && php artisan migrate --force
+cd /var/www/html
+
+# Wait for MySQL to be ready
+echo "Waiting for MySQL at ${MYSQL_HOST}:${MYSQL_PORT}..."
+for i in $(seq 1 30); do
+    if php -r "new PDO('mysql:host=${MYSQL_HOST};port=${MYSQL_PORT};dbname=${MYSQL_DATABASE}', '${MYSQL_USER}', '${MYSQL_PASSWORD}');" 2>/dev/null; then
+        echo "MySQL is ready."
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "WARNING: MySQL not ready after 30 attempts, starting Apache anyway."
+    fi
+    sleep 2
+done
+
+# Run migrations (non-fatal so Apache can still serve /status)
+if ! php artisan migrate --force 2>&1; then
+    echo "WARNING: Migration failed, starting Apache anyway."
+fi
 
 # Start Apache
 exec apache2ctl -D FOREGROUND

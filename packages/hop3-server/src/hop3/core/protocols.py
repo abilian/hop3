@@ -403,17 +403,14 @@ class BaseProxy(ABC):
 
         # Prepend static worker path if present
         if "static" in self.workers:
-            stripped = self.workers["static"].strip("/").rstrip("/")
-            if stripped.startswith(":"):
-                prefix = "/"
-            else:
-                prefix = "/:"
+            raw_path = self.workers["static"].rstrip("/")
+            if not raw_path:
+                raw_path = "."
 
-            if not stripped:
-                stripped = "."
-
+            # Build "url:path" entry. Use "/:" prefix to map "/" to the path.
+            # Preserve leading "/" for absolute paths (e.g., /nix/store/...).
             separator = "," if static_paths else ""
-            static_paths = prefix + stripped + "/" + separator + static_paths
+            static_paths = "/:" + raw_path + "/" + separator + static_paths
 
         items = static_paths.split(",") if static_paths else []
 

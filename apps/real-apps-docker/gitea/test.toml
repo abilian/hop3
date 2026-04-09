@@ -1,0 +1,15 @@
+[test]
+name = "gitea"
+category = "docker-app"
+tier = "medium"
+priority = "P1"
+
+[test.requirements]
+services = ["docker", "postgresql"]
+
+[[validations]]
+type = "http"
+path = "/api/healthz"
+
+[validations.expect]
+status = 200

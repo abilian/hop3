@@ -14,6 +14,21 @@ APP_URL="${APP_URL:-http://localhost:8080}"
 
 cd /var/www/html
 
+# Wait for MySQL to be ready before proceeding
+echo "Waiting for MySQL at ${MYSQL_HOST}:${MYSQL_PORT}..."
+for i in $(seq 1 30); do
+    if mysqladmin ping -h"${MYSQL_HOST}" -P"${MYSQL_PORT}" -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" --silent 2>/dev/null; then
+        echo "MySQL is ready."
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "ERROR: MySQL did not become ready within 60 seconds."
+        exit 1
+    fi
+    echo "MySQL not ready (attempt $i/30), waiting..."
+    sleep 2
+done
+
 # Generate .env file
 cat > .env << EOF
 APP_NAME="Invoice Ninja"

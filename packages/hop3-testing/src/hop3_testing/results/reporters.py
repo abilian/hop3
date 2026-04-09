@@ -72,19 +72,20 @@ class ConsoleReporter:
             if result.error:
                 print(f"  Error: {result.error}", file=self.output)
 
-            for v in result.failed_validations:
-                print(f"  - {v.type_name}: {v.message}", file=self.output)
-
-            # Show deploy logs on failure for diagnosis
-            if result.deploy_logs:
-                log_tail = result.deploy_logs.strip()
-                if log_tail:
-                    if len(log_tail) > 1500:
-                        log_tail = log_tail[-1500:]
-                    print("\n  --- Deploy output ---", file=self.output)
-                    for line in log_tail.splitlines():
-                        print(f"  {line}", file=self.output)
-                    print("  ---", file=self.output)
+            # Show deploy logs only when they add info beyond the error
+            # (e.g., for HTTP failures, not for deploy failures where
+            # the error already contains the full output)
+            if result.deploy_logs and result.error:
+                error_str = result.error or ""
+                if "Deploy failed" not in error_str:
+                    log_tail = result.deploy_logs.strip()
+                    if log_tail and len(log_tail) > 20:
+                        if len(log_tail) > 1500:
+                            log_tail = log_tail[-1500:]
+                        print("\n  --- Deploy output ---", file=self.output)
+                        for line in log_tail.splitlines():
+                            print(f"  {line}", file=self.output)
+                        print("  ---", file=self.output)
 
     def summary(self, results: list[TestResult]) -> None:
         """Print summary of all results.

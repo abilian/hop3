@@ -14,6 +14,19 @@ APP_URL="${APP_URL:-http://localhost:8080}"
 
 cd /var/www/html
 
+# Wait for MySQL to be ready
+echo "Waiting for MySQL at ${MYSQL_HOST}:${MYSQL_PORT}..."
+for i in $(seq 1 30); do
+    if php -r "new PDO('mysql:host=${MYSQL_HOST};port=${MYSQL_PORT};dbname=${MYSQL_DATABASE}', '${MYSQL_USER}', '${MYSQL_PASSWORD}');" 2>/dev/null; then
+        echo "MySQL is ready."
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "WARNING: MySQL not ready after 30 attempts."
+    fi
+    sleep 2
+done
+
 # Generate .env file
 cat > .env << EOF
 APP_KEY=${APP_KEY:-base64:$(head -c 32 /dev/urandom | base64)}
@@ -53,8 +66,10 @@ fi
 php artisan config:clear
 php artisan cache:clear
 
-# Run migrations
-php artisan migrate --force
+# Run migrations (non-fatal so Apache can still start)
+if ! php artisan migrate --force 2>&1; then
+    echo "WARNING: Migration failed, starting Apache anyway."
+fi
 
 # Start Apache
 exec apache2ctl -D FOREGROUND

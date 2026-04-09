@@ -38,5 +38,35 @@ chown www-data:www-data config.php
 chown -R www-data:www-data storage
 chmod -R 755 storage
 
+# Wait for MySQL to be ready before starting
+echo "Waiting for MySQL at ${MYSQL_HOST}:${MYSQL_PORT}..."
+for i in $(seq 1 30); do
+    if php -r "
+        \$conn = @new mysqli('${MYSQL_HOST}', '${MYSQL_USER}', '${MYSQL_PASSWORD}', '${MYSQL_DATABASE}', ${MYSQL_PORT});
+        if (\$conn->connect_error) { exit(1); }
+        \$conn->close();
+    " 2>/dev/null; then
+        echo "MySQL is ready."
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "ERROR: MySQL not reachable after 30 attempts."
+        exit 1
+    fi
+    sleep 2
+done
+
+# Run database installation if tables don't exist yet
+# This creates the schema and seeds default data (admin user, default service, etc.)
+if ! php -r "
+    require 'config.php';
+    \$conn = new mysqli(Config::DB_HOST, Config::DB_USERNAME, Config::DB_PASSWORD, Config::DB_NAME, ${MYSQL_PORT});
+    \$result = \$conn->query(\"SHOW TABLES LIKE 'ea_users'\");
+    exit(\$result && \$result->num_rows > 0 ? 0 : 1);
+" 2>/dev/null; then
+    echo "Database tables not found, running initial installation..."
+    php index.php console install || echo "WARNING: Console install failed, app will show installation wizard"
+fi
+
 # Start Apache
 exec apache2ctl -D FOREGROUND

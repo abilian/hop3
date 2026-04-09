@@ -41,6 +41,48 @@ def _create_console(verbose: bool, quiet: bool = False) -> Console:
     return console
 
 
+def _filter_by_available_services(
+    tests: list[TestDefinition],
+    available_features: list[str],
+    console: Console,
+) -> list[TestDefinition]:
+    """Filter out tests whose required services aren't in --with features.
+
+    Maps feature names to service names (e.g., "nix" feature satisfies
+    "nix" service requirement). Tests with no service requirements always pass.
+    """
+    if not available_features:
+        return tests
+
+    # Normalize: "all" means everything is available
+    if "all" in available_features:
+        return tests
+
+    # Split comma-separated features (e.g., "nix,mysql,redis" → 3 items)
+    available: set[str] = set()
+    for feat in available_features:
+        available.update(part.strip() for part in feat.split(","))
+
+    # Map common aliases
+    if "postgres" in available:
+        available.add("postgresql")
+    if "postgresql" in available:
+        available.add("postgres")
+
+    filtered = []
+    for test in tests:
+        required = set(test.requirements.services)
+        missing = required - available
+        if missing:
+            console.warning(
+                f"Skipping {test.name}: requires {', '.join(sorted(missing))} "
+                f"(not in --with {', '.join(sorted(available_features))})"
+            )
+        else:
+            filtered.append(test)
+    return filtered
+
+
 def run_tests(
     ctx: click.Context,
     tests: list[TestDefinition],
@@ -54,6 +96,7 @@ def run_tests(
     logs_dir: str | None = None,
     start_message: str = "Starting tests...",
     mode_label: str = "system",
+    available_features: list[str] | None = None,
 ) -> None:
     """Run tests against a target.
 
@@ -65,6 +108,13 @@ def run_tests(
 
     verbose = ctx.obj["verbose"]
     console = _create_console(verbose, quiet)
+
+    # Filter out tests whose required services aren't available
+    if available_features is not None:
+        tests = _filter_by_available_services(tests, available_features, console)
+        if not tests:
+            console.error("No tests remaining after filtering by available services")
+            sys.exit(1)
     store = ResultStore()
     reporter = ConsoleReporter(verbose=verbose, quiet=quiet)
     log_writer = TestLogWriter(Path(logs_dir) if logs_dir else None)

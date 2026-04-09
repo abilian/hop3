@@ -1,0 +1,15 @@
+[test]
+name = "wiki-js"
+category = "docker-app"
+tier = "medium"
+priority = "P1"
+
+[test.requirements]
+services = ["docker", "postgresql"]
+
+[[validations]]
+type = "http"
+path = "/healthz"
+
+[validations.expect]
+status = 200

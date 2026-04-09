@@ -1,0 +1,15 @@
+[test]
+name = "jenkins"
+category = "docker-app"
+tier = "medium"
+priority = "P0"
+
+[test.requirements]
+services = ["docker"]
+
+[[validations]]
+type = "http"
+path = "/login"
+
+[validations.expect]
+status = 200

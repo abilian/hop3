@@ -1,0 +1,15 @@
+[test]
+name = "bookstack"
+category = "docker-app"
+tier = "slow"
+priority = "P1"
+
+[test.requirements]
+services = ["docker", "mysql"]
+
+[[validations]]
+type = "http"
+path = "/status"
+
+[validations.expect]
+status = 200
