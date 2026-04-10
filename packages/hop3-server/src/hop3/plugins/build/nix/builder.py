@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from hop3.core.protocols import BuildArtifact, BuildContext, RuntimeConfig
+from hop3.lib import Abort
 
 # Nix profile scripts to try (single-user and multi-user modes)
 # Note: Single-user path is evaluated at runtime via _get_nix_profile_paths()
@@ -45,6 +46,37 @@ class NixBuilder:
         self.rejection_reason: str = ""
         self._mode: str = ""  # "explicit" or "generated"
 
+    def _has_nix_template(self) -> bool:
+        """Check if hop3.toml declares a [nix].template."""
+        app_config = self.context.app_config or {}
+        hop3_config = app_config.get("hop3_config", {})
+        nix_section = hop3_config.get("nix", {})
+        return bool(nix_section.get("template"))
+
+    def _check_no_contradiction(self) -> None:
+        """Refuse to build if both hop3.nix AND [nix].template are present.
+
+        Silently picking one is dangerous: the user almost certainly
+        intends one of them to take effect, and the other being ignored
+        is a footgun. Force the user to delete one or eject deliberately.
+
+        Raises:
+            Abort: If both an explicit hop3.nix and a [nix].template
+                section in hop3.toml are present.
+        """
+        source = self.context.source_path
+        if (source / "hop3.nix").exists() and self._has_nix_template():
+            msg = (
+                f"Both hop3.nix and a [nix].template section in hop3.toml "
+                f"are present in {source}. Pick one:\n"
+                f"  - Delete hop3.nix to use the template, OR\n"
+                f"  - Remove the [nix].template section to keep your "
+                f"hand-crafted hop3.nix.\n"
+                f"To convert a template to a hand-crafted file, "
+                f"run: hop3 nix:eject {self.context.app_name}"
+            )
+            raise Abort(msg)
+
     def accept(self) -> bool:
         """Check if this builder can handle the application.
 
@@ -53,13 +85,18 @@ class NixBuilder:
         - The hop3.toml has a [nix] section with a template name (generated mode)
 
         In both cases, the nix command must be available on the system.
+        Raises Abort if both modes are configured simultaneously.
 
         Returns:
             True if builder can handle this application.
         """
         source = self.context.source_path
 
-        # Phase 1: Explicit hop3.nix file takes precedence
+        # Refuse silently picking one if both are present.
+        self._check_no_contradiction()
+
+        # Mode 1: explicit hop3.nix file (mutually exclusive with
+        # [nix].template, enforced above by _check_no_contradiction)
         if (source / "hop3.nix").exists():
             if not self._nix_available():
                 self.rejection_reason = "nix command not found"
@@ -67,11 +104,8 @@ class NixBuilder:
             self._mode = "explicit"
             return True
 
-        # Phase 2: [nix] section with template in hop3.toml
-        app_config = self.context.app_config or {}
-        hop3_config = app_config.get("hop3_config", {})
-        nix_section = hop3_config.get("nix", {})
-        if nix_section.get("template"):
+        # Mode 2: [nix].template section in hop3.toml
+        if self._has_nix_template():
             if not self._nix_available():
                 self.rejection_reason = "nix command not found"
                 return False
@@ -98,6 +132,11 @@ class NixBuilder:
             RuntimeError: If nix-build fails or runtime.json is missing.
         """
         source = self.context.source_path
+
+        # Defensive: refuse silently picking one if both are present.
+        # accept() also checks this, but build() may be reached when
+        # the builder is force-selected via [build].builder = "nix".
+        self._check_no_contradiction()
 
         # 0. Resolve the nix file (explicit or generated).
         # Determine mode here (not only in accept()) because the builder
