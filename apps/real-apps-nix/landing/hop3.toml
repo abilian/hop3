@@ -1,0 +1,13 @@
+# Hop3 Configuration for the Hop3 landing page (Nix static-site reference)
+
+[metadata]
+id = "hop3-landing"
+version = "0.1.0"
+title = "Hop3 Landing"
+description = "Reference real-apps-nix static site (multi-page HTML + CSS)"
+homepage = "https://hop3.cloud/"
+license = "Apache-2.0"
+categories = ["static", "demo"]
+
+[build]
+builder = "nix"
