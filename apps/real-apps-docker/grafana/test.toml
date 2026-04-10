@@ -5,7 +5,7 @@ tier = "medium"
 priority = "P0"
 
 [test.requirements]
-services = ["docker"]
+services = ["docker", "postgresql"]
 
 [[validations]]
 type = "http"

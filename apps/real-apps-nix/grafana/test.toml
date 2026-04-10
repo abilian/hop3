@@ -10,7 +10,7 @@ description = "Grafana observability platform deployed via Nix"
 
 [test.requirements]
 targets = ["docker", "remote"]
-services = ["nix"]
+services = ["nix", "postgresql"]
 
 [test.metadata]
 author = "hop3-team"

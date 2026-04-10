@@ -21,13 +21,20 @@ before-build = "bash scripts/download.sh"
 before-run = "bash scripts/setup-config.sh"
 start = "./bin/grafana-server"
 
-# Grafana uses SQLite by default, no database needed
+[[addons]]
+type = "postgres"
 
 [env]
 GF_SERVER_HTTP_PORT = "${PORT:-8080}"
 GF_SECURITY_ADMIN_USER = "admin"
 GF_PATHS_DATA = "./data"
 GF_PATHS_LOGS = "./logs"
+GF_DATABASE_TYPE = "postgres"
+GF_DATABASE_HOST = "${PGHOST}:${PGPORT}"
+GF_DATABASE_NAME = "${PGDATABASE}"
+GF_DATABASE_USER = "${PGUSER}"
+GF_DATABASE_PASSWORD = "${PGPASSWORD}"
+GF_DATABASE_SSL_MODE = "disable"
 
 [healthcheck]
 path = "/api/health"

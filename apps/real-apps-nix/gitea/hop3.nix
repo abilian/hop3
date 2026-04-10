@@ -1,36 +1,26 @@
 # hop3.nix - Nix expression for Gitea deployment
 #
-# Downloads the pre-built Gitea binary and creates a wrapper
-# that generates configuration and starts the server.
+# Wraps the nixpkgs gitea package (built from source by nixpkgs)
+# with a startup wrapper that generates config and starts the server.
 
 { pkgs ? import <nixpkgs> {} }:
 
 let
-  version = "1.21.4";
-
-  gitea-bin = pkgs.fetchurl {
-    url = "https://dl.gitea.io/gitea/${version}/gitea-${version}-linux-amd64";
-    sha256 = "WKxZM2BGLQAAHisMlMhDoXF6pTFW8Pt30y5+V57jv6s=";
-    executable = true;
-  };
+  gitea = pkgs.gitea;
 
   app = pkgs.stdenv.mkDerivation {
     pname = "gitea";
-    inherit version;
+    version = gitea.version;
     meta = {
       description = "Self-hosted Git service";
     };
 
     dontUnpack = true;
+    dontBuild = true;
 
     installPhase = ''
       mkdir -p $out/bin $out/hop3
 
-      # Install the binary
-      cp ${gitea-bin} $out/bin/gitea
-      chmod +x $out/bin/gitea
-
-      # Create wrapper script that generates config and starts gitea
       cat > $out/bin/gitea-wrapper << 'WRAPPER'
 #!/bin/sh
 PORT="''${PORT:-8080}"
@@ -43,10 +33,8 @@ DB_PASS="''${PGPASSWORD:-}"
 # Set work dir to current directory (writable), not binary's parent
 export GITEA_WORK_DIR="$PWD"
 
-# Setup working directory structure
 mkdir -p custom/conf data
 
-# Generate configuration
 cat > custom/conf/app.ini << EOF
 [server]
 HTTP_PORT = ''${PORT}
@@ -71,12 +59,10 @@ INSTALL_LOCK = true
 SECRET_KEY = $(head -c 32 /dev/urandom | base64)
 EOF
 
-exec BINDIR/gitea web
+exec ${gitea}/bin/gitea web
 WRAPPER
-      sed -i "s|BINDIR|$out/bin|g" $out/bin/gitea-wrapper
       chmod +x $out/bin/gitea-wrapper
 
-      # Write runtime metadata for Hop3
       cat > $out/hop3/runtime.json << EOF
 {
   "workers": {
@@ -84,7 +70,8 @@ WRAPPER
   },
   "env": {},
   "path": [
-    "$out/bin"
+    "$out/bin",
+    "${gitea}/bin"
   ]
 }
 EOF

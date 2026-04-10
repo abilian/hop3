@@ -1,7 +1,21 @@
+# Hop3 Configuration for Wiki.js (Nix build)
+# Modern wiki platform.
+#
+# NOTE: This config still uses the upstream pre-built tarball via the
+# 'node-prebuilt' template. Reason: nixpkgs ships wiki-js as a raw
+# source tree (no bin/wiki-js wrapper) which requires invoking
+# `node server` from a writable directory. The 'nixpkgs-wrapper'
+# template assumes ${pkg}/bin/<name> exists and isn't a good fit.
+# The hand-crafted real-apps-nix/wiki-js/hop3.nix uses pkgs.wiki-js
+# from nixpkgs (source-built) — see that variant for the proper fix.
+
 [metadata]
 id = "wiki-js"
 version = "2.5.303"
 description = "Modern and powerful wiki platform"
+
+[build]
+builder = "nix"
 
 [nix]
 template = "node-prebuilt"
@@ -60,12 +74,6 @@ ha: false
 
 dataPath: ./data
 """
-
-# Hop3 Configuration for Wiki.js (Nix build)
-# Modern wiki platform
-
-[build]
-builder = "nix"
 
 [[addons]]
 type = "postgres"

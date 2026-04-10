@@ -10,12 +10,21 @@ homepage = "https://grafana.com/"
 license = "AGPL-3.0"
 categories = ["monitoring", "visualization", "observability", "devops"]
 
-# Grafana can use SQLite (default) or PostgreSQL
-# Using SQLite for simplicity - no addon needed
+# Production-grade: use PostgreSQL for durability and concurrent access.
+# (SQLite default is OK for trial/dev, not for production.)
+
+[[addons]]
+type = "postgres"
 
 [env]
 GF_SERVER_HTTP_PORT = "8080"
 GF_SECURITY_ADMIN_USER = "admin"
+GF_DATABASE_TYPE = "postgres"
+GF_DATABASE_HOST = "${PGHOST}:${PGPORT}"
+GF_DATABASE_NAME = "${PGDATABASE}"
+GF_DATABASE_USER = "${PGUSER}"
+GF_DATABASE_PASSWORD = "${PGPASSWORD}"
+GF_DATABASE_SSL_MODE = "disable"
 
 [healthcheck]
 path = "/api/health"

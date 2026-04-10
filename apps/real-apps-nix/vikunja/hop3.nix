@@ -1,46 +1,25 @@
 # hop3.nix - Nix expression for Vikunja deployment
 #
-# Downloads the pre-built Vikunja binary and creates a wrapper
-# that generates configuration and starts the server.
+# Wraps the nixpkgs vikunja package (built from source by nixpkgs)
+# with a startup wrapper that generates configuration and starts the server.
 
 { pkgs ? import <nixpkgs> {} }:
 
 let
-  version = "0.24.6";
-
-  vikunja-release = pkgs.fetchurl {
-    url = "https://dl.vikunja.io/vikunja/${version}/vikunja-v${version}-linux-amd64-full.zip";
-    sha256 = "AAfg+56IAhs5DYmK2IpE2JgdUv7lfsGeBYZwOvso8Bo=";
-  };
+  vikunja = pkgs.vikunja;
 
   app = pkgs.stdenv.mkDerivation {
     pname = "vikunja";
-    inherit version;
+    version = vikunja.version;
     meta = {
       description = "Open source task and project management";
     };
 
-    src = vikunja-release;
-    sourceRoot = ".";
-
-    nativeBuildInputs = [ pkgs.unzip ];
-
-    unpackPhase = ''
-      unzip $src
-    '';
+    dontUnpack = true;
+    dontBuild = true;
 
     installPhase = ''
       mkdir -p $out/bin $out/hop3
-
-      # Install the binary (handle multiple naming formats)
-      if [ -f "vikunja-v${version}-linux-amd64" ]; then
-        cp "vikunja-v${version}-linux-amd64" $out/bin/vikunja
-      elif [ -f "vikunja-${version}-linux-amd64" ]; then
-        cp "vikunja-${version}-linux-amd64" $out/bin/vikunja
-      elif [ -f "vikunja" ]; then
-        cp vikunja $out/bin/vikunja
-      fi
-      chmod +x $out/bin/vikunja
 
       # Create wrapper script that generates config and starts vikunja
       cat > $out/bin/vikunja-wrapper << 'WRAPPER'
@@ -68,9 +47,8 @@ files:
 EOF
 fi
 
-exec BINDIR/vikunja
+exec ${vikunja}/bin/vikunja
 WRAPPER
-      sed -i "s|BINDIR|$out/bin|g" $out/bin/vikunja-wrapper
       chmod +x $out/bin/vikunja-wrapper
 
       # Write runtime metadata for Hop3
@@ -83,7 +61,8 @@ WRAPPER
     "VIKUNJA_FRONTEND_URL": "http://localhost:8080/"
   },
   "path": [
-    "$out/bin"
+    "$out/bin",
+    "${vikunja}/bin"
   ]
 }
 EOF

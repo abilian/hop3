@@ -1,20 +1,31 @@
+# hop3.toml - Hop3 configuration for Nix-based Grafana
+# Observability platform — built from source via nixpkgs
+# Uses PostgreSQL for production durability and concurrent access.
+
 [metadata]
 id = "grafana"
-version = "11.3.2"
 description = "The open and composable observability and data visualization platform"
 
+[build]
+builder = "nix"
+
 [nix]
-template = "prebuilt-archive"
-url = "https://dl.grafana.com/oss/release/grafana-${version}.linux-amd64.tar.gz"
-sha256 = "+q0bQKTrx8q+pHmxVSqB894QwD2lsoGTz6QaeT52FVc="
-archive = "tar-gz"
+template = "nixpkgs-wrapper"
+nixpkgs-package = "grafana"
 exec-target = "grafana"
-source-root = "grafana-v${version}"
-exec-args = ['server', '--homepath', 'SHAREDIR', '--config', '"$PWD/conf/custom.ini"']
+# --homepath uses $GRAFANA_HOMEPATH (set via runtime-env below).
+# This is a shell variable, expanded at runtime, not a Nix placeholder.
+exec-args = ['server', '--homepath', '"$GRAFANA_HOMEPATH"', '--config', '"$PWD/conf/custom.ini"']
+extra-paths = ['${grafana}/bin']
 pre-exec = ['mkdir -p data logs conf/provisioning/datasources conf/provisioning/dashboards']
 
 [nix.local-vars]
 PORT = "${PORT:-8080}"
+DB_HOST = "${PGHOST:-localhost}"
+DB_PORT = "${PGPORT:-5432}"
+DB_NAME = "${PGDATABASE:-grafana}"
+DB_USER = "${PGUSER:-grafana}"
+DB_PASS = "${PGPASSWORD:-}"
 
 [nix.env-exports]
 GF_SERVER_HTTP_PORT = "${PORT}"
@@ -26,6 +37,12 @@ GF_PATHS_PROVISIONING = "$PWD/conf/provisioning"
 GF_SECURITY_ADMIN_USER = "admin"
 GF_PATHS_DATA = "./data"
 GF_PATHS_LOGS = "./logs"
+# GRAFANA_HOMEPATH is a custom env var read by the wrapper script
+# (passed to grafana via --homepath). It uses Nix interpolation
+# (${grafana}) — expanded at install time because runtime-env values
+# are written into runtime.json inside the Nix '' string of the
+# installPhase. spawn.py exports this env var at runtime.
+GRAFANA_HOMEPATH = "${grafana}/share/grafana"
 
 [[nix.config-files]]
 path = "conf/custom.ini"
@@ -36,26 +53,18 @@ http_port = "${PORT}"
 [nix.config-files.sections.paths]
 data = "data"
 logs = "logs"
+[nix.config-files.sections.database]
+type = "postgres"
+host = "${DB_HOST}:${DB_PORT}"
+name = "${DB_NAME}"
+user = "${DB_USER}"
+password = "${DB_PASS}"
+ssl_mode = "disable"
 [nix.config-files.sections.security]
 admin_user = "${GF_SECURITY_ADMIN_USER:-admin}"
 
-[[nix.file-mappings]]
-source = "bin/*"
-destination = "bin/"
-
-[[nix.file-mappings]]
-source = "conf"
-destination = "share/grafana/"
-
-[[nix.file-mappings]]
-source = "public"
-destination = "share/grafana/"
-
-# hop3.toml - Hop3 configuration for Nix-based Grafana
-# The open observability platform (uses SQLite by default, no database addon)
-
-[build]
-builder = "nix"
+[[addons]]
+type = "postgres"
 
 [run]
 start-timeout = 120

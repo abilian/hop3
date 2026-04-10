@@ -7,7 +7,7 @@ description = "Grafana deployed natively"
 
 [test.requirements]
 targets = ["docker", "remote"]
-services = []
+services = ["postgresql"]
 
 [test.metadata]
 author = "hop3-team"

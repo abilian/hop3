@@ -1,35 +1,25 @@
 # hop3.nix - Nix expression for Mattermost deployment
 #
-# Downloads the pre-built Mattermost release and creates a wrapper
-# that generates configuration and starts the server.
+# Wraps the nixpkgs mattermost package (built from source by nixpkgs)
+# with a startup wrapper that generates configuration and starts the server.
 
 { pkgs ? import <nixpkgs> {} }:
 
 let
-  version = "9.4.2";
-
-  mattermost-release = pkgs.fetchurl {
-    url = "https://releases.mattermost.com/${version}/mattermost-${version}-linux-amd64.tar.gz";
-    sha256 = "e/1ZaogKFir/NR5Eel35es+CZAWp2YM1pByldNtjJuc=";
-  };
+  mattermost = pkgs.mattermost;
 
   app = pkgs.stdenv.mkDerivation {
     pname = "mattermost";
-    inherit version;
+    version = mattermost.version;
     meta = {
       description = "Open source team collaboration platform";
     };
 
-    src = mattermost-release;
-    sourceRoot = "mattermost";
+    dontUnpack = true;
+    dontBuild = true;
 
     installPhase = ''
-      mkdir -p $out/bin $out/hop3 $out/share/mattermost
-
-      # Install server binary and assets
-      cp bin/mattermost $out/bin/
-      cp -r templates fonts i18n $out/share/mattermost/ || true
-      cp -r client $out/share/mattermost/ || true
+      mkdir -p $out/bin $out/hop3
 
       # Create wrapper script that generates config and starts mattermost
       cat > $out/bin/mattermost-wrapper << 'WRAPPER'
@@ -88,10 +78,9 @@ cat > config/config.json << CONFEOF
 }
 CONFEOF
 
-exec BINDIR/mattermost
+exec ${mattermost}/bin/mattermost
 WRAPPER
-      sed -i "s|BINDIR|$out/bin|g" $out/bin/mattermost-wrapper
-      sed -i "s|SHAREDIR|$out/share/mattermost|g" $out/bin/mattermost-wrapper
+      sed -i "s|SHAREDIR|${mattermost}/share/mattermost|g" $out/bin/mattermost-wrapper
       chmod +x $out/bin/mattermost-wrapper
 
       # Write runtime metadata for Hop3
@@ -104,7 +93,8 @@ WRAPPER
     "MM_SERVICESETTINGS_SITEURL": "http://localhost:8080"
   },
   "path": [
-    "$out/bin"
+    "$out/bin",
+    "${mattermost}/bin"
   ]
 }
 EOF

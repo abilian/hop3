@@ -1,45 +1,40 @@
 # hop3.nix - Nix expression for Grafana deployment
 #
-# Downloads the pre-built Grafana release and creates a wrapper
-# that generates configuration and starts the server.
+# Wraps the nixpkgs grafana package (built from source by nixpkgs)
+# with a startup wrapper that generates configuration and starts the server.
 
 { pkgs ? import <nixpkgs> {} }:
 
 let
-  version = "11.3.2";
-
-  grafana-release = pkgs.fetchurl {
-    url = "https://dl.grafana.com/oss/release/grafana-${version}.linux-amd64.tar.gz";
-    sha256 = "+q0bQKTrx8q+pHmxVSqB894QwD2lsoGTz6QaeT52FVc=";
-  };
+  grafana = pkgs.grafana;
 
   app = pkgs.stdenv.mkDerivation {
     pname = "grafana";
-    inherit version;
+    version = grafana.version;
     meta = {
       description = "The open and composable observability and data visualization platform";
     };
 
-    src = grafana-release;
-    sourceRoot = "grafana-v${version}";
+    dontUnpack = true;
+    dontBuild = true;
 
     installPhase = ''
-      mkdir -p $out/bin $out/hop3 $out/share/grafana
-
-      # Install all binaries and default config
-      cp -r bin/* $out/bin/
-      cp -r conf public $out/share/grafana/
+      mkdir -p $out/bin $out/hop3
 
       # Create wrapper script that generates config and starts grafana
       cat > $out/bin/grafana-wrapper << 'WRAPPER'
 #!/bin/sh
 PORT="''${PORT:-8080}"
+DB_HOST="''${PGHOST:-localhost}"
+DB_PORT="''${PGPORT:-5432}"
+DB_NAME="''${PGDATABASE:-grafana}"
+DB_USER="''${PGUSER:-grafana}"
+DB_PASS="''${PGPASSWORD:-}"
 
 mkdir -p data logs conf/provisioning/datasources conf/provisioning/dashboards
 
-# Create minimal config if not present
-if [ ! -f conf/custom.ini ]; then
-  cat > conf/custom.ini << EOF
+# Generate config with PostgreSQL backend
+cat > conf/custom.ini << EOF
 [server]
 http_port = ''${PORT}
 
@@ -47,22 +42,27 @@ http_port = ''${PORT}
 data = data
 logs = logs
 
+[database]
+type = postgres
+host = ''${DB_HOST}:''${DB_PORT}
+name = ''${DB_NAME}
+user = ''${DB_USER}
+password = ''${DB_PASS}
+ssl_mode = disable
+
 [security]
 admin_user = ''${GF_SECURITY_ADMIN_USER:-admin}
 EOF
-fi
 
 export GF_SERVER_HTTP_PORT="''${PORT}"
 export GF_PATHS_DATA="$PWD/data"
 export GF_PATHS_LOGS="$PWD/logs"
 export GF_PATHS_PROVISIONING="$PWD/conf/provisioning"
 
-exec BINDIR/grafana server \
-  --homepath SHAREDIR \
+exec ${grafana}/bin/grafana server \
+  --homepath ${grafana}/share/grafana \
   --config "$PWD/conf/custom.ini"
 WRAPPER
-      sed -i "s|BINDIR|$out/bin|g" $out/bin/grafana-wrapper
-      sed -i "s|SHAREDIR|$out/share/grafana|g" $out/bin/grafana-wrapper
       chmod +x $out/bin/grafana-wrapper
 
       # Write runtime metadata for Hop3
@@ -77,7 +77,8 @@ WRAPPER
     "GF_PATHS_LOGS": "./logs"
   },
   "path": [
-    "$out/bin"
+    "$out/bin",
+    "${grafana}/bin"
   ]
 }
 EOF

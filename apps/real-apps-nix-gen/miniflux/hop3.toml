@@ -1,20 +1,18 @@
 # hop3.toml - Hop3 configuration for Nix-based Miniflux
-# Minimalist RSS reader
+# Minimalist RSS reader — built from source via nixpkgs
 
 [metadata]
 id = "miniflux"
-version = "2.1.1"
 description = "Minimalist and opinionated RSS reader"
 
 [build]
 builder = "nix"
 
 [nix]
-template = "prebuilt-binary"
-url = "https://github.com/miniflux/v2/releases/download/${version}/miniflux-linux-amd64"
-sha256 = "ydbOKn/voD05Hvl1wAU2GUcCccHimmB/2b0q+4RrKcU="
-executable = true
-binary-name = "miniflux"
+template = "nixpkgs-wrapper"
+nixpkgs-package = "miniflux"
+exec-target = "miniflux"
+extra-paths = ['${miniflux}/bin']
 
 [nix.env-exports]
 LISTEN_ADDR = "0.0.0.0:${PORT:-8080}"

@@ -1,15 +1,19 @@
+# hop3.toml - Hop3 configuration for Nix-based Gitea
+# Self-hosted Git service — built from source via nixpkgs
+
 [metadata]
 id = "gitea"
-version = "1.21.4"
 description = "Self-hosted Git service"
 
+[build]
+builder = "nix"
+
 [nix]
-template = "prebuilt-binary"
-url = "https://dl.gitea.io/gitea/${version}/gitea-${version}-linux-amd64"
-sha256 = "WKxZM2BGLQAAHisMlMhDoXF6pTFW8Pt30y5+V57jv6s="
-executable = true
-binary-name = "gitea"
+template = "nixpkgs-wrapper"
+nixpkgs-package = "gitea"
+exec-target = "gitea"
 exec-args = ['web']
+extra-paths = ['${gitea}/bin']
 pre-exec = ['mkdir -p custom/conf data']
 
 [nix.local-vars]
@@ -43,12 +47,6 @@ LEVEL = "Info"
 [nix.config-files.sections.security]
 INSTALL_LOCK = "true"
 SECRET_KEY = "$(head -c 32 /dev/urandom | base64)"
-
-# hop3.toml - Hop3 configuration for Nix-based Gitea
-# Self-hosted Git service
-
-[build]
-builder = "nix"
 
 [[addons]]
 type = "postgres"

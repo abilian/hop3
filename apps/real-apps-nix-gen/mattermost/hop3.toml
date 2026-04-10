@@ -1,22 +1,25 @@
+# hop3.toml - Hop3 configuration for Nix-based Mattermost
+# Team collaboration platform — built from source via nixpkgs
+
 [metadata]
 id = "mattermost"
-version = "9.4.2"
 description = "Open source team collaboration platform"
 
+[build]
+builder = "nix"
+
 [nix]
-template = "prebuilt-archive"
-url = "https://releases.mattermost.com/${version}/mattermost-${version}-linux-amd64.tar.gz"
-sha256 = "e/1ZaogKFir/NR5Eel35es+CZAWp2YM1pByldNtjJuc="
-archive = "tar-gz"
+template = "nixpkgs-wrapper"
+nixpkgs-package = "mattermost"
 exec-target = "mattermost"
-source-root = "mattermost"
+exec-args = ['--config', '"$PWD/config/config.json"']
+extra-paths = ['${mattermost}/bin']
 pre-exec = [
   "mkdir -p data logs config plugins client/plugins",
-  """# Symlink Mattermost assets from Nix store into working directory
-for item in SHAREDIR/*; do
-  base="$(basename "$item")"
-  if [ ! -e "$base" ]; then
-    ln -sf "$item" "$base"
+  """# Symlink Mattermost assets from the nixpkgs package into the writable cwd
+for item in templates fonts i18n client; do
+  if [ -e PKGOUT/share/mattermost/$item ] && [ ! -e $item ]; then
+    ln -sf PKGOUT/share/mattermost/$item $item
   fi
 done"""
 ,
@@ -70,25 +73,6 @@ raw-content = """
   }
 }
 """
-
-[[nix.file-mappings]]
-source = "bin/mattermost"
-destination = "bin/"
-recursive = false
-
-[[nix.file-mappings]]
-source = "templates fonts i18n"
-destination = "share/mattermost/"
-
-[[nix.file-mappings]]
-source = "client"
-destination = "share/mattermost/"
-
-# hop3.toml - Hop3 configuration for Nix-based Mattermost
-# Team collaboration platform
-
-[build]
-builder = "nix"
 
 [[addons]]
 type = "postgres"

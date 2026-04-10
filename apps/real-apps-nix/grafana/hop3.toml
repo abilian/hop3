@@ -1,8 +1,11 @@
 # hop3.toml - Hop3 configuration for Nix-based Grafana
-# The open observability platform (uses SQLite by default, no database addon)
+# The open observability platform — uses PostgreSQL for production durability
 
 [build]
 builder = "nix"
+
+[[addons]]
+type = "postgres"
 
 [run]
 start-timeout = 120

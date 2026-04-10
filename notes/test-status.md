@@ -1,15 +1,15 @@
 # Hop3 Test Status
 
-**Last Updated**: 2026-02-17
+**Last Updated**: 2026-04-09
 
 ## Test Summary
 
-| Layer | Status |
-|-------|--------|
-| Unit (`a_unit/`) | Passing |
-| Integration (`b_integration/`) | Passing |
-| System (`c_system/`) | Passing |
-| E2E (`d_e2e/`) | 9 apps passing, 1 skipped |
+| Layer | Status | Count |
+|-------|--------|-------|
+| Unit (`a_unit/`) | Passing | 599 tests (6 skipped) |
+| Integration (`b_integration/`) | Passing | 245+ tests |
+| System (`c_system/`) | Passing | Full CLI-server in Docker |
+| E2E (`d_e2e/`) | See app suites below | 4 suites, 118 apps total |
 
 ## Test Structure
 
@@ -25,81 +25,70 @@ packages/hop3-server/tests/
 
 ### Layer 1: Unit Tests (`a_unit/`)
 
-**Purpose**: Test individual functions and classes in isolation
-
-**Status**: Passing
-- Fast execution (< 1 second total)
-- No external dependencies
-- Good coverage of commands, ORM, plugins
+**Status**: 599 passing, 6 skipped — ~7s execution
 
 **Coverage**:
-- Commands (admin, auth, config, services, git hooks)
-- Core functionality (app config, hop3 config)
+- Commands (admin, auth, config, services, git hooks, nix:eject)
+- Core functionality (app config, hop3 config, protocols)
 - ORM models
-- Plugin implementations
+- Plugin implementations (nix-gen: 119 tests across 7 test files)
 - uWSGI settings
+- Shell command execution
 
 ### Layer 2: Integration Tests (`b_integration/`)
 
-**Purpose**: Test multiple components working together
-
-**Status**: Passing
-- Medium execution time (~10 seconds)
-- Uses real database (in-memory SQLite)
-- Uses Litestar TestClient
+**Status**: 245+ passing — ~10s execution
 
 **Coverage**:
 - Auth commands (register, login, whoami, logout)
 - RPC endpoint security (token validation, tampering, injection)
-- Command authentication and authorization
 - Dashboard views (app management, service management)
 - Service credential management
 
 ### Layer 3: System Tests (`c_system/`)
 
-**Purpose**: Test full CLI-server communication in Docker
+**Status**: Passing — ~30s, requires Docker
 
-**Status**: Passing
-- Requires Docker
-- Uses `HOP3_UNSAFE=true` for auth bypass in tests
-- Tests real HTTP communication
+### Layer 4: E2E / Deployment Tests
 
-**Coverage**:
-- CLI availability and basic functionality
-- Dashboard app creation/management
-- Authentication flows
+Run via `hop3-test system` against Docker or SSH targets.
 
-### Layer 4: E2E Tests (`d_e2e/`)
+#### App Suites
 
-**Purpose**: Test complete deployment workflows
+| Suite | Location | Count | Last Status |
+|-------|----------|-------|-------------|
+| Procfile test apps | `apps/test-apps-procfile/` | 8 | All passing |
+| Nix test apps | `apps/test-apps-nix/` | 10 | Mostly passing |
+| Native real apps | `apps/real-apps-native/` | 28 | All passing |
+| Nix hand-crafted | `apps/real-apps-nix/` | 22 | 20-22 passing |
+| Nix template-gen | `apps/real-apps-nix-gen/` | 20 | 14-20 passing |
+| Docker real apps | `apps/real-apps-docker/` | 30 | ~20 passing |
 
-**Status**: 7 passing, 1 skipped
-- Slow execution (10-20 minutes)
-- Full Hop3 stack in Docker
-- Real application deployments
+#### Test Harness Features (hop3-test)
 
-**Test Apps**:
-| App | Status |
-|-----|--------|
-| 000-static | Passing |
-| 010-flask-pip-wsgi | Passing |
-| 020-nodejs-express | Passing |
-| 030-golang-gin | Skipped (under investigation) |
-| 030-rack | Passing |
-| 040-sinatra | Passing |
-| 050-clojure | Passing |
-| 100-flask-gunicorn-pip | Passing |
-| 120-flask-pip-alt | Passing |
-| 130-golang-minimal | Passing |
+- `--with` flag filters by required services (nix, mysql, postgres, redis, docker)
+- Direct port HTTP testing (bypasses nginx)
+- SSH-based curl for remote targets (firewall-safe)
+- Nginx-based testing for static/no-port apps
+- 10-minute deploy timeout (prevents silent hangs)
+- Real-time streaming of deploy output
+- Response body in error messages for diagnosis
+
+#### Docker App Known Issues
+
+Several Docker apps have infrastructure issues unrelated to Hop3:
+- MySQL apps may fail if `host.docker.internal` doesn't resolve correctly
+- Some apps need long startup times (formbricks, mastodon, xwiki)
+- Monica: Docker build is slow (npm + webpack > 10 min)
 
 ## Test Execution Times
 
 | Layer | Time | When to Run |
 |-------|------|-------------|
-| Unit | < 5s | During development |
+| Unit | ~7s | During development |
 | Integration | ~10s | Before commits |
 | System | ~30s | Before push |
-| E2E | 10-20 min | CI/CD, before release |
+| E2E (one suite) | 10-60 min | CI/CD, before release |
 
 ## Quick Commands
 
@@ -114,19 +103,18 @@ make test-ci
 uv run pytest packages/hop3-server/tests/a_unit
 uv run pytest packages/hop3-server/tests/b_integration
 uv run pytest packages/hop3-server/tests/c_system
-uv run pytest packages/hop3-server/tests/d_e2e
+
+# Deployment tests (requires server)
+hop3-test system --docker --clean --with nix apps/test-apps-*
+hop3-test system --ssh --host $HOP3_DEV_HOST --clean --with all apps/real-apps-*
 ```
 
-## Known Issues
+## Recent Improvements (2026-04)
 
-1. **Go Gin app** (`030-golang-gin`): Skipped, under investigation.
-
-2. **MySQL SSL with Rails**: Deferred. Demo44 (Rails) switched to PostgreSQL.
-
-## Recent Improvements (2026)
-
-- **Health check system** (2026-02-17): Plugin-based health checks for MySQL, PostgreSQL, Redis
-- **`hop3 system:check` command** (2026-02-17): Comprehensive server health validation
-- **ENV file ORM storage** (2026-02-16): Fixed HOST_NAME not stored during deployment
-- **PYTHONPATH for src-layout** (2026-02-16): Auto-detect src/ directory for Python apps
-- **Improved error messages** (2026-02-16): HTTP test failures now include response details
+- **Test harness hardening** (W15): Deploy timeout, service filtering, body in errors
+- **Static site support** (W15): Fixed absolute path handling, nginx SSH testing
+- **Docker test.toml** (W15): All 30 Docker apps now have test definitions
+- **NixEjectCmd tests** (W15): 5 tests for nix:eject command (previously zero coverage)
+- **Nix gen tests** (W14): 119 unit tests across 7 test files for template generator
+- **Direct port testing** (W14): HTTP testing via app port, bypassing nginx
+- **SSH curl testing** (W14): Test remote apps via curl on the server

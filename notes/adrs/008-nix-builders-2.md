@@ -1,9 +1,9 @@
 # ADR 008: Template-Based Nix Expression Generation
 
-**Status**: Active — spike validated, productionization planned for Q2 2026
+**Status**: Active — productionized, in testing
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-04-05
+**Updated**: 2026-04-09
 **Related-ADRs**: 006, 007, 009, 020, 022, 030, 031, 035
 **Depends-On**: ADR 006 Phase 1 (completed)
 
@@ -13,7 +13,7 @@
 - v0.2: Tweak following feedback from NLNet (2024-09-23)
 - v0.3: Mark as Phase 3, pending earlier phases (2026-03-23)
 - v0.4: Reframed from "lockfile conversion" to "on-the-fly generation at build time." Initially proposed using ecosystem tools (poetry2nix, dream2nix, node2nix). (2026-04-04)
-- v0.5: **Major rewrite after spike validation.** Ecosystem tools approach abandoned — we don't actually use them in any existing hop3.nix. Replaced with template-based approach systematising the manual conversion patterns. Spike at `spikes/nix-gen/` validates the approach with 20 of 22 apps building successfully. (2026-04-05)
+- v0.5: Major rewrite after spike validation. Ecosystem tools approach abandoned — we don't actually use them in any existing hop3.nix. Replaced with template-based approach systematising the manual conversion patterns. Spike at `spikes/nix-gen/` validates the approach with 20 of 22 apps building successfully. (2026-04-05)
 
 ## Context
 

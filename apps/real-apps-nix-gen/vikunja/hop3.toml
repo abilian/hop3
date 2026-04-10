@@ -1,15 +1,18 @@
+# hop3.toml - Hop3 configuration for Nix-based Vikunja
+# Open source task and project management — built from source via nixpkgs
+
 [metadata]
 id = "vikunja"
-version = "0.24.6"
 description = "Open source task and project management"
 
+[build]
+builder = "nix"
+
 [nix]
-template = "prebuilt-archive"
-url = "https://dl.vikunja.io/vikunja/${version}/vikunja-v${version}-linux-amd64-full.zip"
-sha256 = "AAfg+56IAhs5DYmK2IpE2JgdUv7lfsGeBYZwOvso8Bo="
-archive = "zip"
+template = "nixpkgs-wrapper"
+nixpkgs-package = "vikunja"
 exec-target = "vikunja"
-source-root = "."
+extra-paths = ['${vikunja}/bin']
 pre-exec = ['mkdir -p files']
 
 [nix.local-vars]
@@ -26,6 +29,10 @@ raw-content = """
 service:
   interface: ":${PORT}"
   frontendurl: "${VIKUNJA_FRONTEND_URL:-http://localhost:${PORT}/}"
+  publicurl: "${VIKUNJA_FRONTEND_URL:-http://localhost:${PORT}/}"
+
+cors:
+  enable: false
 
 database:
   type: postgres
@@ -38,18 +45,6 @@ database:
 files:
   basepath: ./files
 """
-
-[[nix.file-mappings]]
-source = "vikunja-v${version}-linux-amd64"
-destination = "bin/vikunja"
-recursive = false
-executable = true
-
-# hop3.toml - Hop3 configuration for Nix-based Vikunja
-# Open source task and project management
-
-[build]
-builder = "nix"
 
 [[addons]]
 type = "postgres"

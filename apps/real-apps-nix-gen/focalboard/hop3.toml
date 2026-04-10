@@ -1,7 +1,15 @@
+# Focalboard is NOT in nixpkgs (Mattermost archived this project in 2023).
+# This config still uses a pre-built binary download. Limitations:
+#   - Not reproducible (binary downloaded from upstream releases)
+#   - x86_64-linux only (no ARM, RISC-V, etc.)
+#   - Supply chain risk (we trust the upstream release pipeline)
+# Path forward: Focalboard's upstream is unmaintained. Consider dropping
+# from the supported app set or switching to a community fork.
+
 [metadata]
 id = "focalboard"
 version = "7.10.5"
-description = "Open source project management tool"
+description = "Open source project management tool (UNMAINTAINED upstream)"
 
 [nix]
 template = "prebuilt-archive"

@@ -83,7 +83,10 @@ let
       cat > $out/bin/{spec.pname} << 'WRAPPER'
 {wrapper_body}
 WRAPPER
+      # Replace placeholders PKGBIN and PKGOUT with the upstream
+      # nixpkgs package paths (binary directory and root directory).
       sed -i "s|PKGBIN|${{{binding}}}/bin|g" $out/bin/{spec.pname}
+      sed -i "s|PKGOUT|${{{binding}}}|g" $out/bin/{spec.pname}
       chmod +x $out/bin/{spec.pname}
 
       cat > $out/hop3/runtime.json << EOF
