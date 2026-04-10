@@ -100,7 +100,7 @@ def _validate_http(ctx: ValidationContext) -> ValidationResult:
     details = {
         "url": url,
         "status": response.status,
-        "body_preview": response.body[:500] if response.body else "",
+        "body_preview": response.body[:4096] if response.body else "",
     }
 
     # Check for connection errors

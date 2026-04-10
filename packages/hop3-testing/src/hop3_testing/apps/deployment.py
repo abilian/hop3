@@ -450,7 +450,7 @@ class DeploymentSession:
                 result["details"]["status_code"] = response.status_code
                 result["details"]["attempts"] = attempt + 1
                 result["details"]["body_preview"] = (
-                    response.text[:500] if response.text else ""
+                    response.text[:4096] if response.text else ""
                 )
 
                 if response.status_code == expected_status:
@@ -508,7 +508,7 @@ class DeploymentSession:
                     if status_code == expected_status:
                         # Fetch body for contains checks
                         _, body, _ = self.target.exec_run(
-                            f"curl -s --max-time 3 '{url}' | head -c 500"
+                            f"curl -s --max-time 3 '{url}' | head -c 4096"
                         )
                         result["details"]["body_preview"] = (
                             body.strip() if body else ""
@@ -526,7 +526,7 @@ class DeploymentSession:
 
                     # Get body preview for non-matching status
                     _, body, _ = self.target.exec_run(
-                        f"curl -s --max-time 3 '{url}' | head -c 500"
+                        f"curl -s --max-time 3 '{url}' | head -c 4096"
                     )
                     body_text = body.strip() if body else ""
                     result["details"]["body_preview"] = body_text
@@ -588,7 +588,7 @@ class DeploymentSession:
                     if status_code == expected_status:
                         # Fetch body for contains checks
                         _, body, _ = self.target.exec_run(
-                            f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 500"
+                            f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 4096"
                         )
                         result["details"]["body_preview"] = (
                             body.strip() if body else ""
@@ -606,7 +606,7 @@ class DeploymentSession:
 
                     # Non-matching status — get body for diagnostics
                     _, body, _ = self.target.exec_run(
-                        f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 500"
+                        f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 4096"
                     )
                     body_text = body.strip() if body else ""
                     result["details"]["body_preview"] = body_text

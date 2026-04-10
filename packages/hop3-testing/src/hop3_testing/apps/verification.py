@@ -126,8 +126,9 @@ class HttpVerifier:
                 result["details"]["status_code"] = response.status_code
                 result["details"]["attempts"] = attempt + 1
 
-                # Capture body preview
-                body = response.text[:500] if response.text else ""
+                # Capture body preview. 4096 chars is enough for most HTML
+                # pages and lets `contains` checks see beyond the head/header.
+                body = response.text[:4096] if response.text else ""
                 result["details"]["body_preview"] = body
 
                 if response.status_code == expected_status:
