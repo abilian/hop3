@@ -311,15 +311,26 @@ When `builder = "nix"` is set in `[build]`, Hop3 can generate a Nix expression a
 
 ### Template Types
 
-| Template | Use case |
-|----------|----------|
-| `prebuilt-binary` | Pre-compiled single binary (Gitea, Miniflux) |
-| `prebuilt-archive` | Pre-compiled archive with multiple files (Grafana, Mattermost) |
-| `php-app` | PHP apps served with `php -S` or `artisan serve` |
-| `node-prebuilt` | Node.js apps with pre-built assets |
-| `java-war` | Java WAR files served with JDK |
-| `python-venv` | Python apps installed via pip into a virtualenv |
-| `nixpkgs-wrapper` | Apps already packaged in nixpkgs |
+Eight templates are available. Prefer the higher tiers when possible
+— see [Nix reference](nix.md#reproducibility-tiers) for the
+reproducibility implications.
+
+| Template | Use case | Tier |
+|----------|----------|------|
+| `nixpkgs-wrapper` | Apps already packaged in nixpkgs (best — multi-arch, source-built) | 1 |
+| `python-venv` | Python apps installed via pip into a virtualenv | 2 |
+| `php-app` | PHP apps served with `php -S` or `artisan serve` | 2 |
+| `java-war` | Java WAR files served with a JDK from nixpkgs | 1 |
+| `ruby-bundler` | Ruby apps using `bundlerEnv` from `gemset.nix` | 2 |
+| `prebuilt-binary` | Pre-compiled single binary from upstream releases | 3 |
+| `prebuilt-archive` | Pre-compiled archive with multiple files | 3 |
+| `node-prebuilt` | Node.js apps with pre-built assets | 3 |
+
+**Tier 1 = source-built and reproducible** (use when available).
+**Tier 2 = source-built but not fully hermetic** (depends on PyPI,
+Packagist, etc. at build time).
+**Tier 3 = pre-built binary download** (x86_64-linux only, not
+reproducible from source — use only when nothing in nixpkgs fits).
 
 ### Common Fields
 
@@ -401,24 +412,27 @@ web-root = "htdocs"            # Subdirectory for document root
 post-install-dirs = ["storage/logs", "bootstrap/cache"]
 ```
 
-### Complete Example (Gitea)
+### Complete Example (Gitea via nixpkgs-wrapper — Tier 1)
+
+This is the recommended pattern: wrap a nixpkgs source build with a
+startup script that generates the app.ini config from environment
+variables.
 
 ```toml
 [metadata]
 id = "gitea"
-version = "1.21.4"
 description = "Self-hosted Git service"
 
 [build]
 builder = "nix"
 
 [nix]
-template = "prebuilt-binary"
-url = "https://dl.gitea.io/gitea/${version}/gitea-${version}-linux-amd64"
-sha256 = "WKxZM2BGLQAAHisMlMhDoXF6pTFW8Pt30y5+V57jv6s="
-executable = true
-binary-name = "gitea"
+template = "nixpkgs-wrapper"
+nixpkgs-package = "gitea"
+exec-target = "gitea"
 exec-args = ["web"]
+extra-paths = ["${gitea}/bin"]
+pre-exec = ["mkdir -p custom/conf data"]
 
 [nix.local-vars]
 PORT = "${PORT:-8080}"

@@ -15,6 +15,7 @@ This document provides a complete reference for all Hop3 CLI commands.
 - [Authentication Commands](#authentication-commands)
 - [Application Management](#application-management)
 - [Configuration Management](#configuration-management)
+- [Nix Commands](#nix-commands)
 - [Backup and Restore](#backup-and-restore)
 - [Services (Addons)](#services-addons)
 - [Admin Commands](#admin-commands)
@@ -1035,6 +1036,55 @@ hop3 config:migrate --format procfile --dry-run
 # Apply migration with backup
 hop3 config:migrate --format procfile --backup
 ```
+
+---
+
+## Nix Commands
+
+### `hop3 nix:eject`
+
+Materialize the auto-generated `hop3.nix` from a `[nix]` template
+config into a real `hop3.nix` file in the app's source directory.
+After ejection, the NixBuilder uses the committed `hop3.nix` instead
+of regenerating from the template, and the `[nix]` section in
+`hop3.toml` is ignored.
+
+Use `nix:eject` when you've outgrown the templates and need to
+customise the generated Nix expression directly.
+
+**Usage:**
+```bash
+hop3 nix:eject <app-name>
+```
+
+**Behavior:**
+- Reads the `[nix]` section from the app's `hop3.toml`
+- Generates the Nix expression using the same template engine that
+  the NixBuilder uses at deploy time
+- Writes the result as `hop3.nix` in the app's source directory,
+  with a header noting which template it came from and the date
+- Refuses to overwrite an existing `hop3.nix`
+
+**Example:**
+```bash
+# Eject the generated Nix for the "myapp" deployment
+hop3 nix:eject myapp
+
+# Inspect the result
+cat /path/to/myapp-source/hop3.nix
+
+# Edit it freely — the [nix] section in hop3.toml is now ignored
+```
+
+**Errors:**
+- "App has no hop3.toml" — the app source has no `hop3.toml`
+- "No [nix].template in hop3.toml" — the app isn't using template mode
+- "hop3.nix already exists" — remove the existing file first if you
+  want to re-eject
+
+**See also:**
+- [Nix deployment guide](../guides/nix-deployment.md)
+- [hop3.toml `[nix]` section](config.md#nix--template-based-nix-builds)
 
 ---
 

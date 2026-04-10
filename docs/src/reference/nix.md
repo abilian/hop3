@@ -1,23 +1,43 @@
 # Nix Integration Reference
 
-This document provides a complete reference for deploying applications on Hop3 using Nix.
+This document is the technical reference for deploying applications on
+Hop3 using Nix. For a tutorial-style introduction, see the
+[Nix deployment guide](../guides/nix-deployment.md).
 
 ## Overview
 
-Hop3 supports Nix-based deployments as an alternative to native buildpacks and Docker. When a `hop3.nix` file is present in the application source, Hop3 uses the NixBuilder to produce deterministic, reproducible builds.
+Hop3 supports Nix-based deployments as an alternative to native
+buildpacks and Docker. Two modes are supported:
 
-Nix integration is currently in **Phase 1**: applications must provide their own `hop3.nix` file.
+1. **Generated mode (ADR 008).** Hop3 generates a `hop3.nix` file at
+   build time from a `[nix]` section in `hop3.toml`, using one of the
+   built-in templates. This is the preferred mode for most apps.
+2. **Hand-crafted mode.** The user provides a `hop3.nix` file directly.
+   Used when the templates don't fit, or when extracted via
+   `hop3 nix:eject`.
+
+**The two modes are mutually exclusive.** If both a `hop3.nix` file
+and a `[nix].template` section in `hop3.toml` are present, NixBuilder
+raises `Abort` rather than silently picking one. The error message
+points the user to either delete `hop3.nix` or remove the `[nix]`
+section. To deliberately convert a template to a hand-crafted file,
+use `hop3 nix:eject <app>`.
 
 ## Architecture
 
-The NixBuilder is a Level 1 Builder in Hop3's two-level build architecture:
+The NixBuilder is a Level 1 Builder in Hop3's two-level build
+architecture:
 
-- **Level 1 (Builders)**: Orchestrate *how* to build (LocalBuilder, DockerBuilder, **NixBuilder**)
-- **Level 2 (LanguageToolchains)**: Execute *what* to build (Python, Node, Ruby, etc.)
+- **Level 1 (Builders)**: Orchestrate *how* to build (LocalBuilder,
+  DockerBuilder, **NixBuilder**)
+- **Level 2 (LanguageToolchains)**: Execute *what* to build (Python,
+  Node, Ruby, etc.)
 
-NixBuilder does **not** delegate to LanguageToolchains. All build logic is encapsulated in the `hop3.nix` expression.
+NixBuilder does **not** delegate to LanguageToolchains. All build
+logic is encapsulated in the `hop3.nix` expression — either
+hand-crafted or generated.
 
-## hop3.toml Configuration
+## hop3.toml configuration
 
 To use the NixBuilder, set the builder in `hop3.toml`:
 
@@ -26,20 +46,46 @@ To use the NixBuilder, set the builder in `hop3.toml`:
 builder = "nix"
 ```
 
-No other configuration is required. The NixBuilder reads everything it needs from `hop3.nix`.
+For template-generated mode, also add a `[nix]` section. See the
+[hop3.toml reference](config.md#nix--template-based-nix-builds) for
+the full schema.
 
-## hop3.nix File Format
+## Build process
 
-The `hop3.nix` file is a standard Nix expression that evaluates to an attribute set with:
+When Hop3 deploys a Nix app:
+
+1. NixBuilder accepts the build if either condition holds:
+   - A `hop3.nix` file exists in the source directory, **or**
+   - The `[nix]` section in `hop3.toml` declares a `template`
+2. Verifies `nix-build` is available
+3. Resolves the Nix file:
+   - **Hand-crafted mode**: uses the existing `hop3.nix`
+   - **Generated mode**: generates a `hop3.nix` from the `[nix]`
+     section using the appropriate template
+4. Runs: `nix-build hop3.nix -A package --no-out-link`
+5. Reads `$out/hop3/runtime.json` from the built store path
+6. Produces a `BuildArtifact` with:
+   - `kind="nix"` (or `kind="static"` for static-only apps)
+   - `location` pointing to the Nix store path
+   - `runtime` containing workers, env vars, and PATH from
+     `runtime.json`
+7. Hands off to the deployer (uWSGI for `kind="nix"`, StaticDeployer
+   for `kind="static"`)
+
+## hop3.nix file format
+
+The `hop3.nix` file is a standard Nix expression that evaluates to an
+attribute set with:
 
 | Attribute | Required | Description |
 |-----------|----------|-------------|
 | `package` | Yes | A Nix derivation that builds the application |
 | `env` | No | Static environment variables (attribute set) |
 
-### runtime.json
+## runtime.json contract
 
-The built package **must** generate `$out/hop3/runtime.json` containing runtime configuration:
+The built package **must** generate `$out/hop3/runtime.json`
+containing runtime configuration:
 
 ```json
 {
@@ -57,46 +103,102 @@ The built package **must** generate `$out/hop3/runtime.json` containing runtime 
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `workers` | Yes | Map of worker name to command. Use `web` for HTTP workers, `static` for static file directories. |
+| `workers` | Yes | Map of worker name to command |
 | `env` | No | Environment variables to set at runtime |
 | `path` | No | Paths to prepend to `PATH` |
 
-### Worker Types
+### Worker types
 
-| Worker Name | Behavior |
+| Worker name | Behavior |
 |-------------|----------|
 | `web` | Spawned as a uWSGI daemon. Must listen on `$BIND_ADDRESS:$PORT`. |
-| `static` | Value is a directory path. Hop3 serves it via nginx. |
+| `static` | Value is a directory path. Hop3 serves it via nginx (StaticDeployer). |
 | Other names | Spawned as generic uWSGI daemons. |
 
-### Variable Substitution
+If `workers` contains **only** the key `"static"`, Hop3 produces a
+`BuildArtifact` with `kind="static"` and the StaticDeployer takes
+over. Otherwise the artifact has `kind="nix"` and uWSGI manages all
+workers.
 
-Worker commands support shell variable expansion at runtime. The following variables are available:
+### Variable substitution
+
+Worker commands support shell variable expansion at runtime. The
+following variables are available:
 
 - `$PORT` — Port assigned by Hop3
 - `$BIND_ADDRESS` — Bind address (default `127.0.0.1`)
 - All environment variables from `[env]`, addons, and `runtime.json`
 
-## Build Process
+Note: Nix `${...}` interpolations in `hop3.nix` are evaluated by Nix
+at build time and produce store paths. Shell `$VAR` expansions are
+evaluated at runtime by the wrapper. To produce a literal `${VAR}` in
+the generated wrapper script, escape it as `''${VAR}` inside Nix `''`
+strings.
 
-When Hop3 deploys a Nix app:
+## Templates (generated mode)
 
-1. Detects `hop3.nix` in the source directory
-2. Verifies `nix-build` is available
-3. Runs: `nix-build hop3.nix -A package --no-out-link`
-4. Reads `$out/hop3/runtime.json` from the built store path
-5. Produces a `BuildArtifact` with:
-   - `kind="nix"` (or `kind="static"` for static-only apps)
-   - `location` pointing to the Nix store path
-   - `runtime` containing workers, env vars, and PATH from `runtime.json`
-6. Hands off to the deployer (uWSGI or static file server)
+Eight built-in templates cover common deployment patterns. Templates
+are selected by setting `template = "<name>"` in the `[nix]` section
+of `hop3.toml`.
 
-## Nix Installation
+| Template | Use case | Reproducibility tier |
+|----------|----------|----------------------|
+| `nixpkgs-wrapper` | Apps already in nixpkgs | 1 (best) |
+| `python-venv` | Python apps installed via pip into a virtualenv | 2 |
+| `php-app` | PHP apps with Composer + extensions | 2 |
+| `java-war` | Java WAR files served with a JDK | 1 (JDK from nixpkgs) |
+| `ruby-bundler` | Ruby apps using `bundlerEnv` from `gemset.nix` | 2 |
+| `prebuilt-binary` | Single binary from upstream releases | 3 (compromise) |
+| `prebuilt-archive` | Multi-file archive from upstream releases | 3 (compromise) |
+| `node-prebuilt` | Node.js apps shipped as a pre-built tarball | 3 (compromise) |
 
-Nix is installed automatically by the Hop3 server installer. It supports:
+For the full field reference per template, see the
+[hop3.toml `[nix]` section](config.md#nix--template-based-nix-builds).
 
-- **Multi-user (daemon)**: Used when systemd is available. Provides better isolation.
-- **Single-user**: Fallback for containers and non-systemd environments.
+### Reproducibility tiers
+
+Not all Nix builds are equally reproducible:
+
+| Tier | Method | Reproducible | Auditable | Multi-arch |
+|------|--------|--------------|-----------|------------|
+| 1 | nixpkgs package (`pkgs.foo`) | Yes | Yes | Yes |
+| 2 | Source build with `__noChroot` (pip, composer) | Mostly (depends on upstream registries) | Yes | Yes |
+| 3 | Pre-built binary (`fetchurl`) | Hash-pinned but not rebuildable from source | No | x86_64-linux only |
+
+The goal is Tier 1 wherever possible. Tier 3 templates exist as a
+pragmatic shortcut for apps not yet in nixpkgs.
+
+## The `nix:eject` command
+
+```bash
+hop3 nix:eject <app-name>
+```
+
+Materializes the auto-generated `hop3.nix` from the template into a
+real file in the app's source directory. After ejection:
+
+- The committed `hop3.nix` is used directly by NixBuilder
+- The `[nix]` section in `hop3.toml` is ignored
+- You can edit the file freely
+
+The ejected file includes a header noting which template it came from
+and the date of ejection.
+
+Use `nix:eject` when:
+
+- You need to add custom build logic the templates don't support
+- You want to pin the generated Nix expression for reproducibility
+- You want to commit the exact build recipe to version control
+
+## Nix installation
+
+Nix is installed automatically by the Hop3 server installer when you
+pass `--with nix`. It supports:
+
+- **Multi-user (daemon)**: Used when systemd is available. Provides
+  better isolation.
+- **Single-user**: Fallback for containers and non-systemd
+  environments.
 
 To manually install Nix on a Hop3 server:
 
@@ -104,130 +206,64 @@ To manually install Nix on a Hop3 server:
 hop3-install server --with nix
 ```
 
-## Example: Minimal hop3.nix
+## Local development
 
-### Python (Flask + Gunicorn)
-
-```nix
-{ pkgs ? import <nixpkgs> {} }:
-
-let
-  pythonEnv = pkgs.python3.withPackages (ps: with ps; [
-    flask
-    gunicorn
-  ]);
-
-  app = pkgs.stdenv.mkDerivation {
-    pname = "myapp";
-    version = "0.1.0";
-    src = ./.;
-    buildInputs = [ pythonEnv ];
-    dontBuild = true;
-
-    installPhase = ''
-      mkdir -p $out/app $out/bin $out/hop3
-      cp -r *.py $out/app/
-      cat > $out/bin/start << 'WRAPPER'
-#!/bin/sh
-exec ${pythonEnv}/bin/python -m gunicorn app:app "$@"
-WRAPPER
-      chmod +x $out/bin/start
-      cat > $out/hop3/runtime.json << EOF
-{
-  "workers": {
-    "web": "$out/bin/start --bind \$BIND_ADDRESS:\$PORT --chdir $out/app"
-  },
-  "env": { "PYTHONDONTWRITEBYTECODE": "1" },
-  "path": ["$out/bin", "${pythonEnv}/bin"]
-}
-EOF
-    '';
-  };
-in { package = app; }
-```
-
-### Go
-
-```nix
-{ pkgs ? import <nixpkgs> {} }:
-
-let
-  app = pkgs.buildGoModule {
-    pname = "myapp";
-    version = "0.1.0";
-    src = ./.;
-    vendorHash = null;  # No external dependencies
-
-    postInstall = ''
-      mkdir -p $out/hop3
-      cat > $out/hop3/runtime.json << EOF
-{
-  "workers": { "web": "$out/bin/myapp" },
-  "env": {},
-  "path": ["$out/bin"]
-}
-EOF
-    '';
-  };
-in { package = app; }
-```
-
-### Static Site
-
-```nix
-{ pkgs ? import <nixpkgs> {} }:
-
-let
-  app = pkgs.stdenv.mkDerivation {
-    pname = "mysite";
-    version = "0.1.0";
-    src = ./.;
-    dontBuild = true;
-
-    installPhase = ''
-      mkdir -p $out/public $out/hop3
-      cp -r public/* $out/public/
-      cat > $out/hop3/runtime.json << EOF
-{ "workers": { "static": "$out/public" }, "env": {} }
-EOF
-    '';
-  };
-in { package = app; }
-```
-
-## Local Development
-
-### Validate a Nix Build
+### Validate a Nix build
 
 ```bash
-cd apps/nix-apps/flask-hello
-nix-build hop3.nix -A package --no-out-link
+cd apps/real-apps-nix-gen/miniflux
+# For template mode, generate first:
+uv run python -c "
+from hop3.plugins.build.nix.gen import generate
+from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
+import tomllib
+from pathlib import Path
+config = tomllib.loads(Path('hop3.toml').read_text())
+spec = app_spec_from_config(config['nix'], config.get('metadata', {}), 'miniflux')
+print(generate(spec))
+" > /tmp/hop3.nix
+nix-build /tmp/hop3.nix --no-out-link
+
+# For hand-crafted mode, just build directly:
+cd apps/real-apps-nix/landing
+nix-build hop3.nix --no-out-link
 ```
 
-### Validate All Nix Apps
+### Inspect runtime config
 
 ```bash
-./scripts/build-nix-apps.py
-./scripts/build-nix-apps.py --app flask-hello  # Single app
-./scripts/build-nix-apps.py --verbose           # Show store paths
-```
-
-### Inspect Runtime Config
-
-```bash
-result=$(nix-build hop3.nix -A package --no-out-link)
+result=$(nix-build hop3.nix --no-out-link)
 cat "$result/hop3/runtime.json" | python3 -m json.tool
 ```
 
-## Limitations (Phase 1)
+### Validate all Nix apps
 
-- Applications must provide their own `hop3.nix` file (no auto-generation)
-- Nix must be installed on the server (`nix-build` must be in PATH)
-- Build times can be longer on first build (Nix store is cached for subsequent builds)
-- No flake support yet (standard `import <nixpkgs>` only)
+```bash
+hop3-test system --docker --clean --with nix apps/real-apps-nix
+hop3-test system --docker --clean --with nix apps/real-apps-nix-gen
+```
+
+## Limitations
+
+- Nix must be installed on the server (`nix-build` must be in PATH).
+  The installer handles this when `--with nix` is passed.
+- First builds can be slow as the Nix store is populated. Subsequent
+  builds and re-deploys are fast (Nix caches everything).
+- No flake support yet (standard `import <nixpkgs>` only).
+- The `prebuilt-*` templates are x86_64-linux only and not
+  reproducible from source. Use `nixpkgs-wrapper` when possible.
+- Some apps in nixpkgs (e.g., Wiki.js) ship as a raw source tree
+  without a `bin/<name>` wrapper, so the `nixpkgs-wrapper` template
+  doesn't fit them directly. Hand-crafted mode is the workaround.
 
 ## Related
 
-- [ADR 006: Nix Integration](https://git.sr.ht/~sfermigier/hop3/tree/devel/notes/adrs/006-nix-integration.md) — Architecture decision
-- [User Guide](../guides/user-guide.md) — General deployment guide
-- [hop3.toml Reference](config.md) — Full configuration reference
+- [ADR 006: Nix Integration](https://git.sr.ht/~sfermigier/hop3/tree/devel/notes/adrs/006-nix-integration.md)
+  — Phase 1 architecture decision
+- [ADR 008: Template-Based Nix Generation](https://git.sr.ht/~sfermigier/hop3/tree/devel/notes/adrs/008-nix-builders-2.md)
+  — Phase 3 template system
+- [Nix Deployment Guide](../guides/nix-deployment.md) — Tutorial-style
+  introduction
+- [hop3.toml `[nix]` section](config.md#nix--template-based-nix-builds)
+  — Field-by-field reference
+- [`nix:eject` command](cli.md#hop3-nixeject)
