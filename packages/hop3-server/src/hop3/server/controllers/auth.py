@@ -14,7 +14,22 @@ from litestar.response import Redirect, Template
 from hop3.orm.repositories import UserRepository
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
+from hop3.server.security.rate_limit import RateLimiter, RateLimitError
 from hop3.server.security.tokens import validate_magic_token
+
+# Module-level rate limiter shared across all AuthController instances.
+# 5 attempts per IP per minute is enough for legitimate users (typos)
+# and prevents brute force on credentials and magic links.
+_AUTH_RATE_LIMITER = RateLimiter(max_requests=5, window_seconds=60.0)
+
+
+def _client_ip(request: Request) -> str:
+    """Extract the client IP from request, honoring X-Forwarded-For."""
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        # Take the first (original client) IP
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 
 class AuthController(Controller):
@@ -58,6 +73,14 @@ class AuthController(Controller):
         Returns:
             Redirect to dashboard on success, or back to login on failure
         """
+        # Rate limit by client IP to prevent brute-force attacks
+        try:
+            _AUTH_RATE_LIMITER.check(_client_ip(request))
+        except RateLimitError as e:
+            return Redirect(
+                path=f"/auth/login?error=Too many login attempts. Try again in {int(e.retry_after) + 1}s."
+            )
+
         # Get form data directly from request
         form_data = await request.form()
         username = form_data.get("username", "")
@@ -166,6 +189,14 @@ class AuthController(Controller):
         Returns:
             Redirect to dashboard on success, or to login page with error
         """
+        # Rate limit by client IP to prevent magic-link brute-force
+        try:
+            _AUTH_RATE_LIMITER.check(_client_ip(request))
+        except RateLimitError as e:
+            return Redirect(
+                path=f"/auth/login?error=Too many login attempts. Try again in {int(e.retry_after) + 1}s."
+            )
+
         # Validate the magic token (also marks it as used)
         token_info = validate_magic_token(token)
 

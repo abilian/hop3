@@ -62,20 +62,26 @@ def get_secret_key() -> str:
 
 
 def create_token(
-    username: str, scopes: list[str] | None = None, expires_hours: int = 24
+    username: str,
+    scopes: list[str] | None = None,
+    expires_hours: int | None = None,
 ) -> str:
     """Create a JWT token for a user.
 
     Args:
         username: The username to create the token for
         scopes: List of permission scopes (default: ["authenticated"])
-        expires_hours: Number of hours until the token expires (default: 24)
+        expires_hours: Override the configured expiry. When None, reads
+            ``HOP3_TOKEN_EXPIRY_HOURS`` from config (default: 24).
 
     Returns:
         The JWT token string
     """
     if scopes is None:
         scopes = ["authenticated"]
+
+    if expires_hours is None:
+        expires_hours = _get_config().HOP3_TOKEN_EXPIRY_HOURS
 
     now = datetime.now(timezone.utc)
     expiry = now + timedelta(hours=expires_hours)

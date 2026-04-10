@@ -433,12 +433,10 @@ class AuthMagicLink(Command):
         parser.add_argument(
             "username",
             type=str,
-            nargs="?",
-            default="admin",
-            help="Username to generate magic link for (default: admin)",
+            help="Username to generate magic link for (required, no default)",
         )
 
-    def run(self, username: str = "admin") -> None:
+    def run(self, username: str) -> None:
         with get_session() as db_session:
             user_repo = UserRepository(session=db_session)
 

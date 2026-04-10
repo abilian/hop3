@@ -329,7 +329,8 @@ class RPCController(Controller):
             True if authentication succeeded, False otherwise
         """
         auth_header = request.headers.get("authorization", "")
-        if not auth_header.startswith("Bearer "):
+        # RFC 7235: auth-scheme is case-insensitive
+        if auth_header[:7].lower() != "bearer ":
             return False
 
         token = auth_header[7:].strip()
@@ -418,7 +419,8 @@ class RPCController(Controller):
         # Pass token information to commands that need it (e.g., logout)
         if command_needs_token_info(command_class):
             auth_header = request.headers.get("authorization", "")
-            if auth_header.startswith("Bearer "):
+            # RFC 7235: auth-scheme is case-insensitive
+            if auth_header[:7].lower() == "bearer ":
                 token = auth_header[7:].strip()
                 prepared_extra_args["_token"] = token
 
