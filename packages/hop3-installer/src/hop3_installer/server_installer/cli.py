@@ -34,6 +34,7 @@ Optional Features (--with):
   mysql       MySQL database
   nix         Nix package manager (multi-user daemon mode)
   redis       Redis cache/store
+  s3          S3-compatible object storage (MinIO)
   all         Install all optional features
 """,
     )
@@ -97,7 +98,7 @@ Optional Features (--with):
         dest="with_features",
         metavar="FEATURES",
         default=",".join(env_config.features) if env_config.features else "",
-        help="Comma-separated list of features (mysql,redis,docker,nix,all)",
+        help="Comma-separated list of features (mysql,redis,docker,nix,s3,all)",
     )
     parser.add_argument(
         "--skip-acme",

@@ -413,18 +413,14 @@ class DeploymentSession:
 
         self.console.info(f"Testing HTTP (direct port {port}): {path}")
 
-        # Determine if we can connect directly or need to go via SSH
-        is_docker = hasattr(self.target, "container_name") or (
-            self.target.info.ssh_host not in {"localhost", "127.0.0.1"}
-            and "192.168." in self.target.info.ssh_host
-        )
-
-        if is_docker:
-            return self._test_http_local(
-                self.target.info.ssh_host, port, path,
-                expected_status, max_retries, result,
-            )
-        # SSH target: run curl on the server
+        # For BOTH Docker and SSH targets, run curl via the target's
+        # exec_run() so we hit the app via 127.0.0.1 from INSIDE the
+        # container/server. This avoids two problems:
+        #   1. Docker: uWSGI binds to 127.0.0.1 inside the container,
+        #      so the container LAN IP is unreachable for apps that
+        #      don't listen on 0.0.0.0.
+        #   2. SSH: the server firewall typically blocks random ports
+        #      from outside, but localhost is always reachable.
         return self._test_http_via_ssh(
             port, path, expected_status, max_retries, result,
         )

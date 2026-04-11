@@ -24,6 +24,7 @@ from hop3_installer.common import (
 from hop3_installer.constants import HOME_DIR
 
 from .config import ServerInstallerConfig
+from .s3 import configure_s3
 from .user import run_as_hop3
 
 # =============================================================================
@@ -156,6 +157,11 @@ def install_optional_packages(
         else:
             print_success("Redis already installed")
         configure_redis_func()
+
+    if config.with_s3:
+        # S3 (MinIO) is downloaded as a standalone binary, not from apt.
+        # Delegate to the distro-agnostic configure_s3 function.
+        configure_s3()
 
 
 def _start_docker_daemon() -> None:

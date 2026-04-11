@@ -49,6 +49,7 @@ from .python import (
     run_hop3_setup,
     setup_ssh_keys,
 )
+from .s3 import fix_s3_env_ownership
 from .services import setup_systemd
 from .ssl import setup_ssl_selfsigned
 from .user import create_user_and_group
@@ -118,6 +119,10 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     except CommandError as e:
         print_error(f"Failed to create user: {e.stderr}")
         return False
+
+    # Fix-up files that step 1 wrote before the hop3 group existed.
+    # This is a no-op if the relevant features weren't enabled.
+    fix_s3_env_ownership()
 
     # Install optional toolchains (needs hop3 user to exist)
     print_info("Installing optional toolchains...")

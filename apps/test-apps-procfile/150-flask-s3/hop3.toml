@@ -1,0 +1,8 @@
+# Hop3 configuration for the Flask S3 addon smoke test.
+
+[metadata]
+id = "flask-s3"
+description = "Flask app exercising the Hop3 S3 addon (put/get round-trip)"
+
+[[addons]]
+type = "s3"

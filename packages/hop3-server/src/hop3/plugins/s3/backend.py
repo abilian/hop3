@@ -96,13 +96,48 @@ class S3Backend(Protocol):
 # ---------------------------------------------------------------------------
 
 
+#: File where the installer writes ``MC_HOST_hop3=<credentials-url>``.
+#: The hop3 user can read this file (0640 root:hop3) and use its
+#: contents to drive ``mc`` without needing an alias in its home dir.
+HOP3_S3_ENV_FILE = "/etc/hop3/s3-env"
+
+
+def _load_mc_host_env() -> dict[str, str]:
+    """Return env vars for ``mc`` subprocess calls.
+
+    Reads ``/etc/hop3/s3-env`` (written by the installer) and parses
+    out the ``MC_HOST_hop3`` line. Returns an empty dict if the file
+    doesn't exist — in that case ``mc`` will fall back to whatever
+    alias config is in ``~/.mc/config.json`` (useful for dev setups
+    where the user runs ``mc alias set`` manually).
+    """
+    env_file = Path(HOP3_S3_ENV_FILE)
+    if not env_file.exists():
+        return {}
+    try:
+        content = env_file.read_text()
+    except OSError:
+        return {}
+    out: dict[str, str] = {}
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        out[key.strip()] = value.strip()
+    return out
+
+
 @dataclass(frozen=True)
 class MinIOBackend:
     """MinIO backend driven through the ``mc`` admin CLI.
 
     Assumes ``mc`` is installed on the server and an alias named
     ``hop3`` points to the local MinIO instance with admin credentials.
-    The Hop3 server installer (``--with s3``) sets this up.
+    Credentials are read from ``/etc/hop3/s3-env`` (written by the
+    installer) and passed to ``mc`` via ``MC_HOST_hop3``.
     """
 
     name: str = "minio"
@@ -112,11 +147,32 @@ class MinIOBackend:
     def _mc(self, *args: str) -> subprocess.CompletedProcess[str]:
         """Run ``mc <args>`` and return the result.
 
-        Raises ``BackendError`` on non-zero exit with mc's stderr as
-        the message.
+        Injects ``MC_HOST_hop3`` from ``/etc/hop3/s3-env`` into the
+        subprocess environment so ``mc`` can authenticate without a
+        per-user config file. Raises ``BackendError`` on non-zero exit
+        (or if the credentials file is missing).
         """
         cmd = ["mc", "--json", *args]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        mc_env = _load_mc_host_env()
+        # Credentials must come from either the env file (installer)
+        # or the caller's own environment (dev setups). If neither is
+        # present, give a concrete error rather than letting mc fail
+        # with "No valid configuration found for 'hop3' host alias".
+        # MinIO's mc uses the lowercase alias name in MC_HOST_<alias>
+        # env vars. This is the vendor's chosen convention; don't
+        # uppercase it.
+        if not mc_env and not os.environ.get("MC_HOST_hop3"):  # noqa: SIM112
+            msg = (
+                f"MinIO backend credentials not found. Expected "
+                f"{HOP3_S3_ENV_FILE} to contain MC_HOST_hop3=... "
+                f"Was the server installed with '--with s3'?"
+            )
+            raise BackendError(msg)
+        subprocess_env = os.environ.copy()
+        subprocess_env.update(mc_env)
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, check=False, env=subprocess_env
+        )
         if result.returncode != 0:
             msg = f"mc {' '.join(args)} failed: {result.stderr or result.stdout}"
             raise BackendError(msg)
