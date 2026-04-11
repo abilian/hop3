@@ -9,7 +9,14 @@ from typing import TYPE_CHECKING
 
 from attrs import field, mutable
 
-from hop3.lib import Abort, chdir, check_binaries, log, shell
+from hop3.lib import (
+    Diagnosis,
+    abort_with_diagnosis,
+    chdir,
+    check_binaries,
+    log,
+    shell,
+)
 from hop3.project.config import AppConfig
 from hop3.run.spawn import spawn_app
 from hop3.toolchains import TOOLCHAIN_CLASSES
@@ -94,8 +101,24 @@ class Deployer:
         self.workers = config.workers
 
         if not self.workers:
-            msg = f"Error: Procfile for app '{app_name}' (no workers)."
-            raise Abort(msg)
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Git deployer",
+                    action="parse app configuration",
+                    reason=(
+                        f"app '{app_name}' has no worker processes declared "
+                        "in Procfile or hop3.toml"
+                    ),
+                    hint=(
+                        "Add at least a 'web' worker in Procfile (e.g., "
+                        "'web: gunicorn app:app') or '[run].start' in hop3.toml"
+                    ),
+                    troubleshooting=[
+                        "See docs/src/hop3-toml-reference.md for the schema",
+                        f"hop3 app:logs {app_name}",
+                    ],
+                )
+            )
 
     def get_worker(self, name: str) -> str:
         return self.workers.get(name, "")
@@ -115,8 +138,21 @@ class Deployer:
         log("Running prebuild.", level=2, fg="blue")
         retval = shell(command, cwd=self.src_path).returncode
         if retval:
-            msg = f"prebuild failed due to command error value: {retval}"
-            raise Abort(msg, retval)
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Git deployer",
+                    action="run prebuild command",
+                    reason=(f"prebuild exited with status {retval}: {command}"),
+                    hint=(
+                        "Check the 'prebuild' entry in Procfile — it should "
+                        "run cleanly in the app source directory"
+                    ),
+                    troubleshooting=[
+                        f"hop3 app:build-logs {self.app_name}",
+                        f"cd {self.src_path} && {command}",
+                    ],
+                )
+            )
 
     def run_build(self) -> None:
         """Execute the build process for an application.
@@ -133,8 +169,21 @@ class Deployer:
             log("Running build.", level=2, fg="blue")
             retval = shell(build_worker, cwd=self.src_path).returncode
             if retval:
-                msg = f"Build failed due to command error value: {retval}"
-                raise Abort(msg, retval)
+                abort_with_diagnosis(
+                    Diagnosis(
+                        component="Git deployer",
+                        action="run build command",
+                        reason=(f"build exited with status {retval}: {build_worker}"),
+                        hint=(
+                            "Check the 'build' entry in Procfile and make "
+                            "sure all its dependencies are declared"
+                        ),
+                        troubleshooting=[
+                            f"hop3 app:build-logs {self.app_name}",
+                            f"cd {self.src_path} && {build_worker}",
+                        ],
+                    )
+                )
             return
 
         workers = self.workers
@@ -160,8 +209,26 @@ class Deployer:
 
         # Raise an exception if no suitable builder is found
         if not builder_detected:
-            msg = "No app detected."
-            raise Abort(msg)
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Git deployer",
+                    action="detect application type",
+                    reason=(
+                        "no language toolchain accepted the app and no "
+                        "generic/static layout was recognized"
+                    ),
+                    hint=(
+                        "Ensure the app has one of: a recognized language "
+                        "file (e.g., requirements.txt, package.json, Gemfile),"
+                        " a Dockerfile, a 'static' worker, or both 'release'"
+                        " and 'web' workers in Procfile"
+                    ),
+                    troubleshooting=[
+                        "See docs/src/guide.md for supported languages",
+                        f"ls {self.src_path}",
+                    ],
+                )
+            )
 
     def run_postbuild(self) -> None:
         """Execute the postbuild command for a given worker.
@@ -176,8 +243,23 @@ class Deployer:
         log("Running postbuild command", level=2, fg="blue")
         result = shell(command, cwd=self.src_path)
         if result.returncode:
-            msg = f"Exiting postbuild due to command error value: {result.returncode}"
-            raise Abort(msg)
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Git deployer",
+                    action="run postbuild command",
+                    reason=(
+                        f"postbuild exited with status {result.returncode}: {command}"
+                    ),
+                    hint=(
+                        "Check the 'postbuild' entry in Procfile — it runs "
+                        "after the main build step completes"
+                    ),
+                    troubleshooting=[
+                        f"hop3 app:build-logs {self.app_name}",
+                        f"cd {self.src_path} && {command}",
+                    ],
+                )
+            )
 
     def _git_update(self, newrev: str) -> None:
         """Perform a git update by fetching the latest changes and resetting

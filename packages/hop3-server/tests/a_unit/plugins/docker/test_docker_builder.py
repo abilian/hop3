@@ -211,7 +211,7 @@ class TestDockerBuilderBuild:
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = FileNotFoundError()
 
-            with pytest.raises(Abort, match="Docker command not found"):
+            with pytest.raises(Abort, match="'docker' binary was not found"):
                 builder.build()
 
     def test_build_failure(self, tmp_path: Path):
@@ -249,5 +249,5 @@ class TestDockerBuilderBuild:
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = subprocess.TimeoutExpired("docker build", 600)
 
-            with pytest.raises(Abort, match="timed out"):
+            with pytest.raises(Abort, match="exceeded the 10-minute timeout"):
                 builder.build()

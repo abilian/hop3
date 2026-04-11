@@ -104,7 +104,7 @@ def _provision_single_addon(
             "Ensured addon exists", addon_name=addon_name, addon_type=addon_type
         )
     except Exception as e:
-        from hop3.lib import Abort  # noqa: PLC0415
+        from hop3.lib import Diagnosis, abort_with_diagnosis  # noqa: PLC0415
 
         log(f"  Failed to create addon {addon_name}: {e}", level=0, fg="red")
         server_log.error(
@@ -113,12 +113,23 @@ def _provision_single_addon(
             addon_type=addon_type,
             error=str(e),
         )
-        msg = (
-            f"Addon provisioning failed for {addon_name} ({addon_type}): {e}. "
-            f"The app cannot start without this service. "
-            f"Check that {addon_type} is installed and running on the server."
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Addon provisioning",
+                action=f"provision {addon_type} addon '{addon_name}'",
+                reason=str(e),
+                hint=(
+                    f"Check that {addon_type} is installed and running on "
+                    f"the server. You may need to re-run the installer "
+                    f"with '--with {addon_type}'"
+                ),
+                troubleshooting=[
+                    f"hop3-install server --with {addon_type}",
+                    (f"systemctl status {addon_type} (or supervisorctl status)"),
+                    "hop3 addons:list",
+                ],
+            )
         )
-        raise Abort(msg) from e
 
     # Check if already attached to this app
     addon_credential_repo = AddonCredentialRepository(session=db_session)

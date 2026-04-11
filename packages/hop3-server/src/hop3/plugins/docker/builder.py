@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 from hop3.config import HOP3_ROOT
 from hop3.core.protocols import BuildArtifact, BuildContext
-from hop3.lib import Abort, log
+from hop3.lib import Abort, Diagnosis, abort_with_diagnosis, log
 from hop3.lib.logging import server_log
 
 if TYPE_CHECKING:
@@ -127,14 +127,40 @@ class DockerBuilder:
             self._handle_build_success(result, image_tag, start_time)
 
         except FileNotFoundError:
-            msg = "Docker command not found. Is Docker installed and in your PATH?"
-            raise Abort(msg) from None
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Docker builder",
+                    action="run docker command",
+                    reason="the 'docker' binary was not found on the server",
+                    hint=(
+                        "Install Docker, or re-run the Hop3 installer with "
+                        "'--with docker'"
+                    ),
+                    troubleshooting=[
+                        "which docker",
+                        "hop3-install server --with docker",
+                    ],
+                )
+            )
 
         except subprocess.TimeoutExpired:
             elapsed = time.time() - start_time
             self._save_build_log("", "Build timed out after 10 minutes", elapsed)
-            msg = "Docker build timed out after 10 minutes."
-            raise Abort(msg) from None
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Docker builder",
+                    action="build image",
+                    reason="build exceeded the 10-minute timeout",
+                    hint=(
+                        "Trim the Dockerfile (fewer RUN steps, leaner base "
+                        "image) or increase the timeout in hop3.toml"
+                    ),
+                    troubleshooting=[
+                        f"hop3 app:build-logs {self.app_name}",
+                        "Try 'docker build' locally to measure the build time",
+                    ],
+                )
+            )
 
         except subprocess.CalledProcessError as e:
             self._handle_build_failure(e, image_tag, start_time)

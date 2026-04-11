@@ -27,7 +27,14 @@ from hop3.core.protocols import (
     DeploymentContext,
     DeploymentInfo,
 )
-from hop3.lib import Abort, get_free_port, is_port_free, log
+from hop3.lib import (
+    Abort,
+    Diagnosis,
+    abort_with_diagnosis,
+    get_free_port,
+    is_port_free,
+    log,
+)
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
 
@@ -653,12 +660,43 @@ services:
             return result
 
         except FileNotFoundError:
-            msg = "Docker Compose not found. Is Docker installed?"
-            raise Abort(msg) from None
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Docker Compose deployer",
+                    action="run docker compose command",
+                    reason="the 'docker' binary was not found on the server",
+                    hint=(
+                        "Install Docker, or re-run the Hop3 installer with "
+                        "'--with docker'"
+                    ),
+                    troubleshooting=[
+                        "which docker",
+                        "docker compose version",
+                        "hop3-install server --with docker",
+                    ],
+                )
+            )
 
         except subprocess.TimeoutExpired:
-            msg = f"Docker Compose command timed out: {cmd_str}"
-            raise Abort(msg) from None
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Docker Compose deployer",
+                    action="run compose command",
+                    reason=(
+                        f"the command timed out after "
+                        f"{DOCKER_COMMAND_TIMEOUT}s: {cmd_str}"
+                    ),
+                    hint=(
+                        "Check whether the Docker daemon is responsive, or "
+                        "whether the compose file pulls a very large image"
+                    ),
+                    troubleshooting=[
+                        "docker ps",
+                        "systemctl status docker",
+                        f"docker compose {cmd_str} (run manually to see progress)",
+                    ],
+                )
+            )
 
         except subprocess.CalledProcessError as e:
             self._handle_compose_error(e, cmd_str)
@@ -704,8 +742,24 @@ services:
             stdout=stdout_msg[:200] if stdout_msg else "",
         )
         # Include stderr in the abort message for visibility
-        msg = f"Docker Compose command failed: {cmd_str}\n  Error: {stderr_msg}"
-        raise Abort(msg)
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Docker Compose deployer",
+                action="run compose command",
+                reason=(
+                    f"{cmd_str} failed with exit code {e.returncode}: {stderr_msg}"
+                ),
+                hint=(
+                    "Check the app's Dockerfile and compose file; the "
+                    "full command output is in the build log"
+                ),
+                troubleshooting=[
+                    f"hop3 app:build-logs {self.app_name}",
+                    f"hop3 app:logs {self.app_name}",
+                    "docker compose config (validate the compose file)",
+                ],
+            )
+        )
 
     def _discover_port(
         self, expected_port: int | None = None, compose_file: Path | None = None

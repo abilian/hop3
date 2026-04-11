@@ -10,7 +10,7 @@ from hop3.core.plugins import get_builder, get_deployer
 from hop3.core.protocols import DeploymentContext
 from hop3.deployers.addon_provisioning import provision_addons
 from hop3.deployers.env_provisioning import set_computed_env_vars, set_default_env_vars
-from hop3.lib import Abort, log, shell
+from hop3.lib import Diagnosis, abort_with_diagnosis, log, shell
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
 from hop3.project.config import AppConfig
@@ -69,8 +69,19 @@ def do_deploy(
     try:
         app_config = AppConfig.from_dir(app.app_path)
     except ValueError as e:
-        # Raised if Procfile is missing, etc.
-        raise Abort(str(e)) from e
+        # Raised if Procfile is missing, hop3.toml is malformed, etc.
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Deployer",
+                action="parse app configuration",
+                reason=str(e),
+                hint=("Ensure the app has a valid Procfile or hop3.toml at its root"),
+                troubleshooting=[
+                    "See docs/src/hop3-toml-reference.md for the schema",
+                    f"hop3 app:logs {app.name}",
+                ],
+            )
+        )
 
     # Log parsed configuration for debugging
     log(f"Config parsed from: {app_config.app_dir}", level=2)
@@ -401,8 +412,22 @@ def _handle_startup_timeout(app: App, timeout: float) -> None:
         level=0,
     )
 
-    msg = f"App failed to start within {timeout}s timeout. See diagnostics above."
-    raise Abort(msg)
+    abort_with_diagnosis(
+        Diagnosis(
+            component="Deployer",
+            action="start app",
+            reason=(f"'{app.name}' did not respond to health checks within {timeout}s"),
+            hint="See the diagnostics and recent log output above",
+            troubleshooting=[
+                f"hop3 app:logs {app.name}",
+                f"hop3 app:build-logs {app.name}",
+                (
+                    "Increase start-timeout in hop3.toml: "
+                    f"[run] start-timeout = {int(timeout * 2)}"
+                ),
+            ],
+        )
+    )
 
 
 def _diagnose_failure(app: App, log_lines: list[str]) -> None:
@@ -580,8 +605,23 @@ def _run_hook(
         log(f"  {command}", level=2)
         result = shell(command, cwd=cwd, env=env)
         if result.returncode:
-            msg = f"{hook_name} failed with exit code {result.returncode}: {command}"
-            raise Abort(msg, result.returncode)
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Deployer",
+                    action=f"run {hook_name}",
+                    reason=(
+                        f"command exited with status {result.returncode}: {command}"
+                    ),
+                    hint=(
+                        f"Check the '{hook_name}' entry in hop3.toml — it "
+                        "should run cleanly in the app source directory"
+                    ),
+                    troubleshooting=[
+                        f"cd {cwd} && {command}",
+                        "Review the command output above",
+                    ],
+                )
+            )
 
 
 def _auto_discover_wsgi(artifact: BuildArtifact, src_path: Path) -> None:

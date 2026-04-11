@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3 import config as c
-from hop3.lib import Abort, log
+from hop3.lib import Diagnosis, abort_with_diagnosis, log
 from hop3.lib.settings import parse_settings
 
 from .settings import UwsgiSettings
@@ -165,8 +165,24 @@ class UwsgiWorker:
                     f" {idle_timeout}s of inactivity"
                 )
             except Exception:
-                msg = "Error: malformed setting 'UWSGI_IDLE', ignoring it."
-                raise Abort(msg) from None
+                abort_with_diagnosis(
+                    Diagnosis(
+                        component="uWSGI worker",
+                        action="configure idle timeout",
+                        reason=(
+                            f"UWSGI_IDLE must be an integer (seconds), got "
+                            f"{env['UWSGI_IDLE']!r}"
+                        ),
+                        hint=(
+                            "Set UWSGI_IDLE to the number of seconds of "
+                            "inactivity before workers are killed"
+                        ),
+                        troubleshooting=[
+                            f"hop3 config:set {self.app_name} UWSGI_IDLE=60",
+                            f"hop3 config:unset {self.app_name} UWSGI_IDLE",
+                        ],
+                    )
+                )
 
     @abstractmethod
     def update_settings(self) -> None:
@@ -294,8 +310,24 @@ class WsgiWorker(UwsgiWorker):
                 ]
                 self.log(f"uwsgi will support {tasks} async tasks")
             except ValueError:
-                msg = "Error: malformed setting 'UWSGI_ASYNCIO'."
-                raise Abort(msg) from None
+                abort_with_diagnosis(
+                    Diagnosis(
+                        component="uWSGI worker",
+                        action="configure asyncio tasks",
+                        reason=(
+                            f"UWSGI_ASYNCIO must be an integer (number of "
+                            f"async tasks), got {self.env['UWSGI_ASYNCIO']!r}"
+                        ),
+                        hint=(
+                            "Set UWSGI_ASYNCIO to the desired number of "
+                            "concurrent async tasks, e.g. 100"
+                        ),
+                        troubleshooting=[
+                            f"hop3 config:set {self.app_name} UWSGI_ASYNCIO=100",
+                            f"hop3 config:unset {self.app_name} UWSGI_ASYNCIO",
+                        ],
+                    )
+                )
 
         # Always use HTTP socket for direct access and nginx proxying
         # This simplifies local development and testing

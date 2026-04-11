@@ -194,7 +194,7 @@ class TestDockerComposeDeployerDeploy:
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = FileNotFoundError()
 
-            with pytest.raises(Abort, match="Docker Compose not found"):
+            with pytest.raises(Abort, match="'docker' binary was not found"):
                 deployer.deploy()
 
 
