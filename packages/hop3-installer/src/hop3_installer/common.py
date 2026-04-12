@@ -261,6 +261,26 @@ def cmd_exists(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
 
+def has_systemd() -> bool:
+    """Return True if systemd is the init system (PID 1).
+
+    Reads ``/proc/1/comm`` — unambiguous on Linux. The systemd
+    *package* may install ``systemctl`` and create ``/run/systemd``
+    even when systemd isn't actually running (e.g. Docker test
+    containers using supervisord). Likewise, ``systemctl
+    is-system-running`` returns "offline" with exit code 1 in that
+    case, which is easy to mis-interpret as "alive".
+
+    PID 1 is either ``systemd`` or it isn't, so this is the
+    cheapest reliable check.
+    """
+    try:
+        comm = Path("/proc/1/comm").read_text().strip()
+    except OSError:
+        return False
+    return comm == "systemd"
+
+
 # =============================================================================
 # System Detection
 # =============================================================================

@@ -22,6 +22,7 @@ from pathlib import Path
 from hop3_installer.common import (
     Spinner,
     cmd_exists,
+    has_systemd,
     print_detail,
     print_info,
     print_success,
@@ -100,9 +101,9 @@ def _is_nix_installed() -> bool:
     return NIX_SINGLE_USER_PROFILE.exists()
 
 
-def _has_systemd() -> bool:
-    """Check if systemd is available and running."""
-    return cmd_exists("systemctl") and Path("/run/systemd/system").exists()
+# _has_systemd lives in common.has_systemd — kept here as a thin alias
+# so existing call sites in this module read clearly.
+_has_systemd = has_systemd
 
 
 def _download_nix_installer() -> Path | None:
@@ -224,6 +225,44 @@ def _run_nix_installer(installer_path: Path, *, daemon_mode: bool) -> bool:
     return True
 
 
+def _write_nix_conf_setting(path: Path, *, as_hop3: bool) -> None:
+    """Write ``sandbox = relaxed`` to a nix.conf, creating it if needed.
+
+    Args:
+        path: Target nix.conf path.
+        as_hop3: If True, the parent dir and file are created/owned
+            by the hop3 user (single-user install). Otherwise as root.
+    """
+    line = "sandbox = relaxed"
+    header = "# Allow __noChroot builds for apps needing network"
+
+    if as_hop3:
+        # Single-user: ~/.config/nix/nix.conf must be created by hop3
+        # so it can read it later. Avoid quoting hell by writing the
+        # file as root and then chown'ing to hop3 — the file lives
+        # under the hop3 home so this is safe.
+        run_as_hop3(f"mkdir -p {path.parent}")
+        existing = run_as_hop3(f"cat {path} 2>/dev/null || true").stdout or ""
+        if line in existing:
+            print_detail(f"Nix sandbox already relaxed in {path}")
+            return
+        with path.open("a") as f:
+            f.write(f"\n{header}\n{line}\n")
+        run_cmd(["chown", "hop3:hop3", str(path)], check=False)
+        print_detail(f"Wrote {line} to {path}")
+        return
+
+    # Daemon mode: write as root.
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing = path.read_text() if path.exists() else ""
+    if line in existing:
+        print_detail(f"Nix sandbox already relaxed in {path}")
+        return
+    with path.open("a") as f:
+        f.write(f"\n{header}\n{line}\n")
+    print_detail(f"Wrote {line} to {path}")
+
+
 def _configure_hop3_nix_access(*, daemon_mode: bool) -> None:
     """Configure hop3 user to use Nix.
 
@@ -255,24 +294,20 @@ def _configure_hop3_nix_access(*, daemon_mode: bool) -> None:
     with bashrc_path.open("a") as f:
         f.write(f"\n# Nix package manager\n{source_line}\n")
 
-    # Configure Nix for Hop3 usage
-    nix_conf = Path("/etc/nix/nix.conf")
-    if nix_conf.exists():
-        content = nix_conf.read_text()
-        additions = []
-
-        # Allow derivations to opt out of sandbox with __noChroot
-        # (needed for apps that run npm/pip/composer install)
-        if "sandbox = relaxed" not in content:
-            additions.append("# Allow __noChroot builds for apps needing network")
-            additions.append("sandbox = relaxed")
-
-        if additions:
-            print_detail("Updating Nix configuration")
-            with nix_conf.open("a") as f:
-                f.write("\n" + "\n".join(additions) + "\n")
-            with contextlib.suppress(Exception):
-                run_cmd(["systemctl", "restart", "nix-daemon"])
+    # Configure Nix to allow __noChroot builds (needed for apps that
+    # run npm/pip/composer install during the build phase).
+    #
+    # Daemon mode reads /etc/nix/nix.conf; single-user mode reads
+    # ~/.config/nix/nix.conf for the user that runs nix-build (hop3).
+    # Both need `sandbox = relaxed` (or `false`) for __noChroot to
+    # take effect — the default in nix 2.x is `sandbox = true`, which
+    # rejects __noChroot derivations outright.
+    if daemon_mode:
+        _write_nix_conf_setting(Path("/etc/nix/nix.conf"), as_hop3=False)
+        with contextlib.suppress(Exception):
+            run_cmd(["systemctl", "restart", "nix-daemon"])
+    else:
+        _write_nix_conf_setting(HOME_DIR / ".config" / "nix" / "nix.conf", as_hop3=True)
 
     # Pin the nixpkgs channel to nixos-24.11 (stable, packages are cached)
     # Without this, Nix may use a rolling channel where packages like

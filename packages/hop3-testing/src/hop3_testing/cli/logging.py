@@ -108,5 +108,6 @@ class TestLogWriter:
             f"Ended at: {time.strftime('%Y-%m-%d %H:%M:%S')}",
         ])
 
+        log_file.parent.mkdir(parents=True, exist_ok=True)
         log_file.write_text("\n".join(lines))
         return log_file

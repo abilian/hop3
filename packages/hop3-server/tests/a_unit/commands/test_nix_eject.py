@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -16,6 +15,8 @@ from hop3.commands.nix import NixEjectCmd
 from hop3.orm import App, AppRepository
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from sqlalchemy.orm import Session
 
 
@@ -97,9 +98,7 @@ class TestNixEjectCmd:
         assert result[0]["t"] == "error"
         assert "already exists" in result[0]["text"]
 
-    def test_successful_eject(
-        self, db_session: Session, nix_app: App, tmp_path: Path
-    ):
+    def test_successful_eject(self, db_session: Session, nix_app: App, tmp_path: Path):
         """Successfully eject a hop3.nix from template config."""
         src_path = tmp_path / "src"
         _write_hop3_toml(

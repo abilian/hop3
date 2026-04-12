@@ -40,8 +40,7 @@ def test_format_without_hint():
     )
     out = format_diagnosis(diag)
     assert out == (
-        "Docker builder can't build image: Dockerfile not found in source "
-        "directory."
+        "Docker builder can't build image: Dockerfile not found in source directory."
     )
 
 
@@ -115,8 +114,6 @@ def test_log_diagnosis_does_not_raise():
 
 def test_diagnosis_is_immutable():
     """Frozen dataclass — can't modify after construction."""
-    diag = Diagnosis(
-        component="A", action="b", reason="c"
-    )
+    diag = Diagnosis(component="A", action="b", reason="c")
     with pytest.raises((AttributeError, Exception)):
         diag.component = "something else"  # type: ignore[misc]

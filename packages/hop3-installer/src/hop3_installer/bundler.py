@@ -287,6 +287,39 @@ def extract_code_body(source: str) -> str:
     return "\n".join(new_lines)
 
 
+def _top_level_names(code: str) -> list[str]:
+    """Return top-level function/class/assignment names defined in code.
+
+    Used by the bundler to detect name collisions across modules.
+    Parses with ``ast``; on syntax error returns an empty list (the
+    bundler will fail later with a clearer error).
+    """
+    import ast  # noqa: PLC0415
+
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return []
+
+    names: list[str] = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            # Skip @overload-decorated stubs — they're intentional
+            # duplicates that typing.overload merges at runtime.
+            if any(
+                (isinstance(d, ast.Name) and d.id == "overload")
+                or (isinstance(d, ast.Attribute) and d.attr == "overload")
+                for d in node.decorator_list
+            ):
+                continue
+            names.append(node.name)
+        elif isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    names.append(target.id)
+    return names
+
+
 def process_module(filepath: Path) -> tuple[set[str], str]:
     """Process a module file.
 
@@ -331,6 +364,12 @@ def bundle_installer(installer_type: str) -> str:
     all_imports: set[str] = set()
     code_sections: list[str] = []
 
+    # Track top-level names so we can detect collisions: bundling
+    # concatenates modules at module scope, so two modules defining
+    # the same top-level function/class silently shadow each other
+    # (last one wins) and the bug only surfaces at runtime.
+    seen_names: dict[str, str] = {}
+
     for module_path in modules:
         filepath = SRC_DIR / module_path
         if not filepath.exists():
@@ -339,6 +378,23 @@ def bundle_installer(installer_type: str) -> str:
 
         imports, code = process_module(filepath)
         all_imports.update(imports)
+
+        for name in _top_level_names(code):
+            if name.startswith("_") and not name.startswith("__"):
+                # Single-leading-underscore names are conventional
+                # private helpers; collisions on those still bite,
+                # but accept aliases like ``_has_systemd = has_systemd``
+                # which intentionally re-export the shared helper.
+                if code.find(f"{name} = ") != -1:
+                    continue
+            if name in seen_names:
+                msg = (
+                    f"Bundler name collision: '{name}' defined in both "
+                    f"{seen_names[name]} and {module_path}. Move the "
+                    "shared definition to common.py and import it."
+                )
+                raise ValueError(msg)
+            seen_names[name] = module_path
 
         # Add section header
         section_name = module_path.replace("/", ".").replace(".py", "")

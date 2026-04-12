@@ -62,11 +62,13 @@ class S3Backend(Protocol):
     MinIO setups) should raise ``BackendError`` from ``create_access_key``.
     """
 
-    #: Backend type identifier, e.g., "minio", "garage".
-    name: str
+    @property
+    def name(self) -> str:
+        """Backend type identifier, e.g., "minio", "garage"."""
 
-    #: Base URL of the backend server (e.g., "http://127.0.0.1:9000").
-    endpoint: str
+    @property
+    def endpoint(self) -> str:
+        """Base URL of the backend server (e.g., "http://127.0.0.1:9000")."""
 
     def create_bucket(self, bucket: str) -> None:
         """Create a bucket. Idempotent: no error if it already exists."""
@@ -230,9 +232,7 @@ class MinIOBackend:
         policy_name = f"hop3-{bucket}"
 
         # Write policy to a temp file (mc expects a path, not inline JSON)
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write(policy_json)
             policy_path = f.name
 

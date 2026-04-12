@@ -21,6 +21,7 @@ import secrets
 from pathlib import Path
 
 from hop3_installer.common import (
+    has_systemd,
     print_detail,
     print_info,
     print_success,
@@ -151,24 +152,7 @@ def _generate_admin_credentials() -> tuple[str, str]:
     return root_user, root_password
 
 
-def _has_systemd() -> bool:
-    """Return True if systemd is the init system.
-
-    Containers (Docker test images) typically run supervisord instead.
-    In that case we fall back to a supervisord config.
-    """
-    # systemctl is-system-running exits 0 only when systemd is PID 1.
-    # Even on systems where the binary exists but systemd isn't
-    # running, this returns non-zero (including "offline" and
-    # "Failed to connect to bus").
-    result = run_cmd(
-        ["systemctl", "is-system-running", "--quiet"],
-        check=False,
-    )
-    # is-system-running returns 0 for running, non-zero otherwise.
-    # We also accept "degraded" (return code 1) and "starting" — any
-    # state means systemd is alive.
-    return result.returncode in {0, 1} and bool(result.stdout or result.stderr == "")
+_has_systemd = has_systemd
 
 
 def _has_supervisord() -> bool:
@@ -216,10 +200,7 @@ def _write_supervisord_unit(root_user: str, root_password: str) -> None:
     so we use Type=simple equivalent.
     """
     # Supervisord doesn't have EnvironmentFile; pass env vars inline.
-    env_line = (
-        f'MINIO_ROOT_USER="{root_user}",'
-        f'MINIO_ROOT_PASSWORD="{root_password}"'
-    )
+    env_line = f'MINIO_ROOT_USER="{root_user}",MINIO_ROOT_PASSWORD="{root_password}"'
     conf = f"""[program:minio]
 command={MINIO_BIN} server --address :{MINIO_API_PORT} --console-address :{MINIO_CONSOLE_PORT} {MINIO_DATA_DIR}
 environment={env_line}
@@ -379,8 +360,7 @@ def fix_s3_env_ownership() -> None:
         print_detail(f"Set hop3 group ownership on {HOP3_S3_ENV_FILE}")
     else:
         print_warning(
-            f"Could not set hop3 group on {HOP3_S3_ENV_FILE}: "
-            f"{result.stderr[:200]}"
+            f"Could not set hop3 group on {HOP3_S3_ENV_FILE}: {result.stderr[:200]}"
         )
 
 
@@ -417,6 +397,5 @@ def configure_s3() -> None:
         "(use 'hop3 addons:create s3 <name>' to provision buckets)"
     )
     print_detail(
-        "MinIO Console: http://127.0.0.1:9001 "
-        f"(root user in {MINIO_CREDENTIALS_FILE})"
+        f"MinIO Console: http://127.0.0.1:9001 (root user in {MINIO_CREDENTIALS_FILE})"
     )
