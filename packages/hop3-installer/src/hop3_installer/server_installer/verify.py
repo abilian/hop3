@@ -11,6 +11,7 @@ from pathlib import Path
 
 from hop3_installer.common import (
     Colors,
+    has_systemd,
     print_detail,
     print_error,
     print_success,
@@ -139,17 +140,51 @@ def verify_mysql_config() -> bool:
 
 def _verify_services() -> None:
     """Verify core services are running."""
-    for service, name in [
-        ("hop3-server", "hop3-server service"),
-        ("nginx", "nginx service"),
-        ("uwsgi-hop3", "uwsgi-hop3 service"),
-    ]:
-        result = run_cmd(["systemctl", "is-active", service], capture=True, check=False)
-        if result.stdout.strip() == "active":
-            print_success(f"{name} is running")
-        else:
-            print_warning(f"{name} is not running")
-            print_detail(f"Check with: sudo systemctl status {service}")
+    if has_systemd():
+        for service, name in [
+            ("hop3-server", "hop3-server service"),
+            ("nginx", "nginx service"),
+            ("uwsgi-hop3", "uwsgi-hop3 service"),
+        ]:
+            result = run_cmd(
+                ["systemctl", "is-active", service], capture=True, check=False
+            )
+            if result.stdout.strip() == "active":
+                print_success(f"{name} is running")
+            else:
+                print_warning(f"{name} is not running")
+                print_detail(f"Check with: sudo systemctl status {service}")
+    else:
+        # Non-systemd: check supervisord-managed services
+        for service, name in [
+            ("hop3-server", "hop3-server"),
+            ("nginx", "nginx"),
+            ("uwsgi", "uwsgi"),
+        ]:
+            result = run_cmd(
+                ["supervisorctl", "status", service], capture=True, check=False
+            )
+            if "RUNNING" in (result.stdout or ""):
+                print_success(f"{name} is running")
+            else:
+                print_warning(f"{name} is not running")
+                print_detail(f"Check with: supervisorctl status {service}")
+
+
+def _is_postgres_running() -> bool:
+    """Check if PostgreSQL is running, regardless of init system.
+
+    Tries systemd first, then pg_isready (works for any init).
+    """
+    if has_systemd():
+        result = run_cmd(
+            ["systemctl", "is-active", "postgresql"], capture=True, check=False
+        )
+        return result.stdout.strip() == "active"
+
+    # Non-systemd: use pg_isready which works regardless of how pg was started
+    result = run_cmd(["pg_isready", "-q"], check=False)
+    return result.returncode == 0
 
 
 def _verify_database_services(config_content: str) -> bool:
@@ -161,12 +196,7 @@ def _verify_database_services(config_content: str) -> bool:
     all_ok = True
 
     if "POSTGRES_SUPERUSER_PASSWORD" in config_content:
-        result = run_cmd(
-            ["systemctl", "is-active", "postgresql"],
-            capture=True,
-            check=False,
-        )
-        if result.stdout.strip() == "active":
+        if _is_postgres_running():
             print_success("PostgreSQL service is running")
         else:
             print_warning("PostgreSQL service is not running")

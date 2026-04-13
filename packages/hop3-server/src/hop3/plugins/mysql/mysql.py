@@ -18,6 +18,7 @@ Addon passwords are stored persistently in HOP3_ROOT/addons/mysql/
 
 from __future__ import annotations
 
+import contextlib
 import os
 import secrets
 import subprocess
@@ -94,6 +95,25 @@ class MySQLAddon:
         """Get MySQL admin connection configuration."""
         return MySQLAdmin.from_config()
 
+    def _create_or_update_user(self, cursor, host: str, password: str) -> None:
+        """Create ``<db_user>@<host>`` with the given password.
+
+        If the row already exists, ALTER its password instead.
+        """
+        try:
+            cursor.execute(
+                "CREATE USER %s@%s IDENTIFIED BY %s",
+                (self.db_user, host, password),
+            )
+        except mysql.connector.Error as err:
+            if err.errno == errorcode.ER_CANNOT_USER:
+                cursor.execute(
+                    "ALTER USER %s@%s IDENTIFIED BY %s",
+                    (self.db_user, host, password),
+                )
+            else:
+                raise
+
     def _get_stored_password(self) -> str | None:
         """Get the stored password for this addon, if any."""
         secrets_data = load_addon_secrets(ADDON_TYPE, self.addon_name)
@@ -138,51 +158,34 @@ class MySQLAddon:
                 # Database and secrets both exist - nothing to do
                 return
 
-            if db_exists:
-                # Database exists but secrets are missing - regenerate password
-                # User may or may not exist, so try CREATE first, fall back to ALTER
-                try:
-                    cursor.execute(
-                        "CREATE USER %s@'localhost' IDENTIFIED BY %s",
-                        (self.db_user, password),
-                    )
-                except mysql.connector.Error as err:
-                    if err.errno == errorcode.ER_CANNOT_USER:
-                        # User exists, update password
-                        cursor.execute(
-                            "ALTER USER %s@'localhost' IDENTIFIED BY %s",
-                            (self.db_user, password),
-                        )
-                    else:
-                        raise
-            else:
-                # Create user (ignore if already exists)
-                try:
-                    cursor.execute(
-                        "CREATE USER %s@'localhost' IDENTIFIED BY %s",
-                        (self.db_user, password),
-                    )
-                except mysql.connector.Error as err:
-                    if err.errno == errorcode.ER_CANNOT_USER:
-                        # User already exists, update password
-                        cursor.execute(
-                            "ALTER USER %s@'localhost' IDENTIFIED BY %s",
-                            (self.db_user, password),
-                        )
-                    else:
-                        raise
+            # Create user entries for every host from which the
+            # addon will be accessed:
+            # - ``localhost`` / ``127.0.0.1`` for native Hop3 apps
+            # - ``172.%`` for Docker-based apps (docker bridge
+            #   networks land in 172.16.0.0/12)
+            #
+            # Per-host user rows in MySQL are separate identities;
+            # the Docker bridge IP is NOT matched by @'localhost'.
+            # Pre-S3-fix versions only granted @'localhost', which
+            # made every Docker app fail with "Host 'N.N.N.N' is
+            # not allowed to connect to this MySQL server".
+            hosts = ["localhost", "127.0.0.1", "172.%"]
 
-                # Create database
+            for host in hosts:
+                self._create_or_update_user(cursor, host, password)
+
+            if not db_exists:
                 cursor.execute(
-                    f"CREATE DATABASE `{self.db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                    f"CREATE DATABASE `{self.db_name}` "
+                    "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
                 )
 
-                # Grant privileges to user on the database
-                grant_sql = (
-                    f"GRANT ALL PRIVILEGES ON `{self.db_name}`.* TO %s@'localhost'"
+            for host in hosts:
+                cursor.execute(
+                    f"GRANT ALL PRIVILEGES ON `{self.db_name}`.* TO %s@%s",
+                    (self.db_user, host),
                 )
-                cursor.execute(grant_sql, (self.db_user,))
-                cursor.execute("FLUSH PRIVILEGES")
+            cursor.execute("FLUSH PRIVILEGES")
 
             connection.commit()
 
@@ -220,13 +223,10 @@ class MySQLAddon:
             # Drop database
             cursor.execute(f"DROP DATABASE IF EXISTS `{self.db_name}`")
 
-            # Drop user
-            try:
-                drop_user_sql = "DROP USER IF EXISTS %s@'localhost'"
-                cursor.execute(drop_user_sql, (self.db_user,))
-            except mysql.connector.Error:
-                # User might not exist, that's okay
-                pass
+            # Drop user rows for every host we created (see ensure_exists)
+            for host in ("localhost", "127.0.0.1", "172.%"):
+                with contextlib.suppress(mysql.connector.Error):
+                    cursor.execute("DROP USER IF EXISTS %s@%s", (self.db_user, host))
 
             connection.commit()
 

@@ -14,6 +14,7 @@ custom networks, volumes, etc.).
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import traceback
 from dataclasses import dataclass
@@ -122,6 +123,45 @@ class DockerComposeDeployer:
         # Generate a compose file
         return self._generate_compose_file()
 
+    def _rewrite_host_for_docker(self, value: str) -> str:
+        """Rewrite localhost/127.0.0.1 to host.docker.internal in a
+        value, but only at host-boundary positions (``@host:port``,
+        ``://host:port``, bare ``host:port``, or the full value being
+        just ``host``).
+
+        Leaves unrelated substrings alone, so ``some-localhost-thing``
+        isn't touched.
+        """
+        if not value:
+            return value
+
+        patterns = [
+            # URL: scheme://[user:pass@]host[:port]
+            (
+                re.compile(r"(://[^/@\s]*@)(localhost|127\.0\.0\.1)(?=[:/]|$)"),
+                lambda m: m.group(1) + "host.docker.internal",
+            ),
+            (
+                re.compile(r"(://)(localhost|127\.0\.0\.1)(?=[:/]|$)"),
+                lambda m: m.group(1) + "host.docker.internal",
+            ),
+            # Bare host:port
+            (
+                re.compile(r"(^|[,;\s])(localhost|127\.0\.0\.1)(?=:\d)"),
+                lambda m: m.group(1) + "host.docker.internal",
+            ),
+            # Just the host alone (whole value or at boundary)
+            (
+                re.compile(r"(^|[,;\s])(localhost|127\.0\.0\.1)($|[,;\s])"),
+                lambda m: m.group(1) + "host.docker.internal" + m.group(3),
+            ),
+        ]
+
+        out = value
+        for pat, repl in patterns:
+            out = pat.sub(repl, out)
+        return out
+
     def _generate_compose_file(self) -> Path:
         """Generate a docker-compose.yml for the application.
 
@@ -150,22 +190,19 @@ class DockerComposeDeployer:
             )
 
         # Add all app environment variables (DATABASE_URL, REDIS_URL, etc.)
-        # For Docker containers, replace localhost with host.docker.internal
-        # so containers can connect to services running on the host
+        # For Docker containers, rewrite ``localhost``/``127.0.0.1`` to
+        # ``host.docker.internal`` so containers can connect to services
+        # running on the host. We rewrite by VALUE (not by var name) so
+        # app-specific names like GF_DATABASE_HOST, SMTP_HOST, MY_DB_URL
+        # are handled without needing a fixed whitelist.
+        #
+        # Safe heuristic: only rewrite values that contain an IPv4/host
+        # reference followed by a port or path separator — avoids
+        # touching values like "127.0.0.1-fallback" or anything that
+        # just incidentally mentions localhost.
         if self.context.app:
             for env_var in self.context.app.env_vars:
-                # Transform localhost to host.docker.internal for service URLs
-                # This allows containers to reach PostgreSQL/Redis on the host
-                value = env_var.value
-                if env_var.name in {
-                    "DATABASE_URL",
-                    "REDIS_URL",
-                    "PGHOST",
-                    "REDIS_HOST",
-                    "MYSQL_HOST",
-                }:
-                    value = value.replace("localhost", "host.docker.internal")
-                    value = value.replace("127.0.0.1", "host.docker.internal")
+                value = self._rewrite_host_for_docker(env_var.value)
                 env_lines.append(f"      - {env_var.name}={value}")
 
         env_section = "\n".join(env_lines)

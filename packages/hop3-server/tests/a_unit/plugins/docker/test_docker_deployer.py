@@ -557,3 +557,69 @@ class TestDockerComposeDeployerProxyIntegration:
         ):
             # Should not raise - exception is caught and logged
             deployer._setup_proxy(8080)
+
+
+class TestRewriteHostForDocker:
+    """Tests for the localhost → host.docker.internal rewriter.
+
+    The rewrite is applied to ALL env var values (not a fixed
+    whitelist) so app-specific names like GF_DATABASE_HOST,
+    SMTP_HOST, MY_DB_URL are handled correctly.
+    """
+
+    @pytest.fixture
+    def deployer(
+        self, tmp_path: Path, docker_artifact: BuildArtifact
+    ) -> DockerComposeDeployer:
+        context = DeploymentContext(
+            app_name="test",
+            source_path=tmp_path,
+            app_config={},
+        )
+        return DockerComposeDeployer(context, docker_artifact)
+
+    def test_rewrites_bare_host_port(self, deployer: DockerComposeDeployer):
+        """GF_DATABASE_HOST-style ``host:port`` value."""
+        assert (
+            deployer._rewrite_host_for_docker("127.0.0.1:5432")
+            == "host.docker.internal:5432"
+        )
+        assert (
+            deployer._rewrite_host_for_docker("localhost:8080")
+            == "host.docker.internal:8080"
+        )
+
+    def test_rewrites_url_with_userinfo(self, deployer: DockerComposeDeployer):
+        """DATABASE_URL-style postgres://user:pass@host:port/db."""
+        got = deployer._rewrite_host_for_docker(
+            "postgresql://u:p@127.0.0.1:5432/dbname"
+        )
+        assert got == "postgresql://u:p@host.docker.internal:5432/dbname"
+
+    def test_rewrites_url_without_userinfo(self, deployer: DockerComposeDeployer):
+        """redis://host:port/0 — no userinfo."""
+        got = deployer._rewrite_host_for_docker("redis://localhost:6379/0")
+        assert got == "redis://host.docker.internal:6379/0"
+
+    def test_rewrites_bare_host_only(self, deployer: DockerComposeDeployer):
+        """PGHOST is just the host name, nothing else."""
+        assert deployer._rewrite_host_for_docker("127.0.0.1") == "host.docker.internal"
+        assert deployer._rewrite_host_for_docker("localhost") == "host.docker.internal"
+
+    def test_leaves_non_matching_values(self, deployer: DockerComposeDeployer):
+        """Substrings that happen to contain 'localhost' shouldn't be touched."""
+        assert (
+            deployer._rewrite_host_for_docker("my-localhost-fallback")
+            == "my-localhost-fallback"
+        )
+        assert deployer._rewrite_host_for_docker("foo127.0.0.1bar") == "foo127.0.0.1bar"
+
+    def test_leaves_non_local_values(self, deployer: DockerComposeDeployer):
+        """Real remote hosts are untouched."""
+        assert deployer._rewrite_host_for_docker("prod.db:5432") == "prod.db:5432"
+        assert deployer._rewrite_host_for_docker("") == ""
+
+    def test_rewrites_comma_separated_hosts(self, deployer: DockerComposeDeployer):
+        """Redis Sentinel-style multi-host value."""
+        got = deployer._rewrite_host_for_docker("127.0.0.1:26379,remote:26379")
+        assert got == "host.docker.internal:26379,remote:26379"

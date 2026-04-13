@@ -10,6 +10,7 @@ from pathlib import Path
 
 from hop3_installer.common import (
     CommandError,
+    has_systemd,
     print_detail,
     print_info,
     print_success,
@@ -197,7 +198,7 @@ def _configure_postgres_for_docker() -> str | None:
 
     if listen_changed or hba_changed:
         # Restart PostgreSQL to apply changes
-        run_cmd(["systemctl", "restart", "postgresql"], check=False)
+        _restart_postgres()
         print_detail(
             "PostgreSQL configured to accept connections from Docker containers"
         )
@@ -207,6 +208,9 @@ def _configure_postgres_for_docker() -> str | None:
 
 def _start_postgres_service(distro: str) -> bool:
     """Start PostgreSQL service.
+
+    Uses systemd when available (bare-metal, VMs), falls back to
+    ``pg_ctlcluster`` under supervisord (Docker test containers).
 
     Args:
         distro: Distribution name.
@@ -223,19 +227,111 @@ def _start_postgres_service(distro: str) -> bool:
                 if result.stderr:
                     print_detail(result.stderr[:200])
 
+    if has_systemd():
+        return _start_postgres_systemd()
+
+    # Non-systemd: use pg_ctlcluster (Debian) or pg_ctl (Fedora)
+    return _start_postgres_direct()
+
+
+def _restart_postgres() -> None:
+    """Restart PostgreSQL using the appropriate init system."""
+    if has_systemd():
+        run_cmd(["systemctl", "restart", "postgresql"], check=False)
+    else:
+        # Debian: pg_ctlcluster <version> main restart
+        pg_versions = (
+            sorted(Path("/etc/postgresql").iterdir(), reverse=True)
+            if Path("/etc/postgresql").exists()
+            else []
+        )
+        for version_dir in pg_versions:
+            if (version_dir / "main").exists():
+                run_cmd(
+                    ["pg_ctlcluster", version_dir.name, "main", "restart"],
+                    check=False,
+                )
+                return
+        # Fedora fallback
+        run_cmd(
+            ["su", "-", "postgres", "-c", "pg_ctl restart -D /var/lib/pgsql/data"],
+            check=False,
+        )
+
+
+def _start_postgres_systemd() -> bool:
+    """Start PostgreSQL via systemd."""
     result = run_cmd(["systemctl", "enable", "postgresql"], check=False)
     if result.returncode != 0:
         print_warning("Failed to enable PostgreSQL service")
 
     result = run_cmd(["systemctl", "start", "postgresql"], check=False)
-
     if result.returncode != 0:
-        print_warning("Could not start PostgreSQL service")
+        print_warning("Could not start PostgreSQL via systemd")
         if result.stderr:
             print_detail(result.stderr[:200])
         return False
 
     return True
+
+
+def _start_postgres_direct() -> bool:
+    """Start PostgreSQL without systemd (containers, non-systemd hosts).
+
+    On Debian/Ubuntu, ``pg_ctlcluster`` starts a specific cluster.
+    On Fedora/RHEL, ``pg_ctl`` starts the data directory directly.
+    """
+    print_detail("systemd not available, starting PostgreSQL directly")
+
+    # Debian/Ubuntu: pg_ctlcluster <version> <cluster> start
+    pg_versions = (
+        sorted(Path("/etc/postgresql").iterdir(), reverse=True)
+        if Path("/etc/postgresql").exists()
+        else []
+    )
+    for version_dir in pg_versions:
+        cluster_dir = version_dir / "main"
+        if cluster_dir.exists():
+            version = version_dir.name
+            print_detail(f"Starting PostgreSQL {version}/main via pg_ctlcluster")
+            result = run_cmd(
+                ["pg_ctlcluster", version, "main", "start"],
+                check=False,
+            )
+            if result.returncode == 0:
+                print_success(f"PostgreSQL {version} started")
+                return True
+            # Exit code 2 means already running
+            if result.returncode == 2:
+                print_detail(f"PostgreSQL {version} already running")
+                return True
+            print_warning(
+                f"pg_ctlcluster {version} main start failed: "
+                f"{result.stderr[:200] if result.stderr else 'no output'}"
+            )
+
+    # Fedora/RHEL fallback: pg_ctl
+    data_dir = Path("/var/lib/pgsql/data")
+    if data_dir.exists() and (data_dir / "postgresql.conf").exists():
+        result = run_cmd(
+            [
+                "su",
+                "-",
+                "postgres",
+                "-c",
+                f"pg_ctl start -D {data_dir} -l /var/log/postgresql.log",
+            ],
+            check=False,
+        )
+        if result.returncode == 0:
+            print_success("PostgreSQL started via pg_ctl")
+            return True
+        print_warning(
+            f"pg_ctl start failed: {result.stderr[:200] if result.stderr else ''}"
+        )
+
+    print_warning("Could not start PostgreSQL: no cluster found")
+    return False
 
 
 def _create_postgres_role_and_db() -> bool:
