@@ -83,6 +83,24 @@ def _filter_by_available_services(
     return filtered
 
 
+def _resolve_logs_dir(logs_dir: str | None, mode_label: str) -> Path | None:
+    """Pick the per-test log directory.
+
+    Default: ``test-logs/<mode>-<timestamp>/app-logs`` so failures
+    always have an on-disk pointer. Pass ``--logs-dir off`` to
+    disable.
+    """
+    if logs_dir == "off":
+        return None
+    if logs_dir:
+        return Path(logs_dir)
+
+    from datetime import datetime, timezone  # noqa: PLC0415
+
+    stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+    return Path("test-logs") / f"{mode_label}-{stamp}" / "app-logs"
+
+
 def run_tests(
     ctx: click.Context,
     tests: list[TestDefinition],
@@ -116,11 +134,13 @@ def run_tests(
             console.error("No tests remaining after filtering by available services")
             sys.exit(1)
     store = ResultStore()
-    reporter = ConsoleReporter(verbose=verbose, quiet=quiet)
-    log_writer = TestLogWriter(Path(logs_dir) if logs_dir else None)
+
+    log_path = _resolve_logs_dir(logs_dir, mode_label)
+    reporter = ConsoleReporter(verbose=verbose, quiet=quiet, logs_dir=log_path)
+    log_writer = TestLogWriter(log_path)
 
     if log_writer.enabled:
-        console.status(f"Logs will be saved to: {logs_dir}/")
+        console.status(f"Per-app logs: {log_path}/")
 
     try:
         console.status(start_message)
@@ -196,9 +216,15 @@ def run_single_test(
 
     if debug and not result.passed:
         actual_console = console or PrintingConsole()
+        # Use the real deployed app name (with timestamp suffix)
+        # when available; fall back to the test name only for
+        # runners that don't populate it. Using test.name directly
+        # points the debugger at a nonexistent path (the test path
+        # rather than ``<basename>-<timestamp>``).
+        app_name = result.deployed_app_name or test.name
         debugger = DeploymentDebugger(
             target=target,
-            app_name=test.name,
+            app_name=app_name,
             console=actual_console,
         )
         deployment_type = "auto"

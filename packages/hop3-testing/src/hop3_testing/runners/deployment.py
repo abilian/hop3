@@ -15,6 +15,9 @@ from urllib.parse import urlparse
 from hop3_testing.apps.catalog import AppSource
 from hop3_testing.apps.deployment import DeploymentSession
 from hop3_testing.exceptions import DeploymentError
+from hop3_testing.runtime_diagnostics import (
+    collect_runtime_logs as _collect_runtime_logs,
+)
 from hop3_testing.util.console import Console, PrintingConsole, Verbosity
 
 from .base import TestResult, ValidationResult
@@ -178,6 +181,24 @@ class DeploymentTestRunner:
             return check_result["message"]
         return None
 
+    def _deploy_timeout_for(self, test: TestDefinition) -> int:
+        """Pick a deploy timeout based on the test's tier.
+
+        Heavy Docker builds (e.g., Monica building Laravel+npm assets)
+        routinely need more than the 10-min default. Nix apps that
+        pull from binary cache are fast on cache hit but slow on
+        miss. The tier expresses the expectation up-front.
+        """
+        from hop3_testing.catalog.models import Tier  # noqa: PLC0415
+
+        tier_to_seconds = {
+            Tier.FAST: 300,  # 5 min
+            Tier.MEDIUM: 600,  # 10 min
+            Tier.SLOW: 1200,  # 20 min
+            Tier.VERY_SLOW: 1800,  # 30 min
+        }
+        return tier_to_seconds.get(test.tier, 600)
+
     def _run_deploy_and_verify(
         self,
         test: TestDefinition,
@@ -189,7 +210,7 @@ class DeploymentTestRunner:
         session.prepare()
 
         try:
-            session.deploy()
+            session.deploy(deploy_timeout=self._deploy_timeout_for(test))
         except DeploymentError as e:
             deploy_logs = session.last_deploy_error or str(e)
             return deploy_logs, f"Deploy failed: {deploy_logs}"
@@ -272,51 +293,56 @@ class DeploymentTestRunner:
             console=self.console,
         )
 
+        def _fail_result(
+            err: str,
+            *,
+            deploy_logs: str = "",
+        ) -> TestResult:
+            """Build a failure TestResult, capturing runtime logs
+            from the target BEFORE ``finally:`` cleanup runs — so
+            containers and app dirs are still present."""
+            return TestResult(
+                test=test,
+                passed=False,
+                deploy_logs=deploy_logs,
+                validation_results=validation_results,
+                total_duration=time.time() - start_time,
+                error=err,
+                deployed_app_name=session.app_name,
+                runtime_logs=_collect_runtime_logs(self.target, session.app_name),
+            )
+
         try:
             deploy_logs, error = self._run_deploy_and_verify(
                 test, session, start_time, validation_results
             )
             if error:
-                return TestResult(
-                    test=test,
-                    passed=False,
-                    deploy_logs=deploy_logs,
-                    validation_results=validation_results,
-                    total_duration=time.time() - start_time,
-                    error=error,
-                )
+                return _fail_result(error, deploy_logs=deploy_logs)
 
             if http_error := self._run_http_validations(
                 test, session, app_source, validation_results
             ):
-                return TestResult(
-                    test=test,
-                    passed=False,
-                    validation_results=validation_results,
-                    total_duration=time.time() - start_time,
-                    error=http_error,
-                )
+                return _fail_result(http_error)
 
             if app_source.has_check_script:
                 if check_error := self._run_check_script(session, validation_results):
-                    return TestResult(
-                        test=test,
-                        passed=False,
-                        validation_results=validation_results,
-                        total_duration=time.time() - start_time,
-                        error=check_error,
-                    )
+                    return _fail_result(check_error)
 
         except Exception as e:
             error = str(e)
             self.console.debug(traceback.format_exc())
 
-        finally:
-            if self.cleanup:
-                self.console.info(f"Cleaning up {test.name}...")
-                session.cleanup()
-
         passed = error is None and all(v.passed for v in validation_results)
+
+        runtime_logs = ""
+        if not passed:
+            runtime_logs = _collect_runtime_logs(self.target, session.app_name)
+
+        # Cleanup AFTER collecting runtime diagnostics so the app
+        # dir and docker containers are still around.
+        if self.cleanup:
+            self.console.info(f"Cleaning up {test.name}...")
+            session.cleanup()
 
         return TestResult(
             test=test,
@@ -325,6 +351,8 @@ class DeploymentTestRunner:
             deploy_logs=deploy_logs,
             total_duration=time.time() - start_time,
             error=error,
+            deployed_app_name=session.app_name,
+            runtime_logs=runtime_logs,
         )
 
     def _create_app_source(self, test: TestDefinition) -> AppSource:

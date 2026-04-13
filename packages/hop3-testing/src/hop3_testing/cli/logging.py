@@ -22,10 +22,14 @@ class TestLogWriter:
     - Test metadata (name, tier, priority)
     - Deployment logs
     - Validation results
-    - Debug info (if test failed)
+    - On failure: runtime logs already collected by the runner
+      (before cleanup), stashed on ``TestResult.runtime_logs``.
     """
 
-    def __init__(self, logs_dir: Path | None = None):
+    def __init__(
+        self,
+        logs_dir: Path | None = None,
+    ):
         """Initialize log writer.
 
         Args:
@@ -102,6 +106,11 @@ class TestLogWriter:
                 debug_output,
                 "",
             ])
+
+        # On failure, the runner has already collected runtime logs
+        # BEFORE cleanup — just dump them here.
+        if not result.passed and result.runtime_logs:
+            lines.append(result.runtime_logs)
 
         lines.extend([
             f"=== End of log for {test.name} ===",

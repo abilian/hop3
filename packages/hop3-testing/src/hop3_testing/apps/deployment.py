@@ -141,11 +141,15 @@ class DeploymentSession:
         """
         return self._preparation.prepare()
 
-    def deploy(self, wait_time: int = 5) -> None:
+    def deploy(self, wait_time: int = 5, deploy_timeout: int = 600) -> None:
         """Deploy the application to the target.
 
         Args:
             wait_time: Time to wait after deployment (seconds)
+            deploy_timeout: Max seconds for the ``hop3 deploy`` subprocess
+                (default 600). Slow tier apps — heavy Docker builds,
+                large nix fetches — may need more. The runner sizes
+                this based on the test's tier.
 
         Raises:
             DeploymentError: If deployment fails.
@@ -154,6 +158,7 @@ class DeploymentSession:
             self._preparation.prepare()
 
         self.console.status(f"Deploying {self.app_name}...")
+        self._deploy_timeout = deploy_timeout
 
         try:
             # Deploy via CLI (CLI will create tarball from directory)
@@ -246,12 +251,14 @@ class DeploymentSession:
                 self.console.debug(f"  {line}")
 
         # Always use streaming with timeout to prevent silent hangs
-        result = run_streaming(cmd, on_output=on_output, env=env, timeout=600)
+        timeout = getattr(self, "_deploy_timeout", 600)
+        result = run_streaming(cmd, on_output=on_output, env=env, timeout=timeout)
         stdout = result.stdout
         returncode = result.returncode
 
         if result.timed_out:
-            self._last_deploy_error = "Deploy timed out after 10 minutes"
+            mins = timeout // 60
+            self._last_deploy_error = f"Deploy timed out after {mins} minutes"
             self.console.error(self._last_deploy_error)
             raise DeploymentError(self._last_deploy_error)
 

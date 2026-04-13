@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, TextIO
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from hop3_testing.runners.base import TestResult
 
 
@@ -29,6 +31,9 @@ class ConsoleReporter:
 
     color: bool = True
     """Whether to use colored output (before TTY check)."""
+
+    logs_dir: Path | None = None
+    """Per-test log directory for cross-reference in failure summary."""
 
     def __post_init__(self) -> None:
         """Adjust color setting based on TTY detection."""
@@ -115,19 +120,88 @@ class ConsoleReporter:
         print(f"Total time: {total_duration:.2f}s", file=self.output)
         print("=" * 60, file=self.output)
 
-        if failed > 0 and self.verbose:
-            print(file=self.output)
-            print("Failed tests:", file=self.output)
-            for r in results:
-                if not r.passed:
-                    print(
-                        f"  - {r.test.name}: {r.error or 'validation failed'}",
-                        file=self.output,
-                    )
+        # Always list failed tests with root cause + log pointer.
+        # Previously gated by --verbose, which hid actionable info on
+        # the common "part of a large batch failed, which ones?" case.
+        if failed > 0:
+            self._print_failed_tests(results)
 
         # Show recap unless quiet mode
         if not self.quiet and results:
             self._print_recap(results, total_duration)
+
+    def _print_failed_tests(self, results: list[TestResult]) -> None:
+        """Print the list of failed tests with a one-line root cause
+        and a pointer to each test's log file.
+        """
+        print(file=self.output)
+        print(self._colorize("Failed tests:", "bold"), file=self.output)
+        for r in results:
+            if r.passed:
+                continue
+            name = r.test.name
+            cause = self._extract_root_cause(r.error or "validation failed")
+            mark = self._colorize("✗", "red")
+            print(f"  {mark} {name}", file=self.output)
+            print(f"      {cause}", file=self.output)
+            log_file = self._log_file_for(r)
+            if log_file:
+                print(f"      log: {log_file}", file=self.output)
+
+        if self.logs_dir:
+            print(file=self.output)
+            print(
+                self._colorize(f"Full per-test logs: {self.logs_dir}/", "yellow"),
+                file=self.output,
+            )
+
+    def _log_file_for(self, result: TestResult) -> str | None:
+        """Return the per-test log path written by TestLogWriter, if any."""
+        if not self.logs_dir:
+            return None
+        return f"{self.logs_dir}/{result.test.name}.log"
+
+    def _extract_root_cause(self, error: str) -> str:
+        """Extract the single most useful line from a test error.
+
+        Strategies (in order):
+        - Known Hop3 Abort patterns ("Deployer can't ...", etc.)
+        - First line containing "error:", "Error:", "Traceback"
+        - Last non-empty line (often the actual exception)
+        - First 160 chars if nothing else matches
+        """
+        if not error:
+            return "(no error message)"
+
+        lines = [ln.rstrip() for ln in error.splitlines() if ln.strip()]
+        if not lines:
+            return error[:160]
+
+        # Most specific: Hop3 structured Diagnosis
+        for ln in lines:
+            if "can't " in ln and ":" in ln:
+                return ln[:200]
+
+        # Next: typical error markers
+        markers = (
+            "ImportError:",
+            "ModuleNotFoundError:",
+            "Permission denied",
+            "hash mismatch",
+            "Connection refused",
+            "timed out",
+            "No such file or directory",
+            "error:",
+            "ERROR:",
+            "Error:",
+        )
+        for ln in lines:
+            for m in markers:
+                if m in ln:
+                    return ln.strip()[:200]
+
+        # Fallback: last non-empty line
+        return lines[-1][:200]
 
     def _print_recap(self, results: list[TestResult], total_duration: float) -> None:
         """Print a recap of what was tested.

@@ -70,6 +70,17 @@ class TestResult:
     error: str | None = None
     """Error message if test failed before validations."""
 
+    deployed_app_name: str | None = None
+    """The actual app name used on the hop3 server (with timestamp
+    suffix). Needed by the debugger to find the right
+    ``/home/hop3/apps/<name>`` directory after a failure."""
+
+    runtime_logs: str = ""
+    """Runtime logs collected from the target side when the test
+    failed. Populated BEFORE cleanup destroys the app, so the content
+    survives even when the container/app dir is gone by the time the
+    log is written to disk."""
+
     @property
     def failed_validations(self) -> list[ValidationResult]:
         """Get list of failed validations."""
