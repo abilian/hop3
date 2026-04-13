@@ -13,6 +13,18 @@ if TYPE_CHECKING:
     from hop3_installer.common import CommandResult
 
 
+class BackendError(RuntimeError):
+    """Raised by a backend command when a mutating operation fails.
+
+    Queries (``_container_exists``, ``_docker_available``, etc.) return
+    ``bool`` without side effects. Commands (``setup``, ``upload``,
+    cleanup helpers) raise :class:`BackendError` with a descriptive
+    message on failure — they do NOT return ``False``, so callers can
+    let the exception propagate with a real stack trace instead of
+    chasing an opaque boolean.
+    """
+
+
 class Backend(ABC):
     """Abstract base class for test execution backends.
 
