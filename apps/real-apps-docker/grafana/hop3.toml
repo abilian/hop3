@@ -20,11 +20,16 @@ type = "postgres"
 GF_SERVER_HTTP_PORT = "8080"
 GF_SECURITY_ADMIN_USER = "admin"
 GF_DATABASE_TYPE = "postgres"
+GF_DATABASE_SSL_MODE = "disable"
+
+# Computed vars are resolved against the addon-injected PG* variables
+# at deploy time. Using [env] here would store the literal template
+# string and grafana would try to connect to "${PGHOST}:${PGPORT}".
+[env.computed]
 GF_DATABASE_HOST = "${PGHOST}:${PGPORT}"
 GF_DATABASE_NAME = "${PGDATABASE}"
 GF_DATABASE_USER = "${PGUSER}"
 GF_DATABASE_PASSWORD = "${PGPASSWORD}"
-GF_DATABASE_SSL_MODE = "disable"
 
 [healthcheck]
 path = "/api/health"

@@ -27,8 +27,8 @@ RUN apt-get update -q && apt-get install -q -y --no-install-recommends \
 # Create app directory
 WORKDIR /var/www/html
 
-# Download WordPress
-ARG WORDPRESS_VERSION=6.4.2
+# Download WordPress (bumped 6.4.2 → 6.7.1 for PHP 8.3 compat on trixie)
+ARG WORDPRESS_VERSION=6.7.1
 RUN rm -f index.html \
     && curl -sL "https://wordpress.org/wordpress-${WORDPRESS_VERSION}.tar.gz" | tar xz --strip-components=1
 

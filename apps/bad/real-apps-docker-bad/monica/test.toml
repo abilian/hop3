@@ -1,7 +1,7 @@
 [test]
 name = "monica"
 category = "docker-app"
-tier = "slow"
+tier = "very-slow"  # NodeSource install + Laravel Mix + npm run production ~15 min
 priority = "P1"
 
 [test.requirements]

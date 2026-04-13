@@ -36,6 +36,18 @@ EOF
 
 cd /var/www/html
 
+# Ensure Laravel's writable dirs exist and are writable by www-data at
+# runtime (not just at build time) — belt-and-suspenders in case the
+# image cache or a container filesystem quirk left perms wrong.
+mkdir -p storage/logs \
+         storage/framework/sessions \
+         storage/framework/views \
+         storage/framework/cache/data \
+         bootstrap/cache
+touch storage/logs/laravel.log
+chown -R www-data:www-data storage bootstrap/cache .env
+chmod -R ug+rwX storage bootstrap/cache
+
 # Wait for MySQL to be ready
 echo "Waiting for MySQL at ${MYSQL_HOST}:${MYSQL_PORT}..."
 for i in $(seq 1 30); do

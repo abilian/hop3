@@ -40,9 +40,15 @@ let
 
       cat > $out/bin/sonarqube << 'WRAPPER'
 #!/bin/sh
-export JAVA_HOME=JDKPATH
-export SONAR_JAVA_PATH=JDKPATH/bin/java
+export JAVA_HOME=__JDK__
+export SONAR_JAVA_PATH=__JDK__/bin/java
 PORT="''${PORT:-9000}"
+
+# Symlink the read-only SonarQube tree into the writable cwd
+for item in __APPDIR__/*; do
+  name=$(basename "$item")
+  [ -e "$name" ] || ln -sf "$item" "$name"
+done
 
 # Create writable directories that SonarQube needs
 mkdir -p data logs temp extensions conf
@@ -60,11 +66,10 @@ sonar.path.temp=$PWD/temp
 sonar.search.javaAdditionalOpts=''${SONAR_SEARCH_JAVAADDITIONALOPTS:--Dnode.store.allow_mmap=false}
 CONFEOF
 
-cd SONARDIR
 exec ./bin/linux-x86-64/sonar.sh console "$@"
 WRAPPER
-      sed -i "s|JDKPATH|${jdk}|g" $out/bin/sonarqube
-      sed -i "s|SONARDIR|$out/app|g" $out/bin/sonarqube
+      sed -i "s|__JDK__|${jdk}|g" $out/bin/sonarqube
+      sed -i "s|__APPDIR__|$out/app|g" $out/bin/sonarqube
       chmod +x $out/bin/sonarqube
 
       mkdir -p $out/hop3

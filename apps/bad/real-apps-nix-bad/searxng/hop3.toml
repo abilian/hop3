@@ -1,9 +1,29 @@
-# Hop3 Configuration for SearXNG (Nix build)
+# Hop3 Configuration for SearXNG (Nix build via nixpkgs)
 # Privacy-respecting metasearch engine
+
+[metadata]
+id = "searxng"
+description = "Privacy-respecting, hackable metasearch engine"
 
 [build]
 builder = "nix"
 
+[nix]
+template = "nixpkgs-wrapper"
+nixpkgs-package = "searxng"
+exec-target = "searxng-run"
+extra-paths = ['${searxng}/bin']
+
+[nix.env-exports]
+SEARXNG_SECRET = "${SEARXNG_SECRET:-hop3-searxng-secret-change-me}"
+SEARXNG_PORT = "${PORT:-8080}"
+SEARXNG_BIND_ADDRESS = "0.0.0.0"
+
+[nix.runtime-env]
+SEARXNG_SECRET = "hop3-searxng-secret-change-me"
+
 [env]
-SEARXNG_BASE_URL = "http://localhost:8080"
-SEARXNG_SECRET = "change-me-to-random-string"
+SEARXNG_SECRET = "hop3-searxng-secret-change-me"
+
+[run]
+start-timeout = 120

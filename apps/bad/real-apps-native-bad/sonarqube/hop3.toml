@@ -19,7 +19,9 @@ before-build = "bash scripts/download.sh"
 [run]
 before-run = "bash scripts/setup-config.sh"
 start = "./bin/linux-x86-64/sonar.sh console"
-start-timeout = 180
+# SonarQube's bundled Elasticsearch takes 3-5 min to become healthy,
+# especially on first start when it initialises the index directory.
+start-timeout = 360
 
 [[addons]]
 type = "postgres"

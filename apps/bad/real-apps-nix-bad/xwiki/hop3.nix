@@ -39,14 +39,26 @@ let
       cp -r . $out/app/
       chmod +x $out/app/start_xwiki*.sh $out/app/stop_xwiki*.sh || true
 
-      cat > $out/bin/xwiki << 'EOF'
+      cat > $out/bin/xwiki << 'WRAPPER'
 #!/bin/sh
-export JAVA_HOME=${jdk}
+export JAVA_HOME=__JDK__
 export XWIKI_NONINTERACTIVE=true
-cd $out/app
 export JETTY_PORT=''${PORT:-8080}
+
+# XWiki writes to data/, logs/, temp/, work/ — symlink the read-only
+# Nix store tree into the writable cwd so Jetty can start.
+for item in __APPDIR__/*; do
+  name=$(basename "$item")
+  [ -e "$name" ] || ln -sf "$item" "$name"
+done
+
+# Ensure writable dirs exist (XWiki/Jetty expects them)
+mkdir -p data logs temp work webapps
+
 exec bash ./start_xwiki.sh "$@"
-EOF
+WRAPPER
+      sed -i "s|__JDK__|${jdk}|g" $out/bin/xwiki
+      sed -i "s|__APPDIR__|$out/app|g" $out/bin/xwiki
       chmod +x $out/bin/xwiki
 
       mkdir -p $out/hop3

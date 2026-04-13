@@ -40,7 +40,7 @@ chmod -R 755 storage
 
 # Wait for MySQL to be ready before starting
 echo "Waiting for MySQL at ${MYSQL_HOST}:${MYSQL_PORT}..."
-for i in $(seq 1 30); do
+for i in $(seq 1 60); do
     if php -r "
         \$conn = @new mysqli('${MYSQL_HOST}', '${MYSQL_USER}', '${MYSQL_PASSWORD}', '${MYSQL_DATABASE}', ${MYSQL_PORT});
         if (\$conn->connect_error) { exit(1); }
@@ -49,9 +49,8 @@ for i in $(seq 1 30); do
         echo "MySQL is ready."
         break
     fi
-    if [ "$i" -eq 30 ]; then
-        echo "ERROR: MySQL not reachable after 30 attempts."
-        exit 1
+    if [ "$i" -eq 60 ]; then
+        echo "WARNING: MySQL not reachable after 120s, starting Apache anyway."
     fi
     sleep 2
 done

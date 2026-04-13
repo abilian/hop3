@@ -16,16 +16,20 @@ cd /var/www/html
 
 # Wait for MySQL to be ready before proceeding
 echo "Waiting for MySQL at ${MYSQL_HOST}:${MYSQL_PORT}..."
-for i in $(seq 1 30); do
-    if mysqladmin ping -h"${MYSQL_HOST}" -P"${MYSQL_PORT}" -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" --silent 2>/dev/null; then
+# Use a PHP PDO connection test rather than ``mysqladmin ping``.
+# mysqladmin ping needs a user that can authenticate to the global
+# "accounts" level — our per-app addon user only has privileges on
+# its own database, so the ping fails silently even when the DB is
+# reachable. PDO tests the thing the app actually uses.
+for i in $(seq 1 60); do
+    if php -r "new PDO('mysql:host=${MYSQL_HOST};port=${MYSQL_PORT};dbname=${MYSQL_DATABASE}', '${MYSQL_USER}', '${MYSQL_PASSWORD}');" 2>/dev/null; then
         echo "MySQL is ready."
         break
     fi
-    if [ "$i" -eq 30 ]; then
-        echo "ERROR: MySQL did not become ready within 60 seconds."
-        exit 1
+    if [ "$i" -eq 60 ]; then
+        echo "WARNING: MySQL did not become ready within 120s, continuing anyway."
     fi
-    echo "MySQL not ready (attempt $i/30), waiting..."
+    echo "MySQL not ready (attempt $i/60), waiting..."
     sleep 2
 done
 

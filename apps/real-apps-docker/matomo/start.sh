@@ -26,132 +26,22 @@ for i in $(seq 1 30); do
     sleep 2
 done
 
-# Create config.ini.php if not exists
-if [ ! -f config/config.ini.php ]; then
-    cat > config/config.ini.php << EOF
-; <?php exit; ?> DO NOT REMOVE THIS LINE
-[database]
-host = "${MYSQL_HOST}"
-username = "${MYSQL_USER}"
-password = "${MYSQL_PASSWORD}"
-dbname = "${MYSQL_DATABASE}"
-tables_prefix = matomo_
+# Do NOT pre-create config/config.ini.php. Matomo's own installer
+# writes it once the user completes the web-based install flow at
+# /index.php?module=Installation. Any hand-crafted config with a
+# partial [General] section causes a 500 on bootstrap because Matomo
+# validates the config as fully-defined (no missing keys, plugin list
+# consistent). Let the installer do its job.
+#
+# The [database] section will be written by Matomo using MYSQL_*
+# values we expose as env vars — but it needs them in the form that
+# its install wizard reads at runtime (config/env.global.php or
+# a simple pre-fill of the DB form). For now: let the user go
+# through the web wizard.
 
-[General]
-salt = "$(head -c 32 /dev/urandom | base64 | tr -d /=+ | head -c 32)"
-trusted_hosts[] = "${APP_URL}"
-installation_in_progress = 1
-force_ssl = 0
-proxy_client_headers[] = HTTP_X_FORWARDED_FOR
-proxy_host_headers[] = HTTP_X_FORWARDED_HOST
-
-[Plugins]
-Plugins[] = CorePluginsAdmin
-Plugins[] = CoreAdminHome
-Plugins[] = CoreHome
-Plugins[] = WebsiteMeasurable
-Plugins[] = Diagnostics
-Plugins[] = CoreVisualizations
-Plugins[] = Proxy
-Plugins[] = API
-Plugins[] = Widgetize
-Plugins[] = LanguagesManager
-Plugins[] = Actions
-Plugins[] = Dashboard
-Plugins[] = MultiSites
-Plugins[] = Referrers
-Plugins[] = UserLanguage
-Plugins[] = DevicesDetection
-Plugins[] = Goals
-Plugins[] = SEO
-Plugins[] = Events
-Plugins[] = UserCountry
-Plugins[] = VisitsSummary
-Plugins[] = VisitFrequency
-Plugins[] = VisitTime
-Plugins[] = VisitorInterest
-Plugins[] = RssWidget
-Plugins[] = Feedback
-Plugins[] = CoreUpdater
-Plugins[] = CoreConsole
-Plugins[] = ScheduledReports
-Plugins[] = UserCountryMap
-Plugins[] = Live
-Plugins[] = PrivacyManager
-Plugins[] = ImageGraph
-Plugins[] = Annotations
-Plugins[] = MobileMessaging
-Plugins[] = Overlay
-Plugins[] = SegmentEditor
-Plugins[] = Insights
-Plugins[] = Morpheus
-Plugins[] = Contents
-Plugins[] = BulkTracking
-Plugins[] = Resolution
-Plugins[] = DevicePlugins
-Plugins[] = Heartbeat
-Plugins[] = Intl
-Plugins[] = UsersManager
-Plugins[] = SitesManager
-Plugins[] = Login
-Plugins[] = TwoFactorAuth
-
-PluginsInstalled[] = CorePluginsAdmin
-PluginsInstalled[] = CoreAdminHome
-PluginsInstalled[] = CoreHome
-PluginsInstalled[] = WebsiteMeasurable
-PluginsInstalled[] = Diagnostics
-PluginsInstalled[] = CoreVisualizations
-PluginsInstalled[] = Proxy
-PluginsInstalled[] = API
-PluginsInstalled[] = Widgetize
-PluginsInstalled[] = LanguagesManager
-PluginsInstalled[] = Actions
-PluginsInstalled[] = Dashboard
-PluginsInstalled[] = MultiSites
-PluginsInstalled[] = Referrers
-PluginsInstalled[] = UserLanguage
-PluginsInstalled[] = DevicesDetection
-PluginsInstalled[] = Goals
-PluginsInstalled[] = SEO
-PluginsInstalled[] = Events
-PluginsInstalled[] = UserCountry
-PluginsInstalled[] = VisitsSummary
-PluginsInstalled[] = VisitFrequency
-PluginsInstalled[] = VisitTime
-PluginsInstalled[] = VisitorInterest
-PluginsInstalled[] = RssWidget
-PluginsInstalled[] = Feedback
-PluginsInstalled[] = CoreUpdater
-PluginsInstalled[] = CoreConsole
-PluginsInstalled[] = ScheduledReports
-PluginsInstalled[] = UserCountryMap
-PluginsInstalled[] = Live
-PluginsInstalled[] = PrivacyManager
-PluginsInstalled[] = ImageGraph
-PluginsInstalled[] = Annotations
-PluginsInstalled[] = MobileMessaging
-PluginsInstalled[] = Overlay
-PluginsInstalled[] = SegmentEditor
-PluginsInstalled[] = Insights
-PluginsInstalled[] = Morpheus
-PluginsInstalled[] = Contents
-PluginsInstalled[] = BulkTracking
-PluginsInstalled[] = Resolution
-PluginsInstalled[] = DevicePlugins
-PluginsInstalled[] = Heartbeat
-PluginsInstalled[] = Intl
-PluginsInstalled[] = UsersManager
-PluginsInstalled[] = SitesManager
-PluginsInstalled[] = Login
-PluginsInstalled[] = TwoFactorAuth
-EOF
-    chown www-data:www-data config/config.ini.php
-fi
-
-# Ensure directories are writable
+# Ensure directories are writable by www-data
 chown -R www-data:www-data tmp config
-chmod -R 755 tmp config
+chmod -R ug+rwX tmp config
 
 # Start Apache
 exec apache2ctl -D FOREGROUND

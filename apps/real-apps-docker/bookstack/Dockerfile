@@ -34,7 +34,13 @@ ARG BOOKSTACK_VERSION=v24.02.3
 RUN rm -rf /var/www/html/* \
     && curl -sL "https://github.com/BookStackApp/BookStack/archive/refs/tags/${BOOKSTACK_VERSION}.tar.gz" | tar xz --strip-components=1 \
     && composer install --no-dev --no-interaction --prefer-dist \
-    && chown -R www-data:www-data /var/www/html
+    && mkdir -p storage/logs \
+                storage/framework/sessions \
+                storage/framework/views \
+                storage/framework/cache/data \
+                bootstrap/cache \
+    && chown -R www-data:www-data /var/www/html \
+    && chmod -R ug+rwX storage bootstrap/cache
 
 # Copy startup script
 COPY start.sh /usr/local/bin/start.sh
