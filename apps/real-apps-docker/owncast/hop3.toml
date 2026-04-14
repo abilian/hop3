@@ -1,0 +1,13 @@
+# Hop3 Configuration for Owncast (Docker-based)
+
+[metadata]
+id = "owncast"
+version = "0.2.5"
+title = "Owncast"
+description = "Self-hosted livestream server"
+homepage = "https://owncast.online/"
+license = "MIT"
+categories = ["media", "streaming", "video"]
+
+[healthcheck]
+path = "/api/status"

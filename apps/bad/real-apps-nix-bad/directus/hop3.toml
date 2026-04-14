@@ -1,0 +1,11 @@
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
+
+[run]
+# `directus bootstrap` runs the full migration set on first deploy
+# (hundreds of migrations) before `directus start` begins serving;
+# 300s is a safe budget for the combined bootstrap + start path.
+start-timeout = 300

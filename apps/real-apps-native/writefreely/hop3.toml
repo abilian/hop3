@@ -1,0 +1,24 @@
+# Hop3 Configuration for WriteFreely (Native build)
+# Minimalist federated blog platform (ActivityPub)
+
+[metadata]
+id = "writefreely"
+version = "0.16.0"
+title = "WriteFreely"
+description = "Minimalist federated blog platform"
+homepage = "https://writefreely.org/"
+license = "AGPL-3.0"
+categories = ["fediverse", "blog", "publishing"]
+
+[build]
+builder = "local"
+toolchain = "generic"
+before-build = "bash scripts/download.sh"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "./writefreely"
+start-timeout = 120
+
+[healthcheck]
+path = "/"

@@ -1,0 +1,13 @@
+# Hop3 Configuration for WriteFreely (Docker-based)
+
+[metadata]
+id = "writefreely"
+version = "0.16.0"
+title = "WriteFreely"
+description = "Minimalist federated blog platform"
+homepage = "https://writefreely.org/"
+license = "AGPL-3.0"
+categories = ["fediverse", "blog", "publishing"]
+
+[healthcheck]
+path = "/"

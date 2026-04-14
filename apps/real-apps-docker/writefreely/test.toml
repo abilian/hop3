@@ -1,0 +1,14 @@
+[test]
+name = "writefreely"
+category = "docker-app"
+tier = "medium"
+priority = "P1"
+
+[test.requirements]
+services = ["docker"]
+
+[[validations]]
+type = "http"
+path = "/"
+[validations.expect]
+status = 200

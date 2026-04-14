@@ -1,0 +1,26 @@
+# Hop3 Configuration for Gatus (Native build)
+# Developer-oriented status page / synthetic monitoring
+
+[metadata]
+id = "gatus"
+version = "5.35.0"
+title = "Gatus"
+description = "Status pages and health-check monitoring"
+homepage = "https://gatus.io/"
+license = "Apache-2.0"
+categories = ["monitoring", "status-page", "observability"]
+
+[build]
+builder = "local"
+before-build = "bash scripts/download.sh"
+# Go toolchain auto-detects go.mod; explicit flags keep the binary name
+# predictable.
+build = "go build -ldflags='-s -w' -o gatus ."
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "./gatus"
+start-timeout = 60
+
+[healthcheck]
+path = "/health"

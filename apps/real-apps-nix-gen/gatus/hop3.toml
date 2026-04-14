@@ -1,0 +1,38 @@
+# hop3.toml - Hop3 configuration for Nix-based Gatus
+
+[metadata]
+id = "gatus"
+description = "Status pages and health-check monitoring"
+
+[build]
+builder = "nix"
+
+[nix]
+template = "nixpkgs-wrapper"
+nixpkgs-package = "gatus"
+exec-target = "gatus"
+extra-paths = ['${gatus}/bin']
+pre-exec = ['mkdir -p config data']
+
+[[nix.config-files]]
+path = "config/config.yaml"
+format = "raw"
+raw-content = """
+storage:
+  type: sqlite
+  path: data/gatus.db
+
+web:
+  address: 0.0.0.0
+  port: ${PORT:-8080}
+
+endpoints:
+  - name: self
+    url: http://localhost:${PORT:-8080}/health
+    interval: 60s
+    conditions:
+      - \"[STATUS] == 200\"
+"""
+
+[run]
+start-timeout = 60

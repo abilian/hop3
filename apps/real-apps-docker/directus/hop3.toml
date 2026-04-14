@@ -1,0 +1,16 @@
+# Hop3 Configuration for Directus (Docker-based)
+
+[metadata]
+id = "directus"
+version = "11.17.2"
+title = "Directus"
+description = "Open-source headless CMS"
+homepage = "https://directus.io/"
+license = "BSL-1.1"
+categories = ["cms", "api", "headless"]
+
+[[addons]]
+type = "postgres"
+
+[healthcheck]
+path = "/admin/login"

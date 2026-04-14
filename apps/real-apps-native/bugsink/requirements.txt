@@ -1,0 +1,3 @@
+bugsink==2.1.2
+gunicorn>=21.0
+psycopg2-binary>=2.9

@@ -1,0 +1,16 @@
+# Hop3 Configuration for Bugsink (Docker-based)
+
+[metadata]
+id = "bugsink"
+version = "2.1.2"
+title = "Bugsink"
+description = "Self-hosted error tracking, Sentry SDK-compatible"
+homepage = "https://www.bugsink.com/"
+license = "MIT"
+categories = ["observability", "error-tracking", "dev-tools"]
+
+[[addons]]
+type = "postgres"
+
+[healthcheck]
+path = "/accounts/login/"

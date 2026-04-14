@@ -1,0 +1,24 @@
+# hop3.toml - Hop3 configuration for Nix-based Owncast
+# Self-hosted livestream server — built from source via nixpkgs
+
+[metadata]
+id = "owncast"
+description = "Self-hosted livestream server"
+
+[build]
+builder = "nix"
+
+[nix]
+template = "nixpkgs-wrapper"
+nixpkgs-package = "owncast"
+exec-target = "owncast"
+exec-args = [
+    '--webserverport', '${PORT:-8080}',
+    '--webserverip', '0.0.0.0',
+    '--database', 'data/owncast.db',
+]
+extra-paths = ['${owncast}/bin']
+pre-exec = ['mkdir -p data']
+
+[run]
+start-timeout = 120

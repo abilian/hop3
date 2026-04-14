@@ -1,0 +1,39 @@
+# Hop3 Configuration for Directus (Native build)
+# Headless CMS — turn any SQL DB into admin UI + API
+
+[metadata]
+id = "directus"
+version = "11.17.2"
+title = "Directus"
+description = "Open-source headless CMS"
+homepage = "https://directus.io/"
+license = "BSL-1.1"
+categories = ["cms", "api", "headless"]
+
+[build]
+builder = "local"
+toolchain = "node"
+# Directus pulls native Node modules that link against libbrotli at
+# install time; build-essential + python3 + pkg-config are required
+# for node-gyp to compile them on Debian-family hosts.
+packages = ["libbrotli-dev", "build-essential", "python3", "pkg-config"]
+before-build = "bash scripts/install.sh"
+
+[run]
+before-run = "bash scripts/bootstrap.sh"
+start = "npx directus start"
+start-timeout = 180
+
+[[addons]]
+type = "postgres"
+
+[env]
+KEY = { random = true }
+SECRET = { random = true }
+DB_CLIENT = "pg"
+PUBLIC_URL = "http://localhost"
+ADMIN_EMAIL = "admin@example.com"
+ADMIN_PASSWORD = { random = true }
+
+[healthcheck]
+path = "/admin/login"

@@ -1,0 +1,13 @@
+# Hop3 Configuration for Gatus (Docker-based)
+
+[metadata]
+id = "gatus"
+version = "5.35.0"
+title = "Gatus"
+description = "Status pages and health-check monitoring"
+homepage = "https://gatus.io/"
+license = "Apache-2.0"
+categories = ["monitoring", "status-page", "observability"]
+
+[healthcheck]
+path = "/health"

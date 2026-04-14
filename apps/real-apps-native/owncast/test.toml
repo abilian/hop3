@@ -1,0 +1,22 @@
+[test]
+name = "owncast"
+category = "native-app"
+tier = "medium"
+priority = "P1"
+description = "Owncast livestream server deployed natively"
+
+[test.requirements]
+targets = ["docker", "remote"]
+
+[test.metadata]
+author = "hop3-team"
+covers = ["golang", "sqlite", "streaming"]
+
+[deployment]
+path = "."
+
+[[validations]]
+type = "http"
+path = "/api/status"
+[validations.expect]
+status = 200

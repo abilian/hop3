@@ -1,0 +1,33 @@
+# Hop3 Configuration for Bugsink (Native build)
+# Self-hosted error tracking, Sentry SDK-compatible
+
+[metadata]
+id = "bugsink"
+version = "2.1.2"
+title = "Bugsink"
+description = "Self-hosted error tracking, Sentry SDK-compatible"
+homepage = "https://www.bugsink.com/"
+license = "MIT"
+categories = ["observability", "error-tracking", "dev-tools"]
+
+[build]
+builder = "local"
+toolchain = "python"
+
+[run]
+before-run = "bash scripts/setup.sh"
+# --pythonpath . is required so gunicorn can import bugsink_conf from cwd
+# (bugsink.wsgi sets DJANGO_SETTINGS_MODULE=bugsink_conf).
+start = "gunicorn bugsink.wsgi:application --bind 0.0.0.0:$PORT --pythonpath . --access-logfile - --error-logfile -"
+start-timeout = 120
+
+[[addons]]
+type = "postgres"
+
+[env]
+SECRET_KEY = { random = true }
+
+[healthcheck]
+# Bugsink redirects `/` to the login page when unauthenticated; point
+# at the login page directly so we get a 200 rather than a 302.
+path = "/accounts/login/"

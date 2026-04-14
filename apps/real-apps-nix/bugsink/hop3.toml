@@ -1,0 +1,8 @@
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
+
+[run]
+start-timeout = 120

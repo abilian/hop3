@@ -1,0 +1,37 @@
+[metadata]
+id = "bugsink"
+version = "2.1.2"
+description = "Self-hosted error tracking, Sentry SDK-compatible"
+
+[nix]
+template = "python-venv"
+exec-target = "gunicorn"
+runtime-package = "python3"
+exec-args = ['bugsink.wsgi:application', '--bind', '0.0.0.0:${PORT:-8080}', '--pythonpath', '.', '--access-logfile', '-', '--error-logfile', '-']
+pip-packages = ['bugsink==2.1.2', 'gunicorn>=21.0', 'psycopg2-binary>=2.9']
+extra-paths = ['$out/venv/bin']
+# `VENVBIN` is the python-venv template's sed placeholder, substituted
+# at Nix build time to the absolute `$out/venv/bin` path. We can't use
+# bare command names because uWSGI's spawn line `export PATH=...`
+# overrides the runtime.json `path` entry; the wrapper's PATH at
+# pre-exec time only contains HOME/venv/bin + system paths, NOT the
+# Nix-store venv.
+pre-exec = [
+    '[ -f bugsink_conf.py ] || VENVBIN/bugsink-create-conf --template docker --host localhost --port ${PORT:-8080} -o bugsink_conf.py',
+    'grep -q "^ALLOWED_HOSTS" bugsink_conf.py || { KEY=$(VENVBIN/python -c "import secrets; print(secrets.token_urlsafe(50))"); printf "\nSECRET_KEY = \"%s\"\nALLOWED_HOSTS = [\"*\"]\n" "$KEY" >> bugsink_conf.py; }',
+    'VENVBIN/bugsink-manage migrate --noinput',
+]
+
+[nix.env-exports]
+DATABASE_URL = "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+SECRET_KEY = "${SECRET_KEY:-$(head -c 32 /dev/urandom | base64)}"
+BASE_URL = "http://localhost:${PORT:-8080}"
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
+
+[run]
+start-timeout = 120
