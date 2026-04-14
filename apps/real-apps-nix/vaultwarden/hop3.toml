@@ -1,0 +1,12 @@
+# hop3.toml - Hop3 configuration for Vaultwarden
+# Bitwarden-compatible password manager (Rust single binary via nixpkgs)
+
+[metadata]
+id = "vaultwarden"
+description = "Bitwarden-compatible password manager"
+
+[build]
+builder = "nix"
+
+[run]
+start-timeout = 60

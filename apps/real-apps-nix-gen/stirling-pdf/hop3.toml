@@ -1,0 +1,30 @@
+# hop3.toml - Hop3 configuration for Nix-based Stirling-PDF
+# Local web PDF toolkit (merge/split/OCR/sign) — built from source via nixpkgs
+
+[metadata]
+id = "stirling-pdf"
+description = "Local web PDF toolkit"
+
+[build]
+builder = "nix"
+
+[nix]
+template = "nixpkgs-wrapper"
+nixpkgs-package = "stirling-pdf"
+exec-target = "Stirling-PDF"
+extra-paths = ['${stirling_pdf}/bin']
+pre-exec = ['mkdir -p configs customFiles logs pipeline']
+
+[nix.env-exports]
+SERVER_PORT = "${PORT:-8080}"
+SERVER_ADDRESS = "0.0.0.0"
+DOCKER_ENABLE_SECURITY = "false"
+SYSTEM_DEFAULTLOCALE = "en-US"
+
+[nix.runtime-env]
+SERVER_ADDRESS = "0.0.0.0"
+DOCKER_ENABLE_SECURITY = "false"
+SYSTEM_DEFAULTLOCALE = "en-US"
+
+[run]
+start-timeout = 180

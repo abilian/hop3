@@ -1,0 +1,17 @@
+# Hop3 Configuration for Stirling-PDF (Docker-based)
+
+[metadata]
+id = "stirling-pdf"
+version = "2.9.2"
+title = "Stirling-PDF"
+description = "Local web PDF toolkit"
+homepage = "https://www.stirlingpdf.com/"
+license = "MIT"
+categories = ["pdf", "productivity", "office"]
+
+[env]
+DOCKER_ENABLE_SECURITY = "false"
+SYSTEM_DEFAULTLOCALE = "en-US"
+
+[healthcheck]
+path = "/login"

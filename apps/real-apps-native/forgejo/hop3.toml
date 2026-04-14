@@ -1,0 +1,27 @@
+# Hop3 Configuration for Forgejo (Native build)
+# Self-hosted Git service — community fork of Gitea
+
+[metadata]
+id = "forgejo"
+version = "14.0.3"
+title = "Forgejo"
+description = "Self-hosted Git service (community fork of Gitea)"
+homepage = "https://forgejo.org/"
+license = "MIT"
+categories = ["git", "version-control", "development"]
+
+[build]
+builder = "local"
+toolchain = "generic"
+before-build = "bash scripts/download.sh"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+start = "./forgejo web"
+start-timeout = 180
+
+[[addons]]
+type = "postgres"
+
+[healthcheck]
+path = "/api/healthz"

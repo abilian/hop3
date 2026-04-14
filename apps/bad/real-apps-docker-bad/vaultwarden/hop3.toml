@@ -1,0 +1,18 @@
+# Hop3 Configuration for Vaultwarden (Docker-based)
+
+[metadata]
+id = "vaultwarden"
+version = "1.35.4"
+title = "Vaultwarden"
+description = "Bitwarden-compatible password manager"
+homepage = "https://github.com/dani-garcia/vaultwarden"
+license = "AGPL-3.0"
+categories = ["security", "password-manager"]
+
+[env]
+ROCKET_ADDRESS = "0.0.0.0"
+WEB_VAULT_ENABLED = "true"
+SIGNUPS_ALLOWED = "false"
+
+[healthcheck]
+path = "/alive"

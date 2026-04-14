@@ -1,0 +1,26 @@
+# Hop3 Configuration for Stirling-PDF (Native build)
+# Local web PDF toolkit
+
+[metadata]
+id = "stirling-pdf"
+version = "2.9.2"
+title = "Stirling-PDF"
+description = "Local web PDF toolkit (merge/split/OCR/sign)"
+homepage = "https://www.stirlingpdf.com/"
+license = "MIT"
+categories = ["pdf", "productivity", "office"]
+
+[build]
+builder = "local"
+toolchain = "generic"
+before-build = "bash scripts/download.sh"
+
+[run]
+start = "bash scripts/start.sh"
+
+[env]
+DOCKER_ENABLE_SECURITY = "false"
+SYSTEM_DEFAULTLOCALE = "en-US"
+
+[healthcheck]
+path = "/login"

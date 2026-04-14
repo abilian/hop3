@@ -1,0 +1,14 @@
+[test]
+name = "vaultwarden"
+category = "docker-app"
+tier = "very-slow"
+priority = "P1"
+
+[test.requirements]
+services = ["docker"]
+
+[[validations]]
+type = "http"
+path = "/alive"
+[validations.expect]
+status = 200

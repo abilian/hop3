@@ -1,0 +1,19 @@
+# Hop3 Configuration for Forgejo (Docker-based)
+
+[metadata]
+id = "forgejo"
+version = "14.0.3"
+title = "Forgejo"
+description = "Self-hosted Git service (community fork of Gitea)"
+homepage = "https://forgejo.org/"
+license = "MIT"
+categories = ["git", "devops", "collaboration"]
+
+[[addons]]
+type = "postgres"
+
+[env]
+GITEA__log__LEVEL = "Info"
+
+[healthcheck]
+path = "/api/healthz"

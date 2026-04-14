@@ -1,0 +1,7 @@
+# hop3.toml - Hop3 configuration for Nix-based Stirling-PDF
+
+[build]
+builder = "nix"
+
+[run]
+start-timeout = 180
