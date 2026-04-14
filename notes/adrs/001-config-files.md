@@ -1,32 +1,33 @@
 # ADR 001: Config Files for Hop3
 
-**Status**: Draft
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
+**Updated**: 2026-04-14
 **Related-ADRs**: 002, 003
 
 ## Implementation Status
 
-**Partially implemented.** Core functionality works, but several specified features are missing:
+**Shipped and in production use** across 100+ packaged applications and the real-apps test corpus.
 
-### Implemented
-- `hop3.toml` parsing with TOML format
-- Procfile support
-- Core sections: `[app]`, `[env]`, `[web]`, `[workers]`
-- Unified internal representation via `AppConfig` dataclass
+### Shipped
+- `hop3.toml` parsing with TOML format (`tomllib`).
+- `Procfile` support for the simple-single-web-process case (Heroku-compatible).
+- Core sections: `[metadata]`, `[build]`, `[run]`, `[env]`, `[[addons]]`, `[healthcheck]`, `[nix]`.
+- Unified internal representation via `AppConfig` (at `packages/hop3-server/src/hop3/project/config.py`) merging Procfile and `hop3.toml`.
+- Precedence rules documented in `docs/src/reference/hop3-toml.md`.
 
-### Not Yet Implemented
-- **Schema validation**: Current implementation has minimal validation (see ADR 003)
-- **YAML/JSON formats**: Only TOML is supported
-- **CLI validation tooling**: No `hop3 config validate` command
-- **CI/CD integration**: Not documented
+### Deferred (not blocking; scheduled as follow-ups)
+- **Schema validation** beyond TOML parse errors: see ADR 003 Phase 2. The current ad-hoc dataclass + `@property` approach catches structural errors at access time rather than at load time.
+- **YAML / JSON alternative formats**: not yet requested by users. TOML-only is considered sufficient; adding alternatives would be a mechanical translation layer.
+- **CLI validation command** (`hop3 config:validate`): useful for CI gating, not yet shipped.
 
-### Related Gaps
-- See ADR 002 for detailed `hop3.toml` format gaps
-- See roadmap for implementation timeline
+### Non-goal
+Supporting arbitrary ad-hoc configuration scripts (Dockerfile-flavoured shell snippets, inline Python) is out of scope. A Hop3 application's configuration surface is `Procfile` + `hop3.toml`; builders and deployers live in plugins, not in per-app scripts.
 
 ## Revisions
 
+- v0.3: Promoted from Draft to Accepted; clarified shipped vs. deferred. Non-goal clause added (2026-04-14).
 - v0.2: Update according to new template (2024-07-25)
 - v0.1: Initial draft (2024-07-17)
 

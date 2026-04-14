@@ -1,9 +1,15 @@
 # ADR 035: Build Artifacts as Runtime Contract
 
-**Status**: Proposed
+**Status**: Accepted (NixBuilder shipping; LocalBuilder retrofit deferred)
 **Type**: Architecture
 **Created**: 2026-02-23
-**Related-ADRs**: 030, 032
+**Updated**: 2026-04-14
+**Related-ADRs**: 006, 008, 022, 030, 032
+
+## Revisions
+
+- v1.1: Promoted from Proposed to Accepted. The `BuildArtifact` + `RuntimeConfig` contract is the basis of NixBuilder's output (`$out/hop3/runtime.json`) and is consumed without language-specific knowledge by the deploy stage. ADR 006 §"Architectural Context" and ADR 008 (template generation) both rely on this contract. Retrofitting the LocalBuilder + LanguageToolchain path so that `spawn.py` reads `RuntimeConfig` instead of doing per-language detection (`_setup_node_paths`, `_setup_python_paths`, `_setup_ruby_paths`) is deferred — it would deliver the architectural cleanliness goal stated in the original problem section but not unlock new functionality, so it ranks below the active workstreams (2026-04-14).
+- v1.0: Original proposed version (2026-02-23)
 
 ## Context
 

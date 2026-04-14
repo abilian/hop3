@@ -3,7 +3,13 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-08
-**Related-ADRs**: 018, 019, 024, 034
+**Updated**: 2026-04-14
+**Related-ADRs**: 018, 019, 024, 034, 036
+
+## Revisions
+
+- v1.1: Status refreshed. Core UX improvements (confirmations on destructive actions, structured output with message types, streaming via ADR 034) are shipped. Help-text conventions and error-recovery hints are tracked separately in ADR 036 (2026-04-14).
+- v1.0: Original final version (2025-11-08)
 
 ## Context
 

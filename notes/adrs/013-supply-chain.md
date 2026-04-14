@@ -1,9 +1,37 @@
 # ADR 013: Software Supply Chain Security and SBOMs
 
-**Status**: Draft
+**Status**: Accepted (phased — partial shipped, automation deferred)
 **Type**: Feature
 **Created**: 2024-07-17
-**Related-ADRs**: 010
+**Updated**: 2026-04-14
+**Related-ADRs**: 006, 008, 010
+
+## Revisions
+
+- v0.2: Promoted from Draft. Clarified what is actually in place (Nix hermetic builds for Tier-1 apps, SBOM-capable tooling declared in ADR 004) vs. what remains (automated SBOM emission per release, signature attestation, regular dependency-audit cadence) (2026-04-14).
+- v0.1: Initial draft (2024-07-17)
+
+## Implementation Status
+
+**Shipped (contributes to the supply-chain posture today):**
+
+- **Hermetic builds via Nix** for Tier-1 applications (ADR 008 reproducibility taxonomy): Go and Rust apps from nixpkgs build in a pure sandbox against hash-pinned inputs. Tier-2 applications (Python-venv, PHP-composer, Node-prebuilt, Ruby-bundler) use `__noChroot`, which weakens hermeticity; this is documented honestly in ADR 008 and TR-01 §2.2.
+- **Content-addressed closures** for every Nix-built app: full dependency graph is inspectable via `nix-store -qR`; update deltas are minimal (only changed store paths transfer).
+- **Supply-chain-aware tooling declared in the project** (ADR 004): `cyclonedx-bom`, `spdx-tools`, `pip-audit` (via Nox), `deptry`, `import-linter`.
+- **REUSE-compliant license headers** on every source file, enforced in CI.
+
+**Partial / in progress:**
+
+- **SBOM emission per release**: tooling is available but not yet wired into the release pipeline. Manual `cyclonedx-py` invocation works; the CI target to attach an SBOM to each tagged release is not yet in place.
+- **Dependency auditing**: `pip-audit` runs via Nox on demand; a scheduled CI run (weekly) is not yet configured.
+
+**Deferred:**
+
+- **Signature attestation** (Sigstore / in-toto / cosign) for release artefacts and for the SBOM itself. Likely required for Cyber Resilience Act compliance; not in scope for 0.6.
+- **Reproducible-builds verification as a CI gate** (two independent rebuilds of each Tier-1 app, bit-compare). Planned for the final-report quantitative evaluation (TR-01 §5.4).
+- **Upstream source mirroring** to insulate against PyPI / registry deletions.
+
+The **Genealogos** reference in the original Draft is retained as a candidate tool but is not a committed dependency; any SBOM generator producing valid CycloneDX output meets the requirement.
 
 ## Context and Goals
 

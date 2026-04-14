@@ -1,38 +1,38 @@
 # ADR 002: Detailed `hop3.toml` Format
 
-**Status**: Draft
+**Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
+**Updated**: 2026-04-14
 **Related-ADRs**: 001, 003
 
 ## Implementation Status
 
-**Partially implemented.** Core `hop3.toml` sections work, but many specified fields are missing:
+**The shipped subset of the specification is stable and in production use.** Fields listed below as "reserved" are part of the forward-looking design but not yet consumed by the runtime.
 
-### Implemented Sections
-- **`[metadata]`**: `id` only (other fields like `version`, `title`, `author` not parsed)
-- **`[build]`**: `builder`, `packages`, `build` commands work
-- **`[run]`**: `start`, `packages` work
-- **`[env]`**: Static values, `from`/`key` syntax, `random` passwords work
-- **`[[provider]]`**: Basic service linking works
+### Shipped sections and fields (Accepted)
+- **`[metadata]`** — `id` (required); additional descriptive fields (`version`, `title`, `description`, `homepage`, `license`, `categories`) are parsed as informational metadata and surfaced in listings, but do not change runtime behaviour.
+- **`[build]`** — `builder` (explicit override), `toolchain` (explicit override), `packages` (apt-install list), `before-build`, `build`.
+- **`[run]`** — `start`, `before-run`, `start-timeout`, `packages`.
+- **`[run.workers]`** — per-role worker commands (same-process-tree).
+- **`[env]`** — static values; `from`/`key` references to addon-provided credentials; `random` password generation.
+- **`[[addons]]`** — `type` (postgres, mysql, redis, s3) drives provisioning; per-addon parameters.
+- **`[healthcheck]`** — `path`, `timeout`; consumed by the deployer's health-check stage and by `hop3-testing`.
+- **`[nix]`** — `template`, `nixpkgs-package`, `exec-target`, `exec-args`, `extra-paths`, `pre-exec`, `local-vars`, `env-exports`, `runtime-env`, `conditional-env`, `config-files`. Drives the eight-template generator (ADR 008).
 
-### Not Yet Implemented
-- **`[healthcheck]`**: Section defined but not parsed or used
-- **`[backup]`**: Section defined but not parsed or used
-- **`[metadata]` fields**: `version`, `title`, `author`, `description`, `tagline`, `website`, `tags`, `profile`, `release`
-- **`[build]` fields**: `license`, `src-url`, `src-checksum`, `git-url`, `git-branch`, `base-image`, `method`, `test`, `before-build`
-- **`[run]` fields**: `before-run`
-- **Environment-specific sections**: `[env.development]`, `[env.production]`
-- **Schema validation**: Minimal validation currently (see ADR 003)
-- **YAML/JSON formats**: Only TOML supported
+### Reserved / not yet parsed
+These fields appear in the original spec and in some documentation examples but are not currently consumed. They are retained in the design and may be shipped in future releases; an application that sets them today is unaffected except that nothing will act on them:
+- `[metadata]` extras: `author`, `tagline`, `tags`, `profile`, `release`.
+- `[build]` extras: `license`, `src-url`, `src-checksum`, `git-url`, `git-branch`, `base-image`, `method`, `test`.
+- `[backup]` section.
+- Environment-specific overrides: `[env.development]`, `[env.production]`.
 
-### Notes
-- The config system is functional for basic deployments
-- Advanced features (healthcheck, backup, metadata) are placeholders
-- See roadmap for implementation timeline
+### Deferred to ADR 003
+Schema validation beyond TOML parse errors; YAML/JSON alternative formats; CLI validation tooling.
 
 ## Revisions
 
+- v0.3: Promoted from Draft to Accepted; reorganised fields into "shipped" vs "reserved"; added `[nix]` section details (2026-04-14).
 - v0.2: Update according to new template (2024-07-25)
 - v0.1: Initial draft (2024-07-17)
 

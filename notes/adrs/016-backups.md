@@ -1,9 +1,15 @@
 # ADR 016: Backup Strategy
 
-**Status**: Draft
+**Status**: Accepted (phased — Phase 1 shipped via ADR 024; Phases 2–3 deferred)
 **Type**: Feature
 **Created**: 2024-07-17
-**Related-ADRs**: 024
+**Updated**: 2026-04-14
+**Related-ADRs**: 010, 024
+
+## Revisions
+
+- v0.2: Promoted from Draft to Accepted (phased). Phase 1 (manual full backups, local storage, checksum verification, per-service support) is delivered via ADR 024 (Final). This ADR captures the long-term vision; scheduled / remote / encrypted / incremental backups remain explicit future work (2026-04-14).
+- v0.1: Initial draft (2024-07-17)
 
 ## Context and Goals
 

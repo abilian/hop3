@@ -3,7 +3,13 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-12-04
+**Updated**: 2026-04-14
 **Related-ADRs**: 022, 030, 032, 035
+
+## Revisions
+
+- v1.1: Status refreshed. DockerBuilder + DockerComposeDeployer in production use across 30+ apps in `apps/real-apps-docker/`. Note added on the W16 docker-deployer rewrite: `localhost → host.docker.internal` substitution is now value-based (regex at host-boundaries) rather than a per-env-var-name whitelist; this catches custom env-var names like `GF_DATABASE_HOST` automatically. The hardcoded 10-min docker-build timeout has surfaced as a real constraint for heavy-compile apps (Vaultwarden Rust); making it tier-aware is on the post-0.6 list (2026-04-14).
+- v1.0: Original final version (2025-12-04)
 
 ## Context
 

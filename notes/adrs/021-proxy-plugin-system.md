@@ -3,7 +3,13 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2024-10-01
+**Updated**: 2026-04-14
 **Related-ADRs**: 020, 022, 023
+
+## Revisions
+
+- v1.1: Status refreshed. Nginx, Caddy, and Traefik plugins all in production use across the real-apps test corpus; Nginx remains the default; per-server selection via `HOP3_PROXY_TYPE` (2026-04-14).
+- v1.0: Original final version (2024-10-01)
 
 ## Context
 

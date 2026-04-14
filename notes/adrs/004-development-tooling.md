@@ -1,11 +1,13 @@
 # ADR 004: Development Tooling
 
-**Status**: Active
+**Status**: Final
 **Type**: Process
 **Created**: 2025-10-08
+**Updated**: 2026-04-14
 
 ## Revisions
 
+- v1.2: Promoted from Active to Final — tooling selection stable across 2025-Q4, 2026-Q1, and 2026-Q2 with no material changes; stale action items dropped (2026-04-14).
 - v1.1: Updated Task Runner section to reflect current state (2025-11-25)
 - v1.0: First version (2025-10-08)
 
@@ -207,18 +209,7 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 
 ## Action Items
 
-1. **Documentation**:
-   - [ ] Create developer onboarding guide with tool setup instructions
-   - [ ] Add tool usage examples to documentation
-
-3. **Configuration**:
-   - ✅ Consolidate tool configuration in pyproject.toml where possible
-   - ✅ Review and optimize ruff configuration
-   - [ ] Document configuration decisions
-
-4. **Training**:
-   - [ ] Document uv workflow patterns
-   - [ ] Share best practices for pre-commit hooks
+All substantive action items are complete. Documentation of tool usage lives in `docs/src/dev/` and in `CLAUDE.md` files at the repo and package level; developer onboarding is covered by `make develop` + `README.md`. No outstanding tooling decisions at the time of promotion to Final.
 
 ## References
 

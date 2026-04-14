@@ -3,39 +3,49 @@
 **Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
-**Related-ADRs**: 018, 025
+**Updated**: 2026-04-14
+**Related-ADRs**: 018, 025, 036
+
+## Revisions
+
+- v0.3: Refreshed implementation status. The shipped command surface is wider than the original spec (~57 commands across 10+ families); the original spec was a kernel, not a ceiling. Documented which originally-specified commands remain deferred and why (2026-04-14).
+- v0.2: Status promoted to Accepted with implementation status block (earlier).
+- v0.1: Initial draft (2024-07-17)
 
 ## Implementation Status
 
-**Mostly implemented.** The CLI has more commands than specified (57 vs 27), but some ADR-specified commands are missing:
+The shipped CLI covers and extends the originally-specified command set. The dispatch mechanism lives in `hop3/commands/` with the `@register` decorator scanning all command modules at startup (see `hop3-server/CLAUDE.md`).
 
-### Implemented (from ADR)
-- **Authentication**: `login`, `logout`
-- **Development**: `deploy` (via `app:deploy`)
-- **System-Level**: `status`, `ssh`
-- **App-Level**: `apps` (list), `start`/`stop`/`restart`, `destroy`, `logs`, `env` operations, `run`
-- **Services**: `services` (list), service management, database-specific commands
+### Shipped command families
 
-### Not Yet Implemented (from ADR)
-- **`build`**: Separate build command (currently builds happen during deploy)
-- **`revert`**: Revert failed deployment (requires ADR 032 - Deployment Strategies)
-- **`new`**: Start new project/package (scaffolding)
-- **`docker`**: Run docker command on server
-- **`upgrade`/`downgrade`**: App version management
-- **Marketplace**: `search`, `info`, `install` commands
+| Family | Commands (selected) | Role |
+|--------|---------------------|------|
+| **Auth** | `auth:login`, `auth:logout`, `auth:register`, `auth:magic-link` | Session management. |
+| **App** | `app:deploy`, `app:start`, `app:stop`, `app:restart`, `app:destroy`, `app:logs`, `app:run`, `app:env:*` | Full application lifecycle. |
+| **System** | `system:status`, `system:info`, `system:check`, `system:ssh` | Host-level inspection and shell access. |
+| **Addon** | `addon:create`, `addon:destroy`, `addon:list`, per-addon flows | Backing-service lifecycle. |
+| **Backup** | `backup:create`, `backup:list`, `backup:restore`, `backup:delete` | Per ADR 024. |
+| **Admin** | `admin:create-user`, `admin:reset-password`, `admin:delete-user` | Operator provisioning (server-side entry points per ADR 014). |
+| **Server** | `server:setup`, `server:update` | Hop3-server lifecycle on the host. |
+| **Health** | `healthcheck`, `healthcheck:debug` | Diagnostic commands. |
+| **Nix** | `nix:eject` | Template-generated → hand-crafted `hop3.nix` (ADR 008). |
 
-### Additional Commands (not in ADR)
-The implementation includes many commands not specified in the ADR:
-- Backup commands: `backup:create`, `backup:list`, `backup:restore`, `backup:delete`
-- Admin commands: `admin:create-user`, `admin:reset-password`
-- Server management: `server:setup`, `server:update`
-- Health/diagnostics: `healthcheck`, `info`
-- And many more (57 total commands)
+The `hop3` CLI aliases `hop` for brevity. Full command listing: `hop3 --help`.
 
-### Notes
-- The ADR should be updated to reflect the actual command set
-- Missing commands are tracked in the roadmap
-- See ADR 025 for CLI UX improvements
+### Originally-specified but not shipped
+
+| Command | Status | Reason |
+|---------|--------|--------|
+| `build` (separate from deploy) | Deferred | Builds are currently tied to deploy. A stand-alone `build` command would be cheap to add; it is not requested by operators. |
+| `revert` | Scheduled with ADR 032 (deployment-strategies / artefact-lifecycle). Requires versioned artefacts. |
+| `new` (project scaffolding) | Candidate | Low priority; operators adopt Hop3 by adding a `hop3.toml` to an existing repo, not by generating one. |
+| `docker` (run Docker on server) | Out of scope | The server-side SSH shell covers this without a dedicated CLI wrapper. |
+| `upgrade` / `downgrade` | Scheduled with ADR 032 |
+| Marketplace commands (`search`, `info`, `install`) | Deferred | The `server/marketplace/` subsystem is in early design; CLI surface follows the marketplace server work. |
+
+### Ergonomics and help system
+
+CLI ergonomics — help text, discoverability, error messages — are covered separately in ADR 036.
 
 ## Introduction
 

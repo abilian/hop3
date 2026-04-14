@@ -3,7 +3,13 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-20
+**Updated**: 2026-04-14
 **Related-ADRs**: 001, 002, 003
+
+## Revisions
+
+- v1.1: Status refreshed. The four-module configuration split (`HopConfig`, `Config`, `AppConfig`, `Hop3Config`) is the shipped architecture and is the basis on which ADR 003's Phase 1 dataclass-based parser is built. Tests no longer monkeypatch module-level constants (2026-04-14).
+- v1.0: Original final version (2025-11-20)
 
 ## Introduction
 

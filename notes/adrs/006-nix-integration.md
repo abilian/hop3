@@ -1,16 +1,17 @@
 # ADR 006: Nix Integration with Hop3
 
-**Status**: Accepted
+**Status**: Accepted (Phase 1 + Phase 3 shipped; Phase 2 subsumed by Phase 3; Phase 4 deferred)
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-03-23
+**Updated**: 2026-04-14
 **Related-ADRs**: 007, 008, 009, 020, 022, 030, 031, 032, 035
 
 ## Revisions
 
-- v0.1: Initial draft (2024-07-17)
-- v0.2: Tweak following feedback from NLNet (2024-09-23)
+- v0.4: Phase 3 (ADR 008) productionized across 22+ hand-crafted and 20 template-generated apps. Phase 2 (ADR 007) effectively superseded by the `nixpkgs-wrapper` template; ADR 007 is marked Superseded. Phase-status table refreshed (2026-04-14).
 - v0.3: Phased approach starting with hop3.nix; align with plugin architecture (2026-03-23)
+- v0.2: Tweak following feedback from NLNet (2024-09-23)
+- v0.1: Initial draft (2024-07-17)
 
 ## Context
 
@@ -20,18 +21,14 @@ To ensure deterministic, reproducible deployments and system configurations, int
 
 Integrating Nix into Hop3 will bridge the gap between reproducible builds and practical deployment needs. Hop3 will generate Nix configurations automatically when they don't exist, convert Heroku-like config files (e.g., Procfile, app.json), and enable easy contribution to the Nix ecosystem.
 
-### Phased Implementation Approach (Updated 2026-03)
+### Phased Implementation Approach (Updated 2026-04)
 
-We adopt an incremental approach, starting with the simplest case:
-
-| Phase | Scope | Status |
-|-------|-------|--------|
-| **Phase 1** | Projects with explicit `hop3.nix` file | Active |
-| **Phase 2** | Nixpkgs packages as Blueprints (ADR 007) | Deferred |
-| **Phase 3** | Auto-generation via dream2nix/nixpacks (ADR 008) | Deferred |
-| **Phase 4** | Full NixOS runtime integration (ADR 009) | Deferred |
-
-**Phase 1 Goal**: Support applications that provide their own `hop3.nix` file, proving the integration before expanding scope.
+| Phase | Scope | Status | Evidence |
+|-------|-------|--------|----------|
+| **Phase 1** | Projects with explicit `hop3.nix` file | **Shipped** | 22+ applications under `apps/real-apps-nix/` build and deploy via hand-crafted `hop3.nix`. |
+| **Phase 2** | Nixpkgs packages as Blueprints (ADR 007) | **Superseded by Phase 3** | The `nixpkgs-wrapper` template in ADR 008 covers this use case (wrapping an existing nixpkgs package with Hop3 runtime metadata) more cleanly than the originally-proposed Blueprint abstraction. |
+| **Phase 3** | Template-based generation at build time (ADR 008) | **Shipped** | Eight templates (`nixpkgs-wrapper`, `prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`, `php-app`, `python-venv`, `java-war`, `ruby-bundler`) cover 20 applications in `apps/real-apps-nix-gen/`. Three-tier reproducibility taxonomy (§ADR 008) surfaced in per-template metadata. |
+| **Phase 4** | Full NixOS runtime integration (ADR 009) | **Deferred** | Nix-managed systemd services, Nix-managed backing-service integration, NixOS module generation. Not blocking current goals. |
 
 ### Architectural Context (Updated 2026-03)
 

@@ -1,8 +1,14 @@
 # ADR 026: Dashboard UI Test Classification
 
-**Status**: Active
+**Status**: Final
 **Type**: Guideline
 **Created**: 2025-11-20
+**Updated**: 2026-04-14
+
+## Revisions
+
+- v1.1: Promoted from Active to Final. The guideline has been established and applied: dashboard UI tests that involve real file-system operations live under `c_system/` with a real `App.create()`; tests covering only HTTP / template / ORM behaviour remain in `b_integration/` with mocked file-system operations. No further evolution expected (2026-04-14).
+- v1.0: Original version (2025-11-20)
 
 ## Introduction
 

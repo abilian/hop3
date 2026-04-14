@@ -3,8 +3,14 @@
 **Status**: Implemented
 **Type**: Feature
 **Created**: 2025-12-15
-**Updated**: 2025-01-28
+**Updated**: 2026-04-14
 **Related-ADRs**: 018, 022, 025
+
+## Revisions
+
+- v1.2: Status refreshed. SSE-based streaming for deploy and app logs is the production path; ADR 018 cross-references this as the answer to its previously-open in-band-streaming question (2026-04-14).
+- v1.1: Implementation update (2025-01-28)
+- v1.0: Original version (2025-12-15)
 
 ## Context
 

@@ -1,12 +1,14 @@
 # ADR 003: Config Parsing and Validation
 
-**Status**: Draft
+**Status**: Accepted (phased — Phase 1 shipped, Phase 2 deferred)
 **Type**: Feature
 **Created**: 2024-07-17
+**Updated**: 2026-04-14
 **Related-ADRs**: 001, 002
 
 ## Revisions
 
+- v0.4: Promoted from Draft to Accepted (phased). Phase 1 (dataclass + `@property`) is the shipped approach; Phase 2 (schema validation with a choice between enhanced dataclasses / Pydantic v2 / attrs+cattrs / msgspec / JSON Schema) remains open as a future enhancement (2026-04-14).
 - v0.3: Replaced Pydantic-specific language with generic validation requirements (2025-12-15)
 - v0.2: Clarified current implementation vs planned migration (2025-11-25)
 - v0.1: Initial draft (2024-07-17)
@@ -30,14 +32,18 @@ However, we also choose to support JSON and YAML as alternatives because the con
 - Implement schema validation for the `hop3.toml` file (see Validation Requirements below).
 - Add specific code to validate the "env" section (because we don't know the keywords a priori), and possibly other sections.
 
-### Current Implementation Status
+### Current Implementation Status (Phase 1 — Shipped)
 
-**Note (2025-12-15):** The current implementation uses ad-hoc property-based access via Python dataclasses and `@property` methods. Key files:
+The current implementation uses property-based access via Python dataclasses and `@property` methods. Key files:
 
-- `packages/hop3-server/src/hop3/project/hop3_config.py` - `Hop3Config` class with `tomllib` parsing
-- `packages/hop3-server/src/hop3/project/config.py` - `AppConfig` class with property-based access
+- `packages/hop3-server/src/hop3/project/hop3_config.py` — `Hop3Config` class with `tomllib` parsing.
+- `packages/hop3-server/src/hop3/project/config.py` — `AppConfig` class merging `Procfile` + `hop3.toml` with property-based access.
 
-Validation is minimal - primarily relies on TOML parse errors. Schema validation remains a planned enhancement.
+Validation at load time is limited to TOML parse errors; semantic errors (missing required field, wrong type) surface when the accessor runs. This is the shipped, in-production behaviour. The trade-off is explicit: we defer formal schema validation in exchange for zero additional dependencies and fast iteration on the config surface. ADR 001 and ADR 002 document which fields are active.
+
+### Phase 2 (Deferred) — Schema Validation
+
+A full schema-validation layer remains an open design question. The **Validation Requirements** section below captures what any future implementation must deliver; the **Implementation Options** table captures the candidate approaches. A decision is not yet made and is not blocking current work.
 
 ### Validation Requirements
 

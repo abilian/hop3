@@ -1,9 +1,15 @@
 # ADR 032: Deployment Strategies and Artifact Lifecycle
 
-**Status**: Accepted
+**Status**: Accepted (design accepted; blue-green / versioned-artefact lifecycle not yet shipped for non-Nix builders)
 **Type**: Feature
 **Created**: 2025-12-03
+**Updated**: 2026-04-14
 **Related-ADRs**: 022, 030, 031, 035
+
+## Revisions
+
+- v1.1: Implementation status clarified. The design — versioned build artefacts, blue-green deployment, atomic switch, retained previous version for rollback — is accepted, but the current production behaviour for the LocalBuilder + uWSGI deployer is still the original "stop-then-deploy" path. Versioned closures *do* exist for Nix-built apps (Nix's content-addressed store gives them for free) and rolling back a Nix-built app is in principle a symlink switch; the rest of the deployer family does not yet implement the proposed lifecycle. The CLI `revert` and `upgrade`/`downgrade` commands documented as deferred in ADR 019 will land alongside this work (2026-04-14).
+- v1.0: Original accepted version (2025-12-03)
 
 ## Context
 

@@ -3,7 +3,13 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2024-10-01
-**Related-ADRs**: 020, 021, 030, 032, 033, 034
+**Updated**: 2026-04-14
+**Related-ADRs**: 020, 021, 030, 032, 033, 034, 035
+
+## Revisions
+
+- v1.1: Status refreshed. `Builder` protocol has three production implementations (LocalBuilder, DockerBuilder, NixBuilder); `Deployer` has three (uWSGI, Docker Compose, static). Per-app auto-detection via `accept()` has been validated across 100+ app variants. The pipeline's `BuildArtifact` / `DeploymentInfo` data flow is now the stable contract that ADR 035 formalises as the runtime contract (2026-04-14).
+- v1.0: Original final version (2024-10-01)
 
 ## Context
 

@@ -1,9 +1,33 @@
 # ADR 023: Runtime Stack Replacement
 
-**Status**: Draft
+**Status**: Draft (nothing implemented; no commitment to execute)
 **Type**: Feature
 **Created**: 2024-11-01
+**Updated**: 2026-04-14
 **Related-ADRs**: 021
+
+## Revisions
+
+- v1.1: Explicit status note. The proposed replacement (Granian + Caddy + custom Python process manager, replacing uWSGI + nginx + supervisor) has **not** been started. The current runtime is the uWSGI emperor + nginx + optional supervisord fallback described throughout the other ADRs, and this is what 100+ app variants run on. This ADR captures a future direction that is not currently scheduled against any release (2026-04-14).
+- v1.0: Original draft (2024-11-01)
+
+## Current Status (2026-04-14)
+
+Nothing from this ADR has been implemented. The motivation — uWSGI's development has ceased; hot reconfiguration; reduced complexity — remains valid, but the project has invested in other areas (Nix integration, test-suite diagnostics, app packaging) rather than a runtime-stack replacement. In the meantime the operational pain from uWSGI has been low enough that the replacement has not crossed the priority threshold.
+
+**What still holds from the original motivation:**
+
+- uWSGI's unmaintained status has not produced concrete incidents since this ADR was drafted, but remains a latent risk.
+- Hot reconfiguration is still not provided by the current stack. `hop3 app:deploy` writes configs and reloads Nginx; there is no atomic-swap pathway.
+- The three-component coupling (uWSGI vassal → Nginx site → optional supervisord) has been refined rather than simplified (see W16's systemd-vs-supervisord detection rework).
+
+**What would need to happen to revive this ADR:**
+
+1. Concrete incident or security advisory against uWSGI, OR
+2. A hot-reconfiguration requirement from a real operator, OR
+3. A strategic decision to align the runtime with the Nix-based build path (a Nix-packaged Granian + Caddy is closer in spirit to a Nix-first PaaS than the current C-heavy uWSGI).
+
+Until one of those triggers, this ADR stays as a well-worked-out option on the shelf rather than an active workstream. The design below is retained for that future decision.
 
 ## Introduction
 

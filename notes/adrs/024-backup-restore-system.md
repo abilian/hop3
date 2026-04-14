@@ -3,7 +3,13 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-08
+**Updated**: 2026-04-14
 **Related-ADRs**: 016, 020
+
+## Revisions
+
+- v1.1: Status refreshed. Phase 1 backup/restore is shipped and exercised by the `backup:*` CLI commands; it is the concrete implementation of the ADR 016 strategy. Phase 2 enhancements (scheduling, retention, remote storage, encryption, incremental) remain on the long-term roadmap per ADR 016 (2026-04-14).
+- v1.0: Original final version (2025-11-08)
 
 ## Relationship to ADR 016
 

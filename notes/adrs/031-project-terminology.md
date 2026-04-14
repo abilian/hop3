@@ -1,9 +1,15 @@
 # ADR 031: Project Terminology (Ubiquitous Language)
 
-**Status**: Active
+**Status**: Active (most terms stable; two ambiguities still open)
 **Type**: Guideline
 **Created**: 2025-11-28
-**Related-ADRs**: 020, 022, 030
+**Updated**: 2026-04-14
+**Related-ADRs**: 020, 022, 030, 036
+
+## Revisions
+
+- v1.1: Status clarified. Most terminology in this ADR is in active use across the codebase, docs, tests, and other ADRs. Two specific terms remain unresolved: (a) the **Blueprint** vocabulary for the "packaged-app installation" use case is *proposed* and not yet picked up across the codebase; (b) the **addon vs service** ambiguity flagged in ADR 036 needs to be resolved (current usage: `addon:*` for the CLI command group but `service-type` as a flag — these should converge). The rest of the glossary is stable enough to be relied on (2026-04-14).
+- v1.0: Original active version (2025-11-28)
 
 ## Context
 

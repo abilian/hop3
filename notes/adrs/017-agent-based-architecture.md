@@ -1,13 +1,15 @@
 # ADR 017: Distributed, Agent-Based Architecture
 
-**Status**: Active (Phase 1 in progress, Phases 2-4 planned)
+**Status**: Draft (no implementation; design not yet fully worked out)
 **Type**: Feature
 **Created**: 2024-07-17
+**Updated**: 2026-04-14
 **Related-ADRs**: 029
-**Related**: Hop3 paper (Section 7.4: Agent Model), `local-notes/jumpgate/hop3-paper.md`
+**Related**: Hop3 paper (Section 7.4: Agent Model), `local-notes/jumpgate/hop3-paper.md`, `local-notes/research/02-distributed-promise-theory.md`
 
 ## Revisions
 
+- v0.4: Status reverted from Active back to Draft to accurately reflect state. None of the four phases (single-host reconciliation, agent extraction, multi-server coordinator, decentralised federation) has been implemented; the design — particularly the Phase 3/4 coordinator protocol, the promise-language used for coordination, and the CRDT model for decentralised state — is not yet fully worked out. Phase 1 is scheduled in PLAN-2026-Q2 for 0.6 but the detailed design is in ADR 029, which is also still Draft. The decentralised-federation strand is actively being scoped in the research subprogram at `local-notes/research/02-distributed-promise-theory.md` (2026-04-14).
 - v0.3: Status changed to Active. Added decentralized federation track (Phase 4) with CRDT/gossip model from Hop3 paper. Updated Promise Theory references. (2026-04-03)
 - v0.2: Revised to align with phased implementation plan and ADR 029 (2025-11-25)
 - v0.1: Initial draft

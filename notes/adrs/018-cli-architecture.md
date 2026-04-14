@@ -3,33 +3,23 @@
 **Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
+**Updated**: 2026-04-14
 **Related-ADRs**: 014, 019, 025, 034
 
 ## Implementation Status
 
-**Mostly implemented.** Core JSON-RPC architecture works, but streaming is incomplete:
+**Core protocol shipped and in production use; streaming is delivered via a companion SSE channel rather than via JSON-RPC itself.**
 
-### Implemented
-- **JSON-RPC protocol**: Full implementation over HTTPS
-- **"Dumb" CLI design**: Server handles logic and formatting
-- **HTTPS communication**: With API key authentication
-- **Server-side formatting**: Messages sent with type metadata
-- **Multiple message types**: success, error, warning, info, table, panel
+### Shipped
+- **JSON-RPC protocol** over HTTP(S) or SSH-tunnelled HTTP.
+- **"Dumb" CLI design**: the server owns business logic and output formatting; the CLI renders the server's decisions.
+- **Authentication**: every RPC call carries a JWT bearer token (ADR 014); unauthenticated calls are rejected.
+- **Structured output**: response envelopes carry typed message elements (success, error, warning, info, table, panel) that the CLI renders uniformly.
+- **Streaming deployment and log output** via Server-Sent Events at `/api/apps/{app}/logs/stream` and at the deployment endpoint (ADR 034, Implemented). The streaming channel is *complementary* to the JSON-RPC channel rather than embedded in it — this sidesteps the complexity of bidirectional JSON-RPC over HTTP and lets each protocol do what it does best.
 
-### Partially Implemented
-- **Streaming responses**: Available via REST endpoints (`/logs/stream`) but NOT via JSON-RPC
-  - Logs streaming works via SSE at `/api/apps/{app}/logs/stream`
-  - Deployment logs stream via REST, not the RPC protocol
-  - ADR specifies streaming within JSON-RPC using `yield` messages
-
-### Not Yet Implemented
-- **JSON-RPC streaming**: The spec calls for streaming via `yield` messages within the RPC response
-- **File transfer streaming**: Large file uploads/downloads not implemented via streaming
-
-### Notes
-- See ADR 034 for planned streaming improvements
-- Current workaround: Use REST endpoints for streaming needs
-- See roadmap for implementation timeline
+### Deferred
+- **In-band JSON-RPC streaming** (`yield` messages inside an RPC response). The original design proposed this; the SSE-companion approach above covers the motivating use cases (deploy logs, app logs) cleanly, so in-band streaming is no longer on the critical path. Re-open if a future use case (e.g., large interactive operations) cannot be expressed via SSE.
+- **File-transfer streaming via JSON-RPC**. Large file uploads use a direct HTTP upload endpoint rather than chunked RPC.
 
 ## Introduction
 

@@ -1,23 +1,23 @@
 # ADR 007: Nix Builders for Existing Packages (Nixpkgs Mode)
 
-**Status**: Deferred (Phase 2)
+**Status**: Superseded by ADR 008
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-03-23
+**Updated**: 2026-04-14
 **Related-ADRs**: 006, 008, 009, 020, 022, 030, 031, 035
-**Depends-On**: ADR 006 Phase 1
 
 ## Revisions
 
-- v0.1: Initial draft (2024-07-17)
-- v0.2: Tweak following feedback from NLNet (2024-09-23)
+- v0.4: Superseded by ADR 008. The `nixpkgs-wrapper` template in the eight-template generation system delivers the same capability — wrapping an existing nixpkgs package with Hop3 runtime metadata — more cleanly than the separate "Blueprint builder" proposed here. See `apps/real-apps-nix-gen/` (miniflux, gitea, forgejo, grafana, mattermost, vikunja, gotosocial, stirling-pdf, …) (2026-04-14).
 - v0.3: Mark as Phase 2, pending hop3.nix support (2026-03-23)
+- v0.2: Tweak following feedback from NLNet (2024-09-23)
+- v0.1: Initial draft (2024-07-17)
 
-## Phase Status
+## Supersession Note
 
-This ADR describes **Phase 2** of Nix integration. It is deferred until Phase 1 (hop3.nix support, ADR 006) is complete and validated.
+When this ADR was originally written we expected a dedicated "nixpkgs-mode builder" sitting alongside the hand-crafted-`hop3.nix` path. During the ADR 008 spike we found that "wrap an existing nixpkgs package" is cleaner as *one template among eight* in the template-based generation system, not a separate builder. The operator selects the `nixpkgs-wrapper` template in `[nix].template`; the generator produces a thin `hop3.nix` that wraps `pkgs.<app>` with the Hop3 runtime wrapper and the ADR 035 `runtime.json` contract.
 
-**Prerequisite**: Working NixBuilder with hop3.nix files.
+The original goals below — reuse nixpkgs packages, automate updates, provide an app-store-like UX — remain valid, and are achieved through ADR 008 plus the ADR 035 `RuntimeConfig` contract. The body of this ADR is retained for historical reference.
 
 ## Context & Goals
 

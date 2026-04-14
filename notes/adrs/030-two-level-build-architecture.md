@@ -3,8 +3,14 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-28
+**Updated**: 2026-04-14
 **Implemented-In**: v0.5.0
-**Related-ADRs**: 020, 022, 035
+**Related-ADRs**: 006, 008, 020, 022, 035
+
+## Revisions
+
+- v1.1: Status refreshed. The two-level split (Builder = how to build: local / Docker / Nix; LanguageToolchain = what to build: Python / Node / Go / Rust / Ruby / Java / PHP / generic) is the production architecture. NixBuilder bypasses the LanguageToolchain layer per ADR 006 §"Architectural Context" — all build logic in Nix lives inside the Nix expression. Cross-references to ADR 006 and ADR 008 added for the Nix-builder integration story (2026-04-14).
+- v1.0: Original final version (2025-11-28)
 
 ## Context
 

@@ -3,7 +3,13 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2024-10-01
-**Related-ADRs**: 021, 022, 028
+**Updated**: 2026-04-14
+**Related-ADRs**: 021, 022, 028, 030
+
+## Revisions
+
+- v1.1: Cross-reference added to ADR 030, which extended the decomposition in this ADR by splitting "Build" into Builder (Level 1, how to build — local/Docker/Nix) and LanguageToolchain (Level 2, what to build — Python/Node/Go/…) (2026-04-14).
+- v1.0: Original final version (2024-10-01)
 
 ## Introduction
 

@@ -3,7 +3,13 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-20
+**Updated**: 2026-04-14
 **Related-ADRs**: 020
+
+## Revisions
+
+- v1.1: Status refreshed. The integration is shipped: plugins contribute services to the Dishka container via the `get_di_providers()` hook; the previous global-registry anti-pattern is gone. All in-tree plugins (addons, proxies, builders, deployers, language toolchains) use this path (2026-04-14).
+- v1.0: Original final version (2025-11-20)
 
 ## Context
 

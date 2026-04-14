@@ -1,28 +1,33 @@
 # ADR 009: Nix Runtime Integration
 
-**Status**: Deferred (Phase 4)
+**Status**: Deferred (Phase 4; post-0.6)
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-03-23
-**Related-ADRs**: 006, 007, 008, 020, 022, 023, 030, 031, 032, 035
-**Depends-On**: ADR 006 Phases 1-3
+**Updated**: 2026-04-14
+**Related-ADRs**: 006, 008, 023, 035
+**Depends-On**: ADR 006 Phases 1+3 (done)
 
 ## Revisions
 
-- v0.1: Initial draft (2024-07-17)
-- v0.2: Tweak following feedback from NLNet (2024-09-23)
+- v0.4: Phases 1 and 3 of ADR 006 have shipped; this ADR's scope is now unambiguously post-0.6 operational hardening. Delineated what's already delivered (basic Nix-built-app runtime via ADR 035 `RuntimeConfig`) vs. what remains (NixOS-level runtime integration) (2026-04-14).
 - v0.3: Mark as Phase 4; note interaction with ADR 023 runtime stack (2026-03-23)
+- v0.2: Tweak following feedback from NLNet (2024-09-23)
+- v0.1: Initial draft (2024-07-17)
 
 ## Phase Status
 
-This ADR describes **Phase 4** of Nix integration (advanced runtime features). It is deferred until earlier phases are complete.
+**Already delivered (not in this ADR's scope):**
+- Running Nix-built applications via the standard uWSGI emperor is handled by ADR 035's `RuntimeConfig` contract. A Nix derivation produces `$out/hop3/runtime.json`; the deployer reads it and launches the workers with no further inference.
+- Integration with Hop3's own runtime (uWSGI + nginx) works across 42+ apps (22 hand-crafted + 20 template-generated).
 
-**Note**: Basic runtime support (running Nix-built apps via standard ProcessManager) is included in Phase 1 (ADR 006). This ADR covers advanced topics:
-- Full NixOS module generation
-- Nix-managed backing services
-- NixOS-native systemd integration
+**Remaining (Phase 4, deferred to post-0.6):**
+- **Full NixOS module generation.** Emit `configuration.nix` fragments so an operator can deploy Hop3 as a NixOS module rather than as a Python-installed daemon.
+- **Nix-managed backing services.** Provision PostgreSQL / MySQL / Redis / MinIO via nixpkgs services rather than via the current OS-package-plus-config approach. Opens a path to per-app NixOS containers.
+- **NixOS-native systemd integration.** Use NixOS's systemd module system to express worker lifetimes rather than writing uWSGI vassal `.ini` files.
 
-**Pending Questions**: See `local-notes/nix-pending-questions.md` (Q6, Q7).
+These are legitimately future work. They deliver additional reproducibility guarantees (the OS itself is now Nix-managed) at the cost of narrowing the installation target from "any Debian/Red-Hat host" to "NixOS host". That trade-off is not worth making before the quantitative evaluation (§5.5 of TR-01) has demonstrated the reproducibility benefits of the current Phase-1+3 integration.
+
+**Pending design questions**: See `local-notes/nix-pending-questions.md` (Q6, Q7).
 
 ### Interaction with ADR 023 (Runtime Stack Replacement)
 
