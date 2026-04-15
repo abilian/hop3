@@ -1,0 +1,33 @@
+# Hop3 Configuration for BookWyrm (Native build)
+# Federated Goodreads alternative
+
+[metadata]
+id = "bookwyrm"
+version = "0.8.5"
+title = "BookWyrm"
+description = "Federated social reading, Goodreads alternative"
+homepage = "https://joinbookwyrm.com/"
+license = "AGPL-3.0"
+categories = ["fediverse", "books", "social"]
+
+[build]
+builder = "local"
+toolchain = "python"
+before-build = "bash scripts/download.sh"
+
+[run]
+before-run = "bash scripts/migrate.sh"
+start = "gunicorn bookwyrm.wsgi:application --bind 0.0.0.0:$PORT --pythonpath . --access-logfile - --error-logfile -"
+start-timeout = 180
+
+[run.workers]
+celery = "celery -A celerywyrm worker --loglevel=info"
+
+[[addons]]
+type = "postgres"
+
+[[addons]]
+type = "redis"
+
+[healthcheck]
+path = "/api/v1/instance"

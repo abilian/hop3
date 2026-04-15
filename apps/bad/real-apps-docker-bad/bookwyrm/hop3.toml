@@ -1,0 +1,19 @@
+# Hop3 Configuration for BookWyrm (Docker-based)
+
+[metadata]
+id = "bookwyrm"
+version = "0.8.5"
+title = "BookWyrm"
+description = "Federated social reading, Goodreads alternative"
+homepage = "https://joinbookwyrm.com/"
+license = "AGPL-3.0"
+categories = ["fediverse", "books", "social"]
+
+[[addons]]
+type = "postgres"
+
+[[addons]]
+type = "redis"
+
+[healthcheck]
+path = "/api/v1/instance"

@@ -1,0 +1,14 @@
+[test]
+name = "bookwyrm"
+category = "docker-app"
+tier = "slow"
+priority = "P1"
+
+[test.requirements]
+services = ["docker", "postgresql", "redis"]
+
+[[validations]]
+type = "http"
+path = "/api/v1/instance"
+[validations.expect]
+status = 200

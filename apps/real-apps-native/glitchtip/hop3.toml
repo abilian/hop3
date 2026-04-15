@@ -1,0 +1,32 @@
+# Hop3 Configuration for GlitchTip (Native build)
+# Sentry-compatible error tracking
+
+[metadata]
+id = "glitchtip"
+version = "6.1.5"
+title = "GlitchTip"
+description = "Open-source, Sentry-compatible error tracking"
+homepage = "https://glitchtip.com/"
+license = "MIT"
+categories = ["observability", "error-tracking", "dev-tools"]
+
+[build]
+builder = "local"
+toolchain = "python"
+before-build = "bash scripts/download.sh"
+
+[run]
+before-run = "bash scripts/migrate.sh"
+# GlitchTip declares granian as a runtime dep (not gunicorn). Use it
+# directly from the venv; granian's wsgi interface serves Django.
+start = "granian glitchtip.wsgi:application --interface wsgi --host 0.0.0.0 --port $PORT"
+start-timeout = 240
+
+[[addons]]
+type = "postgres"
+
+[[addons]]
+type = "redis"
+
+[healthcheck]
+path = "/_health/"

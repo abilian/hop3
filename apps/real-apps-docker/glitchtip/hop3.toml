@@ -1,0 +1,19 @@
+# Hop3 Configuration for GlitchTip (Docker-based)
+
+[metadata]
+id = "glitchtip"
+version = "6.1.5"
+title = "GlitchTip"
+description = "Open-source, Sentry-compatible error tracking"
+homepage = "https://glitchtip.com/"
+license = "MIT"
+categories = ["observability", "error-tracking", "dev-tools"]
+
+[[addons]]
+type = "postgres"
+
+[[addons]]
+type = "redis"
+
+[healthcheck]
+path = "/_health/"

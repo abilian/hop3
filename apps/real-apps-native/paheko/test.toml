@@ -1,0 +1,22 @@
+[test]
+name = "paheko"
+category = "native-app"
+tier = "medium"
+priority = "P2"
+description = "Paheko nonprofit accounting deployed natively"
+
+[test.requirements]
+targets = ["docker", "remote"]
+
+[test.metadata]
+author = "hop3-team"
+covers = ["php", "sqlite", "nonprofit"]
+
+[deployment]
+path = "."
+
+[[validations]]
+type = "http"
+path = "/admin/install.php"
+[validations.expect]
+status = 200

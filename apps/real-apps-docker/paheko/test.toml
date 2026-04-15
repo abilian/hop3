@@ -1,0 +1,15 @@
+[test]
+name = "paheko"
+category = "docker-app"
+tier = "medium"
+priority = "P2"
+
+[test.requirements]
+services = ["docker"]
+
+[[validations]]
+type = "http"
+# Paheko's first-run installer page; returns 200 until setup is done.
+path = "/admin/install.php"
+[validations.expect]
+status = 200
