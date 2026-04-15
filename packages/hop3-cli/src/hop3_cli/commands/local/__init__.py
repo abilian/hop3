@@ -23,6 +23,7 @@ from .init_cmd import handle_init
 from .login_cmd import handle_login, handle_login_token
 from .settings_cmd import handle_settings, settings_get, settings_set, settings_show
 from .ssh_ops import BootstrapError, extract_token, infer_server_url
+from .use_cmd import handle_use
 from .version_cmd import handle_version
 
 if TYPE_CHECKING:
@@ -42,6 +43,7 @@ __all__ = [
     "handle_login",
     "handle_login_token",
     "handle_settings",
+    "handle_use",
     "handle_version",
     "infer_server_url",
     "is_local_command",
@@ -58,6 +60,7 @@ LOCAL_COMMANDS_INFO = {
     "init": "Initialize connection to a Hop3 server via SSH.",
     "login": "Authenticate to a server.",
     "settings": "Manage local CLI settings (server URL, token, SSL).",
+    "use": "Set / show / clear the current context's default app.",
     "version": "Show CLI version.",
     "auth": "Authentication commands.",
 }
@@ -117,6 +120,9 @@ def handle_local_command(args: list[str], config: Config, printer: RichPrinter) 
         return True
     if command == "settings":
         handle_settings(cmd_args, config, printer)
+        return True
+    if command == "use":
+        handle_use(cmd_args, config, printer)
         return True
     if command in {"version", "--version", "-V"}:
         handle_version(cmd_args, config, printer)

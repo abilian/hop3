@@ -233,3 +233,51 @@ def test_cli_flags_verbosity_properties():
     assert flags.quiet is False
     assert flags.verbose is True
     assert flags.debug is True
+
+
+def test_parse_flags_app_long():
+    """Test --app <name> flag (ADR 036 D5)."""
+    flags, args = parse_flags(["deploy", "--app", "myapp"])
+    assert flags.app == "myapp"
+    assert args == ["deploy"]
+
+
+def test_parse_flags_app_short():
+    """Test -a <name> short form for --app."""
+    flags, args = parse_flags(["logs", "-a", "myapp", "--follow"])
+    assert flags.app == "myapp"
+    assert args == ["logs", "--follow"]
+
+
+def test_parse_flags_context_short():
+    """Test -c <name> short form for --context."""
+    flags, args = parse_flags(["deploy", "-c", "prod"])
+    assert flags.context == "prod"
+    assert args == ["deploy"]
+
+
+def test_parse_flags_why():
+    """Test --why flag for resolution trace."""
+    flags, args = parse_flags(["logs", "--why"])
+    assert flags.why is True
+    assert args == ["logs"]
+
+
+def test_parse_flags_no_alias():
+    """Test --no-alias flag."""
+    flags, args = parse_flags(["apps", "--no-alias"])
+    assert flags.no_alias is True
+    assert args == ["apps"]
+
+
+def test_parse_flags_app_defaults_to_none():
+    flags, _ = parse_flags(["deploy"])
+    assert flags.app is None
+
+
+def test_parse_flags_combined():
+    """Test combining several of the new flags."""
+    flags, args = parse_flags(["config", "set", "-a", "myapp", "-c", "prod", "FOO=bar"])
+    assert flags.app == "myapp"
+    assert flags.context == "prod"
+    assert args == ["config", "set", "FOO=bar"]

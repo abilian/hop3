@@ -42,6 +42,8 @@ from .commands import (  # noqa: E402
     parse_flags,
 )
 from .config import Config, get_config  # noqa: E402
+from .core.app_scope import is_app_scoped  # noqa: E402
+from .core.resolution import format_trace, resolve_app  # noqa: E402
 from .exit_codes import ExitCode  # noqa: E402
 from .rpc import Client, handle_response  # noqa: E402
 from .ui import (  # noqa: E402
@@ -89,6 +91,7 @@ def run_command_from_args(cli_args: list[str]) -> None:
             return
 
     cli_args = handle_help_flags(cli_args)
+    cli_args = _resolve_and_inject_app(cli_args, flags, config, printer)
     _check_prerequisites(cli_args, config, printer, flags)
 
     if flags.verbosity >= 2:
@@ -96,6 +99,63 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     extra_args = _get_extra_args_safe(cli_args, flags.verbosity)
     _execute_rpc_command(cli_args, config, extra_args, printer)
+
+
+def _resolve_and_inject_app(
+    cli_args: list[str],
+    flags,
+    config: Config,
+    printer: RichPrinter,
+) -> list[str]:
+    """Resolve the effective app (ADR 036 D7) and inject it into cli_args.
+
+    For app-scoped commands, the resolved app is injected as the first
+    positional argument after the command-name tokens. The server's dispatcher
+    and command handlers continue to expect the app as first positional.
+
+    If `--why` is set, print the resolution trace before running.
+    If no app can be resolved for an app-scoped command that was invoked
+    without an explicit positional, we do NOT error here — the server-side
+    command still has its own "missing argument" handling. We just leave
+    cli_args untouched.
+    """
+    scoped, n_consumed = is_app_scoped(cli_args)
+    if not scoped and not flags.why:
+        return cli_args
+
+    # Resolve only when needed (app-scoped or --why was requested).
+    resolution = resolve_app(cli_app=flags.app, config=config)
+
+    if flags.why:
+        printer.print_debug(format_trace(resolution), min_level=0)
+
+    if not scoped or not resolution.resolved:
+        return cli_args
+
+    # If the user already provided a positional app (e.g., `hop3 logs myapp`),
+    # don't inject again — the explicit positional wins.
+    remaining = cli_args[n_consumed:]
+    already_has_positional = bool(remaining) and not remaining[0].startswith("-")
+    # Exception: for `run <cmd>`, the first positional is the command to run,
+    # not an app — so injection is still needed. Per ADR 036 D5 the app is a
+    # flag; we detect this case by checking the command path.
+    command_tuple = tuple(cli_args[:n_consumed])
+    first_positional_is_app = command_tuple != ("run",)
+
+    if already_has_positional and first_positional_is_app and flags.app is None:
+        return cli_args
+
+    # Inject the resolved app as the first positional after the command name.
+    # `resolution.resolved` was checked above, so `resolution.app` is non-None here.
+    resolved_app = resolution.app
+    assert resolved_app is not None
+    injected = [*cli_args[:n_consumed], resolved_app, *cli_args[n_consumed:]]
+    if flags.verbosity >= 2:
+        printer.print_debug(
+            f"[app resolution] injected {resolution.app!r} "
+            f"(source: {resolution.source})"
+        )
+    return injected
 
 
 def _print_debug_info(printer: RichPrinter, cli_args: list[str], config, flags) -> None:

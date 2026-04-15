@@ -40,6 +40,17 @@ class CliFlags:
     # Context override for multi-server support
     context: str | None = None  # --context <name>: Use a specific context
 
+    # ADR 036 D5: `--app` / `-a` is always a flag, never positional.
+    # ADR 036 D7: if not set, the CLI will resolve one via the app-resolution
+    # chain (env, .hop3-app file, hop3.toml, context default).
+    app: str | None = None
+
+    # ADR 036: `--why` prints the resolution trace before running.
+    why: bool = False
+
+    # ADR 036: `--no-alias` bypasses alias resolution (placeholder for M3).
+    no_alias: bool = False
+
     @property
     def quiet(self) -> bool:
         """True if verbosity is 0 (quiet mode)."""
@@ -54,6 +65,26 @@ class CliFlags:
     def debug(self) -> bool:
         """True if verbosity is 3 (debug mode)."""
         return self.verbosity >= 3
+
+
+def _parse_verbosity_flag(arg: str, current: int) -> int | None:
+    """Parse a verbosity-related flag; return the new verbosity or None if not one."""
+    if arg == "--debug":
+        return 3
+    if arg == "--verbose":
+        return max(current, 2)
+    if arg == "--quiet":
+        return 0
+    if arg.startswith("-") and arg[1:] and all(c == "v" for c in arg[1:]):
+        # Handle -v, -vv, -vvv  (len 2 → 2, len 3 → 3, len ≥4 → 3)
+        return min(3, len(arg))
+    if arg.startswith("-") and arg[1:] and all(c == "d" for c in arg[1:]):
+        # Handle -d, -dd, -ddd  (equivalent to -vv and -vvv)
+        return min(3, 1 + len(arg))
+    if arg.startswith("-") and arg[1:] and all(c == "q" for c in arg[1:]):
+        # Handle -q, -qq (both mean quiet)
+        return 0
+    return None
 
 
 def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
@@ -93,6 +124,9 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
     json_output = False
     skip_confirm = False
     context = None
+    app: str | None = None
+    why = False
+    no_alias = False
 
     # Start with environment default or normal (1)
     verbosity = _get_env_verbosity() or 1
@@ -110,26 +144,18 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
             json_output = True
         elif arg in yes_flags:
             skip_confirm = True
-        elif arg == "--context" and i + 1 < len(args):
+        elif arg in {"--context", "-c"} and i + 1 < len(args):
             context = args[i + 1]
             i += 1  # Skip the next arg (context name)
-        elif arg == "--debug":
-            verbosity = 3
-        elif arg == "--verbose":
-            verbosity = max(verbosity, 2)
-        elif arg == "--quiet":
-            verbosity = 0
-        elif arg.startswith("-") and arg[1:] and all(c == "v" for c in arg[1:]):
-            # Handle -v, -vv, -vvv
-            verbosity = min(3, 1 + len(arg) - 1)  # -v=2, -vv=3, -vvv=3
-        elif arg.startswith("-") and arg[1:] and all(c == "d" for c in arg[1:]):
-            # Handle -d, -dd, -ddd (debug mode)
-            # -d=2, -dd=3, -ddd=3 (same as -v but starts at debug level)
-            d_count = len(arg) - 1
-            verbosity = min(3, 2 + d_count - 1)  # -d=2, -dd=3, -ddd=3
-        elif arg.startswith("-") and arg[1:] and all(c == "q" for c in arg[1:]):
-            # Handle -q, -qq (but -q is enough for quiet=0)
-            verbosity = 0
+        elif arg in {"--app", "-a"} and i + 1 < len(args):
+            app = args[i + 1]
+            i += 1  # Skip the next arg (app name)
+        elif arg == "--why":
+            why = True
+        elif arg == "--no-alias":
+            no_alias = True
+        elif (new_verbosity := _parse_verbosity_flag(arg, verbosity)) is not None:
+            verbosity = new_verbosity
         else:
             # Not a flag, keep it
             remaining_args.append(arg)
@@ -140,6 +166,9 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
         skip_confirm=skip_confirm,
         verbosity=verbosity,
         context=context,
+        app=app,
+        why=why,
+        no_alias=no_alias,
     )
 
     return flags, remaining_args

@@ -34,6 +34,10 @@ class Context:
     ssh_key: str = ""
     ssl_cert: str = ""
     verify_ssl: bool = True
+    # ADR 036 D7/D8: default app used by this context when `--app` is not given
+    # and no higher-priority source (env var, .hop3-app file, project config)
+    # resolves one. Set/cleared via `hop3 use` or `hop3 context use --app`.
+    default_app: str = ""
 
     def to_dict(self) -> dict:
         """Convert to dictionary for TOML storage."""
@@ -46,6 +50,7 @@ class Context:
             "ssh_key": self.ssh_key,
             "ssl_cert": self.ssl_cert,
             "verify_ssl": self.verify_ssl,
+            "default_app": self.default_app,
         }
 
     @staticmethod
@@ -61,6 +66,7 @@ class Context:
             ssh_key=data.get("ssh_key", ""),
             ssl_cert=data.get("ssl_cert", ""),
             verify_ssl=data.get("verify_ssl", True),
+            default_app=data.get("default_app", ""),
         )
 
 
@@ -453,6 +459,40 @@ class Config:
 
         self.data["contexts"][name]["api_token"] = token
         self.save()
+
+    def set_default_app(
+        self, app: str | None, context_name: str | None = None
+    ) -> str:
+        """Set (or clear) the default app for a context (ADR 036 D7/D8).
+
+        Args:
+            app: The app name to set, or None/empty to clear.
+            context_name: Context to update (default: current context).
+
+        Returns:
+            The name of the context that was updated.
+
+        Raises:
+            KeyError: If no context is set and none is provided.
+        """
+        name = context_name or self.get_current_context_name()
+        if not name:
+            msg = "No active context. Set one first with `hop3 context use <name>`."
+            raise KeyError(msg)
+        if name not in self.data.get("contexts", {}):
+            msg = f"Unknown context: {name}"
+            raise KeyError(msg)
+
+        self.data["contexts"][name]["default_app"] = app or ""
+        self.save()
+        return name
+
+    def get_default_app(self, context_name: str | None = None) -> str:
+        """Return the default app for a context (ADR 036 D7/D8), or empty string."""
+        name = context_name or self.get_current_context_name()
+        if not name or name not in self.data.get("contexts", {}):
+            return ""
+        return self.data["contexts"][name].get("default_app", "") or ""
 
     def update_context_credentials(
         self,
