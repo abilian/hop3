@@ -91,9 +91,7 @@ class UserAddCmd(Command):
 
         if not username or not email or not password:
             return [
-                error(
-                    "Usage: hop3 user add <username> <email> <password> [--admin]"
-                )
+                error("Usage: hop3 user add <username> <email> <password> [--admin]")
             ]
 
         # Check if username already exists
@@ -493,9 +491,7 @@ class UserSetPasswordCmd(Command):
             return admin_error
 
         if not username or not new_password:
-            return [
-                error("Usage: hop3 user set-password <username> <new_password>")
-            ]
+            return [error("Usage: hop3 user set-password <username> <new_password>")]
 
         # Find the user
         user = self.user_repo.get_by_username(username)

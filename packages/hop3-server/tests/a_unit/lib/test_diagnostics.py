@@ -106,7 +106,7 @@ def test_log_diagnosis_does_not_raise():
         component="Health check",
         action="reach /health endpoint",
         reason="app returned 500",
-        hint="Check app logs with hop3 app:logs",
+        hint="Check app logs with hop3 app logs",
     )
     # Should not raise
     log_diagnosis(diag)

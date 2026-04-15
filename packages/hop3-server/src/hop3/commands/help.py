@@ -225,9 +225,7 @@ class HelpCommandsCmd(Command):
         """Return list of command names (as space-joined strings) as structured data."""
         commands = lookup(Command)
         command_names = sorted(
-            " ".join(cmd.name)
-            for cmd in commands
-            if not getattr(cmd, "hidden", False)
+            " ".join(cmd.name) for cmd in commands if not getattr(cmd, "hidden", False)
         )
 
         return [data({"commands": command_names})]

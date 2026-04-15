@@ -161,7 +161,7 @@ class DeploymentTarget(ABC):
         """Run a hop3 command on the target.
 
         Args:
-            *args: Command and arguments (e.g., "backup:create", "my-app")
+            *args: Command and arguments (e.g., "backup", "create", "my-app")
             timeout: Command timeout in seconds
 
         Returns:
@@ -385,7 +385,7 @@ class DeploymentTarget(ABC):
         start_time = time.time()
 
         while time.time() - start_time < timeout:
-            result = self.run_command("app:status", app_name)
+            result = self.run_command("app", "status", app_name)
             if result.success and "RUNNING" in result.stdout.upper():
                 return True
             time.sleep(poll_interval)

@@ -210,7 +210,7 @@ def index():
             )
 
             # Delete the backup
-            result = deployment_target.run_command("backup", "delete", backup_id)
+            result = deployment_target.run_command("backup", "destroy", backup_id)
             assert result.success
             assert "Backup deleted successfully" in result.stdout
 

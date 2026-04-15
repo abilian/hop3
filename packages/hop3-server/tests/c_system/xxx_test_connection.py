@@ -99,7 +99,8 @@ def test_auth_register_command():
     result = subprocess.run(
         [
             "hop3",
-            "auth", "register",
+            "auth",
+            "register",
             "test-diagnostic-user",
             "test@example.com",
             "test-pass-12345",

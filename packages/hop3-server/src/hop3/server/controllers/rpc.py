@@ -460,7 +460,11 @@ class RPCController(Controller):
         return prepared_args, prepared_extra_args
 
     def _execute_command(
-        self, command_name: tuple[str, ...], args: tuple, extra_args: JsonDict, request_id: int
+        self,
+        command_name: tuple[str, ...],
+        args: tuple,
+        extra_args: JsonDict,
+        request_id: int,
     ) -> Response:
         """Execute the command and return appropriate response.
 

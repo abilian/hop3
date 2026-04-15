@@ -101,7 +101,7 @@ class Hop3Client:
 
     async def get_app(self, name: str) -> App | None:
         """Get details for a specific application."""
-        result = await self._rpc_call(["app:status", name])
+        result = await self._rpc_call(["app", "status", name])
         if result:
             # Parse the result based on the format returned
             return App(name=name)
@@ -109,22 +109,22 @@ class Hop3Client:
 
     async def start_app(self, name: str) -> bool:
         """Start an application."""
-        await self._rpc_call(["app:start", name])
+        await self._rpc_call(["app", "start", name])
         return True
 
     async def stop_app(self, name: str) -> bool:
         """Stop an application."""
-        await self._rpc_call(["app:stop", name])
+        await self._rpc_call(["app", "stop", name])
         return True
 
     async def restart_app(self, name: str) -> bool:
         """Restart an application."""
-        await self._rpc_call(["app:restart", name])
+        await self._rpc_call(["app", "restart", name])
         return True
 
     async def get_app_logs(self, name: str, lines: int = 100) -> list[str]:
         """Get application logs."""
-        result = await self._rpc_call(["app:logs", name, "--lines", str(lines)])
+        result = await self._rpc_call(["app", "logs", name, "--lines", str(lines)])
         if result and result.get("t") == "text":
             return result.get("text", "").split("\n")
         return []
@@ -133,34 +133,34 @@ class Hop3Client:
 
     async def get_system_status(self) -> SystemStatus:
         """Get system status information."""
-        result = await self._rpc_call(["system:status"])
+        result = await self._rpc_call(["system", "status"])
         # Parse result into SystemStatus model
         return SystemStatus()
 
     async def get_system_info(self) -> dict[str, Any]:
         """Get system information."""
-        result = await self._rpc_call(["system:info"])
+        result = await self._rpc_call(["system", "info"])
         return result or {}
 
     # Backup methods
 
     async def list_backups(self) -> list[Backup]:
         """Get list of all backups."""
-        result = await self._rpc_call(["backup:list"])
+        result = await self._rpc_call(["backup", "list"])
         backups: list[Backup] = []
         # Parse result into Backup models
         return backups
 
     async def create_backup(self, app_name: str) -> str:
         """Create a backup for an application."""
-        result = await self._rpc_call(["backup:create", app_name])
+        result = await self._rpc_call(["backup", "create", app_name])
         return result.get("backup_id", "") if result else ""
 
     # Environment variable methods
 
     async def get_env_vars(self, app_name: str) -> list[EnvVar]:
         """Get environment variables for an application."""
-        result = await self._rpc_call(["config:show", app_name])
+        result = await self._rpc_call(["config", "show", app_name])
         env_vars = []
         if result:
             # Result is expected to be a dict or list of env vars
@@ -185,34 +185,34 @@ class Hop3Client:
 
     async def set_env_var(self, app_name: str, key: str, value: str) -> bool:
         """Set an environment variable."""
-        await self._rpc_call(["config:set", app_name, f"{key}={value}"])
+        await self._rpc_call(["config", "set", app_name, f"{key}={value}"])
         return True
 
     async def delete_env_var(self, app_name: str, key: str) -> bool:
         """Delete an environment variable."""
-        await self._rpc_call(["config:unset", app_name, key])
+        await self._rpc_call(["config", "unset", app_name, key])
         return True
 
     async def delete_app(self, name: str) -> bool:
         """Delete an application."""
-        await self._rpc_call(["app:destroy", name])
+        await self._rpc_call(["app", "destroy", name])
         return True
 
     async def deploy_app(self, name: str, git_url: str) -> dict[str, Any]:
         """Deploy an application from a git URL."""
-        result = await self._rpc_call(["app:deploy", name, "--from", git_url])
+        result = await self._rpc_call(["app", "deploy", name, "--from", git_url])
         return result or {}
 
     async def create_app(self, name: str) -> bool:
         """Create an empty application."""
-        await self._rpc_call(["app:create", name])
+        await self._rpc_call(["app", "create", name])
         return True
 
     # Addon methods
 
     async def list_addons(self) -> list[dict[str, Any]]:
         """Get list of all addons."""
-        result = await self._rpc_call(["addons:list"])
+        result = await self._rpc_call(["addons", "list"])
         addons = []
         if result and result.get("t") == "table":
             for row in result.get("rows", []):
@@ -227,34 +227,34 @@ class Hop3Client:
 
     async def get_addon(self, name: str) -> dict[str, Any] | None:
         """Get addon details."""
-        result = await self._rpc_call(["addons:info", name])
+        result = await self._rpc_call(["addons", "info", name])
         return result
 
     async def create_addon(self, addon_type: str, name: str) -> bool:
         """Create a new addon."""
-        await self._rpc_call(["addons:create", addon_type, name])
+        await self._rpc_call(["addons", "create", addon_type, name])
         return True
 
     async def attach_addon(self, addon_name: str, app_name: str) -> bool:
         """Attach an addon to an application."""
-        await self._rpc_call(["addons:attach", addon_name, app_name])
+        await self._rpc_call(["addons", "attach", addon_name, app_name])
         return True
 
     async def detach_addon(self, addon_name: str, app_name: str) -> bool:
         """Detach an addon from an application."""
-        await self._rpc_call(["addons:detach", addon_name, app_name])
+        await self._rpc_call(["addons", "detach", addon_name, app_name])
         return True
 
     async def delete_addon(self, name: str) -> bool:
         """Delete an addon."""
-        await self._rpc_call(["addons:destroy", name])
+        await self._rpc_call(["addons", "destroy", name])
         return True
 
     # Extended backup methods
 
     async def get_backup(self, backup_id: str) -> Backup | None:
         """Get backup details."""
-        result = await self._rpc_call(["backup:info", backup_id])
+        result = await self._rpc_call(["backup", "info", backup_id])
         if result:
             # Parse created_at from result or use current time as fallback
             created_at_str = result.get("created_at")
@@ -274,19 +274,19 @@ class Hop3Client:
 
     async def restore_backup(self, backup_id: str) -> bool:
         """Restore a backup."""
-        await self._rpc_call(["backup:restore", backup_id])
+        await self._rpc_call(["backup", "restore", backup_id])
         return True
 
     async def delete_backup(self, backup_id: str) -> bool:
         """Delete a backup."""
-        await self._rpc_call(["backup:delete", backup_id])
+        await self._rpc_call(["backup", "destroy", backup_id])
         return True
 
     # Process and system log methods
 
     async def get_processes(self) -> list[dict[str, Any]]:
         """Get list of running processes."""
-        result = await self._rpc_call(["system:processes"])
+        result = await self._rpc_call(["system", "processes"])
         processes = []
         if result and result.get("t") == "table":
             for row in result.get("rows", []):
@@ -302,7 +302,7 @@ class Hop3Client:
 
     async def get_system_logs(self, lines: int = 100) -> list[str]:
         """Get system logs."""
-        result = await self._rpc_call(["system:logs", "--lines", str(lines)])
+        result = await self._rpc_call(["system", "logs", "--lines", str(lines)])
         if result and result.get("t") == "text":
             return result.get("text", "").split("\n")
         return []

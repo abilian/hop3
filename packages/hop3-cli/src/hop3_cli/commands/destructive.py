@@ -100,7 +100,7 @@ def confirm_destructive_action(
     command = _match_destructive_prefix(cli_args)
     if command is None:
         return True
-    args = cli_args[len(command):]
+    args = cli_args[len(command) :]
 
     # Check if required arguments are present BEFORE any confirmation prompts.
     # If missing, let the server handle the error message.

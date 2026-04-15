@@ -82,7 +82,9 @@ def test_confirm_destructive_action_backup_delete_confirmed():
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="y"):
-        result = confirm_destructive_action(["backup", "destroy", "backup-123"], printer)
+        result = confirm_destructive_action(
+            ["backup", "destroy", "backup-123"], printer
+        )
         assert result is True
 
 
@@ -91,7 +93,9 @@ def test_confirm_destructive_action_backup_delete_cancelled():
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="n"):
-        result = confirm_destructive_action(["backup", "destroy", "backup-123"], printer)
+        result = confirm_destructive_action(
+            ["backup", "destroy", "backup-123"], printer
+        )
         assert result is False
 
 
@@ -119,7 +123,9 @@ def test_confirm_destructive_action_json_mode():
 
     # All destructive commands should auto-confirm in JSON mode
     assert confirm_destructive_action(["app", "destroy", "my-app"], printer) is True
-    assert confirm_destructive_action(["backup", "destroy", "backup-123"], printer) is True
+    assert (
+        confirm_destructive_action(["backup", "destroy", "backup-123"], printer) is True
+    )
     assert confirm_destructive_action(["addon", "destroy", "postgres"], printer) is True
 
 

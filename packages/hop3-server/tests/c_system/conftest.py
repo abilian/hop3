@@ -259,7 +259,14 @@ def system_auth_token(hop3_config_dir: Path) -> Generator[str, None, None]:
     # Register test user with timeout
     try:
         result = subprocess.run(
-            ["hop3", "auth", "register", E2E_TEST_USER, E2E_TEST_EMAIL, E2E_TEST_PASSWORD],
+            [
+                "hop3",
+                "auth",
+                "register",
+                E2E_TEST_USER,
+                E2E_TEST_EMAIL,
+                E2E_TEST_PASSWORD,
+            ],
             check=False,
             capture_output=True,
             text=True,
