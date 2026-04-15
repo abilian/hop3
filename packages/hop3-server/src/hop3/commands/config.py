@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 class ConfigCmd(Command):
     """Manage application configuration and environment variables."""
 
-    name: ClassVar[str] = "config"
+    name: ClassVar[tuple[str, ...]] = ("config",)
 
 
 @register
@@ -42,8 +42,7 @@ class ShowCmd(Command):
     """
 
     db_session: Session
-    name: ClassVar[str] = "config:show"
-
+    name: ClassVar[tuple[str, ...]] = ("config", "show")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},  # --app <name>
@@ -53,7 +52,7 @@ class ShowCmd(Command):
 
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
-        # Support both: config:show myapp OR config:show --app myapp
+        # Support both: config show myapp OR config show --app myapp
         app_name = parsed.get("app") or (
             parsed["_args"][0] if parsed["_args"] else None
         )
@@ -62,13 +61,13 @@ class ShowCmd(Command):
         if not app_name:
             return [
                 text(
-                    "Usage: hop3 config:show <app-name> [--show-compose]\n"
-                    "   or: hop3 config:show --app <app-name> [--show-compose]\n\n"
+                    "Usage: hop3 config show <app-name> [--show-compose]\n"
+                    "   or: hop3 config show --app <app-name> [--show-compose]\n\n"
                     "Flags:\n"
                     "  --show-compose  Show the generated Docker Compose file\n\n"
                     "Example:\n"
-                    "  hop3 config:show myapp\n"
-                    "  hop3 config:show myapp --show-compose"
+                    "  hop3 config show myapp\n"
+                    "  hop3 config show myapp --show-compose"
                 )
             ]
 
@@ -87,7 +86,7 @@ class ShowCmd(Command):
             text(f"Configured environment for '{app_name}':"),
             table(headers=["Key", "Value"], rows=rows),
             text(
-                "\nNote: These are configured values. Use 'config:live' to see actual running values."
+                "\nNote: These are configured values. Use 'config live' to see actual running values."
             ),
         ]
 
@@ -134,8 +133,7 @@ class GetCmd(Command):
     """Get a specific configuration variable."""
 
     db_session: Session
-    name: ClassVar[str] = "config:get"
-
+    name: ClassVar[tuple[str, ...]] = ("config", "get")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},  # --app <name>
@@ -146,7 +144,7 @@ class GetCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         remaining = parsed["_args"]
 
-        # Support both: config:get myapp KEY OR config:get --app myapp KEY
+        # Support both: config get myapp KEY OR config get --app myapp KEY
         if parsed.get("app"):
             app_name = parsed["app"]
             setting = remaining[0] if remaining else None
@@ -157,10 +155,10 @@ class GetCmd(Command):
         if not app_name or not setting:
             return [
                 text(
-                    "Usage: hop3 config:get <app-name> <key>\n"
-                    "   or: hop3 config:get --app <app-name> <key>\n\n"
+                    "Usage: hop3 config get <app-name> <key>\n"
+                    "   or: hop3 config get --app <app-name> <key>\n\n"
                     "Example:\n"
-                    "  hop3 config:get myapp DATABASE_URL"
+                    "  hop3 config get myapp DATABASE_URL"
                 )
             ]
 
@@ -176,15 +174,14 @@ class GetCmd(Command):
 class LiveCmd(Command):
     """Show actual live environment from running app.
 
-    Unlike config:show which shows database values, this inspects
+    Unlike config show which shows database values, this inspects
     the running process/container to show what's actually in effect.
 
-    Usage: hop config:live <app> or hop config:live --app <app>
+    Usage: hop config live <app> or hop config live --app <app>
     """
 
     db_session: Session
-    name: ClassVar[str] = "config:live"
-
+    name: ClassVar[tuple[str, ...]] = ("config", "live")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},  # --app <name>
@@ -193,7 +190,7 @@ class LiveCmd(Command):
 
     def call(self, *args):
         parsed = parse_cli_args(args, self._arg_spec)
-        # Support both: config:live myapp OR config:live --app myapp
+        # Support both: config live myapp OR config live --app myapp
         app_name = parsed.get("app") or (
             parsed["_args"][0] if parsed["_args"] else None
         )
@@ -201,10 +198,10 @@ class LiveCmd(Command):
         if not app_name:
             return [
                 text(
-                    "Usage: hop3 config:live <app-name>\n"
-                    "   or: hop3 config:live --app <app-name>\n\n"
+                    "Usage: hop3 config live <app-name>\n"
+                    "   or: hop3 config live --app <app-name>\n\n"
                     "Shows the actual environment variables from the running app.\n"
-                    "Use 'config:show' to see configured (pending) values."
+                    "Use 'config show' to see configured (pending) values."
                 )
             ]
 
@@ -306,17 +303,16 @@ class LiveCmd(Command):
 class SetCmd(Command):
     """Set environment variables for an app.
 
-    Usage: hop config:set <app> KEY=VALUE [KEY2=VALUE2 ...]
-       or: hop config:set --app <app> KEY=VALUE [KEY2=VALUE2 ...]
+    Usage: hop config set <app> KEY=VALUE [KEY2=VALUE2 ...]
+       or: hop config set --app <app> KEY=VALUE [KEY2=VALUE2 ...]
 
     Examples:
-        hop config:set myapp DEBUG=true
-        hop config:set --app myapp DATABASE_URL=postgres://... REDIS_URL=redis://...
+        hop config set myapp DEBUG=true
+        hop config set --app myapp DATABASE_URL=postgres://... REDIS_URL=redis://...
     """
 
     db_session: Session
-    name: ClassVar[str] = "config:set"
-
+    name: ClassVar[tuple[str, ...]] = ("config", "set")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},  # --app <name>
@@ -327,7 +323,7 @@ class SetCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         remaining = parsed["_args"]
 
-        # Support both: config:set myapp K=V OR config:set --app myapp K=V
+        # Support both: config set myapp K=V OR config set --app myapp K=V
         if parsed.get("app"):
             app_name = parsed["app"]
             settings = remaining
@@ -338,9 +334,9 @@ class SetCmd(Command):
         if not app_name or not settings:
             return [
                 text(
-                    "Usage: hop config:set <app> KEY=VALUE [KEY2=VALUE2 ...]\n"
-                    "   or: hop config:set --app <app> KEY=VALUE [KEY2=VALUE2 ...]\n\n"
-                    "Example: hop config:set myapp DEBUG=true"
+                    "Usage: hop config set <app> KEY=VALUE [KEY2=VALUE2 ...]\n"
+                    "   or: hop config set --app <app> KEY=VALUE [KEY2=VALUE2 ...]\n\n"
+                    "Example: hop config set myapp DEBUG=true"
                 )
             ]
 
@@ -387,7 +383,7 @@ class SetCmd(Command):
             )
         else:
             result.append(
-                text(f"\nNote: Run 'hop app:restart {app_name}' to apply changes.")
+                text(f"\nNote: Run 'hop app restart {app_name}' to apply changes.")
             )
 
         return result
@@ -431,17 +427,16 @@ class SetCmd(Command):
 class UnsetCmd(Command):
     """Unset environment variables for an app.
 
-    Usage: hop config:unset <app> KEY [KEY2 ...]
-       or: hop config:unset --app <app> KEY [KEY2 ...]
+    Usage: hop config unset <app> KEY [KEY2 ...]
+       or: hop config unset --app <app> KEY [KEY2 ...]
 
     Examples:
-        hop config:unset myapp DEBUG
-        hop config:unset --app myapp DATABASE_URL REDIS_URL
+        hop config unset myapp DEBUG
+        hop config unset --app myapp DATABASE_URL REDIS_URL
     """
 
     db_session: Session
-    name: ClassVar[str] = "config:unset"
-
+    name: ClassVar[tuple[str, ...]] = ("config", "unset")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},  # --app <name>
@@ -452,7 +447,7 @@ class UnsetCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         remaining = parsed["_args"]
 
-        # Support both: config:unset myapp KEY OR config:unset --app myapp KEY
+        # Support both: config unset myapp KEY OR config unset --app myapp KEY
         if parsed.get("app"):
             app_name = parsed["app"]
             keys = remaining
@@ -463,9 +458,9 @@ class UnsetCmd(Command):
         if not app_name or not keys:
             return [
                 text(
-                    "Usage: hop config:unset <app> KEY [KEY2 ...]\n"
-                    "   or: hop config:unset --app <app> KEY [KEY2 ...]\n\n"
-                    "Example: hop config:unset myapp DEBUG"
+                    "Usage: hop config unset <app> KEY [KEY2 ...]\n"
+                    "   or: hop config unset --app <app> KEY [KEY2 ...]\n\n"
+                    "Example: hop config unset myapp DEBUG"
                 )
             ]
 
@@ -501,7 +496,7 @@ class UnsetCmd(Command):
         if removed:
             result.append(
                 text(
-                    "\nNote: Run 'hop app:restart <app>' to apply changes to running app."
+                    "\nNote: Run 'hop app restart <app>' to apply changes to running app."
                 )
             )
 
@@ -512,7 +507,7 @@ class UnsetCmd(Command):
 class MigrateCmd(Command):
     """Migrate configuration from other PaaS formats to hop3.toml."""
 
-    name: ClassVar[str] = "config:migrate"
+    name: ClassVar[tuple[str, ...]] = ("config", "migrate")
 
     def call(
         self,
@@ -532,11 +527,11 @@ class MigrateCmd(Command):
         if not from_format or not app_dir:
             return [
                 text(
-                    "Usage: hop config:migrate <from-format> <app-dir> [--dry-run] [--backup]\n\n"
+                    "Usage: hop config migrate <from-format> <app-dir> [--dry-run] [--backup]\n\n"
                     "Supported formats:\n"
                     "  procfile    Convert Procfile to hop3.toml\n\n"
                     "Example:\n"
-                    "  hop config:migrate procfile /path/to/app"
+                    "  hop config migrate procfile /path/to/app"
                 )
             ]
 

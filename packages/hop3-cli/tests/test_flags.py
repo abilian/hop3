@@ -174,13 +174,13 @@ def test_parse_flags_preserves_arg_order():
 
 def test_parse_flags_with_subcommands():
     """Test flag parsing with colon-based subcommands."""
-    flags, args = parse_flags(["app:destroy", "my-app", "-y"])
+    flags, args = parse_flags(["app", "destroy", "my-app", "-y"])
     assert flags.skip_confirm is True
-    assert args == ["app:destroy", "my-app"]
+    assert args == ["app", "destroy", "my-app"]
 
-    flags, args = parse_flags(["backup:delete", "backup-id", "--json"])
+    flags, args = parse_flags(["backup", "delete", "backup-id", "--json"])
     assert flags.json_output is True
-    assert args == ["backup:delete", "backup-id"]
+    assert args == ["backup", "delete", "backup-id"]
 
 
 def test_cli_flags_immutability():

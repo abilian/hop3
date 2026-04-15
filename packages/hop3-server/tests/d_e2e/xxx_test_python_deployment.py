@@ -63,7 +63,7 @@ def health():
         assert app_name in result.stdout, f"App {app_name} not found in apps list"
 
         # Check app is running
-        result = hop3_command("app:status", app_name)
+        result = hop3_command("app", "status", app_name)
         assert result.returncode == 0, f"Failed to get status: {result.stderr}"
         assert "RUNNING" in result.stdout or "running" in result.stdout.lower()
 
@@ -123,7 +123,7 @@ def health():
         print(f"✓ Flask app {app_name} deployed successfully")
 
         # Cleanup
-        result = hop3_command("app:destroy", app_name)
+        result = hop3_command("app", "destroy", app_name)
         assert result.returncode == 0, f"Failed to destroy app: {result.stderr}"
 
     def test_deploy_flask_with_poetry(
@@ -170,7 +170,7 @@ def api_info():
         assert app_name in result.stdout, f"App {app_name} not found in apps list"
 
         # Cleanup
-        hop3_command("app:destroy", app_name)
+        hop3_command("app", "destroy", app_name)
 
     def test_flask_app_lifecycle(
         self, hop3_container: dict[str, Any], hop3_command, test_app_dir: Path

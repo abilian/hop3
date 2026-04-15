@@ -71,7 +71,7 @@ def handle_ok_response(
         printer: Output printer
         tunnel_port: Local SSH tunnel port if using SSH tunnel (for streaming)
     """
-    if cli_args and cli_args[0] == "auth:login":
+    if cli_args and cli_args[0] == "auth login":
         handle_login_response(result, config, printer)
     elif is_help_command(cli_args) and not printer.json_output:
         result = inject_local_commands_into_help(result)
@@ -224,10 +224,10 @@ def handle_error_response(
 def handle_login_response(
     result: list[dict], config: Config, printer: RichPrinter
 ) -> None:
-    """Handle auth:login response - extract and save token, then print modified output.
+    """Handle auth login response - extract and save token, then print modified output.
 
     Args:
-        result: The RPC response from auth:login
+        result: The RPC response from auth login
         config: The config object to save the token to
         printer: Printer for output
     """

@@ -24,9 +24,12 @@ def test_help_flags_basic():
     assert handle_help_flags(["run", "--help"]) == ["help", "run"]
     assert handle_help_flags(["run", "-h"]) == ["help", "run"]
 
-    # Command with arguments and --help
-    assert handle_help_flags(["run", "myapp", "--help"]) == ["help", "run"]
-    assert handle_help_flags(["deploy", "app", "--help"]) == ["help", "deploy"]
+    # Command with arguments and --help: forward extra tokens so the server
+    # can show the most specific help (longest-prefix match). `hop3 config show
+    # myapp --help` wants `help config show`; `hop3 run myapp --help` will show
+    # help for `run` via longest-prefix fallback.
+    assert handle_help_flags(["run", "myapp", "--help"]) == ["help", "run", "myapp"]
+    assert handle_help_flags(["deploy", "app", "--help"]) == ["help", "deploy", "app"]
 
     # No --help flag
     assert handle_help_flags(["run", "myapp"]) == ["run", "myapp"]
@@ -55,16 +58,16 @@ def test_requires_authentication():
     assert requires_authentication(["help", "--all"]) is False
     assert requires_authentication(["version"]) is False
     assert requires_authentication(["auth"]) is False
-    assert requires_authentication(["auth:login"]) is False
-    assert requires_authentication(["auth:login", "user", "pass"]) is False
-    assert requires_authentication(["auth:register"]) is False
+    assert requires_authentication(["auth", "login"]) is False
+    assert requires_authentication(["auth", "login", "user", "pass"]) is False
+    assert requires_authentication(["auth", "register"]) is False
 
     # Commands that DO require authentication
     assert requires_authentication(["apps"]) is True
     assert requires_authentication(["deploy", "myapp"]) is True
-    assert requires_authentication(["app:status", "myapp"]) is True
-    assert requires_authentication(["config:set", "KEY", "value"]) is True
-    assert requires_authentication(["auth:whoami"]) is True  # whoami requires auth
+    assert requires_authentication(["app", "status", "myapp"]) is True
+    assert requires_authentication(["config", "set", "KEY", "value"]) is True
+    assert requires_authentication(["auth", "whoami"]) is True  # whoami requires auth
 
     # Empty args
     assert requires_authentication([]) is False
@@ -72,8 +75,8 @@ def test_requires_authentication():
 
 def test_help_flags_with_subcommands():
     """Test --help with subcommands."""
-    assert handle_help_flags(["config:show", "--help"]) == ["help", "config:show"]
-    assert handle_help_flags(["app:status", "-h"]) == ["help", "app:status"]
+    assert handle_help_flags(["config", "show", "--help"]) == ["help", "config", "show"]
+    assert handle_help_flags(["app", "status", "-h"]) == ["help", "app", "status"]
 
 
 def test_is_help_command():
@@ -84,7 +87,7 @@ def test_is_help_command():
     assert is_help_command(["help", "--all"]) is True
     # Help for specific command (should NOT inject local commands)
     assert is_help_command(["help", "deploy"]) is False
-    assert is_help_command(["help", "config:set"]) is False
+    assert is_help_command(["help", "config", "set"]) is False
     # Not a help command
     assert is_help_command(["deploy"]) is False
     assert is_help_command(["apps"]) is False

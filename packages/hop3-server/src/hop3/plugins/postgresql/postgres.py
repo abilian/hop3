@@ -405,7 +405,7 @@ class PostgresAddon:
         if not password:
             msg = (
                 f"No stored password for addon '{self.addon_name}'. "
-                "Run 'addons:create' first."
+                "Run 'addons create' first."
             )
             raise RuntimeError(msg)
 

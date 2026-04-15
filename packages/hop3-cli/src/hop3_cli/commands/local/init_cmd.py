@@ -198,4 +198,4 @@ def _print_init_success(
     print(f"Credentials saved to context '{context_name}'")
     print("\nYou're all set! Try:")
     print("  hop3 apps           # List applications")
-    print("  hop3 auth:whoami    # Check current user")
+    print("  hop3 auth whoami    # Check current user")

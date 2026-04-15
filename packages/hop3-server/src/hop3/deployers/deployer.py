@@ -78,7 +78,7 @@ def do_deploy(
                 hint=("Ensure the app has a valid Procfile or hop3.toml at its root"),
                 troubleshooting=[
                     "See docs/src/hop3-toml-reference.md for the schema",
-                    f"hop3 app:logs {app.name}",
+                    f"hop3 app logs {app.name}",
                 ],
             )
         )
@@ -406,7 +406,7 @@ def _handle_startup_timeout(app: App, timeout: float) -> None:
             level=0,
         )
         log("  - Check container status: docker ps -a", level=0)
-    log(f"  - View full logs: hop3 app:logs {app.name}", level=0)
+    log(f"  - View full logs: hop3 app logs {app.name}", level=0)
     log(
         f"  - Increase timeout in hop3.toml: [run] start-timeout = {int(timeout * 2)}",
         level=0,
@@ -419,8 +419,8 @@ def _handle_startup_timeout(app: App, timeout: float) -> None:
             reason=(f"'{app.name}' did not respond to health checks within {timeout}s"),
             hint="See the diagnostics and recent log output above",
             troubleshooting=[
-                f"hop3 app:logs {app.name}",
-                f"hop3 app:build-logs {app.name}",
+                f"hop3 app logs {app.name}",
+                f"hop3 app build-logs {app.name}",
                 (
                     "Increase start-timeout in hop3.toml: "
                     f"[run] start-timeout = {int(timeout * 2)}"

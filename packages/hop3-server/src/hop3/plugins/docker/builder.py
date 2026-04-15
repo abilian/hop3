@@ -156,7 +156,7 @@ class DockerBuilder:
                         "image) or increase the timeout in hop3.toml"
                     ),
                     troubleshooting=[
-                        f"hop3 app:build-logs {self.app_name}",
+                        f"hop3 app build-logs {self.app_name}",
                         "Try 'docker build' locally to measure the build time",
                     ],
                 )

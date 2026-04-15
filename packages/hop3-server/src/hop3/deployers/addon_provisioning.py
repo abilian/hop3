@@ -126,7 +126,7 @@ def _provision_single_addon(
                 troubleshooting=[
                     f"hop3-install server --with {addon_type}",
                     (f"systemctl status {addon_type} (or supervisorctl status)"),
-                    "hop3 addons:list",
+                    "hop3 addons list",
                 ],
             )
         )

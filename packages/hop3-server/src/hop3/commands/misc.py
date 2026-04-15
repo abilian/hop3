@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 class VersionCmd(Command):
     """Show version information."""
 
-    name: ClassVar[str] = "version"
+    name: ClassVar[tuple[str, ...]] = ("version",)
     requires_auth: ClassVar[bool] = False  # Public command
 
     def call(self, *args):
@@ -58,7 +58,7 @@ class VersionCmd(Command):
 class PluginsCmd(Command):
     """List installed plugins and their commands."""
 
-    name: ClassVar[str] = "plugins"
+    name: ClassVar[tuple[str, ...]] = ("plugins",)
 
     def call(self, *args):
         # This implementation introspects the command registry
@@ -82,7 +82,7 @@ class PluginsCmd(Command):
         return [table(headers=["Plugin", "Provided Commands"], rows=rows)]
 
 
-# --- Process Status & Scaling (ps, ps:scale) ---
+# --- Process Status & Scaling (ps, ps scale) ---
 
 
 @register
@@ -91,7 +91,7 @@ class PSCmd(Command):
     """Show process count for an app."""
 
     db_session: Session
-    name: ClassVar[str] = "ps"
+    name: ClassVar[tuple[str, ...]] = ("ps",)
 
     def call(self, *args):
         if not args:
@@ -113,18 +113,18 @@ class PSCmd(Command):
         return [table(headers=["Process Type", "Count"], rows=rows)]
 
 
-# The subcommand ps:scale will be handled by the main `ps` command group.
+# The subcommand ps scale will be handled by the main `ps` command group.
 @register
 @dataclass(frozen=True)
 class PsScaleCmd(Command):
-    """Set the process count (e.g., hop ps:scale <app_name> web=2 worker=1)."""
+    """Set the process count (e.g., hop ps scale <app_name> web=2 worker=1)."""
 
     db_session: Session
-    name: ClassVar[str] = "ps:scale"
+    name: ClassVar[tuple[str, ...]] = ("ps", "scale")
 
     def call(self, *args):
         if len(args) < 2:
-            return [text("Usage: hop ps:scale <app_name> <type>=<count>...")]
+            return [text("Usage: hop ps scale <app_name> <type>=<count>...")]
 
         app_name = args[0]
         settings = args[1:]
@@ -180,7 +180,7 @@ class RunCmd(Command):
     """
 
     db_session: Session
-    name: ClassVar[str] = "run"
+    name: ClassVar[tuple[str, ...]] = ("run",)
 
     def call(self, *args):
         if len(args) < 2:
@@ -267,7 +267,7 @@ class SbomCmd(Command):
     """Generate a Software Bill of Materials (SBOM) for an app."""
 
     db_session: Session
-    name: ClassVar[str] = "sbom"
+    name: ClassVar[tuple[str, ...]] = ("sbom",)
 
     def call(self, *args):
         if not args:

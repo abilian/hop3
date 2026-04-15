@@ -19,29 +19,29 @@ from hop3_cli.ui.rich_printer import RichPrinter
 
 def test_is_destructive_command_app_destroy():
     """Test detection of app:destroy and destroy commands."""
-    assert is_destructive_command(["app:destroy", "my-app"]) is True
+    assert is_destructive_command(["app", "destroy", "my-app"]) is True
     assert is_destructive_command(["destroy", "my-app"]) is True
-    assert is_destructive_command(["app:destroy"]) is True
+    assert is_destructive_command(["app", "destroy"]) is True
 
 
 def test_is_destructive_command_backup_delete():
     """Test detection of backup:delete command."""
-    assert is_destructive_command(["backup:delete", "backup-id"]) is True
-    assert is_destructive_command(["backup:delete"]) is True
+    assert is_destructive_command(["backup", "delete", "backup-id"]) is True
+    assert is_destructive_command(["backup", "delete"]) is True
 
 
 def test_is_destructive_command_services_destroy():
     """Test detection of services:destroy command."""
-    assert is_destructive_command(["services:destroy", "postgres"]) is True
-    assert is_destructive_command(["services:destroy"]) is True
+    assert is_destructive_command(["services", "destroy", "postgres"]) is True
+    assert is_destructive_command(["services", "destroy"]) is True
 
 
 def test_is_destructive_command_safe_commands():
     """Test that safe commands are not detected as destructive."""
     assert is_destructive_command(["deploy", "my-app"]) is False
     assert is_destructive_command(["apps"]) is False
-    assert is_destructive_command(["app:status", "my-app"]) is False
-    assert is_destructive_command(["backup:list"]) is False
+    assert is_destructive_command(["app", "status", "my-app"]) is False
+    assert is_destructive_command(["backup", "list"]) is False
     assert is_destructive_command(["help"]) is False
 
 
@@ -55,7 +55,7 @@ def test_confirm_destructive_action_app_destroy_confirmed():
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="my-app"):
-        result = confirm_destructive_action(["app:destroy", "my-app"], printer)
+        result = confirm_destructive_action(["app", "destroy", "my-app"], printer)
         assert result is True
 
 
@@ -64,7 +64,7 @@ def test_confirm_destructive_action_app_destroy_cancelled():
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="wrong-app"):
-        result = confirm_destructive_action(["app:destroy", "my-app"], printer)
+        result = confirm_destructive_action(["app", "destroy", "my-app"], printer)
         assert result is False
 
 
@@ -73,7 +73,7 @@ def test_confirm_destructive_action_app_destroy_no_arg():
     printer = RichPrinter()
 
     # When no app name provided, should auto-confirm (server will show error)
-    result = confirm_destructive_action(["app:destroy"], printer)
+    result = confirm_destructive_action(["app", "destroy"], printer)
     assert result is True
 
 
@@ -82,7 +82,7 @@ def test_confirm_destructive_action_backup_delete_confirmed():
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="y"):
-        result = confirm_destructive_action(["backup:delete", "backup-123"], printer)
+        result = confirm_destructive_action(["backup", "delete", "backup-123"], printer)
         assert result is True
 
 
@@ -91,7 +91,7 @@ def test_confirm_destructive_action_backup_delete_cancelled():
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="n"):
-        result = confirm_destructive_action(["backup:delete", "backup-123"], printer)
+        result = confirm_destructive_action(["backup", "delete", "backup-123"], printer)
         assert result is False
 
 
@@ -100,7 +100,7 @@ def test_confirm_destructive_action_services_destroy_confirmed():
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="postgres"):
-        result = confirm_destructive_action(["services:destroy", "postgres"], printer)
+        result = confirm_destructive_action(["services", "destroy", "postgres"], printer)
         assert result is True
 
 
@@ -109,7 +109,7 @@ def test_confirm_destructive_action_services_destroy_cancelled():
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="mysql"):
-        result = confirm_destructive_action(["services:destroy", "postgres"], printer)
+        result = confirm_destructive_action(["services", "destroy", "postgres"], printer)
         assert result is False
 
 
@@ -118,13 +118,13 @@ def test_confirm_destructive_action_json_mode():
     printer = RichPrinter(json_output=True)
 
     # All destructive commands should auto-confirm in JSON mode
-    assert confirm_destructive_action(["app:destroy", "my-app"], printer) is True
-    assert confirm_destructive_action(["backup:delete", "backup-123"], printer) is True
-    assert confirm_destructive_action(["services:destroy", "postgres"], printer) is True
+    assert confirm_destructive_action(["app", "destroy", "my-app"], printer) is True
+    assert confirm_destructive_action(["backup", "delete", "backup-123"], printer) is True
+    assert confirm_destructive_action(["services", "destroy", "postgres"], printer) is True
 
 
 def test_confirm_destructive_action_destroy_alias():
-    """Test that 'destroy' alias works like 'app:destroy'."""
+    """Test that 'destroy' alias works like 'app destroy'."""
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="my-app"):
@@ -145,7 +145,7 @@ def test_confirm_destructive_action_shows_warnings():
         patch.object(sys, "stderr", stderr_capture),
         patch("builtins.input", return_value="my-app"),
     ):
-        confirm_destructive_action(["app:destroy", "my-app"], printer)
+        confirm_destructive_action(["app", "destroy", "my-app"], printer)
 
     output = stderr_capture.getvalue()
     assert "⚠  WARNING: DESTRUCTIVE ACTION" in output
@@ -162,7 +162,7 @@ def test_confirm_destructive_action_app_destroy_warning_details():
         patch.object(sys, "stderr", stderr_capture),
         patch("builtins.input", return_value="my-app"),
     ):
-        confirm_destructive_action(["app:destroy", "my-app"], printer)
+        confirm_destructive_action(["app", "destroy", "my-app"], printer)
 
     output = stderr_capture.getvalue()
     assert "All files, data, and configuration will be permanently deleted." in output
@@ -177,7 +177,7 @@ def test_confirm_destructive_action_backup_delete_warning_details():
         patch.object(sys, "stderr", stderr_capture),
         patch("builtins.input", return_value="y"),
     ):
-        confirm_destructive_action(["backup:delete", "backup-123"], printer)
+        confirm_destructive_action(["backup", "delete", "backup-123"], printer)
 
     output = stderr_capture.getvalue()
     assert "backup 'backup-123'" in output
@@ -193,7 +193,7 @@ def test_confirm_destructive_action_services_destroy_warning_details():
         patch.object(sys, "stderr", stderr_capture),
         patch("builtins.input", return_value="postgres"),
     ):
-        confirm_destructive_action(["services:destroy", "postgres"], printer)
+        confirm_destructive_action(["services", "destroy", "postgres"], printer)
 
     output = stderr_capture.getvalue()
     assert "service 'postgres'" in output
@@ -205,7 +205,7 @@ def test_confirm_destructive_action_keyboard_interrupt():
     printer = RichPrinter()
 
     with patch("builtins.input", side_effect=KeyboardInterrupt):
-        result = confirm_destructive_action(["app:destroy", "my-app"], printer)
+        result = confirm_destructive_action(["app", "destroy", "my-app"], printer)
         assert result is False
 
 
@@ -214,5 +214,5 @@ def test_confirm_destructive_action_eof():
     printer = RichPrinter()
 
     with patch("builtins.input", side_effect=EOFError):
-        result = confirm_destructive_action(["app:destroy", "my-app"], printer)
+        result = confirm_destructive_action(["app", "destroy", "my-app"], printer)
         assert result is False

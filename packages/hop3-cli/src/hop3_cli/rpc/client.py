@@ -329,8 +329,8 @@ class Client:
         error_msg = (
             "Authentication required.\n\n"
             "To authenticate, use one of the following methods:\n"
-            "  1. Login: hop auth:login <username> <password>\n"
-            "  2. Register: hop auth:register <username> <email> <password>\n\n"
+            "  1. Login: hop auth login <username> <password>\n"
+            "  2. Register: hop auth register <username> <email> <password>\n\n"
             "After logging in, save the token to ~/.config/hop3-cli/config.toml\n"
             "or set the HOP3_API_TOKEN environment variable."
         )

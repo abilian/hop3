@@ -68,8 +68,8 @@ class TestIsLocalCommand:
         assert is_local_command(["deploy"]) is False
         assert is_local_command(["status"]) is False
         # auth:* subcommands should go to server
-        assert is_local_command(["auth:login"]) is False
-        assert is_local_command(["auth:whoami"]) is False
+        assert is_local_command(["auth", "login"]) is False
+        assert is_local_command(["auth", "whoami"]) is False
 
 
 class TestExtractToken:
@@ -457,8 +457,8 @@ class TestHandleAuth:
 
         captured = capsys.readouterr()
         assert "Authentication commands" in captured.out
-        assert "auth:login" in captured.out
-        assert "auth:register" in captured.out
+        assert "auth login" in captured.out
+        assert "auth register" in captured.out
 
     def test_auth_with_help_flag(self, temp_config, mock_printer, capsys):
         """Test auth --help shows help."""

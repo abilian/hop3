@@ -83,7 +83,7 @@ class TestGitSetupCmdIntegration:
         """
         cmd = GitSetupCmd(db_session=db_session)
 
-        with pytest.raises(ValueError, match=r"Usage:.*git:setup"):
+        with pytest.raises(ValueError, match=r"Usage:.*git setup"):
             cmd.call()
 
     def test_git_setup_app_not_found(self, db_session: Session):

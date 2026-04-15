@@ -87,7 +87,7 @@ class AppsCmd(Command):
     """List all applications."""
 
     db_session: Session
-    name: ClassVar[str] = "apps"
+    name: ClassVar[tuple[str, ...]] = ("apps",)
 
     def call(self, *args):
         app_repo = AppRepository(session=self.db_session)

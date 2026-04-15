@@ -91,7 +91,7 @@ def handle_login_password(
     username = _parse_username_arg(args)
     username, password = _prompt_credentials(username)
 
-    # Call auth:login via RPC
+    # Call auth login via RPC
     print(f"\nAuthenticating as {username}...")
 
     # Import here to avoid circular import
@@ -99,7 +99,7 @@ def handle_login_password(
 
     with Client(config=config) as client:
         try:
-            response = client.rpc("cli", ["auth:login", username, password])
+            response = client.rpc("cli", ["auth", "login", username, password])
             _handle_login_response(response, username, config, printer)
 
         except Exception as e:
@@ -155,7 +155,7 @@ def _prompt_credentials(username: str | None) -> tuple[str, str]:
 def _handle_login_response(
     response, username: str, config: Config, printer: RichPrinter
 ) -> None:
-    """Handle the RPC response from auth:login."""
+    """Handle the RPC response from auth login."""
     match response:
         case Ok(result=result):
             token = _extract_token_from_login_response(result)
@@ -183,10 +183,10 @@ def _handle_login_response(
 
 
 def _extract_token_from_login_response(result: list[dict]) -> str | None:
-    """Extract JWT token from auth:login response.
+    """Extract JWT token from auth login response.
 
     Args:
-        result: The RPC response from auth:login
+        result: The RPC response from auth login
 
     Returns:
         The JWT token or None if not found
@@ -393,7 +393,7 @@ def _resolve_server_url(server_url: str | None, config) -> str:
 
 
 def _verify_token(server_url: str, token: str) -> str | None:
-    """Verify token by calling auth:whoami on the server.
+    """Verify token by calling auth whoami on the server.
 
     Returns:
         Username if successful, None if verification failed
@@ -412,7 +412,7 @@ def _verify_token(server_url: str, token: str) -> str | None:
 
     try:
         with Client(config=temp_config) as client:
-            response = client.rpc("cli", ["auth:whoami"])
+            response = client.rpc("cli", ["auth", "whoami"])
 
             match response:
                 case Ok(result=result):
@@ -445,7 +445,7 @@ def _verify_token(server_url: str, token: str) -> str | None:
 
 
 def _extract_username_from_whoami(result: list[dict]) -> str | None:
-    """Extract username from auth:whoami response."""
+    """Extract username from auth whoami response."""
     for item in result:
         if item.get("t") == "text":
             text = item.get("text", "")
@@ -739,4 +739,4 @@ def _print_login_success(username: str, config: Config, context_name: str) -> No
     print(f"Credentials saved to context '{context_name}'")
     print("\nWelcome back! Try:")
     print("  hop3 apps           # List applications")
-    print("  hop3 auth:whoami    # Check current user")
+    print("  hop3 auth whoami    # Check current user")

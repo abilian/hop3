@@ -17,7 +17,11 @@ def handle_help_flags(args: list[str]) -> list[str]:
         ["-h"] -> ["help"]
         ["run", "--help"] -> ["help", "run"]
         ["run", "-h"] -> ["help", "run"]
-        ["run", "myapp", "--help"] -> ["help", "run"]  # help for run, not run with --help
+        ["run", "myapp", "--help"] -> ["help", "run", "myapp"]  # forward extra tokens
+        ["config", "show", "--help"] -> ["help", "config", "show"]  # namespaced command
+
+    With space-separated commands (ADR 036 D1), we forward all non-flag tokens
+    before the first --help/-h so the server can show help for the full command path.
 
     Args:
         args: Command-line arguments
@@ -34,15 +38,19 @@ def handle_help_flags(args: list[str]) -> list[str]:
 
     # Check if --help or -h is anywhere in the args
     if "--help" in args or "-h" in args:
-        # Remove --help and -h from args
-        filtered_args = [arg for arg in args if arg not in {"--help", "-h"}]
+        # Keep all tokens up to the first --help / -h, dropping any help flags.
+        filtered: list[str] = []
+        for arg in args:
+            if arg in {"--help", "-h"}:
+                break
+            filtered.append(arg)
+        # Also strip any later --help / -h (shouldn't happen, but be defensive)
+        filtered = [a for a in filtered if a not in {"--help", "-h"}]
 
-        if not filtered_args:
+        if not filtered:
             # Just "--help" with no command -> show general help
             return ["help"]
-        # "command --help" -> "help command"
-        # Only use the first argument as the command name
-        return ["help", filtered_args[0]]
+        return ["help", *filtered]
 
     return args
 

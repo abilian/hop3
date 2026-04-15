@@ -474,7 +474,7 @@ def wait_for_app_status(
 
     while time.time() - start_time < timeout:
         try:
-            result = hop3_command("app:status", app_name)
+            result = hop3_command("app", "status", app_name)
             if result.returncode == 0:
                 stdout = result.stdout.upper()
                 if any(state in stdout for state in expected_states):

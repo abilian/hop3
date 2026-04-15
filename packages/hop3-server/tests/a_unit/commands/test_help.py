@@ -163,11 +163,13 @@ def test_help_all_shows_all_commands():
     # Check for ALL COMMANDS section
     assert "ALL COMMANDS" in text
 
-    # Should show subcommands (commands with colons)
-    # These are commands like auth:login, config:set, etc.
-    # We check for the pattern of colon-separated commands
+    # Should show subcommands (space-separated multi-token command names like
+    # "auth login", "config set", etc.). Find any line listing such a command.
     lines = text.split("\n")
-    has_subcommands = any(":" in line for line in lines)
+    has_subcommands = any(
+        line.strip().startswith(("auth ", "config ", "app ", "backup ", "addons "))
+        for line in lines
+    )
     assert has_subcommands, "Expected subcommands to be shown with --all flag"
 
 
@@ -218,8 +220,8 @@ def test_help_shows_subcommands_for_namespace():
     # Should show SUBCOMMANDS section
     assert "SUBCOMMANDS" in text
 
-    # Should list auth subcommands
-    assert "auth:" in text
+    # Should list auth subcommands (e.g., "auth login", "auth whoami")
+    assert "auth " in text
 
 
 def test_help_commands_returns_command_list():

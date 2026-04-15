@@ -9,8 +9,8 @@ the network layer. Useful for server administration and debugging.
 
 Example:
     hop3-server local apps
-    hop3-server local auth:whoami testuser
-    hop3-server local config:set myapp KEY=value
+    hop3-server local auth whoami testuser
+    hop3-server local config set myapp KEY=value
 """
 
 from __future__ import annotations
@@ -141,7 +141,7 @@ def execute_rpc_command(command_name: str, args: list[str]) -> int:
     without going through the network layer.
 
     Args:
-        command_name: Name of the command to execute (e.g., "apps", "auth:whoami")
+        command_name: Name of the command to execute (e.g., "apps", "auth", "whoami")
         args: Arguments to pass to the command
 
     Returns:
@@ -204,8 +204,8 @@ class Local(Command):
 
     Examples:
         hop3-server local apps
-        hop3-server local auth:whoami testuser
-        hop3-server local config:set myapp KEY=value
+        hop3-server local auth whoami testuser
+        hop3-server local config set myapp KEY=value
         hop3-server local help
 
     Note: This bypasses authentication checks - only use for server administration.
@@ -218,7 +218,7 @@ class Local(Command):
         parser.add_argument(
             "command",
             type=str,
-            help="RPC command to execute (e.g., 'apps', 'auth:whoami')",
+            help="RPC command to execute (e.g., 'apps', 'auth', 'whoami')",
         )
         parser.add_argument(
             "args",

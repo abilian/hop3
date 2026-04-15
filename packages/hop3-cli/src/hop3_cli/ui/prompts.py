@@ -41,7 +41,7 @@ def confirm(message: str, *, default: bool = False) -> bool:
 def type_to_confirm(message: str, required_text: str) -> bool:
     """Require user to type specific text to confirm.
 
-    Used for critical destructive operations like app:destroy.
+    Used for critical destructive operations like app destroy.
 
     Args:
         message: The confirmation message explaining what will be typed

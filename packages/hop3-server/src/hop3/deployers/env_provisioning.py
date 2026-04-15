@@ -6,7 +6,7 @@
 
 This module handles injection of environment variables from hop3.toml [env] section.
 Values from hop3.toml are treated as defaults - they only create new variables
-and never overwrite existing ones (set via config:set or addon provisioning).
+and never overwrite existing ones (set via config set or addon provisioning).
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ def set_default_env_vars(
         log(
             f"  Skipped {len(skipped_names)} env var(s) already set: "
             f"{', '.join(sorted(skipped_names))} "
-            f"(use 'hop3 config:set' to update, or set _policy = \"override\" in [env])",
+            f"(use 'hop3 config set' to update, or set _policy = \"override\" in [env])",
             level=1,
             fg="yellow",
         )

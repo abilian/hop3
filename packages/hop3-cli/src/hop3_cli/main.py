@@ -226,9 +226,31 @@ def requires_authentication(cli_args: list[str]) -> bool:
     if not cli_args:
         return False
 
-    command = cli_args[0]
-    no_auth_commands = {"help", "version", "auth", "auth:login", "auth:register"}
-    return command not in no_auth_commands
+    # Commands that can run without authentication. Space-separated tuples per
+    # ADR 036 D1.
+    #
+    # Matching rules:
+    # - ("help",), ("version",): match as a prefix (help or any subcommand of help).
+    # - ("auth", "login"), ("auth", "register"): match as a prefix (positional args OK).
+    # - ("auth",): exact match only — bare `hop3 auth` shows help without auth,
+    #   but `hop3 auth whoami` / `auth logout` require auth.
+    prefix_no_auth: set[tuple[str, ...]] = {
+        ("help",),
+        ("version",),
+        ("auth", "login"),
+        ("auth", "register"),
+    }
+    exact_no_auth: set[tuple[str, ...]] = {
+        ("auth",),
+    }
+
+    full = tuple(cli_args)
+    if full in exact_no_auth:
+        return False
+    for n in range(min(len(cli_args), 3), 0, -1):
+        if tuple(cli_args[:n]) in prefix_no_auth:
+            return False
+    return True
 
 
 def _execute_rpc_command(
@@ -315,7 +337,7 @@ def load_config() -> Config:
 def verify_authentication(config: Config) -> None:
     """Verify that the current authentication token is valid.
 
-    Makes a lightweight auth:whoami call to check if the token works.
+    Makes a lightweight auth whoami call to check if the token works.
 
     Args:
         config: The CLI configuration
@@ -327,7 +349,7 @@ def verify_authentication(config: Config) -> None:
 
     try:
         with Client(config=config) as client:
-            response = client.rpc("cli", ["auth:whoami"])
+            response = client.rpc("cli", ["auth", "whoami"])
             match response:
                 case Ok():
                     return

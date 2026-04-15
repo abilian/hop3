@@ -36,7 +36,7 @@ class GitHookCmd(Command):
     """Handle git post-receive hook to trigger deployment."""
 
     db_session: Session
-    name: ClassVar[str] = "git-hook"
+    name: ClassVar[tuple[str, ...]] = ("git-hook",)
     hidden: ClassVar[bool] = True  # Internal command, called by git hook
 
     def call(self, *args):
@@ -185,21 +185,21 @@ class GitSetupCmd(Command):
     deploy using `git push`.
 
     Usage:
-        hop3 git:setup <app_name>
+        hop3 git setup <app_name>
 
     Example:
-        hop3 git:setup myapp
+        hop3 git setup myapp
         # Then on your local machine:
         git remote add hop3 hop3@your-server:myapp
         git push hop3 main
     """
 
     db_session: Session
-    name: ClassVar[str] = "git:setup"
+    name: ClassVar[tuple[str, ...]] = ("git", "setup")
 
     def call(self, *args):
         if not args:
-            msg = "Usage: hop3 git:setup <app_name>"
+            msg = "Usage: hop3 git setup <app_name>"
             raise ValueError(msg)
 
         app_name = args[0]

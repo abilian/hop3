@@ -85,8 +85,8 @@ def test_auth_commands_available():
     # This is informational - don't fail if auth not available
     if not (
         "auth:" in result.stdout
-        or "auth:register" in result.stdout
-        or "auth:login" in result.stdout
+        or "auth register" in result.stdout
+        or "auth login" in result.stdout
     ):
         pytest.skip("Authentication commands not available on server")
 
@@ -99,7 +99,7 @@ def test_auth_register_command():
     result = subprocess.run(
         [
             "hop3",
-            "auth:register",
+            "auth", "register",
             "test-diagnostic-user",
             "test@example.com",
             "test-pass-12345",
@@ -128,7 +128,7 @@ def test_auth_login_command():
     os.environ["HOP3_API_URL"] = f"ssh://{E2E_SERVER}"
 
     result = subprocess.run(
-        ["hop3", "auth:login", "test-diagnostic-user", "test-pass-12345"],
+        ["hop3", "auth", "login", "test-diagnostic-user", "test-pass-12345"],
         check=False,
         capture_output=True,
         text=True,

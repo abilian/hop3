@@ -178,8 +178,8 @@ class UwsgiWorker:
                             "inactivity before workers are killed"
                         ),
                         troubleshooting=[
-                            f"hop3 config:set {self.app_name} UWSGI_IDLE=60",
-                            f"hop3 config:unset {self.app_name} UWSGI_IDLE",
+                            f"hop3 config set {self.app_name} UWSGI_IDLE=60",
+                            f"hop3 config unset {self.app_name} UWSGI_IDLE",
                         ],
                     )
                 )
@@ -323,8 +323,8 @@ class WsgiWorker(UwsgiWorker):
                             "concurrent async tasks, e.g. 100"
                         ),
                         troubleshooting=[
-                            f"hop3 config:set {self.app_name} UWSGI_ASYNCIO=100",
-                            f"hop3 config:unset {self.app_name} UWSGI_ASYNCIO",
+                            f"hop3 config set {self.app_name} UWSGI_ASYNCIO=100",
+                            f"hop3 config unset {self.app_name} UWSGI_ASYNCIO",
                         ],
                     )
                 )
@@ -401,7 +401,7 @@ class WebWorker(UwsgiWorker):
         #
         # Redirect stderr to the app log file so application errors (PHP
         # exceptions, Python tracebacks, etc.) are captured and visible
-        # via `hop3 app:logs`. Without this, daemon stderr goes nowhere.
+        # via `hop3 app logs`. Without this, daemon stderr goes nowhere.
         log_path = app.log_path
         daemon_log = f"{log_path}/{self.kind}.{self.ordinal}.log"
         exports_str = "; ".join(exports)

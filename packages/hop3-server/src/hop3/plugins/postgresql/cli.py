@@ -56,7 +56,7 @@ class PgCreateCmd:
 class PgDropCmd:
     """Drop a PostgreSQL database: hop pg:drop <name>.
 
-    This is a convenience command that wraps 'hop services:destroy <name>'.
+    This is a convenience command that wraps 'hop services destroy <name>'.
     WARNING: This will permanently delete all data!
     """
 

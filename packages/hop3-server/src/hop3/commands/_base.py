@@ -38,10 +38,19 @@ from ._response import text
 
 
 class Command:
-    name: ClassVar[str] = ""
-    # Command aliases (alternative names for this command)
-    # E.g., aliases = ["destroy"] allows "hop destroy" to invoke "hop app:destroy"
-    aliases: ClassVar[list[str]] = []
+    # Command name as a tuple of tokens (ADR 036 D1/D18). For example:
+    #   `hop3 config set` has name = ("config", "set")
+    #   `hop3 addon postgres diagnose` has name = ("addon", "postgres", "diagnose")
+    # A one-token name (e.g., ("deploy",)) is a top-level command.
+    # An empty tuple is the default for the base class only.
+    name: ClassVar[tuple[str, ...]] = ()
+
+    # Command aliases: alternative names (also as tuples). Server-side aliases are
+    # a legacy mechanism; per ADR 036 D9 the canonical alias table is client-side.
+    # Kept here for backward compatibility with a small number of server-registered
+    # aliases.
+    aliases: ClassVar[list[tuple[str, ...]]] = []
+
     # Authentication metadata (default: requires auth, doesn't need username)
     requires_auth: ClassVar[bool] = True
     pass_username: ClassVar[bool] = False
@@ -55,9 +64,12 @@ class Command:
         return self.get_help()
 
     def get_help(self):
+        """Default help output: list subcommands of this namespace."""
+        namespace = self.name
+        display_name = " ".join(namespace) if namespace else ""
         output = [
             "USAGE",
-            f"  $ hop {self.name} <subcommand>",
+            f"  $ hop {display_name} <subcommand>",
             "",
             "SUBCOMMANDS",
         ]
@@ -66,18 +78,18 @@ class Command:
         for cmd in commands:
             cmd_name = cmd.name
 
-            if ":" not in cmd_name:
-                # Skip commands that are not subcommands
+            # Skip commands that are not subcommands of this namespace
+            if len(cmd_name) <= len(namespace):
                 continue
-            primary_name = cmd_name.split(":")[0]
-            if primary_name != self.name:
+            if cmd_name[: len(namespace)] != namespace:
                 continue
 
             help_text = _get_first_line(cmd.__doc__)
-            output.append(f"  {cmd_name:<28} {help_text}")
+            sub_display = " ".join(cmd_name)
+            output.append(f"  {sub_display:<28} {help_text}")
 
         output.append("")
-        output.append(f"Use 'hop {self.name}:<subcommand> --help' for details.")
+        output.append(f"Use 'hop {display_name} <subcommand> --help' for details.")
 
         return [text("\n".join(output))]
 

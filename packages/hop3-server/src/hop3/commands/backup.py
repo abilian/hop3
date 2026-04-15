@@ -30,26 +30,26 @@ from ._response import success, table, text
 class BackupCreateCmd(Command):
     """Create a backup of an application.
 
-    Usage: hop3 backup:create <app> [--no-addons]
+    Usage: hop3 backup create <app> [--no-addons]
 
     Examples:
-        hop3 backup:create my-app
-        hop3 backup:create my-app --no-addons
+        hop3 backup create my-app
+        hop3 backup create my-app --no-addons
     """
 
     app_repo: AppRepository
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
-    name: ClassVar[str] = "backup:create"
+    name: ClassVar[tuple[str, ...]] = ("backup", "create")
 
     def call(self, *args):
         """Create a backup of an application."""
         if len(args) < 1:
             return [
                 text(
-                    "Usage: hop3 backup:create <app> [--no-addons]\n\n"
+                    "Usage: hop3 backup create <app> [--no-addons]\n\n"
                     "Example:\n"
-                    "  hop3 backup:create my-app"
+                    "  hop3 backup create my-app"
                 )
             ]
 
@@ -103,7 +103,7 @@ class BackupCreateCmd(Command):
             info_lines.extend([
                 "",
                 "To restore this backup:",
-                f"  hop3 backup:restore {backup_id}",
+                f"  hop3 backup restore {backup_id}",
             ])
 
             output.append(text("\n".join(info_lines)))
@@ -116,19 +116,18 @@ class BackupCreateCmd(Command):
 class BackupListCmd(Command):
     """List all backups, optionally filtered by application.
 
-    Usage: hop3 backup:list [app] [--limit N]
+    Usage: hop3 backup list [app] [--limit N]
 
     Examples:
-        hop3 backup:list
-        hop3 backup:list my-app
-        hop3 backup:list --limit 50
+        hop3 backup list
+        hop3 backup list my-app
+        hop3 backup list --limit 50
     """
 
     app_repo: AppRepository
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
-    name: ClassVar[str] = "backup:list"
-
+    name: ClassVar[tuple[str, ...]] = ("backup", "list")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app_name": {"positional": True},
@@ -195,25 +194,25 @@ class BackupListCmd(Command):
 class BackupInfoCmd(Command):
     """Show detailed information about a backup.
 
-    Usage: hop3 backup:info <backup-id>
+    Usage: hop3 backup info <backup-id>
 
     Examples:
-        hop3 backup:info 20251030_143022_a8f3d9
+        hop3 backup info 20251030_143022_a8f3d9
     """
 
     app_repo: AppRepository
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
-    name: ClassVar[str] = "backup:info"
+    name: ClassVar[tuple[str, ...]] = ("backup", "info")
 
     def call(self, *args):
         """Get backup information."""
         if len(args) < 1:
             return [
                 text(
-                    "Usage: hop3 backup:info <backup-id>\n\n"
+                    "Usage: hop3 backup info <backup-id>\n\n"
                     "Example:\n"
-                    "  hop3 backup:info 20251030_143022_a8f3d9"
+                    "  hop3 backup info 20251030_143022_a8f3d9"
                 )
             ]
 
@@ -287,18 +286,17 @@ class BackupInfoCmd(Command):
 class BackupRestoreCmd(Command):
     """Restore an application from a backup.
 
-    Usage: hop3 backup:restore <backup-id> [--target-app NAME]
+    Usage: hop3 backup restore <backup-id> [--target-app NAME]
 
     Examples:
-        hop3 backup:restore 20251030_143022_a8f3d9
-        hop3 backup:restore 20251030_143022_a8f3d9 --target-app new-app
+        hop3 backup restore 20251030_143022_a8f3d9
+        hop3 backup restore 20251030_143022_a8f3d9 --target-app new-app
     """
 
     app_repo: AppRepository
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
-    name: ClassVar[str] = "backup:restore"
-
+    name: ClassVar[tuple[str, ...]] = ("backup", "restore")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "backup_id": {"positional": True},
@@ -314,10 +312,10 @@ class BackupRestoreCmd(Command):
         if not backup_id:
             return [
                 text(
-                    "Usage: hop3 backup:restore <backup-id> [--target-app NAME]\n\n"
+                    "Usage: hop3 backup restore <backup-id> [--target-app NAME]\n\n"
                     "Examples:\n"
-                    "  hop3 backup:restore 20251030_143022_a8f3d9\n"
-                    "  hop3 backup:restore 20251030_143022_a8f3d9 --target-app new-app"
+                    "  hop3 backup restore 20251030_143022_a8f3d9\n"
+                    "  hop3 backup restore 20251030_143022_a8f3d9 --target-app new-app"
                 )
             ]
 
@@ -368,16 +366,16 @@ class BackupDeleteCmd(Command):
 
     WARNING: This action cannot be undone!
 
-    Usage: hop3 backup:delete <backup-id>
+    Usage: hop3 backup delete <backup-id>
 
     Examples:
-        hop3 backup:delete 20251030_143022_a8f3d9
+        hop3 backup delete 20251030_143022_a8f3d9
     """
 
     app_repo: AppRepository
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
-    name: ClassVar[str] = "backup:delete"
+    name: ClassVar[tuple[str, ...]] = ("backup", "delete")
     destructive: ClassVar[bool] = True
 
     def call(self, *args):
@@ -385,10 +383,10 @@ class BackupDeleteCmd(Command):
         if len(args) < 1:
             return [
                 text(
-                    "Usage: hop3 backup:delete <backup-id>\n\n"
+                    "Usage: hop3 backup delete <backup-id>\n\n"
                     "WARNING: This action cannot be undone!\n\n"
                     "Example:\n"
-                    "  hop3 backup:delete 20251030_143022_a8f3d9"
+                    "  hop3 backup delete 20251030_143022_a8f3d9"
                 )
             ]
 
@@ -428,4 +426,4 @@ class BackupDeleteCmd(Command):
 class BackupCmd(Command):
     """Manage application backups."""
 
-    name: ClassVar[str] = "backup"
+    name: ClassVar[tuple[str, ...]] = ("backup",)

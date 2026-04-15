@@ -4,7 +4,7 @@
 
 """S3-compatible object storage addon for Hop3.
 
-Each ``addons:create s3 <name>`` provisions:
+Each ``addons create s3 <name>`` provisions:
 
 - A dedicated bucket (named ``hop3-<addon_name>``)
 - A per-addon access key/secret pair scoped to that bucket
@@ -48,7 +48,7 @@ def _hop3_root() -> Path:
 class S3Addon:
     """S3 object storage addon implementing the Addon protocol.
 
-    One instance per ``addons:create s3 <name>`` call. The addon
+    One instance per ``addons create s3 <name>`` call. The addon
     delegates all S3 server interaction to the configured backend
     (see :func:`backend.get_default_backend`).
     """
@@ -126,7 +126,7 @@ class S3Addon:
         if credentials is None:
             msg = (
                 f"No credentials found for S3 addon {self.addon_name!r}. "
-                "Was it created? Run: hop3 addons:create s3 <name>"
+                "Was it created? Run: hop3 addons create s3 <name>"
             )
             raise RuntimeError(msg)
 
@@ -193,7 +193,7 @@ class S3Addon:
 
         data = json.loads(backup_path.read_text())
         # At this stage we don't re-provision the bucket from a backup;
-        # the admin is expected to run `addons:create` first.
+        # the admin is expected to run `addons create` first.
         # This method is a placeholder for the 0.6 mirror-restore.
         del data  # unused
 
@@ -202,7 +202,7 @@ class S3Addon:
     # ------------------------------------------------------------------
 
     def info(self) -> dict[str, Any]:
-        """Return current status for `hop3 addons:info`."""
+        """Return current status for `hop3 addons info`."""
         try:
             bucket_info = self.backend.bucket_info(self.bucket_name)
         except BackendError as e:

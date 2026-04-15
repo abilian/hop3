@@ -62,7 +62,7 @@ class NixpkgsWrapperTemplate:
 # metadata. No source fetching or building needed — the package is
 # already available in nixpkgs.
 #
-# Run 'hop3 nix:eject {spec.pname}' to materialize for customization.
+# Run 'hop3 nix eject {spec.pname}' to materialize for customization.
 
 {{ pkgs ? import <nixpkgs> {{}} }}:
 

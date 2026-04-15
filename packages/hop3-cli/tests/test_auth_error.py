@@ -42,8 +42,8 @@ def test_401_error_message():
 
     # Check that the error message is helpful
     assert "Authentication required" in response.message
-    assert "hop auth:login" in response.message
-    assert "hop auth:register" in response.message
+    assert "hop auth login" in response.message
+    assert "hop auth register" in response.message
     assert "config.toml" in response.message or "HOP3_API_TOKEN" in response.message
 
 
@@ -119,7 +119,7 @@ def test_jsonrpc_error_with_data_field():
     }
 
     with patch("hop3_cli.rpc.client.requests.post", return_value=mock_response):
-        response = client.rpc("cli", ["app:start"])
+        response = client.rpc("cli", ["app", "start"])
 
     assert isinstance(response, Error)
     assert response.code == -32602

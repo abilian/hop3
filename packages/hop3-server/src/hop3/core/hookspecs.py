@@ -122,7 +122,7 @@ def get_health_checks() -> list[HealthCheck]:  # type: ignore[empty-body]
     Health checks verify that services (databases, caches, etc.) are
     properly configured and accessible. They are run:
     - During server startup (warnings logged for failures)
-    - Via the `system:check` command
+    - Via the `system check` command
 
     Returns:
         List of HealthCheck instances that can verify service health.

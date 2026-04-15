@@ -38,7 +38,7 @@ class TestBackupRestoreE2E:
             assert session.check_deployed(), "App not properly deployed"
 
             # Create backup
-            result = deployment_target.run_command("backup:create", session.app_name)
+            result = deployment_target.run_command("backup", "create", session.app_name)
             assert result.success, f"Backup creation failed: {result.stderr}"
             assert "Backup created successfully!" in result.stdout
 
@@ -46,7 +46,7 @@ class TestBackupRestoreE2E:
             assert backup_id, "Could not extract backup ID from output"
 
             # Verify backup in list
-            result = deployment_target.run_command("backup:list", "--json")
+            result = deployment_target.run_command("backup", "list", "--json")
             assert result.success, f"Backup list failed: {result.stderr}"
             table = find_json_table(json.loads(result.stdout))
             assert table, "No table found in backup:list output"
@@ -55,7 +55,7 @@ class TestBackupRestoreE2E:
             )
 
             # Get backup info
-            result = deployment_target.run_command("backup:info", backup_id)
+            result = deployment_target.run_command("backup", "info", backup_id)
             assert result.success, f"Backup info failed: {result.stderr}"
             assert backup_id in result.stdout
             assert session.app_name in result.stdout
@@ -78,18 +78,18 @@ class TestBackupRestoreE2E:
 
             # Set environment variable
             result = deployment_target.run_command(
-                "config:set", session.app_name, "SECRET_KEY=my-secret-value"
+                "config", "set", session.app_name, "SECRET_KEY=my-secret-value"
             )
             assert result.success, f"Failed to set env var: {result.stderr}"
 
             # Create backup
-            result = deployment_target.run_command("backup:create", session.app_name)
+            result = deployment_target.run_command("backup", "create", session.app_name)
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)
 
             # Get backup info and verify env vars
-            result = deployment_target.run_command("backup:info", backup_id)
+            result = deployment_target.run_command("backup", "info", backup_id)
             assert result.success
             assert "Environment:" in result.stdout
 
@@ -102,7 +102,7 @@ class TestBackupRestoreE2E:
             session.deploy()  # Raises DeploymentError on failure
 
             # Create backup
-            result = deployment_target.run_command("backup:create", session.app_name)
+            result = deployment_target.run_command("backup", "create", session.app_name)
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)
@@ -122,7 +122,7 @@ def index():
             session.deploy()  # Raises DeploymentError on failure
 
             # Restore from backup
-            result = deployment_target.run_command("backup:restore", backup_id)
+            result = deployment_target.run_command("backup", "restore", backup_id)
             assert result.success, f"Restore failed: {result.stderr}"
             assert "Restore completed successfully!" in result.stdout
 
@@ -135,14 +135,14 @@ def index():
             session.deploy()  # Raises DeploymentError on failure
 
             # Create backup
-            result = deployment_target.run_command("backup:create", session.app_name)
+            result = deployment_target.run_command("backup", "create", session.app_name)
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)
 
             # Restore to a different app name
             result = deployment_target.run_command(
-                "backup:restore", backup_id, "--target-app", "cloned-app"
+                "backup", "restore", backup_id, "--target-app", "cloned-app"
             )
             assert result.success, f"Restore to different name failed: {result.stderr}"
             assert "Restore completed successfully!" in result.stdout
@@ -165,12 +165,12 @@ def index():
                 session.deploy()  # Raises DeploymentError on failure
 
                 result = deployment_target.run_command(
-                    "backup:create", session.app_name
+                    "backup", "create", session.app_name
                 )
                 assert result.success
 
         # List all backups
-        result = deployment_target.run_command("backup:list", "--json")
+        result = deployment_target.run_command("backup", "list", "--json")
         assert result.success
         output = json.loads(result.stdout)
         table = find_json_table(output)
@@ -195,13 +195,13 @@ def index():
             session.deploy()  # Raises DeploymentError on failure
 
             # Create backup
-            result = deployment_target.run_command("backup:create", session.app_name)
+            result = deployment_target.run_command("backup", "create", session.app_name)
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)
 
             # Verify backup exists
-            result = deployment_target.run_command("backup:list", "--json")
+            result = deployment_target.run_command("backup", "list", "--json")
             assert result.success
             table = find_json_table(json.loads(result.stdout))
             assert table, "No table found in backup:list output"
@@ -210,12 +210,12 @@ def index():
             )
 
             # Delete the backup
-            result = deployment_target.run_command("backup:delete", backup_id)
+            result = deployment_target.run_command("backup", "delete", backup_id)
             assert result.success
             assert "Backup deleted successfully" in result.stdout
 
             # Verify backup is gone
-            result = deployment_target.run_command("backup:list", "--json")
+            result = deployment_target.run_command("backup", "list", "--json")
             assert result.success
             table = find_json_table(json.loads(result.stdout))
             assert not backup_in_table(backup_id, table), (
@@ -256,13 +256,13 @@ conn.close()""",
             assert result.success, f"Failed to attach PostgreSQL: {result.stderr}"
 
             # Create backup (should include PostgreSQL dump)
-            result = deployment_target.run_command("backup:create", session.app_name)
+            result = deployment_target.run_command("backup", "create", session.app_name)
             assert result.success
 
             backup_id = extract_backup_id(result.stdout)
 
             # Verify backup info shows PostgreSQL service
-            result = deployment_target.run_command("backup:info", backup_id)
+            result = deployment_target.run_command("backup", "info", backup_id)
             assert result.success
             assert "postgres" in result.stdout.lower()
             assert "test-db" in result.stdout

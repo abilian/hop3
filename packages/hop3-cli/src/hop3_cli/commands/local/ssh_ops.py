@@ -226,7 +226,7 @@ def extract_token(output: str) -> str | None:
 def get_magic_link_via_ssh(ssh_target: str, username: str = "admin") -> str:
     """Get a magic link token via SSH for passwordless web login.
 
-    This calls auth:magic-link on the server which generates a short-lived,
+    This calls auth magic-link on the server which generates a short-lived,
     single-use token that can be used to log into the web dashboard.
 
     Args:
@@ -239,7 +239,7 @@ def get_magic_link_via_ssh(ssh_target: str, username: str = "admin") -> str:
     Raises:
         BootstrapError: If the command fails
     """
-    hop3_cmd = f"{HOP_SERVER_PATH} auth:magic-link {shlex.quote(username)}"
+    hop3_cmd = f"{HOP_SERVER_PATH} auth magic-link {shlex.quote(username)}"
     remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
 
     result = subprocess.run(

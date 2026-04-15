@@ -394,7 +394,7 @@ def configure_s3() -> None:
 
     print_detail(
         "MinIO API:     http://127.0.0.1:9000 "
-        "(use 'hop3 addons:create s3 <name>' to provision buckets)"
+        "(use 'hop3 addons create s3 <name>' to provision buckets)"
     )
     print_detail(
         f"MinIO Console: http://127.0.0.1:9001 (root user in {MINIO_CREDENTIALS_FILE})"

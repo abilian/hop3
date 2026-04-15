@@ -76,7 +76,7 @@ def test_rpc_auth_login_without_token(client: TestClient):
             "jsonrpc": "2.0",
             "method": "cli",
             "params": {
-                "cli_args": ["auth:login", "testuser", "password"],
+                "cli_args": ["auth", "login", "testuser", "password"],
                 "extra_args": {},
             },
             "id": 1,
@@ -167,7 +167,7 @@ async def test_rpc_whoami_with_auth(async_client: httpx.AsyncClient, valid_token
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["auth:whoami"], "extra_args": {}},
+            "params": {"cli_args": ["auth", "whoami"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": f"Bearer {valid_token}"},
@@ -189,7 +189,7 @@ def test_rpc_auth_register_is_public(client: TestClient):
             "jsonrpc": "2.0",
             "method": "cli",
             "params": {
-                "cli_args": ["auth:register", "newuser", "new@test.com", "pass123"],
+                "cli_args": ["auth", "register", "newuser", "new@test.com", "pass123"],
                 "extra_args": {},
             },
             "id": 1,

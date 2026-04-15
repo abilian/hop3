@@ -300,7 +300,7 @@ def _build_deployment_hints(
 
     if available_deployers:
         hints.append(f"\nAvailable deployers: {', '.join(available_deployers)}")
-        hints.append("Run 'hop3 system:info -v' to see all loaded plugins.")
+        hints.append("Run 'hop3 system info -v' to see all loaded plugins.")
 
     return hints
 
@@ -312,7 +312,7 @@ def _hints_for_docker_image(available_deployers: list[str]) -> list[str]:
     if "docker-compose" not in available_deployers:
         return [
             "The Docker Compose deployer is not loaded.",
-            "Run 'hop3 system:info -v' to see loaded plugins.",
+            "Run 'hop3 system info -v' to see loaded plugins.",
         ]
     return [
         "The Docker Compose deployer is available but did not accept.",
@@ -325,7 +325,7 @@ def _hints_for_virtualenv(available_deployers: list[str]) -> list[str]:
     if "uwsgi" not in available_deployers:
         return [
             "The uWSGI deployer is not loaded.",
-            "Run 'hop3 system:info -v' to see loaded plugins.",
+            "Run 'hop3 system info -v' to see loaded plugins.",
         ]
     return [
         "The uWSGI deployer is available but did not accept.",

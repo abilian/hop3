@@ -35,7 +35,7 @@ class NixEjectCmd(Command):
     need to customize the Nix expression directly.
     """
 
-    name: ClassVar[str] = "nix:eject"
+    name: ClassVar[tuple[str, ...]] = ("nix", "eject")
     db_session: Session
 
     def run(self, app_name: str) -> list:
@@ -65,7 +65,7 @@ class NixEjectCmd(Command):
             return [
                 error(
                     "No [nix].template in hop3.toml. "
-                    "nix:eject only works for template-based Nix apps."
+                    "nix eject only works for template-based Nix apps."
                 )
             ]
 
@@ -96,7 +96,7 @@ class NixEjectCmd(Command):
         # Replace the GENERATED header with ejected header
         nix_text = nix_text.replace(
             f"# GENERATED from template '{spec.template}' by hop3-nix-gen.\n"
-            f"# Run 'hop3 nix:eject {spec.pname}' to materialize for customization.",
+            f"# Run 'hop3 nix eject {spec.pname}' to materialize for customization.",
             header.rstrip(),
         )
 

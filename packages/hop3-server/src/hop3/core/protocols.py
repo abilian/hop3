@@ -451,7 +451,7 @@ class HealthCheck(Protocol):
 
     Health checks verify that a service or resource is properly configured
     and accessible. They are run during server startup and via the
-    `system:check` command.
+    `system check` command.
 
     Attributes:
         name: Unique identifier for this health check (e.g., 'mysql', 'postgresql')

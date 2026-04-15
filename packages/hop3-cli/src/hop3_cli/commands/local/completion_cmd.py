@@ -52,64 +52,64 @@ FALLBACK_COMMANDS = [
     "system",
     "version",
     # Subcommands - addons
-    "addons:attach",
-    "addons:create",
-    "addons:destroy",
-    "addons:detach",
-    "addons:info",
-    "addons:list",
-    "addons:status",
+    "addons attach",
+    "addons", "create",
+    "addons", "destroy",
+    "addons", "detach",
+    "addons", "info",
+    "addons", "list",
+    "addons", "status",
     # Subcommands - admin
-    "admin:user:add",
-    "admin:user:disable",
-    "admin:user:enable",
-    "admin:user:generate-token",
-    "admin:user:grant-admin",
-    "admin:user:info",
-    "admin:user:list",
-    "admin:user:remove",
-    "admin:user:revoke-admin",
-    "admin:user:set-password",
+    "admin user add",
+    "admin", "user", "disable",
+    "admin", "user", "enable",
+    "admin", "user", "generate-token",
+    "admin", "user", "grant-admin",
+    "admin", "user", "info",
+    "admin", "user", "list",
+    "admin", "user", "remove",
+    "admin", "user", "revoke-admin",
+    "admin", "user", "set-password",
     # Subcommands - app
-    "app:build-logs",
-    "app:debug",
-    "app:destroy",
-    "app:env",
-    "app:launch",
-    "app:logs",
-    "app:ping",
-    "app:restart",
-    "app:start",
-    "app:status",
-    "app:stop",
+    "app build-logs",
+    "app", "debug",
+    "app", "destroy",
+    "app", "env",
+    "app", "launch",
+    "app", "logs",
+    "app", "ping",
+    "app", "restart",
+    "app", "start",
+    "app", "status",
+    "app", "stop",
     # Subcommands - auth
-    "auth:login",
-    "auth:logout",
-    "auth:register",
-    "auth:whoami",
+    "auth login",
+    "auth", "logout",
+    "auth", "register",
+    "auth", "whoami",
     # Subcommands - backup
-    "backup:create",
-    "backup:delete",
-    "backup:info",
-    "backup:list",
-    "backup:restore",
+    "backup create",
+    "backup", "delete",
+    "backup", "info",
+    "backup", "list",
+    "backup", "restore",
     # Subcommands - config
-    "config:get",
-    "config:live",
-    "config:migrate",
-    "config:set",
-    "config:show",
-    "config:unset",
+    "config get",
+    "config", "live",
+    "config", "migrate",
+    "config", "set",
+    "config", "show",
+    "config", "unset",
     # Subcommands - ps
-    "ps:scale",
+    "ps scale",
     # Subcommands - system
-    "system:check",
-    "system:cleanup",
-    "system:info",
-    "system:logs",
-    "system:ps",
-    "system:status",
-    "system:uptime",
+    "system check",
+    "system", "cleanup",
+    "system", "info",
+    "system", "logs",
+    "system", "ps",
+    "system", "status",
+    "system", "uptime",
 ]
 
 # Local commands that are always added (not from server)
@@ -179,7 +179,7 @@ _hop3_completions() {
     fi
 
     # For subsequent words, provide context-sensitive completion
-    # (e.g., app names for app:logs, etc.)
+    # (e.g., app names for app logs, etc.)
     # For now, just complete with known commands
     COMPREPLY=($(compgen -W "$commands" -- "$cur"))
 }
@@ -236,11 +236,11 @@ COMMANDS_ZSH_PLACEHOLDER
         args)
             # Context-sensitive completion based on command
             case $words[2] in
-                app:logs|app:status|app:restart|app:destroy|app:enable|app:disable)
+                app logs|app status|app restart|app destroy|app:enable|app:disable)
                     # Could fetch app names dynamically here
                     _message 'app name'
                     ;;
-                config:get|config:set|config:unset)
+                config get|config set|config unset)
                     _message 'variable name'
                     ;;
                 *)
@@ -462,7 +462,7 @@ def refresh_commands_cache(config: Config, printer: RichPrinter) -> None:
 
     try:
         with Client(config=config) as client:
-            response = client.rpc("cli", ["help:commands"])
+            response = client.rpc("cli", ["help", "commands"])
 
             if not isinstance(response, Ok):
                 print("Error: Failed to fetch commands from server.", file=sys.stderr)

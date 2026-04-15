@@ -17,7 +17,7 @@ def handle_auth(args: list[str], config: Config, printer: RichPrinter) -> bool:
     """Handle the auth command - show auth help locally."""
     # If there are subcommand args, this isn't just "hop auth"
     if args and not args[0].startswith("-"):
-        # This is something like "hop auth:login" which should go to server
+        # This is something like "hop auth login" which should go to server
         return False
 
     # Check for help flag
@@ -27,10 +27,10 @@ def handle_auth(args: list[str], config: Config, printer: RichPrinter) -> bool:
     print("""Authentication commands.
 
 SUBCOMMANDS
-  auth:login       Authenticate and receive an API token.
-  auth:register    Register a new user account.
-  auth:whoami      Show current authenticated user.
-  auth:logout      Invalidate the current session token.
+  auth login       Authenticate and receive an API token.
+  auth register    Register a new user account.
+  auth whoami      Show current authenticated user.
+  auth logout      Invalidate the current session token.
 
 LOCAL COMMANDS
   login            Authenticate to a server (local handling).
@@ -47,6 +47,6 @@ EXAMPLES
   hop3 login "http://localhost:8000?token=eyJ..."
 
   # Check current user (requires server connection)
-  hop3 auth:whoami
+  hop3 auth whoami
 """)
     return True

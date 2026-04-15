@@ -47,7 +47,7 @@ class PrebuiltBinaryTemplate:
         return f"""# hop3.nix - Nix expression for {spec.pname}
 #
 # GENERATED from template 'prebuilt-binary' by hop3-nix-gen.
-# Run 'hop3 nix:eject {spec.pname}' to materialize for customization.
+# Run 'hop3 nix eject {spec.pname}' to materialize for customization.
 
 {{ pkgs ? import <nixpkgs> {{}} }}:
 

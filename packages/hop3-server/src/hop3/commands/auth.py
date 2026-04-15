@@ -26,7 +26,7 @@ from ._response import error, success, text, warning
 class AuthCmd(Command):
     """Authentication commands."""
 
-    name: ClassVar[str] = "auth"
+    name: ClassVar[tuple[str, ...]] = ("auth",)
     requires_auth: ClassVar[bool] = False  # Public command (shows help)
 
 
@@ -36,7 +36,7 @@ class AuthLoginCmd(Command):
     """Authenticate and receive an API token."""
 
     user_repo: UserRepository
-    name: ClassVar[str] = "auth:login"
+    name: ClassVar[tuple[str, ...]] = ("auth", "login")
     requires_auth: ClassVar[bool] = False  # Public command
 
     def call(self, username: str = "", password: str = "", *args):
@@ -50,7 +50,7 @@ class AuthLoginCmd(Command):
             Response with token or error message
         """
         if not username or not password:
-            return [error("Usage: hop3 auth:login <username> <password>")]
+            return [error("Usage: hop3 auth login <username> <password>")]
 
         # Look up the user
         user = self.user_repo.get_by_username(username)
@@ -100,7 +100,7 @@ class AuthWhoamiCmd(Command):
     """Display current authenticated user information."""
 
     user_repo: UserRepository
-    name: ClassVar[str] = "auth:whoami"
+    name: ClassVar[tuple[str, ...]] = ("auth", "whoami")
     pass_username: ClassVar[bool] = True  # Needs authenticated username
 
     def call(self, username: str = "", *args):
@@ -116,7 +116,7 @@ class AuthWhoamiCmd(Command):
             User information or error message
         """
         if not username:
-            return [error("Not authenticated. Use 'hop3 auth:login' to authenticate.")]
+            return [error("Not authenticated. Use 'hop3 auth login' to authenticate.")]
 
         user = self.user_repo.get_by_username(username)
         if not user:
@@ -142,7 +142,7 @@ class AuthRegisterCmd(Command):
     """Register a new user account."""
 
     user_repo: UserRepository
-    name: ClassVar[str] = "auth:register"
+    name: ClassVar[tuple[str, ...]] = ("auth", "register")
     requires_auth: ClassVar[bool] = False  # Public command
 
     def call(self, username: str = "", email: str = "", password: str = "", *args):
@@ -157,7 +157,7 @@ class AuthRegisterCmd(Command):
             Success message or error
         """
         if not username or not email or not password:
-            return [error("Usage: hop3 auth:register <username> <email> <password>")]
+            return [error("Usage: hop3 auth register <username> <email> <password>")]
 
         # Check if username already exists
         if self.user_repo.username_exists(username):
@@ -179,7 +179,7 @@ class AuthRegisterCmd(Command):
             text(f"User '{username}' registered successfully!"),
             text(""),
             text("You can now login with:"),
-            text(f"hop3 auth:login {username} <password>"),
+            text(f"hop3 auth login {username} <password>"),
         ]
 
 
@@ -193,7 +193,7 @@ class AuthLogoutCmd(Command):
     and will be rejected by the authentication middleware.
     """
 
-    name: ClassVar[str] = "auth:logout"
+    name: ClassVar[tuple[str, ...]] = ("auth", "logout")
     pass_username: ClassVar[bool] = True  # Request passes the username from the token
     pass_token_info: ClassVar[bool] = True  # Request passes the full token
 
@@ -273,14 +273,14 @@ class AuthMagicLinkCmd(Command):
     5 minutes and can only be used once.
 
     This is typically called via SSH from the command line:
-        ssh user@server hop3-server auth:magic-link
+        ssh user@server hop3-server auth magic-link
 
     Or via the CLI:
         hop3 login --web
     """
 
     user_repo: UserRepository
-    name: ClassVar[str] = "auth:magic-link"
+    name: ClassVar[tuple[str, ...]] = ("auth", "magic-link")
     requires_auth: ClassVar[bool] = False  # Called via SSH, not authenticated RPC
 
     def call(self, username: str = "admin", *args):

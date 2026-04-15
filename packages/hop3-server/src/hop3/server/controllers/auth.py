@@ -179,7 +179,7 @@ class AuthController(Controller):
         """Handle magic link login.
 
         Magic links are single-use, short-lived tokens that allow passwordless
-        login. They are generated via the auth:magic-link command (typically
+        login. They are generated via the auth magic-link command (typically
         accessed via SSH).
 
         Args:

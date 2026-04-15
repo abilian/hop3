@@ -116,7 +116,7 @@ class TestAddonsCreateCmdIntegration:
         assert len(result) == 1
         assert result[0]["t"] == "text"
         assert "Usage:" in result[0]["text"]
-        assert "addons:create" in result[0]["text"]
+        assert "addons create" in result[0]["text"]
 
     def test_create_with_postgres_success(self):
         """Test creating a PostgreSQL addon.
@@ -148,7 +148,7 @@ class TestAddonsCreateCmdIntegration:
         assert "my-database" in result[0]["text"]
         assert "postgres" in result[0]["text"]
         assert "created successfully" in result[0]["text"]
-        assert "addons:attach" in result[1]["text"]
+        assert "addons attach" in result[1]["text"]
 
     def test_create_with_redis_success(self):
         """Test creating a Redis addon.
@@ -862,7 +862,7 @@ class TestAddonsDestroyCmdIntegration:
         assert len(result) == 1
         assert result[0]["t"] == "text"
         assert "Usage:" in result[0]["text"]
-        assert "addons:destroy" in result[0]["text"]
+        assert "addons destroy" in result[0]["text"]
         assert "WARNING" in result[0]["text"]
 
     def test_destroy_success_removes_all_credentials(
@@ -1044,7 +1044,7 @@ class TestAddonsInfoCmdIntegration:
         assert len(result) == 1
         assert result[0]["t"] == "text"
         assert "Usage:" in result[0]["text"]
-        assert "addons:info" in result[0]["text"]
+        assert "addons info" in result[0]["text"]
 
     def test_info_success_displays_addon_information(self):
         """Test successful retrieval of addon information.

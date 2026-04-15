@@ -34,7 +34,7 @@ from ._response import text
 class SystemCmd(Command):
     """Manage the hop3 system."""
 
-    name: ClassVar[str] = "system"
+    name: ClassVar[tuple[str, ...]] = ("system",)
 
 
 @register
@@ -53,17 +53,17 @@ class CheckCmd(Command):
         - SSL certificates
         - Disk space
 
-    Usage: hop3 system:check [options]
+    Usage: hop3 system check [options]
 
     Options:
         --verbose, -v    Show detailed output for each check
 
     Examples:
-        hop3 system:check              # Run all health checks
-        hop3 system:check --verbose    # Detailed output
+        hop3 system check              # Run all health checks
+        hop3 system check --verbose    # Detailed output
     """
 
-    name: ClassVar[str] = "system:check"
+    name: ClassVar[tuple[str, ...]] = ("system", "check")
 
     def call(self, *args, **kwargs):
         verbose = "--verbose" in args or "-v" in args
@@ -386,7 +386,7 @@ class CheckCmd(Command):
 class UptimeCmd(Command):
     """Show host server uptime."""
 
-    name: ClassVar[str] = "system:uptime"
+    name: ClassVar[tuple[str, ...]] = ("system", "uptime")
 
     def call(self, *args):
         result = subprocess.run(
@@ -399,7 +399,7 @@ class UptimeCmd(Command):
 class PSCmd(Command):
     """List all server processes."""
 
-    name: ClassVar[str] = "system:ps"
+    name: ClassVar[tuple[str, ...]] = ("system", "ps")
 
     def call(self, *args):
         result = subprocess.run(
@@ -412,7 +412,7 @@ class PSCmd(Command):
 class StatusCmd(Command):
     """Show Hop3 system status."""
 
-    name: ClassVar[str] = "system:status"
+    name: ClassVar[tuple[str, ...]] = ("system", "status")
 
     def call(self, *args):
         version = importlib.metadata.version("hop3_server")
@@ -427,7 +427,7 @@ class InfoCmd(Command):
     Use --verbose or -v for more details including loaded plugins.
     """
 
-    name: ClassVar[str] = "system:info"
+    name: ClassVar[tuple[str, ...]] = ("system", "info")
 
     def call(self, *args, **kwargs):
         # Parse --verbose/-v from args
@@ -587,7 +587,7 @@ class InfoCmd(Command):
 class SystemLogsCmd(Command):
     """Show Hop3 server logs.
 
-    Usage: hop3 system:logs [options]
+    Usage: hop3 system logs [options]
 
     Options:
         -n, --lines N      Number of lines to show (default: 100)
@@ -597,15 +597,14 @@ class SystemLogsCmd(Command):
         -f, --follow       Follow log output (not yet implemented)
 
     Examples:
-        hop3 system:logs                    # Last 100 lines
-        hop3 system:logs -n 50              # Last 50 lines
-        hop3 system:logs --since 1h         # Last hour
-        hop3 system:logs --level ERROR      # Errors only
-        hop3 system:logs --grep deploy      # Lines containing 'deploy'
+        hop3 system logs                    # Last 100 lines
+        hop3 system logs -n 50              # Last 50 lines
+        hop3 system logs --since 1h         # Last hour
+        hop3 system logs --level ERROR      # Errors only
+        hop3 system logs --grep deploy      # Lines containing 'deploy'
     """
 
-    name: ClassVar[str] = "system:logs"
-
+    name: ClassVar[tuple[str, ...]] = ("system", "logs")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "lines": {"short": "-n", "type": int, "default": 100},
@@ -697,7 +696,7 @@ class SystemLogsCmd(Command):
 class CleanupCmd(Command):
     """Clean up unused Docker resources (networks, images, containers, volumes).
 
-    Usage: hop3 system:cleanup [options]
+    Usage: hop3 system cleanup [options]
 
     Options:
         --dry-run       Show what would be cleaned up without actually doing it
@@ -717,13 +716,13 @@ class CleanupCmd(Command):
         - Unused volumes (WARNING: may cause data loss!)
 
     Examples:
-        hop3 system:cleanup                # Safe cleanup
-        hop3 system:cleanup --dry-run      # Preview what would be cleaned
-        hop3 system:cleanup --all          # Include unused images
-        hop3 system:cleanup --volumes      # Include volumes (careful!)
+        hop3 system cleanup                # Safe cleanup
+        hop3 system cleanup --dry-run      # Preview what would be cleaned
+        hop3 system cleanup --all          # Include unused images
+        hop3 system cleanup --volumes      # Include volumes (careful!)
     """
 
-    name: ClassVar[str] = "system:cleanup"
+    name: ClassVar[tuple[str, ...]] = ("system", "cleanup")
 
     def call(self, *args, **kwargs):
         dry_run = "--dry-run" in args

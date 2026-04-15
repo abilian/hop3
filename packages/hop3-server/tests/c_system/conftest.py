@@ -259,7 +259,7 @@ def system_auth_token(hop3_config_dir: Path) -> Generator[str, None, None]:
     # Register test user with timeout
     try:
         result = subprocess.run(
-            ["hop3", "auth:register", E2E_TEST_USER, E2E_TEST_EMAIL, E2E_TEST_PASSWORD],
+            ["hop3", "auth", "register", E2E_TEST_USER, E2E_TEST_EMAIL, E2E_TEST_PASSWORD],
             check=False,
             capture_output=True,
             text=True,
@@ -294,7 +294,7 @@ def system_auth_token(hop3_config_dir: Path) -> Generator[str, None, None]:
     # Login to get token with timeout
     try:
         result = subprocess.run(
-            ["hop3", "auth:login", E2E_TEST_USER, E2E_TEST_PASSWORD],
+            ["hop3", "auth", "login", E2E_TEST_USER, E2E_TEST_PASSWORD],
             check=False,
             capture_output=True,
             text=True,
@@ -378,7 +378,7 @@ Looking for line containing 'Your API token:' followed by token on next line.
     os.environ.pop("HOP3_API_TOKEN", None)
 
     # Logout after all tests
-    subprocess.run(["hop3", "auth:logout"], check=False, capture_output=True)
+    subprocess.run(["hop3", "auth", "logout"], check=False, capture_output=True)
 
 
 # Keep old name for backward compatibility

@@ -33,7 +33,7 @@ from ._response import error, table, text, warning
 class AddonsCmd(Command):
     """Manage backing services (databases, caches, etc.)."""
 
-    name: ClassVar[str] = "addons"
+    name: ClassVar[tuple[str, ...]] = ("addons",)
 
 
 @register
@@ -41,24 +41,24 @@ class AddonsCmd(Command):
 class AddonsListCmd(Command):
     """List available addon types.
 
-    Usage: hop3 addons:list
+    Usage: hop3 addons list
 
     Shows all registered addon types that can be created.
     """
 
-    name: ClassVar[str] = "addons:list"
+    name: ClassVar[tuple[str, ...]] = ("addons", "list")
     requires_auth: ClassVar[bool] = True
 
     def call(self, *args):
         """List available addon types."""
-        server_log.info("addons:list called")
+        server_log.info("addons list called")
 
         pm = get_plugin_manager()
         addon_classes_list = pm.hook.get_addons()
         addon_classes = [cls for sublist in addon_classes_list for cls in sublist]
 
         server_log.info(
-            "addons:list found addons",
+            "addons list found addons",
             count=len(addon_classes),
             addon_types=[getattr(cls, "name", "?") for cls in addon_classes],
         )
@@ -86,26 +86,26 @@ class AddonsListCmd(Command):
 class AddonsCreateCmd(Command):
     """Create a new backing service instance.
 
-    Usage: hop3 addons:create <type> <name>
+    Usage: hop3 addons create <type> <name>
 
     Examples:
-        hop3 addons:create postgres my-database
-        hop3 addons:create redis my-cache
+        hop3 addons create postgres my-database
+        hop3 addons create redis my-cache
     """
 
-    name: ClassVar[str] = "addons:create"
+    name: ClassVar[tuple[str, ...]] = ("addons", "create")
     requires_auth: ClassVar[bool] = True
 
     def call(self, *args):
         """Create a new service instance."""
-        server_log.info("addons:create called", args=args)
+        server_log.info("addons create called", args=args)
 
         if len(args) < 2:
             return [
                 text(
-                    "Usage: hop3 addons:create <type> <name>\n\n"
+                    "Usage: hop3 addons create <type> <name>\n\n"
                     "Example:\n"
-                    "  hop3 addons:create postgres my-database"
+                    "  hop3 addons create postgres my-database"
                 )
             ]
 
@@ -117,23 +117,23 @@ class AddonsCreateCmd(Command):
         ):
             # Get the service strategy from the plugin system
             server_log.info(
-                "addons:create getting addon",
+                "addons create getting addon",
                 service_type=service_type,
                 addon_name=addon_name,
             )
             addon = get_addon(service_type, addon_name)
 
             # Create the service
-            server_log.info("addons:create calling addon.create()")
+            server_log.info("addons create calling addon.create()")
             addon.create()
-            server_log.info("addons:create addon.create() completed successfully")
+            server_log.info("addons create addon.create() completed successfully")
 
         return [
             text(
                 f"Addon '{addon_name}' of type '{service_type}' created successfully."
             ),
             text(
-                f"\nTo attach this service to an app, run:\n  hop3 addons:attach {addon_name} --app <app-name>"
+                f"\nTo attach this service to an app, run:\n  hop3 addons attach {addon_name} --app <app-name>"
             ),
         ]
 
@@ -146,18 +146,17 @@ class AddonsAttachCmd(Command):
     This command injects the service's connection details as environment
     variables into the specified application.
 
-    Usage: hop3 addons:attach <name> --app <app-name> [--type <type>]
+    Usage: hop3 addons attach <name> --app <app-name> [--type <type>]
 
     Examples:
-        hop3 addons:attach my-database --app my-app --type postgres
-        hop3 addons:attach my-cache --app my-app --type redis
+        hop3 addons attach my-database --app my-app --type postgres
+        hop3 addons attach my-cache --app my-app --type redis
     """
 
     app_repo: AppRepository
     addon_credential_repo: AddonCredentialRepository
     env_var_repo: EnvVarRepository
-    name: ClassVar[str] = "addons:attach"
-
+    name: ClassVar[tuple[str, ...]] = ("addons", "attach")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
@@ -194,7 +193,7 @@ class AddonsAttachCmd(Command):
     def _add_env_vars(self, app, connection_details: dict) -> list[str]:
         """Add or update environment variables for the app.
 
-        Uses the same pattern as config:set - using the relationship and
+        Uses the same pattern as config set - using the relationship and
         appending to app.env_vars to ensure SQLAlchemy properly tracks changes.
 
         Args:
@@ -223,7 +222,7 @@ class AddonsAttachCmd(Command):
                 value_preview=log_value,
             )
 
-            # Check if variable already exists (same pattern as config:set)
+            # Check if variable already exists (same pattern as config set)
             existing = self.env_var_repo.get_by_app_and_name(app.id, key)
 
             if existing:
@@ -238,7 +237,7 @@ class AddonsAttachCmd(Command):
                 new_var = EnvVar(app_id=app.id, name=key, value=value)
                 self.env_var_repo.add(new_var)
                 # Also append to collection for immediate visibility
-                # (this is what config:set does via relationship assignment)
+                # (this is what config set does via relationship assignment)
                 app.env_vars.append(new_var)
                 added_vars.append(f"Added {key}")
                 server_log.info("Added new env var", app_id=app.id, key=key)
@@ -253,7 +252,7 @@ class AddonsAttachCmd(Command):
 
     def call(self, *args):
         """Attach a service to an application."""
-        server_log.info("addons:attach called", args=args)
+        server_log.info("addons attach called", args=args)
 
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
@@ -263,14 +262,14 @@ class AddonsAttachCmd(Command):
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addons:attach <name> --app <app-name> [--type <type>]\n\n"
+                    "Usage: hop3 addons attach <name> --app <app-name> [--type <type>]\n\n"
                     "Example:\n"
-                    "  hop3 addons:attach my-database --app my-app --type postgres"
+                    "  hop3 addons attach my-database --app my-app --type postgres"
                 )
             ]
 
         server_log.info(
-            "addons:attach parsed args",
+            "addons attach parsed args",
             addon_name=addon_name,
             app_name=app_name,
             service_type=service_type,
@@ -280,7 +279,7 @@ class AddonsAttachCmd(Command):
             return [
                 error(
                     "Error: --app parameter is required\n\n"
-                    "Usage: hop3 addons:attach <name> --app <app-name>"
+                    "Usage: hop3 addons attach <name> --app <app-name>"
                 )
             ]
 
@@ -291,12 +290,12 @@ class AddonsAttachCmd(Command):
             app = self.app_repo.get_one_or_none(name=app_name)
 
             if not app:
-                server_log.warning("addons:attach app not found", app_name=app_name)
+                server_log.warning("addons attach app not found", app_name=app_name)
                 msg = f"App '{app_name}' not found"
                 raise ValueError(msg)
 
             server_log.info(
-                "addons:attach found app",
+                "addons attach found app",
                 app_name=app_name,
                 app_id=app.id,
                 current_env_vars_count=len(list(app.env_vars)),
@@ -305,7 +304,7 @@ class AddonsAttachCmd(Command):
             # Get the service strategy and connection details
             addon = get_addon(service_type, addon_name)
             server_log.info(
-                "addons:attach got addon",
+                "addons attach got addon",
                 addon_type=type(addon).__name__,
                 addon_name=addon_name,
             )
@@ -314,13 +313,13 @@ class AddonsAttachCmd(Command):
             connection_details = addon.get_connection_details()
 
             server_log.info(
-                "addons:attach got connection details",
+                "addons attach got connection details",
                 connection_details_keys=list(connection_details.keys()),
                 has_database_url="DATABASE_URL" in connection_details,
             )
 
             if not connection_details:
-                server_log.error("addons:attach connection_details is empty!")
+                server_log.error("addons attach connection_details is empty!")
                 msg = "No connection details returned from addon"
                 raise ValueError(msg)
 
@@ -334,7 +333,7 @@ class AddonsAttachCmd(Command):
             # Commit all changes via repository
             self.addon_credential_repo.session.commit()
             server_log.info(
-                "addons:attach committed",
+                "addons attach committed",
                 app_id=app.id,
                 added_vars=added_vars,
             )
@@ -347,7 +346,7 @@ class AddonsAttachCmd(Command):
             if app_after:
                 env_var_names = [ev.name for ev in app_after.env_vars]
                 server_log.info(
-                    "addons:attach verification",
+                    "addons attach verification",
                     app_id=app_after.id,
                     env_vars_count_after=len(env_var_names),
                     env_vars_names=env_var_names,
@@ -388,14 +387,13 @@ class AddonsDetachCmd(Command):
 
     This removes the service's environment variables from the application.
 
-    Usage: hop3 addons:detach <name> --app <app-name> [--type <type>]
+    Usage: hop3 addons detach <name> --app <app-name> [--type <type>]
     """
 
     app_repo: AppRepository
     addon_credential_repo: AddonCredentialRepository
     env_var_repo: EnvVarRepository
-    name: ClassVar[str] = "addons:detach"
-
+    name: ClassVar[tuple[str, ...]] = ("addons", "detach")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
@@ -456,9 +454,9 @@ class AddonsDetachCmd(Command):
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addons:detach <name> --app <app-name> [--type <type>]\n\n"
+                    "Usage: hop3 addons detach <name> --app <app-name> [--type <type>]\n\n"
                     "Example:\n"
-                    "  hop3 addons:detach my-database --app my-app"
+                    "  hop3 addons detach my-database --app my-app"
                 )
             ]
 
@@ -500,11 +498,11 @@ class AddonsDestroyCmd(Command):
 
     WARNING: This will permanently delete all data in the service!
 
-    Usage: hop3 addons:destroy <name> [--type <type>]
+    Usage: hop3 addons destroy <name> [--type <type>]
     """
 
     addon_credential_repo: AddonCredentialRepository
-    name: ClassVar[str] = "addons:destroy"
+    name: ClassVar[tuple[str, ...]] = ("addons", "destroy")
     destructive: ClassVar[bool] = True
 
     # Argument specification for declarative parsing
@@ -522,10 +520,10 @@ class AddonsDestroyCmd(Command):
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addons:destroy <name> [--type <type>]\n\n"
+                    "Usage: hop3 addons destroy <name> [--type <type>]\n\n"
                     "WARNING: This will permanently delete all data!\n\n"
                     "Example:\n"
-                    "  hop3 addons:destroy my-database --type postgres"
+                    "  hop3 addons destroy my-database --type postgres"
                 )
             ]
 
@@ -568,10 +566,10 @@ class AddonsDestroyCmd(Command):
 class AddonsInfoCmd(Command):
     """Get information about a service instance.
 
-    Usage: hop3 addons:info <name> [--type <type>]
+    Usage: hop3 addons info <name> [--type <type>]
     """
 
-    name: ClassVar[str] = "addons:info"
+    name: ClassVar[tuple[str, ...]] = ("addons", "info")
     requires_auth: ClassVar[bool] = True
 
     # Argument specification for declarative parsing
@@ -589,9 +587,9 @@ class AddonsInfoCmd(Command):
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addons:info <name> [--type <type>]\n\n"
+                    "Usage: hop3 addons info <name> [--type <type>]\n\n"
                     "Example:\n"
-                    "  hop3 addons:info my-database --type postgres"
+                    "  hop3 addons info my-database --type postgres"
                 )
             ]
 
@@ -620,16 +618,15 @@ class AddonsStatusCmd(Command):
 
     Performs a health check on the addon and shows all attached applications.
 
-    Usage: hop3 addons:status <name> [--type <type>]
+    Usage: hop3 addons status <name> [--type <type>]
 
     Examples:
-        hop3 addons:status my-database --type postgres
-        hop3 addons:status my-cache --type redis
+        hop3 addons status my-database --type postgres
+        hop3 addons status my-cache --type redis
     """
 
     addon_credential_repo: AddonCredentialRepository
-    name: ClassVar[str] = "addons:status"
-
+    name: ClassVar[tuple[str, ...]] = ("addons", "status")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
@@ -667,9 +664,9 @@ class AddonsStatusCmd(Command):
         """Return usage message."""
         return [
             text(
-                "Usage: hop3 addons:status <name> [--type <type>]\n\n"
+                "Usage: hop3 addons status <name> [--type <type>]\n\n"
                 "Example:\n"
-                "  hop3 addons:status my-database --type postgres"
+                "  hop3 addons status my-database --type postgres"
             )
         ]
 

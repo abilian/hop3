@@ -15,16 +15,17 @@ class HelpCmd(Command):
     """Display useful help messages.
 
     Usage:
-        hop help              Show top-level commands
-        hop help <command>    Show detailed help for a command
-        hop help --all        Show all commands including subcommands
+        hop help                  Show top-level commands
+        hop help <command>        Show detailed help for a command
+        hop help <ns> <verb>      Show detailed help for a namespaced command
+        hop help --all            Show all commands including subcommands
 
     Examples:
-        hop help auth         Show auth command help and its subcommands
-        hop help config:set   Show help for config:set command
+        hop help auth             Show auth command help and its subcommands
+        hop help config set       Show help for 'config set' command
     """
 
-    name: ClassVar[str] = "help"
+    name: ClassVar[tuple[str, ...]] = ("help",)
     requires_auth: ClassVar[bool] = False  # Public command
 
     def call(self, *args):
@@ -34,10 +35,10 @@ class HelpCmd(Command):
         if show_all:
             arg_list.remove("--all")
 
-        # If a command name is provided, show detailed help for that command
+        # If a command name is provided, show detailed help for that command.
+        # Remaining tokens form the command path tuple (e.g., ("config", "set")).
         if arg_list:
-            command_name = arg_list[0]
-            return self._detailed_help(command_name)
+            return self._detailed_help(tuple(arg_list))
 
         # Show commands overview
         if show_all:
@@ -57,7 +58,7 @@ class HelpCmd(Command):
 
         commands = lookup(Command)
 
-        # Find top-level commands and count subcommands
+        # Find top-level (single-token) commands and count subcommands of each namespace
         top_level_cmds: dict[str, type[Command]] = {}
         subcommand_counts: dict[str, int] = {}
 
@@ -66,25 +67,21 @@ class HelpCmd(Command):
             if getattr(cmd, "hidden", False):
                 continue
             name = cmd.name
-            if ":" in name:
-                # This is a subcommand - count it under its prefix
-                prefix = name.split(":")[0]
-                subcommand_counts[prefix] = subcommand_counts.get(prefix, 0) + 1
+            if not name:
+                continue
+            if len(name) == 1:
+                # Top-level command or namespace root
+                top_level_cmds[name[0]] = cmd
             else:
-                # This is a top-level command
-                top_level_cmds[name] = cmd
+                # This is a subcommand; count it under its namespace root
+                prefix = name[0]
+                subcommand_counts[prefix] = subcommand_counts.get(prefix, 0) + 1
 
         # Build output
-        for name in sorted(top_level_cmds.keys()):
-            cmd = top_level_cmds[name]
+        for display in sorted(top_level_cmds.keys()):
+            cmd = top_level_cmds[display]
             help_text = self._get_short_help(cmd.__doc__)
-            sub_count = subcommand_counts.get(name, 0)
-
-            if sub_count > 0:
-                # Add indicator for commands with subcommands
-                output.append(f"  {name:<16} {help_text}")
-            else:
-                output.append(f"  {name:<16} {help_text}")
+            output.append(f"  {display:<16} {help_text}")
 
         output.append("")
         output.append("Use 'hop help <command>' to see subcommands and detailed help.")
@@ -108,19 +105,22 @@ class HelpCmd(Command):
             # Skip hidden commands (internal/technical)
             if getattr(cmd, "hidden", False):
                 continue
-            cmd_name = cmd.name
+            display = " ".join(cmd.name)
             help_text = self._get_short_help(cmd.__doc__)
-            output.append(f"  {cmd_name:<24} {help_text}")
+            output.append(f"  {display:<24} {help_text}")
 
         return [text("\n".join(output))]
 
-    def _detailed_help(self, command_name: str):
+    def _detailed_help(self, command_name: tuple[str, ...]):
         """Show detailed help for a specific command.
 
         If the command has subcommands, they will be listed as well.
+        If the tokens don't exactly match a command, we try the longest matching
+        prefix (so `help run myapp` still finds `run`, and `help config show foo`
+        finds `config show`).
 
         Args:
-            command_name: The name of the command to show help for
+            command_name: Tuple of tokens identifying the command (e.g., ("config", "set"))
 
         Returns:
             Formatted help output for the command
@@ -128,28 +128,40 @@ class HelpCmd(Command):
         all_commands = lookup(Command)
         commands = {cmd.name: cmd for cmd in all_commands}
 
-        if command_name not in commands:
+        # Try longest-prefix match so extra positional args don't break help.
+        matched: tuple[str, ...] | None = None
+        for n in range(len(command_name), 0, -1):
+            key = command_name[:n]
+            if key in commands:
+                matched = key
+                break
+
+        display = " ".join(command_name)
+        if matched is None:
             return [
-                error(f"Unknown command: {command_name}"),
+                error(f"Unknown command: {display}"),
                 text("\nRun 'hop help' to see all available commands."),
             ]
+        command_name = matched
+        display = " ".join(command_name)
 
         cmd = commands[command_name]
         docstring = cmd.__doc__ or "No help available for this command."
 
         output = [
-            f"COMMAND: {command_name}",
+            f"COMMAND: {display}",
             "",
             docstring.strip(),
         ]
 
-        # Find subcommands (commands that start with this command name followed by :)
-        # Exclude hidden subcommands
-        prefix = command_name + ":"
+        # Find subcommands: commands whose name has this command name as a strict prefix.
+        # Exclude hidden subcommands.
         subcommands = [
             c
             for c in all_commands
-            if c.name.startswith(prefix) and not getattr(c, "hidden", False)
+            if len(c.name) > len(command_name)
+            and c.name[: len(command_name)] == command_name
+            and not getattr(c, "hidden", False)
         ]
 
         if subcommands:
@@ -157,8 +169,9 @@ class HelpCmd(Command):
             output.append("")
             output.append("SUBCOMMANDS")
             for sub in subcommands:
+                sub_display = " ".join(sub.name)
                 help_text = self._get_short_help(sub.__doc__)
-                output.append(f"  {sub.name:<28} {help_text}")
+                output.append(f"  {sub_display:<28} {help_text}")
 
         return [text("\n".join(output))]
 
@@ -198,20 +211,23 @@ class HelpCommandsCmd(Command):
     Used by the CLI to generate and cache shell completion scripts.
 
     Usage:
-        hop help:commands
+        hop help commands
 
     Output:
-        {"commands": ["addons", "addons:attach", "app", "app:logs", ...]}
+        {"commands": ["addon", "addon attach", "app", "app logs", ...]}
     """
 
-    name: ClassVar[str] = "help:commands"
+    name: ClassVar[tuple[str, ...]] = ("help", "commands")
     requires_auth: ClassVar[bool] = False  # Public command
+    hidden: ClassVar[bool] = True  # RPC endpoint, not user-facing
 
     def call(self, *args):
-        """Return list of command names as structured data."""
+        """Return list of command names (as space-joined strings) as structured data."""
         commands = lookup(Command)
         command_names = sorted(
-            cmd.name for cmd in commands if not getattr(cmd, "hidden", False)
+            " ".join(cmd.name)
+            for cmd in commands
+            if not getattr(cmd, "hidden", False)
         )
 
         return [data({"commands": command_names})]

@@ -81,7 +81,7 @@ def test_accept_aborts_when_both_present(tmp_path: Path):
     # Error must point to a remedy
     assert "Delete hop3.nix" in msg or "Remove the [nix].template" in msg
     # Error must mention nix:eject as the conversion path
-    assert "nix:eject" in msg
+    assert "nix eject" in msg
 
 
 def test_build_aborts_when_both_present(tmp_path: Path):

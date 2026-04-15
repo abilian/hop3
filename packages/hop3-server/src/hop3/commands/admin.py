@@ -34,7 +34,7 @@ def require_admin(username: str, user_repo: UserRepository) -> list[dict] | None
     """
     if not username:
         return [
-            error("Authentication required. Use 'hop3 auth:login' to authenticate.")
+            error("Authentication required. Use 'hop3 auth login' to authenticate.")
         ]
 
     user = user_repo.get_by_username(username)
@@ -49,7 +49,7 @@ def require_admin(username: str, user_repo: UserRepository) -> list[dict] | None
 class AdminCmd(Command):
     """Administrative commands."""
 
-    name: ClassVar[str] = "admin"
+    name: ClassVar[tuple[str, ...]] = ("admin",)
 
 
 @register
@@ -57,19 +57,19 @@ class AdminCmd(Command):
 class AdminUserAddCmd(Command):
     """Create a new user account.
 
-    Usage: hop3 admin:user:add <username> <email> <password> [--admin]
+    Usage: hop3 admin user add <username> <email> <password> [--admin]
 
     Options:
         --admin: Grant admin privileges to the new user
 
     Examples:
-        hop3 admin:user:add john john@example.com secret123
-        hop3 admin:user:add admin admin@example.com admin123 --admin
+        hop3 admin user add john john@example.com secret123
+        hop3 admin user add admin admin@example.com admin123 --admin
     """
 
     user_repo: UserRepository
     role_repo: RoleRepository
-    name: ClassVar[str] = "admin:user:add"
+    name: ClassVar[tuple[str, ...]] = ("admin", "user", "add")
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -100,7 +100,7 @@ class AdminUserAddCmd(Command):
         if not username or not email or not password:
             return [
                 error(
-                    "Usage: hop3 admin:user:add <username> <email> <password> [--admin]"
+                    "Usage: hop3 admin user add <username> <email> <password> [--admin]"
                 )
             ]
 
@@ -149,16 +149,16 @@ class AdminUserAddCmd(Command):
 class AdminUserRemoveCmd(Command):
     """Remove a user account.
 
-    Usage: hop3 admin:user:remove <username>
+    Usage: hop3 admin user remove <username>
 
     Warning: This permanently deletes the user account.
 
     Examples:
-        hop3 admin:user:remove john
+        hop3 admin user remove john
     """
 
     user_repo: UserRepository
-    name: ClassVar[str] = "admin:user:remove"
+    name: ClassVar[tuple[str, ...]] = ("admin", "user", "remove")
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -177,7 +177,7 @@ class AdminUserRemoveCmd(Command):
             return admin_error
 
         if not username:
-            return [error("Usage: hop3 admin:user:remove <username>")]
+            return [error("Usage: hop3 admin user remove <username>")]
 
         # Prevent self-deletion
         if username == authenticated_username:
@@ -199,14 +199,14 @@ class AdminUserRemoveCmd(Command):
 class AdminUserListCmd(Command):
     """List all user accounts.
 
-    Usage: hop3 admin:user:list
+    Usage: hop3 admin user list
 
     Examples:
-        hop3 admin:user:list
+        hop3 admin user list
     """
 
     user_repo: UserRepository
-    name: ClassVar[str] = "admin:user:list"
+    name: ClassVar[tuple[str, ...]] = ("admin", "user", "list")
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -258,14 +258,14 @@ class AdminUserListCmd(Command):
 class AdminUserEnableCmd(Command):
     """Enable a disabled user account.
 
-    Usage: hop3 admin:user:enable <username>
+    Usage: hop3 admin user enable <username>
 
     Examples:
-        hop3 admin:user:enable john
+        hop3 admin user enable john
     """
 
     user_repo: UserRepository
-    name: ClassVar[str] = "admin:user:enable"
+    name: ClassVar[tuple[str, ...]] = ("admin", "user", "enable")
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -284,7 +284,7 @@ class AdminUserEnableCmd(Command):
             return admin_error
 
         if not username:
-            return [error("Usage: hop3 admin:user:enable <username>")]
+            return [error("Usage: hop3 admin user enable <username>")]
 
         # Find the user
         user = self.user_repo.get_by_username(username)
@@ -306,14 +306,14 @@ class AdminUserEnableCmd(Command):
 class AdminUserDisableCmd(Command):
     """Disable a user account.
 
-    Usage: hop3 admin:user:disable <username>
+    Usage: hop3 admin user disable <username>
 
     Examples:
-        hop3 admin:user:disable john
+        hop3 admin user disable john
     """
 
     user_repo: UserRepository
-    name: ClassVar[str] = "admin:user:disable"
+    name: ClassVar[tuple[str, ...]] = ("admin", "user", "disable")
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -332,7 +332,7 @@ class AdminUserDisableCmd(Command):
             return admin_error
 
         if not username:
-            return [error("Usage: hop3 admin:user:disable <username>")]
+            return [error("Usage: hop3 admin user disable <username>")]
 
         # Prevent self-disable
         if username == authenticated_username:
@@ -358,15 +358,15 @@ class AdminUserDisableCmd(Command):
 class AdminUserGrantAdminCmd(Command):
     """Grant admin privileges to a user.
 
-    Usage: hop3 admin:user:grant-admin <username>
+    Usage: hop3 admin user grant-admin <username>
 
     Examples:
-        hop3 admin:user:grant-admin john
+        hop3 admin user grant-admin john
     """
 
     user_repo: UserRepository
     role_repo: RoleRepository
-    name: ClassVar[str] = "admin:user:grant-admin"
+    name: ClassVar[tuple[str, ...]] = ("admin", "user", "grant-admin")
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -385,7 +385,7 @@ class AdminUserGrantAdminCmd(Command):
             return admin_error
 
         if not username:
-            return [error("Usage: hop3 admin:user:grant-admin <username>")]
+            return [error("Usage: hop3 admin user grant-admin <username>")]
 
         # Find the user
         user = self.user_repo.get_by_username(username)
@@ -413,15 +413,15 @@ class AdminUserGrantAdminCmd(Command):
 class AdminUserRevokeAdminCmd(Command):
     """Revoke admin privileges from a user.
 
-    Usage: hop3 admin:user:revoke-admin <username>
+    Usage: hop3 admin user revoke-admin <username>
 
     Examples:
-        hop3 admin:user:revoke-admin john
+        hop3 admin user revoke-admin john
     """
 
     user_repo: UserRepository
     role_repo: RoleRepository
-    name: ClassVar[str] = "admin:user:revoke-admin"
+    name: ClassVar[tuple[str, ...]] = ("admin", "user", "revoke-admin")
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -440,7 +440,7 @@ class AdminUserRevokeAdminCmd(Command):
             return admin_error
 
         if not username:
-            return [error("Usage: hop3 admin:user:revoke-admin <username>")]
+            return [error("Usage: hop3 admin user revoke-admin <username>")]
 
         # Prevent self-revocation
         if username == authenticated_username:
@@ -468,14 +468,14 @@ class AdminUserRevokeAdminCmd(Command):
 class AdminUserSetPasswordCmd(Command):
     """Reset a user's password.
 
-    Usage: hop3 admin:user:set-password <username> <new_password>
+    Usage: hop3 admin user set-password <username> <new_password>
 
     Examples:
-        hop3 admin:user:set-password john newpassword123
+        hop3 admin user set-password john newpassword123
     """
 
     user_repo: UserRepository
-    name: ClassVar[str] = "admin:user:set-password"
+    name: ClassVar[tuple[str, ...]] = ("admin", "user", "set-password")
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -502,7 +502,7 @@ class AdminUserSetPasswordCmd(Command):
 
         if not username or not new_password:
             return [
-                error("Usage: hop3 admin:user:set-password <username> <new_password>")
+                error("Usage: hop3 admin user set-password <username> <new_password>")
             ]
 
         # Find the user
@@ -522,14 +522,14 @@ class AdminUserSetPasswordCmd(Command):
 class AdminUserInfoCmd(Command):
     """Display detailed information about a user.
 
-    Usage: hop3 admin:user:info <username>
+    Usage: hop3 admin user info <username>
 
     Examples:
-        hop3 admin:user:info john
+        hop3 admin user info john
     """
 
     user_repo: UserRepository
-    name: ClassVar[str] = "admin:user:info"
+    name: ClassVar[tuple[str, ...]] = ("admin", "user", "info")
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -548,7 +548,7 @@ class AdminUserInfoCmd(Command):
             return admin_error
 
         if not username:
-            return [error("Usage: hop3 admin:user:info <username>")]
+            return [error("Usage: hop3 admin user info <username>")]
 
         # Find the user
         user = self.user_repo.get_by_username(username)
@@ -579,16 +579,16 @@ class AdminUserInfoCmd(Command):
 class AdminUserGenerateTokenCmd(Command):
     """Generate a new API token for a user (bootstrap helper).
 
-    Usage: hop3 admin:user:generate-token <username>
+    Usage: hop3 admin user generate-token <username>
 
     This is useful for bootstrapping or when a user has lost their token.
 
     Examples:
-        hop3 admin:user:generate-token john
+        hop3 admin user generate-token john
     """
 
     user_repo: UserRepository
-    name: ClassVar[str] = "admin:user:generate-token"
+    name: ClassVar[tuple[str, ...]] = ("admin", "user", "generate-token")
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -607,7 +607,7 @@ class AdminUserGenerateTokenCmd(Command):
             return admin_error
 
         if not username:
-            return [error("Usage: hop3 admin:user:generate-token <username>")]
+            return [error("Usage: hop3 admin user generate-token <username>")]
 
         # Find the user
         user = self.user_repo.get_by_username(username)

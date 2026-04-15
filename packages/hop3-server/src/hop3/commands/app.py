@@ -103,7 +103,7 @@ def _run_lifecycle_action(
 class AppCmd(Command):
     """Commands for managing app instances."""
 
-    name: ClassVar[str] = "app"
+    name: ClassVar[tuple[str, ...]] = ("app",)
 
 
 @register
@@ -112,7 +112,7 @@ class LaunchCmd(Command):
     """Create and configure a new app from a source code repository."""
 
     db_session: Session
-    name: ClassVar[str] = "app:launch"
+    name: ClassVar[tuple[str, ...]] = ("app", "launch")
 
     def call(self, *args):
         if len(args) != 2:
@@ -160,7 +160,7 @@ class DeployCmd(Command):
     """Deploy an application from its configured repository."""
 
     db_session: Session
-    name: ClassVar[str] = "deploy"
+    name: ClassVar[tuple[str, ...]] = ("deploy",)
 
     def call(self, *args, **kwargs):
         if not args:
@@ -325,11 +325,11 @@ class StatusCmd(Command):
     """Show detailed status of an application."""
 
     db_session: Session
-    name: ClassVar[str] = "app:status"
+    name: ClassVar[tuple[str, ...]] = ("app", "status")
 
     def call(self, *args):
         if not args:
-            msg = "Usage: hop app:status <app_name>"
+            msg = "Usage: hop app status <app_name>"
             raise ValueError(msg)
         app_name = args[0]
         app = get_app(self.db_session, app_name)
@@ -386,19 +386,19 @@ class StatusCmd(Command):
 class PingCmd(Command):
     """Check if an application is responding to HTTP requests.
 
-    Usage: hop3 app:ping <app_name> [path]
+    Usage: hop3 app ping <app_name> [path]
 
     Examples:
-        hop3 app:ping myapp           # Ping root path
-        hop3 app:ping myapp /health   # Ping health endpoint
+        hop3 app ping myapp           # Ping root path
+        hop3 app ping myapp /health   # Ping health endpoint
     """
 
     db_session: Session
-    name: ClassVar[str] = "app:ping"
+    name: ClassVar[tuple[str, ...]] = ("app", "ping")
 
     def call(self, *args):
         if not args:
-            msg = "Usage: hop app:ping <app_name> [path]"
+            msg = "Usage: hop app ping <app_name> [path]"
             raise ValueError(msg)
 
         app_name = args[0]
@@ -475,7 +475,7 @@ class PingCmd(Command):
 class LogsCmd(Command):
     """Show application logs.
 
-    Usage: hop3 app:logs <app_name> [options]
+    Usage: hop3 app logs <app_name> [options]
 
     Options:
         -n, --lines N      Number of lines to show (default: 100)
@@ -483,15 +483,14 @@ class LogsCmd(Command):
         --since-deploy     Only show logs since the last deployment
 
     Examples:
-        hop3 app:logs myapp              # Last 100 lines
-        hop3 app:logs myapp -n 50        # Last 50 lines
-        hop3 app:logs myapp --grep error # Lines containing 'error'
-        hop3 app:logs myapp --since-deploy  # Logs since last deploy
+        hop3 app logs myapp              # Last 100 lines
+        hop3 app logs myapp -n 50        # Last 50 lines
+        hop3 app logs myapp --grep error # Lines containing 'error'
+        hop3 app logs myapp --since-deploy  # Logs since last deploy
     """
 
     db_session: Session
-    name: ClassVar[str] = "app:logs"
-
+    name: ClassVar[tuple[str, ...]] = ("app", "logs")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app_name": {"positional": True},
@@ -505,7 +504,7 @@ class LogsCmd(Command):
         app_name = parsed.get("app_name")
 
         if not app_name:
-            msg = "Usage: hop3 app:logs <app_name> [options]"
+            msg = "Usage: hop3 app logs <app_name> [options]"
             raise ValueError(msg)
 
         app = get_app(self.db_session, app_name)
@@ -539,21 +538,21 @@ class LogsCmd(Command):
 class BuildLogsCmd(Command):
     """Show build logs for an application.
 
-    Usage: hop3 app:build-logs <app_name>
+    Usage: hop3 app build-logs <app_name>
 
     Displays the most recent Docker/local build output for debugging
     deployment issues.
 
     Examples:
-        hop3 app:build-logs myapp    # Show build logs for myapp
+        hop3 app build-logs myapp    # Show build logs for myapp
     """
 
     db_session: Session
-    name: ClassVar[str] = "app:build-logs"
+    name: ClassVar[tuple[str, ...]] = ("app", "build-logs")
 
     def call(self, *args):
         if not args:
-            msg = "Usage: hop3 app:build-logs <app_name>"
+            msg = "Usage: hop3 app build-logs <app_name>"
             raise ValueError(msg)
 
         app_name = args[0]
@@ -583,7 +582,7 @@ class StartCmd(Command):
     """Start a stopped app."""
 
     db_session: Session
-    name: ClassVar[str] = "app:start"
+    name: ClassVar[tuple[str, ...]] = ("app", "start")
 
     def call(self, *args):
         if not args:
@@ -597,13 +596,13 @@ class StartCmd(Command):
             action_method="start",
             final_messages=[
                 f"App '{app_name}' is starting...",
-                "Use 'hop3 app:status' to check when it's running.",
+                "Use 'hop3 app status' to check when it's running.",
             ],
             state_checks={
                 "RUNNING": [f"App '{app_name}' is already running."],
                 "STARTING": [
                     f"App '{app_name}' is already starting...",
-                    "Use 'hop3 app:status' to check progress.",
+                    "Use 'hop3 app status' to check progress.",
                 ],
                 "STOPPING": [
                     f"App '{app_name}' is currently stopping.",
@@ -619,7 +618,7 @@ class StopCmd(Command):
     """Stop a running app."""
 
     db_session: Session
-    name: ClassVar[str] = "app:stop"
+    name: ClassVar[tuple[str, ...]] = ("app", "stop")
 
     def call(self, *args):
         if not args:
@@ -633,13 +632,13 @@ class StopCmd(Command):
             action_method="stop",
             final_messages=[
                 f"App '{app_name}' is stopping...",
-                "Use 'hop3 app:status' to check when it's stopped.",
+                "Use 'hop3 app status' to check when it's stopped.",
             ],
             state_checks={
                 "STOPPED": [f"App '{app_name}' is already stopped."],
                 "STOPPING": [
                     f"App '{app_name}' is already stopping...",
-                    "Use 'hop3 app:status' to check progress.",
+                    "Use 'hop3 app status' to check progress.",
                 ],
                 "STARTING": [
                     f"App '{app_name}' is currently starting.",
@@ -655,7 +654,7 @@ class RestartCmd(Command):
     """Restart an application."""
 
     db_session: Session
-    name: ClassVar[str] = "app:restart"
+    name: ClassVar[tuple[str, ...]] = ("app", "restart")
 
     def call(self, *args):
         if not args:
@@ -669,7 +668,7 @@ class RestartCmd(Command):
             action_method="restart",
             final_messages=[
                 f"App '{app_name}' restart triggered.",
-                "Use 'hop3 app:status' to check status.",
+                "Use 'hop3 app status' to check status.",
             ],
         )
 
@@ -679,20 +678,20 @@ class RestartCmd(Command):
 class DestroyCmd(Command):
     """Destroy an app, removing all files and configuration.
 
-    Usage: hop3 app:destroy <app_name> [--force]
+    Usage: hop3 app destroy <app_name> [--force]
 
     Options:
       -y, --yes, --force   Skip confirmation prompt
     """
 
     db_session: Session
-    name: ClassVar[str] = "app:destroy"
-    aliases: ClassVar[list[str]] = ["destroy"]
+    name: ClassVar[tuple[str, ...]] = ("app", "destroy")
+    aliases: ClassVar[list[tuple[str, ...]]] = [("destroy",)]
     destructive: ClassVar[bool] = True
 
     def call(self, *args):
         if not args:
-            return [text("Usage: hop3 app:destroy <app_name> [--force]")]
+            return [text("Usage: hop3 app destroy <app_name> [--force]")]
         app_name = args[0]
 
         app = get_app(self.db_session, app_name)
@@ -762,19 +761,18 @@ class EnvCmd(Command):
     Displays all environment variables for an app, indicating whether each
     variable comes from a user config or was injected by an addon.
 
-    Usage: hop3 app:env <app_name> [--show-secrets]
+    Usage: hop3 app env <app_name> [--show-secrets]
 
     Options:
         --show-secrets   Show full values for sensitive variables (default: redacted)
 
     Examples:
-        hop3 app:env myapp             # Show env vars (secrets redacted)
-        hop3 app:env myapp --show-secrets  # Show all values including secrets
+        hop3 app env myapp             # Show env vars (secrets redacted)
+        hop3 app env myapp --show-secrets  # Show all values including secrets
     """
 
     db_session: Session
-    name: ClassVar[str] = "app:env"
-
+    name: ClassVar[tuple[str, ...]] = ("app", "env")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "app_name": {"positional": True},
@@ -788,10 +786,10 @@ class EnvCmd(Command):
         if not app_name:
             return [
                 text(
-                    "Usage: hop3 app:env <app_name> [--show-secrets]\n\n"
+                    "Usage: hop3 app env <app_name> [--show-secrets]\n\n"
                     "Examples:\n"
-                    "  hop3 app:env myapp\n"
-                    "  hop3 app:env myapp --show-secrets"
+                    "  hop3 app env myapp\n"
+                    "  hop3 app env myapp --show-secrets"
                 )
             ]
 
@@ -850,7 +848,7 @@ class DebugCmd(Command):
     Combines status, logs, environment, and runtime details into a single
     output for debugging issues.
 
-    Usage: hop3 app:debug <app_name>
+    Usage: hop3 app debug <app_name>
 
     Shows:
         - App status (DB state vs actual state)
@@ -860,17 +858,17 @@ class DebugCmd(Command):
         - Generated compose file (for Docker apps)
 
     Examples:
-        hop3 app:debug myapp
+        hop3 app debug myapp
     """
 
     db_session: Session
-    name: ClassVar[str] = "app:debug"
+    name: ClassVar[tuple[str, ...]] = ("app", "debug")
 
     def call(self, *args):
         if not args:
             return [
                 text(
-                    "Usage: hop3 app:debug <app_name>\n\n"
+                    "Usage: hop3 app debug <app_name>\n\n"
                     "Shows comprehensive debug information including:\n"
                     "  - App status and state\n"
                     "  - Container info (Docker apps)\n"

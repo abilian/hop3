@@ -402,7 +402,7 @@ class App(BigIntAuditBase):
         For Docker apps: Runs docker compose up -d.
 
         The app transitions to STARTING state. Use sync_state() or check
-        app:status to verify when it reaches RUNNING.
+        app status to verify when it reaches RUNNING.
 
         Raises:
             StateTransitionError: If the app is not in a startable state
@@ -514,7 +514,7 @@ class App(BigIntAuditBase):
         For Docker apps: Runs docker compose stop.
 
         The app transitions to STOPPING state. Use sync_state() or check
-        app:status to verify when it reaches STOPPED.
+        app status to verify when it reaches STOPPED.
 
         Always performs cleanup even if state says STOPPED, to handle
         state-reality mismatches.
@@ -720,7 +720,7 @@ class App(BigIntAuditBase):
         For STOPPED/FAILED apps: transitions through STARTING
         For STARTING/STOPPING apps: no-op (already in transition)
 
-        Use sync_state() or app:status to verify the app reaches RUNNING.
+        Use sync_state() or app status to verify the app reaches RUNNING.
         """
         log(f"Restarting app '{self.name}'...", fg="blue")
 

@@ -8,7 +8,7 @@ This module discovers and runs health checks from plugins to verify that
 configured services (MySQL, PostgreSQL, Redis, etc.) are accessible.
 Health checks are run:
 - During server startup (warnings logged for failures)
-- Via the `system:check` command
+- Via the `system check` command
 
 Health checks are contributed by plugins via the `get_health_checks()` hook.
 """

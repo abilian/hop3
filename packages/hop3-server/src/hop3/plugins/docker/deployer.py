@@ -791,8 +791,8 @@ services:
                     "full command output is in the build log"
                 ),
                 troubleshooting=[
-                    f"hop3 app:build-logs {self.app_name}",
-                    f"hop3 app:logs {self.app_name}",
+                    f"hop3 app build-logs {self.app_name}",
+                    f"hop3 app logs {self.app_name}",
                     "docker compose config (validate the compose file)",
                 ],
             )

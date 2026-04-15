@@ -15,29 +15,38 @@ if TYPE_CHECKING:
     from hop3_cli.ui.rich_printer import RichPrinter
 
 
+"""Space-separated command-name tuples, per ADR 036 D1."""
+# Destructive commands that require confirmation. Each entry is a tuple of tokens.
+DESTRUCTIVE_COMMANDS: set[tuple[str, ...]] = {
+    ("app", "destroy"),
+    ("destroy",),  # Alias for app destroy
+    ("backup", "delete"),  # Will be renamed to ("backup", "destroy") in a later commit
+    ("addons", "destroy"),
+    ("services", "destroy"),  # Legacy; kept for safety during migration
+}
+
+
+def _match_destructive_prefix(cli_args: list[str]) -> tuple[str, ...] | None:
+    """Return the destructive-command tuple that is a prefix of cli_args, if any."""
+    for n in range(min(len(cli_args), 3), 0, -1):
+        key = tuple(cli_args[:n])
+        if key in DESTRUCTIVE_COMMANDS:
+            return key
+    return None
+
+
 def is_destructive_command(cli_args: list[str]) -> bool:
     """Check if the command is destructive (requires confirmation).
 
     Args:
-        cli_args: Command-line arguments
+        cli_args: Command-line arguments (may be multiple tokens for the command name)
 
     Returns:
         True if command is destructive, False otherwise
     """
     if not cli_args:
         return False
-
-    command = cli_args[0]
-
-    # List of destructive commands that require confirmation
-    destructive_commands = {
-        "app:destroy",
-        "destroy",  # Alias for app:destroy
-        "backup:delete",
-        "services:destroy",
-    }
-
-    return command in destructive_commands
+    return _match_destructive_prefix(cli_args) is not None
 
 
 def _confirm_protected_context(config: Config | None) -> tuple[bool, str | None]:
@@ -86,11 +95,14 @@ def confirm_destructive_action(
         # In JSON mode, auto-confirm (user should use -y flag)
         return True
 
-    command = cli_args[0]
-    args = cli_args[1:]
+    # Match the destructive-command prefix (may be 1, 2, or 3 tokens).
+    command = _match_destructive_prefix(cli_args)
+    if command is None:
+        return True
+    args = cli_args[len(command):]
 
-    # Check if required arguments are present BEFORE any confirmation prompts
-    # If missing, let the server handle the error message
+    # Check if required arguments are present BEFORE any confirmation prompts.
+    # If missing, let the server handle the error message.
     if not _has_required_args(command, args):
         return True
 
@@ -100,50 +112,41 @@ def confirm_destructive_action(
         # User cancelled protected context confirmation
         return False
 
-    # app:destroy or destroy command - requires type-to-confirm
-    if command in {"app:destroy", "destroy"}:
+    # app destroy (or destroy alias) - requires type-to-confirm
+    if command in {("app", "destroy"), ("destroy",)}:
         return _confirm_app_destroy(args, is_protected, context_name)
 
-    # backup:delete command
-    if command == "backup:delete":
+    # backup delete command
+    if command == ("backup", "delete"):
         return _confirm_backup_delete(args)
 
-    # services:destroy command
-    if command == "services:destroy":
+    # addon/services destroy command
+    if command in {("addons", "destroy"), ("services", "destroy")}:
         return _confirm_service_destroy(args, is_protected, context_name)
 
     # Unknown destructive command (shouldn't happen)
     return confirm("This action cannot be undone. Continue?")
 
 
-def _has_required_args(command: str, args: list[str]) -> bool:
+def _has_required_args(command: tuple[str, ...], args: list[str]) -> bool:
     """Check if a destructive command has its required arguments.
 
     Args:
-        command: The command name
+        command: The command name tuple
         args: The arguments (excluding the command itself)
 
     Returns:
         True if required args are present, False otherwise
     """
-    # Commands that require at least one argument (the target name)
-    commands_requiring_target = {
-        "app:destroy",
-        "destroy",
-        "backup:delete",
-        "services:destroy",
-    }
-
-    if command in commands_requiring_target:
-        return len(args) >= 1
-
-    return True
+    # All destructive commands currently require at least one positional argument
+    # (the name of the resource being destroyed).
+    return len(args) >= 1
 
 
 def _confirm_app_destroy(
     args: list[str], is_protected: bool, context_name: str | None
 ) -> bool:
-    """Confirm app:destroy command."""
+    """Confirm app destroy command."""
     app_name = args[0]
     show_destructive_warning(
         "destroy",
@@ -161,7 +164,7 @@ def _confirm_app_destroy(
 
 
 def _confirm_backup_delete(args: list[str]) -> bool:
-    """Confirm backup:delete command."""
+    """Confirm backup delete command."""
     backup_id = args[0]
     show_destructive_warning(
         "delete",
@@ -174,7 +177,7 @@ def _confirm_backup_delete(args: list[str]) -> bool:
 def _confirm_service_destroy(
     args: list[str], is_protected: bool, context_name: str | None
 ) -> bool:
-    """Confirm services:destroy command."""
+    """Confirm services destroy command."""
     addon_name = args[0]
     show_destructive_warning(
         "destroy",
