@@ -18,7 +18,7 @@ from sqlalchemy.orm import sessionmaker
 
 from hop3.commands.backup import (
     BackupCreateCmd,
-    BackupDeleteCmd,
+    BackupDestroyCmd,
     BackupInfoCmd,
     BackupListCmd,
     BackupRestoreCmd,
@@ -601,7 +601,7 @@ class TestBackupDeleteCommand:
         backup_id = backup_path.name
 
         # Delete backup
-        delete_cmd = BackupDeleteCmd(
+        delete_cmd = BackupDestroyCmd(
             app_repo=app_repo,
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
@@ -618,7 +618,7 @@ class TestBackupDeleteCommand:
         self, app_repo, backup_repo, addon_credential_repo
     ):
         """Test deleting non-existent backup."""
-        delete_cmd = BackupDeleteCmd(
+        delete_cmd = BackupDestroyCmd(
             app_repo=app_repo,
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
@@ -632,7 +632,7 @@ class TestBackupDeleteCommand:
 
     def test_delete_no_args(self, app_repo, backup_repo, addon_credential_repo):
         """Test backup:delete with no arguments."""
-        delete_cmd = BackupDeleteCmd(
+        delete_cmd = BackupDestroyCmd(
             app_repo=app_repo,
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,

@@ -11,11 +11,11 @@ from unittest.mock import Mock, patch
 import pytest
 
 from hop3.commands.services import (
-    AddonsAttachCmd,
-    AddonsCreateCmd,
-    AddonsDestroyCmd,
-    AddonsDetachCmd,
-    AddonsInfoCmd,
+    AddonAttachCmd,
+    AddonCreateCmd,
+    AddonDestroyCmd,
+    AddonDetachCmd,
+    AddonShowCmd,
 )
 from hop3.orm import App, EnvVar
 from hop3.orm.repositories import (
@@ -58,7 +58,7 @@ def mock_app():
 
 def test_services_create_requires_arguments():
     """Test that services:create requires both service type and name."""
-    cmd = AddonsCreateCmd()
+    cmd = AddonCreateCmd()
     result = cmd.call()
 
     assert len(result) == 1
@@ -72,7 +72,7 @@ def test_services_create_with_postgres():
         mock_service = Mock()
         mock_get_service.return_value = mock_service
 
-        cmd = AddonsCreateCmd()
+        cmd = AddonCreateCmd()
         result = cmd.call("postgres", "my-database")
 
         mock_get_service.assert_called_once_with("postgres", "my-database")
@@ -87,7 +87,7 @@ def test_services_create_handles_errors():
     with patch("hop3.commands.services.get_addon") as mock_get_service:
         mock_get_service.side_effect = RuntimeError("Service type not found")
 
-        cmd = AddonsCreateCmd()
+        cmd = AddonCreateCmd()
 
         # command_context raises ValueError for JSON-RPC error handling
         with pytest.raises(ValueError) as exc_info:
@@ -100,7 +100,7 @@ def test_services_attach_requires_app_name(
     mock_app_repo, mock_addon_credential_repo, mock_env_var_repo
 ):
     """Test that services:attach requires --app parameter."""
-    cmd = AddonsAttachCmd(
+    cmd = AddonAttachCmd(
         app_repo=mock_app_repo,
         addon_credential_repo=mock_addon_credential_repo,
         env_var_repo=mock_env_var_repo,
@@ -118,7 +118,7 @@ def test_services_attach_app_not_found(
     """Test error when app is not found."""
     mock_app_repo.get_one_or_none.return_value = None
 
-    cmd = AddonsAttachCmd(
+    cmd = AddonAttachCmd(
         app_repo=mock_app_repo,
         addon_credential_repo=mock_addon_credential_repo,
         env_var_repo=mock_env_var_repo,
@@ -158,7 +158,7 @@ def test_services_attach_success(
         # Mock env var repo to return no existing vars
         mock_env_var_repo.get_by_app_and_name.return_value = None
 
-        cmd = AddonsAttachCmd(
+        cmd = AddonAttachCmd(
             app_repo=mock_app_repo,
             addon_credential_repo=mock_addon_credential_repo,
             env_var_repo=mock_env_var_repo,
@@ -203,7 +203,7 @@ def test_services_attach_updates_existing_vars(
         # Mock env var repo to return existing var
         mock_env_var_repo.get_by_app_and_name.return_value = existing_var
 
-        cmd = AddonsAttachCmd(
+        cmd = AddonAttachCmd(
             app_repo=mock_app_repo,
             addon_credential_repo=mock_addon_credential_repo,
             env_var_repo=mock_env_var_repo,
@@ -237,7 +237,7 @@ def test_services_detach_success(
         existing_var = Mock(spec=EnvVar)
         mock_env_var_repo.get_by_app_and_name.return_value = existing_var
 
-        cmd = AddonsDetachCmd(
+        cmd = AddonDetachCmd(
             app_repo=mock_app_repo,
             addon_credential_repo=mock_addon_credential_repo,
             env_var_repo=mock_env_var_repo,
@@ -258,7 +258,7 @@ def test_services_destroy_success(mock_addon_credential_repo):
         # Mock list_by_addon to return empty list of credentials
         mock_addon_credential_repo.list_by_addon.return_value = []
 
-        cmd = AddonsDestroyCmd(addon_credential_repo=mock_addon_credential_repo)
+        cmd = AddonDestroyCmd(addon_credential_repo=mock_addon_credential_repo)
         result = cmd.call("my-database", "--type", "postgres")
 
         mock_service.destroy.assert_called_once()
@@ -277,7 +277,7 @@ def test_services_info_success():
         }
         mock_get_service.return_value = mock_service
 
-        cmd = AddonsInfoCmd()
+        cmd = AddonShowCmd()
         result = cmd.call("my-database")
 
         mock_service.info.assert_called_once()

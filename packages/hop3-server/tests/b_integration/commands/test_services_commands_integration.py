@@ -22,11 +22,11 @@ from unittest.mock import Mock, patch
 import pytest
 
 from hop3.commands.services import (
-    AddonsAttachCmd,
-    AddonsCreateCmd,
-    AddonsDestroyCmd,
-    AddonsDetachCmd,
-    AddonsInfoCmd,
+    AddonAttachCmd,
+    AddonCreateCmd,
+    AddonDestroyCmd,
+    AddonDetachCmd,
+    AddonShowCmd,
 )
 from hop3.core.credentials import get_credential_encryptor
 from hop3.orm import AddonCredential, App, EnvVar
@@ -94,10 +94,10 @@ def another_app(db_session: Session) -> App:
 
 @pytest.mark.integration
 class TestAddonsCreateCmdIntegration:
-    """Integration tests for AddonsCreateCmd using state-based testing."""
+    """Integration tests for AddonCreateCmd using state-based testing."""
 
     def test_create_requires_arguments(self):
-        """Test that addons:create requires both service type and name.
+        """Test that addon create requires both service type and name.
 
         ARRANGE:
             - Create command instance
@@ -109,14 +109,14 @@ class TestAddonsCreateCmdIntegration:
             - Verify usage message is returned
             - Verify no database state changes
         """
-        cmd = AddonsCreateCmd()
+        cmd = AddonCreateCmd()
 
         result = cmd.call()
 
         assert len(result) == 1
         assert result[0]["t"] == "text"
         assert "Usage:" in result[0]["text"]
-        assert "addons create" in result[0]["text"]
+        assert "addon create" in result[0]["text"]
 
     def test_create_with_postgres_success(self):
         """Test creating a PostgreSQL addon.
@@ -136,7 +136,7 @@ class TestAddonsCreateCmdIntegration:
             mock_addon = Mock()
             mock_get_addon.return_value = mock_addon
 
-            cmd = AddonsCreateCmd()
+            cmd = AddonCreateCmd()
 
             result = cmd.call("postgres", "my-database")
 
@@ -148,7 +148,7 @@ class TestAddonsCreateCmdIntegration:
         assert "my-database" in result[0]["text"]
         assert "postgres" in result[0]["text"]
         assert "created successfully" in result[0]["text"]
-        assert "addons attach" in result[1]["text"]
+        assert "addon attach" in result[1]["text"]
 
     def test_create_with_redis_success(self):
         """Test creating a Redis addon.
@@ -167,7 +167,7 @@ class TestAddonsCreateCmdIntegration:
             mock_addon = Mock()
             mock_get_addon.return_value = mock_addon
 
-            cmd = AddonsCreateCmd()
+            cmd = AddonCreateCmd()
 
             result = cmd.call("redis", "my-cache")
 
@@ -195,7 +195,7 @@ class TestAddonsCreateCmdIntegration:
         with patch("hop3.commands.services.get_addon") as mock_get_addon:
             mock_get_addon.side_effect = RuntimeError("Addon type not supported")
 
-            cmd = AddonsCreateCmd()
+            cmd = AddonCreateCmd()
 
             # command_context raises ValueError for JSON-RPC error handling
             with pytest.raises(ValueError) as exc_info:
@@ -219,7 +219,7 @@ class TestAddonsCreateCmdIntegration:
         with patch("hop3.commands.services.get_addon") as mock_get_addon:
             mock_get_addon.side_effect = Exception("Unexpected error occurred")
 
-            cmd = AddonsCreateCmd()
+            cmd = AddonCreateCmd()
 
             # command_context raises ValueError for JSON-RPC error handling
             with pytest.raises(ValueError) as exc_info:
@@ -230,7 +230,7 @@ class TestAddonsCreateCmdIntegration:
 
 @pytest.mark.integration
 class TestAddonsAttachCmdIntegration:
-    """Integration tests for AddonsAttachCmd using state-based testing."""
+    """Integration tests for AddonAttachCmd using state-based testing."""
 
     def test_attach_requires_app_parameter(
         self,
@@ -239,7 +239,7 @@ class TestAddonsAttachCmdIntegration:
         addon_credential_repo: AddonCredentialRepository,
         env_var_repo: EnvVarRepository,
     ):
-        """Test that addons:attach requires --app parameter.
+        """Test that addon attach requires --app parameter.
 
         ARRANGE:
             - Create command instance
@@ -251,7 +251,7 @@ class TestAddonsAttachCmdIntegration:
             - Verify error message about missing --app parameter
             - Verify no database state changes
         """
-        cmd = AddonsAttachCmd(
+        cmd = AddonAttachCmd(
             app_repo=app_repo,
             addon_credential_repo=addon_credential_repo,
             env_var_repo=env_var_repo,
@@ -287,7 +287,7 @@ class TestAddonsAttachCmdIntegration:
             - Verify ValueError is raised for JSON-RPC error handling
             - Verify no credentials were created
         """
-        cmd = AddonsAttachCmd(
+        cmd = AddonAttachCmd(
             app_repo=app_repo,
             addon_credential_repo=addon_credential_repo,
             env_var_repo=env_var_repo,
@@ -338,7 +338,7 @@ class TestAddonsAttachCmdIntegration:
             mock_addon.get_connection_details.return_value = connection_details
             mock_get_addon.return_value = mock_addon
 
-            cmd = AddonsAttachCmd(
+            cmd = AddonAttachCmd(
                 app_repo=app_repo,
                 addon_credential_repo=addon_credential_repo,
                 env_var_repo=env_var_repo,
@@ -412,7 +412,7 @@ class TestAddonsAttachCmdIntegration:
             mock_addon.get_connection_details.return_value = new_connection_details
             mock_get_addon.return_value = mock_addon
 
-            cmd = AddonsAttachCmd(
+            cmd = AddonAttachCmd(
                 app_repo=app_repo,
                 addon_credential_repo=addon_credential_repo,
                 env_var_repo=env_var_repo,
@@ -475,7 +475,7 @@ class TestAddonsAttachCmdIntegration:
             mock_addon.get_connection_details.return_value = connection_details
             mock_get_addon.return_value = mock_addon
 
-            cmd = AddonsAttachCmd(
+            cmd = AddonAttachCmd(
                 app_repo=app_repo,
                 addon_credential_repo=addon_credential_repo,
                 env_var_repo=env_var_repo,
@@ -517,7 +517,7 @@ class TestAddonsAttachCmdIntegration:
         pg_details = {"DATABASE_URL": "postgresql://localhost/db"}
         redis_details = {"REDIS_URL": "redis://localhost:6379"}
 
-        cmd = AddonsAttachCmd(
+        cmd = AddonAttachCmd(
             app_repo=app_repo,
             addon_credential_repo=addon_credential_repo,
             env_var_repo=env_var_repo,
@@ -556,7 +556,7 @@ class TestAddonsAttachCmdIntegration:
 
 @pytest.mark.integration
 class TestAddonsDetachCmdIntegration:
-    """Integration tests for AddonsDetachCmd using state-based testing."""
+    """Integration tests for AddonDetachCmd using state-based testing."""
 
     def test_detach_requires_app_parameter(
         self,
@@ -564,7 +564,7 @@ class TestAddonsDetachCmdIntegration:
         addon_credential_repo: AddonCredentialRepository,
         env_var_repo: EnvVarRepository,
     ):
-        """Test that addons:detach requires --app parameter.
+        """Test that addon detach requires --app parameter.
 
         ARRANGE:
             - Create command instance
@@ -575,7 +575,7 @@ class TestAddonsDetachCmdIntegration:
         ASSERT:
             - Verify error message about missing --app parameter
         """
-        cmd = AddonsDetachCmd(
+        cmd = AddonDetachCmd(
             app_repo=app_repo,
             addon_credential_repo=addon_credential_repo,
             env_var_repo=env_var_repo,
@@ -604,7 +604,7 @@ class TestAddonsDetachCmdIntegration:
         ASSERT:
             - Verify ValueError is raised for JSON-RPC error handling
         """
-        cmd = AddonsDetachCmd(
+        cmd = AddonDetachCmd(
             app_repo=app_repo,
             addon_credential_repo=addon_credential_repo,
             env_var_repo=env_var_repo,
@@ -663,7 +663,7 @@ class TestAddonsDetachCmdIntegration:
         )
         assert db_session.query(EnvVar).filter_by(app_id=test_app.id).count() == 2
 
-        cmd = AddonsDetachCmd(
+        cmd = AddonDetachCmd(
             app_repo=app_repo,
             addon_credential_repo=addon_credential_repo,
             env_var_repo=env_var_repo,
@@ -714,7 +714,7 @@ class TestAddonsDetachCmdIntegration:
             mock_addon.get_connection_details.return_value = {}
             mock_get_addon.return_value = mock_addon
 
-            cmd = AddonsDetachCmd(
+            cmd = AddonDetachCmd(
                 app_repo=app_repo,
                 addon_credential_repo=addon_credential_repo,
                 env_var_repo=env_var_repo,
@@ -789,7 +789,7 @@ class TestAddonsDetachCmdIntegration:
         )
         assert db_session.query(EnvVar).filter_by(app_id=test_app.id).count() == 2
 
-        cmd = AddonsDetachCmd(
+        cmd = AddonDetachCmd(
             app_repo=app_repo,
             addon_credential_repo=addon_credential_repo,
             env_var_repo=env_var_repo,
@@ -838,13 +838,13 @@ class TestAddonsDetachCmdIntegration:
 
 @pytest.mark.integration
 class TestAddonsDestroyCmdIntegration:
-    """Integration tests for AddonsDestroyCmd using state-based testing."""
+    """Integration tests for AddonDestroyCmd using state-based testing."""
 
     def test_destroy_requires_arguments(
         self,
         addon_credential_repo: AddonCredentialRepository,
     ):
-        """Test that addons:destroy requires service name.
+        """Test that addon destroy requires service name.
 
         ARRANGE:
             - Create command instance
@@ -855,14 +855,14 @@ class TestAddonsDestroyCmdIntegration:
         ASSERT:
             - Verify usage message is returned
         """
-        cmd = AddonsDestroyCmd(addon_credential_repo=addon_credential_repo)
+        cmd = AddonDestroyCmd(addon_credential_repo=addon_credential_repo)
 
         result = cmd.call()
 
         assert len(result) == 1
         assert result[0]["t"] == "text"
         assert "Usage:" in result[0]["text"]
-        assert "addons destroy" in result[0]["text"]
+        assert "addon destroy" in result[0]["text"]
         assert "WARNING" in result[0]["text"]
 
     def test_destroy_success_removes_all_credentials(
@@ -917,7 +917,7 @@ class TestAddonsDestroyCmdIntegration:
             mock_addon = Mock()
             mock_get_addon.return_value = mock_addon
 
-            cmd = AddonsDestroyCmd(addon_credential_repo=addon_credential_repo)
+            cmd = AddonDestroyCmd(addon_credential_repo=addon_credential_repo)
 
             result = cmd.call("shared-db", "--type", "postgres")
 
@@ -961,7 +961,7 @@ class TestAddonsDestroyCmdIntegration:
             mock_addon = Mock()
             mock_get_addon.return_value = mock_addon
 
-            cmd = AddonsDestroyCmd(addon_credential_repo=addon_credential_repo)
+            cmd = AddonDestroyCmd(addon_credential_repo=addon_credential_repo)
 
             result = cmd.call("orphan-db", "--type", "postgres")
 
@@ -1009,7 +1009,7 @@ class TestAddonsDestroyCmdIntegration:
             mock_addon.destroy.side_effect = RuntimeError("Cannot destroy addon")
             mock_get_addon.return_value = mock_addon
 
-            cmd = AddonsDestroyCmd(addon_credential_repo=addon_credential_repo)
+            cmd = AddonDestroyCmd(addon_credential_repo=addon_credential_repo)
 
             # command_context raises ValueError for JSON-RPC error handling
             with pytest.raises(ValueError) as exc_info:
@@ -1023,10 +1023,10 @@ class TestAddonsDestroyCmdIntegration:
 
 @pytest.mark.integration
 class TestAddonsInfoCmdIntegration:
-    """Integration tests for AddonsInfoCmd using state-based testing."""
+    """Integration tests for AddonShowCmd using state-based testing."""
 
     def test_info_requires_arguments(self):
-        """Test that addons:info requires service name.
+        """Test that addon info requires service name.
 
         ARRANGE:
             - Create command instance
@@ -1037,14 +1037,14 @@ class TestAddonsInfoCmdIntegration:
         ASSERT:
             - Verify usage message is returned
         """
-        cmd = AddonsInfoCmd()
+        cmd = AddonShowCmd()
 
         result = cmd.call()
 
         assert len(result) == 1
         assert result[0]["t"] == "text"
         assert "Usage:" in result[0]["text"]
-        assert "addons info" in result[0]["text"]
+        assert "addon show" in result[0]["text"]
 
     def test_info_success_displays_addon_information(self):
         """Test successful retrieval of addon information.
@@ -1074,7 +1074,7 @@ class TestAddonsInfoCmdIntegration:
             mock_addon.info.return_value = addon_info
             mock_get_addon.return_value = mock_addon
 
-            cmd = AddonsInfoCmd()
+            cmd = AddonShowCmd()
 
             result = cmd.call("my-database", "--type", "postgres")
 
@@ -1112,7 +1112,7 @@ class TestAddonsInfoCmdIntegration:
             }
             mock_get_addon.return_value = mock_addon
 
-            cmd = AddonsInfoCmd()
+            cmd = AddonShowCmd()
 
             cmd.call("default-db")
 
@@ -1144,7 +1144,7 @@ class TestAddonsInfoCmdIntegration:
             mock_addon.info.return_value = redis_info
             mock_get_addon.return_value = mock_addon
 
-            cmd = AddonsInfoCmd()
+            cmd = AddonShowCmd()
 
             result = cmd.call("my-cache", "--type", "redis")
 
@@ -1172,7 +1172,7 @@ class TestAddonsInfoCmdIntegration:
         with patch("hop3.commands.services.get_addon") as mock_get_addon:
             mock_get_addon.side_effect = RuntimeError("Addon not found")
 
-            cmd = AddonsInfoCmd()
+            cmd = AddonShowCmd()
 
             # command_context raises ValueError for JSON-RPC error handling
             with pytest.raises(ValueError) as exc_info:

@@ -368,7 +368,7 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 <!-- Note: The first deploy may succeed but the app may crash due to missing SECRET_KEY.
-     We set it via config:set after the app is created. -->
+     We set it via config set after the app is created. -->
 
 ```bash
 hop3 deploy hop3-tuto-flask
@@ -379,11 +379,11 @@ hop3 deploy hop3-tuto-flask
 Set the SECRET_KEY and hostname for the application:
 
 ```bash
-hop3 config:set hop3-tuto-flask SECRET_KEY=flask-insecure-changeme-for-production
+hop3 config set hop3-tuto-flask SECRET_KEY=flask-insecure-changeme-for-production
 ```
 
 ```bash
-hop3 config:set hop3-tuto-flask HOST_NAME=hop3-tuto-flask.$HOP3_TEST_DOMAIN
+hop3 config set hop3-tuto-flask HOST_NAME=hop3-tuto-flask.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -405,7 +405,7 @@ sleep 5
 Check your application status:
 
 ```bash
-hop3 app:status hop3-tuto-flask
+hop3 app status hop3-tuto-flask
 ```
 
 ```console
@@ -423,7 +423,7 @@ OK
 View logs:
 
 ```bash
-hop3 app:logs hop3-tuto-flask
+hop3 app logs hop3-tuto-flask
 ```
 
 Open your application:
@@ -438,7 +438,7 @@ Open your application:
 ### Restart the Application
 
 ```bash
-hop3 app:restart hop3-tuto-flask
+hop3 app restart hop3-tuto-flask
 ```
 
 ### Run Commands in the Application Context
@@ -451,13 +451,13 @@ hop3 run hop3-tuto-flask python -c "from app import app; print(app.config)"
 
 ```bash
 # List all variables
-hop3 config:show hop3-tuto-flask
+hop3 config show hop3-tuto-flask
 
 # Set a variable
-hop3 config:set hop3-tuto-flask NEW_VARIABLE=value
+hop3 config set hop3-tuto-flask NEW_VARIABLE=value
 
 # Remove a variable
-hop3 config:unset hop3-tuto-flask OLD_VARIABLE
+hop3 config unset hop3-tuto-flask OLD_VARIABLE
 ```
 
 ### Scaling
@@ -467,7 +467,7 @@ hop3 config:unset hop3-tuto-flask OLD_VARIABLE
 hop3 ps hop3-tuto-flask
 
 # Scale web workers
-hop3 ps:scale hop3-tuto-flask web=2
+hop3 ps scale hop3-tuto-flask web=2
 ```
 
 ## Advanced Configuration
@@ -517,8 +517,8 @@ def health():
 Create and attach database:
 
 ```bash
-hop3 addons:create postgres hop3-tuto-flask-db
-hop3 addons:attach hop3-tuto-flask hop3-tuto-flask-db
+hop3 addon create postgres hop3-tuto-flask-db
+hop3 addon attach hop3-tuto-flask hop3-tuto-flask-db
 ```
 
 Run migrations:
@@ -575,8 +575,8 @@ def cached_view():
 Attach Redis:
 
 ```bash
-hop3 addons:create redis hop3-tuto-flask-redis
-hop3 addons:attach hop3-tuto-flask hop3-tuto-flask-redis
+hop3 addon create redis hop3-tuto-flask-redis
+hop3 addon attach hop3-tuto-flask hop3-tuto-flask-redis
 ```
 
 ### Background Tasks with Celery
@@ -691,11 +691,11 @@ CORS(app, origins=allowed_origins.split(','))
 Check the logs for errors:
 
 ```bash
-hop3 app:logs hop3-tuto-flask --tail
+hop3 app logs hop3-tuto-flask --tail
 ```
 
 Common issues:
-- **Missing SECRET_KEY**: Set it with `hop3 config:set`
+- **Missing SECRET_KEY**: Set it with `hop3 config set`
 - **Module not found**: Ensure all dependencies are in `requirements.txt`
 - **Port binding**: Ensure Gunicorn binds to `0.0.0.0:$PORT`
 
@@ -704,7 +704,7 @@ Common issues:
 Verify the database is attached:
 
 ```bash
-hop3 config:show hop3-tuto-flask | grep DATABASE
+hop3 config show hop3-tuto-flask | grep DATABASE
 ```
 
 Test the connection:

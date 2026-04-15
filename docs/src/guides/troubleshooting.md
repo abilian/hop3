@@ -8,16 +8,16 @@ Before diving into specific issues, run these commands to gather information:
 
 ```bash
 # System health check
-hop3 system:check --verbose
+hop3 system check --verbose
 
 # Application status
 hop3 apps
 
 # Recent logs
-hop3 app:logs myapp --lines 50
+hop3 app logs myapp --lines 50
 
 # System info
-hop3 system:info
+hop3 system info
 ```
 
 ---
@@ -31,7 +31,7 @@ Deployment fails during the build phase with dependency or compilation errors.
 
 #### Diagnosis
 ```bash
-hop3 app:logs myapp --lines 100
+hop3 app logs myapp --lines 100
 ```
 
 #### Common Causes & Solutions
@@ -90,10 +90,10 @@ Build succeeds but application shows as "stopped" or returns 502 errors.
 #### Diagnosis
 ```bash
 # Check application state
-hop3 app:status myapp
+hop3 app status myapp
 
 # Check process logs
-hop3 app:logs myapp --lines 50
+hop3 app logs myapp --lines 50
 
 # Check uWSGI status
 systemctl status uwsgi-hop3
@@ -124,16 +124,16 @@ source ../venv/bin/activate
 ss -tlnp | grep <port>
 
 # Verify PORT environment variable
-hop3 config:show myapp | grep PORT
+hop3 config show myapp | grep PORT
 ```
 
 **Missing environment variables:**
 ```bash
 # List all config
-hop3 config:show myapp
+hop3 config show myapp
 
 # Set missing variables
-hop3 config:set myapp KEY=value
+hop3 config set myapp KEY=value
 ```
 
 ---
@@ -160,10 +160,10 @@ sudo nginx -t
 **Application not running:**
 ```bash
 # Restart application
-hop3 app:restart myapp
+hop3 app restart myapp
 
 # Check if it started
-hop3 app:status myapp
+hop3 app status myapp
 ```
 
 **Socket permission issues:**
@@ -202,7 +202,7 @@ Application returns 404 for all routes.
 #### Diagnosis
 ```bash
 # Check if app has HOST_NAME configured
-hop3 config:show myapp | grep HOST_NAME
+hop3 config show myapp | grep HOST_NAME
 
 # Verify Nginx config exists
 ls /etc/nginx/sites-enabled/myapp.conf
@@ -213,7 +213,7 @@ ls /etc/nginx/sites-enabled/myapp.conf
 **Missing HOST_NAME:**
 ```bash
 # Set hostname
-hop3 config:set myapp HOST_NAME=myapp.example.com
+hop3 config set myapp HOST_NAME=myapp.example.com
 
 # Redeploy
 hop3 deploy myapp
@@ -245,13 +245,13 @@ Application fails to connect to PostgreSQL or MySQL.
 #### Diagnosis
 ```bash
 # Check database addon
-hop3 addons:list
+hop3 addons list
 
 # Check if DATABASE_URL is set
-hop3 config:show myapp | grep DATABASE
+hop3 config show myapp | grep DATABASE
 
 # Test database service
-hop3 system:check --verbose
+hop3 system check --verbose
 ```
 
 #### Common Causes & Solutions
@@ -259,7 +259,7 @@ hop3 system:check --verbose
 **Addon not attached:**
 ```bash
 # Attach addon to app
-hop3 addons:attach mydb --app myapp
+hop3 addon attach mydb --app myapp
 
 # Redeploy to pick up DATABASE_URL
 hop3 deploy myapp
@@ -279,7 +279,7 @@ sudo systemctl start mysql
 **Wrong credentials:**
 ```bash
 # Check addon info
-hop3 addons:info mydb
+hop3 addon show mydb
 
 # Verify DATABASE_URL format
 # postgresql://user:pass@host:port/dbname
@@ -388,22 +388,22 @@ htop
 iostat -x 1
 
 # Check application logs for slow queries
-hop3 app:logs myapp | grep -i slow
+hop3 app logs myapp | grep -i slow
 ```
 
 #### Solutions
 
 **Increase workers:**
 ```bash
-hop3 config:set myapp UWSGI_WORKERS=4
-hop3 app:restart myapp
+hop3 config set myapp UWSGI_WORKERS=4
+hop3 app restart myapp
 ```
 
 **Enable caching:**
 ```bash
 # Add Redis
-hop3 addons:create redis myapp-cache
-hop3 addons:attach myapp-cache --app myapp
+hop3 addon create redis myapp-cache
+hop3 addon attach myapp-cache --app myapp
 ```
 
 **Database optimization:**
@@ -432,7 +432,7 @@ sudo mkswap /swapfile
 sudo swapon /swapfile
 
 # Reduce worker memory
-hop3 config:set myapp UWSGI_WORKERS=2
+hop3 config set myapp UWSGI_WORKERS=2
 ```
 
 ### Disk Full
@@ -479,7 +479,7 @@ sudo ufw status
 **Bind to all interfaces:**
 ```bash
 # Most apps need to bind to 0.0.0.0, not 127.0.0.1
-hop3 config:set myapp BIND_ADDRESS=0.0.0.0
+hop3 config set myapp BIND_ADDRESS=0.0.0.0
 ```
 
 **Open firewall:**
@@ -606,12 +606,12 @@ cat /etc/uwsgi-hop3/*.ini
 
 ```bash
 # Full diagnostic dump
-hop3 system:info > diagnostic.txt
-hop3 system:check --verbose >> diagnostic.txt
+hop3 system info > diagnostic.txt
+hop3 system check --verbose >> diagnostic.txt
 hop3 apps >> diagnostic.txt
 
 # Include logs for specific app
-hop3 app:logs myapp --lines 200 >> diagnostic.txt
+hop3 app logs myapp --lines 200 >> diagnostic.txt
 ```
 
 ### Where to Get Help

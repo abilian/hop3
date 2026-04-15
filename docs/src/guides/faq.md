@@ -78,8 +78,8 @@ For comprehensive troubleshooting, see the **[Troubleshooting Guide](troubleshoo
 
 ```bash
 hop3 deploy myapp -v          # Verbose output during deploy
-hop3 app:build-logs myapp     # View build logs after deploy
-hop3 app:logs myapp           # View runtime logs
+hop3 app build-logs myapp     # View build logs after deploy
+hop3 app logs myapp           # View runtime logs
 ```
 
 See [Deployment Issues](troubleshooting.md#deployment-issues) for detailed diagnosis steps.
@@ -89,8 +89,8 @@ See [Deployment Issues](troubleshooting.md#deployment-issues) for detailed diagn
 **A:** Check that your app is running and listening on the correct port:
 
 ```bash
-hop3 app:status myapp         # Check app state
-hop3 app:logs myapp           # Look for startup errors
+hop3 app status myapp         # Check app state
+hop3 app logs myapp           # Look for startup errors
 ```
 
 See [502 Bad Gateway](troubleshooting.md#502-bad-gateway) in the Troubleshooting Guide for common causes and solutions.

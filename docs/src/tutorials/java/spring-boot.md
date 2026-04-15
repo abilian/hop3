@@ -420,10 +420,10 @@ hop3 init --ssh root@your-server.example.com
 
 ```bash
 # Set JVM options
-hop3 config:set hop3-tuto-spring-boot JAVA_OPTS="-Xmx512m -Xms256m"
+hop3 config set hop3-tuto-spring-boot JAVA_OPTS="-Xmx512m -Xms256m"
 
 # Set Spring profile
-hop3 config:set hop3-tuto-spring-boot SPRING_PROFILES_ACTIVE=production
+hop3 config set hop3-tuto-spring-boot SPRING_PROFILES_ACTIVE=production
 ```
 
 ### Deploy
@@ -439,7 +439,7 @@ hop3 deploy hop3-tuto-spring-boot
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config:set hop3-tuto-spring-boot HOST_NAME=hop3-tuto-spring-boot.$HOP3_TEST_DOMAIN
+hop3 config set hop3-tuto-spring-boot HOST_NAME=hop3-tuto-spring-boot.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -466,7 +466,7 @@ You'll see output showing:
 Check your application status:
 
 ```bash
-hop3 app:status hop3-tuto-spring-boot
+hop3 app status hop3-tuto-spring-boot
 ```
 
 ```console
@@ -484,7 +484,7 @@ OK
 View logs:
 
 ```bash
-hop3 app:logs hop3-tuto-spring-boot
+hop3 app logs hop3-tuto-spring-boot
 ```
 
 Open your application:
@@ -503,20 +503,20 @@ Open your application:
 ### Restart the Application
 
 ```bash
-hop3 app:restart hop3-tuto-spring-boot
+hop3 app restart hop3-tuto-spring-boot
 ```
 
 ### View and Manage Environment Variables
 
 ```bash
 # List all variables
-hop3 config:show hop3-tuto-spring-boot
+hop3 config show hop3-tuto-spring-boot
 
 # Set a variable
-hop3 config:set hop3-tuto-spring-boot NEW_VARIABLE=value
+hop3 config set hop3-tuto-spring-boot NEW_VARIABLE=value
 
 # Remove a variable
-hop3 config:unset hop3-tuto-spring-boot OLD_VARIABLE
+hop3 config unset hop3-tuto-spring-boot OLD_VARIABLE
 ```
 
 ### Scaling
@@ -526,7 +526,7 @@ hop3 config:unset hop3-tuto-spring-boot OLD_VARIABLE
 hop3 ps hop3-tuto-spring-boot
 
 # Scale web workers
-hop3 ps:scale hop3-tuto-spring-boot web=2
+hop3 ps scale hop3-tuto-spring-boot web=2
 ```
 
 ## Advanced Configuration
@@ -558,8 +558,8 @@ spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
 Create and attach database:
 
 ```bash
-hop3 addons:create postgres hop3-tuto-spring-boot-db
-hop3 addons:attach hop3-tuto-spring-boot hop3-tuto-spring-boot-db
+hop3 addon create postgres hop3-tuto-spring-boot-db
+hop3 addon attach hop3-tuto-spring-boot hop3-tuto-spring-boot-db
 ```
 
 ### Entity and Repository Example
@@ -634,8 +634,8 @@ public class MyappApplication {
 Attach Redis:
 
 ```bash
-hop3 addons:create redis hop3-tuto-spring-boot-redis
-hop3 addons:attach hop3-tuto-spring-boot hop3-tuto-spring-boot-redis
+hop3 addon create redis hop3-tuto-spring-boot-redis
+hop3 addon attach hop3-tuto-spring-boot hop3-tuto-spring-boot-redis
 ```
 
 ### Scheduled Tasks
@@ -670,7 +670,7 @@ public class ScheduledTasks {
 Set JVM options for production:
 
 ```bash
-hop3 config:set hop3-tuto-spring-boot JAVA_OPTS="-Xmx512m -Xms256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+hop3 config set hop3-tuto-spring-boot JAVA_OPTS="-Xmx512m -Xms256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
 ```
 
 Update `Procfile`:
@@ -747,7 +747,7 @@ web: ./target/hop3-tuto-spring-boot
 Check the logs for errors:
 
 ```bash
-hop3 app:logs hop3-tuto-spring-boot --tail
+hop3 app logs hop3-tuto-spring-boot --tail
 ```
 
 Common issues:
@@ -761,10 +761,10 @@ Java applications can be memory-hungry. Tune the JVM:
 
 ```bash
 # Limit heap size
-hop3 config:set hop3-tuto-spring-boot JAVA_OPTS="-Xmx256m -Xms128m"
+hop3 config set hop3-tuto-spring-boot JAVA_OPTS="-Xmx256m -Xms128m"
 
 # Use G1GC for better memory management
-hop3 config:set hop3-tuto-spring-boot JAVA_OPTS="-Xmx256m -XX:+UseG1GC"
+hop3 config set hop3-tuto-spring-boot JAVA_OPTS="-Xmx256m -XX:+UseG1GC"
 ```
 
 ### Slow Startup

@@ -361,21 +361,21 @@ class BackupRestoreCmd(Command):
 
 @register
 @dataclass(frozen=True)
-class BackupDeleteCmd(Command):
+class BackupDestroyCmd(Command):
     """Delete a backup.
 
     WARNING: This action cannot be undone!
 
-    Usage: hop3 backup delete <backup-id>
+    Usage: hop3 backup destroy <backup-id>
 
     Examples:
-        hop3 backup delete 20251030_143022_a8f3d9
+        hop3 backup destroy 20251030_143022_a8f3d9
     """
 
     app_repo: AppRepository
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
-    name: ClassVar[tuple[str, ...]] = ("backup", "delete")
+    name: ClassVar[tuple[str, ...]] = ("backup", "destroy")
     destructive: ClassVar[bool] = True
 
     def call(self, *args):
@@ -383,10 +383,10 @@ class BackupDeleteCmd(Command):
         if len(args) < 1:
             return [
                 text(
-                    "Usage: hop3 backup delete <backup-id>\n\n"
+                    "Usage: hop3 backup destroy <backup-id>\n\n"
                     "WARNING: This action cannot be undone!\n\n"
                     "Example:\n"
-                    "  hop3 backup delete 20251030_143022_a8f3d9"
+                    "  hop3 backup destroy 20251030_143022_a8f3d9"
                 )
             ]
 

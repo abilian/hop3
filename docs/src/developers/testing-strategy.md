@@ -125,14 +125,14 @@ def test_auth_login_flow(client, db):
     """Test complete login flow with JWT token generation."""
     # Register user
     response = client.post("/rpc", json={
-        "method": "auth:register",
+        "method": "auth register",
         "params": {"username": "test", "password": "secret123"}
     })
     assert response.status_code == 200
 
     # Login
     response = client.post("/rpc", json={
-        "method": "auth:login",
+        "method": "auth login",
         "params": {"username": "test", "password": "secret123"}
     })
     assert response.status_code == 200
@@ -400,7 +400,7 @@ hop3-test apps --target remote --host server.example.com
 │     ├── Verify deployment (hop3 apps)                               │
 │     ├── Run validations (HTTP checks, custom scripts)               │
 │     ├── Collect diagnostics on failure                              │
-│     └── Cleanup (hop3 app:destroy)                                  │
+│     └── Cleanup (hop3 app destroy)                                  │
 │                                                                      │
 │  5. Reporting                                                        │
 │     ├── Print results (PASS/FAIL per test)                          │
@@ -751,7 +751,7 @@ def test_non_admin_cannot_create_users():
     response = client.post(
         "/rpc",
         headers={"Authorization": f"Bearer {token}"},
-        json={"method": "admin:user:add", "params": {"username": "new-user"}}
+        json={"method": "user add", "params": {"username": "new-user"}}
     )
     assert response.status_code == 403
 ```

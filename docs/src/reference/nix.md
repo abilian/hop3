@@ -14,14 +14,14 @@ buildpacks and Docker. Two modes are supported:
    built-in templates. This is the preferred mode for most apps.
 2. **Hand-crafted mode.** The user provides a `hop3.nix` file directly.
    Used when the templates don't fit, or when extracted via
-   `hop3 nix:eject`.
+   `hop3 nix eject`.
 
 **The two modes are mutually exclusive.** If both a `hop3.nix` file
 and a `[nix].template` section in `hop3.toml` are present, NixBuilder
 raises `Abort` rather than silently picking one. The error message
 points the user to either delete `hop3.nix` or remove the `[nix]`
 section. To deliberately convert a template to a hand-crafted file,
-use `hop3 nix:eject <app>`.
+use `hop3 nix eject <app>`.
 
 ## Architecture
 
@@ -168,10 +168,10 @@ Not all Nix builds are equally reproducible:
 The goal is Tier 1 wherever possible. Tier 3 templates exist as a
 pragmatic shortcut for apps not yet in nixpkgs.
 
-## The `nix:eject` command
+## The `nix eject` command
 
 ```bash
-hop3 nix:eject <app-name>
+hop3 nix eject <app-name>
 ```
 
 Materializes the auto-generated `hop3.nix` from the template into a
@@ -184,7 +184,7 @@ real file in the app's source directory. After ejection:
 The ejected file includes a header noting which template it came from
 and the date of ejection.
 
-Use `nix:eject` when:
+Use `nix eject` when:
 
 - You need to add custom build logic the templates don't support
 - You want to pin the generated Nix expression for reproducibility
@@ -266,4 +266,4 @@ hop3-test system --docker --clean --with nix apps/real-apps-nix-gen
   introduction
 - [hop3.toml `[nix]` section](config.md#nix--template-based-nix-builds)
   — Field-by-field reference
-- [`nix:eject` command](cli.md#hop3-nixeject)
+- [`nix eject` command](cli.md#hop3-nixeject)

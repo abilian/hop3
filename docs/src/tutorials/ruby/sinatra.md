@@ -231,7 +231,7 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash
-hop3 config:set hop3-tuto-sinatra RACK_ENV=production
+hop3 config set hop3-tuto-sinatra RACK_ENV=production
 ```
 
 ### Prepare for Deployment
@@ -259,7 +259,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config:set hop3-tuto-sinatra HOST_NAME=hop3-tuto-sinatra.$HOP3_TEST_DOMAIN
+hop3 config set hop3-tuto-sinatra HOST_NAME=hop3-tuto-sinatra.$HOP3_TEST_DOMAIN
 ```
 
 ### Wait for Process Stop
@@ -285,7 +285,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 app:status hop3-tuto-sinatra
+hop3 app status hop3-tuto-sinatra
 ```
 
 ```console
@@ -304,7 +304,7 @@ View logs:
 
 ```bash
 # View logs
-hop3 app:logs hop3-tuto-sinatra
+hop3 app logs hop3-tuto-sinatra
 
 # Your app will be available at:
 # http://hop3-tuto-sinatra.your-hop3-server.example.com
@@ -314,14 +314,14 @@ hop3 app:logs hop3-tuto-sinatra
 
 ```bash
 # Restart the application
-hop3 app:restart hop3-tuto-sinatra
+hop3 app restart hop3-tuto-sinatra
 
 # View/set environment variables
-hop3 config:show hop3-tuto-sinatra
-hop3 config:set hop3-tuto-sinatra NEW_VAR=value
+hop3 config show hop3-tuto-sinatra
+hop3 config set hop3-tuto-sinatra NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-sinatra web=2
+hop3 ps scale hop3-tuto-sinatra web=2
 ```
 
 ## Example hop3.toml

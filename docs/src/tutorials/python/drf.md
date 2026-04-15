@@ -310,7 +310,7 @@ hop3 init --ssh root@your-server.example.com
 Deploy the application (first deployment creates the app):
 
 <!-- Note: The first deploy may succeed but the app may crash due to missing SECRET_KEY.
-     We set it via config:set after the app is created. -->
+     We set it via config set after the app is created. -->
 
 ```bash
 hop3 deploy hop3-tuto-drf
@@ -321,15 +321,15 @@ hop3 deploy hop3-tuto-drf
 Set the SECRET_KEY, ALLOWED_HOSTS, and hostname for the application:
 
 ```bash
-hop3 config:set hop3-tuto-drf SECRET_KEY=drf-insecure-changeme-for-production
+hop3 config set hop3-tuto-drf SECRET_KEY=drf-insecure-changeme-for-production
 ```
 
 ```bash
-hop3 config:set hop3-tuto-drf ALLOWED_HOSTS=hop3-tuto-drf.$HOP3_TEST_DOMAIN,localhost,127.0.0.1
+hop3 config set hop3-tuto-drf ALLOWED_HOSTS=hop3-tuto-drf.$HOP3_TEST_DOMAIN,localhost,127.0.0.1
 ```
 
 ```bash
-hop3 config:set hop3-tuto-drf HOST_NAME=hop3-tuto-drf.$HOP3_TEST_DOMAIN
+hop3 config set hop3-tuto-drf HOST_NAME=hop3-tuto-drf.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -347,7 +347,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 app:status hop3-tuto-drf
+hop3 app status hop3-tuto-drf
 ```
 
 ```console
@@ -365,7 +365,7 @@ OK
 View logs:
 
 ```bash
-hop3 app:logs hop3-tuto-drf
+hop3 app logs hop3-tuto-drf
 
 # Your app will be available at:
 # http://hop3-tuto-drf.your-hop3-server.example.com
@@ -375,14 +375,14 @@ hop3 app:logs hop3-tuto-drf
 
 ```bash
 # Restart the application
-hop3 app:restart hop3-tuto-drf
+hop3 app restart hop3-tuto-drf
 
 # View/set environment variables
-hop3 config:show hop3-tuto-drf
-hop3 config:set hop3-tuto-drf NEW_VAR=value
+hop3 config show hop3-tuto-drf
+hop3 config set hop3-tuto-drf NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-drf web=2
+hop3 ps scale hop3-tuto-drf web=2
 ```
 
 ## Advanced Configuration

@@ -41,8 +41,8 @@ Managed database services with automatic connection configuration:
 - **Redis** - In-memory data store and cache
 
 ```bash
-hop3 addons:create postgres mydb
-hop3 addons:attach mydb --app myapp
+hop3 addon create postgres mydb
+hop3 addon attach mydb --app myapp
 # DATABASE_URL automatically injected
 ```
 
@@ -77,8 +77,8 @@ Robust process management via uWSGI:
 Flexible configuration management:
 
 ```bash
-hop3 config:set myapp KEY=value
-hop3 config:show myapp
+hop3 config set myapp KEY=value
+hop3 config show myapp
 ```
 
 ### CLI Interface
@@ -87,9 +87,9 @@ Full-featured command-line interface:
 
 ```bash
 hop3 apps               # List applications
-hop3 app:status myapp   # Application details
-hop3 app:logs myapp     # View logs
-hop3 app:restart myapp  # Restart application
+hop3 app status myapp   # Application details
+hop3 app logs myapp     # View logs
+hop3 app restart myapp  # Restart application
 ```
 
 ### Web Dashboard
@@ -189,7 +189,7 @@ Extensible via plugins:
 ### Health Checks
 
 ```bash
-hop3 system:check --verbose
+hop3 system check --verbose
 ```
 
 Checks:
@@ -201,16 +201,16 @@ Checks:
 ### Backup & Restore
 
 ```bash
-hop3 backup:create mydb
-hop3 backup:list
-hop3 backup:restore mydb --backup <file>
+hop3 backup create mydb
+hop3 backup list
+hop3 backup restore mydb --backup <file>
 ```
 
 ### Logging
 
 ```bash
-hop3 app:logs myapp --follow
-hop3 system:logs
+hop3 app logs myapp --follow
+hop3 system logs
 ```
 
 ---

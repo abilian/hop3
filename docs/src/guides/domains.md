@@ -16,10 +16,10 @@ Set a custom domain for your app:
 
 ```bash
 # Set the hostname
-hop3 config:set myapp HOST_NAME=myapp.example.com
+hop3 config set myapp HOST_NAME=myapp.example.com
 
 # Restart to apply changes
-hop3 app:restart myapp
+hop3 app restart myapp
 ```
 
 Your app is now accessible at `https://myapp.example.com` (assuming DNS is configured).
@@ -29,7 +29,7 @@ Your app is now accessible at `https://myapp.example.com` (assuming DNS is confi
 ### Single Domain
 
 ```bash
-hop3 config:set myapp HOST_NAME=myapp.example.com
+hop3 config set myapp HOST_NAME=myapp.example.com
 ```
 
 ### Multiple Domains
@@ -37,7 +37,7 @@ hop3 config:set myapp HOST_NAME=myapp.example.com
 Use comma-separated values to serve multiple domains:
 
 ```bash
-hop3 config:set myapp HOST_NAME=myapp.example.com,www.myapp.example.com
+hop3 config set myapp HOST_NAME=myapp.example.com,www.myapp.example.com
 ```
 
 Both domains will point to the same application with the same SSL certificate.
@@ -64,7 +64,7 @@ If you don't set `HOST_NAME`, your app won't get a reverse proxy configuration. 
 
 ```bash
 # Check the assigned port
-hop3 app:status myapp
+hop3 app status myapp
 ```
 
 ## DNS Configuration
@@ -107,7 +107,7 @@ For local testing, you can use services like:
 Example using nip.io for local testing:
 
 ```bash
-hop3 config:set myapp HOST_NAME=myapp.127.0.0.1.nip.io
+hop3 config set myapp HOST_NAME=myapp.127.0.0.1.nip.io
 ```
 
 ## SSL/TLS Certificates
@@ -145,7 +145,7 @@ Check certificate status:
 
 ```bash
 # View app configuration including SSL info
-hop3 app:status myapp
+hop3 app status myapp
 
 # Check certificate files directly on the server
 ls /home/hop3/nginx/certs/
@@ -158,7 +158,7 @@ ls /home/hop3/nginx/certs/
 Use the underscore hostname to create a catch-all application that responds to any hostname not matched by other apps:
 
 ```bash
-hop3 config:set myapp HOST_NAME=_
+hop3 config set myapp HOST_NAME=_
 ```
 
 This is useful for:
@@ -217,7 +217,7 @@ The proxy is selected during server installation. All proxies support:
 
 3. Ensure HOST_NAME is set correctly:
    ```bash
-   hop3 config:show myapp | grep HOST_NAME
+   hop3 config show myapp | grep HOST_NAME
    ```
 
 ### SSL Certificate Issues
@@ -243,7 +243,7 @@ After changing HOST_NAME:
 
 1. Restart the application:
    ```bash
-   hop3 app:restart myapp
+   hop3 app restart myapp
    ```
 
 2. If issues persist, reload the proxy:
@@ -263,8 +263,8 @@ Only one app can use a specific hostname. If you get errors about duplicate host
 
 2. Remove the hostname from the conflicting app:
    ```bash
-   hop3 config:unset other-app HOST_NAME
-   hop3 app:restart other-app
+   hop3 config unset other-app HOST_NAME
+   hop3 app restart other-app
    ```
 
 ## Examples
@@ -273,16 +273,16 @@ Only one app can use a specific hostname. If you get errors about duplicate host
 
 ```bash
 # Configure both domains
-hop3 config:set myapp HOST_NAME=example.com,www.example.com
-hop3 app:restart myapp
+hop3 config set myapp HOST_NAME=example.com,www.example.com
+hop3 app restart myapp
 ```
 
 ### Staging Environment
 
 ```bash
 # Use subdomain for staging
-hop3 config:set myapp-staging HOST_NAME=staging.example.com
-hop3 app:restart myapp-staging
+hop3 config set myapp-staging HOST_NAME=staging.example.com
+hop3 app restart myapp-staging
 ```
 
 ### Multi-Tenant Application
@@ -291,7 +291,7 @@ For applications that handle multiple customer domains:
 
 ```bash
 # Set primary domain for the app
-hop3 config:set myapp HOST_NAME=app.example.com
+hop3 config set myapp HOST_NAME=app.example.com
 
 # Application code handles tenant routing via request headers
 # Example: customers access customer1.app.example.com, customer2.app.example.com
@@ -303,10 +303,10 @@ Use wildcard DNS (`*.app.example.com`) and let your application handle tenant ro
 
 ```bash
 # Don't set HOST_NAME - app accessible only via port
-hop3 app:start internal-api
+hop3 app start internal-api
 
 # Access via port
-curl http://localhost:$(hop3 config:get internal-api PORT)
+curl http://localhost:$(hop3 config get internal-api PORT)
 ```
 
 ## Best Practices

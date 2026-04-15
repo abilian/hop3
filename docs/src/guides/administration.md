@@ -62,7 +62,7 @@ See the [Server Setup Guide](../get-started/server-setup.md) for complete instal
 
 ```bash
 # Check system health
-hop3 system:check
+hop3 system check
 
 # View service status
 systemctl status hop3-server
@@ -183,7 +183,7 @@ hop3-server admin:token --username admin --expiry 168
 ### Listing Users
 
 ```bash
-hop3 admin:user:list
+hop3 user list
 ```
 
 ---
@@ -195,12 +195,12 @@ Hop3 supports PostgreSQL, MySQL, and Redis as backing services. For complete add
 ### Quick Reference
 
 ```bash
-hop3 addons:create postgres mydb        # Create PostgreSQL database
-hop3 addons:create mysql mydb           # Create MySQL database
-hop3 addons:create redis mycache        # Create Redis instance
-hop3 addons:attach mydb --app myapp     # Attach to app (sets DATABASE_URL)
-hop3 addons:info mydb                   # Get connection info
-hop3 addons:destroy mydb                # Delete (requires confirmation)
+hop3 addon create postgres mydb        # Create PostgreSQL database
+hop3 addon create mysql mydb           # Create MySQL database
+hop3 addon create redis mycache        # Create Redis instance
+hop3 addon attach mydb --app myapp     # Attach to app (sets DATABASE_URL)
+hop3 addon show mydb                   # Get connection info
+hop3 addon destroy mydb                # Delete (requires confirmation)
 ```
 
 ### Server Configuration
@@ -235,7 +235,7 @@ Hop3 automatically provisions SSL certificates via Let's Encrypt when:
 
 ```bash
 # Configure hostname
-hop3 config:set myapp HOST_NAME=myapp.example.com
+hop3 config set myapp HOST_NAME=myapp.example.com
 
 # Redeploy to provision certificate
 hop3 deploy myapp
@@ -272,10 +272,10 @@ sudo certbot renew --dry-run
 
 ```bash
 # Comprehensive health check
-hop3 system:check
+hop3 system check
 
 # Verbose output with details
-hop3 system:check --verbose
+hop3 system check --verbose
 ```
 
 Checks performed:
@@ -292,24 +292,24 @@ Checks performed:
 hop3 apps
 
 # Detailed app info
-hop3 app:status myapp
+hop3 app status myapp
 ```
 
 ### Log Monitoring
 
 ```bash
 # View application logs
-hop3 app:logs myapp
+hop3 app logs myapp
 
 # Follow logs in real-time
-hop3 app:logs myapp --follow
+hop3 app logs myapp --follow
 
 # View last N lines
-hop3 app:logs myapp --lines 100
+hop3 app logs myapp --lines 100
 
 # System-wide logs
-hop3 system:logs
-hop3 system:logs --follow
+hop3 system logs
+hop3 system logs --follow
 ```
 
 ### Process Monitoring
@@ -331,9 +331,9 @@ For application-level backups, see the **[Backup and Restore Guide](backup-resto
 ### Application Backups
 
 ```bash
-hop3 backup:create myapp     # Create app backup
-hop3 backup:list myapp       # List backups
-hop3 backup:restore <id>     # Restore from backup
+hop3 backup create myapp     # Create app backup
+hop3 backup list myapp       # List backups
+hop3 backup restore <id>     # Restore from backup
 ```
 
 ### Full Server Backup
@@ -429,8 +429,8 @@ Each application runs:
 
 Edit application's uWSGI config or set via environment:
 ```bash
-hop3 config:set myapp UWSGI_WORKERS=4
-hop3 config:set myapp UWSGI_THREADS=2
+hop3 config set myapp UWSGI_WORKERS=4
+hop3 config set myapp UWSGI_THREADS=2
 ```
 
 ### Nginx Optimization
@@ -518,19 +518,19 @@ docker network create test-network && docker network rm test-network
 
 ```bash
 # Check application logs
-hop3 app:logs myapp --lines 50
+hop3 app logs myapp --lines 50
 
 # Check uWSGI status
 systemctl status uwsgi-hop3
 
 # Verify environment variables
-hop3 config:show myapp
+hop3 config show myapp
 ```
 
 #### 502 Bad Gateway
 
 1. Check if application is running: `hop3 apps`
-2. Check application logs: `hop3 app:logs myapp`
+2. Check application logs: `hop3 app logs myapp`
 3. Verify Nginx config: `sudo nginx -t`
 4. Check uWSGI socket: `ls -la /tmp/uwsgi-*.sock`
 
@@ -538,13 +538,13 @@ hop3 config:show myapp
 
 ```bash
 # Verify addon is attached
-hop3 addons:list
+hop3 addons list
 
 # Check DATABASE_URL is set
-hop3 config:show myapp | grep DATABASE
+hop3 config show myapp | grep DATABASE
 
 # Test database connection
-hop3 system:check --verbose
+hop3 system check --verbose
 ```
 
 #### SSL Certificate Issues
@@ -568,10 +568,10 @@ hop3 --help
 hop3 <command> --help
 
 # System information
-hop3 system:info
+hop3 system info
 
 # Diagnostic information
-hop3 system:check --verbose
+hop3 system check --verbose
 ```
 
 ---
@@ -582,7 +582,7 @@ hop3 system:check --verbose
 
 **Daily:**
 - Monitor disk space: `df -h`
-- Check application health: `hop3 system:check`
+- Check application health: `hop3 system check`
 
 **Weekly:**
 - Review logs for errors

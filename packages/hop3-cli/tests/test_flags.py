@@ -178,9 +178,9 @@ def test_parse_flags_with_subcommands():
     assert flags.skip_confirm is True
     assert args == ["app", "destroy", "my-app"]
 
-    flags, args = parse_flags(["backup", "delete", "backup-id", "--json"])
+    flags, args = parse_flags(["backup", "destroy", "backup-id", "--json"])
     assert flags.json_output is True
-    assert args == ["backup", "delete", "backup-id"]
+    assert args == ["backup", "destroy", "backup-id"]
 
 
 def test_cli_flags_immutability():

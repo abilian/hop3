@@ -421,8 +421,8 @@ hop3 init --ssh root@your-server.example.com
 # Generate secret key
 mix phx.gen.secret
 
-hop3 config:set hop3-tuto-phoenix SECRET_KEY_BASE=<generated-secret>
-hop3 config:set hop3-tuto-phoenix PHX_HOST=hop3-tuto-phoenix.your-server.example.com
+hop3 config set hop3-tuto-phoenix SECRET_KEY_BASE=<generated-secret>
+hop3 config set hop3-tuto-phoenix PHX_HOST=hop3-tuto-phoenix.your-server.example.com
 ```
 
 ### Deploy
@@ -438,7 +438,7 @@ hop3 deploy hop3-tuto-phoenix
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config:set hop3-tuto-phoenix HOST_NAME=hop3-tuto-phoenix.$HOP3_TEST_DOMAIN
+hop3 config set hop3-tuto-phoenix HOST_NAME=hop3-tuto-phoenix.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -458,7 +458,7 @@ sleep 5
 ### Verify Deployment
 
 ```bash
-hop3 app:status hop3-tuto-phoenix
+hop3 app status hop3-tuto-phoenix
 ```
 
 ```console
@@ -477,17 +477,17 @@ OK
 
 ```bash
 # Restart the application
-hop3 app:restart hop3-tuto-phoenix
+hop3 app restart hop3-tuto-phoenix
 
 # View logs
-hop3 app:logs hop3-tuto-phoenix
+hop3 app logs hop3-tuto-phoenix
 
 # View/set environment variables
-hop3 config:show hop3-tuto-phoenix
-hop3 config:set hop3-tuto-phoenix NEW_VAR=value
+hop3 config show hop3-tuto-phoenix
+hop3 config set hop3-tuto-phoenix NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-phoenix web=2
+hop3 ps scale hop3-tuto-phoenix web=2
 ```
 
 ## Advanced Configuration

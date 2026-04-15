@@ -38,7 +38,7 @@ Set environment variables in Hop3:
 
 ```bash
 # Using hop3-cli
-hop3 config:set myapp $(cat .env)
+hop3 config set myapp $(cat .env)
 
 # Or add to hop3.toml
 [env]
@@ -53,21 +53,21 @@ Map Heroku addons to Hop3 services:
 **Heroku Postgres:**
 ```bash
 # Heroku
-heroku addons:create heroku-postgresql:standard-0
+heroku addon create heroku-postgresql:standard-0
 
 # Hop3
-hop3 addons:create postgres myapp-db
-hop3 addons:attach myapp myapp-db
+hop3 addon create postgres myapp-db
+hop3 addon attach myapp myapp-db
 ```
 
 **Heroku Redis:**
 ```bash
 # Heroku
-heroku addons:create heroku-redis:premium-0
+heroku addon create heroku-redis:premium-0
 
 # Hop3
-hop3 addons:create redis myapp-cache
-hop3 addons:attach myapp myapp-cache
+hop3 addon create redis myapp-cache
+hop3 addon attach myapp myapp-cache
 ```
 
 ### Step 4: Deploy
@@ -80,14 +80,14 @@ hop3 deploy myapp
 
 | Heroku | Hop3 | Notes |
 |--------|------|-------|
-| `heroku create` | `hop3 app:launch <repo> myapp` | Create app from repo |
+| `heroku create` | `hop3 app launch <repo> myapp` | Create app from repo |
 | `git push heroku main` | `hop3 deploy myapp` | Deploy code |
-| `heroku config:set` | `hop3 config:set` | Set env vars |
-| `heroku addons:create heroku-postgresql` | `hop3 addons:create postgres` | Database |
-| `heroku addons:create heroku-redis` | `hop3 addons:create redis` | Cache |
+| `heroku config set` | `hop3 config set` | Set env vars |
+| `heroku addon create heroku-postgresql` | `hop3 addon create postgres` | Database |
+| `heroku addon create heroku-redis` | `hop3 addon create redis` | Cache |
 | `heroku ps` | `hop3 ps myapp` | Process status |
-| `heroku logs -t` | `hop3 app:logs myapp` | View logs |
-| `heroku restart` | `hop3 app:restart myapp` | Restart app |
+| `heroku logs -t` | `hop3 app logs myapp` | View logs |
+| `heroku restart` | `hop3 app restart myapp` | Restart app |
 
 ### Common Gotchas
 
@@ -172,8 +172,8 @@ web = 8080
 fly postgres create --name myapp-db
 
 # Hop3
-hop3 addons:create postgres myapp-db
-hop3 addons:attach myapp myapp-db
+hop3 addon create postgres myapp-db
+hop3 addon attach myapp myapp-db
 ```
 
 ### Step 3: Deploy
@@ -186,13 +186,13 @@ hop3 deploy myapp
 
 | Fly.io | Hop3 | Notes |
 |--------|------|-------|
-| `fly launch` | `hop3 app:launch <repo> myapp` | Create app from repo |
+| `fly launch` | `hop3 app launch <repo> myapp` | Create app from repo |
 | `fly deploy` | `hop3 deploy myapp` | Deploy code |
-| `fly secrets set` | `hop3 config:set` | Set secrets |
-| `fly postgres create` | `hop3 addons:create postgres` | Database |
-| `fly status` | `hop3 app:status myapp` | App status |
-| `fly logs` | `hop3 app:logs myapp` | View logs |
-| `fly restart` | `hop3 app:restart myapp` | Restart app |
+| `fly secrets set` | `hop3 config set` | Set secrets |
+| `fly postgres create` | `hop3 addon create postgres` | Database |
+| `fly status` | `hop3 app status myapp` | App status |
+| `fly logs` | `hop3 app logs myapp` | View logs |
+| `fly restart` | `hop3 app restart myapp` | Restart app |
 
 ---
 
@@ -206,10 +206,10 @@ Use the built-in migration command:
 
 ```bash
 # Dry run - see what would be generated
-hop3 config:migrate procfile /path/to/app --dry-run
+hop3 config migrate procfile /path/to/app --dry-run
 
 # Actually migrate
-hop3 config:migrate procfile /path/to/app
+hop3 config migrate procfile /path/to/app
 ```
 
 This will:
@@ -311,13 +311,13 @@ path = "/health/"
 
 ```bash
 # Production
-hop3 config:set myapp LOG_LEVEL=info
+hop3 config set myapp LOG_LEVEL=info
 
 # Development/staging (local testing)
 LOG_LEVEL=debug flask run --reload
 ```
 
-For local development, run your app directly without Hop3. For deployed environments, use `hop3 config:set` to configure environment-specific variables.
+For local development, run your app directly without Hop3. For deployed environments, use `hop3 config set` to configure environment-specific variables.
 
 ---
 
@@ -327,12 +327,12 @@ After migration, validate your configuration:
 
 ```bash
 # Check app configuration
-hop3 config:show myapp
+hop3 config show myapp
 
 # Deploy and verify
 hop3 deploy myapp
-hop3 app:status myapp
-hop3 app:logs myapp
+hop3 app status myapp
+hop3 app logs myapp
 ```
 
 ---

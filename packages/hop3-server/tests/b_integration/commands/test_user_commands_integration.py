@@ -20,17 +20,17 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from hop3.commands.admin import (
-    AdminUserAddCmd,
-    AdminUserDisableCmd,
-    AdminUserEnableCmd,
-    AdminUserGenerateTokenCmd,
-    AdminUserGrantAdminCmd,
-    AdminUserInfoCmd,
-    AdminUserListCmd,
-    AdminUserRemoveCmd,
-    AdminUserRevokeAdminCmd,
-    AdminUserSetPasswordCmd,
+from hop3.commands.user import (
+    UserAddCmd,
+    UserDisableCmd,
+    UserEnableCmd,
+    UserGenerateTokenCmd,
+    UserGrantAdminCmd,
+    UserListCmd,
+    UserRemoveCmd,
+    UserRevokeAdminCmd,
+    UserSetPasswordCmd,
+    UserShowCmd,
 )
 from hop3.orm import User
 from hop3.orm.repositories import RoleRepository, UserRepository
@@ -55,7 +55,7 @@ def role_repo(db_session: Session) -> RoleRepository:
 
 @pytest.mark.integration
 class TestAdminUserAddCmdIntegration:
-    """Integration tests for AdminUserAddCmd using state-based testing."""
+    """Integration tests for UserAddCmd using state-based testing."""
 
     def test_add_user_requires_authentication(
         self, db_session: Session, user_repo: UserRepository, role_repo: RoleRepository
@@ -72,7 +72,7 @@ class TestAdminUserAddCmdIntegration:
             - Verify error message about authentication required
             - Verify no user was created in database
         """
-        cmd = AdminUserAddCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserAddCmd(user_repo=user_repo, role_repo=role_repo)
 
         result = cmd.call("", "newuser", "new@example.com", "password123")
 
@@ -98,13 +98,13 @@ class TestAdminUserAddCmdIntegration:
             - Create a regular (non-admin) user via fixture
 
         ACT:
-            - Call command as non-admin user
+            - Call command as non-user
 
         ASSERT:
             - Verify error message about admin privileges required
             - Verify no new user was created
         """
-        cmd = AdminUserAddCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserAddCmd(user_repo=user_repo, role_repo=role_repo)
 
         result = cmd.call(
             sample_user.username, "newuser", "new@example.com", "password123"
@@ -130,7 +130,7 @@ class TestAdminUserAddCmdIntegration:
         """Test that admin:user:add requires username, email, and password.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
 
         ACT:
             - Call command with missing arguments
@@ -142,7 +142,7 @@ class TestAdminUserAddCmdIntegration:
         sample_user.roles.append(admin_role)
         db_session.commit()
 
-        cmd = AdminUserAddCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserAddCmd(user_repo=user_repo, role_repo=role_repo)
 
         result = cmd.call(sample_user.username)
 
@@ -153,7 +153,7 @@ class TestAdminUserAddCmdIntegration:
         # Verify no new user was created
         db_session.expire_all()
         users = db_session.query(User).all()
-        assert len(users) == 1, "Only the admin user should exist"
+        assert len(users) == 1, "Only the user should exist"
 
     def test_add_user_success(
         self,
@@ -166,7 +166,7 @@ class TestAdminUserAddCmdIntegration:
         """Test successful user creation.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
 
         ACT:
             - Create a new user
@@ -180,7 +180,7 @@ class TestAdminUserAddCmdIntegration:
         sample_user.roles.append(admin_role)
         db_session.commit()
 
-        cmd = AdminUserAddCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserAddCmd(user_repo=user_repo, role_repo=role_repo)
 
         result = cmd.call(
             sample_user.username, "newuser", "new@example.com", "password123"
@@ -217,7 +217,7 @@ class TestAdminUserAddCmdIntegration:
         """Test user creation with admin flag.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
             - Ensure admin role exists
 
         ACT:
@@ -232,7 +232,7 @@ class TestAdminUserAddCmdIntegration:
         sample_user.roles.append(admin_role)
         db_session.commit()
 
-        cmd = AdminUserAddCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserAddCmd(user_repo=user_repo, role_repo=role_repo)
 
         result = cmd.call(
             sample_user.username,
@@ -271,7 +271,7 @@ class TestAdminUserAddCmdIntegration:
         """Test error when username already exists.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
             - Existing user already in database
 
         ACT:
@@ -284,7 +284,7 @@ class TestAdminUserAddCmdIntegration:
         sample_user.roles.append(admin_role)
         db_session.commit()
 
-        cmd = AdminUserAddCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserAddCmd(user_repo=user_repo, role_repo=role_repo)
 
         result = cmd.call(
             sample_user.username,
@@ -313,7 +313,7 @@ class TestAdminUserAddCmdIntegration:
         """Test error when email already exists.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
             - Existing user with email already in database
 
         ACT:
@@ -326,7 +326,7 @@ class TestAdminUserAddCmdIntegration:
         sample_user.roles.append(admin_role)
         db_session.commit()
 
-        cmd = AdminUserAddCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserAddCmd(user_repo=user_repo, role_repo=role_repo)
 
         result = cmd.call(
             sample_user.username,
@@ -347,7 +347,7 @@ class TestAdminUserAddCmdIntegration:
 
 @pytest.mark.integration
 class TestAdminUserRemoveCmdIntegration:
-    """Integration tests for AdminUserRemoveCmd using state-based testing."""
+    """Integration tests for UserRemoveCmd using state-based testing."""
 
     def test_remove_user_prevents_self_deletion(
         self,
@@ -359,7 +359,7 @@ class TestAdminUserRemoveCmdIntegration:
         """Test that admin cannot remove their own account.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
 
         ACT:
             - Try to remove own account
@@ -371,7 +371,7 @@ class TestAdminUserRemoveCmdIntegration:
         sample_user.roles.append(admin_role)
         db_session.commit()
 
-        cmd = AdminUserRemoveCmd(user_repo=user_repo)
+        cmd = UserRemoveCmd(user_repo=user_repo)
 
         result = cmd.call(sample_user.username, sample_user.username)
 
@@ -394,7 +394,7 @@ class TestAdminUserRemoveCmdIntegration:
         """Test successful user removal.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
             - Create a target user to remove
 
         ACT:
@@ -402,7 +402,7 @@ class TestAdminUserRemoveCmdIntegration:
 
         ASSERT:
             - Verify user was removed from database
-            - Verify admin user still exists
+            - Verify user still exists
             - Verify success message
         """
         admin_user = User(username="admin", email="admin@example.com")
@@ -414,7 +414,7 @@ class TestAdminUserRemoveCmdIntegration:
         # Target user is sample_user
         assert db_session.query(User).filter_by(username="testuser").first() is not None
 
-        cmd = AdminUserRemoveCmd(user_repo=user_repo)
+        cmd = UserRemoveCmd(user_repo=user_repo)
 
         result = cmd.call(admin_user.username, sample_user.username)
 
@@ -439,7 +439,7 @@ class TestAdminUserRemoveCmdIntegration:
         """Test error when user doesn't exist.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
 
         ACT:
             - Try to remove non-existent user
@@ -450,7 +450,7 @@ class TestAdminUserRemoveCmdIntegration:
         sample_user.roles.append(admin_role)
         db_session.commit()
 
-        cmd = AdminUserRemoveCmd(user_repo=user_repo)
+        cmd = UserRemoveCmd(user_repo=user_repo)
 
         result = cmd.call(sample_user.username, "nonexistent")
 
@@ -461,7 +461,7 @@ class TestAdminUserRemoveCmdIntegration:
 
 @pytest.mark.integration
 class TestAdminUserListCmdIntegration:
-    """Integration tests for AdminUserListCmd using state-based testing."""
+    """Integration tests for UserListCmd using state-based testing."""
 
     def test_list_users_success(
         self,
@@ -473,7 +473,7 @@ class TestAdminUserListCmdIntegration:
         """Test listing users.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
             - Create additional test users
 
         ACT:
@@ -495,7 +495,7 @@ class TestAdminUserListCmdIntegration:
         db_session.add(user2)
         db_session.commit()
 
-        cmd = AdminUserListCmd(user_repo=user_repo)
+        cmd = UserListCmd(user_repo=user_repo)
 
         result = cmd.call(sample_user.username)
 
@@ -511,7 +511,7 @@ class TestAdminUserListCmdIntegration:
 
         ARRANGE:
             - Empty database (no users)
-            - Create admin user temporarily for auth
+            - Create user temporarily for auth
 
         ACT:
             - List users
@@ -531,14 +531,14 @@ class TestAdminUserListCmdIntegration:
         db_session.commit()
 
         # We can't actually test this properly since we need an admin to run the command
-        # So let's test with just the admin user
+        # So let's test with just the user
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
         admin_user.roles.append(admin_role)
         db_session.add(admin_user)
         db_session.commit()
 
-        cmd = AdminUserListCmd(user_repo=user_repo)
+        cmd = UserListCmd(user_repo=user_repo)
 
         result = cmd.call(admin_user.username)
 
@@ -548,7 +548,7 @@ class TestAdminUserListCmdIntegration:
 
 @pytest.mark.integration
 class TestAdminUserEnableCmdIntegration:
-    """Integration tests for AdminUserEnableCmd using state-based testing."""
+    """Integration tests for UserEnableCmd using state-based testing."""
 
     def test_enable_disabled_user(
         self,
@@ -560,7 +560,7 @@ class TestAdminUserEnableCmdIntegration:
         """Test enabling a disabled user.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
             - Create a disabled user
 
         ACT:
@@ -584,7 +584,7 @@ class TestAdminUserEnableCmdIntegration:
 
         assert disabled_user.active is False, "User should start disabled"
 
-        cmd = AdminUserEnableCmd(user_repo=user_repo)
+        cmd = UserEnableCmd(user_repo=user_repo)
 
         result = cmd.call(admin_user.username, "disabled")
 
@@ -604,7 +604,7 @@ class TestAdminUserEnableCmdIntegration:
         """Test enabling an already enabled user.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
             - Create an enabled user
 
         ACT:
@@ -625,7 +625,7 @@ class TestAdminUserEnableCmdIntegration:
         db_session.add(enabled_user)
         db_session.commit()
 
-        cmd = AdminUserEnableCmd(user_repo=user_repo)
+        cmd = UserEnableCmd(user_repo=user_repo)
 
         result = cmd.call(sample_user.username, "enabled")
 
@@ -636,7 +636,7 @@ class TestAdminUserEnableCmdIntegration:
 
 @pytest.mark.integration
 class TestAdminUserDisableCmdIntegration:
-    """Integration tests for AdminUserDisableCmd using state-based testing."""
+    """Integration tests for UserDisableCmd using state-based testing."""
 
     def test_disable_user_prevents_self_disable(
         self,
@@ -648,7 +648,7 @@ class TestAdminUserDisableCmdIntegration:
         """Test that admin cannot disable their own account.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
 
         ACT:
             - Try to disable own account
@@ -660,7 +660,7 @@ class TestAdminUserDisableCmdIntegration:
         sample_user.roles.append(admin_role)
         db_session.commit()
 
-        cmd = AdminUserDisableCmd(user_repo=user_repo)
+        cmd = UserDisableCmd(user_repo=user_repo)
 
         result = cmd.call(sample_user.username, sample_user.username)
 
@@ -682,7 +682,7 @@ class TestAdminUserDisableCmdIntegration:
         """Test successful user disabling.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
             - Create a target user to disable
 
         ACT:
@@ -701,7 +701,7 @@ class TestAdminUserDisableCmdIntegration:
         sample_user.active = True
         db_session.commit()
 
-        cmd = AdminUserDisableCmd(user_repo=user_repo)
+        cmd = UserDisableCmd(user_repo=user_repo)
 
         result = cmd.call(admin_user.username, sample_user.username)
 
@@ -721,7 +721,7 @@ class TestAdminUserDisableCmdIntegration:
         """Test disabling an already disabled user.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
             - Create a disabled user
 
         ACT:
@@ -743,7 +743,7 @@ class TestAdminUserDisableCmdIntegration:
         db_session.add(disabled_user)
         db_session.commit()
 
-        cmd = AdminUserDisableCmd(user_repo=user_repo)
+        cmd = UserDisableCmd(user_repo=user_repo)
 
         result = cmd.call(admin_user.username, "disabled")
 
@@ -754,7 +754,7 @@ class TestAdminUserDisableCmdIntegration:
 
 @pytest.mark.integration
 class TestAdminUserGrantAdminCmdIntegration:
-    """Integration tests for AdminUserGrantAdminCmd using state-based testing."""
+    """Integration tests for UserGrantAdminCmd using state-based testing."""
 
     def test_grant_admin_privileges(
         self,
@@ -768,7 +768,7 @@ class TestAdminUserGrantAdminCmdIntegration:
         """Test granting admin privileges to a user.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
             - Create a regular user
             - Ensure admin role exists
 
@@ -789,7 +789,7 @@ class TestAdminUserGrantAdminCmdIntegration:
         # sample_user is regular user
         assert sample_user.is_admin is False, "User should not be admin initially"
 
-        cmd = AdminUserGrantAdminCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserGrantAdminCmd(user_repo=user_repo, role_repo=role_repo)
 
         result = cmd.call(admin_user.username, sample_user.username)
 
@@ -812,8 +812,8 @@ class TestAdminUserGrantAdminCmdIntegration:
         """Test granting admin to user who already has admin.
 
         ARRANGE:
-            - Create an admin user
-            - Create another admin user
+            - Create an user
+            - Create another user
 
         ACT:
             - Try to grant admin to user who already has it
@@ -833,7 +833,7 @@ class TestAdminUserGrantAdminCmdIntegration:
 
         assert sample_user.is_admin is True
 
-        cmd = AdminUserGrantAdminCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserGrantAdminCmd(user_repo=user_repo, role_repo=role_repo)
 
         result = cmd.call(admin_user.username, sample_user.username)
 
@@ -844,7 +844,7 @@ class TestAdminUserGrantAdminCmdIntegration:
 
 @pytest.mark.integration
 class TestAdminUserRevokeAdminCmdIntegration:
-    """Integration tests for AdminUserRevokeAdminCmd using state-based testing."""
+    """Integration tests for UserRevokeAdminCmd using state-based testing."""
 
     def test_revoke_admin_prevents_self_revocation(
         self,
@@ -857,7 +857,7 @@ class TestAdminUserRevokeAdminCmdIntegration:
         """Test that admin cannot revoke their own admin privileges.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
 
         ACT:
             - Try to revoke own admin privileges
@@ -869,7 +869,7 @@ class TestAdminUserRevokeAdminCmdIntegration:
         sample_user.roles.append(admin_role)
         db_session.commit()
 
-        cmd = AdminUserRevokeAdminCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserRevokeAdminCmd(user_repo=user_repo, role_repo=role_repo)
 
         result = cmd.call(sample_user.username, sample_user.username)
 
@@ -913,7 +913,7 @@ class TestAdminUserRevokeAdminCmdIntegration:
 
         assert sample_user.is_admin is True
 
-        cmd = AdminUserRevokeAdminCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserRevokeAdminCmd(user_repo=user_repo, role_repo=role_repo)
 
         result = cmd.call(admin_user.username, sample_user.username)
 
@@ -936,7 +936,7 @@ class TestAdminUserRevokeAdminCmdIntegration:
         """Test revoking admin from user who doesn't have it.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
             - Create a regular user
 
         ACT:
@@ -955,7 +955,7 @@ class TestAdminUserRevokeAdminCmdIntegration:
         # sample_user is regular user
         assert sample_user.is_admin is False
 
-        cmd = AdminUserRevokeAdminCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserRevokeAdminCmd(user_repo=user_repo, role_repo=role_repo)
 
         result = cmd.call(admin_user.username, sample_user.username)
 
@@ -966,7 +966,7 @@ class TestAdminUserRevokeAdminCmdIntegration:
 
 @pytest.mark.integration
 class TestAdminUserSetPasswordCmdIntegration:
-    """Integration tests for AdminUserSetPasswordCmd using state-based testing."""
+    """Integration tests for UserSetPasswordCmd using state-based testing."""
 
     def test_set_password_success(
         self,
@@ -978,7 +978,7 @@ class TestAdminUserSetPasswordCmdIntegration:
         """Test resetting a user's password.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
             - Create a target user with known password
 
         ACT:
@@ -1002,7 +1002,7 @@ class TestAdminUserSetPasswordCmdIntegration:
         # Verify original password works
         assert sample_user.check_password(original_password)
 
-        cmd = AdminUserSetPasswordCmd(user_repo=user_repo)
+        cmd = UserSetPasswordCmd(user_repo=user_repo)
 
         result = cmd.call(admin_user.username, sample_user.username, new_password)
 
@@ -1025,7 +1025,7 @@ class TestAdminUserSetPasswordCmdIntegration:
         """Test error when user doesn't exist.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
 
         ACT:
             - Try to reset password for non-existent user
@@ -1036,7 +1036,7 @@ class TestAdminUserSetPasswordCmdIntegration:
         sample_user.roles.append(admin_role)
         db_session.commit()
 
-        cmd = AdminUserSetPasswordCmd(user_repo=user_repo)
+        cmd = UserSetPasswordCmd(user_repo=user_repo)
 
         result = cmd.call(sample_user.username, "nonexistent", "newpass123")
 
@@ -1047,7 +1047,7 @@ class TestAdminUserSetPasswordCmdIntegration:
 
 @pytest.mark.integration
 class TestAdminUserInfoCmdIntegration:
-    """Integration tests for AdminUserInfoCmd using state-based testing."""
+    """Integration tests for UserShowCmd using state-based testing."""
 
     def test_user_info_success(
         self,
@@ -1060,7 +1060,7 @@ class TestAdminUserInfoCmdIntegration:
         """Test displaying user information.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
             - Create a target user with various attributes set
 
         ACT:
@@ -1082,7 +1082,7 @@ class TestAdminUserInfoCmdIntegration:
         sample_user.confirmed_at = datetime.now(timezone.utc)
         db_session.commit()
 
-        cmd = AdminUserInfoCmd(user_repo=user_repo)
+        cmd = UserShowCmd(user_repo=user_repo)
 
         result = cmd.call(admin_user.username, sample_user.username)
 
@@ -1103,7 +1103,7 @@ class TestAdminUserInfoCmdIntegration:
         """Test error when user doesn't exist.
 
         ARRANGE:
-            - Create an admin user
+            - Create an user
 
         ACT:
             - Try to get info for non-existent user
@@ -1114,7 +1114,7 @@ class TestAdminUserInfoCmdIntegration:
         sample_user.roles.append(admin_role)
         db_session.commit()
 
-        cmd = AdminUserInfoCmd(user_repo=user_repo)
+        cmd = UserShowCmd(user_repo=user_repo)
 
         result = cmd.call(sample_user.username, "nonexistent")
 
@@ -1125,7 +1125,7 @@ class TestAdminUserInfoCmdIntegration:
 
 @pytest.mark.integration
 class TestAdminUserGenerateTokenCmdIntegration:
-    """Integration tests for AdminUserGenerateTokenCmd using state-based testing."""
+    """Integration tests for UserGenerateTokenCmd using state-based testing."""
 
     def test_generate_token_success(
         self,
@@ -1139,7 +1139,7 @@ class TestAdminUserGenerateTokenCmdIntegration:
 
         ARRANGE:
             - Set secret key environment variable
-            - Create an admin user
+            - Create an user
             - Create a target user
 
         ACT:
@@ -1159,7 +1159,7 @@ class TestAdminUserGenerateTokenCmdIntegration:
         db_session.add(admin_user)
         db_session.commit()
 
-        cmd = AdminUserGenerateTokenCmd(user_repo=user_repo)
+        cmd = UserGenerateTokenCmd(user_repo=user_repo)
 
         result = cmd.call(admin_user.username, sample_user.username)
 
@@ -1179,7 +1179,7 @@ class TestAdminUserGenerateTokenCmdIntegration:
 
         ARRANGE:
             - Set secret key environment variable
-            - Create an admin user
+            - Create an user
             - Create a disabled user
 
         ACT:
@@ -1199,7 +1199,7 @@ class TestAdminUserGenerateTokenCmdIntegration:
         sample_user.active = False
         db_session.commit()
 
-        cmd = AdminUserGenerateTokenCmd(user_repo=user_repo)
+        cmd = UserGenerateTokenCmd(user_repo=user_repo)
 
         result = cmd.call(admin_user.username, sample_user.username)
 
@@ -1219,7 +1219,7 @@ class TestAdminUserGenerateTokenCmdIntegration:
 
         ARRANGE:
             - Set secret key environment variable
-            - Create an admin user
+            - Create an user
 
         ACT:
             - Try to generate token for non-existent user
@@ -1232,7 +1232,7 @@ class TestAdminUserGenerateTokenCmdIntegration:
         sample_user.roles.append(admin_role)
         db_session.commit()
 
-        cmd = AdminUserGenerateTokenCmd(user_repo=user_repo)
+        cmd = UserGenerateTokenCmd(user_repo=user_repo)
 
         result = cmd.call(sample_user.username, "nonexistent")
 

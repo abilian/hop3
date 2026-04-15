@@ -230,7 +230,7 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash
-hop3 config:set hop3-tuto-starlette SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+hop3 config set hop3-tuto-starlette SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 ```
 
 ### Deploy
@@ -250,7 +250,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config:set hop3-tuto-starlette HOST_NAME=hop3-tuto-starlette.$HOP3_TEST_DOMAIN
+hop3 config set hop3-tuto-starlette HOST_NAME=hop3-tuto-starlette.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -268,7 +268,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 app:status hop3-tuto-starlette
+hop3 app status hop3-tuto-starlette
 ```
 
 ```console
@@ -286,7 +286,7 @@ OK
 View logs:
 
 ```bash
-hop3 app:logs hop3-tuto-starlette
+hop3 app logs hop3-tuto-starlette
 
 # Your app will be available at:
 # http://hop3-tuto-starlette.your-hop3-server.example.com
@@ -296,14 +296,14 @@ hop3 app:logs hop3-tuto-starlette
 
 ```bash
 # Restart the application
-hop3 app:restart hop3-tuto-starlette
+hop3 app restart hop3-tuto-starlette
 
 # View/set environment variables
-hop3 config:show hop3-tuto-starlette
-hop3 config:set hop3-tuto-starlette NEW_VAR=value
+hop3 config show hop3-tuto-starlette
+hop3 config set hop3-tuto-starlette NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-starlette web=2
+hop3 ps scale hop3-tuto-starlette web=2
 ```
 
 ## Advanced Configuration

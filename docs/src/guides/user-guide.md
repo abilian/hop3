@@ -162,8 +162,8 @@ hop3 init --ssh root@hop3.example.com
 hop3 login --ssh root@hop3.example.com
 
 # Verify connection
-hop3 auth:whoami
-hop3 system:status
+hop3 auth whoami
+hop3 system status
 
 # Manage local CLI settings
 hop3 settings
@@ -176,47 +176,47 @@ hop3 settings
 hop3 apps
 
 # Create and deploy from git repository
-hop3 app:launch https://github.com/user/myapp.git myapp
+hop3 app launch https://github.com/user/myapp.git myapp
 
 # Deploy from local directory
 cd myapp/
 hop3 deploy myapp
 
 # Start/stop/restart
-hop3 app:start myapp
-hop3 app:stop myapp
-hop3 app:restart myapp
+hop3 app start myapp
+hop3 app stop myapp
+hop3 app restart myapp
 
 # Check status and health
-hop3 app:status myapp
-hop3 app:ping myapp
+hop3 app status myapp
+hop3 app ping myapp
 
 # View logs (real-time with -f)
-hop3 app:logs myapp
-hop3 app:logs myapp -f
+hop3 app logs myapp
+hop3 app logs myapp -f
 
 # Destroy an app (requires confirmation)
-hop3 app:destroy myapp
+hop3 app destroy myapp
 ```
 
 ### Environment Configuration
 
 ```bash
 # Show all config
-hop3 config:show myapp
+hop3 config show myapp
 
 # Set variables (restart required to take effect)
-hop3 config:set myapp LOG_LEVEL=info MAX_WORKERS=4
-hop3 app:restart myapp
+hop3 config set myapp LOG_LEVEL=info MAX_WORKERS=4
+hop3 app restart myapp
 
 # Get a specific variable
-hop3 config:get myapp DATABASE_URL
+hop3 config get myapp DATABASE_URL
 
 # Remove variables
-hop3 config:unset myapp OLD_KEY
+hop3 config unset myapp OLD_KEY
 
 # View live runtime config
-hop3 config:live myapp
+hop3 config live myapp
 ```
 
 ### Process Management
@@ -226,7 +226,7 @@ hop3 config:live myapp
 hop3 ps myapp
 
 # Scale processes
-hop3 ps:scale myapp web=3 worker=2
+hop3 ps scale myapp web=3 worker=2
 
 # Run one-off commands in app context
 hop3 run myapp python manage.py migrate
@@ -238,33 +238,33 @@ hop3 run myapp rails console
 
 ```bash
 # Create a PostgreSQL database
-hop3 addons:create postgres myapp-db
+hop3 addon create postgres myapp-db
 
 # Attach to app (injects DATABASE_URL)
-hop3 addons:attach myapp-db --app myapp
-hop3 app:restart myapp
+hop3 addon attach myapp-db --app myapp
+hop3 app restart myapp
 
 # Create and attach Redis
-hop3 addons:create redis myapp-cache
-hop3 addons:attach myapp-cache --app myapp
+hop3 addon create redis myapp-cache
+hop3 addon attach myapp-cache --app myapp
 
 # Get addon info
-hop3 addons:info myapp-db
+hop3 addon show myapp-db
 
 # Detach from app
-hop3 addons:detach myapp-db --app myapp
+hop3 addon detach myapp-db --app myapp
 
 # Destroy (requires confirmation)
-hop3 addons:destroy myapp-db
+hop3 addon destroy myapp-db
 ```
 
 ### Backups
 
 ```bash
-hop3 backup:create myapp     # Create backup
-hop3 backup:list myapp       # List backups
-hop3 backup:restore <id>     # Restore from backup
-hop3 app:restart myapp       # Restart after restore
+hop3 backup create myapp     # Create backup
+hop3 backup list myapp       # List backups
+hop3 backup restore <id>     # Restore from backup
+hop3 app restart myapp       # Restart after restore
 ```
 
 For complete backup documentation, see the **[Backup and Restore Guide](backup-restore.md)**.
@@ -273,25 +273,25 @@ For complete backup documentation, see the **[Backup and Restore Guide](backup-r
 
 ```bash
 # System status and info
-hop3 system:status
-hop3 system:info
-hop3 system:uptime
-hop3 system:ps
-hop3 system:logs
+hop3 system status
+hop3 system info
+hop3 system uptime
+hop3 system ps
+hop3 system logs
 ```
 
 ### User Management (Admin only)
 
 ```bash
-hop3 admin:user:list
-hop3 admin:user:add alice alice@example.com password123
-hop3 admin:user:info alice
-hop3 admin:user:set-password alice newpassword
-hop3 admin:user:enable alice
-hop3 admin:user:disable alice
-hop3 admin:user:grant-admin alice
-hop3 admin:user:revoke-admin alice
-hop3 admin:user:remove alice
+hop3 user list
+hop3 user add alice alice@example.com password123
+hop3 user show alice
+hop3 user set-password alice newpassword
+hop3 user enable alice
+hop3 user disable alice
+hop3 user grant-admin alice
+hop3 user revoke-admin alice
+hop3 user remove alice
 ```
 
 ---
@@ -316,20 +316,20 @@ worker: celery -A myapp worker
 heroku config -s --app myapp > .env
 
 # Set in Hop3
-hop3 config:set myapp $(cat .env | xargs)
+hop3 config set myapp $(cat .env | xargs)
 ```
 
 **Step 3: Migrate addons**
 
 | Heroku | Hop3 |
 |--------|------|
-| `heroku addons:create heroku-postgresql` | `hop3 addons:create postgres mydb` |
-| `heroku addons:create heroku-redis` | `hop3 addons:create redis mycache` |
+| `heroku addon create heroku-postgresql` | `hop3 addon create postgres mydb` |
+| `heroku addon create heroku-redis` | `hop3 addon create redis mycache` |
 
 **Step 4: Deploy**
 
 ```bash
-hop3 app:launch https://github.com/user/myapp.git myapp
+hop3 app launch https://github.com/user/myapp.git myapp
 hop3 deploy myapp
 ```
 
@@ -358,7 +358,7 @@ worker: celery worker
 Move environment variables from `docker-compose.yml` to Hop3:
 
 ```bash
-hop3 config:set myapp \
+hop3 config set myapp \
   DATABASE_URL=postgresql://... \
   REDIS_URL=redis://...
 ```
@@ -399,9 +399,9 @@ public = true
 **Step 2: Migrate services and deploy**
 
 ```bash
-hop3 addons:create postgres mydb
-hop3 app:launch <repo-url> myapp
-hop3 addons:attach mydb --app myapp
+hop3 addon create postgres mydb
+hop3 app launch <repo-url> myapp
+hop3 addon attach mydb --app myapp
 hop3 deploy myapp
 ```
 
@@ -421,13 +421,13 @@ Before migrating, ensure:
 
 ```bash
 # Preview migration from Procfile
-hop3 config:migrate --format procfile --dry-run
+hop3 config migrate --format procfile --dry-run
 
 # Apply migration
-hop3 config:migrate --format procfile --backup
+hop3 config migrate --format procfile --backup
 
 # From Heroku format
-hop3 config:migrate --format heroku --dry-run
+hop3 config migrate --format heroku --dry-run
 ```
 
 ---
@@ -439,7 +439,7 @@ hop3 config:migrate --format heroku --dry-run
 ```bash
 # JSON output for scripting
 hop3 apps --json
-hop3 app:status myapp --json | jq '.data.state'
+hop3 app status myapp --json | jq '.data.state'
 
 # Quiet mode (minimal output)
 hop3 deploy myapp --quiet
@@ -453,8 +453,8 @@ hop3 deploy myapp --debug  # Maximum verbosity
 
 ```bash
 # Skip confirmation prompts
-hop3 app:destroy myapp -y
-hop3 backup:delete backup-id -y
+hop3 app destroy myapp -y
+hop3 backup destroy backup-id -y
 
 # Combine for CI/CD
 hop3 deploy myapp --quiet -y
@@ -479,17 +479,17 @@ export HOP3_DEBUG=1
 
 | Task | Command |
 |------|---------|
-| Deploy new app | `hop3 app:launch <repo-url> <name>` |
+| Deploy new app | `hop3 app launch <repo-url> <name>` |
 | Redeploy | `hop3 deploy <name>` |
-| View logs | `hop3 app:logs <name>` |
-| Set config | `hop3 config:set <name> KEY=val` |
-| Scale processes | `hop3 ps:scale <name> web=2` |
+| View logs | `hop3 app logs <name>` |
+| Set config | `hop3 config set <name> KEY=val` |
+| Scale processes | `hop3 ps scale <name> web=2` |
 | Run command | `hop3 run <name> <cmd>` |
-| Add database | `hop3 addons:create postgres <db-name>` |
-| Attach database | `hop3 addons:attach <db-name> --app <name>` |
-| Create backup | `hop3 backup:create <name>` |
-| Restore backup | `hop3 backup:restore <backup-id>` |
-| System health | `hop3 system:status` |
+| Add database | `hop3 addon create postgres <db-name>` |
+| Attach database | `hop3 addon attach <db-name> --app <name>` |
+| Create backup | `hop3 backup create <name>` |
+| Restore backup | `hop3 backup restore <backup-id>` |
+| System health | `hop3 system status` |
 | Get help | `hop3 help <command>` |
 
 ---

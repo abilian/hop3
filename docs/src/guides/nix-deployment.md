@@ -18,7 +18,7 @@ Hop3 supports two modes for Nix-based deployment, in order of preference:
 section in `hop3.toml` are present, NixBuilder refuses to build and
 prints an error pointing you to either delete `hop3.nix` or remove the
 `[nix]` section. To convert a template to a hand-crafted file, run
-`hop3 nix:eject <app>` (which writes the file and is the deliberate
+`hop3 nix eject <app>` (which writes the file and is the deliberate
 way to switch from generated to hand-crafted mode).
 
 ## When to use Nix
@@ -155,7 +155,7 @@ where this is necessary:
 1. The app needs custom build steps that no template covers
 2. You need to combine nixpkgs sources with custom wrapping
 
-When you `hop3 nix:eject <app>`, Hop3 materializes the generated Nix
+When you `hop3 nix eject <app>`, Hop3 materializes the generated Nix
 expression as a real `hop3.nix` file you can edit (the `[nix]` section
 in `hop3.toml` is then ignored).
 
@@ -311,13 +311,13 @@ type = "redis"
 Your application reads `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`,
 `PGDATABASE`, and `REDIS_URL` from the environment.
 
-## The `nix:eject` command
+## The `nix eject` command
 
 When you've outgrown the templates and need to customise the generated
 Nix expression, run:
 
 ```bash
-hop3 nix:eject <app-name>
+hop3 nix eject <app-name>
 ```
 
 This materializes the auto-generated Nix expression as a real
@@ -360,7 +360,7 @@ your `installPhase` creates `$out/hop3/runtime.json`.
 Run the generator manually to see what Hop3 would produce:
 
 ```bash
-hop3 nix:eject <app-name>
+hop3 nix eject <app-name>
 cat <app-source>/hop3.nix
 ```
 
@@ -394,5 +394,5 @@ Notable examples:
   reference, runtime.json schema
 - [hop3.toml `[nix]` section](../reference/config.md#nix--template-based-nix-builds)
   — All template fields
-- [`nix:eject` command](../reference/cli.md#hop3-nixeject) — CLI reference
+- [`nix eject` command](../reference/cli.md#hop3-nixeject) — CLI reference
 - [User Guide](user-guide.md) — General deployment guide

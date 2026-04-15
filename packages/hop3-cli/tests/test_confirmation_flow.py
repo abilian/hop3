@@ -26,14 +26,14 @@ def test_is_destructive_command_app_destroy():
 
 def test_is_destructive_command_backup_delete():
     """Test detection of backup:delete command."""
-    assert is_destructive_command(["backup", "delete", "backup-id"]) is True
-    assert is_destructive_command(["backup", "delete"]) is True
+    assert is_destructive_command(["backup", "destroy", "backup-id"]) is True
+    assert is_destructive_command(["backup", "destroy"]) is True
 
 
-def test_is_destructive_command_services_destroy():
-    """Test detection of services:destroy command."""
-    assert is_destructive_command(["services", "destroy", "postgres"]) is True
-    assert is_destructive_command(["services", "destroy"]) is True
+def test_is_destructive_command_addon_destroy():
+    """Test detection of addon destroy command."""
+    assert is_destructive_command(["addon", "destroy", "postgres"]) is True
+    assert is_destructive_command(["addon", "destroy"]) is True
 
 
 def test_is_destructive_command_safe_commands():
@@ -82,7 +82,7 @@ def test_confirm_destructive_action_backup_delete_confirmed():
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="y"):
-        result = confirm_destructive_action(["backup", "delete", "backup-123"], printer)
+        result = confirm_destructive_action(["backup", "destroy", "backup-123"], printer)
         assert result is True
 
 
@@ -91,25 +91,25 @@ def test_confirm_destructive_action_backup_delete_cancelled():
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="n"):
-        result = confirm_destructive_action(["backup", "delete", "backup-123"], printer)
+        result = confirm_destructive_action(["backup", "destroy", "backup-123"], printer)
         assert result is False
 
 
-def test_confirm_destructive_action_services_destroy_confirmed():
-    """Test services:destroy confirmation when user types correct service name."""
+def test_confirm_destructive_action_addon_destroy_confirmed():
+    """Test addon destroy confirmation when user types correct service name."""
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="postgres"):
-        result = confirm_destructive_action(["services", "destroy", "postgres"], printer)
+        result = confirm_destructive_action(["addon", "destroy", "postgres"], printer)
         assert result is True
 
 
-def test_confirm_destructive_action_services_destroy_cancelled():
-    """Test services:destroy confirmation when user types incorrect service name."""
+def test_confirm_destructive_action_addon_destroy_cancelled():
+    """Test addon destroy confirmation when user types incorrect service name."""
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="mysql"):
-        result = confirm_destructive_action(["services", "destroy", "postgres"], printer)
+        result = confirm_destructive_action(["addon", "destroy", "postgres"], printer)
         assert result is False
 
 
@@ -119,8 +119,8 @@ def test_confirm_destructive_action_json_mode():
 
     # All destructive commands should auto-confirm in JSON mode
     assert confirm_destructive_action(["app", "destroy", "my-app"], printer) is True
-    assert confirm_destructive_action(["backup", "delete", "backup-123"], printer) is True
-    assert confirm_destructive_action(["services", "destroy", "postgres"], printer) is True
+    assert confirm_destructive_action(["backup", "destroy", "backup-123"], printer) is True
+    assert confirm_destructive_action(["addon", "destroy", "postgres"], printer) is True
 
 
 def test_confirm_destructive_action_destroy_alias():
@@ -177,15 +177,15 @@ def test_confirm_destructive_action_backup_delete_warning_details():
         patch.object(sys, "stderr", stderr_capture),
         patch("builtins.input", return_value="y"),
     ):
-        confirm_destructive_action(["backup", "delete", "backup-123"], printer)
+        confirm_destructive_action(["backup", "destroy", "backup-123"], printer)
 
     output = stderr_capture.getvalue()
     assert "backup 'backup-123'" in output
     assert "This backup cannot be recovered once deleted." in output
 
 
-def test_confirm_destructive_action_services_destroy_warning_details():
-    """Test services:destroy shows specific warning details."""
+def test_confirm_destructive_action_addon_destroy_warning_details():
+    """Test addon destroy shows specific warning details."""
     printer = RichPrinter()
 
     stderr_capture = StringIO()
@@ -193,7 +193,7 @@ def test_confirm_destructive_action_services_destroy_warning_details():
         patch.object(sys, "stderr", stderr_capture),
         patch("builtins.input", return_value="postgres"),
     ):
-        confirm_destructive_action(["services", "destroy", "postgres"], printer)
+        confirm_destructive_action(["addon", "destroy", "postgres"], printer)
 
     output = stderr_capture.getvalue()
     assert "service 'postgres'" in output

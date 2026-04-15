@@ -194,8 +194,12 @@ class GitSetupCmd(Command):
         git push hop3 main
     """
 
+    # Hidden per ADR 036 D3: removed from user-visible surface. Still callable
+    # explicitly by operators (`hop3 git setup <app>`); used internally by the
+    # deploy flow. Could be folded into `app git-setup` in a future revision.
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("git", "setup")
+    hidden: ClassVar[bool] = True
 
     def call(self, *args):
         if not args:

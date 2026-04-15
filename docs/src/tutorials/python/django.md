@@ -527,20 +527,20 @@ hop3 init --ssh root@your-server.example.com
 ### Create and Attach a Database
 
 ```bash
-hop3 addons:create postgres hop3-tuto-django-db
-hop3 addons:attach hop3-tuto-django hop3-tuto-django-db
+hop3 addon create postgres hop3-tuto-django-db
+hop3 addon attach hop3-tuto-django hop3-tuto-django-db
 ```
 
 ### Set Environment Variables
 
 ```bash
 # Generate and set the secret key
-hop3 config:set hop3-tuto-django SECRET_KEY=$(python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')
+hop3 config set hop3-tuto-django SECRET_KEY=$(python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')
 
 # Set Django configuration
-hop3 config:set hop3-tuto-django DEBUG=false
-hop3 config:set hop3-tuto-django ALLOWED_HOSTS=hop3-tuto-django.your-hop3-server.example.com
-hop3 config:set hop3-tuto-django DJANGO_SETTINGS_MODULE=myproject.settings
+hop3 config set hop3-tuto-django DEBUG=false
+hop3 config set hop3-tuto-django ALLOWED_HOSTS=hop3-tuto-django.your-hop3-server.example.com
+hop3 config set hop3-tuto-django DJANGO_SETTINGS_MODULE=myproject.settings
 ```
 
 ### Deploy
@@ -560,15 +560,15 @@ deployed successfully
 Set the SECRET_KEY, ALLOWED_HOSTS, and hostname for the application:
 
 ```bash
-hop3 config:set hop3-tuto-django SECRET_KEY=django-insecure-changeme-for-production
+hop3 config set hop3-tuto-django SECRET_KEY=django-insecure-changeme-for-production
 ```
 
 ```bash
-hop3 config:set hop3-tuto-django ALLOWED_HOSTS=hop3-tuto-django.$HOP3_TEST_DOMAIN,localhost,127.0.0.1
+hop3 config set hop3-tuto-django ALLOWED_HOSTS=hop3-tuto-django.$HOP3_TEST_DOMAIN,localhost,127.0.0.1
 ```
 
 ```bash
-hop3 config:set hop3-tuto-django HOST_NAME=hop3-tuto-django.$HOP3_TEST_DOMAIN
+hop3 config set hop3-tuto-django HOST_NAME=hop3-tuto-django.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -590,7 +590,7 @@ sleep 5
 Check your application status:
 
 ```bash
-hop3 app:status hop3-tuto-django
+hop3 app status hop3-tuto-django
 ```
 
 ```console
@@ -608,7 +608,7 @@ OK
 View logs:
 
 ```bash
-hop3 app:logs hop3-tuto-django
+hop3 app logs hop3-tuto-django
 ```
 
 Open your application:
@@ -651,16 +651,16 @@ hop3 run hop3-tuto-django python manage.py custom_command
 
 ```bash
 # List all variables
-hop3 config:show hop3-tuto-django
+hop3 config show hop3-tuto-django
 
 # Set a variable
-hop3 config:set hop3-tuto-django NEW_VARIABLE=value
+hop3 config set hop3-tuto-django NEW_VARIABLE=value
 
 # Remove a variable
-hop3 config:unset hop3-tuto-django OLD_VARIABLE
+hop3 config unset hop3-tuto-django OLD_VARIABLE
 
 # Restart to apply changes
-hop3 app:restart hop3-tuto-django
+hop3 app restart hop3-tuto-django
 ```
 
 ### Scaling
@@ -670,7 +670,7 @@ hop3 app:restart hop3-tuto-django
 hop3 ps hop3-tuto-django
 
 # Scale web workers
-hop3 ps:scale hop3-tuto-django web=2
+hop3 ps scale hop3-tuto-django web=2
 ```
 
 ## Advanced Configuration
@@ -728,8 +728,8 @@ beat: celery -A myproject beat --loglevel=info
 Attach a Redis addon:
 
 ```bash
-hop3 addons:create redis hop3-tuto-django-redis
-hop3 addons:attach hop3-tuto-django hop3-tuto-django-redis
+hop3 addon create redis hop3-tuto-django-redis
+hop3 addon attach hop3-tuto-django hop3-tuto-django-redis
 ```
 
 ### Django Q (Database-backed Task Queue)
@@ -780,7 +780,7 @@ MEDIA_ROOT = config('MEDIA_ROOT', default=str(BASE_DIR / 'media'))
 Set the storage path on Hop3:
 
 ```bash
-hop3 config:set hop3-tuto-django MEDIA_ROOT=/var/hop3/apps/hop3-tuto-django/data/media
+hop3 config set hop3-tuto-django MEDIA_ROOT=/var/hop3/apps/hop3-tuto-django/data/media
 ```
 
 For serving media files in production, add to `myproject/urls.py`:
@@ -908,7 +908,7 @@ SESSION_CACHE_ALIAS = 'default'
 Before major changes, always backup:
 
 ```bash
-hop3 backup:create hop3-tuto-django
+hop3 backup create hop3-tuto-django
 ```
 
 This backs up:
@@ -920,9 +920,9 @@ This backs up:
 ### Restore from Backup
 
 ```bash
-hop3 backup:list hop3-tuto-django
-hop3 backup:restore <backup-id>
-hop3 app:restart hop3-tuto-django
+hop3 backup list hop3-tuto-django
+hop3 backup restore <backup-id>
+hop3 app restart hop3-tuto-django
 ```
 
 ## Troubleshooting
@@ -932,12 +932,12 @@ hop3 app:restart hop3-tuto-django
 Check the logs for errors:
 
 ```bash
-hop3 app:logs hop3-tuto-django --tail
+hop3 app logs hop3-tuto-django --tail
 ```
 
 Common issues:
 
-- **Missing SECRET_KEY**: Set it with `hop3 config:set`
+- **Missing SECRET_KEY**: Set it with `hop3 config set`
 - **Database not connected**: Ensure the addon is attached and `DATABASE_URL` is set
 - **Static files not found**: Ensure `collectstatic` runs in `prerun`
 - **Module not found**: Check `requirements.txt` includes all dependencies
@@ -947,7 +947,7 @@ Common issues:
 Verify the database is attached:
 
 ```bash
-hop3 config:show hop3-tuto-django | grep DATABASE
+hop3 config show hop3-tuto-django | grep DATABASE
 ```
 
 Test the connection:

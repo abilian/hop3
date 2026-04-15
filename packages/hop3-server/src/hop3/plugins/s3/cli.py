@@ -5,7 +5,7 @@
 """CLI commands for the S3 addon.
 
 Most S3 addon operations are handled by the generic
-``hop3 addons:*`` commands (which dispatch to the Addon protocol
+``hop3 addon:*`` commands (which dispatch to the Addon protocol
 implementation). This module only adds S3-specific convenience
 commands.
 """

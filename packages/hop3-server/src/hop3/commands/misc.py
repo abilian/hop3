@@ -267,11 +267,11 @@ class SbomCmd(Command):
     """Generate a Software Bill of Materials (SBOM) for an app."""
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("sbom",)
+    name: ClassVar[tuple[str, ...]] = ("app", "sbom")
 
     def call(self, *args):
         if not args:
-            msg = "Usage: hop sbom <app_name>"
+            msg = "Usage: hop app sbom <app_name>"
             raise ValueError(msg)
         app_name = args[0]
         app = get_app(self.db_session, app_name)

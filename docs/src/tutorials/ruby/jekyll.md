@@ -252,7 +252,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config:set hop3-tuto-jekyll HOST_NAME=hop3-tuto-jekyll.$HOP3_TEST_DOMAIN
+hop3 config set hop3-tuto-jekyll HOST_NAME=hop3-tuto-jekyll.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -270,7 +270,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 app:status hop3-tuto-jekyll
+hop3 app status hop3-tuto-jekyll
 ```
 
 ```console
@@ -289,17 +289,17 @@ html
 
 ```bash
 # Restart the application
-hop3 app:restart hop3-tuto-jekyll
+hop3 app restart hop3-tuto-jekyll
 
 # View logs
-hop3 app:logs hop3-tuto-jekyll
+hop3 app logs hop3-tuto-jekyll
 
 # View/set environment variables
-hop3 config:show hop3-tuto-jekyll
-hop3 config:set hop3-tuto-jekyll NEW_VAR=value
+hop3 config show hop3-tuto-jekyll
+hop3 config set hop3-tuto-jekyll NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-jekyll web=2
+hop3 ps scale hop3-tuto-jekyll web=2
 ```
 
 ## Advanced Configuration

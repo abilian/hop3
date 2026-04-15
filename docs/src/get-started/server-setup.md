@@ -140,7 +140,7 @@ Configuration saved to ~/.config/hop3-cli/config.toml
 
 You're all set! Try:
   hop3 apps           # List applications
-  hop3 auth:whoami    # Check current user
+  hop3 auth whoami    # Check current user
 ```
 
 ### Alternative: Manual Setup

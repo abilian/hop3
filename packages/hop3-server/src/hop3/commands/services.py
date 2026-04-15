@@ -33,20 +33,20 @@ from ._response import error, table, text, warning
 class AddonsCmd(Command):
     """Manage backing services (databases, caches, etc.)."""
 
-    name: ClassVar[tuple[str, ...]] = ("addons",)
+    name: ClassVar[tuple[str, ...]] = ("addon",)
 
 
 @register
 @dataclass(frozen=True)
-class AddonsListCmd(Command):
+class AddonListCmd(Command):
     """List available addon types.
 
-    Usage: hop3 addons list
+    Usage: hop3 addon list
 
     Shows all registered addon types that can be created.
     """
 
-    name: ClassVar[tuple[str, ...]] = ("addons", "list")
+    name: ClassVar[tuple[str, ...]] = ("addon", "list")
     requires_auth: ClassVar[bool] = True
 
     def call(self, *args):
@@ -83,17 +83,17 @@ class AddonsListCmd(Command):
 
 @register
 @dataclass(frozen=True)
-class AddonsCreateCmd(Command):
+class AddonCreateCmd(Command):
     """Create a new backing service instance.
 
-    Usage: hop3 addons create <type> <name>
+    Usage: hop3 addon create <type> <name>
 
     Examples:
-        hop3 addons create postgres my-database
-        hop3 addons create redis my-cache
+        hop3 addon create postgres my-database
+        hop3 addon create redis my-cache
     """
 
-    name: ClassVar[tuple[str, ...]] = ("addons", "create")
+    name: ClassVar[tuple[str, ...]] = ("addon", "create")
     requires_auth: ClassVar[bool] = True
 
     def call(self, *args):
@@ -103,9 +103,9 @@ class AddonsCreateCmd(Command):
         if len(args) < 2:
             return [
                 text(
-                    "Usage: hop3 addons create <type> <name>\n\n"
+                    "Usage: hop3 addon create <type> <name>\n\n"
                     "Example:\n"
-                    "  hop3 addons create postgres my-database"
+                    "  hop3 addon create postgres my-database"
                 )
             ]
 
@@ -133,30 +133,30 @@ class AddonsCreateCmd(Command):
                 f"Addon '{addon_name}' of type '{service_type}' created successfully."
             ),
             text(
-                f"\nTo attach this service to an app, run:\n  hop3 addons attach {addon_name} --app <app-name>"
+                f"\nTo attach this service to an app, run:\n  hop3 addon attach {addon_name} --app <app-name>"
             ),
         ]
 
 
 @register
 @dataclass(frozen=True)
-class AddonsAttachCmd(Command):
+class AddonAttachCmd(Command):
     """Attach a service to an application.
 
     This command injects the service's connection details as environment
     variables into the specified application.
 
-    Usage: hop3 addons attach <name> --app <app-name> [--type <type>]
+    Usage: hop3 addon attach <name> --app <app-name> [--type <type>]
 
     Examples:
-        hop3 addons attach my-database --app my-app --type postgres
-        hop3 addons attach my-cache --app my-app --type redis
+        hop3 addon attach my-database --app my-app --type postgres
+        hop3 addon attach my-cache --app my-app --type redis
     """
 
     app_repo: AppRepository
     addon_credential_repo: AddonCredentialRepository
     env_var_repo: EnvVarRepository
-    name: ClassVar[tuple[str, ...]] = ("addons", "attach")
+    name: ClassVar[tuple[str, ...]] = ("addon", "attach")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
@@ -262,9 +262,9 @@ class AddonsAttachCmd(Command):
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addons attach <name> --app <app-name> [--type <type>]\n\n"
+                    "Usage: hop3 addon attach <name> --app <app-name> [--type <type>]\n\n"
                     "Example:\n"
-                    "  hop3 addons attach my-database --app my-app --type postgres"
+                    "  hop3 addon attach my-database --app my-app --type postgres"
                 )
             ]
 
@@ -279,7 +279,7 @@ class AddonsAttachCmd(Command):
             return [
                 error(
                     "Error: --app parameter is required\n\n"
-                    "Usage: hop3 addons attach <name> --app <app-name>"
+                    "Usage: hop3 addon attach <name> --app <app-name>"
                 )
             ]
 
@@ -382,18 +382,18 @@ class AddonsAttachCmd(Command):
 
 @register
 @dataclass(frozen=True)
-class AddonsDetachCmd(Command):
+class AddonDetachCmd(Command):
     """Detach a service from an application.
 
     This removes the service's environment variables from the application.
 
-    Usage: hop3 addons detach <name> --app <app-name> [--type <type>]
+    Usage: hop3 addon detach <name> --app <app-name> [--type <type>]
     """
 
     app_repo: AppRepository
     addon_credential_repo: AddonCredentialRepository
     env_var_repo: EnvVarRepository
-    name: ClassVar[tuple[str, ...]] = ("addons", "detach")
+    name: ClassVar[tuple[str, ...]] = ("addon", "detach")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
@@ -454,9 +454,9 @@ class AddonsDetachCmd(Command):
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addons detach <name> --app <app-name> [--type <type>]\n\n"
+                    "Usage: hop3 addon detach <name> --app <app-name> [--type <type>]\n\n"
                     "Example:\n"
-                    "  hop3 addons detach my-database --app my-app"
+                    "  hop3 addon detach my-database --app my-app"
                 )
             ]
 
@@ -493,16 +493,16 @@ class AddonsDetachCmd(Command):
 
 @register
 @dataclass(frozen=True)
-class AddonsDestroyCmd(Command):
+class AddonDestroyCmd(Command):
     """Destroy a service instance.
 
     WARNING: This will permanently delete all data in the service!
 
-    Usage: hop3 addons destroy <name> [--type <type>]
+    Usage: hop3 addon destroy <name> [--type <type>]
     """
 
     addon_credential_repo: AddonCredentialRepository
-    name: ClassVar[tuple[str, ...]] = ("addons", "destroy")
+    name: ClassVar[tuple[str, ...]] = ("addon", "destroy")
     destructive: ClassVar[bool] = True
 
     # Argument specification for declarative parsing
@@ -520,10 +520,10 @@ class AddonsDestroyCmd(Command):
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addons destroy <name> [--type <type>]\n\n"
+                    "Usage: hop3 addon destroy <name> [--type <type>]\n\n"
                     "WARNING: This will permanently delete all data!\n\n"
                     "Example:\n"
-                    "  hop3 addons destroy my-database --type postgres"
+                    "  hop3 addon destroy my-database --type postgres"
                 )
             ]
 
@@ -563,13 +563,13 @@ class AddonsDestroyCmd(Command):
 
 @register
 @dataclass(frozen=True)
-class AddonsInfoCmd(Command):
+class AddonShowCmd(Command):
     """Get information about a service instance.
 
-    Usage: hop3 addons info <name> [--type <type>]
+    Usage: hop3 addon show <name> [--type <type>]
     """
 
-    name: ClassVar[tuple[str, ...]] = ("addons", "info")
+    name: ClassVar[tuple[str, ...]] = ("addon", "show")
     requires_auth: ClassVar[bool] = True
 
     # Argument specification for declarative parsing
@@ -587,9 +587,9 @@ class AddonsInfoCmd(Command):
         if not addon_name:
             return [
                 text(
-                    "Usage: hop3 addons info <name> [--type <type>]\n\n"
+                    "Usage: hop3 addon show <name> [--type <type>]\n\n"
                     "Example:\n"
-                    "  hop3 addons info my-database --type postgres"
+                    "  hop3 addon show my-database --type postgres"
                 )
             ]
 
@@ -613,20 +613,20 @@ class AddonsInfoCmd(Command):
 
 @register
 @dataclass(frozen=True)
-class AddonsStatusCmd(Command):
+class AddonStatusCmd(Command):
     """Show detailed status and health of an addon.
 
     Performs a health check on the addon and shows all attached applications.
 
-    Usage: hop3 addons status <name> [--type <type>]
+    Usage: hop3 addon status <name> [--type <type>]
 
     Examples:
-        hop3 addons status my-database --type postgres
-        hop3 addons status my-cache --type redis
+        hop3 addon status my-database --type postgres
+        hop3 addon status my-cache --type redis
     """
 
     addon_credential_repo: AddonCredentialRepository
-    name: ClassVar[tuple[str, ...]] = ("addons", "status")
+    name: ClassVar[tuple[str, ...]] = ("addon", "status")
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
@@ -664,9 +664,9 @@ class AddonsStatusCmd(Command):
         """Return usage message."""
         return [
             text(
-                "Usage: hop3 addons status <name> [--type <type>]\n\n"
+                "Usage: hop3 addon status <name> [--type <type>]\n\n"
                 "Example:\n"
-                "  hop3 addons status my-database --type postgres"
+                "  hop3 addon status my-database --type postgres"
             )
         ]
 

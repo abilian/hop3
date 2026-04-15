@@ -20,9 +20,10 @@ if TYPE_CHECKING:
 DESTRUCTIVE_COMMANDS: set[tuple[str, ...]] = {
     ("app", "destroy"),
     ("destroy",),  # Alias for app destroy
-    ("backup", "delete"),  # Will be renamed to ("backup", "destroy") in a later commit
-    ("addons", "destroy"),
-    ("services", "destroy"),  # Legacy; kept for safety during migration
+    ("backup", "destroy"),  # ADR 036 D4: destroy (was `backup delete`)
+    ("addon", "destroy"),
+    ("user", "remove"),
+    ("context", "remove"),
 }
 
 
@@ -116,12 +117,12 @@ def confirm_destructive_action(
     if command in {("app", "destroy"), ("destroy",)}:
         return _confirm_app_destroy(args, is_protected, context_name)
 
-    # backup delete command
-    if command == ("backup", "delete"):
+    # backup destroy command
+    if command == ("backup", "destroy"):
         return _confirm_backup_delete(args)
 
-    # addon/services destroy command
-    if command in {("addons", "destroy"), ("services", "destroy")}:
+    # addon destroy command
+    if command == ("addon", "destroy"):
         return _confirm_service_destroy(args, is_protected, context_name)
 
     # Unknown destructive command (shouldn't happen)
@@ -164,7 +165,7 @@ def _confirm_app_destroy(
 
 
 def _confirm_backup_delete(args: list[str]) -> bool:
-    """Confirm backup delete command."""
+    """Confirm backup destroy command."""
     backup_id = args[0]
     show_destructive_warning(
         "delete",

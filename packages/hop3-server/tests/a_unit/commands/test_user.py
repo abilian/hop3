@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for admin user management commands."""
+"""Tests for user management commands."""
 
 from __future__ import annotations
 
@@ -11,17 +11,17 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from hop3.commands.admin import (
-    AdminUserAddCmd,
-    AdminUserDisableCmd,
-    AdminUserEnableCmd,
-    AdminUserGenerateTokenCmd,
-    AdminUserGrantAdminCmd,
-    AdminUserInfoCmd,
-    AdminUserListCmd,
-    AdminUserRemoveCmd,
-    AdminUserRevokeAdminCmd,
-    AdminUserSetPasswordCmd,
+from hop3.commands.user import (
+    UserAddCmd,
+    UserDisableCmd,
+    UserEnableCmd,
+    UserGenerateTokenCmd,
+    UserGrantAdminCmd,
+    UserListCmd,
+    UserRemoveCmd,
+    UserRevokeAdminCmd,
+    UserSetPasswordCmd,
+    UserShowCmd,
 )
 from hop3.orm import User
 from hop3.orm.repositories import RoleRepository, UserRepository
@@ -44,7 +44,7 @@ def mock_role_repo():
 
 @pytest.fixture
 def mock_admin_user():
-    """Create a mock admin user."""
+    """Create a mock user."""
     user = Mock(spec=User)
     user.username = "admin"
     user.email = "admin@example.com"
@@ -80,7 +80,7 @@ def test_admin_user_add_requires_admin(mock_user_repo, mock_role_repo):
     # Mock to return None (no authenticated user)
     mock_user_repo.get_by_username.return_value = None
 
-    cmd = AdminUserAddCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
+    cmd = UserAddCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
     result = cmd.call("", "newuser", "new@example.com", "password123")
 
     assert len(result) == 1
@@ -95,7 +95,7 @@ def test_admin_user_add_requires_admin_role(
     # Mock to return a regular user (not admin)
     mock_user_repo.get_by_username.return_value = mock_regular_user
 
-    cmd = AdminUserAddCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
+    cmd = UserAddCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
     result = cmd.call("user", "newuser", "new@example.com", "password123")
 
     assert len(result) == 1
@@ -107,10 +107,10 @@ def test_admin_user_add_missing_arguments(
     mock_user_repo, mock_role_repo, mock_admin_user
 ):
     """Test that admin:user:add requires username, email, and password."""
-    # Mock to return admin user
+    # Mock to return user
     mock_user_repo.get_by_username.return_value = mock_admin_user
 
-    cmd = AdminUserAddCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
+    cmd = UserAddCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
     result = cmd.call("admin")
 
     assert len(result) == 1
@@ -125,7 +125,7 @@ def test_admin_user_add_success(mock_user_repo, mock_role_repo, mock_admin_user)
     mock_user_repo.username_exists.return_value = False
     mock_user_repo.email_exists.return_value = False
 
-    cmd = AdminUserAddCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
+    cmd = UserAddCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
     result = cmd.call("admin", "newuser", "new@example.com", "password123")
 
     # Verify user was added to repository
@@ -159,8 +159,8 @@ def test_admin_user_add_with_admin_flag(
     mock_role_repo.get_admin_role.return_value = mock_admin_role
 
     # Patch the User class constructor to return our mock
-    with patch("hop3.commands.admin.User", return_value=mock_new_user):
-        cmd = AdminUserAddCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
+    with patch("hop3.commands.user.User", return_value=mock_new_user):
+        cmd = UserAddCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
         result = cmd.call(
             "admin", "newadmin", "admin2@example.com", "password123", "--admin"
         )
@@ -180,7 +180,7 @@ def test_admin_user_remove_prevents_self_deletion(mock_user_repo, mock_admin_use
     """Test that admin cannot remove their own account."""
     mock_user_repo.get_by_username.return_value = mock_admin_user
 
-    cmd = AdminUserRemoveCmd(user_repo=mock_user_repo)
+    cmd = UserRemoveCmd(user_repo=mock_user_repo)
     result = cmd.call("admin", "admin")
 
     assert len(result) == 1
@@ -198,7 +198,7 @@ def test_admin_user_list(mock_user_repo, mock_admin_user, mock_regular_user):
     mock_user_repo.get_by_username.return_value = mock_admin_user
     mock_user_repo.list_all_ordered.return_value = users
 
-    cmd = AdminUserListCmd(user_repo=mock_user_repo)
+    cmd = UserListCmd(user_repo=mock_user_repo)
     result = cmd.call("admin")
 
     # Check that both users are listed
@@ -217,7 +217,7 @@ def test_admin_user_enable(mock_user_repo, mock_admin_user):
     # First call returns admin, second call returns the disabled user
     mock_user_repo.get_by_username.side_effect = [mock_admin_user, disabled_user]
 
-    cmd = AdminUserEnableCmd(user_repo=mock_user_repo)
+    cmd = UserEnableCmd(user_repo=mock_user_repo)
     result = cmd.call("admin", "disabled")
 
     assert disabled_user.active is True
@@ -229,7 +229,7 @@ def test_admin_user_disable_prevents_self_disable(mock_user_repo, mock_admin_use
     """Test that admin cannot disable their own account."""
     mock_user_repo.get_by_username.return_value = mock_admin_user
 
-    cmd = AdminUserDisableCmd(user_repo=mock_user_repo)
+    cmd = UserDisableCmd(user_repo=mock_user_repo)
     result = cmd.call("admin", "admin")
 
     assert len(result) == 1
@@ -249,7 +249,7 @@ def test_admin_user_grant_admin(
     mock_user_repo.get_by_username.side_effect = [mock_admin_user, mock_regular_user]
     mock_role_repo.get_admin_role.return_value = mock_admin_role
 
-    cmd = AdminUserGrantAdminCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
+    cmd = UserGrantAdminCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
     result = cmd.call("admin", "user")
 
     mock_regular_user.roles.append.assert_called_once_with(mock_admin_role)
@@ -263,7 +263,7 @@ def test_admin_user_revoke_admin_prevents_self_revocation(
     """Test that admin cannot revoke their own admin privileges."""
     mock_user_repo.get_by_username.return_value = mock_admin_user
 
-    cmd = AdminUserRevokeAdminCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
+    cmd = UserRevokeAdminCmd(user_repo=mock_user_repo, role_repo=mock_role_repo)
     result = cmd.call("admin", "admin")
 
     assert len(result) == 1
@@ -276,7 +276,7 @@ def test_admin_user_set_password(mock_user_repo, mock_admin_user, mock_regular_u
     # First call returns admin, second call returns the target user
     mock_user_repo.get_by_username.side_effect = [mock_admin_user, mock_regular_user]
 
-    cmd = AdminUserSetPasswordCmd(user_repo=mock_user_repo)
+    cmd = UserSetPasswordCmd(user_repo=mock_user_repo)
     result = cmd.call("admin", "user", "newpassword123")
 
     mock_regular_user.set_password.assert_called_once_with("newpassword123")
@@ -296,7 +296,7 @@ def test_admin_user_info(mock_user_repo, mock_admin_user, mock_regular_user):
     # First call returns admin, second call returns the target user
     mock_user_repo.get_by_username.side_effect = [mock_admin_user, mock_regular_user]
 
-    cmd = AdminUserInfoCmd(user_repo=mock_user_repo)
+    cmd = UserShowCmd(user_repo=mock_user_repo)
     result = cmd.call("admin", "user")
 
     result_text = " ".join(r["text"] for r in result)
@@ -315,7 +315,7 @@ def test_admin_user_generate_token(
     # First call returns admin, second call returns the target user
     mock_user_repo.get_by_username.side_effect = [mock_admin_user, mock_regular_user]
 
-    cmd = AdminUserGenerateTokenCmd(user_repo=mock_user_repo)
+    cmd = UserGenerateTokenCmd(user_repo=mock_user_repo)
     result = cmd.call("admin", "user")
 
     # Check that a token is in the result
@@ -333,7 +333,7 @@ def test_admin_user_generate_token_disabled_user(mock_user_repo, mock_admin_user
     # First call returns admin, second call returns the disabled user
     mock_user_repo.get_by_username.side_effect = [mock_admin_user, disabled_user]
 
-    cmd = AdminUserGenerateTokenCmd(user_repo=mock_user_repo)
+    cmd = UserGenerateTokenCmd(user_repo=mock_user_repo)
     result = cmd.call("admin", "disabled")
 
     assert len(result) == 1

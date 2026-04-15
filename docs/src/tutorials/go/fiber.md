@@ -243,7 +243,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config:set hop3-tuto-fiber HOST_NAME=hop3-tuto-fiber.$HOP3_TEST_DOMAIN
+hop3 config set hop3-tuto-fiber HOST_NAME=hop3-tuto-fiber.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -261,7 +261,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 app:status hop3-tuto-fiber
+hop3 app status hop3-tuto-fiber
 ```
 
 ```console
@@ -280,7 +280,7 @@ View logs:
 
 ```bash
 # View logs
-hop3 app:logs hop3-tuto-fiber
+hop3 app logs hop3-tuto-fiber
 
 # Your app will be available at:
 # http://hop3-tuto-fiber.your-hop3-server.example.com
@@ -290,14 +290,14 @@ hop3 app:logs hop3-tuto-fiber
 
 ```bash
 # Restart the application
-hop3 app:restart hop3-tuto-fiber
+hop3 app restart hop3-tuto-fiber
 
 # View/set environment variables
-hop3 config:show hop3-tuto-fiber
-hop3 config:set hop3-tuto-fiber NEW_VAR=value
+hop3 config show hop3-tuto-fiber
+hop3 config set hop3-tuto-fiber NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-fiber web=2
+hop3 ps scale hop3-tuto-fiber web=2
 ```
 
 ## Advanced Configuration

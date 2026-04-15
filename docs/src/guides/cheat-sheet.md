@@ -35,7 +35,7 @@ hop3 init --ssh root@hop3.example.com
 hop3 login --ssh root@hop3.example.com
 
 # Check who you're logged in as
-hop3 auth:whoami
+hop3 auth whoami
 
 # Get version
 hop3 version
@@ -81,7 +81,7 @@ hop3 context remove old-staging
 
 ```bash
 # Create app from git repository
-hop3 app:launch <git-url> <app-name>
+hop3 app launch <git-url> <app-name>
 
 # Deploy (from project directory)
 hop3 deploy <app-name>
@@ -90,57 +90,57 @@ hop3 deploy <app-name>
 hop3 deploy <app-name> /path/to/app
 
 # Check status
-hop3 app:status <app>
+hop3 app status <app>
 
 # View logs (streaming)
-hop3 app:logs <app>
+hop3 app logs <app>
 
 # Build logs
-hop3 app:build-logs <app>
+hop3 app build-logs <app>
 
 # Start / Stop / Restart
-hop3 app:start <app>
-hop3 app:stop <app>
-hop3 app:restart <app>
+hop3 app start <app>
+hop3 app stop <app>
+hop3 app restart <app>
 
 # List all apps
 hop3 apps
 
 # Destroy app (requires confirmation)
-hop3 app:destroy <app>
+hop3 app destroy <app>
 ```
 
 ### Configuration / Environment
 
 ```bash
 # View all env vars
-hop3 config:show <app>
+hop3 config show <app>
 
 # Get single var
-hop3 config:get <app> VAR_NAME
+hop3 config get <app> VAR_NAME
 
 # Set vars (one or multiple)
-hop3 config:set <app> VAR1=value1 VAR2=value2
+hop3 config set <app> VAR1=value1 VAR2=value2
 
 # Remove var
-hop3 config:unset <app> VAR_NAME
+hop3 config unset <app> VAR_NAME
 
 # Live runtime config
-hop3 config:live <app>
+hop3 config live <app>
 
 # Migrate Procfile to hop3.toml
-hop3 config:migrate procfile /path/to/app --dry-run
+hop3 config migrate procfile /path/to/app --dry-run
 ```
 
 ### Addons (Backing Services)
 
 ```bash
-hop3 addons:list                      # List addon types
-hop3 addons:create postgres my-db     # Create addon
-hop3 addons:attach my-db --app <app>  # Attach (sets DATABASE_URL)
-hop3 addons:detach my-db --app <app>  # Detach from app
-hop3 addons:info my-db                # Addon info
-hop3 addons:destroy my-db             # Destroy addon
+hop3 addons list                      # List addon types
+hop3 addon create postgres my-db     # Create addon
+hop3 addon attach my-db --app <app>  # Attach (sets DATABASE_URL)
+hop3 addon detach my-db --app <app>  # Detach from app
+hop3 addon show my-db                # Addon info
+hop3 addon destroy my-db             # Destroy addon
 ```
 
 See [CLI Reference: Services](../reference/cli.md#services-addons) for complete documentation.
@@ -148,12 +148,12 @@ See [CLI Reference: Services](../reference/cli.md#services-addons) for complete 
 ### Backups
 
 ```bash
-hop3 backup:create <app>           # Create backup
-hop3 backup:list <app>             # List backups
-hop3 backup:info <backup-id>       # Backup details
-hop3 backup:restore <backup-id>    # Restore
-hop3 app:restart <app>             # Restart after restore
-hop3 backup:delete <backup-id>     # Delete backup
+hop3 backup create <app>           # Create backup
+hop3 backup list <app>             # List backups
+hop3 backup info <backup-id>       # Backup details
+hop3 backup restore <backup-id>    # Restore
+hop3 app restart <app>             # Restart after restore
+hop3 backup destroy <backup-id>     # Delete backup
 ```
 
 See [Backup and Restore Guide](backup-restore.md) for complete documentation.
@@ -165,28 +165,28 @@ See [Backup and Restore Guide](backup-restore.md) for complete documentation.
 hop3 ps <app>
 
 # Scale (web=2, worker=1)
-hop3 ps:scale <app> web=2 worker=1
+hop3 ps scale <app> web=2 worker=1
 ```
 
 ### System & Admin
 
 ```bash
 # System info
-hop3 system:info
-hop3 system:status
-hop3 system:uptime
+hop3 system info
+hop3 system status
+hop3 system uptime
 
 # List all server processes
-hop3 system:ps
+hop3 system ps
 
 # Server logs
-hop3 system:logs
+hop3 system logs
 
 # User management (admin only)
-hop3 admin:user:list
-hop3 admin:user:add <username>
-hop3 admin:user:disable <username>
-hop3 admin:user:enable <username>
+hop3 user list
+hop3 user add <username>
+hop3 user disable <username>
+hop3 user enable <username>
 ```
 
 ### Help
@@ -219,10 +219,10 @@ hop3 <command> --help
 
 ```bash
 # Get app state in JSON
-hop3 app:status myapp --json | jq '.data.state'
+hop3 app status myapp --json | jq '.data.state'
 
 # Destroy without prompt (use with caution)
-hop3 app:destroy myapp -y
+hop3 app destroy myapp -y
 ```
 
 ---
@@ -327,7 +327,7 @@ hop3 init --ssh root@hop3.example.com
 hop3 deploy myapp
 
 # 4. Check status
-hop3 app:status myapp
+hop3 app status myapp
 ```
 
 ### Update an Existing App
@@ -335,56 +335,56 @@ hop3 app:status myapp
 ```bash
 # 1. Make code changes
 # 2. (Optional) Create backup first
-hop3 backup:create myapp
+hop3 backup create myapp
 
 # 3. Deploy
 hop3 deploy myapp
 
 # 4. If something breaks, restore
-hop3 backup:restore <backup-id>
-hop3 app:restart myapp
+hop3 backup restore <backup-id>
+hop3 app restart myapp
 ```
 
 ### Add a Database
 
 ```bash
 # 1. Create the addon
-hop3 addons:create postgres myapp-db
+hop3 addon create postgres myapp-db
 
 # 2. Attach to app (sets DATABASE_URL)
-hop3 addons:attach myapp-db --app myapp
+hop3 addon attach myapp-db --app myapp
 
 # 3. Restart to pick up new env var
-hop3 app:restart myapp
+hop3 app restart myapp
 ```
 
 ### Debug a Problem
 
 ```bash
 # Check app status
-hop3 app:status myapp
+hop3 app status myapp
 
 # View logs
-hop3 app:logs myapp
+hop3 app logs myapp
 
 # Build logs
-hop3 app:build-logs myapp
+hop3 app build-logs myapp
 
 # Full debug info
-hop3 app:debug myapp
+hop3 app debug myapp
 
 # Check environment
-hop3 config:show myapp
+hop3 config show myapp
 ```
 
 ### Scale for Traffic
 
 ```bash
 # Scale web workers
-hop3 ps:scale myapp web=4
+hop3 ps scale myapp web=4
 
 # Add background workers
-hop3 ps:scale myapp worker=2
+hop3 ps scale myapp worker=2
 ```
 
 ---
@@ -394,20 +394,20 @@ hop3 ps:scale myapp worker=2
 ### Configuration
 
 - **Don't hardcode secrets** in `hop3.toml` or Procfile
-- Use `hop3 config:set` for sensitive values (API keys, passwords)
+- Use `hop3 config set` for sensitive values (API keys, passwords)
 - Keep `hop3.toml` in version control (without secrets)
 - Use `[env]` for non-sensitive defaults only
 
 ### Deployment
 
-- **Back up before deploying** to production: `hop3 backup:create <app>`
+- **Back up before deploying** to production: `hop3 backup create <app>`
 - Test locally first when possible
 - Use `--dry-run` when available
-- Check logs after deploy: `hop3 app:logs <app>`
+- Check logs after deploy: `hop3 app logs <app>`
 
 ### Backups
 
-- **Back up before deploying** to production: `hop3 backup:create <app>`
+- **Back up before deploying** to production: `hop3 backup create <app>`
 - Enable automated backups in `hop3.toml`:
   ```toml
   [backup]
@@ -419,7 +419,7 @@ hop3 ps:scale myapp worker=2
 
 ### Environment Variables
 
-- Restart after changing config: `hop3 app:restart <app>`
+- Restart after changing config: `hop3 app restart <app>`
 - Use consistent naming: `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`
 - Keep production and development configs separate
 
@@ -438,7 +438,7 @@ hop3 ps:scale myapp worker=2
 ### Process Management
 
 - Start with `web=1`, scale as needed
-- Monitor with `hop3 app:logs` and `hop3 app:status`
+- Monitor with `hop3 app logs` and `hop3 app status`
 - Use health checks to catch failures early
 
 ---
@@ -447,14 +447,14 @@ hop3 ps:scale myapp worker=2
 
 | Heroku | Hop3 |
 |--------|------|
-| `heroku create` | `hop3 app:launch <repo> <name>` |
+| `heroku create` | `hop3 app launch <repo> <name>` |
 | `git push heroku main` | `hop3 deploy` |
-| `heroku config:set` | `hop3 config:set` |
-| `heroku addons:create heroku-postgresql` | `hop3 addons:create postgres` |
-| `heroku logs -t` | `hop3 app:logs` |
+| `heroku config set` | `hop3 config set` |
+| `heroku addon create heroku-postgresql` | `hop3 addon create postgres` |
+| `heroku logs -t` | `hop3 app logs` |
 | `heroku ps` | `hop3 ps` |
-| `heroku restart` | `hop3 app:restart` |
-| `heroku destroy` | `hop3 app:destroy` |
+| `heroku restart` | `hop3 app restart` |
+| `heroku destroy` | `hop3 app destroy` |
 
 ---
 

@@ -35,7 +35,10 @@ class NixEjectCmd(Command):
     need to customize the Nix expression directly.
     """
 
+    # Hidden per ADR 036 D3: removed from user-visible CLI surface. Still
+    # invokable explicitly (`hop3 nix eject <app>`) for dev/recovery.
     name: ClassVar[tuple[str, ...]] = ("nix", "eject")
+    hidden: ClassVar[bool] = True
     db_session: Session
 
     def run(self, app_name: str) -> list:

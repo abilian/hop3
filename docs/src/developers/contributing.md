@@ -460,7 +460,7 @@ def backup_create(app_name: str) -> dict:
         # Info about restoration
         messages.append({
             "t": "info",
-            "text": f"To restore: hop3 backup:restore {backup_id}"
+            "text": f"To restore: hop3 backup restore {backup_id}"
         })
 
         return ok(messages)

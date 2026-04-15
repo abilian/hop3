@@ -131,9 +131,9 @@ Most commands are forwarded to the server:
 ```python
 # These call server RPC methods
 hop3 apps              # → apps.list
-hop3 app:launch foo    # → apps.create(name="foo")
+hop3 app launch foo    # → apps.create(name="foo")
 hop3 deploy            # → apps.deploy(...)
-hop3 app:logs myapp    # → apps.logs(name="myapp")
+hop3 app logs myapp    # → apps.logs(name="myapp")
 ```
 
 ### Local Commands

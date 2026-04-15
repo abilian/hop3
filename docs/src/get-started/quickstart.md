@@ -145,7 +145,7 @@ Hop3 provides commands to manage your running application. The CLI features rich
 #### Check Application Status
 To see the status of your app and its running processes:
 ```bash
-hop3 app:status hello-hop3
+hop3 app status hello-hop3
 ```
 
 You'll see a nicely formatted table showing:
@@ -160,7 +160,7 @@ You'll see a nicely formatted table showing:
 
 **For automation and scripts**, use JSON output:
 ```bash
-hop3 app:status hello-hop3 --json
+hop3 app status hello-hop3 --json
 ```
 ```json
 {
@@ -177,7 +177,7 @@ hop3 app:status hello-hop3 --json
 #### View Live Logs
 To see a real-time stream of your application's logs, which is incredibly useful for debugging:
 ```bash
-hop3 app:logs hello-hop3
+hop3 app logs hello-hop3
 ```
 Press `Ctrl+C` to stop streaming.
 
@@ -190,7 +190,7 @@ hop3 apps
 #### Destroy the Application
 If you want to remove the application and all its associated resources:
 ```bash
-hop3 app:destroy hello-hop3
+hop3 app destroy hello-hop3
 ```
 
 ⚠️ **Destructive commands require confirmation.** To prevent accidental deletion, you'll be prompted:
@@ -201,14 +201,14 @@ Type the app name to confirm: hello-hop3
 
 **To skip confirmations in scripts**, use the `-y` flag:
 ```bash
-hop3 app:destroy hello-hop3 -y
+hop3 app destroy hello-hop3 -y
 ```
 
 !!! tip "Quiet Output for Scripts"
     When writing automation scripts, use `--quiet` to suppress unnecessary output:
     ```bash
     hop3 deploy myapp --quiet
-    hop3 app:status myapp --json --quiet
+    hop3 app status myapp --json --quiet
     ```
 
 ## Step 6: Backup and Restore
@@ -217,23 +217,23 @@ Hop3 includes a backup system to protect your applications. Always backup before
 
 ```bash
 # Create a backup (includes code, data, env vars, and attached services)
-hop3 backup:create hello-hop3
+hop3 backup create hello-hop3
 
 # List your backups
-hop3 backup:list hello-hop3
+hop3 backup list hello-hop3
 
 # Restore if needed
-hop3 backup:restore <backup-id>
-hop3 app:restart hello-hop3
+hop3 backup restore <backup-id>
+hop3 app restart hello-hop3
 ```
 
 !!! tip "Best Practice: Backup Before Deployment"
     ```bash
-    hop3 backup:create hello-hop3  # Create backup
+    hop3 backup create hello-hop3  # Create backup
     hop3 deploy hello-hop3         # Deploy new version
     # If something goes wrong:
-    hop3 backup:restore <backup-id>
-    hop3 app:restart hello-hop3
+    hop3 backup restore <backup-id>
+    hop3 app restart hello-hop3
     ```
 
 For complete backup documentation including what's backed up, retention policies, and troubleshooting, see the **[Backup and Restore Guide](../guides/backup-restore.md)**.
@@ -246,12 +246,12 @@ Applications often need configuration through environment variables. Hop3 makes 
 
 Set a single environment variable:
 ```bash
-hop3 config:set hello-hop3 LOG_LEVEL=info
+hop3 config set hello-hop3 LOG_LEVEL=info
 ```
 
 Set multiple variables at once:
 ```bash
-hop3 config:set hello-hop3 LOG_LEVEL=info MAX_WORKERS=4 SECRET_KEY=your-secret
+hop3 config set hello-hop3 LOG_LEVEL=info MAX_WORKERS=4 SECRET_KEY=your-secret
 ```
 
 !!! note "About DEBUG mode"
@@ -261,7 +261,7 @@ hop3 config:set hello-hop3 LOG_LEVEL=info MAX_WORKERS=4 SECRET_KEY=your-secret
 
 List all environment variables for your app:
 ```bash
-hop3 config:show hello-hop3
+hop3 config show hello-hop3
 ```
 
 You'll see a formatted table:
@@ -278,12 +278,12 @@ You'll see a formatted table:
 
 Get a specific variable's value:
 ```bash
-hop3 config:get hello-hop3 DEBUG
+hop3 config get hello-hop3 DEBUG
 ```
 
 **For scripts**, use JSON output:
 ```bash
-hop3 config:show hello-hop3 --json
+hop3 config show hello-hop3 --json
 ```
 ```json
 {
@@ -301,13 +301,13 @@ hop3 config:show hello-hop3 --json
 
 Remove a variable:
 ```bash
-hop3 config:unset hello-hop3 DEBUG
+hop3 config unset hello-hop3 DEBUG
 ```
 
 !!! note "Restart Required"
     After changing environment variables, restart your app for the changes to take effect:
     ```bash
-    hop3 app:restart hello-hop3
+    hop3 app restart hello-hop3
     ```
 
 ## Advanced CLI Features
@@ -318,13 +318,13 @@ Almost all Hop3 commands support `--json` output for scripting and automation:
 
 ```bash
 # Get app status in JSON
-hop3 app:status myapp --json | jq '.data.state'
+hop3 app status myapp --json | jq '.data.state'
 
 # List all apps and filter by status
 hop3 apps --json | jq '.data[] | select(.state == "RUNNING")'
 
 # Create backup and capture backup ID
-BACKUP_ID=$(hop3 backup:create myapp --json | jq -r '.data.backup_id')
+BACKUP_ID=$(hop3 backup create myapp --json | jq -r '.data.backup_id')
 echo "Created backup: $BACKUP_ID"
 ```
 
@@ -346,8 +346,8 @@ For automation, skip confirmation prompts with `-y`:
 
 ```bash
 # Automated cleanup script
-hop3 app:destroy old-app -y
-hop3 backup:delete old-backup-id -y
+hop3 app destroy old-app -y
+hop3 backup destroy old-backup-id -y
 ```
 
 ⚠️ **Use with caution** - the `-y` flag bypasses safety confirmations!
@@ -358,7 +358,7 @@ Get detailed output with `-v` or `--verbose`:
 
 ```bash
 hop3 deploy myapp -v
-hop3 app:status myapp --verbose
+hop3 app status myapp --verbose
 ```
 
 ## Congratulations!

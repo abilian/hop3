@@ -55,7 +55,7 @@ Example: `20251108_143022_a8f3d9`
 
 ```bash
 # Backup an application
-hop3 backup:create my-app
+hop3 backup create my-app
 
 # Output:
 # Creating backup for app 'my-app'...
@@ -67,13 +67,13 @@ hop3 backup:create my-app
 # Total size: 15.6 MB
 #
 # To restore this backup:
-#   hop3 backup:restore 20251108_143022_a8f3d9
+#   hop3 backup restore 20251108_143022_a8f3d9
 ```
 
 ### List All Backups
 
 ```bash
-hop3 backup:list
+hop3 backup list
 
 # Output:
 # BACKUP ID              APP         SIZE     CREATED              STATUS      SERVICES
@@ -84,7 +84,7 @@ hop3 backup:list
 ### Restore a Backup
 
 ```bash
-hop3 backup:restore 20251108_143022_a8f3d9
+hop3 backup restore 20251108_143022_a8f3d9
 
 # Output:
 # Restoring backup 20251108_143022_a8f3d9...
@@ -96,7 +96,7 @@ hop3 backup:restore 20251108_143022_a8f3d9
 # Port: 8000
 #
 # To start the application:
-#   hop3 app:restart my-app
+#   hop3 app restart my-app
 ```
 
 ## Creating Backups
@@ -106,12 +106,12 @@ hop3 backup:restore 20251108_143022_a8f3d9
 Create a backup of an application:
 
 ```bash
-hop3 backup:create <app-name>
+hop3 backup create <app-name>
 ```
 
 **Example:**
 ```bash
-hop3 backup:create blog
+hop3 backup create blog
 ```
 
 This creates a complete backup including:
@@ -125,7 +125,7 @@ This creates a complete backup including:
 To create a backup excluding attached services:
 
 ```bash
-hop3 backup:create <app-name> --no-services
+hop3 backup create <app-name> --no-services
 ```
 
 **Use case:** Quickly backup just the application code and data when services are backed up separately.
@@ -149,7 +149,7 @@ The entire process is **atomic** - if any step fails, partial backups are cleane
 ### List All Backups
 
 ```bash
-hop3 backup:list
+hop3 backup list
 ```
 
 Shows all backups across all applications in a table format.
@@ -157,12 +157,12 @@ Shows all backups across all applications in a table format.
 ### Filter by Application
 
 ```bash
-hop3 backup:list <app-name>
+hop3 backup list <app-name>
 ```
 
 **Example:**
 ```bash
-hop3 backup:list blog
+hop3 backup list blog
 ```
 
 Shows only backups for the specified application.
@@ -170,12 +170,12 @@ Shows only backups for the specified application.
 ### Limit Results
 
 ```bash
-hop3 backup:list --limit <N>
+hop3 backup list --limit <N>
 ```
 
 **Example:**
 ```bash
-hop3 backup:list --limit 10
+hop3 backup list --limit 10
 ```
 
 Shows the 10 most recent backups (default limit is 20).
@@ -183,7 +183,7 @@ Shows the 10 most recent backups (default limit is 20).
 ### Combined Filtering
 
 ```bash
-hop3 backup:list blog --limit 5
+hop3 backup list blog --limit 5
 ```
 
 Shows the 5 most recent backups for the "blog" application.
@@ -193,12 +193,12 @@ Shows the 5 most recent backups for the "blog" application.
 ### Get Detailed Information
 
 ```bash
-hop3 backup:info <backup-id>
+hop3 backup info <backup-id>
 ```
 
 **Example:**
 ```bash
-hop3 backup:info 20251108_143022_a8f3d9
+hop3 backup info 20251108_143022_a8f3d9
 ```
 
 **Output:**
@@ -237,7 +237,7 @@ Integrity: ✓ All checksums valid
 
 ### Verify Backup Integrity
 
-The `backup:info` command automatically verifies all checksums and reports integrity status.
+The `backup info` command automatically verifies all checksums and reports integrity status.
 
 ## Restoring Backups
 
@@ -246,12 +246,12 @@ The `backup:info` command automatically verifies all checksums and reports integ
 Restore an application from a backup:
 
 ```bash
-hop3 backup:restore <backup-id>
+hop3 backup restore <backup-id>
 ```
 
 **Example:**
 ```bash
-hop3 backup:restore 20251108_143022_a8f3d9
+hop3 backup restore 20251108_143022_a8f3d9
 ```
 
 ### Restore to Different Application
@@ -259,12 +259,12 @@ hop3 backup:restore 20251108_143022_a8f3d9
 Clone an application by restoring to a new name:
 
 ```bash
-hop3 backup:restore <backup-id> --target-app <new-name>
+hop3 backup restore <backup-id> --target-app <new-name>
 ```
 
 **Example:**
 ```bash
-hop3 backup:restore 20251108_143022_a8f3d9 --target-app blog-staging
+hop3 backup restore 20251108_143022_a8f3d9 --target-app blog-staging
 ```
 
 This creates a completely independent copy of the application.
@@ -289,7 +289,7 @@ The restore process includes **safety checks** at every step.
 After restoring, you typically need to restart the application:
 
 ```bash
-hop3 app:restart <app-name>
+hop3 app restart <app-name>
 ```
 
 ## Deleting Backups
@@ -297,12 +297,12 @@ hop3 app:restart <app-name>
 ### Delete a Single Backup
 
 ```bash
-hop3 backup:delete <backup-id>
+hop3 backup destroy <backup-id>
 ```
 
 **Example:**
 ```bash
-hop3 backup:delete 20251108_143022_a8f3d9
+hop3 backup destroy 20251108_143022_a8f3d9
 ```
 
 **Output:**
@@ -358,12 +358,12 @@ When cloning applications via restore, use clear naming:
 
 ```bash
 # Good naming examples
-hop3 backup:restore <id> --target-app myapp-staging
-hop3 backup:restore <id> --target-app myapp-backup-20251108
-hop3 backup:restore <id> --target-app myapp-test
+hop3 backup restore <id> --target-app myapp-staging
+hop3 backup restore <id> --target-app myapp-backup-20251108
+hop3 backup restore <id> --target-app myapp-test
 
 # Avoid ambiguous names
-hop3 backup:restore <id> --target-app myapp2  # Not clear what this is
+hop3 backup restore <id> --target-app myapp2  # Not clear what this is
 ```
 
 ### Testing Restores
@@ -376,11 +376,11 @@ Periodically test your backups:
 4. Delete the test application
 
 ```bash
-hop3 backup:create prod-app
-hop3 backup:restore <backup-id> --target-app prod-app-test
-hop3 app:restart prod-app-test
+hop3 backup create prod-app
+hop3 backup restore <backup-id> --target-app prod-app-test
+hop3 app restart prod-app-test
 # Test the application
-hop3 app:destroy prod-app-test
+hop3 app destroy prod-app-test
 ```
 
 ### Security Considerations
@@ -405,14 +405,14 @@ Always create a backup before:
 **Quick pre-deployment checklist:**
 ```bash
 # 1. Create backup
-hop3 backup:create myapp
+hop3 backup create myapp
 
 # 2. Deploy new version
 hop3 deploy myapp
 
 # 3. If something goes wrong, restore
-hop3 backup:restore <backup-id>
-hop3 app:restart myapp
+hop3 backup restore <backup-id>
+hop3 app restart myapp
 ```
 
 ## Troubleshooting
@@ -439,10 +439,10 @@ Error: Backup '20251108_143022_a8f3d9' not found
 **Solution:**
 ```bash
 # List all backups to verify the ID
-hop3 backup:list
+hop3 backup list
 
 # Check if you have the correct app name
-hop3 backup:list myapp
+hop3 backup list myapp
 ```
 
 ### "Checksum mismatch"
@@ -475,8 +475,8 @@ Error: Insufficient disk space for backup
 df -h /var/hop3/backups
 
 # Delete old backups
-hop3 backup:list
-hop3 backup:delete <old-backup-id>
+hop3 backup list
+hop3 backup destroy <old-backup-id>
 
 # Or clean up other files
 ```
@@ -524,7 +524,7 @@ hop3 postgres:list
 
 # Restart service if needed
 # Then retry restore
-hop3 backup:restore <backup-id>
+hop3 backup restore <backup-id>
 ```
 
 ## Advanced Topics
@@ -557,7 +557,7 @@ Understanding the backup structure can help with debugging:
 │
 ├── env.json              # Environment variables
 │   └── Contains:
-│       - All config:set variables
+│       - All config set variables
 │       - System-set variables
 │       - Service URLs
 │
@@ -647,8 +647,8 @@ In case of complete server failure:
 2. **Copy backups** from the old server (or remote storage)
 3. **Restore applications** one by one:
    ```bash
-   hop3 backup:restore <backup-id>
-   hop3 app:restart <app-name>
+   hop3 backup restore <backup-id>
+   hop3 app restart <app-name>
    ```
 
 **Pro tip:** Keep backups in multiple locations:
@@ -665,7 +665,7 @@ Automate backups in your deployment pipeline:
 # deploy.sh
 
 # Create backup before deployment
-backup_id=$(hop3 backup:create myapp | grep "Backup ID:" | awk '{print $3}')
+backup_id=$(hop3 backup create myapp | grep "Backup ID:" | awk '{print $3}')
 
 # Deploy new version
 hop3 deploy myapp
@@ -673,8 +673,8 @@ hop3 deploy myapp
 # If deployment fails, restore
 if [ $? -ne 0 ]; then
     echo "Deployment failed, restoring backup..."
-    hop3 backup:restore $backup_id
-    hop3 app:restart myapp
+    hop3 backup restore $backup_id
+    hop3 app restart myapp
     exit 1
 fi
 
@@ -692,7 +692,7 @@ Create a monitoring script:
 app_name="myapp"
 max_age_days=1
 
-latest_backup=$(hop3 backup:list $app_name --limit 1 | tail -n 1 | awk '{print $4}')
+latest_backup=$(hop3 backup list $app_name --limit 1 | tail -n 1 | awk '{print $4}')
 current_date=$(date +%s)
 backup_date=$(date -d "$latest_backup" +%s)
 age_seconds=$((current_date - backup_date))

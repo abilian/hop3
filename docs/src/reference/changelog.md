@@ -23,7 +23,7 @@ This is a major architectural release that restructures Hop3 into a modern clien
 - **Web UI Scaffolding**: Initial structure for future web-based management interface
 - **Backup System**: Basic application backup mechanism (WIP)
 - **SBOM Generation**: Automatic Software Bill of Materials generation for supply chain security
-- **Environment Variable Management**: `config:set` and `config:unset` commands for managing per-app configuration
+- **Environment Variable Management**: `config set` and `config unset` commands for managing per-app configuration
 - **HOP3_UNSAFE Mode**: Test-only configuration option to bypass authentication in Docker test environments (never use in production)
 
 ### Changed

@@ -47,7 +47,7 @@ export HOP3_API_URL="https://your-hop3-server.com"
 export HOP3_API_URL="ssh://user@your-hop3-server.com"
 
 # Login
-hop3 auth:login <username> <password>
+hop3 auth login <username> <password>
 
 # Save token (automatically stored in ~/.hop3/token)
 ```
@@ -62,10 +62,10 @@ hop3 apps
 hop3 deploy myapp
 
 # View application status
-hop3 app:status myapp
+hop3 app status myapp
 
 # View logs
-hop3 app:logs myapp
+hop3 app logs myapp
 ```
 
 ---
@@ -120,7 +120,7 @@ hop3 apps --json
 hop3 deploy myapp -y
 
 # Quiet mode (minimal output)
-hop3 backup:create myapp --quiet
+hop3 backup create myapp --quiet
 
 # Verbose deployment (see Docker build output)
 hop3 -v deploy myapp
@@ -131,7 +131,7 @@ hop3 -vv deploy myapp
 hop3 --debug deploy myapp
 
 # Combine flags
-hop3 app:destroy oldapp --yes --quiet
+hop3 app destroy oldapp --yes --quiet
 
 # Set default verbosity via environment
 HOP3_VERBOSITY=0 hop3 deploy myapp  # Quiet mode
@@ -326,7 +326,7 @@ Use `--context` flag for one-off commands:
 hop3 --context production deploy myapp
 
 # Check staging logs while working on dev
-hop3 --context staging app:logs myapp
+hop3 --context staging app logs myapp
 ```
 
 #### Per-Shell Context
@@ -338,7 +338,7 @@ export HOP3_CONTEXT=production
 
 # All commands use production
 hop3 apps
-hop3 app:status myapp
+hop3 app status myapp
 ```
 
 #### Per-Project Context
@@ -373,7 +373,7 @@ hop3 context add production --server ssh://root@prod.example.com --protected
 
 **Example:**
 ```bash
-$ hop3 --context production app:destroy myapp
+$ hop3 --context production app destroy myapp
 
   WARNING: You are operating on protected context 'production'
   This context is marked as protected to prevent accidental changes.
@@ -432,13 +432,13 @@ ssh_port = 22
 
 ## Authentication Commands
 
-### `hop3 auth:register`
+### `hop3 auth register`
 
 Register a new user account.
 
 **Usage:**
 ```bash
-hop3 auth:register <username> <email> <password>
+hop3 auth register <username> <email> <password>
 ```
 
 **Arguments:**
@@ -448,7 +448,7 @@ hop3 auth:register <username> <email> <password>
 
 **Example:**
 ```bash
-hop3 auth:register alice alice@example.com mypassword123
+hop3 auth register alice alice@example.com mypassword123
 ```
 
 **Notes:**
@@ -458,13 +458,13 @@ hop3 auth:register alice alice@example.com mypassword123
 
 ---
 
-### `hop3 auth:login`
+### `hop3 auth login`
 
 Authenticate and receive an API token.
 
 **Usage:**
 ```bash
-hop3 auth:login <username> <password>
+hop3 auth login <username> <password>
 ```
 
 **Arguments:**
@@ -473,7 +473,7 @@ hop3 auth:login <username> <password>
 
 **Example:**
 ```bash
-hop3 auth:login alice mypassword123
+hop3 auth login alice mypassword123
 ```
 
 **Output:**
@@ -490,13 +490,13 @@ Token saved to ~/.hop3/token
 
 ---
 
-### `hop3 auth:whoami`
+### `hop3 auth whoami`
 
 Display current authenticated user information.
 
 **Usage:**
 ```bash
-hop3 auth:whoami
+hop3 auth whoami
 ```
 
 **Example Output:**
@@ -509,13 +509,13 @@ Active: Yes
 
 ---
 
-### `hop3 auth:logout`
+### `hop3 auth logout`
 
 Logout and invalidate current token.
 
 **Usage:**
 ```bash
-hop3 auth:logout
+hop3 auth logout
 ```
 
 **Notes:**
@@ -563,13 +563,13 @@ hop3 apps [--json]
 
 ---
 
-### `hop3 app:launch`
+### `hop3 app launch`
 
 Create and configure a new app from a Git repository.
 
 **Usage:**
 ```bash
-hop3 app:launch <repo_url> <app_name>
+hop3 app launch <repo_url> <app_name>
 ```
 
 **Arguments:**
@@ -578,7 +578,7 @@ hop3 app:launch <repo_url> <app_name>
 
 **Example:**
 ```bash
-hop3 app:launch https://github.com/user/myapp.git myapp
+hop3 app launch https://github.com/user/myapp.git myapp
 ```
 
 **Notes:**
@@ -666,19 +666,19 @@ Or set server-wide default via `APP_START_TIMEOUT` environment variable.
 - Requires `Procfile` or `hop3.toml` for process configuration
 - Automatically detects buildpack based on files present
 - Use `-v` or `-vv` for more verbose output (see [Global Flags](#global-flags))
-- Build logs are also saved and can be retrieved with `app:build-logs`
+- Build logs are also saved and can be retrieved with `app build-logs`
 - Streaming requires direct HTTP connection (SSH tunnel falls back to batch mode)
 - See [Deployment Guide](./deployment.md) for details
 
 ---
 
-### `hop3 app:status`
+### `hop3 app status`
 
 Show detailed status of an application.
 
 **Usage:**
 ```bash
-hop3 app:status <app_name>
+hop3 app status <app_name>
 ```
 
 **Example Output:**
@@ -698,13 +698,13 @@ Uptime: 3 days 14 hours
 
 ---
 
-### `hop3 app:logs`
+### `hop3 app logs`
 
 Show application logs.
 
 **Usage:**
 ```bash
-hop3 app:logs <app_name> [--lines N] [--follow]
+hop3 app logs <app_name> [--lines N] [--follow]
 ```
 
 **Arguments:**
@@ -717,24 +717,24 @@ hop3 app:logs <app_name> [--lines N] [--follow]
 **Example:**
 ```bash
 # Show last 100 lines
-hop3 app:logs myapp
+hop3 app logs myapp
 
 # Show last 500 lines
-hop3 app:logs myapp --lines 500
+hop3 app logs myapp --lines 500
 
 # Follow logs in real-time
-hop3 app:logs myapp --follow
+hop3 app logs myapp --follow
 ```
 
 ---
 
-### `hop3 app:build-logs`
+### `hop3 app build-logs`
 
 Show build logs for an application (Docker build output).
 
 **Usage:**
 ```bash
-hop3 app:build-logs <app_name>
+hop3 app build-logs <app_name>
 ```
 
 **Arguments:**
@@ -743,7 +743,7 @@ hop3 app:build-logs <app_name>
 **Example:**
 ```bash
 # Show build logs for myapp
-hop3 app:build-logs myapp
+hop3 app build-logs myapp
 ```
 
 **Example Output:**
@@ -771,18 +771,18 @@ Duration: 45.3s
 
 ---
 
-### `hop3 app:restart`
+### `hop3 app restart`
 
 Restart an application.
 
 **Usage:**
 ```bash
-hop3 app:restart <app_name>
+hop3 app restart <app_name>
 ```
 
 **Example:**
 ```bash
-hop3 app:restart myapp
+hop3 app restart myapp
 ```
 
 **Notes:**
@@ -792,24 +792,24 @@ hop3 app:restart myapp
 
 ---
 
-### `hop3 app:start`
+### `hop3 app start`
 
 Start a stopped application.
 
 **Usage:**
 ```bash
-hop3 app:start <app_name>
+hop3 app start <app_name>
 ```
 
 ---
 
-### `hop3 app:stop`
+### `hop3 app stop`
 
 Stop a running application.
 
 **Usage:**
 ```bash
-hop3 app:stop <app_name>
+hop3 app stop <app_name>
 ```
 
 **Notes:**
@@ -818,13 +818,13 @@ hop3 app:stop <app_name>
 
 ---
 
-### `hop3 app:debug`
+### `hop3 app debug`
 
 Show comprehensive debug information for an application.
 
 **Usage:**
 ```bash
-hop3 app:debug <app_name>
+hop3 app debug <app_name>
 ```
 
 **Notes:**
@@ -833,28 +833,28 @@ hop3 app:debug <app_name>
 
 ---
 
-### `hop3 app:env`
+### `hop3 app env`
 
 Show environment variables with their sources.
 
 **Usage:**
 ```bash
-hop3 app:env <app_name>
+hop3 app env <app_name>
 ```
 
 **Notes:**
-- Shows where each variable comes from (hop3.toml, config:set, addon, etc.)
+- Shows where each variable comes from (hop3.toml, config set, addon, etc.)
 - Useful for debugging configuration issues
 
 ---
 
-### `hop3 app:ping`
+### `hop3 app ping`
 
 Check if an application is responding to HTTP requests.
 
 **Usage:**
 ```bash
-hop3 app:ping <app_name>
+hop3 app ping <app_name>
 ```
 
 **Notes:**
@@ -863,13 +863,13 @@ hop3 app:ping <app_name>
 
 ---
 
-### `hop3 app:destroy` ⚠️
+### `hop3 app destroy` ⚠️
 
 **DESTRUCTIVE** - Destroy an app, removing all files and configuration.
 
 **Usage:**
 ```bash
-hop3 app:destroy <app_name>
+hop3 app destroy <app_name>
 ```
 
 **Confirmation Required:**
@@ -888,7 +888,7 @@ Type the app name to confirm: myapp
 
 **Skip Confirmation:**
 ```bash
-hop3 app:destroy myapp --yes
+hop3 app destroy myapp --yes
 ```
 
 **⚠️ WARNING:** This operation is irreversible. Always backup before destroying.
@@ -897,13 +897,13 @@ hop3 app:destroy myapp --yes
 
 ## Configuration Management
 
-### `hop3 config:show`
+### `hop3 config show`
 
 Show all environment variables for an app.
 
 **Usage:**
 ```bash
-hop3 config:show <app_name>
+hop3 config show <app_name>
 ```
 
 **Example Output:**
@@ -918,34 +918,34 @@ LOG_LEVEL=info
 
 **Notes:**
 - Sensitive values masked by default
-- Use `config:get` to retrieve specific values
+- Use `config get` to retrieve specific values
 
 ---
 
-### `hop3 config:get`
+### `hop3 config get`
 
 Get a specific environment variable value.
 
 **Usage:**
 ```bash
-hop3 config:get <app_name> <KEY>
+hop3 config get <app_name> <KEY>
 ```
 
 **Example:**
 ```bash
-hop3 config:get myapp DATABASE_URL
+hop3 config get myapp DATABASE_URL
 # Output: postgresql://user:pass@localhost/db
 ```
 
 ---
 
-### `hop3 config:set`
+### `hop3 config set`
 
 Set environment variables for an app.
 
 **Usage:**
 ```bash
-hop3 config:set <app_name> KEY1=value1 [KEY2=value2 ...]
+hop3 config set <app_name> KEY1=value1 [KEY2=value2 ...]
 ```
 
 **Arguments:**
@@ -955,32 +955,32 @@ hop3 config:set <app_name> KEY1=value1 [KEY2=value2 ...]
 **Examples:**
 ```bash
 # Set single variable
-hop3 config:set myapp LOG_LEVEL=info
+hop3 config set myapp LOG_LEVEL=info
 
 # Set multiple variables
-hop3 config:set myapp \
+hop3 config set myapp \
   DATABASE_URL=postgresql://localhost/db \
   REDIS_URL=redis://localhost:6379 \
   SECRET_KEY=mysecret
 
 # Set variable with spaces (quote the value)
-hop3 config:set myapp MESSAGE="Hello World"
+hop3 config set myapp MESSAGE="Hello World"
 ```
 
 **Notes:**
-- Requires app restart to take effect: `hop3 app:restart myapp`
+- Requires app restart to take effect: `hop3 app restart myapp`
 - Values are stored encrypted in database
 - No leading/trailing whitespace in keys
 
 ---
 
-### `hop3 config:unset`
+### `hop3 config unset`
 
 Unset (remove) environment variables for an app.
 
 **Usage:**
 ```bash
-hop3 config:unset <app_name> KEY1 [KEY2 ...]
+hop3 config unset <app_name> KEY1 [KEY2 ...]
 ```
 
 **Arguments:**
@@ -990,21 +990,21 @@ hop3 config:unset <app_name> KEY1 [KEY2 ...]
 **Examples:**
 ```bash
 # Remove single variable
-hop3 config:unset myapp DEBUG
+hop3 config unset myapp DEBUG
 
 # Remove multiple variables
-hop3 config:unset myapp OLD_KEY DEPRECATED_VAR UNUSED_SECRET
+hop3 config unset myapp OLD_KEY DEPRECATED_VAR UNUSED_SECRET
 ```
 
 ---
 
-### `hop3 config:live`
+### `hop3 config live`
 
 Show live runtime environment of running app.
 
 **Usage:**
 ```bash
-hop3 config:live <app_name>
+hop3 config live <app_name>
 ```
 
 **Notes:**
@@ -1013,13 +1013,13 @@ hop3 config:live <app_name>
 
 ---
 
-### `hop3 config:migrate`
+### `hop3 config migrate`
 
 Migrate configuration from other PaaS formats to `hop3.toml`.
 
 **Usage:**
 ```bash
-hop3 config:migrate [--format heroku|flyio|procfile] [--dry-run] [--backup]
+hop3 config migrate [--format heroku|flyio|procfile] [--dry-run] [--backup]
 ```
 
 **Options:**
@@ -1031,17 +1031,17 @@ hop3 config:migrate [--format heroku|flyio|procfile] [--dry-run] [--backup]
 ```bash
 # Migrate Procfile to hop3.toml
 cd myapp/
-hop3 config:migrate --format procfile --dry-run
+hop3 config migrate --format procfile --dry-run
 
 # Apply migration with backup
-hop3 config:migrate --format procfile --backup
+hop3 config migrate --format procfile --backup
 ```
 
 ---
 
 ## Nix Commands
 
-### `hop3 nix:eject`
+### `hop3 nix eject`
 
 Materialize the auto-generated `hop3.nix` from a `[nix]` template
 config into a real `hop3.nix` file in the app's source directory.
@@ -1049,12 +1049,12 @@ After ejection, the NixBuilder uses the committed `hop3.nix` instead
 of regenerating from the template, and the `[nix]` section in
 `hop3.toml` is ignored.
 
-Use `nix:eject` when you've outgrown the templates and need to
+Use `nix eject` when you've outgrown the templates and need to
 customise the generated Nix expression directly.
 
 **Usage:**
 ```bash
-hop3 nix:eject <app-name>
+hop3 nix eject <app-name>
 ```
 
 **Behavior:**
@@ -1068,7 +1068,7 @@ hop3 nix:eject <app-name>
 **Example:**
 ```bash
 # Eject the generated Nix for the "myapp" deployment
-hop3 nix:eject myapp
+hop3 nix eject myapp
 
 # Inspect the result
 cat /path/to/myapp-source/hop3.nix
@@ -1090,13 +1090,13 @@ cat /path/to/myapp-source/hop3.nix
 
 ## Backup and Restore
 
-### `hop3 backup:create`
+### `hop3 backup create`
 
 Create a backup of an application.
 
 **Usage:**
 ```bash
-hop3 backup:create <app_name> [--description "text"]
+hop3 backup create <app_name> [--description "text"]
 ```
 
 **Arguments:**
@@ -1107,7 +1107,7 @@ hop3 backup:create <app_name> [--description "text"]
 
 **Example:**
 ```bash
-hop3 backup:create myapp --description "Before major upgrade"
+hop3 backup create myapp --description "Before major upgrade"
 ```
 
 **What Gets Backed Up:**
@@ -1133,22 +1133,22 @@ Size: 45.2 MB
 
 ---
 
-### `hop3 backup:list`
+### `hop3 backup list`
 
 List all backups, optionally filtered by application.
 
 **Usage:**
 ```bash
-hop3 backup:list [app_name]
+hop3 backup list [app_name]
 ```
 
 **Examples:**
 ```bash
 # List all backups
-hop3 backup:list
+hop3 backup list
 
 # List backups for specific app
-hop3 backup:list myapp
+hop3 backup list myapp
 ```
 
 **Example Output:**
@@ -1165,13 +1165,13 @@ hop3 backup:list myapp
 
 ---
 
-### `hop3 backup:info`
+### `hop3 backup info`
 
 Show detailed information about a backup.
 
 **Usage:**
 ```bash
-hop3 backup:info <backup_id>
+hop3 backup info <backup_id>
 ```
 
 **Example Output:**
@@ -1199,13 +1199,13 @@ Checksums (SHA256):
 
 ---
 
-### `hop3 backup:restore`
+### `hop3 backup restore`
 
 Restore an application from a backup.
 
 **Usage:**
 ```bash
-hop3 backup:restore <backup_id> [--app new_app_name]
+hop3 backup restore <backup_id> [--app new_app_name]
 ```
 
 **Arguments:**
@@ -1217,10 +1217,10 @@ hop3 backup:restore <backup_id> [--app new_app_name]
 **Examples:**
 ```bash
 # Restore to original app (overwrites existing)
-hop3 backup:restore backup-myapp-20251112-143022
+hop3 backup restore backup-myapp-20251112-143022
 
 # Restore to new app name
-hop3 backup:restore backup-myapp-20251112-143022 --app myapp-restored
+hop3 backup restore backup-myapp-20251112-143022 --app myapp-restored
 ```
 
 **Process:**
@@ -1232,18 +1232,18 @@ hop3 backup:restore backup-myapp-20251112-143022 --app myapp-restored
 6. Verifies checksums
 
 **Notes:**
-- Does not automatically start the app (use `hop3 app:start`)
+- Does not automatically start the app (use `hop3 app start`)
 - Restoring to existing app overwrites data (confirmation required)
 
 ---
 
-### `hop3 backup:delete` ⚠️
+### `hop3 backup destroy` ⚠️
 
 **DESTRUCTIVE** - Delete a backup.
 
 **Usage:**
 ```bash
-hop3 backup:delete <backup_id>
+hop3 backup destroy <backup_id>
 ```
 
 **Confirmation Required:**
@@ -1254,7 +1254,7 @@ Type 'DELETE' to confirm: DELETE
 
 **Skip Confirmation:**
 ```bash
-hop3 backup:delete backup-myapp-20251112-143022 --yes
+hop3 backup destroy backup-myapp-20251112-143022 --yes
 ```
 
 ---
@@ -1263,13 +1263,13 @@ hop3 backup:delete backup-myapp-20251112-143022 --yes
 
 Services are backing infrastructure (databases, caches, queues) that can be attached to applications.
 
-### `hop3 addons:create`
+### `hop3 addon create`
 
 Create a new backing service instance.
 
 **Usage:**
 ```bash
-hop3 addons:create <service_type> <service_name>
+hop3 addon create <service_type> <service_name>
 ```
 
 **Arguments:**
@@ -1278,7 +1278,7 @@ hop3 addons:create <service_type> <service_name>
 
 **Example:**
 ```bash
-hop3 addons:create postgres myapp-db
+hop3 addon create postgres myapp-db
 ```
 
 **Output:**
@@ -1286,23 +1286,23 @@ hop3 addons:create postgres myapp-db
 Service 'myapp-db' of type 'postgres' created successfully.
 
 To attach this service to an app, run:
-  hop3 addons:attach myapp-db --app <app-name>
+  hop3 addon attach myapp-db --app <app-name>
 ```
 
 **Notes:**
 - Service created but not yet attached to any app
 - Credentials generated and stored encrypted
-- Use `addons:attach` to connect to an application
+- Use `addon attach` to connect to an application
 
 ---
 
-### `hop3 addons:attach`
+### `hop3 addon attach`
 
 Attach a service to an application.
 
 **Usage:**
 ```bash
-hop3 addons:attach <service_name> --app <app_name> [--service-type <type>]
+hop3 addon attach <service_name> --app <app_name> [--service-type <type>]
 ```
 
 **Arguments:**
@@ -1314,7 +1314,7 @@ hop3 addons:attach <service_name> --app <app_name> [--service-type <type>]
 
 **Example:**
 ```bash
-hop3 addons:attach myapp-db --app myapp --service-type postgres
+hop3 addon attach myapp-db --app myapp --service-type postgres
 ```
 
 **Output:**
@@ -1328,7 +1328,7 @@ Environment variables:
   Added DB_NAME
 
 Restart your app for changes to take effect:
-  hop3 app:restart myapp
+  hop3 app restart myapp
 ```
 
 **What Happens:**
@@ -1338,18 +1338,18 @@ Restart your app for changes to take effect:
 
 ---
 
-### `hop3 addons:detach`
+### `hop3 addon detach`
 
 Detach a service from an application.
 
 **Usage:**
 ```bash
-hop3 addons:detach <service_name> --app <app_name> [--service-type <type>]
+hop3 addon detach <service_name> --app <app_name> [--service-type <type>]
 ```
 
 **Example:**
 ```bash
-hop3 addons:detach myapp-db --app myapp
+hop3 addon detach myapp-db --app myapp
 ```
 
 **Notes:**
@@ -1359,13 +1359,13 @@ hop3 addons:detach myapp-db --app myapp
 
 ---
 
-### `hop3 addons:destroy` ⚠️
+### `hop3 addon destroy` ⚠️
 
 **DESTRUCTIVE** - Destroy a service instance.
 
 **Usage:**
 ```bash
-hop3 addons:destroy <service_name> [--service-type <type>]
+hop3 addon destroy <service_name> [--service-type <type>]
 ```
 
 **Warning:**
@@ -1381,17 +1381,17 @@ Type the service name to confirm: myapp-db
 
 **Notes:**
 - Service must be detached from all apps first (or use `--force`)
-- Backups are NOT automatically created (use `backup:create` first)
+- Backups are NOT automatically created (use `backup create` first)
 
 ---
 
-### `hop3 addons:info`
+### `hop3 addon show`
 
 Get information about a service instance.
 
 **Usage:**
 ```bash
-hop3 addons:info <service_name> [--service-type <type>]
+hop3 addon show <service_name> [--service-type <type>]
 ```
 
 **Example Output:**
@@ -1408,13 +1408,13 @@ Connections: 3 active
 
 ---
 
-### `hop3 addons:list`
+### `hop3 addons list`
 
 List available addon types.
 
 **Usage:**
 ```bash
-hop3 addons:list [--type <type>]
+hop3 addons list [--type <type>]
 ```
 
 **Options:**
@@ -1423,26 +1423,26 @@ hop3 addons:list [--type <type>]
 **Example:**
 ```bash
 # List all addon types
-hop3 addons:list
+hop3 addons list
 
 # List PostgreSQL addons
-hop3 addons:list --type postgres
+hop3 addons list --type postgres
 ```
 
 ---
 
-### `hop3 addons:status`
+### `hop3 addon status`
 
 Show detailed status and health of an addon.
 
 **Usage:**
 ```bash
-hop3 addons:status <service_name> [--type <type>]
+hop3 addon status <service_name> [--type <type>]
 ```
 
 **Notes:**
 - Shows connection status, health checks, and resource usage
-- More detailed than `addons:info`
+- More detailed than `addon show`
 
 ---
 
@@ -1450,13 +1450,13 @@ hop3 addons:status <service_name> [--type <type>]
 
 Admin commands require admin role. First user registered automatically gets admin role.
 
-### `hop3 admin:user:list`
+### `hop3 user list`
 
 List all user accounts.
 
 **Usage:**
 ```bash
-hop3 admin:user:list
+hop3 user list
 ```
 
 **Example Output:**
@@ -1474,101 +1474,101 @@ hop3 admin:user:list
 
 ---
 
-### `hop3 admin:user:add`
+### `hop3 user add`
 
 Create a new user account.
 
 **Usage:**
 ```bash
-hop3 admin:user:add <username> <email> <password>
+hop3 user add <username> <email> <password>
 ```
 
 ---
 
-### `hop3 admin:user:info`
+### `hop3 user show`
 
 Display detailed information about a user.
 
 **Usage:**
 ```bash
-hop3 admin:user:info <username>
+hop3 user show <username>
 ```
 
 ---
 
-### `hop3 admin:user:set-password`
+### `hop3 user set-password`
 
 Reset a user's password.
 
 **Usage:**
 ```bash
-hop3 admin:user:set-password <username> <new_password>
+hop3 user set-password <username> <new_password>
 ```
 
 ---
 
-### `hop3 admin:user:disable`
+### `hop3 user disable`
 
 Disable a user account (prevents login).
 
 **Usage:**
 ```bash
-hop3 admin:user:disable <username>
+hop3 user disable <username>
 ```
 
 ---
 
-### `hop3 admin:user:enable`
+### `hop3 user enable`
 
 Enable a disabled user account.
 
 **Usage:**
 ```bash
-hop3 admin:user:enable <username>
+hop3 user enable <username>
 ```
 
 ---
 
-### `hop3 admin:user:remove`
+### `hop3 user remove`
 
 Remove a user account.
 
 **Usage:**
 ```bash
-hop3 admin:user:remove <username>
+hop3 user remove <username>
 ```
 
 ---
 
-### `hop3 admin:user:grant-admin`
+### `hop3 user grant-admin`
 
 Grant admin privileges to a user.
 
 **Usage:**
 ```bash
-hop3 admin:user:grant-admin <username>
+hop3 user grant-admin <username>
 ```
 
 ---
 
-### `hop3 admin:user:revoke-admin`
+### `hop3 user revoke-admin`
 
 Revoke admin privileges from a user.
 
 **Usage:**
 ```bash
-hop3 admin:user:revoke-admin <username>
+hop3 user revoke-admin <username>
 ```
 
 ---
 
-### `hop3 admin:user:generate-token`
+### `hop3 user generate-token`
 
 Generate a new API token for a user (bootstrap helper).
 
 **Usage:**
 ```bash
-hop3 admin:user:generate-token <username>
+hop3 user generate-token <username>
 ```
 
 **Example Output:**
@@ -1585,13 +1585,13 @@ eyJ0eXAiOiJKV1QiLCJhbGc...
 
 ## System Commands
 
-### `hop3 system:status`
+### `hop3 system status`
 
 Show Hop3 system status.
 
 **Usage:**
 ```bash
-hop3 system:status
+hop3 system status
 ```
 
 **Example Output:**
@@ -1608,24 +1608,24 @@ Memory: 62% (4.8 GB / 8 GB)
 
 ---
 
-### `hop3 system:uptime`
+### `hop3 system uptime`
 
 Show host server uptime.
 
 **Usage:**
 ```bash
-hop3 system:uptime
+hop3 system uptime
 ```
 
 ---
 
-### `hop3 system:ps`
+### `hop3 system ps`
 
 List all server processes.
 
 **Usage:**
 ```bash
-hop3 system:ps
+hop3 system ps
 ```
 
 **Example Output:**
@@ -1643,13 +1643,13 @@ hop3 system:ps
 
 ---
 
-### `hop3 system:check`
+### `hop3 system check`
 
 Run comprehensive health checks on the Hop3 server.
 
 **Usage:**
 ```bash
-hop3 system:check [--verbose]
+hop3 system check [--verbose]
 ```
 
 **Options:**
@@ -1664,13 +1664,13 @@ hop3 system:check [--verbose]
 
 ---
 
-### `hop3 system:cleanup`
+### `hop3 system cleanup`
 
 Clean up unused Docker resources (networks, images, containers, volumes).
 
 **Usage:**
 ```bash
-hop3 system:cleanup [--dry-run]
+hop3 system cleanup [--dry-run]
 ```
 
 **Options:**
@@ -1682,13 +1682,13 @@ hop3 system:cleanup [--dry-run]
 
 ---
 
-### `hop3 system:info`
+### `hop3 system info`
 
 Show detailed Hop3 system information.
 
 **Usage:**
 ```bash
-hop3 system:info
+hop3 system info
 ```
 
 **Example Output:**
@@ -1713,13 +1713,13 @@ Services:
 
 ---
 
-### `hop3 system:logs`
+### `hop3 system logs`
 
 Show Hop3 server logs.
 
 **Usage:**
 ```bash
-hop3 system:logs [--lines N] [--follow]
+hop3 system logs [--lines N] [--follow]
 ```
 
 **Options:**
@@ -1746,7 +1746,7 @@ hop3 help
 
 # Help for specific command
 hop3 help deploy
-hop3 help backup:create
+hop3 help backup create
 ```
 
 ---
@@ -1821,19 +1821,19 @@ hop3 ps <app_name>
 
 ---
 
-### `hop3 ps:scale`
+### `hop3 ps scale`
 
 Set the process count for an app.
 
 **Usage:**
 ```bash
-hop3 ps:scale <app_name> web=N [worker=M ...]
+hop3 ps scale <app_name> web=N [worker=M ...]
 ```
 
 **Example:**
 ```bash
 # Scale web processes to 3, worker processes to 2
-hop3 ps:scale myapp web=3 worker=2
+hop3 ps scale myapp web=3 worker=2
 ```
 
 ---
@@ -1861,13 +1861,13 @@ hop3 run myapp node scripts/cleanup.js
 
 ---
 
-### `hop3 sbom`
+### `hop3 app sbom`
 
 Generate a Software Bill of Materials (SBOM) for an app.
 
 **Usage:**
 ```bash
-hop3 sbom <app_name>
+hop3 app sbom <app_name>
 ```
 
 **Output:**
@@ -1918,7 +1918,7 @@ The Hop3 CLI uses standard exit codes:
 
 1. **Never use** `HOP3_UNSAFE` **in production** - This completely disables authentication
 2. **Protect your token** - Store `~/.hop3/token` with `chmod 600`
-3. **Rotate tokens regularly** - Use `auth:logout` and `auth:login` to refresh
+3. **Rotate tokens regularly** - Use `auth logout` and `auth login` to refresh
 4. **Backup HOP3_SECRET_KEY** - Required to decrypt service credentials
 5. **Use SSH connections** - Preferred over HTTP for remote servers
 
@@ -1926,40 +1926,40 @@ The Hop3 CLI uses standard exit codes:
 
 1. **Always backup before destructive operations:**
    ```bash
-   hop3 backup:create myapp --description "Before destroy"
-   hop3 app:destroy myapp --yes
+   hop3 backup create myapp --description "Before destroy"
+   hop3 app destroy myapp --yes
    ```
 
 2. **Use `--dry-run` when available:**
    ```bash
-   hop3 config:migrate --dry-run  # Preview changes first
+   hop3 config migrate --dry-run  # Preview changes first
    ```
 
 3. **Check status before and after operations:**
    ```bash
-   hop3 app:status myapp
-   hop3 app:restart myapp
-   hop3 app:status myapp  # Verify restart
+   hop3 app status myapp
+   hop3 app restart myapp
+   hop3 app status myapp  # Verify restart
    ```
 
 4. **Use `--json` for automation:**
    ```bash
    apps=$(hop3 apps --json | jq -r '.apps[].name')
    for app in $apps; do
-     hop3 backup:create "$app"
+     hop3 backup create "$app"
    done
    ```
 
 ### Confirmation Prompts
 
 Destructive commands require confirmation:
-- **Type the resource name** - For `app:destroy`, type the app name
-- **Type 'DELETE'** - For `backup:delete` and `services:destroy`
+- **Type the resource name** - For `app destroy`, type the app name
+- **Type 'DELETE'** - For `backup destroy` and `services destroy`
 - **Skip with `-y`** - Use `--yes` flag to auto-confirm (use carefully!)
 
 **Example:**
 ```bash
-$ hop3 app:destroy myapp
+$ hop3 app destroy myapp
 WARNING: This will permanently delete the app 'myapp' and all its data.
 Type the app name to confirm: myapp
 ✓ App 'myapp' destroyed successfully.

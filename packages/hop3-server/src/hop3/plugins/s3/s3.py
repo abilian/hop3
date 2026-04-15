@@ -126,7 +126,7 @@ class S3Addon:
         if credentials is None:
             msg = (
                 f"No credentials found for S3 addon {self.addon_name!r}. "
-                "Was it created? Run: hop3 addons create s3 <name>"
+                "Was it created? Run: hop3 addon create s3 <name>"
             )
             raise RuntimeError(msg)
 
@@ -202,7 +202,7 @@ class S3Addon:
     # ------------------------------------------------------------------
 
     def info(self) -> dict[str, Any]:
-        """Return current status for `hop3 addons info`."""
+        """Return current status for `hop3 addon info`."""
         try:
             bucket_info = self.backend.bucket_info(self.bucket_name)
         except BackendError as e:

@@ -159,7 +159,7 @@ LOG_LEVEL = "info"
 
 **Notes:**
 
-- Sensitive values should be injected through `hop3 config:set`, not hardcoded in hop3.toml.
+- Sensitive values should be injected through `hop3 config set`, not hardcoded in hop3.toml.
 - The `DEBUG` environment variable defaults to `false`. Only set `DEBUG = "true"` in development environments for troubleshooting—never in production.
 
 ### [port] - Port Configuration
@@ -307,7 +307,7 @@ When `builder = "nix"` is set in `[build]`, Hop3 can generate a Nix expression a
 
 1. If a `hop3.nix` file exists in the source directory, it is used directly (hand-crafted mode).
 2. If no `hop3.nix` exists but `[nix].template` is set, Hop3 generates one at build time from the template.
-3. Run `hop3 nix:eject <app>` to materialize the generated file for manual customization.
+3. Run `hop3 nix eject <app>` to materialize the generated file for manual customization.
 
 ### Template Types
 
@@ -473,7 +473,7 @@ type = "postgres"
 Use the migration command to convert an existing Procfile:
 
 ```bash
-hop3 config:migrate procfile /path/to/app --dry-run
+hop3 config migrate procfile /path/to/app --dry-run
 ```
 
 This will generate a hop3.toml from your Procfile. Review and customize as needed.
