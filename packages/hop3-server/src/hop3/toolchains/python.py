@@ -60,6 +60,26 @@ if TYPE_CHECKING:
     from hop3.core.protocols import BuildArtifact
 
 
+def _pyproject_is_poetry_only(pyproject_file: Path) -> bool:
+    """Detect a Poetry-native pyproject with no PEP-621 `[project]` table.
+
+    This is the case the Python toolchain cannot drive via `pip install .`
+    because pip reads PEP-621 dependencies, not `[tool.poetry]` ones.
+    """
+    try:
+        import tomllib
+    except ImportError:  # Python < 3.11 fallback
+        import tomli as tomllib  # type: ignore[import-not-found]
+    try:
+        with pyproject_file.open("rb") as f:
+            data = tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError):
+        return False
+    has_poetry = "poetry" in data.get("tool", {})
+    has_pep621 = "project" in data and data["project"].get("dependencies") is not None
+    return has_poetry and not has_pep621
+
+
 class PythonToolchain(LanguageToolchain):
     """Language toolchain for Python projects.
 
@@ -214,16 +234,39 @@ class PythonToolchain(LanguageToolchain):
         files_in_src = sorted(f.name for f in self.src_path.iterdir())
         log(f"Files in {self.src_path}: {files_in_src}", level=3, fg="yellow")
 
-        # Always use requirements.txt if it exists, even if pyproject.toml also exists
-        # This prevents pip from using a stray/unwanted pyproject.toml
-        # Use --upgrade to ensure dependencies are updated to latest compatible versions
+        # Per ADR 039 Phase 1:
+        # - Both files present → error (silent override is a design smell).
+        # - `pyproject.toml` with only `[tool.poetry]` (no `[project]`) →
+        #   error with a Diagnosis pointing at `poetry export`.
+        # - Drop `--upgrade` from pip invocations: the packager's intent
+        #   (pinned / unpinned) is honoured; deploys are reproducible
+        #   when a frozen requirements.txt is committed.
         match requirements_file.exists(), pyproject_file.exists():
-            case True, _:
+            case True, True:
+                msg = (
+                    f"Both `requirements.txt` and `pyproject.toml` exist for "
+                    f"'{self.app_name}'. Declare one explicitly via "
+                    f"`[build.python].strategy` in hop3.toml, or remove the "
+                    f"one you don't want to drive the install."
+                )
+                raise RuntimeError(msg)
+            case True, False:
                 log("Installing from requirements.txt", level=2, fg="green")
-                self.shell(f"{python} -m pip install --upgrade -r {requirements_file}")
+                self.shell(f"{python} -m pip install -r {requirements_file}")
             case False, True:
+                if _pyproject_is_poetry_only(pyproject_file):
+                    msg = (
+                        f"'{self.app_name}' has a Poetry-managed pyproject.toml "
+                        f"(`[tool.poetry]` with no PEP-621 `[project]`). "
+                        f"Poetry is not detected by the Python toolchain. "
+                        f"Convert at packaging time: "
+                        f"`poetry export --only=main --without-hashes "
+                        f"-f requirements.txt -o requirements.txt` "
+                        f"and commit the result, then redeploy."
+                    )
+                    raise RuntimeError(msg)
                 log("Installing from pyproject.toml", level=2, fg="green")
-                self.shell(f"{python} -m pip install --upgrade .")
+                self.shell(f"{python} -m pip install .")
             case False, False:
                 # This should never happen as `accept` checks for the presence of
                 # requirements.txt or pyproject.toml
@@ -304,14 +347,16 @@ class PythonToolchain(LanguageToolchain):
         """Install dependencies using uv sync for exact locked versions."""
         uv_bin = self._find_uv_binary()
         log(f"Installing from uv.lock using {uv_bin} sync", level=2, fg="green")
-        # uv sync installs exact versions from uv.lock into the virtualenv
-        # --frozen ensures it uses lockfile exactly without updating it
-        # --reinstall forces reinstallation to ensure we get the locked versions
-        # UV_PROJECT_ENVIRONMENT tells uv to use our existing virtualenv
+        # uv sync installs exact versions from uv.lock into the virtualenv.
+        #   --frozen: use lockfile exactly, don't update it
+        #   --reinstall: force reinstall to guarantee the locked versions
+        #   --no-dev: production deploy, dev-deps belong on the packager's
+        #             machine not the runtime venv (ADR 039 Phase 1)
+        # UV_PROJECT_ENVIRONMENT tells uv to use our existing virtualenv.
         env = os.environ.copy()
         env["UV_PROJECT_ENVIRONMENT"] = str(self.virtual_env)
         result = subprocess.run(
-            [uv_bin, "sync", "--frozen", "--reinstall"],
+            [uv_bin, "sync", "--frozen", "--reinstall", "--no-dev"],
             cwd=self.src_path,
             env=env,
             check=False,

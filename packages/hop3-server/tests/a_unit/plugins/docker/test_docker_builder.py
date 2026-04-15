@@ -235,7 +235,7 @@ class TestDockerBuilderBuild:
                 builder.build()
 
     def test_build_timeout(self, tmp_path: Path):
-        """Should raise Abort when build times out."""
+        """Should raise Abort when build times out (default tier = medium, 10m)."""
         dockerfile = tmp_path / "Dockerfile"
         dockerfile.write_text("FROM python:3.11\n")
 
@@ -251,3 +251,26 @@ class TestDockerBuilderBuild:
 
             with pytest.raises(Abort, match="exceeded the 10-minute timeout"):
                 builder.build()
+
+    def test_build_timeout_tier_aware(self, tmp_path: Path):
+        """hop3.toml [build].tier = 'very-slow' grants a 30-minute build budget."""
+        (tmp_path / "Dockerfile").write_text("FROM python:3.11\n")
+        (tmp_path / "hop3.toml").write_text(
+            '[build]\nbuilder = "docker"\ntier = "very-slow"\n'
+        )
+
+        context = BuildContext(
+            app_name="test-app", source_path=tmp_path, app_config={}
+        )
+        builder = DockerBuilder(context)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = subprocess.TimeoutExpired(
+                "docker build", 30 * 60
+            )
+            with pytest.raises(Abort, match="exceeded the 30-minute timeout"):
+                builder.build()
+
+            # subprocess.run was invoked with the tier-aware timeout,
+            # not the default 600s.
+            assert mock_run.call_args.kwargs["timeout"] == 30 * 60

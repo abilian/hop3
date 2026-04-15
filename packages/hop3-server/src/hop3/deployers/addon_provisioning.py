@@ -70,6 +70,7 @@ def provision_addons(
             app=app,
             addon_type=addon_type,
             addon_name=addon_name,
+            addon_config=addon_config,
             db_session=db_session,
         )
 
@@ -78,11 +79,13 @@ def _provision_single_addon(
     app: App,
     addon_type: str,
     addon_name: str,
+    addon_config: dict,
     db_session: Session,
 ) -> None:
     """Provision a single addon.
 
     Creates the addon if it doesn't exist, then attaches it to the app.
+    Honours optional per-addon config (e.g. ``extensions`` for postgres).
     """
     log(f"  Provisioning addon: {addon_type} ({addon_name})", level=1, fg="blue")
 
@@ -100,6 +103,18 @@ def _provision_single_addon(
     log(f"  Ensuring addon {addon_name} exists...", level=2)
     try:
         addon.create()
+        # Install any app-declared Postgres extensions AS SUPERUSER.
+        # This covers non-trusted extensions (bloom, adminpack) that
+        # a per-app user cannot install even with CREATE grants, and
+        # is idempotent (CREATE EXTENSION IF NOT EXISTS) for trusted
+        # extensions too.
+        extensions = addon_config.get("extensions") or []
+        if extensions and hasattr(addon, "install_extensions"):
+            log(
+                f"  Installing extensions on {addon_name}: {', '.join(extensions)}",
+                level=2,
+            )
+            addon.install_extensions(extensions)
         server_log.info(
             "Ensured addon exists", addon_name=addon_name, addon_type=addon_type
         )
