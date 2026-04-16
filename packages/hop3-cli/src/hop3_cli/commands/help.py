@@ -6,7 +6,15 @@
 
 from __future__ import annotations
 
+import sys
+from typing import TYPE_CHECKING
+
 from .local import LOCAL_COMMANDS_INFO
+
+if TYPE_CHECKING:
+    from hop3_cli.config import Config
+
+FEEDBACK_URL = "https://github.com/abilian/hop3/issues"
 
 
 def handle_help_flags(args: list[str]) -> list[str]:
@@ -71,6 +79,33 @@ def is_help_command(cli_args: list[str]) -> bool:
         return False
     # "help" alone or "help --all"
     return len(cli_args) == 1 or cli_args == ["help", "--all"]
+
+
+def append_feedback_footer(result: list[dict]) -> list[dict]:
+    """Append a feedback link to the end of the help output (ADR 036 D11, G7).
+
+    The feedback URL is an ADR-mandated last line of the top-level help output
+    so users always have a visible channel for reporting issues.
+    """
+    footer = f"\nReport issues: {FEEDBACK_URL}"
+    return [*result, {"t": "text", "text": footer}]
+
+
+def emit_status_line(config: Config) -> None:
+    """Emit the dynamic 'Active context / Current app' line to stderr (D19).
+
+    Per ADR 036 D11: bare `hop3 help` shows the active context and resolved
+    default app so users can predict what app-scoped commands will target.
+    This line goes to stderr (D19: dynamic/status output is stderr, not stdout)
+    so it does not contaminate `hop3 help | grep ...` pipelines.
+    """
+    context_name = config.get_current_context_name()
+    if not context_name:
+        return  # No context active — no status line.
+
+    default_app = config.get_default_app()
+    app_part = f"Current app: {default_app}" if default_app else "Current app: (none — set with `hop3 use <app>`)"
+    print(f"\nActive context: {context_name}      {app_part}", file=sys.stderr)
 
 
 def inject_local_commands_into_help(result: list[dict]) -> list[dict]:

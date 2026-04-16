@@ -12,7 +12,12 @@ from typing import TYPE_CHECKING, Any
 
 from jsonrpcclient import Error, Ok
 
-from hop3_cli.commands.help import inject_local_commands_into_help, is_help_command
+from hop3_cli.commands.help import (
+    append_feedback_footer,
+    emit_status_line,
+    inject_local_commands_into_help,
+    is_help_command,
+)
 from hop3_cli.exit_codes import ExitCode, map_message_to_exit, map_rpc_code_to_exit
 from hop3_cli.tokens import JWT_PATTERN
 from hop3_cli.ui.console import err
@@ -74,8 +79,13 @@ def handle_ok_response(
     if cli_args and cli_args[0] == "auth login":
         handle_login_response(result, config, printer)
     elif is_help_command(cli_args) and not printer.json_output:
+        # ADR 036 D11: bare `hop3 help` gets local commands injected, then the
+        # feedback-link footer (G7), and a dynamic context/app status line
+        # emitted separately to stderr (D19).
         result = inject_local_commands_into_help(result)
+        result = append_feedback_footer(result)
         printer.print(result)
+        emit_status_line(config)
     elif _is_streaming_response(result):
         # Handle streaming response (real-time deployment logs)
         _handle_streaming_response(result, config, printer, tunnel_port=tunnel_port)

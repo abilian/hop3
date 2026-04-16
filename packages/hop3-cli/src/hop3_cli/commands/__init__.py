@@ -18,6 +18,8 @@ from .arguments import generate_archive, get_extra_args, pack_repository
 from .destructive import confirm_destructive_action, is_destructive_command
 from .flags import CliFlags, parse_flags
 from .help import (
+    append_feedback_footer,
+    emit_status_line,
     handle_help_flags,
     inject_local_commands_into_help,
     is_help_command,
@@ -33,7 +35,9 @@ __all__ = [
     "LOCAL_COMMANDS",
     "LOCAL_COMMANDS_INFO",
     "CliFlags",
+    "append_feedback_footer",
     "confirm_destructive_action",
+    "emit_status_line",
     "generate_archive",
     "get_extra_args",
     "handle_help_flags",

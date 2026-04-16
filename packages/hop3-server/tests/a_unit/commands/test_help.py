@@ -32,8 +32,8 @@ def test_help_overview():
     assert "$ hop <command> <args>" in text
     assert "$ hop help <command>" in text
 
-    # Check for commands section
-    assert "COMMANDS" in text
+    # Check for a category header (ADR 036 D4/D11 categorized layout)
+    assert "UTILITIES" in text or "DAILY OPERATIONS" in text
 
     # Should at least contain the help command itself
     assert "help" in text
@@ -48,11 +48,11 @@ def test_help_detailed_for_specific_command():
     assert result[0]["t"] == "text"
     text = result[0]["text"]
 
-    # Check for command-specific header
-    assert "COMMAND: help" in text
-
-    # Should show full docstring
+    # Per D11, detailed help starts with "hop <cmd> — <summary>" and then
+    # structured sections (USAGE, EXAMPLES, etc.).
+    assert "hop help" in text
     assert "Display useful help messages" in text
+    assert "USAGE" in text
 
 
 def test_help_for_unknown_command():
@@ -106,20 +106,27 @@ def test_help_overview_shows_only_short_descriptions():
     text = result[0]["text"]
     lines = text.split("\n")
 
-    # Find the COMMANDS section
-    commands_start = None
+    # Find any category section header (D4/D11 replaced the flat "COMMANDS"
+    # section with task-oriented category headers).
+    section_start = None
     for i, line in enumerate(lines):
-        if "COMMANDS" in line:
-            commands_start = i
+        if line.strip() in {
+            "DAILY OPERATIONS",
+            "MANAGEMENT",
+            "ADMINISTRATION",
+            "UTILITIES",
+            "OTHER",
+        }:
+            section_start = i
             break
 
-    assert commands_start is not None, "COMMANDS section not found"
+    assert section_start is not None, "No category section found in help overview"
 
     # Check that command descriptions are single-line (no multi-line descriptions)
     # Each command line should be formatted as: "  command_name    description"
     command_lines = [
         line
-        for line in lines[commands_start + 1 :]
+        for line in lines[section_start + 1 :]
         if line.strip() and not line.startswith("USAGE")
     ]
 
@@ -129,14 +136,13 @@ def test_help_overview_shows_only_short_descriptions():
             continue
 
         # Each command line should be reasonably short (not a paragraph)
-        # A good heuristic is that one-line descriptions should be under 150 chars
         assert len(line) < 200, (
             f"Command description too long (possibly multi-line): {line}"
         )
 
 
 def test_help_detailed_shows_full_docstring():
-    """Test that detailed help shows the complete docstring."""
+    """Test that detailed help shows the complete docstring content."""
     cmd = HelpCmd()
 
     # Test with the help command itself (which we know exists)
@@ -145,10 +151,11 @@ def test_help_detailed_shows_full_docstring():
     # Should succeed (not show error)
     assert result[0]["t"] == "text"
     text = result[0]["text"]
-    # Should have the command header
-    assert "COMMAND: help" in text
-    # Should show the docstring
+    # D11 header: "hop <cmd> — <summary>"
+    assert "hop help" in text
+    # Should show the docstring content (summary + examples)
     assert "Display useful help messages" in text
+    assert "EXAMPLES" in text
 
 
 def test_help_all_shows_all_commands():
