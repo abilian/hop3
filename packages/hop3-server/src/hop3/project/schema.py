@@ -87,6 +87,15 @@ class BuildSection(BaseModel):
         alias="ignore-file",
         description="File containing ignore patterns",
     )
+    tier: str | None = Field(
+        default=None,
+        description=(
+            "Build tier, selects timeout budget: 'fast' (5m), 'medium' "
+            "(10m, default), 'slow' (20m), 'very-slow' (30m). Apps with "
+            "heavy compile steps (Rust from source, full JVM compile, "
+            "large pip/npm installs) should declare 'slow' or 'very-slow'."
+        ),
+    )
 
     @field_validator("builder")
     @classmethod
@@ -95,6 +104,19 @@ class BuildSection(BaseModel):
             valid_builders = {"auto", "local", "docker", "nix"}
             if v.lower() not in valid_builders:
                 msg = f"Invalid builder '{v}'. Must be one of: {', '.join(valid_builders)}"
+                raise ValueError(msg)
+        return v
+
+    @field_validator("tier")
+    @classmethod
+    def validate_tier(cls, v: str | None) -> str | None:
+        if v is not None:
+            valid_tiers = {"fast", "medium", "slow", "very-slow"}
+            if v not in valid_tiers:
+                msg = (
+                    f"Invalid build tier '{v}'. Must be one of: "
+                    f"{', '.join(sorted(valid_tiers))}"
+                )
                 raise ValueError(msg)
         return v
 
