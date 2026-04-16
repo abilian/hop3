@@ -18,6 +18,12 @@ from hop3_cli.commands.help import (
     inject_local_commands_into_help,
     is_help_command,
 )
+from hop3_cli.core.suggest import (
+    closest_matches,
+    colon_to_space_suggestion,
+    format_did_you_mean,
+    load_cached_commands,
+)
 from hop3_cli.exit_codes import ExitCode, map_message_to_exit, map_rpc_code_to_exit
 from hop3_cli.tokens import JWT_PATTERN
 from hop3_cli.ui.console import err
@@ -200,8 +206,11 @@ def handle_error_response(
     for prefix in prefixes_to_strip:
         clean_message = clean_message.removeprefix(prefix)
 
-    # Add helpful hints for specific error codes
+    # Add helpful hints for specific error codes (ADR 036 D10 — did-you-mean).
     if code == -32601:  # Method/command not found
+        suggestion = _command_not_found_suggestion(clean_message)
+        if suggestion:
+            clean_message += f"\n\n{suggestion}"
         clean_message += "\n\nRun 'hop help' to see available commands."
 
     # Determine exit code from RPC code, falling back to message analysis
@@ -229,6 +238,60 @@ def handle_error_response(
         err(clean_message)
 
     sys.exit(exit_code)
+
+
+def _command_not_found_suggestion(error_message: str) -> str | None:
+    """Build a 'Did you mean...?' suggestion for an unknown-command error.
+
+    The server's error message looks like ``"Command 'foo bar' not found"``.
+    We extract the typed command name and offer two kinds of suggestion
+    (ADR 036 D10):
+
+    1. **Colon -> space migration hint** (M5.4): if the user typed
+       ``foo:bar``, point them at ``foo bar`` with a one-line note that the
+       syntax changed. Many users still have ADR-pre-D1 muscle memory.
+    2. **Closest-match suggestions** (M5.2): otherwise, consult the cached
+       command list (written by ``hop3 completion --refresh``) and propose
+       the closest matches by edit distance.
+
+    Returns ``None`` if no useful suggestion could be made.
+    """
+    typed = _extract_typed_command(error_message)
+    if not typed:
+        return None
+
+    # Migration hint: ``foo:bar`` -> ``foo bar``.
+    space_form = colon_to_space_suggestion(typed)
+    if space_form is not None:
+        return (
+            f"The syntax changed in v0.5: command names use spaces, not colons.\n"
+            f"Try: hop3 {space_form}"
+        )
+
+    # Closest match against the cached command list.
+    candidates = load_cached_commands()
+    if not candidates:
+        return None
+    matches = closest_matches(typed, candidates)
+    return format_did_you_mean(typed, matches)
+
+
+def _extract_typed_command(error_message: str) -> str | None:
+    """Pull the typed command path out of a server "not found" message.
+
+    The server formats unknown-command errors as
+    ``"Command 'foo bar' not found"`` (see ``rpc.py``). Anything outside that
+    pattern returns None — we only want to suggest when we know what the user
+    typed.
+    """
+    # Find the first single-quoted span; if present, that's the command name.
+    start = error_message.find("'")
+    if start == -1:
+        return None
+    end = error_message.find("'", start + 1)
+    if end == -1:
+        return None
+    return error_message[start + 1 : end]
 
 
 def handle_login_response(

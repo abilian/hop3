@@ -113,6 +113,29 @@ def run_command_from_args(cli_args: list[str]) -> None:
     _execute_rpc_command(cli_args, config, extra_args, printer)
 
 
+def _exit_no_app_resolved(resolution, cli_args: list[str], n_consumed: int) -> None:
+    """Print a helpful error and exit when an app-scoped command has no app.
+
+    Per ADR 036 D7: list the sources we tried and suggest concrete fixes.
+    Exits with code 3 (resolution error per D16). Goes to stderr (D19).
+    """
+    cmd_display = " ".join(cli_args[:n_consumed]) or "this command"
+    sources_tried = "\n  ".join(f"- {entry}" for entry in resolution.trace)
+    print(
+        f"Error: '{cmd_display}' requires an app, but no app could be resolved.\n"
+        f"\nTried (in order):\n  {sources_tried}\n"
+        f"\nTo fix, choose one:\n"
+        f"  hop3 use <app>                # set sticky app for this context\n"
+        f"  export HOP3_APP=<app>         # set for this shell session\n"
+        f"  echo <app> > .hop3-app        # set for this directory\n"
+        f"  hop3 {cmd_display} --app <app>   # one-time override",
+        file=sys.stderr,
+    )
+    # ExitCode.NOT_FOUND (3) matches ADR D16's "Resolution error" code 3.
+    # The ExitCode enum will be harmonized to D16 in M7.
+    sys.exit(ExitCode.NOT_FOUND)
+
+
 def _apply_aliases(
     cli_args: list[str],
     config: Config,
@@ -172,7 +195,18 @@ def _resolve_and_inject_app(
         # diagnostic output and shouldn't be gated.
         print(format_trace(resolution), file=sys.stderr)
 
-    if not scoped or not resolution.resolved:
+    if not scoped:
+        return cli_args
+
+    # ADR 036 D10: if the command is app-scoped, no app resolved, and the user
+    # didn't pass a positional that might serve as the app, give a structured
+    # client-side error explaining what to do — instead of letting the server
+    # return a bare "Usage: hop foo <app>" string.
+    if not resolution.resolved:
+        remaining = cli_args[n_consumed:]
+        no_positional = not remaining or remaining[0].startswith("-")
+        if no_positional:
+            _exit_no_app_resolved(resolution, cli_args, n_consumed)
         return cli_args
 
     # If the user already provided a positional app (e.g., `hop3 logs myapp`),
