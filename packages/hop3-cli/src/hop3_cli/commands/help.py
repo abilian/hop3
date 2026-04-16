@@ -104,7 +104,11 @@ def emit_status_line(config: Config) -> None:
         return  # No context active — no status line.
 
     default_app = config.get_default_app()
-    app_part = f"Current app: {default_app}" if default_app else "Current app: (none — set with `hop3 use <app>`)"
+    app_part = (
+        f"Current app: {default_app}"
+        if default_app
+        else "Current app: (none — set with `hop3 use <app>`)"
+    )
     print(f"\nActive context: {context_name}      {app_part}", file=sys.stderr)
 
 

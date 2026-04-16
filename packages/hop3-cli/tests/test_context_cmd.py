@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
@@ -18,6 +18,9 @@ from hop3_cli.commands.local.context_cmd import (
     context_use,
 )
 from hop3_cli.config import Config, Context
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture

@@ -6,11 +6,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
 from hop3_cli.core.resolution import AppResolution, resolve_app
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _fake_config(context_name: str = "prod", default_app: str = "") -> MagicMock:

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hop3_cli.core.alias_registry import (
     AliasRegistry,
@@ -16,6 +16,9 @@ from hop3_cli.core.alias_registry import (
     resolve_aliases,
 )
 from hop3_cli.core.aliases import CORE_ALIASES, Alias
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---- Core alias table ----
 
