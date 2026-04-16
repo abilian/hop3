@@ -32,7 +32,13 @@ from ._response import text
 
 @register
 class SystemCmd(Command):
-    """Manage the hop3 system."""
+    """Manage the hop3 system.
+
+    Examples:
+        hop3 system check              # Run full health check
+        hop3 system status             # Server status
+        hop3 system info               # Detailed system information
+    """
 
     name: ClassVar[tuple[str, ...]] = ("system",)
 
@@ -384,7 +390,11 @@ class CheckCmd(Command):
 
 @register
 class UptimeCmd(Command):
-    """Show host server uptime."""
+    """Show host server uptime.
+
+    Examples:
+        hop3 system uptime            # Show server uptime
+    """
 
     name: ClassVar[tuple[str, ...]] = ("system", "uptime")
 
@@ -397,7 +407,12 @@ class UptimeCmd(Command):
 
 @register
 class PSCmd(Command):
-    """List all server processes."""
+    """List all server processes.
+
+    Examples:
+        hop3 ps myapp                  # Show processes for myapp
+        hop3 ps --app myapp            # Same via --app flag
+    """
 
     name: ClassVar[tuple[str, ...]] = ("system", "ps")
 
@@ -410,7 +425,11 @@ class PSCmd(Command):
 
 @register
 class StatusCmd(Command):
-    """Show Hop3 system status."""
+    """Show Hop3 system status.
+
+    Examples:
+        hop3 system status            # Show overall server status
+    """
 
     name: ClassVar[tuple[str, ...]] = ("system", "status")
 
@@ -425,6 +444,10 @@ class InfoCmd(Command):
     """Show detailed Hop3 system information.
 
     Use --verbose or -v for more details including loaded plugins.
+
+
+    Examples:
+        hop3 system info              # Show detailed system information
     """
 
     name: ClassVar[tuple[str, ...]] = ("system", "info")

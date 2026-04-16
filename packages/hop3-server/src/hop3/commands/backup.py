@@ -424,6 +424,12 @@ class BackupDestroyCmd(Command):
 @register
 @dataclass(frozen=True)
 class BackupCmd(Command):
-    """Manage application backups."""
+    """Manage application backups.
+
+    Examples:
+        hop3 backup create myapp       # Create a new backup
+        hop3 backup list myapp         # List backups for myapp
+        hop3 backup restore <id>       # Restore a backup
+    """
 
     name: ClassVar[tuple[str, ...]] = ("backup",)

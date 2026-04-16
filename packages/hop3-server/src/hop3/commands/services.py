@@ -31,7 +31,12 @@ from ._response import error, table, text, warning
 @register
 @dataclass(frozen=True)
 class AddonsCmd(Command):
-    """Manage backing services (databases, caches, etc.)."""
+    """Manage backing services (databases, caches, etc.).
+
+    Examples:
+        hop3 addon list                # List backing service instances (alias: 'hop3 addons')
+        hop3 addon create postgres mydb   # Provision a new Postgres addon
+    """
 
     name: ClassVar[tuple[str, ...]] = ("addon",)
 
@@ -44,6 +49,11 @@ class AddonListCmd(Command):
     Usage: hop3 addon list
 
     Shows all registered addon types that can be created.
+
+
+    Examples:
+        hop3 addon list                # List all addons
+        hop3 addons                    # Same via alias
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", "list")
@@ -388,6 +398,10 @@ class AddonDetachCmd(Command):
     This removes the service's environment variables from the application.
 
     Usage: hop3 addon detach <name> --app <app-name> [--type <type>]
+
+
+    Examples:
+        hop3 addon detach mydb --app myapp   # Detach mydb from myapp
     """
 
     app_repo: AppRepository
@@ -499,6 +513,10 @@ class AddonDestroyCmd(Command):
     WARNING: This will permanently delete all data in the service!
 
     Usage: hop3 addon destroy <name> [--type <type>]
+
+
+    Examples:
+        hop3 addon destroy mydb        # Destroy an addon (prompts for confirmation)
     """
 
     addon_credential_repo: AddonCredentialRepository
@@ -567,6 +585,11 @@ class AddonShowCmd(Command):
     """Get information about a service instance.
 
     Usage: hop3 addon show <name> [--type <type>]
+
+
+    Examples:
+        hop3 addon show mydb           # Show addon details
+        hop3 addon show mydb --type postgres
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", "show")

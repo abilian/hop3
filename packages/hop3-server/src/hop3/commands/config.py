@@ -27,7 +27,13 @@ if TYPE_CHECKING:
 
 @register
 class ConfigCmd(Command):
-    """Manage application configuration and environment variables."""
+    """Manage application configuration and environment variables.
+
+    Examples:
+        hop3 config show myapp         # List env vars
+        hop3 config set myapp KEY=VAL  # Set an env var
+        hop3 config unset myapp KEY    # Remove an env var
+    """
 
     name: ClassVar[tuple[str, ...]] = ("config",)
 
@@ -39,6 +45,11 @@ class ShowCmd(Command):
 
     Flags:
         --show-compose  Show the generated Docker Compose file (for container apps)
+
+
+    Examples:
+        hop3 config show myapp         # List all env vars for myapp
+        hop3 env myapp                 # Same via cross-platform alias
     """
 
     db_session: Session
@@ -130,7 +141,11 @@ class ShowCmd(Command):
 @register
 @dataclass(frozen=True)
 class GetCmd(Command):
-    """Get a specific configuration variable."""
+    """Get a specific configuration variable.
+
+    Examples:
+        hop3 config get myapp KEY      # Show one env var's value
+    """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("config", "get")
@@ -178,6 +193,10 @@ class LiveCmd(Command):
     the running process/container to show what's actually in effect.
 
     Usage: hop config live <app> or hop config live --app <app>
+
+
+    Examples:
+        hop3 config live myapp         # Show the live runtime environment as seen by the app
     """
 
     db_session: Session
@@ -505,7 +524,12 @@ class UnsetCmd(Command):
 
 @register
 class MigrateCmd(Command):
-    """Migrate configuration from other PaaS formats to hop3.toml."""
+    """Migrate configuration from other PaaS formats to hop3.toml.
+
+    Examples:
+        hop3 config migrate procfile /path/to/app    # Convert Procfile to hop3.toml
+        hop3 config migrate procfile /path/to/app --dry-run
+    """
 
     name: ClassVar[tuple[str, ...]] = ("config", "migrate")
 

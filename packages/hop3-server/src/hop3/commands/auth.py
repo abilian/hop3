@@ -24,7 +24,13 @@ from ._response import error, success, text, warning
 @register
 @dataclass(frozen=True)
 class AuthCmd(Command):
-    """Authentication commands."""
+    """Authentication commands.
+
+    Examples:
+        hop3 auth login alice          # Log in
+        hop3 auth whoami               # Show the current user
+        hop3 auth logout               # Invalidate the token
+    """
 
     name: ClassVar[tuple[str, ...]] = ("auth",)
     requires_auth: ClassVar[bool] = False  # Public command (shows help)
@@ -33,7 +39,12 @@ class AuthCmd(Command):
 @register
 @dataclass(frozen=True)
 class AuthLoginCmd(Command):
-    """Authenticate and receive an API token."""
+    """Authenticate and receive an API token.
+
+    Examples:
+        hop3 auth login alice          # Prompted for password
+        hop3 auth login alice password123    # Password on command line (avoid — see history)
+    """
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("auth", "login")
@@ -97,7 +108,12 @@ class AuthLoginCmd(Command):
 @register
 @dataclass(frozen=True)
 class AuthWhoamiCmd(Command):
-    """Display current authenticated user information."""
+    """Display current authenticated user information.
+
+    Examples:
+        hop3 auth whoami               # Show the currently-authenticated user
+        hop3 whoami                    # Same via top-level alias
+    """
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("auth", "whoami")
@@ -139,7 +155,11 @@ class AuthWhoamiCmd(Command):
 @register
 @dataclass(frozen=True)
 class AuthRegisterCmd(Command):
-    """Register a new user account."""
+    """Register a new user account.
+
+    Examples:
+        hop3 auth register newuser user@example.com password123
+    """
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("auth", "register")
@@ -191,6 +211,10 @@ class AuthLogoutCmd(Command):
     This command revokes the current token, making it immediately invalid
     even before its expiration time. The token is added to a revocation list
     and will be rejected by the authentication middleware.
+
+
+    Examples:
+        hop3 auth logout               # Invalidate the current session token
     """
 
     name: ClassVar[tuple[str, ...]] = ("auth", "logout")
@@ -277,6 +301,10 @@ class AuthMagicLinkCmd(Command):
 
     Or via the CLI:
         hop3 login --web
+
+
+    Examples:
+        hop3 auth magic-link user@example.com
     """
 
     user_repo: UserRepository

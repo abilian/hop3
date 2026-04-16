@@ -101,7 +101,13 @@ def _run_lifecycle_action(
 @register
 @dataclass(frozen=True)
 class AppCmd(Command):
-    """Commands for managing app instances."""
+    """Commands for managing app instances.
+
+    Examples:
+        hop3 app create myapp        # Create a new app
+        hop3 app list                # List all apps
+        hop3 app destroy myapp       # Destroy an app
+    """
 
     name: ClassVar[tuple[str, ...]] = ("app",)
 
@@ -109,7 +115,11 @@ class AppCmd(Command):
 @register
 @dataclass(frozen=True)
 class LaunchCmd(Command):
-    """Create and configure a new app from a source code repository."""
+    """Create and configure a new app from a source code repository.
+
+    Examples:
+        hop3 app launch myapp         # Launch a newly-created app
+    """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "launch")
@@ -157,7 +167,12 @@ class LaunchCmd(Command):
 @register
 @dataclass(frozen=True)
 class DeployCmd(Command):
-    """Deploy an application from its configured repository."""
+    """Deploy an application from its configured repository.
+
+    Examples:
+        hop3 deploy myapp             # Deploy myapp from its repository
+        hop3 deploy --app myapp       # Same via --app flag
+    """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("deploy",)
@@ -322,7 +337,12 @@ class DeployCmd(Command):
 @register
 @dataclass(frozen=True)
 class StatusCmd(Command):
-    """Show detailed status of an application."""
+    """Show detailed status of an application.
+
+    Examples:
+        hop3 app status myapp         # Show app status
+        hop3 status myapp             # Same via top-level alias
+    """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "status")
@@ -579,7 +599,11 @@ class BuildLogsCmd(Command):
 @register
 @dataclass(frozen=True)
 class StartCmd(Command):
-    """Start a stopped app."""
+    """Start a stopped app.
+
+    Examples:
+        hop3 app start myapp          # Start a stopped app
+    """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "start")
@@ -615,7 +639,11 @@ class StartCmd(Command):
 @register
 @dataclass(frozen=True)
 class StopCmd(Command):
-    """Stop a running app."""
+    """Stop a running app.
+
+    Examples:
+        hop3 app stop myapp           # Stop a running app
+    """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "stop")
@@ -651,7 +679,12 @@ class StopCmd(Command):
 @register
 @dataclass(frozen=True)
 class RestartCmd(Command):
-    """Restart an application."""
+    """Restart an application.
+
+    Examples:
+        hop3 app restart myapp        # Restart an app
+        hop3 restart myapp            # Same via top-level alias
+    """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "restart")
@@ -682,6 +715,11 @@ class DestroyCmd(Command):
 
     Options:
       -y, --yes, --force   Skip confirmation prompt
+
+
+    Examples:
+        hop3 app destroy myapp        # Destroy an app (prompts for confirmation)
+        hop3 app destroy myapp --force  # Skip prompt
     """
 
     db_session: Session

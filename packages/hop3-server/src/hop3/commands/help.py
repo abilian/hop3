@@ -17,6 +17,13 @@ from typing import ClassVar
 from hop3.lib.registry import lookup, register
 
 from ._base import Command
+from ._help_render import (
+    longest_prefix_match as _longest_prefix_match,
+    parse_docstring_sections as _parse_docstring_sections,
+    render_detailed_help as _render_detailed_help,
+    render_subcommands as _render_subcommands,
+    short_help as _short_help,
+)
 from ._response import data, error, text
 
 # ADR 036 D4 / D11: task-oriented categorization of the top-level surface.
@@ -189,16 +196,8 @@ class HelpCmd(Command):
 
         return [text("\n".join(output))]
 
-    @staticmethod
-    def _get_short_help(docstring: str | None) -> str:
-        """Extract the first non-empty line from a docstring."""
-        if not docstring:
-            return ""
-        for line in docstring.strip().split("\n"):
-            stripped = line.strip()
-            if stripped:
-                return stripped
-        return ""
+    # Kept as a static method so tests using HelpCmd._get_short_help(...) still work.
+    _get_short_help = staticmethod(_short_help)
 
 
 @register
@@ -229,135 +228,4 @@ class HelpCommandsCmd(Command):
         return [data({"commands": command_names})]
 
 
-# ---- Detailed-help rendering helpers ----
-
-
-def _longest_prefix_match(
-    command_name: tuple[str, ...],
-    commands: dict,
-) -> tuple[str, ...] | None:
-    """Find the longest prefix of `command_name` present in `commands`."""
-    for n in range(len(command_name), 0, -1):
-        key = command_name[:n]
-        if key in commands:
-            return key
-    return None
-
-
-def _render_detailed_help(display: str, sections: dict) -> list[str]:
-    """Render the header + USAGE + EXAMPLES + DESCRIPTION blocks."""
-    output: list[str] = []
-    header = (
-        f"hop {display} — {sections['summary']}" if sections["summary"]
-        else f"hop {display}"
-    )
-    output.append(header)
-    output.append("")
-
-    for section_name, lines in (
-        ("USAGE", sections["usage"]),
-        ("EXAMPLES", sections["examples"]),
-        ("DESCRIPTION", sections["body"]),
-    ):
-        if lines:
-            output.append(section_name)
-            output.extend(f"  {line}" for line in lines)
-            output.append("")
-
-    return output
-
-
-def _render_subcommands(
-    all_commands: list,
-    namespace: tuple[str, ...],
-    short_help_fn,
-) -> list[str]:
-    """Render the SUBCOMMANDS section for a namespace."""
-    subs = [
-        c
-        for c in all_commands
-        if len(c.name) > len(namespace)
-        and c.name[: len(namespace)] == namespace
-        and not getattr(c, "hidden", False)
-    ]
-    if not subs:
-        return []
-    subs.sort(key=lambda c: c.name)
-    out = ["SUBCOMMANDS"]
-    for sub in subs:
-        display = " ".join(sub.name)
-        out.append(f"  {display:<28} {short_help_fn(sub.__doc__)}")
-    out.append("")
-    return out
-
-
-# ---- Docstring parsing ----
-#
-# Command docstrings follow this convention (documented in _base.py):
-#     One-line summary.
-#
-#     Usage: hop3 <path> ...
-#
-#     Examples:
-#         hop3 <path> <example1>
-#         hop3 <path> <example2>
-#
-# This parser recognizes "Usage:" and "Examples:" section headers
-# (case-insensitive) and extracts their bodies. Anything else becomes
-# the "body" content (displayed under "DESCRIPTION"). The first non-empty
-# line is always the summary.
-_SECTION_HEADERS = {
-    "usage:": "usage",
-    "examples:": "examples",
-    "example:": "examples",  # singular form treated as examples
-}
-
-
-def _parse_docstring_sections(doc: str | None) -> dict:
-    """Parse a docstring into summary / usage / examples / body sections.
-
-    Returns a dict with keys: 'summary' (str), 'usage' (list[str]),
-    'examples' (list[str]), 'body' (list[str]).
-    """
-    result: dict = {"summary": "", "usage": [], "examples": [], "body": []}
-    if not doc:
-        return result
-
-    lines = doc.expandtabs().strip().split("\n")
-    first_nonempty = next((i for i, ln in enumerate(lines) if ln.strip()), None)
-    if first_nonempty is None:
-        return result
-    result["summary"] = lines[first_nonempty].strip()
-
-    current = "body"
-    for raw in lines[first_nonempty + 1 :]:
-        stripped = raw.strip()
-        if not stripped:
-            continue
-        new_section, tail = _classify_doc_line(stripped)
-        if new_section is not None:
-            current = new_section
-            if tail:
-                result[current].append(tail)
-        else:
-            result[current].append(stripped)
-
-    return result
-
-
-def _classify_doc_line(stripped: str) -> tuple[str | None, str]:
-    """Classify a single stripped docstring line.
-
-    Returns (section_name_or_None, tail). If the line is a recognized section
-    header, section_name is set to the target section and tail contains any
-    inline content after the header (empty string if the line was just the
-    header like "Usage:"). Otherwise returns (None, "").
-    """
-    lower = stripped.lower()
-    for header, section in _SECTION_HEADERS.items():
-        if lower == header:
-            return section, ""
-        if lower.startswith(header):
-            tail = stripped.split(":", 1)[1].strip()
-            return section, tail
-    return None, ""
+# Helpers are in `_help_render.py` (shared with `_base.Command.get_help`).

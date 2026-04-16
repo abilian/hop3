@@ -84,7 +84,12 @@ def _get_docker_container_count(app: App) -> int | str:
 @register
 @dataclass(frozen=True)
 class AppsCmd(Command):
-    """List all applications."""
+    """List all applications.
+
+    Examples:
+        hop3 apps                      # List all deployed apps (alias for 'app list')
+        hop3 app list                  # Canonical form
+    """
 
     db_session: Session
     # Canonical name is `app list` per ADR 036 D9 (plural `apps` is the alias,

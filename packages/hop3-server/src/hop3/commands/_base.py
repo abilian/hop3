@@ -64,45 +64,40 @@ class Command:
         return self.get_help()
 
     def get_help(self):
-        """Default help output: list subcommands of this namespace."""
+        """Default help for namespace-bare invocations (ADR 036 M4.3).
+
+        Produces the same D11-structured output as `hop help <ns>`:
+        `hop <ns> — <summary>`, USAGE (inferred), EXAMPLES (from docstring),
+        DESCRIPTION (body), SUBCOMMANDS, and "Part of:" line for nested
+        namespaces. The shared renderer lives in `_help_render.py` so this
+        stays in sync with `HelpCmd._detailed_help`.
+        """
+        # Lazy import to avoid an import cycle with `help.py`.
+        from ._help_render import (  # noqa: PLC0415
+            parse_docstring_sections,
+            render_detailed_help,
+            render_subcommands,
+            short_help,
+        )
+
         namespace = self.name
         display_name = " ".join(namespace) if namespace else ""
-        output = [
-            "USAGE",
-            f"  $ hop {display_name} <subcommand>",
-            "",
-            "SUBCOMMANDS",
-        ]
+        sections = parse_docstring_sections(self.__doc__)
+
+        # If the docstring doesn't supply a Usage block, synthesize one for
+        # namespace commands.
+        if not sections["usage"]:
+            sections["usage"] = [f"hop {display_name} <subcommand>"]
+
+        output = render_detailed_help(display_name, sections)
         commands = lookup(Command)
-        commands.sort(key=lambda cmd: cmd.name)
-        for cmd in commands:
-            cmd_name = cmd.name
+        output.extend(render_subcommands(commands, namespace, short_help))
 
-            # Skip commands that are not subcommands of this namespace
-            if len(cmd_name) <= len(namespace):
-                continue
-            if cmd_name[: len(namespace)] != namespace:
-                continue
-
-            help_text = _get_first_line(cmd.__doc__)
-            sub_display = " ".join(cmd_name)
-            output.append(f"  {sub_display:<28} {help_text}")
-
-        output.append("")
-        output.append(f"Use 'hop {display_name} <subcommand> --help' for details.")
+        # "Part of:" line for nested namespaces (e.g., `hop addon postgres`).
+        if len(namespace) > 1:
+            output.append(f"Part of: hop {namespace[0]} namespace.")
 
         return [text("\n".join(output))]
 
     def subcommands(self):
         return []
-
-
-def _get_first_line(docstring: str | None) -> str:
-    """Extract the first non-empty line from a docstring."""
-    if not docstring:
-        return ""
-    for line in docstring.strip().split("\n"):
-        stripped = line.strip()
-        if stripped:
-            return stripped
-    return ""

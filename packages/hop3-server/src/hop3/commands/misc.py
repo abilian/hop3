@@ -36,7 +36,11 @@ if TYPE_CHECKING:
 @register
 @dataclass(frozen=True)
 class VersionCmd(Command):
-    """Show version information."""
+    """Show version information.
+
+    Examples:
+        hop3 version                   # Show CLI and server versions
+    """
 
     name: ClassVar[tuple[str, ...]] = ("version",)
     requires_auth: ClassVar[bool] = False  # Public command
@@ -56,7 +60,12 @@ class VersionCmd(Command):
 @register
 @dataclass(frozen=True)
 class PluginsCmd(Command):
-    """List installed plugins and their commands."""
+    """List installed plugins and their commands.
+
+    Examples:
+        hop3 plugin list               # List installed plugins (alias: 'hop3 plugins')
+        hop3 plugins                   # Same via alias
+    """
 
     # Canonical name is `plugin list` per ADR 036 D9 (plural `plugins` is the
     # alias, resolved client-side in `hop3_cli.core.aliases.CORE_ALIASES`).
@@ -90,7 +99,12 @@ class PluginsCmd(Command):
 @register
 @dataclass(frozen=True)
 class PSCmd(Command):
-    """Show process count for an app."""
+    """Show process count for an app.
+
+    Examples:
+        hop3 ps myapp                  # Show processes for myapp
+        hop3 ps --app myapp            # Same via --app flag
+    """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("ps",)
@@ -119,7 +133,12 @@ class PSCmd(Command):
 @register
 @dataclass(frozen=True)
 class PsScaleCmd(Command):
-    """Set the process count (e.g., hop ps scale <app_name> web=2 worker=1)."""
+    """Set the process count (e.g., hop ps scale <app_name> web=2 worker=1).
+
+    Examples:
+        hop3 ps scale myapp web=2     # Run 2 web workers
+        hop3 ps scale myapp web=2 worker=1
+    """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("ps", "scale")
@@ -266,7 +285,11 @@ class RunCmd(Command):
 @register
 @dataclass(frozen=True)
 class SbomCmd(Command):
-    """Generate a Software Bill of Materials (SBOM) for an app."""
+    """Generate a Software Bill of Materials (SBOM) for an app.
+
+    Examples:
+        hop3 app sbom myapp            # Generate an SBOM for myapp
+    """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "sbom")

@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import pytest
 
+from hop3.commands._help_render import (
+    classify_doc_line as _classify_doc_line,
+    parse_docstring_sections as _parse_docstring_sections,
+)
 from hop3.commands.help import (
     CATEGORIES,
     HelpCmd,
     _category_for,
-    _classify_doc_line,
-    _parse_docstring_sections,
 )
 from hop3.lib.scanner import scan_package
 
