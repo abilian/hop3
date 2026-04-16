@@ -28,4 +28,11 @@ with open("requirements.txt", "w") as out:
 print(f"Wrote {len([d for d in deps if isinstance(d, str)]) + 1} deps to requirements.txt")
 PY
 
+# The Python toolchain (ADR 039 Phase 1) errors if both requirements.txt
+# and pyproject.toml are present. pyproject.toml here carries only
+# PEP-735 dependency-groups that we've already flattened into
+# requirements.txt; move it aside so the deployer sees a single-format
+# tree. Preserving as `.packaging-time` leaves the source inspectable.
+mv pyproject.toml pyproject.toml.packaging-time
+
 echo "BookWyrm source + requirements.txt ready"

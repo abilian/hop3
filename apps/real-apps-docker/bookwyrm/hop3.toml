@@ -11,6 +11,10 @@ categories = ["fediverse", "books", "social"]
 
 [[addons]]
 type = "postgres"
+# bloom is non-trusted — requires superuser to install. Declaring
+# it here has the addon provision it as superuser during addon
+# setup, before the app's migrations run.
+extensions = ["bloom"]
 
 [[addons]]
 type = "redis"

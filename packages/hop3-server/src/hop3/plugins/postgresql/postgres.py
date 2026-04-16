@@ -167,6 +167,47 @@ def _ensure_pg_listen_addresses() -> None:
     )
 
 
+def _grant_schema_create(
+    admin: PostgresAdmin, *, db_name: str, db_user: str
+) -> None:
+    """Grant privileges needed to install trusted extensions.
+
+    On PostgreSQL 13+ a user can install a *trusted* extension (pg_trgm,
+    bloom, hstore, citext, fuzzystrmatch, unaccent, and others) if they
+    have:
+      1. CREATE on the database — unlocks CREATE EXTENSION itself.
+      2. CREATE + USAGE on the target schema (public by default) — the
+         extension's objects (functions, operators, index access methods)
+         are created there.
+
+    PG 15 additionally revoked CREATE on `public` from PUBLIC, so owning
+    the database is NOT sufficient to CREATE objects in public. Both
+    grants are needed. Failing to install a trusted extension surfaces
+    as `permission denied to create extension <name>` from a Django or
+    Rails migration (see BookWyrm migration 0224 for the canonical case).
+    """
+    # GRANT on database must be issued while connected to *any* database;
+    # the existing admin connection (template1) is fine. But we connect
+    # to the target database anyway so both grants are in one place.
+    conn = psycopg2.connect(**admin.get_connection_params(dbname=db_name))
+    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                sql.SQL("GRANT CREATE ON DATABASE {} TO {}").format(
+                    sql.Identifier(db_name),
+                    sql.Identifier(db_user),
+                )
+            )
+            cursor.execute(
+                sql.SQL("GRANT CREATE, USAGE ON SCHEMA public TO {}").format(
+                    sql.Identifier(db_user),
+                )
+            )
+    finally:
+        conn.close()
+
+
 @dataclass(frozen=True)
 class PostgresAddon:
     """PostgreSQL service implementation using Addon protocol.
@@ -316,6 +357,18 @@ class PostgresAddon:
                         )
                     )
 
+            # Grant CREATE on the database + CREATE/USAGE on public
+            # schema so the per-app user can install *trusted* extensions
+            # (pg_trgm, hstore, citext, fuzzystrmatch, unaccent, …) from
+            # their own migrations. Non-trusted extensions (bloom,
+            # adminpack, postgres_fdw) still require superuser and are
+            # handled separately via install_extensions().
+            _grant_schema_create(
+                admin,
+                db_name=self.db_name,
+                db_user=self.db_user,
+            )
+
             # Store the password (always when we reach here)
             save_addon_secrets(
                 ADDON_TYPE,
@@ -331,6 +384,36 @@ class PostgresAddon:
         finally:
             if connection:
                 connection.close()
+
+    def install_extensions(self, extensions: list[str]) -> None:
+        """Install PostgreSQL extensions in the per-app database as superuser.
+
+        Some extensions (bloom, adminpack, postgres_fdw) are not *trusted*
+        and require superuser to CREATE EXTENSION even if the caller has
+        CREATE on the target database. Trusted extensions (pg_trgm,
+        hstore, citext, …) work via the per-app user's grants set in
+        create(), but running them here as superuser is harmless and
+        idempotent — we use CREATE EXTENSION IF NOT EXISTS.
+
+        Args:
+            extensions: list of extension names declared by the app in
+                ``[[addons]].extensions`` in hop3.toml.
+        """
+        if not extensions:
+            return
+        admin = self._get_admin()
+        conn = psycopg2.connect(**admin.get_connection_params(dbname=self.db_name))
+        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+        try:
+            with conn.cursor() as cursor:
+                for ext in extensions:
+                    cursor.execute(
+                        sql.SQL("CREATE EXTENSION IF NOT EXISTS {}").format(
+                            sql.Identifier(ext),
+                        )
+                    )
+        finally:
+            conn.close()
 
     def exists(self) -> bool:
         """Check if this PostgreSQL database exists.

@@ -25,6 +25,45 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
+# Tier-keyed build timeouts (seconds). Matches the tier table the
+# end-to-end deploy uses (see hop3-testing runner). Apps with heavy
+# compile steps (Rust from source, full JVM compile, large pip/npm
+# installs) should declare `[build].tier = "slow"` or "very-slow" in
+# hop3.toml; default `medium` gives the original 10-minute budget.
+_BUILD_TIMEOUTS = {
+    "fast": 5 * 60,
+    "medium": 10 * 60,
+    "slow": 20 * 60,
+    "very-slow": 30 * 60,
+}
+_DEFAULT_TIER = "medium"
+
+
+def _resolve_build_timeout(source_path: Path) -> tuple[int, str]:
+    """Resolve docker-build timeout for this app.
+
+    Reads `[build].tier` from hop3.toml if present; falls back to
+    "medium" (10 minutes). Returns (seconds, tier_name) so callers can
+    produce accurate diagnostic messages.
+    """
+    tier = _DEFAULT_TIER
+    hop3_toml = source_path / "hop3.toml"
+    if hop3_toml.exists():
+        try:
+            import tomllib
+        except ImportError:  # Python < 3.11 fallback
+            import tomli as tomllib  # type: ignore[import-not-found]
+        try:
+            with hop3_toml.open("rb") as f:
+                data = tomllib.load(f)
+            declared = data.get("build", {}).get("tier")
+            if declared in _BUILD_TIMEOUTS:
+                tier = declared
+        except (OSError, tomllib.TOMLDecodeError):
+            pass
+    return _BUILD_TIMEOUTS[tier], tier
+
+
 @dataclass(frozen=True)
 class DockerBuilder:
     """Build strategy that uses `docker build` to create container images.
@@ -107,7 +146,15 @@ class DockerBuilder:
         cmd = ["docker", "build", "-t", image_tag, "."]
         start_time = time.time()
 
-        log(f"Running: docker build -t {image_tag} .", level=2, fg="cyan")
+        timeout_seconds, tier = _resolve_build_timeout(self.source_path)
+        timeout_minutes = timeout_seconds // 60
+
+        log(
+            f"Running: docker build -t {image_tag} . "
+            f"(tier={tier}, timeout={timeout_minutes}min)",
+            level=2,
+            fg="cyan",
+        )
 
         # Enable BuildKit for modern Dockerfile features (COPY --chmod, etc.)
         # BuildKit is required for many modern Dockerfiles
@@ -121,7 +168,7 @@ class DockerBuilder:
                 check=True,
                 capture_output=True,
                 text=True,
-                timeout=600,  # 10 minute timeout for builds
+                timeout=timeout_seconds,
                 env=env,
             )
             self._handle_build_success(result, image_tag, start_time)
@@ -145,15 +192,21 @@ class DockerBuilder:
 
         except subprocess.TimeoutExpired:
             elapsed = time.time() - start_time
-            self._save_build_log("", "Build timed out after 10 minutes", elapsed)
+            self._save_build_log(
+                "", f"Build timed out after {timeout_minutes} minutes", elapsed
+            )
             abort_with_diagnosis(
                 Diagnosis(
                     component="Docker builder",
                     action="build image",
-                    reason="build exceeded the 10-minute timeout",
+                    reason=(
+                        f"build exceeded the {timeout_minutes}-minute "
+                        f"timeout (tier={tier})"
+                    ),
                     hint=(
                         "Trim the Dockerfile (fewer RUN steps, leaner base "
-                        "image) or increase the timeout in hop3.toml"
+                        "image), OR raise [build].tier in hop3.toml "
+                        "(fast=5m, medium=10m, slow=20m, very-slow=30m)"
                     ),
                     troubleshooting=[
                         f"hop3 app build-logs {self.app_name}",
