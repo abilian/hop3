@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .aliases_cmd import handle_aliases
 from .auth_cmd import handle_auth
 from .completion_cmd import handle_completion
 from .context_cmd import handle_context
@@ -35,6 +36,7 @@ __all__ = [
     "LOCAL_COMMANDS_INFO",
     "BootstrapError",
     "extract_token",
+    "handle_aliases",
     "handle_auth",
     "handle_completion",
     "handle_context",
@@ -55,6 +57,7 @@ __all__ = [
 # Commands that are handled locally (not sent to server via RPC)
 # Format: command_name -> description
 LOCAL_COMMANDS_INFO = {
+    "aliases": "List all effective aliases (built-in, plugin, user).",
     "completion": "Generate shell completion scripts.",
     "context": "Manage multiple server contexts.",
     "init": "Initialize connection to a Hop3 server via SSH.",
@@ -120,6 +123,9 @@ def handle_local_command(args: list[str], config: Config, printer: RichPrinter) 
         return True
     if command == "settings":
         handle_settings(cmd_args, config, printer)
+        return True
+    if command == "aliases":
+        handle_aliases(cmd_args, config, printer)
         return True
     if command == "use":
         handle_use(cmd_args, config, printer)

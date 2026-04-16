@@ -42,6 +42,12 @@ from .commands import (  # noqa: E402
     parse_flags,
 )
 from .config import Config, get_config  # noqa: E402
+from .core.alias_registry import (  # noqa: E402
+    build_registry,
+    cached_subcommand_index,
+    load_user_aliases_from_config,
+    resolve_aliases,
+)
 from .core.app_scope import is_app_scoped  # noqa: E402
 from .core.resolution import format_trace, resolve_app  # noqa: E402
 from .exit_codes import ExitCode  # noqa: E402
@@ -83,6 +89,12 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     cli_args = cli_args or ["help"]
 
+    # ADR 036 D9: expand aliases before local/server dispatch, unless the user
+    # passed --no-alias. Aliases fire on the first token only and respect the
+    # collision-with-subcommand rule.
+    if not flags.no_alias:
+        cli_args = _apply_aliases(cli_args, config, printer, flags)
+
     # Handle local commands (init, config) that don't need server
     if is_local_command(cli_args):
         if flags.verbosity >= 2:
@@ -99,6 +111,34 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     extra_args = _get_extra_args_safe(cli_args, flags.verbosity)
     _execute_rpc_command(cli_args, config, extra_args, printer)
+
+
+def _apply_aliases(
+    cli_args: list[str],
+    config: Config,
+    printer: RichPrinter,
+    flags,
+) -> list[str]:
+    """Expand the first-token alias (if any) per ADR 036 D9.
+
+    Loads the effective alias registry (core + plugin + user) once per
+    invocation, runs the resolver, and returns the rewritten argv. The
+    subcommand-collision check is consulted via the cached command list.
+    """
+    user_aliases = load_user_aliases_from_config(config.config_file)
+    # Warn about user/core collisions only on bare `hop3` — avoid noise on
+    # every invocation. For now, we don't warn at all; `hop3 aliases` reports.
+    registry = build_registry(user_aliases=user_aliases, warn_to_stderr=False)
+    subcommand_index = cached_subcommand_index()
+    rewritten, fired = resolve_aliases(
+        cli_args, registry, known_subcommands_of_namespace=subcommand_index
+    )
+    if fired and flags.verbosity >= 2:
+        printer.print_debug(
+            f"[alias] {fired.source_token!r} -> "
+            f"{' '.join(fired.expansion)!r} (source: {fired.origin})"
+        )
+    return rewritten
 
 
 def _resolve_and_inject_app(
