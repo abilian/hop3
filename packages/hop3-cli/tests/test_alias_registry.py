@@ -17,7 +17,6 @@ from hop3_cli.core.alias_registry import (
 )
 from hop3_cli.core.aliases import CORE_ALIASES, Alias
 
-
 # ---- Core alias table ----
 
 
@@ -156,7 +155,9 @@ def test_resolve_blocks_on_subcommand_collision() -> None:
     """
     r = build_registry()
     index = {"addon": {"list", "create", "destroy"}, "app": {"list", "create"}}
-    out, fired = resolve_aliases(["addons", "create", "foo"], r, known_subcommands_of_namespace=index)
+    out, fired = resolve_aliases(
+        ["addons", "create", "foo"], r, known_subcommands_of_namespace=index
+    )
     assert fired is None
     assert out == ["addons", "create", "foo"]
 
@@ -165,7 +166,9 @@ def test_resolve_fires_when_next_token_not_a_subcommand() -> None:
     """`addons some-value` — `some-value` isn't a known subcommand, so expand."""
     r = build_registry()
     index = {"addon": {"list", "create"}}
-    out, fired = resolve_aliases(["addons", "--verbose"], r, known_subcommands_of_namespace=index)
+    out, fired = resolve_aliases(
+        ["addons", "--verbose"], r, known_subcommands_of_namespace=index
+    )
     # --verbose isn't a positional subcommand, so alias fires.
     assert fired is not None
     assert out == ["addon", "list", "--verbose"]

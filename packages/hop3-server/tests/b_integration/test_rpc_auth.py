@@ -94,7 +94,7 @@ def test_rpc_protected_command_without_auth(client: TestClient):
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
     )
@@ -124,7 +124,7 @@ async def test_rpc_protected_command_with_valid_auth(
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": f"Bearer {valid_token}"},
@@ -141,7 +141,7 @@ def test_rpc_protected_command_with_invalid_token(client: TestClient):
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": "Bearer invalid-token-here"},
@@ -222,7 +222,7 @@ def test_rpc_malformed_authorization_header(client: TestClient):
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": "NotBearer token"},
@@ -241,7 +241,7 @@ def test_rpc_expired_token(client: TestClient):
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": f"Bearer {expired_token}"},

@@ -167,9 +167,7 @@ def _ensure_pg_listen_addresses() -> None:
     )
 
 
-def _grant_schema_create(
-    admin: PostgresAdmin, *, db_name: str, db_user: str
-) -> None:
+def _grant_schema_create(admin: PostgresAdmin, *, db_name: str, db_user: str) -> None:
     """Grant privileges needed to install trusted extensions.
 
     On PostgreSQL 13+ a user can install a *trusted* extension (pg_trgm,

@@ -259,15 +259,11 @@ class TestDockerBuilderBuild:
             '[build]\nbuilder = "docker"\ntier = "very-slow"\n'
         )
 
-        context = BuildContext(
-            app_name="test-app", source_path=tmp_path, app_config={}
-        )
+        context = BuildContext(app_name="test-app", source_path=tmp_path, app_config={})
         builder = DockerBuilder(context)
 
         with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = subprocess.TimeoutExpired(
-                "docker build", 30 * 60
-            )
+            mock_run.side_effect = subprocess.TimeoutExpired("docker build", 30 * 60)
             with pytest.raises(Abort, match="exceeded the 30-minute timeout"):
                 builder.build()
 

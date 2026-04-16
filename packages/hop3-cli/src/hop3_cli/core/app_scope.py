@@ -48,7 +48,9 @@ _APP_NAMESPACE_SCOPED: set[tuple[str, ...]] = {
 
 # Config commands (all operate on a single app's config).
 _CONFIG_SCOPED: set[tuple[str, ...]] = {
-    ("config",),             # bare shows namespace help — still app-scoped when user intends a list
+    (
+        "config",
+    ),  # bare shows namespace help — still app-scoped when user intends a list
     ("config", "show"),
     ("config", "get"),
     ("config", "set"),
@@ -67,10 +69,7 @@ _BACKUP_SCOPED: set[tuple[str, ...]] = {
 }
 
 APP_SCOPED_COMMANDS: set[tuple[str, ...]] = (
-    _TOP_LEVEL_APP_SCOPED
-    | _APP_NAMESPACE_SCOPED
-    | _CONFIG_SCOPED
-    | _BACKUP_SCOPED
+    _TOP_LEVEL_APP_SCOPED | _APP_NAMESPACE_SCOPED | _CONFIG_SCOPED | _BACKUP_SCOPED
 )
 
 

@@ -10,7 +10,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-
 from hop3_cli.core.resolution import AppResolution, resolve_app
 
 
@@ -22,7 +21,9 @@ def _fake_config(context_name: str = "prod", default_app: str = "") -> MagicMock
     return cfg
 
 
-def test_flag_wins_over_everything(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_flag_wins_over_everything(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Explicit --app always wins."""
     monkeypatch.setenv("HOP3_APP", "from-env")
     (tmp_path / ".hop3-app").write_text("from-file\n")
@@ -49,7 +50,9 @@ def test_env_var_beats_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     assert "HOP3_APP" in r.source
 
 
-def test_dotfile_beats_context_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dotfile_beats_context_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("HOP3_APP", raising=False)
     (tmp_path / ".hop3-app").write_text("from-file\n")
     cfg = _fake_config(default_app="from-context")
@@ -71,7 +74,9 @@ def test_dotfile_search_upward(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     assert r.app == "from-ancestor"
 
 
-def test_dotfile_search_stops_at_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dotfile_search_stops_at_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Search doesn't escape above $HOME."""
     monkeypatch.delenv("HOP3_APP", raising=False)
     outside_home = tmp_path.parent
@@ -97,7 +102,9 @@ def test_hop3_toml_cli_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     assert "hop3.toml" in r.source
 
 
-def test_dotfile_beats_hop3_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dotfile_beats_hop3_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """`.hop3-app` has higher priority than hop3.toml."""
     monkeypatch.delenv("HOP3_APP", raising=False)
     (tmp_path / ".hop3-app").write_text("from-file\n")
@@ -108,7 +115,9 @@ def test_dotfile_beats_hop3_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert r.app == "from-file"
 
 
-def test_context_default_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_context_default_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("HOP3_APP", raising=False)
     cfg = _fake_config(context_name="prod", default_app="from-context")
 
@@ -141,7 +150,9 @@ def test_trace_captured(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     assert "default_app" in trace
 
 
-def test_unreadable_dotfile_is_ignored(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_unreadable_dotfile_is_ignored(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """An unparseable hop3.toml should not crash resolution."""
     monkeypatch.delenv("HOP3_APP", raising=False)
     (tmp_path / "hop3.toml").write_text("this is not valid toml [[[ ")

@@ -87,7 +87,9 @@ class AppsCmd(Command):
     """List all applications."""
 
     db_session: Session
-    name: ClassVar[tuple[str, ...]] = ("apps",)
+    # Canonical name is `app list` per ADR 036 D9 (plural `apps` is the alias,
+    # resolved client-side in `hop3_cli.core.aliases.CORE_ALIASES`).
+    name: ClassVar[tuple[str, ...]] = ("app", "list")
 
     def call(self, *args):
         app_repo = AppRepository(session=self.db_session)

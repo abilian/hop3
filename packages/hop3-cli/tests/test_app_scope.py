@@ -10,15 +10,36 @@ from hop3_cli.core.app_scope import APP_SCOPED_COMMANDS, is_app_scoped
 
 
 def test_top_level_verbs_are_app_scoped() -> None:
-    for verb in ("deploy", "logs", "run", "restart", "status", "ps", "scale", "ssh", "open"):
+    for verb in (
+        "deploy",
+        "logs",
+        "run",
+        "restart",
+        "status",
+        "ps",
+        "scale",
+        "ssh",
+        "open",
+    ):
         scoped, n = is_app_scoped([verb])
         assert scoped, f"{verb!r} should be app-scoped"
         assert n == 1
 
 
 def test_app_namespace_verbs_are_app_scoped() -> None:
-    for verb in ("destroy", "show", "ping", "logs", "build-logs", "start", "stop",
-                 "restart", "env", "debug", "sbom"):
+    for verb in (
+        "destroy",
+        "show",
+        "ping",
+        "logs",
+        "build-logs",
+        "start",
+        "stop",
+        "restart",
+        "env",
+        "debug",
+        "sbom",
+    ):
         scoped, n = is_app_scoped(["app", verb])
         assert scoped, f"app {verb} should be app-scoped"
         assert n == 2

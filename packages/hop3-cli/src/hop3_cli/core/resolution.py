@@ -41,7 +41,9 @@ class AppResolution:
     """Result of resolving the current app."""
 
     app: str | None
-    source: str  # Short human-readable description ("env", "flag", "context default", ...)
+    source: (
+        str  # Short human-readable description ("env", "flag", "context default", ...)
+    )
     # A longer trace (list of "tried source -> result") for `--why`.
     trace: tuple[str, ...] = ()
 
