@@ -127,7 +127,10 @@ def _resolve_and_inject_app(
     resolution = resolve_app(cli_app=flags.app, config=config)
 
     if flags.why:
-        printer.print_debug(format_trace(resolution), min_level=0)
+        # Always print the resolution trace to stderr, regardless of verbosity
+        # or json_output setting. `--why` is an explicit user request for
+        # diagnostic output and shouldn't be gated.
+        print(format_trace(resolution), file=sys.stderr)
 
     if not scoped or not resolution.resolved:
         return cli_args

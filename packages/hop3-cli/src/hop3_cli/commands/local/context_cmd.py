@@ -23,14 +23,24 @@ def handle_context(args: list[str], config: Config, printer: RichPrinter) -> Non
     """Handle the context command for managing server contexts.
 
     Usage:
-        hop3 context list
-        hop3 context current
-        hop3 context use <name>
-        hop3 context add <name> --server <url> [--protected] [--token <token>]
+        hop3 context                       Show current context state + subcommand list
+        hop3 context list                  List all configured contexts
+        hop3 context show [<name>]         Show details of a context
+        hop3 context use [--app <a>] <n>   Switch active context (optionally set default app)
+        hop3 context add <name> --server <url> [options]
         hop3 context remove <name>
+        hop3 context rename <old> <new>
+
+    Per ADR 036 D8: bare `hop3 context` prints the current active state AND a
+    short hint to help new users discover subcommands without having to pass
+    `--help`.
     """
-    if not args or args[0] in {"--help", "-h"}:
+    if args and args[0] in {"--help", "-h"}:
         print_context_help()
+        return
+
+    if not args:
+        _context_bare(config, printer)
         return
 
     subcommand = args[0]
@@ -38,18 +48,51 @@ def handle_context(args: list[str], config: Config, printer: RichPrinter) -> Non
 
     if subcommand == "list":
         context_list(config, printer)
-    elif subcommand == "current":
-        context_current(config, printer)
+    elif subcommand == "show":
+        context_show(sub_args, config, printer)
     elif subcommand == "use":
         context_use(sub_args, config, printer)
     elif subcommand == "add":
         context_add(sub_args, config, printer)
     elif subcommand == "remove":
         context_remove(sub_args, config, printer)
+    elif subcommand == "rename":
+        context_rename(sub_args, config, printer)
     else:
         print(f"Unknown context subcommand: {subcommand}", file=sys.stderr)
         print_context_help()
         sys.exit(1)
+
+
+def _context_bare(config: Config, printer: RichPrinter) -> None:
+    """Bare `hop3 context` — show current state + a short discoverability hint.
+
+    Per ADR 036 D8: answers the implicit question "what would happen if I ran
+    an app-scoped command right now?".
+    """
+    current = config.get_current_context_name()
+    context = config.get_current_context()
+
+    if current and context:
+        source = _get_context_source(config, current)
+        print(f"Current context: {current}  (via {source})")
+        print(f"  Server:      {context.api_url}")
+        if context.protected:
+            print("  Protected:   yes")
+        if context.default_app:
+            print(f"  Default app: {context.default_app}")
+        else:
+            print("  Default app: (none — set with `hop3 use <app>`)")
+    else:
+        print("No active context.")
+        if config.has_contexts():
+            print("  Use `hop3 context use <name>` to select one.")
+        else:
+            print("  Use `hop3 context add <name> --server <url>` to create one.")
+
+    print()
+    print("Subcommands: list, show, use, add, remove, rename")
+    print("Run `hop3 context --help` for details.")
 
 
 def context_list(config: Config, printer: RichPrinter) -> None:
@@ -78,12 +121,15 @@ def context_list(config: Config, printer: RichPrinter) -> None:
     print(f"\nCurrent context: {current or '(none)'}")
 
 
-def context_current(config: Config, printer: RichPrinter) -> None:
-    """Show the current context and its source."""
-    current = config.get_current_context_name()
-    context = config.get_current_context()
+def context_show(args: list[str], config: Config, printer: RichPrinter) -> None:
+    """Show details of a context (by name, or the currently active one)."""
+    target: str | None
+    if args and not args[0].startswith("--"):
+        target = args[0]
+    else:
+        target = config.get_current_context_name()
 
-    if not current:
+    if not target:
         print("No current context set.")
         if config.has_contexts():
             print("\nUse 'hop3 context use <name>' to select a context.")
@@ -91,22 +137,31 @@ def context_current(config: Config, printer: RichPrinter) -> None:
             print("\nUse 'hop3 context add <name> --server <url>' to add a context.")
         return
 
-    # Determine source of current context
-    source = _get_context_source(config, current)
+    contexts = config.get_contexts()
+    context = contexts.get(target)
+    if not context:
+        print(f"Context '{target}' not found.", file=sys.stderr)
+        if contexts:
+            print(f"\nAvailable contexts: {', '.join(sorted(contexts.keys()))}")
+        sys.exit(1)
 
-    print(f"Current context: {current}")
-    print(f"  Source: {source}")
-    if context:
-        print(f"  Server: {context.api_url}")
-        if context.protected:
-            print("  Protected: yes (requires confirmation for destructive operations)")
-        if context.api_token:
-            token_display = (
-                context.api_token[:20] + "..."
-                if len(context.api_token) > 20
-                else context.api_token
-            )
-            print(f"  Token: {token_display}")
+    active = config.get_current_context_name()
+    is_active = target == active
+    print(f"Context: {target}{' (active)' if is_active else ''}")
+    if is_active:
+        print(f"  Source:      {_get_context_source(config, target)}")
+    print(f"  Server:      {context.api_url}")
+    if context.protected:
+        print("  Protected:   yes (requires confirmation for destructive operations)")
+    if context.default_app:
+        print(f"  Default app: {context.default_app}")
+    if context.api_token:
+        token_display = (
+            context.api_token[:20] + "..."
+            if len(context.api_token) > 20
+            else context.api_token
+        )
+        print(f"  Token:       {token_display}")
 
 
 def _get_context_source(config: Config, context_name: str) -> str:
@@ -131,23 +186,33 @@ def _get_context_source(config: Config, context_name: str) -> str:
     return "global config"
 
 
-def _parse_context_use_args(args: list[str]) -> tuple[str | None, bool, bool]:
+def _parse_context_use_args(
+    args: list[str],
+) -> tuple[str | None, bool, bool, str | None]:
     """Parse context use arguments.
 
     Returns:
-        Tuple of (context_name, use_local, use_global)
+        Tuple of (context_name, use_local, use_global, app).
+        `app` is the value of `--app <name>` if given (ADR 036 D7/D8).
     """
     use_local = "--local" in args
     use_global = "--global" in args
 
-    # Get the context name (first non-flag argument)
-    name = None
-    for arg in args:
-        if not arg.startswith("--"):
-            name = arg
-            break
+    app: str | None = None
+    name: str | None = None
 
-    return name, use_local, use_global
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg in {"--app", "-a"} and i + 1 < len(args):
+            app = args[i + 1]
+            i += 2
+            continue
+        if not arg.startswith("--") and arg != "-a" and name is None:
+            name = arg
+        i += 1
+
+    return name, use_local, use_global, app
 
 
 def _context_use_global(name: str, config: Config, context) -> None:
@@ -185,24 +250,21 @@ def _context_use_default(name: str, context) -> None:
 
 
 def context_use(args: list[str], config: Config, printer: RichPrinter) -> None:
-    """Switch to a different context.
+    """Switch to a different context (ADR 036 D7/D8).
 
     By default, prints instructions to set the environment variable (safest).
     Use --local to write to .hop3-context file in current directory.
     Use --global to persist to global config (affects all terminals).
+    Use --app <name> to also set the context's default app in one shot.
     """
     if not args:
-        print("Usage: hop3 context use [--local | --global] <name>", file=sys.stderr)
-        print("\nOptions:")
-        print("  (default)   Print export command for this shell only")
-        print("  --local     Write to .hop3-context in current directory")
-        print("  --global    Set as global default (affects all terminals)")
+        _print_context_use_usage()
         sys.exit(1)
 
-    name, use_local, use_global = _parse_context_use_args(args)
+    name, use_local, use_global, app = _parse_context_use_args(args)
 
     if not name:
-        print("Usage: hop3 context use [--local | --global] <name>", file=sys.stderr)
+        _print_context_use_usage()
         sys.exit(1)
 
     # Validate context exists
@@ -216,12 +278,78 @@ def context_use(args: list[str], config: Config, printer: RichPrinter) -> None:
     # Get context details for display
     context = config.get_contexts().get(name)
 
+    # Apply --app (if any): sets the context's default_app. This works
+    # independently of --local/--global/(default) scope because it's always
+    # persisted to the named context's entry.
+    if app is not None:
+        config.set_default_app(app, context_name=name)
+        print(f"Set default app for context '{name}' to '{app}'.")
+
     if use_global:
         _context_use_global(name, config, context)
     elif use_local:
         _context_use_local(name, config, context)
     else:
         _context_use_default(name, context)
+
+
+def _print_context_use_usage() -> None:
+    print(
+        "Usage: hop3 context use [--local | --global] [--app <name>] <name>",
+        file=sys.stderr,
+    )
+    print("\nOptions:")
+    print("  (default)       Print export command for this shell only")
+    print("  --local         Write to .hop3-context in current directory")
+    print("  --global        Set as global default (affects all terminals)")
+    print("  --app <name>    Also set this context's default app (ADR 036 D7/D8)")
+
+
+def context_rename(args: list[str], config: Config, printer: RichPrinter) -> None:
+    """Rename a context: `hop3 context rename <old> <new>`."""
+    if len(args) < 2:
+        print("Usage: hop3 context rename <old-name> <new-name>", file=sys.stderr)
+        sys.exit(1)
+
+    old_name, new_name = args[0], args[1]
+    contexts = config.get_contexts()
+
+    if old_name not in contexts:
+        print(f"Context '{old_name}' not found.", file=sys.stderr)
+        sys.exit(1)
+    if new_name in contexts:
+        print(
+            f"Context '{new_name}' already exists. Pick a different name or remove the existing one first.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if not new_name or new_name.startswith("-"):
+        print(f"Invalid context name: {new_name!r}", file=sys.stderr)
+        sys.exit(1)
+
+    # Copy old context data under new name, then remove old.
+    old_ctx = contexts[old_name]
+    config.add_context(
+        name=new_name,
+        api_url=old_ctx.api_url,
+        api_token=old_ctx.api_token,
+        protected=old_ctx.protected,
+        ssh_user=old_ctx.ssh_user,
+        ssh_port=old_ctx.ssh_port,
+    )
+    # Preserve non-canonical fields not covered by add_context's args.
+    config.data["contexts"][new_name]["ssh_key"] = old_ctx.ssh_key
+    config.data["contexts"][new_name]["ssl_cert"] = old_ctx.ssl_cert
+    config.data["contexts"][new_name]["verify_ssl"] = old_ctx.verify_ssl
+    config.data["contexts"][new_name]["default_app"] = old_ctx.default_app
+
+    # If the old context was the global current, retarget it.
+    if config.data.get("current_context") == old_name:
+        config.data["current_context"] = new_name
+
+    config.remove_context(old_name)
+
+    print(f"Renamed context '{old_name}' -> '{new_name}'.")
 
 
 def _parse_context_add_args(

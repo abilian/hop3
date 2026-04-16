@@ -117,11 +117,13 @@ Quick start (SSH-based servers):
   hop3 apps  # Just works - auto-authenticates via SSH!
 
 Subcommands:
+  (bare)            Show current state (active context + default app + source)
   list              List all configured contexts
-  current           Show the current context and its source
+  show [<name>]     Show details of a context (current by default)
   use <name>        Switch to a different context
   add <name> [opts] Add a new context
   remove <name>     Remove a context
+  rename <old> <new>  Rename a context
 
 Add options:
   --server <url>    Server URL (required, e.g., ssh://root@server.com)
@@ -135,6 +137,7 @@ Use options:
   (default)         Print 'export HOP3_CONTEXT=...' for this shell only
   --local           Write to .hop3-context file in current directory
   --global          Set as global default (affects ALL terminals)
+  --app <name>      Also set this context's default app (ADR 036 D7/D8)
 
 Examples:
   # Setup for development and production
