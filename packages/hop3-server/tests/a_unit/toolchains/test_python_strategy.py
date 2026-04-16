@@ -14,8 +14,6 @@ Covers:
 
 from __future__ import annotations
 
-import pytest
-
 from hop3.toolchains.python import _pyproject_is_poetry_only
 
 

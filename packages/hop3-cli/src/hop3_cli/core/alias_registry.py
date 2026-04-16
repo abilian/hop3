@@ -114,12 +114,10 @@ def build_registry(
         if alias.source_token in registry.aliases:
             existing = registry.aliases[alias.source_token]
             # Plugin collision against core — skip the plugin's entry.
-            registry.skipped.append(
-                (
-                    alias.source_token,
-                    f"plugin alias collides with {existing.origin} alias",
-                )
-            )
+            registry.skipped.append((
+                alias.source_token,
+                f"plugin alias collides with {existing.origin} alias",
+            ))
             continue
         registry.aliases[alias.source_token] = alias
 
@@ -127,12 +125,10 @@ def build_registry(
     for alias in user_aliases or []:
         if alias.source_token in registry.aliases:
             existing = registry.aliases[alias.source_token]
-            registry.skipped.append(
-                (
-                    alias.source_token,
-                    f"user alias shadows {existing.origin} alias (skipped)",
-                )
-            )
+            registry.skipped.append((
+                alias.source_token,
+                f"user alias shadows {existing.origin} alias (skipped)",
+            ))
             continue
         registry.aliases[alias.source_token] = alias
 
@@ -216,15 +212,15 @@ def cached_subcommand_index() -> dict[str, set[str]]:
     keeps alias resolution robust even on first-run (cache cold).
     """
     # Try the cache that `hop3 completion --refresh` writes.
-    cache = Path(
-        os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache"
-    ) / "hop3" / "commands.txt"
+    cache = (
+        Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
+        / "hop3"
+        / "commands.txt"
+    )
     if cache.is_file():
         try:
             names = [
-                line.strip()
-                for line in cache.read_text().splitlines()
-                if line.strip()
+                line.strip() for line in cache.read_text().splitlines() if line.strip()
             ]
             return build_subcommand_index(names)
         except OSError:
@@ -234,27 +230,73 @@ def cached_subcommand_index() -> dict[str, set[str]]:
     # These are the names we documented in the command catalog.
     return {
         "app": {
-            "create", "destroy", "rename", "show", "list", "launch", "sbom",
-            "env", "debug", "ping", "build-logs", "start", "stop", "restart",
+            "create",
+            "destroy",
+            "rename",
+            "show",
+            "list",
+            "launch",
+            "sbom",
+            "env",
+            "debug",
+            "ping",
+            "build-logs",
+            "start",
+            "stop",
+            "restart",
         },
         "addon": {
-            "list", "create", "destroy", "attach", "detach", "show", "status",
-            "console", "tunnel", "credentials", "logs", "wait", "backup",
+            "list",
+            "create",
+            "destroy",
+            "attach",
+            "detach",
+            "show",
+            "status",
+            "console",
+            "tunnel",
+            "credentials",
+            "logs",
+            "wait",
+            "backup",
         },
         "config": {
-            "show", "get", "set", "unset", "live", "migrate",
+            "show",
+            "get",
+            "set",
+            "unset",
+            "live",
+            "migrate",
         },
         "auth": {
-            "login", "logout", "whoami", "register", "magic-link",
+            "login",
+            "logout",
+            "whoami",
+            "register",
+            "magic-link",
         },
         "plugin": {"list", "show", "install", "uninstall"},
         "backup": {"create", "list", "show", "restore", "destroy"},
         "context": {"list", "show", "use", "add", "remove", "rename"},
         "user": {
-            "add", "remove", "show", "list", "enable", "disable",
-            "grant-admin", "revoke-admin", "set-password", "generate-token",
+            "add",
+            "remove",
+            "show",
+            "list",
+            "enable",
+            "disable",
+            "grant-admin",
+            "revoke-admin",
+            "set-password",
+            "generate-token",
         },
         "system": {
-            "check", "info", "status", "uptime", "ps", "logs", "cleanup",
+            "check",
+            "info",
+            "status",
+            "uptime",
+            "ps",
+            "logs",
+            "cleanup",
         },
     }

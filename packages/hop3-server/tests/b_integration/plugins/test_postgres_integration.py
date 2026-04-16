@@ -126,9 +126,7 @@ class TestPostgresCreate:
         # Database should still exist
         assert _database_exists(admin, postgres_addon.db_name)
 
-    def test_per_app_user_can_install_trusted_extension(
-        self, postgres_addon, admin
-    ):
+    def test_per_app_user_can_install_trusted_extension(self, postgres_addon, admin):
         """Per-app user should be able to CREATE EXTENSION for trusted extensions.
 
         On PG 15+, `public` schema CREATE is revoked from PUBLIC by default;
@@ -143,21 +141,17 @@ class TestPostgresCreate:
         # Connect as the per-app user (not admin) to the per-app database.
         details = postgres_addon.get_connection_details()
         conn = psycopg2.connect(
-            host=details["host"],
-            port=details["port"],
-            database=details["database"],
-            user=details["user"],
-            password=details["password"],
+            host=details["PGHOST"],
+            port=int(details["PGPORT"]),
+            dbname=details["PGDATABASE"],
+            user=details["PGUSER"],
+            password=details["PGPASSWORD"],
         )
-        conn.set_isolation_level(
-            psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT
-        )
+        conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
         try:
             with conn.cursor() as cursor:
                 cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
-                cursor.execute(
-                    "SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm'"
-                )
+                cursor.execute("SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm'")
                 assert cursor.fetchone() is not None, (
                     "pg_trgm extension was not installed"
                 )

@@ -88,7 +88,7 @@ def test_tampered_token_payload(client: TestClient, valid_token: str, secret_key
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": f"Bearer {tampered_token}"},
@@ -114,7 +114,7 @@ def test_token_signed_with_wrong_key(client: TestClient):
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": f"Bearer {malicious_token}"},
@@ -153,7 +153,7 @@ def test_token_with_none_algorithm(client: TestClient):
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": f"Bearer {malicious_token}"},
@@ -175,7 +175,7 @@ def test_empty_authorization_header(client: TestClient):
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": ""},
@@ -193,7 +193,7 @@ def test_authorization_header_without_bearer_prefix(
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": valid_token},  # Missing "Bearer" prefix
@@ -210,7 +210,7 @@ def test_authorization_header_case_sensitivity(client: TestClient, valid_token: 
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": f"bearer {valid_token}"},
@@ -228,7 +228,7 @@ def test_multiple_bearer_tokens(client: TestClient, valid_token: str):
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": f"Bearer {valid_token} Bearer fake-token"},
@@ -245,7 +245,7 @@ def test_whitespace_in_token(client: TestClient, valid_token: str):
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": f"Bearer  {valid_token}  "},  # Extra spaces
@@ -300,7 +300,7 @@ def test_token_without_exp_claim(client: TestClient):
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": f"Bearer {no_exp_token}"},
@@ -328,7 +328,7 @@ def test_token_with_invalid_exp_type(client: TestClient):
             json={
                 "jsonrpc": "2.0",
                 "method": "cli",
-                "params": {"cli_args": ["apps"], "extra_args": {}},
+                "params": {"cli_args": ["app", "list"], "extra_args": {}},
                 "id": 1,
             },
             headers={"Authorization": f"Bearer {malformed_token}"},
@@ -412,7 +412,7 @@ def test_jsonrpc_without_method(client: TestClient, valid_token: str):
             json={
                 "jsonrpc": "2.0",
                 # Missing "method"
-                "params": {"cli_args": ["apps"], "extra_args": {}},
+                "params": {"cli_args": ["app", "list"], "extra_args": {}},
                 "id": 1,
             },
             headers={"Authorization": f"Bearer {valid_token}"},
@@ -436,7 +436,7 @@ def test_jsonrpc_with_invalid_version(client: TestClient, valid_token: str):
             json={
                 "jsonrpc": "1.0",  # Wrong version
                 "method": "cli",
-                "params": {"cli_args": ["apps"], "extra_args": {}},
+                "params": {"cli_args": ["app", "list"], "extra_args": {}},
                 "id": 1,
             },
             headers={"Authorization": f"Bearer {valid_token}"},
@@ -464,7 +464,7 @@ def test_jsonrpc_batch_request(client: TestClient, valid_token: str):
                 {
                     "jsonrpc": "2.0",
                     "method": "cli",
-                    "params": {"cli_args": ["apps"], "extra_args": {}},
+                    "params": {"cli_args": ["app", "list"], "extra_args": {}},
                     "id": 2,
                 },
             ],
@@ -584,7 +584,7 @@ def test_token_with_invalid_scopes(client: TestClient):
         json={
             "jsonrpc": "2.0",
             "method": "cli",
-            "params": {"cli_args": ["apps"], "extra_args": {}},
+            "params": {"cli_args": ["app", "list"], "extra_args": {}},
             "id": 1,
         },
         headers={"Authorization": f"Bearer {invalid_scope_token}"},

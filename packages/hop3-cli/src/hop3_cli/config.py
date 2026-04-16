@@ -460,9 +460,7 @@ class Config:
         self.data["contexts"][name]["api_token"] = token
         self.save()
 
-    def set_default_app(
-        self, app: str | None, context_name: str | None = None
-    ) -> str:
+    def set_default_app(self, app: str | None, context_name: str | None = None) -> str:
         """Set (or clear) the default app for a context (ADR 036 D7/D8).
 
         Args:

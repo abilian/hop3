@@ -242,9 +242,11 @@ def test_help_commands_returns_command_list():
     assert len(commands) > 0
     assert all(isinstance(c, str) for c in commands)
 
-    # Should include some known commands
+    # Should include some known commands. The list server-side uses canonical
+    # names (ADR 036 D9); the `apps` form is a client-side alias, not a
+    # canonical server command name.
     assert "help" in commands
-    assert "apps" in commands
+    assert "app list" in commands
 
     # Should be sorted
     assert commands == sorted(commands)

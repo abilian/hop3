@@ -10,7 +10,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-
 from hop3_cli.commands.local.context_cmd import (
     _context_bare,
     _parse_context_use_args,

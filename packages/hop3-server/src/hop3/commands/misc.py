@@ -58,7 +58,9 @@ class VersionCmd(Command):
 class PluginsCmd(Command):
     """List installed plugins and their commands."""
 
-    name: ClassVar[tuple[str, ...]] = ("plugins",)
+    # Canonical name is `plugin list` per ADR 036 D9 (plural `plugins` is the
+    # alias, resolved client-side in `hop3_cli.core.aliases.CORE_ALIASES`).
+    name: ClassVar[tuple[str, ...]] = ("plugin", "list")
 
     def call(self, *args):
         # This implementation introspects the command registry
