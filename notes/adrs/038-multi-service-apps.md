@@ -316,6 +316,6 @@ This is the shape the plugin should emit and the shape the user (eventually) wri
 ## References
 
 - `notes/experience-reports/00-aggregate.md` §Multi-Component Applications
-- `local-notes/feedback-for-hop3-devs.md` #11 (AppFlowy Cloud)
+- AppFlowy Cloud packaging attempt (internal report; surfaces the multi-component gap this ADR addresses)
 - ADR 022: Build and Deployment Plugin System
 - ADR 032: Deployment Strategies and Artifact Lifecycle

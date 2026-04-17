@@ -1,10 +1,20 @@
 # Lessons Learned
 
-This document captures key lessons learned during Hop3 development to help avoid repeating mistakes.
+This directory collects lessons learned during Hop3 development, to help avoid repeating mistakes.
+
+## Topic deep dives
+
+- [`database-addon-portability.md`](./database-addon-portability.md) — PostgreSQL and MySQL connectivity across native and Docker deployment.
+- [`deployment-diagnostics.md`](./deployment-diagnostics.md) — Making deployment failures actionable.
+- [`e2e-test-infrastructure.md`](./e2e-test-infrastructure.md) — Building and running the E2E suite.
+- [`multi-distribution-support.md`](./multi-distribution-support.md) — Debian / Red Hat / Fedora parity patterns.
+- [`native-apps-caveats.md`](./native-apps-caveats.md) — Caveats specific to `builder = "local"` native deployments.
+- [`nix-packaging.md`](./nix-packaging.md) — Gotchas from the Nix integration effort.
+- [`uwsgi-daemon-management.md`](./uwsgi-daemon-management.md) — Emperor / vassal lifecycle, attach-daemon env propagation.
 
 ---
 
-## Quick Reference
+## Quick Reference (numbered lesson index)
 
 | # | Lesson |
 |---|--------|

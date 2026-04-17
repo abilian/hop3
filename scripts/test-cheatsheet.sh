@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test script based on notes/testing-cheat-sheet.md
+# Test script based on notes/testing/cheat-sheet.md
 # Runs hop3-test commands, echoing each before execution
 # Stops on first failure
 

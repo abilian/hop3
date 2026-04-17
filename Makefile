@@ -97,7 +97,7 @@ update-tocs:
 	uv run markdown-toc --maxdepth 3 -i README.md
 	# uv run markdown-toc --maxdepth 3 -i notes/todo/TODO-next.md
 	# uv run markdown-toc --maxdepth 3 -i notes/todo/TODO-NGI.md
-	uv run markdown-toc --maxdepth 3 -i notes/test-status.md
+	uv run markdown-toc --maxdepth 3 -i notes/testing/status.md
 
 ## Run security audit
 audit:

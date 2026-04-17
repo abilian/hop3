@@ -260,7 +260,7 @@ hop3-test ci       # CI-level tests
 hop3-test nightly  # Full test suite
 ```
 
-See `notes/testing-cheat-sheet.md` for complete CLI reference.
+See [`cheat-sheet.md`](./cheat-sheet.md) for complete CLI reference.
 
 ---
 

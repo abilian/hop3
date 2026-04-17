@@ -1,0 +1,40 @@
+# Hop3 Configuration for MediaWiki (Native build)
+# The wiki engine that runs Wikipedia.
+
+[metadata]
+id = "mediawiki"
+version = "1.41.2"
+title = "MediaWiki"
+description = "Free wiki platform — the software powering Wikipedia"
+homepage = "https://www.mediawiki.org/"
+license = "GPL-2.0-or-later"
+categories = ["wiki", "knowledge-base", "collaboration"]
+
+[build]
+builder = "local"
+toolchain = "php"
+tier = "medium"
+before-build = "bash scripts/download.sh"
+build = "composer install --no-dev --optimize-autoloader"
+
+[run]
+before-run = "bash scripts/setup-config.sh"
+# PHP's built-in server is sufficient for single-process deployment.
+# Router script ensures MediaWiki's pretty-URL/rewrite expectations
+# work without an external web server.
+start = "php -S 0.0.0.0:$PORT"
+start-timeout = 180
+
+[[addons]]
+type = "postgres"
+
+[env]
+MW_ADMIN_USER = "admin"
+MW_SITENAME = "Hop3 MediaWiki"
+MW_LANG = "en"
+
+[healthcheck]
+# /index.php redirects (301) to /index.php/Main_Page; api.php returns
+# a stable 200 HTML help page with no params — unambiguous readiness
+# signal once `install.php` has written LocalSettings.php.
+path = "/api.php"

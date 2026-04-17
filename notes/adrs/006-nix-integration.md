@@ -224,7 +224,7 @@ Hop3 will integrate Nix to take advantage of its strengths in reproducible build
 6. **Phase 3** (ADR 008): Auto-generation via dream2nix/nixpacks
 7. **Phase 4** (ADR 009): NixOS runtime integration
 
-See `local-notes/nix-pending-questions.md` for deferred decisions.
+Deferred design questions (Nix-store GC, multi-app isolation, sandbox policy) are tracked internally and folded into the follow-up ADRs as they land.
 
 ## File Locations
 

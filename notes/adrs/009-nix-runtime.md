@@ -27,7 +27,7 @@
 
 These are legitimately future work. They deliver additional reproducibility guarantees (the OS itself is now Nix-managed) at the cost of narrowing the installation target from "any Debian/Red-Hat host" to "NixOS host". That trade-off is not worth making before the quantitative evaluation (§5.5 of TR-01) has demonstrated the reproducibility benefits of the current Phase-1+3 integration.
 
-**Pending design questions**: See `local-notes/nix-pending-questions.md` (Q6, Q7).
+**Pending design questions**: Q6 (Nix-managed backing services provisioning semantics) and Q7 (NixOS-container isolation boundary) are tracked internally and will be folded into this ADR when the Phase-1+3 evaluation completes.
 
 ### Interaction with ADR 023 (Runtime Stack Replacement)
 
