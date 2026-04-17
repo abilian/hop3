@@ -30,12 +30,26 @@ class RichPrinter:
     _console: Console = field(init=False, repr=False, compare=False)
     _console_err: Console = field(init=False, repr=False, compare=False)
     _json_buffer: list[dict[str, Any]] = field(init=False, repr=False, compare=False)
+    # ADR 036 D19c: current context/app used to build the [ctx / app] prefix
+    # for summary lines. Populated by set_scope() after resolution.
+    _scope: dict[str, str | None] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Initialize console after dataclass creation."""
         object.__setattr__(self, "_console", Console(stderr=False))
         object.__setattr__(self, "_console_err", Console(stderr=True))
         object.__setattr__(self, "_json_buffer", [])
+        object.__setattr__(self, "_scope", {"context": None, "app": None})
+
+    def set_scope(self, *, context: str | None, app: str | None) -> None:
+        """Set the active context/app used to prefix summary lines (ADR 036 D19c).
+
+        Called by the main dispatch once the effective context and app are
+        known (post alias expansion and app resolution). Safe to call with
+        None values — the prefix simply omits the missing side.
+        """
+        self._scope["context"] = context
+        self._scope["app"] = app
 
     @property
     def verbosity(self) -> int:
@@ -139,7 +153,11 @@ class RichPrinter:
         self.console.print(f"[bold green]✓[/bold green] {text}")
 
     def print_warning(self, obj: dict) -> None:
-        """Print warning messages in yellow."""
+        """Print warning messages in yellow.
+
+        Routed to stderr per ADR 036 D19: warnings are status, not data;
+        keeping them off stdout means ``hop3 cmd | grep`` doesn't see them.
+        """
         if self.quiet:
             return
 
@@ -148,10 +166,10 @@ class RichPrinter:
             return
 
         text = obj.get("text", "")
-        self.console.print(f"[bold yellow]⚠[/bold yellow] {text}")
+        self.console_err.print(f"[bold yellow]⚠[/bold yellow] {text}")
 
     def print_info(self, obj: dict) -> None:
-        """Print info messages in blue."""
+        """Print info messages in blue (stderr per ADR 036 D19)."""
         if self.quiet:
             return
 
@@ -160,10 +178,10 @@ class RichPrinter:
             return
 
         text = obj.get("text", "")
-        self.console.print(f"[bold blue]i[/bold blue] {text}")
+        self.console_err.print(f"[bold blue]i[/bold blue] {text}")
 
     def print_progress(self, obj: dict) -> None:
-        """Print progress indicator."""
+        """Print progress indicator (stderr per ADR 036 D19)."""
         if self.quiet:
             return
 
@@ -174,7 +192,7 @@ class RichPrinter:
         text = obj.get("text", "")
         # For now, just print with a spinner emoji
         # TODO: Implement real progress bar for long operations
-        self.console.print(f"[cyan]⏳[/cyan] {text}")
+        self.console_err.print(f"[cyan]⏳[/cyan] {text}")
 
     def print_log(self, obj: dict) -> None:
         """Print deployment log entry with appropriate color and verbosity filtering.
@@ -230,6 +248,38 @@ class RichPrinter:
         # In normal mode, pretty-print the data payload
         data = obj.get("data", {})
         self.console.print(json.dumps(data, indent=2))
+
+    def print_summary(self, obj: dict) -> None:
+        """Print a state-change summary line (ADR 036 D19c).
+
+        Summaries are the one-or-two-line confirmation a mutating command
+        prints after it succeeds ("set FOO=bar; restarted web worker.").
+        Routed to stderr so ``hop3 cmd | grep`` pipelines stay clean, with
+        a ``[context / app]`` prefix so the user can see at a glance where
+        the change landed.
+        """
+        if self.json_output:
+            self.json_buffer.append(obj)
+            return
+
+        # Summaries survive --quiet: they're the one signal a script might
+        # scrape to confirm "the thing actually happened". If this turns out
+        # to be too noisy in practice, tighten later.
+        text = obj.get("text", "")
+        ctx = self._scope.get("context")
+        app = self._scope.get("app")
+        if ctx and app:
+            prefix = f"[{ctx} / {app}]"
+        elif ctx:
+            prefix = f"[{ctx}]"
+        elif app:
+            prefix = f"[{app}]"
+        else:
+            prefix = ""
+        line = f"{prefix} {text}".strip() if prefix else text
+        # Escape Rich markup so the brackets in the prefix and any user
+        # text aren't reinterpreted as style tags.
+        self.console_err.print(rich_escape(line))
 
     def print_panel(self, obj: dict) -> None:
         """Print text in a panel/box."""

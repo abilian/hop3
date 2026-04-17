@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
@@ -168,5 +169,5 @@ def test_unreadable_dotfile_is_ignored(
 
 def test_appresolution_dataclass_is_frozen() -> None:
     r = AppResolution(app="foo", source="test")
-    with pytest.raises(Exception):  # dataclass is frozen, so FrozenInstanceError
+    with pytest.raises(FrozenInstanceError):
         r.app = "bar"  # type: ignore[misc]

@@ -538,7 +538,7 @@ hop3 config show myapp
 
 ```bash
 # Verify addon is attached
-hop3 addons list
+hop3 addon list
 
 # Check DATABASE_URL is set
 hop3 config show myapp | grep DATABASE

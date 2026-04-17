@@ -24,6 +24,10 @@ if TYPE_CHECKING:
 CACHE_DIR = Path.home() / ".cache" / "hop3"
 COMMANDS_CACHE_FILE = CACHE_DIR / "commands.json"
 COMMANDS_CACHE_TXT = CACHE_DIR / "commands.txt"  # Plain text for shell scripts
+# Per ADR 036 M8.3: app names are cached alongside commands so shell
+# completion (and the did-you-mean fallback) can suggest real apps without
+# making a live RPC call on every TAB press.
+APPS_CACHE_TXT = CACHE_DIR / "apps.txt"
 
 # Static list of known commands (fallback when cache unavailable)
 # These are embedded for static completion without server access
@@ -492,7 +496,7 @@ def write_commands_cache(commands: list[str]) -> None:
 
 
 def refresh_commands_cache(config: Config, printer: RichPrinter) -> None:
-    """Fetch commands from server and update the cache.
+    """Fetch commands (and app names) from server and update the cache.
 
     Args:
         config: CLI configuration
@@ -547,6 +551,14 @@ def refresh_commands_cache(config: Config, printer: RichPrinter) -> None:
                 f"✓ Cached {len(all_commands)} commands to {COMMANDS_CACHE_TXT}",
                 file=sys.stderr,
             )
+
+            # ADR 036 M8.3: also refresh the app-name cache. We do this in the
+            # same invocation because it's what the user would expect from
+            # "refresh completions" — both pools are stale at the same moments.
+            # A failure to fetch apps doesn't fail the whole refresh: commands
+            # already cached successfully and the apps cache is strictly extra.
+            _refresh_apps_cache(client)
+
             print(
                 "Your shell completions will now use the updated command list.",
                 file=sys.stderr,
@@ -555,6 +567,63 @@ def refresh_commands_cache(config: Config, printer: RichPrinter) -> None:
     except Exception as e:
         print(f"Error connecting to server: {e}", file=sys.stderr)
         sys.exit(1)
+
+
+def _refresh_apps_cache(client) -> None:
+    """Fetch the app list and write names to APPS_CACHE_TXT.
+
+    Non-fatal: if the fetch fails the commands cache still wrote. The app
+    cache is only used by completion + did-you-mean, so stale is better
+    than crashing the refresh.
+    """
+    from jsonrpcclient import Ok  # noqa: PLC0415
+
+    try:
+        resp = client.rpc("cli", ["app", "list"])
+    except Exception as e:
+        print(f"  (app cache: fetch failed: {e})", file=sys.stderr)
+        return
+
+    if not isinstance(resp, Ok) or not isinstance(resp.result, list):
+        print("  (app cache: unexpected response)", file=sys.stderr)
+        return
+
+    apps: list[str] = []
+    for item in resp.result:
+        if item.get("t") == "table":
+            rows = item.get("rows", [])
+            for row in rows:
+                if row and isinstance(row[0], str):
+                    apps.append(row[0])
+
+    if not apps:
+        # Either no apps, or different response shape; don't trash an
+        # existing cache with an empty file — skip instead.
+        print("  (app cache: no apps found; cache unchanged)", file=sys.stderr)
+        return
+
+    write_apps_cache(sorted(set(apps)))
+    print(f"✓ Cached {len(apps)} app name(s) to {APPS_CACHE_TXT}", file=sys.stderr)
+
+
+def write_apps_cache(apps: list[str]) -> None:
+    """Write the app name cache (plain text, one per line)."""
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    APPS_CACHE_TXT.write_text("\n".join(apps) + "\n")
+
+
+def read_apps_cache() -> list[str]:
+    """Read cached app names; empty list if cache is missing or unreadable."""
+    if not APPS_CACHE_TXT.is_file():
+        return []
+    try:
+        return [
+            line.strip()
+            for line in APPS_CACHE_TXT.read_text().splitlines()
+            if line.strip()
+        ]
+    except OSError:
+        return []
 
 
 def show_cache_status() -> None:

@@ -396,7 +396,7 @@ hop3-test apps --target remote --host server.example.com
 │                                                                      │
 │  4. For Each Test:                                                   │
 │     ├── Prepare app (copy to temp dir, init git)                    │
-│     ├── Deploy (hop3 app:deploy)                                    │
+│     ├── Deploy (hop3 deploy)                                        │
 │     ├── Verify deployment (hop3 apps)                               │
 │     ├── Run validations (HTTP checks, custom scripts)               │
 │     ├── Collect diagnostics on failure                              │

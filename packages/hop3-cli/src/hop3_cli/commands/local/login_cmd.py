@@ -138,16 +138,35 @@ def _parse_username_arg(args: list[str]) -> str | None:
 
 def _prompt_credentials(username: str | None) -> tuple[str, str]:
     """Prompt for username and password, return both."""
+    from hop3_cli.exit_codes import ExitCode  # noqa: PLC0415
+    from hop3_cli.ui.prompts import NoInputError, require_input_allowed  # noqa: PLC0415
+
     if not username:
+        try:
+            require_input_allowed("login")
+        except NoInputError as e:
+            print(
+                f"Error: {e}\n  Use --username <name> with credentials piped or set in env.",
+                file=sys.stderr,
+            )
+            sys.exit(ExitCode.USAGE_ERROR)
         username = input("Username: ").strip()
         if not username:
             print("Error: Username cannot be empty", file=sys.stderr)
-            sys.exit(1)
+            sys.exit(ExitCode.USAGE_ERROR)
 
+    try:
+        require_input_allowed("password entry")
+    except NoInputError as e:
+        print(
+            f"Error: {e}\n  Use HOP3_PASSWORD env var or pipe via --password-file -.",
+            file=sys.stderr,
+        )
+        sys.exit(ExitCode.USAGE_ERROR)
     password = getpass.getpass("Password: ")
     if not password:
         print("Error: Password cannot be empty", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(ExitCode.USAGE_ERROR)
 
     return username, password
 

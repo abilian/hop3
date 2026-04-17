@@ -1,0 +1,181 @@
+# Copyright (c) 2026, Abilian SAS
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Tests for --password-file / --stdin handling on user commands (ADR 036 G3)."""
+
+from __future__ import annotations
+
+import io
+import sys
+from typing import TYPE_CHECKING
+from unittest.mock import patch
+
+import pytest
+from hop3_cli.commands.arguments import (
+    _resolve_password_inputs,
+    _resolve_run_input,
+)
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+def test_user_add_with_password_file(tmp_path: Path) -> None:
+    pw_file = tmp_path / "pw.txt"
+    pw_file.write_text("s3cret\n", encoding="utf-8")
+
+    args = [
+        "user",
+        "add",
+        "alice",
+        "alice@example.com",
+        "--password-file",
+        str(pw_file),
+    ]
+    _resolve_password_inputs(args)
+
+    assert args == ["user", "add", "alice", "alice@example.com", "s3cret"]
+
+
+def test_user_add_with_password_file_equals_form(tmp_path: Path) -> None:
+    pw_file = tmp_path / "pw.txt"
+    pw_file.write_text("s3cret", encoding="utf-8")
+
+    args = ["user", "add", "alice", "alice@example.com", f"--password-file={pw_file}"]
+    _resolve_password_inputs(args)
+
+    assert args == ["user", "add", "alice", "alice@example.com", "s3cret"]
+
+
+def test_user_set_password_with_password_file(tmp_path: Path) -> None:
+    pw_file = tmp_path / "pw.txt"
+    pw_file.write_text("newpw", encoding="utf-8")
+
+    args = ["user", "set-password", "alice", "--password-file", str(pw_file)]
+    _resolve_password_inputs(args)
+
+    assert args == ["user", "set-password", "alice", "newpw"]
+
+
+def test_password_file_dash_means_stdin() -> None:
+    args = ["user", "add", "alice", "alice@example.com", "--password-file", "-"]
+    fake_stdin = io.StringIO("from-stdin\n")
+    with (
+        patch.object(sys, "stdin", fake_stdin),
+        patch.object(sys.stdin, "isatty", lambda: False, create=True),
+    ):
+        _resolve_password_inputs(args)
+    assert args[-1] == "from-stdin"
+
+
+def test_stdin_flag_reads_from_stdin() -> None:
+    args = ["user", "set-password", "alice", "--stdin"]
+    fake_stdin = io.StringIO("piped\n")
+    with (
+        patch.object(sys, "stdin", fake_stdin),
+        patch.object(sys.stdin, "isatty", lambda: False, create=True),
+    ):
+        _resolve_password_inputs(args)
+    assert args == ["user", "set-password", "alice", "piped"]
+
+
+def test_no_password_flag_is_noop() -> None:
+    args = ["user", "add", "alice", "alice@example.com", "secret"]
+    _resolve_password_inputs(args)
+    assert args == ["user", "add", "alice", "alice@example.com", "secret"]
+
+
+def test_unrelated_command_is_noop() -> None:
+    args = ["deploy", "myapp", "--password-file", "/tmp/x"]
+    _resolve_password_inputs(args)
+    # Untouched: only user add / user set-password get the rewrite.
+    assert args == ["deploy", "myapp", "--password-file", "/tmp/x"]
+
+
+def test_missing_password_file_path_raises() -> None:
+    args = ["user", "add", "alice", "alice@example.com", "--password-file"]
+    with pytest.raises(ValueError, match="requires a path"):
+        _resolve_password_inputs(args)
+
+
+def test_password_file_unreadable_raises() -> None:
+    args = [
+        "user",
+        "add",
+        "alice",
+        "alice@example.com",
+        "--password-file",
+        "/no/such/file",
+    ]
+    with pytest.raises(ValueError, match="Could not read password file"):
+        _resolve_password_inputs(args)
+
+
+def test_empty_password_file_raises(tmp_path: Path) -> None:
+    pw_file = tmp_path / "pw.txt"
+    pw_file.write_text("\n", encoding="utf-8")
+    args = [
+        "user",
+        "add",
+        "alice",
+        "alice@example.com",
+        "--password-file",
+        str(pw_file),
+    ]
+    with pytest.raises(ValueError, match="Password is empty"):
+        _resolve_password_inputs(args)
+
+
+def test_stdin_from_tty_refused() -> None:
+    args = ["user", "add", "alice", "alice@example.com", "--stdin"]
+    with patch.object(sys.stdin, "isatty", lambda: True, create=True):
+        with pytest.raises(ValueError, match="Refusing to read password"):
+            _resolve_password_inputs(args)
+
+
+# ---- _resolve_run_input (ADR 036 G3 for `hop run --input`) ----
+
+
+def test_run_input_dash_reads_stdin() -> None:
+    args = ["run", "myapp", "flask", "shell", "--input", "-"]
+    fake_stdin = io.StringIO("payload\n")
+    with (
+        patch.object(sys, "stdin", fake_stdin),
+        patch.object(sys.stdin, "isatty", lambda: False, create=True),
+    ):
+        _resolve_run_input(args)
+    assert args[-1] == "payload"
+
+
+def test_run_input_at_path_reads_file(tmp_path: Path) -> None:
+    f = tmp_path / "in.txt"
+    f.write_text("from-file\n", encoding="utf-8")
+    args = ["run", "myapp", "cat", "--input", f"@{f}"]
+    _resolve_run_input(args)
+    assert args[-1] == "from-file"
+
+
+def test_run_input_literal_unchanged() -> None:
+    args = ["run", "myapp", "echo", "--input", "literal"]
+    _resolve_run_input(args)
+    assert args[-1] == "literal"
+
+
+def test_run_input_unrelated_command_noop() -> None:
+    args = ["deploy", "myapp", "--input", "-"]
+    _resolve_run_input(args)
+    assert args == ["deploy", "myapp", "--input", "-"]
+
+
+def test_run_input_at_path_missing_file() -> None:
+    args = ["run", "myapp", "cat", "--input", "@/nope/missing"]
+    with pytest.raises(ValueError, match="Could not read --input file"):
+        _resolve_run_input(args)
+
+
+def test_run_input_dash_from_tty_refused() -> None:
+    args = ["run", "myapp", "cat", "--input", "-"]
+    with patch.object(sys.stdin, "isatty", lambda: True, create=True):
+        with pytest.raises(ValueError, match="Refusing to read --input"):
+            _resolve_run_input(args)

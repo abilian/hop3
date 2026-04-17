@@ -10,6 +10,7 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
+from hop3_cli.commands.flags import CliFlags
 from hop3_cli.main import (
     confirm_destructive_action,
     is_destructive_command,
@@ -222,3 +223,60 @@ def test_confirm_destructive_action_eof():
     with patch("builtins.input", side_effect=EOFError):
         result = confirm_destructive_action(["app", "destroy", "my-app"], printer)
         assert result is False
+
+
+# ---- M6: --confirm and --no-input flags ----
+
+
+def test_confirm_flag_matches_target_succeeds():
+    """--confirm=<name> matching the target accepts without prompting."""
+    printer = RichPrinter()
+    flags = CliFlags(confirm_value="my-app")
+    # No input mock — should not prompt
+    result = confirm_destructive_action(
+        ["app", "destroy", "my-app"], printer, flags=flags
+    )
+    assert result is True
+
+
+def test_confirm_flag_mismatch_fails():
+    """--confirm=<name> with the wrong value rejects without prompting."""
+    printer = RichPrinter()
+    flags = CliFlags(confirm_value="wrong-name")
+    result = confirm_destructive_action(
+        ["app", "destroy", "my-app"], printer, flags=flags
+    )
+    assert result is False
+
+
+def test_no_input_refuses_with_actionable_error(capsys):
+    """--no-input refuses to prompt and prints a helpful instruction."""
+    printer = RichPrinter()
+    flags = CliFlags(no_input=True)
+    result = confirm_destructive_action(
+        ["app", "destroy", "my-app"], printer, flags=flags
+    )
+    assert result is False
+    err = capsys.readouterr().err
+    assert "--no-input was passed" in err
+    assert "--confirm=my-app" in err
+
+
+def test_confirm_flag_for_backup_destroy():
+    """--confirm works for backup destroy too."""
+    printer = RichPrinter()
+    flags = CliFlags(confirm_value="20260101_120000_abc")
+    result = confirm_destructive_action(
+        ["backup", "destroy", "20260101_120000_abc"], printer, flags=flags
+    )
+    assert result is True
+
+
+def test_confirm_flag_for_addon_destroy():
+    """--confirm works for addon destroy."""
+    printer = RichPrinter()
+    flags = CliFlags(confirm_value="mydb")
+    result = confirm_destructive_action(
+        ["addon", "destroy", "mydb"], printer, flags=flags
+    )
+    assert result is True

@@ -96,12 +96,12 @@ def load_cached_commands(cache_path: Path | None = None) -> list[str]:
     as "no suggestions available" rather than as an error.
     """
     if cache_path is None:
-        cache_path = (
-            Path.home() / ".cache" / "hop3" / "commands.txt"
-        )
+        cache_path = Path.home() / ".cache" / "hop3" / "commands.txt"
     if not cache_path.is_file():
         return []
     try:
-        return [line.strip() for line in cache_path.read_text().splitlines() if line.strip()]
+        return [
+            line.strip() for line in cache_path.read_text().splitlines() if line.strip()
+        ]
     except OSError:
         return []

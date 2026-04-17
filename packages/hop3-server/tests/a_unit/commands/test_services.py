@@ -78,8 +78,10 @@ def test_services_create_with_postgres():
         mock_get_service.assert_called_once_with("postgres", "my-database")
         mock_service.create.assert_called_once()
 
-        assert len(result) == 2
+        # 2 informational items + 1 summary item (ADR 036 D19c).
+        assert len(result) == 3
         assert "created successfully" in result[0]["text"]
+        assert result[-1]["t"] == "summary"
 
 
 def test_services_create_handles_errors():
@@ -165,9 +167,11 @@ def test_services_attach_success(
         )
         result = cmd.call("my-database", "--app", "test-app")
 
-        assert len(result) == 3
+        # 3 informational items + 1 summary item (ADR 036 D19c).
+        assert len(result) == 4
         assert "attached" in result[0]["text"].lower()
         assert "DATABASE_URL" in result[1]["text"]
+        assert result[-1]["t"] == "summary"
         mock_addon_credential_repo.session.commit.assert_called_once()
 
 

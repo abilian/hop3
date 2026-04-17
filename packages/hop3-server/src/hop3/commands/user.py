@@ -19,7 +19,7 @@ from hop3.orm.security import Role
 from hop3.server.security.tokens import create_token
 
 from ._base import Command
-from ._response import error, text
+from ._response import error, summary, text
 
 
 def require_admin(username: str, user_repo: UserRepository) -> list[dict] | None:
@@ -49,14 +49,21 @@ def require_admin(username: str, user_repo: UserRepository) -> list[dict] | None
 class UserAddCmd(Command):
     """Create a new user account.
 
-    Usage: hop3 user add <username> <email> <password> [--admin]
+    Usage: hop3 user add <username> <email> [password] [--admin]
+                                            (--password-file <path> | --stdin)
 
     Options:
-        --admin: Grant admin privileges to the new user
+        --admin               Grant admin privileges to the new user
+        --password-file PATH  Read password from PATH (use '-' for stdin)
+        --stdin               Read password from stdin
 
     Examples:
+        # Recommended (password not in shell history / ps output)
+        hop3 user add admin admin@example.com --password-file ./pw.txt --admin
+        echo "$PW" | hop3 user add john john@example.com --stdin
+
+        # Direct positional (discouraged: leaks via shell history and ps)
         hop3 user add john john@example.com secret123
-        hop3 user add admin admin@example.com admin123 --admin
     """
 
     user_repo: UserRepository
@@ -131,6 +138,8 @@ class UserAddCmd(Command):
         if is_admin:
             response.append(text("Admin: Yes"))
 
+        role = "admin user" if is_admin else "user"
+        response.append(summary(f"added {role} '{username}'."))
         return response
 
 
@@ -181,7 +190,10 @@ class UserRemoveCmd(Command):
         # Delete the user (pass id, not the object)
         self.user_repo.delete(user.id, auto_commit=True)
 
-        return [text(f"User '{username}' removed successfully")]
+        return [
+            text(f"User '{username}' removed successfully"),
+            summary(f"removed user '{username}'."),
+        ]
 
 
 @register
@@ -288,7 +300,10 @@ class UserEnableCmd(Command):
         user.active = True
         self.user_repo.update(user, auto_commit=True)
 
-        return [text(f"User '{username}' enabled successfully")]
+        return [
+            text(f"User '{username}' enabled successfully"),
+            summary(f"enabled user '{username}'."),
+        ]
 
 
 @register
@@ -340,7 +355,10 @@ class UserDisableCmd(Command):
         user.active = False
         self.user_repo.update(user, auto_commit=True)
 
-        return [text(f"User '{username}' disabled successfully")]
+        return [
+            text(f"User '{username}' disabled successfully"),
+            summary(f"disabled user '{username}'."),
+        ]
 
 
 @register
@@ -395,7 +413,10 @@ class UserGrantAdminCmd(Command):
         user.roles.append(admin_role)
         self.user_repo.update(user, auto_commit=True)
 
-        return [text(f"Admin privileges granted to user '{username}' successfully")]
+        return [
+            text(f"Admin privileges granted to user '{username}' successfully"),
+            summary(f"granted admin to '{username}'."),
+        ]
 
 
 @register
@@ -450,7 +471,10 @@ class UserRevokeAdminCmd(Command):
             user.roles.remove(admin_role)
             self.user_repo.update(user, auto_commit=True)
 
-        return [text(f"Admin privileges revoked from user '{username}' successfully")]
+        return [
+            text(f"Admin privileges revoked from user '{username}' successfully"),
+            summary(f"revoked admin from '{username}'."),
+        ]
 
 
 @register
@@ -458,9 +482,19 @@ class UserRevokeAdminCmd(Command):
 class UserSetPasswordCmd(Command):
     """Reset a user's password.
 
-    Usage: hop3 user set-password <username> <new_password>
+    Usage: hop3 user set-password <username> [new_password]
+                                  (--password-file <path> | --stdin)
+
+    Options:
+        --password-file PATH  Read password from PATH (use '-' for stdin)
+        --stdin               Read password from stdin
 
     Examples:
+        # Recommended
+        hop3 user set-password john --password-file ./newpw.txt
+        echo "$PW" | hop3 user set-password john --stdin
+
+        # Direct positional (discouraged: leaks via shell history and ps)
         hop3 user set-password john newpassword123
     """
 
@@ -502,7 +536,10 @@ class UserSetPasswordCmd(Command):
         user.set_password(new_password)
         self.user_repo.update(user, auto_commit=True)
 
-        return [text(f"Password reset successfully for user '{username}'")]
+        return [
+            text(f"Password reset successfully for user '{username}'"),
+            summary(f"reset password for '{username}'."),
+        ]
 
 
 @register

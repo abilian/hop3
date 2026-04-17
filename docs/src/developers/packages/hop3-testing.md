@@ -136,7 +136,7 @@ class RemoteTarget(DeploymentTarget):
         apps = json.loads(result.output)
         for app in apps:
             if app["name"].startswith("test-"):
-                self.execute(f"hop3 apps:destroy {app['name']} --confirm")
+                self.execute(f"hop3 app destroy {app['name']} --confirm")
 
     def execute(self, command: str) -> CommandResult:
         """Execute command via SSH."""
@@ -255,7 +255,7 @@ class DeploymentSession:
 
     def verify_running(self) -> bool:
         """Check if app is running."""
-        result = self.target.execute(f"hop3 apps:info {self.app.name} --json")
+        result = self.target.execute(f"hop3 app show {self.app.name} --json")
         info = json.loads(result.output)
         return info["state"] == "running"
 
@@ -276,7 +276,7 @@ class DeploymentSession:
     def cleanup(self) -> None:
         """Remove deployed app."""
         if self.deployed:
-            self.target.execute(f"hop3 apps:destroy {self.app.name} --confirm")
+            self.target.execute(f"hop3 app destroy {self.app.name} --confirm")
 ```
 
 ## pytest Integration
@@ -423,7 +423,7 @@ tests:
 tests:
   - name: health_check
     type: command
-    command: "hop3 apps:info {app_name} --json"
+    command: "hop3 app show {app_name} --json"
     expect:
       exit_code: 0
       json:

@@ -344,7 +344,7 @@ baseURL = 'https://myblog.example.com/'
 ```
 
 ```bash
-hop3 domains:add hop3-tuto-hugo myblog.example.com
+hop3 config set hop3-tuto-hugo HOST_NAME=myblog.example.com
 ```
 
 ### Multiple Environments

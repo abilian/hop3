@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from typing import Any
 
 
 def _get_env_verbosity() -> int | None:
@@ -48,8 +49,18 @@ class CliFlags:
     # ADR 036: `--why` prints the resolution trace before running.
     why: bool = False
 
-    # ADR 036: `--no-alias` bypasses alias resolution (placeholder for M3).
+    # ADR 036: `--no-alias` bypasses alias resolution.
     no_alias: bool = False
+
+    # ADR 036 D14 / G6: `--confirm <name>` is the scriptable alternative to
+    # the interactive typed-name prompt. Carries the resource name the user
+    # is acknowledging; e.g. `hop3 app destroy myapp --confirm=myapp`.
+    confirm_value: str | None = None
+
+    # ADR 036 G5: `--no-input` refuses to prompt; if input would be needed,
+    # the command fails with a one-line "use --flag-X" instruction. For
+    # automation/CI; complements `--yes` (which says "yes, take action").
+    no_input: bool = False
 
     @property
     def quiet(self) -> bool:
@@ -121,54 +132,76 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
         >>> parse_flags(['apps', '--context', 'production'])
         (CliFlags(context='production', ...), ['apps'])
     """
-    json_output = False
-    skip_confirm = False
-    context = None
-    app: str | None = None
-    why = False
-    no_alias = False
+    state: dict[str, Any] = {
+        "json_output": False,
+        "skip_confirm": False,
+        "context": None,
+        "app": None,
+        "why": False,
+        "no_alias": False,
+        "confirm_value": None,
+        "no_input": False,
+        "verbosity": _get_env_verbosity() or 1,
+    }
 
-    # Start with environment default or normal (1)
-    verbosity = _get_env_verbosity() or 1
-
-    # Flags to recognize
-    json_flags = {"--json", "-j"}
-    yes_flags = {"-y", "--yes", "--force"}
-
-    # Filter out flags from args
-    remaining_args = []
+    remaining_args: list[str] = []
     i = 0
     while i < len(args):
-        arg = args[i]
-        if arg in json_flags:
-            json_output = True
-        elif arg in yes_flags:
-            skip_confirm = True
-        elif arg in {"--context", "-c"} and i + 1 < len(args):
-            context = args[i + 1]
-            i += 1  # Skip the next arg (context name)
-        elif arg in {"--app", "-a"} and i + 1 < len(args):
-            app = args[i + 1]
-            i += 1  # Skip the next arg (app name)
-        elif arg == "--why":
-            why = True
-        elif arg == "--no-alias":
-            no_alias = True
-        elif (new_verbosity := _parse_verbosity_flag(arg, verbosity)) is not None:
-            verbosity = new_verbosity
+        consumed = _apply_flag(args, i, state)
+        if consumed == 0:
+            remaining_args.append(args[i])
+            i += 1
         else:
-            # Not a flag, keep it
-            remaining_args.append(arg)
-        i += 1
+            i += consumed
 
-    flags = CliFlags(
-        json_output=json_output,
-        skip_confirm=skip_confirm,
-        verbosity=verbosity,
-        context=context,
-        app=app,
-        why=why,
-        no_alias=no_alias,
-    )
+    return CliFlags(**state), remaining_args
 
-    return flags, remaining_args
+
+_JSON_FLAGS = {"--json", "-j"}
+_YES_FLAGS = {"-y", "--yes", "--force"}
+
+
+def _apply_flag(args: list[str], i: int, state: dict[str, Any]) -> int:
+    """Try to interpret args[i] as a flag; mutate state and return tokens consumed.
+
+    Returns 0 when the token isn't a recognized flag (caller passes it through).
+    Returns 1 for boolean/inline flags, 2 for ``--flag value`` pairs.
+    """
+    arg = args[i]
+
+    if arg in _JSON_FLAGS:
+        state["json_output"] = True
+        return 1
+    if arg in _YES_FLAGS:
+        state["skip_confirm"] = True
+        return 1
+    if arg == "--why":
+        state["why"] = True
+        return 1
+    if arg == "--no-alias":
+        state["no_alias"] = True
+        return 1
+    if arg == "--no-input":
+        state["no_input"] = True
+        return 1
+    if arg.startswith("--confirm="):
+        state["confirm_value"] = arg.split("=", 1)[1]
+        return 1
+
+    # Two-token forms: ``--flag value``.
+    pair_keys = {
+        ("--context", "-c"): "context",
+        ("--app", "-a"): "app",
+        ("--confirm",): "confirm_value",
+    }
+    for keys, field_name in pair_keys.items():
+        if arg in keys and i + 1 < len(args):
+            state[field_name] = args[i + 1]
+            return 2
+
+    new_verbosity = _parse_verbosity_flag(arg, state["verbosity"])
+    if new_verbosity is not None:
+        state["verbosity"] = new_verbosity
+        return 1
+
+    return 0

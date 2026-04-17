@@ -26,6 +26,7 @@ wheels/
 /logs
 /apps/logs/
 /test-logs/
+test-logs/
 /notes/
 /apps/internal-apps
 /apps/sandbox/

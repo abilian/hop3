@@ -54,6 +54,15 @@ def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
     if not args:
         return extra_args
 
+    # ADR 036 G3: read password from --password-file/--stdin and rewrite argv
+    # in place so the secret never appears in the user's shell history or
+    # `ps` output. The positional form still works but is discouraged.
+    _resolve_password_inputs(args)
+    # ADR 036 G3: `--input -` reads from stdin; `--input @<path>` reads from
+    # a file. Mirrors the password-file pattern so `hop run myapp foo --input -`
+    # behaves predictably in pipelines.
+    _resolve_run_input(args)
+
     command = args[0]
 
     match command:
@@ -79,6 +88,118 @@ def get_extra_args(args: list[str], verbosity: int = 1) -> JsonDict:
             extra_args["streaming"] = streaming
 
     return extra_args
+
+
+def _resolve_run_input(args: list[str]) -> None:
+    """Resolve --input -/@path on `hop run` so the server gets literal bytes.
+
+    Per ADR 036 G3, dash means stdin and ``@<path>`` means "read from file".
+    Bare strings are passed through unchanged. Only applies to ``hop run``.
+    """
+    if not args or args[0] != "run":
+        return
+    i = 0
+    while i < len(args):
+        if args[i] != "--input":
+            i += 1
+            continue
+        if i + 1 >= len(args):
+            return  # let server emit "--input requires a value"
+        value = args[i + 1]
+        if value == "-":
+            if sys.stdin.isatty():
+                msg = "Refusing to read --input from a terminal stdin; pipe data in or use --input @<path>."
+                raise ValueError(msg)
+            args[i + 1] = sys.stdin.read().rstrip("\n")
+        elif value.startswith("@"):
+            path = value[1:]
+            try:
+                args[i + 1] = Path(path).read_text(encoding="utf-8").rstrip("\n")
+            except OSError as e:
+                msg = f"Could not read --input file {path!r}: {e}"
+                raise ValueError(msg) from e
+        i += 2
+
+
+def _resolve_password_inputs(args: list[str]) -> None:
+    """Replace --password-file/--stdin on user-management commands with positional.
+
+    Per ADR 036 G3, password input flows are:
+      --password-file <path>   read password from a file
+      --password-file -        read password from stdin (G3 dash convention)
+      --stdin                  read password from stdin (alias for the above)
+
+    Mutates ``args`` in place: removes the flag(s) and inserts the password as
+    the next positional after the command tokens. Server-side commands keep
+    their existing positional contract — the CLI is the security boundary.
+
+    Applies only to the two commands that take a password:
+      hop3 user add <username> <email> <password>
+      hop3 user set-password <username> <password>
+    """
+    if len(args) < 2 or args[0] != "user":
+        return
+    if args[1] not in {"add", "set-password"}:
+        return
+
+    password = _extract_password_flag(args)
+    if password is None:
+        return
+
+    # Insertion index: after `user add <user> <email>` for add; after
+    # `user set-password <user>` for set-password.
+    insert_at = 4 if args[1] == "add" else 3
+    insert_at = min(insert_at, len(args))
+    args.insert(insert_at, password)
+
+
+def _extract_password_flag(args: list[str]) -> str | None:
+    """Pop --password-file / --stdin from args and return the resolved password.
+
+    Returns None if no password flag is present. Raises ValueError if the
+    flag is malformed (missing path, file unreadable, empty result).
+    """
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--password-file":
+            if i + 1 >= len(args):
+                msg = "--password-file requires a path (use '-' for stdin)"
+                raise ValueError(msg)
+            path = args[i + 1]
+            del args[i : i + 2]
+            return _read_password_source(path)
+        if arg.startswith("--password-file="):
+            path = arg.split("=", 1)[1]
+            del args[i]
+            return _read_password_source(path)
+        if arg == "--stdin":
+            del args[i]
+            return _read_password_source("-")
+        i += 1
+    return None
+
+
+def _read_password_source(path: str) -> str:
+    """Read a password from a file path; ``-`` means stdin (ADR 036 G3)."""
+    if path == "-":
+        if sys.stdin.isatty():
+            msg = (
+                "Refusing to read password from a terminal stdin; "
+                "pipe the password in or use --password-file <path>."
+            )
+            raise ValueError(msg)
+        password = sys.stdin.readline().rstrip("\n")
+    else:
+        try:
+            password = Path(path).read_text(encoding="utf-8").rstrip("\n")
+        except OSError as e:
+            msg = f"Could not read password file {path!r}: {e}"
+            raise ValueError(msg) from e
+    if not password:
+        msg = "Password is empty"
+        raise ValueError(msg)
+    return password
 
 
 def _parse_deploy_args(args: list[str]) -> tuple[dict[str, str], list[str], bool]:

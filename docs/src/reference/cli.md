@@ -1,9 +1,21 @@
 # Hop3 CLI Reference
 
-**Version:** 0.4.0
-**Last Updated:** 2026-02-13
+**Version:** 0.5.0dev
+**Last Updated:** 2026-04-17
 
 This document provides a complete reference for all Hop3 CLI commands.
+
+> **Note (0.5.0 breaking changes).** The CLI surface was redesigned under
+> [ADR 036](https://github.com/abilian/hop3/blob/main/notes/adrs/036-cli-ergonomics.md).
+> Key changes from 0.4.x:
+>
+> - Commands use spaces, not colons: `hop3 config set` (was `hop3 config:set`).
+> - Implicit `--app` resolution chain with sticky context (`hop3 use <app>`).
+> - Alias mechanism: `hop3 apps`, `hop3 env`, `hop3 whoami` are built-in aliases.
+> - Did-you-mean suggestions on typos for both commands and app names.
+> - 11-code exit-code table (see [Exit Codes](#exit-codes)) and the `--no-input`,
+>   `--confirm=<name>`, `--password-file`/`--stdin` flags for automation.
+> - State-change summary lines on mutations, routed to stderr for pipeline safety.
 
 ---
 
@@ -72,20 +84,32 @@ hop3 app logs myapp
 
 ## Global Flags
 
-All commands support these global flags:
+All commands support these global flags (per ADR 036 D6).
+Flags may appear before or after the subcommand.
 
 ### Output Formatting
 
-- **`--json`** - Output results in JSON format (machine-readable)
-- **`--quiet`** - Suppress non-essential output (minimal output)
+- **`--json`** - Output results in JSON format (machine-readable). Implies non-interactive: no prompts, no colors, no spinners. The JSON envelope includes `error.exit_code` so scripts don't need to map error strings.
+- **`--quiet`** - Suppress non-essential output (minimal output). Errors and state-change summaries still print.
 
 ### Interaction
 
-- **`-y, --yes`** - Skip confirmation prompts (auto-confirm destructive operations)
+- **`-y, --yes`** - Skip confirmation prompts entirely (auto-confirm destructive operations).
+- **`--force`** - Override all safety checks. Coarser than `--yes`: required for `app destroy` / `context remove` when dependent resources exist, and bypasses preview and attached-resource warnings.
+- **`--confirm=<name>`** - Scriptable alternative to the interactive typed-name prompt. Pass the resource name you're acknowledging; the command runs without prompting *and* preserves other safety checks (context warnings, attached-addon detection). Use in preference to `--force` when you only want to skip the typed-name prompt. Example: `hop3 app destroy myapp --confirm=myapp`.
+- **`--no-input`** - Refuse to prompt. If input would be required, the command fails with a one-line instruction naming the flag or env var to use instead. For automation/CI where stdin isn't a terminal. Sets `HOP3_NO_INPUT=1` so prompt-bearing helpers propagate the choice.
 
-### Context Selection
+### Context and App Selection
 
-- **`--context <name>`** - Use a specific server context for this command only
+- **`-c, --context <name>`** - Use a specific server context for this command only (ADR 036 D8).
+- **`-a, --app <name>`** - Target app explicitly. Always a flag, never positional (D5). If not set, the resolver walks the D7 chain — see [App Resolution](#app-resolution) below.
+
+### Diagnostics
+
+- **`--why`** - Print the resolution trace to stderr before running the command. Shows which source supplied `--app`, `--context`, and (if applicable) what the alias resolver did. Useful for "why did it pick THAT app?" debugging.
+- **`--no-alias`** - Bypass alias resolution. `hop3 --no-alias apps` tries `apps` as a literal command rather than expanding the built-in alias to `app list`.
+
+### Verbosity
 
 ### Verbosity
 
@@ -135,7 +159,50 @@ hop3 app destroy oldapp --yes --quiet
 
 # Set default verbosity via environment
 HOP3_VERBOSITY=0 hop3 deploy myapp  # Quiet mode
+
+# Scriptable typed-name confirmation (no prompt, but still safe)
+hop3 app destroy oldapp --confirm=oldapp
+
+# Non-interactive pipeline: fail fast if a prompt would appear
+cat password.txt | hop3 user add alice alice@ex.com --stdin --no-input
+
+# Ask "why did the CLI pick THAT app/context?"
+hop3 --why logs
 ```
+
+### App Resolution
+
+App-scoped commands (like `hop3 logs`, `hop3 restart`, `hop3 config set`)
+don't require an explicit app name. The CLI resolves one by walking this
+chain in order, stopping at the first source that supplies a value (ADR 036 D7):
+
+1. **`--app <name>` / `-a <name>`** - explicit flag wins over everything else.
+2. **`$HOP3_APP`** - environment variable for the current shell session.
+3. **`.hop3-app` file** - a one-line file in the current directory or any
+   ancestor up to `$HOME`. Put it in a project repo and every `hop3` invocation
+   from within picks up the right app.
+4. **`hop3.toml [cli].app`** - same search path as `.hop3-app`, lower priority.
+5. **Active context's `default_app`** - set via `hop3 use <app>`.
+6. **Git remote named `hop3`** - reserved for future use.
+
+Set `--why` on any app-scoped command to see the trace:
+
+```bash
+hop3 --why logs
+# [app resolution] source=.hop3-app -> 'myapp' (from /home/me/project/.hop3-app)
+```
+
+**Sticky app:**
+
+```bash
+hop3 use myapp        # Bind app 'myapp' to current context as default
+hop3 use              # Show current sticky app
+hop3 use --clear      # Unbind
+```
+
+Once bound, `hop3 logs`, `hop3 restart`, etc. all default to `myapp`
+without needing `--app` or positional. A `.hop3-app` file in the CWD
+takes precedence.
 
 ---
 
@@ -1408,13 +1475,13 @@ Connections: 3 active
 
 ---
 
-### `hop3 addons list`
+### `hop3 addon list`
 
-List available addon types.
+List addon instances (aliased to `hop3 addons`).
 
 **Usage:**
 ```bash
-hop3 addons list [--type <type>]
+hop3 addon list [--type <type>]
 ```
 
 **Options:**
@@ -1423,10 +1490,10 @@ hop3 addons list [--type <type>]
 **Example:**
 ```bash
 # List all addon types
-hop3 addons list
+hop3 addon list
 
 # List PostgreSQL addons
-hop3 addons list --type postgres
+hop3 addon list --type postgres
 ```
 
 ---
@@ -1751,13 +1818,13 @@ hop3 help backup create
 
 ---
 
-### `hop3 help:commands`
+### `hop3 help commands`
 
 Return list of available command names for shell completion.
 
 **Usage:**
 ```bash
-hop3 help:commands
+hop3 help commands
 ```
 
 **Notes:**
@@ -1879,14 +1946,33 @@ hop3 app sbom <app_name>
 
 ## Exit Codes
 
-The Hop3 CLI uses standard exit codes:
+The Hop3 CLI uses the exit-code table defined in ADR 036 D16. Scripts can
+distinguish user error from server error from "user said no" without parsing
+messages.
 
-- **0** - Success
-- **1** - General error
-- **2** - Invalid usage (wrong arguments)
-- **3** - Authentication error
-- **4** - Resource not found
-- **5** - Permission denied
+| Code | Meaning |
+|------|---------|
+| `0`   | Success (including empty results) |
+| `1`   | Generic error (fallback) |
+| `2`   | Usage / syntax error (invalid arguments, malformed flags) |
+| `3`   | Resolution error (app or context not found) |
+| `4`   | Authentication error (not logged in, token expired) |
+| `5`   | Authorization error (forbidden, permission denied) |
+| `6`   | Conflict (resource already exists, locked, in use) |
+| `7`   | Network / server error (connection, timeout, 5xx) |
+| `8`   | Deployment failure |
+| `9`   | Plugin error |
+| `10`  | Confirmation declined or non-tty blocked |
+| `130` | Interrupted (SIGINT / Ctrl-C) |
+
+JSON output (`--json`) includes `error.exit_code` in the envelope so
+programmatic consumers don't have to mirror this mapping.
+
+**Script tip.** Code `10` is your friend: use it to distinguish a user
+typing "no" at a confirmation prompt from an actual operation failure.
+Non-interactive scripts should pass `--confirm=<name>` or `--yes` to avoid
+it altogether, or `--no-input` to fail fast with an actionable message
+instead of hanging.
 
 ---
 
@@ -1899,6 +1985,8 @@ The Hop3 CLI uses standard exit codes:
 - **`HOP3_CONTEXT`** - Use a specific server context (see [Context Management](#context-management))
 - **`HOP3_CONFIG_DIR`** - Config directory (default: ~/.hop3)
 - **`HOP3_VERBOSITY`** - Default verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
+- **`HOP3_APP`** - Sticky app name for the current shell session (app-resolution chain, ADR 036 D7)
+- **`HOP3_NO_INPUT`** - When set to `1`, interactive prompts are refused with an actionable error. Set automatically when `--no-input` is passed; can be set manually to propagate through subprocesses.
 
 ### Security
 

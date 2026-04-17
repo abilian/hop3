@@ -53,27 +53,68 @@ def load_user_aliases_from_config(config_file: Path | None) -> list[Alias]:
     `("addon", "postgres")`.
 
     Returns an empty list if the config file is missing or has no [aliases]
-    section. Unparseable config is silently skipped (the caller can
-    alternatively validate config up-front).
+    section. Unparseable config is silently skipped here; use
+    ``load_user_aliases_with_diagnostics`` if you want the parse errors and
+    rejected entries surfaced (``hop3 aliases`` does).
     """
+    aliases, _ = load_user_aliases_with_diagnostics(config_file)
+    return aliases
+
+
+@dataclass
+class AliasLoadDiagnostics:
+    """Non-fatal problems encountered while loading user aliases."""
+
+    # Top-level parse failure: TOML decode error or unreadable file.
+    parse_error: str | None = None
+    # Per-entry rejections: (key, reason) for entries that were dropped.
+    rejected: list[tuple[str, str]] = field(default_factory=list)
+
+
+def load_user_aliases_with_diagnostics(
+    config_file: Path | None,
+) -> tuple[list[Alias], AliasLoadDiagnostics]:
+    """Same as ``load_user_aliases_from_config`` but also returns diagnostics.
+
+    Used by ``hop3 aliases`` so users see *why* an alias they wrote isn't
+    showing up. Day-to-day CLI invocations stay quiet to avoid one warning
+    per invocation when a config is half-broken.
+    """
+    diags = AliasLoadDiagnostics()
     if config_file is None or not config_file.is_file():
-        return []
+        return [], diags
     try:
         data = tomllib.loads(config_file.read_text())
-    except (OSError, tomllib.TOMLDecodeError):
-        return []
+    except OSError as e:
+        diags.parse_error = f"could not read {config_file}: {e}"
+        return [], diags
+    except tomllib.TOMLDecodeError as e:
+        diags.parse_error = f"TOML parse error in {config_file}: {e}"
+        return [], diags
 
     raw = data.get("aliases", {})
     if not isinstance(raw, dict):
-        return []
+        diags.parse_error = (
+            f"[aliases] section in {config_file} must be a table, "
+            f"got {type(raw).__name__}"
+        )
+        return [], diags
 
     out: list[Alias] = []
     origin_detail = str(config_file)
     for token, expansion_str in raw.items():
-        if not isinstance(token, str) or not isinstance(expansion_str, str):
+        if not isinstance(token, str):
+            diags.rejected.append((repr(token), "alias name must be a string"))
+            continue
+        if not isinstance(expansion_str, str):
+            diags.rejected.append((
+                token,
+                f"expansion must be a string, got {type(expansion_str).__name__}",
+            ))
             continue
         tokens = tuple(expansion_str.split())
         if not tokens:
+            diags.rejected.append((token, "expansion is empty"))
             continue
         out.append(
             Alias(
@@ -83,7 +124,7 @@ def load_user_aliases_from_config(config_file: Path | None) -> list[Alias]:
                 origin_detail=origin_detail,
             )
         )
-    return out
+    return out, diags
 
 
 def build_registry(

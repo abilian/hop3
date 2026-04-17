@@ -25,7 +25,7 @@ from hop3.orm.repositories import (  # noqa: TC001
 
 from ._base import Command
 from ._errors import command_context
-from ._response import error, table, text, warning
+from ._response import error, summary, table, text, warning
 
 
 @register
@@ -145,6 +145,7 @@ class AddonCreateCmd(Command):
             text(
                 f"\nTo attach this service to an app, run:\n  hop3 addon attach {addon_name} --app <app-name>"
             ),
+            summary(f"created addon '{addon_name}' ({service_type})."),
         ]
 
 
@@ -387,6 +388,14 @@ class AddonAttachCmd(Command):
             )
         )
 
+        # Summary line per ADR 036 D19c.
+        added_count = len(added_vars)
+        response.append(
+            summary(
+                f"attached addon '{addon_name}' ({service_type}) to {app_name}; "
+                f"added {added_count} env var(s)."
+            )
+        )
         return response
 
 
@@ -501,6 +510,10 @@ class AddonDetachCmd(Command):
             return [
                 text(f"Addon '{addon_name}' detached from app '{app_name}'."),
                 text(f"\nRemoved: {', '.join(removed_vars)}"),
+                summary(
+                    f"detached addon '{addon_name}' from {app_name}; "
+                    f"removed {len(removed_vars)} env var(s)."
+                ),
             ]
         return [text(f"Addon '{addon_name}' was not attached to app '{app_name}'.")]
 
@@ -575,7 +588,8 @@ class AddonDestroyCmd(Command):
         return [
             text(
                 f"Addon '{addon_name}' of type '{service_type}' destroyed successfully."
-            )
+            ),
+            summary(f"destroyed addon '{addon_name}' ({service_type})."),
         ]
 
 

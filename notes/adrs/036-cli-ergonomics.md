@@ -1,13 +1,15 @@
 # ADR 036: CLI Ergonomics and Command Surface
 
-**Status**: Draft — principles and structure locked; canonical command catalog being implemented
+**Status**: Accepted — implementation complete (M1–M8 landed on `cli-refact`, 2026-04-16)
 **Type**: Design
 **Created**: 2026-03-05
-**Updated**: 2026-04-15
+**Updated**: 2026-04-16
 **Related ADRs**: 018, 019, 025, 031, 039 (planned)
 
 ## Revisions
 
+- v3.3 (2026-04-17): Post-implementation audit. Three D6 flags are deferred, not dropped: `--no-color` (terminal-palette control; use `NO_COLOR=1` env var as the interim convention), `--no-progress` (no long-running spinners in the tree yet — Rich `print_progress` is wired but unused), and `--config <path>` (alternative CLI config file; `$HOP3_CONFIG_DIR` covers the same surface for now). All other D1–D19 and G1–G8 items land in M1–M8. `docs/src/reference/cli.md` and `docs/src/guides/cheat-sheet.md` now describe the D6 flag set, the D7 resolution chain, and the D16 exit-code table.
+- v3.2 (2026-04-16): M5–M8 landed, closing out the implementation. M5: did-you-mean + structured no-app errors. M6: `--confirm`/`--no-input`/`summary` response type + stderr discipline + `--password-file`/`--stdin`/`--input -`. M7: ExitCode renumbered to D16 table + SIGINT handler. M8: alias load diagnostics + `HOP3_NO_INPUT` env bridge + app-name cache in `completion --refresh` + app did-you-mean. Status: Accepted.
 - v3.1 (2026-04-15): Applied G1–G8 from the cli-guidelines (clig.dev) review. New D19 on output conventions (stdout/stderr, `-` for file args, state-change summaries). Added `--no-input` and `--confirm=<name>` flags. Reordered per-command help to lead with examples. Dropped `--password` flag (stdin / prompt / file only). Added feedback link in top-level help.
 - v3.0 (2026-04-15): Complete redraft: namespace inventory, verb conventions, argument rules, alias mechanism, sticky-state semantics, help format, confirmation rules, exit codes, and hidden-command discipline all locked in. Plugin extension mechanism moved to ADR 039 (planned).
 - v2.1 (2026-04-15): Adopted space-separated commands and the top-level/namespace boundary rule.
@@ -109,9 +111,9 @@ The app is *never* positional. Every command that targets an app takes it via `-
 | `--force` | — | most dangerous | override safety checks |
 | `--confirm <name>` | — | typed-name ops | scriptable alternative to interactive typed-name prompt; preserves other safety checks |
 | `--no-input` | — | all | refuse to prompt; fail with instructions if input would be required |
-| `--no-color` | — | all | disable ANSI color |
-| `--no-progress` | — | long-running | disable spinners |
-| `--config <path>` | — | all | alternative CLI config file |
+| `--no-color` | — | all | disable ANSI color (deferred — use `NO_COLOR=1` env var) |
+| `--no-progress` | — | long-running | disable spinners (deferred — no long-running spinners yet) |
+| `--config <path>` | — | all | alternative CLI config file (deferred — use `HOP3_CONFIG_DIR`) |
 | `--no-alias` | — | all | bypass alias resolution |
 | `--why` | — | all | print resolution trace |
 

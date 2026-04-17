@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **CLI Ergonomics Overhaul (ADR 036)**: Complete redesign of the `hop3` command surface on branch `cli-refact` (M1–M8, 2026-04-15/16). Space-separated command names (`hop3 config set`, not `hop3 config:set`), implicit-app resolution chain (`--app` → `$HOP3_APP` → `.hop3-app` → `hop3.toml` → context default), sticky context with `hop3 use <app>`, three-source alias mechanism with disjoint-union semantics, did-you-mean suggestions for unknown commands and unknown app names, categorized help (`DAILY OPERATIONS` / `MANAGEMENT` / `ADMINISTRATION` / `UTILITIES`), mandatory `Examples:` section on every command, state-change summary lines prefixed with `[context / app]` to stderr, `--confirm=<name>` scriptable typed-name confirmation, `--no-input` for scripts, `--password-file <path>` / `--stdin` / `--input -` for secret and data inputs, stream discipline per D19 (primary data on stdout; status/errors/warnings on stderr), and an 11-code ADR 036 D16 exit-code table (new: `10` for declined confirmation, `130` for SIGINT). All 1218 tests passing; `--no-input` env-var bridge (`HOP3_NO_INPUT`) exposed to local commands.
 - **Nix Integration (Phase 1-2)**: NixBuilder plugin for hermetic, reproducible builds via `hop3.nix` files. 38 Nix-based application packages (22 production-grade, 8 test apps, 8 under investigation). Installer support for Nix on all supported distributions.
 - **`[env.computed]` Section**: Variable interpolation in hop3.toml using `${VAR}` syntax, resolved after addon vars are injected. Enables mapping platform variables (e.g., `PGHOST`) to application-expected names (e.g., `DATABASE_URL`).
 - **WSGI Auto-Discovery**: Automatically detects WSGI entry points (`wsgi.py`, `app.py`, Django `<project>/wsgi.py`) when no explicit worker is configured. Logs what was detected.
@@ -30,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Test Runner**: Suite filtering fixed — `_load_catalog()` now only scans paths for configured suites.
 - **Toolchain Count**: Now 12 language toolchains (added .NET, Static, Generic to existing Python, Node.js, Go, Ruby, Rust, Java, PHP, Clojure, Elixir).
 - **App Directory Structure**: Reorganized apps into `real-apps-native/`, `real-apps-nix/`, `test-apps-nix/`, `test-apps-procfile/`, `internal-apps/`.
+- **CLI Command Syntax (BREAKING, ADR 036 D1)**: All multi-token commands use spaces. `hop3 config:set` → `hop3 config set`. Typing the old colon form produces a migration hint pointing at the new syntax. Clean break — no colon-form aliases preserved.
+- **CLI Namespace Reshuffle (BREAKING, ADR 036 D3/D4)**: `admin:user:*` flattened to `user *` (bare `admin` namespace dropped). `addons` → `addon` (singular). `backup:delete` → `backup destroy` (verb normalization). `sbom` demoted from top-level to `app sbom`.
+- **CLI Exit Codes (ADR 036 D16)**: Exit-code table renumbered to the 11-code D16 spec. Scripts relying on the old layout (auth=2, not-found=3, validation=4) need updating: auth is now 4, usage is 2, resolution is 3, authz is 5, conflict is 6, network/server is 7, deployment is 8, plugin is 9, confirmation-declined is 10, SIGINT is 130. JSON envelope includes `error.exit_code`.
 
 ### Fixed
 

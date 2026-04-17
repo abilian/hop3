@@ -6,7 +6,50 @@
 
 from __future__ import annotations
 
+import os
 import sys
+
+
+class NoInputError(Exception):
+    """Raised when an interactive prompt is reached but --no-input was set.
+
+    Per ADR 036 G5, ``--no-input`` refuses to prompt and fails fast with an
+    actionable hint instead of silently hanging or assuming a default.
+    Callers catch this and emit a context-specific message about the flag
+    or env var to use to non-interactively supply the missing value.
+    """
+
+
+def is_no_input() -> bool:
+    """Whether --no-input was set (env-var bridged from parse_flags)."""
+    return os.environ.get("HOP3_NO_INPUT", "") == "1"
+
+
+def require_input_allowed(prompt_label: str) -> None:
+    """Raise NoInputError if interactive input has been disabled.
+
+    Local prompt sites call this at the top of their flow so the script
+    stops with an explanatory error before printing a prompt that nothing
+    will answer.
+    """
+    if is_no_input():
+        msg = (
+            f"{prompt_label} would require an interactive prompt, "
+            f"but --no-input was passed. Provide the value via the "
+            f"appropriate flag or environment variable."
+        )
+        raise NoInputError(msg)
+
+
+def prompt_input(message: str, *, prompt_label: str) -> str:
+    """input() wrapper that respects --no-input.
+
+    Use in local commands instead of bare ``input()`` so the same
+    --no-input guard fires everywhere without requiring each call site
+    to remember.
+    """
+    require_input_allowed(prompt_label)
+    return input(message)
 
 
 def confirm(message: str, *, default: bool = False) -> bool:

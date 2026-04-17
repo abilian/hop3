@@ -67,9 +67,9 @@ def _pyproject_is_poetry_only(pyproject_file: Path) -> bool:
     because pip reads PEP-621 dependencies, not `[tool.poetry]` ones.
     """
     try:
-        import tomllib
+        import tomllib  # noqa: PLC0415
     except ImportError:  # Python < 3.11 fallback
-        import tomli as tomllib  # type: ignore[import-not-found]
+        import tomli as tomllib  # type: ignore[import-not-found,no-redef]  # noqa: PLC0415
     try:
         with pyproject_file.open("rb") as f:
             data = tomllib.load(f)

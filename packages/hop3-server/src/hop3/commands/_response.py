@@ -72,6 +72,24 @@ def stream(stream_id: str) -> dict[str, Any]:
     return {"t": "stream", "stream_id": stream_id}
 
 
+def summary(message: str) -> dict[str, Any]:
+    """Create a state-change summary item (ADR 036 D19c).
+
+    Used by mutating commands to report what changed in one or two short
+    lines. The CLI client renders summary items with a `[context / app]`
+    prefix and routes them to stderr so they don't contaminate
+    `hop3 cmd | grep` pipelines.
+
+    Example::
+
+        return [
+            text("Configuration updated."),
+            summary("set FOO=bar; restarted web worker."),
+        ]
+    """
+    return {"t": "summary", "text": message}
+
+
 def logs_to_response(logs: list[dict]) -> list[dict[str, Any]]:
     """Convert captured log entries to response format.
 
