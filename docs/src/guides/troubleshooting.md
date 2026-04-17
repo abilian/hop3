@@ -245,7 +245,7 @@ Application fails to connect to PostgreSQL or MySQL.
 #### Diagnosis
 ```bash
 # Check database addon
-hop3 addons list
+hop3 addon list
 
 # Check if DATABASE_URL is set
 hop3 config show myapp | grep DATABASE

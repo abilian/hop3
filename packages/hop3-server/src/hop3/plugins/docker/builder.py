@@ -50,9 +50,9 @@ def _resolve_build_timeout(source_path: Path) -> tuple[int, str]:
     hop3_toml = source_path / "hop3.toml"
     if hop3_toml.exists():
         try:
-            import tomllib
+            import tomllib  # noqa: PLC0415
         except ImportError:  # Python < 3.11 fallback
-            import tomli as tomllib  # type: ignore[import-not-found]
+            import tomli as tomllib  # type: ignore[import-not-found,no-redef]  # noqa: PLC0415
         try:
             with hop3_toml.open("rb") as f:
                 data = tomllib.load(f)

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from typing import TYPE_CHECKING, Any
 
@@ -212,6 +213,13 @@ def handle_error_response(
         if suggestion:
             clean_message += f"\n\n{suggestion}"
         clean_message += "\n\nRun 'hop help' to see available commands."
+    else:
+        # ADR 036 M8.3: for "app 'foo' not found" errors, offer a closest-match
+        # suggestion against the cached app list. Silent when the cache is
+        # empty (the user just hasn't run `hop3 completion --refresh` yet).
+        app_suggestion = _app_not_found_suggestion(clean_message)
+        if app_suggestion:
+            clean_message += f"\n\n{app_suggestion}"
 
     # Determine exit code from RPC code, falling back to message analysis
     exit_code = map_rpc_code_to_exit(code)
@@ -270,6 +278,30 @@ def _command_not_found_suggestion(error_message: str) -> str | None:
 
     # Closest match against the cached command list.
     candidates = load_cached_commands()
+    if not candidates:
+        return None
+    matches = closest_matches(typed, candidates)
+    return format_did_you_mean(typed, matches)
+
+
+_APP_NOT_FOUND_RE = re.compile(r"[Aa]pp ['\"]([^'\"]+)['\"] not found")
+
+
+def _app_not_found_suggestion(error_message: str) -> str | None:
+    """Return a 'Did you mean...?' hint for app-not-found errors.
+
+    Looks for the ``App 'foo' not found`` pattern and consults the local
+    app-name cache populated by ``hop3 completion --refresh``. Returns
+    None if the pattern isn't present or the cache is empty.
+    """
+    match = _APP_NOT_FOUND_RE.search(error_message)
+    if not match:
+        return None
+    typed = match.group(1)
+
+    from hop3_cli.commands.local.completion_cmd import read_apps_cache  # noqa: PLC0415
+
+    candidates = read_apps_cache()
     if not candidates:
         return None
     matches = closest_matches(typed, candidates)

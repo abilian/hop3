@@ -108,7 +108,34 @@ hop3 apps
 
 # Destroy app (requires confirmation)
 hop3 app destroy <app>
+
+# Scriptable destroy — no prompt, still safe
+hop3 app destroy oldapp --confirm=oldapp
 ```
+
+### Sticky App (implicit --app)
+
+Most app-scoped commands don't need `--app` if one is resolvable from the
+current shell or directory.
+
+```bash
+# Bind an app to the current context
+hop3 use myapp
+hop3 logs          # no positional needed
+hop3 restart
+hop3 config show
+
+# Or set for a single shell
+export HOP3_APP=myapp
+
+# Or drop a .hop3-app file in your project
+echo myapp > .hop3-app
+
+# Debug the chain
+hop3 --why logs
+```
+
+Resolution order: `--app` → `$HOP3_APP` → `.hop3-app` → `hop3.toml [cli].app` → context default. See [CLI Reference: App Resolution](../reference/cli.md#app-resolution).
 
 ### Configuration / Environment
 
@@ -135,7 +162,7 @@ hop3 config migrate procfile /path/to/app --dry-run
 ### Addons (Backing Services)
 
 ```bash
-hop3 addons list                      # List addon types
+hop3 addons                           # List addons (alias for `addon list`)
 hop3 addon create postgres my-db     # Create addon
 hop3 addon attach my-db --app <app>  # Attach (sets DATABASE_URL)
 hop3 addon detach my-db --app <app>  # Detach from app
@@ -184,9 +211,12 @@ hop3 system logs
 
 # User management (admin only)
 hop3 user list
-hop3 user add <username>
+hop3 user add <username> <email> --password-file ./pw.txt
+hop3 user set-password <username> --stdin   # pipe new password in
 hop3 user disable <username>
 hop3 user enable <username>
+hop3 user grant-admin <username>
+hop3 user remove <username> --confirm=<username>
 ```
 
 ### Help
@@ -208,21 +238,68 @@ hop3 <command> --help
 
 | Flag | Effect |
 |------|--------|
-| `--json` | JSON output (for scripting) |
-| `--quiet` / `-q` | Suppress output |
-| `--verbose` / `-v` | More detail |
-| `-y` / `--yes` | Skip confirmations |
-| `--context <name>` | Use specific server context |
+| `--json` | JSON output (for scripting; includes `error.exit_code`) |
+| `--quiet` / `-q` | Suppress non-essential output |
+| `--verbose` / `-v` | More detail (stackable: `-vv` = debug) |
+| `-y` / `--yes` / `--force` | Skip confirmations |
+| `--confirm=<name>` | Scriptable typed-name confirmation (safer than `--yes`) |
+| `--no-input` | Refuse to prompt; fail fast with a hint |
+| `--context <name>` / `-c` | Use a specific server context |
+| `--app <name>` / `-a` | Override the resolved app |
+| `--why` | Print app/context/alias resolution trace to stderr |
+| `--no-alias` | Bypass the alias table (run the typed command literally) |
 | `--help` / `-h` | Show help |
 
-**Scripting example:**
+### Exit codes (ADR 036 D16)
+
+| Code | Meaning |
+|------|---------|
+| `0`   | Success |
+| `1`   | Generic error |
+| `2`   | Usage / syntax error |
+| `3`   | Resolution error (app / context not found) |
+| `4`   | Authentication |
+| `5`   | Authorization |
+| `6`   | Conflict (already exists) |
+| `7`   | Network / server error |
+| `8`   | Deployment failure |
+| `9`   | Plugin error |
+| `10`  | Confirmation declined or non-tty blocked |
+| `130` | Interrupted (SIGINT) |
+
+### Scripting examples
 
 ```bash
-# Get app state in JSON
+# Get app state in JSON (with structured exit-code on error)
 hop3 app status myapp --json | jq '.data.state'
 
-# Destroy without prompt (use with caution)
-hop3 app destroy myapp -y
+# Safer scripted destroy: typed-name match + still runs safety checks
+hop3 app destroy myapp --confirm=myapp
+
+# CI: refuse to block on prompts — fail fast with instructions
+hop3 user add alice alice@ex.com --password-file ./pw --no-input
+
+# Distinguish "user declined" from other failures
+hop3 app destroy myapp
+case $? in
+  0)  echo "destroyed" ;;
+  10) echo "declined or non-tty" ;;
+  3)  echo "no such app" ;;
+  *)  echo "other error" ;;
+esac
+```
+
+### Helpful diagnostics
+
+```bash
+# Why did the CLI pick that app / context?
+hop3 --why logs
+
+# What aliases are active?
+hop3 aliases
+
+# What commands were meant? (Levenshtein suggestion)
+hop3 deplo myapp   # -> "Did you mean 'deploy'?"
 ```
 
 ---

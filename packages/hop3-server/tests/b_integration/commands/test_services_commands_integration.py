@@ -143,12 +143,14 @@ class TestAddonsCreateCmdIntegration:
         mock_get_addon.assert_called_once_with("postgres", "my-database")
         mock_addon.create.assert_called_once()
 
-        assert len(result) == 2
+        # 2 informational items + 1 summary (ADR 036 D19c).
+        assert len(result) == 3
         assert result[0]["t"] == "text"
         assert "my-database" in result[0]["text"]
         assert "postgres" in result[0]["text"]
         assert "created successfully" in result[0]["text"]
         assert "addon attach" in result[1]["text"]
+        assert result[-1]["t"] == "summary"
 
     def test_create_with_redis_success(self):
         """Test creating a Redis addon.
@@ -174,10 +176,12 @@ class TestAddonsCreateCmdIntegration:
         mock_get_addon.assert_called_once_with("redis", "my-cache")
         mock_addon.create.assert_called_once()
 
-        assert len(result) == 2
+        # 2 informational items + 1 summary (ADR 036 D19c).
+        assert len(result) == 3
         assert "my-cache" in result[0]["text"]
         assert "redis" in result[0]["text"]
         assert "created successfully" in result[0]["text"]
+        assert result[-1]["t"] == "summary"
 
     def test_create_handles_runtime_errors(self):
         """Test error handling when addon plugin raises RuntimeError.

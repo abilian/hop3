@@ -49,6 +49,7 @@ from ._response import (
     logs_to_response,
     stream,
     success,
+    summary,
     table,
     text,
     warning,
@@ -95,7 +96,10 @@ def _run_lifecycle_action(
             getattr(app, action_method)()
             db_session.commit()
 
-    return build_log_response(captured, final_messages)
+    response = build_log_response(captured, final_messages)
+    # ADR 036 D19c: one-line state-change summary per lifecycle action.
+    response.append(summary(f"{action_method} triggered on {app_name}."))
+    return response
 
 
 @register
@@ -331,6 +335,7 @@ class DeployCmd(Command):
             raise ValueError(error_with_logs)
 
         response.append(text(f"App '{app_name}' deployed successfully."))
+        response.append(summary(f"deployed {app_name}."))
         return response
 
 
@@ -752,7 +757,11 @@ class DestroyCmd(Command):
                 # Reload nginx to remove the app's routing configuration
                 self._reload_nginx()
 
-        return build_log_response(captured, [f"App '{app_name}' has been destroyed."])
+        response = build_log_response(
+            captured, [f"App '{app_name}' has been destroyed."]
+        )
+        response.append(summary(f"destroyed {app_name}."))
+        return response
 
     # TODO: this should use a signal/event bus system instead
     def _reload_nginx(self) -> None:

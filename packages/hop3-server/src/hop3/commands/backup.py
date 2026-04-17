@@ -22,7 +22,7 @@ from hop3.orm.repositories import (  # noqa: TC001
 
 from ._base import Command
 from ._errors import command_context
-from ._response import success, table, text
+from ._response import success, summary, table, text
 
 
 @register
@@ -107,6 +107,7 @@ class BackupCreateCmd(Command):
             ])
 
             output.append(text("\n".join(info_lines)))
+            output.append(summary(f"created backup {backup_id} of {app_name}."))
 
         return output
 
@@ -355,6 +356,7 @@ class BackupRestoreCmd(Command):
             ]
 
             output.append(text("\n".join(info_lines)))
+            output.append(summary(f"restored {app_name} from backup {backup_id}."))
 
         return output
 
@@ -417,6 +419,7 @@ class BackupDestroyCmd(Command):
             manager.delete_backup(backup_id)
 
             output.append(success("Backup deleted successfully"))
+            output.append(summary(f"destroyed backup {backup_id}."))
 
         return output
 

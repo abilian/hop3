@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 
 from hop3_cli.core.alias_registry import (
     build_registry,
-    load_user_aliases_from_config,
+    load_user_aliases_with_diagnostics,
 )
 
 if TYPE_CHECKING:
@@ -37,8 +37,16 @@ def handle_aliases(args: list[str], config: Config, printer: RichPrinter) -> Non
         _show_help()
         return
 
-    user = load_user_aliases_from_config(config.config_file)
+    user, diags = load_user_aliases_with_diagnostics(config.config_file)
     registry = build_registry(user_aliases=user)
+
+    # Surface load-time diagnostics first so users notice broken config.
+    if diags.parse_error:
+        print(f"Warning: {diags.parse_error}", file=sys.stderr)
+    for token, reason in diags.rejected:
+        print(f"Warning: alias {token!r} skipped: {reason}", file=sys.stderr)
+    if diags.parse_error or diags.rejected:
+        print(file=sys.stderr)  # blank line between warnings and the table
 
     if not registry.aliases and not registry.skipped:
         print("No aliases defined.")
@@ -55,7 +63,9 @@ def handle_aliases(args: list[str], config: Config, printer: RichPrinter) -> Non
     print(f"{'-' * token_width}  {'-' * expansion_width}  ------")
     for a in rows:
         expansion = " ".join(a.expansion)
-        origin = a.origin
+        # Widen from Literal["built-in","plugin","user"] to str so we can
+        # annotate the user row with its source-file path.
+        origin: str = a.origin
         if a.origin_detail and a.origin == "user":
             origin = f"user ({a.origin_detail})"
         print(

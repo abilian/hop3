@@ -114,15 +114,19 @@ def test_rich_printer_print_success():
 
 
 def test_rich_printer_print_warning():
-    """Test printing warning messages."""
+    """Test printing warning messages — routed to stderr per ADR 036 D19."""
     printer = RichPrinter()
 
     stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
+    stderr_capture = StringIO()
+    with (
+        patch.object(sys, "stdout", stdout_capture),
+        patch.object(sys, "stderr", stderr_capture),
+    ):
         printer.print([{"t": "warning", "text": "This is deprecated"}])
 
-    output = stdout_capture.getvalue()
-    assert "This is deprecated" in output
+    assert "This is deprecated" in stderr_capture.getvalue()
+    assert "This is deprecated" not in stdout_capture.getvalue()
 
 
 def test_rich_printer_print_table():
@@ -318,6 +322,94 @@ def test_rich_printer_json_output_format():
 
     # Should end with newline for shell scripting
     assert output.endswith("\n")
+
+
+# ---- Summary rendering (ADR 036 D19c) ----
+
+
+def test_summary_routes_to_stderr():
+    """Summary lines go to stderr so stdout pipelines stay clean."""
+    printer = RichPrinter()
+    printer.set_scope(context="prod", app="myapp")
+
+    stdout_capture = StringIO()
+    stderr_capture = StringIO()
+    with (
+        patch.object(sys, "stdout", stdout_capture),
+        patch.object(sys, "stderr", stderr_capture),
+    ):
+        printer.print([{"t": "summary", "text": "set FOO=bar; restarted web."}])
+
+    assert stdout_capture.getvalue() == ""
+    assert "set FOO=bar; restarted web." in stderr_capture.getvalue()
+
+
+def test_summary_includes_context_and_app_prefix():
+    """The [context / app] prefix is built from the scope set by main."""
+    printer = RichPrinter()
+    printer.set_scope(context="prod", app="myapp")
+
+    stderr_capture = StringIO()
+    with patch.object(sys, "stderr", stderr_capture):
+        printer.print([{"t": "summary", "text": "deployed rev abc123."}])
+
+    out = stderr_capture.getvalue()
+    assert "[prod / myapp]" in out
+    assert "deployed rev abc123." in out
+
+
+def test_summary_with_only_context():
+    """No app set -> prefix shows only the context."""
+    printer = RichPrinter()
+    printer.set_scope(context="prod", app=None)
+
+    stderr_capture = StringIO()
+    with patch.object(sys, "stderr", stderr_capture):
+        printer.print([{"t": "summary", "text": "context updated."}])
+
+    out = stderr_capture.getvalue()
+    assert "[prod]" in out
+    assert " / " not in out
+
+
+def test_summary_without_scope_omits_prefix():
+    """No context and no app -> just the text, no empty brackets."""
+    printer = RichPrinter()  # no set_scope call
+
+    stderr_capture = StringIO()
+    with patch.object(sys, "stderr", stderr_capture):
+        printer.print([{"t": "summary", "text": "alias added."}])
+
+    out = stderr_capture.getvalue()
+    assert "alias added." in out
+    assert "[" not in out
+
+
+def test_summary_in_json_mode_buffers():
+    """JSON mode should buffer summary items like everything else."""
+    printer = RichPrinter(json_output=True)
+    printer.set_scope(context="prod", app="myapp")
+
+    printer.print([{"t": "summary", "text": "deployed rev abc."}])
+
+    stdout_capture = StringIO()
+    with patch.object(sys, "stdout", stdout_capture):
+        printer.flush_json()
+
+    data = json.loads(stdout_capture.getvalue())
+    assert data == [{"t": "summary", "text": "deployed rev abc."}]
+
+
+def test_summary_survives_quiet_mode():
+    """Summary is the one signal scripts can scrape; --quiet must not eat it."""
+    printer = RichPrinter(quiet=True)
+    printer.set_scope(context="prod", app="myapp")
+
+    stderr_capture = StringIO()
+    with patch.object(sys, "stderr", stderr_capture):
+        printer.print([{"t": "summary", "text": "set FOO=bar."}])
+
+    assert "set FOO=bar." in stderr_capture.getvalue()
 
 
 def test_rich_printer_table_empty_rows():

@@ -93,7 +93,14 @@ def _database_exists(admin: MySQLAdmin, db_name: str) -> bool:
 
 
 def _user_exists(admin: MySQLAdmin, username: str) -> bool:
-    """Check if a user exists using admin connection."""
+    """Check if a user exists using admin connection.
+
+    With the per-host grants pattern (W16 MySQL addon fix), a single
+    logical user has multiple rows in ``mysql.user`` — one per host
+    (``@'localhost'``, ``@'127.0.0.1'``, ``@'172.%'``). We must consume
+    all of them before closing the cursor, otherwise mysql-connector
+    raises ``InternalError: Unread result found``.
+    """
     conn = mysql.connector.connect(**admin.get_connection_params())
     cursor = None
     try:
@@ -102,7 +109,8 @@ def _user_exists(admin: MySQLAdmin, username: str) -> bool:
             "SELECT User FROM mysql.user WHERE User = %s",
             (username,),
         )
-        return cursor.fetchone() is not None
+        rows = cursor.fetchall()
+        return len(rows) > 0
     finally:
         if cursor:
             cursor.close()

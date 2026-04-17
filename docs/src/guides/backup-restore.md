@@ -519,11 +519,10 @@ Error: Failed to restore service 'my-database': Connection refused
 
 **Solution:**
 ```bash
-# Check service status
-hop3 postgres:list
+# Check addon status
+hop3 addon list
 
-# Restart service if needed
-# Then retry restore
+# Restart service if needed, then retry restore
 hop3 backup restore <backup-id>
 ```
 

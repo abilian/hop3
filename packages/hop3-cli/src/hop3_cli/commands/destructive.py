@@ -6,11 +6,13 @@
 
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING
 
 from hop3_cli.ui.prompts import confirm, show_destructive_warning, type_to_confirm
 
 if TYPE_CHECKING:
+    from hop3_cli.commands.flags import CliFlags
     from hop3_cli.config import Config
     from hop3_cli.ui.rich_printer import RichPrinter
 
@@ -78,19 +80,32 @@ def _confirm_protected_context(config: Config | None) -> tuple[bool, str | None]
 
 
 def confirm_destructive_action(
-    cli_args: list[str], printer: RichPrinter, config: Config | None = None
+    cli_args: list[str],
+    printer: RichPrinter,
+    config: Config | None = None,
+    *,
+    flags: CliFlags | None = None,
 ) -> bool:
-    """Prompt user to confirm a destructive action.
+    """Prompt user to confirm a destructive action (ADR 036 D14, G6, G5).
 
-    For protected contexts, extra confirmation is required.
+    Confirmation has three escapes for non-interactive use, plus an
+    interactive path:
 
-    Args:
-        cli_args: Command-line arguments
-        printer: Printer for output (for JSON mode detection)
-        config: Configuration for checking protected context (optional)
+    - ``--confirm <name>`` (G6): the scriptable form of typed-name
+      confirmation. If the value matches the resource being destroyed,
+      we accept without prompting and without disabling other safety checks.
+    - ``--yes`` / ``-y`` / ``--force`` (D14): skip the prompt entirely.
+      Coarser than ``--confirm`` — bypasses *all* checks including the
+      typed-name guard, so use it only when intent is unambiguous.
+    - ``--no-input`` (G5): refuse to prompt. If input would be required,
+      fail with a one-line "use --confirm or --yes" instruction. For
+      automation/CI where stdin isn't a terminal.
+    - Interactive: standard typed-name or [y/N] prompt.
 
-    Returns:
-        True if user confirmed, False if cancelled
+    Non-tty stdin without ``--yes``/``--confirm``/``--force`` refuses to
+    proceed with the same instruction: never silently assume yes.
+
+    Returns True if the user confirmed (or skipped), False if cancelled.
     """
     if printer.json_output:
         # In JSON mode, auto-confirm (user should use -y flag)
@@ -107,11 +122,47 @@ def confirm_destructive_action(
     if not _has_required_args(command, args):
         return True
 
+    target_name = args[0]
+
+    # ADR 036 G6: --confirm=<name> matches → accept silently. This still
+    # runs the protected-context check (which has its own confirmation),
+    # so --confirm is *not* a global safety bypass like --force.
+    if flags and flags.confirm_value is not None:
+        if flags.confirm_value != target_name:
+            print(
+                f"Error: --confirm value '{flags.confirm_value}' does not match "
+                f"target '{target_name}'.",
+                file=sys.stderr,
+            )
+            return False
+        # Still check protected context (has its own confirmation prompt).
+        is_protected, context_name = _confirm_protected_context(config)
+        return not (is_protected and context_name is None)
+
+    # ADR 036 G5: --no-input refuses to prompt with an actionable message.
+    # The implicit non-tty case is left to the prompt helpers, which catch
+    # EOFError and abort with a "Aborted." message — safe by default, but
+    # less informative. Users in CI/cron should explicitly pass --no-input
+    # (or --yes / --confirm) to get the better instructions.
+    if flags is not None and flags.no_input:
+        print(
+            f"Error: '{' '.join(command)} {target_name}' would prompt for confirmation, "
+            f"but --no-input was passed.\n"
+            f"  Use --confirm={target_name}  to acknowledge non-interactively (preserves other safety checks).\n"
+            f"  Or --yes / --force          to skip the prompt entirely (less safe).",
+            file=sys.stderr,
+        )
+        return False
+
     # Check if this is a protected context
     is_protected, context_name = _confirm_protected_context(config)
     if is_protected and context_name is None:
         # User cancelled protected context confirmation
         return False
+
+    # ADR 036 D14: context-mismatch warning. If the user is about to act
+    # on a resource in a non-default context, surface that explicitly.
+    _maybe_show_context_warning(config)
 
     # app destroy (or destroy alias) - requires type-to-confirm
     if command in {("app", "destroy"), ("destroy",)}:
@@ -127,6 +178,24 @@ def confirm_destructive_action(
 
     # Unknown destructive command (shouldn't happen)
     return confirm("This action cannot be undone. Continue?")
+
+
+def _maybe_show_context_warning(config: Config | None) -> None:
+    """Emit a context-mismatch warning before destructive ops (ADR 036 D14).
+
+    "Mismatch" here is shallow: we just print the active context so the
+    user can spot at a glance if they're about to destroy in production.
+    A deeper version would compare against an explicit "non-destructive"
+    context — left for later if real usage shows the noise level matters.
+    """
+    if config is None:
+        return
+    name = config.get_current_context_name()
+    if name:
+        print(
+            f"\n  ⚠  Acting in context '{name}'. Verify this is correct.\n",
+            file=sys.stderr,
+        )
 
 
 def _has_required_args(command: tuple[str, ...], args: list[str]) -> bool:

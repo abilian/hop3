@@ -67,12 +67,26 @@ logger.remove()
 def main():
     """Entry point for the CLI."""
     args = sys.argv[1:]
-    run_command_from_args(args)
+    try:
+        run_command_from_args(args)
+    except KeyboardInterrupt:
+        # ADR 036 D16: SIGINT exits with 130 (POSIX convention: 128+SIGINT).
+        # We swallow the traceback here so Ctrl-C doesn't dump a Python stack
+        # at the user; the exit code lets scripts detect it.
+        print(file=sys.stderr)  # newline so the next shell prompt isn't glued
+        sys.exit(ExitCode.INTERRUPTED)
 
 
 def run_command_from_args(cli_args: list[str]) -> None:
     """Run a CLI command from the given arguments."""
     flags, cli_args = parse_flags(cli_args)
+    # Bridge --no-input into an env var so prompt-bearing helpers (which
+    # don't receive flags directly) can refuse to read from a tty. See
+    # hop3_cli.ui.prompts.is_no_input.
+    if flags.no_input:
+        import os  # noqa: PLC0415
+
+        os.environ["HOP3_NO_INPUT"] = "1"
     printer = RichPrinter(
         verbose=flags.verbose,
         quiet=flags.quiet,
@@ -104,6 +118,7 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     cli_args = handle_help_flags(cli_args)
     cli_args = _resolve_and_inject_app(cli_args, flags, config, printer)
+    _update_printer_scope(printer, config, cli_args)
     _check_prerequisites(cli_args, config, printer, flags)
 
     if flags.verbosity >= 2:
@@ -131,9 +146,7 @@ def _exit_no_app_resolved(resolution, cli_args: list[str], n_consumed: int) -> N
         f"  hop3 {cmd_display} --app <app>   # one-time override",
         file=sys.stderr,
     )
-    # ExitCode.NOT_FOUND (3) matches ADR D16's "Resolution error" code 3.
-    # The ExitCode enum will be harmonized to D16 in M7.
-    sys.exit(ExitCode.NOT_FOUND)
+    sys.exit(ExitCode.RESOLUTION_ERROR)
 
 
 def _apply_aliases(
@@ -235,6 +248,26 @@ def _resolve_and_inject_app(
     return injected
 
 
+def _update_printer_scope(
+    printer: RichPrinter, config: Config, cli_args: list[str]
+) -> None:
+    """Populate printer scope so summary lines carry a [context / app] prefix.
+
+    We best-effort-extract the app from the argv after app resolution has
+    run (it's injected as the first positional for app-scoped commands).
+    For non-app-scoped commands we leave app as None and the prefix falls
+    back to just [context] (or nothing if no context is active).
+    """
+    context_name = config.get_current_context_name()
+    app_name: str | None = None
+    scoped, n_consumed = is_app_scoped(cli_args)
+    if scoped:
+        remaining = cli_args[n_consumed:]
+        if remaining and not remaining[0].startswith("-"):
+            app_name = remaining[0]
+    printer.set_scope(context=context_name, app=app_name)
+
+
 def _print_debug_info(printer: RichPrinter, cli_args: list[str], config, flags) -> None:
     """Print debug information about the current command."""
     printer.print_debug(f"Command: {' '.join(cli_args) if cli_args else '(none)'}")
@@ -256,13 +289,15 @@ def _get_extra_args_safe(cli_args: list[str], verbosity: int) -> dict:
         return get_extra_args(cli_args, verbosity=verbosity)
     except FileNotFoundError as e:
         err(f"File or directory not found: {e}")
-        sys.exit(ExitCode.GENERAL_ERROR)
+        sys.exit(ExitCode.RESOLUTION_ERROR)
     except ValueError as e:
+        # ValueError from get_extra_args means the user passed something the
+        # CLI couldn't parse (bad --input flag, missing password file, etc.).
         err(f"Invalid input: {e}")
-        sys.exit(ExitCode.GENERAL_ERROR)
+        sys.exit(ExitCode.USAGE_ERROR)
     except PermissionError as e:
         err(f"Permission denied: {e}")
-        sys.exit(ExitCode.GENERAL_ERROR)
+        sys.exit(ExitCode.AUTHZ_ERROR)
 
 
 def _check_prerequisites(
@@ -300,10 +335,14 @@ def _check_prerequisites(
                 show_unauthenticated_message()
                 sys.exit(ExitCode.AUTH_ERROR)
 
-    # Prompt for confirmation on destructive commands
+    # Prompt for confirmation on destructive commands. `--yes`/`-y`/`--force`
+    # bypass entirely; `--confirm=<name>` and `--no-input` flow through.
     if not flags.skip_confirm and is_destructive_command(cli_args):
-        if not confirm_destructive_action(cli_args, printer, config):
-            sys.exit(ExitCode.SUCCESS)  # User cancelled
+        if not confirm_destructive_action(cli_args, printer, config, flags=flags):
+            # ADR 036 D16: declined confirmation (or non-tty without --yes/--confirm)
+            # has its own exit code so scripts can distinguish "user said no" from
+            # other failures.
+            sys.exit(ExitCode.CONFIRMATION_DECLINED)
 
 
 def _try_auto_authenticate(config: Config, printer: RichPrinter) -> None:
@@ -434,10 +473,10 @@ def _execute_rpc_command(
             _handle_connection_error(e, client.rpc_url)
         except requests.exceptions.HTTPError as e:
             err(f"HTTP error while connecting to the Hop3 server:\n{e}")
-            sys.exit(ExitCode.CONNECTION_ERROR)
+            sys.exit(ExitCode.NETWORK_ERROR)
         except TimeoutError:
             err("Connection to the Hop3 server timed out.")
-            sys.exit(ExitCode.TIMEOUT_ERROR)
+            sys.exit(ExitCode.NETWORK_ERROR)
         except Exception as e:
             err(f"Error while executing command:\n{e}")
             sys.exit(ExitCode.GENERAL_ERROR)
@@ -453,7 +492,7 @@ def _handle_ssl_error(rpc_url: str) -> None:
         "  2. Disable SSL verification (less secure):\n"
         "     hop3 settings set verify_ssl false"
     )
-    sys.exit(ExitCode.CONNECTION_ERROR)
+    sys.exit(ExitCode.NETWORK_ERROR)
 
 
 def _handle_connection_error(e: Exception, rpc_url: str) -> None:
@@ -463,7 +502,7 @@ def _handle_connection_error(e: Exception, rpc_url: str) -> None:
         _handle_ssl_error(rpc_url)
     else:
         err(f"Could not connect to the Hop3 server at {rpc_url}.\nIs it running?")
-        sys.exit(ExitCode.CONNECTION_ERROR)
+        sys.exit(ExitCode.NETWORK_ERROR)
 
 
 def load_config() -> Config:

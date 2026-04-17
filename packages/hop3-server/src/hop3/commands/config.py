@@ -19,7 +19,7 @@ from hop3.project.procfile import Procfile
 
 from ._base import Command
 from ._helpers import get_app, parse_key_value_settings, set_env_var, unset_env_var
-from ._response import code, error, success, table, text
+from ._response import code, error, success, summary, table, text
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -405,6 +405,9 @@ class SetCmd(Command):
                 text(f"\nNote: Run 'hop app restart {app_name}' to apply changes.")
             )
 
+        # Summary line per ADR 036 D19c: one-line state-change report.
+        keys_set = ", ".join(sorted(key_values.keys()))
+        result.append(summary(f"set {keys_set} on {app_name}."))
         return result
 
     def _check_hostname_conflict(self, current_app: str, hostname: str) -> str | None:
@@ -518,6 +521,7 @@ class UnsetCmd(Command):
                     "\nNote: Run 'hop app restart <app>' to apply changes to running app."
                 )
             )
+            result.append(summary(f"unset {', '.join(removed)} on {app_name}."))
 
         return result
 

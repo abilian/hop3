@@ -96,8 +96,7 @@ Lightweight architecture optimized for efficiency. Run multiple applications on 
 3. **Deploy your first app**:
 
     ```bash
-    hop3 apps:create myapp
-    hop3 deploy ./myapp
+    hop3 deploy myapp
     ```
 
 See the [Installation Guide](get-started/server-setup.md) for detailed instructions.

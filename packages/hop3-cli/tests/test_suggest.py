@@ -6,17 +6,24 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pytest
-
+from hop3_cli.core import suggest
 from hop3_cli.core.suggest import (
     closest_matches,
     colon_to_space_suggestion,
     format_did_you_mean,
     load_cached_commands,
 )
+from hop3_cli.rpc.responses import (
+    _command_not_found_suggestion,
+    _extract_typed_command,
+)
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import pytest
 
 # ---- closest_matches ----
 
@@ -28,7 +35,8 @@ def test_closest_matches_finds_typo() -> None:
 def test_closest_matches_finds_app_name_typo() -> None:
     apps = ["acsi-dev", "aipress24-dev", "uptime-kuma"]
     matches = closest_matches("asci-dev", apps)
-    assert matches and matches[0] == "acsi-dev"
+    assert matches
+    assert matches[0] == "acsi-dev"
 
 
 def test_closest_matches_returns_empty_for_no_close_match() -> None:
@@ -116,30 +124,25 @@ def test_load_cached_commands_strips_whitespace(tmp_path: Path) -> None:
 
 def test_command_not_found_suggestion_for_colon_form() -> None:
     """A user typing the old colon form gets a migration hint, not Levenshtein noise."""
-    from hop3_cli.rpc.responses import _command_not_found_suggestion
-
     result = _command_not_found_suggestion("Command 'config:set' not found")
     assert result is not None
     assert "syntax changed" in result
     assert "config set" in result
 
 
-def test_command_not_found_suggestion_with_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_command_not_found_suggestion_with_cache(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """Without colon, suggestion comes from the cached command list."""
-    from hop3_cli.core import suggest
-
     cache = tmp_path / "commands.txt"
     cache.write_text("deploy\nlogs\nrestart\nstatus\n")
 
     # Point the loader at our temp cache.
     monkeypatch.setattr(
-        suggest, "load_cached_commands",
+        suggest,
+        "load_cached_commands",
         lambda path=None: ["deploy", "logs", "restart", "status"],
     )
-    # Re-import the responses module so it picks up the patched load function.
-    # Easier: call the suggestion helper with a controlled error message.
-    from hop3_cli.rpc.responses import _command_not_found_suggestion
-
     # 'deplo' should suggest 'deploy'
     result = _command_not_found_suggestion("Command 'deplo' not found")
     # Either a migration hint (no, no colon) or a closest-match.
@@ -151,16 +154,12 @@ def test_command_not_found_suggestion_with_cache(monkeypatch: pytest.MonkeyPatch
 
 def test_command_not_found_suggestion_no_command_in_message() -> None:
     """If the error doesn't have a quoted command, no suggestion is made."""
-    from hop3_cli.rpc.responses import _command_not_found_suggestion
-
     result = _command_not_found_suggestion("Some unrelated error")
     assert result is None
 
 
 def test_extract_typed_command() -> None:
     """The extractor pulls the command from a quoted error message."""
-    from hop3_cli.rpc.responses import _extract_typed_command
-
     assert _extract_typed_command("Command 'foo bar' not found") == "foo bar"
     assert _extract_typed_command("Command 'foo:bar' not found") == "foo:bar"
     assert _extract_typed_command("No quoted text here") is None
