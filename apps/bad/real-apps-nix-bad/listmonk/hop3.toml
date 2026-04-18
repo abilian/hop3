@@ -1,8 +1,0 @@
-# hop3.toml - Hop3 configuration for Nix-based Listmonk
-# Self-hosted newsletter and mailing list manager
-
-[build]
-builder = "nix"
-
-[[addons]]
-type = "postgres"
