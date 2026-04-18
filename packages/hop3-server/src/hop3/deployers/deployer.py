@@ -438,9 +438,29 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
     """
     log_text = "\n".join(log_lines).lower()
 
+    # Load the artifact kind so we can gate WSGI-specific diagnoses on
+    # apps that were actually expected to configure a WSGI module. Apps
+    # built via nix / go / ruby / docker legitimately run uWSGI in
+    # no-workers mode with an attach-daemon; reporting "no-workers" as
+    # a failure for those would be a false positive.
+    artifact_kind: str | None = None
+    try:
+        from hop3.core.artifacts import BuildArtifact  # noqa: PLC0415
+
+        artifact = BuildArtifact.load(app.app_path / "BUILD_ARTIFACT.json")
+        if artifact is not None:
+            artifact_kind = artifact.kind
+    except Exception:  # noqa: BLE001
+        # Missing / unreadable artifact is not fatal for diagnosis; we
+        # just skip the WSGI-specific pattern match.
+        artifact_kind = None
+
+    wsgi_kinds = {"python", "buildpack", "virtualenv"}
+
     # Check for uWSGI "no workers" mode (WSGI module not configured)
-    if "operational mode: no-workers" in log_text or (
-        "no app loaded" in log_text and "loading" not in log_text
+    if artifact_kind in wsgi_kinds and (
+        "operational mode: no-workers" in log_text
+        or ("no app loaded" in log_text and "loading" not in log_text)
     ):
         log_diagnosis(
             Diagnosis(

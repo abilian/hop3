@@ -6,8 +6,11 @@
 
 from __future__ import annotations
 
+import os
 import queue
+import signal
 import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -16,6 +19,40 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
+
+
+_IS_POSIX = sys.platform != "win32"
+
+
+def _terminate_process_tree(process: subprocess.Popen) -> None:
+    """Send SIGKILL to the entire process group started by ``process``.
+
+    ``run_streaming`` starts the child in its own session (see
+    ``start_new_session`` in :func:`run_streaming`), so the child's pid is
+    also the process-group id. Killing the group takes down any
+    grand-children (``nix-build``, ``docker compose up``, ``hop3-deploy``
+    via SSH, …) that would otherwise orphan when only the top-level
+    process is killed.
+
+    Falls back to ``process.kill()`` on Windows or if ``killpg`` fails.
+    """
+    if _IS_POSIX:
+        try:
+            pgid = os.getpgid(process.pid)
+        except ProcessLookupError:
+            # The child already exited between the timeout check and here.
+            return
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+            return
+        except (ProcessLookupError, PermissionError):
+            # Fall through to single-process kill as a last resort
+            pass
+
+    try:
+        process.kill()
+    except ProcessLookupError:
+        pass
 
 
 @dataclass
@@ -95,6 +132,12 @@ def run_streaming(
         stderr=subprocess.STDOUT,
         cwd=cwd,
         env=env,
+        # Start in its own session so _terminate_process_tree can kill
+        # grand-children (nix-build, docker, ssh) on timeout. Without
+        # this, only the direct child receives SIGKILL and subprocesses
+        # orphan — polluting Docker containers and leaving nix daemons
+        # holding locks.
+        start_new_session=_IS_POSIX,
     )
 
     output_queue: queue.Queue[bytes | None] = queue.Queue()
@@ -123,7 +166,7 @@ def run_streaming(
     while True:
         # Check timeout
         if time.time() - start_time > timeout:
-            process.kill()
+            _terminate_process_tree(process)
             timed_out = True
             break
 

@@ -10,13 +10,13 @@ the principle of composition over inheritance.
 
 from __future__ import annotations
 
-import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 from hop3_testing.exceptions import ConfigurationError, ServiceStartError
+from hop3_testing.util.streaming import run_streaming
 
 from .constants import (
     DEFAULT_DOCKER_IMAGE,
@@ -853,46 +853,77 @@ def run_hop3_deploy(
         diagnostics.set_phase("deploy")
 
     start_time = time.time()
+
+    # `hop3-deploy --clean --with all` can take 10-20 minutes on a cold
+    # docker image (apt install, nix single-user install, extensions).
+    # Stream output line-by-line so the user sees progress in real time,
+    # while still capturing the full log for the diagnostics failure
+    # report. A 4-hour timeout is generous but bounded — the process
+    # group gets killed on timeout so no orphaned nix-build / docker.
     try:
-        result = subprocess.run(
+        result = run_streaming(
             cmd,
-            capture_output=not verbose,
-            text=True,
-            check=False,
+            on_output=lambda line: print(line, flush=True),
+            timeout=4 * 3600,
         )
-        duration = time.time() - start_time
-
-        if result.returncode != 0:
-            _log_deploy_failure(diagnostics, duration, result, verbose)
-            return False, duration
-
-        _log_deploy_success(diagnostics, duration)
-        return True, duration
-
     except FileNotFoundError:
         duration = time.time() - start_time
         _log_deploy_not_found(diagnostics, duration)
         return False, duration
 
+    duration = time.time() - start_time
+
+    if result.timed_out:
+        _log_deploy_timeout(diagnostics, duration, result)
+        return False, duration
+
+    if result.returncode != 0:
+        _log_deploy_failure(diagnostics, duration, result)
+        return False, duration
+
+    _log_deploy_success(diagnostics, duration)
+    return True, duration
+
 
 def _log_deploy_failure(
     diagnostics: DiagnosticCollector | None,
     duration: float,
-    result: subprocess.CompletedProcess,
-    verbose: bool,
+    result,
 ) -> None:
-    """Log deployment failure."""
+    """Log deployment failure.
+
+    Output was streamed to the console as it arrived; no need to
+    re-print it here. The captured transcript still goes to the
+    diagnostics report so HTML/JSON reports stay complete.
+    """
     if diagnostics:
         diagnostics.add_failure(
             layer="deployer",
             operation="deploy",
-            message="hop3-deploy failed",
+            message=f"hop3-deploy failed (exit {result.returncode})",
             duration=duration,
-            stdout=result.stdout if not verbose else "",
-            stderr=result.stderr if not verbose else "",
+            stdout=result.stdout,
+            stderr=result.stderr,
         )
-    if not verbose and result.stderr:
-        print(f"Deploy failed:\n{result.stderr}")
+    print(f"\nDeploy failed after {duration:.0f}s (exit {result.returncode}).")
+
+
+def _log_deploy_timeout(
+    diagnostics: DiagnosticCollector | None,
+    duration: float,
+    result,
+) -> None:
+    """Log deployment timeout — subprocess group has already been killed."""
+    if diagnostics:
+        diagnostics.add_failure(
+            layer="deployer",
+            operation="deploy",
+            message=f"hop3-deploy timed out after {duration:.0f}s",
+            duration=duration,
+            stdout=result.stdout,
+            stderr=result.stderr,
+        )
+    print(f"\nDeploy timed out after {duration:.0f}s (killed process tree).")
 
 
 def _log_deploy_success(
