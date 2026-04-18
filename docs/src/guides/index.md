@@ -28,6 +28,7 @@ The [User Guide](user-guide.md) covers the core concepts and daily operations:
 
 ## Operations
 
+- [Addons](addons.md) - Databases, caches, and object storage (postgres, mysql, redis, s3)
 - [Backup & Restore](backup-restore.md) - Protect your data and recover from failures
 - [Migration Guide](migration-guide.md) - Migrate applications to Hop3
 - [CLI Migration](cli-migration.md) - Upgrading from older CLI versions

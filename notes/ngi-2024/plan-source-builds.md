@@ -1,6 +1,14 @@
 # Plan: Replace Pre-Built Binaries with Source Builds
 
+**Status:** ✅ DONE (Phases 1–3 complete). 6 of 7 apps converted via `nixpkgs-wrapper`:
+Miniflux, Gitea, Grafana, Mattermost, Vikunja, Wiki.js. Phases 4–5 (custom
+`go-module` / `node-package` templates) never needed — `nixpkgs-wrapper`
+covered every case. Focalboard remaining (upstream archived 2023; recommend
+drop, covered by Vikunja). The document below is preserved as a record of the
+design and decision trail.
+
 **Created:** 2026-04-09
+**Closed:** 2026-04-18
 **Goal:** Eliminate pre-built binary reliance for 7 Nix-packaged apps
 **Ref:** ADR 008, `notes/experience-reports/00-aggregate.md`
 

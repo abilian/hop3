@@ -205,27 +205,59 @@ retention = 7             # Days to keep backups
 - `schedule` (string): Cron expression for backup schedule
 - `retention` (number): Number of days to retain backups
 
-### [[provider]] - Service Dependencies
+### [[addons]] - Backing Services
 
-Declare backing services your application needs (databases, caches, etc.).
+Declare backing services your application needs (databases, caches, object storage). Each `[[addons]]` entry auto-provisions the addon on first deploy if it doesn't already exist, and injects connection env vars into the app runtime.
 
 ```toml
-[[provider]]
-name = "postgres"
-plan = "standard"
-version = "15"
+[[addons]]
+type = "postgres"
 
-[[provider]]
-name = "redis"
-plan = "basic"
+[[addons]]
+type = "redis"
+
+[[addons]]
+type = "mysql"
+
+[[addons]]
+type = "s3"
 ```
 
-**Note:** Use `[[provider]]` (double brackets) for arrays in TOML.
+**Note:** Use `[[addons]]` (double brackets) for arrays in TOML. The legacy `[[provider]]` section name is deprecated; prefer `[[addons]]`.
 
-**Fields:**
-- `name` (string): Service type (postgres, redis, mysql, etc.)
-- `plan` (string): Service plan/tier
-- `version` (string): Service version
+**Common fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | yes | Addon type: `postgres`, `mysql`, `redis`, `s3` |
+| `name` | string | no | Instance name; defaults to the app name. Multiple addons of the same type on one app should set distinct names |
+
+**Addon-specific fields:**
+
+`postgres`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `extensions` | list[string] | Non-trusted PostgreSQL extensions to install as superuser (e.g. `["bloom", "adminpack", "postgres_fdw"]`). Trusted extensions (`pg_trgm`, `uuid-ossp`, etc.) can be installed by the per-app user via migrations and do not need to be listed here. |
+
+Example:
+
+```toml
+[[addons]]
+type = "postgres"
+extensions = ["bloom", "postgres_fdw"]
+```
+
+**Injected environment variables (per addon type):**
+
+| Type | Variables |
+|------|-----------|
+| `postgres` | `DATABASE_URL`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, `PGHOST`, `PGPORT` |
+| `mysql` | `DATABASE_URL`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_HOST`, `MYSQL_PORT` |
+| `redis` | `REDIS_URL`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB` |
+| `s3` | `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_REGION`, `S3_USE_PATH_STYLE` |
+
+For CLI-level addon management (`addon create`, `addon attach`, `addon detach`, `addon destroy`) and end-to-end examples, see [Addons Guide](../guides/addons.md).
 
 ## Command Format
 
@@ -271,9 +303,8 @@ before-run = "python manage.py migrate --noinput"
 [env]
 DJANGO_SETTINGS_MODULE = "blog.settings.production"
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 ```
 
 ### Node.js/Express Application
@@ -294,9 +325,8 @@ packages = ["nodejs"]
 [port]
 web = 3000
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 ```
 
 ## `[nix]` — Template-Based Nix Builds

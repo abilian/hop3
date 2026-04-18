@@ -1,6 +1,6 @@
 # Project plan for the NGI project (#2024-04-365)
 
-**Last reviewed:** 2026-04-09
+**Last reviewed:** 2026-04-18
 
 ## T1 - Nix Build Plugins for Hop3
 
@@ -12,14 +12,14 @@ Deliverables include developing a Nix "native" builder for applications with an 
 
 - [x] **M1.1** Nix "native" builder (for integrating apps described by a Nix expression)
   - NixBuilder plugin reads `hop3.nix`, runs `nix-build`, extracts `runtime.json`
-  - 22 hand-crafted `hop3.nix` apps deployed and tested
+  - 32 hand-crafted `hop3.nix` apps deployed and tested (as of 2026-04-18)
   - Static site support via nginx (absolute Nix store paths)
 
 - [x] **M1.2** Nix alternatives to all the existing builders (at least: Python, Nodejs, Ruby, Go, Rust, Java) for "12 Factor App" like workflow
-  - Template-based generation from `[nix]` section in `hop3.toml` (ADR 008)
+  - Template-based generation from `[nix]` section in `hop3.toml` (ADR 008, v0.6 Final)
   - 8 templates: `prebuilt-binary`, `prebuilt-archive`, `php-app`, `node-prebuilt`, `java-war`, `python-venv`, `nixpkgs-wrapper`, `ruby-bundler`
-  - 20 template-generated apps validated
-  - `nix:eject` command to materialize for customization
+  - 25 template-generated apps validated (as of 2026-04-18)
+  - `nix eject` command to materialize for customization
   - 119 unit tests for the generator
   - **Note:** We replaced Dream2nix/poetry2nix/node2nix with our own template approach after finding ecosystem tools didn't match our actual usage patterns. See ADR 008 v0.5 for rationale.
 
@@ -34,10 +34,11 @@ The project will extend Hop3 by integrating Nix as a powerful foundation for cre
   - `BuildArtifact` with `RuntimeConfig` carries Nix store paths, env vars, workers
   - `runtime.json` format specifies workers, env, PATH for any Nix-built app
 
-- [ ] **M2.2** Bêta implementation — **~50% done**
+- [ ] **M2.2** Bêta implementation — **~80% done**
   - uWSGI deployer handles Nix artifacts (web, wsgi, static workers)
-  - 22 hand-crafted + 20 template-generated apps running end-to-end
-  - **Remaining:** ~8 apps in `real-apps-nix-bad/` that need fixes (etherpad, hedgedoc, cryptpad, searxng, listmonk, matrix-synapse, sonarqube, xwiki). Some may require new templates or Nix packaging effort.
+  - 32 hand-crafted + 25 template-generated apps running end-to-end
+  - **Bad-app triage (W16):** searxng / xwiki / matrix-synapse fixed via template+sed cleanups; sonarqube and monica permanently deferred (bundled ES / Laravel-Mix incompatibility documented under `apps/bad/*/DEFERRED.md`).
+  - **Remaining:** etherpad (needs clean retry deploy), hedgedoc (node_modules lost in Nix-store cp), cryptpad (npm install > 10-min timeout), listmonk (re-evaluate, may be viable via `pkgs.listmonk`), matrix-synapse libzstd `LD_LIBRARY_PATH` polish.
 
 - [ ] **M2.3** Final release ("1.0") — **not started**
   - Needs: documentation polish, CI integration, release notes
@@ -51,8 +52,10 @@ We will enhance Hop3's resilience and security by introducing robust features an
 
 - [ ] **M3.1** Backing services (storage, email…)
   - PostgreSQL, MySQL, Redis addons fully implemented with CLI commands
-  - `addons:create`, `addons:attach`, `addons:detach`, auto-provisioning from `[[addons]]` in hop3.toml
-  - **Partial gap:** No S3/object storage or email addon yet (database services only)
+  - `addon create`, `addon attach`, `addon detach`, auto-provisioning from `[[addons]]` in hop3.toml
+  - S3-compatible object storage addon shipped in 0.5 (MinIO backend with a plugin abstraction ready for Garage in 0.6)
+  - W16: PostgreSQL addon now grants CREATE on the per-app DB + public schema (G1), and `[[addons]].extensions` installs non-trusted extensions (bloom, adminpack) as superuser
+  - **Remaining gap:** Email addon (SMTP-relay design agreed, implementation deferred to 0.6)
 
 - [ ] **M3.2** Upgrades (including data migrations) — **partial**
   - Alembic database migrations for Hop3's own schema
@@ -71,15 +74,16 @@ We will enhance Hop3's resilience and security by introducing robust features an
   - Direct port testing, SSH curl, nginx testing for static apps
   - 599 unit + 245 integration + system + E2E tests
 
-- [ ] **M3.5** Firewalls (network-level and WAF) — **not started**
-  - LeWAF (Coraza-based) evaluated but no integration code
-  - Planned for May 2026
+- [ ] **M3.5** Firewalls (network-level and WAF) — **Phase 1 done**
+  - LeWAF (Coraza-based) static-WAF Phase 1 shipped per ADR 033; 88 tests passing.
+  - Phases 2-4 (dynamic WAF, policy engine, observability) remain live in `local-notes/plans/waf.md`.
 
-- [ ] **M3.6** CLI (basic)
-  - 73 registered commands covering all operations
+- [x] **M3.6** CLI — **DONE** (W16)
+  - 73+ registered commands with `space`-separated naming (post ADR 036 M1 migration)
   - SSH tunneling, JSON-RPC, streaming deploy output
   - Multi-server contexts, auto-authentication
-  - **Gap**: But DX is clunky -> needs refactor
+  - ADR 036 (CLI Ergonomics) Accepted: colon→space syntax, implicit app + sticky context, aliases, categorized help with mandatory EXAMPLES, did-you-mean suggestions, confirmations / `--confirm=<name>` / `--no-input` / `--password-file`, D16 exit-code table (11 codes), alias diagnostics, app-name cache.
+  - Test count 1033 → 1218 across M1–M8.
 
 - [ ] **M3.7** Web UI (basic)
   - Dashboard with app management, addon management, backup management
@@ -89,8 +93,8 @@ We will enhance Hop3's resilience and security by introducing robust features an
 
 - [ ] **M3.8** Process outcomes of security audit and accessibility scan
   - Internal security audit completed (3 critical, 5 high, 8 medium, 6 low)
-  - 4 fixes outstanding (magic link default, rate limiting, bearer token case, session lifetime)
-  - Needs to start interacting with the NGI team
+  - All 4 flagged fixes shipped: magic-link default username removed; rate-limiting on `/auth/login` + magic-link endpoint; bearer-token case insensitivity per RFC 7235; `HOP3_TOKEN_EXPIRY_HOURS` configurable session lifetime.
+  - **Remaining:** external NGI security review (submit findings, await response).
 
 ## T4 - Packaged Applications
 
@@ -103,9 +107,11 @@ Package 20 popular or useful open-source applications to run on Hop3, covering a
 - [ ] **M4.3** - 5 next applications + experience reports — **done (configs, not production deployments)**
 - [ ] **M4.4** - 5 last applications + experience reports — **done (configs, not production deployments)**
 
-**Status:** 28 native apps + 22 Nix apps + 20 Nix-gen apps + 30 Docker apps configured and tested via `hop3-test`. Covers: WordPress, Gitea, Miniflux, BookStack, Grafana, NextCloud, Matomo, Jenkins, Mattermost, LimeSurvey, Kanboard, Invoice Ninja, Focalboard, Vikunja, Wiki.js, Etherpad, HedgeDoc, Radicale, Adminer, Isso, SearXNG, Dolibarr, Monica, XWiki, SonarQube, Mastodon, Matrix Synapse, and more.
+**Status (2026-04-18):** 38 native apps + 32 Nix apps + 25 Nix-gen apps + 42 Docker apps configured and tested via `hop3-test`. Covers: WordPress, Gitea, Forgejo, Miniflux, BookStack, Grafana, NextCloud, Matomo, Jenkins, Mattermost, LimeSurvey, Kanboard, Invoice Ninja, Focalboard, Vikunja, Wiki.js, Etherpad, HedgeDoc, Radicale, Adminer, Isso, SearXNG, Dolibarr, XWiki, Mastodon, Matrix Synapse, BookWyrm, Stirling-PDF, Vaultwarden, GoToSocial, WriteFreely, Owncast, Gatus, MediaWiki, and more.
 
-**Gap:** Experience reports not written as standalone documents. Lessons learned are captured but not formatted as per-app reports. None of these apps deployed to production with real traffic yet. (A dozen of internal apps currently in prodcution, though).
+**New in W16 (2026-04-14→18):** Tier-A Stirling-PDF (4/4), Tier-B Forgejo (4/4), Tier-A Vaultwarden (1/4, docker/native deferred pending Rust toolchain in installer), Tier-F GoToSocial (3/4), WriteFreely (3/4), Owncast (4/4), Tier-C Gatus (4/4), MediaWiki (2/4). Pretalx and Redmine attempted 2026-04-17, both deferred (pretalx wheel lacks pre-built Vite frontend; Redmine native bundler-env propagation to before-run scripts needs deeper fix).
+
+**Gap:** Experience reports not written as standalone documents. Lessons learned are captured but not formatted as per-app reports. None of these apps deployed to production with real traffic yet. (A dozen of internal apps currently in production, though).
 
 ## T5 - Dissemination & Engagement
 
@@ -124,9 +130,10 @@ This task focuses on promoting Hop3 through an enriched website and blog with re
   - User guide, installation guide, CLI reference, hop3.toml reference
   - Developer documentation (plugin development, architecture)
 
-- [ ] **M5.3** Technical report and/or research paper — **~60% done**
-  - Paper drafted with Promise Theory agent model, hop3.toml specification, 28-app evaluation, competitor comparison
-  - **Missing:** Benchmarks (control plane memory, deployment time, Nix closures, startup time). Cannot submit without quantitative evaluation.
+- [ ] **M5.3** Technical report and/or research paper — **~75% done**
+  - TR-01 refactored into proper technical-report form in W16: abstract, keywords, related work, system design, preliminary evaluation, threats to validity, references. App counts and ADR 008 / 039 sections reflect current state.
+  - Appendix E updated for new ADRs (036, 038, 039).
+  - **Missing:** Benchmarks (control plane memory, deployment time, Nix closures, startup time). Cannot submit without quantitative evaluation. See `local-notes/plans/paper-benchmarks.md`.
 
 - [x] **M5.4** Conference presentation or workshop — **partial**
   - Hop3 talks already done at OW2Con 2025, OSXP 2025, and scheduled for OW2Con 2026

@@ -3,7 +3,7 @@
 .PHONY: test-all test-ci test-demos test-demos-docker test-demos-ssh
 .PHONY: test-tutorials test-tutorials-ssh test-installer build-installers
 .PHONY: test-dev test-ci-new test-nightly test-list test-run
-.PHONY: test-system test-system-clean test-apps test-app
+.PHONY: test-system test-system-clean test-apps test-app test-nix
 
 # For tests, set HOP3_DEV_HOST in your environment
 
@@ -244,6 +244,12 @@ test-apps:
 test-app:
 	@echo "Usage: make test-app APP=010-flask-pip-wsgi"
 	@if [ -n "$(APP)" ]; then uv run hop3-test apps $(APP); fi
+
+## Run Nix-focused test suite (test-apps-nix + real-apps-nix-gen, Docker)
+test-nix:
+	@echo "--> Running Nix test suite (Docker, --with nix)"
+	uv run hop3-test system --docker --with nix apps/test-apps-nix apps/real-apps-nix-gen
+	@echo ""
 
 #
 # Installer Testing

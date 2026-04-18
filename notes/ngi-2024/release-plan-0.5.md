@@ -3,7 +3,7 @@
 **Target:** Early May 2026
 **Theme:** Consolidation — make what we have solid and demonstrable
 **Branch:** `main` (merge from `nix-builders`)
-**Last updated:** 2026-04-11
+**Last updated:** 2026-04-18
 
 ## Goals
 
@@ -38,18 +38,17 @@ identified for all; full report at `/tmp/nix-triage/findings.md`.
 - Bundler now AST-detects top-level name collisions
 - Test log writer missing `mkdir parents=True`
 
-**Infrastructure bugs flagged, not yet fixed:**
-- `postgres.py` has no supervisord fallback (Docker containers)
-- hop3-server wraps `RepositoryError` as opaque "data processing"
-  error on redeploys
-- Test runner deploy-timeout doesn't kill orphaned nix-build
+**Infrastructure bugs flagged, remaining:**
+- `postgres.py` supervisord fallback — **SHIPPED (W16)** via `pg_ctlcluster` (Debian) / `pg_ctl` (Fedora)
+- hop3-server wraps `RepositoryError` as opaque "data processing" error on redeploys — open
+- Test runner deploy-timeout doesn't kill orphaned nix-build — open
 
 **Per-app triage:**
 
-Trivial fixes (~1 hour total):
-- [ ] **searxng** — `rev = "master"` non-reproducible → pin tag
-- [ ] **xwiki** — unquoted heredoc → `$out` unexpanded at runtime
-- [ ] **matrix-synapse** — sed `s|VENV|…|` mangles `VENV_LIB=`
+Trivial fixes (~1 hour total) — **DONE (W16)**:
+- [x] **searxng** — replaced hand-crafted `hop3.nix` with `nixpkgs-wrapper`
+- [x] **xwiki** — heredoc quoting fixed via sed-substitution with `__APPDIR__`/`__JDK__` placeholders + symlink into writable cwd
+- [x] **matrix-synapse** — placeholders renamed to `__VENV__`/`__ZSTDLIB__`; added `pillow.libs/` to `LD_LIBRARY_PATH`; auto-generates `homeserver.yaml`
 
 Medium fixes (1-3 hours each):
 - [ ] **hedgedoc** — `Cannot find module 'express'` (node_modules
@@ -64,8 +63,10 @@ Re-evaluate / drop:
 - [ ] **listmonk** — SMTP-relay reasoning was wrong (listmonk
       stores SMTP creds in its own DB). Viable via `pkgs.listmonk`
       from nixpkgs; or drop if not in nixpkgs.
-- [ ] **sonarqube** — read-only Nix store + amd64-only + bundled
-      ES + ~3GB RAM + source-available licensing. **Recommend drop.**
+- [x] **sonarqube** — dropped. Bundled ES 8.19 crashes on startup
+      (`vm.max_map_count` + heap). Deferred to `apps/bad/` with
+      `DEFERRED.md`. Also: read-only Nix store + amd64-only +
+      source-available licensing make it a poor fit.
 
 #### Static site Nix worker — DONE
 
@@ -225,17 +226,36 @@ Email addon is nice-to-have; can slip to 0.6.
 highest-traffic failure paths use it; next-batch sites (health,
 ports, nginx) can land in 0.5 or 0.6 as time allows.
 
-### CLI DX pass (M3.6)
+### CLI DX pass (M3.6) — DONE (W16, ADR 036 M1-M8 shipped)
 
-- [ ] Audit and fix inconsistent app name parameter handling
-- [x] `hop3 deploy` streaming output by default
-- [ ] Actionable error messages for the 10 most common failures
-      (covered by error message audit above)
-- [x] `hop3 app:info` shows clickable URL
-- [x] `hop3 apps` sorted alphabetically
+The "full refactor" previously deferred to 0.6 was actually
+executed across W16 (Apr 15–17) on the `cli-refact` branch and
+merged. ADR 036 moved from Draft to Accepted.
 
-(Full CLI DX refactor — consistent parameter ordering, granular exit
-codes, JSON output, progress indicators — deferred to 0.6.)
+- [x] Colon→space command syntax migration (M1): `hop3 config:set`
+      → `hop3 config set`. 71 server commands, 1033 tests green.
+- [x] Namespace reorganization (M1b): `admin:user:*` → `user *`,
+      `addons` → `addon`, verb normalization, `sbom` demoted.
+- [x] Implicit app + sticky context (M2): 6-source resolution chain
+      (`--app` → `$HOP3_APP` → `.hop3-app` → `hop3.toml [cli].app`
+      → context → git remote), `hop3 use [app]`, `--why` flag.
+- [x] Alias mechanism (M3): core + plugin + user aliases, disjoint
+      union, `hop3 aliases` introspection, `--no-alias` bypass.
+- [x] Help rendering (M4): categorized top-level, per-command D11
+      order (USAGE → EXAMPLES → DESCRIPTION → SUBCOMMANDS),
+      namespace-bare help, EXAMPLES mandatory on all commands.
+- [x] Did-you-mean + structured no-app-resolved errors (M5).
+- [x] Confirmations, summaries, secret handling (M6): `--confirm`
+      typed-name, `--no-input`, stderr discipline, `--password-file`
+      / `--stdin` secret inputs.
+- [x] Exit codes harmonized to D16 table (M7): 11 codes including
+      10 (confirmation declined), 130 (SIGINT).
+- [x] Alias diagnostics, `--no-input` env bridge, app-name cache
+      (M8).
+- [x] Streaming `hop3 deploy` output (pre-W16).
+- [x] `hop3 app:info` clickable URL, `hop3 apps` sorted.
+
+Test count trajectory: 1033 → 1218 passing across M1-M8.
 
 ### Web UI review (M3.7)
 
@@ -244,23 +264,68 @@ codes, JSON output, progress indicators — deferred to 0.6.)
 - [ ] Environment variable editing: validate before save
 - [ ] Ensure all CRUD operations work end-to-end
 
-### Interim technical report review (M5.3)
+### Interim technical report review (M5.3) — DONE (W16)
 
-The current TR-01 is an **interim** NGI progress report, not the
-final paper. Final paper + benchmarks + submission are 0.6 work.
-For 0.5 the goal is just to make sure the interim report reflects
-0.5-era reality (ADR 008 shipped, source builds done, etc.).
+TR-01 was refactored into proper technical-report form in W16:
+abstract, keywords, related work, system design, preliminary
+evaluation, threats to validity, references. Appendix E updated
+for ADR 039 Phase 1. App counts and Nix/ADR 008 content reflect
+current state.
 
-- [ ] Re-read TR-01 with fresh eyes against the 0.5 state
-- [ ] Update the Nix section to reflect ADR 008 and source builds
-- [ ] Update the app count (28 native + 22 Nix + 20 nix-gen + 30
-      Docker apps) and the reproducibility tier discussion
-- [ ] Update the security audit section (4 fixes landed in 0.5)
-- [ ] Generate updated interim PDF
+- [x] Re-read TR-01 against 0.5 state
+- [x] Nix section reflects ADR 008 (template-based generation, 8 templates, reproducibility tiers)
+- [x] App counts updated (38 native + 32 Nix + 25 nix-gen + 42 Docker)
+- [x] Security audit section reflects the 4 M3.8 fixes
+- [x] Interim PDF rendered at `notes/reports/TR-01.pdf`
 - [ ] Share with NGI reviewers for feedback
 
 (Screencasts M5.6, paper benchmarks, and final paper submission
 are all deferred to 0.6 — see `release-plan-0.6.md`.)
+
+### Server-side packaging-gap fixes — DONE (W16, Tier 1)
+
+Surfaced from the 30-app packaging effort (G1–G7 gaps tracked in
+`local-notes/plans/hop3-server-improvements.md`). Tier 1 landed
+in W16 as commit `2c3c698e` on devel:
+
+- [x] **G1 — Postgres CREATE grants.** `plugins/postgresql/postgres.py`
+      now grants `CREATE ON DATABASE` + `CREATE, USAGE ON SCHEMA
+      public` to the per-app user so migrations can install trusted
+      extensions (`pg_trgm`, `hstore`, …) on PG 15+. Plus a new
+      `install_extensions()` method that runs
+      `CREATE EXTENSION IF NOT EXISTS` as superuser for non-trusted
+      extensions declared via `[[addons]].extensions` (bloom,
+      adminpack). Unblocks BookWyrm; would have unblocked
+      Funkwhale / Pretalx / Lemmy / Mastodon-on-fresh-install.
+- [x] **G3 — Docker build timeout tier-aware.** Replaced hardcoded
+      10-minute cap with a tier-keyed table (fast=5m, medium=10m,
+      slow=20m, very-slow=30m) driven by `[build].tier`.
+- [x] **G7 Phase 1 — Python toolchain (ADR 039).** Drops
+      `--upgrade` from pip-install paths; adds `--no-dev` to
+      `uv sync`; errors on both-files-present; detects Poetry-only
+      pyprojects with actionable hint. Non-breaking; unblocks
+      future Django catalogue apps. Phases 2-3 (explicit
+      `[build.python].strategy`, lint rules, tutorial rewrite)
+      deferred to 0.6.
+
+Tier 2 (G2 `[build].packages`, G5 `nix-env-exports`) and Tier 3
+(G4 Rust toolchain, G6 `node-npm-install`) remain open.
+
+### New ADRs in 0.5 window
+
+- **ADR 036 — CLI Ergonomics** — Accepted after M1–M8 shipped.
+- **ADR 039 — Python Deploy Strategies** — Active, Phase 1 shipped.
+
+### Tier-F fediverse packaging (new track, W16)
+
+A dedicated Tier F for fediverse apps was added to
+`local-notes/stacks-and-apps/PRIORITY.md` explicitly because NGI
+has been the primary funder of the fediverse ecosystem. W16 batch
+landed:
+
+- [x] GoToSocial (3/4 variants — nix-gen deferred)
+- [x] WriteFreely (3/4 — nix-gen deferred; hybrid nixpkgs+tarball)
+- [x] Owncast (4/4 — `packages = ["ffmpeg"]`)
 
 ### Packaged apps — experience reports (M4.1-4)
 
@@ -288,12 +353,13 @@ stay as drafts; finalised in 0.6.)
 
 ### Test suite green
 
+App counts updated from post-W16 reality:
 - [ ] All `test-apps-procfile/` passing
 - [ ] All `test-apps-nix/` passing
-- [ ] All `real-apps-native/` passing (28/28)
-- [ ] All `real-apps-nix/` passing (target: 20+/22)
-- [ ] All `real-apps-nix-gen/` passing (target: 18+/20)
-- [ ] Docker apps: document known failures, skip in CI
+- [ ] All `real-apps-native/` passing (target: 38/38; MediaWiki landed 2026-04-17; Pretalx + Redmine deferred)
+- [ ] All `real-apps-nix/` passing (target: 30+/32)
+- [ ] All `real-apps-nix-gen/` passing (target: 22+/25)
+- [ ] All `real-apps-docker/` passing (target: 40+/42)
 
 ### Release mechanics
 
@@ -320,7 +386,9 @@ stay as drafts; finalised in 0.6.)
 
 Done in earlier iterations: S3 addon (M3.1), multi-service ADR 038,
 diagnostics foundation + top failure sites, nix bad-app triage +
-installer infra fixes.
+installer infra fixes, **CLI DX refactor (ADR 036 M1-M8)**,
+**Tier-1 server-side packaging fixes (G1/G3/G7 + ADR 039 Phase 1)**,
+**interim TR-01 refactor**, **nix trivial-batch bad-app fixes**.
 
 Moved to 0.6: paper benchmarks, screencasts (M5.6), final paper
 submission (M5.3 final).
@@ -343,9 +411,13 @@ submission (M5.3 final).
 - [x] Multi-service ADR 038 written (implementation deferred to 0.6)
 - [x] Diagnostics foundation + top failure sites use structured
       `Diagnosis` messages
-- [ ] Interim tech report refreshed and shared with NGI reviewers
+- [x] CLI DX refactor (ADR 036 M1-M8) landed
+- [x] ADR 039 Phase 1 (Python toolchain) landed
+- [x] Tier-1 server-side packaging-gap fixes (G1/G3/G7) landed
+- [x] Interim tech report refreshed (TR-01 in proper technical-report form)
+- [ ] Interim TR shared with NGI reviewers
 - [ ] At least 3 production deployments running with reports (M4.1)
-- [ ] Nix runtime stabilised (bad apps triaged)
+- [ ] Nix runtime stabilised (bad apps triaged — W16 unblocked 3 trivial; medium batch pending)
 - [ ] Focalboard decision executed
 - [ ] Test suite green
 - [ ] v0.5.0 tagged and announced
