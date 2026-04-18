@@ -10,7 +10,7 @@ from hop3.core.plugins import get_builder, get_deployer
 from hop3.core.protocols import DeploymentContext
 from hop3.deployers.addon_provisioning import provision_addons
 from hop3.deployers.env_provisioning import set_computed_env_vars, set_default_env_vars
-from hop3.lib import Diagnosis, abort_with_diagnosis, log, shell
+from hop3.lib import Diagnosis, abort_with_diagnosis, log, log_diagnosis, shell
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
 from hop3.project.config import AppConfig
@@ -442,64 +442,74 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
     if "operational mode: no-workers" in log_text or (
         "no app loaded" in log_text and "loading" not in log_text
     ):
-        log(
-            "Diagnosis: uWSGI started with no workers configured.",
-            level=0,
-            fg="red",
+        log_diagnosis(
+            Diagnosis(
+                component="uWSGI",
+                action="start workers",
+                reason="uWSGI started in no-workers mode (no WSGI module configured)",
+                hint=(
+                    "Add a WSGI worker to hop3.toml under [run.workers], e.g. "
+                    '`wsgi = "app:application"`'
+                ),
+                troubleshooting=[
+                    "See https://hop3.cloud/guides/user-guide/#workers",
+                    "hop3 app build-logs <app>",
+                ],
+            )
         )
-        log(
-            "  Fix: Add a WSGI worker to hop3.toml, e.g.:",
-            level=0,
-        )
-        log("    [run.workers]", level=0)
-        log('    wsgi = "app:application"', level=0)
-        log("", level=0)
         return
 
     # Check for daemon throttling (repeated crashes)
     if "throttling" in log_text:
-        log(
-            "Diagnosis: A daemon process is crashing repeatedly. "
-            "uWSGI is throttling respawns.",
-            level=0,
-            fg="red",
+        log_diagnosis(
+            Diagnosis(
+                component="uWSGI",
+                action="keep daemon running",
+                reason="a daemon is crashing repeatedly; uWSGI is throttling respawns",
+                hint=(
+                    "Look above for 'Error', 'Traceback', or 'Cannot find' lines "
+                    "in the daemon's output"
+                ),
+            )
         )
-        log(
-            "  The daemon's error output may be above. Look for lines "
-            "containing 'Error', 'Traceback', or 'Cannot find'.",
-            level=0,
-        )
-        log("", level=0)
         return
 
     # Check for connection refused (common with database/service issues)
     if "econnrefused" in log_text or "connection refused" in log_text:
-        log(
-            "Diagnosis: The app could not connect to a required service.",
-            level=0,
-            fg="red",
+        log_diagnosis(
+            Diagnosis(
+                component="App runtime",
+                action="connect to a required service",
+                reason="the app got 'connection refused' from an addon or upstream",
+                hint=(
+                    "Check that all addon services (PostgreSQL, MySQL, Redis) "
+                    "are running and reachable from this server"
+                ),
+                troubleshooting=[
+                    "hop3 addon list",
+                    "systemctl status postgresql mysql redis  (or equivalent)",
+                ],
+            )
         )
-        log(
-            "  Check that all addon services (PostgreSQL, MySQL, Redis) "
-            "are running and accessible.",
-            level=0,
-        )
-        log("", level=0)
         return
 
     # Check for missing module/file errors
     if "modulenotfounderror" in log_text or "no such file or directory" in log_text:
-        log(
-            "Diagnosis: A required file or module was not found.",
-            level=0,
-            fg="red",
+        log_diagnosis(
+            Diagnosis(
+                component="App runtime",
+                action="load a required file or module",
+                reason="Python raised ModuleNotFoundError or a path was missing",
+                hint=(
+                    "Check that all dependencies are installed and file paths "
+                    "in hop3.toml are correct"
+                ),
+                troubleshooting=[
+                    "hop3 app build-logs <app>  # confirm all pip installs succeeded",
+                    "Verify Procfile / hop3.toml entry paths match repo layout",
+                ],
+            )
         )
-        log(
-            "  Check that all dependencies are installed and file paths "
-            "in hop3.toml are correct.",
-            level=0,
-        )
-        log("", level=0)
         return
 
 

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from hop3.config import ACME_WWW, CACHE_ROOT, NGINX_ROOT
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
-from hop3.lib import command_output, expand_vars, log
+from hop3.lib import Diagnosis, command_output, expand_vars, log, log_diagnosis
 from hop3.lib.util import CommandError, run_command, try_commands
 from hop3.platform.certificates import Certificate, CertificatesManager
 
@@ -259,10 +259,29 @@ class NginxVirtualHost(BaseProxy):
             run_command(["sudo", "-n", "/usr/sbin/nginx", "-t"], timeout=10)
             return True
         except CommandError as e:
-            if "not found" not in e.message:
-                log(f"nginx config validation failed: {e.message}", level=0, fg="red")
-                return False
-            return True  # Can't validate, assume it's OK
+            if "not found" in e.message:
+                return True  # nginx binary absent — can't validate, assume OK
+            log_diagnosis(
+                Diagnosis(
+                    component="Nginx",
+                    action="validate configuration",
+                    reason=f"`nginx -t` reported: {e.message.strip()}",
+                    hint=(
+                        f"Inspect the generated config at "
+                        f"{self.nginx_conf_path} and re-run `sudo nginx -t`"
+                    ),
+                    troubleshooting=[
+                        f"cat {self.nginx_conf_path}",
+                        "sudo nginx -t  # show the precise line/directive at fault",
+                        (
+                            "If the error mentions a missing include or "
+                            "upstream, check that all apps referenced by the "
+                            "proxy are still deployed."
+                        ),
+                    ],
+                )
+            )
+            return False
 
     def reload_proxy(self) -> None:
         """Reload nginx to apply configuration changes.
@@ -280,6 +299,21 @@ class NginxVirtualHost(BaseProxy):
             return
 
         if not self._validate_nginx_config():
+            log_diagnosis(
+                Diagnosis(
+                    component="Nginx",
+                    action="reload proxy",
+                    reason=(
+                        "skipping reload because the generated config failed "
+                        "validation (see the validation diagnosis above)"
+                    ),
+                    hint=(
+                        "The previously-running nginx config is still live; "
+                        "fix the error and redeploy to publish the new routes"
+                    ),
+                ),
+                fg="yellow",
+            )
             return
 
         # Try reload methods in order of preference
@@ -293,16 +327,29 @@ class NginxVirtualHost(BaseProxy):
             method = try_commands(reload_methods, timeout=10)
             log(f"nginx reloaded via {method}", level=2)
         except CommandError as e:
-            log(
-                f"Warning: could not reload nginx automatically. {e.message}",
-                level=2,
-                fg="yellow",
-            )
-            log(
-                "Hint: Ensure hop3 user has sudoers permission for nginx reload. "
-                "Run: echo 'hop3 ALL=(ALL) NOPASSWD: /usr/bin/systemctl reload nginx' | "
-                "sudo tee /etc/sudoers.d/hop3 && sudo chmod 0440 /etc/sudoers.d/hop3",
-                level=2,
+            log_diagnosis(
+                Diagnosis(
+                    component="Nginx",
+                    action="reload proxy",
+                    reason=(
+                        f"all reload methods (supervisorctl, systemctl, "
+                        f"nginx -s reload) failed: {e.message.strip()}"
+                    ),
+                    hint=(
+                        "Ensure the hop3 user has passwordless sudo for nginx "
+                        "reload, or reload manually after the deploy"
+                    ),
+                    troubleshooting=[
+                        (
+                            "echo 'hop3 ALL=(ALL) NOPASSWD: "
+                            "/usr/bin/systemctl reload nginx' | "
+                            "sudo tee /etc/sudoers.d/hop3 && "
+                            "sudo chmod 0440 /etc/sudoers.d/hop3"
+                        ),
+                        "sudo systemctl reload nginx",
+                        "sudo nginx -s reload",
+                    ],
+                ),
                 fg="yellow",
             )
 

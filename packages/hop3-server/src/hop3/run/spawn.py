@@ -18,7 +18,7 @@ from hop3.config import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
 from hop3.core.artifacts import BuildArtifact
 from hop3.core.env import Env
 from hop3.core.plugins import get_proxy_strategy
-from hop3.lib import echo, get_free_port, log, shell
+from hop3.lib import Diagnosis, echo, get_free_port, log, log_diagnosis, shell
 from hop3.lib.logging import server_log
 from hop3.lib.settings import write_settings
 from hop3.project.config import AppConfig
@@ -419,22 +419,22 @@ class AppLauncher:
         if not self.web_workers and self.artifact:
             kind = self.artifact.kind
             if kind in {"python", "buildpack", "virtualenv"}:
-                log(
-                    "WARNING: Python app has no web-facing workers configured. "
-                    "uWSGI will start with no workers (the app won't serve requests).",
-                    level=0,
-                    fg="red",
-                )
-                log(
-                    "  Fix: Add a worker to hop3.toml or Procfile. Examples:",
-                    level=0,
-                )
-                log("    [run.workers]", level=0)
-                log('    wsgi = "app:application"  # For WSGI apps', level=0)
-                log("  Or in Procfile:", level=0)
-                log(
-                    "    web: gunicorn app:application -b 0.0.0.0:$PORT",
-                    level=0,
+                log_diagnosis(
+                    Diagnosis(
+                        component="uWSGI spawner",
+                        action="select web workers",
+                        reason=(
+                            "the Python app declares no web-facing workers; "
+                            "uWSGI will start in no-workers mode and won't "
+                            "serve HTTP requests"
+                        ),
+                        hint=(
+                            "Add a worker to hop3.toml ([run.workers] "
+                            'wsgi = "app:application") or to the Procfile '
+                            "(web: gunicorn app:application -b 0.0.0.0:$PORT)"
+                        ),
+                    ),
+                    fg="yellow",
                 )
 
         host_name = self.env.get("HOST_NAME", "")
