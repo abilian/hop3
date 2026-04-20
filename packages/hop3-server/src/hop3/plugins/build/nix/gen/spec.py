@@ -212,3 +212,12 @@ class AppSpec:
     # Additional path entries (beyond $out/bin). Can reference Nix let-bindings
     # like "${php}/bin" — they will be interpolated by Nix at build time.
     extra_paths: list[str] = field(default_factory=list)
+
+    # nixpkgs attribute paths (e.g. "postgresql.lib", "krb5.lib",
+    # "stdenv.cc.cc.lib") whose ``/lib`` directories are emitted into the
+    # wrapper's ``LD_LIBRARY_PATH`` export with **raw Nix interpolation**
+    # (not nix_escape). Fixes the "pip-installed C extensions can't find
+    # their transitive shared libs under a Nix-built Python venv" class
+    # (libpq.so.5, libkrb5, libstdc++.so.6, etc.). See
+    # local-notes/stacks-and-apps/DEFERRED-APPS.md blocker #2.
+    nix_runtime_libs: list[str] = field(default_factory=list)

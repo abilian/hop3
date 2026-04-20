@@ -105,6 +105,7 @@ def app_spec_from_config(
         # Runtime metadata
         runtime_env=nix_config.get("runtime-env", {}),
         extra_paths=nix_config.get("extra-paths", []),
+        nix_runtime_libs=nix_config.get("nix-runtime-libs", []),
     )
 
 

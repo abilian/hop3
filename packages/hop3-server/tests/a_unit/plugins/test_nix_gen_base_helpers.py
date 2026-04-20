@@ -23,6 +23,7 @@ from hop3.plugins.build.nix.gen.templates.base import (
     format_env_exports,
     format_local_vars,
     format_nix_env_attrs,
+    format_nix_runtime_libs,
     format_paths_json,
     format_runtime_env_json,
     format_wrapper_body,
@@ -324,3 +325,77 @@ def test_paths_json_with_extras():
     assert '"$out/bin"' in result
     assert '"${php}/bin"' in result
     assert '"${nodejs}/bin"' in result
+
+
+# --- format_nix_runtime_libs (DEFERRED-APPS blocker #2) ---
+
+
+def test_nix_runtime_libs_empty():
+    assert format_nix_runtime_libs([]) == ""
+
+
+def test_nix_runtime_libs_single_attr():
+    result = format_nix_runtime_libs(["postgresql.lib"])
+    # Nix interpolation reference — must NOT be escaped.
+    assert "${pkgs.postgresql.lib}/lib" in result
+    # Shell fallback for unset LD_LIBRARY_PATH — MUST be Nix-escaped
+    # so the shell, not Nix, expands it at runtime.
+    assert "''${LD_LIBRARY_PATH:-}" in result
+
+
+def test_nix_runtime_libs_multiple_attrs_joined_by_colon():
+    result = format_nix_runtime_libs(["postgresql.lib", "krb5.lib"])
+    # Each entry appears in order, separated by `:`
+    assert (
+        "${pkgs.postgresql.lib}/lib:${pkgs.krb5.lib}/lib:''${LD_LIBRARY_PATH:-}"
+        in result
+    )
+
+
+def test_nix_runtime_libs_supports_dotted_attribute_paths():
+    # stdenv.cc.cc.lib is the canonical way to reference libstdc++.so.6
+    # in nixpkgs; the helper must pass the dotted path through verbatim.
+    result = format_nix_runtime_libs(["stdenv.cc.cc.lib"])
+    assert "${pkgs.stdenv.cc.cc.lib}/lib" in result
+
+
+def test_nix_runtime_libs_full_line_shape():
+    # Full canonical form — what ends up in the generated wrapper. This
+    # must match the hand-crafted variant's working pattern exactly.
+    result = format_nix_runtime_libs(
+        ["postgresql.lib", "krb5.lib", "stdenv.cc.cc.lib"]
+    )
+    expected = (
+        'export LD_LIBRARY_PATH="'
+        "${pkgs.postgresql.lib}/lib:"
+        "${pkgs.krb5.lib}/lib:"
+        "${pkgs.stdenv.cc.cc.lib}/lib:"
+        "''${LD_LIBRARY_PATH:-}"
+        '"'
+    )
+    assert result == expected
+
+
+def test_wrapper_body_injects_runtime_libs_between_exports_and_pre_exec():
+    spec = _make_spec(
+        nix_runtime_libs=["postgresql.lib"],
+        env_exports={"FOO": "bar"},
+        pre_exec_commands=["some-setup"],
+    )
+    body = format_wrapper_body(spec, "app")
+
+    # Positional invariant: env exports BEFORE runtime libs BEFORE
+    # pre-exec BEFORE the final exec. The order matters because pre-exec
+    # may invoke the app's pip-installed Python, which needs LD_LIBRARY_PATH
+    # set beforehand.
+    export_idx = body.index('export FOO="bar"')
+    libs_idx = body.index("LD_LIBRARY_PATH")
+    preexec_idx = body.index("some-setup")
+    exec_idx = body.index("exec")
+    assert export_idx < libs_idx < preexec_idx < exec_idx
+
+
+def test_wrapper_body_omits_runtime_libs_when_unset():
+    spec = _make_spec(nix_runtime_libs=[])
+    body = format_wrapper_body(spec, "app")
+    assert "LD_LIBRARY_PATH" not in body

@@ -99,6 +99,35 @@ def _format_ini(sections: dict[str, dict[str, str]]) -> str:
     return "\n".join(out_lines).rstrip() + "\n"
 
 
+def format_nix_runtime_libs(paths: list[str]) -> str:
+    """Emit an ``LD_LIBRARY_PATH`` export with Nix-interpolated paths.
+
+    Each entry in ``paths`` is a nixpkgs attribute path (e.g.
+    ``"postgresql.lib"``, ``"stdenv.cc.cc.lib"``). The emitted string
+    contains raw ``${pkgs.<path>}`` references that Nix interpolates to
+    real store paths at build time — **bypassing** ``nix_escape``. The
+    ``${LD_LIBRARY_PATH:-}`` reference IS escaped so the shell evaluates
+    it at runtime (preserves any existing value, tolerates unset).
+
+    This is the fix for the "pip-installed C extensions under a Nix-
+    built Python venv can't find transitive shared libs at runtime"
+    class — see ``local-notes/stacks-and-apps/DEFERRED-APPS.md``
+    blocker #2. Typical inputs::
+
+        ["postgresql.lib", "krb5.lib", "stdenv.cc.cc.lib"]
+
+    produces::
+
+        export LD_LIBRARY_PATH="${pkgs.postgresql.lib}/lib:${pkgs.krb5.lib}/lib:${pkgs.stdenv.cc.cc.lib}/lib:''${LD_LIBRARY_PATH:-}"
+    """
+    if not paths:
+        return ""
+    libs = ":".join(f"${{pkgs.{p}}}/lib" for p in paths)
+    return (
+        f'export LD_LIBRARY_PATH="{libs}:' + "''${LD_LIBRARY_PATH:-}" + '"'
+    )
+
+
 def format_wrapper_body(
     spec: AppSpec,
     exec_line: str,
@@ -109,8 +138,9 @@ def format_wrapper_body(
         #!/bin/sh
         <local vars>
         <env exports>
-        <pre-exec commands>
+        <nix runtime libs — LD_LIBRARY_PATH with store-path interpolation>
         <config files>
+        <pre-exec commands>
         exec <exec_line>
     """
     sections: list[str] = ["#!/bin/sh"]
@@ -122,6 +152,13 @@ def format_wrapper_body(
     exports = format_env_exports(spec)
     if exports:
         sections.append(exports)
+
+    # LD_LIBRARY_PATH goes AFTER env-exports and BEFORE config files /
+    # pre-exec / the actual exec line, so any subsequent step that
+    # invokes the app's pip-installed Python sees the transitive libs.
+    nix_libs = format_nix_runtime_libs(spec.nix_runtime_libs)
+    if nix_libs:
+        sections.append(nix_libs)
 
     # Config files are generated BEFORE pre-exec commands because
     # pre-exec may depend on config files (e.g., LimeSurvey's install
