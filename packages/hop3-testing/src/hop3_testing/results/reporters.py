@@ -131,8 +131,9 @@ class ConsoleReporter:
             self._print_recap(results, total_duration)
 
     def _print_failed_tests(self, results: list[TestResult]) -> None:
-        """Print the list of failed tests with a one-line root cause
-        and a pointer to each test's log file.
+        """Print the list of failed tests with a one-line root cause,
+        the tail of the app's own stderr log (the usually-interesting
+        part), and a pointer to each test's full log file.
         """
         print(file=self.output)
         print(self._colorize("Failed tests:", "bold"), file=self.output)
@@ -144,9 +145,24 @@ class ConsoleReporter:
             mark = self._colorize("✗", "red")
             print(f"  {mark} {name}", file=self.output)
             print(f"      {cause}", file=self.output)
+
+            # Surface the app's own stderr inline. The full per-test
+            # log file has everything; but 99% of the time the app's
+            # web.log / worker.log tail is what a developer actually
+            # needs to see, and hiding it in a file the user has to
+            # open defeats the purpose of our diagnostics collection.
+            app_tail = self._extract_app_log_tail(r)
+            if app_tail:
+                print(
+                    self._colorize("      app stderr (tail):", "yellow"),
+                    file=self.output,
+                )
+                for line in app_tail.splitlines():
+                    print(f"        {line}", file=self.output)
+
             log_file = self._log_file_for(r)
             if log_file:
-                print(f"      log: {log_file}", file=self.output)
+                print(f"      full log: {log_file}", file=self.output)
 
         if self.logs_dir:
             print(file=self.output)
@@ -154,6 +170,69 @@ class ConsoleReporter:
                 self._colorize(f"Full per-test logs: {self.logs_dir}/", "yellow"),
                 file=self.output,
             )
+
+    def _extract_app_log_tail(
+        self, result: TestResult, *, max_lines: int = 30
+    ) -> str:
+        """Extract the tail of the app's own stderr from the runtime logs.
+
+        ``collect_runtime_logs`` writes all files under
+        ``/home/hop3/apps/<app>/log/*.log`` separated by ``--- <path> ---``
+        markers. We prefer ``web.*.log`` (where attach-daemon stderr lands)
+        and fall back to other kinds if no web log exists.
+        """
+        blob = getattr(result, "runtime_logs", "") or ""
+        if not blob:
+            return ""
+
+        # Split on per-file markers from runtime_diagnostics.py: the shell
+        # loop emits `--- <absolute-path> ---` before each file's content.
+        # We also track ANY `--- Title ---` delimiter so the content we
+        # extract doesn't leak past the "App log files" section boundary
+        # into the next section (e.g. "Docker container logs").
+        import re  # noqa: PLC0415
+
+        any_marker = re.compile(r"^---\s+.+?\s+---\s*$", re.MULTILINE)
+        file_marker = re.compile(r"/home/hop3/apps/[^\s]+\.log")
+
+        per_file: list[tuple[str, str]] = []
+        markers = list(any_marker.finditer(blob))
+        for idx, m in enumerate(markers):
+            inner = m.group(0).strip("- \n\t")
+            if not file_marker.fullmatch(inner):
+                continue  # section header, not a per-file marker
+            end = markers[idx + 1].start() if idx + 1 < len(markers) else len(blob)
+            per_file.append((inner, blob[m.end() : end].strip()))
+
+        if not per_file:
+            return ""
+
+        # Preference order: web.* (HTTP-serving worker), worker.* (background
+        # workers — often the real app process in attach-daemon-style runs),
+        # anything else ending in .log but not build.log (which is verbose
+        # nix/docker output unhelpful for runtime failures).
+        def priority(path_content: tuple[str, str]) -> int:
+            path = path_content[0]
+            if "/web." in path:
+                return 0
+            if "/worker." in path:
+                return 1
+            if path.endswith("/build.log"):
+                return 99
+            return 2
+
+        per_file.sort(key=priority)
+        picked_path, picked_content = per_file[0]
+        if not picked_content or picked_content == "(empty)":
+            return ""
+
+        lines = picked_content.splitlines()
+        if len(lines) > max_lines:
+            lines = [f"... ({len(lines) - max_lines} earlier lines elided)"] + lines[
+                -max_lines:
+            ]
+        header = f"[{picked_path}]"
+        return "\n".join([header, *lines])
 
     def _log_file_for(self, result: TestResult) -> str | None:
         """Return the per-test log path written by TestLogWriter, if any."""

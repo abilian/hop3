@@ -20,7 +20,7 @@ from contextlib import suppress
 from typing import TYPE_CHECKING, Any
 
 import docker
-from docker.errors import BuildError, ImageNotFound, NotFound
+from docker.errors import BuildError, DockerException, ImageNotFound, NotFound
 
 from hop3_testing.diagnostics import DiagnosticCollector
 
@@ -166,8 +166,13 @@ class DockerTarget(DeploymentTarget):
             )
         except NotFound:
             msg = (
-                f"Container '{self.docker_config.container_name}' not found. "
-                "Start it first or set reuse_container=False"
+                f"Docker container '{self.docker_config.container_name}' "
+                f"doesn't exist. `--reuse` expects a container created by a "
+                f"previous `hop3-test system --docker` run — but non-"
+                f"`--keep` runs stop and remove the container at the end. "
+                f"Either: re-run without `--reuse` to deploy from scratch, "
+                f"or re-run the previous command with `--keep` so the "
+                f"container survives for the next `--reuse` invocation."
             )
             self.diagnostics.add_failure(
                 layer="docker",
@@ -178,13 +183,28 @@ class DockerTarget(DeploymentTarget):
 
         self._container.reload()
         if self._container.status != "running":
-            msg = f"Container '{self.docker_config.container_name}' is not running"
-            self.diagnostics.add_failure(
-                layer="docker",
-                operation="check_status",
-                message=msg,
+            # The container exists but was stopped (likely by a previous
+            # test run or a manual `docker stop`). Start it rather than
+            # giving up — this matches the user intent of --reuse.
+            print(
+                f"Container '{self.docker_config.container_name}' "
+                f"is {self._container.status}; restarting..."
             )
-            raise RuntimeError(msg)
+            try:
+                self._container.start()
+                self._container.reload()
+            except DockerException as e:
+                msg = (
+                    f"Could not start container "
+                    f"'{self.docker_config.container_name}' "
+                    f"(status was {self._container.status}): {e}"
+                )
+                self.diagnostics.add_failure(
+                    layer="docker",
+                    operation="start_stopped_container",
+                    message=msg,
+                )
+                raise RuntimeError(msg) from None
 
         self._container_helper = DockerContainerHelper(self._container)
         self._we_created_container = False
