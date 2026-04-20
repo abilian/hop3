@@ -1,0 +1,67 @@
+# hop3.toml - Hop3 configuration for Nix-based Bugsink (template variant)
+# Self-hosted error tracking, Sentry SDK-compatible.
+
+[metadata]
+id = "bugsink"
+version = "2.1.2"
+description = "Self-hosted error tracking, Sentry SDK-compatible"
+
+[build]
+builder = "nix"
+
+[nix]
+template = "python-venv"
+runtime-package = "python3"
+exec-target = "gunicorn"
+exec-args = [
+    'bugsink.wsgi:application',
+    '--bind', '0.0.0.0:${PORT:-8080}',
+    '--pythonpath', '.',
+    '--access-logfile', '-',
+    '--error-logfile', '-',
+]
+# Pure-Python psycopg v3 (not psycopg2-binary). The binary wheels bake
+# a hash-pinned libkrb5 reference (`libkrb5-fcafa220.so.3.3`) that's
+# absent from the Nix-built Python venv; the pure-Python build loads
+# libpq.so.5 / libkrb5 / libstdc++.so.6 dynamically at runtime via the
+# LD_LIBRARY_PATH emitted below from nix-runtime-libs.
+pip-packages = [
+    'bugsink==2.1.2',
+    'gunicorn>=21.0',
+    'psycopg>=3.1',
+]
+extra-paths = ['$out/venv/bin']
+
+# DEFERRED-APPS blocker #2 resolution: the python-venv template now
+# emits `export LD_LIBRARY_PATH="${pkgs.X.lib}/lib:..."` with raw Nix
+# interpolation, bypassing nix_escape so the store paths resolve at
+# build time. Replaces the hand-crafted-wrapper workaround previously
+# living in apps/real-apps-nix/bugsink/hop3.nix.
+nix-runtime-libs = [
+    "postgresql.lib",  # libpq.so.5 — psycopg client
+    "krb5.lib",        # libkrb5 — psycopg transitive (GSSAPI)
+    "stdenv.cc.cc.lib", # libstdc++.so.6 — sentry-sdk transitive
+]
+
+pre-exec = [
+    # First-deploy bugsink_conf.py generation. bugsink-create-conf
+    # --template docker writes ALLOWED_HOSTS = ["localhost"] by default;
+    # we append ALLOWED_HOSTS = ["*"] unconditionally after generation
+    # because Python takes the LAST assignment — this lets the test
+    # harness reach us on 127.0.0.1 and is the pattern the hand-crafted
+    # variant uses. Guard is on the file existence, not on the presence
+    # of ALLOWED_HOSTS (which would prevent our override from landing).
+    '[ -f bugsink_conf.py ] || { VENVBIN/bugsink-create-conf --template docker --host localhost --port ${PORT:-8080} -o bugsink_conf.py; KEY=$(VENVBIN/python -c "import secrets; print(secrets.token_urlsafe(50))"); printf "\n# appended by Hop3 on first deploy\nSECRET_KEY = \"%s\"\nALLOWED_HOSTS = [\"*\"]\n" "$KEY" >> bugsink_conf.py; }',
+    'VENVBIN/bugsink-manage migrate --noinput',
+]
+
+[nix.env-exports]
+DATABASE_URL = "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+SECRET_KEY = "${SECRET_KEY:-$(head -c 32 /dev/urandom | base64)}"
+BASE_URL = "http://localhost:${PORT:-8080}"
+
+[[addons]]
+type = "postgres"
+
+[run]
+start-timeout = 180

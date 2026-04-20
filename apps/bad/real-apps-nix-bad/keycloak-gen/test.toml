@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2024-2026 Abilian SAS <https://abilian.com>
+# SPDX-License-Identifier: MIT
+
+[test]
+name = "nix-keycloak"
+category = "nix-app"
+tier = "slow"
+priority = "P2"
+description = "Keycloak SSO / OIDC server deployed via nixpkgs-wrapper template"
+
+[test.requirements]
+targets = ["docker", "remote"]
+services = ["nix", "postgresql"]
+
+[test.metadata]
+author = "hop3-team"
+covers = ["java", "jvm", "nix", "nixpkgs-wrapper", "postgres", "sso"]
+
+[deployment]
+path = "."
+type = "nix"
+
+# /realms/master is a public endpoint on every Keycloak instance and
+# returns JSON with realm metadata. The realm name "master" is built in
+# and doesn't require any admin bootstrap to exist.
+[[validations]]
+type = "http"
+path = "/realms/master"
+[validations.expect]
+status = 200
+contains = "master"

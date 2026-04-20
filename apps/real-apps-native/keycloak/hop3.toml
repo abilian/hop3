@@ -1,0 +1,35 @@
+# Hop3 Configuration for Keycloak (Native build)
+# Enterprise SSO / OIDC / SAML identity provider
+
+[metadata]
+id = "keycloak"
+version = "26.1.4"
+title = "Keycloak"
+description = "Enterprise SSO / OIDC / SAML identity and access management"
+homepage = "https://www.keycloak.org/"
+license = "Apache-2.0"
+categories = ["auth", "sso", "identity"]
+
+[build]
+builder = "local"
+toolchain = "generic"
+tier = "slow"
+# Download Keycloak tarball AND a JDK 21 runtime. The second half is
+# a workaround for DEFERRED-APPS.md blocker #1 (`[build].packages`
+# parsed but unconsumed) + the installer shipping `default-jdk` which
+# is JDK 17 on bookworm but Keycloak 26 requires JDK 21.
+# If blocker #1 ships, we could declare `packages = ["openjdk-21-jdk"]`
+# here and drop the JDK-download step.
+before-build = "bash scripts/download.sh"
+
+[run]
+start = "bash scripts/start.sh"
+# Keycloak start-dev on a cold JVM + cold Postgres does provider
+# install, theme cache, and schema migrations; 2-4 min is normal.
+start-timeout = 420
+
+[[addons]]
+type = "postgres"
+
+[healthcheck]
+path = "/realms/master"

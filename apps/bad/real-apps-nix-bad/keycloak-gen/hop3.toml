@@ -1,0 +1,54 @@
+# hop3.toml - Hop3 configuration for Nix-based Keycloak
+# Enterprise SSO / OIDC / SAML identity provider — built via nixpkgs.
+
+[metadata]
+id = "keycloak"
+description = "Enterprise SSO / OIDC / SAML identity and access management"
+
+[build]
+builder = "nix"
+
+[nix]
+template = "nixpkgs-wrapper"
+nixpkgs-package = "keycloak"
+exec-target = "kc.sh"
+# start-dev: accept any HTTP hostname, skip TLS requirement, enable admin
+# bootstrap via env vars. Production deployments (hop3 v0.6+) should
+# switch to `start` once proxy + hostname handling is wired up.
+exec-args = [
+    'start-dev',
+    '--http-host=0.0.0.0',
+    '--http-port=${PORT}',
+]
+extra-paths = ['${keycloak}/bin']
+
+[nix.local-vars]
+PORT = "${PORT:-8080}"
+
+# Keycloak reads these env vars directly at startup — no config-file
+# templating needed. See:
+# https://www.keycloak.org/server/all-config#category-database
+[nix.runtime-env]
+KC_DB = "postgres"
+# JDBC URL is built at runtime from PG* (injected by the postgres addon).
+# The wrapper exports these first via nix.env-exports, then Keycloak's
+# startup sees them as shell vars.
+
+[nix.env-exports]
+KC_DB_URL = "jdbc:postgresql://${PGHOST:-localhost}:${PGPORT:-5432}/${PGDATABASE:-keycloak}"
+KC_DB_USERNAME = "${PGUSER:-keycloak}"
+KC_DB_PASSWORD = "${PGPASSWORD:-}"
+# Bootstrap admin on first start. Changes after first boot are ignored.
+KC_BOOTSTRAP_ADMIN_USERNAME = "admin"
+KC_BOOTSTRAP_ADMIN_PASSWORD = "changeme"
+
+[[addons]]
+type = "postgres"
+
+[run]
+# Keycloak start-dev on a cold JVM + cold Postgres does a lot before
+# it binds HTTP: config validation, provider install, theme cache,
+# schema migrations, master-realm provisioning. 3-4 minutes is normal
+# on first boot; subsequent starts (warm JVM, migrated DB) are under
+# 45s but we size for the cold case.
+start-timeout = 420

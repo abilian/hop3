@@ -1,0 +1,19 @@
+# hop3.toml - Hop3 configuration for Nix-based Keycloak (hand-crafted)
+# Enterprise SSO / OIDC / SAML identity provider
+
+[metadata]
+id = "keycloak"
+description = "Enterprise SSO / OIDC / SAML identity and access management"
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
+
+[run]
+# First deploy: ~200MB copy of the nixpkgs keycloak tree into $PWD
+# happens once in the wrapper (one-shot, cached across redeploys),
+# then kc.sh runs its implicit build + schema migrations. Cold runs
+# can take 3-4 min. Subsequent starts are much faster.
+start-timeout = 420
