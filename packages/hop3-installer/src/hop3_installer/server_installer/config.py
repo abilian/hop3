@@ -54,6 +54,10 @@ class ServerInstallerConfig:
     def with_s3(self) -> bool:
         return "s3" in self.features
 
+    @property
+    def with_rust(self) -> bool:
+        return "rust" in self.features
+
     @classmethod
     def from_env(cls) -> ServerInstallerConfig:
         """Create config from environment variables."""

@@ -178,6 +178,20 @@ class AppSpec:
     # --- nixpkgs-wrapper fields ---
     # Name of the nixpkgs attribute to wrap, e.g., "radicale" for pkgs.radicale
     nixpkgs_package: str | None = None
+    # Free-form shell appended to the installPhase, after the wrapper is
+    # emitted but before runtime.json. Use this to bake artefacts into
+    # $out at package time — e.g., copying a nixpkgs package into a
+    # writable $out/<pname>-home and running its build command there so
+    # runtime can exec it with --optimized from a read-only store path.
+    # Content is emitted **raw** (no nix_escape), so `${pkgs.X}` and
+    # Nix let-bindings interpolate at build time.
+    install_extra: str | None = None
+    # Overrides the PKGBIN substitution in the wrapper's exec line. If
+    # set, the exec line becomes `<exec-prefix>/<exec-target>` instead
+    # of `${<binding>}/bin/<exec-target>`. Useful together with
+    # install-extra when the runnable sits under a dir populated by
+    # install-extra (e.g., "$out/keycloak-home/bin" for Keycloak).
+    exec_prefix: str | None = None
 
     # --- node-prebuilt / java-war / python-venv fields ---
     # Nix package attribute for the runtime, e.g., "nodejs_22", "jdk17", "python3"

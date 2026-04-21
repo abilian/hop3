@@ -63,15 +63,19 @@ from .verify import print_final_message, verify_installation, write_server_confi
 def _install_optional_toolchains(config: ServerInstallerConfig) -> None:
     """Install optional toolchains that need hop3 user to exist.
 
-    These are non-critical - failures are warnings, not errors.
+    By default these are non-critical — failures are warnings.
+    `--with=rust` promotes the Rust install to critical (raises).
 
     Args:
         config: Installation configuration.
     """
-    # Install Rust toolchain
+    # Install Rust toolchain. `--with=rust` makes it a hard requirement
+    # (unblocks vaultwarden-native and other Rust-from-source apps).
     try:
-        install_rust_toolchain()
+        install_rust_toolchain(required=config.with_rust)
     except CommandError as e:
+        if config.with_rust:
+            raise
         print_warning(f"Rust toolchain installation failed: {e.stderr[:100]}")
 
     # Install Node.js global packages (pnpm, nodeenv)

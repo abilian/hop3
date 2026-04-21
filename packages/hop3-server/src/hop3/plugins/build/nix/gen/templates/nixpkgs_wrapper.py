@@ -43,6 +43,19 @@ class NixpkgsWrapperTemplate:
         exec_args = " " + " ".join(spec.exec_args) if spec.exec_args else ""
         exec_line = f"PKGBIN/{spec.exec_target}{exec_args}"
         wrapper_body = format_wrapper_body(spec, exec_line)
+        # PKGBIN defaults to the upstream package's bin dir. install-extra
+        # callers that bake artefacts under $out (e.g., Keycloak's
+        # $out/keycloak-home) override this with exec-prefix so the
+        # wrapper execs the baked tree instead.
+        pkgbin_replacement = (
+            spec.exec_prefix or f"${{{binding}}}/bin"
+        )
+        install_extra_block = (
+            f"\n      # --- install-extra (hop3.toml [nix].install-extra) ---\n"
+            f"{spec.install_extra}\n"
+            if spec.install_extra
+            else ""
+        )
 
         runtime_env_json = format_runtime_env_json(spec.runtime_env)
         nix_env_attrs = format_nix_env_attrs(spec.runtime_env)
@@ -85,10 +98,12 @@ let
 WRAPPER
       # Replace placeholders PKGBIN and PKGOUT with the upstream
       # nixpkgs package paths (binary directory and root directory).
-      sed -i "s|PKGBIN|${{{binding}}}/bin|g" $out/bin/{spec.pname}
+      # PKGBIN is overridable via [nix].exec-prefix for install-extra
+      # recipes that bake the runnable into $out at package time.
+      sed -i "s|PKGBIN|{pkgbin_replacement}|g" $out/bin/{spec.pname}
       sed -i "s|PKGOUT|${{{binding}}}|g" $out/bin/{spec.pname}
       chmod +x $out/bin/{spec.pname}
-
+{install_extra_block}
       cat > $out/hop3/runtime.json << EOF
 {{
   "workers": {{

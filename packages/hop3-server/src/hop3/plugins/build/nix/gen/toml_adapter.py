@@ -88,6 +88,8 @@ def app_spec_from_config(
         extra_native_build_inputs=nix_config.get("extra-native-build-inputs", []),
         # nixpkgs-wrapper fields
         nixpkgs_package=nix_config.get("nixpkgs-package"),
+        install_extra=nix_config.get("install-extra"),
+        exec_prefix=nix_config.get("exec-prefix"),
         # node-prebuilt / java-war / python-venv fields
         runtime_package=nix_config.get("runtime-package"),
         unpack_without_top_level=nix_config.get("unpack-without-top-level", False),

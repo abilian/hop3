@@ -367,3 +367,62 @@ def test_nixpkgs_wrapper_no_source_fetch():
     output = generate(spec)
     assert "dontUnpack = true" in output
     assert "fetchurl" not in output
+
+
+def test_nixpkgs_wrapper_install_extra_emitted_raw():
+    """install-extra is appended to installPhase without nix_escape, so
+    that ${pkg} references interpolate at Nix build time."""
+    spec = AppSpec(
+        pname="keycloak",
+        version="",
+        description="t",
+        template="nixpkgs-wrapper",
+        nixpkgs_package="keycloak",
+        exec_target="kc.sh",
+        source=Source(url="x", sha256="x"),
+        install_extra="cp -R ${keycloak}/. $out/keycloak-home/",
+    )
+    output = generate(spec)
+    assert "# --- install-extra" in output
+    # Nix let-binding reference must NOT be escaped — it has to
+    # interpolate at build time.
+    assert "cp -R ${keycloak}/. $out/keycloak-home/" in output
+    # Must come after the wrapper is emitted but before runtime.json.
+    wrapper_end = output.find("chmod +x $out/bin/keycloak")
+    install_extra = output.find("# --- install-extra")
+    runtime_json = output.find("$out/hop3/runtime.json")
+    assert wrapper_end < install_extra < runtime_json
+
+
+def test_nixpkgs_wrapper_exec_prefix_replaces_pkgbin():
+    """exec-prefix redirects PKGBIN to an arbitrary path under $out,
+    so install-extra recipes can bake a runnable tree at package time."""
+    spec = AppSpec(
+        pname="keycloak",
+        version="",
+        description="t",
+        template="nixpkgs-wrapper",
+        nixpkgs_package="keycloak",
+        exec_target="kc.sh",
+        source=Source(url="x", sha256="x"),
+        exec_prefix="$out/keycloak-home/bin",
+    )
+    output = generate(spec)
+    assert "s|PKGBIN|$out/keycloak-home/bin|g" in output
+    # Default substitution must not be emitted when exec-prefix is set.
+    assert "s|PKGBIN|${keycloak}/bin|g" not in output
+
+
+def test_nixpkgs_wrapper_default_pkgbin_when_no_exec_prefix():
+    """Without exec-prefix, PKGBIN resolves to ${<binding>}/bin as before."""
+    spec = AppSpec(
+        pname="radicale",
+        version="",
+        description="t",
+        template="nixpkgs-wrapper",
+        nixpkgs_package="radicale",
+        exec_target="radicale",
+        source=Source(url="x", sha256="x"),
+    )
+    output = generate(spec)
+    assert "s|PKGBIN|${radicale}/bin|g" in output

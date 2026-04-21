@@ -259,12 +259,31 @@ def install_node_global_packages() -> None:
 # =============================================================================
 
 
-def install_rust_toolchain() -> None:
+def _fail_rust_install(msg: str, result, *, required: bool) -> None:
+    """Report a Rust install failure; raise if it was required."""
+    (print_error if required else print_warning)(msg)
+    if result is not None and getattr(result, "stderr", ""):
+        print_detail(result.stderr[:400])
+    if required:
+        raise CommandError(
+            msg,
+            returncode=getattr(result, "returncode", 1) if result else 1,
+            stdout=getattr(result, "stdout", "") if result else "",
+            stderr=getattr(result, "stderr", "") if result else "",
+        )
+
+
+def install_rust_toolchain(*, required: bool = False) -> None:
     """Install Rust toolchain via rustup.
 
-    Rust is installed using rustup, which manages the Rust toolchain.
-    This is installed for the hop3 user so apps can be built.
-    Symlinks are created in /usr/local/bin for system-wide access.
+    Rust is installed using rustup for the hop3 user so Rust-native
+    apps (vaultwarden, etc.) can build. Symlinks are created in
+    /usr/local/bin for system-wide access.
+
+    Args:
+        required: If True, raise CommandError on failure (for
+            `--with=rust`). If False, log warnings and continue (keeps
+            backwards-compatible optional-install behaviour).
     """
     cargo_path = HOME_DIR / ".cargo" / "bin" / "cargo"
     rustc_path = HOME_DIR / ".cargo" / "bin" / "rustc"
@@ -275,7 +294,6 @@ def install_rust_toolchain() -> None:
         result = run_as_hop3(f"{cargo_path} --version")
         if result.returncode == 0:
             print_info(f"Rust toolchain already installed: {result.stdout.strip()}")
-            # Ensure symlinks exist
             _create_rust_symlinks(cargo_path, rustc_path, rustup_path)
             return
 
@@ -292,30 +310,42 @@ def install_rust_toolchain() -> None:
             print_detail(f"Removing broken symlink: {symlink}")
             symlink_path.unlink()
 
-    # Install rustup for the hop3 user
+    # rustup-init fetched via curl, piped into sh with -y (non-interactive).
+    # --default-toolchain stable pins the channel; rustup would ask
+    # otherwise.
     with Spinner("Downloading and installing rustup..."):
         result = run_as_hop3(
-            'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y'
+            'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs '
+            '| sh -s -- -y --default-toolchain stable --profile minimal',
+            timeout=600,
         )
 
     if result.returncode != 0:
-        print_warning("Rust installation failed")
-        if result.stderr:
-            print_detail(result.stderr[:200])
+        _fail_rust_install("Rust installation via rustup failed", result, required=required)
         return
 
-    # Verify installation
-    if cargo_path.exists():
-        print_success("Rust toolchain installed")
-        # Show version
-        result = run_as_hop3(f"{cargo_path} --version")
-        if result.returncode == 0:
-            print_detail(f"Version: {result.stdout.strip()}")
+    if not cargo_path.exists():
+        _fail_rust_install(
+            "Rust installation reported success but cargo binary not found",
+            None,
+            required=required,
+        )
+        return
 
-        # Create system-wide symlinks
-        _create_rust_symlinks(cargo_path, rustc_path, rustup_path)
-    else:
-        print_warning("Rust installation completed but cargo not found")
+    # Verify cargo runs (path-exists alone was insufficient on at least
+    # one host where rustup dropped a stub that couldn't exec).
+    verify = run_as_hop3(f"{cargo_path} --version")
+    if verify.returncode != 0:
+        _fail_rust_install(
+            "Rust installed but `cargo --version` exits non-zero",
+            verify,
+            required=required,
+        )
+        return
+
+    print_success("Rust toolchain installed")
+    print_detail(f"Version: {verify.stdout.strip()}")
+    _create_rust_symlinks(cargo_path, rustc_path, rustup_path)
 
 
 def _create_rust_symlinks(
