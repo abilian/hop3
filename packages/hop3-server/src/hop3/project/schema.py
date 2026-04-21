@@ -244,6 +244,94 @@ class AddonConfig(BaseModel):
     )
 
 
+class TestValidation(BaseModel):
+    """A single [[test.validations]] entry — one HTTP check the test harness
+    performs after the app is up.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: str = Field(
+        default="http",
+        description="Validation type. Currently only 'http' is supported.",
+    )
+    path: str = Field(default="/", description="URL path to probe.")
+    status: int = Field(default=200, description="Expected HTTP status code.")
+    contains: str | None = Field(
+        default=None,
+        description="If set, response body must contain this substring.",
+    )
+
+
+class TestSection(BaseModel):
+    """[test] section — test-harness-specific fields.
+
+    Everything the test harness needs that cannot be derived from the rest
+    of hop3.toml. Fields like name / description / category / services /
+    deployment type are derived (from metadata, build.builder, addons).
+
+    Replaces the separate `test.toml` file — one source of truth per app.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    priority: str | None = Field(
+        default=None,
+        description="Test priority: 'P0' | 'P1' | 'P2'. Selects which profile runs it.",
+    )
+    tier: str | None = Field(
+        default=None,
+        description=(
+            "Test-tier label, used in reports only (no longer drives any "
+            "timeout). Values: 'fast' | 'medium' | 'slow' | 'very-slow'."
+        ),
+    )
+    targets: list[str] | None = Field(
+        default=None,
+        description="Test targets this app supports: 'docker' | 'remote'.",
+    )
+    author: str | None = None
+    covers: list[str] | None = Field(
+        default=None,
+        description="Free-form tags listing what the test exercises.",
+    )
+    validations: list[TestValidation] | None = Field(
+        default=None,
+        description="HTTP checks beyond the single [healthcheck] endpoint.",
+    )
+
+    @field_validator("priority")
+    @classmethod
+    def validate_priority(cls, v: str | None) -> str | None:
+        if v is not None and v not in {"P0", "P1", "P2"}:
+            msg = f"Invalid test priority '{v}'. Must be one of: P0, P1, P2"
+            raise ValueError(msg)
+        return v
+
+    @field_validator("tier")
+    @classmethod
+    def validate_tier(cls, v: str | None) -> str | None:
+        if v is not None and v not in {"fast", "medium", "slow", "very-slow"}:
+            msg = (
+                f"Invalid test tier '{v}'. Must be one of: "
+                "fast, medium, slow, very-slow"
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("targets")
+    @classmethod
+    def validate_targets(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        valid = {"docker", "remote"}
+        for target in v:
+            if target not in valid:
+                msg = f"Invalid test target '{target}'. Must be one of: {sorted(valid)}"
+                raise ValueError(msg)
+        return v
+
+
 class Hop3TomlSchema(BaseModel):
     """Complete hop3.toml schema with validation.
 
@@ -296,6 +384,13 @@ class Hop3TomlSchema(BaseModel):
     provider: list[AddonConfig] | None = Field(
         default=None,
         description="Deprecated: use [[addons]] instead",
+    )
+    test: TestSection | None = Field(
+        default=None,
+        description=(
+            "Test-harness metadata. Replaces the separate test.toml file — "
+            "see TestSection for fields."
+        ),
     )
     nix: dict[str, Any] | None = Field(
         default=None,

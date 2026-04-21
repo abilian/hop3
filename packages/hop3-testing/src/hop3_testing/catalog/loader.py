@@ -180,20 +180,35 @@ def _parse_tutorial(data: dict[str, Any]) -> TutorialConfig:
 
 
 def _parse_validation(data: dict[str, Any]) -> Validation:
-    """Parse a single validation."""
+    """Parse a single validation.
+
+    Accepts two shapes:
+
+    - Legacy (`test.toml`): nested `expect = {status = ..., contains = ...}`.
+    - New (`hop3.toml [[test.validations]]`): status / contains at top level,
+      no need for a nested `[validations.expect]` table just to hold two fields.
+      Type defaults to "http" when omitted.
+
+    When both shapes are present (contrived), top-level fields win.
+    """
     expect_data = data.get("expect", {})
+
+    def _pick(key: str):
+        # Top-level wins over nested `expect` when both are set.
+        return data[key] if key in data else expect_data.get(key)
+
     expect = ValidationExpect(
-        status=expect_data.get("status"),
-        contains=expect_data.get("contains"),
-        json=expect_data.get("json"),
-        stdout=expect_data.get("stdout"),
-        stdout_contains=expect_data.get("stdout_contains"),
-        exit_code=expect_data.get("exit_code"),
-        all_blocks_pass=expect_data.get("all_blocks_pass"),
+        status=_pick("status"),
+        contains=_pick("contains"),
+        json=_pick("json"),
+        stdout=_pick("stdout"),
+        stdout_contains=_pick("stdout_contains"),
+        exit_code=_pick("exit_code"),
+        all_blocks_pass=_pick("all_blocks_pass"),
     )
 
     return Validation(
-        type=data["type"],
+        type=data.get("type", "http"),
         path=data.get("path"),
         run=data.get("run"),
         url=data.get("url"),
@@ -448,16 +463,40 @@ def generate_test_definition_from_hop3_toml(
     # Add service tags
     covers.extend(services)
 
-    # Default test-specific values (can be overridden by test.toml).
-    # Tier is retained as a display label in reports; it no longer drives
-    # any timeout (single 30-min budget applies to all builds + deploys).
+    # Default test-specific values. Tier is retained only as a display
+    # label in reports (no longer drives any timeout — single 30-min
+    # budget applies to all builds + deploys).
     tier = Tier.MEDIUM
     priority = Priority.P1
     description = app_title
-    validations = []
+    validations: list[Validation] = []
+    targets = [TargetType.DOCKER, TargetType.REMOTE]
+    author: str | None = None
 
-    # Override with test.toml if available.
-    if test_toml_data:
+    # Preferred source: `[test]` section in hop3.toml (canonical since
+    # 2026-04-21). Legacy `test.toml` is kept as a fallback for demos /
+    # tutorials / negative-test cases where hop3.toml is absent or
+    # doesn't have a [test] section.
+    hop3_test_section = hop3_data.get("test") or {}
+    if hop3_test_section:
+        if "tier" in hop3_test_section:
+            tier = Tier(hop3_test_section["tier"])
+        if "priority" in hop3_test_section:
+            priority = Priority(hop3_test_section["priority"])
+        if "author" in hop3_test_section:
+            author = hop3_test_section["author"]
+        if "covers" in hop3_test_section:
+            covers = list(hop3_test_section["covers"]) + covers
+        if "targets" in hop3_test_section:
+            target_map = {"docker": TargetType.DOCKER, "remote": TargetType.REMOTE}
+            targets = [target_map[t] for t in hop3_test_section["targets"]]
+        validations = [
+            _parse_validation(v)
+            for v in hop3_test_section.get("validations", [])
+        ]
+    elif test_toml_data:
+        # Legacy fallback — only reached for demos / tutorials / other
+        # special cases that still carry a standalone test.toml.
         test_section = test_toml_data.get("test", {})
         if "tier" in test_section:
             tier = Tier(test_section["tier"])
@@ -465,16 +504,14 @@ def generate_test_definition_from_hop3_toml(
             priority = Priority(test_section["priority"])
         if "description" in test_section:
             description = test_section["description"]
-
-        # Get validations from test.toml
         validations = [
             _parse_validation(v) for v in test_toml_data.get("validations", [])
         ]
-
-        # Merge metadata
         test_metadata = test_section.get("metadata", {})
         if "covers" in test_metadata:
             covers = test_metadata["covers"] + covers
+        if "author" in test_metadata:
+            author = test_metadata["author"]
 
     # Build default HTTP validation if none specified
     if not validations:
@@ -486,12 +523,16 @@ def generate_test_definition_from_hop3_toml(
             )
         )
 
+    metadata_kwargs: dict[str, Any] = {"covers": covers}
+    if author is not None:
+        metadata_kwargs["author"] = author
+
     return TestDefinition(
         name=app_name,
         tier=tier,
         priority=priority,
         requirements=TestRequirements(
-            targets=[TargetType.DOCKER, TargetType.REMOTE],
+            targets=targets,
             services=services,
         ),
         validations=validations,
@@ -501,7 +542,7 @@ def generate_test_definition_from_hop3_toml(
             env_vars=env_vars,
         ),
         description=description,
-        metadata=TestMetadata(covers=covers),
+        metadata=TestMetadata(**metadata_kwargs),
         source_path=app_path / "hop3.toml",
     )
 
