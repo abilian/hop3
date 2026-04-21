@@ -43,3 +43,14 @@ $AUTOCONFIG = array(
   "adminpass" => "admin123",
 );
 """
+
+[test]
+priority = "P2"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php", "nextcloud", "nix", "file-sharing", "collaboration"]
+
+[[test.validations]]
+path = "/status.php"
+status = 200

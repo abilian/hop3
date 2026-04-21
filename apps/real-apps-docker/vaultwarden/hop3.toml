@@ -16,3 +16,11 @@ SIGNUPS_ALLOWED = "false"
 
 [healthcheck]
 path = "/alive"
+
+[test]
+priority = "P1"
+tier = "very-slow"
+
+[[test.validations]]
+path = "/alive"
+status = 200

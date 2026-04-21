@@ -24,3 +24,14 @@ SYSTEM_DEFAULTLOCALE = "en-US"
 
 [healthcheck]
 path = "/login"
+
+[test]
+priority = "P1"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["java", "spring-boot"]
+
+[[test.validations]]
+path = "/login"
+status = 200

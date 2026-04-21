@@ -18,3 +18,11 @@ ISSO_HOST = "http://localhost:8080"
 [healthcheck]
 # Root path returns basic info, /info requires uri parameter
 path = "/"
+
+[test]
+priority = "P0"
+tier = "medium"
+
+[[test.validations]]
+path = "/"
+status = 400

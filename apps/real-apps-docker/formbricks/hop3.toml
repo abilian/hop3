@@ -20,3 +20,11 @@ CRON_SECRET = "change-me-to-a-cron-secret"
 
 [healthcheck]
 path = "/health"
+
+[test]
+priority = "P1"
+tier = "slow"
+
+[[test.validations]]
+path = "/health"
+status = 200

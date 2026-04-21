@@ -2,3 +2,15 @@
 
 [build]
 builder = "nix"
+
+[test]
+priority = "P1"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "flask", "nix", "gunicorn"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Hello from Nix"

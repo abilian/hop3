@@ -18,3 +18,11 @@ SERVER_NAME = "localhost"
 
 [healthcheck]
 path = "/_matrix/client/versions"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/_matrix/client/versions"
+status = 200

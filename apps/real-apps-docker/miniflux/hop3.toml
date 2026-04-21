@@ -21,3 +21,11 @@ ADMIN_PASSWORD = "changeme"
 
 [healthcheck]
 path = "/healthcheck"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/healthcheck"
+status = 200

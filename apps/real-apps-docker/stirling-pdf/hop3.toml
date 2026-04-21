@@ -15,3 +15,11 @@ SYSTEM_DEFAULTLOCALE = "en-US"
 
 [healthcheck]
 path = "/login"
+
+[test]
+priority = "P1"
+tier = "very-slow"
+
+[[test.validations]]
+path = "/login"
+status = 200

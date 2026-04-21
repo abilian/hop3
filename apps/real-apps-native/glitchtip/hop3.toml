@@ -30,3 +30,14 @@ type = "redis"
 
 [healthcheck]
 path = "/_health/"
+
+[test]
+priority = "P1"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "django", "postgres", "redis"]
+
+[[test.validations]]
+path = "/_health/"
+status = 200

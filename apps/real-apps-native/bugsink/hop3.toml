@@ -31,3 +31,14 @@ SECRET_KEY = { random = true }
 # Bugsink redirects `/` to the login page when unauthenticated; point
 # at the login page directly so we get a 200 rather than a 302.
 path = "/accounts/login/"
+
+[test]
+priority = "P1"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "django", "postgres"]
+
+[[test.validations]]
+path = "/accounts/login/"
+status = 200

@@ -31,3 +31,14 @@ APP_DEBUG = "false"
 
 [healthcheck]
 path = "/"
+
+[test]
+priority = "P2"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php", "laravel", "mysql"]
+
+[[test.validations]]
+path = "/login"
+status = 200

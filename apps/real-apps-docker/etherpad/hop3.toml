@@ -19,3 +19,11 @@ TRUST_PROXY = "true"
 
 [healthcheck]
 path = "/health"
+
+[test]
+priority = "P0"
+tier = "medium"
+
+[[test.validations]]
+path = "/health"
+status = 200

@@ -17,3 +17,14 @@ extra-paths = ['${php}/bin']
 
 [build]
 builder = "nix"
+
+[test]
+priority = "P2"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php", "adminer", "nix", "database"]
+
+[[test.validations]]
+path = "/"
+status = 200

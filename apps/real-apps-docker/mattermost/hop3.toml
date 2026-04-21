@@ -18,3 +18,11 @@ MM_SERVICESETTINGS_SITEURL = "http://localhost:8065"
 
 [healthcheck]
 path = "/api/v4/system/ping"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/api/v4/system/ping"
+status = 200

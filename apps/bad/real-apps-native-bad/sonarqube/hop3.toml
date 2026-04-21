@@ -31,3 +31,14 @@ SONAR_SEARCH_JAVAADDITIONALOPTS = "-Dnode.store.allow_mmap=false"
 
 [healthcheck]
 path = "/api/system/status"
+
+[test]
+priority = "P2"
+tier = "very-slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["java", "sonarqube"]
+
+[[test.validations]]
+path = "/api/system/status"
+status = 200

@@ -14,3 +14,11 @@ type = "postgres"
 
 [healthcheck]
 path = "/admin/login"
+
+[test]
+priority = "P1"
+tier = "slow"
+
+[[test.validations]]
+path = "/admin/login"
+status = 200

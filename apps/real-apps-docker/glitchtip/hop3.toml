@@ -17,3 +17,11 @@ type = "redis"
 
 [healthcheck]
 path = "/_health/"
+
+[test]
+priority = "P1"
+tier = "slow"
+
+[[test.validations]]
+path = "/_health/"
+status = 200

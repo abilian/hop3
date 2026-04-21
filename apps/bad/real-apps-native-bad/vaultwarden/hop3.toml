@@ -28,3 +28,14 @@ SIGNUPS_ALLOWED = "false"
 
 [healthcheck]
 path = "/alive"
+
+[test]
+priority = "P1"
+tier = "very-slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["rust", "sqlite"]
+
+[[test.validations]]
+path = "/alive"
+status = 200

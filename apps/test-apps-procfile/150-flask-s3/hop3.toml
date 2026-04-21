@@ -6,3 +6,20 @@ description = "Flask app exercising the Hop3 S3 addon (put/get round-trip)"
 
 [[addons]]
 type = "s3"
+
+[test]
+priority = "P1"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "flask", "s3", "addons"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "S3 addon OK"
+
+[[test.validations]]
+path = "/config"
+status = 200
+contains = "has_access_key"

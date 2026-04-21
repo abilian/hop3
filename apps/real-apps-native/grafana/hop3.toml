@@ -38,3 +38,14 @@ GF_DATABASE_SSL_MODE = "disable"
 
 [healthcheck]
 path = "/api/health"
+
+[test]
+priority = "P1"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["golang"]
+
+[[test.validations]]
+path = "/api/health"
+status = 200

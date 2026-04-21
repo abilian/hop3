@@ -6,3 +6,14 @@ builder = "nix"
 
 [env]
 RADICALE_AUTH_TYPE = "none"
+
+[test]
+priority = "P2"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "radicale", "nix"]
+
+[[test.validations]]
+path = "/.web/"
+status = 200

@@ -26,3 +26,11 @@ path = "/api/system/status"
 
 # Note: SonarQube requires vm.max_map_count >= 524288
 # Run: sudo sysctl -w vm.max_map_count=524288
+
+[test]
+priority = "P1"
+tier = "slow"
+
+[[test.validations]]
+path = "/api/system/status"
+status = 200

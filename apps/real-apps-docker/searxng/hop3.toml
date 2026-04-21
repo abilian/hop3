@@ -18,3 +18,11 @@ SEARXNG_BASE_URL = "http://localhost:8080"
 
 [healthcheck]
 path = "/healthz"
+
+[test]
+priority = "P0"
+tier = "medium"
+
+[[test.validations]]
+path = "/healthz"
+status = 200

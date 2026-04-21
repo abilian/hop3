@@ -24,3 +24,11 @@ NEXTCLOUD_TRUSTED_DOMAINS = "localhost"
 
 [healthcheck]
 path = "/status.php"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/status.php"
+status = 200

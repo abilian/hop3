@@ -9,3 +9,14 @@ type = "mysql"
 
 [env]
 MATOMO_DATABASE_HOST = "${MYSQL_HOST}"
+
+[test]
+priority = "P2"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php", "matomo", "nix", "analytics"]
+
+[[test.validations]]
+path = "/"
+status = 200

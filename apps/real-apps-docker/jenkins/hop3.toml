@@ -19,3 +19,11 @@ JAVA_OPTS = "-Djava.awt.headless=true -Djenkins.install.runSetupWizard=false"
 
 [healthcheck]
 path = "/login"
+
+[test]
+priority = "P0"
+tier = "medium"
+
+[[test.validations]]
+path = "/login"
+status = 200

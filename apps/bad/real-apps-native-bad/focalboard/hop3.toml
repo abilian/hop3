@@ -31,3 +31,14 @@ FOCALBOARD_EDITION = "personal"
 
 [healthcheck]
 path = "/api/v2/health"
+
+[test]
+priority = "P1"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["golang", "postgresql"]
+
+[[test.validations]]
+path = "/api/v2/health"
+status = 200

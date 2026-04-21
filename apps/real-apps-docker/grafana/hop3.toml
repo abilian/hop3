@@ -33,3 +33,11 @@ GF_DATABASE_PASSWORD = "${PGPASSWORD}"
 
 [healthcheck]
 path = "/api/health"
+
+[test]
+priority = "P0"
+tier = "medium"
+
+[[test.validations]]
+path = "/api/health"
+status = 200

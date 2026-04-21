@@ -30,3 +30,14 @@ SEARXNG_SETTINGS_PATH = "searxng/settings.yml"
 
 [healthcheck]
 path = "/healthz"
+
+[test]
+priority = "P2"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "searxng"]
+
+[[test.validations]]
+path = "/healthz"
+status = 200

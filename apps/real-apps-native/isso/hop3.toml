@@ -28,3 +28,14 @@ ISSO_HOST = "http://localhost:8080"
 
 [healthcheck]
 path = "/"
+
+[test]
+priority = "P2"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "isso"]
+
+[[test.validations]]
+path = "/"
+status = 400

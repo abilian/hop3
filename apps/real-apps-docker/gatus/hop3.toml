@@ -11,3 +11,11 @@ categories = ["monitoring", "status-page", "observability"]
 
 [healthcheck]
 path = "/health"
+
+[test]
+priority = "P2"
+tier = "slow"
+
+[[test.validations]]
+path = "/health"
+status = 200

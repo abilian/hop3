@@ -18,3 +18,11 @@ DISABLE_TELEMETRY = "1"
 
 [healthcheck]
 path = "/api/heartbeat"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/api/heartbeat"
+status = 200

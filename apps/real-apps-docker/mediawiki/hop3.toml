@@ -14,3 +14,11 @@ type = "postgres"
 
 [healthcheck]
 path = "/api.php"
+
+[test]
+priority = "P2"
+tier = "medium"
+
+[[test.validations]]
+path = "/api.php"
+status = 200

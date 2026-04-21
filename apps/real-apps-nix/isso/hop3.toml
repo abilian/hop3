@@ -6,3 +6,14 @@ builder = "nix"
 
 [env]
 ISSO_HOST = "http://localhost:8080"
+
+[test]
+priority = "P2"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "isso", "nix"]
+
+[[test.validations]]
+path = "/"
+status = 400

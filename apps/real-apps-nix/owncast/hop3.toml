@@ -3,3 +3,14 @@ builder = "nix"
 
 [run]
 start-timeout = 120
+
+[test]
+priority = "P1"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["golang", "nix", "sqlite", "streaming"]
+
+[[test.validations]]
+path = "/api/status"
+status = 200

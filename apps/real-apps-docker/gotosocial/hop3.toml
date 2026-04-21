@@ -16,3 +16,11 @@ GTS_LETSENCRYPT_ENABLED = "false"
 
 [healthcheck]
 path = "/api/v1/instance"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/api/v1/instance"
+status = 200

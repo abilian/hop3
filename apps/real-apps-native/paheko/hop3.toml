@@ -24,3 +24,14 @@ start-timeout = 60
 
 [healthcheck]
 path = "/admin/install.php"
+
+[test]
+priority = "P2"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php", "sqlite", "nonprofit"]
+
+[[test.validations]]
+path = "/admin/install.php"
+status = 200

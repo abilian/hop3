@@ -3,3 +3,14 @@ builder = "nix"
 
 [run]
 start-timeout = 60
+
+[test]
+priority = "P2"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php", "nix", "sqlite", "nonprofit"]
+
+[[test.validations]]
+path = "/admin/install.php"
+status = 200

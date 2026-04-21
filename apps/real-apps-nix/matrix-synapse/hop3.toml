@@ -15,3 +15,14 @@ SERVER_NAME = "localhost"
 # + Synapse DB schema creation on a fresh Postgres (Synapse creates ~100
 # tables and runs its migration chain). 180s was tight; 360s has room.
 start-timeout = 360
+
+[test]
+priority = "P2"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "matrix-synapse", "nix", "postgres"]
+
+[[test.validations]]
+path = "/_matrix/client/versions"
+status = 200

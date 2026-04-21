@@ -25,3 +25,14 @@ GTS_LETSENCRYPT_ENABLED = "false"
 
 [healthcheck]
 path = "/api/v1/instance"
+
+[test]
+priority = "P1"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["golang", "sqlite", "fediverse"]
+
+[[test.validations]]
+path = "/api/v1/instance"
+status = 200

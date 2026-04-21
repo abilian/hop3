@@ -7,3 +7,14 @@ builder = "nix"
 [env]
 JENKINS_HOME = "./jenkins_home"
 JAVA_OPTS = "-Djava.awt.headless=true -Djenkins.install.runSetupWizard=false"
+
+[test]
+priority = "P2"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["java", "jenkins", "nix"]
+
+[[test.validations]]
+path = "/login"
+status = 200

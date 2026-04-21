@@ -25,3 +25,14 @@ start-timeout = 180
 
 [healthcheck]
 path = "/"
+
+[test]
+priority = "P1"
+tier = "fast"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php"]
+
+[[test.validations]]
+path = "/"
+status = 200

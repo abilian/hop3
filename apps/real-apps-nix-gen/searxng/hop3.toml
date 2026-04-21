@@ -27,3 +27,14 @@ SEARXNG_SECRET = "hop3-searxng-secret-change-me"
 
 [run]
 start-timeout = 120
+
+[test]
+priority = "P2"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "searxng", "nix"]
+
+[[test.validations]]
+path = "/healthz"
+status = 200

@@ -12,3 +12,14 @@ ADMIN_USER = "admin"
 ADMIN_NAME = "Administrator"
 ADMIN_EMAIL = "admin@example.com"
 ADMIN_PASSWORD = "change-me-admin-password"
+
+[test]
+priority = "P2"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php", "limesurvey", "nix", "surveys"]
+
+[[test.validations]]
+path = "/"
+status = 200

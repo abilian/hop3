@@ -36,3 +36,14 @@ DEBUG = "false"
 
 [healthcheck]
 path = "/"
+
+[test]
+priority = "P1"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php", "mysql"]
+
+[[test.validations]]
+path = "/"
+status = 302

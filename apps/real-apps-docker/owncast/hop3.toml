@@ -11,3 +11,11 @@ categories = ["media", "streaming", "video"]
 
 [healthcheck]
 path = "/api/status"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/api/status"
+status = 200

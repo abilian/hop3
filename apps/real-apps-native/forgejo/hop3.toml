@@ -25,3 +25,14 @@ type = "postgres"
 
 [healthcheck]
 path = "/api/healthz"
+
+[test]
+priority = "P1"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["golang", "postgresql"]
+
+[[test.validations]]
+path = "/api/healthz"
+status = 200

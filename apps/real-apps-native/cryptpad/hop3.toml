@@ -28,3 +28,14 @@ CPAD_MAIN_DOMAIN = "http://localhost:8080"
 
 [healthcheck]
 path = "/api/config"
+
+[test]
+priority = "P2"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["nodejs", "cryptpad"]
+
+[[test.validations]]
+path = "/"
+status = 200

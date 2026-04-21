@@ -21,3 +21,11 @@ CMD_ALLOW_FREEURL = "false"
 
 [healthcheck]
 path = "/status"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/status"
+status = 200

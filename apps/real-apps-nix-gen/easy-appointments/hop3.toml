@@ -27,3 +27,14 @@ type = "mysql"
 
 [env]
 APP_URL = "http://localhost:8080"
+
+[test]
+priority = "P2"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php", "easy-appointments", "nix", "scheduling"]
+
+[[test.validations]]
+path = "/"
+status = 200

@@ -18,3 +18,11 @@ DOLI_ADMIN_LOGIN = "admin"
 
 [healthcheck]
 path = "/"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/"
+status = 200

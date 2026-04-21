@@ -18,3 +18,11 @@ DEBUG = "false"
 
 [healthcheck]
 path = "/"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/"
+status = 200

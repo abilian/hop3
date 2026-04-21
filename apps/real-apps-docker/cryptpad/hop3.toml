@@ -17,3 +17,11 @@ CPAD_MAIN_DOMAIN = "http://localhost:8080"
 
 [healthcheck]
 path = "/api/config"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/api/config"
+status = 200

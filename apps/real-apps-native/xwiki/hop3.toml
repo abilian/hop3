@@ -31,3 +31,14 @@ XWIKI_NONINTERACTIVE = "true"
 
 [healthcheck]
 path = "/xwiki/bin/view/Main/"
+
+[test]
+priority = "P2"
+tier = "very-slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["java", "xwiki"]
+
+[[test.validations]]
+path = "/xwiki/"
+status = 302

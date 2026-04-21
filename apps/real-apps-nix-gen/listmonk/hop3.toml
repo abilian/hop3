@@ -57,3 +57,15 @@ type = "postgres"
 
 [run]
 start-timeout = 60
+
+[test]
+priority = "P2"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["golang", "nix", "nixpkgs-wrapper", "postgres"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "listmonk"

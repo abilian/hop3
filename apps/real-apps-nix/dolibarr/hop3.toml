@@ -9,3 +9,14 @@ type = "postgres"
 
 [env]
 DOLI_ADMIN_LOGIN = "admin"
+
+[test]
+priority = "P2"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php", "dolibarr", "nix", "erp", "crm"]
+
+[[test.validations]]
+path = "/"
+status = 200

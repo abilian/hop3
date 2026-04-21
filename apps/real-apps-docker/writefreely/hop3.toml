@@ -11,3 +11,11 @@ categories = ["fediverse", "blog", "publishing"]
 
 [healthcheck]
 path = "/"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/"
+status = 200

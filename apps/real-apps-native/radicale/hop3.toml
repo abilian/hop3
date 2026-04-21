@@ -28,3 +28,14 @@ RADICALE_AUTH_TYPE = "none"
 
 [healthcheck]
 path = "/.web/"
+
+[test]
+priority = "P1"
+tier = "fast"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python"]
+
+[[test.validations]]
+path = "/.web/"
+status = 200

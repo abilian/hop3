@@ -18,3 +18,12 @@ APP_URL = "http://localhost:8080"
 
 [healthcheck]
 path = "/"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Easy!Appointments"

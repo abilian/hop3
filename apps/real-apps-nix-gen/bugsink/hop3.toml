@@ -65,3 +65,14 @@ type = "postgres"
 
 [run]
 start-timeout = 180
+
+[test]
+priority = "P1"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "django", "nix", "postgres"]
+
+[[test.validations]]
+path = "/accounts/login/"
+status = 200

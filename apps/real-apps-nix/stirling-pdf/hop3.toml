@@ -5,3 +5,14 @@ builder = "nix"
 
 [run]
 start-timeout = 180
+
+[test]
+priority = "P1"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["java", "spring-boot", "nix"]
+
+[[test.validations]]
+path = "/login"
+status = 200

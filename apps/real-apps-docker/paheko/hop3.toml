@@ -12,3 +12,11 @@ categories = ["nonprofit", "accounting", "association"]
 
 [healthcheck]
 path = "/admin/install.php"
+
+[test]
+priority = "P2"
+tier = "medium"
+
+[[test.validations]]
+path = "/admin/install.php"
+status = 200

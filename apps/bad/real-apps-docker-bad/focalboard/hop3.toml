@@ -18,3 +18,11 @@ FOCALBOARD_SINGLE_USER = "true"
 
 [healthcheck]
 path = "/api/v2/health"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/api/v2/health"
+status = 200

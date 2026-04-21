@@ -17,3 +17,11 @@ GITEA__log__LEVEL = "Info"
 
 [healthcheck]
 path = "/api/healthz"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/api/healthz"
+status = 200

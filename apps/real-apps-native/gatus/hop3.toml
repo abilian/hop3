@@ -24,3 +24,14 @@ start-timeout = 60
 
 [healthcheck]
 path = "/health"
+
+[test]
+priority = "P2"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["golang", "sqlite", "monitoring"]
+
+[[test.validations]]
+path = "/health"
+status = 200

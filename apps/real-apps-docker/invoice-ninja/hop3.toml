@@ -18,3 +18,11 @@ APP_DEBUG = "false"
 
 [healthcheck]
 path = "/"
+
+[test]
+priority = "P1"
+tier = "slow"
+
+[[test.validations]]
+path = "/"
+status = 302

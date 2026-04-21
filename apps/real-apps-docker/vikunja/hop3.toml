@@ -18,3 +18,11 @@ VIKUNJA_FRONTEND_URL = "http://localhost:8080/"
 
 [healthcheck]
 path = "/api/v1/info"
+
+[test]
+priority = "P1"
+tier = "medium"
+
+[[test.validations]]
+path = "/api/v1/info"
+status = 200

@@ -9,3 +9,14 @@ type = "mysql"
 
 [env]
 WP_DEBUG = "false"
+
+[test]
+priority = "P2"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php", "wordpress", "nix", "cms"]
+
+[[test.validations]]
+path = "/"
+status = 302

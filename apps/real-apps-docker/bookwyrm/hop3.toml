@@ -21,3 +21,11 @@ type = "redis"
 
 [healthcheck]
 path = "/api/v1/instance"
+
+[test]
+priority = "P1"
+tier = "slow"
+
+[[test.validations]]
+path = "/api/v1/instance"
+status = 200

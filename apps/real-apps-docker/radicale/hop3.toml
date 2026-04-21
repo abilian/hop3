@@ -17,3 +17,11 @@ RADICALE_AUTH_TYPE = "htpasswd"
 
 [healthcheck]
 path = "/.web/"
+
+[test]
+priority = "P0"
+tier = "medium"
+
+[[test.validations]]
+path = "/.web/"
+status = 200

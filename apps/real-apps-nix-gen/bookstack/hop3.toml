@@ -58,3 +58,14 @@ DB_DATABASE=${DB_DATABASE:-bookstack}
 DB_USERNAME=${DB_USERNAME:-bookstack}
 DB_PASSWORD=${DB_PASSWORD:-}
 """
+
+[test]
+priority = "P2"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php", "bookstack", "nix", "wiki", "laravel"]
+
+[[test.validations]]
+path = "/login"
+status = 200

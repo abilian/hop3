@@ -17,3 +17,14 @@ XWIKI_NONINTERACTIVE = "true"
 # on a warm box. 180s gives first-deploy headroom; subsequent restarts
 # reuse the copy and are much faster.
 start-timeout = 180
+
+[test]
+priority = "P2"
+tier = "very-slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["java", "xwiki", "nix", "postgres"]
+
+[[test.validations]]
+path = "/xwiki/bin/view/Main/"
+status = 200

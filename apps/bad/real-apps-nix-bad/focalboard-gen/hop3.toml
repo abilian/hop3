@@ -63,3 +63,14 @@ builder = "nix"
 
 [[addons]]
 type = "postgres"
+
+[test]
+priority = "P2"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["golang", "nix", "postgres"]
+
+[[test.validations]]
+path = "/api/v2/health"
+status = 200

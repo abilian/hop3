@@ -32,3 +32,14 @@ ADMIN_PASSWORD = "change-me-admin-password"
 
 [healthcheck]
 path = "/"
+
+[test]
+priority = "P1"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php", "postgresql"]
+
+[[test.validations]]
+path = "/"
+status = 200

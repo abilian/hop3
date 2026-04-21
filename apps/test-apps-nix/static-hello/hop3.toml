@@ -2,3 +2,15 @@
 
 [build]
 builder = "nix"
+
+[test]
+priority = "P1"
+tier = "fast"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["static", "nix"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Hello World"

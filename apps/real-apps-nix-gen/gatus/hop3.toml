@@ -36,3 +36,14 @@ endpoints:
 
 [run]
 start-timeout = 60
+
+[test]
+priority = "P2"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["golang", "nix", "sqlite", "monitoring"]
+
+[[test.validations]]
+path = "/health"
+status = 200

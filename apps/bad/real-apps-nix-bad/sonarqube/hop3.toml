@@ -9,3 +9,14 @@ type = "postgres"
 
 [env]
 SONAR_SEARCH_JAVAADDITIONALOPTS = "-Dnode.store.allow_mmap=false"
+
+[test]
+priority = "P2"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["java", "sonarqube", "nix", "postgres"]
+
+[[test.validations]]
+path = "/api/system/status"
+status = 200
