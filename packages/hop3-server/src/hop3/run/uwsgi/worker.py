@@ -399,13 +399,16 @@ class WebWorker(UwsgiWorker):
         # Note: uWSGI's chdir directive may not apply to attach-daemon processes,
         # so we explicitly cd to the source directory.
         #
-        # Redirect stderr to the app log file so application errors (PHP
-        # exceptions, Python tracebacks, etc.) are captured and visible
-        # via `hop3 app logs`. Without this, daemon stderr goes nowhere.
+        # Redirect stdout AND stderr to the app log file so application
+        # output (PHP exceptions, Python tracebacks, Node startup errors,
+        # …) is captured and visible via `hop3 app logs`. Node apps in
+        # particular often write critical startup errors to stdout (e.g.
+        # HedgeDoc 1.10 config-validation failures), so `2>>` alone loses
+        # them; `>>file 2>&1` captures both.
         log_path = app.log_path
         daemon_log = f"{log_path}/{self.kind}.{self.ordinal}.log"
         exports_str = "; ".join(exports)
-        shell_cmd = f'sh -c "cd {app.src_path} && {exports_str}; exec {self.command} 2>>{daemon_log}"'
+        shell_cmd = f'sh -c "cd {app.src_path} && {exports_str}; exec {self.command} >>{daemon_log} 2>&1"'
         self.settings.add("attach-daemon", shell_cmd)
 
 
@@ -455,9 +458,9 @@ class GenericWorker(UwsgiWorker):
         # Note: uWSGI's chdir directive may not apply to attach-daemon processes,
         # so we explicitly cd to the source directory.
         #
-        # Redirect stderr to the app log file (same fix as WebWorker).
+        # Redirect stdout AND stderr to the app log file (same fix as WebWorker).
         log_path = app.log_path
         daemon_log = f"{log_path}/{self.kind}.{self.ordinal}.log"
         exports_str = "; ".join(exports)
-        shell_cmd = f'sh -c "cd {app.src_path} && {exports_str}; exec {self.command} 2>>{daemon_log}"'
+        shell_cmd = f'sh -c "cd {app.src_path} && {exports_str}; exec {self.command} >>{daemon_log} 2>&1"'
         self.settings.add("attach-daemon", shell_cmd)

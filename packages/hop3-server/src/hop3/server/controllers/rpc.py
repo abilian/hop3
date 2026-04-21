@@ -22,8 +22,6 @@ from hop3.lib.console import verbosity_context
 from hop3.lib.logging import server_log
 from hop3.lib.registry import lookup
 from hop3.lib.repository_errors import (
-    extract_repository_error_reason as _extract_repository_error_reason,
-    format_repository_error as _extract_repository_error_message,
     repository_error_diagnosis as _repository_error_diagnosis,
 )
 from hop3.lib.scanner import scan_package

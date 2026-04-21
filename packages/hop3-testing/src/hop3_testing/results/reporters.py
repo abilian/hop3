@@ -171,9 +171,7 @@ class ConsoleReporter:
                 file=self.output,
             )
 
-    def _extract_app_log_tail(
-        self, result: TestResult, *, max_lines: int = 30
-    ) -> str:
+    def _extract_app_log_tail(self, result: TestResult, *, max_lines: int = 30) -> str:
         """Extract the tail of the app's own stderr from the runtime logs.
 
         ``collect_runtime_logs`` writes all files under

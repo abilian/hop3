@@ -1,0 +1,110 @@
+# Hop3 Configuration for Etherpad (Nix build via nixpkgs)
+#
+# Uses the nixpkgs-wrapper template against pkgs.etherpad-lite. A prior
+# hand-crafted hop3.nix fetched the release tarball and ran pnpm
+# install inside the build — the resulting node_modules/.pnpm virtual-
+# store symlinks didn't survive `cp -r` into the Nix store, the same
+# class of failure that blocks hedgedoc in apps/bad/. nixpkgs already
+# wires a proper node wrapper with NODE_PATH pre-set for pnpm.
+
+[metadata]
+id = "etherpad"
+description = "Real-time collaborative document editor"
+
+[build]
+builder = "nix"
+
+[nix]
+template = "nixpkgs-wrapper"
+nixpkgs-package = "etherpad-lite"
+exec-target = "etherpad-lite"
+# Etherpad's findEtherpadRoot() always returns the nix store path
+# (walks __dirname up past ep_etherpad-lite). makeAbsolute treats the
+# default './settings.json' as relative to that root — which is read-
+# only and not where we wrote our config. Passing an absolute path via
+# --settings short-circuits makeAbsolute and picks up the file we
+# generate in the app's cwd (uwsgi cd's there before exec).
+# --settings, --sessionkey and --apikey all have to be absolute paths:
+# etherpad resolves relative paths against findEtherpadRoot() which is
+# the read-only nix store. Writes to SESSIONKEY.txt and APIKEY.txt
+# happen on first boot; routing them to $PWD keeps them in the app's
+# writable src/ directory.
+exec-args = [
+  '--settings', '$PWD/settings.json',
+  '--sessionkey', '$PWD/SESSIONKEY.txt',
+  '--apikey', '$PWD/APIKEY.txt',
+]
+extra-paths = ['${etherpad}/bin']
+pre-exec = ['mkdir -p var']
+
+[[nix.config-files]]
+# Etherpad reads ./settings.json from cwd (uWSGI worker cd's to src/).
+# We generate it on first boot only (create-if-missing) so the auto-
+# generated sessionKey persists across restarts — otherwise every
+# restart would invalidate existing author cookies.
+path = "settings.json"
+format = "raw"
+create-if-missing = true
+raw-content = """
+{
+  "title": "Etherpad",
+  "ip": "0.0.0.0",
+  "port": ${PORT:-9001},
+  "showSettingsInAdminPage": true,
+  "dbType": "postgres",
+  "dbSettings": {
+    "host": "${PGHOST:-localhost}",
+    "port": ${PGPORT:-5432},
+    "user": "${PGUSER}",
+    "password": "${PGPASSWORD}",
+    "database": "${PGDATABASE}",
+    "charset": "utf8mb4"
+  },
+  "defaultPadText": "Welcome to Etherpad!",
+  "padOptions": {
+    "noColors": false,
+    "showControls": true,
+    "showChat": true,
+    "showLineNumbers": true,
+    "useMonospaceFont": false,
+    "userName": null,
+    "userColor": null,
+    "rtl": false,
+    "alwaysShowChat": false,
+    "chatAndUsers": false,
+    "lang": "en-gb"
+  },
+  "suppressErrorsInPadText": false,
+  "requireSession": false,
+  "editOnly": false,
+  "minify": true,
+  "maxAge": 21600,
+  "trustProxy": true,
+  "loglevel": "INFO",
+  "cookie": {
+    "keyRotationInterval": 86400000,
+    "sessionLifetime": 864000000
+  }
+}
+"""
+
+[[addons]]
+type = "postgres"
+
+[env]
+NODE_ENV = "production"
+
+[run]
+# Etherpad builds the admin UI and installs plugins on first boot.
+start-timeout = 180
+
+[test]
+priority = "P2"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["nodejs", "etherpad", "nix", "postgres", "nixpkgs-wrapper"]
+
+[[test.validations]]
+path = "/"
+status = 200

@@ -30,6 +30,7 @@ from .models import (
     ValidationExpect,
 )
 
+
 class TestDefinitionError(Exception):
     """Error loading or validating a test definition."""
 
@@ -426,6 +427,47 @@ def _derive_unique_name(app_path: Path) -> str:
     return dir_name
 
 
+_TARGET_MAP = {"docker": TargetType.DOCKER, "remote": TargetType.REMOTE}
+
+
+def _overrides_from_hop3_test(section: dict[str, Any]) -> dict[str, Any]:
+    """Extract TestDefinition overrides from a `[test]` section in hop3.toml."""
+    out: dict[str, Any] = {}
+    if "tier" in section:
+        out["tier"] = Tier(section["tier"])
+    if "priority" in section:
+        out["priority"] = Priority(section["priority"])
+    if "author" in section:
+        out["author"] = section["author"]
+    if "covers" in section:
+        out["covers_prefix"] = list(section["covers"])
+    if "targets" in section:
+        out["targets"] = [_TARGET_MAP[t] for t in section["targets"]]
+    if "validations" in section:
+        out["validations"] = [_parse_validation(v) for v in section["validations"]]
+    return out
+
+
+def _overrides_from_legacy_test_toml(data: dict[str, Any]) -> dict[str, Any]:
+    """Extract TestDefinition overrides from a legacy standalone test.toml."""
+    section = data.get("test", {})
+    out: dict[str, Any] = {}
+    if "tier" in section:
+        out["tier"] = Tier(section["tier"])
+    if "priority" in section:
+        out["priority"] = Priority(section["priority"])
+    if "description" in section:
+        out["description"] = section["description"]
+    if "validations" in data:
+        out["validations"] = [_parse_validation(v) for v in data["validations"]]
+    metadata = section.get("metadata", {})
+    if "covers" in metadata:
+        out["covers_prefix"] = list(metadata["covers"])
+    if "author" in metadata:
+        out["author"] = metadata["author"]
+    return out
+
+
 def generate_test_definition_from_hop3_toml(
     app_path: Path,
     hop3_data: dict[str, Any],
@@ -433,108 +475,54 @@ def generate_test_definition_from_hop3_toml(
 ) -> TestDefinition:
     """Generate a TestDefinition from hop3.toml, optionally merging test.toml metadata.
 
-    Args:
-        app_path: Path to the application directory
-        hop3_data: Parsed hop3.toml data
-        test_toml_data: Optional parsed test.toml data for test-specific metadata
-
-    Returns:
-        Generated TestDefinition
+    Preferred source is the `[test]` section in hop3.toml (canonical
+    since 2026-04-21). A standalone test.toml is kept as a fallback for
+    demos / tutorials / negative-test cases where hop3.toml is absent or
+    doesn't have a `[test]` section.
     """
-    # Get app name from hop3.toml metadata or derive from path
     metadata_section = hop3_data.get("metadata", {})
     base_name = metadata_section.get("id") or _derive_unique_name(app_path)
-    app_name = base_name
     app_title = metadata_section.get("title", base_name)
 
-    # Extract deployment info from hop3.toml
     services = _extract_services_from_hop3_toml(hop3_data)
     env_vars = _extract_env_vars_from_hop3_toml(hop3_data)
     healthcheck_path = _extract_healthcheck_from_hop3_toml(hop3_data)
     deployment_type = _get_deployment_type_from_hop3_toml(hop3_data)
 
-    # Build covers tags
-    covers = []
-    if deployment_type == "docker":
-        covers.append("docker")
-    else:
-        covers.append("native")
+    base_covers = ["docker" if deployment_type == "docker" else "native", *services]
 
-    # Add service tags
-    covers.extend(services)
-
-    # Default test-specific values. Tier is retained only as a display
-    # label in reports (no longer drives any timeout — single 30-min
-    # budget applies to all builds + deploys).
-    tier = Tier.MEDIUM
-    priority = Priority.P1
-    description = app_title
-    validations: list[Validation] = []
-    targets = [TargetType.DOCKER, TargetType.REMOTE]
-    author: str | None = None
-
-    # Preferred source: `[test]` section in hop3.toml (canonical since
-    # 2026-04-21). Legacy `test.toml` is kept as a fallback for demos /
-    # tutorials / negative-test cases where hop3.toml is absent or
-    # doesn't have a [test] section.
     hop3_test_section = hop3_data.get("test") or {}
     if hop3_test_section:
-        if "tier" in hop3_test_section:
-            tier = Tier(hop3_test_section["tier"])
-        if "priority" in hop3_test_section:
-            priority = Priority(hop3_test_section["priority"])
-        if "author" in hop3_test_section:
-            author = hop3_test_section["author"]
-        if "covers" in hop3_test_section:
-            covers = list(hop3_test_section["covers"]) + covers
-        if "targets" in hop3_test_section:
-            target_map = {"docker": TargetType.DOCKER, "remote": TargetType.REMOTE}
-            targets = [target_map[t] for t in hop3_test_section["targets"]]
-        validations = [
-            _parse_validation(v)
-            for v in hop3_test_section.get("validations", [])
-        ]
+        overrides = _overrides_from_hop3_test(hop3_test_section)
     elif test_toml_data:
-        # Legacy fallback — only reached for demos / tutorials / other
-        # special cases that still carry a standalone test.toml.
-        test_section = test_toml_data.get("test", {})
-        if "tier" in test_section:
-            tier = Tier(test_section["tier"])
-        if "priority" in test_section:
-            priority = Priority(test_section["priority"])
-        if "description" in test_section:
-            description = test_section["description"]
-        validations = [
-            _parse_validation(v) for v in test_toml_data.get("validations", [])
-        ]
-        test_metadata = test_section.get("metadata", {})
-        if "covers" in test_metadata:
-            covers = test_metadata["covers"] + covers
-        if "author" in test_metadata:
-            author = test_metadata["author"]
+        overrides = _overrides_from_legacy_test_toml(test_toml_data)
+    else:
+        overrides = {}
 
-    # Build default HTTP validation if none specified
-    if not validations:
-        validations.append(
-            Validation(
-                type="http",
-                path=healthcheck_path,
-                expect=ValidationExpect(status=200),
-            )
+    # Tier is a display label only — no longer drives any timeout
+    # (single 30-min budget applies to all builds + deploys).
+    tier = overrides.get("tier", Tier.MEDIUM)
+    priority = overrides.get("priority", Priority.P1)
+    description = overrides.get("description", app_title)
+    targets = overrides.get("targets", [TargetType.DOCKER, TargetType.REMOTE])
+    covers = overrides.get("covers_prefix", []) + base_covers
+    validations = overrides.get("validations") or [
+        Validation(
+            type="http",
+            path=healthcheck_path,
+            expect=ValidationExpect(status=200),
         )
+    ]
 
     metadata_kwargs: dict[str, Any] = {"covers": covers}
-    if author is not None:
-        metadata_kwargs["author"] = author
+    if "author" in overrides:
+        metadata_kwargs["author"] = overrides["author"]
 
     return TestDefinition(
-        name=app_name,
+        name=base_name,
         tier=tier,
         priority=priority,
-        requirements=TestRequirements(
-            targets=targets,
-            services=services,
-        ),
+        requirements=TestRequirements(targets=targets, services=services),
         validations=validations,
         deployment=DeploymentConfig(
             path=".",

@@ -123,9 +123,7 @@ def format_nix_runtime_libs(paths: list[str]) -> str:
     if not paths:
         return ""
     libs = ":".join(f"${{pkgs.{p}}}/lib" for p in paths)
-    return (
-        f'export LD_LIBRARY_PATH="{libs}:' + "''${LD_LIBRARY_PATH:-}" + '"'
-    )
+    return f'export LD_LIBRARY_PATH="{libs}:' + "''${LD_LIBRARY_PATH:-}" + '"'
 
 
 def format_wrapper_body(

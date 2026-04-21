@@ -450,7 +450,7 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
         artifact = BuildArtifact.load(app.app_path / "BUILD_ARTIFACT.json")
         if artifact is not None:
             artifact_kind = artifact.kind
-    except Exception:  # noqa: BLE001
+    except Exception:
         # Missing / unreadable artifact is not fatal for diagnosis; we
         # just skip the WSGI-specific pattern match.
         artifact_kind = None

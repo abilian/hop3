@@ -25,12 +25,10 @@ from advanced_alchemy.exceptions import (
 
 from hop3.lib.diagnostics import Diagnosis, format_diagnosis
 
-_GENERIC_AA_MESSAGES = frozenset(
-    {
-        "There was an error during data processing",
-        "An exception occurred",
-    }
-)
+_GENERIC_AA_MESSAGES = frozenset({
+    "There was an error during data processing",
+    "An exception occurred",
+})
 
 
 def extract_repository_error_reason(exc: RepositoryError) -> str:

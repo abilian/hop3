@@ -16,9 +16,9 @@ from advanced_alchemy.exceptions import (
     RepositoryError,
 )
 
-from hop3.server.controllers.rpc import (
-    _extract_repository_error_reason,
-    _repository_error_diagnosis,
+from hop3.lib.repository_errors import (
+    extract_repository_error_reason,
+    repository_error_diagnosis,
 )
 
 
@@ -41,18 +41,18 @@ class TestExtractReason:
             cause_msg="UNIQUE constraint failed: app.name",
         )
         assert (
-            _extract_repository_error_reason(exc)
+            extract_repository_error_reason(exc)
             == "UNIQUE constraint failed: app.name"
         )
 
     def test_falls_back_to_detail_when_no_cause(self) -> None:
         # Skip the cause-wiring helper for this case
         exc = RepositoryError(detail="custom detail text")
-        assert _extract_repository_error_reason(exc) == "custom detail text"
+        assert extract_repository_error_reason(exc) == "custom detail text"
 
     def test_generic_detail_without_cause_returns_placeholder(self) -> None:
         exc = RepositoryError(detail="There was an error during data processing")
-        reason = _extract_repository_error_reason(exc)
+        reason = extract_repository_error_reason(exc)
         assert "no additional details" in reason
 
 
@@ -75,7 +75,7 @@ class TestDiagnosisBySubclass:
             detail="There was an error during data processing",
             cause_msg="simulated underlying failure",
         )
-        diag = _repository_error_diagnosis(exc)
+        diag = repository_error_diagnosis(exc)
         assert diag.component == "Database"
         assert diag.action == expected_action
         assert "simulated underlying failure" in diag.reason
@@ -86,7 +86,7 @@ class TestDiagnosisBySubclass:
             detail="There was an error during data processing",
             cause_msg="OperationalError: server closed the connection",
         )
-        diag = _repository_error_diagnosis(exc)
+        diag = repository_error_diagnosis(exc)
         assert diag.action == "execute repository operation"
         assert "server closed the connection" in diag.reason
         # Generic fallback always provides troubleshooting
@@ -100,5 +100,5 @@ class TestDuplicateKeyHintMentionsRename:
             detail="There was an error during data processing",
             cause_msg="duplicate key value violates unique constraint",
         )
-        diag = _repository_error_diagnosis(exc)
+        diag = repository_error_diagnosis(exc)
         assert "different name" in diag.hint.lower() or "delete" in diag.hint.lower()

@@ -18,9 +18,7 @@ import sys
 import time
 
 import pytest
-
 from hop3_testing.util.streaming import run_streaming
-
 
 pytestmark = pytest.mark.skipif(
     sys.platform == "win32",

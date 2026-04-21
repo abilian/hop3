@@ -362,9 +362,7 @@ def test_nix_runtime_libs_supports_dotted_attribute_paths():
 def test_nix_runtime_libs_full_line_shape():
     # Full canonical form — what ends up in the generated wrapper. This
     # must match the hand-crafted variant's working pattern exactly.
-    result = format_nix_runtime_libs(
-        ["postgresql.lib", "krb5.lib", "stdenv.cc.cc.lib"]
-    )
+    result = format_nix_runtime_libs(["postgresql.lib", "krb5.lib", "stdenv.cc.cc.lib"])
     expected = (
         'export LD_LIBRARY_PATH="'
         "${pkgs.postgresql.lib}/lib:"

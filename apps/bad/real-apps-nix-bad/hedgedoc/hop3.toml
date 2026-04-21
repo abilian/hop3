@@ -1,8 +1,41 @@
-# Hop3 Configuration for HedgeDoc (Nix build)
-# Collaborative markdown editor
+# Hop3 Configuration for HedgeDoc (Nix build via nixpkgs)
+#
+# Switched to nixpkgs-wrapper template on 2026-04-21. The previous
+# hand-crafted hop3.nix used the HedgeDoc pre-built release tarball and
+# tried to cp/symlink the release's node_modules; internal pnpm virtual-
+# store symlinks broke when the tree was copied into the Nix store,
+# giving "Cannot find module 'express'" at runtime. pkgs.hedgedoc in
+# nixpkgs (1.10.8) already ships a properly wired node wrapper.
+
+[metadata]
+id = "hedgedoc"
+description = "Real-time collaborative markdown editor"
 
 [build]
 builder = "nix"
+
+[nix]
+template = "nixpkgs-wrapper"
+nixpkgs-package = "hedgedoc"
+exec-target = "hedgedoc"
+extra-paths = ['${hedgedoc}/bin']
+
+[nix.env-exports]
+# HedgeDoc uses Sequelize; it accepts both postgres:// and postgresql://
+# but we standardise on postgresql:// to match what Hop3 exports as
+# DATABASE_URL elsewhere. Local Postgres has no SSL — force sslmode=disable
+# or Sequelize tries SSL and fails the handshake.
+CMD_PORT = "${PORT:-3000}"
+CMD_HOST = "0.0.0.0"
+CMD_DB_URL = "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=disable"
+CMD_SESSION_SECRET = "${CMD_SESSION_SECRET:-$(head -c 32 /dev/urandom | base64)}"
+CMD_ALLOW_ANONYMOUS = "true"
+CMD_ALLOW_ANONYMOUS_EDITS = "true"
+CMD_DEFAULT_PERMISSION = "freely"
+# HedgeDoc 1.10 insists on a domain + protocol for absolute URLs.
+CMD_DOMAIN = "localhost"
+CMD_URL_ADDPORT = "true"
+CMD_PROTOCOL_USESSL = "false"
 
 [[addons]]
 type = "postgres"
@@ -10,12 +43,16 @@ type = "postgres"
 [env]
 NODE_ENV = "production"
 
+[run]
+# HedgeDoc runs DB migrations on first boot; give it headroom.
+start-timeout = 180
+
 [test]
 priority = "P2"
 tier = "slow"
 author = "hop3-team"
 targets = ["docker", "remote"]
-covers = ["nodejs", "hedgedoc", "nix", "postgres"]
+covers = ["nodejs", "hedgedoc", "nix", "postgres", "nixpkgs-wrapper"]
 
 [[test.validations]]
 path = "/status"

@@ -118,8 +118,7 @@ class DockerBuilder:
         timeout_minutes = timeout_seconds // 60
 
         log(
-            f"Running: docker build -t {image_tag} . "
-            f"(timeout={timeout_minutes}min)",
+            f"Running: docker build -t {image_tag} . (timeout={timeout_minutes}min)",
             level=2,
             fg="cyan",
         )
@@ -167,9 +166,7 @@ class DockerBuilder:
                 Diagnosis(
                     component="Docker builder",
                     action="build image",
-                    reason=(
-                        f"build exceeded the {timeout_minutes}-minute timeout"
-                    ),
+                    reason=(f"build exceeded the {timeout_minutes}-minute timeout"),
                     hint=(
                         "Trim the Dockerfile (fewer RUN steps, leaner base "
                         "image), or switch this app to a lighter packaging "
