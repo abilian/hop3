@@ -10,11 +10,6 @@ homepage = "https://www.keycloak.org/"
 license = "Apache-2.0"
 categories = ["auth", "sso", "identity"]
 
-[build]
-# Slow tier: Java 21 JRE download (Temurin) + Keycloak tarball extract
-# adds up; plus the Docker build context is non-trivial.
-tier = "slow"
-
 [[addons]]
 type = "postgres"
 

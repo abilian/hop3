@@ -9,9 +9,6 @@ homepage = "https://www.mediawiki.org/"
 license = "GPL-2.0-or-later"
 categories = ["wiki", "knowledge-base", "collaboration"]
 
-[build]
-tier = "medium"
-
 [[addons]]
 type = "postgres"
 

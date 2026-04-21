@@ -3,7 +3,7 @@
 [test]
 name = "nix-xwiki"
 category = "nix-app"
-tier = "slow"
+tier = "very-slow"
 priority = "P2"
 description = "XWiki enterprise wiki deployed via Nix"
 

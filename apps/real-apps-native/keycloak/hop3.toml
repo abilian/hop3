@@ -13,7 +13,6 @@ categories = ["auth", "sso", "identity"]
 [build]
 builder = "local"
 toolchain = "generic"
-tier = "slow"
 # Download Keycloak tarball AND a JDK 21 runtime. The second half is
 # a workaround for DEFERRED-APPS.md blocker #1 (`[build].packages`
 # parsed but unconsumed) + the installer shipping `default-jdk` which

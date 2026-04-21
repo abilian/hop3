@@ -13,7 +13,6 @@ categories = ["wiki", "knowledge-base", "collaboration"]
 [build]
 builder = "local"
 toolchain = "php"
-tier = "medium"
 before-build = "bash scripts/download.sh"
 build = "composer install --no-dev --optimize-autoloader"
 

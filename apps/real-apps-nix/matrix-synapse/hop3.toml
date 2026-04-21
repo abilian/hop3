@@ -1,0 +1,17 @@
+# Hop3 Configuration for Matrix Synapse (Nix build)
+# Matrix homeserver implementation
+
+[build]
+builder = "nix"
+
+[[addons]]
+type = "postgres"
+
+[env]
+SERVER_NAME = "localhost"
+
+[run]
+# First boot: key generation + yaml bootstrap + Python yaml port-rewrite
+# + Synapse DB schema creation on a fresh Postgres (Synapse creates ~100
+# tables and runs its migration chain). 180s was tight; 360s has room.
+start-timeout = 360

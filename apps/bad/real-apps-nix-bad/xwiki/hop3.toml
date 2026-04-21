@@ -10,3 +10,10 @@ type = "postgres"
 [env]
 JAVA_OPTS = "-Xmx1024m"
 XWIKI_NONINTERACTIVE = "true"
+
+[run]
+# First boot does a ~400MB copy from the Nix store into .xwiki-home,
+# then Jetty + HSQLDB + XWiki initialisation. 60s is too short even
+# on a warm box. 180s gives first-deploy headroom; subsequent restarts
+# reuse the copy and are much faster.
+start-timeout = 180

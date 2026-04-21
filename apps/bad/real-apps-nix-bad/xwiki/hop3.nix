@@ -1,6 +1,20 @@
 # hop3.nix - Nix expression for XWiki deployment
 #
 # Downloads the XWiki Jetty distribution and runs with JDK.
+#
+# XWiki's start_xwiki.sh resolves $0 to the Nix-store path at runtime
+# (same class of problem as Keycloak — see apps/real-apps-nix/keycloak/
+# hop3.nix). Jetty then looks for its `logs/` directory under that
+# resolved path, which is read-only and missing the directory:
+#
+#   java.io.IOException: Log directory does not exist.
+#   Path=/nix/store/.../xwiki-16.1.0/app/logs
+#
+# Fix (lazy cp to writable home): on first start we copy the (read-only)
+# XWiki tree from the Nix store into a writable per-app home at
+# $PWD/.xwiki-home and cd into it before invoking start_xwiki.sh. Jetty
+# then resolves $0 to the writable copy, so data/, logs/, temp/, work/
+# are all writable. Subsequent restarts reuse the existing copy.
 
 { pkgs ? import <nixpkgs> {} }:
 
@@ -41,20 +55,25 @@ let
 
       cat > $out/bin/xwiki << 'WRAPPER'
 #!/bin/sh
+set -e
+
 export JAVA_HOME=__JDK__
 export XWIKI_NONINTERACTIVE=true
-export JETTY_PORT=''${PORT:-8080}
+export JETTY_PORT="''${PORT:-8080}"
 
-# XWiki writes to data/, logs/, temp/, work/ — symlink the read-only
-# Nix store tree into the writable cwd so Jetty can start.
-for item in __APPDIR__/*; do
-  name=$(basename "$item")
-  [ -e "$name" ] || ln -sf "$item" "$name"
-done
+# Lazy cp to writable home. First deploy pays the cost (XWiki tree is
+# ~400MB); subsequent redeploys reuse the existing copy preserved in
+# $PWD by Hop3 across redeploys.
+HOME_DIR="$PWD/.xwiki-home"
+if [ ! -f "$HOME_DIR/.hop3-ready" ]; then
+  rm -rf "$HOME_DIR"
+  cp -rL --no-preserve=ownership __APPDIR__/. "$HOME_DIR"
+  chmod -R u+w "$HOME_DIR"
+  mkdir -p "$HOME_DIR/data" "$HOME_DIR/logs" "$HOME_DIR/temp" "$HOME_DIR/work" "$HOME_DIR/webapps"
+  touch "$HOME_DIR/.hop3-ready"
+fi
 
-# Ensure writable dirs exist (XWiki/Jetty expects them)
-mkdir -p data logs temp work webapps
-
+cd "$HOME_DIR"
 exec bash ./start_xwiki.sh "$@"
 WRAPPER
       sed -i "s|__JDK__|${jdk}|g" $out/bin/xwiki

@@ -3,7 +3,9 @@
 [test]
 name = "nix-cryptpad"
 category = "nix-app"
-tier = "slow"
+# CryptPad's nix build includes a ~1GB npm install that exceeds 20 min;
+# bumped to very-slow to match hop3.toml's [build].tier.
+tier = "very-slow"
 priority = "P2"
 description = "CryptPad encrypted collaboration suite deployed via Nix"
 
