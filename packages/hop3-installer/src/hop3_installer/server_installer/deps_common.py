@@ -316,12 +316,14 @@ def install_rust_toolchain(*, required: bool = False) -> None:
     with Spinner("Downloading and installing rustup..."):
         result = run_as_hop3(
             'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs '
-            '| sh -s -- -y --default-toolchain stable --profile minimal',
+            "| sh -s -- -y --default-toolchain stable --profile minimal",
             timeout=600,
         )
 
     if result.returncode != 0:
-        _fail_rust_install("Rust installation via rustup failed", result, required=required)
+        _fail_rust_install(
+            "Rust installation via rustup failed", result, required=required
+        )
         return
 
     if not cargo_path.exists():

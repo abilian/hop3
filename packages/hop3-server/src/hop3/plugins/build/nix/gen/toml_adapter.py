@@ -90,6 +90,11 @@ def app_spec_from_config(
         nixpkgs_package=nix_config.get("nixpkgs-package"),
         install_extra=nix_config.get("install-extra"),
         exec_prefix=nix_config.get("exec-prefix"),
+        nixpkgs_overrides=nix_config.get("nixpkgs-overrides", {}),
+        writable_home_at_runtime=nix_config.get("writable-home-at-runtime", False),
+        writable_home_env_var=nix_config.get("writable-home-env-var"),
+        let_extra=nix_config.get("let-extra", {}),
+        env_exports_raw=nix_config.get("env-exports-raw", {}),
         # node-prebuilt / java-war / python-venv fields
         runtime_package=nix_config.get("runtime-package"),
         unpack_without_top_level=nix_config.get("unpack-without-top-level", False),

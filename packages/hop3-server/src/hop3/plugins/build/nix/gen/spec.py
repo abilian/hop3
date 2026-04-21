@@ -192,6 +192,44 @@ class AppSpec:
     # install-extra when the runnable sits under a dir populated by
     # install-extra (e.g., "$out/keycloak-home/bin" for Keycloak).
     exec_prefix: str | None = None
+    # Override arguments passed to `pkgs.<name>.override { ... }`. Each
+    # value is emitted **raw** into the Nix let-block (no nix_escape),
+    # so it can reference `pkgs`, `writeText`, etc. Use for nixpkgs
+    # packages that accept build-time config (e.g., Keycloak's
+    # `confFile = pkgs.writeText "kc.conf" "db=postgres\n"` bakes the
+    # postgres-DB profile inside nixpkgs' own buildPhase, sidestepping
+    # the runtime `kc.sh build` writable-FS problem).
+    nixpkgs_overrides: dict[str, str] = field(default_factory=dict)
+    # When True, the wrapper lazy-copies the nixpkgs package tree into
+    # $PWD/.<pname>-home at first launch (cp -rL + chmod u+w), then
+    # execs the runnable out of the writable copy. Solves the
+    # "nixpkgs ships read-only, app writes inside the install dir"
+    # class of apps — Keycloak (Quarkus augmentation), Jenkins
+    # (plugin install), Mattermost-nixpkgs, etc. Copy happens once per
+    # app instance (marked with $HOME_DIR/.hop3-ready); subsequent
+    # restarts reuse the existing copy.
+    writable_home_at_runtime: bool = False
+    # Optional env var exported by the wrapper, pointing at the
+    # writable home (e.g., "KC_HOME_DIR" for Keycloak). Only consulted
+    # when `writable_home_at_runtime` is True.
+    writable_home_env_var: str | None = None
+    # Internal: raw shell emitted at the top of the wrapper (after
+    # shebang, before local vars). Populated by templates; NOT mapped
+    # from hop3.toml directly. Emitted without nix_escape so
+    # `${binding}` references interpolate at Nix build time.
+    runtime_prelude: str | None = None
+    # Extra let-bindings added to the generated Nix expression's let-
+    # block (e.g., `jdk = "pkgs.zulu21"` → `jdk = pkgs.zulu21;`).
+    # Values are raw Nix expressions (not nix_escape'd). Used together
+    # with `env_exports_raw` / `extra_paths` to reference packages
+    # other than the primary `nixpkgs_package` — e.g., Keycloak's
+    # `.kc.sh-wrapped` needs JAVA_HOME pointing at a nixpkgs JDK.
+    let_extra: dict[str, str] = field(default_factory=dict)
+    # Env vars exported in the wrapper with raw values that Nix
+    # interpolates at build time (unlike `env_exports`, which goes
+    # through nix_escape). Use when the value must reference a
+    # let-binding (e.g., `JAVA_HOME = "${jdk}"`).
+    env_exports_raw: dict[str, str] = field(default_factory=dict)
 
     # --- node-prebuilt / java-war / python-venv fields ---
     # Nix package attribute for the runtime, e.g., "nodejs_22", "jdk17", "python3"

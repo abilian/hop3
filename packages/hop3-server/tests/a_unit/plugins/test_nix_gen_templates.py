@@ -426,3 +426,191 @@ def test_nixpkgs_wrapper_default_pkgbin_when_no_exec_prefix():
     )
     output = generate(spec)
     assert "s|PKGBIN|${radicale}/bin|g" in output
+
+
+def test_nixpkgs_wrapper_without_overrides_uses_plain_package():
+    """Empty nixpkgs_overrides => `binding = pkgs.<pkg>;` (no .override)."""
+    spec = AppSpec(
+        pname="radicale",
+        version="",
+        description="t",
+        template="nixpkgs-wrapper",
+        nixpkgs_package="radicale",
+        exec_target="radicale",
+        source=Source(url="x", sha256="x"),
+    )
+    output = generate(spec)
+    assert "radicale = pkgs.radicale;" in output
+    assert ".override" not in output
+
+
+def test_nixpkgs_wrapper_emits_override_when_overrides_present():
+    """nixpkgs_overrides dict emits pkgs.X.override { ... } in the let block."""
+    spec = AppSpec(
+        pname="keycloak",
+        version="",
+        description="t",
+        template="nixpkgs-wrapper",
+        nixpkgs_package="keycloak",
+        exec_target="kc.sh",
+        source=Source(url="x", sha256="x"),
+        nixpkgs_overrides={
+            "confFile": 'pkgs.writeText "keycloak.conf" "db=postgres\\n"',
+        },
+    )
+    output = generate(spec)
+    assert "keycloak = pkgs.keycloak.override {" in output
+    # Value is emitted raw — pkgs.writeText reference must survive.
+    assert 'confFile = pkgs.writeText "keycloak.conf" "db=postgres\\n";' in output
+
+
+def test_nixpkgs_wrapper_overrides_multiple_keys():
+    """Each override key renders on its own line inside the braces."""
+    spec = AppSpec(
+        pname="jenkins",
+        version="",
+        description="t",
+        template="nixpkgs-wrapper",
+        nixpkgs_package="jenkins",
+        exec_target="jenkins.sh",
+        source=Source(url="x", sha256="x"),
+        nixpkgs_overrides={
+            "extraJavaOpts": '"-Dfoo=bar"',
+            "plugins": "[]",
+        },
+    )
+    output = generate(spec)
+    assert "jenkins = pkgs.jenkins.override {" in output
+    assert 'extraJavaOpts = "-Dfoo=bar";' in output
+    assert "plugins = [];" in output
+
+
+def test_nixpkgs_wrapper_writable_home_emits_lazy_cp_prelude():
+    """writable-home-at-runtime emits a `cp -rL … $HOME_DIR` prelude
+    with a .hop3-ready marker so the copy runs once per app instance."""
+    spec = AppSpec(
+        pname="keycloak",
+        version="",
+        description="t",
+        template="nixpkgs-wrapper",
+        nixpkgs_package="keycloak",
+        exec_target="kc.sh",
+        source=Source(url="x", sha256="x"),
+        writable_home_at_runtime=True,
+    )
+    output = generate(spec)
+    assert 'HOME_DIR="$PWD/.keycloak-home"' in output
+    assert 'if [ ! -f "$HOME_DIR/.hop3-ready" ]; then' in output
+    # ${keycloak}/. must Nix-interpolate (no `''$` escape), since it
+    # resolves at build time to the read-only source the wrapper
+    # copies from.
+    assert 'cp -rL --no-preserve=ownership ${keycloak}/. "$HOME_DIR"' in output
+    assert 'chmod -R u+w "$HOME_DIR"' in output
+    assert 'touch "$HOME_DIR/.hop3-ready"' in output
+
+
+def test_nixpkgs_wrapper_writable_home_env_var_exported():
+    """writable-home-env-var exports the resolved path so the app
+    (e.g., kc.sh reading KC_HOME_DIR) picks up the writable copy."""
+    spec = AppSpec(
+        pname="keycloak",
+        version="",
+        description="t",
+        template="nixpkgs-wrapper",
+        nixpkgs_package="keycloak",
+        exec_target="kc.sh",
+        source=Source(url="x", sha256="x"),
+        writable_home_at_runtime=True,
+        writable_home_env_var="KC_HOME_DIR",
+    )
+    output = generate(spec)
+    assert 'export KC_HOME_DIR="$HOME_DIR"' in output
+
+
+def test_nixpkgs_wrapper_writable_home_pkgbin_resolved_at_runtime():
+    """With writable-home, PKGBIN in the exec line must resolve to
+    `$HOME_DIR/bin` at wrapper-run time (not at Nix-build time).
+    That means the sed command has to emit `$HOME_DIR/bin` literally
+    into the wrapper — which in turn means the Nix `''` string must
+    carry `\\$HOME_DIR/bin` so the shell running sed sees the escape
+    and preserves the `$`."""
+    spec = AppSpec(
+        pname="keycloak",
+        version="",
+        description="t",
+        template="nixpkgs-wrapper",
+        nixpkgs_package="keycloak",
+        exec_target="kc.sh",
+        source=Source(url="x", sha256="x"),
+        writable_home_at_runtime=True,
+    )
+    output = generate(spec)
+    assert r'sed -i "s|PKGBIN|\$HOME_DIR/bin|g"' in output
+    # The exec line in the wrapper body should reference the sed
+    # placeholder (not the store path binding) — the sed replaces
+    # PKGBIN → \$HOME_DIR/bin at nix-build time, and bash expands
+    # $HOME_DIR at wrapper-run time.
+    assert "exec PKGBIN/kc.sh" in output
+
+
+def test_nixpkgs_wrapper_let_extra_emits_bindings():
+    """let-extra adds lines to the Nix let-block, below the primary
+    binding. Values are emitted raw so they evaluate at Nix build time."""
+    spec = AppSpec(
+        pname="keycloak",
+        version="",
+        description="t",
+        template="nixpkgs-wrapper",
+        nixpkgs_package="keycloak",
+        exec_target="kc.sh",
+        source=Source(url="x", sha256="x"),
+        let_extra={"jdk": "pkgs.zulu21"},
+    )
+    output = generate(spec)
+    assert "keycloak = pkgs.keycloak;" in output
+    assert "jdk = pkgs.zulu21;" in output
+    # Order: primary binding comes first; let-extra after.
+    assert output.index("keycloak = pkgs.keycloak;") < output.index(
+        "jdk = pkgs.zulu21;"
+    )
+
+
+def test_nixpkgs_wrapper_env_exports_raw_interpolates_nix_refs():
+    """env-exports-raw values are NOT nix_escape'd, so ${jdk}-style
+    references reach Nix unescaped and interpolate at build time."""
+    spec = AppSpec(
+        pname="keycloak",
+        version="",
+        description="t",
+        template="nixpkgs-wrapper",
+        nixpkgs_package="keycloak",
+        exec_target=".kc.sh-wrapped",
+        source=Source(url="x", sha256="x"),
+        let_extra={"jdk": "pkgs.zulu21"},
+        env_exports_raw={"JAVA_HOME": "${jdk}"},
+    )
+    output = generate(spec)
+    # Must survive into the wrapper body without `''$` escaping.
+    assert 'export JAVA_HOME="${jdk}"' in output
+    # Sanity: the nix_escape'd variant (what env-exports produces)
+    # would emit `''${jdk}` — that must NOT appear for this value.
+    assert "''${jdk}" not in output.split("export JAVA_HOME")[1][:30]
+
+
+def test_nixpkgs_wrapper_writable_home_respects_explicit_exec_prefix():
+    """If the user sets exec-prefix, it wins over the writable-home
+    default (e.g., for apps whose runnable sits somewhere other than
+    $HOME_DIR/bin inside the writable tree)."""
+    spec = AppSpec(
+        pname="keycloak",
+        version="",
+        description="t",
+        template="nixpkgs-wrapper",
+        nixpkgs_package="keycloak",
+        exec_target="kc.sh",
+        source=Source(url="x", sha256="x"),
+        writable_home_at_runtime=True,
+        exec_prefix="$HOME_DIR/custom/bin",
+    )
+    output = generate(spec)
+    assert "s|PKGBIN|$HOME_DIR/custom/bin|g" in output

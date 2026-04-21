@@ -41,8 +41,7 @@ class TestExtractReason:
             cause_msg="UNIQUE constraint failed: app.name",
         )
         assert (
-            extract_repository_error_reason(exc)
-            == "UNIQUE constraint failed: app.name"
+            extract_repository_error_reason(exc) == "UNIQUE constraint failed: app.name"
         )
 
     def test_falls_back_to_detail_when_no_cause(self) -> None:

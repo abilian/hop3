@@ -1,0 +1,80 @@
+# hop3.toml - Hop3 configuration for Nix-based Keycloak (nix-gen)
+#
+# Uses the writable-home-at-runtime template feature with two extra
+# escape hatches (let-extra + env-exports-raw) to match the working
+# hand-crafted variant's shape declaratively:
+#
+#   1. Lazy-cp ${keycloak}/. into $PWD/.keycloak-home and chmod u+w
+#      so Quarkus' first-boot augmentation can rewrite lib/quarkus.
+#   2. Exec `.kc.sh-wrapped` directly — nixpkgs' kc.sh is a compiled
+#      Go wrapper (via makeBinaryWrapper) that hardcodes a path back
+#      into the read-only nix store. Bypass it so DIRNAME resolves
+#      from inside the writable copy.
+#   3. Set JAVA_HOME ourselves (the Go wrapper is what normally does
+#      it; without it, .kc.sh-wrapped falls back to `java` on PATH).
+
+[metadata]
+id = "keycloak"
+description = "Enterprise SSO / OIDC / SAML identity and access management"
+
+[build]
+builder = "nix"
+
+[nix]
+template = "nixpkgs-wrapper"
+nixpkgs-package = "keycloak"
+# Exec the raw upstream shell script, not the compiled Go wrapper.
+exec-target = ".kc.sh-wrapped"
+exec-args = [
+    'start-dev',
+    '--http-host=0.0.0.0',
+    '--http-port=${PORT}',
+]
+writable-home-at-runtime = true
+writable-home-env-var = "KC_HOME_DIR"
+extra-paths = ['${keycloak}/bin']
+
+# Pull a JDK into the let-block. Zulu 21 matches what nixpkgs.keycloak
+# itself ships (hand-crafted reference in apps/real-apps-nix/keycloak/
+# uses the same).
+[nix.let-extra]
+jdk = "pkgs.zulu21"
+
+# Raw env exports (no nix_escape) so ${jdk} interpolates at Nix
+# build time into the actual JDK store path.
+[nix.env-exports-raw]
+JAVA_HOME = "${jdk}"
+
+[nix.local-vars]
+PORT = "${PORT:-8080}"
+
+[nix.runtime-env]
+KC_DB = "postgres"
+
+[nix.env-exports]
+KC_DB_URL = "jdbc:postgresql://${PGHOST:-localhost}:${PGPORT:-5432}/${PGDATABASE:-keycloak}"
+KC_DB_USERNAME = "${PGUSER:-keycloak}"
+KC_DB_PASSWORD = "${PGPASSWORD:-}"
+KC_BOOTSTRAP_ADMIN_USERNAME = "admin"
+KC_BOOTSTRAP_ADMIN_PASSWORD = "changeme"
+
+[[addons]]
+type = "postgres"
+
+[run]
+# First deploy: ~200 MB cp into $PWD/.keycloak-home + Quarkus
+# augmentation + schema migrations + master-realm provisioning.
+# 7 minutes is generous.
+start-timeout = 420
+
+[test]
+priority = "P2"
+tier = "slow"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["java", "jvm", "nix", "nixpkgs-wrapper", "postgres", "sso"]
+
+[[test.validations]]
+path = "/realms/master"
+status = 200
+contains = "master"

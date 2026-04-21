@@ -134,6 +134,7 @@ def format_wrapper_body(
 
     Structure:
         #!/bin/sh
+        <runtime prelude — raw, may reference ${binding} via Nix interp>
         <local vars>
         <env exports>
         <nix runtime libs — LD_LIBRARY_PATH with store-path interpolation>
@@ -142,6 +143,13 @@ def format_wrapper_body(
         exec <exec_line>
     """
     sections: list[str] = ["#!/bin/sh"]
+
+    # Runtime prelude is emitted raw (no nix_escape), so `${binding}`
+    # references Nix-interpolate at build time. Used by
+    # writable-home-at-runtime to lazy-cp the package tree into $PWD
+    # before anything else in the wrapper touches the environment.
+    if spec.runtime_prelude:
+        sections.append(spec.runtime_prelude)
 
     local = format_local_vars(spec.local_vars)
     if local:

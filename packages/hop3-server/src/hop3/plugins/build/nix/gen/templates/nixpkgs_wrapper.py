@@ -19,6 +19,8 @@ Example apps: Radicale (pkgs.radicale).
 
 from __future__ import annotations
 
+import dataclasses
+
 from hop3.plugins.build.nix.gen.spec import AppSpec
 from hop3.plugins.build.nix.gen.templates.base import (
     format_nix_env_attrs,
@@ -26,6 +28,32 @@ from hop3.plugins.build.nix.gen.templates.base import (
     format_runtime_env_json,
     format_wrapper_body,
 )
+
+
+def _build_writable_home_prelude(pname: str, binding: str, env_var: str | None) -> str:
+    """Emit the lazy-cp prelude for writable-home-at-runtime.
+
+    Runs once per app instance: copies `${binding}/.` (the nixpkgs
+    store path) into `$PWD/.<pname>-home`, forces writable mode, and
+    drops a `.hop3-ready` marker so subsequent restarts skip the copy.
+    Optionally exports the computed path under a user-named env var
+    (e.g., KC_HOME_DIR for Keycloak).
+    """
+    lines = [
+        f'HOME_DIR="$PWD/.{pname}-home"',
+        'if [ ! -f "$HOME_DIR/.hop3-ready" ]; then',
+        '  rm -rf "$HOME_DIR"',
+        # -rL dereferences symlinks (we need real files to chmod).
+        # --no-preserve=ownership drops the nixbld owner; mode is then
+        # widened by chmod u+w (capital W just in case).
+        f'  cp -rL --no-preserve=ownership ${{{binding}}}/. "$HOME_DIR"',
+        '  chmod -R u+w "$HOME_DIR"',
+        '  touch "$HOME_DIR/.hop3-ready"',
+        "fi",
+    ]
+    if env_var:
+        lines.append(f'export {env_var}="$HOME_DIR"')
+    return "\n".join(lines)
 
 
 class NixpkgsWrapperTemplate:
@@ -40,6 +68,52 @@ class NixpkgsWrapperTemplate:
         pkg_attr = spec.nixpkgs_package
         binding = spec.pname.replace("-", "_")
 
+        # `pkgs.<pkg>` or `pkgs.<pkg>.override { ... }` depending on
+        # whether the app needs to pass build-time config down to the
+        # nixpkgs derivation (Keycloak's confFile, Jenkins's extraPlugins,
+        # etc.). Override values are emitted raw so they can reference
+        # `pkgs`, `writeText`, etc. at Nix evaluation time.
+        if spec.nixpkgs_overrides:
+            override_attrs = "\n".join(
+                f"    {key} = {value};" for key, value in spec.nixpkgs_overrides.items()
+            )
+            package_expr = f"pkgs.{pkg_attr}.override {{\n{override_attrs}\n  }}"
+        else:
+            package_expr = f"pkgs.{pkg_attr}"
+
+        # writable-home-at-runtime synthesizes a runtime prelude and
+        # flips PKGBIN to a runtime-resolved path. The prelude uses
+        # `${binding}` (Nix-interpolated to the store source path) and
+        # `$HOME_DIR` (expanded at wrapper runtime, not Nix build time).
+        # `exec-prefix` is still respected if the user set it — it
+        # overrides even the writable-home path, for apps that want a
+        # custom layout under the writable home.
+        prelude_parts: list[str] = []
+        if spec.writable_home_at_runtime:
+            prelude_parts.append(
+                _build_writable_home_prelude(
+                    spec.pname, binding, spec.writable_home_env_var
+                )
+            )
+            # The `\\$` produces a literal `\$` in the Nix `''` string,
+            # which the shell running sed sees as `\$` inside `"…"` →
+            # `$` literal. sed then writes `$HOME_DIR/bin` unexpanded
+            # into the wrapper, where bash expands it at exec time.
+            default_pkgbin = "\\$HOME_DIR/bin"
+        else:
+            default_pkgbin = f"${{{binding}}}/bin"
+
+        # env-exports-raw: values are Nix-interpolated at build time
+        # (unlike env-exports which are nix_escape'd). Useful for
+        # referencing extra let-bindings — e.g., JAVA_HOME="${jdk}".
+        if spec.env_exports_raw:
+            prelude_parts.append(
+                "\n".join(f'export {k}="{v}"' for k, v in spec.env_exports_raw.items())
+            )
+
+        if prelude_parts:
+            spec = dataclasses.replace(spec, runtime_prelude="\n\n".join(prelude_parts))
+
         exec_args = " " + " ".join(spec.exec_args) if spec.exec_args else ""
         exec_line = f"PKGBIN/{spec.exec_target}{exec_args}"
         wrapper_body = format_wrapper_body(spec, exec_line)
@@ -47,9 +121,7 @@ class NixpkgsWrapperTemplate:
         # callers that bake artefacts under $out (e.g., Keycloak's
         # $out/keycloak-home) override this with exec-prefix so the
         # wrapper execs the baked tree instead.
-        pkgbin_replacement = (
-            spec.exec_prefix or f"${{{binding}}}/bin"
-        )
+        pkgbin_replacement = spec.exec_prefix or default_pkgbin
         install_extra_block = (
             f"\n      # --- install-extra (hop3.toml [nix].install-extra) ---\n"
             f"{spec.install_extra}\n"
@@ -60,6 +132,14 @@ class NixpkgsWrapperTemplate:
         runtime_env_json = format_runtime_env_json(spec.runtime_env)
         nix_env_attrs = format_nix_env_attrs(spec.runtime_env)
         paths_json = format_paths_json(spec.extra_paths)
+
+        # Extra let-bindings (e.g., `jdk = pkgs.zulu21;`). Emitted raw
+        # so Nix evaluates the RHS at build time. Indented to match
+        # the existing `{binding} = {package_expr};` line below.
+        let_extra_lines = "\n".join(
+            f"  {key} = {value};" for key, value in spec.let_extra.items()
+        )
+        let_extra_block = f"\n{let_extra_lines}" if let_extra_lines else ""
 
         # Use the upstream package's version if no version is declared.
         version_line = (
@@ -80,7 +160,7 @@ class NixpkgsWrapperTemplate:
 {{ pkgs ? import <nixpkgs> {{}} }}:
 
 let
-  {binding} = pkgs.{pkg_attr};
+  {binding} = {package_expr};{let_extra_block}
 
   app = pkgs.stdenv.mkDerivation {{
     pname = "{spec.pname}";
