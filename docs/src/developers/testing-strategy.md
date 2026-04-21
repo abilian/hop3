@@ -233,66 +233,82 @@ The `hop3-test` CLI provides a dedicated system for testing application deployme
 
 ### Test Catalog System
 
-The test catalog discovers and manages test applications using `test.toml` configuration files.
+The test catalog discovers and manages test applications by scanning for `hop3.toml` files and reading their `[test]` section.
 
 #### Test App Directory Structure
 
+Two conventions coexist:
+
+**Apps with full `hop3.toml`** (all `apps/real-apps-*`, `apps/test-apps-nix/`, `apps/bad/`): test configuration lives in the app's `hop3.toml` under `[test]`. No separate `test.toml` file.
+
 ```
-apps/test-apps/
-├── 000-static/
-│   ├── index.html
-│   ├── Procfile
-│   └── test.toml          # Test configuration
-├── 010-flask-pip-wsgi/
-│   ├── app.py
-│   ├── requirements.txt
-│   ├── Procfile
-│   └── test.toml
-├── 020-nodejs-express/
-│   ├── app.js
-│   ├── package.json
-│   └── test.toml
-└── ...
+apps/real-apps-nix-gen/listmonk/
+├── hop3.toml          # [metadata], [build], [[addons]], [test], …
+└── (no test.toml)
 ```
 
-#### test.toml Configuration
+**Apps without `hop3.toml`** (procfile-only test apps, negative-test cases, demos, tutorials): use a standalone `test.toml` file. This covers the historical Procfile-based test harness and a few special shapes the main config doesn't model.
+
+```
+apps/test-apps-procfile/010-flask-pip-wsgi/
+├── app.py
+├── requirements.txt
+├── Procfile
+└── test.toml          # Procfile-only: no hop3.toml, needs test.toml
+```
+
+#### `[test]` Section in hop3.toml (primary shape)
 
 ```toml
-# Test definition for Flask app with pip and uWSGI
+[metadata]
+id = "flask-hello"
+description = "Basic Flask application"
+
+[build]
+builder = "nix"
+
+[healthcheck]
+path = "/"
 
 [test]
+priority = "P0"                    # P0 | P1 | P2
+tier = "fast"                      # report label only (not a timeout)
+targets = ["docker", "remote"]
+author = "hop3-team"
+covers = ["python", "flask", "pip", "uwsgi"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Hello"
+
+[[test.validations]]
+path = "/api/health"
+status = 200
+```
+
+Everything else (name, category, services, deployment type) is derived automatically from the surrounding `hop3.toml`. See [config.md](../reference/config.md#test---test-harness-metadata) for the field-by-field reference.
+
+#### Legacy `test.toml` Configuration
+
+For Procfile-only apps, demos, tutorials, and negative-test cases. Same fields, just wrapped in a top-level `[test]` rather than sitting inside `hop3.toml`:
+
+```toml
+[test]
 name = "010-flask-pip-wsgi"
-category = "deployment"        # deployment, demo, tutorial
-tier = "fast"                  # fast, medium, slow, very-slow
-priority = "P0"                # P0 (critical), P1 (important), P2 (nice-to-have)
-description = "Basic Flask application with pip dependencies and uWSGI"
+category = "deployment"
+priority = "P0"
+tier = "fast"
 
 [test.requirements]
-targets = ["docker", "remote"]  # Supported targets
-services = []                   # Required services: postgresql, mysql, redis
+targets = ["docker", "remote"]
+services = []
 
-[test.metadata]
-author = "hop3-team"
-covers = ["python", "flask", "pip", "uwsgi"]  # Technologies tested
-
-[deployment]
-path = "."                     # Path to app within test dir
-type = "python"                # App type hint
-
-# Validation rules
 [[validations]]
 type = "http"
 path = "/"
 [validations.expect]
 status = 200
-contains = "Hello"
-
-[[validations]]
-type = "http"
-path = "/api/health"
-[validations.expect]
-status = 200
-content_type = "application/json"
 ```
 
 ### Test Modes

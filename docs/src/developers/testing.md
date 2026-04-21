@@ -155,35 +155,42 @@ apps/nix-apps/
 └── flask-hello/          # Flask app built with Nix
 ```
 
-### Test Configuration (test.toml)
+### Test Configuration (`[test]` in hop3.toml)
 
-Each test app has a `test.toml` file defining its test configuration:
+Test configuration lives in the app's `hop3.toml` file under a `[test]` section. One source of truth per app — no separate `test.toml` file (removed 2026-04-21).
+
+Most fields are *derived* from the rest of `hop3.toml`: the test name from `[metadata].id`, category from `[build].builder`, required services from `[[addons]]`, base healthcheck path from `[healthcheck]`. The `[test]` section only declares what's genuinely test-framework-specific.
 
 ```toml
+[metadata]
+id = "flask-hello"
+
+[build]
+builder = "nix"
+
+[healthcheck]
+path = "/"
+
+# Test-harness metadata
 [test]
-name = "010-flask-pip-wsgi"
-category = "deployment"
-tier = "fast"           # fast, medium, slow, very-slow
-priority = "P0"         # P0 (critical), P1, P2
-
-[test.requirements]
+priority = "P0"                        # P0 (critical), P1, P2
+tier = "fast"                          # fast | medium | slow | very-slow (report label only)
 targets = ["docker", "remote"]
-services = []           # Required services (postgresql, redis, etc.)
-
-[test.metadata]
 covers = ["python", "flask", "pip", "uwsgi"]
 
-[deployment]
-path = "."
-type = "python"
-
-[[validations]]
-type = "http"
+[[test.validations]]
 path = "/"
-[validations.expect]
 status = 200
 contains = "Hello"
 ```
+
+Note: `tier` is *only* a report-grouping label — all builds share a single 30-minute budget (see [config.md](../reference/config.md#test---test-harness-metadata)). The legacy `[build].tier` field no longer exists.
+
+**Exceptions — standalone `test.toml` files still exist for:**
+
+- Procfile-only test apps (`apps/test-apps-procfile/*/`) — they don't pair with a `hop3.toml`.
+- Negative-test cases (`apps/bad/test-apps-bad/*/`) — they test *that deploy is rejected*, not that an app works.
+- Demos (`demos/*/`) and tutorials (`docs/src/tutorials/**/`) — their test-harness shape is different.
 
 ### Test Modes
 

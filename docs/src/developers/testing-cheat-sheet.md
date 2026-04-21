@@ -289,7 +289,7 @@ packages/hop3-server/tests/
 
 packages/hop3-testing/    # Test framework
 ├── src/hop3_testing/
-│   ├── catalog/         # Test catalog (test.toml support)
+│   ├── catalog/         # Test catalog (reads [test] section from hop3.toml)
 │   ├── cli/             # CLI commands
 │   ├── runners/         # Test runners
 │   ├── results/         # Result storage and reporting
@@ -307,27 +307,23 @@ apps/test-apps/          # Test applications
 └── 130-golang-minimal/
 ```
 
-## Test Configuration (test.toml)
+## Test Configuration (`[test]` in hop3.toml)
 
-Tests can be configured with `test.toml` files:
+Tests are configured via a `[test]` section in the app's `hop3.toml`. Most fields are derived from other sections (metadata, build, addons, healthcheck); the `[test]` block only holds the test-framework-specific bits:
 
 ```toml
 [test]
-name = "010-flask-pip-wsgi"
-category = "deployment"
-tier = "fast"
-priority = "P0"
-description = "Basic Flask app with pip and WSGI"
-
-[test.requirements]
+priority = "P0"                    # P0 | P1 | P2
+tier = "fast"                      # report label only — no longer drives timeouts
 targets = ["docker", "remote"]
-services = []
+covers = ["python", "flask", "pip", "uwsgi"]
 
 [[test.validations]]
-type = "http"
 path = "/"
-expect.status = 200
+status = 200
 ```
+
+Legacy standalone `test.toml` files are still used by procfile-only test apps (`apps/test-apps-procfile/*/`), negative-test cases, demos, and tutorials — anywhere there's no sibling `hop3.toml`. See [config.md](../reference/config.md#test---test-harness-metadata) for the full reference.
 
 ## Environment Variables
 

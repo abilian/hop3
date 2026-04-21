@@ -259,6 +259,48 @@ extensions = ["bloom", "postgres_fdw"]
 
 For CLI-level addon management (`addon create`, `addon attach`, `addon detach`, `addon destroy`) and end-to-end examples, see [Addons Guide](../guides/addons.md).
 
+### [test] - Test Harness Metadata
+
+Optional section for the `hop3-test` framework. Holds fields that are genuinely test-specific; everything else (app name, description, addons, healthcheck path) is derived from the rest of `hop3.toml`. Replaces the separate `test.toml` file (removed 2026-04-21 — one source of truth per app).
+
+```toml
+[test]
+priority = "P1"                        # P0 | P1 | P2
+tier = "medium"                        # fast | medium | slow | very-slow (display label only)
+targets = ["docker", "remote"]         # which hop3-test targets can run this app
+author = "hop3-team"
+covers = ["python", "flask", "postgres"]
+
+[[test.validations]]                   # Additional HTTP probes beyond [healthcheck]
+path = "/api/health"
+status = 200
+contains = "ok"
+
+[[test.validations]]
+path = "/"
+status = 200
+```
+
+**Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `priority` | string | `P0`, `P1`, or `P2`. Determines which test profile (`dev`, `ci`, `release`) runs this app |
+| `tier` | string | `fast`, `medium`, `slow`, or `very-slow`. **Report label only** — no longer drives any timeout (all builds + deploys share a single 30-minute budget). |
+| `targets` | array | Which `hop3-test` targets support this app: `"docker"`, `"remote"` |
+| `author` | string | Optional documentation |
+| `covers` | array | Free-form tags for what the test exercises |
+| `[[test.validations]]` | table array | HTTP probes run after deploy. Each takes `path`, `status`, optionally `contains` |
+
+**Notes:**
+
+- The `[test]` section is entirely optional. When absent, `hop3-test` uses sensible defaults (priority P1, single healthcheck-path HTTP probe at status 200).
+- **Derived automatically** from the rest of `hop3.toml` — do not duplicate in `[test]`:
+  - Test name: from `[metadata].id` or directory path.
+  - Category: from `[build].builder` (`"nix"` → `nix-app`, `"docker"` → `docker-app`, `"local"` → `deployment`).
+  - Required services: from `[[addons]]` plus implicit `nix` / `docker` based on builder.
+  - Base healthcheck path: from `[healthcheck].path`.
+
 ## Command Format
 
 Commands can be specified as:

@@ -219,7 +219,7 @@ E2E tests use sample applications from `apps/test-apps/` and `apps/nix-apps/`:
 Each test app includes:
 - Application source code
 - `Procfile` or `hop3.toml`
-- `test.toml` for test metadata
+- A `[test]` section in `hop3.toml` (or, for Procfile-only apps, a standalone `test.toml`)
 - Optional `check.py` validation script
 
 ### Current Status
