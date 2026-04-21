@@ -1,5 +1,19 @@
-# hop3.toml - Hop3 configuration for Nix-based Keycloak
-# Enterprise SSO / OIDC / SAML identity provider — built via nixpkgs.
+# hop3.toml - Hop3 configuration for Nix-based Keycloak (nix-gen variant)
+#
+# STATUS: DEFERRED — see DEFERRED.md in this directory.
+#
+# A working, hand-crafted Keycloak deploy lives at
+# apps/real-apps-nix/keycloak/. This directory is the nix-gen *probe*
+# — it exists to show which template feature is still missing.
+#
+# Today's install-extra + exec-prefix fields (shipped 2026-04-21)
+# weren't enough: `kc.sh build --db=postgres` during installPhase
+# fails with Quarkus's ReadOnlyFileSystemException on both macOS and
+# Linux Nix sandboxes. The real fix is to let the nixpkgs.keycloak
+# derivation run its build with --db=postgres, which requires a new
+# template field `nixpkgs-overrides` so we can pass
+# `confFile = pkgs.writeText "kc.conf" "db=postgres\n"` to
+# `pkgs.keycloak.override { ... }`. See DEFERRED.md for rationale.
 
 [metadata]
 id = "keycloak"
@@ -12,9 +26,6 @@ builder = "nix"
 template = "nixpkgs-wrapper"
 nixpkgs-package = "keycloak"
 exec-target = "kc.sh"
-# start-dev: accept any HTTP hostname, skip TLS requirement, enable admin
-# bootstrap via env vars. Production deployments (hop3 v0.6+) should
-# switch to `start` once proxy + hostname handling is wired up.
 exec-args = [
     'start-dev',
     '--http-host=0.0.0.0',
@@ -25,20 +36,13 @@ extra-paths = ['${keycloak}/bin']
 [nix.local-vars]
 PORT = "${PORT:-8080}"
 
-# Keycloak reads these env vars directly at startup — no config-file
-# templating needed. See:
-# https://www.keycloak.org/server/all-config#category-database
 [nix.runtime-env]
 KC_DB = "postgres"
-# JDBC URL is built at runtime from PG* (injected by the postgres addon).
-# The wrapper exports these first via nix.env-exports, then Keycloak's
-# startup sees them as shell vars.
 
 [nix.env-exports]
 KC_DB_URL = "jdbc:postgresql://${PGHOST:-localhost}:${PGPORT:-5432}/${PGDATABASE:-keycloak}"
 KC_DB_USERNAME = "${PGUSER:-keycloak}"
 KC_DB_PASSWORD = "${PGPASSWORD:-}"
-# Bootstrap admin on first start. Changes after first boot are ignored.
 KC_BOOTSTRAP_ADMIN_USERNAME = "admin"
 KC_BOOTSTRAP_ADMIN_PASSWORD = "changeme"
 
@@ -46,11 +50,6 @@ KC_BOOTSTRAP_ADMIN_PASSWORD = "changeme"
 type = "postgres"
 
 [run]
-# Keycloak start-dev on a cold JVM + cold Postgres does a lot before
-# it binds HTTP: config validation, provider install, theme cache,
-# schema migrations, master-realm provisioning. 3-4 minutes is normal
-# on first boot; subsequent starts (warm JVM, migrated DB) are under
-# 45s but we size for the cold case.
 start-timeout = 420
 
 [test]

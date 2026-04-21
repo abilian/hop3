@@ -1,3 +1,14 @@
+# Hand-crafted hop3.nix (not nix-gen). Reason: the nix-gen templates
+# don't yet have a `node-pnpm-install` variant, and Directus needs
+# pnpm at build time — npm's flat node_modules can't resolve named
+# ESM imports from @sinclair/typebox and similar CommonJS modules
+# the way Directus's prebuilt code expects. See
+# local-notes/stacks-and-apps/DEFERRED-APPS.md platform gap #4.
+
+[metadata]
+id = "directus"
+description = "Open-source headless CMS"
+
 [build]
 builder = "nix"
 

@@ -1,45 +1,76 @@
 # Keycloak nix-gen (nixpkgs-wrapper template) — deferred
 
-**Deferred:** 2026-04-18. **Classification:** platform blocker — see `local-notes/stacks-and-apps/DEFERRED-APPS.md` blocker #12.
+**Last touched:** 2026-04-21. **Classification:** platform blocker — see `local-notes/stacks-and-apps/DEFERRED-APPS.md` blocker #12 and the new need for a `nixpkgs-overrides` template feature.
 
-## Blocker
+**Hand-crafted variant works.** `apps/real-apps-nix/keycloak/` ships a working Keycloak via the lazy-cp-to-writable-home pattern. This directory is the nix-gen probe: it documents which template capability is still missing so Keycloak could drop into the nix-gen flow cleanly.
 
-Keycloak's launcher `kc.sh start-dev` (and `start` — any start variant) runs an implicit `kc.sh build` step first. The `build` step is Quarkus augmentation: it writes `$KC_HOME_DIR/lib/quarkus/generated-bytecode.jar` and updates `$KC_HOME_DIR/data/`.
+## What today's session showed
 
-`KC_HOME_DIR` defaults to the install dir inferred from the `kc.sh` location. For the nixpkgs package, that's `/nix/store/<hash>-keycloak-26.1.4/` — **read-only**. The implicit build fails, Keycloak exits, uWSGI respawns it, throttling kicks in at 40s cycles, and the health check times out at `start-timeout`.
+Two nixpkgs-wrapper hooks shipped to unblock this class of app:
 
-Observed symptom in `web.1.log`:
+- **`[nix].install-extra`** — free-form shell appended to the Nix `installPhase`, emitted raw so `${pkg}` references interpolate at build time.
+- **`[nix].exec-prefix`** — overrides `PKGBIN` in the wrapper's exec line, so `exec-target` can sit under `$out/<dir>/bin` instead of `${<pkg>}/bin`.
+
+Four new unit tests cover them (`test_nix_gen_templates.py`).
+
+The install-extra recipe for Keycloak was `cp -R ${keycloak}/. $out/keycloak-home; chmod -R u+w; rm -rf lib/quarkus; kc.sh build --db=postgres`. This fails on both macOS and Linux Nix sandboxes with:
 
 ```
-Updating the configuration and installing your custom providers, if any. Please wait.
-...
-ERROR: Failed to run 'build' command.
-For more details run the same command passing the '--verbose' option.
+java.nio.file.ReadOnlyFileSystemException
+  at jdk.zipfs.ZipFileSystem.checkWritable
+  ...
+  at io.quarkus.deployment.pkg.steps.JarResultBuildStep.buildThinJar
 ```
 
-## Why the wrapper hack doesn't belong in hop3.toml
+Not a permissions issue (`u+w` took; `stat` confirms writable). Quarkus' `JarResultBuildStep` opens some JAR via `ZipFileSystem.newFileSystem` without `create: true` and then tries to `createDirectory` inside it. This behaviour of `kc.sh build` inside a partially-rebuilt tree is reproducible on both macOS Darwin and Linux — the hop3-dev test run on 2026-04-21 hit the same exception.
 
-The mechanical workaround is: copy the nixpkgs Keycloak tree into a writable per-app dir at `pre-exec`, set `KC_HOME_DIR=$PWD/keycloak-home`, change the exec target from `PKGBIN/kc.sh` to `$PWD/keycloak-home/bin/kc.sh`. Four concerns:
+## Real fix — a different template feature
 
-1. **Heavy** — copying ~200 MB of JARs and themes on every deploy.
-2. **Template can't currently express it.** `nixpkgs-wrapper` has no hook for "copy package tree into a writable location at deploy time", and `exec-target` is templated against `PKGBIN` (sed-replaced at Nix build), not against a runtime-computed path.
-3. **Loses Nix-store immutability.** One of the reasons we chose the nix-gen path was per-deploy reproducibility. A writable copy breaks that.
-4. **Per CLAUDE.md "Project Ethos":** workarounds in `hop3.toml` are a warning sign that the platform couldn't express what the app needed cleanly. This is the classic case.
+The cleanest path is to let **nixpkgs itself** run `kc.sh build --db=postgres`. The nixpkgs recipe (`pkgs/by-name/ke/keycloak/package.nix`) already does this in its own `buildPhase`:
 
-## Unblocker (platform work)
+```nix
+export KC_HOME_DIR=$(pwd)
+bin/kc.sh build ${featuresSubcommand}
+```
 
-Two alternatives, either unblocks Keycloak plus any similar nixpkgs-packaged Quarkus/Java app that needs a writable install dir:
+and it accepts a `confFile` override:
 
-**Option A — bake the build at package time.** Extend the `nixpkgs-wrapper` template with a `build-phase` hook: a shell snippet that runs during the Nix derivation's `installPhase`, after copying/wrapping, so tools like `kc.sh build --db=postgres` pre-generate artifacts. Then `exec-args` becomes `start --optimized` which skips the runtime build. Clean, reproducible, DB-type has to be pinned per deploy.
+```nix
++ lib.optionalString (confFile != null) ''
+    install -m 0600 ${confFile} conf/keycloak.conf
+''
+```
 
-**Option B — writable-overlay at deploy time.** Extend `nixpkgs-wrapper` with a `writable-home: true` (+ optional `writable-dirs: ["lib/quarkus", "data"]`) flag. The generated wrapper creates a tmpfs/overlay copy of the nix-store package into `$PWD/.hop3-home`, sets `KC_HOME_DIR` (or a template-specific env var), and execs there. Expensive on first deploy, but heals the gap for any app in this family.
+So `pkgs.keycloak.override { confFile = pkgs.writeText "kc.conf" "db=postgres\n"; }` bakes the right DB profile at nixpkgs build time. Runtime then goes through `start --optimized` with `KC_DB_URL` env vars — no install-extra, no re-augmentation, no ReadOnlyFileSystemException.
 
-Option A is cleaner but requires the app to know its config at package time. Option B is more general at a runtime cost. Pick based on which other apps are gated (Jenkins? Possibly Mattermost? Keycloak.)
+**What the template needs:** a new `[nix].nixpkgs-overrides` field (dict of key → Nix expression) that generates:
 
-## Config as left (for re-attempt)
+```nix
+keycloak = pkgs.keycloak.override {
+  confFile = pkgs.writeText "kc.conf" "db=postgres\n";
+};
+```
 
-See `hop3.toml` in this directory — uses `nixpkgs-wrapper`, declares `KC_DB=postgres` via `runtime-env`, injects `KC_DB_URL` / `KC_DB_USERNAME` / `KC_DB_PASSWORD` via `env-exports`, admin bootstrap env vars set. Everything the app needs *except* a writable home dir.
+in the let block instead of the current plain `keycloak = pkgs.keycloak;`.
 
-## Working variant path forward
+This is narrower than today's install-extra (which is a general escape hatch) and solves the confFile-style family of cases cleanly:
 
-Hand-crafted `apps/real-apps-nix/keycloak/hop3.nix` (not yet written) with the write-home workaround inline — viable for the 0.5 window. Can serve as reference for Option B template work in 0.6.
+- **Keycloak** — `confFile`
+- **Jenkins** (nixpkgs) — `extraPlugins`, `extraJavaOpts`
+- **Mattermost** (nixpkgs) — plugins override
+- **Grafana** (nixpkgs) — `provisioning` overrides
+
+## What stands from today regardless of the above
+
+The install-extra + exec-prefix fields remain valid for the "bake-then-run-optimized" shape when nixpkgs doesn't already run the build, or when a custom post-install step is genuinely needed. They're shipped and tested; Keycloak just isn't the right first customer.
+
+## Config in this dir as left
+
+`hop3.toml` reverted to a plain `nixpkgs-wrapper` config with `start-dev`. It will fail the same way it did in 2026-04-20's triage (Quarkus tries to write `generated-bytecode.jar` inside `$NIX_STORE`). Pass it through again once the `nixpkgs-overrides` template field lands.
+
+## Related
+
+- `packages/hop3-server/src/hop3/plugins/build/nix/gen/spec.py` — `install_extra`, `exec_prefix` fields
+- `packages/hop3-server/src/hop3/plugins/build/nix/gen/templates/nixpkgs_wrapper.py` — template emits them
+- `apps/real-apps-nix/keycloak/` — working hand-crafted variant
+- `local-notes/stacks-and-apps/DEFERRED-APPS.md` blocker #12
