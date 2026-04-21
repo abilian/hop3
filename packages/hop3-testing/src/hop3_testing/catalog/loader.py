@@ -30,7 +30,6 @@ from .models import (
     ValidationExpect,
 )
 
-
 class TestDefinitionError(Exception):
     """Error loading or validating a test definition."""
 
@@ -449,13 +448,15 @@ def generate_test_definition_from_hop3_toml(
     # Add service tags
     covers.extend(services)
 
-    # Default test-specific values (can be overridden by test.toml)
-    tier = Tier.MEDIUM  # Docker apps typically take longer
+    # Default test-specific values (can be overridden by test.toml).
+    # Tier is retained as a display label in reports; it no longer drives
+    # any timeout (single 30-min budget applies to all builds + deploys).
+    tier = Tier.MEDIUM
     priority = Priority.P1
     description = app_title
     validations = []
 
-    # Override with test.toml if available
+    # Override with test.toml if available.
     if test_toml_data:
         test_section = test_toml_data.get("test", {})
         if "tier" in test_section:

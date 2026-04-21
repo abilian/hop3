@@ -15,6 +15,11 @@ from pathlib import Path
 from hop3.core.protocols import BuildArtifact, BuildContext, RuntimeConfig
 from hop3.lib import Abort
 
+# See docker/builder.py for the rationale — single generous timeout + a
+# silent-time watchdog, no per-app tier declarations.
+NIX_BUILD_TIMEOUT_SECONDS = 30 * 60
+NIX_BUILD_MAX_SILENT_SECONDS = 300
+
 # Nix profile scripts to try (single-user and multi-user modes)
 # Note: Single-user path is evaluated at runtime via _get_nix_profile_paths()
 # to ensure we use the correct HOME for the current process
@@ -300,13 +305,13 @@ class NixBuilder:
         Raises:
             RuntimeError: If nix-build fails.
         """
-        # --option build-timeout: kill build after 10 minutes total
-        # --option build-max-silent-time: kill if no output for 5 minutes
-        #   (detects lock waits and stalled downloads)
+        # --option build-timeout: 30-minute wall clock.
+        # --option build-max-silent-time: 5-minute no-output watchdog (the
+        #   real guard against lock waits and stalled downloads).
         cmd = (
             f"nix-build {nix_file} -A package --no-out-link"
-            " --option build-timeout 600"
-            " --option build-max-silent-time 300"
+            f" --option build-timeout {NIX_BUILD_TIMEOUT_SECONDS}"
+            f" --option build-max-silent-time {NIX_BUILD_MAX_SILENT_SECONDS}"
         )
         result = self._run_nix_command(cmd, cwd=nix_file.parent)
 

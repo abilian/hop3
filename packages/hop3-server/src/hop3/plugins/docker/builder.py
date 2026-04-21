@@ -24,44 +24,12 @@ from hop3.lib.logging import server_log
 if TYPE_CHECKING:
     from pathlib import Path
 
-
-# Tier-keyed build timeouts (seconds). Matches the tier table the
-# end-to-end deploy uses (see hop3-testing runner). Apps with heavy
-# compile steps (Rust from source, full JVM compile, large pip/npm
-# installs) should declare `[build].tier = "slow"` or "very-slow" in
-# hop3.toml; default `medium` gives the original 10-minute budget.
-_BUILD_TIMEOUTS = {
-    "fast": 5 * 60,
-    "medium": 10 * 60,
-    "slow": 20 * 60,
-    "very-slow": 30 * 60,
-}
-_DEFAULT_TIER = "medium"
-
-
-def _resolve_build_timeout(source_path: Path) -> tuple[int, str]:
-    """Resolve docker-build timeout for this app.
-
-    Reads `[build].tier` from hop3.toml if present; falls back to
-    "medium" (10 minutes). Returns (seconds, tier_name) so callers can
-    produce accurate diagnostic messages.
-    """
-    tier = _DEFAULT_TIER
-    hop3_toml = source_path / "hop3.toml"
-    if hop3_toml.exists():
-        try:
-            import tomllib  # noqa: PLC0415
-        except ImportError:  # Python < 3.11 fallback
-            import tomli as tomllib  # type: ignore[import-not-found,no-redef]  # noqa: PLC0415
-        try:
-            with hop3_toml.open("rb") as f:
-                data = tomllib.load(f)
-            declared = data.get("build", {}).get("tier")
-            if declared in _BUILD_TIMEOUTS:
-                tier = declared
-        except (OSError, tomllib.TOMLDecodeError):
-            pass
-    return _BUILD_TIMEOUTS[tier], tier
+# Single generous build timeout. Per-app tier declarations are intentionally
+# gone: guessing build durations in advance was error-prone and introduced
+# two parallel timeout systems (build tier + test tier). Anything above 30
+# minutes is a design smell — use a lighter packaging profile (docker-gen,
+# nixpkgs-wrapper against a pre-built pkgs.X) rather than cranking this up.
+BUILD_TIMEOUT_SECONDS = 30 * 60
 
 
 @dataclass(frozen=True)
@@ -146,12 +114,12 @@ class DockerBuilder:
         cmd = ["docker", "build", "-t", image_tag, "."]
         start_time = time.time()
 
-        timeout_seconds, tier = _resolve_build_timeout(self.source_path)
+        timeout_seconds = BUILD_TIMEOUT_SECONDS
         timeout_minutes = timeout_seconds // 60
 
         log(
             f"Running: docker build -t {image_tag} . "
-            f"(tier={tier}, timeout={timeout_minutes}min)",
+            f"(timeout={timeout_minutes}min)",
             level=2,
             fg="cyan",
         )
@@ -200,13 +168,13 @@ class DockerBuilder:
                     component="Docker builder",
                     action="build image",
                     reason=(
-                        f"build exceeded the {timeout_minutes}-minute "
-                        f"timeout (tier={tier})"
+                        f"build exceeded the {timeout_minutes}-minute timeout"
                     ),
                     hint=(
                         "Trim the Dockerfile (fewer RUN steps, leaner base "
-                        "image), OR raise [build].tier in hop3.toml "
-                        "(fast=5m, medium=10m, slow=20m, very-slow=30m)"
+                        "image), or switch this app to a lighter packaging "
+                        "profile (docker-gen, nixpkgs-wrapper against a "
+                        "pre-built pkgs.X) — a >30-min build is a design smell."
                     ),
                     troubleshooting=[
                         f"hop3 app build-logs {self.app_name}",

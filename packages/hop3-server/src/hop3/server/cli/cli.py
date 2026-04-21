@@ -12,7 +12,10 @@ import sys
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from typing import TYPE_CHECKING
 
+from advanced_alchemy.exceptions import RepositoryError
+
 from hop3.lib.registry import lookup
+from hop3.lib.repository_errors import format_repository_error
 from hop3.lib.scanner import scan_package
 
 from . import Command
@@ -119,7 +122,15 @@ def main(argv: list[str] | None = None) -> None:
     if "quiet" in params and "quiet" not in kwargs:
         kwargs["quiet"] = global_quiet
 
-    func(**kwargs)
+    try:
+        func(**kwargs)
+    except RepositoryError as exc:
+        # The RPC controller unwraps RepositoryError into a Diagnosis; the
+        # git-hook CLI path must do the same so a `git push` surfaces the
+        # real cause instead of advanced_alchemy's generic
+        # "There was an error during data processing".
+        print(format_repository_error(exc), file=sys.stderr)
+        sys.exit(2)
 
 
 def create_parser() -> ArgumentParser:

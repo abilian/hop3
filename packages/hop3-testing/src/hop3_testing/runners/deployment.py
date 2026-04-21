@@ -181,23 +181,10 @@ class DeploymentTestRunner:
             return check_result["message"]
         return None
 
-    def _deploy_timeout_for(self, test: TestDefinition) -> int:
-        """Pick a deploy timeout based on the test's tier.
-
-        Heavy Docker builds (e.g., Monica building Laravel+npm assets)
-        routinely need more than the 10-min default. Nix apps that
-        pull from binary cache are fast on cache hit but slow on
-        miss. The tier expresses the expectation up-front.
-        """
-        from hop3_testing.catalog.models import Tier  # noqa: PLC0415
-
-        tier_to_seconds = {
-            Tier.FAST: 300,  # 5 min
-            Tier.MEDIUM: 600,  # 10 min
-            Tier.SLOW: 1200,  # 20 min
-            Tier.VERY_SLOW: 1800,  # 30 min
-        }
-        return tier_to_seconds.get(test.tier, 600)
+    # Single generous deploy timeout. Matches the server-side build
+    # timeout (see hop3/plugins/docker/builder.py::BUILD_TIMEOUT_SECONDS);
+    # anything above 30 min is a design smell, not a tier problem.
+    _DEPLOY_TIMEOUT_SECONDS = 30 * 60
 
     def _run_deploy_and_verify(
         self,
@@ -210,7 +197,7 @@ class DeploymentTestRunner:
         session.prepare()
 
         try:
-            session.deploy(deploy_timeout=self._deploy_timeout_for(test))
+            session.deploy(deploy_timeout=self._DEPLOY_TIMEOUT_SECONDS)
         except DeploymentError as e:
             deploy_logs = session.last_deploy_error or str(e)
             return deploy_logs, f"Deploy failed: {deploy_logs}"

@@ -11,23 +11,21 @@ import json
 import traceback
 from typing import TYPE_CHECKING
 
-from advanced_alchemy.exceptions import (
-    DuplicateKeyError,
-    ForeignKeyError,
-    IntegrityError,
-    MultipleResultsFoundError,
-    NotFoundError,
-    RepositoryError,
-)
+from advanced_alchemy.exceptions import RepositoryError
 from litestar import Controller, Request, post
 from litestar.response import Response
 
 from hop3 import config
 from hop3.commands import Command
-from hop3.lib import Diagnosis, format_diagnosis
+from hop3.lib import format_diagnosis
 from hop3.lib.console import verbosity_context
 from hop3.lib.logging import server_log
 from hop3.lib.registry import lookup
+from hop3.lib.repository_errors import (
+    extract_repository_error_reason as _extract_repository_error_reason,
+    format_repository_error as _extract_repository_error_message,
+    repository_error_diagnosis as _repository_error_diagnosis,
+)
 from hop3.lib.scanner import scan_package
 from hop3.orm import get_session_factory
 from hop3.orm.repositories import (
@@ -547,122 +545,6 @@ class RPCController(Controller):
             )
 
 
-_GENERIC_AA_MESSAGES = frozenset(
-    {
-        "There was an error during data processing",
-        "An exception occurred",
-    }
-)
-
-
-def _extract_repository_error_reason(exc: RepositoryError) -> str:
-    """Extract the most specific available cause from a RepositoryError.
-
-    advanced_alchemy wraps SQLAlchemy exceptions with a generic top-level
-    ``detail`` ("There was an error during data processing"). The real cause
-    lives on ``__cause__`` (the original SQLAlchemy exception). Prefer the
-    cause, then the detail, then the string form — skipping generic
-    placeholders at every step.
-    """
-    if exc.__cause__:
-        cause_msg = str(exc.__cause__).strip()
-        if cause_msg:
-            return cause_msg
-
-    if exc.detail and exc.detail not in _GENERIC_AA_MESSAGES:
-        return exc.detail
-
-    exc_str = str(exc).strip()
-    if exc_str and exc_str not in _GENERIC_AA_MESSAGES:
-        return exc_str
-
-    return "database operation failed (no additional details available)"
-
-
-def _repository_error_diagnosis(exc: RepositoryError) -> Diagnosis:
-    """Build a structured Diagnosis for a RepositoryError.
-
-    Inspects the exception subclass to produce a tailored action / hint /
-    troubleshooting list. Falls back to a generic Database diagnosis when
-    the subclass is not one we recognise.
-    """
-    reason = _extract_repository_error_reason(exc)
-
-    # advanced_alchemy subclasses, checked most-specific-first
-    if isinstance(exc, DuplicateKeyError):
-        return Diagnosis(
-            component="Database",
-            action="insert or update record",
-            reason=f"duplicate key: {reason}",
-            hint=(
-                "An entity with this name / identifier already exists. "
-                "Choose a different name, or delete the existing record first."
-            ),
-            troubleshooting=[
-                "hop3 app list  (or the equivalent list command for this resource)",
-            ],
-        )
-
-    if isinstance(exc, ForeignKeyError):
-        return Diagnosis(
-            component="Database",
-            action="satisfy foreign-key constraint",
-            reason=f"foreign-key violation: {reason}",
-            hint=(
-                "The referenced parent record doesn't exist or is still in use. "
-                "Create the parent first, or detach dependents before deleting."
-            ),
-        )
-
-    if isinstance(exc, IntegrityError):
-        return Diagnosis(
-            component="Database",
-            action="satisfy integrity constraint",
-            reason=f"integrity violation: {reason}",
-            hint=(
-                "A NOT NULL / UNIQUE / CHECK constraint was violated. "
-                "Review the submitted values against the model's constraints."
-            ),
-        )
-
-    if isinstance(exc, NotFoundError):
-        return Diagnosis(
-            component="Database",
-            action="find record",
-            reason=f"not found: {reason}",
-            hint=(
-                "The target record does not exist. Verify the identifier and "
-                "that it belongs to the current context."
-            ),
-        )
-
-    if isinstance(exc, MultipleResultsFoundError):
-        return Diagnosis(
-            component="Database",
-            action="resolve record",
-            reason=f"multiple rows matched a single-row query: {reason}",
-            hint=(
-                "Narrow the query — the identifier is ambiguous across contexts."
-            ),
-        )
-
-    # Generic fallback (including bare RepositoryError and SQLAlchemyError)
-    return Diagnosis(
-        component="Database",
-        action="execute repository operation",
-        reason=reason,
-        hint=(
-            "Retry the command; if the error persists, the database may be "
-            "out of sync with the app state"
-        ),
-        troubleshooting=[
-            "hop3 system logs",
-            "hop3 system check",
-        ],
-    )
-
-
-# Back-compat alias: existing callers (if any) still get a plain string.
-def _extract_repository_error_message(exc: RepositoryError) -> str:
-    """Return the formatted Diagnosis as a single string."""
-    return format_diagnosis(_repository_error_diagnosis(exc))
+# RepositoryError → Diagnosis helpers live in hop3.lib.repository_errors
+# so the CLI `git-hook` path can unwrap them with the same logic. The
+# aliases above preserve the names used by existing tests.
