@@ -60,7 +60,7 @@
             <div class="ml-3">
                 <p class="text-sm text-blue-700">
                     <strong>Note:</strong> Environment variables can only be modified via the CLI.
-                    Use <code class="bg-blue-100 px-2 py-0.5 rounded text-xs font-mono">hop3 config:set {{ app_name }} KEY=value</code> to add or update variables.
+                    Use <code class="bg-blue-100 px-2 py-0.5 rounded text-xs font-mono">hop3 config set --app {{ app_name }} KEY=value</code> to add or update variables.
                 </p>
             </div>
         </div>
@@ -225,7 +225,7 @@
         <p class="mt-1 text-sm text-gray-500">Get started by adding your first environment variable via the CLI.</p>
         <div class="mt-6">
             <code class="bg-gray-100 px-4 py-2 rounded text-sm font-mono text-gray-900">
-                hop3 config:set {{ app_name }} KEY=value
+                hop3 config set --app {{ app_name }} KEY=value
             </code>
         </div>
     </div>
@@ -235,9 +235,9 @@
     <div class="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
         <h4 class="text-sm font-medium text-gray-900 mb-2">Managing Environment Variables</h4>
         <div class="text-sm text-gray-600 space-y-1">
-            <p><strong>Set a variable:</strong> <code class="bg-gray-200 px-2 py-0.5 rounded text-xs font-mono">hop3 config:set {{ app_name }} KEY=value</code></p>
-            <p><strong>Remove a variable:</strong> <code class="bg-gray-200 px-2 py-0.5 rounded text-xs font-mono">hop3 config:unset {{ app_name }} KEY</code></p>
-            <p><strong>List all variables:</strong> <code class="bg-gray-200 px-2 py-0.5 rounded text-xs font-mono">hop3 config {{ app_name }}</code></p>
+            <p><strong>Set a variable:</strong> <code class="bg-gray-200 px-2 py-0.5 rounded text-xs font-mono">hop3 config set --app {{ app_name }} KEY=value</code></p>
+            <p><strong>Remove a variable:</strong> <code class="bg-gray-200 px-2 py-0.5 rounded text-xs font-mono">hop3 config unset --app {{ app_name }} KEY</code></p>
+            <p><strong>List all variables:</strong> <code class="bg-gray-200 px-2 py-0.5 rounded text-xs font-mono">hop3 config show --app {{ app_name }}</code></p>
         </div>
     </div>
 </div>

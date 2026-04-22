@@ -130,10 +130,13 @@ Most commands are forwarded to the server:
 
 ```python
 # These call server RPC methods
-hop3 apps              # → apps.list
-hop3 app:launch foo    # → apps.create(name="foo")
-hop3 deploy            # → apps.deploy(...)
-hop3 app:logs myapp    # → apps.logs(name="myapp")
+hop3 apps                      # → apps.list
+hop3 app launch foo            # → apps.create(name="foo")
+hop3 deploy                    # → apps.deploy(...)
+hop3 logs --app myapp          # → apps.logs(name="myapp")
+# (or just `hop3 logs` with an app resolved from $HOP3_APP / .hop3-app /
+#  hop3.toml [cli].app / context default — see ADR 036 D7 and
+#  hop3_cli/core/resolution.py)
 ```
 
 ### Local Commands

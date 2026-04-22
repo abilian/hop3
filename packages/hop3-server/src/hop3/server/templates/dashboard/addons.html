@@ -95,10 +95,10 @@
                 <div class="mt-2 text-sm text-blue-700">
                     <p class="mb-3">Addons are currently managed via the CLI for reliability and automation. Common commands:</p>
                     <ul class="mt-2 list-disc list-inside space-y-1">
-                        <li><code class="bg-blue-100 px-2 py-0.5 rounded font-mono text-xs">hop3 addons:create postgres &lt;name&gt;</code> - Create a PostgreSQL database</li>
-                        <li><code class="bg-blue-100 px-2 py-0.5 rounded font-mono text-xs">hop3 addons:attach &lt;name&gt; --app &lt;app&gt;</code> - Link database to app</li>
-                        <li><code class="bg-blue-100 px-2 py-0.5 rounded font-mono text-xs">hop3 addons:info &lt;name&gt;</code> - View addon information</li>
-                        <li><code class="bg-blue-100 px-2 py-0.5 rounded font-mono text-xs">hop3 addons:destroy &lt;name&gt;</code> - Delete a addon</li>
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded font-mono text-xs">hop3 addon create postgres &lt;name&gt;</code> - Create a PostgreSQL database</li>
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded font-mono text-xs">hop3 addon attach &lt;name&gt; --app &lt;app&gt;</code> - Link database to app</li>
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded font-mono text-xs">hop3 addon show &lt;name&gt;</code> - View addon information</li>
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded font-mono text-xs">hop3 addon destroy &lt;name&gt;</code> - Delete an addon</li>
                     </ul>
                     <p class="mt-3 text-xs text-blue-600">
                         💡 <strong>Tip:</strong> Use this dashboard to view connection details and monitor your addons. Create and destroy operations are safer via CLI.
@@ -117,8 +117,8 @@
         <div class="mt-4 bg-gray-50 rounded-lg p-4 text-left max-w-md mx-auto">
             <p class="text-sm text-gray-700 mb-2">Example: Create and link a PostgreSQL database</p>
             <code class="block bg-gray-900 text-gray-100 p-3 rounded text-xs">
-                hop3 addons:create postgres mydb<br>
-                hop3 addons:attach mydb --app myapp
+                hop3 addon create postgres mydb<br>
+                hop3 addon attach mydb --app myapp
             </code>
         </div>
     </div>

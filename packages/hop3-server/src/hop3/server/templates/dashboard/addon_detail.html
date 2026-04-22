@@ -215,9 +215,9 @@
                 <h3 class="text-sm font-medium text-blue-800">Manage this service via CLI</h3>
                 <div class="mt-2 text-sm text-blue-700">
                     <ul class="list-disc list-inside space-y-1">
-                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 addons:info {{ addon.addon_name }}</code> - View service information</li>
-                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 backup:create {{ addon.app_name }}</code> - Create backup (includes this service)</li>
-                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 addons:destroy {{ addon.addon_name }}</code> - Delete this service</li>
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 addon show {{ addon.addon_name }}</code> - View service information</li>
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 backup create --app {{ addon.app_name }}</code> - Create backup (includes this service)</li>
+                        <li><code class="bg-blue-100 px-2 py-0.5 rounded">hop3 addon destroy {{ addon.addon_name }}</code> - Delete this service</li>
                     </ul>
                 </div>
             </div>
