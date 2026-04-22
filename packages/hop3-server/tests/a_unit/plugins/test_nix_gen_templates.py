@@ -413,6 +413,90 @@ def test_nixpkgs_wrapper_exec_prefix_replaces_pkgbin():
     assert "s|PKGBIN|${keycloak}/bin|g" not in output
 
 
+class TestNodePnpmInstallTemplate:
+    """node-pnpm-install is for Node apps whose runtime code assumes
+    pnpm's virtual-store layout — npm's flat install breaks named ESM
+    imports of CJS modules. Template seeds a package.json + runs
+    pnpm install --prod inside the Nix build (__noChroot for network)."""
+
+    def _base_spec(self, **kwargs):
+        defaults = {
+            "pname": "directus",
+            "version": "11.17.2",
+            "description": "Headless CMS",
+            "template": "node-pnpm-install",
+            "nixpkgs_package": "directus",  # reinterpreted as npm package name
+            "exec_target": "directus",
+            "source": Source(url="x", sha256="x"),
+        }
+        defaults.update(kwargs)
+        return AppSpec(**defaults)
+
+    def test_requires_npm_package(self):
+        spec = self._base_spec(nixpkgs_package=None)
+        with pytest.raises(ValueError, match="nixpkgs_package"):
+            generate(spec)
+
+    def test_requires_exec_target(self):
+        spec = self._base_spec(exec_target=None)
+        with pytest.raises(ValueError, match="exec_target"):
+            generate(spec)
+
+    def test_requires_version(self):
+        spec = self._base_spec(version="")
+        with pytest.raises(ValueError, match="version"):
+            generate(spec)
+
+    def test_uses_pnpm_and_nochroot(self):
+        """pnpm install needs network (nixpkgs-wrapper's closed sandbox
+        wouldn't allow it), and pnpm_9 must be on nativeBuildInputs."""
+        spec = self._base_spec()
+        output = generate(spec)
+        assert "__noChroot = true" in output
+        assert "pkgs.pnpm_9" in output
+        assert "pnpm install" in output
+        assert "--prod" in output
+        # `--package-import-method=copy` is the EPERM workaround.
+        assert "package-import-method=copy" in output
+
+    def test_default_node_version_is_22(self):
+        """Directus-class apps all want Node 22. Default makes the
+        common case boilerplate-free; `runtime_package` overrides."""
+        spec = self._base_spec()
+        output = generate(spec)
+        assert "pkgs.nodejs_22" in output
+
+    def test_runtime_package_override(self):
+        spec = self._base_spec(runtime_package="nodejs_20")
+        output = generate(spec)
+        assert "pkgs.nodejs_20" in output
+
+    def test_extras_via_pip_packages_slot(self):
+        """pip_packages is reused as the 'additional npm packages' slot
+        (semantically: extras alongside the primary). DB drivers are
+        the typical case."""
+        spec = self._base_spec(pip_packages=["pg@^8.11.0"])
+        output = generate(spec)
+        assert '"pg": "^8.11.0"' in output
+        assert '"directus": "11.17.2"' in output
+
+    def test_wrapper_pinned_node_on_path(self):
+        """pnpm bin shims fall back to `node` on PATH when $basedir/node
+        is missing. Host's system Node may be too old for modern apps —
+        force the Nix-built Node via a NODEBIN sed substitution."""
+        spec = self._base_spec()
+        output = generate(spec)
+        # NODEBIN placeholder present in the wrapper, sed replacement
+        # present in the install phase.
+        assert "NODEBIN" in output
+        assert 'sed -i "s|NODEBIN|${nodejs}/bin|g"' in output
+
+    def test_exec_line_targets_node_modules_bin(self):
+        spec = self._base_spec(exec_target="directus", exec_args=["start"])
+        output = generate(spec)
+        assert "APPDIR/node_modules/.bin/directus start" in output
+
+
 def test_nixpkgs_wrapper_default_pkgbin_when_no_exec_prefix():
     """Without exec-prefix, PKGBIN resolves to ${<binding>}/bin as before."""
     spec = AppSpec(

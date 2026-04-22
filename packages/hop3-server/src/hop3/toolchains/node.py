@@ -34,6 +34,27 @@ class NodeToolchain(LanguageToolchain):
         """Check if the package.json file exists in the specified app path."""
         return self.check_exists("package.json")
 
+    def _get_declared_node_version(self) -> str | None:
+        """Return `[build].node-version` from hop3.toml if set.
+
+        Lets apps pin a Node version per-app (blocker #8) without
+        relying on the host's `apt install nodejs`. The existing
+        `install_node()` path takes over once NODE_VERSION is present
+        in the env (uses `nodeenv --prebuilt --node=<version>` against
+        the app's virtualenv).
+        """
+        if self.context is None:
+            return None
+        app_config = self.context.app_config
+        hop3_config = app_config.get("hop3_config", {})
+        if not isinstance(hop3_config, dict):
+            return None
+        build_section = hop3_config.get("build", {})
+        if not isinstance(build_section, dict):
+            return None
+        value = build_section.get("node-version")
+        return str(value) if value else None
+
     def build(self) -> BuildArtifact:
         """Build the project environment.
 
@@ -44,6 +65,20 @@ class NodeToolchain(LanguageToolchain):
 
         with chdir(self.src_path):
             env = self.get_env()
+            # `[build].node-version` in hop3.toml surfaces as NODE_VERSION
+            # so install_node()'s existing nodeenv path picks it up.
+            # Declared structurally (typed, discoverable) instead of via
+            # [env] as a raw env var. Explicit [env] NODE_VERSION wins
+            # if both are set.
+            if "NODE_VERSION" not in env:
+                pinned = self._get_declared_node_version()
+                if pinned:
+                    env["NODE_VERSION"] = pinned
+                    log(
+                        f"Using [build].node-version = {pinned!r} from hop3.toml",
+                        level=2,
+                        fg="cyan",
+                    )
             self.install_node(env)
             self.install_modules(env)
 

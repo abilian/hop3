@@ -73,6 +73,16 @@ class BuildSection(BaseModel):
         default=None,
         description="System packages required for build",
     )
+    node_version: str | None = Field(
+        default=None,
+        alias="node-version",
+        description=(
+            "Per-app Node.js version (installed via nodeenv into the "
+            "app's virtualenv). Use when the app requires a Node "
+            "newer/older than the host's system Node. Maps to "
+            "NODE_VERSION env var internally."
+        ),
+    )
     pip_install: list[str] | None = Field(
         default=None,
         alias="pip-install",

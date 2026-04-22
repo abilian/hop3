@@ -105,6 +105,7 @@ def _parse_test_definition(data: dict[str, Any], path: Path) -> TestDefinition:
         tutorial=tutorial,
         description=test_section.get("description"),
         metadata=metadata,
+        expects_failure=bool(test_section.get("expects-failure", False)),
         source_path=path,
     )
 
@@ -198,8 +199,16 @@ def _parse_validation(data: dict[str, Any]) -> Validation:
         # Top-level wins over nested `expect` when both are set.
         return data[key] if key in data else expect_data.get(key)
 
+    # status-in (list) coexists with status (scalar). Both picked up
+    # from either top-level or nested `expect`. Runner prefers
+    # status_in when set.
+    status_in_raw = _pick("status_in") or _pick("status-in")
+    status_in = (
+        [int(s) for s in status_in_raw] if isinstance(status_in_raw, list) else None
+    )
     expect = ValidationExpect(
         status=_pick("status"),
+        status_in=status_in,
         contains=_pick("contains"),
         json=_pick("json"),
         stdout=_pick("stdout"),
@@ -445,6 +454,8 @@ def _overrides_from_hop3_test(section: dict[str, Any]) -> dict[str, Any]:
         out["targets"] = [_TARGET_MAP[t] for t in section["targets"]]
     if "validations" in section:
         out["validations"] = [_parse_validation(v) for v in section["validations"]]
+    if "expects-failure" in section:
+        out["expects_failure"] = bool(section["expects-failure"])
     return out
 
 
@@ -460,6 +471,8 @@ def _overrides_from_legacy_test_toml(data: dict[str, Any]) -> dict[str, Any]:
         out["description"] = section["description"]
     if "validations" in data:
         out["validations"] = [_parse_validation(v) for v in data["validations"]]
+    if "expects-failure" in section:
+        out["expects_failure"] = bool(section["expects-failure"])
     metadata = section.get("metadata", {})
     if "covers" in metadata:
         out["covers_prefix"] = list(metadata["covers"])
@@ -531,6 +544,7 @@ def generate_test_definition_from_hop3_toml(
         ),
         description=description,
         metadata=TestMetadata(**metadata_kwargs),
+        expects_failure=overrides.get("expects_failure", False),
         source_path=app_path / "hop3.toml",
     )
 

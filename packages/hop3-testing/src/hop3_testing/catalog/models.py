@@ -87,7 +87,13 @@ class ValidationExpect:
     """Expected outcome for a validation check."""
 
     status: int | None = None
-    """Expected HTTP status code."""
+    """Expected HTTP status code (exact match)."""
+
+    status_in: list[int] | None = None
+    """Accept any of these HTTP status codes. Useful for async
+    first-boot apps whose install wizard returns 202 until migration
+    completes (xwiki), or apps with a health endpoint that may be
+    briefly 503 during warmup. When set, `status` is ignored."""
 
     contains: str | None = None
     """String that response body should contain."""
@@ -248,6 +254,14 @@ class TestDefinition:
 
     metadata: TestMetadata = field(default_factory=TestMetadata)
     """Optional metadata."""
+
+    # Negative test cases: the deploy should FAIL in a specific way.
+    # Runner treats a failed deploy as PASS (and an unexpected
+    # successful deploy as FAIL). Used for apps that intentionally
+    # exercise a rejection path (e.g., Poetry-managed pyproject.toml
+    # rejected by the Python toolchain per ADR 039 Phase 1).
+    expects_failure: bool = False
+    """Whether this test expects the deployment to fail."""
 
     # Runtime info (set by loader, not from TOML)
     source_path: Path | None = None

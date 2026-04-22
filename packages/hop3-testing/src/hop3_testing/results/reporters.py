@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from hop3_testing.runners.base import TestResult
 
 
@@ -280,6 +279,61 @@ class ConsoleReporter:
         # Fallback: last non-empty line
         return lines[-1][:200]
 
+    def _print_per_app_results(self, results: list[TestResult]) -> None:
+        """Print one line per test: `- <name> (<path>): OK|FAIL`.
+
+        Sorted by pass/fail (failures first for triage visibility),
+        then by name within each group. Path is shown relative to the
+        current working directory when possible; falls back to the
+        absolute app_path for tests whose source lives outside cwd.
+        """
+        if not results:
+            return
+
+        print(file=self.output)
+        print(
+            self._colorize("Per-app results:", "bold"),
+            file=self.output,
+        )
+
+        # Failed first (operators care most), then passed; alphabetical
+        # within each group.
+        ordered = sorted(
+            results, key=lambda r: (r.passed, self._app_display_path(r))
+        )
+        for r in ordered:
+            status = (
+                self._colorize("OK", "green")
+                if r.passed
+                else self._colorize("FAIL", "red")
+            )
+            name = r.test.name
+            path = self._app_display_path(r)
+            # If `name` is already the path (scanner rewrites it for
+            # apps under the project root), skip the parenthetical.
+            if name == path:
+                print(f"  - {name}: {status}", file=self.output)
+            else:
+                print(f"  - {name} ({path}): {status}", file=self.output)
+
+    @staticmethod
+    def _app_display_path(result: TestResult) -> str:
+        """Best-effort relative path for display.
+
+        Prefer the app_path (directory containing hop3.toml/test.toml),
+        fall back to source_path's parent, fall back to '?'. Relative
+        to cwd when possible so we don't show long absolute paths.
+        """
+        path = result.test.app_path
+        if path is None and result.test.source_path is not None:
+            path = result.test.source_path.parent
+        if path is None:
+            return "?"
+        try:
+            return str(path.resolve().relative_to(Path.cwd().resolve()))
+        except ValueError:
+            return str(path)
+
     def _print_recap(self, results: list[TestResult], total_duration: float) -> None:
         """Print a recap of what was tested.
 
@@ -321,6 +375,14 @@ class ConsoleReporter:
                 else self._colorize("✗", "red")
             )
             print(f"  {status} {cat}: {passed}/{total} passed", file=self.output)
+
+        # Per-app status listing. `test.name` can be either the
+        # `metadata.id` (short — e.g., "directus") or the relative
+        # path (e.g., "apps/bad/test-apps-bad/110-flask-gunicorn-poetry")
+        # depending on how it reached the catalog. Short names collide
+        # across apps/bad/ variants (multiple "focalboard"s), so we
+        # always show the app_path alongside to disambiguate.
+        self._print_per_app_results(results)
 
         # Print tier breakdown
         if len(by_tier) > 1:

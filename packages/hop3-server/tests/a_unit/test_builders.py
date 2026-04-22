@@ -53,6 +53,56 @@ def test_clojure_toolchain(app_path):
     assert toolchain.accept()
 
 
+class TestNodeVersionDeclaration:
+    """Guard rails for the `[build].node-version` field bridging
+    through to NODE_VERSION (consumed by install_node + nodeenv)."""
+
+    def _ctx(self, app_path, app_config):
+        from hop3.core.protocols import BuildContext
+
+        src = app_path / "src"
+        src.mkdir(parents=True, exist_ok=True)
+        (src / "package.json").write_text("{}")
+        return BuildContext(
+            app_name="myapp", source_path=src, app_config=app_config
+        )
+
+    def test_declared_version_returned(self, app_path):
+        ctx = self._ctx(
+            app_path,
+            app_config={"hop3_config": {"build": {"node-version": "22"}}},
+        )
+        tc = NodeToolchain(ctx)
+        assert tc._get_declared_node_version() == "22"
+
+    def test_not_declared_returns_none(self, app_path):
+        ctx = self._ctx(app_path, app_config={"hop3_config": {"build": {}}})
+        tc = NodeToolchain(ctx)
+        assert tc._get_declared_node_version() is None
+
+    def test_missing_hop3_config_returns_none(self, app_path):
+        ctx = self._ctx(app_path, app_config={})
+        tc = NodeToolchain(ctx)
+        assert tc._get_declared_node_version() is None
+
+    def test_non_dict_build_section_returns_none(self, app_path):
+        ctx = self._ctx(
+            app_path, app_config={"hop3_config": {"build": "not a dict"}}
+        )
+        tc = NodeToolchain(ctx)
+        assert tc._get_declared_node_version() is None
+
+    def test_version_coerced_to_string(self, app_path):
+        """Version may be declared as a number in TOML; coerce to str
+        so it can flow through env-var plumbing."""
+        ctx = self._ctx(
+            app_path,
+            app_config={"hop3_config": {"build": {"node-version": 22}}},
+        )
+        tc = NodeToolchain(ctx)
+        assert tc._get_declared_node_version() == "22"
+
+
 class TestRustToolchainBuild:
     """Guard rails for the two rust.py fixes: raise on cargo failure
     (was: silently continue with a fake artifact, leaving a useless

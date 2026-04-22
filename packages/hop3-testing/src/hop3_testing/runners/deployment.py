@@ -88,7 +88,14 @@ class DeploymentTestRunner:
         if http_validations:
             for v in http_validations:
                 path = v.path or "/"
-                expected_status = v.expect.status or 200
+                # Prefer status_in (list) over status (int) when both are
+                # declared; status_in=[200, 202] lets xwiki's first-boot
+                # wizard (returns 202) match without accepting anything else.
+                expected_status: int | list[int] = (
+                    v.expect.status_in
+                    if v.expect.status_in is not None
+                    else (v.expect.status or 200)
+                )
                 contains = v.expect.contains
                 if error := self._run_http_validation(
                     session,
@@ -108,7 +115,7 @@ class DeploymentTestRunner:
         self,
         session: DeploymentSession,
         path: str,
-        expected_status: int,
+        expected_status: int | list[int],
         contains: str | None,
         validation_results: list[ValidationResult],
     ) -> str | None:
@@ -123,10 +130,11 @@ class DeploymentTestRunner:
         # Check contains if specified and HTTP status matched
         if http_result["passed"] and contains:
             body = http_result.get("details", {}).get("body_preview", "")
+            actual = http_result.get("details", {}).get("status_code", "?")
             if contains not in body:
                 http_result["passed"] = False
                 http_result["message"] = (
-                    f"HTTP {expected_status} OK but body does not contain "
+                    f"HTTP {actual} OK but body does not contain "
                     f"'{contains}'. Got: {body[:200]}"
                 )
 
@@ -232,6 +240,93 @@ class DeploymentTestRunner:
 
         return deploy_logs, None
 
+    def _handle_expects_failure(
+        self,
+        *,
+        test: TestDefinition,
+        session: DeploymentSession,
+        start_time: float,
+        deploy_logs: str,
+        deploy_failed: bool,
+        validation_results: list[ValidationResult],
+    ) -> TestResult:
+        """Invert deploy success/failure for negative test cases.
+
+        A deploy failure → PASS (with a synthetic validation result so
+        the report shows the inversion explicitly). A deploy success →
+        FAIL (unexpected pass — the app should have been rejected).
+
+        Cleanup runs in both cases but is isolated in its own
+        try/except — a CleanupError here must NOT flip the test
+        result back to failed (mirrors the happy-path cleanup in
+        `run()`, which also ignores cleanup errors).
+        """
+        if deploy_failed:
+            # Visible trace for debugging: this line shows up in the
+            # per-test log so operators can tell at a glance whether
+            # the inversion actually fired.
+            self.console.info(
+                f"expects-failure=true: inverting deploy failure → PASS "
+                f"for {test.name}"
+            )
+            validation_results.append(
+                ValidationResult(
+                    passed=True,
+                    message="Deploy failed as expected (expects-failure=true)",
+                    duration=time.time() - start_time,
+                    validation_type="expects_failure",
+                )
+            )
+            self._safe_cleanup(test, session)
+            return TestResult(
+                test=test,
+                passed=True,
+                validation_results=validation_results,
+                deploy_logs=deploy_logs,
+                total_duration=time.time() - start_time,
+                deployed_app_name=session.app_name,
+            )
+
+        # Unexpected success — the deploy went through on an app that
+        # was supposed to be rejected. That's a regression: either the
+        # rejection path broke, or the test is mislabeled.
+        err = (
+            "Unexpected deploy success: expects-failure=true but the "
+            "deployment succeeded. Either the rejection path has "
+            "regressed, or the test should drop expects-failure."
+        )
+        runtime_logs = _collect_runtime_logs(self.target, session.app_name)
+        self._safe_cleanup(test, session)
+        return TestResult(
+            test=test,
+            passed=False,
+            validation_results=validation_results,
+            deploy_logs=deploy_logs,
+            total_duration=time.time() - start_time,
+            error=err,
+            deployed_app_name=session.app_name,
+            runtime_logs=runtime_logs,
+        )
+
+    def _safe_cleanup(
+        self, test: TestDefinition, session: DeploymentSession
+    ) -> None:
+        """Run cleanup but swallow any error.
+
+        A failed cleanup is interesting for debugging but must NOT
+        flip a computed test result. The main run() path already
+        behaves this way by placing cleanup outside its try/except;
+        this helper extends the same contract to the expects_failure
+        branch.
+        """
+        if not self.cleanup:
+            return
+        self.console.info(f"Cleaning up {test.name}...")
+        try:
+            session.cleanup()
+        except Exception as exc:
+            self.console.debug(f"Cleanup failed (ignored): {exc}")
+
     def _validate_app_path(
         self, test: TestDefinition, start_time: float
     ) -> TestResult | None:
@@ -303,6 +398,21 @@ class DeploymentTestRunner:
             deploy_logs, error = self._run_deploy_and_verify(
                 test, session, start_time, validation_results
             )
+            # Negative test cases: a failed deploy is the expected
+            # outcome (e.g., Poetry-managed pyproject.toml rejected by
+            # the Python toolchain per ADR 039 Phase 1). We record a
+            # PASS, skip the HTTP/check-script stages (there's no
+            # running app to probe), and short-circuit to cleanup.
+            if test.expects_failure:
+                return self._handle_expects_failure(
+                    test=test,
+                    session=session,
+                    start_time=start_time,
+                    deploy_logs=deploy_logs,
+                    deploy_failed=error is not None,
+                    validation_results=validation_results,
+                )
+
             if error:
                 return _fail_result(error, deploy_logs=deploy_logs)
 

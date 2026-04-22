@@ -30,9 +30,31 @@ from .preparation import AppPreparation
 from .verification import AppVerifier
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from hop3_testing.targets.base import DeploymentTarget
 
     from .catalog import AppSource
+
+
+def _status_match(actual: int, expected: int | Iterable[int]) -> bool:
+    """Whether `actual` satisfies `expected` (int for equality, set for any-of)."""
+    if isinstance(expected, int):
+        return actual == expected
+    return actual in set(expected)
+
+
+def _format_expected(expected: int | Iterable[int]) -> str:
+    """Human-readable rendering of an expected-status spec for error
+    messages (`200` vs `200 or 202` vs `200, 202, or 503`)."""
+    if isinstance(expected, int):
+        return str(expected)
+    codes = sorted(set(expected))
+    if len(codes) == 1:
+        return str(codes[0])
+    if len(codes) == 2:
+        return f"{codes[0]} or {codes[1]}"
+    return ", ".join(str(c) for c in codes[:-1]) + f", or {codes[-1]}"
 
 
 class DeploymentSession:
@@ -356,7 +378,7 @@ class DeploymentSession:
         self,
         hostname: str | None = None,
         path: str = "/",
-        expected_status: int = HTTPStatus.OK,
+        expected_status: int | Iterable[int] = HTTPStatus.OK,
         max_retries: int = 40,
     ) -> dict[str, Any]:
         """Test HTTP access and return detailed results.
@@ -399,7 +421,7 @@ class DeploymentSession:
         self,
         port: int,
         path: str,
-        expected_status: int,
+        expected_status: int | Iterable[int],
         max_retries: int,
     ) -> dict[str, Any]:
         """Test HTTP via the app's direct port, bypassing nginx.
@@ -437,7 +459,7 @@ class DeploymentSession:
         host: str,
         port: int,
         path: str,
-        expected_status: int,
+        expected_status: int | Iterable[int],
         max_retries: int,
         result: dict[str, Any],
     ) -> dict[str, Any]:
@@ -456,7 +478,7 @@ class DeploymentSession:
                     response.text[:4096] if response.text else ""
                 )
 
-                if response.status_code == expected_status:
+                if _status_match(response.status_code, expected_status):
                     result["passed"] = True
                     result["message"] = f"HTTP {response.status_code} from {url}"
                     self.console.success(
@@ -469,7 +491,7 @@ class DeploymentSession:
                     continue
 
                 result["message"] = (
-                    f"HTTP {response.status_code} (expected {expected_status}) from {url}"
+                    f"HTTP {response.status_code} (expected {_format_expected(expected_status)}) from {url}"
                 )
                 return result
 
@@ -485,7 +507,7 @@ class DeploymentSession:
         self,
         port: int,
         path: str,
-        expected_status: int,
+        expected_status: int | Iterable[int],
         max_retries: int,
         result: dict[str, Any],
     ) -> dict[str, Any]:
@@ -508,7 +530,7 @@ class DeploymentSession:
                     result["details"]["status_code"] = status_code
                     result["details"]["attempts"] = attempt + 1
 
-                    if status_code == expected_status:
+                    if _status_match(status_code, expected_status):
                         # Fetch body for contains checks
                         _, body, _ = self.target.exec_run(
                             f"curl -s --max-time 3 '{url}' | head -c 4096"
@@ -535,7 +557,7 @@ class DeploymentSession:
                     result["details"]["body_preview"] = body_text
                     body_hint = f"\n  Body: {body_text[:300]}" if body_text else ""
                     result["message"] = (
-                        f"HTTP {status_code} (expected {expected_status}) "
+                        f"HTTP {status_code} (expected {_format_expected(expected_status)}) "
                         f"from {url}{body_hint}"
                     )
                     return result
@@ -554,7 +576,7 @@ class DeploymentSession:
     def _test_http_via_nginx_ssh(
         self,
         path: str,
-        expected_status: int,
+        expected_status: int | Iterable[int],
         max_retries: int,
     ) -> dict[str, Any]:
         """Test HTTP via nginx on the remote server (for static/no-port apps).
@@ -588,7 +610,7 @@ class DeploymentSession:
                     result["details"]["status_code"] = status_code
                     result["details"]["attempts"] = attempt + 1
 
-                    if status_code == expected_status:
+                    if _status_match(status_code, expected_status):
                         # Fetch body for contains checks
                         _, body, _ = self.target.exec_run(
                             f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c 4096"
@@ -615,7 +637,7 @@ class DeploymentSession:
                     result["details"]["body_preview"] = body_text
                     body_hint = f"\n  Body: {body_text[:300]}" if body_text else ""
                     result["message"] = (
-                        f"HTTP {status_code} (expected {expected_status}) "
+                        f"HTTP {status_code} (expected {_format_expected(expected_status)}) "
                         f"from {url}{body_hint}"
                     )
                     return result
