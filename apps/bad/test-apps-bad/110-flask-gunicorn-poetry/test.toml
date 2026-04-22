@@ -6,6 +6,10 @@ category = "deployment"
 tier = "medium"
 priority = "P0"
 description = "Flask application with Gunicorn and Poetry"
+# Deliberate negative test case — ADR 039 Phase 1 rejects Poetry-
+# managed pyproject.toml at the Python toolchain layer. The runner
+# inverts deploy success/failure here: a failed deploy IS the PASS.
+expects-failure = true
 
 [test.requirements]
 targets = ["docker", "remote"]

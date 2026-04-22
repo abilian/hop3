@@ -1,6 +1,13 @@
 # hop3.nix - Nix expression for SonarQube deployment
 #
-# Downloads the SonarQube distribution zip and runs with JDK.
+# SonarQube's sonar.sh resolves its own install dir via `readlink -f`
+# and writes into it (conf/sonar.properties, app/temp/sharedmemory,
+# SonarQube.pid, etc.). Symlinking the tree into a writable cwd isn't
+# enough — the resolved self-path still lands in the read-only nix
+# store. We use the lazy cp-to-writable-home pattern (same shape as
+# apps/real-apps-nix/keycloak/hop3.nix, and the template-supported
+# writable-home-at-runtime for nixpkgs-wrapper apps). One-shot copy
+# at first launch, then exec from the writable copy.
 
 { pkgs ? import <nixpkgs> {} }:
 
@@ -35,26 +42,34 @@ let
 
     installPhase = ''
       mkdir -p $out/app $out/bin
-
       cp -r . $out/app/
 
       cat > $out/bin/sonarqube << 'WRAPPER'
 #!/bin/sh
+set -e
+
 export JAVA_HOME=__JDK__
 export SONAR_JAVA_PATH=__JDK__/bin/java
 PORT="''${PORT:-9000}"
 
-# Symlink the read-only SonarQube tree into the writable cwd
-for item in __APPDIR__/*; do
-  name=$(basename "$item")
-  [ -e "$name" ] || ln -sf "$item" "$name"
-done
+# Lazy copy the nixpkgs tree into $PWD/.sonarqube-home on first
+# launch. Subsequent restarts reuse the existing copy (marker file).
+HOME_DIR="$PWD/.sonarqube-home"
+if [ ! -f "$HOME_DIR/.hop3-ready" ]; then
+  rm -rf "$HOME_DIR"
+  # -rL dereferences symlinks so we can chmod real files.
+  cp -rL --no-preserve=ownership __APPDIR__/. "$HOME_DIR"
+  chmod -R u+w "$HOME_DIR"
+  touch "$HOME_DIR/.hop3-ready"
+fi
 
-# Create writable directories that SonarQube needs
-mkdir -p data logs temp extensions conf
+# Writable data/logs/temp/extensions live in $PWD alongside the
+# sonarqube-home copy — the JVM argv below points sonar at them.
+mkdir -p data logs temp extensions
 
-# Write sonar.properties configuration
-cat > conf/sonar.properties << CONFEOF
+# sonar.properties goes into the writable home's conf dir so
+# sonar.sh finds it at the expected relative path.
+cat > "$HOME_DIR/conf/sonar.properties" << CONFEOF
 sonar.jdbc.url=jdbc:postgresql://''${PGHOST:-localhost}:''${PGPORT:-5432}/''${PGDATABASE:-sonarqube}
 sonar.jdbc.username=''${PGUSER:-sonarqube}
 sonar.jdbc.password=''${PGPASSWORD:-}
@@ -66,7 +81,9 @@ sonar.path.temp=$PWD/temp
 sonar.search.javaAdditionalOpts=''${SONAR_SEARCH_JAVAADDITIONALOPTS:--Dnode.store.allow_mmap=false}
 CONFEOF
 
-exec ./bin/linux-x86-64/sonar.sh console "$@"
+# Exec out of the writable copy so sonar.sh's readlink-based
+# self-resolution lands inside $HOME_DIR, not the nix store.
+exec "$HOME_DIR/bin/linux-x86-64/sonar.sh" console "$@"
 WRAPPER
       sed -i "s|__JDK__|${jdk}|g" $out/bin/sonarqube
       sed -i "s|__APPDIR__|$out/app|g" $out/bin/sonarqube

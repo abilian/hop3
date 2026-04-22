@@ -13,6 +13,12 @@ categories = ["cms", "api", "headless"]
 [build]
 builder = "local"
 toolchain = "node"
+# Directus 11.x requires Node 22+. Debian/Ubuntu's apt-installed
+# nodejs is 18 on bookworm / 20 on trixie; neither is sufficient.
+# Hop3 installs nodeenv as part of hop3-install server; the Node
+# toolchain calls `nodeenv --prebuilt --node=22` into the app's
+# virtualenv when this field is set. See blocker #8 in DEFERRED-APPS.
+node-version = "22"
 # Directus pulls native Node modules (isolated-vm, others) that compile
 # at install time. The full link-time closure under Debian-packaged
 # Node 18, where node-gyp resolves to *system* shared libs (unlike the

@@ -26,5 +26,9 @@ targets = ["docker", "remote"]
 covers = ["java", "xwiki", "nix", "postgres"]
 
 [[test.validations]]
+# XWiki's first-boot returns HTTP 202 (Accepted) while its install
+# wizard runs schema migrations + initial page content import. Once
+# that finishes (can take minutes), subsequent requests get 200.
+# `status_in` accepts either.
 path = "/xwiki/bin/view/Main/"
-status = 200
+status_in = [200, 202]
