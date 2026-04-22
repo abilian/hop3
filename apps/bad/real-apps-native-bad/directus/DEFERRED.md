@@ -1,23 +1,48 @@
 # Directus native — deferred
 
-**Reason:** Directus's npm install compiles a native module that links against `libbrotli`:
+**Last touched:** 2026-04-22. **Status:** blocker #1 cleared (build phase succeeds). Now blocked by blocker #8 (Node version).
+
+## What was blocking
+
+Directus's `npm install` compiles a native module that links against `libbrotli`:
 
 ```
 npm ERR! /usr/bin/ld: cannot find -lbrotlidec: No such file or directory
 ```
 
-The fix is trivial in principle — install `libbrotli-dev` on the host — but the `[build].packages` field in `hop3.toml` is parsed by `Hop3Config.build_packages` (see `packages/hop3-server/src/hop3/project/hop3_config.py:224`) and **not consumed anywhere in the build pipeline**. A grep across the server code confirms: no caller reads `build_packages`.
+The app's `hop3.toml` had `[build].packages = ["libbrotli-dev", "build-essential", "python3", "pkg-config"]` declared all along — but the server-side code parsed the field and never consumed it. Every native-profile Tier-A/B app built from Node source hit the same wall.
 
-This is a gap in Hop3 itself, not in the application packaging. Until the server implements `[build].packages` apt-install (or an operator manually runs `sudo apt-get install libbrotli-dev build-essential python3 pkg-config` on the host), the Directus native variant cannot build.
+## Fix shipped (2026-04-22) — blocker #1
 
-**Working variants (kept):**
-- `apps/real-apps-docker/directus/` — Dockerfile installs libbrotli-dev directly, no Hop3 change needed.
-- `apps/real-apps-nix/directus/` — Nix-packaged brotli via `${pkgs.brotli}` closure, no host deps.
+Installer-baseline-from-catalogue, per `local-notes/plans/isolation-strategy.md`:
 
-**Unblocker (in priority order):**
+1. **`[build].packages` / `[run].packages` are now canonical declarations** read by `hop3-installer` at server-provisioning time, not by the deploy pipeline.
+2. **`hop3_installer/server_installer/baseline.py`** walks `apps/*/hop3.toml`, unions the declarations, translates per OS family via `package_aliases.py`, emits `baselines.py` (committed — CI check via `python -m … --check` verifies no drift against the catalogue).
+3. **`hop3-install server` now installs the baseline** as part of step 1 (on top of the static `DEBIAN_BASE_PACKAGES`). Idempotent: rerun to pick up catalogue growth.
+4. **`LocalBuilder` probes declared packages** before each native build runs. If something is missing it emits a `Diagnosis` naming the package + three remedies (rerun installer, add declaration & regenerate, switch profile) — replacing the opaque `pkg-config: not found` / linker errors.
 
-1. **Teach the build pipeline to honour `[build].packages`.** `Hop3Config.build_packages` already returns the list; a caller in the deploy orchestration needs to hand it off to the OS plugin's `package_install()` (the protocol is already defined in `hop3/core/protocols.py`). ~20 lines + a test.
-2. **Alternative:** declare the native runtime dependency closure via a richer mechanism (e.g. `nativeBuildInputs`-style list that covers both build and runtime libs).
-3. **Workaround for operators today:** ssh into the Hop3 server and `sudo apt-get install -y libbrotli-dev build-essential python3 pkg-config` manually before deploying Directus.
+Directus's existing declarations feed directly into the generated baseline — `libbrotli-dev` (debian) / `brotli-devel` (fedora) now ship in every Hop3 server. Same mechanism unlocks **Outline, Formbricks, Linkwarden, Hoppscotch, Joplin Server, Excalidraw, Budibase, Medusa** as their declarations land.
 
-Same pattern will hit **Outline, Formbricks, Linkwarden, Hoppscotch, Joplin Server, Excalidraw, Budibase, Medusa** — the entire Node-distributed Tier-A/B catalogue. Fixing the general mechanism is worth more than patching each app.
+## Now blocked by #8 — Node 18 on the server, Directus 11 needs ≥22
+
+2026-04-22 retry log: build phase clears (native modules compile, `isolated-vm` links fine now that libc-ares-dev/libnghttp2-dev/libicu-dev/libnode-dev are in the baseline). First run of the app then throws:
+
+```
+SyntaxError: Named export 'Type' not found. The requested module
+'@sinclair/typebox' is a CommonJS module...
+Node.js v18.19.1
+```
+
+Same ESM/CJS interop error the nix variant hit. Fixed there by pinning `${pkgs.nodejs_22}/bin` on the wrapper's PATH; native has no equivalent — the host ships whatever `apt install nodejs` provides.
+
+**Unblocker:** blocker #8 — teach `hop3-installer` to provision Node 22 via NodeSource (or `nodeenv` per-app with `[build].node-version = "22"` in hop3.toml). Scope: separate installer feature, probably a half-day of real work plus a retry pass.
+
+## To retry (after blocker #8 ships)
+
+```
+ssh root@hop3-dev.abilian.com 'hop3-install server --with=rust'
+hop3-test system --ssh --host $HOP3_DEV_HOST --reuse apps/bad/real-apps-native-bad/directus
+```
+
+Once green, `git mv` to `apps/real-apps-native/directus/` and drop this note.
+

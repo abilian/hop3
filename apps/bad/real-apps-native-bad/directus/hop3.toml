@@ -13,10 +13,32 @@ categories = ["cms", "api", "headless"]
 [build]
 builder = "local"
 toolchain = "node"
-# Directus pulls native Node modules that link against libbrotli at
-# install time; build-essential + python3 + pkg-config are required
-# for node-gyp to compile them on Debian-family hosts.
-packages = ["libbrotli-dev", "build-essential", "python3", "pkg-config"]
+# Directus pulls native Node modules (isolated-vm, others) that compile
+# at install time. The full link-time closure under Debian-packaged
+# Node 18, where node-gyp resolves to *system* shared libs (unlike the
+# upstream NodeSource binary that bundles them):
+#
+#   libbrotli-dev   → -lbrotlicommon/-lbrotlienc/-lbrotlidec
+#   libc-ares-dev   → -lcares
+#   libnghttp2-dev  → -lnghttp2
+#   libicu-dev      → -licui18n / -licuuc / -licudata
+#   libnode-dev     → Node headers + extra runtime libs
+#   build-essential + python3 + pkg-config are node-gyp prerequisites.
+#
+# (Node 18 is also below what Directus 11.x officially supports;
+# separate blocker #8 — "single Node version on the server". Once that
+# lands with Node 22 via NodeSource, some of these -dev libs may
+# become redundant since NodeSource bundles them.)
+packages = [
+    "libbrotli-dev",
+    "libc-ares-dev",
+    "libnghttp2-dev",
+    "libicu-dev",
+    "libnode-dev",
+    "build-essential",
+    "python3",
+    "pkg-config",
+]
 before-build = "bash scripts/install.sh"
 
 [run]
