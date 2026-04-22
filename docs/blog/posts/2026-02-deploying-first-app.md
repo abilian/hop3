@@ -61,7 +61,7 @@ hop3 settings set server ssh://root@your-server.com
 Test the connection:
 
 ```bash
-hop3 apps:list
+hop3 apps list
 ```
 
 You should see an empty list. That's about to change.
@@ -182,8 +182,8 @@ Visit `https://myapp.example.com`. That padlock icon? That's real SSL, automatic
 Most real apps need a database. Let's add PostgreSQL:
 
 ```bash
-hop3 addons:create postgres myapp-db
-hop3 addons:attach myapp myapp-db
+hop3 addons create postgres myapp-db
+hop3 addons attach myapp myapp-db
 ```
 
 Two commands. You now have a PostgreSQL database with `DATABASE_URL` automatically injected into your app's environment.
@@ -263,7 +263,7 @@ hop3 logs myapp -f   # Follow logs in real-time
 **See your apps:**
 
 ```bash
-hop3 apps:list
+hop3 apps list
 ```
 
 ```
@@ -274,7 +274,7 @@ myapp   running  https://myapp.example.com
 **Get details:**
 
 ```bash
-hop3 apps:info myapp
+hop3 apps info myapp
 ```
 
 ```
@@ -289,7 +289,7 @@ Last deployed: 2026-03-21 10:30:00
 **Need more capacity?**
 
 ```bash
-hop3 ps:scale myapp web=3
+hop3 ps scale --app myapp web=3
 ```
 
 Now three gunicorn workers handle requests. Scaling is just a number.
@@ -320,7 +320,7 @@ Make sure you're binding to `0.0.0.0:$PORT`, not `127.0.0.1` or a hardcoded port
 **Database connection failed?** Check that the addon is attached:
 
 ```bash
-hop3 config:show myapp
+hop3 config show --app myapp
 ```
 
 Look for `DATABASE_URL` in the output.
@@ -332,12 +332,12 @@ Commands you'll use constantly:
 ```bash
 hop3 deploy myapp              # Deploy changes
 hop3 logs myapp                # View logs
-hop3 apps:restart myapp        # Restart
-hop3 apps:stop myapp           # Stop
-hop3 apps:start myapp          # Start
-hop3 apps:destroy myapp        # Delete (careful!)
-hop3 config:set myapp KEY=val  # Set environment variable
-hop3 config:show myapp         # View configuration
+hop3 apps restart myapp        # Restart
+hop3 apps stop myapp           # Stop
+hop3 apps start myapp          # Start
+hop3 apps destroy myapp        # Delete (careful!)
+hop3 config set --app myapp KEY=val  # Set environment variable
+hop3 config show --app myapp         # View configuration
 ```
 
 ## What's Next?

@@ -391,20 +391,20 @@ hop3 init --ssh root@your-server.example.com
 ### Create and Attach a Database
 
 ```bash
-hop3 addon create postgres myapp-db
-hop3 addon attach hop3-tuto-rails myapp-db
+hop3 addons create postgres myapp-db
+hop3 addons attach hop3-tuto-rails myapp-db
 ```
 
 ### Set Environment Variables
 
 ```bash
 # Generate and set the secret key
-hop3 config set hop3-tuto-rails SECRET_KEY_BASE=$(bin/rails secret)
+hop3 config set --app hop3-tuto-rails SECRET_KEY_BASE=$(bin/rails secret)
 
 # Set Rails environment variables
-hop3 config set hop3-tuto-rails RAILS_ENV=production
-hop3 config set hop3-tuto-rails RAILS_LOG_TO_STDOUT=true
-hop3 config set hop3-tuto-rails RAILS_SERVE_STATIC_FILES=true
+hop3 config set --app hop3-tuto-rails RAILS_ENV=production
+hop3 config set --app hop3-tuto-rails RAILS_LOG_TO_STDOUT=true
+hop3 config set --app hop3-tuto-rails RAILS_SERVE_STATIC_FILES=true
 ```
 
 ### Deploy
@@ -420,7 +420,7 @@ hop3 deploy hop3-tuto-rails
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set hop3-tuto-rails HOST_NAME=hop3-tuto-rails.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-rails HOST_NAME=hop3-tuto-rails.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -449,7 +449,7 @@ You'll see output showing:
 Check your application status:
 
 ```bash
-hop3 app status hop3-tuto-rails
+hop3 status --app hop3-tuto-rails
 ```
 
 ```console
@@ -467,7 +467,7 @@ OK
 View logs:
 
 ```bash
-hop3 app logs hop3-tuto-rails
+hop3 logs --app hop3-tuto-rails
 ```
 
 Open your application:
@@ -504,16 +504,16 @@ hop3 run hop3-tuto-rails bin/rake custom:task
 
 ```bash
 # List all variables
-hop3 config show hop3-tuto-rails
+hop3 config show --app hop3-tuto-rails
 
 # Set a variable
-hop3 config set hop3-tuto-rails NEW_VARIABLE=value
+hop3 config set --app hop3-tuto-rails NEW_VARIABLE=value
 
 # Remove a variable
-hop3 config unset hop3-tuto-rails OLD_VARIABLE
+hop3 config unset --app hop3-tuto-rails OLD_VARIABLE
 
 # Restart to apply changes
-hop3 app restart hop3-tuto-rails
+hop3 restart --app hop3-tuto-rails
 ```
 
 ### Scaling
@@ -558,8 +558,8 @@ worker: bundle exec sidekiq -C config/sidekiq.yml
 Attach a Redis addon:
 
 ```bash
-hop3 addon create redis myapp-redis
-hop3 addon attach hop3-tuto-rails myapp-redis
+hop3 addons create redis myapp-redis
+hop3 addons attach hop3-tuto-rails myapp-redis
 ```
 
 ### Active Storage with Local Storage
@@ -579,7 +579,7 @@ production:
 Set the storage path:
 
 ```bash
-hop3 config set hop3-tuto-rails STORAGE_PATH=/var/hop3/apps/myapp/data/storage
+hop3 config set --app hop3-tuto-rails STORAGE_PATH=/var/hop3/apps/myapp/data/storage
 ```
 
 ### Health Checks
@@ -666,7 +666,7 @@ This backs up:
 ```bash
 hop3 backup list myapp
 hop3 backup restore <backup-id>
-hop3 app restart hop3-tuto-rails
+hop3 restart --app hop3-tuto-rails
 ```
 
 ## Troubleshooting
@@ -676,7 +676,7 @@ hop3 app restart hop3-tuto-rails
 Check the logs for errors:
 
 ```bash
-hop3 app logs hop3-tuto-rails --tail
+hop3 logs --app hop3-tuto-rails --tail
 ```
 
 Common issues:
@@ -689,7 +689,7 @@ Common issues:
 Verify the database is attached:
 
 ```bash
-hop3 config show hop3-tuto-rails | grep DATABASE
+hop3 config show --app hop3-tuto-rails | grep DATABASE
 ```
 
 Test the connection:

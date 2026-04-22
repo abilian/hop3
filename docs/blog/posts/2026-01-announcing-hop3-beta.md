@@ -61,10 +61,10 @@ Provision databases with a single command:
 
 ```bash
 # Create a PostgreSQL database
-hop3 addons:create postgres myapp-db
+hop3 addons create postgres myapp-db
 
 # Attach it to your app (injects DATABASE_URL)
-hop3 addons:attach myapp myapp-db
+hop3 addons attach myapp myapp-db
 ```
 
 Supported addons: PostgreSQL, MySQL, Redis.

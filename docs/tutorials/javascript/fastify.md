@@ -5,7 +5,7 @@ tutorial:
     NODE_ENV: development
   teardown:
     - rm -rf hop3-tuto-fastify 2>/dev/null || true
-    - hop3 app:destroy hop3-tuto-fastify -y 2>/dev/null || true
+    - hop3 app destroy --app hop3-tuto-fastify -y 2>/dev/null || true
 ---
 
 # Deploying Fastify on Hop3
@@ -255,7 +255,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config:set hop3-tuto-fastify HOST_NAME=hop3-tuto-fastify.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-fastify HOST_NAME=hop3-tuto-fastify.$HOP3_TEST_DOMAIN
 ```
 
 ### Set Environment Variables
@@ -263,7 +263,7 @@ hop3 config:set hop3-tuto-fastify HOST_NAME=hop3-tuto-fastify.$HOP3_TEST_DOMAIN
 Configure additional environment variables:
 
 ```bash exec id=set-env timeout=30
-hop3 config:set hop3-tuto-fastify ALLOWED_ORIGINS=http://hop3-tuto-fastify.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-fastify ALLOWED_ORIGINS=http://hop3-tuto-fastify.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -281,7 +281,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 app:status hop3-tuto-fastify
+hop3 status --app hop3-tuto-fastify
 ```
 
 ```output contains
@@ -300,17 +300,17 @@ OK
 
 ```bash skip
 # Restart the application
-hop3 app:restart hop3-tuto-fastify
+hop3 restart --app hop3-tuto-fastify
 
 # View logs
-hop3 app:logs hop3-tuto-fastify
+hop3 logs --app hop3-tuto-fastify
 
 # View/set environment variables
-hop3 config:show hop3-tuto-fastify
-hop3 config:set hop3-tuto-fastify NEW_VAR=value
+hop3 config show --app hop3-tuto-fastify
+hop3 config set --app hop3-tuto-fastify NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-fastify web=2
+hop3 ps scale --app hop3-tuto-fastify web=2
 ```
 
 ## Advanced Configuration

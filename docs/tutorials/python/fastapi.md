@@ -6,7 +6,7 @@ tutorial:
     PIP_DISABLE_PIP_VERSION_CHECK: "1"
   teardown:
     - rm -rf hop3-tuto-fastapi venv 2>/dev/null || true
-    - hop3 app:destroy hop3-tuto-fastapi -y 2>/dev/null || true
+    - hop3 app destroy --app hop3-tuto-fastapi -y 2>/dev/null || true
 ---
 
 # Deploying FastAPI on Hop3
@@ -476,10 +476,10 @@ hop3 init --ssh root@your-server.example.com
 
 ```bash skip
 # Generate and set the secret key
-hop3 config:set hop3-tuto-fastapi SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+hop3 config set --app hop3-tuto-fastapi SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 
 # Set environment
-hop3 config:set hop3-tuto-fastapi ENVIRONMENT=production
+hop3 config set --app hop3-tuto-fastapi ENVIRONMENT=production
 ```
 
 ### Deploy
@@ -495,7 +495,7 @@ hop3 deploy hop3-tuto-fastapi
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config:set hop3-tuto-fastapi HOST_NAME=hop3-tuto-fastapi.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-fastapi HOST_NAME=hop3-tuto-fastapi.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -517,7 +517,7 @@ sleep 5
 Check your application status:
 
 ```bash exec id=check-status timeout=30
-hop3 app:status hop3-tuto-fastapi
+hop3 status --app hop3-tuto-fastapi
 ```
 
 ```output contains
@@ -535,7 +535,7 @@ OK
 View logs:
 
 ```bash skip
-hop3 app:logs hop3-tuto-fastapi
+hop3 logs --app hop3-tuto-fastapi
 ```
 
 Open your application:
@@ -553,7 +553,7 @@ Open your application:
 ### Restart the Application
 
 ```bash skip
-hop3 app:restart hop3-tuto-fastapi
+hop3 restart --app hop3-tuto-fastapi
 ```
 
 ### Run Commands in the Application Context
@@ -566,13 +566,13 @@ hop3 run hop3-tuto-fastapi python -c "from config import get_settings; print(get
 
 ```bash skip
 # List all variables
-hop3 config:show hop3-tuto-fastapi
+hop3 config show --app hop3-tuto-fastapi
 
 # Set a variable
-hop3 config:set hop3-tuto-fastapi NEW_VARIABLE=value
+hop3 config set --app hop3-tuto-fastapi NEW_VARIABLE=value
 
 # Remove a variable
-hop3 config:unset hop3-tuto-fastapi OLD_VARIABLE
+hop3 config unset --app hop3-tuto-fastapi OLD_VARIABLE
 ```
 
 ### Scaling
@@ -582,7 +582,7 @@ hop3 config:unset hop3-tuto-fastapi OLD_VARIABLE
 hop3 ps hop3-tuto-fastapi
 
 # Scale web workers
-hop3 ps:scale hop3-tuto-fastapi web=2
+hop3 ps scale --app hop3-tuto-fastapi web=2
 ```
 
 ## Advanced Configuration
@@ -651,8 +651,8 @@ async def list_items(db: AsyncSession = Depends(get_db)):
 Create and attach database:
 
 ```bash skip
-hop3 addons:create postgres hop3-tuto-fastapi-db
-hop3 addons:attach hop3-tuto-fastapi hop3-tuto-fastapi-db
+hop3 addons create postgres hop3-tuto-fastapi-db
+hop3 addons attach hop3-tuto-fastapi hop3-tuto-fastapi-db
 ```
 
 ### Adding Redis for Caching
@@ -694,8 +694,8 @@ async def delete_cache(key: str):
 Attach Redis:
 
 ```bash skip
-hop3 addons:create redis hop3-tuto-fastapi-redis
-hop3 addons:attach hop3-tuto-fastapi hop3-tuto-fastapi-redis
+hop3 addons create redis hop3-tuto-fastapi-redis
+hop3 addons attach hop3-tuto-fastapi hop3-tuto-fastapi-redis
 ```
 
 ### Background Tasks with Celery
@@ -856,11 +856,11 @@ async def log_requests(request: Request, call_next):
 Check the logs for errors:
 
 ```bash skip
-hop3 app:logs hop3-tuto-fastapi --tail
+hop3 logs --app hop3-tuto-fastapi --tail
 ```
 
 Common issues:
-- **Missing SECRET_KEY**: Set it with `hop3 config:set`
+- **Missing SECRET_KEY**: Set it with `hop3 config set`
 - **Module not found**: Ensure all dependencies are in `requirements.txt`
 - **Port binding**: Ensure Uvicorn binds to `0.0.0.0:$PORT`
 
@@ -869,7 +869,7 @@ Common issues:
 Verify the database is attached:
 
 ```bash skip
-hop3 config:show hop3-tuto-fastapi | grep DATABASE
+hop3 config show --app hop3-tuto-fastapi | grep DATABASE
 ```
 
 For async connections, ensure you're using `asyncpg`:

@@ -5,7 +5,7 @@ tutorial:
     NODE_ENV: development
   teardown:
     - rm -rf hop3-tuto-nuxtjs 2>/dev/null || true
-    - hop3 app:destroy hop3-tuto-nuxtjs -y 2>/dev/null || true
+    - hop3 app destroy --app hop3-tuto-nuxtjs -y 2>/dev/null || true
 ---
 
 # Deploying Nuxt.js on Hop3
@@ -429,7 +429,7 @@ hop3 deploy hop3-tuto-nuxtjs
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config:set hop3-tuto-nuxtjs HOST_NAME=hop3-tuto-nuxtjs.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-nuxtjs HOST_NAME=hop3-tuto-nuxtjs.$HOP3_TEST_DOMAIN
 ```
 
 ### Wait for Process Stop
@@ -455,7 +455,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 app:status hop3-tuto-nuxtjs
+hop3 status --app hop3-tuto-nuxtjs
 ```
 
 ```output contains
@@ -475,14 +475,14 @@ OK
 ### Environment Variables
 
 ```bash skip
-hop3 config:set hop3-tuto-nuxtjs NUXT_PUBLIC_API_BASE=https://api.example.com
-hop3 config:set hop3-tuto-nuxtjs NUXT_SECRET_KEY=$(openssl rand -hex 32)
+hop3 config set --app hop3-tuto-nuxtjs NUXT_PUBLIC_API_BASE=https://api.example.com
+hop3 config set --app hop3-tuto-nuxtjs NUXT_SECRET_KEY=$(openssl rand -hex 32)
 ```
 
 ### View Logs
 
 ```bash skip
-hop3 app:logs hop3-tuto-nuxtjs --tail
+hop3 logs --app hop3-tuto-nuxtjs --tail
 ```
 
 ## Advanced Configuration

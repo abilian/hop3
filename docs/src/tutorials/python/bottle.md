@@ -241,7 +241,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set hop3-tuto-bottle HOST_NAME=hop3-tuto-bottle.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-bottle HOST_NAME=hop3-tuto-bottle.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -259,7 +259,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 app status hop3-tuto-bottle
+hop3 status --app hop3-tuto-bottle
 ```
 
 ```console
@@ -278,17 +278,17 @@ OK
 
 ```bash
 # Restart the application
-hop3 app restart hop3-tuto-bottle
+hop3 restart --app hop3-tuto-bottle
 
 # View logs
-hop3 app logs hop3-tuto-bottle
+hop3 logs --app hop3-tuto-bottle
 
 # View/set environment variables
-hop3 config show hop3-tuto-bottle
-hop3 config set hop3-tuto-bottle NEW_VAR=value
+hop3 config show --app hop3-tuto-bottle
+hop3 config set --app hop3-tuto-bottle NEW_VAR=value
 
 # Scale workers
-hop3 ps scale hop3-tuto-bottle web=2
+hop3 ps scale --app hop3-tuto-bottle web=2
 ```
 
 ## Example hop3.toml

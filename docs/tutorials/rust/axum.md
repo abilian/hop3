@@ -3,7 +3,7 @@ tutorial:
   name: axum-hop3-tutorial
   teardown:
   - rm -rf hop3-tuto-axum 2>/dev/null || true
-  - hop3 app:destroy hop3-tuto-axum -y 2>/dev/null || true
+  - hop3 app destroy --app hop3-tuto-axum -y 2>/dev/null || true
 ---
 
 # Deploying Axum on Hop3
@@ -350,7 +350,7 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash skip
-hop3 config:set hop3-tuto-axum RUST_LOG=info
+hop3 config set --app hop3-tuto-axum RUST_LOG=info
 ```
 
 ### Deploy
@@ -370,7 +370,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config:set hop3-tuto-axum HOST_NAME=hop3-tuto-axum.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-axum HOST_NAME=hop3-tuto-axum.$HOP3_TEST_DOMAIN
 ```
 
 ### Wait for Process Stop
@@ -396,7 +396,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 app:status hop3-tuto-axum
+hop3 status --app hop3-tuto-axum
 ```
 
 ```output contains
@@ -415,7 +415,7 @@ View logs:
 
 ```bash skip
 # View logs
-hop3 app:logs hop3-tuto-axum
+hop3 logs --app hop3-tuto-axum
 
 # Your app will be available at:
 # http://hop3-tuto-axum.your-hop3-server.example.com
@@ -425,14 +425,14 @@ hop3 app:logs hop3-tuto-axum
 
 ```bash skip
 # Restart the application
-hop3 app:restart hop3-tuto-axum
+hop3 restart --app hop3-tuto-axum
 
 # View/set environment variables
-hop3 config:show hop3-tuto-axum
-hop3 config:set hop3-tuto-axum NEW_VAR=value
+hop3 config show --app hop3-tuto-axum
+hop3 config set --app hop3-tuto-axum NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-axum web=2
+hop3 ps scale --app hop3-tuto-axum web=2
 ```
 
 ## Advanced Configuration

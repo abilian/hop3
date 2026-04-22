@@ -3,7 +3,7 @@ tutorial:
   name: aspnet-core-hop3-tutorial
   teardown:
   - rm -rf hop3-tuto-aspnet-core 2>/dev/null || true
-  - hop3 app:destroy hop3-tuto-aspnet-core -y 2>/dev/null || true
+  - hop3 app destroy --app hop3-tuto-aspnet-core -y 2>/dev/null || true
 ---
 
 # Deploying ASP.NET Core on Hop3
@@ -382,7 +382,7 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash skip
-hop3 config:set hop3-tuto-aspnet-core ASPNETCORE_ENVIRONMENT=Production
+hop3 config set --app hop3-tuto-aspnet-core ASPNETCORE_ENVIRONMENT=Production
 ```
 
 ### Deploy
@@ -398,7 +398,7 @@ hop3 deploy hop3-tuto-aspnet-core
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config:set hop3-tuto-aspnet-core HOST_NAME=hop3-tuto-aspnet-core.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-aspnet-core HOST_NAME=hop3-tuto-aspnet-core.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -418,7 +418,7 @@ sleep 5
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 app:status hop3-tuto-aspnet-core
+hop3 status --app hop3-tuto-aspnet-core
 ```
 
 ```output contains
@@ -437,7 +437,7 @@ View logs:
 
 ```bash skip
 # View logs
-hop3 app:logs hop3-tuto-aspnet-core
+hop3 logs --app hop3-tuto-aspnet-core
 
 # Your app will be available at:
 # http://hop3-tuto-aspnet-core.your-hop3-server.example.com
@@ -447,14 +447,14 @@ hop3 app:logs hop3-tuto-aspnet-core
 
 ```bash skip
 # Restart the application
-hop3 app:restart hop3-tuto-aspnet-core
+hop3 restart --app hop3-tuto-aspnet-core
 
 # View/set environment variables
-hop3 config:show hop3-tuto-aspnet-core
-hop3 config:set hop3-tuto-aspnet-core NEW_VAR=value
+hop3 config show --app hop3-tuto-aspnet-core
+hop3 config set --app hop3-tuto-aspnet-core NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-aspnet-core web=2
+hop3 ps scale --app hop3-tuto-aspnet-core web=2
 ```
 
 ## Advanced Configuration
@@ -614,7 +614,7 @@ Host=localhost;Database=hop3-tuto-aspnet-core;Username=user;Password=pass
 .NET is generally efficient, but monitor with `/health` endpoint. Set memory limits:
 
 ```bash skip
-hop3 config:set hop3-tuto-aspnet-core DOTNET_GCHeapHardLimit=268435456
+hop3 config set --app hop3-tuto-aspnet-core DOTNET_GCHeapHardLimit=268435456
 ```
 
 ### Slow Startup

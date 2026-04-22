@@ -332,7 +332,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set hop3-tuto-eleventy HOST_NAME=hop3-tuto-eleventy.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-eleventy HOST_NAME=hop3-tuto-eleventy.$HOP3_TEST_DOMAIN
 ```
 
 ### Wait for Process Stop
@@ -358,7 +358,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 app status hop3-tuto-eleventy
+hop3 status --app hop3-tuto-eleventy
 ```
 
 ```console
@@ -377,17 +377,17 @@ Hello from Hop3
 
 ```bash
 # Restart the application
-hop3 app restart hop3-tuto-eleventy
+hop3 restart --app hop3-tuto-eleventy
 
 # View logs
-hop3 app logs hop3-tuto-eleventy
+hop3 logs --app hop3-tuto-eleventy
 
 # View/set environment variables
-hop3 config show hop3-tuto-eleventy
-hop3 config set hop3-tuto-eleventy NEW_VAR=value
+hop3 config show --app hop3-tuto-eleventy
+hop3 config set --app hop3-tuto-eleventy NEW_VAR=value
 
 # Scale workers
-hop3 ps scale hop3-tuto-eleventy web=2
+hop3 ps scale --app hop3-tuto-eleventy web=2
 ```
 
 ## Advanced Configuration

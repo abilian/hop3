@@ -5,7 +5,7 @@ tutorial:
     NODE_ENV: development
   teardown:
     - rm -rf hop3-tuto-nextjs 2>/dev/null || true
-    - hop3 app:destroy hop3-tuto-nextjs -y 2>/dev/null || true
+    - hop3 app destroy --app hop3-tuto-nextjs -y 2>/dev/null || true
 ---
 
 # Deploying Next.js on Hop3
@@ -344,7 +344,7 @@ hop3 deploy hop3-tuto-nextjs
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config:set hop3-tuto-nextjs HOST_NAME=hop3-tuto-nextjs.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-nextjs HOST_NAME=hop3-tuto-nextjs.$HOP3_TEST_DOMAIN
 ```
 
 ### Wait for Process Stop
@@ -379,7 +379,7 @@ You'll see output showing:
 Check your application status:
 
 ```bash exec id=check-status timeout=30
-hop3 app:status hop3-tuto-nextjs
+hop3 status --app hop3-tuto-nextjs
 ```
 
 ```output contains
@@ -399,20 +399,20 @@ OK
 ### Restart the Application
 
 ```bash skip
-hop3 app:restart hop3-tuto-nextjs
+hop3 restart --app hop3-tuto-nextjs
 ```
 
 ### View and Manage Environment Variables
 
 ```bash skip
 # List all variables
-hop3 config:show hop3-tuto-nextjs
+hop3 config show --app hop3-tuto-nextjs
 
 # Set a variable
-hop3 config:set hop3-tuto-nextjs NEXT_PUBLIC_API_URL=https://api.example.com
+hop3 config set --app hop3-tuto-nextjs NEXT_PUBLIC_API_URL=https://api.example.com
 
 # Remove a variable
-hop3 config:unset hop3-tuto-nextjs OLD_VARIABLE
+hop3 config unset --app hop3-tuto-nextjs OLD_VARIABLE
 ```
 
 ### Scaling
@@ -422,7 +422,7 @@ hop3 config:unset hop3-tuto-nextjs OLD_VARIABLE
 hop3 ps hop3-tuto-nextjs
 
 # Scale web workers
-hop3 ps:scale hop3-tuto-nextjs web=2
+hop3 ps scale --app hop3-tuto-nextjs web=2
 ```
 
 ## Advanced Configuration
@@ -467,8 +467,8 @@ before-run = "npx prisma migrate deploy && cp -r .next/static .next/standalone/.
 Attach a database addon:
 
 ```bash skip
-hop3 addons:create postgres hop3-tuto-nextjs-db
-hop3 addons:attach hop3-tuto-nextjs hop3-tuto-nextjs-db
+hop3 addons create postgres hop3-tuto-nextjs-db
+hop3 addons attach hop3-tuto-nextjs hop3-tuto-nextjs-db
 ```
 
 ### Environment Variables for Client-Side
@@ -477,11 +477,11 @@ Next.js exposes environment variables prefixed with `NEXT_PUBLIC_` to the browse
 
 ```bash skip
 # Server-side only (secure)
-hop3 config:set hop3-tuto-nextjs DATABASE_URL=postgres://...
-hop3 config:set hop3-tuto-nextjs SECRET_KEY=your-secret
+hop3 config set --app hop3-tuto-nextjs DATABASE_URL=postgres://...
+hop3 config set --app hop3-tuto-nextjs SECRET_KEY=your-secret
 
 # Client-side (visible in browser)
-hop3 config:set hop3-tuto-nextjs NEXT_PUBLIC_API_URL=https://api.example.com
+hop3 config set --app hop3-tuto-nextjs NEXT_PUBLIC_API_URL=https://api.example.com
 ```
 
 !!! warning "Security Note"
@@ -590,7 +590,7 @@ export async function POST(request: Request) {
 Check the logs for errors:
 
 ```bash skip
-hop3 app:logs hop3-tuto-nextjs --tail
+hop3 logs --app hop3-tuto-nextjs --tail
 ```
 
 Common issues:
@@ -611,7 +611,7 @@ If the build fails:
 Next.js can consume significant memory during build:
 
 ```bash skip
-hop3 config:set hop3-tuto-nextjs NODE_OPTIONS="--max-old-space-size=2048"
+hop3 config set --app hop3-tuto-nextjs NODE_OPTIONS="--max-old-space-size=2048"
 ```
 
 ### Static Assets Not Loading

@@ -133,7 +133,7 @@ scheduler = "celery -A app beat"
 cron = "python manage.py runcrons"
 ```
 
-Workers are managed independently. You can scale them separately (`hop3 ps:scale worker=3`), restart them individually, and monitor them in isolation. This mirrors how Heroku's dynos work, and it's one of the patterns we explicitly borrowed.
+Workers are managed independently. You can scale them separately (`hop3 ps scale --app worker=3`), restart them individually, and monitor them in isolation. This mirrors how Heroku's dynos work, and it's one of the patterns we explicitly borrowed.
 
 ## [env] — Configuration Without Code Changes
 

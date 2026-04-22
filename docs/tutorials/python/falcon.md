@@ -5,7 +5,7 @@ tutorial:
     PYTHONDONTWRITEBYTECODE: "1"
   teardown:
     - rm -rf hop3-tuto-falcon venv 2>/dev/null || true
-    - hop3 app:destroy hop3-tuto-falcon -y 2>/dev/null || true
+    - hop3 app destroy --app hop3-tuto-falcon -y 2>/dev/null || true
 ---
 
 # Deploying Falcon on Hop3
@@ -266,7 +266,7 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash skip
-hop3 config:set hop3-tuto-falcon SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+hop3 config set --app hop3-tuto-falcon SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 ```
 
 ### Deploy
@@ -286,7 +286,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config:set hop3-tuto-falcon HOST_NAME=hop3-tuto-falcon.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-falcon HOST_NAME=hop3-tuto-falcon.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -304,7 +304,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 app:status hop3-tuto-falcon
+hop3 status --app hop3-tuto-falcon
 ```
 
 ```output contains
@@ -322,7 +322,7 @@ OK
 View logs:
 
 ```bash skip
-hop3 app:logs hop3-tuto-falcon
+hop3 logs --app hop3-tuto-falcon
 
 # Your app will be available at:
 # http://hop3-tuto-falcon.your-hop3-server.example.com
@@ -332,14 +332,14 @@ hop3 app:logs hop3-tuto-falcon
 
 ```bash skip
 # Restart the application
-hop3 app:restart hop3-tuto-falcon
+hop3 restart --app hop3-tuto-falcon
 
 # View/set environment variables
-hop3 config:show hop3-tuto-falcon
-hop3 config:set hop3-tuto-falcon NEW_VAR=value
+hop3 config show --app hop3-tuto-falcon
+hop3 config set --app hop3-tuto-falcon NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-falcon web=2
+hop3 ps scale --app hop3-tuto-falcon web=2
 ```
 
 ## Advanced Configuration

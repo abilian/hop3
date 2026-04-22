@@ -201,8 +201,8 @@ ALLOWED_HOSTS = "myapp.example.com"
 **⚠️ Security Note:** Don't hardcode secrets in `hop3.toml`. Use the CLI to set sensitive values:
 
 ```bash
-hop3 config:set my-app SECRET_KEY="actual-secret-value"
-hop3 config:set my-app API_TOKEN="sensitive-token"
+hop3 config set --app my-app SECRET_KEY="actual-secret-value"
+hop3 config set --app my-app API_TOKEN="sensitive-token"
 ```
 
 #### [port] - Port Configuration
@@ -350,7 +350,7 @@ cd django-app
 git init
 git add .
 git commit -m "Initial commit"
-hop3 config:set django-app SECRET_KEY="$(openssl rand -hex 32)"
+hop3 config set --app django-app SECRET_KEY="$(openssl rand -hex 32)"
 hop3 deploy
 ```
 
@@ -627,9 +627,9 @@ DATABASE_URL=postgresql://localhost/dev_db
 
 **Production (via CLI):**
 ```bash
-hop3 config:set myapp DEBUG=false
-hop3 config:set myapp DATABASE_URL="postgresql://prod-server/prod_db"
-hop3 config:set myapp SECRET_KEY="$(openssl rand -hex 32)"
+hop3 config set --app myapp DEBUG=false
+hop3 config set --app myapp DATABASE_URL="postgresql://prod-server/prod_db"
+hop3 config set --app myapp SECRET_KEY="$(openssl rand -hex 32)"
 ```
 
 **hop3.toml** (defaults only):
@@ -783,10 +783,10 @@ hop3 deploy --app myapp-staging
 curl https://myapp-staging.hop3.example.com
 
 # Check logs
-hop3 logs myapp-staging
+hop3 logs --app myapp-staging
 
 # Check status
-hop3 app:status myapp-staging
+hop3 status --app myapp-staging
 ```
 
 ### 4. Common Issues to Check
@@ -794,10 +794,10 @@ hop3 app:status myapp-staging
 **Environment variables:**
 ```bash
 # Verify all required env vars are set
-hop3 config:list myapp
+hop3 config show --app myapp
 
 # Add missing vars
-hop3 config:set myapp DATABASE_URL="..."
+hop3 config set --app myapp DATABASE_URL="..."
 ```
 
 **Port binding:**
@@ -883,16 +883,17 @@ hop3 logs myapp --tail 200 | grep -A 10 "BUILD"
 
 **Check DATABASE_URL:**
 ```bash
-hop3 config:get myapp DATABASE_URL
+hop3 config get --app myapp DATABASE_URL
 ```
 
 **Verify database service:**
 ```bash
 # List attached services
-hop3 services:list myapp
+hop3 addon list --app myapp
 
 # Attach database if missing
-hop3 services:create myapp postgres
+hop3 addon create postgres myapp-db
+hop3 addon attach myapp-db --app myapp
 ```
 
 ### Static Files Not Serving
@@ -928,13 +929,13 @@ start = "gunicorn app:app"
 **Set via CLI:**
 ```bash
 # Set the variable
-hop3 config:set myapp MY_VAR="value"
+hop3 config set --app myapp MY_VAR="value"
 
 # Restart to apply
-hop3 app:restart myapp
+hop3 restart --app myapp
 
 # Verify
-hop3 config:list myapp
+hop3 config show --app myapp
 ```
 
 ## Best Practices Checklist

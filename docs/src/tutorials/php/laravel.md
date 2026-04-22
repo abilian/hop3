@@ -454,20 +454,20 @@ hop3 init --ssh root@your-server.example.com
 ### Create and Attach a Database
 
 ```bash
-hop3 addon create postgres hop3-tuto-laravel-db
-hop3 addon attach hop3-tuto-laravel hop3-tuto-laravel-db
+hop3 addons create postgres hop3-tuto-laravel-db
+hop3 addons attach hop3-tuto-laravel hop3-tuto-laravel-db
 ```
 
 ### Set Environment Variables
 
 ```bash
 # Generate and set the application key
-hop3 config set hop3-tuto-laravel APP_KEY=$(php artisan key:generate --show)
+hop3 config set --app hop3-tuto-laravel APP_KEY=$(php artisan key:generate --show)
 
 # Set Laravel environment variables
-hop3 config set hop3-tuto-laravel APP_ENV=production
-hop3 config set hop3-tuto-laravel APP_DEBUG=false
-hop3 config set hop3-tuto-laravel LOG_CHANNEL=stderr
+hop3 config set --app hop3-tuto-laravel APP_ENV=production
+hop3 config set --app hop3-tuto-laravel APP_DEBUG=false
+hop3 config set --app hop3-tuto-laravel LOG_CHANNEL=stderr
 ```
 
 ### Prepare for Deployment
@@ -494,7 +494,7 @@ hop3 deploy hop3-tuto-laravel
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set hop3-tuto-laravel HOST_NAME=hop3-tuto-laravel.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-laravel HOST_NAME=hop3-tuto-laravel.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -523,7 +523,7 @@ You'll see output showing:
 Check your application status:
 
 ```bash
-hop3 app status hop3-tuto-laravel
+hop3 status --app hop3-tuto-laravel
 ```
 
 ```console
@@ -540,7 +540,7 @@ OK
 View logs:
 
 ```bash
-hop3 app logs hop3-tuto-laravel
+hop3 logs --app hop3-tuto-laravel
 ```
 
 Open your application:
@@ -573,13 +573,13 @@ hop3 run hop3-tuto-laravel php artisan view:clear
 
 ```bash
 # List all variables
-hop3 config show hop3-tuto-laravel
+hop3 config show --app hop3-tuto-laravel
 
 # Set a variable
-hop3 config set hop3-tuto-laravel MAIL_MAILER=smtp
+hop3 config set --app hop3-tuto-laravel MAIL_MAILER=smtp
 
 # Remove a variable
-hop3 config unset hop3-tuto-laravel OLD_VARIABLE
+hop3 config unset --app hop3-tuto-laravel OLD_VARIABLE
 ```
 
 ### Scaling
@@ -589,7 +589,7 @@ hop3 config unset hop3-tuto-laravel OLD_VARIABLE
 hop3 ps hop3-tuto-laravel
 
 # Scale web workers
-hop3 ps scale hop3-tuto-laravel web=2
+hop3 ps scale --app hop3-tuto-laravel web=2
 ```
 
 ## Advanced Configuration
@@ -621,7 +621,7 @@ worker: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
 Configure queue connection:
 
 ```bash
-hop3 config set hop3-tuto-laravel QUEUE_CONNECTION=database
+hop3 config set --app hop3-tuto-laravel QUEUE_CONNECTION=database
 ```
 
 ### Scheduled Tasks
@@ -650,10 +650,10 @@ composer require predis/predis
 Attach Redis addon:
 
 ```bash
-hop3 addon create redis hop3-tuto-laravel-redis
-hop3 addon attach hop3-tuto-laravel hop3-tuto-laravel-redis
-hop3 config set hop3-tuto-laravel CACHE_DRIVER=redis
-hop3 config set hop3-tuto-laravel SESSION_DRIVER=redis
+hop3 addons create redis hop3-tuto-laravel-redis
+hop3 addons attach hop3-tuto-laravel hop3-tuto-laravel-redis
+hop3 config set --app hop3-tuto-laravel CACHE_DRIVER=redis
+hop3 config set --app hop3-tuto-laravel SESSION_DRIVER=redis
 ```
 
 ### File Storage with S3
@@ -667,11 +667,11 @@ composer require league/flysystem-aws-s3-v3
 Configure in `config/filesystems.php` and set:
 
 ```bash
-hop3 config set hop3-tuto-laravel FILESYSTEM_DISK=s3
-hop3 config set hop3-tuto-laravel AWS_ACCESS_KEY_ID=your-key
-hop3 config set hop3-tuto-laravel AWS_SECRET_ACCESS_KEY=your-secret
-hop3 config set hop3-tuto-laravel AWS_DEFAULT_REGION=us-east-1
-hop3 config set hop3-tuto-laravel AWS_BUCKET=your-bucket
+hop3 config set --app hop3-tuto-laravel FILESYSTEM_DISK=s3
+hop3 config set --app hop3-tuto-laravel AWS_ACCESS_KEY_ID=your-key
+hop3 config set --app hop3-tuto-laravel AWS_SECRET_ACCESS_KEY=your-secret
+hop3 config set --app hop3-tuto-laravel AWS_DEFAULT_REGION=us-east-1
+hop3 config set --app hop3-tuto-laravel AWS_BUCKET=your-bucket
 ```
 
 ### Mail Configuration
@@ -679,12 +679,12 @@ hop3 config set hop3-tuto-laravel AWS_BUCKET=your-bucket
 Configure mail using environment variables:
 
 ```bash
-hop3 config set hop3-tuto-laravel MAIL_MAILER=smtp
-hop3 config set hop3-tuto-laravel MAIL_HOST=smtp.mailgun.org
-hop3 config set hop3-tuto-laravel MAIL_PORT=587
-hop3 config set hop3-tuto-laravel MAIL_USERNAME=your-username
-hop3 config set hop3-tuto-laravel MAIL_PASSWORD=your-password
-hop3 config set hop3-tuto-laravel MAIL_ENCRYPTION=tls
+hop3 config set --app hop3-tuto-laravel MAIL_MAILER=smtp
+hop3 config set --app hop3-tuto-laravel MAIL_HOST=smtp.mailgun.org
+hop3 config set --app hop3-tuto-laravel MAIL_PORT=587
+hop3 config set --app hop3-tuto-laravel MAIL_USERNAME=your-username
+hop3 config set --app hop3-tuto-laravel MAIL_PASSWORD=your-password
+hop3 config set --app hop3-tuto-laravel MAIL_ENCRYPTION=tls
 ```
 
 ## Troubleshooting
@@ -694,7 +694,7 @@ hop3 config set hop3-tuto-laravel MAIL_ENCRYPTION=tls
 Check the logs for errors:
 
 ```bash
-hop3 app logs hop3-tuto-laravel --tail
+hop3 logs --app hop3-tuto-laravel --tail
 ```
 
 Common issues:
@@ -715,7 +715,7 @@ hop3 run hop3-tuto-laravel chmod -R 775 storage bootstrap/cache
 If Composer runs out of memory:
 
 ```bash
-hop3 config set hop3-tuto-laravel COMPOSER_MEMORY_LIMIT=-1
+hop3 config set --app hop3-tuto-laravel COMPOSER_MEMORY_LIMIT=-1
 ```
 
 ### Database Connection Issues
@@ -723,7 +723,7 @@ hop3 config set hop3-tuto-laravel COMPOSER_MEMORY_LIMIT=-1
 Verify the database is attached:
 
 ```bash
-hop3 config show hop3-tuto-laravel | grep DATABASE
+hop3 config show --app hop3-tuto-laravel | grep DATABASE
 ```
 
 Test the connection:

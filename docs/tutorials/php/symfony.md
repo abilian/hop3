@@ -6,7 +6,7 @@ tutorial:
     APP_SECRET: "dev-only-secret-not-for-production"
   teardown:
   - rm -rf hop3-tuto-symfony 2>/dev/null || true
-  - hop3 app:destroy hop3-tuto-symfony -y 2>/dev/null || true
+  - hop3 app destroy --app hop3-tuto-symfony -y 2>/dev/null || true
 ---
 
 # Deploying Symfony on Hop3
@@ -377,9 +377,9 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash skip
-hop3 config:set hop3-tuto-symfony APP_ENV=prod
-hop3 config:set hop3-tuto-symfony APP_SECRET=$(openssl rand -hex 16)
-hop3 config:set hop3-tuto-symfony APP_DEBUG=0
+hop3 config set --app hop3-tuto-symfony APP_ENV=prod
+hop3 config set --app hop3-tuto-symfony APP_SECRET=$(openssl rand -hex 16)
+hop3 config set --app hop3-tuto-symfony APP_DEBUG=0
 ```
 
 ### Prepare for Deployment
@@ -406,7 +406,7 @@ hop3 deploy hop3-tuto-symfony
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config:set hop3-tuto-symfony HOST_NAME=hop3-tuto-symfony.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-symfony HOST_NAME=hop3-tuto-symfony.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -426,7 +426,7 @@ sleep 5
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 app:status hop3-tuto-symfony
+hop3 status --app hop3-tuto-symfony
 ```
 
 ```output contains
@@ -445,7 +445,7 @@ View logs:
 
 ```bash skip
 # View logs
-hop3 app:logs hop3-tuto-symfony
+hop3 logs --app hop3-tuto-symfony
 
 # Your app will be available at:
 # http://hop3-tuto-symfony.your-hop3-server.example.com
@@ -455,17 +455,17 @@ hop3 app:logs hop3-tuto-symfony
 
 ```bash skip
 # Restart the application
-hop3 app:restart hop3-tuto-symfony
+hop3 restart --app hop3-tuto-symfony
 
 # Clear cache
 hop3 run hop3-tuto-symfony php bin/console cache:clear --env=prod
 
 # View/set environment variables
-hop3 config:show hop3-tuto-symfony
-hop3 config:set hop3-tuto-symfony NEW_VAR=value
+hop3 config show --app hop3-tuto-symfony
+hop3 config set --app hop3-tuto-symfony NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-symfony web=2
+hop3 ps scale --app hop3-tuto-symfony web=2
 ```
 
 ## Advanced Configuration
@@ -608,7 +608,7 @@ hop3 run hop3-tuto-symfony php bin/console cache:warmup --env=prod
 Generate and set:
 
 ```bash skip
-hop3 config:set hop3-tuto-symfony APP_SECRET=$(openssl rand -hex 16)
+hop3 config set --app hop3-tuto-symfony APP_SECRET=$(openssl rand -hex 16)
 ```
 
 ### Database Connection Issues

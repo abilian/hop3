@@ -238,7 +238,7 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash
-hop3 config set hop3-tuto-pyramid SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+hop3 config set --app hop3-tuto-pyramid SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 ```
 
 ### Deploy
@@ -258,7 +258,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set hop3-tuto-pyramid HOST_NAME=hop3-tuto-pyramid.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-pyramid HOST_NAME=hop3-tuto-pyramid.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -276,7 +276,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 app status hop3-tuto-pyramid
+hop3 status --app hop3-tuto-pyramid
 ```
 
 ```console
@@ -294,7 +294,7 @@ OK
 View logs:
 
 ```bash
-hop3 app logs hop3-tuto-pyramid
+hop3 logs --app hop3-tuto-pyramid
 
 # Your app will be available at:
 # http://hop3-tuto-pyramid.your-hop3-server.example.com
@@ -304,14 +304,14 @@ hop3 app logs hop3-tuto-pyramid
 
 ```bash
 # Restart the application
-hop3 app restart hop3-tuto-pyramid
+hop3 restart --app hop3-tuto-pyramid
 
 # View/set environment variables
-hop3 config show hop3-tuto-pyramid
-hop3 config set hop3-tuto-pyramid NEW_VAR=value
+hop3 config show --app hop3-tuto-pyramid
+hop3 config set --app hop3-tuto-pyramid NEW_VAR=value
 
 # Scale workers
-hop3 ps scale hop3-tuto-pyramid web=2
+hop3 ps scale --app hop3-tuto-pyramid web=2
 ```
 
 ## Advanced Configuration

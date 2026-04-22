@@ -5,7 +5,7 @@ tutorial:
     PYTHONDONTWRITEBYTECODE: "1"
   teardown:
     - rm -rf hop3-tuto-pyramid venv 2>/dev/null || true
-    - hop3 app:destroy hop3-tuto-pyramid -y 2>/dev/null || true
+    - hop3 app destroy --app hop3-tuto-pyramid -y 2>/dev/null || true
 ---
 
 # Deploying Pyramid on Hop3
@@ -270,7 +270,7 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash skip
-hop3 config:set hop3-tuto-pyramid SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+hop3 config set --app hop3-tuto-pyramid SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 ```
 
 ### Deploy
@@ -290,7 +290,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config:set hop3-tuto-pyramid HOST_NAME=hop3-tuto-pyramid.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-pyramid HOST_NAME=hop3-tuto-pyramid.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -308,7 +308,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 app:status hop3-tuto-pyramid
+hop3 status --app hop3-tuto-pyramid
 ```
 
 ```output contains
@@ -326,7 +326,7 @@ OK
 View logs:
 
 ```bash skip
-hop3 app:logs hop3-tuto-pyramid
+hop3 logs --app hop3-tuto-pyramid
 
 # Your app will be available at:
 # http://hop3-tuto-pyramid.your-hop3-server.example.com
@@ -336,14 +336,14 @@ hop3 app:logs hop3-tuto-pyramid
 
 ```bash skip
 # Restart the application
-hop3 app:restart hop3-tuto-pyramid
+hop3 restart --app hop3-tuto-pyramid
 
 # View/set environment variables
-hop3 config:show hop3-tuto-pyramid
-hop3 config:set hop3-tuto-pyramid NEW_VAR=value
+hop3 config show --app hop3-tuto-pyramid
+hop3 config set --app hop3-tuto-pyramid NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-pyramid web=2
+hop3 ps scale --app hop3-tuto-pyramid web=2
 ```
 
 ## Advanced Configuration

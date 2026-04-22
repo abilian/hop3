@@ -292,7 +292,7 @@ hop3 deploy hop3-tuto-express
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set hop3-tuto-express HOST_NAME=hop3-tuto-express.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-express HOST_NAME=hop3-tuto-express.$HOP3_TEST_DOMAIN
 ```
 
 ### Wait for Process Stop
@@ -320,7 +320,7 @@ deployed successfully
 Check your application status:
 
 ```bash
-hop3 app status hop3-tuto-express
+hop3 status --app hop3-tuto-express
 ```
 
 ```console
@@ -340,7 +340,7 @@ OK
 ### Restart the Application
 
 ```bash
-hop3 app restart hop3-tuto-express
+hop3 restart --app hop3-tuto-express
 ```
 
 ### Run Commands in the Application Context
@@ -353,13 +353,13 @@ hop3 run hop3-tuto-express node -e "console.log('Hello from server!')"
 
 ```bash
 # List all variables
-hop3 config show hop3-tuto-express
+hop3 config show --app hop3-tuto-express
 
 # Set a variable
-hop3 config set hop3-tuto-express NEW_VARIABLE=value
+hop3 config set --app hop3-tuto-express NEW_VARIABLE=value
 
 # Remove a variable
-hop3 config unset hop3-tuto-express OLD_VARIABLE
+hop3 config unset --app hop3-tuto-express OLD_VARIABLE
 ```
 
 ### Scaling
@@ -369,7 +369,7 @@ hop3 config unset hop3-tuto-express OLD_VARIABLE
 hop3 ps hop3-tuto-express
 
 # Scale web workers
-hop3 ps scale hop3-tuto-express web=2
+hop3 ps scale --app hop3-tuto-express web=2
 ```
 
 ## Advanced Configuration
@@ -403,8 +403,8 @@ module.exports = {
 Attach a database addon:
 
 ```bash
-hop3 addon create postgres hop3-tuto-express-db
-hop3 addon attach hop3-tuto-express hop3-tuto-express-db
+hop3 addons create postgres hop3-tuto-express-db
+hop3 addons attach hop3-tuto-express hop3-tuto-express-db
 ```
 
 ### Adding Redis for Sessions/Caching
@@ -436,9 +436,9 @@ app.use(session({
 Attach a Redis addon:
 
 ```bash
-hop3 addon create redis hop3-tuto-express-redis
-hop3 addon attach hop3-tuto-express hop3-tuto-express-redis
-hop3 config set hop3-tuto-express SESSION_SECRET=$(openssl rand -hex 32)
+hop3 addons create redis hop3-tuto-express-redis
+hop3 addons attach hop3-tuto-express hop3-tuto-express-redis
+hop3 config set --app hop3-tuto-express SESSION_SECRET=$(openssl rand -hex 32)
 ```
 
 ### Using PM2 for Process Management
@@ -533,7 +533,7 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 Check the logs for errors:
 
 ```bash
-hop3 app logs hop3-tuto-express --tail
+hop3 logs --app hop3-tuto-express --tail
 ```
 
 Common issues:
@@ -546,7 +546,7 @@ Common issues:
 Node.js can consume significant memory. Set limits:
 
 ```bash
-hop3 config set hop3-tuto-express NODE_OPTIONS="--max-old-space-size=512"
+hop3 config set --app hop3-tuto-express NODE_OPTIONS="--max-old-space-size=512"
 ```
 
 ### Module Not Found Errors

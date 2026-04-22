@@ -5,7 +5,7 @@ tutorial:
     NODE_ENV: development
   teardown:
     - rm -rf hop3-tuto-eleventy 2>/dev/null || true
-    - hop3 app:destroy hop3-tuto-eleventy -y 2>/dev/null || true
+    - hop3 app destroy --app hop3-tuto-eleventy -y 2>/dev/null || true
 ---
 
 # Deploying Eleventy on Hop3
@@ -346,7 +346,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config:set hop3-tuto-eleventy HOST_NAME=hop3-tuto-eleventy.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-eleventy HOST_NAME=hop3-tuto-eleventy.$HOP3_TEST_DOMAIN
 ```
 
 ### Wait for Process Stop
@@ -372,7 +372,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 app:status hop3-tuto-eleventy
+hop3 status --app hop3-tuto-eleventy
 ```
 
 ```output contains
@@ -391,17 +391,17 @@ Hello from Hop3
 
 ```bash skip
 # Restart the application
-hop3 app:restart hop3-tuto-eleventy
+hop3 restart --app hop3-tuto-eleventy
 
 # View logs
-hop3 app:logs hop3-tuto-eleventy
+hop3 logs --app hop3-tuto-eleventy
 
 # View/set environment variables
-hop3 config:show hop3-tuto-eleventy
-hop3 config:set hop3-tuto-eleventy NEW_VAR=value
+hop3 config show --app hop3-tuto-eleventy
+hop3 config set --app hop3-tuto-eleventy NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-eleventy web=2
+hop3 ps scale --app hop3-tuto-eleventy web=2
 ```
 
 ## Advanced Configuration

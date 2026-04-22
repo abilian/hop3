@@ -5,7 +5,7 @@ tutorial:
     NODE_ENV: development
   teardown:
     - rm -rf hop3-tuto-nestjs 2>/dev/null || true
-    - hop3 app:destroy hop3-tuto-nestjs -y 2>/dev/null || true
+    - hop3 app destroy --app hop3-tuto-nestjs -y 2>/dev/null || true
 ---
 
 # Deploying Nest.js on Hop3
@@ -396,7 +396,7 @@ hop3 deploy hop3-tuto-nestjs
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config:set hop3-tuto-nestjs HOST_NAME=hop3-tuto-nestjs.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-nestjs HOST_NAME=hop3-tuto-nestjs.$HOP3_TEST_DOMAIN
 ```
 
 ### Set Environment Variables
@@ -404,7 +404,7 @@ hop3 config:set hop3-tuto-nestjs HOST_NAME=hop3-tuto-nestjs.$HOP3_TEST_DOMAIN
 Configure additional environment variables:
 
 ```bash exec id=set-env timeout=30
-hop3 config:set hop3-tuto-nestjs ALLOWED_ORIGINS=http://hop3-tuto-nestjs.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-nestjs ALLOWED_ORIGINS=http://hop3-tuto-nestjs.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -424,7 +424,7 @@ sleep 5
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 app:status hop3-tuto-nestjs
+hop3 status --app hop3-tuto-nestjs
 ```
 
 ```output contains
@@ -443,17 +443,17 @@ OK
 
 ```bash skip
 # Restart the application
-hop3 app:restart hop3-tuto-nestjs
+hop3 restart --app hop3-tuto-nestjs
 
 # View logs
-hop3 app:logs hop3-tuto-nestjs
+hop3 logs --app hop3-tuto-nestjs
 
 # View/set environment variables
-hop3 config:show hop3-tuto-nestjs
-hop3 config:set hop3-tuto-nestjs NEW_VAR=value
+hop3 config show --app hop3-tuto-nestjs
+hop3 config set --app hop3-tuto-nestjs NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-nestjs web=2
+hop3 ps scale --app hop3-tuto-nestjs web=2
 ```
 
 ## Advanced Configuration

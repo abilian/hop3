@@ -5,7 +5,7 @@ tutorial:
     PYTHONDONTWRITEBYTECODE: "1"
   teardown:
     - rm -rf hop3-tuto-eve venv 2>/dev/null || true
-    - hop3 app:destroy hop3-tuto-eve -y 2>/dev/null || true
+    - hop3 app destroy --app hop3-tuto-eve -y 2>/dev/null || true
 ---
 
 # Deploying Eve on Hop3
@@ -317,7 +317,7 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash skip
-hop3 config:set hop3-tuto-eve SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+hop3 config set --app hop3-tuto-eve SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 ```
 
 ### Deploy
@@ -336,7 +336,7 @@ hop3 deploy hop3-tuto-eve
 Configure the hostname for nginx proxy:
 
 ```bash skip
-hop3 config:set hop3-tuto-eve HOST_NAME=hop3-tuto-eve.your-hop3-server.example.com
+hop3 config set --app hop3-tuto-eve HOST_NAME=hop3-tuto-eve.your-hop3-server.example.com
 ```
 
 ### Apply Configuration
@@ -350,14 +350,14 @@ hop3 deploy hop3-tuto-eve
 ### Verify Deployment
 
 ```bash skip
-hop3 app:status hop3-tuto-eve
+hop3 status --app hop3-tuto-eve
 curl -s http://hop3-tuto-eve.your-hop3-server.example.com/up
 ```
 
 View logs:
 
 ```bash skip
-hop3 app:logs hop3-tuto-eve
+hop3 logs --app hop3-tuto-eve
 
 # Your app will be available at:
 # http://hop3-tuto-eve.your-hop3-server.example.com
@@ -367,14 +367,14 @@ hop3 app:logs hop3-tuto-eve
 
 ```bash skip
 # Restart the application
-hop3 app:restart hop3-tuto-eve
+hop3 restart --app hop3-tuto-eve
 
 # View/set environment variables
-hop3 config:show hop3-tuto-eve
-hop3 config:set hop3-tuto-eve NEW_VAR=value
+hop3 config show --app hop3-tuto-eve
+hop3 config set --app hop3-tuto-eve NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-eve web=2
+hop3 ps scale --app hop3-tuto-eve web=2
 ```
 
 ## Advanced Configuration

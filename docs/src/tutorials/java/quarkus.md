@@ -232,7 +232,7 @@ hop3 init --ssh root@your-server.example.com
 ### Set Environment Variables
 
 ```bash
-hop3 config set hop3-tuto-quarkus QUARKUS_PROFILE=prod
+hop3 config set --app hop3-tuto-quarkus QUARKUS_PROFILE=prod
 ```
 
 ### Deploy
@@ -252,7 +252,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set hop3-tuto-quarkus HOST_NAME=hop3-tuto-quarkus.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-quarkus HOST_NAME=hop3-tuto-quarkus.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -270,7 +270,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 app status hop3-tuto-quarkus
+hop3 status --app hop3-tuto-quarkus
 ```
 
 ```console
@@ -289,7 +289,7 @@ View logs:
 
 ```bash
 # View logs
-hop3 app logs hop3-tuto-quarkus
+hop3 logs --app hop3-tuto-quarkus
 
 # Your app will be available at:
 # http://hop3-tuto-quarkus.your-hop3-server.example.com
@@ -299,14 +299,14 @@ hop3 app logs hop3-tuto-quarkus
 
 ```bash
 # Restart the application
-hop3 app restart hop3-tuto-quarkus
+hop3 restart --app hop3-tuto-quarkus
 
 # View/set environment variables
-hop3 config show hop3-tuto-quarkus
-hop3 config set hop3-tuto-quarkus NEW_VAR=value
+hop3 config show --app hop3-tuto-quarkus
+hop3 config set --app hop3-tuto-quarkus NEW_VAR=value
 
 # Scale workers
-hop3 ps scale hop3-tuto-quarkus web=2
+hop3 ps scale --app hop3-tuto-quarkus web=2
 ```
 
 ## Advanced Configuration

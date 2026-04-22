@@ -3,7 +3,7 @@ tutorial:
   name: jekyll-hop3-tutorial
   teardown:
     - rm -rf hop3-tuto-jekyll 2>/dev/null || true
-    - hop3 app:destroy hop3-tuto-jekyll -y 2>/dev/null || true
+    - hop3 app destroy --app hop3-tuto-jekyll -y 2>/dev/null || true
 ---
 
 # Deploying Jekyll on Hop3
@@ -279,7 +279,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config:set hop3-tuto-jekyll HOST_NAME=hop3-tuto-jekyll.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-jekyll HOST_NAME=hop3-tuto-jekyll.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -297,7 +297,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 app:status hop3-tuto-jekyll
+hop3 status --app hop3-tuto-jekyll
 ```
 
 ```output contains
@@ -316,17 +316,17 @@ html
 
 ```bash skip
 # Restart the application
-hop3 app:restart hop3-tuto-jekyll
+hop3 restart --app hop3-tuto-jekyll
 
 # View logs
-hop3 app:logs hop3-tuto-jekyll
+hop3 logs --app hop3-tuto-jekyll
 
 # View/set environment variables
-hop3 config:show hop3-tuto-jekyll
-hop3 config:set hop3-tuto-jekyll NEW_VAR=value
+hop3 config show --app hop3-tuto-jekyll
+hop3 config set --app hop3-tuto-jekyll NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-jekyll web=2
+hop3 ps scale --app hop3-tuto-jekyll web=2
 ```
 
 ## Advanced Configuration

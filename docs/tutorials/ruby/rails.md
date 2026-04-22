@@ -5,7 +5,7 @@ tutorial:
     RAILS_ENV: development
   teardown:
     - rm -rf hop3-tuto-rails 2>/dev/null || true
-    - hop3 app:destroy hop3-tuto-rails -y 2>/dev/null || true
+    - hop3 app destroy --app hop3-tuto-rails -y 2>/dev/null || true
 ---
 
 # Deploying Ruby on Rails on Hop3
@@ -422,20 +422,20 @@ hop3 init --ssh root@your-server.example.com
 ### Create and Attach a Database
 
 ```bash skip
-hop3 addons:create postgres myapp-db
-hop3 addons:attach hop3-tuto-rails myapp-db
+hop3 addons create postgres myapp-db
+hop3 addons attach hop3-tuto-rails myapp-db
 ```
 
 ### Set Environment Variables
 
 ```bash skip
 # Generate and set the secret key
-hop3 config:set hop3-tuto-rails SECRET_KEY_BASE=$(bin/rails secret)
+hop3 config set --app hop3-tuto-rails SECRET_KEY_BASE=$(bin/rails secret)
 
 # Set Rails environment variables
-hop3 config:set hop3-tuto-rails RAILS_ENV=production
-hop3 config:set hop3-tuto-rails RAILS_LOG_TO_STDOUT=true
-hop3 config:set hop3-tuto-rails RAILS_SERVE_STATIC_FILES=true
+hop3 config set --app hop3-tuto-rails RAILS_ENV=production
+hop3 config set --app hop3-tuto-rails RAILS_LOG_TO_STDOUT=true
+hop3 config set --app hop3-tuto-rails RAILS_SERVE_STATIC_FILES=true
 ```
 
 ### Deploy
@@ -451,7 +451,7 @@ hop3 deploy hop3-tuto-rails
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config:set hop3-tuto-rails HOST_NAME=hop3-tuto-rails.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-rails HOST_NAME=hop3-tuto-rails.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -480,7 +480,7 @@ You'll see output showing:
 Check your application status:
 
 ```bash exec id=check-status timeout=30
-hop3 app:status hop3-tuto-rails
+hop3 status --app hop3-tuto-rails
 ```
 
 ```output contains
@@ -498,7 +498,7 @@ OK
 View logs:
 
 ```bash skip
-hop3 app:logs hop3-tuto-rails
+hop3 logs --app hop3-tuto-rails
 ```
 
 Open your application:
@@ -535,16 +535,16 @@ hop3 run hop3-tuto-rails bin/rake custom:task
 
 ```bash skip
 # List all variables
-hop3 config:show hop3-tuto-rails
+hop3 config show --app hop3-tuto-rails
 
 # Set a variable
-hop3 config:set hop3-tuto-rails NEW_VARIABLE=value
+hop3 config set --app hop3-tuto-rails NEW_VARIABLE=value
 
 # Remove a variable
-hop3 config:unset hop3-tuto-rails OLD_VARIABLE
+hop3 config unset --app hop3-tuto-rails OLD_VARIABLE
 
 # Restart to apply changes
-hop3 app:restart hop3-tuto-rails
+hop3 restart --app hop3-tuto-rails
 ```
 
 ### Scaling
@@ -589,8 +589,8 @@ worker: bundle exec sidekiq -C config/sidekiq.yml
 Attach a Redis addon:
 
 ```bash skip
-hop3 addons:create redis myapp-redis
-hop3 addons:attach hop3-tuto-rails myapp-redis
+hop3 addons create redis myapp-redis
+hop3 addons attach hop3-tuto-rails myapp-redis
 ```
 
 ### Active Storage with Local Storage
@@ -610,7 +610,7 @@ production:
 Set the storage path:
 
 ```bash skip
-hop3 config:set hop3-tuto-rails STORAGE_PATH=/var/hop3/apps/myapp/data/storage
+hop3 config set --app hop3-tuto-rails STORAGE_PATH=/var/hop3/apps/myapp/data/storage
 ```
 
 ### Health Checks
@@ -683,7 +683,7 @@ worker: bin/rails solid_queue:start
 Before major changes, always backup:
 
 ```bash skip
-hop3 backup:create hop3-tuto-rails
+hop3 backup create hop3-tuto-rails
 ```
 
 This backs up:
@@ -695,9 +695,9 @@ This backs up:
 ### Restore from Backup
 
 ```bash skip
-hop3 backup:list myapp
-hop3 backup:restore <backup-id>
-hop3 app:restart hop3-tuto-rails
+hop3 backup list myapp
+hop3 backup restore <backup-id>
+hop3 restart --app hop3-tuto-rails
 ```
 
 ## Troubleshooting
@@ -707,11 +707,11 @@ hop3 app:restart hop3-tuto-rails
 Check the logs for errors:
 
 ```bash skip
-hop3 app:logs hop3-tuto-rails --tail
+hop3 logs --app hop3-tuto-rails --tail
 ```
 
 Common issues:
-- **Missing SECRET_KEY_BASE**: Set it with `hop3 config:set`
+- **Missing SECRET_KEY_BASE**: Set it with `hop3 config set`
 - **Database not connected**: Ensure the addon is attached
 - **Asset compilation failed**: Check for JavaScript/CSS errors
 
@@ -720,7 +720,7 @@ Common issues:
 Verify the database is attached:
 
 ```bash skip
-hop3 config:show hop3-tuto-rails | grep DATABASE
+hop3 config show --app hop3-tuto-rails | grep DATABASE
 ```
 
 Test the connection:

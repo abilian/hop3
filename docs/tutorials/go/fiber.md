@@ -3,7 +3,7 @@ tutorial:
   name: fiber-hop3-tutorial
   teardown:
   - rm -rf hop3-tuto-fiber 2>/dev/null || true
-  - hop3 app:destroy hop3-tuto-fiber -y 2>/dev/null || true
+  - hop3 app destroy --app hop3-tuto-fiber -y 2>/dev/null || true
 ---
 
 # Deploying Fiber on Hop3
@@ -261,7 +261,7 @@ deployed successfully
 Configure the hostname for nginx proxy:
 
 ```bash exec id=set-hostname timeout=30
-hop3 config:set hop3-tuto-fiber HOST_NAME=hop3-tuto-fiber.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-fiber HOST_NAME=hop3-tuto-fiber.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -279,7 +279,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash exec id=check-status timeout=30
-hop3 app:status hop3-tuto-fiber
+hop3 status --app hop3-tuto-fiber
 ```
 
 ```output contains
@@ -298,7 +298,7 @@ View logs:
 
 ```bash skip
 # View logs
-hop3 app:logs hop3-tuto-fiber
+hop3 logs --app hop3-tuto-fiber
 
 # Your app will be available at:
 # http://hop3-tuto-fiber.your-hop3-server.example.com
@@ -308,14 +308,14 @@ hop3 app:logs hop3-tuto-fiber
 
 ```bash skip
 # Restart the application
-hop3 app:restart hop3-tuto-fiber
+hop3 restart --app hop3-tuto-fiber
 
 # View/set environment variables
-hop3 config:show hop3-tuto-fiber
-hop3 config:set hop3-tuto-fiber NEW_VAR=value
+hop3 config show --app hop3-tuto-fiber
+hop3 config set --app hop3-tuto-fiber NEW_VAR=value
 
 # Scale workers
-hop3 ps:scale hop3-tuto-fiber web=2
+hop3 ps scale --app hop3-tuto-fiber web=2
 ```
 
 ## Advanced Configuration

@@ -405,7 +405,7 @@ hop3 deploy hop3-tuto-nuxtjs
 Configure the hostname for nginx proxy:
 
 ```bash
-hop3 config set hop3-tuto-nuxtjs HOST_NAME=hop3-tuto-nuxtjs.$HOP3_TEST_DOMAIN
+hop3 config set --app hop3-tuto-nuxtjs HOST_NAME=hop3-tuto-nuxtjs.$HOP3_TEST_DOMAIN
 ```
 
 ### Wait for Process Stop
@@ -431,7 +431,7 @@ deployed successfully
 ### Verify Deployment
 
 ```bash
-hop3 app status hop3-tuto-nuxtjs
+hop3 status --app hop3-tuto-nuxtjs
 ```
 
 ```console
@@ -451,14 +451,14 @@ OK
 ### Environment Variables
 
 ```bash
-hop3 config set hop3-tuto-nuxtjs NUXT_PUBLIC_API_BASE=https://api.example.com
-hop3 config set hop3-tuto-nuxtjs NUXT_SECRET_KEY=$(openssl rand -hex 32)
+hop3 config set --app hop3-tuto-nuxtjs NUXT_PUBLIC_API_BASE=https://api.example.com
+hop3 config set --app hop3-tuto-nuxtjs NUXT_SECRET_KEY=$(openssl rand -hex 32)
 ```
 
 ### View Logs
 
 ```bash
-hop3 app logs hop3-tuto-nuxtjs --tail
+hop3 logs --app hop3-tuto-nuxtjs --tail
 ```
 
 ## Advanced Configuration
