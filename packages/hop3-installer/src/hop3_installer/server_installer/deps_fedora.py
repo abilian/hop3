@@ -84,6 +84,10 @@ FEDORA_COMMON_PACKAGES = [
     "libpq-devel",
     "libffi-devel",
     "openssl-devel",
+    # Rust-native deps — mirror the Debian list.
+    "pkgconf-pkg-config",
+    "sqlite-devel",
+    "mariadb-connector-c-devel",
 ]
 
 # Packages available on Fedora but not in RHEL clone base repos

@@ -69,29 +69,41 @@ class RustToolchain(LanguageToolchain):
     def build(self) -> BuildArtifact:
         """Build the Rust project using cargo.
 
-        This compiles the Rust project in release mode and produces
-        an optimized binary.
+        By default, runs `cargo build --release`. If the app declares
+        `[build].build` in hop3.toml (e.g., to add `--features` flags),
+        that command runs instead — matching the behaviour of every
+        other toolchain (Go, Node, PHP, Generic) that already honours
+        the custom-build field.
+
+        Raises RuntimeError on cargo failure. Silently continuing the
+        deploy past a failed build leaves the operator with a useless
+        "target/release/<binary>: No such file or directory" at runtime
+        instead of the real compiler error.
         """
         log(f"Building Rust application '{self.app_name}'", level=1, fg="blue")
 
-        # Find cargo binary (may be in ~/.cargo/bin from rustup)
         cargo = find_cargo()
         log(f"Using cargo at: {cargo}", level=2, fg="cyan")
 
-        # Build in release mode for optimized binary
-        log("Compiling Rust project with cargo...", level=2, fg="cyan")
-        result = self.shell(f"{cargo} build --release", check=False)
-
-        if result.returncode == 0:
-            log("Rust compilation successful", level=2, fg="green")
+        custom_build = self._get_custom_build_command()
+        if custom_build:
+            log(f"Running custom build command: {custom_build}", level=2, fg="cyan")
+            build_cmd = custom_build
         else:
-            log(
-                "Rust compilation failed - check Cargo.toml and source code",
-                level=1,
-                fg="red",
-            )
-            # Don't raise - let deployment continue and fail at runtime
-            # This allows debugging via logs
+            build_cmd = f"{cargo} build --release"
+            log("Compiling Rust project with cargo...", level=2, fg="cyan")
 
-        # Compiled binary - minimal runtime config (just workers)
+        result = self.shell(build_cmd, check=False)
+
+        if result.returncode != 0:
+            msg = (
+                f"Rust compilation failed (exit {result.returncode}). "
+                f"Command: {build_cmd}. "
+                "Check Cargo.toml, missing system libraries (libssl-dev, "
+                "libsqlite3-dev, pkg-config), or the app's build.log."
+            )
+            log(msg, level=1, fg="red")
+            raise RuntimeError(msg)
+
+        log("Rust compilation successful", level=2, fg="green")
         return self._make_build_artifact(kind="rust")

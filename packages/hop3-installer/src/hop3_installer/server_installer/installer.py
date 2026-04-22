@@ -35,6 +35,7 @@ from .cli import TOTAL_STEPS, config_from_args, create_parser
 from .config import ServerInstallerConfig
 from .deps import install_system_deps
 from .deps_common import (
+    install_catalogue_baseline,
     install_leiningen,
     install_node_global_packages,
     install_rust_toolchain,
@@ -115,6 +116,14 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     except CommandError as e:
         print_error(f"Failed to install dependencies: {e.stderr[:200]}")
         return False
+
+    # Step 1b: Catalogue-derived baseline (from apps/*/hop3.toml
+    # [build].packages + [run].packages declarations). Stacks on top
+    # of the static base packages. Idempotent; safe to rerun.
+    # `detect_distro()` returns "debian" / "fedora" / "arch" /
+    # "unknown" — the baseline table keys match.
+    if distro in {"debian", "fedora"}:
+        install_catalogue_baseline(distro)
 
     # Step 2: Create user
     print_step(2, TOTAL_STEPS, "Creating hop3 user and group...")

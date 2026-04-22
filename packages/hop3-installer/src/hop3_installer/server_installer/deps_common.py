@@ -273,6 +273,46 @@ def _fail_rust_install(msg: str, result, *, required: bool) -> None:
         )
 
 
+def install_catalogue_baseline(os_family: str) -> None:
+    """Install the catalogue-derived package baseline.
+
+    Reads the list from `baselines.py` (generated from
+    apps/*/hop3.toml via `python -m ...baseline`), translates to the
+    local OS family, and apt/dnf-installs. Idempotent: reruns on an
+    already-baselined host are cheap.
+
+    Runs AFTER the static base packages in deps_{debian,fedora}.py —
+    those provide the common stack (python, node, ruby, php, libssl-dev,
+    ...); this step adds whatever else the catalogue declares on top.
+    Skipped with a warning when the OS family is unsupported.
+    """
+    from .baselines import BASELINE_PACKAGES  # noqa: PLC0415
+
+    packages = BASELINE_PACKAGES.get(os_family)
+    if not packages:
+        print_warning(
+            f"No catalogue baseline available for OS family '{os_family}'; "
+            "skipping. Native-profile apps may fail to build."
+        )
+        return
+
+    # `apt-get install` if already-installed is a near-noop.
+    pkg_manager = "apt-get" if os_family == "debian" else "dnf"
+    install_cmd = [pkg_manager, "install", "-y", *packages]
+    with Spinner(
+        f"Installing catalogue baseline ({len(packages)} package(s))..."
+    ):
+        result = run_cmd(install_cmd, check=False)
+
+    if result.returncode == 0:
+        print_success(f"Catalogue baseline installed ({len(packages)} packages)")
+    else:
+        print_warning("Catalogue baseline install failed")
+        if result.stderr:
+            for line in result.stderr.strip().split("\n")[-5:]:
+                print_detail(line)
+
+
 def install_rust_toolchain(*, required: bool = False) -> None:
     """Install Rust toolchain via rustup.
 

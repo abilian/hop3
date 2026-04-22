@@ -5,12 +5,15 @@
 
 from __future__ import annotations
 
+import shutil
+import subprocess
 import time
 
-from hop3.config import HOP3_ROOT
+from hop3.config import APP_ROOT
 from hop3.core.plugins import get_plugin_manager
 from hop3.core.protocols import BuildArtifact, BuildContext, LanguageToolchain
 from hop3.lib import log
+from hop3.lib.diagnostics import Diagnosis, log_diagnosis
 from hop3.lib.logging import server_log
 
 
@@ -74,6 +77,46 @@ class LocalBuilder:
         start_time = time.time()
         build_output: list[str] = []
         success = False
+
+        # Probe declared host packages before invoking the toolchain.
+        # Soft gate: logs a Diagnosis naming the missing package and
+        # three remedies, but lets the build continue so the probe
+        # can't create false negatives. The installer baseline
+        # (see hop3_installer.server_installer.baseline) is supposed
+        # to have covered these packages at server-provisioning time;
+        # when it hasn't, the operator gets a useful signal *before*
+        # the downstream pkg-config / linker error.
+        missing = _probe_declared_packages(self.context)
+        for package in missing:
+            log_diagnosis(
+                Diagnosis(
+                    component="Native builder",
+                    action=f"verify host package '{package}'",
+                    reason=(
+                        f"'{package}' is declared in [build].packages / "
+                        "[run].packages but is not installed on this host."
+                    ),
+                    hint=(
+                        "Run `hop3-install server` (or re-run on the target) "
+                        f"— the catalogue baseline should install '{package}'."
+                    ),
+                    troubleshooting=[
+                        f"Manually: apt-get install -y {package}",
+                        (
+                            "If the baseline is missing this package, add it to "
+                            "apps/<app>/hop3.toml [build].packages and regenerate "
+                            "with `python -m hop3_installer.server_installer.baseline`"
+                        ),
+                        (
+                            "If the package is genuinely not installable "
+                            "(alternate version, conflict), switch this app "
+                            "to Docker or Nix."
+                        ),
+                    ],
+                ),
+                level=1,
+                fg="yellow",
+            )
 
         try:
             # 1. Discover applicable toolchains
@@ -229,11 +272,15 @@ class LocalBuilder:
             success: Whether build succeeded
         """
         try:
-            # Get app name from context
-            app_name = self.context.app_config.get("app_name", "unknown")
+            # BuildContext.app_name is the authoritative source — the
+            # app_config dict doesn't reliably carry it, so a previous
+            # `.get("app_name", "unknown")` dropped every app's build
+            # log into /home/hop3/unknown/log/ (without apps/).
+            app_name = self.context.app_name
 
-            # Determine log directory
-            app_log_dir = HOP3_ROOT / app_name / "log"
+            # App log dir sits under APP_ROOT (= HOP3_ROOT/apps), not
+            # HOP3_ROOT itself.
+            app_log_dir = APP_ROOT / app_name / "log"
             app_log_dir.mkdir(parents=True, exist_ok=True)
 
             build_log_path = app_log_dir / "build.log"
@@ -259,6 +306,61 @@ Builder: local
             # Don't fail the build if log saving fails
             server_log.warning(
                 "Failed to save build log",
-                app_name=self.context.app_config.get("app_name", "unknown"),
+                app_name=self.context.app_name,
                 error=str(e),
             )
+
+
+def _probe_declared_packages(context: BuildContext) -> list[str]:
+    """Return the packages declared in hop3.toml that are NOT installed.
+
+    Checks `[build].packages` + `[run].packages` against the local
+    package database (dpkg on Debian-family, rpm on Fedora-family).
+    On unknown/unsupported systems, returns an empty list (no probe).
+    """
+    hop3_config = context.app_config.get("hop3_config", {})
+    if not isinstance(hop3_config, dict):
+        return []
+
+    declared: list[str] = []
+    for field in ("build", "run"):
+        section = hop3_config.get(field, {})
+        if isinstance(section, dict):
+            packages = section.get("packages", [])
+            if isinstance(packages, list):
+                declared.extend(p for p in packages if isinstance(p, str))
+
+    if not declared:
+        return []
+
+    if shutil.which("dpkg") is not None:
+        return [p for p in declared if not _is_installed_dpkg(p)]
+    if shutil.which("rpm") is not None:
+        return [p for p in declared if not _is_installed_rpm(p)]
+    return []
+
+
+def _is_installed_dpkg(package: str) -> bool:
+    """`dpkg -s` returns 0 iff the package is installed + configured."""
+    result = subprocess.run(
+        ["dpkg", "-s", package],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    if result.returncode != 0:
+        return False
+    return "Status: install ok installed" in result.stdout
+
+
+def _is_installed_rpm(package: str) -> bool:
+    """`rpm -q` exits 0 iff the package is installed."""
+    result = subprocess.run(
+        ["rpm", "-q", package],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    return result.returncode == 0

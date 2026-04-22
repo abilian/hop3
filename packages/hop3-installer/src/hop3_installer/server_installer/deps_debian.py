@@ -106,6 +106,15 @@ DEBIAN_BASE_PACKAGES = [
     "libpq-dev",
     "libffi-dev",
     "libssl-dev",
+    # pkg-config is how -sys crates locate the libs above (libssl-dev
+    # etc.). Without it, `cargo build` fails in the openssl-sys build
+    # script even when libssl-dev is installed.
+    "pkg-config",
+    # libsqlite3-dev: needed by libsqlite3-sys for any Rust app that
+    # bundles sqlite (vaultwarden with --features sqlite, etc.).
+    # libmariadb-dev: equivalent for mysqlclient-sys.
+    "libsqlite3-dev",
+    "libmariadb-dev",
 ]
 
 
