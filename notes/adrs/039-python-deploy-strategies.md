@@ -3,11 +3,12 @@
 **Status**: Active — Phase 1 landed (2026-04-15); Phases 2–3 deferred to 0.6
 **Type**: Feature
 **Created**: 2026-04-15
-**Updated**: 2026-04-15
-**Related-ADRs**: 001 (config files), 002 (`hop3.toml` format), 004 (development tooling), 030 (two-level build architecture), 035 (build artifacts as runtime contract)
+**Updated**: 2026-04-22
+**Related-ADRs**: 001 (config files), 002 (`hop3.toml` format), 004 (development tooling), 030 (two-level build architecture), 035 (build artifacts as runtime contract), 036 (CLI ergonomics)
 
 ## Revisions
 
+- v1.2: Proposed-CLI examples migrated from colon syntax (`hop3 app check`, `hop3 app freeze`) to space form (`hop3 app check`, `hop3 app freeze`) per ADR 036 (2026-04-22).
 - v1.1: Phase 1 implemented. `packages/hop3-server/src/hop3/toolchains/python.py` now: drops `--upgrade` from pip-install paths (abstract requirements no longer silently updated); adds `--no-dev` to `uv sync` (production deploys don't ship dev-deps); errors when both `requirements.txt` and `pyproject.toml` are present (no silent precedence); detects Poetry-only pyprojects (has `[tool.poetry]`, no PEP-621 `[project]`) and raises with a clear hint pointing at `poetry export`. Five unit tests under `tests/a_unit/toolchains/test_python_strategy.py` cover the detection cases. 649 pre-existing unit tests still pass — no regressions (2026-04-15).
 - v1.0: Original design (2026-04-15)
 
@@ -97,7 +98,7 @@ Omitting `[build.python].strategy` invokes auto-detection. Auto-detection rules:
 
 ### Lint rules
 
-Added to `hop3 app:check` (and reported as warnings, not build-time errors):
+Added to `hop3 app check` (and reported as warnings, not build-time errors):
 
 - **Abstract requirements**: `requirements.txt` contains at least one line without `==` or `===` pin. Warning: *"deploys will produce different closures across time. Consider freezing with `pip-compile` or `uv pip compile`."*
 - **Ambiguous metadata**: both `requirements.txt` and `pyproject.toml` present with no `[build.python].strategy`. Warning: *"set `[build.python].strategy` to disambiguate; auto-detect will error in build."*
@@ -128,7 +129,7 @@ Landed in `packages/hop3-server/src/hop3/toolchains/python.py`; ~40 lines of cod
 
 - Add `[build.python].strategy` parsing and routing.
 - `poetry-export` strategy accepting the packager's pre-generated `requirements.txt`.
-- `hop3 app:check` lint rules for the three warnings listed above.
+- `hop3 app check` lint rules for the three warnings listed above.
 
 **Phase 3 — tutorials and docs (scheduled for 0.6):**
 
@@ -138,7 +139,7 @@ Landed in `packages/hop3-server/src/hop3/toolchains/python.py`; ~40 lines of cod
 
 ## Deferred
 
-**`hop3 app:freeze` client-side helper.** Worth doing — it would turn "run `poetry export`, commit the file, redeploy" into `hop3 app:freeze` — but it requires the relevant toolchain (`uv`, `poetry`, `pip-compile`) on the packager's client machine and would have to be replicated for the other languages Hop3 supports (Node via `npm shrinkwrap` / `pnpm lock`, Ruby via `bundle lock`, etc.). The abstract mechanism is "a per-language freeze step"; designing it coherently belongs in a separate ADR rather than riding along with Python-specific changes.
+**`hop3 app freeze` client-side helper.** Worth doing — it would turn "run `poetry export`, commit the file, redeploy" into `hop3 app freeze` — but it requires the relevant toolchain (`uv`, `poetry`, `pip-compile`) on the packager's client machine and would have to be replicated for the other languages Hop3 supports (Node via `npm shrinkwrap` / `pnpm lock`, Ruby via `bundle lock`, etc.). The abstract mechanism is "a per-language freeze step"; designing it coherently belongs in a separate ADR rather than riding along with Python-specific changes.
 
 ## Non-goals
 

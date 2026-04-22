@@ -3,12 +3,13 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-04-14
-**Related-ADRs**: 006, 007 (superseded), 009, 020, 022, 030, 031, 035
+**Updated**: 2026-04-22
+**Related-ADRs**: 006, 007 (superseded), 009, 020, 022, 030, 031, 035, 036
 **Depends-On**: ADR 006 Phase 1 (completed)
 
 ## Revisions
 
+- v0.7: CLI examples migrated from colon syntax (`hop3 nix eject`) to space form (`hop3 nix eject`) per ADR 036 (2026-04-22).
 - v0.1: Initial draft (2024-07-17)
 - v0.2: Tweak following feedback from NLNet (2024-09-23)
 - v0.3: Mark as Phase 3, pending earlier phases (2026-03-23)
@@ -89,7 +90,7 @@ hop3.nix exists in source?
 
 ### Ejection
 
-When a generated template cannot express an app's needs, the developer runs `hop3 nix:eject <app>` to materialize the generated `hop3.nix` as a real file in the source tree. After ejection, the committed `hop3.nix` takes precedence and can be customized freely. This mirrors Create React App's eject pattern: auto-generation is progressive disclosure, not lock-in.
+When a generated template cannot express an app's needs, the developer runs `hop3 nix eject <app>` to materialize the generated `hop3.nix` as a real file in the source tree. After ejection, the committed `hop3.nix` takes precedence and can be customized freely. This mirrors Create React App's eject pattern: auto-generation is progressive disclosure, not lock-in.
 
 ## Validated Templates (Spike)
 
@@ -170,7 +171,7 @@ Inside a Nix `''...''` multi-line string, only `${VAR}` needs escaping (becomes 
 - Pass it to `nix-build` via the existing infrastructure
 - Verify the end-to-end deploy path works for a few apps
 
-### Phase 3d: `hop3 nix:eject` command
+### Phase 3d: `hop3 nix eject` command
 
 - New CLI command that writes the generated `hop3.nix` to the app source directory
 - After ejection, the generator is skipped and the hand-crafted file is used

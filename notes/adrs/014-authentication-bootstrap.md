@@ -3,14 +3,20 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-28
-**Related-ADRs**: 012, 018
+**Updated**: 2026-04-22
+**Related-ADRs**: 012, 018, 036
+
+## Revisions
+
+- v1.1: CLI examples migrated from colon syntax (`hop3 auth:register`, `hop3 auth:login`, `hop3 auth whoami`) to space form (`hop3 auth register`, `hop3 auth login`, `hop3 auth whoami`) per ADR 036 (2026-04-22).
+- v1.0: Original final version (2025-11-28)
 
 ## Context and Goals
 
 Hop3 uses JWT-based bearer token authentication for API access. The current authentication flow requires users to:
 
-1. Register an account (`hop3 auth:register`)
-2. Login to receive a JWT token (`hop3 auth:login`)
+1. Register an account (`hop3 auth register`)
+2. Login to receive a JWT token (`hop3 auth login`)
 3. Store the token in `~/.config/hop3-cli/config.toml`
 4. Include the token in subsequent requests via `Authorization: Bearer <token>` header
 
@@ -84,7 +90,7 @@ hop3 settings set server https://my-server.com
 hop3 settings set token eyJhbGciOiJI...
 
 # 4. Verify
-hop3 auth:whoami
+hop3 auth whoami
 ```
 
 ### Security Considerations

@@ -1,5 +1,7 @@
 # Lessons Learned: Deployment Diagnostics
 
+**Updated**: 2026-04-22 — CLI examples migrated from colon syntax to space form per ADR 036.
+
 How to make deployment failures diagnosable, and the patterns that cause "silent nothing" failures.
 
 ## The Silent Timeout Anti-Pattern
@@ -33,7 +35,7 @@ When env vars from hop3.toml aren't applied on redeploy, logging "Set 0 env var(
 
 ```
 Skipped 4 env var(s) already set: DEBUG, SECRET_KEY, DB_HOST, DB_PORT
-(use 'hop3 config:set' to update, or set _policy = "override" in [env])
+(use 'hop3 config set' to update, or set _policy = "override" in [env])
 ```
 
 The cost of a verbose skip message is zero. The cost of a user debugging "why didn't my config change take effect" is hours.
@@ -146,4 +148,4 @@ When a deploy fails, gather and display (in order):
 2. **Pattern diagnosis** (match known failure patterns)
 3. **Runtime hints** (uWSGI config path, Docker logs command, etc.)
 4. **Timeout suggestion** (`start-timeout = 120` in hop3.toml)
-5. **Full logs command** (`hop3 app:logs <app>` for the complete output)
+5. **Full logs command** (`hop3 logs --app <app>` for the complete output)

@@ -1,5 +1,7 @@
 # Lessons Learned
 
+**Updated**: 2026-04-22 — CLI examples migrated from colon syntax to space form per ADR 036.
+
 This directory collects lessons learned during Hop3 development, to help avoid repeating mistakes.
 
 ## Topic deep dives
@@ -246,9 +248,9 @@ Log messages containing brackets (like `[database]` or `[2026-02-27]`) were bein
 
 **Lesson**: For destructive commands, validate that required arguments are present before asking for confirmation. Users shouldn't confirm an action that will fail anyway.
 
-**Case Study - `hop3 app:destroy` UX issue (March 2026)**:
+**Case Study - `hop3 app destroy` UX issue (March 2026)**:
 
-Running `hop3 app:destroy` without an app name would ask "Are you sure?", user types "yes", then command fails because no app name was provided.
+Running `hop3 app destroy` without an app name (and with no app resolvable from the D7 chain) would ask "Are you sure?", user types "yes", then command fails because no app name was provided.
 
 **Best practices**:
 - Check required arguments FIRST, before any user interaction

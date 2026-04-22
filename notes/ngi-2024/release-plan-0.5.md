@@ -3,7 +3,7 @@
 **Target:** Early May 2026
 **Theme:** Consolidation — make what we have solid and demonstrable
 **Branch:** `main` (merge from `nix-builders`)
-**Last updated:** 2026-04-18
+**Last updated:** 2026-04-22
 
 ## Goals
 
@@ -94,7 +94,7 @@ Re-evaluate / drop:
 - [x] Added "Source builds vs pre-built binaries" content to the
       guide (promoted from `notes/experience-reports/00-aggregate.md`
       and `notes/ngi-2024/plan-source-builds.md`).
-- [x] Documented `hop3 nix:eject` in CLI reference (`cli.md`) under
+- [x] Documented `hop3 nix eject` in CLI reference (`cli.md`) under
       a new "Nix Commands" section, with usage, behavior, errors, and
       cross-references.
 - [x] Updated `[nix]` section in `config.md`: now lists all 8 templates
@@ -253,7 +253,7 @@ merged. ADR 036 moved from Draft to Accepted.
 - [x] Alias diagnostics, `--no-input` env bridge, app-name cache
       (M8).
 - [x] Streaming `hop3 deploy` output (pre-W16).
-- [x] `hop3 app:info` clickable URL, `hop3 apps` sorted.
+- [x] `hop3 app info` clickable URL, `hop3 apps` sorted.
 
 Test count trajectory: 1033 → 1218 passing across M1-M8.
 

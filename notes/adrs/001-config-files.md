@@ -3,7 +3,7 @@
 **Status**: Accepted
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-04-14
+**Updated**: 2026-04-22
 **Related-ADRs**: 002, 003
 
 ## Implementation Status
@@ -20,13 +20,14 @@
 ### Deferred (not blocking; scheduled as follow-ups)
 - **Schema validation** beyond TOML parse errors: see ADR 003 Phase 2. The current ad-hoc dataclass + `@property` approach catches structural errors at access time rather than at load time.
 - **YAML / JSON alternative formats**: not yet requested by users. TOML-only is considered sufficient; adding alternatives would be a mechanical translation layer.
-- **CLI validation command** (`hop3 config:validate`): useful for CI gating, not yet shipped.
+- **CLI validation command** (`hop3 config validate`): useful for CI gating, not yet shipped.
 
 ### Non-goal
 Supporting arbitrary ad-hoc configuration scripts (Dockerfile-flavoured shell snippets, inline Python) is out of scope. A Hop3 application's configuration surface is `Procfile` + `hop3.toml`; builders and deployers live in plugins, not in per-app scripts.
 
 ## Revisions
 
+- v0.4: CLI example migrated from colon syntax (`hop3 config:validate`) to space form (`hop3 config validate`) per ADR 036 (2026-04-22).
 - v0.3: Promoted from Draft to Accepted; clarified shipped vs. deferred. Non-goal clause added (2026-04-14).
 - v0.2: Update according to new template (2024-07-25)
 - v0.1: Initial draft (2024-07-17)

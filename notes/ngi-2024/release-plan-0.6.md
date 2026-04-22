@@ -3,6 +3,7 @@
 **Target:** Early June 2026
 **Theme:** Complete all NGI commitments
 **Depends on:** 0.5.0 released
+**Last updated:** 2026-04-22 — proposed CLI commands migrated from colon syntax (`hop3 server:upgrade`, `hop3 app:upgrade`) to space form per ADR 036.
 
 ## Goals
 
@@ -44,9 +45,9 @@ After 0.5.0, the following milestones remain open:
 
 ### Upgrade mechanism (M3.2)
 
-- [ ] `hop3 server:upgrade` command (pulls latest, runs migrations,
+- [ ] `hop3 server upgrade` command (pulls latest, runs migrations,
       restarts services)
-- [ ] App-level `hop3 app:upgrade <app>` (re-deploy from latest source)
+- [ ] App-level `hop3 app upgrade --app <app>` (re-deploy from latest source)
 - [ ] Rollback on failure (keep previous version)
 - [ ] Document upgrade procedure for admins
 

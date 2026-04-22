@@ -3,11 +3,16 @@
 **Status**: Deferred (post-0.6)
 **Type**: Feature
 **Created**: 2025-01-23
-**Updated**: 2026-04-14
+**Updated**: 2026-04-22
+
+## Revisions
+
+- v1.1: CLI example migrated from colon syntax (`hop3 app:logs <app>`) to space form (`hop3 logs --app <app>`) per ADR 036 (2026-04-22).
+- v1.0: Deferral note added (2026-04-14).
 
 ## Deferral Note (2026-04-14)
 
-Not shipped; not blocking for 0.5 or 0.6. The web terminal is an operator convenience for cases where SSH is inconvenient or unavailable. The current operational story — SSH into the target, `hop3 app:logs <app>`, `hop3-test` per-test diagnostic logs — covers the in-production need without a browser-side PTY. Revisit post-0.6 once the web UI (M3.7) is past the basic-CRUD milestone and there is concrete demand from operators who cannot use SSH.
+Not shipped; not blocking for 0.5 or 0.6. The web terminal is an operator convenience for cases where SSH is inconvenient or unavailable. The current operational story — SSH into the target, `hop3 logs --app <app>`, `hop3-test` per-test diagnostic logs — covers the in-production need without a browser-side PTY. Revisit post-0.6 once the web UI (M3.7) is past the basic-CRUD milestone and there is concrete demand from operators who cannot use SSH.
 
 The design spec below is the starting point for implementation when this is revisited; it is not active work.
 

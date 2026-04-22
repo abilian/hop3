@@ -3,11 +3,12 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-08
-**Updated**: 2026-04-14
+**Updated**: 2026-04-22
 **Related-ADRs**: 018, 019, 024, 034, 036
 
 ## Revisions
 
+- v1.2: Historical CLI examples migrated from colon syntax (e.g., `hop3 backup:delete`, `hop3 services:destroy`) to space form (`hop3 backup destroy`, `hop3 addon destroy`) per ADR 036 (2026-04-22).
 - v1.1: Status refreshed. Core UX improvements (confirmations on destructive actions, structured output with message types, streaming via ADR 034) are shipped. Help-text conventions and error-recovery hints are tracked separately in ADR 036 (2026-04-14).
 - v1.0: Original final version (2025-11-08)
 
@@ -15,7 +16,7 @@
 
 The Hop3 CLI (`hop3` command) is the primary interface for users interacting with the platform. While functional, the current CLI lacks several features that are standard in modern CLI tools:
 
-1. **No confirmation for destructive actions**: Commands like `hop3 destroy`, `hop3 backup:delete`, and `hop3 services:destroy` permanently delete data without asking for confirmation, creating risk of accidental data loss.
+1. **No confirmation for destructive actions**: Commands like `hop3 app destroy`, `hop3 backup destroy`, and `hop3 addon destroy` permanently delete data without asking for confirmation, creating risk of accidental data loss.
 
 2. **Limited output formatting**: Output is plain text, making it harder to scan information quickly. No visual distinction between different types of messages (errors, warnings, success).
 

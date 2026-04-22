@@ -3,11 +3,12 @@
 **Status**: Accepted (phased — Phase 1 shipped via ADR 024; Phases 2–3 deferred)
 **Type**: Feature
 **Created**: 2024-07-17
-**Updated**: 2026-04-14
-**Related-ADRs**: 010, 024
+**Updated**: 2026-04-22
+**Related-ADRs**: 010, 024, 036
 
 ## Revisions
 
+- v0.3: CLI example migrated from colon syntax (`hop3 backup:restore`) to space form (`hop3 backup restore`) per ADR 036 (2026-04-22).
 - v0.2: Promoted from Draft to Accepted (phased). Phase 1 (manual full backups, local storage, checksum verification, per-service support) is delivered via ADR 024 (Final). This ADR captures the long-term vision; scheduled / remote / encrypted / incremental backups remain explicit future work (2026-04-14).
 - v0.1: Initial draft (2024-07-17)
 
@@ -78,7 +79,7 @@ The implementation is phased:
 ### Restoration Procedures
 
 **Phase 1 (Current - ADR 024)**:
-- Manual restore via CLI (`hop3 backup:restore`)
+- Manual restore via CLI (`hop3 backup restore`)
 - Checksum verification before restore
 - Service-specific restore (PostgreSQL via `pg_restore`, etc.)
 

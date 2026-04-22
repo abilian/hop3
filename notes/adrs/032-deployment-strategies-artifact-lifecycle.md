@@ -3,11 +3,12 @@
 **Status**: Accepted (design accepted; blue-green / versioned-artefact lifecycle not yet shipped for non-Nix builders)
 **Type**: Feature
 **Created**: 2025-12-03
-**Updated**: 2026-04-14
-**Related-ADRs**: 022, 030, 031, 035
+**Updated**: 2026-04-22
+**Related-ADRs**: 022, 030, 031, 035, 036
 
 ## Revisions
 
+- v1.2: CLI example migrated from colon syntax (`hop3 deploy:status`) to space form (`hop3 deploy status`) per ADR 036 (2026-04-22).
 - v1.1: Implementation status clarified. The design — versioned build artefacts, blue-green deployment, atomic switch, retained previous version for rollback — is accepted, but the current production behaviour for the LocalBuilder + uWSGI deployer is still the original "stop-then-deploy" path. Versioned closures *do* exist for Nix-built apps (Nix's content-addressed store gives them for free) and rolling back a Nix-built app is in principle a symlink switch; the rest of the deployer family does not yet implement the proposed lifecycle. The CLI `revert` and `upgrade`/`downgrade` commands documented as deferred in ADR 019 will land alongside this work (2026-04-14).
 - v1.0: Original accepted version (2025-12-03)
 
@@ -488,7 +489,7 @@ hop3 rollback myapp v1.2.3
 hop3 deploy myapp --strategy=blue-green
 
 # Check deployment status
-hop3 deploy:status myapp
+hop3 deploy status --app myapp
 # Deployment in progress...
 # Old version: v1.2.4 (running, receiving traffic)
 # New version: v1.2.5 (starting, health check 2/3)

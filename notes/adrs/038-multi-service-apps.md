@@ -3,11 +3,12 @@
 **Status**: Active — design phase
 **Type**: Feature
 **Created**: 2026-04-11
-**Updated**: 2026-04-14
-**Related-ADRs**: 008 (Nix templates), 020 (pluggable architecture), 022 (build/deploy plugins), 032 (deployment strategies)
+**Updated**: 2026-04-22
+**Related-ADRs**: 008 (Nix templates), 020 (pluggable architecture), 022 (build/deploy plugins), 032 (deployment strategies), 036 (CLI ergonomics)
 
 ## Revisions
 
+- v1.2: CLI examples migrated from colon syntax (`hop3 ps:scale`, `hop3 config:set`, `hop3 app:status`) to space form (`hop3 ps scale --app <app>`, `hop3 config set --app <app> KEY=val`, `hop3 app status --app <app>`) per ADR 036 (2026-04-22).
 - v1.1: Status header re-formatted (the original header was a single line, which the markdown renderer collapsed). Schema design (Phase 1) is still scheduled for 0.6; runtime support (Phase 2) for 0.7. Cross-references reordered for readability (2026-04-14).
 - v1.0: Original active version (2026-04-11)
 
@@ -44,7 +45,7 @@ Each entry becomes a uWSGI daemon process in the same vassal config, sharing the
 
 1. **Per-process resource limits.** All workers share one memory limit. You can't say "Rails gets 2GB, Sidekiq gets 1GB".
 2. **Per-process env overrides.** All workers see the same environment. You can't say "Sidekiq should have SIDEKIQ_CONCURRENCY=10 while Rails should not".
-3. **Per-process scaling.** `hop3 ps:scale` scales all workers of a given name; there's no "2 web + 4 sidekiq + 1 streaming" story.
+3. **Per-process scaling.** `hop3 ps scale` scales all workers of a given name; there's no "2 web + 4 sidekiq + 1 streaming" story.
 4. **Truly independent components.** For AppFlowy-Cloud-class apps (Pattern 3), you can't declare that the app depends on PgBouncer as a separate process in its own isolation boundary.
 5. **Per-component health checks.** One `[healthcheck]` per app, not per component.
 6. **Process ordering dependencies.** "Start the database migrations before the web worker" is handled ad-hoc via `before-run`. There's no "start Sidekiq only after Rails is healthy" semantics.
@@ -152,7 +153,7 @@ For each component process, environment variables are layered in this order (lat
 2. Addon-injected vars (`DATABASE_URL`, `PGHOST`, `REDIS_URL`, ...)
 3. Top-level `[env]` (shared across all components)
 4. `[component.env]` (per-component overrides)
-5. Admin overrides via `hop3 config:set <app> KEY=val`
+5. Admin overrides via `hop3 config set --app <app> KEY=val`
 
 This matches how `[env]` already works but adds a component layer.
 
@@ -173,7 +174,7 @@ Deferred to a later iteration — not in the 0.6 scope.
 
 Components start in topological order based on `depends-on`. `depends-on` is a **start-ordering hint**, not a hard blocker — if dependent components fail to start, dependents still try.
 
-`hop3 ps:scale app web=2 sidekiq=4` scales individual components. Existing `[run.workers]` keeps current flat semantics.
+`hop3 ps scale --app <app> web=2 sidekiq=4` scales individual components. Existing `[run.workers]` keeps current flat semantics.
 
 Health checks run per-component. An app is "healthy" only if all non-optional components are healthy.
 
@@ -243,11 +244,11 @@ Existing addon, env, and port handling remain unchanged in the legacy path.
 - Per-component env layering
 - Per-component health checks via the existing `[healthcheck]` model
 - Per-component memory limits via uWSGI `mem-limit` option
-- `hop3 app:status` shows per-component state
+- `hop3 app status --app <app>` shows per-component state
 
 **Phase 3 (0.7 or later):** Advanced features.
 - `depends-on` start ordering
-- Independent scaling via `hop3 ps:scale <app> web=2 worker=4`
+- Independent scaling via `hop3 ps scale --app <app> web=2 worker=4`
 - Per-component logs
 - Component-specific addon attachments
 

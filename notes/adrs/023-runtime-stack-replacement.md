@@ -3,11 +3,12 @@
 **Status**: Draft (nothing implemented; no commitment to execute)
 **Type**: Feature
 **Created**: 2024-11-01
-**Updated**: 2026-04-14
-**Related-ADRs**: 021
+**Updated**: 2026-04-22
+**Related-ADRs**: 021, 036
 
 ## Revisions
 
+- v1.2: CLI example migrated from colon syntax (`hop3 app:deploy`) to space form (`hop3 deploy`) per ADR 036 (2026-04-22).
 - v1.1: Explicit status note. The proposed replacement (Granian + Caddy + custom Python process manager, replacing uWSGI + nginx + supervisor) has **not** been started. The current runtime is the uWSGI emperor + nginx + optional supervisord fallback described throughout the other ADRs, and this is what 100+ app variants run on. This ADR captures a future direction that is not currently scheduled against any release (2026-04-14).
 - v1.0: Original draft (2024-11-01)
 
@@ -18,7 +19,7 @@ Nothing from this ADR has been implemented. The motivation — uWSGI's developme
 **What still holds from the original motivation:**
 
 - uWSGI's unmaintained status has not produced concrete incidents since this ADR was drafted, but remains a latent risk.
-- Hot reconfiguration is still not provided by the current stack. `hop3 app:deploy` writes configs and reloads Nginx; there is no atomic-swap pathway.
+- Hot reconfiguration is still not provided by the current stack. `hop3 deploy` writes configs and reloads Nginx; there is no atomic-swap pathway.
 - The three-component coupling (uWSGI vassal → Nginx site → optional supervisord) has been refined rather than simplified (see W16's systemd-vs-supervisord detection rework).
 
 **What would need to happen to revive this ADR:**
