@@ -40,9 +40,7 @@ class TestLoaderParsesExpectsFailure:
     def test_default_is_false(self):
         assert _overrides_from_hop3_test({}).get("expects_failure", False) is False
         assert (
-            _overrides_from_legacy_test_toml({"test": {}}).get(
-                "expects_failure", False
-            )
+            _overrides_from_legacy_test_toml({"test": {}}).get("expects_failure", False)
             is False
         )
 
@@ -150,8 +148,7 @@ class TestRunnerInvertsExpectsFailure:
         assert result.passed is True
         # Synthetic validation is appended so reports show the inversion.
         assert any(
-            vr.validation_type == "expects_failure"
-            for vr in result.validation_results
+            vr.validation_type == "expects_failure" for vr in result.validation_results
         )
         assert session.cleaned is True
 

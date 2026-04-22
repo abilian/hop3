@@ -1,14 +1,18 @@
 # Copyright (c) 2024-2025, Abilian SAS
 from __future__ import annotations
 
+import subprocess
+
 import pytest
 
+from hop3.core.protocols import BuildContext
 from hop3.toolchains import (
     ClojureToolchain,
     NodeToolchain,
     PythonToolchain,
     RubyToolchain,
     RustToolchain,
+    rust as rust_module,
 )
 
 
@@ -58,14 +62,10 @@ class TestNodeVersionDeclaration:
     through to NODE_VERSION (consumed by install_node + nodeenv)."""
 
     def _ctx(self, app_path, app_config):
-        from hop3.core.protocols import BuildContext
-
         src = app_path / "src"
         src.mkdir(parents=True, exist_ok=True)
         (src / "package.json").write_text("{}")
-        return BuildContext(
-            app_name="myapp", source_path=src, app_config=app_config
-        )
+        return BuildContext(app_name="myapp", source_path=src, app_config=app_config)
 
     def test_declared_version_returned(self, app_path):
         ctx = self._ctx(
@@ -86,9 +86,7 @@ class TestNodeVersionDeclaration:
         assert tc._get_declared_node_version() is None
 
     def test_non_dict_build_section_returns_none(self, app_path):
-        ctx = self._ctx(
-            app_path, app_config={"hop3_config": {"build": "not a dict"}}
-        )
+        ctx = self._ctx(app_path, app_config={"hop3_config": {"build": "not a dict"}})
         tc = NodeToolchain(ctx)
         assert tc._get_declared_node_version() is None
 
@@ -112,11 +110,6 @@ class TestRustToolchainBuild:
     def _spec_with_cargo_result(
         self, app_path, monkeypatch, returncode, app_config=None
     ):
-        import subprocess
-
-        from hop3.core.protocols import BuildContext
-        from hop3.toolchains import rust as rust_module
-
         (app_path / "src" / "Cargo.toml").write_text("[package]\nname = 'x'")
         ctx = BuildContext(
             app_name="x",
@@ -151,9 +144,7 @@ class TestRustToolchainBuild:
             toolchain.build()
 
     def test_succeeds_on_cargo_zero(self, app_path, monkeypatch):
-        toolchain, _ = self._spec_with_cargo_result(
-            app_path, monkeypatch, returncode=0
-        )
+        toolchain, _ = self._spec_with_cargo_result(app_path, monkeypatch, returncode=0)
         # Should not raise; returns the stubbed artifact object.
         assert toolchain.build() is not None
 

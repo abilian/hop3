@@ -87,8 +87,7 @@ def derive_baseline(app_dirs: list[Path]) -> BaselineResult:
         translated = {
             PACKAGE_ALIASES[pkg][family]
             for pkg in canonical
-            if pkg in PACKAGE_ALIASES
-            and PACKAGE_ALIASES[pkg][family] is not None
+            if pkg in PACKAGE_ALIASES and PACKAGE_ALIASES[pkg][family] is not None
         }
         by_family[family] = tuple(sorted(translated))  # type: ignore[arg-type]
 

@@ -299,9 +299,7 @@ def install_catalogue_baseline(os_family: str) -> None:
     # `apt-get install` if already-installed is a near-noop.
     pkg_manager = "apt-get" if os_family == "debian" else "dnf"
     install_cmd = [pkg_manager, "install", "-y", *packages]
-    with Spinner(
-        f"Installing catalogue baseline ({len(packages)} package(s))..."
-    ):
+    with Spinner(f"Installing catalogue baseline ({len(packages)} package(s))..."):
         result = run_cmd(install_cmd, check=False)
 
     if result.returncode == 0:

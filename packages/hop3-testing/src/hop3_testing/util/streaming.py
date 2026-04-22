@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import queue
 import signal
@@ -49,10 +50,8 @@ def _terminate_process_tree(process: subprocess.Popen) -> None:
             # Fall through to single-process kill as a last resort
             pass
 
-    try:
+    with contextlib.suppress(ProcessLookupError):
         process.kill()
-    except ProcessLookupError:
-        pass
 
 
 @dataclass

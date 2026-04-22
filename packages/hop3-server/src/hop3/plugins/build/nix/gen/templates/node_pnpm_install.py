@@ -65,9 +65,7 @@ class NodePnpmInstallTemplate:
                 "under node_modules/.bin/, e.g., 'directus')"
             )
         if not spec.version:
-            raise ValueError(
-                "node-pnpm-install requires version (pinned npm version)"
-            )
+            raise ValueError("node-pnpm-install requires version (pinned npm version)")
 
         npm_pkg = spec.nixpkgs_package  # reinterpreted as npm package name
         runtime_pkg = spec.runtime_package or "nodejs_22"

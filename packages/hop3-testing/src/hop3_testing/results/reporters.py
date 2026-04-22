@@ -225,8 +225,9 @@ class ConsoleReporter:
 
         lines = picked_content.splitlines()
         if len(lines) > max_lines:
-            lines = [f"... ({len(lines) - max_lines} earlier lines elided)"] + lines[
-                -max_lines:
+            lines = [
+                f"... ({len(lines) - max_lines} earlier lines elided)",
+                *lines[-max_lines:],
             ]
         header = f"[{picked_path}]"
         return "\n".join([header, *lines])
@@ -298,9 +299,7 @@ class ConsoleReporter:
 
         # Failed first (operators care most), then passed; alphabetical
         # within each group.
-        ordered = sorted(
-            results, key=lambda r: (r.passed, self._app_display_path(r))
-        )
+        ordered = sorted(results, key=lambda r: (r.passed, self._app_display_path(r)))
         for r in ordered:
             status = (
                 self._colorize("OK", "green")

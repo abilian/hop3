@@ -266,8 +266,7 @@ class DeploymentTestRunner:
             # per-test log so operators can tell at a glance whether
             # the inversion actually fired.
             self.console.info(
-                f"expects-failure=true: inverting deploy failure → PASS "
-                f"for {test.name}"
+                f"expects-failure=true: inverting deploy failure → PASS for {test.name}"
             )
             validation_results.append(
                 ValidationResult(
@@ -308,9 +307,7 @@ class DeploymentTestRunner:
             runtime_logs=runtime_logs,
         )
 
-    def _safe_cleanup(
-        self, test: TestDefinition, session: DeploymentSession
-    ) -> None:
+    def _safe_cleanup(self, test: TestDefinition, session: DeploymentSession) -> None:
         """Run cleanup but swallow any error.
 
         A failed cleanup is interesting for debugging but must NOT
