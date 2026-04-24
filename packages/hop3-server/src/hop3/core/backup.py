@@ -11,9 +11,11 @@ variables, and attached addons.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import importlib.metadata
 import json
+import os
 import secrets
 import shutil
 import tarfile
@@ -33,6 +35,66 @@ from hop3.orm.repositories import (  # noqa: TC001
     AppRepository,
     BackupRepository,
 )
+
+# Permission constants for backup directories and files.
+# Backups contain plaintext env.json and DB dumps (ADR 024 phase 1 --- at-rest
+# encryption is tracked for 0.6). Until then, the minimum viable mitigation is
+# to keep the entire tree owner-only so one compromised app running as the
+# shared `hop3` user cannot read another app's dumps. Individual backup files
+# already default to 0o600 where written; the tree itself must be 0o700 so
+# traversal is blocked too.
+_BACKUP_DIR_MODE = 0o700
+
+
+def _ensure_secure_backup_dir(path: Path) -> None:
+    """Create ``path`` (and any missing ancestors up to BACKUP_ROOT) with
+    owner-only permissions.
+
+    ``Path.mkdir(mode=..., parents=True)`` only applies the mode to the
+    leaf; intermediate directories inherit the process umask. We want
+    the whole chain rooted at BACKUP_ROOT to be 0o700, so we walk
+    upwards after creation and fix any ancestor whose mode is looser.
+
+    Idempotent: safe to call on an already-existing tree.
+    """
+    path.mkdir(parents=True, exist_ok=True)
+    # Walk back up to BACKUP_ROOT, tightening every ancestor whose mode
+    # is looser than 0o700. Stop at BACKUP_ROOT itself (we control it
+    # and don't want to climb past it).
+    backup_root = HopConfig.get_instance().BACKUP_ROOT.resolve()
+    current = path.resolve()
+    try:
+        current.relative_to(backup_root)
+    except ValueError:
+        # Path isn't under BACKUP_ROOT (test shim or misconfiguration);
+        # still chmod the leaf, skip the walk.
+        _chmod_if_looser(path, _BACKUP_DIR_MODE)
+        return
+    while True:
+        _chmod_if_looser(current, _BACKUP_DIR_MODE)
+        if current == backup_root:
+            break
+        parent = current.parent
+        if parent == current:  # pragma: no cover - filesystem root guard
+            break
+        current = parent
+
+
+def _chmod_if_looser(path: Path, target_mode: int) -> None:
+    """chmod ``path`` to ``target_mode`` if its current mode is looser.
+
+    Avoids unnecessary syscalls on already-tight trees and tolerates
+    EPERM gracefully (the hop3 user owns its backup tree, so EPERM
+    shouldn't happen, but we don't want to abort a backup if it does).
+    """
+    try:
+        current_mode = path.stat().st_mode & 0o777
+    except FileNotFoundError:
+        return
+    if current_mode == target_mode:
+        return
+    with contextlib.suppress(PermissionError):
+        os.chmod(path, target_mode)
 
 
 def format_size(size_bytes: float) -> str:
@@ -170,8 +232,8 @@ class BackupManager:
         backup_id = self._generate_backup_id()
         backup_dir = self._get_backup_dir(app.name, backup_id)
 
-        # Create backup directory
-        backup_dir.mkdir(parents=True, exist_ok=True)
+        # Create backup directory tree with restricted perms (0o700).
+        _ensure_secure_backup_dir(backup_dir)
 
         # Create database record
         backup_record = Backup(
@@ -535,7 +597,7 @@ class BackupManager:
             List of addon backup info dicts
         """
         addons_dir = backup_dir / "addons"
-        addons_dir.mkdir(exist_ok=True)
+        _ensure_secure_backup_dir(addons_dir)
 
         addons_info = []
         failed_addons = []
