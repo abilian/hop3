@@ -7,8 +7,10 @@
 from __future__ import annotations
 
 import pytest
+import tomllib
 
 from hop3.project.hop3_config import Hop3Config
+from hop3.project.schema import Hop3TomlSchema, Hop3TomlValidationError
 
 
 def test_from_str_basic():
@@ -412,3 +414,60 @@ id = "test"
 
     # Test with file path would show path in repr
     # (tested implicitly in test_from_file)
+
+
+def test_test_validation_status_in_snake():
+    """`[test.validations]` accepts `status_in = [...]` — the form xwiki
+    uses to handle its first-boot 202 → 200 transition."""
+    c = Hop3TomlSchema.model_validate(
+        tomllib.loads(
+            """
+[test]
+[[test.validations]]
+path = "/"
+status_in = [200, 202]
+"""
+        )
+    )
+    assert c.test.validations[0].status_in == [200, 202]
+
+
+def test_test_validation_status_in_kebab_alias():
+    """Kebab-case `status-in` is accepted alongside the snake form."""
+    c = Hop3TomlSchema.model_validate(
+        tomllib.loads(
+            """
+[[test.validations]]
+path = "/"
+status-in = [200, 503]
+"""
+        )
+    )
+    assert c.test.validations[0].status_in == [200, 503]
+
+
+def test_test_section_expects_failure():
+    """`expects-failure` in `[test]` flags negative-test-case fixtures."""
+    c = Hop3TomlSchema.model_validate(
+        tomllib.loads(
+            """
+[test]
+expects-failure = true
+"""
+        )
+    )
+    assert c.test.expects_failure is True
+
+
+def test_test_validation_rejects_unknown_field():
+    """`extra = 'forbid'` must still reject typos / unknown fields."""
+    with pytest.raises((ValueError, Hop3TomlValidationError)):
+        Hop3TomlSchema.model_validate(
+            tomllib.loads(
+                """
+[[test.validations]]
+path = "/"
+not_a_real_field = 42
+"""
+            )
+        )

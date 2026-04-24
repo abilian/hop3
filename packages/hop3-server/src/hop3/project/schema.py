@@ -259,7 +259,7 @@ class TestValidation(BaseModel):
     performs after the app is up.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = Field(
         default="http",
@@ -267,6 +267,15 @@ class TestValidation(BaseModel):
     )
     path: str = Field(default="/", description="URL path to probe.")
     status: int = Field(default=200, description="Expected HTTP status code.")
+    status_in: list[int] | None = Field(
+        default=None,
+        alias="status-in",
+        description=(
+            "Accept any of these status codes. Useful for apps whose first-"
+            "boot install wizard legitimately returns 202 before migrations "
+            "complete (e.g., xwiki). When set, `status` is ignored."
+        ),
+    )
     contains: str | None = Field(
         default=None,
         description="If set, response body must contain this substring.",
@@ -283,7 +292,7 @@ class TestSection(BaseModel):
     Replaces the separate `test.toml` file — one source of truth per app.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     priority: str | None = Field(
         default=None,
@@ -308,6 +317,16 @@ class TestSection(BaseModel):
     validations: list[TestValidation] | None = Field(
         default=None,
         description="HTTP checks beyond the single [healthcheck] endpoint.",
+    )
+    expects_failure: bool = Field(
+        default=False,
+        alias="expects-failure",
+        description=(
+            "Negative test case: the deploy is expected to fail. The runner "
+            "treats a failed deploy as PASS and an unexpected successful "
+            "deploy as FAIL. Used for ADR 039 Python-toolchain rejection "
+            "paths and similar intentional-failure fixtures."
+        ),
     )
 
     @field_validator("priority")

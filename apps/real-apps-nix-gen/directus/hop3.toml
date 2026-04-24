@@ -38,11 +38,16 @@ pip-packages = ["pg@^8.11.0"]
 # finds node_modules/ at the expected relative path. Must happen
 # before the bootstrap step below (which writes migration state into
 # data/).
+#
+# Use `$APPDIR` (exported by the wrapper) rather than `$out` — the
+# latter is only defined inside the Nix build sandbox and expands to
+# empty at wrapper runtime, silently producing broken `/app/...`
+# paths.
 pre-exec = [
-  "ln -sfn $out/app/node_modules ./node_modules",
-  "ln -sfn $out/app/package.json ./package.json",
+  "ln -sfn $APPDIR/node_modules ./node_modules",
+  "ln -sfn $APPDIR/package.json ./package.json",
   "mkdir -p data",
-  "$out/app/node_modules/.bin/directus bootstrap",
+  "$APPDIR/node_modules/.bin/directus bootstrap",
 ]
 
 [nix.env-exports]

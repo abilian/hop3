@@ -481,20 +481,42 @@ class TestNodePnpmInstallTemplate:
         assert '"directus": "11.17.2"' in output
 
     def test_wrapper_pinned_node_on_path(self):
-        """pnpm bin shims fall back to `node` on PATH when $basedir/node
-        is missing. Host's system Node may be too old for modern apps —
-        force the Nix-built Node via a NODEBIN sed substitution."""
+        """pnpm bin shims and npm-distributed binaries shebang
+        `#!/usr/bin/env node`. Host's system Node may be too old for
+        modern apps (directus 11 on Debian's Node 18 is the canonical
+        typebox ESM/CJS failure). Wrapper must prepend the Nix-built
+        Node to PATH, via a `NODEBIN` placeholder sed-replaced at
+        install time."""
         spec = self._base_spec()
         output = generate(spec)
-        # NODEBIN placeholder present in the wrapper, sed replacement
-        # present in the install phase.
-        assert "NODEBIN" in output
+        # The PATH prepend line must live in the wrapper body (post-shebang).
+        # NODEBIN is a build-time placeholder; `''${PATH}` is the Nix escape
+        # that survives into the generated shell file as literal `${PATH}`
+        # for bash to resolve at runtime.
+        assert "export PATH=\"NODEBIN:''${PATH}\"" in output
         assert 'sed -i "s|NODEBIN|${nodejs}/bin|g"' in output
 
-    def test_exec_line_targets_node_modules_bin(self):
+    def test_wrapper_exports_appdir(self):
+        """`$out` is only defined inside the Nix build sandbox; it's
+        empty at wrapper runtime. Pre-exec lines that need a path to
+        the installed tree must use `$APPDIR`, which the wrapper
+        exports (sed-replaced to `$out/app` at build time)."""
+        spec = self._base_spec()
+        output = generate(spec)
+        # The wrapper must export APPDIR = <build-time-substituted path>.
+        assert 'APPDIR="APPDIR_PLACEHOLDER"' in output
+        assert "export APPDIR" in output
+        # Install phase sed-replaces APPDIR_PLACEHOLDER with $out/app.
+        assert 'sed -i "s|APPDIR_PLACEHOLDER|$out/app|g"' in output
+
+    def test_exec_line_uses_runtime_appdir(self):
+        """Exec line targets `$APPDIR/node_modules/.bin/<exec>` — the
+        runtime-expanded variable, not a build-time placeholder. This
+        way the same mechanism covers pre-exec commands in the user's
+        hop3.toml (e.g., `$APPDIR/node_modules/.bin/directus bootstrap`)."""
         spec = self._base_spec(exec_target="directus", exec_args=["start"])
         output = generate(spec)
-        assert "APPDIR/node_modules/.bin/directus start" in output
+        assert "$APPDIR/node_modules/.bin/directus start" in output
 
 
 def test_nixpkgs_wrapper_default_pkgbin_when_no_exec_prefix():

@@ -83,8 +83,35 @@ class NodePnpmInstallTemplate:
         )
 
         exec_args = " " + " ".join(spec.exec_args) if spec.exec_args else ""
-        exec_line = f"APPDIR/node_modules/.bin/{spec.exec_target}{exec_args}"
+        # Exec line uses the runtime-exported `$APPDIR` (not the `$out` from
+        # the Nix build context, which is undefined at wrapper runtime).
+        exec_line = f"$APPDIR/node_modules/.bin/{spec.exec_target}{exec_args}"
         wrapper_body = format_wrapper_body(spec, exec_line)
+
+        # Splice two bootstrap lines in after the shebang so the wrapper
+        # runtime has the correct Node version on PATH and a stable
+        # `$APPDIR` handle to the installed tree in the Nix store.
+        # APPDIR and NODEBIN are sed-substituted to the real paths at build
+        # time (the installPhase below handles both).
+        #
+        # Note: `${PATH}` must be emitted as the Nix-escape `''${PATH}` so
+        # Nix's own ``${...}`` interpolation inside the `'' ... ''` heredoc
+        # passes the token through to the generated shell file, where bash
+        # resolves it at wrapper runtime.
+        shebang, _, rest = wrapper_body.partition("\n")
+        bootstrap = (
+            # Prepend node first so bin shims that shebang `#!/usr/bin/env node`
+            # find the pinned Node version — the canonical failure mode here is
+            # directus 11 falling back to the host's Node 18 and hitting an
+            # ESM/CJS interop error in @sinclair/typebox.
+            "export PATH=\"NODEBIN:''${PATH}\"\n"
+            # $APPDIR is the installed app tree under the Nix store. pre-exec
+            # commands in hop3.toml should reference `$APPDIR/...`, NOT the
+            # Nix build-context `$out/...` (the latter is not set at runtime).
+            'APPDIR="APPDIR_PLACEHOLDER"\n'
+            "export APPDIR"
+        )
+        wrapper_body = shebang + "\n\n" + bootstrap + "\n" + rest
 
         runtime_env_json = format_runtime_env_json(spec.runtime_env)
         nix_env_attrs = format_nix_env_attrs(spec.runtime_env)
@@ -160,7 +187,11 @@ WRAPPER
       # host's system Node may be older and hit ESM/CJS interop
       # mismatches on the same pnpm tree (directus 11 on Debian's
       # Node 18 is the canonical failure mode).
-      sed -i "s|APPDIR|$out/app|g" $out/bin/{spec.pname}
+      #
+      # APPDIR_PLACEHOLDER (unique token) gets the nix store path so
+      # `$APPDIR` is a stable handle the wrapper exports; NODEBIN is
+      # replaced by the pinned Node's bin dir for the PATH prepend.
+      sed -i "s|APPDIR_PLACEHOLDER|$out/app|g" $out/bin/{spec.pname}
       sed -i "s|NODEBIN|${{nodejs}}/bin|g" $out/bin/{spec.pname}
       chmod +x $out/bin/{spec.pname}
 
