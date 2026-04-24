@@ -21,7 +21,7 @@ def get_catalog() -> Catalog:
         # Fallback: navigate from test file
         root = Path(__file__).parent.parent.parent.parent.parent
     catalog = Catalog(root)
-    catalog.scan(paths=["apps/test-apps"])
+    catalog.scan(paths=["apps/test-apps-procfile", "apps/test-apps-nix"])
     return catalog
 
 

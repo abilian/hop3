@@ -23,9 +23,30 @@ import httpx
 from hop3_testing.util.console import Console, PrintingConsole
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from hop3_testing.targets.base import TargetInfo
 
     from .catalog import AppSource
+
+
+def _status_match(actual: int, expected: int | Iterable[int]) -> bool:
+    """Whether ``actual`` satisfies ``expected`` (scalar or any-of)."""
+    if isinstance(expected, int):
+        return actual == expected
+    return actual in set(expected)
+
+
+def _format_expected(expected: int | Iterable[int]) -> str:
+    """Human-readable rendering of an expected-status spec."""
+    if isinstance(expected, int):
+        return str(expected)
+    codes = sorted(set(expected))
+    if len(codes) == 1:
+        return str(codes[0])
+    if len(codes) == 2:
+        return f"{codes[0]} or {codes[1]}"
+    return ", ".join(str(c) for c in codes[:-1]) + f", or {codes[-1]}"
 
 
 @dataclass(frozen=True)
@@ -45,7 +66,7 @@ class HttpVerifier:
         self,
         hostname: str | None = None,
         path: str = "/",
-        expected_status: int = HTTPStatus.OK,
+        expected_status: int | Iterable[int] = HTTPStatus.OK,
         max_retries: int = 20,
     ) -> bool:
         """Test HTTP access to the deployed app.
@@ -53,7 +74,9 @@ class HttpVerifier:
         Args:
             hostname: Virtual host name (default: {app_name}.test.local)
             path: URL path to test
-            expected_status: Expected HTTP status code
+            expected_status: Expected HTTP status code, or an iterable of
+                accepted codes (for apps whose first-boot install wizard
+                legitimately returns 202, etc.)
             max_retries: Maximum number of retry attempts
 
         Returns:
@@ -62,11 +85,11 @@ class HttpVerifier:
         result = self.test_detailed(hostname, path, expected_status, max_retries)
         return result["passed"]
 
-    def test_detailed(
+    def test_detailed(  # noqa: PLR0915
         self,
         hostname: str | None = None,
         path: str = "/",
-        expected_status: int = HTTPStatus.OK,
+        expected_status: int | Iterable[int] = HTTPStatus.OK,
         max_retries: int = 20,
     ) -> dict[str, Any]:
         """Test HTTP access and return detailed results.
@@ -131,7 +154,7 @@ class HttpVerifier:
                 body = response.text[:4096] if response.text else ""
                 result["details"]["body_preview"] = body
 
-                if response.status_code == expected_status:
+                if _status_match(response.status_code, expected_status):
                     result["passed"] = True
                     result["message"] = f"HTTP {response.status_code} from {url}"
                     self.console.success(
@@ -148,7 +171,8 @@ class HttpVerifier:
                     continue
 
                 result["message"] = (
-                    f"HTTP {response.status_code} (expected {expected_status})"
+                    f"HTTP {response.status_code} "
+                    f"(expected {_format_expected(expected_status)})"
                 )
                 self.console.debug(f"Unexpected status code: {response.status_code}")
                 return result
@@ -167,7 +191,7 @@ class HttpVerifier:
             error_parts.append(f"Last status: {details['status_code']}")
         if "last_error" in details:
             error_parts.append(f"Last error: {details['last_error']}")
-        if "body_preview" in details and details["body_preview"]:
+        if details.get("body_preview"):
             body = details["body_preview"][:200]
             error_parts.append(f"Response body: {body}")
 
@@ -230,7 +254,7 @@ class CheckScriptRunner:
 
             # Execute check script
             ctx: dict[str, Any] = {}
-            exec(check_script_path.read_text(), ctx)  # noqa: S102
+            exec(check_script_path.read_text(), ctx)
 
             if "check" not in ctx:
                 result["message"] = "check() function not found in check.py"
@@ -315,7 +339,7 @@ class AppVerifier:
         self,
         hostname: str | None = None,
         path: str = "/",
-        expected_status: int = HTTPStatus.OK,
+        expected_status: int | Iterable[int] = HTTPStatus.OK,
         max_retries: int = 20,
     ) -> dict[str, Any]:
         """Verify HTTP endpoint with detailed results."""
@@ -326,4 +350,3 @@ class AppVerifier:
     def run_check_script_detailed(self) -> dict[str, Any]:
         """Run check script with detailed results."""
         return self.check_runner.run_detailed()
-

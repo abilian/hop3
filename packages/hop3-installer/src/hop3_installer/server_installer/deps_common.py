@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import subprocess  # noqa: TC003
 import time
 from collections.abc import Callable  # noqa: TC003
 from dataclasses import dataclass, field
@@ -259,17 +260,25 @@ def install_node_global_packages() -> None:
 # =============================================================================
 
 
-def _fail_rust_install(msg: str, result, *, required: bool) -> None:
+def _fail_rust_install(
+    msg: str,
+    result: subprocess.CompletedProcess | None,
+    *,
+    required: bool,
+) -> None:
     """Report a Rust install failure; raise if it was required."""
     (print_error if required else print_warning)(msg)
-    if result is not None and getattr(result, "stderr", ""):
+    if result is not None and result.stderr:
         print_detail(result.stderr[:400])
     if required:
+        returncode = result.returncode if result is not None else 1
+        stdout = result.stdout or "" if result is not None else ""
+        stderr = result.stderr or msg if result is not None else msg
         raise CommandError(
-            msg,
-            returncode=getattr(result, "returncode", 1) if result else 1,
-            stdout=getattr(result, "stdout", "") if result else "",
-            stderr=getattr(result, "stderr", "") if result else "",
+            cmd=["rust-install"],
+            returncode=returncode,
+            stdout=stdout,
+            stderr=stderr,
         )
 
 
