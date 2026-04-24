@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from hop3.config import HopConfig
+from hop3.core.identifiers import InvalidIdentifierError, validate_hostname_list
 from hop3.lib.args import parse_cli_args
 from hop3.lib.registry import register
 from hop3.orm import App, AppRepository
@@ -364,16 +365,22 @@ class SetCmd(Command):
         # Parse and validate settings
         key_values, errors = parse_key_value_settings(settings)
 
-        # Validate HOST_NAME uniqueness
+        # Validate HOST_NAME syntax and uniqueness
         if "HOST_NAME" in key_values:
             hostname = key_values["HOST_NAME"]
             if hostname and hostname != "_":
-                conflict = self._check_hostname_conflict(app_name, hostname)
-                if conflict:
-                    errors.append(
-                        f"Hostname '{hostname}' is already used by app '{conflict}'"
-                    )
+                try:
+                    validate_hostname_list(hostname)
+                except InvalidIdentifierError as e:
+                    errors.append(str(e))
                     del key_values["HOST_NAME"]
+                else:
+                    conflict = self._check_hostname_conflict(app_name, hostname)
+                    if conflict:
+                        errors.append(
+                            f"Hostname '{hostname}' is already used by app '{conflict}'"
+                        )
+                        del key_values["HOST_NAME"]
 
         if errors:
             return [error("\n".join(errors))]

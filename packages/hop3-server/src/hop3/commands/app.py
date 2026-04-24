@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from hop3.core.credentials import get_credential_encryptor
+from hop3.core.identifiers import validate_app_name
 from hop3.deployers import do_deploy
 from hop3.lib import log
 from hop3.lib.archives import extract_archive_to_dir
@@ -134,6 +135,7 @@ class LaunchCmd(Command):
             raise ValueError(msg)
 
         repo_url, app_name = args
+        validate_app_name(app_name)
         app_repo = AppRepository(session=self.db_session)
 
         if app_repo.exists(name=app_name):
@@ -187,6 +189,7 @@ class DeployCmd(Command):
             raise ValueError(msg)
 
         app_name = args[0]
+        validate_app_name(app_name)
 
         try:
             app = get_app(self.db_session, app_name)

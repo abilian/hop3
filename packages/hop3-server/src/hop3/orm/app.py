@@ -270,8 +270,25 @@ class App(BigIntAuditBase):
     #
     @property
     def app_path(self) -> Path:
-        """Path to the root directory of the app."""
-        return HopConfig.get_instance().APP_ROOT / self.name
+        """Path to the root directory of the app.
+
+        Defense-in-depth: reject names that would escape APP_ROOT even if
+        validation at the RPC boundary is ever bypassed. The primary check
+        is ``hop3.core.identifiers.validate_app_name`` at command entry;
+        this guard catches anything that slips past.
+        """
+        name = self.name
+        parts = Path(name).parts
+        if (
+            ".." in parts
+            or "/" in name
+            or "\\" in name
+            or name.startswith(".")
+            or not name
+        ):
+            msg = f"Unsafe app name {name!r}: refusing to resolve path."
+            raise ValueError(msg)
+        return HopConfig.get_instance().APP_ROOT / name
 
     @property
     def repo_path(self) -> Path:

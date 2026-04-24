@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, NoReturn
 
 from hop3.config import HOP3_ROOT, HOP3_USER
 from hop3.core.env import Env
+from hop3.core.identifiers import validate_service_name
 from hop3.core.plugins import get_proxy_strategy
 from hop3.core.protocols import (
     BuildArtifact,
@@ -303,6 +304,7 @@ services:
 
         # Add scaling if provided
         for service, count in deltas.items():
+            validate_service_name(service)
             cmd.extend(["--scale", f"{service}={count}"])
 
         # Set environment for compose file, including the allocated port
@@ -494,6 +496,7 @@ services:
 
         cmd = [*self._get_compose_cmd_base(), "up", "-d", "--no-recreate"]
         for service, count in deltas.items():
+            validate_service_name(service)
             cmd.extend(["--scale", f"{service}={count}"])
 
         env = self._get_compose_env(port)

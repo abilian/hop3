@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from hop3.core.git import GitManager
+from hop3.core.identifiers import validate_app_name
 from hop3.deployers import do_deploy
 from hop3.lib import log
 from hop3.lib.registry import register
@@ -54,6 +55,7 @@ class GitHookCmd(Command):
             raise ValueError(msg)
 
         app_name = args[0]
+        validate_app_name(app_name)
 
         # Get the app from database
         app_repo = AppRepository(session=self.db_session)

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3.config import ACME_WWW, CACHE_ROOT, NGINX_ROOT
+from hop3.core.identifiers import validate_hostname_list
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
 from hop3.lib import Diagnosis, command_output, expand_vars, log, log_diagnosis
@@ -43,8 +44,11 @@ class NginxVirtualHost(BaseProxy):
         return "nginx"
 
     def __post_init__(self) -> None:
-        # Hack to get around ClickCommand
-        server_name_list = self.env["HOST_NAME"].split(",")
+        # Validate each host in HOST_NAME before it lands in the nginx config.
+        # The proxy template interpolates HOST_NAME straight into
+        # `server_name $HOST_NAME;`, so an un-validated value with a newline
+        # or `;` would inject arbitrary nginx directives.
+        server_name_list = validate_hostname_list(self.env["HOST_NAME"])
         self.env["HOST_NAME"] = " ".join(server_name_list)
 
         nginx_version = command_output("nginx -V")

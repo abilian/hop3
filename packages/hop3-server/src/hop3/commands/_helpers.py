@@ -8,6 +8,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from hop3.core.identifiers import (
+    InvalidIdentifierError,
+    validate_app_name,
+    validate_env_var_key,
+)
 from hop3.orm import App, EnvVar
 from hop3.orm.repositories import AppRepository
 
@@ -53,8 +58,13 @@ def get_app(db_session: Session, app_name: str) -> App:
         The App object
 
     Raises:
-        ValueError: If the app is not found
+        InvalidIdentifierError: If ``app_name`` fails identifier validation.
+            This is the primary RPC-boundary choke point; rejecting here
+            prevents path-traversal payloads from ever reaching
+            ``App.app_path`` or touching the filesystem.
+        ValueError: If the app is not found.
     """
+    validate_app_name(app_name)
     app_repo = AppRepository(session=db_session)
     app = app_repo.get_one_or_none(name=app_name)
     if not app:
@@ -90,6 +100,12 @@ def parse_key_value_settings(
 
         if not key:
             errors.append(f"Empty key in setting: '{setting}'")
+            continue
+
+        try:
+            validate_env_var_key(key)
+        except InvalidIdentifierError as e:
+            errors.append(str(e))
             continue
 
         parsed[key] = value

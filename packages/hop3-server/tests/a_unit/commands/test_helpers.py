@@ -74,6 +74,40 @@ class TestParseKeyValueSettings:
         assert parsed == {}
         assert errors == []
 
+    def test_rejects_key_with_shell_metacharacters(self):
+        # A key like this would previously be interpolated unquoted into
+        # `export {key}='{value}'` inside an `sh -c` string, enabling
+        # command injection at deploy time.
+        settings = ["FOO;touch /tmp/pwned=bar"]
+        parsed, errors = parse_key_value_settings(settings)
+        assert parsed == {}
+        assert len(errors) == 1
+        assert "FOO;touch" in errors[0]
+
+    def test_rejects_key_starting_with_digit(self):
+        settings = ["1FOO=bar"]
+        parsed, errors = parse_key_value_settings(settings)
+        assert parsed == {}
+        assert len(errors) == 1
+
+    def test_rejects_key_with_newline(self):
+        settings = ["FOO\nBAR=baz"]
+        parsed, errors = parse_key_value_settings(settings)
+        assert parsed == {}
+        assert len(errors) == 1
+
+    def test_rejects_key_with_space(self):
+        settings = ["FOO BAR=baz"]
+        parsed, errors = parse_key_value_settings(settings)
+        assert parsed == {}
+        assert len(errors) == 1
+
+    def test_valid_underscored_keys(self):
+        settings = ["DATABASE_URL=x", "_PRIVATE=y"]
+        parsed, errors = parse_key_value_settings(settings)
+        assert parsed == {"DATABASE_URL": "x", "_PRIVATE": "y"}
+        assert errors == []
+
 
 class TestSetEnvVar:
     """Tests for set_env_var function."""
