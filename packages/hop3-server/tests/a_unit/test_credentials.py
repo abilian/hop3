@@ -10,7 +10,11 @@ import base64
 import pytest
 from cryptography.fernet import InvalidToken
 
-from hop3.core.credentials import CredentialEncryption, get_credential_encryptor
+from hop3.core.credentials import (
+    SCHEME_V2_PREFIX,
+    CredentialEncryption,
+    get_credential_encryptor,
+)
 
 
 class TestCredentialEncryption:
@@ -46,14 +50,19 @@ class TestCredentialEncryption:
         assert "username" not in encrypted
 
     def test_encrypted_data_is_base64(self):
-        """Test that encrypted data is valid base64 (URL-safe variant)."""
+        """Test that the Fernet token portion is valid URL-safe base64.
+
+        Wave 3 added a ``v2:`` scheme prefix in front of the token so the
+        decrypt path can route to the right key; the token itself is
+        still URL-safe base64. Strip the prefix before validating.
+        """
         encryptor = CredentialEncryption()
         data = {"key": "value"}
 
         encrypted = encryptor.encrypt(data)
+        encrypted = encrypted.removeprefix(SCHEME_V2_PREFIX)
 
         # Fernet uses URL-safe base64 encoding
-        # Should be decodable with urlsafe_b64decode
         base64.urlsafe_b64decode(encrypted)
 
     def test_tampering_detected(self):
