@@ -21,6 +21,7 @@ from litestar import Controller, get
 from litestar.exceptions import NotFoundException
 from litestar.response import Stream
 
+from hop3.server.guards import auth_guard
 from hop3.server.streaming import get_stream
 
 
@@ -30,9 +31,14 @@ class StreamController(Controller):
     Provides endpoints for:
     - Streaming deployment logs via SSE
     - Checking stream status
+
+    All endpoints require authentication. Without the guard any caller
+    could guess a stream id and silently tail live deployment logs,
+    which leak env vars and tokens.
     """
 
     path = "/api/stream"
+    guards = [auth_guard]  # noqa: RUF012 - base class defines as instance var
 
     @get("/{stream_id:str}")
     async def stream_logs(self, stream_id: str) -> Stream:

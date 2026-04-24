@@ -19,6 +19,7 @@ from litestar.static_files import create_static_files_router
 from litestar.stores.memory import MemoryStore
 from litestar.template.config import TemplateConfig
 
+from hop3.core.unsafe_gate import enforce_unsafe_mode_policy
 from hop3.di import create_async_container
 from hop3.orm import get_session_factory
 
@@ -79,6 +80,12 @@ def handle_401(request: Request, exc: NotAuthorizedException) -> Redirect:
 
 def on_startup() -> None:
     """Start background services when server starts."""
+    # Safety interlock for HOP3_UNSAFE — runs before anything else that
+    # could read config.HOP3_UNSAFE. Refuses to boot if the auth bypass
+    # was requested without the required ACK flag, and forces it off in
+    # production regardless of what the environment asks for.
+    enforce_unsafe_mode_policy()
+
     # Verify addon health (MySQL, PostgreSQL, Redis)
     # Logs warnings if configured services are not accessible
     verify_addon_health()

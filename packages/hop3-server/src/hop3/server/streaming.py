@@ -193,7 +193,12 @@ def create_stream(app_name: str) -> DeploymentStream:
     # Clean up old streams first
     cleanup_old_streams()
 
-    stream_id = str(uuid.uuid4())[:8]
+    # Full UUID: 122 bits of entropy, not enumerable. The previous
+    # 8-hex-char slice had only 2**32 combinations, trivially brute-forced
+    # once the endpoint was publicly reachable. Combined with the
+    # auth_guard on StreamController this gives layered defense: an
+    # attacker needs a valid bearer token *and* a lucky guess.
+    stream_id = str(uuid.uuid4())
     stream = DeploymentStream(stream_id=stream_id, app_name=app_name)
     _streams[stream_id] = stream
     return stream
