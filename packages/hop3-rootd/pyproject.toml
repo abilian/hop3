@@ -1,0 +1,41 @@
+# Copyright (c) 2026, Abilian SAS
+# SPDX-License-Identifier: Apache-2.0
+
+[project]
+name = "hop3-rootd"
+version = "0.4.0"
+description = "Privileged operations agent for Hop3 (kernel-boundary executor)"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [{ name = "Abilian SAS", email = "contact@abilian.com" }]
+requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: No Input/Output (Daemon)",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Networking :: Firewalls",
+    "Topic :: System :: Systems Administration",
+]
+# No runtime dependencies. The daemon is the kernel-privilege boundary;
+# every transitive dep is part of the trust budget. Stdlib only.
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+hop3-rootd = "hop3_rootd.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hop3_rootd"]

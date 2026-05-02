@@ -1,0 +1,169 @@
+# Copyright (c) 2026, Abilian SAS
+# SPDX-License-Identifier: Apache-2.0
+
+# ruff: noqa: TC001
+
+"""Startup reconciliation between state.json and the inet hop3 table.
+
+Five cases (ADR 041 §6 "Startup reconciliation"):
+
+  - Rule in state AND in kernel, same spec → log "verified".
+  - Rule in state, NOT in kernel → re-apply (kernel reload / flush).
+  - Rule in kernel (in `inet hop3`), NOT in state → remove (orphan).
+  - Rule in state with one spec, in kernel with a different spec → kernel
+    wins; state updated; log warning. (Rare.)
+  - state.json missing or corrupt → daemon refuses to start (handled in
+    __main__, not here).
+
+This module assumes the state is already loaded; it doesn't open files.
+The kernel side uses `nft list_rules`; failures bubble up to the caller.
+
+Per the Q7 caveat-emptor principle: rules outside `inet hop3` are
+invisible. Operator manual mutations to managed state are unsupported.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from hop3_rootd.audit import logger
+from hop3_rootd.nft.rule import (
+    build_add_argv,
+    build_delete_argv,
+    parse_comment,
+    run_nft,
+)
+from hop3_rootd.nft.table import ensure_table_exists, list_rules
+from hop3_rootd.state import State, StoredRule
+from hop3_rootd.validation import validate_port_spec
+
+
+@dataclass(frozen=True)
+class ReconcileReport:
+    """Summary of what reconcile() did. Surfaced via daemon.health()."""
+
+    verified: int = 0  # in both, matching
+    reapplied: int = 0  # in state, missing from kernel, restored
+    orphans_removed: int = 0  # in kernel (our table), missing from state
+    state_dropped: int = 0  # in state but couldn't be re-applied; dropped
+
+
+def reconcile(state: State) -> ReconcileReport:
+    """Reconcile in-memory state with kernel state. Mutates `state` in place.
+
+    Caller is responsible for persisting state.json after this returns.
+
+    Raises NftError if the kernel is unreachable (table can't be created
+    or listed); the daemon refuses to start in that case.
+    """
+    # Make sure the table+chain exist before anything else.
+    ensure_table_exists()
+
+    kernel_rules = list_rules()
+
+    # Index kernel rules by their rule_id (extracted from the comment).
+    # Foreign rules (rules in our table without our comment marker) shouldn't
+    # exist — but if they do (operator manual edit, or a previous version
+    # of rootd with a different format), we treat them as orphans below.
+    by_rule_id: dict[str, int] = {}  # rule_id -> nft handle
+    foreign_handles: list[int] = []
+    for kr in kernel_rules:
+        rid = parse_comment(kr.comment)
+        if rid is None:
+            foreign_handles.append(kr.handle)
+        else:
+            by_rule_id[rid] = kr.handle
+
+    report = _ReconcileBuilder()
+
+    # State-side rules: re-apply any missing from kernel, drop any that
+    # can't be parsed.
+    new_state_rules: list[StoredRule] = []
+    for stored in state.rules:
+        if stored.rule_id in by_rule_id:
+            # Verified — both sides agree this rule exists.
+            logger.info("reconcile: verified rule %s", stored.rule_id)
+            new_state_rules.append(stored)
+            report.verified += 1
+            # Remove from the dict so leftover entries are orphans.
+            by_rule_id.pop(stored.rule_id)
+            continue
+
+        # Missing from kernel. Try to re-apply.
+        try:
+            spec = validate_port_spec(stored.spec)
+            argv = build_add_argv(spec, rule_id=stored.rule_id)
+            run_nft(argv)
+            logger.warning(
+                "reconcile: re-applied missing kernel rule %s", stored.rule_id
+            )
+            new_state_rules.append(stored)
+            report.reapplied += 1
+        except Exception as e:
+            logger.error(
+                "reconcile: could not re-apply rule %s — dropping from state: %s",
+                stored.rule_id,
+                e,
+            )
+            report.state_dropped += 1
+            # Don't append — this rule is gone.
+
+    state.rules = new_state_rules
+
+    # Kernel-side: anything left in by_rule_id is in our table but not in
+    # state. These are orphans from a previous run that crashed before
+    # persisting state. Remove them.
+    for rid, handle in by_rule_id.items():
+        try:
+            run_nft(build_delete_argv(handle))
+            logger.warning(
+                "reconcile: removed orphan kernel rule %s (handle %d)", rid, handle
+            )
+            report.orphans_removed += 1
+        except Exception as e:
+            logger.error(
+                "reconcile: failed to remove orphan rule %s (handle %d): %s",
+                rid,
+                handle,
+                e,
+            )
+
+    # Foreign rules: rules in our table without our comment marker.
+    # Per caveat-emptor, we *also* remove these — the operator shouldn't
+    # be putting rules in `inet hop3`. Log loudly.
+    for handle in foreign_handles:
+        try:
+            run_nft(build_delete_argv(handle))
+            logger.warning(
+                "reconcile: removed foreign (unmarked) rule with handle %d "
+                "from inet hop3 table — operator should not edit this table directly",
+                handle,
+            )
+            report.orphans_removed += 1
+        except Exception as e:
+            logger.error(
+                "reconcile: failed to remove foreign rule (handle %d): %s",
+                handle,
+                e,
+            )
+
+    return report.build()
+
+
+# --- Builder helper (mutable counterpart of frozen dataclass) ------------
+
+
+class _ReconcileBuilder:
+    def __init__(self) -> None:
+        self.verified = 0
+        self.reapplied = 0
+        self.orphans_removed = 0
+        self.state_dropped = 0
+
+    def build(self) -> ReconcileReport:
+        return ReconcileReport(
+            verified=self.verified,
+            reapplied=self.reapplied,
+            orphans_removed=self.orphans_removed,
+            state_dropped=self.state_dropped,
+        )
