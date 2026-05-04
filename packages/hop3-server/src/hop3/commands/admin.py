@@ -51,9 +51,7 @@ class AdminReencryptCredentialsCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("admin", "reencrypt-credentials")
     pass_username: ClassVar[bool] = True
 
-    def call(
-        self, authenticated_username: str = "", *args: str
-    ) -> list[dict]:
+    def call(self, authenticated_username: str = "", *args: str) -> list[dict]:
         if admin_error := require_admin(authenticated_username, self.user_repo):
             return admin_error
 

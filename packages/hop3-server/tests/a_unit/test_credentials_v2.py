@@ -140,9 +140,7 @@ def test_env_salt_hex_override(monkeypatch) -> None:
 def test_env_salt_base64_override(monkeypatch) -> None:
     secret = b"same-secret"
     raw = b"this-is-a-16byte"
-    monkeypatch.setenv(
-        "HOP3_CREDENTIAL_SALT", base64.b64encode(raw).decode("ascii")
-    )
+    monkeypatch.setenv("HOP3_CREDENTIAL_SALT", base64.b64encode(raw).decode("ascii"))
     assert _v2_salt(secret) == raw
 
 

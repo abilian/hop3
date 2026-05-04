@@ -50,6 +50,7 @@ from .python import (
     run_hop3_setup,
     setup_ssh_keys,
 )
+from .rootd import setup_rootd
 from .s3 import fix_s3_env_ownership
 from .services import setup_systemd
 from .ssl import setup_ssl_selfsigned
@@ -213,6 +214,12 @@ def _run_service_setup_steps(
         setup_nginx(config)
     except CommandError as e:
         print_warning(f"Nginx setup issue: {e.stderr[:100]}")
+
+    # Step 9b: hop3-rootd (privileged-operations daemon). See ADR 041.
+    try:
+        setup_rootd()
+    except CommandError as e:
+        print_warning(f"hop3-rootd setup issue: {e.stderr[:200]}")
 
     # Step 10: PostgreSQL
     print_step(10, TOTAL_STEPS, "Configuring PostgreSQL...")

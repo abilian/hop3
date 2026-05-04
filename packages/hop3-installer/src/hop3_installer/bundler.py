@@ -65,6 +65,7 @@ SERVER_MODULES = [
     "server_installer/postgres.py",
     "server_installer/mysql.py",
     "server_installer/acme.py",
+    "server_installer/rootd.py",
     "server_installer/verify.py",
     "server_installer/installer.py",
 ]

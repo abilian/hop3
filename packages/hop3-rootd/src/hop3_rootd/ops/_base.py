@@ -67,8 +67,11 @@ class OpContext:
 class OpHandler(Protocol):
     """Each registered op implements this signature."""
 
-    def __call__(self, req: Request, ctx: OpContext) -> dict[str, Any]:
+    def __call__(self, req: Request, ctx: OpContext, /) -> dict[str, Any]:
         """Execute the op. Return the success-result dict.
+
+        Args are positional-only so implementations may rename them
+        (e.g. `_req`, `_ctx`) without breaking type checks.
 
         Raise ValidationError, StateConflictError, NftError, or other
         Exception on failure — the dispatcher converts to a Response.

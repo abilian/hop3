@@ -55,7 +55,7 @@ directory=/home/hop3
 user=hop3
 autostart=true
 autorestart=true
-environment=HOME="/home/hop3",HOP3_SECRET_KEY="e2e-test-secret-key-do-not-use-in-production",HOP3_UNSAFE="true",HOP3_DB_URL="sqlite:////home/hop3/hop3.db",ACME_ENGINE="self-signed",HOP3_PROXY_TYPE="$PROXY_TYPE",HOP3_E2E_TEST="true"
+environment=HOME="/home/hop3",HOP3_SECRET_KEY="e2e-test-secret-key-do-not-use-in-production",HOP3_UNSAFE="true",HOP3_UNSAFE_ACK="yes-I-understand",HOP3_DB_URL="sqlite:////home/hop3/hop3.db",ACME_ENGINE="self-signed",HOP3_PROXY_TYPE="$PROXY_TYPE",HOP3_E2E_TEST="true"
 stdout_logfile=/var/log/supervisor/hop3-server.log
 stderr_logfile=/var/log/supervisor/hop3-server_err.log
 

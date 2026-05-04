@@ -630,6 +630,7 @@ class DockerServiceManager:
             "su - hop3 -c '"
             f'export HOP3_SECRET_KEY="{E2E_TEST_SECRET_KEY}" && '
             'export HOP3_UNSAFE="true" && '
+            'export HOP3_UNSAFE_ACK="yes-I-understand" && '
             'export HOP3_DB_URL="sqlite:////home/hop3/hop3.db" && '
             'export ACME_ENGINE="self-signed" && '
             "nohup /home/hop3/venv/bin/hop3-server serve "
@@ -699,8 +700,12 @@ def configure_server_test_mode(
             raise ConfigurationError(msg)
 
         # Create override file with HOP3_UNSAFE=true
+        # HOP3_UNSAFE_ACK is the safety interlock added in wave-2 hardening:
+        # the daemon refuses to start with HOP3_UNSAFE set unless the ACK is
+        # also present. Test mode opts into both.
         override_content = """[Service]
 Environment="HOP3_UNSAFE=true"
+Environment="HOP3_UNSAFE_ACK=yes-I-understand"
 """
         result = backend.run(
             f"cat > /etc/systemd/system/hop3-server.service.d/test-mode.conf << 'EOF'\n{override_content}EOF",

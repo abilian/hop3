@@ -7,7 +7,6 @@ from __future__ import annotations
 import grp
 import os
 import pwd
-import subprocess
 from pathlib import Path
 
 from hop3_installer.common import (
@@ -26,7 +25,7 @@ from hop3_installer.constants import (
     SYSTEM_SSL_CERT,
     SYSTEM_SSL_KEY,
 )
-from hop3_installer.nginx_templates import SUDOERS_CONTENT, generate_full_ssl_config
+from hop3_installer.nginx_templates import generate_full_ssl_config
 
 from .config import ServerInstallerConfig
 
@@ -121,9 +120,6 @@ def setup_nginx(config: ServerInstallerConfig) -> None:
         print_error(f"Nginx configuration test failed: {e.stderr[:200]}")
         return
 
-    # Configure sudoers
-    setup_sudoers()
-
     # Enable and start nginx
     run_cmd(["systemctl", "enable", "nginx"], check=False)
     result = run_cmd(["systemctl", "restart", "nginx"], check=False)
@@ -175,27 +171,3 @@ def _add_hop3_nginx_include() -> None:
         print_success("Added hop3 app nginx include to nginx.conf")
     else:
         print_warning("Could not find suitable location for nginx include")
-
-
-def setup_sudoers() -> None:
-    """Configure sudo permissions for hop3 user."""
-    sudoers_file = Path("/etc/sudoers.d/hop3")
-
-    try:
-        sudoers_file.write_text(SUDOERS_CONTENT)
-        Path(sudoers_file).chmod(0o440)
-
-        # Validate with visudo
-        result = subprocess.run(  # noqa: PLW1510
-            ["visudo", "-c", "-f", str(sudoers_file)],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            print_warning(f"Invalid sudoers file: {result.stderr}")
-            sudoers_file.unlink()
-            return
-
-        print_success("Sudoers configured for hop3 service management")
-    except Exception as e:
-        print_warning(f"Could not configure sudoers: {e}")

@@ -157,9 +157,12 @@ RUN rm -rf /opt/hop3-server/src/hop3/__pycache__ && \
 # LAYER 5: Configuration and setup (changes rarely)
 # =============================================================================
 
-# Create hop3 environment file
+# Create hop3 environment file.
+# HOP3_UNSAFE_ACK is the safety interlock from wave-2 hardening (core/unsafe_gate.py):
+# the daemon refuses to start with HOP3_UNSAFE=true unless the ACK is also present.
 RUN echo 'HOP3_SECRET_KEY=e2e-test-secret-key-do-not-use-in-production' > /home/hop3/.env && \
     echo 'HOP3_UNSAFE=true' >> /home/hop3/.env && \
+    echo 'HOP3_UNSAFE_ACK=yes-I-understand' >> /home/hop3/.env && \
     echo 'HOP3_DB_URL=sqlite:////home/hop3/hop3.db' >> /home/hop3/.env && \
     echo 'ACME_ENGINE=self-signed' >> /home/hop3/.env && \
     chown hop3:hop3 /home/hop3/.env && \
@@ -168,6 +171,7 @@ RUN echo 'HOP3_SECRET_KEY=e2e-test-secret-key-do-not-use-in-production' > /home/
 # Run hop3 setup with environment variables
 RUN su - hop3 -c "export HOP3_SECRET_KEY='e2e-test-secret-key-do-not-use-in-production' && \
     export HOP3_UNSAFE='true' && \
+    export HOP3_UNSAFE_ACK='yes-I-understand' && \
     export HOP3_DB_URL='sqlite:////home/hop3/hop3.db' && \
     export ACME_ENGINE='self-signed' && \
     ~/venv/bin/hop3-server setup"

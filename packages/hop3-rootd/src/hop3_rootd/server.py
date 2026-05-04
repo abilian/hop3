@@ -94,13 +94,16 @@ def get_peer_uid(sock: socket.socket) -> int | None:
     (e.g., macOS — but the daemon is Linux-only in practice).
     """
     try:
-        # SO_PEERCRED: 12 bytes (pid, uid, gid) on Linux.
-        creds = sock.getsockopt(
-            socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i")
-        )
+        # SO_PEERCRED: 12 bytes (pid, uid, gid) on Linux. The constant
+        # only exists on Linux Pythons, so look it up dynamically to
+        # keep type checkers (and macOS dev hosts) happy.
+        so_peercred = getattr(socket, "SO_PEERCRED", None)
+        if so_peercred is None:
+            return None
+        creds = sock.getsockopt(socket.SOL_SOCKET, so_peercred, struct.calcsize("3i"))
         _pid, uid, _gid = struct.unpack("3i", creds)
         return uid
-    except (OSError, AttributeError):
+    except OSError:
         return None
 
 

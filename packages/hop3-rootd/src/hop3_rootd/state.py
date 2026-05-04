@@ -142,12 +142,22 @@ def _parse_rules(obj: dict[str, Any]) -> list[StoredRule]:
                     rule_id=str(r["rule_id"]),
                     spec=dict(r["spec"]),
                     applied_at=str(r["applied_at"]),
-                    status=str(r.get("status", "applied")),
+                    status=_coerce_status(r.get("status", "applied"), i),
                 )
             )
         except (KeyError, TypeError) as e:
             raise StateCorruptError(f"rules[{i}] is malformed: {e}") from e
     return rules
+
+
+def _coerce_status(value: Any, index: int) -> RuleStatus:
+    """Validate that a stored status value is one of RuleStatus's literals."""
+    if value not in {"applied", "pending", "removing"}:
+        raise StateCorruptError(
+            f"rules[{index}] has invalid status {value!r}; "
+            "expected 'applied', 'pending', or 'removing'"
+        )
+    return value
 
 
 def load(path: Path = DEFAULT_STATE_PATH) -> State:

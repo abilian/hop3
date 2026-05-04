@@ -7,6 +7,7 @@ members = [
     "hop3",
     "hop3-cli",
     "hop3-installer",
+    "hop3-rootd",
     "hop3-server",
     "hop3-testing",
     "hop3-tui",
@@ -1077,6 +1078,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "hop3-cli" },
     { name = "hop3-installer" },
+    { name = "hop3-rootd" },
     { name = "hop3-server" },
     { name = "hop3-testing" },
     { name = "hop3-tui" },
@@ -1095,6 +1097,7 @@ dev = [
     { name = "import-linter" },
     { name = "infer-types" },
     { name = "lbom" },
+    { name = "md2typst" },
     { name = "mypy" },
     { name = "pyinfra" },
     { name = "pylint" },
@@ -1131,6 +1134,7 @@ doc = [
 requires-dist = [
     { name = "hop3-cli", editable = "packages/hop3-cli" },
     { name = "hop3-installer", editable = "packages/hop3-installer" },
+    { name = "hop3-rootd", editable = "packages/hop3-rootd" },
     { name = "hop3-server", editable = "packages/hop3-server" },
     { name = "hop3-testing", editable = "packages/hop3-testing" },
     { name = "hop3-tui", editable = "packages/hop3-tui" },
@@ -1149,6 +1153,7 @@ dev = [
     { name = "import-linter", specifier = ">=2.1" },
     { name = "infer-types", specifier = "~=1.0.0" },
     { name = "lbom", specifier = ">=0.6" },
+    { name = "md2typst", specifier = ">=0.3.3" },
     { name = "mypy", specifier = ">=1.19.1" },
     { name = "pyinfra", specifier = "~=3.0" },
     { name = "pylint", specifier = ">=4.0.5" },
@@ -1229,6 +1234,25 @@ dev = [
     { name = "pytest", specifier = ">=7.0" },
     { name = "ruff", specifier = ">=0.1.0" },
     { name = "ty" },
+]
+
+[[package]]
+name = "hop3-rootd"
+version = "0.4.0"
+source = { editable = "packages/hop3-rootd" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=7.0" },
+    { name = "ruff", specifier = ">=0.1.0" },
 ]
 
 [[package]]
@@ -1950,6 +1974,15 @@ linkify = [
 ]
 
 [[package]]
+name = "marko"
+version = "2.2.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e3/2f/050b6d485f052ddf17d76a41f9334d6fb2a8a85df35347a12d97ed3bc5c1/marko-2.2.2.tar.gz", hash = "sha256:6940308e655f63733ca518c47a68ec9510279dbb916c83616e4c4b5829f052e8", size = 143641, upload-time = "2026-01-05T11:04:41.935Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/83/f8/36d79bac5701e6786f9880c61bbe57574760a13c1af84ab71e5ed21faecc/marko-2.2.2-py3-none-any.whl", hash = "sha256:f064ae8c10416285ad1d96048dc11e98ef04e662d3342ae416f662b70aa7959e", size = 42701, upload-time = "2026-01-05T11:04:40.75Z" },
+]
+
+[[package]]
 name = "markupsafe"
 version = "3.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2000,6 +2033,24 @@ wheels = [
 ]
 
 [[package]]
+name = "md2typst"
+version = "0.3.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "markdown-it-py" },
+    { name = "marko" },
+    { name = "mdit-py-plugins" },
+    { name = "mistune" },
+    { name = "platformdirs" },
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cc/52/7b8b34bee9726af54301710e04109cd2f5ba63cc4afd2bf5f07253435bf4/md2typst-0.3.3.tar.gz", hash = "sha256:9cb119bdd438f64bae3e416641f69e34e53f7eeee0dea41d378f89e1d16e267e", size = 28857, upload-time = "2026-04-21T06:33:33.014Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/75/4c/bdab6fcdf06b48d992defb01cd024921fda5af0c3cf4c2594e2113998576/md2typst-0.3.3-py3-none-any.whl", hash = "sha256:268216b999615136e533aaaefb9161d6d21e6aafd7a8fa3496dcffbef8310d85", size = 35671, upload-time = "2026-04-21T06:33:31.46Z" },
+]
+
+[[package]]
 name = "mdit-py-plugins"
 version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2030,6 +2081,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e6/27/16456314311abac2cedef4527679924e80ac4de19dd926699c1b261e0b9b/mdx_truly_sane_lists-1.3.tar.gz", hash = "sha256:b661022df7520a1e113af7c355c62216b384c867e4f59fb8ee7ad511e6e77f45", size = 5359, upload-time = "2022-07-19T13:42:45.153Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3a/9e/dcd1027f7fd193aed152e01c6651a197c36b858f2cd1425ad04cb31a34fc/mdx_truly_sane_lists-1.3-py3-none-any.whl", hash = "sha256:b9546a4c40ff8f1ab692f77cee4b6bfe8ddf9cccf23f0a24e71f3716fe290a37", size = 6071, upload-time = "2022-07-19T13:42:43.375Z" },
+]
+
+[[package]]
+name = "mistune"
+version = "3.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9d/55/d01f0c4b45ade6536c51170b9043db8b2ec6ddf4a35c7ea3f5f559ac935b/mistune-3.2.0.tar.gz", hash = "sha256:708487c8a8cdd99c9d90eb3ed4c3ed961246ff78ac82f03418f5183ab70e398a", size = 95467, upload-time = "2025-12-23T11:36:34.994Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/f7/4a5e785ec9fbd65146a27b6b70b6cdc161a66f2024e4b04ac06a67f5578b/mistune-3.2.0-py3-none-any.whl", hash = "sha256:febdc629a3c78616b94393c6580551e0e34cc289987ec6c35ed3f4be42d0eee1", size = 53598, upload-time = "2025-12-23T11:36:33.211Z" },
 ]
 
 [[package]]
