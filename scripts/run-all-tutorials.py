@@ -146,7 +146,9 @@ class TestRunner:
 
         # Check if tutorial has any exec blocks
         if not self.has_executable_blocks(tutorial_path):
-            print(f"  {Colors.YELLOW}[SKIP]{Colors.NC} {full_name} (no executable blocks)")
+            print(
+                f"  {Colors.YELLOW}[SKIP]{Colors.NC} {full_name} (no executable blocks)"
+            )
             log_file.write_text("SKIPPED: No executable blocks")
             return TutorialResult(name=full_name, status="skipped")
 
@@ -172,7 +174,9 @@ class TestRunner:
             duration = time.time() - start_time
             pass_count = self.extract_pass_count(log_content)
 
-            print(f"{Colors.GREEN}[PASS]{Colors.NC} ({pass_count} tests, {duration:.0f}s)")
+            print(
+                f"{Colors.GREEN}[PASS]{Colors.NC} ({pass_count} tests, {duration:.0f}s)"
+            )
             return TutorialResult(
                 name=full_name,
                 status="passed",
@@ -203,7 +207,9 @@ class TestRunner:
         except OSError as e:
             log_file.write_text(f"ERROR: {e}")
             duration = time.time() - start_time
-            print(f"{Colors.RED}[FAIL]{Colors.NC} (error running tutotest, {duration:.0f}s)")
+            print(
+                f"{Colors.RED}[FAIL]{Colors.NC} (error running tutotest, {duration:.0f}s)"
+            )
             return TutorialResult(
                 name=full_name,
                 status="failed",
@@ -352,10 +358,14 @@ def check_server_connectivity(test_domain: str, timeout: int = 10) -> bool:
             [
                 "curl",
                 "-s",
-                "-o", "/dev/null",
-                "-w", "%{http_code}",
-                "--connect-timeout", str(timeout),
-                "--max-time", str(timeout),
+                "-o",
+                "/dev/null",
+                "-w",
+                "%{http_code}",
+                "--connect-timeout",
+                str(timeout),
+                "--max-time",
+                str(timeout),
                 server_url,
             ],
             capture_output=True,
@@ -408,7 +418,9 @@ def main() -> int:
     print(f"Checking DNS wildcard resolution for *.{test_domain}...")
     dns_ok, dns_result = check_dns_resolution(test_domain)
     if not dns_ok:
-        print(f"{Colors.RED}Error: DNS wildcard resolution not working for *.{test_domain}{Colors.NC}")
+        print(
+            f"{Colors.RED}Error: DNS wildcard resolution not working for *.{test_domain}{Colors.NC}"
+        )
         print(f"  Resolution error: {dns_result}")
         print()
         print("Please configure DNS wildcard resolution:")
@@ -426,7 +438,9 @@ def main() -> int:
     # Check server connectivity before running tutorials
     print(f"Checking server connectivity to {test_domain}:8000...")
     if not check_server_connectivity(test_domain):
-        print(f"{Colors.RED}Error: Cannot connect to Hop3 server at {test_domain}:8000{Colors.NC}")
+        print(
+            f"{Colors.RED}Error: Cannot connect to Hop3 server at {test_domain}:8000{Colors.NC}"
+        )
         print()
         print("Please ensure:")
         print("  1. The Hop3 server is running")
@@ -439,7 +453,9 @@ def main() -> int:
 
     # Check tutorials directory exists
     if not tutorials_dir.exists():
-        print(f"{Colors.RED}Error: Tutorials directory not found: {tutorials_dir}{Colors.NC}")
+        print(
+            f"{Colors.RED}Error: Tutorials directory not found: {tutorials_dir}{Colors.NC}"
+        )
         return 1
 
     # Create temp directory for tutorial execution
