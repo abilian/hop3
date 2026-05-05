@@ -19,6 +19,7 @@ from litestar.static_files import create_static_files_router
 from litestar.stores.memory import MemoryStore
 from litestar.template.config import TemplateConfig
 
+from hop3.config import HOP3_DEBUG
 from hop3.core.unsafe_gate import enforce_unsafe_mode_policy
 from hop3.di import create_async_container
 from hop3.orm import get_session_factory
@@ -42,7 +43,7 @@ from .state_sync import start_state_sync_service, stop_state_sync_service
 if TYPE_CHECKING:
     from litestar.types import ControllerRouterHandler
 
-DEBUG = True
+DEBUG = HOP3_DEBUG
 
 
 class SuppressHTTPExceptionTraceback(logging.Filter):
