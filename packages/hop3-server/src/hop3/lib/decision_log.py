@@ -2,6 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# ruff: noqa: PLW0603
+# `_current_logger` is per-deployment state. A scoped Dishka provider
+# could express it, but the existing deploy() flow doesn't carry a
+# container — passing the logger through DeploymentContext is simpler
+# than introducing one for this single dependency.
+
 """Decision logging for deployment transparency.
 
 This module provides structured logging for implicit decisions made during

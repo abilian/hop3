@@ -24,8 +24,9 @@ each invocation, with the request id and duration captured.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from hop3_rootd.protocol import Request
@@ -41,6 +42,39 @@ class StateConflictError(Exception):
       - add_rule for a (port, protocol, source) that's already present
         (we don't enforce port uniqueness yet, but the slot is here)
     """
+
+
+# --- DaemonStats: mutable runtime metrics surfaced via daemon.health ----
+
+
+@dataclass
+class DaemonStats:
+    """Runtime statistics for the daemon. Owned by the Server and passed
+    to ops via `OpContext.stats`. Replaces the previous module-level
+    globals in ``ops/daemon.py``.
+
+    Single-threaded read/write today (single accept loop, sequential
+    dispatch). If the server ever grows worker threads, the increment
+    in `increment_error()` becomes an unsynchronised RMW and needs a
+    lock.
+    """
+
+    started_at: float = field(default_factory=time.time)
+    last_request_at: float = field(default_factory=time.time)
+    last_reconcile_at: str | None = None
+    errors_last_hour: int = 0
+
+    def mark_request(self) -> None:
+        self.last_request_at = time.time()
+
+    def mark_reconcile(self, iso: str) -> None:
+        self.last_reconcile_at = iso
+
+    def increment_error(self) -> None:
+        self.errors_last_hour += 1
+
+    def reset_errors(self) -> None:
+        self.errors_last_hour = 0
 
 
 # --- OpContext: shared dependencies passed to every op ------------------
@@ -59,6 +93,7 @@ class OpContext:
     save_state: Callable[[], None]  # callable that persists the current state
     now_iso: Callable[[], str]  # returns current UTC time as ISO-8601 string
     new_rule_id: Callable[[], str]  # returns a fresh rule_id (UUID4 string)
+    stats: DaemonStats = field(default_factory=DaemonStats)
 
 
 # --- Op protocol --------------------------------------------------------

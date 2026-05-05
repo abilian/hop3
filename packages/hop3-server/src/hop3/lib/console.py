@@ -3,6 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# ruff: noqa: PLW0603
+# `_console` and `_verbosity` are intrinsically process-global UX state
+# (which terminal to print to, what verbosity flag the user passed).
+# Threading a container through every log() call buys nothing.
+
 from __future__ import annotations
 
 import sys

@@ -45,6 +45,7 @@ lint.extend-ignore = [
     "PLR2004", # Magic number
     "PLR6301", # Method could be a function
     "PLR0904", # too-many-public-methods
+    "PLR0913", # too-many-arguments
     "PLW1514", # `pathlib.Path(...).write_text` without explicit `encoding` argument
     "RET504", # Unnecessary assignment before `return` statement
     "S101", # Use of `assert` detected
@@ -58,18 +59,16 @@ lint.extend-ignore = [
     #
     # Fix this (later)
     #
-    "PLR0913", #	[ ] too-many-arguments
-    "PLR0917", #	[ ] too-many-positional-arguments
-    "F841", #   	[ ] unused-variable
-    "PERF203", #	[ ] try-except-in-loop
-    "TRY301", # 	[ ] raise-within-try
-    "PLW0603", #	[ ] global-statement
-    "PLR0911", #	[ ] too-many-return-statements
-    "PLR0914", #	[ ] too-many-locals
-    "PLW2901", #	[ ] redefined-loop-name
-    "SIM117", # 	[ ] multiple-with-statements
-    "RUF001", # 	[ ] ambiguous-unicode-character-string
-    "A002",
+    "PLW2901", # redefined-loop-name
+    "F841", #    unused-variable
+    "PLR0917", # too-many-positional-arguments
+    "PERF203", # try-except-in-loop
+    "TRY301", #  raise-within-try
+    "PLR0911", # too-many-return-statements
+    "PLR0914", # too-many-locals
+    "SIM117", #  multiple-with-statements
+    "RUF001", #  ambiguous-unicode-character-string
+    "A002", #    builtin-argument-shadowing
 ]
 
 
