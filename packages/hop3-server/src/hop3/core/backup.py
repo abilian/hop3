@@ -321,6 +321,74 @@ class BackupManager:
             msg = f"Backup creation failed: {e}"
             raise RuntimeError(msg) from e
 
+    def register_existing_backup(self, backup_dir: Path) -> str:
+        """Register a previously-created backup directory in the database.
+
+        Used for cross-instance migration: an operator copies a backup
+        tree (`<BACKUP_ROOT>/apps/<app>/<id>/`) from server A to server B
+        and runs `hop3 backup register <path>` on B. This reads the
+        manifest, ensures an app row exists for the manifest's app name,
+        and inserts a Backup row pointing at the directory — so that
+        `hop3 backup restore <id>` finds the backup the same way it
+        would for a backup created locally.
+
+        Idempotent: if a Backup row already exists for the given
+        directory, returns the existing backup_id without modification.
+
+        Args:
+            backup_dir: absolute path to the backup directory; must
+                contain ``metadata.json``.
+
+        Returns:
+            The backup_id (read from the manifest).
+
+        Raises:
+            FileNotFoundError: if the directory or its manifest is missing.
+            ValueError: if the manifest's checksums don't validate.
+        """
+        if not backup_dir.exists() or not backup_dir.is_dir():
+            msg = f"Backup directory not found: {backup_dir}"
+            raise FileNotFoundError(msg)
+
+        manifest_path = backup_dir / "metadata.json"
+        if not manifest_path.exists():
+            msg = f"Manifest not found in backup dir: {manifest_path}"
+            raise FileNotFoundError(msg)
+
+        manifest = BackupManifest.from_file(manifest_path)
+
+        # Verify integrity before registering — refusing to register a
+        # corrupt backup is friendlier than letting `restore` fail later.
+        if not self._verify_checksums(backup_dir, manifest.checksums):
+            msg = "Backup integrity check failed: checksum mismatch"
+            raise ValueError(msg)
+
+        # Idempotency: if we already have a row for this directory,
+        # return the existing backup_id.
+        existing = self.backup_repo.get_by_backup_id(manifest.backup_id)
+        if existing and Path(existing.remote_path) == backup_dir:
+            return manifest.backup_id
+
+        # Ensure an app row exists for the manifest's app_name. The
+        # actual restore step will repopulate the app's source/data; we
+        # just need the FK target. Create as a placeholder if missing.
+        app = self.app_repo.get_by_name(manifest.app_name)
+        if not app:
+            app = App(name=manifest.app_name)
+            self.app_repo.add(app, auto_commit=True)
+
+        backup_record = Backup(
+            app_id=app.id,
+            state=BackupStateEnum.COMPLETED,
+            format="tgz",  # matches create_backup's hardcoding
+            remote_path=str(backup_dir),
+            size=manifest.size_bytes,
+            expires_after=manifest.expires_after,
+        )
+        self.backup_repo.add(backup_record, auto_commit=True)
+
+        return manifest.backup_id
+
     def restore_backup(
         self, backup_id: str, target_app_name: str | None = None
     ) -> None:
@@ -383,6 +451,16 @@ class BackupManager:
             app.port = manifest.app_metadata.get("port", 0)
 
             self.app_repo.update(app, auto_commit=True)
+
+            # Build and spawn the app from the restored source. Without
+            # this, restore only repopulates files on disk — the
+            # operator would have to manually rebuild (`hop3 app
+            # restart` only re-spawns existing workers; it doesn't
+            # rebuild). For cross-instance migration in particular,
+            # the destination has no prior build state, so spawn alone
+            # is insufficient. "Restore" should mean the app is
+            # running again, equivalent to its pre-backup state.
+            app.deploy()
 
             log(f"Restore completed: {backup_id} -> {app_name}")
 
@@ -507,7 +585,16 @@ class BackupManager:
     # Private methods
 
     def _backup_source(self, app: App, backup_dir: Path) -> dict:
-        """Backup git repository.
+        """Backup the deployed source tree (and the bare git repo if any).
+
+        Hop3 has two deploy paths: git-push (populates ``app.repo_path``;
+        the post-receive hook checks out to ``app.src_path``) and the
+        tarball API (writes directly to ``app.src_path``, leaving
+        ``app.repo_path`` empty). The original implementation tarred
+        only the bare repo, which captured nothing useful for tarball
+        deploys. We now archive both — ``app.src_path`` under
+        ``arcname=src`` (the canonical "what's deployed") and the bare
+        repo under ``arcname=git`` (so git-push history survives).
 
         Args:
             app: Application to backup
@@ -516,15 +603,20 @@ class BackupManager:
         Returns:
             Dictionary with backup info
         """
+        src_path = app.src_path
         repo_path = app.repo_path
-        if not repo_path.exists():
-            log(f"Warning: Repository path does not exist: {repo_path}")
+
+        if not src_path.exists() and not repo_path.exists():
+            log(f"Warning: Neither src nor repo exists for {app.name}")
             return {"size": 0}
 
         tar_path = backup_dir / "source.tar.gz"
 
         with tarfile.open(tar_path, "w:gz") as tar:
-            tar.add(repo_path, arcname="git")
+            if src_path.exists():
+                tar.add(src_path, arcname="src")
+            if repo_path.exists():
+                tar.add(repo_path, arcname="git")
 
         size = tar_path.stat().st_size
         log(f"Backed up source: {format_size(size)}")
@@ -643,24 +735,51 @@ class BackupManager:
         return addons_info
 
     def _restore_source(self, app: App, backup_dir: Path) -> None:
-        """Restore source code from backup.
+        """Restore source tree (and bare git repo) from backup.
+
+        Per the new ``_backup_source`` layout: the archive contains
+        ``src/`` (the canonical deployed source) and may also contain
+        ``git/`` (the bare repo, present iff git-push was used).
+        Older backups (taken before this change) contain only ``git/``;
+        we fall back to cloning ``git/`` → ``src/`` for those, so old
+        backups remain restorable.
 
         Args:
             app: Application to restore to
             backup_dir: Backup directory
         """
+        import subprocess  # noqa: PLC0415
+
         tar_path = backup_dir / "source.tar.gz"
         if not tar_path.exists():
             log("Warning: No source backup found")
             return
 
-        # Remove existing repository
+        # Clear any existing source state for a clean restore.
+        if app.src_path.exists():
+            shutil.rmtree(app.src_path)
         if app.repo_path.exists():
             shutil.rmtree(app.repo_path)
 
         # Extract tar (with filter for security)
         with tarfile.open(tar_path, "r:gz") as tar:
             tar.extractall(app.app_path, filter="data")
+
+        # Backwards compat: backups taken before src/ was archived have
+        # only git/. Recreate src/ by cloning from the bare repo.
+        if not app.src_path.exists() and app.repo_path.exists():
+            app.src_path.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                [
+                    "git",
+                    "clone",
+                    "--quiet",
+                    str(app.repo_path),
+                    str(app.src_path),
+                ],
+                check=True,
+                capture_output=True,
+            )
 
         log("Restored source code")
 
