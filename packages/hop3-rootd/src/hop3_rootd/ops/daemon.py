@@ -20,42 +20,6 @@ from hop3_rootd import PROTOCOL_VERSION, __version__
 from hop3_rootd.ops._base import OpContext, register
 from hop3_rootd.protocol import Request
 
-# --- Daemon-wide singletons used by health() ----------------------------
-
-_started_at: float = time.time()
-_last_request_at: float = _started_at
-_last_reconcile_at: str | None = None
-_errors_last_hour: int = 0  # incremented externally; reset on hour rollover
-
-
-def mark_request_now() -> None:
-    """Called by the dispatcher on every accepted request, before invoking
-    the op. Lets `daemon.health()` report a recent-activity timestamp.
-    """
-    global _last_request_at
-    _last_request_at = time.time()
-
-
-def mark_reconcile_now(iso: str) -> None:
-    """Called once during startup reconciliation, with the wall-clock ISO ts."""
-    global _last_reconcile_at
-    _last_reconcile_at = iso
-
-
-def increment_error_count() -> None:
-    """Called by the dispatcher on each error response."""
-    global _errors_last_hour
-    _errors_last_hour += 1
-
-
-def reset_error_count() -> None:
-    """Called periodically (or at start-of-hour) to reset the rolling counter."""
-    global _errors_last_hour
-    _errors_last_hour = 0
-
-
-# --- Ops -----------------------------------------------------------------
-
 
 @register("daemon.handshake", audit=False)
 def handshake(_req: Request, _ctx: OpContext) -> dict[str, Any]:
@@ -75,15 +39,16 @@ def handshake(_req: Request, _ctx: OpContext) -> dict[str, Any]:
 @register("daemon.health", audit=False)
 def health(_req: Request, ctx: OpContext) -> dict[str, Any]:
     """Return daemon liveness + summary stats. Read-only, side-effect-free."""
+    stats = ctx.stats
     now = time.time()
     return {
         "daemon_version": __version__,
         "protocol_version": PROTOCOL_VERSION,
-        "uptime_seconds": round(now - _started_at, 3),
+        "uptime_seconds": round(now - stats.started_at, 3),
         "rules_count": len(ctx.state.rules),
-        "last_reconcile_at": _last_reconcile_at,
-        "last_request_at": _format_ts(_last_request_at),
-        "errors_last_hour": _errors_last_hour,
+        "last_reconcile_at": stats.last_reconcile_at,
+        "last_request_at": _format_ts(stats.last_request_at),
+        "errors_last_hour": stats.errors_last_hour,
     }
 
 

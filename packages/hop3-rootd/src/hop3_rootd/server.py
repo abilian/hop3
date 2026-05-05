@@ -34,10 +34,7 @@ from hop3_rootd.ops import (
     StateConflictError,
     get_registration,
 )
-from hop3_rootd.ops.daemon import (
-    increment_error_count,
-    mark_request_now,
-)
+from hop3_rootd.ops._base import DaemonStats
 from hop3_rootd.protocol import (
     ErrorCode,
     ProtocolError,
@@ -118,7 +115,7 @@ def _new_rule_id() -> str:
     return f"rule-{uuid.uuid4().hex[:12]}"
 
 
-def _make_op_context(state: State, state_path: Path) -> OpContext:
+def _make_op_context(state: State, state_path: Path, stats: DaemonStats) -> OpContext:
     """Build the OpContext passed to every op handler."""
     return OpContext(
         state=state,
@@ -126,6 +123,7 @@ def _make_op_context(state: State, state_path: Path) -> OpContext:
         save_state=lambda: save_state(state, state_path),
         now_iso=_now_iso,
         new_rule_id=_new_rule_id,
+        stats=stats,
     )
 
 
@@ -174,12 +172,12 @@ def handle_one(line: bytes, ctx: OpContext, audit: AuditLog, caller_uid: int) ->
     try:
         req = decode_request(line)
         request_id = req.id
-        mark_request_now()
+        ctx.stats.mark_request()
     except ProtocolError as e:
         resp = error_from_protocol_error(e)
         # Audit the rejected request even though we couldn't fully parse it.
         _audit_error(audit, request_id, e.code.value, e.message, caller_uid, started)
-        increment_error_count()
+        ctx.stats.increment_error()
         return encode_response(resp)
 
     resp = dispatch(req, ctx)
@@ -217,7 +215,7 @@ def handle_one(line: bytes, ctx: OpContext, audit: AuditLog, caller_uid: int) ->
                 error=resp.error,
             )
         )
-        increment_error_count()
+        ctx.stats.increment_error()
 
     return encode_response(resp)
 
@@ -266,6 +264,7 @@ class Server:
         self.state = state
         self.state_path = state_path
         self.audit = audit
+        self.stats = DaemonStats()
         self.allowed_uids = _resolve_allowed_uids()
         self._listener: socket.socket | None = None
         self._connections: dict[int, _Connection] = {}
@@ -324,7 +323,7 @@ class Server:
 
         listener = self._listener
         poll_fds = {listener.fileno(): listener}
-        ctx = _make_op_context(self.state, self.state_path)
+        ctx = _make_op_context(self.state, self.state_path, self.stats)
 
         while not self._stopping:
             try:
