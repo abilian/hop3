@@ -33,7 +33,6 @@ from hop3_rootd.audit import (
     configure_operational_logging,
     logger,
 )
-from hop3_rootd.ops.daemon import mark_reconcile_now, reset_error_count
 from hop3_rootd.reconcile import reconcile
 from hop3_rootd.server import DEFAULT_SOCKET_PATH, Server
 from hop3_rootd.state import (
@@ -137,7 +136,6 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_RECONCILE_ERROR
 
     save(state, args.state_path)
-    mark_reconcile_now(datetime.now(timezone.utc).isoformat())
     logger.info(
         "reconciliation: verified=%d reapplied=%d orphans_removed=%d state_dropped=%d",
         report.verified,
@@ -149,6 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     audit = AuditLog(args.audit_log)
 
     server = Server(state, args.state_path, audit)
+    server.stats.mark_reconcile(datetime.now(timezone.utc).isoformat())
     if not server.inherit_systemd_socket():
         try:
             server.bind(args.socket_path)
@@ -166,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
 
     def _on_usr2(_signum, _frame):
         logger.info("received USR2 — resetting error counter")
-        reset_error_count()
+        server.stats.reset_errors()
 
     signal.signal(signal.SIGTERM, _on_term)
     signal.signal(signal.SIGINT, _on_term)

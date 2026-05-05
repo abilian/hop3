@@ -3,6 +3,11 @@
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
 
+# ruff: noqa: PLW0603
+# `_config` is the TUI's process-global user-config singleton. Like the
+# CLI's argparse Namespace, it's intrinsically global state and a DI
+# container would be overkill for a single-process Textual app.
+
 """Configuration handling for Hop3 TUI."""
 
 from __future__ import annotations

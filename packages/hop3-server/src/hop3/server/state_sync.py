@@ -2,6 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# ruff: noqa: PLW0603
+# `_service` is the singleton background worker. start/stop are called
+# from Litestar lifespan hooks (see asgi.py), and the global is the
+# handle they coordinate over. A Dishka provider would have to express
+# both lifecycle and the start/stop API; the current shape is simpler.
+
 """Background service for synchronizing app states with reality.
 
 This service periodically checks apps in transitional states (STARTING, STOPPING)

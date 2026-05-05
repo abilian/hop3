@@ -1,6 +1,13 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
+# ruff: noqa: PLW0603
+# `_encryptor` is a deliberate lazy-init singleton; migration to a Dishka
+# provider is non-trivial because Hop3's commands resolve dataclass fields
+# via a hand-rolled REPOSITORY_TYPES table in controllers/rpc.py rather than
+# directly from the container. Tests reset the singleton via
+# `reset_credential_encryptor()`.
+
 """Credential encryption and decryption using Fernet.
 
 This module provides symmetric encryption of service credentials
