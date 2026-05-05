@@ -24,8 +24,12 @@ def _get_config():
     return c
 
 
-# Valid scopes that can be assigned to tokens
-VALID_SCOPES = {"authenticated", "admin", "user", "magic_link"}
+# Valid scopes that can be assigned to general-purpose tokens.
+# `magic_link` is intentionally excluded — magic-link tokens go through
+# `validate_magic_token`, not the general bearer-auth path. Letting them
+# satisfy `validate_token` would let a redeemable magic link act as a
+# 5-minute bearer for any RPC command (security review C-001/H-001).
+VALID_SCOPES = {"authenticated", "admin", "user"}
 
 # Magic link configuration
 MAGIC_LINK_SCOPE = "magic_link"
