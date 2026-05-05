@@ -11,6 +11,7 @@ import sys
 PACKAGES = [
     "hop3-cli",
     "hop3-installer",
+    "hop3-rootd",
     "hop3-server",
     "hop3-testing",
     "hop3-tui",
