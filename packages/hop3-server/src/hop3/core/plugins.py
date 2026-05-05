@@ -1,5 +1,11 @@
 # Copyright (c) 2025, Abilian SAS
 
+# ruff: noqa: PLW0603
+# `_plugin_manager` is bootstrap state for the Dishka container itself
+# (di/container.py calls get_plugin_manager() to *discover* providers, so
+# the PluginManager has to exist before the container can be built).
+# Lazy-init singleton is the right shape; can't be a Dishka provider.
+
 from __future__ import annotations
 
 import importlib
