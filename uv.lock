@@ -1285,6 +1285,7 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "termcolor" },
     { name = "toml" },
+    { name = "tomli" },
     { name = "uwsgi" },
 ]
 
@@ -1325,6 +1326,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = "~=2.0" },
     { name = "termcolor", specifier = ">=2.5.0" },
     { name = "toml", specifier = ">=0.10.2" },
+    { name = "tomli", specifier = ">=2.4.1" },
     { name = "uwsgi", specifier = ">=2.0.31" },
 ]
 
