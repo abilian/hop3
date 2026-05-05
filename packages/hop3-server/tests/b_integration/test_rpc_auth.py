@@ -181,8 +181,8 @@ async def test_rpc_whoami_with_auth(async_client: httpx.AsyncClient, valid_token
     assert "result" in data or "error" in data
 
 
-def test_rpc_auth_register_is_public(client: TestClient):
-    """Test that auth:register is accessible without authentication."""
+def test_rpc_auth_register_requires_auth(client: TestClient):
+    """auth:register is admin-only (security review C-001/H-002)."""
     response = client.post(
         "/rpc",
         json={
@@ -196,8 +196,8 @@ def test_rpc_auth_register_is_public(client: TestClient):
         },
     )
 
-    # Should be accessible without auth
-    assert response.status_code == 200
+    # Anonymous callers must be rejected at the RPC auth gate.
+    assert response.status_code in {401, 403}
 
 
 def test_rpc_missing_authorization_header(client: TestClient):
