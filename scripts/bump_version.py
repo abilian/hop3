@@ -117,7 +117,17 @@ def main():
     )
     parser.add_argument(
         "--bump",
-        choices=["major", "minor", "patch", "stable", "alpha", "beta", "rc", "post", "dev"],
+        choices=[
+            "major",
+            "minor",
+            "patch",
+            "stable",
+            "alpha",
+            "beta",
+            "rc",
+            "post",
+            "dev",
+        ],
         help="Bump the version using the given semantics before syncing",
     )
     args = parser.parse_args()

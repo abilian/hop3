@@ -65,7 +65,9 @@ def spec_to_toml_section(spec: AppSpec) -> str:
     _add_str(lines, "war-file", spec.war_file)
     _add_str(lines, "nixpkgs-package", spec.nixpkgs_package)
     _add_str(lines, "php-version", spec.php_version if spec.php_extensions else None)
-    _add_str(lines, "serve-mode", spec.serve_mode if spec.serve_mode != "builtin" else None)
+    _add_str(
+        lines, "serve-mode", spec.serve_mode if spec.serve_mode != "builtin" else None
+    )
     _add_str(lines, "web-root", spec.web_root if spec.web_root else None)
 
     if spec.exec_args:
