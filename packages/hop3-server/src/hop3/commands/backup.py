@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import ClassVar
 
 from hop3.core.backup import BackupManager, format_size
@@ -359,6 +360,69 @@ class BackupRestoreCmd(Command):
             output.append(summary(f"restored {app_name} from backup {backup_id}."))
 
         return output
+
+
+@register
+@dataclass(frozen=True)
+class BackupRegisterCmd(Command):
+    """Register a backup directory copied in from another Hop3 instance.
+
+    Used during cross-instance migration: after copying a backup tree
+    (`<BACKUP_ROOT>/apps/<app>/<id>/`) from server A to server B, run
+    this on B to make the backup findable by `hop3 backup restore`.
+
+    Reads the manifest, verifies checksums, ensures an app row exists
+    for the original app name, and inserts a Backup row pointing at
+    the directory. Idempotent: safe to re-run; existing rows are kept.
+
+    Usage: hop3 backup register <backup-dir>
+
+    Examples:
+        hop3 backup register /home/hop3/backups/apps/myapp/20251030_143022_a8f3d9
+    """
+
+    app_repo: AppRepository
+    backup_repo: BackupRepository
+    addon_credential_repo: AddonCredentialRepository
+    name: ClassVar[tuple[str, ...]] = ("backup", "register")
+    _arg_spec: ClassVar[dict] = {
+        "backup_dir": {"positional": True},
+    }
+
+    def call(self, *args):
+        """Register an existing backup directory in the database."""
+        parsed = parse_cli_args(args, self._arg_spec)
+        backup_dir_str = parsed.get("backup_dir")
+
+        if not backup_dir_str:
+            return [
+                text(
+                    "Usage: hop3 backup register <backup-dir>\n\n"
+                    "Example:\n"
+                    "  hop3 backup register "
+                    "/home/hop3/backups/apps/myapp/20251030_143022_a8f3d9"
+                )
+            ]
+
+        backup_dir = Path(backup_dir_str).resolve()
+
+        with command_context("registering backup", backup_dir=str(backup_dir)):
+            manager = BackupManager(
+                backup_repo=self.backup_repo,
+                app_repo=self.app_repo,
+                addon_credential_repo=self.addon_credential_repo,
+            )
+
+            backup_id = manager.register_existing_backup(backup_dir)
+
+            return [
+                success(f"Backup registered: {backup_id}\n"),
+                text(
+                    "Run `hop3 backup restore "
+                    f"{backup_id}` to restore the app on this server."
+                ),
+                summary(f"registered backup {backup_id} from {backup_dir}."),
+            ]
 
 
 @register

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import subprocess
 import time
@@ -99,6 +100,146 @@ def hop3_image(docker_client: docker.DockerClient) -> str:
         raise AssertionError(msg)
 
 
+def _start_hop3_container(
+    docker_client: docker.DockerClient, image: str, label: str = "hop3"
+) -> dict[str, Any]:
+    """Start a single hop3 container and wait for it to be ready.
+
+    Returns a container_info dict with `container`, `ssh_host`, `ssh_port`,
+    `ssh_key` (path), `http_base`, and `api_url`. Raises on failure (after
+    dumping diagnostic logs). Caller is responsible for teardown via
+    `_stop_hop3_container`.
+
+    `label` is used only in print output to distinguish concurrent
+    containers (e.g. "A" / "B" for the migration-test pair).
+    """
+    print(f"\n--- Starting hop3 container [{label}] ---")
+    container = docker_client.containers.run(
+        image,
+        detach=True,
+        ports={
+            "22/tcp": None,  # SSH - random port
+            "80/tcp": None,  # HTTP - random port
+            "8000/tcp": None,  # Hop3 server - random port
+        },
+    )
+
+    # Wait for services to initialize
+    print(f"[{label}] Waiting for services to initialize...")
+    time.sleep(5)
+
+    container.reload()
+    if container.status != "running":
+        print(f"\n❌ [{label}] Container exited with status: {container.status}")
+        print("Container logs:")
+        print(container.logs().decode())
+        with contextlib.suppress(Exception):
+            container.remove(force=True)
+        pytest.fail(f"[{label}] Container failed to start (status: {container.status})")
+
+    # Wait for hop3-server to be ready
+    print(f"[{label}] Waiting for hop3-server to be ready...")
+    max_wait = 60
+    start_time = time.time()
+
+    while time.time() - start_time < max_wait:
+        container.reload()
+        if container.status != "running":
+            print(f"\n❌ [{label}] Container exited during startup: {container.status}")
+            print("Container logs:")
+            print(container.logs().decode())
+            with contextlib.suppress(Exception):
+                container.remove(force=True)
+            pytest.fail(f"[{label}] Container stopped unexpectedly")
+
+        try:
+            result = container.exec_run(
+                "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/ || echo '000'"
+            )
+            # Accept 200 (OK) or 404 (no route but server responding)
+            if b"200" in result.output or b"404" in result.output:
+                print(f"✓ [{label}] hop3-server is responding")
+                break
+        except Exception as e:
+            print(f"[{label}] Warning: Failed to check server health: {e}")
+
+        time.sleep(2)
+    else:
+        print(f"\n⚠ [{label}] hop3-server did not start in time")
+        _dump_supervisor_logs(container, label)
+        print(f"\n[{label}] Container logs:")
+        print(container.logs().decode())
+        with contextlib.suppress(Exception):
+            container.remove(force=True)
+        pytest.fail(f"[{label}] hop3-server failed to start")
+
+    container.reload()
+    ports = container.attrs["NetworkSettings"]["Ports"]
+    ssh_port = ports["22/tcp"][0]["HostPort"]
+    http_port = ports["80/tcp"][0]["HostPort"]
+    api_port = ports["8000/tcp"][0]["HostPort"]
+
+    # Get SSH key for passwordless access. The path includes container.short_id
+    # so concurrent containers don't collide on the same /tmp file.
+    ssh_key_result = container.exec_run("cat /home/hop3/.ssh/id_rsa")
+    ssh_key = ssh_key_result.output.decode()
+    ssh_key_path = Path("/tmp") / f"hop3-e2e-key-{container.short_id}"
+    ssh_key_path.write_text(ssh_key)
+    ssh_key_path.chmod(0o600)
+
+    info = {
+        "container": container,
+        "label": label,
+        "ssh_host": "hop3@localhost",
+        "ssh_port": int(ssh_port),
+        "ssh_key": str(ssh_key_path),
+        "ssh_key_path": ssh_key_path,
+        "http_base": f"http://localhost:{http_port}",
+        "api_url": f"http://localhost:{api_port}",
+    }
+
+    print(f"\n[{label}] Container ready:")
+    print(f"  SSH: ssh -i {ssh_key_path} -p {ssh_port} hop3@localhost")
+    print(f"  HTTP: {info['http_base']}")
+    print(f"  API:  {info['api_url']}")
+
+    return info
+
+
+def _dump_supervisor_logs(container: Any, label: str) -> None:
+    """Print supervisor stdout/stderr logs from a failed container."""
+    for log_path, stream_name in (
+        ("/var/log/supervisor/hop3-server.log", "stdout"),
+        ("/var/log/supervisor/hop3-server_err.log", "stderr"),
+    ):
+        print(f"\n[{label}] Supervisor {stream_name} logs ({log_path}):")
+        try:
+            result = container.exec_run(f"cat {log_path}")
+            print(result.output.decode())
+        except Exception as e:
+            print(f"Could not read {log_path}: {e}")
+
+
+def _stop_hop3_container(info: dict[str, Any]) -> None:
+    """Stop and remove a container started by `_start_hop3_container`. Idempotent."""
+    label = info.get("label", "?")
+    container = info["container"]
+    print(f"\n[{label}] Stopping container...")
+    try:
+        container.reload()
+        if container.status == "running":
+            container.stop(timeout=10)
+        container.remove(force=True)
+    except Exception as e:
+        print(f"[{label}] Warning: Error stopping container: {e}")
+
+    ssh_key_path = info.get("ssh_key_path")
+    if ssh_key_path is not None and ssh_key_path.exists():
+        ssh_key_path.unlink()
+
+    print(f"[{label}] Container stopped and removed.")
+
+
 @pytest.fixture(scope="class")
 def hop3_container(
     docker_client: docker.DockerClient, hop3_image: str
@@ -111,133 +252,116 @@ def hop3_container(
     print("Starting hop3 E2E test container...")
     print("=" * 60)
 
-    # Start container (using supervisor, not systemd)
-    container = docker_client.containers.run(
-        hop3_image,
-        detach=True,
-        ports={
-            "22/tcp": None,  # SSH - random port
-            "80/tcp": None,  # HTTP - random port
-            "8000/tcp": None,  # Hop3 server - random port
-        },
+    info = _start_hop3_container(docker_client, hop3_image, label="hop3")
+    print("=" * 60 + "\n")
+    try:
+        yield info
+    finally:
+        _stop_hop3_container(info)
+
+
+@pytest.fixture(scope="class")
+def hop3_container_pair(
+    hop3_image: str,
+) -> Generator[tuple[Any, Any], None, None]:
+    """Yield two independent ``DockerTarget`` instances (A, B) for migration tests.
+
+    Both targets are built from the pre-built ``hop3-e2e:test`` image (the
+    `hop3_image` fixture). Each target gets a separate container_name to
+    avoid Docker name collisions. Class-scoped so multiple tests in a
+    single class reuse the pair.
+
+    ``DockerTarget`` (from hop3-testing) is the right abstraction here —
+    its ``run_command()`` prefers the direct HTTP API (`HOP3_API_URL=http://...`
+    + `HOP3_API_TOKEN`), bypassing the SSH tunnel which is rejected by
+    sshd's ``no-port-forwarding`` directive in the hop3-server-managed
+    authorized_keys. This is the same path ``test_backup.py`` uses via
+    its (single-instance) ``deployment_target`` fixture.
+    """
+    from hop3_testing.targets import DockerConfig, DockerTarget  # noqa: PLC0415
+
+    print("\n" + "=" * 60)
+    print("Starting hop3 E2E test container PAIR (A + B)...")
+    print("=" * 60)
+
+    a = DockerTarget(
+        DockerConfig(image=hop3_image, container_name="hop3-migrate-a"),
     )
+    a.start()
 
     try:
-        # Wait for services to initialize
-        print("Waiting for services to initialize...")
-        time.sleep(5)
+        b = DockerTarget(
+            DockerConfig(image=hop3_image, container_name="hop3-migrate-b"),
+        )
+        b.start()
+    except Exception:
+        a.stop()
+        raise
 
-        # Check if container is still running
-        container.reload()
-        if container.status != "running":
-            print(f"\n❌ Container exited with status: {container.status}")
-            print("Container logs:")
-            print(container.logs().decode())
-            pytest.fail(f"Container failed to start (status: {container.status})")
-
-        # Wait for hop3-server to be ready
-        print("Waiting for hop3-server to be ready...")
-        max_wait = 60
-        start_time = time.time()
-
-        while time.time() - start_time < max_wait:
-            # Check container is still running
-            container.reload()
-            if container.status != "running":
-                print(f"\n❌ Container exited during startup: {container.status}")
-                print("Container logs:")
-                print(container.logs().decode())
-                pytest.fail(
-                    f"Container stopped unexpectedly (status: {container.status})"
-                )
-
-            # Check if hop3-server is responding (check root endpoint)
-            try:
-                result = container.exec_run(
-                    "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/ || echo '000'"
-                )
-                # Accept 200 (OK) or 404 (no route but server responding)
-                if b"200" in result.output or b"404" in result.output:
-                    print("✓ hop3-server is responding")
-                    break
-            except Exception as e:
-                print(f"Warning: Failed to check server health: {e}")
-
-            time.sleep(2)
-        else:
-            # Timeout - dump logs for debugging
-            print("\n⚠ hop3-server did not start in time")
-            print("\nSupervisor stdout logs:")
-            try:
-                result = container.exec_run("cat /var/log/supervisor/hop3-server.log")
-                print(result.output.decode())
-            except Exception as e:
-                print(f"Could not get hop3-server stdout logs: {e}")
-
-            print("\nSupervisor stderr logs:")
-            try:
-                result = container.exec_run(
-                    "cat /var/log/supervisor/hop3-server_err.log"
-                )
-                print(result.output.decode())
-            except Exception as e:
-                print(f"Could not get hop3-server stderr logs: {e}")
-
-            print("\nContainer logs:")
-            print(container.logs().decode())
-            pytest.fail("hop3-server failed to start")
-
-        # Get container info
-        container.reload()
-        ports = container.attrs["NetworkSettings"]["Ports"]
-
-        # Extract host ports
-        ssh_port = ports["22/tcp"][0]["HostPort"]
-        http_port = ports["80/tcp"][0]["HostPort"]
-        api_port = ports["8000/tcp"][0]["HostPort"]
-
-        # Get SSH key for passwordless access
-        ssh_key_result = container.exec_run("cat /home/hop3/.ssh/id_rsa")
-        ssh_key = ssh_key_result.output.decode()
-
-        # Save SSH key to temp file
-        ssh_key_path = Path("/tmp") / f"hop3-e2e-key-{container.short_id}"
-        ssh_key_path.write_text(ssh_key)
-        ssh_key_path.chmod(0o600)
-
-        container_info = {
-            "container": container,
-            "ssh_host": "hop3@localhost",
-            "ssh_port": int(ssh_port),
-            "ssh_key": str(ssh_key_path),
-            "http_base": f"http://localhost:{http_port}",
-            "api_url": f"http://localhost:{api_port}",
-        }
-
-        print("\nContainer ready:")
-        print(f"  SSH: ssh -i {ssh_key_path} -p {ssh_port} hop3@localhost")
-        print(f"  HTTP: {container_info['http_base']}")
-        print(f"  API: {container_info['api_url']}")
-        print("=" * 60 + "\n")
-
-        yield container_info
-
+    print("=" * 60 + "\n")
+    try:
+        yield (a, b)
     finally:
-        # Cleanup
-        print("\nStopping container...")
+        # Tear down in reverse order; both must run even if one fails.
         try:
-            container.reload()
-            if container.status == "running":
-                container.stop(timeout=10)
-            container.remove(force=True)
-        except Exception as e:
-            print(f"Warning: Error stopping container: {e}")
+            b.stop()
+        finally:
+            a.stop()
 
-        # Remove SSH key
-        if "ssh_key_path" in locals() and ssh_key_path.exists():
-            ssh_key_path.unlink()
 
-        print("Container stopped and removed.")
+#: Where Hop3's BackupManager persists backups inside the container, per
+#: ``HopConfig.BACKUP_ROOT = HOP3_ROOT / 'backups'`` and
+#: ``BackupManager._get_backup_dir`` (``apps/<app>/<id>``). Hardcoded here
+#: rather than imported from hop3-server because this conftest is a test
+#: harness — coupling on the layout is acceptable; coupling on the
+#: server code's lifecycle would be worse.
+BACKUP_DIR_IN_CONTAINER = "/home/hop3/backups/apps"
+
+
+def transfer_backup_dir(src: Any, dst: Any, app_name: str) -> None:
+    """Copy the entire backup tree for `app_name` from src target to dst.
+
+    Streams ``/home/hop3/backups/apps/<app_name>/`` out of `src`'s
+    container as a tar archive (via Docker's get_archive API) and
+    unpacks it under ``/home/hop3/backups/apps/`` on `dst`'s container.
+    After the copy, `dst` sees every backup that existed for `app_name`
+    on `src`.
+
+    Both containers must be built from the same image so the hop3 uid
+    matches; we still chown after the unpack as defense-in-depth.
+
+    Args:
+        src: source ``DockerTarget``
+        dst: destination ``DockerTarget``
+        app_name: app whose backups should be transferred
+    """
+    src_container = src._container_helper.container
+    dst_container = dst._container_helper.container
+    src_path = f"{BACKUP_DIR_IN_CONTAINER}/{app_name}"
+    dst_parent = BACKUP_DIR_IN_CONTAINER
+
+    # Stream the source directory as a tar archive. The archive's top-level
+    # entry is the leaf name (`<app_name>/...`), so unpacking under
+    # /var/hop3/backups/apps/ recreates the directory at its original path.
+    stream, _stat = src_container.get_archive(src_path)
+    archive_bytes = b"".join(stream)
+
+    # The destination's BackupManager creates /home/hop3/backups lazily
+    # on first use. If no backup has been taken on dst yet, the parent
+    # dir may not exist — put_archive requires it. Created as root since
+    # docker exec defaults to root; we chown back to hop3 below.
+    dst_container.exec_run(["mkdir", "-p", dst_parent])
+    dst_container.put_archive(dst_parent, archive_bytes)
+
+    # chown the *whole* backup root, not just the unpacked path. The
+    # parent dirs we just created with `mkdir -p` are root-owned;
+    # without this fix, a subsequent `hop3 backup create` on dst (which
+    # runs as the hop3 user) hits Permission-denied on the parent. The
+    # tar archive preserves per-file ownership but doesn't help us with
+    # the freshly-mkdir'd ancestors.
+    dst_container.exec_run(
+        ["chown", "-R", "hop3:hop3", "/home/hop3/backups"], user="root"
+    )
 
 
 @pytest.fixture
