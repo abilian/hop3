@@ -302,6 +302,7 @@ clean-and-deploy:
 build:
 	@make clean
 	uv build packages/hop3-server
+	uv build packages/hop3-rootd
 	uv build packages/hop3-cli
 	uv build packages/hop3-installer
 	uv build packages/hop3-testing
