@@ -213,7 +213,9 @@ def clean_server(ctx: DeployContext) -> None:
     print_header("Cleaning server")
 
     print_step("Stopping hop3-server service...")
-    run_ssh(ctx, "systemctl stop hop3-server 2>/dev/null || true", show=False, check=False)
+    run_ssh(
+        ctx, "systemctl stop hop3-server 2>/dev/null || true", show=False, check=False
+    )
     print_success("hop3-server stopped")
 
     print_step("Stopping Docker containers...")
@@ -252,7 +254,12 @@ def clean_server(ctx: DeployContext) -> None:
     print_success("/home/hop3 removed")
 
     print_step("Recreating hop3 user home directory...")
-    run_ssh(ctx, "mkdir -p /home/hop3 && chown hop3:hop3 /home/hop3", show=False, check=False)
+    run_ssh(
+        ctx,
+        "mkdir -p /home/hop3 && chown hop3:hop3 /home/hop3",
+        show=False,
+        check=False,
+    )
     print_success("hop3 home directory recreated")
 
 
@@ -300,7 +307,9 @@ def install_hop3(ctx: DeployContext) -> None:
 
     # Build installer command
     domain_arg = f" --domain {ctx.admin_domain}" if ctx.admin_domain else ""
-    with_arg = f" --with {','.join(ctx.with_features)}" if ctx.with_features else " --with all"
+    with_arg = (
+        f" --with {','.join(ctx.with_features)}" if ctx.with_features else " --with all"
+    )
 
     if ctx.use_local_code:
         sync_local_code(ctx)
@@ -343,7 +352,7 @@ def configure_server_settings(ctx: DeployContext) -> None:
             ctx,
             "grep -q HOP3_SECRET_KEY /home/hop3/hop3-server.toml 2>/dev/null || "
             "echo 'HOP3_SECRET_KEY = \"'$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')'\"\n"
-            "HOP3_LOG_LEVEL = \"DEBUG\"' >> /home/hop3/hop3-server.toml",
+            'HOP3_LOG_LEVEL = "DEBUG"\' >> /home/hop3/hop3-server.toml',
             show=False,
         )
     else:
@@ -455,11 +464,15 @@ def configure_cli(ctx: DeployContext) -> None:
                 login_cmd, shell=True, capture_output=True, text=True, check=False
             )
             if result.returncode != 0:
-                print_warning("Failed to login - you may need to configure CLI manually")
+                print_warning(
+                    "Failed to login - you may need to configure CLI manually"
+                )
                 return
             print_success(f"Logged in as '{ctx.admin_user}'")
         else:
-            print_warning("Failed to create admin user - you may need to configure CLI manually")
+            print_warning(
+                "Failed to create admin user - you may need to configure CLI manually"
+            )
             if result.stderr:
                 print_info(result.stderr.strip())
             return
@@ -482,7 +495,8 @@ def fetch_server_logs(ctx: DeployContext, lines: int = 30) -> str:
     result = subprocess.run(
         [
             "ssh",
-            "-o", "StrictHostKeyChecking=accept-new",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
             ctx.ssh_target,
             f"journalctl -u hop3-server -n {lines} --no-pager 2>/dev/null || echo 'Could not fetch logs'",
         ],
@@ -537,10 +551,14 @@ def verify_server_running(ctx: DeployContext, max_retries: int = 15) -> bool:
                 [
                     "curl",
                     "-s",
-                    "-o", "/dev/null",
-                    "-w", "%{http_code}",
-                    "--connect-timeout", "5",
-                    "--max-time", "10",
+                    "-o",
+                    "/dev/null",
+                    "-w",
+                    "%{http_code}",
+                    "--connect-timeout",
+                    "5",
+                    "--max-time",
+                    "10",
                     rpc_url,
                 ],
                 capture_output=True,
@@ -564,7 +582,9 @@ def verify_server_running(ctx: DeployContext, max_retries: int = 15) -> bool:
                 if cli_result.returncode == 0:
                     print_success("CLI can connect to server")
                 else:
-                    print_warning("CLI connection failed - authentication may be needed")
+                    print_warning(
+                        "CLI connection failed - authentication may be needed"
+                    )
 
                 return True
 
@@ -640,7 +660,8 @@ Examples:
 
     # Required
     parser.add_argument(
-        "-H", "--host",
+        "-H",
+        "--host",
         required=True,
         metavar="HOST",
         help="Target server IP address or hostname",
@@ -673,7 +694,8 @@ Examples:
         help="Clean server completely before running (removes /home/hop3, database, all apps)",
     )
     install.add_argument(
-        "-l", "--local",
+        "-l",
+        "--local",
         action="store_true",
         dest="use_local_code",
         help="Sync local hop3-server code via rsync instead of installing from git",
@@ -719,7 +741,8 @@ Examples:
     # Output
     output = parser.add_argument_group("Output")
     output.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Show detailed output",
     )
@@ -808,8 +831,12 @@ def main() -> int:
         # Phase 4: Verify server is accessible
         if not verify_server_running(ctx):
             print_error("Server verification failed!")
-            print_info("The server was deployed but is not responding to HTTP requests.")
-            print_info(f"Check the server logs: ssh {ctx.ssh_target} journalctl -u hop3-server -n 50")
+            print_info(
+                "The server was deployed but is not responding to HTTP requests."
+            )
+            print_info(
+                f"Check the server logs: ssh {ctx.ssh_target} journalctl -u hop3-server -n 50"
+            )
             return 1
 
         # Phase 5: Show status

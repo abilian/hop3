@@ -56,9 +56,7 @@ def main():
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Release all Hop3 packages to PyPI"
-    )
+    parser = argparse.ArgumentParser(description="Release all Hop3 packages to PyPI")
     parser.add_argument(
         "--dry-run",
         action="store_true",
