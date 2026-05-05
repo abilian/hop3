@@ -84,10 +84,10 @@ def admin_user(db_session: Session):
     return user
 
 
-def test_auth_register_success(user_repo: UserRepository):
-    """Test successful user registration."""
+def test_auth_register_success(user_repo: UserRepository, admin_user: User):
+    """Test successful user registration by an admin."""
     cmd = AuthRegisterCmd(user_repo=user_repo)
-    result = cmd.call("newuser", "new@example.com", "password123")
+    result = cmd.call("admin", "newuser", "new@example.com", "password123")
 
     assert isinstance(result, list)
     assert any("registered successfully" in str(r.get("text", "")) for r in result)
@@ -100,31 +100,55 @@ def test_auth_register_success(user_repo: UserRepository):
     assert user.active is True
 
 
-def test_auth_register_missing_params(user_repo: UserRepository):
+def test_auth_register_missing_params(user_repo: UserRepository, admin_user: User):
     """Test registration with missing parameters."""
     cmd = AuthRegisterCmd(user_repo=user_repo)
-    result = cmd.call("newuser", "", "")
+    result = cmd.call("admin", "newuser", "", "")
 
     assert isinstance(result, list)
     assert any("error" in r.get("t", "") for r in result)
 
 
-def test_auth_register_duplicate_username(user_repo: UserRepository, test_user: User):
+def test_auth_register_duplicate_username(
+    user_repo: UserRepository, admin_user: User, test_user: User
+):
     """Test registration with duplicate username."""
     cmd = AuthRegisterCmd(user_repo=user_repo)
-    result = cmd.call("testuser", "different@example.com", "password")
+    result = cmd.call("admin", "testuser", "different@example.com", "password")
 
     assert isinstance(result, list)
     assert any("already exists" in str(r.get("text", "")) for r in result)
 
 
-def test_auth_register_duplicate_email(user_repo: UserRepository, test_user: User):
+def test_auth_register_duplicate_email(
+    user_repo: UserRepository, admin_user: User, test_user: User
+):
     """Test registration with duplicate email."""
     cmd = AuthRegisterCmd(user_repo=user_repo)
-    result = cmd.call("differentuser", "test@example.com", "password")
+    result = cmd.call("admin", "differentuser", "test@example.com", "password")
 
     assert isinstance(result, list)
     assert any("already registered" in str(r.get("text", "")) for r in result)
+
+
+def test_auth_register_rejects_anonymous(user_repo: UserRepository):
+    """Anonymous caller cannot register users (security review C-001/H-002)."""
+    cmd = AuthRegisterCmd(user_repo=user_repo)
+    result = cmd.call("", "newuser", "new@example.com", "password123")
+
+    assert isinstance(result, list)
+    assert any("error" in r.get("t", "") for r in result)
+    assert user_repo.get_by_username("newuser") is None
+
+
+def test_auth_register_rejects_non_admin(user_repo: UserRepository, test_user: User):
+    """Authenticated non-admin caller cannot register users."""
+    cmd = AuthRegisterCmd(user_repo=user_repo)
+    result = cmd.call("testuser", "newuser", "new@example.com", "password123")
+
+    assert isinstance(result, list)
+    assert any("error" in r.get("t", "") for r in result)
+    assert user_repo.get_by_username("newuser") is None
 
 
 def test_auth_login_success(
@@ -261,7 +285,7 @@ def test_auth_login_increments_login_count(
 def test_auth_magic_link_success(user_repo: UserRepository, admin_user: User):
     """Test successful magic link generation."""
     cmd = AuthMagicLinkCmd(user_repo=user_repo)
-    result = cmd.call("admin")
+    result = cmd.call("admin", "admin")
 
     assert isinstance(result, list)
     # Should return a single text item with the token
@@ -273,21 +297,20 @@ def test_auth_magic_link_success(user_repo: UserRepository, admin_user: User):
     assert token.startswith("eyJ")
 
 
-def test_auth_magic_link_default_admin(user_repo: UserRepository, admin_user: User):
-    """Test that magic link defaults to admin user when no username provided."""
+def test_auth_magic_link_requires_username(user_repo: UserRepository, admin_user: User):
+    """Magic link requires an explicit username (no admin default)."""
     cmd = AuthMagicLinkCmd(user_repo=user_repo)
-    result = cmd.call()  # No username - defaults to "admin"
+    result = cmd.call("admin")  # No target username
 
     assert isinstance(result, list)
-    assert len(result) == 1
-    token = result[0].get("text", "")
-    assert token.startswith("eyJ")
+    assert any("error" in r.get("t", "") for r in result)
+    assert any("Usage" in str(r.get("text", "")) for r in result)
 
 
-def test_auth_magic_link_nonexistent_user(user_repo: UserRepository):
+def test_auth_magic_link_nonexistent_user(user_repo: UserRepository, admin_user: User):
     """Test magic link for nonexistent user."""
     cmd = AuthMagicLinkCmd(user_repo=user_repo)
-    result = cmd.call("nosuchuser")
+    result = cmd.call("admin", "nosuchuser")
 
     assert isinstance(result, list)
     assert any("error" in r.get("t", "") for r in result)
@@ -298,21 +321,29 @@ def test_auth_magic_link_inactive_user(
     db_session: Session, user_repo: UserRepository, admin_user: User
 ):
     """Test magic link for inactive user."""
-    admin_user.active = False
+    # Use a separate disabled user so the admin caller stays active.
+    disabled_user = User(
+        username="disabled", email="disabled@example.com", password_hash=""
+    )
+    disabled_user.set_password("pw")
+    disabled_user.active = False
+    db_session.add(disabled_user)
     db_session.commit()
 
     cmd = AuthMagicLinkCmd(user_repo=user_repo)
-    result = cmd.call("admin")
+    result = cmd.call("admin", "disabled")
 
     assert isinstance(result, list)
     assert any("error" in r.get("t", "") for r in result)
     assert any("disabled" in str(r.get("text", "")) for r in result)
 
 
-def test_auth_magic_link_for_regular_user(user_repo: UserRepository, test_user: User):
-    """Test magic link can be generated for any user, not just admin."""
+def test_auth_magic_link_for_regular_user(
+    user_repo: UserRepository, admin_user: User, test_user: User
+):
+    """Magic link can be generated for any user (admin chooses the target)."""
     cmd = AuthMagicLinkCmd(user_repo=user_repo)
-    result = cmd.call("testuser")
+    result = cmd.call("admin", "testuser")
 
     assert isinstance(result, list)
     assert len(result) == 1
@@ -325,7 +356,7 @@ def test_auth_magic_link_token_has_correct_scope(
 ):
     """Test that magic link token has the magic_link scope."""
     cmd = AuthMagicLinkCmd(user_repo=user_repo)
-    result = cmd.call("admin")
+    result = cmd.call("admin", "admin")
 
     token = result[0].get("text", "")
 
@@ -335,3 +366,21 @@ def test_auth_magic_link_token_has_correct_scope(
 
     assert payload["sub"] == "admin"
     assert "magic_link" in payload["scopes"]
+
+
+def test_auth_magic_link_rejects_anonymous(user_repo: UserRepository, admin_user: User):
+    """Anonymous caller cannot mint a magic link (security review C-001)."""
+    cmd = AuthMagicLinkCmd(user_repo=user_repo)
+    result = cmd.call("", "admin")
+
+    assert isinstance(result, list)
+    assert any("error" in r.get("t", "") for r in result)
+
+
+def test_auth_magic_link_rejects_non_admin(user_repo: UserRepository, test_user: User):
+    """Authenticated non-admin caller cannot mint a magic link."""
+    cmd = AuthMagicLinkCmd(user_repo=user_repo)
+    result = cmd.call("testuser", "testuser")
+
+    assert isinstance(result, list)
+    assert any("error" in r.get("t", "") for r in result)

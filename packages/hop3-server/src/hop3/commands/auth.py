@@ -19,6 +19,7 @@ from hop3.server.security.tokens import create_magic_token, create_token
 
 from ._base import Command
 from ._response import error, success, text, warning
+from .user import require_admin
 
 
 @register
@@ -163,12 +164,20 @@ class AuthRegisterCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("auth", "register")
-    requires_auth: ClassVar[bool] = False  # Public command
+    requires_auth: ClassVar[bool] = True
 
-    def call(self, username: str = "", email: str = "", password: str = "", *args):
-        """Register a new user.
+    def call(
+        self,
+        authenticated_username: str = "",
+        username: str = "",
+        email: str = "",
+        password: str = "",
+        *args,
+    ):
+        """Register a new user. Admin-only.
 
         Args:
+            authenticated_username: The authenticated user (admin-gated).
             username: Desired username
             email: User's email address
             password: User's password
@@ -176,6 +185,9 @@ class AuthRegisterCmd(Command):
         Returns:
             Success message or error
         """
+        if admin_error := require_admin(authenticated_username, self.user_repo):
+            return admin_error
+
         if not username or not email or not password:
             return [error("Usage: hop3 auth register <username> <email> <password>")]
 
@@ -309,17 +321,24 @@ class AuthMagicLinkCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("auth", "magic-link")
-    requires_auth: ClassVar[bool] = False  # Called via SSH, not authenticated RPC
+    requires_auth: ClassVar[bool] = True
 
-    def call(self, username: str = "admin", *args):
-        """Generate a magic link token for web login.
+    def call(self, authenticated_username: str = "", username: str = "", *args):
+        """Generate a magic link token for web login. Admin-only.
 
         Args:
-            username: The username to generate the link for (default: admin)
+            authenticated_username: The authenticated user (admin-gated).
+            username: The username to generate the link for. Required.
 
         Returns:
             Response with magic token or error message
         """
+        if admin_error := require_admin(authenticated_username, self.user_repo):
+            return admin_error
+
+        if not username:
+            return [error("Usage: hop3 auth magic-link <username>")]
+
         # Look up the user
         user = self.user_repo.get_by_username(username)
         if not user:
