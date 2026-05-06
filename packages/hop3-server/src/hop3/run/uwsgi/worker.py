@@ -357,6 +357,23 @@ class WebWorker(UwsgiWorker):
 
         Commands are wrapped in 'sh -c' to enable shell variable expansion
         (e.g., $PORT) which is standard for Heroku-style Procfiles.
+
+        Trust model
+        -----------
+        ``self.command`` and ``self.env`` are owned by the app's deployer:
+        the user who pushed this app's Procfile/hop3.toml gets to pick
+        the entrypoint and environment, and the app already runs *as*
+        that deployer's app context. There is no privilege boundary
+        between "the command they wrote" and "the shell that executes
+        the command they wrote", so the f-string below does not cross
+        a security boundary.
+
+        The single-quote escaping on env values is a *correctness*
+        measure (so a legitimate apostrophe in a value doesn't break
+        the shell parse), not a security control. Do not "harden" this
+        by, say, list-form ``subprocess`` — uWSGI's ``attach-daemon``
+        only takes a shell string, and Procfile commands legitimately
+        rely on shell features (``$PORT`` expansion, ``&&`` chains).
         """
         from hop3.orm import App  # noqa: PLC0415 - Avoid circular import
 
@@ -391,7 +408,9 @@ class WebWorker(UwsgiWorker):
             # Skip keys that shouldn't be exported or are already handled
             if key in {"NGINX_ACL", "PATH"}:
                 continue
-            # Escape single quotes in values for shell safety
+            # Escape single quotes in values so a literal apostrophe in
+            # ``value`` doesn't break out of the surrounding ``'...'``.
+            # Correctness, not security — see the trust-model note above.
             safe_value = str(value).replace("'", "'\\''")
             exports.append(f"export {key}='{safe_value}'")
 
@@ -417,6 +436,11 @@ class GenericWorker(UwsgiWorker):
     kind: str = "generic"
 
     def update_settings(self) -> None:
+        # Trust model: see WebWorker.update_settings. ``self.command`` and
+        # ``self.env`` are owned by the app's deployer, who already has
+        # full code-execution rights inside their own app's runtime —
+        # the shell construction below does not cross a privilege
+        # boundary.
         from hop3.orm import App  # noqa: PLC0415 - Avoid circular import
 
         app = App(name=self.app_name)

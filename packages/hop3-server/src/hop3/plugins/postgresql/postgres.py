@@ -45,6 +45,35 @@ from .admin import PostgresAdmin
 # Addon type identifier for secrets storage
 ADDON_TYPE = "postgres"
 
+# Extensions that the platform will install as superuser on behalf of an
+# app. Allow-list rather than deny-list so anything new requires a
+# deliberate review — there are extensions in PostgreSQL that grant
+# filesystem or network access (``adminpack``, ``file_fdw``,
+# ``postgres_fdw``, ``dblink``, the PL/* untrusted languages, …) and
+# letting an app declare them in ``hop3.toml`` would be a privilege-
+# escalation path from "I can deploy an app" to "I run code as the
+# postgres superuser".
+#
+# This list covers the trusted (PG13+ trusted-extension) set plus a few
+# very common non-trusted ones we actively want to support. To add an
+# extension here: confirm it doesn't expose filesystem or network I/O
+# and doesn't add untrusted-language support, then add it.
+ALLOWED_EXTENSIONS: frozenset[str] = frozenset({
+    "btree_gin",
+    "btree_gist",
+    "citext",
+    "fuzzystrmatch",
+    "hstore",
+    "intarray",
+    "ltree",
+    "pg_stat_statements",
+    "pg_trgm",
+    "pgcrypto",
+    "tablefunc",
+    "unaccent",
+    "uuid-ossp",
+})
+
 
 def _find_pg_hba() -> Path | None:
     """Find pg_hba.conf across different Linux distributions.
@@ -393,12 +422,35 @@ class PostgresAddon:
         create(), but running them here as superuser is harmless and
         idempotent — we use CREATE EXTENSION IF NOT EXISTS.
 
+        SECURITY: ``sql.Identifier`` makes the name safe against SQL
+        injection; the second protection (against an *operator-trusted
+        but app-supplied* name like ``adminpack`` or ``postgres_fdw``)
+        is the ``ALLOWED_EXTENSIONS`` allow-list. Extension names come
+        from the app's ``hop3.toml`` — we trust the deployer to pick a
+        sensible app, but not to escalate from "deploy an app" to
+        "load arbitrary postgres extensions as superuser".
+
         Args:
             extensions: list of extension names declared by the app in
                 ``[[addons]].extensions`` in hop3.toml.
+
+        Raises:
+            ValueError: if an extension is not in the allow-list.
         """
         if not extensions:
             return
+
+        rejected = [ext for ext in extensions if ext not in ALLOWED_EXTENSIONS]
+        if rejected:
+            allowed = ", ".join(sorted(ALLOWED_EXTENSIONS))
+            msg = (
+                f"Refusing to install non-allow-listed PostgreSQL extension(s): "
+                f"{rejected!r}. Allowed: {allowed}. "
+                f"To add an extension to the allow-list, see "
+                f"hop3.plugins.postgresql.postgres.ALLOWED_EXTENSIONS."
+            )
+            raise ValueError(msg)
+
         admin = self._get_admin()
         conn = psycopg2.connect(**admin.get_connection_params(dbname=self.db_name))
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)

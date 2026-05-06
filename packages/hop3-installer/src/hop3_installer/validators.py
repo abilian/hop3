@@ -62,6 +62,20 @@ class LocalRunner:
     """Run commands locally via subprocess.
 
     Used for post-install self-tests on the local system.
+
+    Trust model
+    -----------
+    Every ``command`` argument passed to this runner originates from a
+    static literal in this module (e.g. ``"systemctl is-active nginx"``,
+    ``"test -d /home/hop3/venv"``). No user-controlled string flows in.
+    The ``bash -c`` shell invocation is intentional — many of these
+    checks rely on shell features (globbing, redirection, ``||`` /
+    ``&&`` chains) — and is safe under that contract.
+
+    Do not call this with externally-sourced strings. If a future caller
+    needs to run a command that includes a runtime value, use
+    ``shlex.split`` + a list-form ``subprocess.run`` instead of
+    extending this class.
     """
 
     def __init__(self, *, verbose: bool = False):

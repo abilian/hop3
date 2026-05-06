@@ -20,8 +20,10 @@ from hop3.core.hooks import hop3_hook_impl
 
 from .base import BaseOSStrategy
 
-# Package list for Arch Linux
-# pacman package names
+# Package list for Arch Linux (pacman package names).
+# SECURITY: must remain a static literal. ``ensure_packages`` validates
+# the shape of every entry, but appending an externally-sourced string
+# here would bypass the call-site logic that runs the validator.
 PACKAGES = [
     "bc",
     "git",
@@ -117,6 +119,9 @@ class ArchStrategy(BaseOSStrategy):
             packages: List of package names to install
             update: Whether to update package database first
         """
+        # SECURITY: see DebianBase.ensure_packages for the reasoning.
+        self._validate_package_names(packages)
+
         if update:
             subprocess.run(
                 ["pacman", "-Sy"],

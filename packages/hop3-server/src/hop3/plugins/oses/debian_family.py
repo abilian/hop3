@@ -20,7 +20,8 @@ from hop3.core.hooks import hop3_hook_impl
 from .debian_base import DebianBase
 
 # Package list for all Debian-based distributions
-# These package names are consistent across Debian/Ubuntu versions
+# These package names are consistent across Debian/Ubuntu versions.
+# SECURITY: must remain a static literal — see arch.PACKAGES for why.
 PACKAGES = [
     "bc",
     "git",
