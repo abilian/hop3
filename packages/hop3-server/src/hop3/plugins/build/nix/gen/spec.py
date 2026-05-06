@@ -270,6 +270,5 @@ class AppSpec:
     # wrapper's ``LD_LIBRARY_PATH`` export with **raw Nix interpolation**
     # (not nix_escape). Fixes the "pip-installed C extensions can't find
     # their transitive shared libs under a Nix-built Python venv" class
-    # (libpq.so.5, libkrb5, libstdc++.so.6, etc.). See
-    # local-notes/stacks-and-apps/DEFERRED-APPS.md blocker #2.
+    # (libpq.so.5, libkrb5, libstdc++.so.6, etc.).
     nix_runtime_libs: list[str] = field(default_factory=list)

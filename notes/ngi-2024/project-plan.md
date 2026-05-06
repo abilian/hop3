@@ -76,7 +76,8 @@ We will enhance Hop3's resilience and security by introducing robust features an
 
 - [ ] **M3.5** Firewalls (network-level and WAF) — **Phase 1 done**
   - LeWAF (Coraza-based) static-WAF Phase 1 shipped per ADR 033; 88 tests passing.
-  - Phases 2-4 (dynamic WAF, policy engine, observability) remain live in `local-notes/plans/waf.md`.
+  - Network-level firewall design: see ADR 040 (port exposure) and ADR 041 (`hop3-rootd`, the kernel-boundary executor).
+  - Phases 2-4 (dynamic WAF, policy engine, observability) remain in the 0.6 backlog.
 
 - [x] **M3.6** CLI — **DONE** (W16)
   - 73+ registered commands with `space`-separated naming (post ADR 036 M1 migration)
@@ -133,7 +134,7 @@ This task focuses on promoting Hop3 through an enriched website and blog with re
 - [ ] **M5.3** Technical report and/or research paper — **~75% done**
   - TR-01 refactored into proper technical-report form in W16: abstract, keywords, related work, system design, preliminary evaluation, threats to validity, references. App counts and ADR 008 / 039 sections reflect current state.
   - Appendix E updated for new ADRs (036, 038, 039).
-  - **Missing:** Benchmarks (control plane memory, deployment time, Nix closures, startup time). Cannot submit without quantitative evaluation. See `local-notes/plans/paper-benchmarks.md`.
+  - **Missing:** Benchmarks (control plane memory, deployment time, Nix closures, startup time). Cannot submit without quantitative evaluation.
 
 - [x] **M5.4** Conference presentation or workshop — **partial**
   - Hop3 talks already done at OW2Con 2025, OSXP 2025, and scheduled for OW2Con 2026

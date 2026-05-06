@@ -111,8 +111,7 @@ def format_nix_runtime_libs(paths: list[str]) -> str:
 
     This is the fix for the "pip-installed C extensions under a Nix-
     built Python venv can't find transitive shared libs at runtime"
-    class — see ``local-notes/stacks-and-apps/DEFERRED-APPS.md``
-    blocker #2. Typical inputs::
+    class. Typical inputs::
 
         ["postgresql.lib", "krb5.lib", "stdenv.cc.cc.lib"]
 

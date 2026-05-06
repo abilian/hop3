@@ -15,7 +15,7 @@
 
 ## Context
 
-The 2026-05 security audit flagged that Hop3 ships **zero** firewall configuration: addon ports (3306, 5432, 6379) and high uWSGI app ports are internet-facing on a default cloud VM. The MySQL installer's own comment delegates security to "firewall/iptables" — but the installer doesn't deploy any. The Wave 5 plan in `local-notes/reviews/2026-05-security-remediation-plan.md` proposed "ufw allow OpenSSH/80/443, deny rest" as the platform-level baseline.
+The 2026-05 internal security audit flagged that Hop3 ships **zero** firewall configuration: addon ports (3306, 5432, 6379) and high uWSGI app ports are internet-facing on a default cloud VM. The MySQL installer's own comment delegates security to "firewall/iptables" — but the installer doesn't deploy any. The audit's "Wave 5" remediation proposal was a platform-level baseline of "ufw allow OpenSSH/80/443, deny rest".
 
 That model is too simplistic for what Hop3 actually packages. **Several apps already in the catalog need ports beyond 22/80/443:**
 
@@ -247,8 +247,6 @@ The Phase-1 / Phase-2 split avoids blocking the 0.5 tag on the full design, whil
 
 ## References
 
-- 2026-05 security audit: `local-notes/reviews/2026-05-security-audit.md`, `2026-05-security-audit-2.md`, `2026-05-security-audit-findings.md`
-- Wave 5 review note: `local-notes/reviews/2026-04-wave5-review.md`
-- Remediation plan: `local-notes/reviews/2026-05-security-remediation-plan.md`
+- ADR 041 — Privileged operations agent (`hop3-rootd`): the kernel-boundary executor that v0.3 of this design routes nft mutations through.
 - NGI 0.5 project plan: `notes/ngi-2024/project-plan.md`
 - ADR 010 (security and resilience), ADR 033 (docker integration), ADR 038 (multi-service apps)

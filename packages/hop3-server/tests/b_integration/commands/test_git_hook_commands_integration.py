@@ -10,8 +10,6 @@ This module tests git hook commands using real database interactions:
 - Verifies actual database state changes
 - Tests that outcomes (state) are correct, not just that methods were called
 - Mock only subprocess calls (external I/O boundary)
-
-See local-notes/test-mock-migration-plan.md for migration strategy.
 """
 
 from __future__ import annotations
