@@ -1,15 +1,16 @@
 # Hop3 Test Status
 
-**Last Updated**: 2026-04-09
+**Last Updated**: 2026-05-06
 
 ## Test Summary
 
 | Layer | Status | Count |
 |-------|--------|-------|
-| Unit (`a_unit/`) | Passing | 599 tests (6 skipped) |
+| Unit (`a_unit/`) | Passing | 905 tests (6 skipped) |
 | Integration (`b_integration/`) | Passing | 245+ tests |
 | System (`c_system/`) | Passing | Full CLI-server in Docker |
-| E2E (`d_e2e/`) | See app suites below | 4 suites, 118 apps total |
+| E2E pytest (`d_e2e/`) | Passing | Backup, backup migration, git push, simple apps |
+| E2E app suites (`hop3-test system`) | See suites below | 4 suites, 118 apps total |
 
 ## Test Structure
 
@@ -51,7 +52,24 @@ packages/hop3-server/tests/
 
 ### Layer 4: E2E / Deployment Tests
 
-Run via `hop3-test system` against Docker or SSH targets.
+Two kinds:
+
+**pytest-driven E2E** (`packages/hop3-server/tests/d_e2e/`) — invoked
+by `make test` and `make test-ci` alongside the other layers, runs
+fixture-managed Docker containers per test class. Coverage:
+
+| File | Scope |
+|------|-------|
+| `test_backup.py` | Single-instance backup/restore round-trip (create / list / info / restore / `--target-app` clone / destroy). |
+| `test_backup_migration.py` | Cross-instance migration (M3.3): pair fixture, three-layer equivalence, name-collision overwrite, manifest round-trip checksums, source-tree byte-equality, corrupted-manifest refusal. See ADR 024 §"Cross-Instance Migration". |
+| `test_git_push.py` | Git push deploys a new app over SSH. |
+| `test_simple_apps.py` | Single-app deploy + HTTP smoke. |
+
+Each pytest E2E test class spins its own container(s); class-scoped
+fixtures amortise startup across the tests in the class.
+
+**App-suite E2E** runs via `hop3-test system` against Docker or SSH
+targets.
 
 #### App Suites
 
@@ -103,11 +121,22 @@ make test-ci
 uv run pytest packages/hop3-server/tests/a_unit
 uv run pytest packages/hop3-server/tests/b_integration
 uv run pytest packages/hop3-server/tests/c_system
+uv run pytest packages/hop3-server/tests/d_e2e         # pytest-driven E2E
 
 # Deployment tests (requires server)
 hop3-test system --docker --clean --with nix apps/test-apps-*
 hop3-test system --ssh --host $HOP3_DEV_HOST --clean --with all apps/real-apps-*
 ```
+
+## Recent Improvements (2026-05)
+
+- **Cross-instance backup migration in CI** (W19): new
+  `tests/d_e2e/test_backup_migration.py` — pair-of-Docker-targets
+  fixture, eight tests covering the M3.3 NGI deliverable. Surfaced
+  three real platform bugs in the process (now fixed): `backup
+  register` was missing, `restore` didn't auto-rebuild, and
+  `_backup_source` archived only the bare git repo (empty for
+  tarball deploys). See ADR 024 v1.2.
 
 ## Recent Improvements (2026-04)
 
