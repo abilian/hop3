@@ -31,6 +31,7 @@ import mysql.connector
 from mysql.connector import errorcode
 
 from hop3.config import HOP3_ROOT
+from hop3.core.identifiers import validate_service_name
 from hop3.plugins.addons import (
     delete_addon_secrets,
     load_addon_secrets,
@@ -61,10 +62,17 @@ class MySQLAddon:
     addon_name: str = ""
 
     def __post_init__(self):
-        """Validate that addon_name is provided."""
+        """Validate that addon_name is provided and is a safe identifier.
+
+        Defense in depth: the command boundary (AddonCreateCmd) already calls
+        validate_service_name, but db_name flows into raw SQL identifier
+        interpolation (CREATE DATABASE / GRANT) where parameter binding is
+        not available, so re-check here before any plugin method runs.
+        """
         if not self.addon_name:
             msg = "addon_name is required for MySQLAddon"
             raise ValueError(msg)
+        validate_service_name(self.addon_name)
 
     @property
     def db_name(self) -> str:

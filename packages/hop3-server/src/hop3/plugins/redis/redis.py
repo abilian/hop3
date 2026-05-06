@@ -8,7 +8,9 @@ This module implements the Addon protocol for Redis,
 allowing applications to attach to a Redis instance.
 
 Unlike PostgreSQL, Redis doesn't require per-addon database creation.
-Each addon gets a dedicated database number (0-15) for isolation.
+Each addon is assigned a dedicated database number (1-15) for isolation;
+db 0 is reserved (assignments are persisted in the addon-secrets store so
+they survive restarts and don't depend on Python's hash randomization).
 """
 
 from __future__ import annotations
@@ -22,6 +24,21 @@ from pathlib import Path
 from typing import Any
 
 from hop3.config import HOP3_ROOT
+from hop3.core.identifiers import validate_service_name
+from hop3.plugins.addons import (
+    delete_addon_secrets,
+    load_addon_secrets,
+    save_addon_secrets,
+)
+
+# Addon type identifier for secrets storage
+ADDON_TYPE = "redis"
+
+# Redis ships with 16 logical databases (0-15). db 0 is reserved for hop3
+# internal/probing use; addons are assigned a number in [1, 15].
+RESERVED_DB = 0
+MIN_ADDON_DB = 1
+MAX_ADDON_DB = 15
 
 
 @dataclass(frozen=True)
@@ -41,19 +58,27 @@ class RedisAddon:
 
     # Instance attributes
     addon_name: str = ""
-    _db_number: int = 0  # Default to database 0
+    # ``0`` is the sentinel for "not yet assigned" (db 0 is reserved and
+    # never handed out to addons). The real assignment is loaded from the
+    # secrets store in __post_init__, or allocated by ``create()``.
+    _db_number: int = 0
 
     def __post_init__(self):
-        """Validate that addon_name is provided."""
+        """Validate addon_name and load any persisted db_number assignment."""
         if not self.addon_name:
             msg = "addon_name is required for RedisAddon"
             raise ValueError(msg)
+        validate_service_name(self.addon_name)
 
-        # Assign a database number based on addon name hash (0-15)
-        # This provides consistent assignment for the same addon name
+        # If the addon already exists, its db_number lives in the secrets
+        # file. Load it so subsequent operations (attach, info, destroy)
+        # talk to the right db. New addons get a number allocated in
+        # ``create()`` — we don't allocate here because instantiation is
+        # also used for read-only operations.
         if self._db_number == 0:
-            db_num = hash(self.addon_name) % 16
-            object.__setattr__(self, "_db_number", db_num)
+            existing = load_addon_secrets(ADDON_TYPE, self.addon_name)
+            if existing and isinstance(existing.get("db_number"), int):
+                object.__setattr__(self, "_db_number", existing["db_number"])
 
     @property
     def db_number(self) -> int:
@@ -68,9 +93,17 @@ class RedisAddon:
     def create(self) -> None:
         """Initialize the Redis database for this addon.
 
-        Redis databases (0-15) always exist, so this just verifies
-        Redis is accessible and optionally clears the database.
+        Allocates a free db number (1-15) and persists the assignment so it
+        survives restarts. Verifies Redis is reachable and tags the db with
+        a marker key. Existing addons (re-create after a partial install)
+        keep their previously-assigned number.
         """
+        # Allocate a db_number on first create. If __post_init__ already
+        # loaded one from secrets (re-create after a partial install), keep it.
+        if self._db_number == 0:
+            # frozen=True dataclass; object.__setattr__ is the standard pattern.
+            object.__setattr__(self, "_db_number", _allocate_db_number())  # noqa: PLC2801
+
         # Verify Redis is accessible
         cmd = ["redis-cli", "ping"]
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -103,6 +136,18 @@ class RedisAddon:
             else:
                 msg = f"Failed to initialize Redis database: {result.stderr}"
             raise RuntimeError(msg)
+
+        # Persist the db_number assignment. Subsequent RedisAddon instances
+        # for this addon will pick it up from the secrets store and stay
+        # consistent across restarts.
+        save_addon_secrets(
+            ADDON_TYPE,
+            self.addon_name,
+            {
+                "db_number": self.db_number,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
     def _ensure_writable(self) -> None:
         """Ensure Redis is writable (not a read-only replica).
@@ -137,15 +182,25 @@ class RedisAddon:
             )
 
     def destroy(self) -> None:
-        """Clear all data in the Redis database for this addon.
+        """Decommission this Redis addon.
 
-        This flushes all keys in the assigned database number.
+        Flushes all keys in the assigned database and releases the
+        db_number assignment so it can be reused by a future addon.
         """
+        if self._db_number == 0:
+            # Never had a number assigned (create() was not called or
+            # the secrets file was already removed). Nothing to flush.
+            delete_addon_secrets(ADDON_TYPE, self.addon_name)
+            return
+
         cmd = ["redis-cli", "-n", str(self.db_number), "FLUSHDB"]
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if result.returncode != 0:
             msg = f"Failed to flush Redis database {self.db_number}: {result.stderr}"
             raise RuntimeError(msg)
+
+        # Free the db_number for reuse.
+        delete_addon_secrets(ADDON_TYPE, self.addon_name)
 
     def get_connection_details(self) -> dict[str, str]:
         """Get environment variables for connecting to this Redis instance.
@@ -399,3 +454,44 @@ class RedisAddon:
             "version": version,
             "memory_used": used_memory,
         }
+
+
+def _used_db_numbers() -> set[int]:
+    """Scan addon-secrets for redis and return the set of assigned db numbers.
+
+    Files that don't parse or don't carry a ``db_number`` are skipped. This
+    is best-effort: a corrupt secrets file should not block allocation —
+    worst case we collide with it and the marker key write will surface
+    the conflict at create time.
+    """
+    used: set[int] = set()
+    secrets_dir = HOP3_ROOT / "addons" / ADDON_TYPE
+    if not secrets_dir.exists():
+        return used
+    for secrets_file in secrets_dir.glob("*.json"):
+        try:
+            with secrets_file.open() as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+        n = data.get("db_number")
+        if isinstance(n, int) and MIN_ADDON_DB <= n <= MAX_ADDON_DB:
+            used.add(n)
+    return used
+
+
+def _allocate_db_number() -> int:
+    """Return the lowest free Redis db number in [MIN_ADDON_DB, MAX_ADDON_DB].
+
+    Raises RuntimeError if all 15 slots are taken.
+    """
+    used = _used_db_numbers()
+    for n in range(MIN_ADDON_DB, MAX_ADDON_DB + 1):
+        if n not in used:
+            return n
+    msg = (
+        f"All Redis databases ({MIN_ADDON_DB}-{MAX_ADDON_DB}) are in use. "
+        "Redis ships with 16 logical dbs and Hop3 reserves db 0; remove an "
+        "unused redis addon before creating a new one."
+    )
+    raise RuntimeError(msg)

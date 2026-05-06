@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from hop3.core.credentials import get_credential_encryptor
+from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
 from hop3.core.plugins import get_addon, get_plugin_manager
 from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
@@ -121,6 +122,15 @@ class AddonCreateCmd(Command):
 
         service_type = args[0]
         addon_name = args[1]
+
+        # addon_name flows into SQL identifier interpolation in some plugins
+        # (e.g. MySQL `CREATE DATABASE \`{db_name}\``) where parameter binding
+        # is not available for identifiers. Reject anything that isn't a
+        # safe identifier before it ever reaches a plugin.
+        try:
+            validate_service_name(addon_name)
+        except InvalidIdentifierError as exc:
+            return [error(str(exc))]
 
         with command_context(
             "creating addon", addon_name=addon_name, service_type=service_type

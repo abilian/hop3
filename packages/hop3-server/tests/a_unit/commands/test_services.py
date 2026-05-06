@@ -98,6 +98,28 @@ def test_services_create_handles_errors():
         assert "Service type not found" in str(exc_info.value)
 
 
+@pytest.mark.parametrize(
+    "bad_name",
+    [
+        "foo`; DROP DATABASE",
+        "ab",  # too short
+        "-leading-hyphen",
+        "name with spaces",
+    ],
+)
+def test_services_create_rejects_unsafe_addon_name(bad_name):
+    """addon_name flowing into raw SQL identifier interpolation must be validated."""
+    with patch("hop3.commands.services.get_addon") as mock_get_service:
+        cmd = AddonCreateCmd()
+        result = cmd.call("postgres", bad_name)
+
+        # Validation rejects before get_addon is called.
+        mock_get_service.assert_not_called()
+        assert len(result) == 1
+        assert result[0]["t"] == "error"
+        assert "Invalid service name" in result[0]["text"]
+
+
 def test_services_attach_requires_app_name(
     mock_app_repo, mock_addon_credential_repo, mock_env_var_repo
 ):

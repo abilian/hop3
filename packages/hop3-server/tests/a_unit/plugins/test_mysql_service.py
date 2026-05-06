@@ -31,6 +31,28 @@ def test_mysql_addon_requires_service_name():
         MySQLAddon(addon_name="")
 
 
+@pytest.mark.parametrize(
+    "bad_name",
+    [
+        "foo`; DROP DATABASE",  # backtick — would break out of CREATE DATABASE `…`
+        "name with spaces",
+        "weird/slash",
+        "ab",  # too short (regex requires 3-63)
+        "-leading-hyphen",
+        "trailing-",
+        "_leading-underscore",
+        "name.dotted",
+        "🙃-emoji",
+    ],
+)
+def test_mysql_addon_rejects_unsafe_addon_name(bad_name):
+    """addon_name flows into raw SQL identifier interpolation; reject anything unsafe."""
+    from hop3.core.identifiers import InvalidIdentifierError  # noqa: PLC0415
+
+    with pytest.raises(InvalidIdentifierError):
+        MySQLAddon(addon_name=bad_name)
+
+
 def test_mysql_addon_properties(mysql_service):
     """Test MySQLAddon property derivations."""
     assert mysql_service.db_name == "test_db"  # Hyphens replaced with underscores
