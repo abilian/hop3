@@ -447,6 +447,22 @@ class TestBackupInfoCommand:
 class TestBackupRestoreCommand:
     """Test backup:restore command."""
 
+    @pytest.fixture(autouse=True)
+    def _stub_deploy(self, monkeypatch):
+        """Stop ``BackupManager.restore_backup`` from running the full deploy pipeline.
+
+        ``restore_backup`` calls ``app.deploy()`` at the end so a freshly-
+        restored app on a clean host is actually running again (added in
+        commit 8012c763 for cross-instance migration). The integration
+        tests in this class verify file/env-var restoration, not the build
+        pipeline — and they don't have a uWSGI/builder environment to
+        deploy into. Stub the deploy step out so the tests stay focused on
+        what they actually assert.
+        """
+        from hop3.orm import App  # noqa: PLC0415
+
+        monkeypatch.setattr(App, "deploy", lambda self: None)
+
     def test_restore_backup(
         self, test_db, app_repo, backup_repo, addon_credential_repo, test_app
     ):

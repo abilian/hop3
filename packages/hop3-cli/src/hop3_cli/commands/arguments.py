@@ -133,24 +133,41 @@ def _resolve_password_inputs(args: list[str]) -> None:
     the next positional after the command tokens. Server-side commands keep
     their existing positional contract — the CLI is the security boundary.
 
-    Applies only to the two commands that take a password:
+    Applies to the three commands that take a password:
       hop3 user add <username> <email> <password>
       hop3 user set-password <username> <password>
+      hop3 auth login <username> <password>
     """
-    if len(args) < 2 or args[0] != "user":
-        return
-    if args[1] not in {"add", "set-password"}:
+    insert_at = _password_insert_index(args)
+    if insert_at is None:
         return
 
     password = _extract_password_flag(args)
     if password is None:
         return
 
-    # Insertion index: after `user add <user> <email>` for add; after
-    # `user set-password <user>` for set-password.
-    insert_at = 4 if args[1] == "add" else 3
     insert_at = min(insert_at, len(args))
     args.insert(insert_at, password)
+
+
+def _password_insert_index(args: list[str]) -> int | None:
+    """Return the positional index where the resolved password should land.
+
+    Returns None if the current ``args`` does not target a command that
+    accepts a password.
+    """
+    if len(args) < 2:
+        return None
+    if args[0] == "user" and args[1] == "add":
+        # user add <username> <email> <password>
+        return 4
+    if args[0] == "user" and args[1] == "set-password":
+        # user set-password <username> <password>
+        return 3
+    if args[0] == "auth" and args[1] == "login":
+        # auth login <username> <password>
+        return 3
+    return None
 
 
 def _extract_password_flag(args: list[str]) -> str | None:
