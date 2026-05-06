@@ -1,6 +1,6 @@
 [project]
 name = "hop3-testing"
-version = "0.5.0.dev1"
+version = "0.5.0.dev2"
 description = "Testing utilities for Hop3"
 readme = "README.md"
 license = "Apache-2.0"
