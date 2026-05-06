@@ -2,10 +2,56 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""E2E tests for backup and restore functionality.
+"""E2E tests for single-instance backup and restore.
 
-These tests verify complete backup/restore workflows in a production-like
-Docker environment with real services.
+Validates the round-trip workflows described in ADR 024 §"Restore
+Behaviour" against a single Hop3 instance: deploy an app, back it up,
+optionally modify and redeploy, then restore (in place or as a
+clone). Cross-instance migration — backup on A, restore on B — is in
+the sister file `test_backup_migration.py`.
+
+Strategy
+========
+
+Each test reuses the session-scoped `deployment_target` fixture from
+`tests/conftest.py` (a `DockerTarget` that runs `hop3-deploy --docker
+--local` at session start, so the container under test runs the
+*current* hop3-server source — not whatever was baked into a pre-built
+image). Every test deploys its own app via `DeploymentSession`, which
+appends a timestamp to the name to avoid cross-test collisions.
+
+Each test exercises one CLI flow end-to-end against the deployed app:
+
+  - `hop3 backup create <app>` returns a backup_id (extracted from
+    stdout via `extract_backup_id`).
+  - `hop3 backup list --json` returns a structured table of backups
+    (parsed via `find_json_table` / `backup_in_table`).
+  - `hop3 backup info <id>` shows the manifest, including env-var
+    count and checksums.
+  - `hop3 backup restore <id>` (optionally `--target-app NAME`)
+    repopulates the app's source / data / env / addons and invokes
+    the build+spawn pipeline so the app is running again.
+  - `hop3 backup destroy <id>` removes both the directory and the DB
+    row.
+
+Coverage breakdown:
+
+  - Happy paths: create, env-var preservation in backups, in-place
+    restore, restore-to-different-app-name (clone), list, delete.
+  - Skipped, blocked on infrastructure: PostgreSQL service
+    backup/restore (needs the d_e2e Postgres path that's under
+    construction) and integrity verification with deliberate
+    checksum corruption.
+
+Negative paths (name collision, corrupted manifest, etc.) and the
+register / cross-instance flows are in `test_backup_migration.py`.
+
+References
+==========
+
+- ADR: `notes/adrs/024-backup-restore-system.md`
+- CLI: `hop3 backup create / list / info / restore / destroy`
+- Implementation: `hop3.core.backup.BackupManager`
 """
 
 from __future__ import annotations

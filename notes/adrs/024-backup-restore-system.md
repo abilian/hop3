@@ -3,11 +3,12 @@
 **Status**: Final
 **Type**: Feature
 **Created**: 2025-11-08
-**Updated**: 2026-04-14
+**Updated**: 2026-05-06
 **Related-ADRs**: 016, 020
 
 ## Revisions
 
+- v1.2: Cross-instance migration support (2026-05-06). Adds `hop3 backup register <path>` to make a backup tree copied in from another server findable by `restore`. `restore_backup` now invokes the deploy pipeline after repopulating files, so the app is running again after `backup restore` (previously the operator had to follow up with a separate command). `_backup_source` now archives `app.src_path` (the canonical deployed source) alongside the bare git repo — the original implementation tarred only the bare repo, which is empty for tarball-based deploys (the JSON-RPC path used by `hop3 deploy`). Older backups remain restorable via a `git/` → `src/` clone fallback. Manifest schema corrected (the ORM uses `addons`, not `services`). Backup root path corrected to `/home/hop3/backups/...` (matches `HopConfig.BACKUP_ROOT`).
 - v1.1: Status refreshed. Phase 1 backup/restore is shipped and exercised by the `backup:*` CLI commands; it is the concrete implementation of the ADR 016 strategy. Phase 2 enhancements (scheduling, retention, remote storage, encryption, incremental) remain on the long-term roadmap per ADR 016 (2026-04-14).
 - v1.0: Original final version (2025-11-08)
 
@@ -41,14 +42,20 @@ We have implemented a **file-based backup system** with the following design:
 Each backup is stored as a **directory** containing:
 
 ```
-/var/hop3/backups/apps/<app-name>/<backup-id>/
+/home/hop3/backups/apps/<app-name>/<backup-id>/
 ├── metadata.json         # Backup manifest with checksums
-├── source.tar.gz        # Git repository archive
+├── source.tar.gz        # Source tree (src/) + bare git repo (git/)
 ├── data.tar.gz          # Application data archive
 ├── env.json             # Environment variables (JSON)
-└── services/            # Service-specific backups
+└── addons/              # Per-addon backups (e.g. postgres dumps)
     └── postgres_<name>.sql
 ```
+
+Path is `HopConfig.BACKUP_ROOT` (defaults to `HOP3_ROOT/backups`).
+`source.tar.gz` archives both the deployed working copy (`src/`) and
+the bare git repo (`git/`) so backups remain meaningful for both deploy
+paths Hop3 supports — git-push (populates the bare repo) and the
+JSON-RPC tarball API (writes directly to `src/`).
 
 ### Key Design Choices
 
@@ -115,11 +122,11 @@ The `metadata.json` includes:
     "port": 8000,
     "run_state": "RUNNING"
   },
-  "services": [
+  "addons": [
     {
       "type": "postgres",
       "name": "my-database",
-      "backup_file": "services/postgres_my-database.sql",
+      "backup_file": "addons/postgres_my-database.sql",
       "size_bytes": 5242880,
       "checksum": "sha256:jkl012..."
     }
@@ -147,6 +154,39 @@ This provides:
 - Integration with Hop3's audit trail
 - Future support for scheduled backups
 - Retention policy enforcement (future)
+
+### Restore Behaviour
+
+`hop3 backup restore <id>` repopulates source / data / env / addons
+**and** invokes the build+spawn pipeline at the end. After the
+command returns, the app is running again — equivalent to its
+pre-backup state. (This was a behavioural change in v1.2; previously
+restore left the operator to manually rebuild via a follow-up
+command, which silently failed for cross-instance restore on a fresh
+host with no prior build state.)
+
+Pass `--target-app <new-name>` to restore as a clone alongside the
+original, instead of in-place.
+
+### Cross-Instance Migration
+
+Backups are portable across Hop3 instances. The operator workflow:
+
+1. **On A**: `hop3 backup create <app>` produces a directory under
+   `BACKUP_ROOT/apps/<app>/<id>/`.
+2. **Transport**: copy that directory to instance B (e.g. `scp -r`).
+3. **On B**: `hop3 backup register <path>` reads the manifest,
+   ensures an app row exists for the original app name, and inserts a
+   `Backup` row pointing at the directory — making it findable by
+   `restore`.
+4. **On B**: `hop3 backup restore <id>` (or `... --target-app NAME`
+   to restore under a different name).
+
+`backup register` is idempotent and verifies the manifest checksums
+before registering — a corrupted backup is rejected with a clear
+error rather than letting `restore` fail later with a less actionable
+message. Without registration, the destination's `restore_backup`
+DB lookup misses the transferred files entirely.
 
 ## Consequences
 
@@ -277,7 +317,16 @@ This provides:
 - **Unit Tests:** BackupManifest, checksums, ID generation
 - **Integration Tests:** All CLI commands with mocked filesystem
 - **System Tests:** Real PostgreSQL in Docker (future)
-- **E2E Tests:** Complete workflows in production-like environment
+- **E2E (single-instance):** `tests/d_e2e/test_backup.py` — round-trip
+  create / list / info / restore / destroy, plus same-instance clone
+  via `--target-app`.
+- **E2E (cross-instance migration):** `tests/d_e2e/test_backup_migration.py`
+  — two independent `DockerTarget` instances paired via the
+  `hop3_container_pair` fixture; covers `register` happy path,
+  three-layer equivalence (registry / env vars / HTTP body
+  byte-equality), name collision behaviour, `--target-app` clone
+  across instances, manifest round-trip checksums, source-tree
+  byte-equality, and corrupted-manifest refusal.
 
 ### Service Integration
 
